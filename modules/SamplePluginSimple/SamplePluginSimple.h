@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 
 // Your implementation class can derive from various helper implementations
@@ -37,5 +37,5 @@ public:
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
-	void sample_raw_command(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void sample_raw_command(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 };

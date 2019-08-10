@@ -81,7 +81,7 @@ namespace network_check {
 		has_prd = true;
 	}
 
-	void network_interface::build_metrics(Plugin::Common::MetricsBundle *section) const {
+	void network_interface::build_metrics(PB::Metrics::MetricsBundle *section) const {
 
 		using namespace nscapi::metrics;
 
@@ -225,7 +225,7 @@ namespace network_check {
 
 
 
-		void check_network(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, nics_type nicdata) {
+		void check_network(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, nics_type nicdata) {
 			modern_filter::data_container data;
 			modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 

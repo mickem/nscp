@@ -24,6 +24,8 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 
+#include <nscapi/nscapi_protobuf_metrics.hpp>
+
 
 namespace collectd_client {
 
@@ -118,12 +120,12 @@ namespace collectd_client {
 	};
 
 	struct collectd_client_handler : public client::handler_interface {
-		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
+		bool query(client::destination_container sender, client::destination_container target, const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message) {
 			return false;
 		}
 
-		bool submit(client::destination_container sender, client::destination_container target, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
-			const ::Plugin::Common_Header& request_header = request_message.header();
+		bool submit(client::destination_container sender, client::destination_container target, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage &response_message) {
+			const PB::Common::Header& request_header = request_message.header();
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 			connection_data con(target, sender);
 
@@ -138,27 +140,24 @@ namespace collectd_client {
 			return true;
 		}
 
-		bool exec(client::destination_container sender, client::destination_container target, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
+		bool exec(client::destination_container sender, client::destination_container target, const PB::Commands::ExecuteRequestMessage &request_message, PB::Commands::ExecuteResponseMessage &response_message) {
 			return false;
 		}
 
 
-		void flatten_metrics(collectd::collectd_builder &builder, const Plugin::Common::MetricsBundle &b, std::string path) {
+		void flatten_metrics(collectd::collectd_builder &builder, const PB::Metrics::MetricsBundle &b, std::string path) {
 			std::string mypath;
 			if (!path.empty())
 				mypath = path + ".";
 			mypath += b.key();
-			BOOST_FOREACH(const Plugin::Common::MetricsBundle &b2, b.children()) {
+			BOOST_FOREACH(const PB::Metrics::MetricsBundle &b2, b.children()) {
 				flatten_metrics(builder, b2, mypath);
 			}
-			BOOST_FOREACH(const Plugin::Common::Metric &v, b.value()) {
-				const ::Plugin::Common_AnyDataType &value = v.value();
-				if (value.has_int_data()) {
-					builder.set_metric(mypath + "." + v.key(), str::xtos(v.value().int_data()));
-				} else if (value.has_float_data()) {
-					builder.set_metric(mypath + "." + v.key(), str::xtos(v.value().float_data()));
-				} else if (value.has_string_data()) {
-					builder.set_metric(mypath + "." + v.key(), v.value().string_data());
+			BOOST_FOREACH(const PB::Metrics::Metric &v, b.value()) {
+				if (v.has_float_value()) {
+					builder.set_metric(mypath + "." + v.key(), str::xtos(v.float_value().value()));
+				} else if (v.has_string_value()) {
+					builder.set_metric(mypath + "." + v.key(), v.string_value().value());
 				} else {
 					NSC_LOG_ERROR_EX("Unknown metrics type");
 				}
@@ -166,15 +165,15 @@ namespace collectd_client {
 		}
 
 
-		void set_metrics(collectd::collectd_builder &builder, const Plugin::MetricsMessage &data) {
-			BOOST_FOREACH(const Plugin::MetricsMessage::Response &p, data.payload()) {
-				BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, p.bundles()) {
+		void set_metrics(collectd::collectd_builder &builder, const PB::Metrics::MetricsMessage &data) {
+			BOOST_FOREACH(const PB::Metrics::MetricsMessage::Response &p, data.payload()) {
+				BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, p.bundles()) {
 					flatten_metrics(builder, b, "");
 				}
 			}
 		}
 
-		bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) {
+		bool metrics(client::destination_container sender, client::destination_container target, const PB::Metrics::MetricsMessage &request_message) {
 
 			collectd::collectd_builder builder;
 			set_metrics(builder, request_message);

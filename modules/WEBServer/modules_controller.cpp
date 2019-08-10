@@ -1,6 +1,6 @@
 #include "modules_controller.hpp"
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_registry.hpp>
 
 #include <str/xtos.hpp>
 #include <file_helpers.hpp>
@@ -40,19 +40,19 @@ void modules_controller::get_modules(Mongoose::Request &request, boost::smatch &
     return;
 
   std::string fetch_all = request.get("all", "false");
-  Plugin::RegistryRequestMessage rrm;
-  Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+  PB::Registry::RegistryRequestMessage rrm;
+  PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
   payload->mutable_inventory()->set_fetch_all(fetch_all == "true");
-  payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_MODULE);
+  payload->mutable_inventory()->add_type(PB::Registry::ItemType::MODULE);
   std::string str_response;
   core->registry_query(rrm.SerializeAsString(), str_response);
 
-  Plugin::RegistryResponseMessage pb_response;
+  PB::Registry::RegistryResponseMessage pb_response;
   pb_response.ParseFromString(str_response);
   json_spirit::Array root;
 
-  BOOST_FOREACH(const Plugin::RegistryResponseMessage::Response r, pb_response.payload()) {
-	  BOOST_FOREACH(const Plugin::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
+  BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response r, pb_response.payload()) {
+	  BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
 		  json_spirit::Object node;
 		  node["name"] = i.name();
 		  node["id"] = i.id();
@@ -61,7 +61,7 @@ void modules_controller::get_modules(Mongoose::Request &request, boost::smatch &
 		  node["enabled"] = false;
 		  node["module_url"] = request.get_host() + "/api/v1/modules/" + i.name() + "/";
 		  json_spirit::Object keys;
-		  BOOST_FOREACH(const ::Plugin::Common::KeyValue &kvp, i.info().metadata()) {
+		  BOOST_FOREACH(const PB::Common::KeyValue &kvp, i.info().metadata()) {
 			  if (kvp.key() == "loaded") {
 				  node["loaded"] = kvp.value() == "true";
 			  } else if (kvp.key() == "enabled") {
@@ -90,32 +90,32 @@ void modules_controller::get_module(Mongoose::Request &request, boost::smatch &w
 	}
 	std::string module = what.str(1);
 
-	Plugin::RegistryRequestMessage rrm;
-	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+	PB::Registry::RegistryRequestMessage rrm;
+	PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
 	payload->mutable_inventory()->set_name(module);
 	payload->mutable_inventory()->set_fetch_all(false);
-	payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_MODULE);
+	payload->mutable_inventory()->add_type(PB::Registry::ItemType::MODULE);
 	std::string str_response;
 	core->registry_query(rrm.SerializeAsString(), str_response);
 
-	Plugin::RegistryResponseMessage pb_response;
+	PB::Registry::RegistryResponseMessage pb_response;
 	pb_response.ParseFromString(str_response);
 	json_spirit::Object node;
 
-	BOOST_FOREACH(const Plugin::RegistryResponseMessage::Response r, pb_response.payload()) {
+	BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response r, pb_response.payload()) {
 		if (r.inventory_size() == 0) {
 			response.setCode(HTTP_NOT_FOUND);
 			response.append("Module not found: " + module);
 			return;
 		}
-		BOOST_FOREACH(const Plugin::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
+		BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
 			node["name"] = i.name();
 			node["id"] = i.id();
 			node["title"] = i.info().title();
 			node["loaded"] = false;
 			node["enabled"] = false;
 			json_spirit::Object keys;
-			BOOST_FOREACH(const ::Plugin::Common::KeyValue &kvp, i.info().metadata()) {
+			BOOST_FOREACH(const PB::Common::KeyValue &kvp, i.info().metadata()) {
 				if (kvp.key() == "loaded") {
 					node["loaded"] = kvp.value() == "true";
 				} else if (kvp.key() == "enabled") {
@@ -170,15 +170,15 @@ void modules_controller::module_command(Mongoose::Request &request, boost::smatc
 
 
 void modules_controller::load_module(std::string module, Mongoose::StreamResponse &http_response) {
-	Plugin::RegistryRequestMessage rrm;
-	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+	PB::Registry::RegistryRequestMessage rrm;
+	PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
 
-	payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
-	payload->mutable_control()->set_command(Plugin::Registry_Command_LOAD);
+	payload->mutable_control()->set_type(PB::Registry::ItemType::MODULE);
+	payload->mutable_control()->set_command(PB::Registry::Command::LOAD);
 	payload->mutable_control()->set_name(module);
 	std::string pb_response, json_response;
 	core->registry_query(rrm.SerializeAsString(), pb_response);
-	Plugin::RegistryResponseMessage response;
+	PB::Registry::RegistryResponseMessage response;
 	response.ParseFromString(pb_response);
 
 	if (version == 2) {
@@ -189,15 +189,15 @@ void modules_controller::load_module(std::string module, Mongoose::StreamRespons
 }
 
 void modules_controller::unload_module(std::string module, Mongoose::StreamResponse &http_response) {
-	Plugin::RegistryRequestMessage rrm;
-	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+	PB::Registry::RegistryRequestMessage rrm;
+	PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
 
-	payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
-	payload->mutable_control()->set_command(Plugin::Registry_Command_UNLOAD);
+	payload->mutable_control()->set_type(PB::Registry::ItemType::MODULE);
+	payload->mutable_control()->set_command(PB::Registry::Command::UNLOAD);
 	payload->mutable_control()->set_name(module);
 	std::string pb_response, json_response;
 	core->registry_query(rrm.SerializeAsString(), pb_response);
-	Plugin::RegistryResponseMessage response;
+	PB::Registry::RegistryResponseMessage response;
 	response.ParseFromString(pb_response);
 
 	if (version == 2) {
@@ -209,15 +209,15 @@ void modules_controller::unload_module(std::string module, Mongoose::StreamRespo
 
 
 void modules_controller::enable_module(std::string module, Mongoose::StreamResponse &http_response) {
-	Plugin::RegistryRequestMessage rrm;
-	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+	PB::Registry::RegistryRequestMessage rrm;
+	PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
 
-	payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
-	payload->mutable_control()->set_command(Plugin::Registry_Command_ENABLE);
+	payload->mutable_control()->set_type(PB::Registry::ItemType::MODULE);
+	payload->mutable_control()->set_command(PB::Registry::Command::ENABLE);
 	payload->mutable_control()->set_name(module);
 	std::string pb_response, json_response;
 	core->registry_query(rrm.SerializeAsString(), pb_response);
-	Plugin::RegistryResponseMessage response;
+	PB::Registry::RegistryResponseMessage response;
 	response.ParseFromString(pb_response);
 
 	if (version == 2) {
@@ -228,15 +228,15 @@ void modules_controller::enable_module(std::string module, Mongoose::StreamRespo
 }
 
 void modules_controller::disable_module(std::string module, Mongoose::StreamResponse &http_response) {
-	Plugin::RegistryRequestMessage rrm;
-	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+	PB::Registry::RegistryRequestMessage rrm;
+	PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
 
-	payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
-	payload->mutable_control()->set_command(Plugin::Registry_Command_DISABLE);
+	payload->mutable_control()->set_type(PB::Registry::ItemType::MODULE);
+	payload->mutable_control()->set_command(PB::Registry::Command::DISABLE);
 	payload->mutable_control()->set_name(module);
 	std::string pb_response, json_response;
 	core->registry_query(rrm.SerializeAsString(), pb_response);
-	Plugin::RegistryResponseMessage response;
+	PB::Registry::RegistryResponseMessage response;
 	response.ParseFromString(pb_response);
 
 	if (version == 2) {
@@ -264,23 +264,23 @@ void modules_controller::put_module(Mongoose::Request &request, boost::smatch &w
 		json_spirit::Object o = root.getObject();
 		bool target_is_loaded = o["loaded"].getBool();
 
-		Plugin::RegistryRequestMessage rrm;
-		Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+		PB::Registry::RegistryRequestMessage rrm;
+		PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
 		payload->mutable_inventory()->set_name(module);
 		payload->mutable_inventory()->set_fetch_all(false);
-		payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_MODULE);
+		payload->mutable_inventory()->add_type(PB::Registry::ItemType::MODULE);
 		std::string str_response;
 		core->registry_query(rrm.SerializeAsString(), str_response);
 
-		Plugin::RegistryResponseMessage pb_response;
+		PB::Registry::RegistryResponseMessage pb_response;
 		pb_response.ParseFromString(str_response);
 		json_spirit::Object node;
 
-		BOOST_FOREACH(const Plugin::RegistryResponseMessage::Response r, pb_response.payload()) {
-			BOOST_FOREACH(const Plugin::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
+		BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response r, pb_response.payload()) {
+			BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
 				if (i.name() == module) {
 					bool is_loaded = false;
-					BOOST_FOREACH(const ::Plugin::Common::KeyValue &kvp, i.info().metadata()) {
+					BOOST_FOREACH(const PB::Common::KeyValue &kvp, i.info().metadata()) {
 						if (kvp.key() == "loaded") {
 							std::string v = kvp.value();
 							is_loaded = v == "true";
@@ -336,17 +336,17 @@ void modules_controller::post_module(Mongoose::Request &request, boost::smatch &
 			response.append("Failed to upload module");
 		}
 
-		Plugin::RegistryRequestMessage rrm;
-		Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+		PB::Registry::RegistryRequestMessage rrm;
+		PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
 
-		payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
-		payload->mutable_control()->set_command(Plugin::Registry_Command_LOAD);
+		payload->mutable_control()->set_type(PB::Registry::ItemType::MODULE);
+		payload->mutable_control()->set_command(PB::Registry::Command::LOAD);
 		payload->mutable_control()->set_name(module);
 
 		std::string str_response;
 		core->registry_query(rrm.SerializeAsString(), str_response);
 
-		Plugin::RegistryResponseMessage pb_response;
+		PB::Registry::RegistryResponseMessage pb_response;
 		pb_response.ParseFromString(str_response);
 	} catch (const json_spirit::ParseError &e) {
 		response.setCode(HTTP_BAD_REQUEST);

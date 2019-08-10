@@ -113,12 +113,12 @@ namespace nsca_client {
 	};
 
 	struct nsca_client_handler : public client::handler_interface {
-		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
+		bool query(client::destination_container sender, client::destination_container target, const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message) {
 			return false;
 		}
 
-		bool submit(client::destination_container sender, client::destination_container target, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
-			const ::Plugin::Common_Header& request_header = request_message.header();
+		bool submit(client::destination_container sender, client::destination_container target, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage &response_message) {
+			const PB::Common::Header& request_header = request_message.header();
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 			connection_data con(target, sender);
 
@@ -131,7 +131,7 @@ namespace nsca_client {
 			else if (target.has_data("payload length"))
 				len = target.get_int_data("payload length", 512);
 			std::list<nsca::packet> list;
-			BOOST_FOREACH(const Plugin::QueryResponseMessage::Response &payload, request_message.payload()) {
+			BOOST_FOREACH(const PB::Commands::QueryResponseMessage::Response &payload, request_message.payload()) {
 				nsca::packet packet(sender.get_host(), len, 0);
 				std::string alias = payload.alias();
 				if (alias.empty())
@@ -150,16 +150,16 @@ namespace nsca_client {
 			return true;
 		}
 
-		bool exec(client::destination_container sender, client::destination_container target, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
+		bool exec(client::destination_container sender, client::destination_container target, const PB::Commands::ExecuteRequestMessage &request_message, PB::Commands::ExecuteResponseMessage &response_message) {
 			return false;
 		}
 
-		bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) {
+		bool metrics(client::destination_container sender, client::destination_container target, const PB::Metrics::MetricsMessage &request_message) {
 			return false;
 		}
 
 
-		void send(Plugin::SubmitResponseMessage::Response *payload, const connection_data con, const std::list<nsca::packet> packets) {
+		void send(PB::Commands::SubmitResponseMessage::Response *payload, const connection_data con, const std::list<nsca::packet> packets) {
 			try {
 				socket_helpers::client::client<nsca::client::protocol<client_handler> > client(con, boost::make_shared<client_handler>(con));
 				NSC_TRACE_ENABLED() {

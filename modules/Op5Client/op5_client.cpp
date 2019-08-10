@@ -27,7 +27,7 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/macros.hpp>
 
 #include <str/utils.hpp>
@@ -418,9 +418,9 @@ void op5_client::thread_proc() {
 					str::utils::parse_command(alias, command, arguments);
 
 					if (ch.simple_query(command, arguments, response)) {
-						Plugin::QueryResponseMessage resp_msg;
+						PB::Commands::QueryResponseMessage resp_msg;
 						resp_msg.ParseFromString(response);
-						BOOST_FOREACH(const Plugin::QueryResponseMessage::Response &p, resp_msg.payload()) {
+						BOOST_FOREACH(const PB::Commands::QueryResponseMessage::Response &p, resp_msg.payload()) {
 							std::string message = nscapi::protobuf::functions::query_data_to_nagios_string(p, nscapi::protobuf::functions::no_truncation);
 							int result = nscapi::protobuf::functions::gbp_to_nagios_status(p.result());
 							std::string status;

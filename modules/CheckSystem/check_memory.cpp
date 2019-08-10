@@ -227,7 +227,7 @@ namespace memory_checks {
 		 * @param &perf String to put performance data in
 		 * @return The status of the command
 		 */
-		void check(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+		void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 			typedef check_mem_filter::filter filter_type;
 			modern_filter::data_container data;
 			modern_filter::cli_helper<filter_type> filter_helper(request, response, data);

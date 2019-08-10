@@ -44,7 +44,7 @@ SMTPClient::~SMTPClient() {}
 bool SMTPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	std::wstring template_string, sender, recipient;
 	try {
-		sh::settings_registry settings(get_settings_proxy());
+		sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 		settings.set_alias("SMTP", alias, "client");
 		client_.set_path(settings.alias().get_settings_path("targets"));
 
@@ -68,7 +68,7 @@ bool SMTPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.register_all();
 		settings.notify();
 
-		client_.finalize(get_settings_proxy());
+		client_.finalize(nscapi::settings_proxy::create(get_id(), get_core()));
 
 		nscapi::core_helper core(get_core(), get_id());
 		core.register_channel(channel_);
@@ -87,7 +87,7 @@ bool SMTPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 void SMTPClient::add_target(std::string key, std::string arg) {
 	try {
-		client_.add_target(get_settings_proxy(), key, arg);
+		client_.add_target(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
 	} catch (...) {
@@ -118,16 +118,16 @@ bool SMTPClient::unloadModule() {
 	return true;
 }
 
-void SMTPClient::query_fallback(const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
+void SMTPClient::query_fallback(const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message) {
 	client_.do_query(request_message, response_message);
 }
 
-bool SMTPClient::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response) {
+bool SMTPClient::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response) {
 	if (target_mode == NSCAPI::target_module)
 		return client_.do_exec(request, response, "_submit");
 	return false;
 }
 
-void SMTPClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
+void SMTPClient::handleNotification(const std::string &, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage *response_message) {
 	client_.do_submit(request_message, *response_message);
 }

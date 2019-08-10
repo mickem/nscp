@@ -35,7 +35,7 @@
 
 struct command_chunk {
 	nsclient::commands::plugin_type plugin;
-	Plugin::QueryRequestMessage request;
+	PB::Commands::QueryRequestMessage request;
 };
 
 bool nsclient::core::plugin_manager::contains_plugin(nsclient::core::plugin_manager::plugin_alias_list_type &ret, std::string alias, std::string plugin) {
@@ -73,7 +73,7 @@ nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_ma
 		try {
 			alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, plugin, "");
 		} catch (settings::settings_exception e) {
-			LOG_ERROR_CORE_STD("Exception looking for module: " + e.reason());
+			LOG_ERROR_CORE_STD("Exception looking for module: " + utf8::utf8_from_native(e.what()));
 		}
 		if (plugin == "enabled" || plugin == "1" || plugin == "true") {
 			plugin = alias;
@@ -119,7 +119,7 @@ nsclient::core::plugin_manager::plugin_status nsclient::core::plugin_manager::pa
 	try {
 		status.alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, key, "");
 	} catch (settings::settings_exception e) {
-		LOG_DEBUG_CORE_STD("Failed to read settings: " + e.reason());
+		LOG_DEBUG_CORE_STD("Failed to read settings: " + utf8::utf8_from_native(e.what()));
 	}
 	if (status.alias == "") {
 		status.enabled = false;
@@ -429,8 +429,8 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::find
 	return plugin_list_.find_by_id(plugin_id);
 }
 
-::Plugin::QueryResponseMessage nsclient::core::plugin_manager::execute_query(const ::Plugin::QueryRequestMessage &req) {
-	::Plugin::QueryResponseMessage resp;
+::PB::Commands::QueryResponseMessage nsclient::core::plugin_manager::execute_query(const ::PB::Commands::QueryRequestMessage &req) {
+	::PB::Commands::QueryResponseMessage resp;
 	std::string buffer;
 	if (execute_query(req.SerializeAsString(), buffer) == NSCAPI::cmd_return_codes::isSuccess) {
 		resp.ParseFromString(buffer);
@@ -451,8 +451,8 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::find
  */
 NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::string &request, std::string &response) {
 	try {
-		Plugin::QueryRequestMessage request_message;
-		Plugin::QueryResponseMessage response_message;
+		PB::Commands::QueryRequestMessage request_message;
+		PB::Commands::QueryResponseMessage response_message;
 		request_message.ParseFromString(request);
 
 		typedef boost::unordered_map<int, command_chunk> command_chunk_type;
@@ -460,7 +460,7 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
 
 		std::string missing_commands;
 
-		if (request_message.header().has_command()) {
+		if (!request_message.header().command().empty()) {
 			std::string command = request_message.header().command();
 			nsclient::commands::plugin_type plugin = commands_.get(command);
 			if (plugin) {
@@ -472,7 +472,7 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
 			}
 		} else {
 			for (int i = 0; i < request_message.payload_size(); i++) {
-				::Plugin::QueryRequestMessage::Request *payload = request_message.mutable_payload(i);
+				::PB::Commands::QueryRequestMessage::Request *payload = request_message.mutable_payload(i);
 				payload->set_command(commands_.make_key(payload->command()));
 				nsclient::commands::plugin_type plugin = commands_.get(payload->command());
 				if (plugin) {
@@ -490,7 +490,7 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
 
 		if (command_chunks.size() == 0) {
 			LOG_ERROR_CORE("Unknown command(s): " + missing_commands + " available commands: " + commands_.to_string());
-			Plugin::QueryResponseMessage::Response *payload = response_message.add_payload();
+			PB::Commands::QueryResponseMessage::Response *payload = response_message.add_payload();
 			payload->set_command(missing_commands);
 			nscapi::protobuf::functions::set_response_bad(*payload, "Unknown command(s): " + missing_commands);
 			response = response_message.SerializeAsString();
@@ -503,7 +503,7 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
 			if (ret != NSCAPI::cmd_return_codes::isSuccess) {
 				LOG_ERROR_CORE("Failed to execute command");
 			} else {
-				Plugin::QueryResponseMessage local_response_message;
+				PB::Commands::QueryResponseMessage local_response_message;
 				local_response_message.ParseFromString(local_response);
 				if (!response_message.has_header()) {
 					response_message.mutable_header()->CopyFrom(local_response_message.header());
@@ -678,13 +678,13 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::exec_command(const char* ra
 		}
 	}
 
-	Plugin::ExecuteResponseMessage response_message;
+	PB::Commands::ExecuteResponseMessage response_message;
 
 	BOOST_FOREACH(std::string r, responses) {
-		Plugin::ExecuteResponseMessage tmp;
+		PB::Commands::ExecuteResponseMessage tmp;
 		tmp.ParseFromString(r);
 		for (int i = 0; i < tmp.payload_size(); i++) {
-			Plugin::ExecuteResponseMessage::Response *r = response_message.add_payload();
+			PB::Commands::ExecuteResponseMessage::Response *r = response_message.add_payload();
 			r->CopyFrom(tmp.payload(i));
 		}
 	}
@@ -708,7 +708,7 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::send_notification(const char
 			continue;
 		}
 		if (cur_chan == "log") {
-			Plugin::SubmitRequestMessage msg;
+			PB::Commands::SubmitRequestMessage msg;
 			msg.ParseFromString(request);
 			for (int i = 0; i < msg.payload_size(); i++) {
 				LOG_INFO_CORE("Notification " + str::xtos(msg.payload(i).result()) + ": " + nscapi::protobuf::functions::query_data_to_nagios_string(msg.payload(i), nscapi::protobuf::functions::no_truncation));
@@ -746,8 +746,8 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::send_notification(const char
 
 
 NSCAPI::errorReturn nsclient::core::plugin_manager::emit_event(const std::string &request) {
-	Plugin::EventMessage em; em.ParseFromString(request);
-	BOOST_FOREACH(const Plugin::EventMessage::Request &r, em.payload()) {
+	PB::Commands::EventMessage em; em.ParseFromString(request);
+	BOOST_FOREACH(const PB::Commands::EventMessage::Request &r, em.payload()) {
 		bool has_matched = false;
 		try {
 			BOOST_FOREACH(nsclient::plugin_type p, event_subscribers_.get(r.event())) {
@@ -778,31 +778,31 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::emit_event(const std::string
 }
 
 struct metrics_fetcher {
-	Plugin::MetricsMessage result;
+	PB::Metrics::MetricsMessage result;
 	std::string buffer;
 	metrics_fetcher() {
 		result.add_payload();
 	}
 
-	Plugin::MetricsMessage::Response* get_root() {
+	PB::Metrics::MetricsMessage::Response* get_root() {
 		return result.mutable_payload(0);
 	}
-	void add_bundle(const Plugin::Common::MetricsBundle &b) {
+	void add_bundle(const PB::Metrics::MetricsBundle &b) {
 		get_root()->add_bundles()->CopyFrom(b);
 	}
 	void fetch(nsclient::plugin_type p) {
 		std::string buffer;
 		p->fetchMetrics(buffer);
-		Plugin::MetricsMessage payload;
+		PB::Metrics::MetricsMessage payload;
 		payload.ParseFromString(buffer);
-		BOOST_FOREACH(const Plugin::MetricsMessage::Response &r, payload.payload()) {
-			BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, r.bundles()) {
+		BOOST_FOREACH(const PB::Metrics::MetricsMessage::Response &r, payload.payload()) {
+			BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, r.bundles()) {
 				add_bundle(b);
 			}
 		}
 	}
 	void render() {
-		get_root()->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+		get_root()->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
 		buffer = result.SerializeAsString();
 	}
 	void digest(nsclient::plugin_type p) {
@@ -814,7 +814,7 @@ bool nsclient::core::plugin_manager::is_enabled(const std::string module) {
 	return parse_plugin(module).enabled;
 }
 
-void nsclient::core::plugin_manager::process_metrics(Plugin::Common::MetricsBundle bundle) {
+void nsclient::core::plugin_manager::process_metrics(PB::Metrics::MetricsBundle bundle) {
 	metrics_fetcher f;
 	metrics_fetchers_.do_all(boost::bind(&metrics_fetcher::fetch, &f, _1));
 	f.get_root()->add_bundles()->CopyFrom(bundle);
@@ -826,7 +826,7 @@ bool nsclient::core::plugin_manager::enable_plugin(std::string name) {
 	try {
 		settings_manager::get_settings()->set_string(MAIN_MODULES_SECTION, name, "enabled");
 	} catch (settings::settings_exception e) {
-		LOG_DEBUG_CORE_STD("Failed to read settings: " + e.reason());
+		LOG_DEBUG_CORE_STD("Failed to read settings: " + utf8::utf8_from_native(e.what()));
 		return false;
 	}
 	return true;
@@ -836,7 +836,7 @@ bool nsclient::core::plugin_manager::disable_plugin(std::string name) {
 	try {
 		settings_manager::get_settings()->set_string(MAIN_MODULES_SECTION, name, "disabled");
 	} catch (settings::settings_exception e) {
-		LOG_DEBUG_CORE_STD("Failed to read settings: " + e.reason());
+		LOG_DEBUG_CORE_STD("Failed to read settings: " + utf8::utf8_from_native(e.what()));
 		return false;
 	}
 	return true;

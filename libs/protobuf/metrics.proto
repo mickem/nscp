@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package PB.Metrics;
+
+//option optimize_for = CODE_SIZE;
+
+import "common.proto";
+
+//
+// Common utility types (re-used in various messages below)
+//
+
+message Metric {
+	string key = 1;
+	oneof value {
+		Common.OptionalFloat float_value = 5;
+		Common.OptionalString string_value = 6;
+	}
+
+	string alias = 3;
+	string desc = 4;
+}
+
+message MetricsBundle {
+	string key = 1;
+	repeated Metric value = 2;
+	repeated MetricsBundle children = 6;
+
+	string alias = 3;
+	string desc = 4;
+}
+
+//
+// Metrics message
+// Used for fetching and sending metrics.
+//
+message MetricsQueryMessage {
+	message Request {
+		int64 id = 1;
+		string type = 2;
+	};
+
+	Common.Header header = 1;
+	repeated Request payload = 2;
+}
+
+//
+// Metrics message
+// Used for fetching and sending metrics.
+//
+message MetricsMessage {
+	message Response {
+		int64 id = 1;
+		Common.Result result = 2;
+
+		repeated MetricsBundle bundles = 3;
+	};
+
+	Common.Header header = 1;
+	repeated Response payload = 2;
+}

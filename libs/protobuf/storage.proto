@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package PB.Storage;
+
+//option optimize_for = CODE_SIZE;
+
+import "common.proto";
+
+//
+// Storage Structure Disk
+//
+message Storage {
+	message Entry {
+		string context = 1;
+		string key = 2;
+		string value = 3;
+		bool binary_data = 4;
+		bool private_data = 5;
+	};
+	message Block {
+		string owner = 1;
+		int64 version = 2;
+		Storage.Entry entry = 3;
+	};
+	message File {
+		int64 version = 1;
+		int64 entries = 2;
+	};
+};
+
+//
+// Storeage Request Message 
+// Used to save/load data in the NSClient++ local storage
+//
+message StorageRequestMessage {
+	message Request {
+		message Put {
+			Storage.Entry entry = 1;
+		};
+		message Get {
+			string context = 1;
+			string key = 2;
+		};
+		int64 id = 1;
+		int32 plugin_id = 2;
+
+		Put put = 3;
+		Get get = 4;
+	};
+	repeated Request payload = 2;
+};
+//
+// Storeage Response Message 
+// Used to save/load data in the NSClient++ local storage
+//
+message StorageResponseMessage {
+	message Response {
+		message Put {
+			string context = 1;
+			string key = 2;
+			string error = 3;
+		};
+		message Get {
+			repeated Storage.Entry entry = 1;
+		};
+		int64 id = 1;
+		PB.Common.Result result = 2;
+
+		Put put = 3;
+		Get get = 4;
+	};
+
+	repeated Response payload = 2;
+};

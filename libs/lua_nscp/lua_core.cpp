@@ -17,7 +17,7 @@ void lua::lua_runtime::register_subscription(const std::string &channel, const s
 	throw lua::lua_exception("The method or operation is not implemented(reg_sub).");
 }
 
-void lua::lua_runtime::on_query(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
+void lua::lua_runtime::on_query(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, const PB::Commands::QueryRequestMessage &request_message) {
 	lua_wrapper lua(prep_function(information, function));
 	int args = 2;
 	if (function.object_ref != 0)
@@ -54,14 +54,14 @@ void lua::lua_runtime::on_query(std::string command, script_information *informa
 			nscapi::protobuf::functions::append_simple_query_response_payload(response, command, NSCAPI::query_return_codes::returnUNKNOWN, "Invalid return data", "");
 			return;
 		}
-		Plugin::QueryResponseMessage local_response;
+		PB::Commands::QueryResponseMessage local_response;
 		std::string data = lua.pop_raw_string();
 		response->ParseFromString(data);
 		lua.gc(LUA_GCCOLLECT, 0);
 	}
 }
 
-void lua::lua_runtime::exec_main(script_information *information, const std::vector<std::string> &opts, Plugin::ExecuteResponseMessage::Response *response) {
+void lua::lua_runtime::exec_main(script_information *information, const std::vector<std::string> &opts, PB::Commands::ExecuteResponseMessage::Response *response) {
 	lua_wrapper lua(prep_function(information, "main"));
 	lua.push_array(opts);
 	if (lua.pcall(1, 2, 0) != 0)
@@ -78,7 +78,7 @@ void lua::lua_runtime::exec_main(script_information *information, const std::vec
 	lua.gc(LUA_GCCOLLECT, 0);
 	nscapi::protobuf::functions::append_simple_exec_response_payload(response, "", ret, msg);
 }
-void lua::lua_runtime::on_exec(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+void lua::lua_runtime::on_exec(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message) {
 	lua_wrapper lua(prep_function(information, function));
 	int args = 2;
 	if (function.object_ref != 0)
@@ -114,14 +114,14 @@ void lua::lua_runtime::on_exec(std::string command, script_information *informat
 			nscapi::protobuf::functions::append_simple_exec_response_payload(response, command, NSCAPI::exec_return_codes::returnERROR, "Invalid return data");
 			return;
 		}
-		Plugin::QueryResponseMessage local_response;
+		PB::Commands::QueryResponseMessage local_response;
 		std::string data = lua.pop_raw_string();
 		response->ParseFromString(data);
 		lua.gc(LUA_GCCOLLECT, 0);
 	}
 }
 
-NSCAPI::nagiosReturn lua::lua_runtime::on_submit(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response) {
+NSCAPI::nagiosReturn lua::lua_runtime::on_submit(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const PB::Commands::QueryResponseMessage::Response &request, PB::Commands::SubmitResponseMessage::Response *response) {
 	throw lua::lua_exception("The method or operation is not implemented(on_submit).");
 }
 

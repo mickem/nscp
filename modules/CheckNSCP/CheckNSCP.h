@@ -21,7 +21,8 @@
 
 #include <string>
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/nscapi_protobuf_log.hpp>
 #include <nscapi/plugin.hpp>
 
 #include <boost/thread/thread.hpp>
@@ -46,9 +47,9 @@ public:
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
-	void check_nscp(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
-	void check_nscp_version(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
-	void handleLogMessage(const Plugin::LogEntry::Entry &message);
+	void check_nscp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+	void check_nscp_version(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+	void handleLogMessage(const PB::Log::LogEntry::Entry &message);
 
 	std::size_t get_errors(std::string &last_error);
 };

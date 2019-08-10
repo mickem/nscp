@@ -20,7 +20,7 @@
 #include "bookmarks.hpp"
 #include "filter.hpp"
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 
 #include <boost/shared_ptr.hpp>
@@ -43,13 +43,13 @@ public:
 	bool unloadModule();
 	void parse(std::wstring expr);
 
-	void check_eventlog(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
-	void CheckEventLog_(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_eventlog(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+	void CheckEventLog_(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
-	bool commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
-	void insert_eventlog(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
-	void list_providers(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
-	void add_filter(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
+	bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
+	void insert_eventlog(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
+	void list_providers(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
+	void add_filter(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
 
 
 private:

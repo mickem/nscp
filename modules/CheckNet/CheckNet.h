@@ -17,7 +17,7 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 
 class CheckNet : public nscapi::impl::simple_plugin {
@@ -25,5 +25,5 @@ public:
 	CheckNet() {};
 
 	// Check commands
-	void check_ping(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_ping(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 };

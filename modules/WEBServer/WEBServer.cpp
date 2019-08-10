@@ -37,8 +37,8 @@
 
 #include "error_handler.hpp"
 
-#include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_settings_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
@@ -47,6 +47,8 @@
 
 #include <str/xtos.hpp>
 #include <str/format.hpp>
+
+#include <socket/socket_helpers.hpp>
 
 #include <json_spirit.h>
 
@@ -75,7 +77,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	log_handler.reset(new error_handler());
 	client.reset(new client::cli_client(client::cli_handler_ptr(new web_cli_handler(log_handler, get_core(), get_id()))));
 
-	sh::settings_registry settings(get_settings_proxy());
+	sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 	settings.set_alias("WEB", alias, "server");
 
 	std::string port;
@@ -131,7 +133,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.notify();
 	certificate = get_core()->expand_path(certificate);
 
-	users_.add_samples(get_settings_proxy());
+	users_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
 	ensure_role(roles, settings, role_path, "legacy", "legacy", "legacy API");
 	ensure_role(roles, settings, role_path, "full", "*", "Full access");
@@ -220,7 +222,7 @@ bool WEBServer::unloadModule() {
 	return true;
 }
 
-void WEBServer::handleLogMessage(const Plugin::LogEntry::Entry &message) {
+void WEBServer::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
 	using namespace boost::posix_time;
 	using namespace boost::gregorian;
 
@@ -231,28 +233,28 @@ void WEBServer::handleLogMessage(const Plugin::LogEntry::Entry &message) {
 	entry.date = to_simple_string(second_clock::local_time());
 
 	switch (message.level()) {
-	case Plugin::LogEntry_Entry_Level_LOG_CRITICAL:
+	case PB::Log::LogEntry_Entry_Level_LOG_CRITICAL:
 		entry.type = "critical";
 		break;
-	case Plugin::LogEntry_Entry_Level_LOG_DEBUG:
+	case PB::Log::LogEntry_Entry_Level_LOG_DEBUG:
 		entry.type = "debug";
 		break;
-	case Plugin::LogEntry_Entry_Level_LOG_ERROR:
+	case PB::Log::LogEntry_Entry_Level_LOG_ERROR:
 		entry.type = "error";
 		break;
-	case Plugin::LogEntry_Entry_Level_LOG_INFO:
+	case PB::Log::LogEntry_Entry_Level_LOG_INFO:
 		entry.type = "info";
 		break;
-	case Plugin::LogEntry_Entry_Level_LOG_WARNING:
+	case PB::Log::LogEntry_Entry_Level_LOG_WARNING:
 		entry.type = "warning";
 		break;
 	default:
 		entry.type = "unknown";
 	}
-	session->add_log_message(message.level() == Plugin::LogEntry_Entry_Level_LOG_CRITICAL || message.level() == Plugin::LogEntry_Entry_Level_LOG_ERROR, entry);
+	session->add_log_message(message.level() == PB::Log::LogEntry_Entry_Level_LOG_CRITICAL || message.level() == PB::Log::LogEntry_Entry_Level_LOG_ERROR, entry);
 }
 
-bool WEBServer::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+bool WEBServer::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message) {
 	std::string command = request.command();
 	if (command == "web" && request.arguments_size() > 0)
 		command = request.arguments(0);
@@ -275,7 +277,7 @@ bool WEBServer::commandLineExec(const int target_mode, const Plugin::ExecuteRequ
 	return false;
 }
 
-bool WEBServer::cli_add_user(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+bool WEBServer::cli_add_user(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
@@ -360,7 +362,7 @@ bool WEBServer::cli_add_user(const Plugin::ExecuteRequestMessage::Request &reque
 	}
 }
 
-bool WEBServer::cli_add_role(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+bool WEBServer::cli_add_role(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
@@ -436,7 +438,7 @@ bool WEBServer::cli_add_role(const Plugin::ExecuteRequestMessage::Request &reque
 		return true;
 	}
 }
-bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
@@ -547,7 +549,7 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 	}
 }
 
-bool WEBServer::password(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
@@ -587,7 +589,7 @@ bool WEBServer::password(const Plugin::ExecuteRequestMessage::Request &request, 
 	}
 
 	if (display) {
-		sh::settings_registry settings(get_settings_proxy());
+		sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 		settings.set_alias("WEB", "", "server");
 
 		settings.alias().add_parent("/settings/default").add_key_to_settings()
@@ -625,32 +627,26 @@ bool WEBServer::password(const Plugin::ExecuteRequestMessage::Request &request, 
 	return true;
 }
 
-void build_metrics(json_spirit::Object &metrics, json_spirit::Object &metrics_list, const std::string trail, const Plugin::Common::MetricsBundle & b) {
+void build_metrics(json_spirit::Object &metrics, json_spirit::Object &metrics_list, const std::string trail, const PB::Metrics::MetricsBundle & b) {
 	json_spirit::Object node;
-	BOOST_FOREACH(const Plugin::Common::MetricsBundle &b2, b.children()) {
+	BOOST_FOREACH(const PB::Metrics::MetricsBundle &b2, b.children()) {
 		build_metrics(node, metrics_list, trail + "." + b2.key(), b2);
 	}
-	BOOST_FOREACH(const Plugin::Common::Metric &v, b.value()) {
-		const ::Plugin::Common_AnyDataType &value = v.value();
-		if (value.has_int_data()) {
-			node.insert(json_spirit::Object::value_type(v.key(), v.value().int_data()));
-			metrics_list.insert(json_spirit::Object::value_type(trail + "." + v.key(), v.value().int_data()));
-		} else if (value.has_string_data()) {
-			node.insert(json_spirit::Object::value_type(v.key(), v.value().string_data()));
-			metrics_list.insert(json_spirit::Object::value_type(trail + "." + v.key(), v.value().string_data()));
-		} else if (value.has_float_data()) {
-			node.insert(json_spirit::Object::value_type(v.key(), v.value().float_data()));
-			metrics_list.insert(json_spirit::Object::value_type(trail + "." + v.key(), v.value().float_data()));
-		} else {
-			node.insert(json_spirit::Object::value_type(v.key(), "TODO"));
+	BOOST_FOREACH(const PB::Metrics::Metric &v, b.value()) {
+		if (v.has_float_value()) {
+			node.insert(json_spirit::Object::value_type(v.key(), v.float_value().value()));
+			metrics_list.insert(json_spirit::Object::value_type(trail + "." + v.key(), v.float_value().value()));
+		} else if (v.has_string_value()) {
+			node.insert(json_spirit::Object::value_type(v.key(), v.string_value().value()));
+			metrics_list.insert(json_spirit::Object::value_type(trail + "." + v.key(), v.string_value().value()));
 		}
 	}
 	metrics.insert(json_spirit::Object::value_type(b.key(), node));
 }
-void WEBServer::submitMetrics(const Plugin::MetricsMessage &response) {
+void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) {
 	json_spirit::Object metrics, metrics_list;
-	BOOST_FOREACH(const Plugin::MetricsMessage::Response &p, response.payload()) {
-		BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, p.bundles()) {
+	BOOST_FOREACH(const PB::Metrics::MetricsMessage::Response &p, response.payload()) {
+		BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, p.bundles()) {
 			build_metrics(metrics, metrics_list, b.key(), b);
 		}
 	}
@@ -661,7 +657,7 @@ void WEBServer::submitMetrics(const Plugin::MetricsMessage &response) {
 
 void WEBServer::add_user(std::string key, std::string arg) {
 	try {
-		users_.add(get_settings_proxy(), key, arg);
+		users_.add(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add user: " + key, e);
 	} catch (...) {

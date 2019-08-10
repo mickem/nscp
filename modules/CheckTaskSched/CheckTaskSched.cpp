@@ -48,7 +48,7 @@ bool CheckTaskSched::unloadModule() {
 	return true;
 }
 
-void log_args(const Plugin::QueryRequestMessage::Request &request) {
+void log_args(const PB::Commands::QueryRequestMessage::Request &request) {
 	std::stringstream ss;
 	for (int i = 0; i < request.arguments_size(); i++) {
 		if (i > 0)
@@ -58,7 +58,7 @@ void log_args(const Plugin::QueryRequestMessage::Request &request) {
 	NSC_DEBUG_MSG("Created command: " + ss.str());
 }
 
-void CheckTaskSched::CheckTaskSched_(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckTaskSched::CheckTaskSched_(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	boost::program_options::options_description desc;
 
 	std::vector<std::string> counters;
@@ -124,7 +124,7 @@ void CheckTaskSched::CheckTaskSched_(Plugin::QueryRequestMessage::Request &reque
 	check_tasksched(request, response);
 }
 
-void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckTaskSched::check_tasksched(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	typedef tasksched_filter::filter filter_type;
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);

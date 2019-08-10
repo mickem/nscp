@@ -45,7 +45,7 @@ namespace po = boost::program_options;
 
 CheckDisk::CheckDisk() : show_errors_(false) {}
 
-void CheckDisk::checkDriveSize(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckDisk::checkDriveSize(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	boost::program_options::options_description desc;
 
 	std::vector<std::string> times;
@@ -108,11 +108,11 @@ void CheckDisk::checkDriveSize(Plugin::QueryRequestMessage::Request &request, Pl
 	check_drive::check(request, response);
 }
 
-void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckDisk::check_drivesize(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	check_drive::check(request, response);
 }
 
-void CheckDisk::checkFiles(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckDisk::checkFiles(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	boost::program_options::options_description desc;
 
 	std::vector<std::string> times;
@@ -183,7 +183,7 @@ void CheckDisk::checkFiles(Plugin::QueryRequestMessage::Request &request, Plugin
 	check_files(request, response);
 }
 
-void CheckDisk::check_files(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckDisk::check_files(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	modern_filter::data_container data;
 	modern_filter::cli_helper<file_filter::filter> filter_helper(request, response, data);
 	std::vector<std::string> file_list;

@@ -15,7 +15,8 @@
  */
 
 #include <nscapi/macros.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/nscapi_protobuf_storage.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
@@ -34,54 +35,53 @@
 const nscapi::core_wrapper* nscapi::core_helper::get_core() {
 	return core_;
 }
+inline void add_entry(const ::PB::Storage::StorageResponseMessage::Response::Get &getter, nscapi::core_helper::storage_map &map) {
+	BOOST_FOREACH(const ::PB::Storage::Storage::Entry &e, getter.entry()) {
+		map[e.key()] = e.value();
+	}
+}
 
 nscapi::core_helper::storage_map nscapi::core_helper::get_storage_strings(std::string context) {
 	storage_map ret;
-	Plugin::StorageRequestMessage rrm;
-	Plugin::StorageRequestMessage::Request *payload = rrm.add_payload();
+	PB::Storage::StorageRequestMessage rrm;
+	PB::Storage::StorageRequestMessage::Request *payload = rrm.add_payload();
 
 	payload->mutable_get()->set_context(context);
 	//payload->mutable_put()->mutable_entry()->set_key(context);
 	std::string buffer;
 	get_core()->storage_query(rrm.SerializeAsString(), buffer);
 
-	Plugin::StorageResponseMessage resp_msg;
+	PB::Storage::StorageResponseMessage resp_msg;
 	resp_msg.ParseFromString(buffer);
-	BOOST_FOREACH(const ::Plugin::StorageResponseMessage::Response &payload, resp_msg.payload()) {
-		if (payload.result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK) {
-			CORE_LOG_ERROR("Failed to store data " + context + ": " + payload.result().message());
+	BOOST_FOREACH(const ::PB::Storage::StorageResponseMessage::Response &response_payload, resp_msg.payload()) {
+		if (response_payload.result().code() != PB::Common::Result_StatusCodeType_STATUS_OK) {
+			CORE_LOG_ERROR("Failed to store data " + context + ": " + response_payload.result().message());
 		} else {
-			BOOST_FOREACH(const ::Plugin::Storage::Entry &e, payload.get().entry()) {
-				if (e.value().has_string_data()) {
-					ret[e.key()] = e.value().string_data();
-				} else {
-					CORE_LOG_ERROR("Add support for non string type.");
-				}
-			}
+			add_entry(response_payload.get(), ret);
 		}
 	}
 	return ret;
 }
 
 bool nscapi::core_helper::put_storage(std::string context, std::string key, std::string value, bool private_data, bool binary_data) {
-	Plugin::StorageRequestMessage rrm;
-	Plugin::StorageRequestMessage::Request *payload = rrm.add_payload();
+	PB::Storage::StorageRequestMessage rrm;
+	PB::Storage::StorageRequestMessage::Request *payload = rrm.add_payload();
 
 	payload->set_plugin_id(plugin_id_);
 	payload->mutable_put()->mutable_entry()->set_context(context);
 	payload->mutable_put()->mutable_entry()->set_key(key);
-	payload->mutable_put()->mutable_entry()->mutable_value()->set_string_data(value);
+	payload->mutable_put()->mutable_entry()->set_value(value);
 	payload->mutable_put()->mutable_entry()->set_private_data(private_data);
 	payload->mutable_put()->mutable_entry()->set_binary_data(binary_data);
 	std::string buffer;
 	get_core()->storage_query(rrm.SerializeAsString(), buffer);
 
-	Plugin::StorageResponseMessage resp_msg;
+	PB::Storage::StorageResponseMessage resp_msg;
 	resp_msg.ParseFromString(buffer);
 	bool ret = true;
-	BOOST_FOREACH(const ::Plugin::StorageResponseMessage::Response &payload, resp_msg.payload()) {
-		if (payload.result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK) {
-			CORE_LOG_ERROR("Failed to store data " + context + ": " + payload.result().message());
+	BOOST_FOREACH(const ::PB::Storage::StorageResponseMessage::Response &response_payload, resp_msg.payload()) {
+		if (response_payload.result().code() != PB::Common::Result_StatusCodeType_STATUS_OK) {
+			CORE_LOG_ERROR("Failed to store data " + context + ": " + response_payload.result().message());
 			ret = false;
 		}
 	}
@@ -89,11 +89,11 @@ bool nscapi::core_helper::put_storage(std::string context, std::string key, std:
 }
 
 bool nscapi::core_helper::load_module(std::string name, std::string alias) {
-	Plugin::RegistryRequestMessage rrm;
-	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+	PB::Registry::RegistryRequestMessage rrm;
+	PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
 
-	payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
-	payload->mutable_control()->set_command(Plugin::Registry_Command_LOAD);
+	payload->mutable_control()->set_type(PB::Registry::ItemType::MODULE);
+	payload->mutable_control()->set_command(PB::Registry::Command::LOAD);
 	payload->mutable_control()->set_name(name);
 	if (!alias.empty()) {
 		payload->mutable_control()->set_alias(alias);
@@ -101,35 +101,35 @@ bool nscapi::core_helper::load_module(std::string name, std::string alias) {
 	std::string buffer;
 	get_core()->registry_query(rrm.SerializeAsString(), buffer);
 
-	Plugin::RegistryResponseMessage resp_msg;
+	PB::Registry::RegistryResponseMessage resp_msg;
 	resp_msg.ParseFromString(buffer);
-	BOOST_FOREACH(const ::Plugin::RegistryResponseMessage_Response &payload, resp_msg.payload()) {
-		if (payload.result().code() == Plugin::Common_Result_StatusCodeType_STATUS_OK) {
+	BOOST_FOREACH(const ::PB::Registry::RegistryResponseMessage_Response &response_payload, resp_msg.payload()) {
+		if (response_payload.result().code() == PB::Common::Result_StatusCodeType_STATUS_OK) {
 			return true;
 		} else {
-			CORE_LOG_ERROR("Failed to load " + name + ": " + payload.result().message());
+			CORE_LOG_ERROR("Failed to load " + name + ": " + response_payload.result().message());
 		}
 	}
 	return false;
 }
 
 bool nscapi::core_helper::unload_module(std::string name) {
-	Plugin::RegistryRequestMessage rrm;
-	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+	PB::Registry::RegistryRequestMessage rrm;
+	PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
 
-	payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
-	payload->mutable_control()->set_command(Plugin::Registry_Command_UNLOAD);
+	payload->mutable_control()->set_type(PB::Registry::ItemType::MODULE);
+	payload->mutable_control()->set_command(PB::Registry::Command::UNLOAD);
 	payload->mutable_control()->set_name(name);
 	std::string buffer;
 	get_core()->registry_query(rrm.SerializeAsString(), buffer);
 
-	Plugin::RegistryResponseMessage resp_msg;
+	PB::Registry::RegistryResponseMessage resp_msg;
 	resp_msg.ParseFromString(buffer);
-	BOOST_FOREACH(const ::Plugin::RegistryResponseMessage_Response &payload, resp_msg.payload()) {
-		if (payload.result().code() == Plugin::Common_Result_StatusCodeType_STATUS_OK) {
+	BOOST_FOREACH(const ::PB::Registry::RegistryResponseMessage_Response &response_payload, resp_msg.payload()) {
+		if (response_payload.result().code() == PB::Common::Result_StatusCodeType_STATUS_OK) {
 			return true;
 		} else {
-			CORE_LOG_ERROR("Failed to load " + name + ": " + payload.result().message());
+			CORE_LOG_ERROR("Failed to load " + name + ": " + response_payload.result().message());
 		}
 	}
 	return false;
@@ -138,17 +138,17 @@ bool nscapi::core_helper::unload_module(std::string name) {
 bool nscapi::core_helper::submit_simple_message(const std::string channel, const std::string source_id, const std::string target_id, const std::string command, const NSCAPI::nagiosReturn code, const std::string & message, const std::string & perf, std::string & response) {
 	std::string request, buffer;
 
-	Plugin::SubmitRequestMessage request_message;
+	PB::Commands::SubmitRequestMessage request_message;
 	request_message.mutable_header()->set_sender_id(source_id);
 	request_message.mutable_header()->set_source_id(source_id);
 	request_message.mutable_header()->set_recipient_id(target_id);
 	request_message.mutable_header()->set_destination_id(target_id);
 	request_message.set_channel(channel);
 
-	Plugin::QueryResponseMessage::Response *payload = request_message.add_payload();
+	PB::Commands::QueryResponseMessage::Response *payload = request_message.add_payload();
 	payload->set_command(command);
 	payload->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(code));
-	Plugin::QueryResponseMessage::Response::Line *line = payload->add_lines();
+	PB::Commands::QueryResponseMessage::Response::Line *line = payload->add_lines();
 	line->set_message(message);
 	if (!perf.empty())
 		nscapi::protobuf::functions::parse_performance_data(line, perf);
@@ -163,27 +163,31 @@ bool nscapi::core_helper::submit_simple_message(const std::string channel, const
 	return true;
 }
 
+typedef std::list<std::map<std::string, std::string> > list_type;
+typedef std::map<std::string, std::string> hash_type;
+
+inline void add_event_keys(const list_type::value_type &v, PB::Commands::EventMessage::Request *payload) {
+	BOOST_FOREACH(const hash_type::value_type &e, v) {
+		PB::Common::KeyValue *kv = payload->mutable_data()->Add();
+		kv->set_key(e.first);
+		kv->set_value(e.second);
+	}
+}
 bool nscapi::core_helper::emit_event(const std::string module, const std::string event, std::list<std::map<std::string, std::string> > data, std::string &error) {
 	std::string request, buffer;
 
-	Plugin::EventMessage request_message;
+	PB::Commands::EventMessage request_message;
 
-	typedef std::list<std::map<std::string, std::string> > list_type;
-	typedef std::map<std::string, std::string> hash_type;
 
 	BOOST_FOREACH(const list_type::value_type &v, data) {
-		Plugin::EventMessage::Request *payload = request_message.add_payload();
+		PB::Commands::EventMessage::Request *payload = request_message.add_payload();
 
 		payload->set_event(module + ":" + event);
-		BOOST_FOREACH(const hash_type::value_type &e, v) {
-			Plugin::Common::KeyValue *kv = payload->mutable_data()->Add();
-			kv->set_key(e.first);
-			kv->set_value(e.second);
-		}
+		add_event_keys(v, payload);
 	}
 	request_message.SerializeToString(&request);
 
-	if (!get_core()->emit_event(request.c_str(), request.size())) {
+	if (!get_core()->emit_event(request)) {
 		error = "Failed to emit event: " + event;
 		return false;
 	}
@@ -193,21 +197,21 @@ bool nscapi::core_helper::emit_event(const std::string module, const std::string
 bool nscapi::core_helper::emit_event(const std::string module, const std::string event, std::map<std::string, std::string> data, std::string &error) {
 	std::string request, buffer;
 
-	Plugin::EventMessage request_message;
+	PB::Commands::EventMessage request_message;
 
 	typedef std::map<std::string, std::string> hash_type;
 
-	Plugin::EventMessage::Request *payload = request_message.add_payload();
+	PB::Commands::EventMessage::Request *payload = request_message.add_payload();
 
 	payload->set_event(module + ":" + event);
 	BOOST_FOREACH(const hash_type::value_type &e, data) {
-		Plugin::Common::KeyValue *kv = payload->mutable_data()->Add();
+		PB::Common::KeyValue *kv = payload->mutable_data()->Add();
 		kv->set_key(e.first);
 		kv->set_value(e.second);
 	}
 	request_message.SerializeToString(&request);
 
-	if (!get_core()->emit_event(request.c_str(), request.size())) {
+	if (!get_core()->emit_event(request)) {
 		error = "Failed to emit event: " + event;
 		return false;
 	}
@@ -286,12 +290,12 @@ NSCAPI::nagiosReturn nscapi::core_helper::exec_simple_command(const std::string 
 }
 
 void nscapi::core_helper::register_command(std::string command, std::string description, std::list<std::string> aliases) {
-	Plugin::RegistryRequestMessage request;
+	PB::Registry::RegistryRequestMessage request;
 
-	Plugin::RegistryRequestMessage::Request *payload = request.add_payload();
-	Plugin::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
+	PB::Registry::RegistryRequestMessage::Request *payload = request.add_payload();
+	PB::Registry::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
 	regitem->set_plugin_id(plugin_id_);
-	regitem->set_type(Plugin::Registry_ItemType_QUERY);
+	regitem->set_type(PB::Registry::ItemType::QUERY);
 	regitem->set_name(command);
 	regitem->mutable_info()->set_title(command);
 	regitem->mutable_info()->set_description(description);
@@ -300,41 +304,41 @@ void nscapi::core_helper::register_command(std::string command, std::string desc
 	}
 	std::string response_string;
 	get_core()->registry_query(request.SerializeAsString(), response_string);
-	Plugin::RegistryResponseMessage response;
+	PB::Registry::RegistryResponseMessage response;
 	response.ParseFromString(response_string);
 	for (int i = 0; i < response.payload_size(); i++) {
-		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
+		if (response.payload(i).result().code() != PB::Common::Result_StatusCodeType_STATUS_OK)
 			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + command + ": " + response.payload(i).result().message());
 	}
 }
 
 void nscapi::core_helper::unregister_command(std::string command) {
-	Plugin::RegistryRequestMessage request;
+	PB::Registry::RegistryRequestMessage request;
 
-	Plugin::RegistryRequestMessage::Request *payload = request.add_payload();
-	Plugin::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
+	PB::Registry::RegistryRequestMessage::Request *payload = request.add_payload();
+	PB::Registry::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
 	regitem->set_plugin_id(plugin_id_);
-	regitem->set_type(Plugin::Registry_ItemType_QUERY);
+	regitem->set_type(PB::Registry::ItemType::QUERY);
 	regitem->set_name(command);
 	regitem->set_unregister(true);
 	regitem->mutable_info()->set_title(command);
 	std::string response_string;
 	get_core()->registry_query(request.SerializeAsString(), response_string);
-	Plugin::RegistryResponseMessage response;
+	PB::Registry::RegistryResponseMessage response;
 	response.ParseFromString(response_string);
 	for (int i = 0; i < response.payload_size(); i++) {
-		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
+		if (response.payload(i).result().code() != PB::Common::Result_StatusCodeType_STATUS_OK)
 			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to unregister " + command + ": " + response.payload(i).result().message());
 	}
 }
 
 void nscapi::core_helper::register_alias(std::string command, std::string description, std::list<std::string> aliases) {
-	Plugin::RegistryRequestMessage request;
+	PB::Registry::RegistryRequestMessage request;
 
-	Plugin::RegistryRequestMessage::Request *payload = request.add_payload();
-	Plugin::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
+	PB::Registry::RegistryRequestMessage::Request *payload = request.add_payload();
+	PB::Registry::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
 	regitem->set_plugin_id(plugin_id_);
-	regitem->set_type(Plugin::Registry_ItemType_QUERY_ALIAS);
+	regitem->set_type(PB::Registry::ItemType::QUERY_ALIAS);
 	regitem->set_name(command);
 	regitem->mutable_info()->set_title(command);
 	regitem->mutable_info()->set_description(description);
@@ -343,50 +347,50 @@ void nscapi::core_helper::register_alias(std::string command, std::string descri
 	}
 	std::string response_string;
 	get_core()->registry_query(request.SerializeAsString(), response_string);
-	Plugin::RegistryResponseMessage response;
+	PB::Registry::RegistryResponseMessage response;
 	response.ParseFromString(response_string);
 	for (int i = 0; i < response.payload_size(); i++) {
-		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
+		if (response.payload(i).result().code() != PB::Common::Result_StatusCodeType_STATUS_OK)
 			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + command + ": " + response.payload(i).result().message());
 	}
 }
 
 void nscapi::core_helper::register_channel(const std::string channel) {
-	Plugin::RegistryRequestMessage request;
+	PB::Registry::RegistryRequestMessage request;
 
-	Plugin::RegistryRequestMessage::Request *payload = request.add_payload();
-	Plugin::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
+	PB::Registry::RegistryRequestMessage::Request *payload = request.add_payload();
+	PB::Registry::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
 	regitem->set_plugin_id(plugin_id_);
-	regitem->set_type(Plugin::Registry_ItemType_HANDLER);
+	regitem->set_type(PB::Registry::ItemType::HANDLER);
 	regitem->set_name(channel);
 	regitem->mutable_info()->set_title(channel);
 	regitem->mutable_info()->set_description("Handler for: " + channel);
 	std::string response_string;
 	get_core()->registry_query(request.SerializeAsString(), response_string);
-	Plugin::RegistryResponseMessage response;
+	PB::Registry::RegistryResponseMessage response;
 	response.ParseFromString(response_string);
 	for (int i = 0; i < response.payload_size(); i++) {
-		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
+		if (response.payload(i).result().code() != PB::Common::Result_StatusCodeType_STATUS_OK)
 			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + channel + ": " + response.payload(i).result().message());
 	}
 }
 
 void nscapi::core_helper::register_event(const std::string event) {
-	Plugin::RegistryRequestMessage request;
+	PB::Registry::RegistryRequestMessage request;
 
-	Plugin::RegistryRequestMessage::Request *payload = request.add_payload();
-	Plugin::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
+	PB::Registry::RegistryRequestMessage::Request *payload = request.add_payload();
+	PB::Registry::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
 	regitem->set_plugin_id(plugin_id_);
-	regitem->set_type(Plugin::Registry_ItemType_EVENT);
+	regitem->set_type(PB::Registry::ItemType::EVENT);
 	regitem->set_name(event);
 	regitem->mutable_info()->set_title(event);
 	regitem->mutable_info()->set_description("Handler for: " + event);
 	std::string response_string;
 	get_core()->registry_query(request.SerializeAsString(), response_string);
-	Plugin::RegistryResponseMessage response;
+	PB::Registry::RegistryResponseMessage response;
 	response.ParseFromString(response_string);
 	for (int i = 0; i < response.payload_size(); i++) {
-		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
+		if (response.payload(i).result().code() != PB::Common::Result_StatusCodeType_STATUS_OK)
 			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + event + ": " + response.payload(i).result().message());
 	}
 }

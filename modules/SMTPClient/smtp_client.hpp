@@ -23,6 +23,7 @@
 
 #include <socket/socket_helpers.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_protobuf_metrics.hpp>
 
 namespace smtp_client {
 	struct connection_data : public socket_helpers::connection_info {
@@ -60,19 +61,19 @@ namespace smtp_client {
 	};
 
 	struct smtp_client_handler : public client::handler_interface {
-		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
+		bool query(client::destination_container sender, client::destination_container, const PB::Commands::QueryRequestMessage&, PB::Commands::QueryResponseMessage&) {
 			return false;
 		}
 
-		bool submit(client::destination_container sender, client::destination_container target, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
-			const ::Plugin::Common_Header& request_header = request_message.header();
+		bool submit(client::destination_container sender, client::destination_container target, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage &response_message) {
+			const PB::Common::Header& request_header = request_message.header();
 			connection_data con(sender, target);
 
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
 			std::list<g_data> list;
 
-			BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response &p, request_message.payload()) {
+			BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage_Response &p, request_message.payload()) {
 				boost::asio::io_service io_service;
 				boost::shared_ptr<smtp::client::smtp_client> client(new smtp::client::smtp_client(io_service));
 				std::list<std::string> recipients;
@@ -87,16 +88,16 @@ namespace smtp_client {
 			return true;
 		}
 
-		bool exec(client::destination_container sender, client::destination_container target, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
+		bool exec(client::destination_container sender, client::destination_container target, const PB::Commands::ExecuteRequestMessage &request_message, PB::Commands::ExecuteResponseMessage &response_message) {
 			return false;
 		}
 
-		bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) {
+		bool metrics(client::destination_container sender, client::destination_container target, const PB::Metrics::MetricsMessage &request_message) {
 			return false;
 		}
 
 
-		void send(Plugin::SubmitResponseMessage::Response *payload, connection_data con, const std::list<g_data> &data) {
+		void send(PB::Commands::SubmitResponseMessage::Response *payload, connection_data con, const std::list<g_data> &data) {
 			try {
 				boost::asio::io_service io_service;
 				boost::asio::ip::tcp::resolver resolver(io_service);

@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include "filter_config_object.hpp"
 
 namespace process_checks {
@@ -42,6 +42,6 @@ namespace process_checks {
 
 	namespace active {
 
-		void check(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+		void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 	}
 }

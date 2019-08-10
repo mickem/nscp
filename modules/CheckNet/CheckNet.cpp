@@ -36,7 +36,7 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
-void CheckNet::check_ping(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	modern_filter::data_container data;
 	modern_filter::cli_helper<ping_filter::filter> filter_helper(request, response, data);
 	std::vector<std::string> hosts;

@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package PB.Log;
+
+//option optimize_for = CODE_SIZE;
+
+//
+// LogEntry is used to log status information.
+//
+message LogEntry {
+	message Entry {
+		enum Level {
+			DUMMY		= 0;
+			LOG_TRACE	= 1000;
+			LOG_DEBUG	= 500;
+			LOG_INFO 	= 150;
+			LOG_WARNING	=  50;
+			LOG_ERROR	=  10;
+			LOG_CRITICAL	=   1;
+		};
+		Level	level	= 1;
+		string	sender	= 2;
+		string	file	= 3;
+		int32	line	= 4;
+		string	message = 5;
+		int32	date	= 6;
+	};
+
+	repeated Entry entry = 1;
+}
+

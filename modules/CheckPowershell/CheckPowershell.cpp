@@ -33,12 +33,13 @@
 #using <C:\\source\\build\\x64\\dev\\System.Management.Automation.dll>
 
 using namespace System;
-using namespace System::Management::Automation;
+//using namespace System::Management::Automation;
 using namespace System::Management::Automation::Runspaces;
 using namespace System::Collections;
 using namespace System::Collections::Generic;
 using namespace System::Collections::ObjectModel;
-using namespace Plugin;
+using namespace PB::Commands;
+using namespace PB::Common;
 using namespace NSCP::Helpers;
 
 
@@ -47,7 +48,7 @@ CheckPowershell::CheckPowershell() {
 
 }
 
-bool CheckPowershell::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+bool CheckPowershell::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	String ^command_path = "/modules/powershell/commands";
 
 	SettingsHelper^ settings = gcnew SettingsHelper(gcnew CoreImpl(get_core()), get_id());
@@ -66,78 +67,78 @@ bool CheckPowershell::unloadModule() {
 	return true;
 }
 
-Common::Types::ResultCode parse_returnCode(String ^str) {
+ResultCode parse_returnCode(String ^str) {
 	int i = int::Parse(str);
 	if (i == 0) {
-		return Common::Types::ResultCode::OK;
+		return ResultCode::Ok;
 	}
 	if (i == 1) {
-		return Common::Types::ResultCode::WARNING;
+		return ResultCode::Warning;
 	}
 	if (i == 2) {
-		return Common::Types::ResultCode::CRITICAL;
+		return ResultCode::Critical;
 	}
-	return Common::Types::ResultCode::UNKNOWN;
+	return ResultCode::Unknown;
 }
 
 struct perf_builder : public parsers::perfdata::builder {
 
-	gcroot<QueryResponseMessage::Types::Response::Types::Line::Builder^> payload;
-	gcroot<Common::Types::PerformanceData::Builder^> lastPerf = Common::Types::PerformanceData::CreateBuilder();
-	gcroot<Common::Types::PerformanceData::Types::FloatValue::Builder^> lastFloat = Common::Types::PerformanceData::Types::FloatValue::CreateBuilder();
+	gcroot<QueryResponseMessage::Types::Response::Types::Line^> payload;
+	gcroot<PerformanceData^> lastPerf = gcnew PerformanceData();
+	gcroot<PerformanceData::Types::FloatValue^> lastFloat = gcnew PerformanceData::Types::FloatValue();
 
-	perf_builder(QueryResponseMessage::Types::Response::Types::Line::Builder^ payload) : payload(payload) {}
+	perf_builder(QueryResponseMessage::Types::Response::Types::Line^ payload) : payload(payload) {}
 
 
 	void add_string(std::string alias, std::string value) {
-		lastPerf = Common::Types::PerformanceData::CreateBuilder();
+		lastPerf = gcnew PerformanceData();
 		lastPerf->Alias = to_mstring(alias);
-		payload->AddPerf(lastPerf);
+		payload->Perf->Add(lastPerf);
 		lastPerf->Alias = to_mstring(alias);
-		Common::Types::PerformanceData::Types::StringValue::Builder^ b = Common::Types::PerformanceData::Types::StringValue::CreateBuilder();
+		PerformanceData::Types::StringValue^ b = gcnew PerformanceData::Types::StringValue();
 		b->Value = to_mstring(value);
-		lastPerf->SetStringValue(b->Build());
+		lastPerf->StringValue = b;
 	}
 
 	void add(std::string alias) {
-		lastPerf = Common::Types::PerformanceData::CreateBuilder();
-		lastFloat = Common::Types::PerformanceData::Types::FloatValue::CreateBuilder();
+		lastPerf = gcnew PerformanceData();
+		lastFloat = gcnew PerformanceData::Types::FloatValue();
 		lastPerf->Alias = to_mstring(alias);
 	}
-	void set_value(float value) {
+	void set_value(double value) {
 		lastFloat->Value = value;
 	}
-	void set_warning(float value) {
-		lastFloat->Warning = value;
+	void set_warning(double value) {
+		lastFloat->Warning->Value = value;
 	}
-	void set_critical(float value) {
-		lastFloat->Critical = value;
+	void set_critical(double value) {
+		lastFloat->Critical->Value = value;
 	}
-	void set_minimum(float value) {
-		lastFloat->Minimum = value;
+	void set_minimum(double value) {
+		lastFloat->Minimum->Value = value;
 	}
-	void set_maximum(float value) {
-		lastFloat->Maximum = value;
+	void set_maximum(double value) {
+		lastFloat->Maximum->Value = value;
 	}
 	void set_unit(const std::string &value) {
 		lastFloat->Unit = to_mstring(value);
 	}
 	void next() {
-		lastPerf->SetFloatValue(lastFloat->Build());
-		payload->AddPerf(lastPerf->Build());
+		lastPerf->FloatValue = lastFloat;
+		payload->Perf->Add(lastPerf);
 	}
 };
 
-void CheckPowershell::query_fallback(QueryRequestMessage::Types::Request^ request_payload, QueryResponseMessage::Types::Response::Builder^ query_builder, QueryRequestMessage^ request_message) {
-	query_builder->SetResult(Common::Types::ResultCode::UNKNOWN);
+void CheckPowershell::query_fallback(QueryRequestMessage::Types::Request^ request_payload, QueryResponseMessage::Types::Response^ query, QueryRequestMessage^) {
+	query->Result = ResultCode::Unknown;
 	if (!commands->ContainsKey(request_payload->Command)) {
-		QueryResponseMessage::Types::Response::Types::Line::Builder ^line_builder = QueryResponseMessage::Types::Response::Types::Line::CreateBuilder();
-		line_builder->SetMessage("Failed to find command: " + request_payload->Command);
+		QueryResponseMessage::Types::Response::Types::Line ^line_builder = gcnew QueryResponseMessage::Types::Response::Types::Line();
+		line_builder->Message = "Failed to find command: " + request_payload->Command;
 		return;
 	}
 	String ^command = static_cast<Dictionary<String^, String^> ^>(commands)[request_payload->Command];
 
-	PowerShell ^ps = PowerShell::Create();
+	System::Management::Automation::PowerShell ^ps = System::Management::Automation::PowerShell::Create();
 	Runspace ^rs = RunspaceFactory::CreateRunspace();
 	ps->Runspace = rs;
 	ps->Runspace->Open();
@@ -146,29 +147,29 @@ void CheckPowershell::query_fallback(QueryRequestMessage::Types::Request^ reques
 	ps->AddScript(command);
 	ps->AddScript("return $LastExitCode");
 
-	Collection<PSObject^>^ results = ps->Invoke();
+	Collection<System::Management::Automation::PSObject^>^ results = ps->Invoke();
 
-	for each(InformationRecord ^rec in ps->Streams->Information->ReadAll()) {
-		QueryResponseMessage::Types::Response::Types::Line::Builder^ line_builder = QueryResponseMessage::Types::Response::Types::Line::CreateBuilder();
+	for each(System::Management::Automation::InformationRecord ^rec in ps->Streams->Information->ReadAll()) {
+		QueryResponseMessage::Types::Response::Types::Line^ line_builder = gcnew QueryResponseMessage::Types::Response::Types::Line();
 		String ^out = rec->ToString();
 		if (out->Contains("|")) {
 			int index = out->IndexOf("|");
-			line_builder->SetMessage(out->Substring(0, index));
+			line_builder->Message = out->Substring(0, index);
 			boost::shared_ptr<parsers::perfdata::builder> builder = boost::shared_ptr<perf_builder>(new perf_builder(line_builder));
 			parsers::perfdata::parse(builder, to_nstring(out->Substring(index + 1)));
 		} else {
-			line_builder->SetMessage(out);
+			line_builder->Message = out;
 		}
-		query_builder->AddLines(line_builder->Build());
+		query->Lines->Add(line_builder);
 	}
 
-	for each(ErrorRecord ^rec in ps->Streams->Error->ReadAll()) {
+	for each(System::Management::Automation::ErrorRecord ^rec in ps->Streams->Error->ReadAll()) {
 		NSC_LOG_ERROR(to_nstring(rec->ToString()));
 	}
 
 	if (results->Count == 0) {
 		NSC_LOG_ERROR("Failed to extract return code from powershell command");
 	} else {
-		query_builder->SetResult(parse_returnCode(results[0]->ToString()));
+		query->Result = parse_returnCode(results[0]->ToString());
 	}
 }

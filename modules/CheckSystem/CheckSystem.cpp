@@ -134,7 +134,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		// 		load_counters(counters, settings);
 	}
 	collector.reset(new pdh_thread(get_core(), get_id()));
-	sh::settings_registry settings(get_settings_proxy());
+	sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 	settings.set_alias("system", alias, "windows");
 	pdh_checker.counters_.set_path(settings.alias().get_settings_path("counters"));
 
@@ -151,19 +151,19 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			"PDH Counters", "Add counters to check",
 			"COUNTER", "For more configuration options add a dedicated section")
 
-		("real-time/memory", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_mem_filter, collector, get_settings_proxy(), _1, _2)),
+		("real-time/memory", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_mem_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), _1, _2)),
 			"Realtime memory filters", "A set of filters to use in real-time mode",
 			"FILTER", "For more configuration options add a dedicated section")
 
-		("real-time/cpu", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_cpu_filter, collector, get_settings_proxy(), _1, _2)),
+		("real-time/cpu", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_cpu_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), _1, _2)),
 			"Realtime cpu filters", "A set of filters to use in real-time mode",
 			"FILTER", "For more configuration options add a dedicated section")
 
-		("real-time/process", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_proc_filter, collector, get_settings_proxy(), _1, _2)),
+		("real-time/process", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_proc_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), _1, _2)),
 			"Realtime process filters", "A set of filters to use in real-time mode",
 			"FILTER", "For more configuration options add a dedicated section")
 
-		("real-time/checks", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_legacy_filter, collector, get_settings_proxy(), _1, _2)),
+		("real-time/checks", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_legacy_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), _1, _2)),
 			"Legacy generic filters", "A set of filters to use in real-time mode",
 			"FILTER", "For more configuration options add a dedicated section")
 
@@ -201,8 +201,8 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.register_all();
 	settings.notify();
 
-	collector->add_samples(get_settings_proxy());
-	pdh_checker.counters_.add_samples(get_settings_proxy());
+	collector->add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
+	pdh_checker.counters_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
 	if (!pdh_checker.counters_.has_object("disk_queue_length"))
 		add_counter("disk_queue_length", "\\PhysicalDisk($INSTANCE$)\\% Disk Time");
@@ -353,7 +353,7 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 	}
 }
 
-int CheckSystem::commandLineExec(const int target_mode, const std::string &command, const std::list<std::string> &arguments, std::string &result) {
+int CheckSystem::commandLineExec(const int, const std::string &command, const std::list<std::string> &arguments, std::string &result) {
 	if (command == "pdh" || command == "help" || command.empty()) {
 		namespace po = boost::program_options;
 
@@ -426,7 +426,7 @@ int CheckSystem::commandLineExec(const int target_mode, const std::string &comma
 					// If we specify no query we will list all configured counters
 					int count = 0, match = 0;
 					if (counters.empty()) {
-						sh::settings_registry settings(get_settings_proxy());
+						sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 						settings.set_alias("system", "system/windows", "windows");
 						load_counters(counters, settings);
 					}
@@ -518,7 +518,7 @@ int CheckSystem::commandLineExec(const int target_mode, const std::string &comma
 	return NSCAPI::cmd_return_codes::returnIgnored;
 }
 
-void CheckSystem::checkCpu(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::checkCpu(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	boost::program_options::options_description desc;
 
 	std::vector<std::string> times;
@@ -553,7 +553,7 @@ void CheckSystem::checkCpu(Plugin::QueryRequestMessage::Request &request, Plugin
 	check_cpu(request, response);
 }
 
-void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	typedef check_cpu_filter::filter filter_type;
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
@@ -605,7 +605,7 @@ ULONGLONG nscpGetTickCount64() {
 	return pGetTickCount64();
 }
 
-void CheckSystem::checkUptime(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::checkUptime(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	boost::program_options::options_description desc;
 
 	nscapi::program_options::add_help(desc);
@@ -630,7 +630,7 @@ void CheckSystem::checkUptime(Plugin::QueryRequestMessage::Request &request, Plu
 	check_uptime(request, response);
 }
 
-void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::check_uptime(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	typedef check_uptime_filter::filter filter_type;
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
@@ -662,7 +662,7 @@ void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &reque
 	filter_helper.post_process(filter);
 }
 
-void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	typedef os_version_filter::filter filter_type;
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
@@ -695,11 +695,11 @@ void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &r
 
 
 
-void CheckSystem::check_network(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::check_network(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	network_check::check::check_network(request, response, collector->get_network());
 }
 
-void CheckSystem::checkServiceState(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::checkServiceState(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	boost::program_options::options_description desc;
 	std::vector<std::string> excludes;
 
@@ -759,7 +759,7 @@ void CheckSystem::checkServiceState(Plugin::QueryRequestMessage::Request &reques
 	check_service(request, response);
 }
 
-void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::check_service(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	typedef check_svc_filter::filter filter_type;
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
@@ -835,7 +835,7 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 	filter_helper.post_process(filter);
 }
 
-void CheckSystem::check_pagefile(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::check_pagefile(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	typedef check_page_filter::filter filter_type;
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
@@ -863,7 +863,7 @@ void CheckSystem::check_pagefile(const Plugin::QueryRequestMessage::Request &req
 	filter_helper.post_process(filter);
 }
 
-void CheckSystem::checkMem(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::checkMem(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	boost::program_options::options_description desc;
 
 	std::vector<std::string> types;
@@ -908,11 +908,11 @@ void CheckSystem::checkMem(Plugin::QueryRequestMessage::Request &request, Plugin
  * @param &perf String to put performance data in
  * @return The status of the command
  */
-void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::check_memory(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	memory_checks::memory::check(request, response);
 }
 
-void CheckSystem::checkProcState(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::checkProcState(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	boost::program_options::options_description desc;
 	std::vector<std::string> excludes;
 
@@ -977,11 +977,11 @@ void CheckSystem::checkProcState(Plugin::QueryRequestMessage::Request &request, 
 	compat::log_args(request);
 	check_process(request, response);
 }
-void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::check_process(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	process_checks::active::check(request, response);
 }
 
-void CheckSystem::checkCounter(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::checkCounter(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	boost::program_options::options_description desc;
 
 	std::vector<std::string> counters;
@@ -1023,21 +1023,21 @@ void CheckSystem::checkCounter(Plugin::QueryRequestMessage::Request &request, Pl
 	check_pdh(request, response);
 }
 
-void CheckSystem::check_pdh(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::check_pdh(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	pdh_checker.check_pdh(collector, request, response);
 }
 
 void CheckSystem::add_counter(std::string key, std::string query) {
-	pdh_checker.add_counter(get_settings_proxy(), key, query);
+	pdh_checker.add_counter(nscapi::settings_proxy::create(get_id(), get_core()), key, query);
 }
 
 
 class add_visitor : public boost::static_visitor<> {
-	Plugin::Common::MetricsBundle *b;
+	PB::Metrics::MetricsBundle *b;
 	const std::string &key;
 
 public:
-	add_visitor(Plugin::Common::MetricsBundle *b, const std::string &key) : b(b), key(key) {}
+	add_visitor(PB::Metrics::MetricsBundle *b, const std::string &key) : b(b), key(key) {}
 	void operator()(const long long &i) const {
 		using namespace nscapi::metrics;
 		add_metric(b, key, i);
@@ -1052,14 +1052,14 @@ public:
 		add_metric(b, key, d);
 	}
 };
-void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
+void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
 
 	using namespace nscapi::metrics;
 
-	Plugin::Common::MetricsBundle *bundle = response->add_bundles();
+	PB::Metrics::MetricsBundle *bundle = response->add_bundles();
 	bundle->set_key("system");
 	try {
-		Plugin::Common::MetricsBundle *mem = bundle->add_children();
+		PB::Metrics::MetricsBundle *mem = bundle->add_children();
 		mem->set_key("mem");
 		CheckMemory::memData mem_data = memoryChecker.getMemoryStatus();
 		add_metric(mem, "commited.avail", mem_data.commited.avail);
@@ -1083,7 +1083,7 @@ void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 	}
 
 	try {
-		Plugin::Common::MetricsBundle *section = bundle->add_children();
+		PB::Metrics::MetricsBundle *section = bundle->add_children();
 		section->set_key("cpu");
 
 		std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(5);
@@ -1099,7 +1099,7 @@ void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 	}
 
 	try {
-		Plugin::Common::MetricsBundle *section = bundle->add_children();
+		PB::Metrics::MetricsBundle *section = bundle->add_children();
 		section->set_key("uptime");
 		unsigned long long value = nscpGetTickCount64();
 		if (value == 0)
@@ -1119,7 +1119,7 @@ void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 	}
 
 	try {
-		Plugin::Common::MetricsBundle *section = bundle->add_children();
+		PB::Metrics::MetricsBundle *section = bundle->add_children();
 		section->set_key("metrics");
 
 		BOOST_FOREACH(const pdh_thread::metrics_hash::value_type &e, collector->get_metrics()) {
@@ -1134,7 +1134,7 @@ void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 
 	auto net = collector->get_network();
 	if (!net.empty()) {
-		Plugin::Common::MetricsBundle *section = bundle->add_children();
+		PB::Metrics::MetricsBundle *section = bundle->add_children();
 		section->set_key("network");
 		BOOST_FOREACH(const network_check::nics_type::value_type &v, net) {
 			v.build_metrics(section);

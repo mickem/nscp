@@ -25,7 +25,7 @@
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 
 #include <boost/shared_ptr.hpp>
 #include <boost/noncopyable.hpp>
@@ -40,43 +40,29 @@ namespace modern_filter {
 	};
 
 	struct perf_writer : public perf_writer_interface {
-		Plugin::QueryResponseMessage::Response::Line &line;
-		perf_writer(Plugin::QueryResponseMessage::Response::Line &line) : line(line) {}
+		PB::Commands::QueryResponseMessage::Response::Line &line;
+		perf_writer(PB::Commands::QueryResponseMessage::Response::Line &line) : line(line) {}
 		virtual void write(const parsers::where::performance_data &data) {
-			::Plugin::Common::PerformanceData* perf = line.add_perf();
+			PB::Common::PerformanceData* perf = line.add_perf();
 			perf->set_alias(data.alias);
-			if (data.int_value) {
-				const parsers::where::performance_data::perf_value<long long> &value = *data.int_value;
-				Plugin::Common::PerformanceData::IntValue* perfData = perf->mutable_int_value();
+			if (data.float_value) {
+				const parsers::where::performance_data::perf_value &value = *data.float_value;
+				PB::Common::PerformanceData::FloatValue* perfData = perf->mutable_float_value();
 				if (!data.unit.empty())
 					perfData->set_unit(data.unit);
 				perfData->set_value(value.value);
 				if (value.warn)
-					perfData->set_warning(*value.warn);
+					perfData->mutable_warning()->set_value(*value.warn);
 				if (value.crit)
-					perfData->set_critical(*value.crit);
+					perfData->mutable_critical()->set_value(*value.crit);
 				if (value.minimum)
-					perfData->set_minimum(*value.minimum);
+					perfData->mutable_minimum()->set_value(*value.minimum);
 				if (value.maximum)
-					perfData->set_maximum(*value.maximum);
-			} else if (data.float_value) {
-				const parsers::where::performance_data::perf_value<double> &value = *data.float_value;
-				Plugin::Common::PerformanceData::FloatValue* perfData = perf->mutable_float_value();
-				if (!data.unit.empty())
-					perfData->set_unit(data.unit);
-				perfData->set_value(value.value);
-				if (value.warn)
-					perfData->set_warning(*value.warn);
-				if (value.crit)
-					perfData->set_critical(*value.crit);
-				if (value.minimum)
-					perfData->set_minimum(*value.minimum);
-				if (value.maximum)
-					perfData->set_maximum(*value.maximum);
+					perfData->mutable_maximum()->set_value(*value.maximum);
 			} else if (data.string_value) {
-				const parsers::where::performance_data::perf_value<std::string> &value = *data.string_value;
-				Plugin::Common::PerformanceData::StringValue* perfData = perf->mutable_string_value();
-				perfData->set_value(value.value);
+				const std::string value = *data.string_value;
+				PB::Common::PerformanceData::StringValue* perfData = perf->mutable_string_value();
+				perfData->set_value(value);
 			}
 		}
 	};
@@ -85,12 +71,12 @@ namespace modern_filter {
 	struct cli_helper : public  boost::noncopyable {
 		data_container &data;
 		boost::program_options::options_description desc;
-		const Plugin::QueryRequestMessage::Request &request;
-		Plugin::QueryResponseMessage::Response *response;
+		const PB::Commands::QueryRequestMessage::Request &request;
+		PB::Commands::QueryResponseMessage::Response *response;
 		bool show_all;
 		nscapi::program_options::field_map fields;
 
-		cli_helper(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, data_container &data)
+		cli_helper(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, data_container &data)
 			: data(data)
 			, desc("Allowed options for " + request.command())
 			, request(request)
@@ -302,8 +288,8 @@ namespace modern_filter {
 			data.warn_string.erase(std::remove(data.warn_string.begin(), data.warn_string.end(), "none"), data.warn_string.end());
 			data.crit_string.erase(std::remove(data.crit_string.begin(), data.crit_string.end(), "none"), data.crit_string.end());
 
-			if (!filter.build_syntax(data.debug, data.syntax_top, data.syntax_detail, data.syntax_perf, data.perf_config, data.syntax_ok, data.syntax_empty, tmp_msg)) {
-				nscapi::protobuf::functions::set_response_bad(*response, tmp_msg);
+			if (!filter.build_syntax(data.debug, data.syntax_top, data.syntax_detail, data.syntax_perf, data.perf_config, data.syntax_ok, data.syntax_empty)) {
+				nscapi::protobuf::functions::set_response_bad(*response, "Failed to parse syntax");
 				return false;
 			}
 			if (!data.syntax_unique.empty()) {
@@ -364,7 +350,7 @@ namespace modern_filter {
 
 		void post_process(T &filter) {
 			filter.match_post();
-			Plugin::QueryResponseMessage::Response::Line *line = response->add_lines();
+			PB::Commands::QueryResponseMessage::Response::Line *line = response->add_lines();
 			modern_filter::perf_writer writer(*line);
 			std::string msg = filter.get_message();
 			if (data.escape_html) {
@@ -377,13 +363,13 @@ namespace modern_filter {
 			if ((data.empty_state != "ignored") && (!filter.summary.has_matched()))
 				retCode = nscapi::plugin_helper::translateReturn(data.empty_state);
 			if (retCode == NSCAPI::query_return_codes::returnOK) {
-				response->set_result(Plugin::Common_ResultCode_OK);
+				response->set_result(PB::Common::ResultCode::OK);
 			} else if (retCode == NSCAPI::query_return_codes::returnWARN) {
-				response->set_result(Plugin::Common_ResultCode_WARNING);
+				response->set_result(PB::Common::ResultCode::WARNING);
 			} else if (retCode == NSCAPI::query_return_codes::returnCRIT) {
-				response->set_result(Plugin::Common_ResultCode_CRITICAL);
+				response->set_result(PB::Common::ResultCode::CRITICAL);
 			} else {
-				response->set_result(Plugin::Common_ResultCode_UNKNOWN);
+				response->set_result(PB::Common::ResultCode::UNKNOWN);
 			}
 		}
 	};

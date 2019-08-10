@@ -1,246 +1,15 @@
-package Plugin;
+syntax = "proto3";
 
-// option optimize_for = LITE_RUNTIME;
+package PB.Commands;
+
+//option optimize_for = CODE_SIZE;
+
+import "common.proto";
+import "registry.proto";
 
 //
 // Common utility types (re-used in various messages below)
 //
-message Common {
-
-	//
-	// A "Nagios" status result.
-	//
-	enum ResultCode {
-		// An ok status in Nagios
-		OK			= 0;
-		// A warning status in Nagios
-		WARNING		= 1;
-		// A critical status in Nagios
-		CRITICAL	= 2;
-		// Not able to determine status in Nagios
-		UNKNOWN		= 3;
-	};
-
-	//
-	// Type of data fields.
-	// @deprecated in favor of checking which field is available.
-	//
-	enum DataType {
-		// Number (64 bit signed)
-		INT = 1;
-		STRING = 2;
-		FLOAT = 3;
-		BOOL = 4;
-		LIST = 5;
-	};
-
-	//
-	// Data type used to wrap "any" primitive type.
-	// Used whenever the type can change.
-	//
-	message AnyDataType {
-
-		// String payload
-		optional string string_data = 2;
-
-		// Numeric integer payload
-		optional int64 int_data = 3;
-
-		// Numeric floating point payload
-		optional double float_data = 4;
-
-		// Boolean (true/false) payload
-		optional bool bool_data = 5;
-
-		// A string (multiple lines are separated by list entries)
-		repeated string list_data = 6;
-	}
-
-	//
-	// Key value pair
-	//
-	message KeyValue {
-
-		// The key identifying the value
-		required string key = 1;
-
-		// The value
-		required string value = 2;
-	}
-
-
-	//
-	// Field identifying a host entry
-	//
-	message Host {
-
-		// A unique identifier representing the host in *this* message
-		optional string id = 1;
-
-		// The host name
-		optional string host = 2;
-
-		// The address
-		optional string address = 3;
-
-		// The protocol used to talk whit this host.
-		optional string protocol = 4;
-
-		// A comment describing the host
-		optional string comment = 5;
-
-		// A key value store with attributes describing this host.
-		// The content and use of this attributes are application defined.
-		repeated Common.KeyValue metadata = 6;
-
-		// A number of tags defined for this host
-		repeated string tags = 7;
-	};
-
-	//
-	// A common header used in all messages.
-	// Contains basic information about the message.
-	//
-	message Header {
-
-		// Command.
-		// A bundle command when the entire chunk is sent "as-is".
-		optional string command = 1;
-
-		// Source (sending) system.
-		// This is the system which sends the message (me).
-		optional string source_id = 3;
-
-		// Sender is the original source of the message.
-		// This is same as source unless message has been relayed.
-		optional string sender_id = 4;
-
-		// Recipient is the final destination.
-		// This is the same as destination_id unless message is to be relayed.
-		optional string recipient_id = 5;
-
-		// Destination (target) system.
-		// The system which will receive the message next.
-		optional string destination_id = 6;
-
-		// Message identification.
-		// Has no meaning apart from identification.
-		// Set by source system and retained in any processing system.
-		optional string message_id = 16;
-
-		// Meta data related to the message.
-		repeated Common.KeyValue metadata = 8;
-
-		// A list of tags associated with the message.
-		repeated string tags = 9;
-
-		// A list of hosts.
-		// All recipient/destination ids point to objects in this data set.
-		repeated Host hosts = 10;
-	};
-
-	//
-	// How metrics are encoded into check results
-	// Nagios calls this performance data and we inherited the name.
-	//
-	message PerformanceData {
-		//
-		// Numeric performance data
-		//
-		message IntValue {
-			// The value we are tracking
-			required int64 value = 1;
-			// The unit of all the values
-			optional string unit = 2;
-			// The warning threshold (if available)
-			optional int64 warning = 3;
-			// The warning critical (if available)
-			optional int64 critical = 4;
-			// The lowest possible value
-			optional int64 minimum = 6;
-			// The highest possible value
-			optional int64 maximum = 7;
-		}
-		//
-		// Textual performance data
-		//
-		message StringValue {
-			// The value
-			required string value = 1;
-		}
-		//
-		// Floating point performance data
-		//
-		message FloatValue {
-			// The value we are tracking
-			required double value = 1;
-			// The unit of all the values
-			optional string unit = 2;
-			// The warning threshold (if available)
-			optional double warning = 3;
-			// The warning critical (if available)
-			optional double critical = 4;
-			// The lowest possible value
-			optional double minimum = 6;
-			// The highest possible value
-			optional double maximum = 7;
-		}
-		//
-		// Boolean performance data
-		//
-		message BoolValue {
-			// The value we are tracking
-			required bool value = 1;
-			// The unit of all the values
-			optional string unit = 2;
-			// The warning threshold (if available)
-			optional bool warning = 3;
-			// The warning critical (if available)
-			optional bool critical = 4;
-		}
-		// The name of the value
-		required string alias = 1;
-		// If the value is an integer (can be only one)
-		optional IntValue int_value = 3;
-		// If the value is a string (can be only one)
-		optional StringValue string_value = 4;
-		// If the value is a floating point number (can be only one)
-		optional FloatValue float_value = 5;
-		// If the value is a boolean (can be only one)
-		optional BoolValue bool_value = 6;
-	}
-
-	message Metric {
-		required string key = 1;
-		required AnyDataType value = 2;
-
-		optional string alias = 3;
-		optional string desc = 4;
-	}
-
-	message MetricsBundle {
-		required string key = 1;
-		repeated Metric value = 2;
-		repeated MetricsBundle children = 6;
-
-		optional string alias = 3;
-		optional string desc = 4;
-	}
-
-	message Result {
-
-		enum StatusCodeType {
-			STATUS_OK = 0;
-			STATUS_WARNING = 1;
-			STATUS_ERROR = 2;
-			STATUS_DELAYED = 3;
-		};
-
-		required StatusCodeType code = 1;
-		optional string message = 2;
-		optional string data = 3;
-	}
-};
 
 //
 // Query request
@@ -249,14 +18,14 @@ message Common {
 //
 message QueryRequestMessage {
 	message Request {
-		optional int32 id = 1;
-		optional string target = 7;
-		required string command = 2;
-		optional string alias = 3;
+		int32 id = 1;
+		string target = 7;
+		string command = 2;
+		string alias = 3;
 		repeated string arguments = 4;
 	};
 
-	optional Common.Header header = 1;
+	Common.Header header = 1;
 	repeated Request payload = 2;
 }
 
@@ -269,24 +38,24 @@ message QueryResponseMessage {
 
 	message Response {
 		message Line {
-			required string message = 1;
+			string message = 1;
 			repeated Common.PerformanceData perf = 2;
 		}
 
-		optional int32 id = 1;
-		optional string source = 7;
-		optional string command = 2;
-		optional string alias = 3;
+		int32 id = 1;
+		string source = 7;
+		string command = 2;
+		string alias = 3;
 		repeated string arguments = 16;
 
-		required Common.ResultCode result = 4;
+		Common.ResultCode result = 4;
 		repeated Line lines = 9;
 
-		optional bytes data = 5;
+		bytes data = 5;
 
 	}
 
-	optional Common.Header header = 1;
+	Common.Header header = 1;
 	repeated Response payload = 2;
 }
 
@@ -297,25 +66,25 @@ message QueryResponseMessage {
 //
 message ExecuteRequestMessage {
 	message Request {
-		optional int32 id = 1;
-		required string command = 2;
+		int32 id = 1;
+		string command = 2;
 		repeated string arguments = 3;
 	};
 
-	optional Common.Header header = 1;
+	Common.Header header = 1;
 	repeated Request payload = 2;
 }
 message ExecuteResponseMessage {
 	message Response {
-		optional int32 id = 2;
-		required string command = 5;
+		int32 id = 2;
+		string command = 5;
 		repeated string arguments = 16;
 
-		required Common.ResultCode result = 9;
-		required string message = 10;
-		optional bytes data = 7;
+		Common.ResultCode result = 9;
+		string message = 10;
+		bytes data = 7;
 	}
-	optional Common.Header header = 1;
+	Common.Header header = 1;
 	repeated Response payload = 2;
 }
 
@@ -327,8 +96,8 @@ message ExecuteResponseMessage {
 //
 message SubmitRequestMessage {
 	// The header
-	optional Common.Header header = 1;
-	required string channel = 2;
+	Common.Header header = 1;
+	string channel = 2;
 	repeated QueryResponseMessage.Response payload = 3;
 }
 
@@ -339,11 +108,11 @@ message SubmitRequestMessage {
 //
 message SubmitResponseMessage {
 	message Response {
-		optional int32 id = 1;
-		required string command = 2;
-		required Common.Result result = 3;
+		int32 id = 1;
+		string command = 2;
+		Common.Result result = 3;
 	};
-	optional Common.Header header = 1;
+	Common.Header header = 1;
 	repeated Response payload = 2;
 }
 
@@ -354,156 +123,14 @@ message SubmitResponseMessage {
 //
 message EventMessage {
 	message Request {
-		optional string event = 1;
+		string event = 1;
 		repeated string arguments = 2;
 		repeated Common.KeyValue data = 3;
 	};
 
-	optional Common.Header header = 1;
+	Common.Header header = 1;
 	repeated Request payload = 2;
 }
-
-//
-// Registration is an internal message.
-// It is not used to submit checks or query status instead it is used so register modules, plug-ins, command.
-// As well as query for them.
-// The registry is a central component inside NSClient++ and this is the way to interact with the registry.
-//
-message Registry {
-	enum ItemType {
-		QUERY = 1;
-		COMMAND = 2;
-		HANDLER = 3;
-		PLUGIN = 4;
-		QUERY_ALIAS = 5;
-		ROUTER = 6;
-		MODULE = 7;
-		SCHEDULE = 8;
-		EVENT = 9;
-
-		ALL = 99;
-	};
-	message Query {
-		optional string expression = 1;
-	};
-	message Information {
-		optional string title = 1;
-		optional string description = 2;
-
-		repeated Common.KeyValue metadata = 3;
-
-		optional string min_version = 5;
-		optional string max_version = 6;
-
-		optional bool advanced = 8;
-		repeated string plugin = 9;
-	};
-	message KeyWordDescription {
-		required string parameter = 1;
-		optional string context = 2;
-		required string key = 3;
-		optional string short_description = 5;
-		optional string long_description = 6;
-	};
-	message ParameterDetail {
-		optional string name = 1;
-		optional string default_value = 2;
-		optional bool required = 3;
-		optional bool repeatable = 4;
-		optional Common.DataType content_type = 5;
-		optional string short_description = 6;
-		optional string long_description = 7;
-		repeated KeyWordDescription keyword = 8;
-	};
-	message FieldDetail {
-		optional string name = 1;
-		optional string short_description = 2;
-		optional string long_description = 3;
-	};
-	message ParameterDetails {
-		repeated ParameterDetail parameter = 1;
-		repeated FieldDetail fields = 2;
-	}
-
-	message Schedule {
-		optional string id = 1;
-		optional string cron = 2;
-		optional string interval = 3;
-	};
-	enum Command {
-		LOAD	= 1;
-		UNLOAD	= 2;
-		RELOAD	= 3;
-		ENABLE	= 4;
-		DISABLE	= 5;
-	};
-};
-
-message RegistryRequestMessage {
-	message Request {
-		message Registration {
-			optional int32 plugin_id = 1;
-			required Registry.ItemType type = 2;
-			required string name = 3;
-			optional Registry.Information info = 4;
-			optional bool unregister = 5;
-
-			repeated string alias = 9;
-
-			repeated Registry.Schedule schedule = 20;
-		};
-		message Inventory {
-			optional string plugin = 1;
-			repeated Registry.ItemType type = 2;
-			optional string name = 3;
-			//optional Registry.Information info = 4;
-
-			optional bool fetch_all = 6;
-			optional bool fetch_information = 7;
-		};
-		message Control {
-			required Registry.Command command = 1;
-			required Registry.ItemType type = 2;
-			optional string name = 3;
-			optional string alias = 4;
-		};
-		optional int64 id = 1;
-		optional Registration registration = 3;
-		optional Inventory inventory = 4;
-		optional Control control = 5;
-	};
-	optional Common.Header header = 1;
-	repeated Request payload = 2;
-};
-message RegistryResponseMessage {
-	message Response {
-		message Registration {
-			optional int32 item_id = 1;
-		};
-		message Inventory {
-			repeated string plugin = 1;
-			required Registry.ItemType type = 2;
-			required string name = 3;
-			optional string id = 6;
-			optional Registry.Information info = 4;
-			optional Registry.ParameterDetails parameters = 5;
-
-			repeated Registry.Schedule schedule = 20;
-
-		};
-		message Control {
-		};
-		optional int64 id = 1;
-		required Common.Result result = 2;
-
-		optional Registration registration = 3;
-		repeated Inventory inventory = 4;
-		optional Control control = 5;
-	};
-
-	optional Common.Header header = 1;
-	repeated Response payload = 2;
-};
 
 //
 // Schedule Notification commands
@@ -513,249 +140,14 @@ message ScheduleNotificationMessage {
 
 	// A request message of a schule notification
 	message Request {
-		optional int64 id = 1;
-		required int32 plugin_id = 3;
+		int64 id = 1;
+		int32 plugin_id = 3;
 
-		optional Registry.Information info = 4;
+		PB.Registry.Information info = 4;
 
-		optional Registry.Schedule schedule = 20;
+		PB.Registry.Schedule schedule = 20;
 	};
-	optional Common.Header header = 1;
+	Common.Header header = 1;
 	repeated Request payload = 2;
 };
 
-
-//
-// Settings is an internal message.
-// It is not used to submit checks or query status instead it is used to interact with the settings store.
-// The settings is a central component inside NSClient++ and this is the way to interact with it.
-//
-message Settings {
-	message Node {
-		required string path = 1;
-		optional string key = 2;
-		optional string value = 3;
-	};
-	message Information {
-		optional string title = 1;
-		optional string description = 2;
-		optional string icon = 10;
-		optional string default_value = 13;
-		optional bool advanced = 6;
-		optional bool sample = 7;
-		optional bool is_template = 11;
-		optional string sample_usage = 8;
-		repeated string plugin = 9;
-		optional bool subkey = 12;
-	};
-	enum Command {
-		LOAD	= 1;
-		SAVE	= 2;
-		RELOAD	= 3;
-	};
-};
-
-message SettingsRequestMessage {
-	message Request {
-		message Registration {
-			optional Settings.Node node = 1;
-			optional Settings.Information info = 2;
-			optional string fields = 3;
-		};
-		message Query {
-			optional Settings.Node node = 1;
-			optional bool recursive = 2;
-			optional bool include_keys = 6;
-			optional string default_value = 7;
-		};
-		message Update {
-			optional Settings.Node node = 1;
-		};
-		message Inventory {
-			optional string plugin = 11;
-			optional Settings.Node node = 1;
-			optional bool recursive_fetch = 2;
-			optional bool fetch_keys = 3;
-			optional bool fetch_paths = 4;
-			optional bool fetch_samples = 5;
-			optional bool fetch_templates = 7;
-			optional bool descriptions = 6;
-		};
-		message Control {
-			required Settings.Command command = 1;
-			optional string context = 2;
-		};
-		message Status {
-		};
-		optional int64 id = 1;
-		required int32 plugin_id = 3;
-
-		optional Registration registration = 10;
-		optional Query query = 11;
-		optional Update update = 12;
-		optional Inventory inventory = 13;
-		optional Control control = 14;
-		optional Status status = 15;
-	};
-	optional Common.Header header = 1;
-	repeated Request payload = 2;
-};
-message SettingsResponseMessage {
-	message Response {
-		message Registration {
-		};
-		message Query {
-			required Settings.Node node = 1;
-			repeated Settings.Node nodes = 3;
-		};
-		message Update {
-		};
-		message Inventory {
-			required Settings.Node node = 1;
-			required Settings.Information info = 2;
-		};
-		message Control {
-		};
-		message Status {
-			optional string context = 1;
-			optional string type = 2;
-			optional bool has_changed = 3;
-		};
-		optional int64 id = 1;
-		required Common.Result result = 2;
-
-		optional Registration registration = 10;
-		optional Query query = 11;
-		optional Update update = 12;
-		repeated Inventory inventory = 13;
-		optional Control control = 14;
-		optional Status status = 15;
-	};
-
-	optional Common.Header header = 1;
-	repeated Response payload = 2;
-};
-
-
-//
-// LogEntry is used to log status information.
-//
-message LogEntry {
-	message Entry {
-		enum Level {
-			LOG_TRACE	= 1000;
-			LOG_DEBUG	= 500;
-			LOG_INFO 	= 150;
-			LOG_WARNING	=  50;
-			LOG_ERROR	=  10;
-			LOG_CRITICAL	=   1;
-		};
-		required Level	level	= 1;
-		optional string	sender	= 2;
-		optional string	file	= 3;
-		optional int32	line	= 4;
-		optional string	message = 5;
-		optional int32	date	= 6;
-	};
-
-	repeated Entry entry = 1;
-}
-
-
-//
-// Metrics message
-// Used for fetching and sending metrics.
-//
-message MetricsQueryMessage {
-	message Request {
-		optional int64 id = 1;
-		optional string type = 2;
-	};
-
-	optional Common.Header header = 1;
-	repeated Request payload = 2;
-}
-
-//
-// Metrics message
-// Used for fetching and sending metrics.
-//
-message MetricsMessage {
-	message Response {
-		optional int64 id = 1;
-		required Common.Result result = 2;
-
-		repeated Common.MetricsBundle bundles = 3;
-	};
-
-	optional Common.Header header = 1;
-	repeated Response payload = 2;
-}
-
-
-//
-// Storage Structure Disk
-//
-message Storage {
-	message Entry {
-		optional string context = 1;
-		optional string key = 2;
-		optional Common.AnyDataType value = 3;
-		optional bool binary_data = 4;
-		optional bool private_data = 5;
-	};
-	message Block {
-		optional string owner = 1;
-		optional int64 version = 2;
-		optional Storage.Entry entry = 3;
-	};
-	message File {
-		optional int64 version = 1;
-		optional int64 entries = 2;
-	};
-};
-
-//
-// Storeage Request Message 
-// Used to save/load data in the NSClient++ local storage
-//
-message StorageRequestMessage {
-	message Request {
-		message Put {
-			optional Storage.Entry entry = 1;
-		};
-		message Get {
-			optional string context = 1;
-			optional string key = 2;
-		};
-		optional int64 id = 1;
-		optional int32 plugin_id = 2;
-
-		optional Put put = 3;
-		optional Get get = 4;
-	};
-	repeated Request payload = 2;
-};
-//
-// Storeage Response Message 
-// Used to save/load data in the NSClient++ local storage
-//
-message StorageResponseMessage {
-	message Response {
-		message Put {
-			optional string context = 1;
-			optional string key = 2;
-			optional string error = 3;
-		};
-		message Get {
-			repeated Storage.Entry entry = 1;
-		};
-		optional int64 id = 1;
-		optional Common.Result result = 2;
-
-		optional Put put = 3;
-		optional Get get = 4;
-	};
-
-	repeated Response payload = 2;
-};

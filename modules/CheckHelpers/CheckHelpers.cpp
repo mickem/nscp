@@ -39,7 +39,7 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
-void check_simple_status(::Plugin::Common_ResultCode status, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void check_simple_status(PB::Common::ResultCode status, const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	po::options_description desc = nscapi::program_options::create_desc(request);
 	std::string msg;
 	desc.add_options()
@@ -52,36 +52,36 @@ void check_simple_status(::Plugin::Common_ResultCode status, const Plugin::Query
 	response->add_lines()->set_message(msg);
 }
 
-void escalate_result(Plugin::QueryResponseMessage::Response * response, ::Plugin::Common_ResultCode new_result) {
-	::Plugin::Common_ResultCode current = response->result();
+void escalate_result(PB::Commands::QueryResponseMessage::Response * response, PB::Common::ResultCode new_result) {
+	PB::Common::ResultCode current = response->result();
 	if (current == new_result)
 		return;
-	else if (current == Plugin::Common_ResultCode_OK && new_result != Plugin::Common_ResultCode_OK)
+	else if (current == PB::Common::ResultCode::OK && new_result != PB::Common::ResultCode::OK)
 		response->set_result(new_result);
-	else if (new_result == Plugin::Common_ResultCode_OK)
+	else if (new_result == PB::Common::ResultCode::OK)
 		return;
-	else if (current == Plugin::Common_ResultCode_WARNING && new_result != Plugin::Common_ResultCode_WARNING)
+	else if (current == PB::Common::ResultCode::WARNING && new_result != PB::Common::ResultCode::WARNING)
 		response->set_result(new_result);
-	else if (new_result == Plugin::Common_ResultCode_WARNING)
+	else if (new_result == PB::Common::ResultCode::WARNING)
 		return;
-	else if (current == Plugin::Common_ResultCode_CRITICAL && new_result != Plugin::Common_ResultCode_CRITICAL)
+	else if (current == PB::Common::ResultCode::CRITICAL && new_result != PB::Common::ResultCode::CRITICAL)
 		response->set_result(new_result);
-	else if (new_result == Plugin::Common_ResultCode_CRITICAL)
+	else if (new_result == PB::Common::ResultCode::CRITICAL)
 		return;
-	else if (current == Plugin::Common_ResultCode_UNKNOWN && new_result != Plugin::Common_ResultCode_UNKNOWN)
+	else if (current == PB::Common::ResultCode::UNKNOWN && new_result != PB::Common::ResultCode::UNKNOWN)
 		response->set_result(new_result);
 }
 
-void CheckHelpers::check_critical(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
-	check_simple_status(Plugin::Common_ResultCode_CRITICAL, request, response);
+void CheckHelpers::check_critical(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+	check_simple_status(PB::Common::ResultCode::CRITICAL, request, response);
 }
-void CheckHelpers::check_warning(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
-	check_simple_status(Plugin::Common_ResultCode_WARNING, request, response);
+void CheckHelpers::check_warning(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+	check_simple_status(PB::Common::ResultCode::WARNING, request, response);
 }
-void CheckHelpers::check_ok(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
-	check_simple_status(Plugin::Common_ResultCode_OK, request, response);
+void CheckHelpers::check_ok(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+	check_simple_status(PB::Common::ResultCode::OK, request, response);
 }
-void CheckHelpers::check_version(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckHelpers::check_version(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	po::options_description desc = nscapi::program_options::create_desc(request);
 	std::string msg;
 	po::variables_map vm;
@@ -90,14 +90,14 @@ void CheckHelpers::check_version(const Plugin::QueryRequestMessage::Request &req
 	nscapi::protobuf::functions::set_response_good(*response, utf8::cvt<std::string>(get_core()->getApplicationVersionString()));
 }
 
-bool CheckHelpers::simple_query(const std::string &command, const std::vector<std::string> &arguments, Plugin::QueryResponseMessage::Response *response) {
+bool CheckHelpers::simple_query(const std::string &command, const std::vector<std::string> &arguments, PB::Commands::QueryResponseMessage::Response *response) {
 	std::string local_response_buffer;
 	nscapi::core_helper ch(get_core(), get_id());
 	if (ch.simple_query(command, arguments, local_response_buffer) != NSCAPI::api_return_codes::isSuccess) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + command);
 		return false;
 	}
-	Plugin::QueryResponseMessage local_response;
+	PB::Commands::QueryResponseMessage local_response;
 	local_response.ParseFromString(local_response_buffer);
 	if (local_response.payload_size() != 1) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Invalid payload size: " + command);
@@ -107,14 +107,14 @@ bool CheckHelpers::simple_query(const std::string &command, const std::vector<st
 	return true;
 }
 
-bool CheckHelpers::simple_query(const std::string &command, const std::list<std::string> &arguments, Plugin::QueryResponseMessage::Response *response) {
+bool CheckHelpers::simple_query(const std::string &command, const std::list<std::string> &arguments, PB::Commands::QueryResponseMessage::Response *response) {
 	std::string local_response_buffer;
 	nscapi::core_helper ch(get_core(), get_id());
 	if (ch.simple_query(command, arguments, local_response_buffer) != NSCAPI::api_return_codes::isSuccess) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + command);
 		return false;
 	}
-	Plugin::QueryResponseMessage local_response;
+	PB::Commands::QueryResponseMessage local_response;
 	local_response.ParseFromString(local_response_buffer);
 	if (local_response.payload_size() != 1) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Invalid payload size: " + command);
@@ -124,7 +124,7 @@ bool CheckHelpers::simple_query(const std::string &command, const std::list<std:
 	return true;
 }
 
-void CheckHelpers::check_change_status(::Plugin::Common_ResultCode status, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckHelpers::check_change_status(PB::Common::ResultCode status, const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	po::options_description desc = nscapi::program_options::create_desc(request);
 	po::variables_map vm;
 	std::vector<std::string> args;
@@ -134,22 +134,22 @@ void CheckHelpers::check_change_status(::Plugin::Common_ResultCode status, const
 		return nscapi::protobuf::functions::set_response_bad(*response, "Needs at least one command");
 	std::string command = args.front();
 	std::vector<std::string> arguments(args.begin() + 1, args.end());
-	Plugin::QueryResponseMessage::Response local_response;
+	PB::Commands::QueryResponseMessage::Response local_response;
 	if (!simple_query(command, arguments, &local_response))
-		status = ::Plugin::Common_ResultCode_UNKNOWN;
+		status = PB::Common::ResultCode::UNKNOWN;
 	response->CopyFrom(local_response);
 	response->set_result(status);
 }
-void CheckHelpers::check_always_critical(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
-	check_change_status(Plugin::Common_ResultCode_CRITICAL, request, response);
+void CheckHelpers::check_always_critical(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+	check_change_status(PB::Common::ResultCode::CRITICAL, request, response);
 }
-void CheckHelpers::check_always_warning(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
-	check_change_status(Plugin::Common_ResultCode_WARNING, request, response);
+void CheckHelpers::check_always_warning(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+	check_change_status(PB::Common::ResultCode::WARNING, request, response);
 }
-void CheckHelpers::check_always_ok(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
-	check_change_status(Plugin::Common_ResultCode_OK, request, response);
+void CheckHelpers::check_always_ok(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+	check_change_status(PB::Common::ResultCode::OK, request, response);
 }
-void CheckHelpers::check_negate(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckHelpers::check_negate(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	std::string command;
 	std::vector<std::string> arguments;
 	po::options_description desc = nscapi::program_options::create_desc(request);
@@ -167,14 +167,14 @@ void CheckHelpers::check_negate(const Plugin::QueryRequestMessage::Request &requ
 		return;
 	if (command.empty())
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
-	Plugin::QueryResponseMessage::Response local_response;
+	PB::Commands::QueryResponseMessage::Response local_response;
 	if (!simple_query(command, arguments, &local_response))
 		return;
 	response->CopyFrom(local_response);
-	::Plugin::Common_ResultCode new_o = ::Plugin::Common_ResultCode_OK;
-	::Plugin::Common_ResultCode new_w = ::Plugin::Common_ResultCode_WARNING;
-	::Plugin::Common_ResultCode new_c = ::Plugin::Common_ResultCode_CRITICAL;
-	::Plugin::Common_ResultCode new_u = ::Plugin::Common_ResultCode_UNKNOWN;
+	PB::Common::ResultCode new_o = PB::Common::ResultCode::OK;
+	PB::Common::ResultCode new_w = PB::Common::ResultCode::WARNING;
+	PB::Common::ResultCode new_c = PB::Common::ResultCode::CRITICAL;
+	PB::Common::ResultCode new_u = PB::Common::ResultCode::UNKNOWN;
 
 	if (vm.count("ok"))
 		new_o = nscapi::protobuf::functions::parse_nagios(vm["ok"].as<std::string>());
@@ -184,17 +184,17 @@ void CheckHelpers::check_negate(const Plugin::QueryRequestMessage::Request &requ
 		new_c = nscapi::protobuf::functions::parse_nagios(vm["critical"].as<std::string>());
 	if (vm.count("unknown"))
 		new_u = nscapi::protobuf::functions::parse_nagios(vm["unknown"].as<std::string>());
-	if (response->result() == Plugin::Common_ResultCode_OK)
+	if (response->result() == PB::Common::ResultCode::OK)
 		response->set_result(new_o);
-	if (response->result() == Plugin::Common_ResultCode_WARNING)
+	if (response->result() == PB::Common::ResultCode::WARNING)
 		response->set_result(new_w);
-	if (response->result() == Plugin::Common_ResultCode_CRITICAL)
+	if (response->result() == PB::Common::ResultCode::CRITICAL)
 		response->set_result(new_c);
-	if (response->result() == Plugin::Common_ResultCode_UNKNOWN)
+	if (response->result() == PB::Common::ResultCode::UNKNOWN)
 		response->set_result(new_u);
 }
 
-void CheckHelpers::check_multi(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckHelpers::check_multi(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	po::options_description desc = nscapi::program_options::create_desc(request);
 	std::vector<std::string> arguments;
 	std::string separator;
@@ -212,7 +212,7 @@ void CheckHelpers::check_multi(const Plugin::QueryRequestMessage::Request &reque
 		return;
 	if (arguments.size() == 0)
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
-	response->set_result(Plugin::Common_ResultCode_OK);
+	response->set_result(PB::Common::ResultCode::OK);
 	BOOST_FOREACH(std::string command_line, arguments) {
 		std::list<std::string> args;
 		str::utils::parse_command(command_line, args);
@@ -221,13 +221,13 @@ void CheckHelpers::check_multi(const Plugin::QueryRequestMessage::Request &reque
 			return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 		}
 		std::string command = args.front(); args.pop_front();
-		Plugin::QueryResponseMessage::Response local_response;
+		PB::Commands::QueryResponseMessage::Response local_response;
 		if (!simple_query(command, args, &local_response))
 			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute command: " + command);
 		bool first = true;
-		BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response_Line &line, local_response.lines()) {
+		BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage_Response_Line &line, local_response.lines()) {
 			if (first && response->lines_size() > 0) {
-				::Plugin::QueryResponseMessage_Response_Line *nLine = response->add_lines();
+				::PB::Commands::QueryResponseMessage_Response_Line *nLine = response->add_lines();
 				nLine->CopyFrom(line);
 				nLine->set_message(separator + nLine->message());
 				first = false;
@@ -246,7 +246,7 @@ void CheckHelpers::check_multi(const Plugin::QueryRequestMessage::Request &reque
 }
 
 
-void CheckHelpers::check_and_forward(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckHelpers::check_and_forward(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	po::options_description desc = nscapi::program_options::create_desc(request);
 	std::vector<std::string> arguments;
 	std::string target;
@@ -291,7 +291,7 @@ struct worker_object {
 	std::string response_buffer;
 };
 
-void CheckHelpers::check_timeout(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckHelpers::check_timeout(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	std::string command;
 	std::vector<std::string> arguments;
 	unsigned long timeout = 30;
@@ -315,7 +315,7 @@ void CheckHelpers::check_timeout(const Plugin::QueryRequestMessage::Request &req
 		if (obj.ret != NSCAPI::query_return_codes::returnOK) {
 			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + command);
 		}
-		Plugin::QueryResponseMessage local_response;
+		PB::Commands::QueryResponseMessage local_response;
 		local_response.ParseFromString(obj.response_buffer);
 		if (local_response.payload_size() != 1) {
 			return nscapi::protobuf::functions::set_response_bad(*response, "Invalid payload size: " + command);
@@ -330,29 +330,29 @@ void CheckHelpers::check_timeout(const Plugin::QueryRequestMessage::Request &req
 }
 
 struct normal_sort {
-	bool operator() (const ::Plugin::Common::PerformanceData &v1, const ::Plugin::Common::PerformanceData &v2) const {
-		if (!v1.has_int_value())
+	bool operator() (const PB::Common::PerformanceData &v1, const PB::Common::PerformanceData &v2) const {
+		if (!v1.has_float_value())
 			return false;
-		if (!v2.has_int_value())
+		if (!v2.has_float_value())
 			return false;
-		if (v1.int_value().value() > v2.int_value().value())
+		if (v1.float_value().value() > v2.float_value().value())
 			return true;
 		return false;
 	}
 };
 struct reverse_sort {
-	bool operator() (const ::Plugin::Common::PerformanceData &v1, const ::Plugin::Common::PerformanceData &v2) const {
-		if (!v1.has_int_value())
+	bool operator() (const PB::Common::PerformanceData &v1, const PB::Common::PerformanceData &v2) const {
+		if (!v1.has_float_value())
 			return false;
-		if (!v2.has_int_value())
+		if (!v2.has_float_value())
 			return false;
-		if (v1.int_value().value() < v2.int_value().value())
+		if (v1.float_value().value() < v2.float_value().value())
 			return true;
 		return false;
 	}
 };
 
-void CheckHelpers::filter_perf(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckHelpers::filter_perf(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	std::string command, sort;
 	std::size_t limit;
 	std::vector<std::string> arguments;
@@ -372,12 +372,12 @@ void CheckHelpers::filter_perf(const Plugin::QueryRequestMessage::Request &reque
 	if (command.empty())
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 	simple_query(command, arguments, response);
-	std::vector<Plugin::Common::PerformanceData> perfs;
+	std::vector<PB::Common::PerformanceData> perfs;
 
 	std::stringstream ss;
-	BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response_Line &line, response->lines()) {
+	BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage_Response_Line &line, response->lines()) {
 		ss << line.message() << "\n";
-		BOOST_FOREACH(const ::Plugin::Common_PerformanceData &perf, line.perf()) {
+		BOOST_FOREACH(const PB::Common::PerformanceData &perf, line.perf()) {
 			perfs.push_back(perf);
 		}
 	}
@@ -387,11 +387,11 @@ void CheckHelpers::filter_perf(const Plugin::QueryRequestMessage::Request &reque
 	else if (sort == "reverse")
 		std::sort(perfs.begin(), perfs.end(), reverse_sort());
 	response->clear_lines();
-	::Plugin::QueryResponseMessage_Response_Line* line = response->add_lines();
+	::PB::Commands::QueryResponseMessage_Response_Line* line = response->add_lines();
 	line->set_message(ss.str());
 	if (limit > 0 && perfs.size() > limit)
 		perfs.erase(perfs.begin() + limit, perfs.end());
-	BOOST_FOREACH(const ::Plugin::Common::PerformanceData &v, perfs) {
+	BOOST_FOREACH(const PB::Common::PerformanceData &v, perfs) {
 		line->add_perf()->CopyFrom(v);
 	}
 }
@@ -407,63 +407,43 @@ void CheckHelpers::filter_perf(const Plugin::QueryRequestMessage::Request &reque
 
 namespace perf_filter {
 	struct filter_obj {
-		const ::Plugin::Common_PerformanceData& data;
+		const PB::Common::PerformanceData& data;
 
-		filter_obj(const ::Plugin::Common_PerformanceData& data) : data(data) {}
+		filter_obj(const PB::Common::PerformanceData& data) : data(data) {}
 
 		std::string get_key() const {
 			return data.alias();
 		}
 		std::string get_unit() const {
-			if (data.has_bool_value())
-				return data.bool_value().unit();
 			if (data.has_float_value())
 				return data.float_value().unit();
-			if (data.has_int_value())
-				return data.int_value().unit();
 			return "";
 		}
 		std::string get_value() const {
-			if (data.has_bool_value())
-				return str::xtos(data.bool_value().value());
 			if (data.has_float_value())
 				return str::xtos(data.float_value().value());
-			if (data.has_int_value())
-				return str::xtos(data.int_value().value());
 			if (data.has_string_value())
 				return data.string_value().value();
 			return "";
 		}
 		std::string get_warn() const {
-			if (data.has_bool_value())
-				return str::xtos(data.bool_value().warning());
-			if (data.has_float_value())
-				return str::xtos(data.float_value().warning());
-			if (data.has_int_value())
-				return str::xtos(data.int_value().warning());
+			if (data.has_float_value() && data.float_value().has_warning())
+				return str::xtos(data.float_value().warning().value());
 			return "";
 		}
 		std::string get_crit() const {
-			if (data.has_bool_value())
-				return str::xtos(data.bool_value().critical());
-			if (data.has_float_value())
-				return str::xtos(data.float_value().critical());
-			if (data.has_int_value())
-				return str::xtos(data.int_value().critical());
+			if (data.has_float_value() && data.float_value().has_critical())
+				return str::xtos(data.float_value().critical().value());
 			return "";
 		}
 		std::string get_max() const {
-			if (data.has_float_value())
-				return str::xtos(data.float_value().maximum());
-			if (data.has_int_value())
-				return str::xtos(data.int_value().maximum());
+			if (data.has_float_value() && data.float_value().has_maximum())
+				return str::xtos(data.float_value().maximum().value());
 			return "";
 		}
 		std::string get_min() const {
-			if (data.has_float_value())
-				return str::xtos(data.float_value().minimum());
-			if (data.has_int_value())
-				return str::xtos(data.int_value().minimum());
+			if (data.has_float_value() && data.float_value().has_minimum())
+				return str::xtos(data.float_value().minimum().value());
 			return "";
 		}
 	};
@@ -489,7 +469,7 @@ namespace perf_filter {
 	}
 }
 
-void CheckHelpers::render_perf(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckHelpers::render_perf(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	modern_filter::data_container data;
 	modern_filter::cli_helper<perf_filter::filter> filter_helper(request, response, data);
 
@@ -519,8 +499,8 @@ void CheckHelpers::render_perf(const Plugin::QueryRequestMessage::Request &reque
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 	simple_query(command, arguments, response);
 	for (int i = 0; i < response->lines_size(); i++) {
-		::Plugin::QueryResponseMessage_Response_Line* line = response->mutable_lines(i);
-		BOOST_FOREACH(const ::Plugin::Common_PerformanceData &perf, line->perf()) {
+		::PB::Commands::QueryResponseMessage_Response_Line* line = response->mutable_lines(i);
+		BOOST_FOREACH(const PB::Common::PerformanceData &perf, line->perf()) {
 			boost::shared_ptr<perf_filter::filter_obj> record(new perf_filter::filter_obj(perf));
 			filter.match(record);
 		}
@@ -530,7 +510,7 @@ void CheckHelpers::render_perf(const Plugin::QueryRequestMessage::Request &reque
 	filter_helper.post_process(filter);
 }
 
-void CheckHelpers::xform_perf(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckHelpers::xform_perf(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	modern_filter::data_container data;
 
 	std::string command, mode, field, replace;
@@ -563,49 +543,38 @@ void CheckHelpers::xform_perf(const Plugin::QueryRequestMessage::Request &reques
 			return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid syntax replace string", *response);
 
 		for (int i = 0; i < response->lines_size(); i++) {
-			::Plugin::QueryResponseMessage_Response_Line* line = response->mutable_lines(i);
-			std::vector<Plugin::Common::PerformanceData> perf;
-			for (int i = 0; i < line->perf_size(); i++) {
-				const Plugin::Common::PerformanceData &cp = line->perf(i);
-				Plugin::Common::PerformanceData np;
+			::PB::Commands::QueryResponseMessage_Response_Line* line = response->mutable_lines(i);
+			std::vector<PB::Common::PerformanceData> perf;
+			for (int j = 0; j < line->perf_size(); j++) {
+				const PB::Common::PerformanceData &cp = line->perf(j);
+				PB::Common::PerformanceData np;
 				np.CopyFrom(cp);
 				np.set_alias(boost::replace_all_copy(cp.alias(), repl[0], repl[1]));
 				if (field == "max") {
-					if (cp.has_int_value()) {
-						np.mutable_int_value()->set_value(cp.int_value().maximum());
-						perf.push_back(np);
-					} else if (cp.has_float_value()) {
-						np.mutable_float_value()->set_value(cp.float_value().maximum());
+					if (cp.has_float_value()) {
+						np.mutable_float_value()->set_value(cp.float_value().maximum().value());
 						perf.push_back(np);
 					}
 				} else if (field == "min") {
-					if (cp.has_int_value()) {
-						np.mutable_int_value()->set_value(cp.int_value().minimum());
-						perf.push_back(np);
-					} else if (cp.has_float_value()) {
-						np.mutable_float_value()->set_value(cp.float_value().minimum());
+					if (cp.has_float_value()) {
+						np.mutable_float_value()->set_value(cp.float_value().minimum().value());
 						perf.push_back(np);
 					}
 				}
 			}
-			BOOST_FOREACH(const Plugin::Common::PerformanceData &p, perf) {
-				line->add_perf()->CopyFrom(p);
+			BOOST_FOREACH(const PB::Common::PerformanceData &p2, perf) {
+				line->add_perf()->CopyFrom(p2);
 			}
 		}
 	} else if (mode == "minmax") {
 		for (int i = 0; i < response->lines_size(); i++) {
-			::Plugin::QueryResponseMessage_Response_Line* line = response->mutable_lines(i);
-			for (int i=0;i<line->perf_size();i++) {
-				Plugin::Common_PerformanceData *np = line->mutable_perf(i);
-				if (np->has_int_value()) {
-					if (np->int_value().unit() == "%") {
-						np->mutable_int_value()->set_maximum(100);
-						np->mutable_int_value()->set_minimum(0);
-					}
-				} else if (np->has_float_value()) {
+			::PB::Commands::QueryResponseMessage_Response_Line* line = response->mutable_lines(i);
+			for (int index=0;index<line->perf_size();index++) {
+				PB::Common::PerformanceData *np = line->mutable_perf(index);
+				if (np->has_float_value()) {
 					if (np->float_value().unit() == "%") {
-						np->mutable_float_value()->set_maximum(100);
-						np->mutable_float_value()->set_minimum(0);
+						np->mutable_float_value()->mutable_maximum()->set_value(100);
+						np->mutable_float_value()->mutable_minimum()->set_value(0);
 					}
 				}
 			}

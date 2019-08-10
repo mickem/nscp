@@ -62,7 +62,7 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 
 		std::string events;
 
-		sh::settings_registry settings(get_settings_proxy());
+		sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 		settings.set_alias("elastic", alias, "client");
  
 		settings.alias().add_key_to_settings()
@@ -177,7 +177,7 @@ bool ElasticClient::unloadModule() {
 	return true;
 }
 
-void ElasticClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
+void ElasticClient::handleNotification(const std::string &, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage *response_message) {
 // 	client_.do_submit(request_message, *response_message);
 }
 std::string parse_index(std::string index) {
@@ -261,7 +261,7 @@ void send_to_elastic(const std::string address, const std::string index, std::st
 	}
 }
 
-void ElasticClient::onEvent(const Plugin::EventMessage & request, const std::string & buffer) {
+void ElasticClient::onEvent(const PB::Commands::EventMessage & request, const std::string & buffer) {
 	if (!started || address.empty()) {
 		return;
 	}
@@ -269,9 +269,9 @@ void ElasticClient::onEvent(const Plugin::EventMessage & request, const std::str
 	boost::uuids::uuid uuid = boost::uuids::random_generator()();
 
 	std::vector<std::string> payloads;
-	BOOST_FOREACH(const ::Plugin::EventMessage::Request &line, request.payload()) {
+	BOOST_FOREACH(const ::PB::Commands::EventMessage::Request &line, request.payload()) {
 		json_spirit::Object node;
-		BOOST_FOREACH(const ::Plugin::Common::KeyValue e, line.data()) {
+		BOOST_FOREACH(const PB::Common::KeyValue e, line.data()) {
 			if (e.key() == "written_str") {
 				time = e.value();
 			} else if (e.key() != "xml" && e.key() != "written") {
@@ -286,33 +286,30 @@ void ElasticClient::onEvent(const Plugin::EventMessage & request, const std::str
 }
 
 
-void build_metrics(json_spirit::Object &metrics, const std::string trail, const Plugin::Common::MetricsBundle & b) {
+void build_metrics(json_spirit::Object &metrics, const std::string trail, const PB::Metrics::MetricsBundle & b) {
 	json_spirit::Object node;
-	BOOST_FOREACH(const Plugin::Common::MetricsBundle &b2, b.children()) {
+	BOOST_FOREACH(const PB::Metrics::MetricsBundle &b2, b.children()) {
 		build_metrics(node, trail + boost::replace_all_copy(b.alias(), ".", "_"), b2);
 	}
-	BOOST_FOREACH(const Plugin::Common::Metric &v, b.value()) {
-		const ::Plugin::Common_AnyDataType &value = v.value();
+	BOOST_FOREACH(const PB::Metrics::Metric &v, b.value()) {
 		std::string key = trail.empty() ? boost::replace_all_copy(v.key(), ".", "_") 
 			: trail + "_" + boost::replace_all_copy(v.key(), ".", "_");
-		if (value.has_int_data())
-			node.insert(json_spirit::Object::value_type(key, v.value().int_data()));
-		else if (value.has_string_data())
-			node.insert(json_spirit::Object::value_type(key, v.value().string_data()));
-		else if (value.has_float_data())
-			node.insert(json_spirit::Object::value_type(key, v.value().float_data()));
+		if (v.has_float_value())
+			node.insert(json_spirit::Object::value_type(key, v.float_value().value()));
+		else if (v.has_string_value())
+			node.insert(json_spirit::Object::value_type(key, v.string_value().value()));
 	}
 	metrics.insert(json_spirit::Object::value_type(b.key(), node));
 }
-void ElasticClient::submitMetrics(const Plugin::MetricsMessage &response) {
+void ElasticClient::submitMetrics(const PB::Metrics::MetricsMessage &response) {
 	if (!started || address.empty()) {
 		return;
 	}
 	json_spirit::Object metrics;
 	metrics["@timestamp"] = boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::universal_time());
 	metrics["hostname"] = hostname_;
-	BOOST_FOREACH(const Plugin::MetricsMessage::Response &p, response.payload()) {
-		BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, p.bundles()) {
+	BOOST_FOREACH(const PB::Metrics::MetricsMessage::Response &p, response.payload()) {
+		BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, p.bundles()) {
 			build_metrics(metrics, "", b);
 		}
 	}
@@ -323,7 +320,7 @@ void ElasticClient::submitMetrics(const Plugin::MetricsMessage &response) {
 
 }
 
-void ElasticClient::handleLogMessage(const Plugin::LogEntry::Entry &message) {
+void ElasticClient::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
 	if (!started || address.empty()) {
 		return;
 	}

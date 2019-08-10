@@ -34,5 +34,5 @@ public:
 
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
-	void query_fallback(Plugin::QueryRequestMessage::Types::Request^ request_payload, Plugin::QueryResponseMessage::Types::Response::Builder^ query_builder, Plugin::QueryRequestMessage^ request_message);
+	void query_fallback(PB::Commands::QueryRequestMessage::Types::Request^ request_payload, PB::Commands::QueryResponseMessage::Types::Response^ query, PB::Commands::QueryRequestMessage^ request_message);
 };

@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_metrics.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_targets.hpp>
 
@@ -42,7 +42,7 @@ public:
 	// Module calls
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
-	void submitMetrics(const Plugin::MetricsMessage &response);
+	void submitMetrics(const PB::Metrics::MetricsMessage &response);
 
 private:
 

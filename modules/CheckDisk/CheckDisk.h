@@ -17,7 +17,7 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 
 class CheckDisk : public nscapi::impl::simple_plugin {
@@ -32,9 +32,9 @@ public:
 	// Check commands
 	NSCAPI::nagiosReturn check_filesize(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
 	NSCAPI::nagiosReturn check_files(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
-	void check_files(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
-	void check_drivesize(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_files(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+	void check_drivesize(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
-	void checkDriveSize(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
-	void checkFiles(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void checkDriveSize(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+	void checkFiles(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 };

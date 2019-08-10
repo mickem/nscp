@@ -27,7 +27,9 @@
 
 #include <client/simple_client.hpp>
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <nscapi/nscapi_protobuf_log.hpp>
 #include <nscapi/plugin.hpp>
 
 #include <boost/shared_ptr.hpp>
@@ -45,13 +47,13 @@ public:
 	void ensure_user(nscapi::settings_helper::settings_registry &settings, std::string path, std::string user, std::string role, std::string value, std::string reason);
 
 	bool unloadModule();
-	void handleLogMessage(const Plugin::LogEntry::Entry &message);
-	bool commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
-	void submitMetrics(const Plugin::MetricsMessage &response);
-	bool install_server(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
-	bool cli_add_user(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
-	bool cli_add_role(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
-	bool password(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
+	void handleLogMessage(const PB::Log::LogEntry::Entry &message);
+	bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
+	void submitMetrics(const PB::Metrics::MetricsMessage &response);
+	bool install_server(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
+	bool cli_add_user(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
+	bool cli_add_role(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
+	bool password(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
 private:
 
 	void add_user(std::string key, std::string arg);

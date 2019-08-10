@@ -19,7 +19,8 @@
 
 #include "CommandClient.h"
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_log.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -75,7 +76,7 @@ bool CommandClient::unloadModule() {
 	return true;
 }
 
-void CommandClient::handleLogMessage(const Plugin::LogEntry::Entry &message) {
+void CommandClient::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
 	/*
 	using namespace boost::posix_time;
 	using namespace boost::gregorian;
@@ -87,25 +88,25 @@ void CommandClient::handleLogMessage(const Plugin::LogEntry::Entry &message) {
 	entry.date = to_simple_string(second_clock::local_time());
 
 	switch (message.level()) {
-	case Plugin::LogEntry_Entry_Level_LOG_CRITICAL:
+	case PB::Log::LogEntry_Entry_Level_LOG_CRITICAL:
 		entry.type = "critical";
 		break;
-	case Plugin::LogEntry_Entry_Level_LOG_DEBUG:
+	case PB::Log::LogEntry_Entry_Level_LOG_DEBUG:
 		entry.type = "debug";
 		break;
-	case Plugin::LogEntry_Entry_Level_LOG_ERROR:
+	case PB::Log::LogEntry_Entry_Level_LOG_ERROR:
 		entry.type = "error";
 		break;
-	case Plugin::LogEntry_Entry_Level_LOG_INFO:
+	case PB::Log::LogEntry_Entry_Level_LOG_INFO:
 		entry.type = "info";
 		break;
-	case Plugin::LogEntry_Entry_Level_LOG_WARNING:
+	case PB::Log::LogEntry_Entry_Level_LOG_WARNING:
 		entry.type = "warning";
 		break;
 	default:
 		entry.type = "unknown";
 	}
-	log_data.add_message(message.level() == Plugin::LogEntry_Entry_Level_LOG_CRITICAL || message.level() == Plugin::LogEntry_Entry_Level_LOG_ERROR, entry);
+	log_data.add_message(message.level() == PB::Log::LogEntry_Entry_Level_LOG_CRITICAL || message.level() == PB::Log::LogEntry_Entry_Level_LOG_ERROR, entry);
 	*/
 }
 bool is_running = false;
@@ -122,7 +123,7 @@ BOOL WINAPI consoleHandler(DWORD signal) {
 #endif
 
 
-bool CommandClient::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+bool CommandClient::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message) {
 
 #ifdef WIN32
 	if (!SetConsoleCtrlHandler(consoleHandler, TRUE)) {
@@ -148,6 +149,6 @@ bool CommandClient::commandLineExec(const int target_mode, const Plugin::Execute
 }
 
 
-void CommandClient::submitMetrics(const Plugin::MetricsMessage &response) {
+void CommandClient::submitMetrics(const PB::Metrics::MetricsMessage &response) {
 	client->push_metrics(response);
 }

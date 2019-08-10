@@ -1,6 +1,6 @@
 #include "legacy_command_controller.hpp"
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 
 #include <boost/foreach.hpp>
 #include <boost/algorithm/string.hpp>
@@ -14,8 +14,8 @@ void legacy_command_controller::handle_query(std::string obj, Mongoose::Request 
   if (!session->is_loggedin("legacy", request, response))
     return;
 
-  Plugin::QueryRequestMessage rm;
-  Plugin::QueryRequestMessage::Request *payload = rm.add_payload();
+  PB::Commands::QueryRequestMessage rm;
+  PB::Commands::QueryRequestMessage::Request *payload = rm.add_payload();
 
   payload->set_command(obj);
   Mongoose::Request::arg_vector args = request.getVariablesVector();
@@ -41,8 +41,8 @@ void legacy_command_controller::handle_exec(std::string obj, Mongoose::Request &
     return;
   std::string target = obj.substr(0, pos);
   std::string cmd = obj.substr(pos + 1);
-  Plugin::ExecuteRequestMessage rm;
-  Plugin::ExecuteRequestMessage::Request *payload = rm.add_payload();
+  PB::Commands::ExecuteRequestMessage rm;
+  PB::Commands::ExecuteRequestMessage::Request *payload = rm.add_payload();
 
   payload->set_command(cmd);
   Mongoose::Request::arg_vector args = request.getVariablesVector();
@@ -73,6 +73,6 @@ Mongoose::Response* legacy_command_controller::handleRequest(Mongoose::Request &
   }
   return response;
 }
-bool legacy_command_controller::handles(string method, string url) {
+bool legacy_command_controller::handles(std::string method, std::string url) {
   return boost::algorithm::starts_with(url, "/query/") || boost::algorithm::starts_with(url, "/exec/");
 }

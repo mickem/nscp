@@ -145,7 +145,7 @@ private:
 	void reloadPlugins();
 	void unloadPlugins();
 
-	Plugin::Common::MetricsBundle ownMetricsFetcher();
+	PB::Metrics::MetricsBundle ownMetricsFetcher();
 
 
 };

@@ -26,7 +26,7 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_common_options.hpp>
 
 #include <str/utils.hpp>
@@ -160,13 +160,13 @@ void log_bad_command(const std::string &cmd) {
 	}
 }
 
-inline std::string extract_perf_value(const ::Plugin::Common_PerformanceData &perf) {
+inline std::string extract_perf_value(const PB::Common::PerformanceData &perf) {
 	return nscapi::protobuf::functions::extract_perf_value_as_string(perf);
 }
-inline std::string extract_perf_total(const ::Plugin::Common_PerformanceData &perf) {
+inline std::string extract_perf_total(const PB::Common::PerformanceData &perf) {
 	return nscapi::protobuf::functions::extract_perf_maximum_as_string(perf);
 }
-inline long long extract_perf_value_i(const ::Plugin::Common_PerformanceData &perf) {
+inline long long extract_perf_value_i(const PB::Common::PerformanceData &perf) {
 	return nscapi::protobuf::functions::extract_perf_value_as_int(perf);
 }
 
@@ -305,16 +305,16 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 		return check_nt::packet("ERROR: Could not complete the request check log file for more information.");
 	}
 
-	::Plugin::QueryResponseMessage message;
+	::PB::Commands::QueryResponseMessage message;
 	if (!message.ParseFromString(response))
 		return check_nt::packet("ERROR: Failed to parse data from: " + cmd.first);
 	if (message.payload_size() != 1)
 		return check_nt::packet("ERROR: Command returned invalid number of payloads: " + cmd.first + ", " + str::xtos(message.payload_size()));
-	const ::Plugin::QueryResponseMessage::Response &payload = message.payload(0);
+	const ::PB::Commands::QueryResponseMessage::Response &payload = message.payload(0);
 	if (payload.lines_size() != 1) {
 		return check_nt::packet("ERROR: Invalid number of lines returned from command: " + cmd.first + ", " + str::xtos(payload.lines_size()));
 	}
-	const ::Plugin::QueryResponseMessage::Response::Line &line = payload.lines(0);
+	const ::PB::Commands::QueryResponseMessage::Response::Line &line = payload.lines(0);
 
 	switch (c) {
 	case REQ_CPULOAD:		// Return the first performance data value

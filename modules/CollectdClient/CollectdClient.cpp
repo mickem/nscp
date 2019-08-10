@@ -47,7 +47,7 @@ CollectdClient::~CollectdClient() {}
 
 bool CollectdClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	try {
-		sh::settings_registry settings(get_settings_proxy());
+		sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 		settings.set_alias("collectd", alias, "client");
 		std::string target_path = settings.alias().get_settings_path("targets");
 
@@ -77,7 +77,7 @@ bool CollectdClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.register_all();
 		settings.notify();
 
-		client_.finalize(get_settings_proxy());
+		client_.finalize(nscapi::settings_proxy::create(get_id(), get_core()));
 
 		nscapi::core_helper core(get_core(), get_id());
 
@@ -139,7 +139,7 @@ bool CollectdClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 void CollectdClient::add_target(std::string key, std::string arg) {
 	try {
-		client_.add_target(get_settings_proxy(), key, arg);
+		client_.add_target(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
 	} catch (...) {
@@ -159,6 +159,6 @@ bool CollectdClient::unloadModule() {
 
 
 
-void CollectdClient::submitMetrics(const Plugin::MetricsMessage &response) {
+void CollectdClient::submitMetrics(const PB::Metrics::MetricsMessage &response) {
 	client_.do_metrics(response);
 }

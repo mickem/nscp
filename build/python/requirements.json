@@ -59,31 +59,38 @@
 	},
 	"protobuf": {
 		"source": {
-			"url": "https://github.com/google/protobuf/releases/download/v2.6.1/protobuf-2.6.1.tar.gz",
-			"hash": "375765455ad49e45e4e10364f91aaf2831d3e905"
+			"url": "https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protobuf-all-3.6.1.zip",
+			"hash": "44b8ba225f3b4dc45fb56d5881ec6a91329802b6",
+			"folder": "protobuf-3.6.1"
 		},
 		"tasks": {
-			"pre-static" : [
-				"python.exe {{source.folder}}/build/python/msdev-to-static.py"
+			"mk-build-folder": [
+				"mkdir cmake\\solution"
 			],
-			"pre-x64": [
-				"python.exe {{source.folder}}/build/python/msdev-to-x64.py"
+			"pre-x64-static": [
+				"cd cmake\\solution & cmake -G \"{{version.cmake}} Win64\" .."
 			],
-			"pre": [
-				"python.exe {{source.folder}}/build/python/msdev-to-x.py {{version.msvc}}"
+			"pre-w32-static": [
+				"cd cmake\\solution & cmake -G \"{{version.cmake}}\" .."
+			],
+			"pre-x64-dynamic": [
+				"cd cmake\\solution & cmake -DBUILD_SHARED_LIBS=TRUE -G \"{{version.cmake}} Win64\" .."
+			],
+			"pre-w32-dynamic": [
+				"cd cmake\\solution & cmake -DBUILD_SHARED_LIBS=TRUE -G \"{{version.cmake}}\" .."
 			],
 			"build": [
-				"msbuild vsprojects\\libprotobuf.vcxproj /p:Configuration=Release /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS",
-				"msbuild vsprojects\\libprotobuf.vcxproj /p:Configuration=Debug /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS",
-				"msbuild vsprojects\\libprotoc.vcxproj /p:Configuration=Release /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS",
-				"msbuild vsprojects\\libprotoc.vcxproj /p:Configuration=Debug /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS",
-				"msbuild vsprojects\\protoc.vcxproj /p:Configuration=Release /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS",
-				"msbuild vsprojects\\protoc.vcxproj /p:Configuration=Debug /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS",
-				"msbuild vsprojects\\libprotobuf-lite.vcxproj /p:Configuration=Release /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS",
-				"msbuild vsprojects\\libprotobuf-lite.vcxproj /p:Configuration=Debug /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS"
+				"msbuild cmake\\solution\\libprotobuf.vcxproj /p:Configuration=Release",
+				"msbuild cmake\\solution\\libprotobuf.vcxproj /p:Configuration=Debug",
+				"msbuild cmake\\solution\\libprotoc.vcxproj /p:Configuration=Release",
+				"msbuild cmake\\solution\\libprotoc.vcxproj /p:Configuration=Debug",
+				"msbuild cmake\\solution\\protoc.vcxproj /p:Configuration=Release",
+				"msbuild cmake\\solution\\protoc.vcxproj /p:Configuration=Debug",
+				"msbuild cmake\\solution\\libprotobuf-lite.vcxproj /p:Configuration=Release",
+				"msbuild cmake\\solution\\libprotobuf-lite.vcxproj /p:Configuration=Debug"
 			]
 		},
-		"build": ["fetch", "pre", "build"]
+		"build": ["fetch", "mk-build-folder", "pre", "build"]
 	},
 	"breakpad": {
 		"tasks": {

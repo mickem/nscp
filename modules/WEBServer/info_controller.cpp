@@ -1,9 +1,6 @@
 #include "info_controller.hpp"
 #include "helpers.hpp"
 
-#include <nscapi/nscapi_protobuf.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-
 #include <json_spirit.h>
 
 #include <boost/algorithm/string.hpp>

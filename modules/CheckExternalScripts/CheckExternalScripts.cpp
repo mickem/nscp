@@ -27,7 +27,7 @@
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 
 #include <config.h>
 #include <str/utils.hpp>
@@ -37,6 +37,7 @@
 #include <boost/regex.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/foreach.hpp>
+#include <boost/bind/bind.hpp>
 
 namespace sh = nscapi::settings_helper;
 
@@ -86,7 +87,7 @@ void CheckExternalScripts::addAllScriptsFrom(std::string str_path) {
 
 bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	try {
-		sh::settings_registry settings(get_settings_proxy());
+		sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 		settings.set_alias(alias, "external scripts");
 
 		aliases_.set_path(settings.alias().get_settings_path("alias"));
@@ -228,8 +229,8 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 			addAllScriptsFrom(scriptDirectory);
 		}
 
-		aliases_.add_samples(get_settings_proxy());
-		aliases_.add_missing(get_settings_proxy(), "default", "");
+		aliases_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
+		aliases_.add_missing(nscapi::settings_proxy::create(get_id(), get_core()), "default", "");
 
 		root_ = get_base_path();
 
@@ -248,7 +249,7 @@ bool CheckExternalScripts::unloadModule() {
 	return true;
 }
 
-bool CheckExternalScripts::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+bool CheckExternalScripts::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &) {
 	std::string command = request.command();
 	if (command == "ext-scr" && request.arguments_size() > 0)
 		command = request.arguments(0);
@@ -302,7 +303,7 @@ void CheckExternalScripts::add_command(std::string key, std::string arg) {
 }
 void CheckExternalScripts::add_alias(std::string key, std::string arg) {
 	try {
-		aliases_.add(get_settings_proxy(), key, arg);
+		aliases_.add(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add: " + key, e);
 	} catch (...) {
@@ -319,7 +320,7 @@ void CheckExternalScripts::add_wrapping(std::string key, std::string command) {
 	add_command(key, provider_->generate_wrapped_command(command));
 }
 
-void CheckExternalScripts::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &) {
+void CheckExternalScripts::query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, const PB::Commands::QueryRequestMessage &) {
 	if (!provider_) {
 		NSC_LOG_ERROR_STD("No provider found: " + request.command());
 		nscapi::protobuf::functions::set_response_bad(*response, "No command or alias found matching: " + request.command());
@@ -344,7 +345,7 @@ void CheckExternalScripts::query_fallback(const Plugin::QueryRequestMessage::Req
 	nscapi::protobuf::functions::set_response_bad(*response, "No command or alias found matching: " + request.command());
 }
 
-void CheckExternalScripts::handle_command(const commands::command_object &cd, const std::list<std::string> &args, Plugin::QueryResponseMessage::Response *response) {
+void CheckExternalScripts::handle_command(const commands::command_object &cd, const std::list<std::string> &args, PB::Commands::QueryResponseMessage::Response *response) {
 	std::string cmdline = cd.command;
 	std::string all, allesc;
 	if (allowArgs_) {
@@ -414,7 +415,7 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 	if (!arg.ignore_perf) {
 		pos = output.find('|');
 		if (pos != std::string::npos) {
-			::Plugin::QueryResponseMessage_Response_Line* line = response->add_lines();
+			::PB::Commands::QueryResponseMessage_Response_Line* line = response->add_lines();
 			line->set_message(output.substr(0, pos));
 			nscapi::protobuf::functions::parse_performance_data(line, output.substr(pos + 1));
 		} else {
@@ -427,7 +428,7 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 	response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(result));
 }
 
-void CheckExternalScripts::handle_alias(const alias::command_object &cd, const std::list<std::string> &src_args, Plugin::QueryResponseMessage::Response *response) {
+void CheckExternalScripts::handle_alias(const alias::command_object &cd, const std::list<std::string> &src_args, PB::Commands::QueryResponseMessage::Response *response) {
 	std::list<std::string> args = cd.arguments;
 	bool missing_args = false;
 	BOOST_FOREACH(const std::string &s, src_args) {
@@ -475,7 +476,7 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + cd.get_alias());
 		return;
 	}
-	Plugin::QueryResponseMessage tmp;
+	PB::Commands::QueryResponseMessage tmp;
 	tmp.ParseFromString(buffer);
 	if (tmp.payload_size() != 1) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Invalid response from command: " + cd.get_alias());

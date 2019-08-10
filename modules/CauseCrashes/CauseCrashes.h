@@ -19,10 +19,10 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 
 class CauseCrashes : public nscapi::impl::simple_plugin {
 public:
-	void crash_client(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void crash_client(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 };

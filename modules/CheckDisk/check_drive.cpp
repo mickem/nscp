@@ -746,7 +746,7 @@ std::list<drive_container> find_drives(std::vector<std::string> drives) {
 }
 void add_custom_options(po::options_description desc) {}
 
-void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void check_drive::check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 	std::vector<std::string> drives, excludes;

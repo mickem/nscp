@@ -20,7 +20,7 @@
 #pragma once
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 
 #include <str/utils.hpp>
 #include <utf8.hpp>
@@ -101,7 +101,7 @@ namespace nscapi {
 		public:
 
 
-			std::vector<std::basic_string<char> >make_vector(const Plugin::QueryRequestMessage::Request &request)
+			std::vector<std::basic_string<char> >make_vector(const PB::Commands::QueryRequestMessage::Request &request)
 			{
 				std::vector<std::basic_string<char> > result;
 				for (int i=0;i<request.arguments_size();i++) {
@@ -109,7 +109,7 @@ namespace nscapi {
 				}
 				return result;
 			}
-			std::vector<std::basic_string<char> >make_vector(const Plugin::ExecuteRequestMessage::Request &request)
+			std::vector<std::basic_string<char> >make_vector(const PB::Commands::ExecuteRequestMessage::Request &request)
 			{
 				std::vector<std::basic_string<char> > result;
 				for (int i=0;i<request.arguments_size();i++) {
@@ -123,10 +123,10 @@ namespace nscapi {
 				str::utils::parse_command(arguments, result);
 				return result;
 			}
-			basic_command_line_parser(const Plugin::QueryRequestMessage::Request &request) 
+			basic_command_line_parser(const PB::Commands::QueryRequestMessage::Request &request) 
 				: po::basic_command_line_parser<char>(make_vector(request))
 			{}
-			basic_command_line_parser(const Plugin::ExecuteRequestMessage::Request &request) 
+			basic_command_line_parser(const PB::Commands::ExecuteRequestMessage::Request &request) 
 				: po::basic_command_line_parser<char>(make_vector(request))
 			{}
 			basic_command_line_parser(const std::string &arguments) 
@@ -150,10 +150,10 @@ namespace nscapi {
 			add_help(desc);
 			return desc;
 		}
-		inline po::options_description create_desc(const Plugin::QueryRequestMessage::Request &request) {
+		inline po::options_description create_desc(const PB::Commands::QueryRequestMessage::Request &request) {
 			return create_desc(request.command());
 		}
-		inline po::options_description create_desc(const Plugin::ExecuteRequestMessage::Request &request) {
+		inline po::options_description create_desc(const PB::Commands::ExecuteRequestMessage::Request &request) {
 			return create_desc(request.command());
 		}
 
@@ -458,16 +458,16 @@ namespace nscapi {
 
 
 		inline std::string help_pb(const po::options_description &desc, const field_map &fields) {
-			::Plugin::Registry::ParameterDetails details;
+			::PB::Registry::ParameterDetails details;
 			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
-				::Plugin::Registry::ParameterDetail *detail = details.add_parameter();
+				::PB::Registry::ParameterDetail *detail = details.add_parameter();
 				detail->set_name(op->long_name());
 				bool hasargs = op->semantic()->max_tokens() != 0;
 				if (hasargs) {
-					detail->set_content_type(Plugin::Common::STRING);
+					detail->set_content_type(PB::Common::STRING);
 					detail->set_default_value(strip_default_value(op->format_parameter()));
 				} else
-					detail->set_content_type(Plugin::Common::BOOL);
+					detail->set_content_type(PB::Common::BOOL);
 				std::string ldesc =op->description();
 				std::string::size_type pos = ldesc.find("\n");
 				if (pos == std::string::npos)
@@ -477,7 +477,7 @@ namespace nscapi {
 				detail->set_long_description(ldesc);
 			}
 			BOOST_FOREACH(const field_map::value_type &v, fields) {
-				::Plugin::Registry::FieldDetail *field= details.add_fields();
+				::PB::Registry::FieldDetail *field= details.add_fields();
 				field->set_name(v.first);
 				field->set_long_description(v.second);
 			}

@@ -27,6 +27,7 @@
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_metrics.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/macros.hpp>
 
@@ -55,7 +56,7 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 	try {
 		root_ = get_base_path();
 
-		sh::settings_registry settings(get_settings_proxy());
+		sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 		settings.set_alias(alias, "python");
 
 		provider_.reset(new script_provider(get_id(), get_core(), settings.alias().get_path(), root_));
@@ -110,7 +111,7 @@ bool PythonScript::unloadModule() {
 	return true;
 }
 
-bool PythonScript::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+bool PythonScript::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message) {
 	std::string command = request.command();
 	if (command == "ext-scr" && request.arguments_size() > 0)
 		command = request.arguments(0);
@@ -141,7 +142,7 @@ bool PythonScript::commandLineExec(const int target_mode, const Plugin::ExecuteR
 	if (inst->has_cmdline(request.command())) {
 		std::string buffer;
 		inst->handle_exec(request.command(), request_message.SerializeAsString(), buffer);
-		Plugin::ExecuteResponseMessage local_response;
+		PB::Commands::ExecuteResponseMessage local_response;
 		local_response.ParseFromString(buffer);
 		if (local_response.payload_size() != 1) {
 			nscapi::protobuf::functions::set_response_bad(*response, "Invalid response: " + request.command());
@@ -162,7 +163,7 @@ bool PythonScript::commandLineExec(const int target_mode, const Plugin::ExecuteR
 	return false;
 }
 
-void PythonScript::execute_script(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+void PythonScript::execute_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::options_description desc = nscapi::program_options::create_desc(request);
@@ -212,14 +213,14 @@ void PythonScript::execute_script(const Plugin::ExecuteRequestMessage::Request &
 }
 
 
-void PythonScript::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
+void PythonScript::query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, const PB::Commands::QueryRequestMessage &request_message) {
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
 	if (inst->has_function(request.command())) {
 		std::string buffer;
 		if (inst->handle_query(request.command(), request_message.SerializeAsString(), buffer) != NSCAPI::query_return_codes::returnOK) {
 			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute script " + request.command());
 		}
-		Plugin::QueryResponseMessage local_response;
+		PB::Commands::QueryResponseMessage local_response;
 		local_response.ParseFromString(buffer);
 		if (local_response.payload_size() != 1)
 			return nscapi::protobuf::functions::set_response_bad(*response, "Invalid response: " + request.command());
@@ -231,19 +232,19 @@ void PythonScript::query_fallback(const Plugin::QueryRequestMessage::Request &re
 			args.push_back(request.arguments(i));
 		std::string msg, perf;
 		NSCAPI::nagiosReturn ret = inst->handle_simple_query(request.command(), args, msg, perf);
-		::Plugin::QueryResponseMessage_Response_Line *line = response->add_lines();
+		::PB::Commands::QueryResponseMessage_Response_Line *line = response->add_lines();
 		nscapi::protobuf::functions::parse_performance_data(line, perf);
 		line->set_message(msg);
 		response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(ret));
 	}
 }
 
-void PythonScript::handleNotification(const std::string &channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message) {
+void PythonScript::handleNotification(const std::string &channel, const PB::Commands::QueryResponseMessage::Response &request, PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message) {
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
 	if (inst->has_message_handler(channel)) {
 		std::string buffer;
 		if (inst->handle_message(channel, request_message.SerializeAsString(), buffer) == NSCAPI::api_return_codes::isSuccess) {
-			Plugin::SubmitResponseMessage local_response;
+			PB::Commands::SubmitResponseMessage local_response;
 			local_response.ParseFromString(buffer);
 			if (local_response.payload_size() == 1) {
 				response->CopyFrom(local_response.payload(0));
@@ -252,7 +253,7 @@ void PythonScript::handleNotification(const std::string &channel, const Plugin::
 		}
 	}
 	if (inst->has_simple_message_handler(channel)) {
-		BOOST_FOREACH(::Plugin::QueryResponseMessage_Response_Line line, request.lines()) {
+		BOOST_FOREACH(::PB::Commands::QueryResponseMessage_Response_Line line, request.lines()) {
 			std::string perf = nscapi::protobuf::functions::build_performance_data(line, nscapi::protobuf::functions::no_truncation);
 			if (inst->handle_simple_message(channel, request.source(), request.command(), request.result(), line.message(), perf) != NSCAPI::api_return_codes::isSuccess)
 				return nscapi::protobuf::functions::set_response_bad(*response, "Invalid response: " + channel);
@@ -262,15 +263,15 @@ void PythonScript::handleNotification(const std::string &channel, const Plugin::
 	return nscapi::protobuf::functions::set_response_bad(*response, "Unable to process message: " + channel);
 }
 
-void PythonScript::onEvent(const Plugin::EventMessage &request, const std::string &buffer) {
+void PythonScript::onEvent(const PB::Commands::EventMessage &request, const std::string &buffer) {
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
 	if (inst->has_event_handler("$$event$$")) {
 		inst->on_event("$$event$$", buffer);
 	}
-	BOOST_FOREACH(const ::Plugin::EventMessage::Request &line, request.payload()) {
+	BOOST_FOREACH(const ::PB::Commands::EventMessage::Request &line, request.payload()) {
 		if (inst->has_simple_event_handler(line.event())) {
 			boost::python::dict data;
-			BOOST_FOREACH(const ::Plugin::Common::KeyValue e, line.data()) {
+			BOOST_FOREACH(const PB::Common::KeyValue e, line.data()) {
 				data[e.key()] = e.value();
 			}
 			inst->on_simple_event(line.event(), data);
@@ -278,21 +279,21 @@ void PythonScript::onEvent(const Plugin::EventMessage &request, const std::strin
 	}
 }
 
-void PythonScript::submitMetrics(const Plugin::MetricsMessage &response) {
+void PythonScript::submitMetrics(const PB::Metrics::MetricsMessage &response) {
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
 	if (inst->has_submit_metrics()) {
 		std::string buffer;
 		inst->submit_metrics(response.SerializeAsString());
 	}
 }
-void PythonScript::fetchMetrics(Plugin::MetricsMessage::Response *response) {
+void PythonScript::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
 	if (inst->has_metrics_fetcher()) {
 		std::string buffer;
-		Plugin::MetricsMessage::Response r2;
+		PB::Metrics::MetricsMessage::Response r2;
 		inst->fetch_metrics(buffer);
 		r2.ParseFromString(buffer);
-		BOOST_FOREACH(const ::Plugin::Common_MetricsBundle &b, r2.bundles())
+		BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, r2.bundles())
 			response->add_bundles()->CopyFrom(b);
 	}
 }

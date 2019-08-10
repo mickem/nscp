@@ -24,32 +24,30 @@
 
 namespace metrics {
 
-	void build_metrics(metrics_store::values_map &metrics, const Plugin::Common::MetricsBundle &b, const std::string &path) {
+	void build_metrics(metrics_store::values_map &metrics, const PB::Metrics::MetricsBundle &b, const std::string &path) {
 		std::string p = "";
 		if (!path.empty())
 			p += path + ".";
 		p += b.key();
 
-		BOOST_FOREACH(const Plugin::Common::MetricsBundle &b2, b.children()) {
+		BOOST_FOREACH(const PB::Metrics::MetricsBundle &b2, b.children()) {
 			build_metrics(metrics, b2, p);
 		}
 
-		BOOST_FOREACH(const Plugin::Common::Metric &v, b.value()) {
-			if (v.value().has_int_data())
-				metrics[ p + "." + v.key()] = str::xtos(v.value().int_data());
-			else if (v.value().has_string_data())
-				metrics[p + "." + v.key()] = v.value().string_data();
-			else if (v.value().has_float_data())
-				metrics[p + "." + v.key()] = str::xtos(v.value().int_data());
+		BOOST_FOREACH(const PB::Metrics::Metric &v, b.value()) {
+			if (v.has_float_value())
+				metrics[ p + "." + v.key()] = str::xtos(v.float_value().value());
+			else if (v.has_string_value())
+				metrics[p + "." + v.key()] = v.string_value().value();
 		}
 	}
 
 
-	void metrics_store::set(const Plugin::MetricsMessage &response) {
+	void metrics_store::set(const PB::Metrics::MetricsMessage &response) {
 		metrics_store::values_map tmp;
 
-		BOOST_FOREACH(const Plugin::MetricsMessage::Response &p, response.payload()) {
-			BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, p.bundles()) {
+		BOOST_FOREACH(const PB::Metrics::MetricsMessage::Response &p, response.payload()) {
+			BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, p.bundles()) {
 				build_metrics(tmp, b, "");
 			}
 		}

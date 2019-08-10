@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 
 struct real_time_thread;
@@ -34,5 +34,5 @@ public:
 	// Module calls
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
-	void check_logfile(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_logfile(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 };

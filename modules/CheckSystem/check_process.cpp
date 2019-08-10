@@ -216,7 +216,7 @@ namespace process_checks {
 
 	struct CaseBlindCompare {
 		bool operator() (const std::string& a, const std::string& b) const {
-			return stricmp(a.c_str(), b.c_str()) < 0;
+			return _stricmp(a.c_str(), b.c_str()) < 0;
 		}
 	};
 
@@ -224,7 +224,7 @@ namespace process_checks {
 
 		namespace po = boost::program_options;
 
-		void check(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+		void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 			typedef check_proc_filter::filter filter_type;
 			modern_filter::data_container data;
 			modern_filter::cli_helper<filter_type> filter_helper(request, response, data);

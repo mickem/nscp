@@ -203,7 +203,7 @@ bool NSClientT::load_configuration(const bool override_log) {
 		settings.register_all();
 		settings.notify();
 	} catch (settings::settings_exception e) {
-		LOG_ERROR_CORE_STD("Could not find settings: " + e.reason());
+		LOG_ERROR_CORE_STD("Could not find settings: " + utf8::utf8_from_native(e.what()));
 	}
 	if (!override_log) {
 		log_instance_->set_log_level(log_level);
@@ -305,14 +305,14 @@ bool NSClientT::boot_start_plugins(bool boot) {
 		return false;
 	}
 	if (boot) {
-		settings_manager::get_core()->register_key(0xffff, "/settings/core", "settings maintenance interval", settings::settings_core::key_string, "Maintenance interval", "How often settings shall reload config if it has changed", "5m", true, false);
+		settings_manager::get_core()->register_key(0xffff, "/settings/core", "settings maintenance interval", "Maintenance interval", "How often settings shall reload config if it has changed", "5m", true, false);
 		std::string smi = settings_manager::get_settings()->get_string("/settings/core", "settings maintenance interval", "5m");
 		scheduler_.add_task(task_scheduler::schedule_metadata::SETTINGS, smi);
-		settings_manager::get_core()->register_key(0xffff, "/settings/core", "metrics interval", settings::settings_core::key_string, "Maintenance interval", "How often to fetch metrics from modules", "10s", true, false);
+		settings_manager::get_core()->register_key(0xffff, "/settings/core", "metrics interval", "Maintenance interval", "How often to fetch metrics from modules", "10s", true, false);
 		smi = settings_manager::get_settings()->get_string("/settings/core", "metrics interval", "10s");
 		scheduler_.add_task(task_scheduler::schedule_metadata::METRICS, smi);
-		settings_manager::get_core()->register_key(0xffff, "/settings/core", "settings maintenance threads", settings::settings_core::key_integer, "Maintenance thread count", "How many threads will run in the background to maintain the various core helper tasks.", "1", true, false);
-		int count = settings_manager::get_settings()->get_int("/settings/core", "settings maintenance threads", 1);
+		settings_manager::get_core()->register_key(0xffff, "/settings/core", "settings maintenance threads", "Maintenance thread count", "How many threads will run in the background to maintain the various core helper tasks.", "1", true, false);
+		int count = str::stox<int>(settings_manager::get_settings()->get_string("/settings/core", "settings maintenance threads", "1"));
 		scheduler_.set_threads(count);
 		scheduler_.start();
 	}
@@ -473,8 +473,8 @@ bool NSClientT::service_controller::is_started() {
 	return false;
 }
 
-Plugin::Common::MetricsBundle NSClientT::ownMetricsFetcher() {
-	Plugin::Common::MetricsBundle bundle;
+PB::Metrics::MetricsBundle NSClientT::ownMetricsFetcher() {
+	PB::Metrics::MetricsBundle bundle;
 	bundle.set_key("workers");
 	if (scheduler_.get_scheduler().has_metrics()) {
 		boost::uint64_t taskes__ = scheduler_.get_scheduler().get_metric_executed();
@@ -482,22 +482,22 @@ Plugin::Common::MetricsBundle NSClientT::ownMetricsFetcher() {
 		boost::uint64_t errors__ = scheduler_.get_scheduler().get_metric_errors();
 		boost::uint64_t threads = scheduler_.get_scheduler().get_metric_threads();
 
-		Plugin::Common::Metric *m = bundle.add_value();
+		PB::Metrics::Metric *m = bundle.add_value();
 		m->set_key("jobs");
-		m->mutable_value()->set_int_data(taskes__);
+		m->mutable_float_value()->set_value(taskes__);
 		m = bundle.add_value();
 		m->set_key("submitted");
-		m->mutable_value()->set_int_data(submitted__);
+		m->mutable_float_value()->set_value(submitted__);
 		m = bundle.add_value();
 		m->set_key("errors");
-		m->mutable_value()->set_int_data(errors__);
+		m->mutable_float_value()->set_value(errors__);
 		m = bundle.add_value();
 		m->set_key("threads");
-		m->mutable_value()->set_int_data(threads);
+		m->mutable_float_value()->set_value(threads);
 	} else {
-		Plugin::Common::Metric *m = bundle.add_value();
+		PB::Metrics::Metric *m = bundle.add_value();
 		m->set_key("metrics.available");
-		m->mutable_value()->set_string_data("false");
+		m->mutable_float_value()->set_value(0);
 	}
 	return bundle;
 }

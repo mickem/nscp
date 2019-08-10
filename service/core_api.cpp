@@ -29,10 +29,14 @@
 #endif
 #include <nsclient/logger/logger.hpp>
 
+#include <nscapi/nscapi_protobuf_settings.hpp>
+
 #ifdef HAVE_JSON_SPIRIT
 #include <json_spirit.h>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <plugin.pb-json.h>
+#include <settings.pb-json.h>
+#include <registry.pb-json.h>
 #endif
 
 #include "settings_query_handler.hpp"
@@ -125,8 +129,8 @@ NSCAPI::boolReturn NSAPICheckLogMessages(int loglevel) {
 NSCAPI::errorReturn NSAPISettingsQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 
 	try {
-		Plugin::SettingsRequestMessage request;
-		Plugin::SettingsResponseMessage response;
+		PB::Settings::SettingsRequestMessage request;
+		PB::Settings::SettingsResponseMessage response;
 		request.ParseFromArray(request_buffer, request_buffer_len);
 
 		nsclient::core::settings_query_handler sqr(mainClient, request);
@@ -145,8 +149,8 @@ NSCAPI::errorReturn NSAPISettingsQuery(const char *request_buffer, const unsigne
 NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 	try {
 		std::string response_string;
-		Plugin::RegistryRequestMessage request;
-		Plugin::RegistryResponseMessage response;
+		PB::Registry::RegistryRequestMessage request;
+		PB::Registry::RegistryResponseMessage response;
 		request.ParseFromArray(request_buffer, request_buffer_len);
 		nsclient::core::registry_query_handler rqh(mainClient->get_path(), mainClient->get_plugin_manager(), mainClient->get_logger(), request);
 		rqh.parse(response);
@@ -155,7 +159,7 @@ NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigne
 		*response_buffer = new char[*response_buffer_len + 10];
 		response.SerializeToArray(*response_buffer, *response_buffer_len);
 	} catch (settings::settings_exception e) {
-		LOG_ERROR(mainClient, "Failed query: " + e.reason());
+		LOG_ERROR(mainClient, "Failed query: " + utf8::utf8_from_native(e.what()));
 		return NSCAPI::api_return_codes::hasFailed;
 	} catch (const std::exception &e) {
 		LOG_ERROR(mainClient, "Failed query: " + utf8::utf8_from_native(e.what()));
@@ -170,8 +174,8 @@ NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigne
 NSCAPI::errorReturn NSCAPIStorageQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 
 	try {
-		Plugin::StorageRequestMessage request;
-		Plugin::StorageResponseMessage response;
+		PB::Storage::StorageRequestMessage request;
+		PB::Storage::StorageResponseMessage response;
 		request.ParseFromArray(request_buffer, request_buffer_len);
 
 		nsclient::core::storage_query_handler sqr(mainClient->get_storage_manager(), mainClient->get_plugin_manager(), mainClient->get_logger(), request);
@@ -268,7 +272,7 @@ NSCAPI::log_level::level NSAPIGetLoglevel() {
 }
 
 #ifdef HAVE_JSON_SPIRIT
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 
 NSCAPI::errorReturn NSCAPIJson2Protobuf(const char* request_buffer, unsigned int request_buffer_len, char ** response_buffer, unsigned int *response_buffer_len) {
 	std::string request(request_buffer, request_buffer_len), response;
@@ -286,12 +290,12 @@ NSCAPI::errorReturn NSCAPIJson2Protobuf(const char* request_buffer, unsigned int
 			mainClient->get_logger()->error("api", __FILE__, __LINE__, "Missing type or payload.");
 			return NSCAPI::api_return_codes::hasFailed;
 		} else if (object_type == "SettingsRequestMessage") {
-			Plugin::SettingsRequestMessage request_message;
-			json_pb::Plugin::SettingsRequestMessage::to_pb(&request_message, o);
+			PB::Settings::SettingsRequestMessage request_message;
+			json_pb::PB::Settings::SettingsRequestMessage::to_pb(&request_message, o);
 			response = request_message.SerializeAsString();
 		} else if (object_type == "RegistryRequestMessage") {
-			Plugin::RegistryRequestMessage request_message;
-			json_pb::Plugin::RegistryRequestMessage::to_pb(&request_message, o);
+			PB::Registry::RegistryRequestMessage request_message;
+			json_pb::PB::Registry::RegistryRequestMessage::to_pb(&request_message, o);
 			response = request_message.SerializeAsString();
 		} else {
 			mainClient->get_logger()->error("api", __FILE__, __LINE__, "Missing type or payload.");
@@ -316,21 +320,21 @@ NSCAPI::errorReturn NSCAPIProtobuf2Json(const char* object, const char* request_
 	try {
 		json_spirit::Object root;
 		if (obj == "SettingsResponseMessage") {
-			Plugin::SettingsResponseMessage message;
+			PB::Settings::SettingsResponseMessage message;
 			message.ParseFromString(request);
-			root = json_pb::Plugin::SettingsResponseMessage::to_json(message);
+			root = json_pb::PB::Settings::SettingsResponseMessage::to_json(message);
 		} else if (obj == "RegistryResponseMessage") {
-			Plugin::RegistryResponseMessage message;
+			PB::Registry::RegistryResponseMessage message;
 			message.ParseFromString(request);
-			root = json_pb::Plugin::RegistryResponseMessage::to_json(message);
+			root = json_pb::PB::Registry::RegistryResponseMessage::to_json(message);
 		} else if (obj == "QueryResponseMessage") {
-			Plugin::QueryResponseMessage message;
+			PB::Commands::QueryResponseMessage message;
 			message.ParseFromString(request);
-			root = json_pb::Plugin::QueryResponseMessage::to_json(message);
+			root = json_pb::PB::Commands::QueryResponseMessage::to_json(message);
 		} else if (obj == "ExecuteResponseMessage") {
-			Plugin::ExecuteResponseMessage message;
+			PB::Commands::ExecuteResponseMessage message;
 			message.ParseFromString(request);
-			root = json_pb::Plugin::ExecuteResponseMessage::to_json(message);
+			root = json_pb::PB::Commands::ExecuteResponseMessage::to_json(message);
 		} else {
 			mainClient->get_logger()->error("api", __FILE__, __LINE__, "Invalid type: " + obj);
 			return NSCAPI::api_return_codes::hasFailed;

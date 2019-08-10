@@ -1,6 +1,6 @@
 #include "settings_controller.hpp"
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_settings.hpp>
 
 #include <str/xtos.hpp>
 #include <file_helpers.hpp>
@@ -36,8 +36,8 @@ void settings_controller::get(Mongoose::Request &request, boost::smatch &what, M
 
 	std::string path = what.str(1);
 
-	Plugin::SettingsRequestMessage rm;
-	Plugin::SettingsRequestMessage::Request *payload = rm.add_payload();
+	PB::Settings::SettingsRequestMessage rm;
+	PB::Settings::SettingsRequestMessage::Request *payload = rm.add_payload();
 	payload->mutable_query()->mutable_node()->set_path(path);
 	payload->mutable_query()->set_recursive(true);
 	payload->mutable_query()->set_include_keys(true);
@@ -45,7 +45,7 @@ void settings_controller::get(Mongoose::Request &request, boost::smatch &what, M
 
 	std::string str_response;
 	core->settings_query(rm.SerializeAsString(), str_response);
-	Plugin::SettingsResponseMessage pb_response;
+	PB::Settings::SettingsResponseMessage pb_response;
 	pb_response.ParseFromString(str_response);
 
 	if (pb_response.payload_size() != 1) {
@@ -54,7 +54,7 @@ void settings_controller::get(Mongoose::Request &request, boost::smatch &what, M
 		return;
 	}
 
-	const Plugin::SettingsResponseMessage::Response rKeys = pb_response.payload(0);
+	const PB::Settings::SettingsResponseMessage::Response rKeys = pb_response.payload(0);
 	if (!rKeys.has_query()) {
 		response.setCode(HTTP_NOT_FOUND);
 		response.append("Key not found: " + path);
@@ -62,7 +62,7 @@ void settings_controller::get(Mongoose::Request &request, boost::smatch &what, M
 	}
 
 	json_spirit::Array node;
-	BOOST_FOREACH(const Plugin::Settings::Node &s, rKeys.query().nodes()) {
+	BOOST_FOREACH(const PB::Settings::Node &s, rKeys.query().nodes()) {
 		json_spirit::Object rs;
 		rs["path"] = s.path();
 		rs["key"] = s.key();
@@ -85,8 +85,8 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
 
 	std::string path = what.str(1);
 
-	Plugin::SettingsRequestMessage rm;
-	Plugin::SettingsRequestMessage::Request *payload = rm.add_payload();
+	PB::Settings::SettingsRequestMessage rm;
+	PB::Settings::SettingsRequestMessage::Request *payload = rm.add_payload();
 	payload->mutable_inventory()->mutable_node()->set_path(path);
 	payload->mutable_inventory()->set_recursive_fetch(request.get_bool("recursive", true));
 	payload->mutable_inventory()->set_fetch_paths(true);
@@ -96,7 +96,7 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
 
 	std::string str_response;
 	core->settings_query(rm.SerializeAsString(), str_response);
-	Plugin::SettingsResponseMessage pb_response;
+	PB::Settings::SettingsResponseMessage pb_response;
 	pb_response.ParseFromString(str_response);
 
 	if (pb_response.payload_size() != 1) {
@@ -105,7 +105,7 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
 		return;
 	}
 
-	const Plugin::SettingsResponseMessage::Response rKeys = pb_response.payload(0);
+	const PB::Settings::SettingsResponseMessage::Response rKeys = pb_response.payload(0);
 	if (rKeys.inventory_size() == 0) {
 		response.setCode(HTTP_NOT_FOUND);
 		response.append("Key not found: " + path);
@@ -117,8 +117,8 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
 
 	if (true) {
 
-		Plugin::SettingsRequestMessage rm;
-		Plugin::SettingsRequestMessage::Request *payload = rm.add_payload();
+		PB::Settings::SettingsRequestMessage rm;
+		PB::Settings::SettingsRequestMessage::Request *payload = rm.add_payload();
 		payload->mutable_query()->mutable_node()->set_path(path);
 		payload->mutable_query()->set_recursive(true);
 		payload->mutable_query()->set_include_keys(true);
@@ -126,7 +126,7 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
 
 		std::string str_response;
 		core->settings_query(rm.SerializeAsString(), str_response);
-		Plugin::SettingsResponseMessage pb_response;
+		PB::Settings::SettingsResponseMessage pb_response;
 		pb_response.ParseFromString(str_response);
 
 		if (pb_response.payload_size() != 1) {
@@ -135,22 +135,22 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
 			return;
 		}
 
-		const Plugin::SettingsResponseMessage::Response rKeys = pb_response.payload(0);
+		const PB::Settings::SettingsResponseMessage::Response rKeys = pb_response.payload(0);
 		if (!rKeys.has_query()) {
 			response.setCode(HTTP_NOT_FOUND);
 			response.append("Key not found: " + path);
 			return;
 		}
 
-		BOOST_FOREACH(const Plugin::Settings::Node &s, rKeys.query().nodes()) {
-			if (s.has_value()) {
+		BOOST_FOREACH(const PB::Settings::Node &s, rKeys.query().nodes()) {
+			if (!s.value().empty()) {
 				values[s.path() + "$$$" + s.key()] = s.value();
 			}
 		}
 	}
 
 	json_spirit::Array node;
-	BOOST_FOREACH(const Plugin::SettingsResponseMessage::Response::Inventory &s, rKeys.inventory()) {
+	BOOST_FOREACH(const PB::Settings::SettingsResponseMessage::Response::Inventory &s, rKeys.inventory()) {
 		json_spirit::Object rs;
 		rs["path"] = s.node().path();
 		rs["key"] = s.node().key();
@@ -158,7 +158,7 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
 			values_type::const_iterator cit = values.find(s.node().path() + "$$$" + s.node().key());
 			if (cit != values.end()) {
 				rs["value"] = cit->second;
-			} else if (s.info().has_default_value()) {
+			} else {
 				rs["value"] = s.info().default_value();
 			}
 		}

@@ -46,7 +46,7 @@ bool CheckNSCP::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	start_ = boost::posix_time::microsec_clock::local_time();
 
 	std::string path;
-	sh::settings_registry settings(get_settings_proxy());
+	sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 	crashFolder = get_core()->expand_path(CRASH_ARCHIVE_FOLDER);
 	NSC_DEBUG_MSG_STD("Crash folder is: " + crashFolder.string());
 	return true;
@@ -58,8 +58,8 @@ bool CheckNSCP::unloadModule() {
 std::string render(int, const std::string, int, std::string message) {
 	return message;
 }
-void CheckNSCP::handleLogMessage(const Plugin::LogEntry::Entry &message) {
-	if (message.level() != Plugin::LogEntry_Entry_Level_LOG_CRITICAL && message.level() != Plugin::LogEntry_Entry_Level_LOG_ERROR)
+void CheckNSCP::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
+	if (message.level() != PB::Log::LogEntry_Entry_Level_LOG_CRITICAL && message.level() != PB::Log::LogEntry_Entry_Level_LOG_ERROR)
 		return;
 	{
 		boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
@@ -184,7 +184,7 @@ namespace check_nscp_version {
 
 	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
-	void check(const nscp_version &version, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	void check(const nscp_version &version, const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 		typedef filter filter_type;
 		modern_filter::data_container data;
 		modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
@@ -210,7 +210,7 @@ namespace check_nscp_version {
 
 
 
-void CheckNSCP::check_nscp_version(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckNSCP::check_nscp_version(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	nscp_version version;
 	try {
 		version = nscp_version(get_core()->getApplicationVersionString());
@@ -224,24 +224,24 @@ void CheckNSCP::check_nscp_version(const Plugin::QueryRequestMessage::Request &r
 	check_nscp_version::check(version, request, response);
 }
 
-void CheckNSCP::check_nscp(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckNSCP::check_nscp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	po::options_description desc = nscapi::program_options::create_desc(request);
 	po::variables_map vm;
 	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
 		return;
-	response->set_result(Plugin::Common_ResultCode_OK);
+	response->set_result(PB::Common::ResultCode::OK);
 	std::string last, message;
 	int crash_count = get_crashes(crashFolder, last);
 	str::format::append_list(message, str::xtos(crash_count) + " crash(es)", std::string(", "));
 	if (crash_count > 0) {
-		response->set_result(Plugin::Common_ResultCode_CRITICAL);
+		response->set_result(PB::Common::ResultCode::CRITICAL);
 		str::format::append_list(message, std::string("last crash: " + last), std::string(", "));
 	}
 
 	int err_count = get_errors(last);
 	str::format::append_list(message, str::xtos(err_count) + " error(s)", std::string(", "));
 	if (err_count > 0) {
-		response->set_result(Plugin::Common_ResultCode_CRITICAL);
+		response->set_result(PB::Common::ResultCode::CRITICAL);
 		str::format::append_list(message, std::string("last error: " + last), std::string(", "));
 	}
 	boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();;

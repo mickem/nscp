@@ -55,14 +55,14 @@ struct simple_string_functor {
 		value = other.value;
 		return *this;
 	}
-	std::string operator() (const config_object&, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &) {
+	std::string operator() (const config_object&, const std::string, const PB::Common::Header &, const PB::Commands::QueryResponseMessage::Response &) {
 		return value;
 	}
 };
 struct header_host_functor {
-	std::string operator() (const config_object&, const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &) {
+	std::string operator() (const config_object&, const std::string channel, const PB::Common::Header &hdr, const PB::Commands::QueryResponseMessage::Response &) {
 		std::string sender = hdr.sender_id();
-		BOOST_FOREACH(const Plugin::Common::Host &h, hdr.hosts()) {
+		BOOST_FOREACH(const PB::Common::Host &h, hdr.hosts()) {
 			if (h.id() == sender)
 				return h.host();
 		}
@@ -70,48 +70,48 @@ struct header_host_functor {
 	}
 };
 struct payload_command_functor {
-	std::string operator() (const config_object&, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const config_object&, const std::string, const PB::Common::Header &, const PB::Commands::QueryResponseMessage::Response &payload) {
 		return payload.command();
 	}
 };
 struct channel_functor {
-	std::string operator() (const config_object&, const std::string channel, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &) {
+	std::string operator() (const config_object&, const std::string channel, const PB::Common::Header &, const PB::Commands::QueryResponseMessage::Response &) {
 		return channel;
 	}
 };
 struct payload_alias_functor {
-	std::string operator() (const config_object&, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const config_object&, const std::string, const PB::Common::Header &, const PB::Commands::QueryResponseMessage::Response &payload) {
 		return payload.alias();
 	}
 };
 struct payload_message_functor {
-	std::string operator() (const config_object&, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const config_object&, const std::string, const PB::Common::Header &, const PB::Commands::QueryResponseMessage::Response &payload) {
 		std::string ret;
-		BOOST_FOREACH(Plugin::QueryResponseMessage::Response::Line l, payload.lines())
+		BOOST_FOREACH(PB::Commands::QueryResponseMessage::Response::Line l, payload.lines())
 			ret += l.message();
 		return ret;
 	}
 };
 struct payload_result_functor {
-	std::string operator() (const config_object&, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const config_object&, const std::string, const PB::Common::Header &, const PB::Commands::QueryResponseMessage::Response &payload) {
 		return nscapi::plugin_helper::translateReturn(nscapi::protobuf::functions::gbp_to_nagios_status(payload.result()));
 	}
 };
 struct payload_result_nr_functor {
-	std::string operator() (const config_object&, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const config_object&, const std::string, const PB::Common::Header &, const PB::Commands::QueryResponseMessage::Response &payload) {
 		return str::xtos(nscapi::protobuf::functions::gbp_to_nagios_status(payload.result()));
 	}
 };
 struct payload_alias_or_command_functor {
-	std::string operator() (const config_object&, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
-		if (payload.has_alias())
+	std::string operator() (const config_object&, const std::string, const PB::Common::Header &, const PB::Commands::QueryResponseMessage::Response &payload) {
+		if (!payload.alias().empty())
 			return payload.alias();
 		return payload.command();
 	}
 };
 
 struct epoch_functor {
-	std::string operator() (const config_object&, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const config_object&, const std::string, const PB::Common::Header &, const PB::Commands::QueryResponseMessage::Response &payload) {
 		boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
 		boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
 		boost::posix_time::time_duration diff = now - time_t_epoch;
@@ -120,7 +120,7 @@ struct epoch_functor {
 };
 
 struct time_functor {
-	std::string operator() (const config_object& config, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const config_object& config, const std::string, const PB::Common::Header &, const PB::Commands::QueryResponseMessage::Response &payload) {
 		std::stringstream ss;
 		boost::posix_time::time_facet *facet = new boost::posix_time::time_facet(config.time_format.c_str());
 		ss.imbue(std::locale(std::cout.getloc(), facet));
@@ -138,7 +138,7 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	std::string syntax_service;
 	std::string channel;
 	try {
-		sh::settings_registry settings(get_settings_proxy());
+		sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 
 		settings.set_alias(alias, "writers/file");
 
@@ -236,10 +236,10 @@ void build_syntax(parsers::simple_expression &parser, std::string &syntax, Simpl
 	}
 }
 
-void SimpleFileWriter::handleNotification(const std::string &, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message) {
+void SimpleFileWriter::handleNotification(const std::string &, const PB::Commands::QueryResponseMessage::Response &request, PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message) {
 	std::string key;
 
-	if ((request.has_alias() && !request.alias().empty()) || (request.has_command() && !request.command().empty()) ) {
+	if (!request.alias().empty() || !request.command().empty() ) {
 		BOOST_FOREACH(index_lookup_function &f, syntax_service_lookup_) {
 			key += f(config_, request.command(), request_message.header(), request);
 		}

@@ -51,7 +51,7 @@ struct simple_string_functor {
 		value = other.value;
 		return *this;
 	}
-	std::string operator() (const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &) {
+	std::string operator() (const std::string, const PB::Common::Header &, const PB::Commands::QueryResponseMessage::Response &) {
 		return value;
 	}
 	std::string operator() (const SimpleCache::cache_query &) {
@@ -59,7 +59,7 @@ struct simple_string_functor {
 	}
 };
 struct header_host_functor {
-	std::string operator() (const std::string, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &) {
+	std::string operator() (const std::string, const PB::Common::Header &hdr, const PB::Commands::QueryResponseMessage::Response &) {
 		std::string sender = hdr.sender_id();
 		for (int i = 0; i < hdr.hosts_size(); i++) {
 			if (hdr.hosts(i).id() == sender)
@@ -72,7 +72,7 @@ struct header_host_functor {
 	}
 };
 struct payload_command_functor {
-	std::string operator() (const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const std::string, const PB::Common::Header &, const PB::Commands::QueryResponseMessage::Response &payload) {
 		return payload.command();
 	}
 	std::string operator() (const SimpleCache::cache_query &query) {
@@ -80,7 +80,7 @@ struct payload_command_functor {
 	}
 };
 struct channel_functor {
-	std::string operator() (const std::string channel, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &) {
+	std::string operator() (const std::string channel, const PB::Common::Header &, const PB::Commands::QueryResponseMessage::Response &) {
 		return channel;
 	}
 	std::string operator() (const SimpleCache::cache_query &query) {
@@ -88,7 +88,7 @@ struct channel_functor {
 	}
 };
 struct payload_alias_functor {
-	std::string operator() (const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const std::string, const PB::Common::Header &, const PB::Commands::QueryResponseMessage::Response &payload) {
 		return payload.alias();
 	}
 	std::string operator() (const SimpleCache::cache_query &query) {
@@ -96,8 +96,8 @@ struct payload_alias_functor {
 	}
 };
 struct payload_alias_or_command_functor {
-	std::string operator() (const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
-		if (payload.has_alias())
+	std::string operator() (const std::string, const PB::Common::Header &, const PB::Commands::QueryResponseMessage::Response &payload) {
+		if (!payload.alias().empty())
 			return payload.alias();
 		return payload.command();
 	}
@@ -114,7 +114,7 @@ std::string simple_string_fun(std::string key) {
 bool SimpleCache::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	std::string primary_key;
 	std::string channel;
-	sh::settings_registry settings(get_settings_proxy());
+	sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 
 	settings.set_alias(alias, "cache");
 
@@ -170,7 +170,7 @@ bool SimpleCache::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	return true;
 }
 
-void SimpleCache::handleNotification(const std::string &channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message) {
+void SimpleCache::handleNotification(const std::string &channel, const PB::Commands::QueryResponseMessage::Response &request, PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message) {
 	std::string key;
 	BOOST_FOREACH(index_lookup_function &f, index_lookup_) {
 		key += f(channel, request_message.header(), request);
@@ -188,7 +188,7 @@ void SimpleCache::handleNotification(const std::string &channel, const Plugin::Q
 	nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), true, "message has been cached");
 }
 
-void SimpleCache::list_cache(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void SimpleCache::list_cache(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
  	cache_query query;
 	std::string not_found_msg, not_found_msg_code;
 	std::string key;
@@ -212,7 +212,7 @@ void SimpleCache::list_cache(const Plugin::QueryRequestMessage::Request &request
 	response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(not_found_msg_code)));
 }
 
-void SimpleCache::check_cache(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void SimpleCache::check_cache(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	cache_query query;
 	std::string not_found_msg, not_found_msg_code;
 	std::string key;

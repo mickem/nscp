@@ -74,12 +74,12 @@ namespace graphite_client {
 		return sc;
 	}
 	struct graphite_client_handler : public client::handler_interface {
-		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
+		bool query(client::destination_container sender, client::destination_container target, const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message) {
 			return false;
 		}
 
-		bool submit(client::destination_container sender, client::destination_container target, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
-			const ::Plugin::Common_Header& request_header = request_message.header();
+		bool submit(client::destination_container sender, client::destination_container target, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage &response_message) {
+			const PB::Common::Header& request_header = request_message.header();
 			connection_data con(sender, target);
 
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
@@ -90,13 +90,13 @@ namespace graphite_client {
 
 			std::list<g_data> list;
 
-			BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response &p, request_message.payload()) {
+			BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage_Response &p, request_message.payload()) {
 				std::string tmp_path = ppath;
 				str::utils::replace(tmp_path, "${check_alias}", p.alias());
 
 				if (con.send_perf) {
-					BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response::Line &l, p.lines()) {
-						BOOST_FOREACH(const ::Plugin::Common_PerformanceData &perf, l.perf()) {
+					BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage::Response::Line &l, p.lines()) {
+						BOOST_FOREACH(const PB::Common::PerformanceData &perf, l.perf()) {
 							g_data d;
 							d.path = tmp_path;
 							str::utils::replace(d.path, "${perf_alias}", perf.alias());
@@ -129,43 +129,39 @@ namespace graphite_client {
 			return true;
 		}
 
-		bool exec(client::destination_container sender, client::destination_container target, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
+		bool exec(client::destination_container sender, client::destination_container target, const PB::Commands::ExecuteRequestMessage &request_message, PB::Commands::ExecuteResponseMessage &response_message) {
 			return false;
 		}
 
 
-		void push_metrics(std::list<graphite_client::g_data> &list, const Plugin::Common::MetricsBundle &b, std::string path, std::string mpath) {
+		void push_metrics(std::list<graphite_client::g_data> &list, const PB::Metrics::MetricsBundle &b, std::string path, std::string mpath) {
 			std::string mypath;
 			if (!path.empty())
 				mypath = path + ".";
 			mypath += b.key();
-			BOOST_FOREACH(const Plugin::Common::MetricsBundle &b2, b.children()) {
+			BOOST_FOREACH(const PB::Metrics::MetricsBundle &b2, b.children()) {
 				push_metrics(list, b2, mypath, mpath);
 			}
-			BOOST_FOREACH(const Plugin::Common::Metric &v, b.value()) {
+			BOOST_FOREACH(const PB::Metrics::Metric &v, b.value()) {
 				graphite_client::g_data d;
-				const ::Plugin::Common_AnyDataType &value = v.value();
 				d.path = mpath;
 				str::utils::replace(d.path, "${metric}", mypath + "." + v.key());
 				d.path = fix_graphite_string(d.path);
-				if (value.has_int_data()) {
-					d.value = str::xtos(v.value().int_data());
-					list.push_back(d);
-				} else if (value.has_float_data()) {
-					d.value = str::xtos(v.value().float_data());
+				if (v.has_float_value()) {
+					d.value = str::xtos(v.float_value().value());
 					list.push_back(d);
 				}
 			}
 		}
 
-		bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) {
+		bool metrics(client::destination_container sender, client::destination_container target, const PB::Metrics::MetricsMessage &request_message) {
 			std::list<graphite_client::g_data> list;
 			connection_data con(sender, target);
 			std::string mpath = con.mpath;
 			str::utils::replace(mpath, "${hostname}", con.sender_hostname);
 
-			BOOST_FOREACH(const Plugin::MetricsMessage::Response &r, request_message.payload()) {
-				BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, r.bundles()) {
+			BOOST_FOREACH(const PB::Metrics::MetricsMessage::Response &r, request_message.payload()) {
+				BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, r.bundles()) {
 					push_metrics(list, b, "", mpath);
 				}
 			}

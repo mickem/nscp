@@ -3,7 +3,7 @@
 #include "nsclient_core_interface.hpp"
 
 #include <timer.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_settings.hpp>
 #include <nsclient/logger/logger.hpp>
 
 
@@ -15,24 +15,24 @@ namespace nsclient {
 			
 		private:
 			nsclient::logging::logger_instance logger_;
-			const Plugin::SettingsRequestMessage &request_;
+			const PB::Settings::SettingsRequestMessage &request_;
 			nsclient::core::core_interface *core_;
 			timer t;
 
 		public:
-			settings_query_handler(nsclient::core::core_interface *core, const Plugin::SettingsRequestMessage &request);
+			settings_query_handler(nsclient::core::core_interface *core, const PB::Settings::SettingsRequestMessage &request);
 			
-			void parse(Plugin::SettingsResponseMessage &response);
+			void parse(PB::Settings::SettingsResponseMessage &response);
 			
-			void parse_inventory(const Plugin::SettingsRequestMessage::Request::Inventory &q, Plugin::SettingsResponseMessage::Response* rp);
-			void parse_query(const Plugin::SettingsRequestMessage::Request::Query &q, Plugin::SettingsResponseMessage::Response* rp);
-			void parse_registration(const Plugin::SettingsRequestMessage::Request::Registration &q, int plugin_id, Plugin::SettingsResponseMessage::Response* rp);
-			void parse_update(const Plugin::SettingsRequestMessage::Request::Update &q, Plugin::SettingsResponseMessage::Response* rp);
-			void parse_control(const Plugin::SettingsRequestMessage::Request::Control &q, Plugin::SettingsResponseMessage::Response* rp);
+			void parse_inventory(const PB::Settings::SettingsRequestMessage::Request::Inventory &q, PB::Settings::SettingsResponseMessage::Response* rp);
+			void parse_query(const PB::Settings::SettingsRequestMessage::Request::Query &q, PB::Settings::SettingsResponseMessage::Response* rp);
+			void parse_registration(const PB::Settings::SettingsRequestMessage::Request::Registration &q, int plugin_id, PB::Settings::SettingsResponseMessage::Response* rp);
+			void parse_update(const PB::Settings::SettingsRequestMessage::Request::Update &q, PB::Settings::SettingsResponseMessage::Response* rp);
+			void parse_control(const PB::Settings::SettingsRequestMessage::Request::Control &q, PB::Settings::SettingsResponseMessage::Response* rp);
 			
 		private:
-			void recurse_find(Plugin::SettingsResponseMessage::Response::Query *rpp, const std::string base, bool recurse, bool fetch_keys);
-			void settings_add_plugin_data(const std::set<unsigned int> &plugins, ::Plugin::Settings_Information* info);
+			void recurse_find(PB::Settings::SettingsResponseMessage::Response::Query *rpp, const std::string base, bool recurse, bool fetch_keys);
+			void settings_add_plugin_data(const std::set<unsigned int> &plugins, PB::Settings::Information* info);
 			nsclient::logging::logger_instance get_logger() const {
 				return logger_;
 			}

@@ -42,7 +42,7 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		lua_runtime_.reset(new lua::lua_runtime(utf8::cvt<std::string>(root_.string())));
 		scripts_.reset(new scripts::script_manager<lua::lua_traits>(lua_runtime_, nscp_runtime_, get_id(), utf8::cvt<std::string>(alias)));
 
-		sh::settings_registry settings(get_settings_proxy());
+		sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 		settings.set_alias(alias, "lua");
 
 		settings.alias().add_path_to_settings()
@@ -98,7 +98,7 @@ bool LUAScript::unloadModule() {
 	return true;
 }
 
-void LUAScript::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
+void LUAScript::query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, const PB::Commands::QueryRequestMessage &request_message) {
 	std::string response_buffer;
 	boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command(scripts::nscp::tags::query_tag, request.command());
 	if (!cmd) {
@@ -110,7 +110,7 @@ void LUAScript::query_fallback(const Plugin::QueryRequestMessage::Request &reque
 	return lua_runtime_->on_query(request.command(), cmd->information, cmd->function, false, request, response, request_message);
 }
 
-bool LUAScript::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+bool LUAScript::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message) {
 	if (request.command() != "lua-script" && request.command() != "lua-run"
 		&& request.command() != "run" && request.command() != "execute" && request.command() != "") {
 		boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command(scripts::nscp::tags::simple_exec_tag, request.command());
@@ -149,6 +149,6 @@ bool LUAScript::commandLineExec(const int target_mode, const Plugin::ExecuteRequ
 	}
 }
 
-void LUAScript::handleNotification(const std::string &channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message) {
+void LUAScript::handleNotification(const std::string &channel, const PB::Commands::QueryResponseMessage::Response &request, PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message) {
 	//	return scripts_.on_submission(command, request, result);
 }

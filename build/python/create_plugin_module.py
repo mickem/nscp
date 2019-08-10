@@ -94,12 +94,21 @@ CPP_TEMPLATE = """#include "module.hpp"
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+{% if module.metrics %}
+#include <nscapi/nscapi_protobuf_metrics.hpp>
+{% endif %}
+{%if module.log_handler %}
+#include <nscapi/nscapi_protobuf_log.hpp>
+{% endif %}
 
+#include <nscapi/command_proxy.hpp>
 #include <nscapi/command_client.hpp>
-
 namespace ch = nscapi::command_helper;
 {% endif %}
+
+#include <utf8.hpp>
+
 /**
  * New version of the load call.
  * Start the background collector thread and let it run until unloadModule() is called.
@@ -125,13 +134,18 @@ bool {{module.name}}Module::loadModuleEx(std::string alias, NSCAPI::moduleLoadMo
 			impl_.reset(new {{module.name}});
 			impl_->set_id(get_id());
 {%if options.hasRegisterCommand %}
-			registerCommands(get_command_proxy());
+			registerCommands();
 {% endif %}
 		}
 {% if module.loaders == "both" or module.loaders == "load" %}
 		return impl_->loadModuleEx(alias, mode);
 {% else %}
 		return true;
+{% endif %}
+{%if module.managed %}
+	} catch (System::Exception ^e) {
+		NSC_LOG_ERROR("Failed to load CheckPowershell: " + to_nstring(e->Message));
+		return false;
 {% endif %}
 	} catch (std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to load {{module.name}}: ", e);
@@ -166,15 +180,15 @@ bool {{module.name}}Module::unloadModule() {
  */
 NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &request, std::string &response) {
 {%if module.managed %}
-	Plugin::QueryResponseMessage::Builder^ response_message = Plugin::QueryResponseMessage::CreateBuilder();
+	PB::Commands::QueryResponseMessage^ response_message = gcnew PB::Commands::QueryResponseMessage();
 {% else %}
-	Plugin::QueryResponseMessage response_message;
+	PB::Commands::QueryResponseMessage response_message;
 {% endif %}
 	try {
 {%if module.managed %}
-		Plugin::QueryRequestMessage^ request_message = Plugin::QueryRequestMessage::ParseFrom(to_pbd(request));
+		PB::Commands::QueryRequestMessage^ request_message = PB::Commands::QueryRequestMessage::Parser->ParseFrom(to_pbd(request));
 {% else %}
-		Plugin::QueryRequestMessage request_message;
+		PB::Commands::QueryRequestMessage request_message;
 		request_message.ParseFromString(request);
 		nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_message.header());
 
@@ -186,11 +200,11 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 				impl_->query_fallback(request_message, response_message);
 {% else %}
 {%if module.managed %}
-		for (int i=0;i<request_message->PayloadCount;i++) {
-			Plugin::QueryRequestMessage::Types::Request^ request_payload = request_message->GetPayload(i);
+		for (int i=0;i<request_message->Payload->Count;i++) {
+			PB::Commands::QueryRequestMessage::Types::Request^ request_payload = request_message->Payload[i];
 {% else %}
 		for (int i=0;i<request_message.payload_size();i++) {
-			Plugin::QueryRequestMessage::Request request_payload = request_message.payload(i);
+			PB::Commands::QueryRequestMessage::Request request_payload = request_message.payload(i);
 {% endif %}
 			if (!impl_) {
 				return NSCAPI::cmd_return_codes::returnIgnored;
@@ -210,7 +224,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 					args.push_back(request_payload.arguments(i));
 				}
 				NSCAPI::nagiosReturn ret = impl_->{{cmd_name}}(request_payload.target(), boost::algorithm::to_lower_copy(request_payload.command()), args, msg, perf);
-				Plugin::QueryResponseMessage::Response *response_payload = response_message.add_payload();
+				PB::Commands::QueryResponseMessage::Response *response_payload = response_message.add_payload();
 				response_payload->set_command(request_payload.command());
 				response_payload->set_message(msg);
 				response_payload->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(ret));
@@ -218,7 +232,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 					nscapi::protobuf::functions::parse_performance_data(response_payload, perf);
 {% elif cmd.request %}
 			} else if (request_payload.command() == "{{cmd.name|lower}}") {
-				Plugin::QueryResponseMessage::Response *response_payload = response_message.add_payload();
+				PB::Commands::QueryResponseMessage::Response *response_payload = response_message.add_payload();
 				response_payload->set_command(request_payload.command());
 				impl_->{{cmd_name}}(request_payload, response_payload, request_message);
 {% elif cmd.legacy %}
@@ -229,7 +243,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 					args.push_back(request_payload.arguments(i));
 				}
 				NSCAPI::nagiosReturn ret = impl_->{{cmd_name}}(request_payload.target(), boost::algorithm::to_lower_copy(request_payload.command()), args, msg, perf);
-				Plugin::QueryResponseMessage::Response *response_payload = response_message.add_payload();
+				PB::Commands::QueryResponseMessage::Response *response_payload = response_message.add_payload();
 				response_payload->set_command(request_payload.command());
 				response_payload->set_message(msg);
 				response_payload->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(ret));
@@ -237,7 +251,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 					nscapi::protobuf::functions::parse_performance_data(response_payload, perf);
 {% else %}
 			} else if (request_payload.command() == "{{cmd.name|lower}}") {
-				Plugin::QueryResponseMessage::Response *response_payload = response_message.add_payload();
+				PB::Commands::QueryResponseMessage::Response *response_payload = response_message.add_payload();
 				response_payload->set_command(request_payload.command());
 				impl_->{{cmd_name}}(request_payload, response_payload);
 {% endif %}
@@ -245,12 +259,12 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 {% if module.command_fallback %}
 			} else {
 {%if module.managed %}
-				Plugin::QueryResponseMessage::Types::Response::Builder^ query_builder = Plugin::QueryResponseMessage::Types::Response::CreateBuilder();
-				query_builder->SetCommand(request_payload->Command);
+				PB::Commands::QueryResponseMessage::Types::Response^ query_builder = gcnew PB::Commands::QueryResponseMessage::Types::Response();
+				query_builder->Command = request_payload->Command;
 				impl_->query_fallback(request_payload, query_builder, request_message);
-				response_message->AddPayload(query_builder);
+				response_message->Payload->Add(query_builder);
 {% else %}
-				Plugin::QueryResponseMessage::Response *response_payload = response_message.add_payload();
+				PB::Commands::QueryResponseMessage::Response *response_payload = response_message.add_payload();
 				response_payload->set_command(request_payload.command());
 				impl_->query_fallback(request_payload, response_payload, request_message);
 {% endif %}
@@ -260,41 +274,38 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 {% endif %}
 {%if module.managed %}
 	} catch (System::Exception ^e) {
-        response_message->ClearPayload();
-		Plugin::QueryResponseMessage::Types::Response::Builder^ query_builder = Plugin::QueryResponseMessage::Types::Response::CreateBuilder();
- 		query_builder->SetCommand("");
-		query_builder->SetResult(Plugin::Common::Types::ResultCode::UNKNOWN);
-		response_message->AddPayload(query_builder);
+        response_message->Payload->Clear();
+		PB::Commands::QueryResponseMessage::Types::Response^ query_builder = gcnew PB::Commands::QueryResponseMessage::Types::Response();
+		query_builder->Result = PB::Common::ResultCode::Unknown;
+		response_message->Payload->Add(query_builder);
 	} catch (const std::exception &e) {
-        response_message->ClearPayload();
-		Plugin::QueryResponseMessage::Types::Response::Builder^ query_builder = Plugin::QueryResponseMessage::Types::Response::CreateBuilder();
- 		query_builder->SetCommand("");
-		query_builder->SetResult(Plugin::Common::Types::ResultCode::UNKNOWN);
-		response_message->AddPayload(query_builder);
+        response_message->Payload->Clear();
+		PB::Commands::QueryResponseMessage::Types::Response^ query_builder = gcnew PB::Commands::QueryResponseMessage::Types::Response();
+		query_builder->Result = PB::Common::ResultCode::Unknown;
+		response_message->Payload->Add(query_builder);
 	} catch (...) {
-        response_message->ClearPayload();
-		Plugin::QueryResponseMessage::Types::Response::Builder^ query_builder = Plugin::QueryResponseMessage::Types::Response::CreateBuilder();
- 		query_builder->SetCommand("");
-		query_builder->SetResult(Plugin::Common::Types::ResultCode::UNKNOWN);
-		response_message->AddPayload(query_builder);
+        response_message->Payload->Clear();
+		PB::Commands::QueryResponseMessage::Types::Response^ query_builder = gcnew PB::Commands::QueryResponseMessage::Types::Response();
+		query_builder->Result = PB::Common::ResultCode::Unknown;
+		response_message->Payload->Add(query_builder);
 	}
 	System::IO::MemoryStream^ stream = gcnew System::IO::MemoryStream();
-	response_message->Build()->WriteTo(stream);
+	response_message->WriteTo(gcnew Google::Protobuf::CodedOutputStream(stream));
 	std::string response_buffer;
 	response = to_nstring(stream->ToArray());
 	return NSCAPI::cmd_return_codes::isSuccess;
 {% else %}
 	} catch (const std::exception &e) {
         response_message.clear_payload();
-        ::Plugin::QueryResponseMessage::Response *payload = response_message.add_payload();
+        ::PB::Commands::QueryResponseMessage::Response *payload = response_message.add_payload();
         payload->set_command("");
-        payload->set_result(Plugin::Common_ResultCode_UNKNOWN);
+        payload->set_result(PB::Common::ResultCode::UNKNOWN);
         payload->add_lines()->set_message(std::string("Failed to process command : ") + utf8::utf8_from_native(e.what()));
 	} catch (...) {
         response_message.clear_payload();
-        ::Plugin::QueryResponseMessage::Response *payload = response_message.add_payload();
+        ::PB::Commands::QueryResponseMessage::Response *payload = response_message.add_payload();
         payload->set_command("");
-        payload->set_result(Plugin::Common_ResultCode_UNKNOWN);
+        payload->set_result(PB::Common::ResultCode::UNKNOWN);
         payload->add_lines()->set_message("Failed to process command ");
 	}
     response_message.SerializeToString(&response);
@@ -303,8 +314,8 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 }
 
 {%if options.hasRegisterCommand %}
-void {{module.name}}Module::registerCommands(boost::shared_ptr<nscapi::command_proxy> proxy) {
-	ch::command_registry registry(proxy);
+void {{module.name}}Module::registerCommands() {
+	ch::command_registry registry(nscapi::command_proxy::create(get_id(), get_core()));
 	registry.command()
 {% for cmd in module.commands %}
 {% if cmd.alias and cmd.alias|length == 1 %}
@@ -342,14 +353,14 @@ void {{module.name}}Module::registerCommands(boost::shared_ptr<nscapi::command_p
 {% endif %}
 {% else %}
 {%if options.hasRegisterCommand %}
-void {{module.name}}Module::registerCommands(boost::shared_ptr<nscapi::command_proxy> proxy) {}
+void {{module.name}}Module::registerCommands() {}
 {% endif %}
 {% endif %}
 
 {%if module.log_handler %}
 void {{module.name}}Module::handleMessageRAW(std::string data) {
 	try {
-		Plugin::LogEntry message;
+		PB::Log::LogEntry message;
 		message.ParseFromString(data);
 		if (!impl_) {
 			return;
@@ -369,42 +380,42 @@ void {{module.name}}Module::handleMessageRAW(std::string data) {
 {% if module.channels %}
 NSCAPI::nagiosReturn {{module.name}}Module::handleRAWNotification(const char* char_channel, const std::string &request, std::string &response) {
 	const std::string channel = char_channel;
-    Plugin::SubmitResponseMessage response_message;
+    PB::Commands::SubmitResponseMessage response_message;
 	try {
 {% if module.channels == "raw" %}
 		if (!impl_) {
 			return NSCAPI::cmd_return_codes::returnIgnored;
 		}
-		Plugin::SubmitRequestMessage request_message;
+		PB::Commands::SubmitRequestMessage request_message;
 		request_message.ParseFromString(request);
 		nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_message.header());
 		impl_->handleNotification(channel, request_message, &response_message);
 {% else %}
-		Plugin::SubmitRequestMessage request_message;
+		PB::Commands::SubmitRequestMessage request_message;
 		request_message.ParseFromString(request);
 		nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_message.header());
 
 		for (int i=0;i<request_message.payload_size();i++) {
-			Plugin::QueryResponseMessage::Response request_payload = request_message.payload(i);
+			PB::Commands::QueryResponseMessage::Response request_payload = request_message.payload(i);
 			if (!impl_) {
 				return NSCAPI::cmd_return_codes::returnIgnored;
 			} else {
-				Plugin::SubmitResponseMessage::Response *response_payload = response_message.add_payload();
+				PB::Commands::SubmitResponseMessage::Response *response_payload = response_message.add_payload();
 				response_payload->set_command(request_payload.command());
 				impl_->handleNotification(channel, request_payload, response_payload, request_message);
 			}
 		}
 {% endif %}
 	} catch (const std::exception &e) {
-        Plugin::SubmitResponseMessage::Response *payload = response_message.add_payload();
+        PB::Commands::SubmitResponseMessage::Response *payload = response_message.add_payload();
         payload->set_command("");
         payload->mutable_result()->set_message(std::string("Failed to process submission on ") + channel + ": " + utf8::utf8_from_native(e.what()));
-        payload->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_ERROR);
+        payload->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_ERROR);
 	} catch (...) {
-        Plugin::SubmitResponseMessage::Response *payload = response_message.add_payload();
+        PB::Commands::SubmitResponseMessage::Response *payload = response_message.add_payload();
         payload->set_command("");
         payload->mutable_result()->set_message(std::string("Failed to process submission on ") + channel);
-        payload->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_ERROR);
+        payload->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_ERROR);
 	}
     response_message.SerializeToString(&response);
     return NSCAPI::cmd_return_codes::isSuccess;
@@ -414,19 +425,19 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWNotification(const char* ch
 {%if module.cli == "legacy" %}
 NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(int target_mode, const std::string &request, std::string &response) {
 	try {
-		Plugin::ExecuteRequestMessage request_message;
-		Plugin::ExecuteResponseMessage response_message;
+		PB::Commands::ExecuteRequestMessage request_message;
+		PB::Commands::ExecuteResponseMessage response_message;
 		request_message.ParseFromString(request);
 		nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_message.header());
 
 		bool found = false;
 		for (int i=0;i<request_message.payload_size();i++) {
-			const Plugin::ExecuteRequestMessage::Request &request_payload = request_message.payload(i);
+			const PB::Commands::ExecuteRequestMessage::Request &request_payload = request_message.payload(i);
 			if (!impl_) {
 				nscapi::protobuf::functions::create_simple_exec_response_unknown("", std::string("Internal error"), response);
 				return NSCAPI::cmd_return_codes::isSuccess;
 			} else {
-				Plugin::ExecuteResponseMessage::Response *response_payload = response_message.add_payload();
+				PB::Commands::ExecuteResponseMessage::Response *response_payload = response_message.add_payload();
 				response_payload->set_command(request_payload.command());
 				std::string output;
 				std::list<std::string> args;
@@ -460,8 +471,8 @@ NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(int target_mode, 
 {% elif module.cli == "raw" %}
 NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(int target_mode, const std::string &request, std::string &response) {
 	try {
-		Plugin::ExecuteRequestMessage request_message;
-		Plugin::ExecuteResponseMessage response_message;
+		PB::Commands::ExecuteRequestMessage request_message;
+		PB::Commands::ExecuteResponseMessage response_message;
 		request_message.ParseFromString(request);
 		if (!impl_->commandLineExec(target_mode, request_message, response_message))
 			return NSCAPI::cmd_return_codes::returnIgnored;
@@ -478,18 +489,18 @@ NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(int target_mode, 
 {% elif module.cli %}
 NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(int target_mode, const std::string &request, std::string &response) {
 	try {
-		Plugin::ExecuteRequestMessage request_message;
-		Plugin::ExecuteResponseMessage response_message;
+		PB::Commands::ExecuteRequestMessage request_message;
+		PB::Commands::ExecuteResponseMessage response_message;
 		request_message.ParseFromString(request);
 		nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_message.header());
 
 		bool found = false;
 		for (int i=0;i<request_message.payload_size();i++) {
-			Plugin::ExecuteRequestMessage::Request request_payload = request_message.payload(i);
+			PB::Commands::ExecuteRequestMessage::Request request_payload = request_message.payload(i);
 			if (!impl_) {
 				return NSCAPI::cmd_return_codes::returnIgnored;
 			} else {
-				Plugin::ExecuteResponseMessage::Response *response_payload = response_message.add_payload();
+				PB::Commands::ExecuteResponseMessage::Response *response_payload = response_message.add_payload();
 				response_payload->set_command(request_payload.command());
 				if (!impl_->commandLineExec(target_mode, request_payload, response_payload, request_message)) {
 					// TODO: remove payloads here!
@@ -516,16 +527,16 @@ NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(int target_mode, 
 
 {% if module.metrics == "produce" or module.metrics == "both" %}
 int {{module.name}}Module::fetchMetrics(std::string &reply) {
-	Plugin::MetricsMessage response_message;
-	Plugin::MetricsMessage::Response *response = response_message.add_payload();
+	PB::Metrics::MetricsMessage response_message;
+	PB::Metrics::MetricsMessage::Response *response = response_message.add_payload();
 	try {
 		impl_->fetchMetrics(response);
-		response->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+		response->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
 	} catch (const std::exception &e) {
-		response->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_ERROR);
+		response->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_ERROR);
 		response->mutable_result()->set_message(utf8::utf8_from_native(e.what()));
 	} catch (...) {
-		response->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_ERROR);
+		response->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_ERROR);
 		response->mutable_result()->set_message("Unknown exception");
 	}
 	response_message.SerializeToString(&reply);
@@ -534,7 +545,7 @@ int {{module.name}}Module::fetchMetrics(std::string &reply) {
 {% endif %}
 {% if module.metrics == "consume" or module.metrics == "both" %}
 int {{module.name}}Module::submitMetrics(const std::string &request) {
-	Plugin::MetricsMessage metrics_message;
+	PB::Metrics::MetricsMessage metrics_message;
 	metrics_message.ParseFromString(request);
 	try {
 		impl_->submitMetrics(metrics_message);
@@ -556,7 +567,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::onRAWEvent(const std::string &reques
             NSC_LOG_ERROR("Failed to process event");
 			return NSCAPI::cmd_return_codes::returnIgnored;
 		}
-		Plugin::EventMessage request_message;
+		PB::Commands::EventMessage request_message;
 		request_message.ParseFromString(request);
 		impl_->onEvent(request_message, request);
 		return NSCAPI::cmd_return_codes::isSuccess;
@@ -765,13 +776,13 @@ public:
 {% for cmd in module.commands %}
 {% set cmd_name = cmd.name +"_" if cmd.name == module.name else cmd.name %}
 {% if cmd.raw_mapping %}
-	void {{cmd_name}}(const std::string &command, const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage *response);
+	void {{cmd_name}}(const std::string &command, const PB::Commands::QueryRequestMessage &request, PB::Commands::QueryResponseMessage *response);
 {% elif cmd.nagios %}
 	NSCAPI::nagiosReturn {{cmd_name}}(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
 {% elif cmd.no_mapping %}
 {% else %}
-	void {{cmd_name}}(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
-{% endif %}{% endfor %}{% if module.command_fallback%}	void query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
+	void {{cmd_name}}(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+{% endif %}{% endfor %}{% if module.command_fallback%}	void query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, const PB::Commands::QueryRequestMessage &request_message);
 {% endif %}
 {% endif %}
 */
@@ -780,7 +791,7 @@ public:
 	void handleMessageRAW(std::string data);
 	/*
 	Add the following to {{module.name}}
-	void handleLogMessage(const Plugin::LogEntry::Entry &message);
+	void handleLogMessage(const PB::Log::LogEntry::Entry &message);
 	*/
 {% endif %}
 {% if module.channels %}
@@ -789,9 +800,9 @@ public:
 	/*
 	Add the following to {{module.name}}
 {% if module.channels == "raw" %}
-	void handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message);
+	void handleNotification(const std::string &channel, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage *response_message);
 {% else %}
-	void handleNotification(const std::wstring channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message);
+	void handleNotification(const std::wstring channel, const PB::Commands::QueryResponseMessage::Response &request, PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message);
 {% endif %}
 	*/
 {% endif %}
@@ -803,31 +814,31 @@ public:
 {%if module.cli == "legacy" %}
 	NSCAPI::nagiosReturn commandLineExec(const std::string &command, const std::list<std::string> &arguments, std::string &result);
 {% else %}
-	bool commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
+	bool commandLineExec(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
 {% endif %}
 	*/
 {% endif %}
 {% if module.metrics == "produce" or module.metrics == "both" %}
 	int fetchMetrics(std::string &reply);
 	/*
-	void fetchMetrics(Plugin::MetricsMessage::Response *response);
+	void fetchMetrics(PB::Metrics::MetricsMessage::Response *response);
 	*/
 {% endif %}
 {% if module.metrics == "consume" or module.metrics == "both" %}
 	int submitMetrics(const std::string &reply);
 	/*
-	void submitMetrics(const Plugin::MetricsMessage::Response &response);
+	void submitMetrics(const PB::MetricsMetricsMessage::Response &response);
 	*/
 {% endif %}
 	// exposed functions
 {%if options.hasRegisterCommand %}
-	void registerCommands(boost::shared_ptr<nscapi::command_proxy> proxy);
+	void registerCommands();
 {% endif %}
 {% if module.events %}
 	NSCAPI::nagiosReturn onRAWEvent(const std::string &request);
 	/*
 	Add the following to {{module.name}}
-	void onEvent(const Plugin::EventMessage &request_message, const std::string &buffer);
+	void onEvent(const PB::Commands::EventMessage &request_message, const std::string &buffer);
 	*/
 {% endif %}
     

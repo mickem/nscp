@@ -26,6 +26,7 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_settings_functions.hpp>
 #include <nscapi/macros.hpp>
 
 #include <str/utils.hpp>
@@ -70,7 +71,7 @@ bool Op5Client::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
  		default_checks["Disk Write Average Latency"] = "check_pdh \"counter=\\\\LogicalDisk(*)\\\\Avg. Disk sec/Write\" show-all \"crit=value > 25\" \"warn=value > 20\"";
 		default_checks["Disk Usage"] = "check_drivesize";
 
-		sh::settings_registry settings(get_settings_proxy());
+		sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 		settings.set_alias("op5", alias);
 		std::string interval;
 		bool defChecks = true;
@@ -208,7 +209,7 @@ bool Op5Client::unloadModule() {
 	return true;
 }
 
-bool Op5Client::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+bool Op5Client::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message) {
 	std::string command = request.command();
 	if (command == "op5" && request.arguments_size() > 0)
 		command = request.arguments(0);
@@ -229,7 +230,7 @@ bool Op5Client::commandLineExec(const int target_mode, const Plugin::ExecuteRequ
 
 
 
-bool Op5Client::cli_install(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+bool Op5Client::cli_install(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
@@ -338,7 +339,7 @@ bool Op5Client::cli_install(const Plugin::ExecuteRequestMessage::Request &reques
 
 
 
-bool Op5Client::cli_add(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+bool Op5Client::cli_add(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
@@ -407,13 +408,13 @@ bool Op5Client::cli_add(const Plugin::ExecuteRequestMessage::Request &request, P
 	}
 }
 
-void Op5Client::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
+void Op5Client::handleNotification(const std::string &, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage *response_message) {
 
 	if (!client) {
 		nscapi::protobuf::functions::set_response_bad(*response_message->add_payload(), "Invalid op5 configuration");
 		return;
 	}
-	BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response &p, request_message.payload()) {
+	BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage_Response &p, request_message.payload()) {
 		std::string msg = nscapi::protobuf::functions::query_data_to_nagios_string(p, nscapi::protobuf::functions::no_truncation);
 		std::string alias = p.alias();
 		if (alias.empty())

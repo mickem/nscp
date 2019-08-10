@@ -28,7 +28,8 @@
 #include "path_manager.hpp"
 
 #include <nsclient/logger/logger.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/nscapi_protobuf_metrics.hpp>
 
 #include <settings/settings_core.hpp>
 
@@ -133,7 +134,7 @@ namespace nsclient {
 			int load_and_run(std::string module, run_function fun, std::list<std::string> &errors);
 			NSCAPI::errorReturn send_notification(const char* channel, std::string &request, std::string &response);
 			NSCAPI::nagiosReturn execute_query(const std::string &request, std::string &response);
-			::Plugin::QueryResponseMessage execute_query(const ::Plugin::QueryRequestMessage &);
+			::PB::Commands::QueryResponseMessage execute_query(const ::PB::Commands::QueryRequestMessage &);
 			std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
 			int simple_exec(std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
 			int simple_query(std::string module, std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
@@ -142,7 +143,7 @@ namespace nsclient {
 			NSCAPI::nagiosReturn emit_event(const std::string &request);
 
 			bool is_enabled(const std::string module);
-			void process_metrics(Plugin::Common::MetricsBundle bundle);
+			void process_metrics(PB::Metrics::MetricsBundle bundle);
 
 			bool enable_plugin(std::string name);
 			bool disable_plugin(std::string name);

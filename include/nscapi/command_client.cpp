@@ -18,7 +18,7 @@
  */
 
 #include <nscapi/command_client.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_registry.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/command_proxy.hpp>
 
@@ -36,12 +36,12 @@ namespace nscapi {
 		void command_registry::register_all() {
 			if (commands.size() == 0)
 				return;
-			Plugin::RegistryRequestMessage request;
+			PB::Registry::RegistryRequestMessage request;
 			BOOST_FOREACH(command_list::value_type v, commands) {
-				Plugin::RegistryRequestMessage::Request *payload = request.add_payload();
-				Plugin::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
+				PB::Registry::RegistryRequestMessage::Request *payload = request.add_payload();
+				PB::Registry::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
 				regitem->set_plugin_id(core_->get_plugin_id());
-				regitem->set_type(Plugin::Registry_ItemType_QUERY);
+				regitem->set_type(PB::Registry::ItemType::QUERY);
 				regitem->set_name(v->name);
 				regitem->mutable_info()->set_title(v->name);
 				regitem->mutable_info()->set_description(v->description);
@@ -51,10 +51,10 @@ namespace nscapi {
 			}
 			std::string response_string;
 			core_->registry_query(request.SerializeAsString(), response_string);
-			Plugin::RegistryResponseMessage response;
+			PB::Registry::RegistryResponseMessage response;
 			response.ParseFromString(response_string);
 			for (int i = 0; i < response.payload_size(); i++) {
-				if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK) {
+				if (response.payload(i).result().code() != PB::Common::Result_StatusCodeType_STATUS_OK) {
 					errors.push_back(response.payload(i).result().message());
 				}
 			}

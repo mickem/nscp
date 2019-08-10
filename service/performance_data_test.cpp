@@ -18,7 +18,7 @@
  */
 
 #include <nscapi/functions.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <str/format.hpp>
 
 #include <vector>
@@ -27,7 +27,7 @@
 #include <gtest/gtest.h>
 
 std::string do_parse(std::string str, std::size_t max_length = nscapi::protobuf::functions::no_truncation) {
-	Plugin::QueryResponseMessage::Response::Line r;
+	PB::Commands::QueryResponseMessage::Response::Line r;
 	nscapi::protobuf::functions::parse_performance_data(&r, str);
 	return nscapi::protobuf::functions::build_performance_data(r, max_length);
 }

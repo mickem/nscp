@@ -42,7 +42,7 @@ using namespace System::Reflection;
 using namespace System::Collections::Generic;
 using namespace System::Runtime::InteropServices;
 
-using namespace Plugin;
+using namespace PB::Commands;
 
 std::string to_nstring(System::String^ s) {
 	pin_ptr<const wchar_t> pinString = PtrToStringChars(s);

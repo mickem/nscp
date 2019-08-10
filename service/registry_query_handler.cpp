@@ -12,7 +12,7 @@ namespace nsclient {
 	namespace core {
 
 
-		registry_query_handler::registry_query_handler(nsclient::core::path_instance path_, nsclient::core::plugin_mgr_instance plugins_, nsclient::logging::logger_instance logger_, const Plugin::RegistryRequestMessage &request)
+		registry_query_handler::registry_query_handler(nsclient::core::path_instance path_, nsclient::core::plugin_mgr_instance plugins_, nsclient::logging::logger_instance logger_, const PB::Registry::RegistryRequestMessage &request)
 			: path_(path_)
 			, plugins_(plugins_)
 			, logger_(logger_)
@@ -21,9 +21,9 @@ namespace nsclient {
 
 
 
-		void registry_query_handler::parse(Plugin::RegistryResponseMessage &response) {
+		void registry_query_handler::parse(PB::Registry::RegistryResponseMessage &response) {
 
-			BOOST_FOREACH(const Plugin::RegistryRequestMessage::Request &r, request_.payload()) {
+			BOOST_FOREACH(const PB::Registry::RegistryRequestMessage::Request &r, request_.payload()) {
 				if (r.has_inventory()) {
 					parse_inventory(r.inventory(), response);
 				} else if (r.has_registration()) {
@@ -37,24 +37,24 @@ namespace nsclient {
 			}
 		}
 
-		void registry_query_handler::inventory_queries(const Plugin::RegistryRequestMessage::Request::Inventory &q, Plugin::RegistryResponseMessage::Response* rp) {
-			if (q.has_name()) {
+		void registry_query_handler::inventory_queries(const PB::Registry::RegistryRequestMessage::Request::Inventory &q, PB::Registry::RegistryResponseMessage::Response* rp) {
+			if (!q.name().empty()) {
 				nsclient::commands::command_info info = plugins_->get_commands()->describe(q.name());
 				if (!info.name.empty()) {
-					Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
+					PB::Registry::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 					rpp->set_name(q.name());
-					rpp->set_type(Plugin::Registry_ItemType_COMMAND);
+					rpp->set_type(PB::Registry::ItemType::COMMAND);
 					rpp->mutable_info()->add_plugin(plugins_->get_plugin_cache()->find_plugin_alias(info.plugin_id));
 					rpp->mutable_info()->set_title(info.name);
 					rpp->mutable_info()->set_description(info.description);
-					if (q.has_fetch_all() && q.fetch_all()) {
-						Plugin::QueryRequestMessage req;
-						Plugin::QueryRequestMessage::Request * p = req.add_payload();
+					if (q.fetch_all()) {
+						PB::Commands::QueryRequestMessage req;
+						PB::Commands::QueryRequestMessage::Request * p = req.add_payload();
 						p->set_command(q.name());
 						p->add_arguments("help-pb");
-						Plugin::QueryResponseMessage res = plugins_->execute_query(req);
+						PB::Commands::QueryResponseMessage res = plugins_->execute_query(req);
 						for (int i = 0; i < res.payload_size(); i++) {
-							const Plugin::QueryResponseMessage::Response p = res.payload(i);
+							const PB::Commands::QueryResponseMessage::Response p = res.payload(i);
 							rpp->mutable_parameters()->ParseFromString(p.data());
 						}
 					}
@@ -62,21 +62,21 @@ namespace nsclient {
 			} else {
 				BOOST_FOREACH(const std::string &command, plugins_->get_commands()->list_commands()) {
 					nsclient::commands::command_info info = plugins_->get_commands()->describe(command);
-					Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
+					PB::Registry::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 					rpp->set_name(command);
-					rpp->set_type(Plugin::Registry_ItemType_COMMAND);
+					rpp->set_type(PB::Registry::ItemType::COMMAND);
 					rpp->mutable_info()->add_plugin(plugins_->get_plugin_cache()->find_plugin_alias(info.plugin_id));
 					rpp->mutable_info()->set_title(info.name);
 					rpp->mutable_info()->set_description(info.description);
-					if (q.has_fetch_all() && q.fetch_all()) {
+					if (q.fetch_all()) {
 						std::string resp;
-						Plugin::QueryRequestMessage req;
-						Plugin::QueryRequestMessage::Request * p = req.add_payload();
+						PB::Commands::QueryRequestMessage req;
+						PB::Commands::QueryRequestMessage::Request * p = req.add_payload();
 						p->set_command(command);
 						p->add_arguments("help-pb");
-						Plugin::QueryResponseMessage res = plugins_->execute_query(req);
+						PB::Commands::QueryResponseMessage res = plugins_->execute_query(req);
 						for (int i = 0; i < res.payload_size(); i++) {
-							const Plugin::QueryResponseMessage::Response p = res.payload(i);
+							const PB::Commands::QueryResponseMessage::Response p = res.payload(i);
 							rpp->mutable_parameters()->ParseFromString(p.data());
 						}
 					}
@@ -85,7 +85,7 @@ namespace nsclient {
 		}
 
 
-		void registry_query_handler::find_plugins_on_disk(boost::unordered_set<std::string> &unique_instances, const Plugin::RegistryRequestMessage::Request::Inventory &q, Plugin::RegistryResponseMessage::Response* rp) {
+		void registry_query_handler::find_plugins_on_disk(boost::unordered_set<std::string> &unique_instances, const PB::Registry::RegistryRequestMessage::Request::Inventory &q, PB::Registry::RegistryResponseMessage::Response* rp) {
 			nsclient::core::plugin_cache::plugin_cache_list_type tmp_list;
 			boost::filesystem::path pluginPath = path_->expand_path("${module-path}");
 			boost::filesystem::directory_iterator end_itr; // default construction yields past-the-end
@@ -102,7 +102,7 @@ namespace nsclient {
 									continue;
 								}
 								unique_instances.emplace(key);
-								if (q.has_name() && q.name() != itm.dll && q.name() != itm.alias) {
+								if (q.name() != itm.dll && q.name() != itm.alias) {
 									continue;
 								}
 								add_module(rp, itm, false);
@@ -114,15 +114,15 @@ namespace nsclient {
 			plugins_->get_plugin_cache()->add_plugins(tmp_list);
 		}
 
-		void registry_query_handler::add_module(Plugin::RegistryResponseMessage::Response* rp, const plugin_cache_item &plugin, bool is_enabled) {
-			Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
+		void registry_query_handler::add_module(PB::Registry::RegistryResponseMessage::Response* rp, const plugin_cache_item &plugin, bool is_enabled) {
+			PB::Registry::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 			rpp->set_name(plugin.dll);
-			rpp->set_type(Plugin::Registry_ItemType_MODULE);
+			rpp->set_type(PB::Registry::ItemType::MODULE);
 			rpp->set_id(plugin.alias.empty()?plugin.dll:plugin.alias);
 			rpp->mutable_info()->add_plugin(plugin.dll);
 			rpp->mutable_info()->set_title(plugin.title);
 			rpp->mutable_info()->set_description(plugin.desc);
-			Plugin::Common::KeyValue *kvp = rpp->mutable_info()->add_metadata();
+			PB::Common::KeyValue *kvp = rpp->mutable_info()->add_metadata();
 			kvp->set_key("plugin_id");
 			kvp->set_value(str::xtos(plugin.id));
 			kvp = rpp->mutable_info()->add_metadata();
@@ -136,7 +136,7 @@ namespace nsclient {
 			kvp->set_value(is_enabled ? "true" : "false");
 		}
 
-		void registry_query_handler::inventory_modules(const Plugin::RegistryRequestMessage::Request::Inventory &q, Plugin::RegistryResponseMessage::Response* rp) {
+		void registry_query_handler::inventory_modules(const PB::Registry::RegistryRequestMessage::Request::Inventory &q, PB::Registry::RegistryResponseMessage::Response* rp) {
 			boost::unordered_set<std::string> unique_instances;
 			BOOST_FOREACH(const nsclient::core::plugin_cache_item &plugin, plugins_->get_plugin_cache()->get_list()) {
 				std::string key = plugin.dll + "::" + plugin.alias;
@@ -144,19 +144,19 @@ namespace nsclient {
 					continue;
 				}
 				unique_instances.emplace(key);
-				if (q.has_name() && q.name() != plugin.dll) {
+				if (!q.name().empty() && q.name() != plugin.dll) {
 					continue;
 				}
 
-				if (q.fetch_all() || plugin.is_loaded  || (q.has_name() && q.name() == plugin.dll) ) {
+				if (q.fetch_all() || plugin.is_loaded  || (q.name() == plugin.dll) ) {
 					add_module(rp, plugin, plugins_->is_enabled(plugin.dll));
 				}
 
-				if (q.has_name() && q.name() == plugin.dll) {
+				if (q.name() == plugin.dll) {
 					return;
 				}
 			}
-			if (q.has_name()) {
+			if (!q.name().empty()) {
 				nsclient::core::plugin_cache::plugin_cache_list_type tmp_list;
 				plugin_cache_item  itm = inventory_plugin_on_disk(tmp_list, q.name());
 				if (!itm.dll.empty()) {
@@ -171,34 +171,34 @@ namespace nsclient {
 			}
 		}
 
-		void registry_query_handler::parse_inventory(const Plugin::RegistryRequestMessage::Request::Inventory &q, Plugin::RegistryResponseMessage &response) {
-			Plugin::RegistryResponseMessage::Response* rp = response.add_payload();
+		void registry_query_handler::parse_inventory(const PB::Registry::RegistryRequestMessage::Request::Inventory &q, PB::Registry::RegistryResponseMessage &response) {
+			PB::Registry::RegistryResponseMessage::Response* rp = response.add_payload();
 			for (int i = 0; i < q.type_size(); i++) {
-				Plugin::Registry_ItemType type = q.type(i);
-				if (type == Plugin::Registry_ItemType_QUERY || type == Plugin::Registry_ItemType_ALL) {
+				PB::Registry::ItemType type = q.type(i);
+				if (type == PB::Registry::ItemType::QUERY || type == PB::Registry::ItemType::ALL) {
 					inventory_queries(q, rp);
 				}
-				if (type == Plugin::Registry_ItemType_QUERY_ALIAS || type == Plugin::Registry_ItemType_ALL) {
+				if (type == PB::Registry::ItemType::QUERY_ALIAS || type == PB::Registry::ItemType::ALL) {
 					BOOST_FOREACH(const std::string &command, plugins_->get_commands()->list_aliases()) {
 						nsclient::commands::command_info info = plugins_->get_commands()->describe(command);
-						Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
+						PB::Registry::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 						rpp->set_name(command);
-						rpp->set_type(Plugin::Registry_ItemType_QUERY_ALIAS);
+						rpp->set_type(PB::Registry::ItemType::QUERY_ALIAS);
 						rpp->mutable_info()->add_plugin(plugins_->get_plugin_cache()->find_plugin_alias(info.plugin_id));
 						rpp->mutable_info()->set_title(info.name);
 						rpp->mutable_info()->set_description(info.description);
 					}
 				}
-				if (type == Plugin::Registry_ItemType_MODULE || type == Plugin::Registry_ItemType_ALL) {
+				if (type == PB::Registry::ItemType::MODULE || type == PB::Registry::ItemType::ALL) {
 					inventory_modules(q, rp);
 				}
 			}
-			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+			rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
 		}
 
-		void registry_query_handler::parse_registration(const Plugin::RegistryRequestMessage::Request::Registration &registration, Plugin::RegistryResponseMessage &response) {
-			Plugin::RegistryResponseMessage::Response* rp = response.add_payload();
-			if (registration.type() == Plugin::Registry_ItemType_QUERY) {
+		void registry_query_handler::parse_registration(const PB::Registry::RegistryRequestMessage::Request::Registration &registration, PB::Registry::RegistryResponseMessage &response) {
+			PB::Registry::RegistryResponseMessage::Response* rp = response.add_payload();
+			if (registration.type() == PB::Registry::ItemType::QUERY) {
 				if (registration.unregister()) {
 					plugins_->get_commands()->unregister_command(registration.plugin_id(), registration.name());
 					BOOST_FOREACH(const std::string &alias, registration.alias())
@@ -209,17 +209,17 @@ namespace nsclient {
 					BOOST_FOREACH(const std::string &alias, registration.alias())
 						plugins_->get_commands()->register_alias(registration.plugin_id(), alias, description);
 				}
-			} else if (registration.type() == Plugin::Registry_ItemType_QUERY_ALIAS) {
+			} else if (registration.type() == PB::Registry::ItemType::QUERY_ALIAS) {
 				plugins_->get_commands()->register_alias(registration.plugin_id(), registration.name(), registration.info().description());
 				for (int i = 0; i < registration.alias_size(); i++) {
 					plugins_->get_commands()->register_alias(registration.plugin_id(), registration.alias(i), registration.info().description());
 				}
-			} else if (registration.type() == Plugin::Registry_ItemType_HANDLER) {
+			} else if (registration.type() == PB::Registry::ItemType::HANDLER) {
 				plugins_->get_channels()->register_listener(registration.plugin_id(), registration.name());
-			} else if (registration.type() == Plugin::Registry_ItemType_EVENT) {
+			} else if (registration.type() == PB::Registry::ItemType::EVENT) {
 				plugins_->get_event_subscribers()->register_listener(registration.plugin_id(), registration.name());
-			} else if (registration.type() == Plugin::Registry_ItemType_MODULE) {
-				Plugin::RegistryResponseMessage::Response::Registration *rpp = rp->mutable_registration();
+			} else if (registration.type() == PB::Registry::ItemType::MODULE) {
+				PB::Registry::RegistryResponseMessage::Response::Registration *rpp = rp->mutable_registration();
 				unsigned int new_id = plugins_->clone_plugin(registration.plugin_id());
 				if (new_id != -1) {
 					rpp->set_item_id(new_id);
@@ -227,31 +227,31 @@ namespace nsclient {
 			} else {
 				LOG_ERROR_CORE("Registration query: Unsupported type");
 			}
-			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+			rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
 		}
 
 
-		void registry_query_handler::parse_control(const Plugin::RegistryRequestMessage::Request::Control &control, Plugin::RegistryResponseMessage &response) {
-			Plugin::RegistryResponseMessage::Response* rp = response.add_payload();
-			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_ERROR);
-			if (control.type() == Plugin::Registry_ItemType_MODULE) {
-				if (control.command() == Plugin::Registry_Command_LOAD) {
+		void registry_query_handler::parse_control(const PB::Registry::RegistryRequestMessage::Request::Control &control, PB::Registry::RegistryResponseMessage &response) {
+			PB::Registry::RegistryResponseMessage::Response* rp = response.add_payload();
+			rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_ERROR);
+			if (control.type() == PB::Registry::ItemType::MODULE) {
+				if (control.command() == PB::Registry::Command::LOAD) {
 					if (plugins_->load_single_plugin(control.name(), control.alias(), true)) {
-						rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+						rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
 					} else {
 						LOG_ERROR_CORE("Failed to find: " + control.name());
 					}
-				} else if (control.command() == Plugin::Registry_Command_UNLOAD) {
+				} else if (control.command() == PB::Registry::Command::UNLOAD) {
 					if (plugins_->remove_plugin(control.name())) {
-						rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+						rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
 					}
-				} else if (control.command() == Plugin::Registry_Command_ENABLE) {
+				} else if (control.command() == PB::Registry::Command::ENABLE) {
 					if (plugins_->enable_plugin(control.name())) {
-						rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+						rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
 					}
-				} else if (control.command() == Plugin::Registry_Command_DISABLE) {
+				} else if (control.command() == PB::Registry::Command::DISABLE) {
 					if (plugins_->disable_plugin(control.name())) {
-						rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+						rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
 					}
 				} else {
 					LOG_ERROR_CORE("Registration query: Invalid command");

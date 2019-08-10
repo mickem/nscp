@@ -21,7 +21,8 @@
 #include <client/command_line_parser.hpp>
 
 #include <nscapi/nscapi_protobuf_nagios.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/nscapi_protobuf_metrics.hpp>
 
 #include <utf8.hpp>
 
@@ -46,14 +47,14 @@ struct payload_builder {
 		type_none
 	};
 
-	::Plugin::SubmitRequestMessage submit_message;
-	::Plugin::QueryResponseMessage::Response *submit_payload;
+	::PB::Commands::SubmitRequestMessage submit_message;
+	::PB::Commands::QueryResponseMessage::Response *submit_payload;
 
-	::Plugin::ExecuteRequestMessage exec_message;
-	::Plugin::ExecuteRequestMessage::Request *exec_payload;
+	::PB::Commands::ExecuteRequestMessage exec_message;
+	::PB::Commands::ExecuteRequestMessage::Request *exec_payload;
 
-	::Plugin::QueryRequestMessage query_message;
-	::Plugin::QueryRequestMessage::Request *query_payload;
+	::PB::Commands::QueryRequestMessage query_message;
+	::PB::Commands::QueryRequestMessage::Request *query_payload;
 
 	types type;
 	std::string separator;
@@ -79,7 +80,7 @@ struct payload_builder {
 	void set_result(const std::string &value);
 	void set_message(const std::string &value) {
 		if (is_submit()) {
-			Plugin::QueryResponseMessage::Response::Line *l = get_submit_payload()->add_lines();
+			PB::Commands::QueryResponseMessage::Response::Line *l = get_submit_payload()->add_lines();
 			l->set_message(value);
 		} else if (is_exec()) {
 			throw client::cli_exception("message not supported for exec");
@@ -111,17 +112,17 @@ struct payload_builder {
 
 private:
 
-	::Plugin::QueryResponseMessage::Response *get_submit_payload() {
+	::PB::Commands::QueryResponseMessage::Response *get_submit_payload() {
 		if (submit_payload == NULL)
 			submit_payload = submit_message.add_payload();
 		return submit_payload;
 	}
-	::Plugin::QueryRequestMessage::Request *get_query_payload() {
+	::PB::Commands::QueryRequestMessage::Request *get_query_payload() {
 		if (query_payload == NULL)
 			query_payload = query_message.add_payload();
 		return query_payload;
 	}
-	::Plugin::ExecuteRequestMessage::Request *get_exec_payload() {
+	::PB::Commands::ExecuteRequestMessage::Request *get_exec_payload() {
 		if (exec_payload == NULL)
 			exec_payload = exec_message.add_payload();
 		return exec_payload;
@@ -278,13 +279,13 @@ client::destination_container client::configuration::get_sender() const {
 	return s;
 }
 
-void client::configuration::do_query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response) {
-	Plugin::QueryResponseMessage local_response;
+void client::configuration::do_query(const PB::Commands::QueryRequestMessage &request, PB::Commands::QueryResponseMessage &response) {
+	PB::Commands::QueryResponseMessage local_response;
 
 	std::string target = "default";
-	if (request.header().has_recipient_id())
+	if (!request.header().recipient_id().empty())
 		target = request.header().recipient_id();
-	else if (request.header().has_destination_id())
+	else if (!request.header().destination_id().empty())
 		target = request.header().destination_id();
 
 	BOOST_FOREACH(const std::string t, str::utils::split_lst(target, std::string(","))) {
@@ -302,12 +303,12 @@ void client::configuration::do_query(const Plugin::QueryRequestMessage &request,
 		} else {
 			// Parse each objects command and execute them
 			for (int i = 0; i < request.payload_size(); i++) {
-				::Plugin::QueryRequestMessage local_request_message;
-				const ::Plugin::QueryRequestMessage::Request &local_request = request.payload(i);
+				::PB::Commands::QueryRequestMessage local_request_message;
+				const ::PB::Commands::QueryRequestMessage::Request &local_request = request.payload(i);
 				local_request_message.mutable_header()->CopyFrom(request.header());
 				local_request_message.add_payload()->CopyFrom(local_request);
 				std::string command = local_request.command();
-				::Plugin::QueryResponseMessage local_response_message;
+				::PB::Commands::QueryResponseMessage local_response_message;
 				i_do_query(s, d, command, local_request_message, local_response_message, false);
 				for (int j = 0; j < local_response_message.payload_size(); j++) {
 					response.add_payload()->CopyFrom(local_response_message.payload(j));
@@ -325,7 +326,7 @@ po::options_description client::configuration::create_descriptor(const std::stri
 	return desc;
 }
 
-void client::configuration::i_do_query(destination_container &s, destination_container &d, std::string command, const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response, bool use_header) {
+void client::configuration::i_do_query(destination_container &s, destination_container &d, std::string command, const PB::Commands::QueryRequestMessage &request, PB::Commands::QueryResponseMessage &response, bool use_header) {
 	try {
 		boost::program_options::variables_map vm;
 		bool custom_command = false;
@@ -337,12 +338,12 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 			// TODO: Build argument vector here!
 		}
 		if (command.substr(0, 8) == "forward_" || command.substr(command.size() - 8, 8) == "_forward") {
-			BOOST_FOREACH(const Plugin::QueryRequestMessage::Request &p, request.payload()) {
+			BOOST_FOREACH(const PB::Commands::QueryRequestMessage::Request &p, request.payload()) {
 				if (p.arguments_size() > 0) {
 					BOOST_FOREACH(const std::string &a, p.arguments()) {
 						if (a == "help-pb") {
-							::Plugin::Registry::ParameterDetails details;
-							::Plugin::Registry::ParameterDetail *td = details.add_parameter();
+							::PB::Registry::ParameterDetails details;
+							::PB::Registry::ParameterDetail *td = details.add_parameter();
 							td->set_name("*");
 							td->set_short_description("This command will forward all arguments to remote system");
 							nscapi::protobuf::functions::set_response_good_wdata(*response.add_payload(), details.SerializeAsString());
@@ -379,7 +380,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 				// TODO: Parse header here
 			} else {
 				for (int i = 0; i < request.payload_size(); i++) {
-					::Plugin::QueryResponseMessage::Response resp;
+					::PB::Commands::QueryResponseMessage::Response resp;
 					// Apply any arguments from command line
 					po::positional_options_description p;
 					p.add("argument", -1);
@@ -396,28 +397,28 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 			}
 
 			if (builder.is_query()) {
-				Plugin::QueryResponseMessage local_response;
+				PB::Commands::QueryResponseMessage local_response;
 				if (!handler->query(s, d, builder.query_message, local_response)) {
 					return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 				}
-				BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response td, local_response.payload()) {
+				BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage::Response td, local_response.payload()) {
 					response.add_payload()->CopyFrom(td);
 				}
 			} else if (builder.is_exec()) {
-				Plugin::ExecuteResponseMessage local_response;
+				PB::Commands::ExecuteResponseMessage local_response;
 				if (!handler->exec(s, d, builder.exec_message, local_response)) {
 					return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 				}
-				BOOST_FOREACH(const ::Plugin::ExecuteResponseMessage::Response td, local_response.payload()) {
+				BOOST_FOREACH(const ::PB::Commands::ExecuteResponseMessage::Response td, local_response.payload()) {
 					nscapi::protobuf::functions::copy_response(command, response.add_payload(), td);
 				}
 				// TODO: Convert reply to native reply
 			} else if (builder.is_submit()) {
-				Plugin::SubmitResponseMessage local_response;
+				PB::Commands::SubmitResponseMessage local_response;
 				if (!handler->submit(s, d, builder.submit_message, local_response)) {
 					return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 				}
-				BOOST_FOREACH(const ::Plugin::SubmitResponseMessage::Response td, local_response.payload()) {
+				BOOST_FOREACH(const ::PB::Commands::SubmitResponseMessage::Response td, local_response.payload()) {
 					nscapi::protobuf::functions::copy_response(command, response.add_payload(), td);
 				}
 			} else {
@@ -429,13 +430,13 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 	}
 }
 
-bool client::configuration::do_exec(const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response, const std::string &t_default_command) {
-	Plugin::ExecuteResponseMessage local_response;
+bool client::configuration::do_exec(const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response, const std::string &t_default_command) {
+	PB::Commands::ExecuteResponseMessage local_response;
 
 	std::string target = "default";
-	if (request.header().has_recipient_id())
+	if (!request.header().recipient_id().empty())
 		target = request.header().recipient_id();
-	else if (request.header().has_destination_id())
+	else if (!request.header().destination_id().empty())
 		target = request.header().destination_id();
 
 	BOOST_FOREACH(const std::string t, str::utils::split_lst(target, std::string(","))) {
@@ -454,14 +455,14 @@ bool client::configuration::do_exec(const Plugin::ExecuteRequestMessage &request
 			bool found = false;
 			// Parse each objects command and execute them
 			for (int i = 0; i < request.payload_size(); i++) {
-				::Plugin::ExecuteRequestMessage local_request_message;
-				const ::Plugin::ExecuteRequestMessage::Request &local_request = request.payload(i);
+				::PB::Commands::ExecuteRequestMessage local_request_message;
+				const ::PB::Commands::ExecuteRequestMessage::Request &local_request = request.payload(i);
 				local_request_message.mutable_header()->CopyFrom(request.header());
 				local_request_message.add_payload()->CopyFrom(local_request);
 				std::string command = local_request.command();
 				if (command.empty())
 					command = t_default_command;
-				::Plugin::ExecuteResponseMessage local_response_message;
+				::PB::Commands::ExecuteResponseMessage local_response_message;
 				if (i_do_exec(s, d, command, local_request_message, local_response_message, false)) {
 					found = true;
 				}
@@ -478,7 +479,7 @@ bool client::configuration::do_exec(const Plugin::ExecuteRequestMessage &request
 	return false;
 }
 
-bool client::configuration::i_do_exec(destination_container &s, destination_container &d, std::string command, const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response, bool use_header) {
+bool client::configuration::i_do_exec(destination_container &s, destination_container &d, std::string command, const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response, bool use_header) {
 	try {
 		boost::program_options::variables_map vm;
 		bool custom_command = false;
@@ -517,7 +518,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 				// TODO: Parse header here
 			} else {
 				for (int i = 0; i < request.payload_size(); i++) {
-					::Plugin::ExecuteResponseMessage::Response resp;
+					::PB::Commands::ExecuteResponseMessage::Response resp;
 					// Apply any arguments from command line
 					// TODO: This is broken as it overwrite the source/targets
 					if (!nscapi::program_options::process_arguments_from_request(vm, desc, request.payload(i), resp)) {
@@ -545,7 +546,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 					// TODO: Parse header here
 				} else {
 					for (int i = 0; i < request.payload_size(); i++) {
-						::Plugin::ExecuteResponseMessage::Response resp;
+						::PB::Commands::ExecuteResponseMessage::Response resp;
 						// Apply any arguments from command line
 						// TODO: This is broken as it overwrite the source/targets
 						if (!nscapi::program_options::process_arguments_from_request(vm, desc, request.payload(i), resp)) {
@@ -557,30 +558,30 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 			}
 
 			if (builder.type == payload_builder::type_query) {
-				Plugin::QueryResponseMessage local_response;
+				PB::Commands::QueryResponseMessage local_response;
 				if (!handler->query(s, d, builder.query_message, local_response)) {
 					nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 					return true;
 				}
-				BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response td, local_response.payload()) {
+				BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage::Response td, local_response.payload()) {
 					nscapi::protobuf::functions::copy_response(command, response.add_payload(), td);
 				}
 			} else if (builder.type == payload_builder::type_exec) {
-				Plugin::ExecuteResponseMessage local_response;
+				PB::Commands::ExecuteResponseMessage local_response;
 				if (!handler->exec(s, d, builder.exec_message, local_response)) {
 					nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 					return true;
 				}
-				BOOST_FOREACH(const ::Plugin::ExecuteResponseMessage::Response td, local_response.payload()) {
+				BOOST_FOREACH(const ::PB::Commands::ExecuteResponseMessage::Response td, local_response.payload()) {
 					response.add_payload()->CopyFrom(td);
 				}
 			} else if (builder.type == payload_builder::type_submit) {
-				Plugin::SubmitResponseMessage local_response;
+				PB::Commands::SubmitResponseMessage local_response;
 				if (!handler->submit(s, d, builder.submit_message, local_response)) {
 					nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 					return true;
 				}
-				BOOST_FOREACH(const ::Plugin::SubmitResponseMessage::Response td, local_response.payload()) {
+				BOOST_FOREACH(const ::PB::Commands::SubmitResponseMessage::Response td, local_response.payload()) {
 					nscapi::protobuf::functions::copy_response(command, response.add_payload(), td);
 				}
 			}
@@ -593,28 +594,28 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 }
 
 
-void client::configuration::do_submit_item(const Plugin::SubmitRequestMessage &request, destination_container s, destination_container d, Plugin::SubmitResponseMessage &response) {
+void client::configuration::do_submit_item(const PB::Commands::SubmitRequestMessage &request, destination_container s, destination_container d, PB::Commands::SubmitResponseMessage &response) {
 	// Parse each objects command and execute them
-	BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response &local_request, request.payload()) {
-		::Plugin::SubmitRequestMessage local_request_message;
+	BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage::Response &local_request, request.payload()) {
+		::PB::Commands::SubmitRequestMessage local_request_message;
 		local_request_message.mutable_header()->CopyFrom(request.header());
 		local_request_message.add_payload()->CopyFrom(local_request);
-		::Plugin::SubmitResponseMessage local_response_message;
+		::PB::Commands::SubmitResponseMessage local_response_message;
 		i_do_submit(s, d, "forward_raw", local_request_message, local_response_message, false);
-		BOOST_FOREACH(const ::Plugin::SubmitResponseMessage_Response &p, local_response_message.payload()) {
+		BOOST_FOREACH(const ::PB::Commands::SubmitResponseMessage_Response &p, local_response_message.payload()) {
 			response.add_payload()->CopyFrom(p);
 		}
 	}
 }
 
 
-void client::configuration::do_submit(const Plugin::SubmitRequestMessage &request, Plugin::SubmitResponseMessage &response) {
-	Plugin::ExecuteResponseMessage local_response;
+void client::configuration::do_submit(const PB::Commands::SubmitRequestMessage &request, PB::Commands::SubmitResponseMessage &response) {
+	PB::Commands::ExecuteResponseMessage local_response;
 
 	std::string target = "default";
-	if (request.header().has_recipient_id() && !request.header().recipient_id().empty())
+	if (!request.header().recipient_id().empty() && !request.header().recipient_id().empty())
 		target = request.header().recipient_id();
-	else if (request.header().has_destination_id() && !request.header().destination_id().empty())
+	else if (!request.header().destination_id().empty() && !request.header().destination_id().empty())
 		target = request.header().destination_id();
 
 	BOOST_FOREACH(const std::string t, str::utils::split_lst(target, std::string(","))) {
@@ -635,7 +636,7 @@ void client::configuration::do_submit(const Plugin::SubmitRequestMessage &reques
 	}
 }
 
-void client::configuration::i_do_submit(destination_container &s, destination_container &d, std::string command, const Plugin::SubmitRequestMessage &request, Plugin::SubmitResponseMessage &response, bool use_header) {
+void client::configuration::i_do_submit(destination_container &s, destination_container &d, std::string command, const PB::Commands::SubmitRequestMessage &request, PB::Commands::SubmitResponseMessage &response, bool use_header) {
 	try {
 		boost::program_options::variables_map vm;
 
@@ -655,11 +656,11 @@ void client::configuration::i_do_submit(destination_container &s, destination_co
 	}
 }
 
-void client::configuration::do_metrics(const Plugin::MetricsMessage &request) {
+void client::configuration::do_metrics(const PB::Metrics::MetricsMessage &request) {
 	std::string target = "default";
-	if (request.header().has_recipient_id())
+	if (!request.header().recipient_id().empty())
 		target = request.header().recipient_id();
-	else if (request.header().has_destination_id())
+	else if (!request.header().destination_id().empty())
 		target = request.header().destination_id();
 
 	BOOST_FOREACH(const std::string t, str::utils::split_lst(target, std::string(","))) {

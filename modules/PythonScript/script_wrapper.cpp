@@ -27,6 +27,7 @@
 
 #include <str/utils.hpp>
 #include <str/format.hpp>
+#include <utf8.hpp>
 
 #include <boost/thread.hpp>
 
@@ -595,35 +596,31 @@ void script_wrapper::function_wrapper::on_simple_event(const std::string event, 
 }
 
 
-void build_metrics(py::dict &metrics, const Plugin::Common::MetricsBundle &b, const std::string &path) {
+void build_metrics(py::dict &metrics, const PB::Metrics::MetricsBundle &b, const std::string &path) {
 	std::string p = "";
 	if (!path.empty())
 		p += path + ".";
 	p += b.key();
 
-	BOOST_FOREACH(const Plugin::Common::MetricsBundle &b2, b.children()) {
+	BOOST_FOREACH(const PB::Metrics::MetricsBundle &b2, b.children()) {
 		build_metrics(metrics, b2, p);
 	}
 
-	BOOST_FOREACH(const Plugin::Common::Metric &v, b.value()) {
-		if (!v.has_value())
-			continue;
-		if (v.value().has_int_data())
-			metrics[p + "." + v.key()] = str::xtos(v.value().int_data());
-		else if (v.value().has_string_data())
-			metrics[p + "." + v.key()] = v.value().string_data();
-		else if (v.value().has_float_data())
-			metrics[p + "." + v.key()] = str::xtos(v.value().float_data());
+	BOOST_FOREACH(const PB::Metrics::Metric &v, b.value()) {
+		if (v.has_string_value())
+			metrics[p + "." + v.key()] = v.string_value().value();
+		else if (v.has_float_value())
+			metrics[p + "." + v.key()] = str::xtos(v.float_value().value());
 	}
 }
 
 void script_wrapper::function_wrapper::submit_metrics(const std::string &request) const {
 
 	py::dict metrics;
-	Plugin::MetricsMessage msg;
+	PB::Metrics::MetricsMessage msg;
 	msg.ParseFromString(request);
-	BOOST_FOREACH(const Plugin::MetricsMessage::Response &p, msg.payload()) {
-		BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, p.bundles()) {
+	BOOST_FOREACH(const PB::Metrics::MetricsMessage::Response &p, msg.payload()) {
+		BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, p.bundles()) {
 			build_metrics(metrics, b, "");
 		}
 	}
@@ -645,8 +642,8 @@ void script_wrapper::function_wrapper::submit_metrics(const std::string &request
 	}
 }
 void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const {
-	Plugin::MetricsMessage::Response payload;
-	Plugin::Common::MetricsBundle *bundle = payload.add_bundles();
+	PB::Metrics::MetricsMessage::Response payload;
+	PB::Metrics::MetricsBundle *bundle = payload.add_bundles();
 	bundle->set_key("");
 
 
@@ -668,25 +665,24 @@ void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const
 					for (int i = 0; i < len(keys); ++i) {
 						py::object curArg = dic[keys[i]];
 						if (curArg) {
-							Plugin::Common::Metric *v = bundle->add_value();
-							v->set_key(py::extract<std::string>(keys[i]));
+							PB::Metrics::Metric *value = bundle->add_value();
+							value->set_key(py::extract<std::string>(keys[i]));
 
 							py::extract<std::string> strExtr(dic[keys[i]]);
 							if (strExtr.check()) {
-								v->mutable_value()->set_string_data(strExtr);
+								value->mutable_string_value()->set_value(strExtr);
 								continue;
 							}
 							py::extract<int> intExtr(dic[keys[i]]);
 							if (intExtr.check()) {
-								v->mutable_value()->set_int_data(intExtr);
+								value->mutable_float_value()->set_value(intExtr);
 								continue;
 							}
 							py::extract<double> dblExtr(dic[keys[i]]);
 							if (dblExtr.check()) {
-								v->mutable_value()->set_float_data(dblExtr);
+								value->mutable_float_value()->set_value(dblExtr);
 								continue;
 							}
-							v->mutable_value()->set_string_data("unknown type");
 						}
 					}
 				}
@@ -694,7 +690,7 @@ void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const
 				log_exception();
 			}
 		}
-		payload.mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+		payload.mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
 		request = payload.SerializeAsString();
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Submission failed", e);

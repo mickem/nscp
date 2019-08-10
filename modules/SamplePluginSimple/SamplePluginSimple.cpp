@@ -40,13 +40,13 @@ bool SamplePluginSimple::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode 
 bool SamplePluginSimple::unloadModule() {
 	return true;
 }
-void SamplePluginSimple::sample_raw_command(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void SamplePluginSimple::sample_raw_command(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	response->set_command(request.command());
 	if (request.arguments_size() > 0) {
 		response->add_lines()->set_message("");
-		response->set_result(Plugin::Common_ResultCode_OK);
+		response->set_result(PB::Common::ResultCode::OK);
 	} else {
 		response->add_lines()->set_message("Yaaay it works");
-		response->set_result(Plugin::Common_ResultCode_OK);
+		response->set_result(PB::Common::ResultCode::OK);
 	}
 }

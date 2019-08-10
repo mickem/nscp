@@ -109,28 +109,31 @@ const std::string module_path = "${exe-path}/modules/dotnet";
 const std::string factory_key = "factory class";
 const std::string factory_default = "NSCP.Plugin.PluginFactory";
 
-using namespace Plugin;
+using namespace PB::Commands;
+using namespace PB::Registry;
 
 int DotnetPlugins::registry_reg_module(const std::string module) {
-	RegistryRequestMessage::Builder^ message_builder = RegistryRequestMessage::CreateBuilder();
-	RegistryRequestMessage::Types::Request::Types::Registration::Builder^ query_builder = RegistryRequestMessage::Types::Request::Types::Registration::CreateBuilder();
-	query_builder->SetName(to_mstring(module));
-	query_builder->SetPluginId(get_id());
-	query_builder->SetType(Registry::Types::ItemType::MODULE);
-	message_builder->AddPayload(RegistryRequestMessage::Types::Request::CreateBuilder()->SetRegistration(query_builder->Build())->Build());
+	RegistryRequestMessage^ message_builder = gcnew RegistryRequestMessage();
+	RegistryRequestMessage::Types::Request::Types::Registration^ query_builder = gcnew RegistryRequestMessage::Types::Request::Types::Registration();
+	query_builder->Name = to_mstring(module);
+	query_builder->PluginId = get_id();
+	query_builder->Type = ItemType::Module;
+	RegistryRequestMessage::Types::Request ^request = gcnew RegistryRequestMessage::Types::Request();
+	request->Registration = query_builder;
+	message_builder->Payload->Add(request);
 	System::IO::MemoryStream^ stream = gcnew System::IO::MemoryStream();
-	message_builder->Build()->WriteTo(stream);
+	message_builder->WriteTo(gcnew Google::Protobuf::CodedOutputStream(stream));
 	std::string response_buffer;
 	if (!get_core()->registry_query(to_nstring(stream->ToArray()), response_buffer)) {
 		NSC_LOG_ERROR("Failed to register: " + module);
 		return 0;
 	}
-	RegistryResponseMessage^ response_message = RegistryResponseMessage::ParseFrom(to_pbd(response_buffer));
-	if (response_message->GetPayload(0)->Result->Code != Common::Types::Result::Types::StatusCodeType::STATUS_OK) {
+	RegistryResponseMessage^ response_message = RegistryResponseMessage::Parser->ParseFrom(to_pbd(response_buffer));
+	if (response_message->Payload[0]->Result->Code != PB::Common::Result::Types::StatusCodeType::StatusOk) {
 		NSC_LOG_ERROR("Failed to register: " + module);
 		return 0;
 	}
-	return response_message->GetPayload(0)->Registration->ItemId;
+	return response_message->Payload[0]->Registration->ItemId;
 }
 
 bool DotnetPlugins::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
@@ -223,8 +226,8 @@ bool DotnetPlugins::hasNotificationHandler() {
 }
 
 NSCAPI::nagiosReturn DotnetPlugins::handleRAWCommand(const std::string &request, std::string &response) {
-	QueryRequestMessage^ msg = QueryRequestMessage::ParseFrom(to_pbd(request));
-	std::string command = to_nstring(msg->GetPayload(0)->Command);
+	QueryRequestMessage^ msg = QueryRequestMessage::Parser->ParseFrom(to_pbd(request));
+	std::string command = to_nstring(msg->Payload[0]->Command);
 	try {
 		commands_type::const_iterator cit = commands.find(command);
 		if (cit == commands.end())

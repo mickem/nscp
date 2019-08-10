@@ -1,9 +1,13 @@
 using NSCP.Core;
-using Plugin;
+using PB.Log;
+using PB.Settings;
+using PB.Common;
+using PB.Registry;
 using System;
 using System.IO;
 using System.Diagnostics;
 using System.Collections.Generic;
+using Google.Protobuf;
 
 namespace NSCP.Helpers
 {
@@ -18,38 +22,36 @@ namespace NSCP.Helpers
         public void error(string message)
         {
             StackFrame CallStack = new StackFrame(1, true);
-            log(CallStack.GetFileName(), CallStack.GetFileLineNumber(), LogEntry.Types.Entry.Types.Level.LOG_ERROR, message);
+            log(CallStack.GetFileName(), CallStack.GetFileLineNumber(), LogEntry.Types.Entry.Types.Level.LogError, message);
         }
         public void log(string file, int line, LogEntry.Types.Entry.Types.Level level, string message)
         {
-            LogEntry.Builder newEntry = LogEntry.CreateBuilder();
-            newEntry.AddEntry(LogEntry.Types.Entry.CreateBuilder().SetLevel(level).SetMessage(message).Build());
-            LogEntry entry = newEntry.Build();
-            using (MemoryStream stream = new MemoryStream())
-            {
-                entry.WriteTo(stream);
-                core.log(stream.ToArray());
-            }
+            LogEntry newLogEntry = new LogEntry();
+            LogEntry.Types.Entry newEntry = new LogEntry.Types.Entry();
+            newEntry.Level = level;
+            newEntry.Message = message;
+            newLogEntry.Entry.Add(newEntry);
+            core.log(newLogEntry.ToByteArray());
         }
         public void critical(string message)
         {
             StackFrame CallStack = new StackFrame(1, true);
-            log(CallStack.GetFileName(), CallStack.GetFileLineNumber(), LogEntry.Types.Entry.Types.Level.LOG_CRITICAL, message);
+            log(CallStack.GetFileName(), CallStack.GetFileLineNumber(), LogEntry.Types.Entry.Types.Level.LogCritical, message);
         }
         public void info(string message)
         {
             StackFrame CallStack = new StackFrame(1, true);
-            log(CallStack.GetFileName(), CallStack.GetFileLineNumber(), LogEntry.Types.Entry.Types.Level.LOG_INFO, message);
+            log(CallStack.GetFileName(), CallStack.GetFileLineNumber(), LogEntry.Types.Entry.Types.Level.LogInfo, message);
         }
         public void debug(string message)
         {
             StackFrame CallStack = new StackFrame(1, true);
-            log(CallStack.GetFileName(), CallStack.GetFileLineNumber(), LogEntry.Types.Entry.Types.Level.LOG_DEBUG, message);
+            log(CallStack.GetFileName(), CallStack.GetFileLineNumber(), LogEntry.Types.Entry.Types.Level.LogDebug, message);
         }
         public void warning(string message)
         {
             StackFrame CallStack = new StackFrame(1, true);
-            log(CallStack.GetFileName(), CallStack.GetFileLineNumber(), LogEntry.Types.Entry.Types.Level.LOG_WARNING, message);
+            log(CallStack.GetFileName(), CallStack.GetFileLineNumber(), LogEntry.Types.Entry.Types.Level.LogWarning, message);
         }
     }
 
@@ -68,29 +70,38 @@ namespace NSCP.Helpers
         public List<string> getKeys(string path)
         {
             List<string> ret = new List<string>();
-            SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            SettingsRequestMessage.Types.Request.Types.Query.Builder newQuery = SettingsRequestMessage.Types.Request.Types.Query.CreateBuilder();
-            newQuery.SetNode(Settings.Types.Node.CreateBuilder().SetPath(path).Build());
-            newQuery.SetRecursive(false);
-            newQuery.SetType(Common.Types.DataType.STRING);
-            newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetQuery(newQuery.Build()).Build());
-            System.IO.MemoryStream stream = new System.IO.MemoryStream();
-            newMessage.Build().WriteTo(stream);
-            NSCP.Core.Result res = core.settings(stream.ToArray());
+            SettingsRequestMessage newMessage = new SettingsRequestMessage();
+            SettingsRequestMessage.Types.Request.Types.Query newQuery = new SettingsRequestMessage.Types.Request.Types.Query();
+            newQuery.Node = new Node();
+            newQuery.Node.Path = path;
+            newQuery.Recursive = false;
+            SettingsRequestMessage.Types.Request request = new SettingsRequestMessage.Types.Request();
+            request.PluginId = plugin_id;
+            request.Query = newQuery;
+            newMessage.Payload.Add(request);
+
+            NSCP.Core.Result res = core.settings(newMessage.ToByteArray());
+
             if (!res.result)
             {
                 log.error("Failed to get value: " + path);
                 return ret;
             }
-            SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
+            SettingsResponseMessage response_message = SettingsResponseMessage.Parser.ParseFrom(res.data);
+            if (response_message.Payload == null || response_message.Payload.Count == 0 || response_message.Payload[0].Result == null)
             {
                 log.error("Failed to get value: " + path);
                 return ret;
             }
-            foreach (string value in response_message.GetPayload(0).Query.Value.ListDataList)
+
+            if (response_message.Payload[0].Result.Code != PB.Common.Result.Types.StatusCodeType.StatusOk)
             {
-                ret.Add(value);
+                log.error("Failed to get value: " + path);
+                return ret;
+            }
+            foreach (Node node in response_message.Payload[0].Query.Nodes)
+            {
+                ret.Add(node.Value);
             }
             return ret;
         }
@@ -98,192 +109,100 @@ namespace NSCP.Helpers
 
         public string getString(string path, string key, string defaultValue)
         {
-            SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            SettingsRequestMessage.Types.Request.Types.Query.Builder newQuery = SettingsRequestMessage.Types.Request.Types.Query.CreateBuilder();
-            newQuery.SetNode(Settings.Types.Node.CreateBuilder().SetPath(path).SetKey(key).Build());
-            newQuery.SetDefaultValue(Common.Types.AnyDataType.CreateBuilder().SetStringData(defaultValue).Build());
-            newQuery.SetType(Common.Types.DataType.STRING);
-            newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetQuery(newQuery.Build()).Build());
-            System.IO.MemoryStream stream = new System.IO.MemoryStream();
-            newMessage.Build().WriteTo(stream);
-            NSCP.Core.Result res = core.settings(stream.ToArray());
+            SettingsRequestMessage newMessage = new SettingsRequestMessage();
+            SettingsRequestMessage.Types.Request.Types.Query newQuery = new SettingsRequestMessage.Types.Request.Types.Query();
+            newQuery.Node = new Node();
+            newQuery.Node.Path = path;
+            newQuery.Node.Key = key;
+            newQuery.DefaultValue = defaultValue;
+            SettingsRequestMessage.Types.Request request = new SettingsRequestMessage.Types.Request();
+            request.PluginId = plugin_id;
+            request.Query = newQuery;
+            newMessage.Payload.Add(request);
+            NSCP.Core.Result res = core.settings(newMessage.ToByteArray());
             if (!res.result)
             {
                 log.error("Failed to get value: " + path);
                 return defaultValue;
             }
-            SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
+            SettingsResponseMessage response_message = SettingsResponseMessage.Parser.ParseFrom(res.data);
+            if (response_message.Payload[0].Result.Code != PB.Common.Result.Types.StatusCodeType.StatusOk)
             {
                 log.error("Failed to get value: " + path);
                 return defaultValue;
             }
-            return response_message.GetPayload(0).Query.Value.StringData;
+            return response_message.Payload[0].Query.Node.Value;
         }
 
 
         public void setString(string path, string key, string value)
         {
-            SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            SettingsRequestMessage.Types.Request.Types.Update.Builder newQuery = SettingsRequestMessage.Types.Request.Types.Update.CreateBuilder();
-            newQuery.SetNode(Settings.Types.Node.CreateBuilder().SetPath(path).SetKey(key).Build());
-            newQuery.SetValue(Common.Types.AnyDataType.CreateBuilder().SetStringData(value).Build());
-            newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetUpdate(newQuery.Build()).Build());
-            System.IO.MemoryStream stream = new System.IO.MemoryStream();
-            newMessage.Build().WriteTo(stream);
-            NSCP.Core.Result res = core.settings(stream.ToArray());
+            SettingsRequestMessage newMessage = new SettingsRequestMessage();
+            SettingsRequestMessage.Types.Request.Types.Update newQuery = new SettingsRequestMessage.Types.Request.Types.Update();
+            newQuery.Node = new Node();
+            newQuery.Node.Path = path;
+            newQuery.Node.Key = key;
+            newQuery.Node.Value = value;
+            SettingsRequestMessage.Types.Request request = new SettingsRequestMessage.Types.Request();
+            request.PluginId = plugin_id;
+            request.Update = newQuery;
+            newMessage.Payload.Add(request);
+            NSCP.Core.Result res = core.settings(newMessage.ToByteArray());
             if (!res.result)
             {
                 log.error("Failed to set value: " + path);
                 return;
             }
-            SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
+            SettingsResponseMessage response_message = SettingsResponseMessage.Parser.ParseFrom(res.data);
+            if (response_message.Payload[0].Result.Code != PB.Common.Result.Types.StatusCodeType.StatusOk)
             {
                 log.error("Failed to set value: " + path);
                 return;
             }
         }
-
-        public bool getBool(string path, string key, bool defaultValue)
-        {
-            SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            SettingsRequestMessage.Types.Request.Types.Query.Builder newQuery = SettingsRequestMessage.Types.Request.Types.Query.CreateBuilder();
-            newQuery.SetNode(Settings.Types.Node.CreateBuilder().SetPath(path).SetKey(key).Build());
-            newQuery.SetDefaultValue(Common.Types.AnyDataType.CreateBuilder().SetBoolData(defaultValue).Build());
-            newQuery.SetType(Common.Types.DataType.BOOL);
-            newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetQuery(newQuery.Build()).Build());
-            System.IO.MemoryStream stream = new System.IO.MemoryStream();
-            newMessage.Build().WriteTo(stream);
-            NSCP.Core.Result res = core.settings(stream.ToArray());
-            if (!res.result)
-            {
-                log.error("Failed to get value: " + path);
-                return defaultValue;
-            }
-            SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
-            {
-                log.error("Failed to get value: " + path);
-                return defaultValue;
-            }
-            return response_message.GetPayload(0).Query.Value.BoolData;
-        }
-
-
-        public void setBool(string path, string key, bool value)
-        {
-            SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            SettingsRequestMessage.Types.Request.Types.Update.Builder newQuery = SettingsRequestMessage.Types.Request.Types.Update.CreateBuilder();
-            newQuery.SetNode(Settings.Types.Node.CreateBuilder().SetPath(path).SetKey(key).Build());
-            newQuery.SetValue(Common.Types.AnyDataType.CreateBuilder().SetBoolData(value).Build());
-            newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetUpdate(newQuery.Build()).Build());
-            System.IO.MemoryStream stream = new System.IO.MemoryStream();
-            newMessage.Build().WriteTo(stream);
-            NSCP.Core.Result res = core.settings(stream.ToArray());
-            if (!res.result)
-            {
-                log.error("Failed to set value: " + path);
-                return;
-            }
-            SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
-            {
-                log.error("Failed to set value: " + path);
-                return;
-            }
-        }
-
-        public long getInt(string path, string key, int defaultValue)
-        {
-            SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            SettingsRequestMessage.Types.Request.Types.Query.Builder newQuery = SettingsRequestMessage.Types.Request.Types.Query.CreateBuilder();
-            newQuery.SetNode(Settings.Types.Node.CreateBuilder().SetPath(path).SetKey(key).Build());
-            newQuery.SetDefaultValue(Common.Types.AnyDataType.CreateBuilder().SetIntData(defaultValue).Build());
-            newQuery.SetType(Common.Types.DataType.INT);
-            newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetQuery(newQuery.Build()).Build());
-            System.IO.MemoryStream stream = new System.IO.MemoryStream();
-            newMessage.Build().WriteTo(stream);
-            NSCP.Core.Result res = core.settings(stream.ToArray());
-            if (!res.result)
-            {
-                log.error("Failed to get value: " + path);
-                return defaultValue;
-            }
-            SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
-            {
-                log.error("Failed to get value: " + path);
-                return defaultValue;
-            }
-            return response_message.GetPayload(0).Query.Value.IntData;
-        }
-
-        public void setInt(string path, string key, int value)
-        {
-            SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            SettingsRequestMessage.Types.Request.Types.Update.Builder newQuery = SettingsRequestMessage.Types.Request.Types.Update.CreateBuilder();
-            newQuery.SetNode(Settings.Types.Node.CreateBuilder().SetPath(path).SetKey(key).Build());
-            newQuery.SetValue(Common.Types.AnyDataType.CreateBuilder().SetIntData(value).Build());
-            newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetUpdate(newQuery.Build()).Build());
-            System.IO.MemoryStream stream = new System.IO.MemoryStream();
-            newMessage.Build().WriteTo(stream);
-            NSCP.Core.Result res = core.settings(stream.ToArray());
-            if (!res.result)
-            {
-                log.error("Failed to set value: " + path);
-                return;
-            }
-            SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
-            {
-                log.error("Failed to set value: " + path);
-                return;
-            }
-        }
-
+        
         public bool load(string context)
         {
-            SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            SettingsRequestMessage.Types.Request.Types.Control.Builder registration_builder = SettingsRequestMessage.Types.Request.Types.Control.CreateBuilder();
-            registration_builder.SetContext(context);
-            registration_builder.SetCommand(Settings.Types.Command.LOAD);
-            newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetControl(registration_builder.Build()).Build());
-            SettingsRequestMessage message = newMessage.Build();
-            System.IO.MemoryStream stream = new System.IO.MemoryStream();
-            message.WriteTo(stream);
-            NSCP.Core.Result res = core.settings(stream.ToArray());
+            SettingsRequestMessage newMessage = new SettingsRequestMessage();
+            SettingsRequestMessage.Types.Request.Types.Control registration_builder = new SettingsRequestMessage.Types.Request.Types.Control();
+            registration_builder.Context = context;
+            registration_builder.Command = PB.Settings.Command.Load;
+            SettingsRequestMessage.Types.Request request = new SettingsRequestMessage.Types.Request();
+            request.PluginId = plugin_id;
+            request.Control = registration_builder;
+            newMessage.Payload.Add(request);
+            NSCP.Core.Result res = core.settings(newMessage.ToByteArray());
             if (!res.result)
             {
-                log.error("Failed to save: " + context);
+                log.error("Failed to load: " + context);
                 return false;
             }
-            SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
+            SettingsResponseMessage response_message = SettingsResponseMessage.Parser.ParseFrom(res.data);
+            if (response_message.Payload[0].Result.Code != PB.Common.Result.Types.StatusCodeType.StatusOk)
             {
-                log.error("Failed to save: " + context);
+                log.error("Failed to load: " + context);
                 return false;
             }
             return true;
         }
         public bool save(string context)
         {
-            SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            SettingsRequestMessage.Types.Request.Types.Control.Builder registration_builder = SettingsRequestMessage.Types.Request.Types.Control.CreateBuilder();
-            registration_builder.SetContext(context);
-            registration_builder.SetCommand(Settings.Types.Command.SAVE);
-            newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetControl(registration_builder.Build()).Build());
-            SettingsRequestMessage message = newMessage.Build();
-            System.IO.MemoryStream stream = new System.IO.MemoryStream();
-            message.WriteTo(stream);
-            NSCP.Core.Result res = core.settings(stream.ToArray());
+            SettingsRequestMessage newMessage = new SettingsRequestMessage();
+            SettingsRequestMessage.Types.Request.Types.Control registration_builder = new SettingsRequestMessage.Types.Request.Types.Control();
+            registration_builder.Context = context;
+            registration_builder.Command = PB.Settings.Command.Save;
+            SettingsRequestMessage.Types.Request request = new SettingsRequestMessage.Types.Request();
+            request.PluginId = plugin_id;
+            request.Control = registration_builder;
+            newMessage.Payload.Add(request);
+            NSCP.Core.Result res = core.settings(newMessage.ToByteArray());
             if (!res.result)
             {
                 log.error("Failed to save: " + context);
                 return false;
             }
-            SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
+            SettingsResponseMessage response_message = SettingsResponseMessage.Parser.ParseFrom(res.data);
+            if (response_message.Payload[0].Result.Code != PB.Common.Result.Types.StatusCodeType.StatusOk)
             {
                 log.error("Failed to save: " + context);
                 return false;
@@ -292,80 +211,88 @@ namespace NSCP.Helpers
         }
         public bool reload(string context)
         {
-            SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            SettingsRequestMessage.Types.Request.Types.Control.Builder registration_builder = SettingsRequestMessage.Types.Request.Types.Control.CreateBuilder();
-            registration_builder.SetContext(context);
-            registration_builder.SetCommand(Settings.Types.Command.RELOAD);
-            newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetControl(registration_builder.Build()).Build());
-            SettingsRequestMessage message = newMessage.Build();
-            System.IO.MemoryStream stream = new System.IO.MemoryStream();
-            message.WriteTo(stream);
-            NSCP.Core.Result res = core.settings(stream.ToArray());
+            SettingsRequestMessage newMessage = new SettingsRequestMessage();
+            SettingsRequestMessage.Types.Request.Types.Control registration_builder = new SettingsRequestMessage.Types.Request.Types.Control();
+            registration_builder.Context = context;
+            registration_builder.Command = PB.Settings.Command.Reload;
+            SettingsRequestMessage.Types.Request request = new SettingsRequestMessage.Types.Request();
+            request.PluginId = plugin_id;
+            request.Control = registration_builder;
+            newMessage.Payload.Add(request);
+            NSCP.Core.Result res = core.settings(newMessage.ToByteArray());
             if (!res.result)
             {
-                log.error("Failed to save: " + context);
+                log.error("Failed to reload: " + context);
                 return false;
             }
-            SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
+            SettingsResponseMessage response_message = SettingsResponseMessage.Parser.ParseFrom(res.data);
+            if (response_message.Payload[0].Result.Code != PB.Common.Result.Types.StatusCodeType.StatusOk)
             {
-                log.error("Failed to save: " + context);
+                log.error("Failed to reload: " + context);
                 return false;
             }
             return true;
         }
         public bool registerPath(string path, string title, string description, bool advanced)
         {
-            SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            SettingsRequestMessage.Types.Request.Types.Registration.Builder registration_builder = SettingsRequestMessage.Types.Request.Types.Registration.CreateBuilder();
-            registration_builder.SetNode(Settings.Types.Node.CreateBuilder().SetPath(path).Build());
-            registration_builder.SetInfo(Settings.Types.Information.CreateBuilder().SetTitle(title).SetDescription(description).Build());
-            newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetRegistration(registration_builder.Build()).Build());
-            SettingsRequestMessage message = newMessage.Build();
-            System.IO.MemoryStream stream = new System.IO.MemoryStream();
-            message.WriteTo(stream);
-            NSCP.Core.Result res = core.settings(stream.ToArray());
+            SettingsRequestMessage newMessage = new SettingsRequestMessage();
+            SettingsRequestMessage.Types.Request.Types.Registration registration_builder = new SettingsRequestMessage.Types.Request.Types.Registration();
+            registration_builder.Node = new Node();
+            registration_builder.Node.Path = path;
+            registration_builder.Info = new PB.Settings.Information();
+            registration_builder.Info.Title = title;
+            registration_builder.Info.Description = description;
+
+            SettingsRequestMessage.Types.Request request = new SettingsRequestMessage.Types.Request();
+            request.PluginId = plugin_id;
+            request.Registration = registration_builder;
+            newMessage.Payload.Add(request);
+
+            NSCP.Core.Result res = core.settings(newMessage.ToByteArray());
             if (!res.result)
             {
                 log.error("Failed to describe path: " + path);
                 return false;
             }
-            SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
+            SettingsResponseMessage response_message = SettingsResponseMessage.Parser.ParseFrom(res.data);
+            if (response_message.Payload == null || response_message.Payload.Count == 0 || response_message.Payload[0].Result == null)
             {
                 log.error("Failed to describe path: " + path);
                 return false;
             }
-            return true;
 
+            if (response_message.Payload[0].Result.Code != PB.Common.Result.Types.StatusCodeType.StatusOk)
+            {
+                return false;
+            }
+            return true;
         }
 
         public bool registerKey(string path, string key, int type, string title, string description, string defaultValue, bool advanced)
         {
-            SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            SettingsRequestMessage.Types.Request.Types.Registration.Builder registration_builder = SettingsRequestMessage.Types.Request.Types.Registration.CreateBuilder();
-            registration_builder.SetNode(Settings.Types.Node.CreateBuilder().SetPath(path).SetKey(key).Build());
-            registration_builder.SetInfo(Settings.Types.Information.CreateBuilder().SetTitle(title).SetDescription(description).Build());
-            newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetRegistration(registration_builder.Build()).Build());
-            SettingsRequestMessage message = newMessage.Build();
-            System.IO.MemoryStream stream = new System.IO.MemoryStream();
-            message.WriteTo(stream);
-            NSCP.Core.Result res = core.settings(stream.ToArray());
+
+            SettingsRequestMessage newMessage = new SettingsRequestMessage();
+            SettingsRequestMessage.Types.Request.Types.Registration registration_builder = new SettingsRequestMessage.Types.Request.Types.Registration();
+            registration_builder.Node = new Node();
+            registration_builder.Node.Path = path;
+            registration_builder.Node.Key = key;
+            registration_builder.Info = new PB.Settings.Information();
+            registration_builder.Info.Title = title;
+            registration_builder.Info.Description = description;
+            NSCP.Core.Result res = core.settings(newMessage.ToByteArray());
             if (!res.result)
             {
-                log.error("Failed to describe key: " + path);
+                log.error("Failed to describe path: " + path);
                 return false;
             }
-            SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
+            SettingsResponseMessage response_message = SettingsResponseMessage.Parser.ParseFrom(res.data);
+            if (response_message.Payload[0].Result.Code != PB.Common.Result.Types.StatusCodeType.StatusOk)
             {
-                log.error("Failed to describe key: " + path);
+                log.error("Failed to describe path: " + path);
                 return false;
             }
             return true;
         }
-
-
     }
 
     public class RegistryHelper
@@ -382,27 +309,25 @@ namespace NSCP.Helpers
 
         public bool registerCommand(string command, string description)
         {
-            RegistryRequestMessage.Builder newMessage = RegistryRequestMessage.CreateBuilder();
-            RegistryRequestMessage.Types.Request.Types.Registration.Builder newRegistration = RegistryRequestMessage.Types.Request.Types.Registration.CreateBuilder();
-            newRegistration.SetName(command);
-            newRegistration.SetPluginId(plugin_id);
-            newRegistration.SetType(Registry.Types.ItemType.QUERY);
-            newRegistration.SetInfo(Registry.Types.Information.CreateBuilder().SetDescription(description).Build());
-            newMessage.AddPayload(RegistryRequestMessage.Types.Request.CreateBuilder().SetRegistration(newRegistration.Build()).Build());
+            RegistryRequestMessage newMessage = new RegistryRequestMessage();
+            RegistryRequestMessage.Types.Request.Types.Registration newRegistration = new RegistryRequestMessage.Types.Request.Types.Registration();
+            newRegistration.Name = command;
+            newRegistration.PluginId = plugin_id;
+            newRegistration.Type = PB.Registry.ItemType.Query;
+            newRegistration.Info = new PB.Registry.Information();
+            newRegistration.Info.Description = description;
+            RegistryRequestMessage.Types.Request request = new RegistryRequestMessage.Types.Request();
+            request.Registration = newRegistration;
+            newMessage.Payload.Add(request);
 
-            NSCP.Core.Result response;
-            using (MemoryStream stream = new MemoryStream())
-            {
-                newMessage.Build().WriteTo(stream);
-                response = core.registry(stream.ToArray());
-            }
+            NSCP.Core.Result response = core.registry(newMessage.ToByteArray());
             if (!response.result)
             {
                 log.error("Failed to register: " + command);
                 return false;
             }
-            RegistryResponseMessage response_message = RegistryResponseMessage.ParseFrom(response.data);
-            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
+            RegistryResponseMessage response_message = RegistryResponseMessage.Parser.ParseFrom(response.data);
+            if (response_message.Payload[0].Result.Code != PB.Common.Result.Types.StatusCodeType.StatusOk)
             {
                 log.error("Failed to register: " + command);
                 return false;

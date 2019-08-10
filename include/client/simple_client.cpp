@@ -20,8 +20,11 @@
 #include <client/simple_client.hpp>
 
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_settings.hpp>
+#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_settings_functions.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 
@@ -31,9 +34,9 @@
 #include <boost/foreach.hpp>
 #include <boost/function.hpp>
 
-static void create_registry_query(const nscapi::core_wrapper *core, const std::string command, const Plugin::Registry_ItemType &type, Plugin::RegistryResponseMessage &response_message) {
-	Plugin::RegistryRequestMessage rrm;
-	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+static void create_registry_query(const nscapi::core_wrapper *core, const std::string command, const PB::Registry::ItemType &type, PB::Registry::RegistryResponseMessage &response_message) {
+	PB::Registry::RegistryRequestMessage rrm;
+	PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
 	if (!command.empty()) {
 		payload->mutable_inventory()->set_name(command);
 		payload->mutable_inventory()->set_fetch_all(true);
@@ -44,10 +47,10 @@ static void create_registry_query(const nscapi::core_wrapper *core, const std::s
 	response_message.ParseFromString(pb_response);
 }
 
-std::string render_command(const ::Plugin::RegistryResponseMessage::Response::Inventory& inv) {
+std::string render_command(const ::PB::Registry::RegistryResponseMessage::Response::Inventory& inv) {
 	std::string data = "command:\t" + inv.name() + "\n" + inv.info().description() + "\n\nParameters:\n";
 	for (int i = 0; i < inv.parameters().parameter_size(); i++) {
-		::Plugin::Registry::ParameterDetail p = inv.parameters().parameter(i);
+		::PB::Registry::ParameterDetail p = inv.parameters().parameter(i);
 		std::string desc = p.long_description();
 		std::size_t pos = desc.find('\n');
 		if (pos != std::string::npos)
@@ -56,7 +59,7 @@ std::string render_command(const ::Plugin::RegistryResponseMessage::Response::In
 	}
 	return data;
 }
-std::string render_plugin(const ::Plugin::RegistryResponseMessage::Response::Inventory& inv) {
+std::string render_plugin(const ::PB::Registry::RegistryResponseMessage::Response::Inventory& inv) {
 	std::string loaded = "[ ]";
 	for (int i = 0; i < inv.info().metadata_size(); i++) {
 		if (inv.info().metadata(i).key() == "loaded" && inv.info().metadata(i).value() == "true")
@@ -64,19 +67,19 @@ std::string render_plugin(const ::Plugin::RegistryResponseMessage::Response::Inv
 	}
 	return loaded + "\t" + inv.name() + "\t-" + inv.info().description();
 }
-std::string render_query(const ::Plugin::RegistryResponseMessage::Response::Inventory& inv) {
+std::string render_query(const ::PB::Registry::RegistryResponseMessage::Response::Inventory& inv) {
 	return inv.name() + "\t-" + inv.info().description();
 }
 
-static std::string render_list(const Plugin::RegistryResponseMessage &response_message, boost::function<std::string(const ::Plugin::RegistryResponseMessage::Response::Inventory&)> renderer) {
+static std::string render_list(const PB::Registry::RegistryResponseMessage &response_message, boost::function<std::string(const ::PB::Registry::RegistryResponseMessage::Response::Inventory&)> renderer) {
 	std::string list;
-	BOOST_FOREACH(const ::Plugin::RegistryResponseMessage::Response &pl, response_message.payload()) {
-		BOOST_FOREACH(const ::Plugin::RegistryResponseMessage_Response_Inventory& i, pl.inventory()) {
+	BOOST_FOREACH(const ::PB::Registry::RegistryResponseMessage::Response &pl, response_message.payload()) {
+		BOOST_FOREACH(const ::PB::Registry::RegistryResponseMessage_Response_Inventory& i, pl.inventory()) {
 			if (!list.empty())
 				list += "\n";
 			list += renderer(i);
 		}
-		if (pl.result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
+		if (pl.result().code() != PB::Common::Result_StatusCodeType_STATUS_OK) {
 			return "Error: " + pl.result().message();
 		}
 	}
@@ -86,8 +89,8 @@ static std::string render_list(const Plugin::RegistryResponseMessage &response_m
 namespace client {
 	void cli_client::handle_command(const std::string &command) {
 		if (command == "plugins") {
-			Plugin::RegistryResponseMessage response_message;
-			create_registry_query(handler->get_core(), "", Plugin::Registry_ItemType_MODULE, response_message);
+			PB::Registry::RegistryResponseMessage response_message;
+			create_registry_query(handler->get_core(), "", PB::Registry::ItemType::MODULE, response_message);
 			std::string list = render_list(response_message, &render_plugin);
 			handler->output_message(list.empty() ? "Nothing found" : list);
 		} else if (command == "help") {
@@ -106,34 +109,34 @@ namespace client {
 			std::string name = command.substr(7);
 			bool has_errors = false;
 			{
-				Plugin::SettingsRequestMessage srm;
-				Plugin::SettingsRequestMessage::Request *r = srm.add_payload();
+				PB::Settings::SettingsRequestMessage srm;
+				PB::Settings::SettingsRequestMessage::Request *r = srm.add_payload();
 				r->mutable_update()->mutable_node()->set_path("/modules");
 				r->mutable_update()->mutable_node()->set_key(name);
 				r->mutable_update()->mutable_node()->set_value("enabled");
 				r->set_plugin_id(handler->get_plugin_id());
 				std::string response;
 				handler->get_core()->settings_query(srm.SerializeAsString(), response);
-				Plugin::SettingsResponseMessage response_message;
+				PB::Settings::SettingsResponseMessage response_message;
 				response_message.ParseFromString(response);
 				for (int i = 0; i < response_message.payload_size(); i++) {
-					if (response_message.payload(i).result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
+					if (response_message.payload(i).result().code() != PB::Common::Result_StatusCodeType_STATUS_OK) {
 						handler->output_message("Failed to load module: " + response_message.payload(i).result().message());
 						has_errors = true;
 					}
 				}
 			}
 			{
-				Plugin::SettingsRequestMessage srm;
-				Plugin::SettingsRequestMessage::Request *r = srm.add_payload();
-				r->mutable_control()->set_command(::Plugin::Settings_Command_SAVE);
+				PB::Settings::SettingsRequestMessage srm;
+				PB::Settings::SettingsRequestMessage::Request *r = srm.add_payload();
+				r->mutable_control()->set_command(PB::Settings::Command::SAVE);
 				r->set_plugin_id(handler->get_plugin_id());
 				std::string response;
 				handler->get_core()->settings_query(srm.SerializeAsString(), response);
-				Plugin::SettingsResponseMessage response_message;
+				PB::Settings::SettingsResponseMessage response_message;
 				response_message.ParseFromString(response);
 				for (int i = 0; i < response_message.payload_size(); i++) {
-					if (response_message.payload(i).result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
+					if (response_message.payload(i).result().code() != PB::Common::Result_StatusCodeType_STATUS_OK) {
 						handler->output_message("Failed to load module: " + response_message.payload(i).result().message());
 						has_errors = true;
 					}
@@ -145,34 +148,34 @@ namespace client {
 			std::string name = command.substr(8);
 			bool has_errors = false;
 			{
-				Plugin::SettingsRequestMessage srm;
-				Plugin::SettingsRequestMessage::Request *r = srm.add_payload();
+				PB::Settings::SettingsRequestMessage srm;
+				PB::Settings::SettingsRequestMessage::Request *r = srm.add_payload();
 				r->mutable_update()->mutable_node()->set_path("/modules");
 				r->mutable_update()->mutable_node()->set_key(name);
 				r->mutable_update()->mutable_node()->set_value("disabled");
 				r->set_plugin_id(handler->get_plugin_id());
 				std::string response;
 				handler->get_core()->settings_query(srm.SerializeAsString(), response);
-				Plugin::SettingsResponseMessage response_message;
+				PB::Settings::SettingsResponseMessage response_message;
 				response_message.ParseFromString(response);
 				for (int i = 0; i < response_message.payload_size(); i++) {
-					if (response_message.payload(i).result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
+					if (response_message.payload(i).result().code() != PB::Common::Result_StatusCodeType_STATUS_OK) {
 						handler->output_message("Failed to load module: " + response_message.payload(i).result().message());
 						has_errors = true;
 					}
 				}
 			}
 			{
-				Plugin::SettingsRequestMessage srm;
-				Plugin::SettingsRequestMessage::Request *r = srm.add_payload();
-				r->mutable_control()->set_command(::Plugin::Settings_Command_SAVE);
+				PB::Settings::SettingsRequestMessage srm;
+				PB::Settings::SettingsRequestMessage::Request *r = srm.add_payload();
+				r->mutable_control()->set_command(PB::Settings::Command::SAVE);
 				r->set_plugin_id(handler->get_plugin_id());
 				std::string response;
 				handler->get_core()->settings_query(srm.SerializeAsString(), response);
-				Plugin::SettingsResponseMessage response_message;
+				PB::Settings::SettingsResponseMessage response_message;
 				response_message.ParseFromString(response);
 				for (int i = 0; i < response_message.payload_size(); i++) {
-					if (response_message.payload(i).result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
+					if (response_message.payload(i).result().code() != PB::Common::Result_StatusCodeType_STATUS_OK) {
 						handler->output_message("Failed to load module: " + response_message.payload(i).result().message());
 						has_errors = true;
 					}
@@ -181,19 +184,19 @@ namespace client {
 			if (!has_errors)
 				handler->output_message(name + " disabled successfully...");
 		} else if (command.size() > 4 && command.substr(0, 4) == "load") {
-			Plugin::RegistryRequestMessage rrm;
-			Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+			PB::Registry::RegistryRequestMessage rrm;
+			PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
 			std::string name = command.substr(5);
-			payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
-			payload->mutable_control()->set_command(Plugin::Registry_Command_LOAD);
+			payload->mutable_control()->set_type(PB::Registry::ItemType::MODULE);
+			payload->mutable_control()->set_command(PB::Registry::Command::LOAD);
 			payload->mutable_control()->set_name(name);
 			std::string pb_response, json_response;
 			handler->get_core()->registry_query(rrm.SerializeAsString(), pb_response);
-			Plugin::RegistryResponseMessage response_message;
+			PB::Registry::RegistryResponseMessage response_message;
 			response_message.ParseFromString(pb_response);
 			bool has_errors = false;
 			for (int i = 0; i < response_message.payload_size(); i++) {
-				if (response_message.payload(i).result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
+				if (response_message.payload(i).result().code() != PB::Common::Result_StatusCodeType_STATUS_OK) {
 					handler->output_message("Failed to load module: " + response_message.payload(i).result().message());
 					has_errors = true;
 				}
@@ -201,19 +204,19 @@ namespace client {
 			if (!has_errors)
 				handler->output_message(name + " loaded successfully...");
 		} else if (command.size() > 6 && command.substr(0, 6) == "unload") {
-			Plugin::RegistryRequestMessage rrm;
-			Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+			PB::Registry::RegistryRequestMessage rrm;
+			PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
 			std::string name = command.substr(7);
-			payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
-			payload->mutable_control()->set_command(Plugin::Registry_Command_UNLOAD);
+			payload->mutable_control()->set_type(PB::Registry::ItemType::MODULE);
+			payload->mutable_control()->set_command(PB::Registry::Command::UNLOAD);
 			payload->mutable_control()->set_name(name);
 			std::string pb_response, json_response;
 			handler->get_core()->registry_query(rrm.SerializeAsString(), pb_response);
-			Plugin::RegistryResponseMessage response_message;
+			PB::Registry::RegistryResponseMessage response_message;
 			response_message.ParseFromString(pb_response);
 			bool has_errors = false;
 			for (int i = 0; i < response_message.payload_size(); i++) {
-				if (response_message.payload(i).result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
+				if (response_message.payload(i).result().code() != PB::Common::Result_StatusCodeType_STATUS_OK) {
 					handler->output_message("Failed to unload module: " + response_message.payload(i).result().message());
 					has_errors = true;
 				}
@@ -221,25 +224,25 @@ namespace client {
 			if (!has_errors)
 				handler->output_message(name + " unloaded successfully...");
 		} else if (command == "queries" || command == "commands") {
-			Plugin::RegistryResponseMessage response_message;
-			create_registry_query(handler->get_core(), "", Plugin::Registry_ItemType_QUERY, response_message);
+			PB::Registry::RegistryResponseMessage response_message;
+			create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY, response_message);
 			std::string list = render_list(response_message, &render_query);
 			handler->output_message(list.empty() ? "Nothing found" : list);
 		} else if (command == "aliases") {
-			Plugin::RegistryResponseMessage response_message;
-			create_registry_query(handler->get_core(), "", Plugin::Registry_ItemType_QUERY_ALIAS, response_message);
+			PB::Registry::RegistryResponseMessage response_message;
+			create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY_ALIAS, response_message);
 			std::string list = render_list(response_message, &render_query);
 			handler->output_message(list.empty() ? "Nothing found" : list);
 		} else if (command.size() > 5 && command.substr(0, 4) == "desc") {
-			Plugin::RegistryResponseMessage response_message;
-			create_registry_query(handler->get_core(), command.substr(5), Plugin::Registry_ItemType_QUERY, response_message);
+			PB::Registry::RegistryResponseMessage response_message;
+			create_registry_query(handler->get_core(), command.substr(5), PB::Registry::ItemType::QUERY, response_message);
 			std::string data = render_list(response_message, &render_command);
 			handler->output_message(data.empty() ? "Command not found" : data);
 		} else if (command == "list") {
-			Plugin::RegistryResponseMessage response_message;
-			create_registry_query(handler->get_core(), "", Plugin::Registry_ItemType_QUERY, response_message);
+			PB::Registry::RegistryResponseMessage response_message;
+			create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY, response_message);
 			std::string list = render_list(response_message, &render_query);
-			create_registry_query(handler->get_core(), "", Plugin::Registry_ItemType_QUERY_ALIAS, response_message);
+			create_registry_query(handler->get_core(), "", PB::Registry::ItemType::QUERY_ALIAS, response_message);
 			list = render_list(response_message, &render_query);
 			handler->output_message(list.empty() ? "Nothing found" : list);
 		} else if (command.size() >= 7 && command.substr(0, 7) == "metrics") {
@@ -296,11 +299,11 @@ namespace client {
 				NSCAPI::nagiosReturn ret = helper.simple_query(cmd, args, response);
 				if (!response.empty()) {
 					try {
-						Plugin::QueryResponseMessage message;
+						PB::Commands::QueryResponseMessage message;
 						message.ParseFromString(response);
 
-						BOOST_FOREACH(const Plugin::QueryResponseMessage::Response payload, message.payload()) {
-							BOOST_FOREACH(const Plugin::QueryResponseMessage::Response::Line &l, payload.lines()) {
+						BOOST_FOREACH(const PB::Commands::QueryResponseMessage::Response payload, message.payload()) {
+							BOOST_FOREACH(const PB::Commands::QueryResponseMessage::Response::Line &l, payload.lines()) {
 								std::string msg = nscapi::plugin_helper::translateReturn(payload.result()) + ": " + l.message();
 								handler->output_message(msg);
 								std::string perf = nscapi::protobuf::functions::build_performance_data(l, nscapi::protobuf::functions::no_truncation);
@@ -321,7 +324,7 @@ namespace client {
 		}
 	}
 
-	void cli_client::push_metrics(const Plugin::MetricsMessage &response) {
+	void cli_client::push_metrics(const PB::Metrics::MetricsMessage &response) {
 		metrics_store.set(response);
 	}
 

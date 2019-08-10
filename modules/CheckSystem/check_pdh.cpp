@@ -103,7 +103,7 @@ namespace check_pdh {
 		}
 	}
 
-	void check::check_pdh(boost::shared_ptr<pdh_thread> &collector, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	void check::check_pdh(boost::shared_ptr<pdh_thread> &collector, const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 		typedef filter filter_type;
 		modern_filter::data_container data;
 		modern_filter::cli_helper<filter_type> filter_helper(request, response, data);

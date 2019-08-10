@@ -22,7 +22,7 @@
 #include <nscapi/dll_defines.hpp>
 
 #include <NSCAPI.h>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 
 #include <string>
 
@@ -30,9 +30,9 @@ namespace nscapi {
 	namespace protobuf {
 		namespace functions {
 
-			NSCAPI_EXPORT Plugin::Common_ResultCode parse_nagios(const std::string &status);
-			NSCAPI_EXPORT Plugin::Common_ResultCode nagios_status_to_gpb(int ret);
-			NSCAPI_EXPORT int gbp_to_nagios_status(Plugin::Common::ResultCode ret);
+			NSCAPI_EXPORT PB::Common::ResultCode parse_nagios(const std::string &status);
+			NSCAPI_EXPORT PB::Common::ResultCode nagios_status_to_gpb(int ret);
+			NSCAPI_EXPORT int gbp_to_nagios_status(PB::Common::ResultCode ret);
 
 		}
 	}

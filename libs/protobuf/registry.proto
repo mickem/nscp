@@ -1,0 +1,151 @@
+syntax = "proto3";
+
+package PB.Registry;
+
+//option optimize_for = CODE_SIZE;
+
+import "common.proto";
+
+//
+// Registration is an internal message.
+// It is not used to submit checks or query status instead it is used so register modules, plug-ins, command.
+// As well as query for them.
+// The registry is a central component inside NSClient++ and this is the way to interact with the registry.
+//
+//message Registry {
+	enum ItemType {
+		DUMMY = 0;
+		QUERY = 1;
+		COMMAND = 2;
+		HANDLER = 3;
+		PLUGIN = 4;
+		QUERY_ALIAS = 5;
+		ROUTER = 6;
+		MODULE = 7;
+		SCHEDULE = 8;
+		EVENT = 9;
+
+		ALL = 99;
+	};
+	message Query {
+		string expression = 1;
+	};
+	message Information {
+		string title = 1;
+		string description = 2;
+
+		repeated Common.KeyValue metadata = 3;
+
+		string min_version = 5;
+		string max_version = 6;
+
+		bool advanced = 8;
+		repeated string plugin = 9;
+	};
+	message KeyWordDescription {
+		string parameter = 1;
+		string context = 2;
+		string key = 3;
+		string short_description = 5;
+		string long_description = 6;
+	};
+	message ParameterDetail {
+		string name = 1;
+		string default_value = 2;
+		bool required = 3;
+		bool repeatable = 4;
+		Common.DataType content_type = 5;
+		string short_description = 6;
+		string long_description = 7;
+		repeated KeyWordDescription keyword = 8;
+	};
+	message FieldDetail {
+		string name = 1;
+		string short_description = 2;
+		string long_description = 3;
+	};
+	message ParameterDetails {
+		repeated ParameterDetail parameter = 1;
+		repeated FieldDetail fields = 2;
+	}
+
+	message Schedule {
+		string id = 1;
+		string cron = 2;
+		string interval = 3;
+	};
+	enum Command {
+		DUMMY_1	= 0;
+		LOAD	= 1;
+		UNLOAD	= 2;
+		RELOAD	= 3;
+		ENABLE	= 4;
+		DISABLE	= 5;
+	};
+//};
+
+message RegistryRequestMessage {
+	message Request {
+		message Registration {
+			int32 plugin_id = 1;
+			Registry.ItemType type = 2;
+			string name = 3;
+			Registry.Information info = 4;
+			bool unregister = 5;
+
+			repeated string alias = 9;
+
+			repeated Registry.Schedule schedule = 20;
+		};
+		message Inventory {
+			string plugin = 1;
+			repeated Registry.ItemType type = 2;
+			string name = 3;
+
+			bool fetch_all = 6;
+			bool fetch_information = 7;
+		};
+		message Control {
+			Registry.Command command = 1;
+			Registry.ItemType type = 2;
+			string name = 3;
+			string alias = 4;
+		};
+		int64 id = 1;
+		Registration registration = 3;
+		Inventory inventory = 4;
+		Control control = 5;
+	};
+	Common.Header header = 1;
+	repeated Request payload = 2;
+};
+message RegistryResponseMessage {
+	message Response {
+		message Registration {
+			int32 item_id = 1;
+		};
+		message Inventory {
+			repeated string plugin = 1;
+			Registry.ItemType type = 2;
+			string name = 3;
+			string id = 6;
+			Registry.Information info = 4;
+			Registry.ParameterDetails parameters = 5;
+
+			repeated Registry.Schedule schedule = 20;
+
+		};
+		message Control {
+		};
+		int64 id = 1;
+		Common.Result result = 2;
+
+		Registration registration = 3;
+		repeated Inventory inventory = 4;
+		Control control = 5;
+	};
+
+	Common.Header header = 1;
+	repeated Response payload = 2;
+};
+

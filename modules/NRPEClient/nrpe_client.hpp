@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 
 #include <nscapi/macros.hpp>
@@ -115,8 +115,8 @@ namespace nrpe_client {
 			return "_NRPE_CHECK";
 		}
 
-		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
-			const ::Plugin::Common_Header& request_header = request_message.header();
+		bool query(client::destination_container sender, client::destination_container target, const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message) {
+			const PB::Common::Header& request_header = request_message.header();
 			nrpe_client::connection_data con(sender, target, handler_);
 
 			handler_->log_debug(__FILE__, __LINE__, "Connecting to: " + con.to_string());
@@ -147,8 +147,8 @@ namespace nrpe_client {
 			return true;
 		}
 
-		bool submit(client::destination_container sender, client::destination_container target, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
-			const ::Plugin::Common_Header& request_header = request_message.header();
+		bool submit(client::destination_container sender, client::destination_container target, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage &response_message) {
+			const PB::Common::Header& request_header = request_message.header();
 			nrpe_client::connection_data con(sender, target, handler_);
 
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
@@ -166,8 +166,8 @@ namespace nrpe_client {
 			return true;
 		}
 
-		bool exec(client::destination_container sender, client::destination_container target, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
-			const ::Plugin::Common_Header& request_header = request_message.header();
+		bool exec(client::destination_container sender, client::destination_container target, const PB::Commands::ExecuteRequestMessage &request_message, PB::Commands::ExecuteResponseMessage &response_message) {
+			const PB::Common::Header& request_header = request_message.header();
 			nrpe_client::connection_data con(sender, target, handler_);
 
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
@@ -183,7 +183,7 @@ namespace nrpe_client {
 			return true;
 		}
 
-		bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) {
+		bool metrics(client::destination_container sender, client::destination_container target, const PB::Metrics::MetricsMessage &request_message) {
 			return false;
 		}
 

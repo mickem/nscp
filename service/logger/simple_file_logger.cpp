@@ -21,7 +21,7 @@
 
 #include "simple_file_logger.hpp"
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_log.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 
 #include <file_helpers.hpp>
@@ -93,13 +93,13 @@ namespace nsclient {
 					}
 					std::string date = nsclient::logging::logger_helper::get_formated_date(format_);
 
-					Plugin::LogEntry message;
+					PB::Log::LogEntry message;
 					if (!message.ParseFromString(data)) {
 						logger_helper::log_fatal("Failed to parse message: " + str::format::strip_ctrl_chars(data));
 					} else {
 						std::stringstream tmp;
 						for (int i = 0; i < message.entry_size(); i++) {
-							Plugin::LogEntry::Entry msg = message.entry(i);
+							PB::Log::LogEntry::Entry msg = message.entry(i);
 							tmp << date
 								<< (": ") << utf8::cvt<std::string>(logger_helper::render_log_level_long(msg.level()))
 								<< (":") << msg.file()

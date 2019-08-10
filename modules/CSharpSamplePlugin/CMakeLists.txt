@@ -8,7 +8,7 @@ INCLUDE(${CSHARP_USE_FILE})
 	
 CSHARP_ADD_LIBRARY(NSCP.Plugin.CSharpSample
 	${CMAKE_CURRENT_SOURCE_DIR}/SamplePlugin.cs
-	${NSCP_PROJECT_BINARY_DIR}/Google.ProtocolBuffers.dll
+	${NSCP_PROJECT_BINARY_DIR}/Google.Protobuf.dll
 	${NSCP_PROJECT_BINARY_DIR}/NSCP.Core.dll
 	${NSCP_PROJECT_BINARY_DIR}/NSCP.Protobuf.dll
 )

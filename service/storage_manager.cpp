@@ -36,13 +36,13 @@ void nsclient::core::storage_manager::load() {
 	istr_type raw_in = istr_type(new ::google::protobuf::io::IstreamInputStream(&in));
 	codedstr_type coded_in = codedstr_type(new ::google::protobuf::io::CodedInputStream(raw_in.get()));
 
-	::Plugin::Storage::File header;
+	::PB::Storage::Storage::File header;
 	if (!read_chunk(*coded_in, header)) {
 		LOG_ERROR_CORE("Failed to read storage.");
 		return;
 	}
 	for (long long i = 0; i < header.entries(); i++) {
-		::Plugin::Storage::Block block;
+		::PB::Storage::Storage::Block block;
 		if (!read_chunk(*coded_in, block)) {
 			LOG_ERROR_CORE("Failed to read block " + str::xtos(i) + " from storage.");
 			continue;
@@ -51,7 +51,7 @@ void nsclient::core::storage_manager::load() {
 	}
 }
 
-void nsclient::core::storage_manager::put(std::string plugin_name, const ::Plugin::Storage_Entry& entry) {
+void nsclient::core::storage_manager::put(std::string plugin_name, const ::PB::Storage::Storage_Entry& entry) {
 	boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!writeLock.owns_lock()) {
 		LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
@@ -101,7 +101,7 @@ void nsclient::core::storage_manager::save() {
 			istr_type raw_out = istr_type(new ::google::protobuf::io::OstreamOutputStream(&out));
 			codedstr_type coded_out = codedstr_type(new ::google::protobuf::io::CodedOutputStream(raw_out.get()));
 
-			::Plugin::Storage::File header;
+			::PB::Storage::Storage::File header;
 			header.set_version(1);
 			header.set_entries(storage_.size());
 			if (!write_chunk<>(*coded_out, header)) {
@@ -110,7 +110,7 @@ void nsclient::core::storage_manager::save() {
 			}
 
 			BOOST_FOREACH(const storage_type::value_type &v, storage_) {
-				::Plugin::Storage::Block block;
+				::PB::Storage::Storage::Block block;
 				block.set_owner(v.second.owner);
 				block.mutable_entry()->CopyFrom(v.second.entry);
 				if (!write_chunk(*coded_out, block)) {
