@@ -49,6 +49,7 @@ target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
 	${Boost_PROGRAM_OPTIONS_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
+	${CRYPTOPP_LIBRARIES}
 	${EXTRA_LIBS}
 	nscpcrypt
 )

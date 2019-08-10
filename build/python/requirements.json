@@ -105,5 +105,25 @@
 			]
 		},
 		"build": ["mkdir", "pre", "build"]
+	},
+	"cryptopp": {
+		"source": {
+			"url": "https://www.cryptopp.com/cryptopp800.zip",
+			"hash": "dd0dc0586c0a3e0696cd323efc6fa2e2945ad920"
+		},
+		"tasks": {
+			"pre-dynamic": [
+				"{{source.folder}}\\build\\python\\msdev-to-dynamic.py cryptlib.vcxproj"
+			],
+			"build-x64-static": [
+				"msbuild cryptlib.vcxproj /p:Configuration=Release",
+				"msbuild cryptlib.vcxproj /p:Configuration=Debug"
+			],
+			"build-dynamic": [
+				"msbuild cryptlib.vcxproj /p:Configuration=Release",
+				"msbuild cryptlib.vcxproj /p:Configuration=Debug"
+			]
+		},
+		"build": ["fetch", "pre", "build"]
 	}
 }

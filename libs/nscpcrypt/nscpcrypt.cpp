@@ -16,20 +16,19 @@
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #endif
 #include <cryptlib.h>
-#include <modes.h>
-#include <des.h>
 #include <aes.h>
 #include <cast.h>
+#include <des.h>
 #include <tea.h>
 #include <3way.h>
 #include <blowfish.h>
 #include <twofish.h>
 #include <rc2.h>
-#include <arc4.h>
 #include <serpent.h>
 #include <gost.h>
 #include <filters.h>
 #include <osrng.h>
+#include <modes.h>
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif
@@ -53,7 +52,6 @@
 #define ENCRYPT_TWOFISH         9       /* TWOFISH */
 #define ENCRYPT_LOKI97          10      /* LOKI97 */
 #define ENCRYPT_RC2             11      /* RC2 */
-#define ENCRYPT_ARCFOUR         12      /* RC4 */
 #define ENCRYPT_RC6             13      /* RC6 */            /* UNUSED */
 #define ENCRYPT_RIJNDAEL128     14      /* RIJNDAEL-128 */
 #define ENCRYPT_RIJNDAEL192     15      /* RIJNDAEL-192 */
@@ -86,7 +84,7 @@ std::string nscp::encryption::helpers::get_crypto_string(std::string sep) {
 				if (ret.size() > 1)
 					ret += sep;
 				ret += encryption_to_string(i) + " = " + name;
-			} catch (const std::exception &e) {
+			} catch (const std::exception &) {
 				// Dont print invalid cryptos
 			}
 		}
@@ -215,9 +213,9 @@ public:
 		delete[] key;
 
 		try {
-			cipher_.SetKey((const byte*)skey.c_str(), keysize);
-			crypto_.SetCipherWithIV(cipher_, (const byte*)iv.c_str(), 1);
-			decrypto_.SetCipherWithIV(cipher_, (const byte*)iv.c_str(), 1);
+			cipher_.SetKey((const unsigned char*)skey.c_str(), keysize);
+			crypto_.SetCipherWithIV(cipher_, (const unsigned char*)iv.c_str(), 1);
+			decrypto_.SetCipherWithIV(cipher_, (const unsigned char*)iv.c_str(), 1);
 		} catch (...) {
 			throw nscp::encryption::encryption_exception("Unknown exception when trying to setup crypto");
 		}
@@ -342,7 +340,6 @@ bool nscp::encryption::engine::hasEncryption(int encryption_method) {
 		// UNdefined
 #ifdef HAVE_LIBCRYPTOPP
 	case ENCRYPT_3WAY:
-	case ENCRYPT_ARCFOUR:
 	case ENCRYPT_CAST256:
 	case ENCRYPT_LOKI97:
 	case ENCRYPT_WAKE:
@@ -445,7 +442,7 @@ std::string nscp::encryption::engine::get_rand_buffer(int length) {
 	//unsigned char * buffer = new unsigned char[length+1];
 #if HAVE_LIBCRYPTOPP
 	CryptoPP::AutoSeededRandomPool rng;
-	rng.GenerateBlock((byte*)&*buffer.begin(), length);
+	rng.GenerateBlock((unsigned char*)&*buffer.begin(), length);
 #endif
 	return buffer;
 }

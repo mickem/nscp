@@ -26,6 +26,11 @@
 #include <nscapi/nscapi_common_options.hpp>
 #include <nscapi/macros.hpp>
 
+namespace CryptoPP {
+	const std::string DEFAULT_CHANNEL = "";
+	//	const std::string AAD_CHANNEL = "AAD";
+}
+
 namespace sh = nscapi::settings_helper;
 
 bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
@@ -39,7 +44,7 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		return false;
 	}
 
-	sh::settings_registry settings(get_settings_proxy());
+	sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 	settings.set_alias("NSCA", alias, "server");
 
 	settings.alias().add_path_to_settings()

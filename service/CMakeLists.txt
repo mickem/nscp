@@ -168,6 +168,7 @@ TARGET_LINK_LIBRARIES(${TARGET}
 	${ICONV_LIBRARIES}
 	${EXTRA_LIBS}
 	${JSON_LIB}
+	${CRYPTOPP_LIBRARIES}
 	nscp_protobuf
 	settings_manager
 	expression_parser
