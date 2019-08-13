@@ -632,10 +632,13 @@ This is a section of objects. This means that you will create objects below this
 **Keys:**
 
 
-| Key      | Default Value | Description |
-|----------|---------------|-------------|
-| password |               | PASSWORD    |
-| role     |               | ROLE        |
+| Key         | Default Value | Description |
+|-------------|---------------|-------------|
+| alias       |               | ALIAS       |
+| is template | false         | IS TEMPLATE |
+| parent      | default       | PARENT      |
+| password    |               | PASSWORD    |
+| role        |               | ROLE        |
 
 
 **Sample:**
@@ -643,6 +646,9 @@ This is a section of objects. This means that you will create objects below this
 ```ini
 # An example of a Web server users section
 [/settings/WEB/server/users/sample]
+#alias=...
+is template=false
+parent=default
 #password=...
 #role=...
 
