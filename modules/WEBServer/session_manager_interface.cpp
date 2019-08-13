@@ -71,6 +71,16 @@ bool session_manager_interface::is_loggedin(std::string grant, Mongoose::Request
 		setup_token(fake_user, response);
 		return can(grant, request, response);
 	}
+	if (request.hasVariable("TOKEN")) {
+		std::string token = request.readHeader("TOKEN");
+		if (!tokens.validate(token)) {
+			response.setCode(HTTP_FORBIDDEN);
+			response.append("403 You're not allowed");
+			return false;
+		}
+		setup_user(token, response);
+		return can(grant, request, response);
+	}
 	if (request.hasVariable("password")) {
 		std::string pwd = request.readHeader("password");
 		std::string fake_user = "admin";
