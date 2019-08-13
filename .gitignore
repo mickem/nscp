@@ -22,3 +22,7 @@ legacy/*
 # CLion
 .idea
 cmake-build-debug
+
+
+# node
+node_modules
