@@ -12,11 +12,11 @@ namespace parsers {
 
 		struct builder {
 			virtual void add(std::string alias) = 0;
-			virtual void set_value(float value) = 0;
-			virtual void set_warning(float value) = 0;
-			virtual void set_critical(float value) = 0;
-			virtual void set_minimum(float value) = 0;
-			virtual void set_maximum(float value) = 0;
+			virtual void set_value(double value) = 0;
+			virtual void set_warning(double value) = 0;
+			virtual void set_critical(double value) = 0;
+			virtual void set_minimum(double value) = 0;
+			virtual void set_maximum(double value) = 0;
 			virtual void set_unit(const std::string &value) = 0;
 
 			virtual void next() = 0;

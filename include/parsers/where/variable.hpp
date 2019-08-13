@@ -68,10 +68,10 @@ namespace parsers {
 				if (ignored)
 					return;
 				performance_data data;
-				performance_data::perf_value<TDataType> int_data;
-				int_data.value = current_value;
-				int_data.warn = warn;
-				int_data.crit = crit;
+				performance_data::perf_value int_data;
+				int_data.value = static_cast<double>(current_value);
+				int_data.warn = static_cast<double>(warn);
+				int_data.crit = static_cast<double>(crit);
 				data.set(int_data);
 				data.alias = prefix + alias + suffix;
 				data.unit = unit;
@@ -112,7 +112,7 @@ namespace parsers {
 					return;
 				long long maximum = maxfun(object, context);
 				performance_data data;
-				performance_data::perf_value<double> double_data;
+				performance_data::perf_value double_data;
 				if (maximum > 0) {
 					double_data.value = round(static_cast<double>(current_value * 100) / maximum);
 					double_data.warn = round(static_cast<double>(warn * 100) / maximum);
@@ -179,7 +179,7 @@ namespace parsers {
 					active_unit = str::format::find_proper_unit_BKMG(m);
 				}
 
-				performance_data::perf_value<double> double_data;
+				performance_data::perf_value double_data;
 				if (maxfun) {
 					if (max_value > 0)
 						double_data.maximum = str::format::convert_to_byte_units(max_value, active_unit);
@@ -796,8 +796,8 @@ namespace parsers {
 			virtual bool require_object(evaluation_context context) const {
 				return false;
 			}
-			value_container get_value(evaluation_context context, value_type type) const {
-				if (type == type_int) {
+			value_container get_value(evaluation_context context, value_type wanted_type) const {
+				if (wanted_type == type_int) {
 					long long value = 0;
 					bool summary = false;
 					if (!int_get_value(context, summary, value)) {
@@ -845,10 +845,10 @@ namespace parsers {
 					if (crit)
 						crit_value = crit->get_int_value(context);
 					performance_data data;
-					performance_data::perf_value<long long> int_data;
-					int_data.value = current_value;
-					int_data.warn = warn_value;
-					int_data.crit = crit_value;
+					performance_data::perf_value int_data;
+					int_data.value = static_cast<double>(current_value);
+					int_data.warn = static_cast<double>(warn_value);
+					int_data.crit = static_cast<double>(crit_value);
 					data.set(int_data);
 					data.alias = name_;
 					ret.push_back(data);

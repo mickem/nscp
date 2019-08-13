@@ -232,28 +232,23 @@ namespace parsers {
 		typedef std::list<std::string> variable_list_type;
 
 		struct performance_data {
-			template<class T>
 			struct perf_value {
-				T value;
-				boost::optional<T> crit;
-				boost::optional<T> warn;
-				boost::optional<T> minimum;
-				boost::optional<T> maximum;
+				double value;
+				boost::optional<double> crit;
+				boost::optional<double> warn;
+				boost::optional<double> minimum;
+				boost::optional<double> maximum;
 
 				perf_value() : value(0.0) {}
 			};
 			std::string alias;
 			std::string unit;
-			boost::optional<perf_value<long long> > int_value;
-			boost::optional<perf_value<double> > float_value;
-			boost::optional<perf_value<std::string> > string_value;
-			void set(boost::optional<perf_value<long long> > v) {
-				int_value = v;
-			}
-			void set(boost::optional<perf_value<double> > v) {
+			boost::optional<perf_value> float_value;
+			boost::optional<std::string> string_value;
+			void set(boost::optional<perf_value> v) {
 				float_value = v;
 			}
-			void set(boost::optional<perf_value<std::string> > v) {
+			void set(boost::optional<std::string> v) {
 				string_value = v;
 			}
 		};
