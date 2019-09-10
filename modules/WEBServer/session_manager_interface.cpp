@@ -106,9 +106,7 @@ bool session_manager_interface::is_loggedin(std::string grant, Mongoose::Request
 		}
 		return can(grant, request, response);
 	}
-	response.setCode(HTTP_FORBIDDEN);
-	response.append("403 Please login first");
-	return false;
+	return can(grant, request, response);
 }
 
 
@@ -147,6 +145,9 @@ void session_manager_interface::get_user(const Mongoose::StreamResponse & respon
 bool session_manager_interface::can(std::string grant, Mongoose::Request & request, Mongoose::StreamResponse & response) {
 	std::string uid = response.getCookie("uid");
 	if (uid.empty()) {
+		if (tokens.can("anonymous", grant)) {
+			return true;
+		}
 		response.setCode(HTTP_FORBIDDEN);
 		response.append("403 You're not allowed");
 		return false;
