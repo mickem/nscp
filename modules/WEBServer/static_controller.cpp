@@ -80,50 +80,10 @@ Mongoose::Response* StaticController::handleRequest(Mongoose::Request &request) 
   std::ifstream in(file.string().c_str(), std::ios_base::in | std::ios_base::binary);
   char buf[BUF_SIZE];
 
-  std::string token = request.get("__TOKEN");
-  if (!session->validate_token(token))
-    token = "";
-  if (is_html) {
-    std::string line;
-    while (std::getline(in, line)) {
-      if (line.empty())
-        continue;
-      std::string::size_type pos = line.find("<%=");
-      if (pos != std::string::npos) {
-        std::string::size_type end = line.find("%>", pos);
-        if (end != std::string::npos) {
-          pos += 3;
-          std::string key = line.substr(pos, end - pos);
-          if (boost::starts_with(key, "INCLUDE:")) {
-            std::string fname = key.substr(8);
-            stripNonAscii(fname);
-            fname += ".html";
-            boost::filesystem::path file2 = base / "include" / fname;
-            std::ifstream in2(file2.string().c_str(), std::ios_base::in | std::ios_base::binary);
-            do {
-              in2.read(&buf[0], BUF_SIZE);
-              sr->write(&buf[0], in2.gcount());
-            } while (in2.gcount() > 0);
-            in2.close();
-            line = line.substr(0, pos - 3) + line.substr(end + 2);
-            boost::replace_all(line, "<%=TOKEN%>", token);
-          } else {
-            boost::replace_all(line, "<%=TOKEN%>", token);
-            if (!token.empty())
-              boost::replace_all(line, "<%=TOKEN_TAG%>", "?__TOKEN=" + token);
-            else
-              boost::replace_all(line, "<%=TOKEN_TAG%>", "");
-          }
-        }
-      }
-      sr->write(line.c_str(), line.size());
-    }
-  } else {
-    do {
-      in.read(&buf[0], BUF_SIZE);
-      sr->write(&buf[0], in.gcount());
-    } while (in.gcount() > 0);
-  }
+  do {
+	in.read(&buf[0], BUF_SIZE);
+	sr->write(&buf[0], in.gcount());
+  } while (in.gcount() > 0);
   in.close();
   return sr;
 }
