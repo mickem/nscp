@@ -205,28 +205,28 @@ void Scheduler::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
 
 		PB::Metrics::Metric *m = bundle->add_value();
 		m->set_key("jobs");
-		m->mutable_float_value()->set_value(static_cast<double>(taskes__));
+		m->mutable_gauge_value()->set_value(static_cast<double>(taskes__));
 		m = bundle->add_value();
 		m->set_key("submitted");
-		m->mutable_float_value()->set_value(static_cast<double>(submitted__));
+		m->mutable_gauge_value()->set_value(static_cast<double>(submitted__));
 		m = bundle->add_value();
 		m->set_key("errors");
-		m->mutable_float_value()->set_value(static_cast<double>(errors__));
+		m->mutable_gauge_value()->set_value(static_cast<double>(errors__));
 		m = bundle->add_value();
 		m->set_key("threads");
-		m->mutable_float_value()->set_value(static_cast<double>(threads));
+		m->mutable_gauge_value()->set_value(static_cast<double>(threads));
 		m = bundle->add_value();
 		m->set_key("queue");
-		m->mutable_float_value()->set_value(static_cast<double>(queue));
+		m->mutable_gauge_value()->set_value(static_cast<double>(queue));
 		m = bundle->add_value();
 		m->set_key("avgtime");
-		m->mutable_float_value()->set_value(static_cast<double>(avgtime));
+		m->mutable_gauge_value()->set_value(static_cast<double>(avgtime));
 		m = bundle->add_value();
 		m->set_key("rate");
-		m->mutable_float_value()->set_value(static_cast<double>(rate));
+		m->mutable_gauge_value()->set_value(static_cast<double>(rate));
 	} else {
 		PB::Metrics::Metric *m = bundle->add_value();
 		m->set_key("metrics.available");
-		m->mutable_float_value()->set_value(0);
+		m->mutable_gauge_value()->set_value(0);
 	}
 }

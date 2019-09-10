@@ -134,6 +134,7 @@ namespace simple_scheduler {
 		has_watchdog_ = false;
 		threads_.interruptThreads();
 		threads_.waitForThreads();
+		thread_count_ = 0;
 		log_trace(__FILE__, __LINE__, "Thread pool contains: " + str::xtos(threads_.threadCount()));
 	}
 
@@ -189,6 +190,7 @@ namespace simple_scheduler {
 						if (off.total_seconds() > 5) {
 							if (thread_count_ < 10) {
 								thread_count_++;
+								start_threads();
 							}  else if (!maximum_threads_reached) {
 								log_error(__FILE__, __LINE__, "Auto-scaling of scheduler failed (maximum of 10 threads reached) you need to manually configure threads to resolve items running slow");
 								maximum_threads_reached = true;

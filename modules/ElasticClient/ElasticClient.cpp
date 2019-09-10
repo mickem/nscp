@@ -294,8 +294,8 @@ void build_metrics(json_spirit::Object &metrics, const std::string trail, const 
 	BOOST_FOREACH(const PB::Metrics::Metric &v, b.value()) {
 		std::string key = trail.empty() ? boost::replace_all_copy(v.key(), ".", "_") 
 			: trail + "_" + boost::replace_all_copy(v.key(), ".", "_");
-		if (v.has_float_value())
-			node.insert(json_spirit::Object::value_type(key, v.float_value().value()));
+		if (v.has_gauge_value())
+			node.insert(json_spirit::Object::value_type(key, v.gauge_value().value()));
 		else if (v.has_string_value())
 			node.insert(json_spirit::Object::value_type(key, v.string_value().value()));
 	}

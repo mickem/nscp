@@ -147,8 +147,8 @@ namespace graphite_client {
 				d.path = mpath;
 				str::utils::replace(d.path, "${metric}", mypath + "." + v.key());
 				d.path = fix_graphite_string(d.path);
-				if (v.has_float_value()) {
-					d.value = str::xtos(v.float_value().value());
+				if (v.has_gauge_value()) {
+					d.value = str::xtos(v.gauge_value().value());
 					list.push_back(d);
 				}
 			}

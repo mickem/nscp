@@ -484,20 +484,20 @@ PB::Metrics::MetricsBundle NSClientT::ownMetricsFetcher() {
 
 		PB::Metrics::Metric *m = bundle.add_value();
 		m->set_key("jobs");
-		m->mutable_float_value()->set_value(taskes__);
+		m->mutable_gauge_value()->set_value(taskes__);
 		m = bundle.add_value();
 		m->set_key("submitted");
-		m->mutable_float_value()->set_value(submitted__);
+		m->mutable_gauge_value()->set_value(submitted__);
 		m = bundle.add_value();
 		m->set_key("errors");
-		m->mutable_float_value()->set_value(errors__);
+		m->mutable_gauge_value()->set_value(errors__);
 		m = bundle.add_value();
 		m->set_key("threads");
-		m->mutable_float_value()->set_value(threads);
+		m->mutable_gauge_value()->set_value(threads);
 	} else {
 		PB::Metrics::Metric *m = bundle.add_value();
 		m->set_key("metrics.available");
-		m->mutable_float_value()->set_value(0);
+		m->mutable_gauge_value()->set_value(0);
 	}
 	return bundle;
 }

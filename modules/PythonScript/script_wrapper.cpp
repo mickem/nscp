@@ -609,8 +609,8 @@ void build_metrics(py::dict &metrics, const PB::Metrics::MetricsBundle &b, const
 	BOOST_FOREACH(const PB::Metrics::Metric &v, b.value()) {
 		if (v.has_string_value())
 			metrics[p + "." + v.key()] = v.string_value().value();
-		else if (v.has_float_value())
-			metrics[p + "." + v.key()] = str::xtos(v.float_value().value());
+		else if (v.has_gauge_value())
+			metrics[p + "." + v.key()] = str::xtos(v.gauge_value().value());
 	}
 }
 
@@ -675,18 +675,18 @@ void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const
 							}
 							py::extract<int> intExtr(dic[keys[i]]);
 							if (intExtr.check()) {
-								value->mutable_float_value()->set_value(intExtr);
+								value->mutable_gauge_value()->set_value(intExtr);
 								continue;
 							}
 							py::extract<double> dblExtr(dic[keys[i]]);
 							if (dblExtr.check()) {
-								value->mutable_float_value()->set_value(dblExtr);
+								value->mutable_gauge_value()->set_value(dblExtr);
 								continue;
 							}
 						}
 					}
 				}
-			} catch (py::error_already_set e) {
+			} catch (const py::error_already_set &e) {
 				log_exception();
 			}
 		}

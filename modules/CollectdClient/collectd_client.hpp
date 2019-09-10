@@ -154,8 +154,8 @@ namespace collectd_client {
 				flatten_metrics(builder, b2, mypath);
 			}
 			BOOST_FOREACH(const PB::Metrics::Metric &v, b.value()) {
-				if (v.has_float_value()) {
-					builder.set_metric(mypath + "." + v.key(), str::xtos(v.float_value().value()));
+				if (v.has_gauge_value()) {
+					builder.set_metric(mypath + "." + v.key(), str::xtos(v.gauge_value().value()));
 				} else if (v.has_string_value()) {
 					builder.set_metric(mypath + "." + v.key(), v.string_value().value());
 				} else {

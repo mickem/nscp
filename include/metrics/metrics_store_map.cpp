@@ -35,8 +35,8 @@ namespace metrics {
 		}
 
 		BOOST_FOREACH(const PB::Metrics::Metric &v, b.value()) {
-			if (v.has_float_value())
-				metrics[ p + "." + v.key()] = str::xtos(v.float_value().value());
+			if (v.has_gauge_value())
+				metrics[ p + "." + v.key()] = str::xtos(v.gauge_value().value());
 			else if (v.has_string_value())
 				metrics[p + "." + v.key()] = v.string_value().value();
 		}
