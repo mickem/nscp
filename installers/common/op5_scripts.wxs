@@ -1,27 +1,22 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Fragment>
-        <DirectoryRef Id="INSTALLLOCATION">
-            <Directory Id="op5scriptroot" Name="scripts" />
-        </DirectoryRef>
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="op5scriptroot">
-            <Directory Id="op5scriptsfolder" Name="op5" />
+        <DirectoryRef Id="TARGETDIR">
+            <Directory Id="dirC722990CDCB916A6A44099040A99483Aa" Name="scripts" />
         </DirectoryRef>
     </Fragment>
     <Fragment>
         <ComponentGroup Id="Op5ScriptResources">
-            <Component Id="cmpE3904B35E201C13834F842174AB956B3" Directory="op5scriptsfolder" Guid="{8E71291E-E2B0-4241-B882-9800219B6E02}">
+            <Component Id="cmpE3904B35E201C13834F842174AB956B3" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{8843003B-E012-45A3-8357-B818E41A9283}">
                 <File Id="fil64A6350D12C0372C2CD5AF47BA7C9C42" KeyPath="yes" Source="$(var.OP5ScriptSource)\check_ad.vbs" />
             </Component>
-            <Component Id="cmp8B49AFC05E7F03029717A26ED94F1BA2" Directory="op5scriptsfolder" Guid="{73924A53-2174-4C19-BF33-7FC68A86AEF7}">
+            <Component Id="cmp8B49AFC05E7F03029717A26ED94F1BA2" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{A5456EE8-C2FE-46E2-9481-C41B1DDE08D9}">
                 <File Id="filF41E89D1F998278724F88D56A81403C9" KeyPath="yes" Source="$(var.OP5ScriptSource)\check_time.vbs" />
             </Component>
-            <Component Id="cmp8849E500E5AF2C05326FCEEDFD3E5142" Directory="op5scriptsfolder" Guid="{56F56979-1962-47CB-B913-48EC7649E6F2}">
+            <Component Id="cmp8849E500E5AF2C05326FCEEDFD3E5142" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{CA3AA961-E66D-45C3-B24C-479DE8630855}">
                 <File Id="fil096FE703D3C7A0D1CDDF6B6C4A21E0C6" KeyPath="yes" Source="$(var.OP5ScriptSource)\restart_service.ps1" />
             </Component>
-            <Component Id="cmpB356AB95F7711193C007F646D62C9605" Directory="op5scriptsfolder" Guid="{1B028782-B886-42E1-A96B-4C0A200F1081}">
+            <Component Id="cmpB356AB95F7711193C007F646D62C9605" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{BD941443-C758-4B11-A632-579AD6B4FA03}">
                 <File Id="filC02F988CBC80E4E9752B1DCF779B2DA4" KeyPath="yes" Source="$(var.OP5ScriptSource)\services.vbs" />
             </Component>
         </ComponentGroup>
