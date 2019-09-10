@@ -53,8 +53,8 @@ FOREACH(FIL ${ARGN})
 	ENDIF(PROTOC_GEN_LUA_BIN)
 	LIST(APPEND ARGS --lua_out ${PROJECT_BINARY_DIR}/libs/lua_pb ${PROTOC_GEN_LUA_EXTRA})
 	LIST(APPEND ${VAR}_LUA_C "${PROJECT_BINARY_DIR}/libs/lua_pb/${FIL_WE}.pb-lua.cc")
-	LIST(APPEND ${VAR}_LUA_C "${PROJECT_BINARY_DIR}/libs/lua_pb/lua-protobuf.cc")
-	LIST(APPEND ${VAR}_LUA_H "${PROJECT_BINARY_DIR}/libs/lua_pb/lua-protobuf.h")
+	#LIST(APPEND ${VAR}_LUA_C "${PROJECT_BINARY_DIR}/libs/lua_pb/lua-protobuf.cc")
+	#LIST(APPEND ${VAR}_LUA_H "${PROJECT_BINARY_DIR}/libs/lua_pb/lua-protobuf.h")
 	LIST(APPEND ${VAR}_LUA_H "${PROJECT_BINARY_DIR}/libs/lua_pb/${FIL_WE}.pb-lua.h")
   ENDIF(PROTOC_GEN_LUA_FOUND)
   IF(PROTOC_GEN_JSON_FOUND)
@@ -76,7 +76,7 @@ FOREACH(FIL ${ARGN})
 	IF(WIN32)
 		SET(ENV{PYTHON} ${PYTHON_EXECUTABLE})
 	  ADD_CUSTOM_COMMAND(
-		OUTPUT ${${VAR}_C} ${${VAR}_H} ${${VAR}_LUA_C} ${${VAR}_LUA_H} ${${VAR}_JSON_C} ${${VAR}_JSON_H} ${VAR}_CSHARP_CS ${PROJECT_BINARY_DIR}/scripts/python/lib/${FIL_WE}_pb2.py
+		OUTPUT ${${VAR}_C} ${${VAR}_H} ${${VAR}_LUA_C} ${${VAR}_LUA_H} ${${VAR}_JSON_C} ${${VAR}_JSON_H} ${PROJECT_BINARY_DIR}/scripts/python/lib/${FIL_WE}_pb2.py
 		COMMAND SET PYTHON=${PYTHON_EXECUTABLE}
 		COMMAND ${PROTOBUF_PROTOC_EXECUTABLE}
 		ARGS ${ARGS}
@@ -85,7 +85,7 @@ FOREACH(FIL ${ARGN})
 		COMMENT "Running protocol buffer compiler on ${FIL} (PY)" VERBATIM )
 	ELSE(WIN32)
 	  ADD_CUSTOM_COMMAND(
-		OUTPUT ${${VAR}_C} ${${VAR}_H} ${${VAR}_LUA_C} ${${VAR}_LUA_H} ${${VAR}_JSON_C} ${${VAR}_JSON_H} ${VAR}_CSHARP_CS ${PROJECT_BINARY_DIR}/scripts/python/lib/${FIL_WE}_pb2.py
+		OUTPUT ${${VAR}_C} ${${VAR}_H} ${${VAR}_LUA_C} ${${VAR}_LUA_H} ${${VAR}_JSON_C} ${${VAR}_JSON_H} ${PROJECT_BINARY_DIR}/scripts/python/lib/${FIL_WE}_pb2.py
 		COMMAND  ${PROTOBUF_PROTOC_EXECUTABLE}
 		ARGS ${ARGS}
 			--proto_path ${CMAKE_CURRENT_SOURCE_DIR} ${ABS_FIL}
