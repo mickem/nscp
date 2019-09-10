@@ -9,6 +9,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/foreach.hpp>
 
 #include <string>
 
@@ -178,9 +179,17 @@ std::string session_manager_interface::get_metrics() {
 std::string session_manager_interface::get_metrics_v2() {
 	return metrics_store.get_list();
 }
-void session_manager_interface::set_metrics(std::string metrics, std::string metrics_list) {
+std::string session_manager_interface::get_openmetrics() {
+	std::string metrics;
+	BOOST_FOREACH(const std::string &m, metrics_store.get_openmetrics()) {
+		metrics += m + "\n";
+	}
+	return metrics;
+}
+void session_manager_interface::set_metrics(std::string metrics, std::string metrics_list, std::list<std::string> openmetrics) {
 	metrics_store.set(metrics);
 	metrics_store.set_list(metrics_list);
+	metrics_store.set_openmetrics(openmetrics);
 }
 
 void session_manager_interface::add_log_message(bool is_error, error_handler_interface::log_entry entry) {

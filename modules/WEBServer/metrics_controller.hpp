@@ -25,6 +25,6 @@ public:
 
 	metrics_controller(const int version, boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id);
 
-	void get_metrics(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+	void get_metrics(Mongoose::Request& request, boost::smatch& what, Mongoose::StreamResponse& response);
 
 };

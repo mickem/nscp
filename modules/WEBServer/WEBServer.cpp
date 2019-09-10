@@ -34,6 +34,7 @@
 #include "settings_controller.hpp"
 #include "login_controller.hpp"
 #include "metrics_controller.hpp"
+#include "openmetrics_controller.hpp"
 
 #include "error_handler.hpp"
 
@@ -181,6 +182,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		server->registerController(new settings_controller(2, session, get_core(), get_id()));
 		server->registerController(new login_controller(2, session));
 		server->registerController(new metrics_controller(2, session, get_core(), get_id()));
+		server->registerController(new openmetrics_controller(2, session, get_core(), get_id()));
 
 		server->registerController(new modules_controller(1, session, get_core(), get_id()));
 		server->registerController(new query_controller(1, session, get_core(), get_id()));
@@ -627,15 +629,16 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
 	return true;
 }
 
-void build_metrics(json_spirit::Object &metrics, json_spirit::Object &metrics_list, const std::string trail, const PB::Metrics::MetricsBundle & b) {
+void build_metrics(json_spirit::Object &metrics, json_spirit::Object &metrics_list, std::list<std::string> &openmetrics, const std::string trail, const std::string opentrail, const PB::Metrics::MetricsBundle & b) {
 	json_spirit::Object node;
 	BOOST_FOREACH(const PB::Metrics::MetricsBundle &b2, b.children()) {
-		build_metrics(node, metrics_list, trail + "." + b2.key(), b2);
+		build_metrics(node, metrics_list, openmetrics, trail + "." + b2.key(), opentrail + "_" + b2.key(), b2);
 	}
 	BOOST_FOREACH(const PB::Metrics::Metric &v, b.value()) {
-		if (v.has_float_value()) {
-			node.insert(json_spirit::Object::value_type(v.key(), v.float_value().value()));
-			metrics_list.insert(json_spirit::Object::value_type(trail + "." + v.key(), v.float_value().value()));
+		if (v.has_gauge_value()) {
+			node.insert(json_spirit::Object::value_type(v.key(), v.gauge_value().value()));
+			metrics_list.insert(json_spirit::Object::value_type(trail + "." + v.key(), v.gauge_value().value()));
+			openmetrics.push_back(opentrail + "_" + v.key() + " " + str::xtos(v.gauge_value().value()));
 		} else if (v.has_string_value()) {
 			node.insert(json_spirit::Object::value_type(v.key(), v.string_value().value()));
 			metrics_list.insert(json_spirit::Object::value_type(trail + "." + v.key(), v.string_value().value()));
@@ -645,12 +648,13 @@ void build_metrics(json_spirit::Object &metrics, json_spirit::Object &metrics_li
 }
 void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) {
 	json_spirit::Object metrics, metrics_list;
+	std::list<std::string> openmetrics;
 	BOOST_FOREACH(const PB::Metrics::MetricsMessage::Response &p, response.payload()) {
 		BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, p.bundles()) {
-			build_metrics(metrics, metrics_list, b.key(), b);
+			build_metrics(metrics, metrics_list, openmetrics, b.key(), b.key(), b);
 		}
 	}
-	session->set_metrics(json_spirit::write(metrics), json_spirit::write(metrics_list));
+	session->set_metrics(json_spirit::write(metrics), json_spirit::write(metrics_list), openmetrics);
 	client->push_metrics(response);
 
 }

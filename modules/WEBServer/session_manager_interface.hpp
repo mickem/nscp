@@ -35,7 +35,8 @@ public:
 
 	std::string get_metrics();
 	std::string get_metrics_v2();
-	void set_metrics(std::string metrics, std::string metrics_list);
+	std::string get_openmetrics();
+	void set_metrics(std::string metrics, std::string metrics_list, std::list<std::string> openmetrics);
 
 	void add_log_message(bool is_error, error_handler_interface::log_entry entry);
 	error_handler_interface* get_log_data();
