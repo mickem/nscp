@@ -9,12 +9,39 @@ import "common.proto";
 //
 // Common utility types (re-used in various messages below)
 //
+message Quantile {
+	double quantile = 1;
+	double value    = 2;
+}
+
+message Summary {
+  uint64   sample_count = 1;
+  double   sample_sum   = 2;
+  repeated Quantile quantile     = 3;
+}
+
+message Histogram {
+  uint64 sample_count = 1;
+  double sample_sum   = 2;
+  repeated Bucket bucket       = 3;
+}
+
+message Bucket {
+  uint64 cumulative_count = 1;
+  double upper_bound = 2;
+}
+
 
 message Metric {
 	string key = 1;
+	repeated PB.Common.KeyValue dims = 11;
 	oneof value {
-		Common.OptionalFloat float_value = 5;
-		Common.OptionalString string_value = 6;
+		PB.Common.OptionalFloat gauge_value = 5;
+		PB.Common.OptionalString string_value = 6;
+		PB.Common.OptionalFloat counter_value = 7;
+		PB.Common.OptionalFloat untyped_value = 8;
+		Summary summary_value = 9;
+		Histogram histogram_value = 10;
 	}
 
 	string alias = 3;
@@ -40,7 +67,7 @@ message MetricsQueryMessage {
 		string type = 2;
 	};
 
-	Common.Header header = 1;
+	PB.Common.Header header = 1;
 	repeated Request payload = 2;
 }
 
@@ -51,11 +78,11 @@ message MetricsQueryMessage {
 message MetricsMessage {
 	message Response {
 		int64 id = 1;
-		Common.Result result = 2;
+		PB.Common.Result result = 2;
 
 		repeated MetricsBundle bundles = 3;
 	};
 
-	Common.Header header = 1;
+	PB.Common.Header header = 1;
 	repeated Response payload = 2;
 }

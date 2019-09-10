@@ -20,7 +20,7 @@ message Storage {
 	message Block {
 		string owner = 1;
 		int64 version = 2;
-		Storage.Entry entry = 3;
+		Entry entry = 3;
 	};
 	message File {
 		int64 version = 1;
@@ -35,7 +35,7 @@ message Storage {
 message StorageRequestMessage {
 	message Request {
 		message Put {
-			Storage.Entry entry = 1;
+			PB.Storage.Storage.Entry entry = 1;
 		};
 		message Get {
 			string context = 1;
@@ -61,7 +61,7 @@ message StorageResponseMessage {
 			string error = 3;
 		};
 		message Get {
-			repeated Storage.Entry entry = 1;
+			repeated PB.Storage.Storage.Entry entry = 1;
 		};
 		int64 id = 1;
 		PB.Common.Result result = 2;

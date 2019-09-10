@@ -25,7 +25,7 @@ message QueryRequestMessage {
 		repeated string arguments = 4;
 	};
 
-	Common.Header header = 1;
+	PB.Common.Header header = 1;
 	repeated Request payload = 2;
 }
 
@@ -39,7 +39,7 @@ message QueryResponseMessage {
 	message Response {
 		message Line {
 			string message = 1;
-			repeated Common.PerformanceData perf = 2;
+			repeated PB.Common.PerformanceData perf = 2;
 		}
 
 		int32 id = 1;
@@ -48,14 +48,14 @@ message QueryResponseMessage {
 		string alias = 3;
 		repeated string arguments = 16;
 
-		Common.ResultCode result = 4;
+		PB.Common.ResultCode result = 4;
 		repeated Line lines = 9;
 
 		bytes data = 5;
 
 	}
 
-	Common.Header header = 1;
+	PB.Common.Header header = 1;
 	repeated Response payload = 2;
 }
 
@@ -71,7 +71,7 @@ message ExecuteRequestMessage {
 		repeated string arguments = 3;
 	};
 
-	Common.Header header = 1;
+	PB.Common.Header header = 1;
 	repeated Request payload = 2;
 }
 message ExecuteResponseMessage {
@@ -80,11 +80,11 @@ message ExecuteResponseMessage {
 		string command = 5;
 		repeated string arguments = 16;
 
-		Common.ResultCode result = 9;
+		PB.Common.ResultCode result = 9;
 		string message = 10;
 		bytes data = 7;
 	}
-	Common.Header header = 1;
+	PB.Common.Header header = 1;
 	repeated Response payload = 2;
 }
 
@@ -96,7 +96,7 @@ message ExecuteResponseMessage {
 //
 message SubmitRequestMessage {
 	// The header
-	Common.Header header = 1;
+	PB.Common.Header header = 1;
 	string channel = 2;
 	repeated QueryResponseMessage.Response payload = 3;
 }
@@ -110,9 +110,9 @@ message SubmitResponseMessage {
 	message Response {
 		int32 id = 1;
 		string command = 2;
-		Common.Result result = 3;
+		PB.Common.Result result = 3;
 	};
-	Common.Header header = 1;
+	PB.Common.Header header = 1;
 	repeated Response payload = 2;
 }
 
@@ -125,10 +125,10 @@ message EventMessage {
 	message Request {
 		string event = 1;
 		repeated string arguments = 2;
-		repeated Common.KeyValue data = 3;
+		repeated PB.Common.KeyValue data = 3;
 	};
 
-	Common.Header header = 1;
+	PB.Common.Header header = 1;
 	repeated Request payload = 2;
 }
 
@@ -147,7 +147,7 @@ message ScheduleNotificationMessage {
 
 		PB.Registry.Schedule schedule = 20;
 	};
-	Common.Header header = 1;
+	PB.Common.Header header = 1;
 	repeated Request payload = 2;
 };
 

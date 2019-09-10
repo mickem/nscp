@@ -34,7 +34,7 @@ import "common.proto";
 		string title = 1;
 		string description = 2;
 
-		repeated Common.KeyValue metadata = 3;
+		repeated PB.Common.KeyValue metadata = 3;
 
 		string min_version = 5;
 		string max_version = 6;
@@ -54,7 +54,7 @@ import "common.proto";
 		string default_value = 2;
 		bool required = 3;
 		bool repeatable = 4;
-		Common.DataType content_type = 5;
+		PB.Common.DataType content_type = 5;
 		string short_description = 6;
 		string long_description = 7;
 		repeated KeyWordDescription keyword = 8;
@@ -116,7 +116,7 @@ message RegistryRequestMessage {
 		Inventory inventory = 4;
 		Control control = 5;
 	};
-	Common.Header header = 1;
+	PB.Common.Header header = 1;
 	repeated Request payload = 2;
 };
 message RegistryResponseMessage {
@@ -138,14 +138,14 @@ message RegistryResponseMessage {
 		message Control {
 		};
 		int64 id = 1;
-		Common.Result result = 2;
+		PB.Common.Result result = 2;
 
 		Registration registration = 3;
 		repeated Inventory inventory = 4;
 		Control control = 5;
 	};
 
-	Common.Header header = 1;
+	PB.Common.Header header = 1;
 	repeated Response payload = 2;
 };
 

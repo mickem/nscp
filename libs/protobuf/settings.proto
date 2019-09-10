@@ -79,7 +79,7 @@ message SettingsRequestMessage {
 		Control control = 14;
 		Status status = 15;
 	};
-	Common.Header header = 1;
+	PB.Common.Header header = 1;
 	repeated Request payload = 2;
 };
 message SettingsResponseMessage {
@@ -104,7 +104,7 @@ message SettingsResponseMessage {
 			bool has_changed = 3;
 		};
 		int64 id = 1;
-		Common.Result result = 2;
+		PB.Common.Result result = 2;
 
 		Registration registration = 10;
 		Query query = 11;
@@ -114,7 +114,7 @@ message SettingsResponseMessage {
 		Status status = 15;
 	};
 
-	Common.Header header = 1;
+	PB.Common.Header header = 1;
 	repeated Response payload = 2;
 };
 
