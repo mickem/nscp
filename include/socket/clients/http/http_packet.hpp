@@ -171,7 +171,9 @@ namespace http {
 			std::stringstream ss;
 			const char* crlf = "\r\n";
 			ss << verb_ << " " << path_ << " HTTP/1.0" << crlf;
-			ss << "Host: " << server_ << crlf;
+			if (!server_.empty()) {
+				ss << "Host: " << server_ << crlf;
+			}
 			BOOST_FOREACH(const header_type::value_type &v, headers_)
 				ss << v.first << ": " << v.second << crlf;
 			ss << crlf;
@@ -204,7 +206,9 @@ namespace http {
 		void build_request(std::ostream &os) const {
 			const char* crlf = "\r\n";
 			os << verb_ << " " << path_ << " HTTP/1.0" << crlf;
-			os << "Host: " << server_ << crlf;
+			if (!server_.empty()) {
+				os << "Host: " << server_ << crlf;
+			}
 			BOOST_FOREACH(const header_type::value_type &e, headers_) {
 				os << e.first << ": " << e.second << crlf;
 			}
