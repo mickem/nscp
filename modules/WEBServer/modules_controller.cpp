@@ -85,8 +85,7 @@ void modules_controller::get_module(Mongoose::Request &request, boost::smatch &w
 		return;
 
 	if (what.size() != 2) {
-		response.setCode(HTTP_NOT_FOUND);
-		response.append("Module not found");
+		response.setCodeNotFound("Module not found");
 	}
 	std::string module = what.str(1);
 
@@ -104,8 +103,7 @@ void modules_controller::get_module(Mongoose::Request &request, boost::smatch &w
 
 	BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response r, pb_response.payload()) {
 		if (r.inventory_size() == 0) {
-			response.setCode(HTTP_NOT_FOUND);
-			response.append("Module not found: " + module);
+			response.setCodeNotFound("Module not found: " + module);
 			return;
 		}
 		BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
@@ -162,8 +160,7 @@ void modules_controller::module_command(Mongoose::Request &request, boost::smatc
 			return;
 		disable_module(module, response);
 	} else {
-		response.setCode(HTTP_NOT_FOUND);
-		response.append("unknown command: " + command);
+		response.setCodeNotFound("unknown command: " + command);
 	}
 }
 
@@ -299,7 +296,7 @@ void modules_controller::put_module(Mongoose::Request &request, boost::smatch &w
 							return;
 						}
 					} else {
-						response.setCode(HTTP_OK);
+						response.setCodeOk();
 						response.append("No change");
 						return;
 					}
@@ -307,8 +304,7 @@ void modules_controller::put_module(Mongoose::Request &request, boost::smatch &w
 			}
 		}
 	} catch (const json_spirit::ParseError &e) {
-		response.setCode(HTTP_BAD_REQUEST);
-		response.append("Problems parsing JSON");
+		response.setCodeBadRequest("Problems parsing JSON");
 	}
 }
 
@@ -332,8 +328,7 @@ void modules_controller::post_module(Mongoose::Request &request, boost::smatch &
 			ofs << request.getData();
 			ofs.close();
 		} catch (const json_spirit::ParseError &e) {
-			response.setCode(HTTP_BAD_REQUEST);
-			response.append("Failed to upload module");
+			response.setCodeBadRequest("Failed to upload module");
 		}
 
 		PB::Registry::RegistryRequestMessage rrm;
@@ -349,7 +344,6 @@ void modules_controller::post_module(Mongoose::Request &request, boost::smatch &
 		PB::Registry::RegistryResponseMessage pb_response;
 		pb_response.ParseFromString(str_response);
 	} catch (const json_spirit::ParseError &e) {
-		response.setCode(HTTP_BAD_REQUEST);
-		response.append("Problems parsing JSON");
+		response.setCodeBadRequest("Problems parsing JSON");
 	}
 }

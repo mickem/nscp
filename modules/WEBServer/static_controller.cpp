@@ -41,21 +41,18 @@ Mongoose::Response* StaticController::handleRequest(Mongoose::Request &request) 
     || boost::algorithm::ends_with(request.getUrl(), ".woff");
   Mongoose::StreamResponse *sr = new Mongoose::StreamResponse();
   if (!is_js && !is_html && !is_css && !is_font && !is_jpg && !is_gif && !is_png) {
-    sr->setCode(HTTP_NOT_FOUND);
-    sr->append("Not found: " + request.getUrl());
+    sr->setCodeNotFound("Not found: " + request.getUrl());
     return sr;
   }
   std::string path = stripPath(request.getUrl());
   if (path.find("..") != std::string::npos) {
-	  sr->setCode(HTTP_SERVER_ERROR);
-	  sr->append("Invalid path: " + path);
+	  sr->setCodeServerError("Invalid path: " + path);
 	  return sr;
   }
 
   boost::filesystem::path file = base / path;
   if (!boost::filesystem::is_regular_file(file)) {
-    sr->setCode(HTTP_NOT_FOUND);
-    sr->append("Not found: " + path);
+    sr->setCodeNotFound("Not found: " + path);
     return sr;
   }
 

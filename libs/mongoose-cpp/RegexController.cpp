@@ -54,8 +54,7 @@ namespace Mongoose
 
 	bool RegexpController::validate_arguments(std::size_t count, boost::smatch &what, Mongoose::StreamResponse &response) {
 		if (what.size() != (count+1)) {
-			response.setCode(HTTP_BAD_REQUEST);
-			response.append("Invalid request");
+			response.setCodeBadRequest("Invalid request");
 			return false;
 		}
 		return true;

@@ -68,8 +68,7 @@ Mongoose::Response* legacy_command_controller::handleRequest(Mongoose::Request &
   } else if (boost::algorithm::starts_with(url, "/exec/")) {
     handle_exec(url.substr(6), request, *response);
   } else {
-    response->setCode(HTTP_SERVER_ERROR);
-    response->append("Unknown REST node: " + url);
+    response->setCodeServerError("Unknown REST node: " + url);
   }
   return response;
 }

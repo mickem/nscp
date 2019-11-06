@@ -28,8 +28,7 @@ bool session_manager_interface::is_loggedin(std::string grant, Mongoose::Request
 // 			NSC_LOG_ERROR(e);
 // 		}
 		//NSC_LOG_ERROR("Rejected connection from: " + request.getRemoteIp());
-		response.setCode(HTTP_FORBIDDEN);
-		response.append("403 You're not allowed");
+		response.setCodeForbidden("403 You're not allowed");
 		return false;
 	}
 	if (request.hasVariable(HTTP_HDR_AUTH) || request.hasVariable(HTTP_HDR_AUTH_LC)) {
@@ -40,8 +39,7 @@ bool session_manager_interface::is_loggedin(std::string grant, Mongoose::Request
 		if (boost::algorithm::starts_with(auth, "Basic ")) {
 			str::utils::token token = str::utils::split2(decode_key(auth.substr(6)), ":");
 			if (!validate_user(token.first, token.second)) {
-				response.setCode(HTTP_FORBIDDEN);
-				response.append("403 You're not allowed");
+				response.setCodeForbidden("403 You're not allowed");
 				return false;
 			}
 			setup_token(token.first, response);
@@ -49,15 +47,13 @@ bool session_manager_interface::is_loggedin(std::string grant, Mongoose::Request
 		} else if (boost::algorithm::starts_with(auth, "Bearer ")) {
 			std::string token = auth.substr(7);
 			if (!tokens.validate(token)) {
-				response.setCode(HTTP_FORBIDDEN);
-				response.append("403 You're not allowed");
+				response.setCodeForbidden("403 You're not allowed");
 				return false;
 			}
 			setup_user(token, response);
 			return can(grant, request, response);
 		} else {
-			response.setCode(HTTP_BAD_REQUEST);
-			response.append("Invalid authentication scheme");
+			response.setCodeForbidden("Invalid authentication scheme");
 			return false;
 		}
 	}
@@ -65,8 +61,7 @@ bool session_manager_interface::is_loggedin(std::string grant, Mongoose::Request
 		std::string pwd = request.readHeader("Password");
 		std::string fake_user = "admin";
 		if (!validate_user(fake_user, pwd)) {
-			response.setCode(HTTP_FORBIDDEN);
-			response.append("403 You're not allowed");
+			response.setCodeForbidden("403 You're not allowed");
 			return false;
 		}
 		setup_token(fake_user, response);
@@ -75,8 +70,7 @@ bool session_manager_interface::is_loggedin(std::string grant, Mongoose::Request
 	if (request.hasVariable("TOKEN")) {
 		std::string token = request.readHeader("TOKEN");
 		if (!tokens.validate(token)) {
-			response.setCode(HTTP_FORBIDDEN);
-			response.append("403 You're not allowed");
+			response.setCodeForbidden("403 You're not allowed");
 			return false;
 		}
 		setup_user(token, response);
@@ -86,8 +80,7 @@ bool session_manager_interface::is_loggedin(std::string grant, Mongoose::Request
 		std::string pwd = request.readHeader("password");
 		std::string fake_user = "admin";
 		if (!validate_user(fake_user, pwd)) {
-			response.setCode(HTTP_FORBIDDEN);
-			response.append("403 You're not allowed");
+			response.setCodeForbidden("403 You're not allowed");
 			return false;
 		}
 		setup_token(fake_user, response);
@@ -100,8 +93,7 @@ bool session_manager_interface::is_loggedin(std::string grant, Mongoose::Request
 		token = request.get("__TOKEN", "");
 	if (!token.empty()) {
 		if (!tokens.validate(token)) {
-			response.setCode(HTTP_FORBIDDEN);
-			response.append("403 You're not allowed");
+			response.setCodeForbidden("403 You're not allowed");
 			return false;
 		}
 		return can(grant, request, response);
@@ -148,13 +140,11 @@ bool session_manager_interface::can(std::string grant, Mongoose::Request & reque
 		if (tokens.can("anonymous", grant)) {
 			return true;
 		}
-		response.setCode(HTTP_FORBIDDEN);
-		response.append("403 You're not allowed");
+		response.setCodeForbidden("403 You're not allowed");
 		return false;
 	}
 	if (!tokens.can(uid, grant)) {
-		response.setCode(HTTP_FORBIDDEN);
-		response.append("403 You're not allowed");
+		response.setCodeForbidden("403 You're not allowed");
 		return false;
 	}
 	return true;

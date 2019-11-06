@@ -68,8 +68,7 @@ void query_controller::get_query(Mongoose::Request &request, boost::smatch &what
 		return;
 
 	if (what.size() != 2) {
-		response.setCode(HTTP_NOT_FOUND);
-		response.append("Query not found");
+		response.setCodeNotFound("Query not found");
 	}
 	std::string module = what.str(1);
 
@@ -102,7 +101,7 @@ void query_controller::get_query(Mongoose::Request &request, boost::smatch &what
 			node["description"] = i.info().description();
 		}
 	}
-	response.setCode(HTTP_OK);
+	response.setCodeOk();
 	response.append(json_spirit::write(node));
 }
 
@@ -111,8 +110,7 @@ void query_controller::query_command(Mongoose::Request &request, boost::smatch &
 		return;
 
 	if (what.size() != 3) {
-		response.setCode(HTTP_NOT_FOUND);
-		response.append("Invalid request");
+		response.setCodeNotFound("Invalid request");
 	}
 	std::string module = what.str(1);
 	std::string command = what.str(2);
@@ -130,8 +128,7 @@ void query_controller::query_command(Mongoose::Request &request, boost::smatch &
 			execute_query_nagios(module, request.getVariablesVector(), response);
 		}
 	} else {
-		response.setCode(HTTP_NOT_FOUND);
-		response.append("unknown command: " + command);
+		response.setCodeNotFound("unknown command: " + command);
 	}
 }
 
@@ -190,7 +187,7 @@ void query_controller::execute_query(std::string module, arg_vector args, Mongoo
 		node["lines"] = lines;
 		break;
 	}
-	http_response.setCode(HTTP_OK);
+	http_response.setCodeOk();
 	http_response.append(json_spirit::write(node));
 }
 
@@ -224,7 +221,7 @@ void query_controller::execute_query_nagios(std::string module, arg_vector args,
 		node["lines"] = lines;
 		break;
 	}
-	http_response.setCode(HTTP_OK);
+	http_response.setCodeOk();
 	http_response.append(json_spirit::write(node));
 }
 
@@ -246,13 +243,17 @@ void query_controller::execute_query_text(std::string module, arg_vector args, M
 	response.ParseFromString(pb_response);
 
 	int code = 200;
+	std::string reason = "Ok";
 	BOOST_FOREACH(const PB::Commands::QueryResponseMessage::Response &r, response.payload()) {
 		if (r.result() == PB::Common::ResultCode::CRITICAL) {
 			code = HTTP_SERVER_ERROR;
+			reason = "Critical";
 		} else if (r.result() == PB::Common::ResultCode::UNKNOWN) {
 			code = 503;
+			reason = "Unknown";
 		} else if (r.result() == PB::Common::ResultCode::WARNING) {
 			code = 202;
+			reason = "Warning";
 		}
 		BOOST_FOREACH(const PB::Commands::QueryResponseMessage::Response::Line &l, r.lines()) {
 			http_response.append(l.message());
@@ -262,5 +263,5 @@ void query_controller::execute_query_text(std::string module, arg_vector args, M
 			http_response.append("\n");
 		}
 	}
-	http_response.setCode(code);
+	http_response.setCode(code,reason);
 }

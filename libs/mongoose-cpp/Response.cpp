@@ -8,7 +8,7 @@ using namespace std;
 
 namespace Mongoose
 {
-    Response::Response() : code(HTTP_OK), headers()
+    Response::Response() : code(HTTP_OK), reason(REASON_OK), headers()
     {
     }
             
@@ -31,7 +31,7 @@ namespace Mongoose
         string body = getBody();
         ostringstream data;
 
-        data << "HTTP/1.1 " << code << "\r\n";
+        data << "HTTP/1.1 " << code << " " << reason << "\r\n";
 
         if (!hasHeader("Content-Length")) {
             ostringstream length;
@@ -59,10 +59,17 @@ namespace Mongoose
 		cookies[key] = value;
     }
 
-    void Response::setCode(int code_)
+    void Response::setCode(int code_, std::string reason_)
     {
         code = code_;
+		reason = reason_;
     }
+
+	void Response::setCodeOk()
+	{
+		code = HTTP_OK;
+		reason = REASON_OK;
+	}
 
 	std::string Response::getCookie(std::string key) const {
 		header_type::const_iterator cit = cookies.find(key);

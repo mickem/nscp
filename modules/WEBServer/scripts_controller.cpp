@@ -31,18 +31,15 @@ std::string get_runtime(const std::string &runtime) {
 
 bool validate_response(const PB::Commands::ExecuteResponseMessage &resp, Mongoose::StreamResponse &response) {
 	if (resp.payload_size() == 0) {
-		response.setCode(HTTP_SERVER_ERROR);
-		response.append("No response from module, is the module loaded?");
+		response.setCodeServerError("No response from module, is the module loaded?");
 		return false;
 	}
 	if (resp.payload_size() != 1) {
-		response.setCode(HTTP_SERVER_ERROR);
-		response.append("Invalid response from module");
+		response.setCodeServerError("Invalid response from module");
 		return false;
 	}
 	if (resp.payload(0).result() != PB::Common::ResultCode::OK) {
-		response.setCode(HTTP_SERVER_ERROR);
-		response.append("Command returned errors: " + resp.payload(0).message());
+		response.setCodeServerError("Command returned errors: " + resp.payload(0).message());
 		return false;
 	}
 

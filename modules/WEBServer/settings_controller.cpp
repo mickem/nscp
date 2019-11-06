@@ -49,15 +49,13 @@ void settings_controller::get(Mongoose::Request &request, boost::smatch &what, M
 	pb_response.ParseFromString(str_response);
 
 	if (pb_response.payload_size() != 1) {
-		response.setCode(HTTP_SERVER_ERROR);
-		response.append("Failed to fetch keys");
+		response.setCodeServerError("Failed to fetch keys");
 		return;
 	}
 
 	const PB::Settings::SettingsResponseMessage::Response rKeys = pb_response.payload(0);
 	if (!rKeys.has_query()) {
-		response.setCode(HTTP_NOT_FOUND);
-		response.append("Key not found: " + path);
+		response.setCodeServerError("Key not found: " + path);
 		return;
 	}
 
@@ -100,15 +98,13 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
 	pb_response.ParseFromString(str_response);
 
 	if (pb_response.payload_size() != 1) {
-		response.setCode(HTTP_SERVER_ERROR);
-		response.append("Failed to fetch keys");
+		response.setCodeServerError("Failed to fetch keys");
 		return;
 	}
 
 	const PB::Settings::SettingsResponseMessage::Response rKeys = pb_response.payload(0);
 	if (rKeys.inventory_size() == 0) {
-		response.setCode(HTTP_NOT_FOUND);
-		response.append("Key not found: " + path);
+		response.setCodeNotFound("Key not found: " + path);
 		return;
 	}
 	//typedef boost::unordered_map<std::string, std::string> values_type;
@@ -130,15 +126,13 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
 		pb_response.ParseFromString(str_response);
 
 		if (pb_response.payload_size() != 1) {
-			response.setCode(HTTP_SERVER_ERROR);
-			response.append("Failed to fetch keys");
+			response.setCodeServerError("Failed to fetch keys");
 			return;
 		}
 
 		const PB::Settings::SettingsResponseMessage::Response rKeys = pb_response.payload(0);
 		if (!rKeys.has_query()) {
-			response.setCode(HTTP_NOT_FOUND);
-			response.append("Key not found: " + path);
+			response.setCodeNotFound("Key not found: " + path);
 			return;
 		}
 

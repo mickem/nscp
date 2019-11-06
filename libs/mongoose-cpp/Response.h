@@ -15,6 +15,12 @@
 #define HTTP_SERVER_ERROR 500
 #define HTTP_SERVICE_UNAVALIBLE 503
 
+#define REASON_OK "OK"
+#define REASON_SERVER_ERROR "Error"
+#define REASON_NOT_FOUND "Not Found"
+#define REASON_BAD_REQUEST "Bad Request"
+#define REASON_SERVICE_UNAVALIBLE "Service Unavaible"
+#define REASON_FORBIDDEN "Forbidden"
 
 #define HTTP_HDR_AUTH "Authorization"
 #define HTTP_HDR_AUTH_LC "authorization"
@@ -74,8 +80,9 @@ namespace Mongoose
             /**
              * Sets the response code
              */
-            virtual void setCode(int code);
+            virtual void setCode(int code_, std::string reason_);
 
+			virtual void setCodeOk();
 			/**
 			* Get a cookie from the cookie list.
 			* @param string the key of the cookie
@@ -90,7 +97,8 @@ namespace Mongoose
 				return headers;
 			}
         private:
-            int code;
+			int code;
+			std::string reason;
 			header_type headers;
 			header_type cookies;
 	};

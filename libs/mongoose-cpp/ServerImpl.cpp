@@ -36,9 +36,9 @@ struct udt {
 	}
 };
 
-void sendStockResponse(struct mg_connection *connection, int code, std::string msg) {
+void sendStockResponse(struct mg_connection *connection, int code, std::string reason, std::string msg) {
 	StreamResponse response;
-	response.setCode(code);
+	response.setCode(code, reason);
 	response.append(msg);
 	std::string buffer = response.getData();
 	mg_send(connection, buffer.c_str(), static_cast<int>(buffer.size()));
@@ -269,13 +269,13 @@ namespace Mongoose
 				request_job job(this, ctrl, request, now(), job_id);
 
 				if (!job_queue_.push(job)) {
-					sendStockResponse(connection, HTTP_SERVER_ERROR, "Failed to process request");
+					sendStockResponse(connection, HTTP_SERVER_ERROR, REASON_SERVER_ERROR, "Failed to process request");
 				}
 				idle_thread_cond_.notify_one();
 				return;
 			}
 		}
-		sendStockResponse(connection, HTTP_NOT_FOUND, "Document not found");
+		sendStockResponse(connection, HTTP_NOT_FOUND, REASON_NOT_FOUND, "Document not found");
     }
 
 
@@ -292,8 +292,7 @@ namespace Mongoose
 				delete resp;
 			} else {
 				StreamResponse response;
-				response.setCode(HTTP_SERVER_ERROR);
-				response.append("No response from command");
+				response.setCodeServerError("No response from command");
 				server->request_reply_async(id, response.getData());
 			}
 		}
@@ -301,7 +300,7 @@ namespace Mongoose
 
 	void request_job::toLate() {
 		StreamResponse response;
-		response.setCode(HTTP_SERVICE_UNAVALIBLE);
+		response.setCode(HTTP_SERVICE_UNAVALIBLE, REASON_SERVICE_UNAVALIBLE);
 		response.append("Server is overloaded, please try later");
 		server->request_reply_async(id, response.getData());
 	}

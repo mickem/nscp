@@ -89,8 +89,7 @@ void legacy_controller::registry_inventory(Mongoose::Request &request, Mongoose:
 	else if (type == "all")
 		payload->mutable_inventory()->add_type(PB::Registry::ItemType::ALL);
 	else {
-		response.setCode(HTTP_SERVER_ERROR);
-		response.append("500 Invalid type. Possible types are: query, command, plugin, query-alias, all");
+		response.setCodeServerError("500 Invalid type. Possible types are: query, command, plugin, query-alias, all");
 		return;
 	}
 	std::string pb_response, json_response;
@@ -185,8 +184,7 @@ void legacy_controller::settings_query_json(Mongoose::Request &request, Mongoose
 		return;
 	std::string request_pb, response_pb, response_json;
 	if (!core->json_to_protobuf(request.getData(), request_pb)) {
-		response.setCode(HTTP_SERVER_ERROR);
-		response.append("500 INvapid request");
+		response.setCodeServerError("500 Invalid request");
 		return;
 	}
 	core->settings_query(request_pb, response_pb);
@@ -198,8 +196,7 @@ void legacy_controller::settings_query_pb(Mongoose::Request &request, Mongoose::
 		return;
 	std::string response_pb;
 	if (!core->settings_query(request.getData(), response_pb)) {
-		response.setCode(HTTP_SERVER_ERROR);
-		response.append("500 QUery failed");
+		response.setCodeServerError("500 Query failed");
 		return;
 	}
 	response.append(response_pb);
@@ -209,8 +206,7 @@ void legacy_controller::run_query_pb(Mongoose::Request &request, Mongoose::Strea
 		return;
 	std::string response_pb;
 	if (!core->query(request.getData(), response_pb)) {
-		response.setCode(HTTP_SERVER_ERROR);
-		response.append("500 QUery failed");
+		response.setCodeServerError("500 Query failed");
 		return;
 	}
 	response.append(response_pb);
@@ -240,8 +236,7 @@ void legacy_controller::settings_status(Mongoose::Request &request, Mongoose::St
 void legacy_controller::auth_token(Mongoose::Request &request, Mongoose::StreamResponse &response) {
 
 	if (!session->is_allowed(request.getRemoteIp())) {
-		response.setCode(HTTP_FORBIDDEN);
-		response.append("403 Your not allowed");
+		response.setCodeForbidden("403 Your not allowed");
 		return;
 	}
 
@@ -250,8 +245,7 @@ void legacy_controller::auth_token(Mongoose::Request &request, Mongoose::StreamR
 		response.setHeader("__TOKEN", token);
 		response.append("{ \"status\" : \"ok\", \"auth token\": \"" + token + "\" }");
 	} else {
-		response.setCode(HTTP_FORBIDDEN);
-		response.append("403 Invalid password");
+		response.setCodeForbidden("403 Invalid password");
 	}
 }
 void legacy_controller::auth_logout(Mongoose::Request &request, Mongoose::StreamResponse &response) {
@@ -262,7 +256,7 @@ void legacy_controller::auth_logout(Mongoose::Request &request, Mongoose::Stream
 }
 
 void legacy_controller::redirect_index(Mongoose::Request&, Mongoose::StreamResponse &response) {
-	response.setCode(302);
+	response.setCode(302,"Moved");
 	response.setHeader("Location", "/index.html");
 }
 

@@ -55,8 +55,7 @@ void log_controller::get_log(Mongoose::Request &request, boost::smatch &what, Mo
 	std::size_t page = str::stox<std::size_t>(request.get("page", "1"), 1);
 	std::size_t ipp = str::stox<std::size_t>(request.get("per_page", "10"), 10);
 	if (ipp < 2 || ipp > 100 || page < 0) {
-		response.setCode(HTTP_BAD_REQUEST);
-		response.append("Invalid request");
+		response.setCodeBadRequest("Invalid request");
 		return;
 	}
 	std::size_t pos = (page-1)*ipp;
@@ -101,8 +100,7 @@ void log_controller::add_log(Mongoose::Request &request, boost::smatch &what, Mo
 		std::string message = get_str_or(o, "message", "no message");
 		core->log(level, file, line, message);
 	} catch (const json_spirit::ParseError &e) {
-		response.setCode(HTTP_BAD_REQUEST);
-		response.append("Problems parsing JSON");
+		response.setCodeBadRequest("Problems parsing JSON");
 	}
-	response.setCode(HTTP_OK);
+	response.setCodeOk();
 }

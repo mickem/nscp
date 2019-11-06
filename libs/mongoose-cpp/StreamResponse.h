@@ -37,6 +37,11 @@ namespace Mongoose
 		}
 		void append(std::string data);
 		void write(const char* buffer, std::size_t len);
+		void setCodeServerError(const std::string& msg);
+		void setCodeNotFound(const std::string& msg);
+		void setCodeForbidden(const std::string& msg);
+		void setCodeBadRequest(const std::string& msg);
+
     };
 }
 
