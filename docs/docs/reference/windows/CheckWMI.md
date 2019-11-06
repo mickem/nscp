@@ -3,6 +3,17 @@
 Check status via WMI
 
 
+## Enable module
+
+To enable this module and therefore the `check_wmi` check command, add `CheckWMI = 1` to the `[/modules]` section in nsclient.ini:
+
+```
+[...]
+; Modules
+[/modules]
+CheckWMI = 1
+[...]
+```
 
 
 ## Queries
