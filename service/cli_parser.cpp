@@ -244,7 +244,7 @@ void cli_parser::display_help() {
 			std::cout << itm.first << ", ";
 		}
 		std::cout << std::endl;
-		std::cout << "Or on of the following client aliases: ";
+		std::cout << "Or one of the following client aliases: ";
 		alias_map aliases = get_aliases();
 		BOOST_FOREACH(const alias_map::value_type &itm, aliases) {
 			std::cout << itm.first << ", ";
