@@ -47,9 +47,10 @@ namespace client {
 		net::url address;
 		int timeout;
 		int retry;
+		int connection_timeout;
 		data_map data;
 
-		destination_container() : timeout(10), retry(2) {}
+		destination_container() : timeout(10), retry(2), connection_timeout(-1) {}
 
 		void apply(nscapi::settings_objects::object_instance obj) {
 			BOOST_FOREACH(const nscapi::settings_objects::options_map::value_type &k, obj->get_options()) {
@@ -89,6 +90,9 @@ namespace client {
 		}
 		bool has_protocol() const {
 			return !address.protocol.empty();
+		}
+		void set_connection_timeout(int conn_timeout) {
+			connection_timeout = conn_timeout;
 		}
 
 		static bool to_bool(std::string value, bool def = false) {
@@ -135,6 +139,8 @@ namespace client {
 				timeout = to_int(value, timeout);
 			else if (key == "retry")
 				retry = to_int(value, retry);
+			else if (key == "con_timeout")
+				set_connection_timeout(std::stoi(value));
 			else
 				data[key] = value;
 		}

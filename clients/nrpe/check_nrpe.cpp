@@ -207,7 +207,9 @@ boost::program_options::options_description add_client_options(client::destinati
 	desc.add_options()
 		("log", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "log", _1)),
 			"Set log level")
-		;
+        ("con-timeout", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "con_timeout", _1)),
+            "Set connection timeout in seconds")
+        ;
 	return desc;
 }
 

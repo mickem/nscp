@@ -70,6 +70,7 @@ namespace nrpe_client {
 			retry = target.retry;
 			buffer_length = target.get_int_data("payload length", 1024);
 			encoding = target.get_string_data("encoding");
+			con_timeout = source.connection_timeout;
 
 			if (target.has_data("no ssl"))
 				ssl.enabled = !target.get_bool_data("no ssl");
