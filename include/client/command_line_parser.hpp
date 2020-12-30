@@ -21,7 +21,6 @@
 
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_targets.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
 
 #include <net/net.hpp>
 
@@ -48,9 +47,10 @@ namespace client {
 		net::url address;
 		int timeout;
 		int retry;
+		int connection_timeout;
 		data_map data;
 
-		destination_container() : timeout(10), retry(2) {}
+		destination_container() : timeout(10), retry(2), connection_timeout(-1) {}
 
 		void apply(nscapi::settings_objects::object_instance obj) {
 			BOOST_FOREACH(const nscapi::settings_objects::options_map::value_type &k, obj->get_options()) {
@@ -58,17 +58,17 @@ namespace client {
 			}
 		}
 
-		void apply(const std::string &key, const PB::Common::Header &header) {
-			BOOST_FOREACH(PB::Common::Host host, header.hosts()) {
+		void apply(const std::string &key, const ::Plugin::Common::Header &header) {
+			BOOST_FOREACH(::Plugin::Common_Host host, header.hosts()) {
 				if (host.id() == key) {
 					apply_host(host);
 				}
 			}
 		}
-		void apply_host(const PB::Common::Host &host) {
-			if (!host.address().empty())
+		void apply_host(const::Plugin::Common::Host &host) {
+			if (host.has_address())
 				set_string_data("address", host.address());
-			BOOST_FOREACH(const PB::Common::KeyValue &kvp, host.metadata()) {
+			BOOST_FOREACH(const ::Plugin::Common_KeyValue &kvp, host.metadata()) {
 				set_string_data(kvp.key(), kvp.value());
 			}
 		}
@@ -90,6 +90,9 @@ namespace client {
 		}
 		bool has_protocol() const {
 			return !address.protocol.empty();
+		}
+		void set_connection_timeout(int conn_timeout) {
+			connection_timeout = conn_timeout;
 		}
 
 		static bool to_bool(std::string value, bool def = false) {
@@ -136,6 +139,8 @@ namespace client {
 				timeout = to_int(value, timeout);
 			else if (key == "retry")
 				retry = to_int(value, retry);
+			else if (key == "con_timeout")
+				set_connection_timeout(std::stoi(value));
 			else
 				data[key] = value;
 		}
@@ -201,10 +206,10 @@ namespace client {
 	typedef boost::shared_ptr<options_reader_interface> options_reader_type;
 
 	struct handler_interface {
-		virtual bool query(client::destination_container sender, client::destination_container target, const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message) = 0;
-		virtual bool submit(client::destination_container sender, client::destination_container target, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage &response_message) = 0;
-		virtual bool exec(client::destination_container sender, client::destination_container target, const PB::Commands::ExecuteRequestMessage &request_message, PB::Commands::ExecuteResponseMessage &response_message) = 0;
-		virtual bool metrics(client::destination_container sender, client::destination_container target, const PB::Metrics::MetricsMessage &request_message) = 0;
+		virtual bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) = 0;
+		virtual bool submit(client::destination_container sender, client::destination_container target, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) = 0;
+		virtual bool exec(client::destination_container sender, client::destination_container target, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) = 0;
+		virtual bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) = 0;
 	};
 	typedef boost::shared_ptr<handler_interface> handler_type;
 
@@ -254,13 +259,10 @@ namespace client {
 		}
 		void finalize(boost::shared_ptr<nscapi::settings_proxy> settings);
 
-		void do_query(const PB::Commands::QueryRequestMessage &request, PB::Commands::QueryResponseMessage &response);
-		bool do_exec(const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response, const std::string &default_command);
-		void do_submit(const PB::Commands::SubmitRequestMessage &request, PB::Commands::SubmitResponseMessage &response);
-
-		void do_submit_item(const PB::Commands::SubmitRequestMessage &request, destination_container s, destination_container d, PB::Commands::SubmitResponseMessage &response);
-
-		void do_metrics(const PB::Metrics::MetricsMessage &request);
+		void do_query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response);
+		bool do_exec(const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response, const std::string &default_command);
+		void do_submit(const Plugin::SubmitRequestMessage &request, Plugin::SubmitResponseMessage &response);
+		void do_metrics(const Plugin::MetricsMessage &request);
 
 		typedef boost::function<boost::program_options::options_description(client::destination_container &source, client::destination_container &destination)> client_desc_fun;
 		typedef boost::function<bool(client::destination_container &source, client::destination_container &destination)> client_pre_fun;
@@ -269,8 +271,8 @@ namespace client {
 
 	private:
 		boost::program_options::options_description create_descriptor(const std::string command, client::destination_container &source, client::destination_container &destination);
-		void i_do_query(destination_container &s, destination_container &d, std::string command, const PB::Commands::QueryRequestMessage &request, PB::Commands::QueryResponseMessage &response, bool use_header);
-		bool i_do_exec(destination_container &s, destination_container &d, std::string command, const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response, bool use_header);
-		void i_do_submit(destination_container &s, destination_container &d, std::string command, const PB::Commands::SubmitRequestMessage &request, PB::Commands::SubmitResponseMessage &response, bool use_header);
+		void i_do_query(destination_container &s, destination_container &d, std::string command, const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response, bool use_header);
+		bool i_do_exec(destination_container &s, destination_container &d, std::string command, const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response, bool use_header);
+		void i_do_submit(destination_container &s, destination_container &d, std::string command, const Plugin::SubmitRequestMessage &request, Plugin::SubmitResponseMessage &response, bool use_header);
 	};
 }

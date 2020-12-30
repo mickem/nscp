@@ -33,13 +33,13 @@
 std::string gLog = "";
 
 int main(int argc, char* argv[]) {
-	PB::Commands::QueryResponseMessage response_message;
+	Plugin::QueryResponseMessage response_message;
 	std::vector<std::string> args;
 	for (int i = 1; i < argc; i++) {
 		args.push_back(argv[i]);
 	}
-	PB::Commands::QueryRequestMessage request_message;
-	PB::Commands::QueryRequestMessage::Request *request = request_message.add_payload();
+	Plugin::QueryRequestMessage request_message;
+	Plugin::QueryRequestMessage::Request *request = request_message.add_payload();
 	request->set_command("check_nrpe");
 	for (int i = 1; i < argc; i++) {
 		request->add_arguments(argv[i]);
@@ -48,9 +48,9 @@ int main(int argc, char* argv[]) {
 	check_nrpe client;
 	client.query(request_message, response_message);
 	NSCAPI::nagiosReturn ret = NSCAPI::query_return_codes::returnOK;
-	BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage_Response &response, response_message.payload()) {
+	BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response &response, response_message.payload()) {
 		ret = nscapi::plugin_helper::maxState(ret, nscapi::protobuf::functions::gbp_to_nagios_status(response.result()));
-		BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage_Response_Line &line, response.lines()) {
+		BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response_Line &line, response.lines()) {
 			std::cout << line.message();
 			std::string tmp = nscapi::protobuf::functions::build_performance_data(line, nscapi::protobuf::functions::no_truncation);
 			if (!tmp.empty())
@@ -194,20 +194,22 @@ struct stdout_client_handler : public socket_helpers::client::client_handler {
 	}
 };
 
-bool test(client::destination_container &source, client::destination_container &) {
+bool test(client::destination_container &source, client::destination_container &destination) {
 	if (source.has_data("log"))
 		gLog = source.get_string_data("log");
 	return true;
 }
 
-boost::program_options::options_description add_client_options(client::destination_container &source, client::destination_container &) {
+boost::program_options::options_description add_client_options(client::destination_container &source, client::destination_container &destination) {
 	namespace po = boost::program_options;
 
 	po::options_description desc("Client options");
 	desc.add_options()
 		("log", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "log", _1)),
 			"Set log level")
-		;
+        ("con-timeout", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "con_timeout", _1)),
+            "Set connection timeout in seconds")
+        ;
 	return desc;
 }
 
@@ -217,6 +219,6 @@ check_nrpe::check_nrpe() : client_("nrpe", boost::make_shared<nrpe_client_handle
 	client_.client_pre = &test;
 }
 
-void check_nrpe::query(const PB::Commands::QueryRequestMessage &request, PB::Commands::QueryResponseMessage &response) {
+void check_nrpe::query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response) {
 	client_.do_query(request, response);
 }

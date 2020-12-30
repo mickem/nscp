@@ -19,13 +19,13 @@
 
 #pragma once
 
-#include <socket/socket_helpers.hpp>
-
 #include <boost/shared_ptr.hpp>
 
+#include <socket/socket_helpers.hpp>
 #include <iostream>
 
 using boost::asio::ip::tcp;
+using boost::asio::deadline_timer;
 
 namespace socket_helpers {
 	namespace client {
@@ -59,11 +59,8 @@ namespace socket_helpers {
 				}
 			}
 
-#if BOOST_VERSION >= 106800
-			typedef boost::asio::basic_socket<boost::asio::ip::tcp>  basic_socket_type;
-#else
 			typedef boost::asio::basic_socket<tcp, boost::asio::stream_socket_service<tcp> >  basic_socket_type;
-#endif
+
 			//////////////////////////////////////////////////////////////////////////
 			// Time related functions
 			//
@@ -82,27 +79,65 @@ namespace socket_helpers {
 					timer_result_.reset(ec);
 				}
 			}
+			// Connection timeout functions
+			void connected( const boost::system::error_code ec,
+							boost::system::error_code *err) {
+				*err = ec;
+			}
+			void check_deadline() {
+				if (timer_.expires_at() <= deadline_timer::traits_type::now()) {
+					boost::system::error_code ignored_ec;
+					get_socket().close(ignored_ec);
+					timer_.expires_at(boost::posix_time::pos_infin);
+				}
 
+				// Put the actor back to sleep.
+				timer_.async_wait(bind(&connection::check_deadline, this));
+			 }
 			//////////////////////////////////////////////////////////////////////////
 			// External API functions
 			//
-			virtual boost::system::error_code connect(std::string host, std::string port) {
+			virtual boost::system::error_code connect(std::string host, std::string port, int connection_timeout=-1) {
 				trace("connect(" + host + ", " + port + ")");
 				tcp::resolver resolver(io_service_);
 				tcp::resolver::query query(host, port, boost::asio::ip::resolver_query_base::numeric_service);
 
 				tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 				tcp::resolver::iterator end;
-
 				boost::system::error_code error = boost::asio::error::host_not_found;
-				while (error && endpoint_iterator != end) {
-					get_socket().close();
-					get_socket().lowest_layer().connect(*endpoint_iterator++, error);
+
+				if (connection_timeout == -1) {
+					while (error && endpoint_iterator != end) {
+						get_socket().close();
+						get_socket().lowest_layer().connect(*endpoint_iterator++, error);
+					}
+
+					if (error) {
+						trace("Failed to connect to: " + host + ":" + port);
+						return error;
+					}
+				} else {
+					// Asynchronous connection
+					timer_.expires_at(boost::posix_time::pos_infin);
+					check_deadline();
+					timer_.expires_from_now(boost::posix_time::seconds(connection_timeout));
+					error = boost::asio::error::would_block;
+
+					boost::asio::async_connect( get_socket(),
+												endpoint_iterator,
+												boost::bind(&connection::connected,
+												this->shared_from_this(),
+												_1,
+												&error));
+					do io_service_.run_one();
+					while (error == boost::asio::error::would_block);
+
+					if (error || !get_socket().is_open()) {
+						trace("Failed to connect to: " + host + ":" + port);
+						return error;
+					}
 				}
-				if (error) {
-					trace("Failed to connect to: " + host + ":" + port);
-					return error;
-				}
+
 				protocol_.on_connect();
 				return error;
 			}
@@ -325,11 +360,7 @@ namespace socket_helpers {
 			client(const socket_helpers::connection_info &info, typename boost::shared_ptr<typename protocol_type::client_handler> handler)
 				: info_(info), handler_(handler)
 #ifdef USE_SSL
-#if BOOST_VERSION >= 106800
-				, context_(boost::asio::ssl::context::sslv23)
-#else
 				, context_(io_service_, boost::asio::ssl::context::sslv23)
-#endif
 #endif
 			{}
 			~client() {
@@ -344,7 +375,7 @@ namespace socket_helpers {
 
 			void connect() {
 				connection_.reset(create_connection());
-				boost::system::error_code error = connection_->connect(info_.get_address(), info_.get_port());
+				boost::system::error_code error = connection_->connect(info_.get_address(), info_.get_port(), info_.get_connection_timeout());
 				if (error) {
 					connection_.reset();
 					throw socket_helpers::socket_exception("Failed to connect to: " + info_.get_endpoint_string() + " :" + utf8::utf8_from_native(error.message()));
