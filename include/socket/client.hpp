@@ -34,6 +34,7 @@ namespace socket_helpers {
 		private:
 			boost::asio::io_service &io_service_;
 			boost::asio::deadline_timer timer_;
+			boost::asio::deadline_timer con_timer_;
 			boost::posix_time::time_duration timeout_;
 			boost::shared_ptr<typename protocol_type::client_handler> handler_;
 			protocol_type protocol_;
@@ -45,6 +46,7 @@ namespace socket_helpers {
 			connection(boost::asio::io_service &io_service, boost::posix_time::time_duration timeout, boost::shared_ptr<typename protocol_type::client_handler> handler)
 				: io_service_(io_service)
 				, timer_(io_service)
+				, con_timer_(io_service)
 				, timeout_(timeout)
 				, handler_(handler)
 				, protocol_(handler) {}
@@ -85,15 +87,15 @@ namespace socket_helpers {
 				*err = ec;
 			}
 			void check_deadline() {
-				if (timer_.expires_at() <= deadline_timer::traits_type::now()) {
+				if (con_timer_.expires_at() <= deadline_timer::traits_type::now()) {
 					boost::system::error_code ignored_ec;
 					get_socket().close(ignored_ec);
-					timer_.expires_at(boost::posix_time::pos_infin);
+					con_timer_.expires_at(boost::posix_time::pos_infin);
 				}
 
 				// Put the actor back to sleep.
-				timer_.async_wait(bind(&connection::check_deadline, this));
-			 }
+				con_timer_.async_wait(bind(&connection::check_deadline, this));
+			}
 			//////////////////////////////////////////////////////////////////////////
 			// External API functions
 			//
@@ -104,6 +106,7 @@ namespace socket_helpers {
 
 				tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 				tcp::resolver::iterator end;
+
 				boost::system::error_code error = boost::asio::error::host_not_found;
 
 				if (connection_timeout == -1) {
@@ -118,17 +121,17 @@ namespace socket_helpers {
 					}
 				} else {
 					// Asynchronous connection
-					timer_.expires_at(boost::posix_time::pos_infin);
+					con_timer_.expires_at(boost::posix_time::pos_infin);
 					check_deadline();
-					timer_.expires_from_now(boost::posix_time::seconds(connection_timeout));
+					con_timer_.expires_from_now(boost::posix_time::seconds(connection_timeout));
 					error = boost::asio::error::would_block;
 
 					boost::asio::async_connect( get_socket(),
 												endpoint_iterator,
 												boost::bind(&connection::connected,
-												this->shared_from_this(),
-												_1,
-												&error));
+															this->shared_from_this(),
+															_1,
+															&error));
 					do io_service_.run_one();
 					while (error == boost::asio::error::would_block);
 
@@ -309,8 +312,8 @@ namespace socket_helpers {
 				}
 			}
 
-			virtual boost::system::error_code connect(std::string host, std::string port) {
-				boost::system::error_code error = connection_type::connect(host, port);
+			virtual boost::system::error_code connect(std::string host, std::string port, int connection_timeout=-1) {
+				boost::system::error_code error = connection_type::connect(host, port, connection_timeout);
 				if (error) {
 					this->log_error(__FILE__, __LINE__, "Failed to connect to server: " + utf8::utf8_from_native(error.message()));
 				}
