@@ -23,10 +23,10 @@ A simple script in batch (.bat) looks like this:
 This prints a message "OK ..." and return status 0 which equates to ok or good.
 Exit codes are the same as Nagios use:
 
-1.  OK
-2.  WARNING
-3.  CRITICAL
-4.  UNKNOWN
+0 - OK  
+1 - WARNING  
+2 - CRITICAL  
+3 - UNKNOWN  
 
 
 The message can be anything and is passed along as text. Notice you require Nagios 3 if you want to use multiple lines in the message. And please notice that most protocol and transports have hard coded payload lengths such as NRPE (1024) NSCA (512) etc etc.
