@@ -15,7 +15,7 @@
         </Control>
         <Control Id="Op5Logo" Type="Bitmap" X="60" Y="150" Width="30" Height="30" Text="ModeOP5" />
         <Control Id="DescriptionOp5" Type="Text" X="100" Y="150" Width="200" Height="50" Transparent="yes" NoPrefix="yes">
-          <Text>op5 Monitor configuration for NSClient++. For more information see https://kb.op5.com/x/VwHx</Text>
+          <Text>ITRS OP5 Monitor configuration for NSClient++. For more information see https://www.itrsgroup.com/products/network-monitoring-op5-monitor</Text>
         </Control>
 
         <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back">
