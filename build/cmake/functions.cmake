@@ -40,7 +40,7 @@ MACRO(copy_single_file _TARGET_LIST src destDir)
 	#MESSAGE(STATUS " - Copying ${source_file} to ${target_file}...")
 	ADD_CUSTOM_COMMAND(
 		OUTPUT ${target_file}
-		COMMAND cmake ARGS -E copy "${source_file}" "${target_file}"
+		COMMAND ${CMAKE_COMMAND} ARGS -E copy "${source_file}" "${target_file}"
 		COMMENT Copying ${source_file} to ${target_file}
 		DEPENDS ${source_file}
 		)
@@ -60,14 +60,14 @@ MACRO(copy_single_file_755 _TARGET_LIST src destDir)
 IF(WIN32)
 	ADD_CUSTOM_COMMAND(
 		OUTPUT ${target_file}
-		COMMAND cmake ARGS -E copy "${source_file}" "${target_file}"
+		COMMAND ${CMAKE_COMMAND} ARGS -E copy "${source_file}" "${target_file}"
 		COMMENT Copying ${source_file} to ${target_file}
 		DEPENDS ${source_file}
 		)
 ELSE(WIN32)
 	ADD_CUSTOM_COMMAND(
 		OUTPUT ${target_file}
-		COMMAND cmake ARGS -E copy "${source_file}" "${target_file}"
+		COMMAND ${CMAKE_COMMAND} ARGS -E copy "${source_file}" "${target_file}"
 		COMMAND chmod ARGS 755 "${target_file}"
 		COMMENT Copying ${source_file} to ${target_file}
 		DEPENDS ${source_file}

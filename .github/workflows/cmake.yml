@@ -23,12 +23,16 @@ jobs:
 
     - run: |
         sudo apt-get update
-        sudo apt-get install -y git build-essential cmake debhelper
-        sudo apt-get install -y python-dev libssl-dev libboost-all-dev libprotobuf-dev libcrypto++-dev libgtest-dev liblua5.2-dev
-        sudo apt-get install -y protobuf-compiler python-protobuf
-        sudo apt-get install -y mkdocs
 
-    - run: mkdir tmp
+        sudo apt-get install -y cmake python python-dev libssl-dev libboost-all-dev protobuf-compiler python-protobuf libprotobuf-dev python-sphinx libcrypto++-dev libcrypto++ liblua5.2-dev libgtest-dev
+        sudo apt-get install -y debhelper dh-virtualenv python-pip zip devscripts
+        
+        pip3 install jinja2 mkdocs mkdocs-material github3.py json-protobuf
+        pip3 install jinja2 mkdocs mkdocs-material github3.py lua-protobuf
+        pip3 install jinja2 mkdocs mkdocs-material github3.py md-protobuf json-protobuf lua-protobuf
+
+
+- run: mkdir tmp
     - run: cmake --version
 
     - name: Configure CMake

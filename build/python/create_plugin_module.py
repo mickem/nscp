@@ -88,6 +88,7 @@ CPP_TEMPLATE = """#include "module.hpp"
 #endif
 {%if module.managed %}
 #include <managed/convert.hpp>
+using namespace Google::Protobuf;
 {% else %}
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
@@ -289,10 +290,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 		query_builder->Result = PB::Common::ResultCode::Unknown;
 		response_message->Payload->Add(query_builder);
 	}
-	System::IO::MemoryStream^ stream = gcnew System::IO::MemoryStream();
-	response_message->WriteTo(gcnew Google::Protobuf::CodedOutputStream(stream));
-	std::string response_buffer;
-	response = to_nstring(stream->ToArray());
+	response = to_nstring(MessageExtensions::ToByteArray(response_message));
 	return NSCAPI::cmd_return_codes::isSuccess;
 {% else %}
 	} catch (const std::exception &e) {
@@ -923,7 +921,7 @@ class Command:
 def parse_commands(data):
 	global commands, command_fallback, command_fallback_raw
 	if data:
-		for key, value in data.iteritems():
+		for key, value in data.items():
 			desc = ''
 			alias = []
 			legacy = False
@@ -989,7 +987,7 @@ parser.add_option("-t", "--target", help="target FOLDER folder to write output t
 (options, args) = parser.parse_args()
 
 data = json.loads(open('%s/module.json'%options.source).read())
-for key, value in data.iteritems():
+for key, value in data.items():
 	if key == "module":
 		parse_module(value)
 	elif key == "commands":
@@ -1013,7 +1011,7 @@ for key, value in data.iteritems():
 	elif key == "events":
 		events = value
 	else:
-		print '* TODO: %s'%key
+		print('* TODO: %s'%key)
 
 def render_template(hash, template, filename):
 	data = template.render(hash).encode('utf8')
@@ -1026,16 +1024,16 @@ def render_template(hash, template, filename):
 		m1 = hashlib.sha256()
 		m1.update(data)
 		sha1 = m1.digest()
-		with open(filename) as f:
+		with open(filename, 'rb') as f:
 			m2 = hashlib.sha256()
 			m2.update(f.read())
 			sha2 = m2.digest()
 		if sha1 == sha2:
-			print "no changes detected in: %s"%filename
+			print("no changes detected in: %s"%filename)
 			return
 
-	print 'Writing file: %s'%filename
-	f = open(filename,"w")
+	print('Writing file: %s'%filename)
+	f = open(filename,"wb")
 	f.write(data)
 	f.close()
 

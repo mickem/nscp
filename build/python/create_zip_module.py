@@ -13,7 +13,7 @@ def zipdir(path, ziph):
             if not file == "CMakeLists.txt":
                 f = os.path.join(root, file)
                 relf = os.path.relpath(f, path)
-                print "Adding file: %s"%relf
+                print("Adding file: %s"%relf)
                 ziph.write(f, relf)
 
 if __name__ == '__main__':
@@ -22,7 +22,7 @@ if __name__ == '__main__':
     parser.add_argument("--target", help="THe target folder to place the module in", action="store")
     args = parser.parse_args()
     mod = read_json(os.path.join(args.source, 'module.json'))
-    print "Creating %s.zip"%mod["name"]
+    print("Creating %s.zip"%mod["name"])
     zipf = zipfile.ZipFile(os.path.join(args.target, '%s.zip'%mod["name"]), 'w', zipfile.ZIP_DEFLATED)
     zipdir(args.source, zipf)
     zipf.close()
