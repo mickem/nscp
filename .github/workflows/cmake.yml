@@ -27,7 +27,7 @@ jobs:
         sudo apt-get install -y debhelper dh-virtualenv python-pip zip devscripts
         pip3 install jinja2 mkdocs mkdocs-material github3.py md-protobuf json-protobuf lua-protobuf
 
-- run: mkdir tmp
+    - run: mkdir tmp
     - run: cmake --version
 
     - name: Configure CMake
