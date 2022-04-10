@@ -20,6 +20,13 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - run: |
+        sudo apt-get update
+        sudo apt-get install -y git build-essential cmake debhelper
+        sudo apt-get install -y python-dev libssl-dev libboost-all-dev libprotobuf-dev libcrypto++-dev libgtest-dev liblua5.2-dev
+        sudo apt-get install -y protobuf-compiler python-protobuf
+        sudo apt-get install -y mkdocs
+
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
