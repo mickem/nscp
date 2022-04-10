@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.8.12)
 
 LIST(APPEND cryptopp_SOURCES nscpcrypt.cpp)
 IF (WIN32)

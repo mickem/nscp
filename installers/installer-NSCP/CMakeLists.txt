@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.8.12)
 
 SET(ALIAS NSCP)
 SET(TARGET installer_${ALIAS})
