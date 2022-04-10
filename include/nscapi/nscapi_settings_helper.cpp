@@ -44,7 +44,7 @@ namespace nscapi {
 			virtual void store(std::string key, std::string value) = 0;
 		};
 
-		typedef boost::shared_ptr<store_functor> store_ptr;
+		typedef boost::shared_ptr<store_functor> store_ptr_t;
 		typedef boost::shared_ptr<post_processor> post_ptr;
 		typedef boost::shared_ptr<store_bin_functor> bin_ptr;
 
@@ -54,7 +54,7 @@ namespace nscapi {
 		//
 
 		class typed_key : public key_interface {
-			typedef store_ptr store_ptr;
+			typedef store_ptr_t store_ptr;
 			typedef boost::shared_ptr<post_processor> post_ptr;
 
 			bool has_default_;

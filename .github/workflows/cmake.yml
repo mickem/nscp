@@ -24,7 +24,7 @@ jobs:
     - run: |
         sudo apt-get update
         sudo apt-get install -y cmake python python-dev libssl-dev libboost-all-dev protobuf-compiler python-protobuf libprotobuf-dev libcrypto++-dev libcrypto++ liblua5.2-dev libgtest-dev
-        sudo apt-get install -y debhelper dh-virtualenv python-pip zip devscripts
+        sudo apt-get install -y debhelper dh-virtualenv zip devscripts
         pip3 install jinja2 mkdocs mkdocs-material github3.py md-protobuf json-protobuf lua-protobuf
 
     - run: mkdir tmp
