@@ -53,7 +53,7 @@ namespace po = boost::program_options;
  */
 bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
-	sh::settings_registry settings(get_settings_proxy());
+	sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 	settings.set_alias("system", alias, "unix");
 	std::string counter_path = settings.alias().get_settings_path("counters");
 
@@ -74,7 +74,7 @@ bool CheckSystem::unloadModule() {
 	return true;
 }
 
-void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 
 }
 
@@ -94,7 +94,7 @@ bool get_uptime(double &uptime_secs, double &idle_secs) {
     return true;
 }
 
-void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::check_uptime(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	typedef check_uptime_filter::filter filter_type;
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
@@ -126,7 +126,7 @@ void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &reque
 	filter_helper.post_process(filter);
 }
 
-void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 
 	typedef os_version_filter::filter filter_type;
 	modern_filter::data_container data;
@@ -158,12 +158,12 @@ void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &r
 	filter_helper.post_process(filter);
 }
 
-void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::check_service(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 
 }
 
 
-void CheckSystem::check_pagefile(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::check_pagefile(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 
 }
 
@@ -214,7 +214,7 @@ std::list<check_mem_filter::filter_obj> get_memory() {
     return ret;
 }
 
-void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::check_memory(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	typedef check_mem_filter::filter filter_type;
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
@@ -265,6 +265,6 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 }
 
 
-void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckSystem::check_process(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 
 }

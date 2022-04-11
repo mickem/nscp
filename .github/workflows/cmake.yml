@@ -26,6 +26,7 @@ jobs:
         sudo apt-get install -y cmake python python-dev libssl-dev libboost-all-dev protobuf-compiler python-protobuf libprotobuf-dev libcrypto++-dev libcrypto++ liblua5.2-dev libgtest-dev
         sudo apt-get install -y debhelper zip devscripts
         pip3 install jinja2 mkdocs mkdocs-material github3.py md-protobuf json-protobuf lua-protobuf
+        chmod 755 /home/runner/.local/bin/protoc-gen-lua
 
     - run: mkdir tmp
     - run: cmake --version

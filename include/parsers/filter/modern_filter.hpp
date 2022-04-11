@@ -392,7 +392,7 @@ namespace modern_filter {
 		}
 
 		bool validate(std::string &error) {
-			if (engine_filter && !engine_filter->validate(context)) {
+			if (engine_filter.get() && !engine_filter->validate(context)) {
 				error = "Filter expression is not valid: " + engine_filter->to_string();
 				return false;
 			}
@@ -479,7 +479,7 @@ namespace modern_filter {
 		}
 
 		bool has_filter() const {
-			return engine_filter;
+			return engine_filter.get();
 		}
 		void fetch_hash(bool fetch_hash) {
 			fetch_hash_ = fetch_hash;
@@ -497,7 +497,7 @@ namespace modern_filter {
 			// done should be set if we want to bail out after the first hit!
 			// I.e. mode==first (mode==all)
 			summary.count();
-			if (!engine_filter || engine_filter->match(context, true)) {
+			if (!engine_filter.get() || engine_filter->match(context, true)) {
 				matched_filter = true;
 				if (fetch_hash_) {
 					records_.push_back(renderer_hash.render(context));
