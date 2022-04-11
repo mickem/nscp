@@ -27,6 +27,7 @@ jobs:
         sudo apt-get install -y debhelper zip devscripts
         pip3 install jinja2 mkdocs mkdocs-material github3.py md-protobuf json-protobuf lua-protobuf
         chmod 755 /home/runner/.local/bin/protoc-gen-lua
+        chmod 755 /home/runner/.local/bin/protoc-gen-json
 
     - run: mkdir tmp
     - run: cmake --version
