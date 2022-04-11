@@ -10,7 +10,7 @@ FIND_PROGRAM(PROTOC_GEN_JSON_BIN
 		${PROTOC_GEN_JSON}
 		/usr/local/bin/
 		/usr/bin/
-		${PYTHON_ROOT}/Scripts
+		${Python3_ROOT_DIR}/Scripts
 )
 IF(PROTOC_GEN_JSON_BIN)
 	SET(PROTOC_GEN_JSON_FOUND TRUE)

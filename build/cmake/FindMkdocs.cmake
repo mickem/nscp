@@ -3,7 +3,7 @@ find_program(MKDOCS_EXECUTABLE
   HINTS
   $ENV{MKDOCS_DIR}
   ${MKDOCS_DIR}
-  ${PYTHON_EXECUTABLE}../../scripts
+  ${Python3_EXECUTABLE}../../scripts
   
   PATH_SUFFIXES bin
   DOC "Mkdocs documentation generator"
