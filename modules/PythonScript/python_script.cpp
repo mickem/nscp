@@ -115,7 +115,7 @@ void python_script::init() {
 
 				if (do_init) {
 					NSC_DEBUG_MSG("init python");
-					initNSCP();
+					PyInit_NSCP();
 				}
 			} catch (py::error_already_set e) {
 				script_wrapper::log_exception();
