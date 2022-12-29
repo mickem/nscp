@@ -229,7 +229,8 @@ boost_versions = {
     '2014': "msvc-13.0_xp",
     '2015': "msvc-14.0_xp",
     '2017': "msvc-15.0_xp",
-    '2019': "msvc-14.2"
+    '2019': "msvc-14.2",
+    '2022': "msvc-15.0_xp"
 }
 cmake_generator = { 
     '2005': "Visual Studio 8 2005", 
@@ -238,7 +239,8 @@ cmake_generator = {
     '2014': "Visual Studio 13",
     '2015': "Visual Studio 14",
     '2017': "Visual Studio 15",
-    '2019': "Visual Studio 16"
+    '2019': "Visual Studio 16",
+    '2022': "Visual Studio 17"
 }
 
 parser = OptionParser()

@@ -26,34 +26,6 @@ namespace Mongoose
         return headers.find(key) != headers.end();
     }
 
-    string Response::getData()
-    {
-        string body = getBody();
-        ostringstream data;
-
-        data << "HTTP/1.1 " << code << " " << reason << "\r\n";
-
-        if (!hasHeader("Content-Length")) {
-            ostringstream length;
-            length << body.size();
-            setHeader("Content-Length", length.str());
-        }
-
-        map<string, string>::iterator it;
-        BOOST_FOREACH(const header_type::value_type &v, headers) {
-            data << v.first << ": " << v.second << "\r\n";
-        }
-		BOOST_FOREACH(const header_type::value_type &v, cookies) {
-			data << "Set-cookie: " << v.first << "=" << v.second << "; path=/\r\n";
-		}
-
-        data << "\r\n";
-
-        data << body;
-
-        return data.str();
-    }
-
     void Response::setCookie(string key, string value)
     {
 		cookies[key] = value;

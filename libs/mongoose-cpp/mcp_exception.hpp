@@ -10,7 +10,7 @@
 namespace mcp
 {
 
-	class NSCAPI_EXPORT mcp_exception : public std::exception {
+	class NSCAPI_EXPORT mcp_exception {
 	private:
 		std::string error;
 	public:

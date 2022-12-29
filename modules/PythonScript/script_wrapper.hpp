@@ -25,6 +25,10 @@
 #include <nscapi/macros.hpp>
 
 #include <boost/python.hpp>
+#ifdef WIN32
+#undef snprintf
+#undef vsnprintf
+#endif
 #include <boost/thread.hpp>
 #include <boost/foreach.hpp>
 
@@ -39,8 +43,9 @@ namespace script_wrapper {
 		struct log_lock {
 			boost::unique_lock<boost::shared_mutex> lock;
 			log_lock() : lock(thread_support::mutex, boost::get_system_time() + boost::posix_time::seconds(2)) {
-				if (!lock.owns_lock())
-					NSC_LOG_ERROR("Failed to get mutex: thread_locker");
+				if (!lock.owns_lock()) {
+					//NSC_LOG_ERROR("Failed to get mutex: thread_locker");
+				}
 			}
 		};
 	}
@@ -183,7 +188,7 @@ namespace script_wrapper {
 		bool has_metrics_fetcher();
 
 		std::string get_commands();
-		py::tuple query(std::string request);
+		py::tuple query(py::object request);
 	};
 	struct command_wrapper {
 	private:
@@ -201,7 +206,7 @@ namespace script_wrapper {
 		static boost::shared_ptr<command_wrapper> create(unsigned int plugin_id);
 
 		py::tuple simple_query(std::string command, boost::python::list args);
-		py::tuple query(std::string command, std::string request);
+		py::tuple query(std::string command, py::object request);
 		py::tuple simple_exec(std::string target, std::string command, boost::python::list args);
 		py::tuple exec(std::string target, std::string request);
 		py::tuple simple_submit(std::string channel, std::string command, status code, std::string message, std::string perf);
@@ -238,10 +243,10 @@ namespace script_wrapper {
 		void set_int(std::string path, std::string key, int value);
 		boost::python::list get_section(std::string path);
 		void save();
-		NSCAPI::settings_type get_type(std::string stype);
+		//NSCAPI::settings_type get_type(std::string stype);
 		void settings_register_key(std::string path, std::string key, std::string stype, std::string title, std::string description, std::string defaultValue);
 		void settings_register_path(std::string path, std::string title, std::string description);
-		py::tuple query(std::string request);
+		py::tuple query(py::object request);
 	};
 
 	class PyInitializer {

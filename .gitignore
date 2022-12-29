@@ -26,3 +26,11 @@ cmake-build-debug
 
 # node
 node_modules
+
+cmake-build-*
+
+
+.vscode
+
+nsclient.fatal
+nsclient.log

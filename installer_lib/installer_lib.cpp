@@ -2,7 +2,7 @@
 
 #include "installer_helper.hpp"
 
-#include "../settings_manager/settings_manager_impl.h"
+#include "../libs/settings_manager/settings_manager_impl.h"
 #include <config.h>
 
 #include <file_helpers.hpp>
@@ -12,7 +12,7 @@
 #include <str/utils.hpp>
 
 #include <nsclient/logger/logger.hpp>
-#include <nsclient/logger/base_logger_impl.hpp>
+#include <nsclient/logger/log_message_factory.hpp>
 
 #include <error/error.hpp>
 #include <config.h>
@@ -46,8 +46,8 @@ void copy_file(msi_helper &h, std::wstring source, std::wstring target) {
 }
 
 
-class msi_logger : public nsclient::logging::logger_impl {
-	std::wstring error;
+class msi_logger : public nsclient::logging::logger {
+	std::wstring error_;
 	std::list<std::wstring> log_;
 	msi_helper *h;
 
@@ -56,15 +56,63 @@ public:
 		set_log_level("trace");
 	}
 
+	bool should_trace() const {
+		return false;
+	}
+	bool should_debug() const {
+		return false;
+	}
+	bool should_info() const {
+		return true;
+	}
+	bool should_warning() const {
+		return true;
+	}
+	bool should_error() const {
+		return true;
+	}
+	bool should_critical() const {
+		return true;
+	}
+
+	virtual void set_log_level(std::string level) {
+		// ignored
+	}
+	std::string get_log_level() const {
+		return "info";
+	}
+
+
+
+	void debug(const std::string& module, const char* file, const int line, const std::string& message) {
+	}
+	void trace(const std::string& module, const char* file, const int line, const std::string& message) {
+	}
+	void info(const std::string& module, const char* file, const int line, const std::string& message) {
+	}
+	void warning(const std::string& module, const char* file, const int line, const std::string& message) {
+		do_log("warning: " + message);
+	}
+	void error(const std::string& module, const char* file, const int line, const std::string& message) {
+		do_log("error: " + message);
+	}
+	void critical(const std::string& module, const char* file, const int line, const std::string& message) {
+		do_log("error: (critical) " + message);
+	}
+	void raw(const std::string& message) {
+		do_log(message);
+	}
+
+
 
 	void do_log(const std::string data) {
 		std::wstring str = utf8::cvt<std::wstring>(data);
 		if (str.empty())
 			return;
 		if (boost::algorithm::starts_with(str, L"error:")) {
-			if (!error.empty())
-				error += L"\n";
-			error += str.substr(6);
+			if (!error_.empty())
+				error_ += L"\n";
+			error_ += str.substr(6);
 		}
 		log_.push_back(str);
 		h->logMessage(str);
@@ -75,10 +123,10 @@ public:
 	bool shutdown() { return true; }
 
 	std::wstring get_error() {
-		return error;
+		return error_;
 	}
 	bool has_errors() {
-		return !error.empty();
+		return !error_.empty();
 	}
 	std::list<std::wstring> get_errors() {
 		return log_;

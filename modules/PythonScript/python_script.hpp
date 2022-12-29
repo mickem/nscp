@@ -9,7 +9,7 @@
 struct python_script : public boost::noncopyable {
 	std::string base_path;
 	unsigned int plugin_id;
-	boost::python::dict localDict;
+	boost::shared_ptr<boost::python::dict> localDict;
 	python_script(unsigned int plugin_id, const std::string base_path, const std::string plugin_alias, const std::string script_alias, const std::string script);
 	~python_script();
 	bool callFunction(const std::string& functionName);
@@ -18,5 +18,6 @@ struct python_script : public boost::noncopyable {
 	void _exec(const std::string &scriptfile);
 
 	static void init();
+    static void destroy();
 };
 

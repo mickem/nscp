@@ -26,6 +26,7 @@
 #include <settings/client/settings_client_interface.hpp>
 
 #include <list>
+#include <string>
 
 namespace nscapi {
 	class NSCAPI_EXPORT settings_proxy : public nscapi::settings_helper::settings_impl_interface {

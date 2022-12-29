@@ -76,7 +76,8 @@ namespace dll {
 			void load_library() {
 				std::string dllname = module_.string();
 #if defined(LINUX) || defined(SUN) || defined(AIX) || defined(CYGWIN)
-				handle_ = dlopen(dllname.c_str(), RTLD_NOW);
+//                handle_ = dlopen(dllname.c_str(), RTLD_GLOBAL | RTLD_NOW);
+                handle_ = dlopen(dllname.c_str(), RTLD_NOW);
 				if (handle_ == NULL)
 					throw dll_exception(std::string("Could not load library: ") + dlerror() + ": " + module_.string());
 #elif defined(HP)

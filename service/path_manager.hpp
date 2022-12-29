@@ -7,6 +7,7 @@
 #include <boost/shared_ptr.hpp>
 
 #include <string>
+#include <map>
 
 namespace nsclient {
 	namespace core {

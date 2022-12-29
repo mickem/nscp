@@ -5,7 +5,7 @@ package PB.Settings;
 //option optimize_for = CODE_SIZE;
 
 import "common.proto";
-
+option optimize_for = LITE_RUNTIME;
 //
 // Settings is an internal message.
 // It is not used to submit checks or query status instead it is used to interact with the settings store.

@@ -201,7 +201,6 @@ std::pair<bool, bool> op5_client::has_service(std::string service, std::string h
 		NSC_LOG_ERROR("Failed to parse reponse: " + response->getBody());
 		return std::pair<bool, bool>(false, false);
 	}
-	return std::pair<bool, bool>(false, false);
 }
 
 bool op5_client::add_host(std::string host, std::string hostgroups, std::string contactgroups) {

@@ -12,7 +12,10 @@
 
 #include "dll_defines.hpp"
 
-#include <boost/thread.hpp>
+#include <boost/thread/thread.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/atomic/atomic.hpp>
 
 #include <vector>
 
@@ -21,30 +24,6 @@
  */
 namespace Mongoose
 {
-
-	typedef unsigned long job_id;
-
-
-	class ServerImpl;
-	class request_job {
-		ServerImpl *server;
-		Controller *controller;
-		Request request;
-		boost::posix_time::ptime time;
-		int id;
-
-	public:
-		request_job(ServerImpl *server, Controller *controller, Request request, boost::posix_time::ptime time, int id)
-			: server(server)
-			, controller(controller)
-			, request(request)
-			, time(time)
-			, id(id) {}
-		bool is_late(boost::posix_time::ptime now);
-		void run();
-		void toLate();
-	};
-
 
     class NSCAPI_EXPORT ServerImpl : public Server
     {
@@ -55,14 +34,14 @@ namespace Mongoose
              * @param int the number of the port to listen to
              * @param string documentRoot the root that should be used for static files
              */
-			ServerImpl(std::string port = "80");
+			ServerImpl();
             virtual ~ServerImpl();
 
 
             /**
              * Runs the Mongoose server
              */
-            void start(int thread_count);
+            void start(std::string bind);
 
             /**
              * Stops the Mongoose server
@@ -83,9 +62,9 @@ namespace Mongoose
 			 * @param int ev event type
 			 * @param void* ev_data event data
 			 */
-			static void event_handler(struct mg_connection *connection, int ev, void *ev_data);
+			static void event_handler(struct mg_connection *connection, int ev, void *ev_data, void *fn_data);
 
-			void onHttpRequest(struct mg_connection *connection, struct http_message *message, job_id job_id);
+			void onHttpRequest(struct mg_connection *connection, struct mg_http_message *message);
 
 
             /**
@@ -103,10 +82,12 @@ namespace Mongoose
 			*
 			* @param certificate the name of the certificate to use
 			*/
-#if MG_ENABLE_SSL
-			void setSsl(const char *certificate);
+#if MG_ENABLE_OPENSSL
+			void initTls(struct mg_connection *connection);
 #endif
-            /**
+			void setSsl(const char *certificate);
+
+			/**
              * Polls the server
              */
             void poll();
@@ -116,25 +97,21 @@ namespace Mongoose
              */
             bool handles(std::string method, std::string url);
 
-			void request_reply_async(job_id id, std::string data);
-			bool execute_reply_async(job_id id, const void *buf, std::size_t len);
 
-			void request_thread_proc();
+			void thread_proc();
+
+
+
 		protected:
-			std::string port;
+            std::string certificate;
 			struct mg_mgr mgr;
-			struct mg_bind_opts opts;
-			bool stopped;
-            bool destroyed;
             struct mg_connection *server_connection;
 
             std::vector<Controller *> controllers;
 
-			has_threads threads_;
-			typedef nscp_thread::safe_queue<request_job, std::queue<request_job> > job_queue_type;
-			job_queue_type job_queue_;
-			boost::mutex idle_thread_mutex_;
-			boost::condition_variable idle_thread_cond_;
+			boost::atomic<bool> stop_thread_;
+			boost::timed_mutex mutex_;
+			boost::shared_ptr<boost::thread> thread_;
 
 	};
 }

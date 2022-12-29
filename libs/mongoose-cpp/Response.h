@@ -54,14 +54,6 @@ namespace Mongoose
             virtual void setHeader(std::string key, std::string value);
 
             /**
-             * Get the data of the response, this will contain headers and
-             * body
-             *
-             * @return string the response data
-             */
-            virtual std::string getData();
-
-            /**
              * Gets the response body
              *
              * @return string the response body
@@ -96,6 +88,7 @@ namespace Mongoose
 			header_type& get_headers() {
 				return headers;
 			}
+        int getCode() { return code; }
         private:
 			int code;
 			std::string reason;

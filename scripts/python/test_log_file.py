@@ -18,7 +18,7 @@ def delete_file(file):
 	if os.path.exists(file):
 		try:
 			os.remove(file)
-		except OSError, (errno, strerror):
+		except OSError:
 			log('Failed to delete: %s'%file)
 
 class LogFileTest(BasicTest):

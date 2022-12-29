@@ -555,8 +555,8 @@ bool CheckEventLog::commandLineExec(const int target_mode, const PB::Commands::E
 	std::string command = request.command();
 	if (command == "eventlog" && request.arguments_size() > 0)
 		command = request.arguments(0);
-	else if (target_mode == NSCAPI::target_module && request.arguments_size() > 0)
-		command = request.arguments(0);
+	//else if (target_mode == NSCAPI::target_module && request.arguments_size() > 0)
+	//	command = request.arguments(0);
 	else if (command.empty() && target_mode == NSCAPI::target_module)
 		command = "help";
 	if (command == "insert-message" || command == "insert") {

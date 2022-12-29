@@ -32,6 +32,7 @@
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
 #include <boost/unordered_map.hpp>
+#include <boost/bind.hpp>
 
 struct command_chunk {
 	nsclient::commands::plugin_type plugin;

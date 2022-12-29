@@ -164,12 +164,21 @@ void script_wrapper::sleep(unsigned int ms) {
 }
 
 void script_wrapper::log_exception() {
+    NSC_LOG_ERROR_EX("Python script throw unexpected exception");
 	try {
 		PyErr_Print();
-		py::object sys(py::handle<>(PyImport_ImportModule("sys")));
+        py::object sys = py::import("sys");
+        if (sys.is_none()) {
+            NSC_LOG_ERROR_EX("Failed to load sys object");
+            return;
+        }
 		py::object err = sys.attr("stderr");
+        if (err.is_none()) {
+            NSC_LOG_ERROR_EX("Failed to load sys.stderr object");
+            return;
+        }
 		std::string err_text = py::extract<std::string>(err.attr("getvalue")());
-		NSC_LOG_ERROR_STD(err_text);
+		NSC_LOG_ERROR_STD("Error from python script: "  + err_text);
 		PyErr_Clear();
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to parse error: ", e);
@@ -255,11 +264,37 @@ void script_wrapper::function_wrapper::register_cmdline(std::string name, PyObje
 	}
 }
 
-py::tuple script_wrapper::function_wrapper::query(std::string request) {
+std::string pybuf(py::object request, std::string task) {
+	if (!PyObject_CheckBuffer(request.ptr())) {
+		NSC_LOG_ERROR(task + " failed as input was not a buffer");
+		return "";
+	}
+
+	Py_buffer buffer;
+	if (PyObject_GetBuffer(request.ptr(), &buffer, PyBUF_SIMPLE) == -1) {
+		NSC_LOG_ERROR(task + " failed as input was invalid buffer");
+		return "";
+	}
+	std::string req = std::string((const char*)buffer.buf, buffer.len);
+	PyBuffer_Release(&buffer);
+	return req;
+}
+
+py::object pybuf(std::string response) {
+	PyObject* pymemview = PyBytes_FromStringAndSize((char*)response.c_str(), response.size());
+	return py::object(py::handle<>(pymemview));
+}
+
+
+py::tuple script_wrapper::function_wrapper::query(py::object request) {
 	try {
 		std::string response;
-		NSCAPI::errorReturn ret = core->registry_query(request, response);
-		return py::make_tuple(ret, response);
+		std::string req = pybuf(request, "registry query");
+		if (req.empty()) {
+			return py::make_tuple(false, "Failed to parse request");
+		}
+		NSCAPI::errorReturn ret = core->registry_query(req, response);
+		return py::make_tuple(ret, pybuf(response));
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Query failed: ", e);
 		return py::make_tuple(false, utf8::utf8_from_native(e.what()));
@@ -615,31 +650,34 @@ void build_metrics(py::dict &metrics, const PB::Metrics::MetricsBundle &b, const
 }
 
 void script_wrapper::function_wrapper::submit_metrics(const std::string &request) const {
+    thread_locker locker;
+    {
 
-	py::dict metrics;
-	PB::Metrics::MetricsMessage msg;
-	msg.ParseFromString(request);
-	BOOST_FOREACH(const PB::Metrics::MetricsMessage::Response &p, msg.payload()) {
-		BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, p.bundles()) {
-			build_metrics(metrics, b, "");
-		}
-	}
+        py::dict metrics;
+        PB::Metrics::MetricsMessage msg;
+        msg.ParseFromString(request);
+        BOOST_FOREACH(const PB::Metrics::MetricsMessage::Response &p, msg.payload()) {
+                        BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, p.bundles()) {
+                                        build_metrics(metrics, b, "");
+                                    }
+                    }
 
 
-	try {
-		BOOST_FOREACH(functions::function_list_type::value_type &v, functions::get()->submit_metrics) {
-			thread_locker locker;
-			try {
-				py::call<py::object>(py::object(v).ptr(), metrics, pystr(""));
-			} catch (py::error_already_set e) {
-				log_exception();
-			}
-		}
-	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_EXR("Submission failed", e);
-	} catch (...) {
-		NSC_LOG_ERROR_EX("Submission failed");
-	}
+        try {
+            BOOST_FOREACH(functions::function_list_type::value_type &v, functions::get()->submit_metrics) {
+                            thread_locker locker;
+                            try {
+                                py::call<py::object>(py::object(v).ptr(), metrics, pystr(""));
+                            } catch (py::error_already_set e) {
+                                log_exception();
+                            }
+                        }
+        } catch (const std::exception &e) {
+            NSC_LOG_ERROR_EXR("Submission failed", e);
+        } catch (...) {
+            NSC_LOG_ERROR_EX("Submission failed");
+        }
+    }
 }
 void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const {
 	PB::Metrics::MetricsMessage::Response payload;
@@ -805,14 +843,18 @@ py::tuple script_wrapper::command_wrapper::simple_query(std::string command, py:
 	}
 	return py::make_tuple(nagios_return_to_py(ret), msg, perf);
 }
-py::tuple script_wrapper::command_wrapper::query(std::string command, std::string request) {
+py::tuple script_wrapper::command_wrapper::query(std::string command, py::object request) {
 	std::string response;
 	int ret = 0;
 	{
 		thread_unlocker unlocker;
-		ret = core->query(request, response);
+		std::string req = pybuf(request, "parse query");
+		if (req.empty()) {
+			return py::make_tuple(false, "Failed to parse request");
+		}
+		ret = core->query(req, response);
 	}
-	return py::make_tuple(ret, response);
+	return py::make_tuple(ret, pybuf(response));
 }
 
 py::tuple script_wrapper::command_wrapper::simple_exec(std::string target, std::string command, py::list args) {
@@ -885,11 +927,15 @@ void script_wrapper::settings_wrapper::settings_register_key(std::string path, s
 void script_wrapper::settings_wrapper::settings_register_path(std::string path, std::string title, std::string description) {
 	settings.register_path(path, title, description, false, false);
 }
-py::tuple script_wrapper::settings_wrapper::query(std::string request) {
+py::tuple script_wrapper::settings_wrapper::query(py::object request) {
 	try {
 		std::string response;
-		NSCAPI::errorReturn ret = core->settings_query(request, response);
-		return py::make_tuple(ret, response);
+		std::string req = pybuf(request, "settings query");
+		if (req.empty()) {
+			return py::make_tuple(false, "Failed to parse request");
+		}
+		NSCAPI::errorReturn ret = core->settings_query(req, response);
+		return py::make_tuple(ret, pybuf(response));
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Query failed", e);
 		return py::make_tuple(false, utf8::utf8_from_native(e.what()));

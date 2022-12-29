@@ -23,26 +23,24 @@
 	},
 	"boost": {
 		"source" : {
-			"url": "https://dl.bintray.com/boostorg/release/1.68.0/source/boost_1_68_0.zip",
-			"hash": "c4cd90922d22ca17d9b8330441637397395e5812"
+			"url": "https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.zip",
+			"hash": "1c9715fdd9a503fd0576f0fb6dcaf965ad5bdf04"
 		},
 		"tasks": {
 			"pre": [ "bootstrap.bat" ],
 			"build-w32": [
-				"bjam --toolset=msvc --without-context --without-coroutine runtime-link=shared link=shared",
-				"bjam --toolset=msvc --without-context --without-coroutine runtime-link=static"
+				"b2 --toolset=msvc-14.3 --without-context --without-coroutine runtime-link=shared link=shared"
 			],
 			"build-x64": [
-				"bjam --toolset=msvc --without-context --without-coroutine runtime-link=shared link=shared address-model=64",
-				"bjam --toolset=msvc --without-context --without-coroutine runtime-link=static address-model=64"
+				"b2 --toolset=msvc-14.3 --without-context --without-coroutine runtime-link=shared link=shared address-model=64"
 			]
 		},
 		"build": ["fetch", "pre", "build"]
 	},
 	"openssl": {
 		"source" : {
-			"url": "https://www.openssl.org/source/openssl-1.1.0i.tar.gz",
-			"hash": "6713f8b083e4c0b0e70fd090bf714169baf3717c"
+			"url": "https://www.openssl.org/source/openssl-1.1.1q.tar.gz",
+			"hash": "79511a8f46f267c533efd32f22ad3bf89a92d8e5"
 		},
 		"tasks": {
 			"pre-w32": [
@@ -63,22 +61,22 @@
 	},
 	"protobuf": {
 		"source": {
-			"url": "https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protobuf-all-3.6.1.zip",
-			"hash": "44b8ba225f3b4dc45fb56d5881ec6a91329802b6",
-			"folder": "protobuf-3.6.1"
+			"url": "https://github.com/protocolbuffers/protobuf/releases/download/v21.6/protobuf-all-21.6.zip",
+			"hash": "602bb2e5e0cf0f80f23e77c96c4080182e0e7f32",
+			"folder": "protobuf-21.6"
 		},
 		"tasks": {
 			"mk-build-folder": [
 				"mkdir cmake\\solution"
 			],
 			"pre-x64-static": [
-				"cd cmake\\solution & cmake -G \"{{version.cmake}} Win64\" .."
+				"cd cmake\\solution & cmake -G \"{{version.cmake}}\" -A x64 .."
 			],
 			"pre-w32-static": [
 				"cd cmake\\solution & cmake -G \"{{version.cmake}}\" .."
 			],
 			"pre-x64-dynamic": [
-				"cd cmake\\solution & cmake -DBUILD_SHARED_LIBS=TRUE -G \"{{version.cmake}} Win64\" .."
+				"cd cmake\\solution & cmake -DBUILD_SHARED_LIBS=TRUE -G \"{{version.cmake}}\" -A x64 .."
 			],
 			"pre-w32-dynamic": [
 				"cd cmake\\solution & cmake -DBUILD_SHARED_LIBS=TRUE -G \"{{version.cmake}}\" .."
@@ -96,33 +94,15 @@
 		},
 		"build": ["fetch", "mk-build-folder", "pre", "build"]
 	},
-	"breakpad": {
-		"tasks": {
-			"pre-x64-static": [
-				"cmake -G \"{{version.cmake}} Win64\" {{source.folder}}/ext/google-breakpad"
-			],
-			"pre-x64-dynamic": [
-				"cmake -G \"{{version.cmake}} Win64\" -DBREAKPAD_LIBRARY_TYPE=STATIC -DBREAKPAD_RUNTIME_TYPE=SHARED {{source.folder}}/ext/google-breakpad"
-			],
-			"pre-w32-static": [
-				"cmake -G \"{{version.cmake}}\" {{source.folder}}/ext/google-breakpad"
-			],
-			"pre-w32-dynamic": [
-				"cmake -G \"{{version.cmake}}\" -DBREAKPAD_LIBRARY_TYPE=STATIC -DBREAKPAD_RUNTIME_TYPE=SHARED {{source.folder}}/ext/google-breakpad"
-			],
-			"build": [
-				"msbuild breakpad.sln /p:Configuration=Debug",
-				"msbuild breakpad.sln /p:Configuration=Release"
-			]
-		},
-		"build": ["mkdir", "pre", "build"]
-	},
 	"cryptopp": {
 		"source": {
-			"url": "https://www.cryptopp.com/cryptopp800.zip",
-			"hash": "dd0dc0586c0a3e0696cd323efc6fa2e2945ad920"
+			"url": "https://github.com/weidai11/cryptopp/archive/refs/tags/CRYPTOPP_8_0_0.zip",
+			"hash": "c00aeae3a734f874978d8c98db84360629a3a034"
 		},
 		"tasks": {
+			"move": [
+				"move /Y cryptopp-CRYPTOPP_8_0_0\\*.* ."
+			],
 			"pre-dynamic": [
 				"{{source.folder}}\\build\\python\\msdev-to-dynamic.py cryptlib.vcxproj"
 			],
@@ -135,6 +115,6 @@
 				"msbuild cryptlib.vcxproj /p:Configuration=Debug"
 			]
 		},
-		"build": ["fetch", "pre", "build"]
+		"build": ["fetch", "move", "pre", "build"]
 	}
 }

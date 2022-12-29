@@ -21,6 +21,7 @@
 
 #include <list>
 #include <string>
+#include <map>
 
 #include <boost/asio.hpp>
 #include <boost/thread/mutex.hpp>

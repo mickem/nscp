@@ -5,7 +5,7 @@ package PB.Storage;
 //option optimize_for = CODE_SIZE;
 
 import "common.proto";
-
+option optimize_for = LITE_RUNTIME;
 //
 // Storage Structure Disk
 //
