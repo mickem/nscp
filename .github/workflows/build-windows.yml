@@ -50,8 +50,14 @@ jobs:
         find: '\'
         replaceAll: '/'
         
-    
     - name: Show paths
+      run: |
+        echo "${{ steps.boost-root.outputs.value }}"
+        echo "${{ steps.boost-lib.outputs.value }}"
+      shell: cmd
+    
+   
+    - name: make dirs
       run: |
         mkdir tmp
         cd tmp
