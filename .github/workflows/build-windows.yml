@@ -62,4 +62,4 @@ jobs:
     - run: |
         cd tmp
         cd nscp
-        cmake ../
+        cmake ../..
