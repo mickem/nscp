@@ -15,6 +15,7 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
+
     - name: Build Boost
       id: boost
       uses: egor-tensin/build-boost@v1
@@ -30,6 +31,26 @@ jobs:
         echo "${{ steps.boost.outputs.librarydir }}"
       shell: cmd
 
+    - id: boost-root
+      uses: mad9000/actions-find-and-replace-string@2
+      with:
+        source: ${{ steps.boost.outputs.root }}
+        find: '\'
+        replaceAll: '/'
+    - id: boost-lib
+      uses: mad9000/actions-find-and-replace-string@2
+      with:
+        source: ${{ steps.boost.outputs.librarydir }}
+        find: '\'
+        replaceAll: '/'
+    - id: python-path
+      uses: mad9000/actions-find-and-replace-string@2
+      with:
+        source: ${{ steps.python.outputs.python-path }}
+        find: '\'
+        replaceAll: '/'
+        
+    
     - name: Show paths
       run: |
         mkdir tmp
@@ -46,13 +67,13 @@ jobs:
 
             SET(USE_STATIC_RUNTIME FALSE)
             SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
-            SET(BOOST_ROOT "${{ steps.boost.outputs.root }}")
-            SET(BOOST_LIBRARYDIR "${{ steps.boost.outputs.librarydir }}")
+            SET(BOOST_ROOT "${{ steps.boost-root.outputs.value }}")
+            SET(BOOST_LIBRARYDIR "${{ steps.boost-lib.outputs.value }}")
             SET(PROTOBUF_ROOT "${LIBRARY_ROOT_FOLDER}/protobuf-21.6")
             SET(OPENSSL_ROOT_DIR "${LIBRARY_ROOT_FOLDER}/openssl-1.1.1q")
             SET(LUA_SOURCE_ROOT "${LIBRARY_ROOT_FOLDER}/lua-5.1.5")
             SET(BREAKPAD_ROOT "${LIBRARY_ROOT_FOLDER}/${breakpad_rel_folder}")
-            SET(PYTHON_ROOT "${{ steps.python.outputs.python-path }}")
+            SET(PYTHON_ROOT "${{ steps.python-path.outputs.value }}")
             SET(CRYPTOPP_ROOT "${LIBRARY_ROOT_FOLDER}/CRYPTOPP_8_0_0")
 
             #SET(CSHARP_DOTNET_VERSION "v4.0.30319")
