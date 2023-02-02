@@ -19,7 +19,7 @@ jobs:
       uses: egor-tensin/build-boost@v1
       with:
         version: 1.79.0
-        libraries: system filesystem thread regex date_time program_options python37 chrono
+        libraries: system filesystem thread regex date_time program_options python chrono
         platform: x64
         configuration: Release
 
