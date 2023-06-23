@@ -1,7 +1,7 @@
 # NSClient++ API
 
 NSClient++ provides its own HTTP API which can
-be enabled with the [WEBServer module](../reference/generic/WEBServer.md#WEBServer).
+be enabled with the [WEBServer module](../../reference/generic/WEBServer.md#WEBServer).
 
 The new API is described in separate pages (on per object):
 
