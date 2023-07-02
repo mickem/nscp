@@ -108,7 +108,12 @@ jobs:
             #SET(ARCHIVE_FOLDER "TODO")
             #SET(TARGET_SITE "TODO")
   
-    - run: |
-        cd tmp
-        cd nscp
+    - name: CMake nsclient
+      working-directory: tmp/nscp
+      run: |
         cmake ../..
+
+    - name: Build nsclient
+      working-directory: tmp/nscp
+      run: |
+        msbuild NSCP.sln /p:Configuration=Release
