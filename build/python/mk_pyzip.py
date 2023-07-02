@@ -24,7 +24,7 @@ if __name__ == '__main__':
         options.target = os.getcwd()
     if not os.path.isdir(options.target):
         os.makedirs(options.target)
-    target_zip = os.path.join(options.target, 'python37.zip')
+    target_zip = os.path.join(options.target, 'python311.zip')
 
     if not options.source:
         print("Please specify source folder")
