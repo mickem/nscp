@@ -16,6 +16,37 @@ jobs:
       with:
         python-version: '3.7'
 
+        - name: make dirs
+        run: |
+          mkdir tmp
+          cd tmp
+          mkdir nscp
+          mkdir protobuf
+        shell: cmd
+  
+
+    - name: Download/Build protobuf
+      run: |
+        curl -L https://github.com/protocolbuffers/protobuf/releases/download/v21.6/protobuf-all-21.6.zip --output protobuf.zip
+        7z x protobuf.zip
+        cd protobuf-21.6
+        mkdir cmake\solution
+        cd cmake\solution
+        cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -A x64 ..
+
+        msbuild cmake\solution\libprotobuf.vcxproj /p:Configuration=Release
+        msbuild cmake\solution\libprotobuf.vcxproj /p:Configuration=Debug
+        msbuild cmake\solution\libprotoc.vcxproj /p:Configuration=Release
+        msbuild cmake\solution\libprotoc.vcxproj /p:Configuration=Debug
+        msbuild cmake\solution\protoc.vcxproj /p:Configuration=Release
+        msbuild cmake\solution\protoc.vcxproj /p:Configuration=Debug
+        msbuild cmake\solution\libprotobuf-lite.vcxproj /p:Configuration=Release
+        msbuild cmake\solution\libprotobuf-lite.vcxproj /p:Configuration=Debug
+
+
+      working-directory: tmp/protobuf
+
+
     - name: Build Boost
       id: boost
       uses: egor-tensin/build-boost@v1
@@ -51,12 +82,6 @@ jobs:
       shell: cmd
     
    
-    - name: make dirs
-      run: |
-        mkdir tmp
-        cd tmp
-        mkdir nscp
-      shell: cmd
 
     - uses: DamianReeves/write-file-action@master
       with:
@@ -69,7 +94,7 @@ jobs:
             SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
             SET(BOOST_ROOT "${{ steps.boost-root.outputs.path }}")
             SET(BOOST_LIBRARYDIR "${{ steps.boost-lib.outputs.path }}")
-            SET(PROTOBUF_ROOT "${LIBRARY_ROOT_FOLDER}/protobuf-21.6")
+            SET(PROTOBUF_ROOT "tmp/protobuf/protobuf-21.6")
             SET(OPENSSL_ROOT_DIR "${LIBRARY_ROOT_FOLDER}/openssl-1.1.1q")
             SET(LUA_SOURCE_ROOT "${LIBRARY_ROOT_FOLDER}/lua-5.1.5")
             SET(BREAKPAD_ROOT "${LIBRARY_ROOT_FOLDER}/${breakpad_rel_folder}")
