@@ -16,13 +16,13 @@ jobs:
       with:
         python-version: '3.7'
 
-        - name: make dirs
-        run: |
-          mkdir tmp
-          cd tmp
-          mkdir nscp
-          mkdir protobuf
-        shell: cmd
+    - name: make dirs
+      run: |
+        mkdir tmp
+        cd tmp
+        mkdir nscp
+        mkdir protobuf
+      shell: cmd
   
 
     - name: Download/Build protobuf
