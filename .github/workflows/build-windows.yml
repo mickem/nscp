@@ -141,6 +141,6 @@ jobs:
         copy ${{ steps.boost.outputs.librarydir }}/boost_filesystem.dll .
         copy ${{ steps.boost.outputs.librarydir }}/boost_thread.dll .
         copy ${{ steps.boost.outputs.librarydir }}/boost_program_options.dll .
-        copy D:\a\nscp\nscp\tmp\protobuf\protobuf-21.6\cmake\solution\Release\libprotobuf.dll .
+        copy D:\a\nscp\nscp\tmp\protobuf\protobuf-21.6\build\Release\libprotobuf.dll .
       
         msbuild NSCP.sln /p:Configuration=Release
