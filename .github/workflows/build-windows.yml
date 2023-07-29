@@ -57,7 +57,7 @@ jobs:
         cd protobuf-21.6
         mkdir build
         cd build
-        cmake -Dprotobuf_BUILD_SHARED_LIBS=ON -G "Visual Studio 17" -A x64 ..
+        cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -A x64 ..
 
         msbuild libprotobuf.vcxproj /p:Configuration=Release
         msbuild libprotoc.vcxproj /p:Configuration=Release
