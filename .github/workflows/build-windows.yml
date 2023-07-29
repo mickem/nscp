@@ -14,7 +14,7 @@ jobs:
     - id: python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.7'
+        python-version: '3.11'
 
     - name: Add msbuild to PATH
       uses: microsoft/setup-msbuild@v1.1
@@ -45,6 +45,8 @@ jobs:
         msbuild protoc.vcxproj /p:Configuration=Debug
         msbuild libprotobuf-lite.vcxproj /p:Configuration=Release
         msbuild libprotobuf-lite.vcxproj /p:Configuration=Debug
+
+        cd
 
 
       working-directory: tmp/protobuf
