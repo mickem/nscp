@@ -60,13 +60,9 @@ jobs:
         cmake -Dprotobuf_BUILD_SHARED_LIBS=ON -G "Visual Studio 17" -A x64 ..
 
         msbuild libprotobuf.vcxproj /p:Configuration=Release
-        msbuild libprotobuf.vcxproj /p:Configuration=Debug
         msbuild libprotoc.vcxproj /p:Configuration=Release
-        msbuild libprotoc.vcxproj /p:Configuration=Debug
         msbuild protoc.vcxproj /p:Configuration=Release
-        msbuild protoc.vcxproj /p:Configuration=Debug
         msbuild libprotobuf-lite.vcxproj /p:Configuration=Release
-        msbuild libprotobuf-lite.vcxproj /p:Configuration=Debug
 
       working-directory: tmp/protobuf
 

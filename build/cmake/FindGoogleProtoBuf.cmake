@@ -60,6 +60,7 @@ ELSE ()
 			${GNUWIN32_DIR}/lib
 			${PROTOBUF_LIBRARYDIR_RELEASE}
 			${PROTOBUF_LIBRARYDIR}
+			${PROTOBUF_ROOT}/build/Release
 			${PROTOBUF_ROOT}/cmake/solution/Release
 			${PROTOBUF_ROOT}/vsprojects/Release
 			${PROTOBUF_ROOT}/vsprojects/x64/Release
@@ -79,6 +80,7 @@ ELSE ()
 		${GNUWIN32_DIR}/lib
 		${PROTOBUF_LIBRARYDIR_DEBUG}
 		${PROTOBUF_LIBRARYDIR}
+		${PROTOBUF_ROOT}/build/Debug
 		${PROTOBUF_ROOT}/cmake/solution/Debug
 		${PROTOBUF_ROOT}/vsprojects/Debug
 		${PROTOBUF_ROOT}/vsprojects/x64/Debug
