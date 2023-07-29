@@ -132,7 +132,7 @@ jobs:
     - name: CMake nsclient
       working-directory: tmp/nscp
       run: |
-        cmake ../..
+        cmake ../.. -G "Visual Studio 17" -A x64
 
     - name: Build nsclient
       working-directory: tmp/nscp
