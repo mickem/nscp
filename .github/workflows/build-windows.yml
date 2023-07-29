@@ -38,7 +38,19 @@ jobs:
         pip install lua-protobuf
         pip install md-protobuf      
   
+    - uses: shogo82148/actions-setup-perl@v1
+      with:
+        perl-version: '5.34'
 
+    - name: Download/Build openssl
+      run: |
+          curl -L https://www.openssl.org/source/openssl-1.1.1q.tar.gz --output openssl.tar.gz
+          7z x openssl.tar.gz
+          7z x openssl.tar
+          cd openssl-1.1.1q
+          perl Configure VC-WIN64A no-asm
+          nmake
+  
     - name: Download/Build protobuf
       run: |
         curl -L https://github.com/protocolbuffers/protobuf/releases/download/v21.6/protobuf-all-21.6.zip --output protobuf.zip
@@ -56,9 +68,6 @@ jobs:
         msbuild protoc.vcxproj /p:Configuration=Debug
         msbuild libprotobuf-lite.vcxproj /p:Configuration=Release
         msbuild libprotobuf-lite.vcxproj /p:Configuration=Debug
-
-        cd
-
 
       working-directory: tmp/protobuf
 
@@ -111,7 +120,7 @@ jobs:
             SET(BOOST_ROOT "${{ steps.boost-root.outputs.path }}")
             SET(BOOST_LIBRARYDIR "${{ steps.boost-lib.outputs.path }}")
             SET(PROTOBUF_ROOT "D:/a/nscp/nscp/tmp/protobuf/protobuf-21.6")
-            SET(OPENSSL_ROOT_DIR "${LIBRARY_ROOT_FOLDER}/openssl-1.1.1q")
+            SET(OPENSSL_ROOT_DIR "D:/a/nscp/nscp/tmp/openssl-1.1.1q")
             SET(LUA_SOURCE_ROOT "${LIBRARY_ROOT_FOLDER}/lua-5.1.5")
             SET(BREAKPAD_ROOT "${LIBRARY_ROOT_FOLDER}/${breakpad_rel_folder}")
             SET(PYTHON_ROOT "${{ steps.python-path.outputs.path }}")
