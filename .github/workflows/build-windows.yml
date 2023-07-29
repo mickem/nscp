@@ -138,4 +138,9 @@ jobs:
     - name: Build nsclient
       working-directory: tmp/nscp
       run: |
+        copy ${{ steps.boost-lib.outputs.path }}/boost_filesystem-vc143-mt-x64-1_79.dll .
+        copy ${{ steps.boost-lib.outputs.path }}/boost_thread-vc143-mt-x64-1_79.dll .
+        copy ${{ steps.boost-lib.outputs.path }}/boost_program_options-vc143-mt-x64-1_79.dll .
+        copy D:\a\nscp\nscp\tmp\protobuf\protobuf-21.6\cmake\solution\Release\libprotobuf.dll .
+      
         msbuild NSCP.sln /p:Configuration=Release
