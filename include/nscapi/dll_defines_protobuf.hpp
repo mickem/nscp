@@ -33,10 +33,10 @@ building a DLL on windows.
     #define LIBPROTOBUF_EXPORT
   #else
     #if defined(nscp_protobuf_EXPORTS)
-	  #define PROTOBUF_USE_DLLS
+      #define PROTOBUF_USE_DLLS
       #define NSCAPI_PROTOBUF_EXPORT __declspec(dllexport)
     #else
-	  #define PROTOBUF_USE_DLLS
+      #define PROTOBUF_USE_DLLS
       #define NSCAPI_PROTOBUF_EXPORT __declspec(dllimport)
     #endif /* protobuf_EXPORTS */
   #endif /* protobuf_NOLIB */

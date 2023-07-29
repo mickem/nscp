@@ -98,6 +98,7 @@ ELSE ()
 			/usr/local/Cellar/protobuf241/2.4.1/bin
 				${PROTOBUF_BINARYDIR}
 				${PROTOBUF_ROOT}/cmake/solution/Release
+				${PROTOBUF_ROOT}/build/Release
 				${PROTOBUF_ROOT}/vsprojects/Release
 				${PROTOBUF_ROOT}/vsprojects/x64/Release
 				${PROTOBUF_ROOT}/vsprojects/Debug

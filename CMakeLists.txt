@@ -624,9 +624,9 @@ ADD_CUSTOM_TARGET(nscp_full_config
 	WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 	DEPENDS nscp ${ALL_MODULE_NAMES} ${ALL_ZIP_MODULE_NAMES})
 
-IF(WIN32)
-	LOAD_SECTIONS(ALL_INSTALLERS_NAMES "installers/*/CMakeLists.txt" "Installers")
-ENDIF(WIN32)
+#IF(WIN32)
+#	LOAD_SECTIONS(ALL_INSTALLERS_NAMES "installers/*/CMakeLists.txt" "Installers")
+#ENDIF(WIN32)
 
 #############################################################################
 #

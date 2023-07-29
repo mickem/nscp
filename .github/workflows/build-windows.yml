@@ -55,9 +55,9 @@ jobs:
         curl -L https://github.com/protocolbuffers/protobuf/releases/download/v21.6/protobuf-all-21.6.zip --output protobuf.zip
         7z x protobuf.zip
         cd protobuf-21.6
-        mkdir cmake\solution
-        cd cmake\solution
-        cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -A x64 ..
+        mkdir build
+        cd build
+        cmake -Dprotobuf_BUILD_SHARED_LIBS=ON -G "Visual Studio 17" -A x64 ..
 
         msbuild libprotobuf.vcxproj /p:Configuration=Release
         msbuild libprotobuf.vcxproj /p:Configuration=Debug
