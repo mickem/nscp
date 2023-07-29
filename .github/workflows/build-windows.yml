@@ -26,6 +26,17 @@ jobs:
         mkdir nscp
         mkdir protobuf
       shell: cmd
+
+    - name: setup python dependencies
+      run: |
+        pip install mkdocs
+        pip install protobuf
+        pip install jinja2
+        pip install mkdocs-material
+        pip install setuptools
+        pip install json-protobuf
+        pip install lua-protobuf
+        pip install md-protobuf      
   
 
     - name: Download/Build protobuf
