@@ -156,4 +156,14 @@ jobs:
       run: |
         python postbuild.py
         cpack
+
+        dir *.zip
   
+    - uses: actions/upload-artifact@v3
+      with:
+        name: NSClient++-version-x64.zip
+        path: tmp/nscp/NSCP-*-x64.zip
+    - uses: actions/upload-artifact@v3
+      with:
+        name: NSClient++-version-docs.zip
+        path: tmp/nscp/NSCP-*-docs.zip
