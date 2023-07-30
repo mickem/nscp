@@ -127,6 +127,8 @@ jobs:
             SET(BOOST_LIBRARYDIR "${{ steps.boost-lib.outputs.path }}")
             SET(PROTOBUF_ROOT "D:/a/nscp/nscp/tmp/protobuf-21.6")
             SET(PROTOBUF_LIBRARYDIR "${PROTOBUF_ROOT}/build/Release")
+            SET(PROTOBUF_LIBRARYDIR_RELEASE "${PROTOBUF_ROOT}/build/Release")
+            SET(PROTOBUF_LIBRARYDIR_DEBUG "${PROTOBUF_ROOT}/build/Debug")
             SET(OPENSSL_ROOT_DIR "D:/a/nscp/nscp/tmp/openssl-1.1.1q")
             SET(LUA_SOURCE_ROOT "${LIBRARY_ROOT_FOLDER}/lua-5.1.5")
             SET(BREAKPAD_ROOT "${LIBRARY_ROOT_FOLDER}/${breakpad_rel_folder}")

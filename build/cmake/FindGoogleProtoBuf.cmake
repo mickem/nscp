@@ -61,6 +61,7 @@ ELSE ()
 			${PROTOBUF_ROOT}/build/Release
 			/usr/local/Cellar/protobuf241/2.4.1/lib
 			${GNUWIN32_DIR}/lib
+		NO_DEFAULT_PATH 
 	)
 	IF(CMAKE_TRACE)
 		MESSAGE(STATUS "    PROTOBUF_LIBRARY_RELEASE=${PROTOBUF_LIBRARY_RELEASE}")
@@ -78,7 +79,8 @@ ELSE ()
 			${PROTOBUF_ROOT}/cmake/solution/Debug
 			/usr/local/Cellar/protobuf241/2.4.1/lib
 			${GNUWIN32_DIR}/lib
-	)
+		NO_DEFAULT_PATH 
+			)
 	IF(CMAKE_TRACE)
 		MESSAGE(STATUS "    PROTOBUF_LIBRARY_DEBUG=${PROTOBUF_LIBRARY_DEBUG}")
 	ENDIF(CMAKE_TRACE)
