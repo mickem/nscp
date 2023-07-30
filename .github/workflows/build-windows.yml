@@ -28,9 +28,7 @@ jobs:
     - name: make dirs
       run: |
         mkdir tmp
-        cd tmp
-        mkdir nscp
-        mkdir protobuf
+        mkdir tmp\nscp
       shell: cmd
 
     - name: setup python dependencies
@@ -48,20 +46,27 @@ jobs:
       with:
         perl-version: '5.34'
 
-    - name: Download/Build openssl
+    - name: Download openssl
       run: |
-          curl -L https://www.openssl.org/source/openssl-1.1.1q.tar.gz --output openssl.tar.gz
-          7z x openssl.tar.gz
-          7z x openssl.tar
-          cd openssl-1.1.1q
+            curl -L https://www.openssl.org/source/openssl-1.1.1q.tar.gz --output openssl.tar.gz
+            7z x openssl.tar.gz
+            7z x openssl.tar
+      working-directory: tmp
+  
+    - name: Build openssl
+      run: |
           perl Configure VC-WIN64A no-asm
           nmake
-  
-    - name: Download/Build protobuf
+      working-directory: tmp/openssl-1.1.1q
+
+    - name: Download protobuf
       run: |
-        curl -L https://github.com/protocolbuffers/protobuf/releases/download/v21.6/protobuf-all-21.6.zip --output protobuf.zip
-        7z x protobuf.zip
-        cd protobuf-21.6
+            curl -L https://github.com/protocolbuffers/protobuf/releases/download/v21.6/protobuf-all-21.6.zip --output protobuf.zip
+            7z x protobuf.zip
+      working-directory: tmp
+    
+    - name: Build protobuf
+      run: |
         mkdir build
         cd build
         cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -A x64 ..
@@ -70,8 +75,7 @@ jobs:
         msbuild libprotoc.vcxproj /p:Configuration=Release
         msbuild protoc.vcxproj /p:Configuration=Release
         msbuild libprotobuf-lite.vcxproj /p:Configuration=Release
-
-      working-directory: tmp/protobuf
+      working-directory: tmp/protobuf-21.6
 
 
     - name: Build Boost
@@ -120,7 +124,7 @@ jobs:
             SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
             SET(BOOST_ROOT "${{ steps.boost-root.outputs.path }}")
             SET(BOOST_LIBRARYDIR "${{ steps.boost-lib.outputs.path }}")
-            SET(PROTOBUF_ROOT "D:/a/nscp/nscp/tmp/protobuf/protobuf-21.6")
+            SET(PROTOBUF_ROOT "D:/a/nscp/nscp/tmp/protobuf-21.6")
             SET(OPENSSL_ROOT_DIR "D:/a/nscp/nscp/tmp/openssl-1.1.1q")
             SET(LUA_SOURCE_ROOT "${LIBRARY_ROOT_FOLDER}/lua-5.1.5")
             SET(BREAKPAD_ROOT "${LIBRARY_ROOT_FOLDER}/${breakpad_rel_folder}")
@@ -139,10 +143,6 @@ jobs:
     - name: Build nsclient
       working-directory: tmp/nscp
       run: |
-
-        copy ${{ steps.boost.outputs.librarydir }}/boost_filesystem.dll .
-        copy ${{ steps.boost.outputs.librarydir }}/boost_thread.dll .
-        copy ${{ steps.boost.outputs.librarydir }}/boost_program_options.dll .
         copy D:\a\nscp\nscp\tmp\protobuf\protobuf-21.6\build\Release\libprotobuf.dll .
       
         msbuild NSCP.sln /p:Configuration=Release
