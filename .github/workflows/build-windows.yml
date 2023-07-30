@@ -18,6 +18,13 @@ jobs:
 
     - uses: ilammy/msvc-dev-cmd@v1
 
+    - name: Setup cmake
+      uses: jwlawson/actions-setup-cmake@v1.13
+      with:
+        cmake-version: '3.23.1'
+    - name: Use cmake
+      run: cmake --version
+
     - name: make dirs
       run: |
         mkdir tmp
