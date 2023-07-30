@@ -132,6 +132,7 @@ jobs:
             SET(BREAKPAD_ROOT "${LIBRARY_ROOT_FOLDER}/${breakpad_rel_folder}")
             SET(PYTHON_ROOT "${{ steps.python-path.outputs.path }}")
             SET(CRYPTOPP_ROOT "${LIBRARY_ROOT_FOLDER}/CRYPTOPP_8_0_0")
+            SET(CMAKE_TRACE TRUE)
 
             #SET(CSHARP_DOTNET_VERSION "v4.0.30319")
             #SET(ARCHIVE_FOLDER "TODO")
