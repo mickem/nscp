@@ -154,7 +154,9 @@ jobs:
     - name: Generate archives
       working-directory: tmp/nscp
       run: |
+        echo Running postbuild
         python postbuild.py
+        echo Running cpack
         cpack
 
         dir *.zip

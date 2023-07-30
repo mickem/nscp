@@ -4,7 +4,8 @@ import zipfile
 import fnmatch
 import shutil
 
-execfile("config.py")
+from config import BUILD_PYTHON_FOLDER, VERSION_TXT, VERSION_ARCH, BUILD_TARGET_EXE_PATH, \
+  DOCS_FOLDER, BREAKPAD_FOUND, BREAKPAD_DUMPSYMS_EXE, ARCHIVE_FOLDER
 
 sys.path.append(BUILD_PYTHON_FOLDER)
 from VersionHandler import VersionHandler
