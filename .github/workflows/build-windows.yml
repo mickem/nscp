@@ -163,5 +163,6 @@ jobs:
   
     - uses: actions/upload-artifact@v3
       with:
+        name: NSClient++-x64
         path: tmp/nscp/*.zip
         if-no-files-found: error
