@@ -1,4 +1,4 @@
-name: CMake
+name: Build Windows x64
 
 on:
   push: {}
@@ -150,3 +150,10 @@ jobs:
         copy D:\a\nscp\nscp\tmp\protobuf-21.6\build\Release\libprotobuf.dll .
       
         msbuild NSCP.sln /p:Configuration=Release
+
+    - name: Generate archives
+      working-directory: tmp/nscp
+      run: |
+        python postbuild.py
+        cpack
+  
