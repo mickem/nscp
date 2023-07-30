@@ -22,8 +22,13 @@ jobs:
       uses: jwlawson/actions-setup-cmake@v1.13
       with:
         cmake-version: '3.23.1'
-    - name: Use cmake
-      run: cmake --version
+
+    - id: version
+      run: |
+          python build\python\version.py -f version.txt -a >> $env:GITHUB_OUTPUT
+      shell: pwsh        
+    - name: Show version
+      run: echo ${{ steps.version.outputs.version }}
 
     - name: make dirs
       run: |
@@ -163,6 +168,11 @@ jobs:
   
     - uses: actions/upload-artifact@v3
       with:
-        name: NSClient++-x64
-        path: tmp/nscp/*.zip
+        name: NSCP-${{ steps.version.outputs.version }}-docs.zip
+        path: tmp/nscp/NSCP-${{ steps.version.outputs.version }}-x64-docs.zip
+        if-no-files-found: error
+    - uses: actions/upload-artifact@v3
+      with:
+        name: NSCP-${{ steps.version.outputs.version }}-x64.zip
+        path: tmp/nscp/NSCP-${{ steps.version.outputs.version }}-x64.zip
         if-no-files-found: error
