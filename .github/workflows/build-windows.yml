@@ -107,7 +107,6 @@ jobs:
       with:
         path: tmp/nscp/build.cmake
         contents: |
-            set(Boost_USE_STATIC_LIBS ON)
             set(Boost_USE_STATIC_RUNTIME ON)
 
             SET(USE_STATIC_RUNTIME FALSE)
