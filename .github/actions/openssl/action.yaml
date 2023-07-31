@@ -22,9 +22,9 @@ runs:
     - id: setup
       run: |
             if ("${{ inputs.architecture }}" -eq "x64"){
-              Write-Host "cmd=VC-WIN64A" >> $env:GITHUB_OUTPUT
+              echo "cmd=VC-WIN64A" >> $env:GITHUB_OUTPUT
             } else {
-              Write-Host "cmd=VC-WIN32" >> $env:GITHUB_OUTPUT
+              echo "cmd=VC-WIN32" >> $env:GITHUB_OUTPUT
             }
       shell: pwsh
 
@@ -49,7 +49,7 @@ runs:
 
     - name: Build openssl
       run: |
-          perl Configure ${{steps.setup.outputs.cmd }} no-asm
+          perl Configure ${{ steps.setup.outputs.cmd }} no-asm
           nmake
       working-directory: tmp/openssl-${{ inputs.version }}
       shell: cmd
