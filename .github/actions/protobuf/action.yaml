@@ -29,7 +29,7 @@ runs:
     - id: cache
       uses: actions/cache@v3
       with:
-        key: ${{ runner.os }}-protobuf-${{ inputs.version }}-${{ input.architecture }}
+        key: ${{ runner.os }}-protobuf-${{ inputs.version }}-${{ inputs.architecture }}
         path: |
           tmp/protobuf-${{ inputs.version }}/build/Release
 
@@ -39,7 +39,7 @@ runs:
         mkdir build
         cd build
         dir 
-        cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -A ${{ input.architecture }} ..
+        cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -A ${{ inputs.architecture }} ..
 
         msbuild libprotobuf.vcxproj /p:Configuration=Release
         msbuild libprotoc.vcxproj /p:Configuration=Release

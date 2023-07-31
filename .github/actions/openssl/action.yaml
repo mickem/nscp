@@ -21,7 +21,7 @@ runs:
 
     - id: setup
       run: |
-            if ("${{ input.architecture }}" -eq "x64"){
+            if ("${{ inputs.architecture }}" -eq "x64"){
               Write-Host "cmd=VC-WIN64A" >> $env:GITHUB_ENV
             } else {
               Write-Host "cmd=VC-WIN32" >> $env:GITHUB_ENV
@@ -39,7 +39,7 @@ runs:
     - id: cache
       uses: actions/cache@v3
       with:
-        key: ${{ runner.os }}-openssl-${{ inputs.version }}-${{ input.architecture }}
+        key: ${{ runner.os }}-openssl-${{ inputs.version }}-${{ inputs.architecture }}
         path: |
           tmp/openssl-${{ inputs.version }}/libcrypto*.*
           tmp/openssl-${{ inputs.version }}/libssl*.*
