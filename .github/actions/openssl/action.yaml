@@ -1,6 +1,6 @@
 ---
-name: Run tests
-description: Run test suite towards a given environment
+name: Build openssl
+description: Build and cache openssl libraries
 inputs:
   version:
     description: The openssl version to build
@@ -8,10 +8,10 @@ inputs:
 outputs:
   path:
     description: The path to the openssl folder
-    value:  ${{ steps.openssl_path.outputs.path }}
+    value:  ${{ steps.path.outputs.path }}
   path_unix:
     description: The path to the openssl folder
-    value:  ${{ steps.openssl_path.outputs.path_unix }}
+    value:  ${{ steps.path.outputs.path_unix }}
 runs:
   using: composite
   steps:
@@ -29,8 +29,8 @@ runs:
       with:
         key: ${{ runner.os }}-openssl-${{ inputs.version }}-${{ runner.arch }}
         path: |
-          tmp/openssl-${{ ENV.OPENSSL_VERSION }}/libcrypto.*
-          tmp/openssl-${{ ENV.OPENSSL_VERSION }}/libssl.*
+          tmp/openssl-${{ inputs.version }}/libcrypto.*
+          tmp/openssl-${{ inputs.version }}/libssl.*
 
     - id: has_cache
       run: |
@@ -41,21 +41,21 @@ runs:
           echo "has_cache=false" >> $env:GITHUB_OUTPUT
         }
       shell: pwsh
-      working-directory: tmp/openssl-${{ ENV.OPENSSL_VERSION }}
+      working-directory: tmp/openssl-${{ inputs.version }}
 
     - name: Build openssl
       run: |
           perl Configure VC-WIN64A no-asm
           nmake
-      working-directory: tmp/openssl-${{ ENV.OPENSSL_VERSION }}
+      working-directory: tmp/openssl-${{ inputs.version }}
       shell: cmd
       if: steps.has_cache.outputs.has_cache == 'false'
 
-    - id: openssl_path
+    - id: path
       run: |
         $path=$pwd.path
         $path_unix=$pwd.path.replace('\','/')
         echo "path=$path" >> $env:GITHUB_OUTPUT
         echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
       shell: pwsh
-      working-directory: tmp/openssl-${{ ENV.OPENSSL_VERSION }}
+      working-directory: tmp/openssl-${{ inputs.version }}
