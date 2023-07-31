@@ -131,7 +131,7 @@ jobs:
     - name: CMake x86
       working-directory: tmp/nscp
       run: |
-        cmake ../.. -G "Visual Studio 17"
+        cmake ../.. -G "Visual Studio 17" -A Win32
       if: ${{ inputs.architecture == 'x86' }}
 
   
