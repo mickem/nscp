@@ -1,0 +1,61 @@
+---
+name: Run tests
+description: Run test suite towards a given environment
+inputs:
+  version:
+    description: The openssl version to build
+    required: true
+outputs:
+  path:
+    description: The path to the openssl folder
+    value:  ${{ steps.openssl_path.outputs.path }}
+  path_unix:
+    description: The path to the openssl folder
+    value:  ${{ steps.openssl_path.outputs.path_unix }}
+runs:
+  using: composite
+  steps:
+
+    - name: Download openssl
+      run: |
+            curl -L https://www.openssl.org/source/openssl-${{ inputs.version }}.tar.gz --output openssl.tar.gz
+            7z x openssl.tar.gz
+            7z x openssl.tar
+      working-directory: tmp
+      shell: cmd
+
+    - name: Cache Gradle packages
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-openssl-${{ inputs.version }}-${{ runner.arch }}
+        path: |
+          tmp/openssl-${{ ENV.OPENSSL_VERSION }}/libcrypto.*
+          tmp/openssl-${{ ENV.OPENSSL_VERSION }}/libssl.*
+
+    - id: has_cache
+      run: |
+        dir *.*
+        if (Test-Path -Path libcrypto_static.lib -PathType Leaf) {
+          echo "has_cache=true" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "has_cache=false" >> $env:GITHUB_OUTPUT
+        }
+      shell: pwsh
+      working-directory: tmp/openssl-${{ ENV.OPENSSL_VERSION }}
+
+    - name: Build openssl
+      run: |
+          perl Configure VC-WIN64A no-asm
+          nmake
+      working-directory: tmp/openssl-${{ ENV.OPENSSL_VERSION }}
+      shell: cmd
+      if: steps.has_cache.outputs.has_cache == 'false'
+
+    - id: openssl_path
+      run: |
+        $path=$pwd.path
+        $path_unix=$pwd.path.replace('\','/')
+        echo "path=$path" >> $env:GITHUB_OUTPUT
+        echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+      working-directory: tmp/openssl-${{ ENV.OPENSSL_VERSION }}
