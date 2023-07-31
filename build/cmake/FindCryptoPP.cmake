@@ -31,7 +31,6 @@ ENDIF()
 FIND_LIBRARY(CRYPTOPP_LIBRARIES_RELEASE
 	NAMES crypto++ cryptlib cryptopp
 	PATHS
-		${CRYPTOPP_LIB_ROOT}/DLL_Output/Release
 		${CRYPTOPP_LIB_ROOT}/Output/Release
 		${CRYPTOPP_LIB_ROOT}/Output
 		/usr/lib/
@@ -39,7 +38,6 @@ FIND_LIBRARY(CRYPTOPP_LIBRARIES_RELEASE
 FIND_LIBRARY(CRYPTOPP_LIBRARIES_DEBUG
 	NAMES crypto++ cryptlib cryptopp
 	PATHS
-		${CRYPTOPP_LIB_ROOT}/DLL_Output/Debug
 		${CRYPTOPP_LIB_ROOT}/Output/Debug
 		${CRYPTOPP_LIB_ROOT}/Output
 		/usr/lib/
