@@ -33,14 +33,31 @@ runs:
         path: |
           tmp/protobuf-${{ inputs.version }}/build/Release
 
-    - name: Build
+    - name: Prepare
       run: |
 
         mkdir build
         cd build
-        dir 
-        cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -A ${{ inputs.architecture }} ..
+      working-directory: tmp/protobuf-${{ inputs.version }}
+      shell: cmd
+      if: ${{ steps.cache.outputs.cache-hit != 'true' }}
 
+    - name: CMake x64
+      run: |
+        cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -A ${{ inputs.architecture }} ..
+      working-directory: tmp/protobuf-${{ inputs.version }}/build
+      shell: cmd
+      if: ${{ steps.cache.outputs.cache-hit != 'true' && inputs.architecture == 'x64' }}
+
+    - name: CMake x86
+      run: |
+        cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -A ${{ inputs.architecture }} ..
+      working-directory: tmp/protobuf-${{ inputs.version }}/build
+      shell: cmd
+      if: ${{ steps.cache.outputs.cache-hit != 'true' && inputs.architecture == 'x86' }}
+
+    - name: Build
+      run: |
         msbuild libprotobuf.vcxproj /p:Configuration=Release
         msbuild libprotoc.vcxproj /p:Configuration=Release
         msbuild protoc.vcxproj /p:Configuration=Release
