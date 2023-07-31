@@ -125,7 +125,7 @@ jobs:
       working-directory: tmp/nscp
       run: |
         cmake ../.. -G "Visual Studio 17"
-        if: ${{ inputs.architecture == 'x86' }}
+      if: ${{ inputs.architecture == 'x86' }}
 
   
     - name: Build nsclient
