@@ -22,9 +22,9 @@ runs:
     - id: setup
       run: |
             if ("${{ inputs.architecture }}" -eq "x64"){
-              Write-Host "cmd=VC-WIN64A" >> $env:GITHUB_ENV
+              Write-Host "cmd=VC-WIN64A" >> $env:GITHUB_OUTPUT
             } else {
-              Write-Host "cmd=VC-WIN32" >> $env:GITHUB_ENV
+              Write-Host "cmd=VC-WIN32" >> $env:GITHUB_OUTPUT
             }
       shell: pwsh
 
