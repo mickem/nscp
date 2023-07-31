@@ -3,6 +3,14 @@ name: Build Windows
 on:
   push: {}
 
+
+env:
+  PERL_VERSION: 5.34
+  PYTHON_VERSION: 3.11
+  OPENSSL_VERSION: 1.1.1q
+  PROTOBUF_VERSION: 21.6
+  BOOST_VERSION: 1.79.0
+
 jobs:
   build-x64:
     runs-on: windows-latest
@@ -14,7 +22,7 @@ jobs:
     - id: python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: ${{ ENV.PYTHON_VERSION }}
 
     - uses: ilammy/msvc-dev-cmd@v1
 
@@ -31,7 +39,7 @@ jobs:
 
     - uses: shogo82148/actions-setup-perl@v1
       with:
-        perl-version: '5.34'
+        perl-version: ${{ ENV.PERL_VERSION }}
 
     - name: setup python dependencies
       run: |
@@ -46,7 +54,7 @@ jobs:
   
     - name: Download openssl
       run: |
-            curl -L https://www.openssl.org/source/openssl-1.1.1q.tar.gz --output openssl.tar.gz
+            curl -L https://www.openssl.org/source/openssl-${{ ENV.OPENSSL_VERSION }}.tar.gz --output openssl.tar.gz
             7z x openssl.tar.gz
             7z x openssl.tar
       working-directory: tmp
@@ -55,7 +63,7 @@ jobs:
       run: |
           perl Configure VC-WIN64A no-asm
           nmake
-      working-directory: tmp/openssl-1.1.1q
+      working-directory: tmp/${{ ENV.OPENSSL_VERSION }}
 
     - id: openssl_path
       run: |
@@ -64,11 +72,11 @@ jobs:
         echo "path=$path" >> $env:GITHUB_OUTPUT
         echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
       shell: pwsh
-      working-directory: tmp/openssl-1.1.1q
+      working-directory: tmp/${{ ENV.OPENSSL_VERSION }}
 
     - name: Download protobuf
       run: |
-            curl -L https://github.com/protocolbuffers/protobuf/releases/download/v21.6/protobuf-all-21.6.zip --output protobuf.zip
+            curl -L https://github.com/protocolbuffers/protobuf/releases/download/v${{ ENV.PROTOBUF_VERSION }}/protobuf-all-${{ ENV.PROTOBUF_VERSION }}.zip --output protobuf.zip
             7z x protobuf.zip
       working-directory: tmp
     
@@ -83,7 +91,7 @@ jobs:
         msbuild libprotoc.vcxproj /p:Configuration=Release
         msbuild protoc.vcxproj /p:Configuration=Release
         msbuild libprotobuf-lite.vcxproj /p:Configuration=Release
-      working-directory: tmp/protobuf-21.6
+      working-directory: tmp/protobuf-${{ ENV.PROTOBUF_VERSION }}
     - id: protobuf_path
       run: |
         $path=$pwd.path
@@ -91,14 +99,14 @@ jobs:
         echo "path=$path" >> $env:GITHUB_OUTPUT
         echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
       shell: pwsh
-      working-directory: tmp/protobuf-21.6
+      working-directory: tmp/protobuf-${{ ENV.PROTOBUF_VERSION }}
 
 
     - name: Build Boost
       id: boost
       uses: egor-tensin/build-boost@v1
       with:
-        version: 1.79.0
+        version: ${{ ENV.BOOST_VERSION }}
         libraries: system filesystem thread regex date_time program_options python chrono
         platform: x64
         configuration: Release
@@ -112,7 +120,6 @@ jobs:
         $path_unix="${{ steps.python.outputs.python-path }}".replace('\','/')
         echo "python_path=$path_unix" >> $env:GITHUB_OUTPUT
       shell: pwsh
-      working-directory: tmp/protobuf-21.6
         
     - uses: DamianReeves/write-file-action@master
       with:
