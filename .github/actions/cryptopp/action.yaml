@@ -37,6 +37,8 @@ runs:
 
     - name: Build x86
       run: |
+        msbuild cryptlib.vcxproj /p:Configuration=Release /p:Platform=win32
+        msbuild cryptlib.vcxproj /p:Configuration=Debug /p:Platform=win32
         msbuild cryptdll.vcxproj /p:Configuration=Release /p:Platform=win32
         msbuild cryptdll.vcxproj /p:Configuration=Debug /p:Platform=win32
         tree
@@ -46,6 +48,8 @@ runs:
 
     - name: Build x86
       run: |
+        msbuild cryptlib.vcxproj /p:Configuration=Release /p:Platform=x64
+        msbuild cryptlib.vcxproj /p:Configuration=Debug /p:Platform=x64
         msbuild cryptdll.vcxproj /p:Configuration=Release /p:Platform=x64
         msbuild cryptdll.vcxproj /p:Configuration=Debug /p:Platform=x64
         tree
