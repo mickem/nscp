@@ -31,6 +31,9 @@ runs:
         path: |
           tmp/openssl-${{ inputs.version }}/libcrypto*.*
           tmp/openssl-${{ inputs.version }}/libssl*.*
+          tmp/openssl-${{ inputs.version }}/include/openssl/opensslconf.h
+          tmp/openssl-${{ inputs.version }}/include/crypto/dso_conf.h
+          tmp/openssl-${{ inputs.version }}/include/crypto/bn_conf.h
 
     - id: has_cache
       run: |
