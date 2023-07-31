@@ -62,7 +62,7 @@ runs:
         msbuild libprotoc.vcxproj /p:Configuration=Release
         msbuild protoc.vcxproj /p:Configuration=Release
         msbuild libprotobuf-lite.vcxproj /p:Configuration=Release
-      working-directory: tmp/protobuf-${{ inputs.version }}
+      working-directory: tmp/protobuf-${{ inputs.version }}/build
       shell: cmd
       if: ${{ steps.cache.outputs.cache-hit != 'true' }}
 
