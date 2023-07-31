@@ -53,7 +53,7 @@ jobs:
         pip install md-protobuf      
   
     - id: openssl
-      uses: ./github/actions/openssl
+      uses: ./.github/actions/openssl
       with:
         version: ${{ ENV.OPENSSL_VERSION }}
 
