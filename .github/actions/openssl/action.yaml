@@ -29,8 +29,8 @@ runs:
       with:
         key: ${{ runner.os }}-openssl-${{ inputs.version }}-${{ runner.arch }}
         path: |
-          tmp/openssl-${{ inputs.version }}/libcrypto.*
-          tmp/openssl-${{ inputs.version }}/libssl.*
+          tmp/openssl-${{ inputs.version }}/libcrypto*.*
+          tmp/openssl-${{ inputs.version }}/libssl*.*
 
     - id: has_cache
       run: |
