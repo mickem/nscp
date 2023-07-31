@@ -5,6 +5,9 @@ inputs:
   version:
     description: The openssl version to build
     required: true
+  architecture:
+    description: The openssl architecture to build
+    required: true
 outputs:
   path:
     description: The path to the openssl folder
@@ -15,6 +18,15 @@ outputs:
 runs:
   using: composite
   steps:
+
+    - id: setup
+      run: |
+            if ("${{ input.architecture }}" -eq "x64"){
+              Write-Host "cmd=VC-WIN64A" >> $env:GITHUB_ENV
+            } else {
+              Write-Host "cmd=VC-WIN32" >> $env:GITHUB_ENV
+            }
+      shell: pwsh
 
     - name: Download openssl
       run: |
@@ -27,7 +39,7 @@ runs:
     - id: cache
       uses: actions/cache@v3
       with:
-        key: ${{ runner.os }}-openssl-${{ inputs.version }}-${{ runner.arch }}
+        key: ${{ runner.os }}-openssl-${{ inputs.version }}-${{ input.architecture }}
         path: |
           tmp/openssl-${{ inputs.version }}/libcrypto*.*
           tmp/openssl-${{ inputs.version }}/libssl*.*
@@ -37,8 +49,7 @@ runs:
 
     - name: Build openssl
       run: |
-          dir
-          perl Configure VC-WIN64A no-asm
+          perl Configure ${{steps.setup.outputs.cmd }} no-asm
           nmake
       working-directory: tmp/openssl-${{ inputs.version }}
       shell: cmd
