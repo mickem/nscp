@@ -23,28 +23,19 @@ runs:
       working-directory: tmp
       shell: cmd
 
-    - name: Cache Gradle packages
+    - id: cache
       uses: actions/cache@v3
       with:
         key: ${{ runner.os }}-protobuf-${{ inputs.version }}-${{ runner.arch }}
         path: |
-          tmp/protobuf-${{ inputs.version }}/build/Release/*.*
-
-    - id: has_cache
-      run: |
-        dir *.*
-        if (Test-Path -Path /build/Release/libprotobuf.dll -PathType Leaf) {
-          echo "has_cache=true" >> $env:GITHUB_OUTPUT
-        } else {
-          echo "has_cache=false" >> $env:GITHUB_OUTPUT
-        }
-      shell: pwsh
-      working-directory: tmp/protobuf-${{ inputs.version }}
+          tmp/protobuf-${{ inputs.version }}/build/Release
 
     - name: Build
       run: |
+
         mkdir build
         cd build
+        dir 
         cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -A x64 ..
 
         msbuild libprotobuf.vcxproj /p:Configuration=Release
@@ -53,7 +44,7 @@ runs:
         msbuild libprotobuf-lite.vcxproj /p:Configuration=Release
       working-directory: tmp/protobuf-${{ inputs.version }}
       shell: cmd
-      if: steps.has_cache.outputs.has_cache == 'false'
+      if: ${{ steps.cache.outputs.cache-hit != 'true' }}
 
     - id: path
       run: |

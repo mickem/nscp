@@ -24,7 +24,7 @@ runs:
       working-directory: tmp
       shell: cmd
 
-    - name: Cache Gradle packages
+    - id: cache
       uses: actions/cache@v3
       with:
         key: ${{ runner.os }}-openssl-${{ inputs.version }}-${{ runner.arch }}
@@ -35,24 +35,14 @@ runs:
           tmp/openssl-${{ inputs.version }}/include/crypto/dso_conf.h
           tmp/openssl-${{ inputs.version }}/include/crypto/bn_conf.h
 
-    - id: has_cache
-      run: |
-        dir *.*
-        if (Test-Path -Path libcrypto_static.lib -PathType Leaf) {
-          echo "has_cache=true" >> $env:GITHUB_OUTPUT
-        } else {
-          echo "has_cache=false" >> $env:GITHUB_OUTPUT
-        }
-      shell: pwsh
-      working-directory: tmp/openssl-${{ inputs.version }}
-
     - name: Build openssl
       run: |
+          dir
           perl Configure VC-WIN64A no-asm
           nmake
       working-directory: tmp/openssl-${{ inputs.version }}
       shell: cmd
-      if: steps.has_cache.outputs.has_cache == 'false'
+      if: ${{ steps.cache.outputs.cache-hit != 'true' }}
 
     - id: path
       run: |
