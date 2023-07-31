@@ -23,6 +23,8 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ ENV.PYTHON_VERSION }}
+        architecture: x64
+        cache-dependency-path: 'build/python/requirements.txt'
         cache: 'pip'
 
     - uses: ilammy/msvc-dev-cmd@v1
