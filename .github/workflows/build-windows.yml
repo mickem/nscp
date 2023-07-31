@@ -16,6 +16,7 @@ env:
   OPENSSL_VERSION: 1.1.1q
   PROTOBUF_VERSION: 21.6
   BOOST_VERSION: 1.79.0
+  CRYPTOPP_VERSION: 880
 
 jobs:
   build:
@@ -75,6 +76,12 @@ jobs:
         version: ${{ ENV.PROTOBUF_VERSION }}
         architecture: ${{ inputs.architecture }}
 
+    - id: cryptopp
+      uses: ./.github/actions/cryptopp
+      with:
+        version: ${{ ENV.CRYPTOPP_VERSION }}
+        architecture: ${{ inputs.architecture }}
+  
     - name: Build Boost
       id: boost
       uses: egor-tensin/build-boost@v1
@@ -109,7 +116,7 @@ jobs:
             SET(OPENSSL_ROOT_DIR "${{ steps.openssl.outputs.path_unix }}")
             SET(LUA_SOURCE_ROOT "${LIBRARY_ROOT_FOLDER}/lua-5.1.5")
             SET(PYTHON_ROOT "${{ steps.path.outputs.python_path }}")
-            SET(CRYPTOPP_ROOT "${LIBRARY_ROOT_FOLDER}/CRYPTOPP_8_0_0")
+            SET(CRYPTOPP_ROOT "${{ steps.cryptopp.outputs.path_unix }}")
 
             #SET(CSHARP_DOTNET_VERSION "v4.0.30319")
             #SET(ARCHIVE_FOLDER "TODO")

@@ -1,0 +1,52 @@
+---
+name: Build cryptopp
+description: Build and cache cryptopp libraries
+inputs:
+  version:
+    description: The cryptopp version to build
+    required: true
+  architecture:
+    description: The openssl architecture to build
+    required: true
+outputs:
+  path:
+    description: The path to the cryptopp folder
+    value:  ${{ steps.path.outputs.path }}
+  path_unix:
+    description: The path to the cryptopp folder
+    value:  ${{ steps.path.outputs.path_unix }}
+runs:
+  using: composite
+  steps:
+
+    - name: Download
+      run: |
+            curl -L https://www.cryptopp.com/cryptopp${{ inputs.version }}.zip --output cryptopp.zip
+            mkdir cryptopp
+            cd cryptopp
+            7z x ..\cryptopp.zip
+      working-directory: tmp
+      shell: cmd
+
+    - id: cache
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-cryptopp-${{ inputs.version }}-${{ inputs.architecture }}
+        path: |
+          tmp/cryptopp/Win32/DLL_Output/Release
+
+    - name: Build
+      run: |
+        msbuild cryptdll.vcxproj /p:Configuration=Release
+      working-directory: tmp/cryptopp
+      shell: cmd
+      if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+
+    - id: path
+      run: |
+        $path=$pwd.path
+        $path_unix=$pwd.path.replace('\','/')
+        echo "path=$path" >> $env:GITHUB_OUTPUT
+        echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+      working-directory: tmp/cryptopp
