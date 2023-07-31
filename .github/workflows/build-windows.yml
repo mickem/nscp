@@ -115,11 +115,19 @@ jobs:
             #SET(ARCHIVE_FOLDER "TODO")
             #SET(TARGET_SITE "TODO")
   
-    - name: CMake nsclient
+    - name: CMake x64
       working-directory: tmp/nscp
       run: |
-        cmake ../.. -G "Visual Studio 17" -A ${{ inputs.architecture }}
+        cmake ../.. -G "Visual Studio 17" -A x64
+      if: ${{ inputs.architecture == 'x64' }}
 
+    - name: CMake x86
+      working-directory: tmp/nscp
+      run: |
+        cmake ../.. -G "Visual Studio 17"
+        if: ${{ inputs.architecture == 'x86' }}
+
+  
     - name: Build nsclient
       working-directory: tmp/nscp
       run: |
