@@ -33,14 +33,21 @@ runs:
       with:
         key: ${{ runner.os }}-cryptopp-${{ inputs.version }}-${{ inputs.architecture }}
         path: |
-          tmp/cryptopp/Win32/DLL_Output/Release
+          tmp/cryptopp/*/DLL_Output/Release
 
-    - name: Build
+    - name: Build x86
       run: |
-        msbuild cryptdll.vcxproj /p:Configuration=Release
+        msbuild cryptdll.vcxproj /p:Configuration=Release /p:Platform=win32
       working-directory: tmp/cryptopp
       shell: cmd
-      if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+      if: ${{ steps.cache.outputs.cache-hit != 'true' && inputs.architecture == 'x86' }}
+
+    - name: Build x86
+      run: |
+        msbuild cryptdll.vcxproj /p:Configuration=Release /p:Platform=x64
+      working-directory: tmp/cryptopp
+      shell: cmd
+      if: ${{ steps.cache.outputs.cache-hit != 'true' && inputs.architecture == 'x64' }}
 
     - id: path
       run: |
