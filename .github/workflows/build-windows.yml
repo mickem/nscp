@@ -1,10 +1,10 @@
-name: Build Windows x64
+name: Build Windows
 
 on:
   push: {}
 
 jobs:
-  build:
+  build-x64:
     runs-on: windows-latest
 
     steps:
@@ -18,23 +18,20 @@ jobs:
 
     - uses: ilammy/msvc-dev-cmd@v1
 
-    - name: Setup cmake
-      uses: jwlawson/actions-setup-cmake@v1.13
-      with:
-        cmake-version: '3.23.1'
-
     - id: version
       run: |
           python build\python\version.py -f version.txt -a >> $env:GITHUB_OUTPUT
-      shell: pwsh        
-    - name: Show version
-      run: echo ${{ steps.version.outputs.version }}
+      shell: pwsh
 
     - name: make dirs
       run: |
         mkdir tmp
         mkdir tmp\nscp
       shell: cmd
+
+    - uses: shogo82148/actions-setup-perl@v1
+      with:
+        perl-version: '5.34'
 
     - name: setup python dependencies
       run: |
@@ -47,10 +44,6 @@ jobs:
         pip install lua-protobuf
         pip install md-protobuf      
   
-    - uses: shogo82148/actions-setup-perl@v1
-      with:
-        perl-version: '5.34'
-
     - name: Download openssl
       run: |
             curl -L https://www.openssl.org/source/openssl-1.1.1q.tar.gz --output openssl.tar.gz
@@ -62,6 +55,15 @@ jobs:
       run: |
           perl Configure VC-WIN64A no-asm
           nmake
+      working-directory: tmp/openssl-1.1.1q
+
+    - id: openssl_path
+      run: |
+        $path=$pwd.path
+        $path_unix=$pwd.path.replace('\','/')
+        echo "path=$path" >> $env:GITHUB_OUTPUT
+        echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
+      shell: pwsh
       working-directory: tmp/openssl-1.1.1q
 
     - name: Download protobuf
@@ -82,6 +84,14 @@ jobs:
         msbuild protoc.vcxproj /p:Configuration=Release
         msbuild libprotobuf-lite.vcxproj /p:Configuration=Release
       working-directory: tmp/protobuf-21.6
+    - id: protobuf_path
+      run: |
+        $path=$pwd.path
+        $path_unix=$pwd.path.replace('\','/')
+        echo "path=$path" >> $env:GITHUB_OUTPUT
+        echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+      working-directory: tmp/protobuf-21.6
 
 
     - name: Build Boost
@@ -93,33 +103,17 @@ jobs:
         platform: x64
         configuration: Release
 
-    - name: Show paths
+    - id: paths
       run: |
-        echo "${{ steps.boost.outputs.root }}"
-        echo "${{ steps.boost.outputs.librarydir }}"
-      shell: cmd
-
-    - id: boost-root
-      uses: spearuav/unixify-action@v0.1
-      with:
-        path: ${{ steps.boost.outputs.root }}
-    - id: boost-lib
-      uses: spearuav/unixify-action@v0.1
-      with:
-        path: ${{ steps.boost.outputs.librarydir }}
-    - id: python-path
-      uses: spearuav/unixify-action@v0.1
-      with:
-        path: ${{ steps.python.outputs.python-path }}
+        $path_unix="${{ steps.boost.outputs.root }}".replace('\','/')
+        echo "boost_root=$path_unix" >> $env:GITHUB_OUTPUT
+        $path_unix="${{ steps.boost.outputs.librarydir }}".replace('\','/')
+        echo "boost_librarydir=$path_unix" >> $env:GITHUB_OUTPUT
+        $path_unix="${{ steps.python.outputs.python-path }}".replace('\','/')
+        echo "python_path=$path_unix" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+      working-directory: tmp/protobuf-21.6
         
-    - name: Show paths
-      run: |
-        echo "${{ steps.boost-root.outputs.path }}"
-        echo "${{ steps.boost-lib.outputs.path }}"
-      shell: cmd
-    
-   
-
     - uses: DamianReeves/write-file-action@master
       with:
         path: tmp/nscp/build.cmake
@@ -128,16 +122,13 @@ jobs:
 
             SET(USE_STATIC_RUNTIME FALSE)
             SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
-            SET(BOOST_ROOT "${{ steps.boost-root.outputs.path }}")
-            SET(BOOST_LIBRARYDIR "${{ steps.boost-lib.outputs.path }}")
-            SET(PROTOBUF_ROOT "D:/a/nscp/nscp/tmp/protobuf-21.6")
+            SET(BOOST_ROOT "${{ steps.paths.outputs.boost_root }}")
+            SET(BOOST_LIBRARYDIR "${{ steps.paths.outputs.boost_librarydir }}")
+            SET(PROTOBUF_ROOT "${{ steps.protobuf_path.outputs.path_unix }}")
             SET(PROTOBUF_LIBRARYDIR "${PROTOBUF_ROOT}/build/Release")
-            SET(PROTOBUF_LIBRARYDIR_RELEASE "${PROTOBUF_ROOT}/build/Release")
-            SET(PROTOBUF_LIBRARYDIR_DEBUG "${PROTOBUF_ROOT}/build/Debug")
-            SET(OPENSSL_ROOT_DIR "D:/a/nscp/nscp/tmp/openssl-1.1.1q")
+            SET(OPENSSL_ROOT_DIR "${{ steps.openssl_path.outputs.path_unix }}")
             SET(LUA_SOURCE_ROOT "${LIBRARY_ROOT_FOLDER}/lua-5.1.5")
-            SET(BREAKPAD_ROOT "${LIBRARY_ROOT_FOLDER}/${breakpad_rel_folder}")
-            SET(PYTHON_ROOT "${{ steps.python-path.outputs.path }}")
+            SET(PYTHON_ROOT "${{ steps.path.outputs.python_path }}")
             SET(CRYPTOPP_ROOT "${LIBRARY_ROOT_FOLDER}/CRYPTOPP_8_0_0")
 
             #SET(CSHARP_DOTNET_VERSION "v4.0.30319")
@@ -153,7 +144,6 @@ jobs:
       working-directory: tmp/nscp
       run: |
         copy D:\a\nscp\nscp\tmp\protobuf-21.6\build\Release\libprotobuf.dll .
-      
         msbuild NSCP.sln /p:Configuration=Release
 
     - name: Generate archives
@@ -163,8 +153,6 @@ jobs:
         python postbuild.py
         echo Running cpack
         cpack
-
-        dir *.zip
   
     - uses: actions/upload-artifact@v3
       with:
