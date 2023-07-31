@@ -63,7 +63,7 @@ jobs:
       run: |
           perl Configure VC-WIN64A no-asm
           nmake
-      working-directory: tmp/${{ ENV.OPENSSL_VERSION }}
+      working-directory: tmp/openssl-${{ ENV.OPENSSL_VERSION }}
 
     - id: openssl_path
       run: |
@@ -72,7 +72,7 @@ jobs:
         echo "path=$path" >> $env:GITHUB_OUTPUT
         echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
       shell: pwsh
-      working-directory: tmp/${{ ENV.OPENSSL_VERSION }}
+      working-directory: tmp/openssl-${{ ENV.OPENSSL_VERSION }}
 
     - name: Download protobuf
       run: |
