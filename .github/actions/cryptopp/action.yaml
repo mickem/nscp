@@ -38,6 +38,7 @@ runs:
     - name: Build x86
       run: |
         msbuild cryptdll.vcxproj /p:Configuration=Release /p:Platform=win32
+        tree
       working-directory: tmp/cryptopp
       shell: cmd
       if: ${{ steps.cache.outputs.cache-hit != 'true' && inputs.architecture == 'x86' }}
@@ -45,6 +46,7 @@ runs:
     - name: Build x86
       run: |
         msbuild cryptdll.vcxproj /p:Configuration=Release /p:Platform=x64
+        tree
       working-directory: tmp/cryptopp
       shell: cmd
       if: ${{ steps.cache.outputs.cache-hit != 'true' && inputs.architecture == 'x64' }}
