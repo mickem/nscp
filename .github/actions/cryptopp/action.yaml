@@ -19,9 +19,17 @@ runs:
   using: composite
   steps:
 
+    - id: versions
+      run: |
+        $tag_version="${{ inputs.version }}".replace('.','_')
+        $file_version="${{ inputs.version }}".replace('.','')
+        echo "tag_version=$tag_version" >> $env:GITHUB_OUTPUT
+        echo "file_version=$file_version" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+
     - name: Download
       run: |
-            curl -L https://www.cryptopp.com/cryptopp${{ inputs.version }}.zip --output cryptopp.zip
+            curl -L https://github.com/weidai11/cryptopp/releases/download/CRYPTOPP_${{ steps.versions.outputs.tag_version }}/cryptopp${{ steps.versions.outputs.file_version }}.zip --output cryptopp.zip
             mkdir cryptopp
             cd cryptopp
             7z x ..\cryptopp.zip
