@@ -55,8 +55,9 @@ runs:
       shell: cmd
       if: ${{ steps.cache.outputs.cache-hit != 'true' && inputs.architecture == 'x86' }}
 
-    - name: Build x86
+    - name: Build x64
       run: |
+        python ../../build/python/msdev-to-dynamic.py cryptlib.vcxproj
         msbuild cryptlib.vcxproj /p:Configuration=Release /p:Platform=x64
         msbuild cryptlib.vcxproj /p:Configuration=Debug /p:Platform=x64
         msbuild cryptdll.vcxproj /p:Configuration=Release /p:Platform=x64
