@@ -45,6 +45,7 @@ runs:
 
     - name: Build x86
       run: |
+        python ../../build/python/msdev-to-dynamic.py cryptlib.vcxproj
         msbuild cryptlib.vcxproj /p:Configuration=Release /p:Platform=win32
         msbuild cryptlib.vcxproj /p:Configuration=Debug /p:Platform=win32
         msbuild cryptdll.vcxproj /p:Configuration=Release /p:Platform=win32

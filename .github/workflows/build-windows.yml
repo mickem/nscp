@@ -36,7 +36,14 @@ jobs:
 
     - uses: ilammy/msvc-dev-cmd@v1
       with:
-        arch: ${{ inputs.architecture }}
+        arch: x64
+      if: ${{ inputs.architecture == 'x64' }}
+  
+    - uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: amd64_x86
+      if: ${{ inputs.architecture == 'x86' }}
+        
 
     - id: version
       run: |
@@ -148,6 +155,12 @@ jobs:
         python postbuild.py
         echo Running cpack
         cpack
+
+    - name: Running tests
+      working-directory: tmp/nscp
+      run: |
+          echo Running tests
+          ctest
   
     - uses: actions/upload-artifact@v3
       with:
