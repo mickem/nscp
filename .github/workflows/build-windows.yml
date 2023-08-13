@@ -141,12 +141,19 @@ jobs:
         cmake ../.. -G "Visual Studio 17" -A Win32
       if: ${{ inputs.architecture == 'x86' }}
 
-  
     - name: Build nsclient
       working-directory: tmp/nscp
       run: |
         copy D:\a\nscp\nscp\tmp\protobuf-21.6\build\Release\libprotobuf.dll .
         msbuild NSCP.sln /p:Configuration=Release
+      if: ${{ inputs.architecture == 'x64' }}
+
+    - name: Build nsclient
+      working-directory: tmp/nscp
+      run: |
+        copy D:\a\nscp\nscp\tmp\protobuf-21.6\build\Release\libprotobuf.dll .
+        msbuild NSCP.sln /p:Configuration=Release /p:Platform=Win32
+      if: ${{ inputs.architecture == 'x86' }}
 
     - name: Generate archives
       working-directory: tmp/nscp

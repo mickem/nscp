@@ -36,3 +36,5 @@ nsclient.fatal
 nsclient.log
 
 .cmake
+
+cmake-build
