@@ -163,12 +163,6 @@ jobs:
         echo Running cpack
         cpack
 
-    - name: Running tests
-      working-directory: tmp/nscp
-      run: |
-          echo Running tests
-          ctest --output-on-failure
-  
     - uses: actions/upload-artifact@v3
       with:
         name: NSCP-${{ steps.version.outputs.version }}-docs.zip
@@ -180,3 +174,10 @@ jobs:
         path: tmp/nscp/NSCP-${{ steps.version.outputs.version }}-x64.zip
         if-no-files-found: error
 
+    - name: Running tests
+      working-directory: tmp/nscp
+      run: |
+          echo Running tests
+          ctest --output-on-failure
+    
+  
