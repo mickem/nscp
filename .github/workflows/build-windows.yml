@@ -167,7 +167,7 @@ jobs:
       working-directory: tmp/nscp
       run: |
           echo Running tests
-          ctest
+          ctest --output-on-failure
   
     - uses: actions/upload-artifact@v3
       with:
