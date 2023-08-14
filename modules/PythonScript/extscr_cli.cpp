@@ -379,12 +379,12 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
 	}
 
 
-	bool found = fs::is_regular(file);
+	bool found = fs::is_regular_file(file);
 	if (!found) {
 		boost::optional<fs::path> path = provider_->find_file(file.string());
 		if (path) {
 			file = *path;
-			found = fs::is_regular(file);
+			found = fs::is_regular_file(file);
 		}
 	}
 	if (!found) {

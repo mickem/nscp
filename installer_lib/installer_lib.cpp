@@ -34,7 +34,7 @@ bool uninstall(msi_helper &h, std::wstring service_name);
 
 
 void copy_file(msi_helper &h, std::wstring source, std::wstring target) {
-	if (boost::filesystem::is_regular(utf8::cvt<std::string>(source))) {
+	if (boost::filesystem::is_regular_file(utf8::cvt<std::string>(source))) {
 		h.logMessage(L"Copying: " + source + L" to " + target);
 		if (!CopyFile(source.c_str(), target.c_str(), FALSE)) {
 			h.errorMessage(L"Failed to copy file: " + utf8::cvt<std::wstring>(error::lookup::last_error()));

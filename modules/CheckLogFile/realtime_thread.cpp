@@ -76,7 +76,7 @@ void real_time_thread::thread_proc() {
 				}
 			}
 #else
-			if (boost::filesystem::is_regular(path)) {
+			if (boost::filesystem::is_regular_file(path)) {
 				logs.push_back(path.string());
 			} else {
 				NSC_LOG_ERROR("Failed to find folder for " + object->get_alias() + ": " + path.string());

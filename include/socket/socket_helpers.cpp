@@ -38,7 +38,7 @@ std::list<std::string> socket_helpers::connection_info::validate() {
 }
 void socket_helpers::validate_certificate(const std::string &certificate, std::list<std::string> &list) {
 #ifdef USE_SSL
-	if (!certificate.empty() && !boost::filesystem::is_regular(certificate)) {
+	if (!certificate.empty() && !boost::filesystem::is_regular_file(certificate)) {
 		if (boost::algorithm::ends_with(certificate, "/certificate.pem")) {
 			list.push_back("Certificate not found: " + certificate + " (generating a default certificate)");
 			write_certs(certificate, false);
@@ -64,9 +64,9 @@ std::list<std::string> socket_helpers::connection_info::validate_ssl() {
 #ifdef USE_SSL
 	validate_certificate(ssl.certificate, list);
 	validate_certificate(ssl.ca_path, list);
-	if (!ssl.certificate_key.empty() && !boost::filesystem::is_regular(ssl.certificate_key))
+	if (!ssl.certificate_key.empty() && !boost::filesystem::is_regular_file(ssl.certificate_key))
 		list.push_back("Certificate key not found: " + ssl.certificate_key);
-	if (!ssl.dh_key.empty() && !boost::filesystem::is_regular(ssl.dh_key))
+	if (!ssl.dh_key.empty() && !boost::filesystem::is_regular_file(ssl.dh_key))
 		list.push_back("DH key not found: " + ssl.dh_key);
 #endif
 	return list;

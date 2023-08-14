@@ -134,7 +134,14 @@ jobs:
       run: |
         cmake ../.. -G "Visual Studio 17" -A x64
       if: ${{ inputs.architecture == 'x64' }}
+      continue-on-error: true
 
+    - name: CMake x64 (takje 2)
+      working-directory: tmp/nscp
+      run: |
+        cmake ../.. -G "Visual Studio 17" -A x64
+      if: ${{ inputs.architecture == 'x64' }}
+        
     - name: CMake x86
       working-directory: tmp/nscp
       run: |

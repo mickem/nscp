@@ -42,7 +42,7 @@ namespace file_helpers {
 			return fs::is_directory(path);
 		}
 		static bool is_file(std::string path) {
-			return fs::is_regular(path);
+			return fs::is_regular_file(path);
 		}
 		static bool path_contains_file(fs::path dir, fs::path file) {
 			if (dir.filename() == ".")

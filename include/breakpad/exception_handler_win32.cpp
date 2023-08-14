@@ -175,7 +175,7 @@ static bool MinidumpCallback(const wchar_t *minidump_folder, const wchar_t *mini
 		report_error("Path to long");
 		return false;
 	}
-	if (!boost::filesystem::is_regular(minidump_path)) {
+	if (!boost::filesystem::is_regular_file(minidump_path)) {
 		report_error("Failed to create mini dump please check that you have a proper version of dbghlp.dll");
 		return false;
 	}
@@ -186,7 +186,7 @@ static bool MinidumpCallback(const wchar_t *minidump_folder, const wchar_t *mini
 		return false;
 	}
 
-	if (!boost::filesystem::is_regular(path)) {
+	if (!boost::filesystem::is_regular_file(path)) {
 		report_error("Failed to find reporter.exe");
 		return false;
 	}

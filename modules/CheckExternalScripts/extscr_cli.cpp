@@ -375,10 +375,10 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
 
 
 	if (!wrapped) {
-		bool found = boost::filesystem::is_regular(file);
+		bool found = boost::filesystem::is_regular_file(file);
 		if (!found) {
 			file = file = provider_->get_core()->expand_path("${shared-path}/" + file.string());
-			found = boost::filesystem::is_regular(file);
+			found = boost::filesystem::is_regular_file(file);
 		}
 		if (!found) {
 			nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file.string());
