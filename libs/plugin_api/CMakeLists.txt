@@ -26,7 +26,7 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		${NSCP_INCLUDEDIR}/utf8.hpp
 
-		${NSCP_INCLUDEDIR}/config.h
+		#${NSCP_INCLUDEDIR}/config.h
 		${NSCP_INCLUDEDIR}/NSCAPI.h
 		
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.hpp

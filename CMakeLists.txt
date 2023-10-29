@@ -553,7 +553,7 @@ SET(NSCP_DEF_PLUGIN_HPP
 	${NSCP_INCLUDEDIR}/utf8.hpp
 	${NSCP_INCLUDEDIR}/str/format.hpp
 	${NSCP_INCLUDEDIR}/str/utils.hpp
-	${NSCP_INCLUDEDIR}/config.h
+	#${NSCP_INCLUDEDIR}/config.h
 	${NSCP_INCLUDEDIR}/NSCAPI.h
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.hpp  

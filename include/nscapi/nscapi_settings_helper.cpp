@@ -35,13 +35,16 @@ namespace nscapi {
 
 		struct post_processor {
 			virtual std::string process(settings_impl_interface_ptr core, std::string value) = 0;
+			virtual ~post_processor() {}
 		};
 
 		struct store_functor {
 			virtual void store(std::string value) = 0;
+			virtual ~store_functor() {}
 		};
 		struct store_bin_functor {
 			virtual void store(std::string key, std::string value) = 0;
+			virtual ~store_bin_functor() {}
 		};
 
 		typedef boost::shared_ptr<store_functor> store_ptr_t;

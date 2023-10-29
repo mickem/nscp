@@ -33,7 +33,7 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/utf8.hpp
 		${NSCP_INCLUDEDIR}/str/format.hpp
 		${NSCP_INCLUDEDIR}/str/utils.hpp
-		${NSCP_INCLUDEDIR}/config.h
+		#${NSCP_INCLUDEDIR}/config.h
 		${NSCP_INCLUDEDIR}/NSCAPI.h
 	)
 ENDIF(WIN32)

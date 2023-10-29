@@ -96,7 +96,7 @@ IF(WIN32)
 
 		service_manager.hpp
 
-		${NSCP_INCLUDEDIR}/config.h
+		#${NSCP_INCLUDEDIR}/config.h
 		${NSCP_INCLUDEDIR}/com_helpers.hpp
 		${NSCP_INCLUDEDIR}/dll/dll.hpp
 		${NSCP_INCLUDEDIR}/dll/impl_unix.hpp

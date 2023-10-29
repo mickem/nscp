@@ -22,7 +22,7 @@ IF(WIN32)
 		settings_manager_impl.h
 		settings_handler_impl.hpp
 		
-		${NSCP_INCLUDEDIR}/config.h
+		#${NSCP_INCLUDEDIR}/config.h
 
 		${NSCP_INCLUDEDIR}/settings/settings_core.hpp
 		${NSCP_INCLUDEDIR}/settings/settings_interface_impl.hpp
