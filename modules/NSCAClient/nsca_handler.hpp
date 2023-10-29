@@ -51,7 +51,7 @@ namespace nsca_handler {
 		}
 		nsca_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
 
-		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			parent::read(proxy, oneliner, is_sample);
 
 			nscapi::settings_helper::settings_registry settings(proxy);

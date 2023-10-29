@@ -34,6 +34,7 @@
 #include <string>
 
 namespace check_docker_filter {
+	namespace ph = boost::placeholders;
 	struct filter_obj {
 		std::string id, image ,imageId, command, created, state, status, names, ip;
 
@@ -106,14 +107,14 @@ namespace check_docker_filter {
 			static const parsers::where::value_type type_custom_free = parsers::where::type_custom_int_2;
 
 			registry_.add_string()
-				("id", boost::bind(&filter_obj::get_id, _1), "Container id")
-				("image", boost::bind(&filter_obj::get_image, _1), "Container image")
-				("image_id", boost::bind(&filter_obj::get_imageId, _1), "Container image id")
-				("command", boost::bind(&filter_obj::get_command, _1), "Command")
-				("container_state", boost::bind(&filter_obj::get_state, _1), "Container image")
-				("status", boost::bind(&filter_obj::get_status, _1), "Container image")
-				("names", boost::bind(&filter_obj::get_names, _1), "Container image")
-				("ip", boost::bind(&filter_obj::get_ip, _1), "IP of container")
+				("id", boost::bind(&filter_obj::get_id, ph::_1), "Container id")
+				("image", boost::bind(&filter_obj::get_image, ph::_1), "Container image")
+				("image_id", boost::bind(&filter_obj::get_imageId, ph::_1), "Container image id")
+				("command", boost::bind(&filter_obj::get_command, ph::_1), "Command")
+				("container_state", boost::bind(&filter_obj::get_state, ph::_1), "Container image")
+				("status", boost::bind(&filter_obj::get_status, ph::_1), "Container image")
+				("names", boost::bind(&filter_obj::get_names, ph::_1), "Container image")
+				("ip", boost::bind(&filter_obj::get_ip, ph::_1), "IP of container")
 				;
 				
 		}

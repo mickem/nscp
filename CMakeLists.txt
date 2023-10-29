@@ -657,7 +657,8 @@ add_nscp_py_test(scheduler test_scheduler)
 IF(WIN32)
 # Disabled as is is not a unit test per see, since it requires extenal non mocked stimula
 #	add_nscp_py_test(eventlog test_eventlog)
-	add_nscp_py_test(w32_system test_w32_system)
+	# notepad no longer exists
+	# add_nscp_py_test(w32_system test_w32_system)
 	add_nscp_py_test(w32_system test_w32_file)
 	add_nscp_py_test(w32_taskScheduler test_w32_schetask)
 ENDIF(WIN32)

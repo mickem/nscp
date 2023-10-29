@@ -33,6 +33,7 @@
 
 using namespace boost::assign;
 using namespace parsers::where;
+namespace ph = boost::placeholders;
 
 const int file_type_file = 1;
 const int file_type_dir = 2;
@@ -80,28 +81,28 @@ file_filter::filter_obj_handler::filter_obj_handler() {
 
 	registry_.add_string()
 		("path", &filter_obj::get_path, "Path of file")
-		("version", boost::bind(&filter_obj::get_version, _1), "Windows exe/dll file version")
-		("filename", boost::bind(&filter_obj::get_filename, _1), "The name of the file")
-		("file", boost::bind(&filter_obj::get_filename, _1), "The name of the file")
-		("name", boost::bind(&filter_obj::get_filename, _1), "The name of the file")
-		("access_l", boost::bind(&filter_obj::get_access_sl, _1), "Last access time (local time)")
-		("creation_l", boost::bind(&filter_obj::get_creation_sl, _1), "When file was created (local time)")
-		("written_l", boost::bind(&filter_obj::get_written_sl, _1), "When file was last written  to (local time)")
-		("access_u", boost::bind(&filter_obj::get_access_su, _1), "Last access time (UTC)")
-		("creation_u", boost::bind(&filter_obj::get_creation_su, _1), "When file was created (UTC)")
-		("written_u", boost::bind(&filter_obj::get_written_su, _1), "When file was last written  to (UTC)")
+		("version", boost::bind(&filter_obj::get_version, ph::_1), "Windows exe/dll file version")
+		("filename", boost::bind(&filter_obj::get_filename, ph::_1), "The name of the file")
+		("file", boost::bind(&filter_obj::get_filename, ph::_1), "The name of the file")
+		("name", boost::bind(&filter_obj::get_filename, ph::_1), "The name of the file")
+		("access_l", boost::bind(&filter_obj::get_access_sl, ph::_1), "Last access time (local time)")
+		("creation_l", boost::bind(&filter_obj::get_creation_sl, ph::_1), "When file was created (local time)")
+		("written_l", boost::bind(&filter_obj::get_written_sl, ph::_1), "When file was last written  to (local time)")
+		("access_u", boost::bind(&filter_obj::get_access_su, ph::_1), "Last access time (UTC)")
+		("creation_u", boost::bind(&filter_obj::get_creation_su, ph::_1), "When file was created (UTC)")
+		("written_u", boost::bind(&filter_obj::get_written_su, ph::_1), "When file was last written  to (UTC)")
 		;
 
 	registry_.add_int()
-		("size", type_size, boost::bind(&filter_obj::get_size, _1), "File size").add_scaled_byte(std::string(""), " size")
-		("line_count", boost::bind(&filter_obj::get_line_count, _1), "Number of lines in the file (text files)")
-		("access", type_date, boost::bind(&filter_obj::get_access, _1), "Last access time")
-		("creation", type_date, boost::bind(&filter_obj::get_creation, _1), "When file was created")
-		("written", type_date, boost::bind(&filter_obj::get_write, _1), "When file was last written to")
-		("write", type_date, boost::bind(&filter_obj::get_write, _1), "Alias for written")
-		("age", type_int, boost::bind(&filter_obj::get_age, _1), "Seconds since file was last written")
-		("type", type_custom_type, boost::bind(&filter_obj::get_type, _1), "Type of item (file or dir)")
-		("total", type_bool, boost::bind(&filter_obj::is_total, _1),
+		("size", type_size, boost::bind(&filter_obj::get_size, ph::_1), "File size").add_scaled_byte(std::string(""), " size")
+		("line_count", boost::bind(&filter_obj::get_line_count, ph::_1), "Number of lines in the file (text files)")
+		("access", type_date, boost::bind(&filter_obj::get_access, ph::_1), "Last access time")
+		("creation", type_date, boost::bind(&filter_obj::get_creation, ph::_1), "When file was created")
+		("written", type_date, boost::bind(&filter_obj::get_write, ph::_1), "When file was last written to")
+		("write", type_date, boost::bind(&filter_obj::get_write, ph::_1), "Alias for written")
+		("age", type_int, boost::bind(&filter_obj::get_age, ph::_1), "Seconds since file was last written")
+		("type", type_custom_type, boost::bind(&filter_obj::get_type, ph::_1), "Type of item (file or dir)")
+		("total", type_bool, boost::bind(&filter_obj::is_total, ph::_1),
 			"True if this is the total object").no_perf();
 	;
 
@@ -111,10 +112,10 @@ file_filter::filter_obj_handler::filter_obj_handler() {
 
 
 	registry_.add_human_string()
-		("access", boost::bind(&filter_obj::get_access_su, _1), "")
-		("creation", boost::bind(&filter_obj::get_creation_su, _1), "")
-		("written", boost::bind(&filter_obj::get_written_su, _1), "")
-		("type", boost::bind(&filter_obj::get_type_su, _1), "")
+		("access", boost::bind(&filter_obj::get_access_su, ph::_1), "")
+		("creation", boost::bind(&filter_obj::get_creation_su, ph::_1), "")
+		("written", boost::bind(&filter_obj::get_written_su, ph::_1), "")
+		("type", boost::bind(&filter_obj::get_type_su, ph::_1), "")
 		;
 }
 

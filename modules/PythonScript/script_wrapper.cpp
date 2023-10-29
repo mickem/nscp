@@ -526,7 +526,9 @@ int script_wrapper::function_wrapper::handle_message(const std::string channel, 
 			thread_locker locker;
 			int ret_code = NSCAPI::api_return_codes::hasFailed;
 			try {
-				py::object ret = py::call<py::object>(py::object(it->second).ptr(), channel, request);
+				py::object memoryView(py::handle<>(PyMemoryView_FromMemory(const_cast<char*>(request.c_str()), static_cast<Py_ssize_t>(request.size()), PyBUF_READ)));
+
+				py::object ret = py::call<py::object>(py::object(it->second).ptr(), channel, memoryView);
 				if (ret.ptr() == Py_None) {
 					return NSCAPI::api_return_codes::hasFailed;
 				}
@@ -780,12 +782,13 @@ py::tuple script_wrapper::command_wrapper::simple_submit(std::string channel, st
 	}
 	return py::make_tuple(ret, resp);
 }
-py::tuple script_wrapper::command_wrapper::submit(std::string channel, std::string request) {
+py::tuple script_wrapper::command_wrapper::submit(std::string channel, py::object request) {
+	std::string req = pybuf(request, "parse query");
 	std::string response;
 	int ret = 0;
 	try {
 		thread_unlocker unlocker;
-		ret = core->submit_message(channel, request, response);
+		ret = core->submit_message(channel, req, response);
 	} catch (const std::exception &e) {
 		return py::make_tuple(false, std::string(e.what()));
 	} catch (...) {

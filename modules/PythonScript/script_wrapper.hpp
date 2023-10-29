@@ -210,7 +210,7 @@ namespace script_wrapper {
 		py::tuple simple_exec(std::string target, std::string command, boost::python::list args);
 		py::tuple exec(std::string target, std::string request);
 		py::tuple simple_submit(std::string channel, std::string command, status code, std::string message, std::string perf);
-		py::tuple submit(std::string channel, std::string request);
+		py::tuple submit(std::string channel, py::object request);
 		bool reload(std::string module);
 		bool load_module(std::string name, std::string alias = "");
 		bool unload_module(std::string name);

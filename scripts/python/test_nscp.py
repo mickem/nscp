@@ -1,7 +1,7 @@
 from NSCP import Settings, Registry, Core, log, status, log_error, sleep
 import sys
 
-from test_helper import BasicTest, TestResult, Callable, setup_singleton, install_testcases, init_testcases, shutdown_testcases
+from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
 import plugin_pb2
 from types import *
 import socket
@@ -101,15 +101,15 @@ class NSCPServerTest(BasicTest):
 		self.reg.simple_function('check_py_nscp_test_s', NSCPServerTest.simple_handler, 'TODO')
 		self.reg.function('check_py_nscp_test', NSCPServerTest.handler, 'TODO')
 
+	@staticmethod
 	def simple_handler(arguments):
 		instance = NSCPServerTest.getInstance()
 		return instance.simple_handler_wrapped(arguments)
-	simple_handler = Callable(simple_handler)
 
+	@staticmethod
 	def handler(channel, request):
 		instance = NSCPServerTest.getInstance()
 		return instance.handler_wrapped(channel, request)
-	handler = Callable(handler)
 	
 	def simple_handler_wrapped(self, arguments):
 		log('Got simple message %s'%arguments)

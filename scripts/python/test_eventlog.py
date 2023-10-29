@@ -1,5 +1,5 @@
 from NSCP import Settings, Registry, Core, log, status, sleep
-from test_helper import BasicTest, TestResult, Callable, setup_singleton, install_testcases, init_testcases, shutdown_testcases
+from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
 import plugin_pb2
 from types import *
 import socket

@@ -360,11 +360,13 @@ namespace nscapi {
 
 			bool has_object(std::string alias) const {
 				typename object_map::const_iterator cit = objects.find(alias);
-				if (cit != objects.end())
+				if (cit != objects.end()) {
 					return true;
+				}
 				cit = templates.find(alias);
-				if (cit != templates.end())
+				if (cit != templates.end()) {
 					return true;
+				}
 				return false;
 			}
 

@@ -1,6 +1,6 @@
 # Protocol Buffers - Google's data interchange format
 # Copyright 2008 Google Inc.  All rights reserved.
-# http://code.google.com/p/protobuf/
+# https://developers.google.com/protocol-buffers/
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -43,7 +43,7 @@ TAG_TYPE_MASK = (1 << TAG_TYPE_BITS) - 1  # 0x7
 # These numbers identify the wire type of a protocol buffer value.
 # We use the least-significant TAG_TYPE_BITS bits of the varint-encoded
 # tag-and-type to store one of these WIRETYPE_* constants.
-# These values must match WireType enum in google/protobuf/wire_format.h.
+# These values must match WireType enum in //google/protobuf/wire_format.h.
 WIRETYPE_VARINT = 0
 WIRETYPE_FIXED64 = 1
 WIRETYPE_LENGTH_DELIMITED = 2

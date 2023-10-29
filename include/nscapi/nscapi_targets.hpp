@@ -42,7 +42,7 @@ namespace nscapi {
 				set_property_string("address", new_value);
 			}
 
-			NSCAPI_EXPORT virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample);
+			NSCAPI_EXPORT virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample);
 
 			NSCAPI_EXPORT void add_ssl_keys(nscapi::settings_helper::path_extension root_path);
 

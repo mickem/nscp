@@ -78,120 +78,116 @@ namespace parsers {
 		//  Our calculator grammar
 		///////////////////////////////////////////////////////////////////////////
 		where_grammar::where_grammar(object_factory obj_factory) : where_grammar::base_type(expression, "where") {
-			using qi::_val;
 			using qi::long_long;
 			using qi::double_;
-			using qi::_1;
-			using qi::_2;
-			using qi::_3;
 
 			boost::phoenix::function<build_function_convert_int> build_ic_int;
 			boost::phoenix::function<build_function_convert_float> build_ic_float;
 
 			expression
-				= and_expr[_val = _1]
-				>> *(charset::no_case["or"] >> and_expr)[_val = phoenix::bind(&factory::create_bin_op, op_or, _val, _1)]
+				= and_expr[qi::_val = qi::_1]
+				>> *(charset::no_case["or"] >> and_expr)[qi::_val = phoenix::bind(&factory::create_bin_op, op_or, qi::_val, qi::_1)]
 				;
 			and_expr
-				= not_expr[_val = _1]
-				>> *(charset::no_case["and"] >> not_expr)[_val = phoenix::bind(&factory::create_bin_op, op_and, _val, _1)]
+				= not_expr[qi::_val = qi::_1]
+				>> *(charset::no_case["and"] >> not_expr)[qi::_val = phoenix::bind(&factory::create_bin_op, op_and, qi::_val, qi::_1)]
 				;
 			not_expr
-				= charset::no_case["not"] >> cond_expr[_val = phoenix::bind(&factory::create_un_op, op_not, _1)]
-				| cond_expr[_val = _1]
+				= charset::no_case["not"] >> cond_expr[qi::_val = phoenix::bind(&factory::create_un_op, op_not, qi::_1)]
+				| cond_expr[qi::_val = qi::_1]
 				;
 
 			cond_expr
-				= (identifier_expr >> op >> identifier_expr)[_val = phoenix::bind(&factory::create_bin_op, _2, _1, _3)]
+				= (identifier_expr >> op >> identifier_expr)[qi::_val = phoenix::bind(&factory::create_bin_op, qi::_2, qi::_1, qi::_3)]
 				| (identifier_expr >> charset::no_case["not in"]
-					>> '(' >> list_expr >> ')')[_val = phoenix::bind(&factory::create_bin_op, op_nin, _1, _2)]
+					>> '(' >> list_expr >> ')')[qi::_val = phoenix::bind(&factory::create_bin_op, op_nin, qi::_1, qi::_2)]
 				| (identifier_expr >> charset::no_case["in"]
-					>> '(' >> list_expr >> ')')[_val = phoenix::bind(&factory::create_bin_op, op_in, _1, _2)]
-				| ('(' >> expression >> ')')[_val = _1]
-				| (identifier_expr)[_val = _1]
+					>> '(' >> list_expr >> ')')[qi::_val = phoenix::bind(&factory::create_bin_op, op_in, qi::_1, qi::_2)]
+				| ('(' >> expression >> ')')[qi::_val = qi::_1]
+				| (identifier_expr)[qi::_val = qi::_1]
 				;
 
 			identifier_expr
-				= (identifier >> bitop >> identifier)[_val = phoenix::bind(&factory::create_bin_op, _2, _1, _3)]
-				| ('(' >> identifier >> bitop >> identifier >> ')')[_val = phoenix::bind(&factory::create_bin_op, _2, _1, _3)]
-				| identifier[_val = _1]
+				= (identifier >> bitop >> identifier)[qi::_val = phoenix::bind(&factory::create_bin_op, qi::_2, qi::_1, qi::_3)]
+				| ('(' >> identifier >> bitop >> identifier >> ')')[qi::_val = phoenix::bind(&factory::create_bin_op, qi::_2, qi::_1, qi::_3)]
+				| identifier[qi::_val = qi::_1]
 				;
 
 			identifier
-				= "str" >> string_literal_ex[_val = phoenix::bind(&factory::create_string, _1)]
-				| (variable_name >> '(' >> list_expr >> ')')[_val = phoenix::bind(&factory::create_fun, obj_factory, _1, _2)]
-				| (variable_name >> '(' >> ')')[_val = phoenix::bind(&factory::create_fun, obj_factory, _1, factory::create_list())]
-				| variable_name[_val = phoenix::bind(&factory::create_variable, obj_factory, _1)]
-				| string_literal[_val = phoenix::bind(&factory::create_string, _1)]
+				= "str" >> string_literal_ex[qi::_val = phoenix::bind(&factory::create_string, qi::_1)]
+				| (variable_name >> '(' >> list_expr >> ')')[qi::_val = phoenix::bind(&factory::create_fun, obj_factory, qi::_1, qi::_2)]
+				| (variable_name >> '(' >> ')')[qi::_val = phoenix::bind(&factory::create_fun, obj_factory, qi::_1, factory::create_list())]
+				| variable_name[qi::_val = phoenix::bind(&factory::create_variable, obj_factory, qi::_1)]
+				| string_literal[qi::_val = phoenix::bind(&factory::create_string, qi::_1)]
 				| qi::lexeme[
-					(real >> (charset::alpha | charset::char_('%')))[_val = build_ic_float(_1, _2)]
+					(real >> (charset::alpha | charset::char_('%')))[qi::_val = build_ic_float(qi::_1, qi::_2)]
 				]
 				| qi::lexeme[
-					(long_long >> (charset::alpha | charset::char_('%')))[_val = build_ic_int(_1, _2)]
+					(long_long >> (charset::alpha | charset::char_('%')))[qi::_val = build_ic_int(qi::_1, qi::_2)]
 				]
-				| real[_val = phoenix::bind(&factory::create_float, _1)]
-				| long_long[_val = phoenix::bind(&factory::create_int, _1)]
+				| real[qi::_val = phoenix::bind(&factory::create_float, qi::_1)]
+				| long_long[qi::_val = phoenix::bind(&factory::create_int, qi::_1)]
 				;
 
 			list_expr
-				= string_list[_val = phoenix::bind(&list_helper<std::string>::make_node, _1)]
-				| float_list[_val = phoenix::bind(&list_helper<double>::make_node, _1)]
-				| int_list[_val = phoenix::bind(&list_helper<long long>::make_node, _1)]
+				= string_list[qi::_val = phoenix::bind(&list_helper<std::string>::make_node, qi::_1)]
+				| float_list[qi::_val = phoenix::bind(&list_helper<double>::make_node, qi::_1)]
+				| int_list[qi::_val = phoenix::bind(&list_helper<long long>::make_node, qi::_1)]
 				;
 
 			string_list
-				= string_literal[_val = _1]
-				>> *(',' >> string_literal)[_val += _1]
-				| variable_name[_val = _1]
-				>> *(',' >> variable_name)[_val += _1]
+				= string_literal[qi::_val = qi::_1]
+				>> *(',' >> string_literal)[qi::_val += qi::_1]
+				| variable_name[qi::_val = qi::_1]
+				>> *(',' >> variable_name)[qi::_val += qi::_1]
 				;
 
 			float_list
-				= real[_val = _1]
-				>> *(',' >> double_)[_val += _1]
+				= real[qi::_val = qi::_1]
+				>> *(',' >> double_)[qi::_val += qi::_1]
 				;
 
 			int_list
-				= long_long[_val = _1]
-				>> *(',' >> long_long)[_val += _1]
+				= long_long[qi::_val = qi::_1]
+				>> *(',' >> long_long)[qi::_val += qi::_1]
 				;
 
-			op = qi::lit("<=")[_val = op_le]
-				| qi::lit("<")[_val = op_lt]
-				| qi::lit("=")[_val = op_eq]
-				| qi::lit("!=")[_val = op_ne]
-				| qi::lit(">=")[_val = op_ge]
-				| qi::lit(">")[_val = op_gt]
-				| charset::no_case[qi::lit("le")][_val = op_le]
-				| charset::no_case[qi::lit("lt")][_val = op_lt]
-				| charset::no_case[qi::lit("eq")][_val = op_eq]
-				| charset::no_case[qi::lit("ne")][_val = op_ne]
-				| charset::no_case[qi::lit("ge")][_val = op_ge]
-				| charset::no_case[qi::lit("gt")][_val = op_gt]
-				| charset::no_case[qi::lit("like")][_val = op_like]
-				| charset::no_case[qi::lit("regexp")][_val = op_regexp]
-				| charset::no_case[qi::lit("not like")][_val = op_not_like]
-				| charset::no_case[qi::lit("not regexp")][_val = op_not_regexp]
+			op = qi::lit("<=")[qi::_val = op_le]
+				| qi::lit("<")[qi::_val = op_lt]
+				| qi::lit("=")[qi::_val = op_eq]
+				| qi::lit("!=")[qi::_val = op_ne]
+				| qi::lit(">=")[qi::_val = op_ge]
+				| qi::lit(">")[qi::_val = op_gt]
+				| charset::no_case[qi::lit("le")][qi::_val = op_le]
+				| charset::no_case[qi::lit("lt")][qi::_val = op_lt]
+				| charset::no_case[qi::lit("eq")][qi::_val = op_eq]
+				| charset::no_case[qi::lit("ne")][qi::_val = op_ne]
+				| charset::no_case[qi::lit("ge")][qi::_val = op_ge]
+				| charset::no_case[qi::lit("gt")][qi::_val = op_gt]
+				| charset::no_case[qi::lit("like")][qi::_val = op_like]
+				| charset::no_case[qi::lit("regexp")][qi::_val = op_regexp]
+				| charset::no_case[qi::lit("not like")][qi::_val = op_not_like]
+				| charset::no_case[qi::lit("not regexp")][qi::_val = op_not_regexp]
 				;
 
-			bitop = qi::lit("&")[_val = op_binand]
-				| qi::lit("|")[_val = op_binor]
+			bitop = qi::lit("&")[qi::_val = op_binand]
+				| qi::lit("|")[qi::_val = op_binor]
 				;
 
 			variable_name
 				= qi::lexeme[
-					(charset::alpha)[_val += _1]
-						>> *(charset::alnum | charset::char_('_'))[_val += _1]
+					(charset::alpha)[qi::_val += qi::_1]
+						>> *(charset::alnum | charset::char_('_'))[qi::_val += qi::_1]
 				]
 				;
 			string_literal
 				= qi::lexeme['\''
-				>> +(charset::char_ - '\'')[_val += _1]
+				>> +(charset::char_ - '\'')[qi::_val += qi::_1]
 				>> '\'']
 				;
 			string_literal_ex
 				= qi::lexeme['('
-				>> +(charset::char_ - ')')[_val += _1]
+				>> +(charset::char_ - ')')[qi::_val += qi::_1]
 				>> ')']
 				;
 

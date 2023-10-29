@@ -66,8 +66,9 @@ namespace client {
 			}
 		}
 		void apply_host(const PB::Common::Host &host) {
-			if (!host.address().empty())
+			if (!host.address().empty()) {
 				set_string_data("address", host.address());
+			}
 			BOOST_FOREACH(const PB::Common::KeyValue &kvp, host.metadata()) {
 				set_string_data(kvp.key(), kvp.value());
 			}
