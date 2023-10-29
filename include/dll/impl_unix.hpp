@@ -60,7 +60,7 @@ namespace dll {
 				mod = boost::filesystem::path(module.string() + get_extension());
 				if (boost::filesystem::is_regular_file(mod))
 					return mod;
-				mod = mod.branch_path() / boost::filesystem::path(std::string("lib") + file_helpers::meta::get_filename(mod));
+				mod = mod.parent_path() / boost::filesystem::path(std::string("lib") + file_helpers::meta::get_filename(mod));
 				if (boost::filesystem::is_regular_file(mod))
 					return mod;
 				return module;
