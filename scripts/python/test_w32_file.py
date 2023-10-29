@@ -73,12 +73,12 @@ class Win32FileTest(BasicTest):
 		if os.path.exists(file_name):
 			try:
 				os.remove(file_name)
-			except OSError, (errno, strerror):
+			except OSError:
 				log('Failed to delete: %s'%file_name)
 		if os.path.exists(folder):
 			try:
 				os.rmdir(folder)
-			except OSError, (errno, strerror):
+			except OSError:
 				None
 
 	def setup_files(self):
