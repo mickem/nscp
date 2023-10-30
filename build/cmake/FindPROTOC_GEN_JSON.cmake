@@ -1,5 +1,5 @@
 IF (WIN32)
-	SET(EXE_NAME protoc-gen-json.cmd)
+	SET(EXE_NAME protoc-gen-json.exe)
 ELSE(WIN32)
 	SET(EXE_NAME protoc-gen-json)
 ENDIF(WIN32)

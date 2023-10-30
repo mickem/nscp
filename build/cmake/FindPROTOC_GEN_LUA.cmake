@@ -1,5 +1,5 @@
 IF (WIN32)
-	SET(EXE_NAME protoc-gen-lua.cmd)
+	SET(EXE_NAME protoc-gen-lua.exe)
 ELSE(WIN32)
 	SET(EXE_NAME protoc-gen-lua)
 ENDIF(WIN32)

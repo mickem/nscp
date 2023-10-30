@@ -1,5 +1,5 @@
 IF (WIN32)
-	SET(EXE_NAME protoc-gen-md.cmd)
+	SET(EXE_NAME protoc-gen-md.exe)
 ELSE(WIN32)
 	SET(EXE_NAME protoc-gen-md)
 ENDIF(WIN32)
