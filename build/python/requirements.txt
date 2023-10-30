@@ -6,3 +6,4 @@ setuptools=65.5.0
 json-protobuf==1.0.0
 lua-protobuf==1.0.1
 md-protobuf==1.0.0
+setuptools==65.5.0

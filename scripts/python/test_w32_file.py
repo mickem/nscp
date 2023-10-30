@@ -93,9 +93,9 @@ class Win32FileTest(BasicTest):
 		if os.path.exists(self.work_path):
 			try:
 				os.rmdir(self.work_path)
-			except OSError, (errno, strerror):
+			except OSError as e:
 				log('Failed to delete folder: %s'%self.work_path)
-				log('Failed to delete folder: %s'%errno)
+				log('Failed to delete folder: %s'%e)
 			
 	def get_count(self,perf):
 		if not perf:
