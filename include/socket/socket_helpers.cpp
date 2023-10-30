@@ -281,6 +281,10 @@ long socket_helpers::connection_info::ssl_opts::get_ctx_opts() const {
 			opts |= boost::asio::ssl::context::no_sslv3;
 		if (key == "no-tlsv1")
 			opts |= boost::asio::ssl::context::no_tlsv1;
+		if (key == "no-tlsv1_2")
+			opts |= boost::asio::ssl::context::no_tlsv1_2;
+		if (key == "no-tlsv1_3")
+			opts |= boost::asio::ssl::context::no_tlsv1_3;
 		if (key == "single-dh-use")
 			opts |= boost::asio::ssl::context::single_dh_use;
 	}
