@@ -162,6 +162,11 @@ jobs:
         msbuild NSCP.sln /p:Configuration=Release /p:Platform=Win32
       if: ${{ inputs.architecture == 'x86' }}
 
+    - name: Run tests
+      working-directory: tmp/nscp
+      run: |
+        ctest --output-on-failure -C Release
+
     - name: Generate archives
       working-directory: tmp/nscp
       run: |
