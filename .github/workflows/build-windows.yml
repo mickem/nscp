@@ -97,7 +97,7 @@ jobs:
         echo "boost_root=$path_unix" >> $env:GITHUB_OUTPUT
         $path_unix="${{ steps.boost.outputs.librarydir }}".replace('\','/')
         echo "boost_librarydir=$path_unix" >> $env:GITHUB_OUTPUT
-        $path_unix="${{ steps.python.outputs.python-path }}".replace('\','/')
+        $path_unix="${{ env.Python_ROOT_DIR }}".replace('\','/')
         echo "python_path=$path_unix" >> $env:GITHUB_OUTPUT
       shell: pwsh
         
@@ -115,7 +115,7 @@ jobs:
             SET(PROTOBUF_LIBRARYDIR "${PROTOBUF_ROOT}/build/Release")
             SET(OPENSSL_ROOT_DIR "${{ steps.openssl.outputs.path_unix }}")
             SET(LUA_SOURCE_ROOT "${LIBRARY_ROOT_FOLDER}/lua-5.1.5")
-            SET(PYTHON_ROOT "${{ env.Python_ROOT_DIR }}")
+            SET(PYTHON_ROOT "${{ steps.paths.outputs.python_path }}")
             SET(CRYPTOPP_ROOT "${{ steps.cryptopp.outputs.path_unix }}")
 
             #SET(CSHARP_DOTNET_VERSION "v4.0.30319")
