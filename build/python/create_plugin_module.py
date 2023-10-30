@@ -1,10 +1,8 @@
 import json
 import json
-import string
 from optparse import OptionParser
-from jinja2 import Template, Environment
+from jinja2 import Environment
 import hashlib
-import sys
 import os
 DEF_TEMPLATE = """
 LIBRARY	{{module.name}}

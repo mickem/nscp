@@ -47,7 +47,7 @@ jobs:
 
     - id: version
       run: |
-          python build\python\version.py -f version.txt -a >> $env:GITHUB_OUTPUT
+        ${{ steps.python.outputs.python-path }}\python build\python\version.py -f version.txt -a >> $env:GITHUB_OUTPUT
       shell: pwsh
 
     - name: make dirs
@@ -62,7 +62,8 @@ jobs:
 
     - name: setup python dependencies
       run: |
-        pip install -r build/python/requirements.txt
+        dir %Python_ROOT_DIR%
+        %Python_ROOT_DIR%\pip install -r build/python/requirements.txt
   
     - id: openssl
       uses: ./.github/actions/openssl
@@ -115,7 +116,7 @@ jobs:
             SET(PROTOBUF_LIBRARYDIR "${PROTOBUF_ROOT}/build/Release")
             SET(OPENSSL_ROOT_DIR "${{ steps.openssl.outputs.path_unix }}")
             SET(LUA_SOURCE_ROOT "${LIBRARY_ROOT_FOLDER}/lua-5.1.5")
-            SET(PYTHON_ROOT "${{ steps.paths.outputs.python_path }}")
+            SET(PYTHON_ROOT "${{ env.Python_ROOT_DIR }}")
             SET(CRYPTOPP_ROOT "${{ steps.cryptopp.outputs.path_unix }}")
 
             #SET(CSHARP_DOTNET_VERSION "v4.0.30319")
