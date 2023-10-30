@@ -62,8 +62,7 @@ jobs:
 
     - name: setup python dependencies
       run: |
-        dir %Python_ROOT_DIR%
-        %Python_ROOT_DIR%\pip install -r build/python/requirements.txt
+        & "%Python_ROOT_DIR%\Scripts\pip" install -r build/python/requirements.txt
   
     - id: openssl
       uses: ./.github/actions/openssl
