@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.5)
 
 WRAP_PROTO(PROTO_PLUGIN_SRC plugin.proto)
 WRAP_PROTO(COMMON_PLUGIN_SRC common.proto)
