@@ -47,7 +47,7 @@ jobs:
 
     - id: version
       run: |
-        $env:Python_ROOT_DIR\python build\python\version.py -f version.txt -a >> $env:GITHUB_OUTPUT
+        & "$env:Python_ROOT_DIR\python" build\python\version.py -f version.txt -a >> $env:GITHUB_OUTPUT
       shell: pwsh
 
     - name: make dirs
