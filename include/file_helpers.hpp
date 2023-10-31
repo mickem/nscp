@@ -97,7 +97,7 @@ namespace file_helpers {
 		static pattern_type split_pattern(fs::path path) {
 			if (fs::is_directory(path))
 				return pattern_type(path,fs::path());
-			return pattern_type(path.branch_path(), path.filename());
+			return pattern_type(path.parent_path(), path.filename());
 		}
 		static pattern_type split_path_ex(fs::path path) {
 			if (fs::is_directory(path)) {
