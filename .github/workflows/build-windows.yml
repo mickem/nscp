@@ -116,6 +116,7 @@ jobs:
             SET(OPENSSL_ROOT_DIR "${{ steps.openssl.outputs.path_unix }}")
             SET(LUA_SOURCE_ROOT "${LIBRARY_ROOT_FOLDER}/lua-5.1.5")
             SET(Python_ROOT_DIR "${{ steps.paths.outputs.python_path }}")
+            SET(Python_FIND_STRATEGY LOCATION)
             SET(CRYPTOPP_ROOT "${{ steps.cryptopp.outputs.path_unix }}")
 
             #SET(CSHARP_DOTNET_VERSION "v4.0.30319")
