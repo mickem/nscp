@@ -35,11 +35,13 @@ jobs:
         cache: 'pip'
 
     - uses: ilammy/msvc-dev-cmd@v1
+      name: Setup msvc for x64
       with:
         arch: x64
       if: ${{ inputs.architecture == 'x64' }}
   
     - uses: ilammy/msvc-dev-cmd@v1
+      name: Setup msvc for w32
       with:
         arch: amd64_x86
       if: ${{ inputs.architecture == 'x86' }}
@@ -130,7 +132,7 @@ jobs:
       if: ${{ inputs.architecture == 'x64' }}
       continue-on-error: true
 
-    - name: CMake x64 (takje 2)
+    - name: CMake x64 (take 2)
       working-directory: tmp/nscp
       run: |
         cmake ../.. -G "Visual Studio 17" -A x64
@@ -141,15 +143,22 @@ jobs:
       run: |
         cmake ../.. -G "Visual Studio 17" -A Win32
       if: ${{ inputs.architecture == 'x86' }}
+      continue-on-error: true
 
-    - name: Build nsclient
+    - name: CMake x86 (take 2)
+      working-directory: tmp/nscp
+      run: |
+        cmake ../.. -G "Visual Studio 17" -A Win32
+      if: ${{ inputs.architecture == 'x86' }}
+
+    - name: Build nsclient (x64)
       working-directory: tmp/nscp
       run: |
         copy D:\a\nscp\nscp\tmp\protobuf-21.6\build\Release\libprotobuf.dll .
         msbuild NSCP.sln /p:Configuration=Release
       if: ${{ inputs.architecture == 'x64' }}
 
-    - name: Build nsclient
+    - name: Build nsclient (w32)
       working-directory: tmp/nscp
       run: |
         copy D:\a\nscp\nscp\tmp\protobuf-21.6\build\Release\libprotobuf.dll .
