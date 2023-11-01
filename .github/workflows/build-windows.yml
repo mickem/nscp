@@ -168,16 +168,17 @@ jobs:
         python postbuild.py
         echo Running cpack
         cpack
+        dir *.zip
 
     - uses: actions/upload-artifact@v3
       with:
         name: NSCP-${{ steps.version.outputs.version }}-docs.zip
-        path: tmp/nscp/NSCP-${{ steps.version.outputs.version }}-x64-docs.zip
+        path: tmp/nscp/NSCP-${{ steps.version.outputs.version }}-${{ inputs.architecture }}-docs.zip
         if-no-files-found: error
     - uses: actions/upload-artifact@v3
       with:
-        name: NSCP-${{ steps.version.outputs.version }}-x64.zip
-        path: tmp/nscp/NSCP-${{ steps.version.outputs.version }}-x64.zip
+        name: NSCP-${{ steps.version.outputs.version }}-${{ inputs.architecture }}.zip
+        path: tmp/nscp/NSCP-${{ steps.version.outputs.version }}-${{ inputs.architecture }}.zip
         if-no-files-found: error
 
     - name: Running tests
