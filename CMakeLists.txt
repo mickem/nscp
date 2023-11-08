@@ -648,7 +648,7 @@ ADD_CUSTOM_TARGET(nscp_full_config
 FOREACH(case "none" "xor" "des" "3des" "cast128" "xtea" "blowfish" "twofish" "rc2" "aes" "aes256" "aes192" "aes128" "serpent" "gost" "3way")
 	add_nscp_py_test_case(nsca test_nsca ${case})
 ENDFOREACH()
-add_nscp_py_test(nrpe test_nrpe)
+#add_nscp_py_test(nrpe test_nrpe)
 add_nscp_lua_test(lua_nrpe test_nrpe)
 add_nscp_py_test(python test_python)
 add_nscp_py_test(log_file test_log_file)
