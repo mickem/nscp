@@ -232,7 +232,7 @@ class NRPEServerTest(BasicTest):
 		result.add(self.test_one(ssl, length, state = status.CRITICAL, tag = 'crit'))
 		return result
 
-	def run_test(self):
+	def run_test(self, cases=None):
 		result = TestResult()
 		result.add(self.do_one_test(ssl=True))
 		result.add(self.do_one_test(ssl=False))

@@ -102,7 +102,7 @@ namespace nscapi {
 			const options_map& get_options() const {
 				return options;
 			}
-			virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool) {
+			virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 				nscapi::settings_helper::settings_registry settings(proxy);
 				if (oneliner) {
 					parent = "default";
