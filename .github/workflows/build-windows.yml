@@ -137,7 +137,6 @@ jobs:
     - name: Build nsclient
       working-directory: tmp/nscp
       run: |
-        copy D:\a\nscp\nscp\tmp\protobuf-21.6\build\Release\libprotobuf.dll .
         msbuild NSCP.sln /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
       continue-on-error: true
 
