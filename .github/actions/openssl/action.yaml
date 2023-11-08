@@ -21,11 +21,11 @@ runs:
 
     - id: setup
       run: |
-            if ("${{ inputs.architecture }}" -eq "x64"){
-              echo "cmd=VC-WIN64A" >> $env:GITHUB_OUTPUT
-            } else {
-              echo "cmd=VC-WIN32" >> $env:GITHUB_OUTPUT
-            }
+        if ("${{ inputs.architecture }}" -eq "x64") {
+          echo "cmd=VC-WIN64A" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "cmd=VC-WIN32" >> $env:GITHUB_OUTPUT
+        }
       shell: pwsh
 
     - name: Download openssl
