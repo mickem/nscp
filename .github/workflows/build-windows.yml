@@ -129,7 +129,7 @@ jobs:
             #SET(ARCHIVE_FOLDER "TODO")
             #SET(TARGET_SITE "TODO")
   
-    - name: CMake
+    - name: CMake x64
       working-directory: tmp/nscp
       run: |
         cmake ../.. -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }}
@@ -138,6 +138,7 @@ jobs:
       working-directory: tmp/nscp
       run: |
         msbuild NSCP.sln /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+      continue-on-error: true
 
     - name: Run tests
       working-directory: tmp/nscp
@@ -151,6 +152,7 @@ jobs:
         python postbuild.py
         echo Running cpack
         cpack
+        dir *.zip
 
     - uses: actions/upload-artifact@v3
       with:

@@ -1,0 +1,51 @@
+name: Create release
+
+on:
+  workflow_call: {}
+
+
+env:
+  PYTHON_VERSION: 3.11
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: true
+
+    - id: python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ ENV.PYTHON_VERSION }}
+
+    - id: version
+      run: |
+        & "$env:Python_ROOT_DIR\python" build\python\version.py -f version.txt -a >> $env:GITHUB_OUTPUT
+      shell: pwsh
+
+    - uses: actions/download-artifact@v3
+      with:
+        name: NSCP-${{ steps.version.outputs.version }}.zip
+        
+    - name: Display files
+      run: dir *
+      shell: pwsh
+
+    - name: Extract archive
+      run: 7z x NSCP-${{ steps.version.outputs.version }}.zip
+      shell: pwsh
+
+    - name: Rename docs
+      run: mv NSCP-${{ steps.version.outputs.version }}-x64-docs.zip NSCP-${{ steps.version.outputs.version }}-docs.zip
+      shell: pwsh
+
+    - name: Create release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          NSCP-${{ steps.version.outputs.version }}-docs.zip
+          NSCP-${{ steps.version.outputs.version }}-x64.zip
+          NSCP-${{ steps.version.outputs.version }}-Win32.zip
