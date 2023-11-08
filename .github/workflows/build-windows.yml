@@ -157,13 +157,10 @@ jobs:
 
     - uses: actions/upload-artifact@v3
       with:
-        name: NSCP-${{ steps.version.outputs.version }}-docs.zip
-        path: tmp/nscp/NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}-docs.zip
-        if-no-files-found: error
-    - uses: actions/upload-artifact@v3
-      with:
-        name: NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}.zip
-        path: tmp/nscp/NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}.zip
+        name: NSCP-${{ steps.version.outputs.version }}.zip
+        path: |
+          tmp/nscp/NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}-docs.zip
+          tmp/nscp/NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}.zip
         if-no-files-found: error
     
   
