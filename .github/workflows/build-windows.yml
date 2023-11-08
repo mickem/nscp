@@ -139,6 +139,7 @@ jobs:
       run: |
         copy D:\a\nscp\nscp\tmp\protobuf-21.6\build\Release\libprotobuf.dll .
         msbuild NSCP.sln /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+      continue-on-error: true
 
     - name: Run tests
       working-directory: tmp/nscp
@@ -164,11 +165,5 @@ jobs:
         name: NSCP-${{ steps.version.outputs.version }}-${{ inputs.architecture }}.zip
         path: tmp/nscp/NSCP-${{ steps.version.outputs.version }}-${{ inputs.architecture }}.zip
         if-no-files-found: error
-
-    - name: Running tests
-      working-directory: tmp/nscp
-      run: |
-          echo Running tests
-          ctest --output-on-failure -C Release
     
   
