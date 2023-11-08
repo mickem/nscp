@@ -34,10 +34,6 @@ jobs:
       run: dir *
       shell: pwsh
 
-    - name: Extract archive
-      run: 7z x NSCP-${{ steps.version.outputs.version }}.zip
-      shell: pwsh
-
     - name: Rename docs
       run: mv NSCP-${{ steps.version.outputs.version }}-x64-docs.zip NSCP-${{ steps.version.outputs.version }}-docs.zip
       shell: pwsh
