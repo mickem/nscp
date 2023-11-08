@@ -107,12 +107,12 @@ class NRPEServerTest(BasicTest):
 		self.reg.simple_function('check_py_nrpe_test_s', NRPEServerTest.simple_handler, 'TODO')
 		self.reg.function('check_py_nrpe_test', NRPEServerTest.handler, 'TODO')
 
-    @staticmethod
+	@staticmethod
 	def simple_handler(arguments):
 		instance = NRPEServerTest.getInstance()
 		return instance.simple_handler_wrapped(arguments)
 
-    @staticmethod
+	@staticmethod
 	def handler(channel, request):
 		instance = NRPEServerTest.getInstance()
 		return instance.handler_wrapped(channel, request)
