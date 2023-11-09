@@ -129,6 +129,12 @@ jobs:
             #SET(ARCHIVE_FOLDER "TODO")
             #SET(TARGET_SITE "TODO")
   
+    - name: Make python dist
+      working-directory: tmp/nscp
+      run: |
+        & "$env:Python_ROOT_DIR\python" ..\..\build\python\mk_pyzip.py --source ${{ env.Python_ROOT_DIR }}
+      shell: pwsh
+
     - name: CMake
       working-directory: tmp/nscp
       run: |

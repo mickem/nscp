@@ -171,6 +171,8 @@ ELSE(NOT HAVE_REQUIRED_DEPENDENCIES)
 	MESSAGE(STATUS " - All required dependecies found! (some modules and features migh stil be missing though)")
 ENDIF(NOT HAVE_REQUIRED_DEPENDENCIES)
 
+install(FILES ${PROJECT_BINARY_DIR}/python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.zip DESTINATION .)
+
 IF(USE_STATIC_RUNTIME)
 ELSE(USE_STATIC_RUNTIME)
 	IF(WIN32)
@@ -180,7 +182,7 @@ ELSE(USE_STATIC_RUNTIME)
 		MESSAGE(STATUS "Assuming python lib is in: ${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME}")
 
 		message(STATUS "Copying redist libraries to target")
-		message(STATUS " +  ${_NAME}")
+		message(STATUS " + ${_NAME}")
 
 		copy_file(${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME} ${PROJECT_BINARY_DIR})
 		install(FILES "${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME}" DESTINATION .)
