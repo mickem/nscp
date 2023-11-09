@@ -1,11 +1,7 @@
 name: Create release
 
 on:
-  workflow_call:
-    inputs:
-      create_release:
-        required: true
-        type: boolean
+  workflow_call: {}
 
 env:
   PYTHON_VERSION: 3.11
@@ -38,7 +34,6 @@ jobs:
       shell: pwsh
 
     - name: Create Release
-      if: ${{ inputs.create_release }}
       id: create_release
       uses: ncipollo/release-action@v1
       with:
