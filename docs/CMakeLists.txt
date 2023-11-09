@@ -8,7 +8,7 @@ IF(MKDOCS_FOUND)
       --module PythonScript 
       --settings dummy 
       --load-all 
-      --log error 
+      --log info 
       --log oneline 
       --define "\"${DEFINEARG}\""
       -- execute --script scripts/python/docs.py --input docs --output docs
