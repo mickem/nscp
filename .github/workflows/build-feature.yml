@@ -20,9 +20,3 @@ jobs:
     uses: ./.github/workflows/build-windows.yml
     with: 
       architecture: x86
-
-  release:
-    needs: [build-x64, build-x86]
-    uses: ./.github/workflows/release.yml
-      
-    
