@@ -457,14 +457,14 @@ class command_container(object):
 class param_container:
     
     def __init__(self, info):
-        self.name = info.name;
-        self.default_value = info.default_value;
-        self.short_description = info.short_description;
-        self.long_description = info.long_description;
-        self.required = info.required;
-        self.repeatable = info.repeatable;
-        self.content_type = info.content_type;
-        self.keyword = info.keyword;
+        self.name = info.name
+        self.default_value = info.default_value
+        self.short_description = info.short_description
+        self.long_description = info.long_description
+        self.required = info.required
+        self.repeatable = info.repeatable
+        self.content_type = info.content_type
+        self.keyword = info.keyword
         self.is_simple = True
         if info.default_value or '\n' in info.long_description:
             self.is_simple = False
@@ -709,7 +709,7 @@ class DocumentationHelper(object):
         cinfo.sample = ''
         if os.path.exists(spath):
             with open(spath) as f:
-                cinfo.sample = unicode(f.read(), 'utf8')
+                cinfo.sample = f.read()
                 cinfo.sample_source = 'samples/%s_%s_samples.md'%(module, command)
         self.command_cache[command] = cinfo
         return cinfo
@@ -796,7 +796,7 @@ class DocumentationHelper(object):
 
 def __main__(args):
     global helper
-    helper.main(args);
+    helper.main(args)
     return 0
     
 def init(plugin_id, plugin_alias, script_alias):
