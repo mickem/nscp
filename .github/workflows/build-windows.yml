@@ -138,7 +138,13 @@ jobs:
       working-directory: tmp/nscp
       run: |
         msbuild NSCP.sln /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+      continue-on-error: true
 
+    - name: Build nsclient (take 2)
+      working-directory: tmp/nscp
+      run: |
+        msbuild NSCP.sln /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+  
     - name: Run tests
       working-directory: tmp/nscp
       run: |
