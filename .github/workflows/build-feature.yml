@@ -1,4 +1,4 @@
-name: Build Windows (ALL)
+name: Build feature
 
 on:
   push: {}

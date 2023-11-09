@@ -1,8 +1,11 @@
 name: Create release
 
 on:
-  workflow_call: {}
-
+  workflow_call:
+    inputs:
+      create_release:
+        required: true
+        type: boolean
 
 env:
   PYTHON_VERSION: 3.11
@@ -30,18 +33,20 @@ jobs:
       with:
         name: NSCP-${{ steps.version.outputs.version }}.zip
         
-    - name: Display files
-      run: dir *
-      shell: pwsh
-
     - name: Rename docs
       run: mv NSCP-${{ steps.version.outputs.version }}-x64-docs.zip NSCP-${{ steps.version.outputs.version }}-docs.zip
       shell: pwsh
 
-    - name: Create release
-      uses: softprops/action-gh-release@v1
+    - name: Create Release
+      if: ${{ inputs.create_release }}
+      id: create_release
+      uses: ncipollo/release-action@v1
       with:
-        files: |
+        tag: ${{ steps.version.outputs.version }}
+        name: Preview for ${{ steps.version.outputs.version }}
+        draft: true
+        prerelease: true
+        artifacts: |
           NSCP-${{ steps.version.outputs.version }}-docs.zip
           NSCP-${{ steps.version.outputs.version }}-x64.zip
           NSCP-${{ steps.version.outputs.version }}-Win32.zip
