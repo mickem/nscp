@@ -3,14 +3,14 @@
 	<Fragment>
 		<DirectoryRef Id="INSTALLLOCATION">
 			<Component Id="LibCommon" Guid="AA72FE42-6AF4-41B6-B77E-E554860E4508">
-        <File Id="BOOST_DT" Name="boost_date_time-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_date_time-$(var.BoostTag).dll" Vital="yes" />
-        <File Id="BOOST_C" Name="boost_chrono-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_chrono-$(var.BoostTag).dll" Vital="yes" />
-        <File Id="BOOST_FS" Name="boost_filesystem-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_filesystem-$(var.BoostTag).dll" Vital="yes" />
-				<File Id="BOOST_PO" Name="boost_program_options-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_program_options-$(var.BoostTag).dll" Vital="yes" />
-				<File Id="BOOST_PY" Name="boost_python27-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_python27-$(var.BoostTag).dll" Vital="yes" />
-				<File Id="BOOST_RE" Name="boost_regex-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_regex-$(var.BoostTag).dll" Vital="yes" />
-				<File Id="BOOST_SYS" Name="boost_system-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_system-$(var.BoostTag).dll" Vital="yes" />
-				<File Id="BOOST_T" Name="boost_thread-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_thread-$(var.BoostTag).dll" Vital="yes" />
+        <File Id="BOOST_DT" Name="boost_date_time.dll" DiskId="1" Source="$(var.Source)/boost_date_time.dll" Vital="yes" />
+        <File Id="BOOST_C" Name="boost_chrono.dll" DiskId="1" Source="$(var.Source)/boost_chrono.dll" Vital="yes" />
+        <File Id="BOOST_FS" Name="boost_filesystem.dll" DiskId="1" Source="$(var.Source)/boost_filesystem.dll" Vital="yes" />
+				<File Id="BOOST_PO" Name="boost_program_options.dll" DiskId="1" Source="$(var.Source)/boost_program_options.dll" Vital="yes" />
+				<File Id="BOOST_PY" Name="boost_python311.dll" DiskId="1" Source="$(var.Source)/boost_python311.dll" Vital="yes" />
+				<File Id="BOOST_RE" Name="boost_regex.dll" DiskId="1" Source="$(var.Source)/boost_regex.dll" Vital="yes" />
+				<File Id="BOOST_SYS" Name="boost_system.dll" DiskId="1" Source="$(var.Source)/boost_system.dll" Vital="yes" />
+				<File Id="BOOST_T" Name="boost_thread.dll" DiskId="1" Source="$(var.Source)/boost_thread.dll" Vital="yes" />
 				<File Id="SSL1" Name="$(var.OpenSSlCrypto)" DiskId="1" Source="$(var.Source)/$(var.OpenSSlCrypto)" Vital="yes" />
 				<File Id="SSL2" Name="$(var.OpenSSlLib)" DiskId="1" Source="$(var.Source)/$(var.OpenSSlLib)" Vital="yes" />
       </Component>

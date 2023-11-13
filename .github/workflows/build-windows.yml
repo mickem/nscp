@@ -60,6 +60,7 @@ jobs:
       run: |
         mkdir tmp
         mkdir tmp\nscp
+        mkdir tmp\installer_lib
       shell: cmd
 
     - uses: shogo82148/actions-setup-perl@v1
@@ -97,16 +98,32 @@ jobs:
         platform: ${{ inputs.architecture }}
         configuration: Release
 
+    - name: Build Boost
+      id: static_boost
+      uses: egor-tensin/build-boost@v1
+      with:
+        version: ${{ ENV.BOOST_VERSION }}
+        libraries: system filesystem
+        platform: ${{ inputs.architecture }}
+        configuration: Release
+        static: 1
+        static-runtime: 1
+        directory: ${{ runner.workspace }}/static_boost
+  
     - id: paths
       run: |
         $path_unix="${{ steps.boost.outputs.root }}".replace('\','/')
         echo "boost_root=$path_unix" >> $env:GITHUB_OUTPUT
         $path_unix="${{ steps.boost.outputs.librarydir }}".replace('\','/')
         echo "boost_librarydir=$path_unix" >> $env:GITHUB_OUTPUT
+        $path_unix="${{ steps.static_boost.outputs.root }}".replace('\','/')
+        echo "static_boost_root=$path_unix" >> $env:GITHUB_OUTPUT
+        $path_unix="${{ steps.static_boost.outputs.librarydir }}".replace('\','/')
+        echo "static_boost_librarydir=$path_unix" >> $env:GITHUB_OUTPUT
         $path_unix="${{ env.Python_ROOT_DIR }}".replace('\','/')
         echo "python_path=$path_unix" >> $env:GITHUB_OUTPUT
       shell: pwsh
-        
+
     - uses: DamianReeves/write-file-action@master
       with:
         path: tmp/nscp/build.cmake
@@ -128,6 +145,14 @@ jobs:
             #SET(CSHARP_DOTNET_VERSION "v4.0.30319")
             #SET(ARCHIVE_FOLDER "TODO")
             #SET(TARGET_SITE "TODO")
+      
+    - uses: DamianReeves/write-file-action@master
+      with:
+        path: tmp/installer_lib/build.cmake
+        contents: |
+            SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
+            SET(BOOST_ROOT "${{ steps.paths.outputs.static_boost_root }}")
+            SET(BOOST_LIBRARYDIR "${{ steps.paths.outputs.static_boost_librarydir }}")
   
     - name: Make python dist
       working-directory: tmp/nscp
@@ -135,18 +160,22 @@ jobs:
         & "$env:Python_ROOT_DIR\python" ..\..\build\python\mk_pyzip.py --source ${{ env.Python_ROOT_DIR }}
       shell: pwsh
 
-    - name: CMake
+    - name: CMake (installer_lib)
+      working-directory: tmp/installer_lib
+      run: |
+        cmake ../.. -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }}
+
+    - name: Build installer_lib
+      working-directory: tmp/installer_lib
+      run: |
+        msbuild NSCP.sln /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+  
+    - name: CMake (NSCP)
       working-directory: tmp/nscp
       run: |
         cmake ../.. -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }}
 
     - name: Build nsclient
-      working-directory: tmp/nscp
-      run: |
-        msbuild NSCP.sln /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
-      continue-on-error: true
-
-    - name: Build nsclient (take 2)
       working-directory: tmp/nscp
       run: |
         msbuild NSCP.sln /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
