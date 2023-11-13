@@ -76,6 +76,7 @@ namespace socket_helpers {
 					"no-sslv2\tDo not use the SSLv2 protocol.\n"
 					"no-sslv3\tDo not use the SSLv3 protocol.\n"
 					"no-tlsv1\tDo not use the TLSv1 protocol.\n"
+					"no-tlsv1_1\tDo not use the TLSv1.1 protocol.\n"
 					"no-tlsv1_2\tDo not use the TLSv1.2 protocol.\n"
 					"no-tlsv1_3\tDo not use the TLSv1.3 protocol.\n"
 					"single-dh-use\tAlways create a new key when using temporary/ephemeral DH parameters. "
