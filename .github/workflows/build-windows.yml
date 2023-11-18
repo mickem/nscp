@@ -88,17 +88,8 @@ jobs:
       with:
         version: ${{ ENV.CRYPTOPP_VERSION }}
         architecture: ${{ inputs.architecture }}
-  
-    - name: Build Boost
-      id: boost
-      uses: egor-tensin/build-boost@v1
-      with:
-        version: ${{ ENV.BOOST_VERSION }}
-        libraries: system filesystem thread regex date_time program_options python chrono
-        platform: ${{ inputs.architecture }}
-        configuration: Release
 
-    - name: Build Boost
+    - name: Build Boost (static)
       id: static_boost
       uses: egor-tensin/build-boost@v1
       with:
@@ -109,6 +100,15 @@ jobs:
         static: 1
         static-runtime: 1
         directory: ${{ runner.workspace }}/static_boost
+          
+    - name: Build Boost (regular)
+      id: boost
+      uses: egor-tensin/build-boost@v1
+      with:
+        version: ${{ ENV.BOOST_VERSION }}
+        libraries: system filesystem thread regex date_time program_options python chrono
+        platform: ${{ inputs.architecture }}
+        configuration: Release
   
     - id: paths
       run: |
@@ -125,6 +125,7 @@ jobs:
       shell: pwsh
 
     - uses: DamianReeves/write-file-action@master
+      name: Write NSClient++ cmake config
       with:
         path: tmp/nscp/build.cmake
         contents: |
@@ -137,6 +138,7 @@ jobs:
             SET(PROTOBUF_ROOT "${{ steps.protobuf.outputs.path_unix }}")
             SET(PROTOBUF_LIBRARYDIR "${PROTOBUF_ROOT}/build/Release")
             SET(OPENSSL_ROOT_DIR "${{ steps.openssl.outputs.path_unix }}")
+            SET(OPENSSL_USE_STATIC_LIBS TRUE)
             SET(LUA_SOURCE_ROOT "${LIBRARY_ROOT_FOLDER}/lua-5.1.5")
             SET(Python3_ROOT_DIR "${{ steps.paths.outputs.python_path }}")
             SET(Python3_FIND_STRATEGY LOCATION)
@@ -146,14 +148,6 @@ jobs:
             #SET(ARCHIVE_FOLDER "TODO")
             #SET(TARGET_SITE "TODO")
       
-    - uses: DamianReeves/write-file-action@master
-      with:
-        path: tmp/installer_lib/build.cmake
-        contents: |
-            SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
-            SET(BOOST_ROOT "${{ steps.paths.outputs.static_boost_root }}")
-            SET(BOOST_LIBRARYDIR "${{ steps.paths.outputs.static_boost_librarydir }}")
-  
     - name: Make python dist
       working-directory: tmp/nscp
       run: |
@@ -163,7 +157,7 @@ jobs:
     - name: CMake (installer_lib)
       working-directory: tmp/installer_lib
       run: |
-        cmake ../.. -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }}
+        cmake ../.. -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -DBOOST_ROOT=${{ steps.paths.outputs.static_boost_root }} -DBOOST_LIBRARYDIR=${{ steps.paths.outputs.static_boost_librarydir }}
 
     - name: Build installer_lib
       working-directory: tmp/installer_lib

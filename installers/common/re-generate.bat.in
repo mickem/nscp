@@ -2,4 +2,3 @@
 "@WIX_ROOT_DIR@\bin\heat.exe" dir ..\..\scripts -cg ScriptResources -gg -out scripts.wxs -var var.ScriptSource
 "@WIX_ROOT_DIR@\bin\heat.exe" dir ..\..\op5\scripts -cg Op5ScriptResources -gg -out op5_scripts.wxs -var var.OP5ScriptSource
 "@WIX_ROOT_DIR@\bin\heat.exe" dir ..\..\op5\config -cg Op5ConfigResources -gg -out op5_config.wxs -var var.OP5ConfigSource
-"@WIX_ROOT_DIR@\bin\heat.exe" dir "@NSCP_PROJECT_BINARY_DIR_NATIVE@\docs\html" -cg HTMLHelp -gg -out html_help.wxs -var var.WebHelpSource

@@ -255,6 +255,8 @@ set(PF86 "PROGRAMFILES(X86)")
 			"${_FILE}.msm"
 			"${_FILE}_${ARCH}.msm"
 			PATHS 
+            "$ENV{VCInstallDir}/Redist/MSVC/v143/MergeModules"
+            "$ENV{VCInstallDir}/Redist/MSVC/v142/MergeModules"
 			${WIX_MERGE_MODULE_PATH}
 			"$ENV{ProgramFiles}/Common Files/Merge Modules"
 			${WIX_POSSIBLE_ROOT_DIRS}

@@ -6,15 +6,15 @@ from shutil import copyfile
 
 def zipdir(path, ziph):
     for root, dirs, files in os.walk(path):
+        if 'pip' in root or 'Doc' in root or 'tcl' in root or 'tools' in root:
+                continue
+        if 'site-packages' in root:
+            if 'requests' not in root and 'jinja2' not in root and 'markupsafe' not in root :
+                continue
         dir = os.path.relpath(root, path)
+        print(f"Adding: {dir} to zip dist")
         for file in files:
-            if 'pip' in root or 'Doc' in root or 'tcl' in root or 'tools' in root:
-                    continue
-            if 'site-packages' in root:
-                if 'requests' not in root and 'jinja2' not in root and 'markupsafe' not in root :
-                    continue
             if file.endswith('.py'):
-                print(dir)
                 ziph.write(os.path.join(root, file), os.path.join(dir, file))
 
 if __name__ == '__main__':
