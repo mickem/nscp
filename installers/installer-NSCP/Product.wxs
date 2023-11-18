@@ -192,6 +192,9 @@
         <ComponentRef Id="RandomFiles" />
         <ComponentRef Id="NSCPEXE" />
         <ComponentRef Id="GeneratedCerts" />
+        <Feature Id="Shortcuts" Title="Shortcuts" Description="Startmenu shortcuts" Level="1" Absent="allow">
+          <ComponentRef Id="Shortcuts" />
+        </Feature>
 
         <ComponentRef Id="NSClientConfig" />
         <ComponentRef Id="NSClientConfigUser" />
