@@ -15,7 +15,6 @@ SET(SRCS
 	../ui/WixUI_MondoNSCP.wxs
 	../common/web.wxs
 	../common/scripts.wxs
-	../common/html_help.wxs
 	../common/op5_scripts.wxs
 	../common/op5_config.wxs
 )
