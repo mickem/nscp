@@ -161,7 +161,7 @@ jobs:
     - name: Build installer_lib
       working-directory: tmp/installer_lib
       run: |
-        msbuild NSCP.sln /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+        msbuild installer_lib.sln /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
   
     - name: CMake (NSCP)
       working-directory: tmp/nscp
