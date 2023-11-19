@@ -40,7 +40,7 @@ MACRO(copy_single_file _TARGET_LIST src destDir)
 	#MESSAGE(STATUS " - Copying ${source_file} to ${target_file}...")
 	ADD_CUSTOM_COMMAND(
 		OUTPUT ${target_file}
-		COMMAND cmake ARGS -E copy "${source_file}" "${target_file}"
+		COMMAND ${CMAKE_COMMAND} ARGS -E copy "${source_file}" "${target_file}"
 		COMMENT Copying ${source_file} to ${target_file}
 		DEPENDS ${source_file}
 		)
@@ -60,14 +60,14 @@ MACRO(copy_single_file_755 _TARGET_LIST src destDir)
 IF(WIN32)
 	ADD_CUSTOM_COMMAND(
 		OUTPUT ${target_file}
-		COMMAND cmake ARGS -E copy "${source_file}" "${target_file}"
+		COMMAND ${CMAKE_COMMAND} ARGS -E copy "${source_file}" "${target_file}"
 		COMMENT Copying ${source_file} to ${target_file}
 		DEPENDS ${source_file}
 		)
 ELSE(WIN32)
 	ADD_CUSTOM_COMMAND(
 		OUTPUT ${target_file}
-		COMMAND cmake ARGS -E copy "${source_file}" "${target_file}"
+		COMMAND ${CMAKE_COMMAND} ARGS -E copy "${source_file}" "${target_file}"
 		COMMAND chmod ARGS 755 "${target_file}"
 		COMMENT Copying ${source_file} to ${target_file}
 		DEPENDS ${source_file}
@@ -123,7 +123,7 @@ MACRO(CREATE_MODULE _SRCS _SOURCE _TARGET)
 INCLUDE_DIRECTORIES(${_TARGET})
 ADD_CUSTOM_COMMAND(
 	OUTPUT ${_TARGET}/module.cpp  ${_TARGET}/module.hpp ${_TARGET}/module.def ${_TARGET}/module.rc
-	COMMAND ${PYTHON_EXECUTABLE}
+	COMMAND ${Python3_EXECUTABLE}
 		ARGS
 		"${BUILD_PYTHON_FOLDER}/create_plugin_module.py" 
 		--source ${_SOURCE}
@@ -143,7 +143,7 @@ MACRO(CREATE_ZIP_MODULE _MODULE _SOURCE)
 #ADD_CUSTOM_TARGET(
 ADD_CUSTOM_COMMAND(
 	OUTPUT ${BUILD_TARGET_LIB_PATH}/${_MODULE}.zip
-	COMMAND ${PYTHON_EXECUTABLE}
+	COMMAND ${Python3_EXECUTABLE}
 		ARGS
 		"${BUILD_PYTHON_FOLDER}/create_zip_module.py" 
 		--source ${_SOURCE}

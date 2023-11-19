@@ -40,6 +40,7 @@
 #include <boost/bind/bind.hpp>
 
 namespace sh = nscapi::settings_helper;
+namespace ph = boost::placeholders;
 
 CheckExternalScripts::CheckExternalScripts() 
 {}
@@ -102,7 +103,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 				, "Script wrappings", "A list of templates for defining script commands.\nEnter any command line here and they will be expanded by scripts placed under the wrapped scripts section. %SCRIPT% will be replaced by the actual script an %ARGS% will be replaced by any given arguments.",
 				"WRAPPING", "An external script wrapping")
 
-			("alias", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_alias, this, _1, _2)),
+			("alias", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_alias, this, ph::_1, ph::_2)),
 				"Command aliases", "A list of aliases for already defined commands (with arguments).\n"
 				"An alias is an internal command that has been predefined to provide a single command without arguments. Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)",
 				"ALIAS", "Query alias")
@@ -182,11 +183,11 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
 			("External script settings", "General settings for the external scripts module (CheckExternalScripts).")
 
-			("scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_command, this, _1, _2)),
+			("scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_command, this, ph::_1, ph::_2)),
 			"External scripts", "A list of scripts available to run from the CheckExternalScripts module. Syntax is: `command=script arguments`",
 			"SCRIPT", "For more configuration options add a dedicated section (if you add a new section you can customize the user and various other advanced features)")
 
-			("wrapped scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_wrapping, this, _1, _2)),
+			("wrapped scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_wrapping, this, ph::_1, ph::_2)),
 			"Wrapped scripts", "A list of wrapped scripts (ie. script using a template mechanism).\nThe template used will be defined by the extension of the script. Thus a foo.ps1 will use the ps1 wrapping from the wrappings section.",
 			"WRAPPED SCRIPT", "A wrapped script definitions")
 

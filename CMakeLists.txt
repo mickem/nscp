@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.5)
 
 PROJECT(NSCP CXX C)
 
@@ -25,7 +25,7 @@ ELSEIF(EXISTS ${PROJECT_BINARY_DIR}/../build.cmake)
 	MESSAGE(STATUS "Reading custom variables from: ${PROJECT_BINARY_DIR}/../build.cmake")
 	INCLUDE(${PROJECT_BINARY_DIR}/../build.cmake)
 ELSE(NSCP_CMAKE_CONFIG)
-	MESSAGE(STATUS "NO build configuration found")
+	MESSAGE(STATUS "NO build configuration found, see NSCP_CMAKE_CONFIG=${NSCP_CMAKE_CONFIG}")
 ENDIF(NSCP_CMAKE_CONFIG)
 SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
 SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/build/cmake;${CMAKE_MODULE_PATH}")
@@ -67,6 +67,7 @@ SET(BIN_TARGET_FOLDER bin)
 SET(LOG_TARGET_FOLDER /var/log)
 SET(ETC_TARGET_FOLDER /etc)
 
+SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DBOOST_PHOENIX_STL_TUPLE_H_ -DBOOST_LIB_DIAGNOSTIC -DBOOST_AUTO_LINK_SYSTEM)
 IF(NOT DEFINED USE_STATIC_RUNTIME)
 	SET(USE_STATIC_RUNTIME FALSE)
 ENDIF(NOT DEFINED USE_STATIC_RUNTIME)
@@ -84,8 +85,8 @@ ENDIF(WIN32)
 	SET(JSON_SPIRIT_LIBRARY_TYPE	"STATIC")
 	SET(BUILD_STATIC_LIBS			ON)
 ELSE(USE_STATIC_RUNTIME)
-	SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DBOOST_ALL_NO_LIB -DBOOST_THREAD_DYN_LINK -DBOOST_PROGRAM_OPTIONS_DYN_LINK)
 	MESSAGE(STATUS "Using dynamic runtime")
+	SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DBOOST_ALL_NO_LIB -DBOOST_THREAD_DYN_LINK -DBOOST_PROGRAM_OPTIONS_DYN_LINK)
 	SET(BUILD_SHARED_LIBS			ON)
 IF(WIN32)
 	SET(Boost_USE_STATIC_LIBS		OFF)
@@ -145,10 +146,10 @@ INCLUDE(${BUILD_CMAKE_FOLDER}/dependencies.cmake)
 #############################################################################
 MESSAGE(STATUS "Validating required dependencies:")
 SET(HAVE_REQUIRED_DEPENDENCIES TRUE)
-IF(NOT PYTHONINTERP_FOUND)
+IF(NOT Python3_Interpreter_FOUND)
 	SET(HAVE_REQUIRED_DEPENDENCIES FALSE)
 	MESSAGE(WARNING " - python(exe) not found! (Required by the build process)")
-ENDIF(NOT PYTHONINTERP_FOUND)
+ENDIF()
 IF(NOT PROTOBUF_FOUND)
 	SET(HAVE_REQUIRED_DEPENDENCIES FALSE)
 	MESSAGE(WARNING " - protocol buffers not found! XXX=${PROTOBUF_LIBRARYDIR}! (Required by nsclient++)")
@@ -170,10 +171,22 @@ ELSE(NOT HAVE_REQUIRED_DEPENDENCIES)
 	MESSAGE(STATUS " - All required dependecies found! (some modules and features migh stil be missing though)")
 ENDIF(NOT HAVE_REQUIRED_DEPENDENCIES)
 
+install(FILES ${PROJECT_BINARY_DIR}/python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.zip DESTINATION .)
+
 IF(USE_STATIC_RUNTIME)
 ELSE(USE_STATIC_RUNTIME)
 	IF(WIN32)
+
+		STRING(REPLACE ".lib" ".dll" PY_LIB_RELEASE_DLL ${Python3_LIBRARIES})
+		get_filename_component(_NAME "${PY_LIB_RELEASE_DLL}" NAME)
+		MESSAGE(STATUS "Assuming python lib is in: ${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME}")
+
 		message(STATUS "Copying redist libraries to target")
+		message(STATUS " + ${_NAME}")
+
+		copy_file(${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME} ${PROJECT_BINARY_DIR})
+		install(FILES "${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME}" DESTINATION .)
+
 		find_redist(REDIST_LIST)
 		foreach(LIB ${REDIST_LIST})
 			get_filename_component(_NAME ${LIB} NAME)
@@ -181,29 +194,29 @@ ELSE(USE_STATIC_RUNTIME)
 			copy_file(${LIB} ${PROJECT_BINARY_DIR})
 			install(FILES "${LIB}" DESTINATION .)
 		endforeach()
-		SET (LIBS DATE_TIME FILESYSTEM PROGRAM_OPTIONS PYTHON "REGEX" SYSTEM THREAD CHRONO)
+		SET (LIBS DATE_TIME FILESYSTEM PROGRAM_OPTIONS PYTHON311 "REGEX" SYSTEM THREAD CHRONO)
 		FOREACH (LIB ${LIBS})
 			IF(Boost_${LIB}_LIBRARY_RELEASE)
 				STRING(REPLACE ".lib" ".dll" Boost_${LIB}_LIBRARY_RELEASE_DLL ${Boost_${LIB}_LIBRARY_RELEASE})
 				get_filename_component(_NAME "${Boost_${LIB}_LIBRARY_RELEASE_DLL}" NAME)
-				message(STATUS " + ${_NAME}")
-				#COPY_FILE(${Boost_${LIB}_LIBRARY_RELEASE_DLL} ${PROJECT_BINARY_DIR})
+				message(STATUS " + ${_NAME} - ${LIB}")
+				COPY_FILE(${Boost_${LIB}_LIBRARY_RELEASE_DLL} ${PROJECT_BINARY_DIR})
 				STRING(REPLACE ".lib" ".dll" Boost_${LIB}_LIBRARY_DEBUG_DLL ${Boost_${LIB}_LIBRARY_DEBUG})
 				#COPY_FILE(${Boost_${LIB}_LIBRARY_DEBUG_DLL} ${PROJECT_BINARY_DIR})
-				#install(FILES ${Boost_${LIB}_LIBRARY_RELEASE_DLL} DESTINATION .)
+				install(FILES ${Boost_${LIB}_LIBRARY_RELEASE_DLL} DESTINATION .)
 			ENDIF()
 		ENDFOREACH()
-		SET (LIBS LIB SSL)
+		SET (LIBS LIB_EAY SSL_EAY PROTOBUF_LIBRARY)
 		FOREACH (LIB ${LIBS})
-			STRING(REPLACE ".lib" ".dll" ${LIB}_EAY_RELEASE_DLL "${${LIB}_EAY_RELEASE}")
-			if(EXISTS "${${LIB}_EAY_RELEASE_DLL}")
-				get_filename_component(_NAME "${${LIB}_EAY_RELEASE_DLL}" NAME)
+			STRING(REPLACE ".lib" ".dll" ${LIB}_RELEASE_DLL "${${LIB}_RELEASE}")
+			if(EXISTS "${${LIB}_RELEASE_DLL}")
+				get_filename_component(_NAME "${${LIB}_RELEASE_DLL}" NAME)
 				message(STATUS " + ${_NAME}")
-				COPY_FILE("${${LIB}_EAY_RELEASE_DLL}" ${PROJECT_BINARY_DIR})
-				install(FILES "${${LIB}_EAY_RELEASE_DLL}" DESTINATION .)
+				COPY_FILE("${${LIB}_RELEASE_DLL}" ${PROJECT_BINARY_DIR})
+				install(FILES "${${LIB}_RELEASE_DLL}" DESTINATION .)
 			else()
-				get_filename_component(_PATH "${${LIB}_EAY_RELEASE_DLL}" DIRECTORY)
-				STRING(REPLACE ".lib" "*.dll" LIB_PATTERN "${${LIB}_EAY_RELEASE}")
+				get_filename_component(_PATH "${${LIB}_RELEASE_DLL}" DIRECTORY)
+				STRING(REPLACE ".lib" "*.dll" LIB_PATTERN "${${LIB}_RELEASE}")
 				file(GLOB FILES ${LIB_PATTERN})
 				foreach(FILE ${FILES})
 					get_filename_component(_NAME "${FILE}" NAME)
@@ -212,9 +225,9 @@ ELSE(USE_STATIC_RUNTIME)
 					install(FILES "${FILE}" DESTINATION .)
 				endforeach()
 			endif()
-
-
 		ENDFOREACH()
+
+
 	ENDIF()
 ENDIF(USE_STATIC_RUNTIME)
 
@@ -234,7 +247,7 @@ ENDIF(PYTHON_DIST)
 SET(VERSION_TXT ${CMAKE_CURRENT_SOURCE_DIR}/version.txt)
 IF("${INCREASE_BUILD}" STREQUAL "1")
 EXECUTE_PROCESS(
-	COMMAND ${PYTHON_EXECUTABLE}
+	COMMAND ${Python3_EXECUTABLE}
 		"${BUILD_PYTHON_FOLDER}/version.py" 
 		--file ${VERSION_TXT} 
 		--display 
@@ -245,7 +258,7 @@ EXECUTE_PROCESS(
 ENDIF("${INCREASE_BUILD}" STREQUAL "1")
 
 EXECUTE_PROCESS(
-	COMMAND ${PYTHON_EXECUTABLE}
+	COMMAND ${Python3_EXECUTABLE}
 		"${BUILD_PYTHON_FOLDER}/version.py" 
 		--file ${VERSION_TXT} 
 		--display 
@@ -254,7 +267,7 @@ EXECUTE_PROCESS(
 	)
 	
 IF(TMP_VERSION_OUT STREQUAL "")
-	MESSAGE(FATA_ERROR, "Failed to generate version from: ${PYTHON_EXECUTABLE} ${BUILD_PYTHON_FOLDER}/version.py --file ${VERSION_TXT} --display ")
+	MESSAGE(FATA_ERROR, "Failed to generate version from: ${Python3_EXECUTABLE} ${BUILD_PYTHON_FOLDER}/version.py --file ${VERSION_TXT} --display ")
 ENDIF(TMP_VERSION_OUT STREQUAL "")
 STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+).*" "\\1" VERSION_SERIES ${TMP_VERSION_OUT})
 STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+).*" "\\2" VERSION_MAJOR ${TMP_VERSION_OUT})
@@ -452,6 +465,7 @@ MESSAGE(STATUS "Building support libraries")
 
 IF(JSON_SPIRIT_CMAKE)
 	MESSAGE(STATUS " - Json-Spirit")
+	add_definitions(-DBOOST_AUTO_LINK_SYSTEM)
 	ADD_SUBDIRECTORY(${JSON_SPIRIT_CMAKE})
 	SET_TARGET_PROPERTIES(json_spirit PROPERTIES FOLDER "libraries")
 ENDIF(JSON_SPIRIT_CMAKE)
@@ -507,6 +521,10 @@ FILE(GLOB ALL_LIB_PROJECTS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "libs/*/CMakeL
 FOREACH(CURRENT_LIB ${ALL_LIB_PROJECTS})
 	GET_FILENAME_COMPONENT(CURRENT_LIB_PATH ${CURRENT_LIB} PATH)
 	GET_FILENAME_COMPONENT(CURRENT_LIB_NAME ${CURRENT_LIB_PATH} NAME)
+	IF(CURRENT_LIB_NAME STREQUAL "protobuf_net" OR CURRENT_LIB_NAME STREQUAL "dotnet-plugin-api")
+		MESSAGE(STATUS " - Skipping Library: ${CURRENT_LIB_PATH} (${CURRENT_LIB_NAME})")
+		continue()
+	ENDIF()
 	MESSAGE(STATUS " + Library: ${CURRENT_LIB_PATH} (${CURRENT_LIB_NAME})")
 	ADD_SUBDIRECTORY("${CURRENT_LIB_PATH}")
 	SET(ALL_LIB_NAMES ${ALL_LIB_NAMES} ${CURRENT_LIB_NAME})
@@ -514,13 +532,14 @@ ENDFOREACH(CURRENT_LIB ${ALL_LIB_PROJECTS})
 
 SET(ALL_ZIP_MODULES)
 MESSAGE(STATUS "Adding zip-modules")
-FILE(GLOB ALL_ZIP_MODULES RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "scripts/modules/*/CMakeLists.txt")
-FOREACH(CURRENT ${ALL_ZIP_MODULES})
+FILE(GLOB ALL_ZIP_PROJECTS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "scripts/modules/*/CMakeLists.txt")
+FOREACH(CURRENT ${ALL_ZIP_PROJECTS})
 	GET_FILENAME_COMPONENT(CURRENT_PATH ${CURRENT} PATH)
 	GET_FILENAME_COMPONENT(CURRENT_NAME ${CURRENT_PATH} NAME)
 	MESSAGE(STATUS " + Zip-module: ${CURRENT_PATH} (${CURRENT_NAME})")
 	ADD_SUBDIRECTORY("${CURRENT_PATH}")
-ENDFOREACH(CURRENT ${ALL_ZIP_MODULES})
+	SET(ALL_ZIP_MODULES ${ALL_ZIP_MODULES} ${CURRENT_NAME})
+ENDFOREACH(CURRENT ${ALL_ZIP_PROJECTS})
 
 #############################################################################
 #
@@ -537,7 +556,7 @@ SET(NSCP_DEF_PLUGIN_HPP
 	${NSCP_INCLUDEDIR}/utf8.hpp
 	${NSCP_INCLUDEDIR}/str/format.hpp
 	${NSCP_INCLUDEDIR}/str/utils.hpp
-	${NSCP_INCLUDEDIR}/config.h
+	#${NSCP_INCLUDEDIR}/config.h
 	${NSCP_INCLUDEDIR}/NSCAPI.h
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.hpp  
@@ -632,7 +651,7 @@ ENDIF(WIN32)
 FOREACH(case "none" "xor" "des" "3des" "cast128" "xtea" "blowfish" "twofish" "rc2" "aes" "aes256" "aes192" "aes128" "serpent" "gost" "3way")
 	add_nscp_py_test_case(nsca test_nsca ${case})
 ENDFOREACH()
-#add_nscp_py_test(nrpe test_nrpe)
+add_nscp_py_test(nrpe test_nrpe)
 add_nscp_lua_test(lua_nrpe test_nrpe)
 add_nscp_py_test(python test_python)
 add_nscp_py_test(log_file test_log_file)
@@ -641,7 +660,8 @@ add_nscp_py_test(scheduler test_scheduler)
 IF(WIN32)
 # Disabled as is is not a unit test per see, since it requires extenal non mocked stimula
 #	add_nscp_py_test(eventlog test_eventlog)
-	add_nscp_py_test(w32_system test_w32_system)
+	# notepad no longer exists
+	# add_nscp_py_test(w32_system test_w32_system)
 	add_nscp_py_test(w32_system test_w32_file)
 	add_nscp_py_test(w32_taskScheduler test_w32_schetask)
 ENDIF(WIN32)

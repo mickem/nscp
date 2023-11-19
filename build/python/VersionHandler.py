@@ -23,7 +23,7 @@ class VersionHandler:
 				self.readline(line)
 
 		except IOError as e:
-			print 'File not found: %s (%s)'%(self.file, e)
+			print('File not found: %s (%s)'%(self.file, e))
 			sys.exit(1)
 
 	def write(self):
@@ -38,7 +38,7 @@ class VersionHandler:
 			f.close()
 			
 		except IOError as e:
-			print 'Failed to update: %s (%s)'%(self.file, e)
+			print('Failed to update: %s (%s)'%(self.file, e))
 			sys.exit(1)
 		
 		
@@ -49,11 +49,11 @@ class VersionHandler:
 		try:
 			m = re.search('(.*)=(.*)$', line)
 			if not m:
-				print 'Failed to parse line: %s'%(line.strip('\n\t '))
+				print('Failed to parse line: %s'%(line.strip('\n\t ')))
 				return
 			self.set(m.group(1), m.group(2))
 		except IndexError as e:
-			print 'Failed to parse line: %s (%s)'%(line.strip('\n\t '),e)
+			print('Failed to parse line: %s (%s)'%(line.strip('\n\t '),e))
 
 	def set(self,k,v):
 		if k == 'version':
@@ -97,7 +97,7 @@ class VersionHandler:
 			self.build = 0
 		
 	def print_version(self):
-		print '%d.%d.%d.%d'%(self.major, self.minor, self.revision, self.build)
+		print('%d.%d.%d.%d'%(self.major, self.minor, self.revision, self.build))
 	
 	def write_hpp(self, file):
 		d = os.path.dirname(file)

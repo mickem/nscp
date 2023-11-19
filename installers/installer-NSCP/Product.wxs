@@ -120,7 +120,6 @@
               <File Id="SMTPClient" Name="SMTPClient.dll" DiskId="1" Source="$(var.Source)/modules/SMTPClient.dll" Vital="no" />
               <File Id="SyslogClient" Name="SyslogClient.dll" DiskId="1" Source="$(var.Source)/modules/SyslogClient.dll" Vital="no" />
               <File Id="NRDPClient" Name="NRDPClient.dll" DiskId="1" Source="$(var.Source)/modules/NRDPClient.dll" Vital="no" />
-              <File Id="ElasticClient" Name="ElasticClient.dll" DiskId="1" Source="$(var.Source)/modules/ElasticClient.dll" Vital="no" />
               <File Id="IcingaClient" Name="icinga-client.zip" DiskId="1" Source="$(var.Source)/modules/icinga-client.zip" Vital="no" />
             </Component>
             <Component Id="RequiredPlugins" Guid="A20AFC9C-C36F-4CCE-9D38-3C232235F545" Win64="$(var.Win64)">
@@ -131,26 +130,24 @@
               <File Id="ModCheckExternalScripts.dll" Name="CheckExternalScripts.dll" DiskId="1" Source="$(var.Source)/modules/CheckExternalScripts.dll" Vital="no" />
               <File Id="ModCheckHelpers.dll" Name="CheckHelpers.dll" DiskId="1" Source="$(var.Source)/modules/CheckHelpers.dll" Vital="no" />
               <File Id="ModCheckSystem.dll" Name="CheckSystem.dll" DiskId="1" Source="$(var.Source)/modules/CheckSystem.dll" Vital="no" />
-              <?if "$(var.HasATL)" = "yes"?>
               <File Id="ModCheckWMI.dll" Name="CheckWMI.dll" DiskId="1" Source="$(var.Source)/modules/CheckWMI.dll" Vital="no" />
-              <?endif?>
               <File Id="ModCheckNSCP.dll" Name="CheckNSCP.dll" DiskId="1" Source="$(var.Source)/modules/CheckNSCP.dll" Vital="no" />
               <File Id="ModCheckDisk.dll" Name="CheckDisk.dll" DiskId="1" Source="$(var.Source)/modules/CheckDisk.dll" Vital="no" />
-              <?if "$(var.HasATL)" = "yes"?>
               <File Id="ModCheckTaskSched.dll" Name="CheckTaskSched.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched.dll" Vital="no" />
-              <?endif?>
               <File Id="ModSimpleCache.dll" Name="SimpleCache.dll" DiskId="1" Source="$(var.Source)/modules/SimpleCache.dll" Vital="no" />
               <File Id="ModSimpleFileWriter.dll" Name="SimpleFileWriter.dll" DiskId="1" Source="$(var.Source)/modules/SimpleFileWriter.dll" Vital="no" />
               <File Id="ModCheckLogFile.dll" Name="CheckLogFile.dll" DiskId="1" Source="$(var.Source)/modules/CheckLogFile.dll" Vital="no" />
               <File Id="ModCheckNet.dll" Name="CheckNet.dll" DiskId="1" Source="$(var.Source)/modules/CheckNet.dll" Vital="no" />
               <File Id="RemoteModules" Name="remote-modules.zip" DiskId="1" Source="$(var.Source)/modules/remote-modules.zip" Vital="no" />
             </Component>
+            <!--
             <Component Id="LuaScript" Guid="C5A3C7E2-77A0-4BE2-B60D-808F4B14F56F" Win64="$(var.Win64)">
               <File Id="ModLUAScript.dll" Name="LUAScript.dll" DiskId="1" Source="$(var.Source)/modules/LUAScript.dll" Vital="no" />
             </Component>
             <Component Id="DotNetPlugins" Guid="E57F4EE3-D5A6-46ED-BC99-018708258154" Win64="$(var.Win64)">
               <File Id="ModDotnetPlugins.dll" Name="DotnetPlugins.dll" DiskId="1" Source="$(var.Source)/modules/DotnetPlugins.dll" Vital="no" />
             </Component>
+            -->
             <Component Id="Op5Client" Guid="D8378E84-4785-41FD-8FCD-2409135FBFF4" Win64="$(var.Win64)">
               <File Id="ModOp5Client.dll" Name="Op5Client.dll" DiskId="1" Source="$(var.Source)/modules/Op5Client.dll" Vital="no" />
             </Component>
@@ -159,16 +156,18 @@
             </Component>
           </Directory>
           <Component Id="PythonBin" Guid="2802DD6D-C4F2-4BDF-BBE8-A96A041AF899" Win64="$(var.Win64)">
-            <File Id="PythonDLL" Name="python27.dll" DiskId="1" Source="$(var.Source)/../python-dist/python27.dll" Vital="no" />
-            <File Id="PythonZIP" Name="python27.zip" DiskId="1" Source="$(var.Source)/../python-dist/python27.zip" Vital="no" />
-            <File Id="PythonPYD1" Name="_socket.pyd" DiskId="1" Source="$(var.Source)/../python-dist/_socket.pyd" Vital="no" />
-            <File Id="PythonPYD2" Name="unicodedata.pyd" DiskId="1" Source="$(var.Source)/../python-dist/unicodedata.pyd" Vital="no" />
+            <File Id="PythonDLL" Name="python311.dll" DiskId="1" Source="$(var.Source)/python311.dll" Vital="no" />
+            <File Id="PythonZIP" Name="python311.zip" DiskId="1" Source="$(var.Source)/python311.zip" Vital="no" />
+            <File Id="PythonPYD1" Name="_socket.pyd" DiskId="1" Source="$(var.Source)/_socket.pyd" Vital="no" />
+            <File Id="PythonPYD2" Name="unicodedata.pyd" DiskId="1" Source="$(var.Source)/unicodedata.pyd" Vital="no" />
           </Component>
+          <!--
           <Component Id="LibDotNet" Guid="29AC2A9A-D1D1-4E86-BEE0-5428C86422F6">
             <File Id="DOTNET_PB" Name="Google.ProtocolBuffers.dll" DiskId="1" Source="$(var.Source)/Google.ProtocolBuffers.dll" Vital="yes" />
             <File Id="DOTNET_CORE" Name="NSCP.Core.dll" DiskId="1" Source="$(var.Source)/NSCP.Core.dll" Vital="yes" />
             <File Id="DOTNET_NSPB" Name="NSCP.Protobuf.dll" DiskId="1" Source="$(var.Source)/NSCP.Protobuf.dll" Vital="yes" />
           </Component>
+          -->
         </Directory>
       </Directory>
 
@@ -193,6 +192,9 @@
         <ComponentRef Id="RandomFiles" />
         <ComponentRef Id="NSCPEXE" />
         <ComponentRef Id="GeneratedCerts" />
+        <Feature Id="Shortcuts" Title="Shortcuts" Description="Startmenu shortcuts" Level="1" Absent="allow">
+          <ComponentRef Id="Shortcuts" />
+        </Feature>
 
         <ComponentRef Id="NSClientConfig" />
         <ComponentRef Id="NSClientConfigUser" />
@@ -209,16 +211,12 @@
         <Feature Id="FirewallConfig" Title="Firewall Exception" Description="A firewall exception to allow NSClient++ to open ports" Level="1" Absent="allow">
           <ComponentRef Id="FWException" />
         </Feature>
+        <!--
         <Feature Id="DotNetPluginSupport" Title=".net plugin support" Description="Support for loading modules written in .dot net (Requires installing .net framework)" Level="1" Absent="allow">
           <ComponentRef Id="LibDotNet" />
           <ComponentRef Id="DotNetPlugins" />
         </Feature>
-      </Feature>
-      <Feature Id="Documentation" Title="Documentation (html)" Description="Documentation for NSClient++" Level="1" Absent="allow">
-        <ComponentGroupRef Id="HTMLHelp" />
-        <Feature Id="Shortcuts" Title="Shortcuts" Description="Startmenu shortcuts" Level="1" Absent="allow">
-          <ComponentRef Id="Shortcuts" />
-        </Feature>
+        -->
       </Feature>
       <Feature Id="OP5Montoring" Title="OP5 Monitoring system" Description="Configuration and scripts to use NSClien++ with OP5 monitoring solution" Level="1" Absent="allow">
           <ComponentGroupRef Id="Op5ConfigResources" />
@@ -240,7 +238,9 @@
         </Feature>
         <Feature Id="WEBPlugins" Title="WEB Server" Description="NSClient WEB Server. Use this to administrate or check NSCLient via a browser or REST API" Level="1" Absent="allow">
           <ComponentRef Id="WEBServer" />
+          <!--
           <ComponentGroupRef Id="WEBResources" />
+          -->
           <ComponentRef Id="MongooseLibs" />
         </Feature>
         <Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to an NSCA server" Level="1" Absent="allow">
@@ -258,10 +258,12 @@
             <ComponentRef Id="PythonBin" />
           </Feature>
         </Feature>
+        <!--
         <Feature Id="LuaScript" Title="Lua Scripting" Description="Allows running INTERNAL scripts written in Lua" Level="1" Absent="allow">
           <ComponentRef Id="LuaScript" />
           <ComponentRef Id="LuaLibs" />
         </Feature>
+        -->
       </Feature>
       <Feature Id="SampleScripts" Title="Scripts" Description="Scripts for checking and testing various aspects of your computer and NSClient++" Level="1" Absent="allow">
         <ComponentGroupRef Id="ScriptResources" />
@@ -285,7 +287,7 @@
     <CustomAction Id="SetUserGroupUsersProp" Property="TRANSLATE_SID_PROPERTY" Value="USERGROUP_USERS" Return="check" />
     <CustomAction Id="TranslateUserGroupUsers" BinaryKey="InstallerHelper" DllEntry="TranslateSid"/>
 
-    <Binary Id='InstallerHelper' SourceFile='$(var.Source)/installer_lib.dll' />
+    <Binary Id='InstallerHelper' SourceFile='$(var.Source)/../installer_lib/Release/installer_lib.dll' />
 
     <InstallExecuteSequence>
       <RemoveExistingProducts After='InstallValidate'></RemoveExistingProducts>

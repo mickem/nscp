@@ -5,7 +5,7 @@ package PB.Registry;
 //option optimize_for = CODE_SIZE;
 
 import "common.proto";
-
+option optimize_for = LITE_RUNTIME;
 //
 // Registration is an internal message.
 // It is not used to submit checks or query status instead it is used so register modules, plug-ins, command.

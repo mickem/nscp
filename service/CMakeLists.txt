@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.5)
 
 SET(TARGET nscp)
 
@@ -96,7 +96,7 @@ IF(WIN32)
 
 		service_manager.hpp
 
-		${NSCP_INCLUDEDIR}/config.h
+		#${NSCP_INCLUDEDIR}/config.h
 		${NSCP_INCLUDEDIR}/com_helpers.hpp
 		${NSCP_INCLUDEDIR}/dll/dll.hpp
 		${NSCP_INCLUDEDIR}/dll/impl_unix.hpp
@@ -148,9 +148,9 @@ ENDIF()
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES} -Dplugin_api_NOLIB)
 
 # Add python
-IF(PYTHONLIBS_FOUND)
-	SET(EXTRA_LIBS ${EXTRA_LIBS} ${PYTHON_LIBRARIES})
-ENDIF(PYTHONLIBS_FOUND)
+IF(Python3_Development_FOUND)
+	SET(EXTRA_LIBS ${EXTRA_LIBS} ${Python3_LIBRARIES})
+ENDIF()
 
 SETUP_BREAKPAD(service_SRCS)
 

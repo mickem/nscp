@@ -24,7 +24,7 @@
 #include <string>
 #include <vector>
 
-#include <boost/tuple/tuple.hpp>
+//#include <boost/tuple/tuple.hpp>
 
 namespace parsers {
 	struct perfconfig {

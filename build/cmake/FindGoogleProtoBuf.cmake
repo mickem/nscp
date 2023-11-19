@@ -31,11 +31,11 @@ ELSE ()
 	FIND_PATH(PROTOBUF_INCLUDE_DIR 
 		google/protobuf/stubs/common.h
 		PATHS
+			${PROTOBUF_ROOT}
+			${PROTOBUF_ROOT}/src
 			/usr/include
 			/usr/local/include
 			/usr/local/Cellar/protobuf241/2.4.1/include
-			${PROTOBUF_ROOT}
-			${PROTOBUF_ROOT}/src
 	)
 	IF(NOT PROTOBUF_INCLUDE_DIR)
 		# Attempt to find a source folder if we did not find the include oine
@@ -56,14 +56,12 @@ ELSE ()
 	FIND_LIBRARY(PROTOBUF_LIBRARY_RELEASE 
 		NAMES ${PROTOBUF_LIBRARY_PREFIX}protobuf${PROTOBUF_LIBRARY_SUFFIX} ${PROTOBUF_LIBRARY_PREFIX}libprotobuf${PROTOBUF_LIBRARY_SUFFIX}
 		PATHS
-			/usr/local/Cellar/protobuf241/2.4.1/lib
-			${GNUWIN32_DIR}/lib
 			${PROTOBUF_LIBRARYDIR_RELEASE}
 			${PROTOBUF_LIBRARYDIR}
-			${PROTOBUF_ROOT}/cmake/solution/Release
-			${PROTOBUF_ROOT}/vsprojects/Release
-			${PROTOBUF_ROOT}/vsprojects/x64/Release
-			${PROTOBUF_ROOT}/src
+			${PROTOBUF_ROOT}/build/Release
+			/usr/local/Cellar/protobuf241/2.4.1/lib
+			${GNUWIN32_DIR}/lib
+		NO_DEFAULT_PATH 
 	)
 	IF(CMAKE_TRACE)
 		MESSAGE(STATUS "    PROTOBUF_LIBRARY_RELEASE=${PROTOBUF_LIBRARY_RELEASE}")
@@ -75,14 +73,14 @@ ELSE ()
 			${PROTOBUF_LIBRARY_PREFIX_DEBUG}protobufd${PROTOBUF_LIBRARY_SUFFIX_DEBUG}
 			${PROTOBUF_LIBRARY_PREFIX_DEBUG}libprotobufd${PROTOBUF_LIBRARY_SUFFIX_DEBUG}
 		PATHS
+			${PROTOBUF_LIBRARYDIR_DEBUG}
+			${PROTOBUF_LIBRARYDIR}
+			${PROTOBUF_ROOT}/build/Debug
+			${PROTOBUF_ROOT}/cmake/solution/Debug
 			/usr/local/Cellar/protobuf241/2.4.1/lib
-		${GNUWIN32_DIR}/lib
-		${PROTOBUF_LIBRARYDIR_DEBUG}
-		${PROTOBUF_LIBRARYDIR}
-		${PROTOBUF_ROOT}/cmake/solution/Debug
-		${PROTOBUF_ROOT}/vsprojects/Debug
-		${PROTOBUF_ROOT}/vsprojects/x64/Debug
-	)
+			${GNUWIN32_DIR}/lib
+		NO_DEFAULT_PATH 
+			)
 	IF(CMAKE_TRACE)
 		MESSAGE(STATUS "    PROTOBUF_LIBRARY_DEBUG=${PROTOBUF_LIBRARY_DEBUG}")
 	ENDIF(CMAKE_TRACE)
@@ -95,14 +93,11 @@ ELSE ()
 	IF(NOT PROTOBUF_PROTOC_EXECUTABLE)
 		FIND_PROGRAM(PROTOBUF_PROTOC_EXECUTABLE protoc 
 			PATHS
-			/usr/local/Cellar/protobuf241/2.4.1/bin
 				${PROTOBUF_BINARYDIR}
 				${PROTOBUF_ROOT}/cmake/solution/Release
-				${PROTOBUF_ROOT}/vsprojects/Release
-				${PROTOBUF_ROOT}/vsprojects/x64/Release
-				${PROTOBUF_ROOT}/vsprojects/Debug
-				${PROTOBUF_ROOT}/vsprojects/x64/Debug
-			)
+				${PROTOBUF_ROOT}/build/Release
+				/usr/local/Cellar/protobuf241/2.4.1/bin
+				)
 	ENDIF(NOT PROTOBUF_PROTOC_EXECUTABLE)
 	IF(CMAKE_TRACE)
 		MESSAGE(STATUS "    PROTOBUF_PROTOC_EXECUTABLE=${PROTOBUF_PROTOC_EXECUTABLE}")

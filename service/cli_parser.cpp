@@ -29,6 +29,9 @@
 #include <pid_file.hpp>
 #endif
 #include <settings/settings_core.hpp>
+
+#include <boost/bind.hpp>
+
 #include <str/format.hpp>
 
 #define LOG_MODULE "client"

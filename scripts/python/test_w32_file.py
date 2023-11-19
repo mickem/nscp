@@ -1,5 +1,5 @@
 from NSCP import Settings, Registry, Core, log, status, log_error, sleep
-from test_helper import BasicTest, TestResult, Callable, setup_singleton, install_testcases, init_testcases, shutdown_testcases
+from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
 from types import *
 import random
 import subprocess
@@ -73,12 +73,12 @@ class Win32FileTest(BasicTest):
 		if os.path.exists(file_name):
 			try:
 				os.remove(file_name)
-			except OSError, (errno, strerror):
+			except OSError:
 				log('Failed to delete: %s'%file_name)
 		if os.path.exists(folder):
 			try:
 				os.rmdir(folder)
-			except OSError, (errno, strerror):
+			except OSError:
 				None
 
 	def setup_files(self):
@@ -93,9 +93,9 @@ class Win32FileTest(BasicTest):
 		if os.path.exists(self.work_path):
 			try:
 				os.rmdir(self.work_path)
-			except OSError, (errno, strerror):
+			except OSError as e:
 				log('Failed to delete folder: %s'%self.work_path)
-				log('Failed to delete folder: %s'%errno)
+				log('Failed to delete folder: %s'%e)
 			
 	def get_count(self,perf):
 		if not perf:

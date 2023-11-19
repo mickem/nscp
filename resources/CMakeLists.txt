@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.5)
 
 MACRO(copy_single_file src destDir)
 	MESSAGE(STATUS " + ${src}")

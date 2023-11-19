@@ -1,17 +1,17 @@
 IF (WIN32)
-	SET(EXE_NAME protoc-gen-lua.cmd)
+	SET(EXE_NAME protoc-gen-lua.exe)
 ELSE(WIN32)
 	SET(EXE_NAME protoc-gen-lua)
 ENDIF(WIN32)
 FIND_PROGRAM(PROTOC_GEN_LUA_BIN
 	NAMES
 		${EXE_NAME}
-	PATHS 
+	PATHS
 		${CMAKE_SOURCE_DIR}/ext/lua-protobuf
 		${PROTOC_GEN_LUA}
 		/usr/local/bin/
 		/usr/bin/
-		${PYTHON_ROOT}/Scripts
+		${Python3_ROOT_DIR}/Scripts
 )
 IF(PROTOC_GEN_LUA_BIN)
 	SET(PROTOC_GEN_LUA_FOUND TRUE)

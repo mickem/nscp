@@ -15,6 +15,8 @@ parser.add_option("-c", "--create", action="store_true", dest="create",
 				  help="Create a new file")
 parser.add_option("-d", "--display", action="store_true", dest="display",
 				  help="Display the current version")
+parser.add_option("-a", "--github-action", action="store_true", dest="github",
+				  help="Display the current version for github actions")
 parser.add_option("-u", "--update",
 				  dest="update", 
 				  help="Update a file (major, minor, revision, build)")
@@ -41,5 +43,8 @@ if version:
 		version.write_hpp(options.targetHPP)
 	if options.display:
 		version.print_version()
+	if options.github:
+		ver = version.version()
+		print(f'version={ver}')
 
 		

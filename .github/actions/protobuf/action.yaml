@@ -1,0 +1,76 @@
+---
+name: Build protobuf
+description: Build and cache protobuf libraries
+inputs:
+  version:
+    description: The protobuf version to build
+    required: true
+  architecture:
+    description: The openssl architecture to build
+    required: true
+outputs:
+  path:
+    description: The path to the protobuf folder
+    value:  ${{ steps.path.outputs.path }}
+  path_unix:
+    description: The path to the protobuf folder
+    value:  ${{ steps.path.outputs.path_unix }}
+runs:
+  using: composite
+  steps:
+
+    - name: Download protobuf
+      run: |
+            curl -L https://github.com/protocolbuffers/protobuf/releases/download/v${{ inputs.version }}/protobuf-all-${{ inputs.version }}.zip --output protobuf.zip
+            7z x protobuf.zip
+      working-directory: tmp
+      shell: cmd
+
+    - id: cache
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-protobuf-${{ inputs.version }}-${{ inputs.architecture }}
+        path: |
+          tmp/protobuf-${{ inputs.version }}/build/Release
+
+    - id: setup
+      run: |
+        if ("${{ inputs.architecture }}" -eq "x64") {
+          echo "platform=x64" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "platform=Win32" >> $env:GITHUB_OUTPUT
+        }
+      shell: pwsh
+
+    - name: Prepare
+      run: |
+        mkdir build
+        cd build
+      working-directory: tmp/protobuf-${{ inputs.version }}
+      shell: cmd
+      if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+
+    - name: CMake x64
+      run: |
+        cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} ..
+      working-directory: tmp/protobuf-${{ inputs.version }}/build
+      shell: cmd
+
+    - name: Build
+      run: |
+        msbuild libprotobuf.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+        msbuild libprotoc.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+        msbuild protoc.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+        msbuild libprotobuf-lite.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+      working-directory: tmp/protobuf-${{ inputs.version }}/build
+      shell: cmd
+      if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+
+    - id: path
+      run: |
+        $path=$pwd.path
+        $path_unix=$pwd.path.replace('\','/')
+        echo "path=$path" >> $env:GITHUB_OUTPUT
+        echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+      working-directory: tmp/protobuf-${{ inputs.version }}

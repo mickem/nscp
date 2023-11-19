@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 from NSCP import Settings, Registry, Core, log, log_debug, log_error, status
 import plugin_pb2
+import registry_pb2
+import settings_pb2
 from optparse import OptionParser
-from sets import Set
 import os
-import traceback
-#import string
+from functools import reduce
 from jinja2 import Template, Environment
 import hashlib
 helper = None
@@ -365,7 +365,8 @@ class root_container(object):
             log("Subkey: %s"%k)
             self.paths[k].objects = self.paths[k].keys
             self.paths[k].keys = {}
-            for pk in self.paths.keys():
+            keys = list(self.paths.keys())
+            for pk in keys:
                 if pk in self.subkeys.keys():
                     continue
                 if pk.startswith(k):
@@ -416,13 +417,13 @@ class root_container(object):
             self.plugins[name].sample = ''
             if os.path.exists(spath):
                 with open(spath) as f:
-                    self.plugins[name].sample = unicode(f.read(), 'utf8')
+                    self.plugins[name].sample = f.read()
                     self.plugins[name].sample_source = 'samples/%s_samples.md'%(name)
             spath = '%s/samples/%s_desc.md'%(folder, name)
             self.plugins[name].ext_desc = ''
             if os.path.exists(spath):
                 with open(spath) as f:
-                    self.plugins[name].ext_desc = unicode(f.read(), 'utf8')
+                    self.plugins[name].ext_desc = f.read()
                     self.plugins[name].ext_desc_source = 'samples/%s_desc.md'%(name)
             
     def get_hash(self):
@@ -456,14 +457,14 @@ class command_container(object):
 class param_container:
     
     def __init__(self, info):
-        self.name = info.name;
-        self.default_value = info.default_value;
-        self.short_description = info.short_description;
-        self.long_description = info.long_description;
-        self.required = info.required;
-        self.repeatable = info.repeatable;
-        self.content_type = info.content_type;
-        self.keyword = info.keyword;
+        self.name = info.name
+        self.default_value = info.default_value
+        self.short_description = info.short_description
+        self.long_description = info.long_description
+        self.required = info.required
+        self.repeatable = info.repeatable
+        self.content_type = info.content_type
+        self.keyword = info.keyword
         self.is_simple = True
         if info.default_value or '\n' in info.long_description:
             self.is_simple = False
@@ -569,7 +570,7 @@ def render_template(hash, template, filename):
         sha1 = m1.digest()
         with open(filename) as f:
             m2 = hashlib.sha256()
-            m2.update(f.read())
+            m2.update(f.read().encode('utf8'))
             sha2 = m2.digest()
         if sha1 == sha2:
             log_debug("no changes detected in: %s"%filename)
@@ -602,7 +603,7 @@ class DocumentationHelper(object):
         self.folder = None
         
     def build_inventory_request(self,  path = '/', recursive = True, keys = False):
-        message = plugin_pb2.SettingsRequestMessage()
+        message = settings_pb2.SettingsRequestMessage()
         payload = message.payload.add()
         payload.plugin_id = self.plugin_id
         payload.inventory.node.path = path
@@ -614,7 +615,7 @@ class DocumentationHelper(object):
         return message.SerializeToString()
     
     def build_command_request(self, type = 1):
-        message = plugin_pb2.RegistryRequestMessage()
+        message = registry_pb2.RegistryRequestMessage()
         payload = message.payload.add()
         payload.inventory.fetch_all = True
         payload.inventory.type.append(type)
@@ -623,7 +624,7 @@ class DocumentationHelper(object):
     def get_paths(self):
         (code, data) = self.conf.query(self.build_inventory_request())
         if code == 1:
-            message = plugin_pb2.SettingsResponseMessage()
+            message = settings_pb2.SettingsResponseMessage()
             message.ParseFromString(data)
             for payload in message.payload:
                 if payload.inventory:
@@ -634,7 +635,7 @@ class DocumentationHelper(object):
     def get_keys(self, path):
         (code, data) = self.conf.query(self.build_inventory_request(path, False, True))
         if code == 1:
-            message = plugin_pb2.SettingsResponseMessage()
+            message = settings_pb2.SettingsResponseMessage()
             message.ParseFromString(data)
             for payload in message.payload:
                 if payload.inventory:
@@ -646,7 +647,7 @@ class DocumentationHelper(object):
         log_debug('Fetching queries...')
         (code, data) = self.registry.query(self.build_command_request(1))
         if code == 1:
-            message = plugin_pb2.RegistryResponseMessage()
+            message = registry_pb2.RegistryResponseMessage()
             message.ParseFromString(data)
             for payload in message.payload:
                 if payload.inventory:
@@ -659,7 +660,7 @@ class DocumentationHelper(object):
         log_debug('Fetching aliases...')
         (code, data) = self.registry.query(self.build_command_request(5))
         if code == 1:
-            message = plugin_pb2.RegistryResponseMessage()
+            message = registry_pb2.RegistryResponseMessage()
             message.ParseFromString(data)
             for payload in message.payload:
                 if payload.inventory:
@@ -672,7 +673,7 @@ class DocumentationHelper(object):
         log_debug('Fetching plugins...')
         (code, data) = self.registry.query(self.build_command_request(7))
         if code == 1:
-            message = plugin_pb2.RegistryResponseMessage()
+            message = registry_pb2.RegistryResponseMessage()
             message.ParseFromString(data)
             for payload in message.payload:
                 if payload.inventory:
@@ -708,7 +709,7 @@ class DocumentationHelper(object):
         cinfo.sample = ''
         if os.path.exists(spath):
             with open(spath) as f:
-                cinfo.sample = unicode(f.read(), 'utf8')
+                cinfo.sample = f.read()
                 cinfo.sample_source = 'samples/%s_%s_samples.md'%(module, command)
         self.command_cache[command] = cinfo
         return cinfo
@@ -732,7 +733,7 @@ class DocumentationHelper(object):
         env.filters['as_text'] = as_text
         env.filters['mkref'] = mkref
         
-        for (module,minfo) in root.plugins.iteritems():
+        for (module,minfo) in root.plugins.items():
             out_base_path = '%s/docs/'%output_dir
             sample_base_path = '%s/docs/samples/'%output_dir
             if minfo.namespace:
@@ -747,7 +748,7 @@ class DocumentationHelper(object):
             if os.path.exists(sfile):
                 minfo.sample = os.path.basename(sfile)
 
-            for (c,cinfo) in sorted(root.commands.iteritems()):
+            for (c,cinfo) in sorted(root.commands.items()):
                 if module in cinfo.info.plugin:
                     more_info = self.fetch_command(module, minfo, c,cinfo)
                     if more_info:
@@ -759,13 +760,13 @@ class DocumentationHelper(object):
                     cinfo.key = c
                     minfo.queries[c] = cinfo
             minfo.aliases = {}
-            for (c,cinfo) in sorted(root.aliases.iteritems()):
+            for (c,cinfo) in sorted(root.aliases.items()):
                 if module in cinfo.info.plugin:
                     cinfo.key = c
                     minfo.aliases[c] = cinfo
                     
             minfo.paths = {}
-            for (c,cinfo) in sorted(root.paths.iteritems()):
+            for (c,cinfo) in sorted(root.paths.items()):
                 if module in cinfo.info.plugin:
                     cinfo.key = c
                     minfo.paths[c] = cinfo
@@ -795,7 +796,7 @@ class DocumentationHelper(object):
 
 def __main__(args):
     global helper
-    helper.main(args);
+    helper.main(args)
     return 0
     
 def init(plugin_id, plugin_alias, script_alias):

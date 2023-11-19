@@ -52,7 +52,7 @@ struct script_container {
 			error = "Script not found: " + script.string();
 			return false;
 		}
-		if (!boost::filesystem::is_regular(script)) {
+		if (!boost::filesystem::is_regular_file(script)) {
 			error = "Script is not a file: " + script.string();
 			return false;
 		}

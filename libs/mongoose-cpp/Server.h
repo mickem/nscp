@@ -16,7 +16,7 @@ namespace Mongoose {
 	class NSCAPI_EXPORT Server {
 
 	public:
-		static Server* make_server(std::string port = "80");
+		static Server* make_server();
 
 		virtual ~Server() {}
 
@@ -24,7 +24,7 @@ namespace Mongoose {
 		/**
 		 * Runs the Mongoose server
 		 */
-		virtual void start(int thread_count) = 0;
+		virtual void start(std::string bind) = 0;
 
 		/**
 		 * Stops the Mongoose server

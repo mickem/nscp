@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.5)
 
 SET(ALIAS NSCP)
 SET(TARGET installer_${ALIAS})
@@ -15,7 +15,6 @@ SET(SRCS
 	../ui/WixUI_MondoNSCP.wxs
 	../common/web.wxs
 	../common/scripts.wxs
-	../common/html_help.wxs
 	../common/op5_scripts.wxs
 	../common/op5_config.wxs
 )
@@ -26,9 +25,6 @@ ELSE(USE_STATIC_RUNTIME)
 	SET(RUNTIME "dynamic")
 ENDIF(USE_STATIC_RUNTIME)
 
-SET(DEPENDENCIES
-	installer_lib
-)
 #GET_FILENAME_COMPONENT(_tmp_FILE WixUI_en-us.wxl ABSOLUTE)
 
 SET(LOCALIZATIONS
@@ -45,21 +41,7 @@ string(LENGTH ${TMP} TMP_LEN)
 MATH(EXPR TMP_LEN ${TMP_LEN}-3)
 string(SUBSTRING "000${VERSION_BUILD}" ${TMP_LEN} 3 VERSION_BUILD_PAD)
 
-WIX_FIND_MERGE_MODULE(CRT_MERGE_MODULE "Microsoft_VC110_CRT")
-set(HAS_ATL "yes")
-if(VSTUDIO_EXPRESS)
-set(HAS_ATL "no")
-endif()
-set(MSVER "vc110")
-if(MSVC13)
-set(MSVER "vc130")
-endif()
-if(MSVC_VERSION EQUAL 1900)
-set(MSVER "vc140")
-endif()
-if(MSVC_VERSION GREATER 1910 AND MSVC_VERSION LESS 1920)
-set(MSVER "vc141")
-endif()
+WIX_FIND_MERGE_MODULE(CRT_MERGE_MODULE "Microsoft_VC143_CRT")
 
 if(OPENSSL_INCLUDE_DIR MATCHES ".*1\\.1\\.0.*")
 set(MSI_OPENSSL_CRYPTO libcrypto-1_1-x64.dll)
@@ -87,8 +69,6 @@ SET(WIX_CANDLE_FLAGS -dboost=true -darch=${ARCH} -arch ${ARCH}
 	-dOpenSSlLib=${MSI_OPENSSL_LIB}
 	-dSource=${NSCP_PROJECT_BINARY_DIR} 
 	-dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
-	-dBoostTag=${MSVER}-mt-x64-1_68
-	-dHasATL=${HAS_ATL}
 	-dCRTMergeModule=${CRT_MERGE_MODULE}
 	-dRuntime=${RUNTIME}
 	-dWixUILicenseRtf=${CMAKE_CURRENT_SOURCE_DIR}/License.rtf
@@ -98,6 +78,6 @@ SOURCE_GROUP(Generated FILES ${SRCS})
 	
 SOURCE_GROUP(Sources FILES ${SRCS})
 ADD_WIX_INSTALLER(${ALIAS} "${SRCS}" "${DEPENDENCIES}" "${LOCALIZATIONS}")
-ADD_DEPENDENCIES(${TARGET} ${MAIN_NSCP_TARGET} ${ALL_MODULE_NAMES} ${ALL_TOOL_NAMES} ${DEPENDENCIES} ${ALL_CLIENT_NAMES} copy_files build_docs_html copy_scripts copy_resources)
+ADD_DEPENDENCIES(${TARGET} ${MAIN_NSCP_TARGET} ${ALL_MODULE_NAMES} ${ALL_ZIP_MODULES} ${ALL_TOOL_NAMES} ${DEPENDENCIES} ${ALL_CLIENT_NAMES} copy_files build_docs_html copy_scripts copy_resources)
 
 SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "installers")

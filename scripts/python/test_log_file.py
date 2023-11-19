@@ -1,5 +1,5 @@
 from NSCP import Settings, Registry, Core, log, status, log_error, sleep
-from test_helper import BasicTest, TestResult, Callable, setup_singleton, install_testcases, init_testcases, shutdown_testcases
+from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
 from types import *
 import uuid
 import os
@@ -18,7 +18,7 @@ def delete_file(file):
 	if os.path.exists(file):
 		try:
 			os.remove(file)
-		except OSError, (errno, strerror):
+		except OSError:
 			log('Failed to delete: %s'%file)
 
 class LogFileTest(BasicTest):

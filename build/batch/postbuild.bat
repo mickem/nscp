@@ -1,2 +1,2 @@
 @echo off
-${PYTHON_EXECUTABLE} postbuild.py
+${Python3_EXECUTABLE} postbuild.py

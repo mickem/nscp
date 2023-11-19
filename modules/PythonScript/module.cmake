@@ -1,5 +1,5 @@
-IF(PYTHONLIBS_FOUND)
+IF(Python3_Development_FOUND)
 	SET (BUILD_MODULE 1)
-ELSE(PYTHONLIBS_FOUND)
+ELSE()
 	MESSAGE(STATUS "Disabling PythonScript since Python was not found")
-ENDIF(PYTHONLIBS_FOUND)
+ENDIF()

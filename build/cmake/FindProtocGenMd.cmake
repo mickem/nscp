@@ -1,5 +1,5 @@
 IF (WIN32)
-	SET(EXE_NAME protoc-gen-md.cmd)
+	SET(EXE_NAME protoc-gen-md.exe)
 ELSE(WIN32)
 	SET(EXE_NAME protoc-gen-md)
 ENDIF(WIN32)
@@ -11,7 +11,7 @@ FIND_PROGRAM(PROTOC_GEN_MD_BIN
 		${PROTOC_GEN_MD}
 		/usr/local/bin/
 		/usr/bin/
-		${PYTHON_ROOT}/Scripts
+		${Python3_ROOT_DIR}/Scripts
 )
 IF(PROTOC_GEN_MD_BIN)
 	SET(PROTOC_GEN_MD_FOUND TRUE)

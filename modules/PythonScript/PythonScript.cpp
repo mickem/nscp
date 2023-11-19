@@ -108,6 +108,7 @@ bool PythonScript::unloadModule() {
 	if (provider_) {
 		provider_->clear();
 	}
+    python_script::destroy();
 	return true;
 }
 

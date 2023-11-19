@@ -302,8 +302,8 @@ namespace settings {
 			if (filename_.empty()) {
 				filename_ = get_file_from_context();
 				if (filename_.size() > 0) {
-					if (boost::filesystem::is_regular(filename_)) {
-					} else if (boost::filesystem::is_regular(filename_.substr(1))) {
+					if (boost::filesystem::is_regular_file(filename_)) {
+					} else if (boost::filesystem::is_regular_file(filename_.substr(1))) {
 						filename_ = filename_.substr(1);
 					} else if (boost::filesystem::is_directory(filename_)) {
 					} else if (boost::filesystem::is_directory(filename_.substr(1))) {
@@ -326,7 +326,7 @@ namespace settings {
 			return utf8::cvt<std::string>(filename_);
 		}
 		bool file_exists() {
-			return boost::filesystem::is_regular(get_file_name());
+			return boost::filesystem::is_regular_file(get_file_name());
 		}
 		virtual std::string get_info() {
 			return "INI settings: (" + context_ + ", " + get_file_name().string() + ")";
@@ -337,11 +337,11 @@ namespace settings {
 			std::string file = url.host + url.path;
 			std::string tmp = core->expand_path(file);
 			if (tmp.size() > 1 && tmp[0] == '/') {
-				if (boost::filesystem::is_regular(tmp) || boost::filesystem::is_directory(tmp))
+				if (boost::filesystem::is_regular_file(tmp) || boost::filesystem::is_directory(tmp))
 					return true;
 				tmp = tmp.substr(1);
 			}
-			return boost::filesystem::is_regular(tmp) || boost::filesystem::is_directory(tmp);
+			return boost::filesystem::is_regular_file(tmp) || boost::filesystem::is_directory(tmp);
 		}
 		void ensure_exists() {
 			save();

@@ -1,10 +1,10 @@
 from NSCP import Settings, Registry, Core, log, status, log_error, log_debug, sleep
-from test_helper import BasicTest, TestResult, Callable, setup_singleton, install_testcases, init_testcases, shutdown_testcases
+from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
 from types import *
 from time import time
 
-install_checks = 100
-time_to_run = 30
+install_checks = 1000
+time_to_run = 60
 
 class PythonTest(BasicTest):
 
@@ -16,18 +16,18 @@ class PythonTest(BasicTest):
 	conf = None
 	core = None
 
+	@staticmethod
 	def noop_handler(arguments):
 		instance = PythonTest.getInstance()
 		instance.noop_count = instance.noop_count + 1
 		return (status.OK, 'Got call %d'%instance.noop_count, '')
-	noop_handler = Callable(noop_handler)
 
 	
+	@staticmethod
 	def stress_handler(channel, source, command, code, message, perf):
 		instance = PythonTest.getInstance()
 		instance.stress_count = instance.stress_count + 1
 		log_debug('Got message %d/%d on %s'%(instance.stress_count, instance.noop_count, channel))
-	stress_handler = Callable(stress_handler)
 	
 	def desc(self):
 		return 'Testcase for python script module'
@@ -59,6 +59,7 @@ class PythonTest(BasicTest):
 			old_noop_count = self.noop_count
 			sleep(5000)
 			result.add_message(True, 'Commands/second: %d/%d'%( (self.stress_count-old_stress_count)/5, (self.noop_count-old_noop_count)/5 ) )
+			log(f'Commands/second: {(self.stress_count-old_stress_count)/5}/{(self.noop_count-old_noop_count)/5}')
 		elapsed = (time() - start)
 		if elapsed == 0:
 			elapsed = 1

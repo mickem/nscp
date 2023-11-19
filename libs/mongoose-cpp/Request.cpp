@@ -33,18 +33,6 @@ static void mg_strlcpy(register char *dst, register const char *src, size_t n) {
   *dst = '\0';
 }
 
-/*
-static int mg_strcasecmp(const char *s1, const char *s2) {
-  int diff;
-
-  do {
-    diff = lowercase(s1++) - lowercase(s2++);
-  } while (diff == 0 && s1[-1] != '\0');
-
-  return diff;
-}
-*/
-
 static const char *mg_strcasestr(const char *big_str, const char *small_str) {
   std::size_t i, big_len = strlen(big_str), small_len = strlen(small_str);
 
@@ -195,7 +183,7 @@ namespace Mongoose {
 		char *buffer = new char[size];
 
 		do {
-			ret = mg_get_http_var(&data, key.c_str(), buffer, size);
+			ret = mg_http_get_var(&data, key.c_str(), buffer, size);
 
 			if (ret == -1 || ret == 0) {
 				delete[] buffer;
@@ -221,7 +209,7 @@ namespace Mongoose {
         string output;
         // Looking on the query string
 		struct mg_str dataField;
-		dataField.p = query.c_str();
+		dataField.ptr = query.c_str();
 		dataField.len = query.size();
         if (readVariable(dataField, key, output)) {
             return output;

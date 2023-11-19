@@ -20,6 +20,7 @@
 #pragma once
 
 #include <vector>
+#include <string>
 
 #include <boost/foreach.hpp>
 #include <buffer.hpp>

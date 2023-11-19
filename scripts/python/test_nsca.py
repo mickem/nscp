@@ -1,5 +1,5 @@
 from NSCP import Settings, Registry, Core, log, status, log_error, log_debug, sleep
-from test_helper import BasicTest, TestResult, Callable, setup_singleton, install_testcases, init_testcases, shutdown_testcases
+from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
 import plugin_pb2
 from types import *
 import socket
@@ -108,15 +108,15 @@ class NSCAServerTest(BasicTest):
 		self.reg.simple_subscription('nsca_test_inbox', NSCAServerTest.simple_inbox_handler)
 		self.reg.subscription('nsca_test_inbox', NSCAServerTest.inbox_handler)
 
+	@staticmethod
 	def simple_inbox_handler(channel, source, command, code, message, perf):
 		instance = NSCAServerTest.getInstance()
 		return instance.simple_inbox_handler_wrapped(channel, source, command, code, message, perf)
-	simple_inbox_handler = Callable(simple_inbox_handler)
 
+	@staticmethod
 	def inbox_handler(channel, request):
 		instance = NSCAServerTest.getInstance()
 		return instance.inbox_handler_wrapped(channel, request)
-	inbox_handler = Callable(inbox_handler)
 	
 	def simple_inbox_handler_wrapped(self, channel, source, command, status, message, perf):
 		log_debug('Got message %s on %s'%(command, channel))
@@ -182,7 +182,7 @@ class NSCAServerTest(BasicTest):
 	def submit_payload(self, encryption, target, length, source, status, msg, perf, tag):
 		message = plugin_pb2.SubmitRequestMessage()
 
-		message.header.recipient_id = target
+		message.header.recipient_id = "%s"%target
 		message.channel = 'nsca_test_outbox'
 		host = message.header.hosts.add()
 		host.id = target

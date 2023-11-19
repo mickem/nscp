@@ -297,8 +297,8 @@ namespace str {
 			std::string numbers = s.substr(0, p);
 			return decode_byte_units(boost::lexical_cast<long long>(numbers), s.substr(p));
 		}
-#define BKMG_RANGE "BKMGTPE"
-#define BKMG_SIZE 5
+#define BKMG_RANGE "BKMGTPE?"
+#define BKMG_SIZE 7
 
 		inline std::string format_byte_units(const long long i) {
 			double cpy = static_cast<double>(i);

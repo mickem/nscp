@@ -1,5 +1,5 @@
 from NSCP import Settings, Registry, Core, log, status, log_debug, log_error, sleep
-from test_helper import BasicTest, TestResult, Callable, setup_singleton, install_testcases, init_testcases, shutdown_testcases
+from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
 from types import *
 from time import time
 import random
@@ -18,10 +18,10 @@ class SchedulerTest(BasicTest):
     command = 'test_sched_%s'%prefix
     sched_base_path = '/settings/%s'%sched_alias
     
+    @staticmethod
     def simple_check_handler(arguments):
         instance = SchedulerTest.getInstance()
         return instance.wrapped_simple_check_handler(arguments)
-    simple_check_handler = Callable(simple_check_handler)
 
     def wrapped_simple_check_handler(self, arguments):
         self.check_count = self.check_count + 1
@@ -33,10 +33,10 @@ class SchedulerTest(BasicTest):
             return (status.OK, arguments[0], '')
         return (status.OK, 'pong', '')
 
+    @staticmethod
     def on_stress_handler(channel, source, command, code, message, perf):
         instance = SchedulerTest.getInstance()
         instance.wrapped_on_stress_handler(channel, source, command, code, message, perf)
-    on_stress_handler = Callable(on_stress_handler)
 
     def wrapped_on_stress_handler(self, channel, source, command, code, message, perf):
         self.results_count = self.results_count + 1
@@ -151,4 +151,4 @@ def init(plugin_id, plugin_alias, script_alias):
 
 def shutdown():
     shutdown_testcases()
-
+

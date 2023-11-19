@@ -1,0 +1,52 @@
+name: Create release
+
+on:
+  workflow_call: {}
+
+env:
+  PYTHON_VERSION: 3.11
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: true
+
+    - id: python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ ENV.PYTHON_VERSION }}
+
+    - id: version
+      run: |
+        & "$env:Python_ROOT_DIR\python" build\python\version.py -f version.txt -a >> $env:GITHUB_OUTPUT
+      shell: pwsh
+
+    - uses: actions/download-artifact@v3
+      with:
+        name: NSCP-${{ steps.version.outputs.version }}.zip
+        
+    - name: Rename docs
+      run: mv NSCP-${{ steps.version.outputs.version }}-x64-docs.zip NSCP-${{ steps.version.outputs.version }}-docs.zip
+      shell: pwsh
+
+    - name: Create Release
+      id: create_release
+      uses: ncipollo/release-action@v1
+      with:
+        tag: ${{ steps.version.outputs.version }}
+        name: Preview for ${{ steps.version.outputs.version }}
+        draft: true
+        prerelease: true
+        artifacts: |
+          NSCP-${{ steps.version.outputs.version }}-docs.zip
+          NSCP-${{ steps.version.outputs.version }}-x64.zip
+          NSCP-${{ steps.version.outputs.version }}-Win32.zip
+          installers/installer-NSCP/NSCP-${{ steps.version.outputs.version }}-x64.msi
+          installers/installer-NSCP/NSCP-${{ steps.version.outputs.version }}-Win32.msi
+          installers/installer-secondary/Seconday_NSCP-${{ steps.version.outputs.version }}-x64.msi
+          installers/installer-secondary/Seconday_NSCP-${{ steps.version.outputs.version }}-Win32.msi
+

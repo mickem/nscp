@@ -105,14 +105,14 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 		;
 	settings.alias().add_key_to_settings()
-		("port", sh::string_key(&port, "8443"),
+		("port", sh::string_key(&port, "8080"),
 		"Server port", "Port to use for WEB server.")
 
 		("threads", sh::int_key(&threads, 10),
 		"Server threads", "The number of threads in the sever response pool.")
 		;
 	settings.alias().add_key_to_settings()
-		("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"),
+		("certificate", sh::string_key(&certificate, "none"),
 			"TLS Certificate", "Ssl certificate to use for the ssl server")
 		;
 
@@ -164,7 +164,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 		session->add_user("admin", "full", admin_password);
 
-		server.reset(Mongoose::Server::make_server(port));
+		server.reset(Mongoose::Server::make_server());
 		if (!boost::filesystem::is_regular_file(certificate)) {
 			NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
 		} else {
@@ -198,7 +198,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		server->registerController(new legacy_controller(session, get_core(), get_id(), client));
 
 		try {
-			server->start(threads);
+			server->start("0.0.0.0:" + port);
 		} catch (const std::exception &e) {
 			NSC_LOG_ERROR("Failed to start server: " + utf8::utf8_from_native(e.what()));
 			return true;

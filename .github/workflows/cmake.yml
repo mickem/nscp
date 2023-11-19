@@ -1,10 +1,7 @@
 name: CMake
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  workflow_dispatch: {}
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
@@ -19,15 +16,30 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+      with:
+        submodules: true
+
+    - run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake python python-dev libssl-dev libboost-all-dev protobuf-compiler python-protobuf libprotobuf-dev libcrypto++-dev libcrypto++ liblua5.2-dev libgtest-dev
+        sudo apt-get install -y debhelper zip devscripts
+        pip3 install jinja2 mkdocs mkdocs-material github3.py md-protobuf json-protobuf lua-protobuf
+        chmod 755 /home/runner/.local/bin/protoc-gen-lua
+        chmod 755 /home/runner/.local/bin/protoc-gen-json
+
+    - run: mkdir tmp
+    - run: cmake --version
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+      run: cmake ../
+      working-directory: tmp
 
     - name: Build
       # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      run: make
+      working-directory: tmp
 
     - name: Test
       working-directory: ${{github.workspace}}/build

@@ -1,6 +1,6 @@
 # Protocol Buffers - Google's data interchange format
 # Copyright 2008 Google Inc.  All rights reserved.
-# http://code.google.com/p/protobuf/
+# https://developers.google.com/protocol-buffers/
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -48,95 +48,48 @@ this file*.
 __author__ = 'robinson@google.com (Will Robinson)'
 
 
-from google.protobuf.internal import api_implementation
-from google.protobuf import descriptor as descriptor_mod
-_FieldDescriptor = descriptor_mod.FieldDescriptor
+from google.protobuf import message_factory
+from google.protobuf import symbol_database
+
+# The type of all Message classes.
+# Part of the public interface, but normally only used by message factories.
+GeneratedProtocolMessageType = message_factory._GENERATED_PROTOCOL_MESSAGE_TYPE
+
+MESSAGE_CLASS_CACHE = {}
 
 
-if api_implementation.Type() == 'cpp':
-  from google.protobuf.internal import cpp_message
-  _NewMessage = cpp_message.NewMessage
-  _InitMessage = cpp_message.InitMessage
-else:
-  from google.protobuf.internal import python_message
-  _NewMessage = python_message.NewMessage
-  _InitMessage = python_message.InitMessage
+# Deprecated. Please NEVER use reflection.ParseMessage().
+def ParseMessage(descriptor, byte_str):
+  """Generate a new Message instance from this Descriptor and a byte string.
 
+  DEPRECATED: ParseMessage is deprecated because it is using MakeClass().
+  Please use MessageFactory.GetPrototype() instead.
 
-class GeneratedProtocolMessageType(type):
+  Args:
+    descriptor: Protobuf Descriptor object
+    byte_str: Serialized protocol buffer byte string
 
-  """Metaclass for protocol message classes created at runtime from Descriptors.
-
-  We add implementations for all methods described in the Message class.  We
-  also create properties to allow getting/setting all fields in the protocol
-  message.  Finally, we create slots to prevent users from accidentally
-  "setting" nonexistent fields in the protocol message, which then wouldn't get
-  serialized / deserialized properly.
-
-  The protocol compiler currently uses this metaclass to create protocol
-  message classes at runtime.  Clients can also manually create their own
-  classes at runtime, as in this example:
-
-  mydescriptor = Descriptor(.....)
-  class MyProtoClass(Message):
-    __metaclass__ = GeneratedProtocolMessageType
-    DESCRIPTOR = mydescriptor
-  myproto_instance = MyProtoClass()
-  myproto.foo_field = 23
-  ...
+  Returns:
+    Newly created protobuf Message object.
   """
+  result_class = MakeClass(descriptor)
+  new_msg = result_class()
+  new_msg.ParseFromString(byte_str)
+  return new_msg
 
-  # Must be consistent with the protocol-compiler code in
-  # proto2/compiler/internal/generator.*.
-  _DESCRIPTOR_KEY = 'DESCRIPTOR'
 
-  def __new__(cls, name, bases, dictionary):
-    """Custom allocation for runtime-generated class types.
+# Deprecated. Please NEVER use reflection.MakeClass().
+def MakeClass(descriptor):
+  """Construct a class object for a protobuf described by descriptor.
 
-    We override __new__ because this is apparently the only place
-    where we can meaningfully set __slots__ on the class we're creating(?).
-    (The interplay between metaclasses and slots is not very well-documented).
+  DEPRECATED: use MessageFactory.GetPrototype() instead.
 
-    Args:
-      name: Name of the class (ignored, but required by the
-        metaclass protocol).
-      bases: Base classes of the class we're constructing.
-        (Should be message.Message).  We ignore this field, but
-        it's required by the metaclass protocol
-      dictionary: The class dictionary of the class we're
-        constructing.  dictionary[_DESCRIPTOR_KEY] must contain
-        a Descriptor object describing this protocol message
-        type.
-
-    Returns:
-      Newly-allocated class.
-    """
-    descriptor = dictionary[GeneratedProtocolMessageType._DESCRIPTOR_KEY]
-    _NewMessage(descriptor, dictionary)
-    superclass = super(GeneratedProtocolMessageType, cls)
-
-    new_class = superclass.__new__(cls, name, bases, dictionary)
-    setattr(descriptor, '_concrete_class', new_class)
-    return new_class
-
-  def __init__(cls, name, bases, dictionary):
-    """Here we perform the majority of our work on the class.
-    We add enum getters, an __init__ method, implementations
-    of all Message methods, and properties for all fields
-    in the protocol type.
-
-    Args:
-      name: Name of the class (ignored, but required by the
-        metaclass protocol).
-      bases: Base classes of the class we're constructing.
-        (Should be message.Message).  We ignore this field, but
-        it's required by the metaclass protocol
-      dictionary: The class dictionary of the class we're
-        constructing.  dictionary[_DESCRIPTOR_KEY] must contain
-        a Descriptor object describing this protocol message
-        type.
-    """
-    descriptor = dictionary[GeneratedProtocolMessageType._DESCRIPTOR_KEY]
-    _InitMessage(descriptor, cls)
-    superclass = super(GeneratedProtocolMessageType, cls)
-    superclass.__init__(name, bases, dictionary)
+  Args:
+    descriptor: A descriptor.Descriptor object describing the protobuf.
+  Returns:
+    The Message class object described by the descriptor.
+  """
+  # Original implementation leads to duplicate message classes, which won't play
+  # well with extensions. Message factory info is also missing.
+  # Redirect to message_factory.
+  return message_factory.GetMessageClass(descriptor)

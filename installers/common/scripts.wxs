@@ -184,9 +184,6 @@
             <Component Id="cmp72D3A9758623A76C634A8BE1DEBB2C1B" Directory="dir42740DFEBE9B04C5E878DF2E63442AC0" Guid="{08ADB471-7901-4A43-9295-15B63D5CD642}">
                 <File Id="fil832B0F274326DB64D5EA9954EF8E4C50" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\__init__.py" />
             </Component>
-            <Component Id="cmp581A705851C1A44B63F18DFE0549F3C5" Directory="dir03549DDEFA34A91A8D8F65F4D1D39DF5" Guid="{175E5D29-1C56-4B03-B367-1CB442402C60}">
-                <File Id="fil6F5F0DEA4A5D345CD956193CD4CFC0C4" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\__init__.py" />
-            </Component>
             <Component Id="cmp17E58BBA623351C58C57768C1B45058D" Directory="dirD6EF9C9C33262F86DC78E833B018462C" Guid="{DE5A0794-5B0F-43B7-AB88-D1853D9CF229}">
                 <File Id="fil9B45A725854813E0D42631FDC8E1C964" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\descriptor.py" />
             </Component>
@@ -219,9 +216,6 @@
             </Component>
             <Component Id="cmp9DFD8709747C9D8C452B7EC6B7DAB62A" Directory="dirA35E89FEAA157D4F23DE035BD6CAA56B" Guid="{7610BDFD-3C53-48B6-BACF-793A9FE29E43}">
                 <File Id="filC11C68336A82D5D69CFBF26A7E7E90D9" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\internal\containers.py" />
-            </Component>
-            <Component Id="cmp79FD469586394CFE028A0728124F8F94" Directory="dirA35E89FEAA157D4F23DE035BD6CAA56B" Guid="{5AF71BFA-6DA2-4E92-AF6A-6E051E040714}">
-                <File Id="fil568182C1FB50D3D1DC4550030D1DB23B" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\internal\cpp_message.py" />
             </Component>
             <Component Id="cmpD32F01DAF6DA742580D624CDA05CB79A" Directory="dirA35E89FEAA157D4F23DE035BD6CAA56B" Guid="{912902BE-DD29-4A9D-BA8E-9F9E3AC01DA9}">
                 <File Id="filC5CC6DBCA07FB4804BA29D068D927C39" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\internal\decoder.py" />

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.5)
 
 SET(TARGET settings_manager)
 
@@ -22,7 +22,7 @@ IF(WIN32)
 		settings_manager_impl.h
 		settings_handler_impl.hpp
 		
-		${NSCP_INCLUDEDIR}/config.h
+		#${NSCP_INCLUDEDIR}/config.h
 
 		${NSCP_INCLUDEDIR}/settings/settings_core.hpp
 		${NSCP_INCLUDEDIR}/settings/settings_interface_impl.hpp
@@ -44,6 +44,9 @@ ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 IF(OPENSSL_FOUND)
 	ADD_DEFINITIONS(-DUSE_SSL)
 	SET(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
+	IF(WIN32)
+		SET(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32)
+	ENDIF(WIN32)
 	INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
 ENDIF(OPENSSL_FOUND)
 

@@ -1,0 +1,74 @@
+---
+name: Build cryptopp
+description: Build and cache cryptopp libraries
+inputs:
+  version:
+    description: The cryptopp version to build
+    required: true
+  architecture:
+    description: The openssl architecture to build
+    required: true
+outputs:
+  path:
+    description: The path to the cryptopp folder
+    value:  ${{ steps.path.outputs.path }}
+  path_unix:
+    description: The path to the cryptopp folder
+    value:  ${{ steps.path.outputs.path_unix }}
+runs:
+  using: composite
+  steps:
+
+    - id: versions
+      run: |
+        $tag_version="${{ inputs.version }}".replace('.','_')
+        $file_version="${{ inputs.version }}".replace('.','')
+        echo "tag_version=$tag_version" >> $env:GITHUB_OUTPUT
+        echo "file_version=$file_version" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+
+    - name: Download
+      run: |
+            curl -L https://github.com/weidai11/cryptopp/releases/download/CRYPTOPP_${{ steps.versions.outputs.tag_version }}/cryptopp${{ steps.versions.outputs.file_version }}.zip --output cryptopp.zip
+            mkdir cryptopp
+            cd cryptopp
+            7z x ..\cryptopp.zip
+      working-directory: tmp
+      shell: cmd
+
+    - id: cache
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-cryptopp-${{ inputs.version }}-${{ inputs.architecture }}
+        path: |
+          tmp/cryptopp/*/DLL_Output/Release
+
+    - id: setup
+      run: |
+        if ("${{ inputs.architecture }}" -eq "x86") { 
+          echo "platform=win32" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "platform=x64" >> $env:GITHUB_OUTPUT
+        }
+      shell: pwsh
+      working-directory: tmp/cryptopp
+
+    - name: Build
+      run: |
+        python ../../build/python/msdev-to-dynamic.py cryptlib.vcxproj
+        msbuild cryptlib.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+        msbuild cryptlib.vcxproj /p:Configuration=Debug /p:Platform=${{ steps.setup.outputs.platform }}
+        msbuild cryptdll.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+        msbuild cryptdll.vcxproj /p:Configuration=Debug /p:Platform=${{ steps.setup.outputs.platform }}
+        tree
+      working-directory: tmp/cryptopp
+      shell: cmd
+
+    - id: path
+      run: |
+        $path=$pwd.path
+        $path_unix=$pwd.path.replace('\','/')
+        echo "path=$path" >> $env:GITHUB_OUTPUT
+        echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+      working-directory: tmp/cryptopp

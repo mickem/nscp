@@ -3,8 +3,9 @@ site_url: https://nsclient.org
 repo_url: https://github.com/mickem/nscp
 repo_name: GitHub
 edit_uri: blob/master/docs/docs
-theme: 'material'
-theme_dir: 'custom_theme'
+theme: 
+  name: 'material'
+  custom_dir: 'custom_theme'
 copyright: "NSClient++ is released under a GPLv2 license"
 extra_css: 
   - pygments.css
@@ -26,7 +27,7 @@ extra:
     - 0.4.4
     - 0.4.3
     - 0.4.2
-pages:
+nav:
   - Manual:
     - NSClient++: index.md
     - Getting Started: getting_started.md
@@ -119,5 +120,6 @@ markdown_extensions:
   - codehilite
   - smarty
   - sane_lists
-  - toc(permalink=true)
+  - toc:
+      permalink: true
   

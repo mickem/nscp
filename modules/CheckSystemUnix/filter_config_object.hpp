@@ -55,7 +55,7 @@ namespace filters {
 			, filter("TODO", "TODO", "NSCA")
 		{}
 
-		void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample);
+		void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample);
 
 		std::string to_string() const;
 		void set_datas(std::string file_string);

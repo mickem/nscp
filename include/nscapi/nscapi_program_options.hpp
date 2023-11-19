@@ -48,6 +48,7 @@ namespace nscapi {
 		typedef std::map<std::string, std::string> field_map;
 
 		namespace po = boost::program_options;
+		namespace ph = boost::placeholders;
 
 		class program_options_exception : public std::exception {
 			std::string error;
@@ -554,7 +555,7 @@ namespace nscapi {
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
 					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
-						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, ""));
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
 				}
 
 				po::parsed_options parsed = cmd.allow_unregistered().run();
@@ -577,7 +578,7 @@ namespace nscapi {
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
 					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
-						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, ""));
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
 				}
 
 				po::parsed_options parsed = cmd.run();
@@ -599,7 +600,7 @@ namespace nscapi {
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
 					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
-						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, ""));
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
 				}
 
 				po::parsed_options parsed = cmd.run();
@@ -623,7 +624,7 @@ namespace nscapi {
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
 					if (a.size() < 2 || (a[0] != '-'))
-						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, p.name_for_position(0)));
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, p.name_for_position(0)));
 				}
 
 				po::parsed_options parsed = cmd.run();
@@ -647,7 +648,7 @@ namespace nscapi {
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
 					if (a.size() < 2 || (a[0] != '-'))
-						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, p.name_for_position(0)));
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, p.name_for_position(0)));
 				}
 
 				po::parsed_options parsed = cmd.run();
@@ -672,7 +673,7 @@ namespace nscapi {
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
 					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
-						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, ""));
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
 				}
 
 				po::parsed_options parsed = cmd.run();
@@ -703,7 +704,7 @@ namespace nscapi {
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
 					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
-						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, ""));
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
 				}
 
 				po::parsed_options parsed = cmd.run();
@@ -731,7 +732,7 @@ namespace nscapi {
 				if (arguments.size() > 0) {
 					std::string a = arguments[0];
 					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
-						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, ""));
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
 				}
 
 				po::parsed_options parsed = cmd.run();

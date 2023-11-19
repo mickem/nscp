@@ -59,9 +59,12 @@ add_definitions(${NSCP_GLOBAL_DEFINES})
 
 if (OPENSSL_FOUND)
     include_directories("${OPENSSL_INCLUDE_DIR}")
-    add_definitions(-DMG_ENABLE_SSL=1)
+    add_definitions(-DMG_ENABLE_OPENSSL=1)
 	add_definitions(-DMG_DISABLE_PFS=1)
 	SET(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
+	IF(WIN32)
+		SET(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32)
+	ENDIF(WIN32)
 endif (OPENSSL_FOUND)
 
 # Adding dl

@@ -102,7 +102,7 @@ namespace nscapi {
 			const options_map& get_options() const {
 				return options;
 			}
-			virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool) {
+			virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 				nscapi::settings_helper::settings_registry settings(proxy);
 				if (oneliner) {
 					parent = "default";
@@ -360,11 +360,13 @@ namespace nscapi {
 
 			bool has_object(std::string alias) const {
 				typename object_map::const_iterator cit = objects.find(alias);
-				if (cit != objects.end())
+				if (cit != objects.end()) {
 					return true;
+				}
 				cit = templates.find(alias);
-				if (cit != templates.end())
+				if (cit != templates.end()) {
 					return true;
+				}
 				return false;
 			}
 

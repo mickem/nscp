@@ -35,16 +35,19 @@ namespace nscapi {
 
 		struct post_processor {
 			virtual std::string process(settings_impl_interface_ptr core, std::string value) = 0;
+			virtual ~post_processor() {}
 		};
 
 		struct store_functor {
 			virtual void store(std::string value) = 0;
+			virtual ~store_functor() {}
 		};
 		struct store_bin_functor {
 			virtual void store(std::string key, std::string value) = 0;
+			virtual ~store_bin_functor() {}
 		};
 
-		typedef boost::shared_ptr<store_functor> store_ptr;
+		typedef boost::shared_ptr<store_functor> store_ptr_t;
 		typedef boost::shared_ptr<post_processor> post_ptr;
 		typedef boost::shared_ptr<store_bin_functor> bin_ptr;
 
@@ -54,7 +57,7 @@ namespace nscapi {
 		//
 
 		class typed_key : public key_interface {
-			typedef store_ptr store_ptr;
+			typedef store_ptr_t store_ptr;
 			typedef boost::shared_ptr<post_processor> post_ptr;
 
 			bool has_default_;

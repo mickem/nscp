@@ -1,3 +1,6 @@
+2023-07-30 Michael Medin
+ * Added first version of github action build pipeline
+
 2018-02-03 Michael Medin
  * Updated documentation (#513)
  * eventlog: Fixed issue where real-time eventlog message return duplicate results if same log with different case was added

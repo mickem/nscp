@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.5)
 
 SET(TARGET PythonScript)
 	
@@ -37,7 +37,7 @@ IF(WIN32)
 		${NSCP_DEF_PLUGIN_HPP}
 	)
 ENDIF(WIN32)
-INCLUDE_DIRECTORIES(${PYTHON_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(${Python3_INCLUDE_DIRS})
 
 add_library(${TARGET} MODULE ${SRCS})
 
@@ -45,9 +45,9 @@ target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
 	${Boost_PROGRAM_OPTIONS_LIBRARY}
 	${Boost_THREAD_LIBRARY}
-	${Boost_PYTHON27_LIBRARY}
+	${Boost_PYTHON311_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
-	${PYTHON_LIBRARIES}
+	${Python3_LIBRARIES}
 	${JSON_LIB}
 )
 

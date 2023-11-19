@@ -21,10 +21,13 @@
 
 namespace nscapi {
 	namespace settings_filters {
+
+		namespace ph = boost::placeholders;
+
 		void filter_object::read_object(nscapi::settings_helper::path_extension &path, const bool is_default) {
 			namespace sh = nscapi::settings_helper;
 			path.add_key()
-				("filter", sh::cstring_fun_key(boost::bind(&filter_object::set_filter_string, this, _1)),
+				("filter", sh::cstring_fun_key(boost::bind(&filter_object::set_filter_string, this, ph::_1)),
 					"FILTER", "Scan files for matching rows for each matching rows an OK message will be submitted")
 
 				("warning", sh::string_key(&filter_warn),
@@ -56,16 +59,16 @@ namespace nscapi {
 				("target", sh::string_key(&target),
 					"DESTINATION", "Same as destination", false)
 
-				("maximum age", sh::string_fun_key(boost::bind(&filter_object::set_max_age, this, _1), "5m"),
+				("maximum age", sh::string_fun_key(boost::bind(&filter_object::set_max_age, this, ph::_1), "5m"),
 					"MAGIMUM AGE", "How long before reporting \"ok\".\nIf this is set to \"false\" no periodic ok messages will be reported only errors.")
 
-				("silent period", sh::string_fun_key(boost::bind(&filter_object::set_silent_period, this, _1), "false"),
+				("silent period", sh::string_fun_key(boost::bind(&filter_object::set_silent_period, this, ph::_1), "false"),
 					"Silent period", "How long before a new alert is reported after an alert is reported. In other words whenever an alert is fired and a notification is sent the same notification will not be sent again until this period has ended.\nIf this is set to \"false\" no periodic ok messages will be reported only errors.")
 
 				("empty message", sh::string_key(&timeout_msg, "eventlog found no records"),
 					"EMPTY MESSAGE", "The message to display if nothing matches the filter (generally considered the ok state).", !is_default)
 
-				("severity", sh::string_fun_key(boost::bind(&filter_object::set_severity, this, _1)),
+				("severity", sh::string_fun_key(boost::bind(&filter_object::set_severity, this, ph::_1)),
 					"SEVERITY", "THe severity of this message (OK, WARNING, CRITICAL, UNKNOWN)", !is_default)
 
 				("command", sh::string_key(&command),

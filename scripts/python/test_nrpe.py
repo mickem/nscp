@@ -1,7 +1,7 @@
 from NSCP import Settings, Registry, Core, log, status, log_error, sleep
 import sys
 
-from test_helper import BasicTest, TestResult, Callable, setup_singleton, install_testcases, init_testcases, shutdown_testcases
+from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
 import plugin_pb2
 from types import *
 import socket
@@ -107,15 +107,15 @@ class NRPEServerTest(BasicTest):
 		self.reg.simple_function('check_py_nrpe_test_s', NRPEServerTest.simple_handler, 'TODO')
 		self.reg.function('check_py_nrpe_test', NRPEServerTest.handler, 'TODO')
 
+	@staticmethod
 	def simple_handler(arguments):
 		instance = NRPEServerTest.getInstance()
 		return instance.simple_handler_wrapped(arguments)
-	simple_handler = Callable(simple_handler)
 
+	@staticmethod
 	def handler(channel, request):
 		instance = NRPEServerTest.getInstance()
 		return instance.handler_wrapped(channel, request)
-	handler = Callable(handler)
 	
 	def simple_handler_wrapped(self, arguments):
 		log('Got simple message %s'%arguments)
@@ -232,7 +232,7 @@ class NRPEServerTest(BasicTest):
 		result.add(self.test_one(ssl, length, state = status.CRITICAL, tag = 'crit'))
 		return result
 
-	def run_test(self):
+	def run_test(self, cases=None):
 		result = TestResult()
 		result.add(self.do_one_test(ssl=True))
 		result.add(self.do_one_test(ssl=False))

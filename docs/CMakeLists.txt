@@ -1,9 +1,6 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.5)
 
 IF(MKDOCS_FOUND)
-IF(PYTHON_VERSION_MAJOR EQUAL 2 AND PYTHON_VERSION_MINOR LESS 7)
-	MESSAGE(STATUS "Python to old: No documentation will be built")
-ELSE()
   PROJECT(generate_docs)
   SET(DEFINEARG "/paths:module-path=%(base-path)/modules")
   ADD_CUSTOM_TARGET(generate_doc_sources
@@ -11,7 +8,7 @@ ELSE()
       --module PythonScript 
       --settings dummy 
       --load-all 
-      --log error 
+      --log info 
       --log oneline 
       --define "\"${DEFINEARG}\""
       -- execute --script scripts/python/docs.py --input docs --output docs
@@ -32,7 +29,6 @@ ELSE()
 
 	SET_TARGET_PROPERTIES(build_docs_html PROPERTIES FOLDER "docs")
 	install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/html/" DESTINATION "${INSTALL_FILES_BASE}web/help")
-ENDIF()
 ELSE(MKDOCS_FOUND)
 	MESSAGE(STATUS "mkdocs not found: No documentation will be built")
 ENDIF(MKDOCS_FOUND)

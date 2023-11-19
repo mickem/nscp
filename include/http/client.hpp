@@ -186,7 +186,7 @@ namespace http {
 		}
 	};
 #endif
-
+#ifdef WIN32
 	struct file_socket : public generic_socket {
 
 		boost::asio::windows::stream_handle handle_;
@@ -231,7 +231,7 @@ namespace http {
 		}
 
 	};
-
+#endif
 
 
 	class simple_client {
@@ -247,8 +247,10 @@ namespace http {
 #else
 				throw socket_helpers::socket_exception("SSL not supported");
 #endif
+#ifdef WIN32
 			} else if (protocol == "pipe") {
 				socket_.reset(new file_socket(io_service_));
+#endif
 			} else {
 				socket_.reset(new tcp_socket(io_service_));
 			}
