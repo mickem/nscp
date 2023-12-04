@@ -54,6 +54,7 @@
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
+namespace ph = boost::placeholders;
 
 std::pair<bool, std::string> validate_counter(std::string counter) {
 	/*
@@ -147,23 +148,23 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.alias().add_path_to_settings()
 		("Windows system", "Section for system checks and system settings")
 
-		("counters", sh::fun_values_path(boost::bind(&CheckSystem::add_counter, this, _1, _2)),
+		("counters", sh::fun_values_path(boost::bind(&CheckSystem::add_counter, this, ph::_1, ph::_2)),
 			"PDH Counters", "Add counters to check",
 			"COUNTER", "For more configuration options add a dedicated section")
 
-		("real-time/memory", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_mem_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), _1, _2)),
+		("real-time/memory", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_mem_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
 			"Realtime memory filters", "A set of filters to use in real-time mode",
 			"FILTER", "For more configuration options add a dedicated section")
 
-		("real-time/cpu", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_cpu_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), _1, _2)),
+		("real-time/cpu", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_cpu_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
 			"Realtime cpu filters", "A set of filters to use in real-time mode",
 			"FILTER", "For more configuration options add a dedicated section")
 
-		("real-time/process", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_proc_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), _1, _2)),
+		("real-time/process", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_proc_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
 			"Realtime process filters", "A set of filters to use in real-time mode",
 			"FILTER", "For more configuration options add a dedicated section")
 
-		("real-time/checks", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_legacy_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), _1, _2)),
+		("real-time/checks", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_legacy_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
 			"Legacy generic filters", "A set of filters to use in real-time mode",
 			"FILTER", "For more configuration options add a dedicated section")
 

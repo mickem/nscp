@@ -20,7 +20,7 @@
 #include <map>
 #include <list>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/assign.hpp>
 
 #include <parsers/where.hpp>

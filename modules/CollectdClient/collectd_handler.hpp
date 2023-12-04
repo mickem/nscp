@@ -75,16 +75,16 @@ namespace collectd_handler {
 
 			desc.add_options()
 
-				("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &data, "payload length", _1)),
+				("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &data, "payload length", boost::placeholders::_1)),
 					"Length of payload (has to be same as on the server)")
 
-				("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &data, "payload length", _1)),
+				("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &data, "payload length", boost::placeholders::_1)),
 					"Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
 
-				("password", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "password", _1)),
+				("password", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "password", boost::placeholders::_1)),
 					"Password")
 
-				("time-offset", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "time offset", _1)),
+				("time-offset", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "time offset", boost::placeholders::_1)),
 					"")
 				;
 		}

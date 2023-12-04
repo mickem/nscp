@@ -30,7 +30,7 @@
 #endif
 #include <settings/settings_core.hpp>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <str/format.hpp>
 
@@ -146,11 +146,11 @@ bool cli_parser::process_common_options(std::string context, po::options_descrip
 
 cli_parser::handler_map cli_parser::get_handlers() {
 	handler_map handlers;
-	handlers["settings"] = boost::bind(&cli_parser::parse_settings, this, _1, _2);
-	handlers["service"] = boost::bind(&cli_parser::parse_service, this, _1, _2);
-	handlers["client"] = boost::bind(&cli_parser::parse_client, this, _1, _2, "");
-	handlers["help"] = boost::bind(&cli_parser::parse_help, this, _1, _2);
-	handlers["unit"] = boost::bind(&cli_parser::parse_unittest, this, _1, _2);
+	handlers["settings"] = boost::bind(&cli_parser::parse_settings, this, boost::placeholders::_1, boost::placeholders::_2);
+	handlers["service"] = boost::bind(&cli_parser::parse_service, this, boost::placeholders::_1, boost::placeholders::_2);
+	handlers["client"] = boost::bind(&cli_parser::parse_client, this, boost::placeholders::_1, boost::placeholders::_2, "");
+	handlers["help"] = boost::bind(&cli_parser::parse_help, this, boost::placeholders::_1, boost::placeholders::_2);
+	handlers["unit"] = boost::bind(&cli_parser::parse_unittest, this, boost::placeholders::_1, boost::placeholders::_2);
 	return handlers;
 }
 

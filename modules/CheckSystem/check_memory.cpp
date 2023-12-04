@@ -38,6 +38,7 @@
 
 CheckMemory memchecker;
 
+using namespace boost::placeholders;
 
 namespace check_mem_filter {
 	struct filter_obj {

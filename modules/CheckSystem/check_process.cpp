@@ -33,6 +33,8 @@
 
 #include <string>
 
+using namespace boost::placeholders;
+
 namespace check_proc_filter {
 	typedef process_helper::process_info filter_obj;
 

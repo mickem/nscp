@@ -32,6 +32,8 @@
 #include <boost/make_shared.hpp>
 #include <boost/asio.hpp>
 
+namespace ph = boost::placeholders;
+
 /**
  * Default c-tor
  * @return
@@ -52,11 +54,11 @@ bool SyslogClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 		settings.alias().add_path_to_settings()
 			("SYSLOG CLIENT SECTION", "Section for SYSLOG passive check module.")
-			("handlers", sh::fun_values_path(boost::bind(&SyslogClient::add_command, this, _1, _2)),
+			("handlers", sh::fun_values_path(boost::bind(&SyslogClient::add_command, this, ph::_1, ph::_2)),
 				"CLIENT HANDLER SECTION", "",
 				"CLIENT", "For more configuration options add a dedicated section")
 
-			("targets", sh::fun_values_path(boost::bind(&SyslogClient::add_target, this, _1, _2)),
+			("targets", sh::fun_values_path(boost::bind(&SyslogClient::add_target, this, ph::_1, ph::_2)),
 				"REMOTE TARGET DEFINITIONS", "",
 				"TARGET", "For more configuration options add a dedicated section")
 			;

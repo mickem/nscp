@@ -38,6 +38,7 @@
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
+namespace ph = boost::placeholders;
 
 void check_simple_status(PB::Common::ResultCode status, const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	po::options_description desc = nscapi::program_options::create_desc(request);
@@ -457,14 +458,14 @@ namespace perf_filter {
 
 	filter_obj_handler::filter_obj_handler() {
 		registry_.add_string()
-			("key", boost::bind(&filter_obj::get_key, _1), "Major version number")
-			("value", boost::bind(&filter_obj::get_value, _1), "Major version number")
-			("unit", boost::bind(&filter_obj::get_unit, _1), "Major version number")
-			("warn", boost::bind(&filter_obj::get_warn, _1), "Major version number")
-			("crit", boost::bind(&filter_obj::get_crit, _1), "Major version number")
-			("max", boost::bind(&filter_obj::get_min, _1), "Major version number")
-			("min", boost::bind(&filter_obj::get_max, _1), "Major version number")
-			("message", boost::bind(&filter_obj::get_key, _1), "Major version number")
+			("key", boost::bind(&filter_obj::get_key, ph::_1), "Major version number")
+			("value", boost::bind(&filter_obj::get_value, ph::_1), "Major version number")
+			("unit", boost::bind(&filter_obj::get_unit, ph::_1), "Major version number")
+			("warn", boost::bind(&filter_obj::get_warn, ph::_1), "Major version number")
+			("crit", boost::bind(&filter_obj::get_crit, ph::_1), "Major version number")
+			("max", boost::bind(&filter_obj::get_min, ph::_1), "Major version number")
+			("min", boost::bind(&filter_obj::get_max, ph::_1), "Major version number")
+			("message", boost::bind(&filter_obj::get_key, ph::_1), "Major version number")
 			;
 	}
 }

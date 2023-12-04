@@ -34,7 +34,7 @@
 #include <error/error.hpp>
 #include <str/format.hpp>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <boost/program_options.hpp>
 #include <boost/shared_ptr.hpp>

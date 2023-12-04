@@ -32,22 +32,25 @@ namespace nscapi {
 		void add_metadata_helper::add(std::string key, std::string value) {
 			owner->set(key, value);
 		}
+		void register_command(command_proxy_ptr &core_, PB::Registry::RegistryRequestMessage &request, std::list<boost::shared_ptr<command_info> >::value_type &v) {
+			PB::Registry::RegistryRequestMessage::Request* payload = request.add_payload();
+			PB::Registry::RegistryRequestMessage::Request::Registration* regitem = payload->mutable_registration();
+			regitem->set_plugin_id(core_->get_plugin_id());
+			regitem->set_type(PB::Registry::ItemType::QUERY);
+			regitem->set_name(v->name);
+			regitem->mutable_info()->set_title(v->name);
+			regitem->mutable_info()->set_description(v->description);
+			BOOST_FOREACH(const std::string & alias, v->aliases) {
+				regitem->add_alias(alias);
+			}
+		}
 
 		void command_registry::register_all() {
 			if (commands.size() == 0)
 				return;
 			PB::Registry::RegistryRequestMessage request;
 			BOOST_FOREACH(command_list::value_type v, commands) {
-				PB::Registry::RegistryRequestMessage::Request *payload = request.add_payload();
-				PB::Registry::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
-				regitem->set_plugin_id(core_->get_plugin_id());
-				regitem->set_type(PB::Registry::ItemType::QUERY);
-				regitem->set_name(v->name);
-				regitem->mutable_info()->set_title(v->name);
-				regitem->mutable_info()->set_description(v->description);
-				BOOST_FOREACH(const std::string &alias, v->aliases) {
-					regitem->add_alias(alias);
-				}
+				register_command(core_, request, v);
 			}
 			std::string response_string;
 			core_->registry_query(request.SerializeAsString(), response_string);

@@ -56,7 +56,7 @@ bool CollectdClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.alias().add_path_to_settings()
 			("COLLECTD CLIENT SECTION", "Section for NSCA passive check module.")
 
-			("targets", sh::fun_values_path(boost::bind(&CollectdClient::add_target, this, _1, _2)),
+			("targets", sh::fun_values_path(boost::bind(&CollectdClient::add_target, this, boost::placeholders::_1, boost::placeholders::_2)),
 				"REMOTE TARGET DEFINITIONS", "",
 				"TARGET", "For more configuration options add a dedicated section")
 			;

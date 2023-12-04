@@ -26,6 +26,7 @@
 #include <error/error_com.hpp>
 
 using namespace parsers::where;
+using namespace boost::placeholders;
 
 node_type fun_convert_status(boost::shared_ptr<tasksched_filter::filter_obj> object, evaluation_context context, node_type subject) {
 	std::string status = subject->get_string_value(context);

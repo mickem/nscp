@@ -22,7 +22,7 @@
 #include <utf8.hpp>
 #include <nscapi/macros.hpp>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 
 #if BOOST_VERSION >= 105300

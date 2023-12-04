@@ -65,6 +65,7 @@ namespace sh = nscapi::settings_helper;
 
 using namespace std;
 using namespace Mongoose;
+namespace ph = boost::placeholders;
 
 WEBServer::WEBServer()
 	: session(new session_manager_interface())
@@ -96,7 +97,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.alias().add_path_to_settings()
 		("Web server", "Section for WEB (WEBServer.dll) (check_WEB) protocol options.")
 
-		("users", sh::fun_values_path(boost::bind(&WEBServer::add_user, this, _1, _2)),
+		("users", sh::fun_values_path(boost::bind(&WEBServer::add_user, this, ph::_1, ph::_2)),
 		"Web server users", "Users which can access the REST API",
 		"REST USER", "")
 
@@ -118,10 +119,10 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
 
-		("allowed hosts", nscapi::settings_helper::string_fun_key(boost::bind(&session_manager_interface::set_allowed_hosts, session, _1), "127.0.0.1"),
+		("allowed hosts", nscapi::settings_helper::string_fun_key(boost::bind(&session_manager_interface::set_allowed_hosts, session, ph::_1), "127.0.0.1"),
 			"Allowed hosts", "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
 
-		("cache allowed hosts", nscapi::settings_helper::bool_fun_key(boost::bind(&session_manager_interface::set_allowed_hosts_cache, session, _1), true),
+		("cache allowed hosts", nscapi::settings_helper::bool_fun_key(boost::bind(&session_manager_interface::set_allowed_hosts_cache, session, ph::_1), true),
 			"Cache list of allowed hosts", "If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.")
 
 		("password", nscapi::settings_helper::string_key(&admin_password),

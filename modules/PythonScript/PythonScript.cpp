@@ -39,6 +39,7 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 namespace py = boost::python;
+namespace ph = boost::placeholders;
 
 bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	alias_ = alias;
@@ -63,7 +64,7 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 
 		settings.alias().add_path_to_settings()
 
-			("scripts", sh::fun_values_path(boost::bind(&PythonScript::loadScript, this, _1, _2)),
+			("scripts", sh::fun_values_path(boost::bind(&PythonScript::loadScript, this, ph::_1, ph::_2)),
 				"Python scripts", "A list of scripts available to run from the PythonScript module.",
 				"SCRIPT", "For more configuration options add a dedicated section")
 			;

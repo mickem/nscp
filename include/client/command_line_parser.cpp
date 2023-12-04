@@ -26,7 +26,7 @@
 
 #include <utf8.hpp>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/iterator.hpp>
 #include <boost/algorithm/string.hpp>
 

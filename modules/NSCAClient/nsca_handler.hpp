@@ -37,6 +37,7 @@
 
 namespace nsca_handler {
 	namespace sh = nscapi::settings_helper;
+	namespace ph = boost::placeholders;
 
 	struct nsca_target_object : public nscapi::targets::target_object {
 		typedef nscapi::targets::target_object parent;
@@ -64,20 +65,20 @@ namespace nsca_handler {
 
 			root_path.add_key()
 
-				("payload length", sh::int_fun_key(boost::bind(&parent::set_property_int, this, "payload length", _1), 512),
+				("payload length", sh::int_fun_key(boost::bind(&parent::set_property_int, this, "payload length", ph::_1), 512),
 					"PAYLOAD LENGTH", "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.", true)
 
-				("encryption", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "encryption", _1), "aes"),
+				("encryption", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "encryption", ph::_1), "aes"),
 					"ENCRYPTION", std::string("Name of encryption algorithm to use.\nHas to be the same as your server i using or it wont work at all."
 						"This is also independent of SSL and generally used instead of SSL.\nAvailable encryption algorithms are:\n") + nscp::encryption::helpers::get_crypto_string("\n"))
 
-				("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "password", _1), ""),
+				("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "password", ph::_1), ""),
 					"PASSWORD", "The password to use. Again has to be the same as the server or it wont work at all.")
 
-				("encoding", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "encoding", _1), ""),
+				("encoding", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "encoding", ph::_1), ""),
 					"ENCODING", "", true)
 
-				("time offset", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "delay", _1), "0"),
+				("time offset", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "delay", ph::_1), "0"),
 					"TIME OFFSET", "Time offset.", true)
 				;
 
@@ -98,20 +99,20 @@ namespace nsca_handler {
 			add_ssl_options(desc, data);
 
 			desc.add_options()
-				("encryption,e", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "encryption", _1)),
+				("encryption,e", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "encryption", ph::_1)),
 					(std::string("Name of encryption algorithm to use.\nHas to be the same as your server i using or it wont work at all."
 						"This is also independent of SSL and generally used instead of SSL.\nAvailable encryption algorithms are:\n") + nscp::encryption::helpers::get_crypto_string("\n")).c_str())
 
-				("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &data, "payload length", _1)),
+				("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &data, "payload length", ph::_1)),
 					"Length of payload (has to be same as on the server)")
 
-				("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &data, "payload length", _1)),
+				("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &data, "payload length", ph::_1)),
 					"Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
 
-				("password", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "password", _1)),
+				("password", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "password", ph::_1)),
 					"Password")
 
-				("time-offset", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "time offset", _1)),
+				("time-offset", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "time offset", ph::_1)),
 					"")
 				;
 		}

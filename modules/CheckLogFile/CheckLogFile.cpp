@@ -44,7 +44,7 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 
 		("real-time", "Real-time filtering", "A set of options to configure the real time checks")
 
-		("real-time/checks", sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, settings.get_settings(), _1, _2)),
+		("real-time/checks", sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, settings.get_settings(), boost::placeholders::_1, boost::placeholders::_2)),
 			"Real-time filters", "A set of filters to use in real-time mode",
 			"REALTIME FILTER DEFENTION", "For more configuration options add a dedicated section"
 			)
@@ -52,7 +52,7 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 
 	settings.alias().add_key_to_settings("real-time")
 
-		("enabled", sh::bool_fun_key(boost::bind(&real_time_thread::set_enabled, thread_, _1), false),
+		("enabled", sh::bool_fun_key(boost::bind(&real_time_thread::set_enabled, thread_, boost::placeholders::_1), false),
 			"Real time", "Spawns a background thread which waits for file changes.")
 
 		;

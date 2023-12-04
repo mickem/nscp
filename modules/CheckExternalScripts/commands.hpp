@@ -24,7 +24,7 @@
 #include <nscapi/nscapi_settings_object.hpp>
 
 #include <boost/algorithm/string/case_conv.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <string>
 
@@ -84,7 +84,7 @@ namespace commands {
 					;
 
 				root_path.add_key()
-					("command", sh::string_fun_key(boost::bind(&command_object::set_command, this, _1)),
+					("command", sh::string_fun_key(boost::bind(&command_object::set_command, this, boost::placeholders::_1)),
 						"COMMAND", "Command to execute")
 
 					("user", nscapi::settings_helper::string_key(&user),
