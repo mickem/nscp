@@ -303,14 +303,14 @@ Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 
 
 
-| Key                                                 | Default Value                       | Description                 |
-|-----------------------------------------------------|-------------------------------------|-----------------------------|
-| [allowed hosts](#allowed-hosts)                     | 127.0.0.1                           | Allowed hosts               |
-| [cache allowed hosts](#cache-list-of-allowed-hosts) | true                                | Cache list of allowed hosts |
-| [certificate](#tls-certificate)                     | ${certificate-path}/certificate.pem | TLS Certificate             |
-| [password](#password)                               |                                     | Password                    |
-| [port](#server-port)                                | 8443                                | Server port                 |
-| [threads](#server-threads)                          | 10                                  | Server threads              |
+| Key                                                 | Default Value | Description                 |
+|-----------------------------------------------------|---------------|-----------------------------|
+| [allowed hosts](#allowed-hosts)                     | 127.0.0.1     | Allowed hosts               |
+| [cache allowed hosts](#cache-list-of-allowed-hosts) | true          | Cache list of allowed hosts |
+| [certificate](#tls-certificate)                     | none          | TLS Certificate             |
+| [password](#password)                               |               | Password                    |
+| [port](#server-port)                                | 8080          | Server port                 |
+| [threads](#server-threads)                          | 10            | Server threads              |
 
 
 
@@ -319,8 +319,8 @@ Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 [/settings/WEB/server]
 allowed hosts=127.0.0.1
 cache allowed hosts=true
-certificate=${certificate-path}/certificate.pem
-port=8443
+certificate=none
+port=8080
 threads=10
 
 ```
@@ -395,7 +395,7 @@ Ssl certificate to use for the ssl server
 |----------------|-----------------------------------------------|
 | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
 | Key:           | certificate                                   |
-| Default value: | `${certificate-path}/certificate.pem`         |
+| Default value: | `none`                                        |
 | Used by:       | WEBServer                                     |
 
 
@@ -404,7 +404,7 @@ Ssl certificate to use for the ssl server
 ```
 [/settings/WEB/server]
 # TLS Certificate
-certificate=${certificate-path}/certificate.pem
+certificate=none
 ```
 
 
@@ -449,7 +449,7 @@ Port to use for WEB server.
 |----------------|-----------------------------------------------|
 | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
 | Key:           | port                                          |
-| Default value: | `8443`                                        |
+| Default value: | `8080`                                        |
 | Used by:       | WEBServer                                     |
 
 
@@ -458,7 +458,7 @@ Port to use for WEB server.
 ```
 [/settings/WEB/server]
 # Server port
-port=8443
+port=8080
 ```
 
 

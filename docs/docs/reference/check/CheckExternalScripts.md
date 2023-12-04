@@ -332,26 +332,26 @@ parent=default
 
 **Known instances:**
 
-*  alias_sched_task
-*  alias_sched_long
-*  alias_file_size
-*  alias_service
-*  alias_sched_all
-*  alias_disk
-*  alias_process_hung
-*  alias_up
-*  alias_event_log
-*  alias_volumes
-*  alias_process_count
-*  alias_volumes_loose
-*  alias_disk_loose
-*  alias_process_stopped
 *  alias_cpu
-*  alias_file_age
-*  alias_service_ex
-*  alias_process
 *  alias_cpu_ex
+*  alias_disk
+*  alias_disk_loose
+*  alias_event_log
+*  alias_file_age
+*  alias_file_size
 *  alias_mem
+*  alias_process
+*  alias_process_count
+*  alias_process_hung
+*  alias_process_stopped
+*  alias_sched_all
+*  alias_sched_long
+*  alias_sched_task
+*  alias_service
+*  alias_service_ex
+*  alias_up
+*  alias_volumes
+*  alias_volumes_loose
 
 
 
@@ -436,9 +436,9 @@ This is a section of objects. This means that you will create objects below this
 
 **Known instances:**
 
-*  vbs
 *  bat
 *  ps1
+*  vbs
 
 
 

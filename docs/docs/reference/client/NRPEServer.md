@@ -301,31 +301,31 @@ Section for NRPE (NRPEServer.dll) (check_nrpe) protocol options.
 
 
 
-| Key                                                       | Default Value                       | Description                            |
-|-----------------------------------------------------------|-------------------------------------|----------------------------------------|
-| [allow arguments](#command-argument-processing)           | false                               | COMMAND ARGUMENT PROCESSING            |
-| [allow nasty characters](#command-allow-nasty-meta-chars) | false                               | COMMAND ALLOW NASTY META CHARS         |
-| [allowed ciphers](#allowed-ciphers)                       | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH   | ALLOWED CIPHERS                        |
-| [allowed hosts](#allowed-hosts)                           | 127.0.0.1                           | ALLOWED HOSTS                          |
-| [bind to](#bind-to-address)                               |                                     | BIND TO ADDRESS                        |
-| [ca](#ca)                                                 | ${certificate-path}/ca.pem          | CA                                     |
-| [cache allowed hosts](#cache-allowed-hosts)               | true                                | CACHE ALLOWED HOSTS                    |
-| [certificate](#ssl-certificate)                           | ${certificate-path}/certificate.pem | SSL CERTIFICATE                        |
-| [certificate format](#certificate-format)                 | PEM                                 | CERTIFICATE FORMAT                     |
-| [certificate key](#ssl-certificate)                       |                                     | SSL CERTIFICATE                        |
-| [dh](#dh-key)                                             | ${certificate-path}/nrpe_dh_512.pem | DH KEY                                 |
-| [encoding](#nrpe-payload-encoding)                        |                                     | NRPE PAYLOAD ENCODING                  |
-| [extended response](#extended-response)                   | true                                | EXTENDED RESPONSE                      |
-| [insecure](#allow-insecure-chiphers-and-encryption)       | false                               | ALLOW INSECURE CHIPHERS and ENCRYPTION |
-| [payload length](#payload-length)                         | 1024                                | PAYLOAD LENGTH                         |
-| [performance data](#performance-data)                     | true                                | PERFORMANCE DATA                       |
-| [port](#port-number)                                      | 5666                                | PORT NUMBER                            |
-| [socket queue size](#listen-queue)                        | 0                                   | LISTEN QUEUE                           |
-| [ssl options](#verify-mode)                               |                                     | VERIFY MODE                            |
-| [thread pool](#thread-pool)                               | 10                                  | THREAD POOL                            |
-| [timeout](#timeout)                                       | 30                                  | TIMEOUT                                |
-| [use ssl](#enable-ssl-encryption)                         | true                                | ENABLE SSL ENCRYPTION                  |
-| [verify mode](#verify-mode)                               | none                                | VERIFY MODE                            |
+| Key                                                       | Default Value                        | Description                            |
+|-----------------------------------------------------------|--------------------------------------|----------------------------------------|
+| [allow arguments](#command-argument-processing)           | false                                | COMMAND ARGUMENT PROCESSING            |
+| [allow nasty characters](#command-allow-nasty-meta-chars) | false                                | COMMAND ALLOW NASTY META CHARS         |
+| [allowed ciphers](#allowed-ciphers)                       | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH    | ALLOWED CIPHERS                        |
+| [allowed hosts](#allowed-hosts)                           | 127.0.0.1                            | ALLOWED HOSTS                          |
+| [bind to](#bind-to-address)                               |                                      | BIND TO ADDRESS                        |
+| [ca](#ca)                                                 | ${certificate-path}/ca.pem           | CA                                     |
+| [cache allowed hosts](#cache-allowed-hosts)               | true                                 | CACHE ALLOWED HOSTS                    |
+| [certificate](#ssl-certificate)                           | ${certificate-path}/certificate.pem  | SSL CERTIFICATE                        |
+| [certificate format](#certificate-format)                 | PEM                                  | CERTIFICATE FORMAT                     |
+| [certificate key](#ssl-certificate)                       |                                      | SSL CERTIFICATE                        |
+| [dh](#dh-key)                                             | ${certificate-path}/nrpe_dh_2048.pem | DH KEY                                 |
+| [encoding](#nrpe-payload-encoding)                        |                                      | NRPE PAYLOAD ENCODING                  |
+| [extended response](#extended-response)                   | true                                 | EXTENDED RESPONSE                      |
+| [insecure](#allow-insecure-chiphers-and-encryption)       | false                                | ALLOW INSECURE CHIPHERS and ENCRYPTION |
+| [payload length](#payload-length)                         | 1024                                 | PAYLOAD LENGTH                         |
+| [performance data](#performance-data)                     | true                                 | PERFORMANCE DATA                       |
+| [port](#port-number)                                      | 5666                                 | PORT NUMBER                            |
+| [socket queue size](#listen-queue)                        | 0                                    | LISTEN QUEUE                           |
+| [ssl options](#verify-mode)                               |                                      | VERIFY MODE                            |
+| [thread pool](#thread-pool)                               | 10                                   | THREAD POOL                            |
+| [timeout](#timeout)                                       | 30                                   | TIMEOUT                                |
+| [use ssl](#enable-ssl-encryption)                         | true                                 | ENABLE SSL ENCRYPTION                  |
+| [verify mode](#verify-mode)                               | none                                 | VERIFY MODE                            |
 
 
 
@@ -340,7 +340,7 @@ ca=${certificate-path}/ca.pem
 cache allowed hosts=true
 certificate=${certificate-path}/certificate.pem
 certificate format=PEM
-dh=${certificate-path}/nrpe_dh_512.pem
+dh=${certificate-path}/nrpe_dh_2048.pem
 extended response=true
 insecure=false
 payload length=1024
@@ -642,7 +642,7 @@ certificate key=
 | Path:          | [/settings/NRPE/server](#/settings/NRPE/server) |
 | Key:           | dh                                              |
 | Advanced:      | Yes (means it is not commonly used)             |
-| Default value: | `${certificate-path}/nrpe_dh_512.pem`           |
+| Default value: | `${certificate-path}/nrpe_dh_2048.pem`          |
 | Used by:       | NRPEServer                                      |
 
 
@@ -651,7 +651,7 @@ certificate key=
 ```
 [/settings/NRPE/server]
 # DH KEY
-dh=${certificate-path}/nrpe_dh_512.pem
+dh=${certificate-path}/nrpe_dh_2048.pem
 ```
 
 
@@ -851,6 +851,9 @@ default-workarounds	Various workarounds for what I understand to be broken ssl i
 no-sslv2	Do not use the SSLv2 protocol.
 no-sslv3	Do not use the SSLv3 protocol.
 no-tlsv1	Do not use the TLSv1 protocol.
+no-tlsv1_1	Do not use the TLSv1.1 protocol.
+no-tlsv1_2	Do not use the TLSv1.2 protocol.
+no-tlsv1_3	Do not use the TLSv1.3 protocol.
 single-dh-use	Always create a new key when using temporary/ephemeral DH parameters. This option must be used to prevent small subgroup attacks, when the DH parameters were not generated using "strong" primes (e.g. when using DSA-parameters).
 
 

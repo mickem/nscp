@@ -183,7 +183,7 @@ This is a section of objects. This means that you will create objects below this
 {% if path.objects %}
 **Known instances:**
 
-{% for k in path.objects %}*  {{k}}
+{% for k in path.objects|sort %}*  {{k}}
 {% endfor %}
 
 
@@ -362,7 +362,6 @@ class root_container(object):
         
     def process_paths(self):
         for k in self.subkeys.keys():
-            log("Subkey: %s"%k)
             self.paths[k].objects = self.paths[k].keys
             self.paths[k].keys = {}
             keys = list(self.paths.keys())
@@ -374,7 +373,6 @@ class root_container(object):
                         self.paths[k].sample = self.paths[pk]
                     if pk[len(k)+1:] == "default":
                         self.paths[k].default = self.paths[pk]
-                    log("::: %s"%pk[len(k)+1:])
                     del self.paths[pk]
 
     def append_path(self, info):
@@ -527,9 +525,9 @@ def render_rst_table(table, *args):
     if not table:
         return ''
     if args:
-        table.insert(0, args)
+        table.insert(0, list(args))
     ret = ''
-    maxcol = map(lambda a:len(a), reduce(lambda a,b: largest_value(a,b), table))
+    maxcol = list(map(lambda a:len(a), reduce(lambda a,b: largest_value(a,b), table)))
     for idx, line in enumerate(table):
         ret += '|' + ''.join(map(lambda a:' ' + a[1].ljust(a[0],' ') + ' |', zip(maxcol, line))) + '\n'
         if idx == 0:
