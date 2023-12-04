@@ -84,7 +84,7 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	socket_helpers::settings_helper::add_core_server_opts(settings, info_);
 #ifdef USE_SSL
 	if (insecure) {
-		socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "", "", "ADH");
+		socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "${certificate-path}/certificate.pem", "", "ALL:!MD5:@strength:@SECLEVEL=0");
 
 		settings.alias().add_key_to_settings()
 			("extended response", sh::bool_key(&multiple_packets_, false),

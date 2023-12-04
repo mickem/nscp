@@ -41,7 +41,7 @@ namespace socket_helpers {
 				("use ssl", nscapi::settings_helper::bool_key(&info_.ssl.enabled, ssl_default),
 					"ENABLE SSL ENCRYPTION", "This option controls if SSL should be enabled.", false)
 
-				("dh", nscapi::settings_helper::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_512.pem"),
+				("dh", nscapi::settings_helper::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_2048.pem"),
 					"DH KEY", "", true)
 
 				("certificate", nscapi::settings_helper::path_key(&info_.ssl.certificate, certificate),
