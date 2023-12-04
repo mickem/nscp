@@ -81,7 +81,7 @@ namespace nrpe {
 
 				v = read_version();
 				std::size_t packet_length = read_version() >= 3 ? get_packet_length_v3() : get_packet_length_v2();
-				if (packet_length < 1024 || packet_length > 1024 * 1024) {
+				if (packet_length < 1024 || packet_length > 2048 * 1024) {
 					return boost::make_tuple(true, begin);
 				}
 
