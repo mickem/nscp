@@ -29,6 +29,8 @@
 
 namespace nrpe_handler {
 	namespace sh = nscapi::settings_helper;
+	namespace ph = boost::placeholders;
+
 
 	struct nrpe_target_object : public nscapi::targets::target_object {
 		typedef nscapi::targets::target_object parent;
@@ -58,10 +60,10 @@ namespace nrpe_handler {
 
 			root_path.add_key()
 
-				("insecure", sh::path_fun_key(boost::bind(&parent::set_property_string, this, "insecure", _1)),
+				("insecure", sh::path_fun_key(boost::bind(&parent::set_property_string, this, "insecure", ph::_1)),
 					"Insecure legacy mode", "Use insecure legacy mode to connect to old NRPE server", false)
 
-				("payload length", sh::int_fun_key(boost::bind(&parent::set_property_int, this, "payload length", _1)),
+				("payload length", sh::int_fun_key(boost::bind(&parent::set_property_int, this, "payload length", ph::_1)),
 					"PAYLOAD LENGTH", "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
 				;
 			settings.register_all();
@@ -104,13 +106,13 @@ namespace nrpe_handler {
 
 			desc.add_options()
 
-				("insecure", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&client::destination_container::set_bool_data, &target, "insecure", _1)),
+				("insecure", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&client::destination_container::set_bool_data, &target, "insecure", ph::_1)),
 					"Use insecure legacy mode")
 
-				("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "payload length", _1)),
+				("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "payload length", ph::_1)),
 					"Length of payload (has to be same as on the server)")
 
-				("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "payload length", _1)),
+				("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "payload length", ph::_1)),
 					"Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
 				;
 		}

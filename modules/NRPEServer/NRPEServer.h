@@ -49,7 +49,7 @@ public:
 	std::list<nrpe::packet> handle(nrpe::packet packet);
 
 	nrpe::packet create_error(std::string msg) {
-		return nrpe::packet::create_response(3, msg, payload_length_);
+		return nrpe::packet::create_response(nrpe::data::version2, 3, msg, payload_length_);
 	}
 
 	void log_debug(std::string module, std::string file, int line, std::string msg) const {

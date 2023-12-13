@@ -56,7 +56,7 @@ namespace nscp_handler {
 
 			root_path.add_key()
 
-				("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "password", _1)),
+				("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "password", boost::placeholders::_1)),
 					"PASSWORD", "The password to use to authenticate towards the server.")
 				;
 			settings.register_all();
@@ -86,7 +86,7 @@ namespace nscp_handler {
 			add_ssl_options(desc, target);
 
 			desc.add_options()
-				("password,p", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &target, "password", _1)),
+				("password,p", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &target, "password", boost::placeholders::_1)),
 					"Password")
 				;
 		}

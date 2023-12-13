@@ -20,7 +20,7 @@
 
 #include <net/net.hpp>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 
 namespace sh = nscapi::settings_helper;
 namespace ph = boost::placeholders;

@@ -69,6 +69,7 @@ namespace nrpe {
 		state current_state_;
 		outbound_buffer_type data_;
 		std::list<nrpe::packet> responses_;
+		int version_;
 
 		static boost::shared_ptr<read_protocol> create(socket_helpers::connection_info info, handler_type handler) {
 			return boost::shared_ptr<read_protocol>(new read_protocol(info, handler));
@@ -78,6 +79,7 @@ namespace nrpe {
 			: info_(info)
 			, handler_(handler)
 			, parser_(handler->get_payload_length())
+			, version_(nrpe::data::version2)
 			, current_state_(none) {}
 
 		inline void set_state(state new_state) {
@@ -120,6 +122,7 @@ namespace nrpe {
 				if (result) {
 					try {
 						nrpe::packet request = parser_.parse();
+						version_ = request.getVersion();
 						responses_ = handler_->handle(request);
 					} catch (const std::exception &e) {
 						responses_.push_back(handler_->create_error("Exception processing request: " + utf8::utf8_from_native(e.what())));

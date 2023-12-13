@@ -29,7 +29,7 @@
 #include <str/format.hpp>
 #include <nsclient/nsclient_exception.hpp>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/assign.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/shared_mutex.hpp>
@@ -38,6 +38,7 @@
 #include <list>
 
 
+using namespace boost::placeholders;
 
 typedef boost::optional<std::string> op_str;
 template<eventlog::api::EVT_PUBLISHER_METADATA_PROPERTY_ID T_object, DWORD T_id, DWORD T_desc>

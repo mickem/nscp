@@ -33,6 +33,8 @@
 
 #include <nsclient/nsclient_exception.hpp>
 
+namespace ph = boost::placeholders;
+
 
 namespace network_check {
 	
@@ -208,18 +210,18 @@ namespace network_check {
 			static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
 
 			registry_.add_string()
-				("name", boost::bind(&filter_obj::get_name, _1), "Network interface name")
-				("net_connection_id", boost::bind(&filter_obj::get_NetConnectionID, _1), "Network connection id")
-				("MAC", boost::bind(&filter_obj::get_MACAddress, _1), "The MAC address")
-				("status", boost::bind(&filter_obj::get_NetConnectionStatus, _1), "Network connection status")
-				("enabled", boost::bind(&filter_obj::get_NetEnabled, _1), "True if the network interface is enabled")
-				("speed", boost::bind(&filter_obj::get_Speed, _1), "The network interface speed")
+				("name", boost::bind(&filter_obj::get_name, ph::_1), "Network interface name")
+				("net_connection_id", boost::bind(&filter_obj::get_NetConnectionID, ph::_1), "Network connection id")
+				("MAC", boost::bind(&filter_obj::get_MACAddress, ph::_1), "The MAC address")
+				("status", boost::bind(&filter_obj::get_NetConnectionStatus, ph::_1), "Network connection status")
+				("enabled", boost::bind(&filter_obj::get_NetEnabled, ph::_1), "True if the network interface is enabled")
+				("speed", boost::bind(&filter_obj::get_Speed, ph::_1), "The network interface speed")
 				;
 
 			registry_.add_int()
-				("received", boost::bind(&filter_obj::getBytesReceivedPersec, _1), "Bytes received per second")
-				("sent", boost::bind(&filter_obj::getBytesSentPersec, _1), "Bytes sent per second")
-				("total", boost::bind(&filter_obj::getBytesTotalPersec, _1), "Bytes total per second")
+				("received", boost::bind(&filter_obj::getBytesReceivedPersec, ph::_1), "Bytes received per second")
+				("sent", boost::bind(&filter_obj::getBytesSentPersec, ph::_1), "Bytes sent per second")
+				("total", boost::bind(&filter_obj::getBytesTotalPersec, ph::_1), "Bytes total per second")
 				;
 		}
 

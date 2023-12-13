@@ -136,13 +136,13 @@ namespace eventlog_filter {
 			;
 
 		root_path.add_key()
-			("log", sh::string_fun_key(boost::bind(&filter_config_object::set_file, this, _1)),
+			("log", sh::string_fun_key(boost::bind(&filter_config_object::set_file, this, boost::placeholders::_1)),
 				"FILE", "The eventlog record to filter on (if set to 'all' means all enabled logs)", false)
 
-			("logs", sh::string_fun_key(boost::bind(&filter_config_object::set_files, this, _1)),
+			("logs", sh::string_fun_key(boost::bind(&filter_config_object::set_files, this, boost::placeholders::_1)),
 				"FILES", "The eventlog record to filter on (if set to 'all' means all enabled logs)", true)
 
-			("truncate", sh::int_fun_key(boost::bind(&filter_config_object::set_truncate, this, _1)),
+			("truncate", sh::int_fun_key(boost::bind(&filter_config_object::set_truncate, this, boost::placeholders::_1)),
 				"Truncate", "Truncate the eventlog messages, if set to 0 (default) messages will not be truncated", true)
 
 			;

@@ -29,6 +29,7 @@
 #include <utf8.hpp>
 
 namespace sh = nscapi::settings_helper;
+namespace ph = boost::placeholders;
 
 bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	if (mode == NSCAPI::reloadStart) {
@@ -49,12 +50,12 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		;
 
 	settings.alias().add_key_to_settings()
-		("threads", sh::int_fun_key(boost::bind(&schedules::scheduler::set_threads, &scheduler_, _1), 5),
+		("threads", sh::int_fun_key(boost::bind(&schedules::scheduler::set_threads, &scheduler_, ph::_1), 5),
 			"Threads", "Number of threads to use.")
 		;
 
 	settings.alias().add_path_to_settings()
-		("schedules", sh::fun_values_path(boost::bind(&Scheduler::add_schedule, this, _1, _2)),
+		("schedules", sh::fun_values_path(boost::bind(&Scheduler::add_schedule, this, ph::_1, ph::_2)),
 			"Schedules", "Section for the Scheduler module.",
 			"SCHEDULE", "For more configuration options add a dedicated section")
 		;

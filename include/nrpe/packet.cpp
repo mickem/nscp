@@ -18,4 +18,4 @@
  */
 #include <nrpe/packet.hpp>
 
-unsigned int nrpe::length::payload_length_ = 1024;
+std::size_t nrpe::length::payload_length_ = 1024;

@@ -59,11 +59,11 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.alias().add_path_to_settings()
 			("NRPE CLIENT SECTION", "Section for NRPE active/passive check module.")
 
-			("handlers", sh::fun_values_path(boost::bind(&NRPEClient::add_command, this, _1, _2)),
+			("handlers", sh::fun_values_path(boost::bind(&NRPEClient::add_command, this, boost::placeholders::_1, boost::placeholders::_2)),
 				"CLIENT HANDLER SECTION", "",
 				"TARGET", "For more configuration options add a dedicated section")
 
-			("targets", sh::fun_values_path(boost::bind(&NRPEClient::add_target, this, _1, _2)),
+			("targets", sh::fun_values_path(boost::bind(&NRPEClient::add_target, this, boost::placeholders::_1, boost::placeholders::_2)),
 				"REMOTE TARGET DEFINITIONS", "",
 				"TARGET", "For more configuration options add a dedicated section")
 			;

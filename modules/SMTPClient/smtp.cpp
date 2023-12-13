@@ -20,7 +20,7 @@
 #include "smtp.hpp"
 
 #include <boost/algorithm/string/case_conv.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/foreach.hpp>
@@ -28,6 +28,7 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 
+namespace ph = boost::placeholders;
 
 namespace smtp {
 	namespace client {
@@ -104,7 +105,7 @@ namespace smtp {
 			}
 
 			NSC_DEBUG_MSG("smtp connecting to " + iter->endpoint().address().to_string());
-			serv.async_connect(*iter, boost::bind(&connection::connected, shared_from_this(), iter, _1));
+			serv.async_connect(*iter, boost::bind(&connection::connected, shared_from_this(), iter, ph::_1));
 		}
 
 		void smtp_client::connection::connected(boost::asio::ip::tcp::resolver::iterator iter, boost::system::error_code ec) {
@@ -121,7 +122,7 @@ namespace smtp {
 		}
 
 		void smtp_client::connection::async_read_response() {
-			boost::asio::async_read_until(serv, readbuf, "\r\n", boost::bind(&connection::got_response, shared_from_this(), "", _1, _2));
+			boost::asio::async_read_until(serv, readbuf, "\r\n", boost::bind(&connection::got_response, shared_from_this(), "", ph::_1, ph::_2));
 		}
 
 		void smtp_client::connection::got_response(std::string resp, boost::system::error_code ec, size_t bytes) {
@@ -142,7 +143,7 @@ namespace smtp {
 			resp += line;
 
 			if (line.length() >= 4 && line[3] == '-') {
-				boost::asio::async_read_until(serv, readbuf, "\r\n", boost::bind(&connection::got_response, shared_from_this(), resp, _1, _2));
+				boost::asio::async_read_until(serv, readbuf, "\r\n", boost::bind(&connection::got_response, shared_from_this(), resp, ph::_1, ph::_2));
 				return;
 			}
 			NSC_DEBUG_MSG("smtp read " + resp);
@@ -243,7 +244,7 @@ namespace smtp {
 		void smtp_client::connection::send_raw(std::string raw) {
 			NSC_DEBUG_MSG("smtp sending " + raw);
 			boost::shared_ptr<boost::asio::const_buffers_1> rb(new boost::asio::const_buffers_1(boost::asio::buffer(raw)));
-			boost::asio::async_write(serv, *rb, boost::bind(&connection::sent, shared_from_this(), rb, _1, _2));
+			boost::asio::async_write(serv, *rb, boost::bind(&connection::sent, shared_from_this(), rb, ph::_1, ph::_2));
 		}
 
 		void smtp_client::connection::sent(boost::shared_ptr<boost::asio::const_buffers_1>, boost::system::error_code ec, size_t) {

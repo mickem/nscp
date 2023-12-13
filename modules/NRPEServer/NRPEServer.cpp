@@ -76,7 +76,7 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		("allow nasty characters", sh::bool_key(&allowNasty_, false),
 			"COMMAND ALLOW NASTY META CHARS", "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.")
 
-		("performance data", sh::bool_fun_key(boost::bind(&NRPEServer::set_perf_data, this, _1), true),
+		("performance data", sh::bool_fun_key(boost::bind(&NRPEServer::set_perf_data, this, boost::placeholders::_1), true),
 			"PERFORMANCE DATA", "Send performance data back to nagios (set this to 0 to remove all performance data).", true)
 
 		;
@@ -84,7 +84,7 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	socket_helpers::settings_helper::add_core_server_opts(settings, info_);
 #ifdef USE_SSL
 	if (insecure) {
-		socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "", "", "ADH");
+		socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "${certificate-path}/certificate.pem", "", "ALL:!MD5:@strength:@SECLEVEL=0");
 
 		settings.alias().add_key_to_settings()
 			("extended response", sh::bool_key(&multiple_packets_, false),
@@ -157,7 +157,7 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p) {
 	std::list<nrpe::packet> packets;
 	str::utils::token cmd = str::utils::getToken(p.getPayload(), '!');
 	if (cmd.first == "_NRPE_CHECK") {
-		packets.push_back(nrpe::packet::create_response(NSCAPI::query_return_codes::returnOK, "I (" + utf8::cvt<std::string>(nscapi::plugin_singleton->get_core()->getApplicationVersionString()) + ") seem to be doing fine...", p.get_payload_length()));
+		packets.push_back(nrpe::packet::create_response(p.getVersion(), NSCAPI::query_return_codes::returnOK, "I (" + utf8::cvt<std::string>(nscapi::plugin_singleton->get_core()->getApplicationVersionString()) + ") seem to be doing fine...", p.get_payload_length()));
 		return packets;
 	}
 	if (!allowArgs_) {
@@ -180,7 +180,7 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p) {
 	NSCAPI::nagiosReturn ret = -3;
 	nscapi::core_helper ch(get_core(), get_id());
 	try {
-		const unsigned int max_len = p.get_payload_length() - 1;
+		const std::size_t max_len = p.get_payload_length() - 1;
 		std::string wcmd, wargs;
 		if (encoding_.empty()) {
 			wcmd = utf8::cvt<std::string>(utf8::to_unicode(cmd.first));
@@ -212,22 +212,22 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p) {
 		} else {
 			data = msg + "|" + perf;
 		}
-		if (multiple_packets_) {
+		if (multiple_packets_ && p.getVersion() == nrpe::data::version2) {
 			std::size_t data_len = data.size();
 			for (std::size_t i = 0; i < data_len; i += max_len) {
 				if (data_len - i <= max_len)
-					packets.push_back(nrpe::packet::create_response(ret, data.substr(i, max_len), p.get_payload_length()));
+					packets.push_back(nrpe::packet::create_response(p.getVersion(), ret, data.substr(i, max_len), p.get_payload_length()));
 				else
 					packets.push_back(nrpe::packet::create_more_response(ret, data.substr(i, max_len), p.get_payload_length()));
 			}
 		} else {
-			if (data.length() >= max_len) {
+			if (p.getVersion() == nrpe::data::version2 && data.length() >= max_len) {
 				data = data.substr(0, max_len);
 			}
-			packets.push_back(nrpe::packet::create_response(ret, data, p.get_payload_length()));
+			packets.push_back(nrpe::packet::create_response(p.getVersion(), ret, data, p.get_payload_length()));
 		}
 	} catch (...) {
-		packets.push_back(nrpe::packet::create_response(NSCAPI::query_return_codes::returnUNKNOWN, "UNKNOWN: Internal exception", p.get_payload_length()));
+		packets.push_back(nrpe::packet::create_response(p.getVersion(), NSCAPI::query_return_codes::returnUNKNOWN, "UNKNOWN: Internal exception", p.get_payload_length()));
 		return packets;
 	}
 

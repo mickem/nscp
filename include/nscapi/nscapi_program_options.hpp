@@ -37,7 +37,7 @@
 #include <boost/program_options.hpp>
 #endif
 #include <boost/function/function1.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <list>
 #include <vector>

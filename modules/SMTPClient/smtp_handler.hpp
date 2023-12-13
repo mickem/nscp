@@ -32,6 +32,7 @@
 
 namespace smtp_handler {
 	namespace sh = nscapi::settings_helper;
+	namespace ph = boost::placeholders;
 
 	struct smtp_target_object : public nscapi::targets::target_object {
 		typedef nscapi::targets::target_object parent;
@@ -55,13 +56,13 @@ namespace smtp_handler {
 
 			root_path.add_key()
 
-				("sender", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "sender", _1), "nscp@localhost"),
+				("sender", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "sender", ph::_1), "nscp@localhost"),
 					"SENDER", "Sender of email message")
 
-				("recipient", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "recipient", _1), "nscp@localhost"),
+				("recipient", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "recipient", ph::_1), "nscp@localhost"),
 					"RECIPIENT", "Recipient of email message")
 
-				("template", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "template", _1), "Hello, this is %source% reporting %message%!"),
+				("template", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "template", ph::_1), "Hello, this is %source% reporting %message%!"),
 					"TEMPLATE", "Template for message data")
 
 				;
@@ -79,19 +80,19 @@ namespace smtp_handler {
 		void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
 			desc.add_options()
 
-				("sender", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, source, "sender", _1)),
+				("sender", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, source, "sender", ph::_1)),
 					"Length of payload (has to be same as on the server)")
 
-				("recipient", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "recipient", _1)),
+				("recipient", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "recipient", ph::_1)),
 					"Length of payload (has to be same as on the server)")
 
-				("template", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "template", _1)),
+				("template", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "template", ph::_1)),
 					"Do not initial an ssl handshake with the server, talk in plain text.")
 
-				("source-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", _1)),
+				("source-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", ph::_1)),
 					"Source/sender host name (default is auto which means use the name of the actual host)")
 
-				("sender-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", _1)),
+				("sender-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", ph::_1)),
 					"Source/sender host name (default is auto which means use the name of the actual host)")
 
 				;

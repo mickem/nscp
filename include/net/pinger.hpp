@@ -20,7 +20,7 @@
 #pragma once
 
 #include <boost/asio.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <istream>
 #include <iostream>
 #include <ostream>
@@ -99,7 +99,7 @@ private:
 
 	void start_receive() {
 		reply_buffer_.consume(reply_buffer_.size());
-		socket_.async_receive(reply_buffer_.prepare(65536), boost::bind(&pinger::handle_receive, this, _2, boost::asio::placeholders::error));
+		socket_.async_receive(reply_buffer_.prepare(65536), boost::bind(&pinger::handle_receive, this, boost::placeholders::_2, boost::asio::placeholders::error));
 	}
 
 	void handle_receive(std::size_t length, const boost::system::error_code ec) {
