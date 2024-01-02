@@ -37,6 +37,7 @@ namespace nrpe_handler {
 
 		nrpe_target_object(std::string alias, std::string path) : parent(alias, path) {
 			set_property_int("timeout", 30);
+			set_property_int("version", 2);
 			set_property_string("certificate", "${certificate-path}/certificate.pem");
 			set_property_string("certificate key", "");
 			set_property_string("certificate format", "PEM");
@@ -45,6 +46,7 @@ namespace nrpe_handler {
 			set_property_bool("insecure", false);
 			set_property_bool("ssl", true);
 			set_property_int("payload length", 1024);
+			set_property_int("version", 2);
 		}
 
 		nrpe_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
@@ -65,6 +67,10 @@ namespace nrpe_handler {
 
 				("payload length", sh::int_fun_key(boost::bind(&parent::set_property_int, this, "payload length", ph::_1)),
 					"PAYLOAD LENGTH", "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
+
+				("version", sh::int_fun_key(boost::bind(&parent::set_property_int, this, "version", ph::_1)),
+					"Version", "The NRPE Version to use (2 or 4).")
+
 				;
 			settings.register_all();
 			settings.notify();
@@ -111,6 +117,9 @@ namespace nrpe_handler {
 
 				("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "payload length", ph::_1)),
 					"Length of payload (has to be same as on the server)")
+
+				("version", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "version", ph::_1)),
+					"The NRPE version to use (2 or 4)")
 
 				("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "payload length", ph::_1)),
 					"Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")

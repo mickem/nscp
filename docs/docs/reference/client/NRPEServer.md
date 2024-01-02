@@ -324,6 +324,7 @@ Section for NRPE (NRPEServer.dll) (check_nrpe) protocol options.
 | [ssl options](#verify-mode)                               |                                      | VERIFY MODE                            |
 | [thread pool](#thread-pool)                               | 10                                   | THREAD POOL                            |
 | [timeout](#timeout)                                       | 30                                   | TIMEOUT                                |
+| [tls version](#tls-version-to-use)                        | tlsv1.2                              | TLS version to use                     |
 | [use ssl](#enable-ssl-encryption)                         | true                                 | ENABLE SSL ENCRYPTION                  |
 | [verify mode](#verify-mode)                               | none                                 | VERIFY MODE                            |
 
@@ -349,6 +350,7 @@ port=5666
 socket queue size=0
 thread pool=10
 timeout=30
+tls version=tlsv1.2
 use ssl=true
 verify mode=none
 
@@ -933,6 +935,33 @@ Timeout when reading packets on incoming sockets. If the data has not arrived wi
 [/settings/NRPE/server]
 # TIMEOUT
 timeout=30
+```
+
+
+
+#### TLS version to use <a id="/settings/NRPE/server/tls version"></a>
+
+Valid options are tlsv1.3, tlsv1.2, tlsv1.1, tlsv1.0, sslv3 as well as tlsv1.3+, tlsv1.2+, tlsv1.1+, tlsv1.0+, sslv3+ (Which uses the version mentioned and above)
+
+
+
+
+
+| Key            | Description                                     |
+|----------------|-------------------------------------------------|
+| Path:          | [/settings/NRPE/server](#/settings/NRPE/server) |
+| Key:           | tls version                                     |
+| Advanced:      | Yes (means it is not commonly used)             |
+| Default value: | `tlsv1.2`                                       |
+| Used by:       | NRPEServer                                      |
+
+
+**Sample:**
+
+```
+[/settings/NRPE/server]
+# TLS version to use
+tls version=tlsv1.2
 ```
 
 

@@ -144,10 +144,10 @@ void client::options_reader_interface::add_ssl_options(boost::program_options::o
 	desc.add_options()
 
 		("certificate", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "certificate", ph::_1)),
-			"Length of payload (has to be same as on the server)")
+			"The client certificate to use")
 
 		("dh", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "dh", ph::_1)),
-			"Length of payload (has to be same as on the server)")
+			"The DH key to use")
 
 		("certificate-key", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "certificate key", ph::_1)),
 			"Client certificate to use")

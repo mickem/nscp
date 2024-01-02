@@ -35,11 +35,13 @@ namespace nrpe_client {
 	struct connection_data : public socket_helpers::connection_info {
 		int buffer_length;
 		std::string encoding;
+		int version;
 		boost::shared_ptr<socket_helpers::client::client_handler> handler;
 
 		connection_data(client::destination_container source, client::destination_container target, boost::shared_ptr<socket_helpers::client::client_handler> handler) : buffer_length(0), handler(handler) {
 			address = target.address.host;
 			port_ = target.address.get_port_string("5666");
+			version = target.get_int_data("version", 2);
 
 			ssl.enabled = target.get_bool_data("ssl", true);
 			if (target.get_bool_data("insecure", false)) {
@@ -47,8 +49,8 @@ namespace nrpe_client {
 				ssl.certificate_key = target.get_string_data("certificate key");
 				ssl.certificate_key_format = target.get_string_data("certificate format");
 				ssl.ca_path = target.get_string_data("ca");
-				ssl.allowed_ciphers = target.get_string_data("allowed ciphers", "ADH");
-				ssl.dh_key = target.get_string_data("dh", "${certificate-path}/nrpe_dh_512.pem");
+				ssl.allowed_ciphers = target.get_string_data("allowed ciphers", "ADH@SECLEVEL=0");
+				ssl.dh_key = target.get_string_data("dh");
 				ssl.verify_mode = target.get_string_data("verify mode");
 			} else {
 				ssl.certificate = target.get_string_data("certificate", "${certificate-path}/certificate.pem");
@@ -81,6 +83,7 @@ namespace nrpe_client {
 			std::stringstream ss;
 			ss << "host: " << get_endpoint_string();
 			ss << ", buffer_length: " << buffer_length;
+			ss << ", version: " << version;
 			ss << ", ssl: " << ssl.to_string();
 			return ss.str();
 		}
@@ -205,7 +208,7 @@ namespace nrpe_client {
 				} else {
 					encoded_data = utf8::to_encoding(utf8::cvt<std::wstring>(data), con.encoding);
 				}
-				nrpe::packet packet = nrpe::packet::make_request(encoded_data, con.buffer_length);
+				nrpe::packet packet = nrpe::packet::make_request(encoded_data, con.buffer_length, con.version);
 				socket_helpers::client::client<nrpe::client::protocol> client(con, handler_);
 				client.connect();
 				std::list<nrpe::packet> responses = client.process_request(packet);

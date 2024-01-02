@@ -61,6 +61,7 @@ Request remote information via NRPE.
 <a name="check_nrpe_allowed-ciphers"/>
 <a name="check_nrpe_insecure"/>
 <a name="check_nrpe_payload-length"/>
+<a name="check_nrpe_version"/>
 <a name="check_nrpe_buffer-length"/>
 <a name="check_nrpe_options"/>
 #### Command-line Arguments
@@ -85,8 +86,8 @@ Request remote information via NRPE.
 | argument               |               | Set command line arguments                                                                                                                                                |
 | separator              |               | Separator to use for the batch command (default is |)                                                                                                                     |
 | batch                  |               | Add multiple records using the separator format is: command|argument|argument                                                                                             |
-| certificate            |               | Length of payload (has to be same as on the server)                                                                                                                       |
-| dh                     |               | Length of payload (has to be same as on the server)                                                                                                                       |
+| certificate            |               | The client certificate to use                                                                                                                                             |
+| dh                     |               | The DH key to use                                                                                                                                                         |
 | certificate-key        |               | Client certificate to use                                                                                                                                                 |
 | certificate-format     |               | Client certificate format                                                                                                                                                 |
 | ca                     |               | Certificate authority                                                                                                                                                     |
@@ -95,6 +96,7 @@ Request remote information via NRPE.
 | [ssl](#check_nrpe_ssl) | 1             | Initial an ssl handshake with the server.                                                                                                                                 |
 | insecure               | N/A           | Use insecure legacy mode                                                                                                                                                  |
 | payload-length         |               | Length of payload (has to be same as on the server)                                                                                                                       |
+| version                |               | The NRPE version to use (2 or 4)                                                                                                                                          |
 | buffer-length          |               | Length of payload to/from the NRPE agent. This is a hard specific value so you have to "configure" (read recompile) your NRPE agent to use the same value for it to work. |
 
 
@@ -143,6 +145,7 @@ Execute remote script via NRPE. (Most likely you want nrpe_query).
 <a name="exec_nrpe_allowed-ciphers"/>
 <a name="exec_nrpe_insecure"/>
 <a name="exec_nrpe_payload-length"/>
+<a name="exec_nrpe_version"/>
 <a name="exec_nrpe_buffer-length"/>
 <a name="exec_nrpe_options"/>
 #### Command-line Arguments
@@ -167,8 +170,8 @@ Execute remote script via NRPE. (Most likely you want nrpe_query).
 | argument              |               | Set command line arguments                                                                                                                                                |
 | separator             |               | Separator to use for the batch command (default is |)                                                                                                                     |
 | batch                 |               | Add multiple records using the separator format is: command|argument|argument                                                                                             |
-| certificate           |               | Length of payload (has to be same as on the server)                                                                                                                       |
-| dh                    |               | Length of payload (has to be same as on the server)                                                                                                                       |
+| certificate           |               | The client certificate to use                                                                                                                                             |
+| dh                    |               | The DH key to use                                                                                                                                                         |
 | certificate-key       |               | Client certificate to use                                                                                                                                                 |
 | certificate-format    |               | Client certificate format                                                                                                                                                 |
 | ca                    |               | Certificate authority                                                                                                                                                     |
@@ -177,6 +180,7 @@ Execute remote script via NRPE. (Most likely you want nrpe_query).
 | [ssl](#exec_nrpe_ssl) | 1             | Initial an ssl handshake with the server.                                                                                                                                 |
 | insecure              | N/A           | Use insecure legacy mode                                                                                                                                                  |
 | payload-length        |               | Length of payload (has to be same as on the server)                                                                                                                       |
+| version               |               | The NRPE version to use (2 or 4)                                                                                                                                          |
 | buffer-length         |               | Length of payload to/from the NRPE agent. This is a hard specific value so you have to "configure" (read recompile) your NRPE agent to use the same value for it to work. |
 
 
@@ -248,6 +252,7 @@ Request remote information via NRPE.
 <a name="nrpe_query_allowed-ciphers"/>
 <a name="nrpe_query_insecure"/>
 <a name="nrpe_query_payload-length"/>
+<a name="nrpe_query_version"/>
 <a name="nrpe_query_buffer-length"/>
 <a name="nrpe_query_options"/>
 #### Command-line Arguments
@@ -272,8 +277,8 @@ Request remote information via NRPE.
 | argument               |               | Set command line arguments                                                                                                                                                |
 | separator              |               | Separator to use for the batch command (default is |)                                                                                                                     |
 | batch                  |               | Add multiple records using the separator format is: command|argument|argument                                                                                             |
-| certificate            |               | Length of payload (has to be same as on the server)                                                                                                                       |
-| dh                     |               | Length of payload (has to be same as on the server)                                                                                                                       |
+| certificate            |               | The client certificate to use                                                                                                                                             |
+| dh                     |               | The DH key to use                                                                                                                                                         |
 | certificate-key        |               | Client certificate to use                                                                                                                                                 |
 | certificate-format     |               | Client certificate format                                                                                                                                                 |
 | ca                     |               | Certificate authority                                                                                                                                                     |
@@ -282,6 +287,7 @@ Request remote information via NRPE.
 | [ssl](#nrpe_query_ssl) | 1             | Initial an ssl handshake with the server.                                                                                                                                 |
 | insecure               | N/A           | Use insecure legacy mode                                                                                                                                                  |
 | payload-length         |               | Length of payload (has to be same as on the server)                                                                                                                       |
+| version                |               | The NRPE version to use (2 or 4)                                                                                                                                          |
 | buffer-length          |               | Length of payload to/from the NRPE agent. This is a hard specific value so you have to "configure" (read recompile) your NRPE agent to use the same value for it to work. |
 
 
@@ -332,6 +338,7 @@ Submit information to remote host via NRPE. (Most likely you want nrpe_query).
 <a name="submit_nrpe_allowed-ciphers"/>
 <a name="submit_nrpe_insecure"/>
 <a name="submit_nrpe_payload-length"/>
+<a name="submit_nrpe_version"/>
 <a name="submit_nrpe_buffer-length"/>
 <a name="submit_nrpe_options"/>
 #### Command-line Arguments
@@ -358,8 +365,8 @@ Submit information to remote host via NRPE. (Most likely you want nrpe_query).
 | result                  |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                                                                                                    |
 | separator               |               | Separator to use for the batch command (default is |)                                                                                                                     |
 | batch                   |               | Add multiple records using the separator format is: command|result|message                                                                                                |
-| certificate             |               | Length of payload (has to be same as on the server)                                                                                                                       |
-| dh                      |               | Length of payload (has to be same as on the server)                                                                                                                       |
+| certificate             |               | The client certificate to use                                                                                                                                             |
+| dh                      |               | The DH key to use                                                                                                                                                         |
 | certificate-key         |               | Client certificate to use                                                                                                                                                 |
 | certificate-format      |               | Client certificate format                                                                                                                                                 |
 | ca                      |               | Certificate authority                                                                                                                                                     |
@@ -368,6 +375,7 @@ Submit information to remote host via NRPE. (Most likely you want nrpe_query).
 | [ssl](#submit_nrpe_ssl) | 1             | Initial an ssl handshake with the server.                                                                                                                                 |
 | insecure                | N/A           | Use insecure legacy mode                                                                                                                                                  |
 | payload-length          |               | Length of payload (has to be same as on the server)                                                                                                                       |
+| version                 |               | The NRPE version to use (2 or 4)                                                                                                                                          |
 | buffer-length           |               | Length of payload to/from the NRPE agent. This is a hard specific value so you have to "configure" (read recompile) your NRPE agent to use the same value for it to work. |
 
 
@@ -482,6 +490,7 @@ This is a section of objects. This means that you will create objects below this
 | timeout            | 30            | TIMEOUT               |
 | use ssl            |               | ENABLE SSL ENCRYPTION |
 | verify mode        |               | VERIFY MODE           |
+| version            |               | Version               |
 
 
 **Sample:**
@@ -504,6 +513,7 @@ retries=3
 timeout=30
 #use ssl=...
 #verify mode=...
+#version=...
 
 ```
 

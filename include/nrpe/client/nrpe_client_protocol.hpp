@@ -107,6 +107,9 @@ namespace nrpe {
 				return true;
 			}
 			bool on_read_error(const boost::system::error_code&) {
+				if (current_state_ == connected) {
+					return true;
+				}
 				return false;
 			}
 		};

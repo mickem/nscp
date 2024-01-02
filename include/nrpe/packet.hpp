@@ -181,8 +181,11 @@ namespace nrpe {
 		~packet() {
 			delete[] tmpBuffer;
 		}
-		static packet make_request(std::string payload, unsigned int buffer_length) {
-			return packet(nrpe::data::queryPacket, nrpe::data::version2, -1, payload, buffer_length);
+		static packet make_request(std::string payload, unsigned int buffer_length, unsigned int version) {
+			if (version != 2 && version != 4) {
+				throw nrpe::nrpe_exception("Invalid NRPE version: " + str::xtos(version) + ", expected 2 or 4");
+			}
+			return packet(nrpe::data::queryPacket, version, -1, payload, buffer_length);
 		}
 		static char* payload_offset(nrpe::data::packet_v2 *p) {
 			return &reinterpret_cast<char*>(p)[nrpe::data::buffer_offset_v2];
@@ -267,7 +270,8 @@ namespace nrpe {
 				throw nrpe::nrpe_exception("Packet to short to determin version: " + str::xtos(length) + " < " + str::xtos(nrpe::length::get_min_header_length()));
 			}
 			const nrpe::data::packet_header* p = reinterpret_cast<const nrpe::data::packet_header*>(buffer);
-			if (swap_bytes::ntoh<int16_t>(p->packet_version) == nrpe::data::version3 || swap_bytes::ntoh<int16_t>(p->packet_version) == nrpe::data::version4) {
+			int version = swap_bytes::ntoh<int16_t>(p->packet_version);
+			if (version == 3 || version == 4) {
 				readFromV3(buffer, length);
 			}
 			else {
@@ -283,7 +287,7 @@ namespace nrpe {
 				throw nrpe::nrpe_exception("Invalid packet type: " + str::xtos(type_));
 			version_ = swap_bytes::ntoh<int16_t>(p->packet_version);
 			if (version_ != nrpe::data::version2)
-				throw nrpe::nrpe_exception("Invalid packet version." + str::xtos(version_));
+				throw nrpe::nrpe_exception("Invalid packet version: " + str::xtos(version_));
 			crc32_ = swap_bytes::ntoh<uint32_t>(p->crc32_value);
 			// Verify CRC32
 			// @todo Fix this, currently we need a const buffer so we cannot change the CRC to 0.
@@ -309,13 +313,13 @@ namespace nrpe {
 			if (type_ != nrpe::data::queryPacket && type_ != nrpe::data::responsePacket && type_ != nrpe::data::moreResponsePacket)
 				throw nrpe::nrpe_exception("Invalid packet type: " + str::xtos(type_));
 			version_ = swap_bytes::ntoh<int16_t>(p->packet_version);
-			if (version_ != nrpe::data::version4)
-				throw nrpe::nrpe_exception("Invalid packet version." + str::xtos(version_));
+			if (version_ != 3 && version_ != 4)
+				throw nrpe::nrpe_exception("Invalid packet version: " + str::xtos(version_));
 			std::size_t payload_length = swap_bytes::ntoh<int32_t>(p->buffer_length);
 			if (payload_length < 0 || payload_length > 1024 * 1024) {
 				throw nrpe::nrpe_exception("Invalid packet length specified: " + str::xtos(payload_length));
 			}
-			std::size_t source_data_length = nrpe::length::get_packet_length_v3(payload_length);
+			std::size_t source_data_length = version_ == 4 ? nrpe::length::get_packet_length_v4(payload_length) : nrpe::length::get_packet_length_v3(payload_length);
 			if (length < source_data_length)
 				throw nrpe::nrpe_exception("Invalid packet length: " + str::xtos(length) + " != " + str::xtos(source_data_length));
 
