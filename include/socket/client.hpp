@@ -319,14 +319,36 @@ namespace socket_helpers {
 #ifdef USE_SSL
 			boost::asio::ssl::context context_;
 			typedef ssl_connection<protocol_type> ssl_connection_type;
+
+			static boost::asio::ssl::context_base::method make_context(const socket_helpers::connection_info& info) {
+				std::string tmp = boost::algorithm::to_lower_copy(info.ssl.tls_version);
+				str::utils::replace(tmp, "+", "");
+				if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3") {
+					return boost::asio::ssl::context::tlsv13_client;
+				}
+				if (tmp == "tlsv1.2" || tmp == "tls1.2" || tmp == "1.2") {
+					return boost::asio::ssl::context::tlsv12_client;
+				}
+				if (tmp == "tlsv1.1" || tmp == "tls1.1" || tmp == "1.1") {
+					return boost::asio::ssl::context::tlsv11_client;
+				}
+				if (tmp == "tlsv1.0" || tmp == "tls1.0" || tmp == "1.0") {
+					return boost::asio::ssl::context::tlsv1_client;
+				}
+				if (tmp == "sslv3" || tmp == "ssl3") {
+					return boost::asio::ssl::context::sslv23_client;
+				}
+				throw socket_helpers::socket_exception("Invalid tls version: " + tmp);
+			}
 #endif
+
 
 		public:
 			client(const socket_helpers::connection_info &info, typename boost::shared_ptr<typename protocol_type::client_handler> handler)
 				: info_(info), handler_(handler)
 #ifdef USE_SSL
 #if BOOST_VERSION >= 106800
-				, context_(boost::asio::ssl::context::sslv23)
+				, context_(make_context(info))
 #else
 				, context_(io_service_, boost::asio::ssl::context::sslv23)
 #endif

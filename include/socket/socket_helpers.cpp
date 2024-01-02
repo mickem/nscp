@@ -214,6 +214,12 @@ void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asi
 		}
 	}
 	context.set_verify_mode(get_verify_mode(), er);
+	if (SSL_CTX_set_min_proto_version(context.native_handle(), get_tls_min_version()) == 0) {
+		errors.push_back("Failed to set min tls version");
+	}
+	if (SSL_CTX_set_max_proto_version(context.native_handle(), get_tls_max_version()) == 0) {
+		errors.push_back("Failed to set min tls version");
+	}
 	if (er)
 		errors.push_back("Failed to set verify mode: " + utf8::utf8_from_native(er.message()));
 	if (!allowed_ciphers.empty()) {
@@ -259,6 +265,51 @@ boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts
 	}
 	return mode;
 }
+
+long socket_helpers::connection_info::ssl_opts::get_tls_min_version() const {
+	std::string tmp = boost::algorithm::to_lower_copy(tls_version);
+	str::utils::replace(tmp, "+", "");
+	if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3") {
+		return TLS1_3_VERSION;
+	}
+	if (tmp == "tlsv1.2" || tmp == "tls1.2" || tmp == "1.2") {
+		return TLS1_2_VERSION;
+	}
+	if (tmp == "tlsv1.1" || tmp == "tls1.1" || tmp == "1.1") {
+		return TLS1_1_VERSION;
+	}
+	if (tmp == "tlsv1.0" || tmp == "tls1.0" || tmp == "1.0") {
+		return TLS1_VERSION;
+	}
+	if (tmp == "sslv3" || tmp == "ssl3") {
+		return SSL3_VERSION;
+	}
+	throw socket_helpers::socket_exception("Invalid tls version: " + tmp);
+}
+
+long socket_helpers::connection_info::ssl_opts::get_tls_max_version() const {
+	std::string tmp = boost::algorithm::to_lower_copy(tls_version);
+	if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3" || 
+		tmp == "tlsv1.2+" || tmp == "tls1.2+" || tmp == "1.2+" ||
+		tmp == "tlsv1.1+" || tmp == "tls1.1+" || tmp == "1.1+" || 
+		tmp == "sslv3+" || tmp == "ssl3+") {
+		return TLS1_3_VERSION;
+	}
+	if (tmp == "tlsv1.2" || tmp == "tls1.2" || tmp == "1.2") {
+		return TLS1_2_VERSION;
+	}
+	if (tmp == "tlsv1.1" || tmp == "tls1.1" || tmp == "1.1") {
+		return TLS1_1_VERSION;
+	}
+	if (tmp == "tlsv1.0" || tmp == "tls1.0" || tmp == "1.0") {
+		return TLS1_VERSION;
+	}
+	if (tmp == "sslv3" || tmp == "ssl3") {
+		return SSL3_VERSION;
+	}
+	throw socket_helpers::socket_exception("Invalid tls version: " + tmp);
+}
+
 
 boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_format() const {
 	if (certificate_format == "asn1")

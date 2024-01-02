@@ -53,6 +53,9 @@ namespace socket_helpers {
 				("certificate format", nscapi::settings_helper::string_key(&info_.ssl.certificate_format, "PEM"),
 					"CERTIFICATE FORMAT", "", true)
 
+				("tls version", nscapi::settings_helper::string_key(&info_.ssl.tls_version, "tlsv1.2"),
+					"TLS version to use", "Valid options are tlsv1.3, tlsv1.2, tlsv1.1, tlsv1.0, sslv3 as well as tlsv1.3+, tlsv1.2+, tlsv1.1+, tlsv1.0+, sslv3+ (Which uses the version mentioned and above)", true)
+
 				("ca", nscapi::settings_helper::path_key(&info_.ssl.ca_path, "${certificate-path}/ca.pem"),
 					"CA", "", true)
 
