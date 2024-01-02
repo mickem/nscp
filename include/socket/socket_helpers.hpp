@@ -67,7 +67,7 @@ namespace socket_helpers {
 
 	struct connection_info {
 		struct ssl_opts {
-			ssl_opts() : enabled(false) {}
+			ssl_opts() : enabled(false), tls_version("1.2+") {}
 
 			ssl_opts(const ssl_opts &other)
 				: enabled(other.enabled)
@@ -78,6 +78,7 @@ namespace socket_helpers {
 				, allowed_ciphers(other.allowed_ciphers)
 				, dh_key(other.dh_key)
 				, verify_mode(other.verify_mode)
+				, tls_version(other.tls_version)
 				, ssl_options(other.ssl_options) {}
 			ssl_opts& operator=(const ssl_opts &other) {
 				enabled = other.enabled;
@@ -88,6 +89,7 @@ namespace socket_helpers {
 				allowed_ciphers = other.allowed_ciphers;
 				dh_key = other.dh_key;
 				verify_mode = other.verify_mode;
+				tls_version = other.tls_version;
 				ssl_options = other.ssl_options;
 				return *this;
 			}
@@ -103,6 +105,7 @@ namespace socket_helpers {
 			std::string dh_key;
 
 			std::string verify_mode;
+			std::string tls_version;
 			std::string ssl_options;
 
 			std::string to_string() const {
@@ -115,6 +118,7 @@ namespace socket_helpers {
 						ss << ", no certificate";
 					ss << ", dh: " << dh_key << ", ciphers: " << allowed_ciphers << ", ca: " << ca_path;
 					ss << ", options: " << ssl_options;
+					ss << ", tls version: " << tls_version;
 				} else
 					ss << "ssl disabled";
 				return ss.str();
@@ -122,6 +126,8 @@ namespace socket_helpers {
 #ifdef USE_SSL
 			void configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> &errors) const;
 			boost::asio::ssl::context::verify_mode get_verify_mode() const;
+			long get_tls_min_version() const;
+			long get_tls_max_version() const;
 			boost::asio::ssl::context::file_format get_certificate_format() const;
 			boost::asio::ssl::context::file_format get_certificate_key_format() const;
 			long get_ctx_opts() const;

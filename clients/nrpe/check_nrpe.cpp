@@ -199,6 +199,8 @@ struct stdout_client_handler : public socket_helpers::client::client_handler {
 bool test(client::destination_container &source, client::destination_container &) {
 	if (source.has_data("log"))
 		gLog = source.get_string_data("log");
+	else
+		gLog = "error";
 	return true;
 }
 
