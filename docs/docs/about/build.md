@@ -92,6 +92,7 @@ Create a build folder:
 ```
 mkdir build
 cd build
+```
 
 Build all dependencies and required libraries (pick the right platform Win32 or x64):
 
