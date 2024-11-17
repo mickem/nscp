@@ -46,9 +46,24 @@ jobs:
         cache-dependency-path: 'build/python/requirements.txt'
         cache: 'pip'
 
+    - name: Install components
+      run: |
+              Set-Location "C:\Program Files (x86)\Microsoft Visual Studio\Installer\"
+              $InstallPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
+              $components= @(
+                "Microsoft.VisualStudio.Component.VC.v141.x86.x64"
+                "Microsoft.VisualStudio.Component.VC.v141.ATL"
+                "Microsoft.VisualStudio.Component.WinXP"
+              )
+              [string]$workloadArgs = $components | ForEach-Object {" --add " +  $_}
+              $Arguments = ('/c', "vs_installer.exe", 'modify', '--installPath', "`"$InstallPath`"",$workloadArgs, '--quiet', '--norestart', '--nocache')
+              # should be run twice
+              $process = Start-Process -FilePath cmd.exe -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
+              $process = Start-Process -FilePath cmd.exe -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
     - uses: ilammy/msvc-dev-cmd@v1
       name: Setup msvc environment
       with:
+        toolset: "14.1"
         arch: ${{ steps.setup.outputs.msvc_arch }}
 
     - id: version
@@ -156,7 +171,7 @@ jobs:
     - name: CMake (installer_lib)
       working-directory: tmp/installer_lib
       run: |
-        cmake ../../installer_lib -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -DBOOST_ROOT=${{ steps.paths.outputs.static_boost_root }} -DBOOST_LIBRARYDIR=${{ steps.paths.outputs.static_boost_librarydir }}
+        cmake ../../installer_lib -T v141 -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -DBOOST_ROOT=${{ steps.paths.outputs.static_boost_root }} -DBOOST_LIBRARYDIR=${{ steps.paths.outputs.static_boost_librarydir }}
 
     - name: Build installer_lib
       working-directory: tmp/installer_lib
@@ -166,7 +181,7 @@ jobs:
     - name: CMake (NSCP)
       working-directory: tmp/nscp
       run: |
-        cmake ../.. -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }}
+        cmake ../.. -T v141  -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }}
 
     - name: Build nsclient
       working-directory: tmp/nscp
