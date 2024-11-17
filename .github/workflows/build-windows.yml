@@ -61,7 +61,7 @@ jobs:
     - uses: ilammy/msvc-dev-cmd@v1
       name: Setup msvc environment
       with:
-        toolset: 14.0
+        toolset: "14.0"
         arch: ${{ steps.setup.outputs.msvc_arch }}
 
     - id: version
