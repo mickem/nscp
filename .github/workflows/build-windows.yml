@@ -46,9 +46,22 @@ jobs:
         cache-dependency-path: 'build/python/requirements.txt'
         cache: 'pip'
 
+    - name: Install components
+      run: |
+              Set-Location "C:\Program Files (x86)\Microsoft Visual Studio\Installer\"
+              $InstallPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
+              $components= @(
+                "Microsoft.VisualStudio.Component.VC.v141.x86.x64"
+              )
+              [string]$workloadArgs = $components | ForEach-Object {" --add " +  $_}
+              $Arguments = ('/c', "vs_installer.exe", 'modify', '--installPath', "`"$InstallPath`"",$workloadArgs, '--quiet', '--norestart', '--nocache')
+              # should be run twice
+              $process = Start-Process -FilePath cmd.exe -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
+              $process = Start-Process -FilePath cmd.exe -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
     - uses: ilammy/msvc-dev-cmd@v1
       name: Setup msvc environment
       with:
+        toolset: 14.0
         arch: ${{ steps.setup.outputs.msvc_arch }}
 
     - id: version
