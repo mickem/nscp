@@ -156,7 +156,7 @@ jobs:
     - name: CMake (installer_lib)
       working-directory: tmp/installer_lib
       run: |
-        cmake ../../installer_lib -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -DBOOST_ROOT=${{ steps.paths.outputs.static_boost_root }} -DBOOST_LIBRARYDIR=${{ steps.paths.outputs.static_boost_librarydir }}
+        cmake ../../installer_lib -T v141 -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -DBOOST_ROOT=${{ steps.paths.outputs.static_boost_root }} -DBOOST_LIBRARYDIR=${{ steps.paths.outputs.static_boost_librarydir }}
 
     - name: Build installer_lib
       working-directory: tmp/installer_lib
@@ -166,7 +166,7 @@ jobs:
     - name: CMake (NSCP)
       working-directory: tmp/nscp
       run: |
-        cmake ../.. -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }}
+        cmake ../.. -T v141  -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }}
 
     - name: Build nsclient
       working-directory: tmp/nscp
