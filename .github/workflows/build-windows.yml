@@ -38,6 +38,15 @@ jobs:
         }
       shell: pwsh
 
+    - name: debug
+      run: |
+        echo "program files"
+        dir "c:\program files"
+        echo "program files (86)"
+        dir "c:\Program Files (x86)"
+        echo "set"
+        set
+
     - id: python
       uses: actions/setup-python@v4
       with:
@@ -167,6 +176,7 @@ jobs:
       run: |
         & "$env:Python_ROOT_DIR\python" ..\..\build\python\mk_pyzip.py --source ${{ env.Python_ROOT_DIR }}
       shell: pwsh
+
 
     - name: CMake (installer_lib)
       working-directory: tmp/installer_lib
