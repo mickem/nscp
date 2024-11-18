@@ -26,18 +26,8 @@ set(PF86 "PROGRAMFILES(X86)")
         "${WIX_ROOT_DIR}"
         "$ENV{WIX}"
         "$ENV{WIX_ROOT_DIR}"
-        "$ENV{${PF86}}/WiX Toolset v3.11"
-		"$ENV{ProgramFiles}/WiX Toolset v3.14"
-        "$ENV{ProgramFiles}/WiX Toolset v3.11"
-        "$ENV{ProgramFiles}/WiX Toolset v3.10"
-        "$ENV{ProgramFiles}/WiX Toolset v3.9"
-        "$ENV{ProgramFiles}/WiX Toolset v3.8"
-        "$ENV{ProgramFiles}/WiX Toolset v3.7"
-        "$ENV{ProgramFiles}/Windows Installer XML v3.8"
-        "$ENV{ProgramFiles}/Windows Installer XML v3.7"
-        "$ENV{ProgramFiles}/Windows Installer XML v3.5"
-        "$ENV{ProgramFiles}/Windows Installer XML v3"
-        "$ENV{ProgramFiles}/Windows Installer XML"
+		"$ENV{${PF86}}/WiX Toolset v3.14"
+		"$ENV{${PF86}}/WiX Toolset v3.11"
         )
 
 	MESSAGE(STATUS "--> ${WIX_POSSIBLE_ROOT_DIRS}")
