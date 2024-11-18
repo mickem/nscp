@@ -27,6 +27,7 @@ set(PF86 "PROGRAMFILES(X86)")
         "$ENV{WIX}"
         "$ENV{WIX_ROOT_DIR}"
         "$ENV{${PF86}}/WiX Toolset v3.11"
+		"$ENV{ProgramFiles}/WiX Toolset v3.14"
         "$ENV{ProgramFiles}/WiX Toolset v3.11"
         "$ENV{ProgramFiles}/WiX Toolset v3.10"
         "$ENV{ProgramFiles}/WiX Toolset v3.9"
@@ -117,8 +118,8 @@ set(PF86 "PROGRAMFILES(X86)")
 			ELSE(${_ext} STREQUAL ".wixlib")
 				SET (OUTPUT_WIXOBJ ${_basename}.wixobj )
 
-				DBG_MSG("WIX output: ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}")
-				DBG_MSG("WIX command: ${WIX_CANDLE}")
+				MESSAGE(STATUS "WIX output: ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}")
+				MESSAGE(STATUS "WIX command: ${WIX_CANDLE}")
 
 				ADD_CUSTOM_COMMAND( 
 					OUTPUT    ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}
