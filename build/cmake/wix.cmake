@@ -40,7 +40,7 @@ set(PF86 "PROGRAMFILES(X86)")
         "$ENV{ProgramFiles}/Windows Installer XML"
         )
 
-
+	MESSAGE(STATUS "--> ${WIX_POSSIBLE_ROOT_DIRS}")
     #
     # select exactly ONE WIX base directory/tree 
     # to avoid mixing different version headers and libs
@@ -51,7 +51,7 @@ set(PF86 "PROGRAMFILES(X86)")
         bin/light.exe
         bin/heat.exe
         PATHS ${WIX_POSSIBLE_ROOT_DIRS})
-    DBG_MSG("WIX_ROOT_DIR=${WIX_ROOT_DIR}")
+	MESSAGE(STATUS "WIX_ROOT_DIR=${WIX_ROOT_DIR}")
 	
 	IF(EXISTS "${WIX_ROOT_DIR}/bin/pyro.exe")
 		SET(WIX_VERSION 3)
@@ -85,7 +85,7 @@ set(PF86 "PROGRAMFILES(X86)")
         SET(WIX_CANDLE ${WIX_ROOT_DIR}/bin/candle.exe)
         SET(WIX_LIGHT ${WIX_ROOT_DIR}/bin/light.exe)
         SET(WIX_HEAT ${WIX_ROOT_DIR}/bin/heat.exe)
-        #  MESSAGE(STATUS "Windows Installer XML found.")
+        MESSAGE(STATUS "Windows Installer XML found.")
     ENDIF(NOT WIX_FOUND)
 
     MARK_AS_ADVANCED(
