@@ -52,7 +52,7 @@ runs:
 
     - name: CMake x64
       run: |
-        cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} ..
+        cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -T v141 -A ${{ steps.setup.outputs.platform }} ..
       working-directory: tmp/protobuf-${{ inputs.version }}/build
       shell: cmd
 

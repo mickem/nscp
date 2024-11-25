@@ -26,20 +26,11 @@ set(PF86 "PROGRAMFILES(X86)")
         "${WIX_ROOT_DIR}"
         "$ENV{WIX}"
         "$ENV{WIX_ROOT_DIR}"
-        "$ENV{${PF86}}/WiX Toolset v3.11"
-        "$ENV{ProgramFiles}/WiX Toolset v3.11"
-        "$ENV{ProgramFiles}/WiX Toolset v3.10"
-        "$ENV{ProgramFiles}/WiX Toolset v3.9"
-        "$ENV{ProgramFiles}/WiX Toolset v3.8"
-        "$ENV{ProgramFiles}/WiX Toolset v3.7"
-        "$ENV{ProgramFiles}/Windows Installer XML v3.8"
-        "$ENV{ProgramFiles}/Windows Installer XML v3.7"
-        "$ENV{ProgramFiles}/Windows Installer XML v3.5"
-        "$ENV{ProgramFiles}/Windows Installer XML v3"
-        "$ENV{ProgramFiles}/Windows Installer XML"
+		"$ENV{${PF86}}/WiX Toolset v3.14"
+		"$ENV{${PF86}}/WiX Toolset v3.11"
         )
 
-
+	MESSAGE(STATUS "--> ${WIX_POSSIBLE_ROOT_DIRS}")
     #
     # select exactly ONE WIX base directory/tree 
     # to avoid mixing different version headers and libs
@@ -50,7 +41,7 @@ set(PF86 "PROGRAMFILES(X86)")
         bin/light.exe
         bin/heat.exe
         PATHS ${WIX_POSSIBLE_ROOT_DIRS})
-    DBG_MSG("WIX_ROOT_DIR=${WIX_ROOT_DIR}")
+	DBG_MSG("WIX_ROOT_DIR=${WIX_ROOT_DIR}")
 	
 	IF(EXISTS "${WIX_ROOT_DIR}/bin/pyro.exe")
 		SET(WIX_VERSION 3)
@@ -84,7 +75,7 @@ set(PF86 "PROGRAMFILES(X86)")
         SET(WIX_CANDLE ${WIX_ROOT_DIR}/bin/candle.exe)
         SET(WIX_LIGHT ${WIX_ROOT_DIR}/bin/light.exe)
         SET(WIX_HEAT ${WIX_ROOT_DIR}/bin/heat.exe)
-        #  MESSAGE(STATUS "Windows Installer XML found.")
+        # MESSAGE(STATUS "Windows Installer XML found.")
     ENDIF(NOT WIX_FOUND)
 
     MARK_AS_ADVANCED(

@@ -15,7 +15,7 @@ IF(MKDOCS_FOUND)
     WORKING_DIRECTORY ${BUILD_ROOT_FOLDER}
     DEPENDS nscp ${ALL_MODULE_NAMES} copy_files
     COMMENT "Generate RST documentation source")
-  ADD_DEPENDENCIES(generate_doc_sources nscp ${ALL_MODULE_NAMES})
+    ADD_DEPENDENCIES(generate_doc_sources nscp ${ALL_MODULE_NAMES} copy_files copy_scripts copy_resources)
 	SET_TARGET_PROPERTIES(generate_doc_sources PROPERTIES FOLDER "docs")
 
 
