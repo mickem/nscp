@@ -208,9 +208,9 @@ jobs:
         cd symbols
         find ../ -name "*.pdb" -exec cp {} . \;
         pwd
-        ls -al
+        ls
         zip -r ../NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip .
-        ls -al
+        ls
 
     - uses: actions/upload-artifact@v3
       with:
