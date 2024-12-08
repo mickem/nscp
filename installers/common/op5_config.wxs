@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Fragment>
-        <DirectoryRef Id="TARGETDIR">
+        <DirectoryRef Id="INSTALLLOCATION">
             <Directory Id="dir388ED20BC3649C8154009E48B7E142E3" Name="config" />
         </DirectoryRef>
     </Fragment>

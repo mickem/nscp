@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Fragment>
-        <DirectoryRef Id="TARGETDIR">
+        <DirectoryRef Id="INSTALLLOCATION">
             <Directory Id="dirC722990CDCB916A6A44099040A99483A" Name="scripts" />
         </DirectoryRef>
     </Fragment>
@@ -16,17 +16,11 @@
             <Component Id="cmpD75076D34C7D471C4AA6236AD2E204C1" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{B67D70A7-88CD-458D-A37A-93E379B68AA5}">
                 <File Id="fil92513D9EE2A1D76870FEDE6A7B4D419A" KeyPath="yes" Source="$(var.ScriptSource)\check_files.vbs" />
             </Component>
-            <Component Id="cmp4D528D695F26FE07E5D5CB6B329905E7" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{1754DAD3-C78E-49FD-B0A1-B4B264572CC8}">
-                <File Id="fil10C6FD9961FD41F7ABC32725A17F8E87" KeyPath="yes" Source="$(var.ScriptSource)\check_long.bat" />
-            </Component>
             <Component Id="cmp5EA253F887CA02B9AD0C700D1DD8C76A" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{F20CB5DA-A61E-4F35-9731-E11CEA7D4706}">
                 <File Id="fil8B326ABE4703117B7B1BF8983F4DAE27" KeyPath="yes" Source="$(var.ScriptSource)\check_no_rdp.bat" />
             </Component>
             <Component Id="cmp3D282D8F99DCC00D5976C29BC3470DCE" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{12ABCE10-FDFB-40E5-A762-2FF1B49C211C}">
                 <File Id="fil2835939543A986D71AF3339444A9AB77" KeyPath="yes" Source="$(var.ScriptSource)\check_ok.bat" />
-            </Component>
-            <Component Id="cmpA6872EF754194DE34BD35D617307D932" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{76785C64-25E6-4997-ADED-4ACA43F497E5}">
-                <File Id="fil29323435A69B21FD70CCF9FE7A0ED961" KeyPath="yes" Source="$(var.ScriptSource)\check_ok.sh" />
             </Component>
             <Component Id="cmp4AA2795DA53EE5149A39208C60A71106" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{1F8C9B58-1C0B-4D7C-B583-A53C4E85F117}">
                 <File Id="fil058C7ABC5A151A87EAFCE3BC05224303" KeyPath="yes" Source="$(var.ScriptSource)\check_ping.bat" />
@@ -34,35 +28,8 @@
             <Component Id="cmpFB6C0A256F1B6C57D0EEAC0A5DE585CE" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{FB42CF59-68F6-45A4-AF0F-0D891916863B}">
                 <File Id="fil89C40736A3803C9C2AEE1AE56909B7CE" KeyPath="yes" Source="$(var.ScriptSource)\check_printer.vbs" />
             </Component>
-            <Component Id="cmp933E4E1E8A099E56196486ABB58484E1" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{B8BEE45F-DF77-4FB3-A96A-F8FE3127F640}">
-                <File Id="filF85F2054296F4451D0B2536DD8EB2969" KeyPath="yes" Source="$(var.ScriptSource)\check_test.bat" />
-            </Component>
-            <Component Id="cmpD8F9EAD3B63708A288B7E48DA2CB973C" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{2568205C-41DD-4A5C-9BAD-B62C37F5DCBD}">
-                <File Id="fil84817A8C8DCDABC51A8A9052AF202EA4" KeyPath="yes" Source="$(var.ScriptSource)\check_test.ps1" />
-            </Component>
-            <Component Id="cmp76AFB95B96448F38854B965607665268" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{042835FF-634D-4B9B-9E01-8337BAC27531}">
-                <File Id="fil045E24E4CF248E7511DE9B163BCDCFF8" KeyPath="yes" Source="$(var.ScriptSource)\check_test.sh" />
-            </Component>
-            <Component Id="cmpF1551F183ED5631F4865312D46474C1F" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{C06F9916-3BFE-4477-A693-65FFFBEA95C0}">
-                <File Id="fil5095191C2305537EBFAA9D5E818EC73B" KeyPath="yes" Source="$(var.ScriptSource)\check_test.vbs" />
-            </Component>
             <Component Id="cmp17F62F611C71EF1FC3C22EFF410A903D" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{C3B8C720-96A3-4329-88AD-EA95A01FD83F}">
                 <File Id="fil2B631277A3B36D08BD79BB1BE29F5B0B" KeyPath="yes" Source="$(var.ScriptSource)\check_updates.vbs" />
-            </Component>
-            <Component Id="cmp7101F5664B84D9FFE57EB6B09A937B5C" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{1FD70D97-A0E9-42C7-A343-A91FA09A071E}">
-                <File Id="filFB8EF49458477D8CD5042EB19C7B0175" KeyPath="yes" Source="$(var.ScriptSource)\CMakeLists.txt" />
-            </Component>
-            <Component Id="cmp4270C1CDBEB9E8560DF47AE8E1546D51" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{442A5026-C69D-46A8-81E4-9F6DD7673327}">
-                <File Id="filB88A15D872FA433B41D87681D3B23EF6" KeyPath="yes" Source="$(var.ScriptSource)\powershell.ps1" />
-            </Component>
-            <Component Id="cmpED749D731B5944697169C71A4E3998CD" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{812A86D5-CD63-4A57-9B46-40602E4B8B7D}">
-                <File Id="filB83453BD4CE564CE2EA696A9169E82BC" KeyPath="yes" Source="$(var.ScriptSource)\test.lua" />
-            </Component>
-            <Component Id="cmp7ADBE766E7A20284704FF3A150048B96" Directory="dir3D821B200F79F737EA443C544D206FC3" Guid="{0A4E497A-9A1E-4A9A-AA2C-534D06B8881D}">
-                <File Id="fil21DC9C44CD1F42A669A1FEDC9FCBB629" KeyPath="yes" Source="$(var.ScriptSource)\custom\my_custom_script.bat" />
-            </Component>
-            <Component Id="cmp40347771DC1EC56CE5DAC1B9741DF829" Directory="dirB9B12B0D84E740B9CDAA261D7D572316" Guid="{399B873D-5029-469E-9EB0-4748E850F12B}">
-                <File Id="filEA5E06387861844CB31B7A43B653DA58" KeyPath="yes" Source="$(var.ScriptSource)\helper\stress_test_web.py" />
             </Component>
             <Component Id="cmpED0695794ED2441265BC9F979D959617" Directory="dir7E9C001792A99FF4CF9F68CADB7B09CA" Guid="{89281C7F-12A0-48DB-93C8-96B74259AA02}">
                 <File Id="filEF1424FC53E410BD9334DBDAA99F5212" KeyPath="yes" Source="$(var.ScriptSource)\lib\NagiosPlugins.vbs" />
@@ -79,107 +46,8 @@
             <Component Id="cmp1199343909C9149C322FD038B800AB4F" Directory="dirEAE7F9BEB0F783B5EC9C5AC27AB441E6" Guid="{DD229AA9-FF2A-4A3A-9BE1-8AD87C5F7D11}">
                 <File Id="fil3916432D6FD9E9E4BCDF3F7587882857" KeyPath="yes" Source="$(var.ScriptSource)\lua\noperf.lua" />
             </Component>
-            <Component Id="cmp562C93E2985F6A39B283306A375FE0F5" Directory="dirEAE7F9BEB0F783B5EC9C5AC27AB441E6" Guid="{9D452BCC-913B-4016-8A7D-19FBCCA8A518}">
-                <File Id="fil89A582FF66E4835852CF1CD8B6700FF0" KeyPath="yes" Source="$(var.ScriptSource)\lua\test.lua" />
-            </Component>
-            <Component Id="cmp4B3CF1B6C042ED84146CF515020EEBD2" Directory="dirEAE7F9BEB0F783B5EC9C5AC27AB441E6" Guid="{B6E2EC79-D8AA-4002-9B87-35F383DAA8EB}">
-                <File Id="filE79E6C2104085DE6C3B5BABA91D35D8F" KeyPath="yes" Source="$(var.ScriptSource)\lua\test_ext_script.lua" />
-            </Component>
-            <Component Id="cmpABD937D1A3697857123AAB98B2B1A886" Directory="dirEAE7F9BEB0F783B5EC9C5AC27AB441E6" Guid="{8AA40457-BEB8-4DE7-827C-39D4A233249D}">
-                <File Id="filABB93FE9754678DCD19FF4AEF314A7E7" KeyPath="yes" Source="$(var.ScriptSource)\lua\test_nrpe.lua" />
-            </Component>
-            <Component Id="cmp160823B9DC45C5A6980821BDB3CA40D7" Directory="dir429945C5CA9AEA09AFF20DAC406B3AB3" Guid="{9A931FA7-75A0-46B1-B3A1-A51FB05ABE54}">
-                <File Id="filD3D5EE839E056E3116ECF9715C4274E6" KeyPath="yes" Source="$(var.ScriptSource)\lua\lib\test_helper.lua" />
-            </Component>
-            <Component Id="cmpD36B152F7441FE0DCD4BC6FF6E7999A6" Directory="dir8FA72D38D121EF82452D4FDC42004605" Guid="{5499FA3C-0B2A-4491-9B37-5ED7D0BECF08}">
-                <File Id="fil9424DB2BEF28BF05BE0828CE673751CE" KeyPath="yes" Source="$(var.ScriptSource)\modules\icamp\module.json" />
-            </Component>
-            <Component Id="cmpFF42DDC541420B2A8CAE8DAD3B041788" Directory="dir0A709720915642DD649316BFFFF9A902" Guid="{D6A6F9C3-F947-41F8-AFF0-0CD06B95147B}">
-                <File Id="fil279890F253760E1D313218BA93587555" KeyPath="yes" Source="$(var.ScriptSource)\modules\icamp\scripts\python\icamp.py" />
-            </Component>
-            <Component Id="cmp1E25D1755BB15F41BDEAEE498563D857" Directory="dir806E6C4397985F9DD12BF849BA70F90E" Guid="{975BDE14-52FB-4FE7-B435-C6B142291EC0}">
-                <File Id="filB37426A45B5BB41923BC4FC5AAFA1346" KeyPath="yes" Source="$(var.ScriptSource)\modules\icinga-client\CMakeLists.txt" />
-            </Component>
-            <Component Id="cmpA8565EC37D62B2FF9086F396C93B5DF7" Directory="dir806E6C4397985F9DD12BF849BA70F90E" Guid="{61D9E3C5-B2C7-42BA-9FF9-9CABD22A7A92}">
-                <File Id="filDE7D8900BBE9B981CBCF0D1A0A689C5A" KeyPath="yes" Source="$(var.ScriptSource)\modules\icinga-client\module.json" />
-            </Component>
-            <Component Id="cmp486757C7BEE75A8E7FF2D33741F5C09A" Directory="dirE151B86C5DE83216BBBC3A2C2C7CC232" Guid="{87E1FA52-3EDD-4F33-B0CF-AB323093AF9F}">
-                <File Id="fil3EC12435B502FFC26CC3E296443CCFD2" KeyPath="yes" Source="$(var.ScriptSource)\modules\icinga-client\scripts\python\icinga.py" />
-            </Component>
-            <Component Id="cmp43AEEECA53F0D3F65077D74FED67B459" Directory="dirEF2D16A1B6CAA0973979A8D081950086" Guid="{66EEA247-01CE-48B1-975D-C9EB10D4457C}">
-                <File Id="filD5EA9F997AEF09C793D5EBBB0479443D" KeyPath="yes" Source="$(var.ScriptSource)\modules\remote-modules\CMakeLists.txt" />
-            </Component>
-            <Component Id="cmpE846E9FEC2F3D6FC1D9A9D45017C29B7" Directory="dirEF2D16A1B6CAA0973979A8D081950086" Guid="{F010EB81-64C4-4494-8BD4-58850291BA4F}">
-                <File Id="fil72EDD9E514BE4E567761831BBAA01AD3" KeyPath="yes" Source="$(var.ScriptSource)\modules\remote-modules\module.json" />
-            </Component>
-            <Component Id="cmpD5100DD504FCD94EE75C19A73CAFDF84" Directory="dirC898F1872B5A707EE8621289D3393097" Guid="{77926C05-D804-48D2-B308-4BDFC681A76A}">
-                <File Id="filCD0883DBCA512F1EE1EB841EBA90CF81" KeyPath="yes" Source="$(var.ScriptSource)\modules\remote-modules\scripts\python\remote-modules.py" />
-            </Component>
-            <Component Id="cmpAB13CFDA22895F8CFC522FA9B6C5EA35" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{5DEEFB42-5CC4-48BF-A295-D9FF724B420C}">
-                <File Id="fil89FF36A0DE77932EC19A242AA9BE1DE7" KeyPath="yes" Source="$(var.ScriptSource)\python\badapp.py" />
-            </Component>
-            <Component Id="cmpF55F79C62440CBEA9B115C323A6C18F5" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{6D2D572B-7E32-4824-94C4-2D38AF0ECEAF}">
-                <File Id="filE538C2B5B376A9DD72AB37D799170A32" KeyPath="yes" Source="$(var.ScriptSource)\python\docs.py" />
-            </Component>
-            <Component Id="cmpDDC557BD60D87DE81C3B96B46C0A3A9A" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{E3430433-0CC3-4617-AD36-267767CA2C3C}">
-                <File Id="fil7CCE334AE1F071D3813049C280234D73" KeyPath="yes" Source="$(var.ScriptSource)\python\sample.py" />
-            </Component>
-            <Component Id="cmp8F1754FD84B681B5C5FBA2C8B92D7C2F" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{49BB2A0F-9CFF-4968-ABCC-BF7FB7ECCE81}">
-                <File Id="fil260AD45936E0EB8C15F048E4BA85F771" KeyPath="yes" Source="$(var.ScriptSource)\python\test.py" />
-            </Component>
-            <Component Id="cmp9D56C024860C7E6428170309BECAE9A1" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{EABD35CC-3E92-4FDD-B3E4-FAE476F0EE42}">
-                <File Id="fil45145710B67F9010A6204ABC37E0D070" KeyPath="yes" Source="$(var.ScriptSource)\python\test_all.py" />
-            </Component>
-            <Component Id="cmp1E6CAEC0C0D42A16BDC32A7B27D8A925" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{65140743-9DCD-4840-B935-2A60D6D252AE}">
-                <File Id="fil2BB510E14757D90551826894132F5B8C" KeyPath="yes" Source="$(var.ScriptSource)\python\test_eventlog.py" />
-            </Component>
-            <Component Id="cmpEACB2AA668834550CDE34BCE21FF10FA" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{E8CC9E85-3B11-47EA-932E-EC31FF43FF30}">
-                <File Id="fil18F7B604EF97C9A8B58053B1B45B823D" KeyPath="yes" Source="$(var.ScriptSource)\python\test_external_script.py" />
-            </Component>
-            <Component Id="cmpD28E84D5EBE7D6BB10744C5C2CE0752E" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{E487FBA7-DF8C-4700-BE8B-C98AA99D952B}">
-                <File Id="filF3215644B309330661BC1D6CF1ACF90E" KeyPath="yes" Source="$(var.ScriptSource)\python\test_log_file.py" />
-            </Component>
-            <Component Id="cmp726D34E48AE311734E58C15B14369A9C" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{972D9D0B-A213-4AE8-A60D-0496AF6AEDBA}">
-                <File Id="filB4740305C8BAEA9BED5ECCA777C4CADB" KeyPath="yes" Source="$(var.ScriptSource)\python\test_nrpe.py" />
-            </Component>
-            <Component Id="cmpF2C60BFDD044B6BFD460278AB9D64057" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{E2FFB1EC-81AB-4F19-BB30-8DCEFBF11C7C}">
-                <File Id="fil0793FD035CE653ECAC5AFF53E50187E1" KeyPath="yes" Source="$(var.ScriptSource)\python\test_nsca.py" />
-            </Component>
-            <Component Id="cmp490F8ED85DCD90B08C67165256B04DC2" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{1D50F619-F026-461B-B3E9-98DCEAF3121A}">
-                <File Id="filF12E0F6BF9E96514F2F0BC079BEB3C09" KeyPath="yes" Source="$(var.ScriptSource)\python\test_nscp.py" />
-            </Component>
-            <Component Id="cmp57FCE2F58CB42EF716907A5D2C4732D3" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{819FA512-98D9-4101-A9F6-509D9452008C}">
-                <File Id="filB472DA77AAB800586A74ED655AE63937" KeyPath="yes" Source="$(var.ScriptSource)\python\test_pb.py" />
-            </Component>
-            <Component Id="cmp6874CBBBBDEF4FF03D6F4DD751587AED" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{57BD26B0-50A3-46D2-B7D6-710776FF8D64}">
-                <File Id="fil8B6B263DA43D5110F1C4FFCFCB94CAF4" KeyPath="yes" Source="$(var.ScriptSource)\python\test_python.py" />
-            </Component>
-            <Component Id="cmp0624DF4B965C68DFFBF5823FEA3D1150" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{D5D142ED-9089-4768-A116-009096B646D6}">
-                <File Id="fil993E63F75163B80901C7C62F205C0D42" KeyPath="yes" Source="$(var.ScriptSource)\python\test_sample.py" />
-            </Component>
-            <Component Id="cmp1C3A41BB29C2C37C69F6A8DF03D0FC5D" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{E57A519F-7D0F-4C5B-899B-2ADC0BB713AD}">
-                <File Id="filFB29339E368C8DCD1826DAA3BCC6198C" KeyPath="yes" Source="$(var.ScriptSource)\python\test_scheduler.py" />
-            </Component>
-            <Component Id="cmpA0AB8877F9A36FAE22DA3B3F44A4B904" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{B87BEBAC-8B65-4AFA-BE64-0C01488CAF83}">
-                <File Id="filA6569D6A3E43D02AD4F196A68D2D07F7" KeyPath="yes" Source="$(var.ScriptSource)\python\test_stress.py" />
-            </Component>
-            <Component Id="cmp6D0C21E6A8429BB7A62D72B71FA06FA5" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{3F1EACFF-2434-4F0F-8DA6-D3BA588C839F}">
-                <File Id="fil760DA0DF6F442D6C3538867431877464" KeyPath="yes" Source="$(var.ScriptSource)\python\test_w32_file.py" />
-            </Component>
-            <Component Id="cmp67A73B84A1DECEFF11AEF37385C80868" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{DA0271DD-F666-4EAF-9529-C811D4A4BF23}">
-                <File Id="filFD19CFE023ADC1A78346717AC30FA2A6" KeyPath="yes" Source="$(var.ScriptSource)\python\test_w32_schetask.py" />
-            </Component>
-            <Component Id="cmpE8AE36F25F197FB6C354A0ECBFB1F5DF" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{06E4029B-B5FF-446E-AF15-27CC649147E6}">
-                <File Id="filE8322B43A8A1AE3D93BD2C382C6070A8" KeyPath="yes" Source="$(var.ScriptSource)\python\test_w32_system.py" />
-            </Component>
-            <Component Id="cmpD192B7DD534D313D9D9E145082950BE4" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{47CA3EDF-55A1-4C27-AAB1-BCE4F9BFDF7B}">
-                <File Id="fil29BCF01A4CEACDC80F4551843481701A" KeyPath="yes" Source="$(var.ScriptSource)\python\test_w32_wmi.py" />
-            </Component>
             <Component Id="cmpF75C78276C34963843935D90A01FD60F" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{65E45FFC-947F-4A29-AB30-200B73A50185}">
                 <File Id="fil6C82EAD213B94F7CF4F7A5397E5A9C78" KeyPath="yes" Source="$(var.ScriptSource)\python\__init__.py" />
-            </Component>
-            <Component Id="cmp35BE4C72BDA7FA61C9AD0AAE4BF40C12" Directory="dir42740DFEBE9B04C5E878DF2E63442AC0" Guid="{30C87421-3AB2-4B49-953F-7444A505AF82}">
-                <File Id="fil2C1EA52ED0638B210699A59DE213B734" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\test_helper.py" />
             </Component>
             <Component Id="cmp72D3A9758623A76C634A8BE1DEBB2C1B" Directory="dir42740DFEBE9B04C5E878DF2E63442AC0" Guid="{08ADB471-7901-4A43-9295-15B63D5CD642}">
                 <File Id="fil832B0F274326DB64D5EA9954EF8E4C50" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\__init__.py" />
