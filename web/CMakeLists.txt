@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-PROJECT(copy_scripts)
+PROJECT(copy_web)
 
 FILE (GLOB_RECURSE resources_JSON "dist/*.json")
 FILE (GLOB_RECURSE resources_JS "dist/*.js")
