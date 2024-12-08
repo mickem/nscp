@@ -207,10 +207,9 @@ jobs:
       run: |
         mkdir symbols
         cd symbols
-        find ../ -name "*.pdb" -exec cp {} . \;
-        pwd
+        find ../ -name '*.pdb' and  -not -name 'gtest' -exec cp {} . \;
         ls
-        zip -r ../NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip .
+        7z a -tzip -r ../NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip .
         ls
 
     - uses: actions/upload-artifact@v3
