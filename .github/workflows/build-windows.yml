@@ -207,7 +207,8 @@ jobs:
       run: |
         mkdir symbols
         cd symbols
-        find ../ -name '*.pdb' and  -not -name 'gtest' -exec cp {} . \;
+        find ../ -name '*.pdb' -and  -not -name 'gtest'
+        find ../ -name '*.pdb' -and  -not -name 'gtest' -exec cp {} . \;
         ls
         7z a -tzip -r ../NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip .
         ls
