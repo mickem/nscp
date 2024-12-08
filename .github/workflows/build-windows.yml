@@ -186,7 +186,7 @@ jobs:
     - name: Build nsclient
       working-directory: tmp/nscp
       run: |
-        msbuild NSCP.sln /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+        msbuild NSCP.sln /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }}
   
     - name: Run tests
       working-directory: tmp/nscp
@@ -201,6 +201,17 @@ jobs:
         echo Running cpack
         cpack
 
+    - name: Collect debug symbols
+      shell: bash
+      working-directory: tmp/nscp
+      run: |
+        mkdir symbols
+        cd symbols
+        find ../ -name '*-stripped.pdb' -and -not -ipath '*symbols*' -exec cp {} . \;
+        # remove the -symbols suffix
+        for f in *-stripped.pdb; do mv -- "$f" "${f%-stripped.pdb}.pdb"; done
+        7z a -tzip -r ../NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip .
+
     - uses: actions/upload-artifact@v3
       with:
         name: NSCP-${{ steps.version.outputs.version }}.zip
@@ -209,6 +220,7 @@ jobs:
           tmp/nscp/NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}.zip
           tmp/nscp/installers/installer-NSCP/NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}.msi
           tmp/nscp/installers/installer-secondary/Seconday_NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}.msi
+          tmp/nscp/NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip
         if-no-files-found: error
     
   

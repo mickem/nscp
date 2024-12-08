@@ -30,6 +30,7 @@ SET(SRCS ${SRCS}
 ENDIF(WIN32)
 
 add_library(${TARGET} MODULE ${SRCS})
+NSCP_DEBUG_SYMBOLS(${TARGET})
 
 target_link_libraries(${TARGET}
 	${NSCP_DEF_PLUGIN_LIB}

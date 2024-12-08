@@ -52,6 +52,7 @@ ENDIF(OPENSSL_FOUND)
 INCLUDE_DIRECTORIES(../../libs/mongoose-cpp)
 
 add_library(${TARGET} MODULE ${SRCS})
+NSCP_DEBUG_SYMBOLS(${TARGET})
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
