@@ -201,6 +201,17 @@ jobs:
         echo Running cpack
         cpack
 
+    - name: Collect debug symbols
+      working-directory: tmp/nscp
+      run: |
+        mkdir symbols
+        cd symbols
+        find ../ -name "*.pdb" -exec cp {} . \;
+        pwd
+        ls -al
+        zip -r ../NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip .
+        ls -al
+
     - uses: actions/upload-artifact@v3
       with:
         name: NSCP-${{ steps.version.outputs.version }}.zip
@@ -209,6 +220,7 @@ jobs:
           tmp/nscp/NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}.zip
           tmp/nscp/installers/installer-NSCP/NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}.msi
           tmp/nscp/installers/installer-secondary/Seconday_NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}.msi
+          tmp/nscp/NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip
         if-no-files-found: error
     
   

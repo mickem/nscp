@@ -38,3 +38,6 @@ nsclient.log
 .cmake
 
 cmake-build
+
+
+build.cmake
