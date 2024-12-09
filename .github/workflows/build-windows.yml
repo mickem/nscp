@@ -219,7 +219,6 @@ jobs:
           tmp/nscp/NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}-docs.zip
           tmp/nscp/NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}.zip
           tmp/nscp/installers/installer-NSCP/NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}.msi
-          tmp/nscp/installers/installer-secondary/Seconday_NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}.msi
           tmp/nscp/NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip
         if-no-files-found: error
     
