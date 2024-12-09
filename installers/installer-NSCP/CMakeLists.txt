@@ -42,6 +42,10 @@ MATH(EXPR TMP_LEN ${TMP_LEN}-3)
 string(SUBSTRING "000${VERSION_BUILD}" ${TMP_LEN} 3 VERSION_BUILD_PAD)
 
 WIX_FIND_MERGE_MODULE(CRT_MERGE_MODULE "Microsoft_VC143_CRT")
+MESSAGE(STATUS "CRT_MERGE_MODULE: ${CRT_MERGE_MODULE}")
+IF (NOT CRT_MERGE_MODULE)
+	MESSAGE(WARNING "CRT_MERGE_MODULE not found: ${CRT_MERGE_MODULE}")
+ENDIF (NOT CRT_MERGE_MODULE)
 
 if(OPENSSL_INCLUDE_DIR MATCHES ".*1\\.1\\.0.*")
 set(MSI_OPENSSL_CRYPTO libcrypto-1_1-x64.dll)
@@ -54,11 +58,12 @@ endif()
 SET(WIX_CANDLE_FLAGS -dboost=true -darch=${ARCH} -arch ${ARCH}
 	-dVersion.Major=${VERSION_SERIES} -dVersion.Minor=${VERSION_MAJOR} -dVersion.Revision=${VERSION_MINOR} -dVersion.Build=${VERSION_BUILD} -dVersion.BuildPad=${VERSION_BUILD_PAD}
 	"-dWebHelpSource=${NSCP_PROJECT_BINARY_DIR_NATIVE}\\docs\\html"
-	"-dWebSource=..\\..\\web" 
-	"-dScriptSource=..\\..\\scripts" 
-	"-dOP5ScriptSource=..\\..\\scripts\\op5" 
-	"-dOP5ConfigSource=${NSCP_PROJECT_BINARY_DIR}" 
-	"-dInSource=${CMAKE_CURRENT_SOURCE_DIR}"
+	"-dWebSource=${NSCP_PROJECT_BINARY_DIR}\\web"
+	"-dScriptSource=${NSCP_PROJECT_BINARY_DIR}\\scripts"
+	"-dOP5ScriptSource=${NSCP_PROJECT_BINARY_DIR}\\scripts\\op5"
+	"-dOP5ConfigSource=${NSCP_PROJECT_BINARY_DIR}"
+    "-dInSource=${CMAKE_CURRENT_SOURCE_DIR}"
+	"-dInstallerDllPath=${NSCP_PROJECT_BINARY_DIR_NATIVE}/../installer_lib/Release"
 	"-dApp.Title=NSClient++"
 	"-dApp.Path=NSClient++"
 	"-dApp.ShortPath=NSClient"
@@ -78,6 +83,6 @@ SOURCE_GROUP(Generated FILES ${SRCS})
 	
 SOURCE_GROUP(Sources FILES ${SRCS})
 ADD_WIX_INSTALLER(${ALIAS} "${SRCS}" "${DEPENDENCIES}" "${LOCALIZATIONS}")
-ADD_DEPENDENCIES(${TARGET} ${MAIN_NSCP_TARGET} ${ALL_MODULE_NAMES} ${ALL_ZIP_MODULES} ${ALL_TOOL_NAMES} ${DEPENDENCIES} ${ALL_CLIENT_NAMES} copy_files build_docs_html copy_scripts copy_resources)
+ADD_DEPENDENCIES(${TARGET} ${MAIN_NSCP_TARGET} ${ALL_MODULE_NAMES} ${ALL_ZIP_MODULES} ${ALL_TOOL_NAMES} ${DEPENDENCIES} ${ALL_CLIENT_NAMES} copy_files build_docs_html copy_scripts copy_resources copy_op5_config copy_op5_scripts)
 
 SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "installers")

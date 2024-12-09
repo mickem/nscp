@@ -50,6 +50,7 @@ IF(WIN32)
 ENDIF(WIN32)
 
 add_library(${TARGET} MODULE ${SRCS})
+NSCP_DEBUG_SYMBOLS(${TARGET})
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}

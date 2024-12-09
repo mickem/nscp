@@ -7,6 +7,8 @@ IF(COMMAND CMAKE_POLICY)
 	CMAKE_POLICY(SET CMP0011 NEW)
 ENDIF(COMMAND CMAKE_POLICY)
 
+set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>")
+
 #############################################################################
 #
 # Setup cmake enviornment and include custom config overrides

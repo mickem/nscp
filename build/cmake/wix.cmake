@@ -30,7 +30,6 @@ set(PF86 "PROGRAMFILES(X86)")
 		"$ENV{${PF86}}/WiX Toolset v3.11"
         )
 
-	MESSAGE(STATUS "--> ${WIX_POSSIBLE_ROOT_DIRS}")
     #
     # select exactly ONE WIX base directory/tree 
     # to avoid mixing different version headers and libs
@@ -250,6 +249,7 @@ set(PF86 "PROGRAMFILES(X86)")
             "$ENV{VCInstallDir}/Redist/MSVC/v142/MergeModules"
 			${WIX_MERGE_MODULE_PATH}
 			"$ENV{ProgramFiles}/Common Files/Merge Modules"
+			"c:/Program Files/Microsoft Visual Studio/2022/Community/VC/Redist/MSVC/v143/MergeModules"
 			${WIX_POSSIBLE_ROOT_DIRS}
 			)
 		SET(${_VAR} ${${_VAR}} PARENT_SCOPE)

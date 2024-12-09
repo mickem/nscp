@@ -47,6 +47,4 @@ jobs:
           NSCP-${{ steps.version.outputs.version }}-Win32.zip
           installers/installer-NSCP/NSCP-${{ steps.version.outputs.version }}-x64.msi
           installers/installer-NSCP/NSCP-${{ steps.version.outputs.version }}-Win32.msi
-          installers/installer-secondary/Seconday_NSCP-${{ steps.version.outputs.version }}-x64.msi
-          installers/installer-secondary/Seconday_NSCP-${{ steps.version.outputs.version }}-Win32.msi
 

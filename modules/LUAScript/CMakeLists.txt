@@ -26,6 +26,7 @@ else()
 INCLUDE_DIRECTORIES(${LUA_SOURCE_DIR})
 endif()
 add_library(${TARGET} MODULE ${SRCS})
+NSCP_DEBUG_SYMBOLS(${TARGET})
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
