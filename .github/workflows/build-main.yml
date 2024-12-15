@@ -1,7 +1,8 @@
-name: Make release
+name: Build release
 
 on:
-  workflow_dispatch: {}
+  push:
+    branches: [main]
 
 env:
   PERL_VERSION: 5.34

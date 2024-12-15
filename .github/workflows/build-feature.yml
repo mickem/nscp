@@ -1,8 +1,8 @@
 name: Build feature
 
 on:
-  push: {}
-
+  push:
+    branches-ignore: [mob/**, main]
 
 env:
   PERL_VERSION: 5.34
