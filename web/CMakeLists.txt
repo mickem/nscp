@@ -2,11 +2,10 @@ cmake_minimum_required(VERSION 3.5)
 
 PROJECT(copy_web)
 
-FILE (GLOB_RECURSE resources_JSON "dist/*.json")
-FILE (GLOB_RECURSE resources_JS "dist/*.js")
 FILE (GLOB_RECURSE resources_HTML "dist/*.html")
-FILE (GLOB_RECURSE resources_PNG "dist/*.ico")
-SET(resources_ALL ${resources_HTML} ${resources_JS} ${resources_JSON} ${resources_PNG})
+FILE (GLOB_RECURSE resources_JS "dist/*.js")
+FILE (GLOB_RECURSE resources_PNG "dist/*.png")
+SET(resources_ALL ${resources_HTML} ${resources_JS} ${resources_PNG})
 SET(ALL_RESOURCES)
 
 FOREACH(file ${resources_ALL})

@@ -152,6 +152,13 @@ namespace Mongoose
 				BOOST_FOREACH(const Response::header_type::value_type & v, response->get_headers()) {
 					headers << v.first << ": " << v.second << "\r\n";
 				}
+                headers << "Access-Control-Allow-Origin: *\r\n";
+                if (response->getCode() == 200) {
+                    headers << "Content-Type: application/json\r\n";
+                }
+                if (response->getCode() == 403) {
+                    headers << "Content-Type: text/plain\r\n";
+                }
 
                 mg_http_reply(connection, response->getCode(), headers.str().c_str(), "%s", response->getBody().c_str());
 

@@ -46,6 +46,9 @@ jobs:
         cache-dependency-path: 'build/python/requirements.txt'
         cache: 'pip'
 
+    - id: build-web
+      run: cd web && npm install && npm run build
+
     - name: Install components
       run: |
               Set-Location "C:\Program Files (x86)\Microsoft Visual Studio\Installer\"

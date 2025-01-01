@@ -1,102 +1,84 @@
-import React from "react";
-import { Button, Card, CardContent, InputAdornment, IconButton, FormControl, InputLabel, Input, CardHeader, CardActions, Grid } from "@material-ui/core";
-import { createStyles, makeStyles, Theme } from '@material-ui/core/styles';
-import { connect } from 'react-redux'
-import { UserActions } from "../actions";
-import AccountCircle from '@material-ui/icons/AccountCircle';
-import Visibility from '@material-ui/icons/Visibility';
-import VisibilityOff from '@material-ui/icons/VisibilityOff';
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import { Box, Card, CardActions, CardContent, InputAdornment, TextField, Toolbar } from "@mui/material";
+import Grid from "@mui/material/Grid2";
+import AppBar from "@mui/material/AppBar";
+import Button from "@mui/material/Button";
+import { AccountCircle } from "@mui/icons-material";
+import PasswordIcon from "@mui/icons-material/Password";
+import { useAuthentication } from "../common/hooks/auth.ts";
+import { useEffect, useState } from "react";
 
-interface State {
-  username: String,
-  password: String,
-  showPassword: boolean;
-}
-const useStyles = makeStyles((theme: Theme) =>
-  createStyles({
-    card: {
-      display: 'flex',
-      flexWrap: 'wrap',
-      justifyContent: "center",
-      margin: 20,
-      padding: 20,
-      maxWidth: 375,
-    },
-    margin: {
-      margin: theme.spacing(1),
-    },
-  }),
-);
-const Component = function (props: any) {
-  const classes = useStyles();
-  const [values, setValues] = React.useState<State>({
-    username: '',
-    password: '',
-    showPassword: false,
-  });
-  const { dispatch }: any = props;
+export default function Login() {
+  const { login, restoreToken } = useAuthentication();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
-  const handleChange = (name: any) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    setValues({ ...values, [name]: event.target.value });
+  const doLogin = async () => {
+    await login(username, password);
   };
-  const handleClickShowPassword = () => {
-    setValues({ ...values, showPassword: !values.showPassword });
-  };
-  const login = () => {
-    dispatch(UserActions.login(values.username, values.password));
-  }
-
+  useEffect(() => {
+    restoreToken();
+  }, [restoreToken]);
   return (
-    <Card className={classes.card}>
-      <form noValidate autoComplete="off">
-        <CardHeader
-          title="Login"
-          subheader="Please login"
-        />
-        <CardContent>
-          <FormControl>
-            <InputLabel htmlFor="username">Username</InputLabel>
-            <Input
-              id="username"
-              value={values.username}
-              required
-              onChange={handleChange('username')}
-              startAdornment={(
-                <InputAdornment position="start">
-                  <AccountCircle />
-                </InputAdornment>
-              )}
-            />
-          </FormControl>
-          <br />
-          <FormControl>
-            <InputLabel htmlFor="password">Password</InputLabel>
-            <Input
-              id="password"
-              type={values.showPassword ? 'text' : 'password'}
-              value={values.password}
-              required
-              onChange={handleChange('password')}
-              endAdornment={
-                <InputAdornment position="end">
-                  <IconButton aria-label="Toggle password visibility" onClick={handleClickShowPassword}>
-                    {values.showPassword ? <Visibility /> : <VisibilityOff />}
-                  </IconButton>
-                </InputAdornment>
-              }
-            />
-          </FormControl>
-        </CardContent>
-        <CardActions>
-          <Grid container alignItems="flex-start" justify="flex-end" direction="row">
-            <Button onClick={login} size="small" color="primary">
-              Login
-        </Button>
+    <>
+      <Box sx={{ width: "100vw", height: "100vh" }}>
+        <AppBar position="static">
+          <Toolbar>
+            <Typography variant="h6">NSClient++</Typography>
+          </Toolbar>
+        </AppBar>
+
+        <Box sx={{ p: 3 }}>
+          <Toolbar />
+          <Grid container sx={{ justifyContent: "center" }}>
+            <Grid>
+              <Card sx={{ maxWidth: 400, p: 3 }}>
+                <CardContent>
+                  <Stack direction="column" spacing={3}>
+                    <TextField
+                      label="Username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      slotProps={{
+                        input: {
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <AccountCircle />
+                            </InputAdornment>
+                          ),
+                        },
+                      }}
+                      variant="standard"
+                    />
+                    <TextField
+                      label="Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      type="password"
+                      slotProps={{
+                        input: {
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <PasswordIcon />
+                            </InputAdornment>
+                          ),
+                        },
+                      }}
+                      variant="standard"
+                    />
+                  </Stack>
+                </CardContent>
+                <CardActions>
+                  <Button size="small" onClick={doLogin}>
+                    Login
+                  </Button>
+                </CardActions>
+              </Card>
+            </Grid>
           </Grid>
-        </CardActions>
-      </form>
-    </Card>
+        </Box>
+      </Box>
+    </>
   );
 }
-
-export const Login = connect()(Component);

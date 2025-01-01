@@ -1,12 +1,15 @@
-import React from 'react';
-import { Provider } from 'react-redux'
-import Main from './components/main';
-import { store } from './helpers';
+import { store } from "./store/store";
+import { Provider } from "react-redux";
+import Router from "./Routes.tsx";
+import { CssBaseline } from "@mui/material";
 
-function App() {
-  return (<Provider store={store}>
-    <Main />
-  </Provider>);
+export default function App() {
+  return (
+    <>
+      <CssBaseline />
+      <Provider store={store}>
+        <Router />
+      </Provider>
+    </>
+  );
 }
-
-export default App;

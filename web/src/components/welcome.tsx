@@ -1,9 +1,16 @@
-import React from "react";
+import { useGetInfoQuery } from "../api/api.ts";
+import { List, ListItem, ListItemText } from "@mui/material";
 
-function Welcome() {
+export default function Welcome() {
+  const { data: info } = useGetInfoQuery();
   return (
-    <div>This is a very early beta version of the new web interface, expect more soon...</div>
+    <List>
+      <ListItem>
+        <ListItemText primary={`${info?.name}`} />
+      </ListItem>
+      <ListItem>
+        <ListItemText primary="Version" secondary={info?.version} />
+      </ListItem>
+    </List>
   );
 }
-
-export default Welcome;
