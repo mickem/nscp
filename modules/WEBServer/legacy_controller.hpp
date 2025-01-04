@@ -42,7 +42,6 @@ public:
 
 	void auth_token(Mongoose::Request &request, Mongoose::StreamResponse &response);
 	void auth_logout(Mongoose::Request &request, Mongoose::StreamResponse &response);
-	void redirect_index(Mongoose::Request&, Mongoose::StreamResponse &response);
 
 	void log_status(Mongoose::Request &request, Mongoose::StreamResponse &response);
 	void log_messages(Mongoose::Request &request, Mongoose::StreamResponse &response);

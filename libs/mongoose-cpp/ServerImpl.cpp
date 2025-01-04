@@ -149,14 +149,18 @@ namespace Mongoose
 
                 Response *response = ctrl->handleRequest(request);
 				std::stringstream headers;
+                bool has_content_type = false;
 				BOOST_FOREACH(const Response::header_type::value_type & v, response->get_headers()) {
 					headers << v.first << ": " << v.second << "\r\n";
+                    if (v.first == "Content-Type") {
+                        has_content_type = true;
+                    }
 				}
                 headers << "Access-Control-Allow-Origin: *\r\n";
-                if (response->getCode() == 200) {
+                if (response->getCode() == 200 && !has_content_type) {
                     headers << "Content-Type: application/json\r\n";
                 }
-                if (response->getCode() == 403) {
+                if (response->getCode() == 403 && !has_content_type) {
                     headers << "Content-Type: text/plain\r\n";
                 }
 

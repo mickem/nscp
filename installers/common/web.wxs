@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Fragment>
-        <DirectoryRef Id="TARGETDIR">
-            <Directory Id="dir5FEC1AB9733DE7A0A5357C351B307E87" Name="dist" />
+        <DirectoryRef Id="INSTALLLOCATION">
+            <Directory Id="dir5FEC1AB9733DE7A0A5357C351B307E87" Name="web" />
         </DirectoryRef>
     </Fragment>
     <Fragment>
@@ -10,10 +10,10 @@
             <Component Id="cmpE00799CA4A8A2D382AE7C19AFA3E095E" Directory="dir5FEC1AB9733DE7A0A5357C351B307E87" Guid="{F093AA60-3C1E-441B-A788-CF254AD05DCC}">
                 <File Id="filFB445605869EBB0A61B8A30634CE2C9A" KeyPath="yes" Source="$(var.WebSource)\index.html" />
             </Component>
-            <Component Id="cmp8667D1270241CFE0EEE21401B8FD1943" Directory="dir10020DA5A48B31D618090684FB2D97F6" Guid="{5D6A15C7-9987-4B05-843E-21A9F3A80C70}">
+            <Component Id="cmp8667D1270241CFE0EEE21401B8FD1943" Directory="dirDEE3C82CF881B9F563D5FC5B3BC25B56" Guid="{5D6A15C7-9987-4B05-843E-21A9F3A80C70}">
                 <File Id="fil5858D48F92972063DB35F055C74C19C8" KeyPath="yes" Source="$(var.WebSource)\assets\index.js" />
             </Component>
-            <Component Id="cmp1464BD6E0B33E04BD917591D4D230EBD" Directory="dir10020DA5A48B31D618090684FB2D97F6" Guid="{A5B62CA4-81E1-4D4D-A531-1CEB5C97FC3D}">
+            <Component Id="cmp1464BD6E0B33E04BD917591D4D230EBD" Directory="dir5FEC1AB9733DE7A0A5357C351B307E87" Guid="{A5B62CA4-81E1-4D4D-A531-1CEB5C97FC3D}">
                 <File Id="fil28C28E9CB958DDB96FFC3300014F4179" KeyPath="yes" Source="$(var.WebSource)\nscp.png" />
             </Component>
         </ComponentGroup>
