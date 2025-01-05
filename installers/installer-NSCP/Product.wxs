@@ -238,9 +238,7 @@
         </Feature>
         <Feature Id="WEBPlugins" Title="WEB Server" Description="NSClient WEB Server. Use this to administrate or check NSCLient via a browser or REST API" Level="1" Absent="allow">
           <ComponentRef Id="WEBServer" />
-          <!--
           <ComponentGroupRef Id="WEBResources" />
-          -->
           <ComponentRef Id="MongooseLibs" />
         </Feature>
         <Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to an NSCA server" Level="1" Absent="allow">

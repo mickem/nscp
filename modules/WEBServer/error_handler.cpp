@@ -31,7 +31,7 @@ error_handler::status error_handler::get_status() {
 	ret.last_error = last_error_;
 	return ret;
 }
-error_handler::log_list error_handler::get_messages(std::list<std::string> levels, std::size_t &position, std::size_t &ipp, std::size_t &count) {
+error_handler::log_list error_handler::get_messages(std::list<std::string> levels, std::size_t position, std::size_t ipp, std::size_t &count) {
 	log_list ret;
 	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock())

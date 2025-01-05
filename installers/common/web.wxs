@@ -1,52 +1,26 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Fragment>
-        <DirectoryRef Id="TARGETDIR">
-            <Directory Id="dir5FEC1AB9733DE7A0A5357C351B307E87" Name="dist" />
+        <DirectoryRef Id="INSTALLLOCATION">
+            <Directory Id="dir5FEC1AB9733DE7A0A5357C351B307E87" Name="web" />
         </DirectoryRef>
     </Fragment>
     <Fragment>
         <ComponentGroup Id="WEBResources">
-            <Component Id="cmp03EDF3CB6ACCE74ED91C4ED6BB999F8B" Directory="dir5FEC1AB9733DE7A0A5357C351B307E87" Guid="{0449EC3F-3728-47D6-B241-9FA2F8B8315E}">
-                <File Id="fil6C65295455F9DB6F0FF51342BAFF6061" KeyPath="yes" Source="$(var.WebSource)\asset-manifest.json" />
-            </Component>
-            <Component Id="cmpE73AF6730A949C6EBEA7C61042A1EB92" Directory="dir5FEC1AB9733DE7A0A5357C351B307E87" Guid="{6382EB17-40FE-4E0A-9694-2F9C984D1A81}">
-                <File Id="fil701ECF0F6F68DC5AF51372F3EBD16BBB" KeyPath="yes" Source="$(var.WebSource)\favicon.png" />
-            </Component>
             <Component Id="cmpE00799CA4A8A2D382AE7C19AFA3E095E" Directory="dir5FEC1AB9733DE7A0A5357C351B307E87" Guid="{F093AA60-3C1E-441B-A788-CF254AD05DCC}">
                 <File Id="filFB445605869EBB0A61B8A30634CE2C9A" KeyPath="yes" Source="$(var.WebSource)\index.html" />
             </Component>
-            <Component Id="cmpFF571337B2BEB80182C7CCB1FE3789CD" Directory="dir5FEC1AB9733DE7A0A5357C351B307E87" Guid="{DC16C41B-19E9-49E8-9248-FBCC2979B585}">
-                <File Id="fil9ED4F40EA7C69DDC07FF152C7615B5D3" KeyPath="yes" Source="$(var.WebSource)\manifest.json" />
+            <Component Id="cmp8667D1270241CFE0EEE21401B8FD1943" Directory="dirDEE3C82CF881B9F563D5FC5B3BC25B56" Guid="{5D6A15C7-9987-4B05-843E-21A9F3A80C70}">
+                <File Id="fil5858D48F92972063DB35F055C74C19C8" KeyPath="yes" Source="$(var.WebSource)\assets\index.js" />
             </Component>
-            <Component Id="cmp8667D1270241CFE0EEE21401B8FD1943" Directory="dir10020DA5A48B31D618090684FB2D97F6" Guid="{5D6A15C7-9987-4B05-843E-21A9F3A80C70}">
-                <File Id="fil5858D48F92972063DB35F055C74C19C8" KeyPath="yes" Source="$(var.WebSource)\static\js\2.chunk.js" />
-            </Component>
-            <Component Id="cmp84049E3204312B9C7F9CE799DCFCBBE7" Directory="dir10020DA5A48B31D618090684FB2D97F6" Guid="{5070E7E8-2B12-48F1-B24E-E08A559A3D8C}">
-                <File Id="fil77289C4E464E8A99ACABE7059A024629" KeyPath="yes" Source="$(var.WebSource)\static\js\2.chunk.js.map" />
-            </Component>
-            <Component Id="cmpE14779AE41800B6B4157F3A76D44B7B6" Directory="dir10020DA5A48B31D618090684FB2D97F6" Guid="{CAD61EDB-CBFC-4953-8C3F-8CF053D962C9}">
-                <File Id="fil60B9A3CD29F8B2E07A327F8FEE5EA510" KeyPath="yes" Source="$(var.WebSource)\static\js\bundle.js" />
-            </Component>
-            <Component Id="cmp91D10D3BD0878F309EE92DEDD543497E" Directory="dir10020DA5A48B31D618090684FB2D97F6" Guid="{EE047043-3B52-4249-985D-F7FCAB173ED0}">
-                <File Id="fil912145D4E776812CE36F53720208F840" KeyPath="yes" Source="$(var.WebSource)\static\js\bundle.js.map" />
-            </Component>
-            <Component Id="cmpD6D0298C2CDC68A5B8C06918E4911984" Directory="dir10020DA5A48B31D618090684FB2D97F6" Guid="{2F49E1D5-5985-4D30-A8FB-03C20AA1858E}">
-                <File Id="filC3EB1A3426C5818D1DDAB6955A2C2AA5" KeyPath="yes" Source="$(var.WebSource)\static\js\main.chunk.js" />
-            </Component>
-            <Component Id="cmp1464BD6E0B33E04BD917591D4D230EBD" Directory="dir10020DA5A48B31D618090684FB2D97F6" Guid="{A5B62CA4-81E1-4D4D-A531-1CEB5C97FC3D}">
-                <File Id="fil28C28E9CB958DDB96FFC3300014F4179" KeyPath="yes" Source="$(var.WebSource)\static\js\main.chunk.js.map" />
+            <Component Id="cmp1464BD6E0B33E04BD917591D4D230EBD" Directory="dir5FEC1AB9733DE7A0A5357C351B307E87" Guid="{A5B62CA4-81E1-4D4D-A531-1CEB5C97FC3D}">
+                <File Id="fil28C28E9CB958DDB96FFC3300014F4179" KeyPath="yes" Source="$(var.WebSource)\nscp.png" />
             </Component>
         </ComponentGroup>
     </Fragment>
     <Fragment>
-        <DirectoryRef Id="dirDEE3C82CF881B9F563D5FC5B3BC25B56">
-            <Directory Id="dir10020DA5A48B31D618090684FB2D97F6" Name="js" />
-        </DirectoryRef>
-    </Fragment>
-    <Fragment>
         <DirectoryRef Id="dir5FEC1AB9733DE7A0A5357C351B307E87">
-            <Directory Id="dirDEE3C82CF881B9F563D5FC5B3BC25B56" Name="static" />
+            <Directory Id="dirDEE3C82CF881B9F563D5FC5B3BC25B56" Name="assets" />
         </DirectoryRef>
     </Fragment>
 </Wix>

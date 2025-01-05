@@ -43,7 +43,6 @@ legacy_controller::legacy_controller(boost::shared_ptr<session_manager_interface
 	addRoute("GET", "/core/isalive", this, &legacy_controller::alive);
 	addRoute("GET", "/console/exec", this, &legacy_controller::console_exec);
 	addRoute("GET", "/metrics", this, &legacy_controller::get_metrics);
-	addRoute("GET", "/", this, &legacy_controller::redirect_index);
 }
 
 std::string legacy_controller::get_status() {
@@ -253,11 +252,6 @@ void legacy_controller::auth_logout(Mongoose::Request &request, Mongoose::Stream
 	session->revoke_token(token);
 	response.setHeader("__TOKEN", "");
 	response.append("{ \"status\" : \"ok\", \"auth token\": \"\" }");
-}
-
-void legacy_controller::redirect_index(Mongoose::Request&, Mongoose::StreamResponse &response) {
-	response.setCode(302,"Moved");
-	response.setHeader("Location", "/index.html");
 }
 
 void legacy_controller::log_status(Mongoose::Request &request, Mongoose::StreamResponse &response) {

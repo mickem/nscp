@@ -46,6 +46,9 @@ jobs:
         cache-dependency-path: 'build/python/requirements.txt'
         cache: 'pip'
 
+    - id: build-web
+      run: cd web && npm install && npm run build
+
     - name: Install components
       run: |
               Set-Location "C:\Program Files (x86)\Microsoft Visual Studio\Installer\"
@@ -106,7 +109,7 @@ jobs:
 
     - name: Build Boost (static)
       id: static_boost
-      uses: egor-tensin/build-boost@v1
+      uses: mickem/build-boost@v1
       with:
         version: ${{ ENV.BOOST_VERSION }}
         libraries: system filesystem
@@ -117,7 +120,7 @@ jobs:
           
     - name: Build Boost (regular)
       id: boost
-      uses: egor-tensin/build-boost@v1
+      uses: mickem/build-boost@v1
       with:
         version: ${{ ENV.BOOST_VERSION }}
         libraries: system filesystem thread regex date_time program_options python chrono
