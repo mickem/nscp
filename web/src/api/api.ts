@@ -301,7 +301,8 @@ export const nsclientApi = createApi({
       invalidatesTags: (_result, _error, id) => [
         { type: "Module", id },
         { type: "Modules" },
-        { type: "Settings" },
+          { type: "Settings" },
+          { type: "SettingsDescriptions" },
         { type: "Queries" },
       ],
     }),
@@ -314,6 +315,7 @@ export const nsclientApi = createApi({
         { type: "Module", id },
         { type: "Modules" },
         { type: "Settings" },
+          { type: "SettingsDescriptions" },
         { type: "Queries" },
       ],
     }),
@@ -325,8 +327,6 @@ export const nsclientApi = createApi({
       invalidatesTags: (_result, _error, id) => [
         { type: "Module", id },
         { type: "Modules" },
-        { type: "Settings" },
-        { type: "Queries" },
       ],
     }),
     disableModule: builder.mutation<string, string>({
@@ -337,8 +337,6 @@ export const nsclientApi = createApi({
       invalidatesTags: (_result, _error, id) => [
         { type: "Module", id },
         { type: "Modules" },
-        { type: "Settings" },
-        { type: "Queries" },
       ],
     }),
     getQueries: builder.query<QueryListItem[], void>({

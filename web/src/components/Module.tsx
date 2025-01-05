@@ -19,7 +19,6 @@ import {
   List,
   ListItem,
   ListItemButton,
-  ListItemText,
 } from "@mui/material";
 import { useNavigate, useParams } from "react-router";
 import { Toolbar } from "./atoms/Toolbar.tsx";
@@ -30,6 +29,8 @@ import { useState } from "react";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ModuleSettings from "./ModuleSettings.tsx";
+import NscpAlert from "./atoms/NscpAlert.tsx";
 
 export default function Module() {
   const { id = "" } = useParams();
@@ -52,7 +53,7 @@ export default function Module() {
   const mySettings = relevantSettings.filter((setting) => setting.plugins.includes(id));
 
   const onRefresh = () => {
-    dispatch(nsclientApi.util.invalidateTags(["Module", "Queries", "Settings"]));
+    dispatch(nsclientApi.util.invalidateTags(["Module", "Queries", "SettingsDescriptions"]));
   };
 
   const doEnable = async () => {
@@ -122,7 +123,7 @@ export default function Module() {
                 Disable
               </Button>
             )}
-            {!module?.enabled && (
+            {module?.loaded && !module?.enabled && (
               <Button onClick={doEnable} disabled={isBusy}>
                 Enable
               </Button>
@@ -130,6 +131,9 @@ export default function Module() {
           </Stack>
         </CardActions>
       </Card>
+      {!module?.loaded && (
+        <NscpAlert severity="warning" text="Cannot show queries and settings for unloaded modules." />
+      )}
 
       {myQueries && myQueries.length > 0 && (
         <Accordion>
@@ -149,22 +153,7 @@ export default function Module() {
           </AccordionDetails>
         </Accordion>
       )}
-      {mySettings && mySettings.length > 0 && (
-        <Accordion>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography>Settings</Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <List>
-              {mySettings?.map((setting) => (
-                <ListItem key={`${setting.path}-${setting.key}`}>
-                  <ListItemText primary={`[${setting.path}] ${setting.key}`} secondary={setting.value} />
-                </ListItem>
-              ))}
-            </List>
-          </AccordionDetails>
-        </Accordion>
-      )}
+      <ModuleSettings settings={mySettings} />
     </Stack>
   );
 }
