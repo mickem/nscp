@@ -17,6 +17,10 @@ export interface PaginatedQuery {
   size?: number;
 }
 
+export interface LogQuery extends PaginatedQuery {
+  level?: string;
+}
+
 export const responseHandler = (response: Response): Promise<any> => {
   if (
     response.status === 400 ||
@@ -79,6 +83,10 @@ export interface LogRecord {
   level: "critical" | "error" | "warning" | "info" | "success" | "debug" | "unknown";
   line: number;
   message: string;
+}
+export interface LogStatus {
+  errors: number;
+  last_error: string;
 }
 interface ModulesQuery {
   all: boolean;
@@ -230,6 +238,7 @@ export const nsclientApi = createApi({
     "Scripts",
     "Settings",
     "SettingsDescriptions",
+    "LogStatus",
   ],
   endpoints: (builder) => ({
     getEndpoints: builder.query<EndpointList, void>({
@@ -250,13 +259,27 @@ export const nsclientApi = createApi({
       }),
       providesTags: ["Version"],
     }),
-    getLogs: builder.query<Page<LogRecord[]>, PaginatedQuery>({
-      query: ({ page, size }) => ({
-        url: `/v2/logs?page=${page || 0}&size=${size || 10}`,
+    getLogs: builder.query<Page<LogRecord[]>, LogQuery>({
+      query: ({ page, size, level }) => ({
+        url: `/v2/logs?page=${page || 0}&size=${size || 10}${level ? `&level=${level}` : ""}`,
         responseHandler,
       }),
       providesTags: ["Logs"],
       transformResponse: transformPaginatedResponse<LogRecord[]>,
+    }),
+    getLogStatus: builder.query<LogStatus, void>({
+      query: () => ({
+        url: "/v2/logs/status",
+        responseHandler,
+      }),
+      providesTags: ["LogStatus"],
+    }),
+    resetLogStatus: builder.mutation<void, void>({
+      query: () => ({
+        url: "/v2/logs/status",
+        method: "DELETE",
+      }),
+      invalidatesTags: ["LogStatus", "Logs"],
     }),
     getModules: builder.query<ModuleListItem[], ModulesQuery>({
       query: ({ all }) => ({
@@ -399,6 +422,9 @@ export const {
   useLoadModuleMutation,
   useEnableModuleMutation,
   useDisableModuleMutation,
+
+  useGetLogStatusQuery,
+  useResetLogStatusMutation,
 
   useLoginMutation,
 } = nsclientApi;

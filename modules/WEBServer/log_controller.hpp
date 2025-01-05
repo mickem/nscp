@@ -26,6 +26,8 @@ public:
 	log_controller(const int version, boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id);
 
 	void get_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
-	void add_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+    void add_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+    void get_status(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+    void reset_status(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 
 };

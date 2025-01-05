@@ -8,7 +8,6 @@
 
 #include <json_spirit.h>
 
-#include <boost/algorithm/string.hpp>
 #include <boost/foreach.hpp>
 #include <boost/regex.hpp>
 
@@ -36,13 +35,12 @@ log_controller::log_controller(const int version, boost::shared_ptr<session_mana
   , plugin_id(plugin_id)
   , RegexpController(version==1?"/api/v1/logs":"/api/v2/logs")
 {
-	addRoute("GET", "/?$", this, &log_controller::get_log);
-	addRoute("POST", "/?$", this, &log_controller::add_log);
+    addRoute("GET", "/?$", this, &log_controller::get_log);
+    addRoute("POST", "/?$", this, &log_controller::add_log);
+    addRoute("GET", "/status?$", this, &log_controller::get_status);
+    addRoute("DELETE", "/status?$", this, &log_controller::reset_status);
 }
 
-bool is_str_empty(const std::string& m) {
-	return m.empty();
-}
 void log_controller::get_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
 	if (!session->is_loggedin("logs.list", request, response))
 		return;
@@ -103,4 +101,24 @@ void log_controller::add_log(Mongoose::Request &request, boost::smatch &what, Mo
 		response.setCodeBadRequest("Problems parsing JSON");
 	}
 	response.setCodeOk();
+}
+
+
+void log_controller::get_status(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
+    if (!session->is_loggedin("logs.list", request, response))
+        return;
+    error_handler_interface::status status = session->get_log_data()->get_status();
+    json_spirit::Object node;
+    node.insert(json_spirit::Object::value_type("errors", status.error_count));
+    node.insert(json_spirit::Object::value_type("last_error", status.last_error));
+    response.append(json_spirit::write(node));
+}
+
+void log_controller::reset_status(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
+    if (!session->is_loggedin("logs.list", request, response))
+        return;
+    session->reset_log();
+    json_spirit::Object node;
+    node.insert(json_spirit::Object::value_type("errors", 0));
+    node.insert(json_spirit::Object::value_type("last_error", ""));
 }
