@@ -1,0 +1,24 @@
+name: Fetch version
+
+on:
+  workflow_call: {}
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: true
+        fetch-depth: 0
+
+    - name: Fetch version from git tags
+      id: version
+      uses: codacy/git-version@2.8.0
+      with:
+        release-branch: main
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
