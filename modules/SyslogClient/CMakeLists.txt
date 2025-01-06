@@ -1,39 +1,30 @@
 cmake_minimum_required(VERSION 3.5)
 
-SET(TARGET SyslogClient)
-	
-PROJECT(${TARGET})
+set(TARGET SyslogClient)
 
-CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+project(${TARGET})
 
-SET(SRCS ${SRCS}
-	"${TARGET}.cpp"
-	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-	${NSCP_DEF_PLUGIN_CPP}
-	${NSCP_CLIENT_CPP}
-)
+set(SRCS ${SRCS} "${TARGET}.cpp" ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+         ${NSCP_DEF_PLUGIN_CPP} ${NSCP_CLIENT_CPP})
 
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
+add_definitions(${NSCP_GLOBAL_DEFINES})
 
-IF(WIN32)
-	SET(SRCS ${SRCS}
-		"${TARGET}.h"
-		syslog_client.hpp
-		syslog_handler.hpp
-		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
-
-		${NSCP_DEF_PLUGIN_HPP}
-		${NSCP_CLIENT_HPP}
-	)
-ENDIF(WIN32)
+if(WIN32)
+  set(SRCS
+      ${SRCS}
+      "${TARGET}.h"
+      syslog_client.hpp
+      syslog_handler.hpp
+      ${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+      ${NSCP_DEF_PLUGIN_HPP}
+      ${NSCP_CLIENT_HPP})
+endif(WIN32)
 
 add_library(${TARGET} MODULE ${SRCS})
-NSCP_DEBUG_SYMBOLS(${TARGET})
+nscp_debug_symbols(${TARGET})
 
-target_link_libraries(${TARGET}
-	${Boost_FILESYSTEM_LIBRARY}
-	${Boost_PROGRAM_OPTIONS_LIBRARY}
-	${NSCP_DEF_PLUGIN_LIB}
-)
-INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
+target_link_libraries(${TARGET} ${Boost_FILESYSTEM_LIBRARY}
+                      ${Boost_PROGRAM_OPTIONS_LIBRARY} ${NSCP_DEF_PLUGIN_LIB})
+include(${BUILD_CMAKE_FOLDER}/module.cmake)

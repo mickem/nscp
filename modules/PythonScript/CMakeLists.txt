@@ -1,55 +1,54 @@
 cmake_minimum_required(VERSION 3.5)
 
-SET(TARGET PythonScript)
-	
-PROJECT(${TARGET})
+set(TARGET PythonScript)
 
-CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+project(${TARGET})
 
-IF(JSON_SPIRIT_FOUND)
-	INCLUDE_DIRECTORIES(${JSON_SPIRIT_INCLUDE_DIR})
-	ADD_DEFINITIONS(-DHAVE_JSON_SPIRIT)
-	ADD_DEFINITIONS(-DJSON_SPIRIT_STATIC_LINKED)
-	SET(JSON_LIB json_spirit)
-ELSE(JSON_SPIRIT_FOUND)
-	SET(JSON_LIB)
-ENDIF(JSON_SPIRIT_FOUND)
-SET(SRCS ${SRCS}
-	"${TARGET}.cpp"
-	python_script.cpp
-	script_wrapper.cpp
-	extscr_cli.cpp
-	script_provider.cpp
-	${NSCP_DEF_PLUGIN_CPP}
-)
+create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES} -DBOOST_PYTHON_STATIC_LIB)
+if(JSON_SPIRIT_FOUND)
+  include_directories(${JSON_SPIRIT_INCLUDE_DIR})
+  add_definitions(-DHAVE_JSON_SPIRIT)
+  add_definitions(-DJSON_SPIRIT_STATIC_LINKED)
+  set(JSON_LIB json_spirit)
+else(JSON_SPIRIT_FOUND)
+  set(JSON_LIB)
+endif(JSON_SPIRIT_FOUND)
+set(SRCS
+    ${SRCS}
+    "${TARGET}.cpp"
+    python_script.cpp
+    script_wrapper.cpp
+    extscr_cli.cpp
+    script_provider.cpp
+    ${NSCP_DEF_PLUGIN_CPP})
 
-IF(WIN32)
-	SET(SRCS ${SRCS}
-		script_wrapper.hpp
-		"${TARGET}.h"
-		extscr_cli.h
-		script_interface.hpp
-		python_script.hpp
-		script_provider.hpp
+add_definitions(${NSCP_GLOBAL_DEFINES} -DBOOST_PYTHON_STATIC_LIB)
 
-		${NSCP_DEF_PLUGIN_HPP}
-	)
-ENDIF(WIN32)
-INCLUDE_DIRECTORIES(${Python3_INCLUDE_DIRS})
+if(WIN32)
+  set(SRCS
+      ${SRCS}
+      script_wrapper.hpp
+      "${TARGET}.h"
+      extscr_cli.h
+      script_interface.hpp
+      python_script.hpp
+      script_provider.hpp
+      ${NSCP_DEF_PLUGIN_HPP})
+endif(WIN32)
+include_directories(${Python3_INCLUDE_DIRS})
 
 add_library(${TARGET} MODULE ${SRCS})
-NSCP_DEBUG_SYMBOLS(${TARGET})
+nscp_debug_symbols(${TARGET})
 
-target_link_libraries(${TARGET}
-	${Boost_FILESYSTEM_LIBRARY}
-	${Boost_PROGRAM_OPTIONS_LIBRARY}
-	${Boost_THREAD_LIBRARY}
-	${Boost_PYTHON311_LIBRARY}
-	${NSCP_DEF_PLUGIN_LIB}
-	${Python3_LIBRARIES}
-	${JSON_LIB}
-)
+target_link_libraries(
+  ${TARGET}
+  ${Boost_FILESYSTEM_LIBRARY}
+  ${Boost_PROGRAM_OPTIONS_LIBRARY}
+  ${Boost_THREAD_LIBRARY}
+  ${Boost_PYTHON311_LIBRARY}
+  ${NSCP_DEF_PLUGIN_LIB}
+  ${Python3_LIBRARIES}
+  ${JSON_LIB})
 
-INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
+include(${BUILD_CMAKE_FOLDER}/module.cmake)

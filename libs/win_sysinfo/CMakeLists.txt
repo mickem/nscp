@@ -1,27 +1,22 @@
 cmake_minimum_required(VERSION 3.5)
-IF(WIN32)
-SET(TARGET winsys_info)
+if(WIN32)
+  set(TARGET winsys_info)
 
-INCLUDE_DIRECTORIES(${BOOST_INCLUDE_DIRS})
-LINK_DIRECTORIES(${BOOST_LIB_DIRS})
-#INCLUDE_DIRECTORIES(${NSCP_INCLUDEDIR})
+  include_directories(${BOOST_INCLUDE_DIRS})
+  link_directories(${BOOST_LIB_DIRS})
+  # INCLUDE_DIRECTORIES(${NSCP_INCLUDEDIR})
 
-SET(SRCS
-	${NSCP_INCLUDEDIR}/win_sysinfo/win_sysinfo.cpp
-)
-	
-IF(WIN32)
-	SET(SRCS ${SRCS}
+  set(SRCS ${NSCP_INCLUDEDIR}/win_sysinfo/win_sysinfo.cpp)
 
-		${NSCP_INCLUDEDIR}/win_sysinfo/win_sysinfo.hpp
-	)
-ENDIF(WIN32)
+  if(WIN32)
+    set(SRCS ${SRCS} ${NSCP_INCLUDEDIR}/win_sysinfo/win_sysinfo.hpp)
+  endif(WIN32)
 
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
+  add_definitions(${NSCP_GLOBAL_DEFINES})
 
-ADD_LIBRARY(${TARGET} STATIC ${SRCS})
-NSCP_DEBUG_SYMBOLS(${TARGET})
+  add_library(${TARGET} STATIC ${SRCS})
+  nscp_debug_symbols(${TARGET})
 
-SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "libraries")
+  set_target_properties(${TARGET} PROPERTIES FOLDER "libraries")
 
-ENDIF(WIN32)
+endif(WIN32)

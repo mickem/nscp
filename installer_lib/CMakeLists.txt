@@ -1,75 +1,56 @@
 cmake_minimum_required(VERSION 3.5)
-SET(TARGET installer_lib)
-PROJECT(${TARGET} CXX)
+set(TARGET installer_lib)
+project(${TARGET} CXX)
 
-SET(NSCP_INCLUDEDIR ${CMAKE_SOURCE_DIR}/../include)
-SET(BUILD_PYTHON_FOLDER "${CMAKE_SOURCE_DIR}/../build/python")
+set(NSCP_INCLUDEDIR ${CMAKE_SOURCE_DIR}/../include)
+set(BUILD_PYTHON_FOLDER "${CMAKE_SOURCE_DIR}/../build/python")
 
-SET(Boost_USE_STATIC_LIBS		ON)
-SET(Boost_USE_STATIC_RUNTIME	OFF)
-FIND_PACKAGE(Boost COMPONENTS system filesystem)
-find_package (Python3 COMPONENTS Interpreter)
+set(Boost_USE_STATIC_LIBS ON)
+set(Boost_USE_STATIC_RUNTIME OFF)
+find_package(Boost COMPONENTS system filesystem)
+find_package(Python3 COMPONENTS Interpreter)
 
-INCLUDE_DIRECTORIES(${NSCP_INCLUDEDIR})
-INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
-INCLUDE_DIRECTORIES(${PROJECT_BINARY_DIR}/include)
+include_directories(${NSCP_INCLUDEDIR})
+include_directories(${Boost_INCLUDE_DIRS})
+include_directories(${PROJECT_BINARY_DIR}/include)
 add_definitions(-DUNICODE -D_UNICODE -DBOOST_ALL_NO_LIB)
 
-IF(NOT NSCP_VERSION)
-	SET(NSCP_VERSION "0.0.0")
-	MESSAGE(WARNING "Version not specified, building ${NSCP_VERSION}")
-ENDIF(NOT NSCP_VERSION)
+if(NOT NSCP_VERSION)
+  set(NSCP_VERSION "0.0.0")
+  message(WARNING "Version not specified, building ${NSCP_VERSION}")
+endif(NOT NSCP_VERSION)
 
-SET(NSCP_LIB_VERSION "${NSCP_VERSION}")
-SET(NSCP_FULL_VERSION "${NSCP_VERSION}")
-STRING(REPLACE "." "," NSCP_VERSION_COMMA ${NSCP_VERSION})
-STRING(TIMESTAMP NSCP_VERSION_DATE "%Y-%m-%d" UTC)
-CONFIGURE_FILE(
-  ${NSCP_INCLUDEDIR}/config.h.in
-  ${PROJECT_BINARY_DIR}/include/config.h
-  @ONLY
-)
-CONFIGURE_FILE(
-  ${NSCP_INCLUDEDIR}/version.hpp.in
-  ${PROJECT_BINARY_DIR}/include/version.hpp
-  @ONLY
-)
+set(NSCP_LIB_VERSION "${NSCP_VERSION}")
+set(NSCP_FULL_VERSION "${NSCP_VERSION}")
+string(REPLACE "." "," NSCP_VERSION_COMMA ${NSCP_VERSION})
+string(TIMESTAMP NSCP_VERSION_DATE "%Y-%m-%d" UTC)
+configure_file(${NSCP_INCLUDEDIR}/config.h.in
+               ${PROJECT_BINARY_DIR}/include/config.h @ONLY)
+configure_file(${NSCP_INCLUDEDIR}/version.hpp.in
+               ${PROJECT_BINARY_DIR}/include/version.hpp @ONLY)
 
+set(SRCS
+    ${TARGET}.cpp
+    ${NSCP_INCLUDEDIR}/ServiceCmd.cpp
+    ${NSCP_INCLUDEDIR}/error/error_w32.cpp
+    ../libs/settings_manager/settings_manager_impl.cpp
+    ../libs/settings_manager/settings_handler_impl.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+    ${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
+    ${NSCP_INCLUDEDIR}/utf8.cpp
+    "${TARGET}.def"
+    installer_helper.hpp
+    ${NSCP_INCLUDEDIR}/ServiceCmd.h
+    ${NSCP_ERROR_CPP}
+    ${NSCP_ERROR_HPP}
+    # Logger
+    ${NSCP_INCLUDEDIR}/nsclient/logger/log_level.cpp
+    ${NSCP_INCLUDEDIR}/nsclient/logger/base_logger_impl.cpp)
 
-SET(SRCS
-	${TARGET}.cpp
-	${NSCP_INCLUDEDIR}/ServiceCmd.cpp
-	${NSCP_INCLUDEDIR}/error/error_w32.cpp
-		
-	../libs/settings_manager/settings_manager_impl.cpp
-	../libs/settings_manager/settings_handler_impl.cpp
+add_definitions(${NSCP_GLOBAL_DEFINES})
 
-	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
-	${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
-	${NSCP_INCLUDEDIR}/utf8.cpp
-
-	"${TARGET}.def"
-	installer_helper.hpp
-	${NSCP_INCLUDEDIR}/ServiceCmd.h
-	${NSCP_ERROR_CPP}
-	${NSCP_ERROR_HPP}
-	
-	
-	# Logger
-	${NSCP_INCLUDEDIR}/nsclient/logger/log_level.cpp
-	${NSCP_INCLUDEDIR}/nsclient/logger/base_logger_impl.cpp
-)
-
-
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
-
-ADD_LIBRARY(${TARGET} SHARED ${SRCS})
-MESSAGE(STATUS "Boost_FILESYSTEM_LIBRARY: ${Boost_FILESYSTEM_LIBRARY}")
-TARGET_LINK_LIBRARIES(${TARGET}
-	${Boost_FILESYSTEM_LIBRARY}
-	${Boost_SYSTEM_LIBRARY}
-	Msi.lib
-)
-#SET_LIBRARY_OUT_FOLDER_MODULE(${TARGET})
-
-
+add_library(${TARGET} SHARED ${SRCS})
+message(STATUS "Boost_FILESYSTEM_LIBRARY: ${Boost_FILESYSTEM_LIBRARY}")
+target_link_libraries(${TARGET} ${Boost_FILESYSTEM_LIBRARY}
+                      ${Boost_SYSTEM_LIBRARY} Msi.lib)
+# SET_LIBRARY_OUT_FOLDER_MODULE(${TARGET})

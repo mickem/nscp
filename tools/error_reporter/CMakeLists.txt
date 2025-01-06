@@ -1,45 +1,38 @@
 cmake_minimum_required(VERSION 3.5)
 
-SET(TARGET reporter)
+set(TARGET reporter)
 
-PROJECT(reporter)
+project(reporter)
 
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
+add_definitions(${NSCP_GLOBAL_DEFINES})
 
-SET(reporter_SRCS
-	reporter.cpp
-	${NSCP_INCLUDEDIR}/utf8.cpp
-)
+set(reporter_SRCS reporter.cpp ${NSCP_INCLUDEDIR}/utf8.cpp)
 
-IF(WIN32)
-	SET(reporter_SRCS ${reporter_SRCS}
-		${NSCP_INCLUDEDIR}/ServiceCmd.cpp
-		reporter.h
-		reporter.rc
-		${NSCP_INCLUDEDIR}/utf8.hpp
-		${NSCP_ERROR_CPP}
-		${NSCP_ERROR_HPP}
-	)
-	SET(EXTRA_LIBS Wininet.lib)
-ENDIF(WIN32)
+if(WIN32)
+  set(reporter_SRCS
+      ${reporter_SRCS}
+      ${NSCP_INCLUDEDIR}/ServiceCmd.cpp
+      reporter.h
+      reporter.rc
+      ${NSCP_INCLUDEDIR}/utf8.hpp
+      ${NSCP_ERROR_CPP}
+      ${NSCP_ERROR_HPP})
+  set(EXTRA_LIBS Wininet.lib)
+endif(WIN32)
 
+if(BREAKPAD_FOUND)
+  add_definitions(-DUSE_BREAKPAD)
+  include_directories(${BREAKPAD_INCLUDE_DIR})
+  set(EXTRA_LIBS ${EXTRA_LIBS} ${BREAKPAD_COMMON_LIBRARY} ${BREAKPAD_LIBRARY})
+endif(BREAKPAD_FOUND)
 
-IF(BREAKPAD_FOUND)
-	ADD_DEFINITIONS(-DUSE_BREAKPAD)
-	INCLUDE_DIRECTORIES(${BREAKPAD_INCLUDE_DIR})
-	SET(EXTRA_LIBS ${EXTRA_LIBS} ${BREAKPAD_COMMON_LIBRARY} ${BREAKPAD_LIBRARY})
-ENDIF(BREAKPAD_FOUND)
+nscp_make_exe_sbin(${TARGET} "${reporter_SRCS}")
 
-NSCP_MAKE_EXE_SBIN(${TARGET} "${reporter_SRCS}")
+target_link_libraries(${TARGET} ${Boost_FILESYSTEM_LIBRARY}
+                      ${Boost_SYSTEM_LIBRARY} ${EXTRA_LIBS})
+set_target_properties(${TARGET} PROPERTIES FOLDER "tools")
 
-target_link_libraries(${TARGET}
-	${Boost_FILESYSTEM_LIBRARY}
-	${Boost_SYSTEM_LIBRARY}
-	${EXTRA_LIBS}
-)
-SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "tools")
-
-SOURCE_GROUP("Common Files" REGULAR_EXPRESSION .*include/.*)
-SOURCE_GROUP("Parser" REGULAR_EXPRESSION .*include/parser/.*)
-SOURCE_GROUP("NSCP API" REGULAR_EXPRESSION .*include/nscapi/.*)
-SOURCE_GROUP("Settings" REGULAR_EXPRESSION .*include/settings/.*)
+source_group("Common Files" REGULAR_EXPRESSION .*include/.*)
+source_group("Parser" REGULAR_EXPRESSION .*include/parser/.*)
+source_group("NSCP API" REGULAR_EXPRESSION .*include/nscapi/.*)
+source_group("Settings" REGULAR_EXPRESSION .*include/settings/.*)

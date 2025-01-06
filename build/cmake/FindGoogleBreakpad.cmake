@@ -1,94 +1,97 @@
 # -*- cmake -*-
 
-# - Find Google BreakPad
-# Find the Google BreakPad includes and library
-# This module defines
-#  BREAKPAD_EXCEPTION_HANDLER_INCLUDE_DIR, where to find exception_handler.h, etc.
-#  BREAKPAD_EXCEPTION_HANDLER_LIBRARIES, the libraries needed to use Google BreakPad.
-#  BREAKPAD_EXCEPTION_HANDLER_FOUND, If false, do not try to use Google BreakPad.
-# also defined, but not for general use are
-#  BREAKPAD_EXCEPTION_HANDLER_LIBRARY, where to find the Google BreakPad library.
+# * Find Google BreakPad Find the Google BreakPad includes and library This
+#   module defines BREAKPAD_EXCEPTION_HANDLER_INCLUDE_DIR, where to find
+#   exception_handler.h, etc. BREAKPAD_EXCEPTION_HANDLER_LIBRARIES, the
+#   libraries needed to use Google BreakPad. BREAKPAD_EXCEPTION_HANDLER_FOUND,
+#   If false, do not try to use Google BreakPad. also defined, but not for
+#   general use are BREAKPAD_EXCEPTION_HANDLER_LIBRARY, where to find the Google
+#   BreakPad library.
 
-FIND_PATH(BREAKPAD_INCLUDE_DIR
-	google_breakpad/common/breakpad_types.h
-	PATHS
-		${BREAKPAD_ROOT}/src
-		${CMAKE_SOURCE_DIR}/ext/google-breakpad/src
+find_path(BREAKPAD_INCLUDE_DIR google_breakpad/common/breakpad_types.h
+          PATHS ${BREAKPAD_ROOT}/src
+                ${CMAKE_SOURCE_DIR}/ext/google-breakpad/src)
 
-)
+if(NOT GoogleBreakpad_FIND_COMPONENTS)
+  set(GoogleBreakpad_FIND_COMPONENTS breakpad_common breakpad)
+endif(NOT GoogleBreakpad_FIND_COMPONENTS)
 
-IF(NOT GoogleBreakpad_FIND_COMPONENTS)
-	SET(GoogleBreakpad_FIND_COMPONENTS breakpad_common breakpad)
-ENDIF(NOT GoogleBreakpad_FIND_COMPONENTS)
+if(CMAKE_TRACE)
+  message(STATUS "BREAKPAD_ROOT=${BREAKPAD_ROOT}")
+  message(STATUS "BREAKPAD_INCLUDE_DIR=${BREAKPAD_INCLUDE_DIR}")
+endif(CMAKE_TRACE)
 
-IF(CMAKE_TRACE)
-	MESSAGE(STATUS "BREAKPAD_ROOT=${BREAKPAD_ROOT}")
-	MESSAGE(STATUS "BREAKPAD_INCLUDE_DIR=${BREAKPAD_INCLUDE_DIR}")
-ENDIF(CMAKE_TRACE)
+if(BREAKPAD_INCLUDE_DIR)
+  set(BREAKPAD_FOUND TRUE)
+  message(
+    STATUS "Looking for ${GoogleBreakpad_FIND_COMPONENTS} (${BREAKPAD_FOUND})")
+  foreach(COMPONENT ${GoogleBreakpad_FIND_COMPONENTS})
+    string(TOUPPER ${COMPONENT} UPPERCOMPONENT)
+    if(CMAKE_TRACE)
+      message(STATUS " + Looking for: ${COMPONENT}")
+      message(STATUS "    BREAKPAD_ROOT=${BREAKPAD_ROOT}")
+      message(STATUS "    BREAKPAD_INCLUDE_DIR=${BREAKPAD_INCLUDE_DIR}")
+    endif(CMAKE_TRACE)
 
-IF(BREAKPAD_INCLUDE_DIR)
-	SET(BREAKPAD_FOUND TRUE)
-	MESSAGE(STATUS "Looking for ${GoogleBreakpad_FIND_COMPONENTS} (${BREAKPAD_FOUND})")
-	FOREACH(COMPONENT ${GoogleBreakpad_FIND_COMPONENTS})
-		string(TOUPPER ${COMPONENT} UPPERCOMPONENT)
-IF(CMAKE_TRACE)
-	MESSAGE(STATUS " + Looking for: ${COMPONENT}")
-	MESSAGE(STATUS "    BREAKPAD_ROOT=${BREAKPAD_ROOT}")
-	MESSAGE(STATUS "    BREAKPAD_INCLUDE_DIR=${BREAKPAD_INCLUDE_DIR}")
-ENDIF(CMAKE_TRACE)
-		
-		FIND_LIBRARY(${UPPERCOMPONENT}_LIBRARY_RELEASE 
-			NAMES ${COMPONENT}
-			PATHS
-				${BREAKPAD_ROOT}/src/client/windows/Release/lib
-				${BREAKPAD_ROOT}/Release
-				${BREAKPAD_INCLUDE_DIR}/src/client/windows/Release/lib
-			)
-		
-		FIND_LIBRARY(${UPPERCOMPONENT}_LIBRARY_DEBUG 
-			NAMES ${COMPONENT}
-			PATHS
-				${BREAKPAD_ROOT}/src/client/windows/Debug/lib
-				${BREAKPAD_ROOT}/Debug
-				${BREAKPAD_INCLUDE_DIR}/src/client/windows/Debug/lib
-			)
-		IF(${UPPERCOMPONENT}_LIBRARY_RELEASE AND ${UPPERCOMPONENT}_LIBRARY_DEBUG)
-			SET(${UPPERCOMPONENT}_FOUND TRUE)
-			SET(${UPPERCOMPONENT}_LIBRARY optimized ${${UPPERCOMPONENT}_LIBRARY_RELEASE} debug ${${UPPERCOMPONENT}_LIBRARY_DEBUG})
-			set(${UPPERCOMPONENT}_LIBRARY ${${UPPERCOMPONENT}_LIBRARY} CACHE FILEPATH "The breakpad ${UPPERCOMPONENT} library")
-		ELSE(${UPPERCOMPONENT}_LIBRARY_RELEASE AND ${UPPERCOMPONENT}_LIBRARY_DEBUG)
-			SET(BREAKPAD_FOUND FALSE)
-			SET(${UPPERCOMPONENT}_FOUND FALSE)
-			SET(${UPPERCOMPONENT}_LIBRARY "${${UPPERCOMPONENT}_LIBRARY_RELEASE-NOTFOUND}")
-		ENDIF(${UPPERCOMPONENT}_LIBRARY_RELEASE AND ${UPPERCOMPONENT}_LIBRARY_DEBUG)
-		IF(CMAKE_TRACE)
-			MESSAGE(STATUS "    Found for ${UPPERCOMPONENT} ${BREAKPAD_FOUND}")
-			MESSAGE(STATUS "    ${UPPERCOMPONENT}_LIBRARY_RELEASE=${${UPPERCOMPONENT}_LIBRARY_RELEASE}")
-		ENDIF(CMAKE_TRACE)
-	ENDFOREACH(COMPONENT)
-ENDIF(BREAKPAD_INCLUDE_DIR)
-IF(BREAKPAD_FOUND)
-	IF(CMAKE_TRACE)
-		MESSAGE(STATUS "Looking for dump-symbols in: ${BREAKPAD_INCLUDE_DIR}/tools/windows/binaries" )
-	ENDIF(CMAKE_TRACE)
-		MESSAGE(STATUS "Looking for BREAKPAD_DUMPSYMS_EXE in ${BREAKPAD_ROOT}/Release" )
-	FIND_PROGRAM(BREAKPAD_DUMPSYMS_EXE 
-		dump_syms.exe NAMES dump_syms dumpsyms
-		PATHS 
-			ENV 
-			PATH 
-			${BREAKPAD_ROOT}/Release
-			${BREAKPAD_ROOT}/tools/windows/binaries
-			${BREAKPAD_INCLUDE_DIR}/tools/windows/binaries
-		)
-		MESSAGE(STATUS "Found BREAKPAD_DUMPSYMS_EXE=${BREAKPAD_DUMPSYMS_EXE}" )
-	IF(CMAKE_TRACE)
-		MESSAGE(STATUS "Found BREAKPAD_DUMPSYMS_EXE=${BREAKPAD_DUMPSYMS_EXE}" )
-	ENDIF(CMAKE_TRACE)
-	IF(BREAKPAD_DUMPSYMS_EXE)
-		SET(BREAKPAD_DUMPSYMS_EXE_FOUND TRUE)
-	ELSE(BREAKPAD_DUMPSYMS_EXE)
-		SET(BREAKPAD_DUMPSYMS_EXE_FOUND FALSE)
-		SET(BREAKPAD_FOUND FALSE)
-	ENDIF(BREAKPAD_DUMPSYMS_EXE)
-ENDIF(BREAKPAD_FOUND)
+    find_library(
+      ${UPPERCOMPONENT}_LIBRARY_RELEASE
+      NAMES ${COMPONENT}
+      PATHS ${BREAKPAD_ROOT}/src/client/windows/Release/lib
+            ${BREAKPAD_ROOT}/Release
+            ${BREAKPAD_INCLUDE_DIR}/src/client/windows/Release/lib)
+
+    find_library(
+      ${UPPERCOMPONENT}_LIBRARY_DEBUG
+      NAMES ${COMPONENT}
+      PATHS ${BREAKPAD_ROOT}/src/client/windows/Debug/lib
+            ${BREAKPAD_ROOT}/Debug
+            ${BREAKPAD_INCLUDE_DIR}/src/client/windows/Debug/lib)
+    if(${UPPERCOMPONENT}_LIBRARY_RELEASE AND ${UPPERCOMPONENT}_LIBRARY_DEBUG)
+      set(${UPPERCOMPONENT}_FOUND TRUE)
+      set(${UPPERCOMPONENT}_LIBRARY
+          optimized ${${UPPERCOMPONENT}_LIBRARY_RELEASE} debug
+          ${${UPPERCOMPONENT}_LIBRARY_DEBUG})
+      set(${UPPERCOMPONENT}_LIBRARY
+          ${${UPPERCOMPONENT}_LIBRARY}
+          CACHE FILEPATH "The breakpad ${UPPERCOMPONENT} library")
+    else(${UPPERCOMPONENT}_LIBRARY_RELEASE AND ${UPPERCOMPONENT}_LIBRARY_DEBUG)
+      set(BREAKPAD_FOUND FALSE)
+      set(${UPPERCOMPONENT}_FOUND FALSE)
+      set(${UPPERCOMPONENT}_LIBRARY
+          "${${UPPERCOMPONENT}_LIBRARY_RELEASE-NOTFOUND}")
+    endif(${UPPERCOMPONENT}_LIBRARY_RELEASE AND ${UPPERCOMPONENT}_LIBRARY_DEBUG)
+    if(CMAKE_TRACE)
+      message(STATUS "    Found for ${UPPERCOMPONENT} ${BREAKPAD_FOUND}")
+      message(
+        STATUS
+          "    ${UPPERCOMPONENT}_LIBRARY_RELEASE=${${UPPERCOMPONENT}_LIBRARY_RELEASE}"
+      )
+    endif(CMAKE_TRACE)
+  endforeach(COMPONENT)
+endif(BREAKPAD_INCLUDE_DIR)
+if(BREAKPAD_FOUND)
+  if(CMAKE_TRACE)
+    message(
+      STATUS
+        "Looking for dump-symbols in: ${BREAKPAD_INCLUDE_DIR}/tools/windows/binaries"
+    )
+  endif(CMAKE_TRACE)
+  message(
+    STATUS "Looking for BREAKPAD_DUMPSYMS_EXE in ${BREAKPAD_ROOT}/Release")
+  find_program(
+    BREAKPAD_DUMPSYMS_EXE dump_syms.exe
+    NAMES dump_syms dumpsyms
+    PATHS ENV PATH ${BREAKPAD_ROOT}/Release
+          ${BREAKPAD_ROOT}/tools/windows/binaries
+          ${BREAKPAD_INCLUDE_DIR}/tools/windows/binaries)
+  message(STATUS "Found BREAKPAD_DUMPSYMS_EXE=${BREAKPAD_DUMPSYMS_EXE}")
+  if(CMAKE_TRACE)
+    message(STATUS "Found BREAKPAD_DUMPSYMS_EXE=${BREAKPAD_DUMPSYMS_EXE}")
+  endif(CMAKE_TRACE)
+  if(BREAKPAD_DUMPSYMS_EXE)
+    set(BREAKPAD_DUMPSYMS_EXE_FOUND TRUE)
+  else(BREAKPAD_DUMPSYMS_EXE)
+    set(BREAKPAD_DUMPSYMS_EXE_FOUND FALSE)
+    set(BREAKPAD_FOUND FALSE)
+  endif(BREAKPAD_DUMPSYMS_EXE)
+endif(BREAKPAD_FOUND)
