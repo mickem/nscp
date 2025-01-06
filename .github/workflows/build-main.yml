@@ -15,13 +15,13 @@ jobs:
   get-version:
     uses: ./.github/workflows/get-version.yml
   build-x64:
-    depends-on: get-version
+    needs: get-version
     uses: ./.github/workflows/build-windows.yml
     with: 
       architecture: x64
       version: ${{ needs.get-version.outputs.version }}
   build-x86:
-    depends-on: get-version
+    needs: get-version
     uses: ./.github/workflows/build-windows.yml
     with: 
       architecture: x86
