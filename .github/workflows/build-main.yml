@@ -12,17 +12,23 @@ env:
   BOOST_VERSION: 1.79.0
 
 jobs:
+  get-version:
+    uses: ./.github/workflows/get-version.yml
   build-x64:
+    depends-on: get-version
     uses: ./.github/workflows/build-windows.yml
     with: 
       architecture: x64
+      version: ${{ needs.get-version.outputs.version }}
   build-x86:
+    depends-on: get-version
     uses: ./.github/workflows/build-windows.yml
     with: 
       architecture: x86
+      version: ${{ needs.get-version.outputs.version }}
 
   release:
-    needs: [build-x64, build-x86]
+    needs: [get-version, build-x64, build-x86]
     uses: ./.github/workflows/release.yml
-      
-    
+    with:
+      version: ${{ needs.get-version.outputs.version }}

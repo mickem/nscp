@@ -1,7 +1,12 @@
 name: Create release
 
 on:
-  workflow_call: {}
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        description: 'Version to build'
+        required: true
 
 env:
   PYTHON_VERSION: 3.11
@@ -20,32 +25,26 @@ jobs:
       with:
         python-version: ${{ ENV.PYTHON_VERSION }}
 
-    - name: Fetch version from git tags
-      id: version
-      uses: codacy/git-version@2.7.2
-      with:
-        release-branch: main
-
     - uses: actions/download-artifact@v3
       with:
-        name: NSCP-${{ steps.version.outputs.version }}.zip
+        name: NSCP-${{ inputs.version }}.zip
         
     - name: Rename docs
-      run: mv NSCP-${{ steps.version.outputs.version }}-x64-docs.zip NSCP-${{ steps.version.outputs.version }}-docs.zip
+      run: mv NSCP-${{ inputs.version }}-x64-docs.zip NSCP-${{ inputs.version }}-docs.zip
       shell: pwsh
 
     - name: Create Release
       id: create_release
       uses: ncipollo/release-action@v1
       with:
-        tag: ${{ steps.version.outputs.version }}
-        name: Preview for ${{ steps.version.outputs.version }}
+        tag: ${{ inputs.version }}
+        name: Preview for ${{ inputs.version }}
         draft: true
         prerelease: true
         artifacts: |
-          NSCP-${{ steps.version.outputs.version }}-docs.zip
-          NSCP-${{ steps.version.outputs.version }}-x64.zip
-          NSCP-${{ steps.version.outputs.version }}-Win32.zip
-          installers/installer-NSCP/NSCP-${{ steps.version.outputs.version }}-x64.msi
-          installers/installer-NSCP/NSCP-${{ steps.version.outputs.version }}-Win32.msi
+          NSCP-${{ inputs.version }}-docs.zip
+          NSCP-${{ inputs.version }}-x64.zip
+          NSCP-${{ inputs.version }}-Win32.zip
+          installers/installer-NSCP/NSCP-${{ inputs.version }}-x64.msi
+          installers/installer-NSCP/NSCP-${{ inputs.version }}-Win32.msi
 
