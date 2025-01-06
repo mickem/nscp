@@ -24,6 +24,4 @@ jobs:
       uses: codacy/git-version@2.8.0
       with:
         release-branch: main
-    - name: Test
-      run: echo "Test ${{ steps.version.outputs.version }}"
 
