@@ -20,7 +20,7 @@ jobs:
       with:
         release-branch: main
     - name: Test
-      run: echo "Test ${{ steps.version.outputs.version }}
+      run: echo "Test ${{ steps.version.outputs.version }}"
 
     outputs:
       version: ${{ steps.version.outputs.version }}

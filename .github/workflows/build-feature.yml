@@ -19,7 +19,7 @@ jobs:
     needs: get-version
     steps:
       - name: Test
-        run: echo "Test ${{ needs.get-version.outputs.version }}
+        run: echo "Test ${{ needs.get-version.outputs.version }}"
   build-x64:
     needs: get-version
     uses: ./.github/workflows/build-windows.yml
