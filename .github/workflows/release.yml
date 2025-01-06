@@ -20,10 +20,11 @@ jobs:
       with:
         python-version: ${{ ENV.PYTHON_VERSION }}
 
-    - id: version
-      run: |
-        & "$env:Python_ROOT_DIR\python" build\python\version.py -f version.txt -a >> $env:GITHUB_OUTPUT
-      shell: pwsh
+    - name: Fetch version from git tags
+      id: version
+      uses: codacy/git-version@2.8.0
+      with:
+        release-branch: main
 
     - uses: actions/download-artifact@v3
       with:
