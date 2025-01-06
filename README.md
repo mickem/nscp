@@ -1,8 +1,6 @@
 NSClient++
 ==========
-Stable 0.4.4: [![Build Status](https://travis-ci.org/mickem/nscp.png?branch=0.4.4)](https://travis-ci.org/mickem/nscp)
-
-Master: [![Build Status](https://travis-ci.org/mickem/nscp.png?branch=master)](https://travis-ci.org/mickem/nscp)
+[![Build release](https://github.com/mickem/nscp/actions/workflows/build-main.yml/badge.svg)](https://github.com/mickem/nscp/actions/workflows/build-main.yml)
 
 
 NSClient++ (nscp) aims to be a simple yet powerful and secure monitoring daemon. 
