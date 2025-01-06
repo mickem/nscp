@@ -290,14 +290,32 @@ endif(PYTHON_DIST)
 # Bump version number (if requested) and set up variables with current version
 #
 # ##############################################################################
+message(
+  WARNING "Version not specified, building --${NSCP_VERSION}-- ${Boost_DIR}")
 if(NOT NSCP_VERSION)
-  set(NSCP_VERSION "0.0.0")
+  set(NSCP_VERSION "0.6.4-addedautomaticversionst2.8.70491e2f")
   message(WARNING "Version not specified, building ${NSCP_VERSION}")
-endif(NOT NSCP_VERSION)
+endif()
 
 set(NSCP_LIB_VERSION "${NSCP_VERSION}")
 set(NSCP_FULL_VERSION "${NSCP_VERSION}")
-string(REPLACE "." "," NSCP_VERSION_COMMA ${NSCP_VERSION})
+
+# Parse 0.6.4-addedautomaticversionst2.8.70491e2f if possible
+if(NSCP_VERSION MATCHES ".*-.*")
+  string(REGEX
+         REPLACE "([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)"
+                 "\\1.\\2.\\3" NSCP_VERSION_NUMBER ${NSCP_VERSION})
+  string(REGEX
+         REPLACE "([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)"
+                 "\\5" NSCP_VERSION_BUILD ${NSCP_VERSION})
+else()
+  set(NSCP_VERSION_NUMBER ${NSCP_VERSION})
+  set(NSCP_VERSION_BUILD 0)
+endif()
+
+string(REPLACE "." "," NSCP_VERSION_COMMA ${NSCP_VERSION_NUMBER})
+string(REGEX REPLACE "([0-9]+)\\.([0-9]+)\\.([0-9]+)-.*" "\\1,\\2,\\3"
+                     NSCP_VERSION_COMMA ${NSCP_VERSION_NUMBER})
 string(TIMESTAMP NSCP_VERSION_DATE "%Y-%m-%d" UTC)
 if(WIN32)
   set(VERSION_ARCH Win32)
