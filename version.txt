@@ -1,3 +1,0 @@
-version=0.6.2
-build=1
-date=2024-12-15
