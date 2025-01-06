@@ -1,22 +1,25 @@
-import { SettingsDescription } from "../api/api.ts";
+import { SettingsDescription, useUpdateSettingsMutation } from "../api/api.ts";
 import {
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
+  FormControl,
+  IconButton,
+  Input,
+  InputAdornment,
+  InputLabel,
   List,
   ListItem,
   ListItemText,
-  TextField,
 } from "@mui/material";
 import Button from "@mui/material/Button";
 import { useEffect, useState } from "react";
+import CloseIcon from "@mui/icons-material/Close";
 
 interface Params {
-  open: boolean;
   onClose: () => void;
-  onSetValue: (value: string) => void;
   path: string;
   keyName: string;
   value: string;
@@ -24,16 +27,7 @@ interface Params {
   keyDescription?: SettingsDescription;
 }
 
-export default function SettingsDialog({
-  open,
-  onClose,
-  onSetValue,
-  path,
-  keyName,
-  value,
-  keyDescription,
-  pathDescription,
-}: Params) {
+export default function SettingsDialog({ onClose, path, keyName, value, keyDescription, pathDescription }: Params) {
   const key = keyName;
   const description = keyDescription?.description || pathDescription?.description;
   const plugins = keyDescription?.plugins || pathDescription?.plugins || [];
@@ -41,17 +35,27 @@ export default function SettingsDialog({
 
   const [newValue, setNewValue] = useState(value);
 
+  const [saveSettings] = useUpdateSettingsMutation();
+
   useEffect(() => {
     setNewValue(value);
   }, [value]);
 
-  const onHandleSave = () => {
-    onSetValue(newValue);
+  const onHandleSave = async () => {
+    await saveSettings({
+      path,
+      key: keyName,
+      value: newValue,
+    }).unwrap();
     onClose();
   };
 
+  const restoreDefault = () => {
+    setNewValue(keyDescription?.default_value || "");
+  };
+
   return (
-    <Dialog open={open} onClose={onClose}>
+    <Dialog open={true} onClose={onClose}>
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
         <DialogContentText>{description}</DialogContentText>
@@ -79,20 +83,28 @@ export default function SettingsDialog({
             </ListItem>
           )}
           <ListItem>
-            <TextField
-              label="Value"
-              fullWidth
-              value={newValue}
-              onChange={(e) => setNewValue(e.target.value)}
-              variant="standard"
-            />
+            <FormControl variant="standard" fullWidth>
+              <InputLabel htmlFor="value">Value</InputLabel>
+              <Input
+                id="value"
+                value={newValue}
+                onChange={(e) => setNewValue(e.target.value)}
+                endAdornment={
+                  <InputAdornment position="end">
+                    <IconButton onClick={restoreDefault} edge="end">
+                      <CloseIcon />
+                    </IconButton>
+                  </InputAdornment>
+                }
+              />
+            </FormControl>
           </ListItem>
         </List>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>Close</Button>
         <Button onClick={onHandleSave} autoFocus>
-          Save
+          Update
         </Button>
       </DialogActions>
     </Dialog>

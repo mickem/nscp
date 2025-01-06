@@ -25,7 +25,7 @@ export default function ModuleSettingsSection({ section, settings }: Props) {
             primary={section}
             slotProps={{
               primary: {
-                  color: 'secondary',
+                color: "secondary",
                 fontWeight: "bold",
               },
             }}

@@ -38,7 +38,8 @@ void api_controller::get_eps(Mongoose::Request &request, boost::smatch &what, Mo
 	json_spirit::Object root;
 	root["scripts_url"] = host + "/api/v2/scripts";
 	root["modules_url"] = host + "/api/v2/modules";
-	root["queries_url"] = host + "/api/v2/queries";
+    root["queries_url"] = host + "/api/v2/queries";
+    root["settings_url"] = host + "/api/v2/settings";
 	root["logs_url"] = host + "/api/v2/logs";
 	root["info_url"] = host + "/api/v2/info";
 	response.append(json_spirit::write(root));

@@ -26,4 +26,8 @@ public:
 
 	void get(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 	void get_desc(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+    void put(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+    void command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+    void status(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+
 };

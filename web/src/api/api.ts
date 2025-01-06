@@ -166,10 +166,18 @@ export interface QueryExecutionResult {
 
 interface Script {}
 
+export interface SettingsStatus {
+  context: string;
+  type: string;
+  has_changed: boolean;
+}
 export interface Settings {
   key: string;
   path: string;
   value: string;
+}
+export interface SettingsCommand {
+  command: "load" | "save" | "reload";
 }
 
 export interface SettingsDescription {
@@ -237,6 +245,7 @@ export const nsclientApi = createApi({
     "Queries",
     "Scripts",
     "Settings",
+    "SettingsStatus",
     "SettingsDescriptions",
     "LogStatus",
   ],
@@ -301,8 +310,8 @@ export const nsclientApi = createApi({
       invalidatesTags: (_result, _error, id) => [
         { type: "Module", id },
         { type: "Modules" },
-          { type: "Settings" },
-          { type: "SettingsDescriptions" },
+        { type: "Settings" },
+        { type: "SettingsDescriptions" },
         { type: "Queries" },
       ],
     }),
@@ -315,7 +324,7 @@ export const nsclientApi = createApi({
         { type: "Module", id },
         { type: "Modules" },
         { type: "Settings" },
-          { type: "SettingsDescriptions" },
+        { type: "SettingsDescriptions" },
         { type: "Queries" },
       ],
     }),
@@ -324,20 +333,14 @@ export const nsclientApi = createApi({
         url: `/v2/modules/${id}/commands/enable`,
         method: "GET",
       }),
-      invalidatesTags: (_result, _error, id) => [
-        { type: "Module", id },
-        { type: "Modules" },
-      ],
+      invalidatesTags: (_result, _error, id) => [{ type: "Module", id }, { type: "Modules" }],
     }),
     disableModule: builder.mutation<string, string>({
       query: (id) => ({
         url: `/v2/modules/${id}/commands/disable`,
         method: "GET",
       }),
-      invalidatesTags: (_result, _error, id) => [
-        { type: "Module", id },
-        { type: "Modules" },
-      ],
+      invalidatesTags: (_result, _error, id) => [{ type: "Module", id }, { type: "Modules" }],
     }),
     getQueries: builder.query<QueryListItem[], void>({
       query: () => ({
@@ -371,6 +374,12 @@ export const nsclientApi = createApi({
       }),
       providesTags: ["Scripts"],
     }),
+    getSettingsStatus: builder.query<SettingsStatus, void>({
+      query: () => ({
+        url: "/v2/settings/status",
+      }),
+      providesTags: ["SettingsStatus"],
+    }),
     getSettings: builder.query<Settings[], void>({
       query: () => ({
         url: "/v2/settings",
@@ -382,6 +391,36 @@ export const nsclientApi = createApi({
         url: "/v2/settings/descriptions",
       }),
       providesTags: ["SettingsDescriptions"],
+    }),
+    updateSettings: builder.mutation<string, Settings>({
+      query: (settings) => ({
+        url: `/v2/settings`,
+        method: "PUT",
+        body: {
+          ...settings,
+        },
+      }),
+      invalidatesTags: (_result, _error, _id) => [
+        { type: "Settings" },
+        { type: "SettingsStatus" },
+        { type: "SettingsDescriptions" },
+      ],
+    }),
+    settingsCommand: builder.mutation<string, SettingsCommand>({
+      query: (settings) => ({
+        url: `/v2/settings/command`,
+        method: "POST",
+        body: {
+          ...settings,
+        },
+      }),
+      invalidatesTags: (_result, _error, _id) => [
+        { type: "Settings" },
+        { type: "SettingsStatus" },
+        { type: "SettingsDescriptions" },
+        { type: "Queries" },
+        { type: "Modules" },
+      ],
     }),
     login: builder.mutation<string, { username: string; password: string }>({
       query: ({ username, password }) => ({
@@ -414,15 +453,16 @@ export const {
   useExecuteQueryMutation,
   useExecuteNagiosQueryMutation,
   useGetScriptsQuery,
+  useGetSettingsStatusQuery,
   useGetSettingsQuery,
   useGetSettingsDescriptionsQuery,
+  useUpdateSettingsMutation,
+  useSettingsCommandMutation,
   useUnloadModuleMutation,
   useLoadModuleMutation,
   useEnableModuleMutation,
   useDisableModuleMutation,
-
   useGetLogStatusQuery,
   useResetLogStatusMutation,
-
   useLoginMutation,
 } = nsclientApi;
