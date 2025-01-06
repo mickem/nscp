@@ -4,13 +4,12 @@ on:
   workflow_call:
     outputs:
       version:
-        type: string
-        description: 'Version to build'
-        required: true
+        description: 'Detected version'
+        value: ${{ jobs.version.outputs.version }}
 
 
 jobs:
-  build:
+  version:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
