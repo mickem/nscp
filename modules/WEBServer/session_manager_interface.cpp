@@ -5,6 +5,9 @@
 
 #include <Helpers.h>
 
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_plugin_wrapper.hpp>
+
 #include <str/utils.hpp>
 
 #include <boost/asio.hpp>
@@ -12,6 +15,7 @@
 #include <boost/foreach.hpp>
 
 #include <string>
+
 
 session_manager_interface::session_manager_interface()
 	: log_data(new error_handler())
@@ -24,10 +28,8 @@ std::string decode_key(std::string encoded) {
 bool session_manager_interface::is_loggedin(std::string grant, Mongoose::Request &request, Mongoose::StreamResponse &response) {
 	std::list<std::string> errors;
 	if (!allowed_hosts.is_allowed(boost::asio::ip::address::from_string(request.getRemoteIp()), errors)) {
-// 		BOOST_FOREACH(const std::string &e, errors) {
-// 			NSC_LOG_ERROR(e);
-// 		}
-		//NSC_LOG_ERROR("Rejected connection from: " + request.getRemoteIp());
+        std::string error = str::utils::joinEx(errors, ", ");
+		NSC_LOG_ERROR("Rejected connection from: " + request.getRemoteIp() + " due to " + error);
 		response.setCodeForbidden("403 You're not allowed");
 		return false;
 	}

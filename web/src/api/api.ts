@@ -17,6 +17,10 @@ export interface PaginatedQuery {
   size?: number;
 }
 
+export interface LogQuery extends PaginatedQuery {
+  level?: string;
+}
+
 export const responseHandler = (response: Response): Promise<any> => {
   if (
     response.status === 400 ||
@@ -79,6 +83,10 @@ export interface LogRecord {
   level: "critical" | "error" | "warning" | "info" | "success" | "debug" | "unknown";
   line: number;
   message: string;
+}
+export interface LogStatus {
+  errors: number;
+  last_error: string;
 }
 interface ModulesQuery {
   all: boolean;
@@ -158,10 +166,18 @@ export interface QueryExecutionResult {
 
 interface Script {}
 
+export interface SettingsStatus {
+  context: string;
+  type: string;
+  has_changed: boolean;
+}
 export interface Settings {
   key: string;
   path: string;
   value: string;
+}
+export interface SettingsCommand {
+  command: "load" | "save" | "reload";
 }
 
 export interface SettingsDescription {
@@ -229,7 +245,9 @@ export const nsclientApi = createApi({
     "Queries",
     "Scripts",
     "Settings",
+    "SettingsStatus",
     "SettingsDescriptions",
+    "LogStatus",
   ],
   endpoints: (builder) => ({
     getEndpoints: builder.query<EndpointList, void>({
@@ -250,13 +268,27 @@ export const nsclientApi = createApi({
       }),
       providesTags: ["Version"],
     }),
-    getLogs: builder.query<Page<LogRecord[]>, PaginatedQuery>({
-      query: ({ page, size }) => ({
-        url: `/v2/logs?page=${page || 0}&size=${size || 10}`,
+    getLogs: builder.query<Page<LogRecord[]>, LogQuery>({
+      query: ({ page, size, level }) => ({
+        url: `/v2/logs?page=${page || 0}&size=${size || 10}${level ? `&level=${level}` : ""}`,
         responseHandler,
       }),
       providesTags: ["Logs"],
       transformResponse: transformPaginatedResponse<LogRecord[]>,
+    }),
+    getLogStatus: builder.query<LogStatus, void>({
+      query: () => ({
+        url: "/v2/logs/status",
+        responseHandler,
+      }),
+      providesTags: ["LogStatus"],
+    }),
+    resetLogStatus: builder.mutation<void, void>({
+      query: () => ({
+        url: "/v2/logs/status",
+        method: "DELETE",
+      }),
+      invalidatesTags: ["LogStatus", "Logs"],
     }),
     getModules: builder.query<ModuleListItem[], ModulesQuery>({
       query: ({ all }) => ({
@@ -279,6 +311,7 @@ export const nsclientApi = createApi({
         { type: "Module", id },
         { type: "Modules" },
         { type: "Settings" },
+        { type: "SettingsDescriptions" },
         { type: "Queries" },
       ],
     }),
@@ -291,6 +324,7 @@ export const nsclientApi = createApi({
         { type: "Module", id },
         { type: "Modules" },
         { type: "Settings" },
+        { type: "SettingsDescriptions" },
         { type: "Queries" },
       ],
     }),
@@ -299,24 +333,14 @@ export const nsclientApi = createApi({
         url: `/v2/modules/${id}/commands/enable`,
         method: "GET",
       }),
-      invalidatesTags: (_result, _error, id) => [
-        { type: "Module", id },
-        { type: "Modules" },
-        { type: "Settings" },
-        { type: "Queries" },
-      ],
+      invalidatesTags: (_result, _error, id) => [{ type: "Module", id }, { type: "Modules" }],
     }),
     disableModule: builder.mutation<string, string>({
       query: (id) => ({
         url: `/v2/modules/${id}/commands/disable`,
         method: "GET",
       }),
-      invalidatesTags: (_result, _error, id) => [
-        { type: "Module", id },
-        { type: "Modules" },
-        { type: "Settings" },
-        { type: "Queries" },
-      ],
+      invalidatesTags: (_result, _error, id) => [{ type: "Module", id }, { type: "Modules" }],
     }),
     getQueries: builder.query<QueryListItem[], void>({
       query: () => ({
@@ -350,6 +374,12 @@ export const nsclientApi = createApi({
       }),
       providesTags: ["Scripts"],
     }),
+    getSettingsStatus: builder.query<SettingsStatus, void>({
+      query: () => ({
+        url: "/v2/settings/status",
+      }),
+      providesTags: ["SettingsStatus"],
+    }),
     getSettings: builder.query<Settings[], void>({
       query: () => ({
         url: "/v2/settings",
@@ -361,6 +391,36 @@ export const nsclientApi = createApi({
         url: "/v2/settings/descriptions",
       }),
       providesTags: ["SettingsDescriptions"],
+    }),
+    updateSettings: builder.mutation<string, Settings>({
+      query: (settings) => ({
+        url: `/v2/settings`,
+        method: "PUT",
+        body: {
+          ...settings,
+        },
+      }),
+      invalidatesTags: (_result, _error, _id) => [
+        { type: "Settings" },
+        { type: "SettingsStatus" },
+        { type: "SettingsDescriptions" },
+      ],
+    }),
+    settingsCommand: builder.mutation<string, SettingsCommand>({
+      query: (settings) => ({
+        url: `/v2/settings/command`,
+        method: "POST",
+        body: {
+          ...settings,
+        },
+      }),
+      invalidatesTags: (_result, _error, _id) => [
+        { type: "Settings" },
+        { type: "SettingsStatus" },
+        { type: "SettingsDescriptions" },
+        { type: "Queries" },
+        { type: "Modules" },
+      ],
     }),
     login: builder.mutation<string, { username: string; password: string }>({
       query: ({ username, password }) => ({
@@ -393,12 +453,16 @@ export const {
   useExecuteQueryMutation,
   useExecuteNagiosQueryMutation,
   useGetScriptsQuery,
+  useGetSettingsStatusQuery,
   useGetSettingsQuery,
   useGetSettingsDescriptionsQuery,
+  useUpdateSettingsMutation,
+  useSettingsCommandMutation,
   useUnloadModuleMutation,
   useLoadModuleMutation,
   useEnableModuleMutation,
   useDisableModuleMutation,
-
+  useGetLogStatusQuery,
+  useResetLogStatusMutation,
   useLoginMutation,
 } = nsclientApi;

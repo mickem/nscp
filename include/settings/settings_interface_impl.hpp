@@ -596,7 +596,12 @@ namespace settings {
 			path_cache_.clear();
 			key_cache_.clear();
 			settings_cache_.clear();
+
+            real_clear_cache();
+
 			get_core()->set_dirty(false);
+
+
 		}
 
 		//////////////////////////////////////////////////////////////////////////

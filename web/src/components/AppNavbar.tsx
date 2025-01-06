@@ -1,8 +1,8 @@
 import AppBar from "@mui/material/AppBar";
-import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { IconButton, Toolbar } from "@mui/material";
+import { Box, IconButton, Toolbar } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
+import LogStatusIcon from "./LogStatusIcon.tsx";
 
 interface Props {
   handleDrawerToggle: () => void;
@@ -10,14 +10,14 @@ interface Props {
 
 export default function AppNavbar({ handleDrawerToggle }: Props) {
   return (
-    <AppBar
-      position="fixed"
-      sx={{
-        zIndex: (theme) => theme.zIndex.drawer + 1,
-      }}
-    >
-      <Toolbar>
-        <Stack direction="row" spacing={1} sx={{ justifyContent: "center", mr: "auto" }}>
+    <Box sx={{ flexGrow: 1 }}>
+      <AppBar
+        position="fixed"
+        sx={{
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+        }}
+      >
+        <Toolbar>
           <IconButton
             color="inherit"
             aria-label="open drawer"
@@ -27,11 +27,12 @@ export default function AppNavbar({ handleDrawerToggle }: Props) {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h4" component="h1">
+          <Typography variant="h4" component="div" sx={{ flexGrow: 1 }}>
             NSClient++
           </Typography>
-        </Stack>
-      </Toolbar>
-    </AppBar>
+          <LogStatusIcon />
+        </Toolbar>
+      </AppBar>
+    </Box>
   );
 }

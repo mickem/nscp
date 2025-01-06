@@ -160,7 +160,7 @@ namespace Mongoose
                 if (response->getCode() == 200 && !has_content_type) {
                     headers << "Content-Type: application/json\r\n";
                 }
-                if (response->getCode() == 403 && !has_content_type) {
+                if (response->getCode() > 299 && !has_content_type) {
                     headers << "Content-Type: text/plain\r\n";
                 }
 

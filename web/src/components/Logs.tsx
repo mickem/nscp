@@ -1,6 +1,15 @@
 import Stack from "@mui/material/Stack";
-import { LogRecord, nsclientApi, useGetLogsQuery } from "../api/api.ts";
-import { Box, List, ListItem, ListItemIcon, ListItemText, Pagination } from "@mui/material";
+import { LogRecord, nsclientApi, useGetLogsQuery, useResetLogStatusMutation } from "../api/api.ts";
+import {
+  Box,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Pagination,
+  ToggleButton,
+  ToggleButtonGroup,
+} from "@mui/material";
 import ErrorIcon from "@mui/icons-material/Error";
 import WarningIcon from "@mui/icons-material/Warning";
 import InfoIcon from "@mui/icons-material/Info";
@@ -11,6 +20,8 @@ import { RefreshButton } from "./atoms/RefreshButton.tsx";
 import { useAppDispatch } from "../store/store.ts";
 import { Spacing } from "./atoms/Spacing.tsx";
 import { useState } from "react";
+import CloseIcon from "@mui/icons-material/Close";
+import Button from "@mui/material/Button";
 
 const ICONS = {
   critical: <ErrorIcon color="error" />,
@@ -25,8 +36,10 @@ const ICONS = {
 export default function Logs() {
   const [page, setPage] = useState(1);
   const dispatch = useAppDispatch();
+  const [level, setLevel] = useState("*");
+  const [resetStatus] = useResetLogStatusMutation();
 
-  const { data: logs } = useGetLogsQuery({ page: page });
+  const { data: logs } = useGetLogsQuery({ page: page, level: level === "*" ? undefined : level });
   const getIcon = (log: LogRecord) => {
     return ICONS[log?.level] || ICONS.info;
   };
@@ -34,13 +47,35 @@ export default function Logs() {
     return `${log.date}-${log.message}`;
   };
   const onRefresh = () => {
-    dispatch(nsclientApi.util.invalidateTags(["Logs"]));
+    dispatch(nsclientApi.util.invalidateTags(["Logs", "LogStatus"]));
+  };
+
+  const clear = async () => {
+    await resetStatus().unwrap();
   };
 
   return (
     <Box sx={{ p: { sm: 3 } }}>
       <Stack direction="column">
         <Toolbar>
+          <ToggleButtonGroup
+            value={level}
+            exclusive
+            onChange={(_e, level) => setLevel(level)}
+            aria-label="text alignment"
+          >
+            <ToggleButton value="success,debug,info,warning,error,critical">{ICONS.debug}</ToggleButton>
+            <ToggleButton value="info,warning,error,critical">{ICONS.info}</ToggleButton>
+            <ToggleButton value="warning,error,critical">{ICONS.warning}</ToggleButton>
+            <ToggleButton value="error,critical">{ICONS.error}</ToggleButton>
+            <ToggleButton value="*">
+              <CloseIcon />
+            </ToggleButton>
+          </ToggleButtonGroup>
+
+          <Button size="small" onClick={clear}>
+            Clear
+          </Button>
           <Spacing />
           <RefreshButton onRefresh={onRefresh} />
         </Toolbar>
