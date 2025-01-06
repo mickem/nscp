@@ -1,7 +1,12 @@
 name: Fetch version
 
 on:
-  workflow_call: {}
+  workflow_call:
+    outputs:
+      version:
+        type: string
+        description: 'Version to build'
+        required: true
 
 
 jobs:
