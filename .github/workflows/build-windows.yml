@@ -185,7 +185,7 @@ jobs:
     - name: CMake (NSCP)
       working-directory: tmp/nscp
       run: |
-        cmake ../.. -T v141  -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }}
+        cmake ../.. -T v141  -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -DNSCP_VERSION=${{ steps.version.outputs.version }}
 
     - name: Build nsclient
       working-directory: tmp/nscp

@@ -246,38 +246,13 @@ ENDIF(PYTHON_DIST)
 # Bump version number (if requested) and set up variables with current version
 #
 #############################################################################
-SET(VERSION_TXT ${CMAKE_CURRENT_SOURCE_DIR}/version.txt)
-IF("${INCREASE_BUILD}" STREQUAL "1")
-EXECUTE_PROCESS(
-	COMMAND ${Python3_EXECUTABLE}
-		"${BUILD_PYTHON_FOLDER}/version.py" 
-		--file ${VERSION_TXT} 
-		--display 
-		--update build
-		--generate-hpp ${PROJECT_BINARY_DIR}/include/version.hpp
-	OUTPUT_VARIABLE TMP_VERSION_OUT
-	)
-ENDIF("${INCREASE_BUILD}" STREQUAL "1")
+IF(NOT NSCP_VERSION)
+	SET(NSCP_VERSION "0.0.0")
+	MESSAGE(WARNING "Versio not specified, building ${NSCP_VERSION}")
+ENDIF(NOT NSCP_VERSION)
 
-EXECUTE_PROCESS(
-	COMMAND ${Python3_EXECUTABLE}
-		"${BUILD_PYTHON_FOLDER}/version.py" 
-		--file ${VERSION_TXT} 
-		--display 
-		--generate-hpp ${PROJECT_BINARY_DIR}/include/version.hpp
-	OUTPUT_VARIABLE TMP_VERSION_OUT
-	)
-	
-IF(TMP_VERSION_OUT STREQUAL "")
-	MESSAGE(FATA_ERROR, "Failed to generate version from: ${Python3_EXECUTABLE} ${BUILD_PYTHON_FOLDER}/version.py --file ${VERSION_TXT} --display ")
-ENDIF(TMP_VERSION_OUT STREQUAL "")
-STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+).*" "\\1" VERSION_SERIES ${TMP_VERSION_OUT})
-STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+).*" "\\2" VERSION_MAJOR ${TMP_VERSION_OUT})
-STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+).*" "\\3" VERSION_MINOR ${TMP_VERSION_OUT})
-STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+).*" "\\4" VERSION_BUILD ${TMP_VERSION_OUT})
-MESSAGE(STATUS "Version: ${VERSION_SERIES}.${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_BUILD}")
-SET(NSCP_LIB_VERSION "${VERSION_SERIES}.${VERSION_MAJOR}.${VERSION_MINOR}")
-SET(NSCP_FULL_VERSION "${VERSION_SERIES}.${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_BUILD}")
+SET(NSCP_LIB_VERSION "${NSCP_VERSION}")
+SET(NSCP_FULL_VERSION "${NSCP_VERSION}")
 IF(WIN32)
 	SET(VERSION_ARCH Win32)
 	IF(CMAKE_CL_64)
