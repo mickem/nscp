@@ -293,7 +293,7 @@ endif(PYTHON_DIST)
 message(
   WARNING "Version not specified, building --${NSCP_VERSION}-- ${Boost_DIR}")
 if(NOT NSCP_VERSION)
-  set(NSCP_VERSION "0.6.4-addedautomaticversionst2.8.70491e2f")
+  set(NSCP_VERSION "0.0.0")
   message(WARNING "Version not specified, building ${NSCP_VERSION}")
 endif()
 
@@ -314,8 +314,6 @@ else()
 endif()
 
 string(REPLACE "." "," NSCP_VERSION_COMMA ${NSCP_VERSION_NUMBER})
-string(REGEX REPLACE "([0-9]+)\\.([0-9]+)\\.([0-9]+)-.*" "\\1,\\2,\\3"
-                     NSCP_VERSION_COMMA ${NSCP_VERSION_NUMBER})
 string(TIMESTAMP NSCP_VERSION_DATE "%Y-%m-%d" UTC)
 if(WIN32)
   set(VERSION_ARCH Win32)
