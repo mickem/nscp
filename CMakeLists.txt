@@ -300,8 +300,8 @@ endif()
 set(NSCP_LIB_VERSION "${NSCP_VERSION}")
 set(NSCP_FULL_VERSION "${NSCP_VERSION}")
 
-# Parse 0.6.4-addedautomaticversionst2.8.70491e2f if possible
 if(NSCP_VERSION MATCHES ".*-.*")
+  # Parse 0.6.4-addedautomaticversionst2.8.70491e2f
   string(REGEX
          REPLACE "([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)"
                  "\\1.\\2.\\3" NSCP_VERSION_NUMBER ${NSCP_VERSION})
@@ -309,13 +309,14 @@ if(NSCP_VERSION MATCHES ".*-.*")
          REPLACE "([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)"
                  "\\5" VERSION_BUILD ${NSCP_VERSION})
 else()
+  # Parse 1.2.3
   set(NSCP_VERSION_NUMBER ${NSCP_VERSION})
   set(VERSION_BUILD 0)
 endif()
-STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+).*" "\\1" VERSION_SERIES ${NSCP_VERSION_NUMBER})
-STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+).*" "\\2" VERSION_MAJOR ${NSCP_VERSION_NUMBER})
-STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+).*" "\\3" VERSION_MINOR ${NSCP_VERSION_NUMBER})
-message(STATUS "Version: ${NSCP_VERSION_NUMBER} decoded as ${VERSION_SERIES} ${VERSION_MAJOR} ${VERSION_MINOR} ${VERSION_BUILD}")
+STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)" "\\1" VERSION_SERIES ${NSCP_VERSION_NUMBER})
+STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)" "\\2" VERSION_MAJOR ${NSCP_VERSION_NUMBER})
+STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)" "\\3" VERSION_MINOR ${NSCP_VERSION_NUMBER})
+message(STATUS "Version: ${NSCP_VERSION_NUMBER} decoded as ${VERSION_SERIES}.${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_BUILD}")
 
 string(REPLACE "." "," NSCP_VERSION_COMMA ${NSCP_VERSION_NUMBER})
 string(TIMESTAMP NSCP_VERSION_DATE "%Y-%m-%d" UTC)
