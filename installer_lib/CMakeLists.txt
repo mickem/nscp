@@ -15,10 +15,15 @@ include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${PROJECT_BINARY_DIR}/include)
 add_definitions(-DUNICODE -D_UNICODE -DBOOST_ALL_NO_LIB)
 
-if(NOT NSCP_VERSION)
-  set(NSCP_VERSION "0.0.0")
+# ##############################################################################
+#
+# Parse version
+#
+# ##############################################################################
+SET(NSCP_VERSION "0.0.0" CACHE STRING "The version to build")
+if(NSCP_VERSION STREQUAL "0.0.0")
   message(WARNING "Version not specified, building ${NSCP_VERSION}")
-endif(NOT NSCP_VERSION)
+endif()
 
 set(NSCP_LIB_VERSION "${NSCP_VERSION}")
 set(NSCP_FULL_VERSION "${NSCP_VERSION}")

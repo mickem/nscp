@@ -287,13 +287,11 @@ endif(PYTHON_DIST)
 
 # ##############################################################################
 #
-# Bump version number (if requested) and set up variables with current version
+# Parse version
 #
 # ##############################################################################
-message(
-  WARNING "Version not specified, building --${NSCP_VERSION}-- ${Boost_DIR}")
-if(NOT NSCP_VERSION)
-  set(NSCP_VERSION "0.0.0")
+SET(NSCP_VERSION "0.0.0" CACHE STRING "The version to build")
+if(NSCP_VERSION STREQUAL "0.0.0")
   message(WARNING "Version not specified, building ${NSCP_VERSION}")
 endif()
 
