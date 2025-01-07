@@ -1,38 +1,27 @@
 cmake_minimum_required(VERSION 3.5)
 
-SET(TARGET Scheduler)
+set(TARGET Scheduler)
 
-PROJECT(${TARGET})
+project(${TARGET})
 
-CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-SET(SRCS ${SRCS}
-	"${TARGET}.cpp"
-	${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.cpp
-	${NSCP_INCLUDEDIR}/has-threads.cpp
-	schedules_handler.cpp
+set(SRCS
+    ${SRCS} "${TARGET}.cpp" ${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.cpp
+    ${NSCP_INCLUDEDIR}/has-threads.cpp schedules_handler.cpp
+    ${NSCP_DEF_PLUGIN_CPP})
 
-	${NSCP_DEF_PLUGIN_CPP}
-)
+add_definitions(${NSCP_GLOBAL_DEFINES})
 
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
-
-IF(WIN32)
-	SET(SRCS ${SRCS}
-		"${TARGET}.h"
-		${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.hpp
-		schedules_handler.hpp
-		${NSCP_INCLUDEDIR}/has-threads.hpp
-
-		${NSCP_DEF_PLUGIN_HPP}
-	)
-ENDIF(WIN32)
+if(WIN32)
+  set(SRCS
+      ${SRCS} "${TARGET}.h" ${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.hpp
+      schedules_handler.hpp ${NSCP_INCLUDEDIR}/has-threads.hpp
+      ${NSCP_DEF_PLUGIN_HPP})
+endif(WIN32)
 
 add_library(Scheduler MODULE ${SRCS})
 
-target_link_libraries(Scheduler
-	${Boost_FILESYSTEM_LIBRARY}
-	${Boost_THREAD_LIBRARY}
-	${NSCP_DEF_PLUGIN_LIB}
-)
-INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
+target_link_libraries(Scheduler ${Boost_FILESYSTEM_LIBRARY}
+                      ${Boost_THREAD_LIBRARY} ${NSCP_DEF_PLUGIN_LIB})
+include(${BUILD_CMAKE_FOLDER}/module.cmake)

@@ -1,34 +1,24 @@
 cmake_minimum_required(VERSION 3.5)
 
-SET(TARGET SimpleCache)
-	
-PROJECT(${TARGET})
+set(TARGET SimpleCache)
 
-CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+project(${TARGET})
 
-SET(SRCS ${SRCS}
-	"${TARGET}.cpp"
-	${NSCP_DEF_PLUGIN_CPP}
-)
+create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
+set(SRCS ${SRCS} "${TARGET}.cpp" ${NSCP_DEF_PLUGIN_CPP})
 
-IF(WIN32)
-	SET(SRCS ${SRCS}
-		"${TARGET}.h"
+add_definitions(${NSCP_GLOBAL_DEFINES})
 
-		${NSCP_DEF_PLUGIN_HPP}
-	)
-ENDIF(WIN32)
+if(WIN32)
+  set(SRCS ${SRCS} "${TARGET}.h" ${NSCP_DEF_PLUGIN_HPP})
+endif(WIN32)
 
 add_library(${TARGET} MODULE ${SRCS})
-NSCP_DEBUG_SYMBOLS(${TARGET})
+nscp_debug_symbols(${TARGET})
 
-target_link_libraries(${TARGET}
-	${Boost_FILESYSTEM_LIBRARY}
-	${NSCP_DEF_PLUGIN_LIB}
-	${Boost_THREAD_LIBRARY}
-	expression_parser
-)
+target_link_libraries(
+  ${TARGET} ${Boost_FILESYSTEM_LIBRARY} ${NSCP_DEF_PLUGIN_LIB}
+  ${Boost_THREAD_LIBRARY} expression_parser)
 
-INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
+include(${BUILD_CMAKE_FOLDER}/module.cmake)

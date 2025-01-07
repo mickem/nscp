@@ -8,7 +8,10 @@ on:
         description: 'Architecture to build'
         required: true
         default: 'x64'
-
+      version:
+        type: string
+        description: 'Version to build'
+        required: true
 
 env:
   PERL_VERSION: 5.34
@@ -68,11 +71,6 @@ jobs:
       with:
         toolset: "14.1"
         arch: ${{ steps.setup.outputs.msvc_arch }}
-
-    - id: version
-      run: |
-        & "$env:Python_ROOT_DIR\python" build\python\version.py -f version.txt -a >> $env:GITHUB_OUTPUT
-      shell: pwsh
 
     - name: make dirs
       run: |
@@ -174,7 +172,7 @@ jobs:
     - name: CMake (installer_lib)
       working-directory: tmp/installer_lib
       run: |
-        cmake ../../installer_lib -T v141 -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -DBOOST_ROOT=${{ steps.paths.outputs.static_boost_root }} -DBOOST_LIBRARYDIR=${{ steps.paths.outputs.static_boost_librarydir }}
+        cmake ../../installer_lib -T v141 -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -DBOOST_ROOT=${{ steps.paths.outputs.static_boost_root }} -DBOOST_LIBRARYDIR=${{ steps.paths.outputs.static_boost_librarydir }} -D NSCP_VERSION=${{ inputs.version }}
 
     - name: Build installer_lib
       working-directory: tmp/installer_lib
@@ -184,7 +182,7 @@ jobs:
     - name: CMake (NSCP)
       working-directory: tmp/nscp
       run: |
-        cmake ../.. -T v141  -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }}
+        cmake ../.. -T v141  -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -D NSCP_VERSION=${{ inputs.version }}
 
     - name: Build nsclient
       working-directory: tmp/nscp
@@ -213,16 +211,16 @@ jobs:
         find ../ -name '*-stripped.pdb' -and -not -ipath '*symbols*' -exec cp {} . \;
         # remove the -symbols suffix
         for f in *-stripped.pdb; do mv -- "$f" "${f%-stripped.pdb}.pdb"; done
-        7z a -tzip -r ../NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip .
+        7z a -tzip -r ../NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip .
 
     - uses: actions/upload-artifact@v3
       with:
-        name: NSCP-${{ steps.version.outputs.version }}.zip
+        name: NSCP-${{ inputs.version }}.zip
         path: |
-          tmp/nscp/NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}-docs.zip
-          tmp/nscp/NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}.zip
-          tmp/nscp/installers/installer-NSCP/NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}.msi
-          tmp/nscp/NSCP-${{ steps.version.outputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-docs.zip
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.zip
+          tmp/nscp/installers/installer-NSCP/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.msi
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip
         if-no-files-found: error
     
   

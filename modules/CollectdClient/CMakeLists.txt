@@ -1,48 +1,42 @@
 cmake_minimum_required(VERSION 3.5)
 
-SET(TARGET CollectdClient)
-	
-PROJECT(${TARGET})
+set(TARGET CollectdClient)
 
-CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+project(${TARGET})
 
-SET(SRCS ${SRCS}
-	"${TARGET}.cpp"
-	${NSCP_INCLUDEDIR}/collectd/collectd_packet.cpp
-	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-	${NSCP_DEF_PLUGIN_CPP}
-	${NSCP_CLIENT_CPP}
-)
+set(SRCS
+    ${SRCS} "${TARGET}.cpp" ${NSCP_INCLUDEDIR}/collectd/collectd_packet.cpp
+    ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp ${NSCP_DEF_PLUGIN_CPP}
+    ${NSCP_CLIENT_CPP})
 
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
+add_definitions(${NSCP_GLOBAL_DEFINES})
 
-IF(WIN32)
-	SET(SRCS ${SRCS}
-		"${TARGET}.h"
-		collectd_client.hpp
-		collectd_handler.hpp
-
-		${NSCP_INCLUDEDIR}/collectd/collectd_packet.hpp
-		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
-		${NSCP_INCLUDEDIR}/socket/client.hpp
-
-		${NSCP_DEF_PLUGIN_HPP}
-		${NSCP_CLIENT_HPP}
-	)
-ENDIF(WIN32)
+if(WIN32)
+  set(SRCS
+      ${SRCS}
+      "${TARGET}.h"
+      collectd_client.hpp
+      collectd_handler.hpp
+      ${NSCP_INCLUDEDIR}/collectd/collectd_packet.hpp
+      ${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+      ${NSCP_INCLUDEDIR}/socket/client.hpp
+      ${NSCP_DEF_PLUGIN_HPP}
+      ${NSCP_CLIENT_HPP})
+endif(WIN32)
 
 add_library(${TARGET} MODULE ${SRCS})
-NSCP_DEBUG_SYMBOLS(${TARGET})
+nscp_debug_symbols(${TARGET})
 
-target_link_libraries(${TARGET}
-	${Boost_FILESYSTEM_LIBRARY}
-	${Boost_PROGRAM_OPTIONS_LIBRARY}
-	${Boost_REGEX_LIBRARY}
-	${NSCP_DEF_PLUGIN_LIB}
-	${EXTRA_LIBS}
-	expression_parser
-)
-INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
-SOURCE_GROUP("Client" REGULAR_EXPRESSION .*include/collectd/.*)
-SOURCE_GROUP("Socket" REGULAR_EXPRESSION .*include/socket/.*)
+target_link_libraries(
+  ${TARGET}
+  ${Boost_FILESYSTEM_LIBRARY}
+  ${Boost_PROGRAM_OPTIONS_LIBRARY}
+  ${Boost_REGEX_LIBRARY}
+  ${NSCP_DEF_PLUGIN_LIB}
+  ${EXTRA_LIBS}
+  expression_parser)
+include(${BUILD_CMAKE_FOLDER}/module.cmake)
+source_group("Client" REGULAR_EXPRESSION .*include/collectd/.*)
+source_group("Socket" REGULAR_EXPRESSION .*include/socket/.*)

@@ -1,65 +1,61 @@
 cmake_minimum_required(VERSION 3.5)
 
-SET(TARGET CheckMKServer)
-	
-PROJECT(${TARGET})
+set(TARGET CheckMKServer)
+
+project(${TARGET})
 
 # Workaround for bug 0003353 in cmake (aparently not fixed)
-SET_SOURCE_FILES_PROPERTIES(${PB_PLUGIN} PROPERTIES GENERATED TRUE)
+set_source_files_properties(${PB_PLUGIN} PROPERTIES GENERATED TRUE)
 
-CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-SET(SRCS ${SRCS}
-	"${TARGET}.cpp"
-	"handler_impl.cpp"
-	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
-	${NSCP_INCLUDEDIR}/check_mk/lua/lua_check_mk.cpp
+set(SRCS
+    ${SRCS} "${TARGET}.cpp" "handler_impl.cpp"
+    ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/check_mk/lua/lua_check_mk.cpp ${NSCP_DEF_PLUGIN_CPP})
 
-	${NSCP_DEF_PLUGIN_CPP}
-)
+add_definitions(${NSCP_GLOBAL_DEFINES})
+include_directories(${LUA_INCLUE_DIR})
+if(OPENSSL_FOUND)
+  include_directories(${OPENSSL_INCLUDE_DIR})
+  add_definitions(-DUSE_SSL)
+  set(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
+  if(WIN32)
+    set(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32)
+  endif(WIN32)
+endif(OPENSSL_FOUND)
 
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
-INCLUDE_DIRECTORIES(${LUA_INCLUE_DIR})
-IF(OPENSSL_FOUND)
-	INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
-	ADD_DEFINITIONS(-DUSE_SSL)
-	SET(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
-	IF(WIN32)
-		SET(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32)
-	ENDIF(WIN32)
-ENDIF(OPENSSL_FOUND)
-
-IF(WIN32)
-	SET(SRCS ${SRCS}
-		"${TARGET}.h"
-		"handler_impl.hpp"
-		${NSCP_INCLUDEDIR}/check_mk/server/server_protocol.hpp
-		${NSCP_INCLUDEDIR}/check_mk/server/server_handler.hpp
-		${NSCP_INCLUDEDIR}/check_mk/parser.hpp
-		${NSCP_INCLUDEDIR}/check_mk/data.hpp
-		${NSCP_INCLUDEDIR}/check_mk/lua/lua_check_mk.hpp
-		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
-		${NSCP_DEF_PLUGIN_HPP}
-	)
-ENDIF(WIN32)
+if(WIN32)
+  set(SRCS
+      ${SRCS}
+      "${TARGET}.h"
+      "handler_impl.hpp"
+      ${NSCP_INCLUDEDIR}/check_mk/server/server_protocol.hpp
+      ${NSCP_INCLUDEDIR}/check_mk/server/server_handler.hpp
+      ${NSCP_INCLUDEDIR}/check_mk/parser.hpp
+      ${NSCP_INCLUDEDIR}/check_mk/data.hpp
+      ${NSCP_INCLUDEDIR}/check_mk/lua/lua_check_mk.hpp
+      ${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+      ${NSCP_DEF_PLUGIN_HPP})
+endif(WIN32)
 
 add_library(${TARGET} MODULE ${SRCS})
-NSCP_DEBUG_SYMBOLS(${TARGET})
-OPENSSL_LINK_FIX(${TARGET})
+nscp_debug_symbols(${TARGET})
+openssl_link_fix(${TARGET})
 
-SET(LUA_PB)
-IF (PROTOC_GEN_LUA_FOUND)
-	SET(LUA_PB nscp_lua_pb)
-ENDIF()
+set(LUA_PB)
+if(PROTOC_GEN_LUA_FOUND)
+  set(LUA_PB nscp_lua_pb)
+endif()
 
-target_link_libraries(${TARGET}
-	${Boost_FILESYSTEM_LIBRARY}
-	${Boost_THREAD_LIBRARY}
-	${NSCP_DEF_PLUGIN_LIB}
-	${EXTRA_LIBS}
-	${LUA_LIB}
-	lua_nscp
-)
-INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
-SOURCE_GROUP("Server" REGULAR_EXPRESSION .*include/check_mk/.*)
-SOURCE_GROUP("Socket" REGULAR_EXPRESSION .*include/socket/.*)
+target_link_libraries(
+  ${TARGET}
+  ${Boost_FILESYSTEM_LIBRARY}
+  ${Boost_THREAD_LIBRARY}
+  ${NSCP_DEF_PLUGIN_LIB}
+  ${EXTRA_LIBS}
+  ${LUA_LIB}
+  lua_nscp)
+include(${BUILD_CMAKE_FOLDER}/module.cmake)
+source_group("Server" REGULAR_EXPRESSION .*include/check_mk/.*)
+source_group("Socket" REGULAR_EXPRESSION .*include/socket/.*)

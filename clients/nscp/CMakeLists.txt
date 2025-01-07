@@ -1,83 +1,73 @@
 cmake_minimum_required(VERSION 3.5)
 
-SET(TARGET check_nscp)
+set(TARGET check_nscp)
 
-PROJECT(clients)
+project(clients)
 
-SET(SRCS ${SRCS}
-	check_nscp.cpp
-	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
-	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
+set(SRCS
+    ${SRCS} check_nscp.cpp ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp ${NSCP_CLIENT_CPP}
+    ../../resources/nsclient.ico)
 
-	${NSCP_CLIENT_CPP}
-	
-	../../resources/nsclient.ico
-)
+add_definitions(${NSCP_GLOBAL_DEFINES})
+if(OPENSSL_FOUND)
+  add_definitions(-DUSE_SSL)
+  set(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
+  if(WIN32)
+    set(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32)
+  endif(WIN32)
+  include_directories(${OPENSSL_INCLUDE_DIR})
+endif(OPENSSL_FOUND)
 
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
-IF(OPENSSL_FOUND)
-	ADD_DEFINITIONS(-DUSE_SSL)
-	SET(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
-	IF(WIN32)
-		SET(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32)
-	ENDIF(WIN32)
-	INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
-ENDIF(OPENSSL_FOUND)
+if(WIN32)
+  set(SRCS
+      ${SRCS}
+      check_nscp.hpp
+      ../../modules/NSCPClient/nscp_client.hpp
+      ../../modules/NSCPClient/nscp_handler.hpp
+      ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
+      ${NSCP_INCLUDEDIR}/socket/clients/http/http_client_protocol.hpp
+      ${NSCP_INCLUDEDIR}/socket/clients/http/http_packet.hpp
+      ${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+      ${NSCP_INCLUDEDIR}/socket/client.hpp
+      ${NSCP_INCLUDEDIR}/http/client.hpp
+      ${NSCP_CLIENT_HPP})
+endif(WIN32)
 
+include_directories(${BOOST_INCLUDE_DIRS})
+if(JSON_SPIRIT_FOUND)
+  include_directories(${JSON_SPIRIT_INCLUDE_DIR})
+  add_definitions(-DHAVE_JSON_SPIRIT)
+  set(JSON_LIB json_spirit)
+else(JSON_SPIRIT_FOUND)
+  set(JSON_LIB)
+endif(JSON_SPIRIT_FOUND)
+link_directories(${BOOST_LIB_DIRS})
 
-IF(WIN32)
-	SET(SRCS ${SRCS}
-		check_nscp.hpp
-		../../modules/NSCPClient/nscp_client.hpp
-		../../modules/NSCPClient/nscp_handler.hpp
+if(BREAKPAD_FOUND)
+  if(WIN32)
+    set(${_SRC} ${${_SRC}}
+                ${NSCP_INCLUDEDIR}/breakpad/exception_handler_win32.cpp)
+    set(${_SRC} ${${_SRC}}
+                ${NSCP_INCLUDEDIR}/breakpad/exception_handler_win32.hpp)
+  endif(WIN32)
+  add_definitions(-DUSE_BREAKPAD)
+  include_directories(${BREAKPAD_INCLUDE_DIR})
+  set(EXTRA_LIBS ${EXTRA_LIBS} ${BREAKPAD_COMMON_LIBRARY} ${BREAKPAD_LIBRARY})
+endif(BREAKPAD_FOUND)
 
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
-		${NSCP_INCLUDEDIR}/socket/clients/http/http_client_protocol.hpp
-		${NSCP_INCLUDEDIR}/socket/clients/http/http_packet.hpp
-		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
-		${NSCP_INCLUDEDIR}/socket/client.hpp
-		${NSCP_INCLUDEDIR}/http/client.hpp
-		${NSCP_CLIENT_HPP}
-	)
-ENDIF(WIN32)
+nscp_make_exe_bin(${TARGET} "${SRCS}")
+if(WIN32 AND NOT CMAKE_CL_64)
+  openssl_link_fix(${TARGET})
+endif(WIN32 AND NOT CMAKE_CL_64)
 
-INCLUDE_DIRECTORIES(${BOOST_INCLUDE_DIRS})
-IF(JSON_SPIRIT_FOUND)
-	INCLUDE_DIRECTORIES(${JSON_SPIRIT_INCLUDE_DIR})
-	ADD_DEFINITIONS(-DHAVE_JSON_SPIRIT)
-	SET(JSON_LIB json_spirit)
-ELSE(JSON_SPIRIT_FOUND)
-	SET(JSON_LIB)
-ENDIF(JSON_SPIRIT_FOUND)
-LINK_DIRECTORIES(${BOOST_LIB_DIRS})
+target_link_libraries(
+  ${TARGET} ${Boost_FILESYSTEM_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY}
+  ${Boost_THREAD_LIBRARY} ${NSCP_DEF_PLUGIN_LIB} ${EXTRA_LIBS})
+set_target_properties(${TARGET} PROPERTIES FOLDER "clients")
 
-IF(BREAKPAD_FOUND)
-	IF(WIN32)
-		SET(${_SRC} ${${_SRC}} ${NSCP_INCLUDEDIR}/breakpad/exception_handler_win32.cpp)
-		SET(${_SRC} ${${_SRC}} ${NSCP_INCLUDEDIR}/breakpad/exception_handler_win32.hpp)
-	ENDIF(WIN32)
-	ADD_DEFINITIONS(-DUSE_BREAKPAD)
-	INCLUDE_DIRECTORIES(${BREAKPAD_INCLUDE_DIR})
-	SET(EXTRA_LIBS ${EXTRA_LIBS} ${BREAKPAD_COMMON_LIBRARY} ${BREAKPAD_LIBRARY})
-ENDIF(BREAKPAD_FOUND)
-
-NSCP_MAKE_EXE_BIN(${TARGET} "${SRCS}")
-IF(WIN32 AND NOT CMAKE_CL_64)
-	OPENSSL_LINK_FIX(${TARGET})
-ENDIF(WIN32 AND NOT CMAKE_CL_64)
-
-TARGET_LINK_LIBRARIES(${TARGET}
-	${Boost_FILESYSTEM_LIBRARY}
-	${Boost_PROGRAM_OPTIONS_LIBRARY}
-	${Boost_THREAD_LIBRARY}
-	${NSCP_DEF_PLUGIN_LIB}
-	${EXTRA_LIBS}
-)
-SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "clients")
-
-SOURCE_GROUP("Client" REGULAR_EXPRESSION .*include/socket/clients/http/.*)
-SOURCE_GROUP("Socket" REGULAR_EXPRESSION .*include/socket/.*)
-SOURCE_GROUP("NSCP API" REGULAR_EXPRESSION .*include/nscapi/.*)
-SOURCE_GROUP("Settings" REGULAR_EXPRESSION .*include/settings/.*)
-SOURCE_GROUP("Common Files" REGULAR_EXPRESSION .*include/.*)
-
+source_group("Client" REGULAR_EXPRESSION .*include/socket/clients/http/.*)
+source_group("Socket" REGULAR_EXPRESSION .*include/socket/.*)
+source_group("NSCP API" REGULAR_EXPRESSION .*include/nscapi/.*)
+source_group("Settings" REGULAR_EXPRESSION .*include/settings/.*)
+source_group("Common Files" REGULAR_EXPRESSION .*include/.*)

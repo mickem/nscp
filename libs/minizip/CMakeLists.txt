@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-SET(TARGET nscp_miniz)
+set(TARGET nscp_miniz)
 
 project(${TARGET})
 
@@ -12,10 +12,8 @@ set(miniz_SOURCE
     ../../ext/miniz/miniz_tinfl.c
     ../../ext/miniz/miniz_tinfl.h
     ../../ext/miniz/miniz_tdef.c
-    ../../ext/miniz/miniz_tdef.h
-    )
+    ../../ext/miniz/miniz_tdef.h)
 
-add_library (${TARGET} STATIC ${miniz_SOURCE})
+add_library(${TARGET} STATIC ${miniz_SOURCE})
 
-SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "core")
-
+set_target_properties(${TARGET} PROPERTIES FOLDER "core")

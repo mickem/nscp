@@ -1,30 +1,21 @@
 cmake_minimum_required(VERSION 3.5)
 
-SET(TARGET CauseCrashes)
+set(TARGET CauseCrashes)
 
-PROJECT(${TARGET})
+project(${TARGET})
 
-CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-SET(SRCS ${SRCS}
-	"${TARGET}.cpp"
-	${NSCP_DEF_PLUGIN_CPP}
-)
+set(SRCS ${SRCS} "${TARGET}.cpp" ${NSCP_DEF_PLUGIN_CPP})
 
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
+add_definitions(${NSCP_GLOBAL_DEFINES})
 
-IF(WIN32)
-	SET(SRCS ${SRCS}
-		"${TARGET}.h"
+if(WIN32)
+  set(SRCS ${SRCS} "${TARGET}.h" ${NSCP_DEF_PLUGIN_HPP})
+endif(WIN32)
 
-		${NSCP_DEF_PLUGIN_HPP}
-	)
-ENDIF(WIN32)
+add_library(${TARGET} MODULE ${SRCS})
+nscp_debug_symbols(${TARGET})
 
-ADD_LIBRARY(${TARGET} MODULE ${SRCS})
-NSCP_DEBUG_SYMBOLS(${TARGET})
-
-target_link_libraries(${TARGET}
-	${NSCP_DEF_PLUGIN_LIB}
-)
-INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
+target_link_libraries(${TARGET} ${NSCP_DEF_PLUGIN_LIB})
+include(${BUILD_CMAKE_FOLDER}/module.cmake)
