@@ -311,6 +311,7 @@ else()
   set(NSCP_VERSION_NUMBER ${NSCP_VERSION})
   set(VERSION_BUILD 0)
 endif()
+message(STATUS "Version: ${NSCP_VERSION} decoded as ${NSCP_VERSION_NUMBER}.${VERSION_BUILD}")
 STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)" "\\1" VERSION_SERIES ${NSCP_VERSION_NUMBER})
 STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)" "\\2" VERSION_MAJOR ${NSCP_VERSION_NUMBER})
 STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)" "\\3" VERSION_MINOR ${NSCP_VERSION_NUMBER})
@@ -545,6 +546,10 @@ set(CONFIG_DEFAULT_CONF_INI_LOCATION
 
 configure_file(${NSCP_INCLUDEDIR}/config.h.in
                ${PROJECT_BINARY_DIR}/include/config.h @ONLY)
+configure_file(${BUILD_PYTHON_FOLDER}/config.py
+               ${BUILD_TARGET_EXE_PATH}/config.py)
+configure_file(${BUILD_PYTHON_FOLDER}/postbuild.py
+               ${BUILD_TARGET_EXE_PATH}/postbuild.py)
 configure_file(${NSCP_INCLUDEDIR}/version.hpp.in
                ${PROJECT_BINARY_DIR}/include/version.hpp @ONLY)
 if(NOT WIN32)
