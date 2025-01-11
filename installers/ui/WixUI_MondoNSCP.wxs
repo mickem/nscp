@@ -63,6 +63,8 @@ Patch dialog sequence:
       <Publish Dialog="SetupTypeDlg" Control="TypicalButton" Event="NewDialog" Value="InvalidConfigureationDlg" Order="4">KEY_CONF_HAS_ERRORS = "1"</Publish>
       <Publish Dialog="SetupTypeDlg" Control="TypicalButton" Event="NewDialog" Value="ConfigureDlg" Order="2">KEY_CONF_CAN_CHANGE = "1"</Publish>
       <Publish Dialog="SetupTypeDlg" Control="TypicalButton" Event="NewDialog" Value="VerifyReadyDlg" Order="1">1</Publish>
+      <Publish Dialog="SetupTypeDlg" Control="TypicalButton" Event="DoAction" Value="ImportConfig">1</Publish>
+
       <Publish Dialog="SetupTypeDlg" Control="CustomButton" Event="NewDialog" Value="CustomizeDlg">1</Publish>
       <Publish Dialog="SetupTypeDlg" Control="CompleteButton" Event="NewDialog" Value="InvalidConfigureationDlg" Order="4">KEY_CONF_HAS_ERRORS = "1"</Publish>
       <Publish Dialog="SetupTypeDlg" Control="CompleteButton" Event="NewDialog" Value="SelectConfigurationDlg" Order="3">CONF_OLD_FOUND="0"</Publish>

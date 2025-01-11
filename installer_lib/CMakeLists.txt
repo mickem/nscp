@@ -63,6 +63,41 @@ else(WIN32)
   set(VERSION_ARCH Unknown)
 endif(WIN32)
 
+set(INSTALL_FILES_BASE "")
+
+set(CONFIG_BOOT_CONF_LOCATION
+        "\${exe-path}/boot.ini"
+        CACHE
+        STRING
+        "Location of boot ini (the file which specified where to load the config)"
+)
+set(CONFIG_DEFAULT_CONF_LOCATION
+        "old"
+        CACHE STRING "Default configuration store")
+set(CONFIG_DEFAULT_CONF_INI_BASE
+        "ini://\${shared-path}/"
+        CACHE STRING "Base location for ini files")
+set(CONFIG_MODULE_FOLDER
+        "\${exe-path}/modules"
+        CACHE STRING "modules folder")
+set(CONFIG_WEB_FOLDER
+        "\${shared-path}/web"
+        CACHE STRING "web folder")
+set(CONFIG_SCRIPTS_FOLDER
+        "\${exe-path}/scripts"
+        CACHE STRING "script folder")
+set(CONFIG_CERT_FOLDER
+        "\${shared-path}/security"
+        CACHE STRING "securoty (certificates) folder")
+set(CONFIG_DEFAULT_CACHE_PATH
+        "\${shared-path}/cache"
+        CACHE STRING "Path for caching stuff")
+set(CONFIG_LOG_FOLDER
+        "\${shared-path}/log"
+        CACHE STRING "Path for log files")
+set(CONFIG_DEFAULT_LOG_LOCATION
+        "\${exe-path}/nsclient.log"
+        CACHE STRING "PAth for log file")
 
 configure_file(${NSCP_INCLUDEDIR}/config.h.in
                ${PROJECT_BINARY_DIR}/include/config.h @ONLY)

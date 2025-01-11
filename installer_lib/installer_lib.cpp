@@ -85,10 +85,12 @@ public:
 
 
 	void debug(const std::string& module, const char* file, const int line, const std::string& message) {
+		do_log("debug: " + message);
 	}
 	void trace(const std::string& module, const char* file, const int line, const std::string& message) {
 	}
 	void info(const std::string& module, const char* file, const int line, const std::string& message) {
+		do_log("info: " + message);
 	}
 	void warning(const std::string& module, const char* file, const int line, const std::string& message) {
 		do_log("warning: " + message);
@@ -106,9 +108,11 @@ public:
 
 
 	void do_log(const std::string data) {
+
 		std::wstring str = utf8::cvt<std::wstring>(data);
 		if (str.empty())
 			return;
+		h->setProperty(L"NSCP_ERROR_LOG", L"Error: " + str);
 		if (boost::algorithm::starts_with(str, L"error:")) {
 			if (!error_.empty())
 				error_ += L"\n";
@@ -150,7 +154,7 @@ public:
 
 
 void nsclient::logging::log_message_factory::log_fatal(std::string message) {
-//	std::cout << message << "\n";
+	//	std::cout << message << "\n";
 }
 
 std::string nsclient::logging::log_message_factory::create_critical(const std::string &module, const char* file, const int line, const std::string &message) {
@@ -318,6 +322,8 @@ std::wstring read_map_data(msi_helper &h) {
 #define KEY_CONF_OLD_ERROR KEY CONF_OLD_ERROR
 #define KEY_CONF_HAS_ERRORS KEY CONF_HAS_ERRORS
 
+#define ERROR_KEY L"NSCP_ERROR"
+
 
 void dump_config(msi_helper &h, std::wstring title) {
 		h.dumpReason(title);
@@ -446,6 +452,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 
 		std::wstring map_data = read_map_data(h);
 		if (allow == L"0") {
+			h.setProperty(ERROR_KEY, L"Configuration is not allowed to change");
 			h.logMessage(L"Configuration not allowed: " + allow);
 			h.setProperty(KEY_CONF_CAN_CHANGE, L"0");
 			h.setProperty(KEY_CONF_HAS_ERRORS, L"0");
@@ -454,7 +461,8 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 		}
 
  		if (!boost::filesystem::is_directory(utf8::cvt<std::string>(target))) {
- 			h.logMessage(L"Target folder not found: " + target);
+			h.setProperty(ERROR_KEY, L"Configuration not found: " + target);
+			h.logMessage(L"Target folder not found: " + target);
 			h.setProperty(KEY_CONF_CAN_CHANGE, L"1");
 			h.setProperty(KEY_CONF_HAS_ERRORS, L"0");
 			dump_config(h, L"After ImportConfig");
@@ -463,6 +471,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 
 		installer_settings_provider provider(&h, target, map_data);
 		if (!settings_manager::init_installer_settings(&provider, "")) {
+			h.setProperty(ERROR_KEY, L"Settings context had fatal errors");
 			h.logMessage(L"Settings context had fatal errors");
 			h.setProperty(KEY_CONF_OLD_ERROR, provider.get_error());
 			h.setProperty(KEY_CONF_CAN_CHANGE, L"0");
@@ -554,12 +563,14 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 		dump_config(h, L"After ImportConfig");
 
 	} catch (installer_exception e) {
+		h.setProperty(ERROR_KEY, L"Installer exception");
 		h.logMessage(L"Failed to read old configuration file: " + e.what());
 		h.setProperty(KEY_CONF_OLD_ERROR, e.what());
 		h.setProperty(KEY_CONF_CAN_CHANGE, L"0");
 		h.setProperty(KEY_CONF_HAS_ERRORS, L"1");
 		return ERROR_SUCCESS;
 	} catch (...) {
+		h.setProperty(ERROR_KEY, L"Unknown exception");
 		h.logMessage(L"Failed to read old configuration file: Unknown exception");
 		h.setProperty(KEY_CONF_OLD_ERROR, L"Unknown exception!");
 		h.setProperty(KEY_CONF_CAN_CHANGE, L"0");

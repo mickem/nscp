@@ -35,7 +35,6 @@ public:
 		logMessage(L"installer_lib::" + action);
 	}
 	~msi_helper() {
-		MsiCloseHandle(hInstall_);
 		hInstall_ = NULL;
 	}
 

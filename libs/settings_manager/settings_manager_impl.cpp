@@ -98,7 +98,7 @@ namespace settings_manager {
 			return settings::instance_raw_ptr(new settings::INISettings(this, alias, key));
 		if (settings::INISettings::context_exists(this, DEFAULT_CONF_INI_BASE + key))
 			return settings::instance_raw_ptr(new settings::INISettings(this,alias,  DEFAULT_CONF_INI_BASE + key));
-		throw settings::settings_exception(__FILE__, __LINE__, "Undefined settings protocol: " + url.protocol);
+		throw settings::settings_exception(__FILE__, __LINE__, "Undefined settings protocol: " + url.protocol + ", key=" + key);
 	}
 
 	bool NSCSettingsImpl::supports_edit(const std::string key) {
