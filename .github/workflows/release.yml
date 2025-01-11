@@ -47,4 +47,6 @@ jobs:
           NSCP-${{ inputs.version }}-Win32.zip
           installers/installer-NSCP/NSCP-${{ inputs.version }}-x64.msi
           installers/installer-NSCP/NSCP-${{ inputs.version }}-Win32.msi
+          NSCP-${{ inputs.version }}-x64-symbols.zip
+          NSCP-${{ inputs.version }}-Win32-symbols.zip
 
