@@ -20,15 +20,50 @@ add_definitions(-DUNICODE -D_UNICODE -DBOOST_ALL_NO_LIB)
 # Parse version
 #
 # ##############################################################################
-SET(NSCP_VERSION "0.0.0" CACHE STRING "The version to build")
-if(NSCP_VERSION STREQUAL "0.0.0")
-  message(WARNING "Version not specified, building ${NSCP_VERSION}")
+set(BUILD_VERSION "0.4.0" CACHE STRING "The version of NSClient++")
+message(STATUS "BUILD_VERSION: ${BUILD_VERSION}")
+if("${BUILD_VERSION}" STREQUAL "0.4.0")
+  message(WARNING "Version not specified using incorrect version ${BUILD_VERSION}")
 endif()
 
-set(NSCP_LIB_VERSION "${NSCP_VERSION}")
-set(NSCP_FULL_VERSION "${NSCP_VERSION}")
-string(REPLACE "." "," NSCP_VERSION_COMMA ${NSCP_VERSION})
+set(NSCP_LIB_VERSION "${BUILD_VERSION}")
+set(NSCP_FULL_VERSION "${BUILD_VERSION}")
+
+if("${BUILD_VERSION}" STREQUAL "")
+  message(FATAL_ERROR "No version specified")
+endif()
+if(BUILD_VERSION MATCHES ".*-.*")
+  # Parse 0.6.4-addedautomaticversionst2.8.70491e2f
+  message(STATUS "Parsing branch version: ${BUILD_VERSION}")
+  string(REGEX
+          REPLACE "([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)"
+          "\\1.\\2.\\3" NSCP_VERSION_NUMBER "${BUILD_VERSION}")
+  string(REGEX
+          REPLACE "([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)"
+          "\\5" VERSION_BUILD "${BUILD_VERSION}")
+else()
+  # Parse 1.2.3
+  set(NSCP_VERSION_NUMBER ${BUILD_VERSION})
+  set(VERSION_BUILD 0)
+endif()
+message(STATUS "Version: ${BUILD_VERSION} decoded as ${NSCP_VERSION_NUMBER}.${VERSION_BUILD}")
+STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)" "\\1" VERSION_SERIES ${NSCP_VERSION_NUMBER})
+STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)" "\\2" VERSION_MAJOR ${NSCP_VERSION_NUMBER})
+STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)" "\\3" VERSION_MINOR ${NSCP_VERSION_NUMBER})
+message(STATUS "Version: ${NSCP_VERSION_NUMBER} decoded as ${VERSION_SERIES}.${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_BUILD}")
+
+string(REPLACE "." "," NSCP_VERSION_COMMA ${NSCP_VERSION_NUMBER})
 string(TIMESTAMP NSCP_VERSION_DATE "%Y-%m-%d" UTC)
+if(WIN32)
+  set(VERSION_ARCH Win32)
+  if(CMAKE_CL_64)
+    set(VERSION_ARCH x64)
+  endif(CMAKE_CL_64)
+else(WIN32)
+  set(VERSION_ARCH Unknown)
+endif(WIN32)
+
+
 configure_file(${NSCP_INCLUDEDIR}/config.h.in
                ${PROJECT_BINARY_DIR}/include/config.h @ONLY)
 configure_file(${NSCP_INCLUDEDIR}/version.hpp.in
