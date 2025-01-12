@@ -618,7 +618,7 @@ void CheckEventLog::list_providers(const PB::Commands::ExecuteRequestMessage::Re
 			DWORD status = ERROR_SUCCESS;
 			hProviders = eventlog::EvtOpenChannelEnum(NULL, 0);
 			if (!hProviders) {
-				NSC_LOG_ERROR("EvtOpenChannelEnum failed: ", error::lookup::last_error());
+				NSC_LOG_ERROR("EvtOpenChannelEnum failed: " + error::lookup::last_error());
 				return;
 			}
 			while (true) {
