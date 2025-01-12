@@ -12,7 +12,6 @@
 
 #include <boost/asio.hpp>
 #include <boost/algorithm/string.hpp>
-#include <boost/foreach.hpp>
 
 #include <string>
 
@@ -174,7 +173,7 @@ std::string session_manager_interface::get_metrics_v2() {
 }
 std::string session_manager_interface::get_openmetrics() {
 	std::string metrics;
-	BOOST_FOREACH(const std::string &m, metrics_store.get_openmetrics()) {
+	for(const std::string &m: metrics_store.get_openmetrics()) {
 		metrics += m + "\n";
 	}
 	return metrics;

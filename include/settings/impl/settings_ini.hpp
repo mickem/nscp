@@ -158,7 +158,7 @@ namespace settings {
 			std::string::size_type path_len = path.length();
 			ini.GetAllSections(lst);
 			if (path.empty()) {
-				BOOST_FOREACH(const CSimpleIni::Entry &e, lst) {
+				for(const CSimpleIni::Entry &e: lst) {
 					std::string key = utf8::cvt<std::string>(e.pItem);
 					if (key.length() > 1) {
 						std::string::size_type pos = key.find('/', 1);
@@ -168,7 +168,7 @@ namespace settings {
 					list.push_back(key);
 				}
 			} else {
-				BOOST_FOREACH(const CSimpleIni::Entry &e, lst) {
+				for(const CSimpleIni::Entry &e: lst) {
 					std::string key = utf8::cvt<std::string>(e.pItem);
 					if (key.length() > path_len + 1 && key.substr(0, path_len) == path) {
 						std::string::size_type pos = key.find('/', path_len + 1);
@@ -206,7 +206,7 @@ namespace settings {
 			load_data();
 			CSimpleIni::TNamesDepend lst;
 			ini.GetAllKeys(utf8::cvt<std::wstring>(path).c_str(), lst);
-			BOOST_FOREACH(const CSimpleIni::Entry &e, lst) {
+			for(const CSimpleIni::Entry &e: lst) {
 				list.push_back(utf8::cvt<std::string>(e.pItem));
 			}
 		}
@@ -227,7 +227,7 @@ namespace settings {
 			settings::error_list ret;
 			CSimpleIni::TNamesDepend sections;
 			ini.GetAllSections(sections);
-			BOOST_FOREACH(const CSimpleIni::Entry &ePath, sections) {
+			for(const CSimpleIni::Entry &ePath: sections) {
 				std::string path = utf8::cvt<std::string>(ePath.pItem);
 				try {
 					get_core()->get_registred_path(path);
@@ -236,7 +236,7 @@ namespace settings {
 				}
 				CSimpleIni::TNamesDepend keys;
 				ini.GetAllKeys(ePath.pItem, keys);
-				BOOST_FOREACH(const CSimpleIni::Entry &eKey, keys) {
+				for(const CSimpleIni::Entry &eKey: keys) {
 					std::string key = utf8::cvt<std::string>(eKey.pItem);
 					try {
 						get_core()->get_registred_key(path, key);
@@ -261,7 +261,7 @@ namespace settings {
 			if (boost::filesystem::is_directory(get_file_name())) {
 				boost::filesystem::directory_iterator it(get_file_name()), eod;
 
-				BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
+				for(boost::filesystem::path const &p: boost::make_iterator_range(it, eod)) {
 					add_child_unsafe(file_helpers::meta::get_filename(p), "ini:///" + p.string());
 				}
 			}

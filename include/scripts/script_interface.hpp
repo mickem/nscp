@@ -25,7 +25,6 @@
 
 #include <boost/shared_ptr.hpp>
 #include <boost/optional.hpp>
-#include <boost/foreach.hpp>
 
 #include <NSCAPI.h>
 
@@ -187,13 +186,13 @@ namespace scripts {
 
 		void load_all() {
 			// TODO: locked
-			BOOST_FOREACH(typename script_list_type::value_type &entry, scripts_) {
+			for(typename script_list_type::value_type &entry: scripts_) {
 				script_runtime->load(entry.second);
 			}
 		}
 		void unload_all() {
 			// TODO: locked
-			BOOST_FOREACH(typename script_list_type::value_type &entry, scripts_) {
+			for(typename script_list_type::value_type &entry: scripts_) {
 				script_information<script_trait> * info = entry.second;
 				script_runtime->unload(info);
 				delete info;

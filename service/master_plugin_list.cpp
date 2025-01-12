@@ -21,8 +21,6 @@
 
 #include <str/xtos.hpp>
 
-#include <boost/foreach.hpp>
-
 
 nsclient::core::master_plugin_list::master_plugin_list(nsclient::logging::logger_instance log_instance)
 	: next_plugin_id_(0)
@@ -74,7 +72,7 @@ std::list<nsclient::core::master_plugin_list::plugin_type> nsclient::core::maste
 		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 		return ret;
 	}
-	BOOST_FOREACH(plugin_type &plugin, plugins_) {
+	for(plugin_type &plugin: plugins_) {
 		ret.push_back(plugin);
 	}
 	return ret;
@@ -90,7 +88,7 @@ nsclient::core::master_plugin_list::plugin_type nsclient::core::master_plugin_li
 		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 		return plugin_type ();
 	}
-	BOOST_FOREACH(plugin_type plugin, plugins_) {
+	for(plugin_type plugin: plugins_) {
 		if (plugin && (plugin->getModule() == module)) {
 			return plugin;
 		}
@@ -107,7 +105,7 @@ nsclient::core::master_plugin_list::plugin_type nsclient::core::master_plugin_li
 		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 		return plugin_type();
 	}
-	BOOST_FOREACH(plugin_type plugin, plugins_) {
+	for(plugin_type plugin: plugins_) {
 		if (plugin && (plugin->get_alias_or_name() == alias)) {
 			return plugin;
 		}
@@ -121,7 +119,7 @@ nsclient::core::master_plugin_list::plugin_type nsclient::core::master_plugin_li
 		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 		return plugin_type();
 	}
-	BOOST_FOREACH(plugin_type plugin, plugins_) {
+	for(plugin_type plugin: plugins_) {
 		if (plugin->get_id() == plugin_id)
 			return plugin;
 	}
@@ -135,7 +133,7 @@ nsclient::core::master_plugin_list::plugin_type nsclient::core::master_plugin_li
 // 		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 // 		return plugin_type();
 // 	}
-// 	BOOST_FOREACH(plugin_type plugin, plugins_) {
+// 	for(plugin_type plugin: plugins_) {
 // 		std::string s = boost::to_lower_copy(plugin->get_alias());
 // 		if (s == key)
 // 			return plugin;
@@ -154,7 +152,7 @@ nsclient::core::master_plugin_list::plugin_type nsclient::core::master_plugin_li
 		return plugin_type();
 	}
 
-	BOOST_FOREACH(plugin_type plug, plugins_) {
+	for(plugin_type plug: plugins_) {
 		if (plug->is_duplicate(file, alias)) {
 			LOG_DEBUG_CORE_STD("Found duplicate plugin returning old " + str::xtos(plug->get_id()));
 			return plug;

@@ -30,7 +30,6 @@
 #include <str/utils.hpp>
 #include <utf8.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/bind/bind.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/bind/bind.hpp>
@@ -51,7 +50,7 @@ namespace alias {
 
 		std::string get_argument() const {
 			std::string args;
-			BOOST_FOREACH(const std::string &s, arguments) {
+			for(const std::string &s: arguments) {
 				if (!args.empty())
 					args += " ";
 				args += s;
@@ -65,7 +64,7 @@ namespace alias {
 				<< "{tpl: " << parent::to_string();
 			ss << ", command: " << command << ", arguments: ";
 			bool first = true;
-			BOOST_FOREACH(const std::string &s, arguments) {
+			for(const std::string &s: arguments) {
 				if (first)
 					first = false;
 				else
@@ -118,7 +117,7 @@ namespace alias {
 				}
 				arguments.clear();
 				std::list<std::string> buffer;
-				BOOST_FOREACH(const std::string &s, list) {
+				for(const std::string &s: list) {
 					std::size_t len = s.length();
 					if (buffer.empty()) {
 						if (len > 2 && s[0] == '\"' && s[len - 1] == '\"') {
@@ -131,7 +130,7 @@ namespace alias {
 					} else {
 						if (len > 1 && s[len - 1] == '\"') {
 							std::string tmp;
-							BOOST_FOREACH(const std::string &s2, buffer) {
+							for(const std::string &s2: buffer) {
 								if (tmp.empty()) {
 									tmp = s2.substr(1);
 								} else {
@@ -146,7 +145,7 @@ namespace alias {
 					}
 				}
 				if (!buffer.empty()) {
-					BOOST_FOREACH(const std::string &s, buffer) {
+					for(const std::string &s: buffer) {
 						arguments.push_back(s);
 					}
 				}

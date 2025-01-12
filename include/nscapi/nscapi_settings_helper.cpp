@@ -21,7 +21,6 @@
 #include <utf8.hpp>
 
 #include <boost/any.hpp>
-#include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 
 
@@ -154,11 +153,11 @@ namespace nscapi {
 
 			virtual void notify_path(settings_impl_interface_ptr core_, std::string path) const {
 				if (store_functor_) {
-					BOOST_FOREACH(std::string key, core_->get_keys(path)) {
+					for(std::string key: core_->get_keys(path)) {
 						std::string val = core_->get_string(path, key, "");
 						store_functor_->store(key, val);
 					}
-					BOOST_FOREACH(std::string key, core_->get_sections(path)) {
+					for(std::string key: core_->get_sections(path)) {
 						store_functor_->store(key, "");
 					}
 				}
@@ -534,7 +533,7 @@ namespace nscapi {
 
 
 		void settings_registry::register_all() const {
-			BOOST_FOREACH(key_list::value_type v, keys_) {
+			for(key_list::value_type v: keys_) {
 				if (v->key) {
 					if (v->has_parent()) {
 						core_->register_key(v->parent, v->key_name, v->description.title, v->description.description, v->key->get_default(), v->description.advanced, v->is_sample);
@@ -545,19 +544,19 @@ namespace nscapi {
 					}
 				}
 			}
-			BOOST_FOREACH(path_list::value_type v, paths_) {
+			for(path_list::value_type v: paths_) {
 				core_->register_path(v->path_name, v->description.title, v->description.description, v->description.advanced, v->is_sample);
 				if (v->is_subkey) {
 					core_->register_subkey(v->path_name, v->subkey_description.title, v->subkey_description.description, v->subkey_description.advanced, true);
 				}
 			}
-			BOOST_FOREACH(tpl_list_type::value_type v, tpl_) {
+			for(tpl_list_type::value_type v: tpl_) {
 				core_->register_tpl(v->path_name, v->description.title, v->description.icon, v->description.description, v->fields);
 			}
 		}
 
 		void settings_registry::notify() {
-			BOOST_FOREACH(key_list::value_type v, keys_) {
+			for(key_list::value_type v: keys_) {
 				try {
 					if (v->key) {
 						if (v->has_parent())
@@ -571,7 +570,7 @@ namespace nscapi {
 					core_->err(__FILE__, __LINE__, "Failed to notify " + v->key_name);
 				}
 			}
-			BOOST_FOREACH(path_list::value_type v, paths_) {
+			for(path_list::value_type v: paths_) {
 				try {
 					if (v->path)
 						v->path->notify_path(core_, v->path_name);

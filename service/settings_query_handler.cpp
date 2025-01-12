@@ -8,7 +8,6 @@
 #ifdef HAVE_JSON_SPIRIT
 #include <json_spirit.h>
 #endif
-#include <boost/foreach.hpp>
 #include <boost/unordered_set.hpp>
 
 namespace nsclient {
@@ -25,7 +24,7 @@ namespace nsclient {
 
 
 		void settings_query_handler::settings_add_plugin_data(const std::set<unsigned int> &plugins, PB::Settings::Information* info) {
-			BOOST_FOREACH(const unsigned int i, plugins) {
+			for(const unsigned int i: plugins) {
 				std::string name = core_->get_plugin_cache()->find_plugin_alias(i);
 				if (name.substr(0, 21) != "Failed to find plugin") {
 					info->add_plugin(name);
@@ -37,7 +36,7 @@ namespace nsclient {
 		void settings_query_handler::parse(PB::Settings::SettingsResponseMessage &response) {
 			std::string response_string;
 
-			BOOST_FOREACH(const PB::Settings::SettingsRequestMessage::Request &r, request_.payload()) {
+			for(const PB::Settings::SettingsRequestMessage::Request &r: request_.payload()) {
 				PB::Settings::SettingsResponseMessage::Response* rp = response.add_payload();
 				try {
 					if (r.has_inventory()) {
@@ -99,13 +98,13 @@ namespace nsclient {
 					t.start("fetching paths");
 					std::list<std::string> list = settings_manager::get_core()->get_reg_sections(base_path, fetch_samples);
 					t.end();
-					BOOST_FOREACH(const std::string &path, list) {
+					for(const std::string &path: list) {
 						if (q.fetch_keys()) {
 							t.start("fetching keys");
 							std::list<std::string> klist = settings_manager::get_core()->get_reg_keys(path, fetch_samples);
 							t.end();
 							boost::unordered_set<std::string> cache;
-							BOOST_FOREACH(const std::string &key, klist) {
+							for(const std::string &key: klist) {
 								settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
 								if (plugin_id && !desc.has_plugin(*plugin_id))
 									continue;
@@ -127,7 +126,7 @@ namespace nsclient {
 								t.start("fetching more keys");
 								klist = settings_manager::get_settings()->get_keys(path);
 								t.end();
-								BOOST_FOREACH(const std::string &key, klist) {
+								for(const std::string &key: klist) {
 									if (cache.find(key) == cache.end()) {
 										PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 										rpp->mutable_node()->set_path(path);
@@ -163,7 +162,7 @@ namespace nsclient {
 						std::list<std::string> list = settings_manager::get_core()->get_reg_keys(path, fetch_samples);
 						t.end();
 						boost::unordered_set<std::string> cache;
-						BOOST_FOREACH(const std::string &key, list) {
+						for(const std::string &key: list) {
 							t.start("fetching keys");
 							settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
 							if (plugin_id && !desc.has_plugin(*plugin_id))
@@ -187,7 +186,7 @@ namespace nsclient {
 							t.start("fetching more keys");
 							list = settings_manager::get_settings()->get_keys(path);
 							t.end();
-							BOOST_FOREACH(const std::string &key, list) {
+							for(const std::string &key: list) {
 								if (cache.find(key) == cache.end()) {
 									PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 									rpp->mutable_node()->set_path(path);
@@ -216,7 +215,7 @@ namespace nsclient {
 				}
 				if (q.fetch_templates()) {
 					t.start("fetching templates");
-					BOOST_FOREACH(const settings::settings_core::tpl_description &desc, settings_manager::get_core()->get_registred_tpls()) {
+					for(const settings::settings_core::tpl_description &desc: settings_manager::get_core()->get_registred_tpls()) {
 						PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 						rpp->mutable_node()->set_path(desc.path);
 						rpp->mutable_info()->set_title(desc.title);
@@ -235,7 +234,7 @@ namespace nsclient {
 			if (base_path.size() > 1 && base_path[base_path.size() - 1] == '/') {
 				path = base_path.substr(0, base_path.size()-1);
 			}
-			BOOST_FOREACH(const std::string &child, settings_manager::get_settings()->get_sections(path)) {
+			for(const std::string &child: settings_manager::get_settings()->get_sections(path)) {
 				std::string child_path = settings::join_path(path, child);
 				if (!fetch_keys) {
 					PB::Settings::Node *node = rpp->add_nodes();
@@ -246,7 +245,7 @@ namespace nsclient {
 				}
 			}
 			if (fetch_keys) {
-				BOOST_FOREACH(const std::string &key, settings_manager::get_settings()->get_keys(path)) {
+				for(const std::string &key: settings_manager::get_settings()->get_keys(path)) {
 					PB::Settings::Node *node = rpp->add_nodes();
 					node->set_path(path);
 					node->set_key(key);

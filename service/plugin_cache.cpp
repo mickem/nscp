@@ -3,7 +3,6 @@
 #include <str/xtos.hpp>
 
 #include <boost/thread/locks.hpp>
-#include <boost/foreach.hpp>
 
 
 void nsclient::core::plugin_cache::add_plugins(const plugin_cache_list_type & item) {
@@ -35,7 +34,7 @@ bool nsclient::core::plugin_cache::has_module(const std::string module) {
 		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 		return false;
 	}
-	BOOST_FOREACH(const plugin_cache_item &i, plugin_cache_) {
+	for(const plugin_cache_item &i: plugin_cache_) {
 		if (i.dll == module || i.alias == module) {
 			return true;
 		}
@@ -49,7 +48,7 @@ boost::optional<unsigned int> nsclient::core::plugin_cache::find_plugin(const ::
 		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 		return boost::optional<unsigned int>();
 	}
-	BOOST_FOREACH(const plugin_cache_item &i, plugin_cache_) {
+	for(const plugin_cache_item &i: plugin_cache_) {
 		if (i.dll == name || i.alias == name) {
 			return boost::optional<unsigned int>(i.id);
 		}
@@ -63,7 +62,7 @@ boost::optional<nsclient::core::plugin_cache_item> nsclient::core::plugin_cache:
 		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 		return boost::optional<nsclient::core::plugin_cache_item>();
 	}
-	BOOST_FOREACH(const plugin_cache_item &i, plugin_cache_) {
+	for(const plugin_cache_item &i: plugin_cache_) {
 		if (i.id == id) {
 			return boost::optional<nsclient::core::plugin_cache_item>(i);
 		}
@@ -91,7 +90,7 @@ void nsclient::core::plugin_cache::add_plugin(nsclient::core::plugin_type plugin
 			LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
 			return;
 		}
-		BOOST_FOREACH(plugin_cache_item &i, plugin_cache_) {
+		for(plugin_cache_item &i: plugin_cache_) {
 			if (i.dll == item.dll && i.alias == item.alias) {
 				i.is_loaded = item.is_loaded;
 				i.id = item.id;
@@ -110,7 +109,7 @@ void nsclient::core::plugin_cache::remove_plugin(unsigned int plugin_id) {
 		LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
 		return;
 	}
-	BOOST_FOREACH(plugin_cache_item &i, plugin_cache_) {
+	for(plugin_cache_item &i: plugin_cache_) {
 		if (i.id == plugin_id) {
 			i.is_loaded = false;
 			i.id = -1;

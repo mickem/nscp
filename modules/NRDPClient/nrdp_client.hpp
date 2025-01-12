@@ -84,7 +84,7 @@ namespace nrdp_client {
 
 			nrdp::data nrdp_data;
 
-			BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage_Response &p, request_message.payload()) {
+			for(const ::PB::Commands::QueryResponseMessage_Response &p: request_message.payload()) {
 				std::string msg = nscapi::protobuf::functions::query_data_to_nagios_string(p, nscapi::protobuf::functions::no_truncation);
 				std::string alias = p.alias();
 				if (alias.empty())

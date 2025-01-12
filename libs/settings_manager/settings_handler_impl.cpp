@@ -2,8 +2,6 @@
 
 #include <str/xtos.hpp>
 
-#include <boost/foreach.hpp>
-
 settings::instance_ptr settings::settings_handler_impl::get() {
 	boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!mutex.owns_lock())
@@ -23,9 +21,9 @@ settings::instance_ptr settings::settings_handler_impl::get_no_wait() {
 }
 
 void settings::settings_handler_impl::update_defaults() {
-	BOOST_FOREACH(const std::string &path, get_reg_sections("", false)) {
+	for(const std::string &path: get_reg_sections("", false)) {
 		get()->add_path(path);
-		BOOST_FOREACH(const std::string &key, get_reg_keys(path, false)) {
+		for(const std::string &key: get_reg_keys(path, false)) {
 			settings_core::key_description desc = get_registred_key(path, key);
 			if (!desc.advanced) {
 				if (!get()->has_key(path, key)) {
@@ -46,8 +44,8 @@ void settings::settings_handler_impl::update_defaults() {
 }
 
 void settings::settings_handler_impl::remove_defaults() {
-	BOOST_FOREACH(std::string path, get_reg_sections("", false)) {
-		BOOST_FOREACH(std::string key, get_reg_keys(path, false)) {
+	for(std::string path: get_reg_sections("", false)) {
+		for(std::string key: get_reg_keys(path, false)) {
 			settings_core::key_description desc = get_registred_key(path, key);
 			if (get()->has_key(path, key)) {
 				try {

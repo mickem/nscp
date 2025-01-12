@@ -78,7 +78,7 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
 	if (total)
 		total_obj = ping_filter::filter_obj::get_total();
 
-	BOOST_FOREACH(const std::string &host, hosts) {
+	for(const std::string &host: hosts) {
 		result_container result;
 		for (int i = 0; i < count; i++) {
 			boost::asio::io_service io_service;

@@ -124,7 +124,7 @@ namespace nrpe_client {
 
 			handler_->log_debug(__FILE__, __LINE__, "Connecting to: " + con.to_string());
 
-			BOOST_FOREACH(const std::string &e, con.validate()) {
+			for(const std::string &e: con.validate()) {
 				handler_->log_error(__FILE__, __LINE__, e);
 			}
 
@@ -217,7 +217,7 @@ namespace nrpe_client {
 				std::string payload;
 				if (responses.size() > 0)
 					result = static_cast<int>(responses.front().getResult());
-				BOOST_FOREACH(const nrpe::packet &p, responses) {
+				for(const nrpe::packet &p: responses) {
 					payload += p.getPayload();
 				}
 

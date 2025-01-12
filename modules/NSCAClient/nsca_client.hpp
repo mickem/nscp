@@ -131,7 +131,7 @@ namespace nsca_client {
 			else if (target.has_data("payload length"))
 				len = target.get_int_data("payload length", 512);
 			std::list<nsca::packet> list;
-			BOOST_FOREACH(const PB::Commands::QueryResponseMessage::Response &payload, request_message.payload()) {
+			for(const PB::Commands::QueryResponseMessage::Response &payload: request_message.payload()) {
 				nsca::packet packet(sender.get_host(), len, 0);
 				std::string alias = payload.alias();
 				if (alias.empty())
@@ -167,7 +167,7 @@ namespace nsca_client {
 				}
 				client.connect();
 
-				BOOST_FOREACH(const nsca::packet &packet, packets) {
+				for(const nsca::packet &packet: packets) {
 					client.process_request(packet);
 				}
 				client.shutdown();

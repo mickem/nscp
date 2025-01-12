@@ -131,7 +131,7 @@ namespace settings {
 			reg_key path = get_reg_key("/includes");
 			getValues_(path, list);
 			get_core()->register_path(999, "/includes", "INCLUDED FILES", "Files to be included in the configuration", false, false);
-			BOOST_FOREACH(const std::string &s, list) {
+			for(const std::string &s: list) {
 				op_string child = getString_(path, s);
 				if (child) {
 					get_core()->register_key(999, "/includes", s, "INCLUDED FILE", *child, *child, false, false);

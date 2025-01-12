@@ -22,7 +22,6 @@
 #include <map>
 #include <string>
 
-#include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 
@@ -46,7 +45,7 @@ namespace settings_client {
 				ss << _T(", host: ") << host;
 				ss << _T(", protocol: ") << protocol;
 				ss << _T(", parent: ") << parent;
-				BOOST_FOREACH(options_type::value_type o, options) {
+				for(options_type::value_type o: options) {
 					ss << _T(", option[") << o.first << _T("]: ") << o.second;
 				}
 				return ss.str();

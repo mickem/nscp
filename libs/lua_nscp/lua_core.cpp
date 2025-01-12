@@ -135,7 +135,7 @@ void lua::lua_runtime::load(scripts::script_information<lua_traits> *info) {
 	lua_instance.set_userdata(lua::lua_traits::user_data_tag, info);
 	lua_instance.openlibs();
 	lua::lua_script::luaopen(info->user_data.L);
-	BOOST_FOREACH(lua::lua_runtime_plugin_type &plugin, plugins) {
+	for(lua::lua_runtime_plugin_type &plugin: plugins) {
 		plugin->load(lua_instance);
 	}
 	lua_instance.append_path(base_path + "/scripts/lua/lib/?.lua;" + base_path + "scripts/lua/?;");
@@ -146,7 +146,7 @@ void lua::lua_runtime::load(scripts::script_information<lua_traits> *info) {
 }
 void lua::lua_runtime::unload(scripts::script_information<lua_traits> *info) {
 	lua::lua_wrapper lua_instance(info->user_data.L);
-	BOOST_FOREACH(lua::lua_runtime_plugin_type &plugin, plugins) {
+	for(lua::lua_runtime_plugin_type &plugin: plugins) {
 		plugin->unload(lua_instance);
 	}
 	lua_instance.gc(LUA_GCCOLLECT, 0);

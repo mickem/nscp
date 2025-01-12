@@ -4,7 +4,6 @@
 #include <str/xtos.hpp>
 
 #include <boost/thread/locks.hpp>
-#include <boost/foreach.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
 #include <google/protobuf/io/zero_copy_stream.h>
@@ -69,7 +68,7 @@ nsclient::core::storage_manager::entry_list nsclient::core::storage_manager::get
 		return ret;
 	}
 	std::string key = mk_key(plugin_name, context);
-	BOOST_FOREACH(const storage_type::value_type &v, storage_) {
+	for(const storage_type::value_type &v: storage_) {
 		if (boost::algorithm::starts_with(v.first, key)) {
 			ret.push_back(v.second.entry);
 		}
@@ -109,7 +108,7 @@ void nsclient::core::storage_manager::save() {
 				return;
 			}
 
-			BOOST_FOREACH(const storage_type::value_type &v, storage_) {
+			for(const storage_type::value_type &v: storage_) {
 				::PB::Storage::Storage::Block block;
 				block.set_owner(v.second.owner);
 				block.mutable_entry()->CopyFrom(v.second.entry);

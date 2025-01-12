@@ -46,7 +46,7 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 
 	if (mode == NSCAPI::reloadStart) {
 		nscapi::core_helper ch(get_core(), get_id());
-		BOOST_FOREACH(const std::string &s, script_wrapper::functions::get()->get_commands()) {
+		for(const std::string &s: script_wrapper::functions::get()->get_commands()) {
 			ch.unregister_command(s);
 		}
 		if (provider_) {
@@ -255,7 +255,7 @@ void PythonScript::handleNotification(const std::string &channel, const PB::Comm
 		}
 	}
 	if (inst->has_simple_message_handler(channel)) {
-		BOOST_FOREACH(::PB::Commands::QueryResponseMessage_Response_Line line, request.lines()) {
+		for(::PB::Commands::QueryResponseMessage_Response_Line line: request.lines()) {
 			std::string perf = nscapi::protobuf::functions::build_performance_data(line, nscapi::protobuf::functions::no_truncation);
 			if (inst->handle_simple_message(channel, request.source(), request.command(), request.result(), line.message(), perf) != NSCAPI::api_return_codes::isSuccess)
 				return nscapi::protobuf::functions::set_response_bad(*response, "Invalid response: " + channel);
@@ -270,10 +270,10 @@ void PythonScript::onEvent(const PB::Commands::EventMessage &request, const std:
 	if (inst->has_event_handler("$$event$$")) {
 		inst->on_event("$$event$$", buffer);
 	}
-	BOOST_FOREACH(const ::PB::Commands::EventMessage::Request &line, request.payload()) {
+	for(const ::PB::Commands::EventMessage::Request &line: request.payload()) {
 		if (inst->has_simple_event_handler(line.event())) {
 			boost::python::dict data;
-			BOOST_FOREACH(const PB::Common::KeyValue e, line.data()) {
+			for(const PB::Common::KeyValue e: line.data()) {
 				data[e.key()] = e.value();
 			}
 			inst->on_simple_event(line.event(), data);
@@ -295,7 +295,7 @@ void PythonScript::fetchMetrics(PB::Metrics::MetricsMessage::Response *response)
 		PB::Metrics::MetricsMessage::Response r2;
 		inst->fetch_metrics(buffer);
 		r2.ParseFromString(buffer);
-		BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, r2.bundles())
+		for(const PB::Metrics::MetricsBundle &b: r2.bundles())
 			response->add_bundles()->CopyFrom(b);
 	}
 }

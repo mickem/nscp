@@ -361,11 +361,11 @@ namespace nscapi {
 			if (!extra_info.empty())
 				main_stream << extra_info  << std::endl;
 			std::string::size_type opwidth = 23;
-			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
+			for(const boost::shared_ptr<po::option_description> op: desc.options()) {
 				if (op->long_name().size() > opwidth)
 					opwidth = op->long_name().size();
 			}
-			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
+			for(const boost::shared_ptr<po::option_description> op: desc.options()) {
 				std::stringstream ss;
 				ss << "  " << op->long_name();
 				bool hasargs = op->semantic()->max_tokens() != 0;
@@ -401,7 +401,7 @@ namespace nscapi {
 			if (!extra_info.empty())
 				main_stream << extra_info  << std::endl;
 			std::string::size_type opwidth = 0;
-			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
+			for(const boost::shared_ptr<po::option_description> op: desc.options()) {
 				if (op->long_name().size() > opwidth)
 					opwidth = op->long_name().size();
 				if (op->semantic()->max_tokens() != 0) {
@@ -411,7 +411,7 @@ namespace nscapi {
 				}
 			}
 			opwidth++;
-			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
+			for(const boost::shared_ptr<po::option_description> op: desc.options()) {
 				std::stringstream ss;
 				ss << op->long_name();
 				if (op->semantic()->max_tokens() != 0)
@@ -445,7 +445,7 @@ namespace nscapi {
 		}
 		inline std::string help_csv(const po::options_description &desc, const std::string &) {
 			std::stringstream main_stream;
-			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
+			for(const boost::shared_ptr<po::option_description> op: desc.options()) {
 				main_stream << make_csv(op->long_name()) << ",";
 				bool hasargs = op->semantic()->max_tokens() != 0;
 				if (hasargs)
@@ -460,7 +460,7 @@ namespace nscapi {
 
 		inline std::string help_pb(const po::options_description &desc, const field_map &fields) {
 			::PB::Registry::ParameterDetails details;
-			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
+			for(const boost::shared_ptr<po::option_description> op: desc.options()) {
 				::PB::Registry::ParameterDetail *detail = details.add_parameter();
 				detail->set_name(op->long_name());
 				bool hasargs = op->semantic()->max_tokens() != 0;
@@ -477,7 +477,7 @@ namespace nscapi {
 					detail->set_short_description(ldesc.substr(0, pos));
 				detail->set_long_description(ldesc);
 			}
-			BOOST_FOREACH(const field_map::value_type &v, fields) {
+			for(const field_map::value_type &v: fields) {
 				::PB::Registry::FieldDetail *field= details.add_fields();
 				field->set_name(v.first);
 				field->set_long_description(v.second);
@@ -492,7 +492,7 @@ namespace nscapi {
 
 		inline std::string help_show_default(const po::options_description &desc) {
 			std::stringstream ret;
-			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
+			for(const boost::shared_ptr<po::option_description> op: desc.options()) {
 				std::string param = strip_default_value(op->format_parameter());
 				if (param.empty())
 					continue;

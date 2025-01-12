@@ -30,7 +30,6 @@
 #undef vsnprintf
 #endif
 #include <boost/thread.hpp>
-#include <boost/foreach.hpp>
 
 namespace script_wrapper {
 
@@ -124,10 +123,10 @@ namespace script_wrapper {
 		}
 		std::list<std::string> get_commands() const {
 			std::list<std::string> ret;
-			BOOST_FOREACH(const function_map_type::value_type &v, simple_functions) {
+			for(const function_map_type::value_type &v: simple_functions) {
 				ret.push_back(v.first);
 			}
-			BOOST_FOREACH(const function_map_type::value_type &v, normal_functions) {
+			for(const function_map_type::value_type &v: normal_functions) {
 				ret.push_back(v.first);
 			}
 			return ret;

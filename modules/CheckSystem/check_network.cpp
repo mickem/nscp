@@ -119,7 +119,7 @@ namespace network_check {
 			}
 		}
 		std::string keys;
-		BOOST_FOREACH(const netmap_type::value_type &v, netmap) {
+		for(const netmap_type::value_type &v: netmap) {
 			str::format::append_list(keys, v.first);
 
 		}
@@ -154,7 +154,7 @@ namespace network_check {
 			if (!readLock.owns_lock())
 				throw nsclient::nsclient_exception("Failed to get mutex for reading");
 			last = last_;
-			BOOST_FOREACH(const network_interface &v, nics_) {
+			for(const network_interface &v: nics_) {
 				netmap[v.get_name()] = v;
 			}
 		}
@@ -164,7 +164,7 @@ namespace network_check {
 			query_nif(netmap);
 			query_prd(netmap, delta);
 				
-			BOOST_FOREACH(const netmap_type::value_type &v, netmap) {
+			for(const netmap_type::value_type &v: netmap) {
 				if (!v.second.is_compleate())
 					continue;
 				tmp.push_back(v.second);
@@ -240,7 +240,7 @@ namespace network_check {
 
 			if (!filter_helper.build_filter(filter))
 				return;
-			BOOST_FOREACH(network_check::nics_type::value_type v, nicdata) {
+			for(network_check::nics_type::value_type v: nicdata) {
 				boost::shared_ptr<filter_obj> record(new filter_obj(v));
 				filter.match(record);
 			}

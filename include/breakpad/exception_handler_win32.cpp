@@ -52,7 +52,6 @@
 #ifdef WIN32
 #include <ServiceCmd.h>
 #endif
-#include <boost/foreach.hpp>
 
 // Some simple string typedefs
 #define STRING16(x) reinterpret_cast<const char16*>(x)
@@ -133,7 +132,7 @@ void report_info(std::string err) {
 
 std::string build_commandline(std::vector<std::string> &commands) {
 	std::string command_line;
-	BOOST_FOREACH(const std::string &s, commands) {
+	for(const std::string &s: commands) {
 		if (!command_line.empty())
 			command_line += " ";
 		command_line += "\"" + s + "\"";

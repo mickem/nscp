@@ -27,7 +27,6 @@
 
 #include <boost/noncopyable.hpp>
 #include <boost/optional.hpp>
-#include <boost/foreach.hpp>
 #include <boost/tuple/tuple.hpp>
 
 #include <map>
@@ -152,7 +151,7 @@ namespace collectd {
 			for (std::size_t i = 0;  i < value_data.size(); i++) {
 				append_value_type(value_type);
 			}
-			BOOST_FOREACH(const double &v, value_data) {
+			for(const double &v: value_data) {
 				append_value_value(v);
 			}
 			int16_t len = static_cast<int16_t>(buffer.length() - pos);
@@ -167,7 +166,7 @@ namespace collectd {
 			for (std::size_t i = 0; i < value_data.size(); i++) {
 				append_value_type(value_type);
 			}
-			BOOST_FOREACH(const long long &v, value_data) {
+			for(const long long &v: value_data) {
 				append_value_value(v);
 			}
 			int16_t len = static_cast<int16_t>(buffer.length() - pos);
@@ -250,13 +249,13 @@ namespace collectd {
 				ss << "=";
 				if (!gauges.empty()) {
 					ss << " gagues: ";
-					BOOST_FOREACH(const double &d, gauges) {
+					for(const double &d: gauges) {
 						ss << d << ", ";
 					}
 				}
 				if (!derives.empty()) {
 					ss << " derives: ";
-					BOOST_FOREACH(const long long &d, derives) {
+					for(const long long &d: derives) {
 						ss << d << ", ";
 					}
 				}
@@ -294,7 +293,7 @@ namespace collectd {
 		void add_value(metric_container &metric, std::string value) {
 			str::utils::token svalue = str::utils::split2(value, ":");
 			if (svalue.first == "gauge") {
-				BOOST_FOREACH(const std::string &vkey, str::utils::split_lst(svalue.second, ",")) {
+				for(const std::string &vkey: str::utils::split_lst(svalue.second, ",")) {
 					if (vkey.size() > 0 && vkey[0] >= '0' && vkey[0] <= '9')
 						metric.gauges.push_back(str::stox<double>(vkey, 0));
 					else
@@ -312,9 +311,9 @@ namespace collectd {
 
 
 		void add_type(std::string value, std::string plugin, boost::optional<std::string> p_instance, std::string tpe, boost::optional<std::string> t_instance) {
-			BOOST_FOREACH(const expanded_keys &et, expand_keyword(tpe, value)) {
+			for(const expanded_keys &et: expand_keyword(tpe, value)) {
 				if (t_instance) {
-					BOOST_FOREACH(const expanded_keys &ei, expand_keyword(*t_instance, et.value)) {
+					for(const expanded_keys &ei: expand_keyword(*t_instance, et.value)) {
 						metric_container m = metric_container(time_hr, interval_hr);
 						m.set_plugin(plugin, p_instance);
 						m.set_type(et.key, ei.key);
@@ -353,9 +352,9 @@ namespace collectd {
 
 
 
-			BOOST_FOREACH(const expanded_keys &ep, expand_keyword(plugin, value)) {
+			for(const expanded_keys &ep: expand_keyword(plugin, value)) {
 				if (p_instance) {
-					BOOST_FOREACH(const expanded_keys &ei, expand_keyword(*p_instance, ep.value)) {
+					for(const expanded_keys &ei: expand_keyword(*p_instance, ep.value)) {
 						add_type(ei.value, ep.key, ei.key, tpe, t_instance);
 					}
 				} else {
@@ -377,7 +376,7 @@ namespace collectd {
 
 		std::string to_string() const {
 			std::stringstream ss;
-			BOOST_FOREACH(const metric_container &m, rendererd_metrics) {
+			for(const metric_container &m: rendererd_metrics) {
 				ss << m.to_string() << "\n";
 			}
 			return ss.str();
@@ -391,7 +390,7 @@ namespace collectd {
 			std::string last_plugin_instance = "";
 			std::string last_type = "";
 			std::string last_type_instance = "";
-			BOOST_FOREACH(const metric_container &m, rendererd_metrics) {
+			for(const metric_container &m: rendererd_metrics) {
 				if (is_new) {
 					last_plugin = "";
 					last_plugin_instance = "";

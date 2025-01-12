@@ -13,8 +13,6 @@ extern "C" {
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 
-#include <boost/foreach.hpp>
-
 #ifndef TRUE
 #define TRUE 1
 #endif
@@ -292,7 +290,7 @@ void lua::lua_wrapper::push_raw_string(std::string s) {
 void lua::lua_wrapper::push_array(const std::list<std::string> &arr) {
 	lua_createtable(L, 0, static_cast<int>(arr.size()));
 	int i = 0;
-	BOOST_FOREACH(const std::string &s, arr) {
+	for(const std::string &s: arr) {
 		lua_pushnumber(L, i++);
 		lua_pushstring(L, s.c_str());
 		lua_settable(L, -3);
@@ -301,7 +299,7 @@ void lua::lua_wrapper::push_array(const std::list<std::string> &arr) {
 void lua::lua_wrapper::push_array(const std::vector<std::string> &arr) {
 	lua_createtable(L, 0, static_cast<int>(arr.size()));
 	int i = 0;
-	BOOST_FOREACH(const std::string &s, arr) {
+	for(const std::string &s: arr) {
 		lua_pushnumber(L, i++);
 		lua_pushstring(L, s.c_str());
 		lua_settable(L, -3);
@@ -350,7 +348,7 @@ std::string lua::lua_wrapper::dump_stack() {
 		} else if (t == LUA_TTABLE) {
 			std::list<std::string> list = pop_array();
 			ret += "<" + str::xtos(list.size()) + ">[";
-			BOOST_FOREACH(std::string s, list) {
+			for(std::string s: list) {
 				ret += s + ", ";
 			}
 			ret += "]";

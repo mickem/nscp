@@ -132,7 +132,7 @@ void NRPEClient::query_fallback(const PB::Commands::QueryRequestMessage &request
 }
 
 bool NRPEClient::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response) {
-	BOOST_FOREACH(const PB::Commands::ExecuteRequestMessage::Request &payload, request.payload()) {
+	for(const PB::Commands::ExecuteRequestMessage::Request &payload: request.payload()) {
 		if (payload.arguments_size() > 0 && payload.arguments(0) == "install") {
 			PB::Commands::ExecuteResponseMessage::Response *rp = response.add_payload();
 			return install_server(payload, rp);
@@ -186,7 +186,7 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
 		return true;
 	}
 	std::list<pf::settings_query::key_values> values = q.get_query_key_response();
-	BOOST_FOREACH(const pf::settings_query::key_values &val, values) {
+	for(const pf::settings_query::key_values &val: values) {
 		if (val.matches("/settings/default", "allowed hosts"))
 			allowed_hosts = val.get_string();
 		else if (val.matches(path, "certificate"))
@@ -206,7 +206,7 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
 		else if (val.matches(path, "port"))
 			port = val.get_string();
 	}
-	BOOST_FOREACH(const pf::settings_query::key_values &val, values) {
+	for(const pf::settings_query::key_values &val: values) {
 		if (val.matches(path, "allow nasty characters")) {
 			if (arguments == "safe" && val.get_bool())
 				arguments = "all";
@@ -339,7 +339,7 @@ bool NRPEClient::make_cert(const PB::Commands::ExecuteRequestMessage::Request &r
 		return true;
 	}
 	std::list<pf::settings_query::key_values> values = q.get_query_key_response();
-	BOOST_FOREACH(const pf::settings_query::key_values &val, values) {
+	for(const pf::settings_query::key_values &val: values) {
 		if (val.matches(path, "certificate"))
 			cert = val.get_string();
 		else if (val.matches(path, "certificate key"))

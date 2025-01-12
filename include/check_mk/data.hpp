@@ -55,7 +55,7 @@ namespace check_mk {
 				std::string to_string() const {
 					std::string ret;
 					bool first = true;
-					BOOST_FOREACH(const std::string &item, items) {
+					for(const std::string &item: items) {
 						if (first) {
 							ret += item;
 							first = false;
@@ -107,7 +107,7 @@ namespace check_mk {
 			std::string to_string() const {
 				std::string ret;
 				ret += "<<<" + title + ">>>\n";
-				BOOST_FOREACH(const section::line &l, lines) {
+				for(const section::line &l: lines) {
 					ret += l.to_string() + "\n";
 				}
 				return ret;
@@ -145,7 +145,7 @@ namespace check_mk {
 
 		std::string write() const {
 			std::string ret;
-			BOOST_FOREACH(const section &s, section_list) {
+			for(const section &s: section_list) {
 				ret += s.to_string();
 			}
 			return ret;

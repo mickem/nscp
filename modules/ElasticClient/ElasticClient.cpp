@@ -188,7 +188,7 @@ void send_to_elastic(const std::string address, const std::string index, std::st
 	boost::uuids::uuid uuid = boost::uuids::random_generator()();
 
 	std::string payload;
-	BOOST_FOREACH(const std::string &data, payloads) {
+	for(const std::string &data: payloads) {
 		json_spirit::Object tgtidx;
 		tgtidx["_index"] = parse_index(index);
 		tgtidx["_type"] = type;
@@ -220,7 +220,7 @@ void send_to_elastic(const std::string address, const std::string index, std::st
 	if (log_errors) {
 		NSC_TRACE_ENABLED() {
 			NSC_TRACE_MSG("code: " + str::xtos(r->get_response_code()));
-			BOOST_FOREACH(const Mongoose::Response::header_type::value_type &v, r->get_headers()) {
+			for(const Mongoose::Response::header_type::value_type &v: r->get_headers()) {
 				NSC_TRACE_MSG(v.first + " = " + v.second);
 			}
 			NSC_TRACE_MSG(r->getBody());
@@ -232,7 +232,7 @@ void send_to_elastic(const std::string address, const std::string index, std::st
 		if (root.contains("errors")) {
 			if (root.getBool("errors")) {
 				std::string errors;
-				BOOST_FOREACH(const json_spirit::Value &item, root.getArray("items")) {
+				for(const json_spirit::Value &item: root.getArray("items")) {
 					str::format::append_list(errors, item.get("index").get("error").getString("reason"));
 				}
 				if (log_errors) {
@@ -269,9 +269,9 @@ void ElasticClient::onEvent(const PB::Commands::EventMessage & request, const st
 	boost::uuids::uuid uuid = boost::uuids::random_generator()();
 
 	std::vector<std::string> payloads;
-	BOOST_FOREACH(const ::PB::Commands::EventMessage::Request &line, request.payload()) {
+	for(const ::PB::Commands::EventMessage::Request &line: request.payload()) {
 		json_spirit::Object node;
-		BOOST_FOREACH(const PB::Common::KeyValue e, line.data()) {
+		for(const PB::Common::KeyValue e: line.data()) {
 			if (e.key() == "written_str") {
 				time = e.value();
 			} else if (e.key() != "xml" && e.key() != "written") {
@@ -288,10 +288,10 @@ void ElasticClient::onEvent(const PB::Commands::EventMessage & request, const st
 
 void build_metrics(json_spirit::Object &metrics, const std::string trail, const PB::Metrics::MetricsBundle & b) {
 	json_spirit::Object node;
-	BOOST_FOREACH(const PB::Metrics::MetricsBundle &b2, b.children()) {
+	for(const PB::Metrics::MetricsBundle &b2: b.children()) {
 		build_metrics(node, trail + boost::replace_all_copy(b.alias(), ".", "_"), b2);
 	}
-	BOOST_FOREACH(const PB::Metrics::Metric &v, b.value()) {
+	for(const PB::Metrics::Metric &v: b.value()) {
 		std::string key = trail.empty() ? boost::replace_all_copy(v.key(), ".", "_") 
 			: trail + "_" + boost::replace_all_copy(v.key(), ".", "_");
 		if (v.has_gauge_value())
@@ -308,8 +308,8 @@ void ElasticClient::submitMetrics(const PB::Metrics::MetricsMessage &response) {
 	json_spirit::Object metrics;
 	metrics["@timestamp"] = boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::universal_time());
 	metrics["hostname"] = hostname_;
-	BOOST_FOREACH(const PB::Metrics::MetricsMessage::Response &p, response.payload()) {
-		BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, p.bundles()) {
+	for(const PB::Metrics::MetricsMessage::Response &p: response.payload()) {
+		for(const PB::Metrics::MetricsBundle &b: p.bundles()) {
 			build_metrics(metrics, "", b);
 		}
 	}

@@ -129,7 +129,7 @@ bool Op5Client::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		settings.notify();
 
 		if (defChecks) {
-			BOOST_FOREACH(const def_check_type::value_type &v, default_checks) {
+			for(const def_check_type::value_type &v: default_checks) {
 				if (config.checks.find(v.first) == config.checks.end()) {
 					config.checks[v.first] = v.second;
 				}
@@ -289,7 +289,7 @@ bool Op5Client::cli_install(const PB::Commands::ExecuteRequestMessage::Request &
 			return true;
 		}
 		bool old = false;
-		BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
+		for(const pf::settings_query::key_values &val: q.get_query_key_response()) {
 			old = true;
 			if (val.matches(path, "user") && user.empty())
 				user = val.get_string();
@@ -381,7 +381,7 @@ bool Op5Client::cli_add(const PB::Commands::ExecuteRequestMessage::Request &requ
 			return true;
 		}
 		bool old = false;
-		BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
+		for(const pf::settings_query::key_values &val: q.get_query_key_response()) {
 			old = true;
 			if (val.matches(path, alias) && command.empty())
 				command = val.get_string();
@@ -414,7 +414,7 @@ void Op5Client::handleNotification(const std::string &, const PB::Commands::Subm
 		nscapi::protobuf::functions::set_response_bad(*response_message->add_payload(), "Invalid op5 configuration");
 		return;
 	}
-	BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage_Response &p, request_message.payload()) {
+	for(const ::PB::Commands::QueryResponseMessage_Response &p: request_message.payload()) {
 		std::string msg = nscapi::protobuf::functions::query_data_to_nagios_string(p, nscapi::protobuf::functions::no_truncation);
 		std::string alias = p.alias();
 		if (alias.empty())

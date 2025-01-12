@@ -68,7 +68,7 @@ namespace cron_parser {
 			try {
 				std::vector<std::string> split;
 				boost::algorithm::split(split, value, boost::algorithm::is_any_of(","));
-				BOOST_FOREACH(const std::string &val, split) {
+				for(const std::string &val: split) {
 					long long iVal = boost::lexical_cast<long long>(val.c_str());
 					if (iVal < v.min_ || iVal > v.max_)
 						throw nsclient::nsclient_exception("Invalid value: " + value);
@@ -82,7 +82,7 @@ namespace cron_parser {
 		bool is_valid_for(long long v) const {
 			if (star_)
 				return true;
-			BOOST_FOREACH(const long long &val, value_) {
+			for(const long long &val: value_) {
 				if (val == v)
 					return true;
 			}
@@ -108,7 +108,7 @@ namespace cron_parser {
 				return "*";
 			std::stringstream ss;
 			bool first = true;
-			BOOST_FOREACH(const long long &v, value_) {
+			for(const long long &v: value_) {
 				if (!first) {
 					ss << ",";
 				}

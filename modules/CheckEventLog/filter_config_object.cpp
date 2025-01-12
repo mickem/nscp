@@ -22,7 +22,6 @@
 #include <map>
 #include <string>
 
-#include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 

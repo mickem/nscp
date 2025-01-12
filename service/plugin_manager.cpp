@@ -40,8 +40,7 @@ struct command_chunk {
 };
 
 bool nsclient::core::plugin_manager::contains_plugin(nsclient::core::plugin_manager::plugin_alias_list_type &ret, std::string alias, std::string plugin) {
-	std::pair<std::string, std::string> v;
-	BOOST_FOREACH(v, ret.equal_range(alias)) {
+	for(auto v: boost::make_iterator_range(ret.equal_range(alias))) {
 		if (v.second == plugin)
 			return true;
 	}
@@ -69,7 +68,7 @@ nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_ma
 	plugin_alias_list_type ret;
 
 	settings::settings_interface::string_list list = settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION);
-	BOOST_FOREACH(std::string plugin, list) {
+	for(std::string plugin: list) {
 		std::string alias;
 		try {
 			alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, plugin, "");
@@ -155,7 +154,7 @@ nsclient::core::plugin_manager::plugin_status nsclient::core::plugin_manager::pa
 nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_manager::find_all_active_plugins() {
 	plugin_alias_list_type ret;
 
-	BOOST_FOREACH(std::string plugin, settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION)) {
+	for(std::string plugin: settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION)) {
 		plugin_status status = parse_plugin(plugin);
 		if (!status.enabled) {
 			continue;
@@ -175,7 +174,7 @@ void nsclient::core::plugin_manager::load_active_plugins() {
 	if (plugin_path_.empty()) {
 		throw core_exception("Please configure plugin_manager first");
 	}
-	BOOST_FOREACH(const plugin_alias_list_type::value_type &v, find_all_active_plugins()) {
+	for(const plugin_alias_list_type::value_type &v: find_all_active_plugins()) {
 		std::string module = v.first;
 		std::string alias = v.first;
 		try {
@@ -195,7 +194,7 @@ void nsclient::core::plugin_manager::load_active_plugins() {
 }
 // Load all available plugins (from the filesystem)
 void nsclient::core::plugin_manager::load_all_plugins() {
-	BOOST_FOREACH(plugin_alias_list_type::value_type v, find_all_plugins()) {
+	for(plugin_alias_list_type::value_type v: find_all_plugins()) {
 		if (v.second == "NSCPDOTNET.dll" || v.second == "NSCPDOTNET" || v.second == "NSCP.Core")
 			continue;
 		try {
@@ -235,7 +234,7 @@ bool nsclient::core::plugin_manager::load_single_plugin(std::string plugin, std:
 
 void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) {
 	std::set<long> broken;
-	BOOST_FOREACH(plugin_type plugin, plugin_list_.get_plugins()) {
+	for(plugin_type plugin: plugin_list_.get_plugins()) {
 		LOG_DEBUG_CORE_STD("Loading plugin: " + plugin->getModule())
 		try {
 			if (!plugin->load_plugin(mode)) {
@@ -253,7 +252,7 @@ void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) 
 			LOG_ERROR_CORE_STD("Could not load plugin: " + plugin->getModule());
 		}
 	}
-	BOOST_FOREACH(const long &id, broken) {
+	for(const long &id: broken) {
 		plugin_list_.remove(id);
 	}
 }
@@ -264,7 +263,7 @@ void nsclient::core::plugin_manager::stop_plugins() {
 	commands_.remove_all();
 	channels_.remove_all();
 	std::list<plugin_type> tmp = plugin_list_.get_plugins();
-	BOOST_FOREACH(plugin_type p, tmp) {
+	for(plugin_type p: tmp) {
 		try {
 			if (p) {
 				LOG_DEBUG_CORE_STD("Unloading plugin: " + p->get_alias_or_name() + "...");
@@ -289,13 +288,13 @@ boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_fi
 	names.push_back(get_plugin_file(name));
 	names.push_back(name + ".zip");
 
-	BOOST_FOREACH(const std::string &name, names) {
-		boost::filesystem::path tmp = plugin_path_ / name;
+	for(const std::string &current_name: names) {
+		boost::filesystem::path tmp = plugin_path_ / current_name;
 		if (boost::filesystem::is_regular_file(tmp))
 			return tmp;
 	}
 
-	BOOST_FOREACH(const std::string &name, names) {
+	for(const std::string &name: names) {
 		boost::optional<boost::filesystem::path> module = file_helpers::finder::locate_file_icase(plugin_path_, name);
 		if (module) {
 			return module;
@@ -498,7 +497,7 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
 			return NSCAPI::cmd_return_codes::isSuccess;
 		}
 
-		BOOST_FOREACH(command_chunk_type::value_type &v, command_chunks) {
+		for(command_chunk_type::value_type &v: command_chunks) {
 			std::string local_response;
 			int ret = v.second.plugin->handleCommand(v.second.request.SerializeAsString(), local_response);
 			if (ret != NSCAPI::cmd_return_codes::isSuccess) {
@@ -585,7 +584,7 @@ int nsclient::core::plugin_manager::simple_exec(std::string command, std::vector
 	nscapi::protobuf::functions::create_simple_exec_request(module, command, arguments, request);
 	int ret = load_and_run(module, boost::bind(&exec_helper, boost::placeholders::_1, command, arguments, request, &responses), errors);
 
-	BOOST_FOREACH(std::string &r, responses) {
+	for(std::string &r: responses) {
 		try {
 			ret = nscapi::protobuf::functions::parse_simple_exec_response(r, resp);
 		} catch (std::exception &e) {
@@ -594,7 +593,7 @@ int nsclient::core::plugin_manager::simple_exec(std::string command, std::vector
 			return NSCAPI::cmd_return_codes::hasFailed;
 		}
 	}
-	BOOST_FOREACH(const std::string &e, errors) {
+	for(const std::string &e: errors) {
 		LOG_ERROR_CORE_STD(e);
 		resp.push_back(e);
 	}
@@ -635,7 +634,7 @@ int nsclient::core::plugin_manager::simple_query(std::string module, std::string
 		LOG_ERROR_CORE_STD("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
 		return NSCAPI::query_return_codes::returnUNKNOWN;
 	}
-	BOOST_FOREACH(const std::string &e, errors) {
+	for(const std::string &e: errors) {
 		LOG_ERROR_CORE_STD(e);
 		resp.push_back(e);
 	}
@@ -653,7 +652,7 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::exec_command(const char* ra
 		match_all = true;
 	std::list<std::string> responses;
 	bool found = false;
-	BOOST_FOREACH(plugin_type p, plugin_list_.get_plugins()) {
+	for(plugin_type p: plugin_list_.get_plugins()) {
 		if (p && p->has_command_line_exec()) {
 			IS_LOG_TRACE_CORE() {
 				LOG_TRACE_CORE("Trying : " + p->get_alias_or_name());
@@ -681,9 +680,9 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::exec_command(const char* ra
 
 	PB::Commands::ExecuteResponseMessage response_message;
 
-	BOOST_FOREACH(std::string r, responses) {
+	for(std::string current_response: responses) {
 		PB::Commands::ExecuteResponseMessage tmp;
-		tmp.ParseFromString(r);
+		tmp.ParseFromString(current_response);
 		for (int i = 0; i < tmp.payload_size(); i++) {
 			PB::Commands::ExecuteResponseMessage::Response *r = response_message.add_payload();
 			r->CopyFrom(tmp.payload(i));
@@ -702,7 +701,7 @@ void nsclient::core::plugin_manager::register_submission_listener(unsigned int p
 NSCAPI::errorReturn nsclient::core::plugin_manager::send_notification(const char* channel, std::string &request, std::string &response) {
 	std::string schannel = channel;
 	bool found = false;
-	BOOST_FOREACH(std::string cur_chan, str::utils::split_lst(schannel, std::string(","))) {
+	for(std::string cur_chan: str::utils::split_lst(schannel, std::string(","))) {
 		if (cur_chan == "noop") {
 			found = true;
 			nscapi::protobuf::functions::create_simple_submit_response_ok(cur_chan, "TODO", "seems ok", response);
@@ -719,7 +718,7 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::send_notification(const char
 			continue;
 		}
 		try {
-			BOOST_FOREACH(nsclient::plugin_type p, channels_.get(cur_chan)) {
+			for(nsclient::plugin_type p: channels_.get(cur_chan)) {
 				try {
 					p->handleNotification(cur_chan.c_str(), request, response);
 				} catch (...) {
@@ -748,10 +747,10 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::send_notification(const char
 
 NSCAPI::errorReturn nsclient::core::plugin_manager::emit_event(const std::string &request) {
 	PB::Commands::EventMessage em; em.ParseFromString(request);
-	BOOST_FOREACH(const PB::Commands::EventMessage::Request &r, em.payload()) {
+	for(const PB::Commands::EventMessage::Request &r: em.payload()) {
 		bool has_matched = false;
 		try {
-			BOOST_FOREACH(nsclient::plugin_type p, event_subscribers_.get(r.event())) {
+			for(nsclient::plugin_type p: event_subscribers_.get(r.event())) {
 				try {
 					p->on_event(request);
 					has_matched = true;
@@ -796,8 +795,8 @@ struct metrics_fetcher {
 		p->fetchMetrics(buffer);
 		PB::Metrics::MetricsMessage payload;
 		payload.ParseFromString(buffer);
-		BOOST_FOREACH(const PB::Metrics::MetricsMessage::Response &r, payload.payload()) {
-			BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, r.bundles()) {
+		for(const PB::Metrics::MetricsMessage::Response &r: payload.payload()) {
+			for(const PB::Metrics::MetricsBundle &b: r.bundles()) {
 				add_bundle(b);
 			}
 		}

@@ -23,7 +23,6 @@
 #include <boost/bind/bind.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread/locks.hpp>
-#include <boost/foreach.hpp>
 
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
@@ -33,7 +32,7 @@ namespace ph = boost::placeholders;
 namespace smtp {
 	namespace client {
 		void smtp_client::send_mail(const std::string sender, const std::list<std::string> &recipients, std::string message) {
-			BOOST_FOREACH(std::string r, recipients) {
+			for(std::string r: recipients) {
 				boost::shared_ptr<envelope> en(new envelope);
 				en->sender = sender;
 				en->recipient = r;

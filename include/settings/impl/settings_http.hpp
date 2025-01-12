@@ -223,7 +223,7 @@ namespace settings {
 			if (!child)
 				return;
 			string_list keys = child->get_keys("/attachments");
-			BOOST_FOREACH(const std::string &k, keys) {
+			for(const std::string &k: keys) {
 				std::string target = get_core()->expand_path(k);
 				op_string str = child->get_string("/attachments", k);
 				if (!str)

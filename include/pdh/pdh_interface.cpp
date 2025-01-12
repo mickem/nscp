@@ -129,7 +129,7 @@ namespace PDH {
 	}
 
 	void pdh_object::set_flags(const std::string &value) {
-		BOOST_FOREACH(const std::string f, str::utils::split_lst(value, std::string(","))) {
+		for(const std::string f: str::utils::split_lst(value, std::string(","))) {
 			if (f == "nocap100")
 				flags_ |= PDH_FMT_NOCAP100;
 			else if (f == "1000")
@@ -141,7 +141,7 @@ namespace PDH {
 		}
 	}
 	void pdh_object::add_flags(const std::string &value) {
-		BOOST_FOREACH(const std::string f, str::utils::split_lst(value, std::string(","))) {
+		for(const std::string f: str::utils::split_lst(value, std::string(","))) {
 			if (f == "nocap100")
 				flags_ |= PDH_FMT_NOCAP100;
 			else if (f == "1000")
@@ -184,7 +184,7 @@ namespace PDH {
 			std::string alias = object.alias;
 			std::string err;
 			std::list<pdh_object> sub_counters;
-			BOOST_FOREACH(const std::string &s, PDH::Enumerations::expand_wild_card_path(path, err)) {
+			for(const std::string &s: PDH::Enumerations::expand_wild_card_path(path, err)) {
 				std::string::size_type pos1 = s.find('(');
 				std::string tag = s;
 				if (pos1 != std::string::npos) {

@@ -22,8 +22,6 @@
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/command_proxy.hpp>
 
-#include <boost/foreach.hpp>
-
 namespace nscapi {
 	namespace command_helper {
 		void register_command_helper::add(boost::shared_ptr<command_info> d) {
@@ -40,7 +38,7 @@ namespace nscapi {
 			regitem->set_name(v->name);
 			regitem->mutable_info()->set_title(v->name);
 			regitem->mutable_info()->set_description(v->description);
-			BOOST_FOREACH(const std::string & alias, v->aliases) {
+			for(const std::string & alias: v->aliases) {
 				regitem->add_alias(alias);
 			}
 		}
@@ -49,7 +47,7 @@ namespace nscapi {
 			if (commands.size() == 0)
 				return;
 			PB::Registry::RegistryRequestMessage request;
-			BOOST_FOREACH(command_list::value_type v, commands) {
+			for(command_list::value_type v: commands) {
 				register_command(core_, request, v);
 			}
 			std::string response_string;

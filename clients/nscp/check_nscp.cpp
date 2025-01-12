@@ -50,9 +50,9 @@ int main(int argc, char* argv[]) {
 	check_nscp client;
 	client.query(request_message, response_message);
 	NSCAPI::nagiosReturn ret = NSCAPI::query_return_codes::returnOK;
-	BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage_Response &response, response_message.payload()) {
+	for(const ::PB::Commands::QueryResponseMessage_Response &response: response_message.payload()) {
 		ret = nscapi::plugin_helper::maxState(ret, nscapi::protobuf::functions::gbp_to_nagios_status(response.result()));
-		BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage_Response_Line &line, response.lines()) {
+		for(const ::PB::Commands::QueryResponseMessage_Response_Line &line: response.lines()) {
 			std::cout << line.message();
 			std::string tmp = nscapi::protobuf::functions::build_performance_data(line, nscapi::protobuf::functions::no_truncation);
 			if (!tmp.empty())

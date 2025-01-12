@@ -658,7 +658,7 @@ public:
 
 			bool found_mp = false;
 			std::string title = utf8::cvt<std::string>(name);
-			BOOST_FOREACH(const std::wstring &s, GetVolumePathNamesForVolumeName(volume)) {
+			for(const std::wstring &s: GetVolumePathNamesForVolumeName(volume)) {
 				ret.push_back(drive_container(utf8::cvt<std::string>(volume), utf8::cvt<std::string>(s), title, true, type, flags));
 				found_mp = true;
 			}
@@ -687,7 +687,7 @@ void add_missing(std::list<drive_container> &drives, std::vector<std::string> &e
 	}
 }
 void find_all_volumes(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives, volume_helper helper) {
-	BOOST_FOREACH(const drive_container &d, helper.get_volumes()) {
+	for(const drive_container &d: helper.get_volumes()) {
 		add_missing(drives, exclude_drives, d);
 	}
 }
@@ -727,7 +727,7 @@ std::list<drive_container> find_drives(std::vector<std::string> drives) {
 	volume_helper helper;
 	std::list<drive_container> ret;
 	std::vector<std::string> found_drives;
-	BOOST_FOREACH(const std::string &d, drives) {
+	for(const std::string &d: drives) {
 		if (d == "all-volumes" || d == "volumes") {
 			find_all_volumes(ret, found_drives, helper);
 		} else if (d == "all-drives" || d == "drives") {
@@ -792,7 +792,7 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
 		}
 	}
 	std::list<std::string> buffer;
-	BOOST_FOREACH(std::string e, excludes) {
+	for(std::string e: excludes) {
 		if (e.size() == 1) {
 			buffer.push_back(boost::algorithm::to_upper_copy(e));
 		}
@@ -807,7 +807,7 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
 	if (total)
 		total_obj->make_total();
 
-	BOOST_FOREACH(const drive_container &drive, find_drives(drives)) {
+	for(const drive_container &drive: find_drives(drives)) {
 		if (std::find(excludes.begin(), excludes.end(), drive.letter) != excludes.end()
 			|| std::find(excludes.begin(), excludes.end(), drive.name) != excludes.end()
 			|| std::find(excludes.begin(), excludes.end(), drive.letter_only) != excludes.end())

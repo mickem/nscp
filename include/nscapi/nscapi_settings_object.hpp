@@ -27,7 +27,6 @@
 
 #include <boost/shared_ptr.hpp>
 #include <boost/function.hpp>
-#include <boost/foreach.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/make_shared.hpp>
 
@@ -75,7 +74,7 @@ namespace nscapi {
 				, is_template_(false)
 				, parent(other->alias) {
 				value = other->value;
-				BOOST_FOREACH(const options_map::value_type &e, other->options) {
+				for(const options_map::value_type &e: other->options) {
 					options.insert(e);
 				}
 			}
@@ -150,7 +149,7 @@ namespace nscapi {
 					<< ", parent: " << parent
 					<< ", value: " << value
 					<< ", options : { ";
-				BOOST_FOREACH(options_map::value_type e, options) {
+				for(options_map::value_type e: options) {
 					ss << e.first << "=" << e.second << ", ";
 				}
 				ss << "} }";
@@ -262,14 +261,14 @@ namespace nscapi {
 
 			std::list<object_instance> get_object_list() const {
 				std::list<object_instance> ret;
-				BOOST_FOREACH(const typename object_map::value_type &t, objects) {
+				for(const typename object_map::value_type &t: objects) {
 					ret.push_back(t.second);
 				}
 				return ret;
 			}
 			std::list<std::string> get_alias_list() const {
 				std::list<std::string> ret;
-				BOOST_FOREACH(const typename object_map::value_type &t, objects) {
+				for(const typename object_map::value_type &t: objects) {
 					ret.push_back(t.first);
 				}
 				return ret;
@@ -382,11 +381,11 @@ namespace nscapi {
 			std::string to_string() {
 				std::stringstream ss;
 				ss << "Objects: ";
-				BOOST_FOREACH(const typename object_map::value_type &t, objects) {
+				for(const typename object_map::value_type &t: objects) {
 					ss << ", " << t.first << " = {" << t.second->to_string() + "} ";
 				}
 				ss << "Templates: ";
-				BOOST_FOREACH(const typename object_map::value_type &t, templates) {
+				for(const typename object_map::value_type &t: templates) {
 					ss << ", " << t.first << " = {" << t.second->to_string() + "} ";
 				}
 				return ss.str();

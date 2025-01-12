@@ -105,7 +105,7 @@ void process::kill_all() {
 	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock())
 		return;
-	BOOST_FOREACH(const HANDLE &h, pids_) {
+	for(const HANDLE &h: pids_) {
 		TerminateProcess(h, 5);
 	}
 }

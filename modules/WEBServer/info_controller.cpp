@@ -4,7 +4,6 @@
 #include <json_spirit.h>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/foreach.hpp>
 #include <boost/regex.hpp>
 
 

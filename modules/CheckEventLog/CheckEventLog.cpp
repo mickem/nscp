@@ -19,7 +19,6 @@
 
 #include <nsclient/nsclient_exception.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/program_options.hpp>
 
 #include "CheckEventLog.h"
@@ -125,7 +124,7 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 	if (mode == NSCAPI::normalStart) {
 
 		nscapi::core_helper core(get_core(), get_id());
-		BOOST_FOREACH(const nscapi::core_helper::storage_map::value_type &e, core.get_storage_strings("eventlog.bookmarks")) {
+		for(const nscapi::core_helper::storage_map::value_type &e: core.get_storage_strings("eventlog.bookmarks")) {
 			bookmarks_.add(e.first, e.second);
 		}
 
@@ -139,7 +138,7 @@ bool CheckEventLog::unloadModule() {
 		NSC_LOG_ERROR_STD("Failed to start collection thread");
 
 	nscapi::core_helper core(get_core(), get_id());
- 	BOOST_FOREACH(const bookmarks::map_type::value_type &v, bookmarks_.get_copy()) {
+ 	for(const bookmarks::map_type::value_type &v: bookmarks_.get_copy()) {
  		core.put_storage("eventlog.bookmarks", v.first, v.second, false, false);
  	}
 	return true;
@@ -424,7 +423,7 @@ void CheckEventLog::CheckEventLog_(PB::Commands::QueryRequestMessage::Request &r
 	compat::inline_addarg(request, crit);
 	compat::inline_addarg(request, "scan-range=", scan_range);
 
-	BOOST_FOREACH(const std::string &t, times) {
+	for(const std::string &t: times) {
 		request.add_arguments("file=" + t);
 	}
 	if (debug)
@@ -516,15 +515,15 @@ void CheckEventLog::check_eventlog(const PB::Commands::QueryRequestMessage::Requ
 	std::string bookmark_prefix = "auto,log[", bookmark_suffix;
 	if (bookmark == "auto") {
 		bookmark_suffix += "],filters[";
-		BOOST_FOREACH(const std::string &file, filter_helper.data.filter_string) {
+		for(const std::string &file: filter_helper.data.filter_string) {
 			bookmark_suffix += "," + file;
 		}
 		bookmark_suffix += "],warn[";
-		BOOST_FOREACH(const std::string &file, filter_helper.data.warn_string) {
+		for(const std::string &file: filter_helper.data.warn_string) {
 			bookmark_suffix += "," + file;
 		}
 		bookmark_suffix += "],crit[";
-		BOOST_FOREACH(const std::string &file, filter_helper.data.crit_string) {
+		for(const std::string &file: filter_helper.data.crit_string) {
 			bookmark_suffix += "," + file;
 		}
 		bookmark_suffix += "]";
@@ -533,7 +532,7 @@ void CheckEventLog::check_eventlog(const PB::Commands::QueryRequestMessage::Requ
 	if (!filter_helper.build_filter(filter))
 		return;
 
-	BOOST_FOREACH(const std::string &file, file_list) {
+	for(const std::string &file: file_list) {
 		if (!bookmark_suffix.empty()) {
 			bookmark = bookmark_prefix + file + bookmark_suffix;
 		}
@@ -652,7 +651,7 @@ void CheckEventLog::list_providers(const PB::Commands::ExecuteRequestMessage::Re
 							ss << utf8::cvt<std::string>(buffer.get()) << "\n";
 							match = true;
 							ss << "Tasks:\n";
-							BOOST_FOREACH(const eventlog::eventlog_table::value_type &v, tbl) {
+							for(const eventlog::eventlog_table::value_type &v: tbl) {
 								ss << " * " << v.second << "\n";
 							}
 						}
@@ -664,7 +663,7 @@ void CheckEventLog::list_providers(const PB::Commands::ExecuteRequestMessage::Re
 								ss << utf8::cvt<std::string>(buffer.get()) << "\n";
 							match = true;
 							ss << "Keywords:\n";
-							BOOST_FOREACH(const eventlog::eventlog_table::value_type &v, tbl) {
+							for(const eventlog::eventlog_table::value_type &v: tbl) {
 								ss << " * " << v.second << "\n";
 							}
 						}
@@ -692,7 +691,7 @@ void CheckEventLog::list_providers(const PB::Commands::ExecuteRequestMessage::Re
 						ss << publisher << "\n";
 						match = true;
 						ss << "Tasks:\n";
-						BOOST_FOREACH(const eventlog::eventlog_table::value_type &v, tbl) {
+						for(const eventlog::eventlog_table::value_type &v: tbl) {
 							ss << " * " << v.second << " (" << v.first << ")\n";
 						}
 					}
@@ -704,7 +703,7 @@ void CheckEventLog::list_providers(const PB::Commands::ExecuteRequestMessage::Re
 							ss << publisher << "\n";
 						match = true;
 						ss << "Keywords:\n";
-						BOOST_FOREACH(const eventlog::eventlog_table::value_type &v, tbl) {
+						for(const eventlog::eventlog_table::value_type &v: tbl) {
 							ss << " * " << v.second << " (" << v.first << ")\n";
 						}
 					}
@@ -750,7 +749,7 @@ void CheckEventLog::list_providers(const PB::Commands::ExecuteRequestMessage::Re
 								ss << utf8::cvt<std::string>(buffer.get()) << "\n";
 								match = true;
 								ss << "Tasks:\n";
-								BOOST_FOREACH(const eventlog::eventlog_table::value_type &v, tbl) {
+								for(const eventlog::eventlog_table::value_type &v: tbl) {
 									ss << " * " << v.second << " (" << v.first << ")\n";
 								}
 							}
@@ -762,7 +761,7 @@ void CheckEventLog::list_providers(const PB::Commands::ExecuteRequestMessage::Re
 									ss << utf8::cvt<std::string>(buffer.get()) << "\n";
 								match = true;
 								ss << "Keywords:\n";
-								BOOST_FOREACH(const eventlog::eventlog_table::value_type &v, tbl) {
+								for(const eventlog::eventlog_table::value_type &v: tbl) {
 									ss << " * " << v.second << " (" << v.first << ")\n";
 								}
 							}
@@ -877,10 +876,10 @@ void CheckEventLog::insert_eventlog(const PB::Commands::ExecuteRequestMessage::R
 		std::vector<std::wstring> wstrings;
 		int i = 0;
 		// TODO: FIxme this is broken!
-		BOOST_FOREACH(const std::string &s, strings) {
+		for(const std::string &s: strings) {
 			wstrings.push_back(utf8::cvt<std::wstring>(s));
 		}
-		BOOST_FOREACH(const std::wstring &s, wstrings) {
+		for(const std::wstring &s: wstrings) {
 			string_data[i++] = s.c_str();
 		}
 		string_data[i++] = 0;

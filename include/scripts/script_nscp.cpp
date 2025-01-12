@@ -17,8 +17,6 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/foreach.hpp>
-
 #include <utf8.hpp>
 #include <nscapi/functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>

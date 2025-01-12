@@ -19,7 +19,6 @@
 
 #include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
-#include <boost/foreach.hpp>
 
 #include <pdh/pdh_query.hpp>
 
@@ -30,7 +29,7 @@ namespace PDH {
 
 	void PDHQuery::addCounter(pdh_instance instance) {
 		if (instance->has_instances()) {
-			BOOST_FOREACH(pdh_instance child, instance->get_instances()) {
+			for(pdh_instance child: instance->get_instances()) {
 				counters_.push_back(boost::make_shared<PDHCounter>(child));
 			}
 		} else
@@ -50,7 +49,7 @@ namespace PDH {
 	void PDHQuery::on_unload() {
 		if (hQuery_ == NULL)
 			return;
-		BOOST_FOREACH(counter_type c, counters_) {
+		for(counter_type c: counters_) {
 			c->remove();
 		}
 		pdh_error status = factory::get_impl()->PdhCloseQuery(hQuery_);
@@ -64,7 +63,7 @@ namespace PDH {
 		pdh_error status = factory::get_impl()->PdhOpenQuery(NULL, 0, &hQuery_);
 		if (status.is_error())
 			throw pdh_exception("PdhOpenQuery failed", status);
-		BOOST_FOREACH(counter_type c, counters_) {
+		for(counter_type c: counters_) {
 			c->addToQuery(getQueryHandle());
 		}
 	}
@@ -86,7 +85,7 @@ namespace PDH {
 
 	void PDHQuery::gatherData(bool ignore_errors) {
 		collect();
-		BOOST_FOREACH(counter_type c, counters_) {
+		for(counter_type c: counters_) {
 			pdh_error status = c->collect();
 			if (status.is_invalid_data()) {
 				Sleep(1000);

@@ -24,8 +24,6 @@
 
 #include <tinyxml2.h>
 
-#include <boost/foreach.hpp>
-
 namespace nrdp {
 	void data::add_host(std::string host, NSCAPI::nagiosReturn result, std::string message) {
 		item_type item;
@@ -76,7 +74,7 @@ namespace nrdp {
 		tinyxml2::XMLDocument doc;
 		doc.InsertEndChild(doc.NewDeclaration());
 		tinyxml2::XMLNode* element = doc.InsertEndChild(doc.NewElement("checkresults"));
-		BOOST_FOREACH(const item_type &item, items) {
+		for(const item_type &item: items) {
 			render_item(doc, element, item);
 		}
 		tinyxml2::XMLPrinter printer;

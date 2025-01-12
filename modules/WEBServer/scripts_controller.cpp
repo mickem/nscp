@@ -9,7 +9,6 @@
 #include <json_spirit.h>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/foreach.hpp>
 #include <boost/regex.hpp>
 #include <boost/filesystem/path.hpp>
 
@@ -73,8 +72,8 @@ void scripts_controller::get_runtimes(Mongoose::Request &request, boost::smatch 
 	pb_response.ParseFromString(str_response);
 	json_spirit::Array root;
 
-	BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response r, pb_response.payload()) {
-		BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
+	for(const PB::Registry::RegistryResponseMessage::Response r: pb_response.payload()) {
+		for(const PB::Registry::RegistryResponseMessage::Response::Inventory i: r.inventory()) {
 			if (i.name() == PY_SCR
 				|| i.name() == EXT_SCR
 				|| i.name() == "LUAScript") {

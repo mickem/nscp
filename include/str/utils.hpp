@@ -21,7 +21,6 @@
 
 #include <str/utils_no_boost.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
 
 namespace str {
@@ -33,7 +32,7 @@ namespace str {
 		template<class T>
 		std::string joinEx(const T &lst, const std::string key) {
 			std::string ret;
-			BOOST_FOREACH(const std::string &s, lst) {
+			for(const std::string &s: lst) {
 				if (!ret.empty())
 					ret += key;
 				ret += s;
@@ -47,7 +46,7 @@ namespace str {
 		template<class T>
 		inline void parse_command(const std::string &cmd_line, T &args) {
 			boost::tokenizer<boost::escaped_list_separator<char>, std::string::const_iterator, std::string > tok(cmd_line, boost::escaped_list_separator<char>('\\', ' ', '\"'));
-			BOOST_FOREACH(std::string s, tok) {
+			for(std::string s: tok) {
 				if (!s.empty())
 					args.push_back(s);
 			}
@@ -55,7 +54,7 @@ namespace str {
 		inline std::list<std::string> parse_command(const std::string &cmd_line) {
 			std::list<std::string> args;
 			boost::tokenizer<boost::escaped_list_separator<char>, std::string::const_iterator, std::string > tok(cmd_line, boost::escaped_list_separator<char>('\\', ' ', '\"'));
-			BOOST_FOREACH(std::string s, tok) {
+			for(std::string s: tok) {
 				if (!s.empty())
 					args.push_back(s);
 			}
@@ -64,7 +63,7 @@ namespace str {
 		inline void parse_command(std::string cmd_line, std::string &cmd, std::list<std::string> &args) {
 			boost::tokenizer<boost::escaped_list_separator<char>, std::string::const_iterator, std::string > tok(cmd_line, boost::escaped_list_separator<char>('\\', ' ', '\"'));
 			bool first = true;
-			BOOST_FOREACH(std::string s, tok) {
+			for(std::string s: tok) {
 				if (first) {
 					cmd = s;
 					first = false;

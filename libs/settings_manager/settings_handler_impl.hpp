@@ -29,7 +29,6 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/regex.hpp>
-#include <boost/foreach.hpp>
 
 #include <string>
 #include <map>
@@ -282,7 +281,7 @@ namespace settings {
 			if (!readLock.owns_lock()) {
 				throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: when fetching tpls");
 			}
-			BOOST_FOREACH(const tpl_desc_type::value_type &d, registered_tpls_) {
+			for(const tpl_desc_type::value_type &d: registered_tpls_) {
 				ret.push_back(d.second);
 			}
 			return ret;
@@ -301,7 +300,7 @@ namespace settings {
 				throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path);
 			}
 			string_list ret;
-			BOOST_FOREACH(const reg_paths_type::value_type &v, registred_paths_) {
+			for(const reg_paths_type::value_type &v: registred_paths_) {
 				if ((!v.second.is_sample || fetch_samples) && (path.empty() || boost::starts_with(v.first, path)))
 					ret.push_back(v.first);
 			}
@@ -322,7 +321,7 @@ namespace settings {
 			string_list ret;
 			reg_paths_type::const_iterator cit = registred_paths_.find(path);
 			if (cit != registred_paths_.end()) {
-				BOOST_FOREACH(const path_description::keys_type::value_type &v, (*cit).second.keys) {
+				for(const path_description::keys_type::value_type &v: (*cit).second.keys) {
 					if (!v.second.is_sample || fetch_samples)
 						ret.push_back(v.first);
 				}

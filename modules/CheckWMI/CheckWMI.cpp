@@ -171,7 +171,7 @@ void CheckWMI::check_wmi(const PB::Commands::QueryRequestMessage::Request &reque
 		wmi_impl::query wmiQuery(query, ns, target_info.username, target_info.password);
 		filter.context->registry_.add_string()
 			("line", boost::bind(&wmi_filter::filter_obj::get_row, boost::placeholders::_1), "Get a list of all columns");
-		BOOST_FOREACH(const std::string &col, wmiQuery.get_columns()) {
+		for(const std::string &col: wmiQuery.get_columns()) {
 			filter.context->registry_.add_int()
 				(col, boost::bind(&wmi_filter::filter_obj::get_int, boost::placeholders::_1, col), boost::bind(&wmi_filter::filter_obj::get_string, boost::placeholders::_1, col), "Column: " + col).add_perf("", col, "");
 		}
@@ -208,7 +208,7 @@ std::string render_table(const std::vector<std::size_t> &widths, const row_type 
 	for (int i = 0; i < count; ++i)
 		ss << " " << pad(headers[i], widths[i]) << " ";
 	ss << "\n" << line << "\n";
-	BOOST_FOREACH(const row_type &row, rows) {
+	for(const row_type &row: rows) {
 		if (row.size() != widths.size())
 			throw wmi_impl::wmi_exception(E_INVALIDARG, "Invalid row size");
 		for (int i = 0; i < count; ++i)
@@ -307,7 +307,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std:
 					wmi_impl::query wmiQuery(query, ns, user, password);
 					std::list<std::string> cols = wmiQuery.get_columns();
 					count = cols.size();
-					BOOST_FOREACH(const std::string &col, cols) {
+					for(const std::string &col: cols) {
 						headers.push_back(col);
 						widths.push_back(col.size());
 					}

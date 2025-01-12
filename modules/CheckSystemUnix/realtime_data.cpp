@@ -19,7 +19,6 @@
 
 #include "realtime_data.hpp"
 
-#include <boost/foreach.hpp>
 #include <boost/filesystem.hpp>
 
 
@@ -36,10 +35,10 @@ namespace check_cpu_filter {
 
 	bool runtime_data::process_item(filter_type &filter, transient_data_type thread) {
 		bool matched = false;
-		BOOST_FOREACH(container &c, checks) {
+		for(container &c: checks) {
 			std::map<std::string,windows::system_info::load_entry> vals = thread->get_cpu_load(c.time);
 			typedef std::map<std::string,windows::system_info::load_entry>::value_type vt;
-			BOOST_FOREACH(vt v, vals) {
+			for(vt v: vals) {
 				boost::shared_ptr<check_cpu_filter::filter_obj> record(new check_cpu_filter::filter_obj(c.alias, v.first, v.second));
 				boost::tuple<bool,bool> ret = filter.match(record);
 				if (ret.get<0>()) {
@@ -65,7 +64,7 @@ namespace check_mem_filter {
 			mem_data = memoryChecker->getMemoryStatus();
 		} catch (const CheckMemoryException &e) {
 		}
-		BOOST_FOREACH(const std::string &type, checks) {
+		for(const std::string &type: checks) {
 			unsigned long long used(0), total(0);
 			if (type == "commited") {
 				used = mem_data.commited.total-mem_data.commited.avail;

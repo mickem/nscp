@@ -214,7 +214,7 @@ void CheckHelpers::check_multi(const PB::Commands::QueryRequestMessage::Request 
 	if (arguments.size() == 0)
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 	response->set_result(PB::Common::ResultCode::OK);
-	BOOST_FOREACH(std::string command_line, arguments) {
+	for(std::string command_line: arguments) {
 		std::list<std::string> args;
 		str::utils::parse_command(command_line, args);
 
@@ -226,7 +226,7 @@ void CheckHelpers::check_multi(const PB::Commands::QueryRequestMessage::Request 
 		if (!simple_query(command, args, &local_response))
 			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute command: " + command);
 		bool first = true;
-		BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage_Response_Line &line, local_response.lines()) {
+		for(const ::PB::Commands::QueryResponseMessage_Response_Line &line: local_response.lines()) {
 			if (first && response->lines_size() > 0) {
 				::PB::Commands::QueryResponseMessage_Response_Line *nLine = response->add_lines();
 				nLine->CopyFrom(line);
@@ -376,9 +376,9 @@ void CheckHelpers::filter_perf(const PB::Commands::QueryRequestMessage::Request 
 	std::vector<PB::Common::PerformanceData> perfs;
 
 	std::stringstream ss;
-	BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage_Response_Line &line, response->lines()) {
+	for(const ::PB::Commands::QueryResponseMessage_Response_Line &line: response->lines()) {
 		ss << line.message() << "\n";
-		BOOST_FOREACH(const PB::Common::PerformanceData &perf, line.perf()) {
+		for(const PB::Common::PerformanceData &perf: line.perf()) {
 			perfs.push_back(perf);
 		}
 	}
@@ -392,7 +392,7 @@ void CheckHelpers::filter_perf(const PB::Commands::QueryRequestMessage::Request 
 	line->set_message(ss.str());
 	if (limit > 0 && perfs.size() > limit)
 		perfs.erase(perfs.begin() + limit, perfs.end());
-	BOOST_FOREACH(const PB::Common::PerformanceData &v, perfs) {
+	for(const PB::Common::PerformanceData &v: perfs) {
 		line->add_perf()->CopyFrom(v);
 	}
 }
@@ -501,7 +501,7 @@ void CheckHelpers::render_perf(const PB::Commands::QueryRequestMessage::Request 
 	simple_query(command, arguments, response);
 	for (int i = 0; i < response->lines_size(); i++) {
 		::PB::Commands::QueryResponseMessage_Response_Line* line = response->mutable_lines(i);
-		BOOST_FOREACH(const PB::Common::PerformanceData &perf, line->perf()) {
+		for(const PB::Common::PerformanceData &perf: line->perf()) {
 			boost::shared_ptr<perf_filter::filter_obj> record(new perf_filter::filter_obj(perf));
 			filter.match(record);
 		}
@@ -563,7 +563,7 @@ void CheckHelpers::xform_perf(const PB::Commands::QueryRequestMessage::Request &
 					}
 				}
 			}
-			BOOST_FOREACH(const PB::Common::PerformanceData &p2, perf) {
+			for(const PB::Common::PerformanceData &p2: perf) {
 				line->add_perf()->CopyFrom(p2);
 			}
 		}

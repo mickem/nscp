@@ -234,7 +234,7 @@ namespace nscapi {
 			PB::Commands::QueryRequestMessage::Request *payload = message.add_payload();
 			payload->set_command(command);
 
-			BOOST_FOREACH(std::string s, arguments) {
+			for(std::string s: arguments) {
 				payload->add_arguments(s);
 			}
 
@@ -246,7 +246,7 @@ namespace nscapi {
 			PB::Commands::QueryRequestMessage::Request *payload = message.add_payload();
 			payload->set_command(command);
 
-			BOOST_FOREACH(std::string s, arguments) {
+			for(std::string s: arguments) {
 				payload->add_arguments(s);
 			}
 
@@ -274,14 +274,14 @@ namespace nscapi {
 
 		void functions::append_simple_query_request_payload(PB::Commands::QueryRequestMessage::Request *payload, std::string command, std::vector<std::string> arguments) {
 			payload->set_command(command);
-			BOOST_FOREACH(const std::string &s, arguments) {
+			for(const std::string &s: arguments) {
 				payload->add_arguments(s);
 			}
 		}
 
 		void functions::append_simple_exec_request_payload(PB::Commands::ExecuteRequestMessage::Request *payload, std::string command, std::vector<std::string> arguments) {
 			payload->set_command(command);
-			BOOST_FOREACH(const std::string &s, arguments) {
+			for(const std::string &s: arguments) {
 				payload->add_arguments(s);
 			}
 		}
@@ -310,7 +310,7 @@ namespace nscapi {
 			}
 
 			PB::Commands::QueryResponseMessage::Response payload = message.payload().Get(0);
-			BOOST_FOREACH(const PB::Commands::QueryResponseMessage::Response::Line &l, payload.lines()) {
+			for(const PB::Commands::QueryResponseMessage::Response::Line &l: payload.lines()) {
 				msg += l.message();
 				std::string tmpPerf = build_performance_data(l, max_length);
 				if (!tmpPerf.empty()) {
@@ -337,7 +337,7 @@ namespace nscapi {
 			PB::Commands::ExecuteRequestMessage::Request *payload = message.add_payload();
 			payload->set_command(command);
 
-			BOOST_FOREACH(const std::string &s, args)
+			for(const std::string &s: args)
 				payload->add_arguments(s);
 
 			message.SerializeToString(&request);
@@ -354,7 +354,7 @@ namespace nscapi {
 			PB::Commands::ExecuteRequestMessage::Request *payload = message.add_payload();
 			payload->set_command(command);
 
-			BOOST_FOREACH(std::string s, args)
+			for(std::string s: args)
 				payload->add_arguments(s);
 
 			message.SerializeToString(&request);

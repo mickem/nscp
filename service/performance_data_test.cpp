@@ -118,7 +118,7 @@ TEST(PerfDataTest, value_various_reparse) {
 	strings.push_back("'aaa'=6g;1;;;4");
 	strings.push_back("'aaa'=6g;1;2");
 	strings.push_back("'aaa'=6g");
-	BOOST_FOREACH(std::string s, strings) {
+	for(std::string s: strings) {
 		EXPECT_EQ(s.c_str(), do_parse(s));
 	}
 }

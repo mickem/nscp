@@ -479,7 +479,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 		}
 		if (provider.has_errors()) {
 			h.logMessage(L"Settings context reported errors (debug log end)");
-			BOOST_FOREACH(std::wstring l, provider.get_errors()) {
+			for(std::wstring l: provider.get_errors()) {
 				h.logMessage(l);
 			}
 			h.logMessage(L"Settings context reported errors (debug log end)");

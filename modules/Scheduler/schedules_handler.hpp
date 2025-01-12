@@ -32,7 +32,6 @@
 #include <str/utils.hpp>
 #include <str/format.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/bind/bind.hpp>

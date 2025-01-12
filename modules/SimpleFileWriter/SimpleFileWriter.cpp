@@ -34,7 +34,6 @@
 
 #include <utf8.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/thread/lock_types.hpp>
 #include <boost/date_time.hpp>
 
@@ -62,7 +61,7 @@ struct simple_string_functor {
 struct header_host_functor {
 	std::string operator() (const config_object&, const std::string channel, const PB::Common::Header &hdr, const PB::Commands::QueryResponseMessage::Response &) {
 		std::string sender = hdr.sender_id();
-		BOOST_FOREACH(const PB::Common::Host &h, hdr.hosts()) {
+		for(const PB::Common::Host &h: hdr.hosts()) {
 			if (h.id() == sender)
 				return h.host();
 		}
@@ -87,7 +86,7 @@ struct payload_alias_functor {
 struct payload_message_functor {
 	std::string operator() (const config_object&, const std::string, const PB::Common::Header &, const PB::Commands::QueryResponseMessage::Response &payload) {
 		std::string ret;
-		BOOST_FOREACH(PB::Commands::QueryResponseMessage::Response::Line l, payload.lines())
+		for(PB::Commands::QueryResponseMessage::Response::Line l: payload.lines())
 			ret += l.message();
 		return ret;
 	}
@@ -207,7 +206,7 @@ void build_syntax(parsers::simple_expression &parser, std::string &syntax, Simpl
 	if (!parser.parse(syntax, result)) {
 		NSC_LOG_ERROR_STD("Failed to parse syntax: " + syntax)
 	}
-	BOOST_FOREACH(parsers::simple_expression::entry &e, result) {
+	for(parsers::simple_expression::entry &e: result) {
 		if (!e.is_variable) {
 			index.push_back(simple_string_functor(e.name));
 		} else if (e.name == "command") {
@@ -240,11 +239,11 @@ void SimpleFileWriter::handleNotification(const std::string &, const PB::Command
 	std::string key;
 
 	if (!request.alias().empty() || !request.command().empty() ) {
-		BOOST_FOREACH(index_lookup_function &f, syntax_service_lookup_) {
+		for(index_lookup_function &f: syntax_service_lookup_) {
 			key += f(config_, request.command(), request_message.header(), request);
 		}
 	} else {
-		BOOST_FOREACH(index_lookup_function &f, syntax_host_lookup_) {
+		for(index_lookup_function &f: syntax_host_lookup_) {
 			key += f(config_, request.command(), request_message.header(), request);
 		}
 	}

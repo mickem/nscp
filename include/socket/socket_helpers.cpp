@@ -82,13 +82,13 @@ long socket_helpers::connection_info::get_ctx_opts() {
 
 std::string socket_helpers::allowed_hosts_manager::to_string() {
 	std::string ret;
-	BOOST_FOREACH(const host_record_v4 &r, entries_v4) {
+	for(const host_record_v4 &r: entries_v4) {
 		ip::address_v4 a(r.addr);
 		ip::address_v4 m(r.mask);
 		std::string s = a.to_string() + "(" + m.to_string() + ")";
 		str::format::append_list(ret, s);
 	}
-	BOOST_FOREACH(const host_record_v6 &r, entries_v6) {
+	for(const host_record_v6 &r: entries_v6) {
 		ip::address_v6 a(r.addr);
 		ip::address_v6 m(r.mask);
 		std::string s = a.to_string() + "(" + m.to_string() + ")";
@@ -135,7 +135,7 @@ addr calculate_mask(std::string mask_s) {
 
 void socket_helpers::allowed_hosts_manager::set_source(std::string source) {
 	sources.clear();
-	BOOST_FOREACH(std::string s, str::utils::split_lst(source, std::string(","))) {
+	for(std::string s: str::utils::split_lst(source, std::string(","))) {
 		boost::trim(s);
 		if (!s.empty())
 			sources.push_back(s);
@@ -147,7 +147,7 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
 	ip::tcp::resolver resolver(io_service);
 	entries_v4.clear();
 	entries_v6.clear();
-	BOOST_FOREACH(const std::string &record, sources) {
+	for(const std::string &record: sources) {
 		std::string::size_type pos = record.find('/');
 		std::string addr, mask;
 		if (pos == std::string::npos) {
@@ -246,7 +246,7 @@ void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asi
 
 boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts::get_verify_mode() const {
 	boost::asio::ssl::context::verify_mode mode = boost::asio::ssl::context_base::verify_none;
-	BOOST_FOREACH(const std::string &key, str::utils::split_lst(verify_mode, std::string(","))) {
+	for(const std::string &key: str::utils::split_lst(verify_mode, std::string(","))) {
 		if (key == "client-once")
 			mode |= boost::asio::ssl::context_base::verify_client_once;
 		else if (key == "none")
@@ -325,7 +325,7 @@ boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts
 #ifdef USE_SSL
 long socket_helpers::connection_info::ssl_opts::get_ctx_opts() const {
 	long opts = 0;
-	BOOST_FOREACH(const std::string &key, str::utils::split_lst(ssl_options, std::string(","))) {
+	for(const std::string &key: str::utils::split_lst(ssl_options, std::string(","))) {
 		if (key == "default-workarounds")
 			opts |= boost::asio::ssl::context::default_workarounds;
 		if (key == "no-sslv2")

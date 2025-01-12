@@ -357,7 +357,7 @@ namespace parsers {
 			}
 			std::list<std::string> get_variables() const {
 				std::list<std::string> ret;
-				BOOST_FOREACH(const typename variable_type::value_type &v, variables) {
+				for(const typename variable_type::value_type &v: variables) {
 					ret.push_back(v.first);
 				}
 				return ret;
@@ -572,10 +572,10 @@ namespace parsers {
 
 			std::map<std::string, std::string> get_filter_syntax() const {
 				std::map<std::string, std::string> ret;
-				BOOST_FOREACH(const typename registry_type::variable_type::value_type &var, registry_.variables) {
+				for(const typename registry_type::variable_type::value_type &var: registry_.variables) {
 					ret[var.first] = var.second->description;
 				}
-				BOOST_FOREACH(const typename registry_type::function_type::value_type &var, registry_.functions) {
+				for(const typename registry_type::function_type::value_type &var: registry_.functions) {
 					ret[var.first + "()"] = var.second->description;
 				}
 				return ret;

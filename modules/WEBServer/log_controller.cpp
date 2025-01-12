@@ -8,7 +8,6 @@
 
 #include <json_spirit.h>
 
-#include <boost/foreach.hpp>
 #include <boost/regex.hpp>
 
 
@@ -57,7 +56,7 @@ void log_controller::get_log(Mongoose::Request &request, boost::smatch &what, Mo
 		return;
 	}
 	std::size_t pos = (page-1)*ipp;
-	BOOST_FOREACH(const error_handler_interface::log_entry &e, session->get_log_data()->get_messages(levels, pos, ipp, count)) {
+	for(const error_handler_interface::log_entry &e: session->get_log_data()->get_messages(levels, pos, ipp, count)) {
 		json_spirit::Object node;
 		node.insert(json_spirit::Object::value_type("file", e.file));
 		node.insert(json_spirit::Object::value_type("line", e.line));

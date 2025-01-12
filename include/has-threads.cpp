@@ -18,7 +18,6 @@
  */
 
 #include <has-threads.hpp>
-#include <boost/foreach.hpp>
 
 //#include <iostream>
 

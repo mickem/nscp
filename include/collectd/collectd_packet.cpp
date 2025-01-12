@@ -24,7 +24,6 @@
 #include <str/xtos.hpp>
 
 #include <boost/regex.hpp>
-#include <boost/foreach.hpp>
 #include <boost/algorithm/string.hpp>
 
 
@@ -33,14 +32,14 @@ std::list<collectd::collectd_builder::expanded_keys> collectd::collectd_builder:
 	parsers::simple_expression::parse(keyword, expr);
 
 	std::list<std::string> vars;
-	BOOST_FOREACH(const parsers::simple_expression::entry &e, expr) {
+	for(const parsers::simple_expression::entry &e: expr) {
 		if (e.is_variable)
 			vars.push_back(e.name);
 	}
 	std::list<expanded_keys> ret;
 	if (vars.empty())
 		ret.push_back(expanded_keys(keyword, value));
-	BOOST_FOREACH(const std::string &e, vars) {
+	for(const std::string &e: vars) {
 		std::pair<variables_map::const_iterator, variables_map::const_iterator> keyRange = variables.equal_range(e);
 		variables_map::const_iterator cit;
 		if (keyRange.first == keyRange.second) {
@@ -59,7 +58,7 @@ void collectd::collectd_builder::add_variable(std::string key, std::string value
 	boost::regex re(value);
 
 	boost::smatch what;
-	BOOST_FOREACH(const metrics_map::value_type &e, metrics) {
+	for(const metrics_map::value_type &e: metrics) {
 		if (boost::regex_match(e.first, what, re, boost::match_extra)) {
 			for (std::size_t i = 1; i < what.size(); ++i) {
 				variables.insert(std::make_pair(key, what.str(i)));

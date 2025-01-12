@@ -22,7 +22,6 @@
 //#include <str/xtos.hpp>
 
 #include <boost/asio/ip/address.hpp>
-#include <boost/foreach.hpp>
 
 #include <list>
 #include <string>
@@ -95,7 +94,7 @@ namespace socket_helpers {
 		bool is_allowed_v4(const addr_v4 &remote, std::list<std::string> &errors) {
 			if (!cached)
 				refresh(errors);
-			BOOST_FOREACH(const host_record_v4 &r, entries_v4) {
+			for(const host_record_v4 &r: entries_v4) {
 				if (match_host(r.addr, r.mask, remote))
 					return true;
 			}
@@ -104,7 +103,7 @@ namespace socket_helpers {
 		bool is_allowed_v6(const addr_v6 &remote, std::list<std::string> &errors) {
 			if (!cached)
 				refresh(errors);
-			BOOST_FOREACH(const host_record_v6 &r, entries_v6) {
+			for(const host_record_v6 &r: entries_v6) {
 				if (match_host(r.addr, r.mask, remote))
 					return true;
 			}

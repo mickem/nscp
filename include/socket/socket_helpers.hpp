@@ -25,7 +25,6 @@
 
 
 #include <boost/asio.hpp>
-#include <boost/foreach.hpp>
 #include <boost/bind/bind.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>

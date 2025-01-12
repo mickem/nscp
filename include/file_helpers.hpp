@@ -25,7 +25,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
-#include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 
 #ifdef WIN32
@@ -142,7 +141,7 @@ namespace file_helpers {
 				return fullpath;
 			boost::filesystem::directory_iterator it(path), eod;
 			std::string tmp = boost::algorithm::to_lower_copy(filename);
-			BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
+			for(boost::filesystem::path const &p: std::make_pair(it, eod)) {
 				if (boost::filesystem::is_regular_file(p) && boost::algorithm::to_lower_copy(file_helpers::meta::get_filename(p)) == tmp) {
 					return p;
 				}

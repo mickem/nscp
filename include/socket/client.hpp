@@ -380,7 +380,7 @@ namespace socket_helpers {
 				if (info_.ssl.enabled) {
 					std::list<std::string> errors;
 					info_.ssl.configure_ssl_context(context_, errors);
-					BOOST_FOREACH(const std::string &e, errors) {
+					for(const std::string &e: errors) {
 						handler_->log_error(__FILE__, __LINE__, e);
 					}
 					return new ssl_connection_type(io_service_, context_, timeout, handler_);

@@ -5,7 +5,6 @@
 #include <json_spirit.h>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/foreach.hpp>
 #include <boost/regex.hpp>
 
 #include <fstream>
@@ -59,7 +58,7 @@ void settings_controller::get(Mongoose::Request &request, boost::smatch &what, M
 	}
 
 	json_spirit::Array node;
-	BOOST_FOREACH(const PB::Settings::Node &s, rKeys.query().nodes()) {
+	for(const PB::Settings::Node &s: rKeys.query().nodes()) {
 		json_spirit::Object rs;
 		rs["path"] = s.path();
 		rs["key"] = s.key();
@@ -134,7 +133,7 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
 			return;
 		}
 
-		BOOST_FOREACH(const PB::Settings::Node &s, rKeys.query().nodes()) {
+		for(const PB::Settings::Node &s: rKeys.query().nodes()) {
 			if (!s.value().empty()) {
 				values[s.path() + "$$$" + s.key()] = s.value();
 			}
@@ -142,7 +141,7 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
 	}
 
 	json_spirit::Array node;
-	BOOST_FOREACH(const PB::Settings::SettingsResponseMessage::Response::Inventory &s, rKeys.inventory()) {
+	for(const PB::Settings::SettingsResponseMessage::Response::Inventory &s: rKeys.inventory()) {
 		json_spirit::Object rs;
 		rs["path"] = s.node().path();
 		rs["key"] = s.node().key();
@@ -165,7 +164,7 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
 		rs["default_value"] = s.info().default_value();
 
 		json_spirit::Array plugins;
-		BOOST_FOREACH(const ::std::string &p, s.info().plugin()) {
+		for(const ::std::string &p: s.info().plugin()) {
 			plugins.push_back(p);
 		}
 		rs["plugins"] = plugins;
@@ -204,7 +203,7 @@ void settings_controller::put(Mongoose::Request &request, boost::smatch &what, M
         int keys = 0;
 		if (root.isArray()) {
 			json_spirit::Array a = root.getArray();
-			BOOST_FOREACH(const json_spirit::Value & v, a) {
+			for(const json_spirit::Value & v: a) {
 
 				json_spirit::Object o = v.getObject();
 				std::string current_path = o["path"].getString();

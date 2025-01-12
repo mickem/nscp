@@ -30,8 +30,6 @@
 
 #include <utf8.hpp>
 
-#include <boost/foreach.hpp>
-
 namespace PDH {
 	std::list<std::string> Enumerations::expand_wild_card_path(const std::string &query, std::string &error) {
 		std::list<std::string> ret;
@@ -162,7 +160,7 @@ namespace PDH {
 		delete[] szObjectBuffer;
 
 		if (objects || instances) {
-			BOOST_FOREACH(Object &o, ret) {
+			for(Object &o: ret) {
 				fetch_object_details(o, instances, objects, dwDetailLevel);
 			}
 		}

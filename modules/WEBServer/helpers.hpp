@@ -5,14 +5,12 @@
 
 #include <json_spirit.h>
 
-#include <boost/foreach.hpp>
-
 #include <string>
 #include "../CommandClient/CommandClient.h"
 
 namespace helpers {
   inline void parse_result(const ::google::protobuf::RepeatedPtrField<PB::Registry::RegistryResponseMessage::Response> &payload, Mongoose::StreamResponse &response, std::string task) {
-    BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response &r, payload) {
+    for(const PB::Registry::RegistryResponseMessage::Response &r: payload) {
       if (r.has_result() && r.result().code() == PB::Common::Result_StatusCodeType_STATUS_ERROR) {
         response.setCodeServerError("Failed to " + task);
         return;
@@ -33,7 +31,7 @@ namespace helpers {
 	  json_spirit::Object node;
 	  node["result"] = "unknown";
 	  node["message"] = "Failed to " + task;
-	  BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response &r, payload) {
+	  for(const PB::Registry::RegistryResponseMessage::Response &r: payload) {
 		  // TODO: FIXME: If more then one return a list.
 		  if (r.has_result() && r.result().code() == PB::Common::Result::STATUS_ERROR) {
 			  response.setCode(HTTP_SERVER_ERROR, REASON_SERVER_ERROR);

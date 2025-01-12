@@ -174,10 +174,10 @@ namespace settings_manager {
 			order.push_back(DEFAULT_CONF_INI_LOCATION);
 		}
 		std::string boot_order;
-		BOOST_FOREACH(const std::string &k, order) {
+		for(const std::string &k: order) {
 			str::format::append_list(boot_order, k, ", ");
 		}
-		BOOST_FOREACH(std::string k, order) {
+		for(std::string k: order) {
 			if (context_exists(k)) {
 				get_logger()->debug("settings", __FILE__, __LINE__, "Activating: " + k);
 				try {
@@ -218,7 +218,7 @@ namespace settings_manager {
 		order.remove(key);
 		order.push_front(key);
 		int i = 1;
-		BOOST_FOREACH(const std::string &k, order) {
+		for(const std::string &k: order) {
 			boot_conf.SetValue(L"settings", utf8::cvt<std::wstring>(str::xtos(i++)).c_str(), utf8::cvt<std::wstring>(k).c_str());
 		}
 		boot_conf.SaveFile(boot_.string().c_str());

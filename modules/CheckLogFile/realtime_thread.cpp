@@ -32,7 +32,6 @@
 #include <error/error.hpp>
 #include <simple_timer.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/filesystem.hpp>
 
 #include <map>
@@ -56,11 +55,11 @@ void real_time_thread::thread_proc() {
 	filter_helper helper(core, plugin_id);
 	std::list<std::string> logs;
 
-	BOOST_FOREACH(boost::shared_ptr<filters::filter_config_object> object, filters_.get_object_list()) {
+	for(boost::shared_ptr<filters::filter_config_object> object: filters_.get_object_list()) {
 		runtime_data data;
 		data.set_split(object->line_split, object->column_split);
 		data.set_read_from_start(object->read_from_start);
-		BOOST_FOREACH(const std::string &file, object->files) {
+		for(const std::string &file: object->files) {
 			boost::filesystem::path path = file;
 			data.add_file(path);
 #ifdef WIN32

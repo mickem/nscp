@@ -21,7 +21,6 @@
 
 #include <str/format.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/filesystem.hpp>
 
 namespace check_cpu_filter {
@@ -34,10 +33,10 @@ namespace check_cpu_filter {
 
 	modern_filter::match_result runtime_data::process_item(filter_type &filter, transient_data_type thread) {
 		modern_filter::match_result ret;
-		BOOST_FOREACH(container &c, checks) {
+		for(container &c: checks) {
 			std::map<std::string, windows::system_info::load_entry> vals = thread->get_cpu_load(c.time);
 			typedef std::map<std::string, windows::system_info::load_entry>::value_type vt;
-			BOOST_FOREACH(vt v, vals) {
+			for(vt v: vals) {
 				boost::shared_ptr<check_cpu_filter::filter_obj> record(new check_cpu_filter::filter_obj(c.alias, v.first, v.second));
 				ret.append(filter.match(record));
 			}

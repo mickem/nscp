@@ -90,13 +90,13 @@ namespace graphite_client {
 
 			std::list<g_data> list;
 
-			BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage_Response &p, request_message.payload()) {
+			for(const ::PB::Commands::QueryResponseMessage_Response &p: request_message.payload()) {
 				std::string tmp_path = ppath;
 				str::utils::replace(tmp_path, "${check_alias}", p.alias());
 
 				if (con.send_perf) {
-					BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage::Response::Line &l, p.lines()) {
-						BOOST_FOREACH(const PB::Common::PerformanceData &perf, l.perf()) {
+					for(const ::PB::Commands::QueryResponseMessage::Response::Line &l: p.lines()) {
+						for(const PB::Common::PerformanceData &perf: l.perf()) {
 							g_data d;
 							d.path = tmp_path;
 							str::utils::replace(d.path, "${perf_alias}", perf.alias());
@@ -139,10 +139,10 @@ namespace graphite_client {
 			if (!path.empty())
 				mypath = path + ".";
 			mypath += b.key();
-			BOOST_FOREACH(const PB::Metrics::MetricsBundle &b2, b.children()) {
+			for(const PB::Metrics::MetricsBundle &b2: b.children()) {
 				push_metrics(list, b2, mypath, mpath);
 			}
-			BOOST_FOREACH(const PB::Metrics::Metric &v, b.value()) {
+			for(const PB::Metrics::Metric &v: b.value()) {
 				graphite_client::g_data d;
 				d.path = mpath;
 				str::utils::replace(d.path, "${metric}", mypath + "." + v.key());
@@ -160,8 +160,8 @@ namespace graphite_client {
 			std::string mpath = con.mpath;
 			str::utils::replace(mpath, "${hostname}", con.sender_hostname);
 
-			BOOST_FOREACH(const PB::Metrics::MetricsMessage::Response &r, request_message.payload()) {
-				BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, r.bundles()) {
+			for(const PB::Metrics::MetricsMessage::Response &r: request_message.payload()) {
+				for(const PB::Metrics::MetricsBundle &b: r.bundles()) {
 					push_metrics(list, b, "", mpath);
 				}
 			}
@@ -192,7 +192,7 @@ namespace graphite_client {
 				boost::posix_time::time_duration diff = now - time_t_epoch;
 				int x = diff.total_seconds();
 
-				BOOST_FOREACH(const g_data &d, data) {
+				for(const g_data &d: data) {
 					std::string msg = d.path + " " + d.value + " " + boost::lexical_cast<std::string>(x) + "\n";
 					socket.send(boost::asio::buffer(msg));
 				}

@@ -179,7 +179,7 @@ std::string nsclient::core::path_manager::expand_path(std::string file) {
 		parsers::simple_expression::parse(file, expr);
 
 		std::string ret;
-		BOOST_FOREACH(const parsers::simple_expression::entry &e, expr) {
+		for(const parsers::simple_expression::entry &e: expr) {
 			if (!e.is_variable)
 				ret += e.name;
 			else

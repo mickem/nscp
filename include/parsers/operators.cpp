@@ -20,7 +20,6 @@
 #include <iostream>
 
 #include <boost/regex.hpp>
-#include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/algorithm/string.hpp>
@@ -359,7 +358,7 @@ namespace parsers {
 				value_container eval_int(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
 					value_container lhs = left->get_value(errors, type_int);
 					long long val = lhs.get_int();
-					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
+					for(node_type itm: right->get_list_value(errors)) {
 						if (itm->get_int_value(errors) == val)
 							return value_container::create_int(false, lhs.is_unsure);
 					}
@@ -368,7 +367,7 @@ namespace parsers {
 				value_container eval_float(value_type, evaluation_context errors, const node_type left, const node_type right) const {
 					value_container lhs = left->get_value(errors, type_float);
 					double val = lhs.get_float();
-					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
+					for(node_type itm: right->get_list_value(errors)) {
 						if (itm->get_float_value(errors) == val)
 							return value_container::create_int(false, lhs.is_unsure);
 					}
@@ -377,7 +376,7 @@ namespace parsers {
 				value_container eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const {
 					value_container lhs = left->get_value(errors, type_string);
 					std::string val = lhs.get_string();
-					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
+					for(node_type itm: right->get_list_value(errors)) {
 						if (itm->get_string_value(errors) == val)
 							return value_container::create_int(false, lhs.is_unsure);
 					}
@@ -388,7 +387,7 @@ namespace parsers {
 				value_container eval_int(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
 					value_container lhs = left->get_value(errors, type_int);
 					long long val = lhs.get_int();
-					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
+					for(node_type itm: right->get_list_value(errors)) {
 						long long cmp = itm->get_int_value(errors);
 						if (cmp == val)
 							return value_container::create_int(true, lhs.is_unsure);
@@ -398,7 +397,7 @@ namespace parsers {
 				value_container eval_float(value_type, evaluation_context errors, const node_type left, const node_type right) const {
 					value_container lhs = left->get_value(errors, type_float);
 					double val = lhs.get_float();
-					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
+					for(node_type itm: right->get_list_value(errors)) {
 						if (itm->get_float_value(errors) == val)
 							return value_container::create_int(true, lhs.is_unsure);
 					}
@@ -407,7 +406,7 @@ namespace parsers {
 				value_container eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const {
 					value_container lhs = left->get_value(errors, type_string);
 					std::string val = lhs.get_string();
-					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
+					for(node_type itm: right->get_list_value(errors)) {
 						if (itm->get_string_value(errors) == val)
 							return value_container::create_int(true, lhs.is_unsure);
 					}

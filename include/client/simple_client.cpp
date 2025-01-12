@@ -31,7 +31,6 @@
 #include <utf8.hpp>
 #include <str/utils.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/function.hpp>
 
 static void create_registry_query(const nscapi::core_wrapper *core, const std::string command, const PB::Registry::ItemType &type, PB::Registry::RegistryResponseMessage &response_message) {
@@ -73,8 +72,8 @@ std::string render_query(const ::PB::Registry::RegistryResponseMessage::Response
 
 static std::string render_list(const PB::Registry::RegistryResponseMessage &response_message, boost::function<std::string(const ::PB::Registry::RegistryResponseMessage::Response::Inventory&)> renderer) {
 	std::string list;
-	BOOST_FOREACH(const ::PB::Registry::RegistryResponseMessage::Response &pl, response_message.payload()) {
-		BOOST_FOREACH(const ::PB::Registry::RegistryResponseMessage_Response_Inventory& i, pl.inventory()) {
+	for(const ::PB::Registry::RegistryResponseMessage::Response &pl: response_message.payload()) {
+		for(const ::PB::Registry::RegistryResponseMessage_Response_Inventory& i: pl.inventory()) {
 			if (!list.empty())
 				list += "\n";
 			list += renderer(i);
@@ -246,7 +245,7 @@ namespace client {
 			list = render_list(response_message, &render_query);
 			handler->output_message(list.empty() ? "Nothing found" : list);
 		} else if (command.size() >= 7 && command.substr(0, 7) == "metrics") {
-			BOOST_FOREACH(const metrics::metrics_store::values_map::value_type &v, metrics_store.get(command.substr(7))) {
+			for(const metrics::metrics_store::values_map::value_type &v: metrics_store.get(command.substr(7))) {
 				handler->output_message(v.first + "=" + v.second);
 			}
 		} else if (command.size() > 4 && command.substr(0, 4) == "exec") {
@@ -263,7 +262,7 @@ namespace client {
 				std::list<std::string> result;
 				nscapi::core_helper helper(handler->get_core(), handler->get_plugin_id());
 				helper.exec_simple_command(target, cmd, args, result);
-				BOOST_FOREACH(const std::string &s, result)
+				for(const std::string &s: result)
 					handler->output_message(s);
 			} catch (const std::exception &e) {
 				handler->output_message("Exception: " + utf8::utf8_from_native(e.what()));
@@ -280,7 +279,7 @@ namespace client {
 			if (!q.validate_response()) {
 				handler->output_message("ERROR: " + q.get_response_error());
 			} else {
-				BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
+				for(const pf::settings_query::key_values &val: q.get_query_key_response()) {
 					std::string tmp;
 					tmp += val.path();
 					tmp += "/" + val.key();
@@ -302,8 +301,8 @@ namespace client {
 						PB::Commands::QueryResponseMessage message;
 						message.ParseFromString(response);
 
-						BOOST_FOREACH(const PB::Commands::QueryResponseMessage::Response payload, message.payload()) {
-							BOOST_FOREACH(const PB::Commands::QueryResponseMessage::Response::Line &l, payload.lines()) {
+						for(const PB::Commands::QueryResponseMessage::Response payload: message.payload()) {
+							for(const PB::Commands::QueryResponseMessage::Response::Line &l: payload.lines()) {
 								std::string msg = nscapi::plugin_helper::translateReturn(payload.result()) + ": " + l.message();
 								handler->output_message(msg);
 								std::string perf = nscapi::protobuf::functions::build_performance_data(l, nscapi::protobuf::functions::no_truncation);

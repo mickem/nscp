@@ -39,7 +39,7 @@ boost::optional<boost::filesystem::path> script_provider::find_file(std::string 
 	checks.push_back(root_ / "scripts" / file);
 	checks.push_back(root_ / "scripts" / (file + ".py"));
 	checks.push_back(root_ / file);
-	BOOST_FOREACH(boost::filesystem::path c, checks) {
+	for(boost::filesystem::path c: checks) {
 		if (boost::filesystem::exists(c) && boost::filesystem::is_regular_file(c))
 			return boost::optional<boost::filesystem::path>(c);
 	}

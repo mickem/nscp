@@ -132,8 +132,8 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
 		std::string pb_response;
 		provider_->get_core()->registry_query(rrm.SerializeAsString(), pb_response);
 		response.ParseFromString(pb_response);
-		BOOST_FOREACH(const ::PB::Registry::RegistryResponseMessage_Response &p, response.payload()) {
-			BOOST_FOREACH(const ::PB::Registry::RegistryResponseMessage_Response_Inventory &i, p.inventory()) {
+		for(const ::PB::Registry::RegistryResponseMessage_Response &p: response.payload()) {
+			for(const ::PB::Registry::RegistryResponseMessage_Response_Inventory &i: p.inventory()) {
 				if (json) {
 #ifdef HAVE_JSON_SPIRIT
 					data.push_back(i.name());
@@ -147,7 +147,7 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
 		fs::path dir = provider_->get_core()->expand_path("${scripts}/python");
 		fs::path rel = provider_->get_core()->expand_path("${base-path}/python");
 		fs::recursive_directory_iterator iter(dir), eod;
-		BOOST_FOREACH(fs::path const& i, std::make_pair(iter, eod)) {
+		for(fs::path const& i: boost::make_iterator_range(iter, eod)) {
 			std::string s = i.string();
 			if (boost::algorithm::starts_with(s, rel.string()))
 				s = s.substr(rel.string().size());
@@ -432,7 +432,7 @@ void extscr_cli::configure(const PB::Commands::ExecuteRequestMessage::Request &r
 		nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
 		return;
 	}
-	BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
+	for(const pf::settings_query::key_values &val: q.get_query_key_response()) {
 		if (val.matches(MAIN_MODULES_SECTION, MODULE_NAME) && val.get_bool())
 			module = true;
 		else if (val.matches(SCRIPT_PATH))
@@ -466,7 +466,7 @@ void extscr_cli::configure(const PB::Commands::ExecuteRequestMessage::Request &r
 	if (!module) {
 		sq.set(MAIN_MODULES_SECTION, MODULE_NAME, "enabled");
 	}
-	BOOST_FOREACH(const std::string &s, to_add) {
+	for(const std::string &s: to_add) {
 		if (!provider_->find_file(s)) {
 			result << "Failed to find: " << s << std::endl;
 		} else {
@@ -478,7 +478,7 @@ void extscr_cli::configure(const PB::Commands::ExecuteRequestMessage::Request &r
 			}
 		}
 	}
-	BOOST_FOREACH(const std::string &s, to_remove) {
+	for(const std::string &s: to_remove) {
 		const script_map_type::const_iterator v = scripts.find(s);
 		if (v != scripts.end()) {
 			sq.erase(SCRIPT_PATH, v->second);
@@ -487,7 +487,7 @@ void extscr_cli::configure(const PB::Commands::ExecuteRequestMessage::Request &r
 			result << "Failed to remove nonexisting script: " << s << std::endl;
 		}
 	}
-	BOOST_FOREACH(const script_map_type::value_type &e, scripts) {
+	for(const script_map_type::value_type &e: scripts) {
 		result << e.second << std::endl;
 	}
 

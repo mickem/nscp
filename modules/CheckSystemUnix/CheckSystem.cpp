@@ -246,9 +246,9 @@ void CheckSystem::check_memory(const PB::Commands::QueryRequestMessage::Request 
 		return nscapi::protobuf::functions::set_response_bad(*response, e.what());
 	}
 
-	BOOST_FOREACH(const std::string &type, types) {
+	for(const std::string &type: types) {
 		bool found = false;
-		BOOST_FOREACH(const check_mem_filter::filter_obj &o, mem_data) {
+		for(const check_mem_filter::filter_obj &o: mem_data) {
 			if (o.type == type) {
 				boost::shared_ptr<check_mem_filter::filter_obj> record(new check_mem_filter::filter_obj(o));
 				filter.match(record);

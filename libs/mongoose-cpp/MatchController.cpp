@@ -2,7 +2,6 @@
 
 #include "StreamResponse.h"
 
-#include <boost/foreach.hpp>
 #include <boost/algorithm/string.hpp>
 
 namespace Mongoose
@@ -18,7 +17,7 @@ namespace Mongoose
 	}
 
 	MatchController::~MatchController() {
-		BOOST_FOREACH(handler_map::value_type &handler, routes) {
+		for(handler_map::value_type &handler: routes) {
             delete handler.second;
         }
         routes.clear();

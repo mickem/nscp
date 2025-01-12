@@ -4,9 +4,6 @@
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
-
-#include <boost/foreach.hpp>
-
 namespace nsclient {
 
 	namespace core {
@@ -23,7 +20,7 @@ namespace nsclient {
 
 		void storage_query_handler::parse(PB::Storage::StorageResponseMessage &response) {
 
-			BOOST_FOREACH(const PB::Storage::StorageRequestMessage::Request &r, request_.payload()) {
+			for(const PB::Storage::StorageRequestMessage::Request &r: request_.payload()) {
 				if (r.has_get()) {
 					parse_get(r.id(), r.get(), response);
 				} else if (r.has_put()) {
@@ -41,7 +38,7 @@ namespace nsclient {
 			if (plugin) {
 				plugin_name = plugin->get_alias_or_name();
 			}
-			BOOST_FOREACH(const ::PB::Storage::Storage_Entry &e, storage_->get(plugin_name, q.context())) {
+			for(const ::PB::Storage::Storage_Entry &e: storage_->get(plugin_name, q.context())) {
 				payload->mutable_get()->add_entry()->CopyFrom(e);
 			}
 		}

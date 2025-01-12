@@ -19,7 +19,6 @@
 
 #include <metrics/metrics_store_map.hpp>
 
-#include <boost/foreach.hpp>
 #include <str/xtos.hpp>
 
 namespace metrics {
@@ -30,11 +29,11 @@ namespace metrics {
 			p += path + ".";
 		p += b.key();
 
-		BOOST_FOREACH(const PB::Metrics::MetricsBundle &b2, b.children()) {
+		for(const PB::Metrics::MetricsBundle &b2: b.children()) {
 			build_metrics(metrics, b2, p);
 		}
 
-		BOOST_FOREACH(const PB::Metrics::Metric &v, b.value()) {
+		for(const PB::Metrics::Metric &v: b.value()) {
 			if (v.has_gauge_value())
 				metrics[ p + "." + v.key()] = str::xtos(v.gauge_value().value());
 			else if (v.has_string_value())
@@ -46,8 +45,8 @@ namespace metrics {
 	void metrics_store::set(const PB::Metrics::MetricsMessage &response) {
 		metrics_store::values_map tmp;
 
-		BOOST_FOREACH(const PB::Metrics::MetricsMessage::Response &p, response.payload()) {
-			BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, p.bundles()) {
+		for(const PB::Metrics::MetricsMessage::Response &p: response.payload()) {
+			for(const PB::Metrics::MetricsBundle &b: p.bundles()) {
 				build_metrics(tmp, b, "");
 			}
 		}
@@ -67,7 +66,7 @@ namespace metrics {
 			if (!lock.owns_lock())
 				return ret;
 
-			BOOST_FOREACH(const values_map::value_type &v, values_) {
+			for(const values_map::value_type &v: values_) {
 				if (!f || v.first.find(filter) != std::string::npos)
 					ret[v.first] = v.second;
 			}

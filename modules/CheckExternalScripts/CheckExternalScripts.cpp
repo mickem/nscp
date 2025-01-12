@@ -36,7 +36,6 @@
 
 #include <boost/regex.hpp>
 #include <boost/filesystem.hpp>
-#include <boost/foreach.hpp>
 #include <boost/bind/bind.hpp>
 
 namespace sh = nscapi::settings_helper;
@@ -236,7 +235,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		root_ = get_base_path();
 
 		nscapi::core_helper core(get_core(), get_id());
-		BOOST_FOREACH(const boost::shared_ptr<alias::command_object> &o, aliases_.get_object_list()) {
+		for(const boost::shared_ptr<alias::command_object> &o: aliases_.get_object_list()) {
 			core.register_alias(o->get_alias(), "Alias for: " + o->command);
 		}
 	} catch (...) {
@@ -351,7 +350,7 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 	std::string all, allesc;
 	if (allowArgs_) {
 		int i = 1;
-		BOOST_FOREACH(const std::string &str, args) {
+		for(const std::string &str: args) {
 			if (!allowNasty_ && str.find_first_of(NASTY_METACHARS) != std::string::npos) {
 				nscapi::protobuf::functions::set_response_bad(*response, "Request contained illegal characters set /settings/external scripts/allow nasty characters=true!");
 				return;
@@ -432,7 +431,7 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 void CheckExternalScripts::handle_alias(const alias::command_object &cd, const std::list<std::string> &src_args, PB::Commands::QueryResponseMessage::Response *response) {
 	std::list<std::string> args = cd.arguments;
 	bool missing_args = false;
-	BOOST_FOREACH(const std::string &s, src_args) {
+	for(const std::string &s: src_args) {
 		if (s == "help-pb") {
 			std::stringstream ss;
 			int i = 1;
@@ -440,7 +439,7 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 			bool found = true;
 			while (found) {
 				found = false;
-				BOOST_FOREACH(std::string &arg, args) {
+				for(std::string &arg: args) {
 					if (arg.find("$ARG" + str::xtos(i++) + "$") != std::string::npos) {
 						ss << "$ARG" << str::xtos(i++) << "$,false,," << arg << "\n";
 						found = true;
@@ -456,9 +455,9 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 		}
 	}
 
-	BOOST_FOREACH(std::string &arg, args) {
+	for(std::string &arg: args) {
 		int i = 1;
-		BOOST_FOREACH(const std::string &str, src_args) {
+		for(const std::string &str: src_args) {
 			str::utils::replace(arg, "$ARG" + str::xtos(i) + "$", str);
 			str::utils::replace(arg, "%ARG" + str::xtos(i) + "%", str);
 			i++;

@@ -5,7 +5,6 @@
 
 #include "ext/mongoose.h"
 
-#include <boost/foreach.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread/thread.hpp>
 
@@ -81,7 +80,7 @@ namespace Mongoose
 		std::string uri = mg_url_uri(url_.c_str());
 
 		request << verb + " " + uri + " HTTP/1.0\r\n";
-		BOOST_FOREACH(const header_type::value_type &v, hdr) {
+		for(const header_type::value_type &v: hdr) {
 			request << v.first << ": " << v.second << "\r\n";
 		}
 		request << "\n\r";

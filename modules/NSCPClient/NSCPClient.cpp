@@ -130,7 +130,7 @@ void NSCPClient::query_fallback(const PB::Commands::QueryRequestMessage &request
 }
 
 bool NSCPClient::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response) {
-	BOOST_FOREACH(const PB::Commands::ExecuteRequestMessage::Request &payload, request.payload()) {
+	for(const PB::Commands::ExecuteRequestMessage::Request &payload: request.payload()) {
 		if (payload.arguments_size() == 0 || payload.arguments(0) == "help") {
 			PB::Commands::ExecuteResponseMessage::Response *rp = response.add_payload();
 			nscapi::protobuf::functions::set_response_bad(*rp, "Usage: nscp nscp --help");

@@ -53,13 +53,13 @@ namespace client {
 		destination_container() : timeout(10), retry(2) {}
 
 		void apply(nscapi::settings_objects::object_instance obj) {
-			BOOST_FOREACH(const nscapi::settings_objects::options_map::value_type &k, obj->get_options()) {
+			for(const nscapi::settings_objects::options_map::value_type &k: obj->get_options()) {
 				set_string_data(k.first, k.second);
 			}
 		}
 
 		void apply(const std::string &key, const PB::Common::Header &header) {
-			BOOST_FOREACH(PB::Common::Host host, header.hosts()) {
+			for(PB::Common::Host host: header.hosts()) {
 				if (host.id() == key) {
 					apply_host(host);
 				}
@@ -69,7 +69,7 @@ namespace client {
 			if (!host.address().empty()) {
 				set_string_data("address", host.address());
 			}
-			BOOST_FOREACH(const PB::Common::KeyValue &kvp, host.metadata()) {
+			for(const PB::Common::KeyValue &kvp: host.metadata()) {
 				set_string_data(kvp.key(), kvp.value());
 			}
 		}
@@ -182,13 +182,13 @@ namespace client {
 			ss << "Command: " << command;
 			ss << ", target: " << target_id;
 			ss << ", self: {" << host_self.to_string() << "}";
-			BOOST_FOREACH(const client::destination_container &r, targets) {
+			for(const client::destination_container &r: targets) {
 				ss << ", target: {" << r.to_string() << "}";
 			}
 			ss << ", message: " << message;
 			ss << ", result: " << result;
 			int i = 0;
-			BOOST_FOREACH(std::string a, arguments) {
+			for(std::string a: arguments) {
 				ss << ", argument[" << i++ << "]: " << a;
 			}
 			return ss.str();

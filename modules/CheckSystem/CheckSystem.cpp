@@ -73,7 +73,7 @@ std::pair<bool, std::string> validate_counter(std::string counter) {
 			str::utils::replace(c, "$INSTANCE$", "*");
 			std::string err;
 			bool status = true;
-			BOOST_FOREACH(std::string s, PDH::Enumerations::expand_wild_card_path(c, err)) {
+			for(std::string s: PDH::Enumerations::expand_wild_card_path(c, err)) {
 				std::string::size_type pos1 = s.find('(');
 				std::string tag = s;
 				if (pos1 != std::string::npos) {
@@ -210,7 +210,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	if (mode == NSCAPI::normalStart) {
 
-		BOOST_FOREACH(const check_pdh::counter_config_handler::object_instance object, pdh_checker.counters_.get_object_list()) {
+		for(const check_pdh::counter_config_handler::object_instance object: pdh_checker.counters_.get_object_list()) {
 			try {
 				PDH::pdh_object counter;
 				counter.alias = object->get_alias();
@@ -262,11 +262,11 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 #ifdef HAVE_JSON_SPIRIT
 		json_spirit::Array data;
 #endif
-		BOOST_FOREACH(const PDH::Enumerations::Object &obj, list) {
+		for(const PDH::Enumerations::Object &obj: list) {
 			if (json) {
 #ifdef HAVE_JSON_SPIRIT
-				BOOST_FOREACH(const std::string &inst, obj.instances) {
-					BOOST_FOREACH(const std::string &count, obj.counters) {
+				for(const std::string &inst: obj.instances) {
+					for(const std::string &count: obj.counters) {
 						std::string line = "\\" + obj.name + "(" + inst + ")\\" + count;
 						if (!filter.empty() && line.find(filter) == std::string::npos)
 							continue;
@@ -276,7 +276,7 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 				}
 #endif
 			} else if (porcelain) {
-				BOOST_FOREACH(const std::string &inst, obj.instances) {
+				for(const std::string &inst: obj.instances) {
 					std::string line = "\\" + obj.name + "(" + inst + ")\\";
 					total++;
 					if (!filter.empty() && line.find(filter) == std::string::npos)
@@ -284,7 +284,7 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 					result += "instance," + qoute(obj.name) + "," + qoute(inst) + "\n";
 					match++;
 				}
-				BOOST_FOREACH(const std::string &count, obj.counters) {
+				for(const std::string &count: obj.counters) {
 					std::string line = "\\" + obj.name + "\\" + count;
 					total++;
 					if (!filter.empty() && line.find(filter) == std::string::npos)
@@ -305,8 +305,8 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 			} else if (!obj.error.empty()) {
 				result += "Failed to enumerate counter " + obj.name + ": " + utf8::utf8_from_native(obj.error) + "\n";
 			} else if (obj.instances.size() > 0) {
-				BOOST_FOREACH(const std::string &inst, obj.instances) {
-					BOOST_FOREACH(const std::string &count, obj.counters) {
+				for(const std::string &inst: obj.instances) {
+					for(const std::string &count: obj.counters) {
 						std::string line = "\\" + obj.name + "(" + inst + ")\\" + count;
 						total++;
 						if (!filter.empty() && line.find(filter) == std::string::npos)
@@ -321,7 +321,7 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 					}
 				}
 			} else {
-				BOOST_FOREACH(const std::string &count, obj.counters) {
+				for(const std::string &count: obj.counters) {
 					std::string line = "\\" + obj.name + "\\" + count;
 					total++;
 					if (!filter.empty() && line.find(filter) == std::string::npos)
@@ -435,7 +435,7 @@ int CheckSystem::commandLineExec(const int, const std::string &command, const st
 						result += "Listing configured counters\n";
 						result += "---------------------------\n";
 					}
-					BOOST_FOREACH(const counter_map_type::value_type v, counters) {
+					for(const counter_map_type::value_type v: counters) {
 						std::string line = v.first + " = " + v.second;
 						boost::tuple<bool, std::string> status;
 						count++;
@@ -495,12 +495,12 @@ int CheckSystem::commandLineExec(const int, const std::string &command, const st
 		} else if (vm.count("expand-path")) {
 			try {
 				if (porcelain) {
-					BOOST_FOREACH(const std::string &s, PDH::PDHResolver::PdhExpandCounterPath(lookup)) {
+					for(const std::string &s: PDH::PDHResolver::PdhExpandCounterPath(lookup)) {
 						result += s + "\n";
 					}
 				} else {
 					result += "--+--[ Lookup Result ]----------------------------------------";
-					BOOST_FOREACH(const std::string &s, PDH::PDHResolver::PdhExpandCounterPath(lookup)) {
+					for(const std::string &s: PDH::PDHResolver::PdhExpandCounterPath(lookup)) {
 						result += "  | Found '" + s + "\n";
 					}
 				}
@@ -547,7 +547,7 @@ void CheckSystem::checkCpu(PB::Commands::QueryRequestMessage::Request &request, 
 		request.add_arguments("top-syntax=${status}: CPU Load: ${list}");
 	}
 	request.add_arguments("detail-syntax=${time}: average load ${load}%");
-	BOOST_FOREACH(const std::string &t, times) {
+	for(const std::string &t: times) {
 		request.add_arguments("time=" + t);
 	}
 	compat::log_args(request);
@@ -579,10 +579,10 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
 	if (!filter_helper.build_filter(filter))
 		return;
 
-	BOOST_FOREACH(const std::string &time, times) {
+	for(const std::string &time: times) {
 		std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(str::format::decode_time<long>(time, 1));
 		typedef std::map<std::string, windows::system_info::load_entry>::value_type vt;
-		BOOST_FOREACH(vt v, vals) {
+		for(vt v: vals) {
 			boost::shared_ptr<check_cpu_filter::filter_obj> record(new check_cpu_filter::filter_obj(time, v.first, v.second));
 			filter.match(record);
 		}
@@ -727,7 +727,7 @@ void CheckSystem::checkServiceState(PB::Commands::QueryRequestMessage::Request &
 	}
 
 	std::string tmp;
-	BOOST_FOREACH(const std::string &rsn, extra) {
+	for(const std::string &rsn: extra) {
 		std::string sn = boost::trim_copy(rsn);
 		if (sn.empty())
 			continue;
@@ -747,7 +747,7 @@ void CheckSystem::checkServiceState(PB::Commands::QueryRequestMessage::Request &
 			crit += tmp;
 	}
 
-	BOOST_FOREACH(const std::string &s, excludes) {
+	for(const std::string &s: excludes) {
 		if (!s.empty())
 			request.add_arguments("exclude=" + s);
 	}
@@ -811,9 +811,9 @@ void CheckSystem::check_service(const PB::Commands::QueryRequestMessage::Request
 	if (!filter_helper.build_filter(filter))
 		return;
 
-	BOOST_FOREACH(const std::string &service, services) {
+	for(const std::string &service: services) {
 		if (service == "*") {
-			BOOST_FOREACH(const services_helper::service_info &info, services_helper::enum_services(computer, services_helper::parse_service_type(type), services_helper::parse_service_state(state))) {
+			for(const services_helper::service_info &info: services_helper::enum_services(computer, services_helper::parse_service_type(type), services_helper::parse_service_state(state))) {
 				if (std::find(excludes.begin(), excludes.end(), info.get_name()) != excludes.end()
 					|| std::find(excludes.begin(), excludes.end(), info.get_desc()) != excludes.end()
 					)
@@ -852,7 +852,7 @@ void CheckSystem::check_pagefile(const PB::Commands::QueryRequestMessage::Reques
 		return;
 
 	windows::system_info::pagefile_info total("total");
-	BOOST_FOREACH(const windows::system_info::pagefile_info &info, windows::system_info::get_pagefile_info()) {
+	for(const windows::system_info::pagefile_info &info: windows::system_info::get_pagefile_info()) {
 		boost::shared_ptr<check_page_filter::filter_obj> record(new check_page_filter::filter_obj(info));
 		modern_filter::match_result ret = filter.match(record);
 		//if (ret.matched_bound)
@@ -888,7 +888,7 @@ void CheckSystem::checkMem(PB::Commands::QueryRequestMessage::Request &request, 
 	compat::inline_addarg(request, crit);
 	compat::matchShowAll(vm, request);
 	request.add_arguments("detail-syntax=%(type): Total: %(size) - Used: %(used) (%(used_pct)%) - Free: %(free) (%(free_pct)%)");
-	BOOST_FOREACH(const std::string &t, types) {
+	for(const std::string &t: types) {
 		if (t == "page" || t == "paged")
 			request.add_arguments("type=committed");
 		else
@@ -935,7 +935,7 @@ void CheckSystem::checkProcState(PB::Commands::QueryRequestMessage::Request &req
 	if (compat::hasFirstNumeric(vm, "Count")) {
 		NSC_DEBUG_MSG("Warning: Max...Count might be parsed incorrectly");
 		request.add_arguments("detail-syntax=${exe} : ${count}");
-		BOOST_FOREACH(const std::string &s, extra) {
+		for(const std::string &s: extra) {
 			std::string::size_type pos = s.find('=');
 			if (pos != std::string::npos) {
 				request.add_arguments("process=" + s.substr(0, pos));
@@ -948,7 +948,7 @@ void CheckSystem::checkProcState(PB::Commands::QueryRequestMessage::Request &req
 	} else {
 		request.add_arguments("detail-syntax=${exe} : ${state}");
 		std::string tmp;
-		BOOST_FOREACH(const std::string &rpn, extra) {
+		for(const std::string &rpn: extra) {
 			std::string pn = boost::trim_copy(rpn);
 			if (!pn.empty()) {
 				std::string::size_type pos = pn.find('=');
@@ -1005,7 +1005,7 @@ void CheckSystem::checkCounter(PB::Commands::QueryRequestMessage::Request &reque
 	compat::inline_addarg(request, crit);
 	compat::matchShowAll(vm, request);
 
-	BOOST_FOREACH(const std::string &s, extra) {
+	for(const std::string &s: extra) {
 		if ((s.size() > 8) && (s.substr(0, 8) == "Counter:")) {
 			std::string::size_type pos = s.find('=');
 			if (pos != std::string::npos) {
@@ -1016,7 +1016,7 @@ void CheckSystem::checkCounter(PB::Commands::QueryRequestMessage::Request &reque
 		}
 	}
 
-	BOOST_FOREACH(const std::string &t, counters) {
+	for(const std::string &t: counters) {
 		request.add_arguments("counter=" + t);
 	}
 	request.add_arguments("perf-config=*(suffix:none)");
@@ -1089,7 +1089,7 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
 
 		std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(5);
 		typedef std::map<std::string, windows::system_info::load_entry>::value_type vt;
-		BOOST_FOREACH(vt v, vals) {
+		for(vt v: vals) {
 			add_metric(section, v.first + ".idle", v.second.idle);
 			add_metric(section, v.first + ".total", v.second.total);
 			add_metric(section, v.first + ".kernel", v.second.kernel);
@@ -1123,7 +1123,7 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
 		PB::Metrics::MetricsBundle *section = bundle->add_children();
 		section->set_key("metrics");
 
-		BOOST_FOREACH(const pdh_thread::metrics_hash::value_type &e, collector->get_metrics()) {
+		for(const pdh_thread::metrics_hash::value_type &e: collector->get_metrics()) {
 			add_visitor adder(section, e.first);
 			boost::apply_visitor(adder, e.second);
 		}
@@ -1137,7 +1137,7 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
 	if (!net.empty()) {
 		PB::Metrics::MetricsBundle *section = bundle->add_children();
 		section->set_key("network");
-		BOOST_FOREACH(const network_check::nics_type::value_type &v, net) {
+		for(const network_check::nics_type::value_type &v: net) {
 			v.build_metrics(section);
 		}
 

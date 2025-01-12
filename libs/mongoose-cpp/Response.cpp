@@ -1,7 +1,5 @@
 #include "Response.h"
 
-#include <boost/foreach.hpp>
-
 #include <sstream>
 
 using namespace std;
