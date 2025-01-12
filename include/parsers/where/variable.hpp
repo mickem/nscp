@@ -309,7 +309,7 @@ namespace parsers {
 						warn_value = warn->get_int_value(context);
 					if (crit)
 						crit_value = crit->get_int_value(context);
-					BOOST_FOREACH(int_performance_generator &p, perfgen) {
+					for(int_performance_generator &p: perfgen) {
 						if (!p->is_configured())
 							p->configure(name_, context);
 						p->eval(ret, context, alias, current_value, warn_value, crit_value, native_context->get_object());
@@ -421,7 +421,7 @@ namespace parsers {
 						warn_value = warn->get_float_value(context);
 					if (crit)
 						crit_value = crit->get_float_value(context);
-					BOOST_FOREACH(float_performance_generator &p, perfgen) {
+					for(float_performance_generator &p: perfgen) {
 						if (!p->is_configured())
 							p->configure(name_, context);
 						p->eval(ret, context, alias, current_value, warn_value, crit_value, native_context->get_object());
@@ -677,7 +677,7 @@ namespace parsers {
 						warn_value = warn->get_int_value(context);
 					if (crit)
 						crit_value = crit->get_int_value(context);
-					BOOST_FOREACH(const int_performance_generator &p, perfgen) {
+					for(const int_performance_generator &p: perfgen) {
 						if (!p->is_configured())
 							p->configure(name_, context);
 						p->eval(ret, context, alias, current_value, warn_value, crit_value, native_context->get_object());

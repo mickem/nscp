@@ -5,14 +5,13 @@
 #include <parsers/perfconfig/perfconfig.hpp>
 
 #include <gtest/gtest.h>
-#include <boost/foreach.hpp>
 #include <boost/version.hpp>
 
 std::string to_string(const parsers::perfconfig::result_type &v) {
 	std::stringstream ss;
-	BOOST_FOREACH(const parsers::perfconfig::perf_rule &r, v) {
+	for(const parsers::perfconfig::perf_rule &r: v) {
 		ss << r.name << "(";
-		BOOST_FOREACH(const parsers::perfconfig::perf_option &o, r.options) {
+		for(const parsers::perfconfig::perf_option &o: r.options) {
 			ss << o.key << ":" << o.value << ";";
 		}
 		ss << ")";

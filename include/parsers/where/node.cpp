@@ -17,8 +17,6 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/foreach.hpp>
-
 #include <utf8.hpp>
 #include <str/xtos.hpp>
 
@@ -174,7 +172,7 @@ namespace parsers {
 		// Factory implementations
 		node_type factory::create_list(const std::list<std::string> &other) {
 			boost::shared_ptr<list_node_interface> node(new list_node);
-			BOOST_FOREACH(const std::string &v, other) {
+			for(const std::string &v: other) {
 				node->push_back(create_string(v));
 			}
 			return node;
@@ -184,14 +182,14 @@ namespace parsers {
 		}
 		node_type factory::create_list(const std::list<long long> &other) {
 			boost::shared_ptr<list_node_interface> node(new list_node);
-			BOOST_FOREACH(const long long &v, other) {
+			for(const long long &v: other) {
 				node->push_back(create_int(v));
 			}
 			return node;
 		}
 		node_type factory::create_list(const std::list<double> &other) {
 			boost::shared_ptr<list_node_interface> node(new list_node);
-			BOOST_FOREACH(const double &v, other) {
+			for(const double &v: other) {
 				node->push_back(create_float(v));
 			}
 			return node;

@@ -162,7 +162,7 @@ namespace http {
 		std::string to_string() const {
 			std::stringstream ss;
 			ss << "verb: " << verb_ << ", path: " << path_;
-			BOOST_FOREACH(const header_type::value_type &v, headers_) 
+			for(const header_type::value_type &v: headers_)
 				ss << ", " << v.first << ": " << v.second;
 			return ss.str();
 		}
@@ -174,7 +174,7 @@ namespace http {
 			if (!server_.empty()) {
 				ss << "Host: " << server_ << crlf;
 			}
-			BOOST_FOREACH(const header_type::value_type &v, headers_)
+			for(const header_type::value_type &v: headers_)
 				ss << v.first << ": " << v.second << crlf;
 			ss << crlf;
 			return ss.str();
@@ -209,7 +209,7 @@ namespace http {
 			if (!server_.empty()) {
 				os << "Host: " << server_ << crlf;
 			}
-			BOOST_FOREACH(const header_type::value_type &e, headers_) {
+			for(const header_type::value_type &e: headers_) {
 				os << e.first << ": " << e.second << crlf;
 			}
 			os << crlf;
@@ -220,7 +220,7 @@ namespace http {
 		}
 		void add_post_payload(const post_map_type &payload_map) {
 			std::string data;
-			BOOST_FOREACH(const post_map_type::value_type &v, payload_map) {
+			for(const post_map_type::value_type &v: payload_map) {
 				if (!data.empty())
 					data += "&";
 				data += uri_encode(v.first);

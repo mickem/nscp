@@ -8,7 +8,6 @@
 #include <json_spirit.h>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/foreach.hpp>
 #include <boost/regex.hpp>
 #include <boost/filesystem/path.hpp>
 
@@ -51,8 +50,8 @@ void modules_controller::get_modules(Mongoose::Request &request, boost::smatch &
   pb_response.ParseFromString(str_response);
   json_spirit::Array root;
 
-  BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response r, pb_response.payload()) {
-	  BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
+  for(const PB::Registry::RegistryResponseMessage::Response r: pb_response.payload()) {
+	  for(const PB::Registry::RegistryResponseMessage::Response::Inventory i: r.inventory()) {
 		  json_spirit::Object node;
 		  node["name"] = i.name();
 		  node["id"] = i.id();
@@ -61,7 +60,7 @@ void modules_controller::get_modules(Mongoose::Request &request, boost::smatch &
 		  node["enabled"] = false;
 		  node["module_url"] = request.get_host() + "/api/v1/modules/" + i.name() + "/";
 		  json_spirit::Object keys;
-		  BOOST_FOREACH(const PB::Common::KeyValue &kvp, i.info().metadata()) {
+		  for(const PB::Common::KeyValue &kvp: i.info().metadata()) {
 			  if (kvp.key() == "loaded") {
 				  node["loaded"] = kvp.value() == "true";
 			  } else if (kvp.key() == "enabled") {
@@ -101,19 +100,19 @@ void modules_controller::get_module(Mongoose::Request &request, boost::smatch &w
 	pb_response.ParseFromString(str_response);
 	json_spirit::Object node;
 
-	BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response r, pb_response.payload()) {
+	for(const PB::Registry::RegistryResponseMessage::Response r: pb_response.payload()) {
 		if (r.inventory_size() == 0) {
 			response.setCodeNotFound("Module not found: " + module);
 			return;
 		}
-		BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
+		for(const PB::Registry::RegistryResponseMessage::Response::Inventory i: r.inventory()) {
 			node["name"] = i.name();
 			node["id"] = i.id();
 			node["title"] = i.info().title();
 			node["loaded"] = false;
 			node["enabled"] = false;
 			json_spirit::Object keys;
-			BOOST_FOREACH(const PB::Common::KeyValue &kvp, i.info().metadata()) {
+			for(const PB::Common::KeyValue &kvp: i.info().metadata()) {
 				if (kvp.key() == "loaded") {
 					node["loaded"] = kvp.value() == "true";
 				} else if (kvp.key() == "enabled") {
@@ -273,11 +272,11 @@ void modules_controller::put_module(Mongoose::Request &request, boost::smatch &w
 		pb_response.ParseFromString(str_response);
 		json_spirit::Object node;
 
-		BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response r, pb_response.payload()) {
-			BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
+		for(const PB::Registry::RegistryResponseMessage::Response r: pb_response.payload()) {
+			for(const PB::Registry::RegistryResponseMessage::Response::Inventory i: r.inventory()) {
 				if (i.name() == module) {
 					bool is_loaded = false;
-					BOOST_FOREACH(const PB::Common::KeyValue &kvp, i.info().metadata()) {
+					for(const PB::Common::KeyValue &kvp: i.info().metadata()) {
 						if (kvp.key() == "loaded") {
 							std::string v = kvp.value();
 							is_loaded = v == "true";

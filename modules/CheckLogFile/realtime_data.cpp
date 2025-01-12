@@ -24,12 +24,11 @@
 
 #include <str/utils.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/filesystem.hpp>
 
 
 void runtime_data::touch(boost::posix_time::ptime now) {
-	BOOST_FOREACH(file_container &fc, files) {
+	for(file_container &fc: files) {
 		if (boost::filesystem::exists(fc.file)) {
 			fc.size = boost::filesystem::file_size(fc.file);
 		} else {
@@ -67,7 +66,7 @@ bool runtime_data::has_changed(const file_container &fc) const {
 
 
 bool runtime_data::has_changed(transient_data_type) const {
-	BOOST_FOREACH(const file_container &fc, files) {
+	for(const file_container &fc: files) {
 		if (has_changed(fc)) {
 			return true;
 		}
@@ -93,7 +92,7 @@ void runtime_data::add_file(const boost::filesystem::path &path) {
 
 modern_filter::match_result runtime_data::process_item(filter_type &filter, transient_data_type) {
 	modern_filter::match_result ret;
-	BOOST_FOREACH(file_container &c, files) {
+	for(file_container &c: files) {
 		boost::uintmax_t sz = boost::filesystem::file_size(c.file);
 		if (sz == 0) {
 			NSC_TRACE_ENABLED() {

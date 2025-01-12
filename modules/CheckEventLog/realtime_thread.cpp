@@ -30,8 +30,6 @@
 
 #include <str/format.hpp>
 
-#include <boost/foreach.hpp>
-
 typedef parsers::where::realtime_filter_helper<runtime_data, eventlog_filter::filter_config_object> filter_helper;
 
 void real_time_thread::set_path(const std::string &p) {
@@ -46,13 +44,13 @@ void real_time_thread::thread_proc() {
 	filter_helper helper(core, plugin_id);
 	std::list<std::string> logs;
 
-	BOOST_FOREACH(const std::string &s, str::utils::split_lst(logs_, std::string(","))) {
+	for(const std::string &s: str::utils::split_lst(logs_, std::string(","))) {
 		logs.push_back(s);
 	}
 
-	BOOST_FOREACH(boost::shared_ptr<eventlog_filter::filter_config_object> object, filters_.get_object_list()) {
+	for(boost::shared_ptr<eventlog_filter::filter_config_object> object: filters_.get_object_list()) {
 		runtime_data data(object->get_truncate());
-		BOOST_FOREACH(const std::string &f, object->files) {
+		for(const std::string &f: object->files) {
 			if (f != "any" && f != "all") {
 				logs.push_back(f);
 				data.add_file(f);
@@ -68,7 +66,7 @@ void real_time_thread::thread_proc() {
 	typedef std::vector<eventlog_type> eventlog_list;
 	eventlog_list evlog_list;
 
-	BOOST_FOREACH(const std::string &l, logs) {
+	for(const std::string &l: logs) {
 		try {
 			if (eventlog::api::supports_modern()) {
 				evlog_list.push_back(eventlog_type(new eventlog_wrapper_new(l)));

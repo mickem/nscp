@@ -47,7 +47,7 @@ namespace check_docker_filter {
 			//created = v.getString("Created");
 			state = v.getString("State");
 			status = v.getString("Status");
-			BOOST_FOREACH(const json_spirit::Value & name, v.getArray("Names")) {
+			for(const json_spirit::Value & name: v.getArray("Names")) {
 				str::format::append_list(names, name.getString(), ",");
 			}
 			json_spirit::Value netSettings = v.getObject("NetworkSettings");
@@ -170,7 +170,7 @@ namespace docker_checks {
 			json_spirit::Value root;
 			json_spirit::read_or_throw(ss.str(), root);
 			json_spirit::Array list = root.getArray();
-			BOOST_FOREACH(json_spirit::Value & v, list) {
+			for(json_spirit::Value & v: list) {
 				boost::shared_ptr<check_docker_filter::filter_obj> record(new check_docker_filter::filter_obj(v));
 				filter.match(record);
 

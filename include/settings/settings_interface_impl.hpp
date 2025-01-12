@@ -222,7 +222,7 @@ namespace settings {
 		}
 
 		instance_raw_ptr find_child_unsafe(settings_core::key_path_type key) {
-			BOOST_FOREACH(instance_raw_ptr child, children_) {
+			for(instance_raw_ptr child: children_) {
 				if (child->has_key(key.first, key.second))
 					return child;
 			}
@@ -349,7 +349,7 @@ namespace settings {
 			string_list ret;
 			get_cached_sections_unsafe(path, ret);
 			get_real_sections(path, ret);
-			BOOST_FOREACH(const instance_raw_ptr &c, children_) {
+			for(const instance_raw_ptr &c: children_) {
 				string_list itm = c->get_sections(path);
 				ret.insert(ret.end(), itm.begin(), itm.end());
 			}
@@ -368,7 +368,7 @@ namespace settings {
 		}
 		void get_cached_sections_unsafe(std::string path, string_list &list) {
 			if (path.empty()) {
-				BOOST_FOREACH(std::string s, path_cache_) {
+				for(std::string s: path_cache_) {
 					if (s.length() > 1) {
 						std::string::size_type pos = s.find('/', 1);
 						if (pos != std::string::npos)
@@ -380,7 +380,7 @@ namespace settings {
 				// TODO add support for retrieving all key paths here!
 			} else {
 				std::string::size_type path_len = path.length();
-				BOOST_FOREACH(std::string s, path_cache_) {
+				for(std::string s: path_cache_) {
 					if (s.length() > (path_len + 1) && s.substr(0, path_len) == path) {
 						std::string::size_type pos = s.find('/', path_len + 1);
 						std::string tmp;
@@ -409,7 +409,7 @@ namespace settings {
 			string_list ret;
 			get_cached_keys_unsafe(path, ret);
 			get_real_keys(path, ret);
-			BOOST_FOREACH(const instance_raw_ptr &c, children_) {
+			for(const instance_raw_ptr &c: children_) {
 				string_list itm = c->get_keys(path);
 				ret.insert(ret.end(), itm.begin(), itm.end());
 			}
@@ -420,7 +420,7 @@ namespace settings {
 		void get_cached_keys_unsafe(std::string path, string_list &list) {
 			key_cache_type::iterator it = key_cache_.find(path);
 			if (it != key_cache_.end()) {
-				BOOST_FOREACH(std::string s, (*it).second) {
+				for(std::string s: (*it).second) {
 					list.push_back(s);
 				}
 			}
@@ -550,7 +550,7 @@ namespace settings {
 				get_real_keys(path, list);
 
 			}
-			BOOST_FOREACH (const std::string &key, list) {
+			for (const std::string &key: list) {
 				settings_interface::op_string val = get_string(path, key);
 				if (val)
 					other->set_string(path, key, *val);
@@ -565,14 +565,14 @@ namespace settings {
 		virtual void save() {
 			MUTEX_GUARD();
 
-			BOOST_FOREACH(const cache_key_type &v, settings_delete_cache_) {
+			for(const cache_key_type &v: settings_delete_cache_) {
 				remove_real_value(v);
 			}
-			BOOST_FOREACH(const std::string &v, settings_delete_path_cache_) {
+			for(const std::string &v: settings_delete_path_cache_) {
 				remove_real_path(v);
 			}
 
-			BOOST_FOREACH(std::string path, path_cache_) {
+			for(std::string path: path_cache_) {
 				set_real_path(path);
 			}
 			std::set<std::string> sections;
@@ -580,7 +580,7 @@ namespace settings {
 				set_real_value((*cit).first, (*cit).second);
 				sections.insert((*cit).first.first);
 			}
-			BOOST_FOREACH(instance_raw_ptr &child, children_) {
+			for(instance_raw_ptr &child: children_) {
 				child->save();
 			}
 			get_core()->set_dirty(false);
@@ -689,7 +689,7 @@ namespace settings {
 			std::string ret = get_info();
 			if (!children_.empty()) {
 				ret += "parents = [";
-				BOOST_FOREACH(parent_list_type::value_type i, children_) {
+				for(parent_list_type::value_type i: children_) {
 					ret += i->to_string();
 				}
 				ret += "]";
@@ -702,7 +702,7 @@ namespace settings {
 		}
 
 		virtual void house_keeping() {
-			BOOST_FOREACH(parent_list_type::value_type i, children_) {
+			for(parent_list_type::value_type i: children_) {
 				i->house_keeping();
 			}
 		}

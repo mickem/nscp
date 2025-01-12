@@ -507,7 +507,7 @@ boost::optional<boost::filesystem::path> lua::lua_script::find_script(boost::fil
 	checks.push_back(root / "scripts" / file);
 	checks.push_back(root / "lua" / file);
 	checks.push_back(root / file);
-	BOOST_FOREACH(boost::filesystem::path c, checks) {
+	for(boost::filesystem::path c: checks) {
 		if (boost::filesystem::exists(c))
 			return boost::optional<boost::filesystem::path>(c);
 		if (boost::filesystem::exists(c.string() + ".lua"))

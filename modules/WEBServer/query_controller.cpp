@@ -11,7 +11,6 @@
 #include <json_spirit.h>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/foreach.hpp>
 #include <boost/regex.hpp>
 
 
@@ -42,8 +41,8 @@ void query_controller::get_queries(Mongoose::Request &request, boost::smatch &wh
   pb_response.ParseFromString(str_response);
   json_spirit::Array root;
 
-  BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response r, pb_response.payload()) {
-	  BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
+  for(const PB::Registry::RegistryResponseMessage::Response r: pb_response.payload()) {
+	  for(const PB::Registry::RegistryResponseMessage::Response::Inventory i: r.inventory()) {
 		  json_spirit::Object node;
 		  node["name"] = i.name();
 		  if (i.info().plugin_size() > 0) {
@@ -52,7 +51,7 @@ void query_controller::get_queries(Mongoose::Request &request, boost::smatch &wh
 		  node["query_url"] = get_base(request) + "/" + i.name() + "/";
 		  node["title"] = i.info().title();
 		  json_spirit::Object keys;
-		  BOOST_FOREACH(const PB::Common::KeyValue &kvp, i.info().metadata()) {
+		  for(const PB::Common::KeyValue &kvp: i.info().metadata()) {
 				keys[kvp.key()] = kvp.value();
 		  }
 		  node["metadata"] = keys;
@@ -84,8 +83,8 @@ void query_controller::get_query(Mongoose::Request &request, boost::smatch &what
 	pb_response.ParseFromString(str_response);
 	json_spirit::Object node;
 
-	BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response r, pb_response.payload()) {
-		BOOST_FOREACH(const PB::Registry::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
+	for(const PB::Registry::RegistryResponseMessage::Response r: pb_response.payload()) {
+		for(const PB::Registry::RegistryResponseMessage::Response::Inventory i: r.inventory()) {
 			node["name"] = i.name();
 			if (i.info().plugin_size() > 0) {
 				node["plugin"] = i.info().plugin(0);
@@ -94,7 +93,7 @@ void query_controller::get_query(Mongoose::Request &request, boost::smatch &what
 			node["execute_url"] = get_base(request) + "/" + i.name() + "/commands/execute";
 			node["execute_nagios_url"] = get_base(request) + "/" + i.name() + "/commands/execute_nagios";
 			json_spirit::Object keys;
-			BOOST_FOREACH(const PB::Common::KeyValue &kvp, i.info().metadata()) {
+			for(const PB::Common::KeyValue &kvp: i.info().metadata()) {
 				keys[kvp.key()] = kvp.value();
 			}
 			node["metadata"] = keys;
@@ -139,7 +138,7 @@ void query_controller::execute_query(std::string module, arg_vector args, Mongoo
 	PB::Commands::QueryRequestMessage::Request *payload = qrm.add_payload();
 
 	payload->set_command(module);
-	BOOST_FOREACH(const Mongoose::Request::arg_vector::value_type &e, args) {
+	for(const Mongoose::Request::arg_vector::value_type &e: args) {
 		if (e.second.empty())
 			payload->add_arguments(e.first);
 		else
@@ -151,17 +150,17 @@ void query_controller::execute_query(std::string module, arg_vector args, Mongoo
 	response.ParseFromString(pb_response);
 
 	json_spirit::Object node;
-	BOOST_FOREACH(const PB::Commands::QueryResponseMessage::Response &r, response.payload()) {
+	for(const PB::Commands::QueryResponseMessage::Response &r: response.payload()) {
 		node["command"] = r.command();
 		node["result"] = r.result();
 		json_spirit::Array lines;
-		BOOST_FOREACH(const PB::Commands::QueryResponseMessage::Response::Line &l, r.lines()) {
+		for(const PB::Commands::QueryResponseMessage::Response::Line &l: r.lines()) {
 			json_spirit::Object line;
 			line["message"] = l.message();
 
 
 			json_spirit::Object perf;
-			BOOST_FOREACH(const PB::Common::PerformanceData &p, l.perf()) {
+			for(const PB::Common::PerformanceData &p: l.perf()) {
 				json_spirit::Object pdata;
 
 				if (p.has_float_value()) {
@@ -196,7 +195,7 @@ void query_controller::execute_query_nagios(std::string module, arg_vector args,
 	PB::Commands::QueryRequestMessage::Request *payload = qrm.add_payload();
 
 	payload->set_command(module);
-	BOOST_FOREACH(const Mongoose::Request::arg_vector::value_type &e, args) {
+	for(const Mongoose::Request::arg_vector::value_type &e: args) {
 		if (e.second.empty())
 			payload->add_arguments(e.first);
 		else
@@ -208,11 +207,11 @@ void query_controller::execute_query_nagios(std::string module, arg_vector args,
 	response.ParseFromString(pb_response);
 
 	json_spirit::Object node;
-	BOOST_FOREACH(const PB::Commands::QueryResponseMessage::Response &r, response.payload()) {
+	for(const PB::Commands::QueryResponseMessage::Response &r: response.payload()) {
 		node["command"] = r.command();
 		node["result"] = nscapi::plugin_helper::translateReturn(r.result());
 		json_spirit::Array lines;
-		BOOST_FOREACH(const PB::Commands::QueryResponseMessage::Response::Line &l, r.lines()) {
+		for(const PB::Commands::QueryResponseMessage::Response::Line &l: r.lines()) {
 			json_spirit::Object line;
 			line["message"] = l.message();
 			line["perf"] = nscapi::protobuf::functions::build_performance_data(l, nscapi::protobuf::functions::no_truncation);
@@ -231,7 +230,7 @@ void query_controller::execute_query_text(std::string module, arg_vector args, M
 	PB::Commands::QueryRequestMessage::Request *payload = qrm.add_payload();
 
 	payload->set_command(module);
-	BOOST_FOREACH(const Mongoose::Request::arg_vector::value_type &e, args) {
+	for(const Mongoose::Request::arg_vector::value_type &e: args) {
 		if (e.second.empty())
 			payload->add_arguments(e.first);
 		else
@@ -244,7 +243,7 @@ void query_controller::execute_query_text(std::string module, arg_vector args, M
 
 	int code = 200;
 	std::string reason = "Ok";
-	BOOST_FOREACH(const PB::Commands::QueryResponseMessage::Response &r, response.payload()) {
+	for(const PB::Commands::QueryResponseMessage::Response &r: response.payload()) {
 		if (r.result() == PB::Common::ResultCode::CRITICAL) {
 			code = HTTP_SERVER_ERROR;
 			reason = "Critical";
@@ -255,7 +254,7 @@ void query_controller::execute_query_text(std::string module, arg_vector args, M
 			code = 202;
 			reason = "Warning";
 		}
-		BOOST_FOREACH(const PB::Commands::QueryResponseMessage::Response::Line &l, r.lines()) {
+		for(const PB::Commands::QueryResponseMessage::Response::Line &l: r.lines()) {
 			http_response.append(l.message());
 			if (l.perf_size() > 0) {
 				http_response.append("|" + nscapi::protobuf::functions::build_performance_data(l, nscapi::protobuf::functions::no_truncation));

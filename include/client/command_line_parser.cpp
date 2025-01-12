@@ -102,10 +102,10 @@ struct payload_builder {
 		if (is_submit()) {
 			throw client::cli_exception("arguments not supported for submit");
 		} else if (is_exec()) {
-			BOOST_FOREACH(const std::string &a, value)
+			for(const std::string &a: value)
 				get_exec_payload()->add_arguments(a);
 		} else {
-			BOOST_FOREACH(const std::string &a, value)
+			for(const std::string &a: value)
 				get_query_payload()->add_arguments(a);
 		}
 	}
@@ -133,7 +133,7 @@ private:
 std::string client::destination_container::to_string() const {
 	std::stringstream ss;
 	ss << "address: " << address.to_string() << ", timeout: " << timeout << ", retry: " << retry << ", data: { ";
-	BOOST_FOREACH(const data_map::value_type &t, data) {
+	for(const data_map::value_type &t: data) {
 		ss << t.first << ": " << t.second << ", ";
 	}
 	ss << "}";
@@ -246,7 +246,7 @@ po::options_description add_exec_options(client::destination_container &source, 
 std::string client::configuration::add_command(std::string name, std::string args) {
 	command_container data;
 	bool first = true;
-	BOOST_FOREACH(const std::string &s, str::utils::parse_command(args)) {
+	for(const std::string &s: str::utils::parse_command(args)) {
 		if (first) {
 			data.command = s;
 			first = false;
@@ -289,7 +289,7 @@ void client::configuration::do_query(const PB::Commands::QueryRequestMessage &re
 	else if (!request.header().destination_id().empty())
 		target = request.header().destination_id();
 
-	BOOST_FOREACH(const std::string t, str::utils::split_lst(target, std::string(","))) {
+	for(const std::string t: str::utils::split_lst(target, std::string(","))) {
 		destination_container d = get_target(t);
 		destination_container s = get_sender();
 
@@ -339,9 +339,9 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 			// TODO: Build argument vector here!
 		}
 		if (command.substr(0, 8) == "forward_" || command.substr(command.size() - 8, 8) == "_forward") {
-			BOOST_FOREACH(const PB::Commands::QueryRequestMessage::Request &p, request.payload()) {
+			for(const PB::Commands::QueryRequestMessage::Request &p: request.payload()) {
 				if (p.arguments_size() > 0) {
-					BOOST_FOREACH(const std::string &a, p.arguments()) {
+					for(const std::string &a: p.arguments()) {
 						if (a == "help-pb") {
 							::PB::Registry::ParameterDetails details;
 							::PB::Registry::ParameterDetail *td = details.add_parameter();
@@ -402,7 +402,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 				if (!handler->query(s, d, builder.query_message, local_response)) {
 					return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 				}
-				BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage::Response td, local_response.payload()) {
+				for(const ::PB::Commands::QueryResponseMessage::Response td: local_response.payload()) {
 					response.add_payload()->CopyFrom(td);
 				}
 			} else if (builder.is_exec()) {
@@ -410,7 +410,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 				if (!handler->exec(s, d, builder.exec_message, local_response)) {
 					return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 				}
-				BOOST_FOREACH(const ::PB::Commands::ExecuteResponseMessage::Response td, local_response.payload()) {
+				for(const ::PB::Commands::ExecuteResponseMessage::Response td: local_response.payload()) {
 					nscapi::protobuf::functions::copy_response(command, response.add_payload(), td);
 				}
 				// TODO: Convert reply to native reply
@@ -419,7 +419,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 				if (!handler->submit(s, d, builder.submit_message, local_response)) {
 					return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 				}
-				BOOST_FOREACH(const ::PB::Commands::SubmitResponseMessage::Response td, local_response.payload()) {
+				for(const ::PB::Commands::SubmitResponseMessage::Response td: local_response.payload()) {
 					nscapi::protobuf::functions::copy_response(command, response.add_payload(), td);
 				}
 			} else {
@@ -440,7 +440,7 @@ bool client::configuration::do_exec(const PB::Commands::ExecuteRequestMessage &r
 	else if (!request.header().destination_id().empty())
 		target = request.header().destination_id();
 
-	BOOST_FOREACH(const std::string t, str::utils::split_lst(target, std::string(","))) {
+	for(const std::string t: str::utils::split_lst(target, std::string(","))) {
 		destination_container d = get_target(t);
 		destination_container s = get_sender();
 
@@ -564,7 +564,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 					nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 					return true;
 				}
-				BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage::Response td, local_response.payload()) {
+				for(const ::PB::Commands::QueryResponseMessage::Response td: local_response.payload()) {
 					nscapi::protobuf::functions::copy_response(command, response.add_payload(), td);
 				}
 			} else if (builder.type == payload_builder::type_exec) {
@@ -573,7 +573,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 					nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 					return true;
 				}
-				BOOST_FOREACH(const ::PB::Commands::ExecuteResponseMessage::Response td, local_response.payload()) {
+				for(const ::PB::Commands::ExecuteResponseMessage::Response td: local_response.payload()) {
 					response.add_payload()->CopyFrom(td);
 				}
 			} else if (builder.type == payload_builder::type_submit) {
@@ -582,7 +582,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 					nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 					return true;
 				}
-				BOOST_FOREACH(const ::PB::Commands::SubmitResponseMessage::Response td, local_response.payload()) {
+				for(const ::PB::Commands::SubmitResponseMessage::Response td: local_response.payload()) {
 					nscapi::protobuf::functions::copy_response(command, response.add_payload(), td);
 				}
 			}
@@ -597,13 +597,13 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 
 void client::configuration::do_submit_item(const PB::Commands::SubmitRequestMessage &request, destination_container s, destination_container d, PB::Commands::SubmitResponseMessage &response) {
 	// Parse each objects command and execute them
-	BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage::Response &local_request, request.payload()) {
+	for(const ::PB::Commands::QueryResponseMessage::Response &local_request: request.payload()) {
 		::PB::Commands::SubmitRequestMessage local_request_message;
 		local_request_message.mutable_header()->CopyFrom(request.header());
 		local_request_message.add_payload()->CopyFrom(local_request);
 		::PB::Commands::SubmitResponseMessage local_response_message;
 		i_do_submit(s, d, "forward_raw", local_request_message, local_response_message, false);
-		BOOST_FOREACH(const ::PB::Commands::SubmitResponseMessage_Response &p, local_response_message.payload()) {
+		for(const ::PB::Commands::SubmitResponseMessage_Response &p: local_response_message.payload()) {
 			response.add_payload()->CopyFrom(p);
 		}
 	}
@@ -622,7 +622,7 @@ void client::configuration::do_submit(const PB::Commands::SubmitRequestMessage &
 	else if (!request.header().destination_id().empty() && !request.header().destination_id().empty())
 		target = request.header().destination_id();
 
-	BOOST_FOREACH(const std::string t, str::utils::split_lst(target, std::string(","))) {
+	for(const std::string t: str::utils::split_lst(target, std::string(","))) {
 		destination_container d = get_target(t);
 		destination_container s = get_sender();
 
@@ -667,7 +667,7 @@ void client::configuration::do_metrics(const PB::Metrics::MetricsMessage &reques
 	else if (!request.header().destination_id().empty())
 		target = request.header().destination_id();
 
-	BOOST_FOREACH(const std::string t, str::utils::split_lst(target, std::string(","))) {
+	for(const std::string t: str::utils::split_lst(target, std::string(","))) {
 		destination_container d = get_target(t);
 		destination_container s = get_sender();
 
@@ -695,7 +695,7 @@ void payload_builder::set_result(const std::string &value) {
 
 void payload_builder::set_batch(const std::vector<std::string> &data) {
 	if (is_submit()) {
-		BOOST_FOREACH(const std::string &e, data) {
+		for(const std::string &e: data) {
 			submit_payload = submit_message.add_payload();
 			std::vector<std::string> line;
 			boost::iter_split(line, e, boost::algorithm::first_finder(separator));
@@ -707,7 +707,7 @@ void payload_builder::set_batch(const std::vector<std::string> &data) {
 				set_command(line[0]);
 		}
 	} else if (type == type_exec) {
-		BOOST_FOREACH(const std::string &e, data) {
+		for(const std::string &e: data) {
 			exec_payload = exec_message.add_payload();
 			std::list<std::string> line;
 			boost::iter_split(line, e, boost::algorithm::first_finder(separator));
@@ -715,12 +715,12 @@ void payload_builder::set_batch(const std::vector<std::string> &data) {
 				set_command(line.front());
 				line.pop_front();
 			}
-			BOOST_FOREACH(const std::string &a, line) {
+			for(const std::string &a: line) {
 				get_exec_payload()->add_arguments(a);
 			}
 		}
 	} else {
-		BOOST_FOREACH(const std::string &e, data) {
+		for(const std::string &e: data) {
 			query_payload = query_message.add_payload();
 			std::list<std::string> line;
 			boost::iter_split(line, e, boost::algorithm::first_finder(separator));
@@ -728,7 +728,7 @@ void payload_builder::set_batch(const std::vector<std::string> &data) {
 				set_command(line.front());
 				line.pop_front();
 			}
-			BOOST_FOREACH(const std::string &a, line) {
+			for(const std::string &a: line) {
 				get_query_payload()->add_arguments(a);
 			}
 		}

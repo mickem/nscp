@@ -135,7 +135,7 @@ boost::shared_ptr<Mongoose::Response> op5_client::do_call(const char *verb, cons
 	hdr["Content-type"] = "application/json";
 	NSC_TRACE_ENABLED() {
 		NSC_TRACE_MSG(std::string(verb) + ": " + base_url + url);
-		BOOST_FOREACH(const hdr_type::value_type &v, hdr) {
+		for(const hdr_type::value_type &v: hdr) {
 			NSC_TRACE_MSG(v.first + "=" + v.second);
 		}
 		if (!payload.empty()) {
@@ -409,7 +409,7 @@ void op5_client::thread_proc() {
 				}
 				std::string response;
 				nscapi::core_helper ch(get_core(), get_id());
-				BOOST_FOREACH(op5_config::check_map::value_type &v, copy) {
+				for(op5_config::check_map::value_type &v: copy) {
 
 					std::string command;
 					std::string alias = v.second;
@@ -419,7 +419,7 @@ void op5_client::thread_proc() {
 					if (ch.simple_query(command, arguments, response)) {
 						PB::Commands::QueryResponseMessage resp_msg;
 						resp_msg.ParseFromString(response);
-						BOOST_FOREACH(const PB::Commands::QueryResponseMessage::Response &p, resp_msg.payload()) {
+						for(const PB::Commands::QueryResponseMessage::Response &p: resp_msg.payload()) {
 							std::string message = nscapi::protobuf::functions::query_data_to_nagios_string(p, nscapi::protobuf::functions::no_truncation);
 							int result = nscapi::protobuf::functions::gbp_to_nagios_status(p.result());
 							std::string status;

@@ -26,7 +26,6 @@
 
 #include <boost/lexical_cast.hpp>
 #include <boost/circular_buffer.hpp>
-#include <boost/foreach.hpp>
 
 namespace PDH {
 	namespace instance_providers {
@@ -42,7 +41,7 @@ namespace PDH {
 			}
 
 			container(pdh_object parent, std::list<pdh_object> sub_counters) : alias_(parent.alias) {
-				BOOST_FOREACH(const pdh_object &o, sub_counters) {
+				for(const pdh_object &o: sub_counters) {
 					children_.push_back(PDH::factory::create(o));
 				}
 			}
@@ -57,28 +56,28 @@ namespace PDH {
 
 			virtual double get_average(long seconds) {
 				double sum = 0;
-				BOOST_FOREACH(pdh_instance o, children_) {
+				for(pdh_instance o: children_) {
 					sum += o->get_average(seconds);
 				}
 				return sum;
 			}
 			virtual double get_value() {
 				double sum = 0;
-				BOOST_FOREACH(pdh_instance o, children_) {
+				for(pdh_instance o: children_) {
 					sum += o->get_value();
 				}
 				return sum;
 			}
 			virtual long long get_int_value() {
 				long long sum = 0;
-				BOOST_FOREACH(pdh_instance o, children_) {
+				for(pdh_instance o: children_) {
 					sum += o->get_int_value();
 				}
 				return sum;
 			}
 			virtual double get_float_value() {
 				double sum = 0;
-				BOOST_FOREACH(pdh_instance o, children_) {
+				for(pdh_instance o: children_) {
 					sum += o->get_float_value();
 				}
 				return sum;

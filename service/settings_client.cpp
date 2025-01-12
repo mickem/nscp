@@ -104,14 +104,14 @@ int nsclient_core::settings_client::migrate_to(std::string target) {
 }
 
 void nsclient_core::settings_client::dump_path(std::string root) {
-	BOOST_FOREACH(const std::string &path, get_core()->get()->get_sections(root)) {
+	for(const std::string &path: get_core()->get()->get_sections(root)) {
 		if (!root.empty()) {
 			dump_path(root + "/" + path);
 		} else if (!path.empty()) {
 			dump_path(path);
 		}
 	}
-	BOOST_FOREACH(std::string key, get_core()->get()->get_keys(root)) {
+	for(std::string key: get_core()->get()->get_keys(root)) {
 		settings::settings_interface::op_string val = get_core()->get()->get_string(root, key);
 		if (val)
 			std::cout << root << "." << key << "=" << *val << std::endl;
@@ -155,7 +155,7 @@ int nsclient_core::settings_client::set(std::string path, std::string key, std::
 void list_settings_context_info(int padding, settings::instance_ptr instance) {
 	std::string pad = std::string(padding, ' ');
 	std::cout << pad << instance->get_info() << std::endl;
-	BOOST_FOREACH(settings::instance_ptr child, instance->get_children()) {
+	for(settings::instance_ptr child: instance->get_children()) {
 		list_settings_context_info(padding + 2, child);
 	}
 }
@@ -183,7 +183,7 @@ int nsclient_core::settings_client::list(std::string path) {
 }
 int nsclient_core::settings_client::validate() {
 	settings::error_list errors = get_core()->validate();
-	BOOST_FOREACH(const std::string &e, errors) {
+	for(const std::string &e: errors) {
 		std::cerr << e << std::endl;
 	}
 	return 0;

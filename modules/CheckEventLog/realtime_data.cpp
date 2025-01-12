@@ -24,14 +24,13 @@
 
 #include <str/xtos.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/filesystem.hpp>
 
 bool runtime_data::has_changed(transient_data_type record) const {
 	if (files.empty())
 		return true;
 	std::string log_lc = boost::to_lower_copy(record->get_log());
-	BOOST_FOREACH(const std::string &s, files) {
+	for(const std::string &s: files) {
 		if (s == "any" || s == "all" || s == log_lc)
 			return true;
 	}

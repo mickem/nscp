@@ -3,7 +3,6 @@
 #include "StreamResponse.h"
 #include "mcp_exception.hpp"
 
-#include <boost/foreach.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread/thread.hpp>
 
@@ -139,7 +138,7 @@ namespace Mongoose
 			}
 		}
 
-		BOOST_FOREACH(Controller *ctrl, controllers) {
+		for(Controller *ctrl: controllers) {
 			if (ctrl->handles(method, url)) {
 
                 char buf[100];
@@ -150,7 +149,7 @@ namespace Mongoose
                 Response *response = ctrl->handleRequest(request);
 				std::stringstream headers;
                 bool has_content_type = false;
-				BOOST_FOREACH(const Response::header_type::value_type & v, response->get_headers()) {
+				for(const Response::header_type::value_type & v: response->get_headers()) {
 					headers << v.first << ": " << v.second << "\r\n";
                     if (v.first == "Content-Type") {
                         has_content_type = true;

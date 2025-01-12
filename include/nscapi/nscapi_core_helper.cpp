@@ -25,7 +25,6 @@
 
 #include <utf8.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
 
 #define CORE_LOG_ERROR(msg) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, msg);
@@ -36,7 +35,7 @@ const nscapi::core_wrapper* nscapi::core_helper::get_core() {
 	return core_;
 }
 inline void add_entry(const ::PB::Storage::StorageResponseMessage::Response::Get &getter, nscapi::core_helper::storage_map &map) {
-	BOOST_FOREACH(const ::PB::Storage::Storage::Entry &e, getter.entry()) {
+	for(const ::PB::Storage::Storage::Entry &e: getter.entry()) {
 		map[e.key()] = e.value();
 	}
 }
@@ -53,7 +52,7 @@ nscapi::core_helper::storage_map nscapi::core_helper::get_storage_strings(std::s
 
 	PB::Storage::StorageResponseMessage resp_msg;
 	resp_msg.ParseFromString(buffer);
-	BOOST_FOREACH(const ::PB::Storage::StorageResponseMessage::Response &response_payload, resp_msg.payload()) {
+	for(const ::PB::Storage::StorageResponseMessage::Response &response_payload: resp_msg.payload()) {
 		if (response_payload.result().code() != PB::Common::Result_StatusCodeType_STATUS_OK) {
 			CORE_LOG_ERROR("Failed to store data " + context + ": " + response_payload.result().message());
 		} else {
@@ -79,7 +78,7 @@ bool nscapi::core_helper::put_storage(std::string context, std::string key, std:
 	PB::Storage::StorageResponseMessage resp_msg;
 	resp_msg.ParseFromString(buffer);
 	bool ret = true;
-	BOOST_FOREACH(const ::PB::Storage::StorageResponseMessage::Response &response_payload, resp_msg.payload()) {
+	for(const ::PB::Storage::StorageResponseMessage::Response &response_payload: resp_msg.payload()) {
 		if (response_payload.result().code() != PB::Common::Result_StatusCodeType_STATUS_OK) {
 			CORE_LOG_ERROR("Failed to store data " + context + ": " + response_payload.result().message());
 			ret = false;
@@ -103,7 +102,7 @@ bool nscapi::core_helper::load_module(std::string name, std::string alias) {
 
 	PB::Registry::RegistryResponseMessage resp_msg;
 	resp_msg.ParseFromString(buffer);
-	BOOST_FOREACH(const ::PB::Registry::RegistryResponseMessage_Response &response_payload, resp_msg.payload()) {
+	for(const ::PB::Registry::RegistryResponseMessage_Response &response_payload: resp_msg.payload()) {
 		if (response_payload.result().code() == PB::Common::Result_StatusCodeType_STATUS_OK) {
 			return true;
 		} else {
@@ -125,7 +124,7 @@ bool nscapi::core_helper::unload_module(std::string name) {
 
 	PB::Registry::RegistryResponseMessage resp_msg;
 	resp_msg.ParseFromString(buffer);
-	BOOST_FOREACH(const ::PB::Registry::RegistryResponseMessage_Response &response_payload, resp_msg.payload()) {
+	for(const ::PB::Registry::RegistryResponseMessage_Response &response_payload: resp_msg.payload()) {
 		if (response_payload.result().code() == PB::Common::Result_StatusCodeType_STATUS_OK) {
 			return true;
 		} else {
@@ -167,7 +166,7 @@ typedef std::list<std::map<std::string, std::string> > list_type;
 typedef std::map<std::string, std::string> hash_type;
 
 inline void add_event_keys(const list_type::value_type &v, PB::Commands::EventMessage::Request *payload) {
-	BOOST_FOREACH(const hash_type::value_type &e, v) {
+	for(const hash_type::value_type &e: v) {
 		PB::Common::KeyValue *kv = payload->mutable_data()->Add();
 		kv->set_key(e.first);
 		kv->set_value(e.second);
@@ -179,7 +178,7 @@ bool nscapi::core_helper::emit_event(const std::string module, const std::string
 	PB::Commands::EventMessage request_message;
 
 
-	BOOST_FOREACH(const list_type::value_type &v, data) {
+	for(const list_type::value_type &v: data) {
 		PB::Commands::EventMessage::Request *payload = request_message.add_payload();
 
 		payload->set_event(module + ":" + event);
@@ -204,7 +203,7 @@ bool nscapi::core_helper::emit_event(const std::string module, const std::string
 	PB::Commands::EventMessage::Request *payload = request_message.add_payload();
 
 	payload->set_event(module + ":" + event);
-	BOOST_FOREACH(const hash_type::value_type &e, data) {
+	for(const hash_type::value_type &e: data) {
 		PB::Common::KeyValue *kv = payload->mutable_data()->Add();
 		kv->set_key(e.first);
 		kv->set_value(e.second);
@@ -266,7 +265,7 @@ bool nscapi::core_helper::simple_query(const std::string command, const std::vec
 NSCAPI::nagiosReturn nscapi::core_helper::simple_query_from_nrpe(const std::string command, const std::string & buffer, std::string & message, std::string & perf, std::size_t max_length) {
 	boost::tokenizer<boost::char_separator<char>, std::string::const_iterator, std::string > tok(buffer, boost::char_separator<char>("!"));
 	std::list<std::string> arglist;
-	BOOST_FOREACH(std::string s, tok)
+	for(std::string s: tok)
 		arglist.push_back(s);
 
 	std::string response;
@@ -299,7 +298,7 @@ void nscapi::core_helper::register_command(std::string command, std::string desc
 	regitem->set_name(command);
 	regitem->mutable_info()->set_title(command);
 	regitem->mutable_info()->set_description(description);
-	BOOST_FOREACH(const std::string &alias, aliases) {
+	for(const std::string &alias: aliases) {
 		regitem->add_alias(alias);
 	}
 	std::string response_string;
@@ -342,7 +341,7 @@ void nscapi::core_helper::register_alias(std::string command, std::string descri
 	regitem->set_name(command);
 	regitem->mutable_info()->set_title(command);
 	regitem->mutable_info()->set_description(description);
-	BOOST_FOREACH(const std::string &alias, aliases) {
+	for(const std::string &alias: aliases) {
 		regitem->add_alias(alias);
 	}
 	std::string response_string;

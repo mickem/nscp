@@ -28,7 +28,6 @@
 
 #include <str/utils.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/date_time.hpp>
@@ -54,7 +53,7 @@ namespace filters {
 		void filter_config_object::set_data(std::string file_string) {
 			if (file_string.empty())
 				return;
-			BOOST_FOREACH(const std::string &s, str::utils::split_lst(file_string, std::string(","))) {
+			for(const std::string &s: str::utils::split_lst(file_string, std::string(","))) {
 				data.push_back(s);
 			}
 		}
@@ -97,7 +96,7 @@ namespace filters {
 		void filter_config_object::set_data(std::string file_string) {
 			if (file_string.empty())
 				return;
-			BOOST_FOREACH(const std::string &s, str::utils::split_lst(file_string, std::string(","))) {
+			for(const std::string &s: str::utils::split_lst(file_string, std::string(","))) {
 				data.push_back(s);
 			}
 		}
@@ -144,7 +143,7 @@ namespace filters {
 		void filter_config_object::set_data(std::string file_string) {
 			if (file_string.empty())
 				return;
-			BOOST_FOREACH(const std::string &s, str::utils::split_lst(file_string, std::string(","))) {
+			for(const std::string &s: str::utils::split_lst(file_string, std::string(","))) {
 				data.push_back(s);
 			}
 		}
@@ -188,7 +187,7 @@ namespace filters {
 			if (file_string.empty())
 				return;
 			data.clear();
-			BOOST_FOREACH(const std::string &s, str::utils::split_lst(file_string, std::string(","))) {
+			for(const std::string &s: str::utils::split_lst(file_string, std::string(","))) {
 				data.push_back(s);
 			}
 		}

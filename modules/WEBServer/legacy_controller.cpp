@@ -15,7 +15,6 @@
 #include <boost/asio/ip/address.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/algorithm/string.hpp>
-#include <boost/foreach.hpp>
 
 legacy_controller::legacy_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id, boost::shared_ptr<client::cli_client> client)
 	: session(session)
@@ -273,7 +272,7 @@ void legacy_controller::log_messages(Mongoose::Request &request, Mongoose::Strea
 	std::size_t ipp = 100000;
 	std::size_t count = 0;
 	std::list<std::string> levels;
-	BOOST_FOREACH(const error_handler_interface::log_entry &e, session->get_log_data()->get_messages(levels, pos, ipp, count)) {
+	for(const error_handler_interface::log_entry &e: session->get_log_data()->get_messages(levels, pos, ipp, count)) {
 		json_spirit::Object node;
 		node.insert(json_spirit::Object::value_type("file", e.file));
 		node.insert(json_spirit::Object::value_type("line", e.line));

@@ -150,10 +150,10 @@ namespace collectd_client {
 			if (!path.empty())
 				mypath = path + ".";
 			mypath += b.key();
-			BOOST_FOREACH(const PB::Metrics::MetricsBundle &b2, b.children()) {
+			for(const PB::Metrics::MetricsBundle &b2: b.children()) {
 				flatten_metrics(builder, b2, mypath);
 			}
-			BOOST_FOREACH(const PB::Metrics::Metric &v, b.value()) {
+			for(const PB::Metrics::Metric &v: b.value()) {
 				if (v.has_gauge_value()) {
 					builder.set_metric(mypath + "." + v.key(), str::xtos(v.gauge_value().value()));
 				} else if (v.has_string_value()) {
@@ -166,8 +166,8 @@ namespace collectd_client {
 
 
 		void set_metrics(collectd::collectd_builder &builder, const PB::Metrics::MetricsMessage &data) {
-			BOOST_FOREACH(const PB::Metrics::MetricsMessage::Response &p, data.payload()) {
-				BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, p.bundles()) {
+			for(const PB::Metrics::MetricsMessage::Response &p: data.payload()) {
+				for(const PB::Metrics::MetricsBundle &b: p.bundles()) {
 					flatten_metrics(builder, b, "");
 				}
 			}
@@ -240,7 +240,7 @@ namespace collectd_client {
 			NSC_TRACE_ENABLED() {
 				NSC_TRACE_MSG("Sending " + str::xtos(packets.size()) + " packets to: " + target.to_string());
 			}
-			BOOST_FOREACH(const collectd::packet &p, packets) {
+			for(const collectd::packet &p: packets) {
 				try {
 					boost::asio::io_service io_service;
 					std::list<boost::shared_ptr<udp_sender>> senders;

@@ -252,7 +252,7 @@ namespace nscapi {
 							ret.push_back(key_values(q.node().path()));
 						}
 					} else if (pl.inventory_size() > 0) {
-						BOOST_FOREACH(const PB::Settings::SettingsResponseMessage::Response::Inventory &q, pl.inventory()) {
+						for(const PB::Settings::SettingsResponseMessage::Response::Inventory &q: pl.inventory()) {
 							if (!q.node().key().empty()) {
 								ret.push_back(key_values(q.node().path(), q.node().key(), q.node().value()));
 							} else if (!q.node().key().empty() && q.has_info() && !q.info().default_value().empty()) {

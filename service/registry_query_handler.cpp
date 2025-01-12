@@ -4,9 +4,6 @@
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
-
-#include <boost/foreach.hpp>
-
 namespace nsclient {
 
 	namespace core {
@@ -23,7 +20,7 @@ namespace nsclient {
 
 		void registry_query_handler::parse(PB::Registry::RegistryResponseMessage &response) {
 
-			BOOST_FOREACH(const PB::Registry::RegistryRequestMessage::Request &r, request_.payload()) {
+			for(const PB::Registry::RegistryRequestMessage::Request &r: request_.payload()) {
 				if (r.has_inventory()) {
 					parse_inventory(r.inventory(), response);
 				} else if (r.has_registration()) {
@@ -60,7 +57,7 @@ namespace nsclient {
 					}
 				}
 			} else {
-				BOOST_FOREACH(const std::string &command, plugins_->get_commands()->list_commands()) {
+				for(const std::string &command: plugins_->get_commands()->list_commands()) {
 					nsclient::commands::command_info info = plugins_->get_commands()->describe(command);
 					PB::Registry::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 					rpp->set_name(command);
@@ -138,7 +135,7 @@ namespace nsclient {
 
 		void registry_query_handler::inventory_modules(const PB::Registry::RegistryRequestMessage::Request::Inventory &q, PB::Registry::RegistryResponseMessage::Response* rp) {
 			boost::unordered_set<std::string> unique_instances;
-			BOOST_FOREACH(const nsclient::core::plugin_cache_item &plugin, plugins_->get_plugin_cache()->get_list()) {
+			for(const nsclient::core::plugin_cache_item &plugin: plugins_->get_plugin_cache()->get_list()) {
 				std::string key = plugin.dll + "::" + plugin.alias;
 				if (unique_instances.find(key) != unique_instances.end()) {
 					continue;
@@ -179,7 +176,7 @@ namespace nsclient {
 					inventory_queries(q, rp);
 				}
 				if (type == PB::Registry::ItemType::QUERY_ALIAS || type == PB::Registry::ItemType::ALL) {
-					BOOST_FOREACH(const std::string &command, plugins_->get_commands()->list_aliases()) {
+					for(const std::string &command: plugins_->get_commands()->list_aliases()) {
 						nsclient::commands::command_info info = plugins_->get_commands()->describe(command);
 						PB::Registry::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 						rpp->set_name(command);
@@ -201,12 +198,12 @@ namespace nsclient {
 			if (registration.type() == PB::Registry::ItemType::QUERY) {
 				if (registration.unregister()) {
 					plugins_->get_commands()->unregister_command(registration.plugin_id(), registration.name());
-					BOOST_FOREACH(const std::string &alias, registration.alias())
+					for(const std::string &alias: registration.alias())
 						plugins_->get_commands()->unregister_command(registration.plugin_id(), alias);
 				} else {
 					plugins_->get_commands()->register_command(registration.plugin_id(), registration.name(), registration.info().description());
 					std::string description = "Alternative name for: " + registration.name();
-					BOOST_FOREACH(const std::string &alias, registration.alias())
+					for(const std::string &alias: registration.alias())
 						plugins_->get_commands()->register_alias(registration.plugin_id(), alias, description);
 				}
 			} else if (registration.type() == PB::Registry::ItemType::QUERY_ALIAS) {

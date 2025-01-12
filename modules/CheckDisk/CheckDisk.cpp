@@ -88,16 +88,16 @@ void CheckDisk::checkDriveSize(PB::Commands::QueryRequestMessage::Request &reque
 	request.add_arguments("detail-syntax=%(drive): Total: %(size) - Used: %(used) (%(used_pct)%) - Free: %(free) (%(free_pct)%)");
 	compat::matchShowAll(vm, request);
 	std::string keyword = exclude ? "exclude=" : "drive=";
-	BOOST_FOREACH(const std::string &t, times) {
+	for(const std::string &t: times) {
 		request.add_arguments(keyword + t);
 	}
-	BOOST_FOREACH(const std::string &t, extra) {
+	for(const std::string &t: extra) {
 		request.add_arguments(keyword + t);
 	}
 
 	if (!types.empty()) {
 		std::string type_list = "";
-		BOOST_FOREACH(const std::string &s, types) {
+		for(const std::string &s: types) {
 			if (!type_list.empty())
 				type_list += ", ";
 			type_list += "'" + s + "'";
@@ -225,7 +225,7 @@ void CheckDisk::check_files(const PB::Commands::QueryRequestMessage::Request &re
 	if (!total.empty())
 		total_obj = file_filter::filter_obj::get_total(context.now);
 
-	BOOST_FOREACH(const std::string &path, file_list) {
+	for(const std::string &path: file_list) {
 		file_finder::recursive_scan(filter, context, path, total_obj, total == "all");
 	}
 	if (total_obj) {

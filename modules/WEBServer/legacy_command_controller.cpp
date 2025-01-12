@@ -2,7 +2,6 @@
 
 #include <nscapi/nscapi_protobuf_command.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/algorithm/string.hpp>
 
 legacy_command_controller::legacy_command_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core)
@@ -20,7 +19,7 @@ void legacy_command_controller::handle_query(std::string obj, Mongoose::Request 
   payload->set_command(obj);
   Mongoose::Request::arg_vector args = request.getVariablesVector();
 
-  BOOST_FOREACH(const Mongoose::Request::arg_vector::value_type &e, args) {
+  for(const Mongoose::Request::arg_vector::value_type &e: args) {
 	  if (e.second.empty())
 		  payload->add_arguments(e.first);
 	  else
@@ -47,7 +46,7 @@ void legacy_command_controller::handle_exec(std::string obj, Mongoose::Request &
   payload->set_command(cmd);
   Mongoose::Request::arg_vector args = request.getVariablesVector();
 
-  BOOST_FOREACH(const Mongoose::Request::arg_entry &e, args) {
+  for(const Mongoose::Request::arg_entry &e: args) {
     if (e.second.empty())
       payload->add_arguments(e.first);
     else

@@ -1,7 +1,5 @@
 #include "error_handler.hpp"
 
-#include <boost/foreach.hpp>
-
 void error_handler::add_message(bool is_error, const log_entry &message) {
 	{
 		boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
@@ -52,7 +50,7 @@ error_handler::log_list error_handler::get_messages(std::list<std::string> level
 		}
 	} else {
 		int i = 0;
-		BOOST_FOREACH(const log_entry &e, log_entries) {
+		for(const log_entry &e: log_entries) {
 			if (std::find(levels.begin(), levels.end(), e.type) == levels.end()) {
 				continue;
 			}

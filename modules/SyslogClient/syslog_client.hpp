@@ -134,7 +134,7 @@ namespace syslog_client {
 
 			std::list<std::string> messages;
 
-			BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage_Response &p, request_message.payload()) {
+			for(const ::PB::Commands::QueryResponseMessage_Response &p: request_message.payload()) {
 				boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
 				std::string date = str::format::format_date(now, "%b %e %H:%M:%S");
 				std::string tag = con.tag_syntax;
@@ -180,7 +180,7 @@ namespace syslog_client {
 				boost::asio::ip::udp::socket socket(io_service);
 				socket.open(boost::asio::ip::udp::v4());
 
-				BOOST_FOREACH(const std::string msg, messages) {
+				for(const std::string msg: messages) {
 					NSC_DEBUG_MSG_STD("Sending data: " + msg);
 					socket.send_to(boost::asio::buffer(msg), receiver_endpoint);
 				}

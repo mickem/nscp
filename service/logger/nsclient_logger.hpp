@@ -24,7 +24,6 @@
 
 #include <boost/thread/mutex.hpp>
 #include <boost/shared_ptr.hpp>
-#include <boost/foreach.hpp>
 
 #include <nsclient/logger/logger.hpp>
 #include <nsclient/logger/base_logger_impl.hpp>
@@ -66,7 +65,7 @@ namespace nsclient {
 						return;
 					if (subscribers_.empty())
 						return;
-					BOOST_FOREACH(nsclient::logging::logging_subscriber_instance & s, subscribers_) {
+					for(nsclient::logging::logging_subscriber_instance & s: subscribers_) {
 						s->on_log_message(data);
 					}
 				}

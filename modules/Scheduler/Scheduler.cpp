@@ -81,7 +81,7 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	schedules_.ensure_default(nscapi::settings_proxy::create(get_id(), get_core()));
 	schedules_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
-	BOOST_FOREACH(const schedules::schedule_handler::object_list_type::value_type &o, schedules_.get_object_list()) {
+	for(const schedules::schedule_handler::object_list_type::value_type &o: schedules_.get_object_list()) {
 		if (o->duration && (*o->duration).total_seconds() == 0) {
 			NSC_LOG_ERROR("WE cant add schedules with 0 duration: " + o->to_string());
 			continue;
@@ -156,7 +156,7 @@ bool Scheduler::handle_schedule(schedules::target_object item) {
 		resp_msg.ParseFromString(response);
 		PB::Commands::QueryResponseMessage resp_msg_send;
 		resp_msg_send.mutable_header()->CopyFrom(resp_msg.header());
-		BOOST_FOREACH(const PB::Commands::QueryResponseMessage::Response &p, resp_msg.payload()) {
+		for(const PB::Commands::QueryResponseMessage::Response &p: resp_msg.payload()) {
 			if (nscapi::report::matches(item->report, nscapi::protobuf::functions::gbp_to_nagios_status(p.result())))
 				resp_msg_send.add_payload()->CopyFrom(p);
 		}

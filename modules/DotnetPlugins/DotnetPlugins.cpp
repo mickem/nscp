@@ -28,8 +28,6 @@
 #include <utf8.hpp>
 #include <tchar.h>
 
-#include <boost/foreach.hpp>
-
 #include <stack>
 #include <iostream>
 #include <string>
@@ -153,7 +151,7 @@ bool DotnetPlugins::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 	return true;
 }
 bool DotnetPlugins::unloadModule() {
-	BOOST_FOREACH(internal_plugin_instance_ptr p, plugins) {
+	for(internal_plugin_instance_ptr p: plugins) {
 		unsigned int id = p->get_instance()->PluginID;
 		p->unload_plugin();
 		plugin_instance.erase(id);

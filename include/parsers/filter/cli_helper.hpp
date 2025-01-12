@@ -273,7 +273,7 @@ namespace modern_filter {
 			if (data.filter_string.empty()) {
 				data.filter_string.push_back(filter);
 			}
-			BOOST_FOREACH(std::string &f, data.filter_string) {
+			for(std::string &f: data.filter_string) {
 				f = "(" + f + ")" + verb + " " + filter;
 			}
 		}

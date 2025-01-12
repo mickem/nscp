@@ -80,7 +80,7 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
 
 	std::list<std::string> errors;
 	info_.allowed_hosts.refresh(errors);
-	BOOST_FOREACH(const std::string &e, errors) {
+	for(const std::string &e: errors) {
 		NSC_LOG_ERROR_STD(e);
 	}
 	NSC_DEBUG_MSG_STD("Allowed hosts definition: " + info_.allowed_hosts.to_string());
@@ -147,7 +147,7 @@ bool NSClientServer::isPasswordOk(std::string remotePassword) {
 }
 
 void split_to_list(std::list<std::string> &list, const std::string str, const std::string key) {
-	BOOST_FOREACH(const std::string &s, str::utils::split_lst(str, std::string("&"))) {
+	for(const std::string &s: str::utils::split_lst(str, std::string("&"))) {
 		list.push_back(key + "=" + s);
 	}
 }
@@ -177,7 +177,7 @@ std::string NSClientServer::list_instance(std::string counter) {
 	std::string result;
 
 	typedef boost::tokenizer< boost::escaped_list_separator<char>, std::string::const_iterator, std::string > Tokenizer;
-	BOOST_FOREACH(const std::string &s, exeresult) {
+	for(const std::string &s: exeresult) {
 		std::istringstream iss(s);
 		std::string line;
 		while (std::getline(iss, line, '\n')) {
@@ -228,7 +228,7 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 	switch (c) {
 	case REQ_CPULOAD:
 		cmd.first = "check_cpu";
-		BOOST_FOREACH(const std::string &s, str::utils::split_lst(cmd.second, std::string("&"))) {
+		for(const std::string &s: str::utils::split_lst(cmd.second, std::string("&"))) {
 			args.push_back("time=" + s + "m");
 		}
 		break;

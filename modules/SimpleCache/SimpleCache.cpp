@@ -33,7 +33,6 @@
 
 #include <str/format.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/thread.hpp>
 #include <boost/assign.hpp>
 
@@ -144,7 +143,7 @@ bool SimpleCache::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	if (!parser.parse(primary_key, result)) {
 		NSC_LOG_ERROR_STD("Failed to parse primary key: " + primary_key)
 	}
-	BOOST_FOREACH(parsers::simple_expression::entry &e, result) {
+	for(parsers::simple_expression::entry &e: result) {
 		if (!e.is_variable) {
 			index_lookup_.push_back(simple_string_functor(e.name));
 			command_lookup_.push_back(simple_string_functor(e.name));
@@ -172,7 +171,7 @@ bool SimpleCache::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 void SimpleCache::handleNotification(const std::string &channel, const PB::Commands::QueryResponseMessage::Response &request, PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message) {
 	std::string key;
-	BOOST_FOREACH(index_lookup_function &f, index_lookup_) {
+	for(index_lookup_function &f: index_lookup_) {
 		key += f(channel, request_message.header(), request);
 	}
 	std::string data = request.SerializeAsString();
@@ -204,7 +203,7 @@ void SimpleCache::list_cache(const PB::Commands::QueryRequestMessage::Request &r
 		if (!lock) {
 			return nscapi::protobuf::functions::set_response_bad(*response, std::string("Failed to get lock"));
 		}
-		BOOST_FOREACH(const cache_type::value_type &c, cache_) {
+		for(const cache_type::value_type &c: cache_) {
 			str::format::append_list(data, c.first);
 		}
 	}
@@ -232,7 +231,7 @@ void SimpleCache::check_cache(const PB::Commands::QueryRequestMessage::Request &
 		return;
 
 	if (key.empty()) {
-		BOOST_FOREACH(command_lookup_function &f, command_lookup_) {
+		for(command_lookup_function &f: command_lookup_) {
 			key += f(query);
 		}
 	}

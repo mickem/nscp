@@ -127,7 +127,7 @@ std::list<std::string> script_wrapper::convert(py::list lst) {
 }
 py::list script_wrapper::convert(const std::list<std::string> &lst) {
 	py::list ret;
-	BOOST_FOREACH(const std::string &s, lst) {
+	for(const std::string &s: lst) {
 		ret.append(s);
 	}
 	return ret;
@@ -398,7 +398,7 @@ int script_wrapper::function_wrapper::handle_simple_query(const std::string cmd,
 
 			try {
 				py::list l;
-				BOOST_FOREACH(std::string a, arguments) {
+				for(std::string a: arguments) {
 					l.append(a);
 				}
 				py::object ret = py::call<py::object>(py::object(it->second).ptr(), l);
@@ -639,11 +639,11 @@ void build_metrics(py::dict &metrics, const PB::Metrics::MetricsBundle &b, const
 		p += path + ".";
 	p += b.key();
 
-	BOOST_FOREACH(const PB::Metrics::MetricsBundle &b2, b.children()) {
+	for(const PB::Metrics::MetricsBundle &b2: b.children()) {
 		build_metrics(metrics, b2, p);
 	}
 
-	BOOST_FOREACH(const PB::Metrics::Metric &v, b.value()) {
+	for(const PB::Metrics::Metric &v: b.value()) {
 		if (v.has_string_value())
 			metrics[p + "." + v.key()] = v.string_value().value();
 		else if (v.has_gauge_value())
@@ -658,15 +658,15 @@ void script_wrapper::function_wrapper::submit_metrics(const std::string &request
         py::dict metrics;
         PB::Metrics::MetricsMessage msg;
         msg.ParseFromString(request);
-        BOOST_FOREACH(const PB::Metrics::MetricsMessage::Response &p, msg.payload()) {
-                        BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, p.bundles()) {
+        for(const PB::Metrics::MetricsMessage::Response &p: msg.payload()) {
+                        for(const PB::Metrics::MetricsBundle &b: p.bundles()) {
                                         build_metrics(metrics, b, "");
                                     }
                     }
 
 
         try {
-            BOOST_FOREACH(functions::function_list_type::value_type &v, functions::get()->submit_metrics) {
+            for(functions::function_list_type::value_type &v: functions::get()->submit_metrics) {
                             thread_locker locker;
                             try {
                                 py::call<py::object>(py::object(v).ptr(), metrics, pystr(""));
@@ -688,7 +688,7 @@ void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const
 
 
 	try {
-		BOOST_FOREACH(functions::function_list_type::value_type &v, functions::get()->fetch_metrics) {
+		for(functions::function_list_type::value_type &v: functions::get()->fetch_metrics) {
 			thread_locker locker;
 			try {
 				py::object ret = py::call<py::object>(py::object(v).ptr());
@@ -755,10 +755,10 @@ bool script_wrapper::function_wrapper::has_simple_cmdline(const std::string comm
 
 std::string script_wrapper::function_wrapper::get_commands() {
 	std::string str;
-	BOOST_FOREACH(const functions::function_map_type::value_type& i, functions::get()->normal_functions) {
+	for(const functions::function_map_type::value_type& i: functions::get()->normal_functions) {
 		str::format::append_list(str, i.first, ", ");
 	}
-	BOOST_FOREACH(const functions::function_map_type::value_type& i, functions::get()->simple_functions) {
+	for(const functions::function_map_type::value_type& i: functions::get()->simple_functions) {
 		str::format::append_list(str, i.first, ", ");
 	}
 	return str;

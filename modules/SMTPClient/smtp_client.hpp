@@ -73,7 +73,7 @@ namespace smtp_client {
 
 			std::list<g_data> list;
 
-			BOOST_FOREACH(const ::PB::Commands::QueryResponseMessage_Response &p, request_message.payload()) {
+			for(const ::PB::Commands::QueryResponseMessage_Response &p: request_message.payload()) {
 				boost::asio::io_service io_service;
 				boost::shared_ptr<smtp::client::smtp_client> client(new smtp::client::smtp_client(io_service));
 				std::list<std::string> recipients;
@@ -119,7 +119,7 @@ namespace smtp_client {
 				boost::posix_time::time_duration diff = now - time_t_epoch;
 				int x = diff.total_seconds();
 
-				BOOST_FOREACH(const g_data &d, data) {
+				for(const g_data &d: data) {
 					std::string msg = d.path + " " + d.value + " " + boost::lexical_cast<std::string>(x) + "\n";
 					socket.send(boost::asio::buffer(msg));
 				}

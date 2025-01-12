@@ -2,7 +2,6 @@
 
 #include "StreamResponse.h"
 
-#include <boost/foreach.hpp>
 #include <boost/algorithm/string.hpp>
 
 namespace Mongoose
@@ -13,7 +12,7 @@ namespace Mongoose
     }
 
 	RegexpController::~RegexpController() {
-		BOOST_FOREACH(routes_type::value_type &r, routes) {
+		for(routes_type::value_type &r: routes) {
             delete r.function;
         }
         routes.clear();
@@ -25,7 +24,7 @@ namespace Mongoose
 
     Response* RegexpController::handleRequest(Request &request) {
 		std::string key = request.getUrl().substr(prefix.length());
-		BOOST_FOREACH(const route_info &i, routes) {
+		for(const route_info &i: routes) {
 			if (i.verb == request.getMethod()) {
 				boost::smatch what;
 				if (boost::regex_match(key, what, i.regexp)) {

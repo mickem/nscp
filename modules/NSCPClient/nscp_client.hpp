@@ -109,7 +109,7 @@ namespace nscp_client {
 
 			handler_->log_debug(__FILE__, __LINE__, "Connecting to: " + con.to_string());
 
-			BOOST_FOREACH(const std::string &e, con.validate()) {
+			for(const std::string &e: con.validate()) {
 				handler_->log_error(__FILE__, __LINE__, e);
 			}
 			boost::tuple<bool, std::string> ret = send(con, request_message.SerializeAsString());

@@ -56,7 +56,6 @@
 #include <boost/program_options.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/unordered_set.hpp>
-#include <boost/foreach.hpp>
 
 #include <iostream>
 #include <fstream>
@@ -147,10 +146,10 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	if (mode == NSCAPI::normalStart) {
 		std::list<std::string> errors = session->boot();
 
-		BOOST_FOREACH(const web_server::user_config_instance &o, users_.get_object_list()) {
+		for(const web_server::user_config_instance &o: users_.get_object_list()) {
 			session->add_user(o->get_alias(), o->role, o->password);
 		}
-		BOOST_FOREACH(const role_map::value_type &v, roles) {
+		for(const role_map::value_type &v: roles) {
 			session->add_grant(v.first, v.second);
 		}
 
@@ -326,7 +325,7 @@ bool WEBServer::cli_add_user(const PB::Commands::ExecuteRequestMessage::Request 
 			return true;
 		}
 		bool old = false;
-		BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
+		for(const pf::settings_query::key_values &val: q.get_query_key_response()) {
 			old = true;
 			if (val.matches(path, "password") && password.empty())
 				password = val.get_string();
@@ -413,7 +412,7 @@ bool WEBServer::cli_add_role(const PB::Commands::ExecuteRequestMessage::Request 
 			nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
 			return true;
 		}
-		BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
+		for(const pf::settings_query::key_values &val: q.get_query_key_response()) {
 			if (val.matches(path, role) && grant.empty()) {
 				grant = val.get_string();
 			}
@@ -421,7 +420,7 @@ bool WEBServer::cli_add_role(const PB::Commands::ExecuteRequestMessage::Request 
 
 		nscapi::protobuf::functions::settings_query s(get_id());
 		result << "Role " << role << std::endl;
-		BOOST_FOREACH(const std::string &g, str::utils::split<std::list<std::string> >(grant, ",")) {
+		for(const std::string &g: str::utils::split<std::list<std::string> >(grant, ",")) {
 			result << " " << g << std::endl;
 		}
 		s.set(path, role, grant);
@@ -461,7 +460,7 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
 		nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
 		return true;
 	}
-	BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
+	for(const pf::settings_query::key_values &val: q.get_query_key_response()) {
 		if (val.matches("/settings/default", "allowed hosts"))
 			allowed_hosts = val.get_string();
 		else if (val.matches("/settings/default", "password"))
@@ -632,10 +631,10 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
 
 void build_metrics(json_spirit::Object &metrics, json_spirit::Object &metrics_list, std::list<std::string> &openmetrics, const std::string trail, const std::string opentrail, const PB::Metrics::MetricsBundle & b) {
 	json_spirit::Object node;
-	BOOST_FOREACH(const PB::Metrics::MetricsBundle &b2, b.children()) {
+	for(const PB::Metrics::MetricsBundle &b2: b.children()) {
 		build_metrics(node, metrics_list, openmetrics, trail + "." + b2.key(), opentrail + "_" + b2.key(), b2);
 	}
-	BOOST_FOREACH(const PB::Metrics::Metric &v, b.value()) {
+	for(const PB::Metrics::Metric &v: b.value()) {
 		if (v.has_gauge_value()) {
 			node.insert(json_spirit::Object::value_type(v.key(), v.gauge_value().value()));
 			metrics_list.insert(json_spirit::Object::value_type(trail + "." + v.key(), v.gauge_value().value()));
@@ -650,8 +649,8 @@ void build_metrics(json_spirit::Object &metrics, json_spirit::Object &metrics_li
 void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) {
 	json_spirit::Object metrics, metrics_list;
 	std::list<std::string> openmetrics;
-	BOOST_FOREACH(const PB::Metrics::MetricsMessage::Response &p, response.payload()) {
-		BOOST_FOREACH(const PB::Metrics::MetricsBundle &b, p.bundles()) {
+	for(const PB::Metrics::MetricsMessage::Response &p: response.payload()) {
+		for(const PB::Metrics::MetricsBundle &b: p.bundles()) {
 			build_metrics(metrics, metrics_list, openmetrics, b.key(), b.key(), b);
 		}
 	}

@@ -122,7 +122,7 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
 	if (!filter_helper.build_filter(filter))
 		return;
 
-	BOOST_FOREACH(const std::string &filename, file_list) {
+	for(const std::string &filename: file_list) {
 		std::ifstream file(filename.c_str());
 		if (file.is_open()) {
 			std::string line;

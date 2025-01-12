@@ -161,7 +161,7 @@ namespace check_pdh {
 
 		bool has_counter = false;
 		std::list<std::wstring> to_check;
-		BOOST_FOREACH(std::string &counter, counters) {
+		for(std::string &counter: counters) {
 			try {
 				if (counter.find('\\') == std::string::npos) {
 					named_counters[counter] = counter;
@@ -187,7 +187,7 @@ namespace check_pdh {
 				return nscapi::protobuf::functions::set_response_bad(*response, "Failed to add counter: " + utf8::utf8_from_native(e.what()));
 			}
 		}
-		BOOST_FOREACH(const std::string &s, extra) {
+		for(const std::string &s: extra) {
 			try {
 				std::string counter, alias;
 				if ((s.size() > 8) && (s.substr(0, 8) == "counter:")) {
@@ -243,11 +243,11 @@ namespace check_pdh {
 				}
 			}
 		}
-		BOOST_FOREACH(const counter_list::value_type &vc, named_counters) {
+		for(const counter_list::value_type &vc: named_counters) {
 			try {
 				typedef std::map<std::string, double> value_list_type;
 
-				BOOST_FOREACH(const std::string &time, times) {
+				for(const std::string &time: times) {
 					value_list_type values;
 					if (time.empty()) {
 						values = collector->get_value(vc.second);
@@ -256,7 +256,7 @@ namespace check_pdh {
 					}
 					if (values.empty())
 						return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value");
-					BOOST_FOREACH(const value_list_type::value_type &v, values) {
+					for(const value_list_type::value_type &v: values) {
 						boost::shared_ptr<filter_obj> record(new filter_obj(vc.first, v.first, time, v.second, v.second));
 						modern_filter::match_result ret = filter.match(record);
 					}
@@ -266,10 +266,10 @@ namespace check_pdh {
 				return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value: " + utf8::utf8_from_native(e.what()));
 			}
 		}
-		BOOST_FOREACH(PDH::pdh_instance &instance, free_counters) {
+		for(PDH::pdh_instance &instance: free_counters) {
 			try {
 				if (expand_instance) {
-					BOOST_FOREACH(const PDH::pdh_instance &child, instance->get_instances()) {
+					for(const PDH::pdh_instance &child: instance->get_instances()) {
 						boost::shared_ptr<filter_obj> record(new filter_obj(child->get_name(), child->get_counter(), "", child->get_int_value(), child->get_float_value()));
 						modern_filter::match_result ret = filter.match(record);
 					}

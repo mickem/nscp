@@ -440,7 +440,7 @@ namespace process_helper {
 		long long total_time = kernel_time + user_time + idle_time;
 
 		process_map p2 = get_process_data(ignore_unreadable, error_interface);
-		BOOST_FOREACH(process_map::value_type v1, p1) {
+		for(process_map::value_type v1: p1) {
 			process_map::iterator v2 = p2.find(v1.first);
 			if (v2 == p2.end()) {
 				if (error_interface != NULL)

@@ -94,7 +94,7 @@ namespace nrpe {
 				log_debug(__FILE__, __LINE__, "Accepting connection from: " + s + ", count=" + str::xtos(count));
 				return true;
 			} else {
-				BOOST_FOREACH(const std::string &e, errors) {
+				for(const std::string &e: errors) {
 					log_error(__FILE__, __LINE__, e);
 				}
 				log_error(__FILE__, __LINE__, "Rejected connection from: " + s);

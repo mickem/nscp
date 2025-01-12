@@ -35,7 +35,7 @@ void debug_log_list(nsclient::logging::logger_instance logger, const char* file,
 	if (!logger || !logger->should_debug()) {
 		return;
 	}
-	BOOST_FOREACH(const std::string &s, list) {
+	for(const std::string &s: list) {
 		logger->debug("core", file, line, prefix + s);
 	}
 }
@@ -166,7 +166,7 @@ void nsclient::core::zip_plugin::read_metadata(std::string data) {
 		description_ = root.getString("description");
 
 		if (root.contains("scripts")) {
-			BOOST_FOREACH(const json_spirit::Value &s, root.getArray("scripts")) {
+			for(const json_spirit::Value &s: root.getArray("scripts")) {
 				script_def def = read_script_def(s);
 				if (modules_.find(def.provider) == modules_.end()) {
 					modules_.insert(def.provider);
@@ -175,7 +175,7 @@ void nsclient::core::zip_plugin::read_metadata(std::string data) {
 			}
 		}
 		if (root.contains("modules")) {
-			BOOST_FOREACH(const json_spirit::Value &s, root.getArray("modules")) {
+			for(const json_spirit::Value &s: root.getArray("modules")) {
 				std::string module = s.getString();
 				if (modules_.find(module) == modules_.end()) {
 					modules_.insert(module);
@@ -183,7 +183,7 @@ void nsclient::core::zip_plugin::read_metadata(std::string data) {
 			}
 		}
 		if (root.contains("on_start")) {
-			BOOST_FOREACH(const json_spirit::Value &s, root.getArray("on_start")) {
+			for(const json_spirit::Value &s: root.getArray("on_start")) {
 				on_start_.push_back(s.getString());
 			}
 		}
@@ -199,12 +199,12 @@ bool nsclient::core::zip_plugin::load_plugin(NSCAPI::moduleLoadMode) {
 	boost::filesystem::path target_path = scripts_folder / getModule();
 	boost::filesystem::create_directory(scripts_folder);
 	boost::filesystem::create_directory(target_path);
-	BOOST_FOREACH(const std::string &plugin, modules_) {
+	for(const std::string &plugin: modules_) {
 		plugins_->load_single_plugin(plugin, "", true);
 	}
 	zip_archive archive(file_.string());
 
-	BOOST_FOREACH(const script_def &script, scripts_) {
+	for(const script_def &script: scripts_) {
 		boost::filesystem::path target = target_path / file_helpers::meta::get_filename(boost::filesystem::path(script.script));
 		if (!archive.extract_file_to_file(script.script.c_str(), target.string().c_str())) {
 			LOG_ERROR_CORE("Failed to add script " + script.script);
@@ -220,7 +220,7 @@ bool nsclient::core::zip_plugin::load_plugin(NSCAPI::moduleLoadMode) {
 		plugins_->simple_exec(script.provider + ".add", args, ret);
 		debug_log_list(get_logger(), __FILE__, __LINE__, ret, " : ");
 	}
-	BOOST_FOREACH(const std::string &cmd, on_start_) {
+	for(const std::string &cmd: on_start_) {
 		std::list<std::string> ret;
 		std::vector<std::string> args;
 		try {
@@ -247,7 +247,7 @@ bool nsclient::core::zip_plugin::load_plugin(NSCAPI::moduleLoadMode) {
 void nsclient::core::zip_plugin::unload_plugin() {
 	boost::filesystem::path scripts_folder = boost::filesystem::path(paths_->expand_path("${scripts}")) / "tmp";
 	boost::filesystem::path target_path = scripts_folder / getModule();
-	BOOST_FOREACH(const script_def &script, scripts_) {
+	for(const script_def &script: scripts_) {
 		boost::filesystem::path target = target_path / file_helpers::meta::get_filename(boost::filesystem::path(script.script));
 		boost::filesystem::remove(target);
 	}

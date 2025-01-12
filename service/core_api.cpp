@@ -281,7 +281,7 @@ NSCAPI::errorReturn NSCAPIJson2Protobuf(const char* request_buffer, unsigned int
 		json_spirit::read_or_throw(request, root);
 		std::string object_type;
 		json_spirit::Object o = root.getObject();
-		BOOST_FOREACH(const json_spirit::Object::value_type &p, o) {
+		for(const json_spirit::Object::value_type &p: o) {
 			if (p.first == "type" && p.second.type() == json_spirit::Value::STRING_TYPE)
 				object_type = p.second.getString();
 		}

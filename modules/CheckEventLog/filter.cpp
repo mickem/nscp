@@ -97,7 +97,7 @@ struct data_cache {
 private:
 	std::string do_apply(const eventlog::eventlog_table &table, long long mask) {
 		std::string keys = "";
-		BOOST_FOREACH(const eventlog::eventlog_table::value_type &cit, table) {
+		for(const eventlog::eventlog_table::value_type &cit: table) {
 			if ((mask&cit.first) == cit.first)
 				str::format::append_list(keys, cit.second, ",");
 		}

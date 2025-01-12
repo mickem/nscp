@@ -18,8 +18,6 @@
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf_settings.hpp>
 
-#include <boost/foreach.hpp>
-
 template<class T>
 void report_errors(const T &response, nscapi::core_wrapper* core, const std::string &action) {
 	for (int i = 0; i < response.payload_size(); i++) {
@@ -232,7 +230,7 @@ nscapi::settings_proxy::string_list nscapi::settings_proxy::get_sections(std::st
 	}
 
 	std::size_t pos = path.size();
-	BOOST_FOREACH(const PB::Settings::Node &n, response.payload(0).query().nodes()) {
+	for(const PB::Settings::Node &n: response.payload(0).query().nodes()) {
 		std::string s = n.path();
 		s = s.substr(pos);
 		if (s.size() > 0 && s[0] == '/') {
@@ -261,7 +259,7 @@ nscapi::settings_proxy::string_list nscapi::settings_proxy::get_keys(std::string
 		return ret;
 	}
 
-	BOOST_FOREACH(const PB::Settings::Node &n, response.payload(0).query().nodes()) {
+	for(const PB::Settings::Node &n: response.payload(0).query().nodes()) {
 		ret.push_back(n.key());
 	}
 	return ret;

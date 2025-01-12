@@ -122,7 +122,7 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
 	json_spirit::Array data;
 #endif
 	if (query) {
-		BOOST_FOREACH(const std::string &cmd, provider_->get_commands()) {
+		for(const std::string &cmd: provider_->get_commands()) {
 			if (json) {
 #ifdef HAVE_JSON_SPIRIT
 				data.push_back(cmd);
@@ -135,7 +135,7 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
 		boost::filesystem::path dir = provider_->get_core()->expand_path("${scripts}");
 		boost::filesystem::path rel = provider_->get_core()->expand_path("${base-path}");
 		boost::filesystem::recursive_directory_iterator iter(dir), eod;
-		BOOST_FOREACH(boost::filesystem::path const& i, std::make_pair(iter, eod)) {
+		for(boost::filesystem::path const& i: boost::make_iterator_range(iter, eod)) {
 			std::string s = i.string();
 			if (boost::algorithm::starts_with(s, rel.string()))
 				s = s.substr(rel.string().size());
@@ -429,7 +429,7 @@ void extscr_cli::configure(const PB::Commands::ExecuteRequestMessage::Request &r
 		nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
 		return;
 	}
-	BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
+	for(const pf::settings_query::key_values &val: q.get_query_key_response()) {
 		if (val.matches(path, "allow arguments") && val.get_bool())
 			arguments = "true";
 		else if (val.matches(path, "allow nasty characters") && val.get_bool())

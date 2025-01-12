@@ -78,7 +78,7 @@ int get_crashes(boost::filesystem::path root, std::string &last_crash) {
 
 	time_t last_write = std::time(0);
 	boost::filesystem::directory_iterator begin(root), end;
-	BOOST_FOREACH(const boost::filesystem::path& p, std::make_pair(begin, end)) {
+	for(const boost::filesystem::path& p: boost::make_iterator_range(begin, end)) {
 		if (boost::filesystem::is_regular_file(p) && file_helpers::meta::get_extension(p) == "txt")
 			count++;
 		time_t lw = boost::filesystem::last_write_time(p);

@@ -22,7 +22,6 @@
 #include <vector>
 #include <string>
 
-#include <boost/foreach.hpp>
 #include <buffer.hpp>
 #include <win_sysinfo/win_defines.hpp>
 #include <minmax.h>
@@ -82,7 +81,7 @@ namespace windows {
 			}
 			void normalize(double value) {
 				total.normalize(value);
-				BOOST_FOREACH(load_entry &c, core) {
+				for(load_entry &c: core) {
 					c.normalize(value);
 				}
 			}
