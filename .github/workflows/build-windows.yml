@@ -213,9 +213,9 @@ jobs:
         for f in *-stripped.pdb; do mv -- "$f" "${f%-stripped.pdb}.pdb"; done
         7z a -tzip -r ../NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip .
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
-        name: NSCP-${{ inputs.version }}.zip
+        name: NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}
         path: |
           tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-docs.zip
           tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.zip
