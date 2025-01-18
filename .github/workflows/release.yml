@@ -21,7 +21,7 @@ jobs:
         submodules: true
 
     - id: python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ ENV.PYTHON_VERSION }}
 
