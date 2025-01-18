@@ -25,12 +25,18 @@ jobs:
       with:
         python-version: ${{ ENV.PYTHON_VERSION }}
 
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
-        name: NSCP-${{ inputs.version }}.zip
-        
+        name: NSCP-${{ inputs.version }}-x64
+    - uses: actions/download-artifact@v4
+      with:
+        name: NSCP-${{ inputs.version }}-Win32
+
     - name: Rename docs
-      run: mv NSCP-${{ inputs.version }}-x64-docs.zip NSCP-${{ inputs.version }}-docs.zip
+      run: |
+        ls -la
+        mv NSCP-${{ inputs.version }}-x64-docs.zip NSCP-${{ inputs.version }}-docs.zip
+        rm NSCP-${{ inputs.version }}-Win32-docs.zip
       shell: pwsh
 
     - name: Create Release
