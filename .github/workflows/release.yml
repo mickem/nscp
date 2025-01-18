@@ -34,7 +34,7 @@ jobs:
 
     - name: Rename docs
       run: |
-        ls -la
+        ls
         mv NSCP-${{ inputs.version }}-x64-docs.zip NSCP-${{ inputs.version }}-docs.zip
         rm NSCP-${{ inputs.version }}-Win32-docs.zip
       shell: pwsh
