@@ -98,6 +98,15 @@ set(CONFIG_LOG_FOLDER
 set(CONFIG_DEFAULT_LOG_LOCATION
         "\${exe-path}/nsclient.log"
         CACHE STRING "PAth for log file")
+set(CONFIG_DEFAULT_CONF_INI_LOCATION
+        "${CONFIG_DEFAULT_CONF_INI_BASE}nsclient.ini"
+        CACHE STRING "Default location for ini files")
+set(CONFIG_DEFAULT_CONF_REG_LOCATION
+        "registry://HKEY_LOCAL_MACHINE/software/NSClient++"
+        CACHE STRING "Default location for registry based settings")
+set(CONFIG_DEFAULT_CONF_OLD_LOCATION
+        "old://\${exe-path}/nsc.ini"
+        CACHE STRING "Default location for old config file")
 
 configure_file(${NSCP_INCLUDEDIR}/config.h.in
                ${PROJECT_BINARY_DIR}/include/config.h @ONLY)
