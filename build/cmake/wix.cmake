@@ -195,7 +195,7 @@ if(WIN32)
     set(WIX_OBJ_LIST)
     wix_compile("${_sources}" WIX_OBJ_LIST "${_dependencies}")
     set(TNAME
-        "${_target}-${VERSION_SERIES}.${VERSION_MAJOR}.${VERSION_MINOR}-${VERSION_ARCH}.msi"
+        "${_target}-${BUILD_VERSION}.msi"
     )
     wix_link(${TNAME} WIX_OBJ_LIST "${_loc_files}")
     add_custom_target(
