@@ -3,7 +3,7 @@
 
   <?include setup.wxs ?>
 
-  <?define Version.Tag = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision)$(var.Version.BuildPad)" ?>
+  <?define Version.Tag = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.BuildPad)" ?>
   
   <?define UpgradeCode = "$(var.App.UppgradeCode)" ?>
 
