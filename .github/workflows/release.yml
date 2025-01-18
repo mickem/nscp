@@ -47,6 +47,7 @@ jobs:
         name: Preview for ${{ inputs.version }}
         draft: true
         prerelease: true
+        generateReleaseNotes: true
         artifacts: |
           NSCP-${{ inputs.version }}-docs.zip
           NSCP-${{ inputs.version }}-x64.zip
