@@ -5,6 +5,7 @@ import AppsIcon from "@mui/icons-material/Apps";
 import TaskAltIcon from "@mui/icons-material/TaskAlt";
 import MessageIcon from "@mui/icons-material/Message";
 import SettingsIcon from "@mui/icons-material/Settings";
+import ShowChartIcon from "@mui/icons-material/ShowChart";
 import { useNavigate } from "react-router";
 
 export default function SideMenu() {
@@ -49,6 +50,15 @@ export default function SideMenu() {
               <TaskAltIcon />
             </ListItemIcon>
             <ListItemText primary="Queries" />
+          </ListItemButton>
+        </ListItem>
+        <Divider />
+        <ListItem disablePadding>
+          <ListItemButton onClick={() => navigate("/metrics")}>
+            <ListItemIcon>
+              <ShowChartIcon />
+            </ListItemIcon>
+            <ListItemText primary="Metrics" />
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>

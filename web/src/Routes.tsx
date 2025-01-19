@@ -9,6 +9,7 @@ import Queries from "./components/Queries.tsx";
 import Query from "./components/Query.tsx";
 import Module from "./components/Module.tsx";
 import Settings from "./components/Settings.tsx";
+import Metrics from "./components/Metrics.tsx";
 
 export default function Router() {
   const { isAuthenticated } = useAuthentication();
@@ -36,6 +37,7 @@ export default function Router() {
             <Route path={":id"} element={<Query />} />
             <Route index={true} element={<Queries />} />
           </Route>
+          <Route path={"metrics"} element={<Metrics />} />
         </Route>
       </Routes>
     </BrowserRouter>

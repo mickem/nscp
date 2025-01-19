@@ -1,4 +1,4 @@
-import { CircularProgress, IconButton, Menu, MenuItem, Tooltip } from "@mui/material";
+import { IconButton, Menu, MenuItem, Tooltip } from "@mui/material";
 import { nsclientApi, useGetLogStatusQuery, useResetLogStatusMutation } from "../api/api.ts";
 import DoneIcon from "@mui/icons-material/Done";
 import ErrorIcon from "@mui/icons-material/Error";
@@ -8,7 +8,7 @@ import { useNavigate } from "react-router";
 import { useAppDispatch } from "../store/store.ts";
 
 export default function LogStatusIcon() {
-  const { data: logStatus, isFetching } = useGetLogStatusQuery();
+  const { data: logStatus } = useGetLogStatusQuery();
   const [resetStatus] = useResetLogStatusMutation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -42,18 +42,14 @@ export default function LogStatusIcon() {
     resetStatus();
   };
 
-  const icon = isFetching ? (
-    <CircularProgress size="2em" />
-  ) : errors === 0 ? (
-    <DoneIcon color="success" />
-  ) : (
-    <ErrorIcon color="error" />
-  );
+  const icon = errors === 0 ? <DoneIcon color="success" /> : <ErrorIcon color="error" />;
 
   return (
     <>
       <Tooltip disableFocusListener title={lastError}>
-        <IconButton onClick={handleOpenUserMenu}>{icon}</IconButton>
+        <IconButton sx={{ backgroundColor: "white" }} onClick={handleOpenUserMenu}>
+          {icon}
+        </IconButton>
       </Tooltip>
       <Menu
         sx={{ mt: "45px" }}

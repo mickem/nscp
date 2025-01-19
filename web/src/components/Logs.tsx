@@ -22,6 +22,7 @@ import { Spacing } from "./atoms/Spacing.tsx";
 import { useState } from "react";
 import CloseIcon from "@mui/icons-material/Close";
 import Button from "@mui/material/Button";
+import Typography from "@mui/material/Typography";
 
 const ICONS = {
   critical: <ErrorIcon color="error" />,
@@ -58,6 +59,7 @@ export default function Logs() {
     <Box sx={{ p: { sm: 3 } }}>
       <Stack direction="column">
         <Toolbar>
+          <Typography variant="body2">Filter:</Typography>
           <ToggleButtonGroup
             value={level}
             exclusive
@@ -73,10 +75,10 @@ export default function Logs() {
             </ToggleButton>
           </ToggleButtonGroup>
 
-          <Button size="small" onClick={clear}>
-            Clear
-          </Button>
           <Spacing />
+          <Button size="small" onClick={clear}>
+            Clear log
+          </Button>
           <RefreshButton onRefresh={onRefresh} />
         </Toolbar>
         {logs?.count === 0 && <p>No logs found</p>}
