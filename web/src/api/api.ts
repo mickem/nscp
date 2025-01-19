@@ -74,9 +74,11 @@ interface Info {
   version: string;
   version_url: string;
 }
+
 interface Version {
   version: string;
 }
+
 export interface LogRecord {
   date: string;
   file: string;
@@ -84,13 +86,16 @@ export interface LogRecord {
   line: number;
   message: string;
 }
+
 export interface LogStatus {
   errors: number;
   last_error: string;
 }
+
 interface ModulesQuery {
   all: boolean;
 }
+
 export interface ModuleListItem {
   id: string;
   name: string;
@@ -140,10 +145,12 @@ interface Query {
   execute_nagios_url: string;
   execute_url: string;
 }
+
 export interface ExecuteQueryArgs {
   query: string;
   args: string[];
 }
+
 export interface QueryExecutionResultLinePerf {
   critical: number;
   maximum: number;
@@ -159,6 +166,7 @@ export interface QueryExecutionResultLine {
     [key: string]: QueryExecutionResultLinePerf;
   };
 }
+
 export interface QueryExecutionResult {
   command: string;
   lines: QueryExecutionResultLine[];
@@ -171,11 +179,13 @@ export interface SettingsStatus {
   type: string;
   has_changed: boolean;
 }
+
 export interface Settings {
   key: string;
   path: string;
   value: string;
 }
+
 export interface SettingsCommand {
   command: "load" | "save" | "reload";
 }
@@ -195,6 +205,8 @@ export interface SettingsDescription {
   title: string;
   value: string;
 }
+
+export type Metrics = { [key: string]: string | number };
 
 const baseQuery = fetchBaseQuery({
   baseUrl: "/api",
@@ -248,6 +260,7 @@ export const nsclientApi = createApi({
     "SettingsStatus",
     "SettingsDescriptions",
     "LogStatus",
+    "Metrics",
   ],
   endpoints: (builder) => ({
     getEndpoints: builder.query<EndpointList, void>({
@@ -438,6 +451,12 @@ export const nsclientApi = createApi({
         },
       }),
     }),
+    getMetrics: builder.query<Metrics, void>({
+      query: () => ({
+        url: "/v2/metrics",
+      }),
+      providesTags: ["Metrics"],
+    }),
   }),
 });
 
@@ -465,4 +484,5 @@ export const {
   useGetLogStatusQuery,
   useResetLogStatusMutation,
   useLoginMutation,
+  useGetMetricsQuery,
 } = nsclientApi;
