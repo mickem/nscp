@@ -12,6 +12,16 @@ on:
         type: string
         description: 'Version to build'
         required: true
+    secrets:
+      AZURE_TENANT_ID:
+        description: 'Azure tenant ID'
+        required: true
+      AZURE_CLIENT_ID:
+        description: 'Azure client ID'
+        required: true
+      AZURE_CLIENT_SECRET:
+        description: 'Azure client secret'
+        required: true
 
 env:
   PERL_VERSION: 5.34
@@ -212,6 +222,21 @@ jobs:
         # remove the -symbols suffix
         for f in *-stripped.pdb; do mv -- "$f" "${f%-stripped.pdb}.pdb"; done
         7z a -tzip -r ../NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip .
+
+    - name: Sign files installer
+      uses: azure/trusted-signing-action@v0.5.1
+      with:
+        azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+        endpoint: https://neu.codesigning.azure.net
+        trusted-signing-account-name: nsclient
+        certificate-profile-name: nsclient
+        files-folder: ${{ github.workspace }}\tmp\nscp\installers\installer-NSCP
+        files-folder-filter: msi
+        file-digest: SHA256
+        timestamp-rfc3161: http://timestamp.acs.microsoft.com
+        timestamp-digest: SHA256
 
     - uses: actions/upload-artifact@v4
       with:
