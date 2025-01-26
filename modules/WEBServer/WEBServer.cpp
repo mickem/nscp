@@ -66,6 +66,19 @@ using namespace std;
 using namespace Mongoose;
 namespace ph = boost::placeholders;
 
+
+class WEBServerLogger : public Mongoose::WebLogger {
+  virtual void log_error(const std::string &message) {
+    NSC_LOG_ERROR(message);
+  }
+  virtual void log_info(const std::string &message) {
+    NSC_LOG_MESSAGE(message);
+  }
+  virtual void log_debug(const std::string &message) {
+    NSC_DEBUG_MSG(message);
+  }
+};
+
 WEBServer::WEBServer()
 	: session(new session_manager_interface())
 {
@@ -164,7 +177,8 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 		session->add_user("admin", "full", admin_password);
 
-		server.reset(Mongoose::Server::make_server());
+		WebLoggerPtr logger(new WEBServerLogger());
+		server.reset(Mongoose::Server::make_server(logger));
 		if (!boost::filesystem::is_regular_file(certificate)) {
 			NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
 		} else {

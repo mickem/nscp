@@ -6,6 +6,7 @@
 
 #include "dll_defines.hpp"
 
+#include <boost/shared_ptr.hpp>
 #include <string>
 
 /**
@@ -13,10 +14,21 @@
  */
 namespace Mongoose {
 
+
+  class NSCAPI_EXPORT WebLogger {
+  public:
+    virtual void log_error(const std::string &message) = 0;
+    virtual void log_info(const std::string &message) = 0;
+    virtual void log_debug(const std::string &message) = 0;
+  };
+
+  typedef boost::shared_ptr<WebLogger> WebLoggerPtr;
+
+
 	class NSCAPI_EXPORT Server {
 
 	public:
-		static Server* make_server();
+		static Server* make_server(WebLoggerPtr logger);
 
 		virtual ~Server() {}
 

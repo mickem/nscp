@@ -1,6 +1,6 @@
 #include "Server.h"
 #include "ServerImpl.h"
 
-Mongoose::Server* Mongoose::Server::make_server() {
-	return new ServerImpl();
+Mongoose::Server* Mongoose::Server::make_server(WebLoggerPtr logger) {
+	return new ServerImpl(logger);
 }

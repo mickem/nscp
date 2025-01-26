@@ -25,7 +25,7 @@
 namespace Mongoose
 {
 
-    class NSCAPI_EXPORT ServerImpl : public Server
+      class NSCAPI_EXPORT ServerImpl : public Server
     {
         public:
             /**
@@ -34,7 +34,7 @@ namespace Mongoose
              * @param int the number of the port to listen to
              * @param string documentRoot the root that should be used for static files
              */
-			ServerImpl();
+			ServerImpl(WebLoggerPtr logger);
             virtual ~ServerImpl();
 
 
@@ -103,6 +103,7 @@ namespace Mongoose
 
 
 		protected:
+      WebLoggerPtr logger_;
             std::string certificate;
 			struct mg_mgr mgr;
             struct mg_connection *server_connection;

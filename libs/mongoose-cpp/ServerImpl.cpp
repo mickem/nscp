@@ -15,18 +15,32 @@ boost::posix_time::ptime now() {
 	return boost::get_system_time();
 }
 
+void log_wrapper(const void * msg, size_t len, void * ptr) {
+  if (ptr == nullptr) {
+    return;
+  }
+  WebLogger* logger = reinterpret_cast<WebLogger*>(ptr);
+  std::string msg_str(static_cast<const char*>(msg), len);
+  if (msg_str == "\n") {
+    return;
+  }
+  logger->log_error(msg_str);
+}
 
 namespace Mongoose
 {
-	ServerImpl::ServerImpl()
-		: stop_thread_(false)
+	ServerImpl::ServerImpl(WebLoggerPtr logger)
+		: stop_thread_(false), logger_(logger)
     {
+    mg_log_set_callback(&log_wrapper, logger_.get());
 		memset(&mgr, 0, sizeof(struct mg_mgr));
 		mg_mgr_init(&mgr);
     }
 
 	ServerImpl::~ServerImpl() {
         stop();
+        mg_log_set_callback(&log_wrapper, nullptr);
+
 		vector<Controller *>::iterator it;
 		for (it = controllers.begin(); it != controllers.end(); it++) {
 			delete (*it);
@@ -38,7 +52,7 @@ namespace Mongoose
 #if MG_ENABLE_OPENSSL
 		certificate = new_certificate;
 #else
-        //NSC_LOG_ERROR("");
+    logger_->log_error("Not compiled with TLS");
 #endif
 	}
 
@@ -54,7 +68,7 @@ namespace Mongoose
                 }
             }
         } catch (...) {
-            //NSC_LOG_ERROR("");
+          logger_->log_error("Mongoose error");
         }
     }
 
@@ -97,6 +111,10 @@ namespace Mongoose
         if (certificate.empty()) {
             return;
         }
+        struct mg_tls_opts opts{};
+        memset(&opts, 0, sizeof(struct mg_tls_opts));
+        opts.cert = certificate.c_str();
+        mg_tls_init(connection, &opts);
     }
 #endif
 
