@@ -115,7 +115,7 @@ namespace windows {
 		static std::string get_version_string();
 		static unsigned long get_version();
 		static OSVERSIONINFOEX* get_versioninfo();
-		static long get_numberOfProcessorscores();
+		static unsigned long get_numberOfProcessorscores();
 		static std::vector<std::string> get_suite_list();
 		static long long get_suite_i();
 
@@ -136,6 +136,8 @@ namespace windows {
 		bool IsWow64(HANDLE hProcess, bool def = false);
 		DWORD GetProcessImageFileName(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize);
 		LONG NtQueryInformationProcess(HANDLE ProcessHandle, DWORD ProcessInformationClass, PVOID ProcessInformation, DWORD ProcessInformationLength, PDWORD ReturnLength);
+    bool GetNativeSystemInfo(LPSYSTEM_INFO lpSystemInfo);
+
 
 		INT VDMEnumTaskWOWEx(DWORD dwProcessId, tTASKENUMPROCEX fp, LPARAM lparam);
 	}

@@ -23,10 +23,14 @@
 #include <win_sysinfo/win_defines.hpp>
 #include <win_sysinfo/win_sysinfo.hpp>
 
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
+#include "str/xtos.hpp"
+
 #include <boost/scoped_array.hpp>
+#include <buffer.hpp>
 #include <error/error.hpp>
 #include <nsclient/nsclient_exception.hpp>
-#include <buffer.hpp>
 #include <utf8.hpp>
 
 namespace windows {
@@ -46,6 +50,7 @@ namespace windows {
 		typedef DWORD(WINAPI *tGetProcessImageFileName)(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize);
 		typedef LONG(NTAPI *tNtQuerySystemInformation)(SYSTEM_INFORMATION_CLASS SystemInformationClass, PVOID SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength);
 		typedef DWORD(WINAPI *tWTSGetActiveConsoleSessionId)();
+    typedef LONG(NTAPI *tGetNativeSystemInfo)(LPSYSTEM_INFO lpSystemInfo);
 
 		typedef BOOL(*tWTSQueryUserToken)(ULONG   SessionId,PHANDLE phToken);
 
@@ -58,6 +63,7 @@ namespace windows {
 		tIsWow64Process pIsWow64Process = NULL;
 		tGetProcessImageFileName pGetProcessImageFileName = NULL;
 		tNtQuerySystemInformation pNtQuerySystemInformation = NULL;
+    tGetNativeSystemInfo pGetNativeSystemInfo = NULL;
 		tWTSQueryUserToken pWTSQueryUserToken = NULL;
 		tWTSGetActiveConsoleSessionId pWTSGetActiveConsoleSessionId = NULL;
 
@@ -160,9 +166,17 @@ namespace windows {
 				throw nsclient::nsclient_exception("Failed to load: NtQuerySystemInformation: " + error::lookup::last_error());
 			return pNtQuerySystemInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
 		}
+
+    bool GetNativeSystemInfo(LPSYSTEM_INFO lpSystemInfo) {
+      if (pGetNativeSystemInfo == NULL)
+        pGetNativeSystemInfo = reinterpret_cast<tGetNativeSystemInfo>(GetProcAddress(LoadLibrary(L"Kernel32"), "GetNativeSystemInfo"));
+      if (pGetNativeSystemInfo == NULL)
+        return false;
+      pGetNativeSystemInfo(lpSystemInfo);
+      return true;
+    }
 	}
 
-	winapi::SYSTEM_BASIC_INFORMATION g_systemBasicInformation;
 	unsigned long g_windowsVersion;
 	// ACCESS_MASK ProcessQueryAccess;
 	// ACCESS_MASK ProcessAllAccess;
@@ -171,9 +185,6 @@ namespace windows {
 	// ACCESS_MASK ThreadAllAccess;
 	//RTL_OSVERSIONINFOEXW g_versionInfo;
 	RTL_OSVERSIONINFOEXW g_versionInfo;
-	void QuerySystemInformation() {
-		winapi::NtQuerySystemInformation(winapi::SystemBasicInformation, &g_systemBasicInformation, sizeof(winapi::SYSTEM_BASIC_INFORMATION), NULL);
-	}
 
 	// RTL_OSVERSIONINFOEXW is defined in winnt.h
 	bool GetOsVersion(RTL_OSVERSIONINFOEXW* pk_OsVer) {
@@ -238,7 +249,8 @@ namespace windows {
 	}
 
 	bool g_hasVersion = false;
-	bool g_hasBasicInfo = false;
+	unsigned long numberOfCores = 0;
+
 
 	boost::scoped_array<unsigned long long> g_CPUIdleTimeOld;
 	boost::scoped_array<unsigned long long> g_CPUTotalTimeOld;
@@ -352,12 +364,20 @@ namespace windows {
 	}
 
 
-	long system_info::get_numberOfProcessorscores() {
-		if (!g_hasBasicInfo) {
-			QuerySystemInformation();
-			g_hasBasicInfo = true;
+	unsigned long system_info::get_numberOfProcessorscores() {
+		if (numberOfCores == 0) {
+      SYSTEM_INFO si;
+      if (winapi::GetNativeSystemInfo(&si)) {
+        numberOfCores = si.dwNumberOfProcessors;
+        NSC_LOG_MESSAGE("Number of cores detected (new) as " + str::xtos(numberOfCores));
+        return numberOfCores;
+      }
+      winapi::SYSTEM_BASIC_INFORMATION systemBasicInformation;
+      winapi::NtQuerySystemInformation(winapi::SystemBasicInformation, &systemBasicInformation, sizeof(winapi::SYSTEM_BASIC_INFORMATION), NULL);
+      numberOfCores = static_cast<unsigned char>(systemBasicInformation.NumberOfProcessors);
+      NSC_LOG_MESSAGE("Number of cores detected (old) as " + str::xtos(numberOfCores));
 		}
-		return g_systemBasicInformation.NumberOfProcessors;
+		return numberOfCores;
 	}
 
 	hlp::buffer<BYTE, winapi::SYSTEM_PROCESS_INFORMATION*>  system_info::get_system_process_information(int size) {
