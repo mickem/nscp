@@ -563,16 +563,23 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 	std::vector<std::string> times;
+  bool show_all_cores = false;
 
 	filter_type filter;
 	filter_helper.add_options("load > 80", "load > 90", "core = 'total'", filter.get_filter_syntax(), "ignored");
-	filter_helper.add_syntax("${status}: ${problem_list}", "${time}: ${load}%", "${core} ${time}", "", "%(status): CPU load is ok.");
+  filter_helper.add_syntax("${status}: ${problem_list}", "${time}: ${load}%", "${core} ${time}", "", "%(status): CPU load is ok.");
 	filter_helper.get_desc().add_options()
-		("time", po::value<std::vector<std::string>>(&times), "The time to check")
+      ("time", po::value<std::vector<std::string>>(&times), "The time to check")
+              ("cores", boost::program_options::bool_switch(&show_all_cores),
+               "This will remove the filter to  include the cores, if you use filter dont use this as well.")
 		;
 
 	if (!filter_helper.parse_options())
 		return;
+
+  if (show_all_cores && filter_helper.data.filter_string.size() == 1) {
+    filter_helper.data.filter_string.clear();
+  }
 
 	if (times.empty()) {
 		times.push_back("5m");

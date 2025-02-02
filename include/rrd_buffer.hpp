@@ -63,7 +63,7 @@ struct rrd_buffer {
     value_type ret;
     if (time < 0) return ret;
     if (time <= seconds.size()) {
-      for (list_type::const_iterator cit = seconds.end() - time; cit != seconds.end(); ++cit) {
+      for (typename list_type::const_iterator cit = seconds.end() - time; cit != seconds.end(); ++cit) {
         ret.add(*cit);
       }
       ret.normalize(time);
@@ -71,7 +71,7 @@ struct rrd_buffer {
     }
     time /= 60;
     if (time <= minutes.size()) {
-      for (list_type::const_iterator cit = minutes.end() - time; cit != minutes.end(); ++cit) {
+      for (typename list_type::const_iterator cit = minutes.end() - time; cit != minutes.end(); ++cit) {
         ret.add(*cit);
       }
       ret.normalize(time);
@@ -79,7 +79,7 @@ struct rrd_buffer {
     }
     time /= 60;
     if (time >= hours.size()) throw nsclient::nsclient_exception("Size larger than buffer");
-    for (list_type::const_iterator cit = hours.end() - time; cit != hours.end(); ++cit) {
+    for (typename list_type::const_iterator cit = hours.end() - time; cit != hours.end(); ++cit) {
       ret.add(*cit);
     }
     ret.normalize(time);

@@ -54,7 +54,15 @@ struct system_info {
     double kernel;
     int core;
     load_entry() : idle(0.0), total(0.0), kernel(0.0), core(-1) {}
-    void add(const load_entry &other) {
+    load_entry(const load_entry& obj) : idle(obj.idle), total(obj.total), kernel(obj.kernel), core(obj.core) {}
+    load_entry& operator=(const load_entry& obj) {
+      idle = obj.idle;
+      total = obj.total;
+      kernel = obj.kernel;
+      core = obj.core;
+      return *this;
+    }
+    void add(const load_entry& other) {
       idle += other.idle;
       total += other.total;
       kernel += other.kernel;
@@ -71,7 +79,15 @@ struct system_info {
     std::vector<load_entry> core;
     load_entry total;
     cpu_load() : cores(0) {}
-    void add(const cpu_load &n) {
+    cpu_load(const cpu_load& obj) : cores(obj.cores), core(obj.core), total(obj.total) {}
+    cpu_load& operator=(const cpu_load& obj) {
+      cores = obj.cores;
+      core = obj.core;
+      total = obj.total;
+      return *this;
+    }
+
+    void add(const cpu_load& n) {
       total.add(n.total);
       cores = max(cores, n.cores);
       core.resize(cores);
@@ -81,7 +97,7 @@ struct system_info {
     }
     void normalize(double value) {
       total.normalize(value);
-      for (load_entry &c : core) {
+      for (load_entry& c : core) {
         c.normalize(value);
       }
     }
@@ -103,7 +119,7 @@ struct system_info {
     long long peak_usage;
     std::string name;
     pagefile_info(const std::string name = "") : size(0), usage(0), peak_usage(0), name(name) {}
-    void add(const pagefile_info &other) {
+    void add(const pagefile_info& other) {
       size += other.size;
       usage += other.usage;
       peak_usage += other.peak_usage;
@@ -114,7 +130,7 @@ struct system_info {
 
   static std::string get_version_string();
   static unsigned long get_version();
-  static OSVERSIONINFOEX *get_versioninfo();
+  static OSVERSIONINFOEX* get_versioninfo();
   static long get_numberOfProcessorscores();
   static std::vector<std::string> get_suite_list();
   static long long get_suite_i();
@@ -123,7 +139,7 @@ struct system_info {
   static cpu_load get_cpu_load_total();
 
   static memory_usage get_memory();
-  static hlp::buffer<BYTE, windows::winapi::SYSTEM_PROCESS_INFORMATION *> get_system_process_information(int size = 0x32000);
+  static hlp::buffer<BYTE, windows::winapi::SYSTEM_PROCESS_INFORMATION*> get_system_process_information(int size = 0x32000);
 };
 
 namespace winapi {

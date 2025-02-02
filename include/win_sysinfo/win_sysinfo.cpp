@@ -389,9 +389,9 @@ system_info::cpu_load system_info::get_cpu_load_per_core() {
       result.core[i].kernel = 0;
       result.core[i].total = 0;
     }
-    g_CPUUserTimeOld[i] = CPUUserTime;
     g_CPUIdleTimeOld[i] = CPUIdleTime;
     g_CPUKernelTimeOld[i] = CPUKernelTime;
+    g_CPUUserTimeOld[i] = CPUUserTime;
   }
   result.total.idle /= result.cores;
   result.total.kernel /= result.cores;
@@ -421,6 +421,7 @@ system_info::cpu_load system_info::get_cpu_load_total() {
   result.total.idle = result.total.kernel = result.total.total = 0.0;
 
   unsigned long long CPUIdleTimeDiff = CPUIdleTime - g_CPUIdleTimeOld[0];
+  // Kernel also includes idle time so we need to subtract that
   unsigned long long CPUKernelTimeDiff = CPUKernelTime - g_CPUKernelTimeOld[0];
   unsigned long long CPUUserTimeDiff = CPUUserTime - g_CPUUserTimeOld[0];
 
@@ -432,9 +433,9 @@ system_info::cpu_load system_info::get_cpu_load_total() {
   result.total.kernel = get_rate(kernel_time_diff, total_time_diff);
   result.total.total = get_rate(used_time_diff, total_time_diff);
 
-  g_CPUUserTimeOld[0] = CPUUserTime;
   g_CPUIdleTimeOld[0] = CPUIdleTime;
   g_CPUKernelTimeOld[0] = CPUKernelTime;
+  g_CPUUserTimeOld[0] = CPUUserTime;
   return result;
 }
 
