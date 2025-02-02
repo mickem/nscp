@@ -104,6 +104,7 @@ CPU Load ok|'total 5m'=16%;80;90 'total 1m'=13%;80;90 'total 5s'=13%;80;90
 <a name="check_cpu_show-default"/>
 <a name="check_cpu_help-short"/>
 <a name="check_cpu_time"/>
+<a name="check_cpu_cores"/>
 <a name="check_cpu_options"/>
 #### Command-line Arguments
 
@@ -131,6 +132,7 @@ CPU Load ok|'total 5m'=16%;80;90 'total 1m'=13%;80;90 'total 5s'=13%;80;90
 | [detail-syntax](#check_cpu_detail-syntax) | ${time}: ${load}%          | Detail level syntax.                                                                                             |
 | [perf-syntax](#check_cpu_perf-syntax)     | ${core} ${time}            | Performance alias syntax.                                                                                        |
 | time                                      |                            | The time to check                                                                                                |
+| cores                                     | N/A                        | This will remove the filter to  include the cores, if you use filter dont use this as well.                      |
 
 
 
