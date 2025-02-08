@@ -118,14 +118,14 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 		;
 	settings.alias().add_key_to_settings()
-		("port", sh::string_key(&port, "8080"),
+		("port", sh::string_key(&port, "8443"),
 		"Server port", "Port to use for WEB server.")
 
 		("threads", sh::int_key(&threads, 10),
 		"Server threads", "The number of threads in the sever response pool.")
 		;
 	settings.alias().add_key_to_settings()
-		("certificate", sh::string_key(&certificate, "none"),
+		("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"),
 			"TLS Certificate", "Ssl certificate to use for the ssl server")
 		;
 

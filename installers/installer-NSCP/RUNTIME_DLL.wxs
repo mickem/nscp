@@ -12,11 +12,6 @@
 				<File Id="BOOST_SYS" Name="boost_system.dll" DiskId="1" Source="$(var.Source)/boost_system.dll" Vital="yes" />
 				<File Id="BOOST_T" Name="boost_thread.dll" DiskId="1" Source="$(var.Source)/boost_thread.dll" Vital="yes" />
 				<File Id="PROTOBUF" Name="libprotobuf.dll" DiskId="1" Source="$(var.Source)/libprotobuf.dll" Vital="yes" />
-        <!--
-				<File Id="SSL1" Name="$(var.OpenSSlCrypto)" DiskId="1" Source="$(var.Source)/$(var.OpenSSlCrypto)" Vital="yes" />
-				<File Id="SSL2" Name="$(var.OpenSSlLib)" DiskId="1" Source="$(var.Source)/$(var.OpenSSlLib)" Vital="yes" />
-        -->
-        
       </Component>
 			<Component Id="LibNSCP" Guid="365EF37C-49D4-4903-9EF7-A221F0915FB2">
 				<File Id="NSCP_PLUG" Name="plugin_api.dll" DiskId="1" Source="$(var.Source)/plugin_api.dll" Vital="yes" />

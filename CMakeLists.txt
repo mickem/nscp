@@ -335,7 +335,7 @@ endif(WIN32)
 
 # ##############################################################################
 #
-# Setup c/C++ build enviornment and flags
+# Setup c/C++ build environment and flags
 #
 # ##############################################################################
 set(NSCP_INCLUDEDIR ${CMAKE_SOURCE_DIR}/include)
