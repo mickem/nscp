@@ -669,10 +669,22 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 			h.logMessage(L"Configuration changes not allowed: set CONF_CAN_CHANGE=1");
 			return ERROR_SUCCESS;
 		}
+
+    std::wstring target = h.getTargetPath(L"INSTALLLOCATION");
+    boost::filesystem::wpath backup = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+    boost::filesystem::wpath target_path = target;
+    boost::filesystem::wpath config_file = target_path / L"nsclient.ini";
+    if (boost::filesystem::exists(config_file)) {
+      h.logMessage(L"Config file found: " + config_file.wstring());
+      h.logMessage(L"Backup file: " + backup.wstring());
+      copy_file(h, config_file.wstring(), backup.wstring());
+    }
+
 		msi_helper::custom_action_data_w data;
 		data.write_string(h.getTargetPath(L"INSTALLLOCATION"));
 		data.write_string(h.getPropery(KEY_CONFIGURATION_TYPE));
-		data.write_string(h.getPropery(L"RESTORE_FILE"));
+    data.write_string(h.getPropery(L"RESTORE_FILE"));
+    data.write_string(backup.wstring());
 		data.write_int(h.getPropery(L"ADD_DEFAULTS")==L"1"?1:0);
 
 		std::wstring confInclude = h.getPropery(KEY_CONF_INCLUDES);
@@ -774,27 +786,40 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 		std::wstring target = data.get_next_string();
 		std::wstring context_w = data.get_next_string();
 		std::string context = utf8::cvt<std::string>(context_w);
-		std::wstring restore = data.get_next_string();
+    std::wstring restore = data.get_next_string();
+    std::wstring backup = data.get_next_string();
 		int add_defaults = data.get_next_int();
 
 		h.logMessage(L"Target: " + target);
 		h.logMessage("Context: " + context);
-		h.logMessage(L"Restore: " + restore);
+    h.logMessage(L"Restore: " + restore);
+    h.logMessage(L"Backup: " + backup);
 
 		boost::filesystem::path path = target;
 		boost::filesystem::path old_path = path / "nsc.ini.old";
 		path = path / "nsc.ini";
 
-		boost::filesystem::path restore_path = restore;
+    boost::filesystem::path restore_path = restore;
+
+		boost::filesystem::path backup_path = backup;
 
 		if (boost::filesystem::exists(old_path))
 			h.logMessage(L"Found old (.old) file: " + strEx::xtos(boost::filesystem::file_size(old_path)));
 		if (boost::filesystem::exists(path))
 			h.logMessage(L"Found old file: " + strEx::xtos(boost::filesystem::file_size(path)));
-		if (boost::filesystem::exists(restore_path))
-			h.logMessage(L"Found restore file: " + strEx::xtos(boost::filesystem::file_size(restore_path)));
+
+    if (boost::filesystem::exists(backup_path)) {
+      h.logMessage(L"Found Backup file: " + strEx::xtos(boost::filesystem::file_size(backup_path)));
+      boost::filesystem::path config_path = path / "nsclient.ini";
+      h.logMessage(L"Restoring from backup: " + backup_path.wstring());
+      copy_file(h, backup_path.wstring(), path.wstring());
+      if (!boost::filesystem::remove(backup_path)) {
+        h.errorMessage(L"Failed to remove backup file: " + backup_path.wstring());
+      }
+    }
 
 		if (boost::filesystem::exists(restore_path)) {
+      h.logMessage(L"Found restore file: " + strEx::xtos(boost::filesystem::file_size(restore_path)));
 			h.logMessage(L"Restore path exists: " + restore);
 			if (!boost::filesystem::exists(path)) {
 				h.logMessage(L"Restoring nsc.ini configuration file");
