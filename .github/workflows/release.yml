@@ -44,9 +44,9 @@ jobs:
       uses: ncipollo/release-action@v1
       with:
         tag: ${{ inputs.version }}
-        name: Preview for ${{ inputs.version }}
+        name: ${{ inputs.version }}
         draft: true
-        prerelease: true
+        prerelease: false
         generateReleaseNotes: true
         artifacts: |
           NSCP-${{ inputs.version }}-docs.zip
