@@ -400,7 +400,7 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 			h.setPropertyAndDefault(KEY_CONF_CHECKS, L"1", L"");
 			h.setPropertyAndDefault(KEY_CONF_NRPE, L"1", L"");
 			h.setPropertyAndDefault(KEY_CONF_NSCA, L"");
-			h.setPropertyAndDefault(KEY_CONF_WEB, L"");
+			h.setPropertyAndDefault(KEY_CONF_WEB, L"1");
 			h.setPropertyAndDefault(KEY_CONF_NSCLIENT, L"");
 			h.setPropertyAndDefault(KEY_NRPEMODE, L"SAFE", L"");
 
