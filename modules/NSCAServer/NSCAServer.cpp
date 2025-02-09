@@ -68,7 +68,7 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		;
 
 	socket_helpers::settings_helper::add_core_server_opts(settings, info_);
-	socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false);
+	socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false, "", "${certificate-path}/certificate.pem", "", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
 

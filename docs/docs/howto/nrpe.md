@@ -157,14 +157,12 @@ We shall get back a bit to this later on when we have configure NSClient++ more 
 
 ![nrpe 3](images/nagios-active-nrpe-001.png)
 
-Settin up NSClient++ was previously pretty simple and there is a bit more to it then we have thus far visited.
+Setting up NSClient++ was previously pretty simple and there is a bit more to it then we have thus far visited.
 This is because we have not configured anything yet all we can do now is talk to NSClient++ but not actually use it.
 So in this section we shall cover the basics and first off are some of the configuration options available for NRPE.
 
 ### NRPE specific setting in NSClient++
 
-*   `ssl`
-    If this is true we will use SSL encryption on the transport. **Notice** this flag has to be the same on both ends or   you will end up with strange errors. The flag is set on check_nrpe with the -n option (if you use -n no SSL will be   used).
 *   `allow arguments`
     Since arguments can be potentially dangerous (it allows your users to control the execution) there is a flag (which   defaults to off) to enable arguments. So if you plan on configure NSClient++ from the Nagios end you need to enable   this. **But be warned this is a security issue you need to think about**. If you do not want to allow arguments you   can instead configure all checks in the nsclient.ini file and just execute the aliases from Nagios.
     One important issue with the `allow arguments` is that there are more then one! *Yes, more then one!*
@@ -173,7 +171,13 @@ So in this section we shall cover the basics and first off are some of the confi
 *   `allow nasty characters`
     This flag allows arguments to contain "dangerous" characters such as redirection and pipe (<>|) and makes things a   tad more dangerous. But if you decide to use arguments you most likely want to use this flag as well. **But again   this is a security risk**. Please also note this is also available for both NRPE and external scripts.S
 *   `insecure`
-    Allow legacy `check_nrpe` to connect.
+    Allow `check_nrpe` to connect without using certificate based authentication.
+*  `port`
+    The port to listen to (default is 5666)
+* `tls version`
+    Version of TLS to use (default is 1.2+)
+* `verify mode`
+    If you want to verify the client certificate
 
 So this if you enable this in the INI file you will end up with something like this (extract):
 
@@ -186,6 +190,51 @@ port = 5666
 ```
 
 There are a lot of other options as well but these are the most used ones for details please refer to the [reference section](../reference/NRPEServer).
+
+
+### NRPE version 3 and 4
+
+NSClient++ supports NRPE version 2 as well as 3 and 4 (from version 0.6.x), there is no configuration required to support the newer versions.
+Please do note that ancient versions of `check_nrpe` may not support TLS1.2 which is required for NSClient++ 0.6.x and later.
+
+
+### NRPE With certificates
+
+NSClient++ supports certificates for NRPE which is a more secure way to connect to the agent.
+To use certificates you need to generate a certificate and key and place them in the `security` folder.
+
+Nagios has guide on generating and using certificates [here](https://support.nagios.com/kb/article/nrpe-v3-enhanced-security-519.html).
+
+Once you have generated the certificate and key you need to configure NSClient++ to use the generated certificates.
+While you can use separate file for certificate and key I tend to prefer to combine them like so:
+
+```console
+$ cat nagios_server.key nagios_server.pem > certificate.pem
+$ cat ca.key ca.pem > ca.tmp.pem && mv ca.tmp.pem ca.pem
+```
+Now you should have two files (instead of four):
+* `certificate.pem` - The certificate and key
+* `ca.pem` - The CA certificate and key
+
+These files should be copied to the `security` folder of the NSClient++ installation.
+And then you configure it like so (this is the same options set by the installer if you pick the certificate option):
+
+```
+[/settings/NRPE/server]
+insecure = false
+tls version = tlsv1.2+
+verify mode = peer-cert
+```
+
+You can also set the certificate but these are the default values if you set `insecure` to false:
+```
+[/settings/NRPE/server]
+ca=${certificate-path}/ca.pem
+certificate=${certificate-path}/certificate.pem
+```
+
+### NRPE specific settings in NSClient++
+
 
 ### Modules
 

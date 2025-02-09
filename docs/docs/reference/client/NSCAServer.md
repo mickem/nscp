@@ -301,30 +301,30 @@ Section for NSCA (NSCAServer) (check_nsca) protocol options.
 
 
 
-| Key                                         | Default Value                        | Description           |
-|---------------------------------------------|--------------------------------------|-----------------------|
-| [allowed ciphers](#allowed-ciphers)         | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH    | ALLOWED CIPHERS       |
-| [allowed hosts](#allowed-hosts)             | 127.0.0.1                            | ALLOWED HOSTS         |
-| [bind to](#bind-to-address)                 |                                      | BIND TO ADDRESS       |
-| [ca](#ca)                                   | ${certificate-path}/ca.pem           | CA                    |
-| [cache allowed hosts](#cache-allowed-hosts) | true                                 | CACHE ALLOWED HOSTS   |
-| [certificate](#ssl-certificate)             | ${certificate-path}/certificate.pem  | SSL CERTIFICATE       |
-| [certificate format](#certificate-format)   | PEM                                  | CERTIFICATE FORMAT    |
-| [certificate key](#ssl-certificate)         |                                      | SSL CERTIFICATE       |
-| [dh](#dh-key)                               | ${certificate-path}/nrpe_dh_2048.pem | DH KEY                |
-| [encryption](#encryption)                   | aes                                  | ENCRYPTION            |
-| [inbox](#inbox)                             | inbox                                | INBOX                 |
-| [password](#password)                       |                                      | Password              |
-| [payload length](#payload-length)           | 512                                  | PAYLOAD LENGTH        |
-| [performance data](#performance-data)       | true                                 | PERFORMANCE DATA      |
-| [port](#port-number)                        | 5667                                 | PORT NUMBER           |
-| [socket queue size](#listen-queue)          | 0                                    | LISTEN QUEUE          |
-| [ssl options](#verify-mode)                 |                                      | VERIFY MODE           |
-| [thread pool](#thread-pool)                 | 10                                   | THREAD POOL           |
-| [timeout](#timeout)                         | 30                                   | TIMEOUT               |
-| [tls version](#tls-version-to-use)          | tlsv1.2                              | TLS version to use    |
-| [use ssl](#enable-ssl-encryption)           | false                                | ENABLE SSL ENCRYPTION |
-| [verify mode](#verify-mode)                 | none                                 | VERIFY MODE           |
+| Key                                         | Default Value                       | Description           |
+|---------------------------------------------|-------------------------------------|-----------------------|
+| [allowed ciphers](#allowed-ciphers)         | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH   | ALLOWED CIPHERS       |
+| [allowed hosts](#allowed-hosts)             | 127.0.0.1                           | ALLOWED HOSTS         |
+| [bind to](#bind-to-address)                 |                                     | BIND TO ADDRESS       |
+| [ca](#ca)                                   | ${certificate-path}/ca.pem          | CA                    |
+| [cache allowed hosts](#cache-allowed-hosts) | true                                | CACHE ALLOWED HOSTS   |
+| [certificate](#ssl-certificate)             | ${certificate-path}/certificate.pem | SSL CERTIFICATE       |
+| [certificate format](#certificate-format)   | PEM                                 | CERTIFICATE FORMAT    |
+| [certificate key](#ssl-certificate)         |                                     | SSL CERTIFICATE       |
+| [dh](#dh-key)                               |                                     | DH KEY                |
+| [encryption](#encryption)                   | aes                                 | ENCRYPTION            |
+| [inbox](#inbox)                             | inbox                               | INBOX                 |
+| [password](#password)                       |                                     | Password              |
+| [payload length](#payload-length)           | 512                                 | PAYLOAD LENGTH        |
+| [performance data](#performance-data)       | true                                | PERFORMANCE DATA      |
+| [port](#port-number)                        | 5667                                | PORT NUMBER           |
+| [socket queue size](#listen-queue)          | 0                                   | LISTEN QUEUE          |
+| [ssl options](#verify-mode)                 |                                     | VERIFY MODE           |
+| [thread pool](#thread-pool)                 | 10                                  | THREAD POOL           |
+| [timeout](#timeout)                         | 30                                  | TIMEOUT               |
+| [tls version](#tls-version-to-use)          | tlsv1.2+                            | TLS version to use    |
+| [use ssl](#enable-ssl-encryption)           | false                               | ENABLE SSL ENCRYPTION |
+| [verify mode](#verify-mode)                 | none                                | VERIFY MODE           |
 
 
 
@@ -337,7 +337,6 @@ ca=${certificate-path}/ca.pem
 cache allowed hosts=true
 certificate=${certificate-path}/certificate.pem
 certificate format=PEM
-dh=${certificate-path}/nrpe_dh_2048.pem
 encryption=aes
 inbox=inbox
 payload length=512
@@ -346,7 +345,7 @@ port=5667
 socket queue size=0
 thread pool=10
 timeout=30
-tls version=tlsv1.2
+tls version=tlsv1.2+
 use ssl=false
 verify mode=none
 
@@ -583,12 +582,13 @@ certificate key=
 
 
 
+
 | Key            | Description                                     |
 |----------------|-------------------------------------------------|
 | Path:          | [/settings/NSCA/server](#/settings/NSCA/server) |
 | Key:           | dh                                              |
 | Advanced:      | Yes (means it is not commonly used)             |
-| Default value: | `${certificate-path}/nrpe_dh_2048.pem`          |
+| Default value: | _N/A_                                           |
 | Used by:       | NSCAServer                                      |
 
 
@@ -597,7 +597,7 @@ certificate key=
 ```
 [/settings/NSCA/server]
 # DH KEY
-dh=${certificate-path}/nrpe_dh_2048.pem
+dh=
 ```
 
 
@@ -797,12 +797,12 @@ socket queue size=0
 Comma separated list of verification flags to set on the SSL socket.
 
 default-workarounds	Various workarounds for what I understand to be broken ssl implementations
-no-sslv2	Do not use the SSLv2 protocol.
-no-sslv3	Do not use the SSLv3 protocol.
-no-tlsv1	Do not use the TLSv1 protocol.
-no-tlsv1_1	Do not use the TLSv1.1 protocol.
-no-tlsv1_2	Do not use the TLSv1.2 protocol.
-no-tlsv1_3	Do not use the TLSv1.3 protocol.
+no-sslv2	Do not use the SSLv2 protocol (prefer tls version instead).
+no-sslv3	Do not use the SSLv3 protocol (prefer tls version instead).
+no-tlsv1	Do not use the TLSv1 protocol (prefer tls version instead).
+no-tlsv1_1	Do not use the TLSv1.1 protocol (prefer tls version instead).
+no-tlsv1_2	Do not use the TLSv1.2 protocol (prefer tls version instead).
+no-tlsv1_3	Do not use the TLSv1.3 protocol (prefer tls version instead).
 single-dh-use	Always create a new key when using temporary/ephemeral DH parameters. This option must be used to prevent small subgroup attacks, when the DH parameters were not generated using "strong" primes (e.g. when using DSA-parameters).
 
 
@@ -899,7 +899,7 @@ Valid options are tlsv1.3, tlsv1.2, tlsv1.1, tlsv1.0, sslv3 as well as tlsv1.3+,
 | Path:          | [/settings/NSCA/server](#/settings/NSCA/server) |
 | Key:           | tls version                                     |
 | Advanced:      | Yes (means it is not commonly used)             |
-| Default value: | `tlsv1.2`                                       |
+| Default value: | `tlsv1.2+`                                      |
 | Used by:       | NSCAServer                                      |
 
 
@@ -908,7 +908,7 @@ Valid options are tlsv1.3, tlsv1.2, tlsv1.1, tlsv1.0, sslv3 as well as tlsv1.3+,
 ```
 [/settings/NSCA/server]
 # TLS version to use
-tls version=tlsv1.2
+tls version=tlsv1.2+
 ```
 
 

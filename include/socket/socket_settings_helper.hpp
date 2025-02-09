@@ -35,13 +35,14 @@ namespace socket_helpers {
 				;
 		}
 
-		static void add_ssl_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_, bool ssl_default, std::string certificate = "${certificate-path}/certificate.pem", std::string key = "", std::string default_cipher = "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") {
+		static void add_ssl_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_, bool ssl_default, std::string dh_key, std::string certificate, std::string key, std::string default_cipher) {
+
 			settings.alias().add_key_to_settings()
 
 				("use ssl", nscapi::settings_helper::bool_key(&info_.ssl.enabled, ssl_default),
 					"ENABLE SSL ENCRYPTION", "This option controls if SSL should be enabled.", false)
 
-				("dh", nscapi::settings_helper::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_2048.pem"),
+				("dh", nscapi::settings_helper::path_key(&info_.ssl.dh_key, dh_key),
 					"DH KEY", "", true)
 
 				("certificate", nscapi::settings_helper::path_key(&info_.ssl.certificate, certificate),
@@ -76,12 +77,12 @@ namespace socket_helpers {
 				("ssl options", nscapi::settings_helper::string_key(&info_.ssl.ssl_options, ""),
 					"VERIFY MODE", "Comma separated list of verification flags to set on the SSL socket.\n\n"
 					"default-workarounds\tVarious workarounds for what I understand to be broken ssl implementations\n"
-					"no-sslv2\tDo not use the SSLv2 protocol.\n"
-					"no-sslv3\tDo not use the SSLv3 protocol.\n"
-					"no-tlsv1\tDo not use the TLSv1 protocol.\n"
-					"no-tlsv1_1\tDo not use the TLSv1.1 protocol.\n"
-					"no-tlsv1_2\tDo not use the TLSv1.2 protocol.\n"
-					"no-tlsv1_3\tDo not use the TLSv1.3 protocol.\n"
+					"no-sslv2\tDo not use the SSLv2 protocol (prefer tls version instead).\n"
+					"no-sslv3\tDo not use the SSLv3 protocol (prefer tls version instead).\n"
+					"no-tlsv1\tDo not use the TLSv1 protocol (prefer tls version instead).\n"
+					"no-tlsv1_1\tDo not use the TLSv1.1 protocol (prefer tls version instead).\n"
+					"no-tlsv1_2\tDo not use the TLSv1.2 protocol (prefer tls version instead).\n"
+					"no-tlsv1_3\tDo not use the TLSv1.3 protocol (prefer tls version instead).\n"
 					"single-dh-use\tAlways create a new key when using temporary/ephemeral DH parameters. "
 					"This option must be used to prevent small subgroup attacks, when the DH parameters were not generated using \"strong\" primes (e.g. when using DSA-parameters).\n"
 					"\n\n", true)

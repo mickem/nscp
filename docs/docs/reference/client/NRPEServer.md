@@ -324,7 +324,7 @@ Section for NRPE (NRPEServer.dll) (check_nrpe) protocol options.
 | [ssl options](#verify-mode)                               |                                      | VERIFY MODE                            |
 | [thread pool](#thread-pool)                               | 10                                   | THREAD POOL                            |
 | [timeout](#timeout)                                       | 30                                   | TIMEOUT                                |
-| [tls version](#tls-version-to-use)                        | tlsv1.2                              | TLS version to use                     |
+| [tls version](#tls-version-to-use)                        | tlsv1.2+                             | TLS version to use                     |
 | [use ssl](#enable-ssl-encryption)                         | true                                 | ENABLE SSL ENCRYPTION                  |
 | [verify mode](#verify-mode)                               | none                                 | VERIFY MODE                            |
 
@@ -350,7 +350,7 @@ port=5666
 socket queue size=0
 thread pool=10
 timeout=30
-tls version=tlsv1.2
+tls version=tlsv1.2+
 use ssl=true
 verify mode=none
 
@@ -850,12 +850,12 @@ socket queue size=0
 Comma separated list of verification flags to set on the SSL socket.
 
 default-workarounds	Various workarounds for what I understand to be broken ssl implementations
-no-sslv2	Do not use the SSLv2 protocol.
-no-sslv3	Do not use the SSLv3 protocol.
-no-tlsv1	Do not use the TLSv1 protocol.
-no-tlsv1_1	Do not use the TLSv1.1 protocol.
-no-tlsv1_2	Do not use the TLSv1.2 protocol.
-no-tlsv1_3	Do not use the TLSv1.3 protocol.
+no-sslv2	Do not use the SSLv2 protocol (prefer tls version instead).
+no-sslv3	Do not use the SSLv3 protocol (prefer tls version instead).
+no-tlsv1	Do not use the TLSv1 protocol (prefer tls version instead).
+no-tlsv1_1	Do not use the TLSv1.1 protocol (prefer tls version instead).
+no-tlsv1_2	Do not use the TLSv1.2 protocol (prefer tls version instead).
+no-tlsv1_3	Do not use the TLSv1.3 protocol (prefer tls version instead).
 single-dh-use	Always create a new key when using temporary/ephemeral DH parameters. This option must be used to prevent small subgroup attacks, when the DH parameters were not generated using "strong" primes (e.g. when using DSA-parameters).
 
 
