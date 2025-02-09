@@ -218,7 +218,7 @@ void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asi
 		errors.push_back("Failed to set min tls version");
 	}
 	if (SSL_CTX_set_max_proto_version(context.native_handle(), get_tls_max_version()) == 0) {
-		errors.push_back("Failed to set min tls version");
+		errors.push_back("Failed to set max tls version");
 	}
 	if (er)
 		errors.push_back("Failed to set verify mode: " + utf8::utf8_from_native(er.message()));

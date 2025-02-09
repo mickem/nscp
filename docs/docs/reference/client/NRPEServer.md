@@ -952,7 +952,7 @@ Valid options are tlsv1.3, tlsv1.2, tlsv1.1, tlsv1.0, sslv3 as well as tlsv1.3+,
 | Path:          | [/settings/NRPE/server](#/settings/NRPE/server) |
 | Key:           | tls version                                     |
 | Advanced:      | Yes (means it is not commonly used)             |
-| Default value: | `tlsv1.2`                                       |
+| Default value: | `tlsv1.2+`                                      |
 | Used by:       | NRPEServer                                      |
 
 
@@ -961,7 +961,7 @@ Valid options are tlsv1.3, tlsv1.2, tlsv1.1, tlsv1.0, sslv3 as well as tlsv1.3+,
 ```
 [/settings/NRPE/server]
 # TLS version to use
-tls version=tlsv1.2
+tls version=tlsv1.2+
 ```
 
 
