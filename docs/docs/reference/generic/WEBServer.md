@@ -412,7 +412,7 @@ certificate=${certificate-path}/certificate.pem
 
 #### Supported ciphers <a id="/settings/WEB/server/ciphers"></a>
 
-Supported ciphers for the web server
+Supported ciphers for the web server (Set to tlsv1.3 to only allow tls1.3)
 
 
 
