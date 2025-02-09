@@ -84,6 +84,7 @@
           <Directory Id="INSTALLLOCATION_SECURITY" Name="security">
             <Component Id="NRPEServerCert" Guid="4129415B-4907-4c63-A7D7-4EF7B37969D1" Win64="$(var.Win64)">
               <File Id="NRPECert" Name="nrpe_dh_512.pem" DiskId="1" Source="$(var.Source)/security/nrpe_dh_512.pem" Vital="no"/>
+              <File Id="NRPECert2048" Name="nrpe_dh_2048.pem" DiskId="1" Source="$(var.Source)/security/nrpe_dh_2048.pem" Vital="no"/>
             </Component>
             <Component Id="GeneratedCerts" Guid="3E6F62A4-9157-48B6-8396-1FB54E0C5F82" Win64="$(var.Win64)">
               <RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="remove certificates" Type="integer" Value="1" KeyPath="yes"/>
