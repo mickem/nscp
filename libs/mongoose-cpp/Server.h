@@ -57,7 +57,7 @@ namespace Mongoose {
 		*
 		* @param certificate the name of the certificate to use
 		*/
-		virtual void setSsl(const char *certificate) = 0;
+    virtual void setSsl(const char *certificate, const char *new_chipers) = 0;
 
 		/**
 		 * Does the server handles url?
