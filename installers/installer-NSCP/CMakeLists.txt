@@ -32,11 +32,6 @@ if(CMAKE_CL_64)
   set(ARCH x64)
 endif(CMAKE_CL_64)
 
-set(TMP "000${VERSION_BUILD}")
-string(LENGTH ${TMP} TMP_LEN)
-math(EXPR TMP_LEN ${TMP_LEN}-3)
-string(SUBSTRING "000${VERSION_BUILD}" ${TMP_LEN} 3 VERSION_BUILD_PAD)
-
 wix_find_merge_module(CRT_MERGE_MODULE "Microsoft_VC143_CRT")
 message(STATUS "CRT_MERGE_MODULE: ${CRT_MERGE_MODULE}")
 if(NOT CRT_MERGE_MODULE)
@@ -60,7 +55,6 @@ set(WIX_CANDLE_FLAGS
     -dVersion.Minor=${VERSION_MAJOR}
     -dVersion.Revision=${VERSION_MINOR}
     -dVersion.Build=${VERSION_BUILD}
-    -dVersion.BuildPad=${VERSION_BUILD_PAD}
     "-dWebHelpSource=${NSCP_PROJECT_BINARY_DIR_NATIVE}\\docs\\html"
     "-dWebSource=${NSCP_PROJECT_BINARY_DIR}\\web"
     "-dScriptSource=${NSCP_PROJECT_BINARY_DIR}\\scripts"
