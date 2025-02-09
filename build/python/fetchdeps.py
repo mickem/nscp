@@ -23,7 +23,6 @@ SET(BOOST_LIBRARYDIR "$${BOOST_ROOT}/stage/lib")
 SET(PROTOBUF_ROOT "$${LIBRARY_ROOT_FOLDER}/${protobuf_rel_folder}")
 SET(OPENSSL_ROOT_DIR "$${LIBRARY_ROOT_FOLDER}/${openssl_rel_folder}")
 SET(LUA_SOURCE_ROOT "$${LIBRARY_ROOT_FOLDER}/${lua_rel_folder}")
-SET(BREAKPAD_ROOT "$${LIBRARY_ROOT_FOLDER}/${breakpad_rel_folder}")
 SET(PYTHON_ROOT "${python_folder}")
 SET(CRYPTOPP_ROOT "$${LIBRARY_ROOT_FOLDER}/${cryptopp_rel_folder}")
 

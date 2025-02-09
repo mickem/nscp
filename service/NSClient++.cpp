@@ -38,12 +38,8 @@
 com_helper::initialize_com com_helper_;
 #endif
 
-#ifdef USE_BREAKPAD
 #ifdef WIN32
 #include <breakpad/exception_handler_win32.hpp>
-// Used for breakpad crash handling
-static ExceptionManager *g_exception_manager = NULL;
-#endif
 #endif
 
 
@@ -159,10 +155,9 @@ bool NSClientT::load_configuration(const bool override_log) {
 	LOG_DEBUG_CORE(utf8::cvt<std::string>(SERVICE_NAME) + " booting...");
 	LOG_DEBUG_CORE("Booted settings subsystem...");
 
-	bool crash_submit = false;
 	bool crash_archive = false;
 	bool crash_restart = false;
-	std::string crash_url, crash_folder, crash_target, log_level;
+	std::string crash_url, crash_folder, restart_target, log_level;
 	try {
 		sh::settings_registry settings(settings_manager::get_proxy());
 
@@ -181,17 +176,11 @@ bool NSClientT::load_configuration(const bool override_log) {
 			;
 
 		settings.add_key_to_settings("crash")
-			("submit", sh::bool_key(&crash_submit, false),
-				"SUBMIT CRASHREPORTS", "Submit crash reports to nsclient.org (or your configured submission server)")
-
 			("archive", sh::bool_key(&crash_archive, true),
 				"ARCHIVE CRASHREPORTS", "Archive crash reports in the archive folder")
 
 			("restart", sh::bool_key(&crash_restart, true),
 				"RESTART", "Submit crash reports to nsclient.org (or your configured submission server)")
-
-			("restart target", sh::string_key(&crash_target, utf8::cvt<std::string>(get_service_control().get_service_name())),
-				"RESTART SERVICE NAME", "The url to submit crash reports to")
 
 			("submit url", sh::string_key(&crash_url, CRASH_SUBMIT_URL),
 				"SUBMISSION URL", "The url to submit crash reports to")
@@ -209,36 +198,25 @@ bool NSClientT::load_configuration(const bool override_log) {
 		log_instance_->set_log_level(log_level);
 	}
 
-#ifdef USE_BREAKPAD
 #ifdef WIN32
-	if (!g_exception_manager) {
-		g_exception_manager = new ExceptionManager(false);
+  ExceptionManager::instance()->setup_app(APPLICATION_NAME, STRPRODUCTVER, STRPRODUCTDATE);
 
-		g_exception_manager->setup_app(APPLICATION_NAME, STRPRODUCTVER, STRPRODUCTDATE);
+  if (crash_restart) {
+    LOG_DEBUG_CORE("On crash: restart: " + restart_target);
+    ExceptionManager::instance()->setup_restart_flag();
+  }
 
-		if (crash_restart) {
-			LOG_DEBUG_CORE("On crash: restart: " + crash_target);
-			g_exception_manager->setup_restart(crash_target);
-		}
-
-		bool crashHandling = false;
-		if (crash_submit) {
-			g_exception_manager->setup_submit(false, crash_url);
-			LOG_DEBUG_CORE("Submitting crash dumps to central server: " + crash_url);
-			crashHandling = true;
-		}
-		if (crash_archive) {
-			g_exception_manager->setup_archive(crash_folder);
-			LOG_DEBUG_CORE("Archiving crash dumps in: " + crash_folder);
-			crashHandling = true;
-		}
-		if (!crashHandling) {
-			LOG_ERROR_CORE("No crash handling configured");
-		} else {
-			g_exception_manager->StartMonitoring();
-		}
-	}
-#endif
+  bool crashHandling = false;
+  if (crash_archive) {
+    ExceptionManager::instance()->setup_path(crash_folder);
+    LOG_DEBUG_CORE("Archiving crash dumps in: " + crash_folder);
+    crashHandling = true;
+  }
+  if (!crashHandling) {
+    LOG_ERROR_CORE("No crash handling configured");
+  } else {
+    ExceptionManager::StartMonitoring();
+  }
 #endif
 
 #ifdef WIN32
@@ -437,6 +415,7 @@ NSClient* NSClientT::get_global_instance() {
 void NSClientT::handle_startup(std::string service_name) {
 	LOG_DEBUG_CORE("Starting: " + service_name);
 	service_name_ = service_name;
+  ExceptionManager::instance()->setup_service_name(service_name);
 	load_configuration();
 	boot_load_active_plugins();
 	boot_start_plugins(true);
