@@ -4,15 +4,30 @@ project(${TARGET} CXX)
 
 set(NSCP_INCLUDEDIR ${CMAKE_SOURCE_DIR}/../include)
 set(BUILD_PYTHON_FOLDER "${CMAKE_SOURCE_DIR}/../build/python")
+set(BUILD_CMAKE_FOLDER "${CMAKE_SOURCE_DIR}/../build/cmake")
 
 set(Boost_USE_STATIC_LIBS ON)
 set(Boost_USE_STATIC_RUNTIME OFF)
 find_package(Boost COMPONENTS system filesystem)
-find_package(Python3 COMPONENTS Interpreter)
+if(Boost_FOUND)
+    message(
+            STATUS " - boost found in: ${Boost_INCLUDE_DIRS} / ${Boost_LIBRARY_DIRS}")
+else(Boost_FOUND)
+    message(FATAL_ERROR " ! boost not found: BOOST_ROOT=${BOOST_ROOT}")
+endif(Boost_FOUND)
+SET(OPENSSL_USE_STATIC_LIBS TRUE)
+find_package(OpenSSL)
+if(OPENSSL_FOUND)
+    message(
+            STATUS " - OpenSSL found in: ${OPENSSL_INCLUDE_DIR} / ${OPENSSL_LIBRARIES}")
+else(OPENSSL_FOUND)
+    message(FATAL_ERROR " ! OpenSSL not found TODO=${OPENSSL_INCLUDE_DIR}")
+endif(OPENSSL_FOUND)
 
 include_directories(${NSCP_INCLUDEDIR})
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${PROJECT_BINARY_DIR}/include)
+include(${BUILD_CMAKE_FOLDER}/functions.cmake)
 add_definitions(-DUNICODE -D_UNICODE -DBOOST_ALL_NO_LIB)
 
 # ##############################################################################
@@ -113,6 +128,9 @@ configure_file(${NSCP_INCLUDEDIR}/config.h.in
 configure_file(${NSCP_INCLUDEDIR}/version.hpp.in
                ${PROJECT_BINARY_DIR}/include/version.hpp @ONLY)
 
+include_directories(${OPENSSL_INCLUDE_DIR})
+add_definitions(-DUSE_SSL)
+
 set(SRCS
     ${TARGET}.cpp
     ${NSCP_INCLUDEDIR}/ServiceCmd.cpp
@@ -134,7 +152,9 @@ set(SRCS
 add_definitions(${NSCP_GLOBAL_DEFINES})
 
 add_library(${TARGET} SHARED ${SRCS})
-message(STATUS "Boost_FILESYSTEM_LIBRARY: ${Boost_FILESYSTEM_LIBRARY}")
-target_link_libraries(${TARGET} ${Boost_FILESYSTEM_LIBRARY}
-                      ${Boost_SYSTEM_LIBRARY} Msi.lib)
+if(WIN32 AND NOT CMAKE_CL_64)
+    openssl_link_fix(${TARGET})
+endif(WIN32 AND NOT CMAKE_CL_64)
+
+target_link_libraries(${TARGET} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${OPENSSL_LIBRARIES} CRYPT32 Msi.lib)
 # SET_LIBRARY_OUT_FOLDER_MODULE(${TARGET})
