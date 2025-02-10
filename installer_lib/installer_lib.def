@@ -8,3 +8,4 @@ EXPORTS
 	TranslateSid
 	ApplyTool
 	DetectTool
+	BackupConfig

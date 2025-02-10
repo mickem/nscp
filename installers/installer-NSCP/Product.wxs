@@ -269,6 +269,8 @@
     </Feature>
 
     <CustomAction Id='ImportConfig'			    BinaryKey='InstallerHelper' DllEntry='ImportConfig'			    Impersonate='yes' Execute="immediate" Return="check" />
+
+    <CustomAction Id='BackupConfig'	BinaryKey='InstallerHelper' DllEntry='BackupConfig'	Impersonate='yes' Execute="immediate" Return="check" />
     <CustomAction Id='ScheduleWriteConfig'	BinaryKey='InstallerHelper' DllEntry='ScheduleWriteConfig'	Impersonate='yes' Execute="immediate" Return="check" />
     <CustomAction Id="ApplyTool"		        BinaryKey="InstallerHelper" DllEntry="ApplyTool"	          Impersonate="yes" Execute="immediate" Return="check"  />
     <CustomAction Id="DetectTool"		        BinaryKey="InstallerHelper" DllEntry="DetectTool"	          Impersonate="yes" Execute="immediate" Return="check"  />
@@ -288,7 +290,9 @@
     <Binary Id='InstallerHelper' SourceFile='$(var.InstallerDllPath)/installer_lib.dll' />
 
     <InstallExecuteSequence>
-      <RemoveExistingProducts After='InstallValidate'></RemoveExistingProducts>
+      <RemoveExistingProducts After='BackupConfig'></RemoveExistingProducts>
+
+      <Custom Action="BackupConfig" After="InstallInitialize">NOT (REMOVE ="ALL")</Custom>
 
       <Custom Action="DetectTool" After="CostFinalize">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
       <Custom Action="ApplyTool" After="DetectTool">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
@@ -310,8 +314,6 @@
       <Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
       <Custom Action="NeedUninstall" After="FindRelatedProducts">1</Custom>
       <Custom Action="DetectTool" After="NeedUninstall">1</Custom>
-
-
     </InstallUISequence>
 
     <Property Id="ALLUSERS">

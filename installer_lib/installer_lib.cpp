@@ -291,6 +291,8 @@ std::wstring read_map_data(msi_helper &h) {
 #define OP5_HOSTGROUPS L"OP5_HOSTGROUPS"
 #define OP5_CONTACTGROUP L"OP5_CONTACTGROUP"
 
+#define BACKUP_FILE L"BACKUP_FILE"
+
 #define CONFIGURATION_TYPE L"CONFIGURATION_TYPE"
 #define CONF_CAN_CHANGE L"CONF_CAN_CHANGE"
 #define CONF_INCLUDES L"CONF_INCLUDES"
@@ -634,6 +636,55 @@ bool write_property_if_set(msi_helper &h, msi_helper::custom_action_data_w &data
 	return false;
 }
 
+
+extern "C" UINT __stdcall BackupConfig (MSIHANDLE hInstall) {
+  msi_helper h(hInstall, L"BackupConfig");
+  try {
+
+    h.dumpReason(L"Before BackupConfig");
+    h.dumpProperty(KEY_ALLOWED_HOSTS);
+    h.dumpProperty(KEY_NSCLIENT_PWD);
+    h.dumpProperty(KEY_NSCLIENT_PWD_DEFAULT);
+    h.dumpProperty(KEY_CONF_SCHEDULER);
+    h.dumpProperty(KEY_CONF_CHECKS);
+    h.dumpProperty(KEY_CONF_NRPE);
+    h.dumpProperty(KEY_CONF_NSCA);
+    h.dumpProperty(KEY_CONF_WEB);
+    h.dumpProperty(KEY_CONF_NSCLIENT);
+    h.dumpProperty(KEY_NRPEMODE);
+
+    h.dumpProperty(KEY_CONFIGURATION_TYPE);
+    h.dumpProperty(KEY_CONF_INCLUDES);
+    h.dumpProperty(KEY_INSTALL_SAMPLE_CONFIG);
+    h.dumpProperty(KEY_GENERATE_SAMPLE_CONFIG);
+
+    h.dumpProperty(KEY_CONF_CAN_CHANGE);
+
+    if (h.getPropery(KEY_CONF_CAN_CHANGE) != L"1") {
+      h.logMessage(L"Configuration changes not allowed: set CONF_CAN_CHANGE=1");
+      return ERROR_SUCCESS;
+    }
+
+    std::wstring target = h.getTargetPath(L"INSTALLLOCATION");
+    boost::filesystem::wpath backup = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+    boost::filesystem::wpath target_path = target;
+    boost::filesystem::wpath config_file = target_path / L"nsclient.ini";
+    if (boost::filesystem::exists(config_file)) {
+      h.logMessage(L"Config file found: " + config_file.wstring());
+      h.logMessage(L"Backup file: " + backup.wstring());
+      copy_file(h, config_file.wstring(), backup.wstring());
+      h.setProperty(BACKUP_FILE, backup.wstring());
+    }
+
+  } catch (installer_exception e) {
+    h.errorMessage(L"Failed to install service: " + e.what());
+    return ERROR_INSTALL_FAILURE;
+  } catch (...) {
+    h.errorMessage(L"Failed to install service: <UNKNOWN EXCEPTION>");
+    return ERROR_INSTALL_FAILURE;
+  }
+  return ERROR_SUCCESS;
+}
 extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 	msi_helper h(hInstall, L"ScheduleWriteConfig");
 	try {
@@ -662,7 +713,12 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 		h.dumpProperty(OP5_USER);
 		h.dumpProperty(OP5_PASSWORD);
 		h.dumpProperty(OP5_HOSTGROUPS);
-		h.dumpProperty(OP5_CONTACTGROUP);
+    h.dumpProperty(OP5_CONTACTGROUP);
+
+    h.dumpProperty(BACKUP_FILE);
+
+
+
 
 		                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
 		if (h.getPropery(KEY_CONF_CAN_CHANGE) != L"1") {
@@ -674,17 +730,12 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
     boost::filesystem::wpath backup = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
     boost::filesystem::wpath target_path = target;
     boost::filesystem::wpath config_file = target_path / L"nsclient.ini";
-    if (boost::filesystem::exists(config_file)) {
-      h.logMessage(L"Config file found: " + config_file.wstring());
-      h.logMessage(L"Backup file: " + backup.wstring());
-      copy_file(h, config_file.wstring(), backup.wstring());
-    }
 
 		msi_helper::custom_action_data_w data;
 		data.write_string(h.getTargetPath(L"INSTALLLOCATION"));
 		data.write_string(h.getPropery(KEY_CONFIGURATION_TYPE));
     data.write_string(h.getPropery(L"RESTORE_FILE"));
-    data.write_string(backup.wstring());
+    data.write_string(h.getPropery(BACKUP_FILE));
 		data.write_int(h.getPropery(L"ADD_DEFAULTS")==L"1"?1:0);
 
 		std::wstring confInclude = h.getPropery(KEY_CONF_INCLUDES);
@@ -795,9 +846,9 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
     h.logMessage(L"Restore: " + restore);
     h.logMessage(L"Backup: " + backup);
 
-		boost::filesystem::path path = target;
-		boost::filesystem::path old_path = path / "nsc.ini.old";
-		path = path / "nsc.ini";
+		boost::filesystem::path target_path = target;
+		boost::filesystem::path old_path = target_path / "nsc.ini.old";
+    boost::filesystem::path legacy_config_path  = target_path / "nsc.ini";
 
     boost::filesystem::path restore_path = restore;
 
@@ -805,14 +856,14 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 
 		if (boost::filesystem::exists(old_path))
 			h.logMessage(L"Found old (.old) file: " + strEx::xtos(boost::filesystem::file_size(old_path)));
-		if (boost::filesystem::exists(path))
-			h.logMessage(L"Found old file: " + strEx::xtos(boost::filesystem::file_size(path)));
+		if (boost::filesystem::exists(legacy_config_path))
+			h.logMessage(L"Found legacy file: " + strEx::xtos(boost::filesystem::file_size(legacy_config_path)));
 
     if (boost::filesystem::exists(backup_path)) {
       h.logMessage(L"Found Backup file: " + strEx::xtos(boost::filesystem::file_size(backup_path)));
-      boost::filesystem::path config_path = path / "nsclient.ini";
+      boost::filesystem::path config_path = target_path / "nsclient.ini";
       h.logMessage(L"Restoring from backup: " + backup_path.wstring());
-      copy_file(h, backup_path.wstring(), path.wstring());
+      copy_file(h, backup_path.wstring(), config_path.wstring());
       if (!boost::filesystem::remove(backup_path)) {
         h.errorMessage(L"Failed to remove backup file: " + backup_path.wstring());
       }
@@ -821,18 +872,15 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 		if (boost::filesystem::exists(restore_path)) {
       h.logMessage(L"Found restore file: " + strEx::xtos(boost::filesystem::file_size(restore_path)));
 			h.logMessage(L"Restore path exists: " + restore);
-			if (!boost::filesystem::exists(path)) {
+			if (!boost::filesystem::exists(legacy_config_path)) {
 				h.logMessage(L"Restoring nsc.ini configuration file");
-				copy_file(h, restore_path.wstring(), path.wstring());
+				copy_file(h, restore_path.wstring(), legacy_config_path.wstring());
 			}
 			if (!boost::filesystem::exists(old_path)) {
 				h.logMessage(L"Creating backup nsc.ini.old configuration file");
 				copy_file(h, restore_path.wstring(), old_path.wstring());
 			}
 		}
-
-		if (boost::filesystem::exists(path))
-			h.logMessage(L"Size (001): " + strEx::xtos(boost::filesystem::file_size(path)));
 
 		installer_settings_provider provider(&h, target);
 		if (!settings_manager::init_installer_settings(&provider, context)) {
@@ -841,13 +889,8 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 			settings_manager::change_context(context);
 			return ERROR_SUCCESS;
 		}
-		if (boost::filesystem::exists(path))
-			h.logMessage(L"Size (002): " + strEx::xtos(boost::filesystem::file_size(path)));
-
 		h.logMessage("Switching to: " + context);
 		settings_manager::change_context(context);
-		if (boost::filesystem::exists(path))
-			h.logMessage(L"Size (003): " + strEx::xtos(boost::filesystem::file_size(path)));
 
 		while (data.has_more()) {
 			unsigned int mode = data.get_next_int();
@@ -865,11 +908,7 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 				return ERROR_INSTALL_FAILURE;
 			}
 		}
-		if (boost::filesystem::exists(path))
-			h.logMessage(L"Size (004): " + strEx::xtos(boost::filesystem::file_size(path)));
 		settings_manager::get_settings()->save();
-		if (boost::filesystem::exists(path))
-			h.logMessage(L"Size (005): " + strEx::xtos(boost::filesystem::file_size(path)));
 	} catch (const installer_exception &e) {
 		h.errorMessage(L"Failed to write configuration: " + e.what());
 		return ERROR_INSTALL_FAILURE;
