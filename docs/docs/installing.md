@@ -71,7 +71,7 @@ You can use group policies to push the configuration files but there are several
 The MSI file can be customized during the installer. The following keys are available:
 
 | Keyword            | Description                                                                                                             |
-| ------------------ |-------------------------------------------------------------------------------------------------------------------------|
+|--------------------|-------------------------------------------------------------------------------------------------------------------------|
 | INSTALLLOCATION    | Folder where NSClient++ is installed.                                                                                   |
 | CONF_CAN_CHANGE    | Has to be set for all configuration changes to be applied.                                                              |
 | ADD_DEFAULTS       | Add default values to the configuration file.                                                                           |
@@ -91,7 +91,7 @@ The MSI file can be customized during the installer. The following keys are avai
 | OP5_PASSWORD       | The password to login with on the OP5_SERVER                                                                            |
 | OP5_HOSTGROUPS     | Additional hostgroups to add to the host.                                                                               |
 | OP5_CONTACTGROUP   | Additional contactgroups to add to the host.                                                                            |
-|                    |                                                                                                                         |
+| NO_SERVICE         | Set to 1 to disable installing the service (then you can manually create and activate the service when needed)          |
 
 ### Features
 

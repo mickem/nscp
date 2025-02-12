@@ -288,6 +288,8 @@
 
     <InstallExecuteSequence>
       <RemoveExistingProducts After='BackupConfig'></RemoveExistingProducts>
+      <InstallServices>NOT (NO_SERVICE = 1)</InstallServices>
+      <StartServices>NOT (NO_SERVICE = 1)</StartServices>
 
       <Custom Action="BackupConfig" After="InstallInitialize">NOT (REMOVE ="ALL")</Custom>
 
