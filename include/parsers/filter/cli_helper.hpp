@@ -346,6 +346,9 @@ struct cli_helper : public boost::noncopyable {
     filter.match_post();
     PB::Commands::QueryResponseMessage::Response::Line *line = response->add_lines();
     modern_filter::perf_writer writer(*line);
+    if ((data.empty_state != "ignored") && (!filter.summary.has_matched())) {
+      filter.summary.returnCode = nscapi::plugin_helper::translateReturn(data.empty_state);
+    }
     std::string msg = filter.get_message();
     if (data.escape_html) {
       boost::replace_all(msg, "<", "&lt;");
