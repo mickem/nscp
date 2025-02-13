@@ -352,6 +352,9 @@ namespace modern_filter {
 			filter.match_post();
 			PB::Commands::QueryResponseMessage::Response::Line *line = response->add_lines();
 			modern_filter::perf_writer writer(*line);
+      if ((data.empty_state != "ignored") && (!filter.summary.has_matched())) {
+        filter.summary.returnCode = nscapi::plugin_helper::translateReturn(data.empty_state);
+      }
 			std::string msg = filter.get_message();
 			if (data.escape_html) {
 				boost::replace_all(msg, "<", "&lt;");
@@ -360,8 +363,6 @@ namespace modern_filter {
 			line->set_message(msg);
 			filter.fetch_perf(&writer);
 			int retCode = filter.summary.returnCode;
-			if ((data.empty_state != "ignored") && (!filter.summary.has_matched()))
-				retCode = nscapi::plugin_helper::translateReturn(data.empty_state);
 			if (retCode == NSCAPI::query_return_codes::returnOK) {
 				response->set_result(PB::Common::ResultCode::OK);
 			} else if (retCode == NSCAPI::query_return_codes::returnWARN) {
