@@ -308,6 +308,7 @@ Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 | [allowed hosts](#allowed-hosts)                     | 127.0.0.1                           | Allowed hosts               |
 | [cache allowed hosts](#cache-list-of-allowed-hosts) | true                                | Cache list of allowed hosts |
 | [certificate](#tls-certificate)                     | ${certificate-path}/certificate.pem | TLS Certificate             |
+| [ciphers](#supported-ciphers)                       |                                     | Supported ciphers           |
 | [password](#password)                               |                                     | Password                    |
 | [port](#server-port)                                | 8443                                | Server port                 |
 | [threads](#server-threads)                          | 10                                  | Server threads              |
@@ -405,6 +406,33 @@ Ssl certificate to use for the ssl server
 [/settings/WEB/server]
 # TLS Certificate
 certificate=${certificate-path}/certificate.pem
+```
+
+
+
+#### Supported ciphers <a id="/settings/WEB/server/ciphers"></a>
+
+Supported ciphers for the web server (Set to tlsv1.3 to only allow tls1.3)
+
+
+
+
+
+
+| Key            | Description                                   |
+|----------------|-----------------------------------------------|
+| Path:          | [/settings/WEB/server](#/settings/WEB/server) |
+| Key:           | ciphers                                       |
+| Default value: | _N/A_                                         |
+| Used by:       | WEBServer                                     |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server]
+# Supported ciphers
+ciphers=
 ```
 
 

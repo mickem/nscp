@@ -22,6 +22,6 @@
 	<Property Id="APP_TITLE">$(var.App.Title) Monitoring Agent</Property>
   
 	<!-- internal keys (required for the UI, never used) -->
-	<Property Id="KEY_NRPEMODE">SAFE</Property>
+	<Property Id="KEY_NRPEMODE">SECURE</Property>
   
 </Include>

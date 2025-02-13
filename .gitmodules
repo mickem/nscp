@@ -10,9 +10,6 @@
 [submodule "ext/json-protobuf"]
 	path = ext/json-protobuf
 	url = https://github.com/mickem/json-protobuf.git
-[submodule "ext/google-breakpad"]
-	path = ext/google-breakpad
-	url = https://github.com/mickem/google-breakpad.git
 [submodule "ext/md-protobuf"]
 	path = ext/md-protobuf
 	url = https://github.com/mickem/md-protobuf.git

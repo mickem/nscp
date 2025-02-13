@@ -44,18 +44,6 @@ else(JSON_SPIRIT_FOUND)
 endif(JSON_SPIRIT_FOUND)
 link_directories(${BOOST_LIB_DIRS})
 
-if(BREAKPAD_FOUND)
-  if(WIN32)
-    set(${_SRC} ${${_SRC}}
-                ${NSCP_INCLUDEDIR}/breakpad/exception_handler_win32.cpp)
-    set(${_SRC} ${${_SRC}}
-                ${NSCP_INCLUDEDIR}/breakpad/exception_handler_win32.hpp)
-  endif(WIN32)
-  add_definitions(-DUSE_BREAKPAD)
-  include_directories(${BREAKPAD_INCLUDE_DIR})
-  set(EXTRA_LIBS ${EXTRA_LIBS} ${BREAKPAD_COMMON_LIBRARY} ${BREAKPAD_LIBRARY})
-endif(BREAKPAD_FOUND)
-
 nscp_make_exe_bin(${TARGET} "${SRCS}")
 if(WIN32 AND NOT CMAKE_CL_64)
   openssl_link_fix(${TARGET})

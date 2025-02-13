@@ -123,7 +123,13 @@ if(Python3_Development_FOUND)
   set(EXTRA_LIBS ${EXTRA_LIBS} ${Python3_LIBRARIES})
 endif()
 
-setup_breakpad(service_SRCS)
+if(WIN32)
+    set(service_SRCS ${service_SRCS}
+            ${NSCP_INCLUDEDIR}/breakpad/exception_handler_win32.cpp
+            ${NSCP_INCLUDEDIR}/breakpad/exception_handler_win32.hpp
+    )
+    set(EXTRA_LIBS ${EXTRA_LIBS} psapi)
+endif(WIN32)
 
 nscp_make_exe_sbin(${TARGET} "${service_SRCS}")
 set_target_properties(${TARGET} PROPERTIES FOLDER "core")

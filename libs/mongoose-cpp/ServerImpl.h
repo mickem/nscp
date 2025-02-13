@@ -85,7 +85,7 @@ namespace Mongoose
 #if MG_ENABLE_OPENSSL
 			void initTls(struct mg_connection *connection);
 #endif
-			void setSsl(const char *certificate);
+			void setSsl(const char *certificate, const char *new_chipers);
 
 			/**
              * Polls the server
@@ -104,7 +104,8 @@ namespace Mongoose
 
 		protected:
       WebLoggerPtr logger_;
-            std::string certificate;
+      std::string certificate;
+      std::string ciphers;
 			struct mg_mgr mgr;
             struct mg_connection *server_connection;
 

@@ -5,7 +5,7 @@ import fnmatch
 import shutil
 
 from config import BUILD_PYTHON_FOLDER, NSCP_VERSION_NUMBER, VERSION_ARCH, BUILD_TARGET_EXE_PATH, \
-    DOCS_FOLDER, BREAKPAD_FOUND, BREAKPAD_DUMPSYMS_EXE, ARCHIVE_FOLDER
+    DOCS_FOLDER, ARCHIVE_FOLDER
 
 sys.path.append(BUILD_PYTHON_FOLDER)
 
@@ -34,28 +34,6 @@ for f in matches:
     name = os.path.relpath(f, docs_folder_root)
     zip.write(f, name)
 zip.close()
-
-target_name = 'NSCP-%s-%s-symbols.zip'%(NSCP_VERSION_NUMBER, VERSION_ARCH)
-if BREAKPAD_FOUND == "TRUE":
-    print("Gathering symbols into %s"%target_name)
-    matches = find_by_pattern(BUILD_TARGET_EXE_PATH, '*.pdb')
-    zip = zipfile.ZipFile(target_name, 'w', zipfile.ZIP_DEFLATED)
-    for f in matches:
-        print("Processing: %s"%f)
-        out = f.replace('.pdb', '.sym')
-        os.system("%s %s > %s"%(BREAKPAD_DUMPSYMS_EXE, f, out))
-        name = 'invalid/%s'%os.path.basename(out)
-        with open(out, 'r') as f:
-            head = f.readline().strip()
-            try:
-                # MODULE windows x86 1FD4DBADB2B446CA81E0F689BE0FFCA61c nscp.pdb
-                (module, tos, tarch, guid, name) = head.split(' ')
-                name = 'NSCP.breakpad.syms/%s/%s/%s'%(name, guid, os.path.basename(out))
-            except:
-                print('Error failed to parse: %s'%out)
-
-        zip.write(out, name)
-    zip.close()
 
 if ARCHIVE_FOLDER != "":
     print("Archiving files...")

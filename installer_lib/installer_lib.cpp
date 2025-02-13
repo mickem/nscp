@@ -400,9 +400,9 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 			h.setPropertyAndDefault(KEY_CONF_CHECKS, L"1", L"");
 			h.setPropertyAndDefault(KEY_CONF_NRPE, L"1", L"");
 			h.setPropertyAndDefault(KEY_CONF_NSCA, L"");
-			h.setPropertyAndDefault(KEY_CONF_WEB, L"");
+			h.setPropertyAndDefault(KEY_CONF_WEB, L"1");
 			h.setPropertyAndDefault(KEY_CONF_NSCLIENT, L"");
-			h.setPropertyAndDefault(KEY_NRPEMODE, L"SAFE", L"");
+			h.setPropertyAndDefault(KEY_NRPEMODE, L"SECURE");
 
 			h.setProperty(KEY_CONF_CAN_CHANGE, L"1");
 			h.setProperty(KEY_CONF_INCLUDES, L"");
@@ -534,8 +534,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 			h.setPropertyAndDefault(KEY_NRPEMODE, L"LEGACY");
 		else if (verify == "peer-cert")
 			h.setPropertyAndDefault(KEY_NRPEMODE, L"SECURE");
-		else
-			h.setPropertyAndDefault(KEY_NRPEMODE, L"SAFE");
+    else
 		h.logMessage(L"NRPEMODE: " + h.getPropery(KEY_NRPEMODE));
 
 		h.setPropertyAndDefault(KEY_NSCLIENT_PWD, utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "password", "")));
@@ -773,18 +772,15 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 		if (h.getPropery(KEY_CONF_NRPE) == L"1") {
 			if (h.propertyNotDefault(KEY_NRPEMODE)) {
 				std::wstring mode = h.getPropery(KEY_NRPEMODE);
+        write_key(h, data, 1, L"/settings/NRPE/server", L"ssl options", L"");
+        write_key(h, data, 1, L"/settings/NRPE/server", L"tls version", L"tlsv1.2+");
 				if (mode == L"LEGACY") {
 					write_key(h, data, 1, L"/settings/NRPE/server", L"insecure", L"true");
-					write_key(h, data, 1, L"/settings/NRPE/server", L"ssl options", L"");
-					write_key(h, data, 1, L"/settings/NRPE/server", L"verify mode", L"");
+          write_key(h, data, 1, L"/settings/NRPE/server", L"verify mode", L"none");
 				} else {
-					write_key(h, data, 1, L"/settings/NRPE/server", L"insecure", L"false");
-					write_key(h, data, 1, L"/settings/NRPE/server", L"ssl options", L"no-sslv2,no-sslv3");
-				}
-				if (mode == L"SAFE")
-					write_key(h, data, 1, L"/settings/NRPE/server", L"verify mode", L"peer-cert");
-				else
-					write_key(h, data, 1, L"/settings/NRPE/server", L"verify mode", L"none");
+          write_key(h, data, 1, L"/settings/NRPE/server", L"insecure", L"false");
+          write_key(h, data, 1, L"/settings/NRPE/server", L"verify mode", L"peer-cert");
+        }
 			}
 		}
 

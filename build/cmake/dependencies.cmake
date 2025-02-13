@@ -19,7 +19,6 @@ find_package(PROTOC_GEN_JSON)
 find_package(ProtocGenMd)
 find_package(GoogleProtoBuf)
 find_package(GoogleTest)
-find_package(GoogleBreakpad)
 find_package(OpenSSL)
 find_package(Miniz)
 if(WIN32)
@@ -124,14 +123,6 @@ else(PROTOBUF_FOUND)
   message(
     STATUS " ! protocol buffers not found: PROTOBUF_ROOT=${PROTOBUF_ROOT}")
 endif(PROTOBUF_FOUND)
-if(BREAKPAD_FOUND)
-  message(STATUS " - google breakpad found in: ${BREAKPAD_INCLUDE_DIR}")
-else(BREAKPAD_FOUND)
-  message(
-    STATUS
-      " ! google breakpad not found: TODO=${BREAKPAD_EXCEPTION_HANDLER_INCLUDE_DIR}"
-  )
-endif(BREAKPAD_FOUND)
 if(GTEST_FOUND)
   message(STATUS " - google test found in: ${GTEST_INCLUDE_DIR}")
 else(GTEST_FOUND)

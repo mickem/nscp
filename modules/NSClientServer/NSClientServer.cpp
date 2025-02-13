@@ -58,7 +58,7 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
 		;
 
 	socket_helpers::settings_helper::add_port_server_opts(settings, info_, "12489");
-	socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false);
+	socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false, "", "${certificate-path}/certificate.pem", "", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 	socket_helpers::settings_helper::add_core_server_opts(settings, info_);
 
 	settings.alias().add_parent("/settings/default").add_key_to_settings()

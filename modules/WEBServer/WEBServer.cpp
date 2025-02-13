@@ -95,7 +95,8 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.set_alias("WEB", alias, "server");
 
 	std::string port;
-	std::string certificate;
+  std::string certificate;
+  std::string ciphers;
 	std::string admin_password;
 	int threads;
 
@@ -125,8 +126,10 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		"Server threads", "The number of threads in the sever response pool.")
 		;
 	settings.alias().add_key_to_settings()
-		("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"),
-			"TLS Certificate", "Ssl certificate to use for the ssl server")
+      ("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"),
+       "TLS Certificate", "Ssl certificate to use for the ssl server")
+          ("ciphers", sh::string_key(&ciphers, ""),
+           "Supported ciphers", "Supported ciphers for the web server (Set to tlsv1.3 to only allow tls1.3)")
 		;
 
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
@@ -183,7 +186,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
 		} else {
 			NSC_DEBUG_MSG("Using certificate: " + certificate);
-			server->setSsl(certificate.c_str());
+      server->setSsl(certificate.c_str(), ciphers.c_str());
 		}
 
 		server->registerController(new StaticController(session, path));

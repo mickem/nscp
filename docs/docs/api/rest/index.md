@@ -1,7 +1,7 @@
 # NSClient++ API
 
 NSClient++ provides its own HTTP API which can
-be enabled with the [WEBServer module](../reference/generic/WEBServer.md#WEBServer).
+be enabled with the [WEBServer module](../../reference/generic/WEBServer.md#WEBServer).
 
 The new API is described in separate pages (on per object):
 
@@ -21,7 +21,7 @@ You can enable the WEBServer module during the package installation.
 >
 > Please ensure to specify a secure password (default).
 
-![API WEBServer setup](images/api_nscp_setup_webserver.png)
+![API WEBServer setup](../images/api_nscp_setup_webserver.png)
 
 If you wish to do this with a silent installer you can use the following command:
 
@@ -179,12 +179,12 @@ In general a 500 should be reported as a bug in the NSClient++ issue tracker: ht
 
 Where possible, the API strives to use appropriate HTTP verbs for each action.
 
-Verb     | Description
----------|---------------------------------------------
-`GET`    | Used for retrieving resources.
-`POST`   | Used for creating resources.
-`PUT`    | Used for replacing resources or collections.
-`DELETE` | Used for deleting resources.
+| Verb     | Description                                  |
+|----------|----------------------------------------------|
+| `GET`    | Used for retrieving resources.               |
+| `POST`   | Used for creating resources.                 |
+| `PUT`    | Used for replacing resources or collections. |
+| `DELETE` | Used for deleting resources.                 |
 
 ### Allowed Hosts
 
@@ -209,7 +209,7 @@ allowed hosts = 127.0.0.1,192.168.2.0/24
 
 Restart the `nscp` service afterwards.
 
-```
+```shell
 net stop nscp
 net start nscp
 ```
@@ -221,7 +221,7 @@ Note that most requests (notable exception is static resources) require authenti
 
 #### Basic Authentication
 
-```
+```shell
 curl -k -i -u admin https://localhost:8443/api
 ```
 
@@ -279,7 +279,7 @@ role=limited
 
 Once we have defined a role we can assign it to user by adding the user to that role:
 
-```
+```shell
 nscp web add-role --role limited --grant info.get
 ```
 
@@ -300,7 +300,7 @@ You can specify further pages with the `?page` parameter.
 For some resources, you can also set a custom page size with the `?per_page` parameter.
 Note that for technical reasons not all endpoints respect the `?per_page` parameter.
 
-```
+```shell
 curl -i -s -k -u admin "https://localhost:8443/api/v1/logs?page=1&per_page=10"
 ```
 
@@ -310,7 +310,7 @@ curl -i -s -k -u admin "https://localhost:8443/api/v1/logs?page=1&per_page=10"
 
 The Link header includes pagination information:
 
-```
+```shell
 curl -i -s -k -u admin "https://localhost:8443/api/v1/logs?page=1&per_page=10"
 HTTP/1.1 200
 Content-Length: 1827
@@ -321,12 +321,12 @@ This Link response header contains one or more Hypermedia link relations, some o
 
 The possible rel values are:
 
-Name  | Description
-------|--------------------------------------------------------------
-next  | The link relation for the immediate next page of results.
-last  | The link relation for the last page of results.
-first | The link relation for the first page of results.
-prev  | The link relation for the immediate previous page of results.
+| Name  | Description                                                   |
+|-------|---------------------------------------------------------------|
+| next  | The link relation for the immediate next page of results.     |
+| last  | The link relation for the last page of results.               |
+| first | The link relation for the first page of results.              |
+| prev  | The link relation for the immediate previous page of results. |
 
 ### Tips and tricks
 
@@ -335,12 +335,12 @@ prev  | The link relation for the immediate previous page of results.
 Since the JSON returned from the APIs are not pretty printed a good idea is to use the python json.tool to make sure the result is readable.
 
 Compare the following two examples:
-```
+```shell
 C:\source\tools>curl -k -u admin https://localhost:8443/api/v1
 {"modules_url":"https://localhost:8443/api/v1/modules","queries_url":"https://localhost:8443/api/v1/queries","scripts_url":"https://localhost:8443/api/v1/scripts"}
 ```
 
-```
+```shell
 C:\source\tools>curl -k -u admin https://localhost:8443/api/v1 |python -m json.tool
 {
     "modules_url": "https://localhost:8443/api/v1/modules",

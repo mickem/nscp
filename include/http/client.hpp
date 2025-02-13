@@ -107,7 +107,6 @@ namespace http {
 
 	};
 
-#ifdef USE_SSL
 
 	struct ssl_socket : public generic_socket {
 
@@ -185,7 +184,6 @@ namespace http {
 			return boost::asio::read(ssl_socket_, buffer, boost::asio::transfer_at_least(1), error);
 		}
 	};
-#endif
 #ifdef WIN32
 	struct file_socket : public generic_socket {
 
@@ -242,11 +240,7 @@ namespace http {
 			: io_service_()
 		{
 			if (protocol == "https") {
-#ifdef USE_SSL
 				socket_.reset(new ssl_socket(io_service_));
-#else
-				throw socket_helpers::socket_exception("SSL not supported");
-#endif
 #ifdef WIN32
 			} else if (protocol == "pipe") {
 				socket_.reset(new file_socket(io_service_));

@@ -3,7 +3,7 @@
 
   <?include setup.wxs ?>
 
-  <?define Version.Tag = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.BuildPad)" ?>
+  <?define Version.Tag = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Build)" ?>
   
   <?define UpgradeCode = "$(var.App.UppgradeCode)" ?>
 
@@ -55,9 +55,6 @@
             <File Id="SampleConfigFull" Name="nsclient-sample.ini" DiskId="1" KeyPath="yes"
 								Source="$(var.Source)/nsclient-full.ini" Vital="no" />
           </Component>
-          <Component Id="Helpers" Guid="AEBD660B-C62A-4af6-9A61-693D319BC224" Win64="$(var.Win64)">
-            <File Id="ErrorReporter" Name="reporter.exe" DiskId="1" Source="$(var.Source)/reporter.exe" Vital="yes" />
-          </Component>
           <Component Id="CheckNRPE" Guid="798DE5B5-C876-436F-86A5-03CD93CDD5FB" Win64="$(var.Win64)">
             <File Id="CheckNRPEExe" Name="check_nrpe.exe" DiskId="1" Source="$(var.Source)/check_nrpe.exe" Vital="no" />
           </Component>
@@ -87,6 +84,7 @@
           <Directory Id="INSTALLLOCATION_SECURITY" Name="security">
             <Component Id="NRPEServerCert" Guid="4129415B-4907-4c63-A7D7-4EF7B37969D1" Win64="$(var.Win64)">
               <File Id="NRPECert" Name="nrpe_dh_512.pem" DiskId="1" Source="$(var.Source)/security/nrpe_dh_512.pem" Vital="no"/>
+              <File Id="NRPECert2048" Name="nrpe_dh_2048.pem" DiskId="1" Source="$(var.Source)/security/nrpe_dh_2048.pem" Vital="no"/>
             </Component>
             <Component Id="GeneratedCerts" Guid="3E6F62A4-9157-48B6-8396-1FB54E0C5F82" Win64="$(var.Win64)">
               <RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="remove certificates" Type="integer" Value="1" KeyPath="yes"/>
@@ -188,7 +186,6 @@
 							 Display="expand"  Level="1" ConfigurableDirectory="INSTALLLOCATION" Absent="disallow">
       <Feature Id="MainProgram" Title="Program" Description="Main Service" Level="1" Absent="disallow">
         <ComponentRef Id="MainClient" />
-        <ComponentRef Id="Helpers" />
         <ComponentRef Id="RandomFiles" />
         <ComponentRef Id="NSCPEXE" />
         <ComponentRef Id="GeneratedCerts" />
@@ -291,6 +288,8 @@
 
     <InstallExecuteSequence>
       <RemoveExistingProducts After='BackupConfig'></RemoveExistingProducts>
+      <InstallServices>NOT (NO_SERVICE = 1)</InstallServices>
+      <StartServices>NOT (NO_SERVICE = 1)</StartServices>
 
       <Custom Action="BackupConfig" After="InstallInitialize">NOT (REMOVE ="ALL")</Custom>
 

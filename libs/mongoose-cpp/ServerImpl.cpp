@@ -48,9 +48,10 @@ namespace Mongoose
 		controllers.clear();
     }
 
-	void ServerImpl::setSsl(const char *new_certificate) {
+	void ServerImpl::setSsl(const char *new_certificate, const char *new_chipers) {
 #if MG_ENABLE_OPENSSL
 		certificate = new_certificate;
+    ciphers = new_chipers;
 #else
     logger_->log_error("Not compiled with TLS");
 #endif
@@ -114,6 +115,7 @@ namespace Mongoose
         struct mg_tls_opts opts{};
         memset(&opts, 0, sizeof(struct mg_tls_opts));
         opts.cert = certificate.c_str();
+        opts.ciphers = ciphers.c_str();
         mg_tls_init(connection, &opts);
     }
 #endif

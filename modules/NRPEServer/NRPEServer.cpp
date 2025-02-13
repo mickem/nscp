@@ -52,8 +52,8 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	bool insecure;
 	settings.alias().add_key_to_settings()
-		("insecure", sh::bool_key(&insecure, false),
-			"ALLOW INSECURE CHIPHERS and ENCRYPTION", "Only enable this if you are using legacy check_nrpe client.")
+    ("insecure", sh::bool_key(&insecure, false),
+     "ALLOW INSECURE CHIPHERS and ENCRYPTION", "Only enable this if you are using legacy check_nrpe client.")
 		;
 
 	settings.register_all();
@@ -82,23 +82,14 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		;
 
 	socket_helpers::settings_helper::add_core_server_opts(settings, info_);
-#ifdef USE_SSL
-	if (insecure) {
-		socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "${certificate-path}/certificate.pem", "", "ALL:!MD5:@strength:@SECLEVEL=0");
+  std::string certificate = insecure ? "" : "${certificate-path}/certificate.pem";
+  std::string opts = insecure ? "ALL:!MD5:@STRENGTH:@SECLEVEL=0" : "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH";
+		socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "${certificate-path}/nrpe_dh_2048.pem", certificate, "", opts);
 
 		settings.alias().add_key_to_settings()
-			("extended response", sh::bool_key(&multiple_packets_, false),
+			("extended response", sh::bool_key(&multiple_packets_, !insecure),
 				"EXTENDED RESPONSE", "Send more then 1 return packet to allow response to go beyond payload size (requires modified client if legacy is true this defaults to false).")
 			;
-	} else {
-		socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true);
-
-		settings.alias().add_key_to_settings()
-			("extended response", sh::bool_key(&multiple_packets_, true),
-				"EXTENDED RESPONSE", "Send more then 1 return packet to allow response to go beyond payload size (requires modified client if legacy is true this defaults to false).")
-			;
-	}
-#endif
 
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
 

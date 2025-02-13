@@ -381,22 +381,6 @@ macro(NSCP_FORCE_INCLUDE _TARGET _SRC)
   endif(WIN32)
 endmacro()
 
-macro(SETUP_BREAKPAD _SRC)
-  if(BREAKPAD_FOUND)
-    if(WIN32)
-      set(${_SRC} ${${_SRC}}
-                  ${NSCP_INCLUDEDIR}/breakpad/exception_handler_win32.cpp)
-      set(${_SRC} ${${_SRC}}
-                  ${NSCP_INCLUDEDIR}/breakpad/exception_handler_win32.hpp)
-      set(${_SRC} ${${_SRC}} ${NSCP_INCLUDEDIR}/ServiceCmd.cpp)
-      set(${_SRC} ${${_SRC}} ${NSCP_INCLUDEDIR}/ServiceCmd.h)
-    endif(WIN32)
-    add_definitions(-DUSE_BREAKPAD)
-    include_directories(${BREAKPAD_INCLUDE_DIR})
-    set(EXTRA_LIBS ${EXTRA_LIBS} ${BREAKPAD_COMMON_LIBRARY} ${BREAKPAD_LIBRARY})
-  endif(BREAKPAD_FOUND)
-endmacro()
-
 macro(sign_file PROJNAME _FILENAME)
   if(WIN32)
     if(EXISTS ${SIGN_CERTIFICATE})

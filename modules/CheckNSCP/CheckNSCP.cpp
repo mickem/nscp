@@ -106,34 +106,51 @@ struct nscp_version {
 	int major_version;
 	int minor_version;
 	int build;
+  bool has_build;
 	std::string date;
 
-	nscp_version() : release(0), major_version(0), minor_version(0), build(0) {}
-	nscp_version(const nscp_version &other) : release(other.release), major_version(other.major_version), minor_version(other.minor_version), build(other.build), date(other.date) {}
+	nscp_version() : release(0), major_version(0), minor_version(0), build(0), has_build(false) {}
+	nscp_version(const nscp_version &other) : release(other.release), major_version(other.major_version), minor_version(other.minor_version), build(other.build), date(other.date), has_build(other.has_build) {}
 	nscp_version& operator= (const nscp_version &other) {
 		release = other.release;
 		major_version = other.major_version;
 		minor_version = other.minor_version;
 		build = other.build;
 		date = other.date;
+    has_build = other.has_build;
 		return *this;
 	}
-	nscp_version(std::string v) {
+	nscp_version(std::string v) : release(0), major_version(0), minor_version(0), build(0), has_build(false) {
 		str::utils::token v2 = str::utils::split2(v, " ");
 		date = v2.second;
 		std::list<std::string> vl = str::utils::split_lst(v2.first, ".");
-		if (vl.size() != 4)
-			throw nsclient::nsclient_exception("Failed to parse version: " + v);
-		release = str::stox<int>(vl.front()); vl.pop_front();
-		major_version = str::stox<int>(vl.front()); vl.pop_front();
-		minor_version = str::stox<int>(vl.front()); vl.pop_front();
-		build = str::stox<int>(vl.front());
+    if (vl.empty() || vl.size() > 4) {
+      throw nsclient::nsclient_exception("Failed to parse version: " + v);
+    }
+    if (!vl.empty()) {
+      release = str::stox<int>(vl.front()); vl.pop_front();
+    }
+    if (!vl.empty()) {
+      major_version = str::stox<int>(vl.front()); vl.pop_front();
+    }
+    if (!vl.empty()) {
+      minor_version = str::stox<int>(vl.front()); vl.pop_front();
+    }
+    if (!vl.empty()) {
+      build = str::stox<int>(vl.front());
+      has_build = true;
+    }
 	}
 	std::string to_string() const {
-		return str::xtos(release) + "."
-			+ str::xtos(major_version) + "."
-			+ str::xtos(minor_version) + "."
-			+ str::xtos(build);
+    if (has_build) {
+      return str::xtos(release) + "."
+             + str::xtos(major_version) + "."
+             + str::xtos(minor_version) + "."
+             + str::xtos(build);
+    }
+    return str::xtos(release) + "."
+           + str::xtos(major_version) + "."
+           + str::xtos(minor_version);
 	}
 };
 
@@ -177,7 +194,7 @@ namespace check_nscp_version {
 				("release", &filter_obj::get_release, "The release (the 0 in 0.1.2.3)")
 				("major", &filter_obj::get_major, "The major (the 1 in 0.1.2.3)")
 				("minor", &filter_obj::get_minor, "The minor (the 2 in 0.1.2.3)")
-				("build", &filter_obj::get_build, "The build (the 3 in 0.1.2.3)")
+				("build", &filter_obj::get_build, "The build (the 3 in 0.1.2.3) not available in release versions after 0.6.0")
 				;
 		}
 	};
@@ -191,7 +208,7 @@ namespace check_nscp_version {
 
 		filter_type filter;
 		filter_helper.add_options("", "", "", filter.get_filter_syntax(), "ignored");
-		filter_helper.add_syntax("${status}: ${list}", "${release}.${major}.${minor}.${build} (${date})", "version", "", "");
+		filter_helper.add_syntax("${status}: ${list}", "${version} (${date})", "version", "", "");
 
 		if (!filter_helper.parse_options())
 			return;
