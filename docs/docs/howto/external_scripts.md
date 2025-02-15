@@ -23,10 +23,12 @@ A simple script in batch (.bat) looks like this:
 This prints a message "OK ..." and return status 0 which equates to ok or good.
 Exit codes are the same as Nagios use:
 
-0 - OK  
-1 - WARNING  
-2 - CRITICAL  
-3 - UNKNOWN  
+| Exit code      | Meaning     |
+| -------------- | ----------- |
+| 0              | OK          |
+| 1              | WARNING     |
+| 2              | CRITICAL    |
+| 3              | UNKNOWN     |
 
 
 The message can be anything and is passed along as text. Notice you require Nagios 3 if you want to use multiple lines in the message. And please notice that most protocol and transports have hard coded payload lengths such as NRPE (1024) NSCA (512) etc etc.
@@ -94,7 +96,7 @@ Also please note that the script does not have to be a script it can be any vali
 
 ```
 [/settings/external scripts/scripts]
-list_file=cmd /c "dir c:\\"
+list_file=cmd /c "dir c:\"
 ```
 
 ### Adding more scripts
