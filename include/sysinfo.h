@@ -24,52 +24,37 @@
 #include <win/windows.hpp>
 
 namespace systemInfo {
-	class SystemInfoException {
-		std::string error_;
-	public:
-		SystemInfoException(std::string error) : error_(error) {}
-		std::string reason() const {
-			return error_;
-		}
-	};
-	typedef LANGID(*tGetSystemDefaultUILanguage)(void);
+class SystemInfoException {
+  std::string error_;
 
-	inline LANGID GetSystemDefaultLangID() {
-		return ::GetSystemDefaultLangID();
-	}
+ public:
+  SystemInfoException(std::string error) : error_(error) {}
+  std::string reason() const { return error_; }
+};
+typedef LANGID (*tGetSystemDefaultUILanguage)(void);
 
-	LANGID GetSystemDefaultUILanguage();
-	inline OSVERSIONINFO getOSVersion() {
-		OSVERSIONINFO OSversion;
-		OSversion.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-		::GetVersionEx(&OSversion);
-		return OSversion;
-	}
+inline LANGID GetSystemDefaultLangID() { return ::GetSystemDefaultLangID(); }
 
-	inline bool isNTBased(const OSVERSIONINFO &osVersion) {
-		return osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT;
-	}
-	inline bool isBelowNT4(const OSVERSIONINFO &osVersion) {
-		return ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT) && (osVersion.dwMajorVersion <= 4));
-	}
-	inline bool isAboveW2K(const OSVERSIONINFO &osVersion) {
-		return ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT) && (osVersion.dwMajorVersion > 4));
-	}
-	inline bool isAboveXP(const OSVERSIONINFO &osVersion) {
-		if ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT) && (osVersion.dwMajorVersion == 5) && (osVersion.dwMinorVersion >= 1))
-			return true;
-		if ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT) && (osVersion.dwMajorVersion > 5))
-			return true;
-		return false;
-	}
-	inline bool isAboveVista(const OSVERSIONINFO &osVersion) {
-		return osVersion.dwMajorVersion >= 6;
-	}
-	inline bool isBelowXP(const OSVERSIONINFO &osVersion) {
-		if ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT) && (osVersion.dwMajorVersion < 4))
-			return true;
-		if ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT) && (osVersion.dwMajorVersion == 4) && (osVersion.dwMinorVersion < 1))
-			return true;
-		return false;
-	}
+LANGID GetSystemDefaultUILanguage();
+inline OSVERSIONINFO getOSVersion() {
+  OSVERSIONINFO OSversion;
+  OSversion.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+  ::GetVersionEx(&OSversion);
+  return OSversion;
 }
+
+inline bool isNTBased(const OSVERSIONINFO &osVersion) { return osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT; }
+inline bool isBelowNT4(const OSVERSIONINFO &osVersion) { return ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT) && (osVersion.dwMajorVersion <= 4)); }
+inline bool isAboveW2K(const OSVERSIONINFO &osVersion) { return ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT) && (osVersion.dwMajorVersion > 4)); }
+inline bool isAboveXP(const OSVERSIONINFO &osVersion) {
+  if ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT) && (osVersion.dwMajorVersion == 5) && (osVersion.dwMinorVersion >= 1)) return true;
+  if ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT) && (osVersion.dwMajorVersion > 5)) return true;
+  return false;
+}
+inline bool isAboveVista(const OSVERSIONINFO &osVersion) { return osVersion.dwMajorVersion >= 6; }
+inline bool isBelowXP(const OSVERSIONINFO &osVersion) {
+  if ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT) && (osVersion.dwMajorVersion < 4)) return true;
+  if ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT) && (osVersion.dwMajorVersion == 4) && (osVersion.dwMinorVersion < 1)) return true;
+  return false;
+}
+}  // namespace systemInfo

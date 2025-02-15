@@ -28,13 +28,14 @@
 
 namespace metrics {
 
-	struct metrics_store {
-		typedef std::map<std::string, std::string> values_map;
-		void set(const PB::Metrics::MetricsMessage &response);
-		values_map get(const std::string &filter);
-	private:
-		values_map values_;
-		boost::timed_mutex mutex_;
-	};
+struct metrics_store {
+  typedef std::map<std::string, std::string> values_map;
+  void set(const PB::Metrics::MetricsMessage &response);
+  values_map get(const std::string &filter);
 
-}
+ private:
+  values_map values_;
+  boost::timed_mutex mutex_;
+};
+
+}  // namespace metrics

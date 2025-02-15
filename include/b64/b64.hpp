@@ -11,11 +11,11 @@
  * Copyright 2004-2005, Matthew Wilson and Synesis Software
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without 
+ * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
  * - Redistributions of source code must retain the above copyright notice, this
- *   list of conditions and the following disclaimer. 
+ *   list of conditions and the following disclaimer.
  * - Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
@@ -37,7 +37,6 @@
  *
  * ////////////////////////////////////////////////////////////////////////// */
 
-
 /** \file b64/cpp/b64.hpp Header file for the b64 C++ mapping
  */
 
@@ -49,10 +48,10 @@
  */
 
 #ifndef B64_DOCUMENTATION_SKIP_SECTION
-# define B64_VER_B64_CPP_HPP_B64_MAJOR      1
-# define B64_VER_B64_CPP_HPP_B64_MINOR      1
-# define B64_VER_B64_CPP_HPP_B64_REVISION   3
-# define B64_VER_B64_CPP_HPP_B64_EDIT       8
+#define B64_VER_B64_CPP_HPP_B64_MAJOR 1
+#define B64_VER_B64_CPP_HPP_B64_MINOR 1
+#define B64_VER_B64_CPP_HPP_B64_REVISION 3
+#define B64_VER_B64_CPP_HPP_B64_EDIT 8
 #endif /* !B64_DOCUMENTATION_SKIP_SECTION */
 
 /* /////////////////////////////////////////////////////////////////////////////
@@ -64,20 +63,20 @@
 #include <stlsoft.h>
 
 #if defined(B64_USE_CUSTOM_STRING)
-# include B64_CUSTOM_STRING_INCLUDE
+#include B64_CUSTOM_STRING_INCLUDE
 #else /* B64_USE_CUSTOM_STRING */
-# include <string>
+#include <string>
 #endif /* !B64_USE_CUSTOM_STRING */
 
 #if defined(B64_USE_CUSTOM_VECTOR)
-# include B64_CUSTOM_VECTOR_INCLUDE
+#include B64_CUSTOM_VECTOR_INCLUDE
 #else /* B64_USE_CUSTOM_VECTOR */
-# include <vector>
+#include <vector>
 #endif /* !B64_USE_CUSTOM_VECTOR */
 
 #if !defined(B64_STRING_TYPE_IS_CONTIGUOUS)
-# include <stlsoft_auto_buffer.h>
-# include <stlsoft_new_allocator.h>
+#include <stlsoft_auto_buffer.h>
+#include <stlsoft_new_allocator.h>
 #endif /* !B64_STRING_TYPE_IS_CONTIGUOUS */
 
 #include <stlsoft_string_access.h>
@@ -86,11 +85,9 @@
  * Namespace
  */
 
-namespace b64
-{
+namespace b64 {
 
-namespace cpp
-{
+namespace cpp {
 
 /* /////////////////////////////////////////////////////////////////////////////
  * Typedefs
@@ -113,12 +110,12 @@ namespace cpp
  * <tt>&nbsp;&nbsp;\#define B64_CUSTOM_STRING_TYPE&nbsp;&nbsp;&nbsp;&nbsp;::stlsoft::basic_simple_string<char></tt>
  */
 #if defined(B64_USE_CUSTOM_STRING)
-typedef B64_CUSTOM_STRING_TYPE          string_t;
-#else /* B64_USE_CUSTOM_STRING */
-typedef std::string                     string_t;
+typedef B64_CUSTOM_STRING_TYPE string_t;
+#else  /* B64_USE_CUSTOM_STRING */
+typedef std::string string_t;
 #endif /* !B64_USE_CUSTOM_STRING */
 
-/** The blob type for the b64::cpp namespace 
+/** The blob type for the b64::cpp namespace
  *
  * \note This defaults to <tt>::std::vector<::stlsoft::byte_t></tt>. It is possible to
  * override this, using
@@ -136,14 +133,14 @@ typedef std::string                     string_t;
  * <tt>&nbsp;&nbsp;\#define B64_CUSTOM_BLOB_TYPE&nbsp;&nbsp;&nbsp;&nbsp;::stlsoft::pod_vector<unsigned char></tt>
  */
 #if defined(B64_USE_CUSTOM_VECTOR)
-typedef B64_CUSTOM_BLOB_TYPE            blob_t;
+typedef B64_CUSTOM_BLOB_TYPE blob_t;
 #else /* B64_USE_CUSTOM_VECTOR */
-# ifndef B64_DOCUMENTATION_SKIP_SECTION
-typedef ::stlsoft::byte_t               byte_t_;
-typedef std::vector<byte_t_>            blob_t;
-# else /* !B64_DOCUMENTATION_SKIP_SECTION */
-typedef std::vector<::stlsoft::byte_t>	blob_t;
-# endif /* !B64_DOCUMENTATION_SKIP_SECTION */
+#ifndef B64_DOCUMENTATION_SKIP_SECTION
+typedef ::stlsoft::byte_t byte_t_;
+typedef std::vector<byte_t_> blob_t;
+#else  /* !B64_DOCUMENTATION_SKIP_SECTION */
+typedef std::vector< ::stlsoft::byte_t> blob_t;
+#endif /* !B64_DOCUMENTATION_SKIP_SECTION */
 #endif /* !B64_USE_CUSTOM_VECTOR */
 
 /* /////////////////////////////////////////////////////////////////////////////
@@ -154,7 +151,7 @@ typedef std::vector<::stlsoft::byte_t>	blob_t;
  *
  * This function takes a pointer to a memory block to be encoded, and a number of
  * bytes to be encoded, and carries out a base-64 encoding on it, returning the
- * results in an instance of the string type \link #string_t string_t \endlink. See the 
+ * results in an instance of the string type \link #string_t string_t \endlink. See the
  * \ref section_cpp_api "example" from the main page
  *
  * \param src Pointer to the block to be encoded
@@ -171,26 +168,25 @@ typedef std::vector<::stlsoft::byte_t>	blob_t;
  * \note Exceptions: Provides the strong guarantee, assuming that the constructor for
  * the string type (\c string_t) does so.
  */
-inline string_t encode(void const *src, size_t srcSize)
-{
-    size_t      n   =   ::b64::b64_encode(src, srcSize, NULL, 0);
+inline string_t encode(void const *src, size_t srcSize) {
+  size_t n = ::b64::b64_encode(src, srcSize, NULL, 0);
 
 #ifdef B64_STRING_TYPE_IS_CONTIGUOUS
-    string_t    s(n, '~'); // ~ is used for an invalid / eyecatcher
+  string_t s(n, '~');  // ~ is used for an invalid / eyecatcher
 
-    ::b64::b64_encode(src, srcSize, &s[0], s.length());
-#else /* ? B64_STRING_TYPE_IS_CONTIGUOUS */
+  ::b64::b64_encode(src, srcSize, &s[0], s.length());
+#else  /* ? B64_STRING_TYPE_IS_CONTIGUOUS */
 
-    typedef ::stlsoft::auto_buffer<char, ::stlsoft::new_allocator<char>, 256>   buffer_t;
+  typedef ::stlsoft::auto_buffer<char, ::stlsoft::new_allocator<char>, 256> buffer_t;
 
-    buffer_t    buffer(n);
+  buffer_t buffer(n);
 
-    ::b64::b64_encode(src, srcSize, &buffer[0], buffer.size());
+  ::b64::b64_encode(src, srcSize, &buffer[0], buffer.size());
 
-    string_t    s(&buffer[0], buffer.size());
+  string_t s(&buffer[0], buffer.size());
 #endif /* B64_STRING_TYPE_IS_CONTIGUOUS */
 
-    return s;
+  return s;
 }
 
 #ifdef __STLSOFT_CF_STATIC_ARRAY_SIZE_DETERMINATION_SUPPORT
@@ -215,9 +211,8 @@ inline string_t encode(void const *src, size_t srcSize)
  * the string type (\c string_t) does so.
  */
 template <typename T, size_t N>
-inline string_t encode(T (&ar)[N])
-{
-    return encode(&ar[0], sizeof(T) * N);
+inline string_t encode(T (&ar)[N]) {
+  return encode(&ar[0], sizeof(T) * N);
 }
 #endif /* __STLSOFT_CF_STATIC_ARRAY_SIZE_DETERMINATION_SUPPORT */
 
@@ -236,11 +231,7 @@ inline string_t encode(T (&ar)[N])
  * \note Exceptions: Provides the strong guarantee, assuming that the constructor for
  * the string type (\c string_t) does so.
  */
-inline string_t encode(blob_t const &blob)
-{
-    return encode(&blob[0], blob.size());
-}
-
+inline string_t encode(blob_t const &blob) { return encode(&blob[0], blob.size()); }
 
 /** \brief Decodes the given base-64 block into binary
  *
@@ -258,14 +249,13 @@ inline string_t encode(blob_t const &blob)
  * \note Exceptions: Provides the strong guarantee, assuming that the constructor for
  * the string type (\c string_t) does so.
  */
-inline blob_t decode(char const *src, size_t srcLen)
-{
-    size_t  n   =   ::b64::b64_decode(src, srcLen, NULL, 0);
-    blob_t  v(n);
+inline blob_t decode(char const *src, size_t srcLen) {
+  size_t n = ::b64::b64_decode(src, srcLen, NULL, 0);
+  blob_t v(n);
 
-    ::b64::b64_decode(src, srcLen, &v[0], v.size());
+  ::b64::b64_decode(src, srcLen, &v[0], v.size());
 
-    return v;
+  return v;
 }
 
 /** \brief Decodes the given string from base-64 into binary
@@ -284,9 +274,8 @@ inline blob_t decode(char const *src, size_t srcLen)
  * the string type (\c string_t) does so.
  */
 template <class S>
-inline blob_t decode(S const &str)
-{
-    return decode(stlsoft_ns_qual(c_str_ptr)(str), stlsoft_ns_qual(c_str_size)(str));
+inline blob_t decode(S const &str) {
+  return decode(stlsoft_ns_qual(c_str_ptr)(str), stlsoft_ns_qual(c_str_size)(str));
 }
 
 /** \brief Decodes the given string from base-64 into binary
@@ -304,10 +293,7 @@ inline blob_t decode(S const &str)
  * \note Exceptions: Provides the strong guarantee, assuming that the constructor for
  * the string type (\c string_t) does so.
  */
-inline blob_t decode(string_t const &str)
-{
-    return decode(stlsoft_ns_qual(c_str_ptr)(str), stlsoft_ns_qual(c_str_size)(str));
-}
+inline blob_t decode(string_t const &str) { return decode(stlsoft_ns_qual(c_str_ptr)(str), stlsoft_ns_qual(c_str_size)(str)); }
 
 /** \example Cpp.cpp
  * This is an example of how to use the b64::encode() and b64::decode() functions.

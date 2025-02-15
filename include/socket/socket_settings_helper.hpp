@@ -26,19 +26,20 @@
 #include <nscapi/nscapi_settings_helper.hpp>
 
 namespace socket_helpers {
-	namespace ph = boost::placeholders;
-	struct settings_helper {
-		static void add_port_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_, std::string default_port) {
-                  // clang-format off
+namespace ph = boost::placeholders;
+struct settings_helper {
+  static void add_port_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_, std::string default_port) {
+    // clang-format off
 			settings.alias().add_key_to_settings()
 				("port", nscapi::settings_helper::string_key(&info_.port_, default_port),
 					"PORT NUMBER", "Port to use for check_nt.")
 				;
-		// clang-format on
-		}
+    // clang-format on
+  }
 
-		static void add_ssl_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_, bool ssl_default, std::string dh_key, std::string certificate, std::string key, std::string default_cipher) {
-			// clang-format off
+  static void add_ssl_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_, bool ssl_default,
+                                  std::string dh_key, std::string certificate, std::string key, std::string default_cipher) {
+    // clang-format off
 			settings.alias().add_key_to_settings()
 
 				("use ssl", nscapi::settings_helper::bool_key(&info_.ssl.enabled, ssl_default),
@@ -89,11 +90,11 @@ namespace socket_helpers {
 					"This option must be used to prevent small subgroup attacks, when the DH parameters were not generated using \"strong\" primes (e.g. when using DSA-parameters).\n"
 					"\n\n", true)
 				;
-		// clang-format on
-		}
+    // clang-format on
+  }
 
-		static void add_core_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_) {
-                        // clang-format off
+  static void add_core_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_) {
+    // clang-format off
 			settings.alias().add_parent("/settings/default").add_key_to_settings()
 
 				("thread pool", nscapi::settings_helper::uint_key(&info_.thread_pool_size, 10),
@@ -115,27 +116,27 @@ namespace socket_helpers {
 					"TIMEOUT", "Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.")
 
 				;
-                        // clang-format on
-		}
+    // clang-format on
+  }
 
-		template<class object_type>
-		static void add_core_client_opts(nscapi::settings_helper::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool is_sample) {
-			nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
-			if (is_sample)
-				root_path.set_sample();
-                        // clang-format off
+  template <class object_type>
+  static void add_core_client_opts(nscapi::settings_helper::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object,
+                                   bool is_sample) {
+    nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
+    if (is_sample) root_path.set_sample();
+    // clang-format off
 			root_path.add_key()
 				("timeout", nscapi::settings_helper::int_fun_key(boost::bind(&object_type::set_property_int, &object, "timeout", pb::_1), 30),
 					"TIMEOUT", "Timeout when reading/writing packets to/from sockets.")
 				;
-                        // clang-format on
-		}
-		template<class object_type>
-		static void add_ssl_client_opts(nscapi::settings_helper::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool is_sample) {
-			nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
-			if (is_sample)
-				root_path.set_sample();
-                        // clang-format off
+    // clang-format on
+  }
+  template <class object_type>
+  static void add_ssl_client_opts(nscapi::settings_helper::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object,
+                                  bool is_sample) {
+    nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
+    if (is_sample) root_path.set_sample();
+    // clang-format off
 			root_path.add_key()
 
 				("dh", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "dh", ph::_1), "${certificate-path}/nrpe_dh_512.pem"),
@@ -162,7 +163,7 @@ namespace socket_helpers {
 				("use ssl", nscapi::settings_helper::bool_fun_key(boost::bind(&object_type::set_property_bool, &object, "ssl", pb::_1), true),
 					"ENABLE SSL ENCRYPTION", "This option controls if SSL should be enabled.")
 				;
-                        // clang-format on
-		}
-	};
-}
+    // clang-format on
+  }
+};
+}  // namespace socket_helpers

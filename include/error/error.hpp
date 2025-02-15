@@ -32,48 +32,34 @@
 #include <string>
 
 namespace error {
-	class format {
-	public:
+class format {
+ public:
 #ifdef WIN32
-		static std::string from_system(unsigned long dwError) {
-			return win32::format_message(0, "", dwError);
-		}
-		static std::string from_module(std::string module, unsigned long dwError) {
-			return win32::format_message(FORMAT_MESSAGE_IGNORE_INSERTS, module, dwError);
-		}
-		static std::string from_system(unsigned long dwError, unsigned long *arguments) {
-			return win32::format_message(0, "", dwError, arguments);
-		}
-		static std::string from_module(std::string module, unsigned long dwError, unsigned long *arguments) {
-			return win32::format_message(0, module, dwError, arguments);
-		}
-		class message {
-		public:
-			static std::string from_module(std::string module, unsigned long dwError) {
-				return win32::format_message(FORMAT_MESSAGE_IGNORE_INSERTS, module, dwError);
-			}
-			static std::string from_system(unsigned long dwError, unsigned long *arguments) {
-				return win32::format_message(0, "", dwError, arguments);
-			}
-		};
+  static std::string from_system(unsigned long dwError) { return win32::format_message(0, "", dwError); }
+  static std::string from_module(std::string module, unsigned long dwError) { return win32::format_message(FORMAT_MESSAGE_IGNORE_INSERTS, module, dwError); }
+  static std::string from_system(unsigned long dwError, unsigned long *arguments) { return win32::format_message(0, "", dwError, arguments); }
+  static std::string from_module(std::string module, unsigned long dwError, unsigned long *arguments) {
+    return win32::format_message(0, module, dwError, arguments);
+  }
+  class message {
+   public:
+    static std::string from_module(std::string module, unsigned long dwError) { return win32::format_message(FORMAT_MESSAGE_IGNORE_INSERTS, module, dwError); }
+    static std::string from_system(unsigned long dwError, unsigned long *arguments) { return win32::format_message(0, "", dwError, arguments); }
+  };
 #else
-    static std::string from_system(int dwError) {
-      char buf [1024];
-      ::strerror_r(dwError, buf, sizeof (buf));
-      return buf;
-    }
+  static std::string from_system(int dwError) {
+    char buf[1024];
+    ::strerror_r(dwError, buf, sizeof(buf));
+    return buf;
+  }
 #endif
-	};
-	class lookup {
-	public:
+};
+class lookup {
+ public:
 #ifdef WIN32
-		static std::string last_error(unsigned long dwLastError = -1) {
-			return win32::format_message(0, "", dwLastError == -1 ? win32::lookup() : dwLastError);
-		}
+  static std::string last_error(unsigned long dwLastError = -1) { return win32::format_message(0, "", dwLastError == -1 ? win32::lookup() : dwLastError); }
 #else
-		static std::string last_error(int dwLastError = -1) {
-			return ::error::format::from_system(dwLastError);
-		}
+  static std::string last_error(int dwLastError = -1) { return ::error::format::from_system(dwLastError); }
 #endif
-	};
-}
+};
+}  // namespace error

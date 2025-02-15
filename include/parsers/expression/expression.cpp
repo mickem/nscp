@@ -32,14 +32,14 @@ namespace phoenix = boost::phoenix;
 
 typedef parsers::simple_expression::entry entry;
 struct spirit_expression_parser {
-	template<class Iterator>
-	bool parse_raw(Iterator first, Iterator last, parsers::simple_expression::result_type& v) {
-		using phoenix::push_back;
-		using qi::lexeme;
-		qi::rule<Iterator, entry()> normal_rule;
-		qi::rule<Iterator, entry()> variable_rule_d;
-		qi::rule<Iterator, entry()> variable_rule_p;
-		// clang-format off
+  template <class Iterator>
+  bool parse_raw(Iterator first, Iterator last, parsers::simple_expression::result_type& v) {
+    using phoenix::push_back;
+    using qi::lexeme;
+    qi::rule<Iterator, entry()> normal_rule;
+    qi::rule<Iterator, entry()> variable_rule_d;
+    qi::rule<Iterator, entry()> variable_rule_p;
+    // clang-format off
 		normal_rule = lexeme[+(qi::char_ - "${" - "%(")][qi::_val = phoenix::construct<entry>(false, qi::_1)];
 		variable_rule_d = ("${" >> lexeme[+(qi::char_ - '}')] >> "}")[qi::_val = phoenix::construct<entry>(true, qi::_1)];
 		variable_rule_p = ("%(" >> lexeme[+(qi::char_ - ')')] >> ")")[qi::_val = phoenix::construct<entry>(true, qi::_1)];
@@ -52,11 +52,11 @@ struct spirit_expression_parser {
 				variable_rule_p[push_back(phoenix::ref(v), qi::_1)]
 				)
 			);
-		// clang-format on
-	}
+    // clang-format on
+  }
 };
 
-bool parsers::simple_expression::parse(const std::string &str, result_type& v) {
-	spirit_expression_parser parser;
-	return parser.parse_raw(str.begin(), str.end(), v);
+bool parsers::simple_expression::parse(const std::string& str, result_type& v) {
+  spirit_expression_parser parser;
+  return parser.parse_raw(str.begin(), str.end(), v);
 }

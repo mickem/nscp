@@ -17,7 +17,7 @@
 // Packet header for IPv4.
 //
 // The wire format of an IPv4 header is:
-// 
+//
 // 0               8               16                             31
 // +-------+-------+---------------+------------------------------+      ---
 // |       |       |               |                              |       ^
@@ -48,9 +48,8 @@
 // |                                                              |       v
 // +--------------------------------------------------------------+      ---
 
-class ipv4_header
-{
-public:
+class ipv4_header {
+ public:
   ipv4_header() { std::fill(rep_, rep_ + sizeof(rep_), 0); }
 
   unsigned char version() const { return (rep_[0] >> 4) & 0xF; }
@@ -65,25 +64,19 @@ public:
   unsigned char protocol() const { return rep_[9]; }
   unsigned short header_checksum() const { return decode(10, 11); }
 
-  boost::asio::ip::address_v4 source_address() const
-  {
-    boost::asio::ip::address_v4::bytes_type bytes
-      = { { rep_[12], rep_[13], rep_[14], rep_[15] } };
+  boost::asio::ip::address_v4 source_address() const {
+    boost::asio::ip::address_v4::bytes_type bytes = {{rep_[12], rep_[13], rep_[14], rep_[15]}};
     return boost::asio::ip::address_v4(bytes);
   }
 
-  boost::asio::ip::address_v4 destination_address() const
-  {
-    boost::asio::ip::address_v4::bytes_type bytes
-      = { { rep_[16], rep_[17], rep_[18], rep_[19] } };
+  boost::asio::ip::address_v4 destination_address() const {
+    boost::asio::ip::address_v4::bytes_type bytes = {{rep_[16], rep_[17], rep_[18], rep_[19]}};
     return boost::asio::ip::address_v4(bytes);
   }
 
-  friend std::istream& operator>>(std::istream& is, ipv4_header& header)
-  {
+  friend std::istream& operator>>(std::istream& is, ipv4_header& header) {
     is.read(reinterpret_cast<char*>(header.rep_), 20);
-    if (header.version() != 4)
-      is.setstate(std::ios::failbit);
+    if (header.version() != 4) is.setstate(std::ios::failbit);
     std::streamsize options_length = header.header_length() - 20;
     if (options_length < 0 || options_length > 40)
       is.setstate(std::ios::failbit);
@@ -92,11 +85,10 @@ public:
     return is;
   }
 
-private:
-  unsigned short decode(int a, int b) const
-    { return (rep_[a] << 8) + rep_[b]; }
+ private:
+  unsigned short decode(int a, int b) const { return (rep_[a] << 8) + rep_[b]; }
 
   unsigned char rep_[60];
 };
 
-#endif // IPV4_HEADER_HPP
+#endif  // IPV4_HEADER_HPP

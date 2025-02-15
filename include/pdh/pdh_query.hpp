@@ -28,31 +28,32 @@
 #include <pdh/pdh_counters.hpp>
 
 namespace PDH {
-	class PDHQuery : public PDH::subscriber {
-	public:
-		typedef boost::shared_ptr<PDHCounter> counter_type;
-		typedef std::list<counter_type> counter_list_type;
-		counter_list_type counters_;
-		PDH::PDH_HQUERY hQuery_;
-		bool hasDisplayedInvalidCOunter_;
-	public:
-		PDHQuery() : hQuery_(NULL), hasDisplayedInvalidCOunter_(false) {}
-		virtual ~PDHQuery(void);
+class PDHQuery : public PDH::subscriber {
+ public:
+  typedef boost::shared_ptr<PDHCounter> counter_type;
+  typedef std::list<counter_type> counter_list_type;
+  counter_list_type counters_;
+  PDH::PDH_HQUERY hQuery_;
+  bool hasDisplayedInvalidCOunter_;
 
-		void addCounter(pdh_instance counter);
-		void removeAllCounters();
+ public:
+  PDHQuery() : hQuery_(NULL), hasDisplayedInvalidCOunter_(false) {}
+  virtual ~PDHQuery(void);
 
-		bool has_counters();
+  void addCounter(pdh_instance counter);
+  void removeAllCounters();
 
-		virtual void on_unload();
-		virtual void on_reload();
+  bool has_counters();
 
-		void open();
-		void close();
+  virtual void on_unload();
+  virtual void on_reload();
 
-		void gatherData(bool ignore_errors = false);
-		inline void collect();
+  void open();
+  void close();
 
-		PDH::PDH_HQUERY getQueryHandle() const;
-	};
-}
+  void gatherData(bool ignore_errors = false);
+  inline void collect();
+
+  PDH::PDH_HQUERY getQueryHandle() const;
+};
+}  // namespace PDH

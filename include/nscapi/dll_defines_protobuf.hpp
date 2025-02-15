@@ -27,19 +27,19 @@ building a DLL on windows.
 */
 // We are using the Visual Studio Compiler and building Shared libraries
 
-#if defined (WIN32) 
-  #if defined(nscp_protobuf_NOLIB)
-    #define NSCAPI_PROTOBUF_EXPORT
-    #define LIBPROTOBUF_EXPORT
-  #else
-    #if defined(nscp_protobuf_EXPORTS)
-	  #define PROTOBUF_USE_DLLS
-      #define NSCAPI_PROTOBUF_EXPORT __declspec(dllexport)
-    #else
-	  #define PROTOBUF_USE_DLLS
-      #define NSCAPI_PROTOBUF_EXPORT __declspec(dllimport)
-    #endif /* protobuf_EXPORTS */
-  #endif /* protobuf_NOLIB */
-#else /* defined (_WIN32) */
- #define NSCAPI_PROTOBUF_EXPORT
+#if defined(WIN32)
+#if defined(nscp_protobuf_NOLIB)
+#define NSCAPI_PROTOBUF_EXPORT
+#define LIBPROTOBUF_EXPORT
+#else
+#if defined(nscp_protobuf_EXPORTS)
+#define PROTOBUF_USE_DLLS
+#define NSCAPI_PROTOBUF_EXPORT __declspec(dllexport)
+#else
+#define PROTOBUF_USE_DLLS
+#define NSCAPI_PROTOBUF_EXPORT __declspec(dllimport)
+#endif /* protobuf_EXPORTS */
+#endif /* protobuf_NOLIB */
+#else  /* defined (_WIN32) */
+#define NSCAPI_PROTOBUF_EXPORT
 #endif

@@ -32,59 +32,66 @@ namespace phoenix = boost::phoenix;
 #endif
 
 namespace parsers {
-	namespace where {
-		struct build_function_convert_int {
+namespace where {
+struct build_function_convert_int {
 #if BOOST_VERSION > 105500
-			template <typename A>
-			struct result { typedef node_type type; };
+  template <typename A>
+  struct result {
+    typedef node_type type;
+  };
 #else
-			template <typename A, typename B>
-			struct result { typedef node_type type; };
+  template <typename A, typename B>
+  struct result {
+    typedef node_type type;
+  };
 #endif
-			node_type operator()(const long long value, const char unit) const {
-				list_node_type args = factory::create_list();
-				std::string unit_s(1, unit);
-				args->push_back(factory::create_int(value));
-				args->push_back(factory::create_string(unit_s));
-				return factory::create_conversion(args);
-			}
-		};
-		struct build_function_convert_float {
+  node_type operator()(const long long value, const char unit) const {
+    list_node_type args = factory::create_list();
+    std::string unit_s(1, unit);
+    args->push_back(factory::create_int(value));
+    args->push_back(factory::create_string(unit_s));
+    return factory::create_conversion(args);
+  }
+};
+struct build_function_convert_float {
 #if BOOST_VERSION > 105500
-			template <typename A>
-			struct result { typedef node_type type; };
+  template <typename A>
+  struct result {
+    typedef node_type type;
+  };
 #else
-			template <typename A, typename B>
-			struct result { typedef node_type type; };
+  template <typename A, typename B>
+  struct result {
+    typedef node_type type;
+  };
 #endif
-			node_type operator()(const double value, const char unit) const {
-				list_node_type args = factory::create_list();
-				std::string unit_s(1, unit);
-				args->push_back(factory::create_float(value));
-				args->push_back(factory::create_string(unit_s));
-				return factory::create_conversion(args);
-			}
-		};
+  node_type operator()(const double value, const char unit) const {
+    list_node_type args = factory::create_list();
+    std::string unit_s(1, unit);
+    args->push_back(factory::create_float(value));
+    args->push_back(factory::create_string(unit_s));
+    return factory::create_conversion(args);
+  }
+};
 
-		template <typename T>
-		struct strict_real_policies : qi::real_policies<T> {
-			static bool const expect_dot = true;
-		};
+template <typename T>
+struct strict_real_policies : qi::real_policies<T> {
+  static bool const expect_dot = true;
+};
 
-		qi::real_parser<double, strict_real_policies<double> > real;
+qi::real_parser<double, strict_real_policies<double> > real;
 
+///////////////////////////////////////////////////////////////////////////
+//  Our calculator grammar
+///////////////////////////////////////////////////////////////////////////
+where_grammar::where_grammar(object_factory obj_factory) : where_grammar::base_type(expression, "where") {
+  using qi::double_;
+  using qi::long_long;
 
-		///////////////////////////////////////////////////////////////////////////
-		//  Our calculator grammar
-		///////////////////////////////////////////////////////////////////////////
-		where_grammar::where_grammar(object_factory obj_factory) : where_grammar::base_type(expression, "where") {
-			using qi::long_long;
-			using qi::double_;
+  boost::phoenix::function<build_function_convert_int> build_ic_int;
+  boost::phoenix::function<build_function_convert_float> build_ic_float;
 
-			boost::phoenix::function<build_function_convert_int> build_ic_int;
-			boost::phoenix::function<build_function_convert_float> build_ic_float;
-
-			// clang-format off
+  // clang-format off
 			expression
 				= and_expr[qi::_val = qi::_1]
 				>> *(charset::no_case["or"] >> and_expr)[qi::_val = phoenix::bind(&factory::create_bin_op, op_or, qi::_val, qi::_1)]
@@ -191,26 +198,26 @@ namespace parsers {
 				>> +(charset::char_ - ')')[qi::_val += qi::_1]
 				>> ')']
 				;
-			// clang-format on
+  // clang-format on
 
-							// 					qi::on_error<qi::fail>( expression , std::wcout
-							// 						<< phoenix::val(_T("Error! Expecting "))
-							// 						<< _4                               // what failed?
-							// 						<< phoenix::val(_T(" here: \""))
-							// 						<< phoenix::construct<std::wstring>(_3, _2)   // iterators to error-pos, end
-							// 						<< phoenix::val(_T("\""))
-							// 						<< std::endl
-							//);
+  // 					qi::on_error<qi::fail>( expression , std::wcout
+  // 						<< phoenix::val(_T("Error! Expecting "))
+  // 						<< _4                               // what failed?
+  // 						<< phoenix::val(_T(" here: \""))
+  // 						<< phoenix::construct<std::wstring>(_3, _2)   // iterators to error-pos, end
+  // 						<< phoenix::val(_T("\""))
+  // 						<< std::endl
+  //);
 
-							using phoenix::val;
-							qi::on_error<qi::fail>(expression, std::cout << val("Error! Expecting ") << std::endl);
+  using phoenix::val;
+  qi::on_error<qi::fail>(expression, std::cout << val("Error! Expecting ") << std::endl);
 
-							//				<< ("Error! Expecting ")
-							//				<< _4                               // what failed?
-							//				<< (" here: \"")
-							//				<< construct<std::string>(_3, _2)   // iterators to error-pos, end
-							//				<< ("\"")
-				// 			<< std::endl
-		}
-	}
+  //				<< ("Error! Expecting ")
+  //				<< _4                               // what failed?
+  //				<< (" here: \"")
+  //				<< construct<std::string>(_3, _2)   // iterators to error-pos, end
+  //				<< ("\"")
+  // 			<< std::endl
 }
+}  // namespace where
+}  // namespace parsers

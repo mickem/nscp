@@ -23,14 +23,13 @@
 #include <nscapi/dll_defines.hpp>
 
 namespace nscapi {
-	class NSCAPI_EXPORT helper_singleton {
-		core_wrapper* core_;
-	public:
-		helper_singleton();
-		core_wrapper* get_core() const {
-			return core_;
-		}
-	};
+class NSCAPI_EXPORT helper_singleton {
+  core_wrapper* core_;
 
-	extern helper_singleton* plugin_singleton;
-}
+ public:
+  helper_singleton();
+  core_wrapper* get_core() const { return core_; }
+};
+
+extern helper_singleton* plugin_singleton;
+}  // namespace nscapi

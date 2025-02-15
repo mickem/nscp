@@ -23,47 +23,47 @@
 #include <boost/thread/condition_variable.hpp>
 #include <boost/thread/shared_mutex.hpp>
 
-template<typename T>
+template <typename T>
 class concurrent_queue {
-private:
-	std::queue<T> queue_;
-	mutable boost::mutex mutex_;
-	boost::condition_variable condition_;
-public:
-	void push(T const& data) {
-		{
-			boost::mutex::scoped_lock lock(mutex_);
-			queue_.push(data);
-		}
-		condition_.notify_one();
-	}
+ private:
+  std::queue<T> queue_;
+  mutable boost::mutex mutex_;
+  boost::condition_variable condition_;
 
-	bool empty() const {
-		boost::mutex::scoped_lock lock(mutex_);
-		return queue_.empty();
-	}
+ public:
+  void push(T const& data) {
+    {
+      boost::mutex::scoped_lock lock(mutex_);
+      queue_.push(data);
+    }
+    condition_.notify_one();
+  }
 
-	bool try_pop(T& popped_value) {
-		boost::mutex::scoped_lock lock(mutex_);
-		if(queue_.empty()) {
-			return false;
-		}
+  bool empty() const {
+    boost::mutex::scoped_lock lock(mutex_);
+    return queue_.empty();
+  }
 
-		popped_value=queue_.front();
-		queue_.pop();
-		return true;
-	}
+  bool try_pop(T& popped_value) {
+    boost::mutex::scoped_lock lock(mutex_);
+    if (queue_.empty()) {
+      return false;
+    }
 
-	void wait_and_pop(T& popped_value) {
-		boost::mutex::scoped_lock lock(mutex_);
-		while(queue_.empty()) {
-			condition_.wait(lock);
-		}
+    popped_value = queue_.front();
+    queue_.pop();
+    return true;
+  }
 
-		if (!queue_.empty()) {
-			popped_value=queue_.front();
-			queue_.pop();
-		}
-	}
+  void wait_and_pop(T& popped_value) {
+    boost::mutex::scoped_lock lock(mutex_);
+    while (queue_.empty()) {
+      condition_.wait(lock);
+    }
 
+    if (!queue_.empty()) {
+      popped_value = queue_.front();
+      queue_.pop();
+    }
+  }
 };

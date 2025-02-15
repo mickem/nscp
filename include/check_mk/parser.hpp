@@ -24,10 +24,11 @@
 #include <boost/noncopyable.hpp>
 
 namespace check_mk {
-	namespace server {
-		class parser : public boost::noncopyable {
-			std::vector<char> buffer_;
-		public:
-		};
-	}// namespace server
-} // namespace nscp
+namespace server {
+class parser : public boost::noncopyable {
+  std::vector<char> buffer_;
+
+ public:
+};
+}  // namespace server
+}  // namespace check_mk

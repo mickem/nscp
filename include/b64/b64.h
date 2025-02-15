@@ -11,11 +11,11 @@
  * Copyright 2004-2005, Matthew Wilson and Synesis Software
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without 
+ * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
  * - Redistributions of source code must retain the above copyright notice, this
- *   list of conditions and the following disclaimer. 
+ *   list of conditions and the following disclaimer.
  * - Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
@@ -37,7 +37,6 @@
  *
  * ////////////////////////////////////////////////////////////////////////// */
 
-
 /** \file b64/b64.h Header file for the b64 library
  */
 
@@ -49,10 +48,10 @@
  */
 
 #ifndef B64_DOCUMENTATION_SKIP_SECTION
-# define B64_VER_B64_H_B64_MAJOR    1
-# define B64_VER_B64_H_B64_MINOR    0
-# define B64_VER_B64_H_B64_REVISION 4
-# define B64_VER_B64_H_B64_EDIT     9
+#define B64_VER_B64_H_B64_MAJOR 1
+#define B64_VER_B64_H_B64_MINOR 0
+#define B64_VER_B64_H_B64_REVISION 4
+#define B64_VER_B64_H_B64_EDIT 9
 #endif /* !B64_DOCUMENTATION_SKIP_SECTION */
 
 /** \def B64_VER_MAJOR
@@ -71,17 +70,17 @@
  * The current composite version number of b64
  */
 
-#define B64_VER_MAJOR       1
-#define B64_VER_MINOR       0
-#define B64_VER_REVISION    2
+#define B64_VER_MAJOR 1
+#define B64_VER_MINOR 0
+#define B64_VER_REVISION 2
 
 #ifndef B64_DOCUMENTATION_SKIP_SECTION
-# define B64_VER_1_0_1      0x01000100
-# define B64_VER_1_0_2      0x01000200
+#define B64_VER_1_0_1 0x01000100
+#define B64_VER_1_0_2 0x01000200
 
-# define B64_VER             B64_VER_1_0_2
+#define B64_VER B64_VER_1_0_2
 #else /* ? B64_DOCUMENTATION_SKIP_SECTION */
-# define B64_VER            0x01000200
+#define B64_VER 0x01000200
 #endif /* !B64_DOCUMENTATION_SKIP_SECTION */
 
 /* /////////////////////////////////////////////////////////////////////////////
@@ -111,13 +110,13 @@ extern "C" {
  * \param src Pointer to the block to be encoded. May not be NULL, except when
  * \c dest is NULL, in which case it is ignored.
  * \param srcSize Length of block to be encoded
- * \param dest Pointer to the buffer into which the result is to be written. May 
+ * \param dest Pointer to the buffer into which the result is to be written. May
  * be NULL, in which case the function returns the required length
  * \param destLen Length of the buffer into which the result is to be written. Must
- * be at least as large as that indicated by the return value from 
+ * be at least as large as that indicated by the return value from
  * \c b64_encode()(NULL, srcSize, NULL, 0).
  *
- * \return 0 if the size of the buffer was insufficient, or the length of the 
+ * \return 0 if the size of the buffer was insufficient, or the length of the
  * converted buffer was longer than \c destLen
  *
  * \note The function returns the required length if \c dest is NULL
@@ -132,22 +131,22 @@ size_t b64_encode(void const *src, size_t srcSize, char *dest, size_t destLen);
  * \c dest is NULL, in which case it is ignored. If \c dest is NULL, and \c src is
  * <b>not</b> NULL, then the returned value is calculated exactly, otherwise a value
  * is returned that is guaranteed to be large enough to hold the decoded block.
- * 
+ *
  * \param srcLen Length of block to be encoded. Must be an integral of 4, the base64
  * encoding quantum, otherwise the base64 block is assumed to be invalid
- * \param dest Pointer to the buffer into which the result is to be written. May 
+ * \param dest Pointer to the buffer into which the result is to be written. May
  * be NULL, in which case the function returns the required length
  * \param destSize Length of the buffer into which the result is to be written. Must
- * be at least as large as that indicated by the return value from 
+ * be at least as large as that indicated by the return value from
  * \c b64_decode(src, srcSize, NULL, 0).
  *
- * \return 0 if the size of the buffer was insufficient, or the length of the 
+ * \return 0 if the size of the buffer was insufficient, or the length of the
  * converted buffer was longer than \c destSize
  *
  * \note Threading: The function is fully re-entrant.
  */
 size_t b64_decode(char const *src, size_t srcLen, void *dest, size_t destSize);
-//std::wstring b64_decode(std::wstring);
+// std::wstring b64_decode(std::wstring);
 
 #ifdef __cplusplus
 } /* extern "C" */
@@ -248,8 +247,8 @@ size_t b64_decode(char const *src, size_t srcLen, void *dest, size_t destSize);
  * and from decoding from:
  * \li a C-string (<tt>char const*</tt>) and a length
  * \li a \c string_t instance
- * \li any type for which string <a href = "http://www.cuj.com/documents/s=8681/cuj0308wilson/">Access Shims</a> 
- * \c c_str_ptr() and \c c_str_len() have been defined; this includes many types within the 
+ * \li any type for which string <a href = "http://www.cuj.com/documents/s=8681/cuj0308wilson/">Access Shims</a>
+ * \c c_str_ptr() and \c c_str_len() have been defined; this includes many types within the
  * <a href = "http://stlsoft.org/">STLSoft</a> libraries
  *
  */
