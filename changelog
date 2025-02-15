@@ -44,7 +44,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
  * Removed query from settings protobuf api as it was never used
  * CORE: Fixed listing unloaded modules by name
  * REST: Added POST of modules to upload them
- * REST: Fixed execute_nagios support for plain text putput and fixed return code
+ * REST: Fixed execute_nagios support for plain text output and fixed return code
  * REST: Fixed segv when parsing privileges
  * WEBServer: Fixed output from nscp web install
  * zip-modules: fixed loading zip-modules without extensions
@@ -76,8 +76,8 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
  * check_process: Fixed #494 empty status message
  * Events: Added proper event names
  * CheckEventLog added support for fetching xml
- * REST: added privelages to query controller
- * Fixed rendering issuein api docs
+ * REST: added privileges to query controller
+ * Fixed rendering issue in api docs
 
 2017-11-11 Michael Medin
  * Added skeleton docs for the Python API
@@ -154,7 +154,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
  * Added delete to CHeckExternalScritpts to delete scripts: nscp ext delete --script <alias> will delete the alias and nscp ext delete --script <script> will delete the script.
  * Added  scripts controller /api/v1/scripts/ext/scripts to add/remove(not yet) and update scripts.
  * modules rest API now by default shows loaded modules not available modules.
- * Future prooofed the mongoose wrapper a bit by adding an internal structure to userdata
+ * Future proofed the mongoose wrapper a bit by adding an internal structure to userdata
  * Added --import to import a script (copy) to the scripts folder
  * Added new commandline show to show script in external scripts module: "nscp ext show --script <alias>" will show the actual command execute and "nscp ext show --script <script>" will show the content of the script.
 
@@ -172,7 +172,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
 
 2017-09-05 Michael Medin
  * Fixed name of Windows 2016 server
- * check_os_version: Added %(suite) to show wich suite is installed.
+ * check_os_version: Added %(suite) to show which suite is installed.
 
 2017-08-29 Michael Medin
  * Added option to disable background checks in CheckSystem (this is not useful as it breaks things, so only use if you have issues)
@@ -201,7 +201,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
 2017-07-29 Michael Medin
  * Fixed error handling when checks crash
  * Added unit test for scheduler
- * python unittest helper lib: Added assert_gt and asser_lt to check values
+ * python unittest helper lib: Added assert_gt and assert_lt to check values
  * Added --show-all to nscp unit to show all results of the testcase (not just failed ones)
  * Fixed rare crash when logger shuts down
  * Fixed rare crash when scheduler shuts down
@@ -374,7 +374,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
  * NRDP: Fixed #331 token missing from NRDP
  * Settings: Fixed #227 migration only saves the root scope
  * Added aliases to settings for future use
- * Improved settings esception to give error from correct line
+ * Improved settings exception to give error from correct line
  * Moved settings and registry query to separate files to make the core more modular
  * Removed "boot settings keys" as they are not really used
 
@@ -411,7 +411,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
 
 2016-08-23 Michael Medin
 * Linux: Fixed specfile version numbers
-* TaskScheduler: Fixed folder support in tash scheduler
+* TaskScheduler: Fixed folder support in task scheduler
 * CheckWMI: Improved error in check_wmi
 * Fixed segv
 * CHeckHelpers: Fixed missing return data in check_multi
@@ -448,7 +448,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
 
 2016-05-30 Michael Medin
  * Fixed scheduler reload not resetting old schedules
- * Change so scheduler logs actual file sinstead of wrapper.
+ * Change so scheduler logs actual file instead of wrapper.
  * removed now defunct old icp protocol
  * Added matches to settings api wrapper
  * removed some compiler warning from protobuf
@@ -459,7 +459,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
  * filters: Fixed #292 Unicode support for filters
  * NSCA: Fixed #300 alias not used when sending NSCP results
  * check_nscp: Added SSl support and general fixes to check_nscp (check_remote_nscp)
- * CheckHelpers: Fixed 301: check_multi does not parse qouted commands properly (possibly breaking change)
+ * CheckHelpers: Fixed 301: check_multi does not parse quoted commands properly (possibly breaking change)
 
 2016-04-14 Michael Medin
  * NSCPClient: Added preliminary REST client
@@ -469,7 +469,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
 2016-04-11 Michael Medin
  * scripts: Added option capture output to external script to disable output capture and handled inheritance (Fixes #232)
  * WEBServer: Added support for allowed hosts to WEBServer
- * WEBServer: Updated mongoose Fixing: Busy wait when socket failes
+ * WEBServer: Updated mongoose Fixing: Busy wait when socket fails
  * all commands: Fixed #280 parsing filters with large numbers
  * updated docs
 
@@ -488,7 +488,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
 2016-04-05 Michael Medin
  * Fixed vagrant builds
  * Changed so volume name errors ends up as volume names instead of in the log #230
- * Improved #275 so next settings system is tried if the first one failes
+ * Improved #275 so next settings system is tried if the first one fails
  * Fixed settings key issue
  * Fixed various build issues
  * Fixed #272 floating point performance data
@@ -551,7 +551,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
  * Fixed realtime log file using wrong data
  * Removed tools from non w32 builds (as the only tool is the crash uploader which is windows only)
  * Removed breakpad for non windows builds (as it currently only works on windows)
- * Added support for check_drivesize exclude=c and exclude=d: to make backwards compatiblity better
+ * Added support for check_drivesize exclude=c and exclude=d: to make backwards compatibility better
 
 2016-03-09 Michael Medin
  * Improved logging on network metrics (Possibly fixed 260 )
@@ -566,14 +566,14 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
 2016-03-03 Michael Medin
  * First draft of check_network (not yet finished)
  * #204 Fixed message rendering for eventlog messages
- * Stopped fetching network metrics if fetching them failes on Older windows like 2003 where it is not available
+ * Stopped fetching network metrics if fetching them fails on Older windows like 2003 where it is not available
  * improved error handling for wmi queries
 
 2016-02-27 Michael Medin
  * #204 Added support for modern API to real time eventlogs
  * Improved error log in real time threads
  * #204 Fixed int to string conversion filter issue
- * Added to_string methd for realtime data (to make errors better)
+ * Added to_string method for realtime data (to make errors better)
 
 2016-02-09 Michael Medin
  * Added network metrics
@@ -635,7 +635,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
  * Fixed #185 extract_perf should now work as expected
  * Fixed #154 Added escape-html flag to all check commands and escape html option to all real time filters.
  * Added support for -a to check_nrpe command (Fixed #158 )
- * Fixed issue when parsing commandline with first otion as short
+ * Fixed issue when parsing commandline with first option as short
  * Fixed #201 negative perf data in checks
  * Renamed status to task_status as it clashes with regular status (Fixed #170)
  * Fixed issue with atomic functions missing in older boost
@@ -696,7 +696,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
  * Added build commandline options
  * Added build command option to build script (to skip configure)
  * Fixed issue with missing command help being target all modules
- * Fixed issue with default not beeing set as template
+ * Fixed issue with default not being set as template
  * Fixed issue with python scripts and script arguments
  * Fixed some socket bugs in web ui
  * Added filtering to query and module
@@ -833,7 +833,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
 
 2015-02-11 Michael Medin
  * #105 Fixed issue with parsing legacy style checkservice comamnds
- * improved error handling is service check parsing failes
+ * improved error handling is service check parsing fails
 
 2015-02-06 Michael Medin
  * #102 fixed check_os_version default filter
@@ -1044,7 +1044,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
 
 2014-11-16 MickeM
  * Added help to command line client
- * Changed so averages are used if polling failes
+ * Changed so averages are used if polling fails
  * Fixed installer issues
  * Fixed extern script command line interface
  * Fixed issue with total and check_pagefile
@@ -2103,7 +2103,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
 
 2012-01-08 MickeM
  * Fixed some issues in the NRPE decoder
- * Added support for forwarding queries (ie. xxx_forward) mainly usefull for python(?) scripts where we can now handconstruct messages for delivery
+ * Added support for forwarding queries (ie. xxx_forward) mainly useful for python(?) scripts where we can now handconstruct messages for delivery
  * Added NRPE unit tests (52 of them)
 
 2011-12-08 MickeM
@@ -2300,7 +2300,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
  * Fixed issue in the NSCP server
 
 2011-08-22 MickeM
- * Added initial NSCP protocol implenmentation (very vrude and not really usefull yet)
+ * Added initial NSCP protocol implenmentation (very vrude and not really useful yet)
  * Fixed so it builds on linux
  * Fixed so automagic plugin renaming add lib<LIB name> on *nix.
  * Fixed so it works on linux (fixed issues with timeout)
@@ -2536,7 +2536,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
 
 2009-01-17 MickeM
  + Added new command line option pdhlookup (to CheckSystem) to lookup index from names.
-   Probably not usefull to anyone but me :) Usage: "nsclient++ -noboot CheckSystem pdhlookup Antal bindningsreferenser"
+   Probably not useful to anyone but me :) Usage: "nsclient++ -noboot CheckSystem pdhlookup Antal bindningsreferenser"
  * Fixed so PDH Collectors use the same exception as the rest of the PDH stuff (might give better errors when PDH breaks, but I doubt it)
  * removed debug output from -noboot
  + Added new command line pdhmatch option to use pattern matching on PDH queries
@@ -2550,7 +2550,7 @@ Hence forth change log can be found on github: https://github.com/mickem/nscp/re
  * Fixed issue with 64-bit installer (now installs under Program Files (and not x86)
  + Brand new build enviornment based upon boost build!!!
    Use batch file to build (release-build.bat or modify to make your own)
- * Modified /about so it now shows a lot of usefull(?) info.
+ * Modified /about so it now shows a lot of useful(?) info.
 
 2008-11-13 MickeM
  + Added truncate option to checkServiceState

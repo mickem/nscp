@@ -178,7 +178,7 @@ channel=CACHE
 #### PRIMARY CACHE INDEX <a id="/settings/cache/primary index"></a>
 
 Set this to the value you want to use as unique key for the cache.
-Can be any arbitrary string as well as include any of the following special keywords:${command} = The command name, ${host} the host, ${channel} the recieving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherweise command, ${message} = the message data (no escape), ${result} = The result status (number).
+Can be any arbitrary string as well as include any of the following special keywords:${command} = The command name, ${host} the host, ${channel} the receiving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherwise command, ${message} = the message data (no escape), ${result} = The result status (number).
 
 
 

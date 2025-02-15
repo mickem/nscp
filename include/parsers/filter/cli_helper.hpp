@@ -318,11 +318,11 @@ namespace modern_filter {
 		void add_syntax(const std::string &default_top_syntax, const std::string &default_detail_syntax, const std::string &default_perf_syntax, const std::string &default_empty_syntax, const std::string &default_ok_syntax) {
 			std::string tk = "Top level syntax.\n"
 				"Used to format the message to return can include text as well as special keywords which will include information from the checks.\n"
-				"To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).";
+				"To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).";
 			std::string dk = "Detail level syntax.\n"
 				"Used to format each resulting item in the message.\n"
 				"%(list) will be replaced with all the items formated by this syntax string in the top-syntax.\n"
-				"To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).";
+				"To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).";
 			std::string pk = "Performance alias syntax.\n"
 				"This is the syntax for the base names of the performance data.";
 			std::string ek = "Empty syntax.\n"

@@ -16,7 +16,7 @@ For most people installing NSClient++ is simply running the MSI entering some op
 Before you start NSClient++ you need to configure it by editing the configuration. The configuration is usually in a file called nsclient.ini.
 But the configuration can be stored elsewhere as will (for instance registry is a great place on Windows).
 
-To check where the configuration is stored you can trun the following command:
+To check where the configuration is stored, you can run the following command:
 ```
 $ nscp settings --show
 INI settings: (ini://${shared-path}/nsclient.ini, C:\source\build\x64\dev/nsclient.ini)

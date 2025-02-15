@@ -97,16 +97,12 @@ They do not denote warning or critical state instead it defines which items are 
 Filter which marks items which generates a warning state.
 If anything matches this filter the return status will be escalated to warning.
 
-*Example:* `warning="line LIKE 'WARN'"`
-
 
 
 <h5 id="check_logfile_critical">critical:</h5>
 
 Filter which marks items which generates a critical state.
 If anything matches this filter the return status will be escalated to critical.
-
-*Example:* `warning="line LIKE 'ERROR'"`
 
 
 
@@ -134,7 +130,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Top level syntax.
 Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${count}/${total} (${problem_list})`
 
@@ -157,7 +153,7 @@ DEPRECATED! This is the syntax for when nothing matches the filter.
 Detail level syntax.
 Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${column1}`
 
@@ -189,9 +185,6 @@ In other words if one file contains an error the entire check will result in err
 
 
 <a name="check_logfile_filter_keys"/>
-
-The following keywords may be used to write a [filter expression](/checks/#expressions).
-
 #### Filter keywords
 
 
