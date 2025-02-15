@@ -234,7 +234,7 @@ void legacy_controller::settings_status(Mongoose::Request &request, Mongoose::St
 void legacy_controller::auth_token(Mongoose::Request &request, Mongoose::StreamResponse &response) {
 
 	if (!session->is_allowed(request.getRemoteIp())) {
-		response.setCodeForbidden("403 Your not allowed");
+		response.setCodeForbidden("403 You're not allowed");
 		return;
 	}
 
