@@ -153,19 +153,19 @@ This is a section of objects. This means that you will create objects below this
 **Keys:**
 
 
-| Key         | Default Value | Description        |
-|-------------|---------------|--------------------|
-| alias       |               | ALIAS              |
-| channel     |               | SCHEDULE CHANNEL   |
-| command     |               | SCHEDULE COMMAND   |
-| interval    |               | SCHEDULE INTERVAL  |
-| is template | false         | IS TEMPLATE        |
-| parent      | default       | PARENT             |
-| randomness  |               | RANDOMNESS         |
-| report      |               | REPORT MODE        |
-| schedule    |               | SCHEDULE           |
-| source      |               | SOURCE             |
-| target      |               | TARGET             |
+| Key         | Default Value | Description       |
+|-------------|---------------|-------------------|
+| alias       |               | ALIAS             |
+| channel     |               | SCHEDULE CHANNEL  |
+| command     |               | SCHEDULE COMMAND  |
+| interval    |               | SCHEDULE INTERVAL |
+| is template | false         | IS TEMPLATE       |
+| parent      | default       | PARENT            |
+| randomness  |               | RANDOMNESS        |
+| report      |               | REPORT MODE       |
+| schedule    |               | SCHEDULE          |
+| source      |               | SOURCE            |
+| target      |               | TARGET            |
 
 
 **Sample:**

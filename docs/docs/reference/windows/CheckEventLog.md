@@ -151,7 +151,7 @@ enabled = true
 Adding this will not do much since we don't have a filter yet but adding one is pretty simple as well so lets go ahead and do that.
 
 To make life simple we set the destination in this filter to "log" which means the information only ends up in the NSClient++ log file.
-Not very usefull in reality but very usefull when we are debuggning as it removes possible errors sources.
+Not very useful in reality but very useful when we are debugging as it removes possible errors sources.
 
 **configuration:**
 ```
@@ -167,7 +167,7 @@ Going through the configuration line by line we have:
 
 * `log=application` is the log we listen to.
 * `destination=log` is where the message is sent
-* `filter=level='error'` means we only want to recieve error messages.
+* `filter=level='error'` means we only want to receive error messages.
 * `maximum age=30s` sets a repeating "ok" messages every 30 seconds.
 * `debug=true` will increase the debug level for this filter
 
@@ -190,7 +190,7 @@ If we check the log we should see something similar to this:
 
 ![eventlog output](../../images/eventlog-realtime-log.png)
 
-* 1: Always makre sure there are not errors and that the parsed tree looks like you want it. If the filter has syntax issues nothign will work
+* 1: Always make sure there are not errors and that the parsed tree looks like you want it. If the filter has syntax issues nothing will work
 * 2: This is how it looks when we inject an error message, it is caught and we get the `Notification 0: Application: 1 (error: My first log)` in the log.
 * 3: This is the periodical "ok" message we get when there are not errors: `Notification 0: eventlog found no records`
 * 4: Here we can see the output when there is a message but it does not match our filter.
@@ -406,7 +406,7 @@ Use bookmarks to only look for messages since last check (with the same bookmark
 | guid          | The logfile name                                                                                             |
 | id            | Eventlog id                                                                                                  |
 | keyword       | The keyword associated with this event                                                                       |
-| level         | Severity level (error, warning, info, success, auditSucess, auditFailure)                                    |
+| level         | Severity level (error, warning, info, success, auditSuccess, auditFailure)                                   |
 | list          | A list of all items which matched the filter. Common option for all checks.                                  |
 | log           | alias for file                                                                                               |
 | message       | The message rendered as a string.                                                                            |

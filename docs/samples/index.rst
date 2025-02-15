@@ -252,7 +252,7 @@ OK memory within bounds.|'page'=531G;3;3;0;3 'page %'=12%;79;89;0;100 'physical'
 ```
 **Overriding the unit:**
 
-Most "byte" checks such as memory have an auto scaling feature which means values wqill go from 800M to 1.2G between checks.
+Most "byte" checks such as memory have an auto scaling feature which means values will go from 800M to 1.2G between checks.
 Some graphing systems does not honor the units in performance data in which case you can get unexpected large values (such as 800G).
 To remedy this you can lock the unit by adding `perf-config=*(unit:G)`
 
@@ -266,7 +266,7 @@ page = 8.05G, physical = 7.85G
 check_os_version
 ----------------
 
-Check the version of the underlaying OS.
+Check the version of the underlying OS.
 
 .. include:: ../samples/**Default check:**
 
@@ -315,7 +315,7 @@ Performance data: 'total'=1G;14;19;0;23 'total %'=6%;59;79;0;100
 
 ```
 
-Getting help on avalible options::
+Getting help on available options::
 
 ```
 check_pagefile help
@@ -325,7 +325,7 @@ check_pagefile help
 					   the check.
 					   They do not denote warning or critical state but they
 					   are checked use this to filter out unwanted items.
-						   Avalible options:
+						   Available options:
 					   free          Free memory in bytes (g,m,k,b) or percentages %
 					   name          The name of the page file (location)
 					   size          Total size of pagefile
@@ -377,7 +377,7 @@ check_pdh "counter=\\4\\30" "warn=value > 5" "crit=value > 9999" flags=nocap100 
 '\Minne\Dedikationsgräns value'=25729224704;5;9999
 ```
 
-Using real-time checks to check avergae values over time.
+Using real-time checks to check average values over time.
 
 Here we configure a counter to be checked at regular intervals and the value is added to a rrd buffer.
 The configuration from nsclient.ini::
@@ -517,7 +517,7 @@ check_service exclude=nfoo
 L        cli CRITICAL: CRITICAL: nscp=stopped (auto), nscp2=stopped (auto), ...
 ```
 
-Excluding nscp2 with substring like mathcing filter:
+Excluding nscp2 with substring like matching filter:
 ```
 check_service exclude=nfoo "filter=name not like 'nscp'"
 L        cli CRITICAL: CRITICAL: ...

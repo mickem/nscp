@@ -144,7 +144,7 @@ namespace schedules {
 						"SCHEDULE CHANNEL", "Channel to send results on")
 
 					("interval", sh::string_fun_key(boost::bind(&schedule_object::set_duration, this, ph::_1)),
-					"SCHEDULE INTERAVAL", "Time in seconds between each check")
+					"SCHEDULE INTERVAL", "Time in seconds between each check")
 
 					("randomness", sh::string_fun_key(boost::bind(&schedule_object::set_randomness, this, ph::_1)),
 						"RANDOMNESS", "% of the interval which should be random to prevent overloading server resources")
@@ -162,7 +162,7 @@ namespace schedules {
 						"SCHEDULE CHANNEL", "Channel to send results on")
 
 					("interval", sh::string_fun_key(boost::bind(&schedule_object::set_duration, this, ph::_1)),
-						"SCHEDULE INTERAVAL", "Time in seconds between each check", true)
+						"SCHEDULE INTERVAL", "Time in seconds between each check", true)
 
 					("randomness", sh::string_fun_key(boost::bind(&schedule_object::set_randomness, this, ph::_1)),
 						"RANDOMNESS", "% of the interval which should be random to prevent overloading server resources")

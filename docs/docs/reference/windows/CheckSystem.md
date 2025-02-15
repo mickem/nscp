@@ -18,7 +18,7 @@ A list of all available queries (check commands)
 | [check_cpu](#check_cpu)                 | Check that the load of the CPU(s) are within bounds.                          |
 | [check_memory](#check_memory)           | Check free/used memory on the system.                                         |
 | [check_network](#check_network)         | Check network interface status.                                               |
-| [check_os_version](#check_os_version)   | Check the version of the underlying OS.                                      |
+| [check_os_version](#check_os_version)   | Check the version of the underlying OS.                                       |
 | [check_pagefile](#check_pagefile)       | Check the size of the system pagefile(s).                                     |
 | [check_pdh](#check_pdh)                 | Check the value of a performance (PDH) counter on the local or remote system. |
 | [check_process](#check_process)         | Check state/metrics of one or more of the processes running on the computer.  |
@@ -291,7 +291,7 @@ OK memory within bounds.|'page'=531G;3;3;0;3 'page %'=12%;79;89;0;100 'physical'
 ```
 **Overriding the unit:**
 
-Most "byte" checks such as memory have an auto scaling feature which means values wqill go from 800M to 1.2G between checks.
+Most "byte" checks such as memory have an auto scaling feature which means values will go from 800M to 1.2G between checks.
 Some graphing systems does not honor the units in performance data in which case you can get unexpected large values (such as 800G).
 To remedy this you can lock the unit by adding `perf-config=*(unit:G)`
 
@@ -1548,7 +1548,7 @@ AdobeActiveFileMonitor10.0: running, AdobeARMservice: running, AMD External Even
 
 **Exclude versus filter**::
 
-You can use both exclude and filter to exclude services the benefit of exclude is that it is faster with the obvious drawback that it only works on the service name.
+You can use both exclude and filter to exclude services the befnefit of exclude is that it is faster with the obvious drawback that it only works on the service name.
 The upside to filters are that they are richer in terms of functionality i.e. substring matching (as below).
 
 Regular check
@@ -1631,7 +1631,7 @@ check_service service=nscp "crit=state = 'started'" warn=none
 | [perf-syntax](#check_service_perf-syntax)     | ${name}                                         | Performance alias syntax.                                                                                                                             |
 | computer                                      |                                                 | The name of the remote computer to check                                                                                                              |
 | service                                       |                                                 | The service to check, set this to * to check all services                                                                                             |
-| exclude                                       |                                                 | A list of services to ignore (mainly useful in combination with service=*)                                                                           |
+| exclude                                       |                                                 | A list of services to ignore (mainly useful in combination with service=*)                                                                            |
 | [type](#check_service_type)                   | service                                         | The types of services to enumerate available types are driver, file-system-driver, kernel-driver, service, service-own-process, service-share-process |
 | [state](#check_service_state)                 | all                                             | The types of services to enumerate available states are active, inactive or all                                                                       |
 | only-essential                                | N/A                                             | Set filter to classification = 'essential'                                                                                                            |

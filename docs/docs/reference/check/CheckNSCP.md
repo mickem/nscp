@@ -15,7 +15,7 @@ A list of all available queries (check commands)
 
 | Command                                   | Description                                    |
 |-------------------------------------------|------------------------------------------------|
-| [check_nscp](#check_nscp)                 | Check the internal health of NSClient++.        |
+| [check_nscp](#check_nscp)                 | Check the internal health of NSClient++.       |
 | [check_nscp_version](#check_nscp_version) | Check the version of NSClient++ which is used. |
 
 

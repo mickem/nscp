@@ -97,16 +97,12 @@ They do not denote warning or critical state instead it defines which items are 
 Filter which marks items which generates a warning state.
 If anything matches this filter the return status will be escalated to warning.
 
-*Example:* `warning="line LIKE 'WARN'"`
-
 
 
 <h5 id="check_logfile_critical">critical:</h5>
 
 Filter which marks items which generates a critical state.
 If anything matches this filter the return status will be escalated to critical.
-
-*Example:* `warning="line LIKE 'ERROR'"`
 
 
 
@@ -189,9 +185,6 @@ In other words if one file contains an error the entire check will result in err
 
 
 <a name="check_logfile_filter_keys"/>
-
-The following keywords may be used to write a [filter expression](/checks/#expressions).
-
 #### Filter keywords
 
 
