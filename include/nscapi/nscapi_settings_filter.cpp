@@ -26,6 +26,7 @@ namespace nscapi {
 
 		void filter_object::read_object(nscapi::settings_helper::path_extension &path, const bool is_default) {
 			namespace sh = nscapi::settings_helper;
+  // clang-format off
 			path.add_key()
 				("filter", sh::cstring_fun_key(boost::bind(&filter_object::set_filter_string, this, ph::_1)),
 					"FILTER", "Scan files for matching rows for each matching rows an OK message will be submitted")
@@ -84,6 +85,7 @@ namespace nscapi {
 					"ESCAPE HTML", "Escape HTML characters (< and >).", true)
 
 				;
+// clang-format on
 		}
 
 		void filter_object::apply_parent(const filter_object &parent) {

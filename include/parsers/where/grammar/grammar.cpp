@@ -84,6 +84,7 @@ namespace parsers {
 			boost::phoenix::function<build_function_convert_int> build_ic_int;
 			boost::phoenix::function<build_function_convert_float> build_ic_float;
 
+			// clang-format off
 			expression
 				= and_expr[qi::_val = qi::_1]
 				>> *(charset::no_case["or"] >> and_expr)[qi::_val = phoenix::bind(&factory::create_bin_op, op_or, qi::_val, qi::_1)]
@@ -190,6 +191,7 @@ namespace parsers {
 				>> +(charset::char_ - ')')[qi::_val += qi::_1]
 				>> ')']
 				;
+			// clang-format on
 
 							// 					qi::on_error<qi::fail>( expression , std::wcout
 							// 						<< phoenix::val(_T("Error! Expecting "))

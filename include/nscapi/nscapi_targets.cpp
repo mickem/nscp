@@ -33,6 +33,7 @@ void nscapi::targets::target_object::read(nscapi::settings_helper::settings_impl
 	if (is_sample)
 		root_path.set_sample();
 
+  // clang-format off
 	root_path.add_path()
 		("TARGET", "Target definition for: " + this->get_alias())
 		;
@@ -55,12 +56,14 @@ void nscapi::targets::target_object::read(nscapi::settings_helper::settings_impl
 		"RETRIES", "Number of times to retry sending.")
 
 		;
+// clang-format on
 
 	settings.register_all();
 	settings.notify();
 }
 
 void nscapi::targets::target_object::add_ssl_keys(nscapi::settings_helper::path_extension root_path) {
+	// clang-format off
 	root_path.add_key()
 
 		("dh", sh::path_fun_key(boost::bind(&parent::set_property_string, this, "dh", ph::_1)),
@@ -88,6 +91,7 @@ void nscapi::targets::target_object::add_ssl_keys(nscapi::settings_helper::path_
 		"ENABLE SSL ENCRYPTION", "This option controls if SSL should be enabled.")
 
 		;
+	// clang-format on
 }
 
 std::string nscapi::targets::target_object::to_string() const {

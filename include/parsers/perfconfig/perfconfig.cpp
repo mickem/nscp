@@ -49,6 +49,7 @@ BOOST_FUSION_ADAPT_STRUCT(
 struct spirit_perfconfig_parser {
 	template<class Iterator>
 	bool parse_raw(Iterator first, Iterator last, parsers::perfconfig::result_type& v) {
+          // clang-format off
 		using qi::lexeme;
 		using phoenix::at_c;
 
@@ -104,6 +105,7 @@ struct spirit_perfconfig_parser {
 #endif
 
 		return qi::phrase_parse(first, last, rules, ascii::space, v);
+// clang-format on
 	}
 };
 

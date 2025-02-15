@@ -39,6 +39,7 @@ struct spirit_expression_parser {
 		qi::rule<Iterator, entry()> normal_rule;
 		qi::rule<Iterator, entry()> variable_rule_d;
 		qi::rule<Iterator, entry()> variable_rule_p;
+		// clang-format off
 		normal_rule = lexeme[+(qi::char_ - "${" - "%(")][qi::_val = phoenix::construct<entry>(false, qi::_1)];
 		variable_rule_d = ("${" >> lexeme[+(qi::char_ - '}')] >> "}")[qi::_val = phoenix::construct<entry>(true, qi::_1)];
 		variable_rule_p = ("%(" >> lexeme[+(qi::char_ - ')')] >> ")")[qi::_val = phoenix::construct<entry>(true, qi::_1)];
@@ -51,6 +52,7 @@ struct spirit_expression_parser {
 				variable_rule_p[push_back(phoenix::ref(v), qi::_1)]
 				)
 			);
+		// clang-format on
 	}
 };
 

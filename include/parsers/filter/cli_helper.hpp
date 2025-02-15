@@ -101,10 +101,12 @@ namespace modern_filter {
 				filter_op->default_value(def, filter);
 			}
 
+			// clang-format off
 			desc.add_options()
 				("filter", filter_op,
 				(std::string("Filter which marks interesting items.\nInteresting items are items which will be included in the check.\nThey do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.")).c_str())
 				;
+			// clang-format on
 		}
 		void add_warn_option(const std::string warn) {
 			typedef boost::program_options::typed_value<std::vector<std::string> > filter_op_type;
@@ -115,12 +117,14 @@ namespace modern_filter {
 				warn_op->default_value(def, warn);
 			}
 
+			// clang-format off
 			desc.add_options()
 				("warning", warn_op,
 				(std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\n")).c_str())
 				("warn", boost::program_options::value<std::vector<std::string> >(),
 				"Short alias for warning")
 				;
+			// clang-format on
 		}
 		void add_warn_option(const std::string warn1, const std::string warn2) {
 			typedef boost::program_options::typed_value<std::vector<std::string> > filter_op_type;
@@ -130,12 +134,14 @@ namespace modern_filter {
 			def.push_back(warn2);
 			warn_op->default_value(def, warn1 + ", " + warn2);
 
+    			// clang-format off
 			desc.add_options()
 				("warning", warn_op,
 				(std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\n")).c_str())
 					("warn", boost::program_options::value<std::vector<std::string> >(),
 						"Short alias for warning")
 				;
+			// clang-format on
 		}
 		void add_crit_option(const std::string crit) {
 			typedef boost::program_options::typed_value<std::vector<std::string> > filter_op_type;
@@ -146,12 +152,14 @@ namespace modern_filter {
 				crit_op->default_value(def, crit);
 			}
 
+    // clang-format off
 			desc.add_options()
 				("critical", crit_op,
 				(std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\n")).c_str())
 				("crit", boost::program_options::value<std::vector<std::string> >(),
 					"Short alias for critical.")
 				;
+		// clang-format on
 		}
 		void add_crit_option(const std::string crit1, const std::string crit2) {
 			typedef boost::program_options::typed_value<std::vector<std::string> > filter_op_type;
@@ -161,12 +169,14 @@ namespace modern_filter {
 			def.push_back(crit2);
 			crit_op->default_value(def, crit1 + ", " + crit2);
 
+		// clang-format off
 			desc.add_options()
 				("critical", crit_op,
 				(std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\n")).c_str())
 					("crit", boost::program_options::value<std::vector<std::string> >(),
 						"Short alias for critical.")
 				;
+		// clang-format on
 		}
 		void add_ok_option(const std::string ok = "") {
 			typedef boost::program_options::typed_value<std::vector<std::string> > filter_op_type;
@@ -177,10 +187,12 @@ namespace modern_filter {
 				ok_op->default_value(def, ok);
 			}
 
+		// clang-format off
 			desc.add_options()
 				("ok", ok_op,
 				(std::string("Filter which marks items which generates an ok state.\nIf anything matches this any previous state for this item will be reset to ok.\n")).c_str())
 				;
+		// clang-format on
 		}
 		void add_misc_options(std::string empty_state = "ignored") {
 			boost::program_options::typed_value<std::string> *empty_state_op = boost::program_options::value<std::string>(&data.empty_state);
@@ -190,6 +202,7 @@ namespace modern_filter {
 				empty_state_op->default_value(empty_state);
 			if (!data.perf_config.empty())
 				perf_config_op->default_value(data.perf_config);
+			// clang-format off
 			desc.add_options()
 				("debug", boost::program_options::bool_switch(&data.debug),
 					"Show debugging information in the log")
@@ -202,6 +215,7 @@ namespace modern_filter {
 				("escape-html", boost::program_options::bool_switch(&data.escape_html),
 					"Escape any < and > characters to prevent HTML encoding")
 				;
+			// clang-format on
 			nscapi::program_options::add_help(desc);
 		}
 		void add_options(std::string warn, std::string crit, std::string filter, const std::map<std::string, std::string> &filter_syntax, std::string empty_state = "ignored") {
@@ -331,6 +345,7 @@ namespace modern_filter {
 				"DEPRECATED! This is the syntax for when an ok result is returned.\n"
 				"This value will not be used if your syntax contains %(list) or %(count).";
 
+			// clang-format off
 			desc.add_options()
 				("top-syntax", boost::program_options::value<std::string>(&data.syntax_top)->default_value(default_top_syntax), tk.c_str())
 				("ok-syntax", boost::program_options::value<std::string>(&data.syntax_ok)->default_value(default_ok_syntax), ok.c_str())
@@ -338,6 +353,7 @@ namespace modern_filter {
 				("detail-syntax", boost::program_options::value<std::string>(&data.syntax_detail)->default_value(default_detail_syntax), dk.c_str())
 				("perf-syntax", boost::program_options::value<std::string>(&data.syntax_perf)->default_value(default_perf_syntax), pk.c_str())
 				;
+		// clang-format on
 		}
 
 		void add_index(const std::string &default_unique_syntax) {

@@ -112,6 +112,7 @@ namespace nscapi {
 							alias, std::string("To configure this create a section under: ") + path, false)
 						;
 				} else {
+					// clang-format off
 					nscapi::settings_helper::path_extension root_path = settings.path(path);
 					root_path.add_key()
 						("parent", nscapi::settings_helper::string_key(&parent, "default"),
@@ -123,6 +124,7 @@ namespace nscapi {
 						("alias", nscapi::settings_helper::string_key(&alias),
 							"ALIAS", "The alias (service name) to report to server", true)
 						;
+					// clang-format on
 				}
 				settings.register_all();
 				settings.notify();

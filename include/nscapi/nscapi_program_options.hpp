@@ -139,12 +139,14 @@ namespace nscapi {
 		};
 
 		static void add_help(po::options_description &desc) {
+		// clang-format off
 			desc.add_options()
 				("help",		"Show help screen (this screen)")
 				("help-pb",		"Show help screen as a protocol buffer payload")
 				("show-default","Show default values for a given command")
 				("help-short",	"Show help screen (short format).")
 				;
+		// clang-format on
 		}
 		inline po::options_description create_desc(const std::string command) {
 			po::options_description desc("Allowed options for " + command);
@@ -780,6 +782,7 @@ namespace nscapi {
 		};
 
 		inline void add_standard_filter(po::options_description &desc, standard_filter_config &filter, std::string default_top_syntax, std::string top_keylist, std::string default_syntax, std::string keylist) {
+                  // clang-format off
 			desc.add_options()
 				("filter", po::value<std::string>(&filter.filter_string),			"Filter which marks interesting items.\nInteresting items are items which will be included in the check. They do not denote warning or critical state but will be included in performance data and checked for critical and/or warning state. Anything not matching the filter will be ignored. Leaving the filter empty will include all applicable items")
 				("warning", po::value<std::string>(&filter.warn_string),			"Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.")
@@ -798,6 +801,7 @@ namespace nscapi {
 				("empty-state", po::value<std::string>(&filter.empty_state)->default_value("ok"), 
 				"Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
 				;
+// clang-format on
 		}
 	}
 }

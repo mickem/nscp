@@ -141,6 +141,7 @@ std::string client::destination_container::to_string() const {
 }
 
 void client::options_reader_interface::add_ssl_options(boost::program_options::options_description & desc, client::destination_container & data) {
+  // clang-format off
 	desc.add_options()
 
 		("certificate", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "certificate", ph::_1)),
@@ -167,9 +168,11 @@ void client::options_reader_interface::add_ssl_options(boost::program_options::o
 		("ssl,n", po::value<bool>()->implicit_value(true)->notifier(boost::bind(&client::destination_container::set_bool_data, &data, "ssl", ph::_1)),
 			"Initial an ssl handshake with the server.")
 		;
+// clang-format on
 }
 
 po::options_description add_common_options(client::destination_container &source, client::destination_container &destination) {
+  // clang-format off
 	po::options_description desc("Common options");
 	desc.add_options()
 		("host,H", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_host, &destination, ph::_1)),
@@ -194,9 +197,11 @@ po::options_description add_common_options(client::destination_container &source
 			"Source/sender host name (default is auto which means use the name of the actual host)")
 
 		;
+// clang-format on
 	return desc;
 }
 po::options_description add_query_options(client::destination_container &source, client::destination_container &destination, payload_builder &builder) {
+  // clang-format off
 	po::options_description desc("Query options");
 	desc.add_options()
 		("command,c", po::value<std::string >()->notifier(boost::bind(&payload_builder::set_command, &builder, ph::_1)),
@@ -208,10 +213,12 @@ po::options_description add_query_options(client::destination_container &source,
 		("batch", po::value<std::vector<std::string> >()->notifier(boost::bind(&payload_builder::set_batch, &builder, ph::_1)),
 			"Add multiple records using the separator format is: command|argument|argument")
 		;
+// clang-format on
 	return desc;
 }
 po::options_description add_submit_options(client::destination_container &source, client::destination_container &destination, payload_builder &builder) {
 	po::options_description desc("Submit options");
+        // clang-format off
 	desc.add_options()
 		("command,c", po::value<std::string >()->notifier(boost::bind(&payload_builder::set_command, &builder, ph::_1)),
 			"The name of the command that the remote daemon should run")
@@ -226,10 +233,12 @@ po::options_description add_submit_options(client::destination_container &source
 		("batch", po::value<std::vector<std::string> >()->notifier(boost::bind(&payload_builder::set_batch, &builder, ph::_1)),
 			"Add multiple records using the separator format is: command|result|message")
 		;
+// clang-format on
 	return desc;
 }
 po::options_description add_exec_options(client::destination_container &source, client::destination_container &destination, payload_builder &builder) {
 	po::options_description desc("Execute options");
+        // clang-format off
 	desc.add_options()
 		("command,c", po::value<std::string >()->notifier(boost::bind(&payload_builder::set_command, &builder, ph::_1)),
 			"The name of the command that the remote daemon should run")
@@ -240,6 +249,7 @@ po::options_description add_exec_options(client::destination_container &source, 
 		("batch", po::value<std::vector<std::string> >()->notifier(boost::bind(&payload_builder::set_batch, &builder, ph::_1)),
 			"Add multiple records using the separator format is: command|argument|argument")
 		;
+// clang-format on
 	return desc;
 }
 
