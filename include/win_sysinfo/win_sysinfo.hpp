@@ -119,7 +119,9 @@ struct system_info {
   static std::vector<std::string> get_suite_list();
   static long long get_suite_i();
 
-  static cpu_load get_cpu_load();
+  static cpu_load get_cpu_load_per_core();
+  static cpu_load get_cpu_load_total();
+
   static memory_usage get_memory();
   static hlp::buffer<BYTE, windows::winapi::SYSTEM_PROCESS_INFORMATION *> get_system_process_information(int size = 0x32000);
 };

@@ -2273,6 +2273,7 @@ Section for system checks and system settings
 |-----------------------------------------------|---------------|--------------------------|
 | [default buffer length](#default-buffer-time) | 1h            | Default buffer time      |
 | [disable](#disable-automatic-checks)          |               | Disable automatic checks |
+| [fetch core loads](#fetch-core-load)          | true          | Fetch core load          |
 | [subsystem](#pdh-subsystem)                   | default       | PDH subsystem            |
 
 
@@ -2281,6 +2282,7 @@ Section for system checks and system settings
 # Section for system checks and system settings
 [/settings/system/windows]
 default buffer length=1h
+fetch core loads=true
 subsystem=default
 
 ```
@@ -2339,6 +2341,33 @@ A comma separated list of checks to disable in the collector: cpu,handles,networ
 [/settings/system/windows]
 # Disable automatic checks
 disable=
+```
+
+
+
+#### Fetch core load <a id="/settings/system/windows/fetch core loads"></a>
+
+Set to false to use a different API for fetching CPU load (will not provide core load, and will not show exact same values as task manager).
+
+
+
+
+
+| Key            | Description                                           |
+|----------------|-------------------------------------------------------|
+| Path:          | [/settings/system/windows](#/settings/system/windows) |
+| Key:           | fetch core loads                                      |
+| Advanced:      | Yes (means it is not commonly used)                   |
+| Default value: | `true`                                                |
+| Used by:       | CheckSystem                                           |
+
+
+**Sample:**
+
+```
+[/settings/system/windows]
+# Fetch core load
+fetch core loads=true
 ```
 
 

@@ -282,7 +282,11 @@ void pdh_thread::thread_proc() {
 			windows::system_info::cpu_load load;
 			if (!disable_cpu) {
 				try {
-					load = windows::system_info::get_cpu_load();
+          if (read_core_load) {
+            load = windows::system_info::get_cpu_load_per_core();
+          } else {
+            load = windows::system_info::get_cpu_load_total();
+          }
 				} catch (...) {
 					errors.push_back("Failed to get cpu load");
 				}
