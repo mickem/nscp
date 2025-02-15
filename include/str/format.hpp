@@ -25,7 +25,6 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>
 #include <boost/algorithm/string.hpp>
-#include <boost/foreach.hpp>
 
 #include <time.h>
 
@@ -60,7 +59,7 @@ namespace str {
 		//
 		inline std::string strip_ctrl_chars(std::string str) {
 			std::string ret; ret.reserve(str.size());
-			BOOST_FOREACH(char c, str) {
+			for(char c: str) {
 				if (c == 0 || c == 7 || c == 10 || c == 11 || c == 12 || c == 13 || c == 127)
 					ret.push_back('?');
 				else
@@ -106,7 +105,7 @@ namespace str {
 		}
 		inline std::string join(std::list<std::string> lst, std::string key) {
 			std::string ret;
-			BOOST_FOREACH(const std::string &s, lst) {
+			for(const std::string &s: lst) {
 				if (!ret.empty())
 					ret += key;
 				ret += s;
@@ -115,7 +114,7 @@ namespace str {
 		}
 		inline std::string join(std::vector<std::string> lst, std::string key) {
 			std::string ret;
-			BOOST_FOREACH(const std::string &s, lst) {
+			for(const std::string &s: lst) {
 				if (!ret.empty())
 					ret += key;
 				ret += s;
@@ -297,8 +296,8 @@ namespace str {
 			std::string numbers = s.substr(0, p);
 			return decode_byte_units(boost::lexical_cast<long long>(numbers), s.substr(p));
 		}
-#define BKMG_RANGE "BKMGTPE"
-#define BKMG_SIZE 5
+#define BKMG_RANGE "BKMGTPE?"
+#define BKMG_SIZE 7
 
 		inline std::string format_byte_units(const long long i) {
 			double cpy = static_cast<double>(i);
@@ -352,7 +351,7 @@ namespace str {
 			char postfix[] = BKMG_RANGE;
 			int idx = 0;
 			if (unit_uc.size() == 0) {
-				return i;
+				return static_cast<double>(i);
 			}
 			double cpy = static_cast<double>(i);
 			while (idx < BKMG_SIZE) {

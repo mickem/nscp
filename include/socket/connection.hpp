@@ -266,14 +266,18 @@ namespace socket_helpers {
 				if (!e)
 					parent_type::start();
 				else {
-					if (ERR_GET_REASON(e.value()) == SSL_R_NO_SHARED_CIPHER) {
+          int reason = ERR_GET_REASON(e.value());
+					if (reason == SSL_R_NO_SHARED_CIPHER) {
 						parent_type::protocol_->log_error(__FILE__, __LINE__, "Seems we cant agree on SSL: " + utf8::utf8_from_native(e.message()));
 						parent_type::protocol_->log_error(__FILE__, __LINE__, "Please review the insecure options as well as ssl options in settings.");
-					} else if (ERR_GET_REASON(e.value()) == SSL_R_UNKNOWN_PROTOCOL) {
-						parent_type::protocol_->log_error(__FILE__, __LINE__, "Seems we other end is not using ssl: " + utf8::utf8_from_native(e.message()));
-						parent_type::protocol_->log_error(__FILE__, __LINE__, "Please review the ssl option as well as ssl options in settings.");
+					} else if (reason == SSL_R_UNKNOWN_PROTOCOL) {
+            parent_type::protocol_->log_error(__FILE__, __LINE__, "Seems we other end is not using ssl: " + utf8::utf8_from_native(e.message()));
+            parent_type::protocol_->log_error(__FILE__, __LINE__, "Please review the ssl option as well as ssl options in settings.");
+          } else if (reason == SSL_R_CERTIFICATE_VERIFY_FAILED) {
+            parent_type::protocol_->log_error(__FILE__, __LINE__, "Failed to verify other ends certificate: " + utf8::utf8_from_native(e.message()));
+            parent_type::protocol_->log_error(__FILE__, __LINE__, "Please review the ssl option as well as ssl options in settings.");
 					} else {
-						parent_type::protocol_->log_error(__FILE__, __LINE__, "Failed to establish secure connection: " + utf8::utf8_from_native(e.message()) + ": " + str::xtos(ERR_GET_REASON(e.value())));
+						parent_type::protocol_->log_error(__FILE__, __LINE__, "Failed to establish secure connection: " + utf8::utf8_from_native(e.message()) + ": " + str::xtos(reason));
 					}
 					parent_type::on_done(false);
 				}

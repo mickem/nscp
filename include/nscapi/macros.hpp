@@ -28,8 +28,8 @@
 #define NSC_LOG_ERROR(msg) if (GET_CORE()->should_log(NSCAPI::log_level::error)) { NSC_ANY_MSG(msg, NSCAPI::log_level::error); }
 #define NSC_LOG_ERROR_WA(msg, ws) if (GET_CORE()->should_log(NSCAPI::log_level::error)) { NSC_ANY_MSG((std::string)msg + utf8::cvt<std::string>(ws), NSCAPI::log_level::error); }
 #define NSC_LOG_ERROR_W(msg) if (GET_CORE()->should_log(NSCAPI::log_level::error)) { NSC_ANY_MSG(utf8::cvt<std::string>(msg), NSCAPI::log_level::error); }
-#define NSC_LOG_ERROR_LISTW(lst) if (GET_CORE()->should_log(NSCAPI::log_level::error)) { BOOST_FOREACH(const std::wstring &s, lst) { NSC_ANY_MSG(utf8::cvt<std::string>(s), NSCAPI::log_level::error); } }
-#define NSC_LOG_ERROR_LISTS(lst) if (GET_CORE()->should_log(NSCAPI::log_level::error)) { BOOST_FOREACH(const std::string &s, lst) { NSC_ANY_MSG(s, NSCAPI::log_level::error); } }
+#define NSC_LOG_ERROR_LISTW(lst) if (GET_CORE()->should_log(NSCAPI::log_level::error)) { for(const std::wstring &s: lst) { NSC_ANY_MSG(utf8::cvt<std::string>(s), NSCAPI::log_level::error); } }
+#define NSC_LOG_ERROR_LISTS(lst) if (GET_CORE()->should_log(NSCAPI::log_level::error)) { for(const std::string &s: lst) { NSC_ANY_MSG(s, NSCAPI::log_level::error); } }
 
 #define NSC_LOG_CRITICAL_STD(msg) if (GET_CORE()->should_log(NSCAPI::log_level::critical)) { NSC_ANY_MSG((std::string)msg, NSCAPI::log_level::critical); }
 #define NSC_LOG_CRITICAL(msg) if (GET_CORE()->should_log(NSCAPI::log_level::critical)) { NSC_ANY_MSG(msg, NSCAPI::log_level::critical); }

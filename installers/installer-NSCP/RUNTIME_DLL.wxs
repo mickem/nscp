@@ -3,27 +3,28 @@
 	<Fragment>
 		<DirectoryRef Id="INSTALLLOCATION">
 			<Component Id="LibCommon" Guid="AA72FE42-6AF4-41B6-B77E-E554860E4508">
-        <File Id="BOOST_DT" Name="boost_date_time-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_date_time-$(var.BoostTag).dll" Vital="yes" />
-        <File Id="BOOST_C" Name="boost_chrono-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_chrono-$(var.BoostTag).dll" Vital="yes" />
-        <File Id="BOOST_FS" Name="boost_filesystem-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_filesystem-$(var.BoostTag).dll" Vital="yes" />
-				<File Id="BOOST_PO" Name="boost_program_options-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_program_options-$(var.BoostTag).dll" Vital="yes" />
-				<File Id="BOOST_PY" Name="boost_python-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_python-$(var.BoostTag).dll" Vital="yes" />
-				<File Id="BOOST_RE" Name="boost_regex-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_regex-$(var.BoostTag).dll" Vital="yes" />
-				<File Id="BOOST_SYS" Name="boost_system-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_system-$(var.BoostTag).dll" Vital="yes" />
-				<File Id="BOOST_T" Name="boost_thread-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_thread-$(var.BoostTag).dll" Vital="yes" />
-				<File Id="SSL1" Name="libeay32.dll" DiskId="1" Source="$(var.Source)/libeay32.dll" Vital="yes" />
-				<File Id="SSL2" Name="ssleay32.dll" DiskId="1" Source="$(var.Source)/ssleay32.dll" Vital="yes" />
-			</Component>
+        <File Id="BOOST_DT" Name="boost_date_time.dll" DiskId="1" Source="$(var.Source)/boost_date_time.dll" Vital="yes" />
+        <File Id="BOOST_C" Name="boost_chrono.dll" DiskId="1" Source="$(var.Source)/boost_chrono.dll" Vital="yes" />
+        <File Id="BOOST_FS" Name="boost_filesystem.dll" DiskId="1" Source="$(var.Source)/boost_filesystem.dll" Vital="yes" />
+				<File Id="BOOST_PO" Name="boost_program_options.dll" DiskId="1" Source="$(var.Source)/boost_program_options.dll" Vital="yes" />
+				<File Id="BOOST_PY" Name="boost_python311.dll" DiskId="1" Source="$(var.Source)/boost_python311.dll" Vital="yes" />
+				<File Id="BOOST_RE" Name="boost_regex.dll" DiskId="1" Source="$(var.Source)/boost_regex.dll" Vital="yes" />
+				<File Id="BOOST_SYS" Name="boost_system.dll" DiskId="1" Source="$(var.Source)/boost_system.dll" Vital="yes" />
+				<File Id="BOOST_T" Name="boost_thread.dll" DiskId="1" Source="$(var.Source)/boost_thread.dll" Vital="yes" />
+				<File Id="PROTOBUF" Name="libprotobuf.dll" DiskId="1" Source="$(var.Source)/libprotobuf.dll" Vital="yes" />
+      </Component>
 			<Component Id="LibNSCP" Guid="365EF37C-49D4-4903-9EF7-A221F0915FB2">
 				<File Id="NSCP_PLUG" Name="plugin_api.dll" DiskId="1" Source="$(var.Source)/plugin_api.dll" Vital="yes" />
 				<File Id="NSCP_JSPB" Name="nscp_json_pb.dll" DiskId="1" Source="$(var.Source)/nscp_json_pb.dll" Vital="yes" />
 				<File Id="NSCP_PB" Name="nscp_protobuf.dll" DiskId="1" Source="$(var.Source)/nscp_protobuf.dll" Vital="yes" />
 				<File Id="NSCP_WF" Name="where_filter.dll" DiskId="1" Source="$(var.Source)/where_filter.dll" Vital="yes" />
 			</Component>
+      <!--
 			<Component Id="LuaLibs" Guid="9607DD1C-5794-4246-8A96-CD6E091C653F">
 				<File Id="nscp_lua_pb.dll" Name="nscp_lua_pb.dll" DiskId="1" Source="$(var.Source)/nscp_lua_pb.dll" Vital="no" />
 				<File Id="lua.dll" Name="lua.dll" DiskId="1" Source="$(var.Source)/lua.dll" Vital="no" />
 			</Component>
+      -->
       <Component Id="MongooseLibs" Guid="146BDF2F-9895-41CF-9A7D-156F33493FB6">
         <File Id="libMongoose.dll" Name="nscp_mongoose.dll" DiskId="1" Source="$(var.Source)/nscp_mongoose.dll" Vital="no" />
       </Component>

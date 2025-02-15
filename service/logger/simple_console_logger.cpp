@@ -50,15 +50,15 @@ namespace nsclient {
 					config_data ret;
 					try {
 						sh::settings_registry settings(settings_manager::get_proxy());
-						settings.set_alias("log/file");
+						settings.set_alias("log");
 
-						settings.add_path_to_settings()
-							("log", "LOG SECTION", "Configure log properties.")
-							;
+//						settings.add_path_to_settings()
+//							("log", "Log file", "Configure log file properties.")
+//							;
 
 						settings.add_key_to_settings("log")
 							("date format", sh::string_key(&format_, "%Y-%m-%d %H:%M:%S"),
-								"DATEMASK", "The syntax of the dates in the log file.")
+								"Console date mask", "The syntax of the dates in the log file.")
 							;
 
 						settings.register_all();

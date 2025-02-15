@@ -4,7 +4,7 @@
 #include "path_manager.hpp"
 
 #include <nsclient/logger/logger.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_storage.hpp>
 
 #include <boost/thread/shared_mutex.hpp>
 #include <boost/optional.hpp>
@@ -21,10 +21,10 @@ namespace nsclient {
 			bool is_modified;
 			std::string owner;
 
-			::Plugin::Storage::Entry entry;
+			PB::Storage::Storage::Entry entry;
 
 			storage_item() : is_modified(false) {}
-			storage_item(const std::string owner, const ::Plugin::Storage::Entry entry_) 
+			storage_item(const std::string owner, const ::PB::Storage::Storage::Entry entry_) 
 				: is_modified(true)
 				, owner(owner) 
 			{
@@ -48,7 +48,7 @@ namespace nsclient {
 		public:
 			typedef std::map<std::string, storage_item> storage_type;
 			typedef std::list<std::string> key_list_type;
-			typedef std::list<Plugin::Storage_Entry> entry_list;
+			typedef std::list<PB::Storage::Storage_Entry> entry_list;
 
 		private:
 			nsclient::core::path_instance path_;
@@ -61,7 +61,7 @@ namespace nsclient {
 		public:
 			storage_manager(nsclient::core::path_instance path_, nsclient::logging::logger_instance logger) : path_(path_), logger_(logger), has_read_(false) {}
 			void load();
-			void put(std::string plugin_name, const ::Plugin::Storage_Entry& entry);
+			void put(std::string plugin_name, const ::PB::Storage::Storage_Entry& entry);
 			entry_list get(std::string plugin_name, std::string context);
 			void save();
 

@@ -81,7 +81,7 @@ namespace check_mk {
 				log_debug(__FILE__, __LINE__, "Accepting connection from: " + s);
 				return true;
 			} else {
-				BOOST_FOREACH(const std::string &e, errors) {
+				for(const std::string &e: errors) {
 					log_error(__FILE__, __LINE__, e);
 				}
 				log_error(__FILE__, __LINE__, "Rejected connection from: " + s);

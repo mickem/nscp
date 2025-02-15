@@ -34,7 +34,7 @@
 #include <error/error.hpp>
 #include <str/format.hpp>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <boost/program_options.hpp>
 #include <boost/shared_ptr.hpp>
@@ -77,7 +77,7 @@ struct drive_container {
 	std::string letter_only;
 	std::string name;
 	bool is_mounted;
-	typedef enum drive_flags {
+	enum drive_flags {
 		df_none = 0,
 		df_removable = 0x1,
 		df_hotplug = 0x2,
@@ -288,7 +288,7 @@ parsers::where::node_type calculate_total_used(boost::shared_ptr<filter_obj> obj
 	} else {
 		number = str::format::decode_byte_units(number, unit);
 	}
-	return parsers::where::factory::create_int(number);
+	return parsers::where::factory::create_int(static_cast<long long>(number));
 }
 
 parsers::where::node_type calculate_user_used(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
@@ -301,7 +301,7 @@ parsers::where::node_type calculate_user_used(boost::shared_ptr<filter_obj> obje
 	} else {
 		number = str::format::decode_byte_units(number, unit);
 	}
-	return parsers::where::factory::create_int(number);
+	return parsers::where::factory::create_int(static_cast<long long>(number));
 }
 int do_convert_type(const std::string &keyword) {
 	if (keyword == "fixed")
@@ -504,7 +504,7 @@ public:
 		hlp::tchar_buffer fileSysName(1024);
 		DWORD maximumComponentLength, fileSystemFlags;
 
-		if (!ptrGetVolumeInformationByHandleW(hVolume, volumeName.get(), volumeName.size(),
+		if (!ptrGetVolumeInformationByHandleW(hVolume, volumeName.get(), static_cast<DWORD>(volumeName.size()),
 			NULL, &maximumComponentLength, &fileSystemFlags, fileSysName.get(), static_cast<DWORD>(fileSysName.size()))) {
 			NSC_LOG_ERROR("Failed to get volume information: " + error::lookup::last_error());
 		} else {
@@ -658,7 +658,7 @@ public:
 
 			bool found_mp = false;
 			std::string title = utf8::cvt<std::string>(name);
-			BOOST_FOREACH(const std::wstring &s, GetVolumePathNamesForVolumeName(volume)) {
+			for(const std::wstring &s: GetVolumePathNamesForVolumeName(volume)) {
 				ret.push_back(drive_container(utf8::cvt<std::string>(volume), utf8::cvt<std::string>(s), title, true, type, flags));
 				found_mp = true;
 			}
@@ -687,7 +687,7 @@ void add_missing(std::list<drive_container> &drives, std::vector<std::string> &e
 	}
 }
 void find_all_volumes(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives, volume_helper helper) {
-	BOOST_FOREACH(const drive_container &d, helper.get_volumes()) {
+	for(const drive_container &d: helper.get_volumes()) {
 		add_missing(drives, exclude_drives, d);
 	}
 }
@@ -727,7 +727,7 @@ std::list<drive_container> find_drives(std::vector<std::string> drives) {
 	volume_helper helper;
 	std::list<drive_container> ret;
 	std::vector<std::string> found_drives;
-	BOOST_FOREACH(const std::string &d, drives) {
+	for(const std::string &d: drives) {
 		if (d == "all-volumes" || d == "volumes") {
 			find_all_volumes(ret, found_drives, helper);
 		} else if (d == "all-drives" || d == "drives") {
@@ -746,7 +746,7 @@ std::list<drive_container> find_drives(std::vector<std::string> drives) {
 }
 void add_custom_options(po::options_description desc) {}
 
-void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void check_drive::check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 	std::vector<std::string> drives, excludes;
@@ -792,7 +792,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 		}
 	}
 	std::list<std::string> buffer;
-	BOOST_FOREACH(std::string e, excludes) {
+	for(std::string e: excludes) {
 		if (e.size() == 1) {
 			buffer.push_back(boost::algorithm::to_upper_copy(e));
 		}
@@ -807,7 +807,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 	if (total)
 		total_obj->make_total();
 
-	BOOST_FOREACH(const drive_container &drive, find_drives(drives)) {
+	for(const drive_container &drive: find_drives(drives)) {
 		if (std::find(excludes.begin(), excludes.end(), drive.letter) != excludes.end()
 			|| std::find(excludes.begin(), excludes.end(), drive.name) != excludes.end()
 			|| std::find(excludes.begin(), excludes.end(), drive.letter_only) != excludes.end())

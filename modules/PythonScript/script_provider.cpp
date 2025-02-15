@@ -4,7 +4,7 @@
 #include <file_helpers.hpp>
 
 #include <boost/make_shared.hpp>
-#include <boost/shared_ptr.hpp>
+#include <boost/thread.hpp>
 
 script_provider::script_provider(int id, nscapi::core_wrapper *core, std::string settings_path, boost::filesystem::path root)
 	: core_(core)
@@ -39,8 +39,8 @@ boost::optional<boost::filesystem::path> script_provider::find_file(std::string 
 	checks.push_back(root_ / "scripts" / file);
 	checks.push_back(root_ / "scripts" / (file + ".py"));
 	checks.push_back(root_ / file);
-	BOOST_FOREACH(boost::filesystem::path c, checks) {
-		if (boost::filesystem::exists(c) && boost::filesystem::is_regular(c))
+	for(boost::filesystem::path c: checks) {
+		if (boost::filesystem::exists(c) && boost::filesystem::is_regular_file(c))
 			return boost::optional<boost::filesystem::path>(c);
 	}
 	get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Script not found: " + file);

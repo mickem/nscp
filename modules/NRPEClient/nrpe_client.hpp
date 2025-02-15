@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 
 #include <nscapi/macros.hpp>
@@ -35,11 +35,13 @@ namespace nrpe_client {
 	struct connection_data : public socket_helpers::connection_info {
 		int buffer_length;
 		std::string encoding;
+		int version;
 		boost::shared_ptr<socket_helpers::client::client_handler> handler;
 
 		connection_data(client::destination_container source, client::destination_container target, boost::shared_ptr<socket_helpers::client::client_handler> handler) : buffer_length(0), handler(handler) {
 			address = target.address.host;
 			port_ = target.address.get_port_string("5666");
+			version = target.get_int_data("version", 2);
 
 			ssl.enabled = target.get_bool_data("ssl", true);
 			if (target.get_bool_data("insecure", false)) {
@@ -47,8 +49,8 @@ namespace nrpe_client {
 				ssl.certificate_key = target.get_string_data("certificate key");
 				ssl.certificate_key_format = target.get_string_data("certificate format");
 				ssl.ca_path = target.get_string_data("ca");
-				ssl.allowed_ciphers = target.get_string_data("allowed ciphers", "ADH");
-				ssl.dh_key = target.get_string_data("dh", "${certificate-path}/nrpe_dh_512.pem");
+				ssl.allowed_ciphers = target.get_string_data("allowed ciphers", "ADH@SECLEVEL=0");
+				ssl.dh_key = target.get_string_data("dh");
 				ssl.verify_mode = target.get_string_data("verify mode");
 			} else {
 				ssl.certificate = target.get_string_data("certificate", "${certificate-path}/certificate.pem");
@@ -81,6 +83,7 @@ namespace nrpe_client {
 			std::stringstream ss;
 			ss << "host: " << get_endpoint_string();
 			ss << ", buffer_length: " << buffer_length;
+			ss << ", version: " << version;
 			ss << ", ssl: " << ssl.to_string();
 			return ss.str();
 		}
@@ -115,13 +118,13 @@ namespace nrpe_client {
 			return "_NRPE_CHECK";
 		}
 
-		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
-			const ::Plugin::Common_Header& request_header = request_message.header();
+		bool query(client::destination_container sender, client::destination_container target, const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message) {
+			const PB::Common::Header& request_header = request_message.header();
 			nrpe_client::connection_data con(sender, target, handler_);
 
 			handler_->log_debug(__FILE__, __LINE__, "Connecting to: " + con.to_string());
 
-			BOOST_FOREACH(const std::string &e, con.validate()) {
+			for(const std::string &e: con.validate()) {
 				handler_->log_error(__FILE__, __LINE__, e);
 			}
 
@@ -147,8 +150,8 @@ namespace nrpe_client {
 			return true;
 		}
 
-		bool submit(client::destination_container sender, client::destination_container target, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
-			const ::Plugin::Common_Header& request_header = request_message.header();
+		bool submit(client::destination_container sender, client::destination_container target, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage &response_message) {
+			const PB::Common::Header& request_header = request_message.header();
 			nrpe_client::connection_data con(sender, target, handler_);
 
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
@@ -166,8 +169,8 @@ namespace nrpe_client {
 			return true;
 		}
 
-		bool exec(client::destination_container sender, client::destination_container target, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
-			const ::Plugin::Common_Header& request_header = request_message.header();
+		bool exec(client::destination_container sender, client::destination_container target, const PB::Commands::ExecuteRequestMessage &request_message, PB::Commands::ExecuteResponseMessage &response_message) {
+			const PB::Common::Header& request_header = request_message.header();
 			nrpe_client::connection_data con(sender, target, handler_);
 
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
@@ -183,7 +186,7 @@ namespace nrpe_client {
 			return true;
 		}
 
-		bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) {
+		bool metrics(client::destination_container sender, client::destination_container target, const PB::Metrics::MetricsMessage &request_message) {
 			return false;
 		}
 
@@ -205,7 +208,7 @@ namespace nrpe_client {
 				} else {
 					encoded_data = utf8::to_encoding(utf8::cvt<std::wstring>(data), con.encoding);
 				}
-				nrpe::packet packet = nrpe::packet::make_request(encoded_data, con.buffer_length);
+				nrpe::packet packet = nrpe::packet::make_request(encoded_data, con.buffer_length, con.version);
 				socket_helpers::client::client<nrpe::client::protocol> client(con, handler_);
 				client.connect();
 				std::list<nrpe::packet> responses = client.process_request(packet);
@@ -214,7 +217,7 @@ namespace nrpe_client {
 				std::string payload;
 				if (responses.size() > 0)
 					result = static_cast<int>(responses.front().getResult());
-				BOOST_FOREACH(const nrpe::packet &p, responses) {
+				for(const nrpe::packet &p: responses) {
 					payload += p.getPayload();
 				}
 

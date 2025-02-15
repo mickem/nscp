@@ -12,7 +12,7 @@ struct error_handler : error_handler_interface {
 	void add_message(bool is_error, const log_entry &message);
 	void reset();
 	status get_status();
-	log_list get_messages(std::list<std::string> levels, std::size_t &position, std::size_t &ipp, std::size_t &count);
+	log_list get_messages(std::list<std::string> levels, std::size_t position, std::size_t ipp, std::size_t &count);
 private:
 	boost::timed_mutex mutex_;
 	log_list log_entries;

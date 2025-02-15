@@ -19,24 +19,26 @@
 
 #pragma once
 
+#include <socket/allowed_hosts.hpp>
+
 #include <str/xtos.hpp>
 
 
 #include <boost/asio.hpp>
-#include <boost/foreach.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #ifdef USE_SSL
 #include <boost/asio/ssl.hpp>
-#include <boost/asio/ssl/basic_context.hpp>
+#include <boost/asio/ssl/context.hpp>
 #endif
 
 #include <list>
 #include <string>
 
 namespace socket_helpers {
+	namespace ph = boost::placeholders;
 #ifdef USE_SSL
 	void write_certs(std::string cert, bool ca);
 #endif
@@ -62,94 +64,9 @@ namespace socket_helpers {
 		const std::string reason() const { return error; }
 	};
 
-	struct allowed_hosts_manager {
-		template<class addr_type_t>
-		struct host_record {
-			host_record(std::string host, addr_type_t addr, addr_type_t mask)
-				: host(host)
-				, addr(addr)
-				, mask(mask) {}
-			host_record(const host_record &other)
-				: host(other.host)
-				, addr(other.addr)
-				, mask(other.mask) {}
-			const host_record& operator=(const host_record &other) {
-				host = other.host;
-				addr = other.addr;
-				mask = other.mask;
-				return *this;
-			}
-			std::string host;
-			addr_type_t addr;
-			addr_type_t mask;
-		};
-		typedef boost::asio::ip::address_v4::bytes_type addr_v4;
-		typedef boost::asio::ip::address_v6::bytes_type addr_v6;
-
-		typedef host_record<addr_v4> host_record_v4;
-		typedef host_record<addr_v6> host_record_v6;
-
-		std::list<host_record_v4> entries_v4;
-		std::list<host_record_v6> entries_v6;
-		std::list<std::string> sources;
-		bool cached;
-
-		allowed_hosts_manager() : cached(true) {}
-		allowed_hosts_manager(const allowed_hosts_manager &other) : entries_v4(other.entries_v4), entries_v6(other.entries_v6), sources(other.sources), cached(other.cached) {}
-		const allowed_hosts_manager& operator=(const allowed_hosts_manager &other) {
-			entries_v4 = other.entries_v4;
-			entries_v6 = other.entries_v6;
-			sources = other.sources;
-			cached = other.cached;
-			return *this;
-		}
-
-		void set_source(std::string source);
-		addr_v4 lookup_mask_v4(std::string mask);
-		addr_v6 lookup_mask_v6(std::string mask);
-		void refresh(std::list<std::string> &errors);
-
-		template<class T>
-		inline bool match_host(const T &allowed, const T &mask, const T &remote) const {
-			for (std::size_t i = 0; i < allowed.size(); i++) {
-				if ((allowed[i] & mask[i]) != (remote[i] & mask[i]))
-					return false;
-			}
-			return true;
-		}
-		bool is_allowed(const boost::asio::ip::address &address, std::list<std::string> &errors) {
-			return (entries_v4.empty() && entries_v6.empty())
-				|| (address.is_v4() && is_allowed_v4(address.to_v4().to_bytes(), errors))
-				|| (address.is_v6() && is_allowed_v6(address.to_v6().to_bytes(), errors))
-				|| (address.is_v6() && address.to_v6().is_v4_compatible() && is_allowed_v4(address.to_v6().to_v4().to_bytes(), errors))
-				|| (address.is_v6() && address.to_v6().is_v4_mapped() && is_allowed_v4(address.to_v6().to_v4().to_bytes(), errors))
-				;
-		}
-		bool is_allowed_v4(const addr_v4 &remote, std::list<std::string> &errors) {
-			if (!cached)
-				refresh(errors);
-			BOOST_FOREACH(const host_record_v4 &r, entries_v4) {
-				if (match_host(r.addr, r.mask, remote))
-					return true;
-			}
-			return false;
-		}
-		bool is_allowed_v6(const addr_v6 &remote, std::list<std::string> &errors) {
-			if (!cached)
-				refresh(errors);
-			BOOST_FOREACH(const host_record_v6 &r, entries_v6) {
-				if (match_host(r.addr, r.mask, remote))
-					return true;
-			}
-			return false;
-		}
-		//		std::wstring to_wstring();
-		std::string to_string();
-	};
-
 	struct connection_info {
 		struct ssl_opts {
-			ssl_opts() : enabled(false) {}
+			ssl_opts() : enabled(false), tls_version("1.2+") {}
 
 			ssl_opts(const ssl_opts &other)
 				: enabled(other.enabled)
@@ -160,6 +77,7 @@ namespace socket_helpers {
 				, allowed_ciphers(other.allowed_ciphers)
 				, dh_key(other.dh_key)
 				, verify_mode(other.verify_mode)
+				, tls_version(other.tls_version)
 				, ssl_options(other.ssl_options) {}
 			ssl_opts& operator=(const ssl_opts &other) {
 				enabled = other.enabled;
@@ -170,6 +88,7 @@ namespace socket_helpers {
 				allowed_ciphers = other.allowed_ciphers;
 				dh_key = other.dh_key;
 				verify_mode = other.verify_mode;
+				tls_version = other.tls_version;
 				ssl_options = other.ssl_options;
 				return *this;
 			}
@@ -185,6 +104,7 @@ namespace socket_helpers {
 			std::string dh_key;
 
 			std::string verify_mode;
+			std::string tls_version;
 			std::string ssl_options;
 
 			std::string to_string() const {
@@ -197,6 +117,7 @@ namespace socket_helpers {
 						ss << ", no certificate";
 					ss << ", dh: " << dh_key << ", ciphers: " << allowed_ciphers << ", ca: " << ca_path;
 					ss << ", options: " << ssl_options;
+					ss << ", tls version: " << tls_version;
 				} else
 					ss << "ssl disabled";
 				return ss.str();
@@ -204,6 +125,8 @@ namespace socket_helpers {
 #ifdef USE_SSL
 			void configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> &errors) const;
 			boost::asio::ssl::context::verify_mode get_verify_mode() const;
+			long get_tls_min_version() const;
+			long get_tls_max_version() const;
 			boost::asio::ssl::context::file_format get_certificate_format() const;
 			boost::asio::ssl::context::file_format get_certificate_key_format() const;
 			long get_ctx_opts() const;
@@ -283,7 +206,7 @@ namespace socket_helpers {
 			}
 			void start_timer(boost::posix_time::time_duration duration) {
 				timer.expires_from_now(duration);
-				timer.async_wait(boost::bind(&timed_writer::set_result, shared_from_this(), &timer_result, _1));
+				timer.async_wait(boost::bind(&timed_writer::set_result, shared_from_this(), &timer_result, ph::_1));
 			}
 			void stop_timer() {
 				timer.cancel();
@@ -291,7 +214,7 @@ namespace socket_helpers {
 
 			template <typename AsyncWriteStream, typename MutableBufferSequence>
 			void write(AsyncWriteStream& stream, MutableBufferSequence &buffer) {
-				async_write(stream, buffer, boost::bind(&timed_writer::set_result, shared_from_this(), &read_result, _1));
+				async_write(stream, buffer, boost::bind(&timed_writer::set_result, shared_from_this(), &read_result, ph::_1));
 			}
 
 			template <typename AsyncWriteStream, typename Socket, typename MutableBufferSequence>
@@ -326,10 +249,10 @@ namespace socket_helpers {
 			boost::optional<boost::system::error_code> timer_result;
 			boost::asio::deadline_timer timer(sock.get_io_service());
 			timer.expires_from_now(duration);
-			timer.async_wait(boost::bind(set_result, &timer_result, _1));
+			timer.async_wait(boost::bind(set_result, &timer_result, ph::_1));
 
 			boost::optional<boost::system::error_code> read_result;
-			async_write(sock, buffers, boost::bind(set_result, &read_result, _1));
+			async_write(sock, buffers, boost::bind(set_result, &read_result, ph::_1));
 
 			sock.get_io_service().reset();
 			while (sock.get_io_service().run_one()) {
@@ -362,7 +285,7 @@ namespace socket_helpers {
 
 			void start_timer(boost::posix_time::time_duration duration_) {
 				timer.expires_from_now(duration_);
-				timer.async_wait(boost::bind(&timed_reader::set_result, shared_from_this(), &timer_result, _1));
+				timer.async_wait(boost::bind(&timed_reader::set_result, shared_from_this(), &timer_result, ph::_1));
 			}
 			void stop_timer() {
 				timer.cancel();
@@ -370,7 +293,7 @@ namespace socket_helpers {
 
 			template <typename AsyncWriteStream, typename MutableBufferSequence>
 			void read(AsyncWriteStream& stream, const MutableBufferSequence &buffers) {
-				async_read(stream, buffers, boost::bind(&timed_reader::set_result, shared_from_this(), &write_result, _1));
+				async_read(stream, buffers, boost::bind(&timed_reader::set_result, shared_from_this(), &write_result, ph::_1));
 			}
 
 			template <typename AsyncWriteStream, typename Socket, typename MutableBufferSequence>
@@ -403,10 +326,10 @@ namespace socket_helpers {
 			boost::optional<boost::system::error_code> timer_result;
 			boost::asio::deadline_timer timer(sock.get_io_service());
 			timer.expires_from_now(duration);
-			timer.async_wait(boost::bind(set_result, &timer_result, _1));
+			timer.async_wait(boost::bind(set_result, &timer_result, ph::_1));
 
 			boost::optional<boost::system::error_code> read_result;
-			async_read(sock, buffers, boost::bind(set_result, &read_result, _1));
+			async_read(sock, buffers, boost::bind(set_result, &read_result, ph::_1));
 
 			sock.get_io_service().reset();
 			while (sock.get_io_service().run_one()) {

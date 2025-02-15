@@ -68,10 +68,10 @@ namespace parsers {
 				if (ignored)
 					return;
 				performance_data data;
-				performance_data::perf_value<TDataType> int_data;
-				int_data.value = current_value;
-				int_data.warn = warn;
-				int_data.crit = crit;
+				performance_data::perf_value int_data;
+				int_data.value = static_cast<double>(current_value);
+				int_data.warn = static_cast<double>(warn);
+				int_data.crit = static_cast<double>(crit);
 				data.set(int_data);
 				data.alias = prefix + alias + suffix;
 				data.unit = unit;
@@ -112,7 +112,7 @@ namespace parsers {
 					return;
 				long long maximum = maxfun(object, context);
 				performance_data data;
-				performance_data::perf_value<double> double_data;
+				performance_data::perf_value double_data;
 				if (maximum > 0) {
 					double_data.value = round(static_cast<double>(current_value * 100) / maximum);
 					double_data.warn = round(static_cast<double>(warn * 100) / maximum);
@@ -179,7 +179,7 @@ namespace parsers {
 					active_unit = str::format::find_proper_unit_BKMG(m);
 				}
 
-				performance_data::perf_value<double> double_data;
+				performance_data::perf_value double_data;
 				if (maxfun) {
 					if (max_value > 0)
 						double_data.maximum = str::format::convert_to_byte_units(max_value, active_unit);
@@ -255,7 +255,7 @@ namespace parsers {
 							if (ti)
 								return value_container::create_int(v);
 							if (tf)
-								return value_container::create_float(v);
+								return value_container::create_float(static_cast<double>(v));
 						} else {
 							context->warn("Failed to get " + name_ + " no object instance");
 							if (ti)
@@ -309,7 +309,7 @@ namespace parsers {
 						warn_value = warn->get_int_value(context);
 					if (crit)
 						crit_value = crit->get_int_value(context);
-					BOOST_FOREACH(int_performance_generator &p, perfgen) {
+					for(int_performance_generator &p: perfgen) {
 						if (!p->is_configured())
 							p->configure(name_, context);
 						p->eval(ret, context, alias, current_value, warn_value, crit_value, native_context->get_object());
@@ -367,7 +367,7 @@ namespace parsers {
 						if (native_context != NULL && fun && native_context->has_object()) {
 							double v = fun(native_context->get_object(), context);
 							if (ti)
-								return value_container::create_int(v);
+								return value_container::create_int(static_cast<long long>(v));
 							if (tf)
 								return value_container::create_float(v);
 						} else {
@@ -421,7 +421,7 @@ namespace parsers {
 						warn_value = warn->get_float_value(context);
 					if (crit)
 						crit_value = crit->get_float_value(context);
-					BOOST_FOREACH(float_performance_generator &p, perfgen) {
+					for(float_performance_generator &p: perfgen) {
 						if (!p->is_configured())
 							p->configure(name_, context);
 						p->eval(ret, context, alias, current_value, warn_value, crit_value, native_context->get_object());
@@ -677,7 +677,7 @@ namespace parsers {
 						warn_value = warn->get_int_value(context);
 					if (crit)
 						crit_value = crit->get_int_value(context);
-					BOOST_FOREACH(const int_performance_generator &p, perfgen) {
+					for(const int_performance_generator &p: perfgen) {
 						if (!p->is_configured())
 							p->configure(name_, context);
 						p->eval(ret, context, alias, current_value, warn_value, crit_value, native_context->get_object());
@@ -796,8 +796,8 @@ namespace parsers {
 			virtual bool require_object(evaluation_context context) const {
 				return false;
 			}
-			value_container get_value(evaluation_context context, value_type type) const {
-				if (type == type_int) {
+			value_container get_value(evaluation_context context, value_type wanted_type) const {
+				if (wanted_type == type_int) {
 					long long value = 0;
 					bool summary = false;
 					if (!int_get_value(context, summary, value)) {
@@ -845,10 +845,10 @@ namespace parsers {
 					if (crit)
 						crit_value = crit->get_int_value(context);
 					performance_data data;
-					performance_data::perf_value<long long> int_data;
-					int_data.value = current_value;
-					int_data.warn = warn_value;
-					int_data.crit = crit_value;
+					performance_data::perf_value int_data;
+					int_data.value = static_cast<double>(current_value);
+					int_data.warn = static_cast<double>(warn_value);
+					int_data.crit = static_cast<double>(crit_value);
 					data.set(int_data);
 					data.alias = name_;
 					ret.push_back(data);

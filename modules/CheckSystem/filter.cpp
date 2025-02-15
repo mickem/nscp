@@ -20,7 +20,7 @@
 #include <map>
 #include <list>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/assign.hpp>
 
 #include <parsers/where.hpp>
@@ -31,6 +31,7 @@
 #include "filter.hpp"
 
 using namespace parsers::where;
+using namespace boost::placeholders;
 
 namespace check_cpu_filter {
 	parsers::where::node_type calculate_load(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {

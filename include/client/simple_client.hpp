@@ -40,7 +40,7 @@ namespace client {
 	public:
 		cli_client(cli_handler_ptr handler) : handler(handler) {}
 		void handle_command(const std::string &command);
-		void push_metrics(const Plugin::MetricsMessage &response);
+		void push_metrics(const PB::Metrics::MetricsMessage &response);
 	};
 	typedef boost::shared_ptr<cli_handler> cli_handler_ptr;
 }

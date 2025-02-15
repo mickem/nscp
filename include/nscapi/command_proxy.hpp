@@ -22,6 +22,8 @@
 
 #include <nscapi/nscapi_core_wrapper.hpp>
 
+#include <boost/shared_ptr.hpp>
+
 namespace nscapi {
 	class command_proxy {
 	private:
@@ -34,6 +36,12 @@ namespace nscapi {
 			if (!core_->registry_query(request, response)) {
 				throw "TODO: FIXME: DAMN!!!";
 			}
+		}
+
+		typedef boost::shared_ptr<nscapi::command_proxy> ptr;
+
+		static ptr create(unsigned int plugin_id, nscapi::core_wrapper* core) {
+			return ptr(new nscapi::command_proxy(plugin_id, core));
 		}
 
 		unsigned int get_plugin_id() const { return plugin_id_; }

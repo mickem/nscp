@@ -50,45 +50,47 @@ namespace settings {
 		boost::timed_mutex mutex_;
 	public:
 		struct conainer {
-			settings_core::key_type type;
-			int int_val;
-			std::string string_val;
+		private:
+			boost::optional<int> int_val;
+			boost::optional<std::string> string_val;
+			boost::optional<bool> bool_val;
 			bool is_dirty_;
-			conainer(int value, bool dirty) : type(settings_core::key_integer), int_val(value), is_dirty_(dirty) {}
-			conainer(bool value, bool dirty) : type(settings_core::key_bool), int_val(value ? 1 : 0), is_dirty_(dirty) {}
-			conainer(std::string value, bool dirty) : type(settings_core::key_string), string_val(value), is_dirty_(dirty) {}
-			conainer() : type(settings_core::key_string) {}
+		public:
+			conainer(int value, bool dirty) : int_val(value), is_dirty_(dirty) {}
+			conainer(bool value, bool dirty) : bool_val(value), is_dirty_(dirty) {}
+			conainer(std::string value, bool dirty) : string_val(value), is_dirty_(dirty) {}
+			conainer() {}
 
 			bool is_dirty() const { return is_dirty_; }
 			std::string get_string() const {
-				if (type == settings_core::key_string)
-					return string_val;
-				if (type == settings_core::key_integer)
-					return str::xtos(int_val);
-				if (type == settings_core::key_bool)
-					return int_val == 1 ? "true" : "false";
+				if (string_val)
+					return *string_val;
+				if (int_val)
+					return str::xtos(*int_val);
+				if (bool_val)
+					return *bool_val ? "true" : "false";
 				return "UNKNOWN TYPE";
 			}
 			int get_int() const {
 				try {
-					if (type == settings_core::key_string)
-						return str::stox<int>(string_val);
-					if (type == settings_core::key_integer)
-						return int_val;
-					if (type == settings_core::key_bool)
-						return int_val == 1 ? 1 : 0;
+					if (string_val)
+						return str::stox<int>(*string_val);
+					if (int_val)
+						return *int_val;
+					if (bool_val)
+						return *bool_val ? 1 : 0;
 					return -1;
 				} catch (const std::exception&) {
 					return -1;
 				}
 			}
 			bool get_bool() const {
-				if (type == settings_core::key_string)
-					return string_to_bool(string_val);
-				if (type == settings_core::key_integer)
-					return int_val == 1 ? true : false;
-				if (type == settings_core::key_bool)
-					return int_val == 1 ? true : false;
+				if (string_val)
+					return string_to_bool(*string_val);
+				if (int_val)
+					return *int_val == 1 ? true : false;
+				if (bool_val)
+					return *bool_val;
 				return false;
 			}
 		};
@@ -220,7 +222,7 @@ namespace settings {
 		}
 
 		instance_raw_ptr find_child_unsafe(settings_core::key_path_type key) {
-			BOOST_FOREACH(instance_raw_ptr child, children_) {
+			for(instance_raw_ptr child: children_) {
 				if (child->has_key(key.first, key.second))
 					return child;
 			}
@@ -333,144 +335,6 @@ namespace settings {
 			get_core()->set_dirty(true);
 		}
 
-		struct IntHandler {
-			typedef int type;
-			typedef boost::optional<type> op_type;
-			static type get_value(const conainer &c) {
-				return c.get_int();
-			}
-			static op_type get_real(settings_interface_impl *ptr, settings_core::key_path_type &lookup) {
-				return ptr->get_real_int(lookup);
-			}
-			static op_type get_from_child(instance_raw_ptr child, settings_core::key_path_type &lookup) {
-				return child->get_int(lookup.first, lookup.second);
-			}
-			static bool has_changed(const conainer &c, type val) {
-				return c.get_int() != val;
-			}
-			static void set_in_child(instance_raw_ptr child, settings_core::key_path_type &lookup, type value) {
-				child->set_int(lookup.first, lookup.second, value);
-			}
-			static bool is_default(const type &value) {
-				return value == 0;
-			}
-		};
-
-		//////////////////////////////////////////////////////////////////////////
-		/// Get an integer value if it does not exist exception will be thrown
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @return the string value
-		///
-		/// @author mickem
-		virtual op_int get_int(std::string path, std::string key) {
-			return getter<IntHandler>(path, key);
-		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Get an integer value if it does not exist the default value will be returned
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @param def the default value to use when no value is found
-		/// @return the string value
-		///
-		/// @author mickem
-		virtual int get_int(std::string path, std::string key, int def) {
-			op_int val = get_int(path, key);
-			if (val)
-				return *val;
-			return def;
-		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Set or update an integer value
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @param value the value to set
-		///
-		/// @author mickem
-		virtual void set_int(std::string path, std::string key, int value) {
-			setter<IntHandler>(path, key, value);
-		}
-
-		//////////////////////////////////////////////////////////////////////////
-		/// Get the type of a key (String, int, bool)
-		///
-		/// @param path the path to get type for
-		/// @param key the key to get the type for
-		/// @return the type of the key
-		///
-		/// @author mickem
-		virtual settings_core::key_type get_key_type(std::string path, std::string key) {
-			MUTEX_GUARD();
-			cache_type::iterator it = settings_cache_.find(cache_key_type(path, key));
-			if (it == settings_cache_.end())
-				return settings_core::key_string;
-			return it->second.type;
-		}
-
-		struct BoolHandler {
-			typedef bool type;
-			typedef boost::optional<type> op_type;
-			static type get_value(const conainer &c) {
-				return c.get_bool();
-			}
-			static op_type get_real(settings_interface_impl *ptr, settings_core::key_path_type &lookup) {
-				return ptr->get_real_bool(lookup);
-			}
-			static op_type get_from_child(instance_raw_ptr child, settings_core::key_path_type &lookup) {
-				return child->get_bool(lookup.first, lookup.second);
-			}
-			static bool has_changed(const conainer &c, type val) {
-				return c.get_bool() != val;
-			}
-			static void set_in_child(instance_raw_ptr child, settings_core::key_path_type &lookup, type value) {
-				child->set_bool(lookup.first, lookup.second, value);
-			}
-			static bool is_default(const type &value) {
-				return value == false;
-			}
-		};
-
-		//////////////////////////////////////////////////////////////////////////
-		/// Get a boolean value if it does not exist exception will be thrown
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @return the string value
-		///
-		/// @author mickem
-		virtual op_bool get_bool(std::string path, std::string key) {
-			return getter<BoolHandler>(path, key);
-		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Get a boolean value if it does not exist the default value will be returned
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @param def the default value to use when no value is found
-		/// @return the string value
-		///
-		/// @author mickem
-		virtual bool get_bool(std::string path, std::string key, bool def) {
-			op_bool val = get_bool(path, key);
-			if (val)
-				return *val;
-			return def;
-		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Set or update a boolean value
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @param value the value to set
-		///
-		/// @author mickem
-		virtual void set_bool(std::string path, std::string key, bool value) {
-			setter<BoolHandler>(path, key, value);
-		}
-
 		// Meta Functions
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all (sub) sections (given a path).
@@ -485,7 +349,7 @@ namespace settings {
 			string_list ret;
 			get_cached_sections_unsafe(path, ret);
 			get_real_sections(path, ret);
-			BOOST_FOREACH(const instance_raw_ptr &c, children_) {
+			for(const instance_raw_ptr &c: children_) {
 				string_list itm = c->get_sections(path);
 				ret.insert(ret.end(), itm.begin(), itm.end());
 			}
@@ -493,13 +357,22 @@ namespace settings {
 			ret.unique();
 			return ret;
 		}
+		std::string clean_path(std::string tmp) {
+			if (tmp.size() > 0 && tmp[0] == '/') {
+				tmp = tmp.substr(1);
+			}
+			if (tmp.size() > 0 && tmp[tmp.size() - 1] == '/') {
+				tmp = tmp.substr(0, tmp.size() - 1);
+			}
+			return tmp;
+		}
 		void get_cached_sections_unsafe(std::string path, string_list &list) {
 			if (path.empty()) {
-				BOOST_FOREACH(std::string s, path_cache_) {
+				for(std::string s: path_cache_) {
 					if (s.length() > 1) {
 						std::string::size_type pos = s.find('/', 1);
 						if (pos != std::string::npos)
-							list.push_back(s.substr(0, pos));
+							list.push_back(s.substr(0, pos-1));
 						else
 							list.push_back(s);
 					}
@@ -507,13 +380,16 @@ namespace settings {
 				// TODO add support for retrieving all key paths here!
 			} else {
 				std::string::size_type path_len = path.length();
-				BOOST_FOREACH(std::string s, path_cache_) {
+				for(std::string s: path_cache_) {
 					if (s.length() > (path_len + 1) && s.substr(0, path_len) == path) {
 						std::string::size_type pos = s.find('/', path_len + 1);
-						if (pos != std::string::npos)
-							list.push_back(s.substr(path_len + 1, pos));
-						else
-							list.push_back(s.substr(path_len + 1));
+						std::string tmp;
+						if (pos != std::string::npos) {
+							tmp = s.substr(path_len, pos-1);
+						} else {
+							tmp = s.substr(path_len);
+						}
+						list.push_back(clean_path(tmp));
 					}
 				}
 			}
@@ -526,11 +402,14 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual string_list get_keys(std::string path) {
+			if (path.size() > 0 && path[path.size() - 1] == '/') {
+				path = path.substr(0, path.size() - 1);
+			}
 			MUTEX_GUARD();
 			string_list ret;
 			get_cached_keys_unsafe(path, ret);
 			get_real_keys(path, ret);
-			BOOST_FOREACH(const instance_raw_ptr &c, children_) {
+			for(const instance_raw_ptr &c: children_) {
 				string_list itm = c->get_keys(path);
 				ret.insert(ret.end(), itm.begin(), itm.end());
 			}
@@ -541,7 +420,7 @@ namespace settings {
 		void get_cached_keys_unsafe(std::string path, string_list &list) {
 			key_cache_type::iterator it = key_cache_.find(path);
 			if (it != key_cache_.end()) {
-				BOOST_FOREACH(std::string s, (*it).second) {
+				for(std::string s: (*it).second) {
 					list.push_back(s);
 				}
 			}
@@ -671,29 +550,12 @@ namespace settings {
 				get_real_keys(path, list);
 
 			}
-			for (string_list::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
-				settings_core::key_path_type key(path, *cit);
-				settings_core::key_type type = get_key_type(key.first, key.second);
-				if (type == settings_core::key_string) {
-					settings_interface::op_string val = get_string(key.first, key.second);
-					if (val)
-						other->set_string(key.first, key.second, *val);
-					else
-						other->set_string(key.first, key.second, "");
-				} else if (type == settings_core::key_integer) {
-					settings_interface::op_int val = get_int(key.first, key.second);
-					if (val)
-						other->set_int(key.first, key.second, *val);
-					else
-						other->set_int(key.first, key.second, 0);
-				} else if (type == settings_core::key_bool) {
-					settings_interface::op_bool val = get_bool(key.first, key.second);
-					if (val)
-						other->set_bool(key.first, key.second, *val);
-					else
-						other->set_bool(key.first, key.second, false);
-				} else
-					throw settings_exception(__FILE__, __LINE__, "Invalid type for key: " + key.first + "." + key.second);
+			for (const std::string &key: list) {
+				settings_interface::op_string val = get_string(path, key);
+				if (val)
+					other->set_string(path, key, *val);
+				else
+					other->set_string(path, key, "");
 			}
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -703,14 +565,14 @@ namespace settings {
 		virtual void save() {
 			MUTEX_GUARD();
 
-			BOOST_FOREACH(cache_key_type v, settings_delete_cache_) {
+			for(const cache_key_type &v: settings_delete_cache_) {
 				remove_real_value(v);
 			}
-			BOOST_FOREACH(std::string v, settings_delete_path_cache_) {
+			for(const std::string &v: settings_delete_path_cache_) {
 				remove_real_path(v);
 			}
 
-			BOOST_FOREACH(std::string path, path_cache_) {
+			for(std::string path: path_cache_) {
 				set_real_path(path);
 			}
 			std::set<std::string> sections;
@@ -718,7 +580,7 @@ namespace settings {
 				set_real_value((*cit).first, (*cit).second);
 				sections.insert((*cit).first.first);
 			}
-			BOOST_FOREACH(instance_raw_ptr &child, children_) {
+			for(instance_raw_ptr &child: children_) {
 				child->save();
 			}
 			get_core()->set_dirty(false);
@@ -734,7 +596,12 @@ namespace settings {
 			path_cache_.clear();
 			key_cache_.clear();
 			settings_cache_.clear();
+
+            real_clear_cache();
+
 			get_core()->set_dirty(false);
+
+
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -770,22 +637,6 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual op_string get_real_string(settings_core::key_path_type key) = 0;
-		//////////////////////////////////////////////////////////////////////////
-		/// Get an integer value if it does not exist exception will be thrown
-		///
-		/// @param key the key to lookup
-		/// @return the int value
-		///
-		/// @author mickem
-		virtual op_int get_real_int(settings_core::key_path_type key) = 0;
-		//////////////////////////////////////////////////////////////////////////
-		/// Get a boolean value if it does not exist exception will be thrown
-		///
-		/// @param key the key to lookup
-		/// @return the boolean value
-		///
-		/// @author mickem
-		virtual op_bool get_real_bool(settings_core::key_path_type key) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Write a value to the resulting context.
@@ -838,7 +689,7 @@ namespace settings {
 			std::string ret = get_info();
 			if (!children_.empty()) {
 				ret += "parents = [";
-				BOOST_FOREACH(parent_list_type::value_type i, children_) {
+				for(parent_list_type::value_type i: children_) {
 					ret += i->to_string();
 				}
 				ret += "]";
@@ -851,9 +702,12 @@ namespace settings {
 		}
 
 		virtual void house_keeping() {
-			BOOST_FOREACH(parent_list_type::value_type i, children_) {
+			for(parent_list_type::value_type i: children_) {
 				i->house_keeping();
 			}
 		}
 	};
+
+
+
 }

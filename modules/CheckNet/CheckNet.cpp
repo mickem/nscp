@@ -36,7 +36,7 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
-void CheckNet::check_ping(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	modern_filter::data_container data;
 	modern_filter::cli_helper<ping_filter::filter> filter_helper(request, response, data);
 	std::vector<std::string> hosts;
@@ -78,7 +78,7 @@ void CheckNet::check_ping(const Plugin::QueryRequestMessage::Request &request, P
 	if (total)
 		total_obj = ping_filter::filter_obj::get_total();
 
-	BOOST_FOREACH(const std::string &host, hosts) {
+	for(const std::string &host: hosts) {
 		result_container result;
 		for (int i = 0; i < count; i++) {
 			boost::asio::io_service io_service;

@@ -18,8 +18,13 @@
  */
 
 #pragma once
-
+#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 #include <Windows.h>
+
+#ifdef WIN32
+#pragma warning(push)
+#pragma warning(disable:4201)
+#endif
 
 namespace windows {
 	namespace winapi {
@@ -1193,3 +1198,7 @@ namespace windows {
 			);
 	};
 };
+
+#ifdef WIN32
+#pragma warning(pop)
+#endif

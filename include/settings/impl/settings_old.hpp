@@ -72,7 +72,7 @@ namespace settings {
 				}
 			}
 			void read_map_data(const std::string data) {
-				BOOST_FOREACH(const std::string &l, str::utils::split_lst(data, std::string("\n"))) {
+				for(const std::string &l: str::utils::split_lst(data, std::string("\n"))) {
 					parse_line(utf8::cvt<std::wstring>(l));
 				}
 			}
@@ -140,7 +140,7 @@ namespace settings {
 
 			void get_sections(std::string path, string_list &list) {
 				std::wstring::size_type path_length = path.length();
-				BOOST_FOREACH(section_key_type key, sections_) {
+				for(section_key_type key: sections_) {
 					if (path_length == 0 || path == "/") {
 						std::string::size_type pos = key.first.find('/', 1);
 						list.push_back(pos == std::string::npos ? key.first : key.first.substr(0, pos));
@@ -149,7 +149,7 @@ namespace settings {
 						list.push_back(pos == std::string::npos ? key.first.substr(path_length + 1) : key.first.substr(path_length + 1, pos - path_length - 1));
 					}
 				}
-				BOOST_FOREACH(keys_key_type key, keys_) {
+				for(keys_key_type key: keys_) {
 					if (path.empty() || path == "/") {
 						std::string::size_type pos = key.first.first.find('/', 1);
 						if (pos != std::string::npos)
@@ -184,7 +184,7 @@ namespace settings {
 			}
 
 			string_list list = get_keys("/includes");
-			BOOST_FOREACH(const std::string &key, list) {
+			for(const std::string &key: list) {
 				if (key.length() > 5 && key.substr(key.length() - 4, 4) == ".ini" && key.find_first_of(":/\\") == std::string::npos)
 					add_child_unsafe(key, "old://${exe-path}/" + key);
 				else
@@ -229,34 +229,6 @@ namespace settings {
 			return ret;
 		}
 
-		//////////////////////////////////////////////////////////////////////////
-		/// Get an integer value if it does not exist exception will be thrown
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @return the int value
-		///
-		/// @author mickem
-		virtual op_int get_real_int(settings_core::key_path_type key) {
-			op_string str = get_real_string(key);
-			if (str)
-				return op_int(str::stox<int>(*str));
-			return op_int();
-		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Get a boolean value if it does not exist exception will be thrown
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @return the boolean value
-		///
-		/// @author mickem
-		virtual op_bool get_real_bool(settings_core::key_path_type key) {
-			op_string str = get_real_string(key);
-			if (str)
-				return op_bool(settings_interface_impl::string_to_bool(*str));
-			return op_bool();
-		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Check if a key exists
 		///
@@ -317,8 +289,6 @@ namespace settings {
 			try {
 				key = map.key(key);
 				WritePrivateProfileString(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), utf8::cvt<std::wstring>(value.get_string()).c_str(), utf8::cvt<std::wstring>(get_file_name()).c_str());
-			} catch (settings_exception e) {
-				get_logger()->error("settings", __FILE__, __LINE__, std::string("Failed to write key: " + e.reason()));
 			} catch (...) {
 				get_logger()->error("settings", __FILE__, __LINE__, "Unknown failure when writing key: " + make_skey(key.first, key.second));
 			}
@@ -392,7 +362,7 @@ namespace settings {
 			}
 			// @todo: this will NOT work for "nodes in paths"
 			std::set<std::string> ignore_list;
-			BOOST_FOREACH(settings_map::keys_key_type key, map.keys_) {
+			for(settings_map::keys_key_type key: map.keys_) {
 				if (key.first.first == path) {
 					if (has_key_int(key.second.first, key.second.second)) {
 						list.push_back(key.first.second);
@@ -401,7 +371,7 @@ namespace settings {
 				}
 			}
 
-			BOOST_FOREACH(settings_map::section_key_type key, map.sections_) {
+			for(settings_map::section_key_type key: map.sections_) {
 				if (key.first == path) {
 					section_cache_type::const_iterator it = section_cache_.find(key.second);
 					if (it == section_cache_.end()) {
@@ -409,7 +379,7 @@ namespace settings {
 						section_cache_[path] = list2;
 						it = section_cache_.find(path);
 					}
-					BOOST_FOREACH(const std::string &k, (*it).second) {
+					for(const std::string &k: (*it).second) {
 						std::set<std::string>::const_iterator cit = ignore_list.find(key.second + "/" + k);
 						if (cit == ignore_list.end())
 							list.push_back(k);

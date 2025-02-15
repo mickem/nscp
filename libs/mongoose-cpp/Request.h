@@ -1,16 +1,15 @@
-#ifndef _MONGOOSE_REQUEST_H
-#define _MONGOOSE_REQUEST_H
+#pragma once
 
 #include "Response.h"
 
 #include "dll_defines.hpp"
+#ifdef WIN32
+#pragma warning(disable:4251)
+#endif
 
-#include <iostream>
-#include <sstream>
 #include <vector>
-
-
-using namespace std;
+#include <map>
+#include <string>
 
 /**
  * Request is a wrapper for the clients requests
@@ -18,9 +17,9 @@ using namespace std;
 namespace Mongoose {
     class NSCAPI_EXPORT Request {
 	public:
-		typedef pair<string, string> arg_entry;
+		typedef std::pair<std::string, std::string> arg_entry;
 		typedef std::vector<arg_entry> arg_vector;
-		typedef map<string, string> headers_type;
+		typedef std::map<std::string, std::string> headers_type;
 
         public:
             Request(const std::string ip, bool is_ssl, std::string method, std::string url, std::string query, headers_type headers, std::string data);
@@ -39,7 +38,7 @@ namespace Mongoose {
              *
              * @return bool true if the param is present, false else
              */
-            bool hasVariable(string key);
+            bool hasVariable(std::string key);
 
             /**
              * Get the value for a certain variable
@@ -49,7 +48,9 @@ namespace Mongoose {
              *
              * @return string the value of the variable if it exists, fallback else
              */
-            string get(string key, string fallback = "");
+			std::string get(std::string key, std::string fallback = "");
+			bool get_bool(std::string key, bool fallback = false);
+			long long get_number(std::string key, long long fallback = 0);
 
             /**
              * Try to get the cookie value
@@ -59,7 +60,7 @@ namespace Mongoose {
              *
              * @retun the value of the cookie if it exists, fallback else
              */
-            string getCookie(string key, string fallback = "");
+			std::string getCookie(std::string key, std::string fallback = "");
 
             /**
              * Handle uploads to the target directory
@@ -69,30 +70,26 @@ namespace Mongoose {
              */
             void handleUploads();
 
-            string getUrl();
-            string getMethod();
-            string getData();
-            string getRemoteIp();
-
+            std::string getUrl();
+            std::string getMethod();
+            std::string getData();
+            std::string getRemoteIp();
 
 			arg_vector getVariablesVector();
-
 			std::string readHeader(const std::string key);
-            //bool readVariable(const struct mg_str data, string key, string &output);
 
 			std::string get_host();
 			bool is_ssl() {
 				return  is_ssl_;
 			}
-        protected:
+        private:
+
 			bool is_ssl_;
-			string method;
-			string url;
-			string query;
-			string data;
+			std::string method;
+			std::string url;
+			std::string query;
+			std::string data;
 			std::string ip;
 			headers_type headers;
     };
 }
-
-#endif

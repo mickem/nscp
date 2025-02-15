@@ -20,7 +20,7 @@
 #include <map>
 #include <list>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/assign.hpp>
 
 #include <parsers/where.hpp>
@@ -30,6 +30,7 @@
 #include "filter.hpp"
 
 using namespace parsers::where;
+using namespace boost::placeholders;
 
 node_type get_column_fun(const value_type, evaluation_context context, const node_type subject) {
 	std::list<node_type> l = subject->get_list_value(context);

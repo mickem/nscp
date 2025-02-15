@@ -1,7 +1,7 @@
 from NSCP import Settings, Registry, Core, log, status, log_error, sleep
 import sys
 
-from test_helper import BasicTest, TestResult, Callable, setup_singleton, install_testcases, init_testcases, shutdown_testcases
+from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
 import plugin_pb2
 from types import *
 import socket
@@ -107,15 +107,15 @@ class NRPEServerTest(BasicTest):
 		self.reg.simple_function('check_py_nrpe_test_s', NRPEServerTest.simple_handler, 'TODO')
 		self.reg.function('check_py_nrpe_test', NRPEServerTest.handler, 'TODO')
 
+	@staticmethod
 	def simple_handler(arguments):
 		instance = NRPEServerTest.getInstance()
 		return instance.simple_handler_wrapped(arguments)
-	simple_handler = Callable(simple_handler)
 
+	@staticmethod
 	def handler(channel, request):
 		instance = NRPEServerTest.getInstance()
 		return instance.handler_wrapped(channel, request)
-	handler = Callable(handler)
 	
 	def simple_handler_wrapped(self, arguments):
 		log('Got simple message %s'%arguments)
@@ -180,8 +180,8 @@ class NRPEServerTest(BasicTest):
 		for i in range(0,10):
 			if self.has_response(uid):
 				rmsg = self.get_response(uid)
-				#result.add_message(rmsg.got_response, 'Testing to recieve message using %s'%alias)
-				result.add_message(rmsg.got_simple_response, 'Testing to recieve simple message using %s'%alias)
+				#result.add_message(rmsg.got_response, 'Testing to receive message using %s'%alias)
+				result.add_message(rmsg.got_simple_response, 'Testing to receive simple message using %s'%alias)
 				result.add_message(len(response_message.payload) == 1, 'Verify that we only get one payload response for %s'%alias, '%s != 1'%len(response_message.payload))
 				if len(response_message.payload) == 1 and len(response_message.payload[0].lines) == 1:
 					result.assert_equals(response_message.payload[0].result, status, 'Verify that status is sent through %s'%alias)
@@ -194,7 +194,7 @@ class NRPEServerTest(BasicTest):
 				log('Waiting for %s (%s/%s)'%(uid,alias,target))
 				sleep(500)
 		if not found:
-			result.add_message(False, 'Testing to recieve message using %s'%alias)
+			result.add_message(False, 'Testing to receive message using %s'%alias)
 		return result
 
 	def test_one(self, ssl=True, length=1024, state = status.UNKNOWN, tag = 'TODO'):
@@ -232,7 +232,7 @@ class NRPEServerTest(BasicTest):
 		result.add(self.test_one(ssl, length, state = status.CRITICAL, tag = 'crit'))
 		return result
 
-	def run_test(self):
+	def run_test(self, cases=None):
 		result = TestResult()
 		result.add(self.do_one_test(ssl=True))
 		result.add(self.do_one_test(ssl=False))

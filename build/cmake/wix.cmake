@@ -1,261 +1,229 @@
-# - Try to find Windows Installer XML
-# See http://wix.sourceforge.net
+# * Try to find Windows Installer XML See http://wix.sourceforge.net
 #
-# The follwoing variables are optionally searched for defaults
-#  WIX_ROOT_DIR:            Base directory of WIX2 tree to use.
+# The follwoing variables are optionally searched for defaults WIX_ROOT_DIR:
+# Base directory of WIX2 tree to use.
 #
-# The following are set after configuration is done: 
-#  WIX_FOUND
-#  WIX_ROOT_DIR
-#  WIX_CANDLE
-#  WIX_LIGHT
-# 
+# The following are set after configuration is done: WIX_FOUND WIX_ROOT_DIR
+# WIX_CANDLE WIX_LIGHT
+#
 # 2009/02 Petr Pytelka (pyta at lightcomp.cz)
 #
 
-if (WIN32)
-	MACRO(DBG_MSG _MSG)
-#		MESSAGE(STATUS "${CMAKE_CURRENT_LIST_FILE}(${CMAKE_CURRENT_LIST_LINE}):\r\n ${_MSG}")
-	ENDMACRO(DBG_MSG)
+if(WIN32)
+  macro(DBG_MSG _MSG)
+    # MESSAGE(STATUS
+    # "${CMAKE_CURRENT_LIST_FILE}(${CMAKE_CURRENT_LIST_LINE}):\r\n ${_MSG}")
+  endmacro(DBG_MSG)
 
+  set(PF86 "PROGRAMFILES(X86)")
 
-    # typical root dirs of installations, exactly one of them is used
-    SET (WIX_POSSIBLE_ROOT_DIRS
-        "${WIX_ROOT_DIR}"
-        "$ENV{WIX}"
-        "$ENV{WIX_ROOT_DIR}"
-        "$ENV{ProgramFiles}/WiX Toolset v3.10"
-        "$ENV{ProgramFiles}/WiX Toolset v3.9"
-        "$ENV{ProgramFiles}/WiX Toolset v3.8"
-        "$ENV{ProgramFiles}/WiX Toolset v3.7"
-        "$ENV{ProgramFiles}/Windows Installer XML v3.8"
-        "$ENV{ProgramFiles}/Windows Installer XML v3.7"
-        "$ENV{ProgramFiles}/Windows Installer XML v3.5"
-        "$ENV{ProgramFiles}/Windows Installer XML v3"
-        "$ENV{ProgramFiles}/Windows Installer XML"
+  # typical root dirs of installations, exactly one of them is used
+  set(WIX_POSSIBLE_ROOT_DIRS
+      "${WIX_ROOT_DIR}" "$ENV{WIX}" "$ENV{WIX_ROOT_DIR}"
+      "$ENV{${PF86}}/WiX Toolset v3.14" "$ENV{${PF86}}/WiX Toolset v3.11")
+
+  #
+  # select exactly ONE WIX base directory/tree to avoid mixing different version
+  # headers and libs
+  #
+  find_path(
+    WIX_ROOT_DIR
+    NAMES bin/candle.exe bin/light.exe bin/heat.exe
+    PATHS ${WIX_POSSIBLE_ROOT_DIRS})
+  dbg_msg("WIX_ROOT_DIR=${WIX_ROOT_DIR}")
+
+  if(EXISTS "${WIX_ROOT_DIR}/bin/pyro.exe")
+    set(WIX_VERSION 3)
+  else(EXISTS "${WIX_ROOT_DIR}/bin/pyro.exe")
+    set(WIX_VERSION 2)
+  endif(EXISTS "${WIX_ROOT_DIR}/bin/pyro.exe")
+
+  #
+  # Logic selecting required libs and headers
+  #
+  set(WIX_FOUND OFF)
+  if(WIX_ROOT_DIR)
+    set(WIX_FOUND ON)
+  endif(WIX_ROOT_DIR)
+
+  # display help message
+  if(NOT WIX_FOUND)
+    # make FIND_PACKAGE friendly
+    if(NOT WIX_FIND_QUIETLY)
+      if(WIX_FIND_REQUIRED)
+        message(
+          FATAL_ERROR
+            "Windows Installer XML required but some files not found. Please specify it's location with WIX_ROOT_DIR env. variable."
         )
+      else(WIX_FIND_REQUIRED)
+        message(STATUS "ERROR: Windows Installer XML was not found.")
+      endif(WIX_FIND_REQUIRED)
+    endif(NOT WIX_FIND_QUIETLY)
+  else(NOT WIX_FOUND)
+    set(WIX_CANDLE ${WIX_ROOT_DIR}/bin/candle.exe)
+    set(WIX_LIGHT ${WIX_ROOT_DIR}/bin/light.exe)
+    set(WIX_HEAT ${WIX_ROOT_DIR}/bin/heat.exe)
+    # MESSAGE(STATUS "Windows Installer XML found.")
+  endif(NOT WIX_FOUND)
 
+  mark_as_advanced(WIX_ROOT_DIR WIX_CANDLE WIX_LIGHT WIX_HEAT)
 
-    #
-    # select exactly ONE WIX base directory/tree 
-    # to avoid mixing different version headers and libs
-    #
-    FIND_PATH(WIX_ROOT_DIR 
-        NAMES 
-        bin/candle.exe
-        bin/light.exe
-        bin/heat.exe
-        PATHS ${WIX_POSSIBLE_ROOT_DIRS})
-    DBG_MSG("WIX_ROOT_DIR=${WIX_ROOT_DIR}")
-	
-	IF(EXISTS "${WIX_ROOT_DIR}/bin/pyro.exe")
-		SET(WIX_VERSION 3)
-	ELSE(EXISTS "${WIX_ROOT_DIR}/bin/pyro.exe")
-		SET(WIX_VERSION 2)
-	ENDIF(EXISTS "${WIX_ROOT_DIR}/bin/pyro.exe")
-	
+  #
+  # Call wix compiler
+  #
+  # Parameters: _sources - a list with sources _obj - name of list for target
+  # objects
+  #
+  macro(WIX_COMPILE _sources _objs _extra_dep)
+    dbg_msg("WIX compile: ${_sources}")
+    foreach(_current_FILE ${_sources})
+      get_filename_component(_tmp_FILE ${_current_FILE} ABSOLUTE)
+      get_filename_component(_basename ${_tmp_FILE} NAME_WE)
+      get_filename_component(_ext ${_tmp_FILE} EXT)
 
+      set(SOURCE_WIX_FILE ${_tmp_FILE})
+      dbg_msg("WIX source file: ${SOURCE_WIX_FILE}")
 
-    #
-    # Logic selecting required libs and headers
-    #
-    SET(WIX_FOUND OFF)
-    IF(WIX_ROOT_DIR)
-        SET(WIX_FOUND ON)
-    ENDIF(WIX_ROOT_DIR)
+      if(${_ext} STREQUAL ".wixlib")
+        set(OUTPUT_WIXOBJ ${_tmp_FILE})
+        dbg_msg("WIX output: ${_tmp_FILE}")
+      else(${_ext} STREQUAL ".wixlib")
+        set(OUTPUT_WIXOBJ ${_basename}.wixobj)
 
-    # display help message
-    IF(NOT WIX_FOUND)
-        # make FIND_PACKAGE friendly
-        IF(NOT WIX_FIND_QUIETLY)
-            IF(WIX_FIND_REQUIRED)
-                MESSAGE(FATAL_ERROR
-                    "Windows Installer XML required but some files not found. Please specify it's location with WIX_ROOT_DIR env. variable.")
-            ELSE(WIX_FIND_REQUIRED)
-                MESSAGE(STATUS 
-                    "ERROR: Windows Installer XML was not found.")
-            ENDIF(WIX_FIND_REQUIRED)
-        ENDIF(NOT WIX_FIND_QUIETLY)
-    ELSE(NOT WIX_FOUND)
-        SET(WIX_CANDLE ${WIX_ROOT_DIR}/bin/candle.exe)
-        SET(WIX_LIGHT ${WIX_ROOT_DIR}/bin/light.exe)
-        SET(WIX_HEAT ${WIX_ROOT_DIR}/bin/heat.exe)
-        #  MESSAGE(STATUS "Windows Installer XML found.")
-    ENDIF(NOT WIX_FOUND)
+        dbg_msg("WIX output: ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}")
+        dbg_msg("WIX command: ${WIX_CANDLE}")
 
-    MARK_AS_ADVANCED(
-        WIX_ROOT_DIR
-        WIX_CANDLE
-        WIX_LIGHT
-        WIX_HEAT
+        add_custom_command(
+          OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}
+          COMMAND ${WIX_CANDLE} ARGS -ext WixFirewallExtension -ext
+                  WixUtilExtension ${WIX_CANDLE_FLAGS} ${SOURCE_WIX_FILE}
+          DEPENDS ${SOURCE_WIX_FILE} ${_extra_dep}
+          COMMENT
+            "Compiling ${SOURCE_WIX_FILE} -ext WixFirewallExtension -ext WixUtilExtension ${WIX_CANDLE_FLAGS} -> ${OUTPUT_WIXOBJ}"
         )
+        set(OUTPUT_WIXOBJ ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ})
+      endif(${_ext} STREQUAL ".wixlib")
+      set(${_objs} ${${_objs}} ${OUTPUT_WIXOBJ})
+      dbg_msg("WIX compile output: ${${_objs}}")
 
-    #
-    # Call wix compiler
-    #
-    # Parameters:
-    #  _sources - a list with sources
-    #  _obj - name of list for target objects
-    #
-    MACRO(WIX_COMPILE _sources _objs _extra_dep)
-        DBG_MSG("WIX compile: ${_sources}")
-        FOREACH (_current_FILE ${_sources})
-            GET_FILENAME_COMPONENT(_tmp_FILE ${_current_FILE} ABSOLUTE)
-            GET_FILENAME_COMPONENT(_basename ${_tmp_FILE} NAME_WE)
-            GET_FILENAME_COMPONENT(_ext ${_tmp_FILE} EXT)
+    endforeach(_current_FILE)
+  endmacro(WIX_COMPILE)
 
-            SET (SOURCE_WIX_FILE ${_tmp_FILE} )
-            DBG_MSG("WIX source file: ${SOURCE_WIX_FILE}")
+  #
+  # Call wix heat command for the specified DLLs
+  #
+  # Parameters: _sources - name of list with DLLs _obj - name of list for target
+  # objects
+  #
+  macro(WIX_HEAT _sources _objs)
+    dbg_msg("WiX heat: ${_sources}")
+    foreach(_current_DLL ${_sources})
+      get_filename_component(_tmp_FILE ${_current_DLL} ABSOLUTE)
+      get_filename_component(_basename ${_tmp_FILE} NAME_WE)
 
-			IF(${_ext} STREQUAL ".wixlib")
-				SET (OUTPUT_WIXOBJ ${_tmp_FILE})
-				DBG_MSG("WIX output: ${_tmp_FILE}")
-			ELSE(${_ext} STREQUAL ".wixlib")
-				SET (OUTPUT_WIXOBJ ${_basename}.wixobj )
+      set(SOURCE_WIX_FILE ${_tmp_FILE})
 
-				DBG_MSG("WIX output: ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}")
-				DBG_MSG("WIX command: ${WIX_CANDLE}")
+      set(OUTPUT_WIXOBJ ${_basename}.wxs)
 
-				ADD_CUSTOM_COMMAND( 
-					OUTPUT    ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}
-					COMMAND   ${WIX_CANDLE}
-					ARGS       
-								-ext WixFirewallExtension 
-								-ext WixUtilExtension
-								${WIX_CANDLE_FLAGS} 
-								${SOURCE_WIX_FILE}
-					DEPENDS   ${SOURCE_WIX_FILE} ${_extra_dep}
-					COMMENT   "Compiling ${SOURCE_WIX_FILE} -ext WixFirewallExtension -ext WixUtilExtension ${WIX_CANDLE_FLAGS} -> ${OUTPUT_WIXOBJ}"
-					)
-				SET (OUTPUT_WIXOBJ ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ})
-			ENDIF(${_ext} STREQUAL ".wixlib")
-			SET(${_objs} ${${_objs}} ${OUTPUT_WIXOBJ})
-			DBG_MSG("WIX compile output: ${${_objs}}")
+      dbg_msg("WIX output: ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}")
+      dbg_msg("WIX command: ${WIX_HEAT}")
 
-        ENDFOREACH (_current_FILE)
-    ENDMACRO(WIX_COMPILE)
+      add_custom_command(
+        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}
+        COMMAND
+          ${WIX_HEAT} ARGS file ${SOURCE_WIX_FILE} -ext WixFirewallExtension
+          -ext WixUtilExtension -out
+          ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ} ${WIX_HEAT_FLAGS}
+        DEPENDS ${SOURCE_WIX_FILE}
+        COMMENT "Compiling ${SOURCE_WIX_FILE} -> ${OUTPUT_WIXOBJ}")
+      set(${_objs} ${${_objs}} ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ})
+    endforeach(_current_DLL)
+    dbg_msg("WIX compile output: ${${_objs}}")
+  endmacro(WIX_HEAT)
 
-    #
-    # Call wix heat command for the specified DLLs
-    #
-    # Parameters:
-    #  _sources - name of list with DLLs
-    #  _obj - name of list for target objects
-    #
-    MACRO(WIX_HEAT _sources _objs)
-        DBG_MSG("WiX heat: ${_sources}")
-        FOREACH (_current_DLL ${_sources})
-            GET_FILENAME_COMPONENT(_tmp_FILE ${_current_DLL} ABSOLUTE)
-            GET_FILENAME_COMPONENT(_basename ${_tmp_FILE} NAME_WE)
+  #
+  # Link MSI file as post-build action
+  #
+  # Parameters _target - Name of target file _sources - A list with sources
+  # _loc_files - A list of localization files
+  #
+  macro(WIX_LINK _target _sources _loc_files)
+    dbg_msg(
+      "WIX command: ${WIX_LIGHT}\n WIX target: ${_target} objs: ${${_sources}}")
+    dbg_msg("WIX version: ${WIX_VERSION}")
 
-            SET (SOURCE_WIX_FILE ${_tmp_FILE} )
+    set(WIX_LINK_FLAGS_A ${WIX_LINK_FLAGS})
+    # Add localization
+    foreach(_current_FILE ${_loc_files})
+      if(${WIX_VERSION} EQUAL 3)
+        set(WIX_LINK_FLAGS_A ${WIX_LINK_FLAGS_A} -cultures:"${_current_FILE}")
+      else(${WIX_VERSION} EQUAL 3)
+        set(WIX_LINK_FLAGS_A ${WIX_LINK_FLAGS_A} -loc "${_current_FILE}")
+      endif(${WIX_VERSION} EQUAL 3)
+      dbg_msg("WIX link localization: ${_current_FILE}")
+    endforeach(_current_FILE)
+    dbg_msg("WIX link flags: ${WIX_LINK_FLAGS_A}")
 
-            SET (OUTPUT_WIXOBJ ${_basename}.wxs )
+    if(${WIX_VERSION} EQUAL 3)
+      add_custom_command(
+        OUTPUT ${_target}
+        COMMAND
+          ${WIX_LIGHT} ARGS ${WIX_LINK_FLAGS_A} -b ${CMAKE_CURRENT_SOURCE_DIR}
+          -ext WixUIExtension -ext WixFirewallExtension -ext WixUtilExtension
+          -out "${_target}" ${${_sources}}
+        DEPENDS ${${_sources}}
+        COMMENT
+          "Linking ${${_sources}} -> ${_target} (${WIX_LIGHT} ${WIX_LINK_FLAGS_A} -ext WixUIExtension -ext WixFirewallExtension -out \"${_target}\" ${${_sources}})"
+      )
+    else(${WIX_VERSION} EQUAL 3)
+      add_custom_command(
+        OUTPUT ${_target}
+        COMMAND ${WIX_LIGHT} ARGS ${WIX_LINK_FLAGS_A} -out "${_target}"
+                ${${_sources}}
+        DEPENDS ${${_sources}}
+        COMMENT "Linking ${${_sources}} -> ${_target} (${WIX_LINK_FLAGS_A})")
+    endif(${WIX_VERSION} EQUAL 3)
+  endmacro(WIX_LINK)
 
-            DBG_MSG("WIX output: ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}")
-            DBG_MSG("WIX command: ${WIX_HEAT}")
+  #
+  # Create an installer from sourcefiles
+  #
+  # Parameters _target - Name of target file _sources - Name of list with
+  # sources
+  #
+  macro(ADD_WIX_INSTALLER _target _sources _dependencies _loc_files)
+    set(WIX_OBJ_LIST)
+    wix_compile("${_sources}" WIX_OBJ_LIST "${_dependencies}")
+    set(TNAME
+        "${_target}-${BUILD_VERSION}-${VERSION_ARCH}.msi"
+    )
+    wix_link(${TNAME} WIX_OBJ_LIST "${_loc_files}")
+    add_custom_target(
+      installer_${_target} ALL
+      DEPENDS ${TNAME}
+      SOURCES ${_sources})
+    sign_file(installer_${_target} "${CMAKE_CURRENT_BINARY_DIR}/${TNAME}")
+  endmacro(ADD_WIX_INSTALLER)
 
-            ADD_CUSTOM_COMMAND( 
-                OUTPUT    ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}
-                COMMAND   ${WIX_HEAT}
-                ARGS      file ${SOURCE_WIX_FILE}
-						  -ext WixFirewallExtension
-						  -ext WixUtilExtension
-                          -out ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}
-                          ${WIX_HEAT_FLAGS}
-                DEPENDS   ${SOURCE_WIX_FILE}
-                COMMENT   "Compiling ${SOURCE_WIX_FILE} -> ${OUTPUT_WIXOBJ}"
-                )
-            SET(${_objs} ${${_objs}} ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ} )
-        ENDFOREACH(_current_DLL)
-        DBG_MSG("WIX compile output: ${${_objs}}")
-    ENDMACRO(WIX_HEAT)
-
-    #
-    # Link MSI file as post-build action
-    #
-    # Parameters
-    #  _target - Name of target file
-    #  _sources - A list with sources
-	#  _loc_files - A list of localization files
-    #
-    MACRO(WIX_LINK _target _sources _loc_files)
-        DBG_MSG("WIX command: ${WIX_LIGHT}\n WIX target: ${_target} objs: ${${_sources}}")
-        DBG_MSG("WIX version: ${WIX_VERSION}")
-
-        SET(WIX_LINK_FLAGS_A ${WIX_LINK_FLAGS})
-        # Add localization
-        FOREACH(_current_FILE ${_loc_files})
-			IF(${WIX_VERSION} EQUAL 3)
-				SET(WIX_LINK_FLAGS_A ${WIX_LINK_FLAGS_A} -cultures:"${_current_FILE}")
-			ELSE(${WIX_VERSION} EQUAL 3)
-				SET(WIX_LINK_FLAGS_A ${WIX_LINK_FLAGS_A} -loc "${_current_FILE}")
-			ENDIF(${WIX_VERSION} EQUAL 3)
-            DBG_MSG("WIX link localization: ${_current_FILE}")
-        ENDFOREACH(_current_FILE)
-        DBG_MSG("WIX link flags: ${WIX_LINK_FLAGS_A}")
-
-		IF(${WIX_VERSION} EQUAL 3)
-			ADD_CUSTOM_COMMAND(
-				OUTPUT    ${_target}
-				COMMAND   ${WIX_LIGHT}
-				ARGS      ${WIX_LINK_FLAGS_A}
-							-b ${CMAKE_CURRENT_SOURCE_DIR}
-							-ext WixUIExtension 
-							-ext WixFirewallExtension 
-							-ext WixUtilExtension 
-							-out "${_target}" 
-							${${_sources}}
-				DEPENDS   ${${_sources}}
-				COMMENT   "Linking ${${_sources}} -> ${_target} (${WIX_LIGHT} ${WIX_LINK_FLAGS_A} -ext WixUIExtension -ext WixFirewallExtension -out \"${_target}\" ${${_sources}})"
-				)
-		ELSE(${WIX_VERSION} EQUAL 3)
-			ADD_CUSTOM_COMMAND(
-				OUTPUT    ${_target}
-				COMMAND   ${WIX_LIGHT}
-				ARGS      ${WIX_LINK_FLAGS_A} -out "${_target}" ${${_sources}}
-				DEPENDS   ${${_sources}}
-				COMMENT   "Linking ${${_sources}} -> ${_target} (${WIX_LINK_FLAGS_A})"
-				)
-		ENDIF(${WIX_VERSION} EQUAL 3)
-    ENDMACRO(WIX_LINK)
-	
-    #
-    # Create an installer from sourcefiles
-    #
-    # Parameters
-    #  _target - Name of target file
-    #  _sources - Name of list with sources
-    #
-    MACRO(ADD_WIX_INSTALLER	_target _sources _dependencies _loc_files)
-		SET(WIX_OBJ_LIST)
-		WIX_COMPILE("${_sources}" WIX_OBJ_LIST "${_dependencies}")
-		SET(TNAME "${_target}-${VERSION_SERIES}.${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_BUILD}-${VERSION_ARCH}.msi")
-		WIX_LINK(${TNAME} WIX_OBJ_LIST "${_loc_files}")
-		ADD_CUSTOM_TARGET(installer_${_target} 
-			ALL
-			DEPENDS ${TNAME}
-			SOURCES ${_sources}
-			)
-		sign_file(installer_${_target} "${CMAKE_CURRENT_BINARY_DIR}/${TNAME}")
-    ENDMACRO(ADD_WIX_INSTALLER)
-
-	MACRO(WIX_FIND_MERGE_MODULE _VAR _FILE)
-		IF(CMAKE_CL_64)
-			SET(ARCH x64)
-		ELSE(CMAKE_CL_64)
-			SET(ARCH x86)
-		ENDIF(CMAKE_CL_64)
-		FIND_FILE(${_VAR}
-			NAMES 
-			"${_FILE}.msm"
-			"${_FILE}_${ARCH}.msm"
-			PATHS 
-			${WIX_MERGE_MODULE_PATH}
-			"$ENV{ProgramFiles}/Common Files/Merge Modules"
-			${WIX_POSSIBLE_ROOT_DIRS}
-			)
-		SET(${_VAR} ${${_VAR}} PARENT_SCOPE)
-	ENDMACRO(WIX_FIND_MERGE_MODULE)
+  macro(WIX_FIND_MERGE_MODULE _VAR _FILE)
+    if(CMAKE_CL_64)
+      set(ARCH x64)
+    else(CMAKE_CL_64)
+      set(ARCH x86)
+    endif(CMAKE_CL_64)
+    find_file(
+      ${_VAR}
+      NAMES "${_FILE}.msm" "${_FILE}_${ARCH}.msm"
+      PATHS
+        "$ENV{VCInstallDir}/Redist/MSVC/v143/MergeModules"
+        "$ENV{VCInstallDir}/Redist/MSVC/v142/MergeModules"
+        ${WIX_MERGE_MODULE_PATH}
+        "$ENV{ProgramFiles}/Common Files/Merge Modules"
+        "c:/Program Files/Microsoft Visual Studio/2022/Community/VC/Redist/MSVC/v143/MergeModules"
+        ${WIX_POSSIBLE_ROOT_DIRS})
+    set(${_VAR}
+        ${${_VAR}}
+        PARENT_SCOPE)
+  endmacro(WIX_FIND_MERGE_MODULE)
 
 endif(WIN32)

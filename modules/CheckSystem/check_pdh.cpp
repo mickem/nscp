@@ -17,16 +17,13 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "module.hpp"
 #include "CheckSystem.h"
 
 #include <map>
-#include <set>
 
 #include <boost/regex.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/program_options.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
 
 #include <nscapi/nscapi_program_options.hpp>
@@ -36,12 +33,10 @@
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
+namespace ph = boost::placeholders;
 
-void foo() {
-	check_pdh::counter_config_object *a = new check_pdh::counter_config_object("", "");
-}
 namespace check_pdh {
-	void counter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+	void counter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 		parent::read(proxy, oneliner, is_sample);
 		if (!get_value().empty())
 			counter = get_value();
@@ -79,19 +74,19 @@ namespace check_pdh {
 
 	filter_obj_handler::filter_obj_handler() {
 		registry_.add_string()
-			("counter", boost::bind(&filter_obj::get_counter, _1), "The counter name")
-			("alias", boost::bind(&filter_obj::get_alias, _1), "The counter alias")
-			("time", boost::bind(&filter_obj::get_time, _1), "The time for rrd checks")
+			("counter", boost::bind(&filter_obj::get_counter, ph::_1), "The counter name")
+			("alias", boost::bind(&filter_obj::get_alias, ph::_1), "The counter alias")
+			("time", boost::bind(&filter_obj::get_time, ph::_1), "The time for rrd checks")
 			;
 
 		registry_.add_number()
-			("value", parsers::where::type_float, boost::bind(&filter_obj::get_value_i, _1), boost::bind(&filter_obj::get_value_f, _1), "The counter value (either float or int)")
+			("value", parsers::where::type_float, boost::bind(&filter_obj::get_value_i, ph::_1), boost::bind(&filter_obj::get_value_f, ph::_1), "The counter value (either float or int)")
 			;
 		registry_.add_int()
-			("value_i", boost::bind(&filter_obj::get_value_i, _1), "The counter value (force int value)")
+			("value_i", boost::bind(&filter_obj::get_value_i, ph::_1), "The counter value (force int value)")
 			;
 		registry_.add_float()
-			("value_f", boost::bind(&filter_obj::get_value_f, _1), "The counter value (force float value)")
+			("value_f", boost::bind(&filter_obj::get_value_f, ph::_1), "The counter value (force float value)")
 			;
 
 	}
@@ -109,7 +104,7 @@ namespace check_pdh {
 		}
 	}
 
-	void check::check_pdh(boost::shared_ptr<pdh_thread> &collector, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	void check::check_pdh(boost::shared_ptr<pdh_thread> &collector, const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 		typedef filter filter_type;
 		modern_filter::data_container data;
 		modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
@@ -166,7 +161,7 @@ namespace check_pdh {
 
 		bool has_counter = false;
 		std::list<std::wstring> to_check;
-		BOOST_FOREACH(std::string &counter, counters) {
+		for(std::string &counter: counters) {
 			try {
 				if (counter.find('\\') == std::string::npos) {
 					named_counters[counter] = counter;
@@ -192,7 +187,7 @@ namespace check_pdh {
 				return nscapi::protobuf::functions::set_response_bad(*response, "Failed to add counter: " + utf8::utf8_from_native(e.what()));
 			}
 		}
-		BOOST_FOREACH(const std::string &s, extra) {
+		for(const std::string &s: extra) {
 			try {
 				std::string counter, alias;
 				if ((s.size() > 8) && (s.substr(0, 8) == "counter:")) {
@@ -248,11 +243,11 @@ namespace check_pdh {
 				}
 			}
 		}
-		BOOST_FOREACH(const counter_list::value_type &vc, named_counters) {
+		for(const counter_list::value_type &vc: named_counters) {
 			try {
 				typedef std::map<std::string, double> value_list_type;
 
-				BOOST_FOREACH(const std::string &time, times) {
+				for(const std::string &time: times) {
 					value_list_type values;
 					if (time.empty()) {
 						values = collector->get_value(vc.second);
@@ -261,7 +256,7 @@ namespace check_pdh {
 					}
 					if (values.empty())
 						return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value");
-					BOOST_FOREACH(const value_list_type::value_type &v, values) {
+					for(const value_list_type::value_type &v: values) {
 						boost::shared_ptr<filter_obj> record(new filter_obj(vc.first, v.first, time, v.second, v.second));
 						modern_filter::match_result ret = filter.match(record);
 					}
@@ -271,10 +266,10 @@ namespace check_pdh {
 				return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value: " + utf8::utf8_from_native(e.what()));
 			}
 		}
-		BOOST_FOREACH(PDH::pdh_instance &instance, free_counters) {
+		for(PDH::pdh_instance &instance: free_counters) {
 			try {
 				if (expand_instance) {
-					BOOST_FOREACH(const PDH::pdh_instance &child, instance->get_instances()) {
+					for(const PDH::pdh_instance &child: instance->get_instances()) {
 						boost::shared_ptr<filter_obj> record(new filter_obj(child->get_name(), child->get_counter(), "", child->get_int_value(), child->get_float_value()));
 						modern_filter::match_result ret = filter.match(record);
 					}

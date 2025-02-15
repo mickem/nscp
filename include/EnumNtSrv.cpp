@@ -17,10 +17,10 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 #include <windows.h>
 #include <WinSvc.h>
-#include <error/error.hpp>
-#include <nsclient/nsclient_exception.hpp>
+
 #include "EnumNtSrv.h"
 
 #include <buffer.hpp>
@@ -33,6 +33,12 @@
 #include <utf8.hpp>
 #include <str/utils.hpp>
 #include <str/format.hpp>
+
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
+#include <error/error.hpp>
+#include <nsclient/nsclient_exception.hpp>
+
 
 typedef boost::unordered_map<std::string, std::string> hash_map;
 hash_map smap;
@@ -276,7 +282,7 @@ typedef hlp::handle<SC_HANDLE, service_closer> service_handle;
 namespace services_helper {
 	DWORD parse_service_type(const std::string str) {
 		DWORD ret = 0;
-		BOOST_FOREACH(const std::string key, str::utils::split_lst(str, std::string(","))) {
+		for(const std::string key: str::utils::split_lst(str, std::string(","))) {
 			if (key == "driver" || key == "drv")
 				ret |= SERVICE_DRIVER;
 			else if (key == "file-system-driver" || key == "fs-drv")
@@ -296,7 +302,7 @@ namespace services_helper {
 	}
 	DWORD parse_service_state(const std::string str) {
 		DWORD ret = 0;
-		BOOST_FOREACH(const std::string key, str::utils::split_lst(str, std::string(","))) {
+		for(const std::string key: str::utils::split_lst(str, std::string(","))) {
 			if (key == "active")
 				ret |= SERVICE_ACTIVE;
 			else if (key == "inactive")
@@ -314,11 +320,11 @@ namespace services_helper {
 		DWORD deErr = 0;
 
 		if (QueryServiceConfig(hService, NULL, 0, &bytesNeeded) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
-			throw nsclient::nsclient_exception("Failed to query service: " + service + ": " + error::lookup::last_error(deErr));
+			throw nsclient::nsclient_exception("Failed to query size of service config: " + service + ": " + error::lookup::last_error(deErr));
 
 		hlp::buffer<BYTE, QUERY_SERVICE_CONFIG*> buf(bytesNeeded + 10);
 		if (!QueryServiceConfig(hService, buf.get(), bytesNeeded, &bytesNeeded))
-			throw nsclient::nsclient_exception("Failed to query service: " + service + ": " + error::lookup::last_error());
+			throw nsclient::nsclient_exception("Failed to query service config: " + service + ": " + error::lookup::last_error());
 		return buf;
 	}
 
@@ -327,11 +333,11 @@ namespace services_helper {
 		DWORD deErr = 0;
 
 		if (windows::winapi::QueryServiceStatusEx(hService, SC_STATUS_PROCESS_INFO, NULL, 0, &bytesNeeded) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
-			throw nsclient::nsclient_exception("Failed to query service: " + service + ": " + error::lookup::last_error(deErr));
+			throw nsclient::nsclient_exception("Failed to query size of service status: " + service + ": " + error::lookup::last_error(deErr));
 
 		hlp::buffer<BYTE, SERVICE_STATUS_PROCESS*> buf(bytesNeeded + 10);
 		if (!windows::winapi::QueryServiceStatusEx(hService, SC_STATUS_PROCESS_INFO, buf, bytesNeeded, &bytesNeeded))
-			throw nsclient::nsclient_exception("Failed to query service: " + service + ": " + error::lookup::last_error());
+			throw nsclient::nsclient_exception("Failed to query service status: " + service + ": " + error::lookup::last_error());
 		return buf;
 	}
 
@@ -342,10 +348,16 @@ namespace services_helper {
 			return;
 		hlp::buffer<BYTE> buffer(bytesNeeded + 10);
 
-		if (!QueryServiceConfig2W(hService, SERVICE_CONFIG_TRIGGER_INFO, buffer.get(), bytesNeeded, &bytesNeeded))
-			throw nsclient::nsclient_exception("Failed to open service: " + info.name);
-
-		info.triggers = buffer.get_t<SERVICE_TRIGGER_INFO*>()->cTriggers;
+		if (QueryServiceConfig2W(hService, SERVICE_CONFIG_TRIGGER_INFO, buffer.get(), bytesNeeded, &bytesNeeded) == 0) {
+			deErr = GetLastError();
+			if (deErr == ERROR_INVALID_PARAMETER) {
+				return;
+			} else {
+				NSC_LOG_ERROR("Failed to query trigger details: " + info.name + ": " + error::lookup::last_error(deErr));
+			}
+		} else {
+			info.triggers = buffer.get_t<SERVICE_TRIGGER_INFO*>()->cTriggers;
+		}
 	}
 
 	void fetch_delayed(service_handle &hService, service_info &info) {
@@ -360,16 +372,16 @@ namespace services_helper {
 		std::list<service_info> ret;
 		std::wstring comp = utf8::cvt<std::wstring>(computer);
 
-		service_handle sc = OpenSCManager(comp.empty() ? NULL : comp.c_str(), NULL, SC_MANAGER_ENUMERATE_SERVICE);
+		service_handle sc = OpenSCManager(comp.empty() ? nullptr : comp.c_str(), nullptr, SC_MANAGER_ENUMERATE_SERVICE);
 		if (!sc)
 			throw nsclient::nsclient_exception("Failed to open service manager: " + error::lookup::last_error());
 
 		DWORD bytesNeeded = 0;
 		DWORD count = 0;
 		DWORD handle = 0;
-		BOOL bRet = windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, NULL, 0, &bytesNeeded, &count, &handle, NULL);
+		BOOL bRet = windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, nullptr, 0, &bytesNeeded, &count, &handle, NULL);
 		if (bRet != 0) {
-			int err = GetLastError();
+			auto err = GetLastError();
 			if (err != ERROR_MORE_DATA) {
 				throw nsclient::nsclient_exception("Failed to enumerate service status: " + error::format::from_system(err));
 			}
@@ -390,14 +402,21 @@ namespace services_helper {
 			if (!hService)
 				throw nsclient::nsclient_exception("Failed to open service: " + info.name);
 
-			hlp::buffer<BYTE, QUERY_SERVICE_CONFIG*> qscData = queryServiceConfig(hService, info.name);
-			info.start_type = qscData.get()->dwStartType;
-			info.binary_path = utf8::cvt<std::string>(qscData.get()->lpBinaryPathName);
-			info.error_control = qscData.get()->dwErrorControl;
+            try {
+                hlp::buffer<BYTE, QUERY_SERVICE_CONFIG*> qscData = queryServiceConfig(hService, info.name);
+                info.start_type = qscData.get()->dwStartType;
+                info.binary_path = utf8::cvt<std::string>(qscData.get()->lpBinaryPathName);
+                info.error_control = qscData.get()->dwErrorControl;
+            } catch (std::exception &e) {
+                NSC_LOG_ERROR("Failed to query service config: " + info.name + ": " + e.what());
+                info.start_type = 0;
+                info.binary_path = "N/A";
+                info.error_control = 0;
+            }
+            fetch_delayed(hService, info);
+            fetch_triggers(hService, info);
+            ret.push_back(info);
 
-			fetch_delayed(hService, info);
-			fetch_triggers(hService, info);
-			ret.push_back(info);
 		}
 		return ret;
 	}

@@ -88,7 +88,7 @@ namespace check_mk_client {
 			return false;
 		}
 
-		bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) {
+		bool metrics(client::destination_container sender, client::destination_container target, const Metrics::MetricsMessage &request_message) {
 			return false;
 		}
 

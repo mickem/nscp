@@ -1,3 +1,1 @@
-SET (BUILD_MODULE 1)
-
-
+set(BUILD_MODULE 1)

@@ -1,0 +1,59 @@
+name: Create release
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        description: 'Version to build'
+        required: true
+
+env:
+  PYTHON_VERSION: 3.11
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - id: python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ ENV.PYTHON_VERSION }}
+
+    - uses: actions/download-artifact@v4
+      with:
+        name: NSCP-${{ inputs.version }}-x64
+    - uses: actions/download-artifact@v4
+      with:
+        name: NSCP-${{ inputs.version }}-Win32
+
+    - name: Rename docs
+      run: |
+        ls
+        mv NSCP-${{ inputs.version }}-x64-docs.zip NSCP-${{ inputs.version }}-docs.zip
+        rm NSCP-${{ inputs.version }}-Win32-docs.zip
+      shell: pwsh
+
+    - name: Create Release
+      id: create_release
+      uses: ncipollo/release-action@v1
+      with:
+        tag: ${{ inputs.version }}
+        name: ${{ inputs.version }}
+        draft: true
+        prerelease: false
+        generateReleaseNotes: true
+        artifacts: |
+          NSCP-${{ inputs.version }}-docs.zip
+          NSCP-${{ inputs.version }}-x64.zip
+          NSCP-${{ inputs.version }}-Win32.zip
+          installers/installer-NSCP/NSCP-${{ inputs.version }}-x64.msi
+          installers/installer-NSCP/NSCP-${{ inputs.version }}-Win32.msi
+          NSCP-${{ inputs.version }}-x64-symbols.zip
+          NSCP-${{ inputs.version }}-Win32-symbols.zip
+

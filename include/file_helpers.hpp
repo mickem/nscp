@@ -25,10 +25,11 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
-#include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 
 #ifdef WIN32
+#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
+#include <windows.h>
 #include <shellapi.h>
 #endif
 
@@ -40,7 +41,7 @@ namespace file_helpers {
 			return fs::is_directory(path);
 		}
 		static bool is_file(std::string path) {
-			return fs::is_regular(path);
+			return fs::is_regular_file(path);
 		}
 		static bool path_contains_file(fs::path dir, fs::path file) {
 			if (dir.filename() == ".")
@@ -95,7 +96,7 @@ namespace file_helpers {
 		static pattern_type split_pattern(fs::path path) {
 			if (fs::is_directory(path))
 				return pattern_type(path,fs::path());
-			return pattern_type(path.branch_path(), path.filename());
+			return pattern_type(path.parent_path(), path.filename());
 		}
 		static pattern_type split_path_ex(fs::path path) {
 			if (fs::is_directory(path)) {
@@ -140,7 +141,7 @@ namespace file_helpers {
 				return fullpath;
 			boost::filesystem::directory_iterator it(path), eod;
 			std::string tmp = boost::algorithm::to_lower_copy(filename);
-			BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
+			for(boost::filesystem::path const &p: std::make_pair(it, eod)) {
 				if (boost::filesystem::is_regular_file(p) && boost::algorithm::to_lower_copy(file_helpers::meta::get_filename(p)) == tmp) {
 					return p;
 				}

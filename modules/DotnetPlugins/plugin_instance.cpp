@@ -43,7 +43,8 @@ using namespace System::Reflection;
 using namespace System::Collections::Generic;
 using namespace System::Runtime::InteropServices;
 
-using namespace Plugin;
+using namespace PB::Commands;
+using namespace PB::Registry;
 
 std::string to_nstring(System::String^ s) {
 	pin_ptr<const wchar_t> pinString = PtrToStringChars(s);
@@ -122,11 +123,11 @@ NSCP::Core::Result^ CoreImpl::settings(protobuf_data^ request) {
 	return ret;
 }
 NSCP::Core::Result^ CoreImpl::registry(protobuf_data^ request) {
-	RegistryRequestMessage^ msg = RegistryRequestMessage::ParseFrom(request);
-	for (int i = 0; i < msg->PayloadCount; i++) {
-		if (msg->GetPayload(i)->HasRegistration) {
-			RegistryRequestMessage::Types::Request::Types::Registration^ reg = msg->GetPayload(i)->Registration;
-			if (reg->Type == Registry::Types::ItemType::QUERY) {
+	RegistryRequestMessage^ msg = RegistryRequestMessage::Parser->ParseFrom(request);
+	for (int i = 0; i < msg->Payload->Count; i++) {
+		if (msg->Payload[i]->Registration) {
+			RegistryRequestMessage::Types::Request::Types::Registration^ reg = msg->Payload[i]->Registration;
+			if (reg->Type == ItemType::Query) {
 				std::string command = to_nstring(reg->Name);
 				manager->register_command(command, (*internal_instance));
 			}

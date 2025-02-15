@@ -1,0 +1,65 @@
+---
+name: Build openssl
+description: Build and cache openssl libraries
+inputs:
+  version:
+    description: The openssl version to build
+    required: true
+  architecture:
+    description: The openssl architecture to build
+    required: true
+outputs:
+  path:
+    description: The path to the openssl folder
+    value:  ${{ steps.path.outputs.path }}
+  path_unix:
+    description: The path to the openssl folder
+    value:  ${{ steps.path.outputs.path_unix }}
+runs:
+  using: composite
+  steps:
+
+    - id: setup
+      run: |
+        if ("${{ inputs.architecture }}" -eq "x64") {
+          echo "cmd=VC-WIN64A" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "cmd=VC-WIN32" >> $env:GITHUB_OUTPUT
+        }
+      shell: pwsh
+
+    - name: Download openssl
+      run: |
+            curl -L https://www.openssl.org/source/openssl-${{ inputs.version }}.tar.gz --output openssl.tar.gz
+            7z x openssl.tar.gz
+            7z x openssl.tar
+      working-directory: tmp
+      shell: cmd
+
+    - id: cache
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-openssl-${{ inputs.version }}-no-shared-${{ inputs.architecture }}
+        path: |
+          tmp/openssl-${{ inputs.version }}/libcrypto*.*
+          tmp/openssl-${{ inputs.version }}/libssl*.*
+          tmp/openssl-${{ inputs.version }}/include/openssl/opensslconf.h
+          tmp/openssl-${{ inputs.version }}/include/crypto/dso_conf.h
+          tmp/openssl-${{ inputs.version }}/include/crypto/bn_conf.h
+
+    - name: Build openssl
+      run: |
+          perl Configure ${{ steps.setup.outputs.cmd }} no-asm no-shared
+          nmake
+      working-directory: tmp/openssl-${{ inputs.version }}
+      shell: cmd
+      if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+
+    - id: path
+      run: |
+        $path=$pwd.path
+        $path_unix=$pwd.path.replace('\','/')
+        echo "path=$path" >> $env:GITHUB_OUTPUT
+        echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+      working-directory: tmp/openssl-${{ inputs.version }}

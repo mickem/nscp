@@ -23,17 +23,12 @@
 #include <EnumNtSrv.h>
 #include <EnumProcess.h>
 
-#include <parsers/where.hpp>
-#include <parsers/where/node.hpp>
-#include <parsers/where/engine.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 
-#include <error/error.hpp>
 #include <str/format.hpp>
 
 #include <boost/date_time.hpp>
-#include <boost/algorithm/string.hpp>
 
 #include <string>
 

@@ -28,14 +28,13 @@
 #include <nscapi/macros.hpp>
 
 #include <str/utils.hpp>
+#include <utf8.hpp>
 
-#include <boost/foreach.hpp>
-#include <boost/optional.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/bind/bind.hpp>
 
-#include <map>
 #include <string>
-#include <algorithm>
 
 namespace sh = nscapi::settings_helper;
 
@@ -51,7 +50,7 @@ namespace alias {
 
 		std::string get_argument() const {
 			std::string args;
-			BOOST_FOREACH(const std::string &s, arguments) {
+			for(const std::string &s: arguments) {
 				if (!args.empty())
 					args += " ";
 				args += s;
@@ -65,7 +64,7 @@ namespace alias {
 				<< "{tpl: " << parent::to_string();
 			ss << ", command: " << command << ", arguments: ";
 			bool first = true;
-			BOOST_FOREACH(const std::string &s, arguments) {
+			for(const std::string &s: arguments) {
 				if (first)
 					first = false;
 				else
@@ -76,7 +75,7 @@ namespace alias {
 			return ss.str();
 		}
 
-		void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			parent::read(proxy, oneliner, is_sample);
 			set_alias(boost::algorithm::to_lower_copy(get_alias()));
 
@@ -95,7 +94,7 @@ namespace alias {
 				;
 
 			root_path.add_key()
-				("command", sh::string_fun_key(boost::bind(&command_object::set_command, this, _1)),
+				("command", sh::string_fun_key(boost::bind(&command_object::set_command, this, boost::placeholders::_1)),
 					"COMMAND", "Command to execute")
 				;
 
@@ -118,7 +117,7 @@ namespace alias {
 				}
 				arguments.clear();
 				std::list<std::string> buffer;
-				BOOST_FOREACH(const std::string &s, list) {
+				for(const std::string &s: list) {
 					std::size_t len = s.length();
 					if (buffer.empty()) {
 						if (len > 2 && s[0] == '\"' && s[len - 1] == '\"') {
@@ -131,7 +130,7 @@ namespace alias {
 					} else {
 						if (len > 1 && s[len - 1] == '\"') {
 							std::string tmp;
-							BOOST_FOREACH(const std::string &s2, buffer) {
+							for(const std::string &s2: buffer) {
 								if (tmp.empty()) {
 									tmp = s2.substr(1);
 								} else {
@@ -146,7 +145,7 @@ namespace alias {
 					}
 				}
 				if (!buffer.empty()) {
-					BOOST_FOREACH(const std::string &s, buffer) {
+					for(const std::string &s: buffer) {
 						arguments.push_back(s);
 					}
 				}

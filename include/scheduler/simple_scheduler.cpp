@@ -22,7 +22,7 @@
 #include <utf8.hpp>
 #include <nscapi/macros.hpp>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 
 #if BOOST_VERSION >= 105300
@@ -102,7 +102,7 @@ namespace simple_scheduler {
 
 	int scheduler::get_metric_rate() const {
 		boost::posix_time::time_duration diff = now() - time_t_epoch;
-		boost::uint32_t total_time = diff.total_seconds() - metric_start;
+		boost::uint32_t total_time = static_cast<uint32_t>(diff.total_seconds()) - metric_start;
 		boost::uint32_t count = atomic_read32(&metric_compleated);
 		if (total_time == 0) {
 			return 0;
@@ -113,7 +113,7 @@ namespace simple_scheduler {
 
 	void scheduler::start() {
 		boost::posix_time::time_duration diff = now() - time_t_epoch;
-		metric_start = diff.total_seconds();
+		metric_start = static_cast<uint32_t>(diff.total_seconds());
 		log_trace(__FILE__, __LINE__, "starting all threads");
 		running_ = true;
 		start_threads();
@@ -134,6 +134,7 @@ namespace simple_scheduler {
 		has_watchdog_ = false;
 		threads_.interruptThreads();
 		threads_.waitForThreads();
+		thread_count_ = 0;
 		log_trace(__FILE__, __LINE__, "Thread pool contains: " + str::xtos(threads_.threadCount()));
 	}
 
@@ -189,6 +190,7 @@ namespace simple_scheduler {
 						if (off.total_seconds() > 5) {
 							if (thread_count_ < 10) {
 								thread_count_++;
+								start_threads();
 							}  else if (!maximum_threads_reached) {
 								log_error(__FILE__, __LINE__, "Auto-scaling of scheduler failed (maximum of 10 threads reached) you need to manually configure threads to resolve items running slow");
 								maximum_threads_reached = true;
@@ -202,7 +204,7 @@ namespace simple_scheduler {
 				}
 
 				boost::thread::sleep(boost::get_system_time() + boost::posix_time::seconds(5));
-			} catch (const boost::thread_interrupted &e) {
+			} catch (const boost::thread_interrupted &) {
 				break;
 			} catch (const std::exception &e) {
 				log_error(__FILE__, __LINE__, "Watchdog issue: " + utf8::utf8_from_native(e.what()));

@@ -20,6 +20,7 @@
 #include "extscr_cli.h"
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_settings_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
@@ -59,7 +60,7 @@ extscr_cli::extscr_cli(boost::shared_ptr<script_provider_interface> provider, st
 }
 
 
-bool extscr_cli::run(std::string cmd, const Plugin::ExecuteRequestMessage_Request &request, Plugin::ExecuteResponseMessage_Response *response) {
+bool extscr_cli::run(std::string cmd, const PB::Commands::ExecuteRequestMessage_Request &request, PB::Commands::ExecuteResponseMessage_Response *response) {
 	if (cmd == "add")
 		add_script(request, response);
 	else if (cmd == "install")
@@ -75,7 +76,7 @@ bool extscr_cli::run(std::string cmd, const Plugin::ExecuteRequestMessage_Reques
 	return true;
 }
 
-bool extscr_cli::validate_sandbox(fs::path pscript, Plugin::ExecuteResponseMessage::Response *response) {
+bool extscr_cli::validate_sandbox(fs::path pscript, PB::Commands::ExecuteResponseMessage::Response *response) {
 	fs::path path = provider_->get_root();
 	if (!file_helpers::checks::path_contains_file(path, pscript)) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Not allowed outside: " + path.string());
@@ -84,7 +85,7 @@ bool extscr_cli::validate_sandbox(fs::path pscript, Plugin::ExecuteResponseMessa
 	return true;
 }
 
-void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	po::variables_map vm;
 	po::options_description desc;
 	bool json = false, query = false, lib = false;
@@ -123,16 +124,16 @@ void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plu
 	json_spirit::Array data;
 #endif
 	if (query) {
-		Plugin::RegistryRequestMessage rrm;
-		Plugin::RegistryResponseMessage response;
-		Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+		PB::Registry::RegistryRequestMessage rrm;
+		PB::Registry::RegistryResponseMessage response;
+		PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
 		payload->mutable_inventory()->set_fetch_all(true);
-		payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_QUERY);
+		payload->mutable_inventory()->add_type(PB::Registry::ItemType::QUERY);
 		std::string pb_response;
 		provider_->get_core()->registry_query(rrm.SerializeAsString(), pb_response);
 		response.ParseFromString(pb_response);
-		BOOST_FOREACH(const ::Plugin::RegistryResponseMessage_Response &p, response.payload()) {
-			BOOST_FOREACH(const ::Plugin::RegistryResponseMessage_Response_Inventory &i, p.inventory()) {
+		for(const ::PB::Registry::RegistryResponseMessage_Response &p: response.payload()) {
+			for(const ::PB::Registry::RegistryResponseMessage_Response_Inventory &i: p.inventory()) {
 				if (json) {
 #ifdef HAVE_JSON_SPIRIT
 					data.push_back(i.name());
@@ -146,7 +147,7 @@ void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plu
 		fs::path dir = provider_->get_core()->expand_path("${scripts}/python");
 		fs::path rel = provider_->get_core()->expand_path("${base-path}/python");
 		fs::recursive_directory_iterator iter(dir), eod;
-		BOOST_FOREACH(fs::path const& i, std::make_pair(iter, eod)) {
+		for(fs::path const& i: boost::make_iterator_range(iter, eod)) {
 			std::string s = i.string();
 			if (boost::algorithm::starts_with(s, rel.string()))
 				s = s.substr(rel.string().size());
@@ -175,7 +176,7 @@ void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plu
 	nscapi::protobuf::functions::set_response_good(*response, resp);
 }
 
-void extscr_cli::show(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+void extscr_cli::show(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
@@ -238,7 +239,7 @@ void extscr_cli::show(const Plugin::ExecuteRequestMessage::Request &request, Plu
 // 	}
 }
 
-void extscr_cli::delete_script(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+void extscr_cli::delete_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
@@ -309,7 +310,7 @@ void extscr_cli::delete_script(const Plugin::ExecuteRequestMessage::Request &req
 
 
 
-void extscr_cli::add_script(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
@@ -378,12 +379,12 @@ void extscr_cli::add_script(const Plugin::ExecuteRequestMessage::Request &reques
 	}
 
 
-	bool found = fs::is_regular(file);
+	bool found = fs::is_regular_file(file);
 	if (!found) {
 		boost::optional<fs::path> path = provider_->find_file(file.string());
 		if (path) {
 			file = *path;
-			found = fs::is_regular(file);
+			found = fs::is_regular_file(file);
 		}
 	}
 	if (!found) {
@@ -412,7 +413,7 @@ void extscr_cli::add_script(const Plugin::ExecuteRequestMessage::Request &reques
 	nscapi::protobuf::functions::set_response_good(*response, "Added " + alias + " as " + script + actual);
 }
 
-void extscr_cli::configure(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+void extscr_cli::configure(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	po::variables_map vm;
 	po::options_description desc;
 	typedef std::map<std::string, std::string> script_map_type;
@@ -431,7 +432,7 @@ void extscr_cli::configure(const Plugin::ExecuteRequestMessage::Request &request
 		nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
 		return;
 	}
-	BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
+	for(const pf::settings_query::key_values &val: q.get_query_key_response()) {
 		if (val.matches(MAIN_MODULES_SECTION, MODULE_NAME) && val.get_bool())
 			module = true;
 		else if (val.matches(SCRIPT_PATH))
@@ -465,7 +466,7 @@ void extscr_cli::configure(const Plugin::ExecuteRequestMessage::Request &request
 	if (!module) {
 		sq.set(MAIN_MODULES_SECTION, MODULE_NAME, "enabled");
 	}
-	BOOST_FOREACH(const std::string &s, to_add) {
+	for(const std::string &s: to_add) {
 		if (!provider_->find_file(s)) {
 			result << "Failed to find: " << s << std::endl;
 		} else {
@@ -477,7 +478,7 @@ void extscr_cli::configure(const Plugin::ExecuteRequestMessage::Request &request
 			}
 		}
 	}
-	BOOST_FOREACH(const std::string &s, to_remove) {
+	for(const std::string &s: to_remove) {
 		const script_map_type::const_iterator v = scripts.find(s);
 		if (v != scripts.end()) {
 			sq.erase(SCRIPT_PATH, v->second);
@@ -486,7 +487,7 @@ void extscr_cli::configure(const Plugin::ExecuteRequestMessage::Request &request
 			result << "Failed to remove nonexisting script: " << s << std::endl;
 		}
 	}
-	BOOST_FOREACH(const script_map_type::value_type &e, scripts) {
+	for(const script_map_type::value_type &e: scripts) {
 		result << e.second << std::endl;
 	}
 

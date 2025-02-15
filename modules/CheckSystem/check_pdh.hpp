@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 
 #include <nscapi/nscapi_settings_object.hpp>
 
@@ -49,7 +49,7 @@ namespace check_pdh {
 
 		// Runtime items
 
-		void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample);
+		void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample);
 
 		std::string to_string() const {
 			std::stringstream ss;
@@ -95,7 +95,7 @@ namespace check_pdh {
 
 	struct check {
 		counter_config_handler counters_;
-		void check_pdh(boost::shared_ptr<pdh_thread> &collector, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+		void check_pdh(boost::shared_ptr<pdh_thread> &collector, const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 		void add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
 		void clear();
 	};

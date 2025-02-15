@@ -1,5 +1,5 @@
 from NSCP import Settings, Registry, Core, log, status, log_error, log_debug, sleep
-from test_helper import BasicTest, TestResult, Callable, setup_singleton, install_testcases, init_testcases, shutdown_testcases
+from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
 import plugin_pb2
 from types import *
 import socket
@@ -108,15 +108,15 @@ class NSCAServerTest(BasicTest):
 		self.reg.simple_subscription('nsca_test_inbox', NSCAServerTest.simple_inbox_handler)
 		self.reg.subscription('nsca_test_inbox', NSCAServerTest.inbox_handler)
 
+	@staticmethod
 	def simple_inbox_handler(channel, source, command, code, message, perf):
 		instance = NSCAServerTest.getInstance()
 		return instance.simple_inbox_handler_wrapped(channel, source, command, code, message, perf)
-	simple_inbox_handler = Callable(simple_inbox_handler)
 
+	@staticmethod
 	def inbox_handler(channel, request):
 		instance = NSCAServerTest.getInstance()
 		return instance.inbox_handler_wrapped(channel, request)
-	inbox_handler = Callable(inbox_handler)
 	
 	def simple_inbox_handler_wrapped(self, channel, source, command, status, message, perf):
 		log_debug('Got message %s on %s'%(command, channel))
@@ -157,7 +157,7 @@ class NSCAServerTest(BasicTest):
 				found = True
 				break
 		if not found:
-			result.add_message(False, 'Failed to recieve message %s using %s'%(uuid, tag))
+			result.add_message(False, 'Failed to receive message %s using %s'%(uuid, tag))
 			return False
 		
 		for i in range(0,10):
@@ -169,8 +169,8 @@ class NSCAServerTest(BasicTest):
 				log_debug('Got delayed response %s'%uuid)
 				break
 		
-		result.add_message(rmsg.got_response, 'Testing to recieve message using %s'%tag)
-		result.add_message(rmsg.got_simple_response, 'Testing to recieve simple message using %s'%tag)
+		result.add_message(rmsg.got_response, 'Testing to receive message using %s'%tag)
+		result.add_message(rmsg.got_simple_response, 'Testing to receive simple message using %s'%tag)
 		result.assert_equals(rmsg.command, uuid, 'Verify that command is sent through using %s'%tag)
 		result.assert_contains(rmsg.message, msg, 'Verify that message is sent through using %s'%tag)
 		
@@ -182,7 +182,7 @@ class NSCAServerTest(BasicTest):
 	def submit_payload(self, encryption, target, length, source, status, msg, perf, tag):
 		message = plugin_pb2.SubmitRequestMessage()
 
-		message.header.recipient_id = target
+		message.header.recipient_id = "%s"%target
 		message.channel = 'nsca_test_outbox'
 		host = message.header.hosts.add()
 		host.id = target

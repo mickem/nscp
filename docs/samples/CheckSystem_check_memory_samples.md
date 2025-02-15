@@ -30,7 +30,7 @@ OK memory within bounds.|'page'=531G;3;3;0;3 'page %'=12%;79;89;0;100 'physical'
 ```
 **Overriding the unit:**
 
-Most "byte" checks such as memory have an auto scaling feature which means values wqill go from 800M to 1.2G between checks.
+Most "byte" checks such as memory have an auto scaling feature which means values will go from 800M to 1.2G between checks.
 Some graphing systems does not honor the units in performance data in which case you can get unexpected large values (such as 800G).
 To remedy this you can lock the unit by adding `perf-config=*(unit:G)`
 

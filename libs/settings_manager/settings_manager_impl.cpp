@@ -98,7 +98,7 @@ namespace settings_manager {
 			return settings::instance_raw_ptr(new settings::INISettings(this, alias, key));
 		if (settings::INISettings::context_exists(this, DEFAULT_CONF_INI_BASE + key))
 			return settings::instance_raw_ptr(new settings::INISettings(this,alias,  DEFAULT_CONF_INI_BASE + key));
-		throw settings::settings_exception(__FILE__, __LINE__, "Undefined settings protocol: " + url.protocol);
+		throw settings::settings_exception(__FILE__, __LINE__, "Undefined settings protocol: " + url.protocol + ", key=" + key);
 	}
 
 	bool NSCSettingsImpl::supports_edit(const std::string key) {
@@ -174,17 +174,17 @@ namespace settings_manager {
 			order.push_back(DEFAULT_CONF_INI_LOCATION);
 		}
 		std::string boot_order;
-		BOOST_FOREACH(const std::string &k, order) {
+		for(const std::string &k: order) {
 			str::format::append_list(boot_order, k, ", ");
 		}
-		BOOST_FOREACH(std::string k, order) {
+		for(std::string k: order) {
 			if (context_exists(k)) {
 				get_logger()->debug("settings", __FILE__, __LINE__, "Activating: " + k);
 				try {
 					set_instance("master", k);
 					return;
 				} catch (const settings::settings_exception &e) {
-					get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
+					get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
 				} catch (const std::exception &e) {
 					get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
 				} catch (...) {
@@ -218,7 +218,7 @@ namespace settings_manager {
 		order.remove(key);
 		order.push_front(key);
 		int i = 1;
-		BOOST_FOREACH(const std::string &k, order) {
+		for(const std::string &k: order) {
 			boot_conf.SetValue(L"settings", utf8::cvt<std::wstring>(str::xtos(i++)).c_str(), utf8::cvt<std::wstring>(k).c_str());
 		}
 		boot_conf.SaveFile(boot_.string().c_str());
@@ -230,7 +230,7 @@ namespace settings_manager {
 		try {
 			change_context(key);
 		} catch (settings::settings_exception e) {
-			get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
+			get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
 			return false;
 		} catch (...) {
 			get_logger()->error("settings", __FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
@@ -245,7 +245,7 @@ namespace settings_manager {
 			set_primary(context);
 			get_core()->boot(context);
 		} catch (settings::settings_exception e) {
-			get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
+			get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
 		} catch (...) {
 			get_logger()->error("settings", __FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
 		}
@@ -259,7 +259,7 @@ namespace settings_manager {
 			get_core()->boot(context);
 			get_core()->set_ready();
 		} catch (const settings::settings_exception &e) {
-			get_core()->get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
+			get_core()->get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
 			return false;
 		} catch (const std::exception &e) {
 			get_core()->get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
@@ -281,7 +281,7 @@ namespace settings_manager {
 				return true;
 			}
 		} catch (const settings::settings_exception &e) {
-			get_core()->get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
+			get_core()->get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
 			return false;
 		} catch (const std::exception &e) {
 			get_core()->get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));

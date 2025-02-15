@@ -29,7 +29,7 @@
 #include <str/format.hpp>
 #include <nsclient/nsclient_exception.hpp>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/assign.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/shared_mutex.hpp>
@@ -38,6 +38,7 @@
 #include <list>
 
 
+using namespace boost::placeholders;
 
 typedef boost::optional<std::string> op_str;
 template<eventlog::api::EVT_PUBLISHER_METADATA_PROPERTY_ID T_object, DWORD T_id, DWORD T_desc>
@@ -96,7 +97,7 @@ struct data_cache {
 private:
 	std::string do_apply(const eventlog::eventlog_table &table, long long mask) {
 		std::string keys = "";
-		BOOST_FOREACH(const eventlog::eventlog_table::value_type &cit, table) {
+		for(const eventlog::eventlog_table::value_type &cit: table) {
 			if ((mask&cit.first) == cit.first)
 				str::format::append_list(keys, cit.second, ",");
 		}
@@ -411,7 +412,7 @@ namespace eventlog_filter {
 				(type_custom_type, &fun_convert_new_type)
 				;
 			registry_.add_int()
-				("level", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), "Severity level (error, warning, info, success, auditSucess, auditFailure)")
+				("level", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), "Severity level (error, warning, info, success, auditSuccess, auditFailure)")
 				;
 		} else {
 			registry_.add_int()

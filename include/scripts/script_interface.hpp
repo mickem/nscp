@@ -25,7 +25,6 @@
 
 #include <boost/shared_ptr.hpp>
 #include <boost/optional.hpp>
-#include <boost/foreach.hpp>
 
 #include <NSCAPI.h>
 
@@ -86,15 +85,6 @@ namespace scripts {
 		virtual void register_path(std::string path, std::string title, std::string description, bool advanced) = 0;
 		virtual void register_key(std::string path, std::string key, std::string type, std::string title, std::string description, std::string defaultValue) = 0;
 
-		NSCAPI::settings_type parse_type(std::string stype) {
-			if (stype == "string" || stype == "str" || stype == "s")
-				return NSCAPI::key_string;
-			if (stype == "integer" || stype == "int" || stype == "i")
-				return NSCAPI::key_integer;
-			if (stype == "bool" || stype == "b")
-				return NSCAPI::key_bool;
-			return NSCAPI::key_string;
-		}
 	};
 
 	template<class script_trait>
@@ -196,13 +186,13 @@ namespace scripts {
 
 		void load_all() {
 			// TODO: locked
-			BOOST_FOREACH(typename script_list_type::value_type &entry, scripts_) {
+			for(typename script_list_type::value_type &entry: scripts_) {
 				script_runtime->load(entry.second);
 			}
 		}
 		void unload_all() {
 			// TODO: locked
-			BOOST_FOREACH(typename script_list_type::value_type &entry, scripts_) {
+			for(typename script_list_type::value_type &entry: scripts_) {
 				script_information<script_trait> * info = entry.second;
 				script_runtime->unload(info);
 				delete info;

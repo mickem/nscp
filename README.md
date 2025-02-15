@@ -1,8 +1,6 @@
 NSClient++
 ==========
-Stable 0.4.4: [![Build Status](https://travis-ci.org/mickem/nscp.png?branch=0.4.4)](https://travis-ci.org/mickem/nscp)
-
-Master: [![Build Status](https://travis-ci.org/mickem/nscp.png?branch=master)](https://travis-ci.org/mickem/nscp)
+[![Build release](https://github.com/mickem/nscp/actions/workflows/build-main.yml/badge.svg)](https://github.com/mickem/nscp/actions/workflows/build-main.yml)
 
 
 NSClient++ (nscp) aims to be a simple yet powerful and secure monitoring daemon. 
@@ -56,3 +54,4 @@ NSClient++ should run on the following operating systems:
  * Windows: From NT4 SP5 up to Windows 2012R2 and Windows 8.1
  * Linux: Debian, Centos and Ubuntu (and possibly others as well)
  * Win32, x64 as well as various Linux hardware as well.
+

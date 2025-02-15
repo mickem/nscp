@@ -29,22 +29,21 @@
           <Condition Action="show">NOT MONITORING_TOOL = "OP5" OR WixUI_InstallMode = "InstallCustom"</Condition>
           <Condition Action="hide">MONITORING_TOOL = "OP5" AND NOT WixUI_InstallMode = "InstallCustom"</Condition>
         </Control>
-        <Control Type="RadioButtonGroup" Property="KEY_NRPEMODE" Id="setNRPEMode" Width="252" Height="45" X="68" Y="145">
+        <Control Type="RadioButtonGroup" Property="KEY_NRPEMODE" Id="setNRPEMode" Width="252" Height="35" X="68" Y="145">
           <RadioButtonGroup Property="KEY_NRPEMODE">
-            <RadioButton Text="Insecure legacy mode (required by old check_nrpe)" Height="15" Value="LEGACY" Width="250" X="0" Y="0" />
-            <RadioButton Text="Safe mode (Use certificates for encryption but not authentication)" Height="15" Value="SAFE" Width="250" X="0" Y="15" />
-            <RadioButton Text="Secure (Use certificates for authentication)" Height="15" Value="SECURE" Width="250" X="0" Y="30" />
+            <RadioButton Text="Insecure mode (Use allowed hosts for authentication)" Height="15" Value="LEGACY" Width="250" X="0" Y="0" />
+            <RadioButton Text="Secure (Use certificates for authentication)" Height="15" Value="SECURE" Width="250" X="0" Y="15" />
           </RadioButtonGroup>
           <Condition Action="enable">KEY_CONF_NRPE AND NOT MONITORING_TOOL = "OP5"</Condition>
           <Condition Action="disable">NOT KEY_CONF_NRPE OR MONITORING_TOOL = "OP5"</Condition>
           <Condition Action="show">NOT MONITORING_TOOL = "OP5" OR WixUI_InstallMode = "InstallCustom"</Condition>
           <Condition Action="hide">MONITORING_TOOL = "OP5" AND NOT WixUI_InstallMode = "InstallCustom"</Condition>
         </Control>
-        <Control Id="checkNSCALabel" Type="CheckBox" X="50" Y="190" Width="260" Height="15" Property="KEY_CONF_NSCA" Text="Enable N&amp;SCA client" CheckBoxValue="1">
+        <Control Id="checkNSCALabel" Type="CheckBox" X="50" Y="180" Width="260" Height="15" Property="KEY_CONF_NSCA" Text="Enable N&amp;SCA client" CheckBoxValue="1">
           <Condition Action="show">NOT MONITORING_TOOL = "OP5" OR WixUI_InstallMode = "InstallCustom"</Condition>
           <Condition Action="hide">MONITORING_TOOL = "OP5" AND NOT WixUI_InstallMode = "InstallCustom"</Condition>
         </Control>
-        <Control Id="checkWEBLabel" Type="CheckBox" X="50" Y="205" Width="260" Height="15" Property="KEY_CONF_WEB" Text="Enable &amp;Web server" CheckBoxValue="1">
+        <Control Id="checkWEBLabel" Type="CheckBox" X="50" Y="195" Width="260" Height="15" Property="KEY_CONF_WEB" Text="Enable &amp;Web server" CheckBoxValue="1">
           <Condition Action="show">NOT MONITORING_TOOL = "OP5" OR WixUI_InstallMode = "InstallCustom"</Condition>
           <Condition Action="hide">MONITORING_TOOL = "OP5" AND NOT WixUI_InstallMode = "InstallCustom"</Condition>
         </Control>

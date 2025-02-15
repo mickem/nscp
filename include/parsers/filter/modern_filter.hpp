@@ -21,7 +21,6 @@
 
 #include <boost/shared_ptr.hpp>
 #include <boost/function.hpp>
-#include <boost/foreach.hpp>
 #include <boost/unordered_set.hpp>
 
 #include <parsers/expression/expression.hpp>
@@ -32,6 +31,11 @@
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
 #include <nscapi/nscapi_helper.hpp>
+
+#ifdef WIN32
+#pragma warning(push)
+#pragma warning(disable:4456)
+#endif
 
 namespace parsers {
 	namespace where {
@@ -71,15 +75,15 @@ namespace modern_filter {
 			if (str.empty() || str == "none")
 				return true;
 			parsers::simple_expression::result_type keys;
-			parsers::simple_expression expr;
 			if (error->is_debug()) {
 				error->log_debug("Parsing: " + str);
 			}
+			parsers::simple_expression expr;
 			if (!expr.parse(str, keys)) {
 				error->log_error("Failed to parse: " + str);
 				return false;
 			}
-			BOOST_FOREACH(const parsers::simple_expression::entry &e, keys) {
+			for(const parsers::simple_expression::entry &e: keys) {
 				my_entry my_e(e);
 				if (e.is_variable) {
 					std::string tag = e.name;
@@ -98,7 +102,7 @@ namespace modern_filter {
 		}
 		std::string render(boost::shared_ptr<Tfactory> context) const {
 			std::string ret;
-			BOOST_FOREACH(const my_entry &e, entries) {
+			for(const my_entry &e: entries) {
 				if (!e.origin.is_variable)
 					ret += e.origin.name;
 				else if (e.node->is_int())
@@ -134,7 +138,7 @@ namespace modern_filter {
 			return entries.empty();
 		}
 		bool parse(boost::shared_ptr<Tfactory> context) {
-			BOOST_FOREACH(const std::string &e, context->get_variables()) {
+			for(const std::string &e: context->get_variables()) {
 				my_entry my_e(e, context->create_variable(e, true));
 				entries.push_back(my_e);
 			}
@@ -142,7 +146,7 @@ namespace modern_filter {
 		}
 		std::map<std::string,std::string> render(boost::shared_ptr<Tfactory> context) const {
 			std::map<std::string, std::string> ret;
-			BOOST_FOREACH(const my_entry &e, entries) {
+			for(const my_entry &e: entries) {
 				if (e.node->is_int())
 					ret[e.key] = str::xtos_non_sci(e.node->get_int_value(context));
 				else if (e.node->is_float())
@@ -163,7 +167,7 @@ namespace modern_filter {
 			values_type values;
 			config_entry() {}
 			config_entry(const std::string &key, const std::vector<parsers::perfconfig::perf_option> &ops) : key(key) {
-				BOOST_FOREACH(const parsers::perfconfig::perf_option &op, ops) {
+				for(const parsers::perfconfig::perf_option &op: ops) {
 					values[op.key] = op.value;
 				}
 			}
@@ -182,14 +186,14 @@ namespace modern_filter {
 				error->log_error("Failed to parse: " + str);
 				return false;
 			}
-			BOOST_FOREACH(const parsers::perfconfig::perf_rule &r, keys) {
+			for(const parsers::perfconfig::perf_rule &r: keys) {
 				if (r.name == "extra") {
-					BOOST_FOREACH(const parsers::perfconfig::perf_option &o, r.options) {
+					for(const parsers::perfconfig::perf_option &o: r.options) {
 						extra_perf.push_back(o.key);
 					}
 				} else {
 					std::map<std::string, std::string> options;
-					BOOST_FOREACH(const parsers::perfconfig::perf_option &o, r.options) {
+					for(const parsers::perfconfig::perf_option &o: r.options) {
 						options[o.key] = o.value;
 					}
 					context->add_perf_config(r.name, options);
@@ -198,7 +202,7 @@ namespace modern_filter {
 			return true;
 		}
 		boost::optional<values_type> lookup(std::string key) {
-			BOOST_FOREACH(const config_entry &e, entries) {
+			for(const config_entry &e: entries) {
 				if (e.key == key)
 					return e.values;
 			}
@@ -325,7 +329,7 @@ namespace modern_filter {
 			has_unique_index = true;
 			return true;
 		}
-		bool build_syntax(const bool debug, const std::string &top, const std::string &detail, const std::string &perf, const std::string &perf_config_data, const std::string &ok_syntax, const std::string &empty_syntax, std::string &gerror) {
+		bool build_syntax(const bool debug, const std::string &top, const std::string &detail, const std::string &perf, const std::string &perf_config_data, const std::string &ok_syntax, const std::string &empty_syntax) {
 			if (debug)
 				set_debug(true);
 			if (!renderer_top.parse(context, top, get_error_handler(debug))) {
@@ -387,7 +391,7 @@ namespace modern_filter {
 		}
 
 		bool validate(std::string &error) {
-			if (engine_filter && !engine_filter->validate(context)) {
+			if (engine_filter.get() && !engine_filter->validate(context)) {
 				error = "Filter expression is not valid: " + engine_filter->to_string();
 				return false;
 			}
@@ -396,7 +400,7 @@ namespace modern_filter {
 				return false;
 			}
 			if (engine_warn) {
-				BOOST_FOREACH(const boundries_type::value_type &v, engine_warn->fetch_performance_data()) {
+				for(const boundries_type::value_type &v: engine_warn->fetch_performance_data()) {
 					register_leaf_performance_data(v.second, false);
 				}
 			}
@@ -405,7 +409,7 @@ namespace modern_filter {
 				return false;
 			}
 			if (engine_crit) {
-				BOOST_FOREACH(const boundries_type::value_type &v, engine_crit->fetch_performance_data()) {
+				for(const boundries_type::value_type &v: engine_crit->fetch_performance_data()) {
 					register_leaf_performance_data(v.second, true);
 				}
 			}
@@ -413,7 +417,7 @@ namespace modern_filter {
 				error = "Ok expression is not valid: " + engine_ok->to_string();
 				return false;
 			}
-			BOOST_FOREACH(const std::string &p, perf_config.get_extra_perf()) {
+			for(const std::string &p: perf_config.get_extra_perf()) {
 				add_manual_perf(p);
 			}
 			return true;
@@ -474,7 +478,7 @@ namespace modern_filter {
 		}
 
 		bool has_filter() const {
-			return engine_filter;
+			return engine_filter.get();
 		}
 		void fetch_hash(bool fetch_hash) {
 			fetch_hash_ = fetch_hash;
@@ -492,7 +496,7 @@ namespace modern_filter {
 			// done should be set if we want to bail out after the first hit!
 			// I.e. mode==first (mode==all)
 			summary.count();
-			if (!engine_filter || engine_filter->match(context, true)) {
+			if (!engine_filter.get() || engine_filter->match(context, true)) {
 				matched_filter = true;
 				if (fetch_hash_) {
 					records_.push_back(renderer_hash.render(context));
@@ -507,7 +511,7 @@ namespace modern_filter {
 						unique_index.emplace(tmp);
 				}
 
-				BOOST_FOREACH(const typename leaf_performance_entry_type::value_type &entry, leaf_performance_data) {
+				for(const typename leaf_performance_entry_type::value_type &entry: leaf_performance_data) {
 					parsers::where::perf_list_type perf = entry.second.current_value->get_performance_data(context, perf_alias, entry.second.warn_value, entry.second.crit_value, entry.second.minimum_value, entry.second.maximum_value);
 					if (perf.size() > 0)
 						performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
@@ -560,7 +564,7 @@ namespace modern_filter {
 		bool match_post() {
 			context->remove_object();
 			bool matched = summary.has_matched();
-			BOOST_FOREACH(const typename leaf_performance_entry_type::value_type &entry, leaf_performance_data) {
+			for(const typename leaf_performance_entry_type::value_type &entry: leaf_performance_data) {
 				parsers::where::perf_list_type perf = entry.second.current_value->get_performance_data(context, "TODO", entry.second.warn_value, entry.second.crit_value, entry.second.minimum_value, entry.second.maximum_value);
 				if (perf.size() > 0)
 					performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
@@ -589,14 +593,14 @@ namespace modern_filter {
 
 		void end_match() {
 			context->remove_object();
-			BOOST_FOREACH(const typename leaf_performance_entry_type::value_type &entry, leaf_performance_data) {
+			for(const typename leaf_performance_entry_type::value_type &entry: leaf_performance_data) {
 				parsers::where::perf_list_type perf = entry.second.current_value->get_performance_data(context, "TODO", entry.second.warn_value, entry.second.crit_value, entry.second.minimum_value, entry.second.maximum_value);
 				if (perf.size() > 0)
 					performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
 			}
 		}
 		void fetch_perf(perf_writer_interface* writer) {
-			BOOST_FOREACH(const parsers::where::perf_list_type::value_type &entry, performance_instance_data) {
+			for(const parsers::where::perf_list_type::value_type &entry: performance_instance_data) {
 				writer->write(entry);
 			}
 		}
@@ -609,3 +613,6 @@ namespace modern_filter {
 		}
 	};
 }
+#ifdef WIN32
+#pragma warning(pop)
+#endif

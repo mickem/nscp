@@ -27,7 +27,6 @@
 
 #include <str/utils.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 
@@ -50,7 +49,7 @@ namespace eventlog_filter {
 		std::list<std::string> files;
 
 		std::string to_string() const;
-		void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample);
+		void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample);
 
 		static unsigned short get_language(std::string lang);
 
@@ -58,7 +57,7 @@ namespace eventlog_filter {
 			if (file_string.empty())
 				return;
 			files.clear();
-			BOOST_FOREACH(const std::string &s, str::utils::split_lst(file_string, std::string(","))) {
+			for(const std::string &s: str::utils::split_lst(file_string, std::string(","))) {
 				files.push_back(s);
 			}
 		}

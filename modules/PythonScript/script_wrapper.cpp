@@ -27,6 +27,7 @@
 
 #include <str/utils.hpp>
 #include <str/format.hpp>
+#include <utf8.hpp>
 
 #include <boost/thread.hpp>
 
@@ -126,7 +127,7 @@ std::list<std::string> script_wrapper::convert(py::list lst) {
 }
 py::list script_wrapper::convert(const std::list<std::string> &lst) {
 	py::list ret;
-	BOOST_FOREACH(const std::string &s, lst) {
+	for(const std::string &s: lst) {
 		ret.append(s);
 	}
 	return ret;
@@ -163,12 +164,21 @@ void script_wrapper::sleep(unsigned int ms) {
 }
 
 void script_wrapper::log_exception() {
+    NSC_LOG_ERROR_EX("Python script throw unexpected exception");
 	try {
 		PyErr_Print();
-		py::object sys(py::handle<>(PyImport_ImportModule("sys")));
+        py::object sys = py::import("sys");
+        if (sys.is_none()) {
+            NSC_LOG_ERROR_EX("Failed to load sys object");
+            return;
+        }
 		py::object err = sys.attr("stderr");
+        if (err.is_none()) {
+            NSC_LOG_ERROR_EX("Failed to load sys.stderr object");
+            return;
+        }
 		std::string err_text = py::extract<std::string>(err.attr("getvalue")());
-		NSC_LOG_ERROR_STD(err_text);
+		NSC_LOG_ERROR_STD("Error from python script: "  + err_text);
 		PyErr_Clear();
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to parse error: ", e);
@@ -254,11 +264,37 @@ void script_wrapper::function_wrapper::register_cmdline(std::string name, PyObje
 	}
 }
 
-py::tuple script_wrapper::function_wrapper::query(std::string request) {
+std::string pybuf(py::object request, std::string task) {
+	if (!PyObject_CheckBuffer(request.ptr())) {
+		NSC_LOG_ERROR(task + " failed as input was not a buffer");
+		return "";
+	}
+
+	Py_buffer buffer;
+	if (PyObject_GetBuffer(request.ptr(), &buffer, PyBUF_SIMPLE) == -1) {
+		NSC_LOG_ERROR(task + " failed as input was invalid buffer");
+		return "";
+	}
+	std::string req = std::string((const char*)buffer.buf, buffer.len);
+	PyBuffer_Release(&buffer);
+	return req;
+}
+
+py::object pybuf(std::string response) {
+	PyObject* pymemview = PyBytes_FromStringAndSize((char*)response.c_str(), response.size());
+	return py::object(py::handle<>(pymemview));
+}
+
+
+py::tuple script_wrapper::function_wrapper::query(py::object request) {
 	try {
 		std::string response;
-		NSCAPI::errorReturn ret = core->registry_query(request, response);
-		return py::make_tuple(ret, response);
+		std::string req = pybuf(request, "registry query");
+		if (req.empty()) {
+			return py::make_tuple(false, "Failed to parse request");
+		}
+		NSCAPI::errorReturn ret = core->registry_query(req, response);
+		return py::make_tuple(ret, pybuf(response));
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Query failed: ", e);
 		return py::make_tuple(false, utf8::utf8_from_native(e.what()));
@@ -362,7 +398,7 @@ int script_wrapper::function_wrapper::handle_simple_query(const std::string cmd,
 
 			try {
 				py::list l;
-				BOOST_FOREACH(std::string a, arguments) {
+				for(std::string a: arguments) {
 					l.append(a);
 				}
 				py::object ret = py::call<py::object>(py::object(it->second).ptr(), l);
@@ -490,7 +526,9 @@ int script_wrapper::function_wrapper::handle_message(const std::string channel, 
 			thread_locker locker;
 			int ret_code = NSCAPI::api_return_codes::hasFailed;
 			try {
-				py::object ret = py::call<py::object>(py::object(it->second).ptr(), channel, request);
+				py::object memoryView(py::handle<>(PyMemoryView_FromMemory(const_cast<char*>(request.c_str()), static_cast<Py_ssize_t>(request.size()), PyBUF_READ)));
+
+				py::object ret = py::call<py::object>(py::object(it->second).ptr(), channel, memoryView);
 				if (ret.ptr() == Py_None) {
 					return NSCAPI::api_return_codes::hasFailed;
 				}
@@ -595,63 +633,62 @@ void script_wrapper::function_wrapper::on_simple_event(const std::string event, 
 }
 
 
-void build_metrics(py::dict &metrics, const Plugin::Common::MetricsBundle &b, const std::string &path) {
+void build_metrics(py::dict &metrics, const PB::Metrics::MetricsBundle &b, const std::string &path) {
 	std::string p = "";
 	if (!path.empty())
 		p += path + ".";
 	p += b.key();
 
-	BOOST_FOREACH(const Plugin::Common::MetricsBundle &b2, b.children()) {
+	for(const PB::Metrics::MetricsBundle &b2: b.children()) {
 		build_metrics(metrics, b2, p);
 	}
 
-	BOOST_FOREACH(const Plugin::Common::Metric &v, b.value()) {
-		if (!v.has_value())
-			continue;
-		if (v.value().has_int_data())
-			metrics[p + "." + v.key()] = str::xtos(v.value().int_data());
-		else if (v.value().has_string_data())
-			metrics[p + "." + v.key()] = v.value().string_data();
-		else if (v.value().has_float_data())
-			metrics[p + "." + v.key()] = str::xtos(v.value().float_data());
+	for(const PB::Metrics::Metric &v: b.value()) {
+		if (v.has_string_value())
+			metrics[p + "." + v.key()] = v.string_value().value();
+		else if (v.has_gauge_value())
+			metrics[p + "." + v.key()] = str::xtos(v.gauge_value().value());
 	}
 }
 
 void script_wrapper::function_wrapper::submit_metrics(const std::string &request) const {
+    thread_locker locker;
+    {
 
-	py::dict metrics;
-	Plugin::MetricsMessage msg;
-	msg.ParseFromString(request);
-	BOOST_FOREACH(const Plugin::MetricsMessage::Response &p, msg.payload()) {
-		BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, p.bundles()) {
-			build_metrics(metrics, b, "");
-		}
-	}
+        py::dict metrics;
+        PB::Metrics::MetricsMessage msg;
+        msg.ParseFromString(request);
+        for(const PB::Metrics::MetricsMessage::Response &p: msg.payload()) {
+                        for(const PB::Metrics::MetricsBundle &b: p.bundles()) {
+                                        build_metrics(metrics, b, "");
+                                    }
+                    }
 
 
-	try {
-		BOOST_FOREACH(functions::function_list_type::value_type &v, functions::get()->submit_metrics) {
-			thread_locker locker;
-			try {
-				py::call<py::object>(py::object(v).ptr(), metrics, pystr(""));
-			} catch (py::error_already_set e) {
-				log_exception();
-			}
-		}
-	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_EXR("Submission failed", e);
-	} catch (...) {
-		NSC_LOG_ERROR_EX("Submission failed");
-	}
+        try {
+            for(functions::function_list_type::value_type &v: functions::get()->submit_metrics) {
+                            thread_locker locker;
+                            try {
+                                py::call<py::object>(py::object(v).ptr(), metrics, pystr(""));
+                            } catch (py::error_already_set e) {
+                                log_exception();
+                            }
+                        }
+        } catch (const std::exception &e) {
+            NSC_LOG_ERROR_EXR("Submission failed", e);
+        } catch (...) {
+            NSC_LOG_ERROR_EX("Submission failed");
+        }
+    }
 }
 void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const {
-	Plugin::MetricsMessage::Response payload;
-	Plugin::Common::MetricsBundle *bundle = payload.add_bundles();
+	PB::Metrics::MetricsMessage::Response payload;
+	PB::Metrics::MetricsBundle *bundle = payload.add_bundles();
 	bundle->set_key("");
 
 
 	try {
-		BOOST_FOREACH(functions::function_list_type::value_type &v, functions::get()->fetch_metrics) {
+		for(functions::function_list_type::value_type &v: functions::get()->fetch_metrics) {
 			thread_locker locker;
 			try {
 				py::object ret = py::call<py::object>(py::object(v).ptr());
@@ -668,33 +705,32 @@ void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const
 					for (int i = 0; i < len(keys); ++i) {
 						py::object curArg = dic[keys[i]];
 						if (curArg) {
-							Plugin::Common::Metric *v = bundle->add_value();
-							v->set_key(py::extract<std::string>(keys[i]));
+							PB::Metrics::Metric *value = bundle->add_value();
+							value->set_key(py::extract<std::string>(keys[i]));
 
 							py::extract<std::string> strExtr(dic[keys[i]]);
 							if (strExtr.check()) {
-								v->mutable_value()->set_string_data(strExtr);
+								value->mutable_string_value()->set_value(strExtr);
 								continue;
 							}
 							py::extract<int> intExtr(dic[keys[i]]);
 							if (intExtr.check()) {
-								v->mutable_value()->set_int_data(intExtr);
+								value->mutable_gauge_value()->set_value(intExtr);
 								continue;
 							}
 							py::extract<double> dblExtr(dic[keys[i]]);
 							if (dblExtr.check()) {
-								v->mutable_value()->set_float_data(dblExtr);
+								value->mutable_gauge_value()->set_value(dblExtr);
 								continue;
 							}
-							v->mutable_value()->set_string_data("unknown type");
 						}
 					}
 				}
-			} catch (py::error_already_set e) {
+			} catch (const py::error_already_set &e) {
 				log_exception();
 			}
 		}
-		payload.mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+		payload.mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
 		request = payload.SerializeAsString();
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Submission failed", e);
@@ -719,10 +755,10 @@ bool script_wrapper::function_wrapper::has_simple_cmdline(const std::string comm
 
 std::string script_wrapper::function_wrapper::get_commands() {
 	std::string str;
-	BOOST_FOREACH(const functions::function_map_type::value_type& i, functions::get()->normal_functions) {
+	for(const functions::function_map_type::value_type& i: functions::get()->normal_functions) {
 		str::format::append_list(str, i.first, ", ");
 	}
-	BOOST_FOREACH(const functions::function_map_type::value_type& i, functions::get()->simple_functions) {
+	for(const functions::function_map_type::value_type& i: functions::get()->simple_functions) {
 		str::format::append_list(str, i.first, ", ");
 	}
 	return str;
@@ -746,12 +782,13 @@ py::tuple script_wrapper::command_wrapper::simple_submit(std::string channel, st
 	}
 	return py::make_tuple(ret, resp);
 }
-py::tuple script_wrapper::command_wrapper::submit(std::string channel, std::string request) {
+py::tuple script_wrapper::command_wrapper::submit(std::string channel, py::object request) {
+	std::string req = pybuf(request, "parse query");
 	std::string response;
 	int ret = 0;
 	try {
 		thread_unlocker unlocker;
-		ret = core->submit_message(channel, request, response);
+		ret = core->submit_message(channel, req, response);
 	} catch (const std::exception &e) {
 		return py::make_tuple(false, std::string(e.what()));
 	} catch (...) {
@@ -809,14 +846,18 @@ py::tuple script_wrapper::command_wrapper::simple_query(std::string command, py:
 	}
 	return py::make_tuple(nagios_return_to_py(ret), msg, perf);
 }
-py::tuple script_wrapper::command_wrapper::query(std::string command, std::string request) {
+py::tuple script_wrapper::command_wrapper::query(std::string command, py::object request) {
 	std::string response;
 	int ret = 0;
 	{
 		thread_unlocker unlocker;
-		ret = core->query(request, response);
+		std::string req = pybuf(request, "parse query");
+		if (req.empty()) {
+			return py::make_tuple(false, "Failed to parse request");
+		}
+		ret = core->query(req, response);
 	}
-	return py::make_tuple(ret, response);
+	return py::make_tuple(ret, pybuf(response));
 }
 
 py::tuple script_wrapper::command_wrapper::simple_exec(std::string target, std::string command, py::list args) {
@@ -883,28 +924,21 @@ void script_wrapper::settings_wrapper::save() {
 	settings.save();
 }
 
-NSCAPI::settings_type script_wrapper::settings_wrapper::get_type(std::string stype) {
-	if (stype == "string" || stype == "str" || stype == "s")
-		return NSCAPI::key_string;
-	if (stype == "integer" || stype == "int" || stype == "i")
-		return NSCAPI::key_integer;
-	if (stype == "bool" || stype == "b")
-		return NSCAPI::key_bool;
-	NSC_LOG_ERROR_STD("Invalid settings type");
-	return NSCAPI::key_string;
-}
 void script_wrapper::settings_wrapper::settings_register_key(std::string path, std::string key, std::string stype, std::string title, std::string description, std::string defaultValue) {
-	NSCAPI::settings_type type = get_type(stype);
-	settings.register_key(path, key, type, title, description, defaultValue, false, false);
+	settings.register_key(path, key, title, description, defaultValue, false, false);
 }
 void script_wrapper::settings_wrapper::settings_register_path(std::string path, std::string title, std::string description) {
 	settings.register_path(path, title, description, false, false);
 }
-py::tuple script_wrapper::settings_wrapper::query(std::string request) {
+py::tuple script_wrapper::settings_wrapper::query(py::object request) {
 	try {
 		std::string response;
-		NSCAPI::errorReturn ret = core->settings_query(request, response);
-		return py::make_tuple(ret, response);
+		std::string req = pybuf(request, "settings query");
+		if (req.empty()) {
+			return py::make_tuple(false, "Failed to parse request");
+		}
+		NSCAPI::errorReturn ret = core->settings_query(req, response);
+		return py::make_tuple(ret, pybuf(response));
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Query failed", e);
 		return py::make_tuple(false, utf8::utf8_from_native(e.what()));

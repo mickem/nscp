@@ -30,6 +30,7 @@
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
@@ -75,11 +76,11 @@ void target_helper::add_target(nscapi::settings_helper::settings_impl_interface_
 }
 
 bool CheckWMI::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
-	sh::settings_registry settings(get_settings_proxy());
+	sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 	//settings.set_alias(_T("targets"));
 
 	settings.add_path_to_settings()
-		("targets", sh::fun_values_path(boost::bind(&target_helper::add_target, &targets, get_settings_proxy(), _1, _2)),
+		("targets", sh::fun_values_path(boost::bind(&target_helper::add_target, &targets, nscapi::settings_proxy::create(get_id(), get_core()), boost::placeholders::_1, boost::placeholders::_2)),
 			"TARGET LIST SECTION", "A list of available remote target systems",
 			"TARGET DEFENTION", "For more configuration options add a dedicated section")
 		;
@@ -131,7 +132,7 @@ namespace wmi_filter {
 	};
 	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }
-void CheckWMI::check_wmi(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckWMI::check_wmi(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	typedef wmi_filter::filter filter_type;
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
@@ -169,10 +170,10 @@ void CheckWMI::check_wmi(const Plugin::QueryRequestMessage::Request &request, Pl
 		ns = build_namespace(ns, target_info.hostname);
 		wmi_impl::query wmiQuery(query, ns, target_info.username, target_info.password);
 		filter.context->registry_.add_string()
-			("line", boost::bind(&wmi_filter::filter_obj::get_row, _1), "Get a list of all columns");
-		BOOST_FOREACH(const std::string &col, wmiQuery.get_columns()) {
+			("line", boost::bind(&wmi_filter::filter_obj::get_row, boost::placeholders::_1), "Get a list of all columns");
+		for(const std::string &col: wmiQuery.get_columns()) {
 			filter.context->registry_.add_int()
-				(col, boost::bind(&wmi_filter::filter_obj::get_int, _1, col), boost::bind(&wmi_filter::filter_obj::get_string, _1, col), "Column: " + col).add_perf("", col, "");
+				(col, boost::bind(&wmi_filter::filter_obj::get_int, boost::placeholders::_1, col), boost::bind(&wmi_filter::filter_obj::get_string, boost::placeholders::_1, col), "Column: " + col).add_perf("", col, "");
 		}
 
 		if (!filter_helper.build_filter(filter))
@@ -207,7 +208,7 @@ std::string render_table(const std::vector<std::size_t> &widths, const row_type 
 	for (int i = 0; i < count; ++i)
 		ss << " " << pad(headers[i], widths[i]) << " ";
 	ss << "\n" << line << "\n";
-	BOOST_FOREACH(const row_type &row, rows) {
+	for(const row_type &row: rows) {
 		if (row.size() != widths.size())
 			throw wmi_impl::wmi_exception(E_INVALIDARG, "Invalid row size");
 		for (int i = 0; i < count; ++i)
@@ -306,7 +307,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std:
 					wmi_impl::query wmiQuery(query, ns, user, password);
 					std::list<std::string> cols = wmiQuery.get_columns();
 					count = cols.size();
-					BOOST_FOREACH(const std::string &col, cols) {
+					for(const std::string &col: cols) {
 						headers.push_back(col);
 						widths.push_back(col.size());
 					}
@@ -319,8 +320,8 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std:
 			} else if (vm.count("list-classes")) {
 				try {
 					std::stringstream ss;
-					wmi_impl::classes query(list_cls, ns, user, password);
-					wmi_impl::row_enumerator e = query.get();
+					wmi_impl::classes wmi_query(list_cls, ns, user, password);
+					wmi_impl::row_enumerator e = wmi_query.get();
 					while (e.has_next()) {
 						wmi_impl::row wmi_row = e.get_next();
 						ss << wmi_row.get_string("__CLASS") << "\n";
@@ -334,8 +335,8 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std:
 			} else if (vm.count("list-instances")) {
 				try {
 					std::stringstream ss;
-					wmi_impl::instances query(list_inst, ns, user, password);
-					wmi_impl::row_enumerator e = query.get();
+					wmi_impl::instances wmi_query(list_inst, ns, user, password);
+					wmi_impl::row_enumerator e = wmi_query.get();
 					while (e.has_next()) {
 						wmi_impl::row wmi_row = e.get_next();
 						ss << wmi_row.get_string("Name") << "\n";
@@ -349,8 +350,8 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std:
 			} else if (vm.count("list-ns")) {
 				try {
 					std::stringstream ss;
-					wmi_impl::instances query("__Namespace", ns, user, password);
-					wmi_impl::row_enumerator e = query.get();
+					wmi_impl::instances wmi_query("__Namespace", ns, user, password);
+					wmi_impl::row_enumerator e = wmi_query.get();
 					while (e.has_next()) {
 						wmi_impl::row wmi_row = e.get_next();
 						ss << wmi_row.get_string("Name") << "\n";

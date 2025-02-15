@@ -32,12 +32,16 @@
 #include <error/error.hpp>
 #include <simple_timer.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/filesystem.hpp>
 
 #include <map>
 #include <vector>
 #include <time.h>
+
+#ifdef WIN32
+#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
+#include <windows.h>
+#endif
 
 #ifndef WIN32
 #include <poll.h>
@@ -51,11 +55,11 @@ void real_time_thread::thread_proc() {
 	filter_helper helper(core, plugin_id);
 	std::list<std::string> logs;
 
-	BOOST_FOREACH(boost::shared_ptr<filters::filter_config_object> object, filters_.get_object_list()) {
+	for(boost::shared_ptr<filters::filter_config_object> object: filters_.get_object_list()) {
 		runtime_data data;
 		data.set_split(object->line_split, object->column_split);
 		data.set_read_from_start(object->read_from_start);
-		BOOST_FOREACH(const std::string &file, object->files) {
+		for(const std::string &file: object->files) {
 			boost::filesystem::path path = file;
 			data.add_file(path);
 #ifdef WIN32
@@ -71,7 +75,7 @@ void real_time_thread::thread_proc() {
 				}
 			}
 #else
-			if (boost::filesystem::is_regular(path)) {
+			if (boost::filesystem::is_regular_file(path)) {
 				logs.push_back(path.string());
 			} else {
 				NSC_LOG_ERROR("Failed to find folder for " + object->get_alias() + ": " + path.string());
@@ -197,7 +201,7 @@ bool real_time_thread::stop() {
 	return true;
 }
 
-void real_time_thread::add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
+void real_time_thread::add_realtime_filter(nscapi::settings_helper::settings_impl_interface_ptr proxy, std::string key, std::string query) {
 	try {
 		filters_.add(proxy, key, query);
 	} catch (const std::exception &e) {

@@ -29,7 +29,6 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/regex.hpp>
-#include <boost/foreach.hpp>
 
 #include <string>
 #include <map>
@@ -211,20 +210,20 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		void register_key(unsigned int plugin_id, std::string path, std::string key, settings_core::key_type type, std::string title, std::string description, nscapi::settings::settings_value defValue, bool advanced, bool is_sample, bool update_existing = true) {
+		void register_key(unsigned int plugin_id, std::string path, std::string key, std::string title, std::string description, std::string defValue, bool advanced, bool is_sample, bool update_existing = true) {
 			boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!writeLock.owns_lock()) {
 				throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path + "." + key);
 			}
 			reg_paths_type::iterator it = registred_paths_.find(path);
 			if (it == registred_paths_.end()) {
-				registred_paths_[path] = path_description(plugin_id);
-				registred_paths_[path].keys[key] = key_description(plugin_id, title, description, type, defValue, advanced, is_sample);
+				registred_paths_[path] = path_description(plugin_id, "", "", false, is_sample);
+				registred_paths_[path].keys[key] = key_description(plugin_id, title, description, defValue, advanced, is_sample);
 			} else if (update_existing) {
 				(*it).second.append_plugin(plugin_id);
 				path_description::keys_type::iterator kit = (*it).second.keys.find(key);
 				if (kit == (*it).second.keys.end()) {
-					(*it).second.keys[key] = key_description(plugin_id, title, description, type, defValue, advanced, is_sample);
+					(*it).second.keys[key] = key_description(plugin_id, title, description, defValue, advanced, is_sample);
 				} else {
 					(*kit).second.append_plugin(plugin_id);
 					if (!description.empty() && (*kit).second.description.empty()) {
@@ -282,7 +281,7 @@ namespace settings {
 			if (!readLock.owns_lock()) {
 				throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: when fetching tpls");
 			}
-			BOOST_FOREACH(const tpl_desc_type::value_type &d, registered_tpls_) {
+			for(const tpl_desc_type::value_type &d: registered_tpls_) {
 				ret.push_back(d.second);
 			}
 			return ret;
@@ -301,7 +300,7 @@ namespace settings {
 				throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path);
 			}
 			string_list ret;
-			BOOST_FOREACH(const reg_paths_type::value_type &v, registred_paths_) {
+			for(const reg_paths_type::value_type &v: registred_paths_) {
 				if ((!v.second.is_sample || fetch_samples) && (path.empty() || boost::starts_with(v.first, path)))
 					ret.push_back(v.first);
 			}
@@ -322,7 +321,7 @@ namespace settings {
 			string_list ret;
 			reg_paths_type::const_iterator cit = registred_paths_.find(path);
 			if (cit != registred_paths_.end()) {
-				BOOST_FOREACH(const path_description::keys_type::value_type &v, (*cit).second.keys) {
+				for(const path_description::keys_type::value_type &v: (*cit).second.keys) {
 					if (!v.second.is_sample || fetch_samples)
 						ret.push_back(v.first);
 				}

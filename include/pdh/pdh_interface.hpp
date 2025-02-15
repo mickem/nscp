@@ -22,7 +22,6 @@
 #include <list>
 #include <pdh.h>
 #include <pdhmsg.h>
-#include <sstream>
 #include <error/error.hpp>
 
 #include <boost/shared_ptr.hpp>
@@ -90,13 +89,13 @@ namespace PDH {
 	};
 
 	namespace types {
-		typedef enum data_type_struct {
+		enum data_type_struct {
 			type_int64, type_uint64
 		};
-		typedef enum data_format_struct {
+		enum data_format_struct {
 			format_large
 		};
-		typedef enum collection_strategy_struct {
+		enum collection_strategy_struct {
 			rrd, static_value
 		};
 	}
@@ -117,7 +116,7 @@ namespace PDH {
 		static const int format_long = 0x00000100;
 		static const int format_double = 0x00000200;
 
-		typedef enum data_types {
+		enum data_types {
 			type_double, type_long, type_large
 		};
 

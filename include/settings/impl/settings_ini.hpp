@@ -66,39 +66,6 @@ namespace settings {
 			return op_string(utf8::cvt<std::string>(val));
 		}
 		//////////////////////////////////////////////////////////////////////////
-		/// Get an integer value if it does not exist exception will be thrown
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @return the int value
-		///
-		/// @author mickem
-		virtual op_int get_real_int(settings_core::key_path_type key) {
-			op_string str = get_real_string(key);
-			if (str) {
-				try {
-					return str::stox<int>(*str);
-				} catch (const std::exception &e) {
-					return op_int();
-				}
-			}
-			return op_int();
-		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Get a boolean value if it does not exist exception will be thrown
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @return the boolean value
-		///
-		/// @author mickem
-		virtual op_bool get_real_bool(settings_core::key_path_type key) {
-			op_string str = get_real_string(key);
-			if (str)
-				return settings_interface_impl::string_to_bool(*str);
-			return op_bool();
-		}
-		//////////////////////////////////////////////////////////////////////////
 		/// Check if a key exists
 		///
 		/// @param path the path to look up
@@ -191,7 +158,7 @@ namespace settings {
 			std::string::size_type path_len = path.length();
 			ini.GetAllSections(lst);
 			if (path.empty()) {
-				BOOST_FOREACH(const CSimpleIni::Entry &e, lst) {
+				for(const CSimpleIni::Entry &e: lst) {
 					std::string key = utf8::cvt<std::string>(e.pItem);
 					if (key.length() > 1) {
 						std::string::size_type pos = key.find('/', 1);
@@ -201,17 +168,25 @@ namespace settings {
 					list.push_back(key);
 				}
 			} else {
-				BOOST_FOREACH(const CSimpleIni::Entry &e, lst) {
+				for(const CSimpleIni::Entry &e: lst) {
 					std::string key = utf8::cvt<std::string>(e.pItem);
 					if (key.length() > path_len + 1 && key.substr(0, path_len) == path) {
 						std::string::size_type pos = key.find('/', path_len + 1);
-						if (pos == std::string::npos && path_len > 1)
-							key = key.substr(path_len + 1);
-						else if (pos == std::string::npos)
+						if (pos == std::string::npos && path_len > 1) {
+							if (key[path_len] == '/' || key[path_len] == '\\') {
+								key = key.substr(path_len + 1);
+							} else {
+								key = key.substr(path_len);
+							}
+						} else if (pos == std::string::npos)
 							key = key.substr(path_len);
-						else if (path_len > 1)
-							key = key.substr(path_len + 1, pos - path_len - 1);
-						else
+						else if (path_len > 1) {
+							if (key[path_len] == '/' || key[path_len] == '\\') {
+								key = key.substr(path_len + 1, pos - path_len - 1);
+							} else {
+								key = key.substr(path_len, pos - path_len);
+							}
+						} else
 							key = key.substr(path_len, pos - path_len);
 						list.push_back(key);
 					}
@@ -231,7 +206,7 @@ namespace settings {
 			load_data();
 			CSimpleIni::TNamesDepend lst;
 			ini.GetAllKeys(utf8::cvt<std::wstring>(path).c_str(), lst);
-			BOOST_FOREACH(const CSimpleIni::Entry &e, lst) {
+			for(const CSimpleIni::Entry &e: lst) {
 				list.push_back(utf8::cvt<std::string>(e.pItem));
 			}
 		}
@@ -252,7 +227,7 @@ namespace settings {
 			settings::error_list ret;
 			CSimpleIni::TNamesDepend sections;
 			ini.GetAllSections(sections);
-			BOOST_FOREACH(const CSimpleIni::Entry &ePath, sections) {
+			for(const CSimpleIni::Entry &ePath: sections) {
 				std::string path = utf8::cvt<std::string>(ePath.pItem);
 				try {
 					get_core()->get_registred_path(path);
@@ -261,7 +236,7 @@ namespace settings {
 				}
 				CSimpleIni::TNamesDepend keys;
 				ini.GetAllKeys(ePath.pItem, keys);
-				BOOST_FOREACH(const CSimpleIni::Entry &eKey, keys) {
+				for(const CSimpleIni::Entry &eKey: keys) {
 					std::string key = utf8::cvt<std::string>(eKey.pItem);
 					try {
 						get_core()->get_registred_key(path, key);
@@ -286,7 +261,7 @@ namespace settings {
 			if (boost::filesystem::is_directory(get_file_name())) {
 				boost::filesystem::directory_iterator it(get_file_name()), eod;
 
-				BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
+				for(boost::filesystem::path const &p: boost::make_iterator_range(it, eod)) {
 					add_child_unsafe(file_helpers::meta::get_filename(p), "ini:///" + p.string());
 				}
 			}
@@ -307,8 +282,7 @@ namespace settings {
 			for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
 				std::string alias = utf8::cvt<std::string>((*cit).pItem);
 				std::string child = utf8::cvt<std::string>(ini.GetValue(L"/includes", (*cit).pItem));
-				get_core()->register_key(999, "/includes", utf8::cvt<std::string>((*cit).pItem), settings::settings_core::key_string,
-					"INCLUDED FILE", "Included configuration", "", true, false);
+				get_core()->register_key(999, "/includes", utf8::cvt<std::string>((*cit).pItem), "INCLUDED FILE", "Included configuration", "", true, false);
 				if (!child.empty())
 					add_child_unsafe(alias, child);
 			}
@@ -328,8 +302,8 @@ namespace settings {
 			if (filename_.empty()) {
 				filename_ = get_file_from_context();
 				if (filename_.size() > 0) {
-					if (boost::filesystem::is_regular(filename_)) {
-					} else if (boost::filesystem::is_regular(filename_.substr(1))) {
+					if (boost::filesystem::is_regular_file(filename_)) {
+					} else if (boost::filesystem::is_regular_file(filename_.substr(1))) {
 						filename_ = filename_.substr(1);
 					} else if (boost::filesystem::is_directory(filename_)) {
 					} else if (boost::filesystem::is_directory(filename_.substr(1))) {
@@ -352,7 +326,7 @@ namespace settings {
 			return utf8::cvt<std::string>(filename_);
 		}
 		bool file_exists() {
-			return boost::filesystem::is_regular(get_file_name());
+			return boost::filesystem::is_regular_file(get_file_name());
 		}
 		virtual std::string get_info() {
 			return "INI settings: (" + context_ + ", " + get_file_name().string() + ")";
@@ -363,11 +337,11 @@ namespace settings {
 			std::string file = url.host + url.path;
 			std::string tmp = core->expand_path(file);
 			if (tmp.size() > 1 && tmp[0] == '/') {
-				if (boost::filesystem::is_regular(tmp) || boost::filesystem::is_directory(tmp))
+				if (boost::filesystem::is_regular_file(tmp) || boost::filesystem::is_directory(tmp))
 					return true;
 				tmp = tmp.substr(1);
 			}
-			return boost::filesystem::is_regular(tmp) || boost::filesystem::is_directory(tmp);
+			return boost::filesystem::is_regular_file(tmp) || boost::filesystem::is_directory(tmp);
 		}
 		void ensure_exists() {
 			save();

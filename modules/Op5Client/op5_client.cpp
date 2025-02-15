@@ -27,7 +27,7 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/macros.hpp>
 
 #include <str/utils.hpp>
@@ -135,7 +135,7 @@ boost::shared_ptr<Mongoose::Response> op5_client::do_call(const char *verb, cons
 	hdr["Content-type"] = "application/json";
 	NSC_TRACE_ENABLED() {
 		NSC_TRACE_MSG(std::string(verb) + ": " + base_url + url);
-		BOOST_FOREACH(const hdr_type::value_type &v, hdr) {
+		for(const hdr_type::value_type &v: hdr) {
 			NSC_TRACE_MSG(v.first + "=" + v.second);
 		}
 		if (!payload.empty()) {
@@ -201,7 +201,6 @@ std::pair<bool, bool> op5_client::has_service(std::string service, std::string h
 		NSC_LOG_ERROR("Failed to parse reponse: " + response->getBody());
 		return std::pair<bool, bool>(false, false);
 	}
-	return std::pair<bool, bool>(false, false);
 }
 
 bool op5_client::add_host(std::string host, std::string hostgroups, std::string contactgroups) {
@@ -410,7 +409,7 @@ void op5_client::thread_proc() {
 				}
 				std::string response;
 				nscapi::core_helper ch(get_core(), get_id());
-				BOOST_FOREACH(op5_config::check_map::value_type &v, copy) {
+				for(op5_config::check_map::value_type &v: copy) {
 
 					std::string command;
 					std::string alias = v.second;
@@ -418,9 +417,9 @@ void op5_client::thread_proc() {
 					str::utils::parse_command(alias, command, arguments);
 
 					if (ch.simple_query(command, arguments, response)) {
-						Plugin::QueryResponseMessage resp_msg;
+						PB::Commands::QueryResponseMessage resp_msg;
 						resp_msg.ParseFromString(response);
-						BOOST_FOREACH(const Plugin::QueryResponseMessage::Response &p, resp_msg.payload()) {
+						for(const PB::Commands::QueryResponseMessage::Response &p: resp_msg.payload()) {
 							std::string message = nscapi::protobuf::functions::query_data_to_nagios_string(p, nscapi::protobuf::functions::no_truncation);
 							int result = nscapi::protobuf::functions::gbp_to_nagios_status(p.result());
 							std::string status;

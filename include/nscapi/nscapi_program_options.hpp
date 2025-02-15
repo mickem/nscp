@@ -20,7 +20,7 @@
 #pragma once
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 
 #include <str/utils.hpp>
 #include <utf8.hpp>
@@ -31,11 +31,13 @@
 #pragma warning(disable:4100)
 #include <boost/program_options.hpp>
 #pragma warning(pop)
+#pragma warning(push)
+#pragma warning(disable:4505)
 #else
 #include <boost/program_options.hpp>
 #endif
 #include <boost/function/function1.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <list>
 #include <vector>
@@ -46,6 +48,7 @@ namespace nscapi {
 		typedef std::map<std::string, std::string> field_map;
 
 		namespace po = boost::program_options;
+		namespace ph = boost::placeholders;
 
 		class program_options_exception : public std::exception {
 			std::string error;
@@ -99,7 +102,7 @@ namespace nscapi {
 		public:
 
 
-			std::vector<std::basic_string<char> >make_vector(const Plugin::QueryRequestMessage::Request &request)
+			std::vector<std::basic_string<char> >make_vector(const PB::Commands::QueryRequestMessage::Request &request)
 			{
 				std::vector<std::basic_string<char> > result;
 				for (int i=0;i<request.arguments_size();i++) {
@@ -107,7 +110,7 @@ namespace nscapi {
 				}
 				return result;
 			}
-			std::vector<std::basic_string<char> >make_vector(const Plugin::ExecuteRequestMessage::Request &request)
+			std::vector<std::basic_string<char> >make_vector(const PB::Commands::ExecuteRequestMessage::Request &request)
 			{
 				std::vector<std::basic_string<char> > result;
 				for (int i=0;i<request.arguments_size();i++) {
@@ -121,10 +124,10 @@ namespace nscapi {
 				str::utils::parse_command(arguments, result);
 				return result;
 			}
-			basic_command_line_parser(const Plugin::QueryRequestMessage::Request &request) 
+			basic_command_line_parser(const PB::Commands::QueryRequestMessage::Request &request) 
 				: po::basic_command_line_parser<char>(make_vector(request))
 			{}
-			basic_command_line_parser(const Plugin::ExecuteRequestMessage::Request &request) 
+			basic_command_line_parser(const PB::Commands::ExecuteRequestMessage::Request &request) 
 				: po::basic_command_line_parser<char>(make_vector(request))
 			{}
 			basic_command_line_parser(const std::string &arguments) 
@@ -148,10 +151,10 @@ namespace nscapi {
 			add_help(desc);
 			return desc;
 		}
-		inline po::options_description create_desc(const Plugin::QueryRequestMessage::Request &request) {
+		inline po::options_description create_desc(const PB::Commands::QueryRequestMessage::Request &request) {
 			return create_desc(request.command());
 		}
-		inline po::options_description create_desc(const Plugin::ExecuteRequestMessage::Request &request) {
+		inline po::options_description create_desc(const PB::Commands::ExecuteRequestMessage::Request &request) {
 			return create_desc(request.command());
 		}
 
@@ -358,11 +361,11 @@ namespace nscapi {
 			if (!extra_info.empty())
 				main_stream << extra_info  << std::endl;
 			std::string::size_type opwidth = 23;
-			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
+			for(const boost::shared_ptr<po::option_description> op: desc.options()) {
 				if (op->long_name().size() > opwidth)
 					opwidth = op->long_name().size();
 			}
-			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
+			for(const boost::shared_ptr<po::option_description> op: desc.options()) {
 				std::stringstream ss;
 				ss << "  " << op->long_name();
 				bool hasargs = op->semantic()->max_tokens() != 0;
@@ -398,7 +401,7 @@ namespace nscapi {
 			if (!extra_info.empty())
 				main_stream << extra_info  << std::endl;
 			std::string::size_type opwidth = 0;
-			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
+			for(const boost::shared_ptr<po::option_description> op: desc.options()) {
 				if (op->long_name().size() > opwidth)
 					opwidth = op->long_name().size();
 				if (op->semantic()->max_tokens() != 0) {
@@ -408,7 +411,7 @@ namespace nscapi {
 				}
 			}
 			opwidth++;
-			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
+			for(const boost::shared_ptr<po::option_description> op: desc.options()) {
 				std::stringstream ss;
 				ss << op->long_name();
 				if (op->semantic()->max_tokens() != 0)
@@ -442,7 +445,7 @@ namespace nscapi {
 		}
 		inline std::string help_csv(const po::options_description &desc, const std::string &) {
 			std::stringstream main_stream;
-			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
+			for(const boost::shared_ptr<po::option_description> op: desc.options()) {
 				main_stream << make_csv(op->long_name()) << ",";
 				bool hasargs = op->semantic()->max_tokens() != 0;
 				if (hasargs)
@@ -456,26 +459,26 @@ namespace nscapi {
 
 
 		inline std::string help_pb(const po::options_description &desc, const field_map &fields) {
-			::Plugin::Registry::ParameterDetails details;
-			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
-				::Plugin::Registry::ParameterDetail *detail = details.add_parameter();
+			::PB::Registry::ParameterDetails details;
+			for(const boost::shared_ptr<po::option_description> op: desc.options()) {
+				::PB::Registry::ParameterDetail *detail = details.add_parameter();
 				detail->set_name(op->long_name());
 				bool hasargs = op->semantic()->max_tokens() != 0;
 				if (hasargs) {
-					detail->set_content_type(Plugin::Common::STRING);
+					detail->set_content_type(PB::Common::STRING);
 					detail->set_default_value(strip_default_value(op->format_parameter()));
 				} else
-					detail->set_content_type(Plugin::Common::BOOL);
-				std::string desc =op->description();
-				std::string::size_type pos = desc.find("\n");
+					detail->set_content_type(PB::Common::BOOL);
+				std::string ldesc =op->description();
+				std::string::size_type pos = ldesc.find("\n");
 				if (pos == std::string::npos)
-					detail->set_short_description(desc);
+					detail->set_short_description(ldesc);
 				else
-					detail->set_short_description(desc.substr(0, pos));
-				detail->set_long_description(desc);
+					detail->set_short_description(ldesc.substr(0, pos));
+				detail->set_long_description(ldesc);
 			}
-			BOOST_FOREACH(const field_map::value_type &v, fields) {
-				::Plugin::Registry::FieldDetail *field= details.add_fields();
+			for(const field_map::value_type &v: fields) {
+				::PB::Registry::FieldDetail *field= details.add_fields();
 				field->set_name(v.first);
 				field->set_long_description(v.second);
 			}
@@ -489,7 +492,7 @@ namespace nscapi {
 
 		inline std::string help_show_default(const po::options_description &desc) {
 			std::stringstream ret;
-			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
+			for(const boost::shared_ptr<po::option_description> op: desc.options()) {
 				std::string param = strip_default_value(op->format_parameter());
 				if (param.empty())
 					continue;
@@ -552,7 +555,7 @@ namespace nscapi {
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
 					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
-						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, ""));
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
 				}
 
 				po::parsed_options parsed = cmd.allow_unregistered().run();
@@ -575,7 +578,7 @@ namespace nscapi {
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
 					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
-						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, ""));
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
 				}
 
 				po::parsed_options parsed = cmd.run();
@@ -597,7 +600,7 @@ namespace nscapi {
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
 					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
-						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, ""));
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
 				}
 
 				po::parsed_options parsed = cmd.run();
@@ -621,7 +624,7 @@ namespace nscapi {
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
 					if (a.size() < 2 || (a[0] != '-'))
-						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, p.name_for_position(0)));
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, p.name_for_position(0)));
 				}
 
 				po::parsed_options parsed = cmd.run();
@@ -645,7 +648,7 @@ namespace nscapi {
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
 					if (a.size() < 2 || (a[0] != '-'))
-						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, p.name_for_position(0)));
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, p.name_for_position(0)));
 				}
 
 				po::parsed_options parsed = cmd.run();
@@ -670,7 +673,7 @@ namespace nscapi {
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
 					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
-						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, ""));
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
 				}
 
 				po::parsed_options parsed = cmd.run();
@@ -701,7 +704,7 @@ namespace nscapi {
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
 					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
-						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, ""));
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
 				}
 
 				po::parsed_options parsed = cmd.run();
@@ -729,7 +732,7 @@ namespace nscapi {
 				if (arguments.size() > 0) {
 					std::string a = arguments[0];
 					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
-						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, ""));
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
 				}
 
 				po::parsed_options parsed = cmd.run();
@@ -798,3 +801,6 @@ namespace nscapi {
 		}
 	}
 }
+#ifdef WIN32
+#pragma warning(pop)
+#endif

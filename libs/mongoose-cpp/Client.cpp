@@ -5,11 +5,11 @@
 
 #include "ext/mongoose.h"
 
-#include <boost/foreach.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread/thread.hpp>
 
 #include <string>
+#include <list>
 
 using namespace std;
 using namespace Mongoose;
@@ -17,57 +17,49 @@ using namespace Mongoose;
 class Handler {
 
 public:
+	std::string payload_;
 	std::string error;
-	int exit_flag;
 	boost::shared_ptr<Response> response;
 
-	Handler() : exit_flag(0) {}
+	Handler(std::string payload) : payload_(payload) {}
 
-	static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
-		Handler *c = (Handler*)nc->user_data;
-		c->handler(nc, ev, ev_data);
+
+	void send(struct mg_connection* c, std::string data) {
+		mg_send(c, data.c_str(), data.length());
 	}
-	void handler(struct mg_connection *nc, int ev, void *ev_data) {
-		struct http_message *hm = (struct http_message *) ev_data;
+
+
+	static void ev_handler(struct mg_connection* c, int ev, void* ev_data, void* fn_data) {
+		Handler *handler = (Handler*)fn_data;
+		handler->handler(c, ev, ev_data);
+	}
+	void handler(struct mg_connection *c, int ev, void *ev_data) {
+		struct mg_http_message *hm = (struct mg_http_message *) ev_data;
 
 		switch (ev) {
 		case MG_EV_CONNECT:
-			if (*(int *)ev_data != 0) {
-				error = std::string("connect() failed: ") + strerror(*(int *)ev_data);
-				exit_flag = 1;
-			}
+			mg_send(c, payload_.c_str(), payload_.length());
 			break;
-		case MG_EV_HTTP_REPLY:
-			nc->flags |= MG_F_CLOSE_IMMEDIATELY;
+		case MG_EV_ERROR:
+			error = std::string("connect() failed: ") + strerror(*(int *)ev_data);
+			break;
+		case MG_EV_HTTP_MSG:
 			parseReply(hm);
-			exit_flag = 1;
-			break;
-		case MG_EV_CLOSE:
-			if (exit_flag == 0) {
-				exit_flag = 1;
-			}
 			break;
 		default:
 			break;
 		}
 	}
 
-	bool is_done() {
-		return exit_flag != 0;
-	}
-
-	void parseReply(struct http_message * hm) {
+	void parseReply(struct mg_http_message * hm) {
 		size_t i = 0;
-		response = boost::shared_ptr<Response>(new mcp::string_response(hm->resp_code, std::string(hm->body.p, hm->body.len)));
-		for (i = 0; hm->header_names[i].len > 0; i++) {
-			if (hm->header_names[i].p != NULL && hm->header_values[i].p != NULL) {
-				response->setHeader(std::string(hm->header_names[i].p, hm->header_names[i].len),
-					std::string(hm->header_values[i].p, hm->header_values[i].len));
-			}
+		response = boost::shared_ptr<Response>(new mcp::string_response(mg_http_status(hm), std::string(hm->message.ptr, hm->message.len)));
+		for (i = 0; hm->headers[i].name.len > 0; i++) {
+			response->setHeader(std::string(hm->headers[i].name.ptr, hm->headers[i].name.len),
+				std::string(hm->headers[i].value.ptr, hm->headers[i].value.len));
 		}
 	}
 };
-
 namespace Mongoose
 {
     Client::Client(std::string url) : url_(url)
@@ -79,24 +71,25 @@ namespace Mongoose
 
 
 	boost::shared_ptr<Response> Client::fetch(std::string verb, Client::header_type hdr, std::string payload) {
-
-		Handler handler;
 		struct mg_mgr mgr;
-		int i;
-		//memset(&mgr, 0, sizeof(struct mg_mgr));
 
-		mg_mgr_init(&mgr, NULL);
-		std::stringstream headers;
-		BOOST_FOREACH(const header_type::value_type &v, hdr) {
-			headers << v.first << ": " << v.second << "\r\n";
+		mg_mgr_init(&mgr);
+		std::stringstream request;
+
+		struct mg_str host = mg_url_host(url_.c_str());
+		std::string uri = mg_url_uri(url_.c_str());
+
+		request << verb + " " + uri + " HTTP/1.0\r\n";
+		for(const header_type::value_type &v: hdr) {
+			request << v.first << ": " << v.second << "\r\n";
 		}
+		request << "\n\r";
+		Handler handler(request.str());
 
-		mg_connection *nc = mg_connect_http(&mgr, &Handler::ev_handler, url_.c_str(), verb.c_str(), headers.str().c_str(), payload.c_str());
-		nc->user_data = &handler;
-
-		while (!handler.is_done()) {
-			mg_mgr_poll(&mgr, 1000);
-		}
+		mg_http_connect(&mgr, url_.c_str(), &Handler::ev_handler, &handler);
+		//while (!handler.is_done()) {
+		mg_mgr_poll(&mgr, 1000);
+		//}
 		mg_mgr_free(&mgr);
 		return handler.response;
 	}

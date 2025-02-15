@@ -138,7 +138,7 @@ NSClient++ has some feature to help work with settings stores.
 
 All of this is performed via the settings sub command: `nscp settings --help`
 
-Migrating settings from a ini file to the regstry can be done with the migrate-to command: `nscp settings --migrate-to registry`
+Migrating settings from a ini file to the registry can be done with the migrate-to command: `nscp settings --migrate-to registry`
 
 This will move all data from the settings file and store it in in the registry and then setup NSClient++ to use the registry instead of the ini file.
 

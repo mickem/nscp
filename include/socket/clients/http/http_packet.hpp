@@ -113,16 +113,16 @@ namespace http {
 			parse_http_response(std::string(its, ite));
 			its = ite + 2;
 			while (true) {
-				std::vector<char>::iterator ite = std::adjacent_find(its, data.end(), find_line_end);
-				if (ite == data.end())
+				std::vector<char>::iterator iterator = std::adjacent_find(its, data.end(), find_line_end);
+				if (iterator == data.end())
 					break;
-				std::string line(its, ite);
+				std::string line(its, iterator);
 				if (line.empty()) {
-					payload_ = std::string(ite+2, data.end());
+					payload_ = std::string(iterator+2, data.end());
 					break;
 				}
 				add_header(line);
-				its = ite+2;
+				its = iterator+2;
 			}
 		}
 
@@ -162,7 +162,7 @@ namespace http {
 		std::string to_string() const {
 			std::stringstream ss;
 			ss << "verb: " << verb_ << ", path: " << path_;
-			BOOST_FOREACH(const header_type::value_type &v, headers_) 
+			for(const header_type::value_type &v: headers_)
 				ss << ", " << v.first << ": " << v.second;
 			return ss.str();
 		}
@@ -171,8 +171,10 @@ namespace http {
 			std::stringstream ss;
 			const char* crlf = "\r\n";
 			ss << verb_ << " " << path_ << " HTTP/1.0" << crlf;
-			ss << "Host: " << server_ << crlf;
-			BOOST_FOREACH(const header_type::value_type &v, headers_)
+			if (!server_.empty()) {
+				ss << "Host: " << server_ << crlf;
+			}
+			for(const header_type::value_type &v: headers_)
 				ss << v.first << ": " << v.second << crlf;
 			ss << crlf;
 			return ss.str();
@@ -204,8 +206,10 @@ namespace http {
 		void build_request(std::ostream &os) const {
 			const char* crlf = "\r\n";
 			os << verb_ << " " << path_ << " HTTP/1.0" << crlf;
-			os << "Host: " << server_ << crlf;
-			BOOST_FOREACH(const header_type::value_type &e, headers_) {
+			if (!server_.empty()) {
+				os << "Host: " << server_ << crlf;
+			}
+			for(const header_type::value_type &e: headers_) {
 				os << e.first << ": " << e.second << crlf;
 			}
 			os << crlf;
@@ -216,7 +220,7 @@ namespace http {
 		}
 		void add_post_payload(const post_map_type &payload_map) {
 			std::string data;
-			BOOST_FOREACH(const post_map_type::value_type &v, payload_map) {
+			for(const post_map_type::value_type &v: payload_map) {
 				if (!data.empty())
 					data += "&";
 				data += uri_encode(v.first);

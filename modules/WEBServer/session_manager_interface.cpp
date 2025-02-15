@@ -5,12 +5,16 @@
 
 #include <Helpers.h>
 
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_plugin_wrapper.hpp>
+
 #include <str/utils.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/algorithm/string.hpp>
 
 #include <string>
+
 
 session_manager_interface::session_manager_interface()
 	: log_data(new error_handler())
@@ -23,28 +27,34 @@ std::string decode_key(std::string encoded) {
 bool session_manager_interface::is_loggedin(std::string grant, Mongoose::Request &request, Mongoose::StreamResponse &response) {
 	std::list<std::string> errors;
 	if (!allowed_hosts.is_allowed(boost::asio::ip::address::from_string(request.getRemoteIp()), errors)) {
-// 		BOOST_FOREACH(const std::string &e, errors) {
-// 			NSC_LOG_ERROR(e);
-// 		}
-		//NSC_LOG_ERROR("Rejected connection from: " + request.getRemoteIp());
-		response.setCode(HTTP_FORBIDDEN);
-		response.append("403 You're not allowed");
+        std::string error = str::utils::joinEx(errors, ", ");
+		NSC_LOG_ERROR("Rejected connection from: " + request.getRemoteIp() + " due to " + error);
+		response.setCodeForbidden("403 You're not allowed");
 		return false;
 	}
-	if (request.hasVariable(HTTP_HDR_AUTH)) {
+	if (request.hasVariable(HTTP_HDR_AUTH) || request.hasVariable(HTTP_HDR_AUTH_LC)) {
 		std::string auth = request.readHeader(HTTP_HDR_AUTH);
+		if (auth.empty()) {
+			auth = request.readHeader(HTTP_HDR_AUTH_LC);
+		}
 		if (boost::algorithm::starts_with(auth, "Basic ")) {
 			str::utils::token token = str::utils::split2(decode_key(auth.substr(6)), ":");
 			if (!validate_user(token.first, token.second)) {
-				response.setCode(HTTP_FORBIDDEN);
-				response.append("403 You're not allowed");
+				response.setCodeForbidden("403 You're not allowed");
 				return false;
 			}
 			setup_token(token.first, response);
 			return can(grant, request, response);
+		} else if (boost::algorithm::starts_with(auth, "Bearer ")) {
+			std::string token = auth.substr(7);
+			if (!tokens.validate(token)) {
+				response.setCodeForbidden("403 You're not allowed");
+				return false;
+			}
+			setup_user(token, response);
+			return can(grant, request, response);
 		} else {
-			response.setCode(HTTP_BAD_REQUEST);
-			response.append("Invalid authentication scheme");
+			response.setCodeForbidden("Invalid authentication scheme");
 			return false;
 		}
 	}
@@ -52,19 +62,26 @@ bool session_manager_interface::is_loggedin(std::string grant, Mongoose::Request
 		std::string pwd = request.readHeader("Password");
 		std::string fake_user = "admin";
 		if (!validate_user(fake_user, pwd)) {
-			response.setCode(HTTP_FORBIDDEN);
-			response.append("403 You're not allowed");
+			response.setCodeForbidden("403 You're not allowed");
 			return false;
 		}
 		setup_token(fake_user, response);
+		return can(grant, request, response);
+	}
+	if (request.hasVariable("TOKEN")) {
+		std::string token = request.readHeader("TOKEN");
+		if (!tokens.validate(token)) {
+			response.setCodeForbidden("403 You're not allowed");
+			return false;
+		}
+		setup_user(token, response);
 		return can(grant, request, response);
 	}
 	if (request.hasVariable("password")) {
 		std::string pwd = request.readHeader("password");
 		std::string fake_user = "admin";
 		if (!validate_user(fake_user, pwd)) {
-			response.setCode(HTTP_FORBIDDEN);
-			response.append("403 You're not allowed");
+			response.setCodeForbidden("403 You're not allowed");
 			return false;
 		}
 		setup_token(fake_user, response);
@@ -77,15 +94,12 @@ bool session_manager_interface::is_loggedin(std::string grant, Mongoose::Request
 		token = request.get("__TOKEN", "");
 	if (!token.empty()) {
 		if (!tokens.validate(token)) {
-			response.setCode(HTTP_FORBIDDEN);
-			response.append("403 You're not allowed");
+			response.setCodeForbidden("403 You're not allowed");
 			return false;
 		}
 		return can(grant, request, response);
 	}
-	response.setCode(HTTP_FORBIDDEN);
-	response.append("403 Please login first");
-	return false;
+	return can(grant, request, response);
 }
 
 
@@ -110,16 +124,28 @@ void session_manager_interface::setup_token(std::string &user, Mongoose::StreamR
 	response.setCookie("uid", user);
 }
 
+
+void session_manager_interface::setup_user(std::string &token, Mongoose::StreamResponse & response) {
+	response.setCookie("token", token);
+	response.setCookie("uid", tokens.get(token));
+}
+
+void session_manager_interface::get_user(const Mongoose::StreamResponse & response, std::string &user, std::string &key) const {
+	user = response.getCookie("uid");
+	key = response.getCookie("token");
+}
+
 bool session_manager_interface::can(std::string grant, Mongoose::Request & request, Mongoose::StreamResponse & response) {
 	std::string uid = response.getCookie("uid");
 	if (uid.empty()) {
-		response.setCode(HTTP_FORBIDDEN);
-		response.append("403 You're not allowed");
+		if (tokens.can("anonymous", grant)) {
+			return true;
+		}
+		response.setCodeForbidden("403 You're not allowed");
 		return false;
 	}
 	if (!tokens.can(uid, grant)) {
-		response.setCode(HTTP_FORBIDDEN);
-		response.append("403 You're not allowed");
+		response.setCodeForbidden("403 You're not allowed");
 		return false;
 	}
 	return true;
@@ -130,6 +156,11 @@ void session_manager_interface::add_user(std::string user, std::string role, std
 	users[user] = password;
 }
 
+bool session_manager_interface::has_user(std::string user) const {
+	return users.find(user) != users.end();
+}
+
+
 void session_manager_interface::add_grant(std::string role, std::string grant) {
 	tokens.add_grant(role, grant);
 }
@@ -137,8 +168,20 @@ void session_manager_interface::add_grant(std::string role, std::string grant) {
 std::string session_manager_interface::get_metrics() {
 	return metrics_store.get();
 }
-void session_manager_interface::set_metrics(std::string metrics) {
+std::string session_manager_interface::get_metrics_v2() {
+	return metrics_store.get_list();
+}
+std::string session_manager_interface::get_openmetrics() {
+	std::string metrics;
+	for(const std::string &m: metrics_store.get_openmetrics()) {
+		metrics += m + "\n";
+	}
+	return metrics;
+}
+void session_manager_interface::set_metrics(std::string metrics, std::string metrics_list, std::list<std::string> openmetrics) {
 	metrics_store.set(metrics);
+	metrics_store.set_list(metrics_list);
+	metrics_store.set_openmetrics(openmetrics);
 }
 
 void session_manager_interface::add_log_message(bool is_error, error_handler_interface::log_entry entry) {

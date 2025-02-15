@@ -20,7 +20,6 @@
 #include <iostream>
 
 #include <boost/regex.hpp>
-#include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/algorithm/string.hpp>
@@ -28,6 +27,10 @@
 #include <parsers/operators.hpp>
 #include <parsers/helpers.hpp>
 #include <parsers/where/helpers.hpp>
+
+#ifdef _WIN32
+#pragma warning( disable : 4100)
+#endif
 
 namespace parsers {
 	namespace where {
@@ -355,7 +358,7 @@ namespace parsers {
 				value_container eval_int(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
 					value_container lhs = left->get_value(errors, type_int);
 					long long val = lhs.get_int();
-					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
+					for(node_type itm: right->get_list_value(errors)) {
 						if (itm->get_int_value(errors) == val)
 							return value_container::create_int(false, lhs.is_unsure);
 					}
@@ -364,7 +367,7 @@ namespace parsers {
 				value_container eval_float(value_type, evaluation_context errors, const node_type left, const node_type right) const {
 					value_container lhs = left->get_value(errors, type_float);
 					double val = lhs.get_float();
-					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
+					for(node_type itm: right->get_list_value(errors)) {
 						if (itm->get_float_value(errors) == val)
 							return value_container::create_int(false, lhs.is_unsure);
 					}
@@ -373,7 +376,7 @@ namespace parsers {
 				value_container eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const {
 					value_container lhs = left->get_value(errors, type_string);
 					std::string val = lhs.get_string();
-					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
+					for(node_type itm: right->get_list_value(errors)) {
 						if (itm->get_string_value(errors) == val)
 							return value_container::create_int(false, lhs.is_unsure);
 					}
@@ -384,7 +387,7 @@ namespace parsers {
 				value_container eval_int(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
 					value_container lhs = left->get_value(errors, type_int);
 					long long val = lhs.get_int();
-					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
+					for(node_type itm: right->get_list_value(errors)) {
 						long long cmp = itm->get_int_value(errors);
 						if (cmp == val)
 							return value_container::create_int(true, lhs.is_unsure);
@@ -394,7 +397,7 @@ namespace parsers {
 				value_container eval_float(value_type, evaluation_context errors, const node_type left, const node_type right) const {
 					value_container lhs = left->get_value(errors, type_float);
 					double val = lhs.get_float();
-					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
+					for(node_type itm: right->get_list_value(errors)) {
 						if (itm->get_float_value(errors) == val)
 							return value_container::create_int(true, lhs.is_unsure);
 					}
@@ -403,7 +406,7 @@ namespace parsers {
 				value_container eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const {
 					value_container lhs = left->get_value(errors, type_string);
 					std::string val = lhs.get_string();
-					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
+					for(node_type itm: right->get_list_value(errors)) {
 						if (itm->get_string_value(errors) == val)
 							return value_container::create_int(true, lhs.is_unsure);
 					}
@@ -469,37 +472,37 @@ namespace parsers {
 					}
 				}
 
-				inline long long parse_time(long long value, std::string unit) const {
+				inline long long parse_time(long long new_value, std::string unit) const {
 					long long now = constants::get_now();
 					if (unit.empty())
-						return now + value;
+						return now + new_value;
 					else if ((unit == "s") || (unit == "S"))
-						return now + (value);
+						return now + (new_value);
 					else if ((unit == "m") || (unit == "M"))
-						return now + (value * 60);
+						return now + (new_value * 60);
 					else if ((unit == "h") || (unit == "H"))
-						return now + (value * 60 * 60);
+						return now + (new_value * 60 * 60);
 					else if ((unit == "d") || (unit == "D"))
-						return now + (value * 24 * 60 * 60);
+						return now + (new_value * 24 * 60 * 60);
 					else if ((unit == "w") || (unit == "W"))
-						return now + (value * 7 * 24 * 60 * 60);
-					return now + value;
+						return now + (new_value * 7 * 24 * 60 * 60);
+					return now + new_value;
 				}
 
-				inline long long parse_size(long long value, std::string unit) const {
+				inline long long parse_size(long long new_value, std::string unit) const {
 					if (unit.empty())
-						return value;
+						return new_value;
 					else if ((unit == "b") || (unit == "B"))
-						return value;
+						return new_value;
 					else if ((unit == "k") || (unit == "k"))
-						return value * 1024;
+						return new_value * 1024;
 					else if ((unit == "m") || (unit == "M"))
-						return value * 1024 * 1024;
+						return new_value * 1024 * 1024;
 					else if ((unit == "g") || (unit == "G"))
-						return value * 1024 * 1024 * 1024;
+						return new_value * 1024 * 1024 * 1024;
 					else if ((unit == "t") || (unit == "T"))
-						return value * 1024 * 1024 * 1024 * 1024;
-					return value;
+						return new_value * 1024 * 1024 * 1024 * 1024;
+					return new_value;
 				}
 			};
 

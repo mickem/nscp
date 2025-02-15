@@ -1,11 +1,13 @@
 #include "Request.h"
 
+#include <str/xtos.hpp>
+
 #include "ext/mongoose.h"
 
 #include <boost/thread.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
 
 #include <string>
-#include <iostream>
 
 using namespace std;
 
@@ -31,20 +33,8 @@ static void mg_strlcpy(register char *dst, register const char *src, size_t n) {
   *dst = '\0';
 }
 
-/*
-static int mg_strcasecmp(const char *s1, const char *s2) {
-  int diff;
-
-  do {
-    diff = lowercase(s1++) - lowercase(s2++);
-  } while (diff == 0 && s1[-1] != '\0');
-
-  return diff;
-}
-*/
-
 static const char *mg_strcasestr(const char *big_str, const char *small_str) {
-  int i, big_len = strlen(big_str), small_len = strlen(small_str);
+  std::size_t i, big_len = strlen(big_str), small_len = strlen(small_str);
 
   for (i = 0; i <= big_len - small_len; i++) {
     if (mg_strncasecmp(big_str + i, small_str, small_len) == 0) {
@@ -55,10 +45,11 @@ static const char *mg_strcasestr(const char *big_str, const char *small_str) {
   return NULL;
 }
 
-static int mg_get_cookie(const char *cookie_header, const char *var_name,
+static long long mg_get_cookie(const char *cookie_header, const char *var_name,
                   char *dst, size_t dst_size) {
   const char *s, *p, *end;
-  int name_len, len = -1;
+  std::size_t name_len;
+  long long len = -1;
 
   if (dst == NULL || dst_size == 0) {
     len = -2;
@@ -66,7 +57,7 @@ static int mg_get_cookie(const char *cookie_header, const char *var_name,
     len = -1;
     dst[0] = '\0';
   } else {
-    name_len = (int) strlen(var_name);
+    name_len = strlen(var_name);
     end = s + strlen(s);
     dst[0] = '\0';
 
@@ -149,13 +140,13 @@ namespace Mongoose {
 			} else {
 				key = s;
 			}
-			if (mg_url_decode(key.c_str(), key.length(), tmp, data_len+1, 1) == -1) {
+			if (mg_url_decode(key.c_str(), static_cast<int>(key.length()), tmp, static_cast<int>(data_len+1), 1) == -1) {
 				delete [] tmp;
 				return ret;
 			}
 			key = tmp;
 			if (val.length() > 0) {
-				if (mg_url_decode(val.c_str(), val.length(), tmp, data_len+1, 1) == -1) {
+				if (mg_url_decode(val.c_str(), static_cast<int>(val.length()), tmp, static_cast<int>(data_len+1), 1) == -1) {
 					delete [] tmp;
 					return ret;
 				}
@@ -192,9 +183,9 @@ namespace Mongoose {
 		char *buffer = new char[size];
 
 		do {
-			ret = mg_get_http_var(&data, key.c_str(), buffer, size);
+			ret = mg_http_get_var(&data, key.c_str(), buffer, size);
 
-			if (ret == -1) {
+			if (ret == -1 || ret == 0) {
 				delete[] buffer;
 				return false;
 			}
@@ -218,7 +209,7 @@ namespace Mongoose {
         string output;
         // Looking on the query string
 		struct mg_str dataField;
-		dataField.p = query.c_str();
+		dataField.ptr = query.c_str();
 		dataField.len = query.size();
         if (readVariable(dataField, key, output)) {
             return output;
@@ -233,28 +224,38 @@ namespace Mongoose {
         return fallback;
     }
 
+	bool Request::get_bool(string key, bool fallback) {
+		std::string v = boost::algorithm::to_lower_copy(get(key, fallback?"true":"false"));
+		return v == "true";
+	}
+	long long Request::get_number(std::string key, long long fallback) {
+		return str::stox<long long>(get("page", str::xtos(fallback)), fallback);
+	}
+
+
+
     string Request::getCookie(string key, string fallback)
     {
-		int ret = -1;
+		long long ret = -1;
 		int size = 1024;
 		char* buffer = new char[size];
 		do {
 			ret = mg_get_cookie(headers["cookie"].c_str(), key.c_str(), buffer, size);
 			if (ret >= 0) {
-				std::string ret = buffer;
+				std::string tmp = buffer;
 				delete[] buffer;
-				return ret;
+				return tmp;
 			}
-			if (ret == -1) {
+			if (ret == -1LL) {
 				delete[] buffer;
 				return fallback;
 			}
-			if (ret == -3) {
+			if (ret == -3LL) {
 				size *= 2;
 				delete[] buffer;
 				buffer = new char[size];
 			}
-		} while (ret == -3);
+		} while (ret == -3LL);
 		delete[] buffer;
 		return fallback;
     }

@@ -26,6 +26,7 @@
 #include <nscapi/nscapi_settings_helper.hpp>
 
 namespace socket_helpers {
+	namespace ph = boost::placeholders;
 	struct settings_helper {
 		static void add_port_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_, std::string default_port) {
 			settings.alias().add_key_to_settings()
@@ -34,13 +35,14 @@ namespace socket_helpers {
 				;
 		}
 
-		static void add_ssl_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_, bool ssl_default, std::string certificate = "${certificate-path}/certificate.pem", std::string key = "", std::string default_cipher = "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") {
+		static void add_ssl_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_, bool ssl_default, std::string dh_key, std::string certificate, std::string key, std::string default_cipher) {
+
 			settings.alias().add_key_to_settings()
 
 				("use ssl", nscapi::settings_helper::bool_key(&info_.ssl.enabled, ssl_default),
 					"ENABLE SSL ENCRYPTION", "This option controls if SSL should be enabled.", false)
 
-				("dh", nscapi::settings_helper::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_512.pem"),
+				("dh", nscapi::settings_helper::path_key(&info_.ssl.dh_key, dh_key),
 					"DH KEY", "", true)
 
 				("certificate", nscapi::settings_helper::path_key(&info_.ssl.certificate, certificate),
@@ -51,6 +53,9 @@ namespace socket_helpers {
 
 				("certificate format", nscapi::settings_helper::string_key(&info_.ssl.certificate_format, "PEM"),
 					"CERTIFICATE FORMAT", "", true)
+
+				("tls version", nscapi::settings_helper::string_key(&info_.ssl.tls_version, "tlsv1.2+"),
+					"TLS version to use", "Valid options are tlsv1.3, tlsv1.2, tlsv1.1, tlsv1.0, sslv3 as well as tlsv1.3+, tlsv1.2+, tlsv1.1+, tlsv1.0+, sslv3+ (Which uses the version mentioned and above)", true)
 
 				("ca", nscapi::settings_helper::path_key(&info_.ssl.ca_path, "${certificate-path}/ca.pem"),
 					"CA", "", true)
@@ -72,9 +77,12 @@ namespace socket_helpers {
 				("ssl options", nscapi::settings_helper::string_key(&info_.ssl.ssl_options, ""),
 					"VERIFY MODE", "Comma separated list of verification flags to set on the SSL socket.\n\n"
 					"default-workarounds\tVarious workarounds for what I understand to be broken ssl implementations\n"
-					"no-sslv2\tDo not use the SSLv2 protocol.\n"
-					"no-sslv3\tDo not use the SSLv3 protocol.\n"
-					"no-tlsv1\tDo not use the TLSv1 protocol.\n"
+					"no-sslv2\tDo not use the SSLv2 protocol (prefer tls version instead).\n"
+					"no-sslv3\tDo not use the SSLv3 protocol (prefer tls version instead).\n"
+					"no-tlsv1\tDo not use the TLSv1 protocol (prefer tls version instead).\n"
+					"no-tlsv1_1\tDo not use the TLSv1.1 protocol (prefer tls version instead).\n"
+					"no-tlsv1_2\tDo not use the TLSv1.2 protocol (prefer tls version instead).\n"
+					"no-tlsv1_3\tDo not use the TLSv1.3 protocol (prefer tls version instead).\n"
 					"single-dh-use\tAlways create a new key when using temporary/ephemeral DH parameters. "
 					"This option must be used to prevent small subgroup attacks, when the DH parameters were not generated using \"strong\" primes (e.g. when using DSA-parameters).\n"
 					"\n\n", true)
@@ -93,7 +101,7 @@ namespace socket_helpers {
 				("bind to", nscapi::settings_helper::string_key(&info_.address),
 					"BIND TO ADDRESS", "Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses.")
 
-				("allowed hosts", nscapi::settings_helper::string_fun_key(boost::bind(&socket_helpers::allowed_hosts_manager::set_source, &info_.allowed_hosts, _1), "127.0.0.1"),
+				("allowed hosts", nscapi::settings_helper::string_fun_key(boost::bind(&socket_helpers::allowed_hosts_manager::set_source, &info_.allowed_hosts, ph::_1), "127.0.0.1"),
 					"ALLOWED HOSTS", "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
 
 				("cache allowed hosts", nscapi::settings_helper::bool_key(&info_.allowed_hosts.cached, true),
@@ -112,7 +120,7 @@ namespace socket_helpers {
 				root_path.set_sample();
 			root_path.add_key()
 
-				("timeout", nscapi::settings_helper::int_fun_key(boost::bind(&object_type::set_property_int, &object, "timeout", _1), 30),
+				("timeout", nscapi::settings_helper::int_fun_key(boost::bind(&object_type::set_property_int, &object, "timeout", pb::_1), 30),
 					"TIMEOUT", "Timeout when reading/writing packets to/from sockets.")
 				;
 		}
@@ -123,28 +131,28 @@ namespace socket_helpers {
 				root_path.set_sample();
 			root_path.add_key()
 
-				("dh", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "dh", _1), "${certificate-path}/nrpe_dh_512.pem"),
+				("dh", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "dh", ph::_1), "${certificate-path}/nrpe_dh_512.pem"),
 					"DH KEY", "", true)
 
-				("certificate", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "certificate", _1)),
+				("certificate", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "certificate", pb::_1)),
 					"SSL CERTIFICATE", "", false)
 
-				("certificate key", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "certificate key", _1)),
+				("certificate key", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "certificate key", pb::_1)),
 					"SSL CERTIFICATE", "", true)
 
-				("certificate format", nscapi::settings_helper::string_fun_key(boost::bind(&object_type::set_property_string, &object, "certificate format", _1), "PEM"),
+				("certificate format", nscapi::settings_helper::string_fun_key(boost::bind(&object_type::set_property_string, &object, "certificate format", pb::_1), "PEM"),
 					"CERTIFICATE FORMAT", "", true)
 
-				("ca", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "ca", _1)),
+				("ca", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "ca", pb::_1)),
 					"CA", "", true)
 
-				("allowed ciphers", nscapi::settings_helper::string_fun_key(boost::bind(&object_type::set_property_string, &object, "allowed ciphers", _1), "ADH"),
+				("allowed ciphers", nscapi::settings_helper::string_fun_key(boost::bind(&object_type::set_property_string, &object, "allowed ciphers", pb::_1), "ADH"),
 					"ALLOWED CIPHERS", "A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH", false)
 
-				("verify mode", nscapi::settings_helper::string_fun_key(boost::bind(&object_type::set_property_string, &object, "verify mode", _1), "none"),
+				("verify mode", nscapi::settings_helper::string_fun_key(boost::bind(&object_type::set_property_string, &object, "verify mode", pb::_1), "none"),
 					"VERIFY MODE", "", false)
 
-				("use ssl", nscapi::settings_helper::bool_fun_key(boost::bind(&object_type::set_property_bool, &object, "ssl", _1), true),
+				("use ssl", nscapi::settings_helper::bool_fun_key(boost::bind(&object_type::set_property_bool, &object, "ssl", pb::_1), true),
 					"ENABLE SSL ENCRYPTION", "This option controls if SSL should be enabled.")
 				;
 		}

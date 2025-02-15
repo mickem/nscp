@@ -1,0 +1,120 @@
+syntax = "proto3";
+
+package PB.Settings;
+
+//option optimize_for = CODE_SIZE;
+
+import "common.proto";
+option optimize_for = LITE_RUNTIME;
+//
+// Settings is an internal message.
+// It is not used to submit checks or query status instead it is used to interact with the settings store.
+// The settings is a central component inside NSClient++ and this is the way to interact with it.
+//
+//message Settings {
+	message Node {
+		string path = 1;
+		string key = 2;
+		string value = 3;
+	};
+	message Information {
+		string title = 1;
+		string description = 2;
+		string icon = 10;
+		string default_value = 13;
+		bool advanced = 6;
+		bool sample = 7;
+		bool is_template = 11;
+		string sample_usage = 8;
+		repeated string plugin = 9;
+		bool subkey = 12;
+	};
+	enum Command {
+		DUMMY	= 0;
+		LOAD	= 1;
+		SAVE	= 2;
+		RELOAD	= 3;
+	};
+//};
+
+message SettingsRequestMessage {
+	message Request {
+		message Registration {
+			Node node = 1;
+			Information info = 2;
+			string fields = 3;
+		};
+		message Query {
+			Node node = 1;
+			bool recursive = 2;
+			bool include_keys = 6;
+			string default_value = 7;
+		};
+		message Update {
+			Node node = 1;
+		};
+		message Inventory {
+			string plugin = 11;
+			Node node = 1;
+			bool recursive_fetch = 2;
+			bool fetch_keys = 3;
+			bool fetch_paths = 4;
+			bool fetch_samples = 5;
+			bool fetch_templates = 7;
+			bool descriptions = 6;
+		};
+		message Control {
+			Command command = 1;
+			string context = 2;
+		};
+		message Status {
+		};
+		int64 id = 1;
+		int32 plugin_id = 3;
+
+		Registration registration = 10;
+		Query query = 11;
+		Update update = 12;
+		Inventory inventory = 13;
+		Control control = 14;
+		Status status = 15;
+	};
+	PB.Common.Header header = 1;
+	repeated Request payload = 2;
+};
+message SettingsResponseMessage {
+	message Response {
+		message Registration {
+		};
+		message Query {
+			Node node = 1;
+			repeated Node nodes = 3;
+		};
+		message Update {
+		};
+		message Inventory {
+			Node node = 1;
+			Information info = 2;
+		};
+		message Control {
+		};
+		message Status {
+			string context = 1;
+			string type = 2;
+			bool has_changed = 3;
+		};
+		int64 id = 1;
+		PB.Common.Result result = 2;
+
+		Registration registration = 10;
+		Query query = 11;
+		Update update = 12;
+		repeated Inventory inventory = 13;
+		Control control = 14;
+		Status status = 15;
+	};
+
+	PB.Common.Header header = 1;
+	repeated Response payload = 2;
+};
+

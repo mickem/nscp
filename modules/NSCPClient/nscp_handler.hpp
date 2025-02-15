@@ -45,7 +45,7 @@ namespace nscp_handler {
 
 		nrpe_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
 
-		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			parent::read(proxy, oneliner, is_sample);
 
 			nscapi::settings_helper::settings_registry settings(proxy);
@@ -56,7 +56,7 @@ namespace nscp_handler {
 
 			root_path.add_key()
 
-				("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "password", _1)),
+				("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "password", boost::placeholders::_1)),
 					"PASSWORD", "The password to use to authenticate towards the server.")
 				;
 			settings.register_all();
@@ -69,8 +69,8 @@ namespace nscp_handler {
 			settings.notify();
 		}
 
-		virtual void translate(const std::string &key, const std::string &value) {
-			parent::translate(key, value);
+		virtual void translate(const std::string &key, const std::string &translated_value) {
+			parent::translate(key, translated_value);
 		}
 	};
 
@@ -82,11 +82,11 @@ namespace nscp_handler {
 			return boost::make_shared<nrpe_target_object>(parent, alias, path);
 		}
 
-		void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &target) {
+		void process(boost::program_options::options_description &desc, client::destination_container &, client::destination_container &target) {
 			add_ssl_options(desc, target);
 
 			desc.add_options()
-				("password,p", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &target, "password", _1)),
+				("password,p", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &target, "password", boost::placeholders::_1)),
 					"Password")
 				;
 		}

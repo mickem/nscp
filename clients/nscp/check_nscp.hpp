@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <client/command_line_parser.hpp>
 #include <nscapi/nscapi_targets.hpp>
 
@@ -35,5 +35,5 @@ private:
 
 public:
 	check_nscp();
-	void query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response);
+	void query(const PB::Commands::QueryRequestMessage &request, PB::Commands::QueryResponseMessage &response);
 };

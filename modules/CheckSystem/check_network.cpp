@@ -33,6 +33,8 @@
 
 #include <nsclient/nsclient_exception.hpp>
 
+namespace ph = boost::placeholders;
+
 
 namespace network_check {
 	
@@ -81,7 +83,7 @@ namespace network_check {
 		has_prd = true;
 	}
 
-	void network_interface::build_metrics(Plugin::Common::MetricsBundle *section) const {
+	void network_interface::build_metrics(PB::Metrics::MetricsBundle *section) const {
 
 		using namespace nscapi::metrics;
 
@@ -117,7 +119,7 @@ namespace network_check {
 			}
 		}
 		std::string keys;
-		BOOST_FOREACH(const netmap_type::value_type &v, netmap) {
+		for(const netmap_type::value_type &v: netmap) {
 			str::format::append_list(keys, v.first);
 
 		}
@@ -152,7 +154,7 @@ namespace network_check {
 			if (!readLock.owns_lock())
 				throw nsclient::nsclient_exception("Failed to get mutex for reading");
 			last = last_;
-			BOOST_FOREACH(const network_interface &v, nics_) {
+			for(const network_interface &v: nics_) {
 				netmap[v.get_name()] = v;
 			}
 		}
@@ -162,7 +164,7 @@ namespace network_check {
 			query_nif(netmap);
 			query_prd(netmap, delta);
 				
-			BOOST_FOREACH(const netmap_type::value_type &v, netmap) {
+			for(const netmap_type::value_type &v: netmap) {
 				if (!v.second.is_compleate())
 					continue;
 				tmp.push_back(v.second);
@@ -208,24 +210,24 @@ namespace network_check {
 			static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
 
 			registry_.add_string()
-				("name", boost::bind(&filter_obj::get_name, _1), "Network interface name")
-				("net_connection_id", boost::bind(&filter_obj::get_NetConnectionID, _1), "Network connection id")
-				("MAC", boost::bind(&filter_obj::get_MACAddress, _1), "The MAC address")
-				("status", boost::bind(&filter_obj::get_NetConnectionStatus, _1), "Network connection status")
-				("enabled", boost::bind(&filter_obj::get_NetEnabled, _1), "True if the network interface is enabled")
-				("speed", boost::bind(&filter_obj::get_Speed, _1), "The network interface speed")
+				("name", boost::bind(&filter_obj::get_name, ph::_1), "Network interface name")
+				("net_connection_id", boost::bind(&filter_obj::get_NetConnectionID, ph::_1), "Network connection id")
+				("MAC", boost::bind(&filter_obj::get_MACAddress, ph::_1), "The MAC address")
+				("status", boost::bind(&filter_obj::get_NetConnectionStatus, ph::_1), "Network connection status")
+				("enabled", boost::bind(&filter_obj::get_NetEnabled, ph::_1), "True if the network interface is enabled")
+				("speed", boost::bind(&filter_obj::get_Speed, ph::_1), "The network interface speed")
 				;
 
 			registry_.add_int()
-				("received", boost::bind(&filter_obj::getBytesReceivedPersec, _1), "Bytes received per second")
-				("sent", boost::bind(&filter_obj::getBytesSentPersec, _1), "Bytes sent per second")
-				("total", boost::bind(&filter_obj::getBytesTotalPersec, _1), "Bytes total per second")
+				("received", boost::bind(&filter_obj::getBytesReceivedPersec, ph::_1), "Bytes received per second")
+				("sent", boost::bind(&filter_obj::getBytesSentPersec, ph::_1), "Bytes sent per second")
+				("total", boost::bind(&filter_obj::getBytesTotalPersec, ph::_1), "Bytes total per second")
 				;
 		}
 
 
 
-		void check_network(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, nics_type nicdata) {
+		void check_network(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, nics_type nicdata) {
 			modern_filter::data_container data;
 			modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 
@@ -238,7 +240,7 @@ namespace network_check {
 
 			if (!filter_helper.build_filter(filter))
 				return;
-			BOOST_FOREACH(network_check::nics_type::value_type v, nicdata) {
+			for(network_check::nics_type::value_type v: nicdata) {
 				boost::shared_ptr<filter_obj> record(new filter_obj(v));
 				filter.match(record);
 			}

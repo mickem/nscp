@@ -29,6 +29,9 @@
 #include <pid_file.hpp>
 #endif
 #include <settings/settings_core.hpp>
+
+#include <boost/bind/bind.hpp>
+
 #include <str/format.hpp>
 
 #define LOG_MODULE "client"
@@ -108,7 +111,7 @@ cli_parser::cli_parser(NSClient* core)
 }
 
 void cli_parser::init_logger() {
-	BOOST_FOREACH(const std::string &level, log_level) {
+	for(const std::string &level: log_level) {
 		core_->get_logger()->set_log_level(level);
 	}
 }
@@ -121,7 +124,7 @@ bool cli_parser::process_common_options(std::string context, po::options_descrip
 		log_level.push_back("no-std-err");
 	init_logger();
 	if (core_->get_logger()->should_debug()) {
-		BOOST_FOREACH(const std::string & a, unknown_options) {
+		for(const std::string & a: unknown_options) {
 			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Extra options: " + utf8::cvt<std::string>(a));
 		}
 	}
@@ -143,11 +146,11 @@ bool cli_parser::process_common_options(std::string context, po::options_descrip
 
 cli_parser::handler_map cli_parser::get_handlers() {
 	handler_map handlers;
-	handlers["settings"] = boost::bind(&cli_parser::parse_settings, this, _1, _2);
-	handlers["service"] = boost::bind(&cli_parser::parse_service, this, _1, _2);
-	handlers["client"] = boost::bind(&cli_parser::parse_client, this, _1, _2, "");
-	handlers["help"] = boost::bind(&cli_parser::parse_help, this, _1, _2);
-	handlers["unit"] = boost::bind(&cli_parser::parse_unittest, this, _1, _2);
+	handlers["settings"] = boost::bind(&cli_parser::parse_settings, this, boost::placeholders::_1, boost::placeholders::_2);
+	handlers["service"] = boost::bind(&cli_parser::parse_service, this, boost::placeholders::_1, boost::placeholders::_2);
+	handlers["client"] = boost::bind(&cli_parser::parse_client, this, boost::placeholders::_1, boost::placeholders::_2, "");
+	handlers["help"] = boost::bind(&cli_parser::parse_help, this, boost::placeholders::_1, boost::placeholders::_2);
+	handlers["unit"] = boost::bind(&cli_parser::parse_unittest, this, boost::placeholders::_1, boost::placeholders::_2);
 	return handlers;
 }
 
@@ -208,14 +211,14 @@ int cli_parser::parse(int argc, char* argv[]) {
 	std::cout << "You can also use aliases here which are shorthands for 'nscp client --module <plugin>'" << std::endl;
 	std::cout << "  Available context are: " << std::endl;
 	std::string all_context;
-	BOOST_FOREACH(const handler_map::value_type &e, handlers) {
+	for(const handler_map::value_type &e: handlers) {
 		std::cout << "    " << describe(e.first) << std::endl;
 		if (!all_context.empty())
 			all_context += ", ";
 		all_context += e.first;
 	}
 	std::cout << "  Available aliases are: " << std::endl;
-	BOOST_FOREACH(const alias_map::value_type &e, aliases) {
+	for(const alias_map::value_type &e: aliases) {
 		std::cout << "    " << describe(e.first, e.second) << std::endl;
 		if (!all_context.empty())
 			all_context += ", ";
@@ -240,13 +243,13 @@ void cli_parser::display_help() {
 
 		std::cout << "First argument has to be one of the following: ";
 		handler_map handlers = get_handlers();
-		BOOST_FOREACH(const handler_map::value_type &itm, handlers) {
+		for(const handler_map::value_type &itm: handlers) {
 			std::cout << itm.first << ", ";
 		}
 		std::cout << std::endl;
-		std::cout << "Or on of the following client aliases: ";
+		std::cout << "Or one of the following client aliases: ";
 		alias_map aliases = get_aliases();
-		BOOST_FOREACH(const alias_map::value_type &itm, aliases) {
+		for(const alias_map::value_type &itm: aliases) {
 			std::cout << itm.first << ", ";
 		}
 		std::cout << std::endl;
@@ -417,7 +420,7 @@ struct client_arguments {
 				boot = true;
 
 			core_->load_configuration(true);
-			BOOST_FOREACH(const std::string &s, defines) {
+			for(const std::string &s: defines) {
 				std::string::size_type p1 = s.find(":");
 				if (p1 == std::string::npos) {
 					std::cerr << "Failed to parse: " << s << std::endl;
@@ -485,7 +488,7 @@ struct client_arguments {
 			if (ret == NSCAPI::cmd_return_codes::returnIgnored) {
 				result.push_back("Command not found: " + command);
 				std::string commands;
-				BOOST_FOREACH(const std::string &c, core_->get_plugin_manager()->get_commands()->list_commands()) {
+				for(const std::string &c: core_->get_plugin_manager()->get_commands()->list_commands()) {
 					str::format::append_list(commands, c);
 				}
 				result.push_back("Available commands: " + commands);
@@ -552,10 +555,10 @@ int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 			kvp_args = vm["argument"].as<std::vector<std::string> >();
 
 		std::vector<std::string> arguments;
-		BOOST_FOREACH(const std::string &a, unknown_options)
+		for(const std::string &a: unknown_options)
 			arguments.push_back(utf8::cvt<std::string>(a));
 
-		BOOST_FOREACH(std::string s, kvp_args) {
+		for(std::string s: kvp_args) {
 			std::string::size_type pos = s.find('=');
 			if (pos == std::string::npos)
 				arguments.push_back("--" + s);
@@ -567,7 +570,7 @@ int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 
 		if (vm.count("raw-argument"))
 			kvp_args = vm["raw-argument"].as<std::vector<std::string> >();
-		BOOST_FOREACH(std::string s, kvp_args) {
+		for(std::string s: kvp_args) {
 			std::string::size_type pos = s.find('=');
 			if (pos == std::string::npos)
 				arguments.push_back(s);
@@ -594,7 +597,7 @@ int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 		args.run_post(core_);
 
 
-		BOOST_FOREACH(std::string r, resp) {
+		for(std::string r: resp) {
 			std::cout << utf8::to_encoding(r, "") << std::endl;
 		}
 		return ret;
@@ -685,7 +688,7 @@ int cli_parser::parse_unittest(int argc, char* argv[]) {
 			ret = args.run_query(core_, lang + "_unittest", empty, resp);
 		}
 		args.run_post(core_);
-		BOOST_FOREACH(std::string r, resp) {
+		for(std::string r: resp) {
 			std::cout << utf8::to_encoding(r, "") << std::endl;
 		}
 		return ret;
@@ -731,7 +734,7 @@ std::string cli_parser::get_description(std::string key) {
 	} else if (key == "wmi") {
 		return "Run WMI queries from command line";
 	} else if (key == "sys") {
-		return "Various system tools to get information about the system (generally PDH on windows curretly)";
+		return "Various system tools to get information about the system (generally PDH on windows currently)";
 	} else {
 		return "TODO: describe: " + key;
 	}

@@ -41,7 +41,7 @@ namespace process {
 
 	class exec_arguments {
 	public:
-		exec_arguments(std::string root_path_, std::string command_, unsigned int timeout_, const std::string &encoding, std::string session, bool display, bool fork)
+		exec_arguments(std::string root_path_, std::string command_, unsigned int timeout_, const std::string &encoding, std::string session, bool, bool fork)
 			: root_path(root_path_)
 			, command(command_)
 			, timeout(timeout_)

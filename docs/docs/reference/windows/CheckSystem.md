@@ -18,7 +18,7 @@ A list of all available queries (check commands)
 | [check_cpu](#check_cpu)                 | Check that the load of the CPU(s) are within bounds.                          |
 | [check_memory](#check_memory)           | Check free/used memory on the system.                                         |
 | [check_network](#check_network)         | Check network interface status.                                               |
-| [check_os_version](#check_os_version)   | Check the version of the underlaying OS.                                      |
+| [check_os_version](#check_os_version)   | Check the version of the underlying OS.                                       |
 | [check_pagefile](#check_pagefile)       | Check the size of the system pagefile(s).                                     |
 | [check_pdh](#check_pdh)                 | Check the value of a performance (PDH) counter on the local or remote system. |
 | [check_process](#check_process)         | Check state/metrics of one or more of the processes running on the computer.  |
@@ -182,7 +182,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Top level syntax.
 Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${status}: ${problem_list}`
 
@@ -205,7 +205,7 @@ DEPRECATED! This is the syntax for when nothing matches the filter.
 Detail level syntax.
 Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${time}: ${load}%`
 
@@ -291,7 +291,7 @@ OK memory within bounds.|'page'=531G;3;3;0;3 'page %'=12%;79;89;0;100 'physical'
 ```
 **Overriding the unit:**
 
-Most "byte" checks such as memory have an auto scaling feature which means values wqill go from 800M to 1.2G between checks.
+Most "byte" checks such as memory have an auto scaling feature which means values will go from 800M to 1.2G between checks.
 Some graphing systems does not honor the units in performance data in which case you can get unexpected large values (such as 800G).
 To remedy this you can lock the unit by adding `perf-config=*(unit:G)`
 
@@ -390,7 +390,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Top level syntax.
 Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${status}: ${list}`
 
@@ -412,7 +412,7 @@ DEPRECATED! This is the syntax for when nothing matches the filter.
 Detail level syntax.
 Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${type} = ${used}`
 
@@ -548,7 +548,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Top level syntax.
 Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${status}: ${list}`
 
@@ -571,7 +571,7 @@ DEPRECATED! This is the syntax for when nothing matches the filter.
 Detail level syntax.
 Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${name} >${sent} <${received} bps`
 
@@ -613,7 +613,7 @@ This is the syntax for the base names of the performance data.
 
 ### check_os_version
 
-Check the version of the underlaying OS.
+Check the version of the underlying OS.
 
 * [Samples](#check_os_version_samples)
 
@@ -737,7 +737,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Top level syntax.
 Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${status}: ${list}`
 
@@ -759,7 +759,7 @@ DEPRECATED! This is the syntax for when nothing matches the filter.
 Detail level syntax.
 Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${version} (${major}.${minor}.${build})`
 
@@ -829,7 +829,7 @@ Performance data: 'total'=1G;14;19;0;23 'total %'=6%;59;79;0;100
 
 ```
 
-Getting help on avalible options::
+Getting help on available options::
 
 ```
 check_pagefile help
@@ -839,7 +839,7 @@ check_pagefile help
 					   the check.
 					   They do not denote warning or critical state but they
 					   are checked use this to filter out unwanted items.
-						   Avalible options:
+						   Available options:
 					   free          Free memory in bytes (g,m,k,b) or percentages %
 					   name          The name of the page file (location)
 					   size          Total size of pagefile
@@ -940,7 +940,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Top level syntax.
 Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${status}: ${list}`
 
@@ -962,7 +962,7 @@ DEPRECATED! This is the syntax for when nothing matches the filter.
 Detail level syntax.
 Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${name} ${used} (${size})`
 
@@ -1004,7 +1004,7 @@ This is the syntax for the base names of the performance data.
 ### check_pdh
 
 Check the value of a performance (PDH) counter on the local or remote system.
-The counters can also be added and polled periodcally to get average values. Performance Log Users group membership is required to check performance counters.
+The counters can also be added and polled periodically to get average values. Performance Log Users group membership is required to check performance counters.
 
 * [Samples](#check_pdh_samples)
 
@@ -1049,7 +1049,7 @@ check_pdh "counter=\\4\\30" "warn=value > 5" "crit=value > 9999" flags=nocap100 
 '\Minne\Dedikationsgräns value'=25729224704;5;9999
 ```
 
-Using real-time checks to check avergae values over time.
+Using real-time checks to check average values over time.
 
 Here we configure a counter to be checked at regular intervals and the value is added to a rrd buffer.
 The configuration from nsclient.ini::
@@ -1187,7 +1187,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Top level syntax.
 Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${status}: ${list}`
 
@@ -1209,7 +1209,7 @@ DEPRECATED! This is the syntax for when nothing matches the filter.
 Detail level syntax.
 Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${alias} = ${value}`
 
@@ -1415,7 +1415,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Top level syntax.
 Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${status}: ${problem_list}`
 
@@ -1439,7 +1439,7 @@ DEPRECATED! This is the syntax for when nothing matches the filter.
 Detail level syntax.
 Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${exe}=${state}`
 
@@ -1563,7 +1563,7 @@ check_service exclude=nfoo
 L        cli CRITICAL: CRITICAL: nscp=stopped (auto), nscp2=stopped (auto), ...
 ```
 
-Excluding nscp2 with substring like mathcing filter:
+Excluding nscp2 with substring like matching filter:
 ```
 check_service exclude=nfoo "filter=name not like 'nscp'"
 L        cli CRITICAL: CRITICAL: ...
@@ -1631,7 +1631,7 @@ check_service service=nscp "crit=state = 'started'" warn=none
 | [perf-syntax](#check_service_perf-syntax)     | ${name}                                         | Performance alias syntax.                                                                                                                             |
 | computer                                      |                                                 | The name of the remote computer to check                                                                                                              |
 | service                                       |                                                 | The service to check, set this to * to check all services                                                                                             |
-| exclude                                       |                                                 | A list of services to ignore (mainly usefull in combination with service=*)                                                                           |
+| exclude                                       |                                                 | A list of services to ignore (mainly useful in combination with service=*)                                                                            |
 | [type](#check_service_type)                   | service                                         | The types of services to enumerate available types are driver, file-system-driver, kernel-driver, service, service-own-process, service-share-process |
 | [state](#check_service_state)                 | all                                             | The types of services to enumerate available states are active, inactive or all                                                                       |
 | only-essential                                | N/A                                             | Set filter to classification = 'essential'                                                                                                            |
@@ -1690,7 +1690,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Top level syntax.
 Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${status}: ${crit_list}, delayed (${warn_list})`
 
@@ -1714,7 +1714,7 @@ DEPRECATED! This is the syntax for when nothing matches the filter.
 Detail level syntax.
 Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${name}=${state} (${start_type})`
 
@@ -1896,7 +1896,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Top level syntax.
 Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${status}: ${list}`
 
@@ -1918,7 +1918,7 @@ DEPRECATED! This is the syntax for when nothing matches the filter.
 Detail level syntax.
 Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `uptime: ${uptime}h, boot: ${boot} (UTC)`
 

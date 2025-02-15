@@ -41,7 +41,7 @@ namespace hlp {
 		char_buffer(std::string str) : hlp::buffer<char>(str.length()+2) {
 			strncpy(get(), str.c_str(), str.length());
 		}
-		char_buffer(unsigned int len) : hlp::buffer<char>(len) {}
+		char_buffer(std::size_t len) : hlp::buffer<char>(len) {}
 		void zero() {
 			if (size() > 1)
 				memset(get(), 0, size());

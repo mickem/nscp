@@ -33,6 +33,8 @@
 
 #include <string>
 
+using namespace boost::placeholders;
+
 namespace check_proc_filter {
 	typedef process_helper::process_info filter_obj;
 
@@ -165,12 +167,12 @@ namespace process_checks {
 			modern_filter::match_result ret;
 
 			if (has_check_all) {
-				BOOST_FOREACH(const process_helper::process_info &info, data->list) {
+				for(const process_helper::process_info &info: data->list) {
 					boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(info));
 					ret.append(filter.match(record));
 				}
 			} else {
-				BOOST_FOREACH(const process_helper::process_info &info, data->list) {
+				for(const process_helper::process_info &info: data->list) {
 					bool found = (std::find(checks.begin(), checks.end(), info.exe.get()) != checks.end());
 					if (found) {
 						boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(info));
@@ -186,7 +188,7 @@ namespace process_checks {
 
 		void helper::add_obj(boost::shared_ptr<filters::proc::filter_config_object> object) {
 			runtime_data data;
-			BOOST_FOREACH(const std::string &d, object->data) {
+			for(const std::string &d: object->data) {
 				data.add(d);
 			}
 			proc_helper->helper.add_item(object, data, "system.process");
@@ -201,7 +203,7 @@ namespace process_checks {
 			NSC_error err;
 
 			runtime_data::transient_data_type data(new transient_data(process_helper::enumerate_processes_delta(true, &err)));
-			BOOST_FOREACH(process_helper::process_info &i, data->list) {
+			for(process_helper::process_info &i: data->list) {
 				if (known_processes_.find(i.exe.get()) == known_processes_.end()) {
 					i.is_new = true;
 					known_processes_.emplace(i.exe.get());
@@ -216,7 +218,7 @@ namespace process_checks {
 
 	struct CaseBlindCompare {
 		bool operator() (const std::string& a, const std::string& b) const {
-			return stricmp(a.c_str(), b.c_str()) < 0;
+			return _stricmp(a.c_str(), b.c_str()) < 0;
 		}
 	};
 
@@ -224,7 +226,7 @@ namespace process_checks {
 
 		namespace po = boost::program_options;
 
-		void check(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+		void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 			typedef check_proc_filter::filter filter_type;
 			modern_filter::data_container data;
 			modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
@@ -263,7 +265,7 @@ namespace process_checks {
 
 			std::set<std::string, CaseBlindCompare> procs;
 			bool all = false;
-			BOOST_FOREACH(const std::string &process, processes) {
+			for(const std::string &process: processes) {
 				if (process == "*")
 					all = true;
 				else if (procs.count(process) == 0)
@@ -273,7 +275,7 @@ namespace process_checks {
 
 			std::vector<std::string> matched;
 			process_helper::process_list list = delta_scan ? process_helper::enumerate_processes_delta(!unreadable_scan, &err) : process_helper::enumerate_processes(!unreadable_scan, vdm_scan, deep_scan, &err);
-			BOOST_FOREACH(const process_helper::process_info &info, list) {
+			for(const process_helper::process_info &info: list) {
 				bool wanted = procs.count(info.exe);
 				if (all || wanted) {
 					boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(info));
@@ -283,7 +285,7 @@ namespace process_checks {
 					matched.push_back(info.exe);
 				}
 			}
-			BOOST_FOREACH(const std::string &proc, matched) {
+			for(const std::string &proc: matched) {
 				procs.erase(proc);
 			}
 
@@ -291,7 +293,7 @@ namespace process_checks {
 			if (total)
 				total_obj = process_helper::process_info::get_total();
 
-			BOOST_FOREACH(const std::string proc, procs) {
+			for(const std::string proc: procs) {
 				boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(proc));
 				modern_filter::match_result ret = filter.match(record);
 				if (total_obj && ret.matched_filter)

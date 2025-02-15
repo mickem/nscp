@@ -1,6 +1,6 @@
 # NSCPClient
 
-NSCP client can be used both from command line and from queries to check remote systes via NSCP (REST)
+NSCP client can be used both from command line and from queries to check remote systems via NSCP (REST)
 
 
 
@@ -83,8 +83,8 @@ Request remote information via NSCP.
 | argument                      |               | Set command line arguments                                                            |
 | separator                     |               | Separator to use for the batch command (default is |)                                 |
 | batch                         |               | Add multiple records using the separator format is: command|argument|argument         |
-| certificate                   |               | Length of payload (has to be same as on the server)                                   |
-| dh                            |               | Length of payload (has to be same as on the server)                                   |
+| certificate                   |               | The client certificate to use                                                         |
+| dh                            |               | The DH key to use                                                                     |
 | certificate-key               |               | Client certificate to use                                                             |
 | certificate-format            |               | Client certificate format                                                             |
 | ca                            |               | Certificate authority                                                                 |
@@ -161,8 +161,8 @@ Execute remote script via NSCP.
 | argument                     |               | Set command line arguments                                                            |
 | separator                    |               | Separator to use for the batch command (default is |)                                 |
 | batch                        |               | Add multiple records using the separator format is: command|argument|argument         |
-| certificate                  |               | Length of payload (has to be same as on the server)                                   |
-| dh                           |               | Length of payload (has to be same as on the server)                                   |
+| certificate                  |               | The client certificate to use                                                         |
+| dh                           |               | The DH key to use                                                                     |
 | certificate-key              |               | Client certificate to use                                                             |
 | certificate-format           |               | Client certificate format                                                             |
 | ca                           |               | Certificate authority                                                                 |
@@ -239,8 +239,8 @@ Request remote information via NSCP.
 | argument                      |               | Set command line arguments                                                            |
 | separator                     |               | Separator to use for the batch command (default is |)                                 |
 | batch                         |               | Add multiple records using the separator format is: command|argument|argument         |
-| certificate                   |               | Length of payload (has to be same as on the server)                                   |
-| dh                            |               | Length of payload (has to be same as on the server)                                   |
+| certificate                   |               | The client certificate to use                                                         |
+| dh                            |               | The DH key to use                                                                     |
 | certificate-key               |               | Client certificate to use                                                             |
 | certificate-format            |               | Client certificate format                                                             |
 | ca                            |               | Certificate authority                                                                 |
@@ -340,8 +340,8 @@ Submit information to remote host via NSCP.
 | result                         |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                |
 | separator                      |               | Separator to use for the batch command (default is |)                                 |
 | batch                          |               | Add multiple records using the separator format is: command|result|message            |
-| certificate                    |               | Length of payload (has to be same as on the server)                                   |
-| dh                             |               | Length of payload (has to be same as on the server)                                   |
+| certificate                    |               | The client certificate to use                                                         |
+| dh                             |               | The DH key to use                                                                     |
 | certificate-key                |               | Client certificate to use                                                             |
 | certificate-format             |               | Client certificate format                                                             |
 | ca                             |               | Certificate authority                                                                 |

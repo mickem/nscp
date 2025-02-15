@@ -266,7 +266,7 @@ public:
 		if (!get_dll(file)) {
 			return file;
 		}
-		BOOST_FOREACH(const std::wstring &dll, strEx::splitEx(file, L";")) {
+		for(const std::wstring &dll: strEx::splitEx(file, L";")) {
 			//std::wstring msg = error::format::message::from_module((*cit), eventID(), _sz);
 			std::wstring msg;
 			try {

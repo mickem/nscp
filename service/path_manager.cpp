@@ -5,7 +5,10 @@
 #include <config.h>
 #include <parsers/expression/expression.hpp>
 
+#include <utf8.hpp>
+
 #ifdef WIN32
+#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 #include <Windows.h>
 #include <shellapi.h>
 #include <Shlobj.h>
@@ -50,7 +53,7 @@ boost::filesystem::path nsclient::core::path_manager::getBasePath() {
 	try {
 		settings_manager::get_core()->set_base(basePath);
 	} catch (settings::settings_exception e) {
-		LOG_ERROR_CORE_STD("Failed to set settings file: " + e.reason());
+		LOG_ERROR_CORE_STD("Failed to set settings file: " + utf8::utf8_from_native(e.what()));
 	} catch (...) {
 		LOG_ERROR_CORE("Failed to set settings file");
 	}
@@ -155,7 +158,7 @@ std::string nsclient::core::path_manager::getFolder(std::string key) {
 	try {
 		if (settings_manager::get_core()->is_ready()) {
 			std::string path = settings_manager::get_settings()->get_string(CONFIG_PATHS, key, default_value);
-			settings_manager::get_core()->register_key(0xffff, CONFIG_PATHS, key, settings::settings_core::key_string, "Path for " + key, "", default_value, false, false);
+			settings_manager::get_core()->register_key(0xffff, CONFIG_PATHS, key, "Path for " + key, "", default_value, false, false);
 			paths_cache_[key] = path;
 			return path;
 		} else {
@@ -176,7 +179,7 @@ std::string nsclient::core::path_manager::expand_path(std::string file) {
 		parsers::simple_expression::parse(file, expr);
 
 		std::string ret;
-		BOOST_FOREACH(const parsers::simple_expression::entry &e, expr) {
+		for(const parsers::simple_expression::entry &e: expr) {
 			if (!e.is_variable)
 				ret += e.name;
 			else

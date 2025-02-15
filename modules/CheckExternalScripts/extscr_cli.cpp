@@ -20,9 +20,8 @@
 #include "extscr_cli.h"
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_settings_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
 
 #include <file_helpers.hpp>
 #include <config.h>
@@ -53,7 +52,7 @@ extscr_cli::extscr_cli(boost::shared_ptr<script_provider_interface> provider)
 }
 
 
-bool extscr_cli::run(std::string cmd, const Plugin::ExecuteRequestMessage_Request &request, Plugin::ExecuteResponseMessage_Response *response) {
+bool extscr_cli::run(std::string cmd, const PB::Commands::ExecuteRequestMessage_Request &request, PB::Commands::ExecuteResponseMessage_Response *response) {
 	if (cmd == "add")
 		add_script(request, response);
 	else if (cmd == "install")
@@ -76,7 +75,7 @@ bool extscr_cli::run(std::string cmd, const Plugin::ExecuteRequestMessage_Reques
 // 	return boost::shared_ptr<nscapi::settings_proxy>(new nscapi::settings_proxy(get_id(), get_core()));
 // }
 
-bool extscr_cli::validate_sandbox(boost::filesystem::path pscript, Plugin::ExecuteResponseMessage::Response *response) {
+bool extscr_cli::validate_sandbox(boost::filesystem::path pscript, PB::Commands::ExecuteResponseMessage::Response *response) {
 	boost::filesystem::path path = provider_->get_root();
 	if (!file_helpers::checks::path_contains_file(path, pscript)) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Not allowed outside: " + path.string());
@@ -85,7 +84,7 @@ bool extscr_cli::validate_sandbox(boost::filesystem::path pscript, Plugin::Execu
 	return true;
 }
 
-void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	po::variables_map vm;
 	po::options_description desc;
 	bool json = false, query = false, lib = false;
@@ -123,7 +122,7 @@ void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plu
 	json_spirit::Array data;
 #endif
 	if (query) {
-		BOOST_FOREACH(const std::string &cmd, provider_->get_commands()) {
+		for(const std::string &cmd: provider_->get_commands()) {
 			if (json) {
 #ifdef HAVE_JSON_SPIRIT
 				data.push_back(cmd);
@@ -136,7 +135,7 @@ void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plu
 		boost::filesystem::path dir = provider_->get_core()->expand_path("${scripts}");
 		boost::filesystem::path rel = provider_->get_core()->expand_path("${base-path}");
 		boost::filesystem::recursive_directory_iterator iter(dir), eod;
-		BOOST_FOREACH(boost::filesystem::path const& i, std::make_pair(iter, eod)) {
+		for(boost::filesystem::path const& i: boost::make_iterator_range(iter, eod)) {
 			std::string s = i.string();
 			if (boost::algorithm::starts_with(s, rel.string()))
 				s = s.substr(rel.string().size());
@@ -166,7 +165,7 @@ void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plu
 	nscapi::protobuf::functions::set_response_good(*response, resp);
 }
 
-void extscr_cli::show(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+void extscr_cli::show(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
@@ -229,7 +228,7 @@ void extscr_cli::show(const Plugin::ExecuteRequestMessage::Request &request, Plu
 	}
 }
 
-void extscr_cli::delete_script(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+void extscr_cli::delete_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
@@ -300,7 +299,7 @@ void extscr_cli::delete_script(const Plugin::ExecuteRequestMessage::Request &req
 
 
 
-void extscr_cli::add_script(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
@@ -376,10 +375,10 @@ void extscr_cli::add_script(const Plugin::ExecuteRequestMessage::Request &reques
 
 
 	if (!wrapped) {
-		bool found = boost::filesystem::is_regular(file);
+		bool found = boost::filesystem::is_regular_file(file);
 		if (!found) {
 			file = file = provider_->get_core()->expand_path("${shared-path}/" + file.string());
-			found = boost::filesystem::is_regular(file);
+			found = boost::filesystem::is_regular_file(file);
 		}
 		if (!found) {
 			nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file.string());
@@ -415,7 +414,7 @@ void extscr_cli::add_script(const Plugin::ExecuteRequestMessage::Request &reques
 	nscapi::protobuf::functions::set_response_good(*response, "Added " + alias + " as " + script + actual);
 }
 
-void extscr_cli::configure(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+void extscr_cli::configure(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	po::variables_map vm;
 	po::options_description desc;
 	std::string arguments = "false";
@@ -430,7 +429,7 @@ void extscr_cli::configure(const Plugin::ExecuteRequestMessage::Request &request
 		nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
 		return;
 	}
-	BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
+	for(const pf::settings_query::key_values &val: q.get_query_key_response()) {
 		if (val.matches(path, "allow arguments") && val.get_bool())
 			arguments = "true";
 		else if (val.matches(path, "allow nasty characters") && val.get_bool())

@@ -26,7 +26,7 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_common_options.hpp>
 
 #include <str/utils.hpp>
@@ -43,7 +43,7 @@ NSClientServer::NSClientServer()
 NSClientServer::~NSClientServer() {}
 
 bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
-	sh::settings_registry settings(get_settings_proxy());
+	sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 	settings.set_alias("NSClient", alias, "server");
 
 	settings.alias().add_path_to_settings()
@@ -52,18 +52,18 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
 
 	settings.alias().add_key_to_settings()
 
-		("performance data", sh::bool_fun_key(boost::bind(&NSClientServer::set_perf_data, this, _1), true),
+		("performance data", sh::bool_fun_key(boost::bind(&NSClientServer::set_perf_data, this, boost::placeholders::_1), true),
 			"PERFORMANCE DATA", "Send performance data back to Nagios (set this to 0 to remove all performance data).")
 
 		;
 
 	socket_helpers::settings_helper::add_port_server_opts(settings, info_, "12489");
-	socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false);
+	socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false, "", "${certificate-path}/certificate.pem", "", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 	socket_helpers::settings_helper::add_core_server_opts(settings, info_);
 
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
 
-		("password", sh::string_fun_key(boost::bind(&NSClientServer::set_password, this, _1), ""),
+		("password", sh::string_fun_key(boost::bind(&NSClientServer::set_password, this, boost::placeholders::_1), ""),
 			DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC)
 
 		;
@@ -80,7 +80,7 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
 
 	std::list<std::string> errors;
 	info_.allowed_hosts.refresh(errors);
-	BOOST_FOREACH(const std::string &e, errors) {
+	for(const std::string &e: errors) {
 		NSC_LOG_ERROR_STD(e);
 	}
 	NSC_DEBUG_MSG_STD("Allowed hosts definition: " + info_.allowed_hosts.to_string());
@@ -147,7 +147,7 @@ bool NSClientServer::isPasswordOk(std::string remotePassword) {
 }
 
 void split_to_list(std::list<std::string> &list, const std::string str, const std::string key) {
-	BOOST_FOREACH(const std::string &s, str::utils::split_lst(str, std::string("&"))) {
+	for(const std::string &s: str::utils::split_lst(str, std::string("&"))) {
 		list.push_back(key + "=" + s);
 	}
 }
@@ -160,13 +160,13 @@ void log_bad_command(const std::string &cmd) {
 	}
 }
 
-inline std::string extract_perf_value(const ::Plugin::Common_PerformanceData &perf) {
+inline std::string extract_perf_value(const PB::Common::PerformanceData &perf) {
 	return nscapi::protobuf::functions::extract_perf_value_as_string(perf);
 }
-inline std::string extract_perf_total(const ::Plugin::Common_PerformanceData &perf) {
+inline std::string extract_perf_total(const PB::Common::PerformanceData &perf) {
 	return nscapi::protobuf::functions::extract_perf_maximum_as_string(perf);
 }
-inline long long extract_perf_value_i(const ::Plugin::Common_PerformanceData &perf) {
+inline long long extract_perf_value_i(const PB::Common::PerformanceData &perf) {
 	return nscapi::protobuf::functions::extract_perf_value_as_int(perf);
 }
 
@@ -177,7 +177,7 @@ std::string NSClientServer::list_instance(std::string counter) {
 	std::string result;
 
 	typedef boost::tokenizer< boost::escaped_list_separator<char>, std::string::const_iterator, std::string > Tokenizer;
-	BOOST_FOREACH(const std::string &s, exeresult) {
+	for(const std::string &s: exeresult) {
 		std::istringstream iss(s);
 		std::string line;
 		while (std::getline(iss, line, '\n')) {
@@ -228,7 +228,7 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 	switch (c) {
 	case REQ_CPULOAD:
 		cmd.first = "check_cpu";
-		BOOST_FOREACH(const std::string &s, str::utils::split_lst(cmd.second, std::string("&"))) {
+		for(const std::string &s: str::utils::split_lst(cmd.second, std::string("&"))) {
 			args.push_back("time=" + s + "m");
 		}
 		break;
@@ -305,16 +305,16 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 		return check_nt::packet("ERROR: Could not complete the request check log file for more information.");
 	}
 
-	::Plugin::QueryResponseMessage message;
+	::PB::Commands::QueryResponseMessage message;
 	if (!message.ParseFromString(response))
 		return check_nt::packet("ERROR: Failed to parse data from: " + cmd.first);
 	if (message.payload_size() != 1)
 		return check_nt::packet("ERROR: Command returned invalid number of payloads: " + cmd.first + ", " + str::xtos(message.payload_size()));
-	const ::Plugin::QueryResponseMessage::Response &payload = message.payload(0);
+	const ::PB::Commands::QueryResponseMessage::Response &payload = message.payload(0);
 	if (payload.lines_size() != 1) {
 		return check_nt::packet("ERROR: Invalid number of lines returned from command: " + cmd.first + ", " + str::xtos(payload.lines_size()));
 	}
-	const ::Plugin::QueryResponseMessage::Response::Line &line = payload.lines(0);
+	const ::PB::Commands::QueryResponseMessage::Response::Line &line = payload.lines(0);
 
 	switch (c) {
 	case REQ_CPULOAD:		// Return the first performance data value

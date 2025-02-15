@@ -32,14 +32,15 @@
 #include <str/utils.hpp>
 #include <str/format.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <map>
 #include <string>
 
 namespace sh = nscapi::settings_helper;
+namespace ph = boost::placeholders;
 
 namespace schedules {
 	struct schedule_object : public nscapi::settings_objects::object_instance_interface {
@@ -108,7 +109,7 @@ namespace schedules {
 			return ss.str();
 		}
 
-		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			parent::read(proxy, oneliner, is_sample);
 
 			set_command(get_value());
@@ -127,7 +128,7 @@ namespace schedules {
 
 			root_path.add_key()
 
-				("command", sh::string_fun_key(boost::bind(&schedule_object::set_command, this, _1)),
+				("command", sh::string_fun_key(boost::bind(&schedule_object::set_command, this, ph::_1)),
 					"SCHEDULE COMMAND", "Command to execute", is_def)
 
 				("target", sh::string_key(&target_id),
@@ -142,16 +143,16 @@ namespace schedules {
 					("channel", sh::string_key(&channel, "NSCA"),
 						"SCHEDULE CHANNEL", "Channel to send results on")
 
-					("interval", sh::string_fun_key(boost::bind(&schedule_object::set_duration, this, _1)),
-					"SCHEDULE INTERAVAL", "Time in seconds between each check")
+					("interval", sh::string_fun_key(boost::bind(&schedule_object::set_duration, this, ph::_1)),
+					"SCHEDULE INTERVAL", "Time in seconds between each check")
 
-					("randomness", sh::string_fun_key(boost::bind(&schedule_object::set_randomness, this, _1)),
+					("randomness", sh::string_fun_key(boost::bind(&schedule_object::set_randomness, this, ph::_1)),
 						"RANDOMNESS", "% of the interval which should be random to prevent overloading server resources")
 
-					("schedule", sh::string_fun_key(boost::bind(&schedule_object::set_schedule, this, _1)),
+					("schedule", sh::string_fun_key(boost::bind(&schedule_object::set_schedule, this, ph::_1)),
 						"SCHEDULE", "Cron-like statement for when a task is run. Currently limited to only one number i.e. 1 * * * * or * * 1 * * but not 1 1 * * *")
 
-					("report", sh::string_fun_key(boost::bind(&schedule_object::set_report, this, _1), "all"),
+					("report", sh::string_fun_key(boost::bind(&schedule_object::set_report, this, ph::_1), "all"),
 						"REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)")
 
 					;
@@ -160,16 +161,16 @@ namespace schedules {
 					("channel", sh::string_key(&channel),
 						"SCHEDULE CHANNEL", "Channel to send results on")
 
-					("interval", sh::string_fun_key(boost::bind(&schedule_object::set_duration, this, _1)),
-						"SCHEDULE INTERAVAL", "Time in seconds between each check", true)
+					("interval", sh::string_fun_key(boost::bind(&schedule_object::set_duration, this, ph::_1)),
+						"SCHEDULE INTERVAL", "Time in seconds between each check", true)
 
-					("randomness", sh::string_fun_key(boost::bind(&schedule_object::set_randomness, this, _1)),
+					("randomness", sh::string_fun_key(boost::bind(&schedule_object::set_randomness, this, ph::_1)),
 						"RANDOMNESS", "% of the interval which should be random to prevent overloading server resources")
 
-					("schedule", sh::string_fun_key(boost::bind(&schedule_object::set_schedule, this, _1)),
+					("schedule", sh::string_fun_key(boost::bind(&schedule_object::set_schedule, this, ph::_1)),
 						"SCHEDULE", "Cron-like statement for when a task is run. Currently limited to only one number i.e. 1 * * * * or * * 1 * * but not 1 1 * * *")
 
-					("report", sh::string_fun_key(boost::bind(&schedule_object::set_report, this, _1)),
+					("report", sh::string_fun_key(boost::bind(&schedule_object::set_report, this, ph::_1)),
 						"REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)", true)
 
 					;

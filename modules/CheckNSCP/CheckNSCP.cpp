@@ -46,7 +46,7 @@ bool CheckNSCP::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	start_ = boost::posix_time::microsec_clock::local_time();
 
 	std::string path;
-	sh::settings_registry settings(get_settings_proxy());
+	sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 	crashFolder = get_core()->expand_path(CRASH_ARCHIVE_FOLDER);
 	NSC_DEBUG_MSG_STD("Crash folder is: " + crashFolder.string());
 	return true;
@@ -58,8 +58,8 @@ bool CheckNSCP::unloadModule() {
 std::string render(int, const std::string, int, std::string message) {
 	return message;
 }
-void CheckNSCP::handleLogMessage(const Plugin::LogEntry::Entry &message) {
-	if (message.level() != Plugin::LogEntry_Entry_Level_LOG_CRITICAL && message.level() != Plugin::LogEntry_Entry_Level_LOG_ERROR)
+void CheckNSCP::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
+	if (message.level() != PB::Log::LogEntry_Entry_Level_LOG_CRITICAL && message.level() != PB::Log::LogEntry_Entry_Level_LOG_ERROR)
 		return;
 	{
 		boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
@@ -78,7 +78,7 @@ int get_crashes(boost::filesystem::path root, std::string &last_crash) {
 
 	time_t last_write = std::time(0);
 	boost::filesystem::directory_iterator begin(root), end;
-	BOOST_FOREACH(const boost::filesystem::path& p, std::make_pair(begin, end)) {
+	for(const boost::filesystem::path& p: boost::make_iterator_range(begin, end)) {
 		if (boost::filesystem::is_regular_file(p) && file_helpers::meta::get_extension(p) == "txt")
 			count++;
 		time_t lw = boost::filesystem::last_write_time(p);
@@ -106,34 +106,51 @@ struct nscp_version {
 	int major_version;
 	int minor_version;
 	int build;
+  bool has_build;
 	std::string date;
 
-	nscp_version() : release(0), major_version(0), minor_version(0), build(0) {}
-	nscp_version(const nscp_version &other) : release(other.release), major_version(other.major_version), minor_version(other.minor_version), build(other.build), date(other.date) {}
+	nscp_version() : release(0), major_version(0), minor_version(0), build(0), has_build(false) {}
+	nscp_version(const nscp_version &other) : release(other.release), major_version(other.major_version), minor_version(other.minor_version), build(other.build), date(other.date), has_build(other.has_build) {}
 	nscp_version& operator= (const nscp_version &other) {
 		release = other.release;
 		major_version = other.major_version;
 		minor_version = other.minor_version;
 		build = other.build;
 		date = other.date;
+    has_build = other.has_build;
 		return *this;
 	}
-	nscp_version(std::string v) {
+	nscp_version(std::string v) : release(0), major_version(0), minor_version(0), build(0), has_build(false) {
 		str::utils::token v2 = str::utils::split2(v, " ");
 		date = v2.second;
 		std::list<std::string> vl = str::utils::split_lst(v2.first, ".");
-		if (vl.size() != 4)
-			throw nsclient::nsclient_exception("Failed to parse version: " + v);
-		release = str::stox<int>(vl.front()); vl.pop_front();
-		major_version = str::stox<int>(vl.front()); vl.pop_front();
-		minor_version = str::stox<int>(vl.front()); vl.pop_front();
-		build = str::stox<int>(vl.front());
+    if (vl.empty() || vl.size() > 4) {
+      throw nsclient::nsclient_exception("Failed to parse version: " + v);
+    }
+    if (!vl.empty()) {
+      release = str::stox<int>(vl.front()); vl.pop_front();
+    }
+    if (!vl.empty()) {
+      major_version = str::stox<int>(vl.front()); vl.pop_front();
+    }
+    if (!vl.empty()) {
+      minor_version = str::stox<int>(vl.front()); vl.pop_front();
+    }
+    if (!vl.empty()) {
+      build = str::stox<int>(vl.front());
+      has_build = true;
+    }
 	}
 	std::string to_string() const {
-		return str::xtos(release) + "."
-			+ str::xtos(major_version) + "."
-			+ str::xtos(minor_version) + "."
-			+ str::xtos(build);
+    if (has_build) {
+      return str::xtos(release) + "."
+             + str::xtos(major_version) + "."
+             + str::xtos(minor_version) + "."
+             + str::xtos(build);
+    }
+    return str::xtos(release) + "."
+           + str::xtos(major_version) + "."
+           + str::xtos(minor_version);
 	}
 };
 
@@ -177,21 +194,21 @@ namespace check_nscp_version {
 				("release", &filter_obj::get_release, "The release (the 0 in 0.1.2.3)")
 				("major", &filter_obj::get_major, "The major (the 1 in 0.1.2.3)")
 				("minor", &filter_obj::get_minor, "The minor (the 2 in 0.1.2.3)")
-				("build", &filter_obj::get_build, "The build (the 3 in 0.1.2.3)")
+				("build", &filter_obj::get_build, "The build (the 3 in 0.1.2.3) not available in release versions after 0.6.0")
 				;
 		}
 	};
 
 	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
-	void check(const nscp_version &version, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	void check(const nscp_version &version, const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 		typedef filter filter_type;
 		modern_filter::data_container data;
 		modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 
 		filter_type filter;
 		filter_helper.add_options("", "", "", filter.get_filter_syntax(), "ignored");
-		filter_helper.add_syntax("${status}: ${list}", "${release}.${major}.${minor}.${build} (${date})", "version", "", "");
+		filter_helper.add_syntax("${status}: ${list}", "${version} (${date})", "version", "", "");
 
 		if (!filter_helper.parse_options())
 			return;
@@ -210,7 +227,7 @@ namespace check_nscp_version {
 
 
 
-void CheckNSCP::check_nscp_version(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckNSCP::check_nscp_version(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	nscp_version version;
 	try {
 		version = nscp_version(get_core()->getApplicationVersionString());
@@ -224,24 +241,24 @@ void CheckNSCP::check_nscp_version(const Plugin::QueryRequestMessage::Request &r
 	check_nscp_version::check(version, request, response);
 }
 
-void CheckNSCP::check_nscp(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckNSCP::check_nscp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	po::options_description desc = nscapi::program_options::create_desc(request);
 	po::variables_map vm;
 	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
 		return;
-	response->set_result(Plugin::Common_ResultCode_OK);
+	response->set_result(PB::Common::ResultCode::OK);
 	std::string last, message;
 	int crash_count = get_crashes(crashFolder, last);
 	str::format::append_list(message, str::xtos(crash_count) + " crash(es)", std::string(", "));
 	if (crash_count > 0) {
-		response->set_result(Plugin::Common_ResultCode_CRITICAL);
+		response->set_result(PB::Common::ResultCode::CRITICAL);
 		str::format::append_list(message, std::string("last crash: " + last), std::string(", "));
 	}
 
 	int err_count = get_errors(last);
 	str::format::append_list(message, str::xtos(err_count) + " error(s)", std::string(", "));
 	if (err_count > 0) {
-		response->set_result(Plugin::Common_ResultCode_CRITICAL);
+		response->set_result(PB::Common::ResultCode::CRITICAL);
 		str::format::append_list(message, std::string("last error: " + last), std::string(", "));
 	}
 	boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();;

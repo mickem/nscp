@@ -1,6 +1,6 @@
 #include "scripts_controller.hpp"
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 
 #include <file_helpers.hpp>
 
@@ -9,7 +9,6 @@
 #include <json_spirit.h>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/foreach.hpp>
 #include <boost/regex.hpp>
 #include <boost/filesystem/path.hpp>
 
@@ -29,28 +28,25 @@ std::string get_runtime(const std::string &runtime) {
 	return runtime;
 }
 
-bool validate_response(const Plugin::ExecuteResponseMessage &resp, Mongoose::StreamResponse &response) {
+bool validate_response(const PB::Commands::ExecuteResponseMessage &resp, Mongoose::StreamResponse &response) {
 	if (resp.payload_size() == 0) {
-		response.setCode(HTTP_SERVER_ERROR);
-		response.append("No response from module, is the module loaded?");
+		response.setCodeServerError("No response from module, is the module loaded?");
 		return false;
 	}
 	if (resp.payload_size() != 1) {
-		response.setCode(HTTP_SERVER_ERROR);
-		response.append("Invalid response from module");
+		response.setCodeServerError("Invalid response from module");
 		return false;
 	}
-	if (resp.payload(0).result() != ::Plugin::Common_ResultCode_OK) {
-		response.setCode(HTTP_SERVER_ERROR);
-		response.append("Command returned errors: " + resp.payload(0).message());
+	if (resp.payload(0).result() != PB::Common::ResultCode::OK) {
+		response.setCodeServerError("Command returned errors: " + resp.payload(0).message());
 		return false;
 	}
 
 	return true;
 }
 
-scripts_controller::scripts_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id)
-	: RegexpController("/api/v1/scripts")
+scripts_controller::scripts_controller(const int version, boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id)
+	: RegexpController(version==1?"/api/v1/scripts":"/api/v2/scripts")
 	, session(session)
 	, core(core)
 	, plugin_id(plugin_id) {
@@ -65,19 +61,19 @@ void scripts_controller::get_runtimes(Mongoose::Request &request, boost::smatch 
 	if (!session->is_loggedin("scripts.list.runtimes", request, response))
 		return;
 
-	Plugin::RegistryRequestMessage rrm;
-	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+	PB::Registry::RegistryRequestMessage rrm;
+	PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
 	payload->mutable_inventory()->set_fetch_all(false);
-	payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_MODULE);
+	payload->mutable_inventory()->add_type(PB::Registry::ItemType::MODULE);
 	std::string str_response;
 	core->registry_query(rrm.SerializeAsString(), str_response);
 
-	Plugin::RegistryResponseMessage pb_response;
+	PB::Registry::RegistryResponseMessage pb_response;
 	pb_response.ParseFromString(str_response);
 	json_spirit::Array root;
 
-	BOOST_FOREACH(const Plugin::RegistryResponseMessage::Response r, pb_response.payload()) {
-		BOOST_FOREACH(const Plugin::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
+	for(const PB::Registry::RegistryResponseMessage::Response r: pb_response.payload()) {
+		for(const PB::Registry::RegistryResponseMessage::Response::Inventory i: r.inventory()) {
 			if (i.name() == PY_SCR
 				|| i.name() == EXT_SCR
 				|| i.name() == "LUAScript") {
@@ -117,8 +113,8 @@ void scripts_controller::get_scripts(Mongoose::Request &request, boost::smatch &
 	if (!session->can("scripts.lists." + runtime, request, response))
 		return;
 
-	Plugin::ExecuteRequestMessage rm;
-	Plugin::ExecuteRequestMessage::Request *payload = rm.add_payload();
+	PB::Commands::ExecuteRequestMessage rm;
+	PB::Commands::ExecuteRequestMessage::Request *payload = rm.add_payload();
 
 	payload->set_command("list");
 	payload->add_arguments("--json");
@@ -128,7 +124,7 @@ void scripts_controller::get_scripts(Mongoose::Request &request, boost::smatch &
 
 	std::string pb_response;
 	core->exec_command(runtime, rm.SerializeAsString(), pb_response);
-	Plugin::ExecuteResponseMessage resp;
+	PB::Commands::ExecuteResponseMessage resp;
 	resp.ParseFromString(pb_response);
 	if (!validate_response(resp, response)) {
 		return;
@@ -152,8 +148,8 @@ void scripts_controller::get_script(Mongoose::Request &request, boost::smatch &w
 	if (!session->can("scripts.get." + runtime, request, response))
 		return;
 
-	Plugin::ExecuteRequestMessage rm;
-	Plugin::ExecuteRequestMessage::Request *payload = rm.add_payload();
+	PB::Commands::ExecuteRequestMessage rm;
+	PB::Commands::ExecuteRequestMessage::Request *payload = rm.add_payload();
 
 	payload->set_command("show");
 	payload->add_arguments("--script");
@@ -161,7 +157,7 @@ void scripts_controller::get_script(Mongoose::Request &request, boost::smatch &w
 
 	std::string pb_response;
 	core->exec_command(runtime, rm.SerializeAsString(), pb_response);
-	Plugin::ExecuteResponseMessage resp;
+	PB::Commands::ExecuteResponseMessage resp;
 	resp.ParseFromString(pb_response);
 	if (!validate_response(resp, response)) {
 		return;
@@ -191,8 +187,8 @@ void scripts_controller::add_script(Mongoose::Request &request, boost::smatch &w
 	ofs << request.getData();
 	ofs.close();
 
-	Plugin::ExecuteRequestMessage rm;
-	Plugin::ExecuteRequestMessage::Request *payload = rm.add_payload();
+	PB::Commands::ExecuteRequestMessage rm;
+	PB::Commands::ExecuteRequestMessage::Request *payload = rm.add_payload();
 
 	payload->set_command("add");
 	payload->add_arguments("--script");
@@ -206,7 +202,7 @@ void scripts_controller::add_script(Mongoose::Request &request, boost::smatch &w
 
 	std::string pb_response;
 	core->exec_command(runtime, rm.SerializeAsString(), pb_response);
-	Plugin::ExecuteResponseMessage resp;
+	PB::Commands::ExecuteResponseMessage resp;
 	resp.ParseFromString(pb_response);
 	if (!validate_response(resp, response)) {
 		return;
@@ -229,8 +225,8 @@ void scripts_controller::delete_script(Mongoose::Request &request, boost::smatch
 	if (!session->can("scripts.delete." + runtime, request, response))
 		return;
 
-	Plugin::ExecuteRequestMessage rm;
-	Plugin::ExecuteRequestMessage::Request *payload = rm.add_payload();
+	PB::Commands::ExecuteRequestMessage rm;
+	PB::Commands::ExecuteRequestMessage::Request *payload = rm.add_payload();
 
 	payload->set_command("delete");
 	payload->add_arguments("--script");
@@ -241,7 +237,7 @@ void scripts_controller::delete_script(Mongoose::Request &request, boost::smatch
 
 	std::string pb_response;
 	core->exec_command(runtime, rm.SerializeAsString(), pb_response);
-	Plugin::ExecuteResponseMessage resp;
+	PB::Commands::ExecuteResponseMessage resp;
 	resp.ParseFromString(pb_response);
 	if (!validate_response(resp, response)) {
 		return;

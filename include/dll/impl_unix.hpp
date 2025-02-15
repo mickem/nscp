@@ -46,22 +46,22 @@ namespace dll {
 
 		public:
 			impl(boost::filesystem::path module) : module_(module), handle_(NULL) {
-				if (!boost::filesystem::is_regular(module)) {
+				if (!boost::filesystem::is_regular_file(module)) {
 					module_ = fix_module_name(module_);
 				}
 			}
 			static boost::filesystem::path fix_module_name(boost::filesystem::path module) {
-				if (boost::filesystem::is_regular(module))
+				if (boost::filesystem::is_regular_file(module))
 					return module;
 				/* this one (below) is wrong I think */
 				boost::filesystem::path mod = module / get_extension();
-				if (boost::filesystem::is_regular(mod))
+				if (boost::filesystem::is_regular_file(mod))
 					return mod;
 				mod = boost::filesystem::path(module.string() + get_extension());
-				if (boost::filesystem::is_regular(mod))
+				if (boost::filesystem::is_regular_file(mod))
 					return mod;
-				mod = mod.branch_path() / boost::filesystem::path(std::string("lib") + file_helpers::meta::get_filename(mod));
-				if (boost::filesystem::is_regular(mod))
+				mod = mod.parent_path() / boost::filesystem::path(std::string("lib") + file_helpers::meta::get_filename(mod));
+				if (boost::filesystem::is_regular_file(mod))
 					return mod;
 				return module;
 			}
@@ -76,7 +76,8 @@ namespace dll {
 			void load_library() {
 				std::string dllname = module_.string();
 #if defined(LINUX) || defined(SUN) || defined(AIX) || defined(CYGWIN)
-				handle_ = dlopen(dllname.c_str(), RTLD_NOW);
+//                handle_ = dlopen(dllname.c_str(), RTLD_GLOBAL | RTLD_NOW);
+                handle_ = dlopen(dllname.c_str(), RTLD_NOW);
 				if (handle_ == NULL)
 					throw dll_exception(std::string("Could not load library: ") + dlerror() + ": " + module_.string());
 #elif defined(HP)

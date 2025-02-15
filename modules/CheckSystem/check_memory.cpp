@@ -38,6 +38,7 @@
 
 CheckMemory memchecker;
 
+using namespace boost::placeholders;
 
 namespace check_mem_filter {
 	struct filter_obj {
@@ -172,7 +173,7 @@ namespace memory_checks {
 				mem_data = memoryChecker->getMemoryStatus();
 			} catch (const CheckMemoryException &e) {
 			}
-			BOOST_FOREACH(const std::string &type, checks) {
+			for(const std::string &type: checks) {
 				unsigned long long used(0), total(0);
 				if (type == "commited") {
 					used = mem_data.commited.total - mem_data.commited.avail;
@@ -196,7 +197,7 @@ namespace memory_checks {
 
 		void helper::add_obj(boost::shared_ptr<filters::mem::filter_config_object> object) {
 			runtime_data data;
-			BOOST_FOREACH(const std::string &d, object->data) {
+			for(const std::string &d: object->data) {
 				data.add(d);
 			}
 			memory_helper->helper.add_item(object, data, "system.memory");
@@ -227,7 +228,7 @@ namespace memory_checks {
 		 * @param &perf String to put performance data in
 		 * @return The status of the command
 		 */
-		void check(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+		void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 			typedef check_mem_filter::filter filter_type;
 			modern_filter::data_container data;
 			modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
@@ -258,7 +259,7 @@ namespace memory_checks {
 				return nscapi::protobuf::functions::set_response_bad(*response, e.reason());
 			}
 
-			BOOST_FOREACH(const std::string &type, types) {
+			for(const std::string &type: types) {
 				unsigned long long used(0), total(0);
 				if (type == "committed") {
 					used = mem_data.commited.total - mem_data.commited.avail;

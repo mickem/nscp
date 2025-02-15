@@ -72,9 +72,9 @@ void pdh_thread::write_metrics(const spi_container &handles, const windows::syst
 		if (pdh != NULL)
 			pdh->gatherData();
 
-		BOOST_FOREACH(const lookup_type::value_type &e, lookups_) {
+		for(const lookup_type::value_type &e: lookups_) {
 			if (e.second->has_instances()) {
-				BOOST_FOREACH(const PDH::pdh_instance i, e.second->get_instances()) {
+				for(const PDH::pdh_instance i: e.second->get_instances()) {
 					metrics["pdh." + e.first + "." + i->get_name()] = i->get_int_value();
 				}
 			} else {
@@ -118,36 +118,44 @@ void pdh_thread::thread_proc() {
 	memory_checks::realtime::helper memory_helper(core, plugin_id);
 	process_checks::realtime::helper process_helper(core, plugin_id);
 
-	if (subsystem == "fast" || subsystem == "auto" || subsystem == "default") {
-		PDH::factory::set_native();
-	} else if (subsystem == "thread-safe") {
-		PDH::factory::set_thread_safe();
-	} else {
-		NSC_LOG_ERROR_STD("Unknown PDH subsystem valid values are: fast (default) and thread-safe");
-	}
-	{
-		PDH::PDHQuery tmpPdh;
-		BOOST_FOREACH(PDH::pdh_object obj, configs_) {
-			try {
-				PDH::pdh_instance instance = PDH::factory::create(obj);
+	try {
+		if (subsystem == "fast" || subsystem == "auto" || subsystem == "default") {
+			PDH::factory::set_native();
+		} else if (subsystem == "thread-safe") {
+			PDH::factory::set_thread_safe();
+		} else {
+			NSC_LOG_ERROR_STD("Unknown PDH subsystem valid values are: fast (default) and thread-safe");
+		}
+		{
+			PDH::PDHQuery tmpPdh;
+			for(PDH::pdh_object obj: configs_) {
+				try {
+					PDH::pdh_instance instance = PDH::factory::create(obj);
 
-				if (instance->has_instances()) {
-					BOOST_FOREACH(PDH::pdh_instance sc, instance->get_instances()) {
-						tmpPdh.addCounter(sc);
+					if (instance->has_instances()) {
+						for(PDH::pdh_instance sc: instance->get_instances()) {
+							tmpPdh.addCounter(sc);
+						}
+					} else {
+						tmpPdh.addCounter(instance);
 					}
-				} else {
-					tmpPdh.addCounter(instance);
-				}
 
-				tmpPdh.open();
-				counters_.push_back(instance);
-				lookups_[instance->get_name()] = instance;
-				tmpPdh.close();
-			} catch (const std::exception &e) {
-				NSC_LOG_ERROR_EX("Failed to add counter " + obj.alias + ": ", e);
-				continue;
+					tmpPdh.open();
+					counters_.push_back(instance);
+					lookups_[instance->get_name()] = instance;
+					tmpPdh.close();
+				} catch (const std::exception &e) {
+					NSC_LOG_ERROR_EX("Failed to add counter " + obj.alias + ": ", e);
+					continue;
+				}
 			}
 		}
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to setup PDH counters: ", e);
+		counters_.clear();
+	} catch (...) {
+		NSC_LOG_ERROR("Failed to setup PDH counters");
+		counters_.clear();
 	}
 
 	PDH::PDHQuery pdh;
@@ -162,10 +170,10 @@ void pdh_thread::thread_proc() {
 		// 			return;
 		// 		}
 		pdh.removeAllCounters();
-		BOOST_FOREACH(PDH::pdh_instance c, counters_) {
+		for(PDH::pdh_instance c: counters_) {
 			try {
 				if (c->has_instances()) {
-					BOOST_FOREACH(PDH::pdh_instance sc, c->get_instances()) {
+					for(PDH::pdh_instance sc: c->get_instances()) {
 						NSC_DEBUG_MSG("Loading counter: " + sc->get_name() + " = " + sc->get_counter());
 						pdh.addCounter(sc);
 					}
@@ -199,28 +207,28 @@ void pdh_thread::thread_proc() {
 		NSC_LOG_MESSAGE("You are using legacy filters in check system, please migrate to new filters...");
 	}
 	cpu_filter_helper cpu_helper(core, plugin_id);
-	BOOST_FOREACH(boost::shared_ptr<filters::legacy::filter_config_object> object, legacy_filters_.get_object_list()) {
+	for(boost::shared_ptr<filters::legacy::filter_config_object> object: legacy_filters_.get_object_list()) {
 		if (object->check == "memory") {
 			memory_helper.add_obj(boost::shared_ptr<filters::mem::filter_config_object>(new filters::mem::filter_config_object(*object)));
 		} else {
 			check_cpu_filter::runtime_data data;
-			BOOST_FOREACH(const std::string &d, object->data) {
+			for(const std::string &d: object->data) {
 				data.add(d);
 			}
 			cpu_helper.add_item(boost::shared_ptr<filters::cpu::filter_config_object>(new filters::cpu::filter_config_object(*object)), data, "system.cpu");
 		}
 	}
-	BOOST_FOREACH(boost::shared_ptr<filters::mem::filter_config_object> object, mem_filters_.get_object_list()) {
+	for(boost::shared_ptr<filters::mem::filter_config_object> object: mem_filters_.get_object_list()) {
 		memory_helper.add_obj(object);
 	}
-	BOOST_FOREACH(boost::shared_ptr<filters::cpu::filter_config_object> object, cpu_filters_.get_object_list()) {
+	for(boost::shared_ptr<filters::cpu::filter_config_object> object: cpu_filters_.get_object_list()) {
 		check_cpu_filter::runtime_data data;
-		BOOST_FOREACH(const std::string &d, object->data) {
+		for(const std::string &d: object->data) {
 			data.add(d);
 		}
 		cpu_helper.add_item(object, data, "system.cpu");
 	}
-	BOOST_FOREACH(boost::shared_ptr<filters::proc::filter_config_object> object, proc_filters_.get_object_list()) {
+	for(boost::shared_ptr<filters::proc::filter_config_object> object: proc_filters_.get_object_list()) {
 		process_helper.add_obj(object);
 	}
 
@@ -303,7 +311,7 @@ void pdh_thread::thread_proc() {
 		}
 		if (i++ > min_threshold)
 			i = 0;
-		BOOST_FOREACH(const std::string &s, errors) {
+		for(const std::string &s: errors) {
 			NSC_LOG_ERROR(s);
 		}
 	} while (((waitStatus = WaitForSingleObject(stop_event_, 1000)) == WAIT_TIMEOUT));
@@ -347,7 +355,7 @@ std::map<std::string, long long> pdh_thread::get_int_value(std::string counter) 
 	}
 	const PDH::pdh_instance ptr = (*it).second;
 	if (ptr->has_instances()) {
-		BOOST_FOREACH(const PDH::pdh_instance i, ptr->get_instances()) {
+		for(const PDH::pdh_instance i: ptr->get_instances()) {
 			ret[i->get_name()] = i->get_int_value();
 		}
 	} else {
@@ -371,7 +379,7 @@ std::map<std::string, double> pdh_thread::get_value(std::string counter) {
 	}
 	const PDH::pdh_instance ptr = (*it).second;
 	if (ptr->has_instances()) {
-		BOOST_FOREACH(const PDH::pdh_instance i, ptr->get_instances()) {
+		for(const PDH::pdh_instance i: ptr->get_instances()) {
 			ret[i->get_name()] = i->get_value();
 		}
 	} else {
@@ -395,7 +403,7 @@ std::map<std::string, double> pdh_thread::get_average(std::string counter, long 
 	}
 	const PDH::pdh_instance ptr = (*it).second;
 	if (ptr->has_instances()) {
-		BOOST_FOREACH(const PDH::pdh_instance i, ptr->get_instances()) {
+		for(const PDH::pdh_instance i: ptr->get_instances()) {
 			ret[i->get_name()] = i->get_average(seconds);
 		}
 	} else {
@@ -421,7 +429,7 @@ std::map<std::string, windows::system_info::load_entry> pdh_thread::get_cpu_load
 	}
 	ret["total"] = load.total;
 	int i = 0;
-	BOOST_FOREACH(const windows::system_info::load_entry &l, load.core)
+	for(const windows::system_info::load_entry &l: load.core)
 		ret["core " + str::xtos(i++)] = l;
 	return ret;
 }

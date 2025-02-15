@@ -130,7 +130,7 @@ namespace nsca {
 		std::string result;
 		std::string host;
 		unsigned int code;
-		unsigned int time;
+		uint32_t time;
 		unsigned int payload_length_;
 	public:
 		packet(std::string _host, unsigned int payload_length = 512, int time_delta = 0) : host(_host), payload_length_(payload_length) {
@@ -138,7 +138,7 @@ namespace nsca {
 				+ boost::posix_time::seconds(time_delta);
 			boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
 			boost::posix_time::time_duration diff = now - time_t_epoch;
-			time = diff.total_seconds();
+			time = static_cast<uint32_t>(diff.total_seconds());
 		}
 		packet(unsigned int payload_length) : payload_length_(payload_length) {}
 		packet() : payload_length_(nsca::length::get_payload_length()) {}
@@ -236,7 +236,7 @@ namespace nsca {
 			//boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
 			boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
 			boost::posix_time::time_duration diff = now - time_t_epoch;
-			return diff.total_seconds();
+			return static_cast<uint32_t>(diff.total_seconds());
 		}
 		uint32_t get_time() const {
 			return time;

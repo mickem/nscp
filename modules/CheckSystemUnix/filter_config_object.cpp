@@ -18,22 +18,23 @@
  */
 
 #include "filter_config_object.hpp"
-
-#include <map>
-#include <string>
-
-#include <boost/foreach.hpp>
-#include <boost/optional.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/date_time.hpp>
-#include <boost/filesystem.hpp>
+#include "filter.hpp"
 
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/functions.hpp>
 #include <nscapi/nscapi_helper.hpp>
 
-#include "filter.hpp"
+
+#include <str/utils.hpp>
+
+#include <boost/optional.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/date_time.hpp>
+#include <boost/filesystem.hpp>
+
+#include <map>
+#include <string>
 
 
 namespace sh = nscapi::settings_helper;
@@ -50,7 +51,7 @@ namespace filters {
 		if (file_string.empty())
 			return;
 		data.clear();
-		BOOST_FOREACH(const std::string &s, str::utils::split_lst(file_string, std::string(","))) {
+		for(const std::string &s: str::utils::split_lst(file_string, std::string(","))) {
 			data.push_back(s);
 		}
 	}
@@ -61,9 +62,9 @@ namespace filters {
 		data.push_back(file_string);
 	}
 
-	void filter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+	void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 		if (!get_value().empty())
-			filter.filter_string = get_value();
+				filter.set_filter_string(get_value().c_str());
 		bool is_default = parent::is_default();
 
 		nscapi::settings_helper::settings_registry settings(proxy);
@@ -104,7 +105,7 @@ namespace filters {
 				// Populate default values!
 				filter.syntax_top = "${list}";
 				filter.syntax_detail = "${core}>${load}%";
-				filter.filter_string = "core = 'total'";
+				filter.set_filter_string("core = 'total'");
 			}
 
 			root_path.add_key()

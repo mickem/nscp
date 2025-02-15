@@ -20,7 +20,7 @@
 	"commands" : {
 		"check_uptime"		: "Check time since last server re-boot." ,
 		"check_memory"		: "Check free/used memory on the system.",
-		"check_os_version"	: "Check the version of the underlaying OS."
+		"check_os_version"	: "Check the version of the underlying OS."
 	},
 
 	"log messages" : false

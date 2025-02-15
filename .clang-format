@@ -1,0 +1,6 @@
+UseTab: Never
+TabWidth: 2
+IndentWidth: 2
+LineEnding: LF
+ColumnLimit: 160
+NamespaceIndentation: All

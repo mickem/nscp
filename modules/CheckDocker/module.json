@@ -1,0 +1,23 @@
+{
+	"module"		: {
+		"title"			: "Find and fetch data from docker containers",
+		"description"	: "Use this module to detect and monitor docker containers",
+		"name"			: "CheckDocker",
+		"alias"			: "docker",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "docker"
+	},
+
+	"commands" : {
+		"check_docker" : { 
+			"description" : "Checks that a given docker container is running."
+			}
+	},
+
+	"log messages" : true,
+	"metrics" : "produce"
+
+}

@@ -31,6 +31,7 @@
 
 namespace nrdp_handler {
 	namespace sh = nscapi::settings_helper;
+	namespace ph = boost::placeholders;
 
 	struct nrdp_target_object : public nscapi::targets::target_object {
 		typedef nscapi::targets::target_object parent;
@@ -41,7 +42,7 @@ namespace nrdp_handler {
 
 		nrdp_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
 
-		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			parent::read(proxy, oneliner, is_sample);
 
 			nscapi::settings_helper::settings_registry settings(proxy);
@@ -55,13 +56,13 @@ namespace nrdp_handler {
 
 			root_path.add_key()
 
-				("key", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", _1)),
+				("key", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", ph::_1)),
 					"SECURITY TOKEN", "The security token")
 
-				("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", _1)),
+				("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", ph::_1)),
 					"SECURITY TOKEN", "The security token")
 
-				("token", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", _1)),
+				("token", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", ph::_1)),
 					"SECURITY TOKEN", "The security token")
 
 				;
@@ -83,19 +84,19 @@ namespace nrdp_handler {
 		void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
 			desc.add_options()
 
-				("key", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "token", _1)),
+				("key", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "token", ph::_1)),
 					"The security token")
 
-				("password", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "token", _1)),
+				("password", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "token", ph::_1)),
 					"The security token")
 
-				("source-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", _1)),
+				("source-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", ph::_1)),
 					"Source/sender host name (default is auto which means use the name of the actual host)")
 
-				("sender-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", _1)),
+				("sender-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", ph::_1)),
 					"Source/sender host name (default is auto which means use the name of the actual host)")
 
-				("token", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "token", _1)),
+				("token", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "token", ph::_1)),
 					"The security token")
 
 				;

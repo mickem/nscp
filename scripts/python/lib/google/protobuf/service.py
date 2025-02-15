@@ -1,6 +1,6 @@
 # Protocol Buffers - Google's data interchange format
 # Copyright 2008 Google Inc.  All rights reserved.
-# http://code.google.com/p/protobuf/
+# https://developers.google.com/protocol-buffers/
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -73,6 +73,7 @@ class Service(object):
     In the blocking case, RpcException will be raised on error.
 
     Preconditions:
+
     * method_descriptor.service == GetDescriptor
     * request is of the exact same classes as returned by
       GetRequestClass(method).
@@ -82,6 +83,7 @@ class Service(object):
       RpcChannel which the stub is using.
 
     Postconditions:
+
     * "done" will be called when the method is complete.  This may be
       before CallMethod() returns or it may be at some point in the future.
     * If the RPC failed, the response value passed to "done" will be None.

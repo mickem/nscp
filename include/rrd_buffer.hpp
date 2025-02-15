@@ -23,7 +23,6 @@
 
 #define BOOST_CB_DISABLE_DEBUG
 #include <boost/circular_buffer.hpp>
-#include <boost/foreach.hpp>
 
 /**
  * @ingroup NSClientCompat
@@ -90,7 +89,7 @@ public:
 	}
 	value_type calculate_avg(list_type &buffer) const {
 		value_type ret;
-		BOOST_FOREACH(const value_type &entry, buffer) {
+		for(const value_type &entry: buffer) {
 			ret.add(entry);
 		}
 		ret.normalize(buffer.size());

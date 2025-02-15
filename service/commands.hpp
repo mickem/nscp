@@ -27,7 +27,6 @@
 #include <utf8.hpp>
 
 #include <boost/shared_ptr.hpp>
-#include <boost/foreach.hpp>
 #include <boost/thread.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 
@@ -37,7 +36,6 @@ namespace nsclient {
 		class command_exception : public std::exception {
 			std::string what_;
 		public:
-			command_exception(std::wstring error) throw() : what_(utf8::cvt<std::string>(error)) {}
 			command_exception(std::string error) throw() : what_(error.c_str()) {}
 			virtual ~command_exception() throw() {};
 
@@ -181,8 +179,7 @@ namespace nsclient {
 
 		std::string unsafe_get_all_plugin_ids() {
 			std::string ret;
-			std::pair<unsigned long, plugin_type> cit;
-			BOOST_FOREACH(cit, plugins_) {
+			for(auto cit: plugins_) {
 				ret += str::xtos(cit.first) + "(" + utf8::cvt<std::string>(cit.second->getModule()) + "), ";
 			}
 			return ret;
@@ -212,7 +209,7 @@ namespace nsclient {
 				log_error(__FILE__, __LINE__, "Failed to get mutex");
 				return lst;
 			}
-			BOOST_FOREACH(description_list_type::value_type cit, descriptions_) {
+			for(description_list_type::value_type cit: descriptions_) {
 				lst.push_back(cit.first);
 			}
 			return lst;
@@ -224,7 +221,7 @@ namespace nsclient {
 				log_error(__FILE__, __LINE__, "Failed to get mutex");
 				return lst;
 			}
-			BOOST_FOREACH(description_list_type::value_type cit, descriptions_) {
+			for(description_list_type::value_type cit: descriptions_) {
 				if (commands_.find(cit.first) != commands_.end())
 					lst.push_back(cit.first);
 			}
@@ -237,7 +234,7 @@ namespace nsclient {
 				log_error(__FILE__, __LINE__, "Failed to get mutex");
 				return lst;
 			}
-			BOOST_FOREACH(description_list_type::value_type cit, descriptions_) {
+			for(description_list_type::value_type cit: descriptions_) {
 				if (aliases_.find(cit.first) != aliases_.end())
 					lst.push_back(cit.first);
 			}
@@ -251,8 +248,7 @@ namespace nsclient {
 				log_error(__FILE__, __LINE__, "Failed to get mutex");
 				return lst;
 			}
-			std::pair<unsigned long, plugin_type> cit;
-			BOOST_FOREACH(cit, plugins_) {
+			for(auto cit: plugins_) {
 				lst.push_back(str::xtos(cit.first));
 			}
 			return lst;
@@ -276,12 +272,12 @@ namespace nsclient {
 
 		std::string to_string() {
 			std::string ret = "commands {";
-			BOOST_FOREACH(std::string str, list_all()) {
+			for(std::string str: list_all()) {
 				if (!ret.empty()) ret += ", ";
 				ret += str;
 			}
 			ret += "}, plugins {";
-			BOOST_FOREACH(std::string str, list_plugins()) {
+			for(std::string str: list_plugins()) {
 				if (!ret.empty()) ret += ", ";
 				ret += str;
 			}
@@ -296,10 +292,10 @@ namespace nsclient {
 			logger_->error("core", file, line, error);
 		}
 		void log_error(const char* file, int line, std::string error, std::string command) {
-			logger_->error("core", file, line, error + "for command: " + utf8::cvt<std::string>(command));
+			logger_->error("core", file, line, error + "for command: " + command);
 		}
 		void log_info(const char* file, int line, std::string error, std::string command) {
-			logger_->info("core", file, line, error + "for command: " + utf8::cvt<std::string>(command));
+			logger_->info("core", file, line, error + "for command: " + command);
 		}
 
 		inline bool have_plugin(unsigned long plugin_id) {

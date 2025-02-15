@@ -21,9 +21,6 @@
 
 #include <error/error_com.hpp>
 
-#include <boost/optional.hpp>
-#include <boost/foreach.hpp>
-
 #include <map>
 
 #include <objidl.h>
@@ -166,7 +163,7 @@ namespace wmi_impl {
 	std::string row::to_string() {
 		std::stringstream ss;
 		bool first = true;
-		BOOST_FOREACH(const std::string c, columns) {
+		for(const std::string c: columns) {
 			if (first)
 				first = false;
 			else

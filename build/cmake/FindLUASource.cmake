@@ -1,0 +1,6 @@
+find_path(LUA_SOURCE_DIR lua.h ${LUA_SOURCE_ROOT} ${LUA_SOURCE_ROOT}/src)
+if(LUA_SOURCE_DIR)
+  set(LUA_SOURCE_FOUND TRUE)
+else()
+  set(LUA_SOURCE_FOUND FALSE)
+endif()

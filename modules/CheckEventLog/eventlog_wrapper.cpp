@@ -29,7 +29,7 @@
 std::string eventlog_wrapper::find_eventlog_name(const std::string name) {
 	try {
 		simple_registry::registry_key key(HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Services\\EventLog");
-		BOOST_FOREACH(const std::wstring k, key.get_keys()) {
+		for(const std::wstring k: key.get_keys()) {
 			try {
 				simple_registry::registry_key sub_key(HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Services\\EventLog\\" + k);
 				std::wstring file = sub_key.get_string(L"DisplayNameFile");

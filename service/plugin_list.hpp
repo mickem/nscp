@@ -25,9 +25,9 @@
 
 #include <str/xtos.hpp>
 #include <str/utils.hpp>
+#include <utf8.hpp>
 
 #include <boost/shared_ptr.hpp>
-#include <boost/foreach.hpp>
 #include <boost/function.hpp>
 
 #include <set>
@@ -87,7 +87,7 @@ namespace nsclient {
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
 			if (!has_valid_lock_log(writeLock, "plugins_list::add_plugin"))
 				return;
-			BOOST_FOREACH(const plugin_type &p, plugins_) {
+			for(const plugin_type &p: plugins_) {
 				if (p->get_id() == plugin->get_id()) {
 					log_error(__FILE__, __LINE__, "Duplicate plugin id");
 					return;
@@ -121,7 +121,7 @@ namespace nsclient {
 			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!has_valid_lock_log(readLock, "plugins_list::list"))
 				return;
-			BOOST_FOREACH(const plugin_type p, plugins_) {
+			for(const plugin_type p: plugins_) {
 				fun(p);
 			}
 		}
@@ -131,7 +131,7 @@ namespace nsclient {
 			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!has_valid_lock_log(readLock, "plugins_list::list"))
 				return "";
-			BOOST_FOREACH(const plugin_type p, plugins_) {
+			for(const plugin_type p: plugins_) {
 				if (!ret.empty()) ret += ", ";
 				ret += p->getName();
 			}
@@ -219,7 +219,7 @@ namespace nsclient {
 		std::string to_string() {
 			std::string ret;
 			std::list<std::string> lst = list();
-			BOOST_FOREACH(std::string str, lst) {
+			for(std::string str: lst) {
 				if (!ret.empty()) ret += ", ";
 				ret += str;
 			}
@@ -263,13 +263,13 @@ namespace nsclient {
 		}
 
 		void list(std::list<std::string> &lst) {
-			BOOST_FOREACH(listener_list_type::value_type i, listeners_) {
+			for(listener_list_type::value_type i: listeners_) {
 				lst.push_back(i.first);
 			}
 		}
 		std::string to_string() {
 			std::string ret;
-			BOOST_FOREACH(listener_list_type::value_type i, listeners_) {
+			for(listener_list_type::value_type i: listeners_) {
 				ret += ", ";
 				ret += i.first;
 			}
@@ -293,7 +293,7 @@ namespace nsclient {
 				writeLock.unlock();
 				throw plugins_list_exception("Failed to find plugin: " + str::xtos(plugin_id) + ", Plugins: " + to_string());
 			}
-			BOOST_FOREACH(const std::string c, str::utils::split_lst(lc, ",")) {
+			for(const std::string c: str::utils::split_lst(lc, ",")) {
 				listeners_[c].insert(plugin_id);
 			}
 		}
@@ -307,7 +307,7 @@ namespace nsclient {
 				return std::list<plugin_type>(); // throw plugins_list_exception("Channel not found: '" + ::to_string(channel) + "'" + to_string());
 			}
 			std::list<plugin_type> ret;
-			BOOST_FOREACH(unsigned long id, cit->second) {
+			for(unsigned long id: cit->second) {
 				ret.push_back(plugins_[id]);
 			}
 			return ret;

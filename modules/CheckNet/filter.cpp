@@ -23,7 +23,7 @@
 #include <simple_timer.hpp>
 #include <str/utils.hpp>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/assign.hpp>
 #include <boost/make_shared.hpp>
 

@@ -122,19 +122,19 @@ namespace syslog_client {
 	};
 
 	struct syslog_client_handler : public client::handler_interface {
-		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
+		bool query(client::destination_container sender, client::destination_container target, const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message) {
 			return false;
 		}
 
-		bool submit(client::destination_container sender, client::destination_container target, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
-			const ::Plugin::Common_Header& request_header = request_message.header();
+		bool submit(client::destination_container sender, client::destination_container target, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage &response_message) {
+			const PB::Common::Header& request_header = request_message.header();
 			connection_data con(sender, target);
 
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
 			std::list<std::string> messages;
 
-			BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response &p, request_message.payload()) {
+			for(const ::PB::Commands::QueryResponseMessage_Response &p: request_message.payload()) {
 				boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
 				std::string date = str::format::format_date(now, "%b %e %H:%M:%S");
 				std::string tag = con.tag_syntax;
@@ -144,13 +144,13 @@ namespace syslog_client {
 				str::utils::replace(tag, "%message%", nagios_msg);
 
 				std::string severity = con.severity;
-				if (p.result() == ::Plugin::Common_ResultCode_OK)
+				if (p.result() == PB::Common::ResultCode::OK)
 					severity = con.ok_severity;
-				if (p.result() == ::Plugin::Common_ResultCode_WARNING)
+				if (p.result() == PB::Common::ResultCode::WARNING)
 					severity = con.warn_severity;
-				if (p.result() == ::Plugin::Common_ResultCode_CRITICAL)
+				if (p.result() == PB::Common::ResultCode::CRITICAL)
 					severity = con.crit_severity;
-				if (p.result() == ::Plugin::Common_ResultCode_UNKNOWN)
+				if (p.result() == PB::Common::ResultCode::UNKNOWN)
 					severity = con.unknown_severity;
 
 				messages.push_back(con.parse_priority(severity, con.facility) + date + " " + tag + " " + message);
@@ -159,16 +159,16 @@ namespace syslog_client {
 			return true;
 		}
 
-		bool exec(client::destination_container sender, client::destination_container target, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
+		bool exec(client::destination_container sender, client::destination_container target, const PB::Commands::ExecuteRequestMessage &request_message, PB::Commands::ExecuteResponseMessage &response_message) {
 			return false;
 		}
 
-		bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) {
+		bool metrics(client::destination_container sender, client::destination_container target, const PB::Metrics::MetricsMessage &request_message) {
 			return false;
 		}
 
 
-		void send(Plugin::SubmitResponseMessage::Response *payload, connection_data con, const std::list<std::string> &messages) {
+		void send(PB::Commands::SubmitResponseMessage::Response *payload, connection_data con, const std::list<std::string> &messages) {
 			try {
 				NSC_DEBUG_MSG_STD("Connection details: " + con.to_string());
 
@@ -180,7 +180,7 @@ namespace syslog_client {
 				boost::asio::ip::udp::socket socket(io_service);
 				socket.open(boost::asio::ip::udp::v4());
 
-				BOOST_FOREACH(const std::string msg, messages) {
+				for(const std::string msg: messages) {
 					NSC_DEBUG_MSG_STD("Sending data: " + msg);
 					socket.send_to(boost::asio::buffer(msg), receiver_endpoint);
 				}

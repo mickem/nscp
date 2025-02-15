@@ -1,0 +1,13 @@
+{
+	"module"		: {
+		"title"			: "Check Powershell",
+		"description"	: "Check and run powershell scripts natievly",
+		"name"			: "CheckPowershell",
+		"version"		: "auto",
+		"managed": "true"
+	},
+	
+	"commands" : {
+		"fallback" : "true"
+	}
+}

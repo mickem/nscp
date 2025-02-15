@@ -1,0 +1,251 @@
+name: Build Windows
+
+on:
+  workflow_call:
+    inputs:
+      architecture:
+        type: string
+        description: 'Architecture to build'
+        required: true
+        default: 'x64'
+      version:
+        type: string
+        description: 'Version to build'
+        required: true
+    secrets:
+      AZURE_TENANT_ID:
+        description: 'Azure tenant ID'
+        required: true
+      AZURE_CLIENT_ID:
+        description: 'Azure client ID'
+        required: true
+      AZURE_CLIENT_SECRET:
+        description: 'Azure client secret'
+        required: true
+
+env:
+  PERL_VERSION: 5.34
+  PYTHON_VERSION: 3.11
+  OPENSSL_VERSION: 1.1.1w
+  PROTOBUF_VERSION: 21.12
+  BOOST_VERSION: 1.82.0
+  CRYPTOPP_VERSION: 8.8.0
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - id: setup
+      run: |
+        if ("${{ inputs.architecture }}" -eq "x64") {
+          echo "msvc_arch=x64" >> $env:GITHUB_OUTPUT
+          echo "platform=x64" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "msvc_arch=amd64_x86" >> $env:GITHUB_OUTPUT
+          echo "platform=Win32" >> $env:GITHUB_OUTPUT
+        }
+      shell: pwsh
+
+    - id: python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ ENV.PYTHON_VERSION }}
+        architecture: ${{ inputs.architecture }}
+        cache-dependency-path: 'build/python/requirements.txt'
+        cache: 'pip'
+
+    - id: build-web
+      run: cd web && npm install && npm run build
+
+    - name: Install components
+      run: |
+              Set-Location "C:\Program Files (x86)\Microsoft Visual Studio\Installer\"
+              $InstallPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
+              $components= @(
+                "Microsoft.VisualStudio.Component.VC.v141.x86.x64"
+                "Microsoft.VisualStudio.Component.VC.v141.ATL"
+                "Microsoft.VisualStudio.Component.WinXP"
+              )
+              [string]$workloadArgs = $components | ForEach-Object {" --add " +  $_}
+              $Arguments = ('/c', "vs_installer.exe", 'modify', '--installPath', "`"$InstallPath`"",$workloadArgs, '--quiet', '--norestart', '--nocache')
+              # should be run twice
+              $process = Start-Process -FilePath cmd.exe -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
+              $process = Start-Process -FilePath cmd.exe -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
+    - uses: ilammy/msvc-dev-cmd@v1
+      name: Setup msvc environment
+      with:
+        toolset: "14.1"
+        arch: ${{ steps.setup.outputs.msvc_arch }}
+
+    - name: make dirs
+      run: |
+        mkdir tmp
+        mkdir tmp\nscp
+        mkdir tmp\installer_lib
+      shell: cmd
+
+    - uses: shogo82148/actions-setup-perl@v1
+      with:
+        perl-version: ${{ ENV.PERL_VERSION }}
+
+    - name: setup python dependencies
+      run: |
+        & "$env:Python_ROOT_DIR\Scripts\pip" install -r build/python/requirements.txt
+  
+    - id: openssl
+      uses: ./.github/actions/openssl
+      with:
+        version: ${{ ENV.OPENSSL_VERSION }}
+        architecture: ${{ inputs.architecture }}
+
+    - id: protobuf
+      uses: ./.github/actions/protobuf
+      with:
+        version: ${{ ENV.PROTOBUF_VERSION }}
+        architecture: ${{ inputs.architecture }}
+
+    - id: cryptopp
+      uses: ./.github/actions/cryptopp
+      with:
+        version: ${{ ENV.CRYPTOPP_VERSION }}
+        architecture: ${{ inputs.architecture }}
+
+    - name: Build Boost (static)
+      id: static_boost
+      uses: mickem/build-boost@v1
+      with:
+        version: ${{ ENV.BOOST_VERSION }}
+        libraries: system filesystem
+        platform: ${{ inputs.architecture }}
+        configuration: Release
+        static: 1
+        directory: ${{ runner.workspace }}/static_boost
+          
+    - name: Build Boost (regular)
+      id: boost
+      uses: mickem/build-boost@v1
+      with:
+        version: ${{ ENV.BOOST_VERSION }}
+        libraries: system filesystem thread regex date_time program_options python chrono
+        platform: ${{ inputs.architecture }}
+        configuration: Release
+  
+    - id: paths
+      run: |
+        $path_unix="${{ steps.boost.outputs.root }}".replace('\','/')
+        echo "boost_root=$path_unix" >> $env:GITHUB_OUTPUT
+        $path_unix="${{ steps.boost.outputs.librarydir }}".replace('\','/')
+        echo "boost_librarydir=$path_unix" >> $env:GITHUB_OUTPUT
+        $path_unix="${{ steps.static_boost.outputs.root }}".replace('\','/')
+        echo "static_boost_root=$path_unix" >> $env:GITHUB_OUTPUT
+        $path_unix="${{ steps.static_boost.outputs.librarydir }}".replace('\','/')
+        echo "static_boost_librarydir=$path_unix" >> $env:GITHUB_OUTPUT
+        $path_unix="${{ env.Python_ROOT_DIR }}".replace('\','/')
+        echo "python_path=$path_unix" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+
+    - uses: DamianReeves/write-file-action@master
+      name: Write NSClient++ cmake config
+      with:
+        path: tmp/nscp/build.cmake
+        contents: |
+            set(Boost_USE_STATIC_RUNTIME ON)
+
+            SET(USE_STATIC_RUNTIME FALSE)
+            SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
+            SET(BOOST_ROOT "${{ steps.paths.outputs.boost_root }}")
+            SET(BOOST_LIBRARYDIR "${{ steps.paths.outputs.boost_librarydir }}")
+            SET(PROTOBUF_ROOT "${{ steps.protobuf.outputs.path_unix }}")
+            SET(PROTOBUF_LIBRARYDIR "${PROTOBUF_ROOT}/build/Release")
+            SET(OPENSSL_ROOT_DIR "${{ steps.openssl.outputs.path_unix }}")
+            SET(OPENSSL_USE_STATIC_LIBS TRUE)
+            SET(LUA_SOURCE_ROOT "${LIBRARY_ROOT_FOLDER}/lua-5.1.5")
+            SET(Python3_ROOT_DIR "${{ steps.paths.outputs.python_path }}")
+            SET(Python3_FIND_STRATEGY LOCATION)
+            SET(CRYPTOPP_ROOT "${{ steps.cryptopp.outputs.path_unix }}")
+
+            #SET(CSHARP_DOTNET_VERSION "v4.0.30319")
+            #SET(ARCHIVE_FOLDER "TODO")
+            #SET(TARGET_SITE "TODO")
+      
+    - name: Make python dist
+      working-directory: tmp/nscp
+      run: |
+        & "$env:Python_ROOT_DIR\python" ..\..\build\python\mk_pyzip.py --source ${{ env.Python_ROOT_DIR }}
+      shell: pwsh
+
+    - name: CMake (installer_lib)
+      working-directory: tmp/installer_lib
+      run: |
+        cmake ../../installer_lib -T v141 -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -DBOOST_ROOT=${{ steps.paths.outputs.static_boost_root }} -DBOOST_LIBRARYDIR=${{ steps.paths.outputs.static_boost_librarydir }} -DOPENSSL_ROOT_DIR=${{ steps.openssl.outputs.path_unix }} -DBUILD_VERSION=${{ inputs.version }} 
+
+    - name: Build installer_lib
+      working-directory: tmp/installer_lib
+      run: |
+        msbuild installer_lib.sln /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+  
+    - name: CMake (NSCP)
+      working-directory: tmp/nscp
+      run: |
+        cmake ../.. -T v141  -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -D BUILD_VERSION=${{ inputs.version }}
+
+    - name: Build nsclient
+      working-directory: tmp/nscp
+      run: |
+        msbuild NSCP.sln /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }}
+  
+    - name: Run tests
+      working-directory: tmp/nscp
+      run: |
+        ctest --output-on-failure -C Release
+
+    - name: Generate archives
+      working-directory: tmp/nscp
+      run: |
+        echo Running postbuild
+        python postbuild.py
+        echo Running cpack
+        cpack
+
+    - name: Collect debug symbols
+      shell: bash
+      working-directory: tmp/nscp
+      run: |
+        mkdir symbols
+        cd symbols
+        find ../ -name '*-stripped.pdb' -and -not -ipath '*symbols*' -exec cp {} . \;
+        # remove the -symbols suffix
+        for f in *-stripped.pdb; do mv -- "$f" "${f%-stripped.pdb}.pdb"; done
+        7z a -tzip -r ../NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip .
+
+    - name: Sign files installer
+      uses: azure/trusted-signing-action@v0.5.1
+      with:
+        azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+        endpoint: https://neu.codesigning.azure.net
+        trusted-signing-account-name: nsclient
+        certificate-profile-name: nsclient
+        files-folder: ${{ github.workspace }}\tmp\nscp\installers\installer-NSCP
+        files-folder-filter: msi
+        file-digest: SHA256
+        timestamp-rfc3161: http://timestamp.acs.microsoft.com
+        timestamp-digest: SHA256
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}
+        path: |
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-docs.zip
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.zip
+          tmp/nscp/installers/installer-NSCP/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.msi
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip
+        if-no-files-found: error
+    
+  

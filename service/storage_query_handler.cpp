@@ -4,15 +4,12 @@
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
-
-#include <boost/foreach.hpp>
-
 namespace nsclient {
 
 	namespace core {
 
 
-		storage_query_handler::storage_query_handler(nsclient::core::storage_manager_instance storage_, nsclient::core::plugin_mgr_instance plugins_, nsclient::logging::logger_instance logger_, const Plugin::StorageRequestMessage &request)
+		storage_query_handler::storage_query_handler(nsclient::core::storage_manager_instance storage_, nsclient::core::plugin_mgr_instance plugins_, nsclient::logging::logger_instance logger_, const PB::Storage::StorageRequestMessage &request)
 			: storage_(storage_)
 			, plugins_(plugins_)
 			, logger_(logger_)
@@ -21,9 +18,9 @@ namespace nsclient {
 
 
 
-		void storage_query_handler::parse(Plugin::StorageResponseMessage &response) {
+		void storage_query_handler::parse(PB::Storage::StorageResponseMessage &response) {
 
-			BOOST_FOREACH(const Plugin::StorageRequestMessage::Request &r, request_.payload()) {
+			for(const PB::Storage::StorageRequestMessage::Request &r: request_.payload()) {
 				if (r.has_get()) {
 					parse_get(r.id(), r.get(), response);
 				} else if (r.has_put()) {
@@ -34,18 +31,18 @@ namespace nsclient {
 			}
 		}
 
-		void storage_query_handler::parse_get(const long long plugin_id, const Plugin::StorageRequestMessage::Request::Get &q, Plugin::StorageResponseMessage &response) {
-			Plugin::StorageResponseMessage::Response *payload = response.add_payload();
+		void storage_query_handler::parse_get(const long long plugin_id, const PB::Storage::StorageRequestMessage::Request::Get &q, PB::Storage::StorageResponseMessage &response) {
+			PB::Storage::StorageResponseMessage::Response *payload = response.add_payload();
 			std::string plugin_name = "";
 			nsclient::core::plugin_manager::plugin_type plugin = plugins_->find_plugin(plugin_id);
 			if (plugin) {
 				plugin_name = plugin->get_alias_or_name();
 			}
-			BOOST_FOREACH(const ::Plugin::Storage_Entry &e, storage_->get(plugin_name, q.context())) {
+			for(const ::PB::Storage::Storage_Entry &e: storage_->get(plugin_name, q.context())) {
 				payload->mutable_get()->add_entry()->CopyFrom(e);
 			}
 		}
-		void storage_query_handler::parse_put(const long long plugin_id, const Plugin::StorageRequestMessage::Request::Put &q, Plugin::StorageResponseMessage &response) {
+		void storage_query_handler::parse_put(const long long plugin_id, const PB::Storage::StorageRequestMessage::Request::Put &q, PB::Storage::StorageResponseMessage &response) {
 			std::string plugin_name = "";
 			nsclient::core::plugin_manager::plugin_type plugin = plugins_->find_plugin(plugin_id);
 			if (plugin) {

@@ -17,6 +17,7 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 #include <windows.h>
 
 #include <win_sysinfo/win_defines.hpp>
@@ -29,10 +30,10 @@
 #include <utf8.hpp>
 
 namespace windows {
-#define STATUS_SUCCESS                          ((NTSTATUS)0x00000000L)
-#define STATUS_INFO_LENGTH_MISMATCH             ((NTSTATUS)0xC0000004L)
-#define STATUS_BUFFER_OVERFLOW                  ((NTSTATUS)0x80000005L)
-#define STATUS_ACCESS_VIOLATION                 ((NTSTATUS)0xC0000005L)
+#define STATUS_SUCCESS                          ((windows::winapi::NTSTATUS)0x00000000L)
+#define STATUS_INFO_LENGTH_MISMATCH             ((windows::winapi::NTSTATUS)0xC0000004L)
+#define STATUS_BUFFER_OVERFLOW                  ((windows::winapi::NTSTATUS)0x80000005L)
+#define STATUS_ACCESS_VIOLATION                 ((windows::winapi::NTSTATUS)0xC0000005L)
 
 	//////////////////////////////////////////////////////////////////////////
 	namespace winapi {
@@ -362,7 +363,7 @@ namespace windows {
 	hlp::buffer<BYTE, winapi::SYSTEM_PROCESS_INFORMATION*>  system_info::get_system_process_information(int size) {
 		hlp::buffer<BYTE, winapi::SYSTEM_PROCESS_INFORMATION*> buffer(size);
 		unsigned long bufferSize;
-		LONG r = winapi::NtQuerySystemInformation(winapi::SystemProcessInformation, (BYTE*)buffer, buffer.size(), &bufferSize);
+		LONG r = winapi::NtQuerySystemInformation(winapi::SystemProcessInformation, (BYTE*)buffer, static_cast<unsigned long>(buffer.size()), &bufferSize);
 		if (r == 0)
 			return buffer;
 		if (r == STATUS_INFO_LENGTH_MISMATCH)
@@ -484,10 +485,10 @@ namespace windows {
 
 		hlp::buffer<BYTE, LPVOID> buffer(4096);
 		DWORD retLen = 0;
-		NTSTATUS status = windows::winapi::NtQuerySystemInformation(windows::winapi::SystemPageFileInformation, buffer, buffer.size(), &retLen);
+		windows::winapi::NTSTATUS status = windows::winapi::NtQuerySystemInformation(windows::winapi::SystemPageFileInformation, buffer, static_cast<unsigned long>(buffer.size()), &retLen);
 		if (status == STATUS_INFO_LENGTH_MISMATCH) {
 			buffer.resize(retLen + 10);
-			status = windows::winapi::NtQuerySystemInformation(windows::winapi::SystemPageFileInformation, buffer, buffer.size(), &retLen);
+			status = windows::winapi::NtQuerySystemInformation(windows::winapi::SystemPageFileInformation, buffer, static_cast<unsigned long>(buffer.size()), &retLen);
 		}
 		if (status != STATUS_SUCCESS)
 			throw nsclient::nsclient_exception("Failed to get pagefile info");

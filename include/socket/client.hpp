@@ -19,9 +19,10 @@
 
 #pragma once
 
+#include <socket/socket_helpers.hpp>
+
 #include <boost/shared_ptr.hpp>
 
-#include <socket/socket_helpers.hpp>
 #include <iostream>
 
 using boost::asio::ip::tcp;
@@ -58,8 +59,11 @@ namespace socket_helpers {
 				}
 			}
 
+#if BOOST_VERSION >= 106800
+			typedef boost::asio::basic_socket<boost::asio::ip::tcp>  basic_socket_type;
+#else
 			typedef boost::asio::basic_socket<tcp, boost::asio::stream_socket_service<tcp> >  basic_socket_type;
-
+#endif
 			//////////////////////////////////////////////////////////////////////////
 			// Time related functions
 			//
@@ -315,13 +319,39 @@ namespace socket_helpers {
 #ifdef USE_SSL
 			boost::asio::ssl::context context_;
 			typedef ssl_connection<protocol_type> ssl_connection_type;
+
+			static boost::asio::ssl::context_base::method make_context(const socket_helpers::connection_info& info) {
+				std::string tmp = boost::algorithm::to_lower_copy(info.ssl.tls_version);
+				str::utils::replace(tmp, "+", "");
+				if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3") {
+					return boost::asio::ssl::context::tlsv13_client;
+				}
+				if (tmp == "tlsv1.2" || tmp == "tls1.2" || tmp == "1.2") {
+					return boost::asio::ssl::context::tlsv12_client;
+				}
+				if (tmp == "tlsv1.1" || tmp == "tls1.1" || tmp == "1.1") {
+					return boost::asio::ssl::context::tlsv11_client;
+				}
+				if (tmp == "tlsv1.0" || tmp == "tls1.0" || tmp == "1.0") {
+					return boost::asio::ssl::context::tlsv1_client;
+				}
+				if (tmp == "sslv3" || tmp == "ssl3") {
+					return boost::asio::ssl::context::sslv23_client;
+				}
+				throw socket_helpers::socket_exception("Invalid tls version: " + tmp);
+			}
 #endif
+
 
 		public:
 			client(const socket_helpers::connection_info &info, typename boost::shared_ptr<typename protocol_type::client_handler> handler)
 				: info_(info), handler_(handler)
 #ifdef USE_SSL
+#if BOOST_VERSION >= 106800
+				, context_(make_context(info))
+#else
 				, context_(io_service_, boost::asio::ssl::context::sslv23)
+#endif
 #endif
 			{}
 			~client() {
@@ -350,7 +380,7 @@ namespace socket_helpers {
 				if (info_.ssl.enabled) {
 					std::list<std::string> errors;
 					info_.ssl.configure_ssl_context(context_, errors);
-					BOOST_FOREACH(const std::string &e, errors) {
+					for(const std::string &e: errors) {
 						handler_->log_error(__FILE__, __LINE__, e);
 					}
 					return new ssl_connection_type(io_service_, context_, timeout, handler_);

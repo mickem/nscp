@@ -151,7 +151,7 @@ enabled = true
 Adding this will not do much since we don't have a filter yet but adding one is pretty simple as well so lets go ahead and do that.
 
 To make life simple we set the destination in this filter to "log" which means the information only ends up in the NSClient++ log file.
-Not very usefull in reality but very usefull when we are debuggning as it removes possible errors sources.
+Not very useful in reality but very useful when we are debugging as it removes possible errors sources.
 
 **configuration:**
 ```
@@ -167,7 +167,7 @@ Going through the configuration line by line we have:
 
 * `log=application` is the log we listen to.
 * `destination=log` is where the message is sent
-* `filter=level='error'` means we only want to recieve error messages.
+* `filter=level='error'` means we only want to receive error messages.
 * `maximum age=30s` sets a repeating "ok" messages every 30 seconds.
 * `debug=true` will increase the debug level for this filter
 
@@ -190,7 +190,7 @@ If we check the log we should see something similar to this:
 
 ![eventlog output](../../images/eventlog-realtime-log.png)
 
-* 1: Always makre sure there are not errors and that the parsed tree looks like you want it. If the filter has syntax issues nothign will work
+* 1: Always make sure there are not errors and that the parsed tree looks like you want it. If the filter has syntax issues nothing will work
 * 2: This is how it looks when we inject an error message, it is caught and we get the `Notification 0: Application: 1 (error: My first log)` in the log.
 * 3: This is the periodical "ok" message we get when there are not errors: `Notification 0: eventlog found no records`
 * 4: Here we can see the output when there is a message but it does not match our filter.
@@ -329,7 +329,7 @@ Used to filter unique items (counted will still increase but messages will not r
 
 Top level syntax.
 Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${status}: ${count} message(s) ${problem_list}`
 
@@ -353,7 +353,7 @@ DEPRECATED! This is the syntax for when nothing matches the filter.
 Detail level syntax.
 Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${file} ${source} (${message})`
 
@@ -406,7 +406,7 @@ Use bookmarks to only look for messages since last check (with the same bookmark
 | guid          | The logfile name                                                                                             |
 | id            | Eventlog id                                                                                                  |
 | keyword       | The keyword associated with this event                                                                       |
-| level         | Severity level (error, warning, info, success, auditSucess, auditFailure)                                    |
+| level         | Severity level (error, warning, info, success, auditSuccess, auditFailure)                                   |
 | list          | A list of all items which matched the filter. Common option for all checks.                                  |
 | log           | alias for file                                                                                               |
 | message       | The message rendered as a string.                                                                            |
@@ -518,27 +518,27 @@ The top level syntax string
 
 
 
-| Path / Section                                             | Description            |
-|------------------------------------------------------------|------------------------|
-| [/settings/eventlog](#eventlog-configuration)              | Eventlog configuration |
-| [/settings/eventlog/real-time](#real-time-monitoring)      | Real-time monitoring   |
-| [/settings/eventlog/real-time/filters](#real-time-filters) | Real-time filters      |
+| Path / Section                                                      | Description                   |
+|---------------------------------------------------------------------|-------------------------------|
+| [/settings/eventlog](#eventlog)                                     | Eventlog                      |
+| [/settings/eventlog/real-time](#real-time-eventlog-monitoring)      | Real-time eventlog monitoring |
+| [/settings/eventlog/real-time/filters](#real-time-eventlog-filters) | Real-time eventlog filters    |
 
 
 
-### Eventlog configuration <a id="/settings/eventlog"/>
+### Eventlog <a id="/settings/eventlog"/>
 
 Section for the EventLog Checker (CheckEventLog.dll).
 
 
 
 
-| Key                           | Default Value | Description  |
-|-------------------------------|---------------|--------------|
-| [buffer size](#buffer_size)   | 131072        | BUFFER_SIZE  |
-| [debug](#debug)               | false         | DEBUG        |
-| [lookup names](#lookup-names) | true          | LOOKUP NAMES |
-| [syntax](#syntax)             |               | SYNTAX       |
+| Key                                    | Default Value | Description           |
+|----------------------------------------|---------------|-----------------------|
+| [buffer size](#default-buffer-size)    | 131072        | Default buffer size   |
+| [debug](#enable-debugging)             | false         | Enable debugging      |
+| [lookup names](#lookup-eventlog-names) | true          | Lookup eventlog names |
+| [syntax](#default-syntax)              |               | Default syntax        |
 
 
 
@@ -555,9 +555,9 @@ lookup names=true
 
 
 
-#### BUFFER_SIZE <a id="/settings/eventlog/buffer size"></a>
+#### Default buffer size <a id="/settings/eventlog/buffer size"></a>
 
-The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve.
+The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can receive.
 
 
 
@@ -575,13 +575,13 @@ The size of the buffer to use when getting messages this affects the speed and m
 
 ```
 [/settings/eventlog]
-# BUFFER_SIZE
+# Default buffer size
 buffer size=131072
 ```
 
 
 
-#### DEBUG <a id="/settings/eventlog/debug"></a>
+#### Enable debugging <a id="/settings/eventlog/debug"></a>
 
 Log more information when filtering (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.
 
@@ -601,13 +601,13 @@ Log more information when filtering (useful to detect issues with filters) not u
 
 ```
 [/settings/eventlog]
-# DEBUG
+# Enable debugging
 debug=false
 ```
 
 
 
-#### LOOKUP NAMES <a id="/settings/eventlog/lookup names"></a>
+#### Lookup eventlog names <a id="/settings/eventlog/lookup names"></a>
 
 Lookup the names of eventlog files
 
@@ -627,13 +627,13 @@ Lookup the names of eventlog files
 
 ```
 [/settings/eventlog]
-# LOOKUP NAMES
+# Lookup eventlog names
 lookup names=true
 ```
 
 
 
-#### SYNTAX <a id="/settings/eventlog/syntax"></a>
+#### Default syntax <a id="/settings/eventlog/syntax"></a>
 
 Set this to use a specific syntax string for all commands (that don't specify one).
 
@@ -654,24 +654,24 @@ Set this to use a specific syntax string for all commands (that don't specify on
 
 ```
 [/settings/eventlog]
-# SYNTAX
+# Default syntax
 syntax=
 ```
 
 
-### Real-time monitoring <a id="/settings/eventlog/real-time"/>
+### Real-time eventlog monitoring <a id="/settings/eventlog/real-time"/>
 
 A set of options to configure the real time checks
 
 
 
 
-| Key                            | Default Value      | Description        |
-|--------------------------------|--------------------|--------------------|
-| [debug](#debug)                | false              | DEBUG              |
-| [enabled](#real-time-checking) | false              | REAL TIME CHECKING |
-| [log](#logs-to-check)          | application,system | LOGS TO CHECK      |
-| [startup age](#startup-age)    | 30m                | STARTUP AGE        |
+| Key                                         | Default Value      | Description                 |
+|---------------------------------------------|--------------------|-----------------------------|
+| [debug](#enable-debugging)                  | false              | Enable debugging            |
+| [enabled](#enable-realtime-monitoring)      | false              | Enable realtime monitoring  |
+| [log](#logs-to-check)                       | application,system | Logs to check               |
+| [startup age](#read-old-records-at-startup) | 30m                | Read old records at startup |
 
 
 
@@ -689,7 +689,7 @@ startup age=30m
 
 
 
-#### DEBUG <a id="/settings/eventlog/real-time/debug"></a>
+#### Enable debugging <a id="/settings/eventlog/real-time/debug"></a>
 
 Log missed records (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.
 
@@ -709,13 +709,13 @@ Log missed records (useful to detect issues with filters) not useful in producti
 
 ```
 [/settings/eventlog/real-time]
-# DEBUG
+# Enable debugging
 debug=false
 ```
 
 
 
-#### REAL TIME CHECKING <a id="/settings/eventlog/real-time/enabled"></a>
+#### Enable realtime monitoring <a id="/settings/eventlog/real-time/enabled"></a>
 
 Spawns a background thread which detects issues and reports them back instantly.
 
@@ -735,13 +735,13 @@ Spawns a background thread which detects issues and reports them back instantly.
 
 ```
 [/settings/eventlog/real-time]
-# REAL TIME CHECKING
+# Enable realtime monitoring
 enabled=false
 ```
 
 
 
-#### LOGS TO CHECK <a id="/settings/eventlog/real-time/log"></a>
+#### Logs to check <a id="/settings/eventlog/real-time/log"></a>
 
 Comma separated list of logs to check
 
@@ -761,13 +761,13 @@ Comma separated list of logs to check
 
 ```
 [/settings/eventlog/real-time]
-# LOGS TO CHECK
+# Logs to check
 log=application,system
 ```
 
 
 
-#### STARTUP AGE <a id="/settings/eventlog/real-time/startup age"></a>
+#### Read old records at startup <a id="/settings/eventlog/real-time/startup age"></a>
 
 The initial age to scan when starting NSClient++
 
@@ -787,12 +787,12 @@ The initial age to scan when starting NSClient++
 
 ```
 [/settings/eventlog/real-time]
-# STARTUP AGE
+# Read old records at startup
 startup age=30m
 ```
 
 
-### Real-time filters <a id="/settings/eventlog/real-time/filters"/>
+### Real-time eventlog filters <a id="/settings/eventlog/real-time/filters"/>
 
 A set of filters to use in real-time mode
 
@@ -832,7 +832,7 @@ This is a section of objects. This means that you will create objects below this
 **Sample:**
 
 ```ini
-# An example of a Real-time filters section
+# An example of a Real-time eventlog filters section
 [/settings/eventlog/real-time/filters/sample]
 #command=...
 #critical=...

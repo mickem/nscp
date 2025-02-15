@@ -14,7 +14,7 @@ def upsert(path, data):
     r = requests.post(icinga_url+path, data=data, verify=False, headers=icinga_header, auth=icinga_auth)
     if r.status_code == 404:
         r = requests.put(icinga_url+path, data=data, verify=False, headers=icinga_header, auth=icinga_auth)
-    if r.status_code == 500:
+    if r.status_code != 200:
         log("Failed to upsert: %s: %s"%(path, r.text))
     return r
 
@@ -83,14 +83,29 @@ def on_event(event, data):
 
 nics = []
 def found_nic(name, alias):
+    global plugin_id, nics
     if not alias in nics:
         nics.append(alias)
-        add_nrpe_service(server_name, 'check_nic_%d'%len(nics), 'check_network', alias, ["filter=name='%s'"%name])
+        id = 'check_nic_%d'%len(nics)
+        add_nrpe_service(server_name, id, 'check_network', alias, ["filter=name='%s'"%name])
+        conf = Settings.get(plugin_id)
+        conf.set_string('/settings/scheduler/schedules/%s'%id, 'command', 'check_network %s "filter=name=%s"'%(alias, "'%s'"%name))
+        conf.set_string('/settings/scheduler/schedules/%s'%id, 'channel', 'icinga_passive')
+        conf.set_string('/settings/scheduler/schedules/%s'%id, 'interval', '30s')
+        return True
+    return False
+
 
 def submit_metrics(list, request):
+    global plugin_id
+    found = False
     for k,v in list.iteritems():
         if k.startswith('system.network') and k.endswith('NetConnectionID'):
-            found_nic(k[15:-16], v)
+            if found_nic(k[15:-16], v):
+                found = True
+    if found:
+        core = Core.get(plugin_id)
+        core.reload('Scheduler')
         
 def icinga_passive(channel, source, command, code, message, perf):
     payload = {

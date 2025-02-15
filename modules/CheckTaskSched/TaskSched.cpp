@@ -149,7 +149,7 @@ void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, s
 		}
 	}
 
-	BOOST_FOREACH(const std::string f, sub_folders) {
+	for(const std::string f: sub_folders) {
 		do_get(taskSched, filter, f, recursive, hidden);
 	}
 }

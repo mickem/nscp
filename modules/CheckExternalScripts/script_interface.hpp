@@ -3,10 +3,7 @@
 #include "commands.hpp"
 
 #include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
-
-#include <boost/shared_ptr.hpp>
 
 #include <string>
 

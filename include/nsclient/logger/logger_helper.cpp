@@ -36,36 +36,36 @@ void nsclient::logging::logger_helper::log_fatal(std::string message) {
 	} catch (...) {}
 }
 
-std::string nsclient::logging::logger_helper::render_log_level_short(::Plugin::LogEntry::Entry::Level l) {
-	if (l == ::Plugin::LogEntry_Entry_Level_LOG_CRITICAL) {
+std::string nsclient::logging::logger_helper::render_log_level_short(::PB::Log::LogEntry::Entry::Level l) {
+	if (l == ::PB::Log::LogEntry_Entry_Level_LOG_CRITICAL) {
 		return "C";
-	} else if (l == ::Plugin::LogEntry_Entry_Level_LOG_ERROR) {
+	} else if (l == ::PB::Log::LogEntry_Entry_Level_LOG_ERROR) {
 		return "E";
-	} else if (l == ::Plugin::LogEntry_Entry_Level_LOG_WARNING) {
+	} else if (l == ::PB::Log::LogEntry_Entry_Level_LOG_WARNING) {
 		return "W";
-	} else if (l == ::Plugin::LogEntry_Entry_Level_LOG_INFO) {
+	} else if (l == ::PB::Log::LogEntry_Entry_Level_LOG_INFO) {
 		return "L";
-	} else if (l == ::Plugin::LogEntry_Entry_Level_LOG_DEBUG) {
+	} else if (l == ::PB::Log::LogEntry_Entry_Level_LOG_DEBUG) {
 		return "D";
-	} else if (l == ::Plugin::LogEntry_Entry_Level_LOG_TRACE) {
+	} else if (l == ::PB::Log::LogEntry_Entry_Level_LOG_TRACE) {
 		return "T";
 	} else {
 		return "?";
 	}
 }
 
-std::string nsclient::logging::logger_helper::render_log_level_long(::Plugin::LogEntry::Entry::Level l) {
-	if (l == ::Plugin::LogEntry_Entry_Level_LOG_CRITICAL) {
+std::string nsclient::logging::logger_helper::render_log_level_long(::PB::Log::LogEntry::Entry::Level l) {
+	if (l == ::PB::Log::LogEntry_Entry_Level_LOG_CRITICAL) {
 		return "critical";
-	} else if (l == ::Plugin::LogEntry_Entry_Level_LOG_ERROR) {
+	} else if (l == ::PB::Log::LogEntry_Entry_Level_LOG_ERROR) {
 		return "error";
-	} else if (l == ::Plugin::LogEntry_Entry_Level_LOG_WARNING) {
+	} else if (l == ::PB::Log::LogEntry_Entry_Level_LOG_WARNING) {
 		return "warning";
-	} else if (l == ::Plugin::LogEntry_Entry_Level_LOG_INFO) {
+	} else if (l == ::PB::Log::LogEntry_Entry_Level_LOG_INFO) {
 		return "info";
-	} else if (l == ::Plugin::LogEntry_Entry_Level_LOG_DEBUG) {
+	} else if (l == ::PB::Log::LogEntry_Entry_Level_LOG_DEBUG) {
 		return "debug";
-	} else if (l == ::Plugin::LogEntry_Entry_Level_LOG_TRACE) {
+	} else if (l == ::PB::Log::LogEntry_Entry_Level_LOG_TRACE) {
 		return "trace";
 	} else {
 		return "unknown";
@@ -76,14 +76,14 @@ std::pair<bool, std::string> nsclient::logging::logger_helper::render_console_me
 	std::stringstream ss;
 	bool is_error = false;
 	try {
-		Plugin::LogEntry message;
+		PB::Log::LogEntry message;
 		if (!message.ParseFromString(data)) {
 			log_fatal("Failed to parse message: " + str::format::strip_ctrl_chars(data));
 			return std::make_pair(true, "ERROR");
 		}
 
 		for (int i = 0; i < message.entry_size(); i++) {
-			const ::Plugin::LogEntry::Entry &msg = message.entry(i);
+			const ::PB::Log::LogEntry::Entry &msg = message.entry(i);
 			std::string tmp = msg.message();
 			str::utils::replace(tmp, "\n", "\n    -    ");
 			if (oneline) {
@@ -102,7 +102,7 @@ std::pair<bool, std::string> nsclient::logging::logger_helper::render_console_me
 					<< " " << str::format::rpad(msg.sender(), 10)
 					<< " " + msg.message()
 					<< "\n";
-				if (msg.level() == ::Plugin::LogEntry_Entry_Level_LOG_ERROR) {
+				if (msg.level() == ::PB::Log::LogEntry_Entry_Level_LOG_ERROR) {
 					ss << "                    "
 						<< msg.file()
 						<< ":"

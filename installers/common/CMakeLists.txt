@@ -1,6 +1,3 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.5)
 
-CONFIGURE_FILE(
-	re-generate.bat.in
-	${CMAKE_CURRENT_SOURCE_DIR}/re-generate.bat
-)
+configure_file(re-generate.bat.in ${CMAKE_CURRENT_SOURCE_DIR}/re-generate.bat)

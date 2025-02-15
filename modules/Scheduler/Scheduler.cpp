@@ -22,11 +22,14 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/macros.hpp>
 
+#include <utf8.hpp>
+
 namespace sh = nscapi::settings_helper;
+namespace ph = boost::placeholders;
 
 bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	if (mode == NSCAPI::reloadStart) {
@@ -37,7 +40,7 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	}
 
 
-	sh::settings_registry settings(get_settings_proxy());
+	sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 	settings.set_alias(alias, "scheduler");
 	schedules_.set_path(settings.alias().get_settings_path("schedules"));
 
@@ -47,12 +50,12 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		;
 
 	settings.alias().add_key_to_settings()
-		("threads", sh::int_fun_key(boost::bind(&schedules::scheduler::set_threads, &scheduler_, _1), 5),
+		("threads", sh::int_fun_key(boost::bind(&schedules::scheduler::set_threads, &scheduler_, ph::_1), 5),
 			"Threads", "Number of threads to use.")
 		;
 
 	settings.alias().add_path_to_settings()
-		("schedules", sh::fun_values_path(boost::bind(&Scheduler::add_schedule, this, _1, _2)),
+		("schedules", sh::fun_values_path(boost::bind(&Scheduler::add_schedule, this, ph::_1, ph::_2)),
 			"Schedules", "Section for the Scheduler module.",
 			"SCHEDULE", "For more configuration options add a dedicated section")
 		;
@@ -75,10 +78,10 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.register_all();
 	settings.notify();
 
-	schedules_.ensure_default();
-	schedules_.add_samples(get_settings_proxy());
+	schedules_.ensure_default(nscapi::settings_proxy::create(get_id(), get_core()));
+	schedules_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
-	BOOST_FOREACH(const schedules::schedule_handler::object_list_type::value_type &o, schedules_.get_object_list()) {
+	for(const schedules::schedule_handler::object_list_type::value_type &o: schedules_.get_object_list()) {
 		if (o->duration && (*o->duration).total_seconds() == 0) {
 			NSC_LOG_ERROR("WE cant add schedules with 0 duration: " + o->to_string());
 			continue;
@@ -108,7 +111,7 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 void Scheduler::add_schedule(std::string key, std::string arg) {
 	try {
-		schedules_.add(get_settings_proxy(), key, arg);
+		schedules_.add(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
 	} catch (...) {
@@ -149,11 +152,11 @@ bool Scheduler::handle_schedule(schedules::target_object item) {
 			get_core()->submit_message(item->channel, response, result);
 			return true;
 		}
-		Plugin::QueryResponseMessage resp_msg;
+		PB::Commands::QueryResponseMessage resp_msg;
 		resp_msg.ParseFromString(response);
-		Plugin::QueryResponseMessage resp_msg_send;
+		PB::Commands::QueryResponseMessage resp_msg_send;
 		resp_msg_send.mutable_header()->CopyFrom(resp_msg.header());
-		BOOST_FOREACH(const Plugin::QueryResponseMessage::Response &p, resp_msg.payload()) {
+		for(const PB::Commands::QueryResponseMessage::Response &p: resp_msg.payload()) {
 			if (nscapi::report::matches(item->report, nscapi::protobuf::functions::gbp_to_nagios_status(p.result())))
 				resp_msg_send.add_payload()->CopyFrom(p);
 		}
@@ -189,8 +192,8 @@ bool Scheduler::handle_schedule(schedules::target_object item) {
 	}
 }
 
-void Scheduler::fetchMetrics(Plugin::MetricsMessage::Response *response) {
-	Plugin::Common::MetricsBundle *bundle = response->add_bundles();
+void Scheduler::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
+	PB::Metrics::MetricsBundle *bundle = response->add_bundles();
 	bundle->set_key("scheduler");
 	if (scheduler_.get_scheduler().has_metrics()) {
 		boost::uint64_t taskes__ = scheduler_.get_scheduler().get_metric_executed();
@@ -201,30 +204,30 @@ void Scheduler::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 		boost::uint64_t avgtime = scheduler_.get_scheduler().get_avg_time();
 		boost::uint64_t rate = scheduler_.get_scheduler().get_metric_rate();
 
-		Plugin::Common::Metric *m = bundle->add_value();
+		PB::Metrics::Metric *m = bundle->add_value();
 		m->set_key("jobs");
-		m->mutable_value()->set_int_data(taskes__);
+		m->mutable_gauge_value()->set_value(static_cast<double>(taskes__));
 		m = bundle->add_value();
 		m->set_key("submitted");
-		m->mutable_value()->set_int_data(submitted__);
+		m->mutable_gauge_value()->set_value(static_cast<double>(submitted__));
 		m = bundle->add_value();
 		m->set_key("errors");
-		m->mutable_value()->set_int_data(errors__);
+		m->mutable_gauge_value()->set_value(static_cast<double>(errors__));
 		m = bundle->add_value();
 		m->set_key("threads");
-		m->mutable_value()->set_int_data(threads);
+		m->mutable_gauge_value()->set_value(static_cast<double>(threads));
 		m = bundle->add_value();
 		m->set_key("queue");
-		m->mutable_value()->set_int_data(queue);
+		m->mutable_gauge_value()->set_value(static_cast<double>(queue));
 		m = bundle->add_value();
 		m->set_key("avgtime");
-		m->mutable_value()->set_int_data(avgtime);
+		m->mutable_gauge_value()->set_value(static_cast<double>(avgtime));
 		m = bundle->add_value();
 		m->set_key("rate");
-		m->mutable_value()->set_int_data(rate);
+		m->mutable_gauge_value()->set_value(static_cast<double>(rate));
 	} else {
-		Plugin::Common::Metric *m = bundle->add_value();
+		PB::Metrics::Metric *m = bundle->add_value();
 		m->set_key("metrics.available");
-		m->mutable_value()->set_string_data("false");
+		m->mutable_gauge_value()->set_value(0);
 	}
 }

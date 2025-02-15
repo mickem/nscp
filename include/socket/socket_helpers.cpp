@@ -38,7 +38,7 @@ std::list<std::string> socket_helpers::connection_info::validate() {
 }
 void socket_helpers::validate_certificate(const std::string &certificate, std::list<std::string> &list) {
 #ifdef USE_SSL
-	if (!certificate.empty() && !boost::filesystem::is_regular(certificate)) {
+	if (!certificate.empty() && !boost::filesystem::is_regular_file(certificate)) {
 		if (boost::algorithm::ends_with(certificate, "/certificate.pem")) {
 			list.push_back("Certificate not found: " + certificate + " (generating a default certificate)");
 			write_certs(certificate, false);
@@ -64,9 +64,9 @@ std::list<std::string> socket_helpers::connection_info::validate_ssl() {
 #ifdef USE_SSL
 	validate_certificate(ssl.certificate, list);
 	validate_certificate(ssl.ca_path, list);
-	if (!ssl.certificate_key.empty() && !boost::filesystem::is_regular(ssl.certificate_key))
+	if (!ssl.certificate_key.empty() && !boost::filesystem::is_regular_file(ssl.certificate_key))
 		list.push_back("Certificate key not found: " + ssl.certificate_key);
-	if (!ssl.dh_key.empty() && !boost::filesystem::is_regular(ssl.dh_key))
+	if (!ssl.dh_key.empty() && !boost::filesystem::is_regular_file(ssl.dh_key))
 		list.push_back("DH key not found: " + ssl.dh_key);
 #endif
 	return list;
@@ -82,13 +82,13 @@ long socket_helpers::connection_info::get_ctx_opts() {
 
 std::string socket_helpers::allowed_hosts_manager::to_string() {
 	std::string ret;
-	BOOST_FOREACH(const host_record_v4 &r, entries_v4) {
+	for(const host_record_v4 &r: entries_v4) {
 		ip::address_v4 a(r.addr);
 		ip::address_v4 m(r.mask);
 		std::string s = a.to_string() + "(" + m.to_string() + ")";
 		str::format::append_list(ret, s);
 	}
-	BOOST_FOREACH(const host_record_v6 &r, entries_v6) {
+	for(const host_record_v6 &r: entries_v6) {
 		ip::address_v6 a(r.addr);
 		ip::address_v6 m(r.mask);
 		std::string s = a.to_string() + "(" + m.to_string() + ")";
@@ -135,7 +135,7 @@ addr calculate_mask(std::string mask_s) {
 
 void socket_helpers::allowed_hosts_manager::set_source(std::string source) {
 	sources.clear();
-	BOOST_FOREACH(std::string s, str::utils::split_lst(source, std::string(","))) {
+	for(std::string s: str::utils::split_lst(source, std::string(","))) {
 		boost::trim(s);
 		if (!s.empty())
 			sources.push_back(s);
@@ -147,7 +147,7 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
 	ip::tcp::resolver resolver(io_service);
 	entries_v4.clear();
 	entries_v6.clear();
-	BOOST_FOREACH(const std::string &record, sources) {
+	for(const std::string &record: sources) {
 		std::string::size_type pos = record.find('/');
 		std::string addr, mask;
 		if (pos == std::string::npos) {
@@ -214,10 +214,20 @@ void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asi
 		}
 	}
 	context.set_verify_mode(get_verify_mode(), er);
+	if (SSL_CTX_set_min_proto_version(context.native_handle(), get_tls_min_version()) == 0) {
+		errors.push_back("Failed to set min tls version");
+	}
+	if (SSL_CTX_set_max_proto_version(context.native_handle(), get_tls_max_version()) == 0) {
+		errors.push_back("Failed to set max tls version");
+	}
 	if (er)
 		errors.push_back("Failed to set verify mode: " + utf8::utf8_from_native(er.message()));
-	if (!allowed_ciphers.empty())
-		SSL_CTX_set_cipher_list(context.impl(), allowed_ciphers.c_str());
+	if (!allowed_ciphers.empty()) {
+    ::ERR_clear_error();
+		if (SSL_CTX_set_cipher_list(context.native_handle(), allowed_ciphers.c_str()) == 0) {
+      errors.push_back("Failed to set ciphers " + allowed_ciphers + ": " + utf8::utf8_from_native(ERR_reason_error_string(ERR_get_error())));
+    }
+	}
 	if (!dh_key.empty() && dh_key != "none") {
 		context.use_tmp_dh_file(dh_key, er);
 		if (er)
@@ -233,7 +243,7 @@ void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asi
 
 boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts::get_verify_mode() const {
 	boost::asio::ssl::context::verify_mode mode = boost::asio::ssl::context_base::verify_none;
-	BOOST_FOREACH(const std::string &key, str::utils::split_lst(verify_mode, std::string(","))) {
+	for(const std::string &key: str::utils::split_lst(verify_mode, std::string(","))) {
 		if (key == "client-once")
 			mode |= boost::asio::ssl::context_base::verify_client_once;
 		else if (key == "none")
@@ -253,6 +263,51 @@ boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts
 	return mode;
 }
 
+long socket_helpers::connection_info::ssl_opts::get_tls_min_version() const {
+	std::string tmp = boost::algorithm::to_lower_copy(tls_version);
+	str::utils::replace(tmp, "+", "");
+	if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3") {
+		return TLS1_3_VERSION;
+	}
+	if (tmp == "tlsv1.2" || tmp == "tls1.2" || tmp == "1.2") {
+		return TLS1_2_VERSION;
+	}
+	if (tmp == "tlsv1.1" || tmp == "tls1.1" || tmp == "1.1") {
+		return TLS1_1_VERSION;
+	}
+	if (tmp == "tlsv1.0" || tmp == "tls1.0" || tmp == "1.0") {
+		return TLS1_VERSION;
+	}
+	if (tmp == "sslv3" || tmp == "ssl3") {
+		return SSL3_VERSION;
+	}
+	throw socket_helpers::socket_exception("Invalid tls version: " + tmp);
+}
+
+long socket_helpers::connection_info::ssl_opts::get_tls_max_version() const {
+	std::string tmp = boost::algorithm::to_lower_copy(tls_version);
+	if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3" || 
+		tmp == "tlsv1.2+" || tmp == "tls1.2+" || tmp == "1.2+" ||
+		tmp == "tlsv1.1+" || tmp == "tls1.1+" || tmp == "1.1+" || 
+		tmp == "sslv3+" || tmp == "ssl3+") {
+		return TLS1_3_VERSION;
+	}
+	if (tmp == "tlsv1.2" || tmp == "tls1.2" || tmp == "1.2") {
+		return TLS1_2_VERSION;
+	}
+	if (tmp == "tlsv1.1" || tmp == "tls1.1" || tmp == "1.1") {
+		return TLS1_1_VERSION;
+	}
+	if (tmp == "tlsv1.0" || tmp == "tls1.0" || tmp == "1.0") {
+		return TLS1_VERSION;
+	}
+	if (tmp == "sslv3" || tmp == "ssl3") {
+		return SSL3_VERSION;
+	}
+	throw socket_helpers::socket_exception("Invalid tls version: " + tmp);
+}
+
+
 boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_format() const {
 	if (certificate_format == "asn1")
 		return boost::asio::ssl::context::asn1;
@@ -267,7 +322,7 @@ boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts
 #ifdef USE_SSL
 long socket_helpers::connection_info::ssl_opts::get_ctx_opts() const {
 	long opts = 0;
-	BOOST_FOREACH(const std::string &key, str::utils::split_lst(ssl_options, std::string(","))) {
+	for(const std::string &key: str::utils::split_lst(ssl_options, std::string(","))) {
 		if (key == "default-workarounds")
 			opts |= boost::asio::ssl::context::default_workarounds;
 		if (key == "no-sslv2")
@@ -276,6 +331,12 @@ long socket_helpers::connection_info::ssl_opts::get_ctx_opts() const {
 			opts |= boost::asio::ssl::context::no_sslv3;
 		if (key == "no-tlsv1")
 			opts |= boost::asio::ssl::context::no_tlsv1;
+		if (key == "no-tlsv1_1")
+			opts |= boost::asio::ssl::context::no_tlsv1_1;
+		if (key == "no-tlsv1_2")
+			opts |= boost::asio::ssl::context::no_tlsv1_2;
+		if (key == "no-tlsv1_3")
+			opts |= boost::asio::ssl::context::no_tlsv1_3;
 		if (key == "single-dh-use")
 			opts |= boost::asio::ssl::context::single_dh_use;
 	}
@@ -367,7 +428,7 @@ void socket_helpers::write_certs(std::string cert, bool ca) {
 
 	std::size_t size = BIO_ctrl_pending(bio);
 	char * buf = new char[size];
-	if (BIO_read(bio, buf, size) < 0) {
+	if (BIO_read(bio, buf, static_cast<int>(size)) < 0) {
 		throw socket_helpers::socket_exception("Failed to write key");
 	}
 

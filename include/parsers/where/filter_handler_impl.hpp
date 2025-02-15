@@ -27,15 +27,18 @@
 
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/optional.hpp>
 
 #include <map>
 #include <vector>
 
+
 namespace parsers {
 	namespace where {
+		namespace ph = boost::placeholders;
+
 		template<class T>
 		struct function_registry;
 
@@ -354,7 +357,7 @@ namespace parsers {
 			}
 			std::list<std::string> get_variables() const {
 				std::list<std::string> ret;
-				BOOST_FOREACH(const typename variable_type::value_type &v, variables) {
+				for(const typename variable_type::value_type &v: variables) {
 					ret.push_back(v.first);
 				}
 				return ret;
@@ -569,10 +572,10 @@ namespace parsers {
 
 			std::map<std::string, std::string> get_filter_syntax() const {
 				std::map<std::string, std::string> ret;
-				BOOST_FOREACH(const typename registry_type::variable_type::value_type &var, registry_.variables) {
+				for(const typename registry_type::variable_type::value_type &var: registry_.variables) {
 					ret[var.first] = var.second->description;
 				}
-				BOOST_FOREACH(const typename registry_type::function_type::value_type &var, registry_.functions) {
+				for(const typename registry_type::function_type::value_type &var: registry_.functions) {
 					ret[var.first + "()"] = var.second->description;
 				}
 				return ret;
@@ -697,31 +700,31 @@ namespace parsers {
 		template<class TObject>
 		node_type generic_summary<TObject>::create_variable(const std::string &key, bool) {
 			if (key == "count")
-				return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_match, _1)));
+				return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_match, ph::_1)));
 			if (key == "total")
-				return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_total, _1)));
+				return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_total, ph::_1)));
 			if (key == "ok_count")
-				return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_ok, _1)));
+				return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_ok, ph::_1)));
 			if (key == "warn_count")
-				return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_warn, _1)));
+				return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_warn, ph::_1)));
 			if (key == "crit_count")
-				return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_crit, _1)));
+				return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_crit, ph::_1)));
 			if (key == "problem_count")
-				return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_problem, _1)));
+				return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_problem, ph::_1)));
 			if (key == "list" || key == "match_list" || key == "lines")
-				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_match, _1)));
+				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_match, ph::_1)));
 			if (key == "ok_list")
-				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_ok, _1)));
+				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_ok, ph::_1)));
 			if (key == "warn_list")
-				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_warn, _1)));
+				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_warn, ph::_1)));
 			if (key == "crit_list")
-				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_crit, _1)));
+				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_crit, ph::_1)));
 			if (key == "problem_list")
-				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_problem, _1)));
+				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_problem, ph::_1)));
 			if (key == "detail_list")
-				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_detail, _1)));
+				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_detail, ph::_1)));
 			if (key == "status")
-				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_status, _1)));
+				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_status, ph::_1)));
 			return parsers::where::factory::create_false();
 		}
 
@@ -741,7 +744,7 @@ namespace parsers {
 				T obj = native_context->get_object();
 				return function(obj, context, subject);
 			} catch (const std::exception &e) {
-				context->error("Failed to evaluate function");
+				context->error("Failed to evaluate function: " + utf8::utf8_from_native(e.what()));
 				return parsers::where::factory::create_false();
 			}
 		}

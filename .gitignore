@@ -17,3 +17,27 @@ legacy/*
 #Unix vi
 *~
 *swp
+
+
+# CLion
+.idea
+cmake-build-debug
+
+
+# node
+node_modules
+
+cmake-build-*
+
+
+.vscode
+
+nsclient.fatal
+nsclient.log
+
+.cmake
+
+cmake-build
+
+
+build.cmake

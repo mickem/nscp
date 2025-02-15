@@ -23,8 +23,8 @@
 
 namespace parsers {
 	namespace where {
-		value_container string_value::get_value(evaluation_context errors, value_type type) const {
-			if (type == type_float) {
+		value_container string_value::get_value(evaluation_context errors, value_type new_type) const {
+			if (new_type == type_float) {
 				try {
 					return value_container::create_float(str::stox<double>(value_), is_unsure_);
 				} catch (const std::exception &) {
@@ -32,7 +32,7 @@ namespace parsers {
 					return value_container::create_nil();
 				}
 			}
-			if (type == type_int) {
+			if (new_type == type_int) {
 				try {
 					return value_container::create_int(str::stox<long long>(value_), is_unsure_);
 				} catch (const std::exception &) {
@@ -40,7 +40,7 @@ namespace parsers {
 					return value_container::create_nil();
 				}
 			}
-			if (type == type_string) {
+			if (new_type == type_string) {
 				return value_container::create_string(value_, is_unsure_);
 			}
 			errors->error("Failed to convert string to ?: " + value_);
@@ -56,14 +56,14 @@ namespace parsers {
 			collector.set_candidate_value(shared_from_this());
 			return false;
 		}
-		value_container int_value::get_value(evaluation_context errors, value_type type) const {
-			if (type == type_float) {
+		value_container int_value::get_value(evaluation_context errors, value_type new_type) const {
+			if (new_type == type_float) {
 				return value_container::create_float(value_, is_unsure_);
 			}
-			if (type == type_int) {
+			if (new_type == type_int) {
 				return value_container::create_int(value_, is_unsure_);
 			}
-			if (type == type_string) {
+			if (new_type == type_string) {
 				return value_container::create_string(str::xtos(value_), is_unsure_);
 			}
 			errors->error("Failed to convert int to ?: " + value_);
@@ -81,10 +81,10 @@ namespace parsers {
 		}
 		value_container float_value::get_value(evaluation_context errors, value_type type) const {
 			if (type == type_float) {
-				return value_container::create_float(value_, is_unsure_);
+				return value_container::create_float(static_cast<double>(value_), is_unsure_);
 			}
 			if (type == type_int) {
-				return value_container::create_int(value_, is_unsure_);
+				return value_container::create_int(static_cast<long long>(value_), is_unsure_);
 			}
 			errors->error("Failed to convert string to ?: " + str::xtos(value_));
 			return value_container::create_nil();

@@ -20,5 +20,5 @@ public:
 	void handle_exec(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response);
 
 	Mongoose::Response* handleRequest(Mongoose::Request &request);
-	bool handles(string method, string url);
+	bool handles(std::string method, std::string url);
 };

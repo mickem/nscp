@@ -22,8 +22,6 @@
 #include <parsers/where/unary_fun.hpp>
 #include <parsers/where/helpers.hpp>
 
-#include <boost/foreach.hpp>
-
 namespace parsers {
 	namespace where {
 		std::string unary_fun::to_string() const {
@@ -40,7 +38,7 @@ namespace parsers {
 		}
 		std::list<node_type> unary_fun::get_list_value(evaluation_context errors) const {
 			std::list<node_type> ret;
-			BOOST_FOREACH(node_type n, subject->get_list_value(errors)) {
+			for(node_type n: subject->get_list_value(errors)) {
 				if (function)
 					ret.push_back(function->evaluate(get_type(), errors, n));
 				else

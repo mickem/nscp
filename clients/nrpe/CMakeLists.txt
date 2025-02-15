@@ -1,89 +1,72 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.5)
 
-IF(WIN32)
-SET(TARGET check_nrpe)
-ELSE()
-SET(TARGET check_nscp_nrpe)
-ENDIF()
+if(WIN32)
+  set(TARGET check_nrpe)
+else()
+  set(TARGET check_nscp_nrpe)
+endif()
 
+project(clients)
 
-PROJECT(clients)
+set(SRCS
+    ${SRCS}
+    check_nrpe.cpp
+    ${NSCP_INCLUDEDIR}/nrpe/packet.cpp
+    ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/utils.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
+    ${NSCP_CLIENT_CPP}
+    ../../resources/nsclient.ico)
 
-SET(SRCS ${SRCS}
-	check_nrpe.cpp
-	${NSCP_INCLUDEDIR}/nrpe/packet.cpp
-	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+add_definitions(${NSCP_GLOBAL_DEFINES})
+if(OPENSSL_FOUND)
+  add_definitions(-DUSE_SSL)
+  set(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
+  if(WIN32)
+    set(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32)
+  endif(WIN32)
+  include_directories(${OPENSSL_INCLUDE_DIR})
+endif(OPENSSL_FOUND)
 
-	${NSCP_INCLUDEDIR}/utils.cpp
-  ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
-	${NSCP_CLIENT_CPP}
-	
-	../../resources/nsclient.ico
-)
+if(WIN32)
+  set(SRCS
+      ${SRCS}
+      check_nrpe.hpp
+      ../../modules/NRPEClient/nrpe_client.hpp
+      ../../modules/NRPEClient/nrpe_handler.hpp
+      ${NSCP_INCLUDEDIR}/nrpe/packet.hpp
+      ${NSCP_INCLUDEDIR}/nrpe/client/nrpe_client_protocol.hpp
+      ${NSCP_INCLUDEDIR}/swap_bytes.hpp
+      ${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+      ${NSCP_INCLUDEDIR}/socket/client.hpp
+      ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
+      ${NSCP_INCLUDEDIR}/utils.h
+      ${NSCP_CLIENT_HPP})
+endif(WIN32)
 
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
-IF(OPENSSL_FOUND)
-	ADD_DEFINITIONS(-DUSE_SSL)
-	SET(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
-	INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
-ENDIF(OPENSSL_FOUND)
+include_directories(${BOOST_INCLUDE_DIRS})
+if(JSON_SPIRIT_FOUND)
+  include_directories(${JSON_SPIRIT_INCLUDE_DIR})
+  add_definitions(-DHAVE_JSON_SPIRIT)
+  set(JSON_LIB json_spirit)
+else(JSON_SPIRIT_FOUND)
+  set(JSON_LIB)
+endif(JSON_SPIRIT_FOUND)
+link_directories(${BOOST_LIB_DIRS})
 
+nscp_make_exe_bin(${TARGET} "${SRCS}")
 
-IF(WIN32)
-	SET(SRCS ${SRCS}
-		check_nrpe.hpp
-		../../modules/NRPEClient/nrpe_client.hpp
-		../../modules/NRPEClient/nrpe_handler.hpp
+if(WIN32 AND NOT CMAKE_CL_64)
+  openssl_link_fix(${TARGET})
+endif(WIN32 AND NOT CMAKE_CL_64)
 
-		${NSCP_INCLUDEDIR}/nrpe/packet.hpp
-		${NSCP_INCLUDEDIR}/nrpe/client/nrpe_client_protocol.hpp
-		${NSCP_INCLUDEDIR}/swap_bytes.hpp
-		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
-		${NSCP_INCLUDEDIR}/socket/client.hpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
-		${NSCP_INCLUDEDIR}/utils.h
-		${NSCP_CLIENT_HPP}
-	)
-ENDIF(WIN32)
+target_link_libraries(
+  ${TARGET} ${Boost_FILESYSTEM_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY}
+  ${Boost_THREAD_LIBRARY} ${NSCP_DEF_PLUGIN_LIB} ${EXTRA_LIBS})
+set_target_properties(${TARGET} PROPERTIES FOLDER "clients")
 
-INCLUDE_DIRECTORIES(${BOOST_INCLUDE_DIRS})
-IF(JSON_SPIRIT_FOUND)
-	INCLUDE_DIRECTORIES(${JSON_SPIRIT_INCLUDE_DIR})
-	ADD_DEFINITIONS(-DHAVE_JSON_SPIRIT)
-	SET(JSON_LIB json_spirit)
-ELSE(JSON_SPIRIT_FOUND)
-	SET(JSON_LIB)
-ENDIF(JSON_SPIRIT_FOUND)
-LINK_DIRECTORIES(${BOOST_LIB_DIRS})
-
-IF(BREAKPAD_FOUND)
-	IF(WIN32)
-		SET(${_SRC} ${${_SRC}} ${NSCP_INCLUDEDIR}/breakpad/exception_handler_win32.cpp)
-		SET(${_SRC} ${${_SRC}} ${NSCP_INCLUDEDIR}/breakpad/exception_handler_win32.hpp)
-	ENDIF(WIN32)
-	ADD_DEFINITIONS(-DUSE_BREAKPAD)
-	INCLUDE_DIRECTORIES(${BREAKPAD_INCLUDE_DIR})
-	SET(EXTRA_LIBS ${EXTRA_LIBS} ${BREAKPAD_COMMON_LIBRARY} ${BREAKPAD_LIBRARY})
-ENDIF(BREAKPAD_FOUND)
-
-NSCP_MAKE_EXE_BIN(${TARGET} "${SRCS}")
-
-IF(WIN32 AND NOT CMAKE_CL_64)
-	OPENSSL_LINK_FIX(${TARGET})
-ENDIF(WIN32 AND NOT CMAKE_CL_64)
-
-TARGET_LINK_LIBRARIES(${TARGET}
-	${Boost_FILESYSTEM_LIBRARY}
-	${Boost_PROGRAM_OPTIONS_LIBRARY}
-	${Boost_THREAD_LIBRARY}
-	${NSCP_DEF_PLUGIN_LIB}
-	${EXTRA_LIBS}
-)
-SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "clients")
-
-SOURCE_GROUP("Client" REGULAR_EXPRESSION .*include/nrpe/.*)
-SOURCE_GROUP("Socket" REGULAR_EXPRESSION .*include/socket/.*)
-SOURCE_GROUP("NSCP API" REGULAR_EXPRESSION .*include/nscapi/.*)
-SOURCE_GROUP("Settings" REGULAR_EXPRESSION .*include/settings/.*)
-SOURCE_GROUP("Common Files" REGULAR_EXPRESSION .*include/.*)
-
+source_group("Client" REGULAR_EXPRESSION .*include/nrpe/.*)
+source_group("Socket" REGULAR_EXPRESSION .*include/socket/.*)
+source_group("NSCP API" REGULAR_EXPRESSION .*include/nscapi/.*)
+source_group("Settings" REGULAR_EXPRESSION .*include/settings/.*)
+source_group("Common Files" REGULAR_EXPRESSION .*include/.*)

@@ -21,6 +21,13 @@
 
 #include "filter_config_object.hpp"
 
+#include <boost/thread.hpp>
+
+#ifdef WIN32
+#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
+#include <windows.h>
+#endif
+
 struct real_time_thread {
 	boost::shared_ptr<boost::thread> thread_;
 	filters::filter_config_handler filters_;
@@ -40,7 +47,7 @@ struct real_time_thread {
 
 	real_time_thread(nscapi::core_wrapper *core, int plugin_id) : core(core), plugin_id(plugin_id), enabled_(false), debug_(false), cache_(false) {}
 
-	void add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+	void add_realtime_filter(nscapi::settings_helper::settings_impl_interface_ptr proxy, std::string key, std::string query);
 	void set_enabled(bool flag) { enabled_ = flag; }
 
 	void set_language(std::string lang);

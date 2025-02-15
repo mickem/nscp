@@ -30,7 +30,7 @@ check_pdh "counter=\\4\\30" "warn=value > 5" "crit=value > 9999" flags=nocap100 
 '\Minne\Dedikationsgräns value'=25729224704;5;9999
 ```
 
-Using real-time checks to check avergae values over time.
+Using real-time checks to check average values over time.
 
 Here we configure a counter to be checked at regular intervals and the value is added to a rrd buffer.
 The configuration from nsclient.ini::

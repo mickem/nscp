@@ -21,8 +21,6 @@
 
 #include <list>
 #include <pdh.h>
-#include <pdhmsg.h>
-#include <sstream>
 #include <error/error.hpp>
 
 #include <buffer.hpp>
@@ -31,8 +29,6 @@
 #include <pdh/pdh_enumerations.hpp>
 
 #include <utf8.hpp>
-
-#include <boost/foreach.hpp>
 
 namespace PDH {
 	std::list<std::string> Enumerations::expand_wild_card_path(const std::string &query, std::string &error) {
@@ -164,7 +160,7 @@ namespace PDH {
 		delete[] szObjectBuffer;
 
 		if (objects || instances) {
-			BOOST_FOREACH(Object &o, ret) {
+			for(Object &o: ret) {
 				fetch_object_details(o, instances, objects, dwDetailLevel);
 			}
 		}

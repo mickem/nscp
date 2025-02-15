@@ -1,6 +1,6 @@
 # SMTPClient
 
-SMTP client can be used both from command line and from queries to check remote systes via SMTP
+SMTP client can be used both from command line and from queries to check remote systems via SMTP
 
 
 

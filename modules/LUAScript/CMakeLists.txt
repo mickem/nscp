@@ -1,36 +1,33 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.5)
 
-SET(TARGET LUAScript)
-	
-PROJECT(${TARGET})
+set(TARGET LUAScript)
 
-CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+project(${TARGET})
 
-SET(SRCS ${SRCS}
-	"${TARGET}.cpp"
-	${NSCP_DEF_PLUGIN_CPP}
-)
+create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
+set(SRCS ${SRCS} "${TARGET}.cpp" ${NSCP_DEF_PLUGIN_CPP})
 
-IF(WIN32)
-	SET(SRCS ${SRCS}
-		"${TARGET}.h"
+add_definitions(${NSCP_GLOBAL_DEFINES})
 
-		${NSCP_DEF_PLUGIN_HPP}
-	)
-ENDIF(WIN32)
-INCLUDE_DIRECTORIES(${LUA_INCLUE_DIR})
-
+if(WIN32)
+  set(SRCS ${SRCS} "${TARGET}.h" ${NSCP_DEF_PLUGIN_HPP})
+endif(WIN32)
+if(LUA_INCLUE_DIR)
+  include_directories(${LUA_INCLUE_DIR})
+else()
+  include_directories(${LUA_SOURCE_DIR})
+endif()
 add_library(${TARGET} MODULE ${SRCS})
+nscp_debug_symbols(${TARGET})
 
-target_link_libraries(${TARGET}
-	${Boost_FILESYSTEM_LIBRARY}
-	${Boost_PROGRAM_OPTIONS_LIBRARY}
-	${Boost_THREAD_LIBRARY}
-	${NSCP_DEF_PLUGIN_LIB}
-	${LUA_LIB}
-	lua_nscp
-)
+target_link_libraries(
+  ${TARGET}
+  ${Boost_FILESYSTEM_LIBRARY}
+  ${Boost_PROGRAM_OPTIONS_LIBRARY}
+  ${Boost_THREAD_LIBRARY}
+  ${NSCP_DEF_PLUGIN_LIB}
+  ${LUA_LIB}
+  lua_nscp)
 
-INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
+include(${BUILD_CMAKE_FOLDER}/module.cmake)

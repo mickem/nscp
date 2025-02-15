@@ -22,7 +22,6 @@
 #include <map>
 #include <string>
 
-#include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 
@@ -117,9 +116,9 @@ namespace eventlog_filter {
 		return ss.str();
 	}
 
-	void filter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+	void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 		if (!get_value().empty())
-			filter.filter_string = get_value();
+			filter.set_filter_string(get_value().c_str());
 		std::string alias;
 		bool is_default = parent::is_default();
 
@@ -136,13 +135,13 @@ namespace eventlog_filter {
 			;
 
 		root_path.add_key()
-			("log", sh::string_fun_key(boost::bind(&filter_config_object::set_file, this, _1)),
+			("log", sh::string_fun_key(boost::bind(&filter_config_object::set_file, this, boost::placeholders::_1)),
 				"FILE", "The eventlog record to filter on (if set to 'all' means all enabled logs)", false)
 
-			("logs", sh::string_fun_key(boost::bind(&filter_config_object::set_files, this, _1)),
+			("logs", sh::string_fun_key(boost::bind(&filter_config_object::set_files, this, boost::placeholders::_1)),
 				"FILES", "The eventlog record to filter on (if set to 'all' means all enabled logs)", true)
 
-			("truncate", sh::int_fun_key(boost::bind(&filter_config_object::set_truncate, this, _1)),
+			("truncate", sh::int_fun_key(boost::bind(&filter_config_object::set_truncate, this, boost::placeholders::_1)),
 				"Truncate", "Truncate the eventlog messages, if set to 0 (default) messages will not be truncated", true)
 
 			;

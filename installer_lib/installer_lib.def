@@ -1,0 +1,11 @@
+LIBRARY	installer_dll
+
+EXPORTS
+	ImportConfig
+	ScheduleWriteConfig
+	ExecWriteConfig
+	NeedUninstall
+	TranslateSid
+	ApplyTool
+	DetectTool
+	BackupConfig

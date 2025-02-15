@@ -6,6 +6,7 @@
 
 #include "dll_defines.hpp"
 
+#include <boost/shared_ptr.hpp>
 #include <string>
 
 /**
@@ -13,10 +14,21 @@
  */
 namespace Mongoose {
 
+
+  class NSCAPI_EXPORT WebLogger {
+  public:
+    virtual void log_error(const std::string &message) = 0;
+    virtual void log_info(const std::string &message) = 0;
+    virtual void log_debug(const std::string &message) = 0;
+  };
+
+  typedef boost::shared_ptr<WebLogger> WebLoggerPtr;
+
+
 	class NSCAPI_EXPORT Server {
 
 	public:
-		static Server* make_server(std::string port = "80");
+		static Server* make_server(WebLoggerPtr logger);
 
 		virtual ~Server() {}
 
@@ -24,7 +36,7 @@ namespace Mongoose {
 		/**
 		 * Runs the Mongoose server
 		 */
-		virtual void start(int thread_count) = 0;
+		virtual void start(std::string bind) = 0;
 
 		/**
 		 * Stops the Mongoose server
@@ -45,7 +57,7 @@ namespace Mongoose {
 		*
 		* @param certificate the name of the certificate to use
 		*/
-		virtual void setSsl(const char *certificate) = 0;
+    virtual void setSsl(const char *certificate, const char *new_chipers) = 0;
 
 		/**
 		 * Does the server handles url?

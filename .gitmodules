@@ -4,18 +4,12 @@
 [submodule "ext/tinyxml2"]
 	path = ext/tinyxml2
 	url = https://github.com/leethomason/tinyxml2.git
-[submodule "ext/cryptopp"]
-	path = ext/cryptopp
-	url = https://github.com/mickem/cryptopp.git
 [submodule "ext/lua-protobuf"]
 	path = ext/lua-protobuf
 	url = https://github.com/mickem/lua-protobuf.git
 [submodule "ext/json-protobuf"]
 	path = ext/json-protobuf
 	url = https://github.com/mickem/json-protobuf.git
-[submodule "ext/google-breakpad"]
-	path = ext/google-breakpad
-	url = https://github.com/mickem/google-breakpad.git
 [submodule "ext/md-protobuf"]
 	path = ext/md-protobuf
 	url = https://github.com/mickem/md-protobuf.git

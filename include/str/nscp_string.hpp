@@ -22,7 +22,6 @@
 #include <sstream>
 #include <list>
 #include <boost/tokenizer.hpp>
-#include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/tuple/tuple.hpp>
 
@@ -62,7 +61,7 @@ namespace strEx {
 		template<class T>
 		std::string joinEx(const T &lst, const std::string key) {
 			std::string ret;
-			BOOST_FOREACH(const std::string &s, lst) {
+			for(const std::string &s: lst) {
 				if (!ret.empty())
 					ret += key;
 				ret += s;
@@ -85,7 +84,7 @@ namespace strEx {
 		template<class T>
 		inline void parse_command(const std::string &cmd_line, T &args) {
 			boost::tokenizer<boost::escaped_list_separator<char>, std::string::const_iterator, std::string > tok(cmd_line, boost::escaped_list_separator<char>('\\', ' ', '\"'));
-			BOOST_FOREACH(std::string s, tok) {
+			for(std::string s: tok) {
 				if (!s.empty())
 					args.push_back(s);
 			}
@@ -93,7 +92,7 @@ namespace strEx {
 		inline std::list<std::string> parse_command(const std::string &cmd_line) {
 			std::list<std::string> args;
 			boost::tokenizer<boost::escaped_list_separator<char>, std::string::const_iterator, std::string > tok(cmd_line, boost::escaped_list_separator<char>('\\', ' ', '\"'));
-			BOOST_FOREACH(std::string s, tok) {
+			for(std::string s: tok) {
 				if (!s.empty())
 					args.push_back(s);
 			}

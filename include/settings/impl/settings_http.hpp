@@ -223,7 +223,7 @@ namespace settings {
 			if (!child)
 				return;
 			string_list keys = child->get_keys("/attachments");
-			BOOST_FOREACH(const std::string &k, keys) {
+			for(const std::string &k: keys) {
 				std::string target = get_core()->expand_path(k);
 				op_string str = child->get_string("/attachments", k);
 				if (!str)
@@ -370,7 +370,7 @@ namespace settings {
 			return url_;
 		}
 		bool file_exists() {
-			return boost::filesystem::is_regular(get_file_name());
+			return boost::filesystem::is_regular_file(get_file_name());
 		}
 		virtual std::string get_info() {
 			return "HTTP settings: (" + context_ + ", " + get_file_name() + ")";

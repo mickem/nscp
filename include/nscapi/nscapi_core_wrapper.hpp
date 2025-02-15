@@ -76,6 +76,7 @@ namespace nscapi {
 
 		NSCAPI::errorReturn submit_message(const char* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
 		NSCAPI::errorReturn emit_event(const char *request, const unsigned int request_len) const;
+		NSCAPI::errorReturn emit_event(std::string &request) const;
 		bool submit_message(std::string channel, std::string request, std::string &response) const;
 		bool reload(std::string module) const;
 

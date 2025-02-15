@@ -35,19 +35,19 @@ namespace dll {
 			boost::filesystem::path module_;
 		public:
 			impl(boost::filesystem::path module) : module_(module), handle_(NULL) {
-				if (!boost::filesystem::is_regular(module_)) {
+				if (!boost::filesystem::is_regular_file(module_)) {
 					module_ = fix_module_name(module_);
 				}
 			}
 			static boost::filesystem::path fix_module_name(boost::filesystem::path module) {
-				if (boost::filesystem::is_regular(module))
+				if (boost::filesystem::is_regular_file(module))
 					return module;
 				/* this one (below) is wrong I think */
 				boost::filesystem::path mod = module / get_extension();
-				if (boost::filesystem::is_regular(mod))
+				if (boost::filesystem::is_regular_file(mod))
 					return mod;
 				mod = boost::filesystem::path(module.string() + get_extension());
-				if (boost::filesystem::is_regular(mod))
+				if (boost::filesystem::is_regular_file(mod))
 					return mod;
 				return module;
 			}

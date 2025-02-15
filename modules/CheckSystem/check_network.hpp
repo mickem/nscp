@@ -22,7 +22,8 @@
 #include <string>
 #include <list>
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/nscapi_protobuf_metrics.hpp>
 
 #include <wmi/wmi_query.hpp>
 
@@ -105,7 +106,7 @@ namespace network_check {
 		void read_prd(wmi_impl::row r, long long delta);
 
 		bool is_compleate() const { return has_nif; }
-		void build_metrics(Plugin::Common::MetricsBundle *section) const;
+		void build_metrics(PB::Metrics::MetricsBundle *section) const;
 
 		std::string get_name() const { return name; }
 		std::string get_NetConnectionID() const { return NetConnectionID; }
@@ -147,7 +148,7 @@ namespace network_check {
 
 
 	namespace check {
-		void check_network(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, nics_type data);
+		void check_network(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, nics_type data);
 
 	}
 

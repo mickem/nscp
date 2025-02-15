@@ -1,20 +1,15 @@
-IF (WIN32)
-	SET(EXE_NAME protoc-gen-lua.cmd)
-ELSE(WIN32)
-	SET(EXE_NAME protoc-gen-lua)
-ENDIF(WIN32)
-FIND_PROGRAM(PROTOC_GEN_LUA_BIN
-	NAMES
-		${EXE_NAME}
-	PATHS 
-		${CMAKE_SOURCE_DIR}/ext/lua-protobuf
-		${PROTOC_GEN_LUA}
-		/usr/local/bin/
-		/usr/bin/
-		${PYTHON_ROOT}/Scripts
-)
-IF(PROTOC_GEN_LUA_BIN)
-	SET(PROTOC_GEN_LUA_FOUND TRUE)
-ELSE(PROTOC_GEN_LUA_BIN)
-	SET(PROTOC_GEN_LUA_FOUND FALSE)
-ENDIF(PROTOC_GEN_LUA_BIN)
+if(WIN32)
+  set(EXE_NAME protoc-gen-lua.exe)
+else(WIN32)
+  set(EXE_NAME protoc-gen-lua)
+endif(WIN32)
+find_program(
+  PROTOC_GEN_LUA_BIN
+  NAMES ${EXE_NAME}
+  PATHS ${CMAKE_SOURCE_DIR}/ext/lua-protobuf ${PROTOC_GEN_LUA} /usr/local/bin/
+        /usr/bin/ ${Python3_ROOT_DIR}/Scripts)
+if(PROTOC_GEN_LUA_BIN)
+  set(PROTOC_GEN_LUA_FOUND TRUE)
+else(PROTOC_GEN_LUA_BIN)
+  set(PROTOC_GEN_LUA_FOUND FALSE)
+endif(PROTOC_GEN_LUA_BIN)

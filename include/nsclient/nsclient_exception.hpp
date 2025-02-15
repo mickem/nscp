@@ -20,21 +20,17 @@
 #pragma once
 
 #include <string>
+#include <utility>
 
 namespace nsclient {
 
-	class nsclient_exception : public std::exception {
-	private:
-		std::string error;
+	class nsclient_exception : public std::runtime_error {
 	public:
-		nsclient_exception(std::string error) : error(error) {};
-		~nsclient_exception() throw() {}
+		explicit nsclient_exception(const std::string& error) noexcept : std::runtime_error(error.c_str()) {};
+		~nsclient_exception() noexcept override = default;
 
-		const char* what() const throw() {
-			return error.c_str();
-		}
-		std::string reason() const throw() {
-			return error;
+		std::string reason() const noexcept {
+			return this->what();
 		}
 	};
 }

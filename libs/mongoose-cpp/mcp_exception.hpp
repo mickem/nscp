@@ -1,11 +1,16 @@
+#pragma once
+
 #include "dll_defines.hpp"
+#ifdef WIN32
+#pragma warning(disable:4251)
+#endif
 
 #include <string>
 
 namespace mcp
 {
 
-	class NSCAPI_EXPORT mcp_exception : public std::exception {
+	class NSCAPI_EXPORT mcp_exception {
 	private:
 		std::string error;
 	public:

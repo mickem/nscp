@@ -24,6 +24,11 @@
 #include <parsers/where/dll_defines.hpp>
 
 #include <vector>
+#ifdef WIN32
+#pragma warning(push)
+#pragma warning(disable:4251)
+#pragma warning(disable:4275)
+#endif
 
 namespace parsers {
 	namespace where {
@@ -84,3 +89,6 @@ namespace parsers {
 		};
 	}
 }
+#ifdef WIN32
+#pragma warning(pop)
+#endif

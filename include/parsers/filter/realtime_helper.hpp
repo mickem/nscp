@@ -103,11 +103,11 @@ namespace parsers {
 
 				bool build_filters(nscapi::settings_filters::filter_object config, std::string &error) {
 					std::string message;
-					if (!filter.build_syntax(config.debug, config.syntax_top, config.syntax_detail, config.perf_data, config.perf_config, config.syntax_ok, config.syntax_empty, message)) {
-						error = "Failed to build strings " + alias + ": " + message;
+					if (!filter.build_syntax(config.debug, config.syntax_top, config.syntax_detail, config.perf_data, config.perf_config, config.syntax_ok, config.syntax_empty)) {
+						error = "Failed to build strings " + alias;
 						return false;
 					}
-					if (!filter.build_engines(config.debug, config.filter_string, config.filter_ok, config.filter_warn, config.filter_crit)) {
+					if (!filter.build_engines(config.debug, config.filter_string(), config.filter_ok, config.filter_warn, config.filter_crit)) {
 						error = "Failed to build filters: " + alias;
 						return false;
 					}
@@ -212,7 +212,7 @@ namespace parsers {
 					typedef std::map<std::string, std::string> hash_type;
 
 					list_type keys = item->filter.records_;
-					BOOST_FOREACH(hash_type &bundle, keys) {
+					for(hash_type &bundle: keys) {
 						if (!ch.emit_event(item->get_event_name(), item->get_alias(), bundle, response)) {
 							NSC_LOG_ERROR("Failed to submit '" + response);
 						}
@@ -238,7 +238,7 @@ namespace parsers {
 
 			void touch_all() {
 				boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
-				BOOST_FOREACH(container_type item, items) {
+				for(container_type item: items) {
 					item->touch(current_time, false);
 				}
 			}
@@ -252,7 +252,7 @@ namespace parsers {
 					if (items.size() == 0) {
 						NSC_TRACE_MSG("No filters to check for: " + data->to_string());
 					}
-					BOOST_FOREACH(container_type item, items) {
+					for(container_type item: items) {
 						if (item->data.has_changed(data)) {
 							has_changed = true;
 							if (process_item(item, data, item->is_silent(current_time))) {
@@ -279,7 +279,7 @@ namespace parsers {
 			void do_process_no_items(boost::posix_time::ptime current_time) {
 				try {
 					// Match any stale items and process timeouts
-					BOOST_FOREACH(container_type item, items) {
+					for(container_type item: items) {
 						if (item->has_timedout(current_time)) {
 							process_timeout(item);
 							item->touch(current_time, false);
@@ -298,7 +298,7 @@ namespace parsers {
 				op_duration ret;
 				boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
 				boost::optional<boost::posix_time::ptime> minNext;
-				BOOST_FOREACH(const container_type item, items) {
+				for(const container_type item: items) {
 					item->find_minimum_timeout(minNext);
 				}
 
@@ -311,7 +311,7 @@ namespace parsers {
 						NSC_LOG_ERROR("Invalid duration for eventlog check, assuming all values stale");
 						touch_all();
 						minNext = boost::none;
-						BOOST_FOREACH(const container_type item, items) {
+						for(const container_type item: items) {
 							item->find_minimum_timeout(minNext);
 						}
 						dur = *minNext - current_time;

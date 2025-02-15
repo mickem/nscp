@@ -34,18 +34,21 @@ namespace test
         public Result onQuery(string command, byte[] request)
         {
             Result result = new Result();
-            Plugin.QueryRequestMessage request_message = Plugin.QueryRequestMessage.CreateBuilder().MergeFrom(request).Build();
+            PB.Commands.QueryRequestMessage request_message = PB.Commands.QueryRequestMessage.Parser.ParseFrom(request);
             log.debug("Got command: " + command);
 
-            Plugin.QueryResponseMessage.Builder response_message = Plugin.QueryResponseMessage.CreateBuilder();
-            response_message.SetHeader(Plugin.Common.Types.Header.CreateBuilder().Build());
-            Plugin.QueryResponseMessage.Types.Response.Builder response = Plugin.QueryResponseMessage.Types.Response.CreateBuilder();
-            response.SetCommand(command);
-            response.SetResult(Plugin.Common.Types.ResultCode.OK);
-            response.AddLines(Plugin.QueryResponseMessage.Types.Response.Types.Line.CreateBuilder().SetMessage("Hello from C#").Build());
-            response_message.AddPayload(response.Build());
+            PB.Commands.QueryResponseMessage response_message = new PB.Commands.QueryResponseMessage();
+            PB.Commands.QueryResponseMessage.Types.Response response = new PB.Commands.QueryResponseMessage.Types.Response();
+            response.Command = command;
+            response.Result = PB.Common.ResultCode.Ok;
+            PB.Commands.QueryResponseMessage.Types.Response.Types.Line line = new PB.Commands.QueryResponseMessage.Types.Response.Types.Line();
+            line.Message = "Hello from C#";
+            response.Lines.Add(line);
+            response_message.Payload.Add(response);
 
-            return new Result(response_message.Build().ToByteArray());
+            System.IO.MemoryStream stream = new System.IO.MemoryStream();
+            response_message.WriteTo(new Google.Protobuf.CodedOutputStream(stream));
+            return new Result(stream.ToArray());
         }
 
     }
@@ -63,7 +66,7 @@ namespace test
 
         public bool load(int mode)
         {
-            long port = new SettingsHelper(core, plugin_id).getInt("/settings/WEB/server", "port", 1234);
+            long port = Int64.Parse(new SettingsHelper(core, plugin_id).getString("/settings/WEB/server", "port", "1234"));
             log.info("Webserver port is: " + port);
             new RegistryHelper(core, plugin_id).registerCommand("check_dotnet", "This is a sample command written in C#");
             return true;

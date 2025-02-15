@@ -27,13 +27,14 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
 
+#include <utf8.hpp>
+
 #include <NSCAPI.h>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 
-#include <utf8.hpp>
 
 namespace nscapi {
 

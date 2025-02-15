@@ -1,5 +1,8 @@
 #pragma once
 
+#include <map>
+#include <string>
+
 #include <boost/thread/mutex.hpp>
 #include <boost/optional.hpp>
 

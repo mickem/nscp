@@ -33,7 +33,7 @@ extern "C" {
 
 #include <NSCAPI.h>
 #include <nscapi/nscapi_core_wrapper.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 
 #include <str/xtos.hpp>
 #include <scripts/script_interface.hpp>
@@ -57,10 +57,10 @@ namespace lua {
 		virtual void register_query(const std::string &command, const std::string &description);
 		virtual void register_subscription(const std::string &channel, const std::string &description);
 
-		virtual void on_query(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
-		virtual void on_exec(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
-		virtual NSCAPI::nagiosReturn on_submit(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response);
-		virtual void exec_main(script_information *information, const std::vector<std::string> &opts, Plugin::ExecuteResponseMessage::Response *response);
+		virtual void on_query(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, const PB::Commands::QueryRequestMessage &request_message);
+		virtual void on_exec(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
+		virtual NSCAPI::nagiosReturn on_submit(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const PB::Commands::QueryResponseMessage::Response &request, PB::Commands::SubmitResponseMessage::Response *response);
+		virtual void exec_main(script_information *information, const std::vector<std::string> &opts, PB::Commands::ExecuteResponseMessage::Response *response);
 
 		virtual void load(scripts::script_information<lua_traits> *info);
 		virtual void unload(scripts::script_information<lua_traits> *info);

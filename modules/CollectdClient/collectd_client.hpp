@@ -24,6 +24,8 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 
+#include <nscapi/nscapi_protobuf_metrics.hpp>
+
 
 namespace collectd_client {
 
@@ -118,12 +120,12 @@ namespace collectd_client {
 	};
 
 	struct collectd_client_handler : public client::handler_interface {
-		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
+		bool query(client::destination_container sender, client::destination_container target, const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message) {
 			return false;
 		}
 
-		bool submit(client::destination_container sender, client::destination_container target, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
-			const ::Plugin::Common_Header& request_header = request_message.header();
+		bool submit(client::destination_container sender, client::destination_container target, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage &response_message) {
+			const PB::Common::Header& request_header = request_message.header();
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 			connection_data con(target, sender);
 
@@ -138,27 +140,24 @@ namespace collectd_client {
 			return true;
 		}
 
-		bool exec(client::destination_container sender, client::destination_container target, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
+		bool exec(client::destination_container sender, client::destination_container target, const PB::Commands::ExecuteRequestMessage &request_message, PB::Commands::ExecuteResponseMessage &response_message) {
 			return false;
 		}
 
 
-		void flatten_metrics(collectd::collectd_builder &builder, const Plugin::Common::MetricsBundle &b, std::string path) {
+		void flatten_metrics(collectd::collectd_builder &builder, const PB::Metrics::MetricsBundle &b, std::string path) {
 			std::string mypath;
 			if (!path.empty())
 				mypath = path + ".";
 			mypath += b.key();
-			BOOST_FOREACH(const Plugin::Common::MetricsBundle &b2, b.children()) {
+			for(const PB::Metrics::MetricsBundle &b2: b.children()) {
 				flatten_metrics(builder, b2, mypath);
 			}
-			BOOST_FOREACH(const Plugin::Common::Metric &v, b.value()) {
-				const ::Plugin::Common_AnyDataType &value = v.value();
-				if (value.has_int_data()) {
-					builder.set_metric(mypath + "." + v.key(), str::xtos(v.value().int_data()));
-				} else if (value.has_float_data()) {
-					builder.set_metric(mypath + "." + v.key(), str::xtos(v.value().float_data()));
-				} else if (value.has_string_data()) {
-					builder.set_metric(mypath + "." + v.key(), v.value().string_data());
+			for(const PB::Metrics::Metric &v: b.value()) {
+				if (v.has_gauge_value()) {
+					builder.set_metric(mypath + "." + v.key(), str::xtos(v.gauge_value().value()));
+				} else if (v.has_string_value()) {
+					builder.set_metric(mypath + "." + v.key(), v.string_value().value());
 				} else {
 					NSC_LOG_ERROR_EX("Unknown metrics type");
 				}
@@ -166,15 +165,15 @@ namespace collectd_client {
 		}
 
 
-		void set_metrics(collectd::collectd_builder &builder, const Plugin::MetricsMessage &data) {
-			BOOST_FOREACH(const Plugin::MetricsMessage::Response &p, data.payload()) {
-				BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, p.bundles()) {
+		void set_metrics(collectd::collectd_builder &builder, const PB::Metrics::MetricsMessage &data) {
+			for(const PB::Metrics::MetricsMessage::Response &p: data.payload()) {
+				for(const PB::Metrics::MetricsBundle &b: p.bundles()) {
 					flatten_metrics(builder, b, "");
 				}
 			}
 		}
 
-		bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) {
+		bool metrics(client::destination_container sender, client::destination_container target, const PB::Metrics::MetricsMessage &request_message) {
 
 			collectd::collectd_builder builder;
 			set_metrics(builder, request_message);
@@ -238,10 +237,13 @@ namespace collectd_client {
 
 
 		void send(const connection_data target, const collectd::collectd_builder::packet_list &packets) {
-			NSC_DEBUG_MSG("Sending " + str::xtos(packets.size()) + " packets to: " + target.to_string());
-			BOOST_FOREACH(const collectd::packet &p, packets) {
+			NSC_TRACE_ENABLED() {
+				NSC_TRACE_MSG("Sending " + str::xtos(packets.size()) + " packets to: " + target.to_string());
+			}
+			for(const collectd::packet &p: packets) {
 				try {
 					boost::asio::io_service io_service;
+					std::list<boost::shared_ptr<udp_sender>> senders;
 
 					boost::asio::ip::address target_address = boost::asio::ip::address::from_string(target.get_address());
 
@@ -263,20 +265,22 @@ namespace collectd_client {
 						while (endpoint_iterator != end) {
 							std::string ss = endpoint_iterator->endpoint().address().to_string();
 							if (target_address.is_v4() && endpoint_iterator->endpoint().address().is_v4()) {
-								std::cout << endpoint_iterator->endpoint().address().to_string() << std::endl;
-								udp_sender s(io_service, endpoint_iterator->endpoint(), target_address, target.get_int_port());
-								s.send_data(p.get_buffer());
+								boost::shared_ptr<udp_sender> s = boost::make_shared<udp_sender>(io_service, endpoint_iterator->endpoint(), target_address, target.get_int_port());
+								senders.push_back(s);
+								s->send_data(p.get_buffer());
 								io_service.run();
 							}
 							endpoint_iterator++;
 						}
 					} else {
-						udp_sender s(io_service, target_address, target.get_int_port());
-						s.send_data(p.get_buffer());
+						boost::shared_ptr<udp_sender> s = boost::make_shared<udp_sender>(io_service, target_address, target.get_int_port());
+						senders.push_back(s);
+						s->send_data(p.get_buffer());
 						io_service.run();
 
 					}
 
+					senders.clear();
 
 				} catch (std::exception& e) {
 					NSC_LOG_ERROR_STD(utf8::utf8_from_native(e.what()));

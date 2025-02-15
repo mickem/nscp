@@ -31,6 +31,7 @@
 
 namespace syslog_handler {
 	namespace sh = nscapi::settings_helper;
+	namespace ph = boost::placeholders;
 
 	struct syslog_target_object : public nscapi::targets::target_object {
 		typedef nscapi::targets::target_object parent;
@@ -49,7 +50,7 @@ namespace syslog_handler {
 		}
 		syslog_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
 
-		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			parent::read(proxy, oneliner, is_sample);
 
 			nscapi::settings_helper::settings_registry settings(proxy);
@@ -60,28 +61,28 @@ namespace syslog_handler {
 
 			root_path.add_key()
 
-				("severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "severity", _1), "error"),
+				("severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "severity", ph::_1), "error"),
 					"TODO", "")
 
-				("facility", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "facility", _1), "kernel"),
+				("facility", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "facility", ph::_1), "kernel"),
 					"TODO", "")
 
-				("tag_syntax", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "tag syntax", _1), "NSCA"),
+				("tag_syntax", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "tag syntax", ph::_1), "NSCA"),
 					"TODO", "")
 
-				("message_syntax", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "message syntax", _1), "%message%"),
+				("message_syntax", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "message syntax", ph::_1), "%message%"),
 					"TODO", "")
 
-				("ok severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "ok severity", _1), "informational"),
+				("ok severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "ok severity", ph::_1), "informational"),
 					"TODO", "")
 
-				("warning severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "warning severity", _1), "warning"),
+				("warning severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "warning severity", ph::_1), "warning"),
 					"TODO", "")
 
-				("critical severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "critical severity", _1), "critical"),
+				("critical severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "critical severity", ph::_1), "critical"),
 					"TODO", "")
 
-				("unknown severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "unknown severity", _1), "emergency"),
+				("unknown severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "unknown severity", ph::_1), "emergency"),
 					"TODO", "")
 				;
 		}
@@ -97,30 +98,30 @@ namespace syslog_handler {
 
 		void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
 			desc.add_options()
-				("path", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "path", _1)),
+				("path", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "path", ph::_1)),
 					"")
-				("severity,s", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "severity", _1)),
+				("severity,s", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "severity", ph::_1)),
 					"Severity of error message")
 
-				("unknown-severity", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "unknown_severity", _1)),
+				("unknown-severity", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "unknown_severity", ph::_1)),
 					"Severity of error message")
 
-				("ok-severity", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "ok_severity", _1)),
+				("ok-severity", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "ok_severity", ph::_1)),
 					"Severity of error message")
 
-				("warning-severity", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "warning_severity", _1)),
+				("warning-severity", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "warning_severity", ph::_1)),
 					"Severity of error message")
 
-				("critical-severity", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "critical_severity", _1)),
+				("critical-severity", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "critical_severity", ph::_1)),
 					"Severity of error message")
 
-				("facility,f", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "facility", _1)),
+				("facility,f", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "facility", ph::_1)),
 					"Facility of error message")
 
-				("tag template", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "tag template", _1)),
+				("tag template", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "tag template", ph::_1)),
 					"Tag template (TODO)")
 
-				("message template", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "message template", _1)),
+				("message template", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "message template", ph::_1)),
 					"Message template (TODO)")
 
 				;

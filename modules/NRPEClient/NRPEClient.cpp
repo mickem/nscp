@@ -24,6 +24,7 @@
 
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_settings_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -50,7 +51,7 @@ NRPEClient::~NRPEClient() {}
 bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	try {
 		client_.clear();
-		sh::settings_registry settings(get_settings_proxy());
+		sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 		settings.set_alias("NRPE", alias, "client");
 
 		client_.set_path(settings.alias().get_settings_path("targets"));
@@ -58,11 +59,11 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.alias().add_path_to_settings()
 			("NRPE CLIENT SECTION", "Section for NRPE active/passive check module.")
 
-			("handlers", sh::fun_values_path(boost::bind(&NRPEClient::add_command, this, _1, _2)),
+			("handlers", sh::fun_values_path(boost::bind(&NRPEClient::add_command, this, boost::placeholders::_1, boost::placeholders::_2)),
 				"CLIENT HANDLER SECTION", "",
 				"TARGET", "For more configuration options add a dedicated section")
 
-			("targets", sh::fun_values_path(boost::bind(&NRPEClient::add_target, this, _1, _2)),
+			("targets", sh::fun_values_path(boost::bind(&NRPEClient::add_target, this, boost::placeholders::_1, boost::placeholders::_2)),
 				"REMOTE TARGET DEFINITIONS", "",
 				"TARGET", "For more configuration options add a dedicated section")
 			;
@@ -76,7 +77,7 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.register_all();
 		settings.notify();
 
-		client_.finalize(get_settings_proxy());
+		client_.finalize(nscapi::settings_proxy::create(get_id(), get_core()));
 
 		nscapi::core_helper core(get_core(), get_id());
 		core.register_channel(channel_);
@@ -96,7 +97,7 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 void NRPEClient::add_target(std::string key, std::string arg) {
 	try {
-		client_.add_target(get_settings_proxy(), key, arg);
+		client_.add_target(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
 	} catch (...) {
@@ -126,22 +127,22 @@ bool NRPEClient::unloadModule() {
 	return true;
 }
 
-void NRPEClient::query_fallback(const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
+void NRPEClient::query_fallback(const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message) {
 	client_.do_query(request_message, response_message);
 }
 
-bool NRPEClient::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response) {
-	BOOST_FOREACH(const Plugin::ExecuteRequestMessage::Request &payload, request.payload()) {
+bool NRPEClient::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response) {
+	for(const PB::Commands::ExecuteRequestMessage::Request &payload: request.payload()) {
 		if (payload.arguments_size() > 0 && payload.arguments(0) == "install") {
-			Plugin::ExecuteResponseMessage::Response *rp = response.add_payload();
+			PB::Commands::ExecuteResponseMessage::Response *rp = response.add_payload();
 			return install_server(payload, rp);
 		}
 		if (payload.arguments_size() > 0 && payload.arguments(0) == "make-cert") {
-			Plugin::ExecuteResponseMessage::Response *rp = response.add_payload();
+			PB::Commands::ExecuteResponseMessage::Response *rp = response.add_payload();
 			return make_cert(payload, rp);
 		}
 		if (payload.arguments_size() == 0 || payload.arguments(0) == "help") {
-			Plugin::ExecuteResponseMessage::Response *rp = response.add_payload();
+			PB::Commands::ExecuteResponseMessage::Response *rp = response.add_payload();
 			nscapi::protobuf::functions::set_response_bad(*rp, "Usage: nscp nrpe [install|make-cert] --help");
 			return true;
 		}
@@ -151,11 +152,11 @@ bool NRPEClient::commandLineExec(const int target_mode, const Plugin::ExecuteReq
 	return false;
 }
 
-void NRPEClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
+void NRPEClient::handleNotification(const std::string &, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage *response_message) {
 	client_.do_submit(request_message, *response_message);
 }
 
-bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
@@ -185,7 +186,7 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 		return true;
 	}
 	std::list<pf::settings_query::key_values> values = q.get_query_key_response();
-	BOOST_FOREACH(const pf::settings_query::key_values &val, values) {
+	for(const pf::settings_query::key_values &val: values) {
 		if (val.matches("/settings/default", "allowed hosts"))
 			allowed_hosts = val.get_string();
 		else if (val.matches(path, "certificate"))
@@ -205,7 +206,7 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 		else if (val.matches(path, "port"))
 			port = val.get_string();
 	}
-	BOOST_FOREACH(const pf::settings_query::key_values &val, values) {
+	for(const pf::settings_query::key_values &val: values) {
 		if (val.matches(path, "allow nasty characters")) {
 			if (arguments == "safe" && val.get_bool())
 				arguments = "all";
@@ -319,7 +320,7 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 	}
 }
 
-bool NRPEClient::make_cert(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+bool NRPEClient::make_cert(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
@@ -338,7 +339,7 @@ bool NRPEClient::make_cert(const Plugin::ExecuteRequestMessage::Request &request
 		return true;
 	}
 	std::list<pf::settings_query::key_values> values = q.get_query_key_response();
-	BOOST_FOREACH(const pf::settings_query::key_values &val, values) {
+	for(const pf::settings_query::key_values &val: values) {
 		if (val.matches(path, "certificate"))
 			cert = val.get_string();
 		else if (val.matches(path, "certificate key"))

@@ -30,7 +30,6 @@ extern "C" {
 #include <luna.h>
 
 #ifdef HAVE_LUA_PB
-#include <nscapi/nscapi_protobuf.hpp>
 #include <plugin.pb-lua.h>
 #endif
 

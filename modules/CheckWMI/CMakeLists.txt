@@ -1,43 +1,31 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.5)
 
-SET(TARGET CheckWMI)
-	
-PROJECT(${TARGET})
+set(TARGET CheckWMI)
 
-CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+project(${TARGET})
 
-SET(SRCS ${SRCS}
-	"${TARGET}.cpp"
-	${NSCP_INCLUDEDIR}/wmi/wmi_query.cpp
-	
-	${NSCP_DEF_PLUGIN_CPP}
-	${NSCP_FILTER_CPP}
-  ${NSCP_ERROR_CPP}
-)
+create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
+set(SRCS ${SRCS} "${TARGET}.cpp" ${NSCP_INCLUDEDIR}/wmi/wmi_query.cpp
+         ${NSCP_DEF_PLUGIN_CPP} ${NSCP_FILTER_CPP} ${NSCP_ERROR_CPP})
 
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
+add_definitions(${NSCP_GLOBAL_DEFINES})
 
-IF(WIN32)
-SET(SRCS ${SRCS}
-	"${TARGET}.h"
-	${NSCP_INCLUDEDIR}/wmi/wmi_query.hpp
-
-	${NSCP_DEF_PLUGIN_HPP}
-	${NSCP_FILTER_HPP}
-  ${NSCP_ERROR_HPP}
-)
-ENDIF(WIN32)
+if(WIN32)
+  set(SRCS ${SRCS} "${TARGET}.h" ${NSCP_INCLUDEDIR}/wmi/wmi_query.hpp
+           ${NSCP_DEF_PLUGIN_HPP} ${NSCP_FILTER_HPP} ${NSCP_ERROR_HPP})
+endif(WIN32)
 
 add_library(${TARGET} MODULE ${SRCS})
+nscp_debug_symbols(${TARGET})
 
-target_link_libraries(${TARGET}
-	${NSCP_DEF_PLUGIN_LIB}
-	${Boost_REGEX_LIBRARY}
-	${Boost_PROGRAM_OPTIONS_LIBRARY}
-	${NSCP_FILTER_LIB}
-	expression_parser
-	Wbemuuid.lib
-)
+target_link_libraries(
+  ${TARGET}
+  ${NSCP_DEF_PLUGIN_LIB}
+  ${Boost_REGEX_LIBRARY}
+  ${Boost_PROGRAM_OPTIONS_LIBRARY}
+  ${NSCP_FILTER_LIB}
+  expression_parser
+  Wbemuuid.lib)
 
-INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
+include(${BUILD_CMAKE_FOLDER}/module.cmake)

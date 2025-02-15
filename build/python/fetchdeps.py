@@ -1,4 +1,5 @@
-import urllib
+import urllib.request
+import shutil
 import os
 import sys
 import hashlib
@@ -7,18 +8,25 @@ import tarfile
 from optparse import OptionParser
 from string import Template
 import json
+import ssl
+
+ssl._create_default_https_context = ssl._create_unverified_context
 
 CONFIG_TEMPLATE = """
+set(Boost_USE_STATIC_LIBS ON)
+set(Boost_USE_STATIC_RUNTIME ON)
+
 SET(USE_STATIC_RUNTIME FALSE)
 SET(LIBRARY_ROOT_FOLDER	"${build_folder}")
 SET(BOOST_ROOT "$${LIBRARY_ROOT_FOLDER}/${boost_rel_folder}")
 SET(BOOST_LIBRARYDIR "$${BOOST_ROOT}/stage/lib")
 SET(PROTOBUF_ROOT "$${LIBRARY_ROOT_FOLDER}/${protobuf_rel_folder}")
-SET(OPENSSL_ROOT_DIR "$${LIBRARY_ROOT_FOLDER}/${openssl_rel_folder}/out32dll")
-SET(_OPENSSL_INCLUDEDIR "$${LIBRARY_ROOT_FOLDER}/${openssl_rel_folder}/include")
-SET(LUA_ROOT "$${LIBRARY_ROOT_FOLDER}/${lua_rel_folder}")
-SET(BREAKPAD_ROOT "$${LIBRARY_ROOT_FOLDER}/${breakpad_rel_folder}")
+SET(OPENSSL_ROOT_DIR "$${LIBRARY_ROOT_FOLDER}/${openssl_rel_folder}")
+SET(LUA_SOURCE_ROOT "$${LIBRARY_ROOT_FOLDER}/${lua_rel_folder}")
 SET(PYTHON_ROOT "${python_folder}")
+SET(CRYPTOPP_ROOT "$${LIBRARY_ROOT_FOLDER}/${cryptopp_rel_folder}")
+
+SET(CSHARP_DOTNET_VERSION "v4.0.30319")
 #SET(ARCHIVE_FOLDER "TODO")
 #SET(TARGET_SITE "TODO")
 """
@@ -31,7 +39,7 @@ def find_compressor(path):
     elif path.endswith('.tar.bz2') or path.endswith('.tbz'):
         opener, mode = tarfile.open, 'r:bz2'
     else: 
-        raise ValueError, "Could not extract `%s` as no appropriate extractor is found" % path
+        raise ValueError("Could not extract `%s` as no appropriate extractor is found" % path)
     return (opener, mode)
 
 def get_root_from_file(path):
@@ -45,7 +53,7 @@ def get_root_from_file(path):
         elif hasattr(file, 'getnames'):
             list = file.getnames()
         else:
-            print 'ERR  Failed to retrive data from: %s'%path
+            print('ERR  Failed to retrive data from: %s'%path)
             return None
         for f in list:
             if '/' in f:
@@ -87,24 +95,25 @@ class source_helper:
 
     def fetch(self):
         if self.is_cached():
-            print '   + Using cached: %s'%self.file
+            print('   + Using cached: %s'%self.file)
         else:
-            print '   + Fetching: %s'%self.url
-            print '     Into: %s'%self.file
-            urllib.urlretrieve(self.url, self.file)
+            print('   + Fetching: %s'%self.url)
+            print('     Into: %s'%self.file)
+            with urllib.request.urlopen(self.url) as response, open(self.file, 'wb') as out_file:
+                shutil.copyfileobj(response, out_file)
         
     def validate(self):
         if self.has_hash():
             calculated_hash = self.calculate_hash()
             if calculated_hash != self.hash:
-                print '    + Invalid checksum for %s: %s != %s'%(self.file, calculated_hash, self.hash)
+                print('    + Invalid checksum for %s: %s != %s'%(self.file, calculated_hash, self.hash))
                 return False
-            print '   + Checksum validated'
+            print( '   + Checksum validated')
         return True
 
     def decompress(self, folder):
-        print '   + Decompressing: %s'%self.file
-        print '     Into: %s'%folder
+        print('   + Decompressing: %s'%self.file)
+        print('     Into: %s'%folder)
         if not os.path.exists(folder):
             os.mkdir(folder)
         try:
@@ -113,8 +122,8 @@ class source_helper:
             try: file.extractall(path=folder)
             finally: file.close()
             return True
-        except Exception, e:
-            print 'ERR  Failed to decompress %s: %s'%(self.file, e)
+        except Exception as e:
+            print('ERR  Failed to decompress %s: %s'%(self.file, e))
             return False
 
 def fetch_commands(config, task_list, task):
@@ -134,7 +143,7 @@ def fetch_commands(config, task_list, task):
     return result
 
 def render_command(config, command):
-    for k, v in config.iteritems():
+    for k, v in config.items():
         command = command.replace('{{%s}}'%k, v)
     return command
 
@@ -149,15 +158,15 @@ def run_commands(config, tag, cmds):
         for cmd in cmds:
             cached_name = '%s: %s\n'%(tag, cmd)
             if cached_name in history:
-                print '   + found cached command: %s (not running)'%tag
+                print('   + found cached command: %s (not running)'%tag)
                 continue
             rcmd = render_command(config, cmd)
-            print '   + Executing: %s'%rcmd
+            print('   + Executing: %s'%rcmd)
             if msver >= '2012':
                 rcmd = rcmd.replace('.vcproj', '.vcxproj')
             ret = os.system(rcmd)
             if ret != 0:
-                print " ! Failed to execute: %s (%d)"%(rcmd, ret)
+                print(" ! Failed to execute: %s (%d)"%(rcmd, ret))
                 return False
             log.write(cached_name)
             log.write('# %s\n'%rcmd)
@@ -185,7 +194,7 @@ def fetch_sources(config, alias, source):
     folder = config['target.folder']
     file = os.path.join(config['build.folder'], source['file'])
     if os.path.exists(folder):
-        print '   + Found cached folder (assuming things are good)'
+        print('   + Found cached folder: %s'%folder)
         return True
         
     s = source_helper(file, source['url'], source['hash'])
@@ -193,7 +202,9 @@ def fetch_sources(config, alias, source):
     if not s.validate():
         return False
     zFolder = get_root_from_file(file)
-    if folder.endswith(zFolder):
+    print('zFolder=%s'%zFolder)
+    print('folder=%s'%folder)
+    if zFolder and folder.endswith(zFolder):
         folder = config['build.folder']
     if not s.decompress(folder):
         return False
@@ -201,28 +212,34 @@ def fetch_sources(config, alias, source):
 
 def write_config(config, target):
     data = {}
-    for k, v in config.iteritems():
+    for k, v in config.items():
         data[k.replace('.', '_')] = v.replace('\\', '/')
     tpl = Template(CONFIG_TEMPLATE)
     result = tpl.safe_substitute(data)
 
     with open(os.path.join(target, 'build.cmake'), "w") as conf:
         conf.write(result)
-    print ' + CMake config written to: %s'%target
+    print(' + CMake config written to: %s'%target)
 
 boost_versions = {
     '2005': "msvc-8.0",
     '2012': "msvc-11.0_xp",
     '2013': "msvc-12.0_xp",
     '2014': "msvc-13.0_xp",
-    '2015': "msvc-14.0_xp"
+    '2015': "msvc-14.0_xp",
+    '2017': "msvc-15.0_xp",
+    '2019': "msvc-14.2",
+    '2022': "msvc-15.0_xp"
 }
 cmake_generator = { 
     '2005': "Visual Studio 8 2005", 
     '2012': "Visual Studio 11",
     '2013': "Visual Studio 12",
     '2014': "Visual Studio 13",
-    '2015': "Visual Studio 14"
+    '2015': "Visual Studio 14",
+    '2017': "Visual Studio 15",
+    '2019': "Visual Studio 16",
+    '2022': "Visual Studio 17"
 }
 
 parser = OptionParser()
@@ -231,7 +248,7 @@ parser.add_option("-t", "--target", help="Which target architecture to build (wi
 parser.add_option("-c", "--cmake-config", default="copy-target", help="Folder to place cmake configuration file in")
 parser.add_option("-s", "--source", help="Location of the nscp source folder")
 parser.add_option("-y", "--dyn", action="store_true", help="Use dynamic link")
-parser.add_option("--msver", default='2012', help="Which version of visual studio you have")
+parser.add_option("--msver", default='2019', help="Which version of visual studio you have")
 
 (options, args) = parser.parse_args()
 
@@ -248,7 +265,7 @@ if options.source:
     options.source = os.path.abspath(options.source)
 
 if not os.path.exists(options.source):
-    print 'ERR  NSCP source folder was not found (strange, thats where this script should be right?) --source=%s'%options.source
+    print('ERR  NSCP source folder was not found (strange, thats where this script should be right?) --source=%s'%options.source)
     sys.exit(1)
 
 msver = options.msver
@@ -264,16 +281,16 @@ config = {
 }
 
 cwd = os.getcwd()
-for node, d in data.iteritems():
-    print '****************************************************'
-    print '*'
-    print '* Building: %s'%node
-    print '*'
-    print '****************************************************'
-    print ''
+for node, d in data.items():
+    print('****************************************************')
+    print('*')
+    print('* Building: %s'%node)
+    print('*')
+    print('****************************************************')
+    print('')
     config['name'] = node
-    config['target.folder'] = os.path.join(options.directory, node)
-    config['target.rel.folder'] = node
+    config['target.rel.folder'] = d['folder'] if 'folder' in d else node
+    config['target.folder'] = os.path.join(options.directory, config['target.rel.folder'])
     config['source.folder'] = options.source
     config['architecture'] = 'x64' if options.target == 'x64' else 'w32'
     config['linkage'] = 'dynamic' if options.dyn else 'static'
@@ -287,10 +304,10 @@ for node, d in data.iteritems():
     config['%s.folder'%node] = config['target.folder']
     config['%s.rel.folder'%node] = config['target.rel.folder']
     for task in d['build']:
-        print ' + Executing %s'%task
+        print(' + Executing %s'%task)
         if task == 'fetch':
             if not fetch_sources(config, node, source):
-                print "FAILURE fetching source for: %s"%node
+                print("FAILURE fetching source for: %s"%node)
                 os.chdir(cwd)
                 sys.exit(1)
         elif task == 'mkdir':
@@ -298,13 +315,13 @@ for node, d in data.iteritems():
                 os.mkdir(config['target.folder'])
         else:
             if not os.path.exists(config['target.folder']):
-                print "FAILURE: No source for: %s"%node
+                print("FAILURE: No source for: %s"%node)
                 os.chdir(cwd)
                 sys.exit(1)
             os.chdir(config['target.folder'])
             commands = fetch_commands(config, tasks, task)
             if not run_commands(config, task, commands):
-                print "FAILURE"
+                print("FAILURE")
                 os.chdir(cwd)
                 sys.exit(1)
     
@@ -315,4 +332,4 @@ if options.cmake_config:
         options.cmake_config = config['build.folder']
     write_config(config, options.cmake_config)
 else:
-    print 'WARN Since you did not specify --cmake-config we will not write the cmake config file so most likely this was not very usefull...'
+    print('WARN Since you did not specify --cmake-config we will not write the cmake config file so most likely this was not very useful...')

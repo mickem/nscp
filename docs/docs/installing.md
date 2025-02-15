@@ -16,7 +16,7 @@ For most people installing NSClient++ is simply running the MSI entering some op
 Before you start NSClient++ you need to configure it by editing the configuration. The configuration is usually in a file called nsclient.ini.
 But the configuration can be stored elsewhere as will (for instance registry is a great place on Windows).
 
-To check where the configuration is stored you can trun the following command:
+To check where the configuration is stored, you can run the following command:
 ```
 $ nscp settings --show
 INI settings: (ini://${shared-path}/nsclient.ini, C:\source\build\x64\dev/nsclient.ini)
@@ -71,7 +71,7 @@ You can use group policies to push the configuration files but there are several
 The MSI file can be customized during the installer. The following keys are available:
 
 | Keyword            | Description                                                                                                             |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+|--------------------|-------------------------------------------------------------------------------------------------------------------------|
 | INSTALLLOCATION    | Folder where NSClient++ is installed.                                                                                   |
 | CONF_CAN_CHANGE    | Has to be set for all configuration changes to be applied.                                                              |
 | ADD_DEFAULTS       | Add default values to the configuration file.                                                                           |
@@ -83,7 +83,7 @@ The MSI file can be customized during the installer. The following keys are avai
 | CONF_NSCLIENT      | Enable NSClient Server (check_nt)                                                                                       |
 | CONF_SCHEDULER     | Enable Scheduler (required by NSCA)                                                                                     |
 | CONF_WEB           | Enabled WEB Server                                                                                                      |
-| NRPEMODE           | NRPE Mode (LEGACY = default old insecure SSL, SAFE = new secure SSL)                                                    |
+| NRPEMODE           | NRPE Mode (LEGACY, SECURE for using ceretificates)                                                                      |
 | NSCLIENT_PWD       | Password to use for check_nt (and web server)                                                                           |
 | CONF_INCLUDES      | Additional files to include in the config syntax: <alias>;<file> For instance CONF_INCLUDES=op5;op5.ini;local;local.ini |
 | OP5_SERVER         | OP5 Server if you want to automatically submit passive checks via Op5 northbound API.                                   |
@@ -91,7 +91,7 @@ The MSI file can be customized during the installer. The following keys are avai
 | OP5_PASSWORD       | The password to login with on the OP5_SERVER                                                                            |
 | OP5_HOSTGROUPS     | Additional hostgroups to add to the host.                                                                               |
 | OP5_CONTACTGROUP   | Additional contactgroups to add to the host.                                                                            |
-|                    |                                                                                                                         |
+| NO_SERVICE         | Set to 1 to disable installing the service (then you can manually create and activate the service when needed)          |
 
 ### Features
 

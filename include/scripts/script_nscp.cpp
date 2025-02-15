@@ -17,8 +17,6 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/foreach.hpp>
-
 #include <utf8.hpp>
 #include <nscapi/functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -58,8 +56,7 @@ void scripts::nscp::settings_provider_impl::register_path(std::string path, std:
 }
 
 void scripts::nscp::settings_provider_impl::register_key(std::string path, std::string key, std::string type, std::string title, std::string description, std::string defaultValue) {
-	NSCAPI::settings_type iType = scripts::settings_provider::parse_type(type);
-	settings_.register_key(path, key, iType, title, description, defaultValue, false, false);
+	settings_.register_key(path, key, title, description, defaultValue, false, false);
 }
 
 void scripts::nscp::settings_provider_impl::save() {
@@ -88,7 +85,7 @@ NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::simple_query(const std::
 		msg = "Command failed.";
 		return NSCAPI::query_return_codes::returnUNKNOWN;
 	}
- 	return nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf, -1);
+ 	return nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf, nscapi::protobuf::functions::no_truncation);
  }
 
 bool scripts::nscp::core_provider_impl::exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> & result) {

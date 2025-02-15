@@ -493,7 +493,7 @@ void lua::lua_script::luaopen(lua_State *L) {
 	Luna<registry_wrapper>::Register(L, "nscp");
 	Luna<settings_wrapper>::Register(L, "nscp");
 #ifdef HAVE_LUA_PB
-	lua_protobuf_Plugin_open(L);
+	lua_protobuf_PB_Commands_open(L);
 #else
 	GET_CORE()->log(NSCAPI::log_level::debug, __FILE__, __LINE__, "Lua not compiled with protocol buffer support");
 
@@ -507,7 +507,7 @@ boost::optional<boost::filesystem::path> lua::lua_script::find_script(boost::fil
 	checks.push_back(root / "scripts" / file);
 	checks.push_back(root / "lua" / file);
 	checks.push_back(root / file);
-	BOOST_FOREACH(boost::filesystem::path c, checks) {
+	for(boost::filesystem::path c: checks) {
 		if (boost::filesystem::exists(c))
 			return boost::optional<boost::filesystem::path>(c);
 		if (boost::filesystem::exists(c.string() + ".lua"))

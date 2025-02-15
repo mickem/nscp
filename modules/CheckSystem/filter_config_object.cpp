@@ -28,7 +28,6 @@
 
 #include <str/utils.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/date_time.hpp>
@@ -39,6 +38,7 @@
 
 
 namespace sh = nscapi::settings_helper;
+namespace ph = boost::placeholders;
 
 namespace filters {
 	namespace mem {
@@ -53,14 +53,14 @@ namespace filters {
 		void filter_config_object::set_data(std::string file_string) {
 			if (file_string.empty())
 				return;
-			BOOST_FOREACH(const std::string &s, str::utils::split_lst(file_string, std::string(","))) {
+			for(const std::string &s: str::utils::split_lst(file_string, std::string(","))) {
 				data.push_back(s);
 			}
 		}
 
-		void filter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			if (!get_value().empty())
-				filter.filter_string = get_value();
+				filter.set_filter_string(get_value().c_str());
 			bool is_default = parent::is_default();
 
 			nscapi::settings_helper::settings_registry settings(proxy);
@@ -72,7 +72,7 @@ namespace filters {
 				("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
 				;
 			root_path.add_key()
-				("type", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, _1)),
+				("type", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)),
 					"MEMORY TYPE", "The type of memory to check: physical, committed or virtual", false)
 				;
 
@@ -96,14 +96,14 @@ namespace filters {
 		void filter_config_object::set_data(std::string file_string) {
 			if (file_string.empty())
 				return;
-			BOOST_FOREACH(const std::string &s, str::utils::split_lst(file_string, std::string(","))) {
+			for(const std::string &s: str::utils::split_lst(file_string, std::string(","))) {
 				data.push_back(s);
 			}
 		}
 
-		void filter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			if (!get_value().empty())
-				filter.filter_string = get_value();
+				filter.set_filter_string(get_value().c_str());
 			bool is_default = parent::is_default();
 
 			nscapi::settings_helper::settings_registry settings(proxy);
@@ -112,7 +112,7 @@ namespace filters {
 				root_path.set_sample();
 
 			if (is_default) {
-				filter.filter_string = "core = 'total'";
+				filter.set_filter_string("core = 'total'");
 			}
 
 
@@ -120,7 +120,7 @@ namespace filters {
 				("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
 				;
 			root_path.add_key()
-				("time", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, _1)),
+				("time", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)),
 					"TIME", "A list of times to check (coma separated)", true)
 				;
 
@@ -143,14 +143,14 @@ namespace filters {
 		void filter_config_object::set_data(std::string file_string) {
 			if (file_string.empty())
 				return;
-			BOOST_FOREACH(const std::string &s, str::utils::split_lst(file_string, std::string(","))) {
+			for(const std::string &s: str::utils::split_lst(file_string, std::string(","))) {
 				data.push_back(s);
 			}
 		}
 
-		void filter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			if (!get_value().empty())
-				filter.filter_string = get_value();
+				filter.set_filter_string(get_value().c_str());
 			bool is_default = parent::is_default();
 
 			nscapi::settings_helper::settings_registry settings(proxy);
@@ -162,7 +162,7 @@ namespace filters {
 				("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
 				;
 			root_path.add_key()
-				("process", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, _1)),
+				("process", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)),
 					"PROCESS", "A list of processes to check (or * for all)", false)
 				;
 
@@ -187,7 +187,7 @@ namespace filters {
 			if (file_string.empty())
 				return;
 			data.clear();
-			BOOST_FOREACH(const std::string &s, str::utils::split_lst(file_string, std::string(","))) {
+			for(const std::string &s: str::utils::split_lst(file_string, std::string(","))) {
 				data.push_back(s);
 			}
 		}
@@ -198,9 +198,9 @@ namespace filters {
 			data.push_back(file_string);
 		}
 
-		void filter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			if (!get_value().empty())
-				filter.filter_string = get_value();
+				filter.set_filter_string(get_value().c_str());
 			bool is_default = parent::is_default();
 
 			nscapi::settings_helper::settings_registry settings(proxy);
@@ -223,19 +223,19 @@ namespace filters {
 
 			if (check == "memory") {
 				root_path.add_key()
-					("type", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, _1)),
+					("type", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)),
 						"MEMORY TYPE", "The type of memory to check: physical, committed or virtual", false)
 
-					("types", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, _1)),
+					("types", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, ph::_1)),
 						"MEMORY TYPES", "A list of types to check: physical, committed or virtual", true)
 					;
 			} else {
 
 				root_path.add_key()
-					("time", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, _1)),
+					("time", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)),
 						"TIME", "The time to check", false)
 
-					("times", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, _1)),
+					("times", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, ph::_1)),
 						"FILES", "A list of times to check (soma separated)", true)
 					;
 			}

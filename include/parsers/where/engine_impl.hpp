@@ -20,7 +20,6 @@
 #pragma once
 
 #include <boost/shared_ptr.hpp>
-#include <boost/foreach.hpp>
 
 #include <parsers/where/node.hpp>
 #include <parsers/where/engine.hpp>
@@ -49,7 +48,7 @@ namespace parsers {
 			void enable_debug(bool enable_debug) {
 				enable_debug_ = enable_debug;
 			}
-			void debug(std::string msg) {
+			void debug(const std::string msg) {
 				if (enable_debug_)
 					debugs_.push_back(msg);
 			}
@@ -86,7 +85,7 @@ namespace parsers {
 			}
 			virtual std::string get_error() const {
 				std::string ret;
-				BOOST_FOREACH(const std::string &m, errors_) {
+				for(const std::string &m: errors_) {
 					if (!ret.empty())
 						ret += ", ";
 					ret += m;
@@ -95,7 +94,7 @@ namespace parsers {
 			}
 			virtual std::string get_warn() const {
 				std::string ret;
-				BOOST_FOREACH(const std::string &m, warnings_) {
+				for(const std::string &m: warnings_) {
 					if (!ret.empty())
 						ret += ", ";
 					ret += m;
@@ -104,7 +103,7 @@ namespace parsers {
 			}
 			virtual std::string get_debug() const {
 				std::string ret;
-				BOOST_FOREACH(const std::string &m, debugs_) {
+				for(const std::string &m: debugs_) {
 					if (!ret.empty())
 						ret += ", ";
 					ret += m;

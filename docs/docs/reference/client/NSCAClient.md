@@ -86,8 +86,8 @@ Submit information to the remote NSCA server.
 | result                                |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                                                                                                    |
 | separator                             |               | Separator to use for the batch command (default is |)                                                                                                                     |
 | batch                                 |               | Add multiple records using the separator format is: command|result|message                                                                                                |
-| certificate                           |               | Length of payload (has to be same as on the server)                                                                                                                       |
-| dh                                    |               | Length of payload (has to be same as on the server)                                                                                                                       |
+| certificate                           |               | The client certificate to use                                                                                                                                             |
+| dh                                    |               | The DH key to use                                                                                                                                                         |
 | certificate-key                       |               | Client certificate to use                                                                                                                                                 |
 | certificate-format                    |               | Client certificate format                                                                                                                                                 |
 | ca                                    |               | Certificate authority                                                                                                                                                     |
@@ -115,18 +115,6 @@ Has to be the same as your server i using or it wont work at all.This is also in
 Available encryption algorithms are:
 none = No Encryption (not safe)
 xor = XOR
-des = DES
-3des = DES-EDE3
-cast128 = CAST-128
-xtea = XTEA
-blowfish = Blowfish
-twofish = Twofish
-rc2 = RC2
-aes128 = AES
-aes192 = AES
-aes = AES
-serpent = Serpent
-gost = GOST
 
 
 

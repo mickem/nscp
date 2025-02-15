@@ -19,7 +19,9 @@
 
 #include <boost/scoped_ptr.hpp>
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <nscapi/nscapi_protobuf_log.hpp>
 #include <nscapi/plugin.hpp>
 #include <client/simple_client.hpp>
 
@@ -49,8 +51,8 @@ public:
 	// Module calls
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
-	void handleLogMessage(const Plugin::LogEntry::Entry &message);
-	bool commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
-	void submitMetrics(const Plugin::MetricsMessage &response);
+	void handleLogMessage(const PB::Log::LogEntry::Entry &message);
+	bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
+	void submitMetrics(const PB::Metrics::MetricsMessage &response);
 
 };

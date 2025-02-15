@@ -1,0 +1,185 @@
+syntax = "proto3";
+
+package PB.Common;
+
+//option optimize_for = CODE_SIZE;
+option optimize_for = LITE_RUNTIME;
+
+//
+// Common utility types (re-used in various messages below)
+//
+
+	//
+	// A "Nagios" status result.
+	//
+	enum ResultCode {
+		// An ok status in Nagios
+		OK			= 0;
+		// A warning status in Nagios
+		WARNING		= 1;
+		// A critical status in Nagios
+		CRITICAL	= 2;
+		// Not able to determine status in Nagios
+		UNKNOWN		= 3;
+	};
+
+	//
+	// Type of data fields.
+	// @deprecated in favor of checking which field is available.
+	//
+	enum DataType {
+		DUMMY = 0;
+		// Number (64 bit signed)
+		INT = 1;
+		STRING = 2;
+		FLOAT = 3;
+		BOOL = 4;
+		LIST = 5;
+	};
+
+	//
+	// Key value pair
+	//
+	message KeyValue {
+
+		// The key identifying the value
+		string key = 1;
+
+		// The value
+		string value = 2;
+	}
+
+
+	//
+	// Field identifying a host entry
+	//
+	message Host {
+
+		// A unique identifier representing the host in *this* message
+		string id = 1;
+
+		// The host name
+		string host = 2;
+
+		// The address
+		string address = 3;
+
+		// The protocol used to talk whit this host.
+		string protocol = 4;
+
+		// A comment describing the host
+		string comment = 5;
+
+		// A key value store with attributes describing this host.
+		// The content and use of this attributes are application defined.
+		repeated Common.KeyValue metadata = 6;
+
+		// A number of tags defined for this host
+		repeated string tags = 7;
+	};
+
+	//
+	// A common header used in all messages.
+	// Contains basic information about the message.
+	//
+	message Header {
+
+		// Command.
+		// A bundle command when the entire chunk is sent "as-is".
+		string command = 1;
+
+		// Source (sending) system.
+		// This is the system which sends the message (me).
+		string source_id = 3;
+
+		// Sender is the original source of the message.
+		// This is same as source unless message has been relayed.
+		string sender_id = 4;
+
+		// Recipient is the final destination.
+		// This is the same as destination_id unless message is to be relayed.
+		string recipient_id = 5;
+
+		// Destination (target) system.
+		// The system which will receive the message next.
+		string destination_id = 6;
+
+		// Message identification.
+		// Has no meaning apart from identification.
+		// Set by source system and retained in any processing system.
+		string message_id = 16;
+
+		// Meta data related to the message.
+		repeated Common.KeyValue metadata = 8;
+
+		// A list of tags associated with the message.
+		repeated string tags = 9;
+
+		// A list of hosts.
+		// All recipient/destination ids point to objects in this data set.
+		repeated Host hosts = 10;
+	};
+	
+	message OptionalFloat {
+		double value = 1;
+	}
+	message OptionalString {
+		string value = 1;
+	}
+	
+
+	//
+	// How metrics are encoded into check results
+	// Nagios calls this performance data and we inherited the name.
+	//
+	message PerformanceData {
+		//
+		// Textual performance data
+		//
+		message StringValue {
+			// The value
+			string value = 1;
+		}
+
+		//
+		// Floating point performance data
+		//
+		message FloatValue {
+			// The value we are tracking
+			double value = 1;
+			// The unit of all the values
+			string unit = 2;
+			// The warning threshold (if available)
+			OptionalFloat warning = 3;
+			// The warning critical (if available)
+			OptionalFloat critical = 4;
+			// The lowest possible value
+			OptionalFloat minimum = 6;
+			// The highest possible value
+			OptionalFloat maximum = 7;
+		}
+		// The name of the value
+		string alias = 1;
+		oneof value {
+			// If the value is an integer (can be only one)
+			StringValue string_value = 4;
+			// If the value is a floating point number (can be only one)
+			FloatValue float_value = 5;
+		}
+	}
+	
+	message Result {
+
+		enum StatusCodeType {
+			STATUS_OK = 0;
+			STATUS_WARNING = 1;
+			STATUS_ERROR = 2;
+			STATUS_DELAYED = 3;
+		};
+
+		StatusCodeType code = 1;
+		string message = 2;
+		string data = 3;
+	}	
+
+//};

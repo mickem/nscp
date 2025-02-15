@@ -1,10 +1,10 @@
 #pragma once
 
 #include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
 
 #include <boost/shared_ptr.hpp>
+#include <boost/filesystem/path.hpp>
 
 #include <string>
 

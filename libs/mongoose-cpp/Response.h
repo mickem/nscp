@@ -1,11 +1,12 @@
-#ifndef _MONGOOSE_RESPONSE_H
-#define _MONGOOSE_RESPONSE_H
+#pragma once
 
 #include "dll_defines.hpp"
+#ifdef WIN32
+#pragma warning(disable:4251)
+#endif
 
 #include <map>
-#include <sstream>
-#include <iostream>
+#include <string>
 
 #define HTTP_OK 200
 #define HTTP_BAD_REQUEST 400
@@ -14,8 +15,15 @@
 #define HTTP_SERVER_ERROR 500
 #define HTTP_SERVICE_UNAVALIBLE 503
 
+#define REASON_OK "OK"
+#define REASON_SERVER_ERROR "Error"
+#define REASON_NOT_FOUND "Not Found"
+#define REASON_BAD_REQUEST "Bad Request"
+#define REASON_SERVICE_UNAVALIBLE "Service Unavaible"
+#define REASON_FORBIDDEN "Forbidden"
 
 #define HTTP_HDR_AUTH "Authorization"
+#define HTTP_HDR_AUTH_LC "authorization"
 /**
  * A response to a request
  */
@@ -46,14 +54,6 @@ namespace Mongoose
             virtual void setHeader(std::string key, std::string value);
 
             /**
-             * Get the data of the response, this will contain headers and
-             * body
-             *
-             * @return string the response data
-             */
-            virtual std::string getData();
-
-            /**
              * Gets the response body
              *
              * @return string the response body
@@ -72,13 +72,14 @@ namespace Mongoose
             /**
              * Sets the response code
              */
-            virtual void setCode(int code);
+            virtual void setCode(int code_, std::string reason_);
 
+			virtual void setCodeOk();
 			/**
 			* Get a cookie from the cookie list.
 			* @param string the key of the cookie
 			*/
-			virtual std::string getCookie(std::string key);
+			virtual std::string getCookie(std::string key) const ;
 
 			typedef std::map<std::string, std::string> header_type;
 
@@ -87,11 +88,11 @@ namespace Mongoose
 			header_type& get_headers() {
 				return headers;
 			}
-        protected:
-            int code;
+        int getCode() { return code; }
+        private:
+			int code;
+			std::string reason;
 			header_type headers;
 			header_type cookies;
 	};
 }
-
-#endif

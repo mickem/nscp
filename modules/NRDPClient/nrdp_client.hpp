@@ -69,12 +69,12 @@ namespace nrdp_client {
 	};
 
 	struct nrdp_client_handler : public client::handler_interface {
-		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
+		bool query(client::destination_container sender, client::destination_container target, const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message) {
 			return false;
 		}
 
-		bool submit(client::destination_container sender, client::destination_container target, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
-			const ::Plugin::Common_Header& request_header = request_message.header();
+		bool submit(client::destination_container sender, client::destination_container target, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage &response_message) {
+			const PB::Common::Header& request_header = request_message.header();
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 			connection_data con(target, sender);
 
@@ -84,7 +84,7 @@ namespace nrdp_client {
 
 			nrdp::data nrdp_data;
 
-			BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response &p, request_message.payload()) {
+			for(const ::PB::Commands::QueryResponseMessage_Response &p: request_message.payload()) {
 				std::string msg = nscapi::protobuf::functions::query_data_to_nagios_string(p, nscapi::protobuf::functions::no_truncation);
 				std::string alias = p.alias();
 				if (alias.empty())
@@ -99,15 +99,15 @@ namespace nrdp_client {
 			return true;
 		}
 
-		bool exec(client::destination_container sender, client::destination_container target, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
+		bool exec(client::destination_container sender, client::destination_container target, const PB::Commands::ExecuteRequestMessage &request_message, PB::Commands::ExecuteResponseMessage &response_message) {
 			return false;
 		}
 
-		bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) {
+		bool metrics(client::destination_container sender, client::destination_container target, const PB::Metrics::MetricsMessage &request_message) {
 			return false;
 		}
 
-		void send(Plugin::SubmitResponseMessage::Response *payload, connection_data con, const nrdp::data &nrdp_data) {
+		void send(PB::Commands::SubmitResponseMessage::Response *payload, connection_data con, const nrdp::data &nrdp_data) {
 			try {
 				NSC_TRACE_ENABLED() {
 					NSC_TRACE_MSG("Connecting tuo: " + con.to_string());
@@ -123,7 +123,7 @@ namespace nrdp_client {
 					NSC_TRACE_MSG("Sending: " + nrdp_data.render_request());
 				}
 				std::ostringstream os;
-				http::response response = c.execute(os, "http", con.get_address(), con.get_port(), request);
+				http::response response = c.execute(os, con.get_address(), con.get_port(), request);
 				response.payload_ = os.str();
 				NSC_TRACE_ENABLED() {
 					NSC_TRACE_MSG("Recieved: " + response.payload_);

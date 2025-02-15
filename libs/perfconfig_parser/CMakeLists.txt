@@ -1,36 +1,28 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.5)
 
-SET(TARGET perfconfig_parser)
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
+set(TARGET perfconfig_parser)
+add_definitions(${NSCP_GLOBAL_DEFINES})
 
-SET(SRCS
-	${NSCP_INCLUDEDIR}/parsers/perfconfig/perfconfig.cpp
-)
-IF(WIN32)
-	SET(SRCS ${SRCS}
-		${NSCP_INCLUDEDIR}/parsers/perfconfig/perfconfig.hpp
-	)
-ENDIF(WIN32)
+set(SRCS ${NSCP_INCLUDEDIR}/parsers/perfconfig/perfconfig.cpp)
+if(WIN32)
+  set(SRCS ${SRCS} ${NSCP_INCLUDEDIR}/parsers/perfconfig/perfconfig.hpp)
+endif(WIN32)
 
-ADD_LIBRARY(${TARGET} STATIC ${SRCS})
-SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "libraries")
-IF(CMAKE_COMPILER_IS_GNUCXX)
-	IF("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
-		SET_TARGET_PROPERTIES(${TARGET} PROPERTIES COMPILE_FLAGS -fPIC)
-	ENDIF("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
-ENDIF(CMAKE_COMPILER_IS_GNUCXX)
+add_library(${TARGET} STATIC ${SRCS})
+nscp_debug_symbols(${TARGET})
 
+set_target_properties(${TARGET} PROPERTIES FOLDER "libraries")
+if(CMAKE_COMPILER_IS_GNUCXX)
+  if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
+    set_target_properties(${TARGET} PROPERTIES COMPILE_FLAGS -fPIC)
+  endif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
+endif(CMAKE_COMPILER_IS_GNUCXX)
 
-IF(GTEST_FOUND)
-	INCLUDE_DIRECTORIES(${GTEST_INCLUDE_DIR})
-	SET(SRCS
-		perfconfig_test.cpp
-	)
-	NSCP_MAKE_EXE_TEST(${TARGET}_test ${SRCS})
-	NSCP_ADD_TEST(${TARGET}_test ${TARGET}_test)
-	TARGET_LINK_LIBRARIES(${TARGET}_test
-		${GTEST_GTEST_LIBRARY}
-		${GTEST_GTEST_MAIN_LIBRARY}
-		${TARGET}
-	)
-ENDIF(GTEST_FOUND)
+if(GTEST_FOUND)
+  include_directories(${GTEST_INCLUDE_DIR})
+  set(SRCS perfconfig_test.cpp)
+  nscp_make_exe_test(${TARGET}_test ${SRCS})
+  nscp_add_test(${TARGET}_test ${TARGET}_test)
+  target_link_libraries(${TARGET}_test ${GTEST_GTEST_LIBRARY}
+                        ${GTEST_GTEST_MAIN_LIBRARY} ${TARGET})
+endif(GTEST_FOUND)

@@ -117,7 +117,7 @@ namespace nsclient {
 
 			std::string getModule();
 
-			void on_log_message(std::string &payload) {}
+			void on_log_message(std::string &) {}
 			std::string get_version();
 
 		private:

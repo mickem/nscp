@@ -32,6 +32,8 @@
 
 namespace graphite_handler {
 	namespace sh = nscapi::settings_helper;
+	namespace ph = boost::placeholders;
+
 
 	struct graphite_target_object : public nscapi::targets::target_object {
 		typedef nscapi::targets::target_object parent;
@@ -46,7 +48,7 @@ namespace graphite_handler {
 		}
 		graphite_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
 
-		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			parent::read(proxy, oneliner, is_sample);
 
 			nscapi::settings_helper::settings_registry settings(proxy);
@@ -59,35 +61,35 @@ namespace graphite_handler {
 
 				root_path.add_key()
 
-					("path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "perf path", _1), "nsclient.${hostname}.${check_alias}.${perf_alias}"),
+					("path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "perf path", ph::_1), "nsclient.${hostname}.${check_alias}.${perf_alias}"),
 						"PATH FOR METRICS", "Path mapping for metrics")
 
-					("status path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "status path", _1), "nsclient.${hostname}.${check_alias}.status"),
+					("status path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "status path", ph::_1), "nsclient.${hostname}.${check_alias}.status"),
 						"PATH FOR STATUS", "Path mapping for status")
 
-					("send perfdata", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send perfdata", _1), true),
+					("send perfdata", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send perfdata", ph::_1), true),
 						"SEND PERF DATA", "Send performance data to this server")
 
-					("send status", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send status", _1), true),
+					("send status", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send status", ph::_1), true),
 						"SEND STATUS", "Send status data to this server")
 
-					("metric path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "metric path", _1), "nsclient.${hostname}.${metric}"),
+					("metric path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "metric path", ph::_1), "nsclient.${hostname}.${metric}"),
 					"PATH FOR METRICS", "Path mapping for metrics")
 
 					;
 			} else {
 				root_path.add_key()
 
-					("path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "perf path", _1)),
+					("path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "perf path", ph::_1)),
 						"PATH FOR METRICS", "Path mapping for metrics")
 
-					("status path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "status path", _1)),
+					("status path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "status path", ph::_1)),
 						"PATH FOR STATUS", "Path mapping for status")
 
-					("send perfdata", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send perfdata", _1)),
+					("send perfdata", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send perfdata", ph::_1)),
 						"SEND PERF DATA", "Send performance data to this server")
 
-					("send status", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send status", _1)),
+					("send status", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send status", ph::_1)),
 						"SEND STATUS", "Send status data to this server")
 
 					;
@@ -107,7 +109,7 @@ namespace graphite_handler {
 
 		void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
 			desc.add_options()
-				("path", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "path", _1)),
+				("path", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "path", ph::_1)),
 					"")
 
 				;

@@ -24,6 +24,7 @@
 #include <nscapi/nscapi_settings_object.hpp>
 
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <string>
 
@@ -67,7 +68,7 @@ namespace commands {
 			return ss.str();
 		}
 
-		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			parent::read(proxy, oneliner, is_sample);
 			set_alias(boost::algorithm::to_lower_copy(get_alias()));
 			set_command(get_value());
@@ -83,7 +84,7 @@ namespace commands {
 					;
 
 				root_path.add_key()
-					("command", sh::string_fun_key(boost::bind(&command_object::set_command, this, _1)),
+					("command", sh::string_fun_key(boost::bind(&command_object::set_command, this, boost::placeholders::_1)),
 						"COMMAND", "Command to execute")
 
 					("user", nscapi::settings_helper::string_key(&user),

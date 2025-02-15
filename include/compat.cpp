@@ -27,7 +27,7 @@
 namespace compat {
 	namespace po = boost::program_options;
 
-	void log_args(const Plugin::QueryRequestMessage::Request &request) {
+	void log_args(const PB::Commands::QueryRequestMessage::Request &request) {
 		std::stringstream ss;
 		for (int i = 0; i < request.arguments_size(); i++) {
 			if (i > 0)
@@ -93,7 +93,7 @@ namespace compat {
 		do_matchFirstNumeric(vm, "crit", crit, "crit", var, ">=");
 	}
 
-	void matchShowAll(const boost::program_options::variables_map &vm, Plugin::QueryRequestMessage::Request &request, std::string prefix) {
+	void matchShowAll(const boost::program_options::variables_map &vm, PB::Commands::QueryRequestMessage::Request &request, std::string prefix) {
 		if (vm.count("ShowAll")) {
 			request.add_arguments("show-all");
 		}

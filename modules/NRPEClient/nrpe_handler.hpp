@@ -29,12 +29,15 @@
 
 namespace nrpe_handler {
 	namespace sh = nscapi::settings_helper;
+	namespace ph = boost::placeholders;
+
 
 	struct nrpe_target_object : public nscapi::targets::target_object {
 		typedef nscapi::targets::target_object parent;
 
 		nrpe_target_object(std::string alias, std::string path) : parent(alias, path) {
 			set_property_int("timeout", 30);
+			set_property_int("version", 2);
 			set_property_string("certificate", "${certificate-path}/certificate.pem");
 			set_property_string("certificate key", "");
 			set_property_string("certificate format", "PEM");
@@ -43,11 +46,12 @@ namespace nrpe_handler {
 			set_property_bool("insecure", false);
 			set_property_bool("ssl", true);
 			set_property_int("payload length", 1024);
+			set_property_int("version", 2);
 		}
 
 		nrpe_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
 
-		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			parent::read(proxy, oneliner, is_sample);
 
 			nscapi::settings_helper::settings_registry settings(proxy);
@@ -58,11 +62,15 @@ namespace nrpe_handler {
 
 			root_path.add_key()
 
-				("insecure", sh::path_fun_key(boost::bind(&parent::set_property_string, this, "insecure", _1)),
+				("insecure", sh::path_fun_key(boost::bind(&parent::set_property_string, this, "insecure", ph::_1)),
 					"Insecure legacy mode", "Use insecure legacy mode to connect to old NRPE server", false)
 
-				("payload length", sh::int_fun_key(boost::bind(&parent::set_property_int, this, "payload length", _1)),
+				("payload length", sh::int_fun_key(boost::bind(&parent::set_property_int, this, "payload length", ph::_1)),
 					"PAYLOAD LENGTH", "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
+
+				("version", sh::int_fun_key(boost::bind(&parent::set_property_int, this, "version", ph::_1)),
+					"Version", "The NRPE Version to use (2 or 4).")
+
 				;
 			settings.register_all();
 			settings.notify();
@@ -104,13 +112,16 @@ namespace nrpe_handler {
 
 			desc.add_options()
 
-				("insecure", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&client::destination_container::set_bool_data, &target, "insecure", _1)),
+				("insecure", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&client::destination_container::set_bool_data, &target, "insecure", ph::_1)),
 					"Use insecure legacy mode")
 
-				("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "payload length", _1)),
+				("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "payload length", ph::_1)),
 					"Length of payload (has to be same as on the server)")
 
-				("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "payload length", _1)),
+				("version", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "version", ph::_1)),
+					"The NRPE version to use (2 or 4)")
+
+				("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "payload length", ph::_1)),
 					"Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
 				;
 		}

@@ -27,7 +27,7 @@
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 
 #include <config.h>
 #include <str/utils.hpp>
@@ -36,9 +36,10 @@
 
 #include <boost/regex.hpp>
 #include <boost/filesystem.hpp>
-#include <boost/foreach.hpp>
+#include <boost/bind/bind.hpp>
 
 namespace sh = nscapi::settings_helper;
+namespace ph = boost::placeholders;
 
 CheckExternalScripts::CheckExternalScripts() 
 {}
@@ -86,7 +87,7 @@ void CheckExternalScripts::addAllScriptsFrom(std::string str_path) {
 
 bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	try {
-		sh::settings_registry settings(get_settings_proxy());
+		sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 		settings.set_alias(alias, "external scripts");
 
 		aliases_.set_path(settings.alias().get_settings_path("alias"));
@@ -101,7 +102,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 				, "Script wrappings", "A list of templates for defining script commands.\nEnter any command line here and they will be expanded by scripts placed under the wrapped scripts section. %SCRIPT% will be replaced by the actual script an %ARGS% will be replaced by any given arguments.",
 				"WRAPPING", "An external script wrapping")
 
-			("alias", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_alias, this, _1, _2)),
+			("alias", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_alias, this, ph::_1, ph::_2)),
 				"Command aliases", "A list of aliases for already defined commands (with arguments).\n"
 				"An alias is an internal command that has been predefined to provide a single command without arguments. Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)",
 				"ALIAS", "Query alias")
@@ -114,17 +115,17 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
 		if (wrappings.find("ps1") == wrappings.end()) {
 			wrappings["ps1"] = "cmd /c echo If (-Not (Test-Path \"scripts\\%SCRIPT%\") ) { Write-Host \"UNKNOWN: Script `\"%SCRIPT%`\" not found.\"; exit(3) }; scripts\\%SCRIPT% $ARGS$; exit($lastexitcode) | powershell.exe /noprofile -command -";
-			settings.register_key(wrappings_path, "ps1", NSCAPI::key_string, "POWERSHELL WRAPPING", "Command line used for executing wrapped ps1 (powershell) scripts", "cmd /c echo If (-Not (Test-Path \"scripts\\%SCRIPT%\") ) { Write-Host \"UNKNOWN: Script `\"%SCRIPT%`\" not found.\"; exit(3) }; scripts\\%SCRIPT% $ARGS$; exit($lastexitcode) | powershell.exe /noprofile -command -", false);
+			settings.register_key(wrappings_path, "ps1", "POWERSHELL WRAPPING", "Command line used for executing wrapped ps1 (powershell) scripts", "cmd /c echo If (-Not (Test-Path \"scripts\\%SCRIPT%\") ) { Write-Host \"UNKNOWN: Script `\"%SCRIPT%`\" not found.\"; exit(3) }; scripts\\%SCRIPT% $ARGS$; exit($lastexitcode) | powershell.exe /noprofile -command -", false);
 			settings.set_static_key(wrappings_path, "ps1", wrappings["ps1"]);
 		}
 		if (wrappings.find("vbs") == wrappings.end()) {
 			wrappings["vbs"] = "cscript.exe //T:30 //NoLogo scripts\\\\lib\\\\wrapper.vbs %SCRIPT% %ARGS%";
-			settings.register_key(wrappings_path, "vbs", NSCAPI::key_string, "Visual basic script", "Command line used for wrapped vbs scripts", "cscript.exe //T:30 //NoLogo scripts\\\\lib\\\\wrapper.vbs %SCRIPT% %ARGS%", false);
+			settings.register_key(wrappings_path, "vbs", "Visual basic script", "Command line used for wrapped vbs scripts", "cscript.exe //T:30 //NoLogo scripts\\\\lib\\\\wrapper.vbs %SCRIPT% %ARGS%", false);
 			settings.set_static_key(wrappings_path, "vbs", wrappings["vbs"]);
 		}
 		if (wrappings.find("bat") == wrappings.end()) {
 			wrappings["bat"] = "scripts\\\\%SCRIPT% %ARGS%";
-			settings.register_key(wrappings_path, "bat", NSCAPI::key_string, "Batch file", "Command used for executing wrapped batch files", "scripts\\\\%SCRIPT% %ARGS%", false);
+			settings.register_key(wrappings_path, "bat", "Batch file", "Command used for executing wrapped batch files", "scripts\\\\%SCRIPT% %ARGS%", false);
 			settings.set_static_key(wrappings_path, "bat", wrappings["bat"]);
 		}
 
@@ -181,11 +182,11 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
 			("External script settings", "General settings for the external scripts module (CheckExternalScripts).")
 
-			("scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_command, this, _1, _2)),
+			("scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_command, this, ph::_1, ph::_2)),
 			"External scripts", "A list of scripts available to run from the CheckExternalScripts module. Syntax is: `command=script arguments`",
 			"SCRIPT", "For more configuration options add a dedicated section (if you add a new section you can customize the user and various other advanced features)")
 
-			("wrapped scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_wrapping, this, _1, _2)),
+			("wrapped scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_wrapping, this, ph::_1, ph::_2)),
 			"Wrapped scripts", "A list of wrapped scripts (ie. script using a template mechanism).\nThe template used will be defined by the extension of the script. Thus a foo.ps1 will use the ps1 wrapping from the wrappings section.",
 			"WRAPPED SCRIPT", "A wrapped script definitions")
 
@@ -228,13 +229,13 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 			addAllScriptsFrom(scriptDirectory);
 		}
 
-		aliases_.add_samples(get_settings_proxy());
-		aliases_.add_missing(get_settings_proxy(), "default", "");
+		aliases_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
+		aliases_.add_missing(nscapi::settings_proxy::create(get_id(), get_core()), "default", "");
 
 		root_ = get_base_path();
 
 		nscapi::core_helper core(get_core(), get_id());
-		BOOST_FOREACH(const boost::shared_ptr<alias::command_object> &o, aliases_.get_object_list()) {
+		for(const boost::shared_ptr<alias::command_object> &o: aliases_.get_object_list()) {
 			core.register_alias(o->get_alias(), "Alias for: " + o->command);
 		}
 	} catch (...) {
@@ -248,7 +249,7 @@ bool CheckExternalScripts::unloadModule() {
 	return true;
 }
 
-bool CheckExternalScripts::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+bool CheckExternalScripts::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &) {
 	std::string command = request.command();
 	if (command == "ext-scr" && request.arguments_size() > 0)
 		command = request.arguments(0);
@@ -302,7 +303,7 @@ void CheckExternalScripts::add_command(std::string key, std::string arg) {
 }
 void CheckExternalScripts::add_alias(std::string key, std::string arg) {
 	try {
-		aliases_.add(get_settings_proxy(), key, arg);
+		aliases_.add(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add: " + key, e);
 	} catch (...) {
@@ -319,7 +320,7 @@ void CheckExternalScripts::add_wrapping(std::string key, std::string command) {
 	add_command(key, provider_->generate_wrapped_command(command));
 }
 
-void CheckExternalScripts::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &) {
+void CheckExternalScripts::query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, const PB::Commands::QueryRequestMessage &) {
 	if (!provider_) {
 		NSC_LOG_ERROR_STD("No provider found: " + request.command());
 		nscapi::protobuf::functions::set_response_bad(*response, "No command or alias found matching: " + request.command());
@@ -344,12 +345,12 @@ void CheckExternalScripts::query_fallback(const Plugin::QueryRequestMessage::Req
 	nscapi::protobuf::functions::set_response_bad(*response, "No command or alias found matching: " + request.command());
 }
 
-void CheckExternalScripts::handle_command(const commands::command_object &cd, const std::list<std::string> &args, Plugin::QueryResponseMessage::Response *response) {
+void CheckExternalScripts::handle_command(const commands::command_object &cd, const std::list<std::string> &args, PB::Commands::QueryResponseMessage::Response *response) {
 	std::string cmdline = cd.command;
 	std::string all, allesc;
 	if (allowArgs_) {
 		int i = 1;
-		BOOST_FOREACH(const std::string &str, args) {
+		for(const std::string &str: args) {
 			if (!allowNasty_ && str.find_first_of(NASTY_METACHARS) != std::string::npos) {
 				nscapi::protobuf::functions::set_response_bad(*response, "Request contained illegal characters set /settings/external scripts/allow nasty characters=true!");
 				return;
@@ -414,7 +415,7 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 	if (!arg.ignore_perf) {
 		pos = output.find('|');
 		if (pos != std::string::npos) {
-			::Plugin::QueryResponseMessage_Response_Line* line = response->add_lines();
+			::PB::Commands::QueryResponseMessage_Response_Line* line = response->add_lines();
 			line->set_message(output.substr(0, pos));
 			nscapi::protobuf::functions::parse_performance_data(line, output.substr(pos + 1));
 		} else {
@@ -427,10 +428,10 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 	response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(result));
 }
 
-void CheckExternalScripts::handle_alias(const alias::command_object &cd, const std::list<std::string> &src_args, Plugin::QueryResponseMessage::Response *response) {
+void CheckExternalScripts::handle_alias(const alias::command_object &cd, const std::list<std::string> &src_args, PB::Commands::QueryResponseMessage::Response *response) {
 	std::list<std::string> args = cd.arguments;
 	bool missing_args = false;
-	BOOST_FOREACH(const std::string &s, src_args) {
+	for(const std::string &s: src_args) {
 		if (s == "help-pb") {
 			std::stringstream ss;
 			int i = 1;
@@ -438,7 +439,7 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 			bool found = true;
 			while (found) {
 				found = false;
-				BOOST_FOREACH(std::string &arg, args) {
+				for(std::string &arg: args) {
 					if (arg.find("$ARG" + str::xtos(i++) + "$") != std::string::npos) {
 						ss << "$ARG" << str::xtos(i++) << "$,false,," << arg << "\n";
 						found = true;
@@ -454,9 +455,9 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 		}
 	}
 
-	BOOST_FOREACH(std::string &arg, args) {
+	for(std::string &arg: args) {
 		int i = 1;
-		BOOST_FOREACH(const std::string &str, src_args) {
+		for(const std::string &str: src_args) {
 			str::utils::replace(arg, "$ARG" + str::xtos(i) + "$", str);
 			str::utils::replace(arg, "%ARG" + str::xtos(i) + "%", str);
 			i++;
@@ -475,7 +476,7 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + cd.get_alias());
 		return;
 	}
-	Plugin::QueryResponseMessage tmp;
+	PB::Commands::QueryResponseMessage tmp;
 	tmp.ParseFromString(buffer);
 	if (tmp.payload_size() != 1) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Invalid response from command: " + cd.get_alias());

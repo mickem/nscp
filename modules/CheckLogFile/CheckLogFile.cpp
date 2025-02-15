@@ -35,7 +35,7 @@ namespace po = boost::program_options;
 bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	thread_.reset(new real_time_thread(get_core(), get_id()));
 
-	sh::settings_registry settings(get_settings_proxy());
+	sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 	settings.set_alias(alias, "logfile");
 
 	thread_->filters_.set_path(settings.alias().get_settings_path("real-time/checks"));
@@ -44,7 +44,7 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 
 		("real-time", "Real-time filtering", "A set of options to configure the real time checks")
 
-		("real-time/checks", sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, get_settings_proxy(), _1, _2)),
+		("real-time/checks", sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, settings.get_settings(), boost::placeholders::_1, boost::placeholders::_2)),
 			"Real-time filters", "A set of filters to use in real-time mode",
 			"REALTIME FILTER DEFENTION", "For more configuration options add a dedicated section"
 			)
@@ -52,7 +52,7 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 
 	settings.alias().add_key_to_settings("real-time")
 
-		("enabled", sh::bool_fun_key(boost::bind(&real_time_thread::set_enabled, thread_, _1), false),
+		("enabled", sh::bool_fun_key(boost::bind(&real_time_thread::set_enabled, thread_, boost::placeholders::_1), false),
 			"Real time", "Spawns a background thread which waits for file changes.")
 
 		;
@@ -61,7 +61,7 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 	settings.notify();
 
 
-	thread_->filters_.add_samples(get_settings_proxy());
+	thread_->filters_.add_samples(settings.get_settings());
 	if (mode == NSCAPI::normalStart) {
 		if (!thread_->start())
 			NSC_LOG_ERROR_STD("Failed to start collection thread");
@@ -74,7 +74,7 @@ bool CheckLogFile::unloadModule() {
 	return true;
 }
 
-void CheckLogFile::check_logfile(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	typedef logfile_filter::filter filter_type;
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
@@ -122,7 +122,7 @@ void CheckLogFile::check_logfile(const Plugin::QueryRequestMessage::Request &req
 	if (!filter_helper.build_filter(filter))
 		return;
 
-	BOOST_FOREACH(const std::string &filename, file_list) {
+	for(const std::string &filename: file_list) {
 		std::ifstream file(filename.c_str());
 		if (file.is_open()) {
 			std::string line;

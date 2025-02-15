@@ -28,7 +28,6 @@
 
 #include <str/utils.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/date_time.hpp>
@@ -52,7 +51,7 @@ namespace filters {
 		if (file_string.empty())
 			return;
 		files.clear();
-		BOOST_FOREACH(const std::string &s, str::utils::split_lst(file_string, std::string(","))) {
+		for(const std::string &s: str::utils::split_lst(file_string, std::string(","))) {
 			files.push_back(s);
 		}
 	}
@@ -63,9 +62,9 @@ namespace filters {
 		files.push_back(file_string);
 	}
 
-	void filter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+	void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 		if (!get_value().empty())
-			filter.filter_string = get_value();
+			filter.set_filter_string(get_value().c_str());
 		bool is_default = parent::is_default();
 
 		nscapi::settings_helper::settings_registry settings(proxy);
@@ -81,10 +80,10 @@ namespace filters {
 			;
 
 		root_path.add_key()
-			("file", sh::string_fun_key(boost::bind(&filter_config_object::set_file, this, _1)),
+			("file", sh::string_fun_key(boost::bind(&filter_config_object::set_file, this, boost::placeholders::_1)),
 				"FILE", "The eventlog record to filter on (if set to 'all' means all enabled logs)", false)
 
-			("files", sh::string_fun_key(boost::bind(&filter_config_object::set_files, this, _1)),
+			("files", sh::string_fun_key(boost::bind(&filter_config_object::set_files, this, boost::placeholders::_1)),
 				"FILES", "The eventlog record to filter on (if set to 'all' means all enabled logs)", true)
 
 			("column split", nscapi::settings_helper::string_key(&column_split),

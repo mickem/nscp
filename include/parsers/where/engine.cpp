@@ -20,7 +20,6 @@
 #include <str/format.hpp>
 
 #include <parsers/where/engine.hpp>
-#include <boost/foreach.hpp>
 
 namespace parsers {
 	namespace where {
@@ -103,7 +102,7 @@ namespace parsers {
 		}
 
 		engine::engine(std::vector<std::string> filter, error_handler error) : error(error) {
-			BOOST_FOREACH(const std::string &s, filter) {
+			for(const std::string &s: filter) {
 				filters_.push_back(engine_filter(s));
 			}
 		}
@@ -117,7 +116,7 @@ namespace parsers {
 		}
 
 		bool engine::validate(object_factory context) {
-			BOOST_FOREACH(engine_filter &f, filters_) {
+			for(engine_filter &f: filters_) {
 				if (!f.validate(error, context, perf_collection, boundries))
 					return false;
 			}
@@ -125,7 +124,7 @@ namespace parsers {
 		}
 
 		bool engine::match(execution_context_type context, bool expect_object) {
-			BOOST_FOREACH(engine_filter &f, filters_) {
+			for(engine_filter &f: filters_) {
 				if (f.match(error, context, expect_object))
 					return true;
 			}
@@ -134,7 +133,7 @@ namespace parsers {
 
 		std::string engine::to_string() const {
 			std::string ret = "";
-			BOOST_FOREACH(const engine_filter &f, filters_) {
+			for(const engine_filter &f: filters_) {
 				str::format::append_list(ret, f.to_string(), ", ");
 			}
 			return ret;

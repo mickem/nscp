@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <types.hpp>
+#include <network_types.hpp>
 
 #include <boost/static_assert.hpp>
 #include <boost/type_traits/is_arithmetic.hpp>

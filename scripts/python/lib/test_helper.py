@@ -73,10 +73,6 @@ def add_case(arguments = []):
 def display_help(arguments = []):
     return (status.OK, 'TODO')
 
-class Callable:
-    def __init__(self, anycallable):
-        self.__call__ = anycallable
-
 class SingletonHelper:
     klass = None
     def __init__(self, klass):
