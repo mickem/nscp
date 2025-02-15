@@ -175,7 +175,7 @@ Set ages = reage.Execute(agestring)
 
 For Each age In ages
 pt age & " > " & age.SubMatches(0) & " > " & age.SubMatches(1)
-ageint = CInt(age.SubMatches(0))
+ageint = CLng(age.SubMatches(0))
 ageunit = age.SubMatches(1)
 If ageunit = "" Then
 	If selage = "hour" Then
@@ -349,7 +349,7 @@ Sub ListFiles(Folder)
 			End If 
 
 			' time difference between file and now
-			dif =  Cint(DateDiff(ageunit,Date2,Date1))
+			dif =  CLng(DateDiff(ageunit,Date2,Date1))
 
 			'remember the last file checked (we use it later in the message)
 			lastfile = File.name
