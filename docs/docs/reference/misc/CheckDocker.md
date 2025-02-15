@@ -4,6 +4,15 @@ Use this module to detect and monitor docker containers
 
 
 
+## Enable module
+
+To enable this module and and allow using the commands you need to ass `CheckDocker = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+CheckDocker = enabled
+```
+
 
 ## Queries
 

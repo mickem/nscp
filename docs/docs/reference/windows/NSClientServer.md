@@ -4,6 +4,15 @@ A server that listens for incoming check_nt connection and processes incoming re
 
 
 
+## Enable module
+
+To enable this module and and allow using the commands you need to ass `NSClientServer = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+NSClientServer = enabled
+```
+
 
 
 

@@ -4,6 +4,15 @@ Use this to schedule check commands and jobs in conjunction with for instance pa
 
 
 
+## Enable module
+
+To enable this module and and allow using the commands you need to ass `Scheduler = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+Scheduler = enabled
+```
+
 
 ## Samples
 

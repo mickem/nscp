@@ -4,6 +4,15 @@ Network related check such as check_ping.
 
 
 
+## Enable module
+
+To enable this module and and allow using the commands you need to ass `CheckNet = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+CheckNet = enabled
+```
+
 
 ## Queries
 

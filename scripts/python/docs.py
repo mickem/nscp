@@ -19,6 +19,15 @@ module_template = u"""# {{module.key}}
 {{ module.ext_desc}}
 {%- endif %}
 
+## Enable module
+
+To enable this module and and allow using the commands you need to ass `{{module.key}} = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+{{module.key}} = enabled
+```
+
 {% if module.sample %}
 ## Samples
 

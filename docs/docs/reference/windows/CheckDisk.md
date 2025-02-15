@@ -10,6 +10,15 @@ CheckDisk can check various file and disk related things.
     In other words the following will **NOT** work: `check_drivesize drive=m:` But the following will: `check_drivesize drive=\\myserver\\mydrive`
 
 
+## Enable module
+
+To enable this module and and allow using the commands you need to ass `CheckDisk = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+CheckDisk = enabled
+```
+
 
 ## Queries
 

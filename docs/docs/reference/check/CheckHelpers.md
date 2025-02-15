@@ -4,6 +4,15 @@ Various helper function to extend other checks.
 
 
 
+## Enable module
+
+To enable this module and and allow using the commands you need to ass `CheckHelpers = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+CheckHelpers = enabled
+```
+
 
 ## Queries
 

@@ -4,6 +4,15 @@ Various system related checks, such as CPU load, process state, service state me
 
 
 
+## Enable module
+
+To enable this module and and allow using the commands you need to ass `CheckSystem = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+CheckSystem = enabled
+```
+
 
 ## Queries
 
