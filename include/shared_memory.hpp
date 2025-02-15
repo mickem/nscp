@@ -20,8 +20,7 @@
 #pragma once
 
 #include "strEx.h"
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include <win/windows.hpp>
 #include <iostream>
 #include <error.hpp>
 

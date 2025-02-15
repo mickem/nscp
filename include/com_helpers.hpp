@@ -19,8 +19,7 @@
 
 #pragma once
 #include <error/error.hpp>
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include <win/windows.hpp>
 #include <Objbase.h>
 
 namespace com_helper {

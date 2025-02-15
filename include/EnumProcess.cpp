@@ -34,11 +34,10 @@
 #include <string>
 #include <iostream>
 
-#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
-#include <windows.h>
+#include <win/windows.hpp>
 #include <tchar.h>
 
-#include <Psapi.h>
+#include <win/psapi.hpp>
 
 const int MAX_FILENAME = 256;
 

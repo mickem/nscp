@@ -26,8 +26,7 @@
 #include <sysinfo.h>
 #include <error/error.hpp>
 
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
+#include <win/windows.hpp>
 
 #ifndef _T
 #define _T(x) L ## x

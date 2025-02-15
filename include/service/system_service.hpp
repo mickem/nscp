@@ -21,8 +21,7 @@
 #include <string>
 #ifdef _WIN32
 #include <utf8.hpp>
-#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
-#include <windows.h>
+#include <win/windows.hpp>
 #endif
 
 namespace service_helper {

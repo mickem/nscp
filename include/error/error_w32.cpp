@@ -18,8 +18,7 @@
  */
 
 #include <error/error_w32.hpp>
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include <win/windows.hpp>
 #include <str/xtos.hpp>
 #include <utf8.hpp>
 

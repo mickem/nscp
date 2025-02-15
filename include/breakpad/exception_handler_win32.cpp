@@ -1,6 +1,5 @@
-#define WIN32_LEAN_AND_MEAN // Exclude rarely-used stuff from Windows headers
-#include <windows.h>
-#include <Psapi.h>
+#include <win/psapi.hpp>
+#include <win/windows.hpp>
 #include <breakpad/exception_handler_win32.hpp>
 #include <eh.h>
 #include <exception>

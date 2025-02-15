@@ -17,8 +17,7 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
-#include <windows.h>
+#include <win/windows.hpp>
 
 #include <win_sysinfo/win_defines.hpp>
 #include <win_sysinfo/win_sysinfo.hpp>

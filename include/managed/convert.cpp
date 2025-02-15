@@ -27,8 +27,7 @@
 #include <NSCAPI.h>
 //#include <nscapi/nscapi_plugin_wrapper.hpp>
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include <win/windows.hpp>
 
 #include <list>
 

@@ -20,8 +20,7 @@
 #pragma once
 
 #include <sstream>
-#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
-#include <Windows.h>
+#include <win/windows.hpp>
 
 namespace serviceControll {
 	class SCException {

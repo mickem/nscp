@@ -4,8 +4,7 @@
 
 #include <boost/lexical_cast.hpp>
 #ifdef WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
+#include <win/windows.hpp>
 #endif
 #ifndef WIN32
 #include <stdio.h>

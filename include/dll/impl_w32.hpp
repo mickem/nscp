@@ -25,7 +25,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 
-#include <Windows.h>
+#include <win/windows.hpp>
 
 namespace dll {
 	namespace win32 {

@@ -3198,8 +3198,7 @@ public:
 # endif
 #endif
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include <win/windows.hpp>
 #ifdef SI_NO_MBCS
 # define SI_NoCase   SI_GenericNoCase
 #else // !SI_NO_MBCS
