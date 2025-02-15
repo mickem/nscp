@@ -4,6 +4,15 @@ NSCA client can be used both from command line and from queries to submit passiv
 
 
 
+## Enable module
+
+To enable this module and and allow using the commands you need to ass `NSCAClient = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+NSCAClient = enabled
+```
+
 
 ## Queries
 

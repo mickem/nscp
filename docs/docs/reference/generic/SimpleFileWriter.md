@@ -4,6 +4,15 @@ Write status updates to a text file (A bit like the NSCA server does)
 
 
 
+## Enable module
+
+To enable this module and and allow using the commands you need to ass `SimpleFileWriter = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+SimpleFileWriter = enabled
+```
+
 
 
 

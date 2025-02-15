@@ -4,6 +4,15 @@ This is a sample plugin used to demonstrate how to make plugins
 
 
 
+## Enable module
+
+To enable this module and and allow using the commands you need to ass `SamplePluginSimple = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+SamplePluginSimple = enabled
+```
+
 
 ## Queries
 

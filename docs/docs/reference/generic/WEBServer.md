@@ -4,6 +4,15 @@ A server that listens for incoming HTTP connection and processes incoming reques
 
 
 
+## Enable module
+
+To enable this module and and allow using the commands you need to ass `WEBServer = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+WEBServer = enabled
+```
+
 
 
 

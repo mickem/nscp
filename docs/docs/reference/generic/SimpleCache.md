@@ -4,6 +4,15 @@ Stores status updates and allows for active checks to retrieve them
 
 
 
+## Enable module
+
+To enable this module and and allow using the commands you need to ass `SimpleCache = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+SimpleCache = enabled
+```
+
 
 ## Queries
 

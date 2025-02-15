@@ -4,6 +4,15 @@ Check for errors and warnings in the event log.
 
 
 
+## Enable module
+
+To enable this module and and allow using the commands you need to ass `CheckEventLog = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+CheckEventLog = enabled
+```
+
 
 ## Samples
 

@@ -4,6 +4,15 @@ Forward information as syslog messages to a syslog server
 
 
 
+## Enable module
+
+To enable this module and and allow using the commands you need to ass `SyslogClient = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+SyslogClient = enabled
+```
+
 
 ## Queries
 
