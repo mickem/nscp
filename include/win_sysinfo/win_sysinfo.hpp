@@ -54,6 +54,14 @@ namespace windows {
 			double kernel;
 			int core;
 			load_entry() : idle(0.0), total(0.0), kernel(0.0), core(-1) {}
+      load_entry(const load_entry& obj) : idle(obj.idle), total(obj.total), kernel(obj.kernel), core(obj.core) {}
+      load_entry& operator=(const load_entry& obj) {
+        idle = obj.idle;
+        total = obj.total;
+        kernel = obj.kernel;
+        core = obj.core;
+        return *this;
+      }
 			void add(const load_entry &other) {
 				idle += other.idle;
 				total += other.total;
@@ -71,6 +79,14 @@ namespace windows {
 			std::vector<load_entry> core;
 			load_entry total;
 			cpu_load() : cores(0) {}
+      cpu_load(const cpu_load& obj) : cores(obj.cores), core(obj.core), total(obj.total) {}
+      cpu_load& operator=(const cpu_load& obj) {
+        cores = obj.cores;
+        core = obj.core;
+        total = obj.total;
+        return *this;
+      }
+
 			void add(const cpu_load &n) {
 				total.add(n.total);
 				cores = max(cores, n.cores);

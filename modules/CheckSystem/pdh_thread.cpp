@@ -291,6 +291,7 @@ void pdh_thread::thread_proc() {
 					errors.push_back("Failed to get cpu load");
 				}
 			}
+      NSC_LOG_MESSAGE_STD("CPU Load: cores: " + std::to_string(load.cores) + ", idle: " + std::to_string(load.total.idle) + ", kernel: " + std::to_string(load.total.kernel) + ", load: " + std::to_string(load.total.total));
 			if (!disable_metrics) {
 				write_metrics(handles, load, check_pdh ? &pdh : NULL, errors);
 			}
