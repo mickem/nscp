@@ -177,7 +177,11 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		("subsystem", sh::string_key(&collector->subsystem, "default"),
 			"PDH subsystem", "Set which pdh subsystem to use.\nCurrently default and thread-safe are supported where thread-safe is slower but required if you have some problematic counters.", true)
 
-		("disable", sh::string_key(&collector->disable_, ""),
+    ("fetch core loads", sh::bool_key(&collector->read_core_load, "true"),
+     "Fetch core load", "Set to false to use a different API for fetching CPU load (will not provide core load, and will not show exact same values as task manager).", true)
+
+
+      ("disable", sh::string_key(&collector->disable_, ""),
 		"Disable automatic checks", "A comma separated list of checks to disable in the collector: cpu,handles,network,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
 		;
 	;

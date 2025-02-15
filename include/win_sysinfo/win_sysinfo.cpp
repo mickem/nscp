@@ -241,7 +241,7 @@ namespace windows {
 	bool g_hasBasicInfo = false;
 
 	boost::scoped_array<unsigned long long> g_CPUIdleTimeOld;
-	boost::scoped_array<unsigned long long> g_CPUTotalTimeOld;
+	boost::scoped_array<unsigned long long> g_CPUUserTimeOld;
 	boost::scoped_array<unsigned long long> g_CPUKernelTimeOld;
 
 	void init_old_buffer(boost::scoped_array<unsigned long long> &array, const std::size_t size) {
@@ -373,15 +373,21 @@ namespace windows {
 		throw nsclient::nsclient_exception("Failed to enumerate processes: unknown error");
 	}
 
-	system_info::cpu_load system_info::get_cpu_load() {
+  double get_rate(unsigned long long part, unsigned long long total) {
+      auto part_d = static_cast<double>(part);
+      auto total_d = static_cast<double>(total);
+      return (part_d * 100.0) / total_d;
+  }
+
+	system_info::cpu_load system_info::get_cpu_load_per_core() {
 		int cores = get_numberOfProcessorscores();
 		init_old_buffer(g_CPUIdleTimeOld, cores);
-		init_old_buffer(g_CPUTotalTimeOld, cores);
+		init_old_buffer(g_CPUUserTimeOld, cores);
 		init_old_buffer(g_CPUKernelTimeOld, cores);
 
 		boost::scoped_array<winapi::SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION> buffer(new winapi::SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION[cores]);
 		if (winapi::NtQuerySystemInformation(winapi::SystemProcessorPerformanceInformation, &buffer[0], sizeof(winapi::SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION) * cores, NULL) != 0) {
-			throw nsclient::nsclient_exception("Whoops");
+			throw nsclient::nsclient_exception("Failed to fetch cpu load");
 		}
 
 		cpu_load result;
@@ -391,18 +397,20 @@ namespace windows {
 
 		for (int i = 0; i < cores; i++) {
 			unsigned long long CPUIdleTime = buffer[i].IdleTime.QuadPart;
-			unsigned long long CPUKernelTime = buffer[i].KernelTime.QuadPart - buffer[i].IdleTime.QuadPart;
-			unsigned long long CPUTotalTime = buffer[i].KernelTime.QuadPart + buffer[i].UserTime.QuadPart;
+			unsigned long long CPUKernelTime = buffer[i].KernelTime.QuadPart;
+			unsigned long long CPUUserTime = buffer[i].UserTime.QuadPart;
 
 			unsigned long long CPUIdleTimeDiff = CPUIdleTime - g_CPUIdleTimeOld[i];
 			unsigned long long CPUKernelTimeDiff = CPUKernelTime - g_CPUKernelTimeOld[i];
-			unsigned long long CPUTotalTimeDiff = CPUTotalTime - g_CPUTotalTimeOld[i];
+			unsigned long long CPUUserTimeDiff = CPUUserTime - g_CPUUserTimeOld[i];
 
-			if (CPUTotalTimeDiff != 0) {
+      unsigned long long kernel_time_diff = CPUKernelTimeDiff - CPUIdleTimeDiff;
+      unsigned long long total_time_diff = CPUKernelTimeDiff + CPUUserTimeDiff;
+			if (total_time_diff != 0) {
 				result.core[i].core = i;
-				result.core[i].idle = static_cast<double>(((CPUIdleTimeDiff * 100) / CPUTotalTimeDiff));
-				result.core[i].kernel = static_cast<double>(((CPUKernelTimeDiff * 100) / CPUTotalTimeDiff));
-				result.core[i].total = 100.0 - result.core[i].idle;
+				result.core[i].idle = get_rate(CPUIdleTimeDiff, total_time_diff);
+				result.core[i].kernel = get_rate(kernel_time_diff, total_time_diff);
+				result.core[i].total = 100 - result.core[i].idle;
 				result.total.idle += result.core[i].idle;
 				result.total.kernel += result.core[i].kernel;
 				result.total.total += result.core[i].total;
@@ -411,7 +419,7 @@ namespace windows {
 				result.core[i].kernel = 0;
 				result.core[i].total = 0;
 			}
-			g_CPUTotalTimeOld[i] = CPUTotalTime;
+			g_CPUUserTimeOld[i] = CPUUserTime;
 			g_CPUIdleTimeOld[i] = CPUIdleTime;
 			g_CPUKernelTimeOld[i] = CPUKernelTime;
 		}
@@ -420,6 +428,50 @@ namespace windows {
 		result.total.total /= result.cores;
 		return result;
 	}
+
+  system_info::cpu_load system_info::get_cpu_load_total() {
+
+	  init_old_buffer(g_CPUIdleTimeOld, 1);
+    init_old_buffer(g_CPUUserTimeOld, 1);
+    init_old_buffer(g_CPUKernelTimeOld, 1);
+
+    FILETIME lpIdleTime;
+    FILETIME lpKernelTime;
+    FILETIME lpUserTime;
+
+    if (GetSystemTimes(
+        &lpIdleTime,
+        &lpKernelTime,
+        &lpUserTime
+    ) == 0) {
+      throw nsclient::nsclient_exception("Failed to fetch cpu load");
+    }
+    unsigned long long CPUIdleTime = (static_cast<unsigned long long>(lpIdleTime.dwHighDateTime) << 32) | lpIdleTime.dwLowDateTime;
+    unsigned long long CPUKernelTime = (static_cast<unsigned long long>(lpKernelTime.dwHighDateTime) << 32) | lpKernelTime.dwLowDateTime;
+    unsigned long long CPUUserTime = (static_cast<unsigned long long>(lpUserTime.dwHighDateTime) << 32) | lpUserTime.dwLowDateTime;
+
+    cpu_load result;
+    result.cores = 0;
+    result.core.resize(0);
+    result.total.idle = result.total.kernel = result.total.total = 0.0;
+
+    unsigned long long CPUIdleTimeDiff = CPUIdleTime - g_CPUIdleTimeOld[0];
+    unsigned long long CPUKernelTimeDiff = CPUKernelTime - g_CPUKernelTimeOld[0];
+    unsigned long long CPUUserTimeDiff = CPUUserTime - g_CPUUserTimeOld[0];
+
+    unsigned long long kernel_time_diff = CPUKernelTimeDiff - CPUIdleTimeDiff;
+    unsigned long long used_time_diff = kernel_time_diff + CPUUserTimeDiff;
+    unsigned long long total_time_diff = CPUKernelTimeDiff + CPUUserTimeDiff;
+
+    result.total.idle = get_rate(CPUIdleTimeDiff, total_time_diff);
+    result.total.kernel = get_rate(kernel_time_diff, total_time_diff);
+    result.total.total = get_rate(used_time_diff, total_time_diff);
+
+    g_CPUUserTimeOld[0] = CPUUserTime;
+    g_CPUIdleTimeOld[0] = CPUIdleTime;
+    g_CPUKernelTimeOld[0] = CPUKernelTime;
+    return result;
+  }
 
 	class CheckMemory {
 	public:

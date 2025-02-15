@@ -69,13 +69,14 @@ private:
 	network_check::network_data network;
 public:
 
+  bool read_core_load;
 	std::string subsystem;
 	std::string disable_;
 	std::string default_buffer_size;
 
 public:
 
-	pdh_thread(nscapi::core_wrapper *core, int plugin_id) : core(core), plugin_id(plugin_id) {
+	pdh_thread(nscapi::core_wrapper *core, int plugin_id) : core(core), plugin_id(plugin_id), read_core_load(true) {
 		mutex_.lock();
 	}
 	void add_counter(const PDH::pdh_object &counter);
