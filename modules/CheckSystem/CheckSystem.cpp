@@ -177,7 +177,11 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		("subsystem", sh::string_key(&collector->subsystem, "default"),
 			"PDH subsystem", "Set which pdh subsystem to use.\nCurrently default and thread-safe are supported where thread-safe is slower but required if you have some problematic counters.", true)
 
-		("disable", sh::string_key(&collector->disable_, ""),
+    ("fetch core loads", sh::bool_key(&collector->read_core_load, "true"),
+     "Fetch core load", "Set to false to use a different API for fetching CPU load (will not provide core load, and will not show exact same values as task manager).", true)
+
+
+      ("disable", sh::string_key(&collector->disable_, ""),
 		"Disable automatic checks", "A comma separated list of checks to disable in the collector: cpu,handles,network,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
 		;
 	;
@@ -559,16 +563,23 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 	std::vector<std::string> times;
+  bool show_all_cores = false;
 
 	filter_type filter;
 	filter_helper.add_options("load > 80", "load > 90", "core = 'total'", filter.get_filter_syntax(), "ignored");
-	filter_helper.add_syntax("${status}: ${problem_list}", "${time}: ${load}%", "${core} ${time}", "", "%(status): CPU load is ok.");
+  filter_helper.add_syntax("${status}: ${problem_list}", "${time}: ${load}%", "${core} ${time}", "", "%(status): CPU load is ok.");
 	filter_helper.get_desc().add_options()
-		("time", po::value<std::vector<std::string>>(&times), "The time to check")
+      ("time", po::value<std::vector<std::string>>(&times), "The time to check")
+              ("cores", boost::program_options::bool_switch(&show_all_cores),
+               "This will remove the filter to  include the cores, if you use filter dont use this as well.")
 		;
 
 	if (!filter_helper.parse_options())
 		return;
+
+  if (show_all_cores && filter_helper.data.filter_string.size() == 1) {
+    filter_helper.data.filter_string.clear();
+  }
 
 	if (times.empty()) {
 		times.push_back("5m");
