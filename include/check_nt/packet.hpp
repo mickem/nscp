@@ -25,54 +25,45 @@
 #include <str/xtos.hpp>
 
 namespace check_nt {
-	class check_nt_exception {
-		std::wstring error_;
-	public:
-		check_nt_exception(std::wstring error) : error_(error) {}
-		std::wstring getMessage() {
-			return error_;
-		}
-	};
-	class check_nt_packet_exception : public check_nt_exception {
-	public:
-		check_nt_packet_exception(std::wstring error) : check_nt_exception(error) {}
-	};
+class check_nt_exception {
+  std::wstring error_;
 
-	class packet /*: public boost::noncopyable*/ {
-	private:
-		std::string data_;
-	public:
-		packet() {};
-		packet(std::vector<char> buffer) {
-			data_ = std::string(buffer.begin(), buffer.end());
-		};
-		packet(std::string data)
-			: data_(data) {}
-		packet(const packet &other) : data_(other.data_) {}
-		packet& operator=(packet const& other) {
-			data_ = other.data_;
-			return *this;
-		}
+ public:
+  check_nt_exception(std::wstring error) : error_(error) {}
+  std::wstring getMessage() { return error_; }
+};
+class check_nt_packet_exception : public check_nt_exception {
+ public:
+  check_nt_packet_exception(std::wstring error) : check_nt_exception(error) {}
+};
 
-		~packet() {
-			//delete [] tmpBuffer;
-		}
+class packet /*: public boost::noncopyable*/ {
+ private:
+  std::string data_;
 
-		std::vector<char> get_buffer() const {
-			return std::vector<char>(data_.begin(), data_.end());
-		}
-		std::string get_payload() const {
-			return data_;
-		}
+ public:
+  packet() {};
+  packet(std::vector<char> buffer) { data_ = std::string(buffer.begin(), buffer.end()); };
+  packet(std::string data) : data_(data) {}
+  packet(const packet& other) : data_(other.data_) {}
+  packet& operator=(packet const& other) {
+    data_ = other.data_;
+    return *this;
+  }
 
-		unsigned int get_packet_length() const { return data_.length(); }
-		boost::asio::const_buffer to_buffers() const {
-			return boost::asio::buffer(get_buffer(), get_packet_length());
-		}
-		std::string to_string() {
-			std::stringstream ss;
-			ss << "data: " << data_;
-			return ss.str();
-		}
-	};
-}
+  ~packet() {
+    // delete [] tmpBuffer;
+  }
+
+  std::vector<char> get_buffer() const { return std::vector<char>(data_.begin(), data_.end()); }
+  std::string get_payload() const { return data_; }
+
+  unsigned int get_packet_length() const { return data_.length(); }
+  boost::asio::const_buffer to_buffers() const { return boost::asio::buffer(get_buffer(), get_packet_length()); }
+  std::string to_string() {
+    std::stringstream ss;
+    ss << "data: " << data_;
+    return ss.str();
+  }
+};
+}  // namespace check_nt

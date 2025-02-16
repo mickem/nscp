@@ -37,105 +37,110 @@ extern "C" {
 #include <scripts/script_interface.hpp>
 
 namespace lua {
-	struct lua_traits {
-		static const std::string user_data_tag;
+struct lua_traits {
+  static const std::string user_data_tag;
 
-		struct user_data_type {
-			std::string base_path_;
-			Lua_State L;
-		};
+  struct user_data_type {
+    std::string base_path_;
+    Lua_State L;
+  };
 
-		struct function {
-			function() : object_ref(0), function_ref(0) {}
-			//lua_State *L;
-			int object_ref;
-			int function_ref;
-		};
-		typedef function function_type;
-	};
+  struct function {
+    function() : object_ref(0), function_ref(0) {}
+    // lua_State *L;
+    int object_ref;
+    int function_ref;
+  };
+  typedef function function_type;
+};
 
-	typedef lua::lua_wrapper lua_wrapper;
+typedef lua::lua_wrapper lua_wrapper;
 
-	typedef scripts::script_information<lua_traits> script_information;
-	typedef scripts::core_provider core_provider;
-	typedef scripts::settings_provider settings_provider;
-	typedef scripts::regitration_provider<lua_traits> regitration_provider;
+typedef scripts::script_information<lua_traits> script_information;
+typedef scripts::core_provider core_provider;
+typedef scripts::settings_provider settings_provider;
+typedef scripts::regitration_provider<lua_traits> regitration_provider;
 
-	class core_wrapper {
-	private:
-		script_information *info;
-	public:
-		core_wrapper(lua_State *L, bool fromLua);
+class core_wrapper {
+ private:
+  script_information *info;
 
-		static const char className[];
-		static const Luna<core_wrapper>::FunctionType Functions[];
-		static const Luna<core_wrapper>::PropertyType Properties[];
-		bool isExisting;
-		bool isPrecious() { return false; }
+ public:
+  core_wrapper(lua_State *L, bool fromLua);
 
-		int create_pb_query(lua_State *L);
-		int simple_query(lua_State *L);
-		int query(lua_State *L);
-		int simple_exec(lua_State *L);
-		int exec(lua_State *L);
-		int simple_submit(lua_State *L);
-		int submit(lua_State *L);
-		int reload(lua_State *L);
-		int log(lua_State *L);
-	private:
-		boost::shared_ptr<core_provider> get();
-	};
+  static const char className[];
+  static const Luna<core_wrapper>::FunctionType Functions[];
+  static const Luna<core_wrapper>::PropertyType Properties[];
+  bool isExisting;
+  bool isPrecious() { return false; }
 
-	struct registry_wrapper {
-	private:
-		script_information *info;
-	public:
-		registry_wrapper(lua_State *L, bool fromLua);
+  int create_pb_query(lua_State *L);
+  int simple_query(lua_State *L);
+  int query(lua_State *L);
+  int simple_exec(lua_State *L);
+  int exec(lua_State *L);
+  int simple_submit(lua_State *L);
+  int submit(lua_State *L);
+  int reload(lua_State *L);
+  int log(lua_State *L);
 
-		static const char className[];
-		static const Luna<registry_wrapper>::FunctionType Functions[];
-		static const Luna<registry_wrapper>::PropertyType Properties[];
-		bool isExisting;
-		bool isPrecious() { return false; }
+ private:
+  boost::shared_ptr<core_provider> get();
+};
 
-		int register_function(lua_State *L);
-		int register_simple_function(lua_State *L);
-		int register_cmdline(lua_State *L);
-		int register_simple_cmdline(lua_State *L);
-		int subscription(lua_State *L);
-		int simple_subscription(lua_State *L);
-		//	private:
-		//		boost::shared_ptr<regitration_provider> get();
-	};
+struct registry_wrapper {
+ private:
+  script_information *info;
 
-	class settings_wrapper {
-	private:
-		script_information *info;
-	public:
-		settings_wrapper(lua_State *L, bool fromLua);
+ public:
+  registry_wrapper(lua_State *L, bool fromLua);
 
-		static const char className[];
-		static const Luna<settings_wrapper>::FunctionType Functions[];
-		static const Luna<settings_wrapper>::PropertyType Properties[];
-		bool isExisting;
-		bool isPrecious() { return false; }
+  static const char className[];
+  static const Luna<registry_wrapper>::FunctionType Functions[];
+  static const Luna<registry_wrapper>::PropertyType Properties[];
+  bool isExisting;
+  bool isPrecious() { return false; }
 
-		int get_section(lua_State *L);
-		int get_string(lua_State *L);
-		int set_string(lua_State *L);
-		int get_bool(lua_State *L);
-		int set_bool(lua_State *L);
-		int get_int(lua_State *L);
-		int set_int(lua_State *L);
-		int save(lua_State *L);
-		int register_path(lua_State *L);
-		int register_key(lua_State *L);
-	private:
-		boost::shared_ptr<settings_provider> get();
-	};
+  int register_function(lua_State *L);
+  int register_simple_function(lua_State *L);
+  int register_cmdline(lua_State *L);
+  int register_simple_cmdline(lua_State *L);
+  int subscription(lua_State *L);
+  int simple_subscription(lua_State *L);
+  //	private:
+  //		boost::shared_ptr<regitration_provider> get();
+};
 
-	struct lua_script {
-		static void luaopen(lua_State *L);
-		static boost::optional<boost::filesystem::path> find_script(boost::filesystem::path root, std::string file);
-	};
-}
+class settings_wrapper {
+ private:
+  script_information *info;
+
+ public:
+  settings_wrapper(lua_State *L, bool fromLua);
+
+  static const char className[];
+  static const Luna<settings_wrapper>::FunctionType Functions[];
+  static const Luna<settings_wrapper>::PropertyType Properties[];
+  bool isExisting;
+  bool isPrecious() { return false; }
+
+  int get_section(lua_State *L);
+  int get_string(lua_State *L);
+  int set_string(lua_State *L);
+  int get_bool(lua_State *L);
+  int set_bool(lua_State *L);
+  int get_int(lua_State *L);
+  int set_int(lua_State *L);
+  int save(lua_State *L);
+  int register_path(lua_State *L);
+  int register_key(lua_State *L);
+
+ private:
+  boost::shared_ptr<settings_provider> get();
+};
+
+struct lua_script {
+  static void luaopen(lua_State *L);
+  static boost::optional<boost::filesystem::path> find_script(boost::filesystem::path root, std::string file);
+};
+}  // namespace lua

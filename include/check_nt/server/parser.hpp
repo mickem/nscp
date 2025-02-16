@@ -26,28 +26,29 @@
 #include "handler.hpp"
 
 namespace check_nt {
-	namespace server {
-		class parser : public boost::noncopyable {
-			std::vector<char> buffer_;
-		public:
-			parser() {}
+namespace server {
+class parser : public boost::noncopyable {
+  std::vector<char> buffer_;
 
-			template <typename InputIterator>
-			boost::tuple<bool, InputIterator> digest(InputIterator begin, InputIterator end) {
-				for (; begin != end; ++begin) {
-					buffer_.push_back(*begin);
-					if (*begin == '\n') {
-						break;
-					}
-				}
-				return boost::make_tuple(true, begin);
-			}
+ public:
+  parser() {}
 
-			check_nt::packet parse() {
-				check_nt::packet packet(buffer_);
-				buffer_.clear();
-				return packet;
-			}
-		};
-	}// namespace server
-} // namespace check_nt
+  template <typename InputIterator>
+  boost::tuple<bool, InputIterator> digest(InputIterator begin, InputIterator end) {
+    for (; begin != end; ++begin) {
+      buffer_.push_back(*begin);
+      if (*begin == '\n') {
+        break;
+      }
+    }
+    return boost::make_tuple(true, begin);
+  }
+
+  check_nt::packet parse() {
+    check_nt::packet packet(buffer_);
+    buffer_.clear();
+    return packet;
+  }
+};
+}  // namespace server
+}  // namespace check_nt

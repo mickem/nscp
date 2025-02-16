@@ -36,89 +36,83 @@
 #include <parsers/where/grammar/grammar.hpp>
 
 namespace parsers {
-	namespace where {
-		bool parser::parse(object_factory factory, std::string expr) {
-			constants::reset();
+namespace where {
+bool parser::parse(object_factory factory, std::string expr) {
+  constants::reset();
 
-			where_grammar calc(factory);
+  where_grammar calc(factory);
 
-			where_grammar::iterator_type iter = expr.begin();
-			where_grammar::iterator_type end = expr.end();
-			if (phrase_parse(iter, end, calc, charset::space, resulting_tree)) {
-				rest = std::string(iter, end);
-				return rest.empty();
-			}
-			rest = std::string(iter, end);
-			return false;
-		}
-
-		bool parser::derive_types(object_converter converter) {
-			try {
-				resulting_tree->infer_type(converter);
-				return true;
-			} catch (...) {
-				converter->error("Unhandled exception resolving types: " + result_as_tree());
-				return false;
-			}
-		}
-
-		bool parser::static_eval(evaluation_context context) {
-			try {
-				resulting_tree->static_evaluate(context);
-				return true;
-			} catch (const std::exception &e) {
-				context->error(std::string("Unhandled exception static eval: ") + e.what());
-				return false;
-			} catch (...) {
-				context->error("Unhandled exception static eval: " + result_as_tree());
-				return false;
-			}
-		}
-		bool parser::collect_perfkeys(evaluation_context context, performance_collector &boundries) {
-			try {
-				resulting_tree->find_performance_data(context, boundries);
-				return true;
-			} catch (...) {
-				context->error("Unhandled exception collecting performance data eval: " + result_as_tree());
-				return false;
-			}
-		}
-
-		bool parser::bind(object_converter context) {
-			try {
-				resulting_tree->bind(context);
-				return true;
-			} catch (const std::exception &e) {
-				context->error(std::string("Bind exception: ") + e.what());
-				return false;
-			} catch (...) {
-				context->error("Bind exception: " + result_as_tree());
-				return false;
-			}
-		}
-
-		bool parser::require_object(evaluation_context context) const {
-			return resulting_tree->require_object(context);
-		}
-
-		value_container parser::evaluate(evaluation_context context) {
-			try {
-				node_type result = resulting_tree->evaluate(context);
-				return result->get_value(context, type_int);
-			} catch (const std::exception &e) {
-				context->error(std::string("Evaluate exception: ") + e.what());
-				return value_container::create_nil();
-			} catch (...) {
-				context->error("Evaluate exception: " + result_as_tree());
-				return value_container::create_nil();
-			}
-		}
-
-		std::string parser::result_as_tree() const {
-			return resulting_tree->to_string();
-		}
-		std::string parser::result_as_tree(evaluation_context context) const {
-			return resulting_tree->to_string(context);
-		}
-	}
+  where_grammar::iterator_type iter = expr.begin();
+  where_grammar::iterator_type end = expr.end();
+  if (phrase_parse(iter, end, calc, charset::space, resulting_tree)) {
+    rest = std::string(iter, end);
+    return rest.empty();
+  }
+  rest = std::string(iter, end);
+  return false;
 }
+
+bool parser::derive_types(object_converter converter) {
+  try {
+    resulting_tree->infer_type(converter);
+    return true;
+  } catch (...) {
+    converter->error("Unhandled exception resolving types: " + result_as_tree());
+    return false;
+  }
+}
+
+bool parser::static_eval(evaluation_context context) {
+  try {
+    resulting_tree->static_evaluate(context);
+    return true;
+  } catch (const std::exception &e) {
+    context->error(std::string("Unhandled exception static eval: ") + e.what());
+    return false;
+  } catch (...) {
+    context->error("Unhandled exception static eval: " + result_as_tree());
+    return false;
+  }
+}
+bool parser::collect_perfkeys(evaluation_context context, performance_collector &boundries) {
+  try {
+    resulting_tree->find_performance_data(context, boundries);
+    return true;
+  } catch (...) {
+    context->error("Unhandled exception collecting performance data eval: " + result_as_tree());
+    return false;
+  }
+}
+
+bool parser::bind(object_converter context) {
+  try {
+    resulting_tree->bind(context);
+    return true;
+  } catch (const std::exception &e) {
+    context->error(std::string("Bind exception: ") + e.what());
+    return false;
+  } catch (...) {
+    context->error("Bind exception: " + result_as_tree());
+    return false;
+  }
+}
+
+bool parser::require_object(evaluation_context context) const { return resulting_tree->require_object(context); }
+
+value_container parser::evaluate(evaluation_context context) {
+  try {
+    node_type result = resulting_tree->evaluate(context);
+    return result->get_value(context, type_int);
+  } catch (const std::exception &e) {
+    context->error(std::string("Evaluate exception: ") + e.what());
+    return value_container::create_nil();
+  } catch (...) {
+    context->error("Evaluate exception: " + result_as_tree());
+    return value_container::create_nil();
+  }
+}
+
+std::string parser::result_as_tree() const { return resulting_tree->to_string(); }
+std::string parser::result_as_tree(evaluation_context context) const { return resulting_tree->to_string(context); }
+}  // namespace where
+}  // namespace parsers

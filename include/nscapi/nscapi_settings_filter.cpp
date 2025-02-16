@@ -1,18 +1,18 @@
 /*
-* Copyright 2004-2016 The NSClient++ Authors - https://nsclient.org
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright 2004-2016 The NSClient++ Authors - https://nsclient.org
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <nscapi/nscapi_settings_filter.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
@@ -20,12 +20,13 @@
 #include <boost/bind/bind.hpp>
 
 namespace nscapi {
-	namespace settings_filters {
+namespace settings_filters {
 
-		namespace ph = boost::placeholders;
+namespace ph = boost::placeholders;
 
-		void filter_object::read_object(nscapi::settings_helper::path_extension &path, const bool is_default) {
-			namespace sh = nscapi::settings_helper;
+void filter_object::read_object(nscapi::settings_helper::path_extension &path, const bool is_default) {
+  namespace sh = nscapi::settings_helper;
+  // clang-format off
 			path.add_key()
 				("filter", sh::cstring_fun_key(boost::bind(&filter_object::set_filter_string, this, ph::_1)),
 					"FILTER", "Scan files for matching rows for each matching rows an OK message will be submitted")
@@ -84,27 +85,26 @@ namespace nscapi {
 					"ESCAPE HTML", "Escape HTML characters (< and >).", true)
 
 				;
-		}
-
-		void filter_object::apply_parent(const filter_object &parent) {
-			using namespace nscapi::settings_objects;
-
-			import_string(syntax_detail, parent.syntax_detail);
-			import_string(syntax_top, parent.syntax_top);
-			import_string(filter_string_, parent.filter_string_);
-			import_string(filter_warn, parent.filter_warn);
-			import_string(filter_crit, parent.filter_crit);
-			import_string(filter_ok, parent.filter_ok);
-			if (parent.debug)
-				debug = parent.debug;
-			import_string(target, parent.target);
-			import_string(target_id, parent.target_id);
-			import_string(source_id, parent.source_id);
-			import_string(target, parent.target);
-			import_string(timeout_msg, parent.timeout_msg);
-			if (parent.severity != -1 && severity == -1)
-				severity = parent.severity;
-			import_string(command, parent.command);
-		}
-	}
+  // clang-format on
 }
+
+void filter_object::apply_parent(const filter_object &parent) {
+  using namespace nscapi::settings_objects;
+
+  import_string(syntax_detail, parent.syntax_detail);
+  import_string(syntax_top, parent.syntax_top);
+  import_string(filter_string_, parent.filter_string_);
+  import_string(filter_warn, parent.filter_warn);
+  import_string(filter_crit, parent.filter_crit);
+  import_string(filter_ok, parent.filter_ok);
+  if (parent.debug) debug = parent.debug;
+  import_string(target, parent.target);
+  import_string(target_id, parent.target_id);
+  import_string(source_id, parent.source_id);
+  import_string(target, parent.target);
+  import_string(timeout_msg, parent.timeout_msg);
+  if (parent.severity != -1 && severity == -1) severity = parent.severity;
+  import_string(command, parent.command);
+}
+}  // namespace settings_filters
+}  // namespace nscapi

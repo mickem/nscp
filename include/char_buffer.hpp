@@ -24,31 +24,23 @@
 #include <string.h>
 
 namespace hlp {
-	class tchar_buffer : public hlp::buffer<wchar_t> {
-	public:
-		tchar_buffer(std::wstring str) : hlp::buffer<wchar_t>(str.length()+2) {
-			wcsncpy(get(), str.c_str(), str.length());
-		}
-		tchar_buffer(std::size_t len) : hlp::buffer<wchar_t>(len) {}
-		void zero() {
-			if (size() > 1)
-				memset(get(), 0, size());
-		}
-	};
+class tchar_buffer : public hlp::buffer<wchar_t> {
+ public:
+  tchar_buffer(std::wstring str) : hlp::buffer<wchar_t>(str.length() + 2) { wcsncpy(get(), str.c_str(), str.length()); }
+  tchar_buffer(std::size_t len) : hlp::buffer<wchar_t>(len) {}
+  void zero() {
+    if (size() > 1) memset(get(), 0, size());
+  }
+};
 
-	class char_buffer : public hlp::buffer<char> {
-	public:
-		char_buffer(std::string str) : hlp::buffer<char>(str.length()+2) {
-			strncpy(get(), str.c_str(), str.length());
-		}
-		char_buffer(std::size_t len) : hlp::buffer<char>(len) {}
-		void zero() {
-			if (size() > 1)
-				memset(get(), 0, size());
-		}
-		std::string str() const {
-			return std::string(get(), size());
-		}
-	};
+class char_buffer : public hlp::buffer<char> {
+ public:
+  char_buffer(std::string str) : hlp::buffer<char>(str.length() + 2) { strncpy(get(), str.c_str(), str.length()); }
+  char_buffer(std::size_t len) : hlp::buffer<char>(len) {}
+  void zero() {
+    if (size() > 1) memset(get(), 0, size());
+  }
+  std::string str() const { return std::string(get(), size()); }
+};
 
-}
+}  // namespace hlp

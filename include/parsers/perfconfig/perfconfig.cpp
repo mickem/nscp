@@ -34,21 +34,14 @@ namespace phoenix = boost::phoenix;
 typedef parsers::perfconfig::perf_rule perf_rule;
 typedef parsers::perfconfig::perf_option perf_option;
 
-BOOST_FUSION_ADAPT_STRUCT(
-	perf_option,
-	(std::string, key)
-	(std::string, value)
-	)
+BOOST_FUSION_ADAPT_STRUCT(perf_option, (std::string, key)(std::string, value))
 
-	BOOST_FUSION_ADAPT_STRUCT(
-		perf_rule,
-		(std::string, name)
-		(std::vector<perf_option>, options)
-		)
+BOOST_FUSION_ADAPT_STRUCT(perf_rule, (std::string, name)(std::vector<perf_option>, options))
 
 struct spirit_perfconfig_parser {
-	template<class Iterator>
-	bool parse_raw(Iterator first, Iterator last, parsers::perfconfig::result_type& v) {
+  template <class Iterator>
+  bool parse_raw(Iterator first, Iterator last, parsers::perfconfig::result_type& v) {
+    // clang-format off
 		using qi::lexeme;
 		using phoenix::at_c;
 
@@ -104,10 +97,11 @@ struct spirit_perfconfig_parser {
 #endif
 
 		return qi::phrase_parse(first, last, rules, ascii::space, v);
-	}
+    // clang-format on
+  }
 };
 
-bool parsers::perfconfig::parse(const std::string &str, result_type& v) {
-	spirit_perfconfig_parser parser;
-	return parser.parse_raw(str.begin(), str.end(), v);
+bool parsers::perfconfig::parse(const std::string& str, result_type& v) {
+  spirit_perfconfig_parser parser;
+  return parser.parse_raw(str.begin(), str.end(), v);
 }

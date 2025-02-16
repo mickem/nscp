@@ -21,14 +21,13 @@
 
 #include <boost/predef/other/endian.h>
 
-enum EEndian
-{
-	LITTLE_ENDIAN_ORDER,
-	BIG_ENDIAN_ORDER,
+enum EEndian {
+  LITTLE_ENDIAN_ORDER,
+  BIG_ENDIAN_ORDER,
 #if defined(BOOST_ENDIAN_LITTLE_BYTE)
-	HOST_ENDIAN_ORDER = LITTLE_ENDIAN_ORDER
+  HOST_ENDIAN_ORDER = LITTLE_ENDIAN_ORDER
 #elif defined(BOOST_ENDIAN_BIG_BYTE)
-	HOST_ENDIAN_ORDER = BIG_ENDIAN_ORDER
+  HOST_ENDIAN_ORDER = BIG_ENDIAN_ORDER
 #else
 #error "Impossible de determiner l'indianness du systeme cible."
 #endif

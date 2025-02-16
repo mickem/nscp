@@ -29,42 +29,41 @@
 #include <string>
 
 namespace nscapi {
-	class NSCAPI_EXPORT settings_proxy : public nscapi::settings_helper::settings_impl_interface {
-	private:
-		unsigned int plugin_id_;
-		nscapi::core_wrapper* core_;
+class NSCAPI_EXPORT settings_proxy : public nscapi::settings_helper::settings_impl_interface {
+ private:
+  unsigned int plugin_id_;
+  nscapi::core_wrapper* core_;
 
-	public:
-		typedef boost::shared_ptr<nscapi::settings_proxy> ptr;
-		settings_proxy(unsigned int plugin_id, nscapi::core_wrapper* core) : plugin_id_(plugin_id), core_(core) {}
+ public:
+  typedef boost::shared_ptr<nscapi::settings_proxy> ptr;
+  settings_proxy(unsigned int plugin_id, nscapi::core_wrapper* core) : plugin_id_(plugin_id), core_(core) {}
 
-		static ptr create(unsigned int plugin_id, nscapi::core_wrapper* core);
+  static ptr create(unsigned int plugin_id, nscapi::core_wrapper* core);
 
+  typedef std::list<std::string> string_list;
 
-		typedef std::list<std::string> string_list;
+  virtual void register_path(std::string path, std::string title, std::string description, bool advanced, bool sample);
+  virtual void register_key(std::string path, std::string key, std::string title, std::string description, std::string defValue, bool advanced, bool sample);
+  virtual void register_subkey(std::string path, std::string title, std::string description, bool advanced, bool sample);
+  virtual void register_tpl(std::string path, std::string title, std::string icon, std::string description, std::string fields);
 
-		virtual void register_path(std::string path, std::string title, std::string description, bool advanced, bool sample);
-		virtual void register_key(std::string path, std::string key, std::string title, std::string description, std::string defValue, bool advanced, bool sample);
-		virtual void register_subkey(std::string path, std::string title, std::string description, bool advanced, bool sample);
-		virtual void register_tpl(std::string path, std::string title, std::string icon, std::string description, std::string fields);
+  virtual std::string get_string(std::string path, std::string key, std::string def);
+  virtual void set_string(std::string path, std::string key, std::string value);
+  virtual int get_int(std::string path, std::string key, int def);
+  virtual void set_int(std::string path, std::string key, int value);
+  virtual bool get_bool(std::string path, std::string key, bool def);
+  virtual void set_bool(std::string path, std::string key, bool value);
+  virtual string_list get_sections(std::string path);
+  virtual string_list get_keys(std::string path);
+  virtual std::string expand_path(std::string key);
 
-		virtual std::string get_string(std::string path, std::string key, std::string def);
-		virtual void set_string(std::string path, std::string key, std::string value);
-		virtual int get_int(std::string path, std::string key, int def);
-		virtual void set_int(std::string path, std::string key, int value);
-		virtual bool get_bool(std::string path, std::string key, bool def);
-		virtual void set_bool(std::string path, std::string key, bool value);
-		virtual string_list get_sections(std::string path);
-		virtual string_list get_keys(std::string path);
-		virtual std::string expand_path(std::string key);
+  virtual void remove_key(std::string path, std::string key);
+  virtual void remove_path(std::string path);
 
-		virtual void remove_key(std::string path, std::string key);
-		virtual void remove_path(std::string path);
-
-		virtual void err(const char* file, int line, std::string message);
-		virtual void warn(const char* file, int line, std::string message);
-		virtual void info(const char* file, int line, std::string message);
-		virtual void debug(const char* file, int line, std::string message);
-		void save(const std::string context = "");
-	};
-}
+  virtual void err(const char* file, int line, std::string message);
+  virtual void warn(const char* file, int line, std::string message);
+  virtual void info(const char* file, int line, std::string message);
+  virtual void debug(const char* file, int line, std::string message);
+  void save(const std::string context = "");
+};
+}  // namespace nscapi
