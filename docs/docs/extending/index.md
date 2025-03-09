@@ -59,20 +59,7 @@ These script run inside NSClient++ and can interact with NSClient++.
 
 ## .Net modules
 
-Just as we can write modules in C++ we can also write them in any language supported by the dot-net runtime such as C#, Haskel and VisualBasic.
-These modules run inside NSClient++ and can interact with NSClient++.
-
-**Pros:**
-
-- Very Powerful in that your script can do whatever you want and you can interact with NSClient++.
-- Supports all features of NSclient++, metrics, commands, queries, passive results as well as events.
-- Stateful as the scripts run in the background
-- No forking overhead
-- Background threads.
-
-**Cons:**
-
-- Requires you to compile the modules meaning modifications are hard.
+> Removed in 0.6.x, let me know if this is still relevant.
 
 ## C/C++ modules
 
