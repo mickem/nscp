@@ -134,6 +134,8 @@ if(PROTOC_GEN_LUA_FOUND AND (LUA_FOUND OR LUA_SOURCE_FOUND))
     add_definitions(-Dlua_protobuf_EXPORTS)
   endif(USE_STATIC_RUNTIME)
   nscp_make_library(${TARGET} "${SRCS}")
+  nscp_force_include(
+          ${TARGET} ${BUILD_ROOT_FOLDER}/include/nscapi/dll_defines_protobuf.hpp)
 
   target_link_libraries(${TARGET} ${PROTOBUF_LIBRARY} nscp_protobuf ${LUA_LIB})
 

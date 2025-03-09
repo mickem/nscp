@@ -9,7 +9,7 @@ if(CRYPTOPP_FOUND)
   add_definitions(-DHAVE_LIBCRYPTOPP)
   include_directories(${CRYPTOPP_INCLUDE_DIR})
 else(CRYPTOPP_FOUND)
-  message(STATUS "   - Crypto++ not found (no ecryption support)")
+  message(STATUS "   - Crypto++ not found (no encryption for NSCA)")
 endif(CRYPTOPP_FOUND)
 
 if(MSVC)
