@@ -43,6 +43,9 @@
             <Component Id="cmpB661928B73E115BF02F46679B648BACB" Directory="dirEAE7F9BEB0F783B5EC9C5AC27AB441E6" Guid="{7D842F5D-048C-46B3-814A-ADBB87161887}">
                 <File Id="fil19E4918C167D7C5765CD7A5CB8641BAF" KeyPath="yes" Source="$(var.ScriptSource)\lua\default_check_mk.lua" />
             </Component>
+            <Component Id="cmpB661928B73E115BF02F46679B648BACW" Directory="dirEAE7F9BEB0F783B5EC9C5AC27AB441E6" Guid="{fb70f63c-b5a5-4048-a111-6d9dc4b521f6}">
+                <File Id="fil19E4918C167D7C5765CD7A5CB8641BAG" KeyPath="yes" Source="$(var.ScriptSource)\lua\test.lua" />
+            </Component>
             <Component Id="cmp1199343909C9149C322FD038B800AB4F" Directory="dirEAE7F9BEB0F783B5EC9C5AC27AB441E6" Guid="{DD229AA9-FF2A-4A3A-9BE1-8AD87C5F7D11}">
                 <File Id="fil3916432D6FD9E9E4BCDF3F7587882857" KeyPath="yes" Source="$(var.ScriptSource)\lua\noperf.lua" />
             </Component>

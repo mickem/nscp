@@ -98,6 +98,10 @@
               <File Id="NRPEServerDLL" Name="NRPEServer.dll" DiskId="1" Source="$(var.Source)/modules/NRPEServer.dll" Vital="no" />
               <File Id="NRPEClientDLL" Name="NRPEClient.dll" DiskId="1" Source="$(var.Source)/modules/NRPEClient.dll" Vital="no" />
             </Component>
+            <Component Id="CheckMK" Guid="690f3066-1443-4c04-81e0-228854147387" Win64="$(var.Win64)">
+              <File Id="MKServerDLL" Name="CheckMKServer.dll" DiskId="1" Source="$(var.Source)/modules/CheckMKServer.dll" Vital="no" />
+              <File Id="MKClientDLL" Name="CheckMKClient.dll" DiskId="1" Source="$(var.Source)/modules/CheckMKClient.dll" Vital="no" />
+            </Component>
 
             <Component Id="NSCServer" Guid="64CEEE94-4E45-48ca-B120-81DA3F3E081A" Win64="$(var.Win64)">
               <File Id="NSCServerDLL" Name="NSClientServer.dll" DiskId="1" Source="$(var.Source)/modules/NSClientServer.dll" Vital="no" />
@@ -138,10 +142,10 @@
               <File Id="ModCheckNet.dll" Name="CheckNet.dll" DiskId="1" Source="$(var.Source)/modules/CheckNet.dll" Vital="no" />
               <File Id="RemoteModules" Name="remote-modules.zip" DiskId="1" Source="$(var.Source)/modules/remote-modules.zip" Vital="no" />
             </Component>
-            <!--
             <Component Id="LuaScript" Guid="C5A3C7E2-77A0-4BE2-B60D-808F4B14F56F" Win64="$(var.Win64)">
               <File Id="ModLUAScript.dll" Name="LUAScript.dll" DiskId="1" Source="$(var.Source)/modules/LUAScript.dll" Vital="no" />
             </Component>
+            <!--
             <Component Id="DotNetPlugins" Guid="E57F4EE3-D5A6-46ED-BC99-018708258154" Win64="$(var.Win64)">
               <File Id="ModDotnetPlugins.dll" Name="DotnetPlugins.dll" DiskId="1" Source="$(var.Source)/modules/DotnetPlugins.dll" Vital="no" />
             </Component>
@@ -158,6 +162,9 @@
             <File Id="PythonZIP" Name="python311.zip" DiskId="1" Source="$(var.Source)/python311.zip" Vital="no" />
             <File Id="PythonPYD1" Name="_socket.pyd" DiskId="1" Source="$(var.Source)/_socket.pyd" Vital="no" />
             <File Id="PythonPYD2" Name="unicodedata.pyd" DiskId="1" Source="$(var.Source)/unicodedata.pyd" Vital="no" />
+          </Component>
+          <Component Id="LuaLibs" Guid="513b45d4-c0f4-4531-9baf-0db466e4e51c">
+            <File Id="LuaDLL" Name="lua.dll" DiskId="1" Source="$(var.Source)/lua.dll" Vital="no" />
           </Component>
           <!--
           <Component Id="LibDotNet" Guid="29AC2A9A-D1D1-4E86-BEE0-5428C86422F6">
@@ -225,10 +232,14 @@
         <Feature Id="CheckPlugins" Title="Check Plugins" Description="Various plugins to check your system. (Includes all check plugins)" Level="1">
           <ComponentRef Id="Plugins" />
         </Feature>
-        <Feature Id="NRPEPlugins" Title="NRPE Support" Description="NRPE Server Plugin. Support for the more vercitile NRPE protocol (check_nrpe)" Level="1" Absent="allow">
+        <Feature Id="NRPEPlugins" Title="NRPE Support" Description="NRPE Server Plugin (check_nrpe)" Level="1" Absent="allow">
           <ComponentRef Id="NRPEServer" />
           <ComponentRef Id="NRPEServerCert" />
           <ComponentRef Id="CheckNRPE" />
+        </Feature>
+        <Feature Id="CheckMK" Title="Check MK Support" Description="Check MK client and server Plugin" Level="1" Absent="allow">
+          <ComponentRef Id="CheckMK" />
+          <ComponentRef Id="LuaLibs" />
         </Feature>
         <Feature Id="NSCPlugins" Title="check_nt support" Description="NSClient Server Plugin. Support for the old NSClient protocol (check_nt)" Level="1" Absent="allow">
           <ComponentRef Id="NSCServer" />
@@ -253,12 +264,10 @@
             <ComponentRef Id="PythonBin" />
           </Feature>
         </Feature>
-        <!--
         <Feature Id="LuaScript" Title="Lua Scripting" Description="Allows running INTERNAL scripts written in Lua" Level="1" Absent="allow">
           <ComponentRef Id="LuaScript" />
           <ComponentRef Id="LuaLibs" />
         </Feature>
-        -->
       </Feature>
       <Feature Id="SampleScripts" Title="Scripts" Description="Scripts for checking and testing various aspects of your computer and NSClient++" Level="1" Absent="allow">
         <ComponentGroupRef Id="ScriptResources" />
