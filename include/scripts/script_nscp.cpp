@@ -55,6 +55,10 @@ void scripts::nscp::nscp_runtime_impl::register_command(const std::string type, 
     nscapi::core_helper proxy(core_, plugin_id);
     proxy.register_command(command, description);
   }
+  if (type == tags::submit_tag || type == tags::simple_submit_tag) {
+    nscapi::core_helper proxy(core_, plugin_id);
+    proxy.register_channel(command);
+  }
 }
 
 bool scripts::nscp::core_provider_impl::submit_simple_message(const std::string channel, const std::string command, const NSCAPI::nagiosReturn code,
@@ -81,9 +85,11 @@ bool scripts::nscp::core_provider_impl::exec_simple_command(const std::string ta
                                                             std::list<std::string> &result) {
   std::string request, response;
   nscapi::protobuf::functions::create_simple_exec_request(target, command, argument, request);
-  bool ret = core_->exec_command(target, request, response);
-  nscapi::protobuf::functions::parse_simple_exec_response(response, result);
-  return ret;
+  if (!core_->exec_command(target, request, response)) {
+    result.push_back("Command failed.");
+    return NSCAPI::query_return_codes::returnUNKNOWN;
+  }
+  return nscapi::protobuf::functions::parse_simple_exec_response(response, result);
 }
 
 bool scripts::nscp::core_provider_impl::exec_command(const std::string target, const std::string &request, std::string &response) {

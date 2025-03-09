@@ -294,6 +294,14 @@ bool NSClientT::boot_start_plugins(bool boot) {
 		scheduler_.set_threads(count);
 		scheduler_.start();
 	}
+    try {
+      if (boot) {
+        plugins_->post_start_plugins();
+      }
+    } catch (...) {
+      LOG_ERROR_CORE("Unknown exception starting plugins");
+      return false;
+    }
 	LOG_DEBUG_CORE(utf8::cvt<std::string>(APPLICATION_NAME " - " CURRENT_SERVICE_VERSION " Started!"));
 	return true;
 }

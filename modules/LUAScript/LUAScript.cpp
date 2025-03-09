@@ -47,7 +47,7 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 		settings.alias().add_path_to_settings()
 
-			("scripts", sh::fun_values_path(boost::bind(&LUAScript::loadScript, this, _1, _2)),
+			("scripts", sh::fun_values_path(boost::bind(&LUAScript::loadScript, this, boost::placeholders::_1, boost::placeholders::_2)),
 				"Lua scripts", "A list of scripts available to run from the LuaSCript module.",
 				"SCRIPT DEFENTION", "For more configuration options add a dedicated section")
 			;
@@ -71,6 +71,20 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	return true;
 }
 
+
+bool LUAScript::startModule() {
+	try {
+		scripts_->start_all();
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("start", e);
+		return false;
+	} catch (...) {
+		NSC_LOG_ERROR_EX("start");
+		return false;
+	}
+
+	return true;
+}
 bool LUAScript::loadScript(std::string alias, std::string file) {
 	try {
 		if (file.empty()) {
@@ -99,7 +113,6 @@ bool LUAScript::unloadModule() {
 }
 
 void LUAScript::query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, const PB::Commands::QueryRequestMessage &request_message) {
-	std::string response_buffer;
 	boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command(scripts::nscp::tags::query_tag, request.command());
 	if (!cmd) {
 		cmd = scripts_->find_command(scripts::nscp::tags::simple_query_tag, request.command());
@@ -113,11 +126,20 @@ void LUAScript::query_fallback(const PB::Commands::QueryRequestMessage::Request 
 bool LUAScript::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message) {
 	if (request.command() != "lua-script" && request.command() != "lua-run"
 		&& request.command() != "run" && request.command() != "execute" && request.command() != "") {
-		boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command(scripts::nscp::tags::simple_exec_tag, request.command());
-		if (cmd) {
-			lua_runtime_->on_exec(request.command(), cmd->information, cmd->function, true, request, response, request_message);
+		try {
+		  boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command(scripts::nscp::tags::simple_exec_tag, request.command());
+		  if (cmd) {
+		  	lua_runtime_->on_exec(request.command(), cmd->information, cmd->function, true, request, response, request_message);
+		  }
+		  return true;
+		} catch (const std::exception &e) {
+			nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute lua script " + utf8::utf8_from_native(e.what()));
+			return true;
 		}
-		return false;
+		catch (...) {
+			nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute lua script.");
+			return true;
+		}
 	}
 
 	try {
@@ -150,5 +172,13 @@ bool LUAScript::commandLineExec(const int target_mode, const PB::Commands::Execu
 }
 
 void LUAScript::handleNotification(const std::string &channel, const PB::Commands::QueryResponseMessage::Response &request, PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message) {
-	//	return scripts_.on_submission(command, request, result);
+	boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command(scripts::nscp::tags::submit_tag, channel);
+	if (cmd) {
+		lua_runtime_->on_submit(channel, cmd->information, cmd->function, false, request, response);
+		return;
+	}
+	cmd = scripts_->find_command(scripts::nscp::tags::simple_submit_tag, channel);
+	if (cmd) {
+		lua_runtime_->on_submit(channel, cmd->information, cmd->function, true, request, response);
+	}
 }

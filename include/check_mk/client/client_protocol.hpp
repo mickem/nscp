@@ -71,8 +71,11 @@ class protocol : public boost::noncopyable {
   bool wants_data() { return current_state_ == wants_response; }
 
   bool on_read_error(const boost::system::error_code& e) {
-    handler_->log_debug(__FILE__, __LINE__, "*** GOT ERROR: " + e.message());
-    set_state(done);
+    if (e == boost::asio::error::eof) {
+        set_state(done);
+        return true;
+    }
+    handler_->log_error(__FILE__, __LINE__, "Failed to receive MK data: " + e.message());
     return true;
   }
   bool on_read(std::size_t bytes_transferred) {

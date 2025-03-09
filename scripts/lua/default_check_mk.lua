@@ -6,7 +6,7 @@ function client_process(packet)
 		s = packet:get_section(i)
 		ln = s:size_line()
 		sz = s:get_title()
-		nscp.print('  + ' .. ln .. ': ' .. sz)
+		nscp.print(' + ' .. sz)
 		for j = 1, s:size_line() do
 			ln = s:get_line(j)
 			nscp.print('    + ' .. ln:get_line())
@@ -15,15 +15,18 @@ function client_process(packet)
 end
 
 function server_process(packet)
-	s = nscp.section()
+	s = section.new()
 	s:set_title("check_mk")
 	s:add_line("Version: 0.0.1")
 	s:add_line("Agent: nsclient++")
-	s:add_line("AgentOS: Windows")
+	l = line.new()
+	l:add_item("AgentOS:")
+	l:add_item("Windows")
+	s:add_line(l)
 	packet:add_section(s)
-	return true
 end
 
-reg = nscp.check_mk()
+reg = mk.new()
 reg:client_callback(client_process)
 reg:server_callback(server_process)
+reg = nil

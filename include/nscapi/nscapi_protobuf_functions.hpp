@@ -34,6 +34,7 @@ typedef int nagiosReturn;
 
 NSCAPI_EXPORT std::string query_data_to_nagios_string(const PB::Commands::QueryResponseMessage &message, std::size_t max_length);
 NSCAPI_EXPORT std::string query_data_to_nagios_string(const PB::Commands::QueryResponseMessage_Response &p, std::size_t max_length);
+NSCAPI_EXPORT int gbp_to_nagios_status(PB::Common::ResultCode ret);
 
 NSCAPI_EXPORT void set_response_good(::PB::Commands::QueryResponseMessage_Response &response, std::string message);
 NSCAPI_EXPORT void set_response_good(::PB::Commands::ExecuteResponseMessage_Response &response, std::string message);

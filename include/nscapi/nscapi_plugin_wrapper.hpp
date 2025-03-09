@@ -156,6 +156,20 @@ struct basic_wrapper {
     return NSCAPI::api_return_codes::hasFailed;
   }
 };
+
+template <class impl_class>
+struct on_start_wrapper {
+  boost::shared_ptr<impl_class> instance;
+  on_start_wrapper (boost::shared_ptr<impl_class> instance) : instance(instance) {}
+  NSCAPI::boolReturn NSStartModule() {
+    try {
+      return instance->startModule();
+    } catch (...) {
+      NSC_LOG_CRITICAL("Unknown exception in: NSStartModule");
+      return NSCAPI::bool_return::isfalse;
+    }
+  }
+};
 template <class impl_class>
 struct message_wrapper {
   boost::shared_ptr<impl_class> instance;

@@ -43,6 +43,8 @@ namespace nsclient {
 	  virtual ~plugin_interface() {}
 
       virtual bool load_plugin(NSCAPI::moduleLoadMode mode) = 0;
+      virtual bool has_start() = 0;
+      virtual bool start_plugin() = 0;
       virtual void unload_plugin() = 0;
 
       virtual std::string getName() = 0;

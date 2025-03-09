@@ -219,6 +219,9 @@ namespace nsclient {
 		std::string to_string() {
 			std::string ret;
 			std::list<std::string> lst = list();
+                        if (lst.empty()) {
+                            return "NONE" + parent::to_string();
+                        }
 			for(std::string str: lst) {
 				if (!ret.empty()) ret += ", ";
 				ret += str;
@@ -269,6 +272,9 @@ namespace nsclient {
 		}
 		std::string to_string() {
 			std::string ret;
+                        if (listeners_.empty()) {
+                            return ", NONE";
+                        }
 			for(listener_list_type::value_type i: listeners_) {
 				ret += ", ";
 				ret += i.first;

@@ -12,14 +12,14 @@ set(SRCS
     ${NSCP_CLIENT_CPP})
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
-include_directories(${LUA_INCLUE_DIR})
+include_directories(${LUA_INCLUDE_DIR})
 if(OPENSSL_FOUND)
+  include_directories(${OPENSSL_INCLUDE_DIR})
   add_definitions(-DUSE_SSL)
   set(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
   if(WIN32)
     set(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32)
   endif(WIN32)
-  include_directories(${OPENSSL_INCLUDE_DIR})
 endif(OPENSSL_FOUND)
 
 if(WIN32)

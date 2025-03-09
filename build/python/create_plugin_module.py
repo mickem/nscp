@@ -10,6 +10,9 @@ LIBRARY	{{module.name}}
 EXPORTS
 	NSModuleHelperInit
 	NSLoadModuleEx
+{% if module.on_start %}
+	NSStartModule
+{% endif %}
 	NSUnloadModule
 	NSGetModuleName
 	NSGetModuleDescription
@@ -155,6 +158,29 @@ bool {{module.name}}Module::loadModuleEx(std::string alias, NSCAPI::moduleLoadMo
 	}
 }
 
+{% if module.on_start %}
+/**
+ * Called after all plugins have been loaded.
+ * @return true
+ */
+bool {{module.name}}Module::startModule() {
+	try {
+		return impl_->startModule();
+{%if module.managed %}
+	} catch (System::Exception ^e) {
+		NSC_LOG_ERROR("Failed to load CheckPowershell: " + to_nstring(e->Message));
+		return false;
+{% endif %}
+	} catch (std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to load {{module.name}}: ", e);
+		return false;
+	} catch (...) {
+		NSC_LOG_ERROR_EX("Failed to load {{module.name}}: ");
+		return false;
+	}
+}
+
+{% endif %}
 bool {{module.name}}Module::unloadModule() {
 	bool ret = false;
 	if (impl_) {
@@ -604,6 +630,12 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
 	extern int NSLoadModule() {
 		return nscapi::basic_wrapper_static<plugin_impl_class>::NSLoadModule();
 	}
+{%if module.on_start %}
+	extern int NSStartModule(unsigned int id) {
+		nscapi::on_start_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+		return wrapper.NSStartModule();
+	}
+{% endif %}
 	extern int NSGetModuleName(char* buf, int buflen) {
 		return nscapi::basic_wrapper_static<plugin_impl_class>::NSGetModuleName(buf, buflen);
 	}
@@ -693,6 +725,9 @@ HPP_TEMPLATE = """#pragma once
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 
 extern "C" int NSModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f);
+{%if module.on_start %}
+extern "C" int NSStartModule(unsigned int plugin_id);
+{% endif %}
 extern "C" int NSLoadModule();
 extern "C" int NSLoadModuleEx(unsigned int plugin_id, char* alias, int mode);
 extern "C" void NSDeleteBuffer(char**buffer);
@@ -738,6 +773,9 @@ public:
 	 * @return True if we loaded successfully.
 	 */
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+{% if module.on_start %}
+	bool startModule();
+{% endif %}
 	bool unloadModule();
 
 	/**
@@ -848,6 +886,7 @@ module = None
 cli = False
 log_handler = False
 channels = False
+on_start = False
 metrics = False
 events = False
 
@@ -1008,6 +1047,8 @@ for key, value in data.items():
 		metrics = value
 	elif key == "events":
 		events = value
+	elif key == "on_start":
+		on_start = True
 	else:
 		print('* TODO: %s'%key)
 
@@ -1049,6 +1090,7 @@ module.log_handler = log_handler
 module.command_fallback = command_fallback
 module.command_fallback_raw = command_fallback_raw
 module.events = events
+module.on_start = on_start
 
 env = Environment(extensions=["jinja2.ext.do",])
 env.filters['cstring'] = escape_cstring

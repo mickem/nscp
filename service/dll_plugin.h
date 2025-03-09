@@ -65,9 +65,11 @@ namespace nsclient {
 			bool loaded_;
 			bool loading_;
 			bool broken_;
+                        bool started_;
 
 			nscapi::plugin_api::lpModuleHelperInit fModuleHelperInit;
 			nscapi::plugin_api::lpLoadModule fLoadModule;
+                        nscapi::plugin_api::lpStartModule fStartModule;
 			nscapi::plugin_api::lpGetName fGetName;
 			nscapi::plugin_api::lpGetVersion fGetVersion;
 			nscapi::plugin_api::lpGetDescription fGetDescription;
@@ -92,6 +94,8 @@ namespace nsclient {
 			virtual ~dll_plugin();
 
 			bool load_plugin(NSCAPI::moduleLoadMode mode);
+			bool has_start();
+            bool start_plugin();
 			void unload_plugin();
 
 			std::string getName();

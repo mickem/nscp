@@ -1,5 +1,1 @@
-if(HAVE_LUA)
-  set(BUILD_MODULE 1)
-else(HAVE_LUA)
-  message(STATUS "Disabling since Lua was not found")
-endif(HAVE_LUA)
+set(BUILD_MODULE 1)

@@ -89,6 +89,8 @@ namespace nsclient {
 			virtual ~zip_plugin();
 
 			bool load_plugin(NSCAPI::moduleLoadMode mode);
+			bool has_start() { return false; }
+			bool start_plugin() { return true; }
 			void unload_plugin();
 
 			std::string getName();

@@ -47,6 +47,7 @@ public:
 	virtual ~LUAScript() {}
 	// Module calls
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+	bool startModule();
 
 	bool unloadModule();
 	void query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, const PB::Commands::QueryRequestMessage &request_message);
