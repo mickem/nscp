@@ -27,7 +27,7 @@ There is an extensive guide on using external scripts with NSClient++ [here](../
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to add `CheckExternalScripts = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and and allow using the commands you need to ass `CheckExternalScripts = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]
