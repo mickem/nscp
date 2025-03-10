@@ -2,7 +2,7 @@
 
 #include "dll_defines.hpp"
 #ifdef WIN32
-#pragma warning(disable:4251)
+#pragma warning(disable : 4251)
 #endif
 
 #include <map>
@@ -27,72 +27,69 @@
 /**
  * A response to a request
  */
-namespace Mongoose
-{
-    class NSCAPI_EXPORT Response 
-    {
-        public:
-            Response();
-            virtual ~Response();
+namespace Mongoose {
+class NSCAPI_EXPORT Response {
+ public:
+  Response();
+  virtual ~Response();
 
-            /**
-             * Test if the given header is present
-             *
-             * @param string the header key
-             *
-             * @return bool true if the header is set
-             */
-            virtual bool hasHeader(std::string key);
+  /**
+   * Test if the given header is present
+   *
+   * @param string the header key
+   *
+   * @return bool true if the header is set
+   */
+  virtual bool hasHeader(std::string key);
 
-            /**
-             * Sets the header
-             *
-             * @param key the header key
-             *
-             * @param value the header value
-             */
-            virtual void setHeader(std::string key, std::string value);
+  /**
+   * Sets the header
+   *
+   * @param key the header key
+   *
+   * @param value the header value
+   */
+  virtual void setHeader(std::string key, std::string value);
 
-            /**
-             * Gets the response body
-             *
-             * @return string the response body
-             */
-            virtual std::string getBody()=0;
+  /**
+   * Gets the response body
+   *
+   * @return string the response body
+   */
+  virtual std::string getBody() = 0;
 
-            /**
-             * Sets the cookie, note that you can only define one cookie by request
-             * for now
-             *
-             * @param string the key of the cookie
-             * @param string value the cookie value
-             */
-            virtual void setCookie(std::string key, std::string value);
+  /**
+   * Sets the cookie, note that you can only define one cookie by request
+   * for now
+   *
+   * @param string the key of the cookie
+   * @param string value the cookie value
+   */
+  virtual void setCookie(std::string key, std::string value);
 
-            /**
-             * Sets the response code
-             */
-            virtual void setCode(int code_, std::string reason_);
+  /**
+   * Sets the response code
+   */
+  virtual void setCode(int code_, std::string reason_);
 
-			virtual void setCodeOk();
-			/**
-			* Get a cookie from the cookie list.
-			* @param string the key of the cookie
-			*/
-			virtual std::string getCookie(std::string key) const ;
+  virtual void setCodeOk();
+  /**
+   * Get a cookie from the cookie list.
+   * @param string the key of the cookie
+   */
+  virtual std::string getCookie(std::string key) const;
 
-			typedef std::map<std::string, std::string> header_type;
+  typedef std::map<std::string, std::string> header_type;
 
-			virtual int get_response_code() const = 0;
+  virtual int get_response_code() const = 0;
 
-			header_type& get_headers() {
-				return headers;
-			}
-        int getCode() { return code; }
-        private:
-			int code;
-			std::string reason;
-			header_type headers;
-			header_type cookies;
-	};
-}
+  header_type& get_headers() { return headers; }
+  int getCode() { return code; }
+
+ private:
+  int code;
+  std::string reason;
+  header_type headers;
+  header_type cookies;
+};
+}  // namespace Mongoose
