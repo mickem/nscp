@@ -63,6 +63,7 @@ namespace nsca_handler {
 
 			add_ssl_keys(root_path);
 
+                        // clang-format off
 			root_path.add_key()
 
 				("payload length", sh::int_fun_key(boost::bind(&parent::set_property_int, this, "payload length", ph::_1), 512),
@@ -81,6 +82,7 @@ namespace nsca_handler {
 				("time offset", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "delay", ph::_1), "0"),
 					"TIME OFFSET", "Time offset.", true)
 				;
+// clang-format on
 
 			settings.register_all();
 			settings.notify();
@@ -98,6 +100,7 @@ namespace nsca_handler {
 		void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
 			add_ssl_options(desc, data);
 
+                        // clang-format off
 			desc.add_options()
 				("encryption,e", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "encryption", ph::_1)),
 					(std::string("Name of encryption algorithm to use.\nHas to be the same as your server i using or it wont work at all."
@@ -115,6 +118,7 @@ namespace nsca_handler {
 				("time-offset", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "time offset", ph::_1)),
 					"")
 				;
+// clang-format on
 		}
 	};
 }

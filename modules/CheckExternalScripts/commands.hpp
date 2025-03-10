@@ -79,6 +79,7 @@ namespace commands {
 				root_path.set_sample();
 
 			if (!oneliner) {
+                          // clang-format off
 				root_path.add_path()
 					("script: " + get_alias(), "The configuration section for the  " + get_alias() + " script.")
 					;
@@ -112,6 +113,7 @@ namespace commands {
 						"CAPTURE OUTPUT", "This should be set to false if you want to run commands which never terminates (i.e. relinquish control from NSClient++). The effect of this is that the command output will not be captured. The main use is to protect from socket reuse issues", true)
 
 					;
+// clang-format on
 
 				settings.register_all();
 				settings.notify();

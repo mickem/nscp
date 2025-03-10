@@ -54,6 +54,7 @@ namespace nrdp_handler {
 			if (oneliner)
 				return;
 
+                        // clang-format off
 			root_path.add_key()
 
 				("key", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", ph::_1)),
@@ -66,6 +67,7 @@ namespace nrdp_handler {
 					"SECURITY TOKEN", "The security token")
 
 				;
+// clang-format on
 
 			settings.register_all();
 			settings.notify();
@@ -82,6 +84,7 @@ namespace nrdp_handler {
 		}
 
 		void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
+                  // clang-format off
 			desc.add_options()
 
 				("key", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "token", ph::_1)),
@@ -100,6 +103,7 @@ namespace nrdp_handler {
 					"The security token")
 
 				;
+// clang-format on
 		}
 	};
 }

@@ -74,6 +74,7 @@ namespace filters {
 
 		if (oneliner)
 			return;
+                // clang-format off
 
 		root_path.add_path()
 			("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
@@ -96,6 +97,7 @@ namespace filters {
 			"read entire file", "Set to true to always read the entire file not just new data", true)
 
 			;
+// clang-format on
 		filter.read_object(root_path, is_default);
 
 		settings.register_all();

@@ -42,6 +42,7 @@ struct user_config_object : public nscapi::settings_objects::object_instance_int
     nscapi::settings_helper::path_extension root_path = settings.path(get_path());
     if (is_sample) root_path.set_sample();
 
+    // clang-format off
     root_path.add_key()
 
         ("password", sh::string_key(&password), "PASSWORD", "The password to use.")
@@ -49,6 +50,7 @@ struct user_config_object : public nscapi::settings_objects::object_instance_int
             ("role", sh::string_key(&role), "ROLE", "The role which will grant access to this user")
 
         ;
+// clang-format on
 
     settings.register_all();
     settings.notify();

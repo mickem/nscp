@@ -129,6 +129,7 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
 
   root_path.add_path()("Real time filter: " + get_alias(), "Definition for real time filter: " + get_alias());
 
+  // clang-format off
   root_path.add_key()("log", sh::string_fun_key(boost::bind(&filter_config_object::set_file, this, boost::placeholders::_1)), "FILE",
                       "The eventlog record to filter on (if set to 'all' means all enabled logs)", false)
 
@@ -139,6 +140,7 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
            "Truncate the eventlog messages, if set to 0 (default) messages will not be truncated", true)
 
       ;
+// clang-format on
 
   filter.read_object(root_path, is_default);
 

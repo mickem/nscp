@@ -54,6 +54,7 @@ namespace smtp_handler {
 			if (is_sample)
 				root_path.set_sample();
 
+                        // clang-format off
 			root_path.add_key()
 
 				("sender", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "sender", ph::_1), "nscp@localhost"),
@@ -66,6 +67,7 @@ namespace smtp_handler {
 					"TEMPLATE", "Template for message data")
 
 				;
+// clang-format on
 		}
 	};
 
@@ -78,6 +80,7 @@ namespace smtp_handler {
 		}
 
 		void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
+                  // clang-format off
 			desc.add_options()
 
 				("sender", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, source, "sender", ph::_1)),
@@ -96,6 +99,7 @@ namespace smtp_handler {
 					"Source/sender host name (default is auto which means use the name of the actual host)")
 
 				;
+// clang-format on
 		}
 	};
 }

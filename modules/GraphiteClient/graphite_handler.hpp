@@ -59,6 +59,7 @@ namespace graphite_handler {
 
 			if (is_default()) {
 
+                          // clang-format off
 				root_path.add_key()
 
 					("path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "perf path", ph::_1), "nsclient.${hostname}.${check_alias}.${perf_alias}"),
@@ -93,6 +94,7 @@ namespace graphite_handler {
 						"SEND STATUS", "Send status data to this server")
 
 					;
+// clang-format on
 			}
 			settings.register_all();
 			settings.notify();

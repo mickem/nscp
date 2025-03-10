@@ -122,6 +122,7 @@ namespace schedules {
 			if (oneliner)
 				return;
 
+                        // clang-format off
 			root_path.add_path()
 				("SCHEDULE DEFENITION", "Schedule definition for: " + get_alias())
 				;
@@ -175,6 +176,7 @@ namespace schedules {
 
 					;
 			}
+// clang-format on
 
 			settings.register_all();
 			settings.notify();

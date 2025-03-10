@@ -59,6 +59,7 @@ namespace syslog_handler {
 			if (is_sample)
 				root_path.set_sample();
 
+                        // clang-format off
 			root_path.add_key()
 
 				("severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "severity", ph::_1), "error"),
@@ -85,6 +86,7 @@ namespace syslog_handler {
 				("unknown severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "unknown severity", ph::_1), "emergency"),
 					"TODO", "")
 				;
+// clang-format on
 		}
 	};
 
@@ -97,6 +99,7 @@ namespace syslog_handler {
 		}
 
 		void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
+                  // clang-format off
 			desc.add_options()
 				("path", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "path", ph::_1)),
 					"")
@@ -125,6 +128,7 @@ namespace syslog_handler {
 					"Message template (TODO)")
 
 				;
+// clang-format on
 		}
 	};
 }
