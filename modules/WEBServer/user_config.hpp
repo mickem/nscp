@@ -50,7 +50,7 @@ struct user_config_object : public nscapi::settings_objects::object_instance_int
             ("role", sh::string_key(&role), "ROLE", "The role which will grant access to this user")
 
         ;
-// clang-format on
+    // clang-format on
 
     settings.register_all();
     settings.notify();

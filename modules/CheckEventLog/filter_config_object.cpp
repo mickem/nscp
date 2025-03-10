@@ -140,7 +140,7 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
            "Truncate the eventlog messages, if set to 0 (default) messages will not be truncated", true)
 
       ;
-// clang-format on
+  // clang-format on
 
   filter.read_object(root_path, is_default);
 

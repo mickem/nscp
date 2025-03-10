@@ -58,7 +58,7 @@ struct nrpe_target_object : public nscapi::targets::target_object {
 
         ("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "password", boost::placeholders::_1)), "PASSWORD",
          "The password to use to authenticate towards the server.");
-// clang-format on
+    // clang-format on
     settings.register_all();
     settings.notify();
     settings.clear();

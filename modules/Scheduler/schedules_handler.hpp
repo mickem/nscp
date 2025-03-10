@@ -43,86 +43,72 @@ namespace sh = nscapi::settings_helper;
 namespace ph = boost::placeholders;
 
 namespace schedules {
-	struct schedule_object : public nscapi::settings_objects::object_instance_interface {
-		typedef nscapi::settings_objects::object_instance_interface parent;
+struct schedule_object : public nscapi::settings_objects::object_instance_interface {
+  typedef nscapi::settings_objects::object_instance_interface parent;
 
-		schedule_object(std::string alias, std::string path) : parent(alias, path), randomness(0.0), report(0), id(0) {}
-		schedule_object(const schedule_object& other)
-			: parent(other)
-			, source_id(other.source_id)
-			, target_id(other.target_id)
-			, duration(other.duration)
-			, randomness(other.randomness)
-			, schedule(other.schedule)
-			, channel(other.channel)
-			, report(other.report)
-			, command(other.command)
-			, arguments(other.arguments) {}
+  schedule_object(std::string alias, std::string path) : parent(alias, path), randomness(0.0), report(0), id(0) {}
+  schedule_object(const schedule_object& other)
+      : parent(other),
+        source_id(other.source_id),
+        target_id(other.target_id),
+        duration(other.duration),
+        randomness(other.randomness),
+        schedule(other.schedule),
+        channel(other.channel),
+        report(other.report),
+        command(other.command),
+        arguments(other.arguments) {}
 
-		// Schedule keys
-		std::string source_id;
-		std::string target_id;
-		boost::optional<boost::posix_time::time_duration> duration;
-		double randomness;
-		boost::optional<std::string> schedule;
-		std::string  channel;
-		unsigned int report;
-		std::string command;
-		std::list<std::string> arguments;
+  // Schedule keys
+  std::string source_id;
+  std::string target_id;
+  boost::optional<boost::posix_time::time_duration> duration;
+  double randomness;
+  boost::optional<std::string> schedule;
+  std::string channel;
+  unsigned int report;
+  std::string command;
+  std::list<std::string> arguments;
 
-		// Others keys (Managed by application)
-		int id;
+  // Others keys (Managed by application)
+  int id;
 
-		void set_randomness(std::string str) {
-			randomness = str::stox<double>(boost::replace_first_copy(str, "%", "")) / 100.0;
-		}
-		void set_report(std::string str) {
-			report = nscapi::report::parse(str);
-		}
-		void set_duration(std::string str) {
-			duration = boost::posix_time::seconds(str::format::stox_as_time_sec<long>(str, "s"));
-		}
-		void set_schedule(std::string str) {
-			schedule = str;
-		}
-		void set_command(std::string str) {
-			if (!str.empty()) {
-				arguments.clear();
-				str::utils::parse_command(str, command, arguments);
-			}
-		}
+  void set_randomness(std::string str) { randomness = str::stox<double>(boost::replace_first_copy(str, "%", "")) / 100.0; }
+  void set_report(std::string str) { report = nscapi::report::parse(str); }
+  void set_duration(std::string str) { duration = boost::posix_time::seconds(str::format::stox_as_time_sec<long>(str, "s")); }
+  void set_schedule(std::string str) { schedule = str; }
+  void set_command(std::string str) {
+    if (!str.empty()) {
+      arguments.clear();
+      str::utils::parse_command(str, command, arguments);
+    }
+  }
 
-		std::string to_string() const {
-			std::stringstream ss;
-			ss << get_alias() << "[" << id << "] = "
-				<< "{tpl: " << parent::to_string()
-				<< ", command: " << command
-				<< ", channel: " << channel
-				<< ", source_id: " << source_id
-				<< ", target_id: " << target_id;
-			if (duration) {
-				ss << ", duration: " << (*duration).total_seconds() << "s, " << (randomness * 100) << "% randomness";
-			}
-			if (schedule)
-				ss << ", schedule: " << *schedule;
-			ss << "}";
-			return ss.str();
-		}
+  std::string to_string() const {
+    std::stringstream ss;
+    ss << get_alias() << "[" << id << "] = "
+       << "{tpl: " << parent::to_string() << ", command: " << command << ", channel: " << channel << ", source_id: " << source_id
+       << ", target_id: " << target_id;
+    if (duration) {
+      ss << ", duration: " << (*duration).total_seconds() << "s, " << (randomness * 100) << "% randomness";
+    }
+    if (schedule) ss << ", schedule: " << *schedule;
+    ss << "}";
+    return ss.str();
+  }
 
-		virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
-			parent::read(proxy, oneliner, is_sample);
+  virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
+    parent::read(proxy, oneliner, is_sample);
 
-			set_command(get_value());
-			bool is_def = is_default();
+    set_command(get_value());
+    bool is_def = is_default();
 
-			nscapi::settings_helper::settings_registry settings(proxy);
-			nscapi::settings_helper::path_extension root_path = settings.path(get_path());
-			if (is_sample)
-				root_path.set_sample();
-			if (oneliner)
-				return;
+    nscapi::settings_helper::settings_registry settings(proxy);
+    nscapi::settings_helper::path_extension root_path = settings.path(get_path());
+    if (is_sample) root_path.set_sample();
+    if (oneliner) return;
 
-                        // clang-format off
+    // clang-format off
 			root_path.add_path()
 				("SCHEDULE DEFENITION", "Schedule definition for: " + get_alias())
 				;
@@ -176,77 +162,61 @@ namespace schedules {
 
 					;
 			}
-// clang-format on
+    // clang-format on
 
-			settings.register_all();
-			settings.notify();
-		}
-	};
+    settings.register_all();
+    settings.notify();
+  }
+};
 
+typedef boost::optional<schedule_object> optional_target_object;
+typedef boost::shared_ptr<schedule_object> target_object;
 
-	typedef boost::optional<schedule_object> optional_target_object;
-	typedef boost::shared_ptr<schedule_object> target_object;
+typedef nscapi::settings_objects::object_handler<schedule_object> schedule_handler;
 
-	typedef nscapi::settings_objects::object_handler<schedule_object> schedule_handler;
+struct task_handler {
+  virtual bool handle_schedule(target_object task) = 0;
+  virtual void on_error(const char* file, int line, std::string error) = 0;
+  virtual void on_trace(const char* file, int line, std::string error) = 0;
+};
 
-	struct task_handler {
-		virtual bool handle_schedule(target_object task) = 0;
-		virtual void on_error(const char* file, int line, std::string error) = 0;
-		virtual void on_trace(const char* file, int line, std::string error) = 0;
+struct scheduler : public simple_scheduler::handler {
+  typedef boost::unordered_map<int, target_object> metadata_map;
+  metadata_map metadata;
+  simple_scheduler::scheduler tasks;
+  task_handler* handler_;
 
-	};
+  target_object get(int id);
 
-	struct scheduler : public simple_scheduler::handler {
-		typedef boost::unordered_map<int, target_object> metadata_map;
-		metadata_map metadata;
-		simple_scheduler::scheduler tasks;
-		task_handler *handler_;
+  void start();
+  void stop();
 
-		target_object get(int id);
+  simple_scheduler::scheduler& get_scheduler() { return tasks; }
 
-		void start();
-		void stop();
+  void set_handler(task_handler* handler) { handler_ = handler; }
+  void prepare_shutdown() { tasks.prepare_shutdown(); }
+  void unset_handler() { handler_ = NULL; }
+  void clear();
 
-		simple_scheduler::scheduler& get_scheduler() {
-			return tasks;
-		}
+  void set_threads(int count) { tasks.set_threads(count); }
 
-		void set_handler(task_handler* handler) {
-			handler_ = handler;
-		}
-		void prepare_shutdown() {
-			tasks.prepare_shutdown();
-		}
-		void unset_handler() {
-			handler_ = NULL;
-		}
-		void clear();
+  void add_task(const target_object target);
 
-		void set_threads(int count) {
-			tasks.set_threads(count);
-		}
+  bool handle_schedule(simple_scheduler::task item) {
+    task_handler* tmp = handler_;
+    if (tmp) {
+      if (!tmp->handle_schedule(get(item.id))) tasks.remove_task(item.id);
+    }
+    return true;
+  }
+  void on_error(const char* file, int line, std::string error) {
+    task_handler* tmp = handler_;
+    if (tmp) tmp->on_error(file, line, error);
+  }
+  void on_trace(const char* file, int line, std::string error) {
+    task_handler* tmp = handler_;
+    if (tmp) tmp->on_trace(file, line, error);
+  }
+};
 
-		void add_task(const target_object target);
-
-		bool handle_schedule(simple_scheduler::task item) {
-			task_handler *tmp = handler_;
-			if (tmp) {
-				if (!tmp->handle_schedule(get(item.id)))
-					tasks.remove_task(item.id);
-
-			}
-			return true;
-		}
-		void on_error(const char* file, int line, std::string error) {
-			task_handler *tmp = handler_;
-			if (tmp)
-				tmp->on_error(file, line, error);
-		}
-		void on_trace(const char* file, int line, std::string error) {
-			task_handler *tmp = handler_;
-			if (tmp)
-				tmp->on_trace(file, line, error);
-		}
-	};
-
-}
+}  // namespace schedules

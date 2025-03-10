@@ -36,45 +36,39 @@
 #include <map>
 #include <string>
 
-
 namespace sh = nscapi::settings_helper;
 
 namespace filters {
-	std::string filter_config_object::to_string() const {
-		std::stringstream ss;
-		ss << get_alias() << "[" << get_alias() << "] = "
-			<< "{tpl: " << parent::to_string() << ", filter: " << filter.to_string() << "}";
-		return ss.str();
-	}
+std::string filter_config_object::to_string() const {
+  std::stringstream ss;
+  ss << get_alias() << "[" << get_alias() << "] = "
+     << "{tpl: " << parent::to_string() << ", filter: " << filter.to_string() << "}";
+  return ss.str();
+}
 
-	void filter_config_object::set_files(std::string file_string) {
-		if (file_string.empty())
-			return;
-		files.clear();
-		for(const std::string &s: str::utils::split_lst(file_string, std::string(","))) {
-			files.push_back(s);
-		}
-	}
-	void filter_config_object::set_file(std::string file_string) {
-		if (file_string.empty())
-			return;
-		files.clear();
-		files.push_back(file_string);
-	}
+void filter_config_object::set_files(std::string file_string) {
+  if (file_string.empty()) return;
+  files.clear();
+  for (const std::string &s : str::utils::split_lst(file_string, std::string(","))) {
+    files.push_back(s);
+  }
+}
+void filter_config_object::set_file(std::string file_string) {
+  if (file_string.empty()) return;
+  files.clear();
+  files.push_back(file_string);
+}
 
-	void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
-		if (!get_value().empty())
-			filter.set_filter_string(get_value().c_str());
-		bool is_default = parent::is_default();
+void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
+  if (!get_value().empty()) filter.set_filter_string(get_value().c_str());
+  bool is_default = parent::is_default();
 
-		nscapi::settings_helper::settings_registry settings(proxy);
-		nscapi::settings_helper::path_extension root_path = settings.path(get_path());
-		if (is_sample)
-			root_path.set_sample();
+  nscapi::settings_helper::settings_registry settings(proxy);
+  nscapi::settings_helper::path_extension root_path = settings.path(get_path());
+  if (is_sample) root_path.set_sample();
 
-		if (oneliner)
-			return;
-                // clang-format off
+  if (oneliner) return;
+  // clang-format off
 
 		root_path.add_path()
 			("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
@@ -97,10 +91,10 @@ namespace filters {
 			"read entire file", "Set to true to always read the entire file not just new data", true)
 
 			;
-// clang-format on
-		filter.read_object(root_path, is_default);
+  // clang-format on
+  filter.read_object(root_path, is_default);
 
-		settings.register_all();
-		settings.notify();
-	}
+  settings.register_all();
+  settings.notify();
 }
+}  // namespace filters

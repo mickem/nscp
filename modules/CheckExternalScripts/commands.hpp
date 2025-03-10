@@ -28,58 +28,47 @@
 
 #include <string>
 
-
 namespace sh = nscapi::settings_helper;
 
 namespace commands {
-	struct command_object : public nscapi::settings_objects::object_instance_interface {
-		typedef nscapi::settings_objects::object_instance_interface parent;
+struct command_object : public nscapi::settings_objects::object_instance_interface {
+  typedef nscapi::settings_objects::object_instance_interface parent;
 
-		command_object(std::string alias, std::string path)
-			: parent(alias, path)
-			, display(false)
-			, ignore_perf(false)
-			, no_fork(true)
-		{}
+  command_object(std::string alias, std::string path) : parent(alias, path), display(false), ignore_perf(false), no_fork(true) {}
 
-		std::string encoding;
-		std::string command;
-		std::string user;
-		std::string domain;
-		std::string password;
-		std::string session;
-		bool display;
-		bool ignore_perf;
-		bool no_fork;
+  std::string encoding;
+  std::string command;
+  std::string user;
+  std::string domain;
+  std::string password;
+  std::string session;
+  bool display;
+  bool ignore_perf;
+  bool no_fork;
 
-		std::string to_string() const {
-			std::stringstream ss;
-			ss << get_alias() << "[" << get_alias() << "] = "
-				<< "{tpl: " << parent::to_string();
-			if (!user.empty()) {
-				ss << ", user: " << user
-					<< ", domain: " << domain
-					<< ", password: " << password
-					<< ", session: " << session
-					<< ", display: " << display
-					<< ", no_fork: " << no_fork;
-			}
-			ss << "}";
-			return ss.str();
-		}
+  std::string to_string() const {
+    std::stringstream ss;
+    ss << get_alias() << "[" << get_alias() << "] = "
+       << "{tpl: " << parent::to_string();
+    if (!user.empty()) {
+      ss << ", user: " << user << ", domain: " << domain << ", password: " << password << ", session: " << session << ", display: " << display
+         << ", no_fork: " << no_fork;
+    }
+    ss << "}";
+    return ss.str();
+  }
 
-		virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
-			parent::read(proxy, oneliner, is_sample);
-			set_alias(boost::algorithm::to_lower_copy(get_alias()));
-			set_command(get_value());
+  virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
+    parent::read(proxy, oneliner, is_sample);
+    set_alias(boost::algorithm::to_lower_copy(get_alias()));
+    set_command(get_value());
 
-			nscapi::settings_helper::settings_registry settings(proxy);
-			nscapi::settings_helper::path_extension root_path = settings.path(get_path());
-			if (is_sample)
-				root_path.set_sample();
+    nscapi::settings_helper::settings_registry settings(proxy);
+    nscapi::settings_helper::path_extension root_path = settings.path(get_path());
+    if (is_sample) root_path.set_sample();
 
-			if (!oneliner) {
-                          // clang-format off
+    if (!oneliner) {
+      // clang-format off
 				root_path.add_path()
 					("script: " + get_alias(), "The configuration section for the  " + get_alias() + " script.")
 					;
@@ -113,18 +102,16 @@ namespace commands {
 						"CAPTURE OUTPUT", "This should be set to false if you want to run commands which never terminates (i.e. relinquish control from NSClient++). The effect of this is that the command output will not be captured. The main use is to protect from socket reuse issues", true)
 
 					;
-// clang-format on
+      // clang-format on
 
-				settings.register_all();
-				settings.notify();
-			}
-		}
+      settings.register_all();
+      settings.notify();
+    }
+  }
 
-		void set_command(std::string str) {
-			command = str;
-		}
-	};
-	typedef boost::shared_ptr<command_object> command_object_instance;
+  void set_command(std::string str) { command = str; }
+};
+typedef boost::shared_ptr<command_object> command_object_instance;
 
-	typedef nscapi::settings_objects::object_handler<command_object> command_handler;
-}
+typedef nscapi::settings_objects::object_handler<command_object> command_handler;
+}  // namespace commands

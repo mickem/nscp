@@ -36,34 +36,33 @@
 #include "nsca_client.hpp"
 
 namespace nsca_handler {
-	namespace sh = nscapi::settings_helper;
-	namespace ph = boost::placeholders;
+namespace sh = nscapi::settings_helper;
+namespace ph = boost::placeholders;
 
-	struct nsca_target_object : public nscapi::targets::target_object {
-		typedef nscapi::targets::target_object parent;
+struct nsca_target_object : public nscapi::targets::target_object {
+  typedef nscapi::targets::target_object parent;
 
-		nsca_target_object(std::string alias, std::string path) : parent(alias, path) {
-			set_property_int("timeout", 30);
-			set_property_int("retries", 3);
-			set_property_string("encryption", "ase");
-			set_property_int("payload length", 512);
-			set_property_string("port", "5667");
-			set_property_int("time offset", 0);
-		}
-		nsca_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
+  nsca_target_object(std::string alias, std::string path) : parent(alias, path) {
+    set_property_int("timeout", 30);
+    set_property_int("retries", 3);
+    set_property_string("encryption", "ase");
+    set_property_int("payload length", 512);
+    set_property_string("port", "5667");
+    set_property_int("time offset", 0);
+  }
+  nsca_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
 
-		virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
-			parent::read(proxy, oneliner, is_sample);
+  virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
+    parent::read(proxy, oneliner, is_sample);
 
-			nscapi::settings_helper::settings_registry settings(proxy);
+    nscapi::settings_helper::settings_registry settings(proxy);
 
-			nscapi::settings_helper::path_extension root_path = settings.path(get_path());
-			if (is_sample)
-				root_path.set_sample();
+    nscapi::settings_helper::path_extension root_path = settings.path(get_path());
+    if (is_sample) root_path.set_sample();
 
-			add_ssl_keys(root_path);
+    add_ssl_keys(root_path);
 
-                        // clang-format off
+    // clang-format off
 			root_path.add_key()
 
 				("payload length", sh::int_fun_key(boost::bind(&parent::set_property_int, this, "payload length", ph::_1), 512),
@@ -82,25 +81,23 @@ namespace nsca_handler {
 				("time offset", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "delay", ph::_1), "0"),
 					"TIME OFFSET", "Time offset.", true)
 				;
-// clang-format on
+    // clang-format on
 
-			settings.register_all();
-			settings.notify();
-		}
-	};
+    settings.register_all();
+    settings.notify();
+  }
+};
 
-	struct options_reader_impl : public client::options_reader_interface {
-		virtual nscapi::settings_objects::object_instance create(std::string alias, std::string path) {
-			return boost::make_shared<nsca_target_object>(alias, path);
-		}
-		virtual nscapi::settings_objects::object_instance clone(nscapi::settings_objects::object_instance parent, const std::string alias, const std::string path) {
-			return boost::make_shared<nsca_target_object>(parent, alias, path);
-		}
+struct options_reader_impl : public client::options_reader_interface {
+  virtual nscapi::settings_objects::object_instance create(std::string alias, std::string path) { return boost::make_shared<nsca_target_object>(alias, path); }
+  virtual nscapi::settings_objects::object_instance clone(nscapi::settings_objects::object_instance parent, const std::string alias, const std::string path) {
+    return boost::make_shared<nsca_target_object>(parent, alias, path);
+  }
 
-		void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
-			add_ssl_options(desc, data);
+  void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
+    add_ssl_options(desc, data);
 
-                        // clang-format off
+    // clang-format off
 			desc.add_options()
 				("encryption,e", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "encryption", ph::_1)),
 					(std::string("Name of encryption algorithm to use.\nHas to be the same as your server i using or it wont work at all."
@@ -118,7 +115,7 @@ namespace nsca_handler {
 				("time-offset", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "time offset", ph::_1)),
 					"")
 				;
-// clang-format on
-		}
-	};
-}
+    // clang-format on
+  }
+};
+}  // namespace nsca_handler
