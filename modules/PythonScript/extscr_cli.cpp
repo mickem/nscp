@@ -90,6 +90,7 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
 	po::options_description desc;
 	bool json = false, query = false, lib = false;
 
+        // clang-format off
 	desc.add_options()
 		("help", "Show help.")
 
@@ -103,6 +104,7 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
 			"Do not ignore any lib folders.")
 
 		;
+// clang-format on
 
 	try {
 		npo::basic_command_line_parser cmd(request);
@@ -183,12 +185,14 @@ void extscr_cli::show(const PB::Commands::ExecuteRequestMessage::Request &reques
 	po::options_description desc;
 	std::string script;
 
+        // clang-format off
 	desc.add_options()
 		("help", "Show help.")
 
 		("script", po::value<std::string>(&script),
 		"Script to show.")
 		;
+// clang-format on
 
 	try {
 		npo::basic_command_line_parser cmd(request);
@@ -246,12 +250,14 @@ void extscr_cli::delete_script(const PB::Commands::ExecuteRequestMessage::Reques
 	po::options_description desc;
 	std::string script;
 
+        // clang-format off
 	desc.add_options()
 		("help", "Show help.")
 
 		("script", po::value<std::string>(&script),
 		"Script to delete.")
 		;
+// clang-format on
 
 	try {
 		npo::basic_command_line_parser cmd(request);
@@ -318,6 +324,7 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
 	std::string script, alias, import_script;
 	bool list = false, replace = false, no_config = false;
 
+        // clang-format off
 	desc.add_options()
 		("help", "Show help.")
 
@@ -340,6 +347,7 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
 		"Do not write the updated configuration (i.e. changes are only transient).")
 
 		;
+// clang-format on
 
 	try {
 		npo::basic_command_line_parser cmd(request);
@@ -438,12 +446,14 @@ void extscr_cli::configure(const PB::Commands::ExecuteRequestMessage::Request &r
 		else if (val.matches(SCRIPT_PATH))
 			scripts[val.get_string()] = val.key();
 	}
+        // clang-format off
 	desc.add_options()
 		("help", "Show help.")
 		("add", po::value<script_lst_type>(&to_add), "Scripts to add to the list of loaded scripts.")
 		("remove", po::value<script_lst_type>(&to_remove), "Scripts to remove from list of loaded scripts.")
 
 		;
+// clang-format on
 
 	try {
 		npo::basic_command_line_parser cmd(request);
