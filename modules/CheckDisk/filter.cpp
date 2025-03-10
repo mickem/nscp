@@ -41,45 +41,37 @@ const int file_type_error = -1;
 //////////////////////////////////////////////////////////////////////////
 
 int convert_new_type(parsers::where::evaluation_context context, std::string str) {
-	if (str == "critical")
-		return 1;
-	if (str == "error")
-		return 2;
-	if (str == "warning" || str == "warn")
-		return 3;
-	if (str == "informational" || str == "info" || str == "information" || str == "success" || str == "auditSuccess")
-		return 4;
-	if (str == "debug" || str == "verbose")
-		return 5;
-	try {
-		return str::stox<int>(str);
-	} catch (const std::exception&) {
-		context->error("Failed to convert: " + str);
-		return 2;
-	}
+  if (str == "critical") return 1;
+  if (str == "error") return 2;
+  if (str == "warning" || str == "warn") return 3;
+  if (str == "informational" || str == "info" || str == "information" || str == "success" || str == "auditSuccess") return 4;
+  if (str == "debug" || str == "verbose") return 5;
+  try {
+    return str::stox<int>(str);
+  } catch (const std::exception &) {
+    context->error("Failed to convert: " + str);
+    return 2;
+  }
 }
 
-
-parsers::where::node_type fun_convert_type(boost::shared_ptr<file_filter::filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-	try {
-		std::string key = subject->get_string_value(context);
-		if (key == "file")
-			return parsers::where::factory::create_int(file_type_file);
-		if (key == "dir")
-			return parsers::where::factory::create_int(file_type_dir);
-		context->error("Failed to convert: " + key + " not file or dir");
-		return parsers::where::factory::create_int(file_type_error);
-	} catch (const std::exception &e) {
-		context->error("Failed to convert type expression: " + utf8::utf8_from_native(e.what()));
-	}
-	return parsers::where::factory::create_int(-1);
+parsers::where::node_type fun_convert_type(boost::shared_ptr<file_filter::filter_obj> object, parsers::where::evaluation_context context,
+                                           parsers::where::node_type subject) {
+  try {
+    std::string key = subject->get_string_value(context);
+    if (key == "file") return parsers::where::factory::create_int(file_type_file);
+    if (key == "dir") return parsers::where::factory::create_int(file_type_dir);
+    context->error("Failed to convert: " + key + " not file or dir");
+    return parsers::where::factory::create_int(file_type_error);
+  } catch (const std::exception &e) {
+    context->error("Failed to convert type expression: " + utf8::utf8_from_native(e.what()));
+  }
+  return parsers::where::factory::create_int(-1);
 }
 
 file_filter::filter_obj_handler::filter_obj_handler() {
+  const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_2;
 
-	const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_2;
-
-        // clang-format off
+  // clang-format off
 	registry_.add_string()
 		("path", &filter_obj::get_path, "Path of file")
 		("version", boost::bind(&filter_obj::get_version, ph::_1), "Windows exe/dll file version")
@@ -118,97 +110,84 @@ file_filter::filter_obj_handler::filter_obj_handler() {
 		("written", boost::bind(&filter_obj::get_written_su, ph::_1), "")
 		("type", boost::bind(&filter_obj::get_type_su, ph::_1), "")
 		;
-// clang-format on
+  // clang-format on
 }
 
 //////////////////////////////////////////////////////////////////////////
 
 #ifdef WIN32
 boost::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::get(unsigned long long now, const WIN32_FIND_DATA info, boost::filesystem::path path) {
-	return boost::shared_ptr<file_filter::filter_obj>(new file_filter::filter_obj(path, utf8::cvt<std::string>(info.cFileName), now,
-		(info.ftCreationTime.dwHighDateTime * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)info.ftCreationTime.dwLowDateTime,
-		(info.ftLastAccessTime.dwHighDateTime * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)info.ftLastAccessTime.dwLowDateTime,
-		(info.ftLastWriteTime.dwHighDateTime * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)info.ftLastWriteTime.dwLowDateTime,
-		(info.nFileSizeHigh * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)info.nFileSizeLow,
-		info.dwFileAttributes
-		));
+  return boost::shared_ptr<file_filter::filter_obj>(new file_filter::filter_obj(
+      path, utf8::cvt<std::string>(info.cFileName), now,
+      (info.ftCreationTime.dwHighDateTime * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)info.ftCreationTime.dwLowDateTime,
+      (info.ftLastAccessTime.dwHighDateTime * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)info.ftLastAccessTime.dwLowDateTime,
+      (info.ftLastWriteTime.dwHighDateTime * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)info.ftLastWriteTime.dwLowDateTime,
+      (info.nFileSizeHigh * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)info.nFileSizeLow, info.dwFileAttributes));
 };
 #endif
 boost::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::get_total(unsigned long long now) {
-	return boost::shared_ptr<file_filter::filter_obj>(new file_filter::filter_obj("", "total", now, now, now, now, 0));
+  return boost::shared_ptr<file_filter::filter_obj>(new file_filter::filter_obj("", "total", now, now, now, now, 0));
 }
 
 std::string file_filter::filter_obj::get_version() {
-	if (cached_version)
-		return *cached_version;
-	std::string fullpath = (path / filename).string();
+  if (cached_version) return *cached_version;
+  std::string fullpath = (path / filename).string();
 
-	DWORD dwDummy;
-	DWORD dwFVISize = GetFileVersionInfoSize(utf8::cvt<std::wstring>(fullpath).c_str(), &dwDummy);
-	if (dwFVISize == 0)
-		return "";
-	LPBYTE lpVersionInfo = new BYTE[dwFVISize + 1];
-	if (!GetFileVersionInfo(utf8::cvt<std::wstring>(fullpath).c_str(), 0, dwFVISize, lpVersionInfo)) {
-		delete[] lpVersionInfo;
-		//handler->error("Failed to get version for " + fullpath + ": " + error::lookup::last_error());
-		return "";
-	}
-	UINT uLen;
-	VS_FIXEDFILEINFO *lpFfi;
-	if (!VerQueryValue(lpVersionInfo, L"\\", (LPVOID *)&lpFfi, &uLen)) {
-		delete[] lpVersionInfo;
-		//handler->error("Failed to query version for " + fullpath + ": " + error::lookup::last_error());
-		return "";
-	}
-	DWORD dwFileVersionMS = lpFfi->dwFileVersionMS;
-	DWORD dwFileVersionLS = lpFfi->dwFileVersionLS;
-	delete[] lpVersionInfo;
-	DWORD dwLeftMost = HIWORD(dwFileVersionMS);
-	DWORD dwSecondLeft = LOWORD(dwFileVersionMS);
-	DWORD dwSecondRight = HIWORD(dwFileVersionLS);
-	DWORD dwRightMost = LOWORD(dwFileVersionLS);
-	cached_version.reset(str::xtos(dwLeftMost) + "." +
-		str::xtos(dwSecondLeft) + "." +
-		str::xtos(dwSecondRight) + "." +
-		str::xtos(dwRightMost));
-	return *cached_version;
+  DWORD dwDummy;
+  DWORD dwFVISize = GetFileVersionInfoSize(utf8::cvt<std::wstring>(fullpath).c_str(), &dwDummy);
+  if (dwFVISize == 0) return "";
+  LPBYTE lpVersionInfo = new BYTE[dwFVISize + 1];
+  if (!GetFileVersionInfo(utf8::cvt<std::wstring>(fullpath).c_str(), 0, dwFVISize, lpVersionInfo)) {
+    delete[] lpVersionInfo;
+    // handler->error("Failed to get version for " + fullpath + ": " + error::lookup::last_error());
+    return "";
+  }
+  UINT uLen;
+  VS_FIXEDFILEINFO *lpFfi;
+  if (!VerQueryValue(lpVersionInfo, L"\\", (LPVOID *)&lpFfi, &uLen)) {
+    delete[] lpVersionInfo;
+    // handler->error("Failed to query version for " + fullpath + ": " + error::lookup::last_error());
+    return "";
+  }
+  DWORD dwFileVersionMS = lpFfi->dwFileVersionMS;
+  DWORD dwFileVersionLS = lpFfi->dwFileVersionLS;
+  delete[] lpVersionInfo;
+  DWORD dwLeftMost = HIWORD(dwFileVersionMS);
+  DWORD dwSecondLeft = LOWORD(dwFileVersionMS);
+  DWORD dwSecondRight = HIWORD(dwFileVersionLS);
+  DWORD dwRightMost = LOWORD(dwFileVersionLS);
+  cached_version.reset(str::xtos(dwLeftMost) + "." + str::xtos(dwSecondLeft) + "." + str::xtos(dwSecondRight) + "." + str::xtos(dwRightMost));
+  return *cached_version;
 }
 
-unsigned long long file_filter::filter_obj::get_type() {
-	return file_finder::is_directory(attributes)? file_type_dir: file_type_file;
-}
+unsigned long long file_filter::filter_obj::get_type() { return file_finder::is_directory(attributes) ? file_type_dir : file_type_file; }
 
-std::string file_filter::filter_obj::get_type_su() {
-	return file_finder::is_directory(attributes) ? "dir" : "file";
-}
+std::string file_filter::filter_obj::get_type_su() { return file_finder::is_directory(attributes) ? "dir" : "file"; }
 
 unsigned long file_filter::filter_obj::get_line_count() {
-	if (cached_count)
-		return *cached_count;
+  if (cached_count) return *cached_count;
 
-	unsigned long count = 0;
-	std::string fullpath = (path / filename).string();
-	FILE * pFile = fopen(fullpath.c_str(), "r");;
-	if (pFile == NULL)
-		return 0;
-	int c;
-	do {
-		c = fgetc(pFile);
-		if (c == '\r') {
-			c = fgetc(pFile);
-			count++;
-		} else if (c == '\n') {
-			c = fgetc(pFile);
-			count++;
-		}
-	} while (c != EOF);
-	fclose(pFile);
-	cached_count.reset(count);
-	return *cached_count;
+  unsigned long count = 0;
+  std::string fullpath = (path / filename).string();
+  FILE *pFile = fopen(fullpath.c_str(), "r");
+  ;
+  if (pFile == NULL) return 0;
+  int c;
+  do {
+    c = fgetc(pFile);
+    if (c == '\r') {
+      c = fgetc(pFile);
+      count++;
+    } else if (c == '\n') {
+      c = fgetc(pFile);
+      count++;
+    }
+  } while (c != EOF);
+  fclose(pFile);
+  cached_count.reset(count);
+  return *cached_count;
 }
 
-void file_filter::filter_obj::add(boost::shared_ptr<file_filter::filter_obj> info) {
-	ullSize += info->ullSize;
-}
+void file_filter::filter_obj::add(boost::shared_ptr<file_filter::filter_obj> info) { ullSize += info->ullSize; }
 
 //////////////////////////////////////////////////////////////////////////

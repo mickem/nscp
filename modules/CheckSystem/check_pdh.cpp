@@ -36,15 +36,13 @@ namespace po = boost::program_options;
 namespace ph = boost::placeholders;
 
 namespace check_pdh {
-	void counter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
-		parent::read(proxy, oneliner, is_sample);
-		if (!get_value().empty())
-			counter = get_value();
+void counter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
+  parent::read(proxy, oneliner, is_sample);
+  if (!get_value().empty()) counter = get_value();
 
-		if (oneliner)
-			return;
+  if (oneliner) return;
 
-                // clang-format off
+  // clang-format off
  		nscapi::settings_helper::settings_registry settings(proxy);
 		nscapi::settings_helper::path_extension root_path = settings.path(get_path());
 		if (is_sample)
@@ -89,38 +87,36 @@ namespace check_pdh {
 		registry_.add_float()
 			("value_f", boost::bind(&filter_obj::get_value_f, ph::_1), "The counter value (force float value)")
 			;
-// clang-format on
+  // clang-format on
+}
 
-	}
+void check::clear() { counters_.clear(); }
+void check::add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
+  try {
+    counters_.add(proxy, key, query);
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR_EXR("Failed to add counter: " + key, e);
+  } catch (...) {
+    NSC_LOG_ERROR_EX("Failed to add counter: " + key);
+  }
+}
 
-	void check::clear() {
-		counters_.clear();
-	}
-	void check::add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
-		try {
-			counters_.add(proxy, key, query);
-		} catch (const std::exception &e) {
-			NSC_LOG_ERROR_EXR("Failed to add counter: " + key, e);
-		} catch (...) {
-			NSC_LOG_ERROR_EX("Failed to add counter: " + key);
-		}
-	}
+void check::check_pdh(boost::shared_ptr<pdh_thread> &collector, const PB::Commands::QueryRequestMessage::Request &request,
+                      PB::Commands::QueryResponseMessage::Response *response) {
+  typedef filter filter_type;
+  modern_filter::data_container data;
+  modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
+  std::vector<std::string> counters;
+  std::vector<std::string> times;
+  bool expand_index = false;
+  bool reload = false;
+  bool check_average = false;
+  bool expand_instance = false;
+  bool ignore_errors = false;
+  std::string flags;
+  std::string type;
 
-	void check::check_pdh(boost::shared_ptr<pdh_thread> &collector, const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-		typedef filter filter_type;
-		modern_filter::data_container data;
-		modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
-		std::vector<std::string> counters;
-		std::vector<std::string> times;
-		bool expand_index = false;
-		bool reload = false;
-		bool check_average = false;
-		bool expand_instance = false;
-		bool ignore_errors = false;
-		std::string flags;
-		std::string type;
-
-                // clang-format off
+  // clang-format off
 		filter_type filter;
 		filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
 		filter_helper.add_syntax("${status}: ${list}", "${alias} = ${value}", "${alias}", "", "");
@@ -135,157 +131,153 @@ namespace check_pdh {
 			("type", po::value<std::string>(&type)->default_value("large"), "Format of value (double, long, large)")
 			("ignore-errors", po::bool_switch(&ignore_errors), "If we should ignore errors when checking counters, for instance missing counters or invalid counters will return 0 instead of errors")
 			;
-// clang-format on
+  // clang-format on
 
-		std::vector<std::string> extra;
-		if (!filter_helper.parse_options(extra))
-			return;
+  std::vector<std::string> extra;
+  if (!filter_helper.parse_options(extra)) return;
 
-		if (filter_helper.empty() && data.syntax_top == "${problem_list}")
-			data.syntax_top = "${list}";
+  if (filter_helper.empty() && data.syntax_top == "${problem_list}") data.syntax_top = "${list}";
 
-		if (counters.empty() && extra.empty())
-			return nscapi::protobuf::functions::set_response_bad(*response, "No counters specified: add counter=<name of counter>");
+  if (counters.empty() && extra.empty())
+    return nscapi::protobuf::functions::set_response_bad(*response, "No counters specified: add counter=<name of counter>");
 
-		if (!filter_helper.build_filter(filter))
-			return;
-		if (filter_helper.empty()) {
-			filter.add_manual_perf("value");
-		}
+  if (!filter_helper.build_filter(filter)) return;
+  if (filter_helper.empty()) {
+    filter.add_manual_perf("value");
+  }
 
-		if (times.empty())
-			times.push_back("");
-		else if (filter_helper.data.syntax_perf == "${alias}")
-			filter_helper.data.syntax_perf = "%(alias)_%(time)";
+  if (times.empty())
+    times.push_back("");
+  else if (filter_helper.data.syntax_perf == "${alias}")
+    filter_helper.data.syntax_perf = "%(alias)_%(time)";
 
-		PDH::PDHQuery pdh;
-		std::list<PDH::pdh_instance> free_counters;
-		typedef std::map<std::string, std::string> counter_list;
-		counter_list named_counters;
+  PDH::PDHQuery pdh;
+  std::list<PDH::pdh_instance> free_counters;
+  typedef std::map<std::string, std::string> counter_list;
+  counter_list named_counters;
 
-		bool has_counter = false;
-		std::list<std::wstring> to_check;
-		for(std::string &counter: counters) {
-			try {
-				if (counter.find('\\') == std::string::npos) {
-					named_counters[counter] = counter;
-				} else {
-					if (expand_index) {
-						PDH::PDHResolver::expand_index(counter);
-					}
-					PDH::pdh_object obj;
-					if (expand_instance)
-						obj.set_instances("true");
-					obj.set_flags(flags);
-					obj.set_counter(counter);
-					obj.set_alias(counter);
-					obj.set_strategy_static();
-					obj.set_type(type);
-					PDH::pdh_instance instance = PDH::factory::create(obj);
-					pdh.addCounter(instance);
-					free_counters.push_back(instance);
-					has_counter = true;
-				}
-			} catch (const std::exception &e) {
-				NSC_LOG_ERROR_EXR("Failed to poll counter", e);
-				return nscapi::protobuf::functions::set_response_bad(*response, "Failed to add counter: " + utf8::utf8_from_native(e.what()));
-			}
-		}
-		for(const std::string &s: extra) {
-			try {
-				std::string counter, alias;
-				if ((s.size() > 8) && (s.substr(0, 8) == "counter:")) {
-					std::string::size_type pos = s.find('=');
-					if (pos != std::string::npos) {
-						alias = s.substr(8, pos - 8);
-						counter = s.substr(pos + 1);
-					} else
-						return nscapi::protobuf::functions::set_response_bad(*response, "Invalid option: " + s);
-				} else
-					return nscapi::protobuf::functions::set_response_bad(*response, "Invalid option: " + s);
-				if (counter.find('\\') == std::string::npos) {
-					named_counters[counter] = counter;
-				} else {
-					if (expand_index) {
-						PDH::PDHResolver::expand_index(counter);
-					}
-					PDH::pdh_object obj;
-					obj.set_flags(flags);
-					obj.set_counter(counter);
-					obj.set_strategy_static();
-					obj.set_type(type);
-					obj.set_alias(alias);
-					PDH::pdh_instance instance = PDH::factory::create(obj);
-					pdh.addCounter(instance);
-					free_counters.push_back(instance);
-					has_counter = true;
-				}
-			} catch (const std::exception &e) {
-				if (!ignore_errors) {
-					NSC_LOG_ERROR_EXR("Failed to poll counter", e);
-					return nscapi::protobuf::functions::set_response_bad(*response, "Failed to add counter: " + utf8::utf8_from_native(e.what()));
-				} else {
-					NSC_DEBUG_MSG_STD("Ignoring counter failure: " + utf8::utf8_from_native(e.what()));
-				}
-			}
-		}
-		if (!free_counters.empty()) {
-			try {
-				pdh.open();
-				if (check_average) {
-					pdh.collect();
-					Sleep(1000);
-				}
-				pdh.gatherData(expand_instance);
-				pdh.close();
-			} catch (const PDH::pdh_exception &e) {
-				if (!ignore_errors) {
-					NSC_LOG_ERROR_EXR("Failed to poll counter", e);
-					return nscapi::protobuf::functions::set_response_bad(*response, "Failed to add counter: " + utf8::utf8_from_native(e.what()));
-				} else {
-					NSC_DEBUG_MSG_STD("Ignoring counter failure: " + utf8::utf8_from_native(e.what()));
-				}
-			}
-		}
-		for(const counter_list::value_type &vc: named_counters) {
-			try {
-				typedef std::map<std::string, double> value_list_type;
+  bool has_counter = false;
+  std::list<std::wstring> to_check;
+  for (std::string &counter : counters) {
+    try {
+      if (counter.find('\\') == std::string::npos) {
+        named_counters[counter] = counter;
+      } else {
+        if (expand_index) {
+          PDH::PDHResolver::expand_index(counter);
+        }
+        PDH::pdh_object obj;
+        if (expand_instance) obj.set_instances("true");
+        obj.set_flags(flags);
+        obj.set_counter(counter);
+        obj.set_alias(counter);
+        obj.set_strategy_static();
+        obj.set_type(type);
+        PDH::pdh_instance instance = PDH::factory::create(obj);
+        pdh.addCounter(instance);
+        free_counters.push_back(instance);
+        has_counter = true;
+      }
+    } catch (const std::exception &e) {
+      NSC_LOG_ERROR_EXR("Failed to poll counter", e);
+      return nscapi::protobuf::functions::set_response_bad(*response, "Failed to add counter: " + utf8::utf8_from_native(e.what()));
+    }
+  }
+  for (const std::string &s : extra) {
+    try {
+      std::string counter, alias;
+      if ((s.size() > 8) && (s.substr(0, 8) == "counter:")) {
+        std::string::size_type pos = s.find('=');
+        if (pos != std::string::npos) {
+          alias = s.substr(8, pos - 8);
+          counter = s.substr(pos + 1);
+        } else
+          return nscapi::protobuf::functions::set_response_bad(*response, "Invalid option: " + s);
+      } else
+        return nscapi::protobuf::functions::set_response_bad(*response, "Invalid option: " + s);
+      if (counter.find('\\') == std::string::npos) {
+        named_counters[counter] = counter;
+      } else {
+        if (expand_index) {
+          PDH::PDHResolver::expand_index(counter);
+        }
+        PDH::pdh_object obj;
+        obj.set_flags(flags);
+        obj.set_counter(counter);
+        obj.set_strategy_static();
+        obj.set_type(type);
+        obj.set_alias(alias);
+        PDH::pdh_instance instance = PDH::factory::create(obj);
+        pdh.addCounter(instance);
+        free_counters.push_back(instance);
+        has_counter = true;
+      }
+    } catch (const std::exception &e) {
+      if (!ignore_errors) {
+        NSC_LOG_ERROR_EXR("Failed to poll counter", e);
+        return nscapi::protobuf::functions::set_response_bad(*response, "Failed to add counter: " + utf8::utf8_from_native(e.what()));
+      } else {
+        NSC_DEBUG_MSG_STD("Ignoring counter failure: " + utf8::utf8_from_native(e.what()));
+      }
+    }
+  }
+  if (!free_counters.empty()) {
+    try {
+      pdh.open();
+      if (check_average) {
+        pdh.collect();
+        Sleep(1000);
+      }
+      pdh.gatherData(expand_instance);
+      pdh.close();
+    } catch (const PDH::pdh_exception &e) {
+      if (!ignore_errors) {
+        NSC_LOG_ERROR_EXR("Failed to poll counter", e);
+        return nscapi::protobuf::functions::set_response_bad(*response, "Failed to add counter: " + utf8::utf8_from_native(e.what()));
+      } else {
+        NSC_DEBUG_MSG_STD("Ignoring counter failure: " + utf8::utf8_from_native(e.what()));
+      }
+    }
+  }
+  for (const counter_list::value_type &vc : named_counters) {
+    try {
+      typedef std::map<std::string, double> value_list_type;
 
-				for(const std::string &time: times) {
-					value_list_type values;
-					if (time.empty()) {
-						values = collector->get_value(vc.second);
-					} else {
-						values = collector->get_average(vc.second, str::format::stox_as_time_sec<long>(time, "s"));
-					}
-					if (values.empty())
-						return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value");
-					for(const value_list_type::value_type &v: values) {
-						boost::shared_ptr<filter_obj> record(new filter_obj(vc.first, v.first, time, v.second, v.second));
-						modern_filter::match_result ret = filter.match(record);
-					}
-				}
-			} catch (const PDH::pdh_exception &e) {
-				NSC_LOG_ERROR_EXR("ERROR", e);
-				return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value: " + utf8::utf8_from_native(e.what()));
-			}
-		}
-		for(PDH::pdh_instance &instance: free_counters) {
-			try {
-				if (expand_instance) {
-					for(const PDH::pdh_instance &child: instance->get_instances()) {
-						boost::shared_ptr<filter_obj> record(new filter_obj(child->get_name(), child->get_counter(), "", child->get_int_value(), child->get_float_value()));
-						modern_filter::match_result ret = filter.match(record);
-					}
-				} else {
-					boost::shared_ptr<filter_obj> record(new filter_obj(instance->get_name(), instance->get_counter(), "", instance->get_int_value(), instance->get_float_value()));
-					modern_filter::match_result ret = filter.match(record);
-				}
-			} catch (const PDH::pdh_exception &e) {
-				NSC_LOG_ERROR_EXR("ERROR", e);
-				return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value: " + utf8::utf8_from_native(e.what()));
-			}
-		}
-		filter_helper.post_process(filter);
-	}
+      for (const std::string &time : times) {
+        value_list_type values;
+        if (time.empty()) {
+          values = collector->get_value(vc.second);
+        } else {
+          values = collector->get_average(vc.second, str::format::stox_as_time_sec<long>(time, "s"));
+        }
+        if (values.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value");
+        for (const value_list_type::value_type &v : values) {
+          boost::shared_ptr<filter_obj> record(new filter_obj(vc.first, v.first, time, v.second, v.second));
+          modern_filter::match_result ret = filter.match(record);
+        }
+      }
+    } catch (const PDH::pdh_exception &e) {
+      NSC_LOG_ERROR_EXR("ERROR", e);
+      return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value: " + utf8::utf8_from_native(e.what()));
+    }
+  }
+  for (PDH::pdh_instance &instance : free_counters) {
+    try {
+      if (expand_instance) {
+        for (const PDH::pdh_instance &child : instance->get_instances()) {
+          boost::shared_ptr<filter_obj> record(new filter_obj(child->get_name(), child->get_counter(), "", child->get_int_value(), child->get_float_value()));
+          modern_filter::match_result ret = filter.match(record);
+        }
+      } else {
+        boost::shared_ptr<filter_obj> record(
+            new filter_obj(instance->get_name(), instance->get_counter(), "", instance->get_int_value(), instance->get_float_value()));
+        modern_filter::match_result ret = filter.match(record);
+      }
+    } catch (const PDH::pdh_exception &e) {
+      NSC_LOG_ERROR_EXR("ERROR", e);
+      return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value: " + utf8::utf8_from_native(e.what()));
+    }
+  }
+  filter_helper.post_process(filter);
 }
+}  // namespace check_pdh

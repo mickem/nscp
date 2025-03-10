@@ -33,16 +33,16 @@ using namespace parsers::where;
 using namespace boost::placeholders;
 
 node_type get_column_fun(const value_type, evaluation_context context, const node_type subject) {
-	std::list<node_type> l = subject->get_list_value(context);
-	if (l.size() != 1) {
-		context->error("Invalid number of arguments for function");
-		return factory::create_false();
-	}
-	node_type f = l.front();
-	long long idx = f->get_int_value(context);
-	logfile_filter::native_context* n_context = reinterpret_cast<logfile_filter::native_context*>(context.get());
-	std::string value = n_context->get_object()->get_column(idx);
-	return factory::create_string(value);
+  std::list<node_type> l = subject->get_list_value(context);
+  if (l.size() != 1) {
+    context->error("Invalid number of arguments for function");
+    return factory::create_false();
+  }
+  node_type f = l.front();
+  long long idx = f->get_int_value(context);
+  logfile_filter::native_context* n_context = reinterpret_cast<logfile_filter::native_context*>(context.get());
+  std::string value = n_context->get_object()->get_column(idx);
+  return factory::create_string(value);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -67,5 +67,5 @@ logfile_filter::filter_obj_handler::filter_obj_handler() {
 	registry_.add_string_fun()
 		("column", &get_column_fun, "Fetch the value from the given column number.\nSyntax: column(<coulmn number>)")
 		;
-// clang-format on
+  // clang-format on
 }

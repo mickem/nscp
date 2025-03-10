@@ -34,20 +34,19 @@ using namespace parsers::where;
 using namespace boost::placeholders;
 
 namespace check_cpu_filter {
-	parsers::where::node_type calculate_load(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
-		double number = value.get<1>();
-		std::string unit = value.get<2>();
+parsers::where::node_type calculate_load(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+  parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
+  double number = value.get<1>();
+  std::string unit = value.get<2>();
 
-		if (unit != "%")
-			context->error("Invalid unit: " + unit);
-		return parsers::where::factory::create_int(number);
-	}
+  if (unit != "%") context->error("Invalid unit: " + unit);
+  return parsers::where::factory::create_int(number);
+}
 
-	filter_obj_handler::filter_obj_handler() {
-		static const parsers::where::value_type type_custom_pct = parsers::where::type_custom_int_1;
+filter_obj_handler::filter_obj_handler() {
+  static const parsers::where::value_type type_custom_pct = parsers::where::type_custom_int_1;
 
-                // clang-format off
+  // clang-format off
 		registry_.add_string()
 			("time", boost::bind(&filter_obj::get_time, _1), "The time frame to check")
 			("core", boost::bind(&filter_obj::get_core_s, _1), boost::bind(&filter_obj::get_core_i, _1), "The core to check (total or core ##)")
@@ -62,34 +61,31 @@ namespace check_cpu_filter {
 		registry_.add_converter()
 			(type_custom_pct, &calculate_load)
 			;
-// clang-format on
-	}
+  // clang-format on
 }
-
+}  // namespace check_cpu_filter
 
 namespace check_page_filter {
-	parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
-		double number = value.get<1>();
-		std::string unit = value.get<2>();
+parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+  parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
+  double number = value.get<1>();
+  std::string unit = value.get<2>();
 
-		if (unit == "%") {
-			number = (static_cast<double>(object->get_total())*number) / 100.0;
-		} else {
-			number = str::format::decode_byte_units(number, unit);
-		}
-		return parsers::where::factory::create_int(number);
-	}
+  if (unit == "%") {
+    number = (static_cast<double>(object->get_total()) * number) / 100.0;
+  } else {
+    number = str::format::decode_byte_units(number, unit);
+  }
+  return parsers::where::factory::create_int(number);
+}
 
-	long long get_zero() {
-		return 0;
-	}
+long long get_zero() { return 0; }
 
-	filter_obj_handler::filter_obj_handler() {
-		static const parsers::where::value_type type_custom_used = parsers::where::type_custom_int_1;
-		static const parsers::where::value_type type_custom_free = parsers::where::type_custom_int_2;
+filter_obj_handler::filter_obj_handler() {
+  static const parsers::where::value_type type_custom_used = parsers::where::type_custom_int_1;
+  static const parsers::where::value_type type_custom_free = parsers::where::type_custom_int_2;
 
-                // clang-format off
+  // clang-format off
 		registry_.add_string()
 			("name", boost::bind(&filter_obj::get_name, _1), "The name of the page file (location)")
 			;
@@ -115,83 +111,75 @@ namespace check_page_filter {
 			(type_custom_free, &calculate_free)
 			(type_custom_used, &calculate_free)
 			;
-// clang-format on
-	}
+  // clang-format on
 }
+}  // namespace check_page_filter
 
 namespace check_svc_filter {
-	bool check_state_is_perfect(DWORD state, DWORD start_type, bool trigger) {
-		if (start_type == SERVICE_BOOT_START)
-			return state == SERVICE_RUNNING;
-		if (start_type == SERVICE_SYSTEM_START)
-			return state == SERVICE_RUNNING;
-		if (start_type == SERVICE_AUTO_START)
-			return state == SERVICE_RUNNING;
-		if (start_type == SERVICE_DEMAND_START)
-			return true;
-		if (start_type == SERVICE_DISABLED)
-			return state == SERVICE_STOPPED;
-		return false;
-	}
+bool check_state_is_perfect(DWORD state, DWORD start_type, bool trigger) {
+  if (start_type == SERVICE_BOOT_START) return state == SERVICE_RUNNING;
+  if (start_type == SERVICE_SYSTEM_START) return state == SERVICE_RUNNING;
+  if (start_type == SERVICE_AUTO_START) return state == SERVICE_RUNNING;
+  if (start_type == SERVICE_DEMAND_START) return true;
+  if (start_type == SERVICE_DISABLED) return state == SERVICE_STOPPED;
+  return false;
+}
 
-	bool check_state_is_ok(DWORD state, DWORD start_type, bool delayed, bool trigger) {
-		if (
-			(state == SERVICE_START_PENDING) &&
-			(start_type == SERVICE_BOOT_START || start_type == SERVICE_SYSTEM_START || start_type == SERVICE_AUTO_START)
-			)
-			return true;
-		if (delayed) {
-			if (start_type == SERVICE_BOOT_START || start_type == SERVICE_SYSTEM_START || start_type == SERVICE_AUTO_START)
-				return true;
-		}
-		return check_state_is_perfect(state, start_type, trigger);
-	}
+bool check_state_is_ok(DWORD state, DWORD start_type, bool delayed, bool trigger) {
+  if ((state == SERVICE_START_PENDING) && (start_type == SERVICE_BOOT_START || start_type == SERVICE_SYSTEM_START || start_type == SERVICE_AUTO_START))
+    return true;
+  if (delayed) {
+    if (start_type == SERVICE_BOOT_START || start_type == SERVICE_SYSTEM_START || start_type == SERVICE_AUTO_START) return true;
+  }
+  return check_state_is_perfect(state, start_type, trigger);
+}
 
-	node_type state_is_ok(const value_type, evaluation_context context, const node_type subject) {
-		native_context* n_context = reinterpret_cast<native_context*>(context.get());
-		DWORD state = n_context->get_object()->state;
-		DWORD start_type = n_context->get_object()->start_type;
-		bool delayed = n_context->get_object()->get_delayed() == 1;
-		bool trigger = n_context->get_object()->get_is_trigger() == 1;
-		if (check_state_is_ok(state, start_type, delayed, trigger))
-			return factory::create_true();
-		else
-			return factory::create_false();
-	}
+node_type state_is_ok(const value_type, evaluation_context context, const node_type subject) {
+  native_context* n_context = reinterpret_cast<native_context*>(context.get());
+  DWORD state = n_context->get_object()->state;
+  DWORD start_type = n_context->get_object()->start_type;
+  bool delayed = n_context->get_object()->get_delayed() == 1;
+  bool trigger = n_context->get_object()->get_is_trigger() == 1;
+  if (check_state_is_ok(state, start_type, delayed, trigger))
+    return factory::create_true();
+  else
+    return factory::create_false();
+}
 
-	node_type state_is_perfect(const value_type, evaluation_context context, const node_type subject) {
-		native_context* n_context = reinterpret_cast<native_context*>(context.get());
-		DWORD state = n_context->get_object()->state;
-		DWORD start_type = n_context->get_object()->start_type;
-		bool trigger = n_context->get_object()->get_is_trigger() == 1;
-		if (check_state_is_perfect(state, start_type, trigger))
-			return factory::create_true();
-		else
-			return factory::create_false();
-	}
+node_type state_is_perfect(const value_type, evaluation_context context, const node_type subject) {
+  native_context* n_context = reinterpret_cast<native_context*>(context.get());
+  DWORD state = n_context->get_object()->state;
+  DWORD start_type = n_context->get_object()->start_type;
+  bool trigger = n_context->get_object()->get_is_trigger() == 1;
+  if (check_state_is_perfect(state, start_type, trigger))
+    return factory::create_true();
+  else
+    return factory::create_false();
+}
 
-	parsers::where::node_type parse_state(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		try {
-			return parsers::where::factory::create_int(filter_obj::parse_state(subject->get_string_value(context)));
-		} catch (const std::string &e) {
-			context->error(e);
-			return factory::create_false();
-		}
-	}
-	parsers::where::node_type parse_start_type(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		try {
-			return parsers::where::factory::create_int(filter_obj::parse_start_type(subject->get_string_value(context)));
-		} catch (const std::string &e) {
-			context->error(e);
-			return factory::create_false();
-		}
-	}
+parsers::where::node_type parse_state(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+  try {
+    return parsers::where::factory::create_int(filter_obj::parse_state(subject->get_string_value(context)));
+  } catch (const std::string& e) {
+    context->error(e);
+    return factory::create_false();
+  }
+}
+parsers::where::node_type parse_start_type(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context,
+                                           parsers::where::node_type subject) {
+  try {
+    return parsers::where::factory::create_int(filter_obj::parse_start_type(subject->get_string_value(context)));
+  } catch (const std::string& e) {
+    context->error(e);
+    return factory::create_false();
+  }
+}
 
-	filter_obj_handler::filter_obj_handler() {
-		static const parsers::where::value_type type_custom_state = parsers::where::type_custom_int_1;
-		static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
+filter_obj_handler::filter_obj_handler() {
+  static const parsers::where::value_type type_custom_state = parsers::where::type_custom_int_1;
+  static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
 
-                // clang-format off
+  // clang-format off
 		registry_.add_string()
 			("name", boost::bind(&filter_obj::get_name, _1), "Service name")
 			("desc", boost::bind(&filter_obj::get_desc, _1), "Service description")
@@ -221,20 +209,20 @@ namespace check_svc_filter {
 			(type_custom_state, &parse_state)
 			(type_custom_start_type, &parse_start_type)
 			;
-// clang-format on
-	}
+  // clang-format on
 }
+}  // namespace check_svc_filter
 
 namespace check_uptime_filter {
-	parsers::where::node_type parse_time(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "d");
-		std::string expr = str::xtos(value.get<0>()) + value.get<2>();
-		return parsers::where::factory::create_int(str::format::stox_as_time_sec<long long>(expr, "s"));
-	}
+parsers::where::node_type parse_time(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+  parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "d");
+  std::string expr = str::xtos(value.get<0>()) + value.get<2>();
+  return parsers::where::factory::create_int(str::format::stox_as_time_sec<long long>(expr, "s"));
+}
 
-	static const parsers::where::value_type type_custom_uptime = parsers::where::type_custom_int_1;
-	filter_obj_handler::filter_obj_handler() {
-          // clang-format off
+static const parsers::where::value_type type_custom_uptime = parsers::where::type_custom_int_1;
+filter_obj_handler::filter_obj_handler() {
+  // clang-format off
 		registry_.add_int()
 			("boot", parsers::where::type_date, boost::bind(&filter_obj::get_boot, _1), "System boot time")
 			("uptime", type_custom_uptime, boost::bind(&filter_obj::get_uptime, _1), "Time since last boot").add_perf("s", "", "")
@@ -246,13 +234,13 @@ namespace check_uptime_filter {
 			("boot", boost::bind(&filter_obj::get_boot_s, _1), "The system boot time")
 			("uptime", boost::bind(&filter_obj::get_uptime_s, _1), "Time sine last boot")
 			;
-// clang-format on
-	}
+  // clang-format on
 }
+}  // namespace check_uptime_filter
 
 namespace os_version_filter {
-	filter_obj_handler::filter_obj_handler() {
-          // clang-format off
+filter_obj_handler::filter_obj_handler() {
+  // clang-format off
 		registry_.add_int()
 			("major", boost::bind(&filter_obj::get_major, _1), "Major version number").add_perf("")
 			("version", boost::bind(&filter_obj::get_version_i, _1), boost::bind(&filter_obj::get_version_s, _1), "The system version").add_perf("")
@@ -262,6 +250,6 @@ namespace os_version_filter {
  		registry_.add_string()
  			("suite", boost::bind(&filter_obj::get_suite_string, _1), "Which suites are installed on the machine (Microsoft BackOffice, Web Edition, Compute Cluster Edition, Datacenter Edition, Enterprise Edition, Embedded, Home Edition, Remote Desktop Support, Small Business Server, Storage Server, Terminal Services, Home Server)")
  			;
-// clang-format on
-	}
+  // clang-format on
 }
+}  // namespace os_version_filter

@@ -44,7 +44,7 @@ filter_obj_handler::filter_obj_handler() {
     ("load", boost::bind(&filter_obj::get_total, _1), "The current load for a given core").add_perf("%")
     ("idle", boost::bind(&filter_obj::get_idle, _1), "The current idle load for a given core")
     ("kernel", boost::bind(&filter_obj::get_kernel, _1), "The current kernel load for a given core");
-    // clang-format on
+  // clang-format on
 }
 }  // namespace check_cpu_filter
 
@@ -88,7 +88,7 @@ filter_obj_handler::filter_obj_handler() {
     ("free", boost::bind(&filter_obj::get_free_human, _1), "")
     ("used", boost::bind(&filter_obj::get_used_human, _1), "")
     ;
-// clang-format on
+  // clang-format on
 
   registry_.add_converter()(type_custom_free, &calculate_free)(type_custom_used, &calculate_free);
 }

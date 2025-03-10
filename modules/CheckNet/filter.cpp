@@ -35,20 +35,20 @@ using namespace parsers::where;
 
 //////////////////////////////////////////////////////////////////////////
 
-parsers::where::node_type get_percentage(boost::shared_ptr<ping_filter::filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-	parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
-	double number = value.get<1>();
-	std::string unit = value.get<2>();
+parsers::where::node_type get_percentage(boost::shared_ptr<ping_filter::filter_obj> object, parsers::where::evaluation_context context,
+                                         parsers::where::node_type subject) {
+  parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
+  double number = value.get<1>();
+  std::string unit = value.get<2>();
 
-	if (unit != "%")
-		context->error("Invalid unit: " + unit);
-	return parsers::where::factory::create_int(number);
+  if (unit != "%") context->error("Invalid unit: " + unit);
+  return parsers::where::factory::create_int(number);
 }
 
 ping_filter::filter_obj_handler::filter_obj_handler() {
-	static const parsers::where::value_type type_custom_pct = parsers::where::type_custom_int_1;
+  static const parsers::where::value_type type_custom_pct = parsers::where::type_custom_int_1;
 
-        // clang-format off
+  // clang-format off
 	registry_.add_string()
 		("host", &filter_obj::get_host, "The host name or ip address (as given on command line)")
 		("ip", &filter_obj::get_ip, "The ip address name")
@@ -71,23 +71,18 @@ ping_filter::filter_obj_handler::filter_obj_handler() {
 			("written", boost::bind(&filter_obj::get_written_s, _1), "")
 			;
 			*/
-// clang-format on
-	registry_.add_converter()
-		(type_custom_pct, &get_percentage)
-		;
+  // clang-format on
+  registry_.add_converter()(type_custom_pct, &get_percentage);
 }
 
 void ping_filter::filter_obj::add(boost::shared_ptr<ping_filter::filter_obj> other) {
-	if (!other)
-		return;
-	result.num_send_ += other->result.num_send_;
-	result.num_replies_ += other->result.num_replies_;
-	result.num_timeouts_ += other->result.num_timeouts_;
-	result.time_ += other->result.time_;
+  if (!other) return;
+  result.num_send_ += other->result.num_send_;
+  result.num_replies_ += other->result.num_replies_;
+  result.num_timeouts_ += other->result.num_timeouts_;
+  result.time_ += other->result.time_;
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-boost::shared_ptr<ping_filter::filter_obj> ping_filter::filter_obj::get_total() {
-	return boost::make_shared<ping_filter::filter_obj>();
-}
+boost::shared_ptr<ping_filter::filter_obj> ping_filter::filter_obj::get_total() { return boost::make_shared<ping_filter::filter_obj>(); }

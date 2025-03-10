@@ -29,40 +29,40 @@ using namespace parsers::where;
 using namespace boost::placeholders;
 
 node_type fun_convert_status(boost::shared_ptr<tasksched_filter::filter_obj> object, evaluation_context context, node_type subject) {
-	std::string status = subject->get_string_value(context);
-	long long istat = 0;
-	if (object->is_new()) {
-		if (status == "queued")
-			istat = TASK_STATE_QUEUED;
-		else if (status == "unknown")
-			istat = TASK_STATE_UNKNOWN;
-		else if (status == "ready")
-			istat = TASK_STATE_READY;
-		else if (status == "running")
-			istat = TASK_STATE_RUNNING;
-		else if (status == "disabled")
-			istat = TASK_STATE_DISABLED;
-		else
-			context->error("Failed to convert: " + status);
-	} else {
-		if (status == "ready")
-			istat = SCHED_S_TASK_READY;
-		else if (status == "running")
-			istat = SCHED_S_TASK_RUNNING;
-		else if (status == "not_scheduled")
-			istat = SCHED_S_TASK_NOT_SCHEDULED;
-		else if (status == "has_not_run")
-			istat = SCHED_S_TASK_HAS_NOT_RUN;
-		else if (status == "disabled")
-			istat = SCHED_S_TASK_DISABLED;
-		else if (status == "no_more_runs")
-			istat = SCHED_S_TASK_NO_MORE_RUNS;
-		else if (status == "no_valid_triggers")
-			istat = SCHED_S_TASK_NO_VALID_TRIGGERS;
-		else
-			context->error("Failed to convert: " + status);
-	}
-	return factory::create_int(istat);
+  std::string status = subject->get_string_value(context);
+  long long istat = 0;
+  if (object->is_new()) {
+    if (status == "queued")
+      istat = TASK_STATE_QUEUED;
+    else if (status == "unknown")
+      istat = TASK_STATE_UNKNOWN;
+    else if (status == "ready")
+      istat = TASK_STATE_READY;
+    else if (status == "running")
+      istat = TASK_STATE_RUNNING;
+    else if (status == "disabled")
+      istat = TASK_STATE_DISABLED;
+    else
+      context->error("Failed to convert: " + status);
+  } else {
+    if (status == "ready")
+      istat = SCHED_S_TASK_READY;
+    else if (status == "running")
+      istat = SCHED_S_TASK_RUNNING;
+    else if (status == "not_scheduled")
+      istat = SCHED_S_TASK_NOT_SCHEDULED;
+    else if (status == "has_not_run")
+      istat = SCHED_S_TASK_HAS_NOT_RUN;
+    else if (status == "disabled")
+      istat = SCHED_S_TASK_DISABLED;
+    else if (status == "no_more_runs")
+      istat = SCHED_S_TASK_NO_MORE_RUNS;
+    else if (status == "no_valid_triggers")
+      istat = SCHED_S_TASK_NO_VALID_TRIGGERS;
+    else
+      context->error("Failed to convert: " + status);
+  }
+  return factory::create_int(istat);
 }
 
 tasksched_filter::filter_obj_handler::filter_obj_handler() {
@@ -98,63 +98,57 @@ tasksched_filter::filter_obj_handler::filter_obj_handler() {
 		(type_custom_state, &fun_convert_status)
 		// 		(type_int, type_custom_hresult, &fun_convert_status)
 		;
-// clang-format on
+  // clang-format on
 }
 
 namespace tasksched_filter {
-	CComPtr<IRegistrationInfo> new_filter_obj::get_reginfo() {
-		if (reginfo)
-			return reginfo;
-		HRESULT hr = get_def()->get_RegistrationInfo(&reginfo);
-		if (!SUCCEEDED(hr))
-			throw nsclient::nsclient_exception("Failed to get IRegistrationInfo: " + error::com::get(hr));
-		return reginfo;
-	}
-
-	CComPtr<ITaskDefinition> new_filter_obj::get_def() {
-		if (def)
-			return def;
-		HRESULT hr = task->get_Definition(&def);
-		if (!SUCCEEDED(hr))
-			throw nsclient::nsclient_exception("Failed to get ITaskDefinition: " + error::com::get(hr));
-		return def;
-	}
-
-	CComPtr<ITaskSettings> new_filter_obj::get_settings() {
-		if (settings)
-			return settings;
-		HRESULT hr = get_def()->get_Settings(&settings);
-		if (!SUCCEEDED(hr))
-			throw nsclient::nsclient_exception("Failed to get ITaskSettings: " + error::com::get(hr));
-		return settings;
-	}
-
-	old_filter_obj::old_filter_obj(ITask* task, std::string title)
-		: task(task)
-		, title(title)
-		, account_name(&ITask::GetAccountInformation)
-		, application_name(&ITask::GetApplicationName)
-		, comment(&ITask::GetComment)
-		, creator(&ITask::GetCreator)
-		, parameters(&ITask::GetParameters)
-		, working_directory(&ITask::GetWorkingDirectory)
-		, exit_code(&ITask::GetExitCode)
-		, flags(&ITask::GetFlags)
-		, max_run_time(&ITask::GetMaxRunTime)
-		, priority(&ITask::GetPriority)
-		, status(&ITask::GetStatus)
-		, most_recent_run_time(&ITask::GetMostRecentRunTime) {}
-
-	new_filter_obj::new_filter_obj(IRegisteredTask* task, std::string folder)
-		: task(task)
-		, folder(folder)
-		, title(&IRegisteredTask::get_Name)
-		, exit_code(&IRegisteredTask::get_LastTaskResult)
-		, status(&IRegisteredTask::get_State)
-		, enabled(&IRegisteredTask::get_Enabled)
-		, most_recent_run_time(&IRegisteredTask::get_LastRunTime)
-		, comment(&IRegistrationInfo::get_Description)
-		, creator(&IRegistrationInfo::get_Author)
-		, priority(&ITaskSettings::get_Priority)
-		, max_run_time(&ITaskSettings::get_ExecutionTimeLimit) {}
+CComPtr<IRegistrationInfo> new_filter_obj::get_reginfo() {
+  if (reginfo) return reginfo;
+  HRESULT hr = get_def()->get_RegistrationInfo(&reginfo);
+  if (!SUCCEEDED(hr)) throw nsclient::nsclient_exception("Failed to get IRegistrationInfo: " + error::com::get(hr));
+  return reginfo;
 }
+
+CComPtr<ITaskDefinition> new_filter_obj::get_def() {
+  if (def) return def;
+  HRESULT hr = task->get_Definition(&def);
+  if (!SUCCEEDED(hr)) throw nsclient::nsclient_exception("Failed to get ITaskDefinition: " + error::com::get(hr));
+  return def;
+}
+
+CComPtr<ITaskSettings> new_filter_obj::get_settings() {
+  if (settings) return settings;
+  HRESULT hr = get_def()->get_Settings(&settings);
+  if (!SUCCEEDED(hr)) throw nsclient::nsclient_exception("Failed to get ITaskSettings: " + error::com::get(hr));
+  return settings;
+}
+
+old_filter_obj::old_filter_obj(ITask* task, std::string title)
+    : task(task),
+      title(title),
+      account_name(&ITask::GetAccountInformation),
+      application_name(&ITask::GetApplicationName),
+      comment(&ITask::GetComment),
+      creator(&ITask::GetCreator),
+      parameters(&ITask::GetParameters),
+      working_directory(&ITask::GetWorkingDirectory),
+      exit_code(&ITask::GetExitCode),
+      flags(&ITask::GetFlags),
+      max_run_time(&ITask::GetMaxRunTime),
+      priority(&ITask::GetPriority),
+      status(&ITask::GetStatus),
+      most_recent_run_time(&ITask::GetMostRecentRunTime) {}
+
+new_filter_obj::new_filter_obj(IRegisteredTask* task, std::string folder)
+    : task(task),
+      folder(folder),
+      title(&IRegisteredTask::get_Name),
+      exit_code(&IRegisteredTask::get_LastTaskResult),
+      status(&IRegisteredTask::get_State),
+      enabled(&IRegisteredTask::get_Enabled),
+      most_recent_run_time(&IRegisteredTask::get_LastRunTime),
+      comment(&IRegistrationInfo::get_Description),
+      creator(&IRegistrationInfo::get_Author),
+      priority(&ITaskSettings::get_Priority),
+      max_run_time(&ITaskSettings::get_ExecutionTimeLimit) {}
+}  // namespace tasksched_filter
