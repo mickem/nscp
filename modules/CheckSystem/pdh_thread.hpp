@@ -34,82 +34,75 @@
 #include "filter_config_object.hpp"
 #include "check_network.hpp"
 
-
-
 struct spi_container {
-	long long handles;
-	long long procs;
-	long long threads;
-	spi_container() : handles(0), procs(0), threads(0) {}
+  long long handles;
+  long long procs;
+  long long threads;
+  spi_container() : handles(0), procs(0), threads(0) {}
 };
 
-
 class pdh_thread {
-public:
-	typedef boost::variant<std::string, long long, double> value_type;
-	typedef boost::unordered_map<std::string, value_type> metrics_hash;
+ public:
+  typedef boost::variant<std::string, long long, double> value_type;
+  typedef boost::unordered_map<std::string, value_type> metrics_hash;
 
+ private:
+  typedef boost::unordered_map<std::string, PDH::pdh_instance> lookup_type;
+  typedef std::list<std::string> error_list;
 
-private:
-	typedef boost::unordered_map<std::string, PDH::pdh_instance> lookup_type;
-	typedef std::list<std::string> error_list;
+  boost::shared_ptr<boost::thread> thread_;
+  boost::shared_mutex mutex_;
+  HANDLE stop_event_;
+  int plugin_id;
+  nscapi::core_wrapper *core;
 
-	boost::shared_ptr<boost::thread> thread_;
-	boost::shared_mutex mutex_;
-	HANDLE stop_event_;
-	int plugin_id;
-	nscapi::core_wrapper *core;
+  metrics_hash metrics;
 
-	metrics_hash metrics;
+  std::list<PDH::pdh_object> configs_;
+  std::list<PDH::pdh_instance> counters_;
+  rrd_buffer<windows::system_info::cpu_load> cpu;
+  lookup_type lookups_;
+  network_check::network_data network;
 
-	std::list<PDH::pdh_object> configs_;
-	std::list<PDH::pdh_instance> counters_;
-	rrd_buffer<windows::system_info::cpu_load> cpu;
-	lookup_type lookups_;
-	network_check::network_data network;
-public:
-
+ public:
   bool read_core_load;
-	std::string subsystem;
-	std::string disable_;
-	std::string default_buffer_size;
+  std::string subsystem;
+  std::string disable_;
+  std::string default_buffer_size;
 
-public:
+ public:
+  pdh_thread(nscapi::core_wrapper *core, int plugin_id) : core(core), plugin_id(plugin_id), read_core_load(true) { mutex_.lock(); }
+  void add_counter(const PDH::pdh_object &counter);
 
-	pdh_thread(nscapi::core_wrapper *core, int plugin_id) : core(core), plugin_id(plugin_id), read_core_load(true) {
-		mutex_.lock();
-	}
-	void add_counter(const PDH::pdh_object &counter);
+  std::map<std::string, double> get_value(std::string counter);
+  std::map<std::string, double> get_average(std::string counter, long seconds);
+  std::map<std::string, long long> get_int_value(std::string counter);
+  std::map<std::string, windows::system_info::load_entry> get_cpu_load(long seconds);
 
-	std::map<std::string, double> get_value(std::string counter);
-	std::map<std::string, double> get_average(std::string counter, long seconds);
-	std::map<std::string, long long> get_int_value(std::string counter);
-	std::map<std::string, windows::system_info::load_entry> get_cpu_load(long seconds);
+  network_check::nics_type get_network();
+  metrics_hash get_metrics();
 
-	network_check::nics_type get_network();
-	metrics_hash get_metrics();
+  bool start();
+  bool stop();
+  void set_path(const std::string mem_path, const std::string cpu_path, const std::string proc_path, const std::string legacy_path);
 
-	bool start();
-	bool stop();
-	void set_path(const std::string mem_path, const std::string cpu_path, const std::string proc_path, const std::string legacy_path);
+  void add_realtime_mem_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+  void add_realtime_cpu_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+  void add_realtime_proc_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+  void add_realtime_legacy_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
 
-	void add_realtime_mem_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
-	void add_realtime_cpu_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
-	void add_realtime_proc_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
-	void add_realtime_legacy_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+  void add_samples(boost::shared_ptr<nscapi::settings_proxy> settings);
 
-	void add_samples(boost::shared_ptr<nscapi::settings_proxy> settings);
+  std::string to_string() const { return "pdh"; }
 
-	std::string to_string() const { return "pdh";  }
+ private:
+  spi_container fetch_spi(error_list &errors);
+  void write_metrics(const spi_container &handles, const windows::system_info::cpu_load &load, PDH::PDHQuery *pdh, error_list &errors);
 
-private:
-	spi_container fetch_spi(error_list &errors);
-	void write_metrics(const spi_container &handles, const windows::system_info::cpu_load &load, PDH::PDHQuery *pdh, error_list &errors);
+  filters::mem::filter_config_handler mem_filters_;
+  filters::cpu::filter_config_handler cpu_filters_;
+  filters::proc::filter_config_handler proc_filters_;
+  filters::legacy::filter_config_handler legacy_filters_;
 
-	filters::mem::filter_config_handler mem_filters_;
-	filters::cpu::filter_config_handler cpu_filters_;
-	filters::proc::filter_config_handler proc_filters_;
-	filters::legacy::filter_config_handler legacy_filters_;
-
-	void thread_proc();
+  void thread_proc();
 };

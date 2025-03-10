@@ -31,63 +31,54 @@
 #include <string>
 
 struct op5_config {
-	std::string hostname;
-	std::string url;
-	std::string username;
-	std::string password;
-	std::string hostgroups;
-	std::string contactgroups;
-	typedef std::map<std::string, std::string> check_map;
-	check_map checks;
-	bool deregister;
-	unsigned long long interval;
+  std::string hostname;
+  std::string url;
+  std::string username;
+  std::string password;
+  std::string hostgroups;
+  std::string contactgroups;
+  typedef std::map<std::string, std::string> check_map;
+  check_map checks;
+  bool deregister;
+  unsigned long long interval;
 
-	op5_config()
-		: deregister(false) 
-	{}
-
+  op5_config() : deregister(false) {}
 };
 
 class op5_client {
-private:
-	const nscapi::core_wrapper *core_;
-	int plugin_id_;
-	op5_config config_;
+ private:
+  const nscapi::core_wrapper *core_;
+  int plugin_id_;
+  op5_config config_;
 
-	boost::atomic<bool> stop_thread_;
-	boost::timed_mutex mutex_;
-	boost::shared_ptr<boost::thread> thread_;
+  boost::atomic<bool> stop_thread_;
+  boost::timed_mutex mutex_;
+  boost::shared_ptr<boost::thread> thread_;
 
-public:
-	op5_client(const nscapi::core_wrapper *core, int plugin_id, op5_config config);
-	virtual ~op5_client();
-	// Module calls
-	void add_check(std::string key, std::string args);
-	void stop();
-	bool send_a_check(const std::string &alias, int result, std::string message, std::string &status);
-private:
+ public:
+  op5_client(const nscapi::core_wrapper *core, int plugin_id, op5_config config);
+  virtual ~op5_client();
+  // Module calls
+  void add_check(std::string key, std::string args);
+  void stop();
+  bool send_a_check(const std::string &alias, int result, std::string message, std::string &status);
 
-	bool has_host(std::string host);
-	bool add_host(std::string host, std::string hostgroups, std::string contactgroups);
-	bool remove_host(std::string host);
-	bool send_host_check(std::string host, int status_code, std::string msg, std::string &status, bool create_if_missing = true);
-	bool send_service_check(std::string host, std::string service, int status_code, std::string msg, std::string &status, bool create_if_missing = true);
-	std::pair<bool, bool> has_service(std::string service, std::string host, std::string &hosts_string);
-	bool add_host_to_service(std::string service, std::string host, std::string &hosts_string);
-	bool add_service(std::string host, std::string service);
-	bool save_config();
+ private:
+  bool has_host(std::string host);
+  bool add_host(std::string host, std::string hostgroups, std::string contactgroups);
+  bool remove_host(std::string host);
+  bool send_host_check(std::string host, int status_code, std::string msg, std::string &status, bool create_if_missing = true);
+  bool send_service_check(std::string host, std::string service, int status_code, std::string msg, std::string &status, bool create_if_missing = true);
+  std::pair<bool, bool> has_service(std::string service, std::string host, std::string &hosts_string);
+  bool add_host_to_service(std::string service, std::string host, std::string &hosts_string);
+  bool add_service(std::string host, std::string service);
+  bool save_config();
 
-	void register_host(std::string host, std::string hostgroups, std::string contactgroups);
-	void deregister_host(std::string host);
+  void register_host(std::string host, std::string hostgroups, std::string contactgroups);
+  void deregister_host(std::string host);
 
-	boost::shared_ptr<Mongoose::Response> do_call(const char *verb, const std::string url, const std::string payload);
-	void thread_proc();
-	const nscapi::core_wrapper* get_core() const {
-		return core_;
-	}
-	unsigned int get_id() const {
-		return plugin_id_;
-	}
-
-
+  boost::shared_ptr<Mongoose::Response> do_call(const char *verb, const std::string url, const std::string payload);
+  void thread_proc();
+  const nscapi::core_wrapper *get_core() const { return core_; }
+  unsigned int get_id() const { return plugin_id_; }
 };
