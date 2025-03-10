@@ -24,9 +24,8 @@
 #include "filter.hpp"
 #include "pdh_thread.hpp"
 #include "CheckMemory.h"
-"
 
-    namespace check_cpu_filter {
+namespace check_cpu_filter {
   struct runtime_data {
     typedef check_cpu_filter::filter filter_type;
     typedef pdh_thread *transient_data_type;
