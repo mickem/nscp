@@ -4,6 +4,15 @@ A server that listens for incoming check_mk connection and processes incoming re
 
 
 
+## Enable module
+
+To enable this module and and allow using the commands you need to ass `CheckMKServer = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+CheckMKServer = enabled
+```
+
 
 
 
@@ -36,12 +45,13 @@ Section for check_mk (CheckMKServer.dll) protocol options.
 | [certificate](#ssl-certificate)             | ${certificate-path}/certificate.pem | SSL CERTIFICATE       |
 | [certificate format](#certificate-format)   | PEM                                 | CERTIFICATE FORMAT    |
 | [certificate key](#ssl-certificate)         |                                     | SSL CERTIFICATE       |
-| [dh](#dh-key)                               | ${certificate-path}/nrpe_dh_512.pem | DH KEY                |
+| [dh](#dh-key)                               |                                     | DH KEY                |
 | [port](#port-number)                        | 6556                                | PORT NUMBER           |
 | [socket queue size](#listen-queue)          | 0                                   | LISTEN QUEUE          |
 | [ssl options](#verify-mode)                 |                                     | VERIFY MODE           |
 | [thread pool](#thread-pool)                 | 10                                  | THREAD POOL           |
 | [timeout](#timeout)                         | 30                                  | TIMEOUT               |
+| [tls version](#tls-version-to-use)          | tlsv1.2+                            | TLS version to use    |
 | [use ssl](#enable-ssl-encryption)           | false                               | ENABLE SSL ENCRYPTION |
 | [verify mode](#verify-mode)                 | none                                | VERIFY MODE           |
 
@@ -56,11 +66,11 @@ ca=${certificate-path}/ca.pem
 cache allowed hosts=true
 certificate=${certificate-path}/certificate.pem
 certificate format=PEM
-dh=${certificate-path}/nrpe_dh_512.pem
 port=6556
 socket queue size=0
 thread pool=10
 timeout=30
+tls version=tlsv1.2+
 use ssl=false
 verify mode=none
 
@@ -297,12 +307,13 @@ certificate key=
 
 
 
+
 | Key            | Description                                             |
 |----------------|---------------------------------------------------------|
 | Path:          | [/settings/check_mk/server](#/settings/check_mk/server) |
 | Key:           | dh                                                      |
 | Advanced:      | Yes (means it is not commonly used)                     |
-| Default value: | `${certificate-path}/nrpe_dh_512.pem`                   |
+| Default value: | _N/A_                                                   |
 | Used by:       | CheckMKServer                                           |
 
 
@@ -311,7 +322,7 @@ certificate key=
 ```
 [/settings/check_mk/server]
 # DH KEY
-dh=${certificate-path}/nrpe_dh_512.pem
+dh=
 ```
 
 
@@ -374,9 +385,12 @@ socket queue size=0
 Comma separated list of verification flags to set on the SSL socket.
 
 default-workarounds	Various workarounds for what I understand to be broken ssl implementations
-no-sslv2	Do not use the SSLv2 protocol.
-no-sslv3	Do not use the SSLv3 protocol.
-no-tlsv1	Do not use the TLSv1 protocol.
+no-sslv2	Do not use the SSLv2 protocol (prefer tls version instead).
+no-sslv3	Do not use the SSLv3 protocol (prefer tls version instead).
+no-tlsv1	Do not use the TLSv1 protocol (prefer tls version instead).
+no-tlsv1_1	Do not use the TLSv1.1 protocol (prefer tls version instead).
+no-tlsv1_2	Do not use the TLSv1.2 protocol (prefer tls version instead).
+no-tlsv1_3	Do not use the TLSv1.3 protocol (prefer tls version instead).
 single-dh-use	Always create a new key when using temporary/ephemeral DH parameters. This option must be used to prevent small subgroup attacks, when the DH parameters were not generated using "strong" primes (e.g. when using DSA-parameters).
 
 
@@ -456,6 +470,33 @@ Timeout when reading packets on incoming sockets. If the data has not arrived wi
 [/settings/check_mk/server]
 # TIMEOUT
 timeout=30
+```
+
+
+
+#### TLS version to use <a id="/settings/check_mk/server/tls version"></a>
+
+Valid options are tlsv1.3, tlsv1.2, tlsv1.1, tlsv1.0, sslv3 as well as tlsv1.3+, tlsv1.2+, tlsv1.1+, tlsv1.0+, sslv3+ (Which uses the version mentioned and above)
+
+
+
+
+
+| Key            | Description                                             |
+|----------------|---------------------------------------------------------|
+| Path:          | [/settings/check_mk/server](#/settings/check_mk/server) |
+| Key:           | tls version                                             |
+| Advanced:      | Yes (means it is not commonly used)                     |
+| Default value: | `tlsv1.2+`                                              |
+| Used by:       | CheckMKServer                                           |
+
+
+**Sample:**
+
+```
+[/settings/check_mk/server]
+# TLS version to use
+tls version=tlsv1.2+
 ```
 
 

@@ -37,8 +37,10 @@ nsclient::core::dll_plugin::dll_plugin(const unsigned int id, const boost::files
 	, loaded_(false)
 	, loading_(false)
 	, broken_(false)
+	, started_(false)
 	, fModuleHelperInit(NULL)
 	, fLoadModule(NULL)
+    , fStartModule(NULL)
 	, fGetName(NULL)
 	, fGetVersion(NULL)
 	, fGetDescription(NULL)
@@ -131,6 +133,22 @@ bool nsclient::core::dll_plugin::load_plugin(NSCAPI::moduleLoadMode mode) {
 		return true;
 	}
 	return false;
+}
+
+bool nsclient::core::dll_plugin::has_start() { return fStartModule != NULL; }
+
+
+bool nsclient::core::dll_plugin::start_plugin() {
+  if (started_) {
+    return true;
+  }
+  if (!fStartModule)
+    return true;
+  if (fStartModule(get_id())) {
+    started_ = true;
+    return true;
+  }
+  return false;
 }
 
 void nsclient::core::dll_plugin::setBroken(bool broken) {
@@ -453,6 +471,8 @@ void nsclient::core::dll_plugin::loadRemoteProcs_(void) {
 		fLoadModule = (nscapi::plugin_api::lpLoadModule)module_.load_proc("NSLoadModuleEx");
 		if (!fLoadModule)
 			throw plugin_exception(get_alias_or_name(), "Could not load NSLoadModuleEx");
+
+		fStartModule = (nscapi::plugin_api::lpStartModule)module_.load_proc("NSStartModule");
 
 		fModuleHelperInit = (nscapi::plugin_api::lpModuleHelperInit)module_.load_proc("NSModuleHelperInit");
 		if (!fModuleHelperInit)

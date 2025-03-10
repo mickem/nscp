@@ -4,9 +4,6 @@ set(TARGET CheckMKServer)
 
 project(${TARGET})
 
-# Workaround for bug 0003353 in cmake (aparently not fixed)
-set_source_files_properties(${PB_PLUGIN} PROPERTIES GENERATED TRUE)
-
 create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 set(SRCS
@@ -15,7 +12,7 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/check_mk/lua/lua_check_mk.cpp ${NSCP_DEF_PLUGIN_CPP})
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
-include_directories(${LUA_INCLUE_DIR})
+include_directories(${LUA_INCLUDE_DIR})
 if(OPENSSL_FOUND)
   include_directories(${OPENSSL_INCLUDE_DIR})
   add_definitions(-DUSE_SSL)

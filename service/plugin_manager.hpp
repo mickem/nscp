@@ -120,6 +120,7 @@ namespace nsclient {
 			void load_all_plugins();
 			bool load_single_plugin(std::string plugin, std::string alias = "", bool start = false);
 			void start_plugins(NSCAPI::moduleLoadMode mode);
+            void post_start_plugins();
 			void stop_plugins();
 			plugin_type only_load_module(std::string module, std::string alias, bool &loaded);
 

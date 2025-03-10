@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <boost/scoped_ptr.hpp>
 #include <check_mk/client/client_protocol.hpp>
 #include <socket/client.hpp>
 
@@ -29,7 +30,7 @@ namespace check_mk_client {
 	struct connection_data : public socket_helpers::connection_info {
 		connection_data(client::destination_container arguments, client::destination_container sender) {
 			address = arguments.address.host;
-			port_ = arguments.address.get_port_string("5667");
+			port_ = arguments.address.get_port_string("6556");
 			ssl.enabled = arguments.get_bool_data("ssl");
 			ssl.certificate = arguments.get_string_data("certificate");
 			ssl.certificate_key = arguments.get_string_data("certificate key");
@@ -70,8 +71,9 @@ namespace check_mk_client {
 	};
 
 	struct check_mk_client_handler : public client::handler_interface {
-		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
-			const ::Plugin::Common_Header& request_header = request_message.header();
+		boost::scoped_ptr<scripts::script_manager<lua::lua_traits> > scripts_;
+		bool query(client::destination_container sender, client::destination_container target, const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message) {
+			const ::PB::Common::Header& request_header = request_message.header();
 			check_mk_client::connection_data con(sender, target);
 
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
@@ -80,15 +82,15 @@ namespace check_mk_client {
 			return true;
 		}
 
-		bool submit(client::destination_container sender, client::destination_container target, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
+		bool submit(client::destination_container sender, client::destination_container target, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage &response_message) {
 			return false;
 		}
 
-		bool exec(client::destination_container sender, client::destination_container target, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
+		bool exec(client::destination_container sender, client::destination_container target, const PB::Commands::ExecuteRequestMessage &request_message, PB::Commands::ExecuteResponseMessage &response_message) {
 			return false;
 		}
 
-		bool metrics(client::destination_container sender, client::destination_container target, const Metrics::MetricsMessage &request_message) {
+		bool metrics(client::destination_container sender, client::destination_container target, const PB::Metrics::MetricsMessage &request_message) {
 			return false;
 		}
 
@@ -98,8 +100,9 @@ namespace check_mk_client {
 			int args = 1;
 			if (c.object_ref != 0)
 				args = 2;
-			check_mk::check_mk_packet_wrapper* obj = Luna<check_mk::check_mk_packet_wrapper>::createNew(instance);
-			obj->packet = packet;
+			// TODO: Push correct object here
+			auto data = check_mk::check_mk_packet_wrapper::wrap(instance.L);
+			data->packet = packet;
 			if (instance.pcall(args, LUA_MULTRET, 0) != 0) {
 				NSC_LOG_ERROR_STD("Failed to process check_mk result: " + instance.pop_string());
 				return NSCAPI::query_return_codes::returnUNKNOWN;
@@ -108,7 +111,7 @@ namespace check_mk_client {
 			return NSCAPI::query_return_codes::returnUNKNOWN;
 		}
 
-		void send(Plugin::QueryResponseMessage::Response *payload, connection_data &con) {
+		void send(PB::Commands::QueryResponseMessage::Response *payload, connection_data &con) {
 			try {
 				socket_helpers::client::client<check_mk::client::protocol> client(con, boost::make_shared<client_handler>());
 				NSC_DEBUG_MSG("Connecting to: " + con.to_string());
@@ -121,7 +124,7 @@ namespace check_mk_client {
 				client.connect();
 				std::string dummy;
 				check_mk::packet packet = client.process_request(dummy);
-				boost::optional<scripts::command_definition<lua::lua_traits> > cmd; // = scripts_->find_command("check_mk", "c_callback");
+				boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command("check_mk", "c_callback");
 				if (cmd) {
 					parse_data(cmd->information, cmd->function, packet);
 				} else {

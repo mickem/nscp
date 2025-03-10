@@ -24,7 +24,6 @@ extern "C" {
 #include "lauxlib.h"
 #include "lualib.h"
 }
-#include "luna.h"
 
 #include <string>
 #include <list>
@@ -63,11 +62,11 @@ struct lua_runtime : public scripts::script_runtime_interface<lua::lua_traits> {
   virtual void on_exec(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple,
                        const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response,
                        const PB::Commands::ExecuteRequestMessage &request_message);
-  virtual NSCAPI::nagiosReturn on_submit(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple,
-                                         const PB::Commands::QueryResponseMessage::Response &request, PB::Commands::SubmitResponseMessage::Response *response);
+  virtual void on_submit(std::string channel, script_information* information, lua::lua_traits::function_type function, bool simple, const PB::Commands::QueryResponseMessage::Response &request, PB::Commands::SubmitResponseMessage::Response *response);
   virtual void exec_main(script_information *information, const std::vector<std::string> &opts, PB::Commands::ExecuteResponseMessage::Response *response);
 
   virtual void load(scripts::script_information<lua_traits> *info);
+  virtual void start(scripts::script_information<lua_traits> *info);
   virtual void unload(scripts::script_information<lua_traits> *info);
 
   void register_plugin(lua_runtime_plugin_type plugin) { plugins.push_back(plugin); }

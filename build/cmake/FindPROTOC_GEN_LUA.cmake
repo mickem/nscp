@@ -9,7 +9,7 @@ find_program(
   PATHS ${CMAKE_SOURCE_DIR}/ext/lua-protobuf ${PROTOC_GEN_LUA} /usr/local/bin/
         /usr/bin/ ${Python3_ROOT_DIR}/Scripts)
 if(PROTOC_GEN_LUA_BIN)
-  set(PROTOC_GEN_LUA_FOUND TRUE)
+  set(PROTOC_GEN_LUA_FOUND FALSE)
 else(PROTOC_GEN_LUA_BIN)
   set(PROTOC_GEN_LUA_FOUND FALSE)
 endif(PROTOC_GEN_LUA_BIN)

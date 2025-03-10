@@ -4,6 +4,15 @@ check_mk client can be used both from command line and from queries to check rem
 
 
 
+## Enable module
+
+To enable this module and and allow using the commands you need to ass `CheckMKClient = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+CheckMKClient = enabled
+```
+
 
 ## Queries
 
@@ -78,8 +87,8 @@ Request remote information via check_mk.
 | argument                   |               | Set command line arguments                                                            |
 | separator                  |               | Separator to use for the batch command (default is |)                                 |
 | batch                      |               | Add multiple records using the separator format is: command|argument|argument         |
-| certificate                |               | Length of payload (has to be same as on the server)                                   |
-| dh                         |               | Length of payload (has to be same as on the server)                                   |
+| certificate                |               | The client certificate to use                                                         |
+| dh                         |               | The DH key to use                                                                     |
 | certificate-key            |               | Client certificate to use                                                             |
 | certificate-format         |               | Client certificate format                                                             |
 | ca                         |               | Certificate authority                                                                 |

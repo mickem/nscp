@@ -256,6 +256,35 @@ void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) 
 		plugin_list_.remove(id);
 	}
 }
+
+void nsclient::core::plugin_manager::post_start_plugins() {
+  std::set<long> broken;
+  for(plugin_type plugin: plugin_list_.get_plugins()) {
+	  if (!plugin->has_start()) {
+		  continue;
+	}
+    LOG_DEBUG_CORE_STD("Starting plugin: " + plugin->getModule())
+    try {
+      if (!plugin->start_plugin()) {
+        LOG_ERROR_CORE_STD("Plugin refused to start: " + plugin->getModule());
+        broken.insert(plugin->get_id());
+      }
+    } catch (const plugin_exception &e) {
+      broken.insert(plugin->get_id());
+      LOG_ERROR_CORE_STD("Could not start plugin: " + e.reason() + ": " + e.file());
+    } catch (const std::exception &e) {
+      broken.insert(plugin->get_id());
+      LOG_ERROR_CORE_STD("Could not start plugin: " + plugin->get_alias() + ": " + e.what());
+    } catch (...) {
+      broken.insert(plugin->get_id());
+      LOG_ERROR_CORE_STD("Could not start plugin: " + plugin->getModule());
+    }
+  }
+  for(const long &id: broken) {
+    plugin_list_.remove(id);
+  }
+}
+
 /**
  * Unload all plug-ins
  */
@@ -738,7 +767,7 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::send_notification(const char
 		}
 	}
 	if (!found) {
-		LOG_ERROR_CORE("No handler for channel: " + schannel + " channels: " + channels_.to_string());
+		LOG_ERROR_CORE("No handler for channel: " + schannel + " active channels: " + channels_.to_string());
 		return NSCAPI::api_return_codes::hasFailed;
 	}
 	return NSCAPI::api_return_codes::isSuccess;

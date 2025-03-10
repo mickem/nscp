@@ -28,76 +28,60 @@
 
 #include <check_mk/data.hpp>
 
-namespace check_mk {
-class check_mk_lua_wrapper {
- private:
-  lua::script_information *info;
-
- public:
-  check_mk_lua_wrapper(lua_State *L, bool fromLua);
-
-  static const char className[];
-  static const Luna<check_mk_lua_wrapper>::PropertyType Properties[];
-  static const Luna<check_mk_lua_wrapper>::FunctionType Functions[];
-  bool isExisting;
-  bool isPrecious() { return false; }
-
-  int client_callback(lua_State *L);
-  int server_callback(lua_State *L);
+struct MKData {
+    const static std::string tag;
+};
+struct MKPaketData {
+  const static std::string tag;
+  check_mk::packet packet;
+};
+struct MKSectionData {
+   const static std::string tag;
+   check_mk::packet::section section;
+};
+struct MKLineData {
+   const static std::string tag;
+   check_mk::packet::section::line line;
 };
 
-class check_mk_packet_wrapper {
- public:
-  check_mk_packet_wrapper(lua_State *, bool) {}
 
-  static const char className[];
-  static const Luna<check_mk_packet_wrapper>::PropertyType Properties[];
-  static const Luna<check_mk_packet_wrapper>::FunctionType Functions[];
-  bool isExisting;
-  bool isPrecious() { return false; }
+namespace check_mk {
+namespace  check_mk_lua_wrapper {
+  int client_callback(lua_State *L);
+  int server_callback(lua_State *L);
+  int create(lua_State *L);
+  MKData* wrap(lua_State *L);
+  int destroy(lua_State* L);
+};
 
+namespace check_mk_packet_wrapper {
   int size_section(lua_State *L);
   int get_section(lua_State *L);
   int add_section(lua_State *L);
-
-  check_mk::packet packet;
+  int create(lua_State *L);
+  MKPaketData* wrap(lua_State *L);
+  int destroy(lua_State* L);
 };
 
-class check_mk_section_wrapper {
- public:
-  check_mk_section_wrapper(lua_State *, bool) {}
-
-  static const char className[];
-  static const Luna<check_mk_section_wrapper>::PropertyType Properties[];
-  static const Luna<check_mk_section_wrapper>::FunctionType Functions[];
-  bool isExisting;
-  bool isPrecious() { return false; }
-
+namespace check_mk_section_wrapper {
   int get_title(lua_State *L);
   int set_title(lua_State *L);
   int size_line(lua_State *L);
   int get_line(lua_State *L);
   int add_line(lua_State *L);
-
-  check_mk::packet::section section;
+  int create(lua_State *L);
+  MKSectionData* wrap(lua_State *L);
+  int destroy(lua_State* L);
 };
-class check_mk_line_wrapper {
- public:
-  check_mk_line_wrapper(lua_State *, bool) {}
-
-  static const char className[];
-  static const Luna<check_mk_line_wrapper>::PropertyType Properties[];
-  static const Luna<check_mk_line_wrapper>::FunctionType Functions[];
-  bool isExisting;
-  bool isPrecious() { return false; }
-
+namespace check_mk_line_wrapper {
   int get_line(lua_State *L);
   int set_line(lua_State *L);
   int size_item(lua_State *L);
   int get_item(lua_State *L);
   int add_item(lua_State *L);
-
-  check_mk::packet::section::line line;
+  int create(lua_State *L);
+  MKLineData* wrap(lua_State *L);
+  int destroy(lua_State* L);
 };
 
 struct check_mk_plugin : public lua::lua_runtime_plugin {

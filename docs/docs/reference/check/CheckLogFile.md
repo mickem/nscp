@@ -6,7 +6,7 @@ File for checking log files and various other forms of updating text files
 
 ## Enable module
 
-To enable this module and and allow using the commands you need to add `CheckLogFile = enabled` to the `[/modules]` section in nsclient.ini:
+To enable this module and and allow using the commands you need to ass `CheckLogFile = enabled` to the `[/modules]` section in nsclient.ini:
 
 ```
 [/modules]

@@ -15,5 +15,6 @@
 		"fallback" : "true"
 	},
 	"command line exec" : "true",
-	"channels" : true
+    "channels" : true,
+    "on_start" : true
 }

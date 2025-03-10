@@ -1,0 +1,43 @@
+---
+name: Download lua
+description: Download and cache lua
+inputs:
+  version:
+    description: The Lua version to cache
+    required: true
+outputs:
+  path:
+    description: The path to the folder (windows \ format)
+    value:  ${{ steps.path.outputs.path }}
+  path_unix:
+    description: The path to the folder (unix / format)
+    value:  ${{ steps.path.outputs.path_unix }}
+runs:
+  using: composite
+  steps:
+
+    - name: Download
+      run: |
+        curl -L https://www.lua.org/ftp/lua-${{ inputs.version }}.tar.gz --output lua.tar.gz
+        7z x lua.tar.gz
+        7z x lua.tar
+        del lua.tar
+        del lua.tar.gz
+      working-directory: tmp
+      shell: cmd
+
+    - id: cache
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-lua-${{ inputs.version }}
+        path: |
+          tmp/lua-${{ inputs.version }}
+
+    - id: path
+      run: |
+        $path=$pwd.path
+        $path_unix=$pwd.path.replace('\','/')
+        echo "path=$path" >> $env:GITHUB_OUTPUT
+        echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+      working-directory: tmp/lua-${{ inputs.version }}

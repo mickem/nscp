@@ -28,12 +28,14 @@
 
 #include <boost/scoped_ptr.hpp>
 
+#include "check_mk_handler.hpp"
+
+
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;
 
 class CheckMKClient : public nscapi::impl::simple_plugin {
 private:
-	boost::scoped_ptr<scripts::script_manager<lua::lua_traits> > scripts_;
 	boost::shared_ptr<lua::lua_runtime> lua_runtime_;
 	boost::shared_ptr<scripts::nscp::nscp_runtime_impl> nscp_runtime_;
 	boost::filesystem::path root_;
@@ -41,6 +43,7 @@ private:
 	std::string hostname_;
 	std::string encoding_;
 
+	boost::shared_ptr<check_mk_client::check_mk_client_handler> handler_;
 	client::configuration client_;
 
 public:
@@ -50,9 +53,9 @@ public:
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
-	void query_fallback(const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message);
-	bool commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response);
-	void handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message);
+	void query_fallback(const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message);
+	bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response);
+	void handleNotification(const std::string &channel, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage *response_message);
 
 private:
 

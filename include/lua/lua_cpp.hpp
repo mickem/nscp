@@ -23,6 +23,7 @@
 
 extern "C" {
 #include <lua.h>
+#include "lauxlib.h"
 }
 
 #include <string>
@@ -43,7 +44,10 @@ class Lua_State : boost::noncopyable {
   lua_State *get_state() const { return L; }
 };
 
+const std::string internal_user_instance_prefix = "nscp.internal.";
+
 class lua_wrapper {
+public:
   lua_State *L;
 
  public:
@@ -75,6 +79,44 @@ class lua_wrapper {
   }
   void remove_userdata(std::string id);
 
+  void new_userdata(size_t size);
+
+  template <class T>
+  T* checkudata(int pos, std::string tag) {
+    return reinterpret_cast<T*>(luaL_checkudata(L, pos, tag.c_str()));
+  }
+
+  void setup_class(const std::string name, const luaL_Reg* ctors, const luaL_Reg* functions);
+  void setup_global_function(const std::string name, const lua_CFunction function);
+  void setup_functions(const std::string name, const luaL_Reg* functions);
+
+
+  template <class T>
+  T* push_user_object_instance() {
+	T **ptr = this->newuserdata<T*>();
+    *ptr = new T();
+	luaL_getmetatable(L, (internal_user_instance_prefix + T::tag).c_str());
+	lua_setmetatable(L, -2);
+    return *ptr;
+}
+  template <class T>
+  T* get_user_object_instance(int pos = 1) {
+	T **ptr = this->checkudata<T*>(pos, internal_user_instance_prefix + T::tag);
+    return *ptr;
+  }
+  template <class T>
+  int destroy_user_object_instance() {
+	T **ptr = this->checkudata<T*>(1, internal_user_instance_prefix + T::tag);
+    delete *ptr;
+    return 0;
+  }
+  template <class T>
+  T* newuserdata() {
+    return reinterpret_cast<T*>(lua_newuserdata(L, sizeof(T)));
+  }
+
+
+
   //////////////////////////////////////////////////////////////////////////
   /// pop_xxx
   bool pop_boolean();
@@ -91,10 +133,11 @@ class lua_wrapper {
   //////////////////////////////////////////////////////////////////////////
   // Converters
   NSCAPI::nagiosReturn string_to_code(std::string str);
+  std::string code_to_string(NSCAPI::nagiosReturn code);
 
   ////////////////////////////////////////////////////////////////////////////
   // Misc
-  void getglobal(const std::string &name) { lua_getglobal(L, name.c_str()); }
+  int getglobal(const std::string &name) { return lua_getglobal(L, name.c_str()); }
   inline void pop(int count = 1) { lua_pop(L, count); }
   int type(int pos = -1);
   std::string get_type_as_string(int pos = -1);
@@ -135,10 +178,6 @@ class lua_wrapper {
   int checkint(int pos);
   int gc(int what, int data);
 
-  template <class T>
-  T *newuserdata() {
-    return reinterpret_cast<T *>(lua_newuserdata(L, sizeof(T)));
-  }
 };
 
 class lua_exception : public std::exception {

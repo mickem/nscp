@@ -92,6 +92,7 @@ struct settings_provider {
 template <class script_trait>
 struct script_runtime_interface {
   virtual void load(scripts::script_information<script_trait> *info) = 0;
+  virtual void start(scripts::script_information<script_trait> *info) = 0;
   virtual void unload(scripts::script_information<script_trait> *info) = 0;
   virtual void create_user_data(scripts::script_information<script_trait> *info) = 0;
 };
@@ -180,6 +181,12 @@ struct script_manager {
     // TODO: locked
     for (typename script_list_type::value_type &entry : scripts_) {
       script_runtime->load(entry.second);
+    }
+  }
+  void start_all() {
+    // TODO: locked
+    for (typename script_list_type::value_type &entry : scripts_) {
+      script_runtime->start(entry.second);
     }
   }
   void unload_all() {

@@ -59,6 +59,21 @@ cd ..
 
 TODO
 
+### Build Lua
+
+Lua does not require building instead we need to download and configure where the build system can find it.
+
+```commandline
+SET LUA_VERSION=5.4.7
+curl -L https://www.lua.org/ftp/lua-%LUA_VERSION%.tar.gz --output lua.tar.gz
+7z x lua.tar.gz
+7z x lua.tar
+del lua.tar
+del lua.tar.gz
+```
+
+
+
 ## Build installer library
 
 ```commandline

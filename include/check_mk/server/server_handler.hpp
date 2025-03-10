@@ -21,6 +21,7 @@
 
 #include <check_mk/data.hpp>
 #include <boost/tuple/tuple.hpp>
+#include <boost/noncopyable.hpp>
 
 namespace check_mk {
 namespace server {

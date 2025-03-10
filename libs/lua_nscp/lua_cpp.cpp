@@ -4,7 +4,6 @@ extern "C" {
 #include "lauxlib.h"
 #include "lualib.h"
 }
-#include "luna.h"
 
 #include <str/xtos.hpp>
 #include <utf8.hpp>
@@ -17,7 +16,7 @@ extern "C" {
 #define TRUE 1
 #endif
 
-lua::Lua_State::Lua_State() : L(lua_open()) {}
+lua::Lua_State::Lua_State() : L(luaL_newstate()) {}
 lua::Lua_State::~Lua_State() {
 	lua_close(L);
 }
@@ -122,7 +121,7 @@ NSCAPI::nagiosReturn lua::lua_wrapper::get_code(int pos) {
 
 std::list<std::string> lua::lua_wrapper::get_array(const int pos) {
 	std::list<std::string> ret;
-	const int len = lua_objlen(L, pos);
+	const int len = lua_rawlen(L, pos);
 	for (int i = 1; i <= len; ++i) {
 		lua_pushinteger(L, i);
 		lua_gettable(L, -2);
@@ -237,6 +236,20 @@ NSCAPI::nagiosReturn lua::lua_wrapper::string_to_code(std::string str) {
 	return NSCAPI::query_return_codes::returnUNKNOWN;
 }
 
+std::string lua::lua_wrapper::code_to_string(NSCAPI::nagiosReturn code) {
+	if (code == NSCAPI::query_return_codes::returnCRIT) {
+		return "critical";
+	}
+	else if (code == NSCAPI::query_return_codes::returnWARN) {
+		return "warning";
+	}
+	else if (code == NSCAPI::query_return_codes::returnOK) {
+		return "ok";
+	}
+	return "unknown";
+}
+
+
 int lua::lua_wrapper::type(int pos) {
 	if (pos == -1)
 		pos = lua_gettop(L);
@@ -345,13 +358,21 @@ std::string lua::lua_wrapper::dump_stack() {
 		int t = type(-1);
 		if (t == LUA_TSTRING || t == LUA_TNUMBER) {
 			ret += pop_string();
-		} else if (t == LUA_TTABLE) {
+		}
+		else if (t == LUA_TTABLE) {
 			std::list<std::string> list = pop_array();
 			ret += "<" + str::xtos(list.size()) + ">[";
-			for(std::string s: list) {
+			for (std::string s : list) {
 				ret += s + ", ";
 			}
 			ret += "]";
+
+		} else if (t == LUA_TFUNCTION) {
+			ret += "FUNCTION:???";
+			pop();
+		} else if (t == LUA_TUSERDATA) {
+			ret += "USER_DATA:???";
+			pop();
 		} else {
 			ret += "UNKNOWN:" + str::xtos(t);
 			pop();
@@ -391,7 +412,7 @@ int lua::lua_wrapper::op_int(int pos, int def) {
 	return luaL_optinteger(L, pos, def);
 }
 int lua::lua_wrapper::checkint(int pos) {
-	return luaL_checkint(L, pos);
+	return luaL_checkinteger(L, pos);
 }
 int lua::lua_wrapper::gc(int what, int data) {
 	return lua_gc(L, what, data);
@@ -402,6 +423,10 @@ void lua::lua_wrapper::remove_userdata(std::string id) {
 	lua_pushnil(L);
 	lua_settable(L, LUA_REGISTRYINDEX);
 }
+void lua::lua_wrapper::new_userdata(size_t size) {
+	lua_newuserdata(L, size);
+}
+
 
 void lua::lua_wrapper::set_raw_userdata(std::string id, void* data) {
 	lua_pushstring(L, id.c_str());
@@ -415,4 +440,26 @@ void* lua::lua_wrapper::get_raw_userdata(std::string id) {
 	void* ret = lua_touserdata(L, -1);
 	pop();
 	return ret;
+}
+
+void lua::lua_wrapper::setup_class(const std::string name, const luaL_Reg* ctors, const luaL_Reg* functions) {
+	luaL_newmetatable(L, (internal_user_instance_prefix + name).c_str());
+	lua_pushvalue(L, -1);
+	lua_setfield(L, -2, "__index");
+	luaL_setfuncs(L, functions, 0);
+	luaL_newlib(L, ctors);
+	lua_setglobal(L, name.c_str());
+	lua_pop(L, 1);
+}
+
+void lua::lua_wrapper::setup_global_function(const std::string name, const lua_CFunction function) {
+	lua_pushcfunction(L, function);
+    lua_setglobal(L, name.c_str());
+}
+
+void lua::lua_wrapper::setup_functions(const std::string name, const luaL_Reg* functions) {
+	luaL_newlib(L, functions);
+	lua_pushvalue(L, -1);
+	lua_setfield(L, -1, "__index");
+	lua_setglobal(L, name.c_str());
 }

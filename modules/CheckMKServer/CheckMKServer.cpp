@@ -39,13 +39,13 @@ bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 	scripts_.reset(new scripts::script_manager<lua::lua_traits>(lua_runtime_, nscp_runtime_, get_id(), utf8::cvt<std::string>(alias)));
 	handler_.reset(new handler_impl(scripts_));
 
-	sh::settings_registry settings(get_settings_proxy());
+        sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 	settings.set_alias("check_mk", alias, "server");
 
 	settings.alias().add_path_to_settings()
 		("CHECK MK SERVER SECTION", "Section for check_mk (CheckMKServer.dll) protocol options.")
 
-		("scripts", sh::fun_values_path(boost::bind(&CheckMKServer::add_script, this, _1, _2)),
+		("scripts", sh::fun_values_path(boost::bind(&CheckMKServer::add_script, this, boost::placeholders::_1, boost::placeholders::_2)),
 			"REMOTE TARGET DEFINITIONS", "",
 			"TARGET", "For more configuration options add a dedicated section")
 
@@ -58,7 +58,7 @@ bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 		;
 
 	socket_helpers::settings_helper::add_core_server_opts(settings, info_);
-	socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false);
+        socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false, "", "${certificate-path}/certificate.pem", "", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 
 	settings.register_all();
 	settings.notify();
