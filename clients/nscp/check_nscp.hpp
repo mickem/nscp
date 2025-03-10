@@ -23,17 +23,16 @@
 #include <client/command_line_parser.hpp>
 #include <nscapi/nscapi_targets.hpp>
 
-
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;
 
 #include "../modules/NSCPClient/nscp_client.hpp"
 
 class check_nscp {
-private:
-	client::configuration client_;
+ private:
+  client::configuration client_;
 
-public:
-	check_nscp();
-	void query(const PB::Commands::QueryRequestMessage &request, PB::Commands::QueryResponseMessage &response);
+ public:
+  check_nscp();
+  void query(const PB::Commands::QueryRequestMessage &request, PB::Commands::QueryResponseMessage &response);
 };
