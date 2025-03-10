@@ -24,43 +24,38 @@
 #include <nscapi/nscapi_settings_object.hpp>
 
 namespace web_server {
-	namespace sh = nscapi::settings_helper;
+namespace sh = nscapi::settings_helper;
 
-	struct user_config_object : public nscapi::settings_objects::object_instance_interface {
-		typedef nscapi::settings_objects::object_instance_interface parent;
+struct user_config_object : public nscapi::settings_objects::object_instance_interface {
+  typedef nscapi::settings_objects::object_instance_interface parent;
 
-		std::string password;
-		std::string role;
+  std::string password;
+  std::string role;
 
-		user_config_object(std::string alias, std::string path) : parent(alias, path) {
-		}
+  user_config_object(std::string alias, std::string path) : parent(alias, path) {}
 
-		void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
-			parent::read(proxy, oneliner, is_sample);
+  void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
+    parent::read(proxy, oneliner, is_sample);
 
-			nscapi::settings_helper::settings_registry settings(proxy);
+    nscapi::settings_helper::settings_registry settings(proxy);
 
-			nscapi::settings_helper::path_extension root_path = settings.path(get_path());
-			if (is_sample)
-				root_path.set_sample();
+    nscapi::settings_helper::path_extension root_path = settings.path(get_path());
+    if (is_sample) root_path.set_sample();
 
-			root_path.add_key()
+    root_path.add_key()
 
-				("password", sh::string_key(&password),
-					"PASSWORD", "The password to use.")
+        ("password", sh::string_key(&password), "PASSWORD", "The password to use.")
 
-				("role", sh::string_key(&role),
-					"ROLE", "The role which will grant access to this user")
+            ("role", sh::string_key(&role), "ROLE", "The role which will grant access to this user")
 
-				;
+        ;
 
-			settings.register_all();
-			settings.notify();
-		}
-	};
-	typedef boost::shared_ptr<user_config_object> user_config_instance;
+    settings.register_all();
+    settings.notify();
+  }
+};
+typedef boost::shared_ptr<user_config_object> user_config_instance;
 
-	typedef nscapi::settings_objects::object_handler<user_config_object> user_config;
+typedef nscapi::settings_objects::object_handler<user_config_object> user_config;
 
-
-}
+}  // namespace web_server

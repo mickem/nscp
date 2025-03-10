@@ -17,7 +17,6 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #include "user_config.hpp"
 
 #include "session_manager_interface.hpp"
@@ -35,34 +34,36 @@
 #include <boost/shared_ptr.hpp>
 
 class WEBServer : public nscapi::impl::simple_plugin {
-	typedef std::map<std::string, std::string> role_map;
+  typedef std::map<std::string, std::string> role_map;
 
-public:
-	WEBServer();
-	virtual ~WEBServer();
-	// Module calls
-	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+ public:
+  WEBServer();
+  virtual ~WEBServer();
+  // Module calls
+  bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 
-	void ensure_role(role_map &roles, nscapi::settings_helper::settings_registry &settings, std::string role_path, std::string role, std::string value, std::string reason);
-	void ensure_user(nscapi::settings_helper::settings_registry &settings, std::string path, std::string user, std::string role, std::string value, std::string reason);
+  void ensure_role(role_map &roles, nscapi::settings_helper::settings_registry &settings, std::string role_path, std::string role, std::string value,
+                   std::string reason);
+  void ensure_user(nscapi::settings_helper::settings_registry &settings, std::string path, std::string user, std::string role, std::string value,
+                   std::string reason);
 
-	bool unloadModule();
-	void handleLogMessage(const PB::Log::LogEntry::Entry &message);
-	bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
-	void submitMetrics(const PB::Metrics::MetricsMessage &response);
-	bool install_server(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
-	bool cli_add_user(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
-	bool cli_add_role(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
-	bool password(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
-private:
+  bool unloadModule();
+  void handleLogMessage(const PB::Log::LogEntry::Entry &message);
+  bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request,
+                       PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
+  void submitMetrics(const PB::Metrics::MetricsMessage &response);
+  bool install_server(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
+  bool cli_add_user(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
+  bool cli_add_role(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
+  bool password(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
 
-	void add_user(std::string key, std::string arg);
+ private:
+  void add_user(std::string key, std::string arg);
 
-	boost::shared_ptr<error_handler_interface> log_handler;
-	boost::shared_ptr<client::cli_client> client;
-	boost::shared_ptr<session_manager_interface> session;
-	boost::shared_ptr<Mongoose::Server> server;
+  boost::shared_ptr<error_handler_interface> log_handler;
+  boost::shared_ptr<client::cli_client> client;
+  boost::shared_ptr<session_manager_interface> session;
+  boost::shared_ptr<Mongoose::Server> server;
 
-	web_server::user_config users_;
-
+  web_server::user_config users_;
 };

@@ -107,6 +107,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	users_.set_path(settings.alias().get_settings_path("users"));
 
+        // clang-format off
 	settings.alias().add_path_to_settings()
 		("Web server", "Section for WEB (WEBServer.dll) (check_WEB) protocol options.")
 
@@ -144,6 +145,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC)
 
 		;
+        // clang-format on
 
 
 	settings.register_all();

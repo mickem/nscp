@@ -9,11 +9,12 @@
 #include <string>
 
 class StaticController : public Mongoose::Controller {
-	boost::shared_ptr<session_manager_interface> session;
-	boost::filesystem::path base;
-public:
-	StaticController(boost::shared_ptr<session_manager_interface> session, std::string path);
+  boost::shared_ptr<session_manager_interface> session;
+  boost::filesystem::path base;
 
-	Mongoose::Response *handleRequest(Mongoose::Request &request);
-	bool handles(std::string method, std::string url);
+ public:
+  StaticController(boost::shared_ptr<session_manager_interface> session, std::string path);
+
+  Mongoose::Response *handleRequest(Mongoose::Request &request);
+  bool handles(std::string method, std::string url);
 };

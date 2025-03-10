@@ -9,16 +9,15 @@
 #include <string>
 
 class legacy_command_controller : public Mongoose::Controller {
-	boost::shared_ptr<session_manager_interface> session;
-	const nscapi::core_wrapper* core;
+  boost::shared_ptr<session_manager_interface> session;
+  const nscapi::core_wrapper *core;
 
-public:
+ public:
+  legacy_command_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper *core);
 
-	legacy_command_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core);
+  void handle_query(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response);
+  void handle_exec(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response);
 
-	void handle_query(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response);
-	void handle_exec(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response);
-
-	Mongoose::Response* handleRequest(Mongoose::Request &request);
-	bool handles(std::string method, std::string url);
+  Mongoose::Response *handleRequest(Mongoose::Request &request);
+  bool handles(std::string method, std::string url);
 };
