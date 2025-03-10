@@ -21,9 +21,9 @@
 #include <nscapi/nscapi_plugin_impl.hpp>
 
 class CheckNet : public nscapi::impl::simple_plugin {
-public:
-	CheckNet() {};
+ public:
+  CheckNet() {};
 
-	// Check commands
-	void check_ping(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  // Check commands
+  void check_ping(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 };

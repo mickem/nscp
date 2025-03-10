@@ -33,17 +33,16 @@
 #include <boost/filesystem.hpp>
 
 class CheckDocker : public nscapi::impl::simple_plugin {
-public:
+ public:
+  CheckDocker() {}
 
-	CheckDocker() {}
+  // Module calls
+  bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+  bool unloadModule();
 
-	// Module calls
-	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
-	bool unloadModule();
+  void check_docker(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  void handleLogMessage(const PB::Log::LogEntry::Entry &message);
+  void fetchMetrics(PB::Metrics::MetricsMessage::Response *response);
 
-	void check_docker(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
-	void handleLogMessage(const PB::Log::LogEntry::Entry &message);
-	void fetchMetrics(PB::Metrics::MetricsMessage::Response* response);
-
-	std::size_t get_errors(std::string &last_error);
+  std::size_t get_errors(std::string &last_error);
 };

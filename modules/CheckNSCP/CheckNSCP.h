@@ -31,25 +31,25 @@
 #include <boost/filesystem.hpp>
 
 class CheckNSCP : public nscapi::impl::simple_plugin {
-private:
-	boost::timed_mutex mutex_;
-	boost::filesystem::path crashFolder;
-	//typedef std::list<std::string> error_list;
-	//error_list errors_;
-	std::string last_error_;
-	unsigned int error_count_;
-	boost::posix_time::ptime start_;
-public:
+ private:
+  boost::timed_mutex mutex_;
+  boost::filesystem::path crashFolder;
+  // typedef std::list<std::string> error_list;
+  // error_list errors_;
+  std::string last_error_;
+  unsigned int error_count_;
+  boost::posix_time::ptime start_;
 
-	CheckNSCP() : error_count_(0) {}
+ public:
+  CheckNSCP() : error_count_(0) {}
 
-	// Module calls
-	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
-	bool unloadModule();
+  // Module calls
+  bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+  bool unloadModule();
 
-	void check_nscp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
-	void check_nscp_version(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
-	void handleLogMessage(const PB::Log::LogEntry::Entry &message);
+  void check_nscp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  void check_nscp_version(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  void handleLogMessage(const PB::Log::LogEntry::Entry &message);
 
-	std::size_t get_errors(std::string &last_error);
+  std::size_t get_errors(std::string &last_error);
 };

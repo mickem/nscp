@@ -24,15 +24,15 @@
 
 struct real_time_thread;
 class CheckLogFile : public nscapi::impl::simple_plugin {
-private:
-	boost::shared_ptr<real_time_thread> thread_;
+ private:
+  boost::shared_ptr<real_time_thread> thread_;
 
-public:
-	CheckLogFile() {}
-	virtual ~CheckLogFile() {}
+ public:
+  CheckLogFile() {}
+  virtual ~CheckLogFile() {}
 
-	// Module calls
-	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
-	bool unloadModule();
-	void check_logfile(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  // Module calls
+  bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+  bool unloadModule();
+  void check_logfile(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 };

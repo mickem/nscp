@@ -27,32 +27,33 @@
 
 struct real_time_thread;
 class CheckEventLog : public nscapi::impl::simple_plugin {
-private:
-	boost::shared_ptr<real_time_thread> thread_;
-	bool debug_;
-	std::string syntax_;
-	int buffer_length_;
-	bool lookup_names_;
-	bookmarks bookmarks_;
+ private:
+  boost::shared_ptr<real_time_thread> thread_;
+  bool debug_;
+  std::string syntax_;
+  int buffer_length_;
+  bool lookup_names_;
+  bookmarks bookmarks_;
 
-public:
-	CheckEventLog() {}
-	virtual ~CheckEventLog() {}
-	// Module calls
-	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
-	bool unloadModule();
-	void parse(std::wstring expr);
+ public:
+  CheckEventLog() {}
+  virtual ~CheckEventLog() {}
+  // Module calls
+  bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+  bool unloadModule();
+  void parse(std::wstring expr);
 
-	void check_eventlog(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
-	void CheckEventLog_(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  void check_eventlog(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  void CheckEventLog_(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
-	bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
-	void insert_eventlog(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
-	void list_providers(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
-	void add_filter(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
+  bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request,
+                       PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
+  void insert_eventlog(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
+  void list_providers(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
+  void add_filter(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
 
-
-private:
-	void save_bookmark(const std::string bookmark, eventlog::api::EVT_HANDLE &hResults);
-	void check_modern(const std::string &logfile, const std::string &scan_range, const int truncate_message, eventlog_filter::filter &filter, std::string bookmark);
+ private:
+  void save_bookmark(const std::string bookmark, eventlog::api::EVT_HANDLE &hResults);
+  void check_modern(const std::string &logfile, const std::string &scan_range, const int truncate_message, eventlog_filter::filter &filter,
+                    std::string bookmark);
 };
