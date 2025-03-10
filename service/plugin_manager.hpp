@@ -66,165 +66,136 @@
  */
 
 namespace nsclient {
-	namespace core {
+namespace core {
 
-		class core_exception : public std::exception {
-			std::string what_;
-		public:
-			core_exception(std::string error) throw() : what_(error.c_str()) {}
-			virtual ~core_exception() throw() {};
+class core_exception : public std::exception {
+  std::string what_;
 
-			virtual const char* what() const throw() {
-				return what_.c_str();
-			}
-		};
+ public:
+  core_exception(std::string error) throw() : what_(error.c_str()) {}
+  virtual ~core_exception() throw() {};
 
+  virtual const char *what() const throw() { return what_.c_str(); }
+};
 
-		class plugin_manager : public boost::enable_shared_from_this<plugin_manager> {
-		public:
-			typedef boost::shared_ptr<nsclient::core::plugin_interface> plugin_type;
-		private:
+class plugin_manager : public boost::enable_shared_from_this<plugin_manager> {
+ public:
+  typedef boost::shared_ptr<nsclient::core::plugin_interface> plugin_type;
 
-			boost::filesystem::path plugin_path_;
+ private:
+  boost::filesystem::path plugin_path_;
 
-			nsclient::logging::logger_instance log_instance_;
-			nsclient::commands commands_;
-			nsclient::channels channels_;
-			nsclient::simple_plugins_list metrics_fetchers_;
-			nsclient::simple_plugins_list metrics_submitetrs_;
-			nsclient::core::plugin_cache plugin_cache_;
-			nsclient::event_subscribers event_subscribers_;
-			nsclient::core::master_plugin_list plugin_list_;
-			nsclient::core::path_instance path_;
+  nsclient::logging::logger_instance log_instance_;
+  nsclient::commands commands_;
+  nsclient::channels channels_;
+  nsclient::simple_plugins_list metrics_fetchers_;
+  nsclient::simple_plugins_list metrics_submitetrs_;
+  nsclient::core::plugin_cache plugin_cache_;
+  nsclient::event_subscribers event_subscribers_;
+  nsclient::core::master_plugin_list plugin_list_;
+  nsclient::core::path_instance path_;
 
-		public:
-			plugin_manager(nsclient::core::path_instance path_, nsclient::logging::logger_instance log_instance);
-			virtual ~plugin_manager();
+ public:
+  plugin_manager(nsclient::core::path_instance path_, nsclient::logging::logger_instance log_instance);
+  virtual ~plugin_manager();
 
-			nsclient::core::plugin_cache* get_plugin_cache() {
-				return &plugin_cache_;
-			}
-			nsclient::commands* get_commands() {
-				return &commands_;
-			}
-			nsclient::channels* get_channels() {
-				return &channels_;
-			}
-			nsclient::event_subscribers* get_event_subscribers() {
-				return &event_subscribers_;
-			}
+  nsclient::core::plugin_cache *get_plugin_cache() { return &plugin_cache_; }
+  nsclient::commands *get_commands() { return &commands_; }
+  nsclient::channels *get_channels() { return &channels_; }
+  nsclient::event_subscribers *get_event_subscribers() { return &event_subscribers_; }
 
-			void set_path(boost::filesystem::path path);
+  void set_path(boost::filesystem::path path);
 
-			void load_active_plugins();
-			void load_all_plugins();
-			bool load_single_plugin(std::string plugin, std::string alias = "", bool start = false);
-			void start_plugins(NSCAPI::moduleLoadMode mode);
-            void post_start_plugins();
-			void stop_plugins();
-			plugin_type only_load_module(std::string module, std::string alias, bool &loaded);
+  void load_active_plugins();
+  void load_all_plugins();
+  bool load_single_plugin(std::string plugin, std::string alias = "", bool start = false);
+  void start_plugins(NSCAPI::moduleLoadMode mode);
+  void post_start_plugins();
+  void stop_plugins();
+  plugin_type only_load_module(std::string module, std::string alias, bool &loaded);
 
+  plugin_type find_plugin(const unsigned int plugin_id);
+  bool remove_plugin(const std::string name);
+  unsigned int clone_plugin(unsigned int plugin_id);
+  bool reload_plugin(const std::string module);
 
-			plugin_type find_plugin(const unsigned int plugin_id);
-			bool remove_plugin(const std::string name);
-			unsigned int clone_plugin(unsigned int plugin_id);
-			bool reload_plugin(const std::string module);
+  typedef boost::function<int(plugin_type)> run_function;
+  int load_and_run(std::string module, run_function fun, std::list<std::string> &errors);
+  NSCAPI::errorReturn send_notification(const char *channel, std::string &request, std::string &response);
+  NSCAPI::nagiosReturn execute_query(const std::string &request, std::string &response);
+  ::PB::Commands::QueryResponseMessage execute_query(const ::PB::Commands::QueryRequestMessage &);
+  std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
+  int simple_exec(std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
+  int simple_query(std::string module, std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
+  NSCAPI::nagiosReturn exec_command(const char *target, std::string request, std::string &response);
+  void register_submission_listener(unsigned int plugin_id, const char *channel);
+  NSCAPI::nagiosReturn emit_event(const std::string &request);
 
+  bool is_enabled(const std::string module);
+  void process_metrics(PB::Metrics::MetricsBundle bundle);
 
-			typedef boost::function<int(plugin_type)> run_function;
-			int load_and_run(std::string module, run_function fun, std::list<std::string> &errors);
-			NSCAPI::errorReturn send_notification(const char* channel, std::string &request, std::string &response);
-			NSCAPI::nagiosReturn execute_query(const std::string &request, std::string &response);
-			::PB::Commands::QueryResponseMessage execute_query(const ::PB::Commands::QueryRequestMessage &);
-			std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
-			int simple_exec(std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
-			int simple_query(std::string module, std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
-			NSCAPI::nagiosReturn exec_command(const char* target, std::string request, std::string &response);
-			void register_submission_listener(unsigned int plugin_id, const char* channel);
-			NSCAPI::nagiosReturn emit_event(const std::string &request);
+  bool enable_plugin(std::string name);
+  bool disable_plugin(std::string name);
 
-			bool is_enabled(const std::string module);
-			void process_metrics(PB::Metrics::MetricsBundle bundle);
+ private:
+  typedef std::multimap<std::string, std::string> plugin_alias_list_type;
 
-			bool enable_plugin(std::string name);
-			bool disable_plugin(std::string name);
+  boost::optional<boost::filesystem::path> find_file(std::string file_name);
+  bool contains_plugin(nsclient::core::plugin_manager::plugin_alias_list_type &ret, std::string alias, std::string plugin);
+  std::string get_plugin_module_name(unsigned int plugin_id);
 
-		private:
-			typedef std::multimap<std::string, std::string> plugin_alias_list_type;
+  plugin_type add_plugin(std::string file_name, std::string alias);
 
-			boost::optional<boost::filesystem::path> find_file(std::string file_name);
-			bool contains_plugin(nsclient::core::plugin_manager::plugin_alias_list_type &ret, std::string alias, std::string plugin);
-			std::string get_plugin_module_name(unsigned int plugin_id);
+  plugin_alias_list_type find_all_plugins();
+  plugin_alias_list_type find_all_active_plugins();
+  nsclient::logging::logger_instance get_logger() { return log_instance_; }
+  struct plugin_status {
+    std::string alias;
+    std::string plugin;
+    bool enabled;
 
-			plugin_type add_plugin(std::string file_name, std::string alias);
+    plugin_status(std::string alias, std::string plugin, bool enabled) : alias(alias), plugin(plugin), enabled(enabled) {}
+    plugin_status(std::string plugin) : alias(""), plugin(plugin), enabled(true) {}
+    plugin_status(const plugin_status &other) : alias(other.alias), plugin(other.plugin), enabled(other.enabled) {}
 
-			plugin_alias_list_type find_all_plugins();
-			plugin_alias_list_type find_all_active_plugins();
-			nsclient::logging::logger_instance get_logger() {
-				return log_instance_;
-			}
-			struct plugin_status {
-				std::string alias;
-				std::string plugin;
-				bool enabled;
+    plugin_status &operator=(const plugin_status &other) {
+      this->alias = other.alias;
+      this->plugin = other.plugin;
+      this->enabled = other.enabled;
+    }
+  };
+  plugin_status parse_plugin(std::string key);
 
-				plugin_status(std::string alias, std::string plugin, bool enabled)
-					: alias(alias)
-					, plugin(plugin)
-					, enabled(enabled) {}
-				plugin_status(std::string plugin)
-					: alias("")
-					, plugin(plugin)
-					, enabled(true) {}
-				plugin_status(const plugin_status &other)
-					: alias(other.alias)
-					, plugin(other.plugin)
-					, enabled(other.enabled) {}
-
-				plugin_status& operator=(const plugin_status &other) {
-					this->alias = other.alias;
-					this->plugin = other.plugin;
-					this->enabled = other.enabled;
-				}
-			};
-			plugin_status parse_plugin(std::string key);
-
-
-
-			static std::string get_plugin_file(std::string key) {
+  static std::string get_plugin_file(std::string key) {
 #ifdef WIN32
-				return key + ".dll";
+    return key + ".dll";
 #else
-				return "lib" + key + ".so";
+    return "lib" + key + ".so";
 #endif
-			}
-		public:
-			static bool is_module(const boost::filesystem::path file) {
+  }
+
+ public:
+  static bool is_module(const boost::filesystem::path file) {
 #ifdef WIN32
-				return boost::ends_with(file.string(), ".dll");
+    return boost::ends_with(file.string(), ".dll");
 #else
-				return boost::ends_with(file.string(), ".so");
+    return boost::ends_with(file.string(), ".so");
 #endif
-			}
-			static boost::filesystem::path get_filename(boost::filesystem::path folder, std::string module);
-			static std::string file_to_module(const boost::filesystem::path &file) {
-				std::string str = file.string();
+  }
+  static boost::filesystem::path get_filename(boost::filesystem::path folder, std::string module);
+  static std::string file_to_module(const boost::filesystem::path &file) {
+    std::string str = file.string();
 #ifdef WIN32
-				if (boost::ends_with(str, ".dll"))
-					str = str.substr(0, str.size() - 4);
+    if (boost::ends_with(str, ".dll")) str = str.substr(0, str.size() - 4);
 #else
-				if (boost::ends_with(str, ".so"))
-					str = str.substr(0, str.size() - 3);
-				if (boost::starts_with(str, "lib"))
-					str = str.substr(3);
+    if (boost::ends_with(str, ".so")) str = str.substr(0, str.size() - 3);
+    if (boost::starts_with(str, "lib")) str = str.substr(3);
 #endif
-				return str;
-			}
-		};
+    return str;
+  }
+};
 
-		typedef boost::shared_ptr<plugin_manager> plugin_mgr_instance;
+typedef boost::shared_ptr<plugin_manager> plugin_mgr_instance;
 
-
-	}
-}
-
+}  // namespace core
+}  // namespace nsclient

@@ -62,72 +62,71 @@
  *
  */
 namespace nsclient {
-	namespace core {
+namespace core {
 
-		struct script_def {
-			std::string provider;
-			std::string script;
-			std::string alias;
-			std::string command;
-		};
+struct script_def {
+  std::string provider;
+  std::string script;
+  std::string alias;
+  std::string command;
+};
 
-		class zip_plugin : public boost::noncopyable, public nsclient::core::plugin_interface {
+class zip_plugin : public boost::noncopyable, public nsclient::core::plugin_interface {
+  boost::filesystem::path file_;
+  nsclient::core::path_instance paths_;
+  nsclient::core::plugin_mgr_instance plugins_;
+  nsclient::logging::logger_instance logger_;
+  std::string name_;
+  std::string description_;
 
-			boost::filesystem::path file_;
-			nsclient::core::path_instance paths_;
-			nsclient::core::plugin_mgr_instance plugins_;
-			nsclient::logging::logger_instance logger_;
-			std::string name_;
-			std::string description_;
+  std::list<script_def> scripts_;
+  std::set<std::string> modules_;
+  std::list<std::string> on_start_;
 
-			std::list<script_def> scripts_;
-			std::set<std::string> modules_;
-			std::list<std::string> on_start_;
+ public:
+  zip_plugin(const unsigned int id, const boost::filesystem::path file, std::string alias, nsclient::core::path_instance paths,
+             nsclient::core::plugin_mgr_instance plugins, nsclient::logging::logger_instance logger);
+  virtual ~zip_plugin();
 
-		public:
-			zip_plugin(const unsigned int id, const boost::filesystem::path file, std::string alias, nsclient::core::path_instance paths, nsclient::core::plugin_mgr_instance plugins, nsclient::logging::logger_instance logger);
-			virtual ~zip_plugin();
+  bool load_plugin(NSCAPI::moduleLoadMode mode);
+  bool has_start() { return false; }
+  bool start_plugin() { return true; }
+  void unload_plugin();
 
-			bool load_plugin(NSCAPI::moduleLoadMode mode);
-			bool has_start() { return false; }
-			bool start_plugin() { return true; }
-			void unload_plugin();
+  std::string getName();
+  std::string getDescription();
+  bool hasCommandHandler() { return false; }
+  bool hasNotificationHandler() { return false; }
+  bool hasMessageHandler() { return false; }
+  NSCAPI::nagiosReturn handleCommand(const std::string request, std::string &reply);
+  NSCAPI::nagiosReturn handle_schedule(const std::string &request);
+  NSCAPI::nagiosReturn handleNotification(const char *channel, std::string &request, std::string &reply);
+  bool has_on_event() { return false; }
+  NSCAPI::nagiosReturn on_event(const std::string &request);
+  NSCAPI::nagiosReturn fetchMetrics(std::string &request);
+  NSCAPI::nagiosReturn submitMetrics(const std::string &request);
+  void handleMessage(const char *data, unsigned int len);
+  int commandLineExec(bool targeted, std::string &request, std::string &reply);
+  bool has_command_line_exec() { return false; }
+  bool is_duplicate(boost::filesystem::path file, std::string alias);
 
-			std::string getName();
-			std::string getDescription();
-			bool hasCommandHandler() { return false; }
-			bool hasNotificationHandler() { return false; }
-			bool hasMessageHandler() { return false; }
-			NSCAPI::nagiosReturn handleCommand(const std::string request, std::string &reply);
-			NSCAPI::nagiosReturn handle_schedule(const std::string &request);
-			NSCAPI::nagiosReturn handleNotification(const char *channel, std::string &request, std::string &reply);
-			bool has_on_event() { return false; }
-			NSCAPI::nagiosReturn on_event(const std::string &request);
-			NSCAPI::nagiosReturn fetchMetrics(std::string &request);
-			NSCAPI::nagiosReturn submitMetrics(const std::string &request);
-			void handleMessage(const char* data, unsigned int len);
-			int commandLineExec(bool targeted, std::string &request, std::string &reply);
-			bool has_command_line_exec() { return false; }
-			bool is_duplicate(boost::filesystem::path file, std::string alias);
+  bool has_routing_handler() { return false; }
 
-			bool has_routing_handler() { return false; }
+  bool route_message(const char *channel, const char *buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer,
+                     unsigned int *new_buffer_len);
 
-			bool route_message(const char *channel, const char* buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
+  bool hasMetricsFetcher() { return false; }
+  bool hasMetricsSubmitter() { return false; }
 
-			bool hasMetricsFetcher() { return false; }
-			bool hasMetricsSubmitter() { return false; }
+  std::string getModule();
 
-			std::string getModule();
+  void on_log_message(std::string &) {}
+  std::string get_version();
 
-			void on_log_message(std::string &) {}
-			std::string get_version();
-
-		private:
-			nsclient::logging::logger_instance get_logger() {
-				return logger_;
-			}
-			void read_metadata();
-			void read_metadata(std::string string);
-		};
-	}
-}
+ private:
+  nsclient::logging::logger_instance get_logger() { return logger_; }
+  void read_metadata();
+  void read_metadata(std::string string);
+};
+}  // namespace core
+}  // namespace nsclient

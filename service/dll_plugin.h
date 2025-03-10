@@ -29,7 +29,6 @@
 
 #include <boost/algorithm/string.hpp>
 
-
 /**
  * @ingroup NSClient++
  * NSCPlugin is a wrapper class to wrap all DLL calls and make things simple and clean inside the actual application.<br>
@@ -58,115 +57,107 @@
  *
  */
 namespace nsclient {
-	namespace core {
-		class dll_plugin : public boost::noncopyable, public nsclient::core::plugin_interface {
-		private:
-			::dll::dll_impl module_;
-			bool loaded_;
-			bool loading_;
-			bool broken_;
-                        bool started_;
+namespace core {
+class dll_plugin : public boost::noncopyable, public nsclient::core::plugin_interface {
+ private:
+  ::dll::dll_impl module_;
+  bool loaded_;
+  bool loading_;
+  bool broken_;
+  bool started_;
 
-			nscapi::plugin_api::lpModuleHelperInit fModuleHelperInit;
-			nscapi::plugin_api::lpLoadModule fLoadModule;
-                        nscapi::plugin_api::lpStartModule fStartModule;
-			nscapi::plugin_api::lpGetName fGetName;
-			nscapi::plugin_api::lpGetVersion fGetVersion;
-			nscapi::plugin_api::lpGetDescription fGetDescription;
-			nscapi::plugin_api::lpHasCommandHandler fHasCommandHandler;
-			nscapi::plugin_api::lpHasMessageHandler fHasMessageHandler;
-			nscapi::plugin_api::lpHandleCommand fHandleCommand;
-			nscapi::plugin_api::lpHandleSchedule fHandleSchedule;
-			nscapi::plugin_api::lpHandleMessage fHandleMessage;
-			nscapi::plugin_api::lpDeleteBuffer fDeleteBuffer;
-			nscapi::plugin_api::lpUnLoadModule fUnLoadModule;
-			nscapi::plugin_api::lpCommandLineExec fCommandLineExec;
-			nscapi::plugin_api::lpHasNotificationHandler fHasNotificationHandler;
-			nscapi::plugin_api::lpHandleNotification fHandleNotification;
-			nscapi::plugin_api::lpHasRoutingHandler fHasRoutingHandler;
-			nscapi::plugin_api::lpRouteMessage fRouteMessage;
-			nscapi::plugin_api::lpFetchMetrics fFetchMetrics;
-			nscapi::plugin_api::lpSubmitMetrics fSubmitMetrics;
-			nscapi::plugin_api::lpOnEvent fOnEvent;
+  nscapi::plugin_api::lpModuleHelperInit fModuleHelperInit;
+  nscapi::plugin_api::lpLoadModule fLoadModule;
+  nscapi::plugin_api::lpStartModule fStartModule;
+  nscapi::plugin_api::lpGetName fGetName;
+  nscapi::plugin_api::lpGetVersion fGetVersion;
+  nscapi::plugin_api::lpGetDescription fGetDescription;
+  nscapi::plugin_api::lpHasCommandHandler fHasCommandHandler;
+  nscapi::plugin_api::lpHasMessageHandler fHasMessageHandler;
+  nscapi::plugin_api::lpHandleCommand fHandleCommand;
+  nscapi::plugin_api::lpHandleSchedule fHandleSchedule;
+  nscapi::plugin_api::lpHandleMessage fHandleMessage;
+  nscapi::plugin_api::lpDeleteBuffer fDeleteBuffer;
+  nscapi::plugin_api::lpUnLoadModule fUnLoadModule;
+  nscapi::plugin_api::lpCommandLineExec fCommandLineExec;
+  nscapi::plugin_api::lpHasNotificationHandler fHasNotificationHandler;
+  nscapi::plugin_api::lpHandleNotification fHandleNotification;
+  nscapi::plugin_api::lpHasRoutingHandler fHasRoutingHandler;
+  nscapi::plugin_api::lpRouteMessage fRouteMessage;
+  nscapi::plugin_api::lpFetchMetrics fFetchMetrics;
+  nscapi::plugin_api::lpSubmitMetrics fSubmitMetrics;
+  nscapi::plugin_api::lpOnEvent fOnEvent;
 
-		public:
-			dll_plugin(const unsigned int id, const boost::filesystem::path file, std::string alias);
-			virtual ~dll_plugin();
+ public:
+  dll_plugin(const unsigned int id, const boost::filesystem::path file, std::string alias);
+  virtual ~dll_plugin();
 
-			bool load_plugin(NSCAPI::moduleLoadMode mode);
-			bool has_start();
-            bool start_plugin();
-			void unload_plugin();
+  bool load_plugin(NSCAPI::moduleLoadMode mode);
+  bool has_start();
+  bool start_plugin();
+  void unload_plugin();
 
-			std::string getName();
-			std::string getDescription();
-			bool hasCommandHandler();
-			bool hasNotificationHandler();
-			bool hasMessageHandler();
-			NSCAPI::nagiosReturn handleCommand(const std::string request, std::string &reply);
-			NSCAPI::nagiosReturn handle_schedule(const std::string &request);
-			NSCAPI::nagiosReturn handleNotification(const char *channel, std::string &request, std::string &reply);
-			bool has_on_event();
-			NSCAPI::nagiosReturn on_event(const std::string &request);
-			NSCAPI::nagiosReturn fetchMetrics(std::string &request);
-			NSCAPI::nagiosReturn submitMetrics(const std::string &request);
-			void handleMessage(const char* data, unsigned int len);
-			int commandLineExec(bool targeted, std::string &request, std::string &reply);
-			bool has_command_line_exec();
-			bool is_duplicate(boost::filesystem::path file, std::string alias);
+  std::string getName();
+  std::string getDescription();
+  bool hasCommandHandler();
+  bool hasNotificationHandler();
+  bool hasMessageHandler();
+  NSCAPI::nagiosReturn handleCommand(const std::string request, std::string &reply);
+  NSCAPI::nagiosReturn handle_schedule(const std::string &request);
+  NSCAPI::nagiosReturn handleNotification(const char *channel, std::string &request, std::string &reply);
+  bool has_on_event();
+  NSCAPI::nagiosReturn on_event(const std::string &request);
+  NSCAPI::nagiosReturn fetchMetrics(std::string &request);
+  NSCAPI::nagiosReturn submitMetrics(const std::string &request);
+  void handleMessage(const char *data, unsigned int len);
+  int commandLineExec(bool targeted, std::string &request, std::string &reply);
+  bool has_command_line_exec();
+  bool is_duplicate(boost::filesystem::path file, std::string alias);
 
-			bool has_routing_handler();
+  bool has_routing_handler();
 
-			bool route_message(const char *channel, const char* buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
+  bool route_message(const char *channel, const char *buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer,
+                     unsigned int *new_buffer_len);
 
-			bool hasMetricsFetcher() {
-				return fFetchMetrics != NULL;
-			}
-			bool hasMetricsSubmitter() {
-				return fSubmitMetrics != NULL;
-			}
+  bool hasMetricsFetcher() { return fFetchMetrics != NULL; }
+  bool hasMetricsSubmitter() { return fSubmitMetrics != NULL; }
 
-			std::string getModule() {
+  std::string getModule() {
 #ifndef WIN32
-				std::string file = module_.get_module_name();
-				if (file.substr(0, 3) == "lib")
-					file = file.substr(3);
-				return file;
+    std::string file = module_.get_module_name();
+    if (file.substr(0, 3) == "lib") file = file.substr(3);
+    return file;
 #else
-				return module_.get_module_name();
+    return module_.get_module_name();
 #endif
-			}
+  }
 
-			void on_log_message(std::string &payload) {
-				handleMessage(payload.c_str(), static_cast<unsigned int>(payload.size()));
-			}
-			std::string get_version();
+  void on_log_message(std::string &payload) { handleMessage(payload.c_str(), static_cast<unsigned int>(payload.size())); }
+  std::string get_version();
 
-		private:
-			void load_dll();
-			void unload_dll();
+ private:
+  void load_dll();
+  void unload_dll();
 
-			void setBroken(bool broken);
-			bool isBroken();
+  void setBroken(bool broken);
+  bool isBroken();
 
-			NSCAPI::nagiosReturn handleCommand(const char* dataBuffer, const unsigned int dataBuffer_len, char** returnBuffer, unsigned int *returnBuffer_len);
-			NSCAPI::nagiosReturn handle_schedule(const char* dataBuffer, const unsigned int dataBuffer_len);
-			NSCAPI::nagiosReturn handleNotification(const char *channel, const char* request_buffer, const unsigned int request_buffer_len, char** response_buffer, unsigned int *response_buffer_len);
-			NSCAPI::nagiosReturn on_event(const char* request_buffer, const unsigned int request_buffer_len);
-			NSCAPI::nagiosReturn fetchMetrics(char** response_buffer, unsigned int *response_buffer_len);
-			NSCAPI::nagiosReturn submitMetrics(const char* buffer, const unsigned int buffer_len);
-			int commandLineExec(bool targeted, const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len);
-			bool getVersion(int *major, int *minor, int *revision);
+  NSCAPI::nagiosReturn handleCommand(const char *dataBuffer, const unsigned int dataBuffer_len, char **returnBuffer, unsigned int *returnBuffer_len);
+  NSCAPI::nagiosReturn handle_schedule(const char *dataBuffer, const unsigned int dataBuffer_len);
+  NSCAPI::nagiosReturn handleNotification(const char *channel, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer,
+                                          unsigned int *response_buffer_len);
+  NSCAPI::nagiosReturn on_event(const char *request_buffer, const unsigned int request_buffer_len);
+  NSCAPI::nagiosReturn fetchMetrics(char **response_buffer, unsigned int *response_buffer_len);
+  NSCAPI::nagiosReturn submitMetrics(const char *buffer, const unsigned int buffer_len);
+  int commandLineExec(bool targeted, const char *request, const unsigned int request_len, char **reply, unsigned int *reply_len);
+  bool getVersion(int *major, int *minor, int *revision);
 
+  bool isLoaded() const { return module_.is_loaded(); }
 
-			bool isLoaded() const {
-				return module_.is_loaded();
-			}
-
-			bool getName_(char* buf, unsigned int buflen);
-			bool getDescription_(char* buf, unsigned int buflen);
-			void loadRemoteProcs_(void);
-			void deleteBuffer(char**buffer);
-		};
-	}
-}
+  bool getName_(char *buf, unsigned int buflen);
+  bool getDescription_(char *buf, unsigned int buflen);
+  void loadRemoteProcs_(void);
+  void deleteBuffer(char **buffer);
+};
+}  // namespace core
+}  // namespace nsclient

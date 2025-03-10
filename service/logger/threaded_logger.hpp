@@ -28,35 +28,33 @@
 
 #include <string>
 
-
 namespace nsclient {
-	namespace logging {
-		namespace impl {
-			class threaded_logger : public nsclient::logging::log_driver_interface_impl {
-				concurrent_queue<std::string> log_queue_;
-				boost::thread thread_;
+namespace logging {
+namespace impl {
+class threaded_logger : public nsclient::logging::log_driver_interface_impl {
+  concurrent_queue<std::string> log_queue_;
+  boost::thread thread_;
 
-				logging_subscriber *subscriber_manager_;
-				log_driver_instance background_logger_;
+  logging_subscriber *subscriber_manager_;
+  log_driver_instance background_logger_;
 
-			public:
+ public:
+  threaded_logger(logging_subscriber *subscriber_manager, log_driver_instance background_logger);
+  virtual ~threaded_logger();
 
-				threaded_logger(logging_subscriber *subscriber_manager, log_driver_instance background_logger);
-				virtual ~threaded_logger();
+  virtual void do_log(const std::string data);
+  void push(const std::string &data);
 
-				virtual void do_log(const std::string data);
-				void push(const std::string &data);
+  void thread_proc();
 
-				void thread_proc();
+  virtual void asynch_configure();
+  virtual void synch_configure();
+  virtual bool startup();
+  virtual bool shutdown();
 
-				virtual void asynch_configure();
-				virtual void synch_configure();
-				virtual bool startup();
-				virtual bool shutdown();
-
-				//virtual void set_log_level(NSCAPI::log_level::level level);
-				virtual void set_config(const std::string &key);
-			};
-		}
-	}
-}
+  // virtual void set_log_level(NSCAPI::log_level::level level);
+  virtual void set_config(const std::string &key);
+};
+}  // namespace impl
+}  // namespace logging
+}  // namespace nsclient

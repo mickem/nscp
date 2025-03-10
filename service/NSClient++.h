@@ -57,96 +57,75 @@ typedef service_helper::impl<NSClientT>::system_service NSClient;
  *
  */
 
-
 class NSClientT : public nsclient::core::core_interface {
-private:
+ private:
+  boost::timed_mutex internalVariables;
 
-	boost::timed_mutex internalVariables;
+  std::string context_;
 
-	std::string context_;
+  std::string service_name_;
+  nsclient::logging::logger_instance log_instance_;
+  nsclient::core::path_instance path_;
+  nsclient::core::plugin_mgr_instance plugins_;
+  nsclient::core::storage_manager_instance storage_manager_;
 
-	std::string service_name_;
-	nsclient::logging::logger_instance log_instance_;
-	nsclient::core::path_instance path_;
-	nsclient::core::plugin_mgr_instance plugins_;
-	nsclient::core::storage_manager_instance storage_manager_;
+  task_scheduler::scheduler scheduler_;
 
-	task_scheduler::scheduler scheduler_;
+ public:
+  typedef std::multimap<std::string, std::string> plugin_alias_list_type;
+  // c-tor, d-tor
+  NSClientT();
+  virtual ~NSClientT();
 
-public:
-	typedef std::multimap<std::string, std::string> plugin_alias_list_type;
-	// c-tor, d-tor
-	NSClientT();
-	virtual ~NSClientT();
+  // Startup/Shutdown
+  bool load_configuration(const bool override_log = false);
+  bool boot_load_active_plugins();
+  void boot_load_all_plugin_files();
+  bool boot_load_single_plugin(std::string plugin);
+  bool boot_start_plugins(bool boot);
 
-	// Startup/Shutdown
-	bool load_configuration(const bool override_log = false);
-	bool boot_load_active_plugins();
-	void boot_load_all_plugin_files();
-	bool boot_load_single_plugin(std::string plugin);
-	bool boot_start_plugins(bool boot);
+  bool stop_nsclient();
+  void set_settings_context(std::string context) { context_ = context; }
 
-	bool stop_nsclient();
-	void set_settings_context(std::string context) { context_ = context; }
+  NSCAPI::errorReturn reload(const std::string module);
+  bool do_reload(const std::string module);
 
-
-	NSCAPI::errorReturn reload(const std::string module);
-	bool do_reload(const std::string module);
-
-	// Service API
-	static NSClient* get_global_instance();
-	void handle_startup(std::string service_name);
-	void handle_shutdown(std::string service_name);
+  // Service API
+  static NSClient* get_global_instance();
+  void handle_startup(std::string service_name);
+  void handle_shutdown(std::string service_name);
 #ifdef _WIN32
-	void handle_session_change(unsigned long dwSessionId, bool logon);
+  void handle_session_change(unsigned long dwSessionId, bool logon);
 #endif
 
+  // Core API interface (get modules)
+  nsclient::logging::logger_instance get_logger() { return log_instance_; }
+  nsclient::core::plugin_mgr_instance get_plugin_manager() { return plugins_; }
+  nsclient::core::path_instance get_path() { return path_; }
+  nsclient::core::plugin_cache* get_plugin_cache() { return plugins_->get_plugin_cache(); }
+  nsclient::core::storage_manager_instance get_storage_manager() override { return storage_manager_; }
 
+  struct service_controller {
+    std::string service;
+    service_controller(std::string service) : service(service) {}
+    service_controller(const service_controller& other) : service(other.service) {}
+    service_controller& operator=(const service_controller& other) {
+      service = other.service;
+      return *this;
+    }
+    void stop();
+    void start();
+    std::string get_service_name() { return service; }
+    bool is_started();
+  };
 
-	// Core API interface (get modules)
-	nsclient::logging::logger_instance get_logger() {
-		return log_instance_;
-	}
-	nsclient::core::plugin_mgr_instance get_plugin_manager() {
-		return plugins_;
-	}
-	nsclient::core::path_instance get_path() {
-		return path_;
-	}
-	nsclient::core::plugin_cache* get_plugin_cache() {
-		return plugins_->get_plugin_cache();
-	}
-	nsclient::core::storage_manager_instance get_storage_manager() override {
-		return storage_manager_;
-	}
+  service_controller get_service_control();
 
+  void process_metrics();
 
-	struct service_controller {
-		std::string service;
-		service_controller(std::string service) : service(service) {}
-		service_controller(const service_controller & other) : service(other.service) {}
-		service_controller& operator=(const service_controller & other) {
-			service = other.service;
-			return *this;
-		}
-		void stop();
-		void start();
-		std::string get_service_name() {
-			return service;
-		}
-		bool is_started();
-	};
+ private:
+  void reloadPlugins();
+  void unloadPlugins();
 
-	service_controller get_service_control();
-
-	void process_metrics();
-
-private:
-	void reloadPlugins();
-	void unloadPlugins();
-
-	PB::Metrics::MetricsBundle ownMetricsFetcher();
-
-
+  PB::Metrics::MetricsBundle ownMetricsFetcher();
 };
-

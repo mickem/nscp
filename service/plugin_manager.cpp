@@ -35,234 +35,227 @@
 #include <boost/bind/bind.hpp>
 
 struct command_chunk {
-	nsclient::commands::plugin_type plugin;
-	PB::Commands::QueryRequestMessage request;
+  nsclient::commands::plugin_type plugin;
+  PB::Commands::QueryRequestMessage request;
 };
 
 bool nsclient::core::plugin_manager::contains_plugin(nsclient::core::plugin_manager::plugin_alias_list_type &ret, std::string alias, std::string plugin) {
-	for(auto v: boost::make_iterator_range(ret.equal_range(alias))) {
-		if (v.second == plugin)
-			return true;
-	}
-	return false;
+  for (auto v : boost::make_iterator_range(ret.equal_range(alias))) {
+    if (v.second == plugin) return true;
+  }
+  return false;
 }
 
 nsclient::core::plugin_manager::plugin_manager(nsclient::core::path_instance path_, nsclient::logging::logger_instance log_instance)
-	: path_(path_)
-	, log_instance_(log_instance)
-	, plugin_list_(log_instance_)
-	, commands_(log_instance_)
-	, channels_(log_instance_)
-	, metrics_fetchers_(log_instance_)
-	, metrics_submitetrs_(log_instance_)
-	, plugin_cache_(log_instance_)
-	, event_subscribers_(log_instance_)
-{
-}
+    : path_(path_),
+      log_instance_(log_instance),
+      plugin_list_(log_instance_),
+      commands_(log_instance_),
+      channels_(log_instance_),
+      metrics_fetchers_(log_instance_),
+      metrics_submitetrs_(log_instance_),
+      plugin_cache_(log_instance_),
+      event_subscribers_(log_instance_) {}
 
-nsclient::core::plugin_manager::~plugin_manager() {
-}
+nsclient::core::plugin_manager::~plugin_manager() {}
 
 // Find all plugins on the filesystem
 nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_manager::find_all_plugins() {
-	plugin_alias_list_type ret;
+  plugin_alias_list_type ret;
 
-	settings::settings_interface::string_list list = settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION);
-	for(std::string plugin: list) {
-		std::string alias;
-		try {
-			alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, plugin, "");
-		} catch (settings::settings_exception e) {
-			LOG_ERROR_CORE_STD("Exception looking for module: " + utf8::utf8_from_native(e.what()));
-		}
-		if (plugin == "enabled" || plugin == "1" || plugin == "true") {
-			plugin = alias;
-			alias = "";
-		} else if (alias == "enabled" || alias == "1" || alias == "true") {
-			alias = "";
-		} else if (plugin == "disabled" || plugin == "0" || plugin == "false") {
-			plugin = alias;
-			alias = "";
-		} else if (alias == "disabled" || alias == "0" || alias == "false") {
-			alias = "";
-		}
-		if (!alias.empty()) {
-			std::string tmp = plugin;
-			plugin = alias;
-			alias = tmp;
-		}
-		if (alias.empty()) {
-			LOG_DEBUG_CORE_STD("Found: " + plugin);
-		} else {
-			LOG_DEBUG_CORE_STD("Found: " + plugin + " as " + alias);
-		}
-		if (plugin.length() > 4 && plugin.substr(plugin.length() - 4) == ".dll")
-			plugin = plugin.substr(0, plugin.length() - 4);
-		ret.insert(plugin_alias_list_type::value_type(alias, plugin));
-	}
-	boost::filesystem::directory_iterator end_itr; // default construction yields past-the-end
-	for (boost::filesystem::directory_iterator itr(plugin_path_); itr != end_itr; ++itr) {
-		if (!is_directory(itr->status())) {
-			boost::filesystem::path file = itr->path().filename();
-			if (is_module(plugin_path_ / file)) {
-				const std::string module = file_to_module(file);
-				if (!contains_plugin(ret, "", module))
-					ret.insert(plugin_alias_list_type::value_type("", module));
-			}
-		}
-	}
-	return ret;
+  settings::settings_interface::string_list list = settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION);
+  for (std::string plugin : list) {
+    std::string alias;
+    try {
+      alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, plugin, "");
+    } catch (settings::settings_exception e) {
+      LOG_ERROR_CORE_STD("Exception looking for module: " + utf8::utf8_from_native(e.what()));
+    }
+    if (plugin == "enabled" || plugin == "1" || plugin == "true") {
+      plugin = alias;
+      alias = "";
+    } else if (alias == "enabled" || alias == "1" || alias == "true") {
+      alias = "";
+    } else if (plugin == "disabled" || plugin == "0" || plugin == "false") {
+      plugin = alias;
+      alias = "";
+    } else if (alias == "disabled" || alias == "0" || alias == "false") {
+      alias = "";
+    }
+    if (!alias.empty()) {
+      std::string tmp = plugin;
+      plugin = alias;
+      alias = tmp;
+    }
+    if (alias.empty()) {
+      LOG_DEBUG_CORE_STD("Found: " + plugin);
+    } else {
+      LOG_DEBUG_CORE_STD("Found: " + plugin + " as " + alias);
+    }
+    if (plugin.length() > 4 && plugin.substr(plugin.length() - 4) == ".dll") plugin = plugin.substr(0, plugin.length() - 4);
+    ret.insert(plugin_alias_list_type::value_type(alias, plugin));
+  }
+  boost::filesystem::directory_iterator end_itr;  // default construction yields past-the-end
+  for (boost::filesystem::directory_iterator itr(plugin_path_); itr != end_itr; ++itr) {
+    if (!is_directory(itr->status())) {
+      boost::filesystem::path file = itr->path().filename();
+      if (is_module(plugin_path_ / file)) {
+        const std::string module = file_to_module(file);
+        if (!contains_plugin(ret, "", module)) ret.insert(plugin_alias_list_type::value_type("", module));
+      }
+    }
+  }
+  return ret;
 }
 
 nsclient::core::plugin_manager::plugin_status nsclient::core::plugin_manager::parse_plugin(std::string key) {
-	plugin_status status(key);
-	try {
-		status.alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, key, "");
-	} catch (settings::settings_exception e) {
-		LOG_DEBUG_CORE_STD("Failed to read settings: " + utf8::utf8_from_native(e.what()));
-	}
-	if (status.alias == "") {
-		status.enabled = false;
-	} else if (status.plugin == "enabled" || status.plugin == "1" || status.plugin == "true") {
-		status.plugin = status.alias;
-		status.alias = "";
-	} else if (status.alias == "enabled" || status.alias == "1" || status.alias == "true") {
-		status.alias = "";
-	} else if ((status.plugin == "disabled") || (status.alias == "disabled")) {
-		status.enabled = false;
-	} else if ((status.plugin == "0") || (status.alias == "0")) {
-		status.enabled = false;
-	} else if ((status.plugin == "false") || (status.alias == "false")) {
-		status.enabled = false;
-	} else if (status.plugin == "disabled" || status.plugin == "0" || status.plugin == "false") {
-		status.plugin = status.alias;
-		status.alias = "";
-	} else if (status.alias == "disabled" || status.alias == "0" || status.alias == "false") {
-		status.alias = "";
-	}
-	if (!status.alias.empty()) {
-		std::string tmp = status.plugin;
-		status.plugin = status.alias;
-		status.alias = tmp;
-	}
-	if (status.plugin.length() > 4 && status.plugin.substr(status.plugin.length() - 4) == ".dll")
-		status.plugin = status.plugin.substr(0, status.plugin.length() - 4);
-	return status;
+  plugin_status status(key);
+  try {
+    status.alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, key, "");
+  } catch (settings::settings_exception e) {
+    LOG_DEBUG_CORE_STD("Failed to read settings: " + utf8::utf8_from_native(e.what()));
+  }
+  if (status.alias == "") {
+    status.enabled = false;
+  } else if (status.plugin == "enabled" || status.plugin == "1" || status.plugin == "true") {
+    status.plugin = status.alias;
+    status.alias = "";
+  } else if (status.alias == "enabled" || status.alias == "1" || status.alias == "true") {
+    status.alias = "";
+  } else if ((status.plugin == "disabled") || (status.alias == "disabled")) {
+    status.enabled = false;
+  } else if ((status.plugin == "0") || (status.alias == "0")) {
+    status.enabled = false;
+  } else if ((status.plugin == "false") || (status.alias == "false")) {
+    status.enabled = false;
+  } else if (status.plugin == "disabled" || status.plugin == "0" || status.plugin == "false") {
+    status.plugin = status.alias;
+    status.alias = "";
+  } else if (status.alias == "disabled" || status.alias == "0" || status.alias == "false") {
+    status.alias = "";
+  }
+  if (!status.alias.empty()) {
+    std::string tmp = status.plugin;
+    status.plugin = status.alias;
+    status.alias = tmp;
+  }
+  if (status.plugin.length() > 4 && status.plugin.substr(status.plugin.length() - 4) == ".dll")
+    status.plugin = status.plugin.substr(0, status.plugin.length() - 4);
+  return status;
 }
 
 // Find all plugins which are marked as active under the [/modules] section.
 nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_manager::find_all_active_plugins() {
-	plugin_alias_list_type ret;
+  plugin_alias_list_type ret;
 
-	for(std::string plugin: settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION)) {
-		plugin_status status = parse_plugin(plugin);
-		if (!status.enabled) {
-			continue;
-		}
-		if (status.alias.empty()) {
-			LOG_DEBUG_CORE_STD("Found: " + status.plugin);
-		} else {
-			LOG_DEBUG_CORE_STD("Found: " + status.plugin + " as " + status.alias);
-		}
-		ret.insert(plugin_alias_list_type::value_type(status.alias, status.plugin));
-	}
-	return ret;
+  for (std::string plugin : settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION)) {
+    plugin_status status = parse_plugin(plugin);
+    if (!status.enabled) {
+      continue;
+    }
+    if (status.alias.empty()) {
+      LOG_DEBUG_CORE_STD("Found: " + status.plugin);
+    } else {
+      LOG_DEBUG_CORE_STD("Found: " + status.plugin + " as " + status.alias);
+    }
+    ret.insert(plugin_alias_list_type::value_type(status.alias, status.plugin));
+  }
+  return ret;
 }
 
 // Load all configured (nsclient.ini) plugins.
 void nsclient::core::plugin_manager::load_active_plugins() {
-	if (plugin_path_.empty()) {
-		throw core_exception("Please configure plugin_manager first");
-	}
-	for(const plugin_alias_list_type::value_type &v: find_all_active_plugins()) {
-		std::string module = v.first;
-		std::string alias = v.first;
-		try {
-			add_plugin(v.second, v.first);
-		} catch (const plugin_exception& e) {
-			if (e.file().find("FileLogger") != std::string::npos) {
-				LOG_DEBUG_CORE_STD("Failed to load " + module + ": " + e.reason());
-			} else {
-				LOG_ERROR_CORE_STD("Failed to load " + module + ": " + e.reason());
-			}
-		} catch (const std::exception &e) {
-			LOG_ERROR_CORE_STD("exception loading plugin: " + module + utf8::utf8_from_native(e.what()));
-		} catch (...) {
-			LOG_ERROR_CORE_STD("Unknown exception loading plugin: " + module);
-		}
-	}
+  if (plugin_path_.empty()) {
+    throw core_exception("Please configure plugin_manager first");
+  }
+  for (const plugin_alias_list_type::value_type &v : find_all_active_plugins()) {
+    std::string module = v.first;
+    std::string alias = v.first;
+    try {
+      add_plugin(v.second, v.first);
+    } catch (const plugin_exception &e) {
+      if (e.file().find("FileLogger") != std::string::npos) {
+        LOG_DEBUG_CORE_STD("Failed to load " + module + ": " + e.reason());
+      } else {
+        LOG_ERROR_CORE_STD("Failed to load " + module + ": " + e.reason());
+      }
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE_STD("exception loading plugin: " + module + utf8::utf8_from_native(e.what()));
+    } catch (...) {
+      LOG_ERROR_CORE_STD("Unknown exception loading plugin: " + module);
+    }
+  }
 }
 // Load all available plugins (from the filesystem)
 void nsclient::core::plugin_manager::load_all_plugins() {
-	for(plugin_alias_list_type::value_type v: find_all_plugins()) {
-		if (v.second == "NSCPDOTNET.dll" || v.second == "NSCPDOTNET" || v.second == "NSCP.Core")
-			continue;
-		try {
-			add_plugin(v.second, v.first);
-		} catch (const plugin_exception &e) {
-			if (e.file().find("FileLogger") != std::string::npos) {
-				LOG_DEBUG_CORE_STD("Failed to register plugin: " + e.reason());
-			} else {
-				LOG_ERROR_CORE("Failed to register plugin " + v.second + ": " + e.reason());
-			}
-		} catch (...) {
-			LOG_CRITICAL_CORE_STD("Failed to register plugin key: " + v.second);
-		}
-	}
+  for (plugin_alias_list_type::value_type v : find_all_plugins()) {
+    if (v.second == "NSCPDOTNET.dll" || v.second == "NSCPDOTNET" || v.second == "NSCP.Core") continue;
+    try {
+      add_plugin(v.second, v.first);
+    } catch (const plugin_exception &e) {
+      if (e.file().find("FileLogger") != std::string::npos) {
+        LOG_DEBUG_CORE_STD("Failed to register plugin: " + e.reason());
+      } else {
+        LOG_ERROR_CORE("Failed to register plugin " + v.second + ": " + e.reason());
+      }
+    } catch (...) {
+      LOG_CRITICAL_CORE_STD("Failed to register plugin key: " + v.second);
+    }
+  }
 }
 
 bool nsclient::core::plugin_manager::load_single_plugin(std::string plugin, std::string alias, bool start) {
-	try {
-		plugin_type instance = add_plugin(plugin, alias);
-		if (!instance) {
-			LOG_ERROR_CORE("Failed to load: " + plugin);
-			return false;
-		}
-		if (start) {
-			instance->load_plugin(NSCAPI::normalStart);
-		}
-		return true;
-	} catch (const plugin_exception &e) {
-		LOG_ERROR_CORE_STD("Module (" + e.file() + ") was not found: " + e.reason());
-	} catch (const std::exception &e) {
-		LOG_ERROR_CORE_STD("Module (" + plugin + ") was not found: " + utf8::utf8_from_native(e.what()));
-	} catch (...) {
-		LOG_ERROR_CORE_STD("Module (" + plugin + ") was not found...");
-	}
-	return false;
+  try {
+    plugin_type instance = add_plugin(plugin, alias);
+    if (!instance) {
+      LOG_ERROR_CORE("Failed to load: " + plugin);
+      return false;
+    }
+    if (start) {
+      instance->load_plugin(NSCAPI::normalStart);
+    }
+    return true;
+  } catch (const plugin_exception &e) {
+    LOG_ERROR_CORE_STD("Module (" + e.file() + ") was not found: " + e.reason());
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("Module (" + plugin + ") was not found: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR_CORE_STD("Module (" + plugin + ") was not found...");
+  }
+  return false;
 }
 
 void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) {
-	std::set<long> broken;
-	for(plugin_type plugin: plugin_list_.get_plugins()) {
-		LOG_DEBUG_CORE_STD("Loading plugin: " + plugin->getModule())
-		try {
-			if (!plugin->load_plugin(mode)) {
-				LOG_ERROR_CORE_STD("Plugin refused to load: " + plugin->getModule());
-				broken.insert(plugin->get_id());
-			}
-		} catch (const plugin_exception &e) {
-			broken.insert(plugin->get_id());
-			LOG_ERROR_CORE_STD("Could not load plugin: " + e.reason() + ": " + e.file());
-		} catch (const std::exception &e) {
-			broken.insert(plugin->get_id());
-			LOG_ERROR_CORE_STD("Could not load plugin: " + plugin->get_alias() + ": " + e.what());
-		} catch (...) {
-			broken.insert(plugin->get_id());
-			LOG_ERROR_CORE_STD("Could not load plugin: " + plugin->getModule());
-		}
-	}
-	for(const long &id: broken) {
-		plugin_list_.remove(id);
-	}
+  std::set<long> broken;
+  for (plugin_type plugin : plugin_list_.get_plugins()) {
+    LOG_DEBUG_CORE_STD("Loading plugin: " + plugin->getModule())
+    try {
+      if (!plugin->load_plugin(mode)) {
+        LOG_ERROR_CORE_STD("Plugin refused to load: " + plugin->getModule());
+        broken.insert(plugin->get_id());
+      }
+    } catch (const plugin_exception &e) {
+      broken.insert(plugin->get_id());
+      LOG_ERROR_CORE_STD("Could not load plugin: " + e.reason() + ": " + e.file());
+    } catch (const std::exception &e) {
+      broken.insert(plugin->get_id());
+      LOG_ERROR_CORE_STD("Could not load plugin: " + plugin->get_alias() + ": " + e.what());
+    } catch (...) {
+      broken.insert(plugin->get_id());
+      LOG_ERROR_CORE_STD("Could not load plugin: " + plugin->getModule());
+    }
+  }
+  for (const long &id : broken) {
+    plugin_list_.remove(id);
+  }
 }
 
 void nsclient::core::plugin_manager::post_start_plugins() {
   std::set<long> broken;
-  for(plugin_type plugin: plugin_list_.get_plugins()) {
-	  if (!plugin->has_start()) {
-		  continue;
-	}
+  for (plugin_type plugin : plugin_list_.get_plugins()) {
+    if (!plugin->has_start()) {
+      continue;
+    }
     LOG_DEBUG_CORE_STD("Starting plugin: " + plugin->getModule())
     try {
       if (!plugin->start_plugin()) {
@@ -280,7 +273,7 @@ void nsclient::core::plugin_manager::post_start_plugins() {
       LOG_ERROR_CORE_STD("Could not start plugin: " + plugin->getModule());
     }
   }
-  for(const long &id: broken) {
+  for (const long &id : broken) {
     plugin_list_.remove(id);
   }
 }
@@ -289,74 +282,73 @@ void nsclient::core::plugin_manager::post_start_plugins() {
  * Unload all plug-ins
  */
 void nsclient::core::plugin_manager::stop_plugins() {
-	commands_.remove_all();
-	channels_.remove_all();
-	std::list<plugin_type> tmp = plugin_list_.get_plugins();
-	for(plugin_type p: tmp) {
-		try {
-			if (p) {
-				LOG_DEBUG_CORE_STD("Unloading plugin: " + p->get_alias_or_name() + "...");
-				p->unload_plugin();
-			}
-		} catch (const plugin_exception &e) {
-			LOG_ERROR_CORE_STD("Exception raised when unloading plugin: " + e.reason() + " in module: " + e.file());
-		} catch (...) {
-			LOG_ERROR_CORE("Unknown exception raised when unloading plugin");
-		}
-	}
-	plugin_list_.clear();
+  commands_.remove_all();
+  channels_.remove_all();
+  std::list<plugin_type> tmp = plugin_list_.get_plugins();
+  for (plugin_type p : tmp) {
+    try {
+      if (p) {
+        LOG_DEBUG_CORE_STD("Unloading plugin: " + p->get_alias_or_name() + "...");
+        p->unload_plugin();
+      }
+    } catch (const plugin_exception &e) {
+      LOG_ERROR_CORE_STD("Exception raised when unloading plugin: " + e.reason() + " in module: " + e.file());
+    } catch (...) {
+      LOG_ERROR_CORE("Unknown exception raised when unloading plugin");
+    }
+  }
+  plugin_list_.clear();
 }
 
 boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_file(std::string file_name) {
-	std::string name = file_name;
-	std::list<std::string> names;
-	names.push_back(file_name);
-	if (name.length() > 4 && (name.substr(name.length() - 4) == ".dll" || name.substr(name.length() - 4) == ".zip")) {
-		name = name.substr(0, name.length() - 4);
-	}
-	names.push_back(get_plugin_file(name));
-	names.push_back(name + ".zip");
+  std::string name = file_name;
+  std::list<std::string> names;
+  names.push_back(file_name);
+  if (name.length() > 4 && (name.substr(name.length() - 4) == ".dll" || name.substr(name.length() - 4) == ".zip")) {
+    name = name.substr(0, name.length() - 4);
+  }
+  names.push_back(get_plugin_file(name));
+  names.push_back(name + ".zip");
 
-	for(const std::string &current_name: names) {
-		boost::filesystem::path tmp = plugin_path_ / current_name;
-		if (boost::filesystem::is_regular_file(tmp))
-			return tmp;
-	}
+  for (const std::string &current_name : names) {
+    boost::filesystem::path tmp = plugin_path_ / current_name;
+    if (boost::filesystem::is_regular_file(tmp)) return tmp;
+  }
 
-	for(const std::string &name: names) {
-		boost::optional<boost::filesystem::path> module = file_helpers::finder::locate_file_icase(plugin_path_, name);
-		if (module) {
-			return module;
-		}
-		module = file_helpers::finder::locate_file_icase(boost::filesystem::path("./modules"), name);
-		if (module) {
-			return module;
-		}
-	}
-	LOG_ERROR_CORE("Failed to find plugin: " + file_name + " in " + plugin_path_.string());
-	return boost::optional<boost::filesystem::path>();
+  for (const std::string &name : names) {
+    boost::optional<boost::filesystem::path> module = file_helpers::finder::locate_file_icase(plugin_path_, name);
+    if (module) {
+      return module;
+    }
+    module = file_helpers::finder::locate_file_icase(boost::filesystem::path("./modules"), name);
+    if (module) {
+      return module;
+    }
+  }
+  LOG_ERROR_CORE("Failed to find plugin: " + file_name + " in " + plugin_path_.string());
+  return boost::optional<boost::filesystem::path>();
 }
 
 nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only_load_module(std::string module, std::string alias, bool &loaded) {
-	loaded = false;
-	boost::optional<boost::filesystem::path> real_file = find_file(module);
-	if (!real_file) {
-		return nsclient::core::plugin_manager::plugin_type();
-	}
-	LOG_DEBUG_CORE_STD("Loading module " + real_file->string() + " (" + alias + ")");
-	plugin_type dup = plugin_list_.find_duplicate(*real_file, alias);
-	if (dup) {
-		return dup;
-	}
-	loaded = true;
-	if (boost::algorithm::ends_with(real_file->string(), ".zip")) {
+  loaded = false;
+  boost::optional<boost::filesystem::path> real_file = find_file(module);
+  if (!real_file) {
+    return nsclient::core::plugin_manager::plugin_type();
+  }
+  LOG_DEBUG_CORE_STD("Loading module " + real_file->string() + " (" + alias + ")");
+  plugin_type dup = plugin_list_.find_duplicate(*real_file, alias);
+  if (dup) {
+    return dup;
+  }
+  loaded = true;
+  if (boost::algorithm::ends_with(real_file->string(), ".zip")) {
 #ifdef HAVE_JSON_SPIRIT
-		return plugin_type(new nsclient::core::zip_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias, path_, shared_from_this(), log_instance_));
+    return plugin_type(new nsclient::core::zip_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias, path_, shared_from_this(), log_instance_));
 #else
-		LOG_ERROR_CORE("Found zip module but json is not enbled during build: " + real_file->normalize());
+    LOG_ERROR_CORE("Found zip module but json is not enbled during build: " + real_file->normalize());
 #endif
-	}
-	return plugin_type(new nsclient::core::dll_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias));
+  }
+  return plugin_type(new nsclient::core::dll_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias));
 }
 
 /**
@@ -364,107 +356,103 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only
  * @param plugin The plug-in instance to load. The pointer is managed by the
  */
 nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_plugin(std::string file_name, std::string alias) {
-	try {
-		bool loaded = false;
-		plugin_type plugin = only_load_module(file_name, alias, loaded);
-		if (!loaded) {
-			return plugin;
-		}
-		plugin_list_.append_plugin(plugin);
-		if (plugin->hasCommandHandler()) {
-			commands_.add_plugin(plugin);
-		}
-		if (plugin->hasNotificationHandler()) {
-			channels_.add_plugin(plugin);
-		}
-		if (plugin->hasMetricsFetcher()) {
-			metrics_fetchers_.add_plugin(plugin);
-		}
-		if (plugin->hasMetricsSubmitter()) {
-			metrics_submitetrs_.add_plugin(plugin);
-		}
-		if (plugin->hasMessageHandler()) {
-			log_instance_->add_subscriber(plugin);
-		}
-		if (plugin->has_on_event()) {
-			event_subscribers_.add_plugin(plugin);
-		}
-		settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, plugin->getModule(), plugin->getName(), plugin->getDescription(), "0", false, false);
-		plugin_cache_.add_plugin(plugin);
-		return plugin;
-    } catch (const nsclient::core::plugin_exception &e) {
-        LOG_ERROR_CORE("Failed to load plugin " + e.file() + ": " + utf8::utf8_from_native(e.what()));
-        return nsclient::core::plugin_manager::plugin_type();
-	} catch (const std::exception &e) {
-		LOG_ERROR_CORE("Failed to load plugin " + file_name + ": " + utf8::utf8_from_native(e.what()));
-		return nsclient::core::plugin_manager::plugin_type();
-	} catch (...) {
-		LOG_ERROR_CORE("Failed to load plugin " + file_name);
-		return nsclient::core::plugin_manager::plugin_type();
-	}
-
+  try {
+    bool loaded = false;
+    plugin_type plugin = only_load_module(file_name, alias, loaded);
+    if (!loaded) {
+      return plugin;
+    }
+    plugin_list_.append_plugin(plugin);
+    if (plugin->hasCommandHandler()) {
+      commands_.add_plugin(plugin);
+    }
+    if (plugin->hasNotificationHandler()) {
+      channels_.add_plugin(plugin);
+    }
+    if (plugin->hasMetricsFetcher()) {
+      metrics_fetchers_.add_plugin(plugin);
+    }
+    if (plugin->hasMetricsSubmitter()) {
+      metrics_submitetrs_.add_plugin(plugin);
+    }
+    if (plugin->hasMessageHandler()) {
+      log_instance_->add_subscriber(plugin);
+    }
+    if (plugin->has_on_event()) {
+      event_subscribers_.add_plugin(plugin);
+    }
+    settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, plugin->getModule(), plugin->getName(), plugin->getDescription(), "0", false,
+                                               false);
+    plugin_cache_.add_plugin(plugin);
+    return plugin;
+  } catch (const nsclient::core::plugin_exception &e) {
+    LOG_ERROR_CORE("Failed to load plugin " + e.file() + ": " + utf8::utf8_from_native(e.what()));
+    return nsclient::core::plugin_manager::plugin_type();
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE("Failed to load plugin " + file_name + ": " + utf8::utf8_from_native(e.what()));
+    return nsclient::core::plugin_manager::plugin_type();
+  } catch (...) {
+    LOG_ERROR_CORE("Failed to load plugin " + file_name);
+    return nsclient::core::plugin_manager::plugin_type();
+  }
 }
 
 bool nsclient::core::plugin_manager::reload_plugin(const std::string module) {
-	plugin_type plugin = plugin_list_.find_by_alias(module);
-	if (plugin) {
-		LOG_DEBUG_CORE_STD(std::string("Reloading: ") + plugin->get_alias_or_name());
-		plugin->load_plugin(NSCAPI::reloadStart);
-		return true;
-	} 
-	LOG_ERROR_CORE("Failed to reload plugin " + module);
-	return false;
+  plugin_type plugin = plugin_list_.find_by_alias(module);
+  if (plugin) {
+    LOG_DEBUG_CORE_STD(std::string("Reloading: ") + plugin->get_alias_or_name());
+    plugin->load_plugin(NSCAPI::reloadStart);
+    return true;
+  }
+  LOG_ERROR_CORE("Failed to reload plugin " + module);
+  return false;
 }
 
-
-
 bool nsclient::core::plugin_manager::remove_plugin(const std::string name) {
-	plugin_type plugin = plugin_list_.find_by_module(name);
-	if (!plugin) {
-		LOG_ERROR_CORE("Module " + name + " was not found.");
-		return false;
-	}
-	unsigned int plugin_id = plugin->get_id();
-	plugin_list_.remove(plugin_id);
-	commands_.remove_plugin(plugin_id);
-	metrics_fetchers_.remove_plugin(plugin_id);
-	metrics_submitetrs_.remove_plugin(plugin_id);
-	plugin->unload_plugin();
-	plugin_cache_.remove_plugin(plugin_id);
-	return true;
+  plugin_type plugin = plugin_list_.find_by_module(name);
+  if (!plugin) {
+    LOG_ERROR_CORE("Module " + name + " was not found.");
+    return false;
+  }
+  unsigned int plugin_id = plugin->get_id();
+  plugin_list_.remove(plugin_id);
+  commands_.remove_plugin(plugin_id);
+  metrics_fetchers_.remove_plugin(plugin_id);
+  metrics_submitetrs_.remove_plugin(plugin_id);
+  plugin->unload_plugin();
+  plugin_cache_.remove_plugin(plugin_id);
+  return true;
 }
 
 unsigned int nsclient::core::plugin_manager::clone_plugin(unsigned int plugin_id) {
-	plugin_type match = plugin_list_.find_by_id(plugin_id);
-	if (match) {
-		int new_id = plugin_list_.get_next_id();
-		commands_.add_plugin(new_id, match);
-		return new_id;
-	} else {
-		LOG_ERROR_CORE("Plugin not found.");
-		return -1;
-	}
+  plugin_type match = plugin_list_.find_by_id(plugin_id);
+  if (match) {
+    int new_id = plugin_list_.get_next_id();
+    commands_.add_plugin(new_id, match);
+    return new_id;
+  } else {
+    LOG_ERROR_CORE("Plugin not found.");
+    return -1;
+  }
 }
 
 std::string nsclient::core::plugin_manager::get_plugin_module_name(unsigned int plugin_id) {
-	plugin_type plugin = plugin_list_.find_by_id(plugin_id);
-	if (!plugin)
-		return "";
-	return plugin->get_alias_or_name();
+  plugin_type plugin = plugin_list_.find_by_id(plugin_id);
+  if (!plugin) return "";
+  return plugin->get_alias_or_name();
 }
 
-
 nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::find_plugin(const unsigned int plugin_id) {
-	return plugin_list_.find_by_id(plugin_id);
+  return plugin_list_.find_by_id(plugin_id);
 }
 
 ::PB::Commands::QueryResponseMessage nsclient::core::plugin_manager::execute_query(const ::PB::Commands::QueryRequestMessage &req) {
-	::PB::Commands::QueryResponseMessage resp;
-	std::string buffer;
-	if (execute_query(req.SerializeAsString(), buffer) == NSCAPI::cmd_return_codes::isSuccess) {
-		resp.ParseFromString(buffer);
-	}
-	return resp;
+  ::PB::Commands::QueryResponseMessage resp;
+  std::string buffer;
+  if (execute_query(req.SerializeAsString(), buffer) == NSCAPI::cmd_return_codes::isSuccess) {
+    resp.ParseFromString(buffer);
+  }
+  return resp;
 }
 /**
  * Inject a command into the plug-in stack.
@@ -479,402 +467,388 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::find
  * @return The command status
  */
 NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::string &request, std::string &response) {
-	try {
-		PB::Commands::QueryRequestMessage request_message;
-		PB::Commands::QueryResponseMessage response_message;
-		request_message.ParseFromString(request);
+  try {
+    PB::Commands::QueryRequestMessage request_message;
+    PB::Commands::QueryResponseMessage response_message;
+    request_message.ParseFromString(request);
 
-		typedef boost::unordered_map<int, command_chunk> command_chunk_type;
-		command_chunk_type command_chunks;
+    typedef boost::unordered_map<int, command_chunk> command_chunk_type;
+    command_chunk_type command_chunks;
 
-		std::string missing_commands;
+    std::string missing_commands;
 
-		if (!request_message.header().command().empty()) {
-			std::string command = request_message.header().command();
-			nsclient::commands::plugin_type plugin = commands_.get(command);
-			if (plugin) {
-				unsigned int id = plugin->get_id();
-				command_chunks[id].plugin = plugin;
-				command_chunks[id].request.CopyFrom(request_message);
-			} else {
-				str::format::append_list(missing_commands, command);
-			}
-		} else {
-			for (int i = 0; i < request_message.payload_size(); i++) {
-				::PB::Commands::QueryRequestMessage::Request *payload = request_message.mutable_payload(i);
-				payload->set_command(commands_.make_key(payload->command()));
-				nsclient::commands::plugin_type plugin = commands_.get(payload->command());
-				if (plugin) {
-					unsigned int id = plugin->get_id();
-					if (command_chunks.find(id) == command_chunks.end()) {
-						command_chunks[id].plugin = plugin;
-						command_chunks[id].request.mutable_header()->CopyFrom(request_message.header());
-					}
-					command_chunks[id].request.add_payload()->CopyFrom(*payload);
-				} else {
-					str::format::append_list(missing_commands, payload->command());
-				}
-			}
-		}
+    if (!request_message.header().command().empty()) {
+      std::string command = request_message.header().command();
+      nsclient::commands::plugin_type plugin = commands_.get(command);
+      if (plugin) {
+        unsigned int id = plugin->get_id();
+        command_chunks[id].plugin = plugin;
+        command_chunks[id].request.CopyFrom(request_message);
+      } else {
+        str::format::append_list(missing_commands, command);
+      }
+    } else {
+      for (int i = 0; i < request_message.payload_size(); i++) {
+        ::PB::Commands::QueryRequestMessage::Request *payload = request_message.mutable_payload(i);
+        payload->set_command(commands_.make_key(payload->command()));
+        nsclient::commands::plugin_type plugin = commands_.get(payload->command());
+        if (plugin) {
+          unsigned int id = plugin->get_id();
+          if (command_chunks.find(id) == command_chunks.end()) {
+            command_chunks[id].plugin = plugin;
+            command_chunks[id].request.mutable_header()->CopyFrom(request_message.header());
+          }
+          command_chunks[id].request.add_payload()->CopyFrom(*payload);
+        } else {
+          str::format::append_list(missing_commands, payload->command());
+        }
+      }
+    }
 
-		if (command_chunks.size() == 0) {
-			LOG_ERROR_CORE("Unknown command(s): " + missing_commands + " available commands: " + commands_.to_string());
-			PB::Commands::QueryResponseMessage::Response *payload = response_message.add_payload();
-			payload->set_command(missing_commands);
-			nscapi::protobuf::functions::set_response_bad(*payload, "Unknown command(s): " + missing_commands);
-			response = response_message.SerializeAsString();
-			return NSCAPI::cmd_return_codes::isSuccess;
-		}
+    if (command_chunks.size() == 0) {
+      LOG_ERROR_CORE("Unknown command(s): " + missing_commands + " available commands: " + commands_.to_string());
+      PB::Commands::QueryResponseMessage::Response *payload = response_message.add_payload();
+      payload->set_command(missing_commands);
+      nscapi::protobuf::functions::set_response_bad(*payload, "Unknown command(s): " + missing_commands);
+      response = response_message.SerializeAsString();
+      return NSCAPI::cmd_return_codes::isSuccess;
+    }
 
-		for(command_chunk_type::value_type &v: command_chunks) {
-			std::string local_response;
-			int ret = v.second.plugin->handleCommand(v.second.request.SerializeAsString(), local_response);
-			if (ret != NSCAPI::cmd_return_codes::isSuccess) {
-				LOG_ERROR_CORE("Failed to execute command");
-			} else {
-				PB::Commands::QueryResponseMessage local_response_message;
-				local_response_message.ParseFromString(local_response);
-				if (!response_message.has_header()) {
-					response_message.mutable_header()->CopyFrom(local_response_message.header());
-				}
-				for (int i = 0; i < local_response_message.payload_size(); i++) {
-					response_message.add_payload()->CopyFrom(local_response_message.payload(i));
-				}
-			}
-		}
-		response = response_message.SerializeAsString();
-	} catch (const std::exception &e) {
-		LOG_ERROR_CORE("Failed to process command: " + utf8::utf8_from_native(e.what()));
-		return NSCAPI::cmd_return_codes::hasFailed;
-	} catch (...) {
-		LOG_ERROR_CORE("Failed to process command: ");
-		return NSCAPI::cmd_return_codes::hasFailed;
-	}
-	return NSCAPI::cmd_return_codes::isSuccess;
+    for (command_chunk_type::value_type &v : command_chunks) {
+      std::string local_response;
+      int ret = v.second.plugin->handleCommand(v.second.request.SerializeAsString(), local_response);
+      if (ret != NSCAPI::cmd_return_codes::isSuccess) {
+        LOG_ERROR_CORE("Failed to execute command");
+      } else {
+        PB::Commands::QueryResponseMessage local_response_message;
+        local_response_message.ParseFromString(local_response);
+        if (!response_message.has_header()) {
+          response_message.mutable_header()->CopyFrom(local_response_message.header());
+        }
+        for (int i = 0; i < local_response_message.payload_size(); i++) {
+          response_message.add_payload()->CopyFrom(local_response_message.payload(i));
+        }
+      }
+    }
+    response = response_message.SerializeAsString();
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE("Failed to process command: " + utf8::utf8_from_native(e.what()));
+    return NSCAPI::cmd_return_codes::hasFailed;
+  } catch (...) {
+    LOG_ERROR_CORE("Failed to process command: ");
+    return NSCAPI::cmd_return_codes::hasFailed;
+  }
+  return NSCAPI::cmd_return_codes::isSuccess;
 }
 
 int nsclient::core::plugin_manager::load_and_run(std::string module, run_function fun, std::list<std::string> &errors) {
-	if (!module.empty()) {
-		plugin_type match = plugin_list_.find_by_module(module);
-		if (match) {
-			LOG_DEBUG_CORE_STD("Found module: " + match->get_alias_or_name() + "...");
-			try {
-				return fun(match);
-			} catch (const plugin_exception &e) {
-				errors.push_back("Could not execute command: " + e.reason() + " in " + e.file());
-				return 1;
-			}
-		}
-		try {
-			plugin_type plugin = add_plugin(module, "");
-			if (plugin) {
-				LOG_DEBUG_CORE_STD("Loading plugin: " + plugin->get_alias_or_name() + "...");
-				plugin->load_plugin(NSCAPI::dontStart);
-				return fun(plugin);
-			} else {
-				errors.push_back("Failed to load: " + module);
-				return 1;
-			}
-		} catch (const plugin_exception &e) {
-			errors.push_back("Module (" + e.file() + ") was not found: " + utf8::utf8_from_native(e.what()));
-		} catch (const std::exception &e) {
-			errors.push_back(std::string("Module (") + module + ") was not found: " + utf8::utf8_from_native(e.what()));
-			return 1;
-		} catch (...) {
-			errors.push_back("Module (" + module + ") was not found...");
-			return 1;
-		}
-	} else {
-		errors.push_back("No module was specified...");
-	}
-	return 1;
+  if (!module.empty()) {
+    plugin_type match = plugin_list_.find_by_module(module);
+    if (match) {
+      LOG_DEBUG_CORE_STD("Found module: " + match->get_alias_or_name() + "...");
+      try {
+        return fun(match);
+      } catch (const plugin_exception &e) {
+        errors.push_back("Could not execute command: " + e.reason() + " in " + e.file());
+        return 1;
+      }
+    }
+    try {
+      plugin_type plugin = add_plugin(module, "");
+      if (plugin) {
+        LOG_DEBUG_CORE_STD("Loading plugin: " + plugin->get_alias_or_name() + "...");
+        plugin->load_plugin(NSCAPI::dontStart);
+        return fun(plugin);
+      } else {
+        errors.push_back("Failed to load: " + module);
+        return 1;
+      }
+    } catch (const plugin_exception &e) {
+      errors.push_back("Module (" + e.file() + ") was not found: " + utf8::utf8_from_native(e.what()));
+    } catch (const std::exception &e) {
+      errors.push_back(std::string("Module (") + module + ") was not found: " + utf8::utf8_from_native(e.what()));
+      return 1;
+    } catch (...) {
+      errors.push_back("Module (" + module + ") was not found...");
+      return 1;
+    }
+  } else {
+    errors.push_back("No module was specified...");
+  }
+  return 1;
 }
 
-int exec_helper(nsclient::core::plugin_manager::plugin_type plugin, std::string command, std::vector<std::string> arguments, std::string request, std::list<std::string> *responses) {
-	std::string response;
-	if (!plugin || !plugin->has_command_line_exec())
-		return -1;
-	int ret = plugin->commandLineExec(true, request, response);
-	if (ret != NSCAPI::cmd_return_codes::returnIgnored && !response.empty())
-		responses->push_back(response);
-	return ret;
+int exec_helper(nsclient::core::plugin_manager::plugin_type plugin, std::string command, std::vector<std::string> arguments, std::string request,
+                std::list<std::string> *responses) {
+  std::string response;
+  if (!plugin || !plugin->has_command_line_exec()) return -1;
+  int ret = plugin->commandLineExec(true, request, response);
+  if (ret != NSCAPI::cmd_return_codes::returnIgnored && !response.empty()) responses->push_back(response);
+  return ret;
 }
 
 int nsclient::core::plugin_manager::simple_exec(std::string command, std::vector<std::string> arguments, std::list<std::string> &resp) {
-	std::string request;
-	std::list<std::string> responses;
-	std::list<std::string> errors;
-	std::string module;
-	std::string::size_type pos = command.find('.');
-	if (pos != std::string::npos) {
-		module = command.substr(0, pos);
-		command = command.substr(pos + 1);
-	}
-	nscapi::protobuf::functions::create_simple_exec_request(module, command, arguments, request);
-	int ret = load_and_run(module, boost::bind(&exec_helper, boost::placeholders::_1, command, arguments, request, &responses), errors);
+  std::string request;
+  std::list<std::string> responses;
+  std::list<std::string> errors;
+  std::string module;
+  std::string::size_type pos = command.find('.');
+  if (pos != std::string::npos) {
+    module = command.substr(0, pos);
+    command = command.substr(pos + 1);
+  }
+  nscapi::protobuf::functions::create_simple_exec_request(module, command, arguments, request);
+  int ret = load_and_run(module, boost::bind(&exec_helper, boost::placeholders::_1, command, arguments, request, &responses), errors);
 
-	for(std::string &r: responses) {
-		try {
-			ret = nscapi::protobuf::functions::parse_simple_exec_response(r, resp);
-		} catch (std::exception &e) {
-			resp.push_back("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
-			LOG_ERROR_CORE_STD("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
-			return NSCAPI::cmd_return_codes::hasFailed;
-		}
-	}
-	for(const std::string &e: errors) {
-		LOG_ERROR_CORE_STD(e);
-		resp.push_back(e);
-	}
-	return ret;
+  for (std::string &r : responses) {
+    try {
+      ret = nscapi::protobuf::functions::parse_simple_exec_response(r, resp);
+    } catch (std::exception &e) {
+      resp.push_back("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
+      LOG_ERROR_CORE_STD("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
+      return NSCAPI::cmd_return_codes::hasFailed;
+    }
+  }
+  for (const std::string &e : errors) {
+    LOG_ERROR_CORE_STD(e);
+    resp.push_back(e);
+  }
+  return ret;
 }
-int query_helper(nsclient::core::plugin_manager::plugin_type plugin, std::string command, std::vector<std::string> arguments, std::string request, std::list<std::string> *responses) {
-	return NSCAPI::cmd_return_codes::returnIgnored;
-	// 	std::string response;
-	// 	if (!plugin->hasCommandHandler())
-	// 		return NSCAPI::returnIgnored;
-	// 	int ret = plugin->handleCommand(command.c_str(), request, response);
-	// 	if (ret != NSCAPI::returnIgnored && !response.empty())
-	// 		responses->push_back(response);
-	// 	return ret;
+int query_helper(nsclient::core::plugin_manager::plugin_type plugin, std::string command, std::vector<std::string> arguments, std::string request,
+                 std::list<std::string> *responses) {
+  return NSCAPI::cmd_return_codes::returnIgnored;
+  // 	std::string response;
+  // 	if (!plugin->hasCommandHandler())
+  // 		return NSCAPI::returnIgnored;
+  // 	int ret = plugin->handleCommand(command.c_str(), request, response);
+  // 	if (ret != NSCAPI::returnIgnored && !response.empty())
+  // 		responses->push_back(response);
+  // 	return ret;
 }
 
 int nsclient::core::plugin_manager::simple_query(std::string module, std::string command, std::vector<std::string> arguments, std::list<std::string> &resp) {
-	std::string request;
-	std::list<std::string> responses;
-	std::list<std::string> errors;
-	nscapi::protobuf::functions::create_simple_query_request(command, arguments, request);
-	int ret = load_and_run(module, boost::bind(&query_helper, boost::placeholders::_1, command, arguments, request, &responses), errors);
+  std::string request;
+  std::list<std::string> responses;
+  std::list<std::string> errors;
+  nscapi::protobuf::functions::create_simple_query_request(command, arguments, request);
+  int ret = load_and_run(module, boost::bind(&query_helper, boost::placeholders::_1, command, arguments, request, &responses), errors);
 
-	nsclient::commands::plugin_type plugin = commands_.get(command);
-	if (!plugin) {
-		LOG_ERROR_CORE("No handler for command: " + command + " available commands: " + commands_.to_string());
-		resp.push_back("No handler for command: " + command);
-		return NSCAPI::query_return_codes::returnUNKNOWN;
-	}
-	std::string response;
-	ret = plugin->handleCommand(request, response);
-	try {
-		std::string msg, perf;
-		ret = nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf, -1);
-		resp.push_back(msg + "|" + perf);
-	} catch (std::exception &e) {
-		resp.push_back("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
-		LOG_ERROR_CORE_STD("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
-		return NSCAPI::query_return_codes::returnUNKNOWN;
-	}
-	for(const std::string &e: errors) {
-		LOG_ERROR_CORE_STD(e);
-		resp.push_back(e);
-	}
-	return ret;
+  nsclient::commands::plugin_type plugin = commands_.get(command);
+  if (!plugin) {
+    LOG_ERROR_CORE("No handler for command: " + command + " available commands: " + commands_.to_string());
+    resp.push_back("No handler for command: " + command);
+    return NSCAPI::query_return_codes::returnUNKNOWN;
+  }
+  std::string response;
+  ret = plugin->handleCommand(request, response);
+  try {
+    std::string msg, perf;
+    ret = nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf, -1);
+    resp.push_back(msg + "|" + perf);
+  } catch (std::exception &e) {
+    resp.push_back("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
+    LOG_ERROR_CORE_STD("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
+    return NSCAPI::query_return_codes::returnUNKNOWN;
+  }
+  for (const std::string &e : errors) {
+    LOG_ERROR_CORE_STD(e);
+    resp.push_back(e);
+  }
+  return ret;
 }
 
-NSCAPI::nagiosReturn nsclient::core::plugin_manager::exec_command(const char* raw_target, std::string request, std::string &response) {
-	std::string target = raw_target;
-	LOG_DEBUG_CORE_STD("Executing command is target for: " + target);
-	bool match_any = false;
-	bool match_all = false;
-	if (target == "any")
-		match_any = true;
-	else if (target == "all" || target == "*")
-		match_all = true;
-	std::list<std::string> responses;
-	bool found = false;
-	for(plugin_type p: plugin_list_.get_plugins()) {
-		if (p && p->has_command_line_exec()) {
-			IS_LOG_TRACE_CORE() {
-				LOG_TRACE_CORE("Trying : " + p->get_alias_or_name());
-			}
-			try {
-				if (match_all || match_any || p->get_alias() == target || p->get_alias_or_name().find(target) != std::string::npos) {
-					std::string respbuffer;
-					LOG_DEBUG_CORE_STD("Executing command in: " + p->getName());
-					NSCAPI::nagiosReturn r = p->commandLineExec(!(match_all || match_any), request, respbuffer);
-					if (r != NSCAPI::cmd_return_codes::returnIgnored && !respbuffer.empty()) {
-						LOG_DEBUG_CORE_STD("Module handled execution request: " + p->getName());
-						found = true;
-						if (match_any) {
-							response = respbuffer;
-							return NSCAPI::exec_return_codes::returnOK;
-						}
-						responses.push_back(respbuffer);
-					}
-				}
-			} catch (plugin_exception e) {
-				LOG_ERROR_CORE_STD("Could not execute command: " + e.reason() + " in " + e.file());
-			}
-		}
-	}
+NSCAPI::nagiosReturn nsclient::core::plugin_manager::exec_command(const char *raw_target, std::string request, std::string &response) {
+  std::string target = raw_target;
+  LOG_DEBUG_CORE_STD("Executing command is target for: " + target);
+  bool match_any = false;
+  bool match_all = false;
+  if (target == "any")
+    match_any = true;
+  else if (target == "all" || target == "*")
+    match_all = true;
+  std::list<std::string> responses;
+  bool found = false;
+  for (plugin_type p : plugin_list_.get_plugins()) {
+    if (p && p->has_command_line_exec()) {
+      IS_LOG_TRACE_CORE() { LOG_TRACE_CORE("Trying : " + p->get_alias_or_name()); }
+      try {
+        if (match_all || match_any || p->get_alias() == target || p->get_alias_or_name().find(target) != std::string::npos) {
+          std::string respbuffer;
+          LOG_DEBUG_CORE_STD("Executing command in: " + p->getName());
+          NSCAPI::nagiosReturn r = p->commandLineExec(!(match_all || match_any), request, respbuffer);
+          if (r != NSCAPI::cmd_return_codes::returnIgnored && !respbuffer.empty()) {
+            LOG_DEBUG_CORE_STD("Module handled execution request: " + p->getName());
+            found = true;
+            if (match_any) {
+              response = respbuffer;
+              return NSCAPI::exec_return_codes::returnOK;
+            }
+            responses.push_back(respbuffer);
+          }
+        }
+      } catch (plugin_exception e) {
+        LOG_ERROR_CORE_STD("Could not execute command: " + e.reason() + " in " + e.file());
+      }
+    }
+  }
 
-	PB::Commands::ExecuteResponseMessage response_message;
+  PB::Commands::ExecuteResponseMessage response_message;
 
-	for(std::string current_response: responses) {
-		PB::Commands::ExecuteResponseMessage tmp;
-		tmp.ParseFromString(current_response);
-		for (int i = 0; i < tmp.payload_size(); i++) {
-			PB::Commands::ExecuteResponseMessage::Response *r = response_message.add_payload();
-			r->CopyFrom(tmp.payload(i));
-		}
-	}
-	response_message.SerializeToString(&response);
-	if (found)
-		return NSCAPI::cmd_return_codes::isSuccess;
-	return NSCAPI::cmd_return_codes::returnIgnored;
+  for (std::string current_response : responses) {
+    PB::Commands::ExecuteResponseMessage tmp;
+    tmp.ParseFromString(current_response);
+    for (int i = 0; i < tmp.payload_size(); i++) {
+      PB::Commands::ExecuteResponseMessage::Response *r = response_message.add_payload();
+      r->CopyFrom(tmp.payload(i));
+    }
+  }
+  response_message.SerializeToString(&response);
+  if (found) return NSCAPI::cmd_return_codes::isSuccess;
+  return NSCAPI::cmd_return_codes::returnIgnored;
 }
 
-void nsclient::core::plugin_manager::register_submission_listener(unsigned int plugin_id, const char* channel) {
-	channels_.register_listener(plugin_id, channel);
+void nsclient::core::plugin_manager::register_submission_listener(unsigned int plugin_id, const char *channel) {
+  channels_.register_listener(plugin_id, channel);
 }
 
-NSCAPI::errorReturn nsclient::core::plugin_manager::send_notification(const char* channel, std::string &request, std::string &response) {
-	std::string schannel = channel;
-	bool found = false;
-	for(std::string cur_chan: str::utils::split_lst(schannel, std::string(","))) {
-		if (cur_chan == "noop") {
-			found = true;
-			nscapi::protobuf::functions::create_simple_submit_response_ok(cur_chan, "TODO", "seems ok", response);
-			continue;
-		}
-		if (cur_chan == "log") {
-			PB::Commands::SubmitRequestMessage msg;
-			msg.ParseFromString(request);
-			for (int i = 0; i < msg.payload_size(); i++) {
-				LOG_INFO_CORE("Notification " + str::xtos(msg.payload(i).result()) + ": " + nscapi::protobuf::functions::query_data_to_nagios_string(msg.payload(i), nscapi::protobuf::functions::no_truncation));
-			}
-			found = true;
-			nscapi::protobuf::functions::create_simple_submit_response_ok(cur_chan, "TODO", "seems ok", response);
-			continue;
-		}
-		try {
-			for(nsclient::plugin_type p: channels_.get(cur_chan)) {
-				try {
-					p->handleNotification(cur_chan.c_str(), request, response);
-				} catch (...) {
-					LOG_ERROR_CORE("Plugin throw exception: " + p->get_alias_or_name());
-				}
-				found = true;
-			}
-		} catch (nsclient::plugins_list_exception &e) {
-			LOG_ERROR_CORE("No handler for channel: " + schannel + ": " + utf8::utf8_from_native(e.what()));
-			return NSCAPI::api_return_codes::hasFailed;
-		} catch (const std::exception &e) {
-			LOG_ERROR_CORE("No handler for channel: " + schannel + ": " + utf8::utf8_from_native(e.what()));
-			return NSCAPI::api_return_codes::hasFailed;
-		} catch (...) {
-			LOG_ERROR_CORE("No handler for channel: " + schannel);
-			return NSCAPI::api_return_codes::hasFailed;
-		}
-	}
-	if (!found) {
-		LOG_ERROR_CORE("No handler for channel: " + schannel + " active channels: " + channels_.to_string());
-		return NSCAPI::api_return_codes::hasFailed;
-	}
-	return NSCAPI::api_return_codes::isSuccess;
+NSCAPI::errorReturn nsclient::core::plugin_manager::send_notification(const char *channel, std::string &request, std::string &response) {
+  std::string schannel = channel;
+  bool found = false;
+  for (std::string cur_chan : str::utils::split_lst(schannel, std::string(","))) {
+    if (cur_chan == "noop") {
+      found = true;
+      nscapi::protobuf::functions::create_simple_submit_response_ok(cur_chan, "TODO", "seems ok", response);
+      continue;
+    }
+    if (cur_chan == "log") {
+      PB::Commands::SubmitRequestMessage msg;
+      msg.ParseFromString(request);
+      for (int i = 0; i < msg.payload_size(); i++) {
+        LOG_INFO_CORE("Notification " + str::xtos(msg.payload(i).result()) + ": " +
+                      nscapi::protobuf::functions::query_data_to_nagios_string(msg.payload(i), nscapi::protobuf::functions::no_truncation));
+      }
+      found = true;
+      nscapi::protobuf::functions::create_simple_submit_response_ok(cur_chan, "TODO", "seems ok", response);
+      continue;
+    }
+    try {
+      for (nsclient::plugin_type p : channels_.get(cur_chan)) {
+        try {
+          p->handleNotification(cur_chan.c_str(), request, response);
+        } catch (...) {
+          LOG_ERROR_CORE("Plugin throw exception: " + p->get_alias_or_name());
+        }
+        found = true;
+      }
+    } catch (nsclient::plugins_list_exception &e) {
+      LOG_ERROR_CORE("No handler for channel: " + schannel + ": " + utf8::utf8_from_native(e.what()));
+      return NSCAPI::api_return_codes::hasFailed;
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE("No handler for channel: " + schannel + ": " + utf8::utf8_from_native(e.what()));
+      return NSCAPI::api_return_codes::hasFailed;
+    } catch (...) {
+      LOG_ERROR_CORE("No handler for channel: " + schannel);
+      return NSCAPI::api_return_codes::hasFailed;
+    }
+  }
+  if (!found) {
+    LOG_ERROR_CORE("No handler for channel: " + schannel + " active channels: " + channels_.to_string());
+    return NSCAPI::api_return_codes::hasFailed;
+  }
+  return NSCAPI::api_return_codes::isSuccess;
 }
-
 
 NSCAPI::errorReturn nsclient::core::plugin_manager::emit_event(const std::string &request) {
-	PB::Commands::EventMessage em; em.ParseFromString(request);
-	for(const PB::Commands::EventMessage::Request &r: em.payload()) {
-		bool has_matched = false;
-		try {
-			for(nsclient::plugin_type p: event_subscribers_.get(r.event())) {
-				try {
-					p->on_event(request);
-					has_matched = true;
-				} catch (const std::exception &e) {
-					LOG_ERROR_CORE("Failed to emit event to " + p->get_alias_or_name() + ": " + utf8::utf8_from_native(e.what()));
-				} catch (...) {
-					LOG_ERROR_CORE("Failed to emit event to " + p->get_alias_or_name() + ": UNKNOWN EXCEPTION");
-				}
-			}
-		} catch (nsclient::plugins_list_exception &e) {
-			LOG_ERROR_CORE("No handler for event: " + utf8::utf8_from_native(e.what()));
-			return NSCAPI::api_return_codes::hasFailed;
-		} catch (const std::exception &e) {
-			LOG_ERROR_CORE("No handler for event: " + utf8::utf8_from_native(e.what()));
-			return NSCAPI::api_return_codes::hasFailed;
-		} catch (...) {
-			LOG_ERROR_CORE("No handler for event");
-			return NSCAPI::api_return_codes::hasFailed;
-		}
-		if (!has_matched) {
-			LOG_DEBUG_CORE("No handler for event: " + r.event());
-		}
-	}
-	return NSCAPI::api_return_codes::isSuccess;
+  PB::Commands::EventMessage em;
+  em.ParseFromString(request);
+  for (const PB::Commands::EventMessage::Request &r : em.payload()) {
+    bool has_matched = false;
+    try {
+      for (nsclient::plugin_type p : event_subscribers_.get(r.event())) {
+        try {
+          p->on_event(request);
+          has_matched = true;
+        } catch (const std::exception &e) {
+          LOG_ERROR_CORE("Failed to emit event to " + p->get_alias_or_name() + ": " + utf8::utf8_from_native(e.what()));
+        } catch (...) {
+          LOG_ERROR_CORE("Failed to emit event to " + p->get_alias_or_name() + ": UNKNOWN EXCEPTION");
+        }
+      }
+    } catch (nsclient::plugins_list_exception &e) {
+      LOG_ERROR_CORE("No handler for event: " + utf8::utf8_from_native(e.what()));
+      return NSCAPI::api_return_codes::hasFailed;
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE("No handler for event: " + utf8::utf8_from_native(e.what()));
+      return NSCAPI::api_return_codes::hasFailed;
+    } catch (...) {
+      LOG_ERROR_CORE("No handler for event");
+      return NSCAPI::api_return_codes::hasFailed;
+    }
+    if (!has_matched) {
+      LOG_DEBUG_CORE("No handler for event: " + r.event());
+    }
+  }
+  return NSCAPI::api_return_codes::isSuccess;
 }
 
 struct metrics_fetcher {
-	PB::Metrics::MetricsMessage result;
-	std::string buffer;
-	metrics_fetcher() {
-		result.add_payload();
-	}
+  PB::Metrics::MetricsMessage result;
+  std::string buffer;
+  metrics_fetcher() { result.add_payload(); }
 
-	PB::Metrics::MetricsMessage::Response* get_root() {
-		return result.mutable_payload(0);
-	}
-	void add_bundle(const PB::Metrics::MetricsBundle &b) {
-		get_root()->add_bundles()->CopyFrom(b);
-	}
-	void fetch(nsclient::plugin_type p) {
-		std::string buffer;
-		p->fetchMetrics(buffer);
-		PB::Metrics::MetricsMessage payload;
-		payload.ParseFromString(buffer);
-		for(const PB::Metrics::MetricsMessage::Response &r: payload.payload()) {
-			for(const PB::Metrics::MetricsBundle &b: r.bundles()) {
-				add_bundle(b);
-			}
-		}
-	}
-	void render() {
-		get_root()->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
-		buffer = result.SerializeAsString();
-	}
-	void digest(nsclient::plugin_type p) {
-		p->submitMetrics(buffer);
-	}
+  PB::Metrics::MetricsMessage::Response *get_root() { return result.mutable_payload(0); }
+  void add_bundle(const PB::Metrics::MetricsBundle &b) { get_root()->add_bundles()->CopyFrom(b); }
+  void fetch(nsclient::plugin_type p) {
+    std::string buffer;
+    p->fetchMetrics(buffer);
+    PB::Metrics::MetricsMessage payload;
+    payload.ParseFromString(buffer);
+    for (const PB::Metrics::MetricsMessage::Response &r : payload.payload()) {
+      for (const PB::Metrics::MetricsBundle &b : r.bundles()) {
+        add_bundle(b);
+      }
+    }
+  }
+  void render() {
+    get_root()->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
+    buffer = result.SerializeAsString();
+  }
+  void digest(nsclient::plugin_type p) { p->submitMetrics(buffer); }
 };
 
-bool nsclient::core::plugin_manager::is_enabled(const std::string module) {
-	return parse_plugin(module).enabled;
-}
+bool nsclient::core::plugin_manager::is_enabled(const std::string module) { return parse_plugin(module).enabled; }
 
 void nsclient::core::plugin_manager::process_metrics(PB::Metrics::MetricsBundle bundle) {
-	metrics_fetcher f;
-	metrics_fetchers_.do_all(boost::bind(&metrics_fetcher::fetch, &f, boost::placeholders::_1));
-	f.get_root()->add_bundles()->CopyFrom(bundle);
-	f.render();
-	metrics_submitetrs_.do_all(boost::bind(&metrics_fetcher::digest, &f, boost::placeholders::_1));
+  metrics_fetcher f;
+  metrics_fetchers_.do_all(boost::bind(&metrics_fetcher::fetch, &f, boost::placeholders::_1));
+  f.get_root()->add_bundles()->CopyFrom(bundle);
+  f.render();
+  metrics_submitetrs_.do_all(boost::bind(&metrics_fetcher::digest, &f, boost::placeholders::_1));
 }
 
 bool nsclient::core::plugin_manager::enable_plugin(std::string name) {
-	try {
-		settings_manager::get_settings()->set_string(MAIN_MODULES_SECTION, name, "enabled");
-	} catch (settings::settings_exception e) {
-		LOG_DEBUG_CORE_STD("Failed to read settings: " + utf8::utf8_from_native(e.what()));
-		return false;
-	}
-	return true;
+  try {
+    settings_manager::get_settings()->set_string(MAIN_MODULES_SECTION, name, "enabled");
+  } catch (settings::settings_exception e) {
+    LOG_DEBUG_CORE_STD("Failed to read settings: " + utf8::utf8_from_native(e.what()));
+    return false;
+  }
+  return true;
 }
 
 bool nsclient::core::plugin_manager::disable_plugin(std::string name) {
-	try {
-		settings_manager::get_settings()->set_string(MAIN_MODULES_SECTION, name, "disabled");
-	} catch (settings::settings_exception e) {
-		LOG_DEBUG_CORE_STD("Failed to read settings: " + utf8::utf8_from_native(e.what()));
-		return false;
-	}
-	return true;
+  try {
+    settings_manager::get_settings()->set_string(MAIN_MODULES_SECTION, name, "disabled");
+  } catch (settings::settings_exception e) {
+    LOG_DEBUG_CORE_STD("Failed to read settings: " + utf8::utf8_from_native(e.what()));
+    return false;
+  }
+  return true;
 }
 
 boost::filesystem::path nsclient::core::plugin_manager::get_filename(boost::filesystem::path folder, std::string module) {
-	return dll::dll_impl::fix_module_name(folder / module);
+  return dll::dll_impl::fix_module_name(folder / module);
 }
 
-void nsclient::core::plugin_manager::set_path(boost::filesystem::path path) {
-	plugin_path_ = file_helpers::meta::make_preferred(path);
-}
+void nsclient::core::plugin_manager::set_path(boost::filesystem::path path) { plugin_path_ = file_helpers::meta::make_preferred(path); }
