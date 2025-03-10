@@ -139,6 +139,7 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	try {
 		sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 
+                // clang-format off
 		settings.set_alias(alias, "writers/file");
 
 		settings.alias().add_path_to_settings()
@@ -169,6 +170,7 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 				"TIME SYNTAX", "The date format using strftime format flags. This is the time of writing the message as messages currently does not have a source time.")
 
 			;
+// clang-format on
 
 		settings.register_all();
 		settings.notify();

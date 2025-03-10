@@ -117,6 +117,7 @@ bool SimpleCache::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	settings.set_alias(alias, "cache");
 
+        // clang-format off
 	settings.alias().add_path_to_settings()
 		("CACHE", "Section for simple cache module (SimpleCache.dll).")
 
@@ -131,6 +132,7 @@ bool SimpleCache::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			"CHANNEL", "The channel to listen to.")
 
 		;
+// clang-format on
 
 	settings.register_all();
 	settings.notify();
@@ -216,6 +218,7 @@ void SimpleCache::check_cache(const PB::Commands::QueryRequestMessage::Request &
 	std::string not_found_msg, not_found_msg_code;
 	std::string key;
 	po::options_description desc = nscapi::program_options::create_desc(request);
+        // clang-format off
 	desc.add_options()
 		("key", po::value<std::string>(&key), "The key (will not be parsed)")
 		("host", po::value<std::string>(&query.host), "The host to look for (translates into the key)")
@@ -225,6 +228,7 @@ void SimpleCache::check_cache(const PB::Commands::QueryRequestMessage::Request &
 		("not-found-msg", po::value<std::string>(&not_found_msg)->default_value("Entry not found"), "The message to display when a message is not found")
 		("not-found-code", po::value<std::string>(&not_found_msg_code)->default_value("unknown"), "The return status to return when a message is not found")
 		;
+// clang-format on
 
 	boost::program_options::variables_map vm;
 	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))

@@ -62,6 +62,7 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 
 		provider_.reset(new script_provider(get_id(), get_core(), settings.alias().get_path(), root_));
 
+                // clang-format off
 		settings.alias().add_path_to_settings()
 
 			("scripts", sh::fun_values_path(boost::bind(&PythonScript::loadScript, this, ph::_1, ph::_2)),
@@ -83,6 +84,7 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 				"}"
 				"}")
 			;
+// clang-format on
 
 
 		settings.register_all();
@@ -172,11 +174,13 @@ void PythonScript::execute_script(const PB::Commands::ExecuteRequestMessage::Req
 	po::variables_map vm;
 	nscapi::program_options::unrecognized_map script_options;
 	std::string file;
+        // clang-format off
 	desc.add_options()
 		("help", "Show help.")
 		("script", po::value<std::string>(&file), "The script to run")
 		("file", po::value<std::string>(&file), "The script to run")
 		;
+// clang-format on
 
 
 	try {

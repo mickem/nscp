@@ -44,6 +44,7 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.set_alias(alias, "scheduler");
 	schedules_.set_path(settings.alias().get_settings_path("schedules"));
 
+        // clang-format off
 	settings.alias().add_path_to_settings()
 		("Scheduler", "Section for the Scheduler module.")
 
@@ -75,6 +76,7 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			"}"
 			"}")
 		;
+// clang-format on
 	settings.register_all();
 	settings.notify();
 
