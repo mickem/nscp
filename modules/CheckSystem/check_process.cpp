@@ -52,6 +52,7 @@ namespace check_proc_filter {
 		static const parsers::where::value_type type_custom_state = parsers::where::type_custom_int_1;
 		static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
 
+                // clang-format off
 		registry_.add_string()
 			("filename", boost::bind(&filter_obj::get_filename, _1), "Name of process (with path)")
 			("exe", boost::bind(&filter_obj::get_exe, _1), "The name of the executable")
@@ -97,6 +98,7 @@ namespace check_proc_filter {
 		registry_.add_converter()
 			(type_custom_state, &parse_state)
 			;
+// clang-format on
 	}
 
 }
@@ -245,6 +247,7 @@ namespace process_checks {
 
 			filter_helper.add_options(filter.get_filter_syntax(), "unknown");
 			filter_helper.add_syntax("${status}: ${problem_list}", "${exe}=${state}", "${exe}", "UNKNOWN: No processes found", "%(status): all processes are ok.");
+                        // clang-format off
 			filter_helper.get_desc().add_options()
 				("process", po::value<std::vector<std::string>>(&processes), "The service to check, set this to * to check all services")
 				("scan-info", po::value<bool>(&deep_scan), "If all process metrics should be fetched (otherwise only status is fetched)")
@@ -253,6 +256,7 @@ namespace process_checks {
 				("scan-unreadable", po::value<bool>(&unreadable_scan), "If unreadable processes should be included (will not have information)")
 				("total", po::bool_switch(&total), "Include the total of all matching files")
 				;
+// clang-format on
 
 			if (!filter_helper.parse_options())
 				return;

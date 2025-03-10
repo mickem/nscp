@@ -66,6 +66,7 @@ node_type fun_convert_status(boost::shared_ptr<tasksched_filter::filter_obj> obj
 }
 
 tasksched_filter::filter_obj_handler::filter_obj_handler() {
+  // clang-format off
 	registry_.add_string()
 		("folder", boost::bind(&filter_obj::get_folder, _1), "The task folder")
 		("title", boost::bind(&filter_obj::get_title, _1), "The task title")
@@ -97,6 +98,7 @@ tasksched_filter::filter_obj_handler::filter_obj_handler() {
 		(type_custom_state, &fun_convert_status)
 		// 		(type_int, type_custom_hresult, &fun_convert_status)
 		;
+// clang-format on
 }
 
 namespace tasksched_filter {

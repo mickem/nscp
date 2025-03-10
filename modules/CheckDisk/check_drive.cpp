@@ -344,6 +344,7 @@ struct filter_obj_handler : public native_context {
 	static const parsers::where::value_type type_custom_user_free = parsers::where::type_custom_int_4;
 	static const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_9;
 
+        // clang-format off
 	filter_obj_handler() {
 		registry_.add_string()
 			("name", &filter_obj::get_name, "Descriptive name of drive")
@@ -409,6 +410,7 @@ struct filter_obj_handler : public native_context {
 			(type_custom_user_used, &calculate_user_used)
 			(type_custom_type, &convert_type)
 			;
+// clang-format on
 	}
 };
 
@@ -753,6 +755,7 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
 	bool ignore_unreadable = false, total = false, only_mounted = false;;
 	double magic;
 
+        // clang-format off
 	filter_type filter;
 	filter_helper.add_options("used > 80%", "used > 90%", "mounted = 1", filter.get_filter_syntax(), "unknown");
 	filter_helper.add_syntax("${status} ${problem_list}", "${drive_or_name}: ${used}/${size} used", "${drive_or_id}", "%(status): No drives found", "%(status) All %(count) drive(s) are ok");
@@ -768,6 +771,7 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
 		("total", po::bool_switch(&total), "Include the total of all matching drives")
 		;
 	add_custom_options(filter_helper.get_desc());
+// clang-format on
 
 	if (!filter_helper.parse_options())
 		return;

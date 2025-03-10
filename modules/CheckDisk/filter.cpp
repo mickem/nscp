@@ -79,6 +79,7 @@ file_filter::filter_obj_handler::filter_obj_handler() {
 
 	const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_2;
 
+        // clang-format off
 	registry_.add_string()
 		("path", &filter_obj::get_path, "Path of file")
 		("version", boost::bind(&filter_obj::get_version, ph::_1), "Windows exe/dll file version")
@@ -117,6 +118,7 @@ file_filter::filter_obj_handler::filter_obj_handler() {
 		("written", boost::bind(&filter_obj::get_written_su, ph::_1), "")
 		("type", boost::bind(&filter_obj::get_type_su, ph::_1), "")
 		;
+// clang-format on
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -106,6 +106,7 @@ namespace check_mem_filter {
 			static const parsers::where::value_type type_custom_used = parsers::where::type_custom_int_1;
 			static const parsers::where::value_type type_custom_free = parsers::where::type_custom_int_2;
 
+                        // clang-format off
 			registry_.add_string()
 				("type", boost::bind(&filter_obj::get_type, _1), "The type of memory to check")
 				;
@@ -131,6 +132,7 @@ namespace check_mem_filter {
 				(type_custom_free, &calculate_free)
 				(type_custom_used, &calculate_free)
 				;
+// clang-format on
 				
 		}
 	};

@@ -185,6 +185,7 @@ namespace check_nscp_version {
 
 	struct filter_obj_handler : public native_context {
 
+          // clang-format off
 		filter_obj_handler() {
 			registry_.add_string()
 				("version", &filter_obj::get_version_s, "The NSClient++ Version as a string")
@@ -196,6 +197,7 @@ namespace check_nscp_version {
 				("minor", &filter_obj::get_minor, "The minor (the 2 in 0.1.2.3)")
 				("build", &filter_obj::get_build, "The build (the 3 in 0.1.2.3) not available in release versions after 0.6.0")
 				;
+// clang-format on
 		}
 	};
 

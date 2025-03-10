@@ -44,6 +44,7 @@ namespace check_pdh {
 		if (oneliner)
 			return;
 
+                // clang-format off
  		nscapi::settings_helper::settings_registry settings(proxy);
 		nscapi::settings_helper::path_extension root_path = settings.path(get_path());
 		if (is_sample)
@@ -88,6 +89,7 @@ namespace check_pdh {
 		registry_.add_float()
 			("value_f", boost::bind(&filter_obj::get_value_f, ph::_1), "The counter value (force float value)")
 			;
+// clang-format on
 
 	}
 
@@ -118,6 +120,7 @@ namespace check_pdh {
 		std::string flags;
 		std::string type;
 
+                // clang-format off
 		filter_type filter;
 		filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
 		filter_helper.add_syntax("${status}: ${list}", "${alias} = ${value}", "${alias}", "", "");
@@ -132,6 +135,7 @@ namespace check_pdh {
 			("type", po::value<std::string>(&type)->default_value("large"), "Format of value (double, long, large)")
 			("ignore-errors", po::bool_switch(&ignore_errors), "If we should ignore errors when checking counters, for instance missing counters or invalid counters will return 0 instead of errors")
 			;
+// clang-format on
 
 		std::vector<std::string> extra;
 		if (!filter_helper.parse_options(extra))

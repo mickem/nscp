@@ -43,9 +43,11 @@ namespace ph = boost::placeholders;
 void check_simple_status(PB::Common::ResultCode status, const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
 	po::options_description desc = nscapi::program_options::create_desc(request);
 	std::string msg;
+        // clang-format off
 	desc.add_options()
 		("message", po::value<std::string>(&msg)->default_value("No message"), "Message to return")
 		;
+// clang-format on
 	po::variables_map vm;
 	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
 		return;
@@ -154,6 +156,7 @@ void CheckHelpers::check_negate(const PB::Commands::QueryRequestMessage::Request
 	std::string command;
 	std::vector<std::string> arguments;
 	po::options_description desc = nscapi::program_options::create_desc(request);
+        // clang-format off
 	desc.add_options()
 		("ok,o", po::value<std::string>(), "The state to return instead of OK")
 		("warning,w", po::value<std::string>(), "The state to return instead of WARNING")
@@ -163,6 +166,7 @@ void CheckHelpers::check_negate(const PB::Commands::QueryRequestMessage::Request
 		("command,q", po::value<std::string>(&command), "Wrapped command to execute")
 		("arguments,a", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
 		;
+// clang-format on
 	po::variables_map vm;
 	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
 		return;
@@ -201,6 +205,7 @@ void CheckHelpers::check_multi(const PB::Commands::QueryRequestMessage::Request 
 	std::string separator;
 	std::string prefix;
 	std::string suffix;
+        // clang-format off
 	desc.add_options()
 		("command", po::value<std::vector<std::string> >(&arguments), "Commands to run (can be used multiple times)")
 		("arguments", po::value<std::vector<std::string> >(&arguments), "Deprecated alias for command")
@@ -208,6 +213,7 @@ void CheckHelpers::check_multi(const PB::Commands::QueryRequestMessage::Request 
 		("prefix", po::value<std::string>(&prefix), "Message prefix")
 		("suffix", po::value<std::string>(&suffix), "Message suffix")
 		;
+// clang-format on
 	po::variables_map vm;
 	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
 		return;
@@ -252,11 +258,13 @@ void CheckHelpers::check_and_forward(const PB::Commands::QueryRequestMessage::Re
 	std::vector<std::string> arguments;
 	std::string target;
 	std::string command;
+        // clang-format off
 	desc.add_options()
 		("target", po::value<std::string>(&target), "Commands to run (can be used multiple times)")
 		("command", po::value<std::string>(&command), "Commands to run (can be used multiple times)")
 		("arguments", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
 		;
+// clang-format on
 	po::variables_map vm;
 	std::vector<std::string> args;
 
@@ -297,12 +305,14 @@ void CheckHelpers::check_timeout(const PB::Commands::QueryRequestMessage::Reques
 	std::vector<std::string> arguments;
 	unsigned long timeout = 30;
 	po::options_description desc = nscapi::program_options::create_desc(request);
+        // clang-format off
 	desc.add_options()
 		("timeout,t", po::value<unsigned long>(&timeout), "The timeout value")
 		("command,q", po::value<std::string>(&command), "Wrapped command to execute")
 		("arguments,a", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
 		("return,r", po::value<std::string>(), "The return status")
 		;
+// clang-format on
 	po::variables_map vm;
 	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
 		return;
@@ -358,12 +368,14 @@ void CheckHelpers::filter_perf(const PB::Commands::QueryRequestMessage::Request 
 	std::size_t limit;
 	std::vector<std::string> arguments;
 	po::options_description desc = nscapi::program_options::create_desc(request);
+        // clang-format off
 	desc.add_options()
 		("sort", po::value<std::string>(&sort)->default_value("none"), "The sort order to use: none, normal or reversed")
 		("limit", po::value<std::size_t>(&limit)->default_value(0), "The maximum number of items to return (0 returns all items)")
 		("command", po::value<std::string>(&command), "Wrapped command to execute")
 		("arguments", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
 		;
+// clang-format on
 
 	po::positional_options_description p;
 	p.add("arguments", -1);
@@ -457,6 +469,7 @@ namespace perf_filter {
 	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
 	filter_obj_handler::filter_obj_handler() {
+          // clang-format off
 		registry_.add_string()
 			("key", boost::bind(&filter_obj::get_key, ph::_1), "Major version number")
 			("value", boost::bind(&filter_obj::get_value, ph::_1), "Major version number")
@@ -467,6 +480,7 @@ namespace perf_filter {
 			("min", boost::bind(&filter_obj::get_max, ph::_1), "Major version number")
 			("message", boost::bind(&filter_obj::get_key, ph::_1), "Major version number")
 			;
+// clang-format on
 	}
 }
 
@@ -481,11 +495,13 @@ void CheckHelpers::render_perf(const PB::Commands::QueryRequestMessage::Request 
 	perf_filter::filter filter;
 	filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
 	filter_helper.add_syntax("%(status): %(message) %(list)", "%(key)\t%(value)\t%(unit)\t%(warn)\t%(crit)\t%(min)\t%(max)\n", "%(key)", "", "");
+        // clang-format off
 	filter_helper.get_desc().add_options()
 		("command", po::value<std::string>(&command), "Wrapped command to execute")
 		("arguments", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
 		("remove-perf", po::bool_switch(&remove_perf), "List of arguments (for wrapped command)")
 		;
+// clang-format on
 
 	po::positional_options_description p;
 	p.add("arguments", -1);
@@ -517,6 +533,7 @@ void CheckHelpers::xform_perf(const PB::Commands::QueryRequestMessage::Request &
 	std::string command, mode, field, replace;
 	std::vector<std::string> arguments;
 	po::options_description desc = nscapi::program_options::create_desc(request);
+        // clang-format off
 	desc.add_options()
 		("command", po::value<std::string>(&command), "Wrapped command to execute")
 		("arguments", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
@@ -524,6 +541,7 @@ void CheckHelpers::xform_perf(const PB::Commands::QueryRequestMessage::Request &
 		("field", po::value<std::string>(&field), "Field to work with (value, warn, crit, max, min)")
 		("replace", po::value<std::string>(&replace), "Replace expression for the alias")
 		;
+// clang-format on
 
 	po::positional_options_description p;
 	p.add("arguments", -1);

@@ -377,6 +377,7 @@ namespace eventlog_filter {
 
 	//////////////////////////////////////////////////////////////////////////
 
+        // clang-format off
 	filter_obj_handler::filter_obj_handler() {
 		registry_.add_string()
 			("source", boost::bind(&filter_obj::get_provider, _1), "Source system.")
@@ -429,6 +430,7 @@ namespace eventlog_filter {
 				(type_custom_severity, &fun_convert_old_severity)
 				(type_custom_type, &fun_convert_old_type)
 				;
+// clang-format on
 		}
 	}
 

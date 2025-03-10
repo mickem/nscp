@@ -45,6 +45,7 @@ void target_helper::add_target(nscapi::settings_helper::settings_impl_interface_
 		if (val.empty())
 			target.hostname = alias;
 
+                // clang-format off
 		settings.add_path_to_settings()
 			(target.hostname, "Targets", "A list of available remote target systems")
 
@@ -64,6 +65,7 @@ void target_helper::add_target(nscapi::settings_helper::settings_impl_interface_
 				"TARGET PROTOCOL", "Protocol identifier used to route requests")
 
 			;
+// clang-format on
 
 		settings.register_all();
 		settings.notify();
@@ -79,11 +81,13 @@ bool CheckWMI::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 	//settings.set_alias(_T("targets"));
 
+        // clang-format off
 	settings.add_path_to_settings()
 		("targets", sh::fun_values_path(boost::bind(&target_helper::add_target, &targets, nscapi::settings_proxy::create(get_id(), get_core()), boost::placeholders::_1, boost::placeholders::_2)),
 			"TARGET LIST SECTION", "A list of available remote target systems",
 			"TARGET DEFENTION", "For more configuration options add a dedicated section")
 		;
+// clang-format on
 
 	settings.register_all();
 	settings.notify();
@@ -141,6 +145,7 @@ void CheckWMI::check_wmi(const PB::Commands::QueryRequestMessage::Request &reque
 	boost::optional<target_helper::target_info> t;
 	std::string query, ns = "root\\cimv2";
 
+        // clang-format off
 	filter_type filter;
 	filter_helper.add_options("", "", "", filter.get_filter_syntax(), "ignored");
 	filter_helper.add_syntax("${list}", "%(line)", "", "", "");
@@ -151,6 +156,7 @@ void CheckWMI::check_wmi(const PB::Commands::QueryRequestMessage::Request &reque
 		("namespace", po::value<std::string>(&ns)->default_value("root\\cimv2"), "The WMI root namespace to bind to.")
 		("query", po::value<std::string>(&query), "The WMI query to execute.")
 		;
+// clang-format on
 
 	if (!filter_helper.parse_options())
 		return;
@@ -258,6 +264,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std:
 			bool simple;
 			int limit = -1;
 			po::options_description desc("Allowed options");
+                        // clang-format off
 			desc.add_options()
 				("help,h", "Show help screen")
 				("select,s", po::value<std::string>(&query), "Execute a query")
@@ -272,6 +279,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std:
 				("user,u", po::value<std::string>(&user), "The user for the remote computer")
 				("password,p", po::value<std::string>(&password), "The password for the remote computer")
 				;
+// clang-format on
 
 			boost::program_options::variables_map vm;
 

@@ -47,6 +47,7 @@ namespace check_cpu_filter {
 	filter_obj_handler::filter_obj_handler() {
 		static const parsers::where::value_type type_custom_pct = parsers::where::type_custom_int_1;
 
+                // clang-format off
 		registry_.add_string()
 			("time", boost::bind(&filter_obj::get_time, _1), "The time frame to check")
 			("core", boost::bind(&filter_obj::get_core_s, _1), boost::bind(&filter_obj::get_core_i, _1), "The core to check (total or core ##)")
@@ -61,6 +62,7 @@ namespace check_cpu_filter {
 		registry_.add_converter()
 			(type_custom_pct, &calculate_load)
 			;
+// clang-format on
 	}
 }
 
@@ -87,6 +89,7 @@ namespace check_page_filter {
 		static const parsers::where::value_type type_custom_used = parsers::where::type_custom_int_1;
 		static const parsers::where::value_type type_custom_free = parsers::where::type_custom_int_2;
 
+                // clang-format off
 		registry_.add_string()
 			("name", boost::bind(&filter_obj::get_name, _1), "The name of the page file (location)")
 			;
@@ -112,6 +115,7 @@ namespace check_page_filter {
 			(type_custom_free, &calculate_free)
 			(type_custom_used, &calculate_free)
 			;
+// clang-format on
 	}
 }
 
@@ -187,6 +191,7 @@ namespace check_svc_filter {
 		static const parsers::where::value_type type_custom_state = parsers::where::type_custom_int_1;
 		static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
 
+                // clang-format off
 		registry_.add_string()
 			("name", boost::bind(&filter_obj::get_name, _1), "Service name")
 			("desc", boost::bind(&filter_obj::get_desc, _1), "Service description")
@@ -216,6 +221,7 @@ namespace check_svc_filter {
 			(type_custom_state, &parse_state)
 			(type_custom_start_type, &parse_start_type)
 			;
+// clang-format on
 	}
 }
 
@@ -228,6 +234,7 @@ namespace check_uptime_filter {
 
 	static const parsers::where::value_type type_custom_uptime = parsers::where::type_custom_int_1;
 	filter_obj_handler::filter_obj_handler() {
+          // clang-format off
 		registry_.add_int()
 			("boot", parsers::where::type_date, boost::bind(&filter_obj::get_boot, _1), "System boot time")
 			("uptime", type_custom_uptime, boost::bind(&filter_obj::get_uptime, _1), "Time since last boot").add_perf("s", "", "")
@@ -239,11 +246,13 @@ namespace check_uptime_filter {
 			("boot", boost::bind(&filter_obj::get_boot_s, _1), "The system boot time")
 			("uptime", boost::bind(&filter_obj::get_uptime_s, _1), "Time sine last boot")
 			;
+// clang-format on
 	}
 }
 
 namespace os_version_filter {
 	filter_obj_handler::filter_obj_handler() {
+          // clang-format off
 		registry_.add_int()
 			("major", boost::bind(&filter_obj::get_major, _1), "Major version number").add_perf("")
 			("version", boost::bind(&filter_obj::get_version_i, _1), boost::bind(&filter_obj::get_version_s, _1), "The system version").add_perf("")
@@ -253,5 +262,6 @@ namespace os_version_filter {
  		registry_.add_string()
  			("suite", boost::bind(&filter_obj::get_suite_string, _1), "Which suites are installed on the machine (Microsoft BackOffice, Web Edition, Compute Cluster Edition, Datacenter Edition, Enterprise Edition, Embedded, Home Edition, Remote Desktop Support, Small Business Server, Storage Server, Terminal Services, Home Server)")
  			;
+// clang-format on
 	}
 }

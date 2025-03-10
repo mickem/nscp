@@ -34,12 +34,17 @@ using namespace parsers::where;
 
 namespace check_cpu_filter {
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string()("time", boost::bind(&filter_obj::get_time, _1), "The time frame to check")(
-      "core", boost::bind(&filter_obj::get_core_s, _1), boost::bind(&filter_obj::get_core_i, _1), "The core to check (total or core ##)")(
-      "core_id", boost::bind(&filter_obj::get_core_id, _1), boost::bind(&filter_obj::get_core_i, _1), "The core to check (total or core_##)");
-  registry_.add_int()("load", boost::bind(&filter_obj::get_total, _1), "The current load for a given core")
-      .add_perf("%")("idle", boost::bind(&filter_obj::get_idle, _1), "The current idle load for a given core")(
-          "kernel", boost::bind(&filter_obj::get_kernel, _1), "The current kernel load for a given core");
+  // clang-format off
+  registry_.add_string()
+    ("time", boost::bind(&filter_obj::get_time, _1), "The time frame to check")
+    ("core", boost::bind(&filter_obj::get_core_s, _1), boost::bind(&filter_obj::get_core_i, _1), "The core to check (total or core ##)")
+    ("core_id", boost::bind(&filter_obj::get_core_id, _1), boost::bind(&filter_obj::get_core_i, _1), "The core to check (total or core_##)")
+    ;
+  registry_.add_int()
+    ("load", boost::bind(&filter_obj::get_total, _1), "The current load for a given core").add_perf("%")
+    ("idle", boost::bind(&filter_obj::get_idle, _1), "The current idle load for a given core")
+    ("kernel", boost::bind(&filter_obj::get_kernel, _1), "The current kernel load for a given core");
+    // clang-format on
 }
 }  // namespace check_cpu_filter
 
@@ -64,18 +69,26 @@ filter_obj_handler::filter_obj_handler() {
   static const parsers::where::value_type type_custom_used = parsers::where::type_custom_int_1;
   static const parsers::where::value_type type_custom_free = parsers::where::type_custom_int_2;
 
-  registry_.add_string()("type", boost::bind(&filter_obj::get_type, _1), "The type of memory to check");
+  // clang-format off
+  registry_.add_string()
+    ("type", boost::bind(&filter_obj::get_type, _1), "The type of memory to check")
+    ;
   registry_
-      .add_int()("size", boost::bind(&filter_obj::get_total, _1), "Total size of memory")("free", type_custom_free, boost::bind(&filter_obj::get_free, _1),
-                                                                                          "Free memory in bytes (g,m,k,b) or percentages %")
-      .add_scaled_byte(boost::bind(&get_zero), boost::bind(&filter_obj::get_total, _1))
-      .add_percentage(boost::bind(&filter_obj::get_total, _1), "", " %")
-
-          ("used", type_custom_used, boost::bind(&filter_obj::get_used, _1), "Used memory in bytes (g,m,k,b) or percentages %")
-      .add_scaled_byte(boost::bind(&get_zero), boost::bind(&filter_obj::get_total, _1))
-      .add_percentage(boost::bind(&filter_obj::get_total, _1), "", " %");
-  registry_.add_human_string()("size", boost::bind(&filter_obj::get_total_human, _1), "")("free", boost::bind(&filter_obj::get_free_human, _1), "")(
-      "used", boost::bind(&filter_obj::get_used_human, _1), "");
+      .add_int()
+        ("size", boost::bind(&filter_obj::get_total, _1), "Total size of memory")
+        ("free", type_custom_free, boost::bind(&filter_obj::get_free, _1), "Free memory in bytes (g,m,k,b) or percentages %")
+          .add_scaled_byte(boost::bind(&get_zero), boost::bind(&filter_obj::get_total, _1))
+          .add_percentage(boost::bind(&filter_obj::get_total, _1), "", " %")
+        ("used", type_custom_used, boost::bind(&filter_obj::get_used, _1), "Used memory in bytes (g,m,k,b) or percentages %")
+          .add_scaled_byte(boost::bind(&get_zero), boost::bind(&filter_obj::get_total, _1))
+          .add_percentage(boost::bind(&filter_obj::get_total, _1), "", " %")
+      ;
+  registry_.add_human_string()
+    ("size", boost::bind(&filter_obj::get_total_human, _1), "")
+    ("free", boost::bind(&filter_obj::get_free_human, _1), "")
+    ("used", boost::bind(&filter_obj::get_used_human, _1), "")
+    ;
+// clang-format on
 
   registry_.add_converter()(type_custom_free, &calculate_free)(type_custom_used, &calculate_free);
 }

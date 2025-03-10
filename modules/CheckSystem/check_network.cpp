@@ -209,6 +209,7 @@ namespace network_check {
 			static const parsers::where::value_type type_custom_state = parsers::where::type_custom_int_1;
 			static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
 
+                        // clang-format off
 			registry_.add_string()
 				("name", boost::bind(&filter_obj::get_name, ph::_1), "Network interface name")
 				("net_connection_id", boost::bind(&filter_obj::get_NetConnectionID, ph::_1), "Network connection id")
@@ -223,6 +224,7 @@ namespace network_check {
 				("sent", boost::bind(&filter_obj::getBytesSentPersec, ph::_1), "Bytes sent per second")
 				("total", boost::bind(&filter_obj::getBytesTotalPersec, ph::_1), "Bytes total per second")
 				;
+// clang-format on
 		}
 
 

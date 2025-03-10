@@ -106,6 +106,8 @@ namespace check_docker_filter {
 			static const parsers::where::value_type type_custom_used = parsers::where::type_custom_int_1;
 			static const parsers::where::value_type type_custom_free = parsers::where::type_custom_int_2;
 
+                        // clang-format off
+
 			registry_.add_string()
 				("id", boost::bind(&filter_obj::get_id, ph::_1), "Container id")
 				("image", boost::bind(&filter_obj::get_image, ph::_1), "Container image")
@@ -116,6 +118,8 @@ namespace check_docker_filter {
 				("names", boost::bind(&filter_obj::get_names, ph::_1), "Container image")
 				("ip", boost::bind(&filter_obj::get_ip, ph::_1), "IP of container")
 				;
+
+// clang-format on
 				
 		}
 	};

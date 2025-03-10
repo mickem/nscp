@@ -48,6 +48,7 @@ node_type get_column_fun(const value_type, evaluation_context context, const nod
 //////////////////////////////////////////////////////////////////////////
 
 logfile_filter::filter_obj_handler::filter_obj_handler() {
+  // clang-format off
 	registry_.add_string()
 		("line", boost::bind(&filter_obj::get_line, _1), "Match the content of an entire line")
 		("column1", boost::bind(&filter_obj::get_column, _1, 1), boost::bind(&filter_obj::get_column_number, _1, 1), "The value in the first column")
@@ -66,4 +67,5 @@ logfile_filter::filter_obj_handler::filter_obj_handler() {
 	registry_.add_string_fun()
 		("column", &get_column_fun, "Fetch the value from the given column number.\nSyntax: column(<coulmn number>)")
 		;
+// clang-format on
 }
