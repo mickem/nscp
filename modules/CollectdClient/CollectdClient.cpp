@@ -32,12 +32,12 @@
 #include <boost/make_shared.hpp>
 #include <boost/regex.hpp>
 
-
 /**
  * Default c-tor
  * @return
  */
-CollectdClient::CollectdClient() : client_("nsca", boost::make_shared<collectd_client::collectd_client_handler>(), boost::make_shared<collectd_handler::options_reader_impl>()) {}
+CollectdClient::CollectdClient()
+    : client_("nsca", boost::make_shared<collectd_client::collectd_client_handler>(), boost::make_shared<collectd_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor
@@ -46,14 +46,14 @@ CollectdClient::CollectdClient() : client_("nsca", boost::make_shared<collectd_c
 CollectdClient::~CollectdClient() {}
 
 bool CollectdClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
-	try {
-		sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
-		settings.set_alias("collectd", alias, "client");
-		std::string target_path = settings.alias().get_settings_path("targets");
+  try {
+    sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
+    settings.set_alias("collectd", alias, "client");
+    std::string target_path = settings.alias().get_settings_path("targets");
 
-		client_.set_path(target_path);
+    client_.set_path(target_path);
 
-                // clang-format off
+    // clang-format off
 		settings.alias().add_path_to_settings()
 			("COLLECTD CLIENT SECTION", "Section for NSCA passive check module.")
 
@@ -74,65 +74,65 @@ bool CollectdClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 				"${domain_uc}\tDomainname in uppercase\n"
 				)
 			;
-// clang-format on
+    // clang-format on
 
-		settings.register_all();
-		settings.notify();
+    settings.register_all();
+    settings.notify();
 
-		client_.finalize(nscapi::settings_proxy::create(get_id(), get_core()));
+    client_.finalize(nscapi::settings_proxy::create(get_id(), get_core()));
 
-		nscapi::core_helper core(get_core(), get_id());
+    nscapi::core_helper core(get_core(), get_id());
 
-		if (hostname_ == "auto") {
-			hostname_ = boost::asio::ip::host_name();
-		} else if (hostname_ == "auto-lc") {
-			hostname_ = boost::asio::ip::host_name();
-			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::tolower);
-		} else if (hostname_ == "auto-uc") {
-			hostname_ = boost::asio::ip::host_name();
-			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::toupper);
-		} else {
-			str::utils::token dn = str::utils::getToken(boost::asio::ip::host_name(), '.');
+    if (hostname_ == "auto") {
+      hostname_ = boost::asio::ip::host_name();
+    } else if (hostname_ == "auto-lc") {
+      hostname_ = boost::asio::ip::host_name();
+      std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::tolower);
+    } else if (hostname_ == "auto-uc") {
+      hostname_ = boost::asio::ip::host_name();
+      std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::toupper);
+    } else {
+      str::utils::token dn = str::utils::getToken(boost::asio::ip::host_name(), '.');
 
-			try {
-				boost::asio::io_service svc;
-				boost::asio::ip::tcp::resolver resolver(svc);
-				boost::asio::ip::tcp::resolver::query query(boost::asio::ip::host_name(), "");
-				boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve(query), end;
+      try {
+        boost::asio::io_service svc;
+        boost::asio::ip::tcp::resolver resolver(svc);
+        boost::asio::ip::tcp::resolver::query query(boost::asio::ip::host_name(), "");
+        boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve(query), end;
 
-				std::string s;
-				while (iter != end) {
-					s += iter->host_name();
-					s += " - ";
-					s += iter->endpoint().address().to_string();
-					iter++;
-				}
-			} catch (const std::exception& e) {
-				NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
-			}
-			str::utils::replace(hostname_, "${host}", dn.first);
-			str::utils::replace(hostname_, "${domain}", dn.second);
-			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::toupper);
-			std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::toupper);
-			str::utils::replace(hostname_, "${host_uc}", dn.first);
-			str::utils::replace(hostname_, "${domain_uc}", dn.second);
-			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::tolower);
-			std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::tolower);
-			str::utils::replace(hostname_, "${host_lc}", dn.first);
-			str::utils::replace(hostname_, "${domain_lc}", dn.second);
-		}
-		client_.set_sender(hostname_);
-	} catch (nsclient::nsclient_exception &e) {
-		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
-		return false;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_EXR("loading", e);
-		return false;
-	} catch (...) {
-		NSC_LOG_ERROR_EX("loading");
-		return false;
-	}
-	return true;
+        std::string s;
+        while (iter != end) {
+          s += iter->host_name();
+          s += " - ";
+          s += iter->endpoint().address().to_string();
+          iter++;
+        }
+      } catch (const std::exception &e) {
+        NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
+      }
+      str::utils::replace(hostname_, "${host}", dn.first);
+      str::utils::replace(hostname_, "${domain}", dn.second);
+      std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::toupper);
+      std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::toupper);
+      str::utils::replace(hostname_, "${host_uc}", dn.first);
+      str::utils::replace(hostname_, "${domain_uc}", dn.second);
+      std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::tolower);
+      std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::tolower);
+      str::utils::replace(hostname_, "${host_lc}", dn.first);
+      str::utils::replace(hostname_, "${domain_lc}", dn.second);
+    }
+    client_.set_sender(hostname_);
+  } catch (nsclient::nsclient_exception &e) {
+    NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
+    return false;
+  } catch (std::exception &e) {
+    NSC_LOG_ERROR_EXR("loading", e);
+    return false;
+  } catch (...) {
+    NSC_LOG_ERROR_EX("loading");
+    return false;
+  }
+  return true;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -140,13 +140,13 @@ bool CollectdClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 //
 
 void CollectdClient::add_target(std::string key, std::string arg) {
-	try {
-		client_.add_target(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
-	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
-	} catch (...) {
-		NSC_LOG_ERROR_EX("Failed to add target: " + key);
-	}
+  try {
+    client_.add_target(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
+  } catch (...) {
+    NSC_LOG_ERROR_EX("Failed to add target: " + key);
+  }
 }
 
 /**
@@ -155,12 +155,8 @@ void CollectdClient::add_target(std::string key, std::string arg) {
  * @return true if successfully, false if not (if not things might be bad)
  */
 bool CollectdClient::unloadModule() {
-	client_.clear();
-	return true;
+  client_.clear();
+  return true;
 }
 
-
-
-void CollectdClient::submitMetrics(const PB::Metrics::MetricsMessage &response) {
-	client_.do_metrics(response);
-}
+void CollectdClient::submitMetrics(const PB::Metrics::MetricsMessage &response) { client_.do_metrics(response); }

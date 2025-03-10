@@ -27,27 +27,27 @@
 #include <nscapi/macros.hpp>
 
 namespace CryptoPP {
-	const std::string DEFAULT_CHANNEL = "";
-	//	const std::string AAD_CHANNEL = "AAD";
-}
+const std::string DEFAULT_CHANNEL = "";
+//	const std::string AAD_CHANNEL = "AAD";
+}  // namespace CryptoPP
 
 namespace sh = nscapi::settings_helper;
 
 bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
-	try {
-		if (server_) {
-			server_->stop();
-			server_.reset();
-		}
-	} catch (...) {
-		NSC_LOG_ERROR_STD("Failed to stop server");
-		return false;
-	}
+  try {
+    if (server_) {
+      server_->stop();
+      server_.reset();
+    }
+  } catch (...) {
+    NSC_LOG_ERROR_STD("Failed to stop server");
+    return false;
+  }
 
-	sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
-	settings.set_alias("NSCA", alias, "server");
+  sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
+  settings.set_alias("NSCA", alias, "server");
 
-        // clang-format off
+  // clang-format off
 	settings.alias().add_path_to_settings()
 		("NSCA SERVER SECTION", "Section for NSCA (NSCAServer) (check_nsca) protocol options.")
 		;
@@ -67,12 +67,13 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 				"This is also independent of SSL and generally used instead of SSL.\nAvailable encryption algorithms are:\n") + nscp::encryption::helpers::get_crypto_string("\n"))
 
 		;
-// clang-format on
+  // clang-format on
 
-	socket_helpers::settings_helper::add_core_server_opts(settings, info_);
-	socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false, "", "${certificate-path}/certificate.pem", "", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+  socket_helpers::settings_helper::add_core_server_opts(settings, info_);
+  socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false, "", "${certificate-path}/certificate.pem", "",
+                                                       "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 
-        // clang-format off
+  // clang-format off
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
 
 		("password", sh::string_key(&password_, ""),
@@ -82,61 +83,62 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			"INBOX", "The default channel to post incoming messages on")
 
 		;
-// clang-format on
+  // clang-format on
 
-	settings.register_all();
-	settings.notify();
+  settings.register_all();
+  settings.notify();
 
 #ifndef USE_SSL
-	if (info_.ssl.enabled) {
-		NSC_LOG_ERROR_STD(_T("SSL not available! (not compiled with openssl support)"));
-		return false;
-	}
+  if (info_.ssl.enabled) {
+    NSC_LOG_ERROR_STD(_T("SSL not available! (not compiled with openssl support)"));
+    return false;
+  }
 #endif
-	if (payload_length_ != 512)
-		NSC_DEBUG_MSG_STD("Non-standard buffer length (hope you have recompiled check_nsca changing #define MAX_PACKETBUFFER_LENGTH = " + str::xtos(payload_length_));
-	NSC_LOG_ERROR_LISTS(info_.validate());
+  if (payload_length_ != 512)
+    NSC_DEBUG_MSG_STD("Non-standard buffer length (hope you have recompiled check_nsca changing #define MAX_PACKETBUFFER_LENGTH = " +
+                      str::xtos(payload_length_));
+  NSC_LOG_ERROR_LISTS(info_.validate());
 
-	std::list<std::string> errors;
-	info_.allowed_hosts.refresh(errors);
-	NSC_LOG_ERROR_LISTS(errors);
-	NSC_DEBUG_MSG_STD("Allowed hosts definition: " + info_.allowed_hosts.to_string());
-	NSC_DEBUG_MSG_STD("Starting server on: " + info_.to_string());
+  std::list<std::string> errors;
+  info_.allowed_hosts.refresh(errors);
+  NSC_LOG_ERROR_LISTS(errors);
+  NSC_DEBUG_MSG_STD("Allowed hosts definition: " + info_.allowed_hosts.to_string());
+  NSC_DEBUG_MSG_STD("Starting server on: " + info_.to_string());
 
-	if (mode == NSCAPI::normalStart || mode == NSCAPI::reloadStart) {
-		server_.reset(new nsca::server::server(info_, this));
-		if (!server_) {
-			NSC_LOG_ERROR_STD("Failed to create server instance!");
-			return false;
-		}
-		server_->start();
-	}
-	return true;
+  if (mode == NSCAPI::normalStart || mode == NSCAPI::reloadStart) {
+    server_.reset(new nsca::server::server(info_, this));
+    if (!server_) {
+      NSC_LOG_ERROR_STD("Failed to create server instance!");
+      return false;
+    }
+    server_->start();
+  }
+  return true;
 }
 
 bool NSCAServer::unloadModule() {
-	try {
-		if (server_) {
-			server_->stop();
-			server_.reset();
-		}
-	} catch (...) {
-		NSC_LOG_ERROR_STD("Exception caught: <UNKNOWN>");
-		return false;
-	}
-	return true;
+  try {
+    if (server_) {
+      server_->stop();
+      server_.reset();
+    }
+  } catch (...) {
+    NSC_LOG_ERROR_STD("Exception caught: <UNKNOWN>");
+    return false;
+  }
+  return true;
 }
 
 void NSCAServer::handle(nsca::packet p) {
-	std::string response;
-	std::string::size_type pos = p.result.find('|');
-	nscapi::core_helper helper(get_core(), get_id());
-	if (pos != std::string::npos) {
-		std::string msg = p.result.substr(0, pos);
-		std::string perf = p.result.substr(++pos);
-		helper.submit_simple_message(channel_, p.host, "", p.service, nscapi::plugin_helper::int2nagios(p.code), msg, perf, response);
-	} else {
-		std::string empty, msg = p.result;
-		helper.submit_simple_message(channel_, p.host, "", p.service, nscapi::plugin_helper::int2nagios(p.code), msg, empty, response);
-	}
+  std::string response;
+  std::string::size_type pos = p.result.find('|');
+  nscapi::core_helper helper(get_core(), get_id());
+  if (pos != std::string::npos) {
+    std::string msg = p.result.substr(0, pos);
+    std::string perf = p.result.substr(++pos);
+    helper.submit_simple_message(channel_, p.host, "", p.service, nscapi::plugin_helper::int2nagios(p.code), msg, perf, response);
+  } else {
+    std::string empty, msg = p.result;
+    helper.submit_simple_message(channel_, p.host, "", p.service, nscapi::plugin_helper::int2nagios(p.code), msg, empty, response);
+  }
 }
