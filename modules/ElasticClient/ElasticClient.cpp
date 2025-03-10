@@ -46,8 +46,7 @@
  * Default c-tor
  * @return
  */
-ElasticClient::ElasticClient() : started(false)
-{}
+ElasticClient::ElasticClient() : started(false) {}
 
 /**
  * Default d-tor
@@ -55,16 +54,14 @@ ElasticClient::ElasticClient() : started(false)
  */
 ElasticClient::~ElasticClient() {}
 
-
-
 bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
-	try {
+  try {
+    std::string events;
 
-		std::string events;
+    sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
+    settings.set_alias("elastic", alias, "client");
 
-		sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
-		settings.set_alias("elastic", alias, "client");
- 
+    // clang-format off
 		settings.alias().add_key_to_settings()
  			("hostname", sh::string_key(&hostname_, "auto"),
  				"HOSTNAME", "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
@@ -99,73 +96,74 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 			"Elastic type used for metrics", "The elastic type to use for metrics.")
 
 			;
+    // clang-format on
 
-		settings.register_all();
-		settings.notify();
-// 
-// 		client_.finalize(get_settings_proxy());
-// 
-// 		nscapi::core_helper core(get_core(), get_id());
-// 		core.register_channel(channel_);
-// 
-		if (hostname_ == "auto") {
-			hostname_ = boost::asio::ip::host_name();
-		} else if (hostname_ == "auto-lc") {
-			hostname_ = boost::asio::ip::host_name();
-			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::tolower);
-		} else if (hostname_ == "auto-uc") {
-			hostname_ = boost::asio::ip::host_name();
-			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::toupper);
-		} else {
-			str::utils::token dn = str::utils::getToken(boost::asio::ip::host_name(), '.');
+    settings.register_all();
+    settings.notify();
+    //
+    // 		client_.finalize(get_settings_proxy());
+    //
+    // 		nscapi::core_helper core(get_core(), get_id());
+    // 		core.register_channel(channel_);
+    //
+    if (hostname_ == "auto") {
+      hostname_ = boost::asio::ip::host_name();
+    } else if (hostname_ == "auto-lc") {
+      hostname_ = boost::asio::ip::host_name();
+      std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::tolower);
+    } else if (hostname_ == "auto-uc") {
+      hostname_ = boost::asio::ip::host_name();
+      std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::toupper);
+    } else {
+      str::utils::token dn = str::utils::getToken(boost::asio::ip::host_name(), '.');
 
-			try {
-				boost::asio::io_service svc;
-				boost::asio::ip::tcp::resolver resolver(svc);
-				boost::asio::ip::tcp::resolver::query query(boost::asio::ip::host_name(), "");
-				boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve(query), end;
+      try {
+        boost::asio::io_service svc;
+        boost::asio::ip::tcp::resolver resolver(svc);
+        boost::asio::ip::tcp::resolver::query query(boost::asio::ip::host_name(), "");
+        boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve(query), end;
 
-				std::string s;
-				while (iter != end) {
-					s += iter->host_name();
-					s += " - ";
-					s += iter->endpoint().address().to_string();
-					iter++;
-				}
-			} catch (const std::exception& e) {
-				NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
-			}
+        std::string s;
+        while (iter != end) {
+          s += iter->host_name();
+          s += " - ";
+          s += iter->endpoint().address().to_string();
+          iter++;
+        }
+      } catch (const std::exception &e) {
+        NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
+      }
 
-			str::utils::replace(hostname_, "${host}", dn.first);
-			str::utils::replace(hostname_, "${domain}", dn.second);
-			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::toupper);
-			std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::toupper);
-			str::utils::replace(hostname_, "${host_uc}", dn.first);
-			str::utils::replace(hostname_, "${domain_uc}", dn.second);
-			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::tolower);
-			std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::tolower);
-			str::utils::replace(hostname_, "${host_lc}", dn.first);
-			str::utils::replace(hostname_, "${domain_lc}", dn.second);
-		}
+      str::utils::replace(hostname_, "${host}", dn.first);
+      str::utils::replace(hostname_, "${domain}", dn.second);
+      std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::toupper);
+      std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::toupper);
+      str::utils::replace(hostname_, "${host_uc}", dn.first);
+      str::utils::replace(hostname_, "${domain_uc}", dn.second);
+      std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::tolower);
+      std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::tolower);
+      str::utils::replace(hostname_, "${host_lc}", dn.first);
+      str::utils::replace(hostname_, "${domain_lc}", dn.second);
+    }
 
-		nscapi::core_helper ch(get_core(), get_id());
-		ch.register_event(events);
+    nscapi::core_helper ch(get_core(), get_id());
+    ch.register_event(events);
 
-		if (mode == NSCAPI::normalStart || mode == NSCAPI::reloadStart) {
-			started = true;
-		}
+    if (mode == NSCAPI::normalStart || mode == NSCAPI::reloadStart) {
+      started = true;
+    }
 
-	} catch (nsclient::nsclient_exception &e) {
-		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
-		return false;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
-		return false;
-	} catch (...) {
-		NSC_LOG_ERROR_EX("NSClient API exception: ");
-		return false;
-	}
-	return true;
+  } catch (nsclient::nsclient_exception &e) {
+    NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
+    return false;
+  } catch (std::exception &e) {
+    NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
+    return false;
+  } catch (...) {
+    NSC_LOG_ERROR_EX("NSClient API exception: ");
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -173,171 +171,163 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
  * Attempt to stop the background processing thread.
  * @return true if successfully, false if not (if not things might be bad)
  */
-bool ElasticClient::unloadModule() {
-	return true;
-}
+bool ElasticClient::unloadModule() { return true; }
 
-void ElasticClient::handleNotification(const std::string &, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage *response_message) {
-// 	client_.do_submit(request_message, *response_message);
+void ElasticClient::handleNotification(const std::string &, const PB::Commands::SubmitRequestMessage &request_message,
+                                       PB::Commands::SubmitResponseMessage *response_message) {
+  // 	client_.do_submit(request_message, *response_message);
 }
 std::string parse_index(std::string index) {
-	std::string date = boost::gregorian::to_iso_extended_string(boost::gregorian::day_clock::universal_day());
-	return boost::algorithm::replace_all_copy(index, "%(date)", date);
+  std::string date = boost::gregorian::to_iso_extended_string(boost::gregorian::day_clock::universal_day());
+  return boost::algorithm::replace_all_copy(index, "%(date)", date);
 }
 void send_to_elastic(const std::string address, const std::string index, std::string type, const std::vector<std::string> payloads, bool log_errors) {
-	boost::uuids::uuid uuid = boost::uuids::random_generator()();
+  boost::uuids::uuid uuid = boost::uuids::random_generator()();
 
-	std::string payload;
-	for(const std::string &data: payloads) {
-		json_spirit::Object tgtidx;
-		tgtidx["_index"] = parse_index(index);
-		tgtidx["_type"] = type;
-		tgtidx["_id"] = boost::uuids::to_string(uuid);
+  std::string payload;
+  for (const std::string &data : payloads) {
+    json_spirit::Object tgtidx;
+    tgtidx["_index"] = parse_index(index);
+    tgtidx["_type"] = type;
+    tgtidx["_id"] = boost::uuids::to_string(uuid);
 
-		json_spirit::Object header;
-		header["index"] = tgtidx;
+    json_spirit::Object header;
+    header["index"] = tgtidx;
 
-		payload += json_spirit::write(header, json_spirit::raw_utf8) + "\n";
-		payload += data + "\n";
-	}
-	Mongoose::Client c(address);
-	std::map<std::string, std::string> http_hdr;
-	http_hdr["Content-Type"] = "application/x-ndjson";
+    payload += json_spirit::write(header, json_spirit::raw_utf8) + "\n";
+    payload += data + "\n";
+  }
+  Mongoose::Client c(address);
+  std::map<std::string, std::string> http_hdr;
+  http_hdr["Content-Type"] = "application/x-ndjson";
 
-	if (log_errors) {
-		NSC_TRACE_ENABLED() {
-			NSC_TRACE_MSG(payload);
-		}
-	}
-	boost::shared_ptr<Mongoose::Response> r = c.fetch("POST", http_hdr, payload);
-	if (!r) {
-		if (log_errors) {
-			NSC_LOG_ERROR("Failed to send log record to elastic (no response from server)");
-		}
-		return;
-	}
-	payload = r->getBody();
-	if (log_errors) {
-		NSC_TRACE_ENABLED() {
-			NSC_TRACE_MSG("code: " + str::xtos(r->get_response_code()));
-			for(const Mongoose::Response::header_type::value_type &v: r->get_headers()) {
-				NSC_TRACE_MSG(v.first + " = " + v.second);
-			}
-			NSC_TRACE_MSG(r->getBody());
-		}
-	}
-	try {
-		json_spirit::Value root;
-		json_spirit::read_or_throw(payload, root);
-		if (root.contains("errors")) {
-			if (root.getBool("errors")) {
-				std::string errors;
-				for(const json_spirit::Value &item: root.getArray("items")) {
-					str::format::append_list(errors, item.get("index").get("error").getString("reason"));
-				}
-				if (log_errors) {
-					NSC_LOG_ERROR("Failed to send log record to elastic: " + errors);
-				}
-			}
-		} else if (log_errors && root.contains("error")) {
-			NSC_LOG_ERROR("Failed to send log record to elastic: " + root.get("error").getString("reason"));
-		}
-	} catch (const json_spirit::PathError &e) {
-		if (log_errors) {
-			NSC_LOG_ERROR("Failed to parse elastic response " + e.reason + ": " + e.path);
-		}
-	} catch (const json_spirit::ParseError &e) {
-		if (log_errors) {
-			NSC_LOG_ERROR("Failed to parse elastic response: " + e.reason_);
-		}
-	} catch (const std::exception &e) {
-		if (log_errors) {
-			NSC_LOG_ERROR_EXR("Failed to parse elastic response: ", e);
-		}
-	} catch (...) {
-		if (log_errors) {
-			NSC_LOG_ERROR_EX("Failed to parse elastic response: UNKNOWN EXCEPTION");
-		}
-	}
+  if (log_errors) {
+    NSC_TRACE_ENABLED() { NSC_TRACE_MSG(payload); }
+  }
+  boost::shared_ptr<Mongoose::Response> r = c.fetch("POST", http_hdr, payload);
+  if (!r) {
+    if (log_errors) {
+      NSC_LOG_ERROR("Failed to send log record to elastic (no response from server)");
+    }
+    return;
+  }
+  payload = r->getBody();
+  if (log_errors) {
+    NSC_TRACE_ENABLED() {
+      NSC_TRACE_MSG("code: " + str::xtos(r->get_response_code()));
+      for (const Mongoose::Response::header_type::value_type &v : r->get_headers()) {
+        NSC_TRACE_MSG(v.first + " = " + v.second);
+      }
+      NSC_TRACE_MSG(r->getBody());
+    }
+  }
+  try {
+    json_spirit::Value root;
+    json_spirit::read_or_throw(payload, root);
+    if (root.contains("errors")) {
+      if (root.getBool("errors")) {
+        std::string errors;
+        for (const json_spirit::Value &item : root.getArray("items")) {
+          str::format::append_list(errors, item.get("index").get("error").getString("reason"));
+        }
+        if (log_errors) {
+          NSC_LOG_ERROR("Failed to send log record to elastic: " + errors);
+        }
+      }
+    } else if (log_errors && root.contains("error")) {
+      NSC_LOG_ERROR("Failed to send log record to elastic: " + root.get("error").getString("reason"));
+    }
+  } catch (const json_spirit::PathError &e) {
+    if (log_errors) {
+      NSC_LOG_ERROR("Failed to parse elastic response " + e.reason + ": " + e.path);
+    }
+  } catch (const json_spirit::ParseError &e) {
+    if (log_errors) {
+      NSC_LOG_ERROR("Failed to parse elastic response: " + e.reason_);
+    }
+  } catch (const std::exception &e) {
+    if (log_errors) {
+      NSC_LOG_ERROR_EXR("Failed to parse elastic response: ", e);
+    }
+  } catch (...) {
+    if (log_errors) {
+      NSC_LOG_ERROR_EX("Failed to parse elastic response: UNKNOWN EXCEPTION");
+    }
+  }
 }
 
-void ElasticClient::onEvent(const PB::Commands::EventMessage & request, const std::string & buffer) {
-	if (!started || address.empty()) {
-		return;
-	}
-	std::string time = boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::universal_time());
-	boost::uuids::uuid uuid = boost::uuids::random_generator()();
+void ElasticClient::onEvent(const PB::Commands::EventMessage &request, const std::string &buffer) {
+  if (!started || address.empty()) {
+    return;
+  }
+  std::string time = boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::universal_time());
+  boost::uuids::uuid uuid = boost::uuids::random_generator()();
 
-	std::vector<std::string> payloads;
-	for(const ::PB::Commands::EventMessage::Request &line: request.payload()) {
-		json_spirit::Object node;
-		for(const PB::Common::KeyValue e: line.data()) {
-			if (e.key() == "written_str") {
-				time = e.value();
-			} else if (e.key() != "xml" && e.key() != "written") {
-				node[e.key()] = e.value();
-			}
-		}
-		node["@timestamp"] = time;
-		node["hostname"] = hostname_;
-		payloads.push_back(json_spirit::write(node, json_spirit::raw_utf8));
-	}
-	send_to_elastic(address, event_index, event_type, payloads, true);
+  std::vector<std::string> payloads;
+  for (const ::PB::Commands::EventMessage::Request &line : request.payload()) {
+    json_spirit::Object node;
+    for (const PB::Common::KeyValue e : line.data()) {
+      if (e.key() == "written_str") {
+        time = e.value();
+      } else if (e.key() != "xml" && e.key() != "written") {
+        node[e.key()] = e.value();
+      }
+    }
+    node["@timestamp"] = time;
+    node["hostname"] = hostname_;
+    payloads.push_back(json_spirit::write(node, json_spirit::raw_utf8));
+  }
+  send_to_elastic(address, event_index, event_type, payloads, true);
 }
 
-
-void build_metrics(json_spirit::Object &metrics, const std::string trail, const PB::Metrics::MetricsBundle & b) {
-	json_spirit::Object node;
-	for(const PB::Metrics::MetricsBundle &b2: b.children()) {
-		build_metrics(node, trail + boost::replace_all_copy(b.alias(), ".", "_"), b2);
-	}
-	for(const PB::Metrics::Metric &v: b.value()) {
-		std::string key = trail.empty() ? boost::replace_all_copy(v.key(), ".", "_") 
-			: trail + "_" + boost::replace_all_copy(v.key(), ".", "_");
-		if (v.has_gauge_value())
-			node.insert(json_spirit::Object::value_type(key, v.gauge_value().value()));
-		else if (v.has_string_value())
-			node.insert(json_spirit::Object::value_type(key, v.string_value().value()));
-	}
-	metrics.insert(json_spirit::Object::value_type(b.key(), node));
+void build_metrics(json_spirit::Object &metrics, const std::string trail, const PB::Metrics::MetricsBundle &b) {
+  json_spirit::Object node;
+  for (const PB::Metrics::MetricsBundle &b2 : b.children()) {
+    build_metrics(node, trail + boost::replace_all_copy(b.alias(), ".", "_"), b2);
+  }
+  for (const PB::Metrics::Metric &v : b.value()) {
+    std::string key = trail.empty() ? boost::replace_all_copy(v.key(), ".", "_") : trail + "_" + boost::replace_all_copy(v.key(), ".", "_");
+    if (v.has_gauge_value())
+      node.insert(json_spirit::Object::value_type(key, v.gauge_value().value()));
+    else if (v.has_string_value())
+      node.insert(json_spirit::Object::value_type(key, v.string_value().value()));
+  }
+  metrics.insert(json_spirit::Object::value_type(b.key(), node));
 }
 void ElasticClient::submitMetrics(const PB::Metrics::MetricsMessage &response) {
-	if (!started || address.empty()) {
-		return;
-	}
-	json_spirit::Object metrics;
-	metrics["@timestamp"] = boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::universal_time());
-	metrics["hostname"] = hostname_;
-	for(const PB::Metrics::MetricsMessage::Response &p: response.payload()) {
-		for(const PB::Metrics::MetricsBundle &b: p.bundles()) {
-			build_metrics(metrics, "", b);
-		}
-	}
+  if (!started || address.empty()) {
+    return;
+  }
+  json_spirit::Object metrics;
+  metrics["@timestamp"] = boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::universal_time());
+  metrics["hostname"] = hostname_;
+  for (const PB::Metrics::MetricsMessage::Response &p : response.payload()) {
+    for (const PB::Metrics::MetricsBundle &b : p.bundles()) {
+      build_metrics(metrics, "", b);
+    }
+  }
 
-	std::vector<std::string> payloads;
-	payloads.push_back(json_spirit::write(metrics, json_spirit::raw_utf8));
-	send_to_elastic(address, metrics_index, metrics_type, payloads, true);
-
+  std::vector<std::string> payloads;
+  payloads.push_back(json_spirit::write(metrics, json_spirit::raw_utf8));
+  send_to_elastic(address, metrics_index, metrics_type, payloads, true);
 }
 
 void ElasticClient::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
-	if (!started || address.empty()) {
-		return;
-	}
+  if (!started || address.empty()) {
+    return;
+  }
 
-	json_spirit::Object node;
-	node["sender"] = message.sender();
-	node["message"] = message.message();
-	node["file"] = message.file();
-	node["line"] = message.line();
-	node["level"] = nsclient::logging::logger_helper::render_log_level_long(message.level());
-	node["@timestamp"] = boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::universal_time());
-	node["hostname"] = hostname_;
+  json_spirit::Object node;
+  node["sender"] = message.sender();
+  node["message"] = message.message();
+  node["file"] = message.file();
+  node["line"] = message.line();
+  node["level"] = nsclient::logging::logger_helper::render_log_level_long(message.level());
+  node["@timestamp"] = boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::universal_time());
+  node["hostname"] = hostname_;
 
-	bool log = message.sender() != "elastic";
-	std::vector<std::string> payloads;
-	payloads.push_back(json_spirit::write(node, json_spirit::raw_utf8));
-	send_to_elastic(address, nsclient_index, nsclient_type, payloads, log);
-
-
+  bool log = message.sender() != "elastic";
+  std::vector<std::string> payloads;
+  payloads.push_back(json_spirit::write(node, json_spirit::raw_utf8));
+  send_to_elastic(address, nsclient_index, nsclient_type, payloads, log);
 }

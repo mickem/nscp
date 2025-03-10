@@ -37,17 +37,19 @@ namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
 void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-	modern_filter::data_container data;
-	modern_filter::cli_helper<ping_filter::filter> filter_helper(request, response, data);
-	std::vector<std::string> hosts;
-	std::string hosts_string;
-	bool total = false;
-	int count = 0;
-	int timeout = 0;
+  modern_filter::data_container data;
+  modern_filter::cli_helper<ping_filter::filter> filter_helper(request, response, data);
+  std::vector<std::string> hosts;
+  std::string hosts_string;
+  bool total = false;
+  int count = 0;
+  int timeout = 0;
 
-	ping_filter::filter filter;
-	filter_helper.add_options("time > 60 or loss > 5%", "time > 100 or loss > 10%", "", filter.get_filter_syntax(), "unknown");
-	filter_helper.add_syntax("${status}: ${ok_count}/${count} (${problem_list})", "${ip} Packet loss = ${loss}%, RTA = ${time}ms", "${host}", "No hosts found", "%(status): All %(count) hosts are ok");
+  ping_filter::filter filter;
+  filter_helper.add_options("time > 60 or loss > 5%", "time > 100 or loss > 10%", "", filter.get_filter_syntax(), "unknown");
+  filter_helper.add_syntax("${status}: ${ok_count}/${count} (${problem_list})", "${ip} Packet loss = ${loss}%, RTA = ${time}ms", "${host}", "No hosts found",
+                           "%(status): All %(count) hosts are ok");
+  // clang-format off
 	filter_helper.get_desc().add_options()
 		("host", po::value<std::vector<std::string> >(&hosts),
 			"The host to check (or multiple hosts).")
@@ -59,39 +61,32 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
 		("timeout", po::value<int>(&timeout)->default_value(500),
 			"Timeout in milliseconds.")
 		;
+  // clang-format on
 
-	if (!filter_helper.parse_options())
-		return;
+  if (!filter_helper.parse_options()) return;
 
-	if (!hosts_string.empty())
-		boost::split(hosts, hosts_string, boost::is_any_of(","));
+  if (!hosts_string.empty()) boost::split(hosts, hosts_string, boost::is_any_of(","));
 
-	if (hosts.empty())
-		return nscapi::protobuf::functions::set_response_bad(*response, "No host specified");
-	if (hosts.size() == 1)
-		filter_helper.show_all = true;
+  if (hosts.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "No host specified");
+  if (hosts.size() == 1) filter_helper.show_all = true;
 
-	if (!filter_helper.build_filter(filter))
-		return;
+  if (!filter_helper.build_filter(filter)) return;
 
-	boost::shared_ptr<ping_filter::filter_obj> total_obj;
-	if (total)
-		total_obj = ping_filter::filter_obj::get_total();
+  boost::shared_ptr<ping_filter::filter_obj> total_obj;
+  if (total) total_obj = ping_filter::filter_obj::get_total();
 
-	for(const std::string &host: hosts) {
-		result_container result;
-		for (int i = 0; i < count; i++) {
-			boost::asio::io_service io_service;
-			pinger ping(io_service, result, host.c_str(), timeout);
-			ping.ping();
-			io_service.run();
-		}
-		boost::shared_ptr<ping_filter::filter_obj> obj = boost::make_shared<ping_filter::filter_obj>(result);
-		filter.match(obj);
-		if (total_obj)
-			total_obj->add(obj);
-	}
-	if (total_obj)
-		filter.match(total_obj);
-	filter_helper.post_process(filter);
+  for (const std::string &host : hosts) {
+    result_container result;
+    for (int i = 0; i < count; i++) {
+      boost::asio::io_service io_service;
+      pinger ping(io_service, result, host.c_str(), timeout);
+      ping.ping();
+      io_service.run();
+    }
+    boost::shared_ptr<ping_filter::filter_obj> obj = boost::make_shared<ping_filter::filter_obj>(result);
+    filter.match(obj);
+    if (total_obj) total_obj->add(obj);
+  }
+  if (total_obj) filter.match(total_obj);
+  filter_helper.post_process(filter);
 }
