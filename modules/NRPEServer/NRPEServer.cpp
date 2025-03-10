@@ -51,6 +51,7 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.set_alias("NRPE", alias, "server");
 
 	bool insecure;
+        // clang-format off
 	settings.alias().add_key_to_settings()
     ("insecure", sh::bool_key(&insecure, false),
      "ALLOW INSECURE CHIPHERS and ENCRYPTION", "Only enable this if you are using legacy check_nrpe client.")
@@ -96,6 +97,7 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		("encoding", sh::string_key(&encoding_, ""),
 			"NRPE PAYLOAD ENCODING", "", true)
 		;
+// clang-format on
 
 	settings.register_all();
 	settings.notify();

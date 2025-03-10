@@ -50,6 +50,7 @@ bool GraphiteClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.set_alias("graphite", alias, "client");
 		client_.set_path(settings.alias().get_settings_path("targets"));
 
+                // clang-format off
 		settings.alias().add_path_to_settings()
 			("GRAPHITE CLIENT SECTION", "Section for graphite passive check module.")
 
@@ -77,6 +78,7 @@ bool GraphiteClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 			("channel", sh::string_key(&channel_, "GRAPHITE"),
 				"CHANNEL", "The channel to listen to.")
 			;
+// clang-format on
 
 		settings.register_all();
 		settings.notify();

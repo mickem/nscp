@@ -48,6 +48,7 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.set_alias("NSCA", alias, "client");
 		client_.set_path(settings.alias().get_settings_path("targets"));
 
+                // clang-format off
 		settings.alias().add_path_to_settings()
 			("NSCA CLIENT SECTION", "Section for NSCA passive check module.")
 
@@ -78,6 +79,7 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 			("channel", sh::string_key(&channel_, "NSCA"),
 				"CHANNEL", "The channel to listen to.")
 			;
+// clang-format on
 
 		settings.register_all();
 		settings.notify();

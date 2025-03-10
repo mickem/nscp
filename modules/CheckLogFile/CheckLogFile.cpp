@@ -40,6 +40,7 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 
 	thread_->filters_.set_path(settings.alias().get_settings_path("real-time/checks"));
 
+        // clang-format off
 	settings.alias().add_path_to_settings()
 
 		("real-time", "Real-time filtering", "A set of options to configure the real time checks")
@@ -56,6 +57,7 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 			"Real time", "Spawns a background thread which waits for file changes.")
 
 		;
+// clang-format on
 
 	settings.register_all();
 	settings.notify();
@@ -86,6 +88,7 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
 	filter_type filter;
 	filter_helper.add_options("", "", "", filter.get_filter_syntax());
 	filter_helper.add_syntax("${count}/${total} (${problem_list})", "${column1}", "${column1}", "%(status): Nothing found", "");
+        // clang-format off
 	filter_helper.get_desc().add_options()
 		//		("regexp", po::value<std::string>(&regexp),					"Lookup a numeric value in the PDH index table")
 		("line-split", po::value<std::string>(&line_split)->default_value("\\n"),
@@ -99,6 +102,7 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
 		("files", po::value<std::string>(&files_string), "A comma separated list of files to scan (same as file except a list)")
 		//		("mode", po::value<std::string>(&mode),						"Mode of operation: count (count all critical/warning lines), find (find first critical/warning line)")
 		;
+// clang-format on
 
 	if (!files_string.empty())
 		boost::split(file_list, files_string, boost::is_any_of(","));

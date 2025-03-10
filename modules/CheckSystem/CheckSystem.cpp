@@ -111,11 +111,13 @@ std::pair<bool, std::string> validate_counter(std::string counter) {
 }
 
 void load_counters(std::map<std::string, std::string> &counters, sh::settings_registry &settings) {
+  // clang-format off
 	settings.alias().add_path_to_settings()
 		("counters", sh::string_map_path(&counters),
 			"PDH COUNTERS", "Define various PDH counters to check.",
 			"COUNTER", "For more configuration options add a dedicated section")
 		;
+// clang-format on
 
 	settings.register_all();
 	settings.notify();
@@ -145,6 +147,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		settings.alias().get_settings_path("real-time/checks")
 		);
 
+        // clang-format off
 	settings.alias().add_path_to_settings()
 		("Windows system", "Section for system checks and system settings")
 
@@ -203,6 +206,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			"}"
 			"}")
 		;
+// clang-format on
 	settings.register_all();
 	settings.notify();
 
@@ -364,6 +368,7 @@ int CheckSystem::commandLineExec(const int, const std::string &command, const st
 
 		std::string lookup, counter, list_string, computer, username, password;
 		po::options_description desc("Allowed options");
+                // clang-format off
 		desc.add_options()
 			("help,h", "Show help screen")
 			("porcelain", "Computer parsable format")
@@ -383,6 +388,7 @@ int CheckSystem::commandLineExec(const int, const std::string &command, const st
 			("counter", po::value<std::string>(&counter)->implicit_value(""), "Specify which counter to work with")
 			("filter", po::value<std::string>(&counter)->implicit_value(""), "Specify a filter to match (substring matching)")
 			;
+// clang-format on
 		boost::program_options::variables_map vm;
 
 		if (command == "help") {
@@ -568,11 +574,13 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
 	filter_type filter;
 	filter_helper.add_options("load > 80", "load > 90", "core = 'total'", filter.get_filter_syntax(), "ignored");
   filter_helper.add_syntax("${status}: ${problem_list}", "${time}: ${load}%", "${core} ${time}", "", "%(status): CPU load is ok.");
+  // clang-format off
 	filter_helper.get_desc().add_options()
       ("time", po::value<std::vector<std::string>>(&times), "The time to check")
               ("cores", boost::program_options::bool_switch(&show_all_cores),
                "This will remove the filter to  include the cores, if you use filter dont use this as well.")
 		;
+// clang-format on
 
 	if (!filter_helper.parse_options())
 		return;
@@ -716,10 +724,12 @@ void CheckSystem::checkServiceState(PB::Commands::QueryRequestMessage::Request &
 	std::vector<std::string> excludes;
 
 	nscapi::program_options::add_help(desc);
+        // clang-format off
 	desc.add_options()
 		("CheckAll", po::value<std::string>()->implicit_value("true"), "Check all services.")
 		("exclude", po::value<std::vector<std::string> >(&excludes), "Exclude services")
 		;
+// clang-format on
 
 	compat::addShowAll(desc);
 
@@ -784,6 +794,7 @@ void CheckSystem::check_service(const PB::Commands::QueryRequestMessage::Request
 	filter_type filter;
 	filter_helper.add_options("not state_is_perfect()", "not state_is_ok()", "", filter.get_filter_syntax(), "unknown");
 	filter_helper.add_syntax("${status}: ${crit_list}, delayed (${warn_list})", "${name}=${state} (${start_type})", "${name}", "%(status): No services found", "%(status): All %(count) service(s) are ok.");
+        // clang-format off
 	filter_helper.get_desc().add_options()
 		("computer", po::value<std::string>(&computer), "The name of the remote computer to check")
 		("service", po::value<std::vector<std::string>>(&services), "The service to check, set this to * to check all services")
@@ -797,6 +808,7 @@ void CheckSystem::check_service(const PB::Commands::QueryRequestMessage::Request
 		("only-system", po::bool_switch(&class_y), "Set filter to classification = 'system'")
 		("only-user", po::bool_switch(&class_u), "Set filter to classification = 'user'")
 		;
+// clang-format on
 
 	if (!filter_helper.parse_options())
 		return;

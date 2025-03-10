@@ -56,6 +56,7 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 		client_.set_path(settings.alias().get_settings_path("targets"));
 
+                // clang-format off
 		settings.alias().add_path_to_settings()
 			("NRPE CLIENT SECTION", "Section for NRPE active/passive check module.")
 
@@ -73,6 +74,7 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 				"CHANNEL", "The channel to listen to.")
 
 			;
+// clang-format on
 
 		settings.register_all();
 		settings.notify();
@@ -223,6 +225,7 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
 	if (insecure == "true" && sslops != "")
 		result << "WARNING: Inconsistent ssl options will overwrite: " << sslops << " with \"\"\n";
 
+        // clang-format off
 	desc.add_options()
 		("help", "Show help.")
 
@@ -251,6 +254,7 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
 			"")
 
 		;
+// clang-format on
 
 	try {
 		nscapi::program_options::basic_command_line_parser cmd(request);
@@ -346,6 +350,7 @@ bool NRPEClient::make_cert(const PB::Commands::ExecuteRequestMessage::Request &r
 			key = val.get_string();
 	}
 
+        // clang-format off
 	desc.add_options()
 		("help", "Show help.")
 
@@ -359,6 +364,7 @@ bool NRPEClient::make_cert(const PB::Commands::ExecuteRequestMessage::Request &r
 			"Overwrite existing certificates.")
 
 		;
+// clang-format on
 
 	try {
 		nscapi::program_options::basic_command_line_parser cmd(request);

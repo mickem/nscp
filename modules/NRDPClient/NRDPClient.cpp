@@ -49,6 +49,7 @@ bool NRDPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.set_alias("NRDP", alias, "client");
 		client_.set_path(settings.alias().get_settings_path("targets"));
 
+                // clang-format off
 		settings.alias().add_path_to_settings()
 			("SMTP CLIENT SECTION", "Section for SMTP passive check module.")
 			("handlers", sh::fun_values_path(boost::bind(&NRDPClient::add_command, this, boost::placeholders::_1, boost::placeholders::_2)),
@@ -76,6 +77,7 @@ bool NRDPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 				"CHANNEL", "The channel to listen to.")
 
 			;
+// clang-format on
 
 		settings.register_all();
 		settings.notify();

@@ -45,12 +45,14 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 		settings.set_alias(alias, "lua");
 
+                // clang-format off
 		settings.alias().add_path_to_settings()
 
 			("scripts", sh::fun_values_path(boost::bind(&LUAScript::loadScript, this, boost::placeholders::_1, boost::placeholders::_2)),
 				"Lua scripts", "A list of scripts available to run from the LuaSCript module.",
 				"SCRIPT DEFENTION", "For more configuration options add a dedicated section")
 			;
+// clang-format on
 
 		settings.register_all();
 		settings.notify();
@@ -145,10 +147,12 @@ bool LUAScript::commandLineExec(const int target_mode, const PB::Commands::Execu
 	try {
 		po::options_description desc = nscapi::program_options::create_desc(request);
 		std::string file;
+                // clang-format off
 		desc.add_options()
 			("script", po::value<std::string>(&file), "The script to run")
 			("file", po::value<std::string>(&file), "The script to run")
 			;
+// clang-format on
 		boost::program_options::variables_map vm;
 		nscapi::program_options::unrecognized_map script_options;
 		if (!nscapi::program_options::process_arguments_unrecognized(vm, script_options, desc, request, *response))

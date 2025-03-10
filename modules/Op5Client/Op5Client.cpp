@@ -78,6 +78,7 @@ bool Op5Client::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		op5_config config;
 
 
+        // clang-format off
 		settings.alias().add_path_to_settings()
 			("Op5 Configuration", "Section for the Op5 server")
 
@@ -124,6 +125,7 @@ bool Op5Client::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			"Contact groups", "A coma separated list of contact groups to add to this host when registering it in monitor")
 
 			;
+        // clang-format on
 
 		settings.register_all();
 		settings.notify();
@@ -237,6 +239,7 @@ bool Op5Client::cli_install(const PB::Commands::ExecuteRequestMessage::Request &
 	po::options_description desc;
 	std::string user, password, server, hostgroups, contactgroups, interval;
 
+    // clang-format off
 	desc.add_options()
 		("help", "Show help.")
 
@@ -259,6 +262,7 @@ bool Op5Client::cli_install(const PB::Commands::ExecuteRequestMessage::Request &
 		"Time in between sending statuses can use an optional time prefix (s, m, h, ...).")
 
 		;
+    // clang-format on
 
 	try {
 		nscapi::program_options::basic_command_line_parser cmd(request);
@@ -346,6 +350,7 @@ bool Op5Client::cli_add(const PB::Commands::ExecuteRequestMessage::Request &requ
 	po::options_description desc;
 	std::string alias, command;
 
+    // clang-format off
 	desc.add_options()
 		("help", "Show help.")
 
@@ -356,6 +361,7 @@ bool Op5Client::cli_add(const PB::Commands::ExecuteRequestMessage::Request &requ
 		"The command to execute in NSClient++")
 
 		;
+    // clang-format on
 
 	try {
 		nscapi::program_options::basic_command_line_parser cmd(request);

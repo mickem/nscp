@@ -53,6 +53,7 @@ bool CollectdClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 		client_.set_path(target_path);
 
+                // clang-format off
 		settings.alias().add_path_to_settings()
 			("COLLECTD CLIENT SECTION", "Section for NSCA passive check module.")
 
@@ -73,6 +74,7 @@ bool CollectdClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 				"${domain_uc}\tDomainname in uppercase\n"
 				)
 			;
+// clang-format on
 
 		settings.register_all();
 		settings.notify();

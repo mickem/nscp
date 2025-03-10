@@ -47,6 +47,7 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 	settings.set_alias("NSCA", alias, "server");
 
+        // clang-format off
 	settings.alias().add_path_to_settings()
 		("NSCA SERVER SECTION", "Section for NSCA (NSCAServer) (check_nsca) protocol options.")
 		;
@@ -66,10 +67,12 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 				"This is also independent of SSL and generally used instead of SSL.\nAvailable encryption algorithms are:\n") + nscp::encryption::helpers::get_crypto_string("\n"))
 
 		;
+// clang-format on
 
 	socket_helpers::settings_helper::add_core_server_opts(settings, info_);
 	socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false, "", "${certificate-path}/certificate.pem", "", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 
+        // clang-format off
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
 
 		("password", sh::string_key(&password_, ""),
@@ -79,6 +82,7 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			"INBOX", "The default channel to post incoming messages on")
 
 		;
+// clang-format on
 
 	settings.register_all();
 	settings.notify();

@@ -96,6 +96,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		std::string scriptDirectory;
 		std::map<std::string, std::string> wrappings;
 
+                // clang-format off
 		settings.alias().add_path_to_settings()
 
 			("wrappings", sh::string_map_path(&wrappings)
@@ -108,6 +109,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 				"ALIAS", "Query alias")
 
 			;
+// clang-format on
 
 		settings.register_all();
 		settings.notify();
@@ -155,6 +157,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 			//			add_alias("alias_updates", "check_updates -warning 0 -critical 0");
 		}
 
+                // clang-format off
 		settings.alias().add_key_to_settings()
 			("timeout", sh::uint_key(&timeout, 60),
 				"Command timeout", "The maximum time in seconds that a command can execute. (if more then this execution will be aborted). NOTICE this only affects external commands not internal ones.")
@@ -171,6 +174,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 			("script root", sh::path_key(&scriptRoot, "${scripts}"),
 			"Script root folder", "Root path where all scripts are contained (You can not upload/download scripts outside this folder).")
 			;
+// clang-format on
 
 		settings.register_all();
 		settings.notify();
@@ -178,6 +182,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		provider_.reset(new script_provider(get_id(), get_core(), settings.alias().get_settings_path("scripts"), scriptRoot, wrappings));
 
 
+                // clang-format off
 		settings.alias().add_path_to_settings()
 
 			("External script settings", "General settings for the external scripts module (CheckExternalScripts).")
@@ -221,6 +226,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 				"}"
 				"}")
 			;
+// clang-format on
 
 		settings.register_all();
 		settings.notify();

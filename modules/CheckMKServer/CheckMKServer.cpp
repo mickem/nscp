@@ -42,6 +42,7 @@ bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
         sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 	settings.set_alias("check_mk", alias, "server");
 
+        // clang-format off
 	settings.alias().add_path_to_settings()
 		("CHECK MK SERVER SECTION", "Section for check_mk (CheckMKServer.dll) protocol options.")
 
@@ -56,6 +57,7 @@ bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 			"PORT NUMBER", "Port to use for check_mk.")
 
 		;
+// clang-format on
 
 	socket_helpers::settings_helper::add_core_server_opts(settings, info_);
         socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false, "", "${certificate-path}/certificate.pem", "", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");

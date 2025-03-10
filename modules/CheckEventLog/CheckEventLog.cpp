@@ -73,6 +73,7 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 	}
 	thread_->set_path(settings.alias().get_settings_path("real-time/filters"));
 
+        // clang-format off
 	settings.alias().add_path_to_settings()
 		("Eventlog", "Section for the EventLog Checker (CheckEventLog.dll).")
 
@@ -113,6 +114,7 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 			"Enable debugging", "Log missed records (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.")
 
 		;
+// clang-format on
 	std::string filter_path = settings.alias().get_settings_path("real-time/filters");
 
 	settings.register_all();
@@ -398,6 +400,7 @@ void CheckEventLog::CheckEventLog_(PB::Commands::QueryRequestMessage::Request &r
 	compat::addAllNumeric(desc);
 	compat::addOldNumeric(desc);
 
+        // clang-format off
 	desc.add_options()
 		("filter", po::value<std::string>(&filter), "The filter to use.")
 		("file", po::value<std::vector<std::string>>(&times), "The file to check")
@@ -409,6 +412,7 @@ void CheckEventLog::CheckEventLog_(PB::Commands::QueryRequestMessage::Request &r
 		("top-syntax", po::value<std::string>(&top_syntax)->default_value("${list}"), "The top level syntax string")
 		("scan-range", po::value<std::string>(&scan_range), "TODO")
 		;
+// clang-format on
 
 	boost::program_options::variables_map vm;
 	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
@@ -490,6 +494,7 @@ void CheckEventLog::check_eventlog(const PB::Commands::QueryRequestMessage::Requ
 	filter_helper.add_options(filter.get_filter_syntax(), "ok");
 	filter_helper.add_index("");
 	filter_helper.add_syntax("${status}: ${count} message(s) ${problem_list}", "${file} ${source} (${message})", "${file}_${source}", "%(status): No entries found", "%(status): Event log seems fine");
+        // clang-format off
 	filter_helper.get_desc().add_options()
 		("file", po::value<std::vector<std::string> >(&file_list), "File to read (can be specified multiple times to check multiple files.\nNotice that specifying multiple files will create an aggregate set you will not check each file individually."
 			"In other words if one file contains an error the entire check will result in error.")
@@ -499,6 +504,7 @@ void CheckEventLog::check_eventlog(const PB::Commands::QueryRequestMessage::Requ
 		("unique", po::value<bool>(&unique)->implicit_value("true"), "Shorthand for setting default unique index: ${log}-${source}-${id}.")
 		("bookmark", po::value<std::string>(&bookmark)->implicit_value("auto"), "Use bookmarks to only look for messages since last check (with the same bookmark name). If you set this to auto or leave it empty the bookmark name will be derived from your logs, filters, warn and crit.")
 		;
+// clang-format on
 	if (!filter_helper.parse_options())
 		return;
 
@@ -582,6 +588,7 @@ void CheckEventLog::list_providers(const PB::Commands::ExecuteRequestMessage::Re
 		po::options_description desc("Allowed options");
 		bool help = false, channels = false, publishers = false, tasks = false, keywords = false, all = false;
 		std::string publisher;
+                // clang-format off
 		desc.add_options()
 			("help,h", po::bool_switch(&help), "Show help screen")
 			("channels", po::bool_switch(&channels), "List channels (logs)")
@@ -591,6 +598,7 @@ void CheckEventLog::list_providers(const PB::Commands::ExecuteRequestMessage::Re
 			("publisher", po::value(&publisher), "Only list keywords and tasks for a given publisher")
 			("all", po::bool_switch(&all), "List everything")
 			;
+// clang-format on
 
 
 		nscapi::program_options::basic_command_line_parser cmd(request);
@@ -786,6 +794,7 @@ void CheckEventLog::add_filter(const PB::Commands::ExecuteRequestMessage::Reques
 		po::options_description desc("Allowed options");
 		bool help = false;
 		std::string alias, filter, target, log;
+                // clang-format off
 		desc.add_options()
 			("help,h", po::bool_switch(&help), "Show help screen")
 			("alias", po::value(&alias), "The alias of the new filter")
@@ -793,6 +802,7 @@ void CheckEventLog::add_filter(const PB::Commands::ExecuteRequestMessage::Reques
 			("target", po::value(&target)->default_value("log"), "Where messages are sent")
 			("log", po::value(&log)->default_value("application"), "The log file to subscribe to")
 			;
+// clang-format on
 
 
 		nscapi::program_options::basic_command_line_parser cmd(request);
@@ -840,6 +850,7 @@ void CheckEventLog::insert_eventlog(const PB::Commands::ExecuteRequestMessage::R
 		WORD wEventID = 0, category = 0, customer = 0;
 		WORD facility = 0;
 		po::options_description desc("Allowed options");
+                // clang-format off
 		desc.add_options()
 			("help,h", "Show help screen")
 			("source,s", po::value<std::string>(&source_name)->default_value("Application Error"), "source to use")
@@ -853,6 +864,7 @@ void CheckEventLog::insert_eventlog(const PB::Commands::ExecuteRequestMessage::R
 			("arguments,a", po::value<std::vector<std::string> >(&strings), "Message arguments (strings)")
 			("id,i", po::value<WORD>(&wEventID), "Event ID")
 			;
+// clang-format on
 
 
 		nscapi::program_options::basic_command_line_parser cmd(request);
