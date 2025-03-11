@@ -35,166 +35,114 @@
 
 namespace check_cpu_filter {
 
-	struct filter_obj {
-		std::string time;
-		std::string core;
+struct filter_obj {
+  std::string time;
+  std::string core;
 
-		filter_obj(std::string time, std::string core) : time(time), core(core) {}
+  filter_obj(std::string time, std::string core) : time(time), core(core) {}
 
-		long long get_total() const {
-			return 0;
-		}
-		long long get_idle() const {
-			return 0;
-		}
-		long long get_kernel() const {
-			return 0;
-		}
-		std::string get_time() const {
-			return time;
-		}
-		std::string get_core_s() const {
-			return core;
-		}
-		std::string get_core_id() const {
-			return boost::replace_all_copy(core, " ", "_");
-		}
-		long long get_core_i() const {
-			return 0;
-		}
-	};
-	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
-	
-	struct filter_obj_handler : public native_context {
-		filter_obj_handler();
-	};
+  long long get_total() const { return 0; }
+  long long get_idle() const { return 0; }
+  long long get_kernel() const { return 0; }
+  std::string get_time() const { return time; }
+  std::string get_core_s() const { return core; }
+  std::string get_core_id() const { return boost::replace_all_copy(core, " ", "_"); }
+  long long get_core_i() const { return 0; }
+};
+typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
 
+struct filter_obj_handler : public native_context {
+  filter_obj_handler();
+};
 
-	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
-}
+typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
+}  // namespace check_cpu_filter
 
 namespace check_mem_filter {
 
-	struct filter_obj {
-		std::string type;
-		unsigned long long free;
-		unsigned long long total;
+struct filter_obj {
+  std::string type;
+  unsigned long long free;
+  unsigned long long total;
 
-		filter_obj(std::string type, unsigned long long free, unsigned long long total) : type(type), free(free), total(total) {}
-		filter_obj(const filter_obj &other) : type(other.type), free(other.free), total(other.total) {}
+  filter_obj(std::string type, unsigned long long free, unsigned long long total) : type(type), free(free), total(total) {}
+  filter_obj(const filter_obj &other) : type(other.type), free(other.free), total(other.total) {}
 
-		long long get_total() const {
-			return total;
-		}
-		long long get_used() const {
-			return total-free;
-		}
-		long long get_free() const {
-			return free;
-		}
-		std::string get_type() const {
-			return type;
-		}
+  long long get_total() const { return total; }
+  long long get_used() const { return total - free; }
+  long long get_free() const { return free; }
+  std::string get_type() const { return type; }
 
-		std::string get_total_human() const {
-			return str::format::format_byte_units(get_total());
-		}
-		std::string get_used_human() const {
-			return str::format::format_byte_units(get_used());
-		}
-		std::string get_free_human() const {
-			return str::format::format_byte_units(get_free());
-		}
-	};
+  std::string get_total_human() const { return str::format::format_byte_units(get_total()); }
+  std::string get_used_human() const { return str::format::format_byte_units(get_used()); }
+  std::string get_free_human() const { return str::format::format_byte_units(get_free()); }
+};
 
-	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
-	struct filter_obj_handler : public native_context {
-		filter_obj_handler();
-	};
-	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
-}
+typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+struct filter_obj_handler : public native_context {
+  filter_obj_handler();
+};
+typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
+}  // namespace check_mem_filter
 /*
 namespace check_proc_filter {
-	typedef process_helper::process_info filter_obj;
+        typedef process_helper::process_info filter_obj;
 
-	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
-	struct filter_obj_handler : public native_context {
-		filter_obj_handler();
-	};
-	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
+        typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+        struct filter_obj_handler : public native_context {
+                filter_obj_handler();
+        };
+        typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }
 */
 namespace os_version_filter {
 
-	struct filter_obj {
-		std::string kernel_name;
-		std::string nodename;
-		std::string kernel_version;
-		std::string kernel_release;
-		std::string machine;
-		std::string processor;
-		std::string os;
+struct filter_obj {
+  std::string kernel_name;
+  std::string nodename;
+  std::string kernel_version;
+  std::string kernel_release;
+  std::string machine;
+  std::string processor;
+  std::string os;
 
-		filter_obj() {}
+  filter_obj() {}
 
-		std::string get_kernel_name() const {
-			return kernel_name;
-		}
-		std::string get_nodename() const {
-			return nodename;
-		}
-		std::string get_kernel_version() const {
-			return kernel_version;
-		}
-		std::string get_kernel_release() const {
-			return kernel_release;
-		}
-		std::string get_machine() const {
-			return machine;
-		}
-		std::string get_processor() const {
-			return processor;
-		}
-		std::string get_os() const {
-			return os;
-		}
-	};
-	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+  std::string get_kernel_name() const { return kernel_name; }
+  std::string get_nodename() const { return nodename; }
+  std::string get_kernel_version() const { return kernel_version; }
+  std::string get_kernel_release() const { return kernel_release; }
+  std::string get_machine() const { return machine; }
+  std::string get_processor() const { return processor; }
+  std::string get_os() const { return os; }
+};
+typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
 
-	struct filter_obj_handler : public native_context {
-		filter_obj_handler();
-	};
+struct filter_obj_handler : public native_context {
+  filter_obj_handler();
+};
 
-
-	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
-}
+typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
+}  // namespace os_version_filter
 
 namespace check_uptime_filter {
 
-	struct filter_obj {
-		long long uptime;
-		long long now;
-		boost::posix_time::ptime boot;
+struct filter_obj {
+  long long uptime;
+  long long now;
+  boost::posix_time::ptime boot;
 
-		filter_obj(long long uptime, long long now, boost::posix_time::ptime boot) : uptime(uptime), now(now), boot(boot) {}
+  filter_obj(long long uptime, long long now, boost::posix_time::ptime boot) : uptime(uptime), now(now), boot(boot) {}
 
-		long long get_uptime() const {
-			return uptime;
-		}
-		long long get_boot() const {
-			return now-uptime;
-		}
-		std::string get_boot_s() const {
-			return str::format::format_date(boot);
-		}
-		std::string get_uptime_s() const {
-			return str::format::itos_as_time(get_uptime()*1000);
-		}
-	};
+  long long get_uptime() const { return uptime; }
+  long long get_boot() const { return now - uptime; }
+  std::string get_boot_s() const { return str::format::format_date(boot); }
+  std::string get_uptime_s() const { return str::format::itos_as_time(get_uptime() * 1000); }
+};
 
-	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
-	struct filter_obj_handler : public native_context {
-		filter_obj_handler();
-	};
-	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
-}
+typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+struct filter_obj_handler : public native_context {
+  filter_obj_handler();
+};
+typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
+}  // namespace check_uptime_filter

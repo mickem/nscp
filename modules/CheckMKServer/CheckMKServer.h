@@ -22,22 +22,21 @@
 #include "handler_impl.hpp"
 
 class CheckMKServer : public nscapi::impl::simple_plugin {
-public:
-	CheckMKServer();
-	virtual ~CheckMKServer();
-	// Module calls
-	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
-	bool unloadModule();
+ public:
+  CheckMKServer();
+  virtual ~CheckMKServer();
+  // Module calls
+  bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+  bool unloadModule();
 
-private:
+ private:
+  bool add_script(std::string alias, std::string file);
 
-	bool add_script(std::string alias, std::string file);
-
-	socket_helpers::connection_info info_;
-	boost::shared_ptr<check_mk::server::server> server_;
-	boost::shared_ptr<handler_impl> handler_;
-	boost::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts_;
-	boost::shared_ptr<lua::lua_runtime> lua_runtime_;
-	boost::shared_ptr<scripts::nscp::nscp_runtime_impl> nscp_runtime_;
-	boost::filesystem::path root_;
+  socket_helpers::connection_info info_;
+  boost::shared_ptr<check_mk::server::server> server_;
+  boost::shared_ptr<handler_impl> handler_;
+  boost::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts_;
+  boost::shared_ptr<lua::lua_runtime> lua_runtime_;
+  boost::shared_ptr<scripts::nscp::nscp_runtime_impl> nscp_runtime_;
+  boost::filesystem::path root_;
 };

@@ -7,44 +7,38 @@
 
 #include <string>
 
-namespace Mongoose
-{
+namespace Mongoose {
 
-	class RegexpRequestHandlerBase {
-	public:
-		virtual Response *process(Request &request, boost::smatch &what) = 0;
-	};
+class RegexpRequestHandlerBase {
+ public:
+  virtual Response *process(Request &request, boost::smatch &what) = 0;
+};
 
-    template<typename T, typename R>
-    class RegexpRequestHandler : public RegexpRequestHandlerBase
-    {
-        public:
-            typedef void (T::*fPtr)(Request &request, boost::smatch &what, R &response);
+template <typename T, typename R>
+class RegexpRequestHandler : public RegexpRequestHandlerBase {
+ public:
+  typedef void (T::*fPtr)(Request &request, boost::smatch &what, R &response);
 
-			RegexpRequestHandler(T *controller_, fPtr function_)
-                : controller(controller_), function(function_)
-            {
-            }
+  RegexpRequestHandler(T *controller_, fPtr function_) : controller(controller_), function(function_) {}
 
-            Response *process(Request &request, boost::smatch &what)
-            {
-                R *response = new R;
+  Response *process(Request &request, boost::smatch &what) {
+    R *response = new R;
 
-                try {
-                    (controller->*function)(request, what, *response);
-				} catch (std::string exception) {
-					return controller->serverInternalError(exception);
-				} catch (const std::exception &exception) {
-					return controller->serverInternalError(exception.what());
-				} catch (...) {
-                    return controller->serverInternalError("Unknown error");
-                }
+    try {
+      (controller->*function)(request, what, *response);
+    } catch (std::string exception) {
+      return controller->serverInternalError(exception);
+    } catch (const std::exception &exception) {
+      return controller->serverInternalError(exception.what());
+    } catch (...) {
+      return controller->serverInternalError("Unknown error");
+    }
 
-                return response;
-            }
+    return response;
+  }
 
-        protected:
-            T *controller;
-            fPtr function;
-    };
-}
+ protected:
+  T *controller;
+  fPtr function;
+};
+}  // namespace Mongoose

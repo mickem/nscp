@@ -21,44 +21,36 @@
 #include "resource.h"
 #include <Socket.h>
 class NSClientSocket : public simpleSocket::Listener {
-private:
-	strEx::splitList allowedHosts_;
+ private:
+  strEx::splitList allowedHosts_;
 
-public:
-	NSClientSocket();
-	virtual ~NSClientSocket();
+ public:
+  NSClientSocket();
+  virtual ~NSClientSocket();
 
-private:
-	virtual void onAccept(simpleSocket::Socket client);
-	std::string parseRequest(std::string buffer);
-	bool inAllowedHosts(std::string s) {
-		if (allowedHosts_.empty())
-			return true;
-		strEx::splitList::const_iterator cit;
-		for (cit = allowedHosts_.begin();cit!=allowedHosts_.end();++cit) {
-			if ( (*cit) == s)
-				return true;
-		}
-		return false;
-	}
+ private:
+  virtual void onAccept(simpleSocket::Socket client);
+  std::string parseRequest(std::string buffer);
+  bool inAllowedHosts(std::string s) {
+    if (allowedHosts_.empty()) return true;
+    strEx::splitList::const_iterator cit;
+    for (cit = allowedHosts_.begin(); cit != allowedHosts_.end(); ++cit) {
+      if ((*cit) == s) return true;
+    }
+    return false;
+  }
 
-public:
-	void setAllowedHosts(strEx::splitList allowedHosts) {
-		allowedHosts_ = allowedHosts;
-	}
-
+ public:
+  void setAllowedHosts(strEx::splitList allowedHosts) { allowedHosts_ = allowedHosts; }
 };
 
-
-#define REQ_CLIENTVERSION	1	// Works fine!
-#define REQ_CPULOAD			2	// Quirks
-#define REQ_UPTIME			3	// Works fine!
-#define REQ_USEDDISKSPACE	4	// Works fine!
-#define REQ_SERVICESTATE	5	// Works fine!
-#define REQ_PROCSTATE		6	// Works fine!
-#define REQ_MEMUSE			7	// Works fine!
-//#define REQ_COUNTER		8	// ! - not implemented Have to look at this, if anyone has a sample let me know...
-//#define REQ_FILEAGE		9	// ! - not implemented Dont know how to use
-//#define REQ_INSTANCES	10	// ! - not implemented Dont know how to use
-
-
+#define REQ_CLIENTVERSION 1  // Works fine!
+#define REQ_CPULOAD 2        // Quirks
+#define REQ_UPTIME 3         // Works fine!
+#define REQ_USEDDISKSPACE 4  // Works fine!
+#define REQ_SERVICESTATE 5   // Works fine!
+#define REQ_PROCSTATE 6      // Works fine!
+#define REQ_MEMUSE 7         // Works fine!
+// #define REQ_COUNTER		8	// ! - not implemented Have to look at this, if anyone has a sample let me know...
+// #define REQ_FILEAGE		9	// ! - not implemented Dont know how to use
+// #define REQ_INSTANCES	10	// ! - not implemented Dont know how to use

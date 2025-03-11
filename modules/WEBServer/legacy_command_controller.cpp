@@ -4,14 +4,11 @@
 
 #include <boost/algorithm/string.hpp>
 
-legacy_command_controller::legacy_command_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core)
-	: session(session)
-	, core(core) 
-{}
+legacy_command_controller::legacy_command_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper *core)
+    : session(session), core(core) {}
 
 void legacy_command_controller::handle_query(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("legacy", request, response))
-    return;
+  if (!session->is_loggedin("legacy", request, response)) return;
 
   PB::Commands::QueryRequestMessage rm;
   PB::Commands::QueryRequestMessage::Request *payload = rm.add_payload();
@@ -19,11 +16,11 @@ void legacy_command_controller::handle_query(std::string obj, Mongoose::Request 
   payload->set_command(obj);
   Mongoose::Request::arg_vector args = request.getVariablesVector();
 
-  for(const Mongoose::Request::arg_vector::value_type &e: args) {
-	  if (e.second.empty())
-		  payload->add_arguments(e.first);
-	  else
-		  payload->add_arguments(e.first + "=" + e.second);
+  for (const Mongoose::Request::arg_vector::value_type &e : args) {
+    if (e.second.empty())
+      payload->add_arguments(e.first);
+    else
+      payload->add_arguments(e.first + "=" + e.second);
   }
 
   std::string pb_response, json_response;
@@ -33,11 +30,9 @@ void legacy_command_controller::handle_query(std::string obj, Mongoose::Request 
 }
 
 void legacy_command_controller::handle_exec(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("legacy", request, response))
-    return;
+  if (!session->is_loggedin("legacy", request, response)) return;
   std::size_t pos = obj.find("/");
-  if (pos == std::string::npos)
-    return;
+  if (pos == std::string::npos) return;
   std::string target = obj.substr(0, pos);
   std::string cmd = obj.substr(pos + 1);
   PB::Commands::ExecuteRequestMessage rm;
@@ -46,7 +41,7 @@ void legacy_command_controller::handle_exec(std::string obj, Mongoose::Request &
   payload->set_command(cmd);
   Mongoose::Request::arg_vector args = request.getVariablesVector();
 
-  for(const Mongoose::Request::arg_entry &e: args) {
+  for (const Mongoose::Request::arg_entry &e : args) {
     if (e.second.empty())
       payload->add_arguments(e.first);
     else
@@ -59,7 +54,7 @@ void legacy_command_controller::handle_exec(std::string obj, Mongoose::Request &
   response.append(json_response);
 }
 
-Mongoose::Response* legacy_command_controller::handleRequest(Mongoose::Request &request) {
+Mongoose::Response *legacy_command_controller::handleRequest(Mongoose::Request &request) {
   Mongoose::StreamResponse *response = new Mongoose::StreamResponse();
   std::string url = request.getUrl();
   if (boost::algorithm::starts_with(url, "/query/")) {

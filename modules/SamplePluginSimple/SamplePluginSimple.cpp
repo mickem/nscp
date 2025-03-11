@@ -30,23 +30,19 @@ SamplePluginSimple::~SamplePluginSimple() {}
 // It is generally used to "not start servers" now.
 // The load call should be fairly quick as this is done (currently) in serial.
 // The main goal is to load your settings, register your self and start any servers
-bool SamplePluginSimple::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
-	return true;
-}
+bool SamplePluginSimple::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) { return true; }
 // Called when the plugin is unloaded
 // kill off any active server instance here, unregister your self and free up all memory.
 // Notice reload is currently implemented as unload/load so it is very possible that your plugin will be loaded and unloaded multiple times.
 // Do not assume it is safe to forget freeing up memory and destroying resources here
-bool SamplePluginSimple::unloadModule() {
-	return true;
-}
+bool SamplePluginSimple::unloadModule() { return true; }
 void SamplePluginSimple::sample_raw_command(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-	response->set_command(request.command());
-	if (request.arguments_size() > 0) {
-		response->add_lines()->set_message("");
-		response->set_result(PB::Common::ResultCode::OK);
-	} else {
-		response->add_lines()->set_message("Yaaay it works");
-		response->set_result(PB::Common::ResultCode::OK);
-	}
+  response->set_command(request.command());
+  if (request.arguments_size() > 0) {
+    response->add_lines()->set_message("");
+    response->set_result(PB::Common::ResultCode::OK);
+  } else {
+    response->add_lines()->set_message("Yaaay it works");
+    response->set_result(PB::Common::ResultCode::OK);
+  }
 }

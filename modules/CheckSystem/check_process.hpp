@@ -24,24 +24,23 @@
 
 namespace process_checks {
 
-	namespace realtime {
+namespace realtime {
 
-		struct proc_filter_helper_wrapper;
-		struct helper {
-			typedef boost::unordered_set<std::string> known_type;
-			known_type known_processes_;
-			proc_filter_helper_wrapper *proc_helper;
+struct proc_filter_helper_wrapper;
+struct helper {
+  typedef boost::unordered_set<std::string> known_type;
+  known_type known_processes_;
+  proc_filter_helper_wrapper *proc_helper;
 
-			helper(nscapi::core_wrapper *core, int plugin_id);
-			void add_obj(boost::shared_ptr<filters::proc::filter_config_object> object);
-			void boot();
-			void check();
+  helper(nscapi::core_wrapper *core, int plugin_id);
+  void add_obj(boost::shared_ptr<filters::proc::filter_config_object> object);
+  void boot();
+  void check();
+};
+}  // namespace realtime
 
-		};
-	}
+namespace active {
 
-	namespace active {
-
-		void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
-	}
+void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 }
+}  // namespace process_checks

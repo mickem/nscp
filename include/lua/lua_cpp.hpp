@@ -47,7 +47,7 @@ class Lua_State : boost::noncopyable {
 const std::string internal_user_instance_prefix = "nscp.internal.";
 
 class lua_wrapper {
-public:
+ public:
   lua_State *L;
 
  public:
@@ -82,40 +82,37 @@ public:
   void new_userdata(size_t size);
 
   template <class T>
-  T* checkudata(int pos, std::string tag) {
-    return reinterpret_cast<T*>(luaL_checkudata(L, pos, tag.c_str()));
+  T *checkudata(int pos, std::string tag) {
+    return reinterpret_cast<T *>(luaL_checkudata(L, pos, tag.c_str()));
   }
 
-  void setup_class(const std::string name, const luaL_Reg* ctors, const luaL_Reg* functions);
+  void setup_class(const std::string name, const luaL_Reg *ctors, const luaL_Reg *functions);
   void setup_global_function(const std::string name, const lua_CFunction function);
-  void setup_functions(const std::string name, const luaL_Reg* functions);
-
+  void setup_functions(const std::string name, const luaL_Reg *functions);
 
   template <class T>
-  T* push_user_object_instance() {
-	T **ptr = this->newuserdata<T*>();
+  T *push_user_object_instance() {
+    T **ptr = this->newuserdata<T *>();
     *ptr = new T();
-	luaL_getmetatable(L, (internal_user_instance_prefix + T::tag).c_str());
-	lua_setmetatable(L, -2);
+    luaL_getmetatable(L, (internal_user_instance_prefix + T::tag).c_str());
+    lua_setmetatable(L, -2);
     return *ptr;
-}
+  }
   template <class T>
-  T* get_user_object_instance(int pos = 1) {
-	T **ptr = this->checkudata<T*>(pos, internal_user_instance_prefix + T::tag);
+  T *get_user_object_instance(int pos = 1) {
+    T **ptr = this->checkudata<T *>(pos, internal_user_instance_prefix + T::tag);
     return *ptr;
   }
   template <class T>
   int destroy_user_object_instance() {
-	T **ptr = this->checkudata<T*>(1, internal_user_instance_prefix + T::tag);
+    T **ptr = this->checkudata<T *>(1, internal_user_instance_prefix + T::tag);
     delete *ptr;
     return 0;
   }
   template <class T>
-  T* newuserdata() {
-    return reinterpret_cast<T*>(lua_newuserdata(L, sizeof(T)));
+  T *newuserdata() {
+    return reinterpret_cast<T *>(lua_newuserdata(L, sizeof(T)));
   }
-
-
 
   //////////////////////////////////////////////////////////////////////////
   /// pop_xxx
@@ -177,7 +174,6 @@ public:
   int op_int(int pos, int def = 0);
   int checkint(int pos);
   int gc(int what, int data);
-
 };
 
 class lua_exception : public std::exception {

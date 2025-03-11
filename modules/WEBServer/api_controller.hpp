@@ -8,14 +8,12 @@
 
 #include <string>
 
-
 class api_controller : public Mongoose::RegexpController {
-	boost::shared_ptr<session_manager_interface> session;
+  boost::shared_ptr<session_manager_interface> session;
 
-public:
+ public:
+  api_controller(boost::shared_ptr<session_manager_interface> session);
 
-	api_controller(boost::shared_ptr<session_manager_interface> session);
-
-	void get_versions(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
-	void get_eps(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+  void get_versions(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+  void get_eps(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 };

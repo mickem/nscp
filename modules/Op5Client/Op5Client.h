@@ -30,27 +30,24 @@
 #include <boost/shared_ptr.hpp>
 
 class Op5Client : public nscapi::impl::simple_plugin {
-private:
+ private:
+  std::string channel_;
 
-	std::string channel_;
+  boost::shared_ptr<op5_client> client;
 
-	boost::shared_ptr<op5_client> client;
+ public:
+  Op5Client();
+  virtual ~Op5Client();
+  // Module calls
+  bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+  bool unloadModule();
 
+  bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request,
+                       PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
+  void handleNotification(const std::string &channel, const PB::Commands::SubmitRequestMessage &request_message,
+                          PB::Commands::SubmitResponseMessage *response_message);
 
-public:
-	Op5Client();
-	virtual ~Op5Client();
-	// Module calls
-	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
-	bool unloadModule();
-
-	bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
-	void handleNotification(const std::string &channel, const PB::Commands::SubmitRequestMessage &request_message, PB::Commands::SubmitResponseMessage *response_message);
-
-private:
-
-	bool cli_add(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
-	bool cli_install(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
-
-
+ private:
+  bool cli_add(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
+  bool cli_install(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
 };

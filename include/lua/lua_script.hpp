@@ -39,8 +39,7 @@ namespace lua {
 struct lua_traits {
   static const std::string user_data_tag;
 
-  static scripts::script_information<lua::lua_traits>* get_info(lua::lua_wrapper& instance);
-
+  static scripts::script_information<lua::lua_traits> *get_info(lua::lua_wrapper &instance);
 
   struct user_data_type {
     std::string base_path_;
@@ -64,43 +63,43 @@ typedef scripts::settings_provider settings_provider;
 typedef scripts::regitration_provider<lua_traits> regitration_provider;
 
 namespace core_wrapper {
-  int create_core(lua_State* L);
-  int create_pb_query(lua_State *L);
-  int simple_query(lua_State *L);
-  int query(lua_State *L);
-  int simple_exec(lua_State *L);
-  int exec(lua_State *L);
-  int simple_submit(lua_State *L);
-  int submit(lua_State *L);
-  int reload(lua_State *L);
-  int log(lua_State *L);
+int create_core(lua_State *L);
+int create_pb_query(lua_State *L);
+int simple_query(lua_State *L);
+int query(lua_State *L);
+int simple_exec(lua_State *L);
+int exec(lua_State *L);
+int simple_submit(lua_State *L);
+int submit(lua_State *L);
+int reload(lua_State *L);
+int log(lua_State *L);
 
-};
+};  // namespace core_wrapper
 
 namespace registry_wrapper {
-  int create_registry(lua_State* L);
-  int register_function(lua_State *L);
-  int register_simple_function(lua_State *L);
-  int register_cmdline(lua_State *L);
-  int register_simple_cmdline(lua_State *L);
-  int subscription(lua_State *L);
-  int simple_subscription(lua_State *L);
-  int create_registry(lua_State* L);
-};
+int create_registry(lua_State *L);
+int register_function(lua_State *L);
+int register_simple_function(lua_State *L);
+int register_cmdline(lua_State *L);
+int register_simple_cmdline(lua_State *L);
+int subscription(lua_State *L);
+int simple_subscription(lua_State *L);
+int create_registry(lua_State *L);
+};  // namespace registry_wrapper
 
 namespace settings_wrapper {
-  int get_section(lua_State *L);
-  int get_string(lua_State *L);
-  int set_string(lua_State *L);
-  int get_bool(lua_State *L);
-  int set_bool(lua_State *L);
-  int get_int(lua_State *L);
-  int set_int(lua_State *L);
-  int save(lua_State *L);
-  int register_path(lua_State *L);
-  int register_key(lua_State *L);
-  int create_settings(lua_State* L);
-};
+int get_section(lua_State *L);
+int get_string(lua_State *L);
+int set_string(lua_State *L);
+int get_bool(lua_State *L);
+int set_bool(lua_State *L);
+int get_int(lua_State *L);
+int set_int(lua_State *L);
+int save(lua_State *L);
+int register_path(lua_State *L);
+int register_key(lua_State *L);
+int create_settings(lua_State *L);
+};  // namespace settings_wrapper
 
 struct lua_script {
   static void luaopen(lua_State *L);

@@ -28,24 +28,20 @@
 #include <NSCAPI.h>
 
 namespace nrdp {
-	struct data : boost::noncopyable {
-		enum item_type_type {
-			type_service,
-			type_host,
-			type_command
-		};
-		struct item_type {
-			item_type_type type;
-			std::string host;
-			std::string service;
-			NSCAPI::nagiosReturn result;
-			std::string message;
-		};
-		std::list<item_type> items;
-		void add_host(std::string host, NSCAPI::nagiosReturn result, std::string message);
-		void add_service(std::string host, std::string service, NSCAPI::nagiosReturn result, std::string message);
-		void add_command(std::string command, std::list<std::string> args);
-		std::string render_request() const;
-		static boost::tuple<int, std::string> parse_response(const std::string &str);
-	};
-}
+struct data : boost::noncopyable {
+  enum item_type_type { type_service, type_host, type_command };
+  struct item_type {
+    item_type_type type;
+    std::string host;
+    std::string service;
+    NSCAPI::nagiosReturn result;
+    std::string message;
+  };
+  std::list<item_type> items;
+  void add_host(std::string host, NSCAPI::nagiosReturn result, std::string message);
+  void add_service(std::string host, std::string service, NSCAPI::nagiosReturn result, std::string message);
+  void add_command(std::string command, std::list<std::string> args);
+  std::string render_request() const;
+  static boost::tuple<int, std::string> parse_response(const std::string &str);
+};
+}  // namespace nrdp

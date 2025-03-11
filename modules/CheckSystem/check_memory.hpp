@@ -24,21 +24,20 @@
 
 namespace memory_checks {
 
-	namespace realtime {
+namespace realtime {
 
-		struct mem_filter_helper_wrapper;
-		struct helper {
-			mem_filter_helper_wrapper *memory_helper;
+struct mem_filter_helper_wrapper;
+struct helper {
+  mem_filter_helper_wrapper *memory_helper;
 
-			helper(nscapi::core_wrapper *core, int plugin_id);
-			void add_obj(boost::shared_ptr<filters::mem::filter_config_object> object);
-			void boot();
-			void check();
+  helper(nscapi::core_wrapper *core, int plugin_id);
+  void add_obj(boost::shared_ptr<filters::mem::filter_config_object> object);
+  void boot();
+  void check();
+};
+}  // namespace realtime
+namespace memory {
 
-		};
-	}
-	namespace memory {
-
-		void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
-	}
+void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 }
+}  // namespace memory_checks

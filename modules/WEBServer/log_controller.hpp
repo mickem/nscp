@@ -13,21 +13,18 @@
 
 #include <string>
 
-
 class log_controller : public Mongoose::RegexpController {
-	boost::shared_ptr<session_manager_interface> session;
-	const nscapi::core_wrapper* core;
-	const unsigned int plugin_id;
+  boost::shared_ptr<session_manager_interface> session;
+  const nscapi::core_wrapper *core;
+  const unsigned int plugin_id;
 
-	typedef std::vector<std::pair<std::string, std::string> > arg_vector;
+  typedef std::vector<std::pair<std::string, std::string> > arg_vector;
 
-public:
+ public:
+  log_controller(const int version, boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper *core, unsigned int plugin_id);
 
-	log_controller(const int version, boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id);
-
-	void get_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
-    void add_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
-    void get_status(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
-    void reset_status(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
-
+  void get_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+  void add_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+  void get_status(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+  void reset_status(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 };

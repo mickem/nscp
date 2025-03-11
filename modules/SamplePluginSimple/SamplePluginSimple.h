@@ -27,15 +27,14 @@
 // simple_command_handler	- Provides a "nagios plugin" like command handler interface (so you wont have to deal with google protocol buffers)
 // There is a bunch of others as well for wrapping the other APIs
 class SamplePluginSimple : public nscapi::impl::simple_plugin {
-private:
+ private:
+ public:
+  SamplePluginSimple();
+  virtual ~SamplePluginSimple();
 
-public:
-	SamplePluginSimple();
-	virtual ~SamplePluginSimple();
+  // Declare exposed API methods (C++ versions)
+  bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+  bool unloadModule();
 
-	// Declare exposed API methods (C++ versions)
-	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
-	bool unloadModule();
-
-	void sample_raw_command(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  void sample_raw_command(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 };

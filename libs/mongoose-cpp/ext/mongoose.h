@@ -26,7 +26,6 @@
 extern "C" {
 #endif
 
-
 #define MG_ARCH_CUSTOM 0
 #define MG_ARCH_UNIX 1
 #define MG_ARCH_WIN32 2
@@ -71,16 +70,6 @@ extern "C" {
 #include <mongoose_custom.h>
 #endif
 
-
-
-
-
-
-
-
-
-
-
 #if MG_ARCH == MG_ARCH_AZURERTOS
 
 #include <stdarg.h>
@@ -111,7 +100,6 @@ extern "C" {
 
 #endif
 
-
 #if MG_ARCH == MG_ARCH_ESP32
 
 #include <ctype.h>
@@ -132,7 +120,6 @@ extern "C" {
 #define MG_PATH_MAX 128
 
 #endif
-
 
 #if MG_ARCH == MG_ARCH_ESP8266
 
@@ -158,7 +145,6 @@ extern "C" {
 #define MG_PATH_MAX 128
 
 #endif
-
 
 #if MG_ARCH == MG_ARCH_FREERTOS_LWIP
 
@@ -211,7 +197,6 @@ static inline void *mg_calloc(int cnt, size_t size) {
 
 #endif  // MG_ARCH == MG_ARCH_FREERTOS_LWIP
 
-
 #if MG_ARCH == MG_ARCH_FREERTOS_TCP
 
 #include <ctype.h>
@@ -253,8 +238,7 @@ static inline void *mg_calloc(int cnt, size_t size) {
 #define recv(a, b, c, d) FreeRTOS_recv((a), (b), (c), (d))
 #define setsockopt(a, b, c, d, e) FreeRTOS_setsockopt((a), (b), (c), (d), (e))
 #define sendto(a, b, c, d, e, f) FreeRTOS_sendto((a), (b), (c), (d), (e), (f))
-#define recvfrom(a, b, c, d, e, f) \
-  FreeRTOS_recvfrom((a), (b), (c), (d), (e), (f))
+#define recvfrom(a, b, c, d, e, f) FreeRTOS_recvfrom((a), (b), (c), (d), (e), (f))
 #define closesocket(x) FreeRTOS_closesocket(x)
 #define gethostbyname(x) FreeRTOS_gethostbyname(x)
 #define getsockname(a, b, c) (-1)
@@ -293,7 +277,6 @@ struct timeval {
 
 #endif  // MG_ARCH == MG_ARCH_FREERTOS_TCP
 
-
 #if MG_ARCH == MG_ARCH_NEWLIB
 #define _POSIX_TIMERS
 
@@ -315,7 +298,6 @@ struct timeval {
 #define MG_ENABLE_DIRLIST 0
 
 #endif
-
 
 #if MG_ARCH == MG_ARCH_RTX_LWIP
 
@@ -353,9 +335,7 @@ struct timeval {
 #define MG_PATH_MAX 128
 #endif
 
-
 #endif
-
 
 #if MG_ARCH == MG_ARCH_UNIX
 
@@ -392,7 +372,6 @@ struct timeval {
 #endif
 
 #endif
-
 
 #if MG_ARCH == MG_ARCH_WIN32
 
@@ -478,7 +457,7 @@ typedef int socklen_t;
 #endif
 #endif
 #ifndef S_ISDIR
-#define S_ISDIR(x) (((x) &_S_IFMT) == _S_IFDIR)
+#define S_ISDIR(x) (((x) & _S_IFMT) == _S_IFDIR)
 #endif
 
 #ifndef MG_ENABLE_DIRLIST
@@ -486,7 +465,6 @@ typedef int socklen_t;
 #endif
 
 #endif
-
 
 #if MG_ARCH == MG_ARCH_ZEPHYR
 
@@ -514,7 +492,6 @@ int rand(void);
 int sscanf(const char *, const char *, ...);
 
 #endif
-
 
 #ifndef MG_ENABLE_FATFS
 #define MG_ENABLE_FATFS 0
@@ -611,19 +588,14 @@ int sscanf(const char *, const char *, ...);
 #endif
 #endif
 
-
-
-
 struct mg_str {
   const char *ptr;  // Pointer to string data
   size_t len;       // String len
 };
 
-#define MG_NULL_STR \
-  { NULL, 0 }
+#define MG_NULL_STR {NULL, 0}
 
-#define MG_C_STR(a) \
-  { (a), sizeof(a) - 1 }
+#define MG_C_STR(a) {(a), sizeof(a) - 1}
 
 // Using macro to avoid shadowing C++ struct constructor, see #1298
 #define mg_str(s) mg_str_s(s)
@@ -655,10 +627,6 @@ int64_t mg_to64(struct mg_str str);
 uint64_t mg_tou64(struct mg_str str);
 size_t mg_lld(char *buf, int64_t val, bool is_signed, bool is_hex);
 
-
-
-
-
 enum { MG_LL_NONE, MG_LL_ERROR, MG_LL_INFO, MG_LL_DEBUG, MG_LL_VERBOSE };
 void mg_log(const char *fmt, ...) PRINTF_LIKE(1, 2);
 bool mg_log_prefix(int ll, const char *file, int line, const char *fname);
@@ -676,9 +644,6 @@ void mg_hexdump(const void *buf, size_t len);
 #define MG_DEBUG(args) MG_LOG(MG_LL_DEBUG, args)
 #define MG_VERBOSE(args) MG_LOG(MG_LL_VERBOSE, args)
 
-
-
-
 struct mg_timer {
   uint64_t period_ms;       // Timer period in milliseconds
   uint64_t prev_ms;         // Timestamp of a previous poll
@@ -693,15 +658,9 @@ struct mg_timer {
 
 extern struct mg_timer *g_timers;  // Global list of timers
 
-void mg_timer_init(struct mg_timer **head, struct mg_timer *timer,
-                   uint64_t milliseconds, unsigned flags, void (*fn)(void *),
-                   void *arg);
+void mg_timer_init(struct mg_timer **head, struct mg_timer *timer, uint64_t milliseconds, unsigned flags, void (*fn)(void *), void *arg);
 void mg_timer_free(struct mg_timer **head, struct mg_timer *);
 void mg_timer_poll(struct mg_timer **head, uint64_t new_ms);
-
-
-
-
 
 enum { MG_FS_READ = 1, MG_FS_WRITE = 2, MG_FS_DIR = 4 };
 
@@ -741,11 +700,6 @@ char *mg_file_read(struct mg_fs *fs, const char *path, size_t *size);
 bool mg_file_write(struct mg_fs *fs, const char *path, const void *, size_t);
 bool mg_file_printf(struct mg_fs *fs, const char *path, const char *fmt, ...);
 
-
-
-
-
-
 void mg_random(void *buf, size_t len);
 uint16_t mg_ntohs(uint16_t net);
 uint32_t mg_ntohl(uint32_t net);
@@ -776,15 +730,12 @@ uint64_t mg_millis(void);
     *h = (elem_)->next;                    \
   } while (0)
 
-
-
 unsigned short mg_url_port(const char *url);
 int mg_url_is_ssl(const char *url);
 struct mg_str mg_url_host(const char *url);
 struct mg_str mg_url_user(const char *url);
 struct mg_str mg_url_pass(const char *url);
 const char *mg_url_uri(const char *url);
-
 
 #include <stddef.h>
 
@@ -805,9 +756,6 @@ int mg_base64_final(char *to, int len);
 int mg_base64_encode(const unsigned char *p, int n, char *to);
 int mg_base64_decode(const char *src, int n, char *dst);
 
-
-
-
 typedef struct {
   uint32_t buf[4];
   uint32_t bits[2];
@@ -817,9 +765,6 @@ typedef struct {
 void mg_md5_init(mg_md5_ctx *c);
 void mg_md5_update(mg_md5_ctx *c, const unsigned char *data, size_t len);
 void mg_md5_final(mg_md5_ctx *c, unsigned char[16]);
-
-
-
 
 typedef struct {
   uint32_t state[5];
@@ -831,10 +776,8 @@ void mg_sha1_init(mg_sha1_ctx *);
 void mg_sha1_update(mg_sha1_ctx *, const unsigned char *data, size_t len);
 void mg_sha1_final(unsigned char digest[20], mg_sha1_ctx *);
 
-
 struct mg_connection;
-typedef void (*mg_event_handler_t)(struct mg_connection *, int ev,
-                                   void *ev_data, void *fn_data);
+typedef void (*mg_event_handler_t)(struct mg_connection *, int ev, void *ev_data, void *fn_data);
 void mg_call(struct mg_connection *c, int ev, void *ev_data);
 void mg_error(struct mg_connection *c, const char *fmt, ...);
 
@@ -859,13 +802,6 @@ enum {
   MG_EV_SNTP_TIME,   // SNTP time received           uint64_t *milliseconds
   MG_EV_USER,        // Starting ID for user events
 };
-
-
-
-
-
-
-
 
 struct mg_dns {
   const char *url;          // DNS server URL
@@ -932,12 +868,9 @@ void mg_mgr_poll(struct mg_mgr *, int ms);
 void mg_mgr_init(struct mg_mgr *);
 void mg_mgr_free(struct mg_mgr *);
 
-struct mg_connection *mg_listen(struct mg_mgr *, const char *url,
-                                mg_event_handler_t fn, void *fn_data);
-struct mg_connection *mg_connect(struct mg_mgr *, const char *url,
-                                 mg_event_handler_t fn, void *fn_data);
-struct mg_connection *mg_wrapfd(struct mg_mgr *mgr, int fd,
-                                mg_event_handler_t fn, void *fn_data);
+struct mg_connection *mg_listen(struct mg_mgr *, const char *url, mg_event_handler_t fn, void *fn_data);
+struct mg_connection *mg_connect(struct mg_mgr *, const char *url, mg_event_handler_t fn, void *fn_data);
+struct mg_connection *mg_wrapfd(struct mg_mgr *mgr, int fd, mg_event_handler_t fn, void *fn_data);
 void mg_connect_resolved(struct mg_connection *);
 bool mg_send(struct mg_connection *, const void *, size_t);
 size_t mg_printf(struct mg_connection *, const char *fmt, ...);
@@ -951,15 +884,7 @@ int mg_mkpipe(struct mg_mgr *, mg_event_handler_t, void *);
 struct mg_connection *mg_alloc_conn(struct mg_mgr *);
 void mg_close_conn(struct mg_connection *c);
 bool mg_open_listener(struct mg_connection *c, const char *url);
-struct mg_timer *mg_timer_add(struct mg_mgr *mgr, uint64_t milliseconds,
-                              unsigned flags, void (*fn)(void *), void *arg);
-
-
-
-
-
-
-
+struct mg_timer *mg_timer_add(struct mg_mgr *mgr, uint64_t milliseconds, unsigned flags, void (*fn)(void *), void *arg);
 
 struct mg_http_header {
   struct mg_str name;   // Header name
@@ -971,8 +896,8 @@ struct mg_http_message {
   struct mg_http_header headers[MG_MAX_HTTP_HEADERS];  // Headers
   struct mg_str body;                                  // Body
   struct mg_str head;                                  // Request + headers
-  struct mg_str chunk;    // Chunk for chunked encoding,  or partial body
-  struct mg_str message;  // Request + headers + body
+  struct mg_str chunk;                                 // Chunk for chunked encoding,  or partial body
+  struct mg_str message;                               // Request + headers + body
 };
 
 // Parameter for mg_http_serve_dir()
@@ -996,37 +921,24 @@ int mg_http_get_request_len(const unsigned char *buf, size_t buf_len);
 void mg_http_printf_chunk(struct mg_connection *cnn, const char *fmt, ...);
 void mg_http_write_chunk(struct mg_connection *c, const char *buf, size_t len);
 void mg_http_delete_chunk(struct mg_connection *c, struct mg_http_message *hm);
-struct mg_connection *mg_http_listen(struct mg_mgr *, const char *url,
-                                     mg_event_handler_t fn, void *fn_data);
-struct mg_connection *mg_http_connect(struct mg_mgr *, const char *url,
-                                      mg_event_handler_t fn, void *fn_data);
-void mg_http_serve_dir(struct mg_connection *, struct mg_http_message *hm,
-                       const struct mg_http_serve_opts *);
-void mg_http_serve_file(struct mg_connection *, struct mg_http_message *hm,
-                        const char *path, const struct mg_http_serve_opts *);
-void mg_http_reply(struct mg_connection *, int status_code, const char *headers,
-                   const char *body_fmt, ...);
+struct mg_connection *mg_http_listen(struct mg_mgr *, const char *url, mg_event_handler_t fn, void *fn_data);
+struct mg_connection *mg_http_connect(struct mg_mgr *, const char *url, mg_event_handler_t fn, void *fn_data);
+void mg_http_serve_dir(struct mg_connection *, struct mg_http_message *hm, const struct mg_http_serve_opts *);
+void mg_http_serve_file(struct mg_connection *, struct mg_http_message *hm, const char *path, const struct mg_http_serve_opts *);
+void mg_http_reply(struct mg_connection *, int status_code, const char *headers, const char *body_fmt, ...);
 struct mg_str *mg_http_get_header(struct mg_http_message *, const char *name);
 int mg_http_get_var(const struct mg_str *, const char *name, char *, size_t);
 int mg_url_decode(const char *s, size_t n, char *to, size_t to_len, int form);
 size_t mg_url_encode(const char *s, size_t n, char *buf, size_t len);
 void mg_http_creds(struct mg_http_message *, char *, size_t, char *, size_t);
 bool mg_http_match_uri(const struct mg_http_message *, const char *glob);
-int mg_http_upload(struct mg_connection *, struct mg_http_message *hm,
-                   struct mg_fs *fs, const char *dir);
+int mg_http_upload(struct mg_connection *, struct mg_http_message *hm, struct mg_fs *fs, const char *dir);
 void mg_http_bauth(struct mg_connection *, const char *user, const char *pass);
 struct mg_str mg_http_get_header_var(struct mg_str s, struct mg_str v);
 size_t mg_http_next_multipart(struct mg_str, size_t, struct mg_http_part *);
 int mg_http_status(const struct mg_http_message *hm);
 
-
-void mg_http_serve_ssi(struct mg_connection *c, const char *root,
-                       const char *fullpath);
-
-
-
-
-
+void mg_http_serve_ssi(struct mg_connection *c, const char *root, const char *fullpath);
 
 struct mg_tls_opts {
   const char *ca;         // CA certificate file. For both listeners and clients
@@ -1045,12 +957,6 @@ long mg_tls_recv(struct mg_connection *, void *buf, size_t len);
 size_t mg_tls_pending(struct mg_connection *);
 void mg_tls_handshake(struct mg_connection *);
 
-
-
-
-
-
-
 #if MG_ENABLE_MBEDTLS
 #include <mbedtls/debug.h>
 #include <mbedtls/net_sockets.h>
@@ -1066,7 +972,6 @@ struct mg_tls {
 };
 #endif
 
-
 #if MG_ENABLE_OPENSSL
 
 #include <openssl/err.h>
@@ -1078,7 +983,6 @@ struct mg_tls {
 };
 #endif
 
-
 #define WEBSOCKET_OP_CONTINUE 0
 #define WEBSOCKET_OP_TEXT 1
 #define WEBSOCKET_OP_BINARY 2
@@ -1086,32 +990,19 @@ struct mg_tls {
 #define WEBSOCKET_OP_PING 9
 #define WEBSOCKET_OP_PONG 10
 
-
-
 struct mg_ws_message {
   struct mg_str data;  // Websocket message data
   uint8_t flags;       // Websocket message flags
 };
 
-struct mg_connection *mg_ws_connect(struct mg_mgr *, const char *url,
-                                    mg_event_handler_t fn, void *fn_data,
-                                    const char *fmt, ...);
-void mg_ws_upgrade(struct mg_connection *, struct mg_http_message *,
-                   const char *fmt, ...);
+struct mg_connection *mg_ws_connect(struct mg_mgr *, const char *url, mg_event_handler_t fn, void *fn_data, const char *fmt, ...);
+void mg_ws_upgrade(struct mg_connection *, struct mg_http_message *, const char *fmt, ...);
 size_t mg_ws_send(struct mg_connection *, const char *buf, size_t len, int op);
 size_t mg_ws_wrap(struct mg_connection *, size_t len, int op);
 
-
-
-
-struct mg_connection *mg_sntp_connect(struct mg_mgr *mgr, const char *url,
-                                      mg_event_handler_t fn, void *fn_data);
+struct mg_connection *mg_sntp_connect(struct mg_mgr *mgr, const char *url, mg_event_handler_t fn, void *fn_data);
 void mg_sntp_send(struct mg_connection *c, unsigned long utc);
 int64_t mg_sntp_parse(const unsigned char *buf, size_t len);
-
-
-
-
 
 #define MQTT_CMD_CONNECT 1
 #define MQTT_CMD_CONNACK 2
@@ -1144,35 +1035,24 @@ struct mg_mqtt_message {
   struct mg_str topic;  // Parsed topic
   struct mg_str data;   // Parsed message
   struct mg_str dgram;  // Whole MQTT datagram, including headers
-  uint16_t id;  // Set for PUBACK, PUBREC, PUBREL, PUBCOMP, SUBACK, PUBLISH
-  uint8_t cmd;  // MQTT command, one of MQTT_CMD_*
-  uint8_t qos;  // Quality of service
-  uint8_t ack;  // Connack return code. 0 - success
+  uint16_t id;          // Set for PUBACK, PUBREC, PUBREL, PUBCOMP, SUBACK, PUBLISH
+  uint8_t cmd;          // MQTT command, one of MQTT_CMD_*
+  uint8_t qos;          // Quality of service
+  uint8_t ack;          // Connack return code. 0 - success
 };
 
-struct mg_connection *mg_mqtt_connect(struct mg_mgr *, const char *url,
-                                      const struct mg_mqtt_opts *opts,
-                                      mg_event_handler_t fn, void *fn_data);
-struct mg_connection *mg_mqtt_listen(struct mg_mgr *mgr, const char *url,
-                                     mg_event_handler_t fn, void *fn_data);
+struct mg_connection *mg_mqtt_connect(struct mg_mgr *, const char *url, const struct mg_mqtt_opts *opts, mg_event_handler_t fn, void *fn_data);
+struct mg_connection *mg_mqtt_listen(struct mg_mgr *mgr, const char *url, mg_event_handler_t fn, void *fn_data);
 void mg_mqtt_login(struct mg_connection *c, const struct mg_mqtt_opts *opts);
-void mg_mqtt_pub(struct mg_connection *c, struct mg_str topic,
-                 struct mg_str data, int qos, bool retain);
+void mg_mqtt_pub(struct mg_connection *c, struct mg_str topic, struct mg_str data, int qos, bool retain);
 void mg_mqtt_sub(struct mg_connection *, struct mg_str topic, int qos);
 int mg_mqtt_parse(const uint8_t *buf, size_t len, struct mg_mqtt_message *m);
-void mg_mqtt_send_header(struct mg_connection *, uint8_t cmd, uint8_t flags,
-                         uint32_t len);
-size_t mg_mqtt_next_sub(struct mg_mqtt_message *msg, struct mg_str *topic,
-                        uint8_t *qos, size_t pos);
-size_t mg_mqtt_next_unsub(struct mg_mqtt_message *msg, struct mg_str *topic,
-                          size_t pos);
+void mg_mqtt_send_header(struct mg_connection *, uint8_t cmd, uint8_t flags, uint32_t len);
+size_t mg_mqtt_next_sub(struct mg_mqtt_message *msg, struct mg_str *topic, uint8_t *qos, size_t pos);
+size_t mg_mqtt_next_unsub(struct mg_mqtt_message *msg, struct mg_str *topic, size_t pos);
 void mg_mqtt_ping(struct mg_connection *);
 void mg_mqtt_pong(struct mg_connection *);
 void mg_mqtt_disconnect(struct mg_connection *);
-
-
-
-
 
 // Mongoose sends DNS queries that contain only one question:
 // either A (IPv4) or AAAA (IPv6) address lookup.
@@ -1205,8 +1085,7 @@ struct mg_dns_rr {
 void mg_resolve(struct mg_connection *, const char *url);
 void mg_resolve_cancel(struct mg_connection *);
 bool mg_dns_parse(const uint8_t *buf, size_t len, struct mg_dns_message *);
-size_t mg_dns_parse_rr(const uint8_t *buf, size_t len, size_t ofs,
-                       bool is_question, struct mg_dns_rr *);
+size_t mg_dns_parse_rr(const uint8_t *buf, size_t len, size_t ofs, bool is_question, struct mg_dns_rr *);
 
 #ifdef __cplusplus
 }

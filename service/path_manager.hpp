@@ -10,33 +10,29 @@
 #include <map>
 
 namespace nsclient {
-	namespace core {
+namespace core {
 
-		class path_manager {
-		private:
-			typedef std::map<std::string, std::string> paths_type;
+class path_manager {
+ private:
+  typedef std::map<std::string, std::string> paths_type;
 
-			nsclient::logging::logger_instance log_instance_;
-			boost::timed_mutex mutex_;
-			boost::filesystem::path basePath;
-			boost::filesystem::path tempPath;
-			paths_type paths_cache_;
+  nsclient::logging::logger_instance log_instance_;
+  boost::timed_mutex mutex_;
+  boost::filesystem::path basePath;
+  boost::filesystem::path tempPath;
+  paths_type paths_cache_;
 
+ public:
+  path_manager(nsclient::logging::logger_instance log_instance_);
+  std::string getFolder(std::string key);
+  std::string expand_path(std::string file);
 
-		public:
+ private:
+  boost::filesystem::path getBasePath();
+  boost::filesystem::path getTempPath();
+  nsclient::logging::logger_instance get_logger() { return log_instance_; }
+};
+typedef boost::shared_ptr<path_manager> path_instance;
+}  // namespace core
 
-			path_manager(nsclient::logging::logger_instance log_instance_);
-			std::string getFolder(std::string key);
-			std::string expand_path(std::string file);
-
-		private:
-			boost::filesystem::path getBasePath();
-			boost::filesystem::path getTempPath();
-			nsclient::logging::logger_instance get_logger() {
-				return log_instance_;
-			}
-		};
-		typedef boost::shared_ptr<path_manager> path_instance;
-	}
-
-}
+}  // namespace nsclient

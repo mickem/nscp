@@ -62,7 +62,8 @@ struct lua_runtime : public scripts::script_runtime_interface<lua::lua_traits> {
   virtual void on_exec(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple,
                        const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response,
                        const PB::Commands::ExecuteRequestMessage &request_message);
-  virtual void on_submit(std::string channel, script_information* information, lua::lua_traits::function_type function, bool simple, const PB::Commands::QueryResponseMessage::Response &request, PB::Commands::SubmitResponseMessage::Response *response);
+  virtual void on_submit(std::string channel, script_information *information, lua::lua_traits::function_type function, bool simple,
+                         const PB::Commands::QueryResponseMessage::Response &request, PB::Commands::SubmitResponseMessage::Response *response);
   virtual void exec_main(script_information *information, const std::vector<std::string> &opts, PB::Commands::ExecuteResponseMessage::Response *response);
 
   virtual void load(scripts::script_information<lua_traits> *info);

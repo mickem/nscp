@@ -29,74 +29,60 @@
 #include <nsclient/logger/base_logger_impl.hpp>
 
 namespace nsclient {
-	namespace logging {
-		namespace impl {
-			class nsclient_logger : public nsclient::logging::logger_impl, nsclient::logging::logging_subscriber {
+namespace logging {
+namespace impl {
+class nsclient_logger : public nsclient::logging::logger_impl, nsclient::logging::logging_subscriber {
+  typedef std::list<nsclient::logging::logging_subscriber_instance> subscribers_type;
 
+  nsclient::logging::log_driver_instance backend_;
+  subscribers_type subscribers_;
+  mutable boost::timed_mutex mutex_;
 
-				typedef std::list<nsclient::logging::logging_subscriber_instance> subscribers_type;
+ public:
+  nsclient_logger();
+  ~nsclient_logger();
 
+  void add(nsclient::logging::logging_subscriber_instance subscriber) {
+    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    if (!lock.owns_lock()) return;
+    subscribers_.push_back(subscriber);
+  }
+  void clear() {
+    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    if (!lock.owns_lock()) return;
+    subscribers_.clear();
+  }
 
-				nsclient::logging::log_driver_instance backend_;
-				subscribers_type subscribers_;
-				mutable boost::timed_mutex mutex_;
+  void on_log_message(std::string &data) {
+    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    if (!lock.owns_lock()) return;
+    if (subscribers_.empty()) return;
+    for (nsclient::logging::logging_subscriber_instance &s : subscribers_) {
+      s->on_log_message(data);
+    }
+  }
 
-			public:
+  virtual void set_log_level(const std::string level) {
+    if (level == "console") {
+      if (backend_) {
+        backend_->set_config(level);
+      }
+    } else {
+      nsclient::logging::logger_impl::set_log_level(level);
+    }
+  }
 
-				nsclient_logger();
-				~nsclient_logger();
+  void do_log(const std::string data);
 
-				void add(nsclient::logging::logging_subscriber_instance subscriber) {
-					boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-					if (!lock.owns_lock())
-						return;
-					subscribers_.push_back(subscriber);
-				}
-				void clear() {
-					boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-					if (!lock.owns_lock())
-						return;
-					subscribers_.clear();
-				}
+  void set_backend(std::string backend);
+  void destroy();
 
-				void on_log_message(std::string &data) {
-					boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-					if (!lock.owns_lock())
-						return;
-					if (subscribers_.empty())
-						return;
-					for(nsclient::logging::logging_subscriber_instance & s: subscribers_) {
-						s->on_log_message(data);
-					}
-				}
-
-
-				virtual void set_log_level(const std::string level) {
-					if (level == "console") {
-						if (backend_) {
-							backend_->set_config(level);
-						}
-					} else {
-						nsclient::logging::logger_impl::set_log_level(level);
-					}
-				}
-
-
-				void do_log(const std::string data);
-
-
-
-				void set_backend(std::string backend);
-				void destroy();
-
-
-				void add_subscriber(nsclient::logging::logging_subscriber_instance);
-				void clear_subscribers();
-				bool startup();
-				bool shutdown();
-				void configure();
-
-			};
-		}
-	}
-}
+  void add_subscriber(nsclient::logging::logging_subscriber_instance);
+  void clear_subscribers();
+  bool startup();
+  bool shutdown();
+  void configure();
+};
+}  // namespace impl
+}  // namespace logging
+}  // namespace nsclient

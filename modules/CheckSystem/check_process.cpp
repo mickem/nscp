@@ -36,22 +36,23 @@
 using namespace boost::placeholders;
 
 namespace check_proc_filter {
-	typedef process_helper::process_info filter_obj;
+typedef process_helper::process_info filter_obj;
 
-	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
-	struct filter_obj_handler : public native_context {
-		filter_obj_handler();
-	};
-	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
+typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+struct filter_obj_handler : public native_context {
+  filter_obj_handler();
+};
+typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
-	parsers::where::node_type parse_state(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		return parsers::where::factory::create_int(filter_obj::parse_state(subject->get_string_value(context)));
-	}
+parsers::where::node_type parse_state(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+  return parsers::where::factory::create_int(filter_obj::parse_state(subject->get_string_value(context)));
+}
 
-	filter_obj_handler::filter_obj_handler() {
-		static const parsers::where::value_type type_custom_state = parsers::where::type_custom_int_1;
-		static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
+filter_obj_handler::filter_obj_handler() {
+  static const parsers::where::value_type type_custom_state = parsers::where::type_custom_int_1;
+  static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
 
+  // clang-format off
 		registry_.add_string()
 			("filename", boost::bind(&filter_obj::get_filename, _1), "Name of process (with path)")
 			("exe", boost::bind(&filter_obj::get_exe, _1), "The name of the executable")
@@ -97,154 +98,138 @@ namespace check_proc_filter {
 		registry_.add_converter()
 			(type_custom_state, &parse_state)
 			;
-	}
-
+  // clang-format on
 }
 
+}  // namespace check_proc_filter
+
 class NSC_error : public process_helper::error_reporter {
-	void report_error(std::string error) {
-		NSC_LOG_ERROR(error);
-	}
-	void report_warning(std::string error) {
-		NSC_LOG_MESSAGE(error);
-	}
-	void report_debug(std::string error) {
-		NSC_DEBUG_MSG_STD(error);
-	}
+  void report_error(std::string error) { NSC_LOG_ERROR(error); }
+  void report_warning(std::string error) { NSC_LOG_MESSAGE(error); }
+  void report_debug(std::string error) { NSC_DEBUG_MSG_STD(error); }
 };
 
 namespace process_checks {
 
+namespace realtime {
 
-	namespace realtime {
+struct transient_data {
+  process_helper::process_list list;
 
-		struct transient_data {
-			process_helper::process_list list;
+  transient_data(process_helper::process_list list) : list(list) {}
+  const transient_data &operator=(const transient_data &other) {
+    list = other.list;
+    return *this;
+  }
 
-			transient_data(process_helper::process_list list) : list(list) {}
-			const transient_data& operator=(const transient_data &other) {
-				list = other.list;
-				return *this;
-			}
+  std::string to_string() const { return str::xtos(list.size()) + " processes"; }
+};
 
-			std::string to_string() const {
-				return str::xtos(list.size()) + " processes";
-			}
-		};
+struct runtime_data {
+  typedef check_proc_filter::filter filter_type;
+  typedef boost::shared_ptr<transient_data> transient_data_type;
 
-		struct runtime_data {
-			typedef check_proc_filter::filter filter_type;
-			typedef boost::shared_ptr<transient_data> transient_data_type;
+  std::list<std::string> checks;
+  bool has_check_all;
 
-			std::list<std::string> checks;
-			bool has_check_all;
+  runtime_data() : has_check_all(false) {}
+  void boot() {}
+  void touch(boost::posix_time::ptime now) {}
+  bool has_changed(transient_data_type) const { return true; }
+  modern_filter::match_result process_item(filter_type &filter, transient_data_type);
+  void add(const std::string &data);
+};
 
-			runtime_data() : has_check_all(false) {}
-			void boot() {}
-			void touch(boost::posix_time::ptime now) {}
-			bool has_changed(transient_data_type) const { return true; }
-			modern_filter::match_result process_item(filter_type &filter, transient_data_type);
-			void add(const std::string &data);
-		};
+struct proc_filter_helper_wrapper {
+  typedef parsers::where::realtime_filter_helper<runtime_data, filters::proc::filter_config_object> proc_filter_helper;
+  proc_filter_helper helper;
 
-		struct proc_filter_helper_wrapper {
-			typedef parsers::where::realtime_filter_helper<runtime_data, filters::proc::filter_config_object> proc_filter_helper;
-			proc_filter_helper helper;
+  proc_filter_helper_wrapper(nscapi::core_wrapper *core, int plugin_id) : helper(core, plugin_id) {}
+};
 
-			proc_filter_helper_wrapper(nscapi::core_wrapper *core, int plugin_id) : helper(core, plugin_id) {}
+void runtime_data::add(const std::string &data) {
+  if (data == "*") {
+    has_check_all = true;
+  } else {
+    checks.push_back(data);
+  }
+}
 
-		};
+modern_filter::match_result runtime_data::process_item(filter_type &filter, transient_data_type data) {
+  modern_filter::match_result ret;
 
-		void runtime_data::add(const std::string &data) {
-			if (data == "*") {
-				has_check_all = true;
-			} else {
-				checks.push_back(data);
-			}
-		}
+  if (has_check_all) {
+    for (const process_helper::process_info &info : data->list) {
+      boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(info));
+      ret.append(filter.match(record));
+    }
+  } else {
+    for (const process_helper::process_info &info : data->list) {
+      bool found = (std::find(checks.begin(), checks.end(), info.exe.get()) != checks.end());
+      if (found) {
+        boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(info));
+        ret.append(filter.match(record));
+      }
+    }
+  }
+  return ret;
+}
 
-		modern_filter::match_result runtime_data::process_item(filter_type &filter, transient_data_type data) {
-			modern_filter::match_result ret;
+helper::helper(nscapi::core_wrapper *core, int plugin_id) : proc_helper(new proc_filter_helper_wrapper(core, plugin_id)) {}
 
-			if (has_check_all) {
-				for(const process_helper::process_info &info: data->list) {
-					boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(info));
-					ret.append(filter.match(record));
-				}
-			} else {
-				for(const process_helper::process_info &info: data->list) {
-					bool found = (std::find(checks.begin(), checks.end(), info.exe.get()) != checks.end());
-					if (found) {
-						boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(info));
-						ret.append(filter.match(record));
-					}
-				}
-			}
-			return ret;
-		}
+void helper::add_obj(boost::shared_ptr<filters::proc::filter_config_object> object) {
+  runtime_data data;
+  for (const std::string &d : object->data) {
+    data.add(d);
+  }
+  proc_helper->helper.add_item(object, data, "system.process");
+}
 
+void helper::boot() { proc_helper->helper.touch_all(); }
 
-		helper::helper(nscapi::core_wrapper *core, int plugin_id) : proc_helper(new proc_filter_helper_wrapper(core, plugin_id)) {}
+void helper::check() {
+  NSC_error err;
 
-		void helper::add_obj(boost::shared_ptr<filters::proc::filter_config_object> object) {
-			runtime_data data;
-			for(const std::string &d: object->data) {
-				data.add(d);
-			}
-			proc_helper->helper.add_item(object, data, "system.process");
+  runtime_data::transient_data_type data(new transient_data(process_helper::enumerate_processes_delta(true, &err)));
+  for (process_helper::process_info &i : data->list) {
+    if (known_processes_.find(i.exe.get()) == known_processes_.end()) {
+      i.is_new = true;
+      known_processes_.emplace(i.exe.get());
+    }
+  }
+  proc_helper->helper.process_items(data);
+}
 
-		}
+}  // namespace realtime
 
-		void helper::boot() {
-			proc_helper->helper.touch_all();
-		}
+struct CaseBlindCompare {
+  bool operator()(const std::string &a, const std::string &b) const { return _stricmp(a.c_str(), b.c_str()) < 0; }
+};
 
-		void helper::check() {
-			NSC_error err;
+namespace active {
 
-			runtime_data::transient_data_type data(new transient_data(process_helper::enumerate_processes_delta(true, &err)));
-			for(process_helper::process_info &i: data->list) {
-				if (known_processes_.find(i.exe.get()) == known_processes_.end()) {
-					i.is_new = true;
-					known_processes_.emplace(i.exe.get());
-				}
-			}
-			proc_helper->helper.process_items(data);
-		}
+namespace po = boost::program_options;
 
+void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  typedef check_proc_filter::filter filter_type;
+  modern_filter::data_container data;
+  modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
+  std::vector<std::string> processes;
+  bool deep_scan = true;
+  bool vdm_scan = false;
+  bool unreadable_scan = true;
+  bool delta_scan = false;
+  bool total = false;
 
-	}
+  NSC_error err;
+  filter_type filter;
+  filter_helper.add_filter_option("state != 'unreadable'");
+  filter_helper.add_warn_option("state not in ('started')");
+  filter_helper.add_crit_option("state = 'stopped'", "count = 0");
 
-
-	struct CaseBlindCompare {
-		bool operator() (const std::string& a, const std::string& b) const {
-			return _stricmp(a.c_str(), b.c_str()) < 0;
-		}
-	};
-
-	namespace active {
-
-		namespace po = boost::program_options;
-
-		void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-			typedef check_proc_filter::filter filter_type;
-			modern_filter::data_container data;
-			modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
-			std::vector<std::string> processes;
-			bool deep_scan = true;
-			bool vdm_scan = false;
-			bool unreadable_scan = true;
-			bool delta_scan = false;
-			bool total = false;
-
-			NSC_error err;
-			filter_type filter;
-			filter_helper.add_filter_option("state != 'unreadable'");
-			filter_helper.add_warn_option("state not in ('started')");
-			filter_helper.add_crit_option("state = 'stopped'", "count = 0");
-
-			filter_helper.add_options(filter.get_filter_syntax(), "unknown");
-			filter_helper.add_syntax("${status}: ${problem_list}", "${exe}=${state}", "${exe}", "UNKNOWN: No processes found", "%(status): all processes are ok.");
+  filter_helper.add_options(filter.get_filter_syntax(), "unknown");
+  filter_helper.add_syntax("${status}: ${problem_list}", "${exe}=${state}", "${exe}", "UNKNOWN: No processes found", "%(status): all processes are ok.");
+  // clang-format off
 			filter_helper.get_desc().add_options()
 				("process", po::value<std::vector<std::string>>(&processes), "The service to check, set this to * to check all services")
 				("scan-info", po::value<bool>(&deep_scan), "If all process metrics should be fetched (otherwise only status is fetched)")
@@ -253,55 +238,51 @@ namespace process_checks {
 				("scan-unreadable", po::value<bool>(&unreadable_scan), "If unreadable processes should be included (will not have information)")
 				("total", po::bool_switch(&total), "Include the total of all matching files")
 				;
+  // clang-format on
 
-			if (!filter_helper.parse_options())
-				return;
+  if (!filter_helper.parse_options()) return;
 
-			if (processes.empty()) {
-				processes.push_back("*");
-			}
-			if (!filter_helper.build_filter(filter))
-				return;
+  if (processes.empty()) {
+    processes.push_back("*");
+  }
+  if (!filter_helper.build_filter(filter)) return;
 
-			std::set<std::string, CaseBlindCompare> procs;
-			bool all = false;
-			for(const std::string &process: processes) {
-				if (process == "*")
-					all = true;
-				else if (procs.count(process) == 0)
-					procs.insert(process);
-			}
+  std::set<std::string, CaseBlindCompare> procs;
+  bool all = false;
+  for (const std::string &process : processes) {
+    if (process == "*")
+      all = true;
+    else if (procs.count(process) == 0)
+      procs.insert(process);
+  }
 
+  std::vector<std::string> matched;
+  process_helper::process_list list = delta_scan ? process_helper::enumerate_processes_delta(!unreadable_scan, &err)
+                                                 : process_helper::enumerate_processes(!unreadable_scan, vdm_scan, deep_scan, &err);
+  for (const process_helper::process_info &info : list) {
+    bool wanted = procs.count(info.exe);
+    if (all || wanted) {
+      boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(info));
+      filter.match(record);
+    }
+    if (wanted) {
+      matched.push_back(info.exe);
+    }
+  }
+  for (const std::string &proc : matched) {
+    procs.erase(proc);
+  }
 
-			std::vector<std::string> matched;
-			process_helper::process_list list = delta_scan ? process_helper::enumerate_processes_delta(!unreadable_scan, &err) : process_helper::enumerate_processes(!unreadable_scan, vdm_scan, deep_scan, &err);
-			for(const process_helper::process_info &info: list) {
-				bool wanted = procs.count(info.exe);
-				if (all || wanted) {
-					boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(info));
-					filter.match(record);
-				}
-				if (wanted) {
-					matched.push_back(info.exe);
-				}
-			}
-			for(const std::string &proc: matched) {
-				procs.erase(proc);
-			}
+  boost::shared_ptr<process_helper::process_info> total_obj;
+  if (total) total_obj = process_helper::process_info::get_total();
 
-			boost::shared_ptr<process_helper::process_info> total_obj;
-			if (total)
-				total_obj = process_helper::process_info::get_total();
-
-			for(const std::string proc: procs) {
-				boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(proc));
-				modern_filter::match_result ret = filter.match(record);
-				if (total_obj && ret.matched_filter)
-					total_obj->operator+=(*record);
-			}
-			if (total_obj)
-				filter.match(total_obj);
-			filter_helper.post_process(filter);
-		}
-	}
+  for (const std::string proc : procs) {
+    boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(proc));
+    modern_filter::match_result ret = filter.match(record);
+    if (total_obj && ret.matched_filter) total_obj->operator+=(*record);
+  }
+  if (total_obj) filter.match(total_obj);
+  filter_helper.post_process(filter);
 }
+}  // namespace active
+}  // namespace process_checks

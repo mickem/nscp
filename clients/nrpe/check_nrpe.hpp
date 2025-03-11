@@ -24,10 +24,10 @@
 #include <client/command_line_parser.hpp>
 
 class check_nrpe {
-private:
-	client::configuration client_;
+ private:
+  client::configuration client_;
 
-public:
-	check_nrpe();
-	void query(const PB::Commands::QueryRequestMessage &request, PB::Commands::QueryResponseMessage &response);
+ public:
+  check_nrpe();
+  void query(const PB::Commands::QueryRequestMessage &request, PB::Commands::QueryResponseMessage &response);
 };

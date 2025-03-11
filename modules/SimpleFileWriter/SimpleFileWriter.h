@@ -24,23 +24,27 @@
 #include <boost/function.hpp>
 
 struct config_object {
-	std::string time_format;
+  std::string time_format;
 };
 
 class SimpleFileWriter : public nscapi::impl::simple_plugin {
-public:
-	typedef boost::function<std::string(const config_object &config, const std::string channel, const PB::Common::Header &hdr, const PB::Commands::QueryResponseMessage::Response &payload)> index_lookup_function;
-	typedef std::list<index_lookup_function> index_lookup_type;
-private:
-	index_lookup_type syntax_service_lookup_, syntax_host_lookup_;
-	std::string filename_;
-	boost::shared_mutex cache_mutex_;
-	config_object config_;
+ public:
+  typedef boost::function<std::string(const config_object &config, const std::string channel, const PB::Common::Header &hdr,
+                                      const PB::Commands::QueryResponseMessage::Response &payload)>
+      index_lookup_function;
+  typedef std::list<index_lookup_function> index_lookup_type;
 
-public:
-	SimpleFileWriter() {}
-	virtual ~SimpleFileWriter() {}
-	// Module calls
-	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
-	void handleNotification(const std::string &channel, const PB::Commands::QueryResponseMessage::Response &request, PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message);
+ private:
+  index_lookup_type syntax_service_lookup_, syntax_host_lookup_;
+  std::string filename_;
+  boost::shared_mutex cache_mutex_;
+  config_object config_;
+
+ public:
+  SimpleFileWriter() {}
+  virtual ~SimpleFileWriter() {}
+  // Module calls
+  bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+  void handleNotification(const std::string &channel, const PB::Commands::QueryResponseMessage::Response &request,
+                          PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message);
 };

@@ -4,49 +4,33 @@
 
 using namespace std;
 
-namespace Mongoose
-{
-    Response::Response() : code(HTTP_OK), reason(REASON_OK), headers()
-    {
-    }
-            
-    Response::~Response()
-    {
-    }
-            
-    void Response::setHeader(string key, string value)
-    {
-        headers[key] = value;
-    }
+namespace Mongoose {
+Response::Response() : code(HTTP_OK), reason(REASON_OK), headers() {}
 
-    bool Response::hasHeader(string key)
-    {
-        return headers.find(key) != headers.end();
-    }
+Response::~Response() {}
 
-    void Response::setCookie(string key, string value)
-    {
-		cookies[key] = value;
-    }
+void Response::setHeader(string key, string value) { headers[key] = value; }
 
-    void Response::setCode(int code_, std::string reason_)
-    {
-        code = code_;
-		reason = reason_;
-    }
+bool Response::hasHeader(string key) { return headers.find(key) != headers.end(); }
 
-	void Response::setCodeOk()
-	{
-		code = HTTP_OK;
-		reason = REASON_OK;
-	}
+void Response::setCookie(string key, string value) { cookies[key] = value; }
 
-	std::string Response::getCookie(std::string key) const {
-		header_type::const_iterator cit = cookies.find(key);
-		if (cit == cookies.end()) {
-			return "";
-		}
-		return cit->second;
-	}
-
+void Response::setCode(int code_, std::string reason_) {
+  code = code_;
+  reason = reason_;
 }
+
+void Response::setCodeOk() {
+  code = HTTP_OK;
+  reason = REASON_OK;
+}
+
+std::string Response::getCookie(std::string key) const {
+  header_type::const_iterator cit = cookies.find(key);
+  if (cit == cookies.end()) {
+    return "";
+  }
+  return cit->second;
+}
+
+}  // namespace Mongoose

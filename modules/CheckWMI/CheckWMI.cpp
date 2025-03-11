@@ -36,15 +36,15 @@ namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
 void target_helper::add_target(nscapi::settings_helper::settings_impl_interface_ptr core, std::string key, std::string val) {
-	std::string alias = key;
-	target_info target;
-	try {
-		sh::settings_registry settings(core);
+  std::string alias = key;
+  target_info target;
+  try {
+    sh::settings_registry settings(core);
 
-		target.hostname = val;
-		if (val.empty())
-			target.hostname = alias;
+    target.hostname = val;
+    if (val.empty()) target.hostname = alias;
 
+    // clang-format off
 		settings.add_path_to_settings()
 			(target.hostname, "Targets", "A list of available remote target systems")
 
@@ -64,42 +64,41 @@ void target_helper::add_target(nscapi::settings_helper::settings_impl_interface_
 				"TARGET PROTOCOL", "Protocol identifier used to route requests")
 
 			;
+    // clang-format on
 
-		settings.register_all();
-		settings.notify();
-	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_EXR("loading: ", e);
-	} catch (...) {
-		NSC_LOG_ERROR_EX("loading: ");
-	}
-	targets[alias] = target;
+    settings.register_all();
+    settings.notify();
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR_EXR("loading: ", e);
+  } catch (...) {
+    NSC_LOG_ERROR_EX("loading: ");
+  }
+  targets[alias] = target;
 }
 
 bool CheckWMI::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
-	sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
-	//settings.set_alias(_T("targets"));
+  sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
+  // settings.set_alias(_T("targets"));
 
+  // clang-format off
 	settings.add_path_to_settings()
 		("targets", sh::fun_values_path(boost::bind(&target_helper::add_target, &targets, nscapi::settings_proxy::create(get_id(), get_core()), boost::placeholders::_1, boost::placeholders::_2)),
 			"TARGET LIST SECTION", "A list of available remote target systems",
 			"TARGET DEFENTION", "For more configuration options add a dedicated section")
 		;
+  // clang-format on
 
-	settings.register_all();
-	settings.notify();
+  settings.register_all();
+  settings.notify();
 
-	return true;
+  return true;
 }
-bool CheckWMI::unloadModule() {
-	return true;
-}
+bool CheckWMI::unloadModule() { return true; }
 
 std::string build_namespace(std::string ns, std::string computer) {
-	if (ns.empty())
-		ns = "root\\cimv2";
-	if (!computer.empty())
-		ns = "\\\\" + computer + "\\" + ns;
-	return ns;
+  if (ns.empty()) ns = "root\\cimv2";
+  if (!computer.empty()) ns = "\\\\" + computer + "\\" + ns;
+  return ns;
 }
 
 #include <parsers/where.hpp>
@@ -110,37 +109,31 @@ std::string build_namespace(std::string ns, std::string computer) {
 #include <parsers/where/filter_handler_impl.hpp>
 
 namespace wmi_filter {
-	struct filter_obj {
-		wmi_impl::row &row;
-		filter_obj(wmi_impl::row &row) : row(row) {}
+struct filter_obj {
+  wmi_impl::row &row;
+  filter_obj(wmi_impl::row &row) : row(row) {}
 
-		std::string get_string(const std::string col) const {
-			return row.get_string(col);
-		}
-		std::string get_row() const {
-			return row.to_string();
-		}
-		long long get_int(const std::string col) const {
-			return row.get_int(col);
-		}
-	};
+  std::string get_string(const std::string col) const { return row.get_string(col); }
+  std::string get_row() const { return row.to_string(); }
+  long long get_int(const std::string col) const { return row.get_int(col); }
+};
 
-	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
-	struct filter_obj_handler : public native_context {
-		filter_obj_handler() {
-		}
-	};
-	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
-}
+typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+struct filter_obj_handler : public native_context {
+  filter_obj_handler() {}
+};
+typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
+}  // namespace wmi_filter
 void CheckWMI::check_wmi(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-	typedef wmi_filter::filter filter_type;
-	modern_filter::data_container data;
-	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
-	std::string given_target;
-	target_helper::target_info target_info;
-	boost::optional<target_helper::target_info> t;
-	std::string query, ns = "root\\cimv2";
+  typedef wmi_filter::filter filter_type;
+  modern_filter::data_container data;
+  modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
+  std::string given_target;
+  target_helper::target_info target_info;
+  boost::optional<target_helper::target_info> t;
+  std::string query, ns = "root\\cimv2";
 
+  // clang-format off
 	filter_type filter;
 	filter_helper.add_options("", "", "", filter.get_filter_syntax(), "ignored");
 	filter_helper.add_syntax("${list}", "%(line)", "", "", "");
@@ -151,113 +144,108 @@ void CheckWMI::check_wmi(const PB::Commands::QueryRequestMessage::Request &reque
 		("namespace", po::value<std::string>(&ns)->default_value("root\\cimv2"), "The WMI root namespace to bind to.")
 		("query", po::value<std::string>(&query), "The WMI query to execute.")
 		;
+  // clang-format on
 
-	if (!filter_helper.parse_options())
-		return;
+  if (!filter_helper.parse_options()) return;
 
-	if (query.empty())
-		return nscapi::protobuf::functions::set_response_bad(*response, "No query specified");
+  if (query.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "No query specified");
 
-	if (!given_target.empty()) {
-		t = targets.find(given_target);
-		if (t)
-			target_info.update_from(*t);
-		else
-			target_info.hostname = given_target;
-	}
+  if (!given_target.empty()) {
+    t = targets.find(given_target);
+    if (t)
+      target_info.update_from(*t);
+    else
+      target_info.hostname = given_target;
+  }
 
-	try {
-		ns = build_namespace(ns, target_info.hostname);
-		wmi_impl::query wmiQuery(query, ns, target_info.username, target_info.password);
-		filter.context->registry_.add_string()
-			("line", boost::bind(&wmi_filter::filter_obj::get_row, boost::placeholders::_1), "Get a list of all columns");
-		for(const std::string &col: wmiQuery.get_columns()) {
-			filter.context->registry_.add_int()
-				(col, boost::bind(&wmi_filter::filter_obj::get_int, boost::placeholders::_1, col), boost::bind(&wmi_filter::filter_obj::get_string, boost::placeholders::_1, col), "Column: " + col).add_perf("", col, "");
-		}
+  try {
+    ns = build_namespace(ns, target_info.hostname);
+    wmi_impl::query wmiQuery(query, ns, target_info.username, target_info.password);
+    filter.context->registry_.add_string()("line", boost::bind(&wmi_filter::filter_obj::get_row, boost::placeholders::_1), "Get a list of all columns");
+    for (const std::string &col : wmiQuery.get_columns()) {
+      filter.context->registry_
+          .add_int()(col, boost::bind(&wmi_filter::filter_obj::get_int, boost::placeholders::_1, col),
+                     boost::bind(&wmi_filter::filter_obj::get_string, boost::placeholders::_1, col), "Column: " + col)
+          .add_perf("", col, "");
+    }
 
-		if (!filter_helper.build_filter(filter))
-			return;
+    if (!filter_helper.build_filter(filter)) return;
 
-		wmi_impl::row_enumerator e = wmiQuery.execute();
-		while (e.has_next()) {
-			boost::shared_ptr<wmi_filter::filter_obj> record(new wmi_filter::filter_obj(e.get_next()));
-			filter.match(record);
-		}
-	} catch (const wmi_impl::wmi_exception &e) {
-		return nscapi::protobuf::functions::set_response_bad(*response, "WMIQuery failed: " + e.reason());
-	}
-	filter_helper.post_process(filter);
+    wmi_impl::row_enumerator e = wmiQuery.execute();
+    while (e.has_next()) {
+      boost::shared_ptr<wmi_filter::filter_obj> record(new wmi_filter::filter_obj(e.get_next()));
+      filter.match(record);
+    }
+  } catch (const wmi_impl::wmi_exception &e) {
+    return nscapi::protobuf::functions::set_response_bad(*response, "WMIQuery failed: " + e.reason());
+  }
+  filter_helper.post_process(filter);
 }
 
-inline std::string pad(const std::string &s, const std::size_t &c) {
-	return s + std::string(c - s.size(), ' ');
-}
+inline std::string pad(const std::string &s, const std::size_t &c) { return s + std::string(c - s.size(), ' '); }
 
-typedef  std::vector<std::string> row_type;
+typedef std::vector<std::string> row_type;
 std::string render_table(const std::vector<std::size_t> &widths, const row_type &headers, const std::list<row_type> &rows) {
-	std::size_t count = widths.size();
-	std::stringstream ss;
-	std::string line;
-	for (int i = 0; i < count; ++i) {
-		line += std::string(widths[i] + 3, '-');
-	}
-	ss << line << "\n";
-	if (headers.size() != widths.size())
-		throw wmi_impl::wmi_exception(E_INVALIDARG, "Invalid header size");
-	for (int i = 0; i < count; ++i)
-		ss << " " << pad(headers[i], widths[i]) << " ";
-	ss << "\n" << line << "\n";
-	for(const row_type &row: rows) {
-		if (row.size() != widths.size())
-			throw wmi_impl::wmi_exception(E_INVALIDARG, "Invalid row size");
-		for (int i = 0; i < count; ++i)
-			ss << " " << pad(row[i], widths[i]) << " ";
-		ss << "\n";
-	}
-	ss << line;
-	return ss.str();
+  std::size_t count = widths.size();
+  std::stringstream ss;
+  std::string line;
+  for (int i = 0; i < count; ++i) {
+    line += std::string(widths[i] + 3, '-');
+  }
+  ss << line << "\n";
+  if (headers.size() != widths.size()) throw wmi_impl::wmi_exception(E_INVALIDARG, "Invalid header size");
+  for (int i = 0; i < count; ++i) ss << " " << pad(headers[i], widths[i]) << " ";
+  ss << "\n" << line << "\n";
+  for (const row_type &row : rows) {
+    if (row.size() != widths.size()) throw wmi_impl::wmi_exception(E_INVALIDARG, "Invalid row size");
+    for (int i = 0; i < count; ++i) ss << " " << pad(row[i], widths[i]) << " ";
+    ss << "\n";
+  }
+  ss << line;
+  return ss.str();
 }
 
 std::string render(const row_type &headers, std::vector<std::size_t> &widths, wmi_impl::row_enumerator e) {
-	std::list<row_type> rows;
-	std::size_t count = widths.size();
-	while (e.has_next()) {
-		wmi_impl::row wmi_row = e.get_next();
-		row_type row;
-		for (std::size_t i = 0; i < count; i++) {
-			std::string c = wmi_row.get_string(headers[i]);
-			widths[i] = (std::max)(c.size(), widths[i]);
-			row.push_back(c);
-		}
-		rows.push_back(row);
-	}
-	return render_table(widths, headers, rows);
+  std::list<row_type> rows;
+  std::size_t count = widths.size();
+  while (e.has_next()) {
+    wmi_impl::row wmi_row = e.get_next();
+    row_type row;
+    for (std::size_t i = 0; i < count; i++) {
+      std::string c = wmi_row.get_string(headers[i]);
+      widths[i] = (std::max)(c.size(), widths[i]);
+      row.push_back(c);
+    }
+    rows.push_back(row);
+  }
+  return render_table(widths, headers, rows);
 }
 
 std::string list_ns_rec(std::string ns, std::string user, std::string password) {
-	std::stringstream ss;
-	wmi_impl::instances impl("__Namespace", ns, user, password);
-	wmi_impl::row_enumerator e = impl.get();
-	while (e.has_next()) {
-		wmi_impl::row wmi_row = e.get_next();
-		std::string str = wmi_row.get_string("Name");
-		ss << ns << "\\" << str << "\n";
-		ss << list_ns_rec(ns + "\\" + str, user, password);
-	}
-	return ss.str();
+  std::stringstream ss;
+  wmi_impl::instances impl("__Namespace", ns, user, password);
+  wmi_impl::row_enumerator e = impl.get();
+  while (e.has_next()) {
+    wmi_impl::row wmi_row = e.get_next();
+    std::string str = wmi_row.get_string("Name");
+    ss << ns << "\\" << str << "\n";
+    ss << list_ns_rec(ns + "\\" + str, user, password);
+  }
+  return ss.str();
 }
 
-NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std::string &command, const std::list<std::string> &arguments, std::string &result) {
-	try {
-		if (command == "wmi" || command == "help" || command.empty()) {
-			namespace po = boost::program_options;
+NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std::string &command, const std::list<std::string> &arguments,
+                                               std::string &result) {
+  try {
+    if (command == "wmi" || command == "help" || command.empty()) {
+      namespace po = boost::program_options;
 
-			std::string query, ns, user, password, list_cls, list_inst;
-			std::string computer;
-			bool simple;
-			int limit = -1;
-			po::options_description desc("Allowed options");
+      std::string query, ns, user, password, list_cls, list_inst;
+      std::string computer;
+      bool simple;
+      int limit = -1;
+      po::options_description desc("Allowed options");
+      // clang-format off
 			desc.add_options()
 				("help,h", "Show help screen")
 				("select,s", po::value<std::string>(&query), "Execute a query")
@@ -272,111 +260,113 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std:
 				("user,u", po::value<std::string>(&user), "The user for the remote computer")
 				("password,p", po::value<std::string>(&password), "The password for the remote computer")
 				;
+      // clang-format on
 
-			boost::program_options::variables_map vm;
+      boost::program_options::variables_map vm;
 
-			if (command == "help") {
-				std::stringstream ss;
-				ss << "wmi Command line syntax:" << std::endl;
-				ss << desc;
-				result = ss.str();
-				return NSCAPI::exec_return_codes::returnOK;
-			}
+      if (command == "help") {
+        std::stringstream ss;
+        ss << "wmi Command line syntax:" << std::endl;
+        ss << desc;
+        result = ss.str();
+        return NSCAPI::exec_return_codes::returnOK;
+      }
 
-			std::vector<std::string> args(arguments.begin(), arguments.end());
-			po::parsed_options parsed = po::basic_command_line_parser<char>(args).options(desc).run();
-			po::store(parsed, vm);
-			po::notify(vm);
+      std::vector<std::string> args(arguments.begin(), arguments.end());
+      po::parsed_options parsed = po::basic_command_line_parser<char>(args).options(desc).run();
+      po::store(parsed, vm);
+      po::notify(vm);
 
-			if (vm.count("help") || (vm.count("select") == 0 && vm.count("list-classes") == 0 && vm.count("list-instances") == 0 && vm.count("list-ns") == 0 && vm.count("list-all-ns") == 0)) {
-				std::stringstream ss;
-				ss << "CheckWMI Command line syntax:" << std::endl;
-				ss << desc;
-				result = ss.str();
-				return NSCAPI::exec_return_codes::returnOK;
-			}
-			simple = vm.count("simple") > 0;
+      if (vm.count("help") || (vm.count("select") == 0 && vm.count("list-classes") == 0 && vm.count("list-instances") == 0 && vm.count("list-ns") == 0 &&
+                               vm.count("list-all-ns") == 0)) {
+        std::stringstream ss;
+        ss << "CheckWMI Command line syntax:" << std::endl;
+        ss << desc;
+        result = ss.str();
+        return NSCAPI::exec_return_codes::returnOK;
+      }
+      simple = vm.count("simple") > 0;
 
-			ns = build_namespace(ns, computer);
+      ns = build_namespace(ns, computer);
 
-			if (vm.count("select")) {
-				row_type headers;
-				std::vector<std::size_t> widths;
-				std::size_t count = 0;
-				try {
-					wmi_impl::query wmiQuery(query, ns, user, password);
-					std::list<std::string> cols = wmiQuery.get_columns();
-					count = cols.size();
-					for(const std::string &col: cols) {
-						headers.push_back(col);
-						widths.push_back(col.size());
-					}
-					result = render(headers, widths, wmiQuery.execute());
-					return NSCAPI::exec_return_codes::returnOK;
-				} catch (const wmi_impl::wmi_exception &e) {
-					result += "ERROR: " + e.reason();
-					return NSCAPI::exec_return_codes::returnERROR;
-				}
-			} else if (vm.count("list-classes")) {
-				try {
-					std::stringstream ss;
-					wmi_impl::classes wmi_query(list_cls, ns, user, password);
-					wmi_impl::row_enumerator e = wmi_query.get();
-					while (e.has_next()) {
-						wmi_impl::row wmi_row = e.get_next();
-						ss << wmi_row.get_string("__CLASS") << "\n";
-					}
-					result = ss.str();
-					return NSCAPI::exec_return_codes::returnOK;
-				} catch (const wmi_impl::wmi_exception &e) {
-					result += "ERROR: " + e.reason();
-					return NSCAPI::exec_return_codes::returnERROR;
-				}
-			} else if (vm.count("list-instances")) {
-				try {
-					std::stringstream ss;
-					wmi_impl::instances wmi_query(list_inst, ns, user, password);
-					wmi_impl::row_enumerator e = wmi_query.get();
-					while (e.has_next()) {
-						wmi_impl::row wmi_row = e.get_next();
-						ss << wmi_row.get_string("Name") << "\n";
-					}
-					result = ss.str();
-					return NSCAPI::exec_return_codes::returnOK;
-				} catch (const wmi_impl::wmi_exception &e) {
-					result += "ERROR: " + e.reason();
-					return NSCAPI::exec_return_codes::returnERROR;
-				}
-			} else if (vm.count("list-ns")) {
-				try {
-					std::stringstream ss;
-					wmi_impl::instances wmi_query("__Namespace", ns, user, password);
-					wmi_impl::row_enumerator e = wmi_query.get();
-					while (e.has_next()) {
-						wmi_impl::row wmi_row = e.get_next();
-						ss << wmi_row.get_string("Name") << "\n";
-					}
-					result = ss.str();
-					return NSCAPI::exec_return_codes::returnOK;
-				} catch (wmi_impl::wmi_exception e) {
-					NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
-					result += "ERROR: " + e.reason();
-					return NSCAPI::exec_return_codes::returnERROR;
-				}
-			} else if (vm.count("list-all-ns")) {
-				try {
-					result = list_ns_rec(ns, user, password);
-				} catch (wmi_impl::wmi_exception e) {
-					NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
-					result += "ERROR: " + e.reason();
-					return NSCAPI::exec_return_codes::returnERROR;
-				}
-			}
-			return NSCAPI::exec_return_codes::returnOK;
-		}
-		return NSCAPI::cmd_return_codes::returnIgnored;
-	} catch (std::exception e) {
-		result += "ERROR: " + utf8::utf8_from_native(e.what());
-		return NSCAPI::exec_return_codes::returnERROR;
-	}
+      if (vm.count("select")) {
+        row_type headers;
+        std::vector<std::size_t> widths;
+        std::size_t count = 0;
+        try {
+          wmi_impl::query wmiQuery(query, ns, user, password);
+          std::list<std::string> cols = wmiQuery.get_columns();
+          count = cols.size();
+          for (const std::string &col : cols) {
+            headers.push_back(col);
+            widths.push_back(col.size());
+          }
+          result = render(headers, widths, wmiQuery.execute());
+          return NSCAPI::exec_return_codes::returnOK;
+        } catch (const wmi_impl::wmi_exception &e) {
+          result += "ERROR: " + e.reason();
+          return NSCAPI::exec_return_codes::returnERROR;
+        }
+      } else if (vm.count("list-classes")) {
+        try {
+          std::stringstream ss;
+          wmi_impl::classes wmi_query(list_cls, ns, user, password);
+          wmi_impl::row_enumerator e = wmi_query.get();
+          while (e.has_next()) {
+            wmi_impl::row wmi_row = e.get_next();
+            ss << wmi_row.get_string("__CLASS") << "\n";
+          }
+          result = ss.str();
+          return NSCAPI::exec_return_codes::returnOK;
+        } catch (const wmi_impl::wmi_exception &e) {
+          result += "ERROR: " + e.reason();
+          return NSCAPI::exec_return_codes::returnERROR;
+        }
+      } else if (vm.count("list-instances")) {
+        try {
+          std::stringstream ss;
+          wmi_impl::instances wmi_query(list_inst, ns, user, password);
+          wmi_impl::row_enumerator e = wmi_query.get();
+          while (e.has_next()) {
+            wmi_impl::row wmi_row = e.get_next();
+            ss << wmi_row.get_string("Name") << "\n";
+          }
+          result = ss.str();
+          return NSCAPI::exec_return_codes::returnOK;
+        } catch (const wmi_impl::wmi_exception &e) {
+          result += "ERROR: " + e.reason();
+          return NSCAPI::exec_return_codes::returnERROR;
+        }
+      } else if (vm.count("list-ns")) {
+        try {
+          std::stringstream ss;
+          wmi_impl::instances wmi_query("__Namespace", ns, user, password);
+          wmi_impl::row_enumerator e = wmi_query.get();
+          while (e.has_next()) {
+            wmi_impl::row wmi_row = e.get_next();
+            ss << wmi_row.get_string("Name") << "\n";
+          }
+          result = ss.str();
+          return NSCAPI::exec_return_codes::returnOK;
+        } catch (wmi_impl::wmi_exception e) {
+          NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
+          result += "ERROR: " + e.reason();
+          return NSCAPI::exec_return_codes::returnERROR;
+        }
+      } else if (vm.count("list-all-ns")) {
+        try {
+          result = list_ns_rec(ns, user, password);
+        } catch (wmi_impl::wmi_exception e) {
+          NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
+          result += "ERROR: " + e.reason();
+          return NSCAPI::exec_return_codes::returnERROR;
+        }
+      }
+      return NSCAPI::exec_return_codes::returnOK;
+    }
+    return NSCAPI::cmd_return_codes::returnIgnored;
+  } catch (std::exception e) {
+    result += "ERROR: " + utf8::utf8_from_native(e.what());
+    return NSCAPI::exec_return_codes::returnERROR;
+  }
 }

@@ -23,7 +23,7 @@ struct safe_bool {
 };
 
 /** \brief C++/CLI analogue to boost::scoped_ptr, also similar to std::unique_ptr, for management of the lifetime of an unmanaged class instance by a managed
-  *object
+ *object
  **/
 template <typename T>
 public ref class clr_scoped_ptr {

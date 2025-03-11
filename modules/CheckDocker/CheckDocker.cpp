@@ -35,41 +35,32 @@
 
 #include <boost/date_time.hpp>
 
-
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
 bool CheckDocker::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
-	//sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
-	return true;
+  // sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
+  return true;
 }
 
-bool CheckDocker::unloadModule() {
-	return true;
-}
-std::string render(int, const std::string, int, std::string message) {
-	return message;
-}
+bool CheckDocker::unloadModule() { return true; }
+std::string render(int, const std::string, int, std::string message) { return message; }
 void CheckDocker::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
-	/*
-	if (message.level() != PB::Log::LogEntry_Entry_Level_LOG_CRITICAL && message.level() != PB::Log::LogEntry_Entry_Level_LOG_ERROR)
-		return;
-	{
-		boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-		if (!lock.owns_lock())
-			return;
-		error_count_++;
-		last_error_ = message.message();
-	}
-	*/
+  /*
+  if (message.level() != PB::Log::LogEntry_Entry_Level_LOG_CRITICAL && message.level() != PB::Log::LogEntry_Entry_Level_LOG_ERROR)
+          return;
+  {
+          boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+          if (!lock.owns_lock())
+                  return;
+          error_count_++;
+          last_error_ = message.message();
+  }
+  */
 }
 
-void CheckDocker::fetchMetrics(PB::Metrics::MetricsMessage::Response* response) {
-	
-}
-
-
+void CheckDocker::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {}
 
 void CheckDocker::check_docker(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-	docker_checks::check(request, response);
+  docker_checks::check(request, response);
 }
