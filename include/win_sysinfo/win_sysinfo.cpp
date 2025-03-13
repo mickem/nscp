@@ -229,6 +229,10 @@ boost::scoped_array<unsigned long long> g_CPUIdleTimeOld;
 boost::scoped_array<unsigned long long> g_CPUUserTimeOld;
 boost::scoped_array<unsigned long long> g_CPUKernelTimeOld;
 
+unsigned long long g_CPUIdleTimeTotalOld = 0;
+unsigned long long g_CPUUserTimeTotalOld = 0;
+unsigned long long g_CPUKernelTimeTotalOld = 0;
+
 void init_old_buffer(boost::scoped_array<unsigned long long> &array, const std::size_t size) {
   if (!array) {
     array.reset(new unsigned long long[size]);
@@ -345,7 +349,19 @@ hlp::buffer<BYTE, winapi::SYSTEM_PROCESS_INFORMATION *> system_info::get_system_
 double get_rate(unsigned long long part, unsigned long long total) {
   auto part_d = static_cast<double>(part);
   auto total_d = static_cast<double>(total);
+  if (total == 0 || total_d == 0) return 0;
   return (part_d * 100.0) / total_d;
+}
+
+
+unsigned long long large_integer_to_ull(const LARGE_INTEGER &ft) {
+  unsigned long long hw = static_cast<unsigned long long>(ft.HighPart);
+  unsigned long long lw = static_cast<unsigned long long >(ft.LowPart);
+  return (hw << 32) | lw;
+}
+unsigned long long get_delta(unsigned long long new_value, unsigned long long old_value) {
+  if (new_value < old_value) return 0;
+  return new_value - old_value;
 }
 
 system_info::cpu_load system_info::get_cpu_load_per_core() {
@@ -363,47 +379,44 @@ system_info::cpu_load system_info::get_cpu_load_per_core() {
   cpu_load result;
   result.cores = cores;
   result.core.resize(cores);
-  result.total.idle = result.total.kernel = result.total.total = 0.0;
+  result.total.idle = result.total.kernel = result.total.user = 0.0;
 
   for (int i = 0; i < cores; i++) {
-    unsigned long long CPUIdleTime = buffer[i].IdleTime.QuadPart;
-    unsigned long long CPUKernelTime = buffer[i].KernelTime.QuadPart;
-    unsigned long long CPUUserTime = buffer[i].UserTime.QuadPart;
+    unsigned long long CPUIdleTime = large_integer_to_ull(buffer[i].IdleTime);
+    unsigned long long CPUKernelPlusIdleTime = large_integer_to_ull(buffer[i].KernelTime);
+    unsigned long long CPUUserTime = large_integer_to_ull(buffer[i].UserTime);
 
-    unsigned long long CPUIdleTimeDiff = CPUIdleTime - g_CPUIdleTimeOld[i];
-    unsigned long long CPUKernelTimeDiff = CPUKernelTime - g_CPUKernelTimeOld[i];
-    unsigned long long CPUUserTimeDiff = CPUUserTime - g_CPUUserTimeOld[i];
+    unsigned long long CPUIdleTimeDiff = get_delta(CPUIdleTime, g_CPUIdleTimeOld[i]);
+    unsigned long long CPUKernelPlusIdleTimeDiff = get_delta(CPUKernelPlusIdleTime, g_CPUKernelTimeOld[i]);
+    unsigned long long CPUUserTimeDiff = get_delta(CPUUserTime, g_CPUUserTimeOld[i]);
 
-    unsigned long long kernel_time_diff = CPUKernelTimeDiff - CPUIdleTimeDiff;
-    unsigned long long total_time_diff = CPUKernelTimeDiff + CPUUserTimeDiff;
-    if (total_time_diff != 0) {
-      result.core[i].core = i;
-      result.core[i].idle = get_rate(CPUIdleTimeDiff, total_time_diff);
-      result.core[i].kernel = get_rate(kernel_time_diff, total_time_diff);
-      result.core[i].total = 100 - result.core[i].idle;
-      result.total.idle += result.core[i].idle;
-      result.total.kernel += result.core[i].kernel;
-      result.total.total += result.core[i].total;
-    } else {
-      result.core[i].idle = 0;
-      result.core[i].kernel = 0;
-      result.core[i].total = 0;
-    }
+    // Kernel also includes idle time so we need to subtract that
+    unsigned long long kernel_time_diff = CPUKernelPlusIdleTimeDiff > CPUIdleTimeDiff ? CPUKernelPlusIdleTimeDiff - CPUIdleTimeDiff : 0;
+    unsigned long long total_time_diff = CPUKernelPlusIdleTimeDiff + CPUUserTimeDiff;
+    result.core[i].core = i;
+    result.core[i].idle = get_rate(CPUIdleTimeDiff, total_time_diff);
+    result.core[i].kernel = get_rate(kernel_time_diff, total_time_diff);
+    result.core[i].user = get_rate(CPUUserTimeDiff, total_time_diff);
+
     g_CPUIdleTimeOld[i] = CPUIdleTime;
-    g_CPUKernelTimeOld[i] = CPUKernelTime;
+    g_CPUKernelTimeOld[i] = CPUKernelPlusIdleTime;
     g_CPUUserTimeOld[i] = CPUUserTime;
   }
-  result.total.idle /= result.cores;
-  result.total.kernel /= result.cores;
-  result.total.total /= result.cores;
+  auto total = get_cpu_load_total();
+  result.total.idle = total.total.idle;
+  result.total.kernel = total.total.kernel;
+  result.total.user = total.total.user;
   return result;
 }
 
-system_info::cpu_load system_info::get_cpu_load_total() {
-  init_old_buffer(g_CPUIdleTimeOld, 1);
-  init_old_buffer(g_CPUUserTimeOld, 1);
-  init_old_buffer(g_CPUKernelTimeOld, 1);
 
+unsigned long long file_time_to_ull(const FILETIME &ft) {
+  unsigned long long hw = static_cast<unsigned long long>(ft.dwHighDateTime);
+  unsigned long long lw = static_cast<unsigned long long>(ft.dwLowDateTime);
+  return (hw << 32) | lw;
+}
+
+system_info::cpu_load system_info::get_cpu_load_total() {
   FILETIME lpIdleTime;
   FILETIME lpKernelTime;
   FILETIME lpUserTime;
@@ -411,31 +424,29 @@ system_info::cpu_load system_info::get_cpu_load_total() {
   if (GetSystemTimes(&lpIdleTime, &lpKernelTime, &lpUserTime) == 0) {
     throw nsclient::nsclient_exception("Failed to fetch cpu load");
   }
-  unsigned long long CPUIdleTime = (static_cast<unsigned long long>(lpIdleTime.dwHighDateTime) << 32) | lpIdleTime.dwLowDateTime;
-  unsigned long long CPUKernelTime = (static_cast<unsigned long long>(lpKernelTime.dwHighDateTime) << 32) | lpKernelTime.dwLowDateTime;
-  unsigned long long CPUUserTime = (static_cast<unsigned long long>(lpUserTime.dwHighDateTime) << 32) | lpUserTime.dwLowDateTime;
+  unsigned long long CPUIdleTime = file_time_to_ull(lpIdleTime);
+  unsigned long long CPUKernelTime = file_time_to_ull(lpKernelTime);
+  unsigned long long CPUUserTime = file_time_to_ull(lpUserTime);
 
   cpu_load result;
   result.cores = 0;
   result.core.resize(0);
-  result.total.idle = result.total.kernel = result.total.total = 0.0;
 
-  unsigned long long CPUIdleTimeDiff = CPUIdleTime - g_CPUIdleTimeOld[0];
+  unsigned long long CPUIdleTimeDiff = get_delta(CPUIdleTime, g_CPUIdleTimeTotalOld);
+  unsigned long long CPUKernelPlusIdleTimeDiff = get_delta(CPUKernelTime, g_CPUKernelTimeTotalOld);
+  unsigned long long CPUUserTimeDiff = get_delta(CPUUserTime, g_CPUUserTimeTotalOld);
+
+  unsigned long long kernel_time_diff = CPUKernelPlusIdleTimeDiff > CPUIdleTimeDiff ? CPUKernelPlusIdleTimeDiff - CPUIdleTimeDiff : 0;
   // Kernel also includes idle time so we need to subtract that
-  unsigned long long CPUKernelTimeDiff = CPUKernelTime - g_CPUKernelTimeOld[0];
-  unsigned long long CPUUserTimeDiff = CPUUserTime - g_CPUUserTimeOld[0];
-
-  unsigned long long kernel_time_diff = CPUKernelTimeDiff - CPUIdleTimeDiff;
-  unsigned long long used_time_diff = kernel_time_diff + CPUUserTimeDiff;
-  unsigned long long total_time_diff = CPUKernelTimeDiff + CPUUserTimeDiff;
+  unsigned long long total_time_diff = CPUKernelPlusIdleTimeDiff + CPUUserTimeDiff;
 
   result.total.idle = get_rate(CPUIdleTimeDiff, total_time_diff);
   result.total.kernel = get_rate(kernel_time_diff, total_time_diff);
-  result.total.total = get_rate(used_time_diff, total_time_diff);
+  result.total.user = get_rate(CPUUserTimeDiff, total_time_diff);
 
-  g_CPUIdleTimeOld[0] = CPUIdleTime;
-  g_CPUKernelTimeOld[0] = CPUKernelTime;
-  g_CPUUserTimeOld[0] = CPUUserTime;
+  g_CPUIdleTimeTotalOld = CPUIdleTime;
+  g_CPUKernelTimeTotalOld = CPUKernelTime;
+  g_CPUUserTimeTotalOld = CPUUserTime;
   return result;
 }
 

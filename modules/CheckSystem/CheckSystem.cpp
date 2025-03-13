@@ -56,13 +56,6 @@ namespace po = boost::program_options;
 namespace ph = boost::placeholders;
 
 std::pair<bool, std::string> validate_counter(std::string counter) {
-  /*
-  std::wstring error;
-  if (!PDH::PDHResolver::validate(counter, error, false)) {
-          NSC_DEBUG_MSG(_T("not found (but due to bugs in pdh this is common): ") + error);
-  }
-  */
-
   PDH::PDHQuery pdh;
   PDH::pdh_instance instance;
   try {
@@ -109,11 +102,11 @@ std::pair<bool, std::string> validate_counter(std::string counter) {
 
 void load_counters(std::map<std::string, std::string> &counters, sh::settings_registry &settings) {
   // clang-format off
-	settings.alias().add_path_to_settings()
-		("counters", sh::string_map_path(&counters),
-			"PDH COUNTERS", "Define various PDH counters to check.",
-			"COUNTER", "For more configuration options add a dedicated section")
-		;
+  settings.alias().add_path_to_settings()
+    ("counters", sh::string_map_path(&counters),
+      "PDH COUNTERS", "Define various PDH counters to check.",
+      "COUNTER", "For more configuration options add a dedicated section")
+    ;
   // clang-format on
 
   settings.register_all();
@@ -131,7 +124,6 @@ void load_counters(std::map<std::string, std::string> &counters, sh::settings_re
 bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   if (mode == NSCAPI::normalStart) {
     services_helper::init();
-    // 		load_counters(counters, settings);
   }
   collector.reset(new pdh_thread(get_core(), get_id()));
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
@@ -142,64 +134,62 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
                       settings.alias().get_settings_path("real-time/process"), settings.alias().get_settings_path("real-time/checks"));
 
   // clang-format off
-	settings.alias().add_path_to_settings()
-		("Windows system", "Section for system checks and system settings")
+  settings.alias().add_path_to_settings()
+    ("Windows system", "Section for system checks and system settings")
 
-		("counters", sh::fun_values_path(boost::bind(&CheckSystem::add_counter, this, ph::_1, ph::_2)),
-			"PDH Counters", "Add counters to check",
-			"COUNTER", "For more configuration options add a dedicated section")
+    ("counters", sh::fun_values_path(boost::bind(&CheckSystem::add_counter, this, ph::_1, ph::_2)),
+            "PDH Counters", "Add counters to check",
+            "COUNTER", "For more configuration options add a dedicated section")
 
-		("real-time/memory", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_mem_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
-			"Realtime memory filters", "A set of filters to use in real-time mode",
-			"FILTER", "For more configuration options add a dedicated section")
+    ("real-time/memory", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_mem_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
+            "Realtime memory filters", "A set of filters to use in real-time mode",
+            "FILTER", "For more configuration options add a dedicated section")
 
-		("real-time/cpu", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_cpu_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
-			"Realtime cpu filters", "A set of filters to use in real-time mode",
-			"FILTER", "For more configuration options add a dedicated section")
+    ("real-time/cpu", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_cpu_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
+            "Realtime cpu filters", "A set of filters to use in real-time mode",
+            "FILTER", "For more configuration options add a dedicated section")
 
-		("real-time/process", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_proc_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
-			"Realtime process filters", "A set of filters to use in real-time mode",
-			"FILTER", "For more configuration options add a dedicated section")
+    ("real-time/process", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_proc_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
+            "Realtime process filters", "A set of filters to use in real-time mode",
+            "FILTER", "For more configuration options add a dedicated section")
 
-		("real-time/checks", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_legacy_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
-			"Legacy generic filters", "A set of filters to use in real-time mode",
-			"FILTER", "For more configuration options add a dedicated section")
+    ("real-time/checks", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_legacy_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
+            "Legacy generic filters", "A set of filters to use in real-time mode",
+            "FILTER", "For more configuration options add a dedicated section")
+    ;
 
-		;
+  settings.alias().add_key_to_settings()
+    ("default buffer length", sh::string_key(&collector->default_buffer_size, "1h"),
+"Default buffer time", "Used to define the default size of range buffer checks (ie. CPU).")
 
-	settings.alias().add_key_to_settings()
-		("default buffer length", sh::string_key(&collector->default_buffer_size, "1h"),
-			"Default buffer time", "Used to define the default size of range buffer checks (ie. CPU).")
-
-		("subsystem", sh::string_key(&collector->subsystem, "default"),
-			"PDH subsystem", "Set which pdh subsystem to use.\nCurrently default and thread-safe are supported where thread-safe is slower but required if you have some problematic counters.", true)
+    ("subsystem", sh::string_key(&collector->subsystem, "default"),
+    "PDH subsystem", "Set which pdh subsystem to use.\nCurrently default and thread-safe are supported where thread-safe is slower but required if you have some problematic counters.", true)
 
     ("fetch core loads", sh::bool_key(&collector->read_core_load, "true"),
-     "Fetch core load", "Set to false to use a different API for fetching CPU load (will not provide core load, and will not show exact same values as task manager).", true)
+"Fetch core load", "Set to false to use a different API for fetching CPU load (will not provide core load, and will not show exact same values as task manager).", true)
 
 
-      ("disable", sh::string_key(&collector->disable_, ""),
-		"Disable automatic checks", "A comma separated list of checks to disable in the collector: cpu,handles,network,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
-		;
-	;
+    ("disable", sh::string_key(&collector->disable_, ""),
+"Disable automatic checks", "A comma separated list of checks to disable in the collector: cpu,handles,network,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
+    ;
 
-	settings.alias().add_templates()
-		("counters", "plus", "Add a new counters",
-			"Create a new counter",
-			"{"
-			"\"fields\": [ "
-			" { \"id\": \"alias\",											\"title\" : \"Alias\",				\"type\" : \"input\",		\"desc\" : \"This will identify the counter when it is reported and checked\"} , "
-			" { \"id\": \"counter\",	\"key\" : \"counter\",				\"title\" : \"Counter\",			\"type\" : \"data-choice\",	\"desc\" : \"The name of the counter\",\"exec\" : \"CheckSystem pdh --list --json --all\" } , "
-			" { \"id\": \"cs\",			\"key\" : \"collection strategy\",	\"title\" : \"Collection Strategy\",\"type\" : \"choice\",		\"desc\" : \"How values are stored after collection\",\"data\" : [\"rrd\", \"static\"] } , "
-			" { \"id\": \"instances\",	\"key\" : \"instances\",			\"title\" : \"Instances\",			\"type\" : \"bool\",		\"desc\" : \"If instances should be fetched. I.e. all CPUs not just the total. This requires you to place $INSTANCES$ in the counter name.\" } , "
-			" { \"id\": \"type\",		\"key\" : \"type\",					\"title\" : \"Value type\",			\"type\" : \"choice\",		\"desc\" : \"The type of values for this counter\",\"data\" : [\"large\", \"double\", \"long\"] } , "
-			" { \"id\": \"flags\",		\"key\" : \"flags\",				\"title\" : \"Flags\",				\"type\" : \"input\",		\"desc\" : \"Specify a coma separated list of flags to configure advanced options for this counter: nocap100, 1000, noscale\" } "
-			" ], "
-			"\"events\": { "
-			"\"onSave\": \"(function (node) { node.save_path = self.path + '/' + node.get_field('alias').value();})\"" 
-			"}"
-			"}")
-		;
+  settings.alias().add_templates()
+    ("counters", "plus", "Add a new counters",
+    "Create a new counter",
+"{"
+    "\"fields\": [ "
+    " { \"id\": \"alias\",											\"title\" : \"Alias\",				\"type\" : \"input\",		\"desc\" : \"This will identify the counter when it is reported and checked\"} , "
+    " { \"id\": \"counter\",	\"key\" : \"counter\",				\"title\" : \"Counter\",			\"type\" : \"data-choice\",	\"desc\" : \"The name of the counter\",\"exec\" : \"CheckSystem pdh --list --json --all\" } , "
+    " { \"id\": \"cs\",			\"key\" : \"collection strategy\",	\"title\" : \"Collection Strategy\",\"type\" : \"choice\",		\"desc\" : \"How values are stored after collection\",\"data\" : [\"rrd\", \"static\"] } , "
+    " { \"id\": \"instances\",	\"key\" : \"instances\",			\"title\" : \"Instances\",			\"type\" : \"bool\",		\"desc\" : \"If instances should be fetched. I.e. all CPUs not just the total. This requires you to place $INSTANCES$ in the counter name.\" } , "
+    " { \"id\": \"type\",		\"key\" : \"type\",					\"title\" : \"Value type\",			\"type\" : \"choice\",		\"desc\" : \"The type of values for this counter\",\"data\" : [\"large\", \"double\", \"long\"] } , "
+    " { \"id\": \"flags\",		\"key\" : \"flags\",				\"title\" : \"Flags\",				\"type\" : \"input\",		\"desc\" : \"Specify a coma separated list of flags to configure advanced options for this counter: nocap100, 1000, noscale\" } "
+    " ], "
+    "\"events\": { "
+    "\"onSave\": \"(function (node) { node.save_path = self.path + '/' + node.get_field('alias').value();})\""
+    "}"
+    "}")
+    ;
   // clang-format on
   settings.register_all();
   settings.notify();
@@ -353,25 +343,25 @@ int CheckSystem::commandLineExec(const int, const std::string &command, const st
     std::string lookup, counter, list_string, computer, username, password;
     po::options_description desc("Allowed options");
     // clang-format off
-		desc.add_options()
-			("help,h", "Show help screen")
-			("porcelain", "Computer parsable format")
-			("json", "Format reault as JSON")
-			("computer", po::value<std::string>(&computer), "The computer to fetch values from")
-			("user", po::value<std::string>(&username), "The username to login with (only meaningful if computer is specified)")
-			("password", po::value<std::string>(&password), "The password to login with (only meaningful if computer is specified)")
-			("lookup-index", po::value<std::string>(&lookup), "Lookup a numeric value in the PDH index table")
-			("lookup-name", po::value<std::string>(&lookup), "Lookup a string value in the PDH index table")
-			("expand-path", po::value<std::string>(&lookup), "Expand a counter path contaning wildcards into corresponding objects (for instance --expand-path \\System\\*)")
-			("check", "Check that performance counters are working")
-			("list", po::value<std::string>(&list_string)->implicit_value(""), "List counters and/or instances")
-			("validate", po::value<std::string>(&list_string)->implicit_value(""), "List counters and/or instances")
-			("all", "List/check all counters not configured counter")
-			("no-counters", "Do not recurse and list/validate counters for any matching items")
-			("no-instances", "Do not recurse and list/validate instances for any matching items")
-			("counter", po::value<std::string>(&counter)->implicit_value(""), "Specify which counter to work with")
-			("filter", po::value<std::string>(&counter)->implicit_value(""), "Specify a filter to match (substring matching)")
-			;
+    desc.add_options()
+      ("help,h", "Show help screen")
+      ("porcelain", "Computer parsable format")
+      ("json", "Format reault as JSON")
+      ("computer", po::value<std::string>(&computer), "The computer to fetch values from")
+      ("user", po::value<std::string>(&username), "The username to login with (only meaningful if computer is specified)")
+      ("password", po::value<std::string>(&password), "The password to login with (only meaningful if computer is specified)")
+      ("lookup-index", po::value<std::string>(&lookup), "Lookup a numeric value in the PDH index table")
+      ("lookup-name", po::value<std::string>(&lookup), "Lookup a string value in the PDH index table")
+      ("expand-path", po::value<std::string>(&lookup), "Expand a counter path contaning wildcards into corresponding objects (for instance --expand-path \\System\\*)")
+      ("check", "Check that performance counters are working")
+      ("list", po::value<std::string>(&list_string)->implicit_value(""), "List counters and/or instances")
+      ("validate", po::value<std::string>(&list_string)->implicit_value(""), "List counters and/or instances")
+      ("all", "List/check all counters not configured counter")
+      ("no-counters", "Do not recurse and list/validate counters for any matching items")
+      ("no-instances", "Do not recurse and list/validate instances for any matching items")
+      ("counter", po::value<std::string>(&counter)->implicit_value(""), "Specify which counter to work with")
+      ("filter", po::value<std::string>(&counter)->implicit_value(""), "Specify a filter to match (substring matching)")
+      ;
     // clang-format on
     boost::program_options::variables_map vm;
 
@@ -554,11 +544,11 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
   filter_helper.add_options("load > 80", "load > 90", "core = 'total'", filter.get_filter_syntax(), "ignored");
   filter_helper.add_syntax("${status}: ${problem_list}", "${time}: ${load}%", "${core} ${time}", "", "%(status): CPU load is ok.");
   // clang-format off
-	filter_helper.get_desc().add_options()
-      ("time", po::value<std::vector<std::string>>(&times), "The time to check")
-              ("cores", boost::program_options::bool_switch(&show_all_cores),
-               "This will remove the filter to  include the cores, if you use filter dont use this as well.")
-		;
+  filter_helper.get_desc().add_options()
+    ("time", po::value<std::vector<std::string>>(&times), "The time to check")
+    ("cores", boost::program_options::bool_switch(&show_all_cores),
+    "This will remove the filter to  include the cores, if you use filter dont use this as well.")
+    ;
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
@@ -691,10 +681,10 @@ void CheckSystem::checkServiceState(PB::Commands::QueryRequestMessage::Request &
 
   nscapi::program_options::add_help(desc);
   // clang-format off
-	desc.add_options()
-		("CheckAll", po::value<std::string>()->implicit_value("true"), "Check all services.")
-		("exclude", po::value<std::vector<std::string> >(&excludes), "Exclude services")
-		;
+  desc.add_options()
+    ("CheckAll", po::value<std::string>()->implicit_value("true"), "Check all services.")
+    ("exclude", po::value<std::vector<std::string> >(&excludes), "Exclude services")
+    ;
   // clang-format on
 
   compat::addShowAll(desc);
@@ -757,19 +747,19 @@ void CheckSystem::check_service(const PB::Commands::QueryRequestMessage::Request
   filter_helper.add_syntax("${status}: ${crit_list}, delayed (${warn_list})", "${name}=${state} (${start_type})", "${name}", "%(status): No services found",
                            "%(status): All %(count) service(s) are ok.");
   // clang-format off
-	filter_helper.get_desc().add_options()
-		("computer", po::value<std::string>(&computer), "The name of the remote computer to check")
-		("service", po::value<std::vector<std::string>>(&services), "The service to check, set this to * to check all services")
-		("exclude", po::value<std::vector<std::string>>(&excludes), "A list of services to ignore (mainly useful in combination with service=*)")
-		("type", po::value<std::string>(&type)->default_value("service"), "The types of services to enumerate available types are driver, file-system-driver, kernel-driver, service, service-own-process, service-share-process")
-		("state", po::value<std::string>(&state)->default_value("all"), "The types of services to enumerate available states are active, inactive or all")
-		("only-essential", po::bool_switch(&class_e), "Set filter to classification = 'essential'")
-		("only-ignored", po::bool_switch(&class_i), "Set filter to classification = 'ignored'")
-		("only-role", po::bool_switch(&class_r), "Set filter to classification = 'role'")
-		("only-supporting", po::bool_switch(&class_s), "Set filter to classification = 'supporting'")
-		("only-system", po::bool_switch(&class_y), "Set filter to classification = 'system'")
-		("only-user", po::bool_switch(&class_u), "Set filter to classification = 'user'")
-		;
+  filter_helper.get_desc().add_options()
+    ("computer", po::value<std::string>(&computer), "The name of the remote computer to check")
+    ("service", po::value<std::vector<std::string>>(&services), "The service to check, set this to * to check all services")
+    ("exclude", po::value<std::vector<std::string>>(&excludes), "A list of services to ignore (mainly useful in combination with service=*)")
+    ("type", po::value<std::string>(&type)->default_value("service"), "The types of services to enumerate available types are driver, file-system-driver, kernel-driver, service, service-own-process, service-share-process")
+    ("state", po::value<std::string>(&state)->default_value("all"), "The types of services to enumerate available states are active, inactive or all")
+    ("only-essential", po::bool_switch(&class_e), "Set filter to classification = 'essential'")
+    ("only-ignored", po::bool_switch(&class_i), "Set filter to classification = 'ignored'")
+    ("only-role", po::bool_switch(&class_r), "Set filter to classification = 'role'")
+    ("only-supporting", po::bool_switch(&class_s), "Set filter to classification = 'supporting'")
+    ("only-system", po::bool_switch(&class_y), "Set filter to classification = 'system'")
+    ("only-user", po::bool_switch(&class_u), "Set filter to classification = 'user'")
+    ;
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
@@ -1052,9 +1042,9 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     typedef std::map<std::string, windows::system_info::load_entry>::value_type vt;
     for (vt v : vals) {
       add_metric(section, v.first + ".idle", v.second.idle);
-      add_metric(section, v.first + ".total", v.second.total);
+      add_metric(section, v.first + ".total", v.second.user + v.second.kernel);
+      add_metric(section, v.first + ".user", v.second.user);
       add_metric(section, v.first + ".kernel", v.second.kernel);
-      add_metric(section, v.first + ".user", v.second.total - v.second.kernel);
     }
   } catch (...) {
     NSC_LOG_ERROR("Failed to getch memory metrics: ");
