@@ -124,6 +124,18 @@ Has to be the same as your server i using or it wont work at all.This is also in
 Available encryption algorithms are:
 none = No Encryption (not safe)
 xor = XOR
+des = DES
+3des = DES-EDE3
+cast128 = CAST-128
+xtea = XTEA
+blowfish = Blowfish
+twofish = Twofish
+rc2 = RC2
+aes128 = AES
+aes192 = AES
+aes = AES
+serpent = Serpent
+gost = GOST
 
 
 
