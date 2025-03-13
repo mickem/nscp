@@ -22,17 +22,8 @@ runs:
         path: |
           tmp/lua-${{ inputs.version }}
 
-    - id: check
-      shell: pwsh
-      run: |
-        if (Test-Path "tmp/lua-${{ inputs.version }}") {
-          echo "exists=true" >> $env:GITHUB_OUTPUT
-        } else {
-          echo "exists=false" >> $env:GITHUB_OUTPUT
-        }
-
     - name: Download
-      if: steps.check.outputs.exists == 'false'
+      if: steps.cache.outputs.cache-hit != 'true'
       run: |
         curl -L https://www.lua.org/ftp/lua-${{ inputs.version }}.tar.gz --output lua.tar.gz
         7z x lua.tar.gz
