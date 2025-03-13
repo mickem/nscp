@@ -182,10 +182,6 @@ jobs:
             SET(CRYPTOPP_ROOT "${{ steps.cryptopp.outputs.path_unix }}")
             SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
 
-            #SET(CSHARP_DOTNET_VERSION "v4.0.30319")
-            #SET(ARCHIVE_FOLDER "TODO")
-            #SET(TARGET_SITE "TODO")
-      
     - name: Make python dist
       working-directory: tmp/nscp
       run: |
@@ -260,5 +256,17 @@ jobs:
           tmp/nscp/installers/installer-NSCP/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.msi
           tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip
         if-no-files-found: error
+
+    - name: Add versions
+      shell: bash
+      run: |
+        echo "| Library | Version |" >> $GITHUB_STEP_SUMMARY
+        echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+        echo "| Boost | ${{ env.BOOST_VERSION }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Cryptopp | ${{ env.CRYPTOPP_VERSION }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Lua | ${{ env.LUA_VERSION }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| OpenSSL | ${{ env.OPENSSL_VERSION }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Protobuf | ${{ env.PROTOBUF_VERSION }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| TinyXml2 | ${{ env.TINY_XML_2_VERSION }} |" >> $GITHUB_STEP_SUMMARY
     
   
