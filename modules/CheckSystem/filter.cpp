@@ -53,9 +53,12 @@ filter_obj_handler::filter_obj_handler() {
 			("core_id", boost::bind(&filter_obj::get_core_id, _1), boost::bind(&filter_obj::get_core_i, _1), "The core to check (total or core_##)")
 			;
 		registry_.add_int()
-			("load", type_custom_pct, boost::bind(&filter_obj::get_total, _1), "The current load for a given core").add_perf("%")
+			("load", type_custom_pct, boost::bind(&filter_obj::get_total, _1), "deprecated (use total instead)").add_perf("%")
+                        ("total", type_custom_pct, boost::bind(&filter_obj::get_total, _1), "The current load used by user and system").add_perf("%")
+			("user", type_custom_pct, boost::bind(&filter_obj::get_user, _1), "The current load used by user applications").add_perf("%")
 			("idle", boost::bind(&filter_obj::get_idle, _1), "The current idle load for a given core")
-			("kernel", boost::bind(&filter_obj::get_kernel, _1), "The current kernel load for a given core")
+			("system", boost::bind(&filter_obj::get_kernel, _1), "The current load used by the system (kernel)")
+			("kernel", boost::bind(&filter_obj::get_kernel, _1), "deprecated (use system instead)")
 			;
 
 		registry_.add_converter()

@@ -50,26 +50,26 @@ namespace windows {
 struct system_info {
   struct load_entry {
     double idle;
-    double total;
+    double user;
     double kernel;
     int core;
-    load_entry() : idle(0.0), total(0.0), kernel(0.0), core(-1) {}
-    load_entry(const load_entry& obj) : idle(obj.idle), total(obj.total), kernel(obj.kernel), core(obj.core) {}
+    load_entry() : idle(0.0), user(0.0), kernel(0.0), core(-1) {}
+    load_entry(const load_entry& obj) : idle(obj.idle), user(obj.user), kernel(obj.kernel), core(obj.core) {}
     load_entry& operator=(const load_entry& obj) {
       idle = obj.idle;
-      total = obj.total;
+      user = obj.user;
       kernel = obj.kernel;
       core = obj.core;
       return *this;
     }
     void add(const load_entry& other) {
       idle += other.idle;
-      total += other.total;
+      user += other.user;
       kernel += other.kernel;
     }
     void normalize(double value) {
       idle /= value;
-      total /= value;
+      user /= value;
       kernel /= value;
     }
   };
