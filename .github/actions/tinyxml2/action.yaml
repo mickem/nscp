@@ -21,19 +21,11 @@ runs:
         key: ${{ runner.os }}-tinyxml2-${{ inputs.version }}
         path: |
           tmp/tinyxml2-${{ inputs.version }}
-    - id: check
-      shell: pwsh
-      run: |
-        if (Test-Path "tmp/tinyxml2-${{ inputs.version }}") {
-          echo "exists=true" >> $env:GITHUB_OUTPUT
-        } else {
-          echo "exists=false" >> $env:GITHUB_OUTPUT
-        }
 
     - name: Download
-      if: steps.check.outputs.exists == 'false'
+      if: steps.cache.outputs.cache-hit != 'true'
       run: |
-        curl -L https://github.com/leethomason/tinyxml2/archive/refs/tags/%TINY_XML2_VERSION%.zip --output tinyxml2.zip
+        curl -L https://github.com/leethomason/tinyxml2/archive/refs/tags/${{ inputs.version }}.zip --output tinyxml2.zip
         7z x tinyxml2.zip
         del tinyxml2.zip
         dir
