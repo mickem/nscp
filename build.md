@@ -57,7 +57,21 @@ cd ..
 
 ### Build Crypto++
 
-TODO
+```commandline
+set CRYPTOPP_VERSION=890
+set CRYPTOPP_VERSION_=8_9_0
+set SOURCE_ROOT=<where you cloned the repository>
+curl -L https://github.com/weidai11/cryptopp/releases/download/CRYPTOPP_%CRYPTOPP_VERSION_%/cryptopp%CRYPTOPP_VERSION%.zip --output cryptopp.zip
+mkdir CRYPTOPP_%CRYPTOPP_VERSION_%
+cd CRYPTOPP_%CRYPTOPP_VERSION_%
+7z x ..\cryptopp.zip
+
+python %SOURCE_ROOT%/build/python/msdev-to-dynamic.py cryptlib.vcxproj
+msbuild cryptlib.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v141_xp
+msbuild cryptlib.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:PlatformToolset=v141_xp
+msbuild cryptdll.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v141_xp
+msbuild cryptdll.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:PlatformToolset=v141_xp
+```
 
 ### Download Lua
 
@@ -74,10 +88,35 @@ del lua.tar.gz
 
 
 ## Download TinyXML-2
+
+TinyXML2 does not require building instead we need to download and configure where the build system can find it.
+
+```commandline
 SET TINY_XML2_VERSION=10.1.0
 curl -L https://github.com/leethomason/tinyxml2/archive/refs/tags/%TINY_XML2_VERSION%.zip --output tinyxml.zip
 7z x tinyxml.zip
 del tinyxml.zip
+```
+
+## Configure CMake
+
+Create a file called `build.cmake` adding the paths to the above tools and libraries.
+
+```cmake
+set(Boost_USE_STATIC_RUNTIME ON)
+
+SET(USE_STATIC_RUNTIME FALSE)
+SET(BOOST_ROOT "TODO")
+SET(BOOST_LIBRARYDIR "TODO")
+SET(PROTOBUF_ROOT "TODO")
+SET(PROTOBUF_LIBRARYDIR "TODO")
+SET(OPENSSL_ROOT_DIR "TODO")
+SET(OPENSSL_USE_STATIC_LIBS TRUE)
+SET(LUA_SOURCE_ROOT "TODO")
+SET(Python3_ROOT_DIR "TODO")
+SET(Python3_FIND_STRATEGY LOCATION)
+SET(CRYPTOPP_ROOT "TODO")
+SET(TINY_XML2_SOURCE_DIR "TODO")
 ```
 
 ## Build installer library
