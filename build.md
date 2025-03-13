@@ -59,7 +59,7 @@ cd ..
 
 TODO
 
-### Build Lua
+### Download Lua
 
 Lua does not require building instead we need to download and configure where the build system can find it.
 
@@ -73,6 +73,12 @@ del lua.tar.gz
 ```
 
 
+## Download TinyXML-2
+SET TINY_XML2_VERSION=10.1.0
+curl -L https://github.com/leethomason/tinyxml2/archive/refs/tags/%TINY_XML2_VERSION%.zip --output tinyxml.zip
+7z x tinyxml.zip
+del tinyxml.zip
+```
 
 ## Build installer library
 
