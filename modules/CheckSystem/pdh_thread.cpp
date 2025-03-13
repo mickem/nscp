@@ -141,7 +141,7 @@ void pdh_thread::thread_proc() {
           lookups_[instance->get_name()] = instance;
           tmpPdh.close();
         } catch (const std::exception &e) {
-          NSC_LOG_ERROR_EX("Failed to add counter " + obj.alias + ": ", e);
+          NSC_LOG_ERROR_EXR("Failed to add counter " + obj.alias + ": ", e);
           continue;
         }
       }
@@ -307,7 +307,7 @@ void pdh_thread::thread_proc() {
     for (const std::string &s : errors) {
       NSC_LOG_ERROR(s);
     }
-  } while (((waitStatus = WaitForSingleObject(stop_event_, 1000)) == WAIT_TIMEOUT));
+  } while ((waitStatus = WaitForSingleObject(stop_event_, 1000)) == WAIT_TIMEOUT);
   if (waitStatus != WAIT_OBJECT_0) {
     NSC_LOG_ERROR("Something odd happened when terminating PDH collection thread!");
     return;
