@@ -241,16 +241,18 @@ This is the syntax for the base names of the performance data.
 | crit_list     | A list of all items which matched the critical criteria. Common option for all checks.                       |
 | detail_list   | A special list with critical, then warning and finally ok. Common option for all checks.                     |
 | idle          | The current idle load for a given core                                                                       |
-| kernel        | The current kernel load for a given core                                                                     |
+| kernel        | deprecated (use system instead)                                                                              |
 | list          | A list of all items which matched the filter. Common option for all checks.                                  |
-| load          | The current load for a given core                                                                            |
+| load          | deprecated (use total instead)                                                                               |
 | ok_count      | Number of items matched the ok criteria. Common option for all checks.                                       |
 | ok_list       | A list of all items which matched the ok criteria. Common option for all checks.                             |
 | problem_count | Number of items matched either warning or critical criteria. Common option for all checks.                   |
 | problem_list  | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
 | status        | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
+| system        | The current load used by the system (kernel)                                                                 |
 | time          | The time frame to check                                                                                      |
 | total         | Total number of items. Common option for all checks.                                                         |
+| user          | The current load used by user applications                                                                   |
 | warn_count    | Number of items matched the warning criteria. Common option for all checks.                                  |
 | warn_list     | A list of all items which matched the warning criteria. Common option for all checks.                        |
 
