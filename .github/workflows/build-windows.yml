@@ -31,6 +31,7 @@ env:
   BOOST_VERSION: 1.82.0
   CRYPTOPP_VERSION: 8.8.0
   LUA_VERSION: 5.4.7
+  TINY_XML_2_VERSION: 10.1.0
 
 jobs:
   build:
@@ -121,6 +122,11 @@ jobs:
       with:
         version: ${{ ENV.LUA_VERSION }}
 
+    - id: tinyxml2
+      uses: ./.github/actions/tinyxml2
+      with:
+        version: ${{ ENV.TINY_XML_2_VERSION }}
+
     - name: Build Boost (static)
       id: static_boost
       uses: mickem/build-boost@v1
@@ -174,6 +180,7 @@ jobs:
             SET(Python3_ROOT_DIR "${{ steps.paths.outputs.python_path }}")
             SET(Python3_FIND_STRATEGY LOCATION)
             SET(CRYPTOPP_ROOT "${{ steps.cryptopp.outputs.path_unix }}")
+            SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
 
             #SET(CSHARP_DOTNET_VERSION "v4.0.30319")
             #SET(ARCHIVE_FOLDER "TODO")

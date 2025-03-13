@@ -1,9 +1,9 @@
 ---
-name: Download lua
-description: Download and cache lua
+name: Download TinyXml2
+description: Download and cache TinyXml2
 inputs:
   version:
-    description: The Lua version to cache
+    description: The TinyXml2 version to cache
     required: true
 outputs:
   path:
@@ -18,14 +18,13 @@ runs:
     - id: cache
       uses: actions/cache@v3
       with:
-        key: ${{ runner.os }}-lua-${{ inputs.version }}
+        key: ${{ runner.os }}-tinyxml2-${{ inputs.version }}
         path: |
-          tmp/lua-${{ inputs.version }}
-
+          tmp/tinyxml2-${{ inputs.version }}
     - id: check
       shell: pwsh
       run: |
-        if (Test-Path "tmp/lua-${{ inputs.version }}") {
+        if (Test-Path "tmp/tinyxml2-${{ inputs.version }}") {
           echo "exists=true" >> $env:GITHUB_OUTPUT
         } else {
           echo "exists=false" >> $env:GITHUB_OUTPUT
@@ -34,11 +33,10 @@ runs:
     - name: Download
       if: steps.check.outputs.exists == 'false'
       run: |
-        curl -L https://www.lua.org/ftp/lua-${{ inputs.version }}.tar.gz --output lua.tar.gz
-        7z x lua.tar.gz
-        7z x lua.tar
-        del lua.tar
-        del lua.tar.gz
+        curl -L https://github.com/leethomason/tinyxml2/archive/refs/tags/%TINY_XML2_VERSION%.zip --output tinyxml2.zip
+        7z x tinyxml2.zip
+        del tinyxml2.zip
+        dir
       working-directory: tmp
       shell: cmd
 
@@ -50,4 +48,4 @@ runs:
         echo "path=$path" >> $env:GITHUB_OUTPUT
         echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
       shell: pwsh
-      working-directory: tmp/lua-${{ inputs.version }}
+      working-directory: tmp/tinyxml2-${{ inputs.version }}
