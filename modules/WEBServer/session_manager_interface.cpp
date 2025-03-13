@@ -35,6 +35,7 @@ bool session_manager_interface::is_loggedin(std::string grant, Mongoose::Request
     if (boost::algorithm::starts_with(auth, "Basic ")) {
       str::utils::token token = str::utils::split2(decode_key(auth.substr(6)), ":");
       if (!validate_user(token.first, token.second)) {
+        NSC_LOG_ERROR("Invalid password for " + request.getRemoteIp() + " with user " + token.first);
         response.setCodeForbidden("403 You're not allowed");
         return false;
       }
@@ -43,12 +44,14 @@ bool session_manager_interface::is_loggedin(std::string grant, Mongoose::Request
     } else if (boost::algorithm::starts_with(auth, "Bearer ")) {
       std::string token = auth.substr(7);
       if (!tokens.validate(token)) {
+        NSC_LOG_ERROR("Invalid bearer token for " + request.getRemoteIp());
         response.setCodeForbidden("403 You're not allowed");
         return false;
       }
       setup_user(token, response);
       return can(grant, request, response);
     } else {
+      NSC_LOG_ERROR("Unknown authentication scheme for " + request.getRemoteIp());
       response.setCodeForbidden("Invalid authentication scheme");
       return false;
     }
