@@ -854,3 +854,7 @@ else()
 endif()
 
 include(CPack)
+
+
+add_custom_target(clion__build_all)
+add_dependencies(clion__build_all nscp ${ALL_MODULE_NAMES})
