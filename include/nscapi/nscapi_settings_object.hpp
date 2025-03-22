@@ -91,17 +91,17 @@ struct object_instance_interface {
       root_path.add_key()(alias, nscapi::settings_helper::string_key(&value), alias, std::string("To configure this create a section under: ") + path, false);
     } else {
       // clang-format off
-					nscapi::settings_helper::path_extension root_path = settings.path(path);
-					root_path.add_key()
-						("parent", nscapi::settings_helper::string_key(&parent, "default"),
-							"PARENT", "The parent the target inherits from", true)
+      nscapi::settings_helper::path_extension root_path = settings.path(path);
+      root_path.add_key()
+        ("parent", nscapi::settings_helper::string_key(&parent, "default"),
+          "PARENT", "The parent the target inherits from", true)
 
-						("is template", nscapi::settings_helper::bool_key(&is_template_, false),
-							"IS TEMPLATE", "Declare this object as a template (this means it will not be available as a separate object)", true)
+        ("is template", nscapi::settings_helper::bool_key(&is_template_, false),
+          "IS TEMPLATE", "Declare this object as a template (this means it will not be available as a separate object)", true)
 
-						("alias", nscapi::settings_helper::string_key(&alias),
-							"ALIAS", "The alias (service name) to report to server", true)
-						;
+        ("alias", nscapi::settings_helper::string_key(&alias),
+          "ALIAS", "The alias (service name) to report to server", true)
+      ;
       // clang-format on
     }
     settings.register_all();

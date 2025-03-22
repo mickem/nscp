@@ -276,8 +276,9 @@ void extscr_cli::delete_script(const PB::Commands::ExecuteRequestMessage::Reques
   // 			return;
   // 		}
   // 		nscapi::protobuf::functions::set_response_good(*response, "Script definition has been removed don't forget to delete any artifact for: " +
-  // command_def->command); 	} else { 		fs::path pscript = script; 		bool found = fs::is_regular_file(pscript); 		if (!found) { 			pscript =
-  // provider_->get_core()->expand_path("${base-path}/" + script); 			found = fs::is_regular_file(pscript);
+  // command_def->command); 	} else { 		fs::path pscript = script; 		bool found = fs::is_regular_file(pscript); 		if
+  // (!found) { 			pscript = provider_->get_core()->expand_path("${base-path}/" + script); 			found =
+  // fs::is_regular_file(pscript);
   // 		}
   // #ifdef WIN32
   // 		if (!found) {

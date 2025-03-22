@@ -419,7 +419,7 @@ std::map<std::string, windows::system_info::load_entry> pdh_thread::get_cpu_load
     load.total.kernel = kernel["cpu_kernel"];
     auto user = this->get_average("cpu_user", seconds);
     load.total.user = user["cpu_user"];
-    load.total.idle = 100-load.total.kernel-load.total.user;
+    load.total.idle = 100 - load.total.kernel - load.total.user;
     ret["total"] = load.total;
     return ret;
   }

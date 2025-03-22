@@ -353,10 +353,9 @@ double get_rate(unsigned long long part, unsigned long long total) {
   return (part_d * 100.0) / total_d;
 }
 
-
 unsigned long long large_integer_to_ull(const LARGE_INTEGER &ft) {
   unsigned long long hw = static_cast<unsigned long long>(ft.HighPart);
-  unsigned long long lw = static_cast<unsigned long long >(ft.LowPart);
+  unsigned long long lw = static_cast<unsigned long long>(ft.LowPart);
   return (hw << 32) | lw;
 }
 unsigned long long get_delta(unsigned long long new_value, unsigned long long old_value) {
@@ -408,7 +407,6 @@ system_info::cpu_load system_info::get_cpu_load_per_core() {
   result.total.user = total.total.user;
   return result;
 }
-
 
 unsigned long long file_time_to_ull(const FILETIME &ft) {
   unsigned long long hw = static_cast<unsigned long long>(ft.dwHighDateTime);
