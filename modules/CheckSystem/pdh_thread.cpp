@@ -141,6 +141,9 @@ void pdh_thread::thread_proc() {
           lookups_[instance->get_name()] = instance;
           tmpPdh.close();
         } catch (const std::exception &e) {
+          if (tmpPdh.is_open()) {
+            tmpPdh.close();
+          }
           NSC_LOG_ERROR_EXR("Failed to add counter " + obj.alias + ": ", e);
           continue;
         }

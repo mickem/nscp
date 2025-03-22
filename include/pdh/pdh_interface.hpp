@@ -52,7 +52,7 @@ class pdh_error {
   bool is_ok() const { return status_ == ERROR_SUCCESS; }
   bool is_more_data() { return status_ == PDH_MORE_DATA; }
   bool is_invalid_data() { return status_ == PDH_INVALID_DATA || status_ == PDH_CSTATUS_INVALID_DATA; }
-  bool is_not_found() { return status_ == PDH_CSTATUS_NO_OBJECT || status_ == PDH_CSTATUS_NO_COUNTER; }
+  bool is_not_found() { return status_ == PDH_CSTATUS_NO_OBJECT || status_ == PDH_CSTATUS_NO_COUNTER || status_ == PDH_CSTATUS_BAD_COUNTERNAME; }
 
   bool is_negative_denominator() { return status_ == PDH_CALC_NEGATIVE_DENOMINATOR || status_ == PDH_CALC_NEGATIVE_VALUE; }
 };

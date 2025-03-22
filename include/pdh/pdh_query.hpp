@@ -48,6 +48,7 @@ class PDHQuery : public PDH::subscriber {
   virtual void on_unload();
   virtual void on_reload();
 
+  bool is_open();
   void open();
   void close();
 

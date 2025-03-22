@@ -59,14 +59,18 @@ void PDHQuery::on_reload() {
   }
 }
 
+bool PDHQuery::is_open() {
+    return hQuery_ != NULL;
+}
+
 void PDHQuery::open() {
-  if (hQuery_ != NULL) throw pdh_exception("query is not null!");
+  if (hQuery_ != NULL) throw pdh_exception("query was already opened when trying to open query!");
   factory::get_impl()->add_listener(this);
   on_reload();
 }
 
 void PDHQuery::close() {
-  if (hQuery_ == NULL) throw pdh_exception("query is null!");
+  if (hQuery_ == NULL) throw pdh_exception("query is already closed when trying to close query!");
   factory::get_impl()->remove_listener(this);
   on_unload();
   counters_.clear();

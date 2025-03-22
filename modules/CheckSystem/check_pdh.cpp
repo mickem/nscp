@@ -101,6 +101,17 @@ void check::add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::st
   }
 }
 
+void check::add_rrd_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
+  try {
+    auto instance = counters_.add(proxy, key, query);
+    instance->collection_strategy = "rrd";
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR_EXR("Failed to add counter: " + key, e);
+  } catch (...) {
+    NSC_LOG_ERROR_EX("Failed to add counter: " + key);
+  }
+}
+
 void check::check_pdh(boost::shared_ptr<pdh_thread> &collector, const PB::Commands::QueryRequestMessage::Request &request,
                       PB::Commands::QueryResponseMessage::Response *response) {
   typedef filter filter_type;
@@ -117,20 +128,20 @@ void check::check_pdh(boost::shared_ptr<pdh_thread> &collector, const PB::Comman
   std::string type;
 
   // clang-format off
-		filter_type filter;
-		filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
-		filter_helper.add_syntax("${status}: ${list}", "${alias} = ${value}", "${alias}", "", "");
-		filter_helper.get_desc().add_options()
-			("counter", po::value<std::vector<std::string>>(&counters), "Performance counter to check")
-			("expand-index", po::bool_switch(&expand_index), "Expand indexes in counter strings")
-			("instances", po::bool_switch(&expand_instance), "Expand wildcards and fetch all instances")
-			("reload", po::bool_switch(&reload), "Reload counters on errors (useful to check counters which are not added at boot)")
-			("averages", po::bool_switch(&check_average), "Check average values (ie. wait for 1 second to collecting two samples)")
-			("time", po::value<std::vector<std::string>>(&times), "Timeframe to use for named rrd counters")
-			("flags", po::value<std::string>(&flags), "Extra flags to configure the counter (nocap100, 1000, noscale)")
-			("type", po::value<std::string>(&type)->default_value("large"), "Format of value (double, long, large)")
-			("ignore-errors", po::bool_switch(&ignore_errors), "If we should ignore errors when checking counters, for instance missing counters or invalid counters will return 0 instead of errors")
-			;
+  filter_type filter;
+  filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
+  filter_helper.add_syntax("${status}: ${list}", "${alias} = ${value}", "${alias}", "", "");
+  filter_helper.get_desc().add_options()
+    ("counter", po::value<std::vector<std::string>>(&counters), "Performance counter to check")
+    ("expand-index", po::bool_switch(&expand_index), "Expand indexes in counter strings")
+    ("instances", po::bool_switch(&expand_instance), "Expand wildcards and fetch all instances")
+    ("reload", po::bool_switch(&reload), "Reload counters on errors (useful to check counters which are not added at boot)")
+    ("averages", po::bool_switch(&check_average), "Check average values (ie. wait for 1 second to collecting two samples)")
+    ("time", po::value<std::vector<std::string>>(&times), "Timeframe to use for named rrd counters")
+    ("flags", po::value<std::string>(&flags), "Extra flags to configure the counter (nocap100, 1000, noscale)")
+    ("type", po::value<std::string>(&type)->default_value("large"), "Format of value (double, long, large)")
+    ("ignore-errors", po::bool_switch(&ignore_errors), "If we should ignore errors when checking counters, for instance missing counters or invalid counters will return 0 instead of errors")
+  ;
   // clang-format on
 
   std::vector<std::string> extra;
@@ -141,15 +152,17 @@ void check::check_pdh(boost::shared_ptr<pdh_thread> &collector, const PB::Comman
   if (counters.empty() && extra.empty())
     return nscapi::protobuf::functions::set_response_bad(*response, "No counters specified: add counter=<name of counter>");
 
+  if (times.empty())
+    times.push_back("");
+  else if (times.size() > 1) {
+    if (filter_helper.data.syntax_perf == "${alias}") filter_helper.data.syntax_perf = "%(alias)_%(time)";
+    if (filter_helper.data.syntax_detail == "${alias} = ${value}") filter_helper.data.syntax_detail = "%(alias) %(time) = %(value)";
+  }
+
   if (!filter_helper.build_filter(filter)) return;
   if (filter_helper.empty()) {
     filter.add_manual_perf("value");
   }
-
-  if (times.empty())
-    times.push_back("");
-  else if (filter_helper.data.syntax_perf == "${alias}")
-    filter_helper.data.syntax_perf = "%(alias)_%(time)";
 
   PDH::PDHQuery pdh;
   std::list<PDH::pdh_instance> free_counters;
