@@ -26,6 +26,8 @@
 
 #include <utf8.hpp>
 
+#include "pdh_resolver.hpp"
+
 namespace PDH {
 PDHCounter::PDHCounter(pdh_instance counter) : counter_(counter), hCounter_(NULL) {}
 PDHCounter::~PDHCounter() {
@@ -52,6 +54,19 @@ void PDHCounter::addToQuery(PDH::PDH_HQUERY hQuery) {
   if (status.is_not_found()) {
     hCounter_ = NULL;
     status = factory::get_impl()->PdhAddEnglishCounter(hQuery, utf8::cvt<std::wstring>(counter_->get_counter()).c_str(), 0, &hCounter_);
+  }
+  if (status.is_not_found()) {
+    std::string counter = counter_->get_counter();
+    PDHResolver::expand_index(counter);
+    status = factory::get_impl()->PdhAddCounter(hQuery, utf8::cvt<std::wstring>(counter).c_str(), 0, &hCounter_);
+    if (status.is_not_found()) {
+      hCounter_ = NULL;
+      status = factory::get_impl()->PdhAddEnglishCounter(hQuery, utf8::cvt<std::wstring>(counter).c_str(), 0, &hCounter_);
+    }
+    if (status.is_not_found()) {
+      hCounter_ = NULL;
+      throw pdh_exception(counter + " counter not found", status);
+    }
   }
   if (status.is_error()) {
     hCounter_ = NULL;

@@ -85,6 +85,7 @@ struct check {
   void check_pdh(boost::shared_ptr<pdh_thread> &collector, const PB::Commands::QueryRequestMessage::Request &request,
                  PB::Commands::QueryResponseMessage::Response *response);
   void add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+  void add_rrd_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
   void clear();
 };
 }  // namespace check_pdh
