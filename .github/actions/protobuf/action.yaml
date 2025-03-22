@@ -45,7 +45,6 @@ runs:
     - name: Prepare
       run: |
         mkdir build
-        cd build
       working-directory: tmp/protobuf-${{ inputs.version }}
       shell: cmd
       if: ${{ steps.cache.outputs.cache-hit != 'true' }}
