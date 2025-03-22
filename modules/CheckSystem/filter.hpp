@@ -40,7 +40,7 @@ struct filter_obj {
 
   filter_obj(std::string time, std::string core, const windows::system_info::load_entry &value) : time(time), core(core), value(value) {}
 
-  long long get_total() const { return static_cast<long long>(value.user+value.kernel); }
+  long long get_total() const { return static_cast<long long>(value.user + value.kernel); }
   long long get_user() const { return static_cast<long long>(value.user); }
   long long get_idle() const { return static_cast<long long>(value.idle); }
   long long get_kernel() const { return static_cast<long long>(value.kernel); }

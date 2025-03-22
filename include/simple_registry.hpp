@@ -41,8 +41,7 @@ class registry_key {
  public:
   registry_key(HKEY hRootKey, std::wstring path) : path_(path), hKey_(NULL), bData_(NULL), buffer_(NULL) {
     LONG lRet = RegOpenKeyEx(hRootKey, path.c_str(), 0, KEY_QUERY_VALUE | KEY_READ, &hKey_);
-    if (lRet != ERROR_SUCCESS)
-      throw registry_exception(path, "Failed to open key: " + error::format::from_system(lRet));
+    if (lRet != ERROR_SUCCESS) throw registry_exception(path, "Failed to open key: " + error::format::from_system(lRet));
   }
   ~registry_key() {
     if (hKey_ != NULL) RegCloseKey(hKey_);

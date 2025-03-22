@@ -59,9 +59,7 @@ void PDHQuery::on_reload() {
   }
 }
 
-bool PDHQuery::is_open() {
-    return hQuery_ != NULL;
-}
+bool PDHQuery::is_open() { return hQuery_ != NULL; }
 
 void PDHQuery::open() {
   if (hQuery_ != NULL) throw pdh_exception("query was already opened when trying to open query!");

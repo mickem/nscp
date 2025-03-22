@@ -42,51 +42,52 @@ void counter_config_object::read(nscapi::settings_helper::settings_impl_interfac
 
   if (oneliner) return;
 
+  nscapi::settings_helper::settings_registry settings(proxy);
+  nscapi::settings_helper::path_extension root_path = settings.path(get_path());
+  if (is_sample) root_path.set_sample();
+
   // clang-format off
- 		nscapi::settings_helper::settings_registry settings(proxy);
-		nscapi::settings_helper::path_extension root_path = settings.path(get_path());
-		if (is_sample)
-			root_path.set_sample();
+  root_path.add_path()
+    ("COUNTER", "Definition for counter: " + get_alias())
+  ;
 
-		root_path.add_path()
-			("COUNTER", "Definition for counter: " + get_alias())
-			;
+  root_path.add_key()
+    ("collection strategy", sh::string_key(&collection_strategy),
+      "COLLECTION STRATEGY", "The way to handled values when collecting them: static means we keep the last known value, rrd means we store values in a buffer from which you can retrieve the average")
+    ("counter", sh::string_key(&counter),
+      "COUNTER", "The counter to check")
+    ("instances", sh::string_key(&instances),
+    "Interpret instances", "IF we shoul interpret instance (default auto). Values: auto, true, false")
+    ("buffer size", sh::string_key(&buffer_size),
+      "BUFFER SIZE", "Size of buffer (in seconds) larger buffer use more memory")
+    ("type", sh::string_key(&type),
+      "COUNTER TYPE", "The type of counter to use long, large and double")
+    ("flags", sh::string_key(&flags),
+      "FLAGS", "Extra flags to configure the counter (nocap100, 1000, noscale)")
+  ;
+  // clang-format on
 
-		root_path.add_key()
-			("collection strategy", sh::string_key(&collection_strategy),
-				"COLLECTION STRATEGY", "The way to handled values when collecting them: static means we keep the last known value, rrd means we store values in a buffer from which you can retrieve the average")
-			("counter", sh::string_key(&counter),
-				"COUNTER", "The counter to check")
-			("instances", sh::string_key(&instances),
-				"Interpret instances", "IF we shoul interpret instance (default auto). Values: auto, true, false")
-			("buffer size", sh::string_key(&buffer_size),
-				"BUFFER SIZE", "Size of buffer (in seconds) larger buffer use more memory")
-			("type", sh::string_key(&type),
-				"COUNTER TYPE", "The type of counter to use long, large and double")
-			("flags", sh::string_key(&flags),
-				"FLAGS", "Extra flags to configure the counter (nocap100, 1000, noscale)")
-			;
+  settings.register_all();
+  settings.notify();
+}
 
-		settings.register_all();
-		settings.notify();
-	}
+filter_obj_handler::filter_obj_handler() {
+  // clang-format off
+  registry_.add_string()
+    ("counter", boost::bind(&filter_obj::get_counter, ph::_1), "The counter name")
+    ("alias", boost::bind(&filter_obj::get_alias, ph::_1), "The counter alias")
+    ("time", boost::bind(&filter_obj::get_time, ph::_1), "The time for rrd checks")
+  ;
 
-	filter_obj_handler::filter_obj_handler() {
-		registry_.add_string()
-			("counter", boost::bind(&filter_obj::get_counter, ph::_1), "The counter name")
-			("alias", boost::bind(&filter_obj::get_alias, ph::_1), "The counter alias")
-			("time", boost::bind(&filter_obj::get_time, ph::_1), "The time for rrd checks")
-			;
-
-		registry_.add_number()
-			("value", parsers::where::type_float, boost::bind(&filter_obj::get_value_i, ph::_1), boost::bind(&filter_obj::get_value_f, ph::_1), "The counter value (either float or int)")
-			;
-		registry_.add_int()
-			("value_i", boost::bind(&filter_obj::get_value_i, ph::_1), "The counter value (force int value)")
-			;
-		registry_.add_float()
-			("value_f", boost::bind(&filter_obj::get_value_f, ph::_1), "The counter value (force float value)")
-			;
+  registry_.add_number()
+    ("value", parsers::where::type_float, boost::bind(&filter_obj::get_value_i, ph::_1), boost::bind(&filter_obj::get_value_f, ph::_1), "The counter value (either float or int)")
+  ;
+  registry_.add_int()
+    ("value_i", boost::bind(&filter_obj::get_value_i, ph::_1), "The counter value (force int value)")
+  ;
+  registry_.add_float()
+    ("value_f", boost::bind(&filter_obj::get_value_f, ph::_1), "The counter value (force float value)")
+  ;
   // clang-format on
 }
 
