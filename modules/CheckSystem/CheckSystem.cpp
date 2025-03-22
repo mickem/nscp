@@ -138,39 +138,41 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     ("Windows system", "Section for system checks and system settings")
 
     ("counters", sh::fun_values_path(boost::bind(&CheckSystem::add_counter, this, ph::_1, ph::_2)),
-            "PDH Counters", "Add counters to check",
-            "COUNTER", "For more configuration options add a dedicated section")
+        "PDH Counters", "Add counters to check",
+        "COUNTER", "For more configuration options add a dedicated section")
 
     ("real-time/memory", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_mem_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
-            "Realtime memory filters", "A set of filters to use in real-time mode",
-            "FILTER", "For more configuration options add a dedicated section")
+        "Realtime memory filters", "A set of filters to use in real-time mode",
+        "FILTER", "For more configuration options add a dedicated section")
 
     ("real-time/cpu", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_cpu_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
-            "Realtime cpu filters", "A set of filters to use in real-time mode",
-            "FILTER", "For more configuration options add a dedicated section")
+        "Realtime cpu filters", "A set of filters to use in real-time mode",
+        "FILTER", "For more configuration options add a dedicated section")
 
     ("real-time/process", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_proc_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
-            "Realtime process filters", "A set of filters to use in real-time mode",
-            "FILTER", "For more configuration options add a dedicated section")
+        "Realtime process filters", "A set of filters to use in real-time mode",
+        "FILTER", "For more configuration options add a dedicated section")
 
     ("real-time/checks", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_legacy_filter, collector, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
-            "Legacy generic filters", "A set of filters to use in real-time mode",
-            "FILTER", "For more configuration options add a dedicated section")
+        "Legacy generic filters", "A set of filters to use in real-time mode",
+        "FILTER", "For more configuration options add a dedicated section")
     ;
 
   settings.alias().add_key_to_settings()
     ("default buffer length", sh::string_key(&collector->default_buffer_size, "1h"),
-"Default buffer time", "Used to define the default size of range buffer checks (ie. CPU).")
+        "Default buffer time", "Used to define the default size of range buffer checks (ie. CPU).")
 
     ("subsystem", sh::string_key(&collector->subsystem, "default"),
     "PDH subsystem", "Set which pdh subsystem to use.\nCurrently default and thread-safe are supported where thread-safe is slower but required if you have some problematic counters.", true)
 
-    ("fetch core loads", sh::bool_key(&collector->read_core_load, "true"),
-"Fetch core load", "Set to false to use a different API for fetching CPU load (will not provide core load, and will not show exact same values as task manager).", true)
+    ("fetch core loads", sh::bool_key(&collector->read_core_load, true),
+        "Fetch core load", "Set to false to use a different API for fetching CPU load (will not provide core load, and will not show exact same values as task manager).", true)
 
+    ("use pdh for cpu", sh::bool_key(&collector->use_pdh_for_cpu, false),
+      "Use PDH to fetch CPU load", "When using PDH you might get better accuracy and hel alleviate invalid CPU values on multi core systems. The drawback is that PDH counters are sometimes missing and have invalid indexes so your milage may vary", true)
 
     ("disable", sh::string_key(&collector->disable_, ""),
-"Disable automatic checks", "A comma separated list of checks to disable in the collector: cpu,handles,network,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
+        "Disable automatic checks", "A comma separated list of checks to disable in the collector: cpu,handles,network,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
     ;
 
   settings.alias().add_templates()
@@ -198,6 +200,10 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   pdh_checker.counters_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
   if (!pdh_checker.counters_.has_object("disk_queue_length")) add_counter("disk_queue_length", "\\PhysicalDisk($INSTANCE$)\\% Disk Time");
+  if (collector->use_pdh_for_cpu) {
+    if (!pdh_checker.counters_.has_object("cpu_user")) add_rrd_counter("cpu_user", "\\2610(_Total)\\142");
+    if (!pdh_checker.counters_.has_object("cpu_kernel")) add_rrd_counter("cpu_kernel", "\\2610(_Total)\\144");
+  }
 
   if (mode == NSCAPI::normalStart) {
     for (const check_pdh::counter_config_handler::object_instance object : pdh_checker.counters_.get_object_list()) {
@@ -984,6 +990,9 @@ void CheckSystem::check_pdh(const PB::Commands::QueryRequestMessage::Request &re
 }
 
 void CheckSystem::add_counter(std::string key, std::string query) { pdh_checker.add_counter(nscapi::settings_proxy::create(get_id(), get_core()), key, query); }
+void CheckSystem::add_rrd_counter(std::string key, std::string query) {
+  pdh_checker.add_rrd_counter(nscapi::settings_proxy::create(get_id(), get_core()), key, query);
+}
 
 class add_visitor : public boost::static_visitor<> {
   PB::Metrics::MetricsBundle *b;
