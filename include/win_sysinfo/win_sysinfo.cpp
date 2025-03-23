@@ -179,42 +179,40 @@ bool GetOsVersion(RTL_OSVERSIONINFOEXW *pk_OsVer) {
 }
 
 void GetVersion() {
-  ULONG majorVersion;
-  ULONG minorVersion;
-
   if (GetOsVersion(&g_versionInfo)) {
-    majorVersion = g_versionInfo.dwMajorVersion;
-    minorVersion = g_versionInfo.dwMinorVersion;
+    auto majorVersion = g_versionInfo.dwMajorVersion;
+    auto minorVersion = g_versionInfo.dwMinorVersion;
+    auto productType = g_versionInfo.wProductType;
+    auto buildNumber = g_versionInfo.dwBuildNumber;
 
     if (majorVersion == 5 && minorVersion < 1 || majorVersion < 5) {
       g_windowsVersion = WINDOWS_ANCIENT;
-    }
-    /* Windows XP */
-    else if (majorVersion == 5 && minorVersion == 1) {
+      /* Windows XP */
+    } else if (majorVersion == 5 && minorVersion == 1) {
       g_windowsVersion = WINDOWS_XP;
-    }
-    /* Windows Server 2003 */
-    else if (majorVersion == 5 && minorVersion == 2) {
+      /* Windows Server 2003 */
+    } else if (majorVersion == 5 && minorVersion == 2) {
       g_windowsVersion = WINDOWS_SERVER_2003;
-    }
-    /* Windows Vista, Windows Server 2008 */
-    else if (majorVersion == 6 && minorVersion == 0) {
+      /* Windows Vista, Windows Server 2008 */
+    } else if (majorVersion == 6 && minorVersion == 0 && productType == VER_NT_WORKSTATION) {
+      g_windowsVersion = WINDOWS_VISTA;
+    } else if (majorVersion == 6 && minorVersion == 0 && productType == VER_NT_WORKSTATION) {
       g_windowsVersion = WINDOWS_VISTA;
     }
     /* Windows 7, Windows Server 2008 R2 */
     else if (majorVersion == 6 && minorVersion == 1) {
       g_windowsVersion = WINDOWS_7;
-    }
-    /* Windows 8 */
-    else if (majorVersion == 6 && minorVersion == 2) {
+      /* Windows 8 */
+    } else if (majorVersion == 6 && minorVersion == 2) {
       g_windowsVersion = WINDOWS_8;
-    }
-    /* Windows 8.1 */
-    else if (majorVersion == 6 && minorVersion == 3) {
+      /* Windows 8.1 */
+    } else if (majorVersion == 6 && minorVersion == 3) {
       g_windowsVersion = WINDOWS_81;
-    }
-    /* Windows 8.1 */
-    else if (majorVersion == 10 && minorVersion == 0) {
+      /* Windows 10 */
+    } else if (majorVersion == 10 && minorVersion == 0) {
+      if (buildNumber > 22000) {
+        g_windowsVersion = WINDOWS_11;
+      }
       g_windowsVersion = WINDOWS_10;
     } else if (majorVersion == 10 && minorVersion > 0 || majorVersion > 10) {
       g_windowsVersion = WINDOWS_NEW;
@@ -262,42 +260,50 @@ std::string system_info::get_version_string() {
     GetVersion();
     g_hasVersion = true;
   }
-  ULONG majorVersion;
-  ULONG minorVersion;
-  BYTE type;
-  majorVersion = g_versionInfo.dwMajorVersion;
-  minorVersion = g_versionInfo.dwMinorVersion;
-  type = g_versionInfo.wProductType;
-  if (majorVersion == 5 && minorVersion < 1 || majorVersion < 5)
-    return "Pre XP";
-  else if (majorVersion == 5 && minorVersion == 1)
-    return "Windows XP";
-  else if (majorVersion == 5 && minorVersion == 2)
-    return "Windows Server 2003";
-  else if (majorVersion == 6 && minorVersion == 0 && type != VER_NT_WORKSTATION)
-    return "Windows 2008";
-  else if (majorVersion == 6 && minorVersion == 0)
-    return "Windows Vista";
-  else if (majorVersion == 6 && minorVersion == 1 && type != VER_NT_WORKSTATION)
-    return "Windows 2008R2";
-  else if (majorVersion == 6 && minorVersion == 1)
-    return "Windows 7";
-  else if (majorVersion == 6 && minorVersion == 2 && type != VER_NT_WORKSTATION)
-    return "Windows 2012";
-  else if (majorVersion == 6 && minorVersion == 2)
-    return "Windows 8";
-  else if (majorVersion == 6 && minorVersion == 3 && type != VER_NT_WORKSTATION)
-    return "Windows Server 2012 R2";
-  else if (majorVersion == 6 && minorVersion == 3)
-    return "Windows 8.1";
-  else if (majorVersion == 10 && minorVersion == 0 && type != VER_NT_WORKSTATION)
-    return "Windows Server 2016";
-  else if (majorVersion == 10 && minorVersion == 0)
+  auto majorVersion = g_versionInfo.dwMajorVersion;
+  auto minorVersion = g_versionInfo.dwMinorVersion;
+  auto type = g_versionInfo.wProductType;
+  auto buildNumber = g_versionInfo.dwBuildNumber;
+  if (majorVersion == 5 && minorVersion < 1 || majorVersion < 5) return "Pre XP";
+  if (majorVersion == 5 && minorVersion == 1) return "Windows XP";
+  if (majorVersion == 5 && minorVersion == 2) return "Windows Server 2003";
+  if (majorVersion == 6 && minorVersion == 0 && type == VER_NT_WORKSTATION) return "Windows Vista";
+  if (majorVersion == 6 && minorVersion == 0) return "Windows Server 2008";
+  if (majorVersion == 6 && minorVersion == 1 && type == VER_NT_WORKSTATION) return "Windows Server 2008 R2";
+  if (majorVersion == 6 && minorVersion == 1) return "Windows 7";
+  if (majorVersion == 6 && minorVersion == 2 && type == VER_NT_WORKSTATION) return "Windows 8";
+  if (majorVersion == 6 && minorVersion == 2) return "Windows Server 2012";
+  if (majorVersion == 6 && minorVersion == 3 && type == VER_NT_WORKSTATION) return "Windows 8.1";
+  if (majorVersion == 6 && minorVersion == 3) return "Windows Server 2012 R2";
+  if (majorVersion == 10 && minorVersion == 0 && type == VER_NT_WORKSTATION) {
+    if (buildNumber >= 26100) {
+      return "Windows 11 24H2";
+    }
+    if (buildNumber >= 22631) {
+      return "Windows 11 23H2";
+    }
+    if (buildNumber >= 22621) {
+      return "Windows 11 22H2";
+    }
+    if (buildNumber >= 22000) {
+      return "Windows 11 21H2";
+    }
     return "Windows 10";
-  else if (type != VER_NT_WORKSTATION)
-    return "Post Windows 2016";
-  else
-    return "Post Windows 10";
+  }
+  if (majorVersion == 10 && minorVersion == 0) {
+    if (buildNumber >= 26100) {
+      return "Windows Server 2025";
+    }
+    if (buildNumber >= 20348) {
+      return "Windows Server 2022";
+    }
+    if (buildNumber >= 17763) {
+      return "Windows Server 2019";
+    }
+    return "Windows Server 2016";
+  }
+  if (type != VER_NT_WORKSTATION) return "Post Windows 2016";
+  return "Post Windows 10";
 }
 std::vector<std::string> system_info::get_suite_list() {
   if (!g_hasVersion) {
