@@ -20,6 +20,7 @@
 #include "pdh_thread.hpp"
 #include <sysinfo.h>
 #include "settings.hpp"
+#include <str/utils_no_boost.hpp>
 
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
@@ -413,14 +414,31 @@ network_check::nics_type pdh_thread::get_network() { return network.get(); }
 std::map<std::string, windows::system_info::load_entry> pdh_thread::get_cpu_load(long seconds) {
   std::map<std::string, windows::system_info::load_entry> ret;
   if (this->use_pdh_for_cpu) {
-    windows::system_info::cpu_load load;
-    load.total.core = 0;
-    auto kernel = this->get_average("cpu_kernel", seconds);
-    load.total.kernel = kernel["cpu_kernel"];
-    auto user = this->get_average("cpu_user", seconds);
-    load.total.user = user["cpu_user"];
-    load.total.idle = 100 - load.total.kernel - load.total.user;
-    ret["total"] = load.total;
+    for (auto &k : this->get_average("cpu_kernel", seconds)) {
+      auto tags = str::utils::split2(k.first, ",");
+      bool is_numeric = !tags.second.empty() && tags.second.find_first_not_of("0123456789") == std::string::npos;
+      auto alias = is_numeric ? tags.second : "total";
+      auto core = is_numeric ? boost::lexical_cast<int>(tags.second) : 0;
+      if (ret.find(alias) == ret.end()) {
+        auto entry = windows::system_info::load_entry();
+        entry.core = core;
+        ret[alias] = entry;
+      }
+      ret[alias].kernel = k.second;
+    }
+    for (auto &k : this->get_average("cpu_total", seconds)) {
+      auto tags = str::utils::split2(k.first, ",");
+      bool is_numeric = !tags.second.empty() && tags.second.find_first_not_of("0123456789") == std::string::npos;
+      auto alias = is_numeric ? tags.second : "total";
+      auto core = is_numeric ? boost::lexical_cast<int>(tags.second) : 0;
+      if (ret.find(alias) == ret.end()) {
+        auto entry = windows::system_info::load_entry();
+        entry.core = core;
+        ret[alias] = entry;
+      }
+      ret[alias].user = k.second - ret[alias].kernel;
+      ret[alias].idle = 100 - k.second;
+    }
     return ret;
   }
   windows::system_info::cpu_load load;

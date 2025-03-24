@@ -201,8 +201,8 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
   if (!pdh_checker.counters_.has_object("disk_queue_length")) add_counter("disk_queue_length", "\\PhysicalDisk($INSTANCE$)\\% Disk Time");
   if (collector->use_pdh_for_cpu) {
-    if (!pdh_checker.counters_.has_object("cpu_user")) add_rrd_counter("cpu_user", "\\2610(_Total)\\142");
-    if (!pdh_checker.counters_.has_object("cpu_kernel")) add_rrd_counter("cpu_kernel", "\\2610(_Total)\\144");
+    if (!pdh_checker.counters_.has_object("cpu_total")) add_rrd_counter("cpu_total", "\\Processor Information($INSTANCE$)\\% Processor Utility");
+    if (!pdh_checker.counters_.has_object("cpu_kernel")) add_rrd_counter("cpu_kernel", "\\Processor Information($INSTANCE$)\\% Privileged Utility");
   }
 
   if (mode == NSCAPI::normalStart) {
