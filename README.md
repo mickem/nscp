@@ -1,5 +1,5 @@
-NSClient++
-==========
+# NSClient++ (nscp)
+
 [![Build release](https://github.com/mickem/nscp/actions/workflows/build-main.yml/badge.svg)](https://github.com/mickem/nscp/actions/workflows/build-main.yml)
 
 
@@ -16,8 +16,7 @@ NSClient++ can be found at: http://nsclient.org
 
 Documentation can be found at: http://docs.nsclient.org
 
-Extending NSClient++
---------------------
+## Extending NSClient++
 
 NSClient++ is designed to be open ended and allow you to customize it in any way you design thus extensibility is a core feature.
 
@@ -32,8 +31,7 @@ NSClient++ is designed to be open ended and allow you to customize it in any way
  * Modules are native plugins which can extend NSClient++ in pretty much any way possible.
    This is probably the most complicated way but gives you the most power and control.
 
-Talking to NSClient++
----------------------
+## Talking to NSClient++
 
 Since NSClient++ is meaningless by itself it also supports a lot of protocols to allow it to be used by a lot of monitoring solutions.
 
@@ -47,11 +45,14 @@ Since NSClient++ is meaningless by itself it also supports a lot of protocols to
  * Graphite allows you do real-time graphing.
  * SMTP is more of a toy currently.
 
-Supported OS/Platform
----------------------
+## Supported OS/Platform
 
 NSClient++ should run on the following operating systems:
  * Windows: From NT4 SP5 up to Windows 2012R2 and Windows 8.1
  * Linux: Debian, Centos and Ubuntu (and possibly others as well)
  * Win32, x64 as well as various Linux hardware as well.
 
+## Building NSClient++
+
+NSClient++ is built using CMake and Visual Studio 2022.
+You can find detailed instructions for building locally in the [build.md](build.md) file.

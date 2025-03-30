@@ -99,6 +99,19 @@ file name = nsclient.log
 level = debug
 ```
 
+### 1.11 CPU Values are incorrect or 0
+
+The API used to get CPU values are deprecated and Microsoft seems to think Performance Data Helpers is the way to go.
+We are currently transitioning towards that solution (in version 0.7.0 we added support for this).
+To enable CPU load via PDH you need to enable the following:
+
+```ini
+[/settings/system/windows]
+use pdh for cpu=true
+```
+
+If this works out we will eventually make this default.
+
 ## 2. Escaping and Strings
 
 ### 2.1 How do I properly escape spaces in strings
