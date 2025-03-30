@@ -1,7 +1,7 @@
 import React from "react";
 import { Paper, Stack } from "@mui/material";
 import { SxProps } from "@mui/system";
-import { Theme } from "@mui/material/styles/createTheme";
+import { Theme } from '@mui/material/styles';
 
 interface Props {
   children: React.ReactNode;

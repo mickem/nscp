@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAppDispatch } from "../store/store.ts";
 import { Box, Card, CardContent } from "@mui/material";
 import Typography from "@mui/material/Typography";
-import Grid from "@mui/material/Grid2";
+import Grid from "@mui/material/Grid";
 
 export default function Welcome() {
   const dispatch = useAppDispatch();
