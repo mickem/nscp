@@ -1,7 +1,7 @@
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { Box, Card, CardActions, CardContent, InputAdornment, TextField, Toolbar } from "@mui/material";
-import Grid from "@mui/material/Grid2";
+import Grid from "@mui/material/Grid";
 import AppBar from "@mui/material/AppBar";
 import Button from "@mui/material/Button";
 import { AccountCircle } from "@mui/icons-material";
