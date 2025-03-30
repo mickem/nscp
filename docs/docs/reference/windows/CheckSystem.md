@@ -2273,12 +2273,13 @@ Section for system checks and system settings
 
 
 
-| Key                                           | Default Value | Description              |
-|-----------------------------------------------|---------------|--------------------------|
-| [default buffer length](#default-buffer-time) | 1h            | Default buffer time      |
-| [disable](#disable-automatic-checks)          |               | Disable automatic checks |
-| [fetch core loads](#fetch-core-load)          | true          | Fetch core load          |
-| [subsystem](#pdh-subsystem)                   | default       | PDH subsystem            |
+| Key                                           | Default Value | Description               |
+|-----------------------------------------------|---------------|---------------------------|
+| [default buffer length](#default-buffer-time) | 1h            | Default buffer time       |
+| [disable](#disable-automatic-checks)          |               | Disable automatic checks  |
+| [fetch core loads](#fetch-core-load)          | true          | Fetch core load           |
+| [subsystem](#pdh-subsystem)                   | default       | PDH subsystem             |
+| [use pdh for cpu](#use-pdh-to-fetch-cpu-load) | false         | Use PDH to fetch CPU load |
 
 
 
@@ -2288,6 +2289,7 @@ Section for system checks and system settings
 default buffer length=1h
 fetch core loads=true
 subsystem=default
+use pdh for cpu=false
 
 ```
 
@@ -2400,6 +2402,33 @@ Currently default and thread-safe are supported where thread-safe is slower but 
 [/settings/system/windows]
 # PDH subsystem
 subsystem=default
+```
+
+
+
+#### Use PDH to fetch CPU load <a id="/settings/system/windows/use pdh for cpu"></a>
+
+When using PDH you might get better accuracy and hel alleviate invalid CPU values on multi core systems. The drawback is that PDH counters are sometimes missing and have invalid indexes so your milage may vary
+
+
+
+
+
+| Key            | Description                                           |
+|----------------|-------------------------------------------------------|
+| Path:          | [/settings/system/windows](#/settings/system/windows) |
+| Key:           | use pdh for cpu                                       |
+| Advanced:      | Yes (means it is not commonly used)                   |
+| Default value: | `false`                                               |
+| Used by:       | CheckSystem                                           |
+
+
+**Sample:**
+
+```
+[/settings/system/windows]
+# Use PDH to fetch CPU load
+use pdh for cpu=false
 ```
 
 
