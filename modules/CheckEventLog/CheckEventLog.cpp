@@ -702,7 +702,7 @@ void CheckEventLog::list_providers(const PB::Commands::ExecuteRequestMessage::Re
         DWORD status = ERROR_SUCCESS;
         hProviders = eventlog::EvtOpenPublisherEnum(NULL, 0);
         if (!hProviders) {
-          NSC_LOG_ERROR("EvtOpenPublisherEnum failed: ", error::lookup::last_error());
+          NSC_LOG_ERROR("EvtOpenPublisherEnum failed: " + error::lookup::last_error());
           return;
         }
         while (true) {

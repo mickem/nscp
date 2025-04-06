@@ -27,6 +27,7 @@
 #include <str/xtos.hpp>
 #include <time.h>
 
+#include <msvc.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
@@ -234,8 +235,9 @@ std::string list_ns_rec(std::string ns, std::string user, std::string password) 
   return ss.str();
 }
 
-NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std::string &command, const std::list<std::string> &arguments,
+NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int _target_mode, const std::string &command, const std::list<std::string> &arguments,
                                                std::string &result) {
+  UNREFERENCED_PARAMETER(_target_mode);
   try {
     if (command == "wmi" || command == "help" || command.empty()) {
       namespace po = boost::program_options;

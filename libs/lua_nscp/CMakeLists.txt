@@ -34,6 +34,7 @@ if(LUA_FOUND OR LUA_SOURCE_FOUND)
     target_link_libraries(${TARGET} nscp_lua_pb ${Boost_THREAD_LIBRARY})
     add_dependencies(${TARGET} nscp_lua_pb)
   endif(PROTOC_GEN_LUA_FOUND)
+  add_dependencies(${TARGET} nscp_protobuf)
 
   set_target_properties(${TARGET} PROPERTIES FOLDER "libraries")
 

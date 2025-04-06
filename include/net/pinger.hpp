@@ -20,9 +20,7 @@
 #pragma once
 
 #include <boost/asio.hpp>
-#include <boost/bind/bind.hpp>
 #include <istream>
-#include <iostream>
 #include <ostream>
 
 #include <net/icmp_header.hpp>
@@ -87,7 +85,7 @@ class pinger {
     socket_.send_to(request_buffer.data(), destination_);
 
     timer_.expires_at(time_sent_ + posix_time::millisec(timeout_));
-    timer_.async_wait(boost::bind(&pinger::handle_timeout, this, boost::asio::placeholders::error));
+    timer_.async_wait([this](const boost::system::error_code& e) { this->handle_timeout(e); });
   }
 
   void handle_timeout(const boost::system::error_code ec) {
@@ -99,7 +97,8 @@ class pinger {
 
   void start_receive() {
     reply_buffer_.consume(reply_buffer_.size());
-    socket_.async_receive(reply_buffer_.prepare(65536), boost::bind(&pinger::handle_receive, this, boost::placeholders::_2, boost::asio::placeholders::error));
+    socket_.async_receive(reply_buffer_.prepare(65536),
+                          [this](const boost::system::error_code& ec, const std::size_t& length) { this->handle_receive(length, ec); });
   }
 
   void handle_receive(std::size_t length, const boost::system::error_code ec) {

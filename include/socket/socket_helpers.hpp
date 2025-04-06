@@ -24,9 +24,7 @@
 #include <str/xtos.hpp>
 
 #include <boost/asio.hpp>
-#include <boost/bind/bind.hpp>
 #include <boost/optional.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #ifdef USE_SSL
 #include <boost/asio/ssl.hpp>
@@ -37,7 +35,6 @@
 #include <string>
 
 namespace socket_helpers {
-namespace ph = boost::placeholders;
 #ifdef USE_SSL
 void write_certs(std::string cert, bool ca);
 #endif
@@ -202,13 +199,15 @@ struct timed_writer : public boost::enable_shared_from_this<timed_writer> {
   ~timed_writer() { timer.cancel(); }
   void start_timer(boost::posix_time::time_duration duration) {
     timer.expires_from_now(duration);
-    timer.async_wait(boost::bind(&timed_writer::set_result, shared_from_this(), &timer_result, ph::_1));
+    auto self(shared_from_this());
+    timer.async_wait([self](const auto& e) { self->set_result(&self->timer_result, e); });
   }
   void stop_timer() { timer.cancel(); }
 
   template <typename AsyncWriteStream, typename MutableBufferSequence>
   void write(AsyncWriteStream& stream, MutableBufferSequence& buffer) {
-    async_write(stream, buffer, boost::bind(&timed_writer::set_result, shared_from_this(), &read_result, ph::_1));
+    auto self(shared_from_this());
+    async_write(stream, buffer, [self](const auto& e) { self->set_result(&self->read_result, e); });
   }
 
   template <typename AsyncWriteStream, typename Socket, typename MutableBufferSequence>
@@ -242,10 +241,10 @@ bool write_with_timeout(AsyncWriteStream& sock, RawSocket& rawSocket, const Muta
   boost::optional<boost::system::error_code> timer_result;
   boost::asio::deadline_timer timer(sock.get_io_service());
   timer.expires_from_now(duration);
-  timer.async_wait(boost::bind(set_result, &timer_result, ph::_1));
+  timer.async_wait([&timer_result](const auto& e) { set_result(&timer_result, e); });
 
   boost::optional<boost::system::error_code> read_result;
-  async_write(sock, buffers, boost::bind(set_result, &read_result, ph::_1));
+  async_write(sock, buffers, [&read_result](const auto& e) { set_result(&read_result, e); });
 
   sock.get_io_service().reset();
   while (sock.get_io_service().run_one()) {
@@ -275,13 +274,15 @@ struct timed_reader : public boost::enable_shared_from_this<timed_reader> {
 
   void start_timer(boost::posix_time::time_duration duration_) {
     timer.expires_from_now(duration_);
-    timer.async_wait(boost::bind(&timed_reader::set_result, shared_from_this(), &timer_result, ph::_1));
+    auto self(shared_from_this());
+    timer.async_wait([self](const auto& e) { self->set_result(&self->timer_result, e); });
   }
   void stop_timer() { timer.cancel(); }
 
   template <typename AsyncWriteStream, typename MutableBufferSequence>
   void read(AsyncWriteStream& stream, const MutableBufferSequence& buffers) {
-    async_read(stream, buffers, boost::bind(&timed_reader::set_result, shared_from_this(), &write_result, ph::_1));
+    auto self(shared_from_this());
+    async_read(stream, buffers, [self](const auto& e) { self->set_result(&self->write_result, e); });
   }
 
   template <typename AsyncWriteStream, typename Socket, typename MutableBufferSequence>
@@ -313,10 +314,10 @@ bool read_with_timeout(AsyncReadStream& sock, RawSocket& rawSocket, const Mutabl
   boost::optional<boost::system::error_code> timer_result;
   boost::asio::deadline_timer timer(sock.get_io_service());
   timer.expires_from_now(duration);
-  timer.async_wait(boost::bind(set_result, &timer_result, ph::_1));
+  timer.async_wait([&timer_result](const auto& e) { set_result(&timer_result, e); });
 
   boost::optional<boost::system::error_code> read_result;
-  async_read(sock, buffers, boost::bind(set_result, &read_result, ph::_1));
+  async_read(sock, buffers, [&read_result](const auto& e) { set_result(&read_result, e); });
 
   sock.get_io_service().reset();
   while (sock.get_io_service().run_one()) {

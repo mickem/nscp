@@ -19,18 +19,13 @@
 
 #pragma once
 
-// #include <nsclient/logger/logger.hpp>
 #include <settings/settings_value.hpp>
-
-// #include <utf8.hpp>
 
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
-// #include <boost/algorithm/string/case_conv.hpp>
 
 #include <string>
 #include <list>
-// #include <algorithm>
 
 namespace settings {
 class settings_exception : public std::exception {

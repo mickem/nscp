@@ -41,6 +41,7 @@ nscp_force_include(${TARGET}
                    ${BUILD_ROOT_FOLDER}/include/nscapi/dll_defines_protobuf.hpp)
 
 target_link_libraries(${TARGET} ${PROTOBUF_LIBRARY})
+target_compile_options(${TARGET} PRIVATE /wd4251)
 
 if(PROTOC_GEN_JSON_FOUND AND JSON_SPIRIT_FOUND)
   set(TARGET nscp_json_pb)
@@ -85,6 +86,7 @@ if(PROTOC_GEN_JSON_FOUND AND JSON_SPIRIT_FOUND)
     ${TARGET} ${BUILD_ROOT_FOLDER}/include/nscapi/dll_defines_protobuf.hpp)
 
   target_link_libraries(${TARGET} ${PROTOBUF_LIBRARY} nscp_protobuf json_spirit)
+  target_compile_options(${TARGET} PRIVATE /wd4251 /wd4456 /wd4100)
 endif()
 
 if(PROTOC_GEN_LUA_FOUND AND (LUA_FOUND OR LUA_SOURCE_FOUND))
@@ -138,5 +140,6 @@ if(PROTOC_GEN_LUA_FOUND AND (LUA_FOUND OR LUA_SOURCE_FOUND))
           ${TARGET} ${BUILD_ROOT_FOLDER}/include/nscapi/dll_defines_protobuf.hpp)
 
   target_link_libraries(${TARGET} ${PROTOBUF_LIBRARY} nscp_protobuf ${LUA_LIB})
+  target_compile_options(${TARGET} PRIVATE /wd4251)
 
 endif()

@@ -68,7 +68,7 @@ namespace settings {
 class settings_http : public settings::settings_interface_impl {
  private:
   std::string url_;
-  boost::filesystem::path local_file;
+  boost::filesystem::path local_file_;
   net::url remote_url;
 
  public:
@@ -80,7 +80,7 @@ class settings_http : public settings::settings_interface_impl {
       boost::filesystem::create_directories(path);
       if (!boost::filesystem::is_directory(path)) throw new settings_exception(__FILE__, __LINE__, "Cache path not found: " + path.string());
     }
-    local_file = boost::filesystem::path(path) / "cached.ini";
+    local_file_ = boost::filesystem::path(path) / "cached.ini";
 
     initial_load();
   }
@@ -103,9 +103,17 @@ class settings_http : public settings::settings_interface_impl {
     return local_file;
   }
 
-  virtual void log_debug(std::string file, int line, std::string msg) const {}
+  virtual void log_debug(std::string _file, int _line, std::string _msg) const {
+    UNREFERENCED_PARAMETER(_file);
+    UNREFERENCED_PARAMETER(_line);
+    UNREFERENCED_PARAMETER(_msg);
+  }
 
-  virtual void log_error(std::string file, int line, std::string msg) const {}
+  virtual void log_error(std::string _file, int _line, std::string _msg) const {
+    UNREFERENCED_PARAMETER(_file);
+    UNREFERENCED_PARAMETER(_line);
+    UNREFERENCED_PARAMETER(_msg);
+  }
   virtual std::string expand_path(std::string path) { return path; }
 
   bool cache_remote_file(const net::url &url, const std::string &file) {

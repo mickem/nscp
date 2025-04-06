@@ -19,20 +19,11 @@
 
 #pragma once
 
-#include <utils.h>
-#include <str/xtos.hpp>
-
-#include <socket/client.hpp>
-
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_core_helper.hpp>
-
 #include <boost/make_shared.hpp>
 
 namespace graphite_handler {
 namespace sh = nscapi::settings_helper;
-namespace ph = boost::placeholders;
 
 struct graphite_target_object : public nscapi::targets::target_object {
   typedef nscapi::targets::target_object parent;
@@ -57,40 +48,40 @@ struct graphite_target_object : public nscapi::targets::target_object {
 
     if (is_default()) {
       // clang-format off
-				root_path.add_key()
+      root_path.add_key()
 
-					("path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "perf path", ph::_1), "nsclient.${hostname}.${check_alias}.${perf_alias}"),
-						"PATH FOR METRICS", "Path mapping for metrics")
+        ("path", sh::string_fun_key([this] (auto value) { this->set_property_string("perf path", value); }, "nsclient.${hostname}.${check_alias}.${perf_alias}"),
+        "PATH FOR METRICS", "Path mapping for metrics")
 
-					("status path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "status path", ph::_1), "nsclient.${hostname}.${check_alias}.status"),
-						"PATH FOR STATUS", "Path mapping for status")
+        ("status path", sh::string_fun_key([this] (auto value) { this->set_property_string("status path", value); }, "nsclient.${hostname}.${check_alias}.status"),
+        "PATH FOR STATUS", "Path mapping for status")
 
-					("send perfdata", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send perfdata", ph::_1), true),
-						"SEND PERF DATA", "Send performance data to this server")
+        ("send perfdata", sh::bool_fun_key([this] (auto value) { this->set_property_bool("send perfdata", value); }, true),
+        "SEND PERF DATA", "Send performance data to this server")
 
-					("send status", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send status", ph::_1), true),
-						"SEND STATUS", "Send status data to this server")
+        ("send status", sh::bool_fun_key([this] (auto value) { this->set_property_bool("send status", value); }, true),
+        "SEND STATUS", "Send status data to this server")
 
-					("metric path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "metric path", ph::_1), "nsclient.${hostname}.${metric}"),
-					"PATH FOR METRICS", "Path mapping for metrics")
+        ("metric path", sh::string_fun_key([this] (auto value) { this->set_property_string("metric path", value); }, "nsclient.${hostname}.${metric}"),
+        "PATH FOR METRICS", "Path mapping for metrics")
+      ;
+      // clang-format on
+    } else {
+      // clang-format off
+      root_path.add_key()
 
-					;
-			} else {
-				root_path.add_key()
+        ("path", sh::string_fun_key([this] (auto value) { this->set_property_string("perf path", value); }),
+        "PATH FOR METRICS", "Path mapping for metrics")
 
-					("path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "perf path", ph::_1)),
-						"PATH FOR METRICS", "Path mapping for metrics")
+        ("status path", sh::string_fun_key([this] (auto value) { this->set_property_string("status path", value); }),
+        "PATH FOR STATUS", "Path mapping for status")
 
-					("status path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "status path", ph::_1)),
-						"PATH FOR STATUS", "Path mapping for status")
+        ("send perfdata", sh::bool_fun_key([this] (auto value) { this->set_property_bool("send perfdata", value); }),
+        "SEND PERF DATA", "Send performance data to this server")
 
-					("send perfdata", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send perfdata", ph::_1)),
-						"SEND PERF DATA", "Send performance data to this server")
-
-					("send status", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send status", ph::_1)),
-						"SEND STATUS", "Send status data to this server")
-
-					;
+        ("send status", sh::bool_fun_key([this] (auto value) { this->set_property_bool("send status", value); }),
+        "SEND STATUS", "Send status data to this server")
+      ;
       // clang-format on
     }
     settings.register_all();
@@ -107,9 +98,7 @@ struct options_reader_impl : public client::options_reader_interface {
   }
 
   void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
-    desc.add_options()("path", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "path", ph::_1)), "")
-
-        ;
+    desc.add_options()("path", po::value<std::string>()->notifier([&data](auto value) { data.set_string_data("path", value); }), "");
   }
 };
 }  // namespace graphite_handler

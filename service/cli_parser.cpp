@@ -30,8 +30,6 @@
 #endif
 #include <settings/settings_core.hpp>
 
-#include <boost/bind/bind.hpp>
-
 #include <str/format.hpp>
 
 #define LOG_MODULE "client"
@@ -49,79 +47,79 @@ cli_parser::cli_parser(NSClient *core)
       log_debug(false),
       no_stderr(false) {
   // clang-format off
-	common_light.add_options()
-		("settings", po::value<std::string>(&settings_store), "Override (temporarily) settings subsystem to use")
-		("debug", po::bool_switch(&log_debug), "Set log level to debug (and show debug information)")
-		("log", po::value<std::vector<std::string> >(&log_level), "The log level to use")
-		("define", po::value<std::vector<std::string> >(&defines), "Defines to use to override settings. Syntax is PATH:KEY=VALUE")
-		;
+      common_light.add_options()
+	("settings", po::value<std::string>(&settings_store), "Override (temporarily) settings subsystem to use")
+	("debug", po::bool_switch(&log_debug), "Set log level to debug (and show debug information)")
+	("log", po::value<std::vector<std::string> >(&log_level), "The log level to use")
+	("define", po::value<std::vector<std::string> >(&defines), "Defines to use to override settings. Syntax is PATH:KEY=VALUE")
+      ;
 
-	common.add_options()
-		("help", po::bool_switch(&help), "Show the help message for a given command")
-		("no-stderr", po::bool_switch(&no_stderr), "Do not report errors on stderr")
-		("version", po::bool_switch(&version), "Show version information")
-		;
+      common.add_options()
+        ("help", po::bool_switch(&help), "Show the help message for a given command")
+        ("no-stderr", po::bool_switch(&no_stderr), "Do not report errors on stderr")
+        ("version", po::bool_switch(&version), "Show version information")
+      ;
 
-	settings.add_options()
-		("migrate-to", po::value<std::string>(), "Migrate (copy) settings from current store to given target store")
-		("migrate-from", po::value<std::string>(), "Migrate (copy) settings from old given store to current store")
-		("generate", po::value<std::string>()->implicit_value("settings"), "Add comments to the current settings store (or a given one).")
-		("add-missing", "Add all default values for all missing keys.")
-		("validate", "Validate the current configuration (or a given configuration).")
-		("load-all", "Load all plugins (currently only used with generate).")
-		("path", po::value<std::string>()->default_value(""), "Path of key to work with.")
-		("key", po::value<std::string>()->default_value(""), "Key to work with.")
-		("set", po::value<std::string>()->implicit_value(""), "Set a key and path to a given value (use --key and --path).")
-		("switch", po::value<std::string>(), "Set default context to use (similar to migrate but does NOT copy values)")
-		("show", "Show a value given a key and path.")
-		("list", "List all keys given a path.")
-		("add-defaults", "Same as --add-missing")
-		("remove-defaults", "Remove all keys which have default values (and empty sections)")
-		("use-samples", "Add sample commands provided by some sections such as targets and real time filters")
-		("activate-module", po::value<std::string>()->implicit_value(""), "Add a module (and its configuration options) to the configuration.")
-		;
+      settings.add_options()
+        ("migrate-to", po::value<std::string>(), "Migrate (copy) settings from current store to given target store")
+        ("migrate-from", po::value<std::string>(), "Migrate (copy) settings from old given store to current store")
+        ("generate", po::value<std::string>()->implicit_value("settings"), "Add comments to the current settings store (or a given one).")
+        ("add-missing", "Add all default values for all missing keys.")
+        ("validate", "Validate the current configuration (or a given configuration).")
+        ("load-all", "Load all plugins (currently only used with generate).")
+        ("path", po::value<std::string>()->default_value(""), "Path of key to work with.")
+        ("key", po::value<std::string>()->default_value(""), "Key to work with.")
+        ("set", po::value<std::string>()->implicit_value(""), "Set a key and path to a given value (use --key and --path).")
+        ("switch", po::value<std::string>(), "Set default context to use (similar to migrate but does NOT copy values)")
+        ("show", "Show a value given a key and path.")
+        ("list", "List all keys given a path.")
+        ("add-defaults", "Same as --add-missing")
+        ("remove-defaults", "Remove all keys which have default values (and empty sections)")
+        ("use-samples", "Add sample commands provided by some sections such as targets and real time filters")
+        ("activate-module", po::value<std::string>()->implicit_value(""), "Add a module (and its configuration options) to the configuration.")
+      ;
 
-	service.add_options()
-		("install", "Install service")
-		("uninstall", "Uninstall service")
-		("start", "Start service")
-		("stop", "Stop service")
-		("restart", "Stop than start service")
-		("info", "Show information about service")
-		("run", "Run as a service")
-		("name", po::value<std::string>(), "Name of service")
+      service.add_options()
+        ("install", "Install service")
+        ("uninstall", "Uninstall service")
+        ("start", "Start service")
+        ("stop", "Stop service")
+        ("restart", "Stop than start service")
+        ("info", "Show information about service")
+        ("run", "Run as a service")
+        ("name", po::value<std::string>(), "Name of service")
 #ifndef WIN32
-		("pid", po::value<std::string>()->implicit_value(pidfile::get_default_pidfile("nscp")), "Create a pid file")
+        ("pid", po::value<std::string>()->implicit_value(pidfile::get_default_pidfile("nscp")), "Create a pid file")
 #endif
-		("description", po::value<std::string>()->default_value(""), "Description of service")
-		;
+        ("description", po::value<std::string>()->default_value(""), "Description of service")
+      ;
 
-	client.add_options()
-		("load-all", "Load all plugins.")
-		("exec,e", po::value<std::string>()->implicit_value(""), "Run a command (execute)")
-		("boot,b", "Boot the client before executing command (similar as running the command from test mode)")
-		("query,q", po::value<std::string>(), "Run a query with a given name")
-		("submit,s", po::value<std::string>(), "Submit passive check result")
-		("module,M", po::value<std::string>(), "Load specific module (in other words do not auto detect module)")
-		("argument,a", po::value<std::vector<std::string> >(), "List of arguments (arguments gets -- prefixed automatically (--argument foo=bar is the same as setting \"--foo bar\")")
-		("raw-argument", po::value<std::vector<std::string> >(), "List of arguments (does not get -- prefixed)")
-		;
+      client.add_options()
+        ("load-all", "Load all plugins.")
+        ("exec,e", po::value<std::string>()->implicit_value(""), "Run a command (execute)")
+        ("boot,b", "Boot the client before executing command (similar as running the command from test mode)")
+        ("query,q", po::value<std::string>(), "Run a query with a given name")
+        ("submit,s", po::value<std::string>(), "Submit passive check result")
+        ("module,M", po::value<std::string>(), "Load specific module (in other words do not auto detect module)")
+        ("argument,a", po::value<std::vector<std::string> >(), "List of arguments (arguments gets -- prefixed automatically (--argument foo=bar is the same as setting \"--foo bar\")")
+        ("raw-argument", po::value<std::vector<std::string> >(), "List of arguments (does not get -- prefixed)")
+      ;
 
-	test.add_options()
-		;
+      test.add_options()
+      ;
   // clang-format on
 }
 
-void cli_parser::init_logger() {
+void cli_parser::init_logger() const {
   for (const std::string &level : log_level) {
     core_->get_logger()->set_log_level(level);
   }
 }
 
-bool cli_parser::process_common_options(std::string context, po::options_description &desc) {
-  log_level.push_back("console");
-  if (log_debug) log_level.push_back("debug");
-  if (no_stderr) log_level.push_back("no-std-err");
+bool cli_parser::process_common_options(const std::string &context, const po::options_description &desc) {
+  log_level.emplace_back("console");
+  if (log_debug) log_level.emplace_back("debug");
+  if (no_stderr) log_level.emplace_back("no-std-err");
   init_logger();
   if (core_->get_logger()->should_debug()) {
     for (const std::string &a : unknown_options) {
@@ -136,7 +134,7 @@ bool cli_parser::process_common_options(std::string context, po::options_descrip
     return true;
   }
   if (version) {
-    std::string message = std::string(APPLICATION_NAME) + ", version: " + CURRENT_SERVICE_VERSION + ", Platform: " + SZARCH;
+    const std::string message = std::string(APPLICATION_NAME) + ", version: " + CURRENT_SERVICE_VERSION + ", Platform: " + SZARCH;
     std::cout << message << std::endl;
     return true;
   }
@@ -145,11 +143,11 @@ bool cli_parser::process_common_options(std::string context, po::options_descrip
 
 cli_parser::handler_map cli_parser::get_handlers() {
   handler_map handlers;
-  handlers["settings"] = boost::bind(&cli_parser::parse_settings, this, boost::placeholders::_1, boost::placeholders::_2);
-  handlers["service"] = boost::bind(&cli_parser::parse_service, this, boost::placeholders::_1, boost::placeholders::_2);
-  handlers["client"] = boost::bind(&cli_parser::parse_client, this, boost::placeholders::_1, boost::placeholders::_2, "");
-  handlers["help"] = boost::bind(&cli_parser::parse_help, this, boost::placeholders::_1, boost::placeholders::_2);
-  handlers["unit"] = boost::bind(&cli_parser::parse_unittest, this, boost::placeholders::_1, boost::placeholders::_2);
+  handlers["settings"] = [this](const int argc, char **argv) { return this->parse_settings(argc, argv); };
+  handlers["service"] = [this](const int argc, char **argv) { return this->parse_service(argc, argv); };
+  handlers["client"] = [this](const int argc, char **argv) { return this->parse_client(argc, argv); };
+  handlers["help"] = [this](const int argc, char **argv) { return this->parse_help(argc, argv); };
+  handlers["unit"] = [this](const int argc, char **argv) { return this->parse_unittest(argc, argv); };
   return handlers;
 }
 
@@ -224,7 +222,7 @@ int cli_parser::parse(int argc, char *argv[]) {
   return 1;
 }
 
-po::basic_parsed_options<char> cli_parser::do_parse(int argc, char *argv[], po::options_description &desc) {
+po::basic_parsed_options<char> cli_parser::do_parse(int argc, char *argv[], const po::options_description &desc) {
   po::basic_parsed_options<char> parsed = po::command_line_parser(argc, argv)
                                               .options(desc)
                                               .style(po::command_line_style::default_style & ~po::command_line_style::allow_guessing)
@@ -389,12 +387,14 @@ int cli_parser::parse_service(int argc, char *argv[]) {
         std::cout << name << ": " << service_manager.info() << std::endl;
         {
           nsclient::client::service_manager lsm("nsclientpp");
-          std::string cmd = utf8::cvt<std::string>(lsm.info());
+          auto cmd = utf8::cvt<std::string>(lsm.info());
           if (!cmd.empty()) {
             std::cout << "nsclientpp (legacy): " << cmd << std::endl;
           }
         }
-        return vm.count("info");
+        if (vm.count("info") == 0) {
+          return 1;
+        }
       }
     }
     return 0;
@@ -416,12 +416,12 @@ struct client_arguments {
 
       core_->load_configuration(true);
       for (const std::string &s : defines) {
-        std::string::size_type p1 = s.find(":");
+        std::string::size_type p1 = s.find(':');
         if (p1 == std::string::npos) {
           std::cerr << "Failed to parse: " << s << std::endl;
           continue;
         }
-        std::string::size_type p2 = s.find("=", p1);
+        const std::string::size_type p2 = s.find('=', p1);
         if (p2 == std::string::npos) {
           std::cerr << "Failed to parse: " << s << std::endl;
           continue;
@@ -443,7 +443,7 @@ struct client_arguments {
       return false;
     }
   }
-  int run_exec(NSClient *core_, std::string command, std::vector<std::string> arguments, std::list<std::string> &result) {
+  int run_exec(NSClient *core_, const std::string& command, const std::vector<std::string>& arguments, std::list<std::string> &result) const {
     try {
       int ret = 0;
       ret = core_->get_plugin_manager()->simple_exec(module + "." + command, arguments, result);
@@ -462,7 +462,7 @@ struct client_arguments {
     }
   }
 
-  bool run_reload(NSClient *core_) {
+  static bool run_reload(NSClient *core_) {
     try {
       core_->reload("instant,service");
       return true;
@@ -475,7 +475,7 @@ struct client_arguments {
     }
   }
 
-  int run_query(NSClient *core_, std::string command, std::vector<std::string> arguments, std::list<std::string> &result) {
+  int run_query(NSClient *core_, const std::string& command, const std::vector<std::string> &arguments, std::list<std::string> &result) const {
     try {
       int ret = 0;
       ret = core_->get_plugin_manager()->simple_query(module, command, arguments, result);
@@ -496,7 +496,7 @@ struct client_arguments {
       return NSCAPI::exec_return_codes::returnERROR;
     }
   }
-  bool run_post(NSClient *core_) {
+  static bool run_post(NSClient *core_) {
     try {
       core_->stop_nsclient();
       return true;
@@ -510,7 +510,7 @@ struct client_arguments {
   }
 };
 
-int cli_parser::parse_client(int argc, char *argv[], std::string module_) {
+int cli_parser::parse_client(int argc, char *argv[], const std::string& module_) {
   try {
     client_arguments args;
 
@@ -546,7 +546,7 @@ int cli_parser::parse_client(int argc, char *argv[], std::string module_) {
     std::vector<std::string> arguments;
     for (const std::string &a : unknown_options) arguments.push_back(utf8::cvt<std::string>(a));
 
-    for (std::string s : kvp_args) {
+    for (std::string &s : kvp_args) {
       std::string::size_type pos = s.find('=');
       if (pos == std::string::npos)
         arguments.push_back("--" + s);
@@ -557,7 +557,7 @@ int cli_parser::parse_client(int argc, char *argv[], std::string module_) {
     }
 
     if (vm.count("raw-argument")) kvp_args = vm["raw-argument"].as<std::vector<std::string> >();
-    for (std::string s : kvp_args) {
+    for (std::string &s : kvp_args) {
       std::string::size_type pos = s.find('=');
       if (pos == std::string::npos)
         arguments.push_back(s);
@@ -581,9 +581,9 @@ int cli_parser::parse_client(int argc, char *argv[], std::string module_) {
     if (!vm.count("exec") && !vm.count("query")) {
       ret = args.run_exec(core_, "", arguments, resp);
     }
-    args.run_post(core_);
+    client_arguments::run_post(core_);
 
-    for (std::string r : resp) {
+    for (std::string &r : resp) {
       std::cout << utf8::to_encoding(r, "") << std::endl;
     }
     return ret;
@@ -607,9 +607,14 @@ int cli_parser::parse_unittest(int argc, char *argv[]) {
     bool show_all = false;
 
     po::options_description unittest("Unit-test Options");
-    unittest.add_options()("language,l", po::value<std::string>(&lang)->default_value("python"), "Language tests are written in")(
-        "script", po::value<std::string>(&script), "The script to test")("show-all", po::bool_switch(&show_all), "Show all results (not just errors)")(
-        "case,c", po::value<std::vector<std::string> >(&cases), "A list of expressions matching cases to run.");
+    // clang-format off
+    unittest.add_options()
+      ("language,l", po::value<std::string>(&lang)->default_value("python"), "Language tests are written in")
+      ("script", po::value<std::string>(&script), "The script to test")
+      ("show-all", po::bool_switch(&show_all), "Show all results (not just errors)")
+      ("case,c", po::value<std::vector<std::string> >(&cases), "A list of expressions matching cases to run.")
+    ;
+    // clang-format on
     all.add(common_light).add(common).add(unittest);
 
     po::positional_options_description p;
@@ -632,8 +637,8 @@ int cli_parser::parse_unittest(int argc, char *argv[]) {
     }
 
     std::vector<std::string> install_args;
-    install_args.push_back("--script");
-    install_args.push_back(script);
+    install_args.emplace_back("--script");
+    install_args.emplace_back(script);
     std::list<std::string> resp;
     if (!args.run_pre(core_, defines)) {
       return NSCAPI::exec_return_codes::returnERROR;
@@ -648,7 +653,7 @@ int cli_parser::parse_unittest(int argc, char *argv[]) {
       std::cerr << "Failed to setup unit test" << std::endl;
     }
     if (ret == 0) {
-      if (!args.run_reload(core_)) {
+      if (!client_arguments::run_reload(core_)) {
         std::cerr << "Failed to reload configuration" << std::endl;
         ret = NSCAPI::exec_return_codes::returnERROR;
       }
@@ -668,8 +673,8 @@ int cli_parser::parse_unittest(int argc, char *argv[]) {
     if (ret == 0) {
       ret = args.run_query(core_, lang + "_unittest", empty, resp);
     }
-    args.run_post(core_);
-    for (std::string r : resp) {
+    client_arguments::run_post(core_);
+    for (const std::string& r : resp) {
       std::cout << utf8::to_encoding(r, "") << std::endl;
     }
     return ret;
@@ -683,7 +688,7 @@ int cli_parser::parse_unittest(int argc, char *argv[]) {
   }
 }
 
-std::string cli_parser::get_description(std::string key) {
+std::string cli_parser::get_description(const std::string& key) {
   if (key == "settings") {
     return "Change and list settings as well as load and initialize modules.";
   } else if (key == "service") {
@@ -720,8 +725,8 @@ std::string cli_parser::get_description(std::string key) {
     return "TODO: describe: " + key;
   }
 }
-std::string cli_parser::describe(std::string key) { return key + "\n      " + get_description(key) + "\n"; }
-std::string cli_parser::describe(std::string key, std::string alias) {
+std::string cli_parser::describe(const std::string& key) { return key + "\n      " + get_description(key) + "\n"; }
+std::string cli_parser::describe(const std::string& key, const std::string& alias) {
   return key + "   (same as nscp client --module " + alias +
          ")"
          "\n      " +

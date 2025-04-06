@@ -23,7 +23,6 @@
 #include "commands.hpp"
 #include "channels.hpp"
 #include "routers.hpp"
-#include "scheduler_handler.hpp"
 #include "plugin_cache.hpp"
 #include "path_manager.hpp"
 
@@ -31,9 +30,6 @@
 #include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_protobuf_metrics.hpp>
 
-#include <settings/settings_core.hpp>
-
-#include <boost/shared_ptr.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
 #include <boost/algorithm/string.hpp>

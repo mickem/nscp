@@ -141,7 +141,7 @@ struct schedule {
 
     time_duration t(hours(nhour.value) + minutes(nmin.value));
     if (nmin.overflow) t += hours(1);
-    date d(now_time.date().year(), nmon.value, ndom.value);
+    date d(now_time.date().year(), static_cast<unsigned short>(nmon.value), static_cast<unsigned short>(ndom.value));
     if (nhour.overflow) d += days(1);
     if (ndom.overflow) {
       d += months(1);
@@ -152,7 +152,7 @@ struct schedule {
       t = time_duration(0, 0, 0);
     }
     if (nmon.overflow) {
-      d = date(now_time.date().year() + 1, nmon.value, 1);
+      d = date(now_time.date().year() + 1, static_cast<unsigned short>(nmon.value), 1);
       t = time_duration(0, 0, 0);
     }
 

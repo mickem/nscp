@@ -54,7 +54,7 @@ class pdh_thread {
   boost::shared_mutex mutex_;
   HANDLE stop_event_;
   int plugin_id;
-  nscapi::core_wrapper *core;
+  nscapi::core_wrapper *core_;
 
   metrics_hash metrics;
 
@@ -72,7 +72,7 @@ class pdh_thread {
   std::string default_buffer_size;
 
  public:
-  pdh_thread(nscapi::core_wrapper *core, int plugin_id) : core(core), plugin_id(plugin_id), read_core_load(true), use_pdh_for_cpu(false) { mutex_.lock(); }
+  pdh_thread(nscapi::core_wrapper *core, int plugin_id) : core_(core), plugin_id(plugin_id), read_core_load(true), use_pdh_for_cpu(false) { mutex_.lock(); }
   void add_counter(const PDH::pdh_object &counter);
 
   std::map<std::string, double> get_value(std::string counter);
