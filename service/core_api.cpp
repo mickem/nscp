@@ -136,7 +136,7 @@ NSCAPI::errorReturn NSAPISettingsQuery(const char *request_buffer, const unsigne
 
     nsclient::core::settings_query_handler sqr(mainClient, request);
     sqr.parse(response);
-    *response_buffer_len = response.ByteSizeLong();
+    *response_buffer_len = static_cast<unsigned int>(response.ByteSizeLong());
     *response_buffer = new char[*response_buffer_len + 10];
     response.SerializeToArray(*response_buffer, *response_buffer_len);
     return NSCAPI::api_return_codes::isSuccess;
@@ -157,7 +157,7 @@ NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigne
     nsclient::core::registry_query_handler rqh(mainClient->get_path(), mainClient->get_plugin_manager(), mainClient->get_logger(), request);
     rqh.parse(response);
 
-    *response_buffer_len = response.ByteSizeLong();
+    *response_buffer_len = static_cast<unsigned int>(response.ByteSizeLong());
     *response_buffer = new char[*response_buffer_len + 10];
     response.SerializeToArray(*response_buffer, *response_buffer_len);
   } catch (settings::settings_exception e) {
@@ -182,7 +182,7 @@ NSCAPI::errorReturn NSCAPIStorageQuery(const char *request_buffer, const unsigne
 
     nsclient::core::storage_query_handler sqr(mainClient->get_storage_manager(), mainClient->get_plugin_manager(), mainClient->get_logger(), request);
     sqr.parse(response);
-    *response_buffer_len = response.ByteSizeLong();
+    *response_buffer_len = static_cast<unsigned int>(response.ByteSizeLong());
     *response_buffer = new char[*response_buffer_len + 10];
     response.SerializeToArray(*response_buffer, *response_buffer_len);
     return NSCAPI::api_return_codes::isSuccess;

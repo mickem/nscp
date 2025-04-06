@@ -378,7 +378,7 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
     }
   }
   if (alias.empty()) {
-    alias = boost::filesystem::basename(file.filename());
+    alias = file.filename().stem().string();
   }
 
   if (!no_config) {

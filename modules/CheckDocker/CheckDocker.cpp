@@ -21,6 +21,7 @@
 
 #include "check_docker.hpp"
 
+#include <msvc.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -45,7 +46,8 @@ bool CheckDocker::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 bool CheckDocker::unloadModule() { return true; }
 std::string render(int, const std::string, int, std::string message) { return message; }
-void CheckDocker::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
+void CheckDocker::handleLogMessage(const PB::Log::LogEntry::Entry &_message) {
+  UNREFERENCED_PARAMETER(_message);
   /*
   if (message.level() != PB::Log::LogEntry_Entry_Level_LOG_CRITICAL && message.level() != PB::Log::LogEntry_Entry_Level_LOG_ERROR)
           return;
@@ -59,7 +61,7 @@ void CheckDocker::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
   */
 }
 
-void CheckDocker::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {}
+void CheckDocker::fetchMetrics(PB::Metrics::MetricsMessage::Response *_response) { UNREFERENCED_PARAMETER(_response); }
 
 void CheckDocker::check_docker(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   docker_checks::check(request, response);

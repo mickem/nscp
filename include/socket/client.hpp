@@ -20,10 +20,7 @@
 #pragma once
 
 #include <socket/socket_helpers.hpp>
-
-#include <boost/shared_ptr.hpp>
-
-#include <iostream>
+#include <msvc.hpp>
 
 using boost::asio::ip::tcp;
 
@@ -66,7 +63,8 @@ class connection : public boost::enable_shared_from_this<connection<protocol_typ
   void start_timer() {
     timer_result_.reset();
     timer_.expires_from_now(timeout_);
-    timer_.async_wait(boost::bind(&connection::on_timeout, this->shared_from_this(), boost::asio::placeholders::error));
+    auto self(this->shared_from_this());
+    timer_.async_wait([self](const auto &e) { self->on_timeout(e); });
   }
   void cancel_timer() {
     trace("cancel_timer()");
@@ -202,7 +200,9 @@ class connection : public boost::enable_shared_from_this<connection<protocol_typ
   inline void trace(std::string msg) const {
     if (protocol_type::debug_trace && handler_) handler_->log_debug(__FILE__, __LINE__, msg);
   }
-  inline void log_error(std::string file, int line, std::string msg) const {
+  inline void log_error(std::string _file, int _line, std::string msg) const {
+    UNREFERENCED_PARAMETER(_file);
+    UNREFERENCED_PARAMETER(_line);
     if (handler_) handler_->log_error(__FILE__, __LINE__, msg);
   }
 
@@ -230,16 +230,14 @@ class tcp_connection : public connection<protocol_type> {
 
   virtual void start_read_request(boost::asio::mutable_buffers_1 buffer) {
     this->trace("tcp::start_read_request(" + str::xtos(boost::asio::buffer_size(buffer)) + ")");
-    async_read(socket_, buffer,
-               boost::bind(&connection_type::handle_read_request, this->shared_from_this(), boost::asio::placeholders::error,
-                           boost::asio::placeholders::bytes_transferred));
+    auto self(this->shared_from_this());
+    async_read(socket_, buffer, [self](const auto &e, auto bytes_transferred) { self->handle_read_request(e, bytes_transferred); });
   }
 
   virtual void start_write_request(boost::asio::mutable_buffers_1 buffer) {
     this->trace("tcp::start_write_request(" + str::xtos(boost::asio::buffer_size(buffer)) + ")");
-    async_write(socket_, buffer,
-                boost::bind(&connection_type::handle_write_request, this->shared_from_this(), boost::asio::placeholders::error,
-                            boost::asio::placeholders::bytes_transferred));
+    auto self(this->shared_from_this());
+    async_write(socket_, buffer, [self](const auto &e, auto bytes_transferred) { self->handle_write_request(e, bytes_transferred); });
   }
 
   virtual typename connection_type::basic_socket_type &get_socket() { return socket_; }
@@ -282,16 +280,14 @@ class ssl_connection : public connection<protocol_type> {
 
   virtual void start_read_request(boost::asio::mutable_buffers_1 buffer) {
     this->trace("ssl::start_read_request()");
-    async_read(ssl_socket_, buffer,
-               boost::bind(&connection_type::handle_read_request, this->shared_from_this(), boost::asio::placeholders::error,
-                           boost::asio::placeholders::bytes_transferred));
+    auto self(this->shared_from_this());
+    async_read(ssl_socket_, buffer, [self](const auto &e, auto bytes_transferred) { self->handle_read_request(e, bytes_transferred); });
   }
 
   virtual void start_write_request(boost::asio::mutable_buffers_1 buffer) {
     this->trace("ssl::start_write_request()");
-    async_write(ssl_socket_, buffer,
-                boost::bind(&connection_type::handle_write_request, this->shared_from_this(), boost::asio::placeholders::error,
-                            boost::asio::placeholders::bytes_transferred));
+    auto self(this->shared_from_this());
+    async_write(ssl_socket_, buffer, [self](const auto &e, auto bytes_transferred) { self->handle_write_request(e, bytes_transferred); });
   }
   virtual typename connection_type::basic_socket_type &get_socket() { return ssl_socket_.lowest_layer(); }
 };

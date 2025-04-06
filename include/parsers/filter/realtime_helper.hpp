@@ -283,7 +283,6 @@ struct realtime_filter_helper {
       item->find_minimum_timeout(minNext);
     }
 
-    boost::posix_time::time_duration dur;
     if (!minNext) {
       NSC_TRACE_MSG("Next miss time is in: no timeout specified");
     } else {

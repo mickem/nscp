@@ -104,7 +104,8 @@ class connection : public boost::enable_shared_from_this<connection<protocol_typ
   // Timeout related functions
   virtual void set_timeout(int seconds) {
     timer_.expires_from_now(boost::posix_time::seconds(seconds));
-    timer_.async_wait(boost::bind(&connection::timeout, this->shared_from_this(), boost::asio::placeholders::error));
+    auto self(this->shared_from_this());
+    timer_.async_wait([self](const auto& e) { self->timeout(e); });
   }
 
   virtual void cancel_timer() {
@@ -212,15 +213,15 @@ class tcp_connection : public connection<protocol_type, N> {
 
   virtual void start_read_request() {
     this->trace("tcp::start_read_request()");
+    auto self(this->shared_from_this());
     socket_.async_read_some(boost::asio::buffer(parent_type::buffer_),
-                            parent_type::strand_.wrap(boost::bind(&parent_type::handle_read_request, this->shared_from_this(), boost::asio::placeholders::error,
-                                                                  boost::asio::placeholders::bytes_transferred)));
+                            parent_type::strand_.wrap([self](const auto& e, auto bytes_transferred) { self->handle_read_request(e, bytes_transferred); }));
   }
   virtual void start_write_request(const boost::asio::const_buffer& response) {
     this->trace("start_write_request(" + str::xtos(boost::asio::buffer_size(response)) + ")");
+    auto self(this->shared_from_this());
     boost::asio::async_write(socket_, boost::asio::const_buffers_1(response),
-                             parent_type::strand_.wrap(boost::bind(&parent_type::handle_write_response, this->shared_from_this(),
-                                                                   boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)));
+                             parent_type::strand_.wrap([self](const auto& e, auto bytes_transferred) { self->handle_write_response(e, bytes_transferred); }));
   }
 };
 
@@ -242,8 +243,7 @@ class ssl_connection : public connection<protocol_type, N> {
   virtual void start() {
     this->trace("ssl::start_read_request()");
     boost::shared_ptr<my_type> self = boost::dynamic_pointer_cast<my_type>(this->shared_from_this());
-    ssl_socket_.async_handshake(boost::asio::ssl::stream_base::server,
-                                parent_type::strand_.wrap(boost::bind(&ssl_connection::handle_handshake, self, boost::asio::placeholders::error)));
+    ssl_socket_.async_handshake(boost::asio::ssl::stream_base::server, parent_type::strand_.wrap([self](const auto& e) { self->handle_handshake(e); }));
   }
 
   virtual void handle_handshake(const boost::system::error_code& e) {
@@ -270,16 +270,16 @@ class ssl_connection : public connection<protocol_type, N> {
 
   virtual void start_read_request() {
     this->trace("ssl::start_read_request()");
+    auto self(this->shared_from_this());
     ssl_socket_.async_read_some(boost::asio::buffer(parent_type::buffer_),
-                                parent_type::strand_.wrap(boost::bind(&parent_type::handle_read_request, this->shared_from_this(),
-                                                                      boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)));
+                                parent_type::strand_.wrap([self](const auto& e, auto bytes_transferred) { self->handle_read_request(e, bytes_transferred); }));
   }
 
   virtual void start_write_request(const boost::asio::const_buffer& response) {
     this->trace("ssl::start_write_request(" + str::xtos(boost::asio::buffer_size(response)) + ")");
+    auto self(this->shared_from_this());
     boost::asio::async_write(ssl_socket_, boost::asio::const_buffers_1(response),
-                             parent_type::strand_.wrap(boost::bind(&parent_type::handle_write_response, this->shared_from_this(),
-                                                                   boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)));
+                             parent_type::strand_.wrap([self](const auto& e, auto bytes_transferred) { self->handle_write_response(e, bytes_transferred); }));
   }
 
  protected:

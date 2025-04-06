@@ -19,8 +19,6 @@
 
 #pragma once
 
-#include <string>
-
 void generate_crc32_table(void);
 unsigned long calculate_crc32(const char *buffer, int buffer_size);
 unsigned long calculate_crc32(const unsigned char *buffer, int buffer_size);

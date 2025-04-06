@@ -55,6 +55,7 @@
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem/operations.hpp>
+#include <msvc.hpp>
 #include <boost/unordered_set.hpp>
 
 #include <iostream>
@@ -263,7 +264,8 @@ void WEBServer::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
 }
 
 bool WEBServer::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request,
-                                PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message) {
+                                PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &_request_message) {
+  UNREFERENCED_PARAMETER(_request_message);
   std::string command = request.command();
   if (command == "web" && request.arguments_size() > 0)
     command = request.arguments(0);

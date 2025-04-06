@@ -56,7 +56,6 @@ for %%f in (clients/nrpe
 		include/zip
 		installer_lib
 		libs/expression_parser
-		libs/lua
 		libs/lua_nscp
 		libs/minizip
 		libs/mongoose-cpp

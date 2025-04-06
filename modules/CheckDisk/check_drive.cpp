@@ -34,10 +34,8 @@
 #include <error/error.hpp>
 #include <str/format.hpp>
 
-#include <boost/bind/bind.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <boost/program_options.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
 
 #ifdef WIN32
@@ -50,7 +48,7 @@ namespace po = boost::program_options;
 
 const int drive_type_total = 0x77;
 
-std::string type_to_string(const int type) {
+std::string type_to_string(const long long type) {
   if (type == DRIVE_FIXED) return "fixed";
   if (type == DRIVE_CDROM) return "cdrom";
   if (type == DRIVE_REMOVABLE) return "removable";
@@ -321,72 +319,72 @@ struct filter_obj_handler : public native_context {
   static const parsers::where::value_type type_custom_user_free = parsers::where::type_custom_int_4;
   static const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_9;
 
-  // clang-format off
-	filter_obj_handler() {
-		registry_.add_string()
-			("name", &filter_obj::get_name, "Descriptive name of drive")
-			("id", &filter_obj::get_id, "Drive or id of drive")
-			("drive", &filter_obj::get_drive, "Technical name of drive")
-			("letter", &filter_obj::get_letter, "Letter the drive is mountedd on")
-			("flags", &filter_obj::get_flags, "String representation of flags")
-			("drive_or_id", &filter_obj::get_drive_or_id, "Drive letter if present if not use id")
-			("drive_or_name", &filter_obj::get_drive_or_name, "Drive letter if present if not use name")
-			;
-		registry_.add_int()
-			("free", type_custom_total_free, &filter_obj::get_total_free, "Shorthand for total_free (Number of free bytes)")
-			.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " free")
-			.add_percentage(&filter_obj::get_drive_size, "", " free %")
-			("total_free", type_custom_total_free, &filter_obj::get_total_free, "Number of free bytes")
-			.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " free")
-			.add_percentage(&filter_obj::get_drive_size, "", " free %")
-			("user_free", type_custom_user_free, &filter_obj::get_user_free, "Free space available to user (which runs NSClient++)")
-			.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " user free")
-			.add_percentage(&filter_obj::get_drive_size, "", " user free %")
-			("size", parsers::where::type_size, &filter_obj::get_drive_size, "Total size of drive")
-			("total_used", type_custom_total_used, &filter_obj::get_total_used, "Number of used bytes")
-			.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " used")
-			.add_percentage(&filter_obj::get_drive_size, "", " used %")
-			("used", type_custom_total_used, &filter_obj::get_total_used, "Number of used bytes")
-			.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " used")
-			.add_percentage(&filter_obj::get_drive_size, "", " used %")
-			("user_used", type_custom_user_used, &filter_obj::get_user_used, "Number of used bytes (related to user)")
-			.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " user used")
-			.add_percentage(&filter_obj::get_drive_size, "", " user used %")
-			("type", type_custom_type, &filter_obj::get_type, "Type of drive")
-			("free_pct", &filter_obj::get_total_free_pct, "Shorthand for total_free_pct (% free space)")
-			("total_free_pct", &filter_obj::get_total_free_pct, "% free space")
-			("user_free_pct", type_custom_user_free, &filter_obj::get_user_free_pct, "% free space available to user")
-			("used_pct", &filter_obj::get_total_used_pct, "Shorthand for total_used_pct (% used space)")
-			("total_used_pct", &filter_obj::get_total_used_pct, "% used space")
-			("user_used_pct", type_custom_user_used, &filter_obj::get_user_used_pct, "% used space available to user")
-			("mounted", parsers::where::type_int, &filter_obj::get_is_mounted, "Check if a drive is mounted")
-			("removable", &filter_obj::get_removable, "1 (true) if drive is removable")
-			("hotplug", &filter_obj::get_hotplug, "1 (true) if drive is hotplugable")
-//			("mounted", &filter_obj::get_mounted, "1 (true) if drive is mounted")
-			("readable", &filter_obj::get_readable, "1 (true) if drive is readable")
-			("writable", &filter_obj::get_writable, "1 (true) if drive is writable")
-			("erasable", &filter_obj::get_erasable, "1 (true) if drive is erasable")
-			("media_type", &filter_obj::get_media_type, "Get the media type")
-			;
+  filter_obj_handler() {
+    // clang-format off
+    registry_.add_string()
+      ("name", &filter_obj::get_name, "Descriptive name of drive")
+      ("id", &filter_obj::get_id, "Drive or id of drive")
+      ("drive", &filter_obj::get_drive, "Technical name of drive")
+      ("letter", &filter_obj::get_letter, "Letter the drive is mountedd on")
+      ("flags", &filter_obj::get_flags, "String representation of flags")
+      ("drive_or_id", &filter_obj::get_drive_or_id, "Drive letter if present if not use id")
+      ("drive_or_name", &filter_obj::get_drive_or_name, "Drive letter if present if not use name")
+    ;
+    registry_.add_int()
+      ("free", type_custom_total_free, &filter_obj::get_total_free, "Shorthand for total_free (Number of free bytes)")
+        .add_scaled_byte([] (auto _ignored1, auto _ignored2) { return get_zero(); }, &filter_obj::get_drive_size, "", " free")
+        .add_percentage(&filter_obj::get_drive_size, "", " free %")
+      ("total_free", type_custom_total_free, &filter_obj::get_total_free, "Number of free bytes")
+        .add_scaled_byte([] (auto _ignored1, auto _ignored2) { return get_zero(); }, &filter_obj::get_drive_size, "", " free")
+        .add_percentage(&filter_obj::get_drive_size, "", " free %")
+      ("user_free", type_custom_user_free, &filter_obj::get_user_free, "Free space available to user (which runs NSClient++)")
+        .add_scaled_byte([] (auto _ignored1, auto _ignored2) { return get_zero(); }, &filter_obj::get_drive_size, "", " user free")
+        .add_percentage(&filter_obj::get_drive_size, "", " user free %")
+      ("size", parsers::where::type_size, &filter_obj::get_drive_size, "Total size of drive")
+      ("total_used", type_custom_total_used, &filter_obj::get_total_used, "Number of used bytes")
+        .add_scaled_byte([] (auto _ignored1, auto _ignored2) { return get_zero(); }, &filter_obj::get_drive_size, "", " used")
+        .add_percentage(&filter_obj::get_drive_size, "", " used %")
+      ("used", type_custom_total_used, &filter_obj::get_total_used, "Number of used bytes")
+        .add_scaled_byte([] (auto _ignored1, auto _ignored2) { return get_zero(); }, &filter_obj::get_drive_size, "", " used")
+        .add_percentage(&filter_obj::get_drive_size, "", " used %")
+      ("user_used", type_custom_user_used, &filter_obj::get_user_used, "Number of used bytes (related to user)")
+        .add_scaled_byte([] (auto _ignored1, auto _ignored2) { return get_zero(); }, &filter_obj::get_drive_size, "", " user used")
+        .add_percentage(&filter_obj::get_drive_size, "", " user used %")
+      ("type", type_custom_type, &filter_obj::get_type, "Type of drive")
+      ("free_pct", &filter_obj::get_total_free_pct, "Shorthand for total_free_pct (% free space)")
+      ("total_free_pct", &filter_obj::get_total_free_pct, "% free space")
+      ("user_free_pct", type_custom_user_free, &filter_obj::get_user_free_pct, "% free space available to user")
+      ("used_pct", &filter_obj::get_total_used_pct, "Shorthand for total_used_pct (% used space)")
+      ("total_used_pct", &filter_obj::get_total_used_pct, "% used space")
+      ("user_used_pct", type_custom_user_used, &filter_obj::get_user_used_pct, "% used space available to user")
+      ("mounted", parsers::where::type_int, &filter_obj::get_is_mounted, "Check if a drive is mounted")
+      ("removable", &filter_obj::get_removable, "1 (true) if drive is removable")
+      ("hotplug", &filter_obj::get_hotplug, "1 (true) if drive is hotplugable")
+      //("mounted", &filter_obj::get_mounted, "1 (true) if drive is mounted")
+      ("readable", &filter_obj::get_readable, "1 (true) if drive is readable")
+      ("writable", &filter_obj::get_writable, "1 (true) if drive is writable")
+      ("erasable", &filter_obj::get_erasable, "1 (true) if drive is erasable")
+      ("media_type", &filter_obj::get_media_type, "Get the media type")
+    ;
 
-		registry_.add_human_string()
-			("free", &filter_obj::get_total_free_human, "")
-			("total_free", &filter_obj::get_total_free_human, "")
-			("user_free", &filter_obj::get_user_free_human, "")
-			("size", &filter_obj::get_drive_size_human, "")
-			("total_used", &filter_obj::get_total_used_human, "")
-			("used", &filter_obj::get_total_used_human, "")
-			("user_used", &filter_obj::get_user_used_human, "")
-			("type", &filter_obj::get_type_as_string, "")
-			;
+    registry_.add_human_string()
+      ("free", &filter_obj::get_total_free_human, "")
+      ("total_free", &filter_obj::get_total_free_human, "")
+      ("user_free", &filter_obj::get_user_free_human, "")
+      ("size", &filter_obj::get_drive_size_human, "")
+      ("total_used", &filter_obj::get_total_used_human, "")
+      ("used", &filter_obj::get_total_used_human, "")
+      ("user_used", &filter_obj::get_user_used_human, "")
+      ("type", &filter_obj::get_type_as_string, "")
+    ;
 
-		registry_.add_converter()
-			(type_custom_total_free, &calculate_total_used)
-			(type_custom_total_used, &calculate_total_used)
-			(type_custom_user_free, &calculate_user_used)
-			(type_custom_user_used, &calculate_user_used)
-			(type_custom_type, &convert_type)
-			;
+    registry_.add_converter()
+      (type_custom_total_free, &calculate_total_used)
+      (type_custom_total_used, &calculate_total_used)
+      (type_custom_user_free, &calculate_user_used)
+      (type_custom_user_used, &calculate_user_used)
+      (type_custom_type, &convert_type)
+    ;
     // clang-format on
   }
 };
@@ -509,7 +507,8 @@ class volume_helper {
 
       hlp::buffer<TCHAR, GET_MEDIA_TYPES *> mediaType(2048);
       DWORD err = 0;
-      while (DeviceIoControl(hDevice, IOCTL_STORAGE_GET_MEDIA_TYPES_EX, 0, 0, mediaType.get(), mediaType.size(), &ReturnedSize, NULL) == FALSE &&
+      while (DeviceIoControl(hDevice, IOCTL_STORAGE_GET_MEDIA_TYPES_EX, 0, 0, mediaType.get(), static_cast<DWORD>(mediaType.size()), &ReturnedSize, NULL) ==
+                 FALSE &&
              (err = GetLastError()) == ERROR_INSUFFICIENT_BUFFER) {
         mediaType.resize(mediaType.size() * 2);
       }
@@ -538,8 +537,8 @@ class volume_helper {
       CloseHandle(hDevice);
     }
 
-    if (!GetVolumeInformation(volume.c_str(), volumeName.get(), volumeName.size(), NULL, &maximumComponentLength, &fileSystemFlags, fileSysName.get(),
-                              static_cast<DWORD>(fileSysName.size()))) {
+    if (!GetVolumeInformation(volume.c_str(), volumeName.get(), static_cast<DWORD>(volumeName.size()), NULL, &maximumComponentLength, &fileSystemFlags,
+                              fileSysName.get(), static_cast<DWORD>(fileSysName.size()))) {
       DWORD dwErr = GetLastError();
       if (dwErr == ERROR_PATH_NOT_FOUND) return false;
       if (dwErr != ERROR_NOT_READY) name = L"Failed to get volume information " + volume + L": " + utf8::cvt<std::wstring>(error::lookup::last_error());
@@ -555,7 +554,7 @@ class volume_helper {
     if (ptrGetVolumePathNamesForVolumeNameW == NULL) return ret;
     hlp::tchar_buffer buffer(1024);
     DWORD returnLen = 0;
-    if (!ptrGetVolumePathNamesForVolumeNameW(volume.c_str(), buffer.get(), buffer.size(), &returnLen)) {
+    if (!ptrGetVolumePathNamesForVolumeNameW(volume.c_str(), buffer.get(), static_cast<DWORD>(buffer.size()), &returnLen)) {
       NSC_LOG_ERROR("Failed to get mountpoints: " + error::lookup::last_error());
       return ret;
     } else {

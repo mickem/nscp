@@ -98,12 +98,10 @@ struct rrd_buffer {
     seconds.push_back(value);
     if (second_counter++ >= 59) {
       second_counter = 0;
-      windows::system_info::cpu_load avg = calculate_avg(seconds);
-      minutes.push_back(avg);
+      minutes.push_back(calculate_avg(seconds));
       if (minute_counter++ >= 59) {
         minute_counter = 0;
-        windows::system_info::cpu_load avg = calculate_avg(minutes);
-        hours.push_back(avg);
+        hours.push_back(calculate_avg(minutes));
       }
     }
   }

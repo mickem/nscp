@@ -17,6 +17,7 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <msvc.hpp>
 #include "filter_config_object.hpp"
 #include "filter.hpp"
 
@@ -55,7 +56,8 @@ void filter_config_object::set_data(std::string file_string) {
   }
 }
 
-void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
+void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool _oneliner, bool is_sample) {
+  UNREFERENCED_PARAMETER(_oneliner);
   if (!get_value().empty()) filter.set_filter_string(get_value().c_str());
   bool is_default = parent::is_default();
 
@@ -64,13 +66,13 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
   if (is_sample) root_path.set_sample();
 
   // clang-format off
-			root_path.add_path()
-				("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
-				;
-			root_path.add_key()
-				("type", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)),
-					"MEMORY TYPE", "The type of memory to check: physical, committed or virtual", false)
-				;
+  root_path.add_path()
+    ("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
+  ;
+  root_path.add_key()
+    ("type", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)),
+    "MEMORY TYPE", "The type of memory to check: physical, committed or virtual", false)
+  ;
   // clang-format on
 
   filter.read_object(root_path, is_default);
@@ -96,7 +98,8 @@ void filter_config_object::set_data(std::string file_string) {
   }
 }
 
-void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
+void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool _oneliner, bool is_sample) {
+  UNREFERENCED_PARAMETER(_oneliner);
   if (!get_value().empty()) filter.set_filter_string(get_value().c_str());
   bool is_default = parent::is_default();
 
@@ -109,13 +112,13 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
   }
 
   // clang-format off
-			root_path.add_path()
-				("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
-				;
-			root_path.add_key()
-				("time", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)),
-					"TIME", "A list of times to check (coma separated)", true)
-				;
+  root_path.add_path()
+    ("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
+  ;
+  root_path.add_key()
+    ("time", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)),
+    "TIME", "A list of times to check (coma separated)", true)
+  ;
   // clang-format on
 
   filter.read_object(root_path, is_default);
@@ -140,7 +143,8 @@ void filter_config_object::set_data(std::string file_string) {
   }
 }
 
-void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
+void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool _oneliner, bool is_sample) {
+  UNREFERENCED_PARAMETER(_oneliner);
   if (!get_value().empty()) filter.set_filter_string(get_value().c_str());
   bool is_default = parent::is_default();
 
@@ -149,13 +153,13 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
   if (is_sample) root_path.set_sample();
 
   // clang-format off
-			root_path.add_path()
-				("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
-				;
-			root_path.add_key()
-				("process", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)),
-					"PROCESS", "A list of processes to check (or * for all)", false)
-				;
+  root_path.add_path()
+    ("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
+  ;
+  root_path.add_key()
+    ("process", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)),
+    "PROCESS", "A list of processes to check (or * for all)", false)
+  ;
   // clang-format on
 
   filter.read_object(root_path, is_default);
@@ -187,7 +191,8 @@ void filter_config_object::set_data(std::string file_string) {
   data.push_back(file_string);
 }
 
-void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
+void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool _oneliner, bool is_sample) {
+  UNREFERENCED_PARAMETER(_oneliner);
   if (!get_value().empty()) filter.set_filter_string(get_value().c_str());
   bool is_default = parent::is_default();
 
@@ -198,13 +203,13 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
   // add_oneliner_hint(proxy, oneliner, is_sample);
 
   // clang-format off
-			root_path.add_path()
-				("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
-				;
-			root_path.add_key()
-				("check", sh::string_key(&check, "cpu"),
-					"TYPE OF CHECK", "The type of check cpu, memory or process", false)
-				;
+  root_path.add_path()
+    ("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
+  ;
+  root_path.add_key()
+    ("check", sh::string_key(&check, "cpu"),
+      "TYPE OF CHECK", "The type of check cpu, memory or process", false)
+  ;
   // clang-format on
 
   settings.register_all();
@@ -212,23 +217,23 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
 
   if (check == "memory") {
     // clang-format off
-				root_path.add_key()
-					("type", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)),
-						"MEMORY TYPE", "The type of memory to check: physical, committed or virtual", false)
+    root_path.add_key()
+      ("type", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)),
+        "MEMORY TYPE", "The type of memory to check: physical, committed or virtual", false)
 
-					("types", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, ph::_1)),
-						"MEMORY TYPES", "A list of types to check: physical, committed or virtual", true)
-					;
+      ("types", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, ph::_1)),
+        "MEMORY TYPES", "A list of types to check: physical, committed or virtual", true)
+    ;
     // clang-format on
   } else {
     // clang-format off
-				root_path.add_key()
-					("time", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)),
-						"TIME", "The time to check", false)
+    root_path.add_key()
+      ("time", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)),
+        "TIME", "The time to check", false)
 
-					("times", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, ph::_1)),
-						"FILES", "A list of times to check (soma separated)", true)
-					;
+      ("times", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, ph::_1)),
+        "FILES", "A list of times to check (soma separated)", true)
+    ;
     // clang-format on
   }
 

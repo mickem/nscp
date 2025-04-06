@@ -248,7 +248,7 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleCommand(const char *dataB
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleCommand(const std::string request, std::string &reply) {
   char *buffer = NULL;
   unsigned int len = 0;
-  NSCAPI::nagiosReturn ret = handleCommand(request.c_str(), request.size(), &buffer, &len);
+  NSCAPI::nagiosReturn ret = handleCommand(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &len);
   if (buffer != NULL) {
     reply = std::string(buffer, len);
     deleteBuffer(&buffer);
@@ -265,12 +265,12 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::handle_schedule(const char *dat
   }
 }
 
-NSCAPI::nagiosReturn nsclient::core::dll_plugin::handle_schedule(const std::string &request) { return handle_schedule(request.c_str(), request.size()); }
+NSCAPI::nagiosReturn nsclient::core::dll_plugin::handle_schedule(const std::string &request) { return handle_schedule(request.c_str(), static_cast<unsigned int>(request.size())); }
 
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleNotification(const char *channel, std::string &request, std::string &reply) {
   char *buffer = NULL;
   unsigned int len = 0;
-  NSCAPI::nagiosReturn ret = handleNotification(channel, request.c_str(), request.size(), &buffer, &len);
+  NSCAPI::nagiosReturn ret = handleNotification(channel, request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &len);
   if (buffer != NULL) {
     reply = std::string(buffer, len);
     deleteBuffer(&buffer);
@@ -288,7 +288,7 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleNotification(const char *
   }
 }
 
-NSCAPI::nagiosReturn nsclient::core::dll_plugin::on_event(const std::string &request) { return on_event(request.c_str(), request.size()); }
+NSCAPI::nagiosReturn nsclient::core::dll_plugin::on_event(const std::string &request) { return on_event(request.c_str(), static_cast<unsigned int>(request.size())); }
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::on_event(const char *request_buffer, const unsigned int request_buffer_len) {
   if (!isLoaded() || !loaded_ || fOnEvent == NULL) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
   try {
@@ -322,7 +322,7 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::fetchMetrics(char **returnBuffe
   }
 }
 
-NSCAPI::nagiosReturn nsclient::core::dll_plugin::submitMetrics(const std::string &request) { return submitMetrics(request.c_str(), request.size()); }
+NSCAPI::nagiosReturn nsclient::core::dll_plugin::submitMetrics(const std::string &request) { return submitMetrics(request.c_str(), static_cast<unsigned int>(request.size())); }
 
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::submitMetrics(const char *buffer, const unsigned int buffer_len) {
   if (!isLoaded() || !loaded_ || fSubmitMetrics == NULL) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
@@ -494,7 +494,7 @@ void nsclient::core::dll_plugin::loadRemoteProcs_(void) {
 int nsclient::core::dll_plugin::commandLineExec(bool targeted, std::string &request, std::string &reply) {
   char *buffer = NULL;
   unsigned int len = 0;
-  NSCAPI::nagiosReturn ret = commandLineExec(targeted, request.c_str(), request.size(), &buffer, &len);
+  NSCAPI::nagiosReturn ret = commandLineExec(targeted, request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &len);
   if (buffer != NULL) {
     reply = std::string(buffer, len);
     deleteBuffer(&buffer);

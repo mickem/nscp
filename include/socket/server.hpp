@@ -24,11 +24,12 @@
 
 #include <boost/asio.hpp>
 #include <boost/noncopyable.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
 
 #include <socket/socket_helpers.hpp>
 #include <socket/connection.hpp>
+#include <str/utils.hpp>
 #include <str/xtos.hpp>
 
 namespace socket_helpers {
@@ -202,11 +203,9 @@ class server : private boost::noncopyable {
     }
 
     if (acceptor_v4.is_open())
-      acceptor_v4.async_accept(new_connection_->get_socket(),
-                               accept_strand_.wrap(boost::bind(&server::handle_accept, this, false, boost::asio::placeholders::error)));
+      acceptor_v4.async_accept(new_connection_->get_socket(), accept_strand_.wrap([this](const auto &e) { this->handle_accept(false, e); }));
     if (acceptor_v6.is_open())
-      acceptor_v6.async_accept(new_connection_->get_socket(),
-                               accept_strand_.wrap(boost::bind(&server::handle_accept, this, true, boost::asio::placeholders::error)));
+      acceptor_v6.async_accept(new_connection_->get_socket(), accept_strand_.wrap([this](const auto &e) { this->handle_accept(true, e); }));
 
     for (std::size_t i = 0; i < info_.thread_pool_size; ++i) {
       thread_group_.create_thread(boost::bind(&boost::asio::io_service::run, &io_service_));
@@ -290,11 +289,9 @@ class server : private boost::noncopyable {
     try {
       new_connection_.reset(create_connection());
       if (ipv6)
-        acceptor_v6.async_accept(new_connection_->get_socket(),
-                                 accept_strand_.wrap(boost::bind(&server::handle_accept, this, ipv6, boost::asio::placeholders::error)));
+        acceptor_v6.async_accept(new_connection_->get_socket(), accept_strand_.wrap([this, ipv6](const auto &e) { this->handle_accept(ipv6, e); }));
       else
-        acceptor_v4.async_accept(new_connection_->get_socket(),
-                                 accept_strand_.wrap(boost::bind(&server::handle_accept, this, ipv6, boost::asio::placeholders::error)));
+        acceptor_v4.async_accept(new_connection_->get_socket(), accept_strand_.wrap([this, ipv6](const auto &e) { this->handle_accept(ipv6, e); }));
     } catch (const std::exception &e) {
       logger_->log_error(__FILE__, __LINE__, std::string("Failed to create new connection: ") + utf8::utf8_from_native(e.what()));
     } catch (...) {

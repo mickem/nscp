@@ -112,8 +112,8 @@ void pdh_thread::write_metrics(const spi_container &handles, const windows::syst
  *
  */
 void pdh_thread::thread_proc() {
-  memory_checks::realtime::helper memory_helper(core, plugin_id);
-  process_checks::realtime::helper process_helper(core, plugin_id);
+  memory_checks::realtime::helper memory_helper(core_, plugin_id);
+  process_checks::realtime::helper process_helper(core_, plugin_id);
 
   try {
     if (subsystem == "fast" || subsystem == "auto" || subsystem == "default") {
@@ -206,7 +206,7 @@ void pdh_thread::thread_proc() {
   if (!legacy_filters_.empty()) {
     NSC_LOG_MESSAGE("You are using legacy filters in check system, please migrate to new filters...");
   }
-  cpu_filter_helper cpu_helper(core, plugin_id);
+  cpu_filter_helper cpu_helper(core_, plugin_id);
   for (boost::shared_ptr<filters::legacy::filter_config_object> object : legacy_filters_.get_object_list()) {
     if (object->check == "memory") {
       memory_helper.add_obj(boost::shared_ptr<filters::mem::filter_config_object>(new filters::mem::filter_config_object(*object)));

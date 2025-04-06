@@ -186,7 +186,6 @@ void CheckDisk::check_files(const PB::Commands::QueryRequestMessage::Request &re
   std::vector<std::string> file_list;
   std::string files_string;
   std::string mode;
-  bool ignoreError = false;
   file_finder::scanner_context context;
   context.max_depth = -1;
   std::string total;
@@ -196,15 +195,15 @@ void CheckDisk::check_files(const PB::Commands::QueryRequestMessage::Request &re
   filter_helper.add_syntax("${status}: ${problem_count}/${count} files (${problem_list})", "${name}", "${name}", "No files found",
                            "%(status): All %(count) files are ok");
   // clang-format off
-	filter_helper.get_desc().add_options()
-		("path", po::value<std::vector<std::string> >(&file_list), "The path to search for files under.\nNotice that specifying multiple path will create an aggregate set you will not check each path individually."
-			"In other words if one path contains an error the entire check will result in error.")
-		("file", po::value<std::vector<std::string> >(&file_list), "Alias for path.")
-		("paths", po::value<std::string>(&files_string), "A comma separated list of paths to scan")
-		("pattern", po::value<std::string>(&context.pattern)->default_value("*.*"), "The pattern of files to search for (works like a filter but is faster and can be combined with a filter).")
-		("max-depth", po::value<int>(&context.max_depth), "Maximum depth to recurse")
-		("total", po::value(&total)->implicit_value("filter"), "Include the total of either (filter) all files matching the filter or (all) all files regardless of the filter")
-		;
+  filter_helper.get_desc().add_options()
+    ("path", po::value<std::vector<std::string> >(&file_list), "The path to search for files under.\nNotice that specifying multiple path will create an aggregate set you will not check each path individually."
+        "In other words if one path contains an error the entire check will result in error.")
+    ("file", po::value<std::vector<std::string> >(&file_list), "Alias for path.")
+    ("paths", po::value<std::string>(&files_string), "A comma separated list of paths to scan")
+    ("pattern", po::value<std::string>(&context.pattern)->default_value("*.*"), "The pattern of files to search for (works like a filter but is faster and can be combined with a filter).")
+    ("max-depth", po::value<int>(&context.max_depth), "Maximum depth to recurse")
+    ("total", po::value(&total)->implicit_value("filter"), "Include the total of either (filter) all files matching the filter or (all) all files regardless of the filter")
+  ;
   // clang-format on
 
   context.now = parsers::where::constants::get_now();
