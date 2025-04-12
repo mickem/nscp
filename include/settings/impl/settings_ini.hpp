@@ -33,9 +33,14 @@
 
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
+#ifdef WIN32
+#include <win/credentials.hpp>
+#endif
 
 #include <string>
-#include <map>
+const std::string CREDENTIAL_MARKER = "$CRED$; ";
+
+inline std::string make_credential_alias(const std::string &path, const std::string &key) { return "NSClient++-" + path + "." + key; }
 
 namespace settings {
 class INISettings : public settings::settings_interface_impl {
@@ -43,12 +48,16 @@ class INISettings : public settings::settings_interface_impl {
   CSimpleIni ini;
   bool is_loaded_;
   std::string filename_;
+  bool use_credentials_;
 
  public:
   INISettings(settings::settings_core *core, std::string alias, std::string context)
-      : settings::settings_interface_impl(core, alias, context), ini(false, false, false), is_loaded_(false) {
+      : settings::settings_interface_impl(core, alias, context), ini(false, false, false), is_loaded_(false), use_credentials_(false) {
     load_data();
   }
+
+  bool supports_updates() override { return true; }
+
   //////////////////////////////////////////////////////////////////////////
   /// Get a string value if it does not exist exception will be thrown
   ///
@@ -61,6 +70,15 @@ class INISettings : public settings::settings_interface_impl {
     load_data();
     const wchar_t *val = ini.GetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), NULL);
     if (val == NULL) return op_string();
+    auto value = utf8::cvt<std::string>(val);
+    if (boost::starts_with(value, CREDENTIAL_MARKER)) {
+#ifdef WIN32
+      auto alias = make_credential_alias(key.first, key.second);
+      return read_credential(alias);
+#else
+      core_->get_logger()->error("settings", __FILE__, __LINE__, "Credentials not supported on this platform: " + key.first + "." + key.second);
+#endif
+    }
     return op_string(utf8::cvt<std::string>(val));
   }
   //////////////////////////////////////////////////////////////////////////
@@ -77,10 +95,13 @@ class INISettings : public settings::settings_interface_impl {
 
   virtual bool has_real_path(std::string path) { return ini.GetSectionSize(utf8::cvt<std::wstring>(path).c_str()) > 0; }
 
-  std::string render_comment(const settings_core::key_description &desc) {
+  std::string render_comment(const boost::optional<settings_core::key_description> &desc) {
+    if (!desc.has_value()) {
+      return "; Undocumented key";
+    }
     std::string comment = "; ";
-    if (!desc.title.empty()) comment += desc.title + " - ";
-    if (!desc.description.empty()) comment += desc.description;
+    if (!desc.value().title.empty()) comment += desc.value().title + " - ";
+    if (!desc.value().description.empty()) comment += desc.value().description;
     str::utils::replace(comment, "\n", " ");
     return comment;
   }
@@ -103,14 +124,27 @@ class INISettings : public settings::settings_interface_impl {
   virtual void set_real_value(settings_core::key_path_type key, conainer value) {
     if (!value.is_dirty()) return;
     try {
-      const settings_core::key_description desc = get_core()->get_registred_key(key.first, key.second);
+      auto desc = get_core()->get_registered_key(key.first, key.second);
       std::string comment = render_comment(desc);
       ini.Delete(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str());
+
+      if (use_credentials_ && get_core()->is_sensitive_key(key.first, key.second)) {
+#ifdef WIN32
+        auto alias = make_credential_alias(key.first, key.second);
+        save_credential(alias, value.get_string());
+        ini.SetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(),
+                     utf8::cvt<std::wstring>(CREDENTIAL_MARKER + "Se credential manager: " + alias).c_str(), utf8::cvt<std::wstring>(comment).c_str());
+        return;
+#else
+        get_logger()->warning(
+            "settings", __FILE__, __LINE__,
+            "Credential mapping currently only supported on windows (storing key as clerar text): " + make_skey(key.first, key.second) + " in clear text");
+#endif
+      }
       ini.SetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), utf8::cvt<std::wstring>(value.get_string()).c_str(),
                    utf8::cvt<std::wstring>(comment).c_str());
     } catch (settings_exception e) {
-      ini.SetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), utf8::cvt<std::wstring>(value.get_string()).c_str(),
-                   L"; Undocumented key");
+      get_logger()->error("settings", __FILE__, __LINE__, "Unknown failure when writing key: " + make_skey(key.first, key.second));
     } catch (...) {
       get_logger()->error("settings", __FILE__, __LINE__, "Unknown failure when writing key: " + make_skey(key.first, key.second));
     }
@@ -118,7 +152,7 @@ class INISettings : public settings::settings_interface_impl {
 
   virtual void set_real_path(std::string path) {
     try {
-      const settings_core::path_description desc = get_core()->get_registred_path(path);
+      const settings_core::path_description desc = get_core()->get_registered_path(path);
       std::string comment = render_comment(desc);
       if (!comment.empty()) {
         ini.SetValue(utf8::cvt<std::wstring>(path).c_str(), NULL, NULL, utf8::cvt<std::wstring>(comment).c_str());
@@ -204,8 +238,8 @@ class INISettings : public settings::settings_interface_impl {
   /// Save the settings store
   ///
   /// @author mickem
-  virtual void save() {
-    settings_interface_impl::save();
+  virtual void save(bool re_save_all) {
+    settings_interface_impl::save(re_save_all);
 
     SI_Error rc = ini.SaveFile(get_file_name().string().c_str());
     if (rc < 0) throw_SI_error(rc, "Failed to save file");
@@ -218,7 +252,7 @@ class INISettings : public settings::settings_interface_impl {
     for (const CSimpleIni::Entry &ePath : sections) {
       std::string path = utf8::cvt<std::string>(ePath.pItem);
       try {
-        get_core()->get_registred_path(path);
+        get_core()->get_registered_path(path);
       } catch (const settings_exception &) {
         ret.push_back(std::string("Invalid path: ") + path);
       }
@@ -227,7 +261,7 @@ class INISettings : public settings::settings_interface_impl {
       for (const CSimpleIni::Entry &eKey : keys) {
         std::string key = utf8::cvt<std::string>(eKey.pItem);
         try {
-          get_core()->get_registred_key(path, key);
+          get_core()->get_registered_key(path, key);
         } catch (const settings_exception &) {
           ret.push_back(std::string("Invalid key: ") + settings::key_to_string(path, key));
         }
@@ -321,7 +355,9 @@ class INISettings : public settings::settings_interface_impl {
     }
     return boost::filesystem::is_regular_file(tmp) || boost::filesystem::is_directory(tmp);
   }
-  void ensure_exists() { save(); }
+  void ensure_exists() { save(false); }
   virtual std::string get_type() { return "ini"; }
+
+  void enable_credentials() override { use_credentials_ = true; }
 };
 }  // namespace settings

@@ -63,7 +63,8 @@ cli_parser::cli_parser(NSClient *core)
       settings.add_options()
         ("migrate-to", po::value<std::string>(), "Migrate (copy) settings from current store to given target store")
         ("migrate-from", po::value<std::string>(), "Migrate (copy) settings from old given store to current store")
-        ("generate", po::value<std::string>()->implicit_value("settings"), "Add comments to the current settings store (or a given one).")
+        ("generate", po::value<std::string>()->implicit_value("settings"), "Deprecated use update in stead.")
+        ("update", po::value<std::string>()->implicit_value("settings"), "Save config file (adding comments in place and moving sensitive keys to/from credential manager).")
         ("add-missing", "Add all default values for all missing keys.")
         ("validate", "Validate the current configuration (or a given configuration).")
         ("load-all", "Load all plugins (currently only used with generate).")
@@ -284,7 +285,10 @@ int cli_parser::parse_settings(int argc, char *argv[]) {
       if (vm.count("generate")) {
         std::string option = vm["generate"].as<std::string>();
         ret = client.generate(option);
-      } else if (vm.count("migrate-to")) {
+      } else if (vm.count("update")) {
+        std::string option = vm["update"].as<std::string>();
+        ret = client.generate(option);
+       } else if (vm.count("migrate-to")) {
         ret = client.migrate_to(vm["migrate-to"].as<std::string>());
       } else if (vm.count("migrate-from")) {
         ret = client.migrate_from(vm["migrate-from"].as<std::string>());

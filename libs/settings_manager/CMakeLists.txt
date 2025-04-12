@@ -11,7 +11,6 @@ set(service_SRCS
     settings_manager_impl.cpp
     settings_handler_impl.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
-    # ${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
     ${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
     ${NSCP_INCLUDEDIR}/utf8.cpp)
 
@@ -20,7 +19,8 @@ if(WIN32)
       ${service_SRCS}
       settings_manager_impl.h
       settings_handler_impl.hpp
-      # ${NSCP_INCLUDEDIR}/config.h
+      ${NSCP_INCLUDEDIR}/win/credentials.cpp
+      ${NSCP_INCLUDEDIR}/win/credentials.hpp
       ${NSCP_INCLUDEDIR}/settings/settings_core.hpp
       ${NSCP_INCLUDEDIR}/settings/settings_interface_impl.hpp
       ${NSCP_INCLUDEDIR}/settings/impl/settings_ini.hpp

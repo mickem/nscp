@@ -19,10 +19,8 @@
 
 #pragma once
 
-#include <map>
+#include <string>
 #include <list>
-
-#include <settings/settings_value.hpp>
 
 namespace nscapi {
 namespace settings_helper {
@@ -55,8 +53,8 @@ class settings_impl_interface {
   /// @param advanced advanced options will only be included if they are changed
   ///
   /// @author mickem
-  virtual void register_key(std::string path, std::string key, std::string title, std::string description, std::string defValue, bool advanced,
-                            bool sample) = 0;
+  virtual void register_key(std::string path, std::string key, std::string title, std::string description, std::string defValue, bool advanced, bool sample,
+                            bool sensitive) = 0;
 
   virtual void register_subkey(std::string path, std::string title, std::string description, bool advanced, bool sample) = 0;
 

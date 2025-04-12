@@ -170,6 +170,7 @@ class settings_core {
   /// @author mickem
   virtual void register_key(unsigned int plugin_id, std::string path, std::string key, std::string title, std::string description, std::string defValue,
                             bool advanced, bool is_sample, bool update_existing = true) = 0;
+  virtual void add_sensitive_key(unsigned int plugin_id, std::string path, std::string key) = 0;
 
   virtual void register_tpl(unsigned int plugin_id, std::string path, std::string title, std::string data) = 0;
   //////////////////////////////////////////////////////////////////////////
@@ -181,11 +182,12 @@ class settings_core {
   /// @return the key description
   ///
   /// @author mickem
-  virtual key_description get_registred_key(std::string path, std::string key) = 0;
+  virtual boost::optional<key_description> get_registered_key(std::string path, std::string key) = 0;
+  virtual bool is_sensitive_key(std::string path, std::string key) = 0;
 
-  virtual settings_core::path_description get_registred_path(const std::string &path) = 0;
+  virtual settings_core::path_description get_registered_path(const std::string &path) = 0;
 
-  virtual std::list<settings_core::tpl_description> get_registred_tpls() = 0;
+  virtual std::list<settings_core::tpl_description> get_registered_templates() = 0;
 
   //////////////////////////////////////////////////////////////////////////
   /// Get all registered sections
@@ -282,6 +284,9 @@ class settings_core {
   virtual bool is_dirty() = 0;
   virtual void set_reload(bool flag = true) = 0;
   virtual bool needs_reload() = 0;
+
+  virtual bool supports_updates() = 0;
+  virtual bool use_sensitive_keys() = 0;
 
   virtual nsclient::logging::logger_instance get_logger() const = 0;
 };

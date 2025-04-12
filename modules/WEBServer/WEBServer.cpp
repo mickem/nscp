@@ -68,9 +68,9 @@ using namespace Mongoose;
 namespace ph = boost::placeholders;
 
 class WEBServerLogger : public Mongoose::WebLogger {
-  virtual void log_error(const std::string &message) { NSC_LOG_ERROR(message); }
-  virtual void log_info(const std::string &message) { NSC_LOG_MESSAGE(message); }
-  virtual void log_debug(const std::string &message) { NSC_DEBUG_MSG(message); }
+  void log_error(const std::string &message) override { NSC_LOG_ERROR(message); }
+  void log_info(const std::string &message) override { NSC_LOG_MESSAGE(message); }
+  void log_debug(const std::string &message) override { NSC_DEBUG_MSG(message); }
 };
 
 WEBServer::WEBServer() : session(new session_manager_interface()) {}
@@ -97,44 +97,35 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   users_.set_path(settings.alias().get_settings_path("users"));
 
   // clang-format off
-	settings.alias().add_path_to_settings()
-		("Web server", "Section for WEB (WEBServer.dll) (check_WEB) protocol options.")
-
-		("users", sh::fun_values_path(boost::bind(&WEBServer::add_user, this, ph::_1, ph::_2)),
-		"Web server users", "Users which can access the REST API",
-		"REST USER", "")
-
-		("roles", sh::string_map_path(&roles)
-		, "Web server roles", "A list of roles and with coma separated list of access rights.")
-
-		;
-	settings.alias().add_key_to_settings()
-		("port", sh::string_key(&port, "8443"),
-		"Server port", "Port to use for WEB server.")
-
-		("threads", sh::int_key(&threads, 10),
-		"Server threads", "The number of threads in the sever response pool.")
-		;
-	settings.alias().add_key_to_settings()
-      ("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"),
-       "TLS Certificate", "Ssl certificate to use for the ssl server")
-          ("ciphers", sh::string_key(&ciphers, ""),
-           "Supported ciphers", "Supported ciphers for the web server (Set to tlsv1.3 to only allow tls1.3)")
-		;
-
-	settings.alias().add_parent("/settings/default").add_key_to_settings()
-
-		("allowed hosts", nscapi::settings_helper::string_fun_key(boost::bind(&session_manager_interface::set_allowed_hosts, session, ph::_1), "127.0.0.1"),
-			"Allowed hosts", "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
-
-		("cache allowed hosts", nscapi::settings_helper::bool_fun_key(boost::bind(&session_manager_interface::set_allowed_hosts_cache, session, ph::_1), true),
-			"Cache list of allowed hosts", "If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.")
-
-		("password", nscapi::settings_helper::string_key(&admin_password),
-			DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC)
-
-		;
+  settings.alias().add_path_to_settings()
+    ("Web server", "Section for WEB (WEBServer.dll) (check_WEB) protocol options.")
+    ("users", sh::fun_values_path(boost::bind(&WEBServer::add_user, this, ph::_1, ph::_2)),
+    "Web server users", "Users which can access the REST API",
+    "REST USER", "")
+    ("roles", sh::string_map_path(&roles)
+    , "Web server roles", "A list of roles and with coma separated list of access rights.")
+  ;
+  settings.alias().add_key_to_settings()
+    ("port", sh::string_key(&port, "8443"),
+    "Server port", "Port to use for WEB server.")
+    ("threads", sh::int_key(&threads, 10),
+    "Server threads", "The number of threads in the sever response pool.")
+  ;
+  settings.alias().add_key_to_settings()
+    ("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"),
+    "TLS Certificate", "Ssl certificate to use for the ssl server")
+    ("ciphers", sh::string_key(&ciphers, ""),
+    "Supported ciphers", "Supported ciphers for the web server (Set to tlsv1.3 to only allow tls1.3)")
+  ;
   // clang-format on
+
+  auto def = settings.alias().add_parent("/settings/default").add_key_to_settings();
+  def.add("allowed hosts", nscapi::settings_helper::string_fun_key([this](auto value) { this->session->set_allowed_hosts(value); }, "127.0.0.1"),
+          "Allowed hosts", "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.");
+  def.add("cache allowed hosts", nscapi::settings_helper::bool_fun_key([this](auto value) { this->session->set_allowed_hosts_cache(value); }, true),
+          "Cache list of allowed hosts",
+          "If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.");
+  def.add_sensitive("password", nscapi::settings_helper::string_key(&admin_password), DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC);
 
   settings.register_all();
   settings.notify();
@@ -674,7 +665,7 @@ void WEBServer::ensure_user(nscapi::settings_helper::settings_registry &settings
   if (!session->has_user(user)) {
     session->add_user(user, role, password);
     std::string the_path = path + "/" + user;
-    settings.register_key(the_path, "password", "Password for " + reason, "Password name for" + reason, password, false);
+    settings.register_sensitive_key(the_path, "password", "Password for " + reason, "Password name for" + reason, password, false);
     settings.set_static_key(the_path, "password", password);
     settings.register_key(the_path, "role", "Role for " + reason, "Role name for" + reason, role, false);
     settings.set_static_key(the_path, "role", role);

@@ -60,7 +60,9 @@ class settings_interface_impl : public settings_interface {
     conainer(int value, bool dirty) : int_val(value), is_dirty_(dirty) {}
     conainer(bool value, bool dirty) : bool_val(value), is_dirty_(dirty) {}
     conainer(std::string value, bool dirty) : string_val(value), is_dirty_(dirty) {}
-    conainer() {}
+    conainer() : is_dirty_(false) {}
+
+    void make_dirty() { is_dirty_ = true; }
 
     bool is_dirty() const { return is_dirty_; }
     std::string get_string() const {
@@ -468,7 +470,7 @@ class settings_interface_impl : public settings_interface {
   ///
   /// @author mickem
   virtual void save_to(std::string alias, std::string other) {
-    instance_ptr i = get_core()->create_instance(alias, other);
+    const instance_ptr i = get_core()->create_instance(alias, other);
     if (!i) throw settings_exception(__FILE__, __LINE__, "Failed to create new instance!");
     save_to(i);
   }
@@ -480,7 +482,7 @@ class settings_interface_impl : public settings_interface {
     }
     other->clear_cache();
     st_copy_section("", other);
-    other->save();
+    other->save(false);
   }
   void st_copy_section(std::string path, instance_ptr other) {
     if (!other) throw settings_exception(__FILE__, __LINE__, "No target instance: Cant copy settings");
@@ -517,7 +519,7 @@ class settings_interface_impl : public settings_interface {
   /// Save the settings store
   ///
   /// @author mickem
-  virtual void save() {
+  virtual void save(bool re_save_all) {
     MUTEX_GUARD();
 
     for (const cache_key_type &v : settings_delete_cache_) {
@@ -530,13 +532,19 @@ class settings_interface_impl : public settings_interface {
     for (std::string path : path_cache_) {
       set_real_path(path);
     }
+    if (re_save_all) {
+      for (cache_type::iterator it = settings_cache_.begin(); it != settings_cache_.end(); ++it) {
+        it->second.make_dirty();
+      }
+    }
+
     std::set<std::string> sections;
     for (cache_type::const_iterator cit = settings_cache_.begin(); cit != settings_cache_.end(); ++cit) {
       set_real_value((*cit).first, (*cit).second);
       sections.insert((*cit).first.first);
     }
     for (instance_raw_ptr &child : children_) {
-      child->save();
+      child->save(re_save_all);
     }
     get_core()->set_dirty(false);
   }

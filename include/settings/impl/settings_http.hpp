@@ -85,6 +85,8 @@ class settings_http : public settings::settings_interface_impl {
     initial_load();
   }
 
+  bool supports_updates() override { return false; }
+
   virtual void real_clear_cache() {}
 
   std::string hash_file(const boost::filesystem::path &file) {
@@ -327,7 +329,8 @@ class settings_http : public settings::settings_interface_impl {
   /// Save the settings store
   ///
   /// @author mickem
-  virtual void save() {
+  virtual void save(bool _re_save_all) {
+    UNREFERENCED_PARAMETER(_re_save_all);
     get_logger()->error("settings", __FILE__, __LINE__, "Cannot save settings over HTTP");
     throw settings_exception(__FILE__, __LINE__, "Cannot save settings over HTTP");
   }
@@ -351,5 +354,6 @@ class settings_http : public settings::settings_interface_impl {
   }
   bool file_exists() { return boost::filesystem::is_regular_file(get_file_name()); }
   virtual std::string get_info() { return "HTTP settings: (" + context_ + ", " + get_file_name() + ")"; }
+  void enable_credentials() override { get_logger()->warning("settings", __FILE__, __LINE__, "Http settings is read only and does not support credentials"); }
 };
 }  // namespace settings

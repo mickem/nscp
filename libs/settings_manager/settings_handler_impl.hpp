@@ -19,8 +19,8 @@
 
 #pragma once
 
+#include <msvc.hpp>
 #include <settings/settings_core.hpp>
-#include <settings/settings_value.hpp>
 
 #include <nsclient/logger/logger.hpp>
 
@@ -48,6 +48,7 @@ class settings_handler_impl : public settings_core {
   boost::filesystem::path base_path_;
 
   boost::shared_mutex registry_mutex_;
+  std::set<std::string> sensitive_keys_;
   reg_paths_type registred_paths_;
   tpl_desc_type registered_tpls_;
   nsclient::logging::logger_instance logger_;
@@ -210,6 +211,15 @@ class settings_handler_impl : public settings_core {
       }
     }
   }
+  void add_sensitive_key(unsigned int _plugin_id, std::string path, std::string key) override {
+    UNREFERENCED_PARAMETER(_plugin_id);
+    boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
+    if (!writeLock.owns_lock()) {
+      throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path + "." + key);
+    }
+    const auto combined_key = path + "|||" + key;
+    sensitive_keys_.emplace(combined_key);
+  }
 
   void register_tpl(unsigned int plugin_id, std::string path, std::string title, std::string data) {
     std::string key = path + "::" + title;
@@ -225,7 +235,7 @@ class settings_handler_impl : public settings_core {
   /// @return the key description
   ///
   /// @author mickem
-  settings_core::key_description get_registred_key(std::string path, std::string key) {
+  boost::optional<settings_core::key_description> get_registered_key(std::string path, std::string key) {
     boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
     if (!readLock.owns_lock()) {
       throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path + "." + key);
@@ -238,9 +248,17 @@ class settings_handler_impl : public settings_core {
         return ret;
       }
     }
-    throw settings_exception(__FILE__, __LINE__, "Key not found: " + path + ", " + key);
+    return boost::none;
   }
-  settings_core::path_description get_registred_path(const std::string &path) {
+  bool is_sensitive_key(const std::string path, const std::string key) override {
+    boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+    if (!readLock.owns_lock()) {
+      throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path);
+    }
+    const auto combined_key = path + "|||" + key;
+    return sensitive_keys_.find(combined_key) != sensitive_keys_.end();
+  }
+  settings_core::path_description get_registered_path(const std::string &path) {
     boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
     if (!readLock.owns_lock()) {
       throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path);
@@ -252,7 +270,7 @@ class settings_handler_impl : public settings_core {
     throw settings_exception(__FILE__, __LINE__, "Path not found: " + path);
   }
 
-  std::list<settings_core::tpl_description> get_registred_tpls() {
+  std::list<settings_core::tpl_description> get_registered_templates() {
     std::list<settings_core::tpl_description> ret;
     boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
     if (!readLock.owns_lock()) {
@@ -310,6 +328,9 @@ class settings_handler_impl : public settings_core {
     instance_ = create_instance(alias, key);
     if (!instance_) throw settings_exception(__FILE__, __LINE__, "set_instance Failed to create instance for: " + key);
   }
+
+  bool supports_updates() override;
+  bool use_sensitive_keys() override;
 
  private:
   void destroy_all_instances();

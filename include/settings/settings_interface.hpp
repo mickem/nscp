@@ -26,6 +26,7 @@
 
 #include <string>
 #include <list>
+#include <utility>
 
 namespace settings {
 class settings_exception : public std::exception {
@@ -36,11 +37,14 @@ class settings_exception : public std::exception {
  public:
   //////////////////////////////////////////////////////////////////////////
   /// Constructor takes an error message.
+  /// @param file THe file in which the error occurred
+  /// @param line The line in which the error occurred
   /// @param error the error message
   ///
   /// @author mickem
-  settings_exception(const char* file, const int line, std::string error) : file_(file), line_(line), error_(error) {}
-  ~settings_exception() throw() {}
+  settings_exception(const char* file, const int line, std::string error) noexcept : file_(file), line_(line), error_(std::move(error)) {}
+  settings_exception(const settings_exception& other) noexcept : settings_exception(other.file_, other.line_, other.error_) {}
+  ~settings_exception() noexcept override = default;
 
   //////////////////////////////////////////////////////////////////////////
   /// Retrieve the error message from the exception.
@@ -172,7 +176,7 @@ class settings_interface {
   /// Save the settings store
   ///
   /// @author mickem
-  virtual void save() = 0;
+  virtual void save(bool re_save_all) = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Load settings from the context.
   ///
@@ -198,5 +202,8 @@ class settings_interface {
   virtual std::list<boost::shared_ptr<settings_interface> > get_children() = 0;
 
   virtual void house_keeping() = 0;
+
+  virtual void enable_credentials() = 0;
+  virtual bool supports_updates() = 0;
 };
 }  // namespace settings

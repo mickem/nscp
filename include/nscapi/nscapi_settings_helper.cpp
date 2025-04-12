@@ -382,11 +382,18 @@ struct key_info {
   description_container description;
   std::string parent;
   bool is_sample;
+  bool sensitive;
 
   key_info(std::string path_, std::string key_name_, key_type key, description_container description_)
-      : path(path_), key_name(key_name_), key(key), description(description_), is_sample(false) {}
+      : path(path_), key_name(key_name_), key(key), description(description_), is_sample(false), sensitive(false) {}
   key_info(const key_info &obj)
-      : path(obj.path), key_name(obj.key_name), key(obj.key), description(obj.description), parent(obj.parent), is_sample(obj.is_sample) {}
+      : path(obj.path),
+        key_name(obj.key_name),
+        key(obj.key),
+        description(obj.description),
+        parent(obj.parent),
+        is_sample(obj.is_sample),
+        sensitive(obj.sensitive) {}
   virtual key_info &operator=(const key_info &obj) {
     path = obj.path;
     key_name = obj.key_name;
@@ -394,6 +401,7 @@ struct key_info {
     description = obj.description;
     parent = obj.parent;
     is_sample = obj.is_sample;
+    sensitive = obj.sensitive;
     return *this;
   }
   void set_parent(std::string parent_) { parent = parent_; }
@@ -458,6 +466,19 @@ settings_keys_easy_init &settings_keys_easy_init::operator()(std::string path, s
   return *this;
 }
 
+void settings_keys_easy_init::add(std::string key_name, key_type value, std::string title, std::string description, bool advanced /*= false*/) {
+  boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(title, description, advanced)));
+  if (!parent_.empty()) d->set_parent(parent_);
+  add(d);
+}
+
+void settings_keys_easy_init::add_sensitive(std::string key_name, key_type value, std::string title, std::string description, bool advanced /*= false*/) {
+  boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(title, description, advanced)));
+  d->sensitive = true;
+  if (!parent_.empty()) d->set_parent(parent_);
+  add(d);
+}
+
 settings_keys_easy_init &settings_keys_easy_init::operator()(std::string key_name, key_type value, std::string title, std::string description,
                                                              bool advanced /*= false*/) {
   boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(title, description, advanced)));
@@ -476,13 +497,13 @@ void settings_registry::register_all() const {
     if (v->key) {
       if (v->has_parent()) {
         core_->register_key(v->parent, v->key_name, v->description.title, v->description.description, v->key->get_default(), v->description.advanced,
-                            v->is_sample);
-        std::string desc =
+                            v->is_sample, v->sensitive);
+        const std::string desc =
             v->description.description + " parent for this key is found under: " + v->parent + " this is marked as advanced in favor of the parent.";
-        core_->register_key(v->path, v->key_name, v->description.title, desc, v->key->get_default(), true, false);
+        core_->register_key(v->path, v->key_name, v->description.title, desc, v->key->get_default(), true, false, v->sensitive);
       } else {
         core_->register_key(v->path, v->key_name, v->description.title, v->description.description, v->key->get_default(), v->description.advanced,
-                            v->is_sample);
+                            v->is_sample, v->sensitive);
       }
     }
   }

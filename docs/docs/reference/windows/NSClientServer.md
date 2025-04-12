@@ -22,14 +22,14 @@ NSClientServer = enabled
 
 | Path / Section                                        | Description             |
 |-------------------------------------------------------|-------------------------|
-| [/settings/default](#)                                |                         |
+| [/settings/default](#default-values)                  | Default values          |
 | [/settings/NSClient/server](#nsclient-server-section) | NSCLIENT SERVER SECTION |
 
 
 
-### /settings/default <a id="/settings/default"/>
+### Default values <a id="/settings/default"/>
 
-
+Default values used in other config sections.
 
 
 
@@ -49,7 +49,7 @@ NSClientServer = enabled
 
 
 ```ini
-# 
+# Default values used in other config sections.
 [/settings/default]
 allowed hosts=127.0.0.1
 cache allowed hosts=true

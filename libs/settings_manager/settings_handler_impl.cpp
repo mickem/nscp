@@ -1,5 +1,7 @@
 #include "settings_handler_impl.hpp"
 
+#include "settings_manager_impl.h"
+
 #include <str/xtos.hpp>
 
 settings::instance_ptr settings::settings_handler_impl::get() {
@@ -20,11 +22,13 @@ void settings::settings_handler_impl::update_defaults() {
   for (const std::string &path : get_reg_sections("", false)) {
     get()->add_path(path);
     for (const std::string &key : get_reg_keys(path, false)) {
-      settings_core::key_description desc = get_registred_key(path, key);
-      if (!desc.advanced) {
+      auto desc = get_registered_key(path, key);
+      auto advanced = desc.has_value() && desc.value().advanced;
+      auto default_value = desc.has_value() ? desc.value().default_value : "";
+      if (!advanced) {
         if (!get()->has_key(path, key)) {
           get_logger()->debug("settings", __FILE__, __LINE__, "Adding: " + key_to_string(path, key));
-          get()->set_string(path, key, desc.default_value);
+          get()->set_string(path, key, default_value);
         } else {
           settings_interface::op_string val = get()->get_string(path, key);
           if (val) {
@@ -42,10 +46,11 @@ void settings::settings_handler_impl::update_defaults() {
 void settings::settings_handler_impl::remove_defaults() {
   for (std::string path : get_reg_sections("", false)) {
     for (std::string key : get_reg_keys(path, false)) {
-      settings_core::key_description desc = get_registred_key(path, key);
+      auto desc = get_registered_key(path, key);
+      auto default_value = desc.has_value() ? desc.value().default_value : "";
       if (get()->has_key(path, key)) {
         try {
-          if (get()->get_string(path, key) == desc.default_value) {
+          if (get()->get_string(path, key) == default_value) {
             get()->remove_key(path, key);
           }
         } catch (const std::exception &) {
@@ -72,3 +77,13 @@ void settings::settings_handler_impl::house_keeping() {
 }
 
 settings::error_list settings::settings_handler_impl::validate() { return get()->validate(); }
+
+bool settings::settings_handler_impl::supports_updates() {
+  const boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  if (!mutex.owns_lock()) throw settings_exception(__FILE__, __LINE__, "Failed to get mutex, cant get settings instance");
+  if (!instance_) throw settings_exception(__FILE__, __LINE__, "Failed initialize settings instance");
+  return instance_->supports_updates();
+}
+bool settings::settings_handler_impl::use_sensitive_keys() {
+  return nscapi::settings::settings_value::to_bool(get()->get_string("/settings", "use credential manager", "false"));
+}
