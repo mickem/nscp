@@ -8,7 +8,9 @@ project(${TARGET})
 set(SRCS
     Product.wxs
     ../ui/ConfigureDlg.wxs
-    ../ui/InvalidConfigureationDlg.wxs
+    ../ui/InvalidConfigDlg1.wxs
+    ../ui/InvalidConfigDlg2.wxs
+    ../ui/InvalidConfigDlg3.wxs
     ../ui/SelectConfigurationDlg.wxs
     ../ui/MonitoringToolDlg.wxs
     ../ui/WixUI_MondoNSCP.wxs

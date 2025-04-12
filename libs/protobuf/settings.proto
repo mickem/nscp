@@ -25,6 +25,7 @@ option optimize_for = LITE_RUNTIME;
 		bool advanced = 6;
 		bool sample = 7;
 		bool is_template = 11;
+		bool is_sensitive = 14;
 		string sample_usage = 8;
 		repeated string plugin = 9;
 		bool subkey = 12;

@@ -191,7 +191,7 @@ void NSCSettingsImpl::set_primary(std::string key) {
   boot(key);
 }
 
-bool NSCSettingsImpl::create_context(std::string key) {
+bool NSCSettingsImpl::create_context(const std::string &key) {
   try {
     change_context(key);
   } catch (settings::settings_exception e) {
@@ -204,7 +204,7 @@ bool NSCSettingsImpl::create_context(std::string key) {
   return true;
 }
 
-void NSCSettingsImpl::change_context(std::string context) {
+void NSCSettingsImpl::change_context(const std::string &context) {
   try {
     get_core()->migrate_to("master", context);
     set_primary(context);
@@ -216,7 +216,7 @@ void NSCSettingsImpl::change_context(std::string context) {
   }
 }
 
-bool init_settings(provider_interface *provider, std::string context) {
+bool init_settings(provider_interface *provider, const std::string &context) {
   try {
     settings_impl = new NSCSettingsImpl(provider);
     get_core()->set_base(provider->expand_path("${base-path}"));
@@ -235,7 +235,7 @@ bool init_settings(provider_interface *provider, std::string context) {
   return true;
 }
 
-bool init_installer_settings(provider_interface *provider, std::string context) {
+bool init_installer_settings(provider_interface *provider, const std::string &context) {
   try {
     settings_impl = new NSCSettingsImpl(provider);
     get_core()->set_base(provider->expand_path("${base-path}"));
@@ -257,10 +257,10 @@ bool init_installer_settings(provider_interface *provider, std::string context) 
   return true;
 }
 
-void change_context(std::string context) { internal_get()->change_context(context); }
+void change_context(const std::string &context) { internal_get()->change_context(context); }
 
 bool has_boot_conf() { return internal_get()->has_boot_conf(); }
-bool context_exists(std::string key) { return internal_get()->context_exists(key); }
+bool context_exists(const std::string &key) { return internal_get()->context_exists(key); }
 bool create_context(std::string key) { return internal_get()->create_context(key); }
 void ensure_exists() {}
 }  // namespace settings_manager

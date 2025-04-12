@@ -140,6 +140,8 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
     ${NSCP_INCLUDEDIR}/utf8.cpp
+    ${NSCP_INCLUDEDIR}/win/credentials.cpp
+    ${NSCP_INCLUDEDIR}/win/credentials.hpp
     "${TARGET}.def"
     installer_helper.hpp
     ${NSCP_INCLUDEDIR}/ServiceCmd.h

@@ -41,6 +41,7 @@ void nscapi::settings_proxy::register_path(std::string path, std::string title, 
   regitem->mutable_info()->set_advanced(advanced);
   regitem->mutable_info()->set_sample(sample);
   regitem->mutable_info()->set_subkey(false);
+  regitem->mutable_info()->set_is_sensitive(false);
   std::string response_string;
   core_->settings_query(request.SerializeAsString(), response_string);
   PB::Settings::SettingsResponseMessage response;
@@ -60,6 +61,7 @@ void nscapi::settings_proxy::register_subkey(std::string path, std::string title
   regitem->mutable_info()->set_advanced(advanced);
   regitem->mutable_info()->set_sample(sample);
   regitem->mutable_info()->set_subkey(true);
+  regitem->mutable_info()->set_is_sensitive(false);
   std::string response_string;
   core_->settings_query(request.SerializeAsString(), response_string);
   PB::Settings::SettingsResponseMessage response;
@@ -69,7 +71,7 @@ void nscapi::settings_proxy::register_subkey(std::string path, std::string title
   report_errors(response, core_, "register" + path);
 }
 void nscapi::settings_proxy::register_key(std::string path, std::string key, std::string title, std::string description, std::string defValue, bool advanced,
-                                          bool sample) {
+                                          bool sample, bool sensitive) {
   PB::Settings::SettingsRequestMessage request;
   PB::Settings::SettingsRequestMessage::Request *payload = request.add_payload();
   payload->set_plugin_id(plugin_id_);
@@ -81,6 +83,7 @@ void nscapi::settings_proxy::register_key(std::string path, std::string key, std
   regitem->mutable_info()->set_default_value(defValue);
   regitem->mutable_info()->set_advanced(advanced);
   regitem->mutable_info()->set_sample(sample);
+  regitem->mutable_info()->set_is_sensitive(sensitive);
   std::string response_string;
   core_->settings_query(request.SerializeAsString(), response_string);
   PB::Settings::SettingsResponseMessage response;
@@ -99,6 +102,7 @@ void nscapi::settings_proxy::register_tpl(std::string path, std::string title, s
   regitem->mutable_info()->set_description(description);
   regitem->mutable_info()->set_advanced(false);
   regitem->mutable_info()->set_sample(false);
+  regitem->mutable_info()->set_is_sensitive(false);
   regitem->set_fields(fields);
   std::string response_string;
   core_->settings_query(request.SerializeAsString(), response_string);

@@ -142,42 +142,50 @@ bool NSClientT::load_configuration(const bool override_log) {
 
   bool crash_archive = false;
   bool crash_restart = false;
+  bool use_credentials = false;
   std::string crash_url, crash_folder, restart_target, log_level;
   try {
     sh::settings_registry settings(settings_manager::get_proxy());
 
     // clang-format off
-		settings.add_path()
-			(MAIN_MODULES_SECTION, "MODULES", "A list of modules.")
-			;
+    settings.add_path()
+      (MAIN_MODULES_SECTION, "MODULES", "A list of modules.")
+      ("settings", "Settings", "Core configuration.")
+    ;
 
-		settings.add_path_to_settings()
-			("log", "LOG SETTINGS", "Section for configuring the log handling.")
-			("crash", "CRASH HANDLER", "Section for configuring the crash handler.")
-			;
+    settings.add_path_to_settings()
+      ("log", "LOG SETTINGS", "Section for configuring the log handling.")
+      ("crash", "CRASH HANDLER", "Section for configuring the crash handler.")
+      ("default", "Default values", "Default values used in other config sections.")
+    ;
 
-		settings.add_key_to_settings("log")
-			("level", sh::string_key(&log_level, "info"),
-				"LOG LEVEL", "Log level to use. Available levels are error,warning,info,debug,trace")
-			;
+    settings.add_key_to_path("/settings")
+      ("use credential manager", sh::bool_key(&use_credentials, false),
+      "use credential manager", "Store sensitive keys in use credential manager instead of ini file")
+    ;
 
-		settings.add_key_to_settings("crash")
-			("archive", sh::bool_key(&crash_archive, true),
-				"ARCHIVE CRASHREPORTS", "Archive crash reports in the archive folder")
+    settings.add_key_to_settings("log")
+      ("level", sh::string_key(&log_level, "info"),
+      "LOG LEVEL", "Log level to use. Available levels are error,warning,info,debug,trace")
+    ;
 
-			("restart", sh::bool_key(&crash_restart, true),
-				"RESTART", "Submit crash reports to nsclient.org (or your configured submission server)")
-
-			("submit url", sh::string_key(&crash_url, CRASH_SUBMIT_URL),
-				"SUBMISSION URL", "The url to submit crash reports to")
-
-			("archive folder", sh::path_key(&crash_folder, CRASH_ARCHIVE_FOLDER),
-				"CRASH ARCHIVE LOCATION", "The folder to archive crash dumps in")
-			;
+    settings.add_key_to_settings("crash")
+      ("archive", sh::bool_key(&crash_archive, true),
+      "ARCHIVE CRASHREPORTS", "Archive crash reports in the archive folder")
+      ("restart", sh::bool_key(&crash_restart, true),
+      "RESTART", "Submit crash reports to nsclient.org (or your configured submission server)")
+      ("submit url", sh::string_key(&crash_url, CRASH_SUBMIT_URL),
+      "SUBMISSION URL", "The url to submit crash reports to")
+      ("archive folder", sh::path_key(&crash_folder, CRASH_ARCHIVE_FOLDER),
+      "CRASH ARCHIVE LOCATION", "The folder to archive crash dumps in")
+    ;
 
     // clang-format on
     settings.register_all();
     settings.notify();
+    if (use_credentials) {
+      settings_manager::get_settings()->enable_credentials();
+    }
   } catch (settings::settings_exception e) {
     LOG_ERROR_CORE_STD("Could not find settings: " + utf8::utf8_from_native(e.what()));
   }

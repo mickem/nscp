@@ -76,7 +76,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
   }
   if (!q.node().key().empty()) {
     t.start("fetching key");
-    settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(q.node().path(), q.node().key());
+    auto desc = settings_manager::get_core()->get_registered_key(q.node().path(), q.node().key()).get_value_or(settings::settings_core::key_description());
     t.end();
     PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
     rpp->mutable_node()->CopyFrom(q.node());
@@ -97,7 +97,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
           t.end();
           boost::unordered_set<std::string> cache;
           for (const std::string &key : klist) {
-            settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
+            settings::settings_core::key_description desc = settings_manager::get_core()->get_registered_key(path, key).get_value_or(settings::settings_core::key_description());
             if (plugin_id && !desc.has_plugin(*plugin_id)) continue;
             PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
             cache.emplace(key);
@@ -132,7 +132,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
         }
         if (q.fetch_paths()) {
           t.start("fetching path");
-          settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
+          settings::settings_core::path_description desc = settings_manager::get_core()->get_registered_path(path);
           t.end();
           PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
           rpp->mutable_node()->set_path(path);
@@ -153,7 +153,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
         boost::unordered_set<std::string> cache;
         for (const std::string &key : list) {
           t.start("fetching keys");
-          settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
+          settings::settings_core::key_description desc = settings_manager::get_core()->get_registered_key(path, key).get_value_or(settings::settings_core::key_description());
           if (plugin_id && !desc.has_plugin(*plugin_id)) continue;
           t.end();
           PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
@@ -190,7 +190,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
       }
       if (q.fetch_paths()) {
         t.start("fetching paths");
-        settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
+        settings::settings_core::path_description desc = settings_manager::get_core()->get_registered_path(path);
         t.end();
         PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
         rpp->mutable_node()->set_path(path);
@@ -203,7 +203,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
     }
     if (q.fetch_templates()) {
       t.start("fetching templates");
-      for (const settings::settings_core::tpl_description &desc : settings_manager::get_core()->get_registred_tpls()) {
+      for (const settings::settings_core::tpl_description &desc : settings_manager::get_core()->get_registered_templates()) {
         PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
         rpp->mutable_node()->set_path(desc.path);
         rpp->mutable_info()->set_title(desc.title);
@@ -290,12 +290,21 @@ void settings_query_handler::parse_registration(const PB::Settings::SettingsRequ
   } else if (!q.node().key().empty()) {
     settings_manager::get_core()->register_key(plugin_id, q.node().path(), q.node().key(), q.info().title(), q.info().description(), q.info().default_value(),
                                                q.info().advanced(), q.info().sample());
+    if (q.info().is_sensitive()) {
+      settings_manager::get_core()->add_sensitive_key(plugin_id, q.node().path(), q.node().key());
+    }
   } else {
     if (q.info().subkey()) {
       settings_manager::get_core()->register_subkey(plugin_id, q.node().path(), q.info().title(), q.info().description(), q.info().advanced(),
                                                     q.info().sample());
+      if (q.info().is_sensitive()) {
+        LOG_ERROR_CORE("Sub-key cannot be sensitive: " + q.node().path());
+      }
     } else {
       settings_manager::get_core()->register_path(plugin_id, q.node().path(), q.info().title(), q.info().description(), q.info().advanced(), q.info().sample());
+      if (q.info().is_sensitive()) {
+        LOG_ERROR_CORE("Paths cannot be sensitive: " + q.node().path());
+      }
     }
   }
   rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
@@ -326,7 +335,7 @@ void settings_query_handler::parse_control(const PB::Settings::SettingsRequestMe
     if (!p.context().empty())
       settings_manager::get_core()->migrate_to("master", p.context());
     else
-      settings_manager::get_settings()->save();
+      settings_manager::get_settings()->save(false);
     rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
   } else {
     rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);

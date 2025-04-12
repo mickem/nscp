@@ -24,6 +24,7 @@
 #endif
 
 #include "../libs/settings_manager/settings_manager_impl.h"
+#include "../modules/CheckEventLog/CheckEventLog.h"
 
 #include <config.h>
 
@@ -110,15 +111,14 @@ void nsclient_core::settings_client::dump_path(std::string root) {
 
 int nsclient_core::settings_client::generate(std::string target) {
   try {
-    if (target == "settings" || target.empty()) {
-      get_core()->get()->save();
-    } else if (target.empty()) {
-      get_core()->get()->save();
+    auto new_context = expand_context(target);
+    if (target == "settings" || target.empty() || get_core()->get()->get_context() == new_context) {
+      get_core()->get()->save(true);
     } else {
-      get_core()->get()->save_to("master", expand_context(target));
+      get_core()->get()->save_to("master", new_context);
     }
     return 0;
-  } catch (settings::settings_exception e) {
+  } catch (settings::settings_exception &e) {
     error_msg(__FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
     return 1;
   } catch (nsclient::core::plugin_exception &e) {
@@ -137,7 +137,7 @@ void nsclient_core::settings_client::switch_context(std::string contect) { get_c
 
 int nsclient_core::settings_client::set(std::string path, std::string key, std::string val) {
   get_core()->get()->set_string(path, key, val);
-  get_core()->get()->save();
+  get_core()->get()->save(false);
   return 0;
 }
 void list_settings_context_info(int padding, settings::instance_ptr instance) {
@@ -157,7 +157,37 @@ int nsclient_core::settings_client::show(std::string path, std::string key) {
   }
   return 0;
 }
+#include <wincred.h>
 int nsclient_core::settings_client::list(std::string path) {
+
+  { //--- SAVE
+    const char *password = "brillant";
+    DWORD cbCreds = 1 + strlen(password);
+
+    CREDENTIALW  cred = {0};
+    cred.Type = CRED_TYPE_GENERIC;
+    cred.TargetName = L"FOO/account";
+    cred.CredentialBlobSize = cbCreds;
+    cred.CredentialBlob = (LPBYTE) password;
+    cred.Persist = CRED_PERSIST_LOCAL_MACHINE;
+    cred.UserName = L"paula";
+
+    BOOL ok = ::CredWriteW (&cred, 0);
+    wprintf (L"CredWrite() - errno %d\n", ok ? 0 : ::GetLastError());
+    if (!ok) exit(1);
+  }
+
+  { //--- RETRIEVE
+    PCREDENTIALW pcred;
+    BOOL ok = ::CredReadW (L"NSClient++/account", CRED_TYPE_GENERIC, 0, &pcred);
+    wprintf (L"CredRead() - errno %d\n", ok ? 0 : ::GetLastError());
+    if (!ok) exit(1);
+    wprintf (L"Read username = '%s', password='%S' (%d bytes)\n",
+             pcred->UserName, (char*)pcred->CredentialBlob, pcred->CredentialBlobSize);
+    // Memory allocated by CredRead() must be freed!
+    ::CredFree (pcred);
+  }
+
   try {
     dump_path(path);
   } catch (settings::settings_exception e) {
@@ -196,5 +226,5 @@ void nsclient_core::settings_client::activate(const std::string &module) {
   if (default_) {
     get_core()->update_defaults();
   }
-  get_core()->get()->save();
+  get_core()->get()->save(false);
 }

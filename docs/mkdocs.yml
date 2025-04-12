@@ -53,6 +53,7 @@ nav:
     - Reporting Bugs: about/reporting-bugs.md
     - License: about/license.md
   - Tutorial: tutorial/index.md
+  - Securing: securing.md
   - Howto:
     - Checking things: howto/checks.md
     - Performance Counters: howto/counters.md

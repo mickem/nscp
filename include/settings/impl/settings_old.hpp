@@ -184,6 +184,7 @@ class OLDSettings : public settings::settings_interface_impl {
     return ret;
   }
   virtual void real_clear_cache() {}
+  bool supports_updates() override { return false; }
 
   //////////////////////////////////////////////////////////////////////////
   /// Get a string value if it does not exist exception will be thrown
@@ -441,5 +442,7 @@ class OLDSettings : public settings::settings_interface_impl {
     return boost::filesystem::exists(tmp);
   }
   void ensure_exists() { return; }
+
+  void enable_credentials() override { get_logger()->error("settings", __FILE__, __LINE__, "Old settings does not support credentials"); }
 };
 }  // namespace settings

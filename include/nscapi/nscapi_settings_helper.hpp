@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <nscapi/nscapi_core_wrapper.hpp>
 #include <settings/client/settings_client_interface.hpp>
+#include <settings/settings_core.hpp>
 
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
@@ -151,6 +151,9 @@ class settings_keys_easy_init {
 
   settings_keys_easy_init& operator()(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
 
+  void add(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
+  void add_sensitive(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
+
  private:
   void add(boost::shared_ptr<key_info> d);
 
@@ -270,7 +273,10 @@ class settings_registry {
   std::string get_static_string(std::string path, std::string key, std::string def_value) const { return core_->get_string(path, key, def_value); }
 
   void register_key(std::string path, std::string key, std::string title, std::string description, std::string defaultValue, bool advanced = false) const {
-    core_->register_key(path, key, title, description, defaultValue, advanced, false);
+    core_->register_key(path, key, title, description, defaultValue, advanced, false, false);
+  }
+  void register_sensitive_key(std::string path, std::string key, std::string title, std::string description, std::string defaultValue, bool advanced = false) const {
+    core_->register_key(path, key, title, description, defaultValue, advanced, false, true);
   }
   void register_all() const;
   void clear() {

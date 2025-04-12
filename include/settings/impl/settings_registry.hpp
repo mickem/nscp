@@ -96,7 +96,9 @@ class REGSettings : public settings::settings_interface_impl {
         throw settings_exception(__FILE__, __LINE__, "Failed to write string " + source.to_string() + "." + key + ": " + error::lookup::last_error(err));
       }
     }
-    inline void setValueEx(const std::string &key, DWORD type, const reg_buffer &buffer) const { setValueEx(key, type, buffer.get(), buffer.size_in_bytes()); }
+    inline void setValueEx(const std::string &key, DWORD type, const reg_buffer &buffer) const {
+      setValueEx(key, type, buffer.get(), static_cast<DWORD>(buffer.size_in_bytes()));
+    }
     inline void setValueEx(const std::string &key, DWORD type, const DWORD value) const {
       setValueEx(key, type, reinterpret_cast<const BYTE *>(&value), sizeof(DWORD));
     }
@@ -126,6 +128,8 @@ class REGSettings : public settings::settings_interface_impl {
   }
 
   virtual ~REGSettings(void) {}
+
+  bool supports_updates() override { return true; }
 
   //////////////////////////////////////////////////////////////////////////
   /// Get a string value if it does not exist exception will be thrown
@@ -278,5 +282,7 @@ class REGSettings : public settings::settings_interface_impl {
   static bool context_exists(settings::settings_core *, std::string key) { return has_key(reg_key::from_context(key)); }
   virtual void real_clear_cache() {}
   void ensure_exists() { write_reg_key open_key(root); }
+
+  void enable_credentials() override { get_logger()->warning("settings", __FILE__, __LINE__, "Registry settings does not support credentials"); }
 };
 }  // namespace settings

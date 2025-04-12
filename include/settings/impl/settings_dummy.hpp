@@ -36,6 +36,9 @@ class settings_dummy : public settings::settings_interface_impl {
  private:
  public:
   settings_dummy(settings::settings_core *core, std::string alias, std::string context) : settings::settings_interface_impl(core, alias, context) {}
+
+  bool supports_updates() override { return false; }
+
   //////////////////////////////////////////////////////////////////////////
   /// Get a string value if it does not exist exception will be thrown
   ///
@@ -110,7 +113,7 @@ class settings_dummy : public settings::settings_interface_impl {
   /// Save the settings store
   ///
   /// @author mickem
-  virtual void save() { settings_interface_impl::save(); }
+  virtual void save(bool re_save_all) { settings_interface_impl::save(re_save_all); }
   virtual std::string get_info() { return "dummy settings"; }
   settings::error_list validate() {
     settings::error_list ret;
@@ -122,5 +125,6 @@ class settings_dummy : public settings::settings_interface_impl {
   virtual void real_clear_cache() {}
   static bool context_exists(settings::settings_core *, std::string) { return true; }
   void ensure_exists() {}
+  void enable_credentials() override { get_logger()->warning("settings", __FILE__, __LINE__, "Dummy settings does not support credentials"); }
 };
 }  // namespace settings

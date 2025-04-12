@@ -18,7 +18,7 @@
  */
 
 #pragma once
-
+#include <msvc.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/dll_defines.hpp>
 
@@ -82,7 +82,8 @@ struct object_instance_interface {
     base_path = inPath;
   }
   const options_map &get_options() const { return options; }
-  virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
+  virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool _is_sample) {
+    UNREFERENCED_PARAMETER(_is_sample);
     nscapi::settings_helper::settings_registry settings(proxy);
     if (oneliner) {
       parent = "default";

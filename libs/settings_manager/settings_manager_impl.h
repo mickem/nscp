@@ -28,9 +28,9 @@ class NSCSettingsImpl : public settings::settings_handler_impl {
   std::string expand_context(const std::string &key);
 
   settings::instance_raw_ptr create_instance(std::string alias, std::string key);
-  void change_context(std::string file);
+  void change_context(const std::string &file);
   bool context_exists(std::string key);
-  bool create_context(std::string key);
+  bool create_context(const std::string &key);
   bool has_boot_conf();
   void set_primary(std::string key);
   bool supports_edit(const std::string key);
@@ -42,10 +42,10 @@ settings::instance_ptr get_settings_no_wait();
 settings::settings_core *get_core();
 boost::shared_ptr<nscapi::settings_helper::settings_impl_interface> get_proxy();
 void destroy_settings();
-bool init_settings(provider_interface *provider, std::string context = "");
-bool init_installer_settings(provider_interface *provider, std::string context = "");
-void change_context(std::string context);
+bool init_settings(provider_interface *provider, const std::string &context = "");
+bool init_installer_settings(provider_interface *provider, const std::string &context = "");
+void change_context(const std::string &context);
 bool has_boot_conf();
-bool context_exists(std::string key);
+bool context_exists(const std::string &key);
 bool create_context(std::string key);
 }  // namespace settings_manager
