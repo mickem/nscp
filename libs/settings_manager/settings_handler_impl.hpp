@@ -58,7 +58,7 @@ class settings_handler_impl : public settings_core {
 
  public:
   settings_handler_impl(nsclient::logging::logger_instance logger) : logger_(logger), ready_flag(false), dirty_flag(false), reload_flag(false) {}
-  ~settings_handler_impl() { destroy_all_instances(); }
+  virtual ~settings_handler_impl() { destroy_all_instances(); }
   bool is_ready() { return ready_flag; }
   void set_ready(bool flag = true) { ready_flag = flag; }
   bool is_dirty() { return dirty_flag; }

@@ -4,6 +4,7 @@
 
 #include <settings/settings_core.hpp>
 #include <settings/client/settings_client_interface.hpp>
+#include <utility>
 #include "settings_handler_impl.hpp"
 
 namespace settings_manager {
@@ -21,8 +22,16 @@ class NSCSettingsImpl : public settings::settings_handler_impl {
   std::string tls_ca_;
 
  public:
-  NSCSettingsImpl(provider_interface *provider) : settings::settings_handler_impl(provider->get_logger()), provider_(provider) {}
-  virtual ~NSCSettingsImpl() {}
+  explicit NSCSettingsImpl(provider_interface *provider) : settings::settings_handler_impl(provider->get_logger()), provider_(provider) {}
+  NSCSettingsImpl(provider_interface *provider, std::string tls_version, std::string tls_verify_mode, std::string tls_ca)
+      : settings::settings_handler_impl(provider->get_logger()),
+        provider_(provider),
+        tls_version_(std::move(tls_version)),
+        tls_verify_mode_(std::move(tls_verify_mode)),
+        tls_ca_(std::move(tls_ca))
+
+  {}
+  ~NSCSettingsImpl() override = default;
 
   std::string expand_simple_context(const std::string &key);
   void boot(std::string file);
@@ -50,7 +59,8 @@ settings::settings_core *get_core();
 boost::shared_ptr<nscapi::settings_helper::settings_impl_interface> get_proxy();
 void destroy_settings();
 bool init_settings(provider_interface *provider, const std::string &context = "");
-bool init_installer_settings(provider_interface *provider, const std::string &context = "");
+bool init_installer_settings(provider_interface *provider, const std::string &context, std::string tls_version, std::string tls_verify_mode,
+                             std::string tls_ca);
 void change_context(const std::string &context);
 bool has_boot_conf();
 bool context_exists(const std::string &key);
