@@ -33,6 +33,7 @@
 
 #include <list>
 #include <string>
+#include <utility>
 
 namespace socket_helpers {
 #ifdef USE_SSL
@@ -49,16 +50,17 @@ class socket_exception : public std::exception {
   /// @param error the error message
   ///
   /// @author mickem
-  socket_exception(std::string error) : error(error) {}
-  ~socket_exception() throw() {}
+  explicit socket_exception(std::string error) noexcept : error(std::move(error)) {}
+  socket_exception(const socket_exception& other) noexcept : socket_exception(other.reason()) {}
+  ~socket_exception() noexcept override = default;
 
   //////////////////////////////////////////////////////////////////////////
   /// Retrieve the error message from the exception.
   /// @return the error message
   ///
   /// @author mickem
-  const char* what() const throw() { return error.c_str(); }
-  const std::string reason() const { return error; }
+  const char* what() const noexcept override { return error.c_str(); }
+  std::string reason() const { return error; }
 };
 
 struct connection_info {
@@ -183,6 +185,10 @@ struct connection_info {
     return ss.str();
   }
 };
+#ifdef USE_SSL
+boost::asio::ssl::context_base::method tls_method_parser(const std::string& tls_version);
+boost::asio::ssl::verify_mode verify_mode_parser(const std::string& verify_mode);
+#endif
 
 namespace io {
 void set_result(boost::optional<boost::system::error_code>* a, boost::system::error_code b);

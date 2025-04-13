@@ -302,7 +302,6 @@ boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts
   if (certificate_key_format == "asn1") return boost::asio::ssl::context::asn1;
   return boost::asio::ssl::context::pem;
 }
-#ifdef USE_SSL
 long socket_helpers::connection_info::ssl_opts::get_ctx_opts() const {
   long opts = 0;
   for (const std::string &key : str::utils::split_lst(ssl_options, std::string(","))) {
@@ -317,7 +316,6 @@ long socket_helpers::connection_info::ssl_opts::get_ctx_opts() const {
   }
   return opts;
 }
-#endif
 
 void genkey_callback(int, int, void *) {
   // Ignored as we dont want to show progress...
@@ -416,6 +414,45 @@ void socket_helpers::write_certs(std::string cert, bool ca) {
   ENGINE_cleanup();
 #endif
   CRYPTO_cleanup_all_ex_data();
+}
+
+boost::asio::ssl::context_base::method socket_helpers::tls_method_parser(const std::string &tls_version) {
+  std::string tmp = boost::algorithm::to_lower_copy(tls_version);
+  str::utils::replace(tmp, "+", "");
+  if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3") {
+    return boost::asio::ssl::context::tlsv13;
+  }
+  if (tmp == "tlsv1.2" || tmp == "tls1.2" || tmp == "1.2") {
+    return boost::asio::ssl::context::tlsv12;
+  }
+  if (tmp == "tlsv1.1" || tmp == "tls1.1" || tmp == "1.1") {
+    return boost::asio::ssl::context::tlsv11;
+  }
+  if (tmp == "tlsv1.0" || tmp == "tls1.0" || tmp == "1.0") {
+    return boost::asio::ssl::context::tlsv1;
+  }
+  if (tmp == "sslv3" || tmp == "ssl3") {
+    return boost::asio::ssl::context::sslv23;
+  }
+  throw socket_helpers::socket_exception("Invalid tls version: " + tmp);
+}
+
+boost::asio::ssl::verify_mode socket_helpers::verify_mode_parser(const std::string &verify_mode) {
+  boost::asio::ssl::verify_mode mode = boost::asio::ssl::verify_none;
+  for (const std::string &key : str::utils::split_lst(verify_mode, std::string(","))) {
+    if (key == "none")
+      mode |= boost::asio::ssl::verify_none;
+    else if (key == "peer" || key == "certificate")
+      mode |= boost::asio::ssl::verify_peer;
+    else if (key == "fail-if-no-cert" || key == "fail-if-no-peer-cert" || key == "client-certificate")
+      mode |= boost::asio::ssl::verify_fail_if_no_peer_cert;
+    else if (key == "peer-cert") {
+      mode |= boost::asio::ssl::verify_peer;
+      mode |= boost::asio::ssl::verify_fail_if_no_peer_cert;
+    } else
+      throw socket_helpers::socket_exception("Invalid tls verify mode: " + key);
+  }
+  return mode;
 }
 
 #endif

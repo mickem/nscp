@@ -289,6 +289,10 @@ class settings_core {
   virtual bool use_sensitive_keys() = 0;
 
   virtual nsclient::logging::logger_instance get_logger() const = 0;
+
+  virtual std::string get_tls_version() const = 0;
+  virtual std::string get_tls_verify_mode() const = 0;
+  virtual std::string get_tls_ca() const = 0;
 };
 
 }  // namespace settings

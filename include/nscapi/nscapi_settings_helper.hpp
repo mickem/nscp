@@ -275,7 +275,8 @@ class settings_registry {
   void register_key(std::string path, std::string key, std::string title, std::string description, std::string defaultValue, bool advanced = false) const {
     core_->register_key(path, key, title, description, defaultValue, advanced, false, false);
   }
-  void register_sensitive_key(std::string path, std::string key, std::string title, std::string description, std::string defaultValue, bool advanced = false) const {
+  void register_sensitive_key(std::string path, std::string key, std::string title, std::string description, std::string defaultValue,
+                              bool advanced = false) const {
     core_->register_key(path, key, title, description, defaultValue, advanced, false, true);
   }
   void register_all() const;

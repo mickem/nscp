@@ -113,9 +113,9 @@ struct finder {
     boost::filesystem::path fullpath = path / filename;
 #ifdef WIN32
     std::wstring tmp = utf8::cvt<std::wstring>(fullpath.string());
-    SHFILEINFOW sfi = {0};
+    SHFILEINFOW sfi = {nullptr};
     boost::replace_all(tmp, "/", "\\");
-    HRESULT hr = SHGetFileInfo(tmp.c_str(), 0, &sfi, sizeof(sfi), SHGFI_DISPLAYNAME);
+    const HRESULT hr = SHGetFileInfo(tmp.c_str(), 0, &sfi, sizeof(sfi), SHGFI_DISPLAYNAME);
     if (SUCCEEDED(hr)) {
       tmp = sfi.szDisplayName;
       boost::filesystem::path rpath = path / utf8::cvt<std::string>(tmp);

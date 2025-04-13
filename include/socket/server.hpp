@@ -81,24 +81,7 @@ class server : private boost::noncopyable {
   boost::asio::ssl::context context_;
 
   static boost::asio::ssl::context_base::method make_context(const socket_helpers::connection_info &info) {
-    std::string tmp = boost::algorithm::to_lower_copy(info.ssl.tls_version);
-    str::utils::replace(tmp, "+", "");
-    if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3") {
-      return boost::asio::ssl::context::tlsv13;
-    }
-    if (tmp == "tlsv1.2" || tmp == "tls1.2" || tmp == "1.2") {
-      return boost::asio::ssl::context::tlsv12;
-    }
-    if (tmp == "tlsv1.1" || tmp == "tls1.1" || tmp == "1.1") {
-      return boost::asio::ssl::context::tlsv11;
-    }
-    if (tmp == "tlsv1.0" || tmp == "tls1.0" || tmp == "1.0") {
-      return boost::asio::ssl::context::tlsv1;
-    }
-    if (tmp == "sslv3" || tmp == "ssl3") {
-      return boost::asio::ssl::context::sslv23;
-    }
-    throw socket_helpers::socket_exception("Invalid tls version: " + tmp);
+    return socket_helpers::tls_method_parser(info.ssl.tls_version);
   }
 #endif
 

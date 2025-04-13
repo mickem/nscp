@@ -132,6 +132,29 @@ Adding a script:
 scripts/myscript.bat = http://www.myserver.com/myscript.bat
 ```
 
+#### Using TLS
+
+You likely want to use TLS when using http settings.
+To use TLS you need to configure either If you are using a custom CA or want to use self signed certificates that has to be configured in the `boot.ini` file.
+This is a special file which is used to load configuration before the configuration is loaded.
+For instance, it defines which settings store to use but you can also configure TLS options.
+
+> It is advised to set `verify mode` to `peer` and use a CA certificate to verify the server certificate.
+> This will become the default in the future.
+
+```ini
+[tls]
+version=1.3
+verify mode=peer
+ca=c:\program files\NSClient++\security\ca.pem
+```
+
+| Key         | Default Value | Values          | Description                                                                |
+|-------------|---------------|-----------------|----------------------------------------------------------------------------|
+| version     | 1.3           | 1.0, 1.1, 1.3   | The TLS version to use.                                                    |
+| verify mode | none          | none, peer      | The verify mode to use (Set this to none to use self signed certificates). |
+| ca          |               | Path to CA file | The path to the CA certificate to use.                                     |
+
 ## Using settings stores
 
 NSClient++ has some feature to help work with settings stores.

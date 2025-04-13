@@ -25,13 +25,13 @@
 #include <str/xtos.hpp>
 
 #include <boost/asio.hpp>
-#include <boost/version.hpp>
 #include <boost/scoped_ptr.hpp>
 
-#include <iostream>
 #include <istream>
 #include <ostream>
 #include <string>
+#include <utility>
+#include <iostream>
 
 using boost::asio::ip::tcp;
 
@@ -40,7 +40,7 @@ namespace http {
 struct generic_socket {
   typedef boost::asio::ip::basic_endpoint<boost::asio::ip::tcp> tcp_iterator;
 
-  virtual ~generic_socket() {}
+  virtual ~generic_socket() = default;
   virtual void connect(std::string server_name, std::string port) = 0;
   virtual void write(boost::asio::streambuf &buffer) = 0;
   virtual void read_until(boost::asio::streambuf &buffer, std::string until) = 0;
@@ -48,24 +48,24 @@ struct generic_socket {
   virtual std::size_t read_some(boost::asio::streambuf &buffer, boost::system::error_code &error) = 0;
 };
 
-struct tcp_socket : public generic_socket {
+struct tcp_socket final : generic_socket {
   tcp::socket socket_;
   tcp::resolver resolver_;
 
-  tcp_socket(boost::asio::io_service &io_service) : socket_(io_service), resolver_(io_service) {}
-  virtual ~tcp_socket() {
+  explicit tcp_socket(boost::asio::io_service &io_service) : socket_(io_service), resolver_(io_service) {}
+  ~tcp_socket() override {
     try {
       socket_.close();
     } catch (...) {
     }
   }
 
-  virtual void connect_tcp(const tcp_iterator &endpoint_iterator, std::string server_name, boost::system::error_code &error) {
+  void connect_tcp(const tcp_iterator &endpoint_iterator, const std::string &server_name, boost::system::error_code &error) {
     socket_.close();
     socket_.connect(endpoint_iterator, error);
   }
 
-  void connect(std::string server, std::string port) {
+  void connect(const std::string server, std::string port) override {
     tcp::resolver::query query(server, port);
     tcp::resolver::iterator endpoint_iterator = resolver_.resolve(query);
     tcp::resolver::iterator end;
@@ -73,99 +73,97 @@ struct tcp_socket : public generic_socket {
     boost::system::error_code error = boost::asio::error::host_not_found;
     while (error && endpoint_iterator != end) {
       this->connect_tcp(*endpoint_iterator, server, error);
-      endpoint_iterator++;
+      ++endpoint_iterator;
     }
     if (error) {
       throw socket_helpers::socket_exception("Failed to connect to " + server + ":" + port + ": " + error.message());
     }
   }
 
-  void write(boost::asio::streambuf &buffer) { boost::asio::write(socket_, buffer); }
-  void read_until(boost::asio::streambuf &buffer, std::string until) { boost::asio::read_until(socket_, buffer, until); }
-  bool is_open() const { return socket_.is_open(); }
-  std::size_t read_some(boost::asio::streambuf &buffer, boost::system::error_code &error) {
+  void write(boost::asio::streambuf &buffer) override { boost::asio::write(socket_, buffer); }
+  void read_until(boost::asio::streambuf &buffer, std::string until) override { boost::asio::read_until(socket_, buffer, until); }
+  bool is_open() const override { return socket_.is_open(); }
+  std::size_t read_some(boost::asio::streambuf &buffer, boost::system::error_code &error) override {
     return boost::asio::read(socket_, buffer, boost::asio::transfer_at_least(1), error);
   }
 };
 
-struct ssl_socket : public generic_socket {
+struct ssl_socket : generic_socket {
   boost::asio::ssl::context context_;
   boost::asio::ssl::stream<tcp::socket> ssl_socket_;
   tcp::resolver resolver_;
+  boost::asio::ssl::verify_mode verify_;
 
-  ssl_socket(boost::asio::io_service &io_service)
-#if BOOST_VERSION >= 106800
-      : context_(boost::asio::ssl::context::tlsv1)
-#else
-      : context_(io_service, boost::asio::ssl::context::tlsv1)
-#endif
-        ,
-        ssl_socket_(io_service, context_),
-        resolver_(io_service) {
-    context_.set_verify_mode(boost::asio::ssl::context::verify_none);
+  explicit ssl_socket(boost::asio::io_service &io_service, boost::asio::ssl::context::method method, boost::asio::ssl::verify_mode verify, std::string ca)
+      : context_(method), ssl_socket_(io_service, context_), resolver_(io_service), verify_(verify) {
+    if (!ca.empty() && ca != "none") {
+      try {
+        context_.load_verify_file(ca);
+      } catch (const std::exception &e) {
+        throw socket_helpers::socket_exception("Failed to load CA " + ca + ": " + e.what());
+      }
+    }
   }
 
-  virtual ~ssl_socket() { ssl_socket_.lowest_layer().close(); }
+  ~ssl_socket() override { ssl_socket_.lowest_layer().close(); }
 
-  void connect_tcp(const tcp_iterator &endpoint_iterator, std::string server_name, boost::system::error_code &error) {
+  void connect_tcp(const tcp_iterator &endpoint_iterator, const std::string &server_name, boost::system::error_code &error) {
     ssl_socket_.lowest_layer().close();
     ssl_socket_.lowest_layer().connect(endpoint_iterator, error);
 
     if (error) {
       return;
     }
-
+    ssl_socket_.set_verify_mode(verify_);
     if (!server_name.empty()) {
-#if BOOST_VERSION >= 104700
       SSL_set_tlsext_host_name(ssl_socket_.native_handle(), server_name.c_str());
-#else
-      SSL_set_tlsext_host_name(reinterpret_cast<SSL *>(ssl_socket_.impl()), server_name.c_str());
-#endif
     }
+    ssl_socket_.set_verify_callback(boost::asio::ssl::rfc2818_verification(server_name));
 
     ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
     if (error) {
-      return;
+      throw socket_helpers::socket_exception("Failed to establish TLS connection with (" + server_name + ") " + endpoint_iterator.address().to_string() + ": " +
+                                             error.message());
     }
   }
 
-  void connect(std::string server, std::string port) {
-    tcp::resolver::query query(server, port);
+  void connect(const std::string server, const std::string port) override {
+    const tcp::resolver::query query(server, port);
     tcp::resolver::iterator endpoint_iterator = resolver_.resolve(query);
     tcp::resolver::iterator end;
 
     boost::system::error_code error = boost::asio::error::host_not_found;
     while (error && endpoint_iterator != end) {
       this->connect_tcp(*endpoint_iterator, server, error);
-      endpoint_iterator++;
+      ++endpoint_iterator;
     }
     if (error) {
       throw socket_helpers::socket_exception("Failed to connect to " + server + ":" + port + ": " + error.message());
     }
   }
 
-  void write(boost::asio::streambuf &buffer) { boost::asio::write(ssl_socket_, buffer); }
-  void read_until(boost::asio::streambuf &buffer, std::string until) { boost::asio::read_until(ssl_socket_, buffer, until); }
-  bool is_open() const { return ssl_socket_.lowest_layer().is_open(); }
-  std::size_t read_some(boost::asio::streambuf &buffer, boost::system::error_code &error) {
+  void write(boost::asio::streambuf &buffer) override { boost::asio::write(ssl_socket_, buffer); }
+  void read_until(boost::asio::streambuf &buffer, std::string until) override { boost::asio::read_until(ssl_socket_, buffer, until); }
+  bool is_open() const override { return ssl_socket_.lowest_layer().is_open(); }
+  std::size_t read_some(boost::asio::streambuf &buffer, boost::system::error_code &error) override {
     return boost::asio::read(ssl_socket_, buffer, boost::asio::transfer_at_least(1), error);
   }
 };
 #ifdef WIN32
-struct file_socket : public generic_socket {
+struct file_socket final : public generic_socket {
   boost::asio::windows::stream_handle handle_;
 
-  file_socket(boost::asio::io_service &io_service) : handle_(io_service) {}
-  virtual ~file_socket() {
+  explicit file_socket(boost::asio::io_service &io_service) : handle_(io_service) {}
+  ~file_socket() override {
     try {
       handle_.close();
     } catch (...) {
     }
   }
 
-  void connect(std::string pipe_name, std::string port) {
-    HANDLE hPipe = ::CreateFileA(pipe_name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
-                                 FILE_FLAG_OVERLAPPED | SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION, nullptr);
+  void connect(const std::string pipe_name, std::string port) override {
+    const HANDLE hPipe = ::CreateFileA(pipe_name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
+                                       FILE_FLAG_OVERLAPPED | SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION, nullptr);
 
     if (hPipe == INVALID_HANDLE_VALUE) {
       throw socket_helpers::socket_exception("Failed to open pipe " + pipe_name);
@@ -174,25 +172,41 @@ struct file_socket : public generic_socket {
     // assign the pipe to our handle
     handle_.assign(hPipe);
   }
-  void write(boost::asio::streambuf &buffer) { boost::asio::write(handle_, buffer); }
-  void read_until(boost::asio::streambuf &buffer, std::string until) { boost::asio::read_until(handle_, buffer, until); }
-  bool is_open() const { return handle_.is_open(); }
-  std::size_t read_some(boost::asio::streambuf &buffer, boost::system::error_code &error) {
+  void write(boost::asio::streambuf &buffer) override { boost::asio::write(handle_, buffer); }
+  void read_until(boost::asio::streambuf &buffer, std::string until) override { boost::asio::read_until(handle_, buffer, until); }
+  bool is_open() const override { return handle_.is_open(); }
+  std::size_t read_some(boost::asio::streambuf &buffer, boost::system::error_code &error) override {
     return boost::asio::read(handle_, buffer, boost::asio::transfer_at_least(1), error);
   }
 };
 #endif
+struct http_client_options {
+  std::string protocol_;
+  std::string tls_version_;
+  std::string verify_;
+  std::string ca_;
+
+  http_client_options(std::string protocol, std::string tls_version, std::string verify, std::string ca)
+      : protocol_(std::move(protocol)), tls_version_(std::move(tls_version)), verify_(std::move(verify)), ca_(ca) {}
+
+  boost::asio::ssl::context::method get_method() const { return socket_helpers::tls_method_parser(tls_version_); }
+
+  boost::asio::ssl::context::verify_mode get_verify() const { return socket_helpers::verify_mode_parser(verify_); };
+
+  bool is_https() const { return protocol_ == "https"; }
+  bool is_pipe() const { return protocol_ == "pipe"; }
+};
 
 class simple_client {
   boost::asio::io_service io_service_;
   boost::scoped_ptr<generic_socket> socket_;
 
  public:
-  simple_client(std::string protocol) : io_service_() {
-    if (protocol == "https") {
-      socket_.reset(new ssl_socket(io_service_));
+  explicit simple_client(const http_client_options &options) {
+    if (options.is_https()) {
+      socket_.reset(new ssl_socket(io_service_, options.get_method(), options.get_verify(), options.ca_));
 #ifdef WIN32
-    } else if (protocol == "pipe") {
+    } else if (options.is_pipe()) {
       socket_.reset(new file_socket(io_service_));
 #endif
     } else {
@@ -202,17 +216,15 @@ class simple_client {
 
   ~simple_client() { socket_.reset(); }
 
-  void connect(std::string server, std::string port) { socket_->connect(server, port); }
+  void connect(const std::string &server, const std::string &port) const { socket_->connect(server, port); }
 
-  void send_request(const http::packet &request) {
+  void send_request(const http::packet &request) const {
     boost::asio::streambuf requestbuf;
     std::ostream request_stream(&requestbuf);
     request.build_request(request_stream);
     socket_->write(requestbuf);
   }
-  http::response read_result(boost::asio::streambuf &response_buffer) {
-    ;
-
+  http::response read_result(boost::asio::streambuf &response_buffer) const {
     std::string http_version, status_message;
     unsigned int status_code;
     socket_->read_until(response_buffer, "\r\n");
@@ -238,7 +250,7 @@ class simple_client {
     return ret;
   }
 
-  http::response execute(std::ostream &os, const std::string server, const std::string port, const http::packet &request) {
+  http::response execute(std::ostream &os, const std::string &server, const std::string &port, const http::packet &request) {
     connect(server, port);
     send_request(request);
 
@@ -261,11 +273,13 @@ class simple_client {
     return response;
   }
 
-  static bool download(std::string protocol, std::string server, std::string port, std::string path, std::ostream &os, std::string &error_msg) {
+  static bool download(std::string protocol, const std::string &server, const std::string &port, std::string path, std::string tls_version,
+                       std::string verify_mode, std::string ca, std::ostream &os, std::string &error_msg) {
     try {
-      http::packet rq("GET", server, path);
+      http::packet rq("GET", server, std::move(path));
       rq.add_default_headers();
-      simple_client c(protocol);
+      http_client_options options(std::move(protocol), std::move(tls_version), std::move(verify_mode), std::move(ca));
+      simple_client c(options);
       c.execute(os, server, port, rq);
       return true;
     } catch (const socket_helpers::socket_exception &e) {

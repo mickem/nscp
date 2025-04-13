@@ -136,7 +136,11 @@ class settings_http : public settings::settings_interface_impl {
 
       std::string def_port = url.protocol == "https" ? "443" : "80";
 
-      if (!http::simple_client::download(url.protocol, url.host, url.get_port_string(def_port), url.path, os, error)) {
+      auto tls_version = get_core()->get_tls_version();
+      auto verify_mode = get_core()->get_tls_verify_mode();
+      auto ca = get_core()->get_tls_ca();
+
+      if (!http::simple_client::download(url.protocol, url.host, url.get_port_string(def_port), url.path, tls_version, verify_mode, ca, os, error)) {
         os.close();
         get_logger()->error("settings", __FILE__, __LINE__, "Failed to download " + tmp_file.string() + ": " + error);
         if (boost::filesystem::is_regular_file(local_file)) {
