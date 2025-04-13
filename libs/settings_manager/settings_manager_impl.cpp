@@ -15,6 +15,7 @@
 #include <str/xtos.hpp>
 #include <str/format.hpp>
 #include <utf8.hpp>
+#include <utility>
 
 static settings_manager::NSCSettingsImpl *settings_impl = NULL;
 
@@ -242,9 +243,10 @@ bool init_settings(provider_interface *provider, const std::string &context) {
   return true;
 }
 
-bool init_installer_settings(provider_interface *provider, const std::string &context) {
+bool init_installer_settings(provider_interface *provider, const std::string &context, std::string tls_version, std::string tls_verify_mode,
+                             std::string tls_ca) {
   try {
-    settings_impl = new NSCSettingsImpl(provider);
+    settings_impl = new NSCSettingsImpl(provider, std::move(tls_version), std::move(tls_verify_mode), std::move(tls_ca));
     get_core()->set_base(provider->expand_path("${base-path}"));
     if (settings_impl->supports_edit(context)) {
       get_core()->boot(context);

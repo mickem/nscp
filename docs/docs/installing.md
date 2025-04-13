@@ -92,6 +92,9 @@ The MSI file can be customized during the installer. The following keys are avai
 | OP5_HOSTGROUPS     | Additional hostgroups to add to the host.                                                                               |
 | OP5_CONTACTGROUP   | Additional contactgroups to add to the host.                                                                            |
 | NO_SERVICE         | Set to 1 to disable installing the service (then you can manually create and activate the service when needed)          |
+| TLS_VERSION        | The TLS version to use (1.0, 1.1, 1.2, *1.3*)                                                                           |
+| TLS_VERIFY_MODE    | The TLS verify mode to use (*none*, peer, fail_if_no_peer_cert)                                                         |
+| TLS_CA             | The CA file to use for TLS connections (if not using the system default)                                                |
 
 ### Features
 

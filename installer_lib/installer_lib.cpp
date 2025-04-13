@@ -176,6 +176,9 @@ struct installer_settings_provider : public settings_manager::provider_interface
   std::string basepath;
   std::string old_settings_map;
   boost::shared_ptr<msi_logger> logger;
+  std::string tls_version_;
+  std::string tls_verify_mode_;
+  std::string tls_ca_;
 
   installer_settings_provider(msi_helper *h, std::wstring basepath, std::wstring old_settings_map)
       : h(h), basepath(utf8::cvt<std::string>(basepath)), old_settings_map(utf8::cvt<std::string>(old_settings_map)), logger(new msi_logger(h)) {}
@@ -373,6 +376,19 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
     std::wstring target = h.getTargetPath(L"INSTALLLOCATION");
     std::wstring allow = h.getPropery(L"ALLOW_CONFIGURATION");
 
+    std::string tls_version = utf8::cvt<std::string>(h.getPropery(L"TLS_VERSION"));
+    std::string tls_verify_mode = utf8::cvt<std::string>(h.getPropery(L"TLS_VERIFY_MODE"));
+    std::string tls_ca = utf8::cvt<std::string>(h.getPropery(L"TLS_CA"));
+    if (tls_version.empty()) {
+      tls_version = "1.3";
+    }
+    if (tls_verify_mode.empty()) {
+      tls_verify_mode = "none";
+    }
+    if (tls_ca.empty()) {
+      tls_ca = "";
+    }
+
     std::wstring map_data = read_map_data(h);
     if (allow == L"0") {
       h.setProperty(ERROR, L"Configuration is not allowed to change");
@@ -394,7 +410,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
       return ERROR_SUCCESS;
     }
     installer_settings_provider provider(&h, target, map_data);
-    if (!settings_manager::init_installer_settings(&provider, "")) {
+    if (!settings_manager::init_installer_settings(&provider, "", tls_version, tls_verify_mode, tls_ca)) {
       h.setProperty(ERROR, L"Settings context had fatal errors");
       h.logMessage(L"Settings context had fatal errors");
       h.setProperty(ERROR_CONTEXT, L"ImportConfig::init_installer_settings");
@@ -741,6 +757,19 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     std::wstring backup = data.get_next_string();
     int add_defaults = data.get_next_int();
 
+    std::string tls_version = utf8::cvt<std::string>(h.getPropery(L"TLS_VERSION"));
+    std::string tls_verify_mode = utf8::cvt<std::string>(h.getPropery(L"TLS_VERIFY_MODE"));
+    std::string tls_ca = utf8::cvt<std::string>(h.getPropery(L"TLS_CA"));
+    if (tls_version.empty()) {
+      tls_version = "1.3";
+    }
+    if (tls_verify_mode.empty()) {
+      tls_verify_mode = "none";
+    }
+    if (tls_ca.empty()) {
+      tls_ca = "";
+    }
+
     h.logMessage(L"Target: " + target);
     h.logMessage("Context: " + context);
     h.logMessage(L"Restore: " + restore);
@@ -781,7 +810,7 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     }
 
     installer_settings_provider provider(&h, target);
-    if (!settings_manager::init_installer_settings(&provider, context)) {
+    if (!settings_manager::init_installer_settings(&provider, context, tls_version, tls_verify_mode, tls_ca)) {
       h.errorMessage(L"Failed to boot settings: " + provider.get_error());
       h.logMessage(L"Switching context: " + context_w);
       settings_manager::change_context(context);
