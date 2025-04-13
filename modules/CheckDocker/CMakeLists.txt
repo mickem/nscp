@@ -15,8 +15,12 @@ else(JSON_SPIRIT_FOUND)
   set(JSON_LIB)
 endif(JSON_SPIRIT_FOUND)
 
-set(SRCS ${SRCS} "${TARGET}.cpp" check_docker.cpp ${NSCP_DEF_PLUGIN_CPP}
-         ${NSCP_FILTER_CPP})
+set(SRCS ${SRCS} "${TARGET}.cpp" 
+    check_docker.cpp 
+    ${NSCP_DEF_PLUGIN_CPP}
+    ${NSCP_FILTER_CPP}
+    ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+)
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
 if(OPENSSL_FOUND)

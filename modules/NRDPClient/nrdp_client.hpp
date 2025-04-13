@@ -32,6 +32,9 @@ struct connection_data : public socket_helpers::connection_info {
   std::string token;
   std::string protocol;
   std::string path;
+  std::string tls_version;
+  std::string verify_mode;
+  std::string ca;
 
   std::string sender_hostname;
 
@@ -49,6 +52,9 @@ struct connection_data : public socket_helpers::connection_info {
     timeout = arguments.get_int_data("timeout", 30);
     token = arguments.get_string_data("token");
     retry = arguments.get_int_data("retry", 3);
+    tls_version = arguments.get_string_data("tls version");
+    verify_mode = arguments.get_string_data("verify mode");
+    ca = arguments.get_string_data("ca");
 
     if (sender.has_data("host")) sender_hostname = sender.get_string_data("host");
   }
@@ -62,6 +68,8 @@ struct connection_data : public socket_helpers::connection_info {
     ss << ", timeout: " << timeout;
     ss << ", token: " << token;
     ss << ", sender: " << sender_hostname;
+    ss << ", tls version: " << tls_version;
+    ss << ", verify mode: " << verify_mode;
     return ss.str();
   }
 };
@@ -119,7 +127,8 @@ struct nrdp_client_handler : public client::handler_interface {
   void send(PB::Commands::SubmitResponseMessage::Response *payload, connection_data con, const nrdp::data &nrdp_data) {
     try {
       NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Connecting tuo: " + con.to_string()); }
-      http::simple_client c(con.protocol);
+      http::http_client_options options(con.protocol, con.tls_version, con.verify_mode, con.ca);
+      http::simple_client c(options);
       http::packet request("POST", con.get_address(), con.path);
       http::packet::post_map_type post;
       post["token"] = con.token;

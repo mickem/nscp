@@ -135,7 +135,8 @@ void check(const PB::Commands::QueryRequestMessage::Request& request, PB::Comman
     std::string error;
 
     rq.add_default_headers();
-    http::simple_client c("pipe");
+    http::http_client_options options("pipe", "", "", "");
+    http::simple_client c(options);
     c.execute(ss, host, "", rq);
 
     json_spirit::Value root;

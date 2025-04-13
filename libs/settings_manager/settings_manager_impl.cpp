@@ -132,6 +132,13 @@ void NSCSettingsImpl::boot(std::string key) {
       std::string v = utf8::cvt<std::string>(boot_conf.GetValue(L"settings", utf8::cvt<std::wstring>(str::xtos(i)).c_str(), L""));
       if (!v.empty()) order.push_back(expand_context(v));
     }
+    tls_version_ = utf8::cvt<std::string>(boot_conf.GetValue(L"tls", L"version", L"1.3"));
+    tls_verify_mode_ = utf8::cvt<std::string>(boot_conf.GetValue(L"tls", L"verify mode", L"none"));
+    tls_ca_ = utf8::cvt<std::string>(boot_conf.GetValue(L"tls", L"ca", L""));
+  } else {
+    tls_version_ = "1.3";
+    tls_verify_mode_ = "none";
+    tls_ca_ = "";
   }
   if (order.size() == 0) {
     get_logger()->debug("settings", __FILE__, __LINE__, "No entries found looking in (adding default): " + boot_.string());

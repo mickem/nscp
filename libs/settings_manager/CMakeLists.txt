@@ -12,6 +12,7 @@ set(service_SRCS
     settings_handler_impl.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
+    ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/utf8.cpp)
 
 if(WIN32)

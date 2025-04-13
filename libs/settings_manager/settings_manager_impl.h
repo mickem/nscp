@@ -16,6 +16,9 @@ class NSCSettingsImpl : public settings::settings_handler_impl {
  private:
   boost::filesystem::path boot_;
   provider_interface *provider_;
+  std::string tls_version_;
+  std::string tls_verify_mode_;
+  std::string tls_ca_;
 
  public:
   NSCSettingsImpl(provider_interface *provider) : settings::settings_handler_impl(provider->get_logger()), provider_(provider) {}
@@ -34,6 +37,10 @@ class NSCSettingsImpl : public settings::settings_handler_impl {
   bool has_boot_conf();
   void set_primary(std::string key);
   bool supports_edit(const std::string key);
+
+  std::string get_tls_version() const override { return tls_version_; }
+  std::string get_tls_verify_mode() const override { return tls_verify_mode_; }
+  std::string get_tls_ca() const override { return tls_ca_; }
 };
 
 // Alias to make handling "compatible" with old syntax
