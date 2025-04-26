@@ -15,9 +15,8 @@ if(NOT LUA_FOUND)
 endif()
 
 find_package(PROTOC_GEN_LUA)
-find_package(PROTOC_GEN_JSON)
 find_package(ProtocGenMd)
-find_package(GoogleProtoBuf)
+find_package(protobuf)
 find_package(GoogleTest)
 find_package(OpenSSL)
 find_package(Miniz)
@@ -34,6 +33,11 @@ if(WIN32)
 else()
   # FIND_PACKAGE(Boost COMPONENTS system filesystem)
 endif()
+if(WIN32)
+  set(boost_python_dep python311)
+else(WIN32)
+  set(boost_python_dep python3)
+endif(WIN32)
 find_package(
   Boost
   COMPONENTS system
@@ -42,7 +46,7 @@ find_package(
              regex
              date_time
              program_options
-             python311
+             ${boost_python_dep}
              chrono)
 find_package(Json_Spirit)
 find_package(Mkdocs)
@@ -97,14 +101,6 @@ else(PROTOC_GEN_LUA_FOUND)
     STATUS
       " ! lua.protocol_buffers not found: PROTOC_GEN_LUA=${PROTOC_GEN_LUA_BIN}")
 endif(PROTOC_GEN_LUA_FOUND)
-if(PROTOC_GEN_JSON_FOUND)
-  message(STATUS " - json.protocol_buffers found in: ${PROTOC_GEN_JSON_BIN}")
-else(PROTOC_GEN_JSON_FOUND)
-  message(
-    STATUS
-      " ! json.protocol_buffers not found: PROTOC_GEN_JSON_BIN=${PROTOC_GEN_JSON_BIN}"
-  )
-endif(PROTOC_GEN_JSON_FOUND)
 if(PROTOC_GEN_MD_FOUND)
   message(STATUS " - md.protocol_buffers found in: ${PROTOC_GEN_MD_BIN}")
 else(PROTOC_GEN_MD_FOUND)

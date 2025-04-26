@@ -41,53 +41,9 @@ nscp_force_include(${TARGET}
                    ${BUILD_ROOT_FOLDER}/include/nscapi/dll_defines_protobuf.hpp)
 
 target_link_libraries(${TARGET} ${PROTOBUF_LIBRARY})
+if(MSVC)
 target_compile_options(${TARGET} PRIVATE /wd4251)
-
-if(PROTOC_GEN_JSON_FOUND AND JSON_SPIRIT_FOUND)
-  set(TARGET nscp_json_pb)
-
-  set(SRCS
-      ${COMMON_PLUGIN_SRC_JSON_C}
-      ${PROTO_PLUGIN_SRC_JSON_C}
-      ${METRICS_PLUGIN_SRC_JSON_C}
-      ${LOG_PLUGIN_SRC_JSON_C}
-      ${REGISTRY_PLUGIN_SRC_JSON_C}
-      ${SETTINGS_PLUGIN_SRC_JSON_C}
-      ${STORAGE_PLUGIN_SRC_JSON_C})
-  if(WIN32)
-    set(SRCS
-        ${SRCS}
-        plugin.proto
-        metrics.proto
-        log.proto
-        registry.proto
-        settings.proto
-        storage.proto
-        common.proto
-        ${COMMON_PLUGIN_SRC_JSON_H}
-        ${PROTO_PLUGIN_SRC_JSON_H}
-        ${METRICS_PLUGIN_SRC_JSON_H}
-        ${LOG_PLUGIN_SRC_JSON_H}
-        ${REGISTRY_PLUGIN_SRC_JSON_H}
-        ${SETTINGS_PLUGIN_SRC_JSON_H}
-        ${STORAGE_PLUGIN_SRC_JSON_H})
-  endif(WIN32)
-
-  include_directories(${JSON_SPIRIT_INCLUDE_DIR})
-  add_definitions(-DHAVE_JSON_SPIRIT ${NSCP_GLOBAL_DEFINES})
-  include_directories(${PROJECT_BINARY_DIR}/libs/protobuf)
-
-  if(USE_STATIC_RUNTIME)
-    add_definitions(-Djson_protobuf_NOLIB)
-    add_definitions(-DJSON_SPIRIT_STATIC_LINKED)
-  endif(USE_STATIC_RUNTIME)
-  nscp_make_library(${TARGET} "${SRCS}")
-  nscp_force_include(
-    ${TARGET} ${BUILD_ROOT_FOLDER}/include/nscapi/dll_defines_protobuf.hpp)
-
-  target_link_libraries(${TARGET} ${PROTOBUF_LIBRARY} nscp_protobuf json_spirit)
-  target_compile_options(${TARGET} PRIVATE /wd4251 /wd4456 /wd4100)
-endif()
+endif(WIN32)
 
 if(PROTOC_GEN_LUA_FOUND AND (LUA_FOUND OR LUA_SOURCE_FOUND))
   set(TARGET nscp_lua_pb)
@@ -140,6 +96,8 @@ if(PROTOC_GEN_LUA_FOUND AND (LUA_FOUND OR LUA_SOURCE_FOUND))
           ${TARGET} ${BUILD_ROOT_FOLDER}/include/nscapi/dll_defines_protobuf.hpp)
 
   target_link_libraries(${TARGET} ${PROTOBUF_LIBRARY} nscp_protobuf ${LUA_LIB})
+if(WIN32)
   target_compile_options(${TARGET} PRIVATE /wd4251)
+endif(WIN32)
 
 endif()

@@ -28,16 +28,9 @@ class legacy_controller : public Mongoose::MatchController {
   std::string get_status();
   bool set_status(std::string status_);
   void console_exec(Mongoose::Request &request, Mongoose::StreamResponse &response);
-  void registry_inventory(Mongoose::Request &request, Mongoose::StreamResponse &response);
-  void registry_control_module_load(Mongoose::Request &request, Mongoose::StreamResponse &response);
-  void registry_control_module_unload(Mongoose::Request &request, Mongoose::StreamResponse &response);
-  void registry_inventory_modules(Mongoose::Request &request, Mongoose::StreamResponse &response);
-  void settings_inventory(Mongoose::Request &request, Mongoose::StreamResponse &response);
-  void settings_query_json(Mongoose::Request &request, Mongoose::StreamResponse &response);
   void settings_query_pb(Mongoose::Request &request, Mongoose::StreamResponse &response);
   void run_query_pb(Mongoose::Request &request, Mongoose::StreamResponse &response);
   void run_exec_pb(Mongoose::Request &request, Mongoose::StreamResponse &response);
-  void settings_status(Mongoose::Request &request, Mongoose::StreamResponse &response);
 
   void auth_token(Mongoose::Request &request, Mongoose::StreamResponse &response);
   void auth_logout(Mongoose::Request &request, Mongoose::StreamResponse &response);

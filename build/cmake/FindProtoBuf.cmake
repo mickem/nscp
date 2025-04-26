@@ -55,7 +55,7 @@ else()
           ${PROTOBUF_LIBRARY_PREFIX}libprotobuf${PROTOBUF_LIBRARY_SUFFIX}
     PATHS ${PROTOBUF_LIBRARYDIR_RELEASE} ${PROTOBUF_LIBRARYDIR}
           ${PROTOBUF_ROOT}/build/Release /usr/local/Cellar/protobuf241/2.4.1/lib
-          ${GNUWIN32_DIR}/lib
+          /usr/lib/ /usr/lib/x86_64-linux-gnu ${GNUWIN32_DIR}/lib
     NO_DEFAULT_PATH)
   if(CMAKE_TRACE)
     message(STATUS "    PROTOBUF_LIBRARY_RELEASE=${PROTOBUF_LIBRARY_RELEASE}")
@@ -69,7 +69,7 @@ else()
       ${PROTOBUF_LIBRARY_PREFIX_DEBUG}libprotobufd${PROTOBUF_LIBRARY_SUFFIX_DEBUG}
     PATHS ${PROTOBUF_LIBRARYDIR_DEBUG} ${PROTOBUF_LIBRARYDIR}
           ${PROTOBUF_ROOT}/build/Debug ${PROTOBUF_ROOT}/cmake/solution/Debug
-          /usr/local/Cellar/protobuf241/2.4.1/lib ${GNUWIN32_DIR}/lib
+          /usr/local/Cellar/protobuf241/2.4.1/lib /usr/lib/ /usr/lib/x86_64-linux-gnu ${GNUWIN32_DIR}/lib
     NO_DEFAULT_PATH)
   if(CMAKE_TRACE)
     message(STATUS "    PROTOBUF_LIBRARY_DEBUG=${PROTOBUF_LIBRARY_DEBUG}")
