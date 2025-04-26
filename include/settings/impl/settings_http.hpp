@@ -21,24 +21,10 @@
 
 #include <string>
 #include <fstream>
+#include <iomanip>
 
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
-
-#ifdef HAVE_LIBCRYPTOPP
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wtype-limits"
-#pragma GCC diagnostic ignored "-pedantic"
-#pragma GCC diagnostic ignored "-Wunused-variable"
-#endif
-#include <sha.h>
-#include <hex.h>
-#include <files.h>
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-#endif
 
 #ifdef HAVE_MINIZ
 #ifdef __GNUC__
@@ -89,13 +75,33 @@ class settings_http : public settings::settings_interface_impl {
 
   virtual void real_clear_cache() {}
 
-  std::string hash_file(const boost::filesystem::path &file) {
-    std::string result;
-#ifdef HAVE_LIBCRYPTOPP
-    CryptoPP::SHA1 hash;
-    CryptoPP::FileSource(file.string().c_str(), true, new CryptoPP::HashFilter(hash, new CryptoPP::HexEncoder(new CryptoPP::StringSink(result), true)));
+  static std::string hash_file(const boost::filesystem::path &file) { return hash_string(file_helpers::read_file_as_string(file)); }
+
+  static std::string hash_string(const std::string &input) {
+#ifdef USE_SSL
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    EVP_MD_CTX *context = EVP_MD_CTX_new();
+
+    if (context == nullptr) {
+      throw std::runtime_error("Failed to create EVP_MD_CTX");
+    }
+
+    if (EVP_DigestInit_ex(context, EVP_sha256(), nullptr) != 1 || EVP_DigestUpdate(context, input.c_str(), input.size()) != 1 ||
+        EVP_DigestFinal_ex(context, hash, nullptr) != 1) {
+      EVP_MD_CTX_free(context);
+      throw std::runtime_error("Failed to compute SHA-256 digest");
+    }
+
+    EVP_MD_CTX_free(context);
+
+    std::ostringstream oss;
+    for (unsigned char c : hash) {
+      oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+    }
+    return oss.str();
+#else
+    get_logger()->error("settings", __FILE__, __LINE__, "Settings http not compiled with hashing support");
 #endif
-    return result;
   }
 
   boost::filesystem::path resolve_cache_file(const net::url &url) const {
@@ -105,17 +111,9 @@ class settings_http : public settings::settings_interface_impl {
     return local_file;
   }
 
-  virtual void log_debug(std::string _file, int _line, std::string _msg) const {
-    UNREFERENCED_PARAMETER(_file);
-    UNREFERENCED_PARAMETER(_line);
-    UNREFERENCED_PARAMETER(_msg);
-  }
+  virtual void log_debug(std::string file, int line, std::string msg) const { core_->get_logger()->debug("settings", file.c_str(), line, msg); }
 
-  virtual void log_error(std::string _file, int _line, std::string _msg) const {
-    UNREFERENCED_PARAMETER(_file);
-    UNREFERENCED_PARAMETER(_line);
-    UNREFERENCED_PARAMETER(_msg);
-  }
+  virtual void log_error(std::string file, int line, std::string msg) const { core_->get_logger()->error("settings", file.c_str(), line, msg); }
   virtual std::string expand_path(std::string path) { return path; }
 
   bool cache_remote_file(const net::url &url, const std::string &file) {

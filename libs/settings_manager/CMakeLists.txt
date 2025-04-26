@@ -43,12 +43,6 @@ if(OPENSSL_FOUND)
   include_directories(${OPENSSL_INCLUDE_DIR})
 endif(OPENSSL_FOUND)
 
-if(CRYPTOPP_FOUND)
-  add_definitions(-DHAVE_LIBCRYPTOPP)
-  include_directories(${CRYPTOPP_INCLUDE_DIR})
-  set(EXTRA_LIBS ${EXTRA_LIBS} ${CRYPTOPP_LIBRARIES})
-endif(CRYPTOPP_FOUND)
-
 add_library(${TARGET} STATIC ${service_SRCS})
 
 target_link_libraries(${TARGET} ${EXTRA_LIBS} nscp_protobuf)

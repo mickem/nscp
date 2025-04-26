@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <fstream>
+#include <sstream>
 #include <utf8.hpp>
 
 #include <boost/version.hpp>
@@ -34,6 +36,18 @@
 
 namespace file_helpers {
 namespace fs = boost::filesystem;
+
+inline std::string read_file_as_string(const boost::filesystem::path &file) {
+  std::ifstream stream(file.c_str());
+  if (!stream) {
+    throw std::runtime_error("Failed to open file: " + file.string());
+  }
+
+  std::ostringstream buffer;
+  buffer << stream.rdbuf();
+  return buffer.str();
+}
+
 class checks {
  public:
   static bool is_directory(std::string path) { return fs::is_directory(path); }
@@ -109,14 +123,14 @@ class patterns {
 };  // END patterns
 
 struct finder {
-  static boost::optional<boost::filesystem::path> locate_file_icase(const boost::filesystem::path path, const std::string filename) {
+  static boost::optional<boost::filesystem::path> locate_file_icase(const boost::filesystem::path& path, const std::string& filename) {
     boost::filesystem::path fullpath = path / filename;
 #ifdef WIN32
-    std::wstring tmp = utf8::cvt<std::wstring>(fullpath.string());
+    auto tmp = utf8::cvt<std::wstring>(fullpath.string());
     SHFILEINFOW sfi = {nullptr};
     boost::replace_all(tmp, "/", "\\");
-    const HRESULT hr = SHGetFileInfo(tmp.c_str(), 0, &sfi, sizeof(sfi), SHGFI_DISPLAYNAME);
-    if (SUCCEEDED(hr)) {
+    const auto hr = SHGetFileInfo(tmp.c_str(), 0, &sfi, sizeof(sfi), SHGFI_DISPLAYNAME);
+    if (hr != 0) {
       tmp = sfi.szDisplayName;
       boost::filesystem::path rpath = path / utf8::cvt<std::string>(tmp);
       if (boost::filesystem::is_regular_file(rpath)) return rpath;
@@ -131,7 +145,7 @@ struct finder {
       }
     }
 #endif
-    return boost::optional<boost::filesystem::path>();
+    return {};
   }
 };
 }  // namespace file_helpers
