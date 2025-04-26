@@ -47,16 +47,16 @@
   {                                               \
     get_logger()->debug("core", file, line, msg); \
   }
-#define IS_LOG_DEBUG_CORE(msg) \
-  {                            \
+#define IS_LOG_DEBUG_CORE() \
+  {                         \
     if (get_logger()->should_debug())
 #define LOG_TRACE_CORE(msg)                               \
   {                                                       \
     get_logger()->trace("core", __FILE__, __LINE__, msg); \
   }
 #define LOG_TRACE_CORE_STD(msg) LOG_DEBUG_CORE(std::string(msg))
-#define IS_LOG_TRACE_CORE(msg) if (get_logger()->should_trace())
-#define IS_NOT_LOG_DEBUG_CORE(msg) if (!get_logger()->should_debug())
+#define IS_LOG_TRACE_CORE() if (get_logger()->should_trace())
+#define IS_NOT_LOG_DEBUG_CORE() if (!get_logger()->should_debug())
 
 namespace nsclient {
 namespace logging {

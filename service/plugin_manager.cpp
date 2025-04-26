@@ -315,12 +315,12 @@ boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_fi
     if (boost::filesystem::is_regular_file(tmp)) return tmp;
   }
 
-  for (const std::string &name : names) {
-    boost::optional<boost::filesystem::path> module = file_helpers::finder::locate_file_icase(plugin_path_, name);
+  for (const std::string &current_name : names) {
+    boost::optional<boost::filesystem::path> module = file_helpers::finder::locate_file_icase(plugin_path_, current_name);
     if (module) {
       return module;
     }
-    module = file_helpers::finder::locate_file_icase(boost::filesystem::path("./modules"), name);
+    module = file_helpers::finder::locate_file_icase(boost::filesystem::path("./modules"), current_name);
     if (module) {
       return module;
     }
@@ -343,12 +343,12 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only
   loaded = true;
   if (boost::algorithm::ends_with(real_file->string(), ".zip")) {
 #ifdef HAVE_JSON_SPIRIT
-    return plugin_type(new nsclient::core::zip_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias, path_, shared_from_this(), log_instance_));
+    return plugin_type(new nsclient::core::zip_plugin(plugin_list_.get_next_id(), real_file->lexically_normal(), alias, path_, shared_from_this(), log_instance_));
 #else
-    LOG_ERROR_CORE("Found zip module but json is not enbled during build: " + real_file->normalize());
+    LOG_ERROR_CORE("Found zip module but json is not enbled during build: " + real_file->lexically_normal());
 #endif
   }
-  return plugin_type(new nsclient::core::dll_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias));
+  return plugin_type(new nsclient::core::dll_plugin(plugin_list_.get_next_id(), real_file->lexically_normal(), alias));
 }
 
 /**
@@ -424,10 +424,10 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string name) {
   return true;
 }
 
-unsigned int nsclient::core::plugin_manager::clone_plugin(unsigned int plugin_id) {
-  plugin_type match = plugin_list_.find_by_id(plugin_id);
+int nsclient::core::plugin_manager::clone_plugin(unsigned int plugin_id) {
+  const plugin_type match = plugin_list_.find_by_id(plugin_id);
   if (match) {
-    int new_id = plugin_list_.get_next_id();
+    const int new_id = plugin_list_.get_next_id();
     commands_.add_plugin(new_id, match);
     return new_id;
   } else {
@@ -800,10 +800,10 @@ struct metrics_fetcher {
   PB::Metrics::MetricsMessage::Response *get_root() { return result.mutable_payload(0); }
   void add_bundle(const PB::Metrics::MetricsBundle &b) { get_root()->add_bundles()->CopyFrom(b); }
   void fetch(nsclient::plugin_type p) {
-    std::string buffer;
-    p->fetchMetrics(buffer);
+    std::string local_buffer;
+    p->fetchMetrics(local_buffer);
     PB::Metrics::MetricsMessage payload;
-    payload.ParseFromString(buffer);
+    payload.ParseFromString(local_buffer);
     for (const PB::Metrics::MetricsMessage::Response &r : payload.payload()) {
       for (const PB::Metrics::MetricsBundle &b : r.bundles()) {
         add_bundle(b);

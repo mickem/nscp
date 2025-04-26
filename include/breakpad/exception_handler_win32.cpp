@@ -57,7 +57,7 @@ ExceptionManager *ExceptionManager::instance() {
   return instance_;
 }
 
-static const char *opDescription(const ULONG opcode) {
+static const char *opDescription(const ULONG_PTR opcode) {
   switch (opcode) {
     case 0:
       return "read";
