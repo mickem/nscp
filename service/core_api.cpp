@@ -251,7 +251,7 @@ NSCAPI::log_level::level NSAPIGetLoglevel() {
 
 NSCAPI::errorReturn NSCAPIJson2Protobuf(const char *request_buffer, unsigned int request_buffer_len, char **response_buffer,
                                         unsigned int *response_buffer_len) {
-  std::string request(request_buffer, request_buffer_len), response;
+  std::string request(request_buffer, request_buffer_len);
   try {
     json_spirit::Value root;
     json_spirit::read_or_throw(request, root);
@@ -278,7 +278,7 @@ NSCAPI::errorReturn NSCAPIJson2Protobuf(const char *request_buffer, unsigned int
     }
     *response_buffer_len = static_cast<unsigned int>(response.size());
     if (response.empty())
-      *response_buffer = NULL;
+      *response_buffer = nullptr;
     else {
       *response_buffer = new char[*response_buffer_len + 10];
       memcpy(*response_buffer, response.c_str(), *response_buffer_len);
@@ -292,7 +292,7 @@ NSCAPI::errorReturn NSCAPIJson2Protobuf(const char *request_buffer, unsigned int
 
 NSCAPI::errorReturn NSCAPIProtobuf2Json(const char *object, const char *request_buffer, unsigned int request_buffer_len, char **response_buffer,
                                         unsigned int *response_buffer_len) {
-  std::string request(request_buffer, request_buffer_len), response, obj(object);
+  std::string request(request_buffer, request_buffer_len), obj(object);
   try {
     json_spirit::Object root;
     if (obj == "SettingsResponseMessage") {
@@ -318,7 +318,7 @@ NSCAPI::errorReturn NSCAPIProtobuf2Json(const char *object, const char *request_
     std::string response = json_spirit::write(root);
     *response_buffer_len = static_cast<unsigned int>(response.size());
     if (response.empty())
-      *response_buffer = NULL;
+      *response_buffer = nullptr;
     else {
       *response_buffer = new char[*response_buffer_len + 10];
       memcpy(*response_buffer, response.c_str(), *response_buffer_len);

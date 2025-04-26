@@ -1,0 +1,67 @@
+---
+name: Generate windows binaries
+description: Sign, rename and package windows binaries and attach as build artifacts
+inputs:
+  version:
+    description: The Lua version to cache
+    required: true
+  platform:
+    description: The platform to build for
+    required: true
+    default: 'x64'
+  azure-tenant-id:
+    description: The Azure Active Directory tenant (directory) ID.
+    required: true
+  azure-client-id:
+    description: The client (application) ID of an App Registration in the tenant.
+    required: true
+  azure-client-secret:
+    description: A client secret that was generated for the App Registration.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Generate archives
+      working-directory: tmp/nscp
+      shell: bash
+      run: |
+        echo Running postbuild
+        python postbuild.py
+        echo Running cpack
+        cpack
+
+    - name: Collect debug symbols
+      shell: bash
+      working-directory: tmp/nscp
+      run: |
+        mkdir symbols
+        cd symbols
+        find ../ -name '*-stripped.pdb' -and -not -ipath '*symbols*' -exec cp {} . \;
+        # remove the -symbols suffix
+        for f in *-stripped.pdb; do mv -- "$f" "${f%-stripped.pdb}.pdb"; done
+        7z a -tzip -r ../NSCP-${{ inputs.version }}-${{ inputs.platform }}-symbols.zip .
+
+    - name: Sign files installer
+      uses: azure/trusted-signing-action@v0.5.1
+      with:
+        azure-tenant-id: ${{ inputs.azure-tenant-id }}
+        azure-client-id: ${{ inputs.azure-client-id }}
+        azure-client-secret: ${{ inputs.azure-client-secret }}
+        endpoint: https://neu.codesigning.azure.net
+        trusted-signing-account-name: nsclient
+        certificate-profile-name: nsclient
+        files-folder: ${{ github.workspace }}\tmp\nscp\installers\installer-NSCP
+        files-folder-filter: msi
+        file-digest: SHA256
+        timestamp-rfc3161: http://timestamp.acs.microsoft.com
+        timestamp-digest: SHA256
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: NSCP-${{ inputs.version }}-${{ inputs.platform }}
+        path: |
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}-docs.zip
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}.zip
+          tmp/nscp/installers/installer-NSCP/NSCP-${{ inputs.version }}-${{ inputs.platform }}.msi
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}-symbols.zip
+        if-no-files-found: error

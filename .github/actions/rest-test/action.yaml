@@ -1,0 +1,35 @@
+---
+name: Run rest test
+description: Validate that rest endpoints return expected results
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'npm'
+        cache-dependency-path: tests/rest/package-lock.json
+
+    - name: Install dependencies
+      working-directory: tests/rest
+      shell: cmd
+      run: |
+        npm install
+
+    - name: Start NSClient++
+      working-directory: tmp/nscp
+      shell: cmd
+      run: |
+        cmd /c "start nscp test --settings ..\..\tests\rest\nsclient.ini"
+
+    - name: Install dependencies
+      working-directory: tests/rest
+      shell: cmd
+      run: | 
+        npm run test
+
+    - name: Stop NSClient++
+      working-directory: tmp/nscp
+      shell: cmd
+      run: taskkill /F /im nscp.exe
+

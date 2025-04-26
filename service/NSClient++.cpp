@@ -453,23 +453,23 @@ PB::Metrics::MetricsBundle NSClientT::ownMetricsFetcher() {
   PB::Metrics::MetricsBundle bundle;
   bundle.set_key("workers");
   if (scheduler_.get_scheduler().has_metrics()) {
-    boost::uint64_t taskes__ = scheduler_.get_scheduler().get_metric_executed();
-    boost::uint64_t submitted__ = scheduler_.get_scheduler().get_metric_compleated();
-    boost::uint64_t errors__ = scheduler_.get_scheduler().get_metric_errors();
+    boost::uint64_t taskes_ = scheduler_.get_scheduler().get_metric_executed();
+    boost::uint64_t submitted_ = scheduler_.get_scheduler().get_metric_compleated();
+    boost::uint64_t errors_ = scheduler_.get_scheduler().get_metric_errors();
     boost::uint64_t threads = scheduler_.get_scheduler().get_metric_threads();
 
     PB::Metrics::Metric *m = bundle.add_value();
     m->set_key("jobs");
-    m->mutable_gauge_value()->set_value(taskes__);
+    m->mutable_gauge_value()->set_value(static_cast<double>(taskes_));
     m = bundle.add_value();
     m->set_key("submitted");
-    m->mutable_gauge_value()->set_value(submitted__);
+    m->mutable_gauge_value()->set_value(static_cast<double>(submitted_));
     m = bundle.add_value();
     m->set_key("errors");
-    m->mutable_gauge_value()->set_value(errors__);
+    m->mutable_gauge_value()->set_value(static_cast<double>(errors_));
     m = bundle.add_value();
     m->set_key("threads");
-    m->mutable_gauge_value()->set_value(threads);
+    m->mutable_gauge_value()->set_value(static_cast<double>(threads));
   } else {
     PB::Metrics::Metric *m = bundle.add_value();
     m->set_key("metrics.available");

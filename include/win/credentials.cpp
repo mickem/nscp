@@ -10,7 +10,7 @@ void save_credential(const std::string &alias, const std::string &password) {
   CREDENTIALW cred = {};
   cred.Type = CRED_TYPE_GENERIC;
   cred.TargetName = const_cast<LPWSTR>(alias_w.c_str());
-  cred.CredentialBlobSize = (password_w.length() * 2) + 1;
+  cred.CredentialBlobSize = static_cast<DWORD>(password_w.length() * 2 + 1);
   cred.CredentialBlob = (LPBYTE)password_w.c_str();
   cred.Persist = CRED_PERSIST_LOCAL_MACHINE;
 

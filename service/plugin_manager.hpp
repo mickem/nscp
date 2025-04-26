@@ -112,7 +112,7 @@ class plugin_manager : public boost::enable_shared_from_this<plugin_manager> {
 
   plugin_type find_plugin(const unsigned int plugin_id);
   bool remove_plugin(const std::string name);
-  unsigned int clone_plugin(unsigned int plugin_id);
+  int clone_plugin(unsigned int plugin_id);
   bool reload_plugin(const std::string module);
 
   typedef boost::function<int(plugin_type)> run_function;
