@@ -254,7 +254,7 @@ void lua::lua_wrapper::push_int(int b) { lua_pushinteger(L, b); }
 void lua::lua_wrapper::push_raw_string(std::string s) { lua_pushlstring(L, s.c_str(), s.size()); }
 void lua::lua_wrapper::push_array(const std::list<std::string> &arr) {
   lua_createtable(L, 0, static_cast<int>(arr.size()));
-  int i = 0;
+  int i = 1;
   for (const std::string &s : arr) {
     lua_pushnumber(L, i++);
     lua_pushstring(L, s.c_str());
@@ -263,7 +263,7 @@ void lua::lua_wrapper::push_array(const std::list<std::string> &arr) {
 }
 void lua::lua_wrapper::push_array(const std::vector<std::string> &arr) {
   lua_createtable(L, 0, static_cast<int>(arr.size()));
-  int i = 0;
+  int i = 1;
   for (const std::string &s : arr) {
     lua_pushnumber(L, i++);
     lua_pushstring(L, s.c_str());
