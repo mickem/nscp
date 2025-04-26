@@ -13,6 +13,7 @@ set(SRCS
     check_nrpe.cpp
     ${NSCP_INCLUDEDIR}/nrpe/packet.cpp
     ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/utils.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
     ${NSCP_CLIENT_CPP}

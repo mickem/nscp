@@ -15,7 +15,6 @@ if(LUA_SOURCE_FOUND)
   file(GLOB lua_HEADERS "${LUA_SOURCE_DIR}/*.h")
   if(NOT USE_STATIC_RUNTIME)
     add_definitions(-DLUA_BUILD_AS_DLL)
-    add_definitions(-DLUA_LIB)
   endif()
 
   nscp_make_library(${TARGET} "${SRCS}")

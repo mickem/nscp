@@ -70,6 +70,7 @@ bool nsclient::logging::impl::nsclient_logger::shutdown() {
   if (backend_) {
     return backend_->shutdown();
   }
+  return false;
 }
 void nsclient::logging::impl::nsclient_logger::configure() {
   if (backend_) {

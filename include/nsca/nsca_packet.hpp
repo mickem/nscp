@@ -132,7 +132,7 @@ class packet {
     return "host: " + host + ", " + "service: " + service + ", " + "code: " + str::xtos(code) + ", " + "time: " + str::xtos(time) + ", " + "result: " + result;
   }
 
-  void parse_data(const char* buffer, unsigned int buffer_len) {
+  void parse_data(const char* buffer, std::size_t buffer_len) {
     char* tmp = new char[buffer_len];
     memcpy(tmp, buffer, buffer_len);
     nsca::data::data_packet* data = reinterpret_cast<nsca::data::data_packet*>(tmp);

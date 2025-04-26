@@ -155,7 +155,7 @@ class packet /*: public boost::noncopyable*/ {
   static packet unknown_response(std::string message) { return packet(nrpe::data::responsePacket, nrpe::data::version2, 3, message, 0); }
 
   ~packet() { delete[] tmpBuffer; }
-  static packet make_request(std::string payload, unsigned int buffer_length, unsigned int version) {
+  static packet make_request(std::string payload, unsigned int buffer_length, short version) {
     if (version != 2 && version != 4) {
       throw nrpe::nrpe_exception("Invalid NRPE version: " + str::xtos(version) + ", expected 2 or 4");
     }
@@ -218,7 +218,7 @@ class packet /*: public boost::noncopyable*/ {
     p->packet_type = swap_bytes::hton<int16_t>(type_);
     p->packet_version = swap_bytes::hton<int16_t>(version_);
     p->alignment = 0;
-    p->buffer_length = swap_bytes::hton<int32_t>(len);
+    p->buffer_length = swap_bytes::hton<int32_t>(static_cast<int32_t>(len));
     update_payload(p, payload_);
     p->crc32_value = 0;
     crc32_ = p->crc32_value = swap_bytes::hton<uint32_t>(calculate_crc32(tmpBuffer, static_cast<int>(packet_length)));

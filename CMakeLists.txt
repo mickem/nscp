@@ -353,6 +353,9 @@ if(MSVC)
   else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
   endif()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4373")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /ignore:4099")
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /ignore:4099")
 elseif(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
   # Update if necessary
   set(CMAKE_CXX_FLAGS
@@ -694,6 +697,7 @@ endforeach(CURRENT ${ALL_ZIP_PROJECTS})
 
 set(NSCP_DEF_PLUGIN_CPP
     ${NSCP_INCLUDEDIR}/utf8.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp)
 set(NSCP_DEF_PLUGIN_HPP
@@ -702,6 +706,7 @@ set(NSCP_DEF_PLUGIN_HPP
     ${NSCP_INCLUDEDIR}/str/utils.hpp
     # ${NSCP_INCLUDEDIR}/config.h
     ${NSCP_INCLUDEDIR}/NSCAPI.h
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.hpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_common_options.hpp

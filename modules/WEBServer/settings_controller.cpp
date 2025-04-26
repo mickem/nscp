@@ -74,26 +74,26 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
   std::string path = what.str(1);
 
   PB::Settings::SettingsRequestMessage rm_fetch_paths;
-  PB::Settings::SettingsRequestMessage::Request *payload = rm_fetch_paths.add_payload();
-  payload->mutable_inventory()->mutable_node()->set_path(path);
-  payload->mutable_inventory()->set_recursive_fetch(request.get_bool("recursive", true));
-  payload->mutable_inventory()->set_fetch_paths(true);
-  payload->mutable_inventory()->set_fetch_keys(true);
-  payload->mutable_inventory()->set_fetch_samples(request.get_bool("samples", false));
-  payload->set_plugin_id(plugin_id);
+  PB::Settings::SettingsRequestMessage::Request *payload_1 = rm_fetch_paths.add_payload();
+  payload_1->mutable_inventory()->mutable_node()->set_path(path);
+  payload_1->mutable_inventory()->set_recursive_fetch(request.get_bool("recursive", true));
+  payload_1->mutable_inventory()->set_fetch_paths(true);
+  payload_1->mutable_inventory()->set_fetch_keys(true);
+  payload_1->mutable_inventory()->set_fetch_samples(request.get_bool("samples", false));
+  payload_1->set_plugin_id(plugin_id);
 
-  std::string str_response;
-  core->settings_query(rm_fetch_paths.SerializeAsString(), str_response);
-  PB::Settings::SettingsResponseMessage pb_response;
-  pb_response.ParseFromString(str_response);
+  std::string str_response_1;
+  core->settings_query(rm_fetch_paths.SerializeAsString(), str_response_1);
+  PB::Settings::SettingsResponseMessage pb_response_1;
+  pb_response_1.ParseFromString(str_response_1);
 
-  if (pb_response.payload_size() != 1) {
+  if (pb_response_1.payload_size() != 1) {
     response.setCodeServerError("Failed to fetch keys");
     return;
   }
 
-  const PB::Settings::SettingsResponseMessage::Response rKeys = pb_response.payload(0);
-  if (rKeys.inventory_size() == 0) {
+  const PB::Settings::SettingsResponseMessage::Response rKeys_1 = pb_response_1.payload(0);
+  if (rKeys_1.inventory_size() == 0) {
     response.setCodeNotFound("Key not found: " + path);
     return;
   }
@@ -102,29 +102,29 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
 
   if (true) {
     PB::Settings::SettingsRequestMessage rm_fetch_keys;
-    PB::Settings::SettingsRequestMessage::Request *payload = rm_fetch_keys.add_payload();
-    payload->mutable_query()->mutable_node()->set_path(path);
-    payload->mutable_query()->set_recursive(true);
-    payload->mutable_query()->set_include_keys(true);
-    payload->set_plugin_id(plugin_id);
+    PB::Settings::SettingsRequestMessage::Request *payload_2 = rm_fetch_keys.add_payload();
+    payload_2->mutable_query()->mutable_node()->set_path(path);
+    payload_2->mutable_query()->set_recursive(true);
+    payload_2->mutable_query()->set_include_keys(true);
+    payload_2->set_plugin_id(plugin_id);
 
-    std::string str_response;
-    core->settings_query(rm_fetch_keys.SerializeAsString(), str_response);
-    PB::Settings::SettingsResponseMessage pb_response;
-    pb_response.ParseFromString(str_response);
+    std::string str_response_2;
+    core->settings_query(rm_fetch_keys.SerializeAsString(), str_response_2);
+    PB::Settings::SettingsResponseMessage pb_response_2;
+    pb_response_2.ParseFromString(str_response_2);
 
-    if (pb_response.payload_size() != 1) {
+    if (pb_response_2.payload_size() != 1) {
       response.setCodeServerError("Failed to fetch keys");
       return;
     }
 
-    const PB::Settings::SettingsResponseMessage::Response rKeys = pb_response.payload(0);
-    if (!rKeys.has_query()) {
+    const PB::Settings::SettingsResponseMessage::Response rKeys_2 = pb_response_2.payload(0);
+    if (!rKeys_2.has_query()) {
       response.setCodeNotFound("Key not found: " + path);
       return;
     }
 
-    for (const PB::Settings::Node &s : rKeys.query().nodes()) {
+    for (const PB::Settings::Node &s : rKeys_2.query().nodes()) {
       if (!s.value().empty()) {
         values[s.path() + "$$$" + s.key()] = s.value();
       }
@@ -132,7 +132,7 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
   }
 
   json_spirit::Array node;
-  for (const PB::Settings::SettingsResponseMessage::Response::Inventory &s : rKeys.inventory()) {
+  for (const PB::Settings::SettingsResponseMessage::Response::Inventory &s : rKeys_1.inventory()) {
     json_spirit::Object rs;
     rs["path"] = s.node().path();
     rs["key"] = s.node().key();
