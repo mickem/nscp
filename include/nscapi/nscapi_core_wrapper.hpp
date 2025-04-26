@@ -44,8 +44,6 @@ class NSCAPI_EXPORT core_wrapper {
   nscapi::core_api::lpNSAPIExpandPath fNSAPIExpandPath;
   nscapi::core_api::lpNSAPIGetLoglevel fNSAPIGetLoglevel;
   nscapi::core_api::lpNSAPIRegistryQuery fNSAPIRegistryQuery;
-  nscapi::core_api::lpNSCAPIJson2Protobuf fNSCAPIJson2Protobuf;
-  nscapi::core_api::lpNSCAPIProtobuf2Json fNSCAPIProtobuf2Json;
   nscapi::core_api::lpNSCAPIEmitEvent fNSCAPIEmitEvent;
   nscapi::core_api::lpNSAPIStorageQuery fNSAPIStorageQuery;
 
@@ -79,12 +77,6 @@ class NSCAPI_EXPORT core_wrapper {
   NSCAPI::errorReturn emit_event(std::string &request) const;
   bool submit_message(std::string channel, std::string request, std::string &response) const;
   bool reload(std::string module) const;
-
-  NSCAPI::nagiosReturn json_to_protobuf(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
-  bool json_to_protobuf(const std::string &request, std::string &result) const;
-  NSCAPI::nagiosReturn protobuf_to_json(const char *object, const char *request, const unsigned int request_len, char **response,
-                                        unsigned int *response_len) const;
-  bool protobuf_to_json(const std::string &object, const std::string &request, std::string &result) const;
 
   bool checkLogMessages(int type);
 

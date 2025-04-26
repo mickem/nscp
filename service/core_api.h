@@ -45,9 +45,6 @@ NSCAPI::errorReturn NSAPISettingsQuery(const char *request_buffer, const unsigne
                                        unsigned int *response_buffer_len);
 NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer,
                                        unsigned int *response_buffer_len);
-NSCAPI::errorReturn NSCAPIJson2Protobuf(const char *request_buffer, unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
-NSCAPI::errorReturn NSCAPIProtobuf2Json(const char *object, const char *request_buffer, unsigned int request_buffer_len, char **response_buffer,
-                                        unsigned int *response_buffer_len);
 NSCAPI::errorReturn NSCAPIEmitEvent(const char *request_buffer, const unsigned int request_buffer_len);
 NSCAPI::errorReturn NSCAPIStorageQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer,
                                        unsigned int *response_buffer_len);

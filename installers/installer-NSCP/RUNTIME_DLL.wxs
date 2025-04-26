@@ -15,7 +15,6 @@
       </Component>
 			<Component Id="LibNSCP" Guid="365EF37C-49D4-4903-9EF7-A221F0915FB2">
 				<File Id="NSCP_PLUG" Name="plugin_api.dll" DiskId="1" Source="$(var.Source)/plugin_api.dll" Vital="yes" />
-				<File Id="NSCP_JSPB" Name="nscp_json_pb.dll" DiskId="1" Source="$(var.Source)/nscp_json_pb.dll" Vital="yes" />
 				<File Id="NSCP_PB" Name="nscp_protobuf.dll" DiskId="1" Source="$(var.Source)/nscp_protobuf.dll" Vital="yes" />
 				<File Id="NSCP_WF" Name="where_filter.dll" DiskId="1" Source="$(var.Source)/where_filter.dll" Vital="yes" />
 			</Component>

@@ -75,18 +75,6 @@ function(WRAP_PROTO VAR)
       list(APPEND ${VAR}_LUA_H
            "${PROJECT_BINARY_DIR}/libs/lua_pb/${FIL_WE}.pb-lua.h")
     endif(PROTOC_GEN_LUA_FOUND)
-    if(PROTOC_GEN_JSON_FOUND)
-      if(PROTOC_GEN_JSON_BIN)
-        set(PROTOC_GEN_JSON_EXTRA
-            --plugin=protoc-gen-json=${PROTOC_GEN_JSON_BIN})
-      endif(PROTOC_GEN_JSON_BIN)
-      list(APPEND ARGS --json_out ${PROJECT_BINARY_DIR}/libs/json_pb
-           ${PROTOC_GEN_JSON_EXTRA})
-      list(APPEND ${VAR}_JSON_C
-           "${PROJECT_BINARY_DIR}/libs/json_pb/${FIL_WE}.pb-json.cc")
-      list(APPEND ${VAR}_JSON_H
-           "${PROJECT_BINARY_DIR}/libs/json_pb/${FIL_WE}.pb-json.h")
-    endif(PROTOC_GEN_JSON_FOUND)
     if(PROTOC_GEN_MD_FOUND AND PROTOBUF_PROTOC_VERSION STREQUAL "2.6.1")
       if(PROTOC_GEN_MD_BIN)
         set(PROTOC_GEN_MD_EXTRA --plugin=protoc-gen-md=${PROTOC_GEN_MD_BIN})

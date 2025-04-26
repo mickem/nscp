@@ -109,8 +109,6 @@ typedef NSCAPI::errorReturn (*lpNSAPIReload)(const char *module);
 typedef NSCAPI::log_level::level (*lpNSAPIGetLoglevel)();
 typedef NSCAPI::errorReturn (*lpNSAPISettingsQuery)(const char *, const unsigned int, char **, unsigned int *);
 typedef NSCAPI::errorReturn (*lpNSAPIRegistryQuery)(const char *, const unsigned int, char **, unsigned int *);
-typedef NSCAPI::errorReturn (*lpNSCAPIJson2Protobuf)(const char *, const unsigned int, char **, unsigned int *);
-typedef NSCAPI::errorReturn (*lpNSCAPIProtobuf2Json)(const char *, const char *, const unsigned int, char **, unsigned int *);
 
 typedef void (*lpNSAPIMessage)(const char *, unsigned int);
 typedef void (*lpNSAPISimpleMessage)(const char *, int, const char *, int, const char *);

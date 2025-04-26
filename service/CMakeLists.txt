@@ -103,10 +103,9 @@ if(JSON_SPIRIT_FOUND)
   include_directories(${JSON_SPIRIT_INCLUDE_DIR})
   add_definitions(-DHAVE_JSON_SPIRIT)
   add_definitions(-DJSON_SPIRIT_STATIC_LINKED)
-  set(JSON_LIB json_spirit nscp_json_pb)
+  set(JSON_LIB json_spirit)
 
   set(service_SRCS ${service_SRCS} zip_plugin.cpp zip_plugin.h)
-
 else(JSON_SPIRIT_FOUND)
   set(JSON_LIB)
 endif(JSON_SPIRIT_FOUND)

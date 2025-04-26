@@ -49,8 +49,6 @@ nscapi::core_wrapper::core_wrapper()
       fNSAPIExpandPath(NULL),
       fNSAPIGetLoglevel(NULL),
       fNSAPIRegistryQuery(NULL),
-      fNSCAPIJson2Protobuf(NULL),
-      fNSCAPIProtobuf2Json(NULL),
       fNSCAPIEmitEvent(NULL) {}
 nscapi::core_wrapper::~core_wrapper() { delete pimpl; }
 
@@ -266,40 +264,6 @@ bool nscapi::core_wrapper::storage_query(const std::string request, std::string 
   return retC;
 }
 
-bool nscapi::core_wrapper::json_to_protobuf(const std::string &request, std::string &response) const {
-  char *buffer = NULL;
-  unsigned int buffer_size = 0;
-  bool retC = NSCAPI::api_ok(json_to_protobuf(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
-  if (buffer_size > 0 && buffer != NULL) {
-    response = std::string(buffer, buffer_size);
-  }
-  DestroyBuffer(&buffer);
-  return retC;
-}
-
-NSCAPI::errorReturn nscapi::core_wrapper::protobuf_to_json(const char *object, const char *request, const unsigned int request_len, char **response,
-                                                           unsigned int *response_len) const {
-  if (!fNSCAPIProtobuf2Json) throw nsclient::nsclient_exception("NSCore has not been initiated...");
-  return fNSCAPIProtobuf2Json(object, request, request_len, response, response_len);
-}
-
-bool nscapi::core_wrapper::protobuf_to_json(const std::string &object, const std::string &request, std::string &response) const {
-  char *buffer = NULL;
-  unsigned int buffer_size = 0;
-  bool retC = NSCAPI::api_ok(protobuf_to_json(object.c_str(), request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
-  if (buffer_size > 0 && buffer != NULL) {
-    response = std::string(buffer, buffer_size);
-  }
-  DestroyBuffer(&buffer);
-  return retC;
-}
-
-NSCAPI::errorReturn nscapi::core_wrapper::json_to_protobuf(const char *request, const unsigned int request_len, char **response,
-                                                           unsigned int *response_len) const {
-  if (!fNSCAPIJson2Protobuf) throw nsclient::nsclient_exception("NSCore has not been initiated...");
-  return fNSCAPIJson2Protobuf(request, request_len, response, response_len);
-}
-
 /**
  * Retrieve the application name (in human readable format) from the core.
  * @return A string representing the application name.
@@ -365,9 +329,6 @@ bool nscapi::core_wrapper::load_endpoints(nscapi::core_api::lpNSAPILoader f) {
   fNSAPIExpandPath = (nscapi::core_api::lpNSAPIExpandPath)f("NSAPIExpandPath");
 
   fNSAPIGetLoglevel = (nscapi::core_api::lpNSAPIGetLoglevel)f("NSAPIGetLoglevel");
-
-  fNSCAPIJson2Protobuf = (nscapi::core_api::lpNSCAPIJson2Protobuf)f("NSCAPIJson2Protobuf");
-  fNSCAPIProtobuf2Json = (nscapi::core_api::lpNSCAPIProtobuf2Json)f("NSCAPIProtobuf2Json");
 
   fNSCAPIEmitEvent = (nscapi::core_api::lpNSCAPIEmitEvent)f("NSCAPIEmitEvent");
   fNSAPIStorageQuery = (nscapi::core_api::lpNSAPIStorageQuery)f("NSAPIStorageQuery");
