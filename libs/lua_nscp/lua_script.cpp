@@ -307,7 +307,7 @@ int lua::settings_wrapper::get_section(lua_State *L) {
   lua_instance.get_user_object_instance<SettingsData>();
   if (lua_instance.size() < 1) return lua_instance.error("Invalid syntax: get_section([section])");
 
-  std::string v = lua_instance.pop_string();
+  const std::string v = lua_instance.pop_string();
   try {
     lua_instance.push_array(get_settings(lua_instance)->get_section(v));
   } catch (...) {
