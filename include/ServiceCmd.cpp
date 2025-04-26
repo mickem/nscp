@@ -204,7 +204,7 @@ std::wstring get_exe_path(std::wstring svc_name) {
     throw SCException("Failed to open service: " + utf8::cvt<std::string>(svc_name) + " because " + error::lookup::last_error());
   }
   DWORD dwBytesNeeded = 0;
-  DWORD lErr;
+  DWORD lErr = 0;
   if (QueryServiceConfig(schService, NULL, 0, &dwBytesNeeded) || ((lErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)) {
     CloseServiceHandle(schService);
     CloseServiceHandle(schSCManager);

@@ -153,7 +153,8 @@ class win32_service : public TBase {
       handle_error(__LINE__, __FILE__, "Unknown service error!");
     }
   }
-  static DWORD WINAPI service_ctrl_dispatch_ex(DWORD dwCtrlCode, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext) {
+  static DWORD WINAPI service_ctrl_dispatch_ex(DWORD dwCtrlCode, DWORD dwEventType, LPVOID lpEventData, LPVOID _lpContext) {
+    UNREFERENCED_PARAMETER(_lpContext);
     try {
       switch (dwCtrlCode) {
         case SERVICE_CONTROL_STOP:

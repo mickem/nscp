@@ -227,6 +227,7 @@ void modules_controller::disable_module(std::string module, Mongoose::StreamResp
 }
 
 void modules_controller::put_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
+  // TODO: THis works strangely and should be rewritten.
   if (!session->is_loggedin("modules.put", request, response)) return;
 
   if (!validate_arguments(1, what, response)) {

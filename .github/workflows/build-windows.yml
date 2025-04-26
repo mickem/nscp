@@ -61,8 +61,16 @@ jobs:
         cache-dependency-path: 'build/python/requirements.txt'
         cache: 'pip'
 
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'npm'
+        cache-dependency-path: web/package-lock.json
     - id: build-web
-      run: cd web && npm install && npm run build
+      working-directory: web
+      run: |
+        npm install
+        npm run build
 
     - name: Install components
       run: |
@@ -213,49 +221,18 @@ jobs:
       run: |
         ctest --output-on-failure -C Release
 
-    - name: Generate archives
-      working-directory: tmp/nscp
-      run: |
-        echo Running postbuild
-        python postbuild.py
-        echo Running cpack
-        cpack
+    - name: Run rest tests
+      uses: ./.github/actions/rest-test
 
-    - name: Collect debug symbols
-      shell: bash
-      working-directory: tmp/nscp
-      run: |
-        mkdir symbols
-        cd symbols
-        find ../ -name '*-stripped.pdb' -and -not -ipath '*symbols*' -exec cp {} . \;
-        # remove the -symbols suffix
-        for f in *-stripped.pdb; do mv -- "$f" "${f%-stripped.pdb}.pdb"; done
-        7z a -tzip -r ../NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip .
-
-    - name: Sign files installer
-      uses: azure/trusted-signing-action@v0.5.1
+    - name: Generate windows binaries
+      id: generate-windows-binaries
+      uses: ./.github/actions/generate-windows-binaries
       with:
+        version: ${{ inputs.version }}
+        platform: ${{ steps.setup.outputs.platform }}
         azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
         azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-        endpoint: https://neu.codesigning.azure.net
-        trusted-signing-account-name: nsclient
-        certificate-profile-name: nsclient
-        files-folder: ${{ github.workspace }}\tmp\nscp\installers\installer-NSCP
-        files-folder-filter: msi
-        file-digest: SHA256
-        timestamp-rfc3161: http://timestamp.acs.microsoft.com
-        timestamp-digest: SHA256
-
-    - uses: actions/upload-artifact@v4
-      with:
-        name: NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}
-        path: |
-          tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-docs.zip
-          tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.zip
-          tmp/nscp/installers/installer-NSCP/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.msi
-          tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-symbols.zip
-        if-no-files-found: error
 
     - name: Add versions
       shell: bash

@@ -68,18 +68,18 @@ void scheduler::add_task(schedule_metadata::task_source source, std::string inte
 }
 
 bool scheduler::handle_schedule(simple_scheduler::task item) {
-  schedule_metadata metadata = get(item.id);
-  if (metadata.source == schedule_metadata::MODULE) {
-    handle_plugin(metadata);
+  schedule_metadata current_metadata = get(item.id);
+  if (current_metadata.source == schedule_metadata::MODULE) {
+    handle_plugin(current_metadata);
     return true;
-  } else if (metadata.source == schedule_metadata::SETTINGS) {
+  } else if (current_metadata.source == schedule_metadata::SETTINGS) {
     handle_settings();
     return true;
-  } else if (metadata.source == schedule_metadata::METRICS) {
+  } else if (current_metadata.source == schedule_metadata::METRICS) {
     handle_metrics();
     return true;
-  } else if (metadata.source == schedule_metadata::RELOAD) {
-    handle_reload(metadata);
+  } else if (current_metadata.source == schedule_metadata::RELOAD) {
+    handle_reload(current_metadata);
     return false;
   } else {
     on_error(__FILE__, __LINE__, "Unknown source");

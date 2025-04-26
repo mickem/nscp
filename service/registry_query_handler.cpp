@@ -45,8 +45,8 @@ void registry_query_handler::inventory_queries(const PB::Registry::RegistryReque
         p->add_arguments("help-pb");
         PB::Commands::QueryResponseMessage res = plugins_->execute_query(req);
         for (int i = 0; i < res.payload_size(); i++) {
-          const PB::Commands::QueryResponseMessage::Response p = res.payload(i);
-          rpp->mutable_parameters()->ParseFromString(p.data());
+          const PB::Commands::QueryResponseMessage::Response p2 = res.payload(i);
+          rpp->mutable_parameters()->ParseFromString(p2.data());
         }
       }
     }
@@ -62,13 +62,13 @@ void registry_query_handler::inventory_queries(const PB::Registry::RegistryReque
       if (q.fetch_all()) {
         std::string resp;
         PB::Commands::QueryRequestMessage req;
-        PB::Commands::QueryRequestMessage::Request *p = req.add_payload();
-        p->set_command(command);
-        p->add_arguments("help-pb");
+        PB::Commands::QueryRequestMessage::Request *p1 = req.add_payload();
+        p1->set_command(command);
+        p1->add_arguments("help-pb");
         PB::Commands::QueryResponseMessage res = plugins_->execute_query(req);
         for (int i = 0; i < res.payload_size(); i++) {
-          const PB::Commands::QueryResponseMessage::Response p = res.payload(i);
-          rpp->mutable_parameters()->ParseFromString(p.data());
+          const PB::Commands::QueryResponseMessage::Response p2 = res.payload(i);
+          rpp->mutable_parameters()->ParseFromString(p2.data());
         }
       }
     }
@@ -213,7 +213,7 @@ void registry_query_handler::parse_registration(const PB::Registry::RegistryRequ
     plugins_->get_event_subscribers()->register_listener(registration.plugin_id(), registration.name());
   } else if (registration.type() == PB::Registry::ItemType::MODULE) {
     PB::Registry::RegistryResponseMessage::Response::Registration *rpp = rp->mutable_registration();
-    unsigned int new_id = plugins_->clone_plugin(registration.plugin_id());
+    int new_id = plugins_->clone_plugin(registration.plugin_id());
     if (new_id != -1) {
       rpp->set_item_id(new_id);
     }
