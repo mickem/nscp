@@ -133,7 +133,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
   users_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
-  ensure_role(roles, settings, role_path, "legacy", "legacy", "legacy API");
+  ensure_role(roles, settings, role_path, "legacy", "legacy,login.get", "legacy API");
   ensure_role(roles, settings, role_path, "full", "*", "Full access");
   ensure_role(roles, settings, role_path, "client", "public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list",
               "read only");

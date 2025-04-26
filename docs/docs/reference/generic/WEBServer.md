@@ -536,7 +536,7 @@ A list of roles and with coma separated list of access rights.
 |--------------------------------|--------------------------------------------------------------------------------------------------|----------------------|
 | [client](#role-for-read-only)  | public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list | Role for read only   |
 | [full](#role-for-full-access)  | *                                                                                                | Role for Full access |
-| [legacy](#role-for-legacy-api) | legacy                                                                                           | Role for legacy API  |
+| [legacy](#role-for-legacy-api) | legacy,login.get                                                                                 | Role for legacy API  |
 | [view](#role-for-full-access)  | *                                                                                                | Role for Full access |
 
 
@@ -546,7 +546,7 @@ A list of roles and with coma separated list of access rights.
 [/settings/WEB/server/roles]
 client=public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list
 full=*
-legacy=legacy
+legacy=legacy,login.get
 view=*
 
 ```
@@ -619,7 +619,7 @@ Default role for legacy API
 |----------------|-----------------------------------------------------------|
 | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles) |
 | Key:           | legacy                                                    |
-| Default value: | `legacy`                                                  |
+| Default value: | `legacy,login.get`                                        |
 | Used by:       | WEBServer                                                 |
 
 
@@ -628,7 +628,7 @@ Default role for legacy API
 ```
 [/settings/WEB/server/roles]
 # Role for legacy API
-legacy=legacy
+legacy=legacy,login.get
 ```
 
 
