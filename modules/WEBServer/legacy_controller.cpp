@@ -102,10 +102,10 @@ void legacy_controller::auth_logout(Mongoose::Request &request, Mongoose::Stream
 
 void legacy_controller::log_status(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin("legacy", request, response)) return;
-  error_handler_interface::status status = session->get_log_data()->get_status();
-  std::string tmp = status.last_error;
+  error_handler_interface::status current_status = session->get_log_data()->get_status();
+  std::string tmp = current_status.last_error;
   boost::replace_all(tmp, "\\", "/");
-  response.append("{ \"status\" : { \"count\" : " + str::xtos(status.error_count) + ", \"error\" : \"" + tmp + "\"} }");
+  response.append("{ \"status\" : { \"count\" : " + str::xtos(current_status.error_count) + ", \"error\" : \"" + tmp + "\"} }");
 }
 void legacy_controller::log_messages(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin("legacy", request, response)) return;
