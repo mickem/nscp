@@ -122,28 +122,6 @@ describe("queries", () => {
       });
   });
 
-  it("can execute query (json, from Icinga)", async () => {
-    await request(URL)
-      .get("/api/v2/queries/mock_query/commands/execute?a=b&c=d&e=f")
-      .set("Authorization", `Bearer ${key}`)
-      .set("User-Agent", "Icinga/check_nscp_api/0.1.2.3.4.5.6.7.8.9")
-      .trustLocalhost(true)
-      .expect(200)
-      .then((response) => {
-        expect(response.body).toBeDefined();
-        expect(response.body).toEqual({
-          command: "mock_query",
-          lines: [
-            {
-              message: "mock_query::a=b,c=d,e=f",
-              perf: "'a label'=30Z;20;30;10;50 'another label'=33Z;20;30",
-            },
-          ],
-          result: "OK",
-        });
-      });
-  });
-
   it("can execute query (text)", async () => {
     await request(URL)
       .get("/api/v2/queries/mock_query/commands/execute?a=b&c=d&e=f")

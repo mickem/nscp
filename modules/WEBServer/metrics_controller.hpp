@@ -9,8 +9,6 @@
 #include <RegexController.h>
 #include <StreamResponse.h>
 
-#include <boost/thread/shared_mutex.hpp>
-
 #include <string>
 
 class metrics_controller : public Mongoose::RegexpController {

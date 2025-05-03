@@ -28,6 +28,7 @@ set(SRCS
     query_controller.cpp
     scripts_controller.cpp
     legacy_controller.cpp
+    legacy_command_controller.cpp
     api_controller.cpp
     log_controller.cpp
     info_controller.cpp

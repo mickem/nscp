@@ -110,12 +110,7 @@ void query_controller::query_command(Mongoose::Request &request, boost::smatch &
     if (request.readHeader("Accept") == "text/plain") {
       execute_query_text(module, request.getVariablesVector(), response);
     } else {
-      if (boost::starts_with(request.readHeader("User-Agent"), "Icinga/check_nscp_api/")) {
-        // Icinga expects the response in a nagios format
-        execute_query_nagios(module, request.getVariablesVector(), response);
-      } else {
-        execute_query(module, request.getVariablesVector(), response);
-      }
+      execute_query(module, request.getVariablesVector(), response);
     }
   } else if (command == "execute_nagios") {
     if (request.readHeader("Accept") == "text/plain") {
