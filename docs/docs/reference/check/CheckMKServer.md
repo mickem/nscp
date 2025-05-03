@@ -449,7 +449,7 @@ thread pool=10
 
 #### TIMEOUT <a id="/settings/check_mk/server/timeout"></a>
 
-Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+Timeout (in seconds) when reading packets on incoming sockets. If the data has not arrived within this time we will bail out. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
 
 
@@ -829,7 +829,7 @@ thread pool=10
 
 #### TIMEOUT <a id="/settings/default/timeout"></a>
 
-Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
+Timeout (in seconds) when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
 
 
 
