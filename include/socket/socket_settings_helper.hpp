@@ -113,7 +113,7 @@ struct settings_helper {
 					"CACHE ALLOWED HOSTS", "If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.")
 
 				("timeout", nscapi::settings_helper::uint_key(&info_.timeout, 30),
-					"TIMEOUT", "Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.")
+					"TIMEOUT", "Timeout (in seconds) when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.")
 
 				;
     // clang-format on
@@ -127,7 +127,7 @@ struct settings_helper {
     // clang-format off
 			root_path.add_key()
 				("timeout", nscapi::settings_helper::int_fun_key(boost::bind(&object_type::set_property_int, &object, "timeout", pb::_1), 30),
-					"TIMEOUT", "Timeout when reading/writing packets to/from sockets.")
+					"TIMEOUT", "Timeout (in seconds) when reading/writing packets to/from sockets.")
 				;
     // clang-format on
   }

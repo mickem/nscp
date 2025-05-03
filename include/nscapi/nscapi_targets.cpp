@@ -49,7 +49,7 @@ void nscapi::targets::target_object::read(nscapi::settings_helper::settings_impl
 		"TARGET PORT", "The target server port", true)
 
 		("timeout", sh::int_fun_key(boost::bind(&target_object::set_property_int, this, "timeout", ph::_1), 30),
-		"TIMEOUT", "Timeout when reading/writing packets to/from sockets.")
+		"TIMEOUT", "Timeout (in seconds) when reading/writing packets to/from sockets.")
 
 		("retries", sh::int_fun_key(boost::bind(&target_object::set_property_int, this, "retries", ph::_1), 3),
 		"RETRIES", "Number of times to retry sending.")

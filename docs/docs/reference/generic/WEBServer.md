@@ -282,7 +282,7 @@ thread pool=10
 
 #### TIMEOUT <a id="/settings/default/timeout"></a>
 
-Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
+Timeout (in seconds) when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
 
 
 
