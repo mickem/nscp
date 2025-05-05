@@ -13,13 +13,16 @@ inline void parse_result(const ::google::protobuf::RepeatedPtrField<PB::Registry
                          Mongoose::StreamResponse &response, std::string task) {
   for (const PB::Registry::RegistryResponseMessage::Response &r : payload) {
     if (r.has_result() && r.result().code() == PB::Common::Result_StatusCodeType_STATUS_ERROR) {
+      response.get_headers()["Content-Type"] = "text/plain";
       response.setCodeServerError("Failed to " + task);
       return;
     } else if (r.has_result() && r.result().code() == PB::Common::Result_StatusCodeType_STATUS_WARNING) {
+      response.get_headers()["Content-Type"] = "text/plain";
       response.setCodeOk();
       response.append("Warning in " + task);
       return;
     } else if (r.has_result() && r.result().code() == PB::Common::Result_StatusCodeType_STATUS_OK) {
+      response.get_headers()["Content-Type"] = "text/plain";
       response.setCodeOk();
       response.append("Success " + task);
       return;
