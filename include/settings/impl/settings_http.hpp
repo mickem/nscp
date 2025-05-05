@@ -332,7 +332,6 @@ class settings_http : public settings::settings_interface_impl {
   ///
   /// @author mickem
   virtual void save(bool _re_save_all) {
-    UNREFERENCED_PARAMETER(_re_save_all);
     get_logger()->error("settings", __FILE__, __LINE__, "Cannot save settings over HTTP");
     throw settings_exception(__FILE__, __LINE__, "Cannot save settings over HTTP");
   }

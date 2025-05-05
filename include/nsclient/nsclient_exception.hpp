@@ -24,11 +24,14 @@
 
 namespace nsclient {
 
-class nsclient_exception : public std::runtime_error {
+class nsclient_exception : public std::exception {
+  std::string error_;
+
  public:
-  explicit nsclient_exception(const std::string& error) noexcept : std::runtime_error(error.c_str()) {};
+  explicit nsclient_exception(std::string error) noexcept : error_(std::move(error)) {};
   ~nsclient_exception() noexcept override = default;
 
-  std::string reason() const noexcept { return this->what(); }
+  std::string reason() const noexcept { return error_; }
+  const char *what() const noexcept override { return error_.c_str(); }
 };
 }  // namespace nsclient

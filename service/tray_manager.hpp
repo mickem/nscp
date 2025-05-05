@@ -45,7 +45,7 @@ class tray_manager {
     if (plugin_ == NULL) return false;
     try {
       plugin_->showTray();
-    } catch (NSPluginException e) {
+    } catch (NSPluginException &e) {
       throw tray_exception(_T("Systemtray manager failed to show tray: ") + e.error_);
     } catch (...) {
       throw tray_exception(_T("Systemtray manager failed to show tray: Unknown exception"));
@@ -53,7 +53,7 @@ class tray_manager {
     event_.accuire(INFINITE);
     try {
       plugin_->hideTray();
-    } catch (NSPluginException e) {
+    } catch (NSPluginException &e) {
       throw tray_exception(_T("Systemtray manager failed to close tray: ") + e.error_);
     } catch (...) {
       throw tray_exception(_T("Systemtray manager failed to close tray: Unknown exception"));

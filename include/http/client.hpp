@@ -61,7 +61,6 @@ struct tcp_socket final : generic_socket {
   }
 
   void connect_tcp(const tcp_iterator &endpoint_iterator, const std::string &_server_name, boost::system::error_code &error) {
-    UNREFERENCED_PARAMETER(_server_name);
     socket_.close();
     socket_.connect(endpoint_iterator, error);
   }

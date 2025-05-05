@@ -27,7 +27,6 @@
 #include <str/xtos.hpp>
 #include <time.h>
 
-#include <msvc.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
@@ -237,7 +236,6 @@ std::string list_ns_rec(std::string ns, std::string user, std::string password) 
 
 NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int _target_mode, const std::string &command, const std::list<std::string> &arguments,
                                                std::string &result) {
-  UNREFERENCED_PARAMETER(_target_mode);
   try {
     if (command == "wmi" || command == "help" || command.empty()) {
       namespace po = boost::program_options;
@@ -350,7 +348,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int _target_mode, const std
           }
           result = ss.str();
           return NSCAPI::exec_return_codes::returnOK;
-        } catch (wmi_impl::wmi_exception e) {
+        } catch (wmi_impl::wmi_exception &e) {
           NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
           result += "ERROR: " + e.reason();
           return NSCAPI::exec_return_codes::returnERROR;
@@ -358,7 +356,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int _target_mode, const std
       } else if (vm.count("list-all-ns")) {
         try {
           result = list_ns_rec(ns, user, password);
-        } catch (wmi_impl::wmi_exception e) {
+        } catch (wmi_impl::wmi_exception &e) {
           NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
           result += "ERROR: " + e.reason();
           return NSCAPI::exec_return_codes::returnERROR;
@@ -367,7 +365,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int _target_mode, const std
       return NSCAPI::exec_return_codes::returnOK;
     }
     return NSCAPI::cmd_return_codes::returnIgnored;
-  } catch (std::exception e) {
+  } catch (std::exception &e) {
     result += "ERROR: " + utf8::utf8_from_native(e.what());
     return NSCAPI::exec_return_codes::returnERROR;
   }

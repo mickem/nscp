@@ -17,7 +17,6 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <msvc.hpp>
 #include "filter_config_object.hpp"
 #include "filter.hpp"
 
@@ -57,7 +56,6 @@ void filter_config_object::set_data(std::string file_string) {
 }
 
 void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool _oneliner, bool is_sample) {
-  UNREFERENCED_PARAMETER(_oneliner);
   if (!get_value().empty()) filter.set_filter_string(get_value().c_str());
   bool is_default = parent::is_default();
 
@@ -99,7 +97,6 @@ void filter_config_object::set_data(std::string file_string) {
 }
 
 void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool _oneliner, bool is_sample) {
-  UNREFERENCED_PARAMETER(_oneliner);
   if (!get_value().empty()) filter.set_filter_string(get_value().c_str());
   bool is_default = parent::is_default();
 
@@ -144,7 +141,6 @@ void filter_config_object::set_data(std::string file_string) {
 }
 
 void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool _oneliner, bool is_sample) {
-  UNREFERENCED_PARAMETER(_oneliner);
   if (!get_value().empty()) filter.set_filter_string(get_value().c_str());
   bool is_default = parent::is_default();
 
@@ -192,7 +188,6 @@ void filter_config_object::set_data(std::string file_string) {
 }
 
 void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool _oneliner, bool is_sample) {
-  UNREFERENCED_PARAMETER(_oneliner);
   if (!get_value().empty()) filter.set_filter_string(get_value().c_str());
   bool is_default = parent::is_default();
 

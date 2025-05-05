@@ -10,6 +10,8 @@
 
 #include <string>
 #include <list>
+#include <boost/make_shared.hpp>
+#include <utility>
 
 using namespace std;
 using namespace Mongoose;
@@ -20,16 +22,16 @@ class Handler {
   std::string error;
   boost::shared_ptr<Response> response;
 
-  Handler(std::string payload) : payload_(payload) {}
+  Handler(std::string payload) : payload_(std::move(payload)) {}
 
-  void send(struct mg_connection *c, std::string data) { mg_send(c, data.c_str(), data.length()); }
+  void send(struct mg_connection *c, const std::string &data) { mg_send(c, data.c_str(), data.length()); }
 
-  static void ev_handler(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
-    Handler *handler = (Handler *)fn_data;
+  static void ev_handler(struct mg_connection *c, const int ev, void *ev_data, void *fn_data) {
+    auto *handler = static_cast<Handler *>(fn_data);
     handler->handler(c, ev, ev_data);
   }
   void handler(struct mg_connection *c, int ev, void *ev_data) {
-    struct mg_http_message *hm = (struct mg_http_message *)ev_data;
+    auto *hm = static_cast<struct mg_http_message *>(ev_data);
 
     switch (ev) {
       case MG_EV_CONNECT:
@@ -48,24 +50,24 @@ class Handler {
 
   void parseReply(struct mg_http_message *hm) {
     size_t i = 0;
-    response = boost::shared_ptr<Response>(new mcp::string_response(mg_http_status(hm), std::string(hm->message.ptr, hm->message.len)));
+    auto message = std::string(hm->message.ptr, hm->message.len);
+    response = boost::make_shared<mcp::string_response>(mg_http_status(hm), message);
     for (i = 0; hm->headers[i].name.len > 0; i++) {
       response->setHeader(std::string(hm->headers[i].name.ptr, hm->headers[i].name.len), std::string(hm->headers[i].value.ptr, hm->headers[i].value.len));
     }
   }
 };
 namespace Mongoose {
-Client::Client(std::string url) : url_(url) {}
+Client::Client(std::string url) : url_(std::move(url)) {}
 
-Client::~Client() {}
+Client::~Client() = default;
 
-boost::shared_ptr<Response> Client::fetch(std::string verb, Client::header_type hdr, std::string payload) {
-  struct mg_mgr mgr;
+boost::shared_ptr<Response> Client::fetch(std::string verb, Client::header_type hdr, std::string payload) const {
+  mg_mgr mgr{};
 
   mg_mgr_init(&mgr);
   std::stringstream request;
 
-  struct mg_str host = mg_url_host(url_.c_str());
   std::string uri = mg_url_uri(url_.c_str());
 
   request << verb + " " + uri + " HTTP/1.0\r\n";

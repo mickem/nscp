@@ -19,8 +19,6 @@
 
 #pragma once
 
-#include <msvc.hpp>
-
 #include <boost/scoped_ptr.hpp>
 #include <check_mk/client/client_protocol.hpp>
 #include <socket/client.hpp>
@@ -83,26 +81,15 @@ struct check_mk_client_handler : public client::handler_interface {
 
   bool submit(client::destination_container _sender, client::destination_container _target, const PB::Commands::SubmitRequestMessage &_request_message,
               PB::Commands::SubmitResponseMessage &_response_message) {
-    UNREFERENCED_PARAMETER(_sender);
-    UNREFERENCED_PARAMETER(_target);
-    UNREFERENCED_PARAMETER(_request_message);
-    UNREFERENCED_PARAMETER(_response_message);
     return false;
   }
 
   bool exec(client::destination_container _sender, client::destination_container _target, const PB::Commands::ExecuteRequestMessage &_request_message,
             PB::Commands::ExecuteResponseMessage &_response_message) {
-    UNREFERENCED_PARAMETER(_sender);
-    UNREFERENCED_PARAMETER(_target);
-    UNREFERENCED_PARAMETER(_request_message);
-    UNREFERENCED_PARAMETER(_response_message);
     return false;
   }
 
   bool metrics(client::destination_container _sender, client::destination_container _target, const PB::Metrics::MetricsMessage &_request_message) {
-    UNREFERENCED_PARAMETER(_sender);
-    UNREFERENCED_PARAMETER(_target);
-    UNREFERENCED_PARAMETER(_request_message);
     return false;
   }
 

@@ -202,7 +202,7 @@ void NSCSettingsImpl::set_primary(std::string key) {
 bool NSCSettingsImpl::create_context(const std::string &key) {
   try {
     change_context(key);
-  } catch (settings::settings_exception e) {
+  } catch (settings::settings_exception &e) {
     get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
     return false;
   } catch (...) {
@@ -217,7 +217,7 @@ void NSCSettingsImpl::change_context(const std::string &context) {
     get_core()->migrate_to("master", context);
     set_primary(context);
     get_core()->boot(context);
-  } catch (settings::settings_exception e) {
+  } catch (settings::settings_exception &e) {
     get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
     get_logger()->error("settings", __FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");

@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <msvc.hpp>
 #include <socket/clients/http/http_packet.hpp>
 #include <boost/asio.hpp>
 #include <boost/shared_ptr.hpp>
@@ -88,7 +87,6 @@ class protocol : public boost::noncopyable {
     return false;
   }
   bool on_read_error(const boost::system::error_code& _e) {
-    UNREFERENCED_PARAMETER(_e);
     if (current_state_ == wants_data_to_read) {
       set_state(done);
       return true;

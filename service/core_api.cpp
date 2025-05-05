@@ -152,7 +152,7 @@ NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigne
     *response_buffer_len = static_cast<unsigned int>(response.ByteSizeLong());
     *response_buffer = new char[*response_buffer_len + 10];
     response.SerializeToArray(*response_buffer, *response_buffer_len);
-  } catch (settings::settings_exception e) {
+  } catch (settings::settings_exception &e) {
     LOG_ERROR(mainClient, "Failed query: " + utf8::utf8_from_native(e.what()));
     return NSCAPI::api_return_codes::hasFailed;
   } catch (const std::exception &e) {

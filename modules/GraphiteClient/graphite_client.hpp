@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <msvc.hpp>
 #include <socket/socket_helpers.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
@@ -77,10 +76,6 @@ std::string fix_graphite_string(const std::string &s) {
 struct graphite_client_handler : public client::handler_interface {
   bool query(client::destination_container _sender, client::destination_container _target, const PB::Commands::QueryRequestMessage &_request_message,
              PB::Commands::QueryResponseMessage &_response_message) {
-    UNREFERENCED_PARAMETER(_sender);
-    UNREFERENCED_PARAMETER(_target);
-    UNREFERENCED_PARAMETER(_request_message);
-    UNREFERENCED_PARAMETER(_response_message);
     return false;
   }
 
@@ -137,10 +132,6 @@ struct graphite_client_handler : public client::handler_interface {
 
   bool exec(client::destination_container _sender, client::destination_container _target, const PB::Commands::ExecuteRequestMessage &_request_message,
             PB::Commands::ExecuteResponseMessage &_response_message) {
-    UNREFERENCED_PARAMETER(_sender);
-    UNREFERENCED_PARAMETER(_target);
-    UNREFERENCED_PARAMETER(_request_message);
-    UNREFERENCED_PARAMETER(_response_message);
     return false;
   }
 

@@ -47,7 +47,7 @@ class PDHCounter {
   ~PDHCounter();
   pdh_error validate();
 
-  counter_info getCounterInfo(BOOL bExplainText = FALSE);
+  counter_info getCounterInfo(BOOLEAN bExplainText = FALSE);
   const PDH::PDH_HCOUNTER getCounter() const;
   const std::string getName() const;
   const std::string get_path() const;

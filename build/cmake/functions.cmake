@@ -210,9 +210,11 @@ macro(COPY_FILE _SOURCE _TARGET)
 endmacro()
 
 macro(NSCP_DEBUG_SYMBOLS TARGET_NAME)
+  if(WIN32)
   set_target_properties(
     ${TARGET_NAME} PROPERTIES LINK_FLAGS
                               "/PDBSTRIPPED:${TARGET_NAME}-stripped.pdb")
+  endif(WIN32)
 endmacro()
 
 macro(NSCP_INSTALL_MODULE _TARGET)

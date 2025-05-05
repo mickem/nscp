@@ -33,7 +33,9 @@ namespace windows {
 #define STATUS_SUCCESS ((windows::winapi::NTSTATUS)0x00000000L)
 #define STATUS_INFO_LENGTH_MISMATCH ((windows::winapi::NTSTATUS)0xC0000004L)
 #define STATUS_BUFFER_OVERFLOW ((windows::winapi::NTSTATUS)0x80000005L)
+#ifndef STATUS_ACCESS_VIOLATION
 #define STATUS_ACCESS_VIOLATION ((windows::winapi::NTSTATUS)0xC0000005L)
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 namespace winapi {

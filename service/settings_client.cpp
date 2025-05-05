@@ -24,7 +24,6 @@
 #endif
 
 #include "../libs/settings_manager/settings_manager_impl.h"
-#include "../modules/CheckEventLog/CheckEventLog.h"
 
 #include <config.h>
 
@@ -75,7 +74,7 @@ int nsclient_core::settings_client::migrate_from(std::string src) {
     debug_msg(__FILE__, __LINE__, "Migrating from: " + expand_context(src));
     get_core()->migrate_from("master", expand_context(src));
     return 1;
-  } catch (settings::settings_exception e) {
+  } catch (settings::settings_exception &e) {
     error_msg(__FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
     error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
@@ -160,7 +159,7 @@ int nsclient_core::settings_client::show(std::string path, std::string key) {
 int nsclient_core::settings_client::list(std::string path) {
   try {
     dump_path(path);
-  } catch (settings::settings_exception e) {
+  } catch (settings::settings_exception &e) {
     error_msg(__FILE__, __LINE__, "Settings error: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
     error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");

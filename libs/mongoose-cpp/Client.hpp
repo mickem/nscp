@@ -24,7 +24,7 @@ class NSCAPI_EXPORT Client {
    */
   Client(std::string url);
   virtual ~Client();
-  boost::shared_ptr<Response> fetch(std::string verb, header_type hdr, std::string payload);
+  boost::shared_ptr<Response> fetch(std::string verb, header_type hdr, std::string payload) const;
 
  private:
   std::string url_;

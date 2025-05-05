@@ -186,7 +186,7 @@ bool NSClientT::load_configuration(const bool override_log) {
     if (use_credentials) {
       settings_manager::get_settings()->enable_credentials();
     }
-  } catch (settings::settings_exception e) {
+  } catch (settings::settings_exception &e) {
     LOG_ERROR_CORE_STD("Could not find settings: " + utf8::utf8_from_native(e.what()));
   }
   if (!override_log) {
@@ -217,7 +217,7 @@ bool NSClientT::load_configuration(const bool override_log) {
 #ifdef WIN32
   try {
     com_helper_.initialize();
-  } catch (com_helper::com_exception e) {
+  } catch (com_helper::com_exception &e) {
     LOG_ERROR_CORE_STD("COM exception: " + e.reason());
     return false;
   } catch (...) {
@@ -258,14 +258,15 @@ void NSClientT::boot_load_all_plugin_files() {
   }
 }
 
-bool NSClientT::boot_load_single_plugin(std::string plugin) {
+bool NSClientT::boot_load_single_plugin(const std::string &plugin) {
   try {
-    return plugins_->load_single_plugin(plugin);
+    return plugins_->load_single_plugin(std::move(plugin));
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("Exception loading modules: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
     LOG_ERROR_CORE("Unknown exception when loading plugins");
   }
+  return false;
 }
 
 bool NSClientT::boot_start_plugins(bool boot) {
@@ -309,7 +310,7 @@ bool NSClientT::stop_nsclient() {
   try {
     LOG_DEBUG_CORE("Stopping all plugins");
     unloadPlugins();
-  } catch (nsclient::core::plugin_exception e) {
+  } catch (nsclient::core::plugin_exception &e) {
     LOG_ERROR_CORE_STD("Exception raised when unloading non msg plguins: " + e.reason() + " in module: " + e.file());
   } catch (...) {
     LOG_ERROR_CORE("Unknown exception raised when unloading non msg plugins");
@@ -319,7 +320,7 @@ bool NSClientT::stop_nsclient() {
   LOG_DEBUG_CORE("Stopping: COM helper");
   try {
     com_helper_.unInitialize();
-  } catch (com_helper::com_exception e) {
+  } catch (com_helper::com_exception &e) {
     LOG_ERROR_CORE_STD("COM exception: " + e.reason());
   } catch (...) {
     LOG_ERROR_CORE("Unknown exception uniniating COM...");
@@ -416,7 +417,9 @@ NSClient *NSClientT::get_global_instance() { return mainClient; }
 void NSClientT::handle_startup(std::string service_name) {
   LOG_DEBUG_CORE("Starting: " + service_name);
   service_name_ = service_name;
+#ifdef WIN32
   ExceptionManager::instance()->setup_service_name(service_name);
+#endif
   load_configuration();
   boot_load_active_plugins();
   boot_start_plugins(true);

@@ -124,10 +124,6 @@ struct g_data {
 struct syslog_client_handler : public client::handler_interface {
   bool query(client::destination_container _sender, client::destination_container _target, const PB::Commands::QueryRequestMessage &_request_message,
              PB::Commands::QueryResponseMessage &_response_message) {
-    UNREFERENCED_PARAMETER(_sender);
-    UNREFERENCED_PARAMETER(_target);
-    UNREFERENCED_PARAMETER(_request_message);
-    UNREFERENCED_PARAMETER(_response_message);
     return false;
   }
 
@@ -163,17 +159,10 @@ struct syslog_client_handler : public client::handler_interface {
 
   bool exec(client::destination_container _sender, client::destination_container _target, const PB::Commands::ExecuteRequestMessage &_request_message,
             PB::Commands::ExecuteResponseMessage &_response_message) {
-    UNREFERENCED_PARAMETER(_sender);
-    UNREFERENCED_PARAMETER(_target);
-    UNREFERENCED_PARAMETER(_request_message);
-    UNREFERENCED_PARAMETER(_response_message);
     return false;
   }
 
   bool metrics(client::destination_container _sender, client::destination_container _target, const PB::Metrics::MetricsMessage &_request_message) {
-    UNREFERENCED_PARAMETER(_sender);
-    UNREFERENCED_PARAMETER(_target);
-    UNREFERENCED_PARAMETER(_request_message);
     return false;
   }
 

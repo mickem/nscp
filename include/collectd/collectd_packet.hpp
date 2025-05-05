@@ -134,7 +134,7 @@ class packet {
     int16_t len = static_cast<int16_t>(buffer.length() - pos);
     collectd::data::value_part *data = reinterpret_cast<collectd::data::value_part *>(&buffer[pos]);
     data->type = swap_bytes::hton<int16_t>(base_type);
-    data->count = swap_bytes::hton<int16_t>(value_data.size());
+    data->count = swap_bytes::hton<int16_t>(static_cast<int16_t>(value_data.size()));
     data->length = swap_bytes::hton<int16_t>(len);
   }
   void append_values(int16_t base_type, int value_type, const std::list<long long> &value_data) {
@@ -149,7 +149,7 @@ class packet {
     int16_t len = static_cast<int16_t>(buffer.length() - pos);
     collectd::data::value_part *data = reinterpret_cast<collectd::data::value_part *>(&buffer[pos]);
     data->type = swap_bytes::hton<int16_t>(base_type);
-    data->count = swap_bytes::hton<int16_t>(value_data.size());
+    data->count = swap_bytes::hton<int16_t>(static_cast<int16_t>(value_data.size()));
     data->length = swap_bytes::hton<int16_t>(len);
   }
 

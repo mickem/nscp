@@ -51,7 +51,7 @@ boost::filesystem::path nsclient::core::path_manager::getBasePath() {
   basePath = get_selfpath();
   try {
     settings_manager::get_core()->set_base(basePath);
-  } catch (settings::settings_exception e) {
+  } catch (settings::settings_exception &e) {
     LOG_ERROR_CORE_STD("Failed to set settings file: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
     LOG_ERROR_CORE("Failed to set settings file");

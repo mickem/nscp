@@ -40,6 +40,7 @@
 #include <boost/bind/bind.hpp>
 
 #include <list>
+#include <utility>
 #include <vector>
 
 namespace nscapi {
@@ -59,15 +60,15 @@ class program_options_exception : public std::exception {
   /// @param error the error message
   ///
   /// @author mickem
-  program_options_exception(std::string error) : error(error) {}
-  ~program_options_exception() throw() {}
+  explicit program_options_exception(std::string error) : error(std::move(error)) {}
+  ~program_options_exception() noexcept override = default;
 
   //////////////////////////////////////////////////////////////////////////
   /// Retrieve the error message from the exception.
   /// @return the error message
   ///
   /// @author mickem
-  const char *what() const throw() { return error.c_str(); }
+  const char *what() const noexcept override { return error.c_str(); }
 };
 
 static std::vector<po::option> option_parser_kvp(std::vector<std::string> &args, const std::string &break_at) {
@@ -206,7 +207,7 @@ static void format_paragraph(std::ostream &os, std::string par, std::size_t inde
       // Take care to never increment the iterator past
       // the end, since MSVC 8.0 (brokenly), assumes that
       // doing that, even if no access happens, is a bug.
-      unsigned remaining = static_cast<unsigned>(std::distance(line_begin, par_end));
+      auto remaining = static_cast<unsigned>(std::distance(line_begin, par_end));
       std::string::const_iterator line_end = line_begin + ((remaining < line_length) ? remaining : line_length);
 
       // prevent chopped words
@@ -306,10 +307,10 @@ static std::string help(const po::options_description &desc, const std::string &
   std::stringstream main_stream;
   if (!extra_info.empty()) main_stream << extra_info << std::endl;
   std::string::size_type opwidth = 23;
-  for (const boost::shared_ptr<po::option_description> op : desc.options()) {
+  for (const boost::shared_ptr<po::option_description> &op : desc.options()) {
     if (op->long_name().size() > opwidth) opwidth = op->long_name().size();
   }
-  for (const boost::shared_ptr<po::option_description> op : desc.options()) {
+  for (const boost::shared_ptr<po::option_description> &op : desc.options()) {
     std::stringstream ss;
     ss << "  " << op->long_name();
     bool hasargs = op->semantic()->max_tokens() != 0;
@@ -340,7 +341,7 @@ static std::string help_short(const po::options_description &desc, const std::st
   std::stringstream main_stream;
   if (!extra_info.empty()) main_stream << extra_info << std::endl;
   std::string::size_type opwidth = 0;
-  for (const boost::shared_ptr<po::option_description> op : desc.options()) {
+  for (const boost::shared_ptr<po::option_description> &op : desc.options()) {
     if (op->long_name().size() > opwidth) opwidth = op->long_name().size();
     if (op->semantic()->max_tokens() != 0) {
       std::size_t len = op->long_name().size() + strip_default_value(op->format_parameter()).size() + 1;
@@ -348,7 +349,7 @@ static std::string help_short(const po::options_description &desc, const std::st
     }
   }
   opwidth++;
-  for (const boost::shared_ptr<po::option_description> op : desc.options()) {
+  for (const boost::shared_ptr<po::option_description> &op : desc.options()) {
     std::stringstream ss;
     ss << op->long_name();
     if (op->semantic()->max_tokens() != 0) ss << "=" << strip_default_value(op->format_parameter());
@@ -369,7 +370,7 @@ template <class T>
 void invalid_syntax(const po::options_description &desc, const std::string &, const std::string &error, T &response) {
   nscapi::protobuf::functions::set_response_bad(response, help_short(desc, error));
 }
-static std::string make_csv(const std::string s) {
+static std::string make_csv(const std::string &s) {
   std::string ret = s;
   str::utils::replace(ret, "\n", "\\n");
   if (ret.find(',') != std::string::npos || ret.find('\"') != std::string::npos) {
@@ -380,7 +381,7 @@ static std::string make_csv(const std::string s) {
 }
 inline std::string help_csv(const po::options_description &desc, const std::string &) {
   std::stringstream main_stream;
-  for (const boost::shared_ptr<po::option_description> op : desc.options()) {
+  for (const boost::shared_ptr<po::option_description> &op : desc.options()) {
     main_stream << make_csv(op->long_name()) << ",";
     bool hasargs = op->semantic()->max_tokens() != 0;
     if (hasargs)
@@ -394,7 +395,7 @@ inline std::string help_csv(const po::options_description &desc, const std::stri
 
 inline std::string help_pb(const po::options_description &desc, const field_map &fields) {
   ::PB::Registry::ParameterDetails details;
-  for (const boost::shared_ptr<po::option_description> op : desc.options()) {
+  for (const boost::shared_ptr<po::option_description> &op : desc.options()) {
     ::PB::Registry::ParameterDetail *detail = details.add_parameter();
     detail->set_name(op->long_name());
     bool hasargs = op->semantic()->max_tokens() != 0;
@@ -423,7 +424,7 @@ inline std::string help_pb(const po::options_description &desc) { return help_pb
 
 inline std::string help_show_default(const po::options_description &desc) {
   std::stringstream ret;
-  for (const boost::shared_ptr<po::option_description> op : desc.options()) {
+  for (const boost::shared_ptr<po::option_description> &op : desc.options()) {
     std::string param = strip_default_value(op->format_parameter());
     if (param.empty()) continue;
     ret << "\"" << op->long_name() << "=";
@@ -481,7 +482,7 @@ bool process_arguments_unrecognized(po::variables_map &vm, unrecognized_map &unr
     basic_command_line_parser cmd(request);
     cmd.options(desc);
     if (request.arguments_size() > 0) {
-      std::string a = request.arguments(0);
+      const std::string a = request.arguments(0);
       if (a.size() <= 2 || (a[0] != '-' && a[1] != '-')) cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
     }
 
@@ -567,7 +568,7 @@ bool process_arguments_from_request(po::variables_map &vm, const po::options_des
 
 template <class T, class U>
 bool process_arguments_from_request(po::variables_map &vm, const po::options_description &desc, const field_map &fields, const T &request, U &response,
-                                    po::positional_options_description p) {
+                                    const po::positional_options_description &p) {
   try {
     basic_command_line_parser cmd(request);
     cmd.options(desc);
