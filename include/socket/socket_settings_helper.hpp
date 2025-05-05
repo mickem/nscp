@@ -126,7 +126,7 @@ struct settings_helper {
     if (is_sample) root_path.set_sample();
     // clang-format off
 			root_path.add_key()
-				("timeout", nscapi::settings_helper::int_fun_key(boost::bind(&object_type::set_property_int, &object, "timeout", pb::_1), 30),
+				("timeout", nscapi::settings_helper::int_fun_key(boost::bind(&object_type::set_property_int, &object, "timeout", ph::_1), 30),
 					"TIMEOUT", "Timeout (in seconds) when reading/writing packets to/from sockets.")
 				;
     // clang-format on
@@ -142,25 +142,25 @@ struct settings_helper {
 				("dh", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "dh", ph::_1), "${certificate-path}/nrpe_dh_512.pem"),
 					"DH KEY", "", true)
 
-				("certificate", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "certificate", pb::_1)),
+				("certificate", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "certificate", ph::_1)),
 					"SSL CERTIFICATE", "", false)
 
-				("certificate key", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "certificate key", pb::_1)),
+				("certificate key", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "certificate key", ph::_1)),
 					"SSL CERTIFICATE", "", true)
 
-				("certificate format", nscapi::settings_helper::string_fun_key(boost::bind(&object_type::set_property_string, &object, "certificate format", pb::_1), "PEM"),
+				("certificate format", nscapi::settings_helper::string_fun_key(boost::bind(&object_type::set_property_string, &object, "certificate format", ph::_1), "PEM"),
 					"CERTIFICATE FORMAT", "", true)
 
-				("ca", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "ca", pb::_1)),
+				("ca", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "ca", ph::_1)),
 					"CA", "", true)
 
-				("allowed ciphers", nscapi::settings_helper::string_fun_key(boost::bind(&object_type::set_property_string, &object, "allowed ciphers", pb::_1), "ADH"),
+				("allowed ciphers", nscapi::settings_helper::string_fun_key(boost::bind(&object_type::set_property_string, &object, "allowed ciphers", ph::_1), "ADH"),
 					"ALLOWED CIPHERS", "A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH", false)
 
-				("verify mode", nscapi::settings_helper::string_fun_key(boost::bind(&object_type::set_property_string, &object, "verify mode", pb::_1), "none"),
+				("verify mode", nscapi::settings_helper::string_fun_key(boost::bind(&object_type::set_property_string, &object, "verify mode", ph::_1), "none"),
 					"VERIFY MODE", "", false)
 
-				("use ssl", nscapi::settings_helper::bool_fun_key(boost::bind(&object_type::set_property_bool, &object, "ssl", pb::_1), true),
+				("use ssl", nscapi::settings_helper::bool_fun_key(boost::bind(&object_type::set_property_bool, &object, "ssl", ph::_1), true),
 					"ENABLE SSL ENCRYPTION", "This option controls if SSL should be enabled.")
 				;
     // clang-format on

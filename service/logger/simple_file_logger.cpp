@@ -167,7 +167,6 @@ void simple_file_logger::asynch_configure() {
       file_ = "";
     }
   } catch (const std::exception &_e) {
-    UNREFERENCED_PARAMETER(_e);
     // ignored, since this might be after shutdown...
   } catch (...) {
     // ignored, since this might be after shutdown...

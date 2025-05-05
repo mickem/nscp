@@ -49,7 +49,10 @@ class format {
 #else
   static std::string from_system(int dwError) {
     char buf[1024];
-    ::strerror_r(dwError, buf, sizeof(buf));
+    auto e = ::strerror_r(dwError, buf, sizeof(buf));
+    if (e) {
+      snprintf(buf, sizeof(buf), "Failed to lookup error code %d: %s", dwError, e);
+    }
     return buf;
   }
 #endif

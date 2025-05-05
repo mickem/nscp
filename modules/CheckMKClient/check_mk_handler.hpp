@@ -20,7 +20,6 @@
 #pragma once
 
 #include <str/xtos.hpp>
-#include <msvc.hpp>
 
 #include <check_mk/client/client_protocol.hpp>
 #include <socket/client.hpp>
@@ -67,7 +66,6 @@ struct options_reader_impl : public client::options_reader_interface {
   }
 
   void process(boost::program_options::options_description &desc, client::destination_container &_source, client::destination_container &data) {
-    UNREFERENCED_PARAMETER(_source);
     add_ssl_options(desc, data);
   }
 };

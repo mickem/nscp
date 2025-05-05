@@ -68,7 +68,7 @@ nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_ma
     std::string alias;
     try {
       alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, plugin, "");
-    } catch (settings::settings_exception e) {
+    } catch (settings::settings_exception &e) {
       LOG_ERROR_CORE_STD("Exception looking for module: " + utf8::utf8_from_native(e.what()));
     }
     if (plugin == "enabled" || plugin == "1" || plugin == "true") {
@@ -112,7 +112,7 @@ nsclient::core::plugin_manager::plugin_status nsclient::core::plugin_manager::pa
   plugin_status status(key);
   try {
     status.alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, key, "");
-  } catch (settings::settings_exception e) {
+  } catch (settings::settings_exception &e) {
     LOG_DEBUG_CORE_STD("Failed to read settings: " + utf8::utf8_from_native(e.what()));
   }
   if (status.alias == "") {
@@ -204,7 +204,7 @@ void nsclient::core::plugin_manager::load_all_plugins() {
   }
 }
 
-bool nsclient::core::plugin_manager::load_single_plugin(std::string plugin, std::string alias, bool start) {
+bool nsclient::core::plugin_manager::load_single_plugin(const std::string &plugin, const std::string &alias, bool start) {
   try {
     plugin_type instance = add_plugin(plugin, alias);
     if (!instance) {
@@ -227,7 +227,7 @@ bool nsclient::core::plugin_manager::load_single_plugin(std::string plugin, std:
 
 void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) {
   std::set<long> broken;
-  for (plugin_type plugin : plugin_list_.get_plugins()) {
+  for (const plugin_type& plugin : plugin_list_.get_plugins()) {
     LOG_DEBUG_CORE_STD("Loading plugin: " + plugin->getModule())
     try {
       if (!plugin->load_plugin(mode)) {
@@ -252,7 +252,7 @@ void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) 
 
 void nsclient::core::plugin_manager::post_start_plugins() {
   std::set<long> broken;
-  for (plugin_type plugin : plugin_list_.get_plugins()) {
+  for (const plugin_type& plugin : plugin_list_.get_plugins()) {
     if (!plugin->has_start()) {
       continue;
     }
@@ -285,7 +285,7 @@ void nsclient::core::plugin_manager::stop_plugins() {
   commands_.remove_all();
   channels_.remove_all();
   std::list<plugin_type> tmp = plugin_list_.get_plugins();
-  for (plugin_type p : tmp) {
+  for (const plugin_type& p : tmp) {
     try {
       if (p) {
         LOG_DEBUG_CORE_STD("Unloading plugin: " + p->get_alias_or_name() + "...");
@@ -300,7 +300,7 @@ void nsclient::core::plugin_manager::stop_plugins() {
   plugin_list_.clear();
 }
 
-boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_file(std::string file_name) {
+boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_file(const std::string& file_name) {
   std::string name = file_name;
   std::list<std::string> names;
   names.push_back(file_name);
@@ -329,7 +329,7 @@ boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_fi
   return boost::optional<boost::filesystem::path>();
 }
 
-nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only_load_module(std::string module, std::string alias, bool &loaded) {
+nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only_load_module(const std::string &module, const std::string &alias, bool &loaded) {
   loaded = false;
   boost::optional<boost::filesystem::path> real_file = find_file(module);
   if (!real_file) {
@@ -355,7 +355,7 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only
  * Load and add a plugin to various internal structures
  * @param plugin The plug-in instance to load. The pointer is managed by the
  */
-nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_plugin(std::string file_name, std::string alias) {
+nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_plugin(const std::string& file_name, const std::string& alias) {
   try {
     bool loaded = false;
     plugin_type plugin = only_load_module(file_name, alias, loaded);
@@ -387,17 +387,17 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_
     return plugin;
   } catch (const nsclient::core::plugin_exception &e) {
     LOG_ERROR_CORE("Failed to load plugin " + e.file() + ": " + utf8::utf8_from_native(e.what()));
-    return nsclient::core::plugin_manager::plugin_type();
+    return plugin_type();
   } catch (const std::exception &e) {
     LOG_ERROR_CORE("Failed to load plugin " + file_name + ": " + utf8::utf8_from_native(e.what()));
-    return nsclient::core::plugin_manager::plugin_type();
+    return plugin_type();
   } catch (...) {
     LOG_ERROR_CORE("Failed to load plugin " + file_name);
-    return nsclient::core::plugin_manager::plugin_type();
+    return plugin_type();
   }
 }
 
-bool nsclient::core::plugin_manager::reload_plugin(const std::string module) {
+bool nsclient::core::plugin_manager::reload_plugin(const std::string& module) {
   plugin_type plugin = plugin_list_.find_by_alias(module);
   if (plugin) {
     LOG_DEBUG_CORE_STD(std::string("Reloading: ") + plugin->get_alias_or_name());
@@ -408,7 +408,7 @@ bool nsclient::core::plugin_manager::reload_plugin(const std::string module) {
   return false;
 }
 
-bool nsclient::core::plugin_manager::remove_plugin(const std::string name) {
+bool nsclient::core::plugin_manager::remove_plugin(const std::string& name) {
   plugin_type plugin = plugin_list_.find_by_module(name);
   if (!plugin) {
     LOG_ERROR_CORE("Module " + name + " was not found.");
@@ -687,7 +687,7 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::exec_command(const char *ra
             responses.push_back(respbuffer);
           }
         }
-      } catch (plugin_exception e) {
+      } catch (plugin_exception &e) {
         LOG_ERROR_CORE_STD("Could not execute command: " + e.reason() + " in " + e.file());
       }
     }
@@ -830,7 +830,7 @@ void nsclient::core::plugin_manager::process_metrics(PB::Metrics::MetricsBundle 
 bool nsclient::core::plugin_manager::enable_plugin(std::string name) {
   try {
     settings_manager::get_settings()->set_string(MAIN_MODULES_SECTION, name, "enabled");
-  } catch (settings::settings_exception e) {
+  } catch (settings::settings_exception &e) {
     LOG_DEBUG_CORE_STD("Failed to read settings: " + utf8::utf8_from_native(e.what()));
     return false;
   }
@@ -840,7 +840,7 @@ bool nsclient::core::plugin_manager::enable_plugin(std::string name) {
 bool nsclient::core::plugin_manager::disable_plugin(std::string name) {
   try {
     settings_manager::get_settings()->set_string(MAIN_MODULES_SECTION, name, "disabled");
-  } catch (settings::settings_exception e) {
+  } catch (settings::settings_exception &e) {
     LOG_DEBUG_CORE_STD("Failed to read settings: " + utf8::utf8_from_native(e.what()));
     return false;
   }

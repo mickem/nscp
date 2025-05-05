@@ -283,7 +283,7 @@ extern "C" UINT __stdcall DetectTool(MSIHANDLE hInstall) {
     std::wstring tool = h.getPropery(MONITORING_TOOL);
     h.logMessage(L"Detected monitoring tool is: " + tool);
     dump_config(h, L"After DetectTool");
-  } catch (installer_exception e) {
+  } catch (installer_exception &e) {
     h.logMessage(L"Failed to apply monitoring tool: " + e.what());
     return ERROR_SUCCESS;
   } catch (nsclient::nsclient_exception &e) {
@@ -359,7 +359,7 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 
     dump_config(h, L"After ApplyConfig");
 
-  } catch (installer_exception e) {
+  } catch (installer_exception &e) {
     h.logMessage(L"Failed to apply monitoring tool: " + e.what());
     return ERROR_SUCCESS;
   } catch (...) {
@@ -521,7 +521,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 
     dump_config(h, L"After ImportConfig");
 
-  } catch (installer_exception e) {
+  } catch (installer_exception &e) {
     h.setProperty(ERROR, L"Failed to read old configuration file: " + e.what());
     h.logMessage(L"Failed to read old configuration file: " + e.what());
     h.setProperty(ERROR_CONTEXT, L"ImportConfig::e1");
@@ -535,7 +535,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
     h.setProperty(CONF_CAN_CHANGE, L"0");
     h.setProperty(CONF_HAS_ERRORS, L"1");
     return ERROR_SUCCESS;
-  } catch (std::exception e) {
+  } catch (std::exception &e) {
     h.setProperty(ERROR, L"Failed to read old configuration file: " + utf8::cvt<std::wstring>(e.what()));
     h.logMessage(L"Failed to read old configuration file: " + utf8::cvt<std::wstring>(e.what()));
     h.setProperty(ERROR_CONTEXT, L"ImportConfig::e3");
@@ -626,7 +626,7 @@ extern "C" UINT __stdcall BackupConfig(MSIHANDLE hInstall) {
       h.setProperty(BACKUP_FILE, backup.wstring());
     }
 
-  } catch (installer_exception e) {
+  } catch (installer_exception &e) {
     h.errorMessage(L"Failed to install service: " + e.what());
     return ERROR_INSTALL_FAILURE;
   } catch (...) {
@@ -735,7 +735,7 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
         return hr;
       }
     }
-  } catch (installer_exception e) {
+  } catch (installer_exception &e) {
     h.errorMessage(L"Failed to install service: " + e.what());
     return ERROR_INSTALL_FAILURE;
   } catch (...) {
@@ -876,7 +876,7 @@ extern "C" UINT __stdcall NeedUninstall(MSIHANDLE hInstall) {
       }
     }
 
-  } catch (installer_exception e) {
+  } catch (installer_exception &e) {
     h.errorMessage(L"Failed to start service: " + e.what());
     return ERROR_INSTALL_FAILURE;
   } catch (...) {

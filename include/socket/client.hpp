@@ -20,7 +20,6 @@
 #pragma once
 
 #include <socket/socket_helpers.hpp>
-#include <msvc.hpp>
 
 using boost::asio::ip::tcp;
 
@@ -201,8 +200,6 @@ class connection : public boost::enable_shared_from_this<connection<protocol_typ
     if (protocol_type::debug_trace && handler_) handler_->log_debug(__FILE__, __LINE__, msg);
   }
   inline void log_error(std::string _file, int _line, std::string msg) const {
-    UNREFERENCED_PARAMETER(_file);
-    UNREFERENCED_PARAMETER(_line);
     if (handler_) handler_->log_error(__FILE__, __LINE__, msg);
   }
 

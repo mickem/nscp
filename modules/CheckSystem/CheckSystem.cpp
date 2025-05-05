@@ -1039,7 +1039,7 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     add_metric(mem, "physical.total", mem_data.phys.total);
     add_metric(mem, "physical.used", mem_data.phys.total - mem_data.phys.avail);
     add_metric(mem, "physical.%", mem_data.phys.total == 0 ? 0 : (100 * mem_data.commited.avail) / mem_data.commited.total);
-  } catch (CheckMemoryException e) {
+  } catch (CheckMemoryException &e) {
     NSC_LOG_ERROR("Failed to getch memory metrics: " + e.reason());
   }
 

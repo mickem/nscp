@@ -36,7 +36,7 @@ PDHCounter::~PDHCounter() {
 
 pdh_error PDHCounter::validate() { return factory::get_impl()->PdhValidatePath(utf8::cvt<std::wstring>(counter_->get_counter()).c_str(), false); }
 
-counter_info PDHCounter::getCounterInfo(BOOL bExplainText) {
+counter_info PDHCounter::getCounterInfo(BOOLEAN bExplainText) {
   if (hCounter_ == NULL) throw pdh_exception("Counter is null!");
   BYTE *lpBuffer = new BYTE[1025];
   DWORD bufSize = 1024;

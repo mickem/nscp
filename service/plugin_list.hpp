@@ -41,10 +41,10 @@ class plugins_list_exception : public std::exception {
   std::string what_;
 
  public:
-  plugins_list_exception(std::string error) throw() : what_(error.c_str()) {}
-  virtual ~plugins_list_exception() throw() {};
+  explicit plugins_list_exception(std::string error) noexcept : what_(error.c_str()) {}
+  ~plugins_list_exception() noexcept override = default;
 
-  virtual const char *what() const throw() { return what_.c_str(); }
+  const char *what() const noexcept override { return what_.c_str(); }
 };
 
 struct simple_plugins_list : public boost::noncopyable {
@@ -103,7 +103,7 @@ struct simple_plugins_list : public boost::noncopyable {
   void remove_plugin(unsigned long id) {
     boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
     if (!has_valid_lock_log(writeLock, "plugins_list::remove_plugin" + str::xtos(id))) return;
-    simple_plugin_list_type::iterator it = plugins_.begin();
+    auto it = plugins_.begin();
     while (it != plugins_.end()) {
       if ((*it)->get_id() == id)
         it = plugins_.erase(it);
@@ -115,7 +115,7 @@ struct simple_plugins_list : public boost::noncopyable {
   void do_all(boost::function<void(plugin_type)> fun) {
     boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!has_valid_lock_log(readLock, "plugins_list::list")) return;
-    for (const plugin_type p : plugins_) {
+    for (const plugin_type& p : plugins_) {
       fun(p);
     }
   }
@@ -124,7 +124,7 @@ struct simple_plugins_list : public boost::noncopyable {
     std::string ret;
     boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!has_valid_lock_log(readLock, "plugins_list::list")) return "";
-    for (const plugin_type p : plugins_) {
+    for (const plugin_type& p : plugins_) {
       if (!ret.empty()) ret += ", ";
       ret += p->getName();
     }
@@ -189,7 +189,7 @@ struct plugins_list : boost::noncopyable, public parent {
   void remove_plugin(unsigned long id) {
     boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
     if (!has_valid_lock_log(writeLock, "plugins_list::remove_plugin" + str::xtos(id))) return;
-    plugin_list_type::iterator pit = plugins_.find(id);
+    auto pit = plugins_.find(id);
     if (pit != plugins_.end()) plugins_.erase(pit);
     parent::remove_plugin(id);
   }
@@ -204,18 +204,18 @@ struct plugins_list : boost::noncopyable, public parent {
 
   std::string to_string() {
     std::string ret;
-    std::list<std::string> lst = list();
+    const std::list<std::string> lst = list();
     if (lst.empty()) {
       return "NONE" + parent::to_string();
     }
-    for (std::string str : lst) {
+    for (const std::string& str : lst) {
       if (!ret.empty()) ret += ", ";
       ret += str;
     }
     return ret + parent::to_string();
   }
 
-  inline std::string make_key(std::string key) { return boost::algorithm::to_lower_copy(key); }
+  inline std::string make_key(const std::string& key) { return boost::algorithm::to_lower_copy(key); }
   void log_error(const char *file, int line, std::string error) { logger_->error("plugin", file, line, error); }
   void log_error(const char *file, int line, std::string error, std::string key) {
     logger_->error("plugin", file, line, error + " for " + utf8::cvt<std::string>(key));
@@ -227,15 +227,15 @@ struct plugins_list_listeners_impl {
   typedef std::map<std::string, plugin_id_type> listener_list_type;
   listener_list_type listeners_;
 
-  void add_plugin(plugin_type plugin) {}
+  void add_plugin(const plugin_type& plugin) {}
 
   void remove_all() { listeners_.clear(); }
 
   void remove_plugin(unsigned long id) {
-    listener_list_type::iterator it = listeners_.begin();
+    auto it = listeners_.begin();
     while (it != listeners_.end()) {
-      if ((*it).second.count(id) > 0) {
-        listener_list_type::iterator toerase = it;
+      if (it->second.count(id) > 0) {
+        auto toerase = it;
         ++it;
         listeners_.erase(toerase);
       } else
@@ -244,16 +244,16 @@ struct plugins_list_listeners_impl {
   }
 
   void list(std::list<std::string> &lst) {
-    for (listener_list_type::value_type i : listeners_) {
+    for (const listener_list_type::value_type& i : listeners_) {
       lst.push_back(i.first);
     }
   }
-  std::string to_string() {
+  std::string to_string() const {
     std::string ret;
     if (listeners_.empty()) {
       return ", NONE";
     }
-    for (listener_list_type::value_type i : listeners_) {
+    for (const listener_list_type::value_type& i : listeners_) {
       ret += ", ";
       ret += i.first;
     }
@@ -266,7 +266,7 @@ struct plugins_list_with_listener : plugins_list<plugins_list_listeners_impl> {
 
   plugins_list_with_listener(nsclient::logging::logger_instance logger) : parent_type(logger) {}
 
-  void register_listener(unsigned long plugin_id, std::string channel) {
+  void register_listener(unsigned long plugin_id, const std::string& channel) {
     boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
     if (!writeLock.owns_lock()) {
       parent_type::log_error(__FILE__, __LINE__, "Failed to get mutex: ", channel);
@@ -277,16 +277,16 @@ struct plugins_list_with_listener : plugins_list<plugins_list_listeners_impl> {
       writeLock.unlock();
       throw plugins_list_exception("Failed to find plugin: " + str::xtos(plugin_id) + ", Plugins: " + to_string());
     }
-    for (const std::string c : str::utils::split_lst(lc, ",")) {
+    for (const std::string& c : str::utils::split_lst(lc, ",")) {
       listeners_[c].insert(plugin_id);
     }
   }
 
-  std::list<plugin_type> get(std::string channel) {
+  std::list<plugin_type> get(const std::string& channel) {
     boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     has_valid_lock_throw(readLock, "plugins_list::get:" + channel);
     std::string lc = make_key(channel);
-    plugins_list_listeners_impl::listener_list_type::iterator cit = listeners_.find(lc);
+    const auto cit = listeners_.find(lc);
     if (cit == listeners_.end()) {
       return std::list<plugin_type>();  // throw plugins_list_exception("Channel not found: '" + ::to_string(channel) + "'" + to_string());
     }

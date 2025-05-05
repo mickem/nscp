@@ -23,7 +23,7 @@ namespace parsers {
 namespace where {
 std::string list_node::to_string() const {
   std::string ret;
-  for (const node_type n : value_) {
+  for (const node_type& n : value_) {
     if (!ret.empty()) ret += ", ";
     ret += n->to_string();
   }
@@ -31,7 +31,7 @@ std::string list_node::to_string() const {
 }
 std::string list_node::to_string(evaluation_context errors) const {
   std::string ret;
-  for (const node_type n : value_) {
+  for (const node_type& n : value_) {
     if (!ret.empty()) ret += ", ";
     ret += n->to_string(errors);
   }
@@ -49,7 +49,7 @@ value_container list_node::get_value(evaluation_context errors, value_type type)
   }
   if (type == type_string) {
     std::string s;
-    for (const node_type n : value_) {
+    for (const node_type& n : value_) {
       if (!s.empty()) s += ", ";
       s += n->get_string_value(errors);
     }
@@ -60,20 +60,20 @@ value_container list_node::get_value(evaluation_context errors, value_type type)
 }
 
 node_type list_node::evaluate(evaluation_context errors) const {
-  for (const node_type n : value_) {
+  for (const node_type& n : value_) {
     n->evaluate(errors);
   }
   return factory::create_false();
 }
 bool list_node::bind(object_converter errors) {
   bool ret = true;
-  for (const node_type n : value_) {
+  for (const node_type& n : value_) {
     if (!n->bind(errors)) ret = false;
   }
   return ret;
 }
 value_type list_node::infer_type(object_converter converter, value_type suggestion) {
-  for (const node_type n : value_) {
+  for (const node_type& n : value_) {
     n->infer_type(converter, suggestion);
   }
   return type_tbd;
@@ -82,7 +82,7 @@ value_type list_node::infer_type(object_converter converter) {
   bool first = true;
   value_type types = type_tbd;
 
-  for (const node_type n : value_) {
+  for (const node_type& n : value_) {
     if (first) {
       types = n->infer_type(converter);
       first = false;
@@ -95,20 +95,20 @@ value_type list_node::infer_type(object_converter converter) {
   if (types != type_tbd) set_type(types);
   return types;
 }
-bool list_node::find_performance_data(evaluation_context context, performance_collector &collector) {
-  for (const node_type n : value_) {
+bool list_node::find_performance_data(evaluation_context context, performance_collector& collector) {
+  for (const node_type& n : value_) {
     n->find_performance_data(context, collector);
   }
   return false;
 }
 bool list_node::static_evaluate(evaluation_context errors) const {
-  for (const node_type n : value_) {
+  for (const node_type& n : value_) {
     n->static_evaluate(errors);
   }
   return true;
 }
 bool list_node::require_object(evaluation_context errors) const {
-  for (const node_type n : value_) {
+  for (const node_type& n : value_) {
     n->require_object(errors);
   }
   return true;

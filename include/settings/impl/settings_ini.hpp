@@ -143,8 +143,8 @@ class INISettings : public settings::settings_interface_impl {
       }
       ini.SetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), utf8::cvt<std::wstring>(value.get_string()).c_str(),
                    utf8::cvt<std::wstring>(comment).c_str());
-    } catch (settings_exception e) {
-      get_logger()->error("settings", __FILE__, __LINE__, "Unknown failure when writing key: " + make_skey(key.first, key.second));
+    } catch (settings_exception &e) {
+      get_logger()->error("settings", __FILE__, __LINE__, "Failure when writing key: " + make_skey(key.first, key.second) + ": " + e.what());
     } catch (...) {
       get_logger()->error("settings", __FILE__, __LINE__, "Unknown failure when writing key: " + make_skey(key.first, key.second));
     }
@@ -157,7 +157,7 @@ class INISettings : public settings::settings_interface_impl {
       if (!comment.empty()) {
         ini.SetValue(utf8::cvt<std::wstring>(path).c_str(), NULL, NULL, utf8::cvt<std::wstring>(comment).c_str());
       }
-    } catch (settings_exception e) {
+    } catch (settings_exception &_e) {
       ini.SetValue(utf8::cvt<std::wstring>(path).c_str(), NULL, NULL, L"; Undocumented section");
     } catch (...) {
       get_logger()->error("settings", __FILE__, __LINE__, "Unknown failure when writing section: " + path);

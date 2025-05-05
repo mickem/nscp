@@ -74,14 +74,14 @@ int lua::lua_wrapper::get_int(int pos) {
   if (pos == -1) pos = lua_gettop(L);
   if (pos == 0) return 0;
   if (is_string(pos)) return str::stox<int>(lua_tostring(L, pos));
-  if (is_number(pos)) return lua_tonumber(L, pos);
+  if (is_number(pos)) return static_cast<int>(lua_tonumber(L, pos));
   return 0;
 }
 bool lua::lua_wrapper::get_boolean(int pos) {
   if (pos == -1) pos = lua_gettop(L);
   if (pos == 0) return false;
   if (is_boolean(pos)) return lua_toboolean(L, pos);
-  if (is_number(pos)) return lua_tonumber(L, pos) == 1;
+  if (is_number(pos)) return lua_tonumber(L, pos) == 1.0;
   return false;
 }
 

@@ -27,6 +27,8 @@
 
 #include <socket/socket_helpers.hpp>
 #ifndef WIN32
+#define OPENSSL_NO_CRYPTO_MDEBUG
+#include <openssl/crypto.h>
 #include <openssl/x509v3.h>
 #endif
 const int socket_helpers::connection_info::backlog_default = 0;
@@ -383,15 +385,13 @@ void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int 
 }
 
 void socket_helpers::write_certs(std::string cert, bool ca) {
-  X509 *x509 = NULL;
-  EVP_PKEY *pkey = NULL;
-
-  CRYPTO_mem_ctrl(CRYPTO_MEM_CHECK_ON);
+  X509 *x509 = nullptr;
+  EVP_PKEY *pkey = nullptr;
 
   make_certificate(&x509, &pkey, 2048, 0, 365, ca);
 
   BIO *bio = BIO_new(BIO_s_mem());
-  PEM_write_bio_PKCS8PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL);
+  PEM_write_bio_PKCS8PrivateKey(bio, pkey, nullptr, nullptr, 0, nullptr, nullptr);
   PEM_write_bio_X509(bio, x509);
 
   std::size_t size = BIO_ctrl_pending(bio);
@@ -403,7 +403,7 @@ void socket_helpers::write_certs(std::string cert, bool ca) {
   BIO_free(bio);
 
   FILE *fout = fopen(cert.c_str(), "wb");
-  if (fout == NULL) throw socket_helpers::socket_exception("Failed to open file: " + cert);
+  if (fout == nullptr) throw socket_helpers::socket_exception("Failed to open file: " + cert);
   fwrite(buf, sizeof(char), size, fout);
   fclose(fout);
 

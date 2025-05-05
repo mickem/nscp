@@ -19,7 +19,6 @@
 
 #include "check_memory.hpp"
 
-#include <msvc.hpp>
 #include <CheckMemory.h>
 
 #include <parsers/where.hpp>
@@ -124,7 +123,7 @@ struct runtime_data {
   std::list<std::string> checks;
 
   void boot() {}
-  void touch(boost::posix_time::ptime _now) { UNREFERENCED_PARAMETER(_now); }
+  void touch(boost::posix_time::ptime _now) {}
   bool has_changed(transient_data_type) const { return true; }
   modern_filter::match_result process_item(filter_type &filter, transient_data_type);
   void add(const std::string &data);
@@ -217,7 +216,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   CheckMemory::memData mem_data;
   try {
     mem_data = memchecker.getMemoryStatus();
-  } catch (CheckMemoryException e) {
+  } catch (CheckMemoryException &e) {
     return nscapi::protobuf::functions::set_response_bad(*response, e.reason());
   }
 

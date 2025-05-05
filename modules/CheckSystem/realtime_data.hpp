@@ -19,7 +19,6 @@
 
 #pragma once
 #include <list>
-#include <msvc.hpp>
 
 #include <boost/filesystem/path.hpp>
 #include "filter.hpp"
@@ -39,7 +38,7 @@ struct runtime_data {
   std::list<container> checks;
 
   void boot() {}
-  void touch(boost::posix_time::ptime _now) { UNREFERENCED_PARAMETER(_now); }
+  void touch(boost::posix_time::ptime _now) {}
   bool has_changed(transient_data_type) const { return true; }
   modern_filter::match_result process_item(filter_type &filter, transient_data_type);
   void add(const std::string &time);

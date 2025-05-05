@@ -99,9 +99,9 @@ class remote_channel {
       write_event.open();
       signal_event.open();
       shared_memory.open();
-    } catch (shared_memory_exception e) {
+    } catch (shared_memory_exception &e) {
       throw session_exception(_T("Failed to create channel '") + channel_name_ + _T("': ") + e.what());
-    } catch (event_exception e) {
+    } catch (event_exception &e) {
       throw session_exception(_T("Failed to create channel '") + channel_name_ + _T("': ") + e.what());
     } catch (...) {
       throw session_exception(_T("Failed to create channel '") + channel_name_ + _T("': Unknown exception!"));
@@ -112,9 +112,9 @@ class remote_channel {
       write_event.close();
       signal_event.close();
       shared_memory.close();
-    } catch (shared_memory_exception e) {
+    } catch (shared_memory_exception &e) {
       throw session_exception(_T("Failed to create channel '") + channel_name_ + _T("': ") + e.what());
-    } catch (event_exception e) {
+    } catch (event_exception &e) {
       throw session_exception(_T("Failed to create channel '") + channel_name_ + _T("': ") + e.what());
     } catch (...) {
       throw session_exception(_T("Failed to create channel '") + channel_name_ + _T("': Unknown exception!"));
@@ -126,9 +126,9 @@ class remote_channel {
       signal_event.create();
       shared_memory.create();
       write_event.set();
-    } catch (shared_memory_exception e) {
+    } catch (shared_memory_exception &e) {
       throw session_exception(_T("Failed to create channel '") + channel_name_ + _T("': ") + e.what());
-    } catch (event_exception e) {
+    } catch (event_exception &e) {
       throw session_exception(_T("Failed to create channel '") + channel_name_ + _T("': ") + e.what());
     } catch (...) {
       throw session_exception(_T("Failed to create channel '") + channel_name_ + _T("': Unknown exception!"));
@@ -139,9 +139,9 @@ class remote_channel {
       write_event.create();
       signal_event.create();
       shared_memory.create();
-    } catch (shared_memory_exception e) {
+    } catch (shared_memory_exception &e) {
       throw session_exception(_T("Failed to create channel '") + channel_name_ + _T("': ") + e.what());
-    } catch (event_exception e) {
+    } catch (event_exception &e) {
       throw session_exception(_T("Failed to create channel '") + channel_name_ + _T("': ") + e.what());
     } catch (...) {
       throw session_exception(_T("Failed to create channel '") + channel_name_ + _T("': Unknown exception!"));
@@ -150,9 +150,9 @@ class remote_channel {
   void activate() {
     try {
       write_event.set();
-    } catch (shared_memory_exception e) {
+    } catch (shared_memory_exception &e) {
       throw session_exception(_T("Failed to create channel '") + channel_name_ + _T("': ") + e.what());
-    } catch (event_exception e) {
+    } catch (event_exception &e) {
       throw session_exception(_T("Failed to create channel '") + channel_name_ + _T("': ") + e.what());
     } catch (...) {
       throw session_exception(_T("Failed to create channel '") + channel_name_ + _T("': Unknown exception!"));
@@ -183,7 +183,7 @@ class remote_channel {
     }
     try {
       write_event.set();
-    } catch (event_exception e) {
+    } catch (event_exception &e) {
       error(__FILEW__, __LINE__, _T("Failed to release mutext: ") + e.what());
     }
     return msg;
@@ -195,7 +195,7 @@ class remote_channel {
 
     try {
       if (!write_event.accuire()) throw session_exception(_T("Failed to get mutex when attempting to post message: ") + write_event.get_wait_result());
-    } catch (event_exception e) {
+    } catch (event_exception &e) {
       throw session_exception(_T("Failed to get mutex when attempting to post message to the shared session: ") + e.what());
     }
 
@@ -221,7 +221,7 @@ class remote_channel {
     }
     try {
       signal_event.set();
-    } catch (event_exception e) {
+    } catch (event_exception &e) {
       throw session_exception(_T("Failed to send message: ") + e.what());
     }
   }
@@ -271,7 +271,7 @@ class responder {
         if (waitStatus == WAIT_OBJECT_0 + 1) {
           try {
             if (!instance_->handle_raw_message()) break;
-          } catch (session_exception e) {
+          } catch (session_exception &e) {
             instance_->error(__FILEW__, __LINE__, _T("Exception in message handler thread: ") + e.what());
           } catch (...) {
             instance_->error(__FILEW__, __LINE__, _T("Exception in message handler thread: Unknown exception!"));
@@ -425,7 +425,7 @@ class shared_session : public session_interface {
       master_channel_.reset(new remote_channel(this, client_id_));
       master_channel_->create();
       responder_.createThread(this);
-    } catch (event_exception e) {
+    } catch (event_exception &e) {
       throw session_exception(_T("Failed to create shared memory arena: ") + e.what());
     } catch (...) {
       throw session_exception(_T("Failed to create shared memory arena: Unknown exception"));
@@ -481,7 +481,7 @@ class shared_session : public session_interface {
     msg.sender = client_id_;
     try {
       master_channel_->write(msg);
-    } catch (session_exception e) {
+    } catch (session_exception &e) {
       error(__FILEW__, __LINE__, _T("Server channel is down: ") + e.what());
     }
     return msg.message_id;
@@ -498,7 +498,7 @@ class shared_session : public session_interface {
     for (handle_type::iterator it = remote_channels_.begin(); it != remote_channels_.end(); ++it) {
       try {
         (*it).second->write(msg);
-      } catch (session_exception e) {
+      } catch (session_exception &e) {
         remove_client((*it).first);
         error(__FILEW__, __LINE__, _T("Client channel is down (removing it): ") + e.what());
         return;
@@ -517,7 +517,7 @@ class shared_session : public session_interface {
     if (it != remote_channels_.end()) {
       try {
         (*it).second->write(msg);
-      } catch (session_exception e) {
+      } catch (session_exception &e) {
         error(__FILEW__, __LINE__, _T("Client channel is down: ") + e.what());
       }
     }
@@ -537,7 +537,7 @@ class shared_client_session : public shared_session {
     try {
       master_channel_.reset(new remote_channel(this, master_id_));
       master_channel_->open();
-    } catch (session_exception e) {
+    } catch (session_exception &e) {
       error(__FILEW__, __LINE__, _T("Failed to attach to master channel: ") + e.what());
       master_channel_.reset();
     } catch (...) {
@@ -548,7 +548,7 @@ class shared_client_session : public shared_session {
       info(__FILEW__, __LINE__, _T("Attempting to attach to: ") + master_channel_->get_name());
       try {
         send_attach();
-      } catch (session_exception e) {
+      } catch (session_exception &e) {
         throw session_exception(_T("Failed to send attach message: ") + e.what());
       } catch (...) {
         throw session_exception(_T("Failed to send attach message: Unknown exception"));
@@ -573,9 +573,9 @@ class shared_client_session : public shared_session {
       client_channel_->open();
       client_channel_->activate();
       responder_.createThread(this);
-    } catch (event_exception e) {
+    } catch (event_exception &e) {
       throw session_exception(_T("Failed to create shared memory arena: ") + e.what());
-    } catch (session_exception e) {
+    } catch (session_exception &e) {
       throw session_exception(_T("Failed to create shared memory arena: ") + e.what());
     } catch (...) {
       throw session_exception(_T("Failed to create shared memory arena: Unknown exception"));

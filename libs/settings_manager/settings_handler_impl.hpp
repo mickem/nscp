@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <msvc.hpp>
 #include <settings/settings_core.hpp>
 
 #include <nsclient/logger/logger.hpp>
@@ -212,7 +211,6 @@ class settings_handler_impl : public settings_core {
     }
   }
   void add_sensitive_key(unsigned int _plugin_id, std::string path, std::string key) override {
-    UNREFERENCED_PARAMETER(_plugin_id);
     boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
     if (!writeLock.owns_lock()) {
       throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path + "." + key);

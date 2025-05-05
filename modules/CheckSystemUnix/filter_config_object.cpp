@@ -36,6 +36,7 @@
 #include <string>
 
 namespace sh = nscapi::settings_helper;
+namespace ph = boost::placeholders;
 
 namespace filters {
 std::string filter_config_object::to_string() const {
@@ -81,9 +82,9 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
       filter.syntax_detail = "${type} > ${used}";
     }
 
-    root_path.add_key()("type", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, _1)), "TIME", "The time to check", false)
+    root_path.add_key()("type", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)), "TIME", "The time to check", false)
 
-        ("types", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, _1)), "FILES", "A list of times to check (soma separated)", true);
+        ("types", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, ph::_1)), "FILES", "A list of times to check (soma separated)", true);
 
   } else {
     if (is_default) {
@@ -93,9 +94,9 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
       filter.set_filter_string("core = 'total'");
     }
 
-    root_path.add_key()("time", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, _1)), "TIME", "The time to check", false)
+    root_path.add_key()("time", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)), "TIME", "The time to check", false)
 
-        ("times", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, _1)), "FILES", "A list of times to check (soma separated)", true);
+        ("times", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, ph::_1)), "FILES", "A list of times to check (soma separated)", true);
   }
 
   filter.read_object(root_path, is_default);

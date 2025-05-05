@@ -81,7 +81,7 @@ class NSClientT : public nsclient::core::core_interface {
   bool load_configuration(const bool override_log = false);
   bool boot_load_active_plugins();
   void boot_load_all_plugin_files();
-  bool boot_load_single_plugin(std::string plugin);
+  bool boot_load_single_plugin(const std::string& plugin);
   bool boot_start_plugins(bool boot);
 
   bool stop_nsclient();
