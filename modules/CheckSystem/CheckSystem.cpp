@@ -352,7 +352,7 @@ int CheckSystem::commandLineExec(const int, const std::string &command, const st
     desc.add_options()
       ("help,h", "Show help screen")
       ("porcelain", "Computer parsable format")
-      ("json", "Format reault as JSON")
+      ("json", "Format result as JSON")
       ("computer", po::value<std::string>(&computer), "The computer to fetch values from")
       ("user", po::value<std::string>(&username), "The username to login with (only meaningful if computer is specified)")
       ("password", po::value<std::string>(&password), "The password to login with (only meaningful if computer is specified)")
