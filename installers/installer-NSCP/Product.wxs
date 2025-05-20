@@ -9,24 +9,15 @@
 
   <?include config.wxs ?>
 
-
   <Product Id="*" Name="$(var.App.Title) ($(var.arch))" Language="1033" Version="$(var.Version.Tag)" Manufacturer="MySolutions NORDIC" UpgradeCode="$(var.UpgradeCode)">
+
     <Package InstallerVersion="405" Id="*" Description="A simple windows monitor agent for (amongst others) Nagios."
 						 Comments="This will appear in the file summary stream." Compressed="yes" Languages="1033" Platform="$(var.Plattform)" />
-
-    <Property Id="VCRUNTIMEDETECTED">
-      <RegistrySearch Id="VCRuntimeSearch" Root="HKLM" Key="SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\$(var.arch)" Name="Installed" Type="raw" />
-    </Property>
-
-    <Condition Message="Visual Studio Runtime Libraries are not installed. Please install them before proceeding.">
-      <![CDATA[VCRUNTIMEDETECTED]]>
-    </Condition>
 
     <Upgrade Id="$(var.UpgradeCode)">
       <UpgradeVersion Property="OLDERVERSIONBEINGUPGRADED" IncludeMinimum="yes" Minimum="0.3.0.0" IncludeMaximum="no" Maximum="$(var.Version.Tag)"/>
       <UpgradeVersion Property="NEWERVERSIONDETECTED" IncludeMinimum="no" Minimum="$(var.Version.Tag)" OnlyDetect="yes"/>
     </Upgrade>
-
 
     <?if "$(var.arch)" = "x64"?>
     <Condition Message="x64 bit version not supported on Win32 bit platform (get Win32 instead)">VersionNT64</Condition>
@@ -291,7 +282,6 @@
     <CustomAction Id="DetectTool"		        BinaryKey="InstallerHelper" DllEntry="DetectTool"	          Impersonate="yes" Execute="immediate" Return="check"  />
     <CustomAction Id="ExecWriteConfig"		  BinaryKey="InstallerHelper" DllEntry="ExecWriteConfig"	    Impersonate="no" Execute="deferred" Return="check"  />
 
-    <CustomAction Id='NeedUninstall'		BinaryKey='InstallerHelper' DllEntry='NeedUninstall'	Impersonate='yes' Execute="immediate" Return="check" />
     <CustomAction Id="PreventDowngrading"	Error="Newer version already installed." />
 
 
@@ -329,8 +319,7 @@
 
     <InstallUISequence>
       <Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
-      <Custom Action="NeedUninstall" After="FindRelatedProducts">1</Custom>
-      <Custom Action="DetectTool" After="NeedUninstall">1</Custom>
+      <Custom Action="DetectTool" After="FindRelatedProducts">1</Custom>
     </InstallUISequence>
 
     <Property Id="ALLUSERS">

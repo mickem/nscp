@@ -70,7 +70,7 @@ cd ..
 
 cd boost_%BOOST_VERSION_%_static
 call bootstrap.bat
-b2.exe --layout=system address-model=64 toolset=msvc-14.16 variant=release link=static runtime-link=shared warnings=off -d0 --with-system --with-filesystem
+b2.exe --layout=system address-model=64 toolset=msvc-14.16 variant=release link=static runtime-link=static warnings=off -d0 --with-system --with-filesystem
 cd ..
 ```
 

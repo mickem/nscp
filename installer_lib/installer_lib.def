@@ -4,7 +4,6 @@ EXPORTS
 	ImportConfig
 	ScheduleWriteConfig
 	ExecWriteConfig
-	NeedUninstall
 	TranslateSid
 	ApplyTool
 	DetectTool

@@ -1,4 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
+if(POLICY CMP0091)
+    cmake_policy(SET CMP0091 NEW)
+endif()
 set(TARGET installer_lib)
 project(${TARGET} CXX)
 
@@ -7,7 +10,7 @@ set(BUILD_PYTHON_FOLDER "${CMAKE_SOURCE_DIR}/../build/python")
 set(BUILD_CMAKE_FOLDER "${CMAKE_SOURCE_DIR}/../build/cmake")
 
 set(Boost_USE_STATIC_LIBS ON)
-set(Boost_USE_STATIC_RUNTIME OFF)
+set(Boost_USE_STATIC_RUNTIME ON)
 find_package(Boost COMPONENTS system filesystem)
 if(Boost_FOUND)
     message(
@@ -154,7 +157,10 @@ set(SRCS
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
 
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 add_library(${TARGET} SHARED ${SRCS})
+
 if(WIN32 AND NOT CMAKE_CL_64)
     openssl_link_fix(${TARGET})
 endif(WIN32 AND NOT CMAKE_CL_64)
