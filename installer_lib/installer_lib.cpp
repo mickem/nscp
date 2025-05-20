@@ -849,43 +849,6 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
   return ERROR_SUCCESS;
 }
 
-extern "C" UINT __stdcall NeedUninstall(MSIHANDLE hInstall) {
-  msi_helper h(hInstall, L"NeedUninstall");
-  try {
-    std::list<std::wstring> list = h.enumProducts();
-    for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
-      if ((*cit) == L"{E7CF81FE-8505-4D4A-8ED3-48949C8E4D5B}") {
-        h.errorMessage(L"Found old NSClient++/OP5 client installed, will uninstall it now!");
-        std::wstring command = L"msiexec /uninstall " + (*cit);
-        wchar_t *cmd = new wchar_t[command.length() + 1];
-        wcsncpy(cmd, command.c_str(), command.length());
-        cmd[command.length()] = 0;
-        PROCESS_INFORMATION pi;
-        STARTUPINFO si;
-        ZeroMemory(&si, sizeof(STARTUPINFO));
-        si.cb = sizeof(STARTUPINFO);
-
-        BOOL processOK = CreateProcess(NULL, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
-        delete[] cmd;
-        if (processOK) {
-          DWORD dwstate = WaitForSingleObject(pi.hProcess, 1000 * 60);
-          if (dwstate == WAIT_TIMEOUT) h.errorMessage(L"Failed to wait for process (probably not such a big deal, the uninstall usualy takes alonger)!");
-        } else {
-          h.errorMessage(L"Failed to start process: " + utf8::cvt<std::wstring>(error::lookup::last_error()));
-        }
-      }
-    }
-
-  } catch (installer_exception &e) {
-    h.errorMessage(L"Failed to start service: " + e.what());
-    return ERROR_INSTALL_FAILURE;
-  } catch (...) {
-    h.errorMessage(L"Failed to start service: <UNKNOWN EXCEPTION>");
-    return ERROR_INSTALL_FAILURE;
-  }
-  return ERROR_SUCCESS;
-};
-
 extern "C" UINT __stdcall TranslateSid(MSIHANDLE hInstall) {
   TCHAR szSid[MAX_PATH] = {0};
   TCHAR szSidProperty[MAX_PATH] = {0};

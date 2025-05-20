@@ -144,6 +144,7 @@ jobs:
         platform: ${{ inputs.architecture }}
         configuration: Release
         static: 1
+        static-runtime: 1
         directory: ${{ runner.workspace }}/static_boost
           
     - name: Build Boost (regular)
