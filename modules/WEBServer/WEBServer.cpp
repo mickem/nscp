@@ -66,10 +66,28 @@ using namespace std;
 using namespace Mongoose;
 namespace ph = boost::placeholders;
 
-class WEBServerLogger : public Mongoose::WebLogger {
-  void log_error(const std::string &message) override { NSC_LOG_ERROR(message); }
-  void log_info(const std::string &message) override { NSC_LOG_MESSAGE(message); }
-  void log_debug(const std::string &message) override { NSC_DEBUG_MSG(message); }
+class WEBServerLogger : public WebLogger {
+  bool log_errors_;
+  bool log_info_;
+  bool log_debug_;
+
+ public:
+  WEBServerLogger(bool log_errors, bool log_info, bool log_debug) : log_errors_(log_errors), log_info_(log_info), log_debug_(log_debug) {}
+  void log_error(const std::string &message) override {
+    if (log_errors_) {
+      NSC_LOG_ERROR(message);
+    }
+  }
+  void log_info(const std::string &message) override {
+    if (log_info_) {
+      NSC_LOG_MESSAGE(message);
+    }
+  }
+  void log_debug(const std::string &message) override {
+    if (log_debug_) {
+      NSC_DEBUG_MSG(message);
+    }
+  }
 };
 
 WEBServer::WEBServer() : session(new session_manager_interface()) {}
@@ -87,6 +105,9 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   std::string ciphers;
   std::string admin_password;
   int threads;
+  bool log_errors = true;
+  bool log_info = false;
+  bool log_debug = false;
 
   role_map roles;
 
@@ -115,6 +136,11 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     "TLS Certificate", "Ssl certificate to use for the ssl server")
     ("ciphers", sh::string_key(&ciphers, ""),
     "Supported ciphers", "Supported ciphers for the web server (Set to tlsv1.3 to only allow tls1.3)")
+  ;
+  settings.alias().add_key_to_settings("log")
+    ("error", sh::bool_key(&log_errors, true), "Log errors", "Enable logging of errors from the web server.")
+    ("info", sh::bool_key(&log_info, false), "Log info", "Enable logging of info messages from the web server.")
+    ("debug", sh::bool_key(&log_debug, false), "Log debug", "Enable logging of debug messages from the web server.")
   ;
   // clang-format on
 
@@ -160,7 +186,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
     session->add_user("admin", "full", admin_password);
 
-    WebLoggerPtr logger(new WEBServerLogger());
+    WebLoggerPtr logger(new WEBServerLogger(log_errors, log_info, log_debug));
     server.reset(Mongoose::Server::make_server(logger));
     if (!boost::filesystem::is_regular_file(certificate)) {
       NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
