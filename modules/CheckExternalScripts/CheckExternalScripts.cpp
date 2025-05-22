@@ -227,7 +227,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 				" { \"id\": \"cmd\",		\"key\" : \"command\", \"title\" : \"A\",	\"type\" : \"hidden\",		\"desc\" : \"A\" } "
 				" ], "
 				"\"events\": { "
-				"\"onSave\": \"(function (node) { node.save_path = self.path; \nvar f = node.get_field('cmd'); \nf.key = node.get_field('alias').value(); \nvar val = node.get_field('command').value(); \nif (node.get_field('args').value()) { \nval += ' ' + node.get_field('args').value(); }; \nf.value(val)})\""
+				"\"onSave\": \"(function (node) { node.save_path = self.path; \\nvar f = node.get_field('cmd'); \\nf.key = node.get_field('alias').value(); \\nvar val = node.get_field('command').value(); \\nif (node.get_field('args').value()) { \\nval += ' ' + node.get_field('args').value(); }; \\nf.value(val)})\""
 				"}"
 				"}")
 			;

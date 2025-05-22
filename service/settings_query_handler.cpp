@@ -265,7 +265,7 @@ void settings_query_handler::parse_registration(const PB::Settings::SettingsRequ
       auto value = json::parse(q.fields());
       if (value.is_object()) node = value.as_object();
     } catch (const std::exception &e) {
-      LOG_ERROR_CORE(std::string("Failed to process fields for ") + e.what());
+      LOG_ERROR_CORE(std::string("Failed to process fields for ") + e.what() + " when parsing " +q.fields());
     } catch (...) {
       LOG_ERROR_CORE("Failed to process fields for ");
     }
