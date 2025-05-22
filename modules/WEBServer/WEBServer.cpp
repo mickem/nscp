@@ -117,6 +117,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // clang-format off
   settings.alias().add_path_to_settings()
     ("Web server", "Section for WEB (WEBServer.dll) (check_WEB) protocol options.")
+    ("log", "Log configuration", "Configure which messages from the web server are logged.")
     ("users", sh::fun_values_path(boost::bind(&WEBServer::add_user, this, ph::_1, ph::_2)),
     "Web server users", "Users which can access the REST API",
     "REST USER", "")

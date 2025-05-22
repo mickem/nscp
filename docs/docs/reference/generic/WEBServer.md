@@ -20,13 +20,13 @@ WEBServer = enabled
 
 
 
-| Path / Section                                  | Description      |
-|-------------------------------------------------|------------------|
-| [/settings/default](#default-values)            | Default values   |
-| [/settings/WEB/server](#web-server)             | Web server       |
-| [/settings/WEB/server/log](#)                   |                  |
-| [/settings/WEB/server/roles](#web-server-roles) | Web server roles |
-| [/settings/WEB/server/users](#web-server-users) | Web server users |
+| Path / Section                                  | Description       |
+|-------------------------------------------------|-------------------|
+| [/settings/default](#default-values)            | Default values    |
+| [/settings/WEB/server](#web-server)             | Web server        |
+| [/settings/WEB/server/log](#log-configuration)  | Log configuration |
+| [/settings/WEB/server/roles](#web-server-roles) | Web server roles  |
+| [/settings/WEB/server/users](#web-server-users) | Web server users  |
 
 
 
@@ -526,9 +526,9 @@ threads=10
 ```
 
 
-### /settings/WEB/server/log <a id="/settings/WEB/server/log"/>
+### Log configuration <a id="/settings/WEB/server/log"/>
 
-
+Configure which messages from the web server are logged.
 
 
 
@@ -542,7 +542,7 @@ threads=10
 
 
 ```ini
-# 
+# Configure which messages from the web server are logged.
 [/settings/WEB/server/log]
 debug=false
 error=true
