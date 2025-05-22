@@ -24,6 +24,7 @@ WEBServer = enabled
 |-------------------------------------------------|------------------|
 | [/settings/default](#default-values)            | Default values   |
 | [/settings/WEB/server](#web-server)             | Web server       |
+| [/settings/WEB/server/log](#)                   |                  |
 | [/settings/WEB/server/roles](#web-server-roles) | Web server roles |
 | [/settings/WEB/server/users](#web-server-users) | Web server users |
 
@@ -522,6 +523,111 @@ The number of threads in the sever response pool.
 [/settings/WEB/server]
 # Server threads
 threads=10
+```
+
+
+### /settings/WEB/server/log <a id="/settings/WEB/server/log"/>
+
+
+
+
+
+
+| Key                  | Default Value | Description |
+|----------------------|---------------|-------------|
+| [debug](#log-debug)  | false         | Log debug   |
+| [error](#log-errors) | true          | Log errors  |
+| [info](#log-info)    | false         | Log info    |
+
+
+
+```ini
+# 
+[/settings/WEB/server/log]
+debug=false
+error=true
+info=false
+
+```
+
+
+
+
+
+#### Log debug <a id="/settings/WEB/server/log/debug"></a>
+
+Enable logging of debug messages from the web server.
+
+
+
+
+
+| Key            | Description                                           |
+|----------------|-------------------------------------------------------|
+| Path:          | [/settings/WEB/server/log](#/settings/WEB/server/log) |
+| Key:           | debug                                                 |
+| Default value: | `false`                                               |
+| Used by:       | WEBServer                                             |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server/log]
+# Log debug
+debug=false
+```
+
+
+
+#### Log errors <a id="/settings/WEB/server/log/error"></a>
+
+Enable logging of errors from the web server.
+
+
+
+
+
+| Key            | Description                                           |
+|----------------|-------------------------------------------------------|
+| Path:          | [/settings/WEB/server/log](#/settings/WEB/server/log) |
+| Key:           | error                                                 |
+| Default value: | `true`                                                |
+| Used by:       | WEBServer                                             |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server/log]
+# Log errors
+error=true
+```
+
+
+
+#### Log info <a id="/settings/WEB/server/log/info"></a>
+
+Enable logging of info messages from the web server.
+
+
+
+
+
+| Key            | Description                                           |
+|----------------|-------------------------------------------------------|
+| Path:          | [/settings/WEB/server/log](#/settings/WEB/server/log) |
+| Key:           | info                                                  |
+| Default value: | `false`                                               |
+| Used by:       | WEBServer                                             |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server/log]
+# Log info
+info=false
 ```
 
 

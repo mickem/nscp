@@ -9,7 +9,8 @@ create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 set(SRCS
     ${SRCS} "${TARGET}.cpp"
     ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp ${NSCP_DEF_PLUGIN_CPP}
-    ${NSCP_CLIENT_CPP})
+    ${NSCP_CLIENT_CPP}
+    ${NSCP_INCLUDEDIR}/json/use_json.cpp)
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
 
@@ -19,15 +20,6 @@ if(WIN32)
       ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.hpp
       ${NSCP_DEF_PLUGIN_HPP} ${NSCP_CLIENT_HPP})
 endif(WIN32)
-
-if(JSON_SPIRIT_FOUND)
-  include_directories(${JSON_SPIRIT_INCLUDE_DIR})
-  add_definitions(-DHAVE_JSON_SPIRIT)
-  add_definitions(-DJSON_SPIRIT_STATIC_LINKED)
-  set(JSON_LIB json_spirit)
-else(JSON_SPIRIT_FOUND)
-  set(JSON_LIB)
-endif(JSON_SPIRIT_FOUND)
 
 add_definitions(-DMG_ENABLE_HTTP_WEBSOCKET=0)
 add_definitions(-DMG_ENABLE_BROADCAST=1)

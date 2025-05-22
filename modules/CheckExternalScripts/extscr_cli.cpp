@@ -26,9 +26,7 @@
 #include <file_helpers.hpp>
 #include <config.h>
 
-#ifdef HAVE_JSON_SPIRIT
-#include <json_spirit.h>
-#endif
+#include <boost/json.hpp>
 
 #include <boost/regex.hpp>
 #include <boost/filesystem.hpp>
@@ -43,6 +41,7 @@ namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 namespace pf = nscapi::protobuf::functions;
 namespace npo = nscapi::program_options;
+namespace json = boost::json;
 
 extscr_cli::extscr_cli(boost::shared_ptr<script_provider_interface> provider) : provider_(provider) {}
 
@@ -86,15 +85,9 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
   // clang-format off
 	desc.add_options()
 		("help", "Show help.")
-#ifdef HAVE_JSON_SPIRIT
-		("json", po::bool_switch(&json),
-			"Return the list in json format.")
-#endif
-		("query", po::bool_switch(&query),
-			"List queries instead of scripts (for aliases).")
-		("include-lib", po::bool_switch(&lib),
-			"Do not ignore any lib folders.")
-
+		("json", po::bool_switch(&json), "Return the list in json format.")
+		("query", po::bool_switch(&query), "List queries instead of scripts (for aliases).")
+		("include-lib", po::bool_switch(&lib), "Do not ignore any lib folders.")
 		;
   // clang-format on
 
@@ -114,15 +107,11 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
     return;
   }
   std::string resp;
-#ifdef HAVE_JSON_SPIRIT
-  json_spirit::Array data;
-#endif
+  json::array data;
   if (query) {
     for (const std::string &cmd : provider_->get_commands()) {
       if (json) {
-#ifdef HAVE_JSON_SPIRIT
-        data.push_back(cmd);
-#endif
+        data.push_back(json::value(cmd));
       } else {
         resp += cmd + "\n";
       }
@@ -139,20 +128,16 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
       boost::filesystem::path clone = i.parent_path();
       if (boost::filesystem::is_regular_file(i) && !boost::algorithm::contains(clone.string(), "lib")) {
         if (json) {
-#ifdef HAVE_JSON_SPIRIT
-          data.push_back(s);
-#endif
+          data.push_back(json::value(s));
         } else {
           resp += s + "\n";
         }
       }
     }
   }
-#ifdef HAVE_JSON_SPIRIT
   if (json) {
-    resp = json_spirit::write(data, json_spirit::raw_utf8);
+    resp = json::serialize(data);
   }
-#endif
 
   nscapi::protobuf::functions::set_response_good(*response, resp);
 }

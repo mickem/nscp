@@ -28,19 +28,14 @@
 #include <file_helpers.hpp>
 #include <config.h>
 
-#ifdef HAVE_JSON_SPIRIT
-#include <json_spirit.h>
-#endif
-
-#include <boost/regex.hpp>
+#include <boost/json.hpp>
 #include <boost/optional.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
 #include <string>
-#include <fstream>
-#include <streambuf>
+#include <utility>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
@@ -52,7 +47,9 @@ namespace fs = boost::filesystem;
 #define MODULE_NAME "PythonScript"
 #define REL_SCRIPT_PATH "scripts\\python\\"
 
-extscr_cli::extscr_cli(boost::shared_ptr<script_provider_interface> provider, std::string alias_) : provider_(provider), alias_(alias_) {}
+namespace json = boost::json;
+
+extscr_cli::extscr_cli(boost::shared_ptr<script_provider_interface> provider, std::string alias_) : provider_(std::move(provider)), alias_(alias_) {}
 
 bool extscr_cli::run(std::string cmd, const PB::Commands::ExecuteRequestMessage_Request &request, PB::Commands::ExecuteResponseMessage_Response *response) {
   if (cmd == "add")
@@ -70,9 +67,9 @@ bool extscr_cli::run(std::string cmd, const PB::Commands::ExecuteRequestMessage_
   return true;
 }
 
-bool extscr_cli::validate_sandbox(fs::path pscript, PB::Commands::ExecuteResponseMessage::Response *response) {
+bool extscr_cli::validate_sandbox(fs::path pscript, PB::Commands::ExecuteResponseMessage::Response *response) const {
   fs::path path = provider_->get_root();
-  if (!file_helpers::checks::path_contains_file(path, pscript)) {
+  if (!file_helpers::checks::path_contains_file(path, std::move(pscript))) {
     nscapi::protobuf::functions::set_response_bad(*response, "Not allowed outside: " + path.string());
     return false;
   }
@@ -85,19 +82,12 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
   bool json = false, query = false, lib = false;
 
   // clang-format off
-	desc.add_options()
-		("help", "Show help.")
-
-#ifdef HAVE_JSON_SPIRIT
-		("json", po::bool_switch(&json),
-			"Return the list in json format.")
-#endif
-		("query", po::bool_switch(&query),
-			"List queries instead of scripts (for aliases).")
-		("include-lib", po::bool_switch(&lib),
-			"Do not ignore any lib folders.")
-
-		;
+  desc.add_options()
+    ("help", "Show help.")
+    ("json", po::bool_switch(&json), "Return the list in json format.")
+    ("query", po::bool_switch(&query), "List queries instead of scripts (for aliases).")
+    ("include-lib", po::bool_switch(&lib), "Do not ignore any lib folders.")
+  ;
   // clang-format on
 
   try {
@@ -116,24 +106,20 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
     return;
   }
   std::string resp;
-#ifdef HAVE_JSON_SPIRIT
-  json_spirit::Array data;
-#endif
+  json::array data;
   if (query) {
     PB::Registry::RegistryRequestMessage rrm;
-    PB::Registry::RegistryResponseMessage response;
+    PB::Registry::RegistryResponseMessage r_response;
     PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
     payload->mutable_inventory()->set_fetch_all(true);
     payload->mutable_inventory()->add_type(PB::Registry::ItemType::QUERY);
     std::string pb_response;
     provider_->get_core()->registry_query(rrm.SerializeAsString(), pb_response);
-    response.ParseFromString(pb_response);
-    for (const ::PB::Registry::RegistryResponseMessage_Response &p : response.payload()) {
+    r_response.ParseFromString(pb_response);
+    for (const ::PB::Registry::RegistryResponseMessage_Response &p : r_response.payload()) {
       for (const ::PB::Registry::RegistryResponseMessage_Response_Inventory &i : p.inventory()) {
         if (json) {
-#ifdef HAVE_JSON_SPIRIT
-          data.push_back(i.name());
-#endif
+          data.push_back(json::value(i.name()));
         } else {
           resp += i.name() + "\n";
         }
@@ -146,25 +132,21 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
     for (fs::path const &i : boost::make_iterator_range(iter, eod)) {
       std::string s = i.string();
       if (boost::algorithm::starts_with(s, rel.string())) s = s.substr(rel.string().size());
-      if (s.size() == 0) continue;
+      if (s.empty()) continue;
       if (s[0] == '\\' || s[0] == '/') s = s.substr(1);
       fs::path clone = i.parent_path();
       if (fs::is_regular_file(i) && !boost::algorithm::contains(clone.string(), "lib")) {
         if (json) {
-#ifdef HAVE_JSON_SPIRIT
-          data.push_back(s);
-#endif
+          data.push_back(json::value(s));
         } else {
           resp += s + "\n";
         }
       }
     }
   }
-#ifdef HAVE_JSON_SPIRIT
   if (json) {
-    resp = json_spirit::write(data, json_spirit::raw_utf8);
+    resp = json::serialize(data);
   }
-#endif
   nscapi::protobuf::functions::set_response_good(*response, resp);
 }
 
@@ -176,12 +158,10 @@ void extscr_cli::show(const PB::Commands::ExecuteRequestMessage::Request &reques
   std::string script;
 
   // clang-format off
-	desc.add_options()
-		("help", "Show help.")
-
-		("script", po::value<std::string>(&script),
-		"Script to show.")
-		;
+  desc.add_options()
+    ("help", "Show help.")
+    ("script", po::value<std::string>(&script), "Script to show.")
+  ;
   // clang-format on
 
   try {
@@ -240,12 +220,12 @@ void extscr_cli::delete_script(const PB::Commands::ExecuteRequestMessage::Reques
   std::string script;
 
   // clang-format off
-	desc.add_options()
-		("help", "Show help.")
+  desc.add_options()
+    ("help", "Show help.")
 
-		("script", po::value<std::string>(&script),
-		"Script to delete.")
-		;
+    ("script", po::value<std::string>(&script),
+    "Script to delete.")
+    ;
   // clang-format on
 
   try {
@@ -307,28 +287,27 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
   bool list = false, replace = false, no_config = false;
 
   // clang-format off
-	desc.add_options()
-		("help", "Show help.")
+  desc.add_options()
+    ("help", "Show help.")
 
-		("script", po::value<std::string>(&script),
-			"Script to add")
+    ("script", po::value<std::string>(&script),
+    "Script to add")
 
-		("alias", po::value<std::string>(&alias),
-			"The alias of the script (defaults to basename of script)")
+    ("alias", po::value<std::string>(&alias),
+    "The alias of the script (defaults to basename of script)")
 
-		("list", po::bool_switch(&list),
-			"List all scripts in the scripts folder.")
+    ("list", po::bool_switch(&list),
+    "List all scripts in the scripts folder.")
 
-		("import", po::value<std::string>(&import_script),
-		"Import (copy to script folder) a script.")
+    ("import", po::value<std::string>(&import_script),
+    "Import (copy to script folder) a script.")
 
-		("replace", po::bool_switch(&replace),
-		"Used when importing to specify that the script will be overwritten.")
+    ("replace", po::bool_switch(&replace),
+    "Used when importing to specify that the script will be overwritten.")
 
-		("no-config", po::bool_switch(&no_config),
-		"Do not write the updated configuration (i.e. changes are only transient).")
-
-		;
+    ("no-config", po::bool_switch(&no_config),
+    "Do not write the updated configuration (i.e. changes are only transient).")
+  ;
   // clang-format on
 
   try {
@@ -395,7 +374,7 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
       return;
     }
   }
-  std::string actual = "";
+  std::string actual;
   provider_->add_command(alias, script, alias_);
   nscapi::core_helper core(provider_->get_core(), provider_->get_id());
   core.register_command(alias, "Alias for: " + script);
@@ -428,12 +407,11 @@ void extscr_cli::configure(const PB::Commands::ExecuteRequestMessage::Request &r
       scripts[val.get_string()] = val.key();
   }
   // clang-format off
-	desc.add_options()
-		("help", "Show help.")
-		("add", po::value<script_lst_type>(&to_add), "Scripts to add to the list of loaded scripts.")
-		("remove", po::value<script_lst_type>(&to_remove), "Scripts to remove from list of loaded scripts.")
-
-		;
+  desc.add_options()
+    ("help", "Show help.")
+    ("add", po::value<script_lst_type>(&to_add), "Scripts to add to the list of loaded scripts.")
+    ("remove", po::value<script_lst_type>(&to_remove), "Scripts to remove from list of loaded scripts.")
+    ;
   // clang-format on
 
   try {

@@ -21,7 +21,7 @@ class modules_controller : public Mongoose::RegexpController {
   const int version;
 
  public:
-  modules_controller(const int version, boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper *core, unsigned int plugin_id);
+  modules_controller(const int version, const boost::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core, unsigned int plugin_id);
 
   void get_modules(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
   void get_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);

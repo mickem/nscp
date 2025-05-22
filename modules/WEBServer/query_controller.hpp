@@ -21,7 +21,7 @@ class query_controller : public Mongoose::RegexpController {
   typedef std::vector<std::pair<std::string, std::string> > arg_vector;
 
  public:
-  query_controller(const int version, boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper *core, unsigned int plugin_id);
+  query_controller(const int version, const boost::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core, unsigned int plugin_id);
 
   void get_queries(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
   void get_query(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);

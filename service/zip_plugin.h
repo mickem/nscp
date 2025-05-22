@@ -84,8 +84,8 @@ class zip_plugin : public boost::noncopyable, public nsclient::core::plugin_inte
   std::list<std::string> on_start_;
 
  public:
-  zip_plugin(const unsigned int id, const boost::filesystem::path file, std::string alias, nsclient::core::path_instance paths,
-             nsclient::core::plugin_mgr_instance plugins, nsclient::logging::logger_instance logger);
+  zip_plugin(const unsigned int id, const boost::filesystem::path &file, const std::string &alias, const nsclient::core::path_instance &paths,
+             const nsclient::core::plugin_mgr_instance &plugins, const nsclient::logging::logger_instance &logger);
   virtual ~zip_plugin();
 
   bool load_plugin(NSCAPI::moduleLoadMode mode);
@@ -126,7 +126,7 @@ class zip_plugin : public boost::noncopyable, public nsclient::core::plugin_inte
  private:
   nsclient::logging::logger_instance get_logger() { return logger_; }
   void read_metadata();
-  void read_metadata(std::string string);
+  void read_metadata(const std::string &string);
 };
 }  // namespace core
 }  // namespace nsclient

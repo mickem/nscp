@@ -19,7 +19,7 @@
 
 #include "ElasticClient.h"
 
-#include <json_spirit.h>
+#include <boost/json.hpp>
 
 #include "elastic_handler.hpp"
 
@@ -41,6 +41,8 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+
+namespace json = boost::json;
 
 /**
  * Default c-tor
@@ -186,15 +188,15 @@ void send_to_elastic(const std::string address, const std::string index, std::st
 
   std::string payload;
   for (const std::string &data : payloads) {
-    json_spirit::Object tgtidx;
+    json::object tgtidx;
     tgtidx["_index"] = parse_index(index);
     tgtidx["_type"] = type;
     tgtidx["_id"] = boost::uuids::to_string(uuid);
 
-    json_spirit::Object header;
+    json::object header;
     header["index"] = tgtidx;
 
-    payload += json_spirit::write(header, json_spirit::raw_utf8) + "\n";
+    payload += json::serialize(header) + "\n";
     payload += data + "\n";
   }
   Mongoose::Client c(address);
@@ -222,28 +224,20 @@ void send_to_elastic(const std::string address, const std::string index, std::st
     }
   }
   try {
-    json_spirit::Value root;
-    json_spirit::read_or_throw(payload, root);
+    auto root = json::parse(payload).as_object();
     if (root.contains("errors")) {
-      if (root.getBool("errors")) {
+      if (root["errors"].as_bool()) {
         std::string errors;
-        for (const json_spirit::Value &item : root.getArray("items")) {
-          str::format::append_list(errors, item.get("index").get("error").getString("reason"));
+        for (const auto &item : root["items"].as_array()) {
+          auto o = item.as_object();
+          str::format::append_list(errors, o["index"].as_object()["error"].as_object()["reason"].as_string().c_str());
         }
         if (log_errors) {
           NSC_LOG_ERROR("Failed to send log record to elastic: " + errors);
         }
       }
     } else if (log_errors && root.contains("error")) {
-      NSC_LOG_ERROR("Failed to send log record to elastic: " + root.get("error").getString("reason"));
-    }
-  } catch (const json_spirit::PathError &e) {
-    if (log_errors) {
-      NSC_LOG_ERROR("Failed to parse elastic response " + e.reason + ": " + e.path);
-    }
-  } catch (const json_spirit::ParseError &e) {
-    if (log_errors) {
-      NSC_LOG_ERROR("Failed to parse elastic response: " + e.reason_);
+      NSC_LOG_ERROR("Failed to send log record to elastic: " + static_cast<std::string>(root["error"].as_object()["reason"].as_string().c_str()));
     }
   } catch (const std::exception &e) {
     if (log_errors) {
@@ -265,7 +259,7 @@ void ElasticClient::onEvent(const PB::Commands::EventMessage &request, const std
 
   std::vector<std::string> payloads;
   for (const ::PB::Commands::EventMessage::Request &line : request.payload()) {
-    json_spirit::Object node;
+    json::object node;
     for (const PB::Common::KeyValue e : line.data()) {
       if (e.key() == "written_str") {
         time = e.value();
@@ -275,30 +269,30 @@ void ElasticClient::onEvent(const PB::Commands::EventMessage &request, const std
     }
     node["@timestamp"] = time;
     node["hostname"] = hostname_;
-    payloads.push_back(json_spirit::write(node, json_spirit::raw_utf8));
+    payloads.push_back(json::serialize(node));
   }
   send_to_elastic(address, event_index, event_type, payloads, true);
 }
 
-void build_metrics(json_spirit::Object &metrics, const std::string trail, const PB::Metrics::MetricsBundle &b) {
-  json_spirit::Object node;
+void build_metrics(json::object &metrics, const std::string trail, const PB::Metrics::MetricsBundle &b) {
+  json::object node;
   for (const PB::Metrics::MetricsBundle &b2 : b.children()) {
     build_metrics(node, trail + boost::replace_all_copy(b.alias(), ".", "_"), b2);
   }
   for (const PB::Metrics::Metric &v : b.value()) {
     std::string key = trail.empty() ? boost::replace_all_copy(v.key(), ".", "_") : trail + "_" + boost::replace_all_copy(v.key(), ".", "_");
     if (v.has_gauge_value())
-      node.insert(json_spirit::Object::value_type(key, v.gauge_value().value()));
+      node.insert(json::object::value_type(key, v.gauge_value().value()));
     else if (v.has_string_value())
-      node.insert(json_spirit::Object::value_type(key, v.string_value().value()));
+      node.insert(json::object::value_type(key, v.string_value().value()));
   }
-  metrics.insert(json_spirit::Object::value_type(b.key(), node));
+  metrics.insert(json::object::value_type(b.key(), node));
 }
 void ElasticClient::submitMetrics(const PB::Metrics::MetricsMessage &response) {
   if (!started || address.empty()) {
     return;
   }
-  json_spirit::Object metrics;
+  json::object metrics;
   metrics["@timestamp"] = boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::universal_time());
   metrics["hostname"] = hostname_;
   for (const PB::Metrics::MetricsMessage::Response &p : response.payload()) {
@@ -308,7 +302,7 @@ void ElasticClient::submitMetrics(const PB::Metrics::MetricsMessage &response) {
   }
 
   std::vector<std::string> payloads;
-  payloads.push_back(json_spirit::write(metrics, json_spirit::raw_utf8));
+  payloads.push_back(json::serialize(metrics));
   send_to_elastic(address, metrics_index, metrics_type, payloads, true);
 }
 
@@ -317,7 +311,7 @@ void ElasticClient::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
     return;
   }
 
-  json_spirit::Object node;
+  json::object node;
   node["sender"] = message.sender();
   node["message"] = message.message();
   node["file"] = message.file();
@@ -328,6 +322,6 @@ void ElasticClient::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
 
   bool log = message.sender() != "elastic";
   std::vector<std::string> payloads;
-  payloads.push_back(json_spirit::write(node, json_spirit::raw_utf8));
+  payloads.push_back(json::serialize(node));
   send_to_elastic(address, nsclient_index, nsclient_type, payloads, log);
 }

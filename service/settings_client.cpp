@@ -19,9 +19,7 @@
 
 #include "settings_client.hpp"
 
-#ifdef HAVE_JSON_SPIRIT
-#include <json_spirit.h>
-#endif
+#include <boost/json.hpp>
 
 #include "../libs/settings_manager/settings_manager_impl.h"
 

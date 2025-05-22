@@ -5,10 +5,10 @@
 #include <nscapi/nscapi_protobuf_settings.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
-#ifdef HAVE_JSON_SPIRIT
-#include <json_spirit.h>
-#endif
+#include <boost/json.hpp>
 #include <boost/unordered_set.hpp>
+
+namespace json = boost::json;
 
 namespace nsclient {
 
@@ -259,34 +259,26 @@ void settings_query_handler::parse_registration(const PB::Settings::SettingsRequ
                                                 PB::Settings::SettingsResponseMessage::Response *rp) {
   rp->mutable_registration();
   if (!q.fields().empty()) {
-#ifdef HAVE_JSON_SPIRIT
-    json_spirit::Object node;
+    json::object node;
 
     try {
-      json_spirit::Value value;
-      std::string data = q.fields();
-      json_spirit::read_or_throw(data, value);
-      if (value.isObject()) node = value.getObject();
+      auto value = json::parse(q.fields());
+      if (value.is_object()) node = value.as_object();
     } catch (const std::exception &e) {
       LOG_ERROR_CORE(std::string("Failed to process fields for ") + e.what());
-    } catch (const json_spirit::ParseError &e) {
-      LOG_ERROR_CORE(std::string("Failed to process fields for ") + e.reason_ + " @ " + str::xtos(e.line_) + ":" + str::xtos(e.column_));
     } catch (...) {
       LOG_ERROR_CORE("Failed to process fields for ");
     }
 
-    node.insert(json_spirit::Object::value_type("plugin", plugin_id));
-    node.insert(json_spirit::Object::value_type("path", q.node().path()));
-    node.insert(json_spirit::Object::value_type("title", q.info().title()));
-    node.insert(json_spirit::Object::value_type("icon", q.info().icon()));
-    node.insert(json_spirit::Object::value_type("description", q.info().description()));
+    node.insert(json::object::value_type("plugin", plugin_id));
+    node.insert(json::object::value_type("path", q.node().path()));
+    node.insert(json::object::value_type("title", q.info().title()));
+    node.insert(json::object::value_type("icon", q.info().icon()));
+    node.insert(json::object::value_type("description", q.info().description()));
 
-    // node.insert(json_spirit::Object::value_type("fields", value));
-    std::string tplData = json_spirit::write(node);
+    // node.insert(json::object::value_type("fields", value));
+    std::string tplData = json::serialize(node);
     settings_manager::get_core()->register_tpl(plugin_id, q.node().path(), q.info().title(), tplData);
-#else
-    LOG_ERROR_CORE("Not compiled with json support");
-#endif
   } else if (!q.node().key().empty()) {
     settings_manager::get_core()->register_key(plugin_id, q.node().path(), q.node().key(), q.info().title(), q.info().description(), q.info().default_value(),
                                                q.info().advanced(), q.info().sample());

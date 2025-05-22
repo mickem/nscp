@@ -4,19 +4,19 @@
 
 #include <file_helpers.hpp>
 
-#include <str/xtos.hpp>
-
-#include <json_spirit.h>
+#include <boost/json.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
 #include <boost/filesystem/path.hpp>
 
 #include <fstream>
-#include <iostream>
+#include <utility>
 
 #define EXT_SCR "CheckExternalScripts"
 #define PY_SCR "PythonScript"
+
+namespace json = boost::json;
 
 std::string get_runtime(const std::string &runtime) {
   if (runtime == "ext") {
@@ -45,9 +45,9 @@ bool validate_response(const PB::Commands::ExecuteResponseMessage &resp, Mongoos
   return true;
 }
 
-scripts_controller::scripts_controller(const int version, boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper *core,
+scripts_controller::scripts_controller(const int version, boost::shared_ptr<session_manager_interface> session, const nscapi::core_wrapper *core,
                                        unsigned int plugin_id)
-    : RegexpController(version == 1 ? "/api/v1/scripts" : "/api/v2/scripts"), session(session), core(core), plugin_id(plugin_id) {
+    : RegexpController(version == 1 ? "/api/v1/scripts" : "/api/v2/scripts"), session(std::move(std::move(session))), core(core), plugin_id(plugin_id) {
   addRoute("GET", "/?$", this, &scripts_controller::get_runtimes);
   addRoute("GET", "/([^/]+)/?$", this, &scripts_controller::get_scripts);
   addRoute("GET", "/([^/]+)/(.+)/?$", this, &scripts_controller::get_script);
@@ -67,12 +67,12 @@ void scripts_controller::get_runtimes(Mongoose::Request &request, boost::smatch 
 
   PB::Registry::RegistryResponseMessage pb_response;
   pb_response.ParseFromString(str_response);
-  json_spirit::Array root;
+  json::array root;
 
-  for (const PB::Registry::RegistryResponseMessage::Response r : pb_response.payload()) {
-    for (const PB::Registry::RegistryResponseMessage::Response::Inventory i : r.inventory()) {
+  for (const PB::Registry::RegistryResponseMessage::Response &r : pb_response.payload()) {
+    for (const PB::Registry::RegistryResponseMessage::Response::Inventory &i : r.inventory()) {
       if (i.name() == PY_SCR || i.name() == EXT_SCR || i.name() == "LUAScript") {
-        json_spirit::Object node;
+        json::object node;
         std::string name = i.name();
         if (i.name() == PY_SCR) {
           name = "py";
@@ -91,7 +91,7 @@ void scripts_controller::get_runtimes(Mongoose::Request &request, boost::smatch 
       }
     }
   }
-  response.append(json_spirit::write(root));
+  response.append(json::serialize(root));
 }
 
 void scripts_controller::get_scripts(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {

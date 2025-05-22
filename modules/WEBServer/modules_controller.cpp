@@ -5,22 +5,23 @@
 #include <str/xtos.hpp>
 #include <file_helpers.hpp>
 
-#include <json_spirit.h>
+#include <boost/json.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
 #include <boost/filesystem/path.hpp>
 
 #include <fstream>
-#include <iostream>
 
 #ifdef WIN32
 #pragma warning(disable : 4456)
 #endif
 
-modules_controller::modules_controller(const int version, boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper *core,
+namespace json = boost::json;
+
+modules_controller::modules_controller(const int version, const boost::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core,
                                        unsigned int plugin_id)
-    : session(session), core(core), plugin_id(plugin_id), RegexpController(version == 1 ? "/api/v1/modules" : "/api/v2/modules"), version(version) {
+    : RegexpController(version == 1 ? "/api/v1/modules" : "/api/v2/modules"), session(session), core(core), plugin_id(plugin_id), version(version) {
   addRoute("GET", "/?$", this, &modules_controller::get_modules);
   addRoute("POST", "/([^/]+)/?$", this, &modules_controller::post_module);
   addRoute("GET", "/([^/]+)/?$", this, &modules_controller::get_module);
@@ -41,18 +42,18 @@ void modules_controller::get_modules(Mongoose::Request &request, boost::smatch &
 
   PB::Registry::RegistryResponseMessage pb_response;
   pb_response.ParseFromString(str_response);
-  json_spirit::Array root;
+  json::array root;
 
   for (const PB::Registry::RegistryResponseMessage::Response r : pb_response.payload()) {
     for (const PB::Registry::RegistryResponseMessage::Response::Inventory i : r.inventory()) {
-      json_spirit::Object node;
+      json::object node;
       node["name"] = i.name();
       node["id"] = i.id();
       node["title"] = i.info().title();
       node["loaded"] = false;
       node["enabled"] = false;
       node["module_url"] = request.get_host() + "/api/v1/modules/" + i.name() + "/";
-      json_spirit::Object keys;
+      json::object keys;
       for (const PB::Common::KeyValue &kvp : i.info().metadata()) {
         if (kvp.key() == "loaded") {
           node["loaded"] = kvp.value() == "true";
@@ -69,7 +70,7 @@ void modules_controller::get_modules(Mongoose::Request &request, boost::smatch &
       root.push_back(node);
     }
   }
-  response.append(json_spirit::write(root));
+  response.append(json::serialize(root));
 }
 
 void modules_controller::get_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
@@ -90,7 +91,7 @@ void modules_controller::get_module(Mongoose::Request &request, boost::smatch &w
 
   PB::Registry::RegistryResponseMessage pb_response;
   pb_response.ParseFromString(str_response);
-  json_spirit::Object node;
+  json::object node;
 
   for (const PB::Registry::RegistryResponseMessage::Response r : pb_response.payload()) {
     if (r.inventory_size() == 0) {
@@ -103,7 +104,7 @@ void modules_controller::get_module(Mongoose::Request &request, boost::smatch &w
       node["title"] = i.info().title();
       node["loaded"] = false;
       node["enabled"] = false;
-      json_spirit::Object keys;
+      json::object keys;
       for (const PB::Common::KeyValue &kvp : i.info().metadata()) {
         if (kvp.key() == "loaded") {
           node["loaded"] = kvp.value() == "true";
@@ -121,7 +122,7 @@ void modules_controller::get_module(Mongoose::Request &request, boost::smatch &w
       node["disable_url"] = get_base(request) + "/" + i.id() + "/commands/disable";
     }
   }
-  response.append(json_spirit::write(node));
+  response.append(json::serialize(node));
 }
 
 void modules_controller::module_command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
@@ -236,12 +237,10 @@ void modules_controller::put_module(Mongoose::Request &request, boost::smatch &w
   std::string module = what.str(1);
 
   try {
-    json_spirit::Value root;
-    std::string data = request.getData();
-    json_spirit::read_or_throw(data, root);
+    auto root = json::parse(request.getData());
     std::string object_type;
-    json_spirit::Object o = root.getObject();
-    bool target_is_loaded = o["loaded"].getBool();
+    json::object o = root.as_object();
+    bool target_is_loaded = o["loaded"].as_bool();
 
     PB::Registry::RegistryRequestMessage rrm;
     PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
@@ -253,7 +252,7 @@ void modules_controller::put_module(Mongoose::Request &request, boost::smatch &w
 
     PB::Registry::RegistryResponseMessage pb_response;
     pb_response.ParseFromString(str_response);
-    json_spirit::Object node;
+    json::object node;
 
     for (const PB::Registry::RegistryResponseMessage::Response r : pb_response.payload()) {
       for (const PB::Registry::RegistryResponseMessage::Response::Inventory i : r.inventory()) {
@@ -283,7 +282,7 @@ void modules_controller::put_module(Mongoose::Request &request, boost::smatch &w
         }
       }
     }
-  } catch (const json_spirit::ParseError &e) {
+  } catch (const std::exception &e) {
     response.setCodeBadRequest("Problems parsing JSON");
   }
 }
@@ -303,7 +302,7 @@ void modules_controller::post_module(Mongoose::Request &request, boost::smatch &
       std::ofstream ofs(file.string().c_str(), std::ios::binary);
       ofs << request.getData();
       ofs.close();
-    } catch (const json_spirit::ParseError &e) {
+    } catch (const std::exception &e) {
       response.setCodeBadRequest("Failed to upload module");
     }
 
@@ -319,7 +318,7 @@ void modules_controller::post_module(Mongoose::Request &request, boost::smatch &
 
     PB::Registry::RegistryResponseMessage pb_response;
     pb_response.ParseFromString(str_response);
-  } catch (const json_spirit::ParseError &e) {
+  } catch (const std::exception &e) {
     response.setCodeBadRequest("Problems parsing JSON");
   }
 }

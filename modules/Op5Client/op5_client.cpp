@@ -19,10 +19,9 @@
 
 #include "op5_client.hpp"
 
-#include <json_spirit.h>
+#include <boost/json.hpp>
 #include <Helpers.h>
 
-// #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
@@ -34,13 +33,13 @@
 #include <str/format.hpp>
 #include <utf8.hpp>
 
-#include <boost/algorithm/string/replace.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/asio.hpp>
 #include <boost/optional.hpp>
-#include <boost/range/iterator_range.hpp>
+
+namespace json = boost::json;
 
 op5_client::op5_client(const nscapi::core_wrapper *core, int plugin_id, op5_config config)
     : core_(core), plugin_id_(plugin_id_), config_(config), stop_thread_(false) {
@@ -154,10 +153,8 @@ bool op5_client::has_host(std::string host) {
   }
 
   try {
-    json_spirit::Value root;
-    std::string data = response->getBody();
-    json_spirit::read_or_throw(data, root);
-    return root.getArray().size() > 0;
+    auto root = json::parse(response->getBody());
+    return root.as_array().size() > 0;
   } catch (const std::exception &e) {
     NSC_LOG_ERROR("Failed to parse reponse: " + utf8::utf8_from_native(e.what()));
     return false;
@@ -177,25 +174,23 @@ std::pair<bool, bool> op5_client::has_service(std::string service, std::string h
   }
 
   try {
-    json_spirit::Value root;
-    std::string data = response->getBody();
-    json_spirit::read_or_throw(data, root);
+    auto root = json::parse(response->getBody()).as_object();
     std::vector<std::string> hosts;
-    hosts_string = root.getString("host_name");
+    hosts_string = root["host_name"].as_string().c_str();
     boost::split(hosts, hosts_string, boost::is_any_of(", "), boost::token_compress_on);
     if (std::find(hosts.begin(), hosts.end(), host) == hosts.end()) {
       return std::pair<bool, bool>(true, false);
     } else {
       return std::pair<bool, bool>(true, true);
     }
-  } catch (const json_spirit::ParseError &e) {
+  } catch (const std::exception &e) {
     NSC_LOG_ERROR("Failed to parse reponse: " + response->getBody());
     return std::pair<bool, bool>(false, false);
   }
 }
 
 bool op5_client::add_host(std::string host, std::string hostgroups, std::string contactgroups) {
-  json_spirit::Object req;
+  json::object req;
   req["alias"] = host;
   req["host_name"] = host;
   req["address"] = get_my_ip();
@@ -207,7 +202,7 @@ bool op5_client::add_host(std::string host, std::string hostgroups, std::string 
     req["contact_groups"] = contactgroups;
   }
 
-  boost::shared_ptr<Mongoose::Response> response = do_call("POST", "/api/config/host", json_spirit::write(req));
+  boost::shared_ptr<Mongoose::Response> response = do_call("POST", "/api/config/host", json::serialize(req));
 
   if (!is_200(response)) {
     NSC_LOG_ERROR("Failed to add host: " + host + ": " + get_error(response));
@@ -237,12 +232,12 @@ bool op5_client::save_config() {
 }
 
 bool op5_client::send_host_check(std::string host, int status_code, std::string msg, std::string &status, bool create_if_missing) {
-  json_spirit::Object req;
+  json::object req;
   req["host_name"] = host;
   req["status_code"] = status_code;
   req["plugin_output"] = msg;
 
-  boost::shared_ptr<Mongoose::Response> response = do_call("POST", "/api/command/PROCESS_HOST_CHECK_RESULT", json_spirit::write(req));
+  boost::shared_ptr<Mongoose::Response> response = do_call("POST", "/api/command/PROCESS_HOST_CHECK_RESULT", json::serialize(req));
 
   if (!is_200(response)) {
     status = "Failed to submit host check to " + host + ": " + get_error(response);
@@ -253,13 +248,13 @@ bool op5_client::send_host_check(std::string host, int status_code, std::string 
 }
 
 bool op5_client::send_service_check(std::string host, std::string service, int status_code, std::string msg, std::string &status, bool create_if_missing) {
-  json_spirit::Object req;
+  json::object req;
   req["host_name"] = host;
   req["service_description"] = service;
   req["status_code"] = status_code;
   req["plugin_output"] = msg;
 
-  boost::shared_ptr<Mongoose::Response> response = do_call("POST", "/api/command/PROCESS_SERVICE_CHECK_RESULT", json_spirit::write(req));
+  boost::shared_ptr<Mongoose::Response> response = do_call("POST", "/api/command/PROCESS_SERVICE_CHECK_RESULT", json::serialize(req));
 
   if (is_404(response)) {
     if (create_if_missing) {
@@ -279,14 +274,14 @@ bool op5_client::send_service_check(std::string host, std::string service, int s
 }
 
 bool op5_client::add_service(std::string host, std::string service) {
-  json_spirit::Object req;
+  json::object req;
   req["service_description"] = service;
   req["host_name"] = host;
   req["check_command"] = "bizproc_pas";
   req["active_checks_enabled"] = 0;
   req["freshness_threshold"] = 600;
 
-  boost::shared_ptr<Mongoose::Response> response = do_call("POST", "/api/config/service", json_spirit::write(req));
+  boost::shared_ptr<Mongoose::Response> response = do_call("POST", "/api/config/service", json::serialize(req));
 
   if (!is_200(response)) {
     NSC_LOG_ERROR("Failed to add service " + service + " to " + host + ": " + get_error(response));
@@ -296,7 +291,7 @@ bool op5_client::add_service(std::string host, std::string service) {
 }
 
 bool op5_client::add_host_to_service(std::string service, std::string host, std::string &hosts_string) {
-  json_spirit::Object req;
+  json::object req;
   if (hosts_string.length() > 0) {
     hosts_string += "," + host;
   } else {
@@ -304,7 +299,7 @@ bool op5_client::add_host_to_service(std::string service, std::string host, std:
   }
   req["host_name"] = host;
 
-  boost::shared_ptr<Mongoose::Response> response = do_call("PATCH", "/api/config/service/" + service, json_spirit::write(req));
+  boost::shared_ptr<Mongoose::Response> response = do_call("PATCH", "/api/config/service/" + service, json::serialize(req));
 
   if (!is_200(response)) {
     NSC_LOG_ERROR("Failed to add service " + service + " to " + host + ": " + get_error(response));

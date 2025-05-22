@@ -25,7 +25,6 @@
 #include "CheckSystem.h"
 
 #include <EnumNtSrv.h>
-#include <EnumProcess.h>
 #include <sysinfo.h>
 #include <simple_registry.hpp>
 #include <win_sysinfo/win_sysinfo.hpp>
@@ -39,13 +38,9 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <compat.hpp>
 #include <nsclient/nsclient_exception.hpp>
-#ifdef HAVE_JSON_SPIRIT
-#include <json_spirit.h>
-#endif
-#include <boost/regex.hpp>
+#include <boost/json.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/program_options.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
 
 #include <map>
@@ -54,6 +49,7 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 namespace ph = boost::placeholders;
+namespace json = boost::json;
 
 std::pair<bool, std::string> validate_counter(std::string counter) {
   PDH::PDHQuery pdh;
@@ -254,21 +250,16 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
   }
   try {
     int total = 0, match = 0;
-#ifdef HAVE_JSON_SPIRIT
-    json_spirit::Array data;
-#endif
+    json::array data;
     for (const PDH::Enumerations::Object &obj : list) {
       if (json) {
-#ifdef HAVE_JSON_SPIRIT
         for (const std::string &inst : obj.instances) {
           for (const std::string &count : obj.counters) {
             std::string line = "\\" + obj.name + "(" + inst + ")\\" + count;
             if (!filter.empty() && line.find(filter) == std::string::npos) continue;
-            json_spirit::Value v = line;
-            data.push_back(v);
+            data.push_back(json::value(line));
           }
         }
-#endif
       } else if (porcelain) {
         for (const std::string &inst : obj.instances) {
           std::string line = "\\" + obj.name + "(" + inst + ")\\";
@@ -326,11 +317,7 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
       }
     }
     if (json) {
-#ifdef HAVE_JSON_SPIRIT
-      result = json_spirit::write(data, json_spirit::raw_utf8);
-#else
-      result = "No json support";
-#endif
+      result = json::serialize(data);
     } else if (!porcelain) {
       result += "---------------------------\n";
       result += "Listed " + str::xtos(match) + " of " + str::xtos(total) + " counters.";

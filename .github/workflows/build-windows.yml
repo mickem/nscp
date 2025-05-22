@@ -152,7 +152,7 @@ jobs:
       uses: mickem/build-boost@v1
       with:
         version: ${{ ENV.BOOST_VERSION }}
-        libraries: system filesystem thread regex date_time program_options python chrono
+        libraries: system filesystem thread regex date_time program_options python chrono json
         platform: ${{ inputs.architecture }}
         configuration: Release
   

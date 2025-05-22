@@ -51,14 +51,12 @@
 
 #include <socket/socket_helpers.hpp>
 
-#include <json_spirit.h>
+#include <boost/json.hpp>
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem/operations.hpp>
-#include <boost/unordered_set.hpp>
 
-#include <iostream>
-#include <fstream>
+namespace json = boost::json;
 
 namespace sh = nscapi::settings_helper;
 
@@ -635,33 +633,33 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
   return true;
 }
 
-void build_metrics(json_spirit::Object &metrics, json_spirit::Object &metrics_list, std::list<std::string> &openmetrics, const std::string trail,
-                   const std::string opentrail, const PB::Metrics::MetricsBundle &b) {
-  json_spirit::Object node;
+void build_metrics(json::object &metrics, json::object &metrics_list, std::list<std::string> &openmetrics, const std::string trail, const std::string opentrail,
+                   const PB::Metrics::MetricsBundle &b) {
+  json::object node;
   for (const PB::Metrics::MetricsBundle &b2 : b.children()) {
     build_metrics(node, metrics_list, openmetrics, trail + "." + b2.key(), opentrail + "_" + b2.key(), b2);
   }
   for (const PB::Metrics::Metric &v : b.value()) {
     if (v.has_gauge_value()) {
-      node.insert(json_spirit::Object::value_type(v.key(), v.gauge_value().value()));
-      metrics_list.insert(json_spirit::Object::value_type(trail + "." + v.key(), v.gauge_value().value()));
+      node.insert(json::object::value_type(v.key(), v.gauge_value().value()));
+      metrics_list.insert(json::object::value_type(trail + "." + v.key(), v.gauge_value().value()));
       openmetrics.push_back(opentrail + "_" + v.key() + " " + str::xtos(v.gauge_value().value()));
     } else if (v.has_string_value()) {
-      node.insert(json_spirit::Object::value_type(v.key(), v.string_value().value()));
-      metrics_list.insert(json_spirit::Object::value_type(trail + "." + v.key(), v.string_value().value()));
+      node.insert(json::object::value_type(v.key(), v.string_value().value()));
+      metrics_list.insert(json::object::value_type(trail + "." + v.key(), v.string_value().value()));
     }
   }
-  metrics.insert(json_spirit::Object::value_type(b.key(), node));
+  metrics.insert(json::object::value_type(b.key(), node));
 }
 void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) {
-  json_spirit::Object metrics, metrics_list;
+  json::object metrics, metrics_list;
   std::list<std::string> openmetrics;
   for (const PB::Metrics::MetricsMessage::Response &p : response.payload()) {
     for (const PB::Metrics::MetricsBundle &b : p.bundles()) {
       build_metrics(metrics, metrics_list, openmetrics, b.key(), b.key(), b);
     }
   }
-  session->set_metrics(json_spirit::write(metrics), json_spirit::write(metrics_list), openmetrics);
+  session->set_metrics(json::serialize(metrics), json::serialize(metrics_list), openmetrics);
   client->push_metrics(response);
 }
 

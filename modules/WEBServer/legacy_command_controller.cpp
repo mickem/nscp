@@ -1,24 +1,18 @@
 #include "legacy_command_controller.hpp"
 
-#include "error_handler_interface.hpp"
-#include "web_cli_handler.hpp"
-
 #include <client/simple_client.hpp>
 
 #include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_settings.hpp>
 
-#include <str/xtos.hpp>
+#include <boost/json.hpp>
 
-#include <json_spirit.h>
-
-#include <boost/asio/ip/address.hpp>
-#include <boost/thread/locks.hpp>
 #include <boost/algorithm/string.hpp>
 
-legacy_command_controller::legacy_command_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper *core, unsigned int plugin_id,
-                                                     boost::shared_ptr<client::cli_client> client)
-    : session(session), core(core), plugin_id(plugin_id), client(client), RegexpController("") {
+namespace json = boost::json;
+
+legacy_command_controller::legacy_command_controller(const boost::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core,
+                                                     unsigned int plugin_id, boost::shared_ptr<client::cli_client> client)
+    : RegexpController(""), session(session), core(core), plugin_id(plugin_id), client(client) {
   addRoute("GET", "/query/([^/]+)/?$", this, &legacy_command_controller::handle_query);
 }
 
@@ -49,21 +43,21 @@ void legacy_command_controller::handle_query(Mongoose::Request &request, boost::
   PB::Commands::QueryResponseMessage response;
   response.ParseFromString(pb_response);
 
-  json_spirit::Object node;
+  json::object node;
   for (const PB::Commands::QueryResponseMessage::Response &r : response.payload()) {
     node["command"] = r.command();
     node["result"] = "OK";
-    json_spirit::Array lines;
+    json::array lines;
     for (const PB::Commands::QueryResponseMessage::Response::Line &l : r.lines()) {
-      json_spirit::Object line;
+      json::object line;
       line["message"] = l.message();
 
-      json_spirit::Array perfs;
+      json::array perfs;
       for (const PB::Common::PerformanceData &p : l.perf()) {
-        json_spirit::Object perf;
+        json::object perf;
         perf["alias"] = p.alias();
         if (p.has_float_value()) {
-          json_spirit::Object float_value;
+          json::object float_value;
           float_value["value"] = p.float_value().value();
           if (p.float_value().has_minimum()) float_value["minimum"] = p.float_value().minimum().value();
           if (p.float_value().has_maximum()) float_value["maximum"] = p.float_value().maximum().value();
@@ -73,7 +67,7 @@ void legacy_command_controller::handle_query(Mongoose::Request &request, boost::
           perf["float_value"] = float_value;
         }
         if (p.has_string_value()) {
-          json_spirit::Object string_value;
+          json::object string_value;
           string_value["value"] = p.string_value().value();
           perf["string_value"] = string_value;
         }
@@ -85,10 +79,10 @@ void legacy_command_controller::handle_query(Mongoose::Request &request, boost::
     node["lines"] = lines;
     break;
   }
-  json_spirit::Object root;
-  json_spirit::Array payloads;
+  json::object root;
+  json::array payloads;
   payloads.push_back(node);
   root["payload"] = payloads;
   http_response.setCodeOk();
-  http_response.append(json_spirit::write(root));
+  http_response.append(json::serialize(root));
 }

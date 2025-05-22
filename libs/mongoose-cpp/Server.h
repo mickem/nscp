@@ -16,6 +16,7 @@ namespace Mongoose {
 
 class NSCAPI_EXPORT WebLogger {
  public:
+  virtual ~WebLogger() = default;
   virtual void log_error(const std::string &message) = 0;
   virtual void log_info(const std::string &message) = 0;
   virtual void log_debug(const std::string &message) = 0;
