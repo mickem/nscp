@@ -23,7 +23,7 @@ class legacy_command_controller : public Mongoose::RegexpController {
   boost::shared_mutex mutex_;
 
  public:
-  legacy_command_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper *core, unsigned int plugin_id,
+  legacy_command_controller(const boost::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core, unsigned int plugin_id,
                             boost::shared_ptr<client::cli_client> client);
   void handle_query(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 };

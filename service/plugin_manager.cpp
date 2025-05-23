@@ -20,9 +20,7 @@
 #include "plugin_manager.hpp"
 
 #include "dll_plugin.h"
-#ifdef HAVE_JSON_SPIRIT
 #include "zip_plugin.h"
-#endif
 #include <str/format.hpp>
 #include <file_helpers.hpp>
 #include <settings/settings_core.hpp>
@@ -342,11 +340,7 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only
   }
   loaded = true;
   if (boost::algorithm::ends_with(real_file->string(), ".zip")) {
-#ifdef HAVE_JSON_SPIRIT
     return plugin_type(new nsclient::core::zip_plugin(plugin_list_.get_next_id(), real_file->lexically_normal(), alias, path_, shared_from_this(), log_instance_));
-#else
-    LOG_ERROR_CORE("Found zip module but json is not enbled during build: " + real_file->lexically_normal());
-#endif
   }
   return plugin_type(new nsclient::core::dll_plugin(plugin_list_.get_next_id(), real_file->lexically_normal(), alias));
 }

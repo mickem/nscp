@@ -40,6 +40,11 @@ set(service_SRCS
     ${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
     ${NSCP_INCLUDEDIR}/pid_file.cpp
     ${NSCP_INCLUDEDIR}/has-threads.cpp
+
+    zip_plugin.cpp
+
+    ${NSCP_INCLUDEDIR}/json/use_json.cpp
+
     ../resources/nsclient.ico)
 
 if(WIN32)
@@ -76,6 +81,7 @@ if(WIN32)
       storage_query_handler.hpp
       plugin_cache.hpp
       service_manager.hpp
+      zip_plugin.h
       # ${NSCP_INCLUDEDIR}/config.h
       ${NSCP_INCLUDEDIR}/com_helpers.hpp
       ${NSCP_INCLUDEDIR}/dll/dll.hpp
@@ -99,22 +105,6 @@ if(WIN32)
   add_definitions(-D_WIN32_DCOM)
 endif(WIN32)
 
-if(JSON_SPIRIT_FOUND)
-  include_directories(${JSON_SPIRIT_INCLUDE_DIR})
-  add_definitions(-DHAVE_JSON_SPIRIT)
-  add_definitions(-DJSON_SPIRIT_STATIC_LINKED)
-  set(JSON_LIB json_spirit)
-
-  set(service_SRCS ${service_SRCS} zip_plugin.cpp zip_plugin.h)
-else(JSON_SPIRIT_FOUND)
-  set(JSON_LIB)
-endif(JSON_SPIRIT_FOUND)
-
-if(PROTOC_GEN_JSON_FOUND)
-  add_definitions(-DHAVE_JSON_PB)
-  include_directories(${NSCP_PROJECT_BINARY_DIR}/libs/json_pb)
-  include_directories(${NSCP_PROJECT_BINARY_DIR}/libs/protobuf)
-endif()
 add_definitions(${NSCP_GLOBAL_DEFINES} -Dplugin_api_NOLIB)
 
 # Add python

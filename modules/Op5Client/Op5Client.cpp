@@ -19,7 +19,7 @@
 
 #include "Op5Client.h"
 
-#include <json_spirit.h>
+#include <boost/json.hpp>
 
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>

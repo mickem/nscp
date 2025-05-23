@@ -51,14 +51,12 @@
 
 #include <socket/socket_helpers.hpp>
 
-#include <json_spirit.h>
+#include <boost/json.hpp>
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem/operations.hpp>
-#include <boost/unordered_set.hpp>
 
-#include <iostream>
-#include <fstream>
+namespace json = boost::json;
 
 namespace sh = nscapi::settings_helper;
 
@@ -66,10 +64,28 @@ using namespace std;
 using namespace Mongoose;
 namespace ph = boost::placeholders;
 
-class WEBServerLogger : public Mongoose::WebLogger {
-  void log_error(const std::string &message) override { NSC_LOG_ERROR(message); }
-  void log_info(const std::string &message) override { NSC_LOG_MESSAGE(message); }
-  void log_debug(const std::string &message) override { NSC_DEBUG_MSG(message); }
+class WEBServerLogger : public WebLogger {
+  bool log_errors_;
+  bool log_info_;
+  bool log_debug_;
+
+ public:
+  WEBServerLogger(bool log_errors, bool log_info, bool log_debug) : log_errors_(log_errors), log_info_(log_info), log_debug_(log_debug) {}
+  void log_error(const std::string &message) override {
+    if (log_errors_) {
+      NSC_LOG_ERROR(message);
+    }
+  }
+  void log_info(const std::string &message) override {
+    if (log_info_) {
+      NSC_LOG_MESSAGE(message);
+    }
+  }
+  void log_debug(const std::string &message) override {
+    if (log_debug_) {
+      NSC_DEBUG_MSG(message);
+    }
+  }
 };
 
 WEBServer::WEBServer() : session(new session_manager_interface()) {}
@@ -87,6 +103,9 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   std::string ciphers;
   std::string admin_password;
   int threads;
+  bool log_errors = true;
+  bool log_info = false;
+  bool log_debug = false;
 
   role_map roles;
 
@@ -98,6 +117,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // clang-format off
   settings.alias().add_path_to_settings()
     ("Web server", "Section for WEB (WEBServer.dll) (check_WEB) protocol options.")
+    ("log", "Log configuration", "Configure which messages from the web server are logged.")
     ("users", sh::fun_values_path(boost::bind(&WEBServer::add_user, this, ph::_1, ph::_2)),
     "Web server users", "Users which can access the REST API",
     "REST USER", "")
@@ -115,6 +135,11 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     "TLS Certificate", "Ssl certificate to use for the ssl server")
     ("ciphers", sh::string_key(&ciphers, ""),
     "Supported ciphers", "Supported ciphers for the web server (Set to tlsv1.3 to only allow tls1.3)")
+  ;
+  settings.alias().add_key_to_settings("log")
+    ("error", sh::bool_key(&log_errors, true), "Log errors", "Enable logging of errors from the web server.")
+    ("info", sh::bool_key(&log_info, false), "Log info", "Enable logging of info messages from the web server.")
+    ("debug", sh::bool_key(&log_debug, false), "Log debug", "Enable logging of debug messages from the web server.")
   ;
   // clang-format on
 
@@ -160,7 +185,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
     session->add_user("admin", "full", admin_password);
 
-    WebLoggerPtr logger(new WEBServerLogger());
+    WebLoggerPtr logger(new WEBServerLogger(log_errors, log_info, log_debug));
     server.reset(Mongoose::Server::make_server(logger));
     if (!boost::filesystem::is_regular_file(certificate)) {
       NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
@@ -609,33 +634,33 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
   return true;
 }
 
-void build_metrics(json_spirit::Object &metrics, json_spirit::Object &metrics_list, std::list<std::string> &openmetrics, const std::string trail,
-                   const std::string opentrail, const PB::Metrics::MetricsBundle &b) {
-  json_spirit::Object node;
+void build_metrics(json::object &metrics, json::object &metrics_list, std::list<std::string> &openmetrics, const std::string trail, const std::string opentrail,
+                   const PB::Metrics::MetricsBundle &b) {
+  json::object node;
   for (const PB::Metrics::MetricsBundle &b2 : b.children()) {
     build_metrics(node, metrics_list, openmetrics, trail + "." + b2.key(), opentrail + "_" + b2.key(), b2);
   }
   for (const PB::Metrics::Metric &v : b.value()) {
     if (v.has_gauge_value()) {
-      node.insert(json_spirit::Object::value_type(v.key(), v.gauge_value().value()));
-      metrics_list.insert(json_spirit::Object::value_type(trail + "." + v.key(), v.gauge_value().value()));
+      node.insert(json::object::value_type(v.key(), v.gauge_value().value()));
+      metrics_list.insert(json::object::value_type(trail + "." + v.key(), v.gauge_value().value()));
       openmetrics.push_back(opentrail + "_" + v.key() + " " + str::xtos(v.gauge_value().value()));
     } else if (v.has_string_value()) {
-      node.insert(json_spirit::Object::value_type(v.key(), v.string_value().value()));
-      metrics_list.insert(json_spirit::Object::value_type(trail + "." + v.key(), v.string_value().value()));
+      node.insert(json::object::value_type(v.key(), v.string_value().value()));
+      metrics_list.insert(json::object::value_type(trail + "." + v.key(), v.string_value().value()));
     }
   }
-  metrics.insert(json_spirit::Object::value_type(b.key(), node));
+  metrics.insert(json::object::value_type(b.key(), node));
 }
 void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) {
-  json_spirit::Object metrics, metrics_list;
+  json::object metrics, metrics_list;
   std::list<std::string> openmetrics;
   for (const PB::Metrics::MetricsMessage::Response &p : response.payload()) {
     for (const PB::Metrics::MetricsBundle &b : p.bundles()) {
       build_metrics(metrics, metrics_list, openmetrics, b.key(), b.key(), b);
     }
   }
-  session->set_metrics(json_spirit::write(metrics), json_spirit::write(metrics_list), openmetrics);
+  session->set_metrics(json::serialize(metrics), json::serialize(metrics_list), openmetrics);
   client->push_metrics(response);
 }
 

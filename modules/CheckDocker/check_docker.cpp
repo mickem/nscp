@@ -19,9 +19,7 @@
 
 #include "check_docker.hpp"
 
-#include <parsers/where.hpp>
 #include <parsers/where/node.hpp>
-#include <parsers/where/engine.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/filter/cli_helper.hpp>
@@ -29,33 +27,36 @@
 #include <str/format.hpp>
 #include <http/client.hpp>
 
-#include <json_spirit.h>
+#include <boost/json.hpp>
 
 #include <string>
+
+namespace json = boost::json;
 
 namespace check_docker_filter {
 namespace ph = boost::placeholders;
 struct filter_obj {
   std::string id, image, imageId, command, created, state, status, names, ip;
 
-  filter_obj(json_spirit::Value& v) {
-    id = v.getString("Id");
-    image = v.getString("Image");
-    imageId = v.getString("ImageID");
-    command = v.getString("Command");
+  filter_obj(json::value& v) {
+    auto o = v.as_object();
+    id = o["Id"].as_string().c_str();
+    image = o["Image"].as_string().c_str();
+    imageId = o["ImageID"].as_string().c_str();
+    command = o["Command"].as_string().c_str();
     // created = v.getString("Created");
-    state = v.getString("State");
-    status = v.getString("Status");
-    for (const json_spirit::Value& name : v.getArray("Names")) {
-      str::format::append_list(names, name.getString(), ",");
+    state = o["State"].as_string().c_str();
+    status = o["Status"].as_string().c_str();
+    for (const auto& name : o["Names"].as_array()) {
+      str::format::append_list(names, name.as_string().c_str(), ",");
     }
-    json_spirit::Value netSettings = v.getObject("NetworkSettings");
+    auto netSettings = o["NetworkSettings"].as_object();
     if (netSettings.contains("Networks")) {
-      json_spirit::Value net = netSettings.getObject("Networks");
+      auto net = netSettings["Networks"].as_object();
       if (net.contains("bridge")) {
-        json_spirit::Value bridge = net.getObject("bridge");
+        auto bridge = net["bridge"].as_object();
         if (bridge.contains("IPAddress")) {
-          ip = bridge.getString("IPAddress");
+          ip = bridge["IPAddress"].as_string().c_str();
         }
       }
     }
@@ -139,10 +140,9 @@ void check(const PB::Commands::QueryRequestMessage::Request& request, PB::Comman
     http::simple_client c(options);
     c.execute(ss, host, "", rq);
 
-    json_spirit::Value root;
-    json_spirit::read_or_throw(ss.str(), root);
-    json_spirit::Array list = root.getArray();
-    for (json_spirit::Value& v : list) {
+    auto root = json::parse(ss.str());
+    json::array list = root.as_array();
+    for (auto& v : list) {
       boost::shared_ptr<check_docker_filter::filter_obj> record(new check_docker_filter::filter_obj(v));
       filter.match(record);
     }

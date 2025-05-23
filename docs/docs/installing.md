@@ -112,7 +112,6 @@ NSClient++ consists of the following features most which can be disable when doi
 | NSCAPlugin          | NSCA plugin            | Plugin to submit passive results to an NSCA server                                        |
 | NSCPlugins          | check_nt support       | NSClient Server Plugin. Support for the old NSClient protocol (check_nt)                  |
 | PythonScript        | Python Scripting       | Allows running INTERNAL scripts written in Python                                         |
-| SampleConfig        | Sample config          | Sample config file (with all options)                                                     |
 | SampleScripts       | Scripts                | Scripts for checking and testing various aspects of your computer and NSClient++          |
 | Shortcuts           | Shortcuts              | Main Service shortcuts                                                                    |
 | WEBPlugins          | WEB Server             | NSClient WEB Server. Use this to administrate or check NSClient via a browser or REST API |

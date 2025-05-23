@@ -65,7 +65,7 @@ xcopy boost_%BOOST_VERSION_% boost_%BOOST_VERSION_%_static /E /I
 
 cd boost_%BOOST_VERSION_%
 call bootstrap.bat
-b2.exe --layout=system address-model=64 toolset=msvc-14.16 variant=release link=shared runtime-link=shared warnings=off -d0 --with-system --with-filesystem --with-thread --with-regex --with-date_time --with-program_options --with-python --with-chrono
+b2.exe --layout=system address-model=64 toolset=msvc-14.16 variant=release link=shared runtime-link=shared warnings=off -d0 --with-system --with-filesystem --with-thread --with-regex --with-date_time --with-program_options --with-python --with-chrono --with-json
 cd ..
 
 cd boost_%BOOST_VERSION_%_static

@@ -6,20 +6,13 @@ project(${TARGET})
 
 create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-if(JSON_SPIRIT_FOUND)
-  include_directories(${JSON_SPIRIT_INCLUDE_DIR})
-  add_definitions(-DHAVE_JSON_SPIRIT)
-  add_definitions(-DJSON_SPIRIT_STATIC_LINKED)
-  set(JSON_LIB json_spirit)
-else(JSON_SPIRIT_FOUND)
-  set(JSON_LIB)
-endif(JSON_SPIRIT_FOUND)
 
 set(SRCS ${SRCS} "${TARGET}.cpp" 
     check_docker.cpp 
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/json/use_json.cpp
 )
 
 add_definitions(${NSCP_GLOBAL_DEFINES})

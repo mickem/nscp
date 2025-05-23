@@ -8,13 +8,16 @@
 
 #include <str/xtos.hpp>
 
-#include <json_spirit.h>
+#include <boost/json.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
 
-query_controller::query_controller(const int version, boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper *core, unsigned int plugin_id)
-    : session(session), core(core), plugin_id(plugin_id), RegexpController(version == 1 ? "/api/v1/queries" : "/api/v2/queries") {
+namespace json = boost::json;
+
+query_controller::query_controller(const int version, const boost::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core,
+                                   unsigned int plugin_id)
+    : RegexpController(version == 1 ? "/api/v1/queries" : "/api/v2/queries"), session(session), core(core), plugin_id(plugin_id) {
   addRoute("GET", "/?$", this, &query_controller::get_queries);
   addRoute("GET", "/([^/]+)/?$", this, &query_controller::get_query);
   addRoute("GET", "/([^/]+)/commands/([^/]*)/?$", this, &query_controller::query_command);
@@ -33,18 +36,18 @@ void query_controller::get_queries(Mongoose::Request &request, boost::smatch &wh
 
   PB::Registry::RegistryResponseMessage pb_response;
   pb_response.ParseFromString(str_response);
-  json_spirit::Array root;
+  json::array root;
 
   for (const PB::Registry::RegistryResponseMessage::Response r : pb_response.payload()) {
     for (const PB::Registry::RegistryResponseMessage::Response::Inventory i : r.inventory()) {
-      json_spirit::Object node;
+      json::object node;
       node["name"] = i.name();
       if (i.info().plugin_size() > 0) {
         node["plugin"] = i.info().plugin(0);
       }
       node["query_url"] = get_base(request) + "/" + i.name() + "/";
       node["title"] = i.info().title();
-      json_spirit::Object keys;
+      json::object keys;
       for (const PB::Common::KeyValue &kvp : i.info().metadata()) {
         keys[kvp.key()] = kvp.value();
       }
@@ -53,7 +56,7 @@ void query_controller::get_queries(Mongoose::Request &request, boost::smatch &wh
       root.push_back(node);
     }
   }
-  response.append(json_spirit::write(root));
+  response.append(json::serialize(root));
 }
 
 void query_controller::get_query(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
@@ -74,7 +77,7 @@ void query_controller::get_query(Mongoose::Request &request, boost::smatch &what
 
   PB::Registry::RegistryResponseMessage pb_response;
   pb_response.ParseFromString(str_response);
-  json_spirit::Object node;
+  json::object node;
 
   for (const PB::Registry::RegistryResponseMessage::Response r : pb_response.payload()) {
     for (const PB::Registry::RegistryResponseMessage::Response::Inventory i : r.inventory()) {
@@ -85,7 +88,7 @@ void query_controller::get_query(Mongoose::Request &request, boost::smatch &what
       node["title"] = i.info().title();
       node["execute_url"] = get_base(request) + "/" + i.name() + "/commands/execute";
       node["execute_nagios_url"] = get_base(request) + "/" + i.name() + "/commands/execute_nagios";
-      json_spirit::Object keys;
+      json::object keys;
       for (const PB::Common::KeyValue &kvp : i.info().metadata()) {
         keys[kvp.key()] = kvp.value();
       }
@@ -94,7 +97,7 @@ void query_controller::get_query(Mongoose::Request &request, boost::smatch &what
     }
   }
   response.setCodeOk();
-  response.append(json_spirit::write(node));
+  response.append(json::serialize(node));
 }
 
 void query_controller::query_command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
@@ -103,8 +106,8 @@ void query_controller::query_command(Mongoose::Request &request, boost::smatch &
   if (what.size() != 3) {
     response.setCodeNotFound("Invalid request");
   }
-  std::string module = what.str(1);
-  std::string command = what.str(2);
+  const std::string module = what.str(1);
+  const std::string command = what.str(2);
 
   if (command == "execute") {
     if (request.readHeader("Accept") == "text/plain") {
@@ -139,18 +142,18 @@ void query_controller::execute_query(std::string module, arg_vector args, Mongoo
   PB::Commands::QueryResponseMessage response;
   response.ParseFromString(pb_response);
 
-  json_spirit::Object node;
+  json::object node;
   for (const PB::Commands::QueryResponseMessage::Response &r : response.payload()) {
     node["command"] = r.command();
     node["result"] = r.result();
-    json_spirit::Array lines;
+    json::array lines;
     for (const PB::Commands::QueryResponseMessage::Response::Line &l : r.lines()) {
-      json_spirit::Object line;
+      json::object line;
       line["message"] = l.message();
 
-      json_spirit::Object perf;
+      json::object perf;
       for (const PB::Common::PerformanceData &p : l.perf()) {
-        json_spirit::Object pdata;
+        json::object pdata;
 
         if (p.has_float_value()) {
           pdata["value"] = p.float_value().value();
@@ -172,7 +175,7 @@ void query_controller::execute_query(std::string module, arg_vector args, Mongoo
     break;
   }
   http_response.setCodeOk();
-  http_response.append(json_spirit::write(node));
+  http_response.append(json::serialize(node));
 }
 
 void query_controller::execute_query_nagios(std::string module, arg_vector args, Mongoose::StreamResponse &http_response) {
@@ -191,13 +194,13 @@ void query_controller::execute_query_nagios(std::string module, arg_vector args,
   PB::Commands::QueryResponseMessage response;
   response.ParseFromString(pb_response);
 
-  json_spirit::Object node;
+  json::object node;
   for (const PB::Commands::QueryResponseMessage::Response &r : response.payload()) {
     node["command"] = r.command();
     node["result"] = nscapi::plugin_helper::translateReturn(r.result());
-    json_spirit::Array lines;
+    json::array lines;
     for (const PB::Commands::QueryResponseMessage::Response::Line &l : r.lines()) {
-      json_spirit::Object line;
+      json::object line;
       line["message"] = l.message();
       line["perf"] = nscapi::protobuf::functions::build_performance_data(l, nscapi::protobuf::functions::no_truncation);
       lines.push_back(line);
@@ -206,7 +209,7 @@ void query_controller::execute_query_nagios(std::string module, arg_vector args,
     break;
   }
   http_response.setCodeOk();
-  http_response.append(json_spirit::write(node));
+  http_response.append(json::serialize(node));
 }
 
 void query_controller::execute_query_text(std::string module, arg_vector args, Mongoose::StreamResponse &http_response) {

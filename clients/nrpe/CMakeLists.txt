@@ -17,6 +17,7 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/utils.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
     ${NSCP_CLIENT_CPP}
+    ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ../../resources/nsclient.ico)
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
@@ -46,13 +47,6 @@ if(WIN32)
 endif(WIN32)
 
 include_directories(${BOOST_INCLUDE_DIRS})
-if(JSON_SPIRIT_FOUND)
-  include_directories(${JSON_SPIRIT_INCLUDE_DIR})
-  add_definitions(-DHAVE_JSON_SPIRIT)
-  set(JSON_LIB json_spirit)
-else(JSON_SPIRIT_FOUND)
-  set(JSON_LIB)
-endif(JSON_SPIRIT_FOUND)
 link_directories(${BOOST_LIB_DIRS})
 
 nscp_make_exe_bin(${TARGET} "${SRCS}")

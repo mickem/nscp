@@ -97,7 +97,6 @@ if(USE_STATIC_RUNTIME)
     set(BOOST_USE_MULTITHREADED ON)
   endif(WIN32)
   set(CRYPTOPP_RUNTIME_TYPE "STATIC")
-  set(JSON_SPIRIT_LIBRARY_TYPE "STATIC")
   set(BUILD_STATIC_LIBS ON)
 else(USE_STATIC_RUNTIME)
   message(STATUS "Using dynamic runtime")
@@ -111,7 +110,6 @@ else(USE_STATIC_RUNTIME)
     set(BOOST_USE_MULTITHREADED ON)
   endif(WIN32)
   set(CRYPTOPP_RUNTIME_TYPE "SHARED")
-  set(JSON_SPIRIT_LIBRARY_TYPE "SHARED")
   set(BUILD_STATIC_LIBS OFF)
 endif(USE_STATIC_RUNTIME)
 
@@ -588,12 +586,6 @@ endif()
 
 message(STATUS "Building support libraries")
 
-if(JSON_SPIRIT_CMAKE)
-  message(STATUS " - Json-Spirit")
-  add_definitions(-DBOOST_AUTO_LINK_SYSTEM)
-  add_subdirectory(${JSON_SPIRIT_CMAKE})
-  set_target_properties(json_spirit PROPERTIES FOLDER "libraries")
-endif(JSON_SPIRIT_CMAKE)
 if(CRYPTOPP_CMAKE)
   message(STATUS " - Crypto++")
   set(CRYPTOPP_BUILD_TESTS FALSE)
@@ -751,7 +743,7 @@ set(NSCP_DEF_PLUGIN_LIB
 #
 # ##############################################################################
 
-set(MAIN_NSCP_TARGET "nscp" "nscp_full_config")
+set(MAIN_NSCP_TARGET "nscp")
 
 add_subdirectory("service")
 add_subdirectory("scripts")
@@ -772,13 +764,6 @@ set_target_properties(
              MODULE_OUTPUT_DIRECTORY "${BUILD_TARGET_LIB_PATH}")
 
 add_subdirectory("docs")
-
-add_custom_target(
-  nscp_full_config
-  COMMAND ${CMAKE_BINARY_DIR}/nscp settings --settings ini://nsclient-full.ini
-          --add-defaults --load-all --generate
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-  DEPENDS nscp ${ALL_MODULE_NAMES} ${ALL_ZIP_MODULE_NAMES})
 
 if(WIN32)
   load_sections(ALL_INSTALLERS_NAMES "installers/*/CMakeLists.txt" "Installers")

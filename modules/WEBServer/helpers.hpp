@@ -1,27 +1,30 @@
 #pragma once
 
 #include <StreamResponse.h>
-#include <nscapi/nscapi_protobuf_registry.hpp>
 
-#include <json_spirit.h>
+#include <boost/json.hpp>
 
 #include <string>
 #include "../CommandClient/CommandClient.h"
 
 namespace helpers {
+namespace json = boost::json;
+
 inline void parse_result(const ::google::protobuf::RepeatedPtrField<PB::Registry::RegistryResponseMessage::Response> &payload,
-                         Mongoose::StreamResponse &response, std::string task) {
+                         Mongoose::StreamResponse &response, const std::string &task) {
   for (const PB::Registry::RegistryResponseMessage::Response &r : payload) {
     if (r.has_result() && r.result().code() == PB::Common::Result_StatusCodeType_STATUS_ERROR) {
       response.get_headers()["Content-Type"] = "text/plain";
       response.setCodeServerError("Failed to " + task);
       return;
-    } else if (r.has_result() && r.result().code() == PB::Common::Result_StatusCodeType_STATUS_WARNING) {
+    }
+    if (r.has_result() && r.result().code() == PB::Common::Result_StatusCodeType_STATUS_WARNING) {
       response.get_headers()["Content-Type"] = "text/plain";
       response.setCodeOk();
       response.append("Warning in " + task);
       return;
-    } else if (r.has_result() && r.result().code() == PB::Common::Result_StatusCodeType_STATUS_OK) {
+    }
+    if (r.has_result() && r.result().code() == PB::Common::Result_StatusCodeType_STATUS_OK) {
       response.get_headers()["Content-Type"] = "text/plain";
       response.setCodeOk();
       response.append("Success " + task);
@@ -32,8 +35,8 @@ inline void parse_result(const ::google::protobuf::RepeatedPtrField<PB::Registry
 }
 
 inline void parse_result_v2(const ::google::protobuf::RepeatedPtrField<PB::Registry::RegistryResponseMessage::Response> &payload,
-                            Mongoose::StreamResponse &response, std::string task) {
-  json_spirit::Object node;
+                            Mongoose::StreamResponse &response, const std::string &task) {
+  json::object node;
   node["result"] = "unknown";
   node["message"] = "Failed to " + task;
   for (const PB::Registry::RegistryResponseMessage::Response &r : payload) {
@@ -56,7 +59,7 @@ inline void parse_result_v2(const ::google::protobuf::RepeatedPtrField<PB::Regis
       node["message"] = "Failed to " + task;
     }
   }
-  response.append(json_spirit::write(node));
+  response.append(json::serialize(node));
 }
 
 }  // namespace helpers

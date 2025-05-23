@@ -62,7 +62,7 @@ def install_module(module):
     m = None
     try:
         m = importlib.import_module('modules.%s'%module)
-    except Exception,e:
+    except Exception as e:
         log("Failed to load %s: %s"%(module, e))
         return
     try:
@@ -71,7 +71,7 @@ def install_module(module):
         m.install()
         for s in m.get_services():
             add_nrpe_service(server_name, s['name'], s['command'], s['desc'], s['args'])
-    except Exception,e:
+    except Exception as e:
         log("Failed to install %s: %s"%(module, e))
     log("Module %s installed successfully."%module)
 

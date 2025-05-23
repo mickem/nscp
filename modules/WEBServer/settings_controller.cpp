@@ -2,17 +2,17 @@
 
 #include <nscapi/nscapi_protobuf_settings.hpp>
 
-#include <json_spirit.h>
+#include <boost/json.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
+#include <utility>
 
-#include <fstream>
-#include <iostream>
+namespace json = boost::json;
 
-settings_controller::settings_controller(const int version, boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper *core,
+settings_controller::settings_controller(const int version, boost::shared_ptr<session_manager_interface> session, const nscapi::core_wrapper *core,
                                          unsigned int plugin_id)
-    : session(session), core(core), plugin_id(plugin_id), RegexpController(version == 1 ? "/api/v1/settings" : "/api/v2/settings") {
+    : session(std::move(session)), core(core), plugin_id(plugin_id), RegexpController(version == 1 ? "/api/v1/settings" : "/api/v2/settings") {
   addRoute("GET", "/descriptions(.*)$", this, &settings_controller::get_desc);
   addRoute("POST", "/command$", this, &settings_controller::command);
   addRoute("GET", "/status$", this, &settings_controller::status);
@@ -52,16 +52,16 @@ void settings_controller::get(Mongoose::Request &request, boost::smatch &what, M
     return;
   }
 
-  json_spirit::Array node;
+  json::array node;
   for (const PB::Settings::Node &s : rKeys.query().nodes()) {
-    json_spirit::Object rs;
+    json::object rs;
     rs["path"] = s.path();
     rs["key"] = s.key();
     rs["value"] = s.value();
     node.push_back(rs);
   }
 
-  response.append(json_spirit::write(node));
+  response.append(json::serialize(node));
 }
 
 void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
@@ -131,9 +131,9 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
     }
   }
 
-  json_spirit::Array node;
+  json::array node;
   for (const PB::Settings::SettingsResponseMessage::Response::Inventory &s : rKeys_1.inventory()) {
-    json_spirit::Object rs;
+    json::object rs;
     rs["path"] = s.node().path();
     rs["key"] = s.node().key();
     if (values.size() > 0) {
@@ -154,16 +154,16 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
     rs["sample_usage"] = s.info().sample_usage();
     rs["default_value"] = s.info().default_value();
 
-    json_spirit::Array plugins;
+    json::array plugins;
     for (const ::std::string &p : s.info().plugin()) {
-      plugins.push_back(p);
+      plugins.push_back(json::value(p));
     }
     rs["plugins"] = plugins;
 
     node.push_back(rs);
   }
 
-  response.append(json_spirit::write(node));
+  response.append(json::serialize(node));
 }
 
 void settings_controller::put(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
@@ -181,54 +181,52 @@ void settings_controller::put(Mongoose::Request &request, boost::smatch &what, M
   std::string path = what.str(1);
 
   try {
-    json_spirit::Value root;
-    std::string data = request.getData();
-    json_spirit::read_or_throw(data, root);
+    auto root = json::parse(request.getData());
     std::string object_type;
 
     PB::Settings::SettingsRequestMessage srm;
 
     int keys = 0;
-    if (root.isArray()) {
-      json_spirit::Array a = root.getArray();
-      for (const json_spirit::Value &v : a) {
-        json_spirit::Object o = v.getObject();
-        std::string current_path = o["path"].getString();
+    if (root.is_array()) {
+      json::array a = root.as_array();
+      for (const auto &v : a) {
+        json::object o = v.as_object();
+        auto current_path = o["path"].as_string();
         if (current_path.empty()) {
           current_path = path;
         }
-        std::string key = o["key"].getString();
+        auto key = o["key"].as_string();
         if (key.empty()) {
           response.setCodeBadRequest("Key is required");
           return;
         }
 
-        std::string value = o["value"].getString();
+        auto value = o["value"].as_string();
 
         PB::Settings::SettingsRequestMessage::Request *payload = srm.add_payload();
-        payload->mutable_update()->mutable_node()->set_path(current_path);
-        payload->mutable_update()->mutable_node()->set_key(key);
-        payload->mutable_update()->mutable_node()->set_value(value);
+        payload->mutable_update()->mutable_node()->set_path(current_path.c_str());
+        payload->mutable_update()->mutable_node()->set_key(key.c_str());
+        payload->mutable_update()->mutable_node()->set_value(value.c_str());
         keys++;
       }
     } else {
-      json_spirit::Object o = root.getObject();
-      std::string current_path = o["path"].getString();
+      json::object o = root.as_object();
+      auto current_path = o["path"].as_string();
       if (current_path.empty()) {
         current_path = path;
       }
-      std::string key = o["key"].getString();
+      auto key = o["key"].as_string();
       if (key.empty()) {
         response.setCodeBadRequest("Key is required");
         return;
       }
 
-      std::string value = o["value"].getString();
+      auto value = o["value"].as_string();
 
       PB::Settings::SettingsRequestMessage::Request *payload = srm.add_payload();
-      payload->mutable_update()->mutable_node()->set_path(current_path);
-      payload->mutable_update()->mutable_node()->set_key(key);
-      payload->mutable_update()->mutable_node()->set_value(value);
+      payload->mutable_update()->mutable_node()->set_path(current_path.c_str());
+      payload->mutable_update()->mutable_node()->set_key(key.c_str());
+      payload->mutable_update()->mutable_node()->set_value(value.c_str());
       keys++;
     }
 
@@ -238,13 +236,13 @@ void settings_controller::put(Mongoose::Request &request, boost::smatch &what, M
     PB::Settings::SettingsResponseMessage pb_response;
     pb_response.ParseFromString(str_response);
 
-    json_spirit::Object node;
+    json::object node;
     // TODO: Parse status here
     node["status"] = "success";
     node["keys"] = keys;
-    response.append(json_spirit::write(node));
+    response.append(json::serialize(node));
 
-  } catch (const json_spirit::ParseError &e) {
+  } catch (const std::exception &e) {
     response.setCodeBadRequest("Problems parsing JSON");
   }
 }
@@ -259,15 +257,16 @@ void settings_controller::command(Mongoose::Request &request, boost::smatch &wha
   response.append(response_pb);
 
   try {
-    json_spirit::Value root;
-    std::string data = request.getData();
-    json_spirit::read_or_throw(data, root);
-    json_spirit::Object o = root.getObject();
-    std::string command = o["command"].getString();
+    auto root = json::parse(request.getData());
+    json::object o = root.as_object();
+    auto command = o["command"].as_string();
 
     if (command == "reload") {
       if (!session->is_loggedin("settings.put", request, response)) return;
-      core->reload("delayed,service");
+      if (!core->reload("delayed,service")) {
+        response.setCodeServerError("500 Query failed");
+        return;
+      }
     } else {
       PB::Settings::SettingsRequestMessage srm;
       PB::Settings::SettingsRequestMessage::Request *payload = srm.add_payload();
@@ -276,7 +275,7 @@ void settings_controller::command(Mongoose::Request &request, boost::smatch &wha
       } else if (command == "save") {
         payload->mutable_control()->set_command(PB::Settings::Command::SAVE);
       } else {
-        response.setCodeNotFound("Unknown command: " + command);
+        response.setCodeNotFound("Unknown command: " + static_cast<std::string>(command.data()));
         return;
       }
       std::string str_response;
@@ -286,10 +285,10 @@ void settings_controller::command(Mongoose::Request &request, boost::smatch &wha
       pb_response.ParseFromString(str_response);
       // TODO: Parse status here
     }
-    json_spirit::Object node;
+    json::object node;
     node["status"] = "success";
-    response.append(json_spirit::write(node));
-  } catch (const json_spirit::ParseError &e) {
+    response.append(json::serialize(node));
+  } catch (const std::exception &e) {
     response.setCodeBadRequest("Problems parsing JSON");
   }
 }
@@ -320,9 +319,9 @@ void settings_controller::status(Mongoose::Request &request, boost::smatch &what
 
   const PB::Settings::SettingsResponseMessage::Response::Status &status = response_payload.status();
 
-  json_spirit::Object node;
+  json::object node;
   node["context"] = status.context();
   node["type"] = status.type();
   node["has_changed"] = status.has_changed();
-  response.append(json_spirit::write(node));
+  response.append(json::serialize(node));
 }
