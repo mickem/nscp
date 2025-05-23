@@ -51,10 +51,6 @@
             <fire:FirewallException Id="FWException" Program="[#NSClientEXE]" Name="$(var.App.Title) Monitoring Agent" Scope="any" IgnoreFailure="yes" />
             <RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="firewall exception" Type="integer" Value="1" KeyPath="yes"/>
           </Component>
-          <Component Id="SampleConfig" Guid="D22CC1A3-6479-4f80-81C2-BDE7F37D16C4" Win64="$(var.Win64)">
-            <File Id="SampleConfigFull" Name="nsclient-sample.ini" DiskId="1" KeyPath="yes"
-								Source="$(var.Source)/nsclient-full.ini" Vital="no" />
-          </Component>
           <Component Id="CheckNRPE" Guid="798DE5B5-C876-436F-86A5-03CD93CDD5FB" Win64="$(var.Win64)">
             <File Id="CheckNRPEExe" Name="check_nrpe.exe" DiskId="1" Source="$(var.Source)/check_nrpe.exe" Vital="no" />
           </Component>
@@ -209,9 +205,6 @@
         <ComponentRef Id="LibNSCP"/>
         <?endif?>
         <ComponentRef Id="RequiredPlugins"/>
-        <Feature Id="SampleConfig" Title="Sample config" Description="Sample config file (with all options)" Level="100" Absent="allow">
-          <ComponentRef Id="SampleConfig" />
-        </Feature>
         <Feature Id="FirewallConfig" Title="Firewall Exception" Description="A firewall exception to allow NSClient++ to open ports" Level="1" Absent="allow">
           <ComponentRef Id="FWException" />
         </Feature>
