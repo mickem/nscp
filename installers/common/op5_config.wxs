@@ -1,18 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Fragment>
-        <DirectoryRef Id="INSTALLLOCATION">
-            <Directory Id="dir388ED20BC3649C8154009E48B7E142E3" Name="config" />
-        </DirectoryRef>
-    </Fragment>
-    <Fragment>
         <ComponentGroup Id="Op5ConfigResources">
-          <!--
-            <Component Id="cmp7171F5DBC8BE48BA7CF20FC49743873C" Directory="dir388ED20BC3649C8154009E48B7E142E3" Guid="{145C4261-DE0D-4A9B-AB80-A894D83F7582}">
-                <File Id="filBC3D3BDB5032B5CF64BFF4DFD4B3FD60" KeyPath="yes" Source="$(var.OP5ConfigSource)\CMakeLists.txt" />
-            </Component>
-            -->
-            <Component Id="cmp4C19ABDC8A46F6A900DDCFAFFE4B40CE" Directory="dir388ED20BC3649C8154009E48B7E142E3" Guid="{DF7E7645-E738-4AA7-B756-0F94643D3065}">
+            <Component Id="cmp4C19ABDC8A46F6A900DDCFAFFE4B40CE" Directory="INSTALLLOCATION" Guid="{DF7E7645-E738-4AA7-B756-0F94643D3065}">
                 <File Id="filEBCF895A6776369E394955195B7B4004" KeyPath="yes" Source="$(var.OP5ConfigSource)\op5.ini" />
             </Component>
         </ComponentGroup>
