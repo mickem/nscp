@@ -26,66 +26,51 @@ namespace ph = boost::placeholders;
 
 void filter_object::read_object(nscapi::settings_helper::path_extension &path, const bool is_default) {
   namespace sh = nscapi::settings_helper;
-  // clang-format off
-			path.add_key()
-				("filter", sh::cstring_fun_key(boost::bind(&filter_object::set_filter_string, this, ph::_1)),
-					"FILTER", "Scan files for matching rows for each matching rows an OK message will be submitted")
+  path.add_key()
+      .add_string("filter", sh::cstring_fun_key(boost::bind(&filter_object::set_filter_string, this, ph::_1)), "FILTER",
+                  "Scan files for matching rows for each matching rows an OK message will be submitted")
+      .add_string("warning", sh::string_key(&filter_warn), "WARNING FILTER", "If any rows match this filter severity will escalated to WARNING")
+      .add_string("critical", sh::string_key(&filter_crit), "CRITICAL FILTER", "If any rows match this filter severity will escalated to CRITICAL")
+      .add_string("ok", sh::string_key(&filter_ok), "OK FILTER", "If any rows match this filter severity will escalated down to OK")
+      .add_string("top syntax", sh::string_key(&syntax_top), "SYNTAX", "Format string for dates", !is_default)
 
-				("warning", sh::string_key(&filter_warn),
-					"WARNING FILTER", "If any rows match this filter severity will escalated to WARNING")
+      .add_string("ok syntax", sh::string_key(&syntax_ok), "SYNTAX", "Format string for dates", !is_default)
 
-				("critical", sh::string_key(&filter_crit),
-					"CRITICAL FILTER", "If any rows match this filter severity will escalated to CRITICAL")
+      .add_string("detail syntax", sh::string_key(&syntax_detail), "SYNTAX", "Format string for dates", !is_default)
+      .add_string("perf config", sh::string_key(&perf_config), "PERF CONFIG", "Performance data configuration", true)
 
-				("ok", sh::string_key(&filter_ok),
-					"OK FILTER", "If any rows match this filter severity will escalated down to OK")
+      .add_bool("debug", sh::bool_key(&debug), "DEBUG", "Enable this to display debug information for this match filter", true)
 
-				("top syntax", sh::string_key(&syntax_top),
-					"SYNTAX", "Format string for dates", !is_default)
+      .add_string("destination", sh::string_key(&target), "DESTINATION", "The destination for intercepted messages", !is_default)
 
-				("ok syntax", sh::string_key(&syntax_ok),
-					"SYNTAX", "Format string for dates", !is_default)
+      .add_string("target", sh::string_key(&target), "DESTINATION", "Same as destination", false)
 
-				("detail syntax", sh::string_key(&syntax_detail),
-					"SYNTAX", "Format string for dates", !is_default)
-				("perf config", sh::string_key(&perf_config),
-					"PERF CONFIG", "Performance data configuration", true)
+      .add_string("maximum age", sh::string_fun_key(boost::bind(&filter_object::set_max_age, this, ph::_1), "5m"), "MAGIMUM AGE",
+                  "How long before reporting \"ok\".\nIf this is set to \"false\" no periodic ok messages will be reported only errors.")
 
-				("debug", sh::bool_key(&debug),
-					"DEBUG", "Enable this to display debug information for this match filter", true)
+      .add_string(
+          "silent period", sh::string_fun_key(boost::bind(&filter_object::set_silent_period, this, ph::_1), "false"), "Silent period",
+          "How long before a new alert is reported after an alert is reported. In other words whenever an alert is fired and a notification is sent the same "
+          "notification will not be sent again until this period has ended.\nIf this is set to \"false\" no periodic ok messages will be reported only errors.")
 
-				("destination", sh::string_key(&target),
-					"DESTINATION", "The destination for intercepted messages", !is_default)
+      .add_string("empty message", sh::string_key(&timeout_msg, "eventlog found no records"), "EMPTY MESSAGE",
+                  "The message to display if nothing matches the filter (generally considered the ok state).", !is_default)
 
-				("target", sh::string_key(&target),
-					"DESTINATION", "Same as destination", false)
+      .add_string("severity", sh::string_fun_key(boost::bind(&filter_object::set_severity, this, ph::_1)), "SEVERITY",
+                  "THe severity of this message (OK, WARNING, CRITICAL, UNKNOWN)", !is_default)
 
-				("maximum age", sh::string_fun_key(boost::bind(&filter_object::set_max_age, this, ph::_1), "5m"),
-					"MAGIMUM AGE", "How long before reporting \"ok\".\nIf this is set to \"false\" no periodic ok messages will be reported only errors.")
+      .add_string("command", sh::string_key(&command), "COMMAND NAME",
+                  "The name of the command (think nagios service name) to report up stream (defaults to alias if not set)", !is_default)
 
-				("silent period", sh::string_fun_key(boost::bind(&filter_object::set_silent_period, this, ph::_1), "false"),
-					"Silent period", "How long before a new alert is reported after an alert is reported. In other words whenever an alert is fired and a notification is sent the same notification will not be sent again until this period has ended.\nIf this is set to \"false\" no periodic ok messages will be reported only errors.")
+      .add_string("target id", sh::string_key(&target_id), "TARGET ID", "The target to send the message to (will be resolved by the consumer)", true)
 
-				("empty message", sh::string_key(&timeout_msg, "eventlog found no records"),
-					"EMPTY MESSAGE", "The message to display if nothing matches the filter (generally considered the ok state).", !is_default)
+      .add_string("source id", sh::string_key(&source_id), "SOURCE ID",
+                  "The name of the source system, will automatically use the remote system if a remote system is called. Almost most sending systems will "
+                  "replace this with current systems hostname if not present. So use this only if you need specific source systems for specific schedules and "
+                  "not calling remote systems.",
+                  true)
 
-				("severity", sh::string_fun_key(boost::bind(&filter_object::set_severity, this, ph::_1)),
-					"SEVERITY", "THe severity of this message (OK, WARNING, CRITICAL, UNKNOWN)", !is_default)
-
-				("command", sh::string_key(&command),
-					"COMMAND NAME", "The name of the command (think nagios service name) to report up stream (defaults to alias if not set)", !is_default)
-
-				("target id", sh::string_key(&target_id),
-					"TARGET ID", "The target to send the message to (will be resolved by the consumer)", true)
-
-				("source id", sh::string_key(&source_id),
-					"SOURCE ID", "The name of the source system, will automatically use the remote system if a remote system is called. Almost most sending systems will replace this with current systems hostname if not present. So use this only if you need specific source systems for specific schedules and not calling remote systems.", true)
-
-				("escape html", sh::bool_key(&escape_html),
-					"ESCAPE HTML", "Escape HTML characters (< and >).", true)
-
-				;
-  // clang-format on
+      .add_bool("escape html", sh::bool_key(&escape_html), "ESCAPE HTML", "Escape HTML characters (< and >).", true);
 }
 
 void filter_object::apply_parent(const filter_object &parent) {

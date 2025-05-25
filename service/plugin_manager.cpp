@@ -375,7 +375,7 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_
     if (plugin->has_on_event()) {
       event_subscribers_.add_plugin(plugin);
     }
-    settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, plugin->getModule(), plugin->getName(), plugin->getDescription(), "0", false,
+    settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, "string", plugin->getModule(), plugin->getName(), plugin->getDescription(), "0", false,
                                                false);
     plugin_cache_.add_plugin(plugin);
     return plugin;

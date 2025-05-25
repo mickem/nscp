@@ -51,13 +51,9 @@ bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 			"TARGET", "For more configuration options add a dedicated section")
 
 		;
-
-	settings.alias().add_key_to_settings()
-		("port", sh::string_key(&info_.port_, "6556"),
-			"PORT NUMBER", "Port to use for check_mk.")
-
-		;
   // clang-format on
+
+  settings.alias().add_key_to_settings().add_string("port", sh::string_key(&info_.port_, "6556"), "PORT NUMBER", "Port to use for check_mk.");
 
   socket_helpers::settings_helper::add_core_server_opts(settings, info_);
   socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false, "", "${certificate-path}/certificate.pem", "",

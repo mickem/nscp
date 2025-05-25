@@ -411,20 +411,21 @@ struct key_info {
 
 settings_paths_easy_init &settings_paths_easy_init::operator()(key_type value, std::string title, std::string description, std::string subkeytitle,
                                                                std::string subkeydescription) {
-  boost::shared_ptr<path_info> d(new path_info(path_, value, description_container(title, description), description_container(subkeytitle, subkeydescription)));
+  boost::shared_ptr<path_info> d(new path_info(path_, value, description_container(key_type_path, title, description),
+                                               description_container(key_type_path, subkeytitle, subkeydescription)));
   add(d);
   return *this;
 }
 
 settings_paths_easy_init &settings_paths_easy_init::operator()(std::string title, std::string description) {
-  boost::shared_ptr<path_info> d(new path_info(path_, description_container(title, description)));
+  boost::shared_ptr<path_info> d(new path_info(path_, description_container(key_type_path, title, description)));
   add(d);
   return *this;
 }
 
 settings_paths_easy_init &settings_paths_easy_init::operator()(std::string path, std::string title, std::string description) {
   if (!path_.empty()) path = path_ + "/" + path;
-  boost::shared_ptr<path_info> d(new path_info(path, description_container(title, description)));
+  boost::shared_ptr<path_info> d(new path_info(path, description_container(key_type_path, title, description)));
   add(d);
   return *this;
 }
@@ -432,14 +433,15 @@ settings_paths_easy_init &settings_paths_easy_init::operator()(std::string path,
 settings_paths_easy_init &settings_paths_easy_init::operator()(std::string path, key_type value, std::string title, std::string description,
                                                                std::string subkeytitle, std::string subkeydescription) {
   if (!path_.empty()) path = path_ + "/" + path;
-  boost::shared_ptr<path_info> d(new path_info(path, value, description_container(title, description), description_container(subkeytitle, subkeydescription)));
+  boost::shared_ptr<path_info> d(new path_info(path, value, description_container(key_type_path, title, description),
+                                               description_container(key_type_path, subkeytitle, subkeydescription)));
   add(d);
   return *this;
 }
 
 settings_paths_easy_init &settings_paths_easy_init::operator()(std::string path, key_type value, std::string title, std::string description) {
   if (!path_.empty()) path = path_ + "/" + path;
-  boost::shared_ptr<path_info> d(new path_info(path, value, description_container(title, description)));
+  boost::shared_ptr<path_info> d(new path_info(path, value, description_container(key_type_path, title, description)));
   add(d);
   return *this;
 }
@@ -451,59 +453,85 @@ void settings_paths_easy_init::add(boost::shared_ptr<path_info> d) {
 
 settings_tpl_easy_init &settings_tpl_easy_init::operator()(std::string path, std::string icon, std::string title, std::string desc, std::string fields) {
   if (!path_.empty()) path = path_ + "/" + path;
-  boost::shared_ptr<tpl_info> d(new tpl_info(path, description_container(title, desc, icon), fields));
+  boost::shared_ptr<tpl_info> d(new tpl_info(path, description_container(key_type_template, title, desc, icon), fields));
   add(d);
   return *this;
 }
 
 void settings_tpl_easy_init::add(boost::shared_ptr<tpl_info> d) { owner->add(d); }
 
-settings_keys_easy_init &settings_keys_easy_init::operator()(std::string path, std::string key_name, key_type value, std::string title, std::string description,
+settings_keys_easy_init &settings_keys_easy_init::add_string(std::string key_name, key_type value, std::string title, std::string description,
                                                              bool advanced /*= false*/) {
-  boost::shared_ptr<key_info> d(new key_info(path, key_name, value, description_container(title, description, advanced)));
+  boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(key_type_string, title, description, advanced)));
   if (!parent_.empty()) d->set_parent(parent_);
   add(d);
   return *this;
 }
 
-void settings_keys_easy_init::add(std::string key_name, key_type value, std::string title, std::string description, bool advanced /*= false*/) {
-  boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(title, description, advanced)));
+settings_keys_easy_init &settings_keys_easy_init::add_bool(std::string key_name, key_type value, std::string title, std::string description,
+                                                           bool advanced /*= false*/) {
+  boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(key_type_bool, title, description, advanced)));
   if (!parent_.empty()) d->set_parent(parent_);
   add(d);
+  return *this;
 }
 
-void settings_keys_easy_init::add_sensitive(std::string key_name, key_type value, std::string title, std::string description, bool advanced /*= false*/) {
-  boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(title, description, advanced)));
+settings_keys_easy_init &settings_keys_easy_init::add_file(std::string key_name, key_type value, std::string title, std::string description,
+                                                           bool advanced /*= false*/) {
+  boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(key_type_file, title, description, advanced)));
+  if (!parent_.empty()) d->set_parent(parent_);
+  add(d);
+  return *this;
+}
+
+settings_keys_easy_init &settings_keys_easy_init::add_int(std::string key_name, key_type value, std::string title, std::string description,
+                                                          bool advanced /*= false*/) {
+  boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(key_type_int, title, description, advanced)));
+  if (!parent_.empty()) d->set_parent(parent_);
+  add(d);
+  return *this;
+}
+
+settings_keys_easy_init &settings_keys_easy_init::add_password(std::string key_name, key_type value, std::string title, std::string description,
+                                                               bool advanced /*= false*/) {
+  boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(key_type_password, title, description, advanced)));
   d->sensitive = true;
   if (!parent_.empty()) d->set_parent(parent_);
   add(d);
-}
-
-settings_keys_easy_init &settings_keys_easy_init::operator()(std::string key_name, key_type value, std::string title, std::string description,
-                                                             bool advanced /*= false*/) {
-  boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(title, description, advanced)));
-  if (!parent_.empty()) d->set_parent(parent_);
-  add(d);
   return *this;
 }
 
-void settings_keys_easy_init::add(boost::shared_ptr<key_info> d) {
+void settings_keys_easy_init::add(boost::shared_ptr<key_info> d) const {
   if (is_sample) d->is_sample = true;
   owner->add(d);
 }
 
 void settings_registry::register_all() const {
-  for (key_list::value_type v : keys_) {
+  for (const key_list::value_type v : keys_) {
     if (v->key) {
+      std::list<std::string> paths = {v->path};
       if (v->has_parent()) {
-        core_->register_key(v->parent, v->key_name, v->description.title, v->description.description, v->key->get_default(), v->description.advanced,
-                            v->is_sample, v->sensitive);
-        const std::string desc =
-            v->description.description + " parent for this key is found under: " + v->parent + " this is marked as advanced in favor of the parent.";
-        core_->register_key(v->path, v->key_name, v->description.title, desc, v->key->get_default(), true, false, v->sensitive);
-      } else {
-        core_->register_key(v->path, v->key_name, v->description.title, v->description.description, v->key->get_default(), v->description.advanced,
-                            v->is_sample, v->sensitive);
+        paths.insert(paths.begin(), v->parent);
+      }
+      for (const auto path : paths) {
+        if (v->description.type == key_type_bool) {
+          core_->register_key(path, v->key_name, "bool", v->description.title, v->description.description, v->key->get_default(), v->description.advanced,
+                              v->is_sample, v->sensitive);
+        } else if (v->description.type == key_type_int) {
+          core_->register_key(path, v->key_name, "int", v->description.title, v->description.description, v->key->get_default(), v->description.advanced,
+                              v->is_sample, v->sensitive);
+        } else if (v->description.type == key_type_string) {
+          core_->register_key(path, v->key_name, "string", v->description.title, v->description.description, v->key->get_default(), v->description.advanced,
+                              v->is_sample, v->sensitive);
+        } else if (v->description.type == key_type_file) {
+          core_->register_key(path, v->key_name, "file", v->description.title, v->description.description, v->key->get_default(), v->description.advanced,
+                              v->is_sample, v->sensitive);
+        } else if (v->description.type == key_type_password) {
+          core_->register_key(path, v->key_name, "password", v->description.title, v->description.description, v->key->get_default(), v->description.advanced,
+                              v->is_sample, v->sensitive);
+        } else {
+          core_->err(__FILE__, __LINE__, "Unknown type for key: " + make_skey(v->path, v->key_name));
+        }
       }
     }
   }
@@ -518,8 +546,8 @@ void settings_registry::register_all() const {
   }
 }
 
-void settings_registry::notify() {
-  for (key_list::value_type v : keys_) {
+void settings_registry::notify() const {
+  for (const key_list::value_type v : keys_) {
     try {
       if (v->key) {
         if (v->has_parent())
@@ -533,7 +561,7 @@ void settings_registry::notify() {
       core_->err(__FILE__, __LINE__, "Failed to notify " + v->key_name);
     }
   }
-  for (path_list::value_type v : paths_) {
+  for (const path_list::value_type v : paths_) {
     try {
       if (v->path) v->path->notify_path(core_, v->path_name);
     } catch (const std::exception &e) {

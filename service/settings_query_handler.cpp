@@ -80,6 +80,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
     t.end();
     PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
     rpp->mutable_node()->CopyFrom(q.node());
+    rpp->mutable_info()->set_type(desc.type);
     rpp->mutable_info()->set_title(desc.title);
     rpp->mutable_info()->set_description(desc.description);
   } else {
@@ -103,6 +104,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
             cache.emplace(key);
             rpp->mutable_node()->set_path(path);
             rpp->mutable_node()->set_key(key);
+            rpp->mutable_info()->set_type(desc.type);
             rpp->mutable_info()->set_title(desc.title);
             rpp->mutable_info()->set_description(desc.description);
             rpp->mutable_info()->set_advanced(desc.advanced);
@@ -121,6 +123,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
                 PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
                 rpp->mutable_node()->set_path(path);
                 rpp->mutable_node()->set_key(key);
+                rpp->mutable_info()->set_type("");
                 rpp->mutable_info()->set_advanced(true);
                 rpp->mutable_info()->set_sample(false);
                 rpp->mutable_info()->set_default_value("");
@@ -136,6 +139,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
           t.end();
           PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
           rpp->mutable_node()->set_path(path);
+          rpp->mutable_info()->set_type("folder");
           rpp->mutable_info()->set_title(desc.title);
           rpp->mutable_info()->set_description(desc.description);
           rpp->mutable_info()->set_advanced(desc.advanced);
@@ -160,6 +164,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
           cache.emplace(key);
           rpp->mutable_node()->set_path(path);
           rpp->mutable_node()->set_key(key);
+          rpp->mutable_info()->set_type(desc.type);
           rpp->mutable_info()->set_title(desc.title);
           rpp->mutable_info()->set_description(desc.description);
           rpp->mutable_info()->set_advanced(desc.advanced);
@@ -180,6 +185,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
               PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
               rpp->mutable_node()->set_path(path);
               rpp->mutable_node()->set_key(key);
+              rpp->mutable_info()->set_type("");
               rpp->mutable_info()->set_advanced(true);
               rpp->mutable_info()->set_sample(false);
               settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(path, key);
@@ -194,6 +200,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
         t.end();
         PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
         rpp->mutable_node()->set_path(path);
+        rpp->mutable_info()->set_type("folder");
         rpp->mutable_info()->set_title(desc.title);
         rpp->mutable_info()->set_description(desc.description);
         rpp->mutable_info()->set_advanced(desc.advanced);
@@ -206,6 +213,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
       for (const settings::settings_core::tpl_description &desc : settings_manager::get_core()->get_registered_templates()) {
         PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
         rpp->mutable_node()->set_path(desc.path);
+        rpp->mutable_info()->set_type("template");
         rpp->mutable_info()->set_title(desc.title);
         rpp->mutable_info()->set_is_template(true);
         rpp->mutable_node()->set_value(desc.data);
@@ -280,7 +288,7 @@ void settings_query_handler::parse_registration(const PB::Settings::SettingsRequ
     std::string tplData = json::serialize(node);
     settings_manager::get_core()->register_tpl(plugin_id, q.node().path(), q.info().title(), tplData);
   } else if (!q.node().key().empty()) {
-    settings_manager::get_core()->register_key(plugin_id, q.node().path(), q.node().key(), q.info().title(), q.info().description(), q.info().default_value(),
+    settings_manager::get_core()->register_key(plugin_id, q.node().path(), q.node().key(), q.info().type(), q.info().title(), q.info().description(), q.info().default_value(),
                                                q.info().advanced(), q.info().sample());
     if (q.info().is_sensitive()) {
       settings_manager::get_core()->add_sensitive_key(plugin_id, q.node().path(), q.node().key());

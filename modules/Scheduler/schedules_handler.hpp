@@ -108,61 +108,58 @@ struct schedule_object : public nscapi::settings_objects::object_instance_interf
     if (is_sample) root_path.set_sample();
     if (oneliner) return;
 
-    // clang-format off
-			root_path.add_path()
-				("SCHEDULE DEFENITION", "Schedule definition for: " + get_alias())
-				;
+    root_path.add_path()("SCHEDULE DEFENITION", "Schedule definition for: " + get_alias());
 
-			root_path.add_key()
+    root_path
+        .add_key()
 
-				("command", sh::string_fun_key(boost::bind(&schedule_object::set_command, this, ph::_1)),
-					"SCHEDULE COMMAND", "Command to execute", is_def)
+        .add_string("command", sh::string_fun_key(boost::bind(&schedule_object::set_command, this, ph::_1)), "SCHEDULE COMMAND", "Command to execute", is_def)
 
-				("target", sh::string_key(&target_id),
-					"TARGET", "The target to send the message to (will be resolved by the consumer)", true)
-				("source", sh::string_key(&source_id),
-					"SOURCE", "The name of the source system, will automatically use the remote system if a remote system is called. Almost most sending systems will replace this with current systems hostname if not present. So use this only if you need specific source systems for specific schedules and not calling remote systems.", true)
+        .add_string("target", sh::string_key(&target_id), "TARGET", "The target to send the message to (will be resolved by the consumer)", true)
+        .add_string("source", sh::string_key(&source_id), "SOURCE",
+                    "The name of the source system, will automatically use the remote system if a remote system is called. Almost most sending systems will "
+                    "replace this with current systems hostname if not present. So use this only if you need specific source systems for specific schedules "
+                    "and not calling remote systems.",
+                    true)
 
-				;
-			if (is_def) {
-				root_path.add_key()
+        ;
+    if (is_def) {
+      root_path
+          .add_key()
 
-					("channel", sh::string_key(&channel, "NSCA"),
-						"SCHEDULE CHANNEL", "Channel to send results on")
+          .add_string("channel", sh::string_key(&channel, "NSCA"), "SCHEDULE CHANNEL", "Channel to send results on")
 
-					("interval", sh::string_fun_key(boost::bind(&schedule_object::set_duration, this, ph::_1)),
-					"SCHEDULE INTERVAL", "Time in seconds between each check")
+          .add_string("interval", sh::string_fun_key(boost::bind(&schedule_object::set_duration, this, ph::_1)), "SCHEDULE INTERVAL",
+                      "Time in seconds between each check")
 
-					("randomness", sh::string_fun_key(boost::bind(&schedule_object::set_randomness, this, ph::_1)),
-						"RANDOMNESS", "% of the interval which should be random to prevent overloading server resources")
+          .add_string("randomness", sh::string_fun_key(boost::bind(&schedule_object::set_randomness, this, ph::_1)), "RANDOMNESS",
+                      "% of the interval which should be random to prevent overloading server resources")
 
-					("schedule", sh::string_fun_key(boost::bind(&schedule_object::set_schedule, this, ph::_1)),
-						"SCHEDULE", "Cron-like statement for when a task is run. Currently limited to only one number i.e. 1 * * * * or * * 1 * * but not 1 1 * * *")
+          .add_string("schedule", sh::string_fun_key(boost::bind(&schedule_object::set_schedule, this, ph::_1)), "SCHEDULE",
+                      "Cron-like statement for when a task is run. Currently limited to only one number i.e. 1 * * * * or * * 1 * * but not 1 1 * * *")
 
-					("report", sh::string_fun_key(boost::bind(&schedule_object::set_report, this, ph::_1), "all"),
-						"REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)")
+          .add_string("report", sh::string_fun_key(boost::bind(&schedule_object::set_report, this, ph::_1), "all"), "REPORT MODE",
+                      "What to report to the server (any of the following: all, critical, warning, unknown, ok)")
 
-					;
-			} else {
-				root_path.add_key()
-					("channel", sh::string_key(&channel),
-						"SCHEDULE CHANNEL", "Channel to send results on")
+          ;
+    } else {
+      root_path.add_key()
+          .add_string("channel", sh::string_key(&channel), "SCHEDULE CHANNEL", "Channel to send results on")
 
-					("interval", sh::string_fun_key(boost::bind(&schedule_object::set_duration, this, ph::_1)),
-						"SCHEDULE INTERVAL", "Time in seconds between each check", true)
+          .add_string("interval", sh::string_fun_key(boost::bind(&schedule_object::set_duration, this, ph::_1)), "SCHEDULE INTERVAL",
+                      "Time in seconds between each check", true)
 
-					("randomness", sh::string_fun_key(boost::bind(&schedule_object::set_randomness, this, ph::_1)),
-						"RANDOMNESS", "% of the interval which should be random to prevent overloading server resources")
+          .add_string("randomness", sh::string_fun_key(boost::bind(&schedule_object::set_randomness, this, ph::_1)), "RANDOMNESS",
+                      "% of the interval which should be random to prevent overloading server resources")
 
-					("schedule", sh::string_fun_key(boost::bind(&schedule_object::set_schedule, this, ph::_1)),
-						"SCHEDULE", "Cron-like statement for when a task is run. Currently limited to only one number i.e. 1 * * * * or * * 1 * * but not 1 1 * * *")
+          .add_string("schedule", sh::string_fun_key(boost::bind(&schedule_object::set_schedule, this, ph::_1)), "SCHEDULE",
+                      "Cron-like statement for when a task is run. Currently limited to only one number i.e. 1 * * * * or * * 1 * * but not 1 1 * * *")
 
-					("report", sh::string_fun_key(boost::bind(&schedule_object::set_report, this, ph::_1)),
-						"REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)", true)
+          .add_string("report", sh::string_fun_key(boost::bind(&schedule_object::set_report, this, ph::_1)), "REPORT MODE",
+                      "What to report to the server (any of the following: all, critical, warning, unknown, ok)", true)
 
-					;
-			}
-    // clang-format on
+          ;
+    }
 
     settings.register_all();
     settings.notify();

@@ -125,16 +125,16 @@ simple_file_logger::config_data simple_file_logger::do_config(const bool log_fau
 
         ("log/file", "Logfile", "Configure log file properties.");
 
-    settings.add_key_to_settings("log")("file name", sh::string_key(&ret.file, DEFAULT_LOG_LOCATION), "Log file name",
-                                        "The file to write log data to. Set this to none to disable log to file.")
+    settings.add_key_to_settings("log")
+        .add_file("file name", sh::string_key(&ret.file, DEFAULT_LOG_LOCATION), "Log file name",
+                  "The file to write log data to. Set this to none to disable log to file.")
 
-        ("date format", sh::string_key(&ret.format, "%Y-%m-%d %H:%M:%S"), "Date format",
-         "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can receive.")
+        .add_string("date format", sh::string_key(&ret.format, "%Y-%m-%d %H:%M:%S"), "Date format",
+                    "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can receive.");
 
-        ;
-
-    settings.add_key_to_settings("log/file")("max size", sh::size_key(&ret.max_size, 0), "Maximum file size",
-                                             "When file size reaches this it will be truncated to 50% if set to 0 (default) truncation will be disabled");
+    settings.add_key_to_settings("log/file")
+        .add_int("max size", sh::size_key(&ret.max_size, 0), "Maximum file size",
+                 "When file size reaches this it will be truncated to 50% if set to 0 (default) truncation will be disabled");
 
     settings.register_all();
     settings.notify();

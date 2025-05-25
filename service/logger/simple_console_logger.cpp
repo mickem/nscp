@@ -53,8 +53,8 @@ simple_console_logger::config_data simple_console_logger::do_config() {
     //							("log", "Log file", "Configure log file properties.")
     //							;
 
-    settings.add_key_to_settings("log")("date format", sh::string_key(&format_, "%Y-%m-%d %H:%M:%S"), "Console date mask",
-                                        "The syntax of the dates in the log file.");
+    settings.add_key_to_settings("log").add_string("date format", sh::string_key(&format_, "%Y-%m-%d %H:%M:%S"), "Console date mask",
+                                                   "The syntax of the dates in the log file.");
 
     settings.register_all();
     settings.notify();

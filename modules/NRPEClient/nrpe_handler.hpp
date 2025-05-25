@@ -58,20 +58,18 @@ struct nrpe_target_object : public nscapi::targets::target_object {
     nscapi::settings_helper::path_extension root_path = settings.path(get_path());
     if (is_sample) root_path.set_sample();
 
-    // clang-format off
-			root_path.add_key()
+    root_path
+        .add_key()
 
-				("insecure", sh::path_fun_key(boost::bind(&parent::set_property_string, this, "insecure", ph::_1)),
-					"Insecure legacy mode", "Use insecure legacy mode to connect to old NRPE server", false)
+        .add_string("insecure", sh::path_fun_key(boost::bind(&parent::set_property_string, this, "insecure", ph::_1)), "Insecure legacy mode",
+                    "Use insecure legacy mode to connect to old NRPE server", false)
 
-				("payload length", sh::int_fun_key(boost::bind(&parent::set_property_int, this, "payload length", ph::_1)),
-					"PAYLOAD LENGTH", "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
+        .add_int("payload length", sh::int_fun_key(boost::bind(&parent::set_property_int, this, "payload length", ph::_1)), "PAYLOAD LENGTH",
+                 "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use "
+                 "the same value for it to work.")
 
-				("version", sh::int_fun_key(boost::bind(&parent::set_property_int, this, "version", ph::_1)),
-					"Version", "The NRPE Version to use (2 or 4).")
-
-				;
-    // clang-format on
+        .add_string("version", sh::int_fun_key(boost::bind(&parent::set_property_int, this, "version", ph::_1)), "Version",
+                    "The NRPE Version to use (2 or 4).");
     settings.register_all();
     settings.notify();
     settings.clear();

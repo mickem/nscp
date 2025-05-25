@@ -873,7 +873,7 @@ void script_wrapper::settings_wrapper::save() { settings.save(); }
 
 void script_wrapper::settings_wrapper::settings_register_key(std::string path, std::string key, std::string stype, std::string title, std::string description,
                                                              std::string defaultValue) {
-  settings.register_key(path, key, title, description, defaultValue, false, false, false);
+  settings.register_key(path, key, "string", title, description, defaultValue, false, false, false);
 }
 void script_wrapper::settings_wrapper::settings_register_path(std::string path, std::string title, std::string description) {
   settings.register_path(path, title, description, false, false);

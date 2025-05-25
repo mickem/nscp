@@ -47,14 +47,15 @@ class settings_impl_interface {
   ///
   /// @param path The path to register
   /// @param key The key to register
+  /// @param type The type of value, string, boolean or int
   /// @param title The title to use
   /// @param description the description to use
   /// @param defValue the default value
   /// @param advanced advanced options will only be included if they are changed
   ///
   /// @author mickem
-  virtual void register_key(std::string path, std::string key, std::string title, std::string description, std::string defValue, bool advanced, bool sample,
-                            bool sensitive) = 0;
+  virtual void register_key(std::string path, std::string key, std::string type, std::string title, std::string description, std::string defValue,
+                            bool advanced, bool sample, bool sensitive) = 0;
 
   virtual void register_subkey(std::string path, std::string title, std::string description, bool advanced, bool sample) = 0;
 

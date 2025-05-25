@@ -58,34 +58,26 @@ struct syslog_target_object : public nscapi::targets::target_object {
     nscapi::settings_helper::path_extension root_path = settings.path(get_path());
     if (is_sample) root_path.set_sample();
 
-    // clang-format off
-			root_path.add_key()
+    root_path
+        .add_key()
 
-				("severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "severity", ph::_1), "error"),
-					"TODO", "")
+        .add_string("severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "severity", ph::_1), "error"), "TODO", "")
 
-				("facility", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "facility", ph::_1), "kernel"),
-					"TODO", "")
+        .add_string("facility", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "facility", ph::_1), "kernel"), "TODO", "")
 
-				("tag_syntax", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "tag syntax", ph::_1), "NSCA"),
-					"TODO", "")
+        .add_string("tag_syntax", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "tag syntax", ph::_1), "NSCA"), "TODO", "")
 
-				("message_syntax", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "message syntax", ph::_1), "%message%"),
-					"TODO", "")
+        .add_string("message_syntax", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "message syntax", ph::_1), "%message%"), "TODO", "")
 
-				("ok severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "ok severity", ph::_1), "informational"),
-					"TODO", "")
+        .add_string("ok severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "ok severity", ph::_1), "informational"), "TODO", "")
 
-				("warning severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "warning severity", ph::_1), "warning"),
-					"TODO", "")
+        .add_string("warning severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "warning severity", ph::_1), "warning"), "TODO", "")
 
-				("critical severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "critical severity", ph::_1), "critical"),
-					"TODO", "")
+        .add_string("critical severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "critical severity", ph::_1), "critical"), "TODO",
+                    "")
 
-				("unknown severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "unknown severity", ph::_1), "emergency"),
-					"TODO", "")
-				;
-    // clang-format on
+        .add_string("unknown severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "unknown severity", ph::_1), "emergency"), "TODO",
+                    "");
   }
 };
 

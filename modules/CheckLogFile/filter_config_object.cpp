@@ -68,30 +68,22 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
   if (is_sample) root_path.set_sample();
 
   if (oneliner) return;
-  // clang-format off
+  root_path.add_path()("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias());
 
-		root_path.add_path()
-			("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
-			;
+  root_path.add_key()
+      .add_string("file", sh::string_fun_key(boost::bind(&filter_config_object::set_file, this, boost::placeholders::_1)), "FILE",
+                  "The eventlog record to filter on (if set to 'all' means all enabled logs)", false)
 
-		root_path.add_key()
-			("file", sh::string_fun_key(boost::bind(&filter_config_object::set_file, this, boost::placeholders::_1)),
-				"FILE", "The eventlog record to filter on (if set to 'all' means all enabled logs)", false)
+      .add_string("files", sh::string_fun_key(boost::bind(&filter_config_object::set_files, this, boost::placeholders::_1)), "FILES",
+                  "The eventlog record to filter on (if set to 'all' means all enabled logs)", true)
 
-			("files", sh::string_fun_key(boost::bind(&filter_config_object::set_files, this, boost::placeholders::_1)),
-				"FILES", "The eventlog record to filter on (if set to 'all' means all enabled logs)", true)
+      .add_string("column split", nscapi::settings_helper::string_key(&column_split), "COLUMN SPLIT", "THe character(s) to use when splitting on column level",
+                  !is_default)
 
-			("column split", nscapi::settings_helper::string_key(&column_split),
-			"COLUMN SPLIT", "THe character(s) to use when splitting on column level", !is_default)
+      .add_string("column-split", nscapi::settings_helper::string_key(&column_split), "COLUMN SPLIT", "Alias for column split", true)
 
-			("column-split", nscapi::settings_helper::string_key(&column_split),
-			"COLUMN SPLIT", "Alias for column split", true)
-
-			("read entire file", nscapi::settings_helper::bool_key(&read_from_start),
-			"read entire file", "Set to true to always read the entire file not just new data", true)
-
-			;
-  // clang-format on
+      .add_bool("read entire file", nscapi::settings_helper::bool_key(&read_from_start), "read entire file",
+                "Set to true to always read the entire file not just new data", true);
   filter.read_object(root_path, is_default);
 
   settings.register_all();

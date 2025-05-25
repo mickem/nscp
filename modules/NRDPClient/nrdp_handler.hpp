@@ -50,22 +50,17 @@ struct nrdp_target_object : public nscapi::targets::target_object {
 
     if (oneliner) return;
 
-    // clang-format off
     root_path.add_key()
-      ("key", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", ph::_1)),
-        "SECURITY TOKEN", "The security token")
-      ("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", ph::_1)),
-        "SECURITY TOKEN", "The security token")
-      ("token", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", ph::_1)),
-        "SECURITY TOKEN", "The security token")
-      ("tls version", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "tls version", ph::_1)),
-        "Tls version", "The tls version to use 1.0, 1.1, 1.2, 1.3")
-      ("verify mode", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "verify mode", ph::_1)),
-        "TLS peer verify mode", "Coma separated list o9f option none, peer, peer-cert, client-once, fail-if-no-cert, workarounds, single., In general use peer-cert or none for self signed certificates.")
-      ("ca", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "ca", ph::_1)),
-        "Certificate Authority", "Certificate authority to use when verifying certificates.")
-    ;
-    // clang-format on
+        .add_string("key", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", ph::_1)), "SECURITY TOKEN", "The security token")
+        .add_password("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", ph::_1)), "SECURITY TOKEN", "The security token")
+        .add_password("token", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", ph::_1)), "SECURITY TOKEN", "The security token")
+        .add_string("tls version", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "tls version", ph::_1)), "Tls version",
+                    "The tls version to use 1.0, 1.1, 1.2, 1.3")
+        .add_string("verify mode", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "verify mode", ph::_1)), "TLS peer verify mode",
+                    "Coma separated list o9f option none, peer, peer-cert, client-once, fail-if-no-cert, workarounds, single., In general use peer-cert or "
+                    "none for self signed certificates.")
+        .add_string("ca", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "ca", ph::_1)), "Certificate Authority",
+                    "Certificate authority to use when verifying certificates.");
 
     settings.register_all();
     settings.notify();

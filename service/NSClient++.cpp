@@ -143,7 +143,7 @@ bool NSClientT::load_configuration(const bool override_log) {
   bool crash_archive = false;
   bool crash_restart = false;
   bool use_credentials = false;
-  std::string crash_url, crash_folder, restart_target, log_level;
+  std::string crash_folder, log_level;
   try {
     sh::settings_registry settings(settings_manager::get_proxy());
 
@@ -158,29 +158,25 @@ bool NSClientT::load_configuration(const bool override_log) {
       ("crash", "CRASH HANDLER", "Section for configuring the crash handler.")
       ("default", "Default values", "Default values used in other config sections.")
     ;
+    // clang-format on
 
     settings.add_key_to_path("/settings")
-      ("use credential manager", sh::bool_key(&use_credentials, false),
+      .add_bool("use credential manager", sh::bool_key(&use_credentials, false),
       "use credential manager", "Store sensitive keys in use credential manager instead of ini file")
     ;
 
     settings.add_key_to_settings("log")
-      ("level", sh::string_key(&log_level, "info"),
+      .add_string("level", sh::string_key(&log_level, "info"),
       "LOG LEVEL", "Log level to use. Available levels are error,warning,info,debug,trace")
     ;
 
     settings.add_key_to_settings("crash")
-      ("archive", sh::bool_key(&crash_archive, true),
+      .add_bool("archive", sh::bool_key(&crash_archive, true),
       "ARCHIVE CRASHREPORTS", "Archive crash reports in the archive folder")
-      ("restart", sh::bool_key(&crash_restart, true),
-      "RESTART", "Submit crash reports to nsclient.org (or your configured submission server)")
-      ("submit url", sh::string_key(&crash_url, CRASH_SUBMIT_URL),
-      "SUBMISSION URL", "The url to submit crash reports to")
-      ("archive folder", sh::path_key(&crash_folder, CRASH_ARCHIVE_FOLDER),
+      .add_string("archive folder", sh::path_key(&crash_folder, CRASH_ARCHIVE_FOLDER),
       "CRASH ARCHIVE LOCATION", "The folder to archive crash dumps in")
     ;
 
-    // clang-format on
     settings.register_all();
     settings.notify();
     if (use_credentials) {
@@ -197,7 +193,7 @@ bool NSClientT::load_configuration(const bool override_log) {
   ExceptionManager::instance()->setup_app(APPLICATION_NAME, STRPRODUCTVER, STRPRODUCTDATE);
 
   if (crash_restart) {
-    LOG_DEBUG_CORE("On crash: restart: " + restart_target);
+    LOG_DEBUG_CORE("On crash: restart service");
     ExceptionManager::instance()->setup_restart_flag();
   }
 
@@ -278,15 +274,15 @@ bool NSClientT::boot_start_plugins(bool boot) {
     return false;
   }
   if (boot) {
-    settings_manager::get_core()->register_key(0xffff, "/settings/core", "settings maintenance interval", "Maintenance interval",
+    settings_manager::get_core()->register_key(0xffff, "/settings/core", "string", "settings maintenance interval", "Maintenance interval",
                                                "How often settings shall reload config if it has changed", "5m", true, false);
     std::string smi = settings_manager::get_settings()->get_string("/settings/core", "settings maintenance interval", "5m");
     scheduler_.add_task(task_scheduler::schedule_metadata::SETTINGS, smi);
-    settings_manager::get_core()->register_key(0xffff, "/settings/core", "metrics interval", "Maintenance interval", "How often to fetch metrics from modules",
+    settings_manager::get_core()->register_key(0xffff, "/settings/core", "string", "metrics interval", "Maintenance interval", "How often to fetch metrics from modules",
                                                "10s", true, false);
     smi = settings_manager::get_settings()->get_string("/settings/core", "metrics interval", "10s");
     scheduler_.add_task(task_scheduler::schedule_metadata::METRICS, smi);
-    settings_manager::get_core()->register_key(0xffff, "/settings/core", "settings maintenance threads", "Maintenance thread count",
+    settings_manager::get_core()->register_key(0xffff, "/settings/core", "int", "settings maintenance threads", "Maintenance thread count",
                                                "How many threads will run in the background to maintain the various core helper tasks.", "1", true, false);
     int count = str::stox<int>(settings_manager::get_settings()->get_string("/settings/core", "settings maintenance threads", "1"));
     scheduler_.set_threads(count);

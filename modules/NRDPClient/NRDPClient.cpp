@@ -61,7 +61,7 @@ bool NRDPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 			;
 
 		settings.alias().add_key_to_settings()
-			("hostname", sh::string_key(&hostname_, "auto"),
+			.add_string("hostname", sh::string_key(&hostname_, "auto"),
 				"HOSTNAME", "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
 				"auto\tHostname\n"
 				"${host}\tHostname\n"
@@ -72,7 +72,7 @@ bool NRDPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 				"${domain_uc}\tDomainname in uppercase\n"
 				)
 
-			("channel", sh::string_key(&channel_, "NRDP"),
+			.add_string("channel", sh::string_key(&channel_, "NRDP"),
 				"CHANNEL", "The channel to listen to.")
 
 			;

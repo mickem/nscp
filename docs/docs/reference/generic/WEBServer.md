@@ -342,7 +342,7 @@ threads=10
 
 #### Allowed hosts <a id="/settings/WEB/server/allowed hosts"></a>
 
-A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.
 
 
 
@@ -352,7 +352,6 @@ A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
 |----------------|-----------------------------------------------|
 | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
 | Key:           | allowed hosts                                 |
-| Advanced:      | Yes (means it is not commonly used)           |
 | Default value: | `127.0.0.1`                                   |
 | Used by:       | WEBServer                                     |
 
@@ -369,7 +368,7 @@ allowed hosts=127.0.0.1
 
 #### Cache list of allowed hosts <a id="/settings/WEB/server/cache allowed hosts"></a>
 
-If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.
 
 
 
@@ -379,7 +378,6 @@ If host names (DNS entries) should be cached, improves speed and security somewh
 |----------------|-----------------------------------------------|
 | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
 | Key:           | cache allowed hosts                           |
-| Advanced:      | Yes (means it is not commonly used)           |
 | Default value: | `true`                                        |
 | Used by:       | WEBServer                                     |
 
@@ -449,7 +447,7 @@ ciphers=
 
 #### Password <a id="/settings/WEB/server/password"></a>
 
-Password used to authenticate against server parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+Password used to authenticate against server
 
 
 
@@ -460,7 +458,6 @@ Password used to authenticate against server parent for this key is found under:
 |----------------|-----------------------------------------------|
 | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
 | Key:           | password                                      |
-| Advanced:      | Yes (means it is not commonly used)           |
 | Default value: | _N/A_                                         |
 | Used by:       | WEBServer                                     |
 

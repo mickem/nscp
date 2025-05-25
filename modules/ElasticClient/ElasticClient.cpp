@@ -63,42 +63,36 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias("elastic", alias, "client");
 
-    // clang-format off
-		settings.alias().add_key_to_settings()
- 			("hostname", sh::string_key(&hostname_, "auto"),
- 				"HOSTNAME", "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
- 				"auto\tHostname\n"
- 				"${host}\tHostname\n"
- 				"${host_lc}\nHostname in lowercase\n"
- 				"${host_uc}\tHostname in uppercase\n"
- 				"${domain}\tDomainname\n"
- 				"${domain_lc}\tDomainname in lowercase\n"
- 				"${domain_uc}\tDomainname in uppercase\n"
- 				)
+    settings.alias()
+        .add_key_to_settings()
+        .add_string("hostname", sh::string_key(&hostname_, "auto"), "HOSTNAME",
+                    "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
+                    "auto\tHostname\n"
+                    "${host}\tHostname\n"
+                    "${host_lc}\nHostname in lowercase\n"
+                    "${host_uc}\tHostname in uppercase\n"
+                    "${domain}\tDomainname\n"
+                    "${domain_lc}\tDomainname in lowercase\n"
+                    "${domain_uc}\tDomainname in uppercase\n")
 
-			("events", sh::string_key(&events, "eventlog:*,logfile:*"),
-				"Event", "The events to subscribe to such as eventlog:* or logfile:mylog.")
+        .add_string("events", sh::string_key(&events, "eventlog:*,logfile:*"), "Event", "The events to subscribe to such as eventlog:* or logfile:mylog.")
 
-			("address", sh::string_key(&address),
-				"Elastic address", "The address to send data to (http://127.0.0.1:9200/_bulk).")
+        .add_string("address", sh::string_key(&address), "Elastic address", "The address to send data to (http://127.0.0.1:9200/_bulk).")
 
-			("event index", sh::string_key(&event_index, "nsclient_event-%(date)"),
-			"Elastic index used for events", "The elastic index to use for events (log messages).")
-			("event type", sh::string_key(&event_type, "eventlog"),
-			"Elastic type used for events", "The elastic type to use for events (log messages).")
+        .add_string("event index", sh::string_key(&event_index, "nsclient_event-%(date)"), "Elastic index used for events",
+                    "The elastic index to use for events (log messages).")
+        .add_string("event type", sh::string_key(&event_type, "eventlog"), "Elastic type used for events", "The elastic type to use for events (log messages).")
 
-			("metrics index", sh::string_key(&metrics_index, "nsclient_metrics-%(date)"),
-			"Elastic index used for metrics", "The elastic index to use for metrics.")
-			("metrics type", sh::string_key(&metrics_type, "metrics"),
-			"Elastic type used for metrics", "The elastic type to use for metrics.")
+        .add_string("metrics index", sh::string_key(&metrics_index, "nsclient_metrics-%(date)"), "Elastic index used for metrics",
+                    "The elastic index to use for metrics.")
+        .add_string("metrics type", sh::string_key(&metrics_type, "metrics"), "Elastic type used for metrics", "The elastic type to use for metrics.")
 
-			("nsclient log index", sh::string_key(&nsclient_index, "nsclient_log-%(date)"),
-			"Elastic index used for metrics", "The elastic index to use for metrics.")
-			("nsclient log type", sh::string_key(&nsclient_type, "nsclient log"),
-			"Elastic type used for metrics", "The elastic type to use for metrics.")
+        .add_string("nsclient log index", sh::string_key(&nsclient_index, "nsclient_log-%(date)"), "Elastic index used for metrics",
+                    "The elastic index to use for metrics.")
+        .add_string("nsclient log type", sh::string_key(&nsclient_type, "nsclient log"), "Elastic type used for metrics",
+                    "The elastic type to use for metrics.")
 
-			;
-    // clang-format on
+        ;
 
     settings.register_all();
     settings.notify();

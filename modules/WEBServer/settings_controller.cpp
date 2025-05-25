@@ -144,6 +144,7 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
         rs["value"] = s.info().default_value();
       }
     }
+    rs["type"] = s.info().type();
     rs["title"] = s.info().title();
     rs["icon"] = s.info().icon();
     rs["description"] = s.info().description();

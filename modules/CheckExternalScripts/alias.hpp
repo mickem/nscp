@@ -87,8 +87,8 @@ struct command_object : public nscapi::settings_objects::object_instance_interfa
 
     root_path.add_path()("alias: " + get_alias(), "The configuration section for the " + get_alias() + " alias");
 
-    root_path.add_key()("command", sh::string_fun_key(boost::bind(&command_object::set_command, this, boost::placeholders::_1)), "COMMAND",
-                        "Command to execute");
+    root_path.add_key().add_string("command", sh::string_fun_key(boost::bind(&command_object::set_command, this, boost::placeholders::_1)), "COMMAND",
+                                   "Command to execute");
 
     settings.register_all();
     settings.notify();

@@ -46,26 +46,17 @@ void counter_config_object::read(nscapi::settings_helper::settings_impl_interfac
   nscapi::settings_helper::path_extension root_path = settings.path(get_path());
   if (is_sample) root_path.set_sample();
 
-  // clang-format off
-  root_path.add_path()
-    ("COUNTER", "Definition for counter: " + get_alias())
-  ;
+  root_path.add_path()("COUNTER", "Definition for counter: " + get_alias());
 
   root_path.add_key()
-    ("collection strategy", sh::string_key(&collection_strategy),
-      "COLLECTION STRATEGY", "The way to handled values when collecting them: static means we keep the last known value, rrd means we store values in a buffer from which you can retrieve the average")
-    ("counter", sh::string_key(&counter),
-      "COUNTER", "The counter to check")
-    ("instances", sh::string_key(&instances),
-    "Interpret instances", "IF we shoul interpret instance (default auto). Values: auto, true, false")
-    ("buffer size", sh::string_key(&buffer_size),
-      "BUFFER SIZE", "Size of buffer (in seconds) larger buffer use more memory")
-    ("type", sh::string_key(&type),
-      "COUNTER TYPE", "The type of counter to use long, large and double")
-    ("flags", sh::string_key(&flags),
-      "FLAGS", "Extra flags to configure the counter (nocap100, 1000, noscale)")
-  ;
-  // clang-format on
+      .add_string("collection strategy", sh::string_key(&collection_strategy), "COLLECTION STRATEGY",
+                  "The way to handled values when collecting them: static means we keep the last known value, rrd means we store values in a buffer from which "
+                  "you can retrieve the average")
+      .add_string("counter", sh::string_key(&counter), "COUNTER", "The counter to check")
+      .add_string("instances", sh::string_key(&instances), "Interpret instances", "IF we shoul interpret instance (default auto). Values: auto, true, false")
+      .add_string("buffer size", sh::string_key(&buffer_size), "BUFFER SIZE", "Size of buffer (in seconds) larger buffer use more memory")
+      .add_string("type", sh::string_key(&type), "COUNTER TYPE", "The type of counter to use long, large and double")
+      .add_string("flags", sh::string_key(&flags), "FLAGS", "Extra flags to configure the counter (nocap100, 1000, noscale)");
 
   settings.register_all();
   settings.notify();

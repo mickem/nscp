@@ -116,21 +116,21 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
       wrappings["ps1"] =
           "cmd /c echo If (-Not (Test-Path \"scripts\\%SCRIPT%\") ) { Write-Host \"UNKNOWN: Script `\"%SCRIPT%`\" not found.\"; exit(3) }; scripts\\%SCRIPT% "
           "$ARGS$; exit($lastexitcode) | powershell.exe /noprofile -command -";
-      settings.register_key(wrappings_path, "ps1", "POWERSHELL WRAPPING", "Command line used for executing wrapped ps1 (powershell) scripts",
-                            "cmd /c echo If (-Not (Test-Path \"scripts\\%SCRIPT%\") ) { Write-Host \"UNKNOWN: Script `\"%SCRIPT%`\" not found.\"; exit(3) }; "
-                            "scripts\\%SCRIPT% $ARGS$; exit($lastexitcode) | powershell.exe /noprofile -command -",
-                            false);
+      settings.register_key_string(
+          wrappings_path, "ps1", "POWERSHELL WRAPPING", "Command line used for executing wrapped ps1 (powershell) scripts",
+          "cmd /c echo If (-Not (Test-Path \"scripts\\%SCRIPT%\") ) { Write-Host \"UNKNOWN: Script `\"%SCRIPT%`\" not found.\"; exit(3) }; "
+          "scripts\\%SCRIPT% $ARGS$; exit($lastexitcode) | powershell.exe /noprofile -command -");
       settings.set_static_key(wrappings_path, "ps1", wrappings["ps1"]);
     }
     if (wrappings.find("vbs") == wrappings.end()) {
       wrappings["vbs"] = "cscript.exe //T:30 //NoLogo scripts\\\\lib\\\\wrapper.vbs %SCRIPT% %ARGS%";
-      settings.register_key(wrappings_path, "vbs", "Visual basic script", "Command line used for wrapped vbs scripts",
-                            "cscript.exe //T:30 //NoLogo scripts\\\\lib\\\\wrapper.vbs %SCRIPT% %ARGS%", false);
+      settings.register_key_string(wrappings_path, "vbs", "Visual basic script", "Command line used for wrapped vbs scripts",
+                                   "cscript.exe //T:30 //NoLogo scripts\\\\lib\\\\wrapper.vbs %SCRIPT% %ARGS%");
       settings.set_static_key(wrappings_path, "vbs", wrappings["vbs"]);
     }
     if (wrappings.find("bat") == wrappings.end()) {
       wrappings["bat"] = "scripts\\\\%SCRIPT% %ARGS%";
-      settings.register_key(wrappings_path, "bat", "Batch file", "Command used for executing wrapped batch files", "scripts\\\\%SCRIPT% %ARGS%", false);
+      settings.register_key_string(wrappings_path, "bat", "Batch file", "Command used for executing wrapped batch files", "scripts\\\\%SCRIPT% %ARGS%");
       settings.set_static_key(wrappings_path, "bat", wrappings["bat"]);
     }
 
@@ -163,24 +163,23 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
       //			add_alias("alias_updates", "check_updates -warning 0 -critical 0");
     }
 
-    // clang-format off
-		settings.alias().add_key_to_settings()
-			("timeout", sh::uint_key(&timeout, 60),
-				"Command timeout", "The maximum time in seconds that a command can execute. (if more then this execution will be aborted). NOTICE this only affects external commands not internal ones.")
+    settings.alias()
+        .add_key_to_settings()
+        .add_int("timeout", sh::uint_key(&timeout, 60), "Command timeout",
+                 "The maximum time in seconds that a command can execute. (if more then this execution will be aborted). NOTICE this only affects external "
+                 "commands not internal ones.")
 
-			("allow arguments", sh::bool_key(&allowArgs_, false),
-				"Allow arguments when executing external scripts", "This option determines whether or not the we will allow clients to specify arguments to commands that are executed.")
+        .add_bool("allow arguments", sh::bool_key(&allowArgs_, false), "Allow arguments when executing external scripts",
+                  "This option determines whether or not the we will allow clients to specify arguments to commands that are executed.")
 
-			("allow nasty characters", sh::bool_key(&allowNasty_, false),
-				"Allow certain potentially dangerous characters in arguments", "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.")
+        .add_bool("allow nasty characters", sh::bool_key(&allowNasty_, false), "Allow certain potentially dangerous characters in arguments",
+                  "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.")
 
-			("script path", sh::string_key(&scriptDirectory),
-			"Load all scripts in a given folder", "Load all scripts in a given directory and use them as commands.")
+        .add_file("script path", sh::string_key(&scriptDirectory), "Load all scripts in a given folder",
+                  "Load all scripts in a given directory and use them as commands.")
 
-			("script root", sh::path_key(&scriptRoot, "${scripts}"),
-			"Script root folder", "Root path where all scripts are contained (You can not upload/download scripts outside this folder).")
-			;
-    // clang-format on
+        .add_file("script root", sh::path_key(&scriptRoot, "${scripts}"), "Script root folder",
+                  "Root path where all scripts are contained (You can not upload/download scripts outside this folder).");
 
     settings.register_all();
     settings.notify();

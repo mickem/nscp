@@ -45,9 +45,9 @@ class settings_proxy : public nscapi::settings_helper::settings_impl_interface {
     get_core()->register_subkey(0xffff, path, title, description, advanced, is_sample);
   }
 
-  virtual void register_key(std::string path, std::string key, std::string title, std::string description, std::string defValue, bool advanced, bool is_sample,
-                            bool is_sensitive) {
-    get_core()->register_key(0xffff, path, key, title, description, defValue, advanced, is_sample);
+  virtual void register_key(std::string path, std::string key, std::string type, std::string title, std::string description, std::string defValue,
+                            bool advanced, bool is_sample, bool is_sensitive) {
+    get_core()->register_key(0xffff, path, key, type, title, description, defValue, advanced, is_sample);
     if (is_sensitive) {
       get_core()->add_sensitive_key(0xffff, path, key);
     }

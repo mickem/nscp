@@ -70,14 +70,15 @@ void nscapi::settings_proxy::register_subkey(std::string path, std::string title
   }
   report_errors(response, core_, "register" + path);
 }
-void nscapi::settings_proxy::register_key(std::string path, std::string key, std::string title, std::string description, std::string defValue, bool advanced,
-                                          bool sample, bool sensitive) {
+void nscapi::settings_proxy::register_key(std::string path, std::string key, std::string type, std::string title, std::string description, std::string defValue,
+                                          bool advanced, bool sample, bool sensitive) {
   PB::Settings::SettingsRequestMessage request;
   PB::Settings::SettingsRequestMessage::Request *payload = request.add_payload();
   payload->set_plugin_id(plugin_id_);
   PB::Settings::SettingsRequestMessage::Request::Registration *regitem = payload->mutable_registration();
   regitem->mutable_node()->set_key(key);
   regitem->mutable_node()->set_path(path);
+  regitem->mutable_info()->set_type(type);
   regitem->mutable_info()->set_title(title);
   regitem->mutable_info()->set_description(description);
   regitem->mutable_info()->set_default_value(defValue);

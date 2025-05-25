@@ -53,20 +53,18 @@ struct smtp_target_object : public nscapi::targets::target_object {
     nscapi::settings_helper::path_extension root_path = settings.path(get_path());
     if (is_sample) root_path.set_sample();
 
-    // clang-format off
-			root_path.add_key()
+    root_path
+        .add_key()
 
-				("sender", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "sender", ph::_1), "nscp@localhost"),
-					"SENDER", "Sender of email message")
+        .add_string("sender", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "sender", ph::_1), "nscp@localhost"), "SENDER",
+                    "Sender of email message")
 
-				("recipient", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "recipient", ph::_1), "nscp@localhost"),
-					"RECIPIENT", "Recipient of email message")
+        .add_string("recipient", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "recipient", ph::_1), "nscp@localhost"), "RECIPIENT",
+                    "Recipient of email message")
 
-				("template", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "template", ph::_1), "Hello, this is %source% reporting %message%!"),
-					"TEMPLATE", "Template for message data")
-
-				;
-    // clang-format on
+        .add_string("template",
+                    sh::string_fun_key(boost::bind(&parent::set_property_string, this, "template", ph::_1), "Hello, this is %source% reporting %message%!"),
+                    "TEMPLATE", "Template for message data");
   }
 };
 

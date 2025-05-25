@@ -131,8 +131,12 @@ void CheckHelpers::check_change_status(PB::Common::ResultCode status, const PB::
   po::options_description desc = nscapi::program_options::create_desc(request);
   po::variables_map vm;
   std::vector<std::string> args;
-  if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, args)) return;
-  if (args.size() == 0) return nscapi::protobuf::functions::set_response_bad(*response, "Needs at least one command");
+  if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, args)) {
+    return;
+  }
+  if (args.size() == 0) {
+    return nscapi::protobuf::functions::set_response_bad(*response, "Needs at least one command");
+  }
   std::string command = args.front();
   std::vector<std::string> arguments(args.begin() + 1, args.end());
   PB::Commands::QueryResponseMessage::Response local_response;

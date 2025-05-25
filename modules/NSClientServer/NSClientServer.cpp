@@ -43,29 +43,25 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("NSClient", alias, "server");
 
-  // clang-format off
-	settings.alias().add_path_to_settings()
-		("NSCLIENT SERVER SECTION", "Section for NSClient (NSClientServer.dll) (check_nt) protocol options.")
-		;
+  settings.alias().add_path_to_settings()("NSCLIENT SERVER SECTION", "Section for NSClient (NSClientServer.dll) (check_nt) protocol options.");
 
-	settings.alias().add_key_to_settings()
+  settings.alias()
+      .add_key_to_settings()
 
-		("performance data", sh::bool_fun_key(boost::bind(&NSClientServer::set_perf_data, this, boost::placeholders::_1), true),
-			"PERFORMANCE DATA", "Send performance data back to Nagios (set this to 0 to remove all performance data).")
+      .add_bool("performance data", sh::bool_fun_key(boost::bind(&NSClientServer::set_perf_data, this, boost::placeholders::_1), true), "PERFORMANCE DATA",
+                "Send performance data back to Nagios (set this to 0 to remove all performance data).");
 
-		;
+  socket_helpers::settings_helper::add_port_server_opts(settings, info_, "12489");
+  socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false, "", "${certificate-path}/certificate.pem", "",
+                                                       "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+  socket_helpers::settings_helper::add_core_server_opts(settings, info_);
 
-	socket_helpers::settings_helper::add_port_server_opts(settings, info_, "12489");
-	socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false, "", "${certificate-path}/certificate.pem", "", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
-	socket_helpers::settings_helper::add_core_server_opts(settings, info_);
+  settings.alias()
+      .add_parent("/settings/default")
+      .add_key_to_settings()
 
-	settings.alias().add_parent("/settings/default").add_key_to_settings()
-
-		("password", sh::string_fun_key(boost::bind(&NSClientServer::set_password, this, boost::placeholders::_1), ""),
-			DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC)
-
-		;
-  // clang-format on
+      .add_password("password", sh::string_fun_key(boost::bind(&NSClientServer::set_password, this, boost::placeholders::_1), ""), DEFAULT_PASSWORD_NAME,
+                    DEFAULT_PASSWORD_DESC);
 
   settings.register_all();
   settings.notify();

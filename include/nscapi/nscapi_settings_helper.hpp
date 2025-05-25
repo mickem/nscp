@@ -70,18 +70,23 @@ key_type int_fun_key(boost::function<void(int)> fun);
 key_type fun_values_path(boost::function<void(std::string, std::string)> fun);
 key_type string_map_path(std::map<std::string, std::string>* val);
 
+enum type_of_key { key_type_string, key_type_int, key_type_bool, key_type_file, key_type_password, key_type_path, key_type_template };
 struct description_container {
   std::string icon;
+  type_of_key type;
   std::string title;
   std::string description;
   bool advanced;
-  description_container() : advanced(false) {}
+  description_container() : type(key_type_path), advanced(false) {}
 
-  description_container(std::string title, std::string description, bool advanced) : title(title), description(description), advanced(advanced) {}
-  description_container(std::string title, std::string description, std::string icon) : icon(icon), title(title), description(description), advanced(false) {}
-  description_container(std::string title, std::string description) : title(title), description(description), advanced(false) {}
+  description_container(type_of_key type, std::string title, std::string description, bool advanced)
+      : type(type), title(title), description(description), advanced(advanced) {}
+  description_container(type_of_key type, std::string title, std::string description, std::string icon)
+      : type(type), icon(icon), title(title), description(description), advanced(false) {}
+  description_container(type_of_key type, std::string title, std::string description) : type(type), title(title), description(description), advanced(false) {}
 
   description_container(const description_container& obj) {
+    type = obj.type;
     title = obj.title;
     icon = obj.icon;
     description = obj.description;
@@ -89,6 +94,7 @@ struct description_container {
   }
   description_container& operator=(const description_container& obj) {
     icon = obj.icon;
+    type = obj.type;
     title = obj.title;
     description = obj.description;
     advanced = obj.advanced;
@@ -146,16 +152,21 @@ class settings_keys_easy_init {
 
   virtual ~settings_keys_easy_init() {}
 
+  /*
   settings_keys_easy_init& operator()(std::string path, std::string key_name, key_type value, std::string title, std::string description,
                                       bool advanced = false);
 
   settings_keys_easy_init& operator()(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
+  */
 
-  void add(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
-  void add_sensitive(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
+  settings_keys_easy_init& add_string(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
+  settings_keys_easy_init& add_bool(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
+  settings_keys_easy_init& add_int(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
+  settings_keys_easy_init& add_file(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
+  settings_keys_easy_init& add_password(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
 
  private:
-  void add(boost::shared_ptr<key_info> d);
+  void add(boost::shared_ptr<key_info> d) const;
 
   settings_registry* owner;
   std::string path_;
@@ -272,12 +283,20 @@ class settings_registry {
   void set_static_key(std::string path, std::string key, std::string value) const { core_->set_string(path, key, value); }
   std::string get_static_string(std::string path, std::string key, std::string def_value) const { return core_->get_string(path, key, def_value); }
 
-  void register_key(std::string path, std::string key, std::string title, std::string description, std::string defaultValue, bool advanced = false) const {
-    core_->register_key(path, key, title, description, defaultValue, advanced, false, false);
+  void register_key_string(std::string path, std::string key, std::string title, std::string description, std::string defaultValue) const {
+    core_->register_key(path, key, "string", title, description, defaultValue, false, false, false);
   }
-  void register_sensitive_key(std::string path, std::string key, std::string title, std::string description, std::string defaultValue,
-                              bool advanced = false) const {
-    core_->register_key(path, key, title, description, defaultValue, advanced, false, true);
+  void register_key_bool(std::string path, std::string key, std::string title, std::string description, std::string defaultValue) const {
+    core_->register_key(path, key, "bool", title, description, defaultValue, false, false, false);
+  }
+  void register_key_int(std::string path, std::string key, std::string title, std::string description, std::string defaultValue) const {
+    core_->register_key(path, key, "int", title, description, defaultValue, false, false, false);
+  }
+  void register_key_file(std::string path, std::string key, std::string title, std::string description, std::string defaultValue) const {
+    core_->register_key(path, key, "file", title, description, defaultValue, false, false, false);
+  }
+  void register_key_password(std::string path, std::string key, std::string title, std::string description, std::string defaultValue) const {
+    core_->register_key(path, key, "password", title, description, defaultValue, false, false, true);
   }
   void register_all() const;
   void clear() {
@@ -287,7 +306,7 @@ class settings_registry {
 
   std::string expand_path(std::string path) const { return core_->expand_path(path); }
 
-  void notify();
+  void notify() const;
 };
 }  // namespace settings_helper
 }  // namespace nscapi

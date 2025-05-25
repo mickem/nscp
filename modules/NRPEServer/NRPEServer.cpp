@@ -51,53 +51,48 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.set_alias("NRPE", alias, "server");
 
   bool insecure;
-  // clang-format off
-	settings.alias().add_key_to_settings()
-    ("insecure", sh::bool_key(&insecure, false),
-     "ALLOW INSECURE CHIPHERS and ENCRYPTION", "Only enable this if you are using legacy check_nrpe client.")
-		;
+  settings.alias().add_key_to_settings().add_bool("insecure", sh::bool_key(&insecure, false), "ALLOW INSECURE CHIPHERS and ENCRYPTION",
+                                                  "Only enable this if you are using legacy check_nrpe client.");
 
-	settings.register_all();
-	settings.notify();
+  settings.register_all();
+  settings.notify();
 
-	settings.alias().add_path_to_settings()
-		("NRPE Server", "Section for NRPE (NRPEServer.dll) (check_nrpe) protocol options.")
-		;
+  settings.alias().add_path_to_settings()("NRPE Server", "Section for NRPE (NRPEServer.dll) (check_nrpe) protocol options.");
 
-	settings.alias().add_key_to_settings()
-		("port", sh::string_key(&info_.port_, "5666"),
-			"PORT NUMBER", "Port to use for NRPE.")
+  settings.alias()
+      .add_key_to_settings()
+      .add_string("port", sh::string_key(&info_.port_, "5666"), "PORT NUMBER", "Port to use for NRPE.")
 
-		("payload length", sh::uint_key(&payload_length_, 1024),
-			"PAYLOAD LENGTH", "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.", true)
+      .add_int("payload length", sh::uint_key(&payload_length_, 1024), "PAYLOAD LENGTH",
+               "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use "
+               "the same value for it to work.",
+               true)
 
-		("allow arguments", sh::bool_key(&allowArgs_, false),
-			"COMMAND ARGUMENT PROCESSING", "This option determines whether or not the we will allow clients to specify arguments to commands that are executed.")
+      .add_bool("allow arguments", sh::bool_key(&allowArgs_, false), "COMMAND ARGUMENT PROCESSING",
+                "This option determines whether or not the we will allow clients to specify arguments to commands that are executed.")
 
-		("allow nasty characters", sh::bool_key(&allowNasty_, false),
-			"COMMAND ALLOW NASTY META CHARS", "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.")
+      .add_bool("allow nasty characters", sh::bool_key(&allowNasty_, false), "COMMAND ALLOW NASTY META CHARS",
+                "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.")
 
-		("performance data", sh::bool_fun_key(boost::bind(&NRPEServer::set_perf_data, this, boost::placeholders::_1), true),
-			"PERFORMANCE DATA", "Send performance data back to nagios (set this to 0 to remove all performance data).", true)
+      .add_bool("performance data", sh::bool_fun_key(boost::bind(&NRPEServer::set_perf_data, this, boost::placeholders::_1), true), "PERFORMANCE DATA",
+                "Send performance data back to nagios (set this to 0 to remove all performance data).", true)
 
-		;
+      ;
 
-	socket_helpers::settings_helper::add_core_server_opts(settings, info_);
+  socket_helpers::settings_helper::add_core_server_opts(settings, info_);
   std::string certificate = insecure ? "" : "${certificate-path}/certificate.pem";
   std::string opts = insecure ? "ALL:!MD5:@STRENGTH:@SECLEVEL=0" : "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH";
-		socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "${certificate-path}/nrpe_dh_2048.pem", certificate, "", opts);
+  socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "${certificate-path}/nrpe_dh_2048.pem", certificate, "", opts);
 
-		settings.alias().add_key_to_settings()
-			("extended response", sh::bool_key(&multiple_packets_, !insecure),
-				"EXTENDED RESPONSE", "Send more then 1 return packet to allow response to go beyond payload size (requires modified client if legacy is true this defaults to false).")
-			;
+  settings.alias().add_key_to_settings().add_bool(
+      "extended response", sh::bool_key(&multiple_packets_, !insecure), "EXTENDED RESPONSE",
+      "Send more then 1 return packet to allow response to go beyond payload size (requires modified client if legacy is true this defaults to false).");
 
-	settings.alias().add_parent("/settings/default").add_key_to_settings()
+  settings.alias()
+      .add_parent("/settings/default")
+      .add_key_to_settings()
 
-		("encoding", sh::string_key(&encoding_, ""),
-			"NRPE PAYLOAD ENCODING", "", true)
-		;
-  // clang-format on
+      .add_string("encoding", sh::string_key(&encoding_, ""), "NRPE PAYLOAD ENCODING", "", true);
 
   settings.register_all();
   settings.notify();

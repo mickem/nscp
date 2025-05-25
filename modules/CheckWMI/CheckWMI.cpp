@@ -44,27 +44,16 @@ void target_helper::add_target(nscapi::settings_helper::settings_impl_interface_
     target.hostname = val;
     if (val.empty()) target.hostname = alias;
 
-    // clang-format off
-		settings.add_path_to_settings()
-			(target.hostname, "Targets", "A list of available remote target systems")
+    settings.add_path_to_settings()(target.hostname, "Targets", "A list of available remote target systems");
 
-			;
+    settings.add_key_to_settings("targets/" + target.hostname)
+        .add_string("hostname", sh::string_key(&target.hostname), "TARGET HOSTNAME", "Hostname or ip address of target")
 
-		settings.add_key_to_settings("targets/" + target.hostname)
-			("hostname", sh::string_key(&target.hostname),
-				"TARGET HOSTNAME", "Hostname or ip address of target")
+        .add_string("username", sh::string_key(&target.username), "TARGET USERNAME", "Username used to authenticate with")
 
-			("username", sh::string_key(&target.username),
-				"TARGET USERNAME", "Username used to authenticate with")
+        .add_password("password", sh::string_key(&target.password), "TARGET PASSWORD", "Password used to authenticate with")
 
-			("password", sh::string_key(&target.password),
-				"TARGET PASSWORD", "Password used to authenticate with")
-
-			("protocol", sh::string_key(&target.protocol),
-				"TARGET PROTOCOL", "Protocol identifier used to route requests")
-
-			;
-    // clang-format on
+        .add_string("protocol", sh::string_key(&target.protocol), "TARGET PROTOCOL", "Protocol identifier used to route requests");
 
     settings.register_all();
     settings.notify();

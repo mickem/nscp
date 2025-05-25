@@ -77,12 +77,10 @@ bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 				"SCRIPT", "For more configuration options add a dedicated section")
 			;
 
-		settings.alias().add_key_to_settings()
-			("channel", sh::string_key(&channel_, "CheckMK"),
-				"CHANNEL", "The channel to listen to.")
-
-			;
     // clang-format on
+    settings.alias().add_key_to_settings().add_string("channel", sh::string_key(&channel_, "CheckMK"), "CHANNEL", "The channel to listen to.")
+
+        ;
 
     settings.register_all();
     settings.notify();
