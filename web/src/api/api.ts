@@ -169,6 +169,7 @@ export interface QueryExecutionResultLine {
 
 export interface QueryExecutionResult {
   command: string;
+  result: 0 | 1 | 2 | 3;
   lines: QueryExecutionResultLine[];
 }
 
@@ -200,6 +201,7 @@ export interface SettingsDescription {
   is_template_key: boolean;
   key: string;
   path: string;
+  type: string;
   plugins: string[];
   sample_usage: string;
   title: string;

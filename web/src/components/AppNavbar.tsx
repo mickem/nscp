@@ -2,7 +2,6 @@ import AppBar from "@mui/material/AppBar";
 import Typography from "@mui/material/Typography";
 import { Box, IconButton, Toolbar } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
-import LogStatusIcon from "./LogStatusIcon.tsx";
 import { useGetInfoQuery } from "../api/api.ts";
 
 interface Props {
@@ -33,10 +32,14 @@ export default function AppNavbar({ handleDrawerToggle }: Props) {
           <Typography variant="h4" component="div" sx={{ paddingRight: 3 }}>
             NSClient++
           </Typography>
-          <Typography variant="h5" color="textDisabled" component="div" sx={{ flexGrow: 1 }}>
+          <Typography
+            variant="h5"
+            color="textDisabled"
+            component="div"
+            sx={{ flexGrow: 1, display: { xs: "none", sm: "block" } }}
+          >
             {version}
           </Typography>
-          <LogStatusIcon />
         </Toolbar>
       </AppBar>
     </Box>

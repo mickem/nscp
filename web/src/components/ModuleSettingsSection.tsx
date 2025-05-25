@@ -2,6 +2,7 @@ import { SettingsDescription } from "../api/api.ts";
 import { Collapse, List, ListItem, ListItemButton, ListItemText } from "@mui/material";
 import { useState } from "react";
 import { ExpandLess, ExpandMore } from "@mui/icons-material";
+import SettingsItem from "./atoms/SettingsItem.tsx";
 
 interface Props {
   section: string;
@@ -15,7 +16,6 @@ export default function ModuleSettingsSection({ section, settings }: Props) {
   };
 
   const keys = settings.filter((setting) => setting.key !== "");
-  const getValue = (settings: SettingsDescription) => settings.value || settings.default_value || "?";
 
   return (
     <>
@@ -34,11 +34,9 @@ export default function ModuleSettingsSection({ section, settings }: Props) {
         </ListItem>
       </ListItemButton>
       <Collapse in={open} timeout="auto" unmountOnExit>
-        <List>
+        <List dense>
           {keys.map((setting) => (
-            <ListItem key={`${setting.path}-${setting.key}`} sx={{ paddingLeft: 3 }}>
-              <ListItemText primary={setting.key} secondary={getValue(setting)} />
-            </ListItem>
+            <SettingsItem key={`${setting.path}-${setting.key}`} dense={true} path={setting.path} setting={setting} />
           ))}
           {keys.length === 0 && (
             <ListItem sx={{ paddingLeft: 3 }}>
