@@ -96,22 +96,17 @@ bool SimpleCache::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
   settings.set_alias(alias, "cache");
 
-  // clang-format off
-	settings.alias().add_path_to_settings()
-		("CACHE", "Section for simple cache module (SimpleCache.dll).")
+  settings.alias().add_path_to_settings()("CACHE", "Section for simple cache module (SimpleCache.dll).");
 
-		;
+  settings.alias()
+      .add_key_to_settings()
+      .add_string("primary index", sh::string_key(&primary_key, "${alias-or-command}"), "PRIMARY CACHE INDEX",
+                  "Set this to the value you want to use as unique key for the cache.\nCan be any arbitrary string as well as include any of the following "
+                  "special keywords:"
+                  "${command} = The command name, ${host} the host, ${channel} the receiving channel, ${alias} the alias for the command, ${alias-or-command} "
+                  "= alias if set otherwise command, ${message} = the message data (no escape), ${result} = The result status (number).")
 
-	settings.alias().add_key_to_settings()
-		("primary index", sh::string_key(&primary_key, "${alias-or-command}"),
-			"PRIMARY CACHE INDEX", "Set this to the value you want to use as unique key for the cache.\nCan be any arbitrary string as well as include any of the following special keywords:"
-			"${command} = The command name, ${host} the host, ${channel} the receiving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherwise command, ${message} = the message data (no escape), ${result} = The result status (number).")
-
-		("channel", sh::string_key(&channel, "CACHE"),
-			"CHANNEL", "The channel to listen to.")
-
-		;
-  // clang-format on
+      .add_string("channel", sh::string_key(&channel, "CACHE"), "CHANNEL", "The channel to listen to.");
 
   settings.register_all();
   settings.notify();

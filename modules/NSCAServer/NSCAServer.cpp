@@ -47,43 +47,35 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("NSCA", alias, "server");
 
-  // clang-format off
-	settings.alias().add_path_to_settings()
-		("NSCA SERVER SECTION", "Section for NSCA (NSCAServer) (check_nsca) protocol options.")
-		;
+  settings.alias().add_path_to_settings()("NSCA SERVER SECTION", "Section for NSCA (NSCAServer) (check_nsca) protocol options.");
 
-	settings.alias().add_key_to_settings()
-		("port", sh::string_key(&info_.port_, "5667"),
-			"PORT NUMBER", "Port to use for NSCA.")
+  settings.alias()
+      .add_key_to_settings()
+      .add_string("port", sh::string_key(&info_.port_, "5667"), "PORT NUMBER", "Port to use for NSCA.")
 
-		("payload length", sh::uint_key(&payload_length_, 512),
-			"PAYLOAD LENGTH", "Length of payload to/from the NSCA agent. This is a hard specific value so you have to \"configure\" (read recompile) your NSCA agent to use the same value for it to work.")
+      .add_int("payload length", sh::uint_key(&payload_length_, 512), "PAYLOAD LENGTH",
+               "Length of payload to/from the NSCA agent. This is a hard specific value so you have to \"configure\" (read recompile) your NSCA agent to use "
+               "the same value for it to work.")
 
-		("performance data", sh::bool_fun_key(boost::bind(&NSCAServer::set_perf_data, this, boost::placeholders::_1), true),
-			"PERFORMANCE DATA", "Send performance data back to nagios (set this to false to remove all performance data).")
+      .add_bool("performance data", sh::bool_fun_key(boost::bind(&NSCAServer::set_perf_data, this, boost::placeholders::_1), true), "PERFORMANCE DATA",
+                "Send performance data back to nagios (set this to false to remove all performance data).")
 
-		("encryption", sh::string_fun_key(boost::bind(&NSCAServer::set_encryption, this, boost::placeholders::_1), "aes"),
-			"ENCRYPTION", std::string("Name of encryption algorithm to use.\nHas to be the same as your agent i using or it wont work at all."
-				"This is also independent of SSL and generally used instead of SSL.\nAvailable encryption algorithms are:\n") + nscp::encryption::helpers::get_crypto_string("\n"))
-
-		;
-  // clang-format on
+      .add_string("encryption", sh::string_fun_key(boost::bind(&NSCAServer::set_encryption, this, boost::placeholders::_1), "aes"), "ENCRYPTION",
+                  std::string("Name of encryption algorithm to use.\nHas to be the same as your agent i using or it wont work at all."
+                              "This is also independent of SSL and generally used instead of SSL.\nAvailable encryption algorithms are:\n") +
+                      nscp::encryption::helpers::get_crypto_string("\n"));
 
   socket_helpers::settings_helper::add_core_server_opts(settings, info_);
   socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false, "", "${certificate-path}/certificate.pem", "",
                                                        "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 
-  // clang-format off
-	settings.alias().add_parent("/settings/default").add_key_to_settings()
+  settings.alias()
+      .add_parent("/settings/default")
+      .add_key_to_settings()
 
-		("password", sh::string_key(&password_, ""),
-			DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC)
+      .add_password("password", sh::string_key(&password_, ""), DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC)
 
-		("inbox", sh::string_key(&channel_, "inbox"),
-			"INBOX", "The default channel to post incoming messages on")
-
-		;
-  // clang-format on
+      .add_string("inbox", sh::string_key(&channel_, "inbox"), "INBOX", "The default channel to post incoming messages on");
 
   settings.register_all();
   settings.notify();

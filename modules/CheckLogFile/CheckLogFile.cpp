@@ -50,14 +50,13 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 			"REALTIME FILTER DEFENTION", "For more configuration options add a dedicated section"
 			)
 		;
-
-	settings.alias().add_key_to_settings("real-time")
-
-		("enabled", sh::bool_fun_key(boost::bind(&real_time_thread::set_enabled, thread_, boost::placeholders::_1), false),
-			"Real time", "Spawns a background thread which waits for file changes.")
-
-		;
   // clang-format on
+
+  settings.alias()
+      .add_key_to_settings("real-time")
+
+      .add_bool("enabled", sh::bool_fun_key(boost::bind(&real_time_thread::set_enabled, thread_, boost::placeholders::_1), false), "Real time",
+                "Spawns a background thread which waits for file changes.");
 
   settings.register_all();
   settings.notify();

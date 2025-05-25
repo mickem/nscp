@@ -61,25 +61,22 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 				"TARGET", "For more configuration options add a dedicated section")
 			;
 
-		settings.alias().add_key_to_settings()
-			("hostname", sh::string_key(&hostname_, "auto"),
-				"HOSTNAME", "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
-				"auto\tHostname\n"
-				"${host}\tHostname\n"
-				"${host_lc}\nHostname in lowercase\n"
-				"${host_uc}\tHostname in uppercase\n"
-				"${domain}\tDomainname\n"
-				"${domain_lc}\tDomainname in lowercase\n"
-				"${domain_uc}\tDomainname in uppercase\n"
-				)
-
-			("encoding", sh::string_key(&encoding_, ""),
-				"NSCA DATA ENCODING", "", true)
-
-			("channel", sh::string_key(&channel_, "NSCA"),
-				"CHANNEL", "The channel to listen to.")
-			;
     // clang-format on
+    settings.alias()
+        .add_key_to_settings()
+        .add_string("hostname", sh::string_key(&hostname_, "auto"), "HOSTNAME",
+                    "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
+                    "auto\tHostname\n"
+                    "${host}\tHostname\n"
+                    "${host_lc}\nHostname in lowercase\n"
+                    "${host_uc}\tHostname in uppercase\n"
+                    "${domain}\tDomainname\n"
+                    "${domain_lc}\tDomainname in lowercase\n"
+                    "${domain_uc}\tDomainname in uppercase\n")
+
+        .add_string("encoding", sh::string_key(&encoding_, ""), "NSCA DATA ENCODING", "", true)
+
+        .add_string("channel", sh::string_key(&channel_, "NSCA"), "CHANNEL", "The channel to listen to.");
 
     settings.register_all();
     settings.notify();

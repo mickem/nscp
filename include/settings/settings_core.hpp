@@ -54,19 +54,21 @@ class settings_core {
   typedef std::list<std::string> string_list;
   typedef std::pair<std::string, std::string> key_path_type;
   struct key_description {
+    std::string type;
     std::string title;
     std::string description;
     std::string default_value;
     bool advanced;
     bool is_sample;
     std::set<unsigned int> plugins;
-    key_description(unsigned int plugin_id, std::string title_, std::string description_, std::string default_value, bool advanced_, bool is_sample_)
-        : title(title_), description(description_), default_value(default_value), advanced(advanced_), is_sample(is_sample_) {
+    key_description(unsigned int plugin_id, std::string type_, std::string title_, std::string description_, std::string default_value, bool advanced_,
+                    bool is_sample_)
+        : type(type_), title(title_), description(description_), default_value(default_value), advanced(advanced_), is_sample(is_sample_) {
       append_plugin(plugin_id);
     }
-    key_description(unsigned int plugin_id) : advanced(false), is_sample(false) { append_plugin(plugin_id); }
     key_description() : advanced(false), is_sample(false) {}
     key_description &operator=(const key_description &other) {
+      type = other.type;
       title = other.title;
       description = other.description;
       default_value = other.default_value;
@@ -168,8 +170,8 @@ class settings_core {
   /// @param advanced advanced options will only be included if they are changed
   ///
   /// @author mickem
-  virtual void register_key(unsigned int plugin_id, std::string path, std::string key, std::string title, std::string description, std::string defValue,
-                            bool advanced, bool is_sample, bool update_existing = true) = 0;
+  virtual void register_key(unsigned int plugin_id, std::string path, std::string key, std::string type, std::string title, std::string description,
+                            std::string defValue, bool advanced, bool is_sample, bool update_existing = true) = 0;
   virtual void add_sensitive_key(unsigned int plugin_id, std::string path, std::string key) = 0;
 
   virtual void register_tpl(unsigned int plugin_id, std::string path, std::string title, std::string data) = 0;

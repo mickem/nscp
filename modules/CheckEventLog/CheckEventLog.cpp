@@ -73,48 +73,43 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
   }
   thread_->set_path(settings.alias().get_settings_path("real-time/filters"));
 
-  // clang-format off
-	settings.alias().add_path_to_settings()
-		("Eventlog", "Section for the EventLog Checker (CheckEventLog.dll).")
+  settings.alias().add_path_to_settings()("Eventlog", "Section for the EventLog Checker (CheckEventLog.dll).")
 
-		("real-time", "Real-time eventlog monitoring", "A set of options to configure the real time checks")
+      ("real-time", "Real-time eventlog monitoring", "A set of options to configure the real time checks")
 
-		("real-time/filters", sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
-			"Real-time eventlog filters", "A set of filters to use in real-time mode",
-			"FILTER DEFENITION", "For more configuration options add a dedicated section")
-		;
+          ("real-time/filters",
+           sh::fun_values_path(
+               boost::bind(&real_time_thread::add_realtime_filter, thread_, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
+           "Real-time eventlog filters", "A set of filters to use in real-time mode", "FILTER DEFENITION",
+           "For more configuration options add a dedicated section");
 
-	settings.alias().add_key_to_settings()
-		("debug", sh::bool_key(&debug_, false),
-			"Enable debugging", "Log more information when filtering (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.")
+  settings.alias()
+      .add_key_to_settings()
+      .add_bool("debug", sh::bool_key(&debug_, false), "Enable debugging",
+                "Log more information when filtering (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.")
 
-		("lookup names", sh::bool_key(&lookup_names_, true),
-			"Lookup eventlog names", "Lookup the names of eventlog files")
+      .add_bool("lookup names", sh::bool_key(&lookup_names_, true), "Lookup eventlog names", "Lookup the names of eventlog files")
 
-		("syntax", sh::string_key(&syntax_),
-			"Default syntax", "Set this to use a specific syntax string for all commands (that don't specify one).")
+      .add_string("syntax", sh::string_key(&syntax_), "Default syntax", "Set this to use a specific syntax string for all commands (that don't specify one).")
 
-		("buffer size", sh::int_key(&buffer_length_, 128 * 1024),
-			"Default buffer size", "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can receive.")
+      .add_int("buffer size", sh::int_key(&buffer_length_, 128 * 1024), "Default buffer size",
+               "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can receive.")
 
-		;
+      ;
 
-	settings.alias().add_key_to_settings("real-time")
+  settings.alias()
+      .add_key_to_settings("real-time")
 
-		("enabled", sh::bool_fun_key(boost::bind(&real_time_thread::set_enabled, thread_, ph::_1), false),
-			"Enable realtime monitoring", "Spawns a background thread which detects issues and reports them back instantly.")
+      .add_bool("enabled", sh::bool_fun_key(boost::bind(&real_time_thread::set_enabled, thread_, ph::_1), false), "Enable realtime monitoring",
+                "Spawns a background thread which detects issues and reports them back instantly.")
 
-		("startup age", sh::string_fun_key(boost::bind(&real_time_thread::set_start_age, thread_, ph::_1), "30m"),
-			"Read old records at startup", "The initial age to scan when starting NSClient++")
+      .add_string("startup age", sh::string_fun_key(boost::bind(&real_time_thread::set_start_age, thread_, ph::_1), "30m"), "Read old records at startup",
+                  "The initial age to scan when starting NSClient++")
 
-		("log", sh::string_key(&thread_->logs_, "application,system"),
-			"Logs to check", "Comma separated list of logs to check")
+      .add_string("log", sh::string_key(&thread_->logs_, "application,system"), "Logs to check", "Comma separated list of logs to check")
 
-		("debug", sh::bool_key(&thread_->debug_, false),
-			"Enable debugging", "Log missed records (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.")
-
-		;
-  // clang-format on
+      .add_bool("debug", sh::bool_key(&thread_->debug_, false), "Enable debugging",
+                "Log missed records (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.");
   std::string filter_path = settings.alias().get_settings_path("real-time/filters");
 
   settings.register_all();

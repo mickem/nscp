@@ -124,32 +124,32 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     ("roles", sh::string_map_path(&roles)
     , "Web server roles", "A list of roles and with coma separated list of access rights.")
   ;
-  settings.alias().add_key_to_settings()
-    ("port", sh::string_key(&port, "8443"),
-    "Server port", "Port to use for WEB server.")
-    ("threads", sh::int_key(&threads, 10),
-    "Server threads", "The number of threads in the sever response pool.")
-  ;
-  settings.alias().add_key_to_settings()
-    ("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"),
-    "TLS Certificate", "Ssl certificate to use for the ssl server")
-    ("ciphers", sh::string_key(&ciphers, ""),
-    "Supported ciphers", "Supported ciphers for the web server (Set to tlsv1.3 to only allow tls1.3)")
-  ;
-  settings.alias().add_key_to_settings("log")
-    ("error", sh::bool_key(&log_errors, true), "Log errors", "Enable logging of errors from the web server.")
-    ("info", sh::bool_key(&log_info, false), "Log info", "Enable logging of info messages from the web server.")
-    ("debug", sh::bool_key(&log_debug, false), "Log debug", "Enable logging of debug messages from the web server.")
-  ;
   // clang-format on
+  settings.alias()
+      .add_key_to_settings()
+      .add_string("port", sh::string_key(&port, "8443"), "Server port", "Port to use for WEB server.")
+      .add_int("threads", sh::int_key(&threads, 10), "Server threads", "The number of threads in the sever response pool.");
+  settings.alias()
+      .add_key_to_settings()
+      .add_string("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"), "TLS Certificate",
+                  "Ssl certificate to use for the ssl server")
+      .add_string("ciphers", sh::string_key(&ciphers, ""), "Supported ciphers", "Supported ciphers for the web server (Set to tlsv1.3 to only allow tls1.3)");
+  settings.alias()
+      .add_key_to_settings("log")
+      .add_bool("error", sh::bool_key(&log_errors, true), "Log errors", "Enable logging of errors from the web server.")
+      .add_bool("info", sh::bool_key(&log_info, false), "Log info", "Enable logging of info messages from the web server.")
+      .add_bool("debug", sh::bool_key(&log_debug, false), "Log debug", "Enable logging of debug messages from the web server.");
 
-  auto def = settings.alias().add_parent("/settings/default").add_key_to_settings();
-  def.add("allowed hosts", nscapi::settings_helper::string_fun_key([this](auto value) { this->session->set_allowed_hosts(value); }, "127.0.0.1"),
-          "Allowed hosts", "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.");
-  def.add("cache allowed hosts", nscapi::settings_helper::bool_fun_key([this](auto value) { this->session->set_allowed_hosts_cache(value); }, true),
+  settings.alias()
+      .add_parent("/settings/default")
+      .add_key_to_settings()
+      .add_string("allowed hosts", nscapi::settings_helper::string_fun_key([this](auto value) { this->session->set_allowed_hosts(value); }, "127.0.0.1"),
+                  "Allowed hosts", "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
+      .add_string(
+          "cache allowed hosts", nscapi::settings_helper::bool_fun_key([this](auto value) { this->session->set_allowed_hosts_cache(value); }, true),
           "Cache list of allowed hosts",
-          "If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.");
-  def.add_sensitive("password", nscapi::settings_helper::string_key(&admin_password), DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC);
+          "If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.")
+      .add_password("password", nscapi::settings_helper::string_key(&admin_password), DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC);
 
   settings.register_all();
   settings.notify();
@@ -602,7 +602,7 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
         .add_parent("/settings/default")
         .add_key_to_settings()
 
-            ("password", sh::string_key(&password), "PASSWORD", "Password used to authenticate against server")
+        .add_password("password", sh::string_key(&password), "PASSWORD", "Password used to authenticate against server")
 
         ;
 
@@ -678,7 +678,7 @@ void WEBServer::ensure_role(role_map &roles, nscapi::settings_helper::settings_r
                             std::string reason) {
   if (roles.find(role) == roles.end()) {
     roles[role] = value;
-    settings.register_key(role_path, role, "Role for " + reason, "Default role for " + reason, value, false);
+    settings.register_key_string(role_path, role, "Role for " + reason, "Default role for " + reason, value);
     settings.set_static_key(role_path, role, value);
   }
 }
@@ -688,9 +688,9 @@ void WEBServer::ensure_user(nscapi::settings_helper::settings_registry &settings
   if (!session->has_user(user)) {
     session->add_user(user, role, password);
     std::string the_path = path + "/" + user;
-    settings.register_sensitive_key(the_path, "password", "Password for " + reason, "Password name for" + reason, password, false);
+    settings.register_key_password(the_path, "password", "Password for " + reason, "Password name for" + reason, password);
     settings.set_static_key(the_path, "password", password);
-    settings.register_key(the_path, "role", "Role for " + reason, "Role name for" + reason, role, false);
+    settings.register_key_string(the_path, "role", "Role for " + reason, "Role name for" + reason, role);
     settings.set_static_key(the_path, "role", role);
   }
 }

@@ -144,30 +144,33 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 			;
 
-		settings.alias().add_key_to_settings()
-			("syntax", sh::string_key(&syntax, "${alias-or-command} ${result} ${message}"),
-				"MESSAGE SYNTAX", "The syntax of the message to write to the line.\nCan be any arbitrary string as well as include any of the following special keywords:"
-				"${command} = The command name, ${host} the host, ${channel} the receiving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherwise command, ${message} = the message data (no escape), ${result} or ${result_number} = The result status (number), ${epoch} = seconds since unix epoch, ${time} = time using time-format.")
-
-			("service-syntax", sh::string_key(&syntax_service),
-				"SERVICE MESSAGE SYNTAX", "The syntax of the message to write to the line.\nCan be any arbitrary string as well as include any of the following special keywords:"
-				"${command} = The command name, ${host} the host, ${channel} the receiving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherwise command, ${message} = the message data (no escape), ${result} or ${result_number} = The result status (number), ${epoch} = seconds since unix epoch, ${time} = time using time-format.")
-
-			("host-syntax", sh::string_key(&syntax_host),
-				"HOST MESSAGE SYNTAX", "The syntax of the message to write to the line.\nCan be any arbitrary string as well as include any of the following special keywords:"
-				"${command} = The command name, ${host} the host, ${channel} the receiving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherwise command, ${message} = the message data (no escape), ${result} or ${result_number} = The result status (number), ${epoch} = seconds since unix epoch, ${time} = time using time-format.")
-
-			("file", sh::path_key(&filename_, "output.txt"),
-				"FILE TO WRITE TO", "The filename to write output to.")
-
-			("channel", sh::string_key(&channel, "FILE"),
-				"CHANNEL", "The channel to listen to.")
-
-			("time-syntax", sh::string_key(&config_.time_format, "%Y-%m-%d %H:%M:%S"),
-				"TIME SYNTAX", "The date format using strftime format flags. This is the time of writing the message as messages currently does not have a source time.")
-
-			;
     // clang-format on
+    settings.alias()
+        .add_key_to_settings()
+        .add_string("syntax", sh::string_key(&syntax, "${alias-or-command} ${result} ${message}"), "MESSAGE SYNTAX",
+                    "The syntax of the message to write to the line.\nCan be any arbitrary string as well as include any of the following special keywords:"
+                    "${command} = The command name, ${host} the host, ${channel} the receiving channel, ${alias} the alias for the command, "
+                    "${alias-or-command} = alias if set otherwise command, ${message} = the message data (no escape), ${result} or ${result_number} = The "
+                    "result status (number), ${epoch} = seconds since unix epoch, ${time} = time using time-format.")
+
+        .add_string("service-syntax", sh::string_key(&syntax_service), "SERVICE MESSAGE SYNTAX",
+                    "The syntax of the message to write to the line.\nCan be any arbitrary string as well as include any of the following special keywords:"
+                    "${command} = The command name, ${host} the host, ${channel} the receiving channel, ${alias} the alias for the command, "
+                    "${alias-or-command} = alias if set otherwise command, ${message} = the message data (no escape), ${result} or ${result_number} = The "
+                    "result status (number), ${epoch} = seconds since unix epoch, ${time} = time using time-format.")
+
+        .add_string("host-syntax", sh::string_key(&syntax_host), "HOST MESSAGE SYNTAX",
+                    "The syntax of the message to write to the line.\nCan be any arbitrary string as well as include any of the following special keywords:"
+                    "${command} = The command name, ${host} the host, ${channel} the receiving channel, ${alias} the alias for the command, "
+                    "${alias-or-command} = alias if set otherwise command, ${message} = the message data (no escape), ${result} or ${result_number} = The "
+                    "result status (number), ${epoch} = seconds since unix epoch, ${time} = time using time-format.")
+
+        .add_file("file", sh::path_key(&filename_, "output.txt"), "FILE TO WRITE TO", "The filename to write output to.")
+
+        .add_string("channel", sh::string_key(&channel, "FILE"), "CHANNEL", "The channel to listen to.")
+
+        .add_string("time-syntax", sh::string_key(&config_.time_format, "%Y-%m-%d %H:%M:%S"), "TIME SYNTAX",
+                    "The date format using strftime format flags. This is the time of writing the message as messages currently does not have a source time.");
 
     settings.register_all();
     settings.notify();

@@ -86,22 +86,15 @@ struct object_instance_interface {
     if (oneliner) {
       parent = "default";
       make_template(false);
-      nscapi::settings_helper::path_extension root_path = settings.path(base_path);
-      root_path.add_key()(alias, nscapi::settings_helper::string_key(&value), alias, std::string("To configure this create a section under: ") + path, false);
+      settings.path(base_path).add_key().add_string(alias, nscapi::settings_helper::string_key(&value), alias,
+                                                    std::string("To configure this create a section under: ") + path, false);
     } else {
-      // clang-format off
-      nscapi::settings_helper::path_extension root_path = settings.path(path);
-      root_path.add_key()
-        ("parent", nscapi::settings_helper::string_key(&parent, "default"),
-          "PARENT", "The parent the target inherits from", true)
-
-        ("is template", nscapi::settings_helper::bool_key(&is_template_, false),
-          "IS TEMPLATE", "Declare this object as a template (this means it will not be available as a separate object)", true)
-
-        ("alias", nscapi::settings_helper::string_key(&alias),
-          "ALIAS", "The alias (service name) to report to server", true)
-      ;
-      // clang-format on
+      settings.path(path)
+          .add_key()
+          .add_string("parent", nscapi::settings_helper::string_key(&parent, "default"), "PARENT", "The parent the target inherits from", true)
+          .add_bool("is template", nscapi::settings_helper::bool_key(&is_template_, false), "IS TEMPLATE",
+                    "Declare this object as a template (this means it will not be available as a separate object)", true)
+          .add_string("alias", nscapi::settings_helper::string_key(&alias), "ALIAS", "The alias (service name) to report to server", true);
     }
     settings.register_all();
     settings.notify();

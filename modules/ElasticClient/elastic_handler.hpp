@@ -55,39 +55,42 @@ struct elastic_target_object : public nscapi::targets::target_object {
     if (is_sample) root_path.set_sample();
 
     if (is_default()) {
-      // clang-format off
-				root_path.add_key()
+      root_path
+          .add_key()
 
-					("path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "perf path", ph::_1), "system.${hostname}.${check_alias}.${perf_alias}"),
-						"PATH FOR METRICS", "Path mapping for metrics")
+          .add_string(
+              "path",
+              sh::string_fun_key(boost::bind(&parent::set_property_string, this, "perf path", ph::_1), "system.${hostname}.${check_alias}.${perf_alias}"),
+              "PATH FOR METRICS", "Path mapping for metrics")
 
-					("status path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "status path", ph::_1), "system.${hostname}.${check_alias}.status"),
-						"PATH FOR STATUS", "Path mapping for status")
+          .add_string("status path",
+                      sh::string_fun_key(boost::bind(&parent::set_property_string, this, "status path", ph::_1), "system.${hostname}.${check_alias}.status"),
+                      "PATH FOR STATUS", "Path mapping for status")
 
-					("send perfdata", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send perfdata", ph::_1), true),
-						"SEND PERF DATA", "Send performance data to this server")
+          .add_bool("send perfdata", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send perfdata", ph::_1), true), "SEND PERF DATA",
+                    "Send performance data to this server")
 
-					("send status", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send status", ph::_1), true),
-						"SEND STATUS", "Send status data to this server")
+          .add_bool("send status", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send status", ph::_1), true), "SEND STATUS",
+                    "Send status data to this server")
 
-					;
-			} else {
-				root_path.add_key()
+          ;
+    } else {
+      root_path
+          .add_key()
 
-					("path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "perf path", ph::_1)),
-						"PATH FOR METRICS", "Path mapping for metrics")
+          .add_string("path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "perf path", ph::_1)), "PATH FOR METRICS",
+                      "Path mapping for metrics")
 
-					("status path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "status path", ph::_1)),
-						"PATH FOR STATUS", "Path mapping for status")
+          .add_string("status path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "status path", ph::_1)), "PATH FOR STATUS",
+                      "Path mapping for status")
 
-					("send perfdata", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send perfdata", ph::_1)),
-						"SEND PERF DATA", "Send performance data to this server")
+          .add_bool("send perfdata", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send perfdata", ph::_1)), "SEND PERF DATA",
+                    "Send performance data to this server")
 
-					("send status", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send status", ph::_1)),
-						"SEND STATUS", "Send status data to this server")
+          .add_bool("send status", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send status", ph::_1)), "SEND STATUS",
+                    "Send status data to this server")
 
-					;
-      // clang-format on
+          ;
     }
     settings.register_all();
     settings.notify();

@@ -50,7 +50,7 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		;
 
 	settings.alias().add_key_to_settings()
-		("threads", sh::int_fun_key(boost::bind(&schedules::scheduler::set_threads, &scheduler_, ph::_1), 5),
+		.add_int("threads", sh::int_fun_key(boost::bind(&schedules::scheduler::set_threads, &scheduler_, ph::_1), 5),
 			"Threads", "Number of threads to use.")
 		;
 

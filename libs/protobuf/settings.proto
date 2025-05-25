@@ -29,6 +29,7 @@ option optimize_for = LITE_RUNTIME;
 		string sample_usage = 8;
 		repeated string plugin = 9;
 		bool subkey = 12;
+		string type = 15;
 	};
 	enum Command {
 		DUMMY	= 0;

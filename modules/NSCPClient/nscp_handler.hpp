@@ -53,12 +53,12 @@ struct nrpe_target_object : public nscapi::targets::target_object {
     nscapi::settings_helper::path_extension root_path = settings.path(get_path());
     if (is_sample) root_path.set_sample();
 
-    // clang-format off
-    root_path.add_key()
+    root_path
+        .add_key()
 
-        ("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "password", boost::placeholders::_1)), "PASSWORD",
-         "The password to use to authenticate towards the server.");
-    // clang-format on
+        .add_password("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "password", boost::placeholders::_1)), "PASSWORD",
+                      "The password to use to authenticate towards the server.");
+
     settings.register_all();
     settings.notify();
     settings.clear();

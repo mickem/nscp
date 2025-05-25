@@ -155,19 +155,18 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     ;
 
   settings.alias().add_key_to_settings()
-    ("default buffer length", sh::string_key(&collector->default_buffer_size, "1h"),
+  .add_string("default buffer length", sh::string_key(&collector->default_buffer_size, "1h"),
         "Default buffer time", "Used to define the default size of range buffer checks (ie. CPU).")
-
-    ("subsystem", sh::string_key(&collector->subsystem, "default"),
+  .add_string("subsystem", sh::string_key(&collector->subsystem, "default"),
     "PDH subsystem", "Set which pdh subsystem to use.\nCurrently default and thread-safe are supported where thread-safe is slower but required if you have some problematic counters.", true)
 
-    ("fetch core loads", sh::bool_key(&collector->read_core_load, true),
+    .add_bool("fetch core loads", sh::bool_key(&collector->read_core_load, true),
         "Fetch core load", "Set to false to use a different API for fetching CPU load (will not provide core load, and will not show exact same values as task manager).", true)
 
-    ("use pdh for cpu", sh::bool_key(&collector->use_pdh_for_cpu, false),
+    .add_bool("use pdh for cpu", sh::bool_key(&collector->use_pdh_for_cpu, false),
       "Use PDH to fetch CPU load", "When using PDH you might get better accuracy and hel alleviate invalid CPU values on multi core systems. The drawback is that PDH counters are sometimes missing and have invalid indexes so your milage may vary", true)
 
-    ("disable", sh::string_key(&collector->disable_, ""),
+    .add_string("disable", sh::string_key(&collector->disable_, ""),
         "Disable automatic checks", "A comma separated list of checks to disable in the collector: cpu,handles,network,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
     ;
 

@@ -45,7 +45,7 @@ void scripts::nscp::settings_provider_impl::register_path(std::string path, std:
 
 void scripts::nscp::settings_provider_impl::register_key(std::string path, std::string key, std::string type, std::string title, std::string description,
                                                          std::string defaultValue) {
-  settings_.register_key(path, key, title, description, defaultValue, false, false, false);
+  settings_.register_key(path, key, "string", title, description, defaultValue, false, false, false);
 }
 
 void scripts::nscp::settings_provider_impl::save() { settings_.save(); }

@@ -86,45 +86,41 @@ bool Op5Client::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 				"Passive commands", "Passive commands")
 			;
 
-		settings.alias().add_key_to_settings()
-			("hostname", sh::string_key(&config.hostname, "auto"),
-				"HOSTNAME", "The host name of this monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
-				"auto\tHostname\n"
-				"${host}\tHostname\n"
-				"${host_lc}\nHostname in lowercase\n"
-				"${host_uc}\tHostname in uppercase\n"
-				"${domain}\tDomainname\n"
-				"${domain_lc}\tDomainname in lowercase\n"
-				"${domain_uc}\tDomainname in uppercase\n"
-				)
-
-			("channel", sh::string_key(&channel_, "op5"),
-				"CHANNEL", "The channel to listen to.")
-
-			("server", sh::string_key(&config.url, ""),
-				"Op5 base url", "The op5 base url i.e. the url of the Op5 monitor REST API for instance https://monitor.mycompany.com")
-			("user", sh::string_key(&config.username, ""),
-				"Op5 user", "The user to authenticate as")
-			("password", sh::string_key(&config.password, ""),
-				"Op5 password", "The password for the user to authenticate as")
-
-			("interval", sh::string_key(&interval, "5m"),
-			"Check interval", "How often to submit passive check results you can use an optional suffix to denote time (s, m, h)")
-
-			("remove", sh::bool_key(&config.deregister, false),
-			"Remove checks on exit", "If we should remove all checks when NSClient++ shuts down (for truly elastic scenarios)")
-
-			("default checks", sh::bool_key(&defChecks, true),
-			"Install default checks", "Set to false to disable default checks")
-
-			("hostgroups", sh::string_key(&config.hostgroups, ""),
-			"Host groups", "A coma separated list of host groups to add to this host when registering it in monitor")
-
-			("contactgroups", sh::string_key(&config.contactgroups, ""),
-			"Contact groups", "A coma separated list of contact groups to add to this host when registering it in monitor")
-
-			;
     // clang-format on
+    settings.alias()
+        .add_key_to_settings()
+        .add_string("hostname", sh::string_key(&config.hostname, "auto"), "HOSTNAME",
+                    "The host name of this monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
+                    "auto\tHostname\n"
+                    "${host}\tHostname\n"
+                    "${host_lc}\nHostname in lowercase\n"
+                    "${host_uc}\tHostname in uppercase\n"
+                    "${domain}\tDomainname\n"
+                    "${domain_lc}\tDomainname in lowercase\n"
+                    "${domain_uc}\tDomainname in uppercase\n")
+
+        .add_string("channel", sh::string_key(&channel_, "op5"), "CHANNEL", "The channel to listen to.")
+
+        .add_string("server", sh::string_key(&config.url, ""), "Op5 base url",
+                    "The op5 base url i.e. the url of the Op5 monitor REST API for instance https://monitor.mycompany.com")
+        .add_string("user", sh::string_key(&config.username, ""), "Op5 user", "The user to authenticate as")
+        .add_password("password", sh::string_key(&config.password, ""), "Op5 password", "The password for the user to authenticate as")
+
+        .add_string("interval", sh::string_key(&interval, "5m"), "Check interval",
+                    "How often to submit passive check results you can use an optional suffix to denote time (s, m, h)")
+
+        .add_bool("remove", sh::bool_key(&config.deregister, false), "Remove checks on exit",
+                  "If we should remove all checks when NSClient++ shuts down (for truly elastic scenarios)")
+
+        .add_bool("default checks", sh::bool_key(&defChecks, true), "Install default checks", "Set to false to disable default checks")
+
+        .add_string("hostgroups", sh::string_key(&config.hostgroups, ""), "Host groups",
+                    "A coma separated list of host groups to add to this host when registering it in monitor")
+
+        .add_string("contactgroups", sh::string_key(&config.contactgroups, ""), "Contact groups",
+                    "A coma separated list of contact groups to add to this host when registering it in monitor")
+
+        ;
 
     settings.register_all();
     settings.notify();

@@ -110,7 +110,7 @@ allowed ciphers=ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
 
 #### ALLOWED HOSTS <a id="/settings/check_mk/server/allowed hosts"></a>
 
-A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.
 
 
 
@@ -120,7 +120,6 @@ A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
 |----------------|---------------------------------------------------------|
 | Path:          | [/settings/check_mk/server](#/settings/check_mk/server) |
 | Key:           | allowed hosts                                           |
-| Advanced:      | Yes (means it is not commonly used)                     |
 | Default value: | `127.0.0.1`                                             |
 | Used by:       | CheckMKServer                                           |
 
@@ -137,7 +136,7 @@ allowed hosts=127.0.0.1
 
 #### BIND TO ADDRESS <a id="/settings/check_mk/server/bind to"></a>
 
-Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses.
 
 
 
@@ -148,7 +147,6 @@ Allows you to bind server to a specific local address. This has to be a dotted i
 |----------------|---------------------------------------------------------|
 | Path:          | [/settings/check_mk/server](#/settings/check_mk/server) |
 | Key:           | bind to                                                 |
-| Advanced:      | Yes (means it is not commonly used)                     |
 | Default value: | _N/A_                                                   |
 | Used by:       | CheckMKServer                                           |
 
@@ -192,7 +190,7 @@ ca=${certificate-path}/ca.pem
 
 #### CACHE ALLOWED HOSTS <a id="/settings/check_mk/server/cache allowed hosts"></a>
 
-If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.
 
 
 
@@ -202,7 +200,6 @@ If host names (DNS entries) should be cached, improves speed and security somewh
 |----------------|---------------------------------------------------------|
 | Path:          | [/settings/check_mk/server](#/settings/check_mk/server) |
 | Key:           | cache allowed hosts                                     |
-| Advanced:      | Yes (means it is not commonly used)                     |
 | Default value: | `true`                                                  |
 | Used by:       | CheckMKServer                                           |
 
@@ -355,7 +352,7 @@ port=6556
 
 #### LISTEN QUEUE <a id="/settings/check_mk/server/socket queue size"></a>
 
-Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts.
 
 
 
@@ -422,7 +419,7 @@ ssl options=
 
 #### THREAD POOL <a id="/settings/check_mk/server/thread pool"></a>
 
- parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+
 
 
 
@@ -449,7 +446,7 @@ thread pool=10
 
 #### TIMEOUT <a id="/settings/check_mk/server/timeout"></a>
 
-Timeout (in seconds) when reading packets on incoming sockets. If the data has not arrived within this time we will bail out. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+Timeout (in seconds) when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
 
 
 
@@ -459,7 +456,6 @@ Timeout (in seconds) when reading packets on incoming sockets. If the data has n
 |----------------|---------------------------------------------------------|
 | Path:          | [/settings/check_mk/server](#/settings/check_mk/server) |
 | Key:           | timeout                                                 |
-| Advanced:      | Yes (means it is not commonly used)                     |
 | Default value: | `30`                                                    |
 | Used by:       | CheckMKServer                                           |
 

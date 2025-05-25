@@ -62,26 +62,26 @@ struct nsca_target_object : public nscapi::targets::target_object {
 
     add_ssl_keys(root_path);
 
-    // clang-format off
-			root_path.add_key()
+    root_path
+        .add_key()
 
-				("payload length", sh::int_fun_key(boost::bind(&parent::set_property_int, this, "payload length", ph::_1), 512),
-					"PAYLOAD LENGTH", "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.", true)
+        .add_int("payload length", sh::int_fun_key(boost::bind(&parent::set_property_int, this, "payload length", ph::_1), 512), "PAYLOAD LENGTH",
+                 "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use "
+                 "the same value for it to work.",
+                 true)
 
-				("encryption", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "encryption", ph::_1), "aes"),
-					"ENCRYPTION", std::string("Name of encryption algorithm to use.\nHas to be the same as your server i using or it wont work at all."
-						"This is also independent of SSL and generally used instead of SSL.\nAvailable encryption algorithms are:\n") + nscp::encryption::helpers::get_crypto_string("\n"))
+        .add_string("encryption", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "encryption", ph::_1), "aes"), "ENCRYPTION",
+                    std::string("Name of encryption algorithm to use.\nHas to be the same as your server i using or it wont work at all."
+                                "This is also independent of SSL and generally used instead of SSL.\nAvailable encryption algorithms are:\n") +
+                        nscp::encryption::helpers::get_crypto_string("\n"))
 
-				("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "password", ph::_1), ""),
-					"PASSWORD", "The password to use. Again has to be the same as the server or it wont work at all.")
+        .add_password("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "password", ph::_1), ""), "PASSWORD",
+                      "The password to use. Again has to be the same as the server or it wont work at all.")
 
-				("encoding", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "encoding", ph::_1), ""),
-					"ENCODING", "", true)
+        .add_string("encoding", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "encoding", ph::_1), ""), "ENCODING", "", true)
 
-				("time offset", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "delay", ph::_1), "0"),
-					"TIME OFFSET", "Time offset.", true)
-				;
-    // clang-format on
+        .add_string("time offset", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "delay", ph::_1), "0"), "TIME OFFSET", "Time offset.",
+                    true);
 
     settings.register_all();
     settings.notify();

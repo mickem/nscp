@@ -302,7 +302,7 @@ class INISettings : public settings::settings_interface_impl {
     for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
       std::string alias = utf8::cvt<std::string>((*cit).pItem);
       std::string child = utf8::cvt<std::string>(ini.GetValue(L"/includes", (*cit).pItem));
-      get_core()->register_key(999, "/includes", utf8::cvt<std::string>((*cit).pItem), "INCLUDED FILE", "Included configuration", "", true, false);
+      get_core()->register_key(999, "/includes", utf8::cvt<std::string>((*cit).pItem), "string", "INCLUDED FILE", "Included configuration", "", true, false);
       if (!child.empty()) add_child_unsafe(alias, child);
     }
     is_loaded_ = true;

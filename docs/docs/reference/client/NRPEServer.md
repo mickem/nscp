@@ -451,7 +451,7 @@ allowed ciphers=ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
 
 #### ALLOWED HOSTS <a id="/settings/NRPE/server/allowed hosts"></a>
 
-A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.
 
 
 
@@ -461,7 +461,6 @@ A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
 |----------------|-------------------------------------------------|
 | Path:          | [/settings/NRPE/server](#/settings/NRPE/server) |
 | Key:           | allowed hosts                                   |
-| Advanced:      | Yes (means it is not commonly used)             |
 | Default value: | `127.0.0.1`                                     |
 | Used by:       | NRPEServer                                      |
 
@@ -478,7 +477,7 @@ allowed hosts=127.0.0.1
 
 #### BIND TO ADDRESS <a id="/settings/NRPE/server/bind to"></a>
 
-Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses.
 
 
 
@@ -489,7 +488,6 @@ Allows you to bind server to a specific local address. This has to be a dotted i
 |----------------|-------------------------------------------------|
 | Path:          | [/settings/NRPE/server](#/settings/NRPE/server) |
 | Key:           | bind to                                         |
-| Advanced:      | Yes (means it is not commonly used)             |
 | Default value: | _N/A_                                           |
 | Used by:       | NRPEServer                                      |
 
@@ -533,7 +531,7 @@ ca=${certificate-path}/ca.pem
 
 #### CACHE ALLOWED HOSTS <a id="/settings/NRPE/server/cache allowed hosts"></a>
 
-If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.
 
 
 
@@ -543,7 +541,6 @@ If host names (DNS entries) should be cached, improves speed and security somewh
 |----------------|-------------------------------------------------|
 | Path:          | [/settings/NRPE/server](#/settings/NRPE/server) |
 | Key:           | cache allowed hosts                             |
-| Advanced:      | Yes (means it is not commonly used)             |
 | Default value: | `true`                                          |
 | Used by:       | NRPEServer                                      |
 
@@ -669,7 +666,7 @@ dh=${certificate-path}/nrpe_dh_2048.pem
 
 #### NRPE PAYLOAD ENCODING <a id="/settings/NRPE/server/encoding"></a>
 
- parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+
 
 
 
@@ -829,7 +826,7 @@ port=5666
 
 #### LISTEN QUEUE <a id="/settings/NRPE/server/socket queue size"></a>
 
-Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts.
 
 
 
@@ -896,7 +893,7 @@ ssl options=
 
 #### THREAD POOL <a id="/settings/NRPE/server/thread pool"></a>
 
- parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+
 
 
 
@@ -923,7 +920,7 @@ thread pool=10
 
 #### TIMEOUT <a id="/settings/NRPE/server/timeout"></a>
 
-Timeout (in seconds) when reading packets on incoming sockets. If the data has not arrived within this time we will bail out. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+Timeout (in seconds) when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
 
 
 
@@ -933,7 +930,6 @@ Timeout (in seconds) when reading packets on incoming sockets. If the data has n
 |----------------|-------------------------------------------------|
 | Path:          | [/settings/NRPE/server](#/settings/NRPE/server) |
 | Key:           | timeout                                         |
-| Advanced:      | Yes (means it is not commonly used)             |
 | Default value: | `30`                                            |
 | Used by:       | NRPEServer                                      |
 

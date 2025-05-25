@@ -68,41 +68,31 @@ struct command_object : public nscapi::settings_objects::object_instance_interfa
     if (is_sample) root_path.set_sample();
 
     if (!oneliner) {
-      // clang-format off
-				root_path.add_path()
-					("script: " + get_alias(), "The configuration section for the  " + get_alias() + " script.")
-					;
+      root_path.add_path()("script: " + get_alias(), "The configuration section for the  " + get_alias() + " script.");
 
-				root_path.add_key()
-					("command", sh::string_fun_key(boost::bind(&command_object::set_command, this, boost::placeholders::_1)),
-						"COMMAND", "Command to execute")
+      root_path.add_key()
+          .add_string("command", sh::string_fun_key(boost::bind(&command_object::set_command, this, boost::placeholders::_1)), "COMMAND", "Command to execute")
 
-					("user", nscapi::settings_helper::string_key(&user),
-						"USER", "The user to run the command as", true)
+          .add_string("user", nscapi::settings_helper::string_key(&user), "USER", "The user to run the command as", true)
 
-					("domain", nscapi::settings_helper::string_key(&domain),
-						"DOMAIN", "The user to run the command as", true)
+          .add_string("domain", nscapi::settings_helper::string_key(&domain), "DOMAIN", "The user to run the command as", true)
 
-					("password", nscapi::settings_helper::string_key(&password),
-						"PASSWORD", "The user to run the command as", true)
+          .add_password("password", nscapi::settings_helper::string_key(&password), "PASSWORD", "The user to run the command as", true)
 
-					("session", nscapi::settings_helper::string_key(&session),
-						"SESSION", "Session you want to invoke the client in either the number of current for the one with a UI", true)
+          .add_string("session", nscapi::settings_helper::string_key(&session), "SESSION",
+                      "Session you want to invoke the client in either the number of current for the one with a UI", true)
 
-					("display", nscapi::settings_helper::bool_key(&display),
-						"DISPLAY", "Set to true if you want to display the resulting window or not", true)
+          .add_bool("display", nscapi::settings_helper::bool_key(&display), "DISPLAY", "Set to true if you want to display the resulting window or not", true)
 
-					("encoding", nscapi::settings_helper::string_key(&encoding),
-						"ENCODING", "The encoding to parse the command as", true)
+          .add_string("encoding", nscapi::settings_helper::string_key(&encoding), "ENCODING", "The encoding to parse the command as", true)
 
-					("ignore perfdata", nscapi::settings_helper::bool_key(&ignore_perf),
-						"IGNORE PERF DATA", "Do not parse performance data from the output", false)
+          .add_bool("ignore perfdata", nscapi::settings_helper::bool_key(&ignore_perf), "IGNORE PERF DATA", "Do not parse performance data from the output",
+                    false)
 
-					("capture output", nscapi::settings_helper::bool_key(&no_fork),
-						"CAPTURE OUTPUT", "This should be set to false if you want to run commands which never terminates (i.e. relinquish control from NSClient++). The effect of this is that the command output will not be captured. The main use is to protect from socket reuse issues", true)
-
-					;
-      // clang-format on
+          .add_bool("capture output", nscapi::settings_helper::bool_key(&no_fork), "CAPTURE OUTPUT",
+                    "This should be set to false if you want to run commands which never terminates (i.e. relinquish control from NSClient++). The effect of "
+                    "this is that the command output will not be captured. The main use is to protect from socket reuse issues",
+                    true);
 
       settings.register_all();
       settings.notify();
