@@ -3,6 +3,9 @@ import SideBar from "./SideBar.tsx";
 import AppNavbar from "./AppNavbar.tsx";
 import { Outlet } from "react-router";
 import { useState } from "react";
+import SettingsChangedWidget from "./atoms/SettingsChangedWidget.tsx";
+import ErrorLogWidget from "./ErrorLogWidget.tsx";
+import Stack from "@mui/material/Stack";
 
 const drawerWidth = 240;
 
@@ -32,12 +35,15 @@ export default function MainPage() {
         component="main"
         sx={{
           flexGrow: 1,
-          p: { sm: 3 },
+          p: { xs: 0, sm: 3 },
           width: { sm: `calc(100% - ${drawerWidth}px)` },
         }}
       >
-        {" "}
         <Toolbar />
+        <Stack direction="row" spacing={2} sx={{ justifyContent: "center" }}>
+          <SettingsChangedWidget />
+          <ErrorLogWidget />
+        </Stack>
         <Outlet />
       </Box>
     </Box>

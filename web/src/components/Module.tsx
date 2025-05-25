@@ -59,11 +59,13 @@ export default function Module() {
   const doEnable = async () => {
     setBusy(true);
     await enableModule(id || "").unwrap();
+    dispatch(nsclientApi.util.invalidateTags(["SettingsStatus"]));
     setBusy(false);
   };
   const doDisable = async () => {
     setBusy(true);
     await disableModule(id || "").unwrap();
+    dispatch(nsclientApi.util.invalidateTags(["SettingsStatus"]));
     setBusy(false);
   };
 
@@ -81,10 +83,12 @@ export default function Module() {
     setBusy(true);
     await loadModule(id || "").unwrap();
     await enableModule(id || "").unwrap();
+    dispatch(nsclientApi.util.invalidateTags(["SettingsStatus"]));
     setBusy(false);
   };
 
   const isBusy = busy || isFetching;
+  const showInfo = !module?.loaded || !module?.enabled;
 
   return (
     <Stack direction="column" spacing={3}>
@@ -109,13 +113,13 @@ export default function Module() {
               </Button>
             )}
             {!module?.loaded && (
-              <Button onClick={doLoadAndEnable} disabled={isBusy}>
-                Load & Enable
+              <Button onClick={doLoad} disabled={isBusy}>
+                Load
               </Button>
             )}
             {!module?.loaded && (
-              <Button onClick={doLoad} disabled={isBusy}>
-                Load
+              <Button onClick={doLoadAndEnable} disabled={isBusy}>
+                Load & Enable
               </Button>
             )}
             {module?.enabled && (
@@ -127,6 +131,12 @@ export default function Module() {
               <Button onClick={doEnable} disabled={isBusy}>
                 Enable
               </Button>
+            )}
+            {showInfo && (
+              <NscpAlert
+                severity="info"
+                text="A loaded module can be used, an enabled module is loaded if you restart."
+              />
             )}
           </Stack>
         </CardActions>

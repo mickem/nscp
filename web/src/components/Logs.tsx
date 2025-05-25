@@ -55,15 +55,20 @@ export default function Logs() {
     await resetStatus().unwrap();
   };
 
+  const changeLevel = (level: string) => {
+    setLevel(level);
+    setPage(1);
+  };
+
   return (
-    <Box sx={{ p: { sm: 3 } }}>
+    <Box>
       <Stack direction="column">
         <Toolbar>
           <Typography variant="body2">Filter:</Typography>
           <ToggleButtonGroup
             value={level}
             exclusive
-            onChange={(_e, level) => setLevel(level)}
+            onChange={(_e, level) => changeLevel(level)}
             aria-label="text alignment"
           >
             <ToggleButton value="success,debug,info,warning,error,critical">{ICONS.debug}</ToggleButton>
