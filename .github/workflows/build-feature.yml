@@ -27,3 +27,9 @@ jobs:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  build-ubuntu-x64:
+    needs: get-version
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      architecture: x64
+      version: ${{ needs.get-version.outputs.version }}

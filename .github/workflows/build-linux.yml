@@ -1,0 +1,100 @@
+name: Build Windows
+
+on:
+  workflow_call:
+    inputs:
+      architecture:
+        type: string
+        description: 'Architecture to build'
+        required: true
+        default: 'x64'
+      version:
+        type: string
+        description: 'Version to build'
+        required: true
+
+env:
+  BOOST_VERSION: 1.82.0
+  TINY_XML_2_VERSION: 10.1.0
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - id: python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ ENV.PYTHON_VERSION }}
+        architecture: ${{ inputs.architecture }}
+        cache-dependency-path: 'build/python/requirements.txt'
+        cache: 'pip'
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'npm'
+        cache-dependency-path: web/package-lock.json
+    - id: build-web
+      working-directory: web
+      run: |
+        npm install
+        npm run build
+
+    - name: make dirs
+      run: |
+        mkdir -p tmp/nscp
+      shell: bash
+
+    - name: setup python dependencies
+      shell: bash
+      run: |
+        pip3 install -r build/python/requirements.txt
+
+    - id: tinyxml2
+      uses: ./.github/actions/tinyxml2
+      with:
+        version: ${{ ENV.TINY_XML_2_VERSION }}
+
+    - name: Build Boost (regular)
+      id: boost
+      uses: mickem/build-boost@v1
+      with:
+        version: ${{ ENV.BOOST_VERSION }}
+        libraries: system filesystem thread regex date_time program_options python chrono json
+        platform: ${{ inputs.architecture }}
+        configuration: Release
+
+    - uses: DamianReeves/write-file-action@master
+      name: Write NSClient++ cmake config
+      with:
+        path: tmp/nscp/build.cmake
+        contents: |
+            set(Boost_USE_STATIC_RUNTIME ON)
+
+            SET(USE_STATIC_RUNTIME FALSE)
+            SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
+            SET(BOOST_ROOT "${{ steps.boost.outputs.root }}")
+            SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
+
+    - name: CMake (NSCP)
+      working-directory: tmp/nscp
+      run: |
+        cmake ../.. -D BUILD_VERSION=${{ inputs.version }}
+
+    - name: Build nsclient
+      working-directory: tmp/nscp
+      run: |
+        make
+
+    - name: Run tests
+      working-directory: tmp/nscp
+      run: |
+        ctest --output-on-failure -C Release
+
+    - name: Run rest tests
+      uses: ./.github/actions/rest-test
