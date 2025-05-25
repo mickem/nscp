@@ -145,7 +145,7 @@ void query_controller::execute_query(std::string module, arg_vector args, Mongoo
   json::object node;
   for (const PB::Commands::QueryResponseMessage::Response &r : response.payload()) {
     node["command"] = r.command();
-    node["result"] = r.result();
+    node["result"] = nscapi::protobuf::functions::gbp_to_nagios_status(r.result());
     json::array lines;
     for (const PB::Commands::QueryResponseMessage::Response::Line &l : r.lines()) {
       json::object line;
