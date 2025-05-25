@@ -26,18 +26,31 @@ runs:
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
         curl -L https://github.com/leethomason/tinyxml2/archive/refs/tags/${{ inputs.version }}.zip --output tinyxml2.zip
+      working-directory: tmp
+      shell: bash
+
+    - name: Unzip on windows
+      if: steps.cache.outputs.cache-hit != 'true' && runner.os == 'Windows'
+      run: |
         7z x tinyxml2.zip
         del tinyxml2.zip
-        dir
       working-directory: tmp
       shell: cmd
+
+    - name: Unzip on linux
+      if: steps.cache.outputs.cache-hit != 'true' && runner.os != 'Windows'
+      run: |
+          unzip tinyxml2.zip
+          rm tinyxml2.zip
+      working-directory: tmp
+      shell: bash
 
 
     - id: path
       run: |
-        $path=$pwd.path
-        $path_unix=$pwd.path.replace('\','/')
-        echo "path=$path" >> $env:GITHUB_OUTPUT
-        echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
-      shell: pwsh
+        path=$(pwd)
+        path_unix=$(echo "$path" | sed 's/\\/\//g')
+        echo "path=$path" >> "$GITHUB_OUTPUT"
+        echo "path_unix=$path_unix" >> "$GITHUB_OUTPUT"
+      shell: bash
       working-directory: tmp/tinyxml2-${{ inputs.version }}
