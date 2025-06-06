@@ -42,8 +42,7 @@ struct user_config_object : public nscapi::settings_objects::object_instance_int
     nscapi::settings_helper::path_extension root_path = settings.path(get_path());
     if (is_sample) root_path.set_sample();
 
-    root_path
-        .add_key()
+    root_path.add_key()
         .add_password("password", sh::string_key(&password), "PASSWORD", "The password to use.")
         .add_string("role", sh::string_key(&role), "ROLE", "The role which will grant access to this user");
 
