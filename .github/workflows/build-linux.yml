@@ -14,7 +14,6 @@ on:
         required: true
 
 env:
-  BOOST_VERSION: 1.82.0
   TINY_XML_2_VERSION: 10.1.0
 
 jobs:
@@ -60,25 +59,18 @@ jobs:
       with:
         version: ${{ ENV.TINY_XML_2_VERSION }}
 
-    - name: Build Boost (regular)
-      id: boost
-      uses: mickem/build-boost@v1
-      with:
-        version: ${{ ENV.BOOST_VERSION }}
-        libraries: system filesystem thread regex date_time program_options python chrono json
-        platform: ${{ inputs.architecture }}
-        configuration: Release
+    - name: Install boost
+      run: |
+        sudo apt-get install -y libboost-all-dev
+        sudo apt-get install -y protobuf-compiler libprotobuf-dev
+        sudo apt-get install -y openssl libssl-dev
 
     - uses: DamianReeves/write-file-action@master
       name: Write NSClient++ cmake config
       with:
         path: tmp/nscp/build.cmake
         contents: |
-            set(Boost_USE_STATIC_RUNTIME ON)
-
-            SET(USE_STATIC_RUNTIME FALSE)
             SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
-            SET(BOOST_ROOT "${{ steps.boost.outputs.root }}")
             SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
 
     - name: CMake (NSCP)

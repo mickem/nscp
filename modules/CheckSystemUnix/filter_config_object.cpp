@@ -70,7 +70,7 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
   // add_oneliner_hint(proxy, oneliner, is_sample);
 
   root_path.add_path()("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias());
-  root_path.add_key()("check", sh::string_key(&check, "cpu"), "TYPE OF CHECK", "The type of check cpu or memory", false);
+  root_path.add_key().add_string("check", sh::string_key(&check, "cpu"), "TYPE OF CHECK", "The type of check cpu or memory", false);
 
   settings.register_all();
   settings.notify();
@@ -82,9 +82,10 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
       filter.syntax_detail = "${type} > ${used}";
     }
 
-    root_path.add_key()("type", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)), "TIME", "The time to check", false)
-
-        ("types", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, ph::_1)), "FILES", "A list of times to check (soma separated)", true);
+    root_path.add_key()
+        .add_string("type", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)), "TIME", "The time to check", false)
+        .add_string("types", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, ph::_1)), "FILES",
+                    "A list of times to check (soma separated)", true);
 
   } else {
     if (is_default) {
@@ -94,9 +95,10 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
       filter.set_filter_string("core = 'total'");
     }
 
-    root_path.add_key()("time", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)), "TIME", "The time to check", false)
-
-        ("times", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, ph::_1)), "FILES", "A list of times to check (soma separated)", true);
+    root_path.add_key()
+        .add_string("time", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)), "TIME", "The time to check", false)
+        .add_string("times", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, ph::_1)), "FILES",
+                    "A list of times to check (soma separated)", true);
   }
 
   filter.read_object(root_path, is_default);

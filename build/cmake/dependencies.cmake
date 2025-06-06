@@ -16,7 +16,7 @@ endif()
 
 find_package(PROTOC_GEN_LUA)
 find_package(ProtocGenMd)
-find_package(protobuf)
+find_package(ProtoBuf)
 find_package(GoogleTest)
 find_package(OpenSSL)
 find_package(Miniz)
