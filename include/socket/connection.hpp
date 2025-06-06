@@ -138,8 +138,6 @@ class connection : public boost::enable_shared_from_this<connection<protocol_typ
           on_done(false);
           return;
         }
-        // std::vector<boost::asio::const_buffer> buffers;
-        // buffers.push_back();
         if (is_active_) start_write_request(buf(protocol_->get_outbound()));
       } else {
         if (is_active_) on_done(true);
@@ -161,7 +159,7 @@ class connection : public boost::enable_shared_from_this<connection<protocol_typ
         on_done(false);
       }
     } else {
-      protocol_->log_error(__FILE__, __LINE__, "Failed to read data: " + utf8::utf8_from_native(e.message()));
+      protocol_->log_debug(__FILE__, __LINE__, "Failed to read data: " + utf8::utf8_from_native(e.message()));
       on_done(false);
     }
   }
