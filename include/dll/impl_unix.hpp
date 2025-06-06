@@ -25,13 +25,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#if defined(AIX)
 #include <dlfcn.h>
-#elif defined(LINUX) || defined(SUN) || defined(CYGWIN)
-#include <dlfcn.h>
-#elif defined(HP)
-#include <dl.h>
-#endif
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
@@ -67,44 +61,19 @@ class impl : public boost::noncopyable {
 
   void load_library() {
     std::string dllname = module_.string();
-#if defined(LINUX) || defined(SUN) || defined(AIX) || defined(CYGWIN)
     //                handle_ = dlopen(dllname.c_str(), RTLD_GLOBAL | RTLD_NOW);
     handle_ = dlopen(dllname.c_str(), RTLD_NOW);
     if (handle_ == NULL) throw dll_exception(std::string("Could not load library: ") + dlerror() + ": " + module_.string());
-#elif defined(HP)
-    handle_ = shl_load(dllname.c_str(), BIND_DEFERRED | DYNAMIC_PATH, 0L);
-    if (handle_ == NULL) throw dll_exception("Could not load library: " + module_.string());
-#else
-    /* This type of UNIX has no DLL support yet */
-    throw dll_exception("Unsupported Unix flavour (please report this): " + module_.string());
-#endif
   }
   void* load_proc(std::string name) {
     if (handle_ == NULL) throw dll_exception("Failed to load process from module: " + module_.string());
     void* ep = NULL;
-#if defined(LINUX) || defined(SUN) || defined(AIX) || defined(CYGWIN)
     ep = (void*)dlsym(handle_, name.c_str());
     return ep;
-#elif defined(HP)
-    int rcode = shl_findsym((shl_t)&handle_, name.c_str(), TYPE_PROCEDURE, &ep);
-    if (rcode == -1) return NULL;
-    // throw dll_exception(_T("Failed to load process from module: ") + module_.string());
-    return ep;
-#else
-    /* This type of UNIX has no DLL support yet */
-    throw dll_exception("Unsupported Unix flavour (please report this): " + module_.string());
-#endif
   }
 
   void unload_library() {
-#if defined(LINUX) || defined(SUN) || defined(AIX) || defined(CYGWIN)
     dlclose(handle_);
-#elif defined(HP)
-    shl_unload(handle_);
-#else
-    /* This type of UNIX has no DLL support yet */
-    throw dll_exception("Unsupported Unix flavour (please report this): " + module_.string());
-#endif
   }
 
   bool is_loaded() const { return handle_ != NULL; }
