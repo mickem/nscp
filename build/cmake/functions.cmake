@@ -43,7 +43,7 @@ macro(copy_single_file _TARGET_LIST src destDir)
   add_custom_command(
     OUTPUT ${target_file}
     COMMAND ${CMAKE_COMMAND} ARGS -E copy "${source_file}" "${target_file}"
-    COMMENT Copying ${source_file} to ${target_file}
+    COMMENT "Copying ${source_file} to ${target_file}"
     DEPENDS ${source_file})
   set(${_TARGET_LIST} ${${_TARGET_LIST}} ${target_file})
   install(FILES ${target_file} DESTINATION ${INSTALL_FILES_BASE}${destDir})
@@ -62,14 +62,14 @@ macro(copy_single_file_755 _TARGET_LIST src destDir)
     add_custom_command(
       OUTPUT ${target_file}
       COMMAND ${CMAKE_COMMAND} ARGS -E copy "${source_file}" "${target_file}"
-      COMMENT Copying ${source_file} to ${target_file}
+      COMMENT "Copying ${source_file} to ${target_file}"
       DEPENDS ${source_file})
   else(WIN32)
     add_custom_command(
       OUTPUT ${target_file}
       COMMAND ${CMAKE_COMMAND} ARGS -E copy "${source_file}" "${target_file}"
       COMMAND chmod ARGS 755 "${target_file}"
-      COMMENT Copying ${source_file} to ${target_file}
+      COMMENT "Copying ${source_file} to ${target_file}"
       DEPENDS ${source_file})
   endif(WIN32)
   set(${_TARGET_LIST} ${${_TARGET_LIST}} ${target_file})
@@ -133,8 +133,7 @@ macro(CREATE_MODULE _SRCS _SOURCE _TARGET)
       ${Python3_EXECUTABLE} ARGS
       "${BUILD_PYTHON_FOLDER}/create_plugin_module.py" --source ${_SOURCE}
       --target ${_TARGET}
-    COMMENT Generating ${_TARGET}/module.cpp and ${_TARGET}/module.hpp from
-            ${_SOURCE}/module.json
+    COMMENT "Generating ${_TARGET}/module.cpp and ${_TARGET}/module.hpp from ${_SOURCE}/module.json"
     DEPENDS ${_SOURCE}/module.json)
   set(${_SRCS} ${${_SRCS}} ${_TARGET}/module.cpp)
   if(WIN32)
@@ -151,7 +150,7 @@ macro(CREATE_ZIP_MODULE _MODULE _SOURCE)
     COMMAND
       ${Python3_EXECUTABLE} ARGS "${BUILD_PYTHON_FOLDER}/create_zip_module.py"
       --source ${_SOURCE} --target ${BUILD_TARGET_LIB_PATH}
-    COMMENT Generating ${BUILD_TARGET_LIB_PATH}/${_MODULE}.zip
+    COMMENT "Generating ${BUILD_TARGET_LIB_PATH}/${_MODULE}.zip"
     DEPENDS ${_SOURCE}/module.json)
 endmacro(CREATE_ZIP_MODULE)
 
