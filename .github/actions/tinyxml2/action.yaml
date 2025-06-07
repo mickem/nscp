@@ -15,22 +15,14 @@ outputs:
 runs:
   using: composite
   steps:
-    - id: cache
-      uses: actions/cache@v3
-      with:
-        key: ${{ runner.os }}-tinyxml2-${{ inputs.version }}
-        path: |
-          tmp/tinyxml2-${{ inputs.version }}
-
     - name: Download
-      if: steps.cache.outputs.cache-hit != 'true'
       run: |
         curl -L https://github.com/leethomason/tinyxml2/archive/refs/tags/${{ inputs.version }}.zip --output tinyxml2.zip
       working-directory: tmp
       shell: bash
 
     - name: Unzip on windows
-      if: steps.cache.outputs.cache-hit != 'true' && runner.os == 'Windows'
+      if: runner.os == 'Windows'
       run: |
         7z x tinyxml2.zip
         del tinyxml2.zip
@@ -38,7 +30,7 @@ runs:
       shell: cmd
 
     - name: Unzip on linux
-      if: steps.cache.outputs.cache-hit != 'true' && runner.os != 'Windows'
+      if: runner.os != 'Windows'
       run: |
           unzip tinyxml2.zip
           rm tinyxml2.zip

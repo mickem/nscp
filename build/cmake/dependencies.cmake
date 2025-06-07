@@ -59,7 +59,7 @@ endif()
 if(TINYXML2_FOUND)
   message(STATUS " - tinyXML found: ${TINYXML2_INCLUDE_DIR}")
 else(TINYXML2_FOUND)
-  message(STATUS " ! tinyXML not found: TODO")
+  message(STATUS " ! tinyXML not found: ${TINY_XML2_SOURCE_DIR}")
 endif(TINYXML2_FOUND)
 if(CRYPTOPP_FOUND)
   message(
