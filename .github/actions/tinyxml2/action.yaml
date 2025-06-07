@@ -37,12 +37,12 @@ runs:
       working-directory: tmp
       shell: bash
 
-
     - id: path
       run: |
-        path=$(pwd)
-        path_unix=$(echo "$path" | sed 's/\\/\//g')
-        echo "path=$path" >> "$GITHUB_OUTPUT"
-        echo "path_unix=$path_unix" >> "$GITHUB_OUTPUT"
-      shell: bash
+        ls
+        $path=$pwd.path
+        $path_unix=$pwd.path.replace('\','/')
+        echo "path=$path" >> $env:GITHUB_OUTPUT
+        echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
+      shell: pwsh
       working-directory: tmp/tinyxml2-${{ inputs.version }}
