@@ -16,8 +16,15 @@ set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT
 #
 # ##############################################################################
 if(NSCP_CMAKE_CONFIG)
-  message(STATUS "Reading custom variables from: ${NSCP_CMAKE_CONFIG}")
-  include(${NSCP_CMAKE_CONFIG})
+  if(EXISTS ${CMAKE_SOURCE_DIR}/${NSCP_CMAKE_CONFIG})
+    message(STATUS "Reading custom variables from: ${CMAKE_SOURCE_DIR}/${NSCP_CMAKE_CONFIG}")
+    include(${CMAKE_SOURCE_DIR}/${NSCP_CMAKE_CONFIG})
+  elseif (EXISTS ${CMAKE_BINARY_DIR}/${NSCP_CMAKE_CONFIG})
+    message(STATUS "Reading custom variables from: ${CMAKE_BINARY_DIR}/${NSCP_CMAKE_CONFIG}")
+    include(${CMAKE_BINARY_DIR}/${NSCP_CMAKE_CONFIG})
+  else ()
+    message(FATAL_ERROR "Could not find custom config file: ${NSCP_CMAKE_CONFIG}")
+  endif (EXISTS ${CMAKE_SOURCE_DIR}/${NSCP_CMAKE_CONFIG})
 elseif(EXISTS ${CMAKE_SOURCE_DIR}/build.cmake)
   message(
     STATUS "Reading custom variables from: ${CMAKE_SOURCE_DIR}/build.cmake")
