@@ -23,7 +23,7 @@ find_package(Miniz)
 if(WIN32)
   set(boost_python_dep python311)
 else(WIN32)
-  set(boost_python_dep python3)
+  set(boost_python_dep python312)
 endif(WIN32)
 find_package(
   Boost

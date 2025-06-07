@@ -35,12 +35,20 @@ include_directories(${Python3_INCLUDE_DIRS})
 add_library(${TARGET} MODULE ${SRCS})
 nscp_debug_symbols(${TARGET})
 
+
+if(WIN32)
+  set(BOOST_PYTHON_LIBRARY ${Boost_PYTHON311_LIBRARY})
+else(WIN32)
+  set(BOOST_PYTHON_LIBRARY ${Boost_PYTHON312_LIBRARY})
+endif(WIN32)
+
+
 target_link_libraries(
   ${TARGET}
   ${Boost_FILESYSTEM_LIBRARY}
   ${Boost_PROGRAM_OPTIONS_LIBRARY}
   ${Boost_THREAD_LIBRARY}
-  ${Boost_PYTHON311_LIBRARY}
+  ${BOOST_PYTHON_LIBRARY}
   ${NSCP_DEF_PLUGIN_LIB}
   ${Python3_LIBRARIES})
 
