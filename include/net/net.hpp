@@ -93,7 +93,7 @@ inline url parse(const std::string &url_s, unsigned int default_port = 0) {
   }
   std::string k("/:");
   auto path_i = std::find_first_of(prot_i, url_s.end(), k.begin(), k.end());
-  ret.host = boost::algorithm::to_lower_copy(std::string(prot_i, path_i));
+  ret.host = std::string(prot_i, path_i);
   if (ret.protocol != "ini" && ret.protocol != "registry") {
     if ((path_i != url_s.end()) && (*path_i == ':')) {
       auto port_b = path_i;
