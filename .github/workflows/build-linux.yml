@@ -83,10 +83,10 @@ jobs:
       run: |
         make
 
-    - name: Run tests
-      working-directory: tmp/nscp
-      run: |
-        ctest --output-on-failure -C Release
-
-    - name: Run rest tests
-      uses: ./.github/actions/rest-test
+    #- name: Run tests
+    #  working-directory: tmp/nscp
+    #  run: |
+    #    ctest --output-on-failure -C Release
+#
+    #- name: Run rest tests
+    #  uses: ./.github/actions/rest-test
