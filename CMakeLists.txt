@@ -309,13 +309,27 @@ if("${BUILD_VERSION}" STREQUAL "")
 endif()
 if(BUILD_VERSION MATCHES ".*-.*")
   # Parse 0.6.4-addedautomaticversionst2.8.70491e2f
-  message(STATUS "Parsing branch version: ${BUILD_VERSION}")
-  string(REGEX
-         REPLACE "([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)"
-                 "\\1.\\2.\\3" NSCP_VERSION_NUMBER "${BUILD_VERSION}")
-  string(REGEX
-         REPLACE "([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)"
-                 "\\5" VERSION_BUILD "${BUILD_VERSION}")
+  # 0.9.5-buildonlinux.16.sha.117faa57
+  if(BUILD_VERSION MATCHES ".*\.sha\..*")
+    string(REGEX
+           REPLACE "^([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.sha\.([^\.]*)$"
+                   "\\1.\\2.\\3" NSCP_VERSION_NUMBER "${BUILD_VERSION}")
+    string(REGEX
+           REPLACE "^([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.sha\.([^\.]*)$"
+                   "\\5" VERSION_BUILD "${BUILD_VERSION}")
+  else()
+    string(REGEX
+            REPLACE "^([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)$"
+            "\\1.\\2.\\3" NSCP_VERSION_NUMBER "${BUILD_VERSION}")
+    string(REGEX
+            REPLACE "^([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)$"
+            "\\5" VERSION_BUILD "${BUILD_VERSION}")
+  endif()
+
+  message(STATUS "Parsing branch version: ${BUILD_VERSION} into ${NSCP_VERSION_NUMBER} and ${VERSION_BUILD}")
+  if(NSCP_VERSION_NUMBER MATCHES ".*[a-z].*")
+    message(FATAL_ERROR "Could not parse version from: ${BUILD_VERSION}")
+  endif()
 else()
   # Parse 1.2.3
   set(NSCP_VERSION_NUMBER ${BUILD_VERSION})
