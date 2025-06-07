@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 
 # IF(CSHARP_FOUND AND WIN32) PROJECT(NSCP.Protobuf)
 #
