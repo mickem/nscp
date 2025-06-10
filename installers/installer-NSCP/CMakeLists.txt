@@ -97,4 +97,5 @@ add_dependencies(
   copy_op5_config
   copy_op5_scripts)
 
+set_target_properties(${TARGET} PROPERTIES EXCLUDE_FROM_ALL true)
 set_target_properties(${TARGET} PROPERTIES FOLDER "installers")

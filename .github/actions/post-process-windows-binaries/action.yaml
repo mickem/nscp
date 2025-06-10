@@ -3,7 +3,7 @@ name: Generate windows binaries
 description: Sign, rename and package windows binaries and attach as build artifacts
 inputs:
   version:
-    description: The Lua version to cache
+    description: The NSClient++ version to cache
     required: true
   platform:
     description: The platform to build for

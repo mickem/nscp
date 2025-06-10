@@ -1,0 +1,31 @@
+---
+name: Sign windows binaries
+description: Sign windows binaries before building the installer
+inputs:
+  azure-tenant-id:
+    description: The Azure Active Directory tenant (directory) ID.
+    required: true
+  azure-client-id:
+    description: The client (application) ID of an App Registration in the tenant.
+    required: true
+  azure-client-secret:
+    description: A client secret that was generated for the App Registration.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Sign binaries
+      uses: azure/trusted-signing-action@v0.5.1
+      with:
+        azure-tenant-id: ${{ inputs.azure-tenant-id }}
+        azure-client-id: ${{ inputs.azure-client-id }}
+        azure-client-secret: ${{ inputs.azure-client-secret }}
+        endpoint: https://neu.codesigning.azure.net
+        trusted-signing-account-name: nsclient
+        certificate-profile-name: nsclient
+        files-folder: ${{ github.workspace }}\tmp\nscp
+        files-folder-filter: exe
+        files-folder-recurse: true
+        file-digest: SHA256
+        timestamp-rfc3161: http://timestamp.acs.microsoft.com
+        timestamp-digest: SHA256
