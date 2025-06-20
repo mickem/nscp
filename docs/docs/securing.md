@@ -57,16 +57,6 @@ del "C:\Program Files\NSClient++\nsclient.ini"
 
 Restart NSClient++ to make sure the new config file is used.
 
-
-
-Then you need to update the service to use the new path:
-```
-
-Then you need to update the service to use the new path:
-```commandline
-
-
-
 ### Using credential manager
 
 Using credential manager is easy you simply set:

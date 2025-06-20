@@ -95,7 +95,7 @@ The MSI file can be customized during the installer. The following keys are avai
 | TLS_VERSION        | The TLS version to use (1.0, 1.1, 1.2, *1.3*)                                                                           |
 | TLS_VERIFY_MODE    | The TLS verify mode to use (*none*, peer, fail_if_no_peer_cert)                                                         |
 | TLS_CA             | The CA file to use for TLS connections (if not using the system default)                                                |
-| CONF_SET           | Set a configuration value in the form of <section1>;<key1>;<value1>;<section2>;<key2>;<value2>...                       |
+| CONF_SET           | Set a configuration value in the form of section1;key1;value1;section2;key2;value2...                                   |
 
 ### Features
 
