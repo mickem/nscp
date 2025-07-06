@@ -3,8 +3,6 @@ from glob import glob
 
 from helpers import ensure_uninstalled, read_config, install, compare_file
 
-target_folder = "C:\\Program Files\\NSClient++"
-
 msi_search_path = path.join("installers", "installer-NSCP", "*.msi")
 msi_files = glob(msi_search_path)
 if not msi_files:
@@ -12,6 +10,9 @@ if not msi_files:
     exit(1)
 msi_file = msi_files[0]
 print(f"* Using MSI file: {msi_file}")
+
+target_folder = path.join('c:', 'Program Files (x86)' if 'Win32' in msi_file else 'Program Files', 'NSClient++')
+print(f"* Using Target folder: {target_folder}")
 
 test_cases = [
     "normal-install.yaml",
