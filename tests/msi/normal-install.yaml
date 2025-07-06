@@ -1,0 +1,46 @@
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL" ]
+boot.ini: |
+  [settings]
+  1 = ini://${shared-path}/nsclient.ini
+
+nsclient.ini: |
+    # If you want to fill this file with all available options run the following command:
+    #   nscp settings --generate --add-defaults --load-all
+    # If you want to activate a module and bring in all its options use:
+    #   nscp settings --activate-module <MODULE NAME> --add-defaults
+    # For details run: nscp settings --help
+    
+    
+    ; in flight - TODO
+    [/modules]
+    
+    ; Undocumented key
+    CheckNSCP = disabled
+    
+    ; Undocumented key
+    CheckEventLog = disabled
+    
+    ; Undocumented key
+    CheckHelpers = disabled
+    
+    ; Undocumented key
+    CheckDisk = disabled
+    
+    ; Undocumented key
+    NRPEServer = enabled
+    
+    ; Undocumented key
+    CheckSystem = disabled
+    
+    ; Undocumented key
+    CheckExternalScripts = disabled
+    
+    
+    ; in flight - TODO
+    [/settings/default]
+    
+    ; Undocumented key
+    allowed hosts = 127.0.0.1
+    
+    ; Undocumented key
+    password = $$PASSWORD$$

@@ -237,6 +237,9 @@ jobs:
     - name: Run rest tests
       uses: ./.github/actions/rest-test
 
+    - name: Run installer tests
+      uses: ./.github/actions/installer-test
+
     - name: Post process files
       uses: ./.github/actions/post-process-windows-binaries
       with:
