@@ -88,7 +88,7 @@ def reorder_config(config):
     config_parser = ConfigParser()
     config_parser.read_string(config)
     ordered_config = []
-    for section in config_parser.sections():
+    for section in sorted(config_parser.sections()):
         ordered_config.append(f"[{section}]")
         for option in sorted(config_parser.options(section)):
             value = config_parser.get(section, option)
