@@ -110,14 +110,6 @@ class msi_helper {
       logMessage(L"Not setting (not empty) " + key + L" to " + val + L" if empty");
     }
   }
-  void setPropertyAndDefault(std::wstring key, std::wstring value) {
-    logMessage(L"Setting " + key + L"=" + value);
-    logMessage(L"Setting " + key + KEY_DEF + L"=" + value);
-    MsiSetProperty(hInstall_, key.c_str(), L"");
-    MsiSetProperty(hInstall_, key.c_str(), value.c_str());
-    MsiSetProperty(hInstall_, (key + KEY_DEF).c_str(), L"");
-    MsiSetProperty(hInstall_, (key + KEY_DEF).c_str(), value.c_str());
-  }
   void setPropertyAndDefault(std::wstring key, std::wstring value, std::wstring old_value) {
     logMessage(L"Setting " + key + L"=" + value);
     logMessage(L"Setting " + key + KEY_DEF + L"=" + old_value);
@@ -126,7 +118,7 @@ class msi_helper {
   }
   void setPropertyAndDefaultBool(std::wstring key, bool value) {
     std::wstring v = value ? L"1" : L"";
-    setPropertyAndDefault(key, v);
+    setPropertyAndDefault(key, v, v);
   }
   void setProperty(std::wstring key, std::wstring value) {
     std::wstring old = getPropery(key);
@@ -138,7 +130,7 @@ class msi_helper {
     std::wstring applied_value = getPropery(value_key);
     logMessage(L"Applying value from " + value_key + L" to " + key);
     if (!applied_value.empty()) {
-      logMessage(L"  + " + key + L" goes from " + current_value + L" to " + applied_value);
+      logMessage(L"  + " + key + L" goes from '" + current_value + L"' to '" + applied_value + L"'");
       setProperty(key, applied_value);
     } else {
       logMessage(L"  + " + key + L" unchanged as overriden value was empty: keeping " + current_value + L" over " + applied_value);

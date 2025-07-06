@@ -306,14 +306,14 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
     h.logMessage(L"Monitoring tool is: " + tool);
 
     if (tool == MONITORING_TOOL_OP5) {
-      h.setPropertyAndDefault(KEY_NSCLIENT_PWD, L"");
+      h.setPropertyAndDefault(KEY_NSCLIENT_PWD, L"", L"");
       h.setProperty(KEY_NSCLIENT_PWD_DEFAULT, L"");
-      h.setPropertyAndDefault(KEY_CONF_CHECKS, L"1");
-      h.setPropertyAndDefault(KEY_CONF_NRPE, L"1");
-      h.setPropertyAndDefault(KEY_CONF_NSCA, L"1");
-      h.setPropertyAndDefault(KEY_CONF_WEB, L"");
-      h.setPropertyAndDefault(KEY_CONF_NSCLIENT, L"1");
-      h.setPropertyAndDefault(KEY_NRPEMODE, L"LEGACY");
+      h.setPropertyAndDefault(KEY_CONF_CHECKS, L"1", L"");
+      h.setPropertyAndDefault(KEY_CONF_NRPE, L"1", L"");
+      h.setPropertyAndDefault(KEY_CONF_NSCA, L"1", L"");
+      h.setPropertyAndDefault(KEY_CONF_WEB, L"", L"");
+      h.setPropertyAndDefault(KEY_CONF_NSCLIENT, L"1", L"");
+      h.setPropertyAndDefault(KEY_NRPEMODE, L"LEGACY", L"");
 
       h.setProperty(CONF_CAN_CHANGE, L"1");
       h.setProperty(KEY_CONF_INCLUDES, L"op5;op5.ini");
@@ -327,10 +327,10 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
       h.setPropertyAndDefault(KEY_NSCLIENT_PWD, genpwd(16), L"");
       h.setPropertyAndDefault(KEY_CONF_CHECKS, L"1", L"");
       h.setPropertyAndDefault(KEY_CONF_NRPE, L"1", L"");
-      h.setPropertyAndDefault(KEY_CONF_NSCA, L"");
-      h.setPropertyAndDefault(KEY_CONF_WEB, L"1");
-      h.setPropertyAndDefault(KEY_CONF_NSCLIENT, L"");
-      h.setPropertyAndDefault(KEY_NRPEMODE, L"SECURE");
+      h.setPropertyAndDefault(KEY_CONF_NSCA, L"", L"");
+      h.setPropertyAndDefault(KEY_CONF_WEB, L"1", L"");
+      h.setPropertyAndDefault(KEY_CONF_NSCLIENT, L"", L"");
+      h.setPropertyAndDefault(KEY_NRPEMODE, L"SECURE", L"");
 
       h.setProperty(CONF_CAN_CHANGE, L"1");
       h.setProperty(KEY_CONF_INCLUDES, L"");
@@ -480,8 +480,10 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
     h.setProperty(CONF_CAN_CHANGE, L"1");
     h.setProperty(CONF_HAS_ERRORS, L"0");
 
-    h.setPropertyAndDefault(KEY_ALLOWED_HOSTS, utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "allowed hosts", "")));
-    h.setPropertyAndDefault(KEY_NSCLIENT_PWD, utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "password", "")));
+    auto old_allowed_hosts = utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "allowed hosts", ""));
+    h.setPropertyAndDefault(KEY_ALLOWED_HOSTS, old_allowed_hosts, old_allowed_hosts);
+    auto old_password = utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "password", ""));
+    h.setPropertyAndDefault(KEY_NSCLIENT_PWD, old_password, old_password);
 
     h.setPropertyAndDefaultBool(KEY_CONF_NRPE, has_mod("NRPEServer"));
     h.setPropertyAndDefaultBool(KEY_CONF_SCHEDULER, has_mod("Scheduler"));
@@ -494,13 +496,11 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
     h.logMessage(L"insecure: " + utf8::cvt<std::wstring>(insecure));
     h.logMessage(L"verify: " + utf8::cvt<std::wstring>(verify));
     if (insecure == "true" || insecure == "1")
-      h.setPropertyAndDefault(KEY_NRPEMODE, L"LEGACY");
+      h.setPropertyAndDefault(KEY_NRPEMODE, L"LEGACY", L"");
     else if (verify == "peer-cert")
-      h.setPropertyAndDefault(KEY_NRPEMODE, L"SECURE");
+      h.setPropertyAndDefault(KEY_NRPEMODE, L"SECURE", L"");
     else
       h.logMessage(L"NRPEMODE: " + h.getPropery(KEY_NRPEMODE));
-
-    h.setPropertyAndDefault(KEY_NSCLIENT_PWD, utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "password", "")));
 
     h.setPropertyAndDefaultBool(KEY_CONF_CHECKS, has_mod("CheckSystem") && has_mod("CheckDisk") && has_mod("CheckEventLog") && has_mod("CheckHelpers") &&
                                                      has_mod("CheckExternalScripts") && has_mod("CheckNSCP"));
@@ -569,7 +569,7 @@ void write_key(msi_helper &h, msi_helper::custom_action_data_w &data, int mode, 
 
 void write_key_mod(msi_helper &h, msi_helper::custom_action_data_w &data, int mode, std::wstring key, std::wstring val) {
   std::wstring path = utf8::cvt<std::wstring>(MAIN_MODULES_SECTION);
-  if (val == L"1") {
+  if (val == L"1" || val == L"enabled") {
     write_key(h, data, mode, path, key, L"enabled");
   } else {
     write_key(h, data, mode, path, key, L"disabled");
@@ -599,7 +599,7 @@ void write_changed_key_mod(msi_helper &h, msi_helper::custom_action_data_w &data
 bool write_property_if_set(msi_helper &h, msi_helper::custom_action_data_w &data, const std::wstring prop, std::wstring path, std::wstring key) {
   std::wstring val = boost::algorithm::trim_copy(h.getPropery(prop));
   if (!val.empty()) {
-    h.logMessage(L"write_changed_key_mod: " + prop + L"; <modules>." + key + L"=" + val);
+    h.logMessage(L"write_property_if_set: " + prop + L"; <modules>." + key + L"=" + val);
     write_key(h, data, 1, path, key, val);
     return true;
   } else {
