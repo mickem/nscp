@@ -1,0 +1,13 @@
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "MONITORING_TOOL=NONE", "CONF_WEB=enabled", "NSCLIENT_PWD=1234567890", "ALLOWED_HOSTS=1.2.3.4" ]
+replace_password: false
+boot.ini: |
+  [settings]
+  1 = ini://${shared-path}/nsclient.ini
+
+nsclient.ini: |
+  [/modules]
+  webserver = enabled
+
+  [/settings/default]
+  allowed hosts = 1.2.3.4
+  password = 1234567890

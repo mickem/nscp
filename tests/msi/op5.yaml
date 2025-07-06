@@ -1,0 +1,7 @@
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "MONITORING_TOOL=OP5" ]
+replace_password: true
+boot.ini: |
+  [settings]
+  1 = registry://HKEY_LOCAL_MACHINE/software/NSClient++
+
+nsclient.ini: ""

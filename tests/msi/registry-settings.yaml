@@ -1,0 +1,7 @@
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "CONFIGURATION_TYPE=registry://HKEY_LOCAL_MACHINE/software/NSClient++" ]
+replace_password: true
+boot.ini: |
+  [settings]
+  1 = registry://HKEY_LOCAL_MACHINE/software/NSClient++
+
+nsclient.ini: ""
