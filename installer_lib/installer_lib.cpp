@@ -29,8 +29,8 @@
 
 const UINT COST_SERVICE_INSTALL = 2000;
 
-#define ERROR_CONTEXT L"NSCP_ERROR_CONTEXT"
-#define ERROR L"NSCP_ERROR"
+#define NSCP_ERROR_CONTEXT L"NSCP_ERROR_CONTEXT"
+#define NSCP_ERROR L"NSCP_ERROR"
 #define LAST_LOG L"NSCP_LAST_LOG"
 #define CONF_CAN_CHANGE L"CONF_CAN_CHANGE"
 #define CONF_CAN_CHANGE_REASON L"CONF_CAN_CHANGE_REASON"
@@ -266,8 +266,8 @@ void dump_config(msi_helper &h, std::wstring title) {
 
   h.dumpProperty(CONF_CAN_CHANGE);
   h.dumpProperty(CONF_CAN_CHANGE_REASON);
-  h.dumpProperty(ERROR);
-  h.dumpProperty(ERROR_CONTEXT);
+  h.dumpProperty(NSCP_ERROR);
+  h.dumpProperty(NSCP_ERROR_CONTEXT);
 
   h.dumpProperty(BACKUP_FILE);
 }
@@ -299,6 +299,8 @@ extern "C" UINT __stdcall DetectTool(MSIHANDLE hInstall) {
 extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
   msi_helper h(hInstall, L"ApplyTool");
   try {
+    dump_config(h, L"Before ApplyTool");
+
     h.logMessage("Applying monitoring tool config");
     std::wstring tool = h.getPropery(MONITORING_TOOL);
     h.logMessage(L"Monitoring tool is: " + tool);
@@ -357,7 +359,7 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
     h.setPropertyIfEmpty(CONF_CAN_CHANGE, L"1");
     h.setPropertyIfEmpty(KEY_CONFIGURATION_TYPE, L"ini://${shared-path}/nsclient.ini");
 
-    dump_config(h, L"After ApplyConfig");
+    dump_config(h, L"After ApplyTool");
 
   } catch (installer_exception &e) {
     h.logMessage(L"Failed to apply monitoring tool: " + e.what());
@@ -372,7 +374,8 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
   msi_helper h(hInstall, L"ImportConfig");
   try {
-    h.logMessage("importing config");
+    dump_config(h, L"Before ImportConfig");
+
     std::wstring target = h.getTargetPath(L"INSTALLLOCATION");
     std::wstring allow = h.getPropery(L"ALLOW_CONFIGURATION");
 
@@ -391,9 +394,9 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 
     std::wstring map_data = read_map_data(h);
     if (allow == L"0") {
-      h.setProperty(ERROR, L"Configuration is not allowed to change");
+      h.setProperty(NSCP_ERROR, L"Configuration is not allowed to change");
       h.logMessage(L"Configuration not allowed: " + allow);
-      h.setProperty(ERROR_CONTEXT, L"ImportConfig::1");
+      h.setProperty(NSCP_ERROR_CONTEXT, L"ImportConfig::1");
       h.setProperty(CONF_CAN_CHANGE, L"0");
       h.setProperty(CONF_CAN_CHANGE_REASON, L"Changes are not allowed");
       h.setProperty(CONF_HAS_ERRORS, L"0");
@@ -402,7 +405,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
     }
 
     if (!boost::filesystem::is_directory(utf8::cvt<std::string>(target))) {
-      h.setProperty(ERROR, L"Configuration not found: " + target);
+      h.setProperty(NSCP_ERROR, L"Configuration not found: " + target);
       h.logMessage(L"Target folder not found: " + target);
       h.setProperty(CONF_CAN_CHANGE, L"1");
       h.setProperty(CONF_HAS_ERRORS, L"0");
@@ -411,9 +414,9 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
     }
     installer_settings_provider provider(&h, target, map_data);
     if (!settings_manager::init_installer_settings(&provider, "", tls_version, tls_verify_mode, tls_ca)) {
-      h.setProperty(ERROR, L"Settings context had fatal errors");
+      h.setProperty(NSCP_ERROR, L"Settings context had fatal errors");
       h.logMessage(L"Settings context had fatal errors");
-      h.setProperty(ERROR_CONTEXT, L"ImportConfig::init_installer_settings");
+      h.setProperty(NSCP_ERROR_CONTEXT, L"ImportConfig::init_installer_settings");
       h.setProperty(CONF_CAN_CHANGE, L"0");
       h.setProperty(CONF_CAN_CHANGE_REASON, L"Failed to load existing configuration");
       h.setProperty(CONF_HAS_ERRORS, L"1");
@@ -429,9 +432,9 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
         h.logMessage(L"boot.conf was NOT found (so no new configuration)");
         if (settings_manager::context_exists(DEFAULT_CONF_OLD_LOCATION)) {
           h.logMessage("Old configuration found: " DEFAULT_CONF_OLD_LOCATION);
-          h.setProperty(ERROR, std::wstring(L"Old configuration (") + utf8::cvt<std::wstring>(DEFAULT_CONF_OLD_LOCATION) +
+          h.setProperty(NSCP_ERROR, std::wstring(L"Old configuration (") + utf8::cvt<std::wstring>(DEFAULT_CONF_OLD_LOCATION) +
                                    L") was found but we got errors accessing it: " + provider.get_error());
-          h.setProperty(ERROR_CONTEXT, L"ImportConfig::has_boot_conf");
+          h.setProperty(NSCP_ERROR_CONTEXT, L"ImportConfig::has_boot_conf");
           h.setProperty(CONF_CAN_CHANGE, L"0");
           h.setProperty(CONF_CAN_CHANGE_REASON, L"Errors reading old configuration");
           h.setProperty(CONF_HAS_ERRORS, L"1");
@@ -446,8 +449,8 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
         }
       } else {
         h.logMessage(L"boot.conf was found but we got errors booting it...");
-        h.setProperty(ERROR, provider.get_error());
-        h.setProperty(ERROR_CONTEXT, L"ImportConfig::has_errors");
+        h.setProperty(NSCP_ERROR, provider.get_error());
+        h.setProperty(NSCP_ERROR_CONTEXT, L"ImportConfig::has_errors");
         h.setProperty(CONF_CAN_CHANGE, L"0");
         h.setProperty(CONF_CAN_CHANGE_REASON, L"Errors during read config");
         h.setProperty(CONF_HAS_ERRORS, L"1");
@@ -522,30 +525,30 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
     dump_config(h, L"After ImportConfig");
 
   } catch (installer_exception &e) {
-    h.setProperty(ERROR, L"Failed to read old configuration file: " + e.what());
+    h.setProperty(NSCP_ERROR, L"Failed to read old configuration file: " + e.what());
     h.logMessage(L"Failed to read old configuration file: " + e.what());
-    h.setProperty(ERROR_CONTEXT, L"ImportConfig::e1");
+    h.setProperty(NSCP_ERROR_CONTEXT, L"ImportConfig::e1");
     h.setProperty(CONF_CAN_CHANGE, L"0");
     h.setProperty(CONF_HAS_ERRORS, L"1");
     return ERROR_SUCCESS;
   } catch (nsclient::nsclient_exception &e) {
-    h.setProperty(ERROR, L"Failed to read old configuration file: " + utf8::cvt<std::wstring>(e.what()));
+    h.setProperty(NSCP_ERROR, L"Failed to read old configuration file: " + utf8::cvt<std::wstring>(e.what()));
     h.logMessage(L"Failed to read old configuration file: " + utf8::cvt<std::wstring>(e.what()));
-    h.setProperty(ERROR_CONTEXT, L"ImportConfig::e2");
+    h.setProperty(NSCP_ERROR_CONTEXT, L"ImportConfig::e2");
     h.setProperty(CONF_CAN_CHANGE, L"0");
     h.setProperty(CONF_HAS_ERRORS, L"1");
     return ERROR_SUCCESS;
   } catch (std::exception &e) {
-    h.setProperty(ERROR, L"Failed to read old configuration file: " + utf8::cvt<std::wstring>(e.what()));
+    h.setProperty(NSCP_ERROR, L"Failed to read old configuration file: " + utf8::cvt<std::wstring>(e.what()));
     h.logMessage(L"Failed to read old configuration file: " + utf8::cvt<std::wstring>(e.what()));
-    h.setProperty(ERROR_CONTEXT, L"ImportConfig::e3");
+    h.setProperty(NSCP_ERROR_CONTEXT, L"ImportConfig::e3");
     h.setProperty(CONF_CAN_CHANGE, L"0");
     h.setProperty(CONF_HAS_ERRORS, L"1");
     return ERROR_SUCCESS;
   } catch (...) {
-    h.setProperty(ERROR, L"Failed to read old configuration file: <Unknown exception>");
+    h.setProperty(NSCP_ERROR, L"Failed to read old configuration file: <Unknown exception>");
     h.logMessage(L"Failed to read old configuration file: <Unknown exception>");
-    h.setProperty(ERROR_CONTEXT, L"ImportConfig::e4");
+    h.setProperty(NSCP_ERROR_CONTEXT, L"ImportConfig::e4");
     h.setProperty(CONF_CAN_CHANGE, L"0");
     h.setProperty(CONF_HAS_ERRORS, L"1");
     return ERROR_SUCCESS;
