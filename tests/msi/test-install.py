@@ -11,11 +11,16 @@ if not msi_files:
 msi_file = msi_files[0]
 print(f"* Using MSI file: {msi_file}")
 
-target_folder = path.join('c:', 'Program Files (x86)' if 'Win32' in msi_file else 'Program Files', 'NSClient++')
+target_folder = path.join('c:\\', 'Program Files (x86)' if 'Win32' in msi_file else 'Program Files', 'NSClient++')
 print(f"* Using Target folder: {target_folder}")
 
 test_cases = [
     "normal-install.yaml",
+    "password-enabled-web-server.yaml",
+    "op5.yaml",
+    "op5-ini-file.yaml",
+    "web-only.yaml",
+    "registry-settings.yaml",
 ]
 
 for test_case_file in test_cases:
@@ -29,11 +34,18 @@ for test_case_file in test_cases:
 
     install(msi_file, target_folder, test_case["command_line"])
 
+    failure = False
+
     if not compare_file(target_folder, "boot.ini", test_case):
         print("! Test failed.")
-        exit(1)
+        failure = True
     if not compare_file(target_folder, "nsclient.ini", test_case):
         print("! Test failed.")
-        exit(1)
+        failure = True
 
     ensure_uninstalled(msi_file, target_folder)
+    if failure:
+        print("! One or more tests failed.")
+        exit(1)
+    else:
+        print("- All tests passed successfully.")

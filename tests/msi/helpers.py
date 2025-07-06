@@ -1,8 +1,10 @@
-import difflib
+from difflib import unified_diff
 from subprocess import run
 from os import path
 from shutil import rmtree
+from configparser import ConfigParser
 import yaml
+
 def ensure_uninstalled(msi_file, target_folder):
 
     uninstall = run(["msiexec", "/x", f"{msi_file}", "/q"])
@@ -13,6 +15,9 @@ def ensure_uninstalled(msi_file, target_folder):
     else:
         print(f"! Uninstall returned with code: {uninstall.returncode}")
         exit(1)
+
+    print("- Killing any running NSClient++ processes.")
+    taskkill = run(["taskkill", "/F", "/IM", "nscp.exe"])
 
     if path.exists(target_folder):
         print(f"- Removing folder: {target_folder}")
@@ -46,17 +51,19 @@ def install(msi_file, target_folder, command_line):
 
 def compare_file(target_folder, file_name, test_case):
     """Compare a file in the target folder with the expected content from the test case."""
+    replace_password = test_case.get("replace_password", True)
     config_file = path.join(target_folder, file_name)
     if not path.exists(config_file):
         print(f"! {file_name} does not exist in the installation folder:")
         return False
-    actual = read_and_remove_bom(config_file)
+    actual = reorder_config(read_and_remove_bom(config_file))
     # Replace any line starting with 'password =' with 'password = $$PASSWORD$$'
-    actual = '\n'.join([
-        'password = $$PASSWORD$$' if line.startswith('password =') else line
-        for line in actual.splitlines()
-    ])
-    expected = '\n'.join(test_case[file_name].splitlines())
+    if replace_password:
+        actual = '\n'.join([
+            'password = $$PASSWORD$$' if line.startswith('password =') else line
+            for line in actual.splitlines()
+        ])
+    expected = reorder_config('\n'.join(test_case[file_name].splitlines()))
 
     if expected == actual:
         print(f"- {file_name} matches expected configuration.")
@@ -66,17 +73,29 @@ def compare_file(target_folder, file_name, test_case):
     for line in compare_config(expected, actual):
         print(line)
     return False
+
 def compare_config(expected, actual):
     """Compare two configuration strings and return a list of differences."""
     expected_lines = expected.splitlines()
     actual_lines = actual.splitlines()
     if len(expected_lines) > 1 or len(actual_lines) > 1:
-        diff = list(difflib.unified_diff(
-            expected_lines, actual_lines,
-            fromfile="expected", tofile="actual", lineterm=""
-        ))
+        diff = list(unified_diff(expected_lines, actual_lines,fromfile="expected", tofile="actual", lineterm=""))
         return diff
     return None
+
+def reorder_config(config):
+    """Reorder the configuration sections and options."""
+    config_parser = ConfigParser()
+    config_parser.read_string(config)
+    ordered_config = []
+    for section in config_parser.sections():
+        ordered_config.append(f"[{section}]")
+        for option in sorted(config_parser.options(section)):
+            value = config_parser.get(section, option)
+            ordered_config.append(f"{option} = {value}")
+        ordered_config.append("")
+    return "\n".join(ordered_config).strip()
+
 def read_and_remove_bom(file_path):
     """Read a file and remove the UTF-8 BOM if it exists."""
     with open(file_path, 'rb') as f:
