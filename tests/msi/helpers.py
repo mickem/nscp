@@ -1,6 +1,6 @@
 from difflib import unified_diff
 from subprocess import run
-from os import path
+from os import path, makedirs
 from shutil import rmtree
 from configparser import ConfigParser
 import yaml
@@ -105,3 +105,22 @@ def read_and_remove_bom(file_path):
     if content.startswith(bom):
         return content[len(bom):].decode('utf-8')
     return content.decode('utf-8')
+
+
+def create_upgrade_config(upgrade_config, target_folder):
+    """Create folders and config files to simulate upgrade."""
+    if not path.exists(target_folder):
+        print(f"- Creating target folder: {target_folder}")
+        makedirs(target_folder, exist_ok=True)
+    if 'boot.ini' in upgrade_config:
+        boot_ini_path = path.join(target_folder, "boot.ini")
+        print(f"- Creating boot.ini file: {boot_ini_path}")
+        with open(boot_ini_path, 'w') as file:
+            file.write(upgrade_config['boot.ini'])
+        print("- boot.ini file created successfully.")
+    if 'nsclient.ini' in upgrade_config:
+        nsclient_ini_path = path.join(target_folder, "nsclient.ini")
+        print(f"- Creating nsclient.ini file: {nsclient_ini_path}")
+        with open(nsclient_ini_path, 'w') as file:
+            file.write(upgrade_config['nsclient.ini'])
+        print("- nsclient.ini file created successfully.")
