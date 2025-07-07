@@ -1,7 +1,7 @@
 from os import path
 from glob import glob
 
-from helpers import ensure_uninstalled, read_config, install, compare_file
+from helpers import ensure_uninstalled, read_config, install, compare_file, create_upgrade_config
 
 msi_search_path = path.join("installers", "installer-NSCP", "*.msi")
 msi_files = glob(msi_search_path)
@@ -21,6 +21,8 @@ test_cases = [
     "op5-ini-file.yaml",
     "web-only.yaml",
     "registry-settings.yaml",
+    "normal-upgrade.yaml",
+    "upgrade-and-enabled-web-server.yaml",
 ]
 
 for test_case_file in test_cases:
@@ -31,6 +33,9 @@ for test_case_file in test_cases:
         exit(1)
     test_case = read_config(path.join(path.dirname(__file__), test_case_path))
     ensure_uninstalled(msi_file, target_folder)
+
+    if 'upgrade' in test_case:
+        create_upgrade_config(test_case['upgrade'], target_folder)
 
     install(msi_file, target_folder, test_case["command_line"])
 

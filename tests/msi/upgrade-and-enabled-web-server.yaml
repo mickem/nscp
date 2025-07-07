@@ -1,0 +1,50 @@
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "CONF_WEB=enabled", "NSCLIENT_PWD=1234567890" ]
+replace_password: false
+boot.ini: |
+  [settings]
+  1 = ini://${shared-path}/nsclient.ini
+
+upgrade:
+  boot.ini: |
+    [settings]
+    1 = ini://${shared-path}/nsclient.ini
+
+  nsclient.ini: |
+    [/modules]
+    checkdisk = enabled
+    checkeventlog = enabled
+    checkexternalscripts = enabled
+    checkhelpers = enabled
+    checknscp = enabled
+    checksystem = enabled
+    nrpeserver = enabled
+    webserver = disabled
+    
+    [/settings/NRPE/server]
+    insecure = false
+    tls version = tlsv1.2+
+    verify mode = peer-cert
+    
+    [/settings/default]
+    allowed hosts = 127.0.0.1
+    password = old-password
+
+nsclient.ini: |
+  [/modules]
+  checkdisk = enabled
+  checkeventlog = enabled
+  checkexternalscripts = enabled
+  checkhelpers = enabled
+  checknscp = enabled
+  checksystem = enabled
+  webserver = enabled
+  nrpeserver = enabled
+
+  [/settings/NRPE/server]
+  insecure = false
+  tls version = tlsv1.2+
+  verify mode = peer-cert
+  
+  [/settings/default]
+  allowed hosts = 127.0.0.1
+  password = 1234567890
