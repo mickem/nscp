@@ -342,7 +342,7 @@ describe("queries", () => {
         expect(response.text).toEqual("this is a message\n");
       });
   });
-  it("can execute query (text, unknwon)", async () => {
+  it("can execute query (text, unknown)", async () => {
     await request(URL)
       .get(
         "/api/v1/queries/check_unknown/commands/execute_nagios?message=this+is+a+message",
