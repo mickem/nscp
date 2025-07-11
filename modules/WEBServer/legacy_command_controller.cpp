@@ -3,6 +3,7 @@
 #include <client/simple_client.hpp>
 
 #include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/nscapi_protobuf_nagios.hpp>
 
 #include <boost/json.hpp>
 
@@ -46,7 +47,15 @@ void legacy_command_controller::handle_query(Mongoose::Request &request, boost::
   json::object node;
   for (const PB::Commands::QueryResponseMessage::Response &r : response.payload()) {
     node["command"] = r.command();
-    node["result"] = "OK";
+    if (r.result() == PB::Common::ResultCode::OK) {
+      node["result"] = "OK";
+    } else if (r.result() == PB::Common::ResultCode::WARNING) {
+      node["result"] = "WARNING";
+    } else if (r.result() == PB::Common::ResultCode::CRITICAL) {
+      node["result"] = "CRITICAL";
+    } else {
+      node["result"] = "UNKNOWN";
+    }
     json::array lines;
     for (const PB::Commands::QueryResponseMessage::Response::Line &l : r.lines()) {
       json::object line;
