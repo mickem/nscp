@@ -17,13 +17,13 @@
 #include <utf8.hpp>
 #include <utility>
 
-static settings_manager::NSCSettingsImpl *settings_impl = NULL;
+static settings_manager::NSCSettingsImpl *settings_impl = nullptr;
 
 namespace settings_manager {
 // Alias to make handling "compatible" with old syntax
 
 inline NSCSettingsImpl *internal_get() {
-  if (settings_impl == NULL) throw settings::settings_exception(__FILE__, __LINE__, "Settings has not been initiated!");
+  if (settings_impl == nullptr) throw settings::settings_exception(__FILE__, __LINE__, "Settings has not been initiated!");
   return settings_impl;
 }
 boost::shared_ptr<nscapi::settings_helper::settings_impl_interface> get_proxy() {
@@ -34,7 +34,7 @@ settings::instance_ptr get_settings_no_wait() { return internal_get()->get_no_wa
 settings::settings_core *get_core() { return internal_get(); }
 void destroy_settings() {
   settings_manager::NSCSettingsImpl *old = settings_impl;
-  settings_impl = NULL;
+  settings_impl = nullptr;
   delete old;
 }
 
@@ -112,6 +112,16 @@ bool NSCSettingsImpl::context_exists(std::string key) {
 }
 
 bool NSCSettingsImpl::has_boot_conf() { return boost::filesystem::is_regular_file(boot_); }
+void NSCSettingsImpl::write_boot_ini_key(std::string section, std::string key, std::string value) {
+  std::list<std::string> order;
+  CSimpleIni boot_conf;
+  boot_conf.LoadFile(boot_.string().c_str());
+  boot_conf.SetValue(utf8::cvt<std::wstring>(section).c_str(), utf8::cvt<std::wstring>(key).c_str(), utf8::cvt<std::wstring>(value).c_str());
+  if (boot_conf.SaveFile(boot_.string().c_str()) < 0) {
+    get_logger()->error("settings", __FILE__, __LINE__, "Failed to write boot.ini: " + boot_.string());
+    throw settings::settings_exception(__FILE__, __LINE__, "Failed to write boot.ini: " + boot_.string());
+  }
+}
 
 //////////////////////////////////////////////////////////////////////////
 /// Boot the settings subsystem from the given file (boot.ini).
@@ -267,8 +277,10 @@ bool init_installer_settings(provider_interface *provider, const std::string &co
 }
 
 void change_context(const std::string &context) { internal_get()->change_context(context); }
+void set_boot_ini_primary(const std::string &context) { internal_get()->set_primary(context); }
 
 bool has_boot_conf() { return internal_get()->has_boot_conf(); }
+void write_boot_ini_key(std::string section, std::string key, std::string value) { return internal_get()->write_boot_ini_key(section, key, value); }
 bool context_exists(const std::string &key) { return internal_get()->context_exists(key); }
 bool create_context(std::string key) { return internal_get()->create_context(key); }
 void ensure_exists() {}

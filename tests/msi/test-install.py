@@ -1,5 +1,6 @@
-from os import path
+from os import path, listdir
 from glob import glob
+from argparse import ArgumentParser
 
 from helpers import ensure_uninstalled, read_config, install, compare_file, create_upgrade_config
 
@@ -14,24 +15,32 @@ print(f"* Using MSI file: {msi_file}")
 target_folder = path.join('c:\\', 'Program Files (x86)' if 'Win32' in msi_file else 'Program Files', 'NSClient++')
 print(f"* Using Target folder: {target_folder}")
 
-test_cases = [
-    "normal-install.yaml",
-    "password-enabled-web-server.yaml",
-    "op5.yaml",
-    "op5-ini-file.yaml",
-    "web-only.yaml",
-    "registry-settings.yaml",
-    "normal-upgrade.yaml",
-    "upgrade-and-enabled-web-server.yaml",
+# Argument parsing for test selection
+parser = ArgumentParser(description="Run NSCP MSI installer tests.")
+parser.add_argument('tests', nargs='*', help='Test case YAML files to run (default: all)')
+parser.add_argument('--matches', '-m', help='Run all test cases containing the given substring')
+args = parser.parse_args()
+
+TEST_FOLDER = path.join(path.dirname(__file__), 'tests')
+
+all_test_cases = [
+    f for f in listdir(TEST_FOLDER)
+    if f.endswith('.yaml')
 ]
 
+if args.matches:
+    test_cases = [f for f in all_test_cases if args.matches in f]
+else:
+    test_cases = args.tests if args.tests else all_test_cases
+
 for test_case_file in test_cases:
+    print("")
     print("Testing " + test_case_file)
-    test_case_path = path.join(path.dirname(__file__), test_case_file)
+    test_case_path = path.join(TEST_FOLDER, test_case_file)
     if not path.exists(test_case_path):
         print(f"! Test case file does not exist: {test_case_path}")
         exit(1)
-    test_case = read_config(path.join(path.dirname(__file__), test_case_path))
+    test_case = read_config(path.join(TEST_FOLDER, test_case_path))
     ensure_uninstalled(msi_file, target_folder)
 
     if 'upgrade' in test_case:
