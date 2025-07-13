@@ -1,0 +1,10 @@
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "TLS_VERIFY_MODE=none", "TLS_VERSION=1.2", "CONFIGURATION_TYPE=https://raw.githubusercontent.com/mickem/nscp/refs/heads/main/tests/rest/nsclient.ini" ]
+replace_password: true
+boot.ini: |
+  [settings]
+  1 = https://raw.githubusercontent.com/mickem/nscp/refs/heads/main/tests/rest/nsclient.ini
+  [tls]
+  verify mode = none
+  version = 1.2
+
+nsclient.ini: ""

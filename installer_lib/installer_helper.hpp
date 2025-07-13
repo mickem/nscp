@@ -11,6 +11,7 @@
 #include <msi.h>
 #include <MsiQuery.h>
 #include <windows.h>
+#include "keys.hpp"
 
 #include <vector>
 
@@ -24,7 +25,7 @@ class installer_exception {
 };
 
 #define MY_EMPTY L"$EMPTY$"
-#define KEY_DEF L"_DEFAULT"
+
 class msi_helper {
   MSIHANDLE hInstall_;
   std::wstring action_;
@@ -68,12 +69,12 @@ class msi_helper {
     std::wstring str = source;
     return trim_left(trim_right(str, t), t);
   }
-  bool propertyNotDefault(std::wstring path) {
-    std::wstring old = getPropery(path + KEY_DEF);
-    std::wstring cur = getPropery(path);
+  bool propertyNotDefault(std::wstring key) {
+    std::wstring old = getMsiPropery(PREFIX_DEF + key);
+    std::wstring cur = getMsiPropery(PREFIX_KEY + key);
     return old != cur;
   }
-  std::wstring getPropery(std::wstring path) {
+  std::wstring getMsiPropery(std::wstring path) {
     wchar_t tmpBuf[MAX_PATH];
     DWORD len = 0;
     if (MsiGetProperty(hInstall_, path.c_str(), tmpBuf, &len) != ERROR_MORE_DATA)
@@ -102,45 +103,71 @@ class msi_helper {
   void setFeatureLocal(std::wstring feature) { MsiSetFeatureState(hInstall_, feature.c_str(), INSTALLSTATE_LOCAL); }
   void setFeatureAbsent(std::wstring feature) { MsiSetFeatureState(hInstall_, feature.c_str(), INSTALLSTATE_ABSENT); }
   void setPropertyIfEmpty(std::wstring key, std::wstring val) {
-    std::wstring old = getPropery(key);
+    std::wstring old = getMsiPropery(PREFIX_KEY + key);
     if (old.empty()) {
-      logMessage(L"Setting (empty) " + key + L" to " + val + L" if empty");
-      setProperty(key, val);
-    } else {
-      logMessage(L"Not setting (not empty) " + key + L" to " + val + L" if empty");
+      logMessage(L" -- Setting " + std::wstring(PREFIX_KEY) + key + L" to '" + val + L"' as it was empty");
+      setMsiProperty(key, val);
     }
   }
-  void setPropertyAndDefault(std::wstring key, std::wstring value, std::wstring old_value) {
-    logMessage(L"Setting " + key + L"=" + value);
-    logMessage(L"Setting " + key + KEY_DEF + L"=" + old_value);
-    MsiSetProperty(hInstall_, key.c_str(), value.c_str());
-    MsiSetProperty(hInstall_, (key + KEY_DEF).c_str(), old_value.c_str());
+  void setPropertyKeyAndDefault(std::wstring key, std::wstring value, std::wstring old_value) {
+    setPropertyValue((PREFIX_KEY + key), value);
+    setPropertyValue((PREFIX_DEF + key), old_value);
   }
-  void setPropertyAndDefaultBool(std::wstring key, bool value) {
+  void setPropertyKeyAndDefaultBool(std::wstring key, bool value) {
     std::wstring v = value ? L"1" : L"";
-    setPropertyAndDefault(key, v, v);
+    setPropertyKeyAndDefault(key, v, v);
   }
-  void setProperty(std::wstring key, std::wstring value) {
-    std::wstring old = getPropery(key);
-    logMessage(L"Setting " + key + L"=" + value + L" previous value was: " + old);
-    MsiSetProperty(hInstall_, key.c_str(), value.c_str());
+  void setPropertyValue(std::wstring key, std::wstring value) {
+    std::wstring old = getMsiPropery(key);
+    logMessage(L" -- Setting " + key + L"='" + value + L"' previous value was: '" + old + L"'");
+    setMsiProperty(key, value);
   }
-  void applyProperty(std::wstring key, std::wstring value_key) {
-    std::wstring current_value = getPropery(key);
-    std::wstring applied_value = getPropery(value_key);
-    logMessage(L"Applying value from " + value_key + L" to " + key);
-    if (!applied_value.empty()) {
-      logMessage(L"  + " + key + L" goes from '" + current_value + L"' to '" + applied_value + L"'");
-      setProperty(key, applied_value);
-    } else {
-      logMessage(L"  + " + key + L" unchanged as overriden value was empty: keeping " + current_value + L" over " + applied_value);
+  std::wstring getProperyKey(std::wstring key) { return getMsiPropery(PREFIX_KEY + key); }
+  std::wstring getProperyValue(std::wstring key) { return getMsiPropery(key); }
+
+ private:
+  void setMsiProperty(std::wstring key, std::wstring value) { MsiSetProperty(hInstall_, key.c_str(), value.c_str()); }
+
+ public:
+  void applyPropertyValue(std::wstring key) {
+    std::wstring old = getMsiPropery(PREFIX_KEY + key);
+    std::wstring wanted_value = getMsiPropery(PREFIX_NA + key);
+    if (!wanted_value.empty()) {
+      logMessage(L" -- Setting " + std::wstring(PREFIX_KEY) + key + L"='" + wanted_value + L"' (applied) from '" + old + L"'");
+      setPropertyValue(PREFIX_KEY + key, wanted_value);
     }
   }
 
   void dumpReason(std::wstring desc) { logMessage(L" : NSCP Dumping properties: " + desc); }
+  void dumpProperties(std::wstring key) {
+    std::wstring value = getMsiPropery(key);
+    std::wstring key_value = getMsiPropery(std::wstring(PREFIX_KEY) + key);
+    std::wstring default_value = getMsiPropery(std::wstring(PREFIX_DEF) + key);
+    logMessage(L" : +++ " + key + L"=" + value + L", key=" + key_value + L", default: " + default_value);
+  }
   void dumpProperty(std::wstring key) {
-    std::wstring value = getPropery(key);
+    std::wstring value = getMsiPropery(key);
     logMessage(L" : +++ " + key + L"=" + value);
+  }
+
+  void setConfCanChange(bool can_change, std::wstring reason) {
+    std::wstring value = can_change ? L"1" : L"0";
+    setMsiProperty(INT_CONF_CAN_CHANGE, value);
+    setMsiProperty(INT_CONF_CAN_CHANGE_REASON, reason.c_str());
+  }
+
+  void setConfHasErrors(std::wstring reason) {
+    setMsiProperty(INT_CONF_HAS_ERRORS, L"1");
+    setConfCanChange(false, reason);
+  }
+  void setLastLog(std::wstring msg) {
+    logMessage(L"Last log: " + msg);
+    setMsiProperty(INT_LAST_LOG, msg);
+  }
+  void setError(std::wstring context, std::wstring msg) {
+    logMessage(L"Last log: " + msg);
+    setMsiProperty(INT_NSCP_ERROR, msg);
+    setMsiProperty(INT_NSCP_ERROR_CONTEXT, context);
   }
 
   MSIHANDLE createSimpleString(std::wstring msg) {
@@ -186,7 +213,7 @@ class msi_helper {
     ::MsiProcessMessage(hInstall_, INSTALLMESSAGE(INSTALLMESSAGE_INFO), hRecord);
   }
 
-  std::wstring getTempPath() { return getPropery(L"TempFolder"); }
+  std::wstring getTempPath() { return getMsiPropery(L"TempFolder"); }
 
   MSIHANDLE getActiveDatabase() {
     if (isNull(hDatabase)) hDatabase = ::MsiGetActiveDatabase(hInstall_);  // may return null if deferred CustomAction

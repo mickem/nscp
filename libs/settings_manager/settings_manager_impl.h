@@ -44,6 +44,7 @@ class NSCSettingsImpl : public settings::settings_handler_impl {
   bool context_exists(std::string key);
   bool create_context(const std::string &key);
   bool has_boot_conf();
+  void write_boot_ini_key(std::string section, std::string key, std::string value);
   void set_primary(std::string key);
   bool supports_edit(const std::string key);
 
@@ -62,7 +63,9 @@ bool init_settings(provider_interface *provider, const std::string &context = ""
 bool init_installer_settings(provider_interface *provider, const std::string &context, std::string tls_version, std::string tls_verify_mode,
                              std::string tls_ca);
 void change_context(const std::string &context);
+void set_boot_ini_primary(const std::string &context);
 bool has_boot_conf();
+void write_boot_ini_key(std::string section, std::string key, std::string value);
 bool context_exists(const std::string &key);
 bool create_context(std::string key);
 }  // namespace settings_manager

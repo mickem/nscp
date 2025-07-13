@@ -4,9 +4,32 @@ from os import path, makedirs
 from shutil import rmtree
 from configparser import ConfigParser
 import yaml
+from winreg import HKEY_LOCAL_MACHINE, OpenKey, DeleteKey, KEY_ALL_ACCESS, EnumKey
+
+def delete_registry_tree(root, subkey):
+    try:
+        with OpenKey(root, subkey, 0, KEY_ALL_ACCESS) as key:
+            # Delete all subkeys
+            i = 0
+            while True:
+                try:
+                    sub = EnumKey(key, i)
+                    delete_registry_tree(root, f"{subkey}\\{sub}")
+                except OSError:
+                    break
+                i += 1
+        DeleteKey(root, subkey)
+        print(f"- Registry key deleted: {subkey}")
+    except FileNotFoundError:
+        print(f"- Registry key not found, skipping deletion: {subkey}")
+    except OSError as e:
+        if e.errno == 13:
+            print(f"! Access denied to delete registry key {subkey}: {e}, {e.errno}")
+            return
+        print(f"! Failed to delete registry key {subkey}: {e}, {e.errno}")
+        raise e
 
 def ensure_uninstalled(msi_file, target_folder):
-
     uninstall = run(["msiexec", "/x", f"{msi_file}", "/q"])
     if uninstall.returncode == 1605:
         print("- No installation found, continuing with install.")
@@ -18,6 +41,9 @@ def ensure_uninstalled(msi_file, target_folder):
 
     print("- Killing any running NSClient++ processes.")
     taskkill = run(["taskkill", "/F", "/IM", "nscp.exe"])
+
+
+    delete_registry_tree(HKEY_LOCAL_MACHINE, r"Software\NSClient++")
 
     if path.exists(target_folder):
         print(f"- Removing folder: {target_folder}")

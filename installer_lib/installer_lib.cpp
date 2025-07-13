@@ -26,59 +26,9 @@
 
 #include <string>
 #include <nsclient/nsclient_exception.hpp>
+#include "keys.hpp"
 
 const UINT COST_SERVICE_INSTALL = 2000;
-
-#define NSCP_ERROR_CONTEXT L"NSCP_ERROR_CONTEXT"
-#define NSCP_ERROR L"NSCP_ERROR"
-#define LAST_LOG L"NSCP_LAST_LOG"
-#define CONF_CAN_CHANGE L"CONF_CAN_CHANGE"
-#define CONF_CAN_CHANGE_REASON L"CONF_CAN_CHANGE_REASON"
-#define CONF_HAS_ERRORS L"CONF_HAS_ERRORS"
-
-#define ALLOWED_HOSTS L"ALLOWED_HOSTS"
-#define NSCLIENT_PWD L"NSCLIENT_PWD"
-#define NSCLIENT_PWD_DEFAULT L"NSCLIENT_PWD_DEFAULT"
-#define CONF_SCHEDULER L"CONF_SCHEDULER"
-#define CONF_CHECKS L"CONF_CHECKS"
-#define CONF_NRPE L"CONF_NRPE"
-#define CONF_NSCA L"CONF_NSCA"
-#define CONF_WEB L"CONF_WEB"
-#define CONF_NSCLIENT L"CONF_NSCLIENT"
-#define NRPEMODE L"NRPEMODE"
-#define MONITORING_TOOL L"MONITORING_TOOL"
-#define MONITORING_TOOL_OP5 L"OP5"
-
-#define OP5_SERVER L"OP5_SERVER"
-#define OP5_USER L"OP5_USER"
-#define OP5_PASSWORD L"OP5_PASSWORD"
-#define OP5_HOSTGROUPS L"OP5_HOSTGROUPS"
-#define OP5_CONTACTGROUP L"OP5_CONTACTGROUP"
-
-#define BACKUP_FILE L"BACKUP_FILE"
-
-#define CONFIGURATION_TYPE L"CONFIGURATION_TYPE"
-#define CONF_INCLUDES L"CONF_INCLUDES"
-#define INSTALL_SAMPLE_CONFIG L"INSTALL_SAMPLE_CONFIG"
-#define GENERATE_SAMPLE_CONFIG L"GENERATE_SAMPLE_CONFIG"
-
-#define KEY L"KEY_"
-
-#define KEY_ALLOWED_HOSTS KEY ALLOWED_HOSTS
-#define KEY_NSCLIENT_PWD KEY NSCLIENT_PWD
-#define KEY_NSCLIENT_PWD_DEFAULT KEY NSCLIENT_PWD_DEFAULT
-#define KEY_CONF_SCHEDULER KEY CONF_SCHEDULER
-#define KEY_CONF_CHECKS KEY CONF_CHECKS
-#define KEY_CONF_NRPE KEY CONF_NRPE
-#define KEY_CONF_NSCA KEY CONF_NSCA
-#define KEY_CONF_WEB KEY CONF_WEB
-#define KEY_CONF_NSCLIENT KEY CONF_NSCLIENT
-#define KEY_NRPEMODE KEY NRPEMODE
-
-#define KEY_CONFIGURATION_TYPE KEY CONFIGURATION_TYPE
-#define KEY_CONF_INCLUDES KEY CONF_INCLUDES
-#define KEY_INSTALL_SAMPLE_CONFIG KEY INSTALL_SAMPLE_CONFIG
-#define KEY_GENERATE_SAMPLE_CONFIG KEY GENERATE_SAMPLE_CONFIG
 
 bool install(msi_helper &h, std::wstring exe, std::wstring service_short_name, std::wstring service_long_name, std::wstring service_description,
              std::wstring service_deps);
@@ -126,7 +76,7 @@ class msi_logger : public nsclient::logging::logger {
   void do_log(const std::string data) {
     std::wstring str = utf8::cvt<std::wstring>(data);
     if (str.empty()) return;
-    h->setProperty(LAST_LOG, str);
+    h->setLastLog(str);
     if (boost::algorithm::starts_with(str, L"error:")) {
       h->errorMessage(str);
       if (!error_.empty()) error_ += L"\n";
@@ -213,10 +163,11 @@ std::wstring genpwd(const int len) {
   return ret;
 }
 
-bool has_mod(std::string key) {
+bool mod_enabled(std::string key) {
   std::string val = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, key, "0");
   return val == "enabled" || val == "1";
 }
+bool has_module(std::string key) { return settings_manager::get_settings()->has_key(MAIN_MODULES_SECTION, key); }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Many options:
@@ -248,28 +199,15 @@ std::wstring read_map_data(msi_helper &h) {
 
 void dump_config(msi_helper &h, std::wstring title) {
   h.dumpReason(title);
-  h.dumpProperty(KEY_ALLOWED_HOSTS);
-  h.dumpProperty(KEY_NSCLIENT_PWD);
-  h.dumpProperty(KEY_NSCLIENT_PWD_DEFAULT);
-  h.dumpProperty(KEY_CONF_SCHEDULER);
-  h.dumpProperty(KEY_CONF_CHECKS);
-  h.dumpProperty(KEY_CONF_NRPE);
-  h.dumpProperty(KEY_CONF_NSCA);
-  h.dumpProperty(KEY_CONF_WEB);
-  h.dumpProperty(KEY_CONF_NSCLIENT);
-  h.dumpProperty(KEY_NRPEMODE);
-
-  h.dumpProperty(KEY_CONFIGURATION_TYPE);
-  h.dumpProperty(KEY_CONF_INCLUDES);
-  h.dumpProperty(KEY_INSTALL_SAMPLE_CONFIG);
-  h.dumpProperty(KEY_GENERATE_SAMPLE_CONFIG);
-
-  h.dumpProperty(CONF_CAN_CHANGE);
-  h.dumpProperty(CONF_CAN_CHANGE_REASON);
-  h.dumpProperty(NSCP_ERROR);
-  h.dumpProperty(NSCP_ERROR_CONTEXT);
-
+  for (const auto key :
+       {ALLOWED_HOSTS, NSCLIENT_PWD, CONF_SCHEDULER, CONF_CHECKS, CONF_NRPE, CONF_NSCA, CONF_WEB, CONF_NSCLIENT, NRPEMODE, CONFIGURATION_TYPE, CONF_INCLUDES}) {
+    h.dumpProperties(key);
+  }
   h.dumpProperty(BACKUP_FILE);
+  h.dumpProperty(INT_CONF_CAN_CHANGE);
+  h.dumpProperty(INT_CONF_CAN_CHANGE_REASON);
+  h.dumpProperty(INT_NSCP_ERROR);
+  h.dumpProperty(INT_NSCP_ERROR_CONTEXT);
 }
 
 extern "C" UINT __stdcall DetectTool(MSIHANDLE hInstall) {
@@ -277,10 +215,10 @@ extern "C" UINT __stdcall DetectTool(MSIHANDLE hInstall) {
 
   try {
     h.logMessage("Detecting monitoring tool config");
-    if (!boost::algorithm::trim_copy(h.getPropery(OP5_SERVER)).empty()) {
-      h.setProperty(MONITORING_TOOL, MONITORING_TOOL_OP5);
+    if (!boost::algorithm::trim_copy(h.getMsiPropery(OP5_SERVER)).empty()) {
+      h.setPropertyValue(MONITORING_TOOL, MONITORING_TOOL_OP5);
     }
-    std::wstring tool = h.getPropery(MONITORING_TOOL);
+    std::wstring tool = h.getMsiPropery(MONITORING_TOOL);
     h.logMessage(L"Detected monitoring tool is: " + tool);
     dump_config(h, L"After DetectTool");
   } catch (installer_exception &e) {
@@ -302,62 +240,42 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
     dump_config(h, L"Before ApplyTool");
 
     h.logMessage("Applying monitoring tool config");
-    std::wstring tool = h.getPropery(MONITORING_TOOL);
-    h.logMessage(L"Monitoring tool is: " + tool);
+    std::wstring tool = h.getMsiPropery(MONITORING_TOOL);
 
     if (tool == MONITORING_TOOL_OP5) {
-      h.setPropertyAndDefault(KEY_NSCLIENT_PWD, L"", L"");
-      h.setProperty(KEY_NSCLIENT_PWD_DEFAULT, L"");
-      h.setPropertyAndDefault(KEY_CONF_CHECKS, L"1", L"");
-      h.setPropertyAndDefault(KEY_CONF_NRPE, L"1", L"");
-      h.setPropertyAndDefault(KEY_CONF_NSCA, L"1", L"");
-      h.setPropertyAndDefault(KEY_CONF_WEB, L"", L"");
-      h.setPropertyAndDefault(KEY_CONF_NSCLIENT, L"1", L"");
-      h.setPropertyAndDefault(KEY_NRPEMODE, L"LEGACY", L"");
+      h.logMessage(L"Setting base config as Op5");
+      h.setPropertyKeyAndDefault(NSCLIENT_PWD, L"", L"");
+      h.setPropertyKeyAndDefault(CONF_CHECKS, L"1", L"");
+      h.setPropertyKeyAndDefault(CONF_NRPE, L"1", L"");
+      h.setPropertyKeyAndDefault(CONF_NSCA, L"1", L"");
+      h.setPropertyKeyAndDefault(CONF_WEB, L"", L"");
+      h.setPropertyKeyAndDefault(CONF_NSCLIENT, L"1", L"");
+      h.setPropertyKeyAndDefault(NRPEMODE, L"LEGACY", L"");
 
-      h.setProperty(CONF_CAN_CHANGE, L"1");
-      h.setProperty(KEY_CONF_INCLUDES, L"op5;op5.ini");
-      h.setProperty(KEY_INSTALL_SAMPLE_CONFIG, L"");
-      h.setProperty(KEY_GENERATE_SAMPLE_CONFIG, L"");
-      h.setProperty(KEY_CONFIGURATION_TYPE, L"registry://HKEY_LOCAL_MACHINE/software/NSClient++");
+      h.setPropertyKeyAndDefault(CONF_INCLUDES, L"op5;op5.ini", L"");
+      h.setPropertyKeyAndDefault(CONFIGURATION_TYPE, L"registry://HKEY_LOCAL_MACHINE/software/NSClient++", L"");
       h.setFeatureLocal(L"OP5Montoring");
+      h.setConfCanChange(true, L"Op5 applied");
     } else if (tool == L"GENERIC") {
-      h.setPropertyAndDefault(KEY_ALLOWED_HOSTS, L"127.0.0.1", L"");
+      h.logMessage(L"Setting base config as Generic");
+      h.setPropertyKeyAndDefault(ALLOWED_HOSTS, L"127.0.0.1", L"");
 
-      h.setPropertyAndDefault(KEY_NSCLIENT_PWD, genpwd(16), L"");
-      h.setPropertyAndDefault(KEY_CONF_CHECKS, L"1", L"");
-      h.setPropertyAndDefault(KEY_CONF_NRPE, L"1", L"");
-      h.setPropertyAndDefault(KEY_CONF_NSCA, L"", L"");
-      h.setPropertyAndDefault(KEY_CONF_WEB, L"1", L"");
-      h.setPropertyAndDefault(KEY_CONF_NSCLIENT, L"", L"");
-      h.setPropertyAndDefault(KEY_NRPEMODE, L"SECURE", L"");
+      h.setPropertyKeyAndDefault(NSCLIENT_PWD, genpwd(16), L"");
+      h.setPropertyKeyAndDefault(CONF_CHECKS, L"1", L"");
+      h.setPropertyKeyAndDefault(CONF_NRPE, L"1", L"");
+      h.setPropertyKeyAndDefault(CONF_NSCA, L"", L"");
+      h.setPropertyKeyAndDefault(CONF_WEB, L"1", L"");
+      h.setPropertyKeyAndDefault(CONF_NSCLIENT, L"", L"");
+      h.setPropertyKeyAndDefault(NRPEMODE, L"SECURE", L"");
 
-      h.setProperty(CONF_CAN_CHANGE, L"1");
-      h.setProperty(KEY_CONF_INCLUDES, L"");
-      h.setProperty(KEY_INSTALL_SAMPLE_CONFIG, L"");
-      h.setProperty(KEY_GENERATE_SAMPLE_CONFIG, L"");
-      h.setProperty(KEY_CONFIGURATION_TYPE, L"ini://${shared-path}/nsclient.ini");
+      h.setPropertyKeyAndDefault(CONF_INCLUDES, L"", L"");
+      h.setPropertyKeyAndDefault(CONFIGURATION_TYPE, L"ini://${shared-path}/nsclient.ini", L"");
       h.setFeatureAbsent(L"OP5Montoring");
+      h.setConfCanChange(true, L"Generic applied");
     }
 
-    h.applyProperty(KEY_ALLOWED_HOSTS, ALLOWED_HOSTS);
-    h.applyProperty(KEY_NSCLIENT_PWD, NSCLIENT_PWD);
-    h.applyProperty(KEY_NSCLIENT_PWD_DEFAULT, NSCLIENT_PWD_DEFAULT);
-    h.applyProperty(KEY_CONF_SCHEDULER, CONF_SCHEDULER);
-    h.applyProperty(KEY_CONF_CHECKS, CONF_CHECKS);
-    h.applyProperty(KEY_CONF_NRPE, CONF_NRPE);
-    h.applyProperty(KEY_CONF_NSCA, CONF_NSCA);
-    h.applyProperty(KEY_CONF_WEB, CONF_WEB);
-    h.applyProperty(KEY_CONF_NSCLIENT, CONF_NSCLIENT);
-    h.applyProperty(KEY_NRPEMODE, NRPEMODE);
-
-    h.applyProperty(KEY_CONFIGURATION_TYPE, CONFIGURATION_TYPE);
-    h.applyProperty(KEY_CONF_INCLUDES, CONF_INCLUDES);
-    h.applyProperty(KEY_INSTALL_SAMPLE_CONFIG, INSTALL_SAMPLE_CONFIG);
-    h.applyProperty(KEY_GENERATE_SAMPLE_CONFIG, GENERATE_SAMPLE_CONFIG);
-
-    h.setPropertyIfEmpty(CONF_CAN_CHANGE, L"1");
-    h.setPropertyIfEmpty(KEY_CONFIGURATION_TYPE, L"ini://${shared-path}/nsclient.ini");
+    h.setConfCanChange(true, L"Default config set from profile");
+    h.setPropertyIfEmpty(CONFIGURATION_TYPE, L"ini://${shared-path}/nsclient.ini");
 
     dump_config(h, L"After ApplyTool");
 
@@ -377,11 +295,10 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
     dump_config(h, L"Before ImportConfig");
 
     std::wstring target = h.getTargetPath(L"INSTALLLOCATION");
-    std::wstring allow = h.getPropery(L"ALLOW_CONFIGURATION");
 
-    std::string tls_version = utf8::cvt<std::string>(h.getPropery(L"TLS_VERSION"));
-    std::string tls_verify_mode = utf8::cvt<std::string>(h.getPropery(L"TLS_VERIFY_MODE"));
-    std::string tls_ca = utf8::cvt<std::string>(h.getPropery(L"TLS_CA"));
+    std::string tls_version = utf8::cvt<std::string>(h.getMsiPropery(L"TLS_VERSION"));
+    std::string tls_verify_mode = utf8::cvt<std::string>(h.getMsiPropery(L"TLS_VERIFY_MODE"));
+    std::string tls_ca = utf8::cvt<std::string>(h.getMsiPropery(L"TLS_CA"));
     if (tls_version.empty()) {
       tls_version = "1.3";
     }
@@ -393,33 +310,23 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
     }
 
     std::wstring map_data = read_map_data(h);
-    if (allow == L"0") {
-      h.setProperty(NSCP_ERROR, L"Configuration is not allowed to change");
-      h.logMessage(L"Configuration not allowed: " + allow);
-      h.setProperty(NSCP_ERROR_CONTEXT, L"ImportConfig::1");
-      h.setProperty(CONF_CAN_CHANGE, L"0");
-      h.setProperty(CONF_CAN_CHANGE_REASON, L"Changes are not allowed");
-      h.setProperty(CONF_HAS_ERRORS, L"0");
+    if (h.getMsiPropery(ALLOW_CONFIGURATION) == L"0") {
+      h.setError(L"ImportConfig::1", L"Configuration is not allowed to change");
+      h.setConfCanChange(false, L"Changes are not allowed");
       dump_config(h, L"After ImportConfig");
       return ERROR_SUCCESS;
     }
 
-    if (!boost::filesystem::is_directory(utf8::cvt<std::string>(target))) {
-      h.setProperty(NSCP_ERROR, L"Configuration not found: " + target);
-      h.logMessage(L"Target folder not found: " + target);
-      h.setProperty(CONF_CAN_CHANGE, L"1");
-      h.setProperty(CONF_HAS_ERRORS, L"0");
-      dump_config(h, L"After ImportConfig");
-      return ERROR_SUCCESS;
-    }
+    auto wanted_context = h.getProperyValue(CONFIGURATION_TYPE);
+    auto default_context = h.getProperyKey(CONFIGURATION_TYPE);
+    auto context = wanted_context.empty() ? default_context : wanted_context;
+    h.logMessage(L"Reading existing config using: " + context);
+
     installer_settings_provider provider(&h, target, map_data);
-    if (!settings_manager::init_installer_settings(&provider, "", tls_version, tls_verify_mode, tls_ca)) {
-      h.setProperty(NSCP_ERROR, L"Settings context had fatal errors");
-      h.logMessage(L"Settings context had fatal errors");
-      h.setProperty(NSCP_ERROR_CONTEXT, L"ImportConfig::init_installer_settings");
-      h.setProperty(CONF_CAN_CHANGE, L"0");
-      h.setProperty(CONF_CAN_CHANGE_REASON, L"Failed to load existing configuration");
-      h.setProperty(CONF_HAS_ERRORS, L"1");
+    if (!settings_manager::init_installer_settings(&provider, utf8::cvt<std::string>(context), tls_version, tls_verify_mode, tls_ca)) {
+      h.setError(L"ImportConfig::init_installer_settings", L"Settings context had fatal errors");
+      h.setConfHasErrors(L"Failed to load existing configuration");
+      dump_config(h, L"After ImportConfig");
       return ERROR_SUCCESS;
     }
     if (provider.has_errors()) {
@@ -431,126 +338,135 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
       if (!settings_manager::has_boot_conf()) {
         h.logMessage(L"boot.conf was NOT found (so no new configuration)");
         if (settings_manager::context_exists(DEFAULT_CONF_OLD_LOCATION)) {
-          h.logMessage("Old configuration found: " DEFAULT_CONF_OLD_LOCATION);
-          h.setProperty(NSCP_ERROR, std::wstring(L"Old configuration (") + utf8::cvt<std::wstring>(DEFAULT_CONF_OLD_LOCATION) +
-                                   L") was found but we got errors accessing it: " + provider.get_error());
-          h.setProperty(NSCP_ERROR_CONTEXT, L"ImportConfig::has_boot_conf");
-          h.setProperty(CONF_CAN_CHANGE, L"0");
-          h.setProperty(CONF_CAN_CHANGE_REASON, L"Errors reading old configuration");
-          h.setProperty(CONF_HAS_ERRORS, L"1");
+          h.setError(L"ImportConfig::has_boot_conf", std::wstring(L"Old configuration (") + utf8::cvt<std::wstring>(DEFAULT_CONF_OLD_LOCATION) +
+                                                         L") was found but we got errors accessing it: " + provider.get_error());
+          h.setConfHasErrors(L"Errors reading old configuration");
           dump_config(h, L"After ImportConfig");
           return ERROR_SUCCESS;
         } else {
           h.logMessage(L"Failed to read configuration but no configuration was found (so we are assuming there is no configuration).");
-          h.setProperty(CONF_CAN_CHANGE, L"1");
-          h.setProperty(CONF_HAS_ERRORS, L"0");
+          h.setConfCanChange(true, L"Why do we ignore erros here?");
           dump_config(h, L"After ImportConfig");
           return ERROR_SUCCESS;
         }
       } else {
-        h.logMessage(L"boot.conf was found but we got errors booting it...");
-        h.setProperty(NSCP_ERROR, provider.get_error());
-        h.setProperty(NSCP_ERROR_CONTEXT, L"ImportConfig::has_errors");
-        h.setProperty(CONF_CAN_CHANGE, L"0");
-        h.setProperty(CONF_CAN_CHANGE_REASON, L"Errors during read config");
-        h.setProperty(CONF_HAS_ERRORS, L"1");
+        h.setError(L"ImportConfig::has_errors", L"boot.conf was found but we got errors booting it: " + provider.get_error());
+        h.setConfHasErrors(L"Errors during read config");
         dump_config(h, L"After ImportConfig");
         return ERROR_SUCCESS;
       }
     }
-    h.setProperty(KEY_CONFIGURATION_TYPE, utf8::cvt<std::wstring>(settings_manager::get_settings()->get_context()));
-    h.logMessage("CONFIGURATION_TYPE=" + settings_manager::get_settings()->get_context());
-    h.logMessage("CONFIGURATION_TYPE=" + settings_manager::get_settings()->get_info());
+
+    h.logMessage(L"Previous configuration loaded correctly...");
+
+    auto actual_context = utf8::cvt<std::wstring>(settings_manager::get_settings()->get_context());
+    h.setPropertyKeyAndDefault(CONFIGURATION_TYPE, actual_context, actual_context);
+    h.logMessage(L"Existing configuration: " + actual_context + L", " + utf8::cvt<std::wstring>(settings_manager::get_settings()->get_info()));
     if (!settings_manager::get_settings()->supports_updates()) {
       h.errorMessage(L"Updates not supported");
-      h.setProperty(CONF_CAN_CHANGE_REASON, L"Using a settings system which do no support updates by installer");
-      h.setProperty(CONF_CAN_CHANGE, L"0");
-      h.setProperty(CONF_HAS_ERRORS, L"0");
+      h.setConfCanChange(false, L"Using a settings system which do no support updates by installer");
       return ERROR_SUCCESS;
     }
+    if (!settings_manager::get_core()->supports_updates()) {
+      h.errorMessage(L"Using a settings wtore which cannot be updated by installer");
+      h.setConfCanChange(false, L"Settings store does not support updates by installer");
+      return ERROR_SUCCESS;
+    }
+
     if (settings_manager::get_core()->use_sensitive_keys()) {
       h.errorMessage(L"Using sensitive keys");
-      h.setProperty(CONF_CAN_CHANGE_REASON, L"Senstive keys cannot be updated by installer");
-      h.setProperty(CONF_CAN_CHANGE, L"0");
-      h.setProperty(CONF_HAS_ERRORS, L"0");
+      h.setConfCanChange(false, L"Senstive keys cannot be updated by installer");
       return ERROR_SUCCESS;
     }
 
-    h.errorMessage(L"All good");
-    h.setProperty(CONF_CAN_CHANGE, L"1");
-    h.setProperty(CONF_HAS_ERRORS, L"0");
+    h.logMessage(L"Configuration seems updatable...");
 
-    auto old_allowed_hosts = utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "allowed hosts", ""));
-    h.setPropertyAndDefault(KEY_ALLOWED_HOSTS, old_allowed_hosts, old_allowed_hosts);
-    auto old_password = utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "password", ""));
-    h.setPropertyAndDefault(KEY_NSCLIENT_PWD, old_password, old_password);
+    h.setConfCanChange(true, L"Configuration seems good");
 
-    h.setPropertyAndDefaultBool(KEY_CONF_NRPE, has_mod("NRPEServer"));
-    h.setPropertyAndDefaultBool(KEY_CONF_SCHEDULER, has_mod("Scheduler"));
-    h.setPropertyAndDefaultBool(KEY_CONF_NSCA, has_mod("NSCAClient"));
-    h.setPropertyAndDefaultBool(KEY_CONF_NSCLIENT, has_mod("NSClientServer"));
-    h.setPropertyAndDefaultBool(KEY_CONF_WEB, has_mod("WEBServer"));
+    h.logMessage(L"Applying old keys (as default values)...");
 
-    std::string insecure = settings_manager::get_settings()->get_string("/settings/NRPE/server", "insecure", "");
-    std::string verify = settings_manager::get_settings()->get_string("/settings/NRPE/server", "verify mode", "");
-    h.logMessage(L"insecure: " + utf8::cvt<std::wstring>(insecure));
-    h.logMessage(L"verify: " + utf8::cvt<std::wstring>(verify));
-    if (insecure == "true" || insecure == "1")
-      h.setPropertyAndDefault(KEY_NRPEMODE, L"LEGACY", L"");
-    else if (verify == "peer-cert")
-      h.setPropertyAndDefault(KEY_NRPEMODE, L"SECURE", L"");
-    else
-      h.logMessage(L"NRPEMODE: " + h.getPropery(KEY_NRPEMODE));
+    if (settings_manager::get_settings()->has_key("/settings/default", "allowed hosts")) {
+      auto old_allowed_hosts = utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "allowed hosts", ""));
+      h.setPropertyKeyAndDefault(ALLOWED_HOSTS, old_allowed_hosts, old_allowed_hosts);
+    }
+    if (settings_manager::get_settings()->has_key("/settings/default", "password")) {
+      auto old_password = utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "password", ""));
+      h.setPropertyKeyAndDefault(NSCLIENT_PWD, old_password, old_password);
+    }
 
-    h.setPropertyAndDefaultBool(KEY_CONF_CHECKS, has_mod("CheckSystem") && has_mod("CheckDisk") && has_mod("CheckEventLog") && has_mod("CheckHelpers") &&
-                                                     has_mod("CheckExternalScripts") && has_mod("CheckNSCP"));
+    if (has_module("NRPEServer")) {
+      h.setPropertyKeyAndDefaultBool(CONF_NRPE, mod_enabled("NRPEServer"));
+    }
+    if (has_module("Scheduler")) {
+      h.setPropertyKeyAndDefaultBool(CONF_SCHEDULER, mod_enabled("Scheduler"));
+    }
+    if (has_module("NSCAClient")) {
+      h.setPropertyKeyAndDefaultBool(CONF_NSCA, mod_enabled("NSCAClient"));
+    }
+    if (has_module("NSClientServer")) {
+      h.setPropertyKeyAndDefaultBool(CONF_NSCLIENT, mod_enabled("NSClientServer"));
+    }
+    if (has_module("WEBServer")) {
+      h.setPropertyKeyAndDefaultBool(CONF_WEB, mod_enabled("WEBServer"));
+    }
+
+    if (settings_manager::get_settings()->has_key("/settings/NRPE/server", "insecure") ||
+        settings_manager::get_settings()->has_key("/settings/NRPE/server", "verify mode")) {
+      std::string insecure = settings_manager::get_settings()->get_string("/settings/NRPE/server", "insecure", "");
+      std::string verify = settings_manager::get_settings()->get_string("/settings/NRPE/server", "verify mode", "");
+      h.logMessage(L"Old NRPE insecure: " + utf8::cvt<std::wstring>(insecure));
+      h.logMessage(L"Old NRPE verify: " + utf8::cvt<std::wstring>(verify));
+      if (insecure == "true" || insecure == "1") {
+        h.logMessage("Setting old NRPE mode legacy");
+        h.setPropertyKeyAndDefault(NRPEMODE, L"LEGACY", L"");
+      } else if (verify == "peer-cert") {
+        h.logMessage("Setting old NRPE mode secure");
+        h.setPropertyKeyAndDefault(NRPEMODE, L"SECURE", L"");
+      } else {
+        h.logMessage(L"Unknown old NRPE mode: " + h.getProperyKey(NRPEMODE));
+      }
+    }
+
+    if (has_module("CheckSystem") || has_module("CheckDisk") || has_module("CheckEventLog") || has_module("CheckHelpers") ||
+        has_module("CheckExternalScripts") || has_module("CheckNSCP")) {
+      h.setPropertyKeyAndDefaultBool(CONF_CHECKS, mod_enabled("CheckSystem") && mod_enabled("CheckDisk") && mod_enabled("CheckEventLog") &&
+                                                      mod_enabled("CheckHelpers") && mod_enabled("CheckExternalScripts") && mod_enabled("CheckNSCP"));
+    }
+
+    h.logMessage(L"Old keys applied");
     settings_manager::destroy_settings();
 
-    h.applyProperty(KEY_ALLOWED_HOSTS, ALLOWED_HOSTS);
-    h.applyProperty(KEY_NSCLIENT_PWD, NSCLIENT_PWD);
-    h.applyProperty(KEY_NSCLIENT_PWD_DEFAULT, NSCLIENT_PWD_DEFAULT);
-    h.applyProperty(KEY_CONF_SCHEDULER, CONF_SCHEDULER);
-    h.applyProperty(KEY_CONF_CHECKS, CONF_CHECKS);
-    h.applyProperty(KEY_CONF_NRPE, CONF_NRPE);
-    h.applyProperty(KEY_CONF_NSCA, CONF_NSCA);
-    h.applyProperty(KEY_CONF_WEB, CONF_WEB);
-    h.applyProperty(KEY_CONF_NSCLIENT, CONF_NSCLIENT);
-    h.applyProperty(KEY_NRPEMODE, NRPEMODE);
+    h.logMessage(L"Determaining which keys have changed");
+    h.applyPropertyValue(ALLOWED_HOSTS);
+    h.applyPropertyValue(NSCLIENT_PWD);
+    h.applyPropertyValue(CONF_SCHEDULER);
+    h.applyPropertyValue(CONF_CHECKS);
+    h.applyPropertyValue(CONF_NRPE);
+    h.applyPropertyValue(CONF_NSCA);
+    h.applyPropertyValue(CONF_WEB);
+    h.applyPropertyValue(CONF_NSCLIENT);
+    h.applyPropertyValue(NRPEMODE);
 
-    h.applyProperty(KEY_CONFIGURATION_TYPE, CONFIGURATION_TYPE);
-    h.applyProperty(KEY_CONF_INCLUDES, CONF_INCLUDES);
-    h.applyProperty(KEY_INSTALL_SAMPLE_CONFIG, INSTALL_SAMPLE_CONFIG);
-    h.applyProperty(KEY_GENERATE_SAMPLE_CONFIG, GENERATE_SAMPLE_CONFIG);
+    h.applyPropertyValue(CONFIGURATION_TYPE);
+    h.applyPropertyValue(CONF_INCLUDES);
 
     dump_config(h, L"After ImportConfig");
 
   } catch (installer_exception &e) {
-    h.setProperty(NSCP_ERROR, L"Failed to read old configuration file: " + e.what());
-    h.logMessage(L"Failed to read old configuration file: " + e.what());
-    h.setProperty(NSCP_ERROR_CONTEXT, L"ImportConfig::e1");
-    h.setProperty(CONF_CAN_CHANGE, L"0");
-    h.setProperty(CONF_HAS_ERRORS, L"1");
+    h.setError(L"ImportConfig::e1", L"Failed to read old configuration file: " + e.what());
+    h.setConfHasErrors(L"Failed to read old configuration file");
     return ERROR_SUCCESS;
   } catch (nsclient::nsclient_exception &e) {
-    h.setProperty(NSCP_ERROR, L"Failed to read old configuration file: " + utf8::cvt<std::wstring>(e.what()));
-    h.logMessage(L"Failed to read old configuration file: " + utf8::cvt<std::wstring>(e.what()));
-    h.setProperty(NSCP_ERROR_CONTEXT, L"ImportConfig::e2");
-    h.setProperty(CONF_CAN_CHANGE, L"0");
-    h.setProperty(CONF_HAS_ERRORS, L"1");
+    h.setError(L"ImportConfig::e2", L"Failed to read old configuration file: " + utf8::cvt<std::wstring>(e.what()));
+    h.setConfHasErrors(L"Failed to read old configuration file");
     return ERROR_SUCCESS;
   } catch (std::exception &e) {
-    h.setProperty(NSCP_ERROR, L"Failed to read old configuration file: " + utf8::cvt<std::wstring>(e.what()));
-    h.logMessage(L"Failed to read old configuration file: " + utf8::cvt<std::wstring>(e.what()));
-    h.setProperty(NSCP_ERROR_CONTEXT, L"ImportConfig::e3");
-    h.setProperty(CONF_CAN_CHANGE, L"0");
-    h.setProperty(CONF_HAS_ERRORS, L"1");
+    h.setError(L"ImportConfig::e3", L"Failed to read old configuration file: " + utf8::cvt<std::wstring>(e.what()));
+    h.setConfHasErrors(L"Failed to read old configuration file");
     return ERROR_SUCCESS;
   } catch (...) {
-    h.setProperty(NSCP_ERROR, L"Failed to read old configuration file: <Unknown exception>");
-    h.logMessage(L"Failed to read old configuration file: <Unknown exception>");
-    h.setProperty(NSCP_ERROR_CONTEXT, L"ImportConfig::e4");
-    h.setProperty(CONF_CAN_CHANGE, L"0");
-    h.setProperty(CONF_HAS_ERRORS, L"1");
+    h.setError(L"ImportConfig::e4", L"Failed to read old configuration file: <Unknown exception>");
+    h.setConfHasErrors(L"Failed to read old configuration file");
     return ERROR_SUCCESS;
   }
   return ERROR_SUCCESS;
@@ -577,7 +493,7 @@ void write_key_mod(msi_helper &h, msi_helper::custom_action_data_w &data, int mo
 }
 
 void write_changed_key(msi_helper &h, msi_helper::custom_action_data_w &data, std::wstring prop, std::wstring path, std::wstring key) {
-  std::wstring val = h.getPropery(prop);
+  std::wstring val = h.getProperyKey(prop);
   if (!h.propertyNotDefault(prop)) {
     h.logMessage(L"IGNORING property not changed: " + prop + L"; " + path + L"." + key + L"=" + val);
     return;
@@ -587,7 +503,7 @@ void write_changed_key(msi_helper &h, msi_helper::custom_action_data_w &data, st
 }
 
 void write_changed_key_mod(msi_helper &h, msi_helper::custom_action_data_w &data, std::wstring prop, std::wstring key) {
-  std::wstring val = h.getPropery(prop);
+  std::wstring val = h.getProperyKey(prop);
   if (!h.propertyNotDefault(prop)) {
     h.logMessage(L"write_changed_key_mod: IGNORING property not changed: " + prop + L"; <modules>." + key + L"=" + val);
     return;
@@ -597,7 +513,7 @@ void write_changed_key_mod(msi_helper &h, msi_helper::custom_action_data_w &data
 }
 
 bool write_property_if_set(msi_helper &h, msi_helper::custom_action_data_w &data, const std::wstring prop, std::wstring path, std::wstring key) {
-  std::wstring val = boost::algorithm::trim_copy(h.getPropery(prop));
+  std::wstring val = boost::algorithm::trim_copy(h.getProperyKey(prop));
   if (!val.empty()) {
     h.logMessage(L"write_property_if_set: " + prop + L"; <modules>." + key + L"=" + val);
     write_key(h, data, 1, path, key, val);
@@ -613,7 +529,7 @@ extern "C" UINT __stdcall BackupConfig(MSIHANDLE hInstall) {
   try {
     dump_config(h, L"Before BackupConfig");
 
-    if (h.getPropery(CONF_CAN_CHANGE) != L"1") {
+    if (h.getMsiPropery(INT_CONF_CAN_CHANGE) != L"1") {
       h.logMessage(L"Configuration changes not allowed: set CONF_CAN_CHANGE=1");
       return ERROR_SUCCESS;
     }
@@ -626,7 +542,7 @@ extern "C" UINT __stdcall BackupConfig(MSIHANDLE hInstall) {
       h.logMessage(L"Config file found: " + config_file.wstring());
       h.logMessage(L"Backup file: " + backup.wstring());
       copy_file(h, config_file.wstring(), backup.wstring());
-      h.setProperty(BACKUP_FILE, backup.wstring());
+      h.setPropertyValue(BACKUP_FILE, backup.wstring());
     }
 
   } catch (installer_exception &e) {
@@ -643,11 +559,6 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
   try {
     dump_config(h, L"Before ScheduleWriteConfig");
 
-    if (h.getPropery(CONF_CAN_CHANGE) != L"1") {
-      h.logMessage(L"Configuration changes not allowed: set CONF_CAN_CHANGE=1");
-      return ERROR_SUCCESS;
-    }
-
     std::wstring target = h.getTargetPath(L"INSTALLLOCATION");
     boost::filesystem::wpath backup = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
     boost::filesystem::wpath target_path = target;
@@ -655,12 +566,34 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
 
     msi_helper::custom_action_data_w data;
     data.write_string(h.getTargetPath(L"INSTALLLOCATION"));
-    data.write_string(h.getPropery(KEY_CONFIGURATION_TYPE));
-    data.write_string(h.getPropery(L"RESTORE_FILE"));
-    data.write_string(h.getPropery(BACKUP_FILE));
-    data.write_int(h.getPropery(L"ADD_DEFAULTS") == L"1" ? 1 : 0);
+    data.write_string(h.getProperyKey(CONFIGURATION_TYPE));
+    data.write_string(h.getMsiPropery(L"RESTORE_FILE"));
+    data.write_string(h.getMsiPropery(BACKUP_FILE));
 
-    std::wstring confInclude = h.getPropery(KEY_CONF_INCLUDES);
+    data.write_string(h.getMsiPropery(L"TLS_VERSION"));
+    data.write_string(h.getMsiPropery(L"TLS_VERIFY_MODE"));
+    data.write_string(h.getMsiPropery(L"TLS_CA"));
+
+    if (h.getMsiPropery(INT_CONF_CAN_CHANGE) != L"1") {
+      h.logMessage(L"Configuration changes not allowed (only updating boot.ini): set CONF_CAN_CHANGE=1");
+      data.write_int(0);
+
+      if (data.has_data()) {
+        h.logMessage(L"Scheduling (ExecWriteConfig): " + data.to_string());
+        HRESULT hr = h.do_deferred_action(L"ExecWriteConfig", data, 1000);
+        if (FAILED(hr)) {
+          h.errorMessage(L"failed to schedule config update");
+          return hr;
+        }
+      }
+
+      return ERROR_SUCCESS;
+    } else {
+      h.logMessage(L"Configuration changes allowed (updating boot.ini)");
+      data.write_int(1);
+    }
+
+    std::wstring confInclude = h.getProperyKey(CONF_INCLUDES);
     h.logMessage(L"Adding include: " + confInclude);
     if (!confInclude.empty()) {
       std::vector<std::wstring> lst;
@@ -671,15 +604,15 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
       }
     }
 
-    write_changed_key_mod(h, data, KEY_CONF_NRPE, L"NRPEServer");
-    write_changed_key_mod(h, data, KEY_CONF_SCHEDULER, L"Scheduler");
-    write_changed_key_mod(h, data, KEY_CONF_NSCA, L"NSCAClient");
-    write_changed_key_mod(h, data, KEY_CONF_NSCLIENT, L"NSClientServer");
-    write_changed_key_mod(h, data, L"CONF_WMI", L"CheckWMI");
-    write_changed_key_mod(h, data, KEY_CONF_WEB, L"WEBServer");
+    write_changed_key_mod(h, data, CONF_NRPE, L"NRPEServer");
+    write_changed_key_mod(h, data, CONF_SCHEDULER, L"Scheduler");
+    write_changed_key_mod(h, data, CONF_NSCA, L"NSCAClient");
+    write_changed_key_mod(h, data, CONF_NSCLIENT, L"NSClientServer");
+    write_changed_key_mod(h, data, CONF_WMI, L"CheckWMI");
+    write_changed_key_mod(h, data, CONF_WEB, L"WEBServer");
 
-    if (h.propertyNotDefault(KEY_CONF_CHECKS)) {
-      std::wstring modval = h.getPropery(KEY_CONF_CHECKS);
+    if (h.propertyNotDefault(CONF_CHECKS)) {
+      std::wstring modval = h.getProperyKey(CONF_CHECKS);
       if (modval == L"1") {
         modval = L"enabled";
       } else {
@@ -692,9 +625,9 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
       write_key_mod(h, data, 1, L"CheckExternalScripts", modval);
       write_key_mod(h, data, 1, L"CheckNSCP", modval);
     }
-    if (h.getPropery(KEY_CONF_NRPE) == L"1") {
-      if (h.propertyNotDefault(KEY_NRPEMODE)) {
-        std::wstring mode = h.getPropery(KEY_NRPEMODE);
+    if (h.getProperyKey(CONF_NRPE) == L"1") {
+      if (h.propertyNotDefault(NRPEMODE)) {
+        std::wstring mode = h.getProperyKey(NRPEMODE);
         write_key(h, data, 1, L"/settings/NRPE/server", L"ssl options", L"");
         write_key(h, data, 1, L"/settings/NRPE/server", L"tls version", L"tlsv1.2+");
         if (mode == L"LEGACY") {
@@ -708,10 +641,10 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
     }
 
     std::wstring defpath = L"/settings/default";
-    write_changed_key(h, data, KEY_ALLOWED_HOSTS, defpath, L"allowed hosts");
-    write_changed_key(h, data, KEY_NSCLIENT_PWD, defpath, L"password");
+    write_changed_key(h, data, ALLOWED_HOSTS, defpath, L"allowed hosts");
+    write_changed_key(h, data, NSCLIENT_PWD, defpath, L"password");
 
-    std::wstring confSet = h.getPropery(L"CONF_SET");
+    std::wstring confSet = h.getMsiPropery(L"CONF_SET");
     h.logMessage(L"Adding conf: " + confSet);
     if (!confSet.empty()) {
       std::vector<std::wstring> lst;
@@ -750,33 +683,25 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
 extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
   msi_helper h(hInstall, L"ExecWriteConfig");
   try {
-    h.logMessage(L"RAW: " + h.getPropery(L"CustomActionData"));
-    msi_helper::custom_action_data_r data(h.getPropery(L"CustomActionData"));
+    h.logMessage(L"RAW: " + h.getMsiPropery(L"CustomActionData"));
+    msi_helper::custom_action_data_r data(h.getMsiPropery(L"CustomActionData"));
     h.logMessage(L"Got CA data: " + data.to_string());
     std::wstring target = data.get_next_string();
     std::wstring context_w = data.get_next_string();
     std::string context = utf8::cvt<std::string>(context_w);
     std::wstring restore = data.get_next_string();
     std::wstring backup = data.get_next_string();
-    int add_defaults = data.get_next_int();
 
-    std::string tls_version = utf8::cvt<std::string>(h.getPropery(L"TLS_VERSION"));
-    std::string tls_verify_mode = utf8::cvt<std::string>(h.getPropery(L"TLS_VERIFY_MODE"));
-    std::string tls_ca = utf8::cvt<std::string>(h.getPropery(L"TLS_CA"));
-    if (tls_version.empty()) {
-      tls_version = "1.3";
-    }
-    if (tls_verify_mode.empty()) {
-      tls_verify_mode = "none";
-    }
-    if (tls_ca.empty()) {
-      tls_ca = "";
-    }
+    std::wstring tls_version = data.get_next_string();
+    std::wstring tls_verify_mode = data.get_next_string();
+    std::wstring tls_ca = data.get_next_string();
+    int update_nsclient_ini = data.get_next_int();
 
     h.logMessage(L"Target: " + target);
     h.logMessage("Context: " + context);
     h.logMessage(L"Restore: " + restore);
     h.logMessage(L"Backup: " + backup);
+    h.logMessage(L"Update ns-client.ini: " + update_nsclient_ini ? L"Yes" : L"No");
 
     boost::filesystem::path target_path = target;
     boost::filesystem::path old_path = target_path / "nsc.ini.old";
@@ -813,12 +738,37 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     }
 
     installer_settings_provider provider(&h, target);
-    if (!settings_manager::init_installer_settings(&provider, context, tls_version, tls_verify_mode, tls_ca)) {
-      h.errorMessage(L"Failed to boot settings: " + provider.get_error());
-      h.logMessage(L"Switching context: " + context_w);
-      settings_manager::change_context(context);
+
+    auto use_tls_version = tls_version.empty() ? "1.3" : utf8::cvt<std::string>(tls_version);
+    auto use_tls_verify_mode = tls_verify_mode.empty() ? "none" : utf8::cvt<std::string>(tls_verify_mode);
+    auto use_tls_ca = tls_ca.empty() ? "" : utf8::cvt<std::string>(tls_ca);
+
+    if (!settings_manager::init_installer_settings(&provider, context, use_tls_version, use_tls_verify_mode, use_tls_ca)) {
+      h.errorMessage(L"Failed to boot settings when writing: " + provider.get_error());
       return ERROR_SUCCESS;
     }
+
+    if (!tls_version.empty()) {
+      h.logMessage(L"Setting boot.ini TLS version: " + tls_version);
+      settings_manager::write_boot_ini_key("tls", "version", utf8::cvt<std::string>(tls_version));
+    }
+    if (!tls_verify_mode.empty()) {
+      h.logMessage(L"Setting boot.ini TLS verify mode: " + tls_verify_mode);
+      settings_manager::write_boot_ini_key("tls", "verify mode", utf8::cvt<std::string>(tls_verify_mode));
+    }
+    if (!tls_ca.empty()) {
+      h.logMessage(L"Setting boot.ini TLS CA: " + tls_ca);
+      settings_manager::write_boot_ini_key("tls", "ca", utf8::cvt<std::string>(tls_ca));
+    }
+
+    if (!update_nsclient_ini) {
+      h.logMessage("Changing context: " + context);
+      settings_manager::set_boot_ini_primary(context);
+
+      h.logMessage(L"Not updating nsclient.ini");
+      return ERROR_SUCCESS;
+    }
+
     h.logMessage("Switching to: " + context);
     settings_manager::change_context(context);
 
@@ -838,6 +788,7 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
         return ERROR_INSTALL_FAILURE;
       }
     }
+    h.logMessage("Saving settings, not updating existing keys: " + context);
     settings_manager::get_settings()->save(false);
   } catch (const installer_exception &e) {
     h.errorMessage(L"Failed to write configuration: " + e.what());
