@@ -19,40 +19,40 @@ def delete_registry_tree(root, subkey):
                     break
                 i += 1
         DeleteKey(root, subkey)
-        print(f"- Registry key deleted: {subkey}")
+        print(f"- Registry key deleted: {subkey}", flush=True)
     except FileNotFoundError:
-        print(f"- Registry key not found, skipping deletion: {subkey}")
+        print(f"- Registry key not found, skipping deletion: {subkey}", flush=True)
     except OSError as e:
         if e.errno == 13:
-            print(f"! Access denied to delete registry key {subkey}: {e}, {e.errno}")
+            print(f"! Access denied to delete registry key {subkey}: {e}, {e.errno}", flush=True)
             return
-        print(f"! Failed to delete registry key {subkey}: {e}, {e.errno}")
+        print(f"! Failed to delete registry key {subkey}: {e}, {e.errno}", flush=True)
         raise e
 
 def ensure_uninstalled(msi_file, target_folder):
     uninstall = run(["msiexec", "/x", f"{msi_file}", "/q"])
     if uninstall.returncode == 1605:
-        print("- No installation found, continuing with install.")
+        print("- No installation found, continuing with install.", flush=True)
     elif uninstall.returncode == 0:
-        print("- Uninstallation completed successfully.")
+        print("- Uninstallation completed successfully.", flush=True)
     else:
-        print(f"! Uninstall returned with code: {uninstall.returncode}")
+        print(f"! Uninstall returned with code: {uninstall.returncode}", flush=True)
         exit(1)
 
-    print("- Killing any running NSClient++ processes.")
+    print("- Killing any running NSClient++ processes.", flush=True)
     taskkill = run(["taskkill", "/F", "/IM", "nscp.exe"])
 
 
     delete_registry_tree(HKEY_LOCAL_MACHINE, r"Software\NSClient++")
 
     if path.exists(target_folder):
-        print(f"- Removing folder: {target_folder}")
+        print(f"- Removing folder: {target_folder}", flush=True)
         rmtree(target_folder, ignore_errors=True)
 
 
 def read_config(config_file):
     if not path.exists(config_file):
-        print(f"! Configuration file does not exist: {config_file}")
+        print(f"! Configuration file does not exist: {config_file}", flush=True)
         exit(1)
 
     with open(config_file, 'r') as file:
@@ -61,18 +61,18 @@ def read_config(config_file):
 
 def install(msi_file, target_folder, command_line):
     command_line = list(map(lambda x: x.replace("$MSI-FILE", msi_file), command_line))
-    print(f"- Installing NSClient++: {' '.join(command_line)}")
+    print(f"- Installing NSClient++: {' '.join(command_line)}", flush=True)
     process = run(command_line)
     if process.returncode == 0:
-        print("- Installation completed successfully.")
+        print("- Installation completed successfully.", flush=True)
     else:
-        print(f"! The exit code was: {process.returncode}")
+        print(f"! The exit code was: {process.returncode}", flush=True)
         exit(1)
 
     if path.exists(target_folder) and path.isdir(target_folder) and path.exists(path.join(target_folder, "nscp.exe")):
-        print(f"- Installation seems successfully: {target_folder}")
+        print(f"- Installation seems successfully: {target_folder}", flush=True)
     else:
-        print(f"! Installation folder does not exist: {target_folder}")
+        print(f"! Installation folder does not exist: {target_folder}", flush=True)
         exit(1)
 
 def compare_file(target_folder, file_name, test_case):
@@ -80,7 +80,7 @@ def compare_file(target_folder, file_name, test_case):
     replace_password = test_case.get("replace_password", True)
     config_file = path.join(target_folder, file_name)
     if not path.exists(config_file):
-        print(f"! {file_name} does not exist in the installation folder:")
+        print(f"! {file_name} does not exist in the installation folder:", flush=True)
         return False
     actual = reorder_config(read_and_remove_bom(config_file))
     # Replace any line starting with 'password =' with 'password = $$PASSWORD$$'
@@ -92,12 +92,12 @@ def compare_file(target_folder, file_name, test_case):
     expected = reorder_config('\n'.join(test_case[file_name].splitlines()))
 
     if expected == actual:
-        print(f"- {file_name} matches expected configuration.")
+        print(f"- {file_name} matches expected configuration.", flush=True)
         return True
-    print(f"! {file_name} does not match expected configuration:")
-    print(f"! Differences:")
+    print(f"! {file_name} does not match expected configuration:", flush=True)
+    print(f"! Differences:", flush=True)
     for line in compare_config(expected, actual):
-        print(line)
+        print(line, flush=True)
     return False
 
 def compare_config(expected, actual):
@@ -136,17 +136,17 @@ def read_and_remove_bom(file_path):
 def create_upgrade_config(upgrade_config, target_folder):
     """Create folders and config files to simulate upgrade."""
     if not path.exists(target_folder):
-        print(f"- Creating target folder: {target_folder}")
+        print(f"- Creating target folder: {target_folder}", flush=True)
         makedirs(target_folder, exist_ok=True)
     if 'boot.ini' in upgrade_config:
         boot_ini_path = path.join(target_folder, "boot.ini")
-        print(f"- Creating boot.ini file: {boot_ini_path}")
+        print(f"- Creating boot.ini file: {boot_ini_path}", flush=True)
         with open(boot_ini_path, 'w') as file:
             file.write(upgrade_config['boot.ini'])
-        print("- boot.ini file created successfully.")
+        print("- boot.ini file created successfully.", flush=True)
     if 'nsclient.ini' in upgrade_config:
         nsclient_ini_path = path.join(target_folder, "nsclient.ini")
-        print(f"- Creating nsclient.ini file: {nsclient_ini_path}")
+        print(f"- Creating nsclient.ini file: {nsclient_ini_path}", flush=True)
         with open(nsclient_ini_path, 'w') as file:
             file.write(upgrade_config['nsclient.ini'])
-        print("- nsclient.ini file created successfully.")
+        print("- nsclient.ini file created successfully.", flush=True)
