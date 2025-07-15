@@ -106,7 +106,7 @@ class msi_helper {
     std::wstring old = getMsiPropery(PREFIX_KEY + key);
     if (old.empty()) {
       logMessage(L" -- Setting " + std::wstring(PREFIX_KEY) + key + L" to '" + val + L"' as it was empty");
-      setMsiProperty(key, val);
+      setMsiProperty(PREFIX_KEY + key, val);
     }
   }
   void setPropertyKeyAndDefault(std::wstring key, std::wstring value, std::wstring old_value) {
