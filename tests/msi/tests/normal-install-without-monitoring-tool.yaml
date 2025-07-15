@@ -1,0 +1,7 @@
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "MONITORING_TOOL=none" ]
+replace_password: true
+boot.ini: |
+  [settings]
+  1 = ini://${shared-path}/nsclient.ini
+
+nsclient.ini: ""
