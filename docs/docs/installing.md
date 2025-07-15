@@ -104,8 +104,6 @@ NSClient++ consists of the following features most which can be disabled when do
 | Feature Name        | Title                  | Description                                                                               |
 |---------------------|------------------------|-------------------------------------------------------------------------------------------|
 | CheckPlugins        | Check Plugins          | Various plugins to check your system. (Includes all check plugins)                        |
-| Documentation       | Documentation (pdf)    | Documentation for NSClient++ and how to use it from Nagios                                |
-| DotNetPluginSupport | .net plugin support    | Support for loading modules written in .dot net (Requires installing .net framework)      |
 | ExtraClientPlugin   | Various client plugins | Plugins to connect to various systems such as syslog, graphite and smtp                   |
 | FirewallConfig      | Firewall Exception     | A firewall exception to allow NSClient++ to open ports                                    |
 | LuaScript           | Lua Scripting          | Allows running INTERNAL scripts written in Lua                                            |
