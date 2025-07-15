@@ -99,10 +99,10 @@ The MSI file can be customized during the installer. The following keys are avai
 
 ### Features
 
-NSClient++ consists of the following features most which can be disable when doing silent installs.
+NSClient++ consists of the following features most which can be disabled when doing silent installations.
 
 | Feature Name        | Title                  | Description                                                                               |
-| ------------------- | ---------------------- | ----------------------------------------------------------------------------------------- |
+|---------------------|------------------------|-------------------------------------------------------------------------------------------|
 | CheckPlugins        | Check Plugins          | Various plugins to check your system. (Includes all check plugins)                        |
 | Documentation       | Documentation (pdf)    | Documentation for NSClient++ and how to use it from Nagios                                |
 | DotNetPluginSupport | .net plugin support    | Support for loading modules written in .dot net (Requires installing .net framework)      |
@@ -111,6 +111,8 @@ NSClient++ consists of the following features most which can be disable when doi
 | LuaScript           | Lua Scripting          | Allows running INTERNAL scripts written in Lua                                            |
 | NRPEPlugins         | NRPE Support           | NRPE Server Plugin. Support for the more versatile NRPE protocol (check_nrpe)             |
 | NSCAPlugin          | NSCA plugin            | Plugin to submit passive results to an NSCA server                                        |
+| CheckMK             | Check MK support       | Experimental support for check_mk server and clients                                      |
+| ElasticPlugin       | Elastic Search support | Support for submitting metrics to elastic                                                 |
 | NSCPlugins          | check_nt support       | NSClient Server Plugin. Support for the old NSClient protocol (check_nt)                  |
 | PythonScript        | Python Scripting       | Allows running INTERNAL scripts written in Python                                         |
 | SampleScripts       | Scripts                | Scripts for checking and testing various aspects of your computer and NSClient++          |
