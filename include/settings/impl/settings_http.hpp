@@ -138,6 +138,7 @@ class settings_http : public settings::settings_interface_impl {
       auto verify_mode = get_core()->get_tls_verify_mode();
       auto ca = get_core()->get_tls_ca();
 
+      get_logger()->debug("settings", __FILE__, __LINE__, "Using TLS settings version: " + tls_version + ", verify: " + verify_mode + ", ca: " + ca);
       if (!http::simple_client::download(url.protocol, url.host, url.get_port_string(def_port), url.path, tls_version, verify_mode, ca, os, error)) {
         os.close();
         get_logger()->error("settings", __FILE__, __LINE__, "Failed to download " + tmp_file.string() + ": " + error);

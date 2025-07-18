@@ -33,6 +33,8 @@ if args.matches:
 else:
     test_cases = args.tests if args.tests else all_test_cases
 
+failure = False
+
 for test_case_file in test_cases:
     print("", flush=True)
     print("Testing " + test_case_file, flush=True)
@@ -48,8 +50,6 @@ for test_case_file in test_cases:
 
     install(msi_file, target_folder, test_case["command_line"])
 
-    failure = False
-
     if not compare_file(target_folder, "boot.ini", test_case):
         print("! Test failed.", flush=True)
         failure = True
@@ -59,7 +59,9 @@ for test_case_file in test_cases:
 
     ensure_uninstalled(msi_file, target_folder)
     if failure:
-        print("! One or more tests failed.", flush=True)
-        exit(1)
-    else:
-        print("- All tests passed successfully.", flush=True)
+        break
+if failure:
+    print("! One or more tests failed.", flush=True)
+    exit(1)
+else:
+    print("- All tests passed successfully.", flush=True)

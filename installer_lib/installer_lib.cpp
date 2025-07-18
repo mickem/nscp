@@ -126,9 +126,6 @@ struct installer_settings_provider : public settings_manager::provider_interface
   std::string basepath;
   std::string old_settings_map;
   boost::shared_ptr<msi_logger> logger;
-  std::string tls_version_;
-  std::string tls_verify_mode_;
-  std::string tls_ca_;
 
   installer_settings_provider(msi_helper *h, std::wstring basepath, std::wstring old_settings_map)
       : h(h), basepath(utf8::cvt<std::string>(basepath)), old_settings_map(utf8::cvt<std::string>(old_settings_map)), logger(new msi_logger(h)) {}
@@ -222,13 +219,13 @@ extern "C" UINT __stdcall DetectTool(MSIHANDLE hInstall) {
     h.logMessage(L"Detected monitoring tool is: " + tool);
     dump_config(h, L"After DetectTool");
   } catch (installer_exception &e) {
-    h.logMessage(L"Failed to apply monitoring tool: " + e.what());
+    h.logMessage(L"Failed to detect monitoring tool: " + e.what());
     return ERROR_SUCCESS;
   } catch (nsclient::nsclient_exception &e) {
-    h.logMessage(L"Failed to apply monitoring tool: " + utf8::cvt<std::wstring>(e.reason()));
+    h.logMessage(L"Failed to detect monitoring tool: " + utf8::cvt<std::wstring>(e.reason()));
     return ERROR_SUCCESS;
   } catch (...) {
-    h.logMessage(L"Failed to apply monitoring tool: Unknown exception");
+    h.logMessage(L"Failed to detect monitoring tool: Unknown exception");
     return ERROR_SUCCESS;
   }
   return ERROR_SUCCESS;
@@ -320,7 +317,8 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
     auto wanted_context = h.getProperyValue(CONFIGURATION_TYPE);
     auto default_context = h.getProperyKey(CONFIGURATION_TYPE);
     auto context = wanted_context.empty() ? default_context : wanted_context;
-    h.logMessage(L"Reading existing config using: " + context);
+    h.logMessage(L"Reading existing config using: " + context + L" tls version=" + utf8::cvt<std::wstring>(tls_version) + L", tls_verify=" +
+                 utf8::cvt<std::wstring>(tls_verify_mode) + L", tls_ca=" + utf8::cvt<std::wstring>(tls_ca));
 
     installer_settings_provider provider(&h, target, map_data);
     if (!settings_manager::init_installer_settings(&provider, utf8::cvt<std::string>(context), tls_version, tls_verify_mode, tls_ca)) {
@@ -345,7 +343,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
           return ERROR_SUCCESS;
         } else {
           h.logMessage(L"Failed to read configuration but no configuration was found (so we are assuming there is no configuration).");
-          h.setConfCanChange(true, L"Why do we ignore erros here?");
+          h.setConfCanChange(true, L"Why do we ignore errors here?");
           dump_config(h, L"After ImportConfig");
           return ERROR_SUCCESS;
         }
@@ -359,9 +357,16 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 
     h.logMessage(L"Previous configuration loaded correctly...");
 
+    if (!settings_manager::get_settings()->supports_updates()) {
+      h.applyPropertyValue(CONFIGURATION_TYPE);
+      h.logMessage(L"Settings does not support updates");
+      h.setConfCanChange(false, L"Using a settings system which do no support updates by installer");
+      return ERROR_SUCCESS;
+    }
+
     auto actual_context = utf8::cvt<std::wstring>(settings_manager::get_settings()->get_context());
     h.setPropertyKeyAndDefault(CONFIGURATION_TYPE, actual_context, actual_context);
-    h.logMessage(L"Existing configuration: " + actual_context + L", " + utf8::cvt<std::wstring>(settings_manager::get_settings()->get_info()));
+    h.logMessage(L"Using configuration context: " + actual_context + L", " + utf8::cvt<std::wstring>(settings_manager::get_settings()->get_info()));
     if (!settings_manager::get_settings()->supports_updates()) {
       h.errorMessage(L"Updates not supported");
       h.setConfCanChange(false, L"Using a settings system which do no support updates by installer");
@@ -743,6 +748,8 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     auto use_tls_verify_mode = tls_verify_mode.empty() ? "none" : utf8::cvt<std::string>(tls_verify_mode);
     auto use_tls_ca = tls_ca.empty() ? "" : utf8::cvt<std::string>(tls_ca);
 
+    h.logMessage(L"Writing existing config using: " + utf8::cvt<std::wstring>(context) + L" tls version=" + utf8::cvt<std::wstring>(use_tls_version) +
+                 L", tls_verify=" + utf8::cvt<std::wstring>(use_tls_verify_mode) + L", tls_ca=" + utf8::cvt<std::wstring>(use_tls_ca));
     if (!settings_manager::init_installer_settings(&provider, context, use_tls_version, use_tls_verify_mode, use_tls_ca)) {
       h.errorMessage(L"Failed to boot settings when writing: " + provider.get_error());
       return ERROR_SUCCESS;

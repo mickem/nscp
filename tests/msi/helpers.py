@@ -30,6 +30,7 @@ def delete_registry_tree(root, subkey):
         raise e
 
 def ensure_uninstalled(msi_file, target_folder):
+    print(f"- Uninstalling", flush=True)
     try:
         uninstall = run(["msiexec", "/x", f"{msi_file}", "/q"], timeout=120)
     except Exception as e:
@@ -47,6 +48,7 @@ def ensure_uninstalled(msi_file, target_folder):
     run(["taskkill", "/F", "/IM", "nscp.exe"])
 
 
+    print("- Removing registry keys.", flush=True)
     delete_registry_tree(HKEY_LOCAL_MACHINE, r"Software\NSClient++")
 
     if path.exists(target_folder):
