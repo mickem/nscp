@@ -22,7 +22,8 @@ class NSCSettingsImpl : public settings::settings_handler_impl {
   std::string tls_ca_;
 
  public:
-  explicit NSCSettingsImpl(provider_interface *provider) : settings::settings_handler_impl(provider->get_logger()), provider_(provider) {}
+  explicit NSCSettingsImpl(provider_interface *provider)
+      : settings::settings_handler_impl(provider->get_logger()), provider_(provider), tls_version_("1.3"), tls_verify_mode_("none"), tls_ca_("tls_ca") {}
   NSCSettingsImpl(provider_interface *provider, std::string tls_version, std::string tls_verify_mode, std::string tls_ca)
       : settings::settings_handler_impl(provider->get_logger()),
         provider_(provider),

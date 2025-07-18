@@ -93,7 +93,7 @@ bool NSCSettingsImpl::supports_edit(const std::string key) {
 #endif
   if (url.protocol == "ini") return true;
   if (url.protocol == "dummy") return false;
-  if (url.protocol == "http" || url.protocol == "https") return true;
+  if (url.protocol == "http" || url.protocol == "https") return false;
   return false;
 }
 bool NSCSettingsImpl::context_exists(std::string key) {
@@ -143,13 +143,9 @@ void NSCSettingsImpl::boot(std::string key) {
       std::string v = utf8::cvt<std::string>(boot_conf.GetValue(L"settings", utf8::cvt<std::wstring>(str::xtos(i)).c_str(), L""));
       if (!v.empty()) order.push_back(expand_context(v));
     }
-    tls_version_ = utf8::cvt<std::string>(boot_conf.GetValue(L"tls", L"version", L"1.3"));
-    tls_verify_mode_ = utf8::cvt<std::string>(boot_conf.GetValue(L"tls", L"verify mode", L"none"));
-    tls_ca_ = utf8::cvt<std::string>(boot_conf.GetValue(L"tls", L"ca", L""));
-  } else {
-    tls_version_ = "1.3";
-    tls_verify_mode_ = "none";
-    tls_ca_ = "";
+    tls_version_ = utf8::cvt<std::string>(boot_conf.GetValue(L"tls", L"version", utf8::cvt<std::wstring>(tls_version_).c_str()));
+    tls_verify_mode_ = utf8::cvt<std::string>(boot_conf.GetValue(L"tls", L"verify mode", utf8::cvt<std::wstring>(tls_verify_mode_).c_str()));
+    tls_ca_ = utf8::cvt<std::string>(boot_conf.GetValue(L"tls", L"ca", utf8::cvt<std::wstring>(tls_ca_).c_str()));
   }
   if (order.size() == 0) {
     get_logger()->debug("settings", __FILE__, __LINE__, "No entries found looking in (adding default): " + boot_.string());
@@ -258,11 +254,8 @@ bool init_installer_settings(provider_interface *provider, const std::string &co
   try {
     settings_impl = new NSCSettingsImpl(provider, std::move(tls_version), std::move(tls_verify_mode), std::move(tls_ca));
     get_core()->set_base(provider->expand_path("${base-path}"));
-    if (settings_impl->supports_edit(context)) {
-      get_core()->boot(context);
-      get_core()->set_ready();
-      return true;
-    }
+    get_core()->boot(context);
+    get_core()->set_ready();
   } catch (const settings::settings_exception &e) {
     get_core()->get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
     return false;
