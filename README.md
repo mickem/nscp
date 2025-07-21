@@ -48,9 +48,8 @@ Since NSClient++ is meaningless by itself it also supports a lot of protocols to
 ## Supported OS/Platform
 
 NSClient++ should run on the following operating systems:
- * Windows: From NT4 SP5 up to Windows 2012R2 and Windows 8.1
+ * Windows: In theory from Windows XP with lots of service back (verified Windows 2008 R2 and later)
  * Linux: Debian, Centos and Ubuntu (and possibly others as well)
- * Win32, x64 as well as various Linux hardware as well.
 
 ## Building NSClient++
 
