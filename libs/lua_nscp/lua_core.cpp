@@ -1,6 +1,7 @@
-#include <boost/optional.hpp>
 
-#include <nscapi/functions.hpp>
+
+#include <boost/optional/optional.hpp>
+
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
@@ -10,11 +11,11 @@
 #include <lua/lua_core.hpp>
 
 void lua::lua_runtime::register_query(const std::string &command, const std::string &description) {
-  throw lua::lua_exception("The method or operation is not implemented(reg_query).");
+  throw lua_exception("The method or operation is not implemented(reg_query).");
 }
 
 void lua::lua_runtime::register_subscription(const std::string &channel, const std::string &description) {
-  throw lua::lua_exception("The method or operation is not implemented(reg_sub).");
+  throw lua_exception("The method or operation is not implemented(reg_sub).");
 }
 
 void lua::lua_runtime::on_query(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple,
@@ -176,11 +177,11 @@ void lua::lua_runtime::create_user_data(scripts::script_information<lua_traits> 
 
 void lua::lua_runtime::load(scripts::script_information<lua_traits> *info) {
   std::string base_path = info->user_data.base_path_;
-  lua::lua_wrapper lua_instance(info->user_data.L);
+  lua_wrapper lua_instance(info->user_data.L);
   lua_instance.set_userdata(lua::lua_traits::user_data_tag, info);
   lua_instance.openlibs();
-  lua::lua_script::luaopen(info->user_data.L);
-  for (lua::lua_runtime_plugin_type &plugin : plugins) {
+  lua_script::luaopen(info->user_data.L);
+  for (lua_runtime_plugin_type &plugin : plugins) {
     plugin->load(lua_instance);
   }
   lua_instance.append_path(base_path + "/scripts/lua/lib/?.lua;" + base_path + "scripts/lua/?;");
@@ -189,19 +190,19 @@ void lua::lua_runtime::load(scripts::script_information<lua_traits> *info) {
   lua_instance.gc(LUA_GCCOLLECT, 0);
 }
 void lua::lua_runtime::start(scripts::script_information<lua_traits> *info) {
-  lua::lua_wrapper lua_instance(info->user_data.L);
+  lua_wrapper lua_instance(info->user_data.L);
   int index = lua_instance.getglobal("on_start");
   if (lua_instance.is_function()) {
     int index = lua_instance.getglobal("on_start");
     if (lua_instance.pcall(0, 0, 0) != 0) {
-      throw lua::lua_exception("Failed to start script: " + info->script + ": " + lua_instance.pop_string());
+      throw lua_exception("Failed to start script: " + info->script + ": " + lua_instance.pop_string());
     }
   }
 }
 
 void lua::lua_runtime::unload(scripts::script_information<lua_traits> *info) {
-  lua::lua_wrapper lua_instance(info->user_data.L);
-  for (lua::lua_runtime_plugin_type &plugin : plugins) {
+  lua_wrapper lua_instance(info->user_data.L);
+  for (lua_runtime_plugin_type &plugin : plugins) {
     plugin->unload(lua_instance);
   }
   lua_instance.gc(LUA_GCCOLLECT, 0);

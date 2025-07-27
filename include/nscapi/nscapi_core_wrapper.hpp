@@ -23,7 +23,6 @@
 #include <nscapi/dll_defines.hpp>
 
 #include <string>
-#include <list>
 
 namespace nscapi {
 class core_wrapper_impl;
