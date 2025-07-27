@@ -17,18 +17,6 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <list>
-#include <iostream>
-#include <sstream>
-
-// #include <boost/spirit/include/qi.hpp>
-// #include <boost/spirit/include/phoenix_core.hpp>
-// #include <boost/spirit/include/phoenix_operator.hpp>
-// #include <boost/spirit/include/phoenix_object.hpp>
-// #include <boost/fusion/include/adapt_struct.hpp>
-// #include <boost/fusion/include/io.hpp>
-// #include <boost/function.hpp>
-
 #include <parsers/where.hpp>
 #include <parsers/where/node.hpp>
 

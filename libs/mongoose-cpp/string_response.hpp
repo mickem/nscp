@@ -4,9 +4,7 @@
 
 #include "dll_defines.hpp"
 
-#include <map>
 #include <sstream>
-#include <iostream>
 
 /**
  * A stream response to a request

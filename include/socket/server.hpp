@@ -20,16 +20,13 @@
 #pragma once
 
 #include <string>
-#include <vector>
 
 #include <boost/asio.hpp>
-#include <boost/noncopyable.hpp>
 #include <boost/thread.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 
 #include <socket/socket_helpers.hpp>
 #include <socket/connection.hpp>
-#include <str/utils.hpp>
 #include <str/xtos.hpp>
 
 namespace socket_helpers {

@@ -18,6 +18,7 @@
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
+#include <NSCAPI.h>
 
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
@@ -25,8 +26,6 @@
 
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/optional.hpp>
-
-#include <iostream>
 
 #define THROW_INVALID_SIZE(size) \
   throw nsclient::nsclient_exception(std::string("Whoops, invalid payload size: ") + str::xtos(size) + " != 1 at line " + str::xtos(__LINE__));

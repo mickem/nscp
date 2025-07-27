@@ -36,14 +36,18 @@ class format {
  public:
 #ifdef WIN32
   static std::string from_system(const unsigned long dwError) { return win32::format_message(0, "", dwError); }
-  static std::string from_module(std::string module, const unsigned long dwError) { return win32::format_message(FORMAT_MESSAGE_IGNORE_INSERTS, module, dwError); }
+  static std::string from_module(std::string module, const unsigned long dwError) {
+    return win32::format_message(FORMAT_MESSAGE_IGNORE_INSERTS, module, dwError);
+  }
   static std::string from_system(const unsigned long dwError, unsigned long *arguments) { return win32::format_message(0, "", dwError, arguments); }
   static std::string from_module(std::string module, const unsigned long dwError, unsigned long *arguments) {
     return win32::format_message(0, module, dwError, arguments);
   }
   class message {
    public:
-    static std::string from_module(std::string module, const unsigned long dwError) { return win32::format_message(FORMAT_MESSAGE_IGNORE_INSERTS, module, dwError); }
+    static std::string from_module(std::string module, const unsigned long dwError) {
+      return win32::format_message(FORMAT_MESSAGE_IGNORE_INSERTS, module, dwError);
+    }
     static std::string from_system(unsigned long dwError, unsigned long *arguments) { return win32::format_message(0, "", dwError, arguments); }
   };
 #else

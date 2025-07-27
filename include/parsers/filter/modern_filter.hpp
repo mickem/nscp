@@ -26,6 +26,7 @@
 #include <parsers/expression/expression.hpp>
 #include <parsers/perfconfig/perfconfig.hpp>
 #include <parsers/where/engine_impl.hpp>
+#include <parsers/where/engine.hpp>
 
 #include <NSCAPI.h>
 #include <str/utils.hpp>

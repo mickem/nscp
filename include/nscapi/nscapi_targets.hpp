@@ -24,8 +24,6 @@
 
 #include <nscapi/dll_defines.hpp>
 
-#include <boost/shared_ptr.hpp>
-
 #include <string>
 
 namespace nscapi {

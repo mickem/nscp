@@ -24,7 +24,6 @@
 #include <pdh/pdh_interface.hpp>
 #include <pdh/pdh_counters.hpp>
 
-#include <boost/lexical_cast.hpp>
 #include <boost/circular_buffer.hpp>
 
 namespace PDH {

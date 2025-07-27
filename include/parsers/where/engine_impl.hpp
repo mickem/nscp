@@ -19,10 +19,7 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
-
 #include <parsers/where/node.hpp>
-#include <parsers/where/engine.hpp>
 
 namespace parsers {
 namespace where {

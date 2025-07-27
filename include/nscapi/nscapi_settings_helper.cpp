@@ -21,7 +21,6 @@
 #include <utf8.hpp>
 
 #include <boost/any.hpp>
-#include <boost/optional.hpp>
 
 namespace nscapi {
 namespace settings_helper {

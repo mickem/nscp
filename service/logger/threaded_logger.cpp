@@ -18,6 +18,7 @@
  */
 
 #include "threaded_logger.hpp"
+#include <nsclient/logger/logger_helper.hpp>
 
 #include <iostream>
 

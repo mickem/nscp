@@ -28,6 +28,7 @@
 #include <parsers/where/unary_op.hpp>
 #include <parsers/where/value_node.hpp>
 #include <parsers/where/binary_op.hpp>
+#include <parsers/operators.hpp>
 
 namespace parsers {
 namespace where {

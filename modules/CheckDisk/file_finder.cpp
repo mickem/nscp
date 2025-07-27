@@ -41,7 +41,8 @@ bool file_finder::is_directory(unsigned long dwAttr) {
 }
 
 void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &context, const boost::filesystem::path &dir,
-                                 const boost::shared_ptr<file_filter::filter_obj> &total_obj, const bool total_all, const bool recursive, const int current_level) {
+                                 const boost::shared_ptr<file_filter::filter_obj> &total_obj, const bool total_all, const bool recursive,
+                                 const int current_level) {
   if (!context.is_valid_level(current_level)) {
     if (context.debug) context.report_debug("Level death exhausted: " + str::xtos(current_level));
     return;

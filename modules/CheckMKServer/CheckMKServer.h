@@ -19,6 +19,8 @@
 
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <check_mk/server/server_protocol.hpp>
+#include <scripts/script_nscp.hpp>
+
 #include "handler_impl.hpp"
 
 class CheckMKServer : public nscapi::impl::simple_plugin {

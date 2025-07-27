@@ -34,7 +34,6 @@
 #include <Windows.h>
 #endif
 
-
 namespace file_filter {
 struct file_object_exception : public std::exception {
   std::string error_;

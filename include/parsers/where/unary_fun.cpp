@@ -21,6 +21,7 @@
 
 #include <parsers/where/unary_fun.hpp>
 #include <parsers/where/helpers.hpp>
+#include <parsers/operators.hpp>
 
 namespace parsers {
 namespace where {

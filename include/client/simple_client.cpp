@@ -34,7 +34,7 @@
 #include <boost/function.hpp>
 #include <nscapi/macros.hpp>
 
-static void create_registry_query(const nscapi::core_wrapper *core, const std::string& command, const PB::Registry::ItemType &type,
+static void create_registry_query(const nscapi::core_wrapper *core, const std::string &command, const PB::Registry::ItemType &type,
                                   PB::Registry::RegistryResponseMessage &response_message) {
   PB::Registry::RegistryRequestMessage rrm;
   PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();

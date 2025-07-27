@@ -22,6 +22,7 @@
 #include <client/command_line_parser.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <socket/client.hpp>
+#include <scripts/script_nscp.hpp>
 
 #include <check_mk/lua/lua_check_mk.hpp>
 

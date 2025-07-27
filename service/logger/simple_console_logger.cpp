@@ -18,6 +18,7 @@
  */
 
 #include "simple_console_logger.hpp"
+#include <nsclient/logger/logger_helper.hpp>
 
 #include "../libs/settings_manager/settings_manager_impl.h"
 

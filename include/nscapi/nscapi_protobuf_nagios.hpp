@@ -21,7 +21,6 @@
 
 #include <nscapi/dll_defines.hpp>
 
-#include <NSCAPI.h>
 #include <nscapi/nscapi_protobuf_command.hpp>
 
 #include <string>

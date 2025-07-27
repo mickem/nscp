@@ -36,10 +36,8 @@
 #else
 #include <boost/program_options.hpp>
 #endif
-#include <boost/function/function1.hpp>
 #include <boost/bind/bind.hpp>
 
-#include <list>
 #include <utility>
 #include <vector>
 

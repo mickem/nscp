@@ -22,7 +22,6 @@
 #pragma warning(push)
 #pragma warning(disable : 4459)
 #endif
-#include <boost/config/warning_disable.hpp>
 #include <boost/spirit/include/qi.hpp>
 #include <boost/phoenix/core.hpp>
 #include <boost/phoenix/operator.hpp>

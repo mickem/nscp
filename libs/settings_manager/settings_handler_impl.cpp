@@ -2,8 +2,6 @@
 
 #include "settings_manager_impl.h"
 
-#include <str/xtos.hpp>
-
 settings::instance_ptr settings::settings_handler_impl::get() {
   boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!mutex.owns_lock()) throw settings_exception(__FILE__, __LINE__, "Failed to get mutex, cant get settings instance");
