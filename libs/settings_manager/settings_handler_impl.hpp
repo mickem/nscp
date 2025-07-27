@@ -27,7 +27,6 @@
 #include <boost/thread/locks.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem/path.hpp>
-#include <boost/regex.hpp>
 
 #include <string>
 #include <map>

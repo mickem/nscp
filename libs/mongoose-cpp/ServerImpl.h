@@ -7,14 +7,11 @@
 
 #include "ext/mongoose.h"
 
-#include <has-threads.hpp>
 #include <threads/queue.hpp>
 
 #include "dll_defines.hpp"
 
-#include <boost/thread/thread.hpp>
 #include <boost/thread/mutex.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/atomic/atomic.hpp>
 
 #include <vector>
