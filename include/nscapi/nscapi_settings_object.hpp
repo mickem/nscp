@@ -19,13 +19,10 @@
 
 #pragma once
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/dll_defines.hpp>
 
 #include <settings/client/settings_client_interface.hpp>
 #include <nsclient/nsclient_exception.hpp>
 
-#include <boost/shared_ptr.hpp>
-#include <boost/function.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/make_shared.hpp>
 

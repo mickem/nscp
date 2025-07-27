@@ -19,6 +19,7 @@
 
 #include "config.h"
 
+#include <nsclient/logger/logger_helper.hpp>
 #include "simple_file_logger.hpp"
 
 #include <nscapi/nscapi_protobuf_log.hpp>

@@ -19,17 +19,18 @@
 
 #pragma once
 
+#include <boost/make_shared.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 
 #include <boost/shared_ptr.hpp>
 
 namespace nscapi {
 class command_proxy {
- private:
   unsigned int plugin_id_;
-  nscapi::core_wrapper* core_;
+  core_wrapper* core_;
 
  public:
+  virtual ~command_proxy() = default;
   command_proxy(unsigned int plugin_id, nscapi::core_wrapper* core) : plugin_id_(plugin_id), core_(core) {}
   virtual void registry_query(const std::string& request, std::string& response) {
     if (!core_->registry_query(request, response)) {
@@ -39,7 +40,7 @@ class command_proxy {
 
   typedef boost::shared_ptr<nscapi::command_proxy> ptr;
 
-  static ptr create(unsigned int plugin_id, nscapi::core_wrapper* core) { return ptr(new nscapi::command_proxy(plugin_id, core)); }
+  static ptr create(unsigned int plugin_id, nscapi::core_wrapper* core) { return boost::make_shared<nscapi::command_proxy>(plugin_id, core); }
 
   unsigned int get_plugin_id() const { return plugin_id_; }
 

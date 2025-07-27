@@ -1,7 +1,5 @@
 #include "MatchController.h"
 
-#include "StreamResponse.h"
-
 #include <boost/algorithm/string.hpp>
 
 namespace Mongoose {

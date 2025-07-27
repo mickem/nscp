@@ -22,9 +22,6 @@
 #include <memory>
 #include <string>
 #include <map>
-// #include <thread.h>
-// #include <event_handler.hpp>
-// #include <shared_memory.hpp>
 
 namespace nsclient_session {
 class session_exception {

@@ -106,7 +106,8 @@ class packet /*: public boost::noncopyable*/ {
   unsigned int calculatedCRC32_;
 
  public:
-  packet(unsigned int payload_length) : tmpBuffer(NULL), payload_length_(payload_length) {};
+  packet(const unsigned int payload_length)
+      : tmpBuffer(NULL), payload_length_(payload_length), type_(0), version_(0), result_(0), crc32_(0), calculatedCRC32_(0) {};
   packet(std::vector<char> buffer, unsigned int payload_length) : tmpBuffer(NULL), payload_length_(payload_length) {
     char* tmp = new char[buffer.size() + 1];
     copy(buffer.begin(), buffer.end(), tmp);
@@ -122,7 +123,14 @@ class packet /*: public boost::noncopyable*/ {
     readFrom(buffer, buffer_length);
   };
   packet(short type, short version, int16_t result, std::string payLoad, std::size_t payload_length)
-      : tmpBuffer(NULL), payload_length_(payload_length), type_(type), version_(version), result_(result), payload_(payLoad), crc32_(0), calculatedCRC32_(0) {}
+      : tmpBuffer(nullptr),
+        payload_length_(payload_length),
+        type_(type),
+        version_(version),
+        result_(result),
+        payload_(payLoad),
+        crc32_(0),
+        calculatedCRC32_(0) {}
   packet()
       : tmpBuffer(NULL),
         payload_length_(nrpe::length::get_payload_length()),
@@ -248,8 +256,8 @@ class packet /*: public boost::noncopyable*/ {
   }
   void readFromV2(const char* buffer, std::size_t length) {
     if (length != get_packet_length_v2()) {
-      throw nrpe::nrpe_exception("Invalid packet length: " + str::xtos(length) + " != " + str::xtos(get_packet_length_v2()) +
-                                 " configured payload is: " + str::xtos(get_payload_length()));
+      throw nrpe_exception("Invalid packet length: " + str::xtos(length) + " != " + str::xtos(get_packet_length_v2()) +
+                           " configured payload is: " + str::xtos(get_payload_length()));
     }
     const nrpe::data::packet_v2* p = reinterpret_cast<const nrpe::data::packet_v2*>(buffer);
     type_ = swap_bytes::ntoh<int16_t>(p->packet_type);

@@ -1,10 +1,8 @@
 #include "ServerImpl.h"
 
 #include "StreamResponse.h"
-#include "mcp_exception.hpp"
 
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/thread/thread.hpp>
 
 #include <string>
 

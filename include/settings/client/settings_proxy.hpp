@@ -20,7 +20,6 @@
 #pragma once
 
 #include <settings/settings_core.hpp>
-#include <settings/settings_interface_impl.hpp>
 #include <settings/client/settings_client_interface.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 

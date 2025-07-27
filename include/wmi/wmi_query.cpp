@@ -20,10 +20,7 @@
 #include <wmi/wmi_query.hpp>
 
 #include <error/error_com.hpp>
-
-#include <map>
-
-#include <objidl.h>
+#include <atlsafe.h>
 #include <Wbemidl.h>
 #include <WMIUtils.h>
 

@@ -26,13 +26,9 @@
 #include <boost/lexical_cast.hpp>
 
 #include <string>
-#include <map>
 #include <list>
 
 #include <atlbase.h>
-#include <atlsafe.h>
-
-#include <objidl.h>
 
 namespace wmi_impl {
 class ComError {

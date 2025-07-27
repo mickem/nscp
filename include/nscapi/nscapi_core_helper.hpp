@@ -37,22 +37,20 @@ class NSCAPI_EXPORT core_helper {
   void register_command(std::string command, std::string description, std::list<std::string> aliases = std::list<std::string>());
   void unregister_command(std::string command);
   void register_alias(std::string command, std::string description, std::list<std::string> aliases = std::list<std::string>());
-  void register_event(const std::string event);
-  void register_channel(const std::string channel);
+  void register_event(std::string event);
+  void register_channel(std::string channel);
 
-  NSCAPI::nagiosReturn simple_query(const std::string command, const std::list<std::string> &argument, std::string &message, std::string &perf,
+  NSCAPI::nagiosReturn simple_query(std::string command, const std::list<std::string> &argument, std::string &message, std::string &perf,
                                     std::size_t max_length);
-  bool simple_query(const std::string command, const std::list<std::string> &argument, std::string &result);
-  bool simple_query(const std::string command, const std::vector<std::string> &argument, std::string &result);
-  NSCAPI::nagiosReturn simple_query_from_nrpe(const std::string command, const std::string &buffer, std::string &message, std::string &perf,
-                                              std::size_t max_length);
+  bool simple_query(std::string command, const std::list<std::string> &argument, std::string &result);
+  bool simple_query(std::string command, const std::vector<std::string> &argument, std::string &result);
+  NSCAPI::nagiosReturn simple_query_from_nrpe(std::string command, const std::string &buffer, std::string &message, std::string &perf, std::size_t max_length);
 
-  NSCAPI::nagiosReturn exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument,
-                                           std::list<std::string> &result);
-  bool submit_simple_message(const std::string channel, const std::string source_id, const std::string target_id, const std::string command,
-                             const NSCAPI::nagiosReturn code, const std::string &message, const std::string &perf, std::string &response);
-  bool emit_event(const std::string module, const std::string event, std::list<std::map<std::string, std::string> > data, std::string &error);
-  bool emit_event(const std::string module, const std::string event, std::map<std::string, std::string> data, std::string &error);
+  NSCAPI::nagiosReturn exec_simple_command(std::string target, std::string command, const std::list<std::string> &argument, std::list<std::string> &result);
+  bool submit_simple_message(std::string channel, std::string source_id, std::string target_id, std::string command, NSCAPI::nagiosReturn code,
+                             const std::string &message, const std::string &perf, std::string &response);
+  bool emit_event(std::string module, std::string event, std::list<std::map<std::string, std::string> > data, std::string &error);
+  bool emit_event(std::string module, std::string event, std::map<std::string, std::string> data, std::string &error);
 
   typedef std::map<std::string, std::string> storage_map;
   bool put_storage(std::string context, std::string key, std::string value, bool private_data, bool binary_data);

@@ -20,9 +20,7 @@
 #pragma once
 
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
-#include <nscapi/functions.hpp>
 #include <nscapi/nscapi_helper.hpp>
 
 #include <parsers/cron/cron_parser.hpp>
@@ -33,10 +31,8 @@
 #include <str/format.hpp>
 
 #include <boost/optional.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/bind/bind.hpp>
 
-#include <map>
 #include <string>
 
 namespace sh = nscapi::settings_helper;

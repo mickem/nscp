@@ -38,8 +38,9 @@ bool file_finder::is_directory(unsigned long dwAttr) {
   return false;
 }
 
-void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &context, boost::filesystem::path dir,
-                                 boost::shared_ptr<file_filter::filter_obj> total_obj, bool total_all, bool recursive, int current_level) {
+void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &context, const boost::filesystem::path &dir,
+                                 const boost::shared_ptr<file_filter::filter_obj> &total_obj, const bool total_all, const bool recursive,
+                                 const int current_level) {
   if (!context.is_valid_level(current_level)) {
     if (context.debug) context.report_debug("Level death exhausted: " + str::xtos(current_level));
     return;
@@ -97,12 +98,12 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
   }
 }
 
-bool file_finder::scanner_context::is_valid_level(int current_level) { return max_depth == -1 || current_level < max_depth; }
+bool file_finder::scanner_context::is_valid_level(int current_level) const { return max_depth == -1 || current_level < max_depth; }
 
-void file_finder::scanner_context::report_error(const std::string str) { NSC_LOG_ERROR(str); }
+void file_finder::scanner_context::report_error(const std::string &str) const { NSC_LOG_ERROR(str); }
 
-void file_finder::scanner_context::report_debug(const std::string str) {
+void file_finder::scanner_context::report_debug(const std::string &str) const {
   if (debug) NSC_DEBUG_MSG(str);
 }
 
-void file_finder::scanner_context::report_warning(const std::string msg) { NSC_LOG_ERROR(msg); }
+void file_finder::scanner_context::report_warning(const std::string &msg) const { NSC_LOG_ERROR(msg); }
