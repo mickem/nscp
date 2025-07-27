@@ -19,10 +19,7 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
 #include <boost/filesystem.hpp>
-
-#include <file_helpers.hpp>
 
 #include "filter.hpp"
 
@@ -34,12 +31,13 @@ struct scanner_context {
   std::string pattern;
   DWORD now;
   int max_depth;
-  bool is_valid_level(int current_level);
-  void report_error(const std::string str);
-  void report_debug(const std::string str);
-  void report_warning(const std::string msg);
+  bool is_valid_level(int current_level) const ;
+  void report_error(const std::string &str) const ;
+  void report_debug(const std::string &str) const ;
+  void report_warning(const std::string &msg) const ;
 };
 
-void recursive_scan(file_filter::filter &filter, scanner_context &context, boost::filesystem::path dir, boost::shared_ptr<file_filter::filter_obj> total_obj,
+void recursive_scan(file_filter::filter &filter, scanner_context &context, const boost::filesystem::path &dir,
+                    const boost::shared_ptr<file_filter::filter_obj> &total_obj,
                     bool total_all, bool recursive = false, int current_level = 0);
 }  // namespace file_finder

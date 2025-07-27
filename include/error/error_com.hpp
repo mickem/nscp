@@ -34,7 +34,7 @@ class com {
     if (FAILED(hr)) return utf8::cvt<std::string>(std::wstring(_com_error(srcHr).ErrorMessage()));
     hr = errorInfo->GetDescription(&bDesc);
     if (FAILED(hr)) return utf8::cvt<std::string>(std::wstring(_com_error(srcHr).ErrorMessage()));
-    std::string ret = utf8::cvt<std::string>(OLE2T(bSource));
+    auto ret = utf8::cvt<std::string>(OLE2T(bSource));
     ret += " - ";
     ret += utf8::cvt<std::string>(OLE2T(bDesc));
     return ret;

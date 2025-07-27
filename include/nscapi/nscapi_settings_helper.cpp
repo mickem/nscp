@@ -547,7 +547,7 @@ void settings_registry::register_all() const {
 }
 
 void settings_registry::notify() const {
-  for (const key_list::value_type v : keys_) {
+  for (const key_list::value_type &v : keys_) {
     try {
       if (v->key) {
         if (v->has_parent())
@@ -561,7 +561,7 @@ void settings_registry::notify() const {
       core_->err(__FILE__, __LINE__, "Failed to notify " + v->key_name);
     }
   }
-  for (const path_list::value_type v : paths_) {
+  for (const path_list::value_type &v : paths_) {
     try {
       if (v->path) v->path->notify_path(core_, v->path_name);
     } catch (const std::exception &e) {

@@ -22,6 +22,7 @@
 
 #include <boost/thread/shared_mutex.hpp>
 #include <boost/function.hpp>
+#include <list>
 
 class SimpleCache : public nscapi::impl::simple_plugin {
  public:

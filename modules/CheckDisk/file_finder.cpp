@@ -20,6 +20,7 @@
 #include "file_finder.hpp"
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <file_helpers.hpp>
 
 #include "filter.hpp"
 
@@ -32,31 +33,31 @@
 bool file_finder::is_directory(unsigned long dwAttr) {
   if (dwAttr == INVALID_FILE_ATTRIBUTES) {
     return false;
-  } else if ((dwAttr & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
+  }
+  if ((dwAttr & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
     return true;
   }
   return false;
 }
 
-void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &context, boost::filesystem::path dir,
-                                 boost::shared_ptr<file_filter::filter_obj> total_obj, bool total_all, bool recursive, int current_level) {
+void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &context, const boost::filesystem::path &dir,
+                                 const boost::shared_ptr<file_filter::filter_obj> &total_obj, const bool total_all, const bool recursive, const int current_level) {
   if (!context.is_valid_level(current_level)) {
     if (context.debug) context.report_debug("Level death exhausted: " + str::xtos(current_level));
     return;
   }
   WIN32_FIND_DATA wfd;
 
-  DWORD fileAttr = GetFileAttributes(dir.wstring().c_str());
+  const DWORD fileAttr = GetFileAttributes(dir.wstring().c_str());
   if ((fileAttr == INVALID_FILE_ATTRIBUTES) && (!recursive)) {
     context.report_error("Invalid file specified: " + dir.string());
   } else if (fileAttr == INVALID_FILE_ATTRIBUTES) {
     context.report_warning("Invalid file specified: " + dir.string());
   }
-  // if (context.debug) context.report_debug("Input is: " + dir.string() + " / " + str::xtos(fileAttr));
 
   if (!is_directory(fileAttr)) {
     if (context.debug) context.report_debug("Found a file won't do recursive scan: " + dir.string());
-    // It is a file check it an return (don't check recursively)
+    // It is a file check it and return (don't check recursively)
     file_helpers::patterns::pattern_type single_path = file_helpers::patterns::split_path_ex(dir.string());
     if (context.debug) context.report_debug("Path is: " + single_path.first.string());
     HANDLE hFind = FindFirstFile(dir.wstring().c_str(), &wfd);
@@ -72,7 +73,6 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
     return;
   }
   std::string file_pattern = dir.string() + "\\" + context.pattern;
-  // if (context.debug) context.report_debug("File pattern: " + file_pattern);
   HANDLE hFind = FindFirstFile(utf8::cvt<std::wstring>(file_pattern).c_str(), &wfd);
   if (hFind != INVALID_HANDLE_VALUE) {
     do {
@@ -97,12 +97,12 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
   }
 }
 
-bool file_finder::scanner_context::is_valid_level(int current_level) { return max_depth == -1 || current_level < max_depth; }
+bool file_finder::scanner_context::is_valid_level(const int current_level) const { return max_depth == -1 || current_level < max_depth; }
 
-void file_finder::scanner_context::report_error(const std::string str) { NSC_LOG_ERROR(str); }
+void file_finder::scanner_context::report_error(const std::string &str) const { NSC_LOG_ERROR(str); }
 
-void file_finder::scanner_context::report_debug(const std::string str) {
+void file_finder::scanner_context::report_debug(const std::string &str) const {
   if (debug) NSC_DEBUG_MSG(str);
 }
 
-void file_finder::scanner_context::report_warning(const std::string msg) { NSC_LOG_ERROR(msg); }
+void file_finder::scanner_context::report_warning(const std::string &msg) const { NSC_LOG_ERROR(msg); }

@@ -37,7 +37,6 @@
 #include <boost/thread/lock_types.hpp>
 #include <boost/date_time.hpp>
 
-#include <map>
 #include <vector>
 #include <ostream>
 #include <fstream>

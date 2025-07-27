@@ -34,7 +34,6 @@
 #include <str/format.hpp>
 
 #include <boost/thread.hpp>
-#include <boost/assign.hpp>
 
 #include <map>
 #include <vector>

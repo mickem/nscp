@@ -16,12 +16,12 @@
  * You should have received a copy of the GNU General Public License
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
+#pragma once
 
 #include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 
 class CheckDisk : public nscapi::impl::simple_plugin {
- private:
   bool show_errors_;
 
  public:

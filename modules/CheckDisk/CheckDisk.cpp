@@ -18,10 +18,7 @@
  */
 
 #include "CheckDisk.h"
-#include <time.h>
-#include <error/error.hpp>
 #include <file_helpers.hpp>
-#include <utils.h>
 
 #include <parsers/expression/expression.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -35,7 +32,6 @@
 
 #include "file_finder.hpp"
 #include "filter.hpp"
-#include <char_buffer.hpp>
 #include <compat.hpp>
 
 #include "check_drive.hpp"

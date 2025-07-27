@@ -40,13 +40,12 @@
 
 #ifdef WIN32
 #include <Windows.h>
-#include <winioctl.h>
 #endif
 
 namespace npo = nscapi::program_options;
 namespace po = boost::program_options;
 
-const int drive_type_total = 0x77;
+constexpr int drive_type_total = 0x77;
 
 std::string type_to_string(const long long type) {
   if (type == DRIVE_FIXED) return "fixed";
@@ -122,7 +121,7 @@ struct filter_obj {
   bool has_type;
   bool unreadable;
 
-  filter_obj(const drive_container drive)
+  explicit filter_obj(const drive_container &drive)
       : drive(drive), drive_type(0), user_free(0), total_free(0), drive_size(0), has_size(false), has_type(false), unreadable(true) {};
 
   std::string get_drive(parsers::where::evaluation_context) const { return drive.letter; }
@@ -180,7 +179,7 @@ struct filter_obj {
   }
   long long get_user_used_pct(parsers::where::evaluation_context context) { return 100 - get_user_free_pct(context); }
   long long get_total_used_pct(parsers::where::evaluation_context context) { return 100 - get_total_free_pct(context); }
-  long long get_is_mounted(parsers::where::evaluation_context context) { return drive.is_mounted ? 1 : 0; }
+  long long get_is_mounted(parsers::where::evaluation_context context) const { return drive.is_mounted ? 1 : 0; }
 
   std::string get_user_free_human(parsers::where::evaluation_context context) { return str::format::format_byte_units(get_user_free(context)); }
   std::string get_total_free_human(parsers::where::evaluation_context context) { return str::format::format_byte_units(get_total_free(context)); }

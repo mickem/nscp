@@ -31,9 +31,7 @@
 #include <boost/asio.hpp>
 #include <boost/array.hpp>
 #include <boost/noncopyable.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
-#include <boost/asio/ssl/context.hpp>
 
 namespace nrpe {
 using boost::asio::ip::tcp;
@@ -47,22 +45,22 @@ using boost::asio::ip::tcp;
 // on_write		-> last_packet	has_data = true
 // on_write		-> done
 
-static const int socket_bufer_size = 8096;
+static constexpr int socket_bufer_size = 8096;
 struct read_protocol : public boost::noncopyable {
-  static const bool debug_trace = false;
+  static constexpr bool debug_trace = false;
 
   typedef std::vector<char> outbound_buffer_type;
-  typedef nrpe::server::handler *handler_type;
+  typedef server::handler *handler_type;
   typedef boost::array<char, socket_bufer_size>::iterator iterator_type;
 
   enum state { none, connected, has_more, last_packet, done };
 
   socket_helpers::connection_info info_;
   handler_type handler_;
-  nrpe::server::parser parser_;
+  server::parser parser_;
   state current_state_;
   outbound_buffer_type data_;
-  std::list<nrpe::packet> responses_;
+  std::list<packet> responses_;
   int version_;
 
   static boost::shared_ptr<read_protocol> create(socket_helpers::connection_info info, handler_type handler) {
@@ -70,7 +68,7 @@ struct read_protocol : public boost::noncopyable {
   }
 
   read_protocol(socket_helpers::connection_info info, handler_type handler)
-      : info_(info), handler_(handler), parser_(handler->get_payload_length()), version_(nrpe::data::version2), current_state_(none) {}
+      : info_(info), handler_(handler), parser_(handler->get_payload_length()), current_state_(none), version_(data::version2) {}
 
   inline void set_state(state new_state) { current_state_ = new_state; }
 
@@ -95,8 +93,8 @@ struct read_protocol : public boost::noncopyable {
     return true;
   }
 
-  bool wants_data() { return current_state_ == connected; }
-  bool has_data() { return current_state_ == has_more || current_state_ == last_packet; }
+  bool wants_data() const { return current_state_ == connected; }
+  bool has_data() const { return current_state_ == has_more || current_state_ == last_packet; }
 
   bool on_read(char *begin, char *end) {
     while (begin != end) {
@@ -105,7 +103,7 @@ struct read_protocol : public boost::noncopyable {
       boost::tie(result, begin) = parser_.digest(begin, end);
       if (result) {
         try {
-          nrpe::packet request = parser_.parse();
+          packet request = parser_.parse();
           version_ = request.getVersion();
           responses_ = handler_->handle(request);
         } catch (const std::exception &e) {
@@ -115,7 +113,8 @@ struct read_protocol : public boost::noncopyable {
         }
         queue_next();
         return true;
-      } else if (begin == old_begin) {
+      }
+      if (begin == old_begin) {
         log_error(__FILE__, __LINE__, "Digester failed to parse chunk, giving up.");
         return false;
       }
