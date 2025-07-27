@@ -34,6 +34,9 @@ add_library(${TARGET} MODULE ${SRCS})
 nscp_debug_symbols(${TARGET})
 openssl_link_fix(${TARGET})
 
-target_link_libraries(${TARGET} ${NSCP_DEF_PLUGIN_LIB} ${NSCP_FILTER_LIB}
-                      expression_parser ${JSON_LIB} ${EXTRA_LIBS})
+target_link_libraries(${TARGET}
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${NSCP_FILTER_LIB}
+        expression_parser
+        ${EXTRA_LIBS})
 include(${BUILD_CMAKE_FOLDER}/module.cmake)

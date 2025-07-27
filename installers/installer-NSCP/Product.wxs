@@ -159,9 +159,11 @@
             <File Id="PythonPYD1" Name="_socket.pyd" DiskId="1" Source="$(var.Source)/_socket.pyd" Vital="no" />
             <File Id="PythonPYD2" Name="unicodedata.pyd" DiskId="1" Source="$(var.Source)/unicodedata.pyd" Vital="no" />
           </Component>
-          <Component Id="LuaLibs" Guid="513b45d4-c0f4-4531-9baf-0db466e4e51c">
-            <File Id="LuaDLL" Name="lua.dll" DiskId="1" Source="$(var.Source)/lua.dll" Vital="no" />
-          </Component>
+          <?if "$(var.Runtime)" = "dynamic"?>
+            <Component Id="LuaLibs" Guid="513b45d4-c0f4-4531-9baf-0db466e4e51c">
+              <File Id="LuaDLL" Name="lua.dll" DiskId="1" Source="$(var.Source)/lua.dll" Vital="no" />
+            </Component>
+          <?endif?>
           <!--
           <Component Id="LibDotNet" Guid="29AC2A9A-D1D1-4E86-BEE0-5428C86422F6">
             <File Id="DOTNET_PB" Name="Google.ProtocolBuffers.dll" DiskId="1" Source="$(var.Source)/Google.ProtocolBuffers.dll" Vital="yes" />
@@ -232,15 +234,19 @@
         </Feature>
         <Feature Id="CheckMK" Title="Check MK Support" Description="Check MK client and server Plugin" Level="1" Absent="allow">
           <ComponentRef Id="CheckMK" />
-          <ComponentRef Id="LuaLibs" />
+          <?if "$(var.Runtime)" = "dynamic"?>
+            <ComponentRef Id="LuaLibs" />
+          <?endif?>
         </Feature>
         <Feature Id="NSCPlugins" Title="check_nt support" Description="NSClient Server Plugin. Support for the old NSClient protocol (check_nt)" Level="1" Absent="allow">
           <ComponentRef Id="NSCServer" />
         </Feature>
-        <Feature Id="WEBPlugins" Title="WEB Server" Description="NSClient WEB Server. Use this to administrate or check NSCLient via a browser or REST API" Level="1" Absent="allow">
+        <Feature Id="WEBPlugins" Title="WEB Server" Description="NSClient WEB Server. Use this to administrate or check NSClient via a browser or REST API" Level="1" Absent="allow">
           <ComponentRef Id="WEBServer" />
           <ComponentGroupRef Id="WEBResources" />
-          <ComponentRef Id="MongooseLibs" />
+          <?if "$(var.Runtime)" = "dynamic"?>
+            <ComponentRef Id="MongooseLibs" />
+          <?endif?>
         </Feature>
         <Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to an NSCA server" Level="1" Absent="allow">
           <ComponentRef Id="NSCA" />
@@ -253,13 +259,15 @@
         </Feature>
         <Feature Id="PythonScript" Title="Python Scripting" Description="Allows running INTERNAL scripts written in Python" Level="1" Absent="allow">
           <ComponentRef Id="PythonScript" />
-          <Feature Id="PythonScriptPythonRuntime" Title="Python 2.7 Runtime" Description="Runtime enviornment for python 2.7 (if you already have python install down install this)" Level="1" Absent="allow">
+          <Feature Id="PythonScriptPythonRuntime" Title="Python Runtime" Description="Runtime environment for python (if you already have python install down install this)" Level="1" Absent="allow">
             <ComponentRef Id="PythonBin" />
           </Feature>
         </Feature>
         <Feature Id="LuaScript" Title="Lua Scripting" Description="Allows running INTERNAL scripts written in Lua" Level="1" Absent="allow">
           <ComponentRef Id="LuaScript" />
-          <ComponentRef Id="LuaLibs" />
+          <?if "$(var.Runtime)" = "dynamic"?>
+            <ComponentRef Id="LuaLibs" />
+          <?endif?>
         </Feature>
       </Feature>
       <Feature Id="SampleScripts" Title="Scripts" Description="Scripts for checking and testing various aspects of your computer and NSClient++" Level="1" Absent="allow">

@@ -6,8 +6,13 @@ project(${TARGET})
 
 create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-set(SRCS ${SRCS} "${TARGET}.cpp" extscr_cli.cpp script_provider.cpp
-         ${NSCP_DEF_PLUGIN_CPP} ${NSCP_ERROR_CPP} ${NSCP_INCLUDEDIR}/json/use_json.cpp)
+set(SRCS ${SRCS}
+        "${TARGET}.cpp"
+        extscr_cli.cpp
+        script_provider.cpp
+        ${NSCP_DEF_PLUGIN_CPP}
+        ${NSCP_ERROR_CPP}
+        ${NSCP_INCLUDEDIR}/json/use_json.cpp)
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
 
@@ -35,7 +40,10 @@ add_library(${TARGET} MODULE ${SRCS})
 nscp_debug_symbols(${TARGET})
 
 target_link_libraries(
-  ${TARGET} ${Boost_FILESYSTEM_LIBRARY} ${Boost_REGEX_LIBRARY}
-  ${NSCP_DEF_PLUGIN_LIB} ${JSON_LIB} ${EXTRA_LIBS})
+  ${TARGET}
+  ${Boost_FILESYSTEM_LIBRARY}
+  ${Boost_REGEX_LIBRARY}
+  ${NSCP_DEF_PLUGIN_LIB}
+  ${EXTRA_LIBS})
 
 include(${BUILD_CMAKE_FOLDER}/module.cmake)

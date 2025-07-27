@@ -82,7 +82,6 @@ target_link_libraries(
   ${Boost_PROGRAM_OPTIONS_LIBRARY}
   ${NSCP_DEF_PLUGIN_LIB}
   ${NSCP_FILTER_LIB}
-  ${JSON_LIB}
   expression_parser
   winsys_info
   psapi

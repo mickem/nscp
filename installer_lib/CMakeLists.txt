@@ -9,6 +9,17 @@ set(NSCP_INCLUDEDIR ${CMAKE_SOURCE_DIR}/../include)
 set(BUILD_PYTHON_FOLDER "${CMAKE_SOURCE_DIR}/../build/python")
 set(BUILD_CMAKE_FOLDER "${CMAKE_SOURCE_DIR}/../build/cmake")
 
+if(WIN32)
+    # Workaround for building with XP support
+    add_definitions(
+            -DWINVER=0x0501
+            -D_WIN32_WINNT=0x0501
+            -DNTDDI_VERSION=0x05010000
+            -DBOOST_USE_WINAPI_VERSION=0x501
+            -DBOOST_NO_CXX17_HDR_SHARED_MUTEX
+            -D_USING_V110_SDK71_
+    )
+endif ()
 set(Boost_USE_STATIC_LIBS ON)
 set(Boost_USE_STATIC_RUNTIME ON)
 find_package(Boost COMPONENTS system filesystem)

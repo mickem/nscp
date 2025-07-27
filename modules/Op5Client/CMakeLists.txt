@@ -6,8 +6,12 @@ project(${TARGET})
 
 create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-set(SRCS ${SRCS} "${TARGET}.cpp" op5_client.cpp ${NSCP_DEF_PLUGIN_CPP}
-         ${NSCP_CLIENT_CPP} ${NSCP_INCLUDEDIR}/json/use_json.cpp)
+set(SRCS ${SRCS}
+        "${TARGET}.cpp"
+        op5_client.cpp
+        ${NSCP_DEF_PLUGIN_CPP}
+        ${NSCP_CLIENT_CPP}
+        ${NSCP_INCLUDEDIR}/json/use_json.cpp)
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
 
@@ -36,6 +40,9 @@ add_library(${TARGET} MODULE ${SRCS})
 nscp_debug_symbols(${TARGET})
 
 target_link_libraries(
-  ${TARGET} ${Boost_FILESYSTEM_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY}
-  ${NSCP_DEF_PLUGIN_LIB} ${JSON_LIB} nscp_mongoose)
+  ${TARGET}
+  ${Boost_FILESYSTEM_LIBRARY}
+  ${Boost_PROGRAM_OPTIONS_LIBRARY}
+  ${NSCP_DEF_PLUGIN_LIB}
+  nscp_mongoose)
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
