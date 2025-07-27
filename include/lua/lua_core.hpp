@@ -21,8 +21,6 @@
 
 extern "C" {
 #include <lua.h>
-#include "lauxlib.h"
-#include "lualib.h"
 }
 
 #include <string>
@@ -30,8 +28,6 @@ extern "C" {
 
 #include <boost/shared_ptr.hpp>
 
-#include <NSCAPI.h>
-#include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_protobuf_command.hpp>
 
 #include <str/xtos.hpp>

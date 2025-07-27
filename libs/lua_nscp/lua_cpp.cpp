@@ -6,7 +6,6 @@ extern "C" {
 }
 
 #include <str/xtos.hpp>
-#include <utf8.hpp>
 
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>

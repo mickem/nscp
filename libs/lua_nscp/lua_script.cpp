@@ -1,14 +1,10 @@
-#include <map>
-
-#include <boost/enable_shared_from_this.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/optional.hpp>
 #include <boost/thread.hpp>
+#include <boost/filesystem/operations.hpp>
 
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
-#include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
 #include <scripts/script_nscp.hpp>

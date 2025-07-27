@@ -24,7 +24,6 @@
 #include <map>
 #include <string.h>
 
-#include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
 
 #include <utf8.hpp>
@@ -49,7 +48,7 @@ struct plugin_instance_data {
   boost::shared_ptr<impl_type> get(unsigned int id) {
     typename plugin_list_type::iterator it = plugins.find(id);
     if (it != plugins.end()) return it->second;
-    boost::shared_ptr<impl_type> impl = boost::shared_ptr<impl_type>(new impl_type());
+    boost::shared_ptr<impl_type> impl = boost::make_shared<impl_type>();
     plugins[id] = impl;
     return impl;
   }
