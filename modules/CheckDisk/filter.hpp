@@ -42,6 +42,10 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/filesystem.hpp>
 
+#ifdef WIN32
+#include <Windows.h>
+#endif
+
 namespace file_filter {
 struct file_object_exception : public std::exception {
   std::string error_;

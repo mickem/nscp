@@ -35,21 +35,22 @@ class core_wrapper_impl {
 
 nscapi::core_wrapper::core_wrapper()
     : pimpl(new core_wrapper_impl()),
-      fNSAPIGetApplicationName(NULL),
-      fNSAPIGetApplicationVersionStr(NULL),
-      fNSAPIMessage(NULL),
-      fNSAPISimpleMessage(NULL),
-      fNSAPIInject(NULL),
-      fNSAPIExecCommand(NULL),
-      fNSAPIDestroyBuffer(NULL),
-      fNSAPINotify(NULL),
-      fNSAPIReload(NULL),
-      fNSAPICheckLogMessages(NULL),
-      fNSAPISettingsQuery(NULL),
-      fNSAPIExpandPath(NULL),
-      fNSAPIGetLoglevel(NULL),
-      fNSAPIRegistryQuery(NULL),
-      fNSCAPIEmitEvent(NULL) {}
+      fNSAPIGetApplicationName(nullptr),
+      fNSAPIGetApplicationVersionStr(nullptr),
+      fNSAPIMessage(nullptr),
+      fNSAPISimpleMessage(nullptr),
+      fNSAPIInject(nullptr),
+      fNSAPIExecCommand(nullptr),
+      fNSAPIDestroyBuffer(nullptr),
+      fNSAPINotify(nullptr),
+      fNSAPIReload(nullptr),
+      fNSAPICheckLogMessages(nullptr),
+      fNSAPISettingsQuery(nullptr),
+      fNSAPIExpandPath(nullptr),
+      fNSAPIGetLoglevel(nullptr),
+      fNSAPIRegistryQuery(nullptr),
+      fNSCAPIEmitEvent(nullptr),
+      fNSAPIStorageQuery(nullptr) {}
 nscapi::core_wrapper::~core_wrapper() { delete pimpl; }
 
 //////////////////////////////////////////////////////////////////////////
@@ -64,7 +65,7 @@ bool nscapi::core_wrapper::should_log(NSCAPI::nagiosReturn msgType) const {
     level = get_loglevel();
     status = set;
   }
-  return nscapi::logging::matches(level, msgType);
+  return logging::matches(level, msgType);
 }
 
 /**
@@ -88,10 +89,10 @@ void nscapi::core_wrapper::log(std::string message) const {
 /**
  * Callback to send a message through to the core
  *
- * @param msgType Message type (debug, warning, etc.)
+ * @param loglevel Message type (debug, warning, etc.)
  * @param file File where message was generated (__FILE__)
  * @param line Line where message was generated (__LINE__)
- * @param message Message in human readable format
+ * @param logMessage Message in human readable format
  * @throws nsclient::nsclient_exception When core pointer set is unavailable.
  */
 void nscapi::core_wrapper::log(NSCAPI::log_level::level loglevel, std::string file, int line, std::string logMessage) const {
@@ -143,11 +144,11 @@ void nscapi::core_wrapper::DestroyBuffer(char **buffer) const {
 
 bool nscapi::core_wrapper::submit_message(std::string channel, std::string request, std::string &response) const {
   if (!fNSAPINotify) throw nsclient::nsclient_exception("NSCore has not been initiated...");
-  char *buffer = NULL;
+  char *buffer = nullptr;
   unsigned int buffer_size = 0;
   bool ret = NSCAPI::api_ok(submit_message(channel.c_str(), request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
 
-  if (buffer_size > 0 && buffer != NULL) {
+  if (buffer_size > 0 && buffer != nullptr) {
     response = std::string(buffer, buffer_size);
   }
 
@@ -167,11 +168,11 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::submit_message(const char *channel, c
 
 bool nscapi::core_wrapper::query(const std::string &request, std::string &result) const {
   if (!fNSAPIInject) throw nsclient::nsclient_exception("NSCore has not been initiated...");
-  char *buffer = NULL;
+  char *buffer = nullptr;
   unsigned int buffer_size = 0;
   bool retC = NSCAPI::api_ok(query(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
 
-  if (buffer_size > 0 && buffer != NULL) {
+  if (buffer_size > 0 && buffer != nullptr) {
     // PluginCommand::ResponseMessage rsp_msg;
     result = std::string(buffer, buffer_size);
   }
@@ -184,11 +185,11 @@ bool nscapi::core_wrapper::query(const std::string &request, std::string &result
 }
 
 bool nscapi::core_wrapper::exec_command(const std::string target, std::string request, std::string &result) const {
-  char *buffer = NULL;
+  char *buffer = nullptr;
   unsigned int buffer_size = 0;
   bool retC = NSCAPI::api_ok(exec_command(target.c_str(), request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
 
-  if (buffer_size > 0 && buffer != NULL) {
+  if (buffer_size > 0 && buffer != nullptr) {
     result = std::string(buffer, buffer_size);
   }
 
@@ -222,10 +223,10 @@ NSCAPI::errorReturn nscapi::core_wrapper::settings_query(const char *request, co
   return fNSAPISettingsQuery(request, request_len, response, response_len);
 }
 bool nscapi::core_wrapper::settings_query(const std::string request, std::string &response) const {
-  char *buffer = NULL;
+  char *buffer = nullptr;
   unsigned int buffer_size = 0;
   bool retC = NSCAPI::api_ok(settings_query(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
-  if (buffer_size > 0 && buffer != NULL) {
+  if (buffer_size > 0 && buffer != nullptr) {
     response = std::string(buffer, buffer_size);
   }
   DestroyBuffer(&buffer);
@@ -238,10 +239,10 @@ NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const char *request, co
   return fNSAPIRegistryQuery(request, request_len, response, response_len);
 }
 bool nscapi::core_wrapper::registry_query(const std::string request, std::string &response) const {
-  char *buffer = NULL;
+  char *buffer = nullptr;
   unsigned int buffer_size = 0;
   bool retC = NSCAPI::api_ok(registry_query(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
-  if (buffer_size > 0 && buffer != NULL) {
+  if (buffer_size > 0 && buffer != nullptr) {
     response = std::string(buffer, buffer_size);
   }
   DestroyBuffer(&buffer);
@@ -254,10 +255,10 @@ NSCAPI::errorReturn nscapi::core_wrapper::storage_query(const char *request, con
   return fNSAPIStorageQuery(request, request_len, response, response_len);
 }
 bool nscapi::core_wrapper::storage_query(const std::string request, std::string &response) const {
-  char *buffer = NULL;
+  char *buffer = nullptr;
   unsigned int buffer_size = 0;
   bool retC = NSCAPI::api_ok(storage_query(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
-  if (buffer_size > 0 && buffer != NULL) {
+  if (buffer_size > 0 && buffer != nullptr) {
     response = std::string(buffer, buffer_size);
   }
   DestroyBuffer(&buffer);
@@ -312,26 +313,26 @@ void nscapi::core_wrapper::set_alias(const std::string default_alias_, const std
  * @param f A function pointer to a function that can be used to load function from the core.
  * @return NSCAPI::success or NSCAPI::failure
  */
-bool nscapi::core_wrapper::load_endpoints(nscapi::core_api::lpNSAPILoader f) {
-  fNSAPIGetApplicationName = (nscapi::core_api::lpNSAPIGetApplicationName)f("NSAPIGetApplicationName");
-  fNSAPIGetApplicationVersionStr = (nscapi::core_api::lpNSAPIGetApplicationVersionStr)f("NSAPIGetApplicationVersionStr");
-  fNSAPIMessage = (nscapi::core_api::lpNSAPIMessage)f("NSAPIMessage");
-  fNSAPISimpleMessage = (nscapi::core_api::lpNSAPISimpleMessage)f("NSAPISimpleMessage");
-  fNSAPIInject = (nscapi::core_api::lpNSAPIInject)f("NSAPIInject");
-  fNSAPIExecCommand = (nscapi::core_api::lpNSAPIExecCommand)f("NSAPIExecCommand");
-  fNSAPIDestroyBuffer = (nscapi::core_api::lpNSAPIDestroyBuffer)f("NSAPIDestroyBuffer");
-  fNSAPINotify = (nscapi::core_api::lpNSAPINotify)f("NSAPINotify");
-  fNSAPICheckLogMessages = (nscapi::core_api::lpNSAPICheckLogMessages)f("NSAPICheckLogMessages");
-  fNSAPIReload = (nscapi::core_api::lpNSAPIReload)f("NSAPIReload");
+bool nscapi::core_wrapper::load_endpoints(core_api::lpNSAPILoader f) {
+  fNSAPIGetApplicationName = reinterpret_cast<core_api::lpNSAPIGetApplicationName>(f("NSAPIGetApplicationName"));
+  fNSAPIGetApplicationVersionStr = reinterpret_cast<core_api::lpNSAPIGetApplicationVersionStr>(f("NSAPIGetApplicationVersionStr"));
+  fNSAPIMessage = reinterpret_cast<core_api::lpNSAPIMessage>(f("NSAPIMessage"));
+  fNSAPISimpleMessage = reinterpret_cast<core_api::lpNSAPISimpleMessage>(f("NSAPISimpleMessage"));
+  fNSAPIInject = reinterpret_cast<core_api::lpNSAPIInject>(f("NSAPIInject"));
+  fNSAPIExecCommand = reinterpret_cast<core_api::lpNSAPIExecCommand>(f("NSAPIExecCommand"));
+  fNSAPIDestroyBuffer = reinterpret_cast<core_api::lpNSAPIDestroyBuffer>(f("NSAPIDestroyBuffer"));
+  fNSAPINotify = reinterpret_cast<core_api::lpNSAPINotify>(f("NSAPINotify"));
+  fNSAPICheckLogMessages = reinterpret_cast<core_api::lpNSAPICheckLogMessages>(f("NSAPICheckLogMessages"));
+  fNSAPIReload = reinterpret_cast<core_api::lpNSAPIReload>(f("NSAPIReload"));
 
-  fNSAPISettingsQuery = (nscapi::core_api::lpNSAPISettingsQuery)f("NSAPISettingsQuery");
-  fNSAPIRegistryQuery = (nscapi::core_api::lpNSAPIRegistryQuery)f("NSAPIRegistryQuery");
-  fNSAPIExpandPath = (nscapi::core_api::lpNSAPIExpandPath)f("NSAPIExpandPath");
+  fNSAPISettingsQuery = reinterpret_cast<core_api::lpNSAPISettingsQuery>(f("NSAPISettingsQuery"));
+  fNSAPIRegistryQuery = reinterpret_cast<core_api::lpNSAPIRegistryQuery>(f("NSAPIRegistryQuery"));
+  fNSAPIExpandPath = reinterpret_cast<core_api::lpNSAPIExpandPath>(f("NSAPIExpandPath"));
 
-  fNSAPIGetLoglevel = (nscapi::core_api::lpNSAPIGetLoglevel)f("NSAPIGetLoglevel");
+  fNSAPIGetLoglevel = reinterpret_cast<core_api::lpNSAPIGetLoglevel>(f("NSAPIGetLoglevel"));
 
-  fNSCAPIEmitEvent = (nscapi::core_api::lpNSCAPIEmitEvent)f("NSCAPIEmitEvent");
-  fNSAPIStorageQuery = (nscapi::core_api::lpNSAPIStorageQuery)f("NSAPIStorageQuery");
+  fNSCAPIEmitEvent = reinterpret_cast<core_api::lpNSCAPIEmitEvent>(f("NSCAPIEmitEvent"));
+  fNSAPIStorageQuery = reinterpret_cast<core_api::lpNSAPIStorageQuery>(f("NSAPIStorageQuery"));
 
   return true;
 }

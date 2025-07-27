@@ -21,9 +21,6 @@
 #include <str/format.hpp>
 #include <utf8.hpp>
 
-#include <boost/shared_ptr.hpp>
-#include <boost/make_shared.hpp>
-
 #include <pdh/pdh_interface.hpp>
 
 #include <pdh/basic_impl.hpp>

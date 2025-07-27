@@ -26,8 +26,6 @@
 #include <str/xtos.hpp>
 #include <str/wstring.hpp>
 
-#include <simpleini/SimpleIni.h>
-
 #include <iostream>
 #include <fstream>
 #include <string>

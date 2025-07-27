@@ -21,9 +21,8 @@
 
 #include <nrpe/packet.hpp>
 #include <boost/shared_ptr.hpp>
-
+#include <nscpcrypt/nscpcrypt.hpp>
 #include <socket/socket_helpers.hpp>
-#include <iostream>
 
 using boost::asio::ip::tcp;
 

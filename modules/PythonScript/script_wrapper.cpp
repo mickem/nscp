@@ -20,12 +20,11 @@
 #include "script_wrapper.hpp"
 #include "PythonScript.h"
 
-#include <nscapi/functions.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 
-#include <str/utils.hpp>
 #include <str/format.hpp>
 #include <utf8.hpp>
 

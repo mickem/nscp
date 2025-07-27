@@ -22,7 +22,7 @@
 
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
-#include <nscapi/functions.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_helper.hpp>
 
 #include <str/utils.hpp>

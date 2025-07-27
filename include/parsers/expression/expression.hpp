@@ -17,10 +17,8 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-// #define BOOST_SPIRIT_DEBUG  ///$$$ DEFINE THIS WHEN DEBUGGING $$$///
 #pragma once
 
-#include <iostream>
 #include <string>
 #include <vector>
 

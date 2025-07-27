@@ -19,7 +19,6 @@
 
 #include <nscapi/command_client.hpp>
 #include <nscapi/nscapi_protobuf_registry.hpp>
-#include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/command_proxy.hpp>
 
 namespace nscapi {

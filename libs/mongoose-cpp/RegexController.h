@@ -10,8 +10,6 @@
 
 #include <boost/regex.hpp>
 
-#include <map>
-#include <vector>
 #include <string>
 
 /**

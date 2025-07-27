@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_protobuf_storage.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>

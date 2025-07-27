@@ -22,9 +22,6 @@
 
 #include <boost/filesystem.hpp>
 
-#include <NSCAPI.h>
-#include <utf8.hpp>
-
 struct script_container {
   typedef std::list<script_container> list_type;
 

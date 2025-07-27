@@ -20,20 +20,12 @@
 #pragma once
 
 #include <string>
-#include <map>
-
-#include <boost/filesystem/path.hpp>
-#include <boost/filesystem/operations.hpp>
 
 #include <settings/settings_core.hpp>
 #include <settings/settings_interface_impl.hpp>
-// #define SI_CONVERT_ICU
-#include <simpleini/simpleini.h>
-#include <error/error.hpp>
 
 namespace settings {
 class settings_dummy : public settings::settings_interface_impl {
- private:
  public:
   settings_dummy(settings::settings_core *core, std::string alias, std::string context) : settings::settings_interface_impl(core, alias, context) {}
 

@@ -19,8 +19,6 @@
 
 #pragma once
 
-#include <nsclient/logger/logger.hpp>
-
 #include <boost/shared_ptr.hpp>
 
 #include <string>

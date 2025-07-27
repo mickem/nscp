@@ -28,8 +28,7 @@
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/functions.hpp>
-#include <nscapi/nscapi_helper.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
 
 #include "filter.hpp"
 #include "filter_config_object.hpp"

@@ -19,8 +19,6 @@
 
 #include <has-threads.hpp>
 
-// #include <iostream>
-
 has_threads::has_threads() : grp(NULL), count(0) { grp = new boost::thread_group(); }
 
 has_threads::~has_threads() {

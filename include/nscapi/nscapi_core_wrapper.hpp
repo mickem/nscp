@@ -27,24 +27,23 @@
 namespace nscapi {
 class core_wrapper_impl;
 class NSCAPI_EXPORT core_wrapper {
- private:
   core_wrapper_impl *pimpl;
-  nscapi::core_api::lpNSAPIGetApplicationName fNSAPIGetApplicationName;
-  nscapi::core_api::lpNSAPIGetApplicationVersionStr fNSAPIGetApplicationVersionStr;
-  nscapi::core_api::lpNSAPIMessage fNSAPIMessage;
-  nscapi::core_api::lpNSAPISimpleMessage fNSAPISimpleMessage;
-  nscapi::core_api::lpNSAPIInject fNSAPIInject;
-  nscapi::core_api::lpNSAPIExecCommand fNSAPIExecCommand;
-  nscapi::core_api::lpNSAPIDestroyBuffer fNSAPIDestroyBuffer;
-  nscapi::core_api::lpNSAPINotify fNSAPINotify;
-  nscapi::core_api::lpNSAPIReload fNSAPIReload;
-  nscapi::core_api::lpNSAPICheckLogMessages fNSAPICheckLogMessages;
-  nscapi::core_api::lpNSAPISettingsQuery fNSAPISettingsQuery;
-  nscapi::core_api::lpNSAPIExpandPath fNSAPIExpandPath;
-  nscapi::core_api::lpNSAPIGetLoglevel fNSAPIGetLoglevel;
-  nscapi::core_api::lpNSAPIRegistryQuery fNSAPIRegistryQuery;
-  nscapi::core_api::lpNSCAPIEmitEvent fNSCAPIEmitEvent;
-  nscapi::core_api::lpNSAPIStorageQuery fNSAPIStorageQuery;
+  core_api::lpNSAPIGetApplicationName fNSAPIGetApplicationName;
+  core_api::lpNSAPIGetApplicationVersionStr fNSAPIGetApplicationVersionStr;
+  core_api::lpNSAPIMessage fNSAPIMessage;
+  core_api::lpNSAPISimpleMessage fNSAPISimpleMessage;
+  core_api::lpNSAPIInject fNSAPIInject;
+  core_api::lpNSAPIExecCommand fNSAPIExecCommand;
+  core_api::lpNSAPIDestroyBuffer fNSAPIDestroyBuffer;
+  core_api::lpNSAPINotify fNSAPINotify;
+  core_api::lpNSAPIReload fNSAPIReload;
+  core_api::lpNSAPICheckLogMessages fNSAPICheckLogMessages;
+  core_api::lpNSAPISettingsQuery fNSAPISettingsQuery;
+  core_api::lpNSAPIExpandPath fNSAPIExpandPath;
+  core_api::lpNSAPIGetLoglevel fNSAPIGetLoglevel;
+  core_api::lpNSAPIRegistryQuery fNSAPIRegistryQuery;
+  core_api::lpNSCAPIEmitEvent fNSCAPIEmitEvent;
+  core_api::lpNSAPIStorageQuery fNSAPIStorageQuery;
 
  public:
   core_wrapper();
@@ -85,7 +84,7 @@ class NSCAPI_EXPORT core_wrapper {
   NSCAPI::errorReturn storage_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
   bool storage_query(const std::string request, std::string &response) const;
 
-  bool load_endpoints(nscapi::core_api::lpNSAPILoader f);
+  bool load_endpoints(core_api::lpNSAPILoader f);
   void set_alias(const std::string default_alias, const std::string alias);
 };
 }  // namespace nscapi

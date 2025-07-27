@@ -22,9 +22,11 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/macros.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
 
 #include <utf8.hpp>
 
@@ -130,8 +132,6 @@ bool Scheduler::unloadModule() {
 
 void Scheduler::on_error(const char *file, int line, std::string msg) { GET_CORE()->log(NSCAPI::log_level::error, file, line, msg); }
 void Scheduler::on_trace(const char *file, int line, std::string msg) { GET_CORE()->log(NSCAPI::log_level::trace, file, line, msg); }
-
-#include <nscapi/functions.hpp>
 
 bool Scheduler::handle_schedule(schedules::target_object item) {
   try {
