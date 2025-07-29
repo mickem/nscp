@@ -1,8 +1,7 @@
 #include "script_provider.hpp"
 
-#include <str/utils.hpp>
-
 #include <boost/thread.hpp>
+#include <str/utils.hpp>
 
 script_provider::script_provider(int id, nscapi::core_wrapper* core, std::string settings_path, boost::filesystem::path root,
                                  std::map<std::string, std::string> wrappings)

@@ -19,11 +19,11 @@
 
 #pragma once
 
-#include <boost/thread/thread.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/thread/thread.hpp>
 
-#include "eventlog_wrapper.hpp"
 #include "eventlog_record.hpp"
+#include "eventlog_wrapper.hpp"
 #include "filter_config_object.hpp"
 
 struct real_time_thread {

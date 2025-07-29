@@ -18,17 +18,16 @@
  */
 
 #include "script_wrapper.hpp"
-#include "PythonScript.h"
 
-#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <boost/thread.hpp>
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-
+#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <str/format.hpp>
 #include <utf8.hpp>
 
-#include <boost/thread.hpp>
+#include "PythonScript.h"
 
 namespace py = boost::python;
 

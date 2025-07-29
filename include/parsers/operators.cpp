@@ -17,15 +17,13 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <iostream>
-
-#include <boost/regex.hpp>
-#include <boost/optional.hpp>
-#include <boost/make_shared.hpp>
 #include <boost/algorithm/string.hpp>
-
-#include <parsers/operators.hpp>
+#include <boost/make_shared.hpp>
+#include <boost/optional.hpp>
+#include <boost/regex.hpp>
+#include <iostream>
 #include <parsers/helpers.hpp>
+#include <parsers/operators.hpp>
 #include <parsers/where/helpers.hpp>
 
 #ifdef _WIN32

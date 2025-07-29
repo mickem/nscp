@@ -17,11 +17,10 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <sstream>
-
+#include <parsers/operators.hpp>
 #include <parsers/where/binary_op.hpp>
 #include <parsers/where/helpers.hpp>
-#include <parsers/operators.hpp>
+#include <sstream>
 
 namespace parsers {
 namespace where {

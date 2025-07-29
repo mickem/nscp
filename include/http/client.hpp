@@ -19,19 +19,17 @@
 
 #pragma once
 
-#include <socket/socket_helpers.hpp>
-#include <socket/clients/http/http_packet.hpp>
-
-#include <str/xtos.hpp>
-
 #include <boost/asio.hpp>
 #include <boost/scoped_ptr.hpp>
-
+#include <iostream>
 #include <istream>
 #include <ostream>
+#include <socket/clients/http/http_packet.hpp>
+#include <socket/socket_helpers.hpp>
+#include <str/xtos.hpp>
 #include <string>
+#include <utf8.hpp>
 #include <utility>
-#include <iostream>
 
 using boost::asio::ip::tcp;
 

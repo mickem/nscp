@@ -19,9 +19,9 @@
 
 #pragma once
 
-#include <check_nt/packet.hpp>
-#include <boost/tuple/tuple.hpp>
 #include <boost/noncopyable.hpp>
+#include <boost/tuple/tuple.hpp>
+#include <check_nt/packet.hpp>
 
 #include "handler.hpp"
 

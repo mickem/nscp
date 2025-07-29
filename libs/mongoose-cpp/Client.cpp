@@ -1,15 +1,13 @@
 #include "Client.hpp"
 
-#include "StreamResponse.h"
-#include "string_response.hpp"
-
-#include "ext/mongoose.h"
-
-#include <boost/thread/thread.hpp>
-
-#include <string>
 #include <boost/make_shared.hpp>
+#include <boost/thread/thread.hpp>
+#include <string>
 #include <utility>
+
+#include "StreamResponse.h"
+#include "ext/mongoose.h"
+#include "string_response.hpp"
 
 using namespace std;
 using namespace Mongoose;

@@ -1,19 +1,19 @@
 #include "settings_manager_impl.h"
 
-#include <settings/impl/settings_ini.hpp>
 #include <settings/impl/settings_dummy.hpp>
 #include <settings/impl/settings_http.hpp>
+#include <settings/impl/settings_ini.hpp>
 #ifdef WIN32
 #include <settings/impl/settings_old.hpp>
 #include <settings/impl/settings_registry.hpp>
 #endif
 
-#include <settings/client/settings_proxy.hpp>
-#include <file_helpers.hpp>
 #include <config.h>
 
-#include <str/xtos.hpp>
+#include <file_helpers.hpp>
+#include <settings/client/settings_proxy.hpp>
 #include <str/format.hpp>
+#include <str/xtos.hpp>
 #include <utf8.hpp>
 #include <utility>
 

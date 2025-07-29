@@ -19,13 +19,10 @@
 
 #pragma once
 
-#include <nsca/nsca_packet.hpp>
-
-#include <nsca/client/nsca_client_protocol.hpp>
-
-#include <nscapi/nscapi_settings_helper.hpp>
-
 #include <boost/make_shared.hpp>
+#include <nsca/client/nsca_client_protocol.hpp>
+#include <nsca/nsca_packet.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 
 namespace nrpe_handler {
 namespace sh = nscapi::settings_helper;

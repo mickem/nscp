@@ -19,18 +19,12 @@
 
 #pragma once
 
-#include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_targets.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
-
-#include <net/net.hpp>
-
-#include <NSCAPI.h>
-
-#include <boost/shared_ptr.hpp>
 #include <boost/program_options.hpp>
 #include <boost/unordered_map.hpp>
-#include <utility>
+#include <net/net.hpp>
+#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <nscapi/nscapi_targets.hpp>
 
 namespace client {
 struct cli_exception : public std::exception {

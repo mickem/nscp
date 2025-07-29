@@ -19,13 +19,11 @@
 
 #pragma once
 
-#include <string>
+#include <sysinfo.h>
 
 #include <boost/thread/mutex.hpp>
-
-#include <sysinfo.h>
 #include <error/error.hpp>
-
+#include <string>
 #include <win/windows.hpp>
 
 #ifndef _T

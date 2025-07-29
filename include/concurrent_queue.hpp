@@ -21,7 +21,6 @@
 
 #include <queue>
 #include <boost/thread/condition_variable.hpp>
-#include <boost/thread/shared_mutex.hpp>
 
 template <typename T>
 class concurrent_queue {

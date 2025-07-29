@@ -19,20 +19,15 @@
 
 #pragma once
 
+#include <boost/bind/bind.hpp>
+#include <boost/optional.hpp>
+#include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
-#include <nscapi/nscapi_helper.hpp>
-
 #include <parsers/cron/cron_parser.hpp>
-
 #include <scheduler/simple_scheduler.hpp>
-
-#include <str/utils.hpp>
 #include <str/format.hpp>
-
-#include <boost/optional.hpp>
-#include <boost/bind/bind.hpp>
-
+#include <str/utils.hpp>
 #include <string>
 
 namespace sh = nscapi::settings_helper;

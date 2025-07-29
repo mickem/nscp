@@ -1,10 +1,9 @@
 #pragma once
 
+#include <boost/optional.hpp>
+#include <boost/thread/mutex.hpp>
 #include <map>
 #include <string>
-
-#include <boost/thread/mutex.hpp>
-#include <boost/optional.hpp>
 
 class bookmarks {
  public:

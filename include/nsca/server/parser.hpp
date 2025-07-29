@@ -20,7 +20,6 @@
 #pragma once
 
 #include <boost/tuple/tuple.hpp>
-
 #include <nsca/nsca_packet.hpp>
 #include <nscpcrypt/nscpcrypt.hpp>
 

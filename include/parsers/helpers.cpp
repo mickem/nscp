@@ -17,9 +17,8 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <parsers/helpers.hpp>
-
 #include <boost/date_time.hpp>
+#include <parsers/helpers.hpp>
 
 namespace parsers {
 namespace where {

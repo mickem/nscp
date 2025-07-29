@@ -18,13 +18,13 @@
  */
 #include "NSCAServer.h"
 
-#include <socket/socket_settings_helper.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_helper.hpp>
-#include <nscapi/nscapi_common_options.hpp>
 #include <nscapi/macros.hpp>
+#include <nscapi/nscapi_common_options.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <socket/socket_settings_helper.hpp>
 
 namespace CryptoPP {
 const std::string DEFAULT_CHANNEL = "";

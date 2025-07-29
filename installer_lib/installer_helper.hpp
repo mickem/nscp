@@ -1,19 +1,19 @@
 #pragma once
-
-#include <error/error.hpp>
-#include <char_buffer.hpp>
-#include <str/wstring.hpp>
-#include <utf8.hpp>
-
+// clang-format off
 #define WIN32_LEAN_AND_MEAN  // Exclude rarely-used stuff from Windows headers
 #include <windows.h>
+// clang-format on
 
-#include <msi.h>
 #include <MsiQuery.h>
-#include <windows.h>
-#include "keys.hpp"
+#include <msi.h>
 
+#include <char_buffer.hpp>
+#include <error/error.hpp>
+#include <str/wstring.hpp>
+#include <utf8.hpp>
 #include <vector>
+
+#include "keys.hpp"
 
 class installer_exception {
   std::wstring error_;

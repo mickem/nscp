@@ -22,17 +22,14 @@
 #include <boost/thread/thread.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
-
+#include <nscapi/nscapi_settings_proxy.hpp>
 #include <pdh/pdh_interface.hpp>
 #include <pdh/pdh_query.hpp>
-
-#include <nscapi/nscapi_settings_proxy.hpp>
-
 #include <rrd_buffer.hpp>
 #include <win_sysinfo/win_sysinfo.hpp>
 
-#include "filter_config_object.hpp"
 #include "check_network.hpp"
+#include "filter_config_object.hpp"
 
 struct spi_container {
   long long handles;

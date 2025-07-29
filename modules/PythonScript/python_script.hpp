@@ -1,10 +1,9 @@
 #pragma once
 
-#include <boost/python/dict.hpp>
 #include <boost/filesystem/path.hpp>
-
-#include <string>
+#include <boost/python/dict.hpp>
 #include <list>
+#include <string>
 
 struct python_script : public boost::noncopyable {
   std::string base_path;

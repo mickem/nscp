@@ -1,10 +1,9 @@
 #include "ServerImpl.h"
 
-#include "StreamResponse.h"
-
 #include <boost/date_time/posix_time/posix_time.hpp>
-
 #include <string>
+
+#include "StreamResponse.h"
 
 using namespace std;
 using namespace Mongoose;

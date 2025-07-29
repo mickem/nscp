@@ -1,7 +1,7 @@
 #pragma once
 
-#include <win/windows.hpp>
 #include <string>
+#include <win/windows.hpp>
 
 class ExceptionManager {
  public:

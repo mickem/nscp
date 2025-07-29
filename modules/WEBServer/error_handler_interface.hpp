@@ -1,8 +1,8 @@
 #pragma once
 
+#include <list>
 #include <string>
 #include <vector>
-#include <list>
 
 struct error_handler_interface {
   struct log_entry {

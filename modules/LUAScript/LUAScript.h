@@ -19,16 +19,13 @@
 
 #pragma once
 
+#include <boost/scoped_ptr.hpp>
+#include <lua/lua_core.hpp>
+#include <lua/lua_script.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <scripts/script_interface.hpp>
 #include <scripts/script_nscp.hpp>
-
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_plugin_impl.hpp>
-
-#include <lua/lua_script.hpp>
-#include <lua/lua_core.hpp>
-
-#include <boost/scoped_ptr.hpp>
 
 class LUAScript : public nscapi::impl::simple_plugin {
  private:

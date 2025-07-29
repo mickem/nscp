@@ -19,12 +19,11 @@
 
 #pragma once
 
-#include <nscapi/nscapi_settings_proxy.hpp>
+#include <boost/python.hpp>
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-
-#include <boost/python.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
 #ifdef WIN32
 #undef snprintf
 #undef vsnprintf

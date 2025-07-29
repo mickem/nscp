@@ -1,9 +1,10 @@
 #ifndef _MONGOOSE_REQUEST_HANDLER_H
 #define _MONGOOSE_REQUEST_HANDLER_H
 
+#include <string>
+
 #include "Request.h"
 #include "Response.h"
-#include <string>
 
 namespace Mongoose {
 class RequestHandlerBase {

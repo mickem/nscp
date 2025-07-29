@@ -18,17 +18,15 @@
  */
 
 #include "filter_config_object.hpp"
-#include "filter.hpp"
 
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-
-#include <str/utils.hpp>
-
-#include <boost/optional.hpp>
 #include <boost/date_time.hpp>
-
+#include <boost/optional.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <str/utils.hpp>
 #include <string>
+
+#include "filter.hpp"
 
 namespace sh = nscapi::settings_helper;
 namespace ph = boost::placeholders;

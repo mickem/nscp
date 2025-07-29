@@ -1,17 +1,15 @@
 #pragma once
 
+#include <Request.h>
+#include <StreamResponse.h>
+
+#include <list>
+#include <socket/allowed_hosts.hpp>
+#include <string>
+
 #include "error_handler_interface.hpp"
 #include "metrics_handler.hpp"
 #include "token_store.hpp"
-#include "metrics_handler.hpp"
-
-#include <StreamResponse.h>
-#include <Request.h>
-
-#include <socket/allowed_hosts.hpp>
-
-#include <string>
-#include <list>
 
 struct session_manager_interface {
  private:

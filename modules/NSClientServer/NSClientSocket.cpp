@@ -17,8 +17,9 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "strEx.h"
 #include "NSClientSocket.h"
+
+#include "strEx.h"
 
 /**
  * Default c-tor

@@ -19,14 +19,15 @@
 
 #pragma once
 
-#include "simple_registry.hpp"
-
-#include <nsclient/nsclient_exception.hpp>
-#include <str/wstring.hpp>
-#include <str/utils.hpp>
-
-#include <boost/tuple/tuple.hpp>
 #include <boost/noncopyable.hpp>
+#include <boost/tuple/tuple.hpp>
+#include <nsclient/nsclient_exception.hpp>
+#include <str/utils.hpp>
+#include <str/wstring.hpp>
+#include <str/xtos.hpp>
+#include <win/windows.hpp>
+
+#include "simple_registry.hpp"
 
 class EventLogRecord : boost::noncopyable {
   const EVENTLOGRECORD *pevlr_;

@@ -20,6 +20,7 @@
 #pragma once
 
 #include <NSCAPI.h>
+
 #include <string>
 
 namespace nscapi {

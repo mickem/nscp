@@ -18,6 +18,7 @@
  */
 
 #pragma once
+#include <string>
 
 namespace process {
 class process_exception : public std::exception {

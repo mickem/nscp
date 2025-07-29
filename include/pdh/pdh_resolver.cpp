@@ -19,12 +19,12 @@
 
 #pragma once
 
-#include <list>
 #include <pdh.h>
-#include <pdh/pdh_resolver.hpp>
 
-#include <utf8.hpp>
+#include <list>
+#include <pdh/pdh_resolver.hpp>
 #include <str/xtos.hpp>
+#include <utf8.hpp>
 
 namespace PDH {
 std::wstring PDHResolver::PdhLookupPerfNameByIndex(LPCTSTR szMachineName, DWORD dwNameIndex) {

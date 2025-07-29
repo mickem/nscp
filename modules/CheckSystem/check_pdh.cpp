@@ -17,19 +17,16 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "CheckSystem.h"
-
-#include <map>
-
-#include <boost/regex.hpp>
 #include <boost/assign/list_of.hpp>
-#include <boost/program_options.hpp>
 #include <boost/make_shared.hpp>
-
-#include <nscapi/nscapi_program_options.hpp>
+#include <boost/program_options.hpp>
+#include <boost/regex.hpp>
+#include <map>
 #include <nscapi/nscapi_helper_singleton.hpp>
-
+#include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
+
+#include "CheckSystem.h"
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;

@@ -1,14 +1,12 @@
 #include "log_controller.hpp"
-#include "helpers.hpp"
-
-#include <nscapi/nscapi_helper.hpp>
-
-#include <str/xtos.hpp>
-#include <str/utils.hpp>
 
 #include <boost/json.hpp>
-
 #include <boost/regex.hpp>
+#include <nscapi/nscapi_helper.hpp>
+#include <str/utils.hpp>
+#include <str/xtos.hpp>
+
+#include "helpers.hpp"
 
 namespace json = boost::json;
 

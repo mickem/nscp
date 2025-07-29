@@ -16,9 +16,8 @@
  * You should have received a copy of the GNU General Public License
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <str/format.hpp>
-
 #include <parsers/where/engine.hpp>
+#include <str/format.hpp>
 
 namespace parsers {
 namespace where {

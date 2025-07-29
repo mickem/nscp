@@ -1,11 +1,10 @@
 #include "python_script.hpp"
 
-#include "script_wrapper.hpp"
-
+#include <boost/python.hpp>
+#include <boost/shared_ptr.hpp>
 #include <utf8.hpp>
 
-#include <boost/shared_ptr.hpp>
-#include <boost/python.hpp>
+#include "script_wrapper.hpp"
 
 namespace py = boost::python;
 

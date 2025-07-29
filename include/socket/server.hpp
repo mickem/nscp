@@ -19,15 +19,13 @@
 
 #pragma once
 
-#include <string>
-
+#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
-#include <boost/algorithm/string/case_conv.hpp>
-
-#include <socket/socket_helpers.hpp>
 #include <socket/connection.hpp>
+#include <socket/socket_helpers.hpp>
 #include <str/xtos.hpp>
+#include <string>
 
 namespace socket_helpers {
 namespace server {

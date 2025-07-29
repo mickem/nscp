@@ -1,11 +1,10 @@
 #ifndef _MONGOOSE_STREAM_RESPONSE_H
 #define _MONGOOSE_STREAM_RESPONSE_H
 
-#include "Response.h"
-
-#include "dll_defines.hpp"
-
 #include <sstream>
+
+#include "Response.h"
+#include "dll_defines.hpp"
 
 /**
  * A stream response to a request

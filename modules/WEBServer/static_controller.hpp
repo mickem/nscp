@@ -1,12 +1,11 @@
 #pragma once
 
-#include "session_manager_interface.hpp"
-
 #include <Controller.h>
 
 #include <boost/filesystem/operations.hpp>
-
 #include <string>
+
+#include "session_manager_interface.hpp"
 
 class StaticController : public Mongoose::Controller {
   boost::shared_ptr<session_manager_interface> session;

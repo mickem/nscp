@@ -19,14 +19,13 @@
 
 #pragma once
 
-#include <list>
-#include <string>
-#include <map>
-
 #include <boost/asio.hpp>
-#include <boost/thread/mutex.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/noncopyable.hpp>
+#include <boost/thread/mutex.hpp>
+#include <list>
+#include <map>
+#include <string>
 
 namespace smtp {
 namespace client {

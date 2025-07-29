@@ -1,15 +1,12 @@
 #include "legacy_controller.hpp"
 
-#include "error_handler_interface.hpp"
-
+#include <boost/algorithm/string.hpp>
+#include <boost/json.hpp>
+#include <boost/thread/locks.hpp>
 #include <client/simple_client.hpp>
-
 #include <str/xtos.hpp>
 
-#include <boost/json.hpp>
-
-#include <boost/thread/locks.hpp>
-#include <boost/algorithm/string.hpp>
+#include "error_handler_interface.hpp"
 
 namespace json = boost::json;
 

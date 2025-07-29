@@ -19,11 +19,9 @@
 
 #pragma once
 
-#include <str/utils.hpp>
-
 #include <boost/asio/buffer.hpp>
-
 #include <sstream>
+#include <str/utils.hpp>
 #include <string>
 
 namespace check_mk {

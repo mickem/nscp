@@ -18,6 +18,8 @@
  */
 
 #include "file_finder.hpp"
+
+#include <file_helpers.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 

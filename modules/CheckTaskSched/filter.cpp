@@ -17,13 +17,12 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <map>
-#include <list>
-
-#include <parsers/where/node.hpp>
-
 #include "filter.hpp"
+
 #include <error/error_com.hpp>
+#include <list>
+#include <map>
+#include <parsers/where/node.hpp>
 
 using namespace parsers::where;
 using namespace boost::placeholders;

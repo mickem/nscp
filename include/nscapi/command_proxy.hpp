@@ -20,9 +20,8 @@
 #pragma once
 
 #include <boost/make_shared.hpp>
-#include <nscapi/nscapi_core_wrapper.hpp>
-
 #include <boost/shared_ptr.hpp>
+#include <nscapi/nscapi_core_wrapper.hpp>
 
 namespace nscapi {
 class command_proxy {

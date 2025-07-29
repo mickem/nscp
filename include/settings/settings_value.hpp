@@ -1,10 +1,8 @@
 #pragma once
 
-#include <str/xtos.hpp>
-
-#include <string>
-
 #include <boost/algorithm/string/case_conv.hpp>
+#include <str/xtos.hpp>
+#include <string>
 
 namespace nscapi {
 namespace settings {

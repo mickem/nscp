@@ -19,16 +19,13 @@
 
 #pragma once
 
-#include <string>
+#include <boost/thread/shared_mutex.hpp>
+#include <boost/unordered_map.hpp>
 #include <list>
-
 #include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_protobuf_metrics.hpp>
-
+#include <string>
 #include <wmi/wmi_query.hpp>
-
-#include <boost/unordered_map.hpp>
-#include <boost/thread/shared_mutex.hpp>
 
 namespace network_check {
 struct helper {

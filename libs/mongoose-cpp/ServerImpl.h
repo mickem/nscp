@@ -1,20 +1,16 @@
 #pragma once
 
-#include "Server.h"
+#include <boost/atomic/atomic.hpp>
+#include <boost/thread/mutex.hpp>
+#include <threads/queue.hpp>
+#include <vector>
+
+#include "Controller.h"
 #include "Request.h"
 #include "Response.h"
-#include "Controller.h"
-
-#include "ext/mongoose.h"
-
-#include <threads/queue.hpp>
-
+#include "Server.h"
 #include "dll_defines.hpp"
-
-#include <boost/thread/mutex.hpp>
-#include <boost/atomic/atomic.hpp>
-
-#include <vector>
+#include "ext/mongoose.h"
 
 /**
  * Wrapper for the Mongoose server

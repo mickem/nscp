@@ -19,12 +19,13 @@
 
 #pragma once
 
-#include <vector>
-#include <string>
+#include <minmax.h>
 
 #include <buffer.hpp>
+#include <string>
+#include <vector>
+#include <win/windows.hpp>
 #include <win_sysinfo/win_defines.hpp>
-#include <minmax.h>
 
 #define WINDOWS_ANCIENT 0
 #define WINDOWS_XP 51

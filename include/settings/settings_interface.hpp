@@ -19,13 +19,11 @@
 
 #pragma once
 
-#include <settings/settings_value.hpp>
-
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
-
-#include <string>
 #include <list>
+#include <settings/settings_value.hpp>
+#include <string>
 #include <utility>
 
 namespace settings {

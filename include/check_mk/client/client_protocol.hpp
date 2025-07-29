@@ -19,12 +19,11 @@
 
 #pragma once
 
+#include <boost/shared_ptr.hpp>
 #include <check_mk/data.hpp>
 #include <check_mk/parser.hpp>
-#include <boost/shared_ptr.hpp>
-
-#include <socket/socket_helpers.hpp>
 #include <iostream>
+#include <socket/socket_helpers.hpp>
 
 using boost::asio::ip::tcp;
 

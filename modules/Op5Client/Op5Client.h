@@ -19,15 +19,13 @@
 
 #pragma once
 
-#include "op5_client.hpp"
-
-#include <nscapi/nscapi_protobuf_command.hpp>
+#include <boost/shared_ptr.hpp>
+#include <client/command_line_parser.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_targets.hpp>
 
-#include <client/command_line_parser.hpp>
-
-#include <boost/shared_ptr.hpp>
+#include "op5_client.hpp"
 
 class Op5Client : public nscapi::impl::simple_plugin {
  private:

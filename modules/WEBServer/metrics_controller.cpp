@@ -1,8 +1,9 @@
 #include "metrics_controller.hpp"
-#include "helpers.hpp"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
+
+#include "helpers.hpp"
 
 metrics_controller::metrics_controller(const int version, const boost::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core,
                                        unsigned int plugin_id)

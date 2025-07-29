@@ -20,9 +20,8 @@
 #include "realtime_data.hpp"
 
 #include <boost/filesystem.hpp>
-
-#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 /*
 namespace check_cpu_filter {
         void runtime_data::add(const std::string &time) {

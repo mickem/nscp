@@ -19,8 +19,9 @@
 
 #pragma once
 #include <atlbase.h>
-#include <utf8.hpp>
 #include <comdef.h>
+
+#include <utf8.hpp>
 
 namespace error {
 class com {

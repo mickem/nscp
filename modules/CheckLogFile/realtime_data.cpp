@@ -19,12 +19,10 @@
 
 #include "realtime_data.hpp"
 
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-
-#include <str/utils.hpp>
-
 #include <boost/filesystem.hpp>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <str/utils.hpp>
 
 void runtime_data::touch(boost::posix_time::ptime now) {
   for (file_container &fc : files) {

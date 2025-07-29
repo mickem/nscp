@@ -17,11 +17,11 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <nrpe/server/protocol.hpp>
-#include <nscapi/nscapi_targets.hpp>
-#include <nscapi/nscapi_plugin_impl.hpp>
 #include <nrpe/packet.hpp>
 #include <nrpe/server/handler.hpp>
+#include <nrpe/server/protocol.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
+#include <nscapi/nscapi_targets.hpp>
 
 class NRPEServer : public nscapi::impl::simple_plugin, nrpe::server::handler {
  private:

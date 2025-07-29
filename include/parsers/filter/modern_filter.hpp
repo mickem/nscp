@@ -19,19 +19,18 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
-#include <boost/function.hpp>
-#include <boost/unordered_set.hpp>
+#include <NSCAPI.h>
 
+#include <boost/function.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/unordered_set.hpp>
+#include <nscapi/nscapi_helper.hpp>
 #include <parsers/expression/expression.hpp>
 #include <parsers/perfconfig/perfconfig.hpp>
-#include <parsers/where/engine_impl.hpp>
 #include <parsers/where/engine.hpp>
-
-#include <NSCAPI.h>
+#include <parsers/where/engine_impl.hpp>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
-#include <nscapi/nscapi_helper.hpp>
 
 #ifdef WIN32
 #pragma warning(push)

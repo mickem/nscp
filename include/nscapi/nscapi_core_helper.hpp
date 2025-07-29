@@ -19,13 +19,12 @@
 
 #pragma once
 
-#include <nscapi/nscapi_core_wrapper.hpp>
-#include <nscapi/dll_defines.hpp>
-
-#include <string>
 #include <list>
-#include <vector>
 #include <map>
+#include <nscapi/dll_defines.hpp>
+#include <nscapi/nscapi_core_wrapper.hpp>
+#include <string>
+#include <vector>
 
 namespace nscapi {
 class NSCAPI_EXPORT core_helper {

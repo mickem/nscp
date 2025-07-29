@@ -19,12 +19,12 @@
 
 #pragma once
 
-#include <list>
 #include <pdh.h>
 #include <pdhmsg.h>
-#include <error/error.hpp>
 
 #include <boost/shared_ptr.hpp>
+#include <error/error.hpp>
+#include <list>
 
 namespace PDH {
 typedef HANDLE PDH_HCOUNTER;

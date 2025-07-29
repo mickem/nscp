@@ -1,10 +1,8 @@
 #pragma once
 
+#include <boost/shared_ptr.hpp>
 #include <str/utils_no_boost.hpp>
 #include <str/xtos.hpp>
-
-#include <boost/shared_ptr.hpp>
-
 #include <string>
 #include <vector>
 
