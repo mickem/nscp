@@ -19,10 +19,8 @@
 
 #pragma once
 
-#include <nrpe/packet.hpp>
 #include <boost/tuple/tuple.hpp>
-#include <boost/noncopyable.hpp>
-
+#include <nrpe/packet.hpp>
 #include <swap_bytes.hpp>
 
 #include "handler.hpp"

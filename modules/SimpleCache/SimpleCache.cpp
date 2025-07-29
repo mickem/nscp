@@ -19,24 +19,19 @@
 
 #include "SimpleCache.h"
 
+#include <boost/thread.hpp>
+#include <map>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
-#include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-#include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
-
 #include <parsers/expression/expression.hpp>
-
 #include <str/format.hpp>
-
-#include <boost/thread.hpp>
-#include <boost/assign.hpp>
-
-#include <map>
 #include <vector>
 
 namespace sh = nscapi::settings_helper;

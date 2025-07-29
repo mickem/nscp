@@ -17,12 +17,12 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <wmi/wmi_query.hpp>
+#include <WMIUtils.h>
+#include <Wbemidl.h>
+#include <atlsafe.h>
 
 #include <error/error_com.hpp>
-#include <atlsafe.h>
-#include <Wbemidl.h>
-#include <WMIUtils.h>
+#include <wmi/wmi_query.hpp>
 
 namespace wmi_impl {
 struct identidy_container {

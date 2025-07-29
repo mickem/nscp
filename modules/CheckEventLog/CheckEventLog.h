@@ -17,13 +17,12 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <boost/shared_ptr.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+
 #include "bookmarks.hpp"
 #include "filter.hpp"
-
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_plugin_impl.hpp>
-
-#include <boost/shared_ptr.hpp>
 
 struct real_time_thread;
 class CheckEventLog : public nscapi::impl::simple_plugin {

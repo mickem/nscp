@@ -1,10 +1,9 @@
 #include "script_provider.hpp"
 
-#include <str/utils.hpp>
-#include <file_helpers.hpp>
-
 #include <boost/make_shared.hpp>
 #include <boost/thread.hpp>
+#include <file_helpers.hpp>
+#include <str/utils.hpp>
 
 script_provider::script_provider(int id, nscapi::core_wrapper* core, std::string settings_path, boost::filesystem::path root)
     : core_(core), id_(id), root_(root) {

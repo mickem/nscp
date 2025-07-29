@@ -19,15 +19,14 @@
 
 #include "Scheduler.h"
 
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_nagios.hpp>
-#include <nscapi/macros.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-
 #include <utf8.hpp>
 
 namespace sh = nscapi::settings_helper;

@@ -17,16 +17,16 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/program_options.hpp>
-#include <boost/algorithm/string.hpp>
-
-#include <parsers/filter/modern_filter.hpp>
-#include <parsers/filter/cli_helper.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-
 #include "CheckLogFile.h"
+
+#include <boost/algorithm/string.hpp>
+#include <boost/program_options.hpp>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <parsers/filter/cli_helper.hpp>
+#include <parsers/filter/modern_filter.hpp>
+
 #include "realtime_thread.hpp"
 
 namespace sh = nscapi::settings_helper;

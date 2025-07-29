@@ -18,18 +18,16 @@
  */
 
 #include "NRPEServer.h"
-#include <str/utils.hpp>
-#include <time.h>
-
-#include <socket/socket_settings_helper.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/macros.hpp>
-
-#include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/macros.hpp>
 
 #include <config.h>
+#include <time.h>
+
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <socket/socket_settings_helper.hpp>
+#include <str/utils.hpp>
 
 namespace sh = nscapi::settings_helper;
 

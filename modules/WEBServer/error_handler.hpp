@@ -1,11 +1,10 @@
 #pragma once
 
-#include "error_handler_interface.hpp"
-
 #include <boost/thread.hpp>
-
 #include <string>
 #include <vector>
+
+#include "error_handler_interface.hpp"
 
 struct error_handler : error_handler_interface {
   error_handler() : error_count_(0) {}

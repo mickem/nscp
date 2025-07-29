@@ -1,12 +1,11 @@
-#include <string>
-#include <algorithm>
-#include <locale>
 #include <ctype.h>
 
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
-
+#include <locale>
 #include <nscpcrypt/nscpcrypt.hpp>
+#include <string>
 
 #ifdef HAVE_LIBCRYPTOPP
 #ifdef __GNUC__
@@ -15,20 +14,20 @@
 #pragma GCC diagnostic ignored "-pedantic"
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #endif
-#include <cryptlib.h>
-#include <aes.h>
-#include <cast.h>
-#include <des.h>
-#include <tea.h>
 #include <3way.h>
+#include <aes.h>
 #include <blowfish.h>
-#include <twofish.h>
+#include <cast.h>
+#include <cryptlib.h>
+#include <des.h>
+#include <filters.h>
+#include <gost.h>
+#include <modes.h>
+#include <osrng.h>
 #include <rc2.h>
 #include <serpent.h>
-#include <gost.h>
-#include <filters.h>
-#include <osrng.h>
-#include <modes.h>
+#include <tea.h>
+#include <twofish.h>
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif

@@ -19,19 +19,15 @@
 
 #pragma once
 
-#include <settings/settings_core.hpp>
-#include <settings/settings_interface_impl.hpp>
-
-#include <error/error.hpp>
-
-#include <str/utils.hpp>
-
-#include <file_helpers.hpp>
-
 #include <simpleini/simpleini.h>
 
-#include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
+#include <error/error.hpp>
+#include <file_helpers.hpp>
+#include <settings/settings_core.hpp>
+#include <settings/settings_interface_impl.hpp>
+#include <str/utils.hpp>
 #ifdef WIN32
 #include <win/credentials.hpp>
 #endif

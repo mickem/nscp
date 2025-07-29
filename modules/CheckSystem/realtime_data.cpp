@@ -19,9 +19,8 @@
 
 #include "realtime_data.hpp"
 
-#include <str/format.hpp>
-
 #include <boost/filesystem.hpp>
+#include <str/format.hpp>
 
 namespace check_cpu_filter {
 void runtime_data::add(const std::string &time) {

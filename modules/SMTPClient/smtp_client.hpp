@@ -19,11 +19,11 @@
 
 #pragma once
 
-#include "smtp.hpp"
-
-#include <socket/socket_helpers.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <socket/socket_helpers.hpp>
+
+#include "smtp.hpp"
 
 namespace smtp_client {
 struct connection_data : public socket_helpers::connection_info {

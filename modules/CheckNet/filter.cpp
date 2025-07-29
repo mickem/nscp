@@ -19,16 +19,14 @@
 
 #include "filter.hpp"
 
+#include <boost/assign.hpp>
+#include <boost/bind/bind.hpp>
+#include <boost/make_shared.hpp>
+#include <list>
+#include <map>
 #include <parsers/where.hpp>
 #include <simple_timer.hpp>
 #include <str/utils.hpp>
-
-#include <boost/bind/bind.hpp>
-#include <boost/assign.hpp>
-#include <boost/make_shared.hpp>
-
-#include <map>
-#include <list>
 
 using namespace boost::assign;
 using namespace parsers::where;

@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-#include <nscapi/nscapi_settings_helper.hpp>
-
-#include <nsclient/nsclient_exception.hpp>
-
-#include <utf8.hpp>
-
 #include <boost/any.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nsclient/nsclient_exception.hpp>
+#include <utf8.hpp>
 
 namespace nscapi {
 namespace settings_helper {

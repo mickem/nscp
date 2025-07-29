@@ -20,6 +20,9 @@
 #pragma once
 
 #include <error/error.hpp>
+#include <string>
+#include <utf8.hpp>
+#include <win/windows.hpp>
 
 namespace simple_registry {
 class registry_exception {

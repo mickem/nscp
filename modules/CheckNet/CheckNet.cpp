@@ -19,16 +19,16 @@
 
 #include "CheckNet.h"
 
-#include <parsers/expression/expression.hpp>
-#include <parsers/filter/modern_filter.hpp>
-#include <parsers/filter/cli_helper.hpp>
-
+#include <net/pinger.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
-
-#include <boost/atomic/atomic.hpp>
-#include <net/pinger.hpp>
+#include <parsers/expression/expression.hpp>
+#include <parsers/filter/cli_helper.hpp>
+#include <parsers/filter/modern_filter.hpp>
+#include <parsers/helpers.hpp>
+#include <boost/atomic.hpp>
 
 #include "filter.hpp"
 

@@ -20,10 +20,9 @@
 #pragma once
 
 #include <boost/thread.hpp>
-
-#include <pdh/pdh_interface.hpp>
 #include <error/error.hpp>
 #include <pdh/basic_impl.hpp>
+#include <pdh/pdh_interface.hpp>
 
 namespace PDH {
 class ThreadedSafePDH : public PDH::NativeExternalPDH {

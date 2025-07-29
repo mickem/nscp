@@ -20,6 +20,7 @@
 #pragma once
 
 #include <nscapi/nscapi_protobuf_command.hpp>
+
 #include "filter_config_object.hpp"
 
 namespace memory_checks {

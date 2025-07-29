@@ -17,17 +17,14 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <map>
-#include <list>
+#include "filter.hpp"
 
-#include <boost/bind/bind.hpp>
 #include <boost/assign.hpp>
-
-#include <parsers/where.hpp>
-
+#include <boost/bind/bind.hpp>
+#include <list>
+#include <map>
 #include <simple_timer.hpp>
 #include <str/xtos.hpp>
-#include "filter.hpp"
 
 #include "file_finder.hpp"
 

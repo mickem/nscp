@@ -18,16 +18,18 @@
  */
 
 #include "pdh_thread.hpp"
+
 #include <sysinfo.h>
-#include "settings.hpp"
+
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <parsers/filter/realtime_helper.hpp>
 #include <str/utils_no_boost.hpp>
 
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-#include <parsers/filter/realtime_helper.hpp>
-#include "realtime_data.hpp"
 #include "check_memory.hpp"
 #include "check_process.hpp"
+#include "realtime_data.hpp"
+#include "settings.hpp"
 
 typedef parsers::where::realtime_filter_helper<check_cpu_filter::runtime_data, filters::cpu::filter_config_object> cpu_filter_helper;
 

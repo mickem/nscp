@@ -20,8 +20,8 @@
 #pragma once
 
 #include <NSCAPI.h>
-#include <nscapi/dll_defines.hpp>
 
+#include <nscapi/dll_defines.hpp>
 #include <string>
 
 namespace nscapi {

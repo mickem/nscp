@@ -18,22 +18,22 @@
  */
 
 #include "PythonScript.h"
-#include "script_wrapper.hpp"
-#include "python_script.hpp"
-#include "script_provider.hpp"
-#include "extscr_cli.h"
 
+#include <boost/algorithm/string.hpp>
+#include <boost/program_options.hpp>
+#include <boost/python.hpp>
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf_metrics.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
-#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 
-#include <boost/python.hpp>
-#include <boost/program_options.hpp>
-#include <boost/algorithm/string.hpp>
+#include "extscr_cli.h"
+#include "python_script.hpp"
+#include "script_provider.hpp"
+#include "script_wrapper.hpp"
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;

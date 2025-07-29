@@ -1,15 +1,14 @@
 #pragma once
 
 #include "Response.h"
-
 #include "dll_defines.hpp"
 #ifdef WIN32
 #pragma warning(disable : 4251)
 #endif
 
-#include <vector>
 #include <map>
 #include <string>
+#include <vector>
 
 /**
  * Request is a wrapper for the clients requests

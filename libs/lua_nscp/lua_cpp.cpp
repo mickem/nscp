@@ -5,11 +5,10 @@ extern "C" {
 #include "lualib.h"
 }
 
-#include <str/xtos.hpp>
-
-#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
+#include <str/xtos.hpp>
 
 #ifndef TRUE
 #define TRUE 1

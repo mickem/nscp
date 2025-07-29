@@ -17,11 +17,10 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <parsers/where.hpp>
-#include <parsers/where/node.hpp>
-
 #include <parsers/helpers.hpp>
+#include <parsers/where.hpp>
 #include <parsers/where/grammar/grammar.hpp>
+#include <parsers/where/node.hpp>
 
 namespace parsers {
 namespace where {

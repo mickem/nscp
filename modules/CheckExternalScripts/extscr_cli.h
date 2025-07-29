@@ -16,11 +16,10 @@
  * You should have received a copy of the GNU General Public License
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "script_interface.hpp"
+#include <nscapi/nscapi_protobuf_command.hpp>
 
 #include "commands.hpp"
-
-#include <nscapi/nscapi_protobuf_command.hpp>
+#include "script_interface.hpp"
 
 class extscr_cli {
  private:

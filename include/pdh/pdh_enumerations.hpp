@@ -19,8 +19,9 @@
 
 #pragma once
 
-#include <list>
 #include <pdh.h>
+
+#include <list>
 
 namespace PDH {
 #define PDH_INDEX_BUF_LEN 2048

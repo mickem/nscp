@@ -19,28 +19,23 @@
 
 #include "ElasticClient.h"
 
-#include <boost/json.hpp>
-
-#include "elastic_handler.hpp"
-
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-
-#include <nsclient/logger/logger_helper.hpp>
-
-#include <str/utils.hpp>
-#include <str/format.hpp>
-
 #include <Client.hpp>
-
 #include <boost/algorithm/string/replace.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/gregorian/formatters.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/json.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nsclient/logger/logger_helper.hpp>
+#include <str/format.hpp>
+#include <str/utils.hpp>
+
+#include "elastic_handler.hpp"
 
 namespace json = boost::json;
 

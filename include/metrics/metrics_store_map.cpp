@@ -18,7 +18,6 @@
  */
 
 #include <metrics/metrics_store_map.hpp>
-
 #include <str/xtos.hpp>
 
 namespace metrics {

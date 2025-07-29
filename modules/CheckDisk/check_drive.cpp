@@ -19,24 +19,20 @@
 
 #include "check_drive.hpp"
 
-#include <nsclient/nsclient_exception.hpp>
-
-#include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-
-#include <parsers/filter/modern_filter.hpp>
-#include <parsers/filter/cli_helper.hpp>
-#include <parsers/where/filter_handler_impl.hpp>
-#include <parsers/where/helpers.hpp>
-
+#include <boost/enable_shared_from_this.hpp>
+#include <boost/program_options.hpp>
+#include <boost/tuple/tuple.hpp>
 #include <char_buffer.hpp>
 #include <error/error.hpp>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_program_options.hpp>
+#include <nsclient/nsclient_exception.hpp>
+#include <parsers/filter/cli_helper.hpp>
+#include <parsers/filter/modern_filter.hpp>
+#include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/helpers.hpp>
 #include <str/format.hpp>
-
-#include <boost/tuple/tuple.hpp>
-#include <boost/program_options.hpp>
-#include <boost/enable_shared_from_this.hpp>
 
 #ifdef WIN32
 #include <Windows.h>

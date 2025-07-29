@@ -19,17 +19,15 @@
 
 #include "CommandClient.h"
 
-#include <nscapi/nscapi_protobuf_log.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_program_options.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/make_shared.hpp>
+#include <iostream>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-
-#include <boost/make_shared.hpp>
-#include <boost/algorithm/string.hpp>
-
-#include <iostream>
+#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_log.hpp>
 
 #ifdef WIN32
 #define WIN32_LEAN_AND_MEAN  // Exclude rarely-used stuff from Windows headers

@@ -19,22 +19,20 @@
 
 #define BUFF_SIZE 4096
 
-#include <string>
-
-#include <buffer.hpp>
-#include <win/windows.hpp>
-#include <win/userenv.hpp>
 #include <NSCAPI.h>
-#include <utf8.hpp>
-#include <str/xtos.hpp>
-#include <error/error.hpp>
-#include <handle.hpp>
-#include <char_buffer.hpp>
-
-#include <process/execute_process.hpp>
-#include <win_sysinfo/win_sysinfo.hpp>
 
 #include <boost/thread.hpp>
+#include <buffer.hpp>
+#include <char_buffer.hpp>
+#include <error/error.hpp>
+#include <handle.hpp>
+#include <process/execute_process.hpp>
+#include <str/xtos.hpp>
+#include <string>
+#include <utf8.hpp>
+#include <win/userenv.hpp>
+#include <win/windows.hpp>
+#include <win_sysinfo/win_sysinfo.hpp>
 
 typedef hlp::buffer<char> buffer_type;
 

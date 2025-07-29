@@ -11,9 +11,9 @@
 #ifndef ICMP_HEADER_HPP
 #define ICMP_HEADER_HPP
 
+#include <algorithm>
 #include <istream>
 #include <ostream>
-#include <algorithm>
 
 // ICMP header for both IPv4 and IPv6.
 //

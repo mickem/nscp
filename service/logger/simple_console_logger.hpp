@@ -20,9 +20,8 @@
 #pragma once
 
 #include <nsclient/logger/base_logger_impl.hpp>
-
-#include <vector>
 #include <string>
+#include <vector>
 
 namespace nsclient {
 namespace logging {

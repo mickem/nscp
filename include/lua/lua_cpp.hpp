@@ -23,13 +23,15 @@
 
 extern "C" {
 #include <lua.h>
+
 #include "lauxlib.h"
 }
 
-#include <string>
-#include <list>
-#include <vector>
 #include <NSCAPI.h>
+
+#include <list>
+#include <string>
+#include <vector>
 
 namespace lua {
 class Lua_State : boost::noncopyable {

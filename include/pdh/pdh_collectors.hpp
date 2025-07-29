@@ -19,12 +19,11 @@
 
 #pragma once
 
-#include <numeric>
-
-#include <pdh/pdh_interface.hpp>
-#include <pdh/pdh_counters.hpp>
-
 #include <boost/circular_buffer.hpp>
+#include <boost/thread/shared_mutex.hpp>
+#include <numeric>
+#include <pdh/pdh_counters.hpp>
+#include <pdh/pdh_interface.hpp>
 
 namespace PDH {
 namespace instance_providers {

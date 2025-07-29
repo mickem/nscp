@@ -19,10 +19,10 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
 
 #include "filter_config_object.hpp"
 

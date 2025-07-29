@@ -17,8 +17,8 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <nscapi/nscapi_plugin_impl.hpp>
 #include <check_mk/server/server_protocol.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
 #include <scripts/script_nscp.hpp>
 
 #include "handler_impl.hpp"

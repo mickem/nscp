@@ -17,9 +17,9 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <nscapi/nscapi_helper.hpp>
-
 #include <gtest/gtest.h>
+
+#include <nscapi/nscapi_helper.hpp>
 
 TEST(nscapiHelperTest, maxState_ok) {
   namespace qrc = NSCAPI::query_return_codes;

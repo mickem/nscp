@@ -19,19 +19,18 @@
 
 #pragma once
 
-#include <map>
-#include <string>
+#include "filter_config_object.hpp"
 
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
-
-#include <nscapi/nscapi_settings_proxy.hpp>
-#include <nscapi/nscapi_settings_object.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
+#include <map>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_settings_object.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
+#include <string>
 
 #include "filter.hpp"
-#include "filter_config_object.hpp"
 
 namespace sh = nscapi::settings_helper;
 

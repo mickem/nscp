@@ -19,18 +19,16 @@
 
 #include "CollectdClient.h"
 
-#include "collectd_client.hpp"
-#include "collectd_handler.hpp"
-
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-
-#include <str/utils.hpp>
-
 #include <boost/make_shared.hpp>
 #include <boost/regex.hpp>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <str/utils.hpp>
+
+#include "collectd_client.hpp"
+#include "collectd_handler.hpp"
 
 /**
  * Default c-tor

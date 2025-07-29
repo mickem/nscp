@@ -1,7 +1,6 @@
 #pragma once
 
 #include <boost/unordered_map.hpp>
-
 #include <list>
 #include <string>
 

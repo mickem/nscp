@@ -16,7 +16,6 @@
 
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_helper.hpp>
-
 #include <nsclient/nsclient_exception.hpp>
 
 #define CORE_LOG_ERROR(msg)                                 \

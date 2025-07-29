@@ -1,14 +1,12 @@
 
 
 #include <boost/optional/optional.hpp>
-
-#include <nscapi/nscapi_helper_singleton.hpp>
+#include <lua/lua_core.hpp>
+#include <lua/lua_cpp.hpp>
 #include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
-
-#include <lua/lua_cpp.hpp>
-#include <lua/lua_core.hpp>
 
 void lua::lua_runtime::register_query(const std::string &command, const std::string &description) {
   throw lua_exception("The method or operation is not implemented(reg_query).");

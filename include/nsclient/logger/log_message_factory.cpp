@@ -17,11 +17,9 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <nsclient/logger/log_message_factory.hpp>
-
-#include <nscapi/nscapi_protobuf_log.hpp>
-
 #include <iostream>
+#include <nscapi/nscapi_protobuf_log.hpp>
+#include <nsclient/logger/log_message_factory.hpp>
 
 void nsclient::logging::log_message_factory::log_fatal(std::string message) { std::cout << message << "\n"; }
 

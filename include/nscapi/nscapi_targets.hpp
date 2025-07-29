@@ -19,11 +19,9 @@
 
 #pragma once
 
-#include <nscapi/nscapi_settings_proxy.hpp>
-#include <nscapi/nscapi_settings_object.hpp>
-
 #include <nscapi/dll_defines.hpp>
-
+#include <nscapi/nscapi_settings_object.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
 #include <string>
 
 namespace nscapi {

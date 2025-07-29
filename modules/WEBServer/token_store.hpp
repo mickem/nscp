@@ -1,10 +1,9 @@
 #pragma once
 
-#include "grant_store.hpp"
-
 #include <boost/unordered_set.hpp>
-
 #include <string>
+
+#include "grant_store.hpp"
 
 class token_store {
   typedef boost::unordered_map<std::string, std::string> token_map;

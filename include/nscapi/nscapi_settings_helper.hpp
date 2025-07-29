@@ -19,15 +19,13 @@
 
 #pragma once
 
-#include <settings/client/settings_client_interface.hpp>
-#include <settings/settings_core.hpp>
-
+#include <boost/filesystem/path.hpp>
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
-#include <boost/filesystem/path.hpp>
-
-#include <map>
 #include <list>
+#include <map>
+#include <settings/client/settings_client_interface.hpp>
+#include <settings/settings_core.hpp>
 #include <string>
 
 namespace nscapi {

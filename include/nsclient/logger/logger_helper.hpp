@@ -20,7 +20,6 @@
 #pragma once
 
 #include <nscapi/nscapi_protobuf_log.hpp>
-
 #include <string>
 
 namespace nsclient {

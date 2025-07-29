@@ -19,16 +19,13 @@
 
 #pragma once
 
-#include <swap_bytes.hpp>
-#include <str/xtos.hpp>
 #include <utils.h>
 #include <types.hpp>
 
 #include <boost/asio/buffer.hpp>
-
+#include <str/xtos.hpp>
 #include <string>
-#include <stdio.h>
-#include <cstring>
+#include <swap_bytes.hpp>
 
 namespace nrpe {
 class data {

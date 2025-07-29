@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 
-#include <nscapi/nscapi_helper.hpp>
-
-#include <str/xtos.hpp>
-#include <str/utils.hpp>
-
 #include <boost/algorithm/string/case_conv.hpp>
+#include <nscapi/nscapi_helper.hpp>
+#include <str/utils.hpp>
+#include <str/xtos.hpp>
 
 #define REPORT_ERROR 0x01
 #define REPORT_WARNING 0x02

@@ -17,18 +17,16 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <utf8.hpp>
-#include <str/xtos.hpp>
-
-#include <parsers/where/node.hpp>
+#include <parsers/operators.hpp>
+#include <parsers/where/binary_op.hpp>
 #include <parsers/where/helpers.hpp>
-
 #include <parsers/where/list_node.hpp>
+#include <parsers/where/node.hpp>
 #include <parsers/where/unary_fun.hpp>
 #include <parsers/where/unary_op.hpp>
 #include <parsers/where/value_node.hpp>
-#include <parsers/where/binary_op.hpp>
-#include <parsers/operators.hpp>
+#include <str/xtos.hpp>
+#include <utf8.hpp>
 
 namespace parsers {
 namespace where {

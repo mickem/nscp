@@ -19,13 +19,11 @@
 
 #pragma once
 
-#include <list>
-
 #include <boost/shared_ptr.hpp>
-
+#include <list>
+#include <pdh/pdh_counters.hpp>
 #include <pdh/pdh_interface.hpp>
 #include <pdh/pdh_resolver.hpp>
-#include <pdh/pdh_counters.hpp>
 
 namespace PDH {
 class PDHQuery : public PDH::subscriber {

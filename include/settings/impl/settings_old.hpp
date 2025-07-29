@@ -19,17 +19,14 @@
 
 #pragma once
 
-#include <settings/settings_core.hpp>
-
-#include <nsclient/logger/logger.hpp>
-
-#include <str/xtos.hpp>
-#include <str/wstring.hpp>
-
-#include <iostream>
 #include <fstream>
-#include <string>
+#include <iostream>
 #include <map>
+#include <nsclient/logger/logger.hpp>
+#include <settings/settings_core.hpp>
+#include <str/wstring.hpp>
+#include <str/xtos.hpp>
+#include <string>
 
 namespace settings {
 class OLDSettings : public settings::settings_interface_impl {

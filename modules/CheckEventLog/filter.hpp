@@ -24,24 +24,20 @@
 #include <Windows.h>
 #endif
 
-#include <map>
-#include <string>
-
+#include <boost/noncopyable.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
-#include <boost/noncopyable.hpp>
-
-#include <error/error.hpp>
-#include <str/format.hpp>
-
-#include <parsers/where.hpp>
-#include <parsers/where/node.hpp>
-#include <parsers/where/engine.hpp>
-#include <parsers/filter/modern_filter.hpp>
-#include <parsers/where/filter_handler_impl.hpp>
-
 #include <buffer.hpp>
+#include <error/error.hpp>
 #include <handle.hpp>
+#include <map>
+#include <parsers/filter/modern_filter.hpp>
+#include <parsers/where.hpp>
+#include <parsers/where/engine.hpp>
+#include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/node.hpp>
+#include <str/format.hpp>
+#include <string>
 
 #include "eventlog_record.hpp"
 #include "modern_eventlog.hpp"

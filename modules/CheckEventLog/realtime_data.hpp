@@ -18,9 +18,9 @@
  */
 
 #pragma once
-#include "filter.hpp"
-
 #include <list>
+
+#include "filter.hpp"
 
 struct runtime_data {
   typedef eventlog_filter::filter filter_type;

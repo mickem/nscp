@@ -19,10 +19,9 @@
 
 #pragma once
 
-#include <nscapi/dll_defines.hpp>
-
-#include <string>
 #include <list>
+#include <nscapi/dll_defines.hpp>
+#include <string>
 
 namespace nscapi {
 namespace protobuf {

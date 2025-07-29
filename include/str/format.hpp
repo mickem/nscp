@@ -19,23 +19,21 @@
 
 #pragma once
 
-#include <str/xtos.hpp>
-#include <str/utils.hpp>
-
-#include <boost/lexical_cast.hpp>
-#include <boost/date_time.hpp>
-#include <boost/algorithm/string.hpp>
-
 #include <time.h>
 
-#include <locale>
-#include <string>
-#include <sstream>
-#include <iomanip>
-#include <utility>
-#include <list>
-#include <iostream>
+#include <boost/algorithm/string.hpp>
+#include <boost/date_time.hpp>
+#include <boost/lexical_cast.hpp>
 #include <cctype>
+#include <iomanip>
+#include <iostream>
+#include <list>
+#include <locale>
+#include <sstream>
+#include <str/utils.hpp>
+#include <str/xtos.hpp>
+#include <string>
+#include <utility>
 
 namespace str {
 namespace format {

@@ -19,13 +19,13 @@
 
 #pragma once
 
-#include <socket/socket_helpers.hpp>
+#include <http/client.hpp>
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
-#include <nscapi/macros.hpp>
+#include <socket/socket_helpers.hpp>
 
 #include "nrdp.hpp"
-#include <http/client.hpp>
 
 namespace nrdp_client {
 struct connection_data : public socket_helpers::connection_info {

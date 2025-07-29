@@ -1,13 +1,11 @@
 #include "Request.h"
 
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/thread.hpp>
 #include <str/xtos.hpp>
+#include <string>
 
 #include "ext/mongoose.h"
-
-#include <boost/thread.hpp>
-#include <boost/algorithm/string/case_conv.hpp>
-
-#include <string>
 
 using namespace std;
 

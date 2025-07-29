@@ -17,18 +17,16 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "config.h"
-
-#include <nsclient/logger/logger_helper.hpp>
 #include "simple_file_logger.hpp"
 
+#include <boost/filesystem.hpp>
+#include <file_helpers.hpp>
 #include <nscapi/nscapi_protobuf_log.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
-
-#include <file_helpers.hpp>
+#include <nsclient/logger/logger_helper.hpp>
 #include <str/format.hpp>
 
-#include <boost/filesystem.hpp>
+#include "config.h"
 
 #ifdef WIN32
 #include <Windows.h>

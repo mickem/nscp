@@ -19,10 +19,9 @@
 
 #pragma once
 
-#include <lua/lua_script.hpp>
-#include <lua/lua_core.hpp>
-
 #include <check_mk/data.hpp>
+#include <lua/lua_core.hpp>
+#include <lua/lua_script.hpp>
 
 struct MKData {
   const static std::string tag;
