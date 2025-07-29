@@ -19,10 +19,9 @@
 
 #pragma once
 
-#include <string>
-
 #include <settings/settings_core.hpp>
 #include <settings/settings_interface_impl.hpp>
+#include <string>
 
 namespace settings {
 class settings_dummy : public settings::settings_interface_impl {

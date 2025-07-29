@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <check_nt/packet.hpp>
 #include <boost/tuple/tuple.hpp>
+#include <check_nt/packet.hpp>
 
 namespace check_nt {
 namespace server {

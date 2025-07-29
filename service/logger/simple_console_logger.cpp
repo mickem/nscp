@@ -18,14 +18,13 @@
  */
 
 #include "simple_console_logger.hpp"
-#include <nsclient/logger/logger_helper.hpp>
-
-#include "../libs/settings_manager/settings_manager_impl.h"
-
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nsclient/nsclient_exception.hpp>
 
 #include <iostream>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nsclient/logger/logger_helper.hpp>
+#include <nsclient/nsclient_exception.hpp>
+
+#include "../libs/settings_manager/settings_manager_impl.h"
 
 namespace nsclient {
 namespace logging {

@@ -19,12 +19,11 @@
 
 #pragma once
 
-#include <boost/asio.hpp>
 #include <boost/array.hpp>
+#include <boost/asio.hpp>
 #include <boost/enable_shared_from_this.hpp>
-
-#include <socket/socket_helpers.hpp>
 #include <socket/server.hpp>
+#include <socket/socket_helpers.hpp>
 
 #include "handler.hpp"
 #include "parser.hpp"

@@ -20,7 +20,6 @@
 #pragma once
 
 #include <boost/shared_ptr.hpp>
-
 #include <socket_helpers.hpp>
 
 using boost::asio::ip::tcp;

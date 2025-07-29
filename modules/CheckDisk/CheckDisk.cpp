@@ -18,23 +18,21 @@
  */
 
 #include "CheckDisk.h"
+
+#include <compat.hpp>
 #include <file_helpers.hpp>
-
-#include <parsers/expression/expression.hpp>
-#include <parsers/filter/modern_filter.hpp>
-#include <parsers/filter/cli_helper.hpp>
-#include <parsers/helpers.hpp>
-
+#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-
-#include "file_finder.hpp"
-#include "filter.hpp"
-#include <compat.hpp>
+#include <parsers/expression/expression.hpp>
+#include <parsers/filter/cli_helper.hpp>
+#include <parsers/filter/modern_filter.hpp>
+#include <parsers/helpers.hpp>
 
 #include "check_drive.hpp"
+#include "file_finder.hpp"
+#include "filter.hpp"
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;

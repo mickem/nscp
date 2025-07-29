@@ -1,16 +1,13 @@
+#include <boost/filesystem/operations.hpp>
 #include <boost/optional.hpp>
 #include <boost/thread.hpp>
-#include <boost/filesystem/operations.hpp>
-
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-#include <nscapi/nscapi_plugin_wrapper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-
-#include <scripts/script_nscp.hpp>
-
 #include <lua/lua_cpp.hpp>
 #include <lua/lua_script.hpp>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_plugin_wrapper.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <scripts/script_nscp.hpp>
 
 const std::string lua::lua_traits::user_data_tag = "nscp.userdata.info";
 

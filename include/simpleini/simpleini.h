@@ -212,10 +212,11 @@
 #pragma warning(disable : 4127 4503 4702 4786)
 #endif
 
-#include <string>
-#include <map>
-#include <list>
 #include <stdio.h>
+
+#include <list>
+#include <map>
+#include <string>
 
 #ifdef SI_SUPPORT_IOSTREAMS
 #include <iostream>
@@ -2448,6 +2449,7 @@ class SI_ConvertA {
 #define SI_NoCase SI_GenericNoCase
 
 #include <wchar.h>
+
 #include "ConvertUTF.h"
 
 /**

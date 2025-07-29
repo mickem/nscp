@@ -19,16 +19,15 @@
 
 #pragma once
 
-#include <parsers/where/node.hpp>
-#include <parsers/filter/modern_filter.hpp>
-#include <parsers/where/filter_handler_impl.hpp>
-#include <parsers/helpers.hpp>
-
-#include <str/format.hpp>
-#include <string>
+#include <boost/filesystem.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
-#include <boost/filesystem.hpp>
+#include <parsers/filter/modern_filter.hpp>
+#include <parsers/helpers.hpp>
+#include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/node.hpp>
+#include <str/format.hpp>
+#include <string>
 
 #ifdef WIN32
 #include <Windows.h>

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <nscapi/nscapi_thin_plugin_impl.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_thin_plugin_impl.hpp>
 
 nscapi::core_wrapper* nscapi::impl::thin_plugin::get_core() const { return plugin_singleton->get_core(); }
 /*

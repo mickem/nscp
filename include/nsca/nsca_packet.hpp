@@ -19,12 +19,12 @@
 
 #pragma once
 
-#include <types.hpp>
-#include <swap_bytes.hpp>
-#include <str/xtos.hpp>
 #include <utils.h>
 
 #include <boost/date_time.hpp>
+#include <str/xtos.hpp>
+#include <swap_bytes.hpp>
+#include <types.hpp>
 
 namespace nsca {
 class data {

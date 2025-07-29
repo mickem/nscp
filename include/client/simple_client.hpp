@@ -20,10 +20,9 @@
 #pragma once
 
 #include <boost/shared_ptr.hpp>
-
+#include <metrics/metrics_store_map.hpp>
 #include <nscapi/log_handler.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
-#include <metrics/metrics_store_map.hpp>
 
 namespace client {
 struct cli_handler : nscapi::log_handler {

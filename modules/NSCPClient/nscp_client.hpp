@@ -19,17 +19,14 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf_command.hpp>
+#include <boost/tuple/tuple.hpp>
+#include <client/command_line_parser.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-
-#include <client/command_line_parser.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <socket/client.hpp>
 #include <socket/clients/http/http_client_protocol.hpp>
-
 #include <str/format.hpp>
-
-#include <boost/tuple/tuple.hpp>
 
 namespace nscp_client {
 struct connection_data : public socket_helpers::connection_info {

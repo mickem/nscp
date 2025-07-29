@@ -26,6 +26,7 @@
 #endif
 #else
 #include <string.h>
+
 #include <cstdarg>
 #endif
 

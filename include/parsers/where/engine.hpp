@@ -19,10 +19,9 @@
 
 #pragma once
 
-#include <parsers/where/node.hpp>
 #include <parsers/where.hpp>
 #include <parsers/where/dll_defines.hpp>
-
+#include <parsers/where/node.hpp>
 #include <vector>
 #ifdef WIN32
 #pragma warning(push)

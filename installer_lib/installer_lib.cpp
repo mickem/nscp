@@ -1,31 +1,28 @@
 // #define _WIN32_WINNT 0x0500
 
-#include "installer_helper.hpp"
-
-#include "../libs/settings_manager/settings_manager_impl.h"
-#include <config.h>
-
-#include <file_helpers.hpp>
-
-#include <str/wstring.hpp>
-#include <str/xtos.hpp>
-#include <str/utils.hpp>
-
-#include <nsclient/logger/logger.hpp>
-#include <nsclient/logger/log_message_factory.hpp>
-
-#include <error/error.hpp>
-#include <config.h>
-
-#include <boost/algorithm/string.hpp>
-
+// clang-format off
+#define WIN32_LEAN_AND_MEAN  // Exclude rarely-used stuff from Windows headers
 #include <windows.h>
+// clang-format on
+
 #include <Sddl.h>
+#include <config.h>
 #include <msi.h>
 #include <msiquery.h>
 
-#include <string>
+#include <boost/algorithm/string.hpp>
+#include <error/error.hpp>
+#include <file_helpers.hpp>
+#include <nsclient/logger/log_message_factory.hpp>
+#include <nsclient/logger/logger.hpp>
 #include <nsclient/nsclient_exception.hpp>
+#include <str/utils.hpp>
+#include <str/wstring.hpp>
+#include <str/xtos.hpp>
+#include <string>
+
+#include "../libs/settings_manager/settings_manager_impl.h"
+#include "installer_helper.hpp"
 #include "keys.hpp"
 
 const UINT COST_SERVICE_INSTALL = 2000;

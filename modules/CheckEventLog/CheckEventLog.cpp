@@ -17,42 +17,37 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <nsclient/nsclient_exception.hpp>
-
-#include <boost/program_options.hpp>
-
 #include "CheckEventLog.h"
 
 #include <time.h>
-#include <error/error.hpp>
-#include <map>
-#include <vector>
 #include <winevt.h>
 
-#include <boost/bind/bind.hpp>
-#include <boost/assign.hpp>
 #include <boost/algorithm/string/replace.hpp>
-
-#include "filter.hpp"
-
-#include <parsers/filter/cli_helper.hpp>
+#include <boost/assign.hpp>
+#include <boost/bind/bind.hpp>
+#include <boost/program_options.hpp>
 #include <buffer.hpp>
-#include <handle.hpp>
 #include <compat.hpp>
-
-#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <error/error.hpp>
+#include <handle.hpp>
+#include <map>
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf_settings_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
+#include <nsclient/nsclient_exception.hpp>
+#include <parsers/filter/cli_helper.hpp>
+#include <vector>
+
+#include "filter.hpp"
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 namespace ph = boost::placeholders;
 
-#include "simple_registry.hpp"
 #include "eventlog_record.hpp"
 #include "realtime_thread.hpp"
 

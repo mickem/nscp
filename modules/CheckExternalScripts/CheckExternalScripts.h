@@ -17,14 +17,12 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "script_interface.hpp"
-
-#include "commands.hpp"
-#include "alias.hpp"
-
 #include <nscapi/nscapi_plugin_impl.hpp>
-
 #include <string>
+
+#include "alias.hpp"
+#include "commands.hpp"
+#include "script_interface.hpp"
 
 class CheckExternalScripts : public nscapi::impl::simple_plugin {
  private:

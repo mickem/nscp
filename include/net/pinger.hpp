@@ -21,10 +21,9 @@
 
 #include <boost/asio.hpp>
 #include <istream>
-#include <ostream>
-
 #include <net/icmp_header.hpp>
 #include <net/ipv4_header.hpp>
+#include <ostream>
 
 using boost::asio::deadline_timer;
 using boost::asio::ip::icmp;

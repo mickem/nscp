@@ -1,16 +1,14 @@
 #pragma once
 
+#include <boost/regex.hpp>
+#include <string>
+
+#include "Controller.h"
+#include "RegexRequestHandler.h"
 #include "Request.h"
 #include "Response.h"
-#include "RegexRequestHandler.h"
 #include "StreamResponse.h"
-#include "Controller.h"
-
 #include "dll_defines.hpp"
-
-#include <boost/regex.hpp>
-
-#include <string>
 
 /**
  * A controller is a module that respond to requests

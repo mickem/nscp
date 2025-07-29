@@ -19,20 +19,18 @@
 
 #pragma once
 
-#include <string>
-#include <list>
-#include <map>
+#include <NSCAPI.h>
 #include <string.h>
 
 #include <boost/make_shared.hpp>
-
-#include <utf8.hpp>
-
-#include <NSCAPI.h>
+#include <list>
+#include <map>
 #include <nscapi/macros.hpp>
-#include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
+#include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <string>
+#include <utf8.hpp>
 
 namespace nscapi {
 

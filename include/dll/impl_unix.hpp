@@ -19,16 +19,15 @@
 
 #pragma once
 
+#include <dlfcn.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/noncopyable.hpp>
 #include <error/error.hpp>
-
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <dlfcn.h>
-
-#include <boost/filesystem.hpp>
-#include <boost/algorithm/string.hpp>
 #include <file_helpers.hpp>
 
 namespace dll {

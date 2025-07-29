@@ -1,16 +1,15 @@
 #pragma once
 
-#include "Request.h"
-#include "Response.h"
-#include "RequestHandler.h"
-#include "StreamResponse.h"
-#include "Controller.h"
-
-#include "dll_defines.hpp"
-
 #include <map>
-#include <vector>
 #include <string>
+#include <vector>
+
+#include "Controller.h"
+#include "Request.h"
+#include "RequestHandler.h"
+#include "Response.h"
+#include "StreamResponse.h"
+#include "dll_defines.hpp"
 
 /**
  * A controller is a module that respond to requests

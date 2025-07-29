@@ -1,18 +1,15 @@
 #pragma once
 
-#include "session_manager_interface.hpp"
-
-#include <client/simple_client.hpp>
-
-#include <nscapi/nscapi_core_wrapper.hpp>
-
 #include <MatchController.h>
 #include <RegexController.h>
 #include <StreamResponse.h>
 
 #include <boost/thread/shared_mutex.hpp>
-
+#include <client/simple_client.hpp>
+#include <nscapi/nscapi_core_wrapper.hpp>
 #include <string>
+
+#include "session_manager_interface.hpp"
 
 class legacy_command_controller : public Mongoose::RegexpController {
   boost::shared_ptr<session_manager_interface> session;

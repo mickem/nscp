@@ -17,19 +17,19 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <string>
 #include <NSCAPI.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
-#include <process/execute_process.hpp>
 #include <buffer.hpp>
+#include <process/execute_process.hpp>
+#include <string>
 
 #define BUFFER_SIZE 4096
 

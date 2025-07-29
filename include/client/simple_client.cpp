@@ -17,22 +17,19 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <boost/function.hpp>
 #include <client/simple_client.hpp>
-
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_protobuf_settings.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
 #include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <nscapi/nscapi_protobuf_settings.hpp>
 #include <nscapi/nscapi_protobuf_settings_functions.hpp>
-#include <nscapi/nscapi_helper.hpp>
-#include <nscapi/nscapi_core_helper.hpp>
-
-#include <utf8.hpp>
 #include <str/utils.hpp>
-
-#include <boost/function.hpp>
-#include <nscapi/macros.hpp>
+#include <utf8.hpp>
 
 static void create_registry_query(const nscapi::core_wrapper *core, const std::string &command, const PB::Registry::ItemType &type,
                                   PB::Registry::RegistryResponseMessage &response_message) {

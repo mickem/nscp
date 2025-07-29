@@ -1,13 +1,12 @@
 #pragma once
 
-#include "Request.h"
-#include "Response.h"
-#include "Controller.h"
-
-#include "dll_defines.hpp"
-
 #include <boost/shared_ptr.hpp>
 #include <string>
+
+#include "Controller.h"
+#include "Request.h"
+#include "Response.h"
+#include "dll_defines.hpp"
 
 /**
  * Wrapper for the Mongoose server

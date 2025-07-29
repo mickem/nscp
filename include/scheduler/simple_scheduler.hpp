@@ -18,21 +18,18 @@
  */
 
 #pragma once
-#include <string>
-#include <queue>
-
+#include <boost/date_time/local_time/local_time.hpp>
 #include <boost/date_time/posix_time/ptime.hpp>
 #include <boost/date_time/time_duration.hpp>
-#include <boost/thread.hpp>
-#include <boost/date_time/local_time/local_time.hpp>
-#include <boost/optional.hpp>
-#include <boost/unordered_map.hpp>
-#include <boost/thread/shared_mutex.hpp>
 #include <boost/function.hpp>
-
+#include <boost/optional.hpp>
+#include <boost/thread.hpp>
+#include <boost/thread/shared_mutex.hpp>
+#include <boost/unordered_map.hpp>
 #include <has-threads.hpp>
-
 #include <parsers/cron/cron_parser.hpp>
+#include <queue>
+#include <string>
 
 namespace simple_scheduler {
 

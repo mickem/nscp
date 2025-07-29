@@ -20,8 +20,8 @@
 #pragma once
 
 #include <nrpe/packet.hpp>
-#include <socket/socket_helpers.hpp>
 #include <socket/client.hpp>
+#include <socket/socket_helpers.hpp>
 
 using boost::asio::ip::tcp;
 

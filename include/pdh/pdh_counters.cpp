@@ -19,9 +19,8 @@
 
 #pragma once
 
-#include <pdh/pdh_interface.hpp>
 #include <pdh/pdh_counters.hpp>
-
+#include <pdh/pdh_interface.hpp>
 #include <utf8.hpp>
 
 #include "pdh_resolver.hpp"

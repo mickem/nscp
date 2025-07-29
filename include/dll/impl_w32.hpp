@@ -18,13 +18,11 @@
  */
 
 #pragma once
+#include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/noncopyable.hpp>
 #include <error/error.hpp>
 #include <utf8.hpp>
-
-#include <boost/noncopyable.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/algorithm/string.hpp>
-
 #include <win/windows.hpp>
 
 namespace dll {

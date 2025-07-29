@@ -1,10 +1,9 @@
 #pragma once
 
-#include "Response.h"
-
-#include "dll_defines.hpp"
-
 #include <sstream>
+
+#include "Response.h"
+#include "dll_defines.hpp"
 
 /**
  * A stream response to a request

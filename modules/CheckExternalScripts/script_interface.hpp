@@ -1,11 +1,10 @@
 #pragma once
 
-#include "commands.hpp"
-
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
-
 #include <string>
+
+#include "commands.hpp"
 
 struct script_provider_interface {
   virtual unsigned int get_id() = 0;

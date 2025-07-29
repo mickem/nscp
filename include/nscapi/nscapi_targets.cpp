@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-#include <nscapi/nscapi_targets.hpp>
-
-#include <nscapi/nscapi_settings_helper.hpp>
-
-#include <net/net.hpp>
-
 #include <boost/bind/bind.hpp>
+#include <net/net.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_targets.hpp>
 
 namespace sh = nscapi::settings_helper;
 namespace ph = boost::placeholders;

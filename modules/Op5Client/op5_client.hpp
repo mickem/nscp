@@ -19,15 +19,13 @@
 
 #pragma once
 
-#include <nscapi/nscapi_core_wrapper.hpp>
-
 #include <Response.h>
 
-#include <boost/thread/thread.hpp>
-#include <boost/thread/mutex.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/atomic/atomic.hpp>
-
+#include <boost/shared_ptr.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/thread.hpp>
+#include <nscapi/nscapi_core_wrapper.hpp>
 #include <string>
 
 struct op5_config {

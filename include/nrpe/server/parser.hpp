@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <nrpe/packet.hpp>
 #include <boost/tuple/tuple.hpp>
+#include <nrpe/packet.hpp>
 #include <swap_bytes.hpp>
 
 namespace nrpe {

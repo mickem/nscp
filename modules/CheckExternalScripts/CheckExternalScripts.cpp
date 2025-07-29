@@ -18,25 +18,24 @@
  */
 
 #include "CheckExternalScripts.h"
-#include "extscr_cli.h"
-#include "script_provider.hpp"
 
-#include <process/execute_process.hpp>
+#include <config.h>
 
+#include <boost/bind/bind.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/regex.hpp>
+#include <file_helpers.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
-
-#include <config.h>
-#include <str/utils.hpp>
+#include <process/execute_process.hpp>
 #include <str/format.hpp>
-#include <file_helpers.hpp>
+#include <str/utils.hpp>
 
-#include <boost/regex.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/bind/bind.hpp>
+#include "extscr_cli.h"
+#include "script_provider.hpp"
 
 namespace sh = nscapi::settings_helper;
 namespace ph = boost::placeholders;

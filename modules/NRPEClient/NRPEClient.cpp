@@ -19,17 +19,17 @@
 
 #include "NRPEClient.h"
 
+#include <config.h>
+
 #include <boost/filesystem.hpp>
 #include <boost/make_shared.hpp>
-
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf_settings_functions.hpp>
-#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-#include <config.h>
+#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_settings_functions.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 
 #include "nrpe_client.hpp"
 #include "nrpe_handler.hpp"

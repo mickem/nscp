@@ -19,16 +19,15 @@
 
 #pragma once
 
-#include "pdh_thread.hpp"
 #include <CheckMemory.h>
 
-#include "check_pdh.hpp"
-
+#include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_protobuf_metrics.hpp>
-#include <nscapi/nscapi_plugin_impl.hpp>
 
+#include "check_pdh.hpp"
 #include "filter_config_object.hpp"
+#include "pdh_thread.hpp"
 
 class CheckSystem : public nscapi::impl::simple_plugin {
  private:

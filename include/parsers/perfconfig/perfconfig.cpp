@@ -22,13 +22,13 @@
 #pragma warning(push)
 #pragma warning(disable : 4459)
 #endif
-#include <boost/spirit/include/qi.hpp>
+#include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/phoenix/core.hpp>
+#include <boost/phoenix/fusion.hpp>
+#include <boost/phoenix/object.hpp>
 #include <boost/phoenix/operator.hpp>
 #include <boost/phoenix/stl.hpp>
-#include <boost/phoenix/object.hpp>
-#include <boost/phoenix/fusion.hpp>
-#include <boost/fusion/include/adapt_struct.hpp>
+#include <boost/spirit/include/qi.hpp>
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif

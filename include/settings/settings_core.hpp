@@ -19,15 +19,12 @@
 
 #pragma once
 
-#include <settings/settings_interface.hpp>
-
-#include <nsclient/logger/logger.hpp>
-
 #include <boost/filesystem/path.hpp>
-
-#include <string>
 #include <map>
+#include <nsclient/logger/logger.hpp>
 #include <set>
+#include <settings/settings_interface.hpp>
+#include <string>
 
 #define BUFF_LEN 4096
 

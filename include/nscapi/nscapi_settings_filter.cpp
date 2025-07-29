@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
+#include <boost/bind/bind.hpp>
 #include <nscapi/nscapi_settings_filter.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
-
-#include <boost/bind/bind.hpp>
 
 namespace nscapi {
 namespace settings_filters {

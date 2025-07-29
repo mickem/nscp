@@ -19,14 +19,12 @@
 
 #pragma once
 
-#include <nsclient/nsclient_exception.hpp>
-
-#include <str/xtos.hpp>
-#include <str/utils.hpp>
-
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <nsclient/nsclient_exception.hpp>
+#include <str/utils.hpp>
+#include <str/xtos.hpp>
 
 namespace cron_parser {
 struct next_value {

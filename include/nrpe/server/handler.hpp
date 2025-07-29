@@ -19,10 +19,9 @@
 
 #pragma once
 
-#include <nrpe/packet.hpp>
 #include <boost/noncopyable.hpp>
-
 #include <list>
+#include <nrpe/packet.hpp>
 namespace nrpe {
 namespace server {
 class handler : boost::noncopyable {

@@ -19,15 +19,15 @@
 
 #pragma once
 
-#include <string>
-#include <map>
-#include <set>
 #include <boost/thread/thread.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
-#include <settings/settings_core.hpp>
+#include <map>
 #include <net/net.hpp>
 #include <nsclient/logger/logger.hpp>
+#include <set>
+#include <settings/settings_core.hpp>
+#include <string>
 
 #define MUTEX_GUARD()                                                                                             \
   boost::unique_lock<boost::timed_mutex> mutex(mutex_, boost::get_system_time() + boost::posix_time::seconds(5)); \

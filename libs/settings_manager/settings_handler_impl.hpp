@@ -19,18 +19,15 @@
 
 #pragma once
 
-#include <settings/settings_core.hpp>
-
-#include <nsclient/logger/logger.hpp>
-
-#include <boost/thread/thread.hpp>
-#include <boost/thread/locks.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem/path.hpp>
-
-#include <string>
+#include <boost/thread/locks.hpp>
+#include <boost/thread/thread.hpp>
 #include <map>
+#include <nsclient/logger/logger.hpp>
 #include <set>
+#include <settings/settings_core.hpp>
+#include <string>
 
 namespace settings {
 class settings_handler_impl : public settings_core {

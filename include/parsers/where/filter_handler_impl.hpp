@@ -19,18 +19,15 @@
 
 #pragma once
 
-#include <parsers/where/engine_impl.hpp>
-#include <parsers/where/variable.hpp>
-#include <parsers/where/helpers.hpp>
-
-#include <str/format.hpp>
-
+#include <boost/bind/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
-#include <boost/bind/bind.hpp>
 #include <boost/unordered_map.hpp>
-
 #include <map>
+#include <parsers/where/engine_impl.hpp>
+#include <parsers/where/helpers.hpp>
+#include <parsers/where/variable.hpp>
+#include <str/format.hpp>
 
 namespace parsers {
 namespace where {

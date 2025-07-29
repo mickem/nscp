@@ -19,11 +19,11 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_plugin_impl.hpp>
 #include <list>
-#include <vector>
+#include <nscapi/nscapi_plugin_impl.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <string>
+#include <vector>
 
 class CheckHelpers final : public nscapi::impl::simple_plugin {
  public:

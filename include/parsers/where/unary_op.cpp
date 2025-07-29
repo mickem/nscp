@@ -17,9 +17,9 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <parsers/where/unary_op.hpp>
 #include <parsers/operators.hpp>
 #include <parsers/where/helpers.hpp>
+#include <parsers/where/unary_op.hpp>
 
 namespace parsers {
 namespace where {

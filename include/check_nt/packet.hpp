@@ -19,9 +19,9 @@
 
 #pragma once
 
-#include <string>
 #include <boost/asio/buffer.hpp>
 #include <str/xtos.hpp>
+#include <string>
 
 namespace check_nt {
 class check_nt_exception {

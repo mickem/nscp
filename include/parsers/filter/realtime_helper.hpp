@@ -20,13 +20,12 @@
 #pragma once
 
 #include <NSCAPI.h>
-#include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-
-#include <nsclient/nsclient_exception.hpp>
 
 #include <boost/shared_ptr.hpp>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nsclient/nsclient_exception.hpp>
 
 namespace parsers {
 namespace where {

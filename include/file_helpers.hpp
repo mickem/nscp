@@ -30,6 +30,8 @@
 #ifdef WIN32
 #include <win/windows.hpp>
 #include <shellapi.h>
+#else
+#include <boost/algorithm/string/case_conv.hpp>
 #endif
 
 namespace file_helpers {

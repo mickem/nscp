@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf_command.hpp>
 #include <client/command_line_parser.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_targets.hpp>
 
 namespace po = boost::program_options;

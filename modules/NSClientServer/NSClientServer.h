@@ -17,11 +17,10 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-#include <nscapi/nscapi_plugin_impl.hpp>
-
 #include <check_nt/server/protocol.hpp>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
 
 class NSClientServer : public nscapi::impl::simple_plugin, public check_nt::server::handler {
  public:

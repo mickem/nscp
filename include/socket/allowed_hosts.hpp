@@ -20,7 +20,6 @@
 #pragma once
 
 #include <boost/asio/ip/address.hpp>
-
 #include <list>
 #include <string>
 

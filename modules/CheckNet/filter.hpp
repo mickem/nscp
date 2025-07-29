@@ -19,23 +19,19 @@
 
 #pragma once
 
-#include <net/pinger.hpp>
-
-#include <parsers/where/node.hpp>
-#include <parsers/where/engine.hpp>
-#include <parsers/filter/modern_filter.hpp>
-#include <parsers/where/filter_handler_impl.hpp>
-#include <parsers/helpers.hpp>
-#include <parsers/where.hpp>
-
-#include <error/error.hpp>
-#include <str/format.hpp>
-
+#include <boost/filesystem.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
-#include <boost/filesystem.hpp>
-
+#include <error/error.hpp>
 #include <map>
+#include <net/pinger.hpp>
+#include <parsers/filter/modern_filter.hpp>
+#include <parsers/helpers.hpp>
+#include <parsers/where.hpp>
+#include <parsers/where/engine.hpp>
+#include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/node.hpp>
+#include <str/format.hpp>
 #include <string>
 
 namespace ping_filter {

@@ -19,19 +19,17 @@
 
 #pragma once
 
+#include <boost/array.hpp>
+#include <boost/asio.hpp>
+#include <boost/enable_shared_from_this.hpp>
+#include <boost/noncopyable.hpp>
+#include <socket/server.hpp>
+#include <socket/socket_helpers.hpp>
+#include <str/xtos.hpp>
+#include <utf8.hpp>
+
 #include "handler.hpp"
 #include "parser.hpp"
-
-#include <socket/socket_helpers.hpp>
-#include <socket/server.hpp>
-
-#include <utf8.hpp>
-#include <str/xtos.hpp>
-
-#include <boost/asio.hpp>
-#include <boost/array.hpp>
-#include <boost/noncopyable.hpp>
-#include <boost/enable_shared_from_this.hpp>
 
 namespace nrpe {
 using boost::asio::ip::tcp;

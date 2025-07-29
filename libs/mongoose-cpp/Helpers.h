@@ -1,8 +1,8 @@
 #pragma once
 
-#include "dll_defines.hpp"
-
 #include <string>
+
+#include "dll_defines.hpp"
 
 /**
  * A stream response to a request

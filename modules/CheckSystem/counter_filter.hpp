@@ -19,18 +19,16 @@
 
 #pragma once
 
-#include <map>
-#include <string>
-
-#include <parsers/where.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 #include <error/error.hpp>
-
-#include <parsers/where/node.hpp>
-#include <parsers/where/engine.hpp>
+#include <map>
 #include <parsers/filter/modern_filter.hpp>
+#include <parsers/where.hpp>
+#include <parsers/where/engine.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/node.hpp>
+#include <string>
 
 namespace counter_filter {
 struct filter_obj {

@@ -17,15 +17,13 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/asio.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
-
-#include <str/utils.hpp>
-#include <str/format.hpp>
-#include <utf8.hpp>
-
 #include <socket/socket_helpers.hpp>
+#include <str/format.hpp>
+#include <str/utils.hpp>
+#include <utf8.hpp>
 #ifndef WIN32
 #define OPENSSL_NO_CRYPTO_MDEBUG
 #include <openssl/crypto.h>

@@ -18,9 +18,9 @@
  */
 
 #include <error/error_w32.hpp>
-#include <win/windows.hpp>
 #include <str/xtos.hpp>
 #include <utf8.hpp>
+#include <win/windows.hpp>
 
 namespace error {
 namespace win32 {
