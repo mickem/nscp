@@ -1,0 +1,25 @@
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "NRPEMODE=LEGACY" ]
+boot.ini: |
+  [settings]
+  1 = ini://${shared-path}/nsclient.ini
+
+replace_password: true
+nsclient.ini: |
+  [/modules]
+  checkdisk = enabled
+  checkeventlog = enabled
+  checkexternalscripts = enabled
+  checkhelpers = enabled
+  checknscp = enabled
+  checksystem = enabled
+  nrpeserver = enabled
+  webserver = enabled
+  
+  [/settings/NRPE/server]
+  insecure = true
+  tls version = tlsv1.2+
+  verify mode = none
+
+  [/settings/default]
+  allowed hosts = 127.0.0.1
+  password = $$PASSWORD$$

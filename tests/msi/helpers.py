@@ -32,7 +32,7 @@ def delete_registry_tree(root, subkey):
 def ensure_uninstalled(msi_file, target_folder):
     print(f"- Uninstalling", flush=True)
     try:
-        uninstall = run(["msiexec", "/x", f"{msi_file}", "/q"], timeout=120)
+        uninstall = run(["msiexec", "/l*", "uninstall.log", "/x", f"{msi_file}", "/q"], timeout=120)
     except Exception as e:
         print(f"! Uninstall process failed: {e}", flush=True)
         exit(1)
