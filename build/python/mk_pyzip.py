@@ -4,18 +4,27 @@ from zipfile import ZipFile
 from optparse import OptionParser
 from shutil import copyfile
 
+WANTED_PACKAGES = [
+    'requests',
+    'encodings',
+    'requests_toolbelt',
+    'jinja2',
+    'markupsafe',
+    'encodings'
+]
+
 def zipdir(path, ziph):
     for root, dirs, files in os.walk(path):
         if 'pip' in root or 'Doc' in root or 'tcl' in root or 'tools' in root:
                 continue
         if 'site-packages' in root:
-            if 'requests' not in root and 'jinja2' not in root and 'markupsafe' not in root :
-                continue
-        dir = os.path.relpath(root, path)
-        print(f"Adding: {dir} to zip dist")
-        for file in files:
-            if file.endswith('.py'):
-                ziph.write(os.path.join(root, file), os.path.join(dir, file))
+            for package in WANTED_PACKAGES:
+                if package in root:
+                    folder = os.path.relpath(root, path)
+                    print(f"Adding: {folder} to zip dist")
+                    for file in files:
+                        if file.endswith('.py'):
+                            ziph.write(os.path.join(root, file), os.path.join(folder, file))
 
 if __name__ == '__main__':
 
