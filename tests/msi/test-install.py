@@ -4,22 +4,22 @@ from argparse import ArgumentParser
 
 from helpers import ensure_uninstalled, read_config, install, compare_file, create_upgrade_config
 
-msi_search_path = path.join("installers", "installer-NSCP", "*.msi")
-msi_files = glob(msi_search_path)
-if not msi_files:
-    print(f"! No MSI files found in {msi_search_path}", flush=True)
-    exit(1)
-msi_file = msi_files[0]
-print(f"* Using MSI file: {msi_file}", flush=True)
-
-target_folder = path.join('c:\\', 'Program Files (x86)' if 'Win32' in msi_file else 'Program Files', 'NSClient++')
-print(f"* Using Target folder: {target_folder}", flush=True)
-
 # Argument parsing for test selection
 parser = ArgumentParser(description="Run NSCP MSI installer tests.")
 parser.add_argument('tests', nargs='*', help='Test case YAML files to run (default: all)')
 parser.add_argument('--matches', '-m', help='Run all test cases containing the given substring')
+parser.add_argument('--path', '-p', help='Path to the installer MSI files (default: ./installers/installer-NSCP)', default='installers/installer-NSCP')
 args = parser.parse_args()
+
+msi_files = glob(path.join(args.path, '*.msi'))
+if not msi_files:
+    print(f"! No MSI files found in {args.path}", flush=True)
+    exit(1)
+msi_file = path.abspath(msi_files[0])
+print(f"* Using MSI file: {msi_file}", flush=True)
+
+target_folder = path.join('c:\\', 'Program Files (x86)' if 'Win32' in msi_file else 'Program Files', 'NSClient++')
+print(f"* Using Target folder: {target_folder}", flush=True)
 
 TEST_FOLDER = path.join(path.dirname(__file__), 'tests')
 
