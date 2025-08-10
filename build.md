@@ -44,10 +44,9 @@ curl -L https://www.openssl.org/source/openssl-%OPENSSL_VERSION%.tar.gz --output
 7z x openssl.tar.gz
 7z x openssl.tar
 
-cd openssl-%OPENSSL_VERSION%
+cd %BUILD_FOLDER%\openssl-%OPENSSL_VERSION%
 perl Configure VC-WIN64A no-asm no-shared
 nmake
-cd ..
 ```
 
 ### Boost
@@ -55,7 +54,7 @@ cd ..
 Run the following commands in a Visual Studio Command Prompt (2015 x64 Native):
 
 ```commandline
-SET BOOST_VERSION=1.82.0
+SET BOOST_VERSION=1.83.0
 SET BOOST_VERSION_=%BOOST_VERSION:.=_%
 cd %BUILD_FOLDER%
 curl -L https://archives.boost.io/release/%BOOST_VERSION%/source/boost_%BOOST_VERSION_%.tar.gz --output boost.tar.gz
@@ -63,15 +62,13 @@ curl -L https://archives.boost.io/release/%BOOST_VERSION%/source/boost_%BOOST_VE
 7z x -y boost.tar
 xcopy boost_%BOOST_VERSION_% boost_%BOOST_VERSION_%_static /E /I
 
-cd boost_%BOOST_VERSION_%
+cd %BUILD_FOLDER%\boost_%BOOST_VERSION_%
 call bootstrap.bat
 b2.exe --layout=system address-model=64 toolset=msvc-14.16 variant=release link=shared runtime-link=shared warnings=off -d0 --with-system --with-filesystem --with-thread --with-regex --with-date_time --with-program_options --with-python --with-chrono --with-json
-cd ..
 
-cd boost_%BOOST_VERSION_%_static
+cd %BUILD_FOLDER%\boost_%BOOST_VERSION_%_static
 call bootstrap.bat
 b2.exe --layout=system address-model=64 toolset=msvc-14.16 variant=release link=static runtime-link=static warnings=off -d0 --with-system --with-filesystem
-cd ..
 ```
 
 ### Build Proto-buf
@@ -81,15 +78,15 @@ SET PROTOBUF_VERSION=21.12
 cd %BUILD_FOLDER%
 curl -L https://github.com/protocolbuffers/protobuf/releases/download/v%PROTOBUF_VERSION%/protobuf-all-%PROTOBUF_VERSION%.zip --output protobuf.zip
 7z x protobuf.zip
-cd protobuf-%PROTOBUF_VERSION%
+cd %BUILD_FOLDER%\protobuf-%PROTOBUF_VERSION%
 mkdir build
-cd build
+cd %BUILD_FOLDER%\protobuf-%PROTOBUF_VERSION%\build
 cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -T v141 -A x64 ..
 
 msbuild libprotobuf.vcxproj /p:Configuration=Release /p:Platform=x64
+msbuild libprotobuf.vcxproj /p:Configuration=Debug /p:Platform=x64
 msbuild libprotoc.vcxproj /p:Configuration=Release /p:Platform=x64
 msbuild protoc.vcxproj /p:Configuration=Release /p:Platform=x64
-msbuild libprotobuf-lite.vcxproj /p:Configuration=Release /p:Platform=x64
 ```
 
 ### Build Crypto++
@@ -101,7 +98,7 @@ cd %BUILD_FOLDER%
 set SOURCE_ROOT=<where you cloned the repository>
 curl -L https://github.com/weidai11/cryptopp/releases/download/CRYPTOPP_%CRYPTOPP_VERSION_%/cryptopp%CRYPTOPP_VERSION%.zip --output cryptopp.zip
 mkdir CRYPTOPP_%CRYPTOPP_VERSION_%
-cd CRYPTOPP_%CRYPTOPP_VERSION_%
+cd %BUILD_FOLDER%\CRYPTOPP_%CRYPTOPP_VERSION_%
 7z x ..\cryptopp.zip
 
 python %SOURCE_ROOT%/build/python/msdev-to-dynamic.py cryptlib.vcxproj
