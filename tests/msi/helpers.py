@@ -68,12 +68,15 @@ def read_config(config_file):
 def install(msi_file, target_folder, command_line):
     command_line = list(map(lambda x: x.replace("$MSI-FILE", msi_file), command_line))
     print(f"- Installing NSClient++: {' '.join(command_line)}", flush=True)
-    process = run(command_line)
-    if process.returncode == 0:
-        print("- Installation completed successfully.", flush=True)
-    else:
-        print(f"! The exit code was: {process.returncode}", flush=True)
-        exit(1)
+    try:
+        process = run(command_line, timeout=120)
+        if process.returncode == 0:
+            print("- Installation completed successfully.", flush=True)
+        else:
+            print(f"! The exit code was: {process.returncode}", flush=True)
+            exit(1)
+    except Exception as e:
+        print(f"! Install failed: {e}", flush=True)
 
     if path.exists(target_folder) and path.isdir(target_folder) and path.exists(path.join(target_folder, "nscp.exe")):
         print(f"- Installation seems successfully: {target_folder}", flush=True)
