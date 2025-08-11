@@ -19,14 +19,12 @@
 
 #pragma once
 
-#include <map>
-#include <string>
-
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
-
-#include <settings/client/settings_client.hpp>
+#include <map>
 #include <nscapi/settings_proxy.hpp>
+#include <settings/client/settings_client.hpp>
+#include <string>
 
 namespace settings_client {
 struct target_handler {

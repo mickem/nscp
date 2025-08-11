@@ -8,7 +8,8 @@ create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 set(SRCS
     ${SRCS} "${TARGET}.cpp"
-    ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp ${NSCP_DEF_PLUGIN_CPP}
+    ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp
+    ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_CLIENT_CPP}
     ${NSCP_INCLUDEDIR}/json/use_json.cpp)
 
@@ -46,6 +47,5 @@ target_link_libraries(
   ${Boost_PROGRAM_OPTIONS_LIBRARY}
   ${Boost_DATE_TIME_LIBRARY}
   ${NSCP_DEF_PLUGIN_LIB}
-  ${JSON_LIB}
   nscp_mongoose)
 include(${BUILD_CMAKE_FOLDER}/module.cmake)

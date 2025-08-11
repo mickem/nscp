@@ -18,9 +18,8 @@
  */
 
 #pragma once
-#include <list>
-
 #include <boost/filesystem/path.hpp>
+#include <list>
 
 #include "filter.hpp"
 

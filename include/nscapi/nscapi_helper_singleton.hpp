@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/dll_defines.hpp>
+#include <nscapi/nscapi_core_wrapper.hpp>
 
 namespace nscapi {
 class NSCAPI_EXPORT helper_singleton {

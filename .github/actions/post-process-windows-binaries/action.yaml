@@ -9,6 +9,10 @@ inputs:
     description: The platform to build for
     required: true
     default: 'x64'
+  suffix:
+    description: Optional suffix to add to release
+    required: true
+    default: ''
   azure-tenant-id:
     description: The Azure Active Directory tenant (directory) ID.
     required: true
@@ -58,7 +62,7 @@ runs:
 
     - uses: actions/upload-artifact@v4
       with:
-        name: NSCP-${{ inputs.version }}-${{ inputs.platform }}
+        name: NSCP-${{ inputs.version }}-${{ inputs.platform }}${{ inputs.suffix }}
         path: |
           tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}-docs.zip
           tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}.zip

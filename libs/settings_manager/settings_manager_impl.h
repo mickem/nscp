@@ -1,10 +1,10 @@
 #pragma once
 
 #include <boost/shared_ptr.hpp>
-
-#include <settings/settings_core.hpp>
 #include <settings/client/settings_client_interface.hpp>
+#include <settings/settings_core.hpp>
 #include <utility>
+
 #include "settings_handler_impl.hpp"
 
 namespace settings_manager {

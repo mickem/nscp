@@ -19,15 +19,16 @@
 
 #pragma once
 
+#include <boost/shared_ptr.hpp>
 #include <nscapi/nscapi_protobuf_command.hpp>
-
 #include <nscapi/nscapi_settings_object.hpp>
-
-#include <parsers/where.hpp>
-#include <parsers/where/node.hpp>
-#include <parsers/where/engine.hpp>
 #include <parsers/filter/modern_filter.hpp>
+#include <parsers/where.hpp>
+#include <parsers/where/engine.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/node.hpp>
+
+#include "pdh_thread.hpp"
 
 namespace check_pdh {
 struct counter_config_object : public nscapi::settings_objects::object_instance_interface {

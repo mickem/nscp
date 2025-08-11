@@ -19,11 +19,10 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/dll_defines.hpp>
-
-#include <string>
 #include <list>
+#include <nscapi/dll_defines.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+#include <string>
 #include <vector>
 
 namespace nscapi {

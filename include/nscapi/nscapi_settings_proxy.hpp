@@ -19,13 +19,11 @@
 
 #pragma once
 
-#include <nscapi/nscapi_core_wrapper.hpp>
-#include <nscapi/dll_defines.hpp>
-
-#include <settings/settings_interface.hpp>
-#include <settings/client/settings_client_interface.hpp>
-
 #include <list>
+#include <nscapi/dll_defines.hpp>
+#include <nscapi/nscapi_core_wrapper.hpp>
+#include <settings/client/settings_client_interface.hpp>
+#include <settings/settings_interface.hpp>
 #include <string>
 
 namespace nscapi {

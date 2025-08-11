@@ -19,14 +19,12 @@
 
 #pragma once
 
-#include <list>
-#include <string>
-
-#include <boost/thread/mutex.hpp>
 #include <boost/shared_ptr.hpp>
-
-#include <nsclient/logger/logger.hpp>
+#include <boost/thread/mutex.hpp>
+#include <list>
 #include <nsclient/logger/base_logger_impl.hpp>
+#include <nsclient/logger/logger.hpp>
+#include <string>
 
 namespace nsclient {
 namespace logging {

@@ -19,12 +19,12 @@
 
 #include "eventlog_wrapper.hpp"
 
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <str/utils.hpp>
 
 #include "simple_registry.hpp"
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
 
 std::string eventlog_wrapper::find_eventlog_name(const std::string name) {
   try {

@@ -19,17 +19,15 @@
 
 #include "GraphiteClient.h"
 
-#include "graphite_client.hpp"
-#include "graphite_handler.hpp"
-
-#include <nscapi/nscapi_settings_helper.hpp>
+#include <boost/make_shared.hpp>
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-
+#include <nscapi/nscapi_settings_helper.hpp>
 #include <str/utils.hpp>
 
-#include <boost/make_shared.hpp>
+#include "graphite_client.hpp"
+#include "graphite_handler.hpp"
 
 /**
  * Default c-tor

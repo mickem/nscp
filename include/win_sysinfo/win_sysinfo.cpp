@@ -20,14 +20,13 @@
 #define WIN32_LEAN_AND_MEAN  // Exclude rarely-used stuff from Windows headers
 #include <windows.h>
 
-#include <win_sysinfo/win_defines.hpp>
-#include <win_sysinfo/win_sysinfo.hpp>
-
 #include <boost/scoped_array.hpp>
+#include <buffer.hpp>
 #include <error/error.hpp>
 #include <nsclient/nsclient_exception.hpp>
-#include <buffer.hpp>
 #include <utf8.hpp>
+#include <win_sysinfo/win_defines.hpp>
+#include <win_sysinfo/win_sysinfo.hpp>
 
 namespace windows {
 #define STATUS_SUCCESS ((windows::winapi::NTSTATUS)0x00000000L)

@@ -1,19 +1,16 @@
 
 #include "session_manager_interface.hpp"
 
-#include "error_handler.hpp"
-
 #include <Helpers.h>
 
+#include <boost/algorithm/string.hpp>
+#include <boost/asio.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
-
 #include <str/utils.hpp>
-
-#include <boost/asio.hpp>
-#include <boost/algorithm/string.hpp>
-
 #include <string>
+
+#include "error_handler.hpp"
 
 session_manager_interface::session_manager_interface() : log_data(new error_handler()) {}
 

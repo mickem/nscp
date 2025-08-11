@@ -20,6 +20,7 @@
 #include "threaded_logger.hpp"
 
 #include <iostream>
+#include <nsclient/logger/logger_helper.hpp>
 
 const static std::string QUIT_MESSAGE = "$$QUIT$$";
 const static std::string CONFIGURE_MESSAGE = "$$CONFIGURE$$";

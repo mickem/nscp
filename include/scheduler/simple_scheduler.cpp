@@ -17,13 +17,11 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <scheduler/simple_scheduler.hpp>
-
-#include <utf8.hpp>
-#include <nscapi/macros.hpp>
-
 #include <boost/bind/bind.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
+#include <nscapi/macros.hpp>
+#include <scheduler/simple_scheduler.hpp>
+#include <utf8.hpp>
 
 #if BOOST_VERSION >= 105300
 #include <boost/interprocess/detail/atomic.hpp>

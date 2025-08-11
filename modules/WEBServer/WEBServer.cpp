@@ -19,42 +19,36 @@
 
 #include "WEBServer.h"
 
-#include "web_cli_handler.hpp"
-#include "token_store.hpp"
-
-#include "static_controller.hpp"
-#include "modules_controller.hpp"
-#include "query_controller.hpp"
-#include "scripts_controller.hpp"
-#include "legacy_controller.hpp"
-#include "legacy_command_controller.hpp"
-#include "api_controller.hpp"
-#include "log_controller.hpp"
-#include "info_controller.hpp"
-#include "settings_controller.hpp"
-#include "login_controller.hpp"
-#include "metrics_controller.hpp"
-#include "openmetrics_controller.hpp"
-
-#include "error_handler.hpp"
-
+#include <boost/filesystem/operations.hpp>
+#include <boost/json.hpp>
+#include <boost/program_options.hpp>
+#include <nscapi/nscapi_common_options.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf_settings_functions.hpp>
-#include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_common_options.hpp>
-
-#include <str/xtos.hpp>
-#include <str/format.hpp>
-
 #include <socket/socket_helpers.hpp>
+#include <str/format.hpp>
+#include <str/xtos.hpp>
 
-#include <boost/json.hpp>
-
-#include <boost/program_options.hpp>
-#include <boost/filesystem/operations.hpp>
+#include "api_controller.hpp"
+#include "error_handler.hpp"
+#include "info_controller.hpp"
+#include "legacy_command_controller.hpp"
+#include "legacy_controller.hpp"
+#include "log_controller.hpp"
+#include "login_controller.hpp"
+#include "metrics_controller.hpp"
+#include "modules_controller.hpp"
+#include "openmetrics_controller.hpp"
+#include "query_controller.hpp"
+#include "scripts_controller.hpp"
+#include "settings_controller.hpp"
+#include "static_controller.hpp"
+#include "token_store.hpp"
+#include "web_cli_handler.hpp"
 
 namespace json = boost::json;
 

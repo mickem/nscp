@@ -17,34 +17,32 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "module.hpp"
-#include "filter.hpp"
-#include "counter_filter.hpp"
-#include "check_memory.hpp"
-#include "check_process.hpp"
 #include "CheckSystem.h"
 
 #include <EnumNtSrv.h>
 #include <sysinfo.h>
-#include <simple_registry.hpp>
-#include <win_sysinfo/win_sysinfo.hpp>
-#include <pdh/pdh_enumerations.hpp>
 
-#include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
+#include <boost/assign/list_of.hpp>
+#include <boost/json.hpp>
+#include <boost/make_shared.hpp>
+#include <boost/program_options.hpp>
+#include <compat.hpp>
+#include <map>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
-
-#include <parsers/filter/cli_helper.hpp>
-#include <compat.hpp>
+#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
-#include <boost/json.hpp>
-#include <boost/assign/list_of.hpp>
-#include <boost/program_options.hpp>
-#include <boost/make_shared.hpp>
-
-#include <map>
+#include <parsers/filter/cli_helper.hpp>
+#include <pdh/pdh_enumerations.hpp>
 #include <set>
+#include <win_sysinfo/win_sysinfo.hpp>
+
+#include "check_memory.hpp"
+#include "check_process.hpp"
+#include "counter_filter.hpp"
+#include "filter.hpp"
+#include "module.hpp"
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;

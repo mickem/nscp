@@ -20,7 +20,6 @@
 #pragma once
 
 #include <boost/shared_ptr.hpp>
-
 #include <string>
 
 #define LOG_CRITICAL_CORE(msg)                               \

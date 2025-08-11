@@ -19,14 +19,12 @@
 
 #pragma once
 
-#include <types.hpp>
-#include <swap_bytes.hpp>
-#include <nscpcrypt/nscpcrypt.hpp>
-#include <str/utils.hpp>
-#include <str/xtos.hpp>
 #include <utils.h>
 
 #include <boost/date_time.hpp>
+#include <str/xtos.hpp>
+#include <swap_bytes.hpp>
+#include <types.hpp>
 
 namespace nsca {
 class data {
@@ -34,7 +32,7 @@ class data {
   static const short transmitted_iuv_size = 128;
   static const int16_t version3 = 3;
 
-  typedef struct data_packet : public boost::noncopyable {
+  typedef struct data_packet : boost::noncopyable {
     int16_t packet_version;
     uint32_t crc32_value;
     uint32_t timestamp;

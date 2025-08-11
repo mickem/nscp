@@ -19,8 +19,8 @@
 
 #include "nsclient_logger.hpp"
 
-#include <nsclient/logger/logger.hpp>
 #include <nsclient/logger/base_logger_impl.hpp>
+#include <nsclient/logger/logger.hpp>
 
 #include "simple_console_logger.hpp"
 #include "simple_file_logger.hpp"

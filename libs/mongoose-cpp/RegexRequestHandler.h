@@ -1,11 +1,10 @@
 #pragma once
 
+#include <boost/regex.hpp>
+#include <string>
+
 #include "Request.h"
 #include "Response.h"
-
-#include <boost/regex.hpp>
-
-#include <string>
 
 namespace Mongoose {
 

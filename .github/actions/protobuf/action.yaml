@@ -8,6 +8,15 @@ inputs:
   architecture:
     description: The openssl architecture to build
     required: true
+  runtime:
+    description: The openssl architecture to build
+    default: dynamic
+  toolset:
+    description: The toolset to use for building
+    required: true
+  support_xp:
+    description: If we should support Windows XP
+    default: 'false'
 outputs:
   path:
     description: The path to the protobuf folder
@@ -29,7 +38,7 @@ runs:
     - id: cache
       uses: actions/cache@v3
       with:
-        key: ${{ runner.os }}-protobuf-${{ inputs.version }}-${{ inputs.architecture }}
+        key: ${{ runner.os }}-protobuf-${{ inputs.version }}-${{ inputs.architecture }}-${{ inputs.runtime }}-${{ inputs.toolset }}
         path: |
           tmp/protobuf-${{ inputs.version }}/build/Release
 
@@ -40,6 +49,18 @@ runs:
         } else {
           echo "platform=Win32" >> $env:GITHUB_OUTPUT
         }
+        if ("${{ inputs.runtime }}" -eq "dynamic") {
+          echo "shared_libs=TRUE" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "shared_libs=FALSE" >> $env:GITHUB_OUTPUT
+        }
+        if ("${{ inputs.support_xp }}" -eq "true") {
+          echo 'additional_options=/p:AdditionalOptions="/DGOOGLE_PROTOBUF_SUPPORT_WINDOWS_XP %(AdditionalOptions)"' >> $env:GITHUB_OUTPUT
+        } else {
+          echo "additional_options=" >> $env:GITHUB_OUTPUT
+        }
+        
+
       shell: pwsh
 
     - name: Prepare
@@ -49,18 +70,18 @@ runs:
       shell: cmd
       if: ${{ steps.cache.outputs.cache-hit != 'true' }}
 
-    - name: CMake x64
+    - name: CMake
       run: |
-        cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -T v141 -A ${{ steps.setup.outputs.platform }} ..
+        cmake -DBUILD_SHARED_LIBS=${{ steps.setup.outputs.shared_libs }} -G "Visual Studio 17" -T ${{ inputs.toolset }} -A ${{ steps.setup.outputs.platform }} ..
       working-directory: tmp/protobuf-${{ inputs.version }}/build
       shell: cmd
 
     - name: Build
       run: |
-        msbuild libprotobuf.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
-        msbuild libprotoc.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
-        msbuild protoc.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
-        msbuild libprotobuf-lite.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+        echo msbuild libprotobuf.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=v141_xp ${{ steps.setup.outputs.additional_options }}
+        msbuild libprotobuf.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=v141_xp ${{ steps.setup.outputs.additional_options }}
+        msbuild libprotoc.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=v141_xp
+        msbuild protoc.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=v141_xp
       working-directory: tmp/protobuf-${{ inputs.version }}/build
       shell: cmd
       if: ${{ steps.cache.outputs.cache-hit != 'true' }}

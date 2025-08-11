@@ -33,7 +33,6 @@
 #pragma warning(disable : 4275)
 #pragma warning(disable : 4996)
 #include <protobuf/plugin.pb.h>
-// #include <protobuf/common.pb.h>
 #pragma warning(pop)
 #else
 #include <protobuf/plugin.pb.h>

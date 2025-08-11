@@ -19,19 +19,18 @@
 
 #pragma once
 
-#include <types.hpp>
-#include <swap_bytes.hpp>
-#include <str/utils.hpp>
-#include <str/xtos.hpp>
 #include <stdint.h>
 
 #include <boost/noncopyable.hpp>
 #include <boost/optional.hpp>
 #include <boost/tuple/tuple.hpp>
-
-#include <map>
 #include <list>
+#include <map>
 #include <sstream>
+#include <str/utils.hpp>
+#include <str/xtos.hpp>
+#include <swap_bytes.hpp>
+#include <types.hpp>
 
 namespace collectd {
 class data {

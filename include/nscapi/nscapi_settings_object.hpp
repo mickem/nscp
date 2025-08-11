@@ -18,18 +18,12 @@
  */
 
 #pragma once
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/dll_defines.hpp>
-
-#include <settings/client/settings_client_interface.hpp>
-#include <nsclient/nsclient_exception.hpp>
-
-#include <boost/shared_ptr.hpp>
-#include <boost/function.hpp>
-#include <boost/unordered_map.hpp>
 #include <boost/make_shared.hpp>
-
+#include <boost/unordered_map.hpp>
 #include <list>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nsclient/nsclient_exception.hpp>
+#include <settings/client/settings_client_interface.hpp>
 #include <string>
 
 namespace nscapi {
@@ -153,6 +147,7 @@ typedef boost::shared_ptr<object_instance_interface> object_instance;
 
 template <class T>
 struct object_factory_interface {
+  virtual ~object_factory_interface() = default;
   typedef boost::shared_ptr<T> object_instance;
   virtual object_instance create(std::string alias, std::string path) = 0;
   virtual object_instance clone(object_instance parent, const std::string alias, const std::string path) = 0;

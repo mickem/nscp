@@ -23,15 +23,14 @@
 
 #pragma warning(push)
 #pragma warning(disable : 4459)
-#include <boost/spirit/include/qi.hpp>
-#include <boost/phoenix/core.hpp>
-#include <boost/phoenix/operator.hpp>
-#include <boost/phoenix/object.hpp>
-#include <boost/phoenix/bind.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
+#include <boost/phoenix/bind.hpp>
+#include <boost/phoenix/core.hpp>
+#include <boost/phoenix/object.hpp>
+#include <boost/phoenix/operator.hpp>
+#include <boost/spirit/include/qi.hpp>
 #pragma warning(pop)
 #include <boost/function.hpp>
-
 #include <parsers/where/node.hpp>
 
 namespace qi = boost::spirit::qi;

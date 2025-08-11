@@ -19,12 +19,11 @@
 
 #pragma once
 
-#include <string>
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
 #include <fstream>
 #include <iomanip>
-
-#include <boost/filesystem/path.hpp>
-#include <boost/filesystem/operations.hpp>
+#include <string>
 
 #ifdef HAVE_MINIZ
 #ifdef __GNUC__
@@ -38,17 +37,15 @@
 #endif
 #endif
 
-#include <socket/client.hpp>
-#include <socket/clients/http/http_client_protocol.hpp>
+#include <config.h>
 
+#include <file_helpers.hpp>
 #include <http/client.hpp>
 #include <net/net.hpp>
-#include <file_helpers.hpp>
-
 #include <settings/settings_core.hpp>
 #include <settings/settings_interface_impl.hpp>
-
-#include <config.h>
+#include <socket/client.hpp>
+#include <socket/clients/http/http_client_protocol.hpp>
 
 namespace settings {
 class settings_http : public settings::settings_interface_impl {

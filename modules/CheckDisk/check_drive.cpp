@@ -19,34 +19,29 @@
 
 #include "check_drive.hpp"
 
-#include <nsclient/nsclient_exception.hpp>
-
-#include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-
-#include <parsers/filter/modern_filter.hpp>
-#include <parsers/filter/cli_helper.hpp>
-#include <parsers/where/filter_handler_impl.hpp>
-#include <parsers/where/helpers.hpp>
-
+#include <boost/enable_shared_from_this.hpp>
+#include <boost/program_options.hpp>
+#include <boost/tuple/tuple.hpp>
 #include <char_buffer.hpp>
 #include <error/error.hpp>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_program_options.hpp>
+#include <nsclient/nsclient_exception.hpp>
+#include <parsers/filter/cli_helper.hpp>
+#include <parsers/filter/modern_filter.hpp>
+#include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/helpers.hpp>
 #include <str/format.hpp>
-
-#include <boost/tuple/tuple.hpp>
-#include <boost/program_options.hpp>
-#include <boost/enable_shared_from_this.hpp>
 
 #ifdef WIN32
 #include <Windows.h>
-#include <winioctl.h>
 #endif
 
 namespace npo = nscapi::program_options;
 namespace po = boost::program_options;
 
-const int drive_type_total = 0x77;
+constexpr int drive_type_total = 0x77;
 
 std::string type_to_string(const long long type) {
   if (type == DRIVE_FIXED) return "fixed";
@@ -122,7 +117,7 @@ struct filter_obj {
   bool has_type;
   bool unreadable;
 
-  filter_obj(const drive_container drive)
+  explicit filter_obj(const drive_container &drive)
       : drive(drive), drive_type(0), user_free(0), total_free(0), drive_size(0), has_size(false), has_type(false), unreadable(true) {};
 
   std::string get_drive(parsers::where::evaluation_context) const { return drive.letter; }
@@ -180,7 +175,7 @@ struct filter_obj {
   }
   long long get_user_used_pct(parsers::where::evaluation_context context) { return 100 - get_user_free_pct(context); }
   long long get_total_used_pct(parsers::where::evaluation_context context) { return 100 - get_total_free_pct(context); }
-  long long get_is_mounted(parsers::where::evaluation_context context) { return drive.is_mounted ? 1 : 0; }
+  long long get_is_mounted(parsers::where::evaluation_context context) const { return drive.is_mounted ? 1 : 0; }
 
   std::string get_user_free_human(parsers::where::evaluation_context context) { return str::format::format_byte_units(get_user_free(context)); }
   std::string get_total_free_human(parsers::where::evaluation_context context) { return str::format::format_byte_units(get_total_free(context)); }

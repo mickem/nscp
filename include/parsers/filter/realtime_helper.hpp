@@ -19,19 +19,13 @@
 
 #pragma once
 
-#include <parsers/expression/expression.hpp>
-#include <parsers/where/engine_impl.hpp>
-
 #include <NSCAPI.h>
-#include <nscapi/nscapi_helper.hpp>
-#include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-
-#include <nsclient/nsclient_exception.hpp>
 
 #include <boost/shared_ptr.hpp>
-#include <boost/function.hpp>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nsclient/nsclient_exception.hpp>
 
 namespace parsers {
 namespace where {

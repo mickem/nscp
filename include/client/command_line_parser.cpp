@@ -17,16 +17,13 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <boost/algorithm/string.hpp>
+#include <boost/bind/bind.hpp>
 #include <client/command_line_parser.hpp>
-
-#include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_protobuf_metrics.hpp>
-
+#include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <utf8.hpp>
-
-#include <boost/bind/bind.hpp>
-#include <boost/algorithm/string.hpp>
 
 #ifdef _WIN32
 #pragma warning(disable : 4100)

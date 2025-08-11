@@ -21,6 +21,7 @@
 
 #include <list>
 #include <string>
+#include <win_sysinfo/win_sysinfo.hpp>
 
 namespace services_helper {
 

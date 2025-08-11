@@ -19,12 +19,10 @@
 
 #pragma once
 
-#include <map>
-#include <string>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
-
-#include <boost/thread/shared_mutex.hpp>
 #include <boost/thread/mutex.hpp>
+#include <map>
+#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <string>
 
 namespace metrics {
 

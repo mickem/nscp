@@ -17,9 +17,8 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <str/xtos.hpp>
-
 #include <parsers/where/value_node.hpp>
+#include <str/xtos.hpp>
 
 namespace parsers {
 namespace where {

@@ -19,21 +19,19 @@
 
 #include "extscr_cli.h"
 
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf_settings_functions.hpp>
-#include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
-
-#include <file_helpers.hpp>
 #include <config.h>
 
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/json.hpp>
 #include <boost/optional.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-
+#include <file_helpers.hpp>
+#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_settings_functions.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
 #include <string>
 #include <utility>
 

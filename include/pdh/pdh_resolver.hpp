@@ -19,8 +19,9 @@
 
 #pragma once
 
-#include <list>
 #include <pdh.h>
+
+#include <list>
 #include <pdh/pdh_counters.hpp>
 
 namespace PDH {

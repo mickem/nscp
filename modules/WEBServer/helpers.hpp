@@ -3,8 +3,8 @@
 #include <StreamResponse.h>
 
 #include <boost/json.hpp>
-
 #include <string>
+
 #include "../CommandClient/CommandClient.h"
 
 namespace helpers {

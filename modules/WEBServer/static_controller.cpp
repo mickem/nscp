@@ -1,11 +1,9 @@
 #include "static_controller.hpp"
 
 #include <boost/algorithm/string.hpp>
-
 #include <fstream>
-
-#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 
 #define BUF_SIZE 4096
 

@@ -1,17 +1,15 @@
 #include "query_controller.hpp"
-#include "helpers.hpp"
-
-#include <nscapi/nscapi_helper.hpp>
-#include <nscapi/nscapi_protobuf_registry.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-
-#include <str/xtos.hpp>
-
-#include <boost/json.hpp>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/json.hpp>
 #include <boost/regex.hpp>
+#include <nscapi/nscapi_helper.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_registry.hpp>
+#include <str/xtos.hpp>
+
+#include "helpers.hpp"
 
 namespace json = boost::json;
 

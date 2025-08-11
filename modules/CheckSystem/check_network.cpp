@@ -21,17 +21,14 @@
 
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/thread/locks.hpp>
-
 #include <nscapi/nscapi_metrics_helper.hpp>
-
-#include <parsers/where.hpp>
-#include <parsers/where/node.hpp>
-#include <parsers/where/engine.hpp>
-#include <parsers/filter/modern_filter.hpp>
-#include <parsers/filter/cli_helper.hpp>
-#include <parsers/where/filter_handler_impl.hpp>
-
 #include <nsclient/nsclient_exception.hpp>
+#include <parsers/filter/cli_helper.hpp>
+#include <parsers/filter/modern_filter.hpp>
+#include <parsers/where.hpp>
+#include <parsers/where/engine.hpp>
+#include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/node.hpp>
 
 namespace ph = boost::placeholders;
 

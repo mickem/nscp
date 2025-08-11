@@ -19,13 +19,11 @@
 
 #pragma once
 
-#include <socket/allowed_hosts.hpp>
-
-#include <str/xtos.hpp>
-
 #include <boost/asio.hpp>
-#include <boost/optional.hpp>
 #include <boost/enable_shared_from_this.hpp>
+#include <boost/optional.hpp>
+#include <socket/allowed_hosts.hpp>
+#include <str/xtos.hpp>
 #ifdef USE_SSL
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/ssl/context.hpp>

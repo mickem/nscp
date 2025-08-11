@@ -19,20 +19,14 @@
 
 #pragma once
 
-#include <str/xtos.hpp>
-#include <error/error.hpp>
 #include <WbemCli.h>
+#include <atlbase.h>
 
 #include <boost/lexical_cast.hpp>
-
-#include <string>
-#include <map>
+#include <error/error.hpp>
 #include <list>
-
-#include <atlbase.h>
-#include <atlsafe.h>
-
-#include <objidl.h>
+#include <str/xtos.hpp>
+#include <string>
 
 namespace wmi_impl {
 class ComError {

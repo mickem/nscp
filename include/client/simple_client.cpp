@@ -17,23 +17,21 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <boost/function.hpp>
 #include <client/simple_client.hpp>
-
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_protobuf_settings.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
 #include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <nscapi/nscapi_protobuf_settings.hpp>
 #include <nscapi/nscapi_protobuf_settings_functions.hpp>
-#include <nscapi/nscapi_helper.hpp>
-#include <nscapi/nscapi_core_helper.hpp>
-
-#include <utf8.hpp>
 #include <str/utils.hpp>
+#include <utf8.hpp>
 
-#include <boost/function.hpp>
-
-static void create_registry_query(const nscapi::core_wrapper *core, const std::string command, const PB::Registry::ItemType &type,
+static void create_registry_query(const nscapi::core_wrapper *core, const std::string &command, const PB::Registry::ItemType &type,
                                   PB::Registry::RegistryResponseMessage &response_message) {
   PB::Registry::RegistryRequestMessage rrm;
   PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
@@ -101,7 +99,9 @@ void cli_client::handle_command(const std::string &command) {
         "\tplugins\t\t\t-list all plugins\n"
         "\t<any other command>\t-Will be executed as a query");
   } else if (command == "reload") {
-    handler->get_core()->reload("delayed,service");
+    if (!handler->get_core()->reload("delayed,service")) {
+      NSC_LOG_ERROR("Failed to reload modules");
+    }
   } else if (command.size() > 6 && command.substr(0, 6) == "enable") {
     std::string name = command.substr(7);
     bool has_errors = false;
@@ -290,7 +290,9 @@ void cli_client::handle_command(const std::string &command) {
       args.pop_front();
       nscapi::core_helper helper(handler->get_core(), handler->get_plugin_id());
       std::string response;
-      NSCAPI::nagiosReturn ret = helper.simple_query(cmd, args, response);
+      if (!helper.simple_query(cmd, args, response)) {
+        NSC_LOG_ERROR("Failed to execute command: " + cmd);
+      }
       if (!response.empty()) {
         try {
           PB::Commands::QueryResponseMessage message;
@@ -302,7 +304,6 @@ void cli_client::handle_command(const std::string &command) {
               std::string perf = nscapi::protobuf::functions::build_performance_data(l, nscapi::protobuf::functions::no_truncation);
               handler->output_message(" Performance data: " + perf);
             }
-            // return gbp_to_nagios_status(payload.result());
           }
         } catch (std::exception &e) {
           handler->output_message("Failed to extract return message: " + utf8::utf8_from_native(e.what()));

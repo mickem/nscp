@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
+#include <boost/optional.hpp>
 #include <nscapi/nscapi_protobuf_settings.hpp>
 #include <nscapi/nscapi_protobuf_settings_functions.hpp>
-
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
-
-#include <boost/optional.hpp>
 
 namespace nscapi {
 namespace protobuf {

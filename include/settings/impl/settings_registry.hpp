@@ -19,21 +19,16 @@
 
 #pragma once
 
-#include <settings/settings_core.hpp>
 #include <config.h>
 
-#include <error/error.hpp>
-
-#include <str/xtos.hpp>
-
-#include <handle.hpp>
-#include <buffer.hpp>
-
 #include <boost/algorithm/string.hpp>
-
-#include <win/windows.hpp>
-
+#include <buffer.hpp>
+#include <error/error.hpp>
+#include <handle.hpp>
+#include <settings/settings_core.hpp>
+#include <str/xtos.hpp>
 #include <string>
+#include <win/windows.hpp>
 
 #define BUFF_LEN 4096
 

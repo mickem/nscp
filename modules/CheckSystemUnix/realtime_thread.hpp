@@ -19,17 +19,15 @@
 
 #pragma once
 
+#include <boost/circular_buffer.hpp>
+#include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 #include <boost/unordered_map.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/circular_buffer.hpp>
+#include <error/error.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
+#include <nsclient/nsclient_exception.hpp>
 
 #include "filter_config_object.hpp"
-
-#include <nscapi/nscapi_settings_proxy.hpp>
-
-#include <error/error.hpp>
-#include <nsclient/nsclient_exception.hpp>
 
 /**
  * @ingroup NSClientCompat

@@ -23,9 +23,8 @@
 #include <boost/bind/bind.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread/locks.hpp>
-
-#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 
 namespace ph = boost::placeholders;
 

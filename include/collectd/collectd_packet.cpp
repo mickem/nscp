@@ -19,12 +19,10 @@
 
 #include "collectd_packet.hpp"
 
-#include <parsers/expression/expression.hpp>
-
-#include <str/xtos.hpp>
-
-#include <boost/regex.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/regex.hpp>
+#include <parsers/expression/expression.hpp>
+#include <str/xtos.hpp>
 
 std::list<collectd::collectd_builder::expanded_keys> collectd::collectd_builder::expand_keyword(const std::string &keyword, const std::string &value) {
   parsers::simple_expression::result_type expr;

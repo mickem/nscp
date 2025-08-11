@@ -18,24 +18,19 @@
  */
 #include "filter.hpp"
 
-#include <parsers/where.hpp>
-
-#include <simple_timer.hpp>
-
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-
-#include <str/utils.hpp>
-#include <str/format.hpp>
-#include <nsclient/nsclient_exception.hpp>
-
-#include <boost/bind/bind.hpp>
 #include <boost/assign.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/shared_mutex.hpp>
-
-#include <map>
 #include <list>
+#include <map>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nsclient/nsclient_exception.hpp>
+#include <parsers/where.hpp>
+#include <simple_timer.hpp>
+#include <str/format.hpp>
+#include <str/utils.hpp>
 
 using namespace boost::placeholders;
 

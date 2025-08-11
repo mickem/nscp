@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <pdh/pdh_interface.hpp>
 #include <error/error.hpp>
+#include <pdh/pdh_interface.hpp>
 
 namespace PDH {
 class NativeExternalPDH : public PDH::impl_interface {

@@ -19,13 +19,16 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf_command.hpp>
+#include <list>
 #include <nscapi/nscapi_plugin_impl.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+#include <string>
+#include <vector>
 
-class CheckHelpers : public nscapi::impl::simple_plugin {
+class CheckHelpers final : public nscapi::impl::simple_plugin {
  public:
   CheckHelpers() {}
-  virtual ~CheckHelpers() {}
+  ~CheckHelpers() {}
 
   // Check commands
   void check_critical(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);

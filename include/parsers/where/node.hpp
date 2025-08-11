@@ -19,14 +19,12 @@
 
 #pragma once
 
-#include <string>
+#include <boost/optional.hpp>
+#include <boost/shared_ptr.hpp>
 #include <list>
 #include <map>
-
-#include <boost/shared_ptr.hpp>
-#include <boost/optional.hpp>
-
 #include <parsers/where/dll_defines.hpp>
+#include <string>
 #ifdef WIN32
 #pragma warning(push)
 #pragma warning(disable : 4251)

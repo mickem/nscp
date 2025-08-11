@@ -75,6 +75,5 @@ target_link_libraries(
   ${Boost_REGEX_LIBRARY}
   ${NSCP_DEF_PLUGIN_LIB}
   ${EXTRA_LIBS}
-  ${JSON_LIB}
   nscp_mongoose)
 include(${BUILD_CMAKE_FOLDER}/module.cmake)

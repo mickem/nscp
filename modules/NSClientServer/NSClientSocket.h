@@ -18,8 +18,9 @@
  */
 
 #pragma once
-#include "resource.h"
 #include <Socket.h>
+
+#include "resource.h"
 class NSClientSocket : public simpleSocket::Listener {
  private:
   strEx::splitList allowedHosts_;

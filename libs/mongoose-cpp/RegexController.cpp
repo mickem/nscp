@@ -1,8 +1,8 @@
 #include "RegexController.h"
 
-#include "StreamResponse.h"
-
 #include <boost/algorithm/string.hpp>
+
+#include "StreamResponse.h"
 
 namespace Mongoose {
 RegexpController::RegexpController(std::string prefix) : prefix(prefix) {}

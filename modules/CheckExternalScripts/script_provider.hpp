@@ -1,11 +1,10 @@
 #pragma once
 
-#include "script_interface.hpp"
-
 #include <boost/thread/shared_mutex.hpp>
-
 #include <map>
 #include <string>
+
+#include "script_interface.hpp"
 
 struct script_provider : public script_provider_interface {
  private:

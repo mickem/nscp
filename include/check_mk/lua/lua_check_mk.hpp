@@ -19,14 +19,9 @@
 
 #pragma once
 
-#include <scripts/functions.hpp>
-#include <scripts/script_interface.hpp>
-#include <scripts/script_nscp.hpp>
-
-#include <lua/lua_script.hpp>
-#include <lua/lua_core.hpp>
-
 #include <check_mk/data.hpp>
+#include <lua/lua_core.hpp>
+#include <lua/lua_script.hpp>
 
 struct MKData {
   const static std::string tag;

@@ -17,20 +17,14 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <str/utils.hpp>
-#include <str/format.hpp>
-#include <utf8.hpp>
-
-#include <boost/shared_ptr.hpp>
-#include <boost/make_shared.hpp>
-
-#include <pdh/pdh_interface.hpp>
-
 #include <pdh/basic_impl.hpp>
-#include <pdh/thread_Safe_impl.hpp>
-
 #include <pdh/pdh_collectors.hpp>
 #include <pdh/pdh_enumerations.hpp>
+#include <pdh/pdh_interface.hpp>
+#include <pdh/thread_Safe_impl.hpp>
+#include <str/format.hpp>
+#include <str/utils.hpp>
+#include <utf8.hpp>
 
 namespace PDH {
 boost::shared_ptr<impl_interface> factory::instance;

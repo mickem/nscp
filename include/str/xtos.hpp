@@ -20,9 +20,8 @@
 #pragma once
 
 #include <boost/lexical_cast.hpp>
-
-#include <string>
 #include <sstream>
+#include <string>
 
 namespace str {
 

@@ -19,14 +19,13 @@
 
 #pragma once
 
-#include <string>
+#include <NSCAPI.h>
+
+#include <boost/optional.hpp>
+#include <boost/shared_ptr.hpp>
 #include <list>
 #include <map>
-
-#include <boost/shared_ptr.hpp>
-#include <boost/optional.hpp>
-
-#include <NSCAPI.h>
+#include <string>
 
 namespace scripts {
 struct sample_trait {

@@ -19,9 +19,10 @@
 
 #include "realtime_thread.hpp"
 
-#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 #include <parsers/filter/realtime_helper.hpp>
+
 #include "realtime_data.hpp"
 
 /**

@@ -18,9 +18,9 @@
  */
 
 #pragma once
+#include <boost/filesystem/path.hpp>
 #include <list>
 
-#include <boost/filesystem/path.hpp>
 #include "filter.hpp"
 #include "realtime_thread.hpp"
 /*

@@ -96,8 +96,8 @@ if(PROTOC_GEN_LUA_FOUND AND (LUA_FOUND OR LUA_SOURCE_FOUND))
           ${TARGET} ${BUILD_ROOT_FOLDER}/include/nscapi/dll_defines_protobuf.hpp)
 
   target_link_libraries(${TARGET} ${PROTOBUF_LIBRARY} nscp_protobuf ${LUA_LIB})
-if(WIN32)
-  target_compile_options(${TARGET} PRIVATE /wd4251)
-endif(WIN32)
+  if(WIN32)
+    target_compile_options(${TARGET} PRIVATE /wd4251)
+  endif(WIN32)
 
 endif()

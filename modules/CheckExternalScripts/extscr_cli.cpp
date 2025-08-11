@@ -19,23 +19,20 @@
 
 #include "extscr_cli.h"
 
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf_settings_functions.hpp>
-#include <nscapi/nscapi_program_options.hpp>
-
-#include <file_helpers.hpp>
 #include <config.h>
 
-#include <boost/json.hpp>
-
-#include <boost/regex.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/program_options.hpp>
 #include <boost/algorithm/string/predicate.hpp>
-
-#include <string>
+#include <boost/filesystem.hpp>
+#include <boost/json.hpp>
+#include <boost/program_options.hpp>
+#include <boost/regex.hpp>
+#include <file_helpers.hpp>
 #include <fstream>
+#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_settings_functions.hpp>
 #include <streambuf>
+#include <string>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;

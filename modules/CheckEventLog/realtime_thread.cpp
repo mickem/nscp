@@ -18,17 +18,16 @@
  */
 
 #include "realtime_thread.hpp"
-#include "realtime_data.hpp"
 
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_plugin_wrapper.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
-
+#include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_plugin_wrapper.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <parsers/filter/realtime_helper.hpp>
-
 #include <str/format.hpp>
+
+#include "realtime_data.hpp"
 
 typedef parsers::where::realtime_filter_helper<runtime_data, eventlog_filter::filter_config_object> filter_helper;
 

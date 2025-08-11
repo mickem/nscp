@@ -55,9 +55,8 @@
  * Includes
  */
 
-#include <b64/b64.h>
-
 #include <assert.h>
+#include <b64/b64.h>
 #include <string.h>
 
 /* /////////////////////////////////////////////////////////////////////////////

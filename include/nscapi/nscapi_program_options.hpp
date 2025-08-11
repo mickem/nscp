@@ -19,9 +19,8 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf_command.hpp>
-
+#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <str/utils.hpp>
 #include <utf8.hpp>
 
@@ -36,10 +35,7 @@
 #else
 #include <boost/program_options.hpp>
 #endif
-#include <boost/function/function1.hpp>
 #include <boost/bind/bind.hpp>
-
-#include <list>
 #include <utility>
 #include <vector>
 

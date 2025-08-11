@@ -19,28 +19,23 @@
 
 #pragma once
 
-#include <nsclient/nsclient_exception.hpp>
-
-#include <parsers/where/node.hpp>
-#include <parsers/where/engine.hpp>
-#include <parsers/filter/modern_filter.hpp>
-#include <parsers/where/filter_handler_impl.hpp>
-
-#include <error/error.hpp>
-#include <str/format.hpp>
-#include <str/utils.hpp>
+#include <MSTask.h>
+#include <atlbase.h>
+#include <atlsafe.h>
+#include <taskschd.h>
 
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
-
+#include <error/error.hpp>
 #include <map>
+#include <nsclient/nsclient_exception.hpp>
+#include <parsers/filter/modern_filter.hpp>
+#include <parsers/where/engine.hpp>
+#include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/node.hpp>
+#include <str/format.hpp>
+#include <str/utils.hpp>
 #include <string>
-
-#include <atlbase.h>
-#include <atlsafe.h>
-
-#include <MSTask.h>
-#include <taskschd.h>
 
 namespace tasksched_filter {
 namespace helpers {

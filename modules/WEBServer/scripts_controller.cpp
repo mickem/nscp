@@ -1,16 +1,12 @@
 #include "scripts_controller.hpp"
 
-#include <nscapi/nscapi_protobuf_command.hpp>
-
-#include <file_helpers.hpp>
-
-#include <boost/json.hpp>
-
 #include <boost/algorithm/string.hpp>
-#include <boost/regex.hpp>
 #include <boost/filesystem/path.hpp>
-
+#include <boost/json.hpp>
+#include <boost/regex.hpp>
+#include <file_helpers.hpp>
 #include <fstream>
+#include <nscapi/nscapi_protobuf_command.hpp>
 #include <utility>
 
 #define EXT_SCR "CheckExternalScripts"

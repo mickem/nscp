@@ -19,22 +19,18 @@
 
 #include "CheckHelpers.h"
 
-#include <parsers/filter/cli_helper.hpp>
-
-#include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_core_wrapper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf_nagios.hpp>
-#include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
-
-#include <str/utils.hpp>
-
+#include <algorithm>
 #include <boost/program_options.hpp>
 #include <boost/thread/thread.hpp>
-
+#include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_core_wrapper.hpp>
+#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_nagios.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <parsers/filter/cli_helper.hpp>
+#include <str/utils.hpp>
 #include <vector>
-#include <algorithm>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
@@ -380,14 +376,12 @@ void CheckHelpers::filter_perf(const PB::Commands::QueryRequestMessage::Request 
   }
 }
 
-#include <parsers/where.hpp>
-#include <parsers/where/helpers.hpp>
-
-#include <parsers/where.hpp>
-#include <parsers/where/node.hpp>
-#include <parsers/where/engine.hpp>
 #include <parsers/filter/modern_filter.hpp>
+#include <parsers/where.hpp>
+#include <parsers/where/engine.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/helpers.hpp>
+#include <parsers/where/node.hpp>
 
 namespace perf_filter {
 struct filter_obj {

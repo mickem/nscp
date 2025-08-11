@@ -19,11 +19,9 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
-
-#include <parsers/where/node.hpp>
 #include <parsers/where/helpers.hpp>
+#include <parsers/where/node.hpp>
 
 namespace parsers {
 namespace where {

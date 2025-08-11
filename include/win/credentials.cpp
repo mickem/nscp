@@ -1,7 +1,10 @@
+// clang-format off
 #include <win/credentials.hpp>
 #include <win/windows.hpp>
-#include <nsclient/nsclient_exception.hpp>
+// clang-format on
 #include <wincred.h>
+
+#include <nsclient/nsclient_exception.hpp>
 #include <utf8.hpp>
 
 void save_credential(const std::string &alias, const std::string &password) {

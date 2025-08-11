@@ -17,12 +17,11 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "schedules_handler.hpp"
-
-#include <scheduler/simple_scheduler.hpp>
-
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <scheduler/simple_scheduler.hpp>
+
+#include "schedules_handler.hpp"
 
 typedef schedules::schedule_handler::object_instance schedule_instance;
 class Scheduler : public schedules::task_handler, public nscapi::impl::simple_plugin {

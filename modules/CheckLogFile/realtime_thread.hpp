@@ -19,9 +19,9 @@
 
 #pragma once
 
-#include "filter_config_object.hpp"
-
 #include <boost/thread.hpp>
+
+#include "filter_config_object.hpp"
 
 #ifdef WIN32
 #define WIN32_LEAN_AND_MEAN  // Exclude rarely-used stuff from Windows headers

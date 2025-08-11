@@ -21,10 +21,10 @@
 
 #include "modern_eventlog.hpp"
 
-#include <utf8.hpp>
-#include <str/xtos.hpp>
-#include <nsclient/nsclient_exception.hpp>
 #include <buffer.hpp>
+#include <nsclient/nsclient_exception.hpp>
+#include <str/xtos.hpp>
+#include <utf8.hpp>
 
 namespace eventlog {
 namespace api {

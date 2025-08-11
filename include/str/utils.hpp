@@ -19,9 +19,8 @@
 
 #pragma once
 
-#include <str/utils_no_boost.hpp>
-
 #include <boost/tokenizer.hpp>
+#include <str/utils_no_boost.hpp>
 
 namespace str {
 namespace utils {

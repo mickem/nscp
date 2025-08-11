@@ -19,12 +19,11 @@
 
 #pragma once
 
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-
+#include <boost/tuple/tuple.hpp>
 #include <check_nt/packet.hpp>
 #include <check_nt/server/handler.hpp>
-#include <boost/tuple/tuple.hpp>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 
 class handler_impl : public check_nt::server::handler {
   bool noPerfData_;

@@ -18,12 +18,8 @@
  */
 
 #pragma once
-#include <list>
-
 #include <boost/filesystem.hpp>
-
-#include <NSCAPI.h>
-#include <utf8.hpp>
+#include <list>
 
 struct script_container {
   typedef std::list<script_container> list_type;

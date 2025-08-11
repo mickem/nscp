@@ -1,8 +1,7 @@
 #pragma once
 
-#include <boost/thread.hpp>
 #include <boost/optional.hpp>
-
+#include <boost/thread.hpp>
 #include <queue>
 
 namespace nscp_thread {

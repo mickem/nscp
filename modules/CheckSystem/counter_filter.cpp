@@ -17,12 +17,11 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/bind/bind.hpp>
-#include <boost/assign.hpp>
-
-#include <parsers/where.hpp>
-
 #include "counter_filter.hpp"
+
+#include <boost/assign.hpp>
+#include <boost/bind/bind.hpp>
+#include <parsers/where.hpp>
 
 using namespace boost::assign;
 using namespace parsers::where;

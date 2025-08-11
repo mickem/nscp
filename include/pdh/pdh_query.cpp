@@ -17,9 +17,8 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
-
+#include <boost/shared_ptr.hpp>
 #include <pdh/pdh_query.hpp>
 
 namespace PDH {

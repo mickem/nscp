@@ -1,13 +1,14 @@
-#include <win/psapi.hpp>
-#include <win/windows.hpp>
-#include <breakpad/exception_handler_win32.hpp>
 #include <eh.h>
+
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <breakpad/exception_handler_win32.hpp>
 #include <exception>
 #include <file_helpers.hpp>
 #include <iostream>
 #include <str/format.hpp>
 #include <string>
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <win/psapi.hpp>
+#include <win/windows.hpp>
 
 ExceptionManager *instance_ = NULL;
 

@@ -17,9 +17,8 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <iostream>
 #include <fstream>
-
+#include <iostream>
 #include <parsers/where/grammar/grammar.hpp>
 #include <parsers/where/list_node.hpp>
 

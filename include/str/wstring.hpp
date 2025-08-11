@@ -18,8 +18,8 @@
  */
 
 #pragma once
-#include <string>
 #include <list>
+#include <string>
 
 namespace strEx {
 template <class T>

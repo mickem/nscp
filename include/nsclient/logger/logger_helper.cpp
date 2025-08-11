@@ -17,15 +17,12 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <boost/date_time.hpp>
+#include <iostream>
 #include <nsclient/logger/logger_helper.hpp>
-
 #include <str/format.hpp>
 #include <str/utils.hpp>
 #include <utf8.hpp>
-
-#include <boost/date_time.hpp>
-
-#include <iostream>
 
 void nsclient::logging::logger_helper::log_fatal(std::string message) {
   std::cout << message << "\n";

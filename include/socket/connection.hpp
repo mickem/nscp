@@ -19,15 +19,18 @@
 
 #pragma once
 
-#include <boost/asio.hpp>
 #include <boost/array.hpp>
+#include <boost/asio.hpp>
+#include <boost/enable_shared_from_this.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
-#include <boost/enable_shared_from_this.hpp>
 #ifdef USE_SSL
 #include <boost/asio/ssl/context.hpp>
 #endif
 
+#include <boost/asio/ssl/stream.hpp>
+#include <list>
+#include <str/xtos.hpp>
 #include <utf8.hpp>
 
 namespace socket_helpers {

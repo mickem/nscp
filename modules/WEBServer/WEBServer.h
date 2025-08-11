@@ -17,21 +17,18 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "user_config.hpp"
-
-#include "session_manager_interface.hpp"
-#include "error_handler_interface.hpp"
-
 #include <Server.h>
 
+#include <boost/shared_ptr.hpp>
 #include <client/simple_client.hpp>
-
 #include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
 #include <nscapi/nscapi_protobuf_log.hpp>
+#include <nscapi/nscapi_protobuf_metrics.hpp>
 #include <nscapi/plugin.hpp>
 
-#include <boost/shared_ptr.hpp>
+#include "error_handler_interface.hpp"
+#include "session_manager_interface.hpp"
+#include "user_config.hpp"
 
 class WEBServer : public nscapi::impl::simple_plugin {
   typedef std::map<std::string, std::string> role_map;

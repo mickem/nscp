@@ -1,13 +1,10 @@
 #include "legacy_command_controller.hpp"
 
+#include <boost/algorithm/string.hpp>
+#include <boost/json.hpp>
 #include <client/simple_client.hpp>
-
 #include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
-
-#include <boost/json.hpp>
-
-#include <boost/algorithm/string.hpp>
 
 namespace json = boost::json;
 

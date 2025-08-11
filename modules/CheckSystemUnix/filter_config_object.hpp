@@ -19,18 +19,16 @@
 
 #pragma once
 
-#include <map>
-#include <string>
-
-#include <boost/cstdint.hpp>
-#include <boost/optional.hpp>
-#include <boost/date_time.hpp>
-
 #include <NSCAPI.h>
 
-#include <nscapi/nscapi_settings_proxy.hpp>
-#include <nscapi/nscapi_settings_object.hpp>
+#include <boost/cstdint.hpp>
+#include <boost/date_time.hpp>
+#include <boost/optional.hpp>
+#include <map>
 #include <nscapi/nscapi_settings_filter.hpp>
+#include <nscapi/nscapi_settings_object.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
+#include <string>
 
 #include "filter.hpp"
 

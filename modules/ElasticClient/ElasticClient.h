@@ -19,13 +19,12 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
-#include <nscapi/nscapi_protobuf_log.hpp>
-#include <nscapi/nscapi_plugin_impl.hpp>
-#include <nscapi/nscapi_targets.hpp>
-
 #include <client/command_line_parser.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/nscapi_protobuf_log.hpp>
+#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <nscapi/nscapi_targets.hpp>
 
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;

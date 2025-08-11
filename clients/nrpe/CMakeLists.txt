@@ -17,7 +17,6 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/utils.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
     ${NSCP_CLIENT_CPP}
-    ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ../../resources/nsclient.ico)
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
@@ -29,6 +28,7 @@ if(OPENSSL_FOUND)
   endif(WIN32)
   include_directories(${OPENSSL_INCLUDE_DIR})
 endif(OPENSSL_FOUND)
+
 
 if(WIN32)
   set(SRCS
@@ -56,8 +56,14 @@ if(WIN32 AND NOT CMAKE_CL_64)
 endif(WIN32 AND NOT CMAKE_CL_64)
 
 target_link_libraries(
-  ${TARGET} ${Boost_FILESYSTEM_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY}
-  ${Boost_THREAD_LIBRARY} ${NSCP_DEF_PLUGIN_LIB} ${EXTRA_LIBS})
+  ${TARGET} 
+  ${Boost_FILESYSTEM_LIBRARY} 
+  ${Boost_PROGRAM_OPTIONS_LIBRARY}
+  ${Boost_THREAD_LIBRARY}
+  ${CMAKE_THREAD_LIBS_INIT}
+  ${Boost_SYSTEM_LIBRARY}
+  ${NSCP_DEF_PLUGIN_LIB}
+  ${EXTRA_LIBS})
 set_target_properties(${TARGET} PROPERTIES FOLDER "clients")
 
 source_group("Client" REGULAR_EXPRESSION .*include/nrpe/.*)

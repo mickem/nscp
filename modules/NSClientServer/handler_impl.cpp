@@ -17,10 +17,11 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "handler_impl.hpp"
+
 #include <boost/asio.hpp>
 #include <boost/lexical_cast.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
-#include "handler_impl.hpp"
 
 #define REQ_CLIENTVERSION 1  // Works fine!
 #define REQ_CPULOAD 2        // Quirks

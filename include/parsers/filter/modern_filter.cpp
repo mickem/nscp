@@ -17,9 +17,9 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <parsers/filter/modern_filter.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <parsers/filter/modern_filter.hpp>
 
 namespace modern_filter {
 bool error_handler_impl::has_errors() const { return !error.empty(); }

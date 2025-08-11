@@ -19,16 +19,13 @@
 
 #include "check_docker.hpp"
 
-#include <parsers/where/node.hpp>
+#include <boost/json.hpp>
+#include <http/client.hpp>
+#include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
-#include <parsers/filter/cli_helper.hpp>
-
+#include <parsers/where/node.hpp>
 #include <str/format.hpp>
-#include <http/client.hpp>
-
-#include <boost/json.hpp>
-
 #include <string>
 
 namespace json = boost::json;

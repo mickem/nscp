@@ -1,7 +1,6 @@
 #pragma once
 
 #include <boost/thread/mutex.hpp>
-
 #include <list>
 #include <string>
 

@@ -16,12 +16,13 @@
  * You should have received a copy of the GNU General Public License
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
+#pragma once
 
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_plugin_impl.hpp>
-
-#include <boost/thread/shared_mutex.hpp>
 #include <boost/function.hpp>
+#include <boost/thread/shared_mutex.hpp>
+#include <list>
+#include <nscapi/nscapi_plugin_impl.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
 
 struct config_object {
   std::string time_format;

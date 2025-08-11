@@ -20,13 +20,13 @@
 #pragma once
 
 namespace dll {
-class dll_exception : public std::exception {
+class dll_exception final : public std::exception {
   std::string what_;
 
  public:
-  dll_exception(std::string what) : what_(what) {}
-  ~dll_exception() throw() {}
-  const char* what() const throw() { return what_.c_str(); }
+  explicit dll_exception(const std::string& what) : what_(what) {}
+  ~dll_exception() throw() override {}
+  const char* what() const throw() override { return what_.c_str(); }
 };
 }  // namespace dll
 

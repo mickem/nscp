@@ -19,15 +19,13 @@
 
 #pragma once
 
-#include <list>
 #include <pdh.h>
-#include <error/error.hpp>
 
 #include <buffer.hpp>
-
-#include <pdh/pdh_interface.hpp>
+#include <error/error.hpp>
+#include <list>
 #include <pdh/pdh_enumerations.hpp>
-
+#include <pdh/pdh_interface.hpp>
 #include <utf8.hpp>
 
 namespace PDH {

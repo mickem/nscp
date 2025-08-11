@@ -25,12 +25,13 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/replace.hpp>
-#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/optional.hpp>
 
 #ifdef WIN32
 #include <win/windows.hpp>
 #include <shellapi.h>
+#else
+#include <boost/algorithm/string/case_conv.hpp>
 #endif
 
 namespace file_helpers {

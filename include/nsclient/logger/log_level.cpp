@@ -17,9 +17,8 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <nsclient/logger/log_level.hpp>
-
 #include <boost/algorithm/string.hpp>
+#include <nsclient/logger/log_level.hpp>
 
 bool nsclient::logging::log_level::set(const std::string level) {
   std::string lc = boost::to_lower_copy(level);

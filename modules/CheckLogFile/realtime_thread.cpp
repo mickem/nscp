@@ -18,25 +18,23 @@
  */
 
 #include "realtime_thread.hpp"
-#include "filter.hpp"
-#include "realtime_data.hpp"
 
-#include <parsers/filter/realtime_helper.hpp>
-
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-
-#include <str/utils.hpp>
-#include <error/error.hpp>
-#include <simple_timer.hpp>
+#include <time.h>
 
 #include <boost/filesystem.hpp>
-
+#include <error/error.hpp>
 #include <map>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <parsers/filter/realtime_helper.hpp>
+#include <simple_timer.hpp>
+#include <str/utils.hpp>
 #include <vector>
-#include <time.h>
+
+#include "filter.hpp"
+#include "realtime_data.hpp"
 
 #ifdef WIN32
 #define WIN32_LEAN_AND_MEAN  // Exclude rarely-used stuff from Windows headers

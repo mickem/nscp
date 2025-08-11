@@ -21,19 +21,15 @@
 
 #include <CheckMemory.h>
 
-#include <parsers/where.hpp>
-#include <parsers/where/node.hpp>
-#include <parsers/where/engine.hpp>
-#include <parsers/filter/modern_filter.hpp>
-#include <parsers/where/filter_handler_impl.hpp>
-#include <parsers/filter/cli_helper.hpp>
-
-#include <parsers/filter/realtime_helper.hpp>
-
 #include <nscapi/nscapi_protobuf_functions.hpp>
-
+#include <parsers/filter/cli_helper.hpp>
+#include <parsers/filter/modern_filter.hpp>
+#include <parsers/filter/realtime_helper.hpp>
+#include <parsers/where.hpp>
+#include <parsers/where/engine.hpp>
+#include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/node.hpp>
 #include <str/format.hpp>
-
 #include <string>
 
 CheckMemory memchecker;

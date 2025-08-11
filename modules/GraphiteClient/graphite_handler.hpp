@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <nscapi/nscapi_settings_helper.hpp>
 #include <boost/make_shared.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 
 namespace graphite_handler {
 namespace sh = nscapi::settings_helper;

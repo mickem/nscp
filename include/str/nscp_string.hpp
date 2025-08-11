@@ -18,12 +18,10 @@
  */
 
 #pragma once
-#include <string>
-#include <sstream>
-#include <list>
 #include <boost/tokenizer.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/tuple/tuple.hpp>
+#include <list>
+#include <string>
 
 namespace strEx {
 namespace s {

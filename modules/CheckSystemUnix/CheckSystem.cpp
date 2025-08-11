@@ -17,26 +17,24 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "module.hpp"
 #include "CheckSystem.h"
-
-#include <map>
-#include <set>
-#include <iostream>
-#include <fstream>
 
 #include <sys/types.h>
 #include <sys/utsname.h>
+#include <utils.h>
 
 #include <boost/program_options.hpp>
 #include <boost/shared_ptr.hpp>
-
-#include <utils.h>
-#include <nscapi/nscapi_settings_helper.hpp>
+#include <fstream>
+#include <iostream>
+#include <map>
 #include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 #include <parsers/filter/cli_helper.hpp>
+#include <set>
 
 #include "filter.hpp"
+#include "module.hpp"
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;

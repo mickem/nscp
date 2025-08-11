@@ -18,12 +18,11 @@
  */
 
 #include <boost/scoped_ptr.hpp>
-
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
-#include <nscapi/nscapi_protobuf_log.hpp>
-#include <nscapi/plugin.hpp>
 #include <client/simple_client.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/nscapi_protobuf_log.hpp>
+#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <nscapi/plugin.hpp>
 
 struct client_handler : public client::cli_handler {
  private:

@@ -19,16 +19,15 @@
 
 #include "check_nscp.hpp"
 
-#include "../modules/NSCPClient/nscp_handler.hpp"
-
 #include <config.h>
-#include <types.hpp>
-
-#include <nscapi/nscapi_protobuf_nagios.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_helper.hpp>
 
 #include <boost/filesystem.hpp>
+#include <nscapi/nscapi_helper.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_nagios.hpp>
+#include <types.hpp>
+
+#include "../modules/NSCPClient/nscp_handler.hpp"
 
 namespace ph = boost::placeholders;
 

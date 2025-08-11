@@ -18,17 +18,17 @@
  */
 
 #include "check_nrpe.hpp"
-#include <boost/filesystem.hpp>
 
 #include <config.h>
 
-#include <types.hpp>
-
+#include <boost/filesystem.hpp>
+#include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
-#include <nscapi/nscapi_helper.hpp>
-#include "../../modules/NRPEClient/nrpe_handler.hpp"
+#include <types.hpp>
+
 #include "../../modules/NRPEClient/nrpe_client.hpp"
+#include "../../modules/NRPEClient/nrpe_handler.hpp"
 
 namespace ph = boost::placeholders;
 

@@ -17,16 +17,15 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "script_interface.hpp"
-
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
-#include <nscapi/nscapi_plugin_impl.hpp>
-
 #include <boost/filesystem.hpp>
 #include <boost/optional.hpp>
 #include <boost/python.hpp>
 #include <boost/shared_ptr.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/nscapi_protobuf_metrics.hpp>
+
+#include "script_interface.hpp"
 
 class PythonScript : public nscapi::impl::simple_plugin {
  private:

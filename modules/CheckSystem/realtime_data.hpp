@@ -18,12 +18,12 @@
  */
 
 #pragma once
+#include <boost/filesystem/path.hpp>
 #include <list>
 
-#include <boost/filesystem/path.hpp>
+#include "CheckMemory.h"
 #include "filter.hpp"
 #include "pdh_thread.hpp"
-#include "CheckMemory.h"
 
 namespace check_cpu_filter {
 struct runtime_data {

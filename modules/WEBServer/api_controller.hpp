@@ -1,12 +1,12 @@
 #pragma once
 
-#include "session_manager_interface.hpp"
-#include "helpers.hpp"
-
 #include <RegexController.h>
 #include <StreamResponse.h>
 
 #include <string>
+
+#include "helpers.hpp"
+#include "session_manager_interface.hpp"
 
 class api_controller : public Mongoose::RegexpController {
   boost::shared_ptr<session_manager_interface> session;

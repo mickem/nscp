@@ -19,14 +19,13 @@
 
 #include <parsers/expression/expression.hpp>
 
-#include <boost/config/warning_disable.hpp>
 #pragma warning(push)
 #pragma warning(disable : 4459)
-#include <boost/spirit/include/qi.hpp>
 #include <boost/phoenix/core.hpp>
+#include <boost/phoenix/object.hpp>
 #include <boost/phoenix/operator.hpp>
 #include <boost/phoenix/stl.hpp>
-#include <boost/phoenix/object.hpp>
+#include <boost/spirit/include/qi.hpp>
 #pragma warning(pop)
 
 namespace qi = boost::spirit::qi;

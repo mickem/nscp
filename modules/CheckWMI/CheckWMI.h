@@ -17,17 +17,14 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_plugin_wrapper.hpp>
-#include <nscapi/nscapi_plugin_impl.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-
-#include <str/xtos.hpp>
-
 #include <boost/optional.hpp>
-
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
+#include <nscapi/nscapi_plugin_wrapper.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <str/xtos.hpp>
 #include <wmi/wmi_query.hpp>
 
 struct target_helper {

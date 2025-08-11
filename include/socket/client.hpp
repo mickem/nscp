@@ -20,6 +20,8 @@
 #pragma once
 
 #include <socket/socket_helpers.hpp>
+#include <str/utils.hpp>
+#include <str/xtos.hpp>
 
 using boost::asio::ip::tcp;
 

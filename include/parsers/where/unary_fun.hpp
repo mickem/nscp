@@ -20,9 +20,7 @@
 #pragma once
 
 #include <boost/enable_shared_from_this.hpp>
-
 #include <parsers/where/node.hpp>
-#include <parsers/operators.hpp>
 
 namespace parsers {
 namespace where {

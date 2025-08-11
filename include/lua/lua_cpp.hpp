@@ -23,13 +23,15 @@
 
 extern "C" {
 #include <lua.h>
+
 #include "lauxlib.h"
 }
 
-#include <string>
-#include <list>
-#include <vector>
 #include <NSCAPI.h>
+
+#include <list>
+#include <string>
+#include <vector>
 
 namespace lua {
 class Lua_State : boost::noncopyable {
@@ -180,7 +182,8 @@ class lua_exception : public std::exception {
   std::string error_;
 
  public:
-  lua_exception(std::string error) : error_(error) {}
+  lua_exception(std::string error) noexcept : error_(error) {}
+  lua_exception(const lua_exception &other) noexcept : error_(other.error_) {}
   ~lua_exception() throw() {}
   const char *what() const throw() { return error_.c_str(); }
 };

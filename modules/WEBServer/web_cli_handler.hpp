@@ -1,8 +1,8 @@
 #pragma once
 
-#include "error_handler_interface.hpp"
-
 #include <client/simple_client.hpp>
+
+#include "error_handler_interface.hpp"
 
 class web_cli_handler : public client::cli_handler {
   const nscapi::core_wrapper* core;

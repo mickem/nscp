@@ -19,25 +19,22 @@
 
 #include "CheckNSCP.h"
 
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-#include <nsclient/nsclient_exception.hpp>
-
-#include <parsers/filter/modern_filter.hpp>
-#include <parsers/filter/cli_helper.hpp>
-#include <parsers/where/filter_handler_impl.hpp>
-#include <parsers/where/helpers.hpp>
-
-#include <nscapi/nscapi_settings_helper.hpp>
-
-#include <file_helpers.hpp>
-#include <str/format.hpp>
 #include <config.h>
 
-#include <boost/filesystem.hpp>
 #include <boost/date_time.hpp>
+#include <boost/filesystem.hpp>
+#include <file_helpers.hpp>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nsclient/nsclient_exception.hpp>
+#include <parsers/filter/cli_helper.hpp>
+#include <parsers/filter/modern_filter.hpp>
+#include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/helpers.hpp>
+#include <str/format.hpp>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;

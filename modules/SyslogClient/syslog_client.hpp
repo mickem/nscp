@@ -19,14 +19,11 @@
 
 #pragma once
 
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-
-#include <socket/socket_helpers.hpp>
-
-#include <str/format.hpp>
-
 #include <boost/asio.hpp>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <socket/socket_helpers.hpp>
+#include <str/format.hpp>
 
 namespace syslog_client {
 struct connection_data : public socket_helpers::connection_info {

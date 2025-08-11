@@ -1,8 +1,8 @@
-#include <vector>
-#include <string>
-#include <parsers/expression/expression.hpp>
-
 #include <gtest/gtest.h>
+
+#include <parsers/expression/expression.hpp>
+#include <string>
+#include <vector>
 
 bool do_parse(std::string str, parsers::simple_expression::result_type &v) {
   v.clear();

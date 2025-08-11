@@ -20,11 +20,8 @@
 #define BOOST_SPIRIT_DEBUG  ///$$$ DEFINE THIS WHEN DEBUGGING $$$///
 #pragma once
 
-#include <iostream>
 #include <string>
 #include <vector>
-
-// #include <boost/tuple/tuple.hpp>
 
 namespace parsers {
 struct perfconfig {

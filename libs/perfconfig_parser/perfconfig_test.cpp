@@ -1,11 +1,10 @@
-#include <vector>
-#include <string>
-#include <sstream>
-
-#include <parsers/perfconfig/perfconfig.hpp>
-
 #include <gtest/gtest.h>
+
 #include <boost/version.hpp>
+#include <parsers/perfconfig/perfconfig.hpp>
+#include <sstream>
+#include <string>
+#include <vector>
 
 std::string to_string(const parsers::perfconfig::result_type &v) {
   std::stringstream ss;

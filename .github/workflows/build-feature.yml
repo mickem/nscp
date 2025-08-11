@@ -20,7 +20,17 @@ jobs:
   build-x86:
     needs: get-version
     uses: ./.github/workflows/build-windows.yml
-    with: 
+    with:
+      architecture: x86
+      version: ${{ needs.get-version.outputs.version }}
+    secrets:
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  build-x86-static:
+    needs: get-version
+    uses: ./.github/workflows/build-windows-legacy.yml
+    with:
       architecture: x86
       version: ${{ needs.get-version.outputs.version }}
     secrets:

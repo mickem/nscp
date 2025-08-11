@@ -11,7 +11,6 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
     ${NSCP_CLIENT_CPP}
-    ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ../../resources/nsclient.ico)
 
 add_definitions(${NSCP_GLOBAL_DEFINES})

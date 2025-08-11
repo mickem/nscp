@@ -25,6 +25,8 @@ endif(WIN32)
 add_library(${TARGET} MODULE ${SRCS})
 nscp_debug_symbols(${TARGET})
 
-target_link_libraries(${TARGET} ${Boost_FILESYSTEM_LIBRARY}
-                      ${Boost_PROGRAM_OPTIONS_LIBRARY} ${NSCP_DEF_PLUGIN_LIB})
+target_link_libraries(${TARGET}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${NSCP_DEF_PLUGIN_LIB})
 include(${BUILD_CMAKE_FOLDER}/module.cmake)

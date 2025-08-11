@@ -19,10 +19,10 @@
 
 #pragma once
 
+#include <nscapi/dll_defines.hpp>
+#include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
-#include <nscapi/nscapi_helper.hpp>
-#include <nscapi/dll_defines.hpp>
 #ifdef WIN32
 #pragma warning(disable : 4251)
 #endif

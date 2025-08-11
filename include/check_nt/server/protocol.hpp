@@ -19,16 +19,12 @@
 
 #pragma once
 
-#include <boost/asio.hpp>
 #include <boost/array.hpp>
-#include <boost/noncopyable.hpp>
-#include <boost/shared_ptr.hpp>
+#include <boost/asio.hpp>
 #include <boost/enable_shared_from_this.hpp>
-#include <boost/asio/ssl/context.hpp>
-
-#include <socket/socket_helpers.hpp>
 #include <socket/connection.hpp>
 #include <socket/server.hpp>
+#include <socket/socket_helpers.hpp>
 
 #include "handler.hpp"
 #include "parser.hpp"
@@ -36,7 +32,7 @@
 namespace check_nt {
 static const int socket_bufer_size = 8096;
 static const bool debug_trace = true;
-struct read_protocol : public boost::noncopyable {
+struct read_protocol : boost::noncopyable {
   static const bool debug_trace = false;
 
   typedef std::vector<char> outbound_buffer_type;

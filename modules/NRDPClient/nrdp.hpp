@@ -19,13 +19,12 @@
 
 #pragma once
 
-#include <list>
-#include <string>
+#include <NSCAPI.h>
 
 #include <boost/noncopyable.hpp>
 #include <boost/tuple/tuple.hpp>
-
-#include <NSCAPI.h>
+#include <list>
+#include <string>
 
 namespace nrdp {
 struct data : boost::noncopyable {

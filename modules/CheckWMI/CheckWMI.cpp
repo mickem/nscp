@@ -17,20 +17,19 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <map>
-#include <vector>
-#include <algorithm>
-
-#include <boost/program_options.hpp>
-
 #include "CheckWMI.h"
-#include <str/xtos.hpp>
+
 #include <time.h>
 
+#include <algorithm>
+#include <boost/program_options.hpp>
+#include <map>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
+#include <str/xtos.hpp>
+#include <vector>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
@@ -90,12 +89,12 @@ std::string build_namespace(std::string ns, std::string computer) {
   return ns;
 }
 
-#include <parsers/where.hpp>
-#include <parsers/where/node.hpp>
-#include <parsers/where/engine.hpp>
-#include <parsers/filter/modern_filter.hpp>
 #include <parsers/filter/cli_helper.hpp>
+#include <parsers/filter/modern_filter.hpp>
+#include <parsers/where.hpp>
+#include <parsers/where/engine.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/node.hpp>
 
 namespace wmi_filter {
 struct filter_obj {

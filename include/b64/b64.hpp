@@ -59,7 +59,6 @@
  */
 
 #include <b64/b64.h>
-
 #include <stlsoft.h>
 
 #if defined(B64_USE_CUSTOM_STRING)

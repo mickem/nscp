@@ -32,7 +32,6 @@
 
 #include <map>
 #include <string>
-#include <iostream>
 
 #include <win/windows.hpp>
 #include <tchar.h>

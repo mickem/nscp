@@ -108,10 +108,6 @@ endif(WIN32)
 add_definitions(${NSCP_GLOBAL_DEFINES} -Dplugin_api_NOLIB)
 
 # Add python
-if(Python3_Development_FOUND)
-  set(EXTRA_LIBS ${EXTRA_LIBS} ${Python3_LIBRARIES})
-endif()
-
 if(WIN32)
     set(service_SRCS ${service_SRCS}
             ${NSCP_INCLUDEDIR}/breakpad/exception_handler_win32.cpp
@@ -136,8 +132,6 @@ target_link_libraries(
   ${PROTOBUF_LIBRARY}
   ${ICONV_LIBRARIES}
   ${EXTRA_LIBS}
-  ${JSON_LIB}
-  ${CRYPTOPP_LIBRARIES}
   nscp_protobuf
   settings_manager
   expression_parser

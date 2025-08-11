@@ -19,11 +19,9 @@
 
 #pragma once
 
-#include <list>
 #include <pdh.h>
-#include <pdhmsg.h>
-#include <sstream>
-#include <error/error.hpp>
+
+#include <list>
 
 namespace PDH {
 #define PDH_INDEX_BUF_LEN 2048

@@ -20,9 +20,10 @@
 #include <boost/thread/condition.hpp>
 #pragma once
 
+#include <signal.h>
+
 #include <iostream>
 #include <string>
-#include <signal.h>
 
 namespace service_helper_impl {
 /**

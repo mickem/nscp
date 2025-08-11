@@ -19,11 +19,10 @@
 
 #pragma once
 
-#include <list>
-#include <string>
-
 #include <boost/shared_ptr.hpp>
+#include <list>
 #include <nscapi/dll_defines.hpp>
+#include <string>
 #ifdef WIN32
 #pragma warning(disable : 4251)
 #endif
@@ -94,7 +93,6 @@ class add_metadata_helper {
 };
 
 class NSCAPI_EXPORT command_registry {
- private:
   typedef std::list<boost::shared_ptr<command_info> > command_list;
   command_list commands;
   command_proxy_ptr core_;

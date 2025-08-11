@@ -19,18 +19,15 @@
 
 #pragma once
 
-#include <win_sysinfo/win_sysinfo.hpp>
 #include <EnumNtSrv.h>
 #include <EnumProcess.h>
 
+#include <boost/date_time.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
-
 #include <str/format.hpp>
-
-#include <boost/date_time.hpp>
-
 #include <string>
+#include <win_sysinfo/win_sysinfo.hpp>
 
 namespace check_cpu_filter {
 struct filter_obj {

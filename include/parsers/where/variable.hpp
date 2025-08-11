@@ -20,15 +20,12 @@
 #pragma once
 
 #include <algorithm>
-
-#include <boost/shared_ptr.hpp>
 #include <boost/function.hpp>
-
-#include <parsers/where/node.hpp>
+#include <boost/shared_ptr.hpp>
 #include <parsers/where/helpers.hpp>
-
-#include <utf8.hpp>
+#include <parsers/where/node.hpp>
 #include <str/format.hpp>
+#include <utf8.hpp>
 
 namespace parsers {
 namespace where {

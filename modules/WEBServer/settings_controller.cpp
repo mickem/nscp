@@ -1,11 +1,9 @@
 #include "settings_controller.hpp"
 
-#include <nscapi/nscapi_protobuf_settings.hpp>
-
-#include <boost/json.hpp>
-
 #include <boost/algorithm/string.hpp>
+#include <boost/json.hpp>
 #include <boost/regex.hpp>
+#include <nscapi/nscapi_protobuf_settings.hpp>
 #include <utility>
 
 namespace json = boost::json;

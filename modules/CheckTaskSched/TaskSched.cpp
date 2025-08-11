@@ -19,21 +19,16 @@
 
 #include "TaskSched.h"
 
-#include <atlbase.h>
-
-#include <error/error_com.hpp>
-
-#include <map>
-#include <comdef.h>
-
-#include <error/error_com.hpp>
-#include <objidl.h>
-#include <map>
 #include <Mstask.h>
+#include <atlbase.h>
+#include <comdef.h>
+#include <objidl.h>
 #include <taskschd.h>
 
-#include <nscapi/nscapi_helper_singleton.hpp>
+#include <error/error_com.hpp>
+#include <map>
 #include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 
 #pragma comment(lib, "taskschd.lib")
 #pragma comment(lib, "comsupp.lib")

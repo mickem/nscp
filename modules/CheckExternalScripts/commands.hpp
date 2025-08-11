@@ -19,13 +19,11 @@
 
 #pragma once
 
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
-#include <nscapi/nscapi_settings_object.hpp>
-
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/bind/bind.hpp>
-
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_settings_object.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
 #include <string>
 
 namespace sh = nscapi::settings_helper;

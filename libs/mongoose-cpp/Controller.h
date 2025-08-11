@@ -1,11 +1,10 @@
 #pragma once
 
+#include <string>
+
 #include "Request.h"
 #include "Response.h"
-
 #include "dll_defines.hpp"
-
-#include <string>
 
 /**
  * A controller is a module that respond to requests
