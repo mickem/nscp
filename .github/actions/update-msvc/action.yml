@@ -1,0 +1,66 @@
+name: Update microsoft Visual Studio C++ toolset
+author: Michael Medin
+description: Update microsoft Visual Studio C++ toolset
+runs:
+  using: "composite"
+  steps:
+    - name: Install components
+      shell: powershell
+      run: |
+        function Get-ProcessDescendants {
+            [CmdletBinding()]
+            param(
+              [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
+              [int]$ProcessId
+            )
+        
+            # Find direct children of the given process ID
+            $children = Get-CimInstance -ClassName Win32_Process -Filter "ParentProcessId = $ProcessId"
+        
+            foreach ($child in $children) {
+              # Output the child process object
+              $child
+        
+              # Recursively find grandchildren
+              Get-ProcessDescendants -ProcessId $child.ProcessId
+              }
+        }
+        Write-Host "* Fetching components..."
+        Set-Location "C:\Program Files (x86)\Microsoft Visual Studio\Installer\"
+        $InstallPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
+        $components= @(
+          "Microsoft.VisualStudio.Component.VC.v141.x86.x64"
+          "Microsoft.VisualStudio.Component.VC.v141.ATL"
+          "Microsoft.VisualStudio.Component.WinXP"
+        )
+        [string]$workloadArgs = $components | ForEach-Object {" --add " +  $_}
+        $Arguments = ('/c', "vs_installer.exe", 'modify', '--installPath', "`"$InstallPath`"",$workloadArgs, '--quiet', '--norestart', '--nocache')
+        Write-Host "* Starting installer..."  
+        $process = Start-Process -FilePath cmd.exe -ArgumentList $Arguments -PassThru -WindowStyle Hidden
+        
+        Start-Sleep -Seconds 1
+        
+        Write-Host "* Finding all descendants of $($process.Id)..."
+        $descendants = Get-ProcessDescendants -ProcessId $process.Id
+        
+        try {
+          $process.WaitForExit(600000)
+        
+          if ($descendants) {
+            $descendantPIDs = $descendants.ProcessId -join ", "
+            Write-Host "* Now waiting for descendant processes (PIDs: $descendantPIDs) to exit..."
+        
+            # Get the actual process objects for the descendants
+            $descendantProcesses = Get-Process -Id $descendants.ProcessId -ErrorAction SilentlyContinue
+        
+            # Wait for all of them to exit
+            $descendantProcesses | Wait-Process -Timeout 600
+        
+            Write-Host "* All components updated."
+          } else {
+            Write-Host "! No descendant processes were found."
+          }
+        } catch {
+          Stop-Process -Id $process.Id -Force
+          Write-Host "! Failed to update components..."
+        }
