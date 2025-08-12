@@ -5,26 +5,30 @@ from optparse import OptionParser
 from shutil import copyfile
 
 WANTED_PACKAGES = [
-    'requests',
+    'site-packages/requests',
     'encodings',
-    'requests_toolbelt',
-    'jinja2',
-    'markupsafe',
-    'encodings'
+    'site-packages/requests_toolbelt',
+    'site-packages/jinja2',
+    'site-packages/markupsafe',
 ]
 
 def zipdir(path, ziph):
+    missing = list(WANTED_PACKAGES)
     for root, dirs, files in os.walk(path):
         if 'pip' in root or 'Doc' in root or 'tcl' in root or 'tools' in root:
                 continue
-        if 'site-packages' in root:
-            for package in WANTED_PACKAGES:
-                if package in root:
-                    folder = os.path.relpath(root, path)
-                    print(f"Adding: {folder} to zip dist")
-                    for file in files:
-                        if file.endswith('.py'):
-                            ziph.write(os.path.join(root, file), os.path.join(folder, file))
+        rel_path = os.path.relpath(root, path).replace('\\', '/')
+        for package in missing:
+            if rel_path.startswith(package):
+                missing.remove(package)
+                folder = os.path.relpath(root, os.path.join(path, 'site-packages') if rel_path.startswith('site-packages') else path)
+                print(f"Adding: {folder} to zip dist")
+                for file in files:
+                    if file.endswith('.py'):
+                        ziph.write(os.path.join(root, file), os.path.join(folder, file))
+    if missing:
+        print(f"Error: Missing packages in {path}: {missing}")
+        exit(1)
 
 if __name__ == '__main__':
 
@@ -43,7 +47,7 @@ if __name__ == '__main__':
         print("Please specify source folder")
         exit(2)
     source_pyd = os.path.join(options.source, 'DLLs')
-    source_lib = os.path.join(options.source, 'lib', 'site-packages')
+    source_lib = os.path.join(options.source, 'lib')
 
     with ZipFile(target_zip, 'w') as zipf:
         zipdir(source_lib, zipf)
