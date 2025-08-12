@@ -7,7 +7,6 @@ from shutil import copyfile
 WANTED_PACKAGES = [
     'site-packages/requests',
     'encodings',
-    'site-packages/requests_toolbelt',
     'site-packages/jinja2',
     'site-packages/markupsafe',
 ]
