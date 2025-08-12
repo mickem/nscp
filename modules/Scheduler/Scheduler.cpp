@@ -157,8 +157,11 @@ bool Scheduler::handle_schedule(schedules::target_object item) {
       if (nscapi::report::matches(item->report, nscapi::protobuf::functions::gbp_to_nagios_status(p.result()))) resp_msg_send.add_payload()->CopyFrom(p);
     }
     if (resp_msg_send.payload_size() > 0) {
+      if (item->channel == "drop") {
+        return true;
+      }
       if (item->channel.empty()) {
-        NSC_LOG_ERROR_STD("No channel specified for " + item->get_alias() + " mssage will not be sent.");
+        NSC_LOG_ERROR_STD("No channel specified for " + item->get_alias() + " message will not be sent.");
         return true;
       }
       nscapi::protobuf::functions::make_submit_from_query(response, item->channel, item->get_alias(), item->target_id, item->source_id);
