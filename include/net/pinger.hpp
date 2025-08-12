@@ -25,6 +25,7 @@
 
 #include <net/icmp_header.hpp>
 #include <net/ipv4_header.hpp>
+#include <utility>
 
 using boost::asio::deadline_timer;
 using boost::asio::ip::icmp;
@@ -45,13 +46,15 @@ struct result_container {
 };
 class pinger {
  public:
-  pinger(boost::asio::io_service& io_service, result_container& result, const char* destination, int timeout)
+  pinger(boost::asio::io_service& io_service, result_container& result, const char* destination, int timeout, unsigned short identifier, std::string payload)
       : resolver_(io_service),
         socket_(io_service, icmp::v4()),
         timer_(io_service),
         sequence_number_(0),
         timeout_(timeout),
-        result_(result)
+        result_(result),
+        identifier_(identifier),
+        payload_(std::move(payload))
 
   {
     icmp::resolver::query query(icmp::v4(), destination, "");
@@ -67,12 +70,12 @@ class pinger {
 
  private:
   void start_send() {
-    std::string body("Hello from NSClient++.");
+    std::string body(payload_);
 
     icmp_header echo_request;
     echo_request.type(icmp_header::echo_request);
     echo_request.code(0);
-    echo_request.identifier(get_identifier());
+    echo_request.identifier(identifier_);
     echo_request.sequence_number(++sequence_number_);
     compute_checksum(echo_request, body.begin(), body.end());
 
@@ -88,10 +91,10 @@ class pinger {
     timer_.async_wait([this](const boost::system::error_code& e) { this->handle_timeout(e); });
   }
 
-  void handle_timeout(const boost::system::error_code ec) {
+  void handle_timeout(const boost::system::error_code& ec) {
     if (ec != boost::asio::error::operation_aborted) {
       result_.num_timeouts_++;
-      socket_.cancel();
+      socket_.close();
     }
   }
 
@@ -113,7 +116,7 @@ class pinger {
     icmp_header icmp_hdr;
     is >> ipv4_hdr >> icmp_hdr;
 
-    if (is && icmp_hdr.type() == icmp_header::echo_reply && icmp_hdr.identifier() == get_identifier() && icmp_hdr.sequence_number() == sequence_number_) {
+    if (is && icmp_hdr.type() == icmp_header::echo_reply && icmp_hdr.identifier() == identifier_ && icmp_hdr.sequence_number() == sequence_number_) {
       timer_.cancel();
       result_.num_replies_++;
 
@@ -121,17 +124,8 @@ class pinger {
       result_.length_ = length - ipv4_hdr.header_length();
       result_.ttl_ = ipv4_hdr.time_to_live();
       result_.time_ = (now - time_sent_).total_milliseconds();
-      return;
     }
     // start_receive();
-  }
-
-  static unsigned short get_identifier() {
-#if defined(BOOST_WINDOWS)
-    return static_cast<unsigned short>(::GetCurrentProcessId());
-#else
-    return static_cast<unsigned short>(::getpid());
-#endif
   }
 
   icmp::resolver resolver_;
@@ -143,4 +137,6 @@ class pinger {
   boost::asio::streambuf reply_buffer_;
   int timeout_;
   result_container& result_;
+  unsigned short identifier_;
+  std::string payload_;
 };

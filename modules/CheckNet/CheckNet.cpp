@@ -22,24 +22,25 @@
 #include <parsers/expression/expression.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/filter/cli_helper.hpp>
-#include <parsers/helpers.hpp>
 
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
 
+#include <boost/atomic/atomic.hpp>
 #include <net/pinger.hpp>
 
 #include "filter.hpp"
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
+boost::atomic<unsigned short> identifier(0);
 
 void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   modern_filter::data_container data;
   modern_filter::cli_helper<ping_filter::filter> filter_helper(request, response, data);
   std::vector<std::string> hosts;
+  std::string payload;
   std::string hosts_string;
   bool total = false;
   int count = 0;
@@ -50,17 +51,14 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
   filter_helper.add_syntax("${status}: ${ok_count}/${count} (${problem_list})", "${ip} Packet loss = ${loss}%, RTA = ${time}ms", "${host}", "No hosts found",
                            "%(status): All %(count) hosts are ok");
   // clang-format off
-	filter_helper.get_desc().add_options()
-		("host", po::value<std::vector<std::string> >(&hosts),
-			"The host to check (or multiple hosts).")
-		("total", po::bool_switch(&total), "Include the total of all matching hosts")
-		("hosts", po::value<std::string>(&hosts_string),
-			"The host to check (or multiple hosts).")
-		("count", po::value<int>(&count)->default_value(1),
-			"Number of packets to send.")
-		("timeout", po::value<int>(&timeout)->default_value(500),
-			"Timeout in milliseconds.")
-		;
+  filter_helper.get_desc().add_options()
+    ("host", po::value<std::vector<std::string> >(&hosts), "The host to check (or multiple hosts).")
+    ("total", po::bool_switch(&total), "Include the total of all matching hosts")
+    ("hosts", po::value<std::string>(&hosts_string), "The host to check (or multiple hosts).")
+    ("count", po::value<int>(&count)->default_value(1), "Number of packets to send.")
+    ("timeout", po::value<int>(&timeout)->default_value(500), "Timeout in milliseconds.")
+    ("payload", po::value<std::string>(&payload)->default_value("Hello from NSClient++."), "The payload to send in the ping request (default: 'Hello from NSClient++')")
+    ;
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
@@ -79,7 +77,8 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
     result_container result;
     for (int i = 0; i < count; i++) {
       boost::asio::io_service io_service;
-      pinger ping(io_service, result, host.c_str(), timeout);
+      auto id = identifier.fetch_add(1, boost::memory_order_relaxed);
+      pinger ping(io_service, result, host.c_str(), timeout, id, payload);
       ping.ping();
       io_service.run();
     }

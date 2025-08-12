@@ -84,6 +84,7 @@ Ping another host and check the result.
 | hosts                                      |                                                   | The host to check (or multiple hosts).                                                                           |
 | [count](#check_ping_count)                 | 1                                                 | Number of packets to send.                                                                                       |
 | [timeout](#check_ping_timeout)             | 500                                               | Timeout in milliseconds.                                                                                         |
+| [payload](#check_ping_payload)             | Hello from NSClient++.                            | The payload to send in the ping request (default: 'Hello from NSClient++')                                       |
 
 
 
@@ -180,6 +181,12 @@ Number of packets to send.
 Timeout in milliseconds.
 
 *Default Value:* `500`
+
+<h5 id="check_ping_payload">payload:</h5>
+
+The payload to send in the ping request (default: 'Hello from NSClient++')
+
+*Default Value:* `Hello from NSClient++.`
 
 
 <a name="check_ping_filter_keys"/>
