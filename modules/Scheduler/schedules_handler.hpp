@@ -127,7 +127,7 @@ struct schedule_object : public nscapi::settings_objects::object_instance_interf
       root_path
           .add_key()
 
-          .add_string("channel", sh::string_key(&channel, "NSCA"), "SCHEDULE CHANNEL", "Channel to send results on")
+          .add_string("channel", sh::string_key(&channel, "NSCA"), "SCHEDULE CHANNEL", "Channel to send results on, set to drop to ignore results")
 
           .add_string("interval", sh::string_fun_key(boost::bind(&schedule_object::set_duration, this, ph::_1)), "SCHEDULE INTERVAL",
                       "Time in seconds between each check")
