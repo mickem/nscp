@@ -378,7 +378,7 @@ void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int 
     add_ext(x, NID_netscape_comment, "example comment extension");
   }
 
-  if (!X509_sign(x, pk, EVP_sha1())) throw socket_helpers::socket_exception("Failed to sign certificate");
+  if (!X509_sign(x, pk, EVP_sha256())) throw socket_helpers::socket_exception("Failed to sign certificate");
 
   *x509p = x;
   *pkeyp = pk;
