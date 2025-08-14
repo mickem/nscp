@@ -32,11 +32,6 @@ struct cli_exception : public std::exception {
 
  public:
   explicit cli_exception(std::string error) : error_(std::move(error)) {}
-  cli_exception(const cli_exception& other) noexcept = default;
-  cli_exception& operator=(const cli_exception& other) noexcept {
-    error_ = other.error_;
-    return *this;
-  }
   ~cli_exception() noexcept override = default;
   const char *what() const noexcept override { return error_.c_str(); }
 };
