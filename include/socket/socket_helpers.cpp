@@ -35,7 +35,7 @@ const int socket_helpers::connection_info::backlog_default = 0;
 
 namespace ip = boost::asio::ip;
 
-std::list<std::string> socket_helpers::connection_info::validate() { return validate_ssl(); }
+std::list<std::string> socket_helpers::connection_info::validate() const { return validate_ssl(); }
 void socket_helpers::validate_certificate(const std::string &certificate, std::list<std::string> &list) {
 #ifdef USE_SSL
   if (!certificate.empty() && !boost::filesystem::is_regular_file(certificate)) {
@@ -53,7 +53,7 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
 #endif
 }
 
-std::list<std::string> socket_helpers::connection_info::validate_ssl() {
+std::list<std::string> socket_helpers::connection_info::validate_ssl() const {
   std::list<std::string> list;
   if (!ssl.enabled) return list;
 #ifndef USE_SSL
@@ -70,7 +70,7 @@ std::list<std::string> socket_helpers::connection_info::validate_ssl() {
   return list;
 }
 
-long socket_helpers::connection_info::get_ctx_opts() {
+long socket_helpers::connection_info::get_ctx_opts() const {
   long opts = 0;
 #ifdef USE_SSL
   opts |= ssl.get_ctx_opts();
@@ -78,7 +78,7 @@ long socket_helpers::connection_info::get_ctx_opts() {
   return opts;
 }
 
-std::string socket_helpers::allowed_hosts_manager::to_string() {
+std::string socket_helpers::allowed_hosts_manager::to_string() const {
   std::string ret;
   for (const host_record_v4 &r : entries_v4) {
     ip::address_v4 a(r.addr);
@@ -111,14 +111,14 @@ std::size_t extract_mask(std::string &mask, std::size_t masklen) {
 
 template <class addr>
 addr calculate_mask(std::string mask_s) {
-  addr ret;
-  const std::size_t byte_size = 8;
-  const std::size_t largest_byte = 0xff;
+  addr ret{};
+  constexpr std::size_t byte_size = 8;
+  constexpr std::size_t largest_byte = 0xff;
   const std::size_t mask = extract_mask(mask_s, byte_size * ret.size());
-  std::size_t index = mask / byte_size;
-  std::size_t reminder = mask % byte_size;
+  const std::size_t index = mask / byte_size;
+  const std::size_t reminder = mask % byte_size;
 
-  std::size_t value = largest_byte - (largest_byte >> reminder);
+  const std::size_t value = largest_byte - (largest_byte >> reminder);
 
   for (std::size_t i = 0; i < ret.size(); i++) {
     if (i < index)
@@ -131,7 +131,7 @@ addr calculate_mask(std::string mask_s) {
   return ret;
 }
 
-void socket_helpers::allowed_hosts_manager::set_source(std::string source) {
+void socket_helpers::allowed_hosts_manager::set_source(const std::string& source) {
   sources.clear();
   for (std::string s : str::utils::split_lst(source, std::string(","))) {
     boost::trim(s);
@@ -159,9 +159,9 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
     if (std::isdigit(addr[0])) {
       ip::address a = ip::address::from_string(addr);
       if (a.is_v4()) {
-        entries_v4.push_back(host_record_v4(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(mask)));
+        entries_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(mask));
       } else if (a.is_v6()) {
-        entries_v6.push_back(host_record_v6(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(mask)));
+        entries_v6.emplace_back(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(mask));
       } else {
         errors.push_back("Invalid address: " + record);
       }
@@ -169,25 +169,24 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
       try {
         ip::tcp::resolver::query query(addr, "");
         ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
-        ip::tcp::resolver::iterator end;
-        for (; endpoint_iterator != end; ++endpoint_iterator) {
+        for (ip::tcp::resolver::iterator end; endpoint_iterator != end; ++endpoint_iterator) {
           ip::address a = endpoint_iterator->endpoint().address();
           if (a.is_v4()) {
-            entries_v4.push_back(host_record_v4(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(mask)));
+            entries_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(mask));
           } else if (a.is_v6()) {
-            entries_v6.push_back(host_record_v6(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(mask)));
+            entries_v6.emplace_back(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(mask));
           } else {
-            errors.push_back("Invalid address: " + record);
+            errors.emplace_back("Invalid address: " + record);
           }
         }
       } catch (const std::exception &e) {
-        errors.push_back("Failed to parse host " + record + ": " + utf8::utf8_from_native(e.what()));
+        errors.emplace_back("Failed to parse host " + record + ": " + utf8::utf8_from_native(e.what()));
       }
     }
   }
 }
 
-void socket_helpers::io::set_result(boost::optional<boost::system::error_code> *a, boost::system::error_code b) {
+void socket_helpers::io::set_result(boost::optional<boost::system::error_code> *a, const boost::system::error_code &b) {
   if (!b) {
     a->reset(b);
   }
@@ -208,10 +207,10 @@ void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asi
   }
   context.set_verify_mode(get_verify_mode(), er);
   if (SSL_CTX_set_min_proto_version(context.native_handle(), get_tls_min_version()) == 0) {
-    errors.push_back("Failed to set min tls version");
+    errors.emplace_back("Failed to set min tls version");
   }
   if (SSL_CTX_set_max_proto_version(context.native_handle(), get_tls_max_version()) == 0) {
-    errors.push_back("Failed to set max tls version");
+    errors.emplace_back("Failed to set max tls version");
   }
   if (er) errors.push_back("Failed to set verify mode: " + utf8::utf8_from_native(er.message()));
   if (!allowed_ciphers.empty()) {
@@ -271,7 +270,7 @@ long socket_helpers::connection_info::ssl_opts::get_tls_min_version() const {
   if (tmp == "sslv3" || tmp == "ssl3") {
     return SSL3_VERSION;
   }
-  throw socket_helpers::socket_exception("Invalid tls version: " + tmp);
+  throw socket_exception("Invalid tls version: " + tmp);
 }
 
 long socket_helpers::connection_info::ssl_opts::get_tls_max_version() const {
@@ -292,7 +291,7 @@ long socket_helpers::connection_info::ssl_opts::get_tls_max_version() const {
   if (tmp == "sslv3" || tmp == "ssl3") {
     return SSL3_VERSION;
   }
-  throw socket_helpers::socket_exception("Invalid tls version: " + tmp);
+  throw socket_exception("Invalid tls version: " + tmp);
 }
 
 boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_format() const {
@@ -323,44 +322,42 @@ void genkey_callback(int, int, void *) {
   // Ignored as we dont want to show progress...
 }
 
-int add_ext(X509 *cert, int nid, const char *value) {
-  std::size_t len = strlen(value);
-  char *tmp = new char[len + 10];
+int add_ext(X509 *cert, const int nid, const char *value) {
+  const std::size_t len = strlen(value);
+  const auto tmp = new char[len + 10];
   strncpy(tmp, value, len);
-  X509_EXTENSION *ex;
   X509V3_CTX ctx;
   X509V3_set_ctx_nodb(&ctx);
-  X509V3_set_ctx(&ctx, cert, cert, NULL, NULL, 0);
-  ex = X509V3_EXT_conf_nid(NULL, &ctx, nid, tmp);
+  X509V3_set_ctx(&ctx, cert, cert, nullptr, nullptr, 0);
+  X509_EXTENSION *ex = X509V3_EXT_conf_nid(nullptr, &ctx, nid, tmp);
   delete[] tmp;
   if (!ex) return 0;
   X509_add_ext(cert, ex, -1);
   X509_EXTENSION_free(ex);
   return 1;
 }
-void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int days, bool ca) {
+void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, const int bits, const int serial, const int days, bool ca) {
   X509 *x;
   EVP_PKEY *pk;
-  RSA *rsa;
-  X509_NAME *name = NULL;
-  if ((pkeyp == NULL) || (*pkeyp == NULL)) {
-    if ((pk = EVP_PKEY_new()) == NULL) throw socket_helpers::socket_exception("Failed to create private key");
+  X509_NAME *name = nullptr;
+  if ((pkeyp == nullptr) || (*pkeyp == nullptr)) {
+    if ((pk = EVP_PKEY_new()) == nullptr) throw socket_helpers::socket_exception("Failed to create private key");
   } else
     pk = *pkeyp;
 
-  if ((x509p == NULL) || (*x509p == NULL)) {
-    if ((x = X509_new()) == NULL) throw socket_helpers::socket_exception("Failed to create certificate");
+  if ((x509p == nullptr) || (*x509p == nullptr)) {
+    if ((x = X509_new()) == nullptr) throw socket_helpers::socket_exception("Failed to create certificate");
   } else
     x = *x509p;
 
-  rsa = RSA_generate_key(bits, RSA_F4, genkey_callback, NULL);
+  RSA *rsa = RSA_generate_key(bits, RSA_F4, genkey_callback, nullptr);
   if (!EVP_PKEY_assign_RSA(pk, rsa)) throw socket_helpers::socket_exception("Failed to assign RSA data");
-  rsa = NULL;
+  rsa = nullptr;
 
   X509_set_version(x, 2);
   ASN1_INTEGER_set(X509_get_serialNumber(x), serial);
   X509_gmtime_adj(X509_get_notBefore(x), 0);
-  X509_gmtime_adj(X509_get_notAfter(x), (long)60 * 60 * 24 * days);
+  X509_gmtime_adj(X509_get_notAfter(x), static_cast<long>(60) * 60 * 24 * days);
   X509_set_pubkey(x, pk);
 
   name = X509_get_subject_name(x);
@@ -384,7 +381,7 @@ void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int 
   *pkeyp = pk;
 }
 
-void socket_helpers::write_certs(std::string cert, bool ca) {
+void socket_helpers::write_certs(const std::string& cert, const bool ca) {
   X509 *x509 = nullptr;
   EVP_PKEY *pkey = nullptr;
 
@@ -394,18 +391,18 @@ void socket_helpers::write_certs(std::string cert, bool ca) {
   PEM_write_bio_PKCS8PrivateKey(bio, pkey, nullptr, nullptr, 0, nullptr, nullptr);
   PEM_write_bio_X509(bio, x509);
 
-  std::size_t size = BIO_ctrl_pending(bio);
+  const std::size_t size = BIO_ctrl_pending(bio);
   char *buf = new char[size];
   if (BIO_read(bio, buf, static_cast<int>(size)) < 0) {
-    throw socket_helpers::socket_exception("Failed to write key");
+    throw socket_exception("Failed to write key");
   }
 
   BIO_free(bio);
 
-  FILE *fout = fopen(cert.c_str(), "wb");
-  if (fout == nullptr) throw socket_helpers::socket_exception("Failed to open file: " + cert);
-  fwrite(buf, sizeof(char), size, fout);
-  fclose(fout);
+  FILE *file = fopen(cert.c_str(), "wb");
+  if (file == nullptr) throw socket_exception("Failed to open file: " + cert);
+  fwrite(buf, sizeof(char), size, file);
+  fclose(file);
 
   X509_free(x509);
   EVP_PKEY_free(pkey);
@@ -434,7 +431,7 @@ boost::asio::ssl::context_base::method socket_helpers::tls_method_parser(const s
   if (tmp == "sslv3" || tmp == "ssl3") {
     return boost::asio::ssl::context::sslv23;
   }
-  throw socket_helpers::socket_exception("Invalid tls version: " + tmp);
+  throw socket_exception("Invalid tls version: " + tmp);
 }
 
 boost::asio::ssl::verify_mode socket_helpers::verify_mode_parser(const std::string &verify_mode) {
@@ -450,7 +447,7 @@ boost::asio::ssl::verify_mode socket_helpers::verify_mode_parser(const std::stri
       mode |= boost::asio::ssl::verify_peer;
       mode |= boost::asio::ssl::verify_fail_if_no_peer_cert;
     } else
-      throw socket_helpers::socket_exception("Invalid tls verify mode: " + key);
+      throw socket_exception("Invalid tls verify mode: " + key);
   }
   return mode;
 }

@@ -51,7 +51,7 @@ struct payload_builder {
 
   types type;
   std::string separator;
-  payload_builder() : submit_payload(NULL), exec_payload(NULL), query_payload(NULL), type(type_none), separator("|") {}
+  payload_builder() : submit_payload(nullptr), exec_payload(nullptr), query_payload(nullptr), type(type_none), separator("|") {}
 
   void set_type(types type_) { type = type_; }
 
@@ -71,7 +71,7 @@ struct payload_builder {
       throw client::cli_exception("message not supported for query");
     }
   }
-  void set_command(const std::string value) {
+  void set_command(const std::string& value) {
     if (is_submit()) {
       get_submit_payload()->set_command(value);
     } else if (is_exec()) {
@@ -93,15 +93,15 @@ struct payload_builder {
 
  private:
   ::PB::Commands::QueryResponseMessage::Response *get_submit_payload() {
-    if (submit_payload == NULL) submit_payload = submit_message.add_payload();
+    if (submit_payload == nullptr) submit_payload = submit_message.add_payload();
     return submit_payload;
   }
   ::PB::Commands::QueryRequestMessage::Request *get_query_payload() {
-    if (query_payload == NULL) query_payload = query_message.add_payload();
+    if (query_payload == nullptr) query_payload = query_message.add_payload();
     return query_payload;
   }
   ::PB::Commands::ExecuteRequestMessage::Request *get_exec_payload() {
-    if (exec_payload == NULL) exec_payload = exec_message.add_payload();
+    if (exec_payload == nullptr) exec_payload = exec_message.add_payload();
     return exec_payload;
   }
 };
@@ -118,118 +118,107 @@ std::string client::destination_container::to_string() const {
 
 void client::options_reader_interface::add_ssl_options(boost::program_options::options_description &desc, client::destination_container &data) {
   // clang-format off
-	desc.add_options()
-
-		("certificate", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "certificate", ph::_1)),
-			"The client certificate to use")
-
-		("dh", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "dh", ph::_1)),
-			"The DH key to use")
-
-		("certificate-key", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "certificate key", ph::_1)),
-			"Client certificate to use")
-
-		("certificate-format", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "certificate format", ph::_1)),
-			"Client certificate format")
-
-		("ca", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "ca", ph::_1)),
-			"Certificate authority")
-
-		("verify", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "verify mode", ph::_1)),
-			"Client certificate format")
-
-		("allowed-ciphers", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "allowed ciphers", ph::_1)),
-			"Client certificate format")
-
-		("ssl,n", po::value<bool>()->implicit_value(true)->notifier(boost::bind(&client::destination_container::set_bool_data, &data, "ssl", ph::_1)),
-			"Initial an ssl handshake with the server.")
-		;
+  desc.add_options()
+  ("certificate", po::value<std::string>()->notifier([&data](const auto& v) { data.set_string_data("certificate", v); }),
+	"The client certificate to use")
+    ("dh", po::value<std::string>()->notifier([&data](const auto& v) { data.set_string_data("dh", v); }),
+	"The DH key to use")
+    ("certificate-key", po::value<std::string>()->notifier([&data](const auto& v) { data.set_string_data("certificate key", v); }),
+	"Client certificate to use")
+    ("certificate-format", po::value<std::string>()->notifier([&data](const auto& v) { data.set_string_data("certificate format", v); }),
+	"Client certificate format")
+    ("ca", po::value<std::string>()->notifier([&data](const auto& v) { data.set_string_data("ca", v); }),
+	"Certificate authority")
+    ("verify", po::value<std::string>()->notifier([&data](const auto& v) { data.set_string_data("verify mode", v); }),
+	"Client certificate format")
+    ("allowed-ciphers", po::value<std::string>()->notifier([&data](const auto& v) { data.set_string_data("allowed ciphers", v); }),
+	"Client certificate format")
+    ("ssl,n", po::value<bool>()->implicit_value(true)->notifier([&data](const bool& v) { data.set_bool_data("ssl", v); }),
+	"Initial an ssl handshake with the server.")
+    ;
   // clang-format on
 }
 
 po::options_description add_common_options(client::destination_container &source, client::destination_container &destination) {
   // clang-format off
-	po::options_description desc("Common options");
-	desc.add_options()
-		("host,H", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_host, &destination, ph::_1)),
-			"The host of the host running the server")
-		("port,P", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_port, &destination, ph::_1)),
-			"The port of the host running the server")
-		("address", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_address, &destination, ph::_1)),
-			"The address (host:port) of the host running the server")
-		("timeout,T", po::value<int>()->notifier(boost::bind(&client::destination_container::set_int_data, &destination, "timeout", ph::_1)),
-			"Number of seconds before connection times out (default=10)")
-		("target,t", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &destination, "$target.id$", ph::_1)),
-			"Target to use (lookup connection info from config)")
-		("retry", po::value<int>()->notifier(boost::bind(&client::destination_container::set_int_data, &destination, "retry", ph::_1)),
-			"Number of times ti retry a failed connection attempt (default=2)")
-		("retries", po::value<int>()->notifier(boost::bind(&client::destination_container::set_int_data, &destination, "retry", ph::_1)),
-			"legacy version of retry")
-
-		("source-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", ph::_1)),
-			"Source/sender host name (default is auto which means use the name of the actual host)")
-
-		("sender-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", ph::_1)),
-			"Source/sender host name (default is auto which means use the name of the actual host)")
-
-		;
+  po::options_description desc("Common options");
+  desc.add_options()
+    ("host,H", po::value<std::string>()->notifier([&destination](const auto& v) { destination.set_host(v); }),
+	"The host of the host running the server")
+    ("port,P", po::value<std::string>()->notifier([&destination](const auto& v) { destination.set_port(v); }),
+	"The port of the host running the server")
+    ("address", po::value<std::string>()->notifier([&destination](const auto& v) { destination.set_address(v); }),
+	"The address (host:port) of the host running the server")
+    ("timeout,T", po::value<int>()->notifier([&destination](const int& v) { destination.set_int_data("timeout", v); }),
+	"Number of seconds before connection times out (default=10)")
+    ("target,t", po::value<std::string>()->notifier([&destination](const auto& v) { destination.set_string_data("$target.id$", v); }),
+	"Target to use (lookup connection info from config)")
+    ("retry", po::value<int>()->notifier([&destination](const int& v) { destination.set_int_data("retry", v); }),
+	"Number of times ti retry a failed connection attempt (default=2)")
+    ("retries", po::value<int>()->notifier([&destination](const int& v) { destination.set_int_data("retry", v); }),
+	"legacy version of retry")
+    ("source-host", po::value<std::string>()->notifier([&destination](const auto& v) { destination.set_string_data("host", v); }),
+	"Source/sender host name (default is auto which means use the name of the actual host)")
+    ("sender-host", po::value<std::string>()->notifier([&destination](const auto& v) { destination.set_string_data("host", v); }),
+	"Source/sender host name (default is auto which means use the name of the actual host)")
+    ;
   // clang-format on
   return desc;
 }
 po::options_description add_query_options(client::destination_container &source, client::destination_container &destination, payload_builder &builder) {
   // clang-format off
-	po::options_description desc("Query options");
-	desc.add_options()
-		("command,c", po::value<std::string >()->notifier(boost::bind(&payload_builder::set_command, &builder, ph::_1)),
-			"The name of the command that the remote daemon should run")
-		("argument,a", po::value<std::vector<std::string> >()->notifier(boost::bind(&payload_builder::set_arguments, &builder, ph::_1)),
-			"Set command line arguments")
-		("separator", po::value<std::string>()->notifier(boost::bind(&payload_builder::set_separator, &builder, ph::_1)),
-			"Separator to use for the batch command (default is |)")
-		("batch", po::value<std::vector<std::string> >()->notifier(boost::bind(&payload_builder::set_batch, &builder, ph::_1)),
-			"Add multiple records using the separator format is: command|argument|argument")
-		;
+  po::options_description desc("Query options");
+  desc.add_options()
+    ("command,c", po::value<std::string >()->notifier([&builder](const auto& v) { builder.set_command(v); }),
+	"The name of the command that the remote daemon should run")
+    ("argument,a", po::value<std::vector<std::string> >()->notifier([&builder](const auto& v) { builder.set_arguments(v); }),
+	"Set command line arguments")
+    ("separator", po::value<std::string>()->notifier([&builder](const auto& v) { builder.set_separator(v); }),
+	"Separator to use for the batch command (default is |)")
+    ("batch", po::value<std::vector<std::string> >()->notifier([&builder](const auto& v) { builder.set_batch(v); }),
+	"Add multiple records using the separator format is: command|argument|argument")
+    ;
   // clang-format on
   return desc;
 }
 po::options_description add_submit_options(client::destination_container &source, client::destination_container &destination, payload_builder &builder) {
   po::options_description desc("Submit options");
   // clang-format off
-	desc.add_options()
-		("command,c", po::value<std::string >()->notifier(boost::bind(&payload_builder::set_command, &builder, ph::_1)),
-			"The name of the command that the remote daemon should run")
-		("alias,a", po::value<std::string>()->notifier(boost::bind(&payload_builder::set_command, &builder, ph::_1)),
-			"Same as command")
-		("message,m", po::value<std::string>()->notifier(boost::bind(&payload_builder::set_message, &builder, ph::_1)),
-			"Message")
-		("result,r", po::value<std::string>()->notifier(boost::bind(&payload_builder::set_result, &builder, ph::_1)),
-			"Result code either a number or OK, WARN, CRIT, UNKNOWN")
-		("separator", po::value<std::string>()->notifier(boost::bind(&payload_builder::set_separator, &builder, ph::_1)),
-			"Separator to use for the batch command (default is |)")
-		("batch", po::value<std::vector<std::string> >()->notifier(boost::bind(&payload_builder::set_batch, &builder, ph::_1)),
-			"Add multiple records using the separator format is: command|result|message")
-		;
+  desc.add_options()
+    ("command,c", po::value<std::string >()->notifier([&builder](const auto& v) { builder.set_command(v); }),
+	"The name of the command that the remote daemon should run")
+    ("alias,a", po::value<std::string>()->notifier([&builder](const auto& v) { builder.set_command(v); }),
+	"Same as command")
+    ("message,m", po::value<std::string>()->notifier([&builder](const auto& v) { builder.set_message(v); }),
+	"Message")
+    ("result,r", po::value<std::string>()->notifier([&builder](const auto& v) { builder.set_result(v); }),
+	"Result code either a number or OK, WARN, CRIT, UNKNOWN")
+    ("separator", po::value<std::string>()->notifier([&builder](const auto& v) { builder.set_separator(v); }),
+	"Separator to use for the batch command (default is |)")
+    ("batch", po::value<std::vector<std::string> >()->notifier([&builder](const auto& v) { builder.set_batch(v); }),
+	"Add multiple records using the separator format is: command|result|message")
+    ;
   // clang-format on
   return desc;
 }
 po::options_description add_exec_options(client::destination_container &source, client::destination_container &destination, payload_builder &builder) {
   po::options_description desc("Execute options");
   // clang-format off
-	desc.add_options()
-		("command,c", po::value<std::string >()->notifier(boost::bind(&payload_builder::set_command, &builder, ph::_1)),
-			"The name of the command that the remote daemon should run")
-		("argument", po::value<std::vector<std::string> >()->notifier(boost::bind(&payload_builder::set_arguments, &builder, ph::_1)),
-			"Set command line arguments")
-		("separator", po::value<std::string>()->notifier(boost::bind(&payload_builder::set_separator, &builder, ph::_1)),
-			"Separator to use for the batch command (default is |)")
-		("batch", po::value<std::vector<std::string> >()->notifier(boost::bind(&payload_builder::set_batch, &builder, ph::_1)),
-			"Add multiple records using the separator format is: command|argument|argument")
-		;
+  desc.add_options()
+    ("command,c", po::value<std::string >()->notifier([&builder](const auto& v) { builder.set_command(v); }),
+	"The name of the command that the remote daemon should run")
+    ("argument", po::value<std::vector<std::string> >()->notifier([&builder](const auto& v) { builder.set_arguments(v); }),
+	"Set command line arguments")
+    ("separator", po::value<std::string>()->notifier([&builder](const auto& v) { builder.set_separator(v); }),
+	"Separator to use for the batch command (default is |)")
+    ("batch", po::value<std::vector<std::string> >()->notifier([&builder](const auto& v) { builder.set_batch(v); }),
+	"Add multiple records using the separator format is: command|argument|argument")
+    ;
   // clang-format on
   return desc;
 }
 
-std::string client::configuration::add_command(std::string name, std::string args) {
+std::string client::configuration::add_command(const std::string& name, const std::string &args) {
   command_container data;
   bool first = true;
   for (const std::string &s : str::utils::parse_command(args)) {
@@ -247,7 +236,7 @@ std::string client::configuration::add_command(std::string name, std::string arg
   return key;
 }
 
-client::destination_container client::configuration::get_target(const std::string name) const {
+client::destination_container client::configuration::get_target(const std::string& name) const {
   destination_container d;
   object_handler_type::object_instance op = targets.find_object(name);
   if (op) {
@@ -274,7 +263,7 @@ void client::configuration::do_query(const PB::Commands::QueryRequestMessage &re
   else if (!request.header().destination_id().empty())
     target = request.header().destination_id();
 
-  for (const std::string t : str::utils::split_lst(target, std::string(","))) {
+  for (const std::string& t : str::utils::split_lst(target, std::string(","))) {
     destination_container d = get_target(t);
     destination_container s = get_sender();
 
@@ -293,9 +282,9 @@ void client::configuration::do_query(const PB::Commands::QueryRequestMessage &re
         const ::PB::Commands::QueryRequestMessage::Request &local_request = request.payload(i);
         local_request_message.mutable_header()->CopyFrom(request.header());
         local_request_message.add_payload()->CopyFrom(local_request);
-        std::string command = local_request.command();
+        const std::string& command_name = local_request.command();
         ::PB::Commands::QueryResponseMessage local_response_message;
-        i_do_query(s, d, command, local_request_message, local_response_message, false);
+        i_do_query(s, d, command_name, local_request_message, local_response_message, false);
         for (int j = 0; j < local_response_message.payload_size(); j++) {
           response.add_payload()->CopyFrom(local_response_message.payload(j));
         }
@@ -304,8 +293,8 @@ void client::configuration::do_query(const PB::Commands::QueryRequestMessage &re
   }
 }
 
-po::options_description client::configuration::create_descriptor(const std::string command, client::destination_container &source,
-                                                                 client::destination_container &destination) {
+po::options_description client::configuration::create_descriptor(const std::string& command, client::destination_container &source,
+                                                                 client::destination_container &destination) const {
   po::options_description desc = nscapi::program_options::create_desc(command);
   desc.add(add_common_options(source, destination));
   if (client_desc) desc.add(client_desc(source, destination));
@@ -315,7 +304,6 @@ po::options_description client::configuration::create_descriptor(const std::stri
 void client::configuration::i_do_query(destination_container &s, destination_container &d, std::string command,
                                        const PB::Commands::QueryRequestMessage &request, PB::Commands::QueryResponseMessage &response, bool use_header) {
   try {
-    boost::program_options::variables_map vm;
     bool custom_command = false;
 
     command_type::const_iterator cit = commands.find(command);
@@ -344,10 +332,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
       po::options_description desc = create_descriptor(command, s, d);
       payload_builder builder;
       std::string x = command.substr(command.size() - 6, 6);
-      if (command.substr(0, 6) == "check_") {
-        builder.set_type(payload_builder::type_query);
-        desc.add(add_query_options(s, d, builder));
-      } else if (command.substr(command.size() - 6, 6) == "_query") {
+      if (command.substr(0, 6) == "check_" || command.substr(command.size() - 6, 6) == "_query") {
         builder.set_type(payload_builder::type_query);
         desc.add(add_query_options(s, d, builder));
       } else if (command.substr(0, 5) == "exec_") {
@@ -365,6 +350,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
       } else if (use_header) {
         // TODO: Parse header here
       } else {
+        boost::program_options::variables_map vm;
         for (int i = 0; i < request.payload_size(); i++) {
           ::PB::Commands::QueryResponseMessage::Response resp;
           // Apply any arguments from command line
@@ -386,7 +372,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
         if (!handler->query(s, d, builder.query_message, local_response)) {
           return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
         }
-        for (const ::PB::Commands::QueryResponseMessage::Response td : local_response.payload()) {
+        for (const ::PB::Commands::QueryResponseMessage::Response &td : local_response.payload()) {
           response.add_payload()->CopyFrom(td);
         }
       } else if (builder.is_exec()) {
@@ -394,7 +380,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
         if (!handler->exec(s, d, builder.exec_message, local_response)) {
           return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
         }
-        for (const ::PB::Commands::ExecuteResponseMessage::Response td : local_response.payload()) {
+        for (const ::PB::Commands::ExecuteResponseMessage::Response &td : local_response.payload()) {
           nscapi::protobuf::functions::copy_response(command, response.add_payload(), td);
         }
         // TODO: Convert reply to native reply
@@ -403,7 +389,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
         if (!handler->submit(s, d, builder.submit_message, local_response)) {
           return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
         }
-        for (const ::PB::Commands::SubmitResponseMessage::Response td : local_response.payload()) {
+        for (const ::PB::Commands::SubmitResponseMessage::Response& td : local_response.payload()) {
           nscapi::protobuf::functions::copy_response(command, response.add_payload(), td);
         }
       } else {
@@ -416,7 +402,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 }
 
 bool client::configuration::do_exec(const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response,
-                                    const std::string &t_default_command) {
+                                    const std::string &default_command_arg) {
   PB::Commands::ExecuteResponseMessage local_response;
 
   std::string target = "default";
@@ -446,7 +432,7 @@ bool client::configuration::do_exec(const PB::Commands::ExecuteRequestMessage &r
         local_request_message.mutable_header()->CopyFrom(request.header());
         local_request_message.add_payload()->CopyFrom(local_request);
         std::string command = local_request.command();
-        if (command.empty()) command = t_default_command;
+        if (command.empty()) command = default_command_arg;
         ::PB::Commands::ExecuteResponseMessage local_response_message;
         if (i_do_exec(s, d, command, local_request_message, local_response_message, false)) {
           found = true;
@@ -467,7 +453,6 @@ bool client::configuration::do_exec(const PB::Commands::ExecuteRequestMessage &r
 bool client::configuration::i_do_exec(destination_container &s, destination_container &d, std::string command,
                                       const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response, bool use_header) {
   try {
-    boost::program_options::variables_map vm;
     bool custom_command = false;
 
     command_type::const_iterator cit = commands.find(command);
@@ -482,6 +467,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
         return true;
       }
     } else {
+      boost::program_options::variables_map vm;
       po::options_description desc = create_descriptor(command, s, d);
       payload_builder builder;
       if (command.substr(0, 6) == "check_" || command.empty()) {
@@ -549,7 +535,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
           nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
           return true;
         }
-        for (const ::PB::Commands::QueryResponseMessage::Response td : local_response.payload()) {
+        for (const ::PB::Commands::QueryResponseMessage::Response& td : local_response.payload()) {
           nscapi::protobuf::functions::copy_response(command, response.add_payload(), td);
         }
       } else if (builder.type == payload_builder::type_exec) {
@@ -558,7 +544,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
           nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
           return true;
         }
-        for (const ::PB::Commands::ExecuteResponseMessage::Response td : local_response.payload()) {
+        for (const ::PB::Commands::ExecuteResponseMessage::Response &td : local_response.payload()) {
           response.add_payload()->CopyFrom(td);
         }
       } else if (builder.type == payload_builder::type_submit) {
@@ -567,7 +553,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
           nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
           return true;
         }
-        for (const ::PB::Commands::SubmitResponseMessage::Response td : local_response.payload()) {
+        for (const ::PB::Commands::SubmitResponseMessage::Response &td : local_response.payload()) {
           nscapi::protobuf::functions::copy_response(command, response.add_payload(), td);
         }
       }
@@ -579,7 +565,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
   }
 }
 
-void client::configuration::do_submit_item(const PB::Commands::SubmitRequestMessage &request, destination_container s, destination_container d,
+void client::configuration::do_submit_item(const PB::Commands::SubmitRequestMessage &request, const destination_container& s, destination_container d,
                                            PB::Commands::SubmitResponseMessage &response) {
   // Parse each objects command and execute them
   for (const ::PB::Commands::QueryResponseMessage::Response &local_request : request.payload()) {
@@ -598,14 +584,13 @@ void client::configuration::do_submit(const PB::Commands::SubmitRequestMessage &
   PB::Commands::ExecuteResponseMessage local_response;
 
   std::string target = "default";
-  if (!request.header().recipient_id().empty() && !request.header().recipient_id().empty()) {
+  if (!request.header().recipient_id().empty()) {
     std::string r = request.header().recipient_id();
-    std::string chan = request.channel();
     target = request.header().recipient_id();
-  } else if (!request.header().destination_id().empty() && !request.header().destination_id().empty())
+  } else if (!request.header().destination_id().empty())
     target = request.header().destination_id();
 
-  for (const std::string t : str::utils::split_lst(target, std::string(","))) {
+  for (const std::string &t : str::utils::split_lst(target, std::string(","))) {
     destination_container d = get_target(t);
     destination_container s = get_sender();
 
@@ -623,12 +608,12 @@ void client::configuration::do_submit(const PB::Commands::SubmitRequestMessage &
   }
 }
 
-void client::configuration::i_do_submit(destination_container &s, destination_container &d, std::string command,
+void client::configuration::i_do_submit(const destination_container &s, destination_container &d, std::string command,
                                         const PB::Commands::SubmitRequestMessage &request, PB::Commands::SubmitResponseMessage &response, bool use_header) {
   try {
     boost::program_options::variables_map vm;
 
-    command_type::const_iterator cit = commands.find(command);
+    const command_type::const_iterator cit = commands.find(command);
     if (cit != commands.end()) {
       command = cit->second.command;
       // TODO: Build argument vector here!
@@ -643,14 +628,14 @@ void client::configuration::i_do_submit(destination_container &s, destination_co
   }
 }
 
-void client::configuration::do_metrics(const PB::Metrics::MetricsMessage &request) {
+void client::configuration::do_metrics(const PB::Metrics::MetricsMessage &request) const {
   std::string target = "default";
   if (!request.header().recipient_id().empty())
     target = request.header().recipient_id();
   else if (!request.header().destination_id().empty())
     target = request.header().destination_id();
 
-  for (const std::string t : str::utils::split_lst(target, std::string(","))) {
+  for (const std::string& t : str::utils::split_lst(target, std::string(","))) {
     destination_container d = get_target(t);
     destination_container s = get_sender();
 
@@ -662,7 +647,7 @@ void client::configuration::do_metrics(const PB::Metrics::MetricsMessage &reques
   }
 }
 
-void client::configuration::finalize(boost::shared_ptr<nscapi::settings_proxy> settings) {
+void client::configuration::finalize(const boost::shared_ptr<nscapi::settings_proxy>& settings) {
   targets.add_samples(settings);
   targets.add_missing(settings, "default", "");
 }
@@ -684,14 +669,14 @@ void payload_builder::set_batch(const std::vector<std::string> &data) {
       boost::iter_split(line, e, boost::algorithm::first_finder(separator));
       if (line.size() >= 3) set_message(line[2]);
       if (line.size() >= 2) set_result(line[1]);
-      if (line.size() >= 1) set_command(line[0]);
+      if (!line.empty()) set_command(line[0]);
     }
   } else if (type == type_exec) {
     for (const std::string &e : data) {
       exec_payload = exec_message.add_payload();
       std::list<std::string> line;
       boost::iter_split(line, e, boost::algorithm::first_finder(separator));
-      if (line.size() >= 1) {
+      if (!line.empty()) {
         set_command(line.front());
         line.pop_front();
       }
@@ -704,7 +689,7 @@ void payload_builder::set_batch(const std::vector<std::string> &data) {
       query_payload = query_message.add_payload();
       std::list<std::string> line;
       boost::iter_split(line, e, boost::algorithm::first_finder(separator));
-      if (line.size() >= 1) {
+      if (!line.empty()) {
         set_command(line.front());
         line.pop_front();
       }
