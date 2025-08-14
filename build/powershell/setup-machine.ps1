@@ -21,8 +21,8 @@
 param(
     [string]$ResourceGroupName = "NSCP-RG",
     [string]$Location = "WestEurope",
-    [string]$VmName = "NSCP-TestMachine",
-    [string]$MsiUrl = "https://github.com/mickem/nscp/releases/download/0.9.12/NSCP-0.9.12-x64.msi",
+    [string]$VmName = "NSCP-Test",
+    [string]$MsiUrl = "https://github.com/mickem/nscp/releases/download/0.9.14/NSCP-0.9.14-x64.msi",
     [string]$AdminUsername = "azureadmin"
 )
 
