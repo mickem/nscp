@@ -19,16 +19,14 @@
 
 #include "CheckWMI.h"
 
-#include <time.h>
-
 #include <algorithm>
+#include <boost/bind.hpp>
 #include <boost/program_options.hpp>
 #include <map>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
-#include <str/xtos.hpp>
 #include <vector>
 
 namespace sh = nscapi::settings_helper;

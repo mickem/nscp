@@ -20,12 +20,12 @@
 #pragma once
 
 #include <utils.h>
-#include <types.hpp>
 
 #include <boost/asio/buffer.hpp>
 #include <str/xtos.hpp>
 #include <string>
 #include <swap_bytes.hpp>
+#include <types.hpp>
 
 namespace nrpe {
 class data {

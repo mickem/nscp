@@ -19,9 +19,8 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
 #include <boost/filesystem.hpp>
-
+#include <boost/shared_ptr.hpp>
 #include <file_helpers.hpp>
 
 #include "filter.hpp"

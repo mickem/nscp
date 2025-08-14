@@ -24,6 +24,7 @@
 #include <check_mk/parser.hpp>
 #include <iostream>
 #include <socket/socket_helpers.hpp>
+#include <socket/client.hpp>
 
 using boost::asio::ip::tcp;
 

@@ -19,17 +19,9 @@
 
 #pragma once
 
-#include <utils.h>
-
+#include <boost/bind.hpp>
 #include <boost/make_shared.hpp>
-#include <collectd/collectd_packet.hpp>
-#include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <socket/client.hpp>
-#include <str/xtos.hpp>
-
-#include "collectd_client.hpp"
 
 namespace collectd_handler {
 namespace sh = nscapi::settings_helper;

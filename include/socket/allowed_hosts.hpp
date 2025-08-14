@@ -62,7 +62,7 @@ struct allowed_hosts_manager {
     return *this;
   }
 
-  void set_source(const std::string& source);
+  void set_source(const std::string &source);
   addr_v4 lookup_mask_v4(std::string mask);
   addr_v6 lookup_mask_v6(std::string mask);
   void refresh(std::list<std::string> &errors);

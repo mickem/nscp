@@ -21,11 +21,10 @@
 
 #include <config.h>
 
+#include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf_nagios.hpp>
-#include <types.hpp>
 
 #include "../../modules/NRPEClient/nrpe_client.hpp"
 #include "../../modules/NRPEClient/nrpe_handler.hpp"

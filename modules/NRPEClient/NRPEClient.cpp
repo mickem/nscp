@@ -21,6 +21,7 @@
 
 #include <config.h>
 
+#include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/make_shared.hpp>
 #include <nscapi/macros.hpp>

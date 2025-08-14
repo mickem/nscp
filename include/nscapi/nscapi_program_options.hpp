@@ -35,7 +35,6 @@
 #else
 #include <boost/program_options.hpp>
 #endif
-#include <boost/bind/bind.hpp>
 #include <utility>
 #include <vector>
 
@@ -45,7 +44,6 @@ namespace program_options {
 typedef std::map<std::string, std::string> field_map;
 
 namespace po = boost::program_options;
-namespace ph = boost::placeholders;
 
 class program_options_exception : public std::exception {
   std::string error;
@@ -479,7 +477,7 @@ bool process_arguments_unrecognized(po::variables_map &vm, unrecognized_map &unr
     cmd.options(desc);
     if (request.arguments_size() > 0) {
       const std::string a = request.arguments(0);
-      if (a.size() <= 2 || (a[0] != '-' && a[1] != '-')) cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
+      if (a.size() <= 2 || (a[0] != '-' && a[1] != '-')) cmd.extra_style_parser([](auto &args) { return option_parser_kvp(args, ""); });
     }
 
     po::parsed_options parsed = cmd.allow_unregistered().run();
@@ -502,7 +500,7 @@ bool process_arguments_from_request(po::variables_map &vm, const po::options_des
     cmd.options(desc);
     if (request.arguments_size() > 0) {
       std::string a = request.arguments(0);
-      if (a.size() <= 2 || (a[0] != '-' && a[1] != '-')) cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
+      if (a.size() <= 2 || (a[0] != '-' && a[1] != '-')) cmd.extra_style_parser([](auto &args) { return option_parser_kvp(args, ""); });
     }
 
     po::parsed_options parsed = cmd.run();
@@ -523,7 +521,7 @@ bool process_arguments_from_request(po::variables_map &vm, const po::options_des
     cmd.options(desc);
     if (request.arguments_size() > 0) {
       std::string a = request.arguments(0);
-      if (a.size() <= 2 || (a[0] != '-' && a[1] != '-')) cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
+      if (a.size() <= 2 || (a[0] != '-' && a[1] != '-')) cmd.extra_style_parser([](auto &args) { return option_parser_kvp(args, ""); });
     }
 
     po::parsed_options parsed = cmd.run();
@@ -547,7 +545,7 @@ bool process_arguments_from_request(po::variables_map &vm, const po::options_des
 
     if (request.arguments_size() > 0) {
       std::string a = request.arguments(0);
-      if (a.size() < 2 || (a[0] != '-')) cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, p.name_for_position(0)));
+      if (a.size() <= 2 || (a[0] != '-')) cmd.extra_style_parser([&p](auto &args) { return option_parser_kvp(args, p.name_for_position(0)); });
     }
 
     po::parsed_options parsed = cmd.run();
@@ -572,7 +570,7 @@ bool process_arguments_from_request(po::variables_map &vm, const po::options_des
 
     if (request.arguments_size() > 0) {
       std::string a = request.arguments(0);
-      if (a.size() < 2 || (a[0] != '-')) cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, p.name_for_position(0)));
+      if (a.size() <= 2 || (a[0] != '-')) cmd.extra_style_parser([&p](auto &args) { return option_parser_kvp(args, p.name_for_position(0)); });
     }
 
     po::parsed_options parsed = cmd.run();
@@ -597,7 +595,7 @@ bool process_arguments_from_request(po::variables_map &vm, const po::options_des
 
     if (request.arguments_size() > 0) {
       std::string a = request.arguments(0);
-      if (a.size() <= 2 || (a[0] != '-' && a[1] != '-')) cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
+      if (a.size() <= 2 || (a[0] != '-' && a[1] != '-')) cmd.extra_style_parser([](auto &args) { return option_parser_kvp(args, ""); });
     }
 
     po::parsed_options parsed = cmd.run();
@@ -628,7 +626,7 @@ bool process_arguments_from_request(po::variables_map &vm, const po::options_des
 
     if (request.arguments_size() > 0) {
       std::string a = request.arguments(0);
-      if (a.size() <= 2 || (a[0] != '-' && a[1] != '-')) cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
+      if (a.size() <= 2 || (a[0] != '-' && a[1] != '-')) cmd.extra_style_parser([](auto &args) { return option_parser_kvp(args, ""); });
     }
 
     po::parsed_options parsed = cmd.run();
@@ -657,7 +655,7 @@ bool process_arguments_from_vector(po::variables_map &vm, const po::options_desc
     cmd.options(desc);
     if (arguments.size() > 0) {
       std::string a = arguments[0];
-      if (a.size() <= 2 || (a[0] != '-' && a[1] != '-')) cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, ph::_1, ""));
+      if (a.size() <= 2 || (a[0] != '-' && a[1] != '-')) cmd.extra_style_parser([](auto &args) { return option_parser_kvp(args, ""); });
     }
 
     po::parsed_options parsed = cmd.run();
@@ -708,24 +706,30 @@ struct standard_filter_config {
 inline void add_standard_filter(po::options_description &desc, standard_filter_config &filter, std::string default_top_syntax, std::string top_keylist,
                                 std::string default_syntax, std::string keylist) {
   // clang-format off
-			desc.add_options()
-				("filter", po::value<std::string>(&filter.filter_string),			"Filter which marks interesting items.\nInteresting items are items which will be included in the check. They do not denote warning or critical state but will be included in performance data and checked for critical and/or warning state. Anything not matching the filter will be ignored. Leaving the filter empty will include all applicable items")
-				("warning", po::value<std::string>(&filter.warn_string),			"Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.")
-				("warn", po::value<std::string>(&filter.warn_string),				"Short alias for warning (see warning)")
-				("critical", po::value<std::string>(&filter.crit_string),			"Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.")
-				("crit", po::value<std::string>(&filter.crit_string),				"Short alias for critical (see critical).")
-				("ok", po::value<std::string>(&filter.ok_string),					"Filter which marks items which generates an ok state.\n"
-				"If anything matches this any previous state for this item will be reset to ok. Thus this overrides any previous warning or critical state already set (for a specific item)"
-				"Consider an item matching the following \"warning=foo > 500\" which escalates the item to warning status."
-				"If the same item also matches the following ok filter \"ok=500 > 1000\" this will override the previous escalation and revert the status to ok.")
-				("top-syntax", po::value<std::string>(&filter.syntax_top)->default_value(default_top_syntax), (std::string("Top level syntax.\n") + top_keylist).c_str())
-				("ok-syntax", po::value<std::string>(&filter.syntax_ok), (std::string("Top level syntax for ok messages.\n") + top_keylist).c_str())
-				("detail-syntax", po::value<std::string>(&filter.syntax_detail)->default_value(default_syntax), (std::string("Detail level syntax.\nHow each item in the lists of the top level syntax is rendered.\nAvailable keys are: \n") + keylist).c_str())
-				("empty-syntax", po::value<std::string>(&filter.syntax_empty)->default_value("%(status): Nothing found..."), 
-				"Message to display when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
-				("empty-state", po::value<std::string>(&filter.empty_state)->default_value("ok"), 
-				"Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
-				;
+  desc.add_options()
+    ("filter", po::value<std::string>(&filter.filter_string),
+    "Filter which marks interesting items.\nInteresting items are items which will be included in the check. They do not denote warning or critical state but will be included in performance data and checked for critical and/or warning state. Anything not matching the filter will be ignored. Leaving the filter empty will include all applicable items")
+    ("warning", po::value<std::string>(&filter.warn_string),
+    "Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.")
+    ("warn", po::value<std::string>(&filter.warn_string),
+    "Short alias for warning (see warning)")
+    ("critical", po::value<std::string>(&filter.crit_string),
+    "Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.")
+    ("crit", po::value<std::string>(&filter.crit_string),
+    "Short alias for critical (see critical).")
+    ("ok", po::value<std::string>(&filter.ok_string),
+    "Filter which marks items which generates an ok state.\n"
+            "If anything matches this any previous state for this item will be reset to ok. Thus this overrides any previous warning or critical state already set (for a specific item)"
+            "Consider an item matching the following \"warning=foo > 500\" which escalates the item to warning status."
+            "If the same item also matches the following ok filter \"ok=500 > 1000\" this will override the previous escalation and revert the status to ok.")
+    ("top-syntax", po::value<std::string>(&filter.syntax_top)->default_value(default_top_syntax), (std::string("Top level syntax.\n") + top_keylist).c_str())
+    ("ok-syntax", po::value<std::string>(&filter.syntax_ok), (std::string("Top level syntax for ok messages.\n") + top_keylist).c_str())
+    ("detail-syntax", po::value<std::string>(&filter.syntax_detail)->default_value(default_syntax), (std::string("Detail level syntax.\nHow each item in the lists of the top level syntax is rendered.\nAvailable keys are: \n") + keylist).c_str())
+    ("empty-syntax", po::value<std::string>(&filter.syntax_empty)->default_value("%(status): Nothing found..."),
+    "Message to display when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
+    ("empty-state", po::value<std::string>(&filter.empty_state)->default_value("ok"),
+    "Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
+    ;
   // clang-format on
 }
 }  // namespace program_options

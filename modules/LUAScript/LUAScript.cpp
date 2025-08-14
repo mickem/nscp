@@ -19,17 +19,14 @@
 
 #include "LUAScript.h"
 
-#include <time.h>
-
+#include <boost/bind.hpp>
 #include <boost/program_options.hpp>
-#include <error/error.hpp>
 #include <file_helpers.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <str/xtos.hpp>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;

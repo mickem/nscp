@@ -19,13 +19,12 @@
 
 #pragma once
 
-#include <boost/scoped_ptr.hpp>
 #include <check_mk/lua/lua_check_mk.hpp>
 #include <client/command_line_parser.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <scripts/script_nscp.hpp>
-#include <socket/client.hpp>
 
+#include "check_mk_client.hpp"
 #include "check_mk_handler.hpp"
 
 namespace po = boost::program_options;

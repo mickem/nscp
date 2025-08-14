@@ -19,11 +19,9 @@
 
 #pragma once
 
+#include <boost/bind.hpp>
 #include <boost/make_shared.hpp>
-#include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <socket/client.hpp>
 
 namespace nscp_handler {
 namespace sh = nscapi::settings_helper;
