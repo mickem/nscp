@@ -18,7 +18,6 @@
  */
 
 #include <boost/algorithm/string.hpp>
-#include <boost/bind/bind.hpp>
 #include <client/command_line_parser.hpp>
 #include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_protobuf_metrics.hpp>
@@ -32,7 +31,6 @@
 #endif
 
 namespace po = boost::program_options;
-namespace ph = boost::placeholders;
 
 struct payload_builder {
   enum types { type_submit, type_query, type_exec, type_none };
@@ -68,7 +66,7 @@ struct payload_builder {
       throw client::cli_exception("message not supported for query");
     }
   }
-  void set_command(const std::string& value) {
+  void set_command(const std::string &value) {
     if (is_submit()) {
       get_submit_payload()->set_command(value);
     } else if (is_exec()) {
@@ -215,7 +213,7 @@ po::options_description add_exec_options(client::destination_container &source, 
   return desc;
 }
 
-std::string client::configuration::add_command(const std::string& name, const std::string &args) {
+std::string client::configuration::add_command(const std::string &name, const std::string &args) {
   command_container data;
   bool first = true;
   for (const std::string &s : str::utils::parse_command(args)) {
@@ -233,7 +231,7 @@ std::string client::configuration::add_command(const std::string& name, const st
   return key;
 }
 
-client::destination_container client::configuration::get_target(const std::string& name) const {
+client::destination_container client::configuration::get_target(const std::string &name) const {
   destination_container d;
   object_handler_type::object_instance op = targets.find_object(name);
   if (op) {
@@ -260,7 +258,7 @@ void client::configuration::do_query(const PB::Commands::QueryRequestMessage &re
   else if (!request.header().destination_id().empty())
     target = request.header().destination_id();
 
-  for (const std::string& t : str::utils::split_lst(target, std::string(","))) {
+  for (const std::string &t : str::utils::split_lst(target, std::string(","))) {
     destination_container d = get_target(t);
     destination_container s = get_sender();
 
@@ -279,7 +277,7 @@ void client::configuration::do_query(const PB::Commands::QueryRequestMessage &re
         const ::PB::Commands::QueryRequestMessage::Request &local_request = request.payload(i);
         local_request_message.mutable_header()->CopyFrom(request.header());
         local_request_message.add_payload()->CopyFrom(local_request);
-        const std::string& command_name = local_request.command();
+        const std::string &command_name = local_request.command();
         ::PB::Commands::QueryResponseMessage local_response_message;
         i_do_query(s, d, command_name, local_request_message, local_response_message, false);
         for (int j = 0; j < local_response_message.payload_size(); j++) {
@@ -290,7 +288,7 @@ void client::configuration::do_query(const PB::Commands::QueryRequestMessage &re
   }
 }
 
-po::options_description client::configuration::create_descriptor(const std::string& command, client::destination_container &source,
+po::options_description client::configuration::create_descriptor(const std::string &command, client::destination_container &source,
                                                                  client::destination_container &destination) const {
   po::options_description desc = nscapi::program_options::create_desc(command);
   desc.add(add_common_options(source, destination));
@@ -386,7 +384,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
         if (!handler->submit(s, d, builder.submit_message, local_response)) {
           return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
         }
-        for (const ::PB::Commands::SubmitResponseMessage::Response& td : local_response.payload()) {
+        for (const ::PB::Commands::SubmitResponseMessage::Response &td : local_response.payload()) {
           nscapi::protobuf::functions::copy_response(command, response.add_payload(), td);
         }
       } else {
@@ -532,7 +530,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
           nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
           return true;
         }
-        for (const ::PB::Commands::QueryResponseMessage::Response& td : local_response.payload()) {
+        for (const ::PB::Commands::QueryResponseMessage::Response &td : local_response.payload()) {
           nscapi::protobuf::functions::copy_response(command, response.add_payload(), td);
         }
       } else if (builder.type == payload_builder::type_exec) {
@@ -562,7 +560,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
   }
 }
 
-void client::configuration::do_submit_item(const PB::Commands::SubmitRequestMessage &request, const destination_container& s, destination_container d,
+void client::configuration::do_submit_item(const PB::Commands::SubmitRequestMessage &request, const destination_container &s, destination_container d,
                                            PB::Commands::SubmitResponseMessage &response) {
   // Parse each objects command and execute them
   for (const ::PB::Commands::QueryResponseMessage::Response &local_request : request.payload()) {
@@ -632,7 +630,7 @@ void client::configuration::do_metrics(const PB::Metrics::MetricsMessage &reques
   else if (!request.header().destination_id().empty())
     target = request.header().destination_id();
 
-  for (const std::string& t : str::utils::split_lst(target, std::string(","))) {
+  for (const std::string &t : str::utils::split_lst(target, std::string(","))) {
     destination_container d = get_target(t);
     destination_container s = get_sender();
 
@@ -644,7 +642,7 @@ void client::configuration::do_metrics(const PB::Metrics::MetricsMessage &reques
   }
 }
 
-void client::configuration::finalize(const boost::shared_ptr<nscapi::settings_proxy>& settings) {
+void client::configuration::finalize(const boost::shared_ptr<nscapi::settings_proxy> &settings) {
   targets.add_samples(settings);
   targets.add_missing(settings, "default", "");
 }

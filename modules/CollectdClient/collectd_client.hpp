@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <boost/bind.hpp>
 #include <collectd/collectd_packet.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>

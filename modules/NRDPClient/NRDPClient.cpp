@@ -19,6 +19,7 @@
 
 #include "NRDPClient.h"
 
+#include <boost/bind.hpp>
 #include <boost/make_shared.hpp>
 #include <http/client.hpp>
 #include <nscapi/nscapi_core_helper.hpp>

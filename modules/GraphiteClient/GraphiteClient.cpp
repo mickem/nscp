@@ -19,6 +19,7 @@
 
 #include "GraphiteClient.h"
 
+#include <boost/bind.hpp>
 #include <boost/make_shared.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>

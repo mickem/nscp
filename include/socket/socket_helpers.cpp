@@ -129,7 +129,7 @@ addr calculate_mask(std::string mask_s) {
   return ret;
 }
 
-void socket_helpers::allowed_hosts_manager::set_source(const std::string& source) {
+void socket_helpers::allowed_hosts_manager::set_source(const std::string &source) {
   sources.clear();
   for (std::string s : str::utils::split_lst(source, std::string(","))) {
     boost::trim(s);
@@ -379,7 +379,7 @@ void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, const int bits, const int 
   *pkeyp = pk;
 }
 
-void socket_helpers::write_certs(const std::string& cert, const bool ca) {
+void socket_helpers::write_certs(const std::string &cert, const bool ca) {
   X509 *x509 = nullptr;
   EVP_PKEY *pkey = nullptr;
 

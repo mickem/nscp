@@ -22,12 +22,7 @@
 #include <boost/make_shared.hpp>
 #include <check_mk/client/client_protocol.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <socket/client.hpp>
-#include <str/xtos.hpp>
-
-#include "check_mk_client.hpp"
 
 namespace check_mk_handler {
 namespace sh = nscapi::settings_helper;
