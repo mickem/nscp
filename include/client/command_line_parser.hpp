@@ -30,15 +30,21 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/program_options.hpp>
 #include <boost/unordered_map.hpp>
+#include <utility>
 
 namespace client {
 struct cli_exception : public std::exception {
   std::string error_;
 
  public:
-  cli_exception(std::string error) : error_(error) {}
-  ~cli_exception() throw() {}
-  const char *what() const throw() { return error_.c_str(); }
+  explicit cli_exception(std::string error) : error_(std::move(error)) {}
+  cli_exception(const cli_exception& other) noexcept = default;
+  cli_exception& operator=(const cli_exception& other) noexcept {
+    error_ = other.error_;
+    return *this;
+  }
+  ~cli_exception() noexcept override = default;
+  const char *what() const noexcept override { return error_.c_str(); }
 };
 
 struct destination_container {
@@ -211,25 +217,25 @@ struct configuration : public boost::noncopyable {
 
   void set_sender(std::string _sender) { default_sender = _sender; }
 
-  destination_container get_target(const std::string name) const;
+  destination_container get_target(const std::string& name) const;
   destination_container get_sender() const;
 
   void add_target(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string value) { targets.add(proxy, key, value); }
-  std::string add_command(std::string name, std::string args);
+  std::string add_command(const std::string& name, const std::string &args);
   void clear() {
     targets.clear();
     commands.clear();
   }
-  void finalize(boost::shared_ptr<nscapi::settings_proxy> settings);
+  void finalize(const boost::shared_ptr<nscapi::settings_proxy>& settings);
 
   void do_query(const PB::Commands::QueryRequestMessage &request, PB::Commands::QueryResponseMessage &response);
-  bool do_exec(const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response, const std::string &default_command);
+  bool do_exec(const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response, const std::string &default_command_arg);
   void do_submit(const PB::Commands::SubmitRequestMessage &request, PB::Commands::SubmitResponseMessage &response);
 
-  void do_submit_item(const PB::Commands::SubmitRequestMessage &request, destination_container s, destination_container d,
+  void do_submit_item(const PB::Commands::SubmitRequestMessage &request, const destination_container& s, destination_container d,
                       PB::Commands::SubmitResponseMessage &response);
 
-  void do_metrics(const PB::Metrics::MetricsMessage &request);
+  void do_metrics(const PB::Metrics::MetricsMessage &request) const;
 
   typedef boost::function<boost::program_options::options_description(client::destination_container &source, client::destination_container &destination)>
       client_desc_fun;
@@ -238,13 +244,13 @@ struct configuration : public boost::noncopyable {
   client_pre_fun client_pre;
 
  private:
-  boost::program_options::options_description create_descriptor(const std::string command, client::destination_container &source,
-                                                                client::destination_container &destination);
+  boost::program_options::options_description create_descriptor(const std::string& command, client::destination_container &source,
+                                                                client::destination_container &destination) const;
   void i_do_query(destination_container &s, destination_container &d, std::string command, const PB::Commands::QueryRequestMessage &request,
                   PB::Commands::QueryResponseMessage &response, bool use_header);
   bool i_do_exec(destination_container &s, destination_container &d, std::string command, const PB::Commands::ExecuteRequestMessage &request,
                  PB::Commands::ExecuteResponseMessage &response, bool use_header);
-  void i_do_submit(destination_container &s, destination_container &d, std::string command, const PB::Commands::SubmitRequestMessage &request,
+  void i_do_submit(const destination_container &s, destination_container &d, std::string command, const PB::Commands::SubmitRequestMessage &request,
                    PB::Commands::SubmitResponseMessage &response, bool use_header);
 };
 }  // namespace client

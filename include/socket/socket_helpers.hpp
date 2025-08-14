@@ -37,7 +37,7 @@
 
 namespace socket_helpers {
 #ifdef USE_SSL
-void write_certs(std::string cert, bool ca);
+void write_certs(const std::string& cert, bool ca);
 #endif
 void validate_certificate(const std::string& certificate, std::list<std::string>& list);
 
@@ -168,15 +168,15 @@ struct connection_info {
     return *this;
   }
 
-  std::list<std::string> validate_ssl();
-  std::list<std::string> validate();
+  std::list<std::string> validate_ssl() const;
+  std::list<std::string> validate() const;
 
   bool get_reuse() const { return reuse; }
   std::string get_port() const { return port_; }
   unsigned short get_int_port() const { return str::stox<unsigned short>(port_); }
   std::string get_address() const { return address; }
   std::string get_endpoint_string() const { return address + ":" + get_port(); }
-  long get_ctx_opts();
+  long get_ctx_opts() const;
 
   std::string to_string() const {
     std::stringstream ss;
@@ -191,7 +191,7 @@ boost::asio::ssl::verify_mode verify_mode_parser(const std::string& verify_mode)
 #endif
 
 namespace io {
-void set_result(boost::optional<boost::system::error_code>* a, boost::system::error_code b);
+void set_result(boost::optional<boost::system::error_code>* a, const boost::system::error_code& b);
 
 struct timed_writer : public boost::enable_shared_from_this<timed_writer> {
   boost::asio::io_service& io_service;
