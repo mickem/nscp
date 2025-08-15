@@ -6,7 +6,13 @@ inputs:
     description: The cryptopp version to build
     required: true
   architecture:
-    description: The openssl architecture to build
+    description: The architecture to build
+    required: true
+  runtime:
+    description: If we should use dynamic or static runtime
+    default: dynamic
+  toolset:
+    description: The toolset to use for building
     required: true
 outputs:
   path:
@@ -22,7 +28,7 @@ runs:
     - id: cache
       uses: actions/cache@v3
       with:
-        key: ${{ runner.os }}-cryptopp-${{ inputs.version }}-${{ inputs.architecture }}
+        key: ${{ runner.os }}-cryptopp-${{ inputs.version }}-${{ inputs.architecture }}-${{ inputs.runtime }}-${{ inputs.toolset }}
         path: |
           tmp/cryptopp
 
@@ -55,14 +61,20 @@ runs:
       shell: pwsh
       working-directory: tmp/cryptopp
 
+    - name: Convert to dynamic runtime
+      if: inputs.runtime == 'dynamic' && steps.cache.outputs.cache-hit != 'true'
+      run: |
+        python ../../build/python/msdev-to-dynamic.py cryptlib.vcxproj
+      shell: cmd
+      working-directory: tmp/cryptopp
+
     - name: Build
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
-        python ../../build/python/msdev-to-dynamic.py cryptlib.vcxproj
-        msbuild cryptlib.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=v141_xp
-        msbuild cryptdll.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=v141_xp
-        msbuild cryptlib.vcxproj /p:Configuration=Debug /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=v141_xp
-        msbuild cryptdll.vcxproj /p:Configuration=Debug /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=v141_xp
+        msbuild cryptlib.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
+        msbuild cryptdll.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
+        msbuild cryptlib.vcxproj /p:Configuration=Debug /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
+        msbuild cryptdll.vcxproj /p:Configuration=Debug /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
       working-directory: tmp/cryptopp
       shell: cmd
 

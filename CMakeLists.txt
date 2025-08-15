@@ -108,27 +108,36 @@ set(BIN_TARGET_FOLDER bin)
 set(LOG_TARGET_FOLDER /var/log)
 set(ETC_TARGET_FOLDER /etc)
 
-set(NSCP_GLOBAL_DEFINES
-    ${NSCP_GLOBAL_DEFINES}
-    -DBOOST_PHOENIX_STL_TUPLE_H_
-    -DBOOST_LIB_DIAGNOSTIC
-    -DBOOST_AUTO_LINK_SYSTEM
-)
+set(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DBOOST_PHOENIX_STL_TUPLE_H_)
+if(WIN32)
+    # On Windows we build boost with layout=system
+    add_definitions(-DBOOST_AUTO_LINK_SYSTEM -DBOOST_ALL_NO_LIB)
+endif()
 if(NOT DEFINED USE_STATIC_RUNTIME)
     set(USE_STATIC_RUNTIME FALSE)
 endif(NOT DEFINED USE_STATIC_RUNTIME)
 if(USE_STATIC_RUNTIME)
     message(STATUS "Using static runtime")
     set(BUILD_SHARED_LIBS OFF)
-    set(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DBOOST_ALL_NO_LIB)
     add_definitions(
         -Dnscp_protobuf_NOLIB
         -Dplugin_api_NOLIB
         -Dwhere_filter_NOLIB
         -Djson_protobuf_NOLIB
         -Dlua_protobuf_NOLIB
+        -Dlib_mongoose_NOLIB
     )
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     if(WIN32)
+        # Workaround for building with XP support
+        add_definitions(
+            -DWINVER=0x0501
+            -D_WIN32_WINNT=0x0501
+            -DNTDDI_VERSION=0x05010000
+            -DBOOST_USE_WINAPI_VERSION=0x501
+            -DBOOST_NO_CXX17_HDR_SHARED_MUTEX
+            -D_USING_V110_SDK71_
+        )
         set(Boost_USE_STATIC_LIBS ON)
         set(Boost_USE_STATIC_RUNTIME ON)
         set(BOOST_USE_MULTITHREADED ON)
@@ -139,7 +148,6 @@ else(USE_STATIC_RUNTIME)
     message(STATUS "Using dynamic runtime")
     set(NSCP_GLOBAL_DEFINES
         ${NSCP_GLOBAL_DEFINES}
-        -DBOOST_ALL_NO_LIB
         -DBOOST_THREAD_DYN_LINK
         -DBOOST_PROGRAM_OPTIONS_DYN_LINK
     )
@@ -259,22 +267,23 @@ install(
     DESTINATION .
 )
 
+# Copy python binaries
+string(REPLACE ".lib" ".dll" PY_LIB_RELEASE_DLL ${Python3_LIBRARIES})
+get_filename_component(_NAME "${PY_LIB_RELEASE_DLL}" NAME)
+message(
+    STATUS
+    "Assuming python lib is in: ${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME}"
+)
+
+message(STATUS "Copying redist libraries to target")
+message(STATUS " + ${_NAME}")
+
+copy_file(${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME} ${PROJECT_BINARY_DIR})
+install(FILES "${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME}" DESTINATION .)
+
 if(USE_STATIC_RUNTIME)
 else(USE_STATIC_RUNTIME)
     if(WIN32)
-        string(REPLACE ".lib" ".dll" PY_LIB_RELEASE_DLL ${Python3_LIBRARIES})
-        get_filename_component(_NAME "${PY_LIB_RELEASE_DLL}" NAME)
-        message(
-            STATUS
-            "Assuming python lib is in: ${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME}"
-        )
-
-        message(STATUS "Copying redist libraries to target")
-        message(STATUS " + ${_NAME}")
-
-        copy_file(${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME} ${PROJECT_BINARY_DIR})
-        install(FILES "${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME}" DESTINATION .)
-
         find_redist(REDIST_LIST)
         foreach(LIB ${REDIST_LIST})
             get_filename_component(_NAME ${LIB} NAME)
@@ -341,14 +350,6 @@ else(USE_STATIC_RUNTIME)
         endforeach()
     endif()
 endif(USE_STATIC_RUNTIME)
-
-if(PYTHON_DIST)
-    set(LIBS _socket.pyd python27.dll python27.zip unicodedata.pyd)
-    foreach(LIB ${LIBS})
-        copy_file(${PYTHON_DIST}/${LIB} ${PROJECT_BINARY_DIR})
-        install(FILES ${PYTHON_DIST}/${LIB} DESTINATION .)
-    endforeach()
-endif(PYTHON_DIST)
 
 # ##############################################################################
 #

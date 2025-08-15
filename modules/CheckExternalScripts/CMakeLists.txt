@@ -47,7 +47,6 @@ target_link_libraries(
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}
-    ${JSON_LIB}
     ${EXTRA_LIBS}
 )
 
