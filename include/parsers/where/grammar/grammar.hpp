@@ -21,15 +21,14 @@
 
 #include <list>
 
+#ifdef WIN32
 #pragma warning(push)
 #pragma warning(disable : 4459)
-#include <boost/fusion/include/adapt_struct.hpp>
-#include <boost/phoenix/bind.hpp>
-#include <boost/phoenix/core.hpp>
-#include <boost/phoenix/object.hpp>
-#include <boost/phoenix/operator.hpp>
+#endif
 #include <boost/spirit/include/qi.hpp>
+#ifdef WIN32
 #pragma warning(pop)
+#endif
 #include <boost/function.hpp>
 #include <parsers/where/node.hpp>
 

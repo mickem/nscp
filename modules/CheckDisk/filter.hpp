@@ -27,13 +27,6 @@
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/where/node.hpp>
 #include <str/format.hpp>
-#include <str/utils.hpp>
-
-#ifdef WIN32
-#include <Windows.h>
-#endif
-
-#include <map>
 #include <string>
 
 #ifdef WIN32

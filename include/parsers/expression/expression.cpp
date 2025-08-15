@@ -19,14 +19,18 @@
 
 #include <parsers/expression/expression.hpp>
 
+#ifdef _WIN32
 #pragma warning(push)
 #pragma warning(disable : 4459)
+#endif
 #include <boost/phoenix/core.hpp>
 #include <boost/phoenix/object.hpp>
 #include <boost/phoenix/operator.hpp>
 #include <boost/phoenix/stl.hpp>
 #include <boost/spirit/include/qi.hpp>
+#ifdef _WIN32
 #pragma warning(pop)
+#endif
 
 namespace qi = boost::spirit::qi;
 namespace ascii = boost::spirit::ascii;
