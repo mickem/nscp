@@ -52,7 +52,6 @@ target_link_libraries(
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}
-    ${JSON_LIB}
     nscp_mongoose
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)

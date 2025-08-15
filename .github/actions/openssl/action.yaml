@@ -8,6 +8,9 @@ inputs:
   architecture:
     description: The openssl architecture to build
     required: true
+  runtime:
+    description: The openssl architecture to build
+    default: dynamic
 outputs:
   path:
     description: The path to the openssl folder
@@ -26,6 +29,11 @@ runs:
         } else {
           echo "cmd=VC-WIN32" >> $env:GITHUB_OUTPUT
         }
+        if ("${{ inputs.runtime }}" -eq "dynamic") {
+          echo "shared_flags=" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "shared_flags=-MT" >> $env:GITHUB_OUTPUT
+        }
       shell: pwsh
 
     - name: Download openssl
@@ -39,7 +47,7 @@ runs:
     - id: cache
       uses: actions/cache@v3
       with:
-        key: ${{ runner.os }}-openssl-${{ inputs.version }}-no-shared-${{ inputs.architecture }}
+        key: ${{ runner.os }}-openssl-${{ inputs.version }}-no-shared-${{ inputs.architecture }}-${{ inputs.runtime }}
         path: |
           tmp/openssl-${{ inputs.version }}/libcrypto*.*
           tmp/openssl-${{ inputs.version }}/libssl*.*
@@ -49,7 +57,7 @@ runs:
 
     - name: Build openssl
       run: |
-          perl Configure ${{ steps.setup.outputs.cmd }} no-asm no-shared
+          perl Configure ${{ steps.setup.outputs.cmd }} no-asm no-shared ${{ steps.setup.outputs.shared_flags }}
           nmake
       working-directory: tmp/openssl-${{ inputs.version }}
       shell: cmd

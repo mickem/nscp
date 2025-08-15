@@ -17,8 +17,6 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.cpp
 )
 
-add_definitions(${NSCP_GLOBAL_DEFINES} -Dplugin_api_NOLIB)
-
 if(WIN32)
     set(SRCS
         ${SRCS}

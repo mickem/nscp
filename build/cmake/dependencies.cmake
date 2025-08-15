@@ -37,6 +37,7 @@ find_package(
         ${boost_python_dep}
         chrono
         json
+        container
 )
 find_package(Mkdocs)
 find_package(CSharp)

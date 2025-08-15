@@ -17,7 +17,6 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/utils.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
     ${NSCP_CLIENT_CPP}
-    ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ../../resources/nsclient.ico
 )
 
@@ -62,6 +61,8 @@ target_link_libraries(
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_THREAD_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${Boost_SYSTEM_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}
     ${EXTRA_LIBS}
 )

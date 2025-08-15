@@ -45,7 +45,6 @@ target_link_libraries(
     ${NSCP_DEF_PLUGIN_LIB}
     ${NSCP_FILTER_LIB}
     expression_parser
-    ${JSON_LIB}
     ${EXTRA_LIBS}
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)

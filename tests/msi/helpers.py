@@ -77,6 +77,7 @@ def install(msi_file, target_folder, command_line):
             exit(1)
     except Exception as e:
         print(f"! Install failed: {e}", flush=True)
+        exit(1)
 
     if path.exists(target_folder) and path.isdir(target_folder) and path.exists(path.join(target_folder, "nscp.exe")):
         print(f"- Installation seems successfully: {target_folder}", flush=True)

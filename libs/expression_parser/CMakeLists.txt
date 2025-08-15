@@ -10,7 +10,6 @@ endif(WIN32)
 add_library(${TARGET} STATIC ${SRCS})
 nscp_debug_symbols(${TARGET})
 
-target_link_libraries(${TARGET} nscp_protobuf)
 set_target_properties(${TARGET} PROPERTIES FOLDER "libraries")
 if(CMAKE_COMPILER_IS_GNUCXX)
     if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)

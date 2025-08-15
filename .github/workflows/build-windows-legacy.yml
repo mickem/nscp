@@ -1,4 +1,4 @@
-name: Build Windows
+name: Build Legacy Windows version (xp)
 
 on:
   workflow_call:
@@ -102,8 +102,8 @@ jobs:
       with:
         version: ${{ env.GOOGLE_TEST_VERSION }}
         architecture: ${{ inputs.architecture }}
-        runtime: 'dynamic'
-        toolset: v141
+        runtime: 'static'
+        toolset: v141_xp
         target_folder: './tmp/nscp'
 
     - id: openssl
@@ -111,15 +111,16 @@ jobs:
       with:
         version: ${{ ENV.OPENSSL_VERSION }}
         architecture: ${{ inputs.architecture }}
-        runtime: 'dynamic'
+        runtime: static
 
     - id: protobuf
       uses: ./.github/actions/protobuf
       with:
         version: ${{ ENV.PROTOBUF_VERSION }}
         architecture: ${{ inputs.architecture }}
-        runtime: 'dynamic'
-        toolset: v141
+        runtime: static
+        toolset: v141_xp
+        support_xp: 'true'
 
     - id: cryptopp
       uses: ./.github/actions/cryptopp
@@ -127,6 +128,7 @@ jobs:
         version: ${{ ENV.CRYPTOPP_VERSION }}
         architecture: ${{ inputs.architecture }}
         toolset: v141_xp
+        runtime: 'static'
 
     - id: lua
       uses: ./.github/actions/lua
@@ -140,31 +142,20 @@ jobs:
 
     - name: Build Boost (static)
       id: static_boost
-      uses: mickem/build-boost@v1
-      with:
-        version: ${{ ENV.BOOST_VERSION }}
-        libraries: system filesystem
-        platform: ${{ inputs.architecture }}
-        configuration: Release
-        static: 1
-        static-runtime: 1
-        directory: ${{ runner.workspace }}/static_boost
-          
-    - name: Build Boost (regular)
-      id: boost
-      uses: mickem/build-boost@v1
+      uses: mickem/build-boost@42c59d10fc12f919a986f7e1c2f7c752d4960190
       with:
         version: ${{ ENV.BOOST_VERSION }}
         libraries: system filesystem thread regex date_time program_options python chrono json
         platform: ${{ inputs.architecture }}
         configuration: Release
-  
+        static: 1
+        static-runtime: 1
+        directory: ${{ runner.workspace }}/static_boost
+        toolset: msvc141
+        defines: _USING_V110_SDK71_ BOOST_USE_WINAPI_VERSION=0x501 BOOST_NO_CXX17_HDR_SHARED_MUTEX
+
     - id: paths
       run: |
-        $path_unix="${{ steps.boost.outputs.root }}".replace('\','/')
-        echo "boost_root=$path_unix" >> $env:GITHUB_OUTPUT
-        $path_unix="${{ steps.boost.outputs.librarydir }}".replace('\','/')
-        echo "boost_librarydir=$path_unix" >> $env:GITHUB_OUTPUT
         $path_unix="${{ steps.static_boost.outputs.root }}".replace('\','/')
         echo "static_boost_root=$path_unix" >> $env:GITHUB_OUTPUT
         $path_unix="${{ steps.static_boost.outputs.librarydir }}".replace('\','/')
@@ -178,10 +169,13 @@ jobs:
       with:
         path: tmp/nscp/build.cmake
         contents: |
-            SET(USE_STATIC_RUNTIME FALSE)
+            set(Boost_USE_STATIC_RUNTIME ON)
+            set(Boost_USE_STATIC_LIBS ON)
+            SET(USE_STATIC_RUNTIME TRUE)
+
             SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
-            SET(BOOST_ROOT "${{ steps.paths.outputs.boost_root }}")
-            SET(BOOST_LIBRARYDIR "${{ steps.paths.outputs.boost_librarydir }}")
+            SET(BOOST_ROOT "${{ steps.paths.outputs.static_boost_root }}")
+            SET(BOOST_LIBRARYDIR "${{ steps.paths.outputs.static_boost_librarydir }}")
             SET(PROTOBUF_ROOT "${{ steps.protobuf.outputs.path_unix }}")
             SET(PROTOBUF_LIBRARYDIR "${PROTOBUF_ROOT}/build/Release")
             SET(OPENSSL_ROOT_DIR "${{ steps.openssl.outputs.path_unix }}")
@@ -203,7 +197,7 @@ jobs:
       working-directory: tmp/installer_lib
       run: |
 
-        cmake ../../installer_lib -T v141 -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -DBOOST_ROOT=${{ steps.paths.outputs.static_boost_root }} -DBOOST_LIBRARYDIR=${{ steps.paths.outputs.static_boost_librarydir }} -DOPENSSL_ROOT_DIR=${{ steps.openssl.outputs.path_unix }} -DBUILD_VERSION=${{ inputs.version }}
+        cmake ../../installer_lib -T v141_xp -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -DBOOST_ROOT=${{ steps.paths.outputs.static_boost_root }} -DBOOST_LIBRARYDIR=${{ steps.paths.outputs.static_boost_librarydir }} -DOPENSSL_ROOT_DIR=${{ steps.openssl.outputs.path_unix }} -DBUILD_VERSION=${{ inputs.version }}
     - name: Build installer_lib
       working-directory: tmp/installer_lib
       run: |
@@ -212,7 +206,7 @@ jobs:
     - name: CMake (NSCP)
       working-directory: tmp/nscp
       run: |
-        cmake ../.. -T v141 -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -D BUILD_VERSION=${{ inputs.version }}
+        cmake ../.. -T v141_xp  -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -D BUILD_VERSION=${{ inputs.version }}
 
     - name: Build nsclient
       working-directory: tmp/nscp
@@ -247,6 +241,7 @@ jobs:
       with:
         version: ${{ inputs.version }}
         platform: ${{ steps.setup.outputs.platform }}
+        suffix: '-legacy-xp'
         azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
         azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
@@ -262,3 +257,5 @@ jobs:
         echo "| OpenSSL | ${{ env.OPENSSL_VERSION }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Protobuf | ${{ env.PROTOBUF_VERSION }} |" >> $GITHUB_STEP_SUMMARY
         echo "| TinyXml2 | ${{ env.TINY_XML_2_VERSION }} |" >> $GITHUB_STEP_SUMMARY
+    
+  
