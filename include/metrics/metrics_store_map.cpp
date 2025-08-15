@@ -40,7 +40,7 @@ void build_metrics(metrics_store::values_map &metrics, const PB::Metrics::Metric
 }
 
 void metrics_store::set(const PB::Metrics::MetricsMessage &response) {
-  metrics_store::values_map tmp;
+  values_map tmp;
 
   for (const PB::Metrics::MetricsMessage::Response &p : response.payload()) {
     for (const PB::Metrics::MetricsBundle &b : p.bundles()) {
@@ -55,8 +55,8 @@ void metrics_store::set(const PB::Metrics::MetricsMessage &response) {
 }
 
 metrics_store::values_map metrics_store::get(const std::string &filter) {
-  bool f = !filter.empty();
-  metrics_store::values_map ret;
+  const bool f = !filter.empty();
+  values_map ret;
   {
     boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!lock.owns_lock()) return ret;

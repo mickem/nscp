@@ -70,17 +70,17 @@ key_type string_map_path(std::map<std::string, std::string>* val);
 
 enum type_of_key { key_type_string, key_type_int, key_type_bool, key_type_file, key_type_password, key_type_path, key_type_template };
 struct description_container {
-  std::string icon;
   type_of_key type;
   std::string title;
   std::string description;
   bool advanced;
+  std::string icon;
   description_container() : type(key_type_path), advanced(false) {}
 
   description_container(type_of_key type, std::string title, std::string description, bool advanced)
       : type(type), title(title), description(description), advanced(advanced) {}
   description_container(type_of_key type, std::string title, std::string description, std::string icon)
-      : type(type), icon(icon), title(title), description(description), advanced(false) {}
+      : type(type), title(title), description(description), advanced(false), icon(icon) {}
   description_container(type_of_key type, std::string title, std::string description) : type(type), title(title), description(description), advanced(false) {}
 
   description_container(const description_container& obj) {

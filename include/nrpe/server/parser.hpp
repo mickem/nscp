@@ -23,8 +23,6 @@
 #include <nrpe/packet.hpp>
 #include <swap_bytes.hpp>
 
-#include "handler.hpp"
-
 namespace nrpe {
 namespace server {
 class parser : public boost::noncopyable {
@@ -32,47 +30,46 @@ class parser : public boost::noncopyable {
   std::vector<char> buffer_;
 
  public:
-  parser(unsigned int payload_length) : payload_length_(payload_length) {}
+  explicit parser(const unsigned int payload_length) : payload_length_(payload_length) {}
 
-  int16_t read_version() {
-    if (buffer_.size() < nrpe::length::get_min_header_length()) {
+  int16_t read_version() const {
+    if (buffer_.size() < length::get_min_header_length()) {
       return -1;
     }
-    const nrpe::data::packet_header* p = reinterpret_cast<const nrpe::data::packet_header*>(buffer_.data());
+    auto p = reinterpret_cast<const data::packet_header*>(buffer_.data());
     return swap_bytes::ntoh<int16_t>(p->packet_version);
   }
-  int32_t read_len() {
-    if (buffer_.size() < sizeof(nrpe::data::packet_v3)) {
+  int32_t read_len() const {
+    if (buffer_.size() < sizeof(data::packet_v3)) {
       return -1;
     }
-    const nrpe::data::packet_v3* p = reinterpret_cast<const nrpe::data::packet_v3*>(buffer_.data());
+    const data::packet_v3* p = reinterpret_cast<const data::packet_v3*>(buffer_.data());
     return swap_bytes::ntoh<int32_t>(p->buffer_length);
   }
-  std::size_t get_packet_length_v2() { return nrpe::length::get_packet_length_v2(payload_length_); }
-  std::size_t get_packet_length_v3() {
-    if (buffer_.size() > nrpe::length::get_packet_length_v3(0)) {
-      if (read_version() == nrpe::data::version3) {
-        return nrpe::length::get_packet_length_v3(read_len());
+  std::size_t get_packet_length_v2() const { return length::get_packet_length_v2(payload_length_); }
+  std::size_t get_packet_length_v3() const {
+    if (buffer_.size() > length::get_packet_length_v3(0)) {
+      if (read_version() == data::version3) {
+        return length::get_packet_length_v3(read_len());
       } else {
-        return nrpe::length::get_packet_length_v4(read_len());
+        return length::get_packet_length_v4(read_len());
       }
     }
-    return nrpe::length::get_packet_length_v3(payload_length_);
+    return length::get_packet_length_v3(payload_length_);
   }
 
   template <typename InputIterator>
   boost::tuple<bool, InputIterator> digest(InputIterator begin, InputIterator end) {
     int16_t v = read_version();
     if (v == -1 || v == 2) {
-      std::size_t count = get_packet_length_v2() - buffer_.size();
-      for (; count > 0 && begin != end; ++begin, --count) buffer_.push_back(*begin);
-    } else if (v == nrpe::data::version3 || v == nrpe::data::version4) {
+      for (std::size_t count = get_packet_length_v2() - buffer_.size(); count > 0 && begin != end; ++begin, --count) buffer_.push_back(*begin);
+    } else if (v == data::version3 || v == data::version4) {
       std::size_t count = get_packet_length_v3() - buffer_.size();
       for (; count > 0 && begin != end; ++begin, --count) buffer_.push_back(*begin);
     }
 
     v = read_version();
-    std::size_t packet_length = read_version() >= 3 ? get_packet_length_v3() : get_packet_length_v2();
+    const std::size_t packet_length = read_version() >= 3 ? get_packet_length_v3() : get_packet_length_v2();
     if (packet_length < 1024 || packet_length > 2048 * 1024) {
       return boost::make_tuple(true, begin);
     }
@@ -80,8 +77,8 @@ class parser : public boost::noncopyable {
     return boost::make_tuple(buffer_.size() >= packet_length, begin);
   }
 
-  nrpe::packet parse() {
-    nrpe::packet packet(buffer_, payload_length_);
+  packet parse() {
+    packet packet(buffer_, payload_length_);
     buffer_.clear();
     return packet;
   }

@@ -22,6 +22,19 @@
 #include <parsers/where/grammar/grammar.hpp>
 #include <parsers/where/list_node.hpp>
 
+#ifdef WIN32
+#pragma warning(push)
+#pragma warning(disable : 4459)
+#endif
+#include <boost/fusion/include/adapt_struct.hpp>
+#include <boost/phoenix/bind.hpp>
+#include <boost/phoenix/object.hpp>
+#include <boost/phoenix/operator.hpp>
+#include <boost/phoenix/core.hpp>
+#ifdef WIN32
+#pragma warning(pop)
+#endif
+
 namespace qi = boost::spirit::qi;
 namespace ascii = boost::spirit::ascii;
 namespace phoenix = boost::phoenix;

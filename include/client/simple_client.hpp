@@ -25,7 +25,7 @@
 #include <nscapi/nscapi_core_wrapper.hpp>
 
 namespace client {
-struct cli_handler : public nscapi::log_handler {
+struct cli_handler : nscapi::log_handler {
   virtual void output_message(const std::string &msg) = 0;
   virtual int get_plugin_id() const = 0;
   virtual const nscapi::core_wrapper *get_core() const = 0;
@@ -36,7 +36,7 @@ class cli_client {
   metrics::metrics_store metrics_store;
 
  public:
-  cli_client(cli_handler_ptr handler) : handler(handler) {}
+  cli_client(const cli_handler_ptr &handler) : handler(handler) {}
   void handle_command(const std::string &command);
   void push_metrics(const PB::Metrics::MetricsMessage &response);
 };

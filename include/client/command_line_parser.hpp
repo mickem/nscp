@@ -27,7 +27,7 @@
 #include <nscapi/nscapi_targets.hpp>
 
 namespace client {
-struct cli_exception : public std::exception {
+struct cli_exception final : std::exception {
   std::string error_;
 
  public:
@@ -163,13 +163,14 @@ struct nscp_clp_data {
   }
 };
 
-struct options_reader_interface : public nscapi::settings_objects::object_factory_interface<nscapi::settings_objects::object_instance_interface> {
+struct options_reader_interface : nscapi::settings_objects::object_factory_interface<nscapi::settings_objects::object_instance_interface> {
   virtual void process(boost::program_options::options_description &desc, destination_container &source, destination_container &destination) = 0;
   void add_ssl_options(boost::program_options::options_description &desc, client::destination_container &data);
 };
 typedef boost::shared_ptr<options_reader_interface> options_reader_type;
 
 struct handler_interface {
+  virtual ~handler_interface() = default;
   virtual bool query(client::destination_container sender, client::destination_container target, const PB::Commands::QueryRequestMessage &request_message,
                      PB::Commands::QueryResponseMessage &response_message) = 0;
   virtual bool submit(client::destination_container sender, client::destination_container target, const PB::Commands::SubmitRequestMessage &request_message,

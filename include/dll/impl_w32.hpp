@@ -28,12 +28,11 @@
 namespace dll {
 namespace win32 {
 class impl : public boost::noncopyable {
- private:
   HMODULE handle_;
   boost::filesystem::path module_;
 
  public:
-  impl(boost::filesystem::path module) : module_(module), handle_(NULL) {
+  explicit impl(const boost::filesystem::path &module) : handle_(nullptr), module_(module) {
     if (!boost::filesystem::is_regular_file(module_)) {
       module_ = fix_module_name(module_);
     }
@@ -50,29 +49,29 @@ class impl : public boost::noncopyable {
 
   static std::string get_extension() { return ".dll"; }
 
-  static bool is_module(std::string file) { return boost::ends_with(file, get_extension()); }
+  static bool is_module(const std::string &file) { return boost::ends_with(file, get_extension()); }
 
   void load_library() {
-    if (handle_ != NULL) unload_library();
+    if (handle_ != nullptr) unload_library();
     handle_ = LoadLibrary(module_.native().c_str());
-    if (handle_ == NULL)
+    if (handle_ == nullptr)
       throw dll_exception("Could not load library: " + utf8::cvt<std::string>(error::lookup::last_error()) + ": " + module_.filename().string());
   }
-  LPVOID load_proc(std::string name) {
-    if (handle_ == NULL) throw dll_exception("Failed to load process since module is not loaded: " + module_.filename().string());
+  LPVOID load_proc(const std::string &name) const {
+    if (handle_ == nullptr) throw dll_exception("Failed to load process since module is not loaded: " + module_.filename().string());
     LPVOID ep = GetProcAddress(handle_, name.c_str());
     return ep;
   }
 
   void unload_library() {
-    if (handle_ == NULL) return;
+    if (handle_ == nullptr) return;
     FreeLibrary(handle_);
-    handle_ = NULL;
+    handle_ = nullptr;
   }
-  bool is_loaded() const { return handle_ != NULL; }
+  bool is_loaded() const { return handle_ != nullptr; }
   boost::filesystem::path get_file() const { return module_; }
   std::string get_filename() const { return module_.filename().string(); }
-  std::string get_module_name() {
+  std::string get_module_name() const {
     std::string ext = ".dll";
     std::string::size_type l = ext.length();
     std::string fn = get_filename();

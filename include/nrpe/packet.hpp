@@ -30,16 +30,16 @@
 namespace nrpe {
 class data {
  public:
-  static const short unknownPacket = 0;
-  static const short queryPacket = 1;
-  static const short responsePacket = 2;
-  static const short moreResponsePacket = 3;
-  static const short version2 = 2;
-  static const short version3 = 3;
-  static const short version4 = 3;
+  static constexpr short unknownPacket = 0;
+  static constexpr short queryPacket = 1;
+  static constexpr short responsePacket = 2;
+  static constexpr short moreResponsePacket = 3;
+  static constexpr short version2 = 2;
+  static constexpr short version3 = 3;
+  static constexpr short version4 = 3;
 
-  static const std::size_t buffer_offset_v2 = 10;
-  static const std::size_t buffer_offset_v3 = 16;
+  static constexpr std::size_t buffer_offset_v2 = 10;
+  static constexpr std::size_t buffer_offset_v3 = 16;
 
   struct packet_header {
     int16_t packet_version;
@@ -71,12 +71,12 @@ class length {
  public:
   static void set_payload_length(size_type length) { payload_length_ = length; }
   static size_type get_packet_length_v2() { return get_packet_length_v2(payload_length_); }
-  static size_type get_min_header_length() { return sizeof(nrpe::data::packet_header); }
-  static size_type get_packet_length_v2(size_type payload_length) { return sizeof(nrpe::data::packet_v2) + payload_length * sizeof(char); }
-  static size_type get_packet_length_v3(size_type payload_length) { return sizeof(nrpe::data::packet_v3) + payload_length * sizeof(char) - 1; }
-  static size_type get_packet_length_v4(size_type payload_length) { return sizeof(nrpe::data::packet_v3) + payload_length * sizeof(char) - 4; }
+  static size_type get_min_header_length() { return sizeof(data::packet_header); }
+  static size_type get_packet_length_v2(size_type payload_length) { return sizeof(data::packet_v2) + payload_length * sizeof(char); }
+  static size_type get_packet_length_v3(size_type payload_length) { return sizeof(data::packet_v3) + payload_length * sizeof(char) - 1; }
+  static size_type get_packet_length_v4(size_type payload_length) { return sizeof(data::packet_v3) + payload_length * sizeof(char) - 4; }
   static size_type get_payload_length() { return payload_length_; }
-  static size_type get_payload_length(size_type packet_length) { return (packet_length - sizeof(nrpe::data::packet_v2)) / sizeof(char); }
+  static size_type get_payload_length(size_type packet_length) { return (packet_length - sizeof(data::packet_v2)) / sizeof(char); }
 };
 
 class nrpe_exception : public std::exception {
@@ -110,13 +110,13 @@ class packet /*: public boost::noncopyable*/ {
     copy(buffer.begin(), buffer.end(), tmp);
     try {
       readFrom(tmp, buffer.size());
-    } catch (const nrpe::nrpe_exception& e) {
+    } catch (const nrpe_exception& e) {
       delete[] tmp;
       throw e;
     }
     delete[] tmp;
   };
-  packet(const char* buffer, std::size_t buffer_length) : tmpBuffer(NULL), payload_length_(length::get_payload_length(buffer_length)) {
+  packet(const char* buffer, const std::size_t buffer_length) : tmpBuffer(NULL), payload_length_(length::get_payload_length(buffer_length)) {
     readFrom(buffer, buffer_length);
   };
   packet(short type, short version, int16_t result, std::string payLoad, std::size_t payload_length)
@@ -129,14 +129,14 @@ class packet /*: public boost::noncopyable*/ {
         crc32_(0),
         calculatedCRC32_(0) {}
   packet()
-      : tmpBuffer(NULL),
-        payload_length_(nrpe::length::get_payload_length()),
-        type_(nrpe::data::unknownPacket),
-        version_(nrpe::data::version2),
+      : tmpBuffer(nullptr),
+        payload_length_(length::get_payload_length()),
+        type_(data::unknownPacket),
+        version_(data::version2),
         result_(0),
         crc32_(0),
         calculatedCRC32_(0) {}
-  packet(const packet& other) : tmpBuffer(NULL) {
+  packet(const packet& other) : tmpBuffer(nullptr) {
     payload_ = other.payload_;
     type_ = other.type_;
     version_ = other.version_;
@@ -146,7 +146,7 @@ class packet /*: public boost::noncopyable*/ {
     payload_length_ = other.payload_length_;
   }
   packet& operator=(packet const& other) {
-    tmpBuffer = NULL;
+    tmpBuffer = nullptr;
     payload_ = other.payload_;
     type_ = other.type_;
     version_ = other.version_;
@@ -157,39 +157,39 @@ class packet /*: public boost::noncopyable*/ {
     return *this;
   }
 
-  static packet unknown_response(std::string message) { return packet(nrpe::data::responsePacket, nrpe::data::version2, 3, message, 0); }
+  static packet unknown_response(std::string message) { return packet(data::responsePacket, data::version2, 3, message, 0); }
 
   ~packet() { delete[] tmpBuffer; }
   static packet make_request(std::string payload, unsigned int buffer_length, short version) {
     if (version != 2 && version != 4) {
-      throw nrpe::nrpe_exception("Invalid NRPE version: " + str::xtos(version) + ", expected 2 or 4");
+      throw nrpe_exception("Invalid NRPE version: " + str::xtos(version) + ", expected 2 or 4");
     }
-    return packet(nrpe::data::queryPacket, version, -1, payload, buffer_length);
+    return packet(data::queryPacket, version, -1, payload, buffer_length);
   }
-  static char* payload_offset(nrpe::data::packet_v2* p) { return &reinterpret_cast<char*>(p)[nrpe::data::buffer_offset_v2]; }
-  static const char* payload_offset(const nrpe::data::packet_v2* p) { return &reinterpret_cast<const char*>(p)[nrpe::data::buffer_offset_v2]; }
-  static const char* payload_offset(const nrpe::data::packet_v3* p) { return &reinterpret_cast<const char*>(p)[nrpe::data::buffer_offset_v3]; }
-  static void update_payload(nrpe::data::packet_v2* p, const std::string& payload) {
+  static char* payload_offset(data::packet_v2* p) { return &reinterpret_cast<char*>(p)[data::buffer_offset_v2]; }
+  static const char* payload_offset(const data::packet_v2* p) { return &reinterpret_cast<const char*>(p)[data::buffer_offset_v2]; }
+  static const char* payload_offset(const data::packet_v3* p) { return &reinterpret_cast<const char*>(p)[data::buffer_offset_v3]; }
+  static void update_payload(data::packet_v2* p, const std::string& payload) {
     char* data = payload_offset(p);
     strncpy(data, payload.c_str(), payload.length());
     data[payload.length()] = 0;
   }
-  static void update_payload(nrpe::data::packet_v3* p, const std::string& payload) {
+  static void update_payload(data::packet_v3* p, const std::string& payload) {
     char* data = &p->buffer[0];
     strncpy(data, payload.c_str(), payload.length());
     data[payload.length()] = 0;
   }
-  static std::string fetch_payload(const nrpe::data::packet_v2* p) {
+  static std::string fetch_payload(const data::packet_v2* p) {
     const char* data = payload_offset(p);
     return std::string(data);
   }
-  static std::string fetch_payload(const nrpe::data::packet_v3* p) {
+  static std::string fetch_payload(const data::packet_v3* p) {
     const char* data = payload_offset(p);
     return std::string(data);
   }
 
   buffer_holder create_buffer() {
-    if (version_ == nrpe::data::version2) {
+    if (version_ == data::version2) {
       return create_buffer_v2();
     }
     return create_buffer_v3();
@@ -197,15 +197,15 @@ class packet /*: public boost::noncopyable*/ {
 
   buffer_holder create_buffer_v2() {
     delete[] tmpBuffer;
-    std::size_t packet_length = nrpe::length::get_packet_length_v2(payload_length_);
+    std::size_t packet_length = length::get_packet_length_v2(payload_length_);
     tmpBuffer = new char[packet_length + 1];
     memset(tmpBuffer, 0, packet_length + 1);
-    nrpe::data::packet_v2* p = reinterpret_cast<nrpe::data::packet_v2*>(tmpBuffer);
+    data::packet_v2* p = reinterpret_cast<data::packet_v2*>(tmpBuffer);
     p->result_code = swap_bytes::hton<int16_t>(result_);
     p->packet_type = swap_bytes::hton<int16_t>(type_);
     p->packet_version = swap_bytes::hton<int16_t>(version_);
     if (payload_.length() >= payload_length_) {
-      throw nrpe::nrpe_exception("To much data cant create return packet (truncate data)");
+      throw nrpe_exception("To much data cant create return packet (truncate data)");
     }
     update_payload(p, payload_);
     p->crc32_value = 0;
@@ -215,10 +215,10 @@ class packet /*: public boost::noncopyable*/ {
   buffer_holder create_buffer_v3() {
     delete[] tmpBuffer;
     std::size_t len = payload_.length();
-    std::size_t packet_length = version_ == nrpe::data::version3 ? nrpe::length::get_packet_length_v3(len) : nrpe::length::get_packet_length_v4(len);
+    std::size_t packet_length = version_ == data::version3 ? length::get_packet_length_v3(len) : length::get_packet_length_v4(len);
     tmpBuffer = new char[packet_length + 1];
     memset(tmpBuffer, 0, packet_length + 1);
-    nrpe::data::packet_v3* p = reinterpret_cast<nrpe::data::packet_v3*>(tmpBuffer);
+    data::packet_v3* p = reinterpret_cast<data::packet_v3*>(tmpBuffer);
     p->result_code = swap_bytes::hton<int16_t>(result_);
     p->packet_type = swap_bytes::hton<int16_t>(type_);
     p->packet_version = swap_bytes::hton<int16_t>(version_);
@@ -238,12 +238,12 @@ class packet /*: public boost::noncopyable*/ {
 
   void readFrom(const char* buffer, std::size_t length) {
     if (buffer == NULL) {
-      throw nrpe::nrpe_exception("No buffer.");
+      throw nrpe_exception("No buffer.");
     }
-    if (length < nrpe::length::get_min_header_length()) {
-      throw nrpe::nrpe_exception("Packet to short to determine version: " + str::xtos(length) + " < " + str::xtos(nrpe::length::get_min_header_length()));
+    if (length < length::get_min_header_length()) {
+      throw nrpe_exception("Packet to short to determine version: " + str::xtos(length) + " < " + str::xtos(length::get_min_header_length()));
     }
-    const nrpe::data::packet_header* p = reinterpret_cast<const nrpe::data::packet_header*>(buffer);
+    const data::packet_header* p = reinterpret_cast<const data::packet_header*>(buffer);
     int version = swap_bytes::ntoh<int16_t>(p->packet_version);
     if (version == 3 || version == 4) {
       readFromV3(buffer, length);
@@ -256,26 +256,26 @@ class packet /*: public boost::noncopyable*/ {
       throw nrpe_exception("Invalid packet length: " + str::xtos(length) + " != " + str::xtos(get_packet_length_v2()) +
                            " configured payload is: " + str::xtos(get_payload_length()));
     }
-    const nrpe::data::packet_v2* p = reinterpret_cast<const nrpe::data::packet_v2*>(buffer);
+    const data::packet_v2* p = reinterpret_cast<const data::packet_v2*>(buffer);
     type_ = swap_bytes::ntoh<int16_t>(p->packet_type);
-    if (type_ != nrpe::data::queryPacket && type_ != nrpe::data::responsePacket && type_ != nrpe::data::moreResponsePacket) {
-      throw nrpe::nrpe_exception("Invalid packet type: " + str::xtos(type_));
+    if (type_ != data::queryPacket && type_ != data::responsePacket && type_ != data::moreResponsePacket) {
+      throw nrpe_exception("Invalid packet type: " + str::xtos(type_));
     }
     version_ = swap_bytes::ntoh<int16_t>(p->packet_version);
-    if (version_ != nrpe::data::version2) {
-      throw nrpe::nrpe_exception("Invalid packet version: " + str::xtos(version_));
+    if (version_ != data::version2) {
+      throw nrpe_exception("Invalid packet version: " + str::xtos(version_));
     }
     crc32_ = swap_bytes::ntoh<uint32_t>(p->crc32_value);
     // Verify CRC32
     // @todo Fix this, currently we need a const buffer so we cannot change the CRC to 0.
     char* tb = new char[length + 1];
     memcpy(tb, buffer, length);
-    nrpe::data::packet_v2* p2 = reinterpret_cast<nrpe::data::packet_v2*>(tb);
+    data::packet_v2* p2 = reinterpret_cast<data::packet_v2*>(tb);
     p2->crc32_value = 0;
     calculatedCRC32_ = calculate_crc32(tb, static_cast<int>(get_packet_length_v2()));
     delete[] tb;
     if (crc32_ != calculatedCRC32_) {
-      throw nrpe::nrpe_exception("Invalid checksum in NRPE packet: " + str::xtos(crc32_) + "!=" + str::xtos(calculatedCRC32_));
+      throw nrpe_exception("Invalid checksum in NRPE packet: " + str::xtos(crc32_) + "!=" + str::xtos(calculatedCRC32_));
     }
     // Verify CRC32 end
     result_ = swap_bytes::ntoh<int16_t>(p->result_code);
@@ -283,26 +283,26 @@ class packet /*: public boost::noncopyable*/ {
   }
 
   void readFromV3(const char* buffer, std::size_t length) {
-    if (length < nrpe::length::get_packet_length_v3(0)) {
-      throw nrpe::nrpe_exception("Invalid packet length: " + str::xtos(length) + " < " + str::xtos(nrpe::length::get_packet_length_v3(0)));
+    if (length < length::get_packet_length_v3(0)) {
+      throw nrpe_exception("Invalid packet length: " + str::xtos(length) + " < " + str::xtos(length::get_packet_length_v3(0)));
     }
 
-    const nrpe::data::packet_v3* p = reinterpret_cast<const nrpe::data::packet_v3*>(buffer);
+    const data::packet_v3* p = reinterpret_cast<const data::packet_v3*>(buffer);
     type_ = swap_bytes::ntoh<int16_t>(p->packet_type);
-    if (type_ != nrpe::data::queryPacket && type_ != nrpe::data::responsePacket && type_ != nrpe::data::moreResponsePacket) {
-      throw nrpe::nrpe_exception("Invalid packet type: " + str::xtos(type_));
+    if (type_ != data::queryPacket && type_ != data::responsePacket && type_ != data::moreResponsePacket) {
+      throw nrpe_exception("Invalid packet type: " + str::xtos(type_));
     }
     version_ = swap_bytes::ntoh<int16_t>(p->packet_version);
     if (version_ != 3 && version_ != 4) {
-      throw nrpe::nrpe_exception("Invalid packet version: " + str::xtos(version_));
+      throw nrpe_exception("Invalid packet version: " + str::xtos(version_));
     }
     std::size_t payload_length = swap_bytes::ntoh<int32_t>(p->buffer_length);
     if (payload_length < 0 || payload_length > 1024 * 1024) {
-      throw nrpe::nrpe_exception("Invalid packet length specified: " + str::xtos(payload_length));
+      throw nrpe_exception("Invalid packet length specified: " + str::xtos(payload_length));
     }
-    std::size_t source_data_length = version_ == 4 ? nrpe::length::get_packet_length_v4(payload_length) : nrpe::length::get_packet_length_v3(payload_length);
+    std::size_t source_data_length = version_ == 4 ? length::get_packet_length_v4(payload_length) : length::get_packet_length_v3(payload_length);
     if (length < source_data_length) {
-      throw nrpe::nrpe_exception("Invalid packet length: " + str::xtos(length) + " != " + str::xtos(source_data_length));
+      throw nrpe_exception("Invalid packet length: " + str::xtos(length) + " != " + str::xtos(source_data_length));
     }
 
     crc32_ = swap_bytes::ntoh<uint32_t>(p->crc32_value);
@@ -310,13 +310,13 @@ class packet /*: public boost::noncopyable*/ {
     // @todo Fix this, currently we need a const buffer so we cannot change the CRC to 0.
     char* tb = new char[length + 1];
     memcpy(tb, buffer, length);
-    nrpe::data::packet_v3* p2 = reinterpret_cast<nrpe::data::packet_v3*>(tb);
+    data::packet_v3* p2 = reinterpret_cast<data::packet_v3*>(tb);
     p2->crc32_value = 0;
     p2->alignment = 0;
     calculatedCRC32_ = calculate_crc32(tb, static_cast<int>(source_data_length));
     delete[] tb;
     if (crc32_ != calculatedCRC32_) {
-      throw nrpe::nrpe_exception("Invalid checksum in NRPE packet: " + str::xtos(crc32_) + "!=" + str::xtos(calculatedCRC32_));
+      throw nrpe_exception("Invalid checksum in NRPE packet: " + str::xtos(crc32_) + "!=" + str::xtos(calculatedCRC32_));
     }
     // Verify CRC32 end
     result_ = swap_bytes::ntoh<int16_t>(p->result_code);
@@ -328,7 +328,7 @@ class packet /*: public boost::noncopyable*/ {
   unsigned short getResult() const { return result_; }
   std::string getPayload() const { return payload_; }
   bool verifyCRC() { return calculatedCRC32_ == crc32_; }
-  std::size_t get_packet_length_v2() const { return nrpe::length::get_packet_length_v2(payload_length_); }
+  std::size_t get_packet_length_v2() const { return length::get_packet_length_v2(payload_length_); }
   std::size_t get_payload_length() const { return payload_length_; }
 
   boost::asio::const_buffer to_buffers() {
@@ -344,11 +344,11 @@ class packet /*: public boost::noncopyable*/ {
     ss << ", payload: " << payload_;
     return ss.str();
   }
-  static nrpe::packet create_response(unsigned short version, int ret, std::string string, std::size_t buffer_length) {
-    return packet(nrpe::data::responsePacket, version, static_cast<int16_t>(ret), string, buffer_length);
+  static packet create_response(unsigned short version, int ret, std::string string, std::size_t buffer_length) {
+    return packet(data::responsePacket, version, static_cast<int16_t>(ret), string, buffer_length);
   }
-  static nrpe::packet create_more_response(int ret, std::string string, std::size_t buffer_length) {
-    return packet(nrpe::data::moreResponsePacket, nrpe::data::version2, static_cast<int16_t>(ret), string, buffer_length);
+  static packet create_more_response(int ret, std::string string, std::size_t buffer_length) {
+    return packet(data::moreResponsePacket, data::version2, static_cast<int16_t>(ret), string, buffer_length);
   }
 };
 }  // namespace nrpe

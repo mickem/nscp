@@ -28,12 +28,12 @@ class check_nt_exception {
   std::wstring error_;
 
  public:
-  check_nt_exception(std::wstring error) : error_(error) {}
+  explicit check_nt_exception(const std::wstring& error) : error_(error) {}
   std::wstring getMessage() { return error_; }
 };
 class check_nt_packet_exception : public check_nt_exception {
  public:
-  check_nt_packet_exception(std::wstring error) : check_nt_exception(error) {}
+  explicit check_nt_packet_exception(const std::wstring& error) : check_nt_exception(error) {}
 };
 
 class packet /*: public boost::noncopyable*/ {
@@ -59,7 +59,7 @@ class packet /*: public boost::noncopyable*/ {
 
   std::size_t get_packet_length() const { return data_.length(); }
   boost::asio::const_buffer to_buffers() const { return boost::asio::buffer(get_buffer(), get_packet_length()); }
-  std::string to_string() {
+  std::string to_string() const {
     std::stringstream ss;
     ss << "data: " << data_;
     return ss.str();

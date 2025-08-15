@@ -25,10 +25,10 @@
 #include <string>
 #include <vector>
 
-class CheckHelpers : public nscapi::impl::simple_plugin {
+class CheckHelpers final : public nscapi::impl::simple_plugin {
  public:
   CheckHelpers() {}
-  virtual ~CheckHelpers() {}
+  ~CheckHelpers() {}
 
   // Check commands
   void check_critical(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
