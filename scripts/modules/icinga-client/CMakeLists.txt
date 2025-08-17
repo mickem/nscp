@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 
-SET(TARGET icinga-client)
+set(TARGET icinga-client)
 
-PROJECT(${TARGET})
+project(${TARGET})
 
-CREATE_ZIP_MODULE(${TARGET} ${CMAKE_CURRENT_SOURCE_DIR})
+create_zip_module(${TARGET} ${CMAKE_CURRENT_SOURCE_DIR})
 
-ADD_CUSTOM_TARGET(${TARGET} ALL DEPENDS ${BUILD_TARGET_LIB_PATH}/${TARGET}.zip)
+add_custom_target(${TARGET} ALL DEPENDS ${BUILD_TARGET_LIB_PATH}/${TARGET}.zip)

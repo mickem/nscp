@@ -12,7 +12,8 @@ set(miniz_SOURCE
     ../../ext/miniz/miniz_tinfl.c
     ../../ext/miniz/miniz_tinfl.h
     ../../ext/miniz/miniz_tdef.c
-    ../../ext/miniz/miniz_tdef.h)
+    ../../ext/miniz/miniz_tdef.h
+)
 
 add_library(${TARGET} STATIC ${miniz_SOURCE})
 

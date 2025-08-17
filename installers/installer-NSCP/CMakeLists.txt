@@ -17,12 +17,13 @@ set(SRCS
     ../common/web.wxs
     ../common/scripts.wxs
     ../common/op5_scripts.wxs
-    ../common/op5_config.wxs)
+    ../common/op5_config.wxs
+)
 if(USE_STATIC_RUNTIME)
-  set(RUNTIME "static")
+    set(RUNTIME "static")
 else(USE_STATIC_RUNTIME)
-  set(SRCS ${SRCS} RUNTIME_DLL.wxs)
-  set(RUNTIME "dynamic")
+    set(SRCS ${SRCS} RUNTIME_DLL.wxs)
+    set(RUNTIME "dynamic")
 endif(USE_STATIC_RUNTIME)
 
 # GET_FILENAME_COMPONENT(_tmp_FILE WixUI_en-us.wxl ABSOLUTE)
@@ -31,21 +32,21 @@ set(LOCALIZATIONS en-us)
 
 set(ARCH x86)
 if(CMAKE_CL_64)
-  set(ARCH x64)
+    set(ARCH x64)
 endif(CMAKE_CL_64)
 
 wix_find_merge_module(CRT_MERGE_MODULE "Microsoft_VC143_CRT")
 message(STATUS "CRT_MERGE_MODULE: ${CRT_MERGE_MODULE}")
 if(NOT CRT_MERGE_MODULE)
-  message(WARNING "CRT_MERGE_MODULE not found: ${CRT_MERGE_MODULE}")
+    message(WARNING "CRT_MERGE_MODULE not found: ${CRT_MERGE_MODULE}")
 endif(NOT CRT_MERGE_MODULE)
 
 if(OPENSSL_INCLUDE_DIR MATCHES ".*1\\.1\\.0.*")
-  set(MSI_OPENSSL_CRYPTO libcrypto-1_1-x64.dll)
-  set(MSI_OPENSSL_LIB libssl-1_1-x64.dll)
+    set(MSI_OPENSSL_CRYPTO libcrypto-1_1-x64.dll)
+    set(MSI_OPENSSL_LIB libssl-1_1-x64.dll)
 else()
-  set(MSI_OPENSSL_CRYPTO libeay32.dll)
-  set(MSI_OPENSSL_LIB ssleay32.dll)
+    set(MSI_OPENSSL_CRYPTO libeay32.dll)
+    set(MSI_OPENSSL_LIB ssleay32.dll)
 endif()
 
 set(WIX_CANDLE_FLAGS
@@ -76,26 +77,28 @@ set(WIX_CANDLE_FLAGS
     -dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
     -dCRTMergeModule=${CRT_MERGE_MODULE}
     -dRuntime=${RUNTIME}
-    -dWixUILicenseRtf=${CMAKE_CURRENT_SOURCE_DIR}/License.rtf)
+    -dWixUILicenseRtf=${CMAKE_CURRENT_SOURCE_DIR}/License.rtf
+)
 source_group(Generated FILES ${SRCS})
 # set_source_files_properties(${WIXOBJ_LIST} ${WIX_DEST} PROPERTIES GENERATED 1)
 
 source_group(Sources FILES ${SRCS})
 add_wix_installer(${ALIAS} "${SRCS}" "${DEPENDENCIES}" "${LOCALIZATIONS}")
 add_dependencies(
-  ${TARGET}
-  ${MAIN_NSCP_TARGET}
-  ${ALL_MODULE_NAMES}
-  ${ALL_ZIP_MODULES}
-  ${ALL_TOOL_NAMES}
-  ${DEPENDENCIES}
-  ${ALL_CLIENT_NAMES}
-  copy_files
-  build_docs_html
-  copy_scripts
-  copy_resources
-  copy_op5_config
-  copy_op5_scripts)
+    ${TARGET}
+    ${MAIN_NSCP_TARGET}
+    ${ALL_MODULE_NAMES}
+    ${ALL_ZIP_MODULES}
+    ${ALL_TOOL_NAMES}
+    ${DEPENDENCIES}
+    ${ALL_CLIENT_NAMES}
+    copy_files
+    build_docs_html
+    copy_scripts
+    copy_resources
+    copy_op5_config
+    copy_op5_scripts
+)
 
 set_target_properties(${TARGET} PROPERTIES EXCLUDE_FROM_ALL true)
 set_target_properties(${TARGET} PROPERTIES FOLDER "installers")

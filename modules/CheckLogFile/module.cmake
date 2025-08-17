@@ -1,5 +1,5 @@
 if(APPLE)
-  set(BUILD_MODULE_SKIP_REASON "Not supported on Apple")
+    set(BUILD_MODULE_SKIP_REASON "Not supported on Apple")
 else(APPLE)
-  set(BUILD_MODULE 1)
+    set(BUILD_MODULE 1)
 endif(APPLE)

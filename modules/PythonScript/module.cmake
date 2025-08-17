@@ -1,5 +1,5 @@
 if(Python3_Development_FOUND)
-  set(BUILD_MODULE 1)
+    set(BUILD_MODULE 1)
 else()
-  message(STATUS "Disabling PythonScript since Python was not found")
+    message(STATUS "Disabling PythonScript since Python was not found")
 endif()

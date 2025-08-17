@@ -13,33 +13,35 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/utils.cpp
     ${NSCP_DEF_PLUGIN_CPP}
-    ${NSCP_CLIENT_CPP})
+    ${NSCP_CLIENT_CPP}
+)
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
 if(OPENSSL_FOUND)
-  add_definitions(-DUSE_SSL)
-  set(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
-  if(WIN32)
-    set(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32)
-  endif(WIN32)
-  include_directories(${OPENSSL_INCLUDE_DIR})
+    add_definitions(-DUSE_SSL)
+    set(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
+    if(WIN32)
+        set(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32)
+    endif(WIN32)
+    include_directories(${OPENSSL_INCLUDE_DIR})
 endif(OPENSSL_FOUND)
 
 if(WIN32)
-  set(SRCS
-      ${SRCS}
-      "${TARGET}.h"
-      nsca_client.hpp
-      nsca_handler.hpp
-      ${NSCP_INCLUDEDIR}/nsca/nsca_packet.hpp
-      ${NSCP_INCLUDEDIR}/nsca/client/nsca_client_protocol.hpp
-      ${NSCP_INCLUDEDIR}/nscpcrypt/nscpcrypt.hpp
-      ${NSCP_INCLUDEDIR}/swap_bytes.hpp
-      ${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
-      ${NSCP_INCLUDEDIR}/socket/client.hpp
-      ${NSCP_INCLUDEDIR}/utils.h
-      ${NSCP_DEF_PLUGIN_HPP}
-      ${NSCP_CLIENT_HPP})
+    set(SRCS
+        ${SRCS}
+        "${TARGET}.h"
+        nsca_client.hpp
+        nsca_handler.hpp
+        ${NSCP_INCLUDEDIR}/nsca/nsca_packet.hpp
+        ${NSCP_INCLUDEDIR}/nsca/client/nsca_client_protocol.hpp
+        ${NSCP_INCLUDEDIR}/nscpcrypt/nscpcrypt.hpp
+        ${NSCP_INCLUDEDIR}/swap_bytes.hpp
+        ${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+        ${NSCP_INCLUDEDIR}/socket/client.hpp
+        ${NSCP_INCLUDEDIR}/utils.h
+        ${NSCP_DEF_PLUGIN_HPP}
+        ${NSCP_CLIENT_HPP}
+    )
 endif(WIN32)
 
 add_library(${TARGET} MODULE ${SRCS})
@@ -47,13 +49,14 @@ nscp_debug_symbols(${TARGET})
 openssl_link_fix(${TARGET})
 
 target_link_libraries(
-  ${TARGET}
-  ${Boost_FILESYSTEM_LIBRARY}
-  ${Boost_PROGRAM_OPTIONS_LIBRARY}
-  ${NSCP_DEF_PLUGIN_LIB}
-  ${CRYPTOPP_LIBRARIES}
-  ${EXTRA_LIBS}
-  nscpcrypt)
+    ${TARGET}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${NSCP_DEF_PLUGIN_LIB}
+    ${CRYPTOPP_LIBRARIES}
+    ${EXTRA_LIBS}
+    nscpcrypt
+)
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("Client" REGULAR_EXPRESSION .*include/nsca/.*)
 source_group("Socket" REGULAR_EXPRESSION .*include/socket/.*)
