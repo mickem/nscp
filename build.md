@@ -29,6 +29,8 @@ set BUILD_FOLDER=<where you build everything, this is likely an empty folder>
 set NSCP_VERSION=<This is normally read from git>
 # Ensure we configure Visual Studio to use 14.16 (v141) which is the toolset which support building XP binaries
 "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64 -vcvars_ver=14.16
+mkdir %BUILD_FOLDER%
+mkdir %BUILD_FOLDER%\nscp
 ```
 
 ## Libraries
@@ -143,6 +145,17 @@ mkdir installer_lib
 cd installer_lib 
 cmake %SOURCE_ROOT%/installer_lib -T v141 -G "Visual Studio 17" -A x64 -DBOOST_ROOT=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static -DBOOST_LIBRARYDIR=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static/stage/lib -DOPENSSL_ROOT_DIR=%BUILD_FOLDER%\openssl-%OPENSSL_VERSION% -DBUILD_VERSION=%NSCP_VERSION% 
 msbuild installer_lib.sln /p:Configuration=Release /p:Platform=x64
+```
+
+## Build google test
+
+```commandline
+cd %BUILD_FOLDER%
+git clone --depth 1 --branch release-1.12.1 https://github.com/google/googletest.git
+cd googletest
+cmake -S . -B build -DCMAKE_INSTALL_PREFIX="C:/src/build/googletest/install" -DBUILD_SHARED_LIBS=ON -T v141
+cmake --build build --config Release --target install
+copy install\bin\*.dll %BUILD_FOLDER%\nscp
 ```
 
 ## Configure CMake

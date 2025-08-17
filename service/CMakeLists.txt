@@ -149,25 +149,21 @@ source_group("Settings" REGULAR_EXPRESSION .*include/settings/.*)
 # SOURCE_GROUP("Common Files" REGULAR_EXPRESSION .*include/.*)
 source_group("Log" REGULAR_EXPRESSION .*/logger/.*)
 
-if(GTEST_FOUND)
-    include_directories(${GTEST_INCLUDE_DIR})
-    set(TEST_SRCS
-        various_test.cpp
-        performance_data_test.cpp
-        cron_test.cpp
-        ../include/parsers/cron/cron_parser.hpp
-        ../include/nscapi/nscapi_protobuf_functions.cpp
-        ../include/nscapi/nscapi_protobuf_functions.hpp
-    )
-    nscp_make_exe_test(${TARGET}_test "${TEST_SRCS}")
-    nscp_add_test(${TARGET}_test ${TARGET}_test)
-    target_link_libraries(
-        ${TARGET}_test
-        ${GTEST_GTEST_LIBRARY}
-        ${GTEST_GTEST_MAIN_LIBRARY}
-        ${NSCP_DEF_PLUGIN_LIB}
-        ${EXTRA_LIBS}
-        ${Boost_DATE_TIME_LIBRARY}
-        settings_manager
-    )
-endif(GTEST_FOUND)
+add_executable(
+    ${TARGET}_test
+    various_test.cpp
+    performance_data_test.cpp
+    cron_test.cpp
+    ../include/parsers/cron/cron_parser.hpp
+    ../include/nscapi/nscapi_protobuf_functions.cpp
+    ../include/nscapi/nscapi_protobuf_functions.hpp
+)
+target_link_libraries(
+    ${TARGET}_test
+    GTest::gtest_main
+    ${NSCP_DEF_PLUGIN_LIB}
+    ${EXTRA_LIBS}
+    ${Boost_DATE_TIME_LIBRARY}
+    settings_manager
+)
+nscp_gtest_discover_tests(${TARGET}_test)

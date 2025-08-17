@@ -61,9 +61,7 @@ jobs:
 
     - name: Install boost
       run: |
-        sudo apt-get install -y libboost-all-dev
-        sudo apt-get install -y protobuf-compiler libprotobuf-dev
-        sudo apt-get install -y openssl libssl-dev
+        sudo apt-get install -y libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev
 
     - uses: DamianReeves/write-file-action@master
       name: Write NSClient++ cmake config

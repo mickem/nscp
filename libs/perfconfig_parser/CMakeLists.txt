@@ -18,15 +18,11 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     endif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
 endif(CMAKE_COMPILER_IS_GNUCXX)
 
-if(GTEST_FOUND)
-    include_directories(${GTEST_INCLUDE_DIR})
-    set(SRCS perfconfig_test.cpp)
-    nscp_make_exe_test(${TARGET}_test ${SRCS})
-    nscp_add_test(${TARGET}_test ${TARGET}_test)
-    target_link_libraries(
-        ${TARGET}_test
-        ${GTEST_GTEST_LIBRARY}
-        ${GTEST_GTEST_MAIN_LIBRARY}
-        ${TARGET}
-    )
-endif(GTEST_FOUND)
+add_executable(${TARGET}_test perfconfig_test.cpp)
+target_link_libraries(
+    ${TARGET}_test
+    GTest::gtest_main
+    ${GTEST_GTEST_MAIN_LIBRARY}
+    ${TARGET}
+)
+nscp_gtest_discover_tests(${TARGET}_test)
