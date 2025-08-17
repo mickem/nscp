@@ -1,5 +1,5 @@
 if(WIN32)
-  set(BUILD_MODULE 1)
+    set(BUILD_MODULE 1)
 else()
-  set(BUILD_MODULE_SKIP_REASON "Not supported on linux")
+    set(BUILD_MODULE_SKIP_REASON "Not supported on linux")
 endif()

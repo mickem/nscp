@@ -21,11 +21,20 @@ if %errorlevel% neq 0 (
 )
 del format-code.tmp
 
-rem dir /b/s CMakeLists.txt | sort > format-cmake.tmp
-rem dir /b/s *.cmake | sort >> format-cmake.tmp
-rem echo Formatting CMake files...
-rem for /f "delims=" %%f in (format-cmake.tmp) do (
-rem         echo %%f
-rem         gersemi -i %%f
-rem     )
-rem del format-cmake.tmp
+dir /b/s CMakeLists.txt | sort > format-cmake-0.tmp
+dir /b/s *.cmake | sort >> format-cmake-0.tmp
+copy /y NUL format-cmake.tmp
+for /f "delims=" %%f in ('findstr /v "gtest cmake-build miniz vagrant" format-cmake-0.tmp') do (
+    echo %%f >> format-cmake.tmp
+)
+if %errorlevel% neq 0 (
+    echo Error: Failed to create format-cmake.tmp.
+    exit /b %errorlevel%
+)
+del format-cmake-0.tmp
+echo Formatting CMake files...
+for /f "delims=" %%f in (format-cmake.tmp) do (
+        echo %%f
+        gersemi -i %%f
+    )
+del format-cmake.tmp

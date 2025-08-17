@@ -14,15 +14,19 @@ set(Boost_USE_STATIC_RUNTIME ON)
 find_package(Boost COMPONENTS system filesystem)
 if(Boost_FOUND)
     message(
-            STATUS " - boost found in: ${Boost_INCLUDE_DIRS} / ${Boost_LIBRARY_DIRS}")
+        STATUS
+        " - boost found in: ${Boost_INCLUDE_DIRS} / ${Boost_LIBRARY_DIRS}"
+    )
 else(Boost_FOUND)
     message(FATAL_ERROR " ! boost not found: BOOST_ROOT=${BOOST_ROOT}")
 endif(Boost_FOUND)
-SET(OPENSSL_USE_STATIC_LIBS TRUE)
+set(OPENSSL_USE_STATIC_LIBS TRUE)
 find_package(OpenSSL)
 if(OPENSSL_FOUND)
     message(
-            STATUS " - OpenSSL found in: ${OPENSSL_INCLUDE_DIR} / ${OPENSSL_LIBRARIES}")
+        STATUS
+        " - OpenSSL found in: ${OPENSSL_INCLUDE_DIR} / ${OPENSSL_LIBRARIES}"
+    )
 else(OPENSSL_FOUND)
     message(FATAL_ERROR " ! OpenSSL not found TODO=${OPENSSL_INCLUDE_DIR}")
 endif(OPENSSL_FOUND)
@@ -41,95 +45,143 @@ add_definitions(-DUNICODE -D_UNICODE -DBOOST_ALL_NO_LIB)
 set(BUILD_VERSION "0.4.0" CACHE STRING "The version of NSClient++")
 message(STATUS "BUILD_VERSION: ${BUILD_VERSION}")
 if("${BUILD_VERSION}" STREQUAL "0.4.0")
-  message(WARNING "Version not specified using incorrect version ${BUILD_VERSION}")
+    message(
+        WARNING
+        "Version not specified using incorrect version ${BUILD_VERSION}"
+    )
 endif()
 
 set(NSCP_LIB_VERSION "${BUILD_VERSION}")
 set(NSCP_FULL_VERSION "${BUILD_VERSION}")
 
 if("${BUILD_VERSION}" STREQUAL "")
-  message(FATAL_ERROR "No version specified")
+    message(FATAL_ERROR "No version specified")
 endif()
 if(BUILD_VERSION MATCHES ".*-.*")
-  # Parse 0.6.4-addedautomaticversionst2.8.70491e2f
-  message(STATUS "Parsing branch version: ${BUILD_VERSION}")
-  string(REGEX
-          REPLACE "([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)"
-          "\\1.\\2.\\3" NSCP_VERSION_NUMBER "${BUILD_VERSION}")
-  string(REGEX
-          REPLACE "([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)"
-          "\\5" VERSION_BUILD "${BUILD_VERSION}")
+    # Parse 0.6.4-addedautomaticversionst2.8.70491e2f
+    message(STATUS "Parsing branch version: ${BUILD_VERSION}")
+    string(
+        REGEX REPLACE
+        "([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)"
+        "\\1.\\2.\\3"
+        NSCP_VERSION_NUMBER
+        "${BUILD_VERSION}"
+    )
+    string(
+        REGEX REPLACE
+        "([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)"
+        "\\5"
+        VERSION_BUILD
+        "${BUILD_VERSION}"
+    )
 else()
-  # Parse 1.2.3
-  set(NSCP_VERSION_NUMBER ${BUILD_VERSION})
-  set(VERSION_BUILD 0)
+    # Parse 1.2.3
+    set(NSCP_VERSION_NUMBER ${BUILD_VERSION})
+    set(VERSION_BUILD 0)
 endif()
-message(STATUS "Version: ${BUILD_VERSION} decoded as ${NSCP_VERSION_NUMBER}.${VERSION_BUILD}")
-STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)" "\\1" VERSION_SERIES ${NSCP_VERSION_NUMBER})
-STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)" "\\2" VERSION_MAJOR ${NSCP_VERSION_NUMBER})
-STRING(REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)" "\\3" VERSION_MINOR ${NSCP_VERSION_NUMBER})
-message(STATUS "Version: ${NSCP_VERSION_NUMBER} decoded as ${VERSION_SERIES}.${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_BUILD}")
+message(
+    STATUS
+    "Version: ${BUILD_VERSION} decoded as ${NSCP_VERSION_NUMBER}.${VERSION_BUILD}"
+)
+string(
+    REGEX REPLACE
+    ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)"
+    "\\1"
+    VERSION_SERIES
+    ${NSCP_VERSION_NUMBER}
+)
+string(
+    REGEX REPLACE
+    ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)"
+    "\\2"
+    VERSION_MAJOR
+    ${NSCP_VERSION_NUMBER}
+)
+string(
+    REGEX REPLACE
+    ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)"
+    "\\3"
+    VERSION_MINOR
+    ${NSCP_VERSION_NUMBER}
+)
+message(
+    STATUS
+    "Version: ${NSCP_VERSION_NUMBER} decoded as ${VERSION_SERIES}.${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_BUILD}"
+)
 
 string(REPLACE "." "," NSCP_VERSION_COMMA ${NSCP_VERSION_NUMBER})
 string(TIMESTAMP NSCP_VERSION_DATE "%Y-%m-%d" UTC)
 if(WIN32)
-  set(VERSION_ARCH Win32)
-  if(CMAKE_CL_64)
-    set(VERSION_ARCH x64)
-  endif(CMAKE_CL_64)
+    set(VERSION_ARCH Win32)
+    if(CMAKE_CL_64)
+        set(VERSION_ARCH x64)
+    endif(CMAKE_CL_64)
 else(WIN32)
-  set(VERSION_ARCH Unknown)
+    set(VERSION_ARCH Unknown)
 endif(WIN32)
 
 set(INSTALL_FILES_BASE "")
 
 set(CONFIG_BOOT_CONF_LOCATION
-        "\${exe-path}/boot.ini"
-        CACHE
-        STRING
-        "Location of boot ini (the file which specified where to load the config)"
+    "\${exe-path}/boot.ini"
+    CACHE STRING
+    "Location of boot ini (the file which specified where to load the config)"
 )
 set(CONFIG_DEFAULT_CONF_LOCATION
-        "old"
-        CACHE STRING "Default configuration store")
+    "old"
+    CACHE STRING
+    "Default configuration store"
+)
 set(CONFIG_DEFAULT_CONF_INI_BASE
-        "ini://\${shared-path}/"
-        CACHE STRING "Base location for ini files")
-set(CONFIG_MODULE_FOLDER
-        "\${exe-path}/modules"
-        CACHE STRING "modules folder")
-set(CONFIG_WEB_FOLDER
-        "\${shared-path}/web"
-        CACHE STRING "web folder")
-set(CONFIG_SCRIPTS_FOLDER
-        "\${exe-path}/scripts"
-        CACHE STRING "script folder")
+    "ini://\${shared-path}/"
+    CACHE STRING
+    "Base location for ini files"
+)
+set(CONFIG_MODULE_FOLDER "\${exe-path}/modules" CACHE STRING "modules folder")
+set(CONFIG_WEB_FOLDER "\${shared-path}/web" CACHE STRING "web folder")
+set(CONFIG_SCRIPTS_FOLDER "\${exe-path}/scripts" CACHE STRING "script folder")
 set(CONFIG_CERT_FOLDER
-        "\${shared-path}/security"
-        CACHE STRING "securoty (certificates) folder")
+    "\${shared-path}/security"
+    CACHE STRING
+    "securoty (certificates) folder"
+)
 set(CONFIG_DEFAULT_CACHE_PATH
-        "\${shared-path}/cache"
-        CACHE STRING "Path for caching stuff")
-set(CONFIG_LOG_FOLDER
-        "\${shared-path}/log"
-        CACHE STRING "Path for log files")
+    "\${shared-path}/cache"
+    CACHE STRING
+    "Path for caching stuff"
+)
+set(CONFIG_LOG_FOLDER "\${shared-path}/log" CACHE STRING "Path for log files")
 set(CONFIG_DEFAULT_LOG_LOCATION
-        "\${exe-path}/nsclient.log"
-        CACHE STRING "PAth for log file")
+    "\${exe-path}/nsclient.log"
+    CACHE STRING
+    "PAth for log file"
+)
 set(CONFIG_DEFAULT_CONF_INI_LOCATION
-        "${CONFIG_DEFAULT_CONF_INI_BASE}nsclient.ini"
-        CACHE STRING "Default location for ini files")
+    "${CONFIG_DEFAULT_CONF_INI_BASE}nsclient.ini"
+    CACHE STRING
+    "Default location for ini files"
+)
 set(CONFIG_DEFAULT_CONF_REG_LOCATION
-        "registry://HKEY_LOCAL_MACHINE/software/NSClient++"
-        CACHE STRING "Default location for registry based settings")
+    "registry://HKEY_LOCAL_MACHINE/software/NSClient++"
+    CACHE STRING
+    "Default location for registry based settings"
+)
 set(CONFIG_DEFAULT_CONF_OLD_LOCATION
-        "old://\${exe-path}/nsc.ini"
-        CACHE STRING "Default location for old config file")
+    "old://\${exe-path}/nsc.ini"
+    CACHE STRING
+    "Default location for old config file"
+)
 
-configure_file(${NSCP_INCLUDEDIR}/config.h.in
-               ${PROJECT_BINARY_DIR}/include/config.h @ONLY)
-configure_file(${NSCP_INCLUDEDIR}/version.hpp.in
-               ${PROJECT_BINARY_DIR}/include/version.hpp @ONLY)
+configure_file(
+    ${NSCP_INCLUDEDIR}/config.h.in
+    ${PROJECT_BINARY_DIR}/include/config.h
+    @ONLY
+)
+configure_file(
+    ${NSCP_INCLUDEDIR}/version.hpp.in
+    ${PROJECT_BINARY_DIR}/include/version.hpp
+    @ONLY
+)
 
 include_directories(${OPENSSL_INCLUDE_DIR})
 add_definitions(-DUSE_SSL)
@@ -153,7 +205,8 @@ set(SRCS
     ${NSCP_ERROR_HPP}
     # Logger
     ${NSCP_INCLUDEDIR}/nsclient/logger/log_level.cpp
-    ${NSCP_INCLUDEDIR}/nsclient/logger/base_logger_impl.cpp)
+    ${NSCP_INCLUDEDIR}/nsclient/logger/base_logger_impl.cpp
+)
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
 
@@ -165,5 +218,12 @@ if(WIN32 AND NOT CMAKE_CL_64)
     openssl_link_fix(${TARGET})
 endif(WIN32 AND NOT CMAKE_CL_64)
 
-target_link_libraries(${TARGET} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${OPENSSL_LIBRARIES} CRYPT32 Msi.lib)
+target_link_libraries(
+    ${TARGET}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${OPENSSL_LIBRARIES}
+    CRYPT32
+    Msi.lib
+)
 # SET_LIBRARY_OUT_FOLDER_MODULE(${TARGET})

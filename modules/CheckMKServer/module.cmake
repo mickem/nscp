@@ -3,4 +3,3 @@ if(LUA_SOURCE_FOUND OR LUA_FOUND)
 else()
     message(STATUS "Disabling CheckMK since Lua was not found")
 endif()
-
