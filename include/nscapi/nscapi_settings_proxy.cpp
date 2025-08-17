@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf_settings.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
 

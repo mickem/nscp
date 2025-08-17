@@ -1,10 +1,8 @@
 #pragma once
 
-#include <boost/unordered_set.hpp>
 #include <nscapi/nscapi_protobuf_storage.hpp>
 #include <nsclient/logger/logger.hpp>
 
-#include "path_manager.hpp"
 #include "plugin_manager.hpp"
 #include "storage_manager.hpp"
 

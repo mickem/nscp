@@ -24,6 +24,7 @@
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <settings/client/settings_client_interface.hpp>
+#include <str/xtos.hpp>
 #include <string>
 
 namespace nscapi {

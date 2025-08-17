@@ -20,12 +20,9 @@
 #pragma once
 
 #include <pdh.h>
-#include <pdhmsg.h>
 
 #include <error/error.hpp>
-#include <list>
 #include <pdh/pdh_interface.hpp>
-#include <sstream>
 
 namespace PDH {
 class PDHCounter;

@@ -21,13 +21,11 @@
 
 #include <NSCAPI.h>
 
-#include <boost/algorithm/string.hpp>
 #include <dll/dll.hpp>
 #include <list>
 #include <nsclient/logger/logger.hpp>
 #include <set>
 #include <string>
-#include <utf8.hpp>
 
 #include "plugin_interface.hpp"
 #include "plugin_manager.hpp"

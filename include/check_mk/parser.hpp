@@ -20,7 +20,6 @@
 #pragma once
 
 #include <boost/noncopyable.hpp>
-#include <boost/tuple/tuple.hpp>
 #include <check_mk/data.hpp>
 
 namespace check_mk {

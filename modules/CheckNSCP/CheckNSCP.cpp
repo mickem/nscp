@@ -29,6 +29,7 @@
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>

@@ -22,8 +22,6 @@
 #include <algorithm>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/lexical_cast.hpp>
-#include <cctype>
-#include <functional>
 #include <utf8.hpp>
 
 namespace net {

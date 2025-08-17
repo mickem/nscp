@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
 #include <nrpe/packet.hpp>
 #include <socket/client.hpp>
 #include <socket/socket_helpers.hpp>

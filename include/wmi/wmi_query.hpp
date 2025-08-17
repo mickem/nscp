@@ -25,7 +25,6 @@
 #include <boost/lexical_cast.hpp>
 #include <error/error.hpp>
 #include <list>
-#include <str/xtos.hpp>
 #include <string>
 
 namespace wmi_impl {

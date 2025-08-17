@@ -23,6 +23,7 @@
 #include <list>
 #include <nscapi/dll_defines.hpp>
 #include <string>
+
 #ifdef WIN32
 #pragma warning(disable : 4251)
 #endif

@@ -19,7 +19,6 @@
 
 #include <boost/bind/bind.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
-#include <nscapi/macros.hpp>
 #include <scheduler/simple_scheduler.hpp>
 #include <utf8.hpp>
 

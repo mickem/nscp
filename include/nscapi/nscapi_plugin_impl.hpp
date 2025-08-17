@@ -21,6 +21,7 @@
 
 #include <boost/shared_ptr.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
+
 namespace nscapi {
 namespace impl {
 struct simple_plugin {

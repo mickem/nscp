@@ -25,7 +25,6 @@
 #include <list>
 #include <map>
 #include <settings/client/settings_client_interface.hpp>
-#include <settings/settings_core.hpp>
 #include <string>
 
 namespace nscapi {

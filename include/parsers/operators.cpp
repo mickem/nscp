@@ -18,7 +18,6 @@
  */
 
 #include <boost/algorithm/string.hpp>
-#include <boost/make_shared.hpp>
 #include <boost/optional.hpp>
 #include <boost/regex.hpp>
 #include <iostream>

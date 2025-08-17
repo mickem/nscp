@@ -25,7 +25,6 @@
 #include <str/xtos.hpp>
 #include <string>
 #include <swap_bytes.hpp>
-#include <types.hpp>
 
 namespace nrpe {
 class data {

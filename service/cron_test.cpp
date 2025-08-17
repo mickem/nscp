@@ -21,9 +21,7 @@
 
 #include <parsers/cron/cron_parser.hpp>
 #include <str/format.hpp>
-#include <str/utils.hpp>
 #include <string>
-#include <vector>
 
 TEST(cron, test_parse_simple) {
   cron_parser::schedule s = cron_parser::parse("0 0 1 1 0");
