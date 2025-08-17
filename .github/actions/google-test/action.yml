@@ -1,0 +1,88 @@
+name: google-test
+author: micha
+description: google-test
+inputs:
+  version:
+    description: The protobuf version to build
+    required: true
+  architecture:
+    description: The openssl architecture to build
+    required: true
+  runtime:
+    description: The openssl architecture to build
+    default: dynamic
+  toolset:
+    description: The toolset to use for building
+    required: true
+  target_folder:
+    description: Target folder to copy dll:s to (if building shared)
+    required: true
+
+outputs:
+  path:
+    description: The path to the openssl folder
+    value: ${{ steps.path.outputs.path }}
+  path_unix:
+    description: The path to the openssl folder
+    value: ${{ steps.path.outputs.path_unix }}
+runs:
+  using: composite
+  steps:
+    - name: Clone Google Test
+      working-directory: tmp
+      shell: bash
+      run: |
+        git clone --depth 1 --branch release-${{ inputs.version }} https://github.com/google/googletest.git
+    - id: setup
+      run: |
+        if ("${{ inputs.architecture }}" -eq "x64") {
+          echo "platform=x64" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "platform=Win32" >> $env:GITHUB_OUTPUT
+        }
+        if ("${{ inputs.runtime }}" -eq "dynamic") {
+          echo "shared_libs=TRUE" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "shared_libs=FALSE" >> $env:GITHUB_OUTPUT
+        }
+      
+
+      shell: pwsh
+    - name: Build Google Test
+      working-directory: tmp/googletest
+      shell: bash
+      run: |
+        DIR="$(pwd)/install"
+        cmake -S . -B build -DCMAKE_INSTALL_PREFIX="$DIR" -DBUILD_SHARED_LIBS=${{ steps.setup.outputs.shared_libs }} -T ${{ inputs.toolset }} -A ${{ steps.setup.outputs.platform }}
+
+    - name: Build Google Test
+      working-directory: tmp/googletest
+      shell: bash
+      run: |
+        cmake --build build --config Release --target install
+
+    - name: Build Google Test
+      working-directory: tmp/googletest
+      shell: bash
+      run: |
+        cmake --build build --config Release --target install
+
+    - name: Copy Google Test dlls
+      if: ${{ steps.setup.outputs.shared_libs == 'TRUE' }}
+      shell: bash
+      run: |
+        if [ -d "${{ inputs.target_folder }}" ]; then
+          cp tmp/googletest/install/bin/*.dll ${{ inputs.target_folder }}
+        else
+          echo "Target folder ${{ inputs.target_folder }} does not exist."
+          exit 1
+        fi
+
+    - id: path
+      working-directory: tmp/googletest/install
+      run: |
+        $path=$pwd.path
+        $path_unix=$pwd.path.replace('\','/')
+        echo "path=$path" >> $env:GITHUB_OUTPUT
+        echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
+      shell: pwsh

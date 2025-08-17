@@ -791,30 +791,19 @@ if(CRYPTOPP_CMAKE)
     set_target_properties(cryptlib PROPERTIES FOLDER "libraries")
 endif(CRYPTOPP_CMAKE)
 
-if(GTEST_FOUND AND (NOT GTEST_GTEST_FOUND OR NOT GTEST_GTEST_MAIN_FOUND))
-    message(STATUS " - google test++")
-    if(BUILD_SHARED_LIBS)
-        set(gtest_force_shared_crt ON CACHE BOOL "Override shared crt")
-    endif(BUILD_SHARED_LIBS)
-    set(OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-    set(BUILD_SHARED_LIBS OFF)
-    add_subdirectory(${GTEST_SRC_DIR} ${PROJECT_BINARY_DIR}/ext/gtest)
-    set(BUILD_SHARED_LIBS ${OLD_BUILD_SHARED_LIBS})
-    set_target_properties(gtest_main PROPERTIES FOLDER "libraries")
-    set_target_properties(gtest PROPERTIES FOLDER "libraries")
-    set_target_properties(
-        gtest_main
-        PROPERTIES COMPILE_DEFINITIONS "_VARIADIC_MAX=10"
-    )
-    set_target_properties(
-        gtest
-        PROPERTIES COMPILE_DEFINITIONS "_VARIADIC_MAX=10"
-    )
-    set(GTEST_GTEST_FOUND TRUE)
-    set(GTEST_GTEST_LIBRARY gtest)
-    set(GTEST_GTEST_MAIN_FOUND TRUE)
-    set(GTEST_GTEST_MAIN_LIBRARY gtest_main)
-endif()
+include(FetchContent)
+FetchContent_Declare(
+    googletest
+    URL
+        https://github.com/google/googletest/archive/refs/tags/release-1.12.1.zip
+)
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+set(INSTALL_GTEST OFF)
+FetchContent_MakeAvailable(googletest)
+include_directories(${GTEST_INCLUDE_DIR})
+enable_testing()
+include(GoogleTest)
 
 if(NETLIB_FOUND)
     if(NOT (Boost_VERSION LESS 105400))

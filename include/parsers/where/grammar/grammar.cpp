@@ -28,9 +28,9 @@
 #endif
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/phoenix/bind.hpp>
+#include <boost/phoenix/core.hpp>
 #include <boost/phoenix/object.hpp>
 #include <boost/phoenix/operator.hpp>
-#include <boost/phoenix/core.hpp>
 #ifdef WIN32
 #pragma warning(pop)
 #endif
