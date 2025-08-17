@@ -19,10 +19,10 @@
 
 #include "dll_plugin.h"
 
-#include "core_api.h"
-#include "NSCAPI.h"
-
 #include <str/xtos.hpp>
+
+#include "NSCAPI.h"
+#include "core_api.h"
 
 /**
  * Default c-tor
@@ -265,7 +265,9 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::handle_schedule(const char *dat
   }
 }
 
-NSCAPI::nagiosReturn nsclient::core::dll_plugin::handle_schedule(const std::string &request) { return handle_schedule(request.c_str(), static_cast<unsigned int>(request.size())); }
+NSCAPI::nagiosReturn nsclient::core::dll_plugin::handle_schedule(const std::string &request) {
+  return handle_schedule(request.c_str(), static_cast<unsigned int>(request.size()));
+}
 
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleNotification(const char *channel, std::string &request, std::string &reply) {
   char *buffer = NULL;
@@ -288,7 +290,9 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleNotification(const char *
   }
 }
 
-NSCAPI::nagiosReturn nsclient::core::dll_plugin::on_event(const std::string &request) { return on_event(request.c_str(), static_cast<unsigned int>(request.size())); }
+NSCAPI::nagiosReturn nsclient::core::dll_plugin::on_event(const std::string &request) {
+  return on_event(request.c_str(), static_cast<unsigned int>(request.size()));
+}
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::on_event(const char *request_buffer, const unsigned int request_buffer_len) {
   if (!isLoaded() || !loaded_ || fOnEvent == NULL) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
   try {
@@ -322,7 +326,9 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::fetchMetrics(char **returnBuffe
   }
 }
 
-NSCAPI::nagiosReturn nsclient::core::dll_plugin::submitMetrics(const std::string &request) { return submitMetrics(request.c_str(), static_cast<unsigned int>(request.size())); }
+NSCAPI::nagiosReturn nsclient::core::dll_plugin::submitMetrics(const std::string &request) {
+  return submitMetrics(request.c_str(), static_cast<unsigned int>(request.size()));
+}
 
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::submitMetrics(const char *buffer, const unsigned int buffer_len) {
   if (!isLoaded() || !loaded_ || fSubmitMetrics == NULL) throw plugin_exception(get_alias_or_name(), "Library is not loaded");

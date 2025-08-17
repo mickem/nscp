@@ -19,16 +19,14 @@
 
 #pragma once
 
-#include "plugin_interface.hpp"
-
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/thread.hpp>
 #include <nsclient/logger/logger.hpp>
-
 #include <str/xtos.hpp>
 #include <utf8.hpp>
 
-#include <boost/shared_ptr.hpp>
-#include <boost/thread.hpp>
-#include <boost/algorithm/string/case_conv.hpp>
+#include "plugin_interface.hpp"
 
 namespace nsclient {
 class commands : boost::noncopyable {

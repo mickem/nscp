@@ -17,10 +17,9 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <pid_file.hpp>
-
-#include <fstream>
 #include <boost/filesystem/operations.hpp>
+#include <fstream>
+#include <pid_file.hpp>
 
 #ifdef WIN32
 #include <process.h>

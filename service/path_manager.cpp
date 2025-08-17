@@ -1,17 +1,19 @@
 #include "path_manager.hpp"
 
-#include "../libs/settings_manager/settings_manager_impl.h"
-
 #include <config.h>
-#include <parsers/expression/expression.hpp>
 
+#include <parsers/expression/expression.hpp>
 #include <utf8.hpp>
+
+#include "../libs/settings_manager/settings_manager_impl.h"
 
 #ifdef WIN32
 #define WIN32_LEAN_AND_MEAN  // Exclude rarely-used stuff from Windows headers
+// clang-format off
 #include <Windows.h>
-#include <shellapi.h>
 #include <Shlobj.h>
+#include <shellapi.h>
+// clang-format on
 #endif
 
 #include <boost/filesystem.hpp>

@@ -1,8 +1,7 @@
 #include "plugin_cache.hpp"
 
-#include <str/xtos.hpp>
-
 #include <boost/thread/locks.hpp>
+#include <str/xtos.hpp>
 
 void nsclient::core::plugin_cache::add_plugins(const plugin_cache_list_type &item) {
   boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));

@@ -1,13 +1,11 @@
 #pragma once
 
-#include <nsclient/logger/logger.hpp>
-
-#include <boost/thread/mutex.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/shared_ptr.hpp>
-
-#include <string>
+#include <boost/thread/mutex.hpp>
 #include <map>
+#include <nsclient/logger/logger.hpp>
+#include <string>
 
 namespace nsclient {
 namespace core {

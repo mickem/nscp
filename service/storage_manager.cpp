@@ -1,16 +1,14 @@
 #include "storage_manager.hpp"
 
-#include <file_helpers.hpp>
-#include <str/xtos.hpp>
-
-#include <boost/thread/locks.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-
+#include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
-#include <google/protobuf/io/coded_stream.h>
 
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/thread/locks.hpp>
+#include <file_helpers.hpp>
 #include <fstream>
+#include <str/xtos.hpp>
 
 std::string mk_key(const std::string &plugin_name, const std::string &context, const std::string key = "") { return plugin_name + "." + context + "." + key; }
 

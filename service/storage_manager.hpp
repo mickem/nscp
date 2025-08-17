@@ -1,16 +1,14 @@
 #pragma once
 
-#include "plugin_interface.hpp"
-#include "path_manager.hpp"
-
-#include <nsclient/logger/logger.hpp>
-#include <nscapi/nscapi_protobuf_storage.hpp>
-
-#include <boost/thread/shared_mutex.hpp>
 #include <boost/optional.hpp>
-
-#include <string>
+#include <boost/thread/shared_mutex.hpp>
 #include <list>
+#include <nscapi/nscapi_protobuf_storage.hpp>
+#include <nsclient/logger/logger.hpp>
+#include <string>
+
+#include "path_manager.hpp"
+#include "plugin_interface.hpp"
 
 namespace nsclient {
 namespace core {

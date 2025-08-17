@@ -17,15 +17,13 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <parsers/cron/cron_parser.hpp>
+#include <gtest/gtest.h>
 
+#include <parsers/cron/cron_parser.hpp>
 #include <str/format.hpp>
 #include <str/utils.hpp>
-
-#include <vector>
 #include <string>
-
-#include <gtest/gtest.h>
+#include <vector>
 
 TEST(cron, test_parse_simple) {
   cron_parser::schedule s = cron_parser::parse("0 0 1 1 0");

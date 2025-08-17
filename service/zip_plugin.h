@@ -19,20 +19,18 @@
 
 #pragma once
 
-#include "plugin_interface.hpp"
-#include "plugin_manager.hpp"
-
-#include <utf8.hpp>
-
 #include <NSCAPI.h>
-#include <dll/dll.hpp>
-#include <nsclient/logger/logger.hpp>
 
 #include <boost/algorithm/string.hpp>
-
-#include <string>
+#include <dll/dll.hpp>
 #include <list>
+#include <nsclient/logger/logger.hpp>
 #include <set>
+#include <string>
+#include <utf8.hpp>
+
+#include "plugin_interface.hpp"
+#include "plugin_manager.hpp"
 
 /**
  * @ingroup NSClient++

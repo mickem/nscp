@@ -1,10 +1,10 @@
 #pragma once
 
-#include "nsclient_core_interface.hpp"
-
-#include <timer.hpp>
 #include <nscapi/nscapi_protobuf_settings.hpp>
 #include <nsclient/logger/logger.hpp>
+#include <timer.hpp>
+
+#include "nsclient_core_interface.hpp"
 
 namespace nsclient {
 

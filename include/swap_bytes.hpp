@@ -19,10 +19,9 @@
 
 #pragma once
 
-#include <network_types.hpp>
-
 #include <boost/static_assert.hpp>
 #include <boost/type_traits/is_arithmetic.hpp>
+#include <network_types.hpp>
 
 namespace swap_bytes {
 // this function swap the bytes of values given it's size as a template

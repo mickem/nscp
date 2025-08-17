@@ -19,9 +19,10 @@
 
 #pragma once
 
+#include <string.h>
+
 #include <buffer.hpp>
 #include <string>
-#include <string.h>
 
 namespace hlp {
 class tchar_buffer : public hlp::buffer<wchar_t> {

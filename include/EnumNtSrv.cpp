@@ -17,26 +17,21 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <win/windows.hpp>
-#include <win/winsvc.hpp>
-
 #include "EnumNtSrv.h"
 
-#include <buffer.hpp>
-#include <handle.hpp>
-
 #include <boost/unordered_map.hpp>
-
-#include <win_sysinfo/win_sysinfo.hpp>
-
-#include <utf8.hpp>
-#include <str/utils.hpp>
-#include <str/format.hpp>
-
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
+#include <buffer.hpp>
 #include <error/error.hpp>
+#include <handle.hpp>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nsclient/nsclient_exception.hpp>
+#include <str/format.hpp>
+#include <str/utils.hpp>
+#include <utf8.hpp>
+#include <win/windows.hpp>
+#include <win/winsvc.hpp>
+#include <win_sysinfo/win_sysinfo.hpp>
 
 typedef boost::unordered_map<std::string, std::string> hash_map;
 hash_map smap;

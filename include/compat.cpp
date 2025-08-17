@@ -18,10 +18,9 @@
  */
 
 #include <compat.hpp>
-
-#include <vector>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <vector>
 
 namespace compat {
 namespace po = boost::program_options;

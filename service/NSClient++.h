@@ -19,14 +19,14 @@
 
 #pragma once
 
-#include "nsclient_core_interface.hpp"
-#include "scheduler_handler.hpp"
-#include "plugin_cache.hpp"
-#include "plugin_manager.hpp"
-#include "storage_manager.hpp"
-
 #include <nsclient/logger/logger.hpp>
 #include <service/system_service.hpp>
+
+#include "nsclient_core_interface.hpp"
+#include "plugin_cache.hpp"
+#include "plugin_manager.hpp"
+#include "scheduler_handler.hpp"
+#include "storage_manager.hpp"
 
 class NSClientT;
 typedef service_helper::impl<NSClientT>::system_service NSClient;

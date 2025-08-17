@@ -17,22 +17,23 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "NSClient++.h"
+#include "core_api.h"
 
 #include <config.h>
-#include "core_api.h"
 #include <string.h>
-#include <settings/settings_core.hpp>
+
 #include <nscapi/nscapi_helper.hpp>
+#include <settings/settings_core.hpp>
+
+#include "NSClient++.h"
 #ifdef _WIN32
 #include <ServiceCmd.h>
 #endif
+#include <nscapi/nscapi_protobuf_settings.hpp>
 #include <nsclient/logger/logger.hpp>
 
-#include <nscapi/nscapi_protobuf_settings.hpp>
-
-#include "settings_query_handler.hpp"
 #include "registry_query_handler.hpp"
+#include "settings_query_handler.hpp"
 #include "storage_query_handler.hpp"
 
 #define LOG_ERROR(core, msg)                                    \

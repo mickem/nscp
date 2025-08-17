@@ -1,12 +1,11 @@
 #include "settings_query_handler.hpp"
 
-#include "../libs/settings_manager/settings_manager_impl.h"
-
-#include <nscapi/nscapi_protobuf_settings.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-
 #include <boost/json.hpp>
 #include <boost/unordered_set.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_settings.hpp>
+
+#include "../libs/settings_manager/settings_manager_impl.h"
 
 namespace json = boost::json;
 
@@ -98,7 +97,8 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
           t.end();
           boost::unordered_set<std::string> cache;
           for (const std::string &key : klist) {
-            settings::settings_core::key_description desc = settings_manager::get_core()->get_registered_key(path, key).get_value_or(settings::settings_core::key_description());
+            settings::settings_core::key_description desc =
+                settings_manager::get_core()->get_registered_key(path, key).get_value_or(settings::settings_core::key_description());
             if (plugin_id && !desc.has_plugin(*plugin_id)) continue;
             PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
             cache.emplace(key);
@@ -157,7 +157,8 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
         boost::unordered_set<std::string> cache;
         for (const std::string &key : list) {
           t.start("fetching keys");
-          settings::settings_core::key_description desc = settings_manager::get_core()->get_registered_key(path, key).get_value_or(settings::settings_core::key_description());
+          settings::settings_core::key_description desc =
+              settings_manager::get_core()->get_registered_key(path, key).get_value_or(settings::settings_core::key_description());
           if (plugin_id && !desc.has_plugin(*plugin_id)) continue;
           t.end();
           PB::Settings::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
@@ -273,7 +274,7 @@ void settings_query_handler::parse_registration(const PB::Settings::SettingsRequ
       auto value = json::parse(q.fields());
       if (value.is_object()) node = value.as_object();
     } catch (const std::exception &e) {
-      LOG_ERROR_CORE(std::string("Failed to process fields for ") + e.what() + " when parsing " +q.fields());
+      LOG_ERROR_CORE(std::string("Failed to process fields for ") + e.what() + " when parsing " + q.fields());
     } catch (...) {
       LOG_ERROR_CORE("Failed to process fields for ");
     }
@@ -288,8 +289,8 @@ void settings_query_handler::parse_registration(const PB::Settings::SettingsRequ
     std::string tplData = json::serialize(node);
     settings_manager::get_core()->register_tpl(plugin_id, q.node().path(), q.info().title(), tplData);
   } else if (!q.node().key().empty()) {
-    settings_manager::get_core()->register_key(plugin_id, q.node().path(), q.node().key(), q.info().type(), q.info().title(), q.info().description(), q.info().default_value(),
-                                               q.info().advanced(), q.info().sample());
+    settings_manager::get_core()->register_key(plugin_id, q.node().path(), q.node().key(), q.info().type(), q.info().title(), q.info().description(),
+                                               q.info().default_value(), q.info().advanced(), q.info().sample());
     if (q.info().is_sensitive()) {
       settings_manager::get_core()->add_sensitive_key(plugin_id, q.node().path(), q.node().key());
     }

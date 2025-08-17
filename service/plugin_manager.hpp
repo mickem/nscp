@@ -19,21 +19,20 @@
 
 #pragma once
 
-#include "master_plugin_list.hpp"
-#include "commands.hpp"
-#include "channels.hpp"
-#include "routers.hpp"
-#include "plugin_cache.hpp"
-#include "path_manager.hpp"
-
-#include <nsclient/logger/logger.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
-
-#include <boost/filesystem/path.hpp>
-#include <boost/optional.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/enable_shared_from_this.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/optional.hpp>
+#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <nsclient/logger/logger.hpp>
+
+#include "channels.hpp"
+#include "commands.hpp"
+#include "master_plugin_list.hpp"
+#include "path_manager.hpp"
+#include "plugin_cache.hpp"
+#include "routers.hpp"
 
 /**
  * @ingroup NSClient++
@@ -111,9 +110,9 @@ class plugin_manager : public boost::enable_shared_from_this<plugin_manager> {
   plugin_type only_load_module(const std::string &module, const std::string &alias, bool &loaded);
 
   plugin_type find_plugin(const unsigned int plugin_id);
-  bool remove_plugin(const std::string& name);
+  bool remove_plugin(const std::string &name);
   int clone_plugin(unsigned int plugin_id);
-  bool reload_plugin(const std::string& module);
+  bool reload_plugin(const std::string &module);
 
   typedef boost::function<int(plugin_type)> run_function;
   int load_and_run(std::string module, run_function fun, std::list<std::string> &errors);
@@ -136,11 +135,11 @@ class plugin_manager : public boost::enable_shared_from_this<plugin_manager> {
  private:
   typedef std::multimap<std::string, std::string> plugin_alias_list_type;
 
-  boost::optional<boost::filesystem::path> find_file(const std::string& file_name);
+  boost::optional<boost::filesystem::path> find_file(const std::string &file_name);
   bool contains_plugin(nsclient::core::plugin_manager::plugin_alias_list_type &ret, std::string alias, std::string plugin);
   std::string get_plugin_module_name(unsigned int plugin_id);
 
-  plugin_type add_plugin(const std::string& file_name, const std::string& alias);
+  plugin_type add_plugin(const std::string &file_name, const std::string &alias);
 
   plugin_alias_list_type find_all_plugins();
   plugin_alias_list_type find_all_active_plugins();
@@ -163,7 +162,7 @@ class plugin_manager : public boost::enable_shared_from_this<plugin_manager> {
   };
   plugin_status parse_plugin(std::string key);
 
-  static std::string get_plugin_file(const std::string& key) {
+  static std::string get_plugin_file(const std::string &key) {
 #ifdef WIN32
     return key + ".dll";
 #else
@@ -172,7 +171,7 @@ class plugin_manager : public boost::enable_shared_from_this<plugin_manager> {
   }
 
  public:
-  static bool is_module(const boost::filesystem::path& file) {
+  static bool is_module(const boost::filesystem::path &file) {
 #ifdef WIN32
     return boost::ends_with(file.string(), ".dll");
 #else

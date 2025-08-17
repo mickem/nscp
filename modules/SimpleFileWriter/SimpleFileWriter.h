@@ -24,8 +24,6 @@
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_protobuf_command.hpp>
 
-#include <list>
-
 struct config_object {
   std::string time_format;
 };

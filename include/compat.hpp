@@ -19,9 +19,9 @@
 
 #pragma once
 
-#include <string>
 #include <boost/program_options.hpp>
 #include <nscapi/nscapi_protobuf_command.hpp>
+#include <string>
 
 namespace compat {
 void log_args(const PB::Commands::QueryRequestMessage::Request &request);

@@ -18,10 +18,10 @@
  */
 
 #pragma once
-#include <vector>
+#include <map>
 #include <memory>
 #include <string>
-#include <map>
+#include <vector>
 
 namespace nsclient_session {
 class session_exception {
