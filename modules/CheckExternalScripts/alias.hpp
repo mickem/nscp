@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/bind/bind.hpp>
 #include <boost/shared_ptr.hpp>
 #include <nscapi/macros.hpp>

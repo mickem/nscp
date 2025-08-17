@@ -19,6 +19,9 @@
 
 #pragma once
 
+#include <exception>
+#include <string>
+
 namespace dll {
 class dll_exception final : public std::exception {
   std::string what_;

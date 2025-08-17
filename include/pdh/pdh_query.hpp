@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
 #include <list>
 #include <pdh/pdh_counters.hpp>
 #include <pdh/pdh_interface.hpp>

@@ -21,7 +21,6 @@
 
 #include <boost/shared_ptr.hpp>
 #include <boost/tuple/tuple.hpp>
-#include <list>
 #include <parsers/where/dll_defines.hpp>
 #include <parsers/where/node.hpp>
 #include <string>

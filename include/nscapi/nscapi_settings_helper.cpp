@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <boost/any.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
+#include <settings/settings_core.hpp>
 #include <utf8.hpp>
 
 namespace nscapi {

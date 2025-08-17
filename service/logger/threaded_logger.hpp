@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 #include <concurrent_queue.hpp>
 #include <nsclient/logger/base_logger_impl.hpp>

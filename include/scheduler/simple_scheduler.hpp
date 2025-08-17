@@ -21,7 +21,6 @@
 #include <boost/date_time/local_time/local_time.hpp>
 #include <boost/date_time/posix_time/ptime.hpp>
 #include <boost/date_time/time_duration.hpp>
-#include <boost/function.hpp>
 #include <boost/optional.hpp>
 #include <boost/thread.hpp>
 #include <boost/thread/shared_mutex.hpp>

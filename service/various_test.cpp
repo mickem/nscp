@@ -20,9 +20,7 @@
 #include <gtest/gtest.h>
 
 #include <str/format.hpp>
-#include <str/utils.hpp>
 #include <string>
-#include <vector>
 
 TEST(format, format_byte_units_units) {
   EXPECT_EQ(str::format::format_byte_units(0LL), "0B");

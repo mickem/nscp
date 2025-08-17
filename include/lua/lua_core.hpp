@@ -28,7 +28,6 @@ extern "C" {
 #include <lua/lua_script.hpp>
 #include <nscapi/nscapi_protobuf_command.hpp>
 #include <scripts/script_interface.hpp>
-#include <str/xtos.hpp>
 #include <string>
 
 namespace lua {

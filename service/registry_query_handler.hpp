@@ -1,7 +1,6 @@
 #pragma once
 
 #include <boost/unordered_set.hpp>
-#include <nscapi/nscapi_protobuf_registry.hpp>
 #include <nsclient/logger/logger.hpp>
 
 #include "path_manager.hpp"

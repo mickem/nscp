@@ -21,7 +21,6 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/function.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 #include <nsclient/logger/logger.hpp>
 #include <set>

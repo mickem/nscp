@@ -21,10 +21,8 @@
 
 #include <time.h>
 
-#include <boost/algorithm/string.hpp>
 #include <boost/date_time.hpp>
 #include <boost/lexical_cast.hpp>
-#include <cctype>
 #include <iomanip>
 #include <iostream>
 #include <list>
@@ -33,7 +31,6 @@
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
 #include <string>
-#include <utility>
 
 namespace str {
 namespace format {

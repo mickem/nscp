@@ -23,8 +23,6 @@
 
 #include <boost/algorithm/string.hpp>
 #include <dll/dll.hpp>
-#include <nsclient/logger/logger.hpp>
-#include <utf8.hpp>
 
 #include "plugin_interface.hpp"
 

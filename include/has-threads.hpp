@@ -1,8 +1,6 @@
 #ifndef HASTHREADS_H
 #define HASTHREADS_H
 
-#include <boost/function.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 #include <iostream>
 #include <set>

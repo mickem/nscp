@@ -20,7 +20,6 @@
 #pragma once
 
 #include <boost/shared_ptr.hpp>
-#include <nrpe/packet.hpp>
 #include <nsca/nsca_packet.hpp>
 #include <nscpcrypt/nscpcrypt.hpp>
 #include <socket/socket_helpers.hpp>
