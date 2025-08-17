@@ -1,110 +1,31 @@
-for %%f in (clients/nrpe
-		clients/nscp
-		include/b64
-		include/breakpad
-		include/check_mk
-		include/check_mk/client
-		include/check_mk/lua
-		include/check_mk/server
-		include/check_nt
-		include/check_nt/client
-		include/check_nt/server
-		include/client
-		include/clr
-		include/collectd
-		include/dll
-		include/error
-		include/file
-		include/http
-		include/lua
-		include/metrics
-		include/net
-		include/nrpe
-		include/nrpe/client
-		include/nrpe/server
-		include/nsca
-		include/nsca/client
-		include/nsca/server
-		include/nscapi
-		include/nsclient
-		include/nsclient/logger
-		include/nscpcrypt
-		include/parsers
-		include/parsers/cron
-		include/parsers/expression
-		include/parsers/filter
-		include/parsers/perfconfig
-		include/parsers/where
-		include/parsers/where/grammar
-		include/pdh
-		include/process
-		include/scheduler
-		include/scripts
-		include/service
-		include/settings
-		include/settings/client
-		include/settings/impl
-		include/simpleini
-		include/socket
-		include/socket/clients
-		include/socket/clients/http
-		include/str
-		include/threads
-		include/win
-		include/win_sysinfo
-		include/wmi
-		include/zip
-		installer_lib
-		libs/expression_parser
-		libs/lua_nscp
-		libs/minizip
-		libs/mongoose-cpp
-		libs/nscpcrypt
-		libs/perfconfig_parser
-		libs/plugin_api
-		libs/protobuf
-		libs/protobuf_net
-		libs/settings_manager
-		libs/where_filter
-		libs/win_sysinfo
-		modules/CauseCrashes
-		modules/CheckDisk
-		modules/CheckDocker
-		modules/CheckEventLog
-		modules/CheckExternalScripts
-		modules/CheckHelpers
-		modules/CheckLogFile
-		modules/CheckMKClient
-		modules/CheckMKServer
-		modules/CheckNet
-		modules/CheckNSCP
-		modules/CheckSystem
-		modules/CheckSystemUnix
-		modules/CheckTaskSched
-		modules/CheckWMI
-		modules/CollectdClient
-		modules/CommandClient
-		modules/ElasticClient
-		modules/GraphiteClient
-		modules/LUAScript
-		modules/NRDPClient
-		modules/NRPEClient
-		modules/NRPEServer
-		modules/NSCAClient
-		modules/NSCAServer
-		modules/NSClientServer
-		modules/NSCPClient
-		modules/Op5Client
-		modules/PythonScript
-		modules/SamplePluginSimple
-		modules/Scheduler
-		modules/SimpleCache
-		modules/SimpleFileWriter
-		modules/SMTPClient
-		modules/SyslogClient
-		modules/WEBServer
-		service/logger
-		service/res) do (
-		echo %%f
-		clang-format -i %%f/*.cpp %%f/*.hpp %%f/*.c %%f/*.h
-		)
+@echo off
+dir /b/s *.h *.hpp *.c *.cpp | sort > format-code-0.tmp
+copy /y NUL format-code.tmp
+for /f "delims=" %%f in ('findstr /v "_deps cmake-build managed miniz gtest CheckPowershell DotnetPlugins dotnet-plugin-api mongoose.c mongoose.h" format-code-0.tmp') do (
+    echo %%f >> format-code.tmp
+)
+if %errorlevel% neq 0 (
+    echo Error: Failed to create format-code.tmp.
+    exit /b %errorlevel%
+)
+del format-code-0.tmp
+echo Formatting code...
+
+for /f "delims=" %%f in (format-code.tmp) do (
+        echo %%f
+        clang-format -i %%f
+    )
+if %errorlevel% neq 0 (
+    echo Error: clang-format failed.
+    exit /b %errorlevel%
+)
+del format-code.tmp
+
+rem dir /b/s CMakeLists.txt | sort > format-cmake.tmp
+rem dir /b/s *.cmake | sort >> format-cmake.tmp
+rem echo Formatting CMake files...
+rem for /f "delims=" %%f in (format-cmake.tmp) do (
+rem         echo %%f
+rem         gersemi -i %%f
+rem     )
+rem del format-cmake.tmp

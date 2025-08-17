@@ -41,3 +41,5 @@ cmake-build
 
 
 build.cmake
+
+*.tmp
