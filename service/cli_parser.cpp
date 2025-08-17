@@ -18,18 +18,19 @@
  */
 
 #include "cli_parser.hpp"
-#include "NSClient++.h"
-#include "settings_client.hpp"
-#include "service_manager.hpp"
-#include "../libs/settings_manager/settings_manager_impl.h"
 
 #include <config.h>
+
 #include <nsclient/logger/logger.hpp>
+
+#include "../libs/settings_manager/settings_manager_impl.h"
+#include "NSClient++.h"
+#include "service_manager.hpp"
+#include "settings_client.hpp"
 #ifndef WIN32
 #include <pid_file.hpp>
 #endif
 #include <settings/settings_core.hpp>
-
 #include <str/format.hpp>
 
 #define LOG_MODULE "client"
@@ -288,7 +289,7 @@ int cli_parser::parse_settings(int argc, char *argv[]) {
       } else if (vm.count("update")) {
         std::string option = vm["update"].as<std::string>();
         ret = client.generate(option);
-       } else if (vm.count("migrate-to")) {
+      } else if (vm.count("migrate-to")) {
         ret = client.migrate_to(vm["migrate-to"].as<std::string>());
       } else if (vm.count("migrate-from")) {
         ret = client.migrate_from(vm["migrate-from"].as<std::string>());
@@ -447,7 +448,7 @@ struct client_arguments {
       return false;
     }
   }
-  int run_exec(NSClient *core_, const std::string& command, const std::vector<std::string>& arguments, std::list<std::string> &result) const {
+  int run_exec(NSClient *core_, const std::string &command, const std::vector<std::string> &arguments, std::list<std::string> &result) const {
     try {
       int ret = 0;
       ret = core_->get_plugin_manager()->simple_exec(module + "." + command, arguments, result);
@@ -479,7 +480,7 @@ struct client_arguments {
     }
   }
 
-  int run_query(NSClient *core_, const std::string& command, const std::vector<std::string> &arguments, std::list<std::string> &result) const {
+  int run_query(NSClient *core_, const std::string &command, const std::vector<std::string> &arguments, std::list<std::string> &result) const {
     try {
       int ret = 0;
       ret = core_->get_plugin_manager()->simple_query(module, command, arguments, result);
@@ -514,7 +515,7 @@ struct client_arguments {
   }
 };
 
-int cli_parser::parse_client(int argc, char *argv[], const std::string& module_) {
+int cli_parser::parse_client(int argc, char *argv[], const std::string &module_) {
   try {
     client_arguments args;
 
@@ -678,7 +679,7 @@ int cli_parser::parse_unittest(int argc, char *argv[]) {
       ret = args.run_query(core_, lang + "_unittest", empty, resp);
     }
     client_arguments::run_post(core_);
-    for (const std::string& r : resp) {
+    for (const std::string &r : resp) {
       std::cout << utf8::to_encoding(r, "") << std::endl;
     }
     return ret;
@@ -692,7 +693,7 @@ int cli_parser::parse_unittest(int argc, char *argv[]) {
   }
 }
 
-std::string cli_parser::get_description(const std::string& key) {
+std::string cli_parser::get_description(const std::string &key) {
   if (key == "settings") {
     return "Change and list settings as well as load and initialize modules.";
   } else if (key == "service") {
@@ -729,8 +730,8 @@ std::string cli_parser::get_description(const std::string& key) {
     return "TODO: describe: " + key;
   }
 }
-std::string cli_parser::describe(const std::string& key) { return key + "\n      " + get_description(key) + "\n"; }
-std::string cli_parser::describe(const std::string& key, const std::string& alias) {
+std::string cli_parser::describe(const std::string &key) { return key + "\n      " + get_description(key) + "\n"; }
+std::string cli_parser::describe(const std::string &key, const std::string &alias) {
   return key + "   (same as nscp client --module " + alias +
          ")"
          "\n      " +

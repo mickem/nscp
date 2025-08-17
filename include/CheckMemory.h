@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <win/windows.hpp>
 #include <error/error.hpp>
+#include <win/windows.hpp>
 
 typedef BOOL(WINAPI *PFGlobalMemoryStatusEx)(LPMEMORYSTATUSEX lpBuffer);
 typedef BOOL(WINAPI *PFGlobalMemoryStatus)(LPMEMORYSTATUS lpBuffer);

@@ -18,11 +18,10 @@
  */
 
 #pragma once
+#include <settings/settings_core.hpp>
 #include <string>
 
 #include "NSClient++.h"
-
-#include <settings/settings_core.hpp>
 
 namespace nsclient_core {
 class settings_client {

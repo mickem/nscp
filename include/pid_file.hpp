@@ -19,14 +19,14 @@
 
 #pragma once
 
-#include <string>
 #include <boost/filesystem/path.hpp>
+#include <string>
 
 #ifdef WIN32
 typedef int pid_t;
 #else
-#include <unistd.h>
 #include <sys/types.h>
+#include <unistd.h>
 #endif
 
 class pidfile {

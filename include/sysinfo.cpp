@@ -17,11 +17,11 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <win/windows.hpp>
-
 #include <sysinfo.h>
 #include <tchar.h>
+
 #include <error/error.hpp>
+#include <win/windows.hpp>
 
 namespace systemInfo {
 LANGID GetSystemDefaultUILanguage() {

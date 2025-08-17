@@ -1,14 +1,12 @@
 #pragma once
 
-#include "plugin_interface.hpp"
-
-#include <nsclient/logger/logger.hpp>
-
-#include <boost/thread/shared_mutex.hpp>
 #include <boost/optional.hpp>
-
-#include <string>
+#include <boost/thread/shared_mutex.hpp>
 #include <list>
+#include <nsclient/logger/logger.hpp>
+#include <string>
+
+#include "plugin_interface.hpp"
 
 namespace nsclient {
 namespace core {

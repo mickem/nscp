@@ -18,9 +18,10 @@
  */
 
 #pragma once
+#include <Objbase.h>
+
 #include <error/error.hpp>
 #include <win/windows.hpp>
-#include <Objbase.h>
 
 namespace com_helper {
 class com_exception {

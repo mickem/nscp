@@ -19,12 +19,11 @@
 
 #pragma once
 
-#include "plugin_interface.hpp"
-
-#include <nsclient/logger/logger.hpp>
-
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
+#include <nsclient/logger/logger.hpp>
+
+#include "plugin_interface.hpp"
 
 namespace nsclient {
 namespace core {

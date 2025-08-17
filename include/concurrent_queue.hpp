@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <queue>
 #include <boost/thread/condition_variable.hpp>
+#include <queue>
 
 template <typename T>
 class concurrent_queue {

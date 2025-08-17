@@ -1,8 +1,8 @@
 #include "registry_query_handler.hpp"
 
-#include "dll_plugin.h"
-
 #include <nscapi/nscapi_protobuf_functions.hpp>
+
+#include "dll_plugin.h"
 
 namespace nsclient {
 

@@ -19,8 +19,9 @@
 
 #pragma once
 
-#include <boost/program_options.hpp>
 #include <boost/noncopyable.hpp>
+#include <boost/program_options.hpp>
+
 #include "NSClient++.h"
 
 namespace po = boost::program_options;

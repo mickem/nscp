@@ -19,10 +19,11 @@
 
 #pragma once
 
-#include "strEx.h"
-#include <win/windows.hpp>
-#include <iostream>
 #include <error.hpp>
+#include <iostream>
+#include <win/windows.hpp>
+
+#include "strEx.h"
 
 class event_exception {
   std::wstring what_;

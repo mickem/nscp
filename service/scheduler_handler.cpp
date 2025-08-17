@@ -18,12 +18,12 @@
  */
 
 #include "scheduler_handler.hpp"
-#include "NSClient++.h"
-#include "../libs/settings_manager/settings_manager_impl.h"
 
 #include <nsclient/logger/logger.hpp>
-
 #include <str/format.hpp>
+
+#include "../libs/settings_manager/settings_manager_impl.h"
+#include "NSClient++.h"
 
 extern NSClient *mainClient;
 

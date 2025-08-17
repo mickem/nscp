@@ -24,6 +24,7 @@
 #include <string>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <str/xtos.hpp>
 
 namespace pt = boost::posix_time;
 

@@ -17,26 +17,23 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <win_sysinfo/win_defines.hpp>
-#include <win_sysinfo/win_sysinfo.hpp>
-
 #include "EnumProcess.h"
 
-#include <buffer.hpp>
-#include <handle.hpp>
-#include <nsclient/nsclient_exception.hpp>
-#include <utf8.hpp>
-#include <str/xtos.hpp>
-#include <error/error.hpp>
-#include <str/format.hpp>
-
-#include <map>
-#include <string>
-
-#include <win/windows.hpp>
 #include <tchar.h>
 
+#include <buffer.hpp>
+#include <error/error.hpp>
+#include <handle.hpp>
+#include <map>
+#include <nsclient/nsclient_exception.hpp>
+#include <str/format.hpp>
+#include <str/xtos.hpp>
+#include <string>
+#include <utf8.hpp>
 #include <win/psapi.hpp>
+#include <win/windows.hpp>
+#include <win_sysinfo/win_defines.hpp>
+#include <win_sysinfo/win_sysinfo.hpp>
 
 const int MAX_FILENAME = 256;
 

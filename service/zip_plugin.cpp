@@ -19,14 +19,13 @@
 
 #include "zip_plugin.h"
 
-#include "NSCAPI.h"
-
-#include <nscapi/nscapi_core_helper.hpp>
-#include <file_helpers.hpp>
-#include <zip/miniz.hpp>
-#include <str/nscp_string.hpp>
-
 #include <boost/json.hpp>
+#include <file_helpers.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
+#include <str/nscp_string.hpp>
+#include <zip/miniz.hpp>
+
+#include "NSCAPI.h"
 
 namespace json = boost::json;
 

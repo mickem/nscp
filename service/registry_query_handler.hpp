@@ -1,12 +1,11 @@
 #pragma once
 
-#include "plugin_manager.hpp"
-#include "path_manager.hpp"
-
+#include <boost/unordered_set.hpp>
 #include <nscapi/nscapi_protobuf_registry.hpp>
 #include <nsclient/logger/logger.hpp>
 
-#include <boost/unordered_set.hpp>
+#include "path_manager.hpp"
+#include "plugin_manager.hpp"
 
 namespace nsclient {
 

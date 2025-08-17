@@ -1,11 +1,10 @@
 #pragma once
 
 #include <NSCAPI.h>
-#include <nsclient/logger/logger.hpp>
-
-#include <string>
 
 #include <boost/filesystem/path.hpp>
+#include <nsclient/logger/logger.hpp>
+#include <string>
 namespace nsclient {
 namespace core {
 class plugin_exception : public std::exception {

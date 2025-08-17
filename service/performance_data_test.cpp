@@ -17,14 +17,13 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <str/format.hpp>
-
-#include <vector>
-#include <string>
-
 #include <gtest/gtest.h>
+
+#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <str/format.hpp>
+#include <string>
+#include <vector>
 
 std::string do_parse(std::string str, std::size_t max_length = nscapi::protobuf::functions::no_truncation) {
   PB::Commands::QueryResponseMessage::Response::Line r;

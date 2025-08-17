@@ -17,13 +17,12 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <gtest/gtest.h>
+
 #include <str/format.hpp>
 #include <str/utils.hpp>
-
-#include <vector>
 #include <string>
-
-#include <gtest/gtest.h>
+#include <vector>
 
 TEST(format, format_byte_units_units) {
   EXPECT_EQ(str::format::format_byte_units(0LL), "0B");

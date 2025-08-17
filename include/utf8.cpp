@@ -1,8 +1,7 @@
-#include <utf8.hpp>
-#include <locale>
-#include <cctype>
-
 #include <boost/lexical_cast.hpp>
+#include <cctype>
+#include <locale>
+#include <utf8.hpp>
 #ifdef WIN32
 #include <win/windows.hpp>
 #endif
@@ -11,8 +10,8 @@
 #include <string.h>
 #endif
 #ifdef __GNUC__
-#include <iconv.h>
 #include <errno.h>
+#include <iconv.h>
 #endif
 
 std::wstring utf8::to_unicode(std::string const &str) {

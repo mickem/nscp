@@ -20,8 +20,8 @@
 #pragma once
 #define BOOST_PROGRAM_OPTIONS_DYN_LINK
 
-#include <boost/program_options.hpp>
 #include <boost/function/function1.hpp>
+#include <boost/program_options.hpp>
 #include <list>
 
 template <class charT>

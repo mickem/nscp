@@ -19,18 +19,18 @@
 
 #include "plugin_manager.hpp"
 
+#include <config.h>
+
+#include <boost/bind/bind.hpp>
+#include <boost/unordered_map.hpp>
+#include <file_helpers.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <settings/settings_core.hpp>
+#include <str/format.hpp>
+
+#include "../libs/settings_manager/settings_manager_impl.h"
 #include "dll_plugin.h"
 #include "zip_plugin.h"
-#include <str/format.hpp>
-#include <file_helpers.hpp>
-#include <settings/settings_core.hpp>
-#include <config.h>
-#include "../libs/settings_manager/settings_manager_impl.h"
-
-#include <nscapi/nscapi_protobuf_functions.hpp>
-
-#include <boost/unordered_map.hpp>
-#include <boost/bind/bind.hpp>
 
 struct command_chunk {
   nsclient::commands::plugin_type plugin;
@@ -225,7 +225,7 @@ bool nsclient::core::plugin_manager::load_single_plugin(const std::string &plugi
 
 void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) {
   std::set<long> broken;
-  for (const plugin_type& plugin : plugin_list_.get_plugins()) {
+  for (const plugin_type &plugin : plugin_list_.get_plugins()) {
     LOG_DEBUG_CORE_STD("Loading plugin: " + plugin->getModule())
     try {
       if (!plugin->load_plugin(mode)) {
@@ -250,7 +250,7 @@ void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) 
 
 void nsclient::core::plugin_manager::post_start_plugins() {
   std::set<long> broken;
-  for (const plugin_type& plugin : plugin_list_.get_plugins()) {
+  for (const plugin_type &plugin : plugin_list_.get_plugins()) {
     if (!plugin->has_start()) {
       continue;
     }
@@ -283,7 +283,7 @@ void nsclient::core::plugin_manager::stop_plugins() {
   commands_.remove_all();
   channels_.remove_all();
   std::list<plugin_type> tmp = plugin_list_.get_plugins();
-  for (const plugin_type& p : tmp) {
+  for (const plugin_type &p : tmp) {
     try {
       if (p) {
         LOG_DEBUG_CORE_STD("Unloading plugin: " + p->get_alias_or_name() + "...");
@@ -298,7 +298,7 @@ void nsclient::core::plugin_manager::stop_plugins() {
   plugin_list_.clear();
 }
 
-boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_file(const std::string& file_name) {
+boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_file(const std::string &file_name) {
   std::string name = file_name;
   std::list<std::string> names;
   names.push_back(file_name);
@@ -327,7 +327,8 @@ boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_fi
   return boost::optional<boost::filesystem::path>();
 }
 
-nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only_load_module(const std::string &module, const std::string &alias, bool &loaded) {
+nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only_load_module(const std::string &module, const std::string &alias,
+                                                                                             bool &loaded) {
   loaded = false;
   boost::optional<boost::filesystem::path> real_file = find_file(module);
   if (!real_file) {
@@ -340,7 +341,8 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only
   }
   loaded = true;
   if (boost::algorithm::ends_with(real_file->string(), ".zip")) {
-    return plugin_type(new nsclient::core::zip_plugin(plugin_list_.get_next_id(), real_file->lexically_normal(), alias, path_, shared_from_this(), log_instance_));
+    return plugin_type(
+        new nsclient::core::zip_plugin(plugin_list_.get_next_id(), real_file->lexically_normal(), alias, path_, shared_from_this(), log_instance_));
   }
   return plugin_type(new nsclient::core::dll_plugin(plugin_list_.get_next_id(), real_file->lexically_normal(), alias));
 }
@@ -349,7 +351,7 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only
  * Load and add a plugin to various internal structures
  * @param plugin The plug-in instance to load. The pointer is managed by the
  */
-nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_plugin(const std::string& file_name, const std::string& alias) {
+nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_plugin(const std::string &file_name, const std::string &alias) {
   try {
     bool loaded = false;
     plugin_type plugin = only_load_module(file_name, alias, loaded);
@@ -375,8 +377,8 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_
     if (plugin->has_on_event()) {
       event_subscribers_.add_plugin(plugin);
     }
-    settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, "string", plugin->getModule(), plugin->getName(), plugin->getDescription(), "0", false,
-                                               false);
+    settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, "string", plugin->getModule(), plugin->getName(), plugin->getDescription(), "0",
+                                               false, false);
     plugin_cache_.add_plugin(plugin);
     return plugin;
   } catch (const nsclient::core::plugin_exception &e) {
@@ -391,7 +393,7 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_
   }
 }
 
-bool nsclient::core::plugin_manager::reload_plugin(const std::string& module) {
+bool nsclient::core::plugin_manager::reload_plugin(const std::string &module) {
   plugin_type plugin = plugin_list_.find_by_alias(module);
   if (plugin) {
     LOG_DEBUG_CORE_STD(std::string("Reloading: ") + plugin->get_alias_or_name());
@@ -402,7 +404,7 @@ bool nsclient::core::plugin_manager::reload_plugin(const std::string& module) {
   return false;
 }
 
-bool nsclient::core::plugin_manager::remove_plugin(const std::string& name) {
+bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
   plugin_type plugin = plugin_list_.find_by_module(name);
   if (!plugin) {
     LOG_ERROR_CORE("Module " + name + " was not found.");

@@ -19,17 +19,18 @@
 
 #pragma once
 
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/optional.hpp>
 #include <fstream>
 #include <sstream>
 #include <utf8.hpp>
 
-#include <boost/filesystem.hpp>
-#include <boost/algorithm/string/replace.hpp>
-#include <boost/optional.hpp>
-
 #ifdef WIN32
+// clang-format off
 #include <win/windows.hpp>
 #include <shellapi.h>
+// clang-format on
 #else
 #include <boost/algorithm/string/case_conv.hpp>
 #endif
@@ -37,7 +38,7 @@
 namespace file_helpers {
 namespace fs = boost::filesystem;
 
-inline std::string read_file_as_string(const boost::filesystem::path &file) {
+inline std::string read_file_as_string(const boost::filesystem::path& file) {
   const std::ifstream stream(file.c_str());
   if (!stream) {
     throw std::runtime_error("Failed to open file: " + file.string());
@@ -64,20 +65,14 @@ class checks {
 
 class meta {
  public:
-  static std::string get_filename(const fs::path &path) {
-    return path.filename().string();
-  }
-  static std::string get_path(const std::string &file) {
+  static std::string get_filename(const fs::path& path) { return path.filename().string(); }
+  static std::string get_path(const std::string& file) {
     fs::path path(file);
     return path.parent_path().string();
   }
-  static std::string get_filename(const std::string &file) { return get_filename(fs::path(file)); }
-  static std::string get_extension(const fs::path &path) {
-    return path.extension().string();
-  }
-  static fs::path make_preferred(fs::path &path) {
-    return path.make_preferred();
-  }
+  static std::string get_filename(const std::string& file) { return get_filename(fs::path(file)); }
+  static std::string get_extension(const fs::path& path) { return path.extension().string(); }
+  static fs::path make_preferred(fs::path& path) { return path.make_preferred(); }
 };
 
 class patterns {

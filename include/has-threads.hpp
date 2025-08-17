@@ -1,11 +1,11 @@
 #ifndef HASTHREADS_H
 #define HASTHREADS_H
 
-#include <set>
-#include <iostream>
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
+#include <iostream>
+#include <set>
 
 /**
  * Concept to be derived by any class that should be capable of launching and tracking

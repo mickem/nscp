@@ -1,11 +1,11 @@
 #pragma once
 
-#include "plugin_manager.hpp"
-#include "plugin_cache.hpp"
-#include "path_manager.hpp"
-#include "storage_manager.hpp"
-
 #include <nsclient/logger/logger.hpp>
+
+#include "path_manager.hpp"
+#include "plugin_cache.hpp"
+#include "plugin_manager.hpp"
+#include "storage_manager.hpp"
 
 namespace nsclient {
 namespace core {

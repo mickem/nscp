@@ -19,13 +19,12 @@
 
 #include "ServiceCmd.h"
 
-#include <utf8.hpp>
-#include <error/error.hpp>
-
-#include <win/windows.hpp>
 #include <tchar.h>
 
+#include <error/error.hpp>
 #include <iostream>
+#include <utf8.hpp>
+#include <win/windows.hpp>
 
 namespace serviceControll {
 /**

@@ -167,7 +167,6 @@ class registry_key {
     }
     return ret;
   }
-
 };
 
 static HKEY parseHKEY(std::wstring key) {
