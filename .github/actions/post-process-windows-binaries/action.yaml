@@ -44,8 +44,8 @@ runs:
         # remove the -symbols suffix
         for f in *-stripped.pdb; do mv -- "$f" "${f%-stripped.pdb}.pdb"; done
         7z a -tzip -r ../NSCP-${{ inputs.version }}-${{ inputs.platform }}${{ inputs.suffix }}-symbols.zip .
-        ls tmp/nscp
-        ls tmp/nscp/installers/installer-NSCP
+        ls 
+        ls installers/installer-NSCP
 
     - name: Sign files installer
       uses: azure/trusted-signing-action@v0.5.1
