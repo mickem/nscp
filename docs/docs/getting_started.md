@@ -1,281 +1,291 @@
 # Getting started with NSClient++
 
-This is a hands on guide to getting started with NSClient++.
+This is a hands-on guide to getting started with NSClient++.
 We will start with a clean slate and work our way in small easy to follow steps towards a fully functional monitoring solution.
 
-For the sake of simplicity this will be based on a Windows version.
-If you would like to do this on Linux it "should" work much the same apart from some of the system specific checks will not be available for your platform.
 
-## Getting it!
+## Table of contents
 
-The first thing we want to do is installing it!
+* [Installing NSClient++](#installing-nsclient)
+* [Starting NSClient++ in debug mode](#starting-nsclient-in-debug-mode)
+* [Configure NSClient++ from command line](#configure-nsclient-from-command-line)
+* [Accessing the Web Interface](#accessing-the-web-interface)
+* [Checking things from the Web Interface](#checking-things-from-the-web-interface)
+* [Loading modules via Web Interface](#loading-modules-via-web-interface)
+* [Configuration via Web Interface](#configuration-via-web-interface)
+* [Changing settings via command line](#changing-settings-via-command-line)
+* [TODO: Using the query language](#todo-using-the-query-language)
+* [TODO: Checking with REST client](#todo-checking-with-rest-client)
+* [TODO: Checking with NRDP](#todo-checking-with-nrdp)
+* [TODO: Checking with NRPE client](#todo-checking-with-nrpe-client)
 
-![folder](images/folder.png)
+## Installing NSClient++
 
-After you install it you should have the following folder structure if you don't please don't continue instead try to figure out why you do not :)
+The first thing we need to do is to download the latest version of NSClient++.
+You can find the latest version on the [releases page](https://github.com/mickem/nscp/releases).
 
-Now that we (presumably) have NSClient++ installed let start by starting it in "debug mode".
-To do this we first need to shutdown the service.
+Download `NSCP-VERSION-x64.msi` and launch it.
+This will start the installer which will guide you through the installation process.
+
+### Select monitoring tool
+
+The first thing you will be asked is which monitoring tool you are using.
+This will affect the default configuration of NSClient++.
+
+Currently, the following monitoring tools are supported:
+* Generic: Select this for any other monitoring solution.
+* Op5 Monitor: Select this if you are using Op5 Monitor.
+
+![installer select tool](images/installer-select-tool.png)
+
+### Select Configuration
+
+If you select `custom install` you will get the options to configure NSClient++ (if not you can skip ahead).
+The next step is to select the configuration you want to use.
+
+The default is fine it means you will use a configuration file in the ini format stored in the NSClient++ folder.
+![installer select config](images/installer-select-config.png)
+
+Options here would be to use a remote configuration file for instance hosted on a web server or place the configuration in the registry.
+
+### Select configuration
+
+Next we get to pick some basic configuration options.
+
+![installer configuration](images/installer-configuration.png)
+
+> This is important so make sure you read and understand the options carefully.
+
+* `Allowed hosts`: This is a list of IP addresses which are allowed to connect to NSClient++.
+* `Password`: This is the password used to authenticate against NSClient++. Make sure you note down the default generated password as you will need it later.
+* `Enable common checks`: This will enable some common checks such as CPU, memory, disk space, etc.
+* `Enable nsclient server`: This is an old and outdated protocol and not recommended to use.
+* `Enable NRPE server`: This will enable the NRPE server which allows the monitoring server to execute commands on this machine.
+  * `Insecure`: This will allow any host (in allowed hosts) to connect to the NRPE server without authentication. **Not recommended**.
+  * `Secure`: This will require the monitoring server to authenticate with a certificates.
+* `Enable NSCA client`: This will enable the NSCA client which allows NSClient++ to submit passive checks to a remote server.
+* `Enable Web server`: This will enable the web server which allows you to access NSClient++ via a web interface.
+
+In general, I would recommend the default options here if you are using Nagios as they will give you a good starting point.
+But beware that this requires manual configuration if using NRPE as certificate needs to be generated and configured manually.
+
+### Automated installation
+
+There is a dedicated page about automating the installation of NSClient++.
+See [Reference: Installing](./installing.md).
+
+### Using NSClient++ as a service
+
+After you install NSClient++ you will have a started service running on the machine.
+This service is called `nscp` and it will start automatically when the machine boots.
+You can control the service using the `net` command or the `sc` command.
+```
+net start nscp
+net stop nscp
+sc start nscp
+sc stop nscp
+```
+You can also control the service using the Windows Services management console (services.msc).
+
+## Starting NSClient++ in debug mode
+
+Using NSClient++ as a service is not very useful for debugging and testing.
+So it is often useful to run NSClient++ in "debug mode" which allows you to see what is happening in real-time and interact with it.
+For the reminder of this guide we will run NSClient++ in debug mode.
+
+To do this we first need to shut down the service.
 ```
 net stop nscp
 ```
 
-
-Since much of what NSClient++ does requires "elevated privileged" you should always run NSClient++ in a "Administrator command prompt".
-
-![elevated](images/elevated.png)
-
-Now change directory to where you installed NSClient++ and run nscp without any arguments like so:
-
+Since much of what NSClient++ does requires "elevated privileges" you should always run NSClient++ in an "Administrator command prompt".
+Now lest start NSClient++ in debug mode.
 
 ```
-cd to/your/nsclient++/folder</dt>
-nscp
+cd c:\program files\nsclient++
+nscp test
 ...
+exit
 ```
 
-Running nscp without arguments will show you the initial help screen.
+After starting in debug mode you can type exit to stop NSClient++.
 
-## Getting Help
+## Configure NSClient++ from command line
 
-The next step is to explore the various "modes".
+NSClient++ has a command line interface to make configuration changes.
 
-```
-nscp --help
-$ nscp --help
-Allowed options:
-
-Common options:
-  --settings arg                    Override (temporarily) settings subsystem
-                                    to use
-  --debug                           Set log level to debug (and show debug
-                                    information)
-  --log arg                         The log level to use
-  --define arg                      Defines to use to override settings. Syntax
-                                    is PATH:KEY=VALUE
-
-                                    List of arguments (does not get -- prefixed)
-...
-  A short list of all available contexts are:
-client, help, service, settings, unit, check_mk, eventlog, ext, ext-scr, lua, mk, nrpe, nsca, nscp, py, python, sys, syslog, test, web, wmi
-```
-
-As you can see there is a nice little help screen describing most of the options you can use.
-An important thing to understand is that like many other command line tools such as git or subversion the first "option" is not an option instead it acts as a "mode of operation".
-In our case we have the following modes:
-
-| Command  | Description                                   |
-|----------|-----------------------------------------------|
-| client   | Run client side commands                      |
-| help     | Display help screen                           |
-| service  | Control the service as well as (un)install it |
-| settings | Work with the settings subsystem              |
-| test     | run NSClient++ in the famous "test" mode      |
-| unit     | Execute unit tests                            |
-
-In addition to this we have alias for various "common" client modules.
-They are merely a glorified way to save yourself some typing for instance `nscp sys` will yield the same result as saying `nscp client --module CheckSystem`.
-
-| Command  | Description                                                                                                       |
-|----------|-------------------------------------------------------------------------------------------------------------------|
-| eventlog | Inject event log message into the event-log (mainly for testing event-log filtering and setup)                    |
-| ext-scr  | External scripts                                                                                                  |
-| lua      | Execute lua scripts                                                                                               |
-| nrpe     | Use a NRPE client to request information from other systems via NRPE similar to standard NRPE check_nrpe command. |
-| nsca     | Use a NSCA to submit passive checks to a remote system. Similar to the send_nsca command                          |
-| python   | Execute python scripts                                                                                            |
-| sys      | Various system tools to get information about the system (generally PDH on windows currently)                      |
-| test     | The best way to diagnose and find errors with your configuration and setup.                                       |
-| web      | Configure the web server                                                                                          |
-| wmi      | Run WMI queries from command line                                                                                 |
-
-
-## Getting setup!
-
-Since NSClient++ is an agent or daemon or service or whatever you want to call it. It is generally designed to run by it self without user intervention.
-Thus it requires a lot of configuration to know what to do so next up on our guide is getting to know the configuration and the interface.
-
-So the first thing we need to decide is where to place our configuration since I like the simplicity of the ini file I tend to opt for an ini-file in the "current folder".
-This, though, a rather crappy place to have the configuration and breaks both the Linux and Windows design guidelines but I tend to opt for simplicity.
-The long term plan is to some day move the settings file over to where settings files should be stored (but you can do this manually if you prefer).
-So the first thing you need to do now is tell NSClient++ this but before we get ahead of our self lets look at how we can manipulate the settings via the nscp command line interface.
-If you remember from the getting help section above we had a "settings" mode of operation. Lets look into that one a bit more.
+To try this out lets enable the WMI module which is a module that allows you to run WMI queries on the local machine.
 
 ```
-$ nscp settings --help
-Allowed options (settings):
-
-Common options:
-  --settings arg                Override (temporarily) settings subsystem to
-                                use
-  --debug                       Set log level to debug (and show debug
-                                information)
-  --log arg                     The log level to use
-  --define arg                  Defines to use to override settings. Syntax is
-                                PATH:KEY=VALUE
-
-Common options:
-  --help                        Show the help message for a given command
-  --no-stderr                   Do not report errors on stderr
-  --version                     Show version information
-
-Settings options:
-  --migrate-to arg              Migrate (copy) settings from current store to
-                                given target store
-  --migrate-from arg            Migrate (copy) settings from old given store to
-                                current store
-  --generate [=arg(=settings)]  Add comments to the current settings store (or
-                                a given one).
-  --add-missing                 Add all default values for all missing keys.
-  --validate                    Validate the current configuration (or a given
-                                configuration).
-  --load-all                    Load all plugins (currently only used with
-                                generate).
-  --path arg                    Path of key to work with.
-  --key arg                     Key to work with.
-  --set arg                     Set a key and path to a given value (use --key
-                                and --path).
-  --switch arg                  Set default context to use (similar to migrate
-                                but does NOT copy values)
-  --show                        Show a value given a key and path.
-  --list                        List all keys given a path.
-  --add-defaults                Same as --add-missing
-  --remove-defaults             Remove all keys which have default values (and
-                                empty sections)
-  --use-samples                 Add sample commands provided by some sections
-                                such as targets and real time filters
-  --activate-module arg         Add a module (and its configuration options) to
-                                the configuration.
+nscp settings --activate-module CheckWMI
 ```
 
-In our case what we want is something which goes by the fancy name of "set default context".
-This has the option --switch and takes a single argument which defines the settings system to "switch to".
-Notice the comment about difference between the various --migrate-xxx options and switch. Switch will not migrate your current settings.
-Using migrate here would thus copy all settings from whatever settings you are using today to the new one before updating the settings to use.
+If you check `nsclient.ini` you will see that the module has been added to the configuration file.
 
-```
-d:\source\nscp\build\x64>nscp settings --switch ini://${exe-path}/nscp.ini
-Current settings instance loaded:
-INI settings: (ini://${exe-path}/nscp.ini, d:/source/nscp/build/x64//nscp.ini)
+```ini
+[/modules]
+; ...
+CheckWMI = enabled
 ```
 
-What this does is configure NSClient++ to use the nsclient.ini config file and that the fie is placed in the ${exe-path} folder (which is the same path as the exe file you are launching it from is placed).
-But how does it do this you ask? What does actually change when you run this command?
-And the answer is simply a file called boot.ini is updated. This file describes where all settings files are found (and any configuration the settings file might require).
-Go ahead try it, delete this file and re-run the above command and it will come back looking the same.
-
-So now that we actually have a configuration file what can we do with it?
-If you read the theoretical version of the getting-started page you know by now that NSClient++ settings are self-describing.
-The command to for this is: `nscp settings --generate ini --add-defaults --load-all`
-
-The "--add-missing" will force NSClient++ to add all missing keys to the settings store.
-
-So lets go ahead and run this command and see what our nsclient.ini file looks like.
-If you open up the file you will be pleasantly (or not) surprised it has very few options.
-The reason for this is the modular nature of NSClient++ with a clean install there are no modules configured so we only get configuration options for the "core program" which really has very little in the way of configuration.
-
-Now if we regret this option we can remove all the keys which have the default value by running:  `nscp settings --generate ini --remove-defaults --load-all`
-
-## Getting modular
-
-Loading modules is the most important aspect of NSClient++ and there is plenty to choose from.
-NSClient++ has over 35 different modules.
-Modules can be grouped into three generic kinds of modules.
-
-*   Check modules
-    They provide various check metrics and commands for checking your system.
-*   Protocol providers (Servers and clients)
-    They provide the communication protocols you can use when connection NSClient++ to the outside world.
-*   Scripting modules
-    They provide additional features in the form of scripts and even other modules. I tend to think of them as proxies.
-
-We will start exploring "check-modules" here as they are the simplest form of module.
-Now comes a hefty dose of Linux hate. This guide will use the CheckSystem module which is (currently) only available on Windows.
-So how do we load modules?
-The simple way is to use the NSClient++ command line syntax here as well.
+There are many more command line options to interact with the configuration for a full list you can run:
 
 ```
-nscp settings --activate-module CheckSystem --add-missing
+nscp settings --help
 ```
 
-As always open up the config file and see what was added.
+## Accessing the Web Interface
 
-## Getting your hands dirty
+When we installed NSClient++ we enabled the web server.
+This allows us to access NSClient++ via a web interface.
 
-So now that we have a module loaded lets move on to actually using the module.
-The best (and most ignored) way to work with NSClient++ is to use the "test mode".
-Test mode provides you with two things.
+As we have stopped the service we need to either start it again or run NSClient++ in debug mode:
+```
+nscp test
+```
 
-1.  A real-time debug log of what NSClient++ does
-2.  A way to run commands quickly and easily and see the debug log at the same time.
+Next up to access the web interface you can open a web browser and navigate to `https://localhost:8443/`.
+Then you are met with a scary looking dialog (in your language) about an untrusted certificate:
+![untrusted certificates](images/web-untrusted-certificates.png)
 
-To start test mode you run the following command: `nscp test`
+This is normal and due to the fact that to use TLS (HTTPS) NSClient++ generates a self-signed certificate on startup.
+If you have a CA in your organization you can use that to sign trusted certificates or you can click `Advanced` and then `Accept the risk and continue` to proceed to the web interface.
 
-This will print some debug log messages and eventually leave you with blinking cursor.
+Next up we need to login:
 
-![nscp test](images/nscp-test.png)
+![web login](images/web-login.png)
 
-Now you can enter commands.
+Here you can login with the username `admin` and the password you set during installation.
+If you do not remember the password you can reset it using the command line:
 
-Lest start by loading the CheckSystem module
+```
+nscp settings --path /settings/default --key password --set your_password
+```
+Once you have logged in you will be presented with the NSClient++ web interface.
 
+![Welcome](images/web-welcome.png)
+
+> If you fail to log in, ensure you are not running a service in the background, or that you have restarted since changing the password.
+
+
+## Checking things from the Web Interface
+
+The next step is to start checking things.
+NSClient++ is a monitoring agent and as such it is designed to check various aspects of your system.
+This is done using modules which provide various checks and commands.
+Modules can be loaded and unloaded at runtime and they provide various features and functionality.
+
+If we click on `Queries` in the web interface we will see a list of available queries.
+In the list you will find `check_cpu` so lets try it out.
+
+![select check_cpu](images/web-select-check_cpu.png)
+
+Then you are met with a screen which looks a bit like this:
+![check_cpu](images/web-check_cpu.png)
+
+Here we can:
+* Click `Execute` to run the check.
+* Click `Get Help` to get help on how to use the check.
+* Enter `Arguments` to pass arguments to the check.
+
+Let start by click `Execute` and see what happens.
+
+![check_cpu result](images/web-check_cpu-result.png)
+
+If you click the `Expand` chevron you will also see the performance data from the check.
+
+Next up lets click `Get Help` to see how to use the check.
+At the very end you can find the `cores` options, so lets try that out.
+
+Enter `cores`in the arguments field and click `Execute` again.
+![check_cpu cores](images/web-check_cpu-cores.png)
+
+And there you have it the CPU load for each core.
+
+
+## Loading modules via Web Interface
+
+Before we loaded a module using the command line.
+Now we will load a module using the web interface.
+To do this we will click on `Modules` in the web interface.
+Here you will see a list of available modules.
+Click the `CheckNet` module to configure that module.
+
+![modules](images/web-modules.png)
+
+Here we can see that the module is neither loaded nor enabled.
+
+![modules check_net](images/web-modules-check_net.png)
+
+A quick word about the difference between loaded and enabled.
+* Loaded means that the module is loaded into memory and can be used.
+* Enabled means that the module is configured to be loaded when NSClient++ starts.
+
+Normally you want the module to be both loaded and enabled.
+So lets click the `Load & Enable` button to load the module.
+
+![modules check_net loaded](images/web-modules-check_net-loaded.png)
+
+Now we can see the queries provided by the module.
+Lets try out the `check_ping` query which checks the ping response time to a host.
+
+As you noticed this is the same dialog as we saw before when we executed the `check_cpu` query.
+So lets try it out by entering `host=nsclient.org` in the `Arguments` field and clicking `Execute`.
+
+![check_ping](images/web-check_ping.png)
+
+## Configuration via Web Interface
+
+The web interface also allows you to configure NSClient++.
+To do this you can use the `Settings` tab but a simpler way is to use the settings widget on the module dialog as that only have settings relevant for a given module so that is what we will do.
+So lets click `Modules` in the web interface and then click on the `WEBServer` module.
+
+![modules webserver](images/web-modules-webserver.png).
+Once you are here Click `Settings` and then expand `/settings/WEB/server` to show the port setting.
+
+![webserver settings](images/web-webserver-settings.png)
+
+You should now be able to change the `port` to `1234` and click save:
+
+![webserver settings port](images/web-webserver-settings-port.png)
+
+After this you should get a popup asking you to save and update the settings.
+
+![webserver settings save](images/web-webserver-settings-save.png)
+
+If you click `Save and reload` the service will restart and the web server will now be served on port 1234 instead.
+So navigate to `http://localhost:1234/` and you should see the web interface again.
+
+## Changing settings via command line
+
+Lets use the command line to change the port back to 8443.
+
+First we need to exit the debug mode if you are running it.
 ```
 ...
-load CheckSystem
+exit
 ```
 
-After which we can list all commands (queries):
+After this we can run the following command to change the port:
 
 ```
-commands
-check_cpu  -Check that the load of the CPU(s) are within bounds.
-check_memory    -Check free/used memory on the system.
-check_network   -Check network interface status.
-check_os_version        -Check the version of the underlying OS.
-check_pagefile  -Check the size of the system pagefile(s).
-check_pdh       -Check the value of a performance (PDH) counter on the local or remote system.
-The counters can also be added and polled periodically to get average values. Performance Log Users group membership is required to check performance counters.
-check_process   -Check state/metrics of one or more of the processes running on the computer.
-check_service   -Check the state of one or more of the computer services.
-check_uptime    -Check time since last server re-boot.
-checkcounter    -Legacy version of check_pdh
-checkcpu        -Legacy version of check_cpu
-checkmem        -Legacy version of check_mem
-checkprocstate  -Legacy version of check_process
-checkservicestate       -Legacy version of check_service
-checkuptime     -Legacy version of check_uptime
+nscp settings --path /settings/WEB/server --key port --set 8443
 ```
 
-Now your list might be different as you might have other modules loaded.
-
-You get a list of all commands you can execute.
-Commands in this context is actual check commands which generally checks some aspect of you system.
-Lets try out the first one:
+And start NSClient++ in debug mode again:
 
 ```
-check_cpu
-L        cli OK: OK: CPU load is ok.
-L        cli  Performance data: 'total 5m'=1%;80;90 'total 1m'=7%;80;90 'total 5s'=7%;80;90
+nscp test
+...
+exit
 ```
 
-And as you can see the check return the cpu load over the last 5 seconds as well as 1 and 5 minutes.
-So there we have it the system is now being monitored (albeit manually by you but we will resolve that in the next section).
+And you should now be able to access the web interface again at `https://localhost:8443/`.
 
-For more details on working with check commands see the [checks page](howto/checks.md)
+## TODO: Using the query language
 
-## Getting Connected
+## TODO: Checking with REST client
 
-Now that we have a sense of how to check our data we shall start connecting our self with the outside world so our monitoring agent can connect and see if we are actually working properly.
+## TODO: Checking with NRDP
 
-**TODO**
-
-## Getting scheduled
-
-**TODO**
-
-## Getting to the end
-
-**TODO**
-
-SO now we have walked through the basics of setting up NSClient++ some of this requires Windows some requires 0.4.1 and some requires manual work.
-Most of this  can be automated and/or configured from the installer but I think it is better to understand what actually happens and I hope this gives a sense of how NSClient++ works and how you can use NSClient++.
+## TODO: Checking with NRPE client
