@@ -43,7 +43,7 @@ runs:
         find ../ -name '*-stripped.pdb' -and -not -ipath '*symbols*' -exec cp {} . \;
         # remove the -symbols suffix
         for f in *-stripped.pdb; do mv -- "$f" "${f%-stripped.pdb}.pdb"; done
-        7z a -tzip -r ../NSCP-${{ inputs.version }}-${{ inputs.platform }}-symbols.zip .
+        7z a -tzip -r ../NSCP-${{ inputs.version }}-${{ inputs.platform }}${{ inputs.suffix }}-symbols.zip .
 
     - name: Sign files installer
       uses: azure/trusted-signing-action@v0.5.1

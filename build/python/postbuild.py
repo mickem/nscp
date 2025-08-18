@@ -5,7 +5,7 @@ import fnmatch
 import shutil
 
 from config import BUILD_PYTHON_FOLDER, NSCP_VERSION_NUMBER, VERSION_ARCH, BUILD_TARGET_EXE_PATH, \
-    DOCS_FOLDER, ARCHIVE_FOLDER
+    DOCS_FOLDER, ARCHIVE_FOLDER, RELEASE_SUFFIX
 
 sys.path.append(BUILD_PYTHON_FOLDER)
 
@@ -25,7 +25,7 @@ def find_by_pattern(path, pattern):
                 matches.append(os.path.join(root, filename))
     return matches
 
-target_docs = 'NSCP-%s-%s-docs.zip'%(NSCP_VERSION_NUMBER, VERSION_ARCH)
+target_docs = f'NSCP-{NSCP_VERSION_NUMBER}-{VERSION_ARCH}{RELEASE_SUFFIX}-docs.zip'
 print("Gathering docs into %s"%target_docs)
 docs_folder_root = os.path.join(BUILD_TARGET_EXE_PATH, DOCS_FOLDER)
 matches = find_by_pattern(docs_folder_root, '*.*')
