@@ -43,7 +43,7 @@ runs:
         find ../ -name '*-stripped.pdb' -and -not -ipath '*symbols*' -exec cp {} . \;
         # remove the -symbols suffix
         for f in *-stripped.pdb; do mv -- "$f" "${f%-stripped.pdb}.pdb"; done
-        7z a -tzip -r ../NSCP-${{ inputs.version }}-${{ inputs.platform }}-symbols.zip .
+        7z a -tzip -r ../NSCP-${{ inputs.version }}-${{ inputs.platform }}${{ inputs.suffix }}-symbols.zip .
 
     - name: Sign files installer
       uses: azure/trusted-signing-action@v0.5.1
@@ -64,8 +64,8 @@ runs:
       with:
         name: NSCP-${{ inputs.version }}-${{ inputs.platform }}${{ inputs.suffix }}
         path: |
-          tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}-docs.zip
-          tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}.zip
-          tmp/nscp/installers/installer-NSCP/NSCP-${{ inputs.version }}-${{ inputs.platform }}.msi
-          tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}-symbols.zip
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}${{ inputs.suffix }}-docs.zip
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}${{ inputs.suffix }}.zip
+          tmp/nscp/installers/installer-NSCP/NSCP-${{ inputs.version }}-${{ inputs.platform }}${{ inputs.suffix }}.msi
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}${{ inputs.suffix }}-symbols.zip
         if-no-files-found: error
