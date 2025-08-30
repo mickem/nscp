@@ -61,6 +61,11 @@ runs:
             Write-Host "! No descendant processes were found."
           }
         } catch {
-          Stop-Process -Id $process.Id -Force
-          Write-Host "! Failed to update components..."
+          Write-Host "! Error: $($_.Exception.Message)"
+          try {
+            Stop-Process -Id $process.Id -Force
+            Write-Host "! Failed to update components..."
+          } catch {
+            Write-Host "! Error: $($_.Exception.Message) trying to stop process (during failure)..."
+          }
         }
