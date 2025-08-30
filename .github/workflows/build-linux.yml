@@ -15,6 +15,7 @@ on:
 
 env:
   TINY_XML_2_VERSION: 10.1.0
+  MONGOOSE_VERSION: 7.19
 
 jobs:
   build:
@@ -59,6 +60,11 @@ jobs:
       with:
         version: ${{ ENV.TINY_XML_2_VERSION }}
 
+    - id: mongoose
+      uses: ./.github/actions/mongoose
+      with:
+        version: ${{ ENV.MONGOOSE_VERSION }}
+
     - name: Install boost
       run: |
         sudo apt-get install -y libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev
@@ -70,6 +76,7 @@ jobs:
         contents: |
             SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
             SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
+            set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
 
     - name: CMake (NSCP)
       working-directory: tmp/nscp

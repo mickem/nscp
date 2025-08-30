@@ -14,7 +14,7 @@ set(SOURCES
     StreamResponse.cpp
     string_response.cpp
     ${NSCP_INCLUDEDIR}/has-threads.cpp
-    ext/mongoose.c
+    ${MONGOOSE_INCLUDE_DIR}/mongoose.c
 )
 if(WIN32)
     set(SOURCES
@@ -35,7 +35,7 @@ if(WIN32)
         mcp_exception.hpp
         string_response.hpp
         ${NSCP_INCLUDEDIR}/has-threads.hpp
-        ext/mongoose.h
+        ${MONGOOSE_INCLUDE_DIR}/mongoose.h
     )
 endif()
 
@@ -48,8 +48,10 @@ endif(USE_STATIC_RUNTIME)
 add_definitions(-DMG_ENABLE_HTTP_WEBSOCKET=0)
 add_definitions(-DMG_ENABLE_BROADCAST=1)
 add_definitions(-DMG_ENABLE_THREADS)
+add_definitions(-DMG_TLS=MG_TLS_OPENSSL)
 add_definitions(${NSCP_GLOBAL_DEFINES})
 
+include_directories("${MONGOOSE_INCLUDE_DIR}")
 if(OPENSSL_FOUND)
     include_directories("${OPENSSL_INCLUDE_DIR}")
     add_definitions(-DMG_ENABLE_OPENSSL=1)

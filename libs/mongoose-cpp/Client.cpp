@@ -6,8 +6,12 @@
 #include <utility>
 
 #include "StreamResponse.h"
-#include "ext/mongoose.h"
 #include "string_response.hpp"
+
+// clang-format off
+// Has to be after boost or we get namespace clashes
+#include <mongoose.h>
+// clang-format on
 
 using namespace std;
 using namespace Mongoose;
@@ -22,8 +26,8 @@ class Handler {
 
   void send(struct mg_connection *c, const std::string &data) { mg_send(c, data.c_str(), data.length()); }
 
-  static void ev_handler(struct mg_connection *c, const int ev, void *ev_data, void *fn_data) {
-    auto *handler = static_cast<Handler *>(fn_data);
+  static void ev_handler(struct mg_connection *c, const int ev, void *ev_data) {
+    auto *handler = static_cast<Handler *>(c->fn_data);
     handler->handler(c, ev, ev_data);
   }
   void handler(struct mg_connection *c, int ev, void *ev_data) {
@@ -46,10 +50,10 @@ class Handler {
 
   void parseReply(struct mg_http_message *hm) {
     size_t i = 0;
-    auto message = std::string(hm->message.ptr, hm->message.len);
+    auto message = std::string(hm->message.buf, hm->message.len);
     response = boost::make_shared<mcp::string_response>(mg_http_status(hm), message);
     for (i = 0; hm->headers[i].name.len > 0; i++) {
-      response->setHeader(std::string(hm->headers[i].name.ptr, hm->headers[i].name.len), std::string(hm->headers[i].value.ptr, hm->headers[i].value.len));
+      response->setHeader(std::string(hm->headers[i].name.buf, hm->headers[i].name.len), std::string(hm->headers[i].value.buf, hm->headers[i].value.len));
     }
   }
 };

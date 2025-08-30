@@ -33,6 +33,7 @@ env:
   LUA_VERSION: 5.4.7
   TINY_XML_2_VERSION: 10.1.0
   GOOGLE_TEST_VERSION: 1.12.1
+  MONGOOSE_VERSION: 7.19
 
 jobs:
   build:
@@ -140,6 +141,11 @@ jobs:
       with:
         version: ${{ ENV.TINY_XML_2_VERSION }}
 
+    - id: mongoose
+      uses: ./.github/actions/mongoose
+      with:
+        version: ${{ ENV.MONGOOSE_VERSION }}
+
     - name: Build Boost (static)
       id: static_boost
       uses: mickem/build-boost@42c59d10fc12f919a986f7e1c2f7c752d4960190
@@ -186,6 +192,7 @@ jobs:
             SET(CRYPTOPP_ROOT "${{ steps.cryptopp.outputs.path_unix }}")
             SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
             set(GTEST_ROOT "${{ steps.google-test.outputs.path_unix }}")
+            set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
 
     - name: Make python dist
       working-directory: tmp/nscp
@@ -257,5 +264,4 @@ jobs:
         echo "| OpenSSL | ${{ env.OPENSSL_VERSION }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Protobuf | ${{ env.PROTOBUF_VERSION }} |" >> $GITHUB_STEP_SUMMARY
         echo "| TinyXml2 | ${{ env.TINY_XML_2_VERSION }} |" >> $GITHUB_STEP_SUMMARY
-    
-  
+        echo "| Mongoose | ${{ env.MONGOOSE_VERSION }} |" >> $GITHUB_STEP_SUMMARY

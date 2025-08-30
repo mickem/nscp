@@ -217,7 +217,9 @@ if(WIN32)
     macro(ADD_WIX_INSTALLER _target _sources _dependencies _loc_files)
         set(WIX_OBJ_LIST)
         wix_compile("${_sources}" WIX_OBJ_LIST "${_dependencies}")
-        set(TNAME "${_target}-${BUILD_VERSION}-${VERSION_ARCH}${RELEASE_SUFFIX}.msi")
+        set(TNAME
+            "${_target}-${BUILD_VERSION}-${VERSION_ARCH}${RELEASE_SUFFIX}.msi"
+        )
         wix_link(${TNAME} WIX_OBJ_LIST "${_loc_files}")
         add_custom_target(
             installer_${_target}
