@@ -9,17 +9,7 @@ import {
   useLoadModuleMutation,
   useUnloadModuleMutation,
 } from "../api/api.ts";
-import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
-  Card,
-  CardActions,
-  CardContent,
-  List,
-  ListItem,
-  ListItemButton,
-} from "@mui/material";
+import { Box, Card, CardActions, CardContent, Chip, Tooltip } from "@mui/material";
 import { useNavigate, useParams } from "react-router";
 import { Toolbar } from "./atoms/Toolbar.tsx";
 import { Spacing } from "./atoms/Spacing.tsx";
@@ -28,9 +18,9 @@ import { useAppDispatch } from "../store/store.ts";
 import { useState } from "react";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ModuleSettings from "./ModuleSettings.tsx";
 import NscpAlert from "./atoms/NscpAlert.tsx";
+import Trail from "./atoms/Trail.tsx";
 
 export default function Module() {
   const { id = "" } = useParams();
@@ -93,6 +83,7 @@ export default function Module() {
   return (
     <Stack direction="column" spacing={3}>
       <Toolbar>
+        <Trail trail={[{ link: "/modules", title: "Modules" }]} title={module?.title || id} />
         <Spacing />
         <RefreshButton onRefresh={onRefresh} />
       </Toolbar>
@@ -146,22 +137,20 @@ export default function Module() {
       )}
 
       {myQueries && myQueries.length > 0 && (
-        <Accordion>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography>Queries</Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <List>
+        <Card>
+          <CardContent>
+            <Typography gutterBottom sx={{ color: "text.secondary", fontSize: 14 }}>
+              Queries provided by this module
+            </Typography>
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, paddingBottom: 2 }}>
               {myQueries?.map((query) => (
-                <ListItem key={query.name}>
-                  <ListItemButton onClick={() => navigate(`/queries/${query.name}`)}>
-                    <Typography>{query.name}</Typography>
-                  </ListItemButton>
-                </ListItem>
+                <Tooltip key={query.name} title={query.description || ""} arrow>
+                  <Chip label={query.name} size="small" onClick={() => navigate("/queries/" + query.name)} />
+                </Tooltip>
               ))}
-            </List>
-          </AccordionDetails>
-        </Accordion>
+            </Box>
+          </CardContent>
+        </Card>
       )}
       <ModuleSettings settings={mySettings} />
     </Stack>

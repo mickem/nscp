@@ -18,6 +18,7 @@ import { useAppDispatch } from "../store/store.ts";
 import { useState } from "react";
 import CloseIcon from "@mui/icons-material/Close";
 import { parseMetrics } from "../metric_parser.ts";
+import Divider from "@mui/material/Divider";
 
 export default function Metrics() {
   const dispatch = useAppDispatch();
@@ -36,6 +37,7 @@ export default function Metrics() {
   return (
     <Stack direction="column">
       <Toolbar>
+        <Divider orientation="vertical" flexItem />
         <TextField
           label="Filter"
           variant="standard"
@@ -43,9 +45,17 @@ export default function Metrics() {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
-        <ToggleButtonGroup value={filter} exclusive onChange={(_e, f) => setFilter(f)} aria-label="text alignment">
+        <ToggleButtonGroup
+          size="small"
+          value={filter}
+          exclusive
+          onChange={(_e, f) => setFilter(f)}
+          aria-label="text alignment"
+        >
           {result.modules.map((m) => (
-            <ToggleButton value={m}>{m}</ToggleButton>
+            <ToggleButton key={m} value={m}>
+              {m}
+            </ToggleButton>
           ))}
           <ToggleButton value="">
             <CloseIcon />

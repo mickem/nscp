@@ -9,6 +9,7 @@ import { useAppDispatch } from "../store/store.ts";
 import CheckIcon from "@mui/icons-material/Check";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
+import Trail from "./atoms/Trail.tsx";
 
 export default function Modules() {
   const dispatch = useAppDispatch();
@@ -31,6 +32,7 @@ export default function Modules() {
   return (
     <Stack direction="column">
       <Toolbar>
+        <Trail title="Modules" />
         <Spacing />
         <RefreshButton onRefresh={onRefresh} />
       </Toolbar>

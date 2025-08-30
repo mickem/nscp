@@ -446,7 +446,7 @@ export const nsclientApi = createApi({
         method: "GET",
         responseHandler: async (response: any) => {
           if (!response.ok) {
-            throw new Error("Invalid login");
+            throw new Error("Failed to login");
           }
           const payload = await response.json();
           return payload.key;
