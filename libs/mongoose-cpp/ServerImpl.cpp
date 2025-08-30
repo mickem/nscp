@@ -1,37 +1,77 @@
 #include "ServerImpl.h"
 
+#include <boost/algorithm/string.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <fstream>
+#include <nsclient/nsclient_exception.hpp>
+#include <optional>
+#include <sstream>
 #include <string>
-
-#include "StreamResponse.h"
 
 using namespace std;
 using namespace Mongoose;
 
+std::string load_file(const std::string &path, const std::string &hint) {
+  try {
+    std::ifstream file(path);
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+  } catch (const std::exception &e) {
+    throw nsclient::nsclient_exception("Failed to load " + hint + " from " + path + ": " + e.what());
+  }
+}
+
+std::pair<std::string, std::string> load_certificates(const std::string &cert_path, const std::string &key_path) {
+  auto cert = load_file(cert_path, "certificate");
+  if (key_path.empty()) {
+    return {cert, cert};
+  }
+  auto key = load_file(key_path, "private key");
+  return {cert, key};
+}
+
 boost::posix_time::ptime now() { return boost::get_system_time(); }
 
-void log_wrapper(const void *msg, size_t len, void *ptr) {
+std::string tmp_log;
+bool logged_cert_issue = false;
+void log_wrapper(char c, void *ptr) {
   if (ptr == nullptr) {
     return;
   }
-  WebLogger *logger = reinterpret_cast<WebLogger *>(ptr);
-  std::string msg_str(static_cast<const char *>(msg), len);
-  if (msg_str == "\n") {
-    return;
+  if (c == '\n' || c == '\r') {
+    if (tmp_log.length() == 0) {
+      return;
+    }
+    WebLogger *logger = reinterpret_cast<WebLogger *>(ptr);
+    if (boost::algorithm::contains(tmp_log, "alert certificate unknown")) {
+      if (!logged_cert_issue) {
+        logger->log_error("This could be due to self-signed certificates: " + tmp_log);
+        logged_cert_issue = true;
+      }
+    } else if (boost::algorithm::contains(tmp_log, ":error:")) {
+      logger->log_error(tmp_log);
+    } else {
+      logger->log_info(tmp_log);
+    }
+
+    tmp_log = "";
+  } else {
+    tmp_log += c;
   }
-  logger->log_error(msg_str);
 }
 
 namespace Mongoose {
 ServerImpl::ServerImpl(WebLoggerPtr logger) : stop_thread_(false), logger_(logger) {
-  mg_log_set_callback(&log_wrapper, logger_.get());
+  mg_log_set_fn(&log_wrapper, logger_.get());
+  mg_log_set(MG_LL_ERROR);
   memset(&mgr, 0, sizeof(struct mg_mgr));
   mg_mgr_init(&mgr);
 }
 
 ServerImpl::~ServerImpl() {
   stop();
-  mg_log_set_callback(&log_wrapper, nullptr);
+  mg_log_set_fn(&log_wrapper, nullptr);
 
   vector<Controller *>::iterator it;
   for (it = controllers.begin(); it != controllers.end(); it++) {
@@ -40,10 +80,15 @@ ServerImpl::~ServerImpl() {
   controllers.clear();
 }
 
-void ServerImpl::setSsl(const char *new_certificate, const char *new_chipers) {
+void ServerImpl::setSsl(std::string &new_certificate, std::string &new_key) {
 #if MG_ENABLE_OPENSSL
-  certificate = new_certificate;
-  ciphers = new_chipers;
+  try {
+    auto cert_and_key = load_certificates(new_certificate, new_key);
+    certificate = cert_and_key.first;
+    key = cert_and_key.second;
+  } catch (const nsclient::nsclient_exception &e) {
+    logger_->log_error("Failed to load certificates: " + e.reason());
+  }
 #else
   logger_->log_error("Not compiled with TLS");
 #endif
@@ -79,14 +124,16 @@ void ServerImpl::stop() {
 
 void ServerImpl::registerController(Controller *controller) { controllers.push_back(controller); }
 
-void ServerImpl::event_handler(struct mg_connection *connection, int ev, void *ev_data, void *fn_data) {
-  if (fn_data != NULL) {
-    ServerImpl *impl = (ServerImpl *)fn_data;
-#if MG_ENABLE_OPENSSL
+void ServerImpl::event_handler(struct mg_connection *connection, int ev, void *ev_data) {
+  if (connection->fn_data != NULL) {
+    ServerImpl *impl = (ServerImpl *)connection->fn_data;
     if (ev == MG_EV_ACCEPT) {
+#if MG_ENABLE_OPENSSL
       impl->initTls(connection);
-    }
+#else
+      logger_->log_error("Not compiled with TLS support");
 #endif
+    }
     if (ev == MG_EV_HTTP_MSG) {
       struct mg_http_message *message = (struct mg_http_message *)ev_data;
       impl->onHttpRequest(connection, message);
@@ -100,51 +147,52 @@ void ServerImpl::initTls(struct mg_connection *connection) {
   }
   struct mg_tls_opts opts{};
   memset(&opts, 0, sizeof(struct mg_tls_opts));
-  opts.cert = certificate.c_str();
-  opts.ciphers = ciphers.c_str();
+  // TODO: Should we add name?
+  opts.cert = mg_str(certificate.c_str());
+  opts.key = mg_str(key.c_str());
   mg_tls_init(connection, &opts);
 }
 #endif
 
 Request build_request(const std::string ip, struct mg_http_message *message, bool is_ssl, const std::string method) {
-  std::string url = std::string(message->uri.ptr, message->uri.len);
+  std::string url = std::string(message->uri.buf, message->uri.len);
   std::string query;
-  if (message->query.ptr != NULL) {
-    query = std::string(message->query.ptr, message->query.len);
+  if (message->query.buf != NULL) {
+    query = std::string(message->query.buf, message->query.len);
   }
 
   Request::headers_type headers;
   size_t max = sizeof(message->headers) / sizeof(message->headers[0]);
   for (size_t i = 0; i < max && message->headers[i].name.len > 0; i++) {
-    std::string key = std::string(message->headers[i].name.ptr, message->headers[i].name.len);
-    std::string value = std::string(message->headers[i].value.ptr, message->headers[i].value.len);
+    std::string key = std::string(message->headers[i].name.buf, message->headers[i].name.len);
+    std::string value = std::string(message->headers[i].value.buf, message->headers[i].value.len);
     headers[key] = value;
   }
 
   // Downloading POST data
   ostringstream postData;
-  postData.write(message->body.ptr, message->body.len);
+  postData.write(message->body.buf, message->body.len);
   std::string data = postData.str();
   return Request(ip, is_ssl, method, url, query, headers, data);
 }
 
 void ServerImpl::onHttpRequest(struct mg_connection *connection, struct mg_http_message *message) {
   bool is_ssl = connection->is_tls;
-  std::string url = std::string(message->uri.ptr, message->uri.len);
-  std::string method = std::string(message->method.ptr, message->method.len);
+  std::string url = std::string(message->uri.buf, message->uri.len);
+  std::string method = std::string(message->method.buf, message->method.len);
 
   size_t max = sizeof(message->headers) / sizeof(message->headers[0]);
   for (size_t i = 0; i < max && message->headers[i].name.len > 0; i++) {
     struct mg_str *k = &message->headers[i].name, *v = &message->headers[i].value;
-    if (message->headers[i].value.len > 0 && strncmp(message->headers[i].name.ptr, "X-HTTP-Method-Override", message->headers[i].name.len) == 0) {
-      method = std::string(message->headers[i].value.ptr, message->headers[i].value.len);
+    if (message->headers[i].value.len > 0 && strncmp(message->headers[i].name.buf, "X-HTTP-Method-Override", message->headers[i].name.len) == 0) {
+      method = std::string(message->headers[i].value.buf, message->headers[i].value.len);
     }
   }
 
   for (Controller *ctrl : controllers) {
     if (ctrl->handles(method, url)) {
       char buf[100];
-      mg_straddr(&connection->rem, buf, sizeof(buf));
+      mg_snprintf(buf, sizeof(buf), "%M", mg_print_ip, &connection->rem);
       std::string ip = std::string(buf);
       Request request = build_request(ip, message, is_ssl, method);
 

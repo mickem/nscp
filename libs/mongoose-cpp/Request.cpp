@@ -5,7 +5,10 @@
 #include <str/xtos.hpp>
 #include <string>
 
-#include "ext/mongoose.h"
+// clang-format off
+// Has to be after boost or we get namespace clashes
+#include <mongoose.h>
+// clang-format on
 
 using namespace std;
 
@@ -168,10 +171,7 @@ bool readVariable(const struct mg_str data, string key, string &output) {
 string Request::get(string key, string fallback) {
   string output;
   // Looking on the query string
-  struct mg_str dataField;
-  dataField.ptr = query.c_str();
-  dataField.len = query.size();
-  if (readVariable(dataField, key, output)) {
+  if (readVariable(mg_str(query.c_str()), key, output)) {
     return output;
   }
 

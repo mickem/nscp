@@ -147,6 +147,19 @@ curl -L https://github.com/leethomason/tinyxml2/archive/refs/tags/%TINY_XML2_VER
 del tinyxml.zip
 ```
 
+#### Download Mongoose
+
+Mongoose does not require building instead we need to download and configure where the build system can find it.
+
+```commandline
+SET MONGOOSE_VERSION=7.19
+cd %BUILD_FOLDER%
+curl -L https://github.com/cesanta/mongoose/archive/refs/tags/%MONGOOSE_VERSION%.zip --output mongoose-%MONGOOSE_VERSION%.zip
+7z x mongoose-%MONGOOSE_VERSION%.zip
+del mongoose-%MONGOOSE_VERSION%.zip
+````
+
+
 ### Build installer library
 
 ```commandline
@@ -183,6 +196,7 @@ SET(OPENSSL_ROOT_DIR "BUILD_FOLDER/openssl-VERSION")
 SET(LUA_SOURCE_DIR "BUILD_FOLDER/lua-VERSION/src")
 SET(CRYPTOPP_ROOT "BUILD_FOLDER/CRYPTOPP_VERSION")
 SET(TINY_XML2_SOURCE_DIR "BUILD_FOLDER/tinyxml2-VERSION")
+SET(MONGOOSE_SOURCE_DIR "BUILD_FOLDER/mongoose-VERSION")
 ```
 
 ### Build NSClient++

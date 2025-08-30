@@ -10,7 +10,11 @@
 #include "Response.h"
 #include "Server.h"
 #include "dll_defines.hpp"
-#include "ext/mongoose.h"
+
+// clang-format off
+// Has to be after boost or we get namespace clashes
+#include <mongoose.h>
+// clang-format on
 
 /**
  * Wrapper for the Mongoose server
@@ -52,7 +56,7 @@ class NSCAPI_EXPORT ServerImpl : public Server {
    * @param int ev event type
    * @param void* ev_data event data
    */
-  static void event_handler(struct mg_connection *connection, int ev, void *ev_data, void *fn_data);
+  static void event_handler(struct mg_connection *connection, int ev, void *ev_data);
 
   void onHttpRequest(struct mg_connection *connection, struct mg_http_message *message);
 
@@ -74,12 +78,7 @@ class NSCAPI_EXPORT ServerImpl : public Server {
 #if MG_ENABLE_OPENSSL
   void initTls(struct mg_connection *connection);
 #endif
-  void setSsl(const char *certificate, const char *new_chipers);
-
-  /**
-   * Polls the server
-   */
-  void poll();
+  void setSsl(std::string &certificate, std::string &key);
 
   /**
    * Does the server handles url?
@@ -91,6 +90,7 @@ class NSCAPI_EXPORT ServerImpl : public Server {
  protected:
   WebLoggerPtr logger_;
   std::string certificate;
+  std::string key;
   std::string ciphers;
   struct mg_mgr mgr;
   struct mg_connection *server_connection;

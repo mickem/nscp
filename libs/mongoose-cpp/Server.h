@@ -4,8 +4,6 @@
 #include <string>
 
 #include "Controller.h"
-#include "Request.h"
-#include "Response.h"
 #include "dll_defines.hpp"
 
 /**
@@ -50,8 +48,9 @@ class NSCAPI_EXPORT Server {
    * Setup the mongoose ssl options section
    *
    * @param certificate the name of the certificate to use
+   * @param key the name of the key to use
    */
-  virtual void setSsl(const char *certificate, const char *new_chipers) = 0;
+  virtual void setSsl(std::string &certificate, std::string &key) = 0;
 
   /**
    * Does the server handles url?

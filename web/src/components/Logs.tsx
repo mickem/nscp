@@ -38,7 +38,7 @@ const ICONS = {
 export default function Logs() {
   const [page, setPage] = useState(1);
   const dispatch = useAppDispatch();
-  const [level, setLevel] = useState(["*"]);
+  const [level, setLevel] = useState(["info", "warning", "error", "critical"]);
   const [resetStatus] = useResetLogStatusMutation();
 
   const levelToString = useMemo(() => {

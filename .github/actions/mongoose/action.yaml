@@ -1,0 +1,48 @@
+---
+name: Download Mongoose
+description: Download Mongoose
+inputs:
+  version:
+    description: The Mongoose version to download
+    required: true
+outputs:
+  path:
+    description: The path to the folder (windows \ format)
+    value:  ${{ steps.path.outputs.path }}
+  path_unix:
+    description: The path to the folder (unix / format)
+    value:  ${{ steps.path.outputs.path_unix }}
+runs:
+  using: composite
+  steps:
+    - name: Download
+      run: |
+        curl -L https://github.com/cesanta/mongoose/archive/refs/tags/${{ inputs.version }}.zip --output mongoose.zip
+      working-directory: tmp
+      shell: bash
+
+    - name: Unzip on windows
+      if: runner.os == 'Windows'
+      run: |
+        7z x mongoose.zip
+        del mongoose.zip
+      working-directory: tmp
+      shell: cmd
+
+    - name: Unzip on linux
+      if: runner.os != 'Windows'
+      run: |
+          unzip mongoose.zip
+          rm mongoose.zip
+      working-directory: tmp
+      shell: bash
+
+    - id: path
+      run: |
+        ls
+        $path=$pwd.path
+        $path_unix=$pwd.path.replace('\','/')
+        echo "path=$path" >> $env:GITHUB_OUTPUT
+        echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+      working-directory: tmp/mongoose-${{ inputs.version }}

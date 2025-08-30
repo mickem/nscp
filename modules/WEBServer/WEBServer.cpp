@@ -94,7 +94,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
   std::string port;
   std::string certificate;
-  std::string ciphers;
+  std::string key;
   std::string admin_password;
   int threads;
   bool log_errors = true;
@@ -127,7 +127,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       .add_key_to_settings()
       .add_string("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"), "TLS Certificate",
                   "Ssl certificate to use for the ssl server")
-      .add_string("ciphers", sh::string_key(&ciphers, ""), "Supported ciphers", "Supported ciphers for the web server (Set to tlsv1.3 to only allow tls1.3)");
+      .add_string("certificate key", sh::string_key(&key), "TLS private key", "The private key for the certificate if not in the same file");
   settings.alias()
       .add_key_to_settings("log")
       .add_bool("error", sh::bool_key(&log_errors, true), "Log errors", "Enable logging of errors from the web server.")
@@ -148,6 +148,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.register_all();
   settings.notify();
   certificate = get_core()->expand_path(certificate);
+  key = get_core()->expand_path(key);
 
   users_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
@@ -185,7 +186,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
     } else {
       NSC_DEBUG_MSG("Using certificate: " + certificate);
-      server->setSsl(certificate.c_str(), ciphers.c_str());
+      server->setSsl(certificate, key);
     }
 
     server->registerController(new StaticController(session, path));

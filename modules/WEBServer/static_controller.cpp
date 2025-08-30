@@ -25,21 +25,15 @@ Mongoose::Response *StaticController::handleRequest(Mongoose::Request &request) 
   bool is_png = boost::algorithm::ends_with(request.getUrl(), ".png");
   Mongoose::StreamResponse *sr = new Mongoose::StreamResponse();
   if (!is_js && !is_html && !is_png) {
-    sr->setCodeNotFound("Not found: " + request.getUrl());
-    return sr;
+    is_html = true;
   }
   std::string path = stripPath(request.getUrl());
   if (path.find("..") != std::string::npos) {
     sr->setCodeServerError("Invalid path: " + path);
     return sr;
   }
-  if (path == "/") {
+  if (path != "/nscp.png" && path != "/assets/index.js") {
     path = "/index.html";
-  }
-  if (path != "/index.html" && path != "/nscp.png" && path != "/assets/index.js") {
-    NSC_LOG_ERROR("Invalid resource requested: " + request.getUrl());
-    sr->setCodeNotFound("Not found: " + request.getUrl());
-    return sr;
   }
 
   boost::filesystem::path file = base / path;
@@ -71,6 +65,7 @@ Mongoose::Response *StaticController::handleRequest(Mongoose::Request &request) 
 }
 bool StaticController::handles(std::string method, std::string url) {
   return boost::algorithm::ends_with(url, ".js") || boost::algorithm::ends_with(url, ".html") || boost::algorithm::ends_with(url, ".png") ||
-         boost::algorithm::ends_with(url, "/");
+         boost::algorithm::ends_with(url, "/") || boost::algorithm::starts_with(url, "/modules") || boost::algorithm::starts_with(url, "/queries") ||
+         boost::algorithm::starts_with(url, "/settings") || boost::algorithm::starts_with(url, "/metrics") || boost::algorithm::starts_with(url, "/logs");
   ;
 }

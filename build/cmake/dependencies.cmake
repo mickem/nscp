@@ -20,6 +20,7 @@ find_package(ProtoBuf)
 find_package(GTest)
 find_package(OpenSSL)
 find_package(Miniz)
+find_package(Mongoose)
 if(WIN32)
     set(boost_python_dep python311)
 else(WIN32)
@@ -161,6 +162,14 @@ if(MKDOCS_FOUND)
 else(MKDOCS_FOUND)
     message(STATUS " ! MKDocs not found: MKDOCS_DIR=${MKDOCS_DIR}")
 endif(MKDOCS_FOUND)
+if(MONGOOSE_FOUND)
+    message(STATUS " - Mongoose found in: ${MONGOOSE_INCLUDE_DIR}")
+else(MONGOOSE_FOUND)
+    message(
+        STATUS
+        " ! Mongoose not found: MONGOOSE_SOURCE_DIR=${MONGOOSE_SOURCE_DIR}"
+    )
+endif(MONGOOSE_FOUND)
 
 if(WIN32)
     if(WIX_FOUND)
