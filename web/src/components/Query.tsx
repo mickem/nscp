@@ -7,16 +7,16 @@ import {
   Box,
   Card,
   CardActions,
-  CardContent,
+  CardContent, Chip,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
+  TextField
 } from "@mui/material";
-import { useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { Toolbar } from "./atoms/Toolbar.tsx";
 import { Spacing } from "./atoms/Spacing.tsx";
 import { RefreshButton } from "./atoms/RefreshButton.tsx";
@@ -26,6 +26,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import { QueryResultChip } from "./atoms/QueryResultChip.tsx";
+import Trail from "./atoms/Trail.tsx";
 
 const CMD_REGEXP = /\\?.|^$/g;
 
@@ -33,6 +34,7 @@ export default function Query() {
   const { id } = useParams();
   const [busy, setBusy] = useState<boolean>(false);
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { data: query } = useGetQueryQuery(id || "");
   const [executeQuery] = useExecuteQueryMutation();
   const [args, setArgs] = useState<string>("");
@@ -85,6 +87,7 @@ export default function Query() {
   return (
     <Stack direction="column" spacing={3}>
       <Toolbar>
+        <Trail trail={[ { link: '/queries', title: 'Queries'}]} title={query?.name}/>
         <Spacing />
         <RefreshButton onRefresh={onRefresh} />
       </Toolbar>
@@ -94,6 +97,7 @@ export default function Query() {
             {query?.name}
           </Typography>
           <Typography variant="body2">{query?.description}</Typography>
+          <Typography variant="body2">Check provided by the <Chip label={query?.plugin} size="small" onClick={() => navigate("/modules/" + query?.plugin)}/> module.</Typography>
           <Stack direction="row" spacing={1} width={1} sx={{ paddingTop: 3 }}>
             <TextField label="Command" variant="outlined" size="small" value={query?.name || ""} disabled={true} />
             <TextField

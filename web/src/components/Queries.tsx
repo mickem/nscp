@@ -6,6 +6,7 @@ import { Toolbar } from "./atoms/Toolbar.tsx";
 import { Spacing } from "./atoms/Spacing.tsx";
 import { RefreshButton } from "./atoms/RefreshButton.tsx";
 import { useAppDispatch } from "../store/store.ts";
+import Trail from "./atoms/Trail.tsx";
 
 export default function Queries() {
   const dispatch = useAppDispatch();
@@ -19,6 +20,7 @@ export default function Queries() {
   return (
     <Stack direction="column">
       <Toolbar>
+        <Trail title="Queries"/>
         <Spacing />
         <RefreshButton onRefresh={onRefresh} />
       </Toolbar>
