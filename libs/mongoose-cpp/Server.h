@@ -30,7 +30,7 @@ class NSCAPI_EXPORT Server {
   /**
    * Runs the Mongoose server
    */
-  virtual void start(std::string bind) = 0;
+  virtual void start(std::string &bind) = 0;
 
   /**
    * Stops the Mongoose server

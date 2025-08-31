@@ -34,7 +34,7 @@ class NSCAPI_EXPORT ServerImpl final : public Server {
   /**
    * Runs the Mongoose server
    */
-  void start(std::string bind) override;
+  void start(std::string &bind) override;
 
   /**
    * Stops the Mongoose server
