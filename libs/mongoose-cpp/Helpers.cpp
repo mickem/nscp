@@ -11,8 +11,11 @@ namespace Mongoose {
 std::string Helpers::encode_b64(std::string &str) {
   hlp::char_buffer dst((str.size() * 3) + 3);
   hlp::char_buffer src(str);
-  mg_base64_encode(src.get_t<unsigned char *>(), static_cast<int>(str.size()), dst.get(), dst.size());
-  return std::string(dst.get());
+  int encoded_len = mg_base64_encode(src.get_t<unsigned char *>(), static_cast<int>(str.size()), dst.get(), dst.size());
+  if (encoded_len < 0) {
+    return std::string();
+  }
+  return std::string(dst.get(), encoded_len);
 }
 std::string Helpers::decode_b64(std::string &str) {
   hlp::char_buffer dst(str.size() * 3);
