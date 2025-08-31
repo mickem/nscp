@@ -283,6 +283,7 @@
     <CustomAction Id="DetectTool"		        BinaryKey="InstallerHelper" DllEntry="DetectTool"	          Impersonate="yes" Execute="immediate" Return="check"  />
     <CustomAction Id="ExecWriteConfig"		  BinaryKey="InstallerHelper" DllEntry="ExecWriteConfig"	    Impersonate="no" Execute="deferred" Return="check"  />
 
+    <CustomAction Id='NeedUninstall'		BinaryKey='InstallerHelper' DllEntry='NeedUninstall'	Impersonate='yes' Execute="immediate" Return="check" />
     <CustomAction Id="PreventDowngrading"	Error="Newer version already installed." />
 
 
@@ -303,6 +304,7 @@
       <Custom Action="BackupConfig" After="InstallInitialize">NOT (REMOVE ="ALL")</Custom>
 
       <Custom Action="DetectTool" After="CostFinalize">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
+      <Custom Action="NeedUninstall" After="FindRelatedProducts">1</Custom>
       <Custom Action="ApplyTool" After="DetectTool">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
       <Custom Action="ImportConfig" After="ApplyTool">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
 
