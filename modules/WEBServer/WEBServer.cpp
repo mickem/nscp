@@ -657,7 +657,7 @@ void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) const
 
 void WEBServer::add_user(const std::string &key, const std::string &arg) {
   try {
-    users_.add(nscapi::settings_proxy::create(get_id(), get_core()), key, std::move(arg));
+    users_.add(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("Failed to add user: " + key, e);
   } catch (...) {
