@@ -45,7 +45,7 @@ def ensure_uninstalled(msi_file, target_folder):
         exit(1)
 
     print("- Killing any running NSClient++ processes.", flush=True)
-    run(["taskkill", "/F", "/IM", "nscp.exe"])
+    run(["taskkill", "/F", "/IM", "nscp.exe"], timeout=30)
 
 
     print("- Removing registry keys.", flush=True)
