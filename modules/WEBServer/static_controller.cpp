@@ -17,16 +17,12 @@ std::string stripPath(std::string str) {
   str.erase(std::remove_if(str.begin(), str.end(), nonPathChar), str.end());
   return str;
 }
-StaticController::StaticController(boost::shared_ptr<session_manager_interface> session, std::string path) : session(session), base(path) {}
+StaticController::StaticController(const boost::shared_ptr<session_manager_interface> &session, const std::string &path) : session(session), base(path) {}
 
 Mongoose::Response *StaticController::handleRequest(Mongoose::Request &request) {
-  bool is_js = boost::algorithm::ends_with(request.getUrl(), ".js");
-  bool is_html = boost::algorithm::ends_with(request.getUrl(), ".html") || request.getUrl() == "/";
-  bool is_png = boost::algorithm::ends_with(request.getUrl(), ".png");
-  Mongoose::StreamResponse *sr = new Mongoose::StreamResponse();
-  if (!is_js && !is_html && !is_png) {
-    is_html = true;
-  }
+  const bool is_js = boost::algorithm::ends_with(request.getUrl(), ".js");
+  const bool is_png = boost::algorithm::ends_with(request.getUrl(), ".png");
+  auto *sr = new Mongoose::StreamResponse();
   std::string path = stripPath(request.getUrl());
   if (path.find("..") != std::string::npos) {
     sr->setCodeServerError("Invalid path: " + path);
@@ -63,7 +59,7 @@ Mongoose::Response *StaticController::handleRequest(Mongoose::Request &request) 
   in.close();
   return sr;
 }
-bool StaticController::handles(std::string method, std::string url) {
+bool StaticController::handles(std::string method, const std::string url) {
   return boost::algorithm::ends_with(url, ".js") || boost::algorithm::ends_with(url, ".html") || boost::algorithm::ends_with(url, ".png") ||
          boost::algorithm::ends_with(url, "/") || boost::algorithm::starts_with(url, "/modules") || boost::algorithm::starts_with(url, "/queries") ||
          boost::algorithm::starts_with(url, "/settings") || boost::algorithm::starts_with(url, "/metrics") || boost::algorithm::starts_with(url, "/logs");

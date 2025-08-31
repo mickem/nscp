@@ -39,23 +39,23 @@ class WEBServer : public nscapi::impl::simple_plugin {
   // Module calls
   bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 
-  void ensure_role(role_map &roles, nscapi::settings_helper::settings_registry &settings, std::string role_path, std::string role, std::string value,
-                   std::string reason);
-  void ensure_user(nscapi::settings_helper::settings_registry &settings, std::string path, std::string user, std::string role, std::string value,
-                   std::string reason);
+  void ensure_role(role_map &roles, const nscapi::settings_helper::settings_registry &settings, const std::string &role_path, const std::string &role,
+                   const std::string &value, const std::string &reason);
+  void ensure_user(const nscapi::settings_helper::settings_registry &settings, const std::string &path, const std::string &user, const std::string &role,
+                   const std::string &value, const std::string &reason);
 
   bool unloadModule();
   void handleLogMessage(const PB::Log::LogEntry::Entry &message);
   bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request,
                        PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
-  void submitMetrics(const PB::Metrics::MetricsMessage &response);
+  void submitMetrics(const PB::Metrics::MetricsMessage &response) const;
   bool install_server(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
   bool cli_add_user(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
   bool cli_add_role(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
   bool password(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
 
  private:
-  void add_user(std::string key, std::string arg);
+  void add_user(const std::string &key, const std::string &arg);
 
   boost::shared_ptr<error_handler_interface> log_handler;
   boost::shared_ptr<client::cli_client> client;

@@ -25,7 +25,7 @@ class NSCAPI_EXPORT Server {
  public:
   static Server *make_server(WebLoggerPtr logger);
 
-  virtual ~Server() {}
+  virtual ~Server() = default;
 
   /**
    * Runs the Mongoose server
@@ -40,9 +40,9 @@ class NSCAPI_EXPORT Server {
   /**
    * Register a new controller on the server
    *
-   * @param Controller* a pointer to a controller
+   * @param controller a pointer to a controller
    */
-  virtual void registerController(Controller *) = 0;
+  virtual void registerController(Controller *controller) = 0;
 
   /**
    * Setup the mongoose ssl options section
