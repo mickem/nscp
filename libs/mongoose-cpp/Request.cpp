@@ -40,7 +40,7 @@ static const char *mg_strcasestr(const char *big_str, const char *small_str) {
     }
   }
 
-  return NULL;
+  return nullptr;
 }
 
 static long long mg_get_cookie(const char *cookie_header, const char *var_name, char *dst, size_t dst_size) {
@@ -48,9 +48,9 @@ static long long mg_get_cookie(const char *cookie_header, const char *var_name, 
   std::size_t name_len;
   long long len = -1;
 
-  if (dst == NULL || dst_size == 0) {
+  if (dst == nullptr || dst_size == 0) {
     len = -2;
-  } else if (var_name == NULL || (s = cookie_header) == NULL) {
+  } else if (var_name == nullptr || (s = cookie_header) == nullptr) {
     len = -1;
     dst[0] = '\0';
   } else {
@@ -58,10 +58,10 @@ static long long mg_get_cookie(const char *cookie_header, const char *var_name, 
     end = s + strlen(s);
     dst[0] = '\0';
 
-    for (; (s = mg_strcasestr(s, var_name)) != NULL; s += name_len) {
+    for (; (s = mg_strcasestr(s, var_name)) != nullptr; s += name_len) {
       if (s[name_len] == '=') {
         s += name_len + 1;
-        if ((p = strchr(s, ' ')) == NULL) p = end;
+        if ((p = strchr(s, ' ')) == nullptr) p = end;
         if (p[-1] == ';') p--;
         if (*s == '"' && p[-1] == '"' && p > s + 1) {
           s++;
@@ -98,7 +98,7 @@ bool Request::hasVariable(string key) { return headers.find(key) != headers.end(
 Request::arg_vector get_var_vector(const char *data, size_t data_len) {
   Request::arg_vector ret;
 
-  if (data == NULL || data_len == 0) return ret;
+  if (data == nullptr || data_len == 0) return ret;
 
   istringstream f(string(data, data_len));
   string s;
@@ -118,14 +118,14 @@ Request::arg_vector get_var_vector(const char *data, size_t data_len) {
       return ret;
     }
     key = tmp;
-    if (val.length() > 0) {
+    if (!val.empty()) {
       if (mg_url_decode(val.c_str(), static_cast<int>(val.length()), tmp, static_cast<int>(data_len + 1), 1) == -1) {
         delete[] tmp;
         return ret;
       }
       val = tmp;
     }
-    ret.push_back(Request::arg_entry(key, val));
+    ret.emplace_back(key, val);
   }
   delete[] tmp;
   return ret;

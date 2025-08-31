@@ -15,11 +15,12 @@
 namespace Mongoose {
 class NSCAPI_EXPORT Controller {
  public:
+  virtual ~Controller() = default;
   /**
    * Handle a request, this will try to match the request, if this
    * controller handles it, it will preProcess, process then postProcess it
    *
-   * @param Request the request
+   * @param request the request
    *
    * @return Response the created response, or NULL if the controller
    *         does not handle this request
@@ -30,7 +31,7 @@ class NSCAPI_EXPORT Controller {
   /**
    * Called when an exception occur during the rendering
    *
-   * @param string the error message
+   * @param message the error message
    *
    * @return response a response to send, 404 will occur if NULL
    */

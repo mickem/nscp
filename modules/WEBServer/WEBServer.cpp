@@ -32,6 +32,7 @@
 #include <socket/socket_helpers.hpp>
 #include <str/format.hpp>
 #include <str/xtos.hpp>
+#include <utility>
 
 #include "api_controller.hpp"
 #include "error_handler.hpp"
@@ -64,7 +65,7 @@ class WEBServerLogger : public WebLogger {
   bool log_debug_;
 
  public:
-  WEBServerLogger(bool log_errors, bool log_info, bool log_debug) : log_errors_(log_errors), log_info_(log_info), log_debug_(log_debug) {}
+  WEBServerLogger(const bool log_errors, bool log_info, bool log_debug) : log_errors_(log_errors), log_info_(log_info), log_debug_(log_debug) {}
   void log_error(const std::string &message) override {
     if (log_errors_) {
       NSC_LOG_ERROR(message);
@@ -82,15 +83,15 @@ class WEBServerLogger : public WebLogger {
   }
 };
 
-WEBServer::WEBServer() : session(new session_manager_interface()) {}
-WEBServer::~WEBServer() {}
+WEBServer::WEBServer() : simple_plugin(), session(new session_manager_interface()) {}
+WEBServer::~WEBServer() = default;
 
 bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   log_handler.reset(new error_handler());
-  client.reset(new client::cli_client(client::cli_handler_ptr(new web_cli_handler(log_handler, get_core(), get_id()))));
+  client.reset(new client::cli_client(boost::make_shared<web_cli_handler>(log_handler, get_core(), get_id())));
 
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
-  settings.set_alias("WEB", alias, "server");
+  settings.set_alias("WEB", std::move(alias), "server");
 
   std::string port;
   std::string certificate;
@@ -346,11 +347,11 @@ bool WEBServer::cli_add_user(const PB::Commands::ExecuteRequestMessage::Request 
     }
 
     std::stringstream result;
-    if (password == "") {
+    if (password.empty()) {
       result << "WARNING: No password specified using a generated password" << std::endl;
       password = token_store::generate_token(32);
     }
-    if (role == "") {
+    if (role.empty()) {
       result << "WARNING: No role specified using client" << std::endl;
       role = "client";
     }
@@ -404,7 +405,7 @@ bool WEBServer::cli_add_role(const PB::Commands::ExecuteRequestMessage::Request 
       return true;
     }
 
-    if (role == "") {
+    if (role.empty()) {
       nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
       return true;
     }
@@ -452,7 +453,6 @@ bool WEBServer::cli_add_role(const PB::Commands::ExecuteRequestMessage::Request 
 bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
   namespace po = boost::program_options;
   namespace pf = nscapi::protobuf::functions;
-  po::variables_map vm;
   po::options_description desc;
   std::string allowed_hosts, cert, key, port, password;
   const std::string path = "/settings/WEB/server";
@@ -482,22 +482,18 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       port = val.get_string();
   }
 
+  // clang-format off
   desc.add_options()("help", "Show help.")
-
       ("allowed-hosts,h", po::value<std::string>(&allowed_hosts)->default_value(allowed_hosts), "Set which hosts are allowed to connect")
-
-          ("certificate", po::value<std::string>(&cert)->default_value(cert), "Length of payload (has to be same as on the server)")
-
-              ("certificate-key", po::value<std::string>(&key)->default_value(key), "Client certificate to use")
-
-                  ("port", po::value<std::string>(&port)->default_value(port), "Port to use")
-
-                      ("password", po::value<std::string>(&password)->default_value(password),
-                       "Password to use to authenticate (if none a generated password will be set)")
-
+      ("certificate", po::value<std::string>(&cert)->default_value(cert), "Length of payload (has to be same as on the server)")
+      ("certificate-key", po::value<std::string>(&key)->default_value(key), "Client certificate to use")
+      ("port", po::value<std::string>(&port)->default_value(port), "Port to use")
+      ("password", po::value<std::string>(&password)->default_value(password), "Password to use to authenticate (if none a generated password will be set)")
       ;
+  // clang-format on
 
   try {
+    po::variables_map vm;
     nscapi::program_options::basic_command_line_parser cmd(request);
     cmd.options(desc);
 
@@ -511,7 +507,7 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
     }
     std::stringstream result;
 
-    if (password == "") {
+    if (password.empty()) {
       result << "WARNING: No password specified using a generated password" << std::endl;
       password = token_store::generate_token(32);
     }
@@ -629,8 +625,8 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
   return true;
 }
 
-void build_metrics(json::object &metrics, json::object &metrics_list, std::list<std::string> &openmetrics, const std::string trail, const std::string opentrail,
-                   const PB::Metrics::MetricsBundle &b) {
+void build_metrics(json::object &metrics, json::object &metrics_list, std::list<std::string> &openmetrics, const std::string &trail,
+                   const std::string &opentrail, const PB::Metrics::MetricsBundle &b) {
   json::object node;
   for (const PB::Metrics::MetricsBundle &b2 : b.children()) {
     build_metrics(node, metrics_list, openmetrics, trail + "." + b2.key(), opentrail + "_" + b2.key(), b2);
@@ -647,7 +643,7 @@ void build_metrics(json::object &metrics, json::object &metrics_list, std::list<
   }
   metrics.insert(json::object::value_type(b.key(), node));
 }
-void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) {
+void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) const {
   json::object metrics, metrics_list;
   std::list<std::string> openmetrics;
   for (const PB::Metrics::MetricsMessage::Response &p : response.payload()) {
@@ -659,9 +655,9 @@ void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) {
   client->push_metrics(response);
 }
 
-void WEBServer::add_user(std::string key, std::string arg) {
+void WEBServer::add_user(const std::string &key, const std::string &arg) {
   try {
-    users_.add(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
+    users_.add(nscapi::settings_proxy::create(get_id(), get_core()), key, std::move(arg));
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("Failed to add user: " + key, e);
   } catch (...) {
@@ -669,8 +665,8 @@ void WEBServer::add_user(std::string key, std::string arg) {
   }
 }
 
-void WEBServer::ensure_role(role_map &roles, nscapi::settings_helper::settings_registry &settings, std::string role_path, std::string role, std::string value,
-                            std::string reason) {
+void WEBServer::ensure_role(role_map &roles, const nscapi::settings_helper::settings_registry &settings, const std::string &role_path, const std::string &role,
+                            const std::string &value, const std::string &reason) {
   if (roles.find(role) == roles.end()) {
     roles[role] = value;
     settings.register_key_string(role_path, role, "Role for " + reason, "Default role for " + reason, value);
@@ -678,11 +674,11 @@ void WEBServer::ensure_role(role_map &roles, nscapi::settings_helper::settings_r
   }
 }
 
-void WEBServer::ensure_user(nscapi::settings_helper::settings_registry &settings, std::string path, std::string user, std::string role, std::string password,
-                            std::string reason) {
+void WEBServer::ensure_user(const nscapi::settings_helper::settings_registry &settings, const std::string &path, const std::string &user,
+                            const std::string &role, const std::string &password, const std::string &reason) {
   if (!session->has_user(user)) {
     session->add_user(user, role, password);
-    std::string the_path = path + "/" + user;
+    const std::string the_path = path + "/" + user;
     settings.register_key_password(the_path, "password", "Password for " + reason, "Password name for" + reason, password);
     settings.set_static_key(the_path, "password", password);
     settings.register_key_string(the_path, "role", "Role for " + reason, "Role name for" + reason, role);

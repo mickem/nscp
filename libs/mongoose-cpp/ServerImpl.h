@@ -21,49 +21,48 @@
  */
 namespace Mongoose {
 
-class NSCAPI_EXPORT ServerImpl : public Server {
+class NSCAPI_EXPORT ServerImpl final : public Server {
  public:
   /**
    * Constructs the server
    *
-   * @param int the number of the port to listen to
-   * @param string documentRoot the root that should be used for static files
+   * @param logger the logger to use for logging
    */
-  ServerImpl(WebLoggerPtr logger);
-  virtual ~ServerImpl();
+  explicit ServerImpl(WebLoggerPtr logger);
+  ~ServerImpl() override;
 
   /**
    * Runs the Mongoose server
    */
-  void start(std::string bind);
+  void start(std::string bind) override;
 
   /**
    * Stops the Mongoose server
    */
-  void stop();
+  void stop() override;
 
   /**
    * Register a new controller on the server
    *
-   * @param Controller* a pointer to a controller
+   * @param controller a pointer to a controller
    */
-  void registerController(Controller *);
+  void registerController(Controller *controller) override;
 
   /**
    * Main event handler (called by mongoose when something happens)
    *
-   * @param struct mg_connection* the mongoose connection
-   * @param int ev event type
-   * @param void* ev_data event data
+   * @param connection the mongoose connection
+   * @param ev event type
+   * @param ev_data event data
    */
-  static void event_handler(struct mg_connection *connection, int ev, void *ev_data);
+  static void event_handler(mg_connection *connection, int ev, void *ev_data);
 
-  void onHttpRequest(struct mg_connection *connection, struct mg_http_message *message);
+  void onHttpRequest(mg_connection *connection, mg_http_message *message) const;
 
   /**
    * Process the request by controllers
    *
-   * @param Request the request
+   * @param request the request
    *
    * @return Response the response if one of the controllers can handle it,
    *         NULL else
@@ -76,9 +75,9 @@ class NSCAPI_EXPORT ServerImpl : public Server {
    * @param certificate the name of the certificate to use
    */
 #if MG_ENABLE_OPENSSL
-  void initTls(struct mg_connection *connection);
+  void initTls(mg_connection *connection) const;
 #endif
-  void setSsl(std::string &certificate, std::string &key);
+  void setSsl(std::string &certificate, std::string &key) override;
 
   /**
    * Does the server handles url?
@@ -92,8 +91,7 @@ class NSCAPI_EXPORT ServerImpl : public Server {
   std::string certificate;
   std::string key;
   std::string ciphers;
-  struct mg_mgr mgr;
-  struct mg_connection *server_connection;
+  mg_mgr mgr{};
 
   std::vector<Controller *> controllers;
 

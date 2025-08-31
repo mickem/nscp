@@ -22,15 +22,15 @@ class Handler {
   std::string error;
   boost::shared_ptr<Response> response;
 
-  Handler(std::string payload) : payload_(std::move(payload)) {}
+  explicit Handler(std::string payload) : payload_(std::move(payload)) {}
 
-  void send(struct mg_connection *c, const std::string &data) { mg_send(c, data.c_str(), data.length()); }
+  static void send(mg_connection *c, const std::string &data) { mg_send(c, data.c_str(), data.length()); }
 
-  static void ev_handler(struct mg_connection *c, const int ev, void *ev_data) {
+  static void ev_handler(mg_connection *c, const int ev, void *ev_data) {
     auto *handler = static_cast<Handler *>(c->fn_data);
     handler->handler(c, ev, ev_data);
   }
-  void handler(struct mg_connection *c, int ev, void *ev_data) {
+  void handler(mg_connection *c, int ev, void *ev_data) {
     auto *hm = static_cast<struct mg_http_message *>(ev_data);
 
     switch (ev) {
@@ -38,7 +38,7 @@ class Handler {
         mg_send(c, payload_.c_str(), payload_.length());
         break;
       case MG_EV_ERROR:
-        error = std::string("connect() failed: ") + strerror(*(int *)ev_data);
+        error = std::string("connect() failed: ") + strerror(*static_cast<int *>(ev_data));
         break;
       case MG_EV_HTTP_MSG:
         parseReply(hm);
@@ -48,7 +48,7 @@ class Handler {
     }
   }
 
-  void parseReply(struct mg_http_message *hm) {
+  void parseReply(const mg_http_message *hm) {
     size_t i = 0;
     auto message = std::string(hm->message.buf, hm->message.len);
     response = boost::make_shared<mcp::string_response>(mg_http_status(hm), message);
@@ -78,9 +78,7 @@ boost::shared_ptr<Response> Client::fetch(std::string verb, Client::header_type 
   Handler handler(request.str());
 
   mg_http_connect(&mgr, url_.c_str(), &Handler::ev_handler, &handler);
-  // while (!handler.is_done()) {
   mg_mgr_poll(&mgr, 1000);
-  //}
   mg_mgr_free(&mgr);
   return handler.response;
 }

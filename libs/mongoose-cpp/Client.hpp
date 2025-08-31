@@ -11,17 +11,16 @@
  * Wrapper for the Mongoose server
  */
 namespace Mongoose {
-class NSCAPI_EXPORT Client {
+class NSCAPI_EXPORT Client final {
  public:
   typedef std::map<std::string, std::string> header_type;
   /**
    * Constructs the server
    *
-   * @param int the number of the port to listen to
-   * @param string documentRoot the root that should be used for static files
+   * @param url The url
    */
-  Client(std::string url);
-  virtual ~Client();
+  explicit Client(std::string url);
+  ~Client();
   boost::shared_ptr<Response> fetch(std::string verb, header_type hdr, std::string payload) const;
 
  private:

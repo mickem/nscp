@@ -12,7 +12,7 @@ class StaticController : public Mongoose::Controller {
   boost::filesystem::path base;
 
  public:
-  StaticController(boost::shared_ptr<session_manager_interface> session, std::string path);
+  StaticController(const boost::shared_ptr<session_manager_interface> &session, const std::string &path);
 
   Mongoose::Response *handleRequest(Mongoose::Request &request);
   bool handles(std::string method, std::string url);
