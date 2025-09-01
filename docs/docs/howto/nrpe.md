@@ -1,5 +1,8 @@
 # Using NSClient++ with check_nrpe
 
+> **WARNING**: This document is a bit old and might not reflect the latest changes in NSClient++. 
+> A place to start is the [Getting Started](../getting-started.md) section.
+
 ![nrpe](images/nagios-active-nrpe.png)
 
 NRPE is the most common way to connect to NSClient.

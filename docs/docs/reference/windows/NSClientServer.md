@@ -310,27 +310,28 @@ Section for NSClient (NSClientServer.dll) (check_nt) protocol options.
 
 
 
-| Key                                         | Default Value                       | Description           |
-|---------------------------------------------|-------------------------------------|-----------------------|
-| [allowed ciphers](#allowed-ciphers)         | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH   | ALLOWED CIPHERS       |
-| [allowed hosts](#allowed-hosts)             | 127.0.0.1                           | ALLOWED HOSTS         |
-| [bind to](#bind-to-address)                 |                                     | BIND TO ADDRESS       |
-| [ca](#ca)                                   | ${certificate-path}/ca.pem          | CA                    |
-| [cache allowed hosts](#cache-allowed-hosts) | true                                | CACHE ALLOWED HOSTS   |
-| [certificate](#ssl-certificate)             | ${certificate-path}/certificate.pem | SSL CERTIFICATE       |
-| [certificate format](#certificate-format)   | PEM                                 | CERTIFICATE FORMAT    |
-| [certificate key](#ssl-certificate)         |                                     | SSL CERTIFICATE       |
-| [dh](#dh-key)                               |                                     | DH KEY                |
-| [password](#password)                       |                                     | Password              |
-| [performance data](#performance-data)       | true                                | PERFORMANCE DATA      |
-| [port](#port-number)                        | 12489                               | PORT NUMBER           |
-| [socket queue size](#listen-queue)          | 0                                   | LISTEN QUEUE          |
-| [ssl options](#verify-mode)                 |                                     | VERIFY MODE           |
-| [thread pool](#thread-pool)                 | 10                                  | THREAD POOL           |
-| [timeout](#timeout)                         | 30                                  | TIMEOUT               |
-| [tls version](#tls-version-to-use)          | tlsv1.2+                            | TLS version to use    |
-| [use ssl](#enable-ssl-encryption)           | false                               | ENABLE SSL ENCRYPTION |
-| [verify mode](#verify-mode)                 | none                                | VERIFY MODE           |
+| Key                                                  | Default Value                       | Description                         |
+|------------------------------------------------------|-------------------------------------|-------------------------------------|
+| [allowed ciphers](#allowed-ciphers)                  | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH   | ALLOWED CIPHERS                     |
+| [allowed hosts](#allowed-hosts)                      | 127.0.0.1                           | ALLOWED HOSTS                       |
+| [bind to](#bind-to-address)                          |                                     | BIND TO ADDRESS                     |
+| [ca](#ca)                                            | ${certificate-path}/ca.pem          | CA                                  |
+| [cache allowed hosts](#cache-allowed-hosts)          | true                                | CACHE ALLOWED HOSTS                 |
+| [certificate](#ssl-certificate)                      | ${certificate-path}/certificate.pem | SSL CERTIFICATE                     |
+| [certificate format](#certificate-format)            | PEM                                 | CERTIFICATE FORMAT                  |
+| [certificate key](#ssl-certificate)                  |                                     | SSL CERTIFICATE                     |
+| [debug verify](#debug-peer-certificate-verification) | false                               | Debug peer certificate verification |
+| [dh](#dh-key)                                        |                                     | DH KEY                              |
+| [password](#password)                                |                                     | Password                            |
+| [performance data](#performance-data)                | true                                | PERFORMANCE DATA                    |
+| [port](#port-number)                                 | 12489                               | PORT NUMBER                         |
+| [socket queue size](#listen-queue)                   | 0                                   | LISTEN QUEUE                        |
+| [ssl options](#verify-mode)                          |                                     | VERIFY MODE                         |
+| [thread pool](#thread-pool)                          | 10                                  | THREAD POOL                         |
+| [timeout](#timeout)                                  | 30                                  | TIMEOUT                             |
+| [tls version](#tls-version-to-use)                   | tlsv1.2+                            | TLS version to use                  |
+| [use ssl](#enable-ssl-encryption)                    | false                               | ENABLE SSL ENCRYPTION               |
+| [verify mode](#verify-mode)                          | none                                | VERIFY MODE                         |
 
 
 
@@ -343,6 +344,7 @@ ca=${certificate-path}/ca.pem
 cache allowed hosts=true
 certificate=${certificate-path}/certificate.pem
 certificate format=PEM
+debug verify=false
 performance data=true
 port=12489
 socket queue size=0
@@ -570,6 +572,33 @@ certificate format=PEM
 [/settings/NSClient/server]
 # SSL CERTIFICATE
 certificate key=
+```
+
+
+
+#### Debug peer certificate verification <a id="/settings/NSClient/server/debug verify"></a>
+
+Set this to tru to output certificate verification errors, these are outputed to stdout (not the log).
+
+
+
+
+
+| Key            | Description                                             |
+|----------------|---------------------------------------------------------|
+| Path:          | [/settings/NSClient/server](#/settings/NSClient/server) |
+| Key:           | debug verify                                            |
+| Advanced:      | Yes (means it is not commonly used)                     |
+| Default value: | `false`                                                 |
+| Used by:       | NSClientServer                                          |
+
+
+**Sample:**
+
+```
+[/settings/NSClient/server]
+# Debug peer certificate verification
+debug verify=false
 ```
 
 

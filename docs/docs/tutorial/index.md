@@ -1,8 +1,10 @@
 # Tutorial
 
+> **WARNING** This is an old tutorial, and a better place to start is the [Getting Started](../getting-started.md) guide.
+
 ## How it works
 
-![nsclient](tutorial/images/normal-nrpe.png)
+![nsclient](images/normal-nrpe.png)
 
 NSClient++ (nscp) is an agent that must be deployed on servers to be monitored.
 It eliminates snmp needs and goes much beyond "so called agentless" schemes like wmi by allowing execution of scripts and programs locally and returning results.
@@ -82,7 +84,7 @@ But for the reminder of this tutorial we only consider ini files since it is the
 
 NSClient++ config file is in the well-known INI Format. To edit it you can use any text editor such as notepad. Using advanced editors such as notepad++ you can also achieve syntax coloring so that is preferable.
 
-![elevated](tutorial/images/notepad-administrator.png)
+![elevated](images/notepad-administrator.png)
 
 Also note that on Windows (after Vista) the ini file is residing in a protected space and thus you need to launch the editor as administrator to edit the files.
 

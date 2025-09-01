@@ -4,7 +4,7 @@
 
 - Manual:
   - [NSClient++](docs/index.md)
-  - [Getting Started](docs/getting_started.md)
+  - [Getting Started](docs/getting-started.md)
   - [Theory](docs/theory.md)
   - [Checking Things](docs/checks.md)
   - [Installing NSClient++](docs/installing.md)

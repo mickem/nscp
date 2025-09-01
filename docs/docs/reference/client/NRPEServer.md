@@ -2,7 +2,9 @@
 
 A server that listens for incoming NRPE connection and processes incoming requests.
 
+## Getting started
 
+See the [Getting Started](https://nsclient.org/docs/getting-started/) guide for information on using the NRPE Server.
 
 ## Enable module
 
@@ -322,6 +324,7 @@ Section for NRPE (NRPEServer.dll) (check_nrpe) protocol options.
 | [certificate](#ssl-certificate)                           | ${certificate-path}/certificate.pem  | SSL CERTIFICATE                        |
 | [certificate format](#certificate-format)                 | PEM                                  | CERTIFICATE FORMAT                     |
 | [certificate key](#ssl-certificate)                       |                                      | SSL CERTIFICATE                        |
+| [debug verify](#debug-peer-certificate-verification)      | false                                | Debug peer certificate verification    |
 | [dh](#dh-key)                                             | ${certificate-path}/nrpe_dh_2048.pem | DH KEY                                 |
 | [encoding](#nrpe-payload-encoding)                        |                                      | NRPE PAYLOAD ENCODING                  |
 | [extended response](#extended-response)                   | true                                 | EXTENDED RESPONSE                      |
@@ -350,6 +353,7 @@ ca=${certificate-path}/ca.pem
 cache allowed hosts=true
 certificate=${certificate-path}/certificate.pem
 certificate format=PEM
+debug verify=false
 dh=${certificate-path}/nrpe_dh_2048.pem
 extended response=true
 insecure=false
@@ -633,6 +637,33 @@ certificate format=PEM
 [/settings/NRPE/server]
 # SSL CERTIFICATE
 certificate key=
+```
+
+
+
+#### Debug peer certificate verification <a id="/settings/NRPE/server/debug verify"></a>
+
+Set this to tru to output certificate verification errors, these are outputed to stdout (not the log).
+
+
+
+
+
+| Key            | Description                                     |
+|----------------|-------------------------------------------------|
+| Path:          | [/settings/NRPE/server](#/settings/NRPE/server) |
+| Key:           | debug verify                                    |
+| Advanced:      | Yes (means it is not commonly used)             |
+| Default value: | `false`                                         |
+| Used by:       | NRPEServer                                      |
+
+
+**Sample:**
+
+```
+[/settings/NRPE/server]
+# Debug peer certificate verification
+debug verify=false
 ```
 
 
