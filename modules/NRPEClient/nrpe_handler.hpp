@@ -82,7 +82,7 @@ struct nrpe_target_object : public nscapi::targets::target_object {
       if (value == "true" && get_property_string("insecure", "false") != value) {
         set_property_string("certificate", "");
         set_property_string("certificate key", "");
-        set_property_string("allowed ciphers", "ADH");
+        set_property_string("allowed ciphers", "ALL:!MD5:@STRENGTH:@SECLEVEL=0");
         set_property_string("verify mode", "none");
         set_property_bool("ssl", true);
       }
@@ -103,20 +103,16 @@ struct options_reader_impl : public client::options_reader_interface {
     add_ssl_options(desc, target);
 
     // clang-format off
-			desc.add_options()
-
-				("insecure", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&client::destination_container::set_bool_data, &target, "insecure", ph::_1)),
-					"Use insecure legacy mode")
-
-				("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "payload length", ph::_1)),
-					"Length of payload (has to be same as on the server)")
-
-				("version", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "version", ph::_1)),
-					"The NRPE version to use (2 or 4)")
-
-				("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "payload length", ph::_1)),
-					"Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
-				;
+    desc.add_options()
+      ("insecure", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&client::destination_container::set_bool_data, &target, "insecure", ph::_1)),
+      "Use insecure legacy mode")
+      ("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "payload length", ph::_1)),
+      "Length of payload (has to be same as on the server)")
+      ("version", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "version", ph::_1)),
+      "The NRPE version to use (2 or 4)")
+      ("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "payload length", ph::_1)),
+      "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
+      ;
     // clang-format on
   }
 };
