@@ -204,13 +204,13 @@ void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asi
     }
   }
   context.set_verify_mode(get_verify_mode(), er);
+  if (er) errors.push_back("Failed to set verify mode: " + utf8::utf8_from_native(er.message()));
   if (SSL_CTX_set_min_proto_version(context.native_handle(), get_tls_min_version()) == 0) {
     errors.emplace_back("Failed to set min tls version");
   }
   if (SSL_CTX_set_max_proto_version(context.native_handle(), get_tls_max_version()) == 0) {
     errors.emplace_back("Failed to set max tls version");
   }
-  if (er) errors.push_back("Failed to set verify mode: " + utf8::utf8_from_native(er.message()));
   if (!allowed_ciphers.empty()) {
     ::ERR_clear_error();
     if (SSL_CTX_set_cipher_list(context.native_handle(), allowed_ciphers.c_str()) == 0) {
@@ -225,6 +225,18 @@ void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asi
   if (!ca_path.empty()) {
     context.load_verify_file(ca_path, er);
     if (er) errors.push_back("Failed to load CA " + ca_path + ": " + utf8::utf8_from_native(er.message()));
+  }
+  if (debug_verify) {
+    context.set_verify_callback([](bool preverified, boost::asio::ssl::verify_context &v_ctx) -> bool {
+      char subject_name[256];
+      X509 *cert = X509_STORE_CTX_get_current_cert(v_ctx.native_handle());
+      X509_NAME_oneline(X509_get_subject_name(cert), subject_name, 256);
+      int error_code = X509_STORE_CTX_get_error(v_ctx.native_handle());
+      std::cout << "Verifying: " << subject_name << std::endl;
+      std::cout << "  Preverified: " << (preverified ? "Yes" : "No") << std::endl;
+      std::cout << "  Error: " << X509_verify_cert_error_string(error_code) << std::endl;
+      return preverified;
+    });
   }
 }
 

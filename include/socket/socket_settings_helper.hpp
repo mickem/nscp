@@ -40,6 +40,9 @@ struct settings_helper {
         .add_bool("use ssl", nscapi::settings_helper::bool_key(&info_.ssl.enabled, ssl_default), "ENABLE SSL ENCRYPTION",
                   "This option controls if SSL should be enabled.", false)
 
+        .add_bool("debug verify", nscapi::settings_helper::bool_key(&info_.ssl.debug_verify, false), "Debug peer certificate verification",
+                  "Set this to tru to output certificate verification errors, these are outputed to stdout (not the log).", true)
+
         .add_string("dh", nscapi::settings_helper::path_key(&info_.ssl.dh_key, dh_key), "DH KEY", "", true)
 
         .add_string("certificate", nscapi::settings_helper::path_key(&info_.ssl.certificate, certificate), "SSL CERTIFICATE", "", true)
