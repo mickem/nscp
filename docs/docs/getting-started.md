@@ -14,10 +14,14 @@ We will start with a clean slate and work our way in small easy to follow steps 
 * [Loading modules via Web Interface](#loading-modules-via-web-interface)
 * [Configuration via Web Interface](#configuration-via-web-interface)
 * [Changing settings via command line](#changing-settings-via-command-line)
+* [Adding certificates to NSClient++](#adding-certificates-to-nsclient)
+* [Checking with NRPE client](#checking-with-nrpe-client)
+  * [Insecure version](#insecure-version)
+  * [Using certificates (still insecure)](#using-certificates-still-insecure)
+  * [Using client certificates](#using-client-certificates)
 * [TODO: Using the query language](#todo-using-the-query-language)
 * [TODO: Checking with REST client](#todo-checking-with-rest-client)
 * [TODO: Checking with NRDP](#todo-checking-with-nrdp)
-* [TODO: Checking with NRPE client](#todo-checking-with-nrpe-client)
 
 ## Installing NSClient++
 
@@ -184,6 +188,7 @@ Then you are met with a screen which looks a bit like this:
 ![check_cpu](images/web-check_cpu.png)
 
 Here we can:
+
 * Click `Execute` to run the check.
 * Click `Get Help` to get help on how to use the check.
 * Enter `Arguments` to pass arguments to the check.
@@ -218,6 +223,7 @@ Here we can see that the module is neither loaded nor enabled.
 ![modules check_net](images/web-modules-check_net.png)
 
 A quick word about the difference between loaded and enabled.
+
 * Loaded means that the module is loaded into memory and can be used.
 * Enabled means that the module is configured to be loaded when NSClient++ starts.
 
@@ -241,6 +247,7 @@ To do this you can use the `Settings` tab but a simpler way is to use the settin
 So lets click `Modules` in the web interface and then click on the `WEBServer` module.
 
 ![modules webserver](images/web-modules-webserver.png).
+
 Once you are here Click `Settings` and then expand `/settings/WEB/server` to show the port setting.
 
 ![webserver settings](images/web-webserver-settings.png)
@@ -282,10 +289,191 @@ exit
 
 And you should now be able to access the web interface again at `https://localhost:8443/`.
 
+## Adding certificates to NSClient++
+
+By default, NSClient++ generates a self-signed certificate on startup.
+This is fine for testing but in a production environment you will want to use a certificate signed by a trusted CA.
+As we do not have a CA in this example we will create our own CA using the `mkcert` tool to simulate CA here.
+First we need to install `mkcert`.
+You can find the installation instructions on the [mkcert GitHub page](https://github.com/FiloSottile/mkcert).
+Once you have installed `mkcert` you can create a CA and generate a certificate for localhost.
+
+```
+mkcert -install
+mkcert localhost
+```
+
+> **NOTICE** This will install the root certificate on your local machine.
+
+This will install the root certificate and generate two files `localhost.pem` and `localhost-key.pem`.
+Next we need to copy these files to the NSClient++ security folder.
+
+```
+copy localhost.pem "c:\program files\nsclient++\security\server.pem"
+copy localhost-key.pem "c:\program files\nsclient++\security\server.key"
+```
+Next we need to configure NSClient++ to use these files.
+We can do this using the command line:
+
+```
+nscp settings --path /settings/WEB/server --key certificate --set "${certificate-path}\server.pem"
+nscp settings --path /settings/WEB/server --key "certificate key" --set "${certificate-path}\server.key"
+```
+
+If we restart NSClient++ in debug mode again:
+
+```
+nscp test
+...
+exit
+```
+
+We should now have a valid certificate when we visit the web interface on `https://localhost:8443/`.
+
+If you wish to remove the root certificate you can do so using:
+
+```
+mkcert -uninstall
+```
+
+## Checking with NRPE client
+
+### Insecure version
+
+When NRPE was first released the world was a different place and security was not a big concern.
+So the first version of NRPE did not have any real authentication or encryption.
+
+> You can still use this but it is not recommended.
+
+To use the insecure version of NRPE you need to enable the insecure mode in NSClient++.
+You can do this using the command line:
+
+```commandline
+$ nscp nrpe install --insecure --arguments=safe
+WARNING: Inconsistent ssl options will overwrite:  with no-sslv2,no-sslv3
+Enabling NRPE via SSL from: 127.0.0.1 on port 5666
+WARNING: NRPE is currently insecure.
+SAFE Arguments are allowed.
+```
+
+Here we for convenience also allow `safe` arguments. `safe` arguments are arguments which do not contain `|&><'\"\\[]{}` to prevent shell execution.
+This is not really useful as `NRPE Server` does not allow remote shell execution but as we do not know how `CheckExternalScripts` are configured it adds some weak security.
+
+As always lets start NSClient++ in debug mode again:
+
+```
+nscp test
+...
+exit
+```
+
+And next lets run a check using the `check_nrpe` command line tool.
+
+```commandline
+$ check_nrpe -H 127.0.0.1 -2 -d 1
+I (0.4.0 2025-08-30) seem to be doing fine...
+```
+
+Here we set `-2` to use the old version of NRPE and `-d 1` to enable insecure ADH key exchange.
+
+### Using certificates (still insecure)
+
+Next up lets make this a bit more secure by using TLS certificates.
+
+```commandline
+$ nscp nrpe install --insecure=false --arguments=safe --allowed-hosts=172.17.251.17                                                                                                      Enabling NRPE via SSL from: 172.17.251.17 on port 5666
+NRPE is currently reasonably secure using ${certificate-path}/certificate.pem.
+SAFE Arguments are allowed.
+```
+
+As you can see it used the default certificate and not our custom certificate.
+SO lets change that:
+
+```commandline
+$ nscp settings --path /settings/NRPE/server --key certificate --set "${certificate-path}\server.pem"
+$ nscp settings --path /settings/NRPE/server --key "certificate key" --set "${certificate-path}\server.key"
+```
+
+Now we can restart NSClient++ in debug mode again:
+
+```
+nscp test
+...
+exit
+```
+
+And run the check again using the `check_nrpe` command line tool.
+
+```commandline
+$ /usr/lib/nagios/plugins/check_nrpe -H 127.0.0.1 --ssl-version TLSv1.2+
+I (0.4.0 2025-08-30) seem to be doing fine...
+```
+
+### Using client certificates
+
+As you can see there is still no authentication but at least the traffic is encrypted.
+To make this a bit better we can use client certificates to authenticate the client.
+
+First we need to enable client certificate authentication in NSClient++.
+
+```commandline
+$ nscp settings --path /settings/NRPE/server --key "ca" --set "${certificate-path}\ca.pem"
+$ nscp settings --path /settings/NRPE/server --key "verify mode" --set perr-cert
+```
+
+Then we also need to get the root certificate from mkcert.
+
+```
+mkcert -CAROOT
+```
+
+In this path you will find the `rootCA.pem` file which we need to copy to the NSClient++ security folder as `ca.pem`.
+
+```
+copy rootCA.pem "c:\program files\nsclient++\security\ca.pem"
+```
+
+Now we can restart NSClient++ in debug mode again:
+
+```nscp test
+...
+exit
+```
+
+Then we need to generate a client certificate using `mkcert`.
+
+```
+mkcert -client nagios
+```
+
+Next copy the generated files to the Nagios server.
+Then we need to configure the `check_nrpe` command to use the client certificate.
+
+```commandline
+$ /usr/lib/nagios/plugins/check_nrpe -H 127.0.0.1 -3 --cert nagios-client.pem --key nagios-client-key.pem
+I (0.4.0 2025-08-30) seem to be doing fine...
+```
+
+Next to verify that the client certificate is required we can try to run the command without the certificate.
+
+```commandline
+$ /usr/lib/nagios/plugins/check_nrpe -H 127.0.0.1 -3
+CHECK_NRPE: Receive header underflow - only 0 bytes received (4 expected).
+```
+
+And that is it we now have a reasonably secure NRPE setup.
+
+If you run into any issues I can recommend validating the connection using `openssl s_client`:
+
+```commandline
+openssl s_client -connect 127.0.0.1:5666 -cert nagios-client.pem -key nagios-client-key.pem
+```
+
+In general certificates can be a bit tricky to get right.
+
 ## TODO: Using the query language
 
 ## TODO: Checking with REST client
 
 ## TODO: Checking with NRDP
 
-## TODO: Checking with NRPE client
