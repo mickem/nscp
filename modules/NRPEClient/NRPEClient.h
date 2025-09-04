@@ -37,7 +37,7 @@ class NRPEClient : public nscapi::impl::simple_plugin {
   NRPEClient();
   virtual ~NRPEClient();
   // Module calls
-  bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+  bool loadModuleEx(const std::string &alias, NSCAPI::moduleLoadMode mode);
   bool unloadModule();
 
   void query_fallback(const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message);
@@ -46,9 +46,9 @@ class NRPEClient : public nscapi::impl::simple_plugin {
                           PB::Commands::SubmitResponseMessage *response_message);
 
  private:
-  void add_command(std::string key, std::string args);
-  void add_target(std::string key, std::string args);
+  void add_command(const std::string &key, const std::string &args);
+  void add_target(const std::string &key, const std::string &args);
 
-  bool install_server(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
-  bool make_cert(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
+  bool install_server(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) const;
+  bool make_cert(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) const;
 };
