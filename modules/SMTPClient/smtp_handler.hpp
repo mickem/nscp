@@ -19,13 +19,11 @@
 
 #pragma once
 
-#include <boost/bind.hpp>
 #include <boost/make_shared.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 
 namespace smtp_handler {
 namespace sh = nscapi::settings_helper;
-namespace ph = boost::placeholders;
 
 struct smtp_target_object : public nscapi::targets::target_object {
   typedef nscapi::targets::target_object parent;
@@ -49,14 +47,14 @@ struct smtp_target_object : public nscapi::targets::target_object {
     root_path
         .add_key()
 
-        .add_string("sender", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "sender", ph::_1), "nscp@localhost"), "SENDER",
+        .add_string("sender", sh::string_fun_key([this](auto value) { this->set_property_string("sender", value); }, "nscp@localhost"), "SENDER",
                     "Sender of email message")
 
-        .add_string("recipient", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "recipient", ph::_1), "nscp@localhost"), "RECIPIENT",
+        .add_string("recipient", sh::string_fun_key([this](auto value) { this->set_property_string("recipient", value); }, "nscp@localhost"), "RECIPIENT",
                     "Recipient of email message")
 
         .add_string("template",
-                    sh::string_fun_key(boost::bind(&parent::set_property_string, this, "template", ph::_1), "Hello, this is %source% reporting %message%!"),
+                    sh::string_fun_key([this](auto value) { this->set_property_string("template", value); }, "Hello, this is %source% reporting %message%!"),
                     "TEMPLATE", "Template for message data");
   }
 };
@@ -69,24 +67,18 @@ struct options_reader_impl : public client::options_reader_interface {
 
   void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
     // clang-format off
-			desc.add_options()
-
-				("sender", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, source, "sender", ph::_1)),
-					"Length of payload (has to be same as on the server)")
-
-				("recipient", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "recipient", ph::_1)),
-					"Length of payload (has to be same as on the server)")
-
-				("template", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "template", ph::_1)),
-					"Do not initial an ssl handshake with the server, talk in plain text.")
-
-				("source-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", ph::_1)),
-					"Source/sender host name (default is auto which means use the name of the actual host)")
-
-				("sender-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", ph::_1)),
-					"Source/sender host name (default is auto which means use the name of the actual host)")
-
-				;
+    desc.add_options()
+      ("sender", po::value<std::string>()->notifier([&source] (auto value) { source.set_string_data("sender", value); }),
+      "Length of payload (has to be same as on the server)")
+      ("recipient", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("recipient", value); }),
+      "Length of payload (has to be same as on the server)")
+      ("template", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("template", value); }),
+      "Do not initial an ssl handshake with the server, talk in plain text.")
+      ("source-host", po::value<std::string>()->notifier([&source] (auto value) { source.set_string_data("host", value); }),
+      "Source/sender host name (default is auto which means use the name of the actual host)")
+      ("sender-host", po::value<std::string>()->notifier([&source] (auto value) { source.set_string_data("host", value); }),
+      "Source/sender host name (default is auto which means use the name of the actual host)")
+      ;
     // clang-format on
   }
 };

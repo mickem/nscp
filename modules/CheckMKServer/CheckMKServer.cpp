@@ -19,11 +19,8 @@
 
 #include "CheckMKServer.h"
 
-#include <time.h>
-
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <socket/socket_settings_helper.hpp>
-#include <str/xtos.hpp>
 
 #include "handler_impl.hpp"
 
@@ -44,14 +41,12 @@ bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
   settings.set_alias("check_mk", alias, "server");
 
   // clang-format off
-	settings.alias().add_path_to_settings()
-		("CHECK MK SERVER SECTION", "Section for check_mk (CheckMKServer.dll) protocol options.")
-
-		("scripts", sh::fun_values_path(boost::bind(&CheckMKServer::add_script, this, boost::placeholders::_1, boost::placeholders::_2)),
-			"REMOTE TARGET DEFINITIONS", "",
-			"TARGET", "For more configuration options add a dedicated section")
-
-		;
+  settings.alias().add_path_to_settings()
+    ("CHECK MK SERVER SECTION", "Section for check_mk (CheckMKServer.dll) protocol options.")
+    ("scripts", sh::fun_values_path([this] (auto key, auto value) { this->add_script(key, value); }),
+	    "REMOTE TARGET DEFINITIONS", "",
+	    "TARGET", "For more configuration options add a dedicated section")
+    ;
   // clang-format on
 
   settings.alias().add_key_to_settings().add_string("port", sh::string_key(&info_.port_, "6556"), "PORT NUMBER", "Port to use for check_mk.");

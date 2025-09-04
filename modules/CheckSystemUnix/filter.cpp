@@ -20,7 +20,6 @@
 #include "filter.hpp"
 
 #include <boost/assign.hpp>
-#include <boost/bind/bind.hpp>
 #include <list>
 #include <map>
 #include <parsers/where.hpp>
@@ -29,20 +28,19 @@
 #include <str/utils.hpp>
 
 using namespace parsers::where;
-namespace ph = boost::placeholders;
 
 namespace check_cpu_filter {
 filter_obj_handler::filter_obj_handler() {
   // clang-format off
   registry_.add_string()
-    ("time", boost::bind(&filter_obj::get_time, ph::_1), "The time frame to check")
-    ("core", boost::bind(&filter_obj::get_core_s, ph::_1), boost::bind(&filter_obj::get_core_i, ph::_1), "The core to check (total or core ##)")
-    ("core_id", boost::bind(&filter_obj::get_core_id, ph::_1), boost::bind(&filter_obj::get_core_i, ph::_1), "The core to check (total or core_##)")
+    ("time", [] (auto obj, auto context) { return obj->get_time(); }, "The time frame to check")
+    ("core", [] (auto obj, auto context) { return obj->get_core_s(); }, [] (auto obj, auto context) { return obj->get_core_i(); }, "The core to check (total or core ##)")
+    ("core_id", [] (auto obj, auto context) { return obj->get_core_id(); }, [] (auto obj, auto context) { return obj->get_core_i(); }, "The core to check (total or core_##)")
     ;
   registry_.add_int()
-    ("load", boost::bind(&filter_obj::get_total, ph::_1), "The current load for a given core").add_perf("%")
-    ("idle", boost::bind(&filter_obj::get_idle, ph::_1), "The current idle load for a given core")
-    ("kernel", boost::bind(&filter_obj::get_kernel, ph::_1), "The current kernel load for a given core");
+    ("load", [] (auto obj, auto context) { return obj->get_total(); }, "The current load for a given core").add_perf("%")
+    ("idle", [] (auto obj, auto context) { return obj->get_idle(); }, "The current idle load for a given core")
+    ("kernel", [] (auto obj, auto context) { return obj->get_kernel(); }, "The current kernel load for a given core");
   // clang-format on
 }
 }  // namespace check_cpu_filter
@@ -70,22 +68,22 @@ filter_obj_handler::filter_obj_handler() {
 
   // clang-format off
   registry_.add_string()
-    ("type", boost::bind(&filter_obj::get_type, ph::_1), "The type of memory to check")
+    ("type", [] (auto obj, auto context) { return obj->get_type(); }, "The type of memory to check")
     ;
   registry_
       .add_int()
-        ("size", boost::bind(&filter_obj::get_total, ph::_1), "Total size of memory")
-        ("free", type_custom_free, boost::bind(&filter_obj::get_free, ph::_1), "Free memory in bytes (g,m,k,b) or percentages %")
-          .add_scaled_byte(boost::bind(&get_zero), boost::bind(&filter_obj::get_total, ph::_1))
-          .add_percentage(boost::bind(&filter_obj::get_total, ph::_1), "", " %")
-        ("used", type_custom_used, boost::bind(&filter_obj::get_used, ph::_1), "Used memory in bytes (g,m,k,b) or percentages %")
-          .add_scaled_byte(boost::bind(&get_zero), boost::bind(&filter_obj::get_total, ph::_1))
-          .add_percentage(boost::bind(&filter_obj::get_total, ph::_1), "", " %")
+        ("size", [] (auto obj, auto context) { return obj->get_total(); }, "Total size of memory")
+        ("free", type_custom_free, [] (auto obj, auto context) { return obj->get_free(); }, "Free memory in bytes (g,m,k,b) or percentages %")
+          .add_scaled_byte([] (auto obj, auto context) { return get_zero(); }, [] (auto obj, auto context) { return obj->get_total(); })
+          .add_percentage([] (auto obj, auto context) { return obj->get_total(); }, "", " %")
+        ("used", type_custom_used, [] (auto obj, auto context) { return obj->get_used(); }, "Used memory in bytes (g,m,k,b) or percentages %")
+          .add_scaled_byte([] (auto obj, auto context) { return get_zero(); }, [] (auto obj, auto context) { return obj->get_total(); })
+          .add_percentage([] (auto obj, auto context) { return obj->get_total(); }, "", " %")
       ;
   registry_.add_human_string()
-    ("size", boost::bind(&filter_obj::get_total_human, ph::_1), "")
-    ("free", boost::bind(&filter_obj::get_free_human, ph::_1), "")
-    ("used", boost::bind(&filter_obj::get_used_human, ph::_1), "")
+    ("size", [] (auto obj, auto context) { return obj->get_total_human(); }, "")
+    ("free", [] (auto obj, auto context) { return obj->get_free_human(); }, "")
+    ("used", [] (auto obj, auto context) { return obj->get_used_human(); }, "")
     ;
   // clang-format on
 
@@ -116,22 +114,22 @@ subject) { boost::tuple<long long, std::string> value = parsers::where::helpers:
                 static const parsers::where::value_type type_custom_free = parsers::where::type_custom_int_2;
 
                 registry_.add_string()
-                        ("name", boost::bind(&filter_obj::get_name, ph::_1), "The name of the page file (location)")
+                        ("name", [] (auto obj, auto context) { return obj->get_name(); }, "The name of the page file (location)")
                         ;
                 registry_.add_int()
-                        ("size", boost::bind(&filter_obj::get_total, ph::_1), "Total size of pagefile")
-                        ("free", type_custom_free, boost::bind(&filter_obj::get_free, ph::_1), "Free memory in bytes (g,m,k,b) or percentages %")
-                        .add_scaled_byte(boost::bind(&get_zero), boost::bind(&filter_obj::get_total, ph::_1))
-                        .add_percentage(boost::bind(&filter_obj::get_total, ph::_1), "", " %")
+                        ("size", [] (auto obj, auto context) { return obj->get_total(); }, "Total size of pagefile")
+                        ("free", type_custom_free, [] (auto obj, auto context) { return obj->get_free(); }, "Free memory in bytes (g,m,k,b) or percentages %")
+                        .add_scaled_byte( [](auto obj, auto context) { return obj->get_zero), [] (auto obj, auto context) { return obj->get_total(); })
+                        .add_percentage([] (auto obj, auto context) { return obj->get_total(); }, "", " %")
 
-                        ("used", type_custom_used, boost::bind(&filter_obj::get_used, ph::_1), "Used memory in bytes (g,m,k,b) or percentages %")
-                        .add_scaled_byte(boost::bind(&get_zero), boost::bind(&filter_obj::get_total, ph::_1))
-                        .add_percentage(boost::bind(&filter_obj::get_total, ph::_1), "", " %")
+                        ("used", type_custom_used, [] (auto obj, auto context) { return obj->get_used(); }, "Used memory in bytes (g,m,k,b) or percentages %")
+                        .add_scaled_byte( [](auto obj, auto context) { return obj->get_zero), [] (auto obj, auto context) { return obj->get_total(); })
+                        .add_percentage([] (auto obj, auto context) { return obj->get_total(); }, "", " %")
                         ;
                 registry_.add_human_string()
-                        ("size", boost::bind(&filter_obj::get_total_human, ph::_1), "")
-                        ("free", boost::bind(&filter_obj::get_free_human, ph::_1), "")
-                        ("used", boost::bind(&filter_obj::get_used_human, ph::_1), "")
+                        ("size", [] (auto obj, auto context) { return obj->get_total_human(); }, "")
+                        ("free", [] (auto obj, auto context) { return obj->get_free_human(); }, "")
+                        ("used", [] (auto obj, auto context) { return obj->get_used_human(); }, "")
                         ;
 
                 registry_.add_converter()
@@ -206,18 +204,19 @@ subject) { return parsers::where::factory::create_int(filter_obj::parse_start_ty
                 static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
 
                 registry_.add_string()
-                        ("name", boost::bind(&filter_obj::get_name, ph::_1), "Service name")
-                        ("desc", boost::bind(&filter_obj::get_desc, ph::_1), "Service description")
-                        ("legacy_state", boost::bind(&filter_obj::get_legacy_state_s, ph::_1), "Get legacy state (deprecated and only used by check_nt)")
+                        ("name", [] (auto obj, auto context) { return obj->get_name(); }, "Service name")
+                        ("desc", [] (auto obj, auto context) { return obj->get_desc(); }, "Service description")
+                        ("legacy_state", [] (auto obj, auto context) { return obj->get_legacy_state_s(); }, "Get legacy state (deprecated and only used by
+check_nt)")
                         ;
                 registry_.add_int()
-                        ("pid", boost::bind(&filter_obj::get_pid, ph::_1), "Process id")
-                        ("state", type_custom_state, boost::bind(&filter_obj::get_state_i, ph::_1), boost::bind(&filter_obj::get_state_s, ph::_1), "The current
-state
+                        ("pid", [] (auto obj, auto context) { return obj->get_pid(); }, "Process id")
+                        ("state", type_custom_state, [] (auto obj, auto context) { return obj->get_state_i(); }, [] (auto obj, auto context) { return
+obj->get_state_s(); }, "The current state
 ()").add_perf("","")
-                        ("start_type", type_custom_start_type, boost::bind(&filter_obj::get_start_type_i, ph::_1),boost::bind(&filter_obj::get_start_type_s,
-ph::_1), "The configured start type ()")
-                        ("delayed", parsers::where::type_bool, boost::bind(&filter_obj::get_delayed, ph::_1),  "If the service is delayed")
+                        ("start_type", type_custom_start_type, [] (auto obj, auto context) { return obj->get_start_type_i(); },[] (auto obj, auto context) {
+return obj->get_start_type_s, ph::_1), "The configured start type ()")
+                        ("delayed", parsers::where::type_bool, [] (auto obj, auto context) { return obj->get_delayed(); },  "If the service is delayed")
                         ;
 
                 registry_.add_int_fun()
@@ -243,11 +242,13 @@ parsers::where::node_type parse_time(boost::shared_ptr<filter_obj> object, parse
 
 static const parsers::where::value_type type_custom_uptime = parsers::where::type_custom_int_1;
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_int()("boot", parsers::where::type_date, boost::bind(&filter_obj::get_boot, ph::_1), "System boot time")(
-      "uptime", type_custom_uptime, boost::bind(&filter_obj::get_uptime, ph::_1), "Time since last boot");
+  registry_.add_int()(
+      "boot", parsers::where::type_date, [](auto obj, auto context) { return obj->get_boot(); }, "System boot time")(
+      "uptime", type_custom_uptime, [](auto obj, auto context) { return obj->get_uptime(); }, "Time since last boot");
   registry_.add_converter()(type_custom_uptime, &parse_time);
-  registry_.add_human_string()("boot", boost::bind(&filter_obj::get_boot_s, ph::_1), "The system boot time")(
-      "uptime", boost::bind(&filter_obj::get_uptime_s, ph::_1), "Time sine last boot");
+  registry_.add_human_string()(
+      "boot", [](auto obj, auto context) { return obj->get_boot_s(); }, "The system boot time")(
+      "uptime", [](auto obj, auto context) { return obj->get_uptime_s(); }, "Time sine last boot");
 }
 }  // namespace check_uptime_filter
 
@@ -266,54 +267,58 @@ subject) { return parsers::where::factory::create_int(filter_obj::parse_state(su
                 static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
 
                 registry_.add_string()
-                        ("filename", boost::bind(&filter_obj::get_filename, ph::_1), "Name of process (with path)")
-                        ("exe", boost::bind(&filter_obj::get_exe, ph::_1), "The name of the executable")
-                        ("command_line", boost::bind(&filter_obj::get_command_line, ph::_1), "Command line of process (not always available)")
-                        ("legacy_state", boost::bind(&filter_obj::get_legacy_state_s, ph::_1), "Get process status (for legacy use via check_nt only)")
+                        ("filename", [] (auto obj, auto context) { return obj->get_filename(); }, "Name of process (with path)")
+                        ("exe", [] (auto obj, auto context) { return obj->get_exe(); }, "The name of the executable")
+                        ("command_line", [] (auto obj, auto context) { return obj->get_command_line(); }, "Command line of process (not always available)")
+                        ("legacy_state", [] (auto obj, auto context) { return obj->get_legacy_state_s(); }, "Get process status (for legacy use via check_nt
+only)")
                         ;
                 registry_.add_int()
-                        ("pid", boost::bind(&filter_obj::get_pid, ph::_1), "Process id")
-                        ("started", parsers::where::type_bool, boost::bind(&filter_obj::get_started, ph::_1), "Process is started")
-                        ("hung", parsers::where::type_bool, boost::bind(&filter_obj::get_hung, ph::_1), "Process is hung")
-                        ("stopped", parsers::where::type_bool, boost::bind(&filter_obj::get_stopped, ph::_1), "Process is stopped")
+                        ("pid", [] (auto obj, auto context) { return obj->get_pid(); }, "Process id")
+                        ("started", parsers::where::type_bool, [] (auto obj, auto context) { return obj->get_started(); }, "Process is started")
+                        ("hung", parsers::where::type_bool, [] (auto obj, auto context) { return obj->get_hung(); }, "Process is hung")
+                        ("stopped", parsers::where::type_bool, [] (auto obj, auto context) { return obj->get_stopped(); }, "Process is stopped")
                         ;
                 registry_.add_int()
-                        ("handles", boost::bind(&filter_obj::get_handleCount, ph::_1), "Number of handles").add_perf("", "", " handle count")
-                        ("gdi_handles", boost::bind(&filter_obj::get_gdiHandleCount, ph::_1), "Number of handles").add_perf("", "", " GDI handle count")
-                        ("user_handles", boost::bind(&filter_obj::get_userHandleCount, ph::_1), "Number of handles").add_perf("", "", " USER handle count")
-                        ("peak_virtual", parsers::where::type_size, boost::bind(&filter_obj::get_PeakVirtualSize, ph::_1), "Peak virtual size in
+                        ("handles", [] (auto obj, auto context) { return obj->get_handleCount(); }, "Number of handles").add_perf("", "", " handle count")
+                        ("gdi_handles", [] (auto obj, auto context) { return obj->get_gdiHandleCount(); }, "Number of handles").add_perf("", "", " GDI handle
+count")
+                        ("user_handles", [] (auto obj, auto context) { return obj->get_userHandleCount(); }, "Number of handles").add_perf("", "", " USER handle
+count")
+                        ("peak_virtual", parsers::where::type_size, [] (auto obj, auto context) { return obj->get_PeakVirtualSize(); }, "Peak virtual size in
 bytes").add_scaled_byte(std::string(""), " pv_size")
-                        ("virtual", parsers::where::type_size, boost::bind(&filter_obj::get_VirtualSize, ph::_1), "Virtual size in
+                        ("virtual", parsers::where::type_size, [] (auto obj, auto context) { return obj->get_VirtualSize(); }, "Virtual size in
 bytes").add_scaled_byte(std::string(""), " v_size")
-                        ("page_fault", boost::bind(&filter_obj::get_PageFaultCount, ph::_1), "Page fault count").add_perf("", "", " pf_count")
-                        ("peak_working_set", parsers::where::type_size, boost::bind(&filter_obj::get_PeakWorkingSetSize, ph::_1), "Peak working set in
-bytes").add_scaled_byte(std::string(""), " pws_size")
-                        ("working_set", parsers::where::type_size, boost::bind(&filter_obj::get_WorkingSetSize, ph::_1), "Working set in
+                        ("page_fault", [] (auto obj, auto context) { return obj->get_PageFaultCount(); }, "Page fault count").add_perf("", "", " pf_count")
+                        ("peak_working_set", parsers::where::type_size, [] (auto obj, auto context) { return obj->get_PeakWorkingSetSize(); }, "Peak working set
+in bytes").add_scaled_byte(std::string(""), " pws_size")
+                        ("working_set", parsers::where::type_size, [] (auto obj, auto context) { return obj->get_WorkingSetSize(); }, "Working set in
 bytes").add_scaled_byte(std::string(""), " ws_size")
-// 			("qouta", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaPeakPagedPoolUsage, ph::_1),
+// 			("qouta", parsers::where::type_size, [] (auto obj, auto context) { return obj->get_QuotaPeakPagedPoolUsage(); },
 "TODO").add_scaled_byte(std::string(""), " v_size")
-// 			("virtual_size", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaPagedPoolUsage, ph::_1),
+// 			("virtual_size", parsers::where::type_size, [] (auto obj, auto context) { return obj->get_QuotaPagedPoolUsage(); },
 "TODO").add_scaled_byte(std::string(""), " v_size")
-// 			("virtual_size", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaPeakNonPagedPoolUsage, ph::_1),
+// 			("virtual_size", parsers::where::type_size, [] (auto obj, auto context) { return obj->get_QuotaPeakNonPagedPoolUsage(); },
 "TODO").add_scaled_byte(std::string(""), " v_size")
-// 			("virtual_size", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaNonPagedPoolUsage, ph::_1),
+// 			("virtual_size", parsers::where::type_size, [] (auto obj, auto context) { return obj->get_QuotaNonPagedPoolUsage(); },
 "TODO").add_scaled_byte(std::string(""), " v_size")
-                        ("peak_pagefile", parsers::where::type_size, boost::bind(&filter_obj::get_PagefileUsage, ph::_1), "Page file usage in
+                        ("peak_pagefile", parsers::where::type_size, [] (auto obj, auto context) { return obj->get_PagefileUsage(); }, "Page file usage in
 bytes").add_scaled_byte(std::string(""), " ppf_use")
-                        ("pagefile", parsers::where::type_size, boost::bind(&filter_obj::get_PeakPagefileUsage, ph::_1), "Peak page file use in
+                        ("pagefile", parsers::where::type_size, [] (auto obj, auto context) { return obj->get_PeakPagefileUsage(); }, "Peak page file use in
 bytes").add_scaled_byte(std::string(""), " pf_use")
 
-                        ("creation", parsers::where::type_date, boost::bind(&filter_obj::get_creation_time, ph::_1), "Creation time").add_perf("", "", "
-creation")
-                        ("kernel", boost::bind(&filter_obj::get_kernel_time, ph::_1), "Kernel time in seconds").add_perf("", "", " kernel")
-                        ("user", boost::bind(&filter_obj::get_user_time, ph::_1), "User time in seconds").add_perf("", "", " user")
+                        ("creation", parsers::where::type_date, [] (auto obj, auto context) { return obj->get_creation_time(); }, "Creation time").add_perf("",
+"", " creation")
+                        ("kernel", [] (auto obj, auto context) { return obj->get_kernel_time(); }, "Kernel time in seconds").add_perf("", "", " kernel")
+                        ("user", [] (auto obj, auto context) { return obj->get_user_time(); }, "User time in seconds").add_perf("", "", " user")
 
-                        ("state", type_custom_state, boost::bind(&filter_obj::get_state_i, ph::_1), "The current state (started, stopped hung)").add_perf("",
+                        ("state", type_custom_state, [] (auto obj, auto context) { return obj->get_state_i(); }, "The current state (started, stopped
+hung)").add_perf("",
 ""," state")
                         ;
 
                 registry_.add_human_string()
-                        ("state", boost::bind(&filter_obj::get_state_s, ph::_1), "The current state (started, stopped hung)")
+                        ("state", [] (auto obj, auto context) { return obj->get_state_s(); }, "The current state (started, stopped hung)")
                         ;
 
                 registry_.add_converter()
@@ -327,12 +332,13 @@ creation")
 
 namespace os_version_filter {
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string()("kernel_name", boost::bind(&filter_obj::get_kernel_name, ph::_1), "Kernel name")(
-      "nodename", boost::bind(&filter_obj::get_nodename, ph::_1), "Network node hostname")(
-      "kernel_release", boost::bind(&filter_obj::get_kernel_release, ph::_1), "Kernel release")(
-      "kernel_version", boost::bind(&filter_obj::get_kernel_version, ph::_1), "Kernel version")("machine", boost::bind(&filter_obj::get_machine, ph::_1),
-                                                                                                "Machine hardware name")(
-      "processor", boost::bind(&filter_obj::get_processor, ph::_1), "Processor type or unknown")("os", boost::bind(&filter_obj::get_processor, ph::_1),
-                                                                                                 "Operating system");
+  registry_.add_string()(
+      "kernel_name", [](auto obj, auto context) { return obj->get_kernel_name(); }, "Kernel name")(
+      "nodename", [](auto obj, auto context) { return obj->get_nodename(); }, "Network node hostname")(
+      "kernel_release", [](auto obj, auto context) { return obj->get_kernel_release(); }, "Kernel release")(
+      "kernel_version", [](auto obj, auto context) { return obj->get_kernel_version(); }, "Kernel version")(
+      "machine", [](auto obj, auto context) { return obj->get_machine(); }, "Machine hardware name")(
+      "processor", [](auto obj, auto context) { return obj->get_processor(); }, "Processor type or unknown")(
+      "os", [](auto obj, auto context) { return obj->get_processor(); }, "Operating system");
 }
 }  // namespace os_version_filter

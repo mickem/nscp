@@ -17,7 +17,6 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/bind/bind.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <scheduler/simple_scheduler.hpp>
 #include <utf8.hpp>
@@ -298,13 +297,13 @@ void scheduler::start_threads() {
   if (thread_count_ > threads_.threadCount()) missing_threads = thread_count_ - threads_.threadCount();
   if (missing_threads > 0 && missing_threads <= thread_count_) {
     for (std::size_t i = 0; i < missing_threads; i++) {
-      boost::function<void()> f = boost::bind(&scheduler::thread_proc, this, 100 + i);
+      boost::function<void()> f = [this, i]() { this->thread_proc(100 + i); };
       threads_.createThread(f);
     }
   }
   if (!has_watchdog_) {
     has_watchdog_ = true;
-    boost::function<void()> f = boost::bind(&scheduler::watch_dog, this, 0);
+    boost::function<void()> f = [this]() { this->watch_dog(0); };
     threads_.createThread(f);
   }
 }

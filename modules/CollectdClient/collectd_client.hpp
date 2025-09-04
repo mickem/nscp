@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <boost/bind.hpp>
 #include <collectd/collectd_packet.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -44,19 +43,10 @@ class udp_sender {
 
   void send_data(const std::string &data) {
     payload = data;
-    socket_.async_send_to(boost::asio::buffer(payload), endpoint_, boost::bind(&udp_sender::handle_send_to, this, boost::asio::placeholders::error));
+    socket_.async_send_to(boost::asio::buffer(payload), endpoint_, [this](auto ec, auto bytes) { this->handle_send_to(ec); });
   }
 
   void handle_send_to(const boost::system::error_code &error) {}
-
-  // 	void handle_timeout(const boost::system::error_code& error) {
-  // 		if (!error) {
-  // 			socket_.async_send_to(
-  // 				boost::asio::buffer(message_), endpoint_,
-  // 				boost::bind(&udp_sender::handle_send_to, this,
-  // 					boost::asio::placeholders::error));
-  // 		}
-  // 	}
 
  private:
   boost::asio::ip::udp::endpoint endpoint_;

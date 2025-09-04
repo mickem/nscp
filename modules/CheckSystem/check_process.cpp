@@ -19,19 +19,15 @@
 
 #include "check_process.hpp"
 
-#include <CheckMemory.h>
+#include <EnumProcess.h>
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/filter/realtime_helper.hpp>
-#include <parsers/where.hpp>
-#include <parsers/where/engine.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/where/node.hpp>
 #include <string>
-
-using namespace boost::placeholders;
 
 namespace check_proc_filter {
 typedef process_helper::process_info filter_obj;
@@ -51,51 +47,51 @@ filter_obj_handler::filter_obj_handler() {
   static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
 
   // clang-format off
-		registry_.add_string()
-			("filename", boost::bind(&filter_obj::get_filename, _1), "Name of process (with path)")
-			("exe", boost::bind(&filter_obj::get_exe, _1), "The name of the executable")
-			("error", boost::bind(&filter_obj::get_error, _1), "Any error messages associated with fetching info")
-			("command_line", boost::bind(&filter_obj::get_command_line, _1), "Command line of process (not always available)")
-			("legacy_state", boost::bind(&filter_obj::get_legacy_state_s, _1), "Get process status (for legacy use via check_nt only)")
-			;
-		registry_.add_int()
-			("pid", boost::bind(&filter_obj::get_pid, _1), "Process id")
-			("started", parsers::where::type_bool, boost::bind(&filter_obj::get_started, _1), "Process is started")
-			("hung", parsers::where::type_bool, boost::bind(&filter_obj::get_hung, _1), "Process is hung")
-			("stopped", parsers::where::type_bool, boost::bind(&filter_obj::get_stopped, _1), "Process is stopped")
-			("new", parsers::where::type_bool, boost::bind(&filter_obj::get_is_new, _1), "Process is new (can inly be used for real-time filters)")
-			;
-		registry_.add_int()
-			("handles", boost::bind(&filter_obj::get_handleCount, _1), "Number of handles").add_perf("", "", " handle count")
-			("gdi_handles", boost::bind(&filter_obj::get_gdiHandleCount, _1), "Number of handles").add_perf("", "", " GDI handle count")
-			("user_handles", boost::bind(&filter_obj::get_userHandleCount, _1), "Number of handles").add_perf("", "", " USER handle count")
-			("peak_virtual", parsers::where::type_size, boost::bind(&filter_obj::get_PeakVirtualSize, _1), "Peak virtual size in bytes").add_scaled_byte(std::string(""), " pv_size")
-			("virtual", parsers::where::type_size, boost::bind(&filter_obj::get_VirtualSize, _1), "Virtual size in bytes").add_scaled_byte(std::string(""), " v_size")
-			("page_fault", boost::bind(&filter_obj::get_PageFaultCount, _1), "Page fault count").add_perf("", "", " pf_count")
-			("peak_working_set", parsers::where::type_size, boost::bind(&filter_obj::get_PeakWorkingSetSize, _1), "Peak working set in bytes").add_scaled_byte(std::string(""), " pws_size")
-			("working_set", parsers::where::type_size, boost::bind(&filter_obj::get_WorkingSetSize, _1), "Working set in bytes").add_scaled_byte(std::string(""), " ws_size")
-			// 			("qouta", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaPeakPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
-			// 			("virtual_size", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
-			// 			("virtual_size", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaPeakNonPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
-			// 			("virtual_size", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaNonPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
-			("peak_pagefile", parsers::where::type_size, boost::bind(&filter_obj::get_PagefileUsage, _1), "Page file usage in bytes").add_scaled_byte(std::string(""), " ppf_use")
-			("pagefile", parsers::where::type_size, boost::bind(&filter_obj::get_PeakPagefileUsage, _1), "Peak page file use in bytes").add_scaled_byte(std::string(""), " pf_use")
+  registry_.add_string()
+    ("filename", [](auto obj, auto context) {return obj->get_filename(); }, "Name of process (with path)")
+    ("exe", [](auto obj, auto context) {return obj->get_exe(); }, "The name of the executable")
+    ("error", [](auto obj, auto context) {return obj->get_error(); }, "Any error messages associated with fetching info")
+    ("command_line", [](auto obj, auto context) {return obj->get_command_line(); }, "Command line of process (not always available)")
+    ("legacy_state", [](auto obj, auto context) {return obj->get_legacy_state_s(); }, "Get process status (for legacy use via check_nt only)")
+    ;
+  registry_.add_int()
+    ("pid", [](auto obj, auto context) {return obj->get_pid(); }, "Process id")
+    ("started", parsers::where::type_bool, [](auto obj, auto context) {return obj->get_started(); }, "Process is started")
+    ("hung", parsers::where::type_bool, [](auto obj, auto context) {return obj->get_hung(); }, "Process is hung")
+    ("stopped", parsers::where::type_bool, [](auto obj, auto context) {return obj->get_stopped(); }, "Process is stopped")
+    ("new", parsers::where::type_bool, [](auto obj, auto context) {return obj->get_is_new(); }, "Process is new (can inly be used for real-time filters)")
+    ;
+  registry_.add_int()
+    ("handles", [](auto obj, auto context) {return obj->get_handleCount(); }, "Number of handles").add_perf("", "", " handle count")
+    ("gdi_handles", [](auto obj, auto context) {return obj->get_gdiHandleCount(); }, "Number of handles").add_perf("", "", " GDI handle count")
+    ("user_handles", [](auto obj, auto context) {return obj->get_userHandleCount(); }, "Number of handles").add_perf("", "", " USER handle count")
+    ("peak_virtual", parsers::where::type_size, [](auto obj, auto context) {return obj->get_PeakVirtualSize(); }, "Peak virtual size in bytes").add_scaled_byte(std::string(""), " pv_size")
+    ("virtual", parsers::where::type_size,[](auto obj, auto context) {return obj->get_VirtualSize(); }, "Virtual size in bytes").add_scaled_byte(std::string(""), " v_size")
+    ("page_fault", [](auto obj, auto context) {return obj->get_PageFaultCount(); }, "Page fault count").add_perf("", "", " pf_count")
+    ("peak_working_set", parsers::where::type_size, [](auto obj, auto context) {return obj->get_PeakWorkingSetSize(); }, "Peak working set in bytes").add_scaled_byte(std::string(""), " pws_size")
+    ("working_set", parsers::where::type_size, [](auto obj, auto context) {return obj->get_WorkingSetSize(); }, "Working set in bytes").add_scaled_byte(std::string(""), " ws_size")
+    // 			("qouta", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaPeakPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
+    // 			("virtual_size", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
+    // 			("virtual_size", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaPeakNonPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
+    // 			("virtual_size", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaNonPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
+    ("peak_pagefile", parsers::where::type_size,[](auto obj, auto context) {return obj->get_PagefileUsage(); }, "Page file usage in bytes").add_scaled_byte(std::string(""), " ppf_use")
+    ("pagefile", parsers::where::type_size, [](auto obj, auto context) {return obj->get_PeakPagefileUsage(); }, "Peak page file use in bytes").add_scaled_byte(std::string(""), " pf_use")
 
-			("creation", parsers::where::type_date, boost::bind(&filter_obj::get_creation_time, _1), "Creation time").add_perf("", "", " creation")
-			("kernel", boost::bind(&filter_obj::get_kernel_time, _1), "Kernel time in seconds").add_perf("", "", " kernel")
-			("user", boost::bind(&filter_obj::get_user_time, _1), "User time in seconds").add_perf("", "", " user")
-			("time", boost::bind(&filter_obj::get_total_time, _1), "User-kernel time in seconds").add_perf("", "", " total")
+    ("creation", parsers::where::type_date, [](auto obj, auto context) {return obj->get_creation_time(); }, "Creation time").add_perf("", "", " creation")
+    ("kernel", [](auto obj, auto context) {return obj->get_kernel_time(); }, "Kernel time in seconds").add_perf("", "", " kernel")
+    ("user", [](auto obj, auto context) {return obj->get_user_time(); }, "User time in seconds").add_perf("", "", " user")
+    ("time", [](auto obj, auto context) {return obj->get_total_time(); }, "User-kernel time in seconds").add_perf("", "", " total")
 
-			("state", type_custom_state, boost::bind(&filter_obj::get_state_i, _1), "The current state (started, stopped hung)").add_perf("", "", " state")
-			;
+    ("state", type_custom_state, [](auto obj, auto context) {return obj->get_state_i(); }, "The current state (started, stopped hung)").add_perf("", "", " state")
+    ;
 
-		registry_.add_human_string()
-			("state", boost::bind(&filter_obj::get_state_s, _1), "The current state (started, stopped hung)")
-			;
+  registry_.add_human_string()
+    ("state", [](auto obj, auto context) {return obj->get_state_s(); }, "The current state (started, stopped hung)")
+    ;
 
-		registry_.add_converter()
-			(type_custom_state, &parse_state)
-			;
+  registry_.add_converter()
+    (type_custom_state, &parse_state)
+    ;
   // clang-format on
 }
 
@@ -228,14 +224,14 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   filter_helper.add_options(filter.get_filter_syntax(), "unknown");
   filter_helper.add_syntax("${status}: ${problem_list}", "${exe}=${state}", "${exe}", "UNKNOWN: No processes found", "%(status): all processes are ok.");
   // clang-format off
-			filter_helper.get_desc().add_options()
-				("process", po::value<std::vector<std::string>>(&processes), "The service to check, set this to * to check all services")
-				("scan-info", po::value<bool>(&deep_scan), "If all process metrics should be fetched (otherwise only status is fetched)")
-				("scan-16bit", po::value<bool>(&vdm_scan), "If 16bit processes should be included")
-				("delta", po::value<bool>(&delta_scan), "Calculate delta over one elapsed second.\nThis call will measure values and then sleep for 2 second and then measure again calculating deltas.")
-				("scan-unreadable", po::value<bool>(&unreadable_scan), "If unreadable processes should be included (will not have information)")
-				("total", po::bool_switch(&total), "Include the total of all matching files")
-				;
+  filter_helper.get_desc().add_options()
+    ("process", po::value<std::vector<std::string>>(&processes), "The service to check, set this to * to check all services")
+    ("scan-info", po::value<bool>(&deep_scan), "If all process metrics should be fetched (otherwise only status is fetched)")
+    ("scan-16bit", po::value<bool>(&vdm_scan), "If 16bit processes should be included")
+    ("delta", po::value<bool>(&delta_scan), "Calculate delta over one elapsed second.\nThis call will measure values and then sleep for 2 second and then measure again calculating deltas.")
+    ("scan-unreadable", po::value<bool>(&unreadable_scan), "If unreadable processes should be included (will not have information)")
+    ("total", po::bool_switch(&total), "Include the total of all matching files")
+    ;
   // clang-format on
 
   if (!filter_helper.parse_options()) return;

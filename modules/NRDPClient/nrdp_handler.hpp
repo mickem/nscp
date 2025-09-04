@@ -19,13 +19,11 @@
 
 #pragma once
 
-#include <boost/bind.hpp>
 #include <boost/make_shared.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 
 namespace nrdp_handler {
 namespace sh = nscapi::settings_helper;
-namespace ph = boost::placeholders;
 
 struct nrdp_target_object : public nscapi::targets::target_object {
   typedef nscapi::targets::target_object parent;
@@ -45,15 +43,15 @@ struct nrdp_target_object : public nscapi::targets::target_object {
     if (oneliner) return;
 
     root_path.add_key()
-        .add_string("key", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", ph::_1)), "SECURITY TOKEN", "The security token")
-        .add_password("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", ph::_1)), "SECURITY TOKEN", "The security token")
-        .add_password("token", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", ph::_1)), "SECURITY TOKEN", "The security token")
-        .add_string("tls version", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "tls version", ph::_1)), "Tls version",
+        .add_string("key", sh::string_fun_key([this](auto value) { this->set_property_string("token", value); }), "SECURITY TOKEN", "The security token")
+        .add_password("password", sh::string_fun_key([this](auto value) { this->set_property_string("token", value); }), "SECURITY TOKEN", "The security token")
+        .add_password("token", sh::string_fun_key([this](auto value) { this->set_property_string("token", value); }), "SECURITY TOKEN", "The security token")
+        .add_string("tls version", sh::string_fun_key([this](auto value) { this->set_property_string("tls version", value); }), "Tls version",
                     "The tls version to use 1.0, 1.1, 1.2, 1.3")
-        .add_string("verify mode", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "verify mode", ph::_1)), "TLS peer verify mode",
+        .add_string("verify mode", sh::string_fun_key([this](auto value) { this->set_property_string("verify mode", value); }), "TLS peer verify mode",
                     "Coma separated list o9f option none, peer, peer-cert, client-once, fail-if-no-cert, workarounds, single., In general use peer-cert or "
                     "none for self signed certificates.")
-        .add_string("ca", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "ca", ph::_1)), "Certificate Authority",
+        .add_string("ca", sh::string_fun_key([this](auto value) { this->set_property_string("ca", value); }), "Certificate Authority",
                     "Certificate authority to use when verifying certificates.");
 
     settings.register_all();
@@ -70,21 +68,21 @@ struct options_reader_impl : public client::options_reader_interface {
   void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
     // clang-format off
     desc.add_options()
-    ("key", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "token", ph::_1)),
+    ("key", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("token", value); }),
     "The security token")
-    ("password", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "token", ph::_1)),
+    ("password", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("token", value); }),
     "The security token")
-    ("source-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", ph::_1)),
+    ("source-host", po::value<std::string>()->notifier([&source] (auto value) { source.set_string_data("host", value); }),
     "Source/sender host name (default is auto which means use the name of the actual host)")
-    ("sender-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", ph::_1)),
+    ("sender-host", po::value<std::string>()->notifier([&source] (auto value) { source.set_string_data("host", value); }),
     "Source/sender host name (default is auto which means use the name of the actual host)")
-    ("token", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "token", ph::_1)),
+    ("token", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("token", value); }),
     "The security token")
-    ("tls version", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "tls version", ph::_1)),
+    ("tls version", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("tls version", value); }),
       "The tls version to use 1.0, 1.1, 1.2, 1.3")
-    ("verify mode", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "verify mode", ph::_1)),
+    ("verify mode", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("verify mode", value); }),
       "Coma separated list o9f option none, peer, peer-cert, client-once, fail-if-no-cert, workarounds, single., In general use peer-cert or none for self signed certificates.")
-    ("ca", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "ca", ph::_1)),
+    ("ca", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("ca", value); }),
       "Certificate authority to use when verifying certificates.")
     ;
     // clang-format on

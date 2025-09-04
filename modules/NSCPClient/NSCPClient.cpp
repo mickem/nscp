@@ -19,7 +19,6 @@
 
 #include "NSCPClient.h"
 
-#include <boost/filesystem.hpp>
 #include <boost/make_shared.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -31,7 +30,6 @@
 #include "nscp_handler.hpp"
 
 namespace sh = nscapi::settings_helper;
-namespace ph = boost::placeholders;
 
 /**
  * Default c-tor
@@ -55,17 +53,17 @@ bool NSCPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     client_.set_path(settings.alias().get_settings_path("targets"));
 
     // clang-format off
-		settings.alias().add_path_to_settings()
-			("NSCP CLIENT SECTION", "Section for NSCP active/passive check module.")
+    settings.alias().add_path_to_settings()
+      ("NSCP CLIENT SECTION", "Section for NSCP active/passive check module.")
 
-			("handlers", sh::fun_values_path(boost::bind(&NSCPClient::add_command, this, ph::_1, ph::_2)),
-				"CLIENT HANDLER SECTION", "",
-				"TARGET", "For more configuration options add a dedicated section")
+      ("handlers", sh::fun_values_path([this] (auto key, auto value) { this->add_command(key, value); }),
+	      "CLIENT HANDLER SECTION", "",
+	      "TARGET", "For more configuration options add a dedicated section")
 
-			("targets", sh::fun_values_path(boost::bind(&NSCPClient::add_target, this, ph::_1, ph::_2)),
-				"REMOTE TARGET DEFINITIONS", "",
-				"TARGET", "For more configuration options add a dedicated section")
-			;
+      ("targets", sh::fun_values_path([this] (auto key, auto value) { this->add_target(key, value); }),
+	      "REMOTE TARGET DEFINITIONS", "",
+	      "TARGET", "For more configuration options add a dedicated section")
+      ;
     // clang-format on
 
     settings.alias().add_key_to_settings().add_string("channel", sh::string_key(&channel_, "NSCP"), "CHANNEL", "The channel to listen to.")

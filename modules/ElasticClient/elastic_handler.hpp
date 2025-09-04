@@ -19,14 +19,12 @@
 
 #pragma once
 
-#include <boost/bind.hpp>
 #include <boost/make_shared.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <socket/client.hpp>
 
 namespace elastic_handler {
 namespace sh = nscapi::settings_helper;
-namespace ph = boost::placeholders;
 
 struct elastic_target_object : public nscapi::targets::target_object {
   typedef nscapi::targets::target_object parent;
@@ -54,17 +52,17 @@ struct elastic_target_object : public nscapi::targets::target_object {
 
           .add_string(
               "path",
-              sh::string_fun_key(boost::bind(&parent::set_property_string, this, "perf path", ph::_1), "system.${hostname}.${check_alias}.${perf_alias}"),
+              sh::string_fun_key([this](auto value) { this->set_property_string("perf path", value); }, "system.${hostname}.${check_alias}.${perf_alias}"),
               "PATH FOR METRICS", "Path mapping for metrics")
 
           .add_string("status path",
-                      sh::string_fun_key(boost::bind(&parent::set_property_string, this, "status path", ph::_1), "system.${hostname}.${check_alias}.status"),
+                      sh::string_fun_key([this](auto value) { this->set_property_string("status path", value); }, "system.${hostname}.${check_alias}.status"),
                       "PATH FOR STATUS", "Path mapping for status")
 
-          .add_bool("send perfdata", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send perfdata", ph::_1), true), "SEND PERF DATA",
+          .add_bool("send perfdata", sh::bool_fun_key([this](auto value) { this->set_property_bool("send perfdata", value); }, true), "SEND PERF DATA",
                     "Send performance data to this server")
 
-          .add_bool("send status", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send status", ph::_1), true), "SEND STATUS",
+          .add_bool("send status", sh::bool_fun_key([this](auto value) { this->set_property_bool("send status", value); }, true), "SEND STATUS",
                     "Send status data to this server")
 
           ;
@@ -72,16 +70,16 @@ struct elastic_target_object : public nscapi::targets::target_object {
       root_path
           .add_key()
 
-          .add_string("path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "perf path", ph::_1)), "PATH FOR METRICS",
+          .add_string("path", sh::string_fun_key([this](auto value) { this->set_property_string("perf path", value); }), "PATH FOR METRICS",
                       "Path mapping for metrics")
 
-          .add_string("status path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "status path", ph::_1)), "PATH FOR STATUS",
+          .add_string("status path", sh::string_fun_key([this](auto value) { this->set_property_string("status path", value); }), "PATH FOR STATUS",
                       "Path mapping for status")
 
-          .add_bool("send perfdata", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send perfdata", ph::_1)), "SEND PERF DATA",
+          .add_bool("send perfdata", sh::bool_fun_key([this](auto value) { this->set_property_bool("send perfdata", value); }), "SEND PERF DATA",
                     "Send performance data to this server")
 
-          .add_bool("send status", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send status", ph::_1)), "SEND STATUS",
+          .add_bool("send status", sh::bool_fun_key([this](auto value) { this->set_property_bool("send status", value); }), "SEND STATUS",
                     "Send status data to this server")
 
           ;
@@ -100,9 +98,7 @@ struct options_reader_impl : public client::options_reader_interface {
   }
 
   void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
-    desc.add_options()("path", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "path", ph::_1)), "")
-
-        ;
+    desc.add_options()("path", po::value<std::string>()->notifier([&data](auto value) { data.set_string_data("path", value); }), "");
   }
 };
 }  // namespace elastic_handler

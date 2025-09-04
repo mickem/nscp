@@ -20,12 +20,10 @@
 #include "counter_filter.hpp"
 
 #include <boost/assign.hpp>
-#include <boost/bind/bind.hpp>
-#include <parsers/where.hpp>
 
 using namespace boost::assign;
 using namespace parsers::where;
 
 counter_filter::filter_obj_handler::filter_obj_handler() {
-  registry_.add_string()("counter", boost::bind(&filter_obj::get_counter, boost::placeholders::_1), "The name of the file");
+  registry_.add_string()("counter", [](auto obj, auto context) { return obj->get_counter(); }, "The name of the file");
 }

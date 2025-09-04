@@ -19,7 +19,6 @@
 
 #include "NRDPClient.h"
 
-#include <boost/bind.hpp>
 #include <boost/make_shared.hpp>
 #include <http/client.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -48,34 +47,33 @@ bool NRDPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     client_.set_path(settings.alias().get_settings_path("targets"));
 
     // clang-format off
-		settings.alias().add_path_to_settings()
-			("SMTP CLIENT SECTION", "Section for SMTP passive check module.")
-			("handlers", sh::fun_values_path(boost::bind(&NRDPClient::add_command, this, boost::placeholders::_1, boost::placeholders::_2)),
-				"CLIENT HANDLER SECTION", "",
-				"CLIENT HANDLER", "For more configuration options add a dedicated section")
+    settings.alias().add_path_to_settings()
+      ("SMTP CLIENT SECTION", "Section for SMTP passive check module.")
+      ("handlers", sh::fun_values_path([this] (auto key, auto value) { this->add_command(key, value); }),
+	      "CLIENT HANDLER SECTION", "",
+	      "CLIENT HANDLER", "For more configuration options add a dedicated section")
 
-			("targets", sh::fun_values_path(boost::bind(&NRDPClient::add_target, this, boost::placeholders::_1, boost::placeholders::_2)),
-				"REMOTE TARGET DEFINITIONS", "",
-				"TARGET", "For more configuration options add a dedicated section")
-			;
-
-		settings.alias().add_key_to_settings()
-			.add_string("hostname", sh::string_key(&hostname_, "auto"),
-				"HOSTNAME", "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
-				"auto\tHostname\n"
-				"${host}\tHostname\n"
-				"${host_lc}\nHostname in lowercase\n"
-				"${host_uc}\tHostname in uppercase\n"
-				"${domain}\tDomainname\n"
-				"${domain_lc}\tDomainname in lowercase\n"
-				"${domain_uc}\tDomainname in uppercase\n"
-				)
-
-			.add_string("channel", sh::string_key(&channel_, "NRDP"),
-				"CHANNEL", "The channel to listen to.")
-
-			;
+      ("targets", sh::fun_values_path([this] (auto key, auto value) { this->add_target(key, value); }),
+	      "REMOTE TARGET DEFINITIONS", "",
+	      "TARGET", "For more configuration options add a dedicated section")
+      ;
     // clang-format on
+
+    settings.alias()
+        .add_key_to_settings()
+        .add_string("hostname", sh::string_key(&hostname_, "auto"), "HOSTNAME",
+                    "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
+                    "auto\tHostname\n"
+                    "${host}\tHostname\n"
+                    "${host_lc}\nHostname in lowercase\n"
+                    "${host_uc}\tHostname in uppercase\n"
+                    "${domain}\tDomainname\n"
+                    "${domain_lc}\tDomainname in lowercase\n"
+                    "${domain_uc}\tDomainname in uppercase\n")
+
+        .add_string("channel", sh::string_key(&channel_, "NRDP"), "CHANNEL", "The channel to listen to.")
+
+        ;
 
     settings.register_all();
     settings.notify();

@@ -48,7 +48,7 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
   settings.alias()
       .add_key_to_settings()
 
-      .add_bool("performance data", sh::bool_fun_key(boost::bind(&NSClientServer::set_perf_data, this, boost::placeholders::_1), true), "PERFORMANCE DATA",
+      .add_bool("performance data", sh::bool_fun_key([this](auto value) { this->set_perf_data(value); }, true), "PERFORMANCE DATA",
                 "Send performance data back to Nagios (set this to 0 to remove all performance data).");
 
   socket_helpers::settings_helper::add_port_server_opts(settings, info_, "12489");
@@ -60,8 +60,7 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
       .add_parent("/settings/default")
       .add_key_to_settings()
 
-      .add_password("password", sh::string_fun_key(boost::bind(&NSClientServer::set_password, this, boost::placeholders::_1), ""), DEFAULT_PASSWORD_NAME,
-                    DEFAULT_PASSWORD_DESC);
+      .add_password("password", sh::string_fun_key([this](auto value) { this->set_password(value); }, ""), DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC);
 
   settings.register_all();
   settings.notify();

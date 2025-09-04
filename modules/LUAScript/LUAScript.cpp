@@ -19,7 +19,6 @@
 
 #include "LUAScript.h"
 
-#include <boost/bind.hpp>
 #include <boost/program_options.hpp>
 #include <file_helpers.hpp>
 #include <nscapi/macros.hpp>
@@ -42,12 +41,12 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     settings.set_alias(alias, "lua");
 
     // clang-format off
-		settings.alias().add_path_to_settings()
+    settings.alias().add_path_to_settings()
 
-			("scripts", sh::fun_values_path(boost::bind(&LUAScript::loadScript, this, boost::placeholders::_1, boost::placeholders::_2)),
-				"Lua scripts", "A list of scripts available to run from the LuaSCript module.",
-				"SCRIPT DEFENTION", "For more configuration options add a dedicated section")
-			;
+      ("scripts", sh::fun_values_path([this] (auto key, auto value) { this->loadScript(key, value); }),
+	      "Lua scripts", "A list of scripts available to run from the LuaSCript module.",
+	      "SCRIPT DEFENTION", "For more configuration options add a dedicated section")
+      ;
     // clang-format on
 
     settings.register_all();

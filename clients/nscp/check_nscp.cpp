@@ -21,14 +21,11 @@
 
 #include <config.h>
 
-#include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
 #include "../modules/NSCPClient/nscp_handler.hpp"
-
-namespace ph = boost::placeholders;
 
 std::string gLog = "";
 
@@ -194,8 +191,7 @@ bool test(client::destination_container &source, client::destination_container &
 
 boost::program_options::options_description add_client_options(client::destination_container &source, client::destination_container &) {
   po::options_description desc("Client options");
-  desc.add_options()("log", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "log", ph::_1)),
-                     "Set log level");
+  desc.add_options()("log", po::value<std::string>()->notifier([&source](auto value) { source.set_string_data("log", value); }), "Set log level");
   return desc;
 }
 

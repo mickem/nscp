@@ -34,7 +34,6 @@
 #include "filter.hpp"
 
 namespace sh = nscapi::settings_helper;
-namespace ph = boost::placeholders;
 
 namespace filters {
 std::string filter_config_object::to_string() const {
@@ -81,9 +80,8 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
     }
 
     root_path.add_key()
-        .add_string("type", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)), "TIME", "The time to check", false)
-        .add_string("types", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, ph::_1)), "FILES",
-                    "A list of times to check (soma separated)", true);
+        .add_string("type", sh::string_fun_key([this](auto value) { this->set_data(value); }), "TIME", "The time to check", false)
+        .add_string("types", sh::string_fun_key([this](auto value) { this->set_datas(value); }), "FILES", "A list of times to check (soma separated)", true);
 
   } else {
     if (is_default) {
@@ -94,9 +92,8 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
     }
 
     root_path.add_key()
-        .add_string("time", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)), "TIME", "The time to check", false)
-        .add_string("times", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, ph::_1)), "FILES",
-                    "A list of times to check (soma separated)", true);
+        .add_string("time", sh::string_fun_key([this](auto value) { this->set_data(value); }), "TIME", "The time to check", false)
+        .add_string("times", sh::string_fun_key([this](auto value) { this->set_datas(value); }), "FILES", "A list of times to check (soma separated)", true);
   }
 
   filter.read_object(root_path, is_default);

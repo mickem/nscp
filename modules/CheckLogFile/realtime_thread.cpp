@@ -19,11 +19,7 @@
 
 #include "realtime_thread.hpp"
 
-#include <time.h>
-
 #include <boost/filesystem.hpp>
-#include <error/error.hpp>
-#include <map>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -177,7 +173,7 @@ bool real_time_thread::start() {
     NSC_LOG_ERROR("Failed to create pipe");
   }
 #endif
-  thread_ = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&real_time_thread::thread_proc, this)));
+  thread_ = boost::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
   return true;
 }
 bool real_time_thread::stop() {
