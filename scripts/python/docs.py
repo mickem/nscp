@@ -583,7 +583,6 @@ def render_template(hash, template, filename):
             log_debug("no changes detected in: %s"%filename)
             return
 
-    log_debug('Writing file: %s'%filename)
     f = open(filename,"wb")
     f.write(data)
     f.close()
