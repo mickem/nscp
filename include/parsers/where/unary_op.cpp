@@ -26,7 +26,7 @@ namespace where {
 std::string unary_op::to_string() const { return helpers::operator_to_string(op) + " ( " + subject->to_string() + " ) "; }
 std::string unary_op::to_string(evaluation_context errors) const { return helpers::operator_to_string(op) + " ( " + subject->to_string(errors) + " ) "; }
 
-value_container unary_op::get_value(evaluation_context errors, value_type type) const { return evaluate(errors)->get_value(errors, type); }
+value_container unary_op::get_value(evaluation_context errors, value_type new_type) const { return evaluate(errors)->get_value(errors, new_type); }
 std::list<node_type> unary_op::get_list_value(evaluation_context errors) const { return std::list<node_type>(); }
 
 bool unary_op::can_evaluate() const { return true; }

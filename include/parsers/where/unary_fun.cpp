@@ -30,7 +30,7 @@ std::string unary_fun::to_string(evaluation_context errors) const {
   return name + "(" + subject->to_string(errors) + ")";
 }
 
-value_container unary_fun::get_value(evaluation_context errors, value_type type) const { return evaluate(errors)->get_value(errors, type); }
+value_container unary_fun::get_value(evaluation_context errors, value_type new_type) const { return evaluate(errors)->get_value(errors, new_type); }
 std::list<node_type> unary_fun::get_list_value(evaluation_context errors) const {
   std::list<node_type> ret;
   for (node_type n : subject->get_list_value(errors)) {

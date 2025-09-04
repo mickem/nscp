@@ -41,11 +41,11 @@ std::list<node_type> binary_op::get_list_value(evaluation_context errors) const 
 value_type binary_op::infer_type(object_converter converter, value_type) { return infer_type(converter); }
 
 value_type binary_op::infer_type(object_converter converter) {
-  value_type type = helpers::infer_binary_type(converter, left, right);
-  if (type == type_invalid) return type;
-  type = helpers::get_return_type(op, type);
-  set_type(type);
-  return type;
+  value_type inferred_type = helpers::infer_binary_type(converter, left, right);
+  if (inferred_type == type_invalid) return inferred_type;
+  inferred_type = helpers::get_return_type(op, inferred_type);
+  set_type(inferred_type);
+  return inferred_type;
 }
 
 std::string binary_op::to_string() const {

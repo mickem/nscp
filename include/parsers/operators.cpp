@@ -20,6 +20,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/optional.hpp>
 #include <boost/regex.hpp>
+#include <cmath>
 #include <iostream>
 #include <parsers/helpers.hpp>
 #include <parsers/operators.hpp>
@@ -428,44 +429,44 @@ struct function_convert : public binary_function_impl {
       return factory::create_false();
     } else {
       if (helpers::type_is_int(type)) {
-        if (v->is_float()) return factory::create_int(v->get_float_value(errors));
+        if (v->is_float()) return factory::create_int(llround(v->get_float_value(errors)));
       }
       if (helpers::type_is_float(type)) {
-        if (v->is_int()) return factory::create_float(v->get_int_value(errors));
+        if (v->is_int()) return factory::create_float(static_cast<double>(v->get_int_value(errors)));
       }
       return v;
     }
   }
 
-  inline long long parse_time(long long new_value, std::string unit) const {
+  inline long long parse_time(long long new_value, std::string mew_unit) const {
     long long now = constants::get_now();
-    if (unit.empty())
+    if (mew_unit.empty())
       return now + new_value;
-    else if ((unit == "s") || (unit == "S"))
+    else if ((mew_unit == "s") || (mew_unit == "S"))
       return now + (new_value);
-    else if ((unit == "m") || (unit == "M"))
+    else if ((mew_unit == "m") || (mew_unit == "M"))
       return now + (new_value * 60);
-    else if ((unit == "h") || (unit == "H"))
+    else if ((mew_unit == "h") || (mew_unit == "H"))
       return now + (new_value * 60 * 60);
-    else if ((unit == "d") || (unit == "D"))
+    else if ((mew_unit == "d") || (mew_unit == "D"))
       return now + (new_value * 24 * 60 * 60);
-    else if ((unit == "w") || (unit == "W"))
+    else if ((mew_unit == "w") || (mew_unit == "W"))
       return now + (new_value * 7 * 24 * 60 * 60);
     return now + new_value;
   }
 
-  inline long long parse_size(long long new_value, std::string unit) const {
-    if (unit.empty())
+  inline long long parse_size(long long new_value, std::string mew_unit) const {
+    if (mew_unit.empty())
       return new_value;
-    else if ((unit == "b") || (unit == "B"))
+    else if ((mew_unit == "b") || (mew_unit == "B"))
       return new_value;
-    else if ((unit == "k") || (unit == "k"))
+    else if ((mew_unit == "k") || (mew_unit == "k"))
       return new_value * 1024;
-    else if ((unit == "m") || (unit == "M"))
+    else if ((mew_unit == "m") || (mew_unit == "M"))
       return new_value * 1024 * 1024;
-    else if ((unit == "g") || (unit == "G"))
+    else if ((mew_unit == "g") || (mew_unit == "G"))
       return new_value * 1024 * 1024 * 1024;
-    else if ((unit == "t") || (unit == "T"))
+    else if ((mew_unit == "t") || (mew_unit == "T"))
       return new_value * 1024 * 1024 * 1024 * 1024;
     return new_value;
   }

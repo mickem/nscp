@@ -182,7 +182,6 @@ void ServerImpl::onHttpRequest(struct mg_connection *connection, struct mg_http_
 
   size_t max = std::size(message->headers);
   for (size_t i = 0; i < max && message->headers[i].name.len > 0; i++) {
-    struct mg_str *k = &message->headers[i].name, *v = &message->headers[i].value;
     if (message->headers[i].value.len > 0 && strncmp(message->headers[i].name.buf, "X-HTTP-Method-Override", message->headers[i].name.len) == 0) {
       method = std::string(message->headers[i].value.buf, message->headers[i].value.len);
     }
