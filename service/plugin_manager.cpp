@@ -21,7 +21,6 @@
 
 #include <config.h>
 
-#include <boost/bind/bind.hpp>
 #include <boost/unordered_map.hpp>
 #include <file_helpers.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
@@ -594,7 +593,8 @@ int nsclient::core::plugin_manager::simple_exec(std::string command, std::vector
     command = command.substr(pos + 1);
   }
   nscapi::protobuf::functions::create_simple_exec_request(module, command, arguments, request);
-  int ret = load_and_run(module, boost::bind(&exec_helper, boost::placeholders::_1, command, arguments, request, &responses), errors);
+  int ret = load_and_run(
+      module, [command, arguments, request, &responses](auto plugin) { return exec_helper(plugin, command, arguments, request, &responses); }, errors);
 
   for (std::string &r : responses) {
     try {
@@ -628,7 +628,8 @@ int nsclient::core::plugin_manager::simple_query(std::string module, std::string
   std::list<std::string> responses;
   std::list<std::string> errors;
   nscapi::protobuf::functions::create_simple_query_request(command, arguments, request);
-  int ret = load_and_run(module, boost::bind(&query_helper, boost::placeholders::_1, command, arguments, request, &responses), errors);
+  int ret = load_and_run(
+      module, [command, arguments, request, &responses](auto plugin) { return query_helper(plugin, command, arguments, request, &responses); }, errors);
 
   nsclient::commands::plugin_type plugin = commands_.get(command);
   if (!plugin) {
@@ -817,10 +818,10 @@ bool nsclient::core::plugin_manager::is_enabled(const std::string module) { retu
 
 void nsclient::core::plugin_manager::process_metrics(PB::Metrics::MetricsBundle bundle) {
   metrics_fetcher f;
-  metrics_fetchers_.do_all(boost::bind(&metrics_fetcher::fetch, &f, boost::placeholders::_1));
+  metrics_fetchers_.do_all([&f](auto key) { return f.fetch(key); });
   f.get_root()->add_bundles()->CopyFrom(bundle);
   f.render();
-  metrics_submitetrs_.do_all(boost::bind(&metrics_fetcher::digest, &f, boost::placeholders::_1));
+  metrics_submitetrs_.do_all([&f](auto key) { return f.digest(key); });
 }
 
 bool nsclient::core::plugin_manager::enable_plugin(std::string name) {

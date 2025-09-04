@@ -20,12 +20,9 @@
 #include "filter.hpp"
 
 #include <error/error_com.hpp>
-#include <list>
-#include <map>
 #include <parsers/where/node.hpp>
 
 using namespace parsers::where;
-using namespace boost::placeholders;
 
 node_type fun_convert_status(boost::shared_ptr<tasksched_filter::filter_obj> object, evaluation_context context, node_type subject) {
   std::string status = subject->get_string_value(context);
@@ -66,37 +63,37 @@ node_type fun_convert_status(boost::shared_ptr<tasksched_filter::filter_obj> obj
 
 tasksched_filter::filter_obj_handler::filter_obj_handler() {
   // clang-format off
-	registry_.add_string()
-		("folder", boost::bind(&filter_obj::get_folder, _1), "The task folder")
-		("title", boost::bind(&filter_obj::get_title, _1), "The task title")
-		//		("account", boost::bind(&filter_obj::get_account_name, _1), "Retrieves the account name for the work item.")
-		("application", boost::bind(&filter_obj::get_application_name, _1), "Retrieves the name of the application that the task is associated with.")
-		("comment", boost::bind(&filter_obj::get_comment, _1), "Retrieves the comment or description for the work item.")
-		("creator", boost::bind(&filter_obj::get_creator, _1), "Retrieves the creator of the work item.")
-		("parameters", boost::bind(&filter_obj::get_parameters, _1), "Retrieves the command-line parameters of a task.")
-		("working_directory", boost::bind(&filter_obj::get_working_directory, _1), "Retrieves the working directory of the task.")
-		;
+  registry_.add_string()
+  ("folder", [](auto obj, auto context) { return obj->get_folder(); }, "The task folder")
+    ("title", [](auto obj, auto context) { return obj->get_title(); }, "The task title")
+    //		("account",  [](auto obj, auto context) { return obj->get_account_name(); }, "Retrieves the account name for the work item.")
+    ("application", [](auto obj, auto context) { return obj->get_application_name(); }, "Retrieves the name of the application that the task is associated with.")
+    ("comment", [](auto obj, auto context) { return obj->get_comment(); }, "Retrieves the comment or description for the work item.")
+    ("creator", [](auto obj, auto context) { return obj->get_creator(); }, "Retrieves the creator of the work item.")
+    ("parameters", [](auto obj, auto context) { return obj->get_parameters(); }, "Retrieves the command-line parameters of a task.")
+    ("working_directory", [](auto obj, auto context) { return obj->get_working_directory(); }, "Retrieves the working directory of the task.")
+    ;
 
-	registry_.add_int()
-		("exit_code", boost::bind(&filter_obj::get_exit_code, _1), "Retrieves the work item's last exit code.")
-		("enabled", boost::bind(&filter_obj::is_enabled, _1), "TODO.")
-		// 		("flags", boost::bind(&filter_obj::get_flags, _1), "TODO")
-		("max_run_time", boost::bind(&filter_obj::get_max_run_time, _1), "Retrieves the maximum length of time the task can run.")
-		("priority", boost::bind(&filter_obj::get_priority, _1), "Retrieves the priority for the task.")
-		("task_status", type_custom_state, boost::bind(&filter_obj::get_status, _1), "Retrieves the status of the work item.")
-		("most_recent_run_time", type_date, boost::bind(&filter_obj::get_most_recent_run_time, _1), "Retrieves the most recent time the work item began running.")
-		("has_run", type_bool, boost::bind(&filter_obj::get_has_run, _1), "True if the task has ever executed.")
-		;
+  registry_.add_int()
+    ("exit_code", [](auto obj, auto context) { return obj->get_exit_code(); }, "Retrieves the work item's last exit code.")
+    ("enabled", [](auto obj, auto context) { return obj->is_enabled(); }, "TODO.")
+    // 		("flags",  [](auto obj, auto context) { return obj->get_flags, _1), "TODO")
+    ("max_run_time", [](auto obj, auto context) { return obj->get_max_run_time(); }, "Retrieves the maximum length of time the task can run.")
+    ("priority", [](auto obj, auto context) { return obj->get_priority(); }, "Retrieves the priority for the task.")
+    ("task_status", type_custom_state, [](auto obj, auto context) { return obj->get_status(); }, "Retrieves the status of the work item.")
+    ("most_recent_run_time", type_date, [](auto obj, auto context) { return obj->get_most_recent_run_time(); }, "Retrieves the most recent time the work item began running.")
+    ("has_run", type_bool, [](auto obj, auto context) { return obj->get_has_run(); }, "True if the task has ever executed.")
+    ;
 
-	registry_.add_human_string()
-		("task_status", boost::bind(&filter_obj::get_status_s, _1), "")
-		("most_recent_run_time", boost::bind(&filter_obj::get_most_recent_run_time_s, _1), "")
-		;
+  registry_.add_human_string()
+    ("task_status", [](auto obj, auto context) { return obj->get_status_s(); }, "")
+    ("most_recent_run_time", [](auto obj, auto context) { return obj->get_most_recent_run_time_s(); }, "")
+    ;
 
-	registry_.add_converter()
-		(type_custom_state, &fun_convert_status)
-		// 		(type_int, type_custom_hresult, &fun_convert_status)
-		;
+  registry_.add_converter()
+    (type_custom_state, &fun_convert_status)
+    // 		(type_int, type_custom_hresult, &fun_convert_status)
+    ;
   // clang-format on
 }
 

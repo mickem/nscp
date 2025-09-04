@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-#include <boost/bind/bind.hpp>
 #include <net/net.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_targets.hpp>
 
 namespace sh = nscapi::settings_helper;
-namespace ph = boost::placeholders;
 
 void nscapi::targets::target_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool, bool is_sample) {
   set_address(this->get_value());
@@ -32,17 +30,13 @@ void nscapi::targets::target_object::read(nscapi::settings_helper::settings_impl
   root_path.add_path()("TARGET", "Target definition for: " + this->get_alias());
 
   root_path.add_key()
-      .add_string("address", sh::string_fun_key(boost::bind(&target_object::set_address, this, ph::_1)), "TARGET ADDRESS", "Target host address")
-      .add_string("host", sh::string_fun_key(boost::bind(&target_object::set_property_string, this, "host", ph::_1)), "TARGET HOST",
+      .add_string("address", sh::string_fun_key([this](auto key) { this->set_address(key); }), "TARGET ADDRESS", "Target host address")
+      .add_string("host", sh::string_fun_key([this](auto key) { this->set_property_string("host", key); }), "TARGET HOST",
                   "The target server to report results to.", true)
-      .add_string("port", sh::string_fun_key(boost::bind(&target_object::set_property_string, this, "port", ph::_1)), "TARGET PORT", "The target server port",
-                  true)
-      .add_string("timeout", sh::int_fun_key(boost::bind(&target_object::set_property_int, this, "timeout", ph::_1), 30), "TIMEOUT",
+      .add_string("port", sh::string_fun_key([this](auto key) { this->set_property_string("port", key); }), "TARGET PORT", "The target server port", true)
+      .add_string("timeout", sh::int_fun_key([this](auto key) { this->set_property_int("timeout", key); }, 30), "TIMEOUT",
                   "Timeout (in seconds) when reading/writing packets to/from sockets.")
-      .add_int("retries", sh::int_fun_key(boost::bind(&target_object::set_property_int, this, "retries", ph::_1), 3), "RETRIES",
-               "Number of times to retry sending.")
-
-      ;
+      .add_int("retries", sh::int_fun_key([this](auto key) { this->set_property_int("retries", key); }, 3), "RETRIES", "Number of times to retry sending.");
 
   settings.register_all();
   settings.notify();
@@ -50,16 +44,16 @@ void nscapi::targets::target_object::read(nscapi::settings_helper::settings_impl
 
 void nscapi::targets::target_object::add_ssl_keys(nscapi::settings_helper::path_extension root_path) {
   root_path.add_key()
-      .add_string("dh", sh::path_fun_key(boost::bind(&parent::set_property_string, this, "dh", ph::_1)), "DH KEY", "", true)
-      .add_string("certificate", sh::path_fun_key(boost::bind(&parent::set_property_string, this, "certificate", ph::_1)), "SSL CERTIFICATE", "", false)
-      .add_string("certificate key", sh::path_fun_key(boost::bind(&parent::set_property_string, this, "certificate key", ph::_1)), "SSL CERTIFICATE", "", true)
-      .add_string("certificate format", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "certificate format", ph::_1)), "CERTIFICATE FORMAT",
+      .add_string("dh", sh::path_fun_key([this](auto key) { this->set_property_string("dh", key); }), "DH KEY", "", true)
+      .add_string("certificate", sh::path_fun_key([this](auto key) { this->set_property_string("certificate", key); }), "SSL CERTIFICATE", "", false)
+      .add_string("certificate key", sh::path_fun_key([this](auto key) { this->set_property_string("certificate key", key); }), "SSL CERTIFICATE", "", true)
+      .add_string("certificate format", sh::string_fun_key([this](auto key) { this->set_property_string("certificate format", key); }), "CERTIFICATE FORMAT",
                   "", true)
-      .add_string("ca", sh::path_fun_key(boost::bind(&parent::set_property_string, this, "ca", ph::_1)), "CA", "", true)
-      .add_string("allowed ciphers", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "allowed ciphers", ph::_1)), "ALLOWED CIPHERS",
+      .add_string("ca", sh::path_fun_key([this](auto key) { this->set_property_string("ca", key); }), "CA", "", true)
+      .add_string("allowed ciphers", sh::string_fun_key([this](auto key) { this->set_property_string("allowed ciphers", key); }), "ALLOWED CIPHERS",
                   "A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH", false)
-      .add_string("verify mode", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "verify mode", ph::_1)), "VERIFY MODE", "", false)
-      .add_bool("use ssl", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "ssl", ph::_1)), "ENABLE SSL ENCRYPTION",
+      .add_string("verify mode", sh::string_fun_key([this](auto key) { this->set_property_string("verify mode", key); }), "VERIFY MODE", "", false)
+      .add_bool("use ssl", sh::bool_fun_key([this](auto key) { this->set_property_bool("ssl", key); }), "ENABLE SSL ENCRYPTION",
                 "This option controls if SSL should be enabled.");
 }
 

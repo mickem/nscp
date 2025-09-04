@@ -25,16 +25,12 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/filter/realtime_helper.hpp>
-#include <parsers/where.hpp>
-#include <parsers/where/engine.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/where/node.hpp>
 #include <str/format.hpp>
 #include <string>
 
 CheckMemory memchecker;
-
-using namespace boost::placeholders;
 
 namespace check_mem_filter {
 struct filter_obj {
@@ -78,31 +74,30 @@ struct filter_obj_handler : public native_context {
     static const parsers::where::value_type type_custom_free = parsers::where::type_custom_int_2;
 
     // clang-format off
-			registry_.add_string()
-				("type", boost::bind(&filter_obj::get_type, _1), "The type of memory to check")
-				;
-			registry_.add_int()
-				("size", boost::bind(&filter_obj::get_total, _1), "Total size of memory")
-				("free", type_custom_free, boost::bind(&filter_obj::get_free, _1), "Free memory in bytes (g,m,k,b) or percentages %")
-				.add_scaled_byte(boost::bind(&get_zero), boost::bind(&filter_obj::get_total, _1))
-				.add_percentage(boost::bind(&filter_obj::get_total, _1), "", " %")
+    registry_.add_string()
+      ("type", [](auto obj, auto context) { return obj->get_type(); }, "The type of memory to check")
+      ;
+    registry_.add_int()
+      ("size", [](auto obj, auto context) { return obj->get_total(); }, "Total size of memory")
+      ("free", type_custom_free, [](auto obj, auto context) { return obj->get_free(); }, "Free memory in bytes (g,m,k,b) or percentages %")
+      .add_scaled_byte([](auto obj, auto context) { return get_zero(); }, [](auto obj, auto context) { return obj->get_total(); })
+      .add_percentage([](auto obj, auto context) { return obj->get_total(); }, "", " %")
+      ("used", type_custom_used, [](auto obj, auto context) { return obj->get_used(); }, "Used memory in bytes (g,m,k,b) or percentages %")
+      .add_scaled_byte([](auto obj, auto context) { return get_zero(); }, [](auto obj, auto context) { return obj->get_total(); })
+      .add_percentage([](auto obj, auto context) { return obj->get_total(); }, "", " %")
+      ("free_pct", [](auto obj, auto context) { return obj->get_free_pct(); }, "% free memory")
+    ("used_pct", [](auto obj, auto context) { return obj->get_used_pct(); }, "% used memory")
+      ;
+    registry_.add_human_string()
+      ("size", [](auto obj, auto context) { return obj->get_total_human(); }, "")
+      ("free", [](auto obj, auto context) { return obj->get_free_human(); }, "")
+      ("used", [](auto obj, auto context) { return obj->get_used_human(); }, "")
+      ;
 
-				("used", type_custom_used, boost::bind(&filter_obj::get_used, _1), "Used memory in bytes (g,m,k,b) or percentages %")
-				.add_scaled_byte(boost::bind(&get_zero), boost::bind(&filter_obj::get_total, _1))
-				.add_percentage(boost::bind(&filter_obj::get_total, _1), "", " %")
-				("free_pct", boost::bind(&filter_obj::get_free_pct, _1), "% free memory")
-				("used_pct", boost::bind(&filter_obj::get_used_pct, _1), "% used memory")
-				;
-			registry_.add_human_string()
-				("size", boost::bind(&filter_obj::get_total_human, _1), "")
-				("free", boost::bind(&filter_obj::get_free_human, _1), "")
-				("used", boost::bind(&filter_obj::get_used_human, _1), "")
-				;
-
-			registry_.add_converter()
-				(type_custom_free, &calculate_free)
-				(type_custom_used, &calculate_free)
-				;
+    registry_.add_converter()
+      (type_custom_free, &calculate_free)
+      (type_custom_used, &calculate_free)
+      ;
     // clang-format on
   }
 };

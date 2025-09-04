@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <boost/bind.hpp>
 #include <boost/make_shared.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 
@@ -62,20 +61,16 @@ struct options_reader_impl : public client::options_reader_interface {
     // add_ssl_options(desc, data);
 
     // clang-format off
-			desc.add_options()
-
-				("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &data, "payload length", boost::placeholders::_1)),
-					"Length of payload (has to be same as on the server)")
-
-				("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &data, "payload length", boost::placeholders::_1)),
-					"Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
-
-				("password", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "password", boost::placeholders::_1)),
-					"Password")
-
-				("time-offset", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "time offset", boost::placeholders::_1)),
-					"")
-				;
+    desc.add_options()
+      ("payload-length,l", po::value<unsigned int>()->notifier([&data] (auto value) { data.set_int_data("payload length", value); }),
+      "Length of payload (has to be same as on the server)")
+      ("buffer-length", po::value<unsigned int>()->notifier([&data] (auto value) { data.set_int_data("payload length", value); }),
+      "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
+      ("password", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("password", value); }),
+      "Password")
+      ("time-offset", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("time offset", value); }),
+      "")
+    ;
     // clang-format on
   }
 };

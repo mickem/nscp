@@ -19,7 +19,6 @@
 
 #include "PythonScript.h"
 
-#include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 #include <boost/python.hpp>
 #include <nscapi/macros.hpp>
@@ -38,7 +37,6 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 namespace py = boost::python;
-namespace ph = boost::placeholders;
 
 bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   alias_ = alias;
@@ -62,27 +60,27 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
     provider_.reset(new script_provider(get_id(), get_core(), settings.alias().get_path(), root_));
 
     // clang-format off
-		settings.alias().add_path_to_settings()
+    settings.alias().add_path_to_settings()
 
-			("scripts", sh::fun_values_path(boost::bind(&PythonScript::loadScript, this, ph::_1, ph::_2)),
-				"Python scripts", "A list of scripts available to run from the PythonScript module.",
-				"SCRIPT", "For more configuration options add a dedicated section")
-			;
+      ("scripts", sh::fun_values_path([this] (auto key, auto value) { this->loadScript(key, value); }),
+	      "Python scripts", "A list of scripts available to run from the PythonScript module.",
+	      "SCRIPT", "For more configuration options add a dedicated section")
+      ;
 
-		settings.alias().add_templates()
-			("scripts", "plus", "Add a simple script",
-				"Add binding for a simple script",
-				"{"
-				"\"fields\": [ "
-				" { \"id\": \"alias\",		\"title\" : \"Alias\",		\"type\" : \"input\",		\"desc\" : \"This has to be unique and if you load a script twice the script can use the alias to diferentiate between instances.\"} , "
-				" { \"id\": \"script\",		\"title\" : \"Script\",		\"type\" : \"data-choice\",	\"desc\" : \"The name of the script\",\"exec\" : \"PythonScript list --json\" } , "
-				" { \"id\": \"cmd\",		\"key\" : \"command\", \"title\" : \"A\",	\"type\" : \"hidden\",		\"desc\" : \"A\" } "
-				" ], "
-				"\"events\": { "
-				"\"onSave\": \"(function (node) { node.save_path = self.path; var f = node.get_field('cmd'); f.key = node.get_field('alias').value(); f.value(node.get_field('script').value()); })\""
-				"}"
-				"}")
-			;
+    settings.alias().add_templates()
+      ("scripts", "plus", "Add a simple script",
+	      "Add binding for a simple script",
+	      "{"
+	      "\"fields\": [ "
+	      " { \"id\": \"alias\",		\"title\" : \"Alias\",		\"type\" : \"input\",		\"desc\" : \"This has to be unique and if you load a script twice the script can use the alias to diferentiate between instances.\"} , "
+	      " { \"id\": \"script\",		\"title\" : \"Script\",		\"type\" : \"data-choice\",	\"desc\" : \"The name of the script\",\"exec\" : \"PythonScript list --json\" } , "
+	      " { \"id\": \"cmd\",		\"key\" : \"command\", \"title\" : \"A\",	\"type\" : \"hidden\",		\"desc\" : \"A\" } "
+	      " ], "
+	      "\"events\": { "
+	      "\"onSave\": \"(function (node) { node.save_path = self.path; var f = node.get_field('cmd'); f.key = node.get_field('alias').value(); f.value(node.get_field('script').value()); })\""
+	      "}"
+	      "}")
+      ;
     // clang-format on
 
     settings.register_all();

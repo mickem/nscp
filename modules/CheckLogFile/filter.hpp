@@ -19,14 +19,9 @@
 
 #pragma once
 
-#include <boost/bind/bind.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
-#include <error/error.hpp>
-#include <map>
 #include <parsers/filter/modern_filter.hpp>
-#include <parsers/where.hpp>
-#include <parsers/where/engine.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/where/node.hpp>
 #include <string>

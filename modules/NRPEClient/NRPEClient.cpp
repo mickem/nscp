@@ -21,7 +21,6 @@
 
 #include <config.h>
 
-#include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/make_shared.hpp>
 #include <nscapi/macros.hpp>
@@ -59,18 +58,15 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     client_.set_path(settings.alias().get_settings_path("targets"));
 
     // clang-format off
-		settings.alias().add_path_to_settings()
-			("NRPE CLIENT SECTION", "Section for NRPE active/passive check module.")
-
-			("handlers", sh::fun_values_path(boost::bind(&NRPEClient::add_command, this, boost::placeholders::_1, boost::placeholders::_2)),
-				"CLIENT HANDLER SECTION", "",
-				"TARGET", "For more configuration options add a dedicated section")
-
-			("targets", sh::fun_values_path(boost::bind(&NRPEClient::add_target, this, boost::placeholders::_1, boost::placeholders::_2)),
-				"REMOTE TARGET DEFINITIONS", "",
-				"TARGET", "For more configuration options add a dedicated section")
-			;
-
+    settings.alias().add_path_to_settings()
+      ("NRPE CLIENT SECTION", "Section for NRPE active/passive check module.")
+      ("handlers", sh::fun_values_path([this] (const auto key, const auto value) { this->add_command(key, value); }),
+	      "CLIENT HANDLER SECTION", "",
+	      "TARGET", "For more configuration options add a dedicated section")
+      ("targets", sh::fun_values_path([this] (const auto key, const auto value) { this->add_target(key, value); }),
+	      "REMOTE TARGET DEFINITIONS", "",
+	      "TARGET", "For more configuration options add a dedicated section")
+    ;
     // clang-format on
     settings.alias().add_key_to_settings().add_string("channel", sh::string_key(&channel_, "NRPE"), "CHANNEL", "The channel to listen to.")
 

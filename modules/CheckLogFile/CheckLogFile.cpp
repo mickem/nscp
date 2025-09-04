@@ -41,21 +41,19 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
   thread_->filters_.set_path(settings.alias().get_settings_path("real-time/checks"));
 
   // clang-format off
-	settings.alias().add_path_to_settings()
-
-		("real-time", "Real-time filtering", "A set of options to configure the real time checks")
-
-		("real-time/checks", sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, settings.get_settings(), boost::placeholders::_1, boost::placeholders::_2)),
-			"Real-time filters", "A set of filters to use in real-time mode",
-			"REALTIME FILTER DEFENTION", "For more configuration options add a dedicated section"
-			)
-		;
+  settings.alias().add_path_to_settings()
+    ("real-time", "Real-time filtering", "A set of options to configure the real time checks")
+    ("real-time/checks", sh::fun_values_path([this] (auto key, auto value) { thread_->add_realtime_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
+	    "Real-time filters", "A set of filters to use in real-time mode",
+	    "REALTIME FILTER DEFENTION", "For more configuration options add a dedicated section"
+	    )
+    ;
   // clang-format on
 
   settings.alias()
       .add_key_to_settings("real-time")
 
-      .add_bool("enabled", sh::bool_fun_key(boost::bind(&real_time_thread::set_enabled, thread_, boost::placeholders::_1), false), "Real time",
+      .add_bool("enabled", sh::bool_fun_key([this](auto value) { thread_->set_enabled(value); }, false), "Real time",
                 "Spawns a background thread which waits for file changes.");
 
   settings.register_all();

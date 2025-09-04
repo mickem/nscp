@@ -20,7 +20,6 @@
 #include "CheckWMI.h"
 
 #include <algorithm>
-#include <boost/bind.hpp>
 #include <boost/program_options.hpp>
 #include <map>
 #include <nscapi/nscapi_program_options.hpp>
@@ -67,11 +66,11 @@ bool CheckWMI::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   // settings.set_alias(_T("targets"));
 
   // clang-format off
-	settings.add_path_to_settings()
-		("targets", sh::fun_values_path(boost::bind(&target_helper::add_target, &targets, nscapi::settings_proxy::create(get_id(), get_core()), boost::placeholders::_1, boost::placeholders::_2)),
-			"TARGET LIST SECTION", "A list of available remote target systems",
-			"TARGET DEFENTION", "For more configuration options add a dedicated section")
-		;
+  settings.add_path_to_settings()
+    ("targets", sh::fun_values_path([this] (auto key, auto value) { targets.add_target(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
+	    "TARGET LIST SECTION", "A list of available remote target systems",
+	    "TARGET DEFENTION", "For more configuration options add a dedicated section")
+    ;
   // clang-format on
 
   settings.register_all();
@@ -147,11 +146,12 @@ void CheckWMI::check_wmi(const PB::Commands::QueryRequestMessage::Request &reque
   try {
     ns = build_namespace(ns, target_info.hostname);
     wmi_impl::query wmiQuery(query, ns, target_info.username, target_info.password);
-    filter.context->registry_.add_string()("line", boost::bind(&wmi_filter::filter_obj::get_row, boost::placeholders::_1), "Get a list of all columns");
+    filter.context->registry_.add_string()("line", [this](auto obj, auto context) { return obj->get_row(); }, "Get a list of all columns");
     for (const std::string &col : wmiQuery.get_columns()) {
       filter.context->registry_
-          .add_int()(col, boost::bind(&wmi_filter::filter_obj::get_int, boost::placeholders::_1, col),
-                     boost::bind(&wmi_filter::filter_obj::get_string, boost::placeholders::_1, col), "Column: " + col)
+          .add_int()(
+              col, [col](auto obj, auto context) { return obj->get_int(col); }, [col](auto obj, auto context) { return obj->get_string(col); },
+              "Column: " + col)
           .add_perf("", col, "");
     }
 
