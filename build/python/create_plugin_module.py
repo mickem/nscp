@@ -1071,7 +1071,6 @@ def render_template(hash, template, filename):
 			print("no changes detected in: %s"%filename)
 			return
 
-	print('Writing file: %s'%filename)
 	f = open(filename,"wb")
 	f.write(data)
 	f.close()
@@ -1103,6 +1102,8 @@ if module.managed:
 	options.moduleBaseclass = 'nscapi::impl::thin_plugin'
 
 data = {'module': module, 'options': options}
+print(f'Writing files: module.hpp, module.cpp, module.def in {options.target}')
+
 render_template(data, env.from_string(HPP_TEMPLATE), '%s/module.hpp'%options.target)
 render_template(data, env.from_string(CPP_TEMPLATE), '%s/module.cpp'%options.target)
 render_template(data, env.from_string(DEF_TEMPLATE), '%s/module.def'%options.target)
