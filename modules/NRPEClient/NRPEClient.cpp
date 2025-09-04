@@ -49,7 +49,7 @@ NRPEClient::NRPEClient()
  */
 NRPEClient::~NRPEClient() {}
 
-bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
+bool NRPEClient::loadModuleEx(const std::string &alias, NSCAPI::moduleLoadMode) {
   try {
     client_.clear();
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
@@ -68,9 +68,8 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	      "TARGET", "For more configuration options add a dedicated section")
     ;
     // clang-format on
-    settings.alias().add_key_to_settings().add_string("channel", sh::string_key(&channel_, "NRPE"), "CHANNEL", "The channel to listen to.")
 
-        ;
+    settings.alias().add_key_to_settings().add_string("channel", sh::string_key(&channel_, "NRPE"), "CHANNEL", "The channel to listen to.");
 
     settings.register_all();
     settings.notify();
@@ -93,9 +92,9 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 // Settings helpers
 //
 
-void NRPEClient::add_target(std::string key, std::string arg) {
+void NRPEClient::add_target(const std::string &key, const std::string &args) {
   try {
-    client_.add_target(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
+    client_.add_target(nscapi::settings_proxy::create(get_id(), get_core()), key, args);
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
   } catch (...) {
@@ -103,10 +102,10 @@ void NRPEClient::add_target(std::string key, std::string arg) {
   }
 }
 
-void NRPEClient::add_command(std::string name, std::string args) {
+void NRPEClient::add_command(const std::string &name, const std::string &args) {
   try {
     nscapi::core_helper core(get_core(), get_id());
-    std::string key = client_.add_command(name, args);
+    const std::string key = client_.add_command(name, args);
     if (!key.empty()) core.register_command(key.c_str(), "NRPE relay for: " + name);
   } catch (boost::program_options::validation_error &e) {
     NSC_LOG_ERROR_EXR("Failed to add command: " + name, e);
@@ -151,21 +150,21 @@ void NRPEClient::handleNotification(const std::string &, const PB::Commands::Sub
   client_.do_submit(request_message, *response_message);
 }
 
-bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
+bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) const {
   namespace po = boost::program_options;
   namespace pf = nscapi::protobuf::functions;
-  po::variables_map vm;
   po::options_description desc;
-  std::string allowed_hosts, cert, key, arguments = "false", chipers, insecure = "true";
+  std::string allowed_hosts, cert, key, arguments = "false", ciphers, insecure = "true", ca;
   unsigned int length = 1024;
   const std::string path = "/settings/NRPE/server";
-  std::string verify = "peer-cert";
+  std::string verify;
   std::string sslops = "";
   std::string port = "5666";
 
   pf::settings_query q(get_id());
   q.get("/settings/default", "allowed hosts", "127.0.0.1");
   q.get(path, "insecure", "false");
+  q.get(path, "ca", "");
   q.get(path, "certificate", "${certificate-path}/certificate.pem");
   q.get(path, "certificate key", "");
   q.get(path, "allow arguments", false);
@@ -184,12 +183,14 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
   for (const pf::settings_query::key_values &val : values) {
     if (val.matches("/settings/default", "allowed hosts"))
       allowed_hosts = val.get_string();
+    else if (val.matches(path, "ca"))
+      ca = val.get_string();
     else if (val.matches(path, "certificate"))
       cert = val.get_string();
     else if (val.matches(path, "certificate key"))
       key = val.get_string();
     else if (val.matches(path, "allowed ciphers"))
-      chipers = val.get_string();
+      ciphers = val.get_string();
     else if (val.matches(path, "insecure"))
       insecure = val.get_string();
     else if (val.matches(path, "allow arguments") && val.get_bool())
@@ -208,44 +209,50 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
   }
 
   std::stringstream result;
-  if (chipers == "ADH") insecure = "true";
-  if (chipers == "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") insecure = "false";
-  if (insecure == "false" && sslops != "no-sslv2,no-sslv3")
-    result << "WARNING: Inconsistent ssl options will overwrite: " << sslops << " with no-sslv2,no-sslv3\n";
-  if (insecure == "true" && sslops != "") result << "WARNING: Inconsistent ssl options will overwrite: " << sslops << " with \"\"\n";
+  if (ciphers == "ALL:!MD5:@STRENGTH:@SECLEVEL=0") {
+    insecure = "true";
+  } else if (ciphers == "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") {
+    insecure = "false";
+  } else {
+    result << "WARNING: Inconsistent insecure option will overwrite: ciphers=" << ciphers << " with ALL:!MD5:@STRENGTH:@SECLEVEL=0\n";
+    insecure = "false";
+  }
+  if (insecure == "false" && sslops != "no-sslv2,no-sslv3") {
+    result << "WARNING: Inconsistent ssl options will overwrite ssl options=" << sslops << " with no-sslv2,no-sslv3\n";
+  }
+  if (insecure == "true" && !sslops.empty()) {
+    result << "WARNING: Inconsistent ssl options will overwrite: " << sslops << " with \"\"\n";
+  }
+  if (insecure == "true" && !verify.empty() && (verify != "none" || verify.empty())) {
+    result << "WARNING: Inconsistent verify mode will overwrite: verify=" << verify << " with none\n";
+  }
 
   // clang-format off
-	desc.add_options()
-		("help", "Show help.")
-
-		("allowed-hosts,h", po::value<std::string>(&allowed_hosts)->default_value(allowed_hosts),
-			"Set which hosts are allowed to connect")
-
-		("port", po::value<std::string>(&port)->default_value(port),
-			"Set the port NRPE listens on")
-
-		("certificate", po::value<std::string>(&cert)->default_value(cert),
-			"Length of payload (has to be same as on the server)")
-
-		("certificate-key", po::value<std::string>(&key)->default_value(key),
-			"Client certificate to use")
-
-		("insecure", po::value<std::string>(&insecure)->default_value(insecure)->implicit_value("true"),
-			"Use \"old\" legacy NRPE.")
-
-		("payload-length,l", po::value<unsigned int>(&length)->default_value(1024),
-			"Length of payload (has to be same as on both the server and client)")
-
-		("arguments", po::value<std::string>(&arguments)->default_value(arguments)->implicit_value("safe"),
-			"Allow arguments. false=don't allow, safe=allow non escape chars, all=allow all arguments.")
-
-		("verify", po::value<std::string>(&verify)->default_value(verify)->implicit_value("yes"),
-			"")
-
-		;
+  desc.add_options()
+    ("help", "Show help.")
+    ("allowed-hosts,h", po::value<std::string>(&allowed_hosts)->default_value(allowed_hosts),
+	    "Set which hosts are allowed to connect")
+    ("port", po::value<std::string>(&port)->default_value(port),
+	    "Set the port NRPE listens on")
+    ("ca", po::value<std::string>(&ca)->default_value(ca),
+            "Length of payload (has to be same as on the server)")
+    ("certificate", po::value<std::string>(&cert)->default_value(cert),
+	    "Length of payload (has to be same as on the server)")
+    ("certificate-key", po::value<std::string>(&key)->default_value(key),
+	    "Client certificate to use")
+    ("insecure", po::value<std::string>(&insecure)->default_value(insecure)->implicit_value("true"),
+	    "Use \"old\" legacy NRPE.")
+    ("payload-length,l", po::value<unsigned int>(&length)->default_value(1024),
+	    "Length of payload (has to be same as on both the server and client)")
+    ("arguments", po::value<std::string>(&arguments)->default_value(arguments)->implicit_value("safe"),
+	    "Allow arguments. false=don't allow, safe=allow non escape chars, all=allow all arguments.")
+    ("verify", po::value<std::string>(&verify)->default_value(verify)->implicit_value("peer-cert"),
+	    "If we should validate that the client has a valid certificate. (none or peer-cert)")
+    ;
   // clang-format on
 
   try {
+    po::variables_map vm;
     nscapi::program_options::basic_command_line_parser cmd(request);
     cmd.options(desc);
 
@@ -255,6 +262,15 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
 
     if (vm.count("help")) {
       nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+      return true;
+    }
+
+    if (insecure == "true" && verify != "none") {
+      result << "WARNING: Inconsistent insecure option will overwrite verify=" << verify << " with none\n";
+      verify = "none";
+    }
+    if (verify != "none" && ca.empty()) {
+      nscapi::protobuf::functions::set_response_bad(*response, "When using verify mode \"" + verify + "\" you need to specify a CA");
       return true;
     }
 
@@ -270,12 +286,20 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
       s.set("/settings/NRPE/server", "allowed ciphers", "ADH");
       s.set("/settings/NRPE/server", "ssl options", "");
     } else {
+      if (verify == "peer-cert") {
+        result << "NRPE is currently reasonably secure and will require certificates." << std::endl;
+        result << "The clients need to have a certificate issued from " << ca << std::endl;
+      } else {
+        result << "WARNING: NRPE is not secure, while we have proper encryption there is no authentication expect for only accepting traffic from "
+               << allowed_hosts << "." << std::endl;
+      }
       if (key.empty())
-        result << "NRPE is currently reasonably secure using " << cert << "." << std::endl;
+        result << "Traffic is encrypted using " << cert << "." << std::endl;
       else
-        result << "NRPE is currently reasonably secure using " << cert << " and " << key << "." << std::endl;
+        result << "Traffic is encrypted using " << cert << " and " << key << "." << std::endl;
       s.set("/settings/NRPE/server", "insecure", "false");
       s.set("/settings/NRPE/server", "allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+      s.set("/settings/NRPE/server", "ca", ca);
       s.set("/settings/NRPE/server", "certificate", cert);
       s.set("/settings/NRPE/server", "certificate key", key);
       s.set("/settings/NRPE/server", "ssl options", "no-sslv2,no-sslv3");
@@ -294,7 +318,7 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
       s.set(path, "allow nasty characters", "false");
     }
     s.set(path, "payload length", str::xtos(length));
-    if (length != 1024) result << "NRPE is using non standard payload length " << length << " please use same configuration in check_nrpe." << std::endl;
+    if (length != 1024) result << "WARNING: NRPE is using non standard payload length " << length << " it is better to use NRPE version 3." << std::endl;
     s.save();
     get_core()->settings_query(s.request(), s.response());
     if (!s.validate_response()) {
@@ -312,10 +336,9 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
   }
 }
 
-bool NRPEClient::make_cert(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
+bool NRPEClient::make_cert(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) const {
   namespace po = boost::program_options;
   namespace pf = nscapi::protobuf::functions;
-  po::variables_map vm;
   po::options_description desc;
   std::string cert, key;
   const std::string path = "/settings/NRPE/server";
@@ -339,22 +362,19 @@ bool NRPEClient::make_cert(const PB::Commands::ExecuteRequestMessage::Request &r
   }
 
   // clang-format off
-	desc.add_options()
-		("help", "Show help.")
-
-		("certificate", po::value<std::string>(&cert)->default_value(cert),
-			"Length of payload (has to be same as on the server)")
-
-		("certificate-key", po::value<std::string>(&key)->default_value(key),
-			"Client certificate to use")
-
-		("force", po::bool_switch(&force),
-			"Overwrite existing certificates.")
-
-		;
+  desc.add_options()
+    ("help", "Show help.")
+    ("certificate", po::value<std::string>(&cert)->default_value(cert),
+	    "Length of payload (has to be same as on the server)")
+    ("certificate-key", po::value<std::string>(&key)->default_value(key),
+	    "Client certificate to use")
+    ("force", po::bool_switch(&force),
+	    "Overwrite existing certificates.")
+    ;
   // clang-format on
 
   try {
+    po::variables_map vm;
     nscapi::program_options::basic_command_line_parser cmd(request);
     cmd.options(desc);
 
@@ -387,7 +407,3 @@ bool NRPEClient::make_cert(const PB::Commands::ExecuteRequestMessage::Request &r
     return true;
   }
 }
-
-//////////////////////////////////////////////////////////////////////////
-// Parser setup/Helpers
-//
