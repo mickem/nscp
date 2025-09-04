@@ -32,7 +32,6 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <str/format.hpp>
 #include <str/utils.hpp>
 #include <utf8.hpp>
@@ -41,7 +40,7 @@ namespace json = boost::json;
 
 op5_client::op5_client(const nscapi::core_wrapper *core, int plugin_id, op5_config config)
     : core_(core), plugin_id_(plugin_id_), config_(config), stop_thread_(false) {
-  thread_ = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&op5_client::thread_proc, this)));
+  thread_ = boost::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
 }
 
 /**

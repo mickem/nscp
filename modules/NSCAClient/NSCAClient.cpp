@@ -48,17 +48,17 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     client_.set_path(settings.alias().get_settings_path("targets"));
 
     // clang-format off
-		settings.alias().add_path_to_settings()
-			("NSCA CLIENT SECTION", "Section for NSCA passive check module.")
+    settings.alias().add_path_to_settings()
+      ("NSCA CLIENT SECTION", "Section for NSCA passive check module.")
 
-			("handlers", sh::fun_values_path(boost::bind(&NSCAClient::add_command, this, boost::placeholders::_1, boost::placeholders::_2)),
-				"CLIENT HANDLER SECTION", "",
-				"CLIENT HANDLER", "For more configuration options add a dedicated section")
+      ("handlers", sh::fun_values_path([this] (auto key, auto value) { this->add_command(key, value); }),
+	      "CLIENT HANDLER SECTION", "",
+	      "CLIENT HANDLER", "For more configuration options add a dedicated section")
 
-			("targets", sh::fun_values_path(boost::bind(&NSCAClient::add_target, this, boost::placeholders::_1, boost::placeholders::_2)),
-				"REMOTE TARGET DEFINITIONS", "",
-				"TARGET", "For more configuration options add a dedicated section")
-			;
+      ("targets", sh::fun_values_path([this] (auto key, auto value) { this->add_target(key, value); }),
+	      "REMOTE TARGET DEFINITIONS", "",
+	      "TARGET", "For more configuration options add a dedicated section")
+      ;
 
     // clang-format on
     settings.alias()

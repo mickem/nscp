@@ -25,12 +25,8 @@
 #include <nsclient/nsclient_exception.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
-#include <parsers/where.hpp>
-#include <parsers/where/engine.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/where/node.hpp>
-
-namespace ph = boost::placeholders;
 
 namespace network_check {
 
@@ -189,20 +185,20 @@ filter_obj_handler::filter_obj_handler() {
   static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
 
   // clang-format off
-			registry_.add_string()
-				("name", boost::bind(&filter_obj::get_name, ph::_1), "Network interface name")
-				("net_connection_id", boost::bind(&filter_obj::get_NetConnectionID, ph::_1), "Network connection id")
-				("MAC", boost::bind(&filter_obj::get_MACAddress, ph::_1), "The MAC address")
-				("status", boost::bind(&filter_obj::get_NetConnectionStatus, ph::_1), "Network connection status")
-				("enabled", boost::bind(&filter_obj::get_NetEnabled, ph::_1), "True if the network interface is enabled")
-				("speed", boost::bind(&filter_obj::get_Speed, ph::_1), "The network interface speed")
-				;
+  registry_.add_string()
+    ("name", [](auto obj, auto context) { return obj->get_name(); }, "Network interface name")
+    ("net_connection_id", [](auto obj, auto context) { return obj->get_NetConnectionID(); }, "Network connection id")
+    ("MAC", [](auto obj, auto context) { return obj->get_MACAddress(); }, "The MAC address")
+    ("status", [](auto obj, auto context) { return obj->get_NetConnectionStatus(); }, "Network connection status")
+    ("enabled", [](auto obj, auto context) { return obj->get_NetEnabled(); }, "True if the network interface is enabled")
+    ("speed", [](auto obj, auto context) { return obj->get_Speed(); }, "The network interface speed")
+    ;
 
-			registry_.add_int()
-				("received", boost::bind(&filter_obj::getBytesReceivedPersec, ph::_1), "Bytes received per second")
-				("sent", boost::bind(&filter_obj::getBytesSentPersec, ph::_1), "Bytes sent per second")
-				("total", boost::bind(&filter_obj::getBytesTotalPersec, ph::_1), "Bytes total per second")
-				;
+  registry_.add_int()
+    ("received", [](auto obj, auto context) { return obj->getBytesReceivedPersec(); }, "Bytes received per second")
+    ("sent", [](auto obj, auto context) { return obj->getBytesSentPersec(); }, "Bytes sent per second")
+    ("total", [](auto obj, auto context) { return obj->getBytesTotalPersec(); }, "Bytes total per second")
+    ;
   // clang-format on
 }
 

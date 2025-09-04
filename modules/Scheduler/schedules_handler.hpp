@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <boost/bind/bind.hpp>
 #include <boost/optional.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
@@ -31,7 +30,6 @@
 #include <string>
 
 namespace sh = nscapi::settings_helper;
-namespace ph = boost::placeholders;
 
 namespace schedules {
 struct schedule_object : public nscapi::settings_objects::object_instance_interface {
@@ -104,7 +102,7 @@ struct schedule_object : public nscapi::settings_objects::object_instance_interf
     root_path
         .add_key()
 
-        .add_string("command", sh::string_fun_key(boost::bind(&schedule_object::set_command, this, ph::_1)), "SCHEDULE COMMAND", "Command to execute", is_def)
+        .add_string("command", sh::string_fun_key([this](auto value) { this->set_command(value); }), "SCHEDULE COMMAND", "Command to execute", is_def)
 
         .add_string("target", sh::string_key(&target_id), "TARGET", "The target to send the message to (will be resolved by the consumer)", true)
         .add_string("source", sh::string_key(&source_id), "SOURCE",
@@ -120,16 +118,16 @@ struct schedule_object : public nscapi::settings_objects::object_instance_interf
 
           .add_string("channel", sh::string_key(&channel, "NSCA"), "SCHEDULE CHANNEL", "Channel to send results on, set to drop to ignore results")
 
-          .add_string("interval", sh::string_fun_key(boost::bind(&schedule_object::set_duration, this, ph::_1)), "SCHEDULE INTERVAL",
+          .add_string("interval", sh::string_fun_key([this](auto value) { this->set_duration(value); }), "SCHEDULE INTERVAL",
                       "Time in seconds between each check")
 
-          .add_string("randomness", sh::string_fun_key(boost::bind(&schedule_object::set_randomness, this, ph::_1)), "RANDOMNESS",
+          .add_string("randomness", sh::string_fun_key([this](auto value) { this->set_randomness(value); }), "RANDOMNESS",
                       "% of the interval which should be random to prevent overloading server resources")
 
-          .add_string("schedule", sh::string_fun_key(boost::bind(&schedule_object::set_schedule, this, ph::_1)), "SCHEDULE",
+          .add_string("schedule", sh::string_fun_key([this](auto value) { this->set_schedule(value); }), "SCHEDULE",
                       "Cron-like statement for when a task is run. Currently limited to only one number i.e. 1 * * * * or * * 1 * * but not 1 1 * * *")
 
-          .add_string("report", sh::string_fun_key(boost::bind(&schedule_object::set_report, this, ph::_1), "all"), "REPORT MODE",
+          .add_string("report", sh::string_fun_key([this](auto value) { this->set_report(value); }, "all"), "REPORT MODE",
                       "What to report to the server (any of the following: all, critical, warning, unknown, ok)")
 
           ;
@@ -137,16 +135,16 @@ struct schedule_object : public nscapi::settings_objects::object_instance_interf
       root_path.add_key()
           .add_string("channel", sh::string_key(&channel), "SCHEDULE CHANNEL", "Channel to send results on")
 
-          .add_string("interval", sh::string_fun_key(boost::bind(&schedule_object::set_duration, this, ph::_1)), "SCHEDULE INTERVAL",
+          .add_string("interval", sh::string_fun_key([this](auto value) { this->set_duration(value); }), "SCHEDULE INTERVAL",
                       "Time in seconds between each check", true)
 
-          .add_string("randomness", sh::string_fun_key(boost::bind(&schedule_object::set_randomness, this, ph::_1)), "RANDOMNESS",
+          .add_string("randomness", sh::string_fun_key([this](auto value) { this->set_randomness(value); }), "RANDOMNESS",
                       "% of the interval which should be random to prevent overloading server resources")
 
-          .add_string("schedule", sh::string_fun_key(boost::bind(&schedule_object::set_schedule, this, ph::_1)), "SCHEDULE",
+          .add_string("schedule", sh::string_fun_key([this](auto value) { this->set_schedule(value); }), "SCHEDULE",
                       "Cron-like statement for when a task is run. Currently limited to only one number i.e. 1 * * * * or * * 1 * * but not 1 1 * * *")
 
-          .add_string("report", sh::string_fun_key(boost::bind(&schedule_object::set_report, this, ph::_1)), "REPORT MODE",
+          .add_string("report", sh::string_fun_key([this](auto value) { this->set_report(value); }), "REPORT MODE",
                       "What to report to the server (any of the following: all, critical, warning, unknown, ok)", true)
 
           ;

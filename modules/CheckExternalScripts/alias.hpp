@@ -20,10 +20,8 @@
 #pragma once
 
 #include <boost/algorithm/string/case_conv.hpp>
-#include <boost/bind/bind.hpp>
 #include <boost/shared_ptr.hpp>
 #include <nscapi/macros.hpp>
-#include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
@@ -83,8 +81,7 @@ struct command_object : public nscapi::settings_objects::object_instance_interfa
 
     root_path.add_path()("alias: " + get_alias(), "The configuration section for the " + get_alias() + " alias");
 
-    root_path.add_key().add_string("command", sh::string_fun_key(boost::bind(&command_object::set_command, this, boost::placeholders::_1)), "COMMAND",
-                                   "Command to execute");
+    root_path.add_key().add_string("command", sh::string_fun_key([this](auto value) { this->set_command(value); }), "COMMAND", "Command to execute");
 
     settings.register_all();
     settings.notify();

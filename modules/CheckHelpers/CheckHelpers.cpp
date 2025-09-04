@@ -29,21 +29,22 @@
 #include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <parsers/filter/cli_helper.hpp>
+#include <parsers/filter/modern_filter.hpp>
+#include <parsers/where/filter_handler_impl.hpp>
 #include <str/utils.hpp>
 #include <vector>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
-namespace ph = boost::placeholders;
 
 void check_simple_status(PB::Common::ResultCode status, const PB::Commands::QueryRequestMessage::Request &request,
                          PB::Commands::QueryResponseMessage::Response *response) {
   po::options_description desc = nscapi::program_options::create_desc(request);
   std::string msg;
   // clang-format off
-	desc.add_options()
-		("message", po::value<std::string>(&msg)->default_value("No message"), "Message to return")
-		;
+  desc.add_options()
+    ("message", po::value<std::string>(&msg)->default_value("No message"), "Message to return")
+    ;
   // clang-format on
   po::variables_map vm;
   if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) return;
@@ -154,15 +155,15 @@ void CheckHelpers::check_negate(const PB::Commands::QueryRequestMessage::Request
   std::vector<std::string> arguments;
   po::options_description desc = nscapi::program_options::create_desc(request);
   // clang-format off
-	desc.add_options()
-		("ok,o", po::value<std::string>(), "The state to return instead of OK")
-		("warning,w", po::value<std::string>(), "The state to return instead of WARNING")
-		("critical,c", po::value<std::string>(), "The state to return instead of CRITICAL")
-		("unknown,u", po::value<std::string>(), "The state to return instead of UNKNOWN")
+  desc.add_options()
+    ("ok,o", po::value<std::string>(), "The state to return instead of OK")
+    ("warning,w", po::value<std::string>(), "The state to return instead of WARNING")
+    ("critical,c", po::value<std::string>(), "The state to return instead of CRITICAL")
+    ("unknown,u", po::value<std::string>(), "The state to return instead of UNKNOWN")
 
-		("command,q", po::value<std::string>(&command), "Wrapped command to execute")
-		("arguments,a", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
-		;
+    ("command,q", po::value<std::string>(&command), "Wrapped command to execute")
+    ("arguments,a", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
+    ;
   // clang-format on
   po::variables_map vm;
   if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) return;
@@ -192,13 +193,13 @@ void CheckHelpers::check_multi(const PB::Commands::QueryRequestMessage::Request 
   std::string prefix;
   std::string suffix;
   // clang-format off
-	desc.add_options()
-		("command", po::value<std::vector<std::string> >(&arguments), "Commands to run (can be used multiple times)")
-		("arguments", po::value<std::vector<std::string> >(&arguments), "Deprecated alias for command")
-		("separator", po::value<std::string>(&separator)->default_value(", "), "Separator between messages")
-		("prefix", po::value<std::string>(&prefix), "Message prefix")
-		("suffix", po::value<std::string>(&suffix), "Message suffix")
-		;
+  desc.add_options()
+    ("command", po::value<std::vector<std::string> >(&arguments), "Commands to run (can be used multiple times)")
+    ("arguments", po::value<std::vector<std::string> >(&arguments), "Deprecated alias for command")
+    ("separator", po::value<std::string>(&separator)->default_value(", "), "Separator between messages")
+    ("prefix", po::value<std::string>(&prefix), "Message prefix")
+    ("suffix", po::value<std::string>(&suffix), "Message suffix")
+    ;
   // clang-format on
   po::variables_map vm;
   if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) return;
@@ -240,11 +241,11 @@ void CheckHelpers::check_and_forward(const PB::Commands::QueryRequestMessage::Re
   std::string target;
   std::string command;
   // clang-format off
-	desc.add_options()
-		("target", po::value<std::string>(&target), "Commands to run (can be used multiple times)")
-		("command", po::value<std::string>(&command), "Commands to run (can be used multiple times)")
-		("arguments", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
-		;
+  desc.add_options()
+    ("target", po::value<std::string>(&target), "Commands to run (can be used multiple times)")
+    ("command", po::value<std::string>(&command), "Commands to run (can be used multiple times)")
+    ("arguments", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
+    ;
   // clang-format on
   po::variables_map vm;
   std::vector<std::string> args;
@@ -284,12 +285,12 @@ void CheckHelpers::check_timeout(const PB::Commands::QueryRequestMessage::Reques
   unsigned long timeout = 30;
   po::options_description desc = nscapi::program_options::create_desc(request);
   // clang-format off
-	desc.add_options()
-		("timeout,t", po::value<unsigned long>(&timeout), "The timeout value")
-		("command,q", po::value<std::string>(&command), "Wrapped command to execute")
-		("arguments,a", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
-		("return,r", po::value<std::string>(), "The return status")
-		;
+  desc.add_options()
+    ("timeout,t", po::value<unsigned long>(&timeout), "The timeout value")
+    ("command,q", po::value<std::string>(&command), "Wrapped command to execute")
+    ("arguments,a", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
+    ("return,r", po::value<std::string>(), "The return status")
+    ;
   // clang-format on
   po::variables_map vm;
   if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) return;
@@ -297,7 +298,7 @@ void CheckHelpers::check_timeout(const PB::Commands::QueryRequestMessage::Reques
 
   worker_object obj;
   boost::shared_ptr<boost::thread> t =
-      boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&worker_object::proc, obj, get_core(), get_id(), command, arguments)));
+      boost::shared_ptr<boost::thread>(new boost::thread([&obj, this, command, arguments]() { obj.proc(get_core(), get_id(), command, arguments); }));
 
   if (t->timed_join(boost::posix_time::seconds(timeout))) {
     if (obj.ret != NSCAPI::query_return_codes::returnOK) {
@@ -339,12 +340,12 @@ void CheckHelpers::filter_perf(const PB::Commands::QueryRequestMessage::Request 
   std::vector<std::string> arguments;
   po::options_description desc = nscapi::program_options::create_desc(request);
   // clang-format off
-	desc.add_options()
-		("sort", po::value<std::string>(&sort)->default_value("none"), "The sort order to use: none, normal or reversed")
-		("limit", po::value<std::size_t>(&limit)->default_value(0), "The maximum number of items to return (0 returns all items)")
-		("command", po::value<std::string>(&command), "Wrapped command to execute")
-		("arguments", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
-		;
+  desc.add_options()
+    ("sort", po::value<std::string>(&sort)->default_value("none"), "The sort order to use: none, normal or reversed")
+    ("limit", po::value<std::size_t>(&limit)->default_value(0), "The maximum number of items to return (0 returns all items)")
+    ("command", po::value<std::string>(&command), "Wrapped command to execute")
+    ("arguments", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
+    ;
   // clang-format on
 
   po::positional_options_description p;
@@ -375,13 +376,6 @@ void CheckHelpers::filter_perf(const PB::Commands::QueryRequestMessage::Request 
     line->add_perf()->CopyFrom(v);
   }
 }
-
-#include <parsers/filter/modern_filter.hpp>
-#include <parsers/where.hpp>
-#include <parsers/where/engine.hpp>
-#include <parsers/where/filter_handler_impl.hpp>
-#include <parsers/where/helpers.hpp>
-#include <parsers/where/node.hpp>
 
 namespace perf_filter {
 struct filter_obj {
@@ -426,16 +420,16 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
 filter_obj_handler::filter_obj_handler() {
   // clang-format off
-		registry_.add_string()
-			("key", boost::bind(&filter_obj::get_key, ph::_1), "Major version number")
-			("value", boost::bind(&filter_obj::get_value, ph::_1), "Major version number")
-			("unit", boost::bind(&filter_obj::get_unit, ph::_1), "Major version number")
-			("warn", boost::bind(&filter_obj::get_warn, ph::_1), "Major version number")
-			("crit", boost::bind(&filter_obj::get_crit, ph::_1), "Major version number")
-			("max", boost::bind(&filter_obj::get_min, ph::_1), "Major version number")
-			("min", boost::bind(&filter_obj::get_max, ph::_1), "Major version number")
-			("message", boost::bind(&filter_obj::get_key, ph::_1), "Major version number")
-			;
+  registry_.add_string()
+    ("key", [] (auto obj, auto context) { return obj->get_key(); }, "Major version number")
+    ("value", [] (auto obj, auto context) { return obj->get_value(); }, "Major version number")
+    ("unit", [] (auto obj, auto context) { return obj->get_unit(); }, "Major version number")
+    ("warn", [] (auto obj, auto context) { return obj->get_warn(); }, "Major version number")
+    ("crit", [] (auto obj, auto context) { return obj->get_crit(); }, "Major version number")
+    ("max", [] (auto obj, auto context) { return obj->get_min(); }, "Major version number")
+    ("min", [] (auto obj, auto context) { return obj->get_max(); }, "Major version number")
+    ("message", [] (auto obj, auto context) { return obj->get_key(); }, "Major version number")
+    ;
   // clang-format on
 }
 }  // namespace perf_filter
@@ -452,11 +446,11 @@ void CheckHelpers::render_perf(const PB::Commands::QueryRequestMessage::Request 
   filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
   filter_helper.add_syntax("%(status): %(message) %(list)", "%(key)\t%(value)\t%(unit)\t%(warn)\t%(crit)\t%(min)\t%(max)\n", "%(key)", "", "");
   // clang-format off
-	filter_helper.get_desc().add_options()
-		("command", po::value<std::string>(&command), "Wrapped command to execute")
-		("arguments", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
-		("remove-perf", po::bool_switch(&remove_perf), "List of arguments (for wrapped command)")
-		;
+  filter_helper.get_desc().add_options()
+    ("command", po::value<std::string>(&command), "Wrapped command to execute")
+    ("arguments", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
+    ("remove-perf", po::bool_switch(&remove_perf), "List of arguments (for wrapped command)")
+    ;
   // clang-format on
 
   po::positional_options_description p;
@@ -486,13 +480,13 @@ void CheckHelpers::xform_perf(const PB::Commands::QueryRequestMessage::Request &
   std::vector<std::string> arguments;
   po::options_description desc = nscapi::program_options::create_desc(request);
   // clang-format off
-	desc.add_options()
-		("command", po::value<std::string>(&command), "Wrapped command to execute")
-		("arguments", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
-		("mode", po::value<std::string>(&mode), "Transformation mode: extract to fetch data or minmax to add missing min/max")
-		("field", po::value<std::string>(&field), "Field to work with (value, warn, crit, max, min)")
-		("replace", po::value<std::string>(&replace), "Replace expression for the alias")
-		;
+  desc.add_options()
+    ("command", po::value<std::string>(&command), "Wrapped command to execute")
+    ("arguments", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
+    ("mode", po::value<std::string>(&mode), "Transformation mode: extract to fetch data or minmax to add missing min/max")
+    ("field", po::value<std::string>(&field), "Field to work with (value, warn, crit, max, min)")
+    ("replace", po::value<std::string>(&replace), "Replace expression for the alias")
+    ;
   // clang-format on
 
   po::positional_options_description p;

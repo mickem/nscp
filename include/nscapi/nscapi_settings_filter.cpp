@@ -14,19 +14,16 @@
  * limitations under the License.
  */
 
-#include <boost/bind/bind.hpp>
 #include <nscapi/nscapi_settings_filter.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
 
 namespace nscapi {
 namespace settings_filters {
 
-namespace ph = boost::placeholders;
-
 void filter_object::read_object(nscapi::settings_helper::path_extension &path, const bool is_default) {
   namespace sh = nscapi::settings_helper;
   path.add_key()
-      .add_string("filter", sh::cstring_fun_key(boost::bind(&filter_object::set_filter_string, this, ph::_1)), "FILTER",
+      .add_string("filter", sh::cstring_fun_key([this](auto value) { this->set_filter_string(value); }), "FILTER",
                   "Scan files for matching rows for each matching rows an OK message will be submitted")
       .add_string("warning", sh::string_key(&filter_warn), "WARNING FILTER", "If any rows match this filter severity will escalated to WARNING")
       .add_string("critical", sh::string_key(&filter_crit), "CRITICAL FILTER", "If any rows match this filter severity will escalated to CRITICAL")
@@ -44,18 +41,18 @@ void filter_object::read_object(nscapi::settings_helper::path_extension &path, c
 
       .add_string("target", sh::string_key(&target), "DESTINATION", "Same as destination", false)
 
-      .add_string("maximum age", sh::string_fun_key(boost::bind(&filter_object::set_max_age, this, ph::_1), "5m"), "MAGIMUM AGE",
+      .add_string("maximum age", sh::string_fun_key([this](auto value) { this->set_max_age(value); }, "5m"), "MAGIMUM AGE",
                   "How long before reporting \"ok\".\nIf this is set to \"false\" no periodic ok messages will be reported only errors.")
 
       .add_string(
-          "silent period", sh::string_fun_key(boost::bind(&filter_object::set_silent_period, this, ph::_1), "false"), "Silent period",
+          "silent period", sh::string_fun_key([this](auto value) { this->set_silent_period(value); }, "false"), "Silent period",
           "How long before a new alert is reported after an alert is reported. In other words whenever an alert is fired and a notification is sent the same "
           "notification will not be sent again until this period has ended.\nIf this is set to \"false\" no periodic ok messages will be reported only errors.")
 
       .add_string("empty message", sh::string_key(&timeout_msg, "eventlog found no records"), "EMPTY MESSAGE",
                   "The message to display if nothing matches the filter (generally considered the ok state).", !is_default)
 
-      .add_string("severity", sh::string_fun_key(boost::bind(&filter_object::set_severity, this, ph::_1)), "SEVERITY",
+      .add_string("severity", sh::string_fun_key([this](auto value) { this->set_severity(value); }), "SEVERITY",
                   "THe severity of this message (OK, WARNING, CRITICAL, UNKNOWN)", !is_default)
 
       .add_string("command", sh::string_key(&command), "COMMAND NAME",

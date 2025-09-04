@@ -17,8 +17,6 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/assign/list_of.hpp>
-#include <boost/make_shared.hpp>
 #include <boost/program_options.hpp>
 #include <boost/regex.hpp>
 #include <map>
@@ -30,7 +28,6 @@
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
-namespace ph = boost::placeholders;
 
 namespace check_pdh {
 void counter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
@@ -62,19 +59,19 @@ void counter_config_object::read(nscapi::settings_helper::settings_impl_interfac
 filter_obj_handler::filter_obj_handler() {
   // clang-format off
   registry_.add_string()
-    ("counter", boost::bind(&filter_obj::get_counter, ph::_1), "The counter name")
-    ("alias", boost::bind(&filter_obj::get_alias, ph::_1), "The counter alias")
-    ("time", boost::bind(&filter_obj::get_time, ph::_1), "The time for rrd checks")
+    ("counter", [] (auto obj, auto context) { return obj->get_counter(); }, "The counter name")
+    ("alias", [] (auto obj, auto context) { return obj->get_alias(); }, "The counter alias")
+    ("time", [] (auto obj, auto context) { return obj->get_time(); }, "The time for rrd checks")
   ;
 
   registry_.add_number()
-    ("value", parsers::where::type_float, boost::bind(&filter_obj::get_value_i, ph::_1), boost::bind(&filter_obj::get_value_f, ph::_1), "The counter value (either float or int)")
+    ("value", parsers::where::type_float, [] (auto obj, auto context) { return obj->get_value_i(); }, [] (auto obj, auto context) { return obj->get_value_f(); }, "The counter value (either float or int)")
   ;
   registry_.add_int()
-    ("value_i", boost::bind(&filter_obj::get_value_i, ph::_1), "The counter value (force int value)")
+    ("value_i", [] (auto obj, auto context) { return obj->get_value_i(); }, "The counter value (force int value)")
   ;
   registry_.add_float()
-    ("value_f", boost::bind(&filter_obj::get_value_f, ph::_1), "The counter value (force float value)")
+    ("value_f", [] (auto obj, auto context) { return obj->get_value_f(); }, "The counter value (force float value)")
   ;
   // clang-format on
 }

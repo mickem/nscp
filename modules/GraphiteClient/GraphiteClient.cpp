@@ -19,7 +19,6 @@
 
 #include "GraphiteClient.h"
 
-#include <boost/bind.hpp>
 #include <boost/make_shared.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -53,11 +52,11 @@ bool GraphiteClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.alias().add_path_to_settings()
 			("GRAPHITE CLIENT SECTION", "Section for graphite passive check module.")
 
-			("handlers", sh::fun_values_path(boost::bind(&GraphiteClient::add_command, this, boost::placeholders::_1, boost::placeholders::_2)),
+			("handlers", sh::fun_values_path([this] (auto key, auto value) { this->add_command(key, value); }),
 				"CLIENT HANDLER SECTION", "",
 				"CLIENT HANDLER", "For more configuration options add a dedicated section")
 
-			("targets", sh::fun_values_path(boost::bind(&GraphiteClient::add_target, this, boost::placeholders::_1, boost::placeholders::_2)),
+			("targets", sh::fun_values_path([this] (auto key, auto value) { this->add_target(key, value); }),
 				"REMOTE TARGET DEFINITIONS", "",
 				"TARGET", "For more configuration options add a dedicated section")
 			;

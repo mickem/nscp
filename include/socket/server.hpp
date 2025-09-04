@@ -186,7 +186,7 @@ class server : private boost::noncopyable {
       acceptor_v6.async_accept(new_connection_->get_socket(), accept_strand_.wrap([this](const auto &e) { this->handle_accept(true, e); }));
 
     for (std::size_t i = 0; i < info_.thread_pool_size; ++i) {
-      thread_group_.create_thread(boost::bind(&boost::asio::io_service::run, &io_service_));
+      thread_group_.create_thread([this]() { io_service_.run(); });
     }
     return true;
   }

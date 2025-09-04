@@ -20,17 +20,12 @@
 #include "filter.hpp"
 
 #include <boost/assign.hpp>
-#include <boost/bind/bind.hpp>
-#include <list>
-#include <map>
-#include <simple_timer.hpp>
 #include <str/xtos.hpp>
 
 #include "file_finder.hpp"
 
 using namespace boost::assign;
 using namespace parsers::where;
-namespace ph = boost::placeholders;
 
 constexpr int file_type_file = 1;
 constexpr int file_type_dir = 2;
@@ -71,28 +66,28 @@ file_filter::filter_obj_handler::filter_obj_handler() {
   // clang-format off
   registry_.add_string()
     ("path", &filter_obj::get_path, "Path of file")
-    ("version", boost::bind(&filter_obj::get_version, ph::_1), "Windows exe/dll file version")
-    ("filename", boost::bind(&filter_obj::get_filename, ph::_1), "The name of the file")
-    ("file", boost::bind(&filter_obj::get_filename, ph::_1), "The name of the file")
-    ("name", boost::bind(&filter_obj::get_filename, ph::_1), "The name of the file")
-    ("access_l", boost::bind(&filter_obj::get_access_sl, ph::_1), "Last access time (local time)")
-    ("creation_l", boost::bind(&filter_obj::get_creation_sl, ph::_1), "When file was created (local time)")
-    ("written_l", boost::bind(&filter_obj::get_written_sl, ph::_1), "When file was last written  to (local time)")
-    ("access_u", boost::bind(&filter_obj::get_access_su, ph::_1), "Last access time (UTC)")
-    ("creation_u", boost::bind(&filter_obj::get_creation_su, ph::_1), "When file was created (UTC)")
-    ("written_u", boost::bind(&filter_obj::get_written_su, ph::_1), "When file was last written  to (UTC)")
+    ("version", [] (auto obj, auto context) { return obj->get_version(); }, "Windows exe/dll file version")
+    ("filename", [] (auto obj, auto context) { return obj->get_filename(); }, "The name of the file")
+    ("file", [] (auto obj, auto context) { return obj->get_filename(); }, "The name of the file")
+    ("name", [] (auto obj, auto context) { return obj->get_filename(); }, "The name of the file")
+    ("access_l", [] (auto obj, auto context) { return obj->get_access_sl(); }, "Last access time (local time)")
+    ("creation_l", [] (auto obj, auto context) { return obj->get_creation_sl(); }, "When file was created (local time)")
+    ("written_l", [] (auto obj, auto context) { return obj->get_written_sl(); }, "When file was last written  to (local time)")
+    ("access_u", [] (auto obj, auto context) { return obj->get_access_su(); }, "Last access time (UTC)")
+    ("creation_u", [] (auto obj, auto context) { return obj->get_creation_su(); }, "When file was created (UTC)")
+    ("written_u", [] (auto obj, auto context) { return obj->get_written_su(); }, "When file was last written  to (UTC)")
     ;
 
   registry_.add_int()
-    ("size", type_size, boost::bind(&filter_obj::get_size, ph::_1), "File size").add_scaled_byte(std::string(""), " size")
-    ("line_count", boost::bind(&filter_obj::get_line_count, ph::_1), "Number of lines in the file (text files)")
-    ("access", type_date, boost::bind(&filter_obj::get_access, ph::_1), "Last access time")
-    ("creation", type_date, boost::bind(&filter_obj::get_creation, ph::_1), "When file was created")
-    ("written", type_date, boost::bind(&filter_obj::get_write, ph::_1), "When file was last written to")
-    ("write", type_date, boost::bind(&filter_obj::get_write, ph::_1), "Alias for written")
-    ("age", type_int, boost::bind(&filter_obj::get_age, ph::_1), "Seconds since file was last written")
-    ("type", type_custom_type, boost::bind(&filter_obj::get_type, ph::_1), "Type of item (file or dir)")
-    ("total", type_bool, boost::bind(&filter_obj::is_total, ph::_1), "True if this is the total object").no_perf();
+    ("size", type_size, [] (auto obj, auto context) { return obj->get_size(); }, "File size").add_scaled_byte(std::string(""), " size")
+    ("line_count", [] (auto obj, auto context) { return obj->get_line_count(); }, "Number of lines in the file (text files)")
+    ("access", type_date, [] (auto obj, auto context) { return obj->get_access(); }, "Last access time")
+    ("creation", type_date, [] (auto obj, auto context) { return obj->get_creation(); }, "When file was created")
+    ("written", type_date, [] (auto obj, auto context) { return obj->get_write(); }, "When file was last written to")
+    ("write", type_date, [] (auto obj, auto context) { return obj->get_write(); }, "Alias for written")
+    ("age", type_int, [] (auto obj, auto context) { return obj->get_age(); }, "Seconds since file was last written")
+    ("type", type_custom_type, [] (auto obj, auto context) { return obj->get_type(); }, "Type of item (file or dir)")
+    ("total", type_bool, [] (auto obj, auto context) { return obj->is_total(); }, "True if this is the total object").no_perf();
     ;
 
   registry_.add_converter()
@@ -100,10 +95,10 @@ file_filter::filter_obj_handler::filter_obj_handler() {
     ;
 
   registry_.add_human_string()
-    ("access", boost::bind(&filter_obj::get_access_su, ph::_1), "")
-    ("creation", boost::bind(&filter_obj::get_creation_su, ph::_1), "")
-    ("written", boost::bind(&filter_obj::get_written_su, ph::_1), "")
-    ("type", boost::bind(&filter_obj::get_type_su, ph::_1), "")
+    ("access", [] (auto obj, auto context) { return obj->get_access_su(); }, "")
+    ("creation", [] (auto obj, auto context) { return obj->get_creation_su(); }, "")
+    ("written", [] (auto obj, auto context) { return obj->get_written_su(); }, "")
+    ("type", [] (auto obj, auto context) { return obj->get_type_su(); }, "")
     ;
   // clang-format on
 }

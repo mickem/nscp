@@ -19,11 +19,9 @@
 
 #pragma once
 
-#include <boost/cstdint.hpp>
 #include <boost/optional.hpp>
 #include <nscapi/nscapi_settings_filter.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
 #include <string>
 
 #include "filter.hpp"

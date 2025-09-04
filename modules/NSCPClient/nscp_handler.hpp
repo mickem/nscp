@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <boost/bind.hpp>
 #include <boost/make_shared.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 
@@ -52,7 +51,7 @@ struct nrpe_target_object : public nscapi::targets::target_object {
     root_path
         .add_key()
 
-        .add_password("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "password", boost::placeholders::_1)), "PASSWORD",
+        .add_password("password", sh::string_fun_key([this](auto value) { this->set_property_string("password", value); }), "PASSWORD",
                       "The password to use to authenticate towards the server.");
 
     settings.register_all();
@@ -77,10 +76,7 @@ struct options_reader_impl : public client::options_reader_interface {
   void process(boost::program_options::options_description &desc, client::destination_container &, client::destination_container &target) {
     add_ssl_options(desc, target);
 
-    desc.add_options()(
-        "password,p",
-        po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &target, "password", boost::placeholders::_1)),
-        "Password");
+    desc.add_options()("password,p", po::value<std::string>()->notifier([&target](auto value) { target.set_string_data("password", value); }), "Password");
   }
 };
 }  // namespace nscp_handler

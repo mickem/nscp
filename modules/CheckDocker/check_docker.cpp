@@ -31,7 +31,6 @@
 namespace json = boost::json;
 
 namespace check_docker_filter {
-namespace ph = boost::placeholders;
 struct filter_obj {
   std::string id, image, imageId, command, created, state, status, names, ip;
 
@@ -82,14 +81,14 @@ struct filter_obj_handler : public native_context {
 
     // clang-format off
     registry_.add_string()
-      ("id", boost::bind(&filter_obj::get_id, ph::_1), "Container id")
-      ("image", boost::bind(&filter_obj::get_image, ph::_1), "Container image")
-      ("image_id", boost::bind(&filter_obj::get_imageId, ph::_1), "Container image id")
-      ("command", boost::bind(&filter_obj::get_command, ph::_1), "Command")
-      ("container_state", boost::bind(&filter_obj::get_state, ph::_1), "Container image")
-      ("status", boost::bind(&filter_obj::get_status, ph::_1), "Container image")
-      ("names", boost::bind(&filter_obj::get_names, ph::_1), "Container image")
-      ("ip", boost::bind(&filter_obj::get_ip, ph::_1), "IP of container")
+        ("id", [](auto obj, auto context) { return obj->get_id();  }, "Container id")
+      ("image", [](auto obj, auto context) { return obj->get_image();  }, "Container image")
+      ("image_id", [](auto obj, auto context) { return obj->get_imageId();  }, "Container image id")
+      ("command", [](auto obj, auto context) { return obj->get_command();  }, "Command")
+      ("container_state", [](auto obj, auto context) { return obj->get_state();  }, "Container image")
+      ("status", [](auto obj, auto context) { return obj->get_status();  }, "Container image")
+      ("names", [](auto obj, auto context) { return obj->get_names();  }, "Container image")
+      ("ip", [](auto obj, auto context) { return obj->get_ip();  }, "IP of container")
     ;
     // clang-format on
   }
