@@ -57,7 +57,6 @@ namespace sh = nscapi::settings_helper;
 
 using namespace std;
 using namespace Mongoose;
-namespace ph = boost::placeholders;
 
 class WEBServerLogger : public WebLogger {
   bool log_errors_;
@@ -113,7 +112,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.alias().add_path_to_settings()
     ("Web server", "Section for WEB (WEBServer.dll) (check_WEB) protocol options.")
     ("log", "Log configuration", "Configure which messages from the web server are logged.")
-    ("users", sh::fun_values_path(boost::bind(&WEBServer::add_user, this, ph::_1, ph::_2)),
+    ("users", sh::fun_values_path([this] (auto key, auto value) { this->add_user(key, value); }),
     "Web server users", "Users which can access the REST API",
     "REST USER", "")
     ("roles", sh::string_map_path(&roles)

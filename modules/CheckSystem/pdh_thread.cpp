@@ -469,7 +469,7 @@ pdh_thread::metrics_hash pdh_thread::get_metrics() {
 
 bool pdh_thread::start() {
   stop_event_ = CreateEvent(NULL, TRUE, FALSE, _T("EventLogShutdown"));
-  thread_ = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&pdh_thread::thread_proc, this)));
+  thread_ = boost::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
   return true;
 }
 bool pdh_thread::stop() {

@@ -21,11 +21,11 @@
 
 #include <config.h>
 
-#include <boost/bind/bind.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/regex.hpp>
 #include <file_helpers.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
@@ -38,7 +38,6 @@
 #include "script_provider.hpp"
 
 namespace sh = nscapi::settings_helper;
-namespace ph = boost::placeholders;
 
 CheckExternalScripts::CheckExternalScripts() {}
 CheckExternalScripts::~CheckExternalScripts() {}
@@ -93,18 +92,18 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
     std::map<std::string, std::string> wrappings;
 
     // clang-format off
-		settings.alias().add_path_to_settings()
+    settings.alias().add_path_to_settings()
 
-			("wrappings", sh::string_map_path(&wrappings)
-				, "Script wrappings", "A list of templates for defining script commands.\nEnter any command line here and they will be expanded by scripts placed under the wrapped scripts section. %SCRIPT% will be replaced by the actual script an %ARGS% will be replaced by any given arguments.",
-				"WRAPPING", "An external script wrapping")
+      ("wrappings", sh::string_map_path(&wrappings)
+	      , "Script wrappings", "A list of templates for defining script commands.\nEnter any command line here and they will be expanded by scripts placed under the wrapped scripts section. %SCRIPT% will be replaced by the actual script an %ARGS% will be replaced by any given arguments.",
+	      "WRAPPING", "An external script wrapping")
 
-			("alias", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_alias, this, ph::_1, ph::_2)),
-				"Command aliases", "A list of aliases for already defined commands (with arguments).\n"
-				"An alias is an internal command that has been predefined to provide a single command without arguments. Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)",
-				"ALIAS", "Query alias")
+      ("alias", sh::fun_values_path([this] (auto key, auto value) { this->add_alias(key, value); }),
+	      "Command aliases", "A list of aliases for already defined commands (with arguments).\n"
+	      "An alias is an internal command that has been predefined to provide a single command without arguments. Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)",
+	      "ALIAS", "Query alias")
 
-			;
+      ;
     // clang-format on
 
     settings.register_all();
@@ -186,49 +185,49 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
     provider_.reset(new script_provider(get_id(), get_core(), settings.alias().get_settings_path("scripts"), scriptRoot, wrappings));
 
     // clang-format off
-		settings.alias().add_path_to_settings()
+    settings.alias().add_path_to_settings()
 
-			("External script settings", "General settings for the external scripts module (CheckExternalScripts).")
+      ("External script settings", "General settings for the external scripts module (CheckExternalScripts).")
 
-			("scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_command, this, ph::_1, ph::_2)),
-			"External scripts", "A list of scripts available to run from the CheckExternalScripts module. Syntax is: `command=script arguments`",
-			"SCRIPT", "For more configuration options add a dedicated section (if you add a new section you can customize the user and various other advanced features)")
+      ("scripts", sh::fun_values_path([this] (auto key, auto value) { this->add_command(key, value); }),
+      "External scripts", "A list of scripts available to run from the CheckExternalScripts module. Syntax is: `command=script arguments`",
+      "SCRIPT", "For more configuration options add a dedicated section (if you add a new section you can customize the user and various other advanced features)")
 
-			("wrapped scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_wrapping, this, ph::_1, ph::_2)),
-			"Wrapped scripts", "A list of wrapped scripts (ie. script using a template mechanism).\nThe template used will be defined by the extension of the script. Thus a foo.ps1 will use the ps1 wrapping from the wrappings section.",
-			"WRAPPED SCRIPT", "A wrapped script definitions")
+      ("wrapped scripts", sh::fun_values_path([this] (auto key, auto value) { this->add_wrapping(key, value); }),
+      "Wrapped scripts", "A list of wrapped scripts (ie. script using a template mechanism).\nThe template used will be defined by the extension of the script. Thus a foo.ps1 will use the ps1 wrapping from the wrappings section.",
+      "WRAPPED SCRIPT", "A wrapped script definitions")
 
-			;
+      ;
 
 
-		settings.alias().add_templates()
-			("scripts", "plus", "Add a simple script",
-				"Add binding for a simple script",
-				"{"
-				"\"fields\": [ "
-				" { \"id\": \"alias\",		\"title\" : \"Alias\",		\"type\" : \"input\",		\"desc\" : \"This will identify the command\"} , "
-				" { \"id\": \"script\",		\"title\" : \"Script\",		\"type\" : \"data-choice\",	\"desc\" : \"The name of the script\",\"exec\" : \"CheckExternalScripts list --json\" } , "
-				" { \"id\": \"args\",		\"title\" : \"Arguments\",	\"type\" : \"input\",		\"desc\" : \"Command line arguments for the script use $ARG1$ to specify arguments\" } , "
-				" { \"id\": \"cmd\",		\"key\" : \"command\", \"title\" : \"A\",	\"type\" : \"hidden\",		\"desc\" : \"A\" } "
-				" ], "
-				"\"events\": { "
-				"\"onSave\": \"(function (node) { node.save_path = self.path; var f = node.get_field('cmd'); f.key = node.get_field('alias').value(); var val = node.get_field('script').value(); if (node.get_field('args').value()) { val += ' ' + node.get_field('args').value(); }; f.value(val)})\""
-				"}"
-				"}")
-			("alias", "plus", "Add an alias",
-				"Add binding for an alias",
-				"{"
-				"\"fields\": [ "
-				" { \"id\": \"alias\",		\"title\" : \"Alias\",		\"type\" : \"input\",		\"desc\" : \"This will identify the command\"} , "
-				" { \"id\": \"command\",	\"title\" : \"Command\",	\"type\" : \"data-choice\",	\"desc\" : \"The name of the command to execute\",\"exec\" : \"CheckExternalScripts list --json --query\" } , "
-				" { \"id\": \"args\",		\"title\" : \"Arguments\",	\"type\" : \"input\",		\"desc\" : \"Command line arguments for the command. use $ARG1$ to specify arguments\" } , "
-				" { \"id\": \"cmd\",		\"key\" : \"command\", \"title\" : \"A\",	\"type\" : \"hidden\",		\"desc\" : \"A\" } "
-				" ], "
-				"\"events\": { "
-				"\"onSave\": \"(function (node) { node.save_path = self.path; \\nvar f = node.get_field('cmd'); \\nf.key = node.get_field('alias').value(); \\nvar val = node.get_field('command').value(); \\nif (node.get_field('args').value()) { \\nval += ' ' + node.get_field('args').value(); }; \\nf.value(val)})\""
-				"}"
-				"}")
-			;
+    settings.alias().add_templates()
+      ("scripts", "plus", "Add a simple script",
+	      "Add binding for a simple script",
+	      "{"
+	      "\"fields\": [ "
+	      " { \"id\": \"alias\",		\"title\" : \"Alias\",		\"type\" : \"input\",		\"desc\" : \"This will identify the command\"} , "
+	      " { \"id\": \"script\",		\"title\" : \"Script\",		\"type\" : \"data-choice\",	\"desc\" : \"The name of the script\",\"exec\" : \"CheckExternalScripts list --json\" } , "
+	      " { \"id\": \"args\",		\"title\" : \"Arguments\",	\"type\" : \"input\",		\"desc\" : \"Command line arguments for the script use $ARG1$ to specify arguments\" } , "
+	      " { \"id\": \"cmd\",		\"key\" : \"command\", \"title\" : \"A\",	\"type\" : \"hidden\",		\"desc\" : \"A\" } "
+	      " ], "
+	      "\"events\": { "
+	      "\"onSave\": \"(function (node) { node.save_path = self.path; var f = node.get_field('cmd'); f.key = node.get_field('alias').value(); var val = node.get_field('script').value(); if (node.get_field('args').value()) { val += ' ' + node.get_field('args').value(); }; f.value(val)})\""
+	      "}"
+	      "}")
+      ("alias", "plus", "Add an alias",
+	      "Add binding for an alias",
+	      "{"
+	      "\"fields\": [ "
+	      " { \"id\": \"alias\",		\"title\" : \"Alias\",		\"type\" : \"input\",		\"desc\" : \"This will identify the command\"} , "
+	      " { \"id\": \"command\",	\"title\" : \"Command\",	\"type\" : \"data-choice\",	\"desc\" : \"The name of the command to execute\",\"exec\" : \"CheckExternalScripts list --json --query\" } , "
+	      " { \"id\": \"args\",		\"title\" : \"Arguments\",	\"type\" : \"input\",		\"desc\" : \"Command line arguments for the command. use $ARG1$ to specify arguments\" } , "
+	      " { \"id\": \"cmd\",		\"key\" : \"command\", \"title\" : \"A\",	\"type\" : \"hidden\",		\"desc\" : \"A\" } "
+	      " ], "
+	      "\"events\": { "
+	      "\"onSave\": \"(function (node) { node.save_path = self.path; \\nvar f = node.get_field('cmd'); \\nf.key = node.get_field('alias').value(); \\nvar val = node.get_field('command').value(); \\nif (node.get_field('args').value()) { \\nval += ' ' + node.get_field('args').value(); }; \\nf.value(val)})\""
+	      "}"
+	      "}")
+      ;
     // clang-format on
 
     settings.register_all();

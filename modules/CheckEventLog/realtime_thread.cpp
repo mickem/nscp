@@ -143,8 +143,8 @@ void real_time_thread::thread_proc() {
 
 bool real_time_thread::start() {
   if (!enabled_) return true;
-  stop_event_ = CreateEvent(NULL, TRUE, FALSE, L"EventLogShutdown");
-  thread_ = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&real_time_thread::thread_proc, this)));
+  stop_event_ = CreateEvent(nullptr, TRUE, FALSE, L"EventLogShutdown");
+  thread_ = boost::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
   return true;
 }
 bool real_time_thread::stop() {

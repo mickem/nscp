@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <boost/bind/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/unordered_map.hpp>
@@ -31,7 +30,6 @@
 
 namespace parsers {
 namespace where {
-namespace ph = boost::placeholders;
 
 template <class T>
 struct function_registry;
@@ -610,43 +608,38 @@ template <class TObject>
 node_type generic_summary<TObject>::create_variable(const std::string& key, bool) {
   if (key == "count")
     return node_type(
-        new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_match, ph::_1)));
+        new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_count_match(); }));
   if (key == "total")
     return node_type(
-        new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_total, ph::_1)));
+        new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_count_total(); }));
   if (key == "ok_count")
-    return node_type(
-        new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_ok, ph::_1)));
+    return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_count_ok(); }));
   if (key == "warn_count")
-    return node_type(
-        new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_warn, ph::_1)));
+    return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_count_warn(); }));
   if (key == "crit_count")
-    return node_type(
-        new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_crit, ph::_1)));
+    return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_count_crit(); }));
   if (key == "problem_count")
-    return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(
-        key, boost::bind(&generic_summary<TObject>::get_count_problem, ph::_1)));
+    return node_type(
+        new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_count_problem(); }));
   if (key == "list" || key == "match_list" || key == "lines")
-    return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(
-        key, boost::bind(&generic_summary<TObject>::get_list_match, ph::_1)));
+    return node_type(
+        new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_list_match(); }));
   if (key == "ok_list")
-    return node_type(
-        new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_ok, ph::_1)));
+    return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_list_ok(); }));
   if (key == "warn_list")
-    return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(
-        key, boost::bind(&generic_summary<TObject>::get_list_warn, ph::_1)));
-  if (key == "crit_list")
-    return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(
-        key, boost::bind(&generic_summary<TObject>::get_list_crit, ph::_1)));
-  if (key == "problem_list")
-    return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(
-        key, boost::bind(&generic_summary<TObject>::get_list_problem, ph::_1)));
-  if (key == "detail_list")
-    return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(
-        key, boost::bind(&generic_summary<TObject>::get_list_detail, ph::_1)));
-  if (key == "status")
     return node_type(
-        new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_status, ph::_1)));
+        new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_list_warn(); }));
+  if (key == "crit_list")
+    return node_type(
+        new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_list_crit(); }));
+  if (key == "problem_list")
+    return node_type(
+        new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_list_problem(); }));
+  if (key == "detail_list")
+    return node_type(
+        new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_list_detail(); }));
+  if (key == "status")
+    return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_status(); }));
   return parsers::where::factory::create_false();
 }
 

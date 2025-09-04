@@ -25,7 +25,6 @@
 #include <socket/socket_helpers.hpp>
 
 namespace socket_helpers {
-namespace ph = boost::placeholders;
 struct settings_helper {
   static void add_port_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_, std::string default_port) {
     settings.alias().add_key_to_settings().add_string("port", nscapi::settings_helper::string_key(&info_.port_, default_port), "PORT NUMBER",
@@ -109,10 +108,8 @@ struct settings_helper {
                     "Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind "
                     "to all available IP addresses.")
 
-        .add_string(
-            "allowed hosts",
-            nscapi::settings_helper::string_fun_key(boost::bind(&socket_helpers::allowed_hosts_manager::set_source, &info_.allowed_hosts, ph::_1), "127.0.0.1"),
-            "ALLOWED HOSTS", "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
+        .add_string("allowed hosts", nscapi::settings_helper::string_fun_key([&info_](auto value) { info_.allowed_hosts.set_source(value); }, "127.0.0.1"),
+                    "ALLOWED HOSTS", "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
 
         .add_string("cache allowed hosts", nscapi::settings_helper::bool_key(&info_.allowed_hosts.cached, true), "CACHE ALLOWED HOSTS",
                     "If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your "
@@ -129,7 +126,7 @@ struct settings_helper {
                                    bool is_sample) {
     nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
     if (is_sample) root_path.set_sample();
-    root_path.add_key().add_int("timeout", nscapi::settings_helper::int_fun_key(boost::bind(&object_type::set_property_int, &object, "timeout", ph::_1), 30),
+    root_path.add_key().add_int("timeout", nscapi::settings_helper::int_fun_key([&object](auto value) { object.set_property_int("timeout", value); }, 30),
                                 "TIMEOUT", "Timeout (in seconds) when reading/writing packets to/from sockets.");
   }
   template <class object_type>
@@ -142,31 +139,29 @@ struct settings_helper {
 
         .add_string(
             "dh",
-            nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "dh", ph::_1), "${certificate-path}/nrpe_dh_512.pem"),
+            nscapi::settings_helper::path_fun_key([&object](auto value) { object.set_property_string("dh", value); }, "${certificate-path}/nrpe_dh_512.pem"),
             "DH KEY", "", true)
 
-        .add_string("certificate", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "certificate", ph::_1)),
+        .add_string("certificate", nscapi::settings_helper::path_fun_key([&object](auto value) { object.set_property_string("certificate", value); }),
                     "SSL CERTIFICATE", "", false)
 
-        .add_string("certificate key",
-                    nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "certificate key", ph::_1)),
+        .add_string("certificate key", nscapi::settings_helper::path_fun_key([&object](auto value) { object.set_property_string("certificate key", value); }),
                     "SSL CERTIFICATE", "", true)
 
         .add_string("certificate format",
-                    nscapi::settings_helper::string_fun_key(boost::bind(&object_type::set_property_string, &object, "certificate format", ph::_1), "PEM"),
+                    nscapi::settings_helper::string_fun_key([&object](auto value) { object.set_property_string("certificate format", value); }, "PEM"),
                     "CERTIFICATE FORMAT", "", true)
 
-        .add_string("ca", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "ca", ph::_1)), "CA", "", true)
+        .add_string("ca", nscapi::settings_helper::path_fun_key([&object](auto value) { object.set_property_string("ca", value); }), "CA", "", true)
 
         .add_string("allowed ciphers",
-                    nscapi::settings_helper::string_fun_key(boost::bind(&object_type::set_property_string, &object, "allowed ciphers", ph::_1), "ADH"),
+                    nscapi::settings_helper::string_fun_key([&object](auto value) { object.set_property_string("allowed ciphers", value); }, "ADH"),
                     "ALLOWED CIPHERS", "A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH", false)
 
-        .add_string("verify mode",
-                    nscapi::settings_helper::string_fun_key(boost::bind(&object_type::set_property_string, &object, "verify mode", ph::_1), "none"),
+        .add_string("verify mode", nscapi::settings_helper::string_fun_key([&object](auto value) { object.set_property_string("verify mode", value); }, "none"),
                     "VERIFY MODE", "", false)
 
-        .add_bool("use ssl", nscapi::settings_helper::bool_fun_key(boost::bind(&object_type::set_property_bool, &object, "ssl", ph::_1), true),
+        .add_bool("use ssl", nscapi::settings_helper::bool_fun_key([&object](auto value) { object.set_property_bool("ssl", value); }, true),
                   "ENABLE SSL ENCRYPTION", "This option controls if SSL should be enabled.");
   }
 };

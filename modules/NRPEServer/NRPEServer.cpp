@@ -20,7 +20,6 @@
 #include "NRPEServer.h"
 
 #include <config.h>
-#include <time.h>
 
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -72,7 +71,7 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       .add_bool("allow nasty characters", sh::bool_key(&allowNasty_, false), "COMMAND ALLOW NASTY META CHARS",
                 "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.")
 
-      .add_bool("performance data", sh::bool_fun_key(boost::bind(&NRPEServer::set_perf_data, this, boost::placeholders::_1), true), "PERFORMANCE DATA",
+      .add_bool("performance data", sh::bool_fun_key([this](auto value) { this->set_perf_data(value); }, true), "PERFORMANCE DATA",
                 "Send performance data back to nagios (set this to 0 to remove all performance data).", true)
 
       ;

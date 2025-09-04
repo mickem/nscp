@@ -20,13 +20,7 @@
 #include "filter.hpp"
 
 #include <boost/assign.hpp>
-#include <boost/bind/bind.hpp>
 #include <boost/make_shared.hpp>
-#include <list>
-#include <map>
-#include <parsers/where.hpp>
-#include <simple_timer.hpp>
-#include <str/utils.hpp>
 
 using namespace boost::assign;
 using namespace parsers::where;
@@ -50,10 +44,10 @@ ping_filter::filter_obj_handler::filter_obj_handler() {
 	registry_.add_string()
 		("host", &filter_obj::get_host, "The host name or ip address (as given on command line)")
 		("ip", &filter_obj::get_ip, "The ip address name")
-		// 		("version", boost::bind(&filter_obj::get_version, _1), "Windows exe/dll file version")
-		// 		("filename", boost::bind(&filter_obj::get_filename, _1), "The name of the file")
-		// 		("file", boost::bind(&filter_obj::get_filename, _1), "The name of the file")
-		// 		("name", boost::bind(&filter_obj::get_filename, _1), "The name of the file")
+		// 		("version", [] (auto obj, auto context) { return obj->get_version(); }, "Windows exe/dll file version")
+		// 		("filename", [] (auto obj, auto context) { return obj->get_filename(); }, "The name of the file")
+		// 		("file", [] (auto obj, auto context) { return obj->get_filename(); }, "The name of the file")
+		// 		("name", [] (auto obj, auto context) { return obj->get_filename(); }, "The name of the file")
 		;
 	registry_.add_int()
 		("loss", type_custom_pct, &filter_obj::get_loss, "Packet loss")
@@ -64,9 +58,9 @@ ping_filter::filter_obj_handler::filter_obj_handler() {
 		;
 	/*
 		registry_.add_human_string()
-			("access", boost::bind(&filter_obj::get_access_s, _1), "")
-			("creation", boost::bind(&filter_obj::get_creation_s, _1), "")
-			("written", boost::bind(&filter_obj::get_written_s, _1), "")
+			("access", [] (auto obj, auto context) { return obj->get_access_s(); }, "")
+			("creation", [] (auto obj, auto context) { return obj->get_creation_s(); }, "")
+			("written", [] (auto obj, auto context) { return obj->get_written_s(); }, "")
 			;
 			*/
   // clang-format on

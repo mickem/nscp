@@ -19,13 +19,11 @@
 
 #pragma once
 
-#include <boost/bind.hpp>
 #include <boost/make_shared.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 
 namespace syslog_handler {
 namespace sh = nscapi::settings_helper;
-namespace ph = boost::placeholders;
 
 struct syslog_target_object : public nscapi::targets::target_object {
   typedef nscapi::targets::target_object parent;
@@ -52,25 +50,16 @@ struct syslog_target_object : public nscapi::targets::target_object {
     nscapi::settings_helper::path_extension root_path = settings.path(get_path());
     if (is_sample) root_path.set_sample();
 
-    root_path
-        .add_key()
-
-        .add_string("severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "severity", ph::_1), "error"), "TODO", "")
-
-        .add_string("facility", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "facility", ph::_1), "kernel"), "TODO", "")
-
-        .add_string("tag_syntax", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "tag syntax", ph::_1), "NSCA"), "TODO", "")
-
-        .add_string("message_syntax", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "message syntax", ph::_1), "%message%"), "TODO", "")
-
-        .add_string("ok severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "ok severity", ph::_1), "informational"), "TODO", "")
-
-        .add_string("warning severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "warning severity", ph::_1), "warning"), "TODO", "")
-
-        .add_string("critical severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "critical severity", ph::_1), "critical"), "TODO",
+    root_path.add_key()
+        .add_string("severity", sh::string_fun_key([this](auto value) { this->set_property_string("severity", value); }, "error"), "TODO", "")
+        .add_string("facility", sh::string_fun_key([this](auto value) { this->set_property_string("facility", value); }, "kernel"), "TODO", "")
+        .add_string("tag_syntax", sh::string_fun_key([this](auto value) { this->set_property_string("tag syntax", value); }, "NSCA"), "TODO", "")
+        .add_string("message_syntax", sh::string_fun_key([this](auto value) { this->set_property_string("message syntax", value); }, "%message%"), "TODO", "")
+        .add_string("ok severity", sh::string_fun_key([this](auto value) { this->set_property_string("ok severity", value); }, "informational"), "TODO", "")
+        .add_string("warning severity", sh::string_fun_key([this](auto value) { this->set_property_string("warning severity", value); }, "warning"), "TODO", "")
+        .add_string("critical severity", sh::string_fun_key([this](auto value) { this->set_property_string("critical severity", value); }, "critical"), "TODO",
                     "")
-
-        .add_string("unknown severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "unknown severity", ph::_1), "emergency"), "TODO",
+        .add_string("unknown severity", sh::string_fun_key([this](auto value) { this->set_property_string("unknown severity", value); }, "emergency"), "TODO",
                     "");
   }
 };
@@ -85,34 +74,26 @@ struct options_reader_impl : public client::options_reader_interface {
 
   void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
     // clang-format off
-			desc.add_options()
-				("path", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "path", ph::_1)),
-					"")
-				("severity,s", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "severity", ph::_1)),
-					"Severity of error message")
-
-				("unknown-severity", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "unknown_severity", ph::_1)),
-					"Severity of error message")
-
-				("ok-severity", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "ok_severity", ph::_1)),
-					"Severity of error message")
-
-				("warning-severity", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "warning_severity", ph::_1)),
-					"Severity of error message")
-
-				("critical-severity", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "critical_severity", ph::_1)),
-					"Severity of error message")
-
-				("facility,f", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "facility", ph::_1)),
-					"Facility of error message")
-
-				("tag template", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "tag template", ph::_1)),
-					"Tag template (TODO)")
-
-				("message template", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "message template", ph::_1)),
-					"Message template (TODO)")
-
-				;
+  desc.add_options()
+    ("path", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("path", value); }),
+    "")
+    ("severity,s", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("severity", value); }),
+    "Severity of error message")
+    ("unknown-severity", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("unknown_severity", value); }),
+    "Severity of error message")
+    ("ok-severity", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("ok_severity", value); }),
+    "Severity of error message")
+    ("warning-severity", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("warning_severity", value); }),
+    "Severity of error message")
+    ("critical-severity", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("critical_severity", value); }),
+    "Severity of error message")
+    ("facility,f", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("facility", value); }),
+    "Facility of error message")
+    ("tag template", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("tag template", value); }),
+    "Tag template (TODO)")
+    ("message template", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("message template", value); }),
+    "Message template (TODO)")
+    ;
     // clang-format on
   }
 };

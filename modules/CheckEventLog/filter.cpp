@@ -19,20 +19,15 @@
 #include "filter.hpp"
 
 #include <boost/assign.hpp>
-#include <boost/bind/bind.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/shared_mutex.hpp>
-#include <list>
 #include <map>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nsclient/nsclient_exception.hpp>
-#include <parsers/where.hpp>
 #include <simple_timer.hpp>
 #include <str/format.hpp>
 #include <str/utils.hpp>
-
-using namespace boost::placeholders;
 
 typedef boost::optional<std::string> op_str;
 template <eventlog::api::EVT_PUBLISHER_METADATA_PROPERTY_ID T_object, DWORD T_id, DWORD T_desc>
@@ -327,58 +322,58 @@ parsers::where::node_type fun_convert_old_type(boost::shared_ptr<filter_obj> obj
 //////////////////////////////////////////////////////////////////////////
 
 // clang-format off
-	filter_obj_handler::filter_obj_handler() {
-		registry_.add_string()
-			("source", boost::bind(&filter_obj::get_provider, _1), "Source system.")
-			("message", boost::bind(&filter_obj::get_message, _1), "The message rendered as a string.")
-			("computer", boost::bind(&filter_obj::get_computer, _1), "Which computer generated the message")
-			("log", boost::bind(&filter_obj::get_log, _1), "alias for file")
-			("file", boost::bind(&filter_obj::get_log, _1), "The logfile name")
-			("guid", boost::bind(&filter_obj::get_guid, _1), "The logfile name")
-			("provider", boost::bind(&filter_obj::get_provider, _1), "Source system.")
-			("task", boost::bind(&filter_obj::get_task, _1), "The type of event (task)")
-			("keyword", boost::bind(&filter_obj::get_keyword, _1), "The keyword associated with this event")
-			("written_str", boost::bind(&filter_obj::get_written_hs, _1), "When the message was written to file as an absolute date string")
-			;
+filter_obj_handler::filter_obj_handler() {
+  registry_.add_string()
+    ("source", [] (auto obj, auto context) { return obj->get_provider(); }, "Source system.")
+    ("message", [] (auto obj, auto context) { return obj->get_message(); }, "The message rendered as a string.")
+    ("computer", [] (auto obj, auto context) { return obj->get_computer(); }, "Which computer generated the message")
+    ("log", [] (auto obj, auto context) { return obj->get_log(); }, "alias for file")
+    ("file", [] (auto obj, auto context) { return obj->get_log(); }, "The logfile name")
+    ("guid", [] (auto obj, auto context) { return obj->get_guid(); }, "The logfile name")
+    ("provider", [] (auto obj, auto context) { return obj->get_provider(); }, "Source system.")
+    ("task", [] (auto obj, auto context) { return obj->get_task(); }, "The type of event (task)")
+    ("keyword", [] (auto obj, auto context) { return obj->get_keyword(); }, "The keyword associated with this event")
+    ("written_str", [] (auto obj, auto context) { return obj->get_written_hs(); }, "When the message was written to file as an absolute date string")
+    ;
 
-		registry_.add_int()
-			("id", boost::bind(&filter_obj::get_id, _1), "Eventlog id")
-			("type", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), "alias for level (old, deprecated)")
-			("written", type_date, boost::bind(&filter_obj::get_written, _1), boost::bind(&filter_obj::get_written_s, _1), "When the message was written to file")
-			("category", boost::bind(&filter_obj::get_category, _1), "TODO")
-			("customer", boost::bind(&filter_obj::get_customer, _1), "TODO")
-			("rawid", boost::bind(&filter_obj::get_raw_id, _1), "Raw message id (contains many other fields all baked into a single number)")
-			;
+  registry_.add_int()
+    ("id", [] (auto obj, auto context) { return obj->get_id(); }, "Eventlog id")
+    ("type", type_custom_type, [] (auto obj, auto context) { return obj->get_el_type(); }, "alias for level (old, deprecated)")
+    ("written", type_date, [] (auto obj, auto context) { return obj->get_written(); }, [] (auto obj, auto context) { return obj->get_written_s(); }, "When the message was written to file")
+    ("category", [] (auto obj, auto context) { return obj->get_category(); }, "TODO")
+    ("customer", [] (auto obj, auto context) { return obj->get_customer(); }, "TODO")
+    ("rawid", [] (auto obj, auto context) { return obj->get_raw_id(); }, "Raw message id (contains many other fields all baked into a single number)")
+    ;
 
-		registry_.add_human_string()
-			("type", boost::bind(&filter_obj::get_el_type_s, _1), "")
-			("level", boost::bind(&filter_obj::get_el_type_s, _1), "")
-			;
-		if (eventlog::api::supports_modern()) {
-			registry_.add_string()
-				("xml", boost::bind(&filter_obj::get_xml, _1), "Get event as XML message.")
-				;
-			registry_.add_converter()
-				(type_custom_type, &fun_convert_new_type)
-				;
-			registry_.add_int()
-				("level", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), "Severity level (error, warning, info, success, auditSuccess, auditFailure)")
-				;
-		} else {
-			registry_.add_int()
-				("level", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), "Severity level (error, warning, info)")
-				("severity", type_custom_severity, boost::bind(&filter_obj::get_severity, _1), "Legacy: Probably not what you want.This is the technical severity of the message often level is what you are looking for.")
-				("generated", type_date, boost::bind(&filter_obj::get_generated, _1), "When the message was generated")
-				("qualifier", boost::bind(&filter_obj::get_facility, _1), "TODO")
-				("facility", boost::bind(&filter_obj::get_facility, _1), "TODO")
-				;
-			registry_.add_string()
-				("strings", boost::bind(&filter_obj::get_strings, _1), "The message content. Significantly faster than message yet yields similar results.")
-				;
-			registry_.add_converter()
-				(type_custom_severity, &fun_convert_old_severity)
-				(type_custom_type, &fun_convert_old_type)
-				;
+  registry_.add_human_string()
+    ("type", [] (auto obj, auto context) { return obj->get_el_type_s(); }, "")
+    ("level", [] (auto obj, auto context) { return obj->get_el_type_s(); }, "")
+    ;
+  if (eventlog::api::supports_modern()) {
+    registry_.add_string()
+      ("xml", [] (auto obj, auto context) { return obj->get_xml(); }, "Get event as XML message.")
+      ;
+    registry_.add_converter()
+      (type_custom_type, &fun_convert_new_type)
+      ;
+    registry_.add_int()
+      ("level", type_custom_type, [] (auto obj, auto context) { return obj->get_el_type(); }, "Severity level (error, warning, info, success, auditSuccess, auditFailure)")
+      ;
+  } else {
+    registry_.add_int()
+      ("level", type_custom_type, [] (auto obj, auto context) { return obj->get_el_type(); }, "Severity level (error, warning, info)")
+      ("severity", type_custom_severity, [] (auto obj, auto context) { return obj->get_severity(); }, "Legacy: Probably not what you want.This is the technical severity of the message often level is what you are looking for.")
+      ("generated", type_date, [] (auto obj, auto context) { return obj->get_generated(); }, "When the message was generated")
+      ("qualifier", [] (auto obj, auto context) { return obj->get_facility(); }, "TODO")
+      ("facility", [] (auto obj, auto context) { return obj->get_facility(); }, "TODO")
+      ;
+    registry_.add_string()
+      ("strings", [] (auto obj, auto context) { return obj->get_strings(); }, "The message content. Significantly faster than message yet yields similar results.")
+      ;
+    registry_.add_converter()
+      (type_custom_severity, &fun_convert_old_severity)
+      (type_custom_type, &fun_convert_old_type)
+      ;
     // clang-format on
   }
 }

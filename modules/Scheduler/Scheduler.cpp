@@ -24,13 +24,11 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <utf8.hpp>
 
 namespace sh = nscapi::settings_helper;
-namespace ph = boost::placeholders;
 
 bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   if (mode == NSCAPI::reloadStart) {
@@ -45,37 +43,37 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   schedules_.set_path(settings.alias().get_settings_path("schedules"));
 
   // clang-format off
-	settings.alias().add_path_to_settings()
-		("Scheduler", "Section for the Scheduler module.")
+  settings.alias().add_path_to_settings()
+    ("Scheduler", "Section for the Scheduler module.")
 
-		;
+    ;
 
-	settings.alias().add_key_to_settings()
-		.add_int("threads", sh::int_fun_key(boost::bind(&schedules::scheduler::set_threads, &scheduler_, ph::_1), 5),
-			"Threads", "Number of threads to use.")
-		;
+  settings.alias().add_key_to_settings()
+    .add_int("threads", sh::int_fun_key([this] (auto value) { scheduler_.set_threads(value); }, 5),
+	    "Threads", "Number of threads to use.")
+    ;
 
-	settings.alias().add_path_to_settings()
-		("schedules", sh::fun_values_path(boost::bind(&Scheduler::add_schedule, this, ph::_1, ph::_2)),
-			"Schedules", "Section for the Scheduler module.",
-			"SCHEDULE", "For more configuration options add a dedicated section")
-		;
+  settings.alias().add_path_to_settings()
+    ("schedules", sh::fun_values_path([this] (auto key, auto value) { this->add_schedule(key, value); }),
+	    "Schedules", "Section for the Scheduler module.",
+	    "SCHEDULE", "For more configuration options add a dedicated section")
+    ;
 
-	settings.alias().add_templates()
-		("schedules", "plus", "Add a simple schedule",
-			"Add a simple scheduled job for passive monitoring",
-			"{"
-			"\"fields\": [ "
-			" { \"id\": \"alias\",		\"title\" : \"Alias\",		\"type\" : \"input\",		\"desc\" : \"This will identify the command\"} , "
-			" { \"id\": \"command\",	\"title\" : \"Command\",	\"type\" : \"data-choice\",	\"desc\" : \"The name of the command to execute\",\"exec\" : \"CheckExternalScripts list --json --query\" } , "
-			" { \"id\": \"args\",		\"title\" : \"Arguments\",	\"type\" : \"input\",		\"desc\" : \"Command line arguments for the command\" } , "
-			" { \"id\": \"cmd\",		\"key\" : \"command\", \"title\" : \"A\",	\"type\" : \"hidden\",		\"desc\" : \"A\" } "
-			" ], "
-			"\"events\": { "
-			"\"onSave\": \"(function (node) { node.save_path = self.path; var f = node.get_field('cmd'); f.key = node.get_field('alias').value(); var val = node.get_field('command').value(); if (node.get_field('args').value()) { val += ' ' + node.get_field('args').value(); }; f.value(val)})\""
-			"}"
-			"}")
-		;
+  settings.alias().add_templates()
+    ("schedules", "plus", "Add a simple schedule",
+	    "Add a simple scheduled job for passive monitoring",
+	    "{"
+	    "\"fields\": [ "
+	    " { \"id\": \"alias\",		\"title\" : \"Alias\",		\"type\" : \"input\",		\"desc\" : \"This will identify the command\"} , "
+	    " { \"id\": \"command\",	\"title\" : \"Command\",	\"type\" : \"data-choice\",	\"desc\" : \"The name of the command to execute\",\"exec\" : \"CheckExternalScripts list --json --query\" } , "
+	    " { \"id\": \"args\",		\"title\" : \"Arguments\",	\"type\" : \"input\",		\"desc\" : \"Command line arguments for the command\" } , "
+	    " { \"id\": \"cmd\",		\"key\" : \"command\", \"title\" : \"A\",	\"type\" : \"hidden\",		\"desc\" : \"A\" } "
+	    " ], "
+	    "\"events\": { "
+	    "\"onSave\": \"(function (node) { node.save_path = self.path; var f = node.get_field('cmd'); f.key = node.get_field('alias').value(); var val = node.get_field('command').value(); if (node.get_field('args').value()) { val += ' ' + node.get_field('args').value(); }; f.value(val)})\""
+	    "}"
+	    "}")
+    ;
   // clang-format on
   settings.register_all();
   settings.notify();

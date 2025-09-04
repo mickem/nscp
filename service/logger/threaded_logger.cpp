@@ -70,7 +70,7 @@ void threaded_logger::asynch_configure() { push(CONFIGURE_MESSAGE); }
 void threaded_logger::synch_configure() { background_logger_->synch_configure(); }
 bool threaded_logger::startup() {
   if (is_started()) return true;
-  thread_ = boost::thread(boost::bind(&threaded_logger::thread_proc, this));
+  thread_ = boost::thread([this]() { this->thread_proc(); });
   return nsclient::logging::log_driver_interface_impl::startup();
 }
 bool threaded_logger::shutdown() {

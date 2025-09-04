@@ -26,10 +26,7 @@
 #include <str/utils.hpp>
 #include <string>
 
-#include "filter.hpp"
-
 namespace sh = nscapi::settings_helper;
-namespace ph = boost::placeholders;
 
 namespace filters {
 namespace mem {
@@ -57,7 +54,7 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
   if (is_sample) root_path.set_sample();
 
   root_path.add_path()("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias());
-  root_path.add_key().add_string("type", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)), "MEMORY TYPE",
+  root_path.add_key().add_string("type", sh::string_fun_key([this](auto value) { this->set_data(value); }), "MEMORY TYPE",
                                  "The type of memory to check: physical, committed or virtual", false);
 
   filter.read_object(root_path, is_default);
@@ -96,8 +93,8 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
   }
 
   root_path.add_path()("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias());
-  root_path.add_key().add_string("time", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)), "TIME",
-                                 "A list of times to check (coma separated)", true);
+  root_path.add_key().add_string("time", sh::string_fun_key([this](auto value) { this->set_data(value); }), "TIME", "A list of times to check (coma separated)",
+                                 true);
 
   filter.read_object(root_path, is_default);
 
@@ -130,7 +127,7 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
   if (is_sample) root_path.set_sample();
 
   root_path.add_path()("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias());
-  root_path.add_key().add_string("process", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)), "PROCESS",
+  root_path.add_key().add_string("process", sh::string_fun_key([this](auto value) { this->set_data(value); }), "PROCESS",
                                  "A list of processes to check (or * for all)", false);
 
   filter.read_object(root_path, is_default);
@@ -187,17 +184,16 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
 
   if (check == "memory") {
     root_path.add_key()
-        .add_string("type", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)), "MEMORY TYPE",
+        .add_string("type", sh::string_fun_key([this](auto value) { this->set_data(value); }), "MEMORY TYPE",
                     "The type of memory to check: physical, committed or virtual", false)
 
-        .add_string("types", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, ph::_1)), "MEMORY TYPES",
+        .add_string("types", sh::string_fun_key([this](auto value) { this->set_datas(value); }), "MEMORY TYPES",
                     "A list of types to check: physical, committed or virtual", true);
   } else {
     root_path.add_key()
-        .add_string("time", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, ph::_1)), "TIME", "The time to check", false)
+        .add_string("time", sh::string_fun_key([this](auto value) { this->set_data(value); }), "TIME", "The time to check", false)
 
-        .add_string("times", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, ph::_1)), "FILES",
-                    "A list of times to check (soma separated)", true);
+        .add_string("times", sh::string_fun_key([this](auto value) { this->set_datas(value); }), "FILES", "A list of times to check (soma separated)", true);
   }
 
   filter.read_object(root_path, is_default);

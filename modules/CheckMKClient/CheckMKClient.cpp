@@ -19,7 +19,6 @@
 
 #include "CheckMKClient.h"
 
-#include <boost/bind.hpp>
 #include <boost/make_shared.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -57,21 +56,21 @@ bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     client_.set_path(settings.alias().get_settings_path("targets"));
 
     // clang-format off
-		settings.alias().add_path_to_settings()
-			("CHECK MK CLIENT SECTION", "Section for check_mk active/passive check module.")
+    settings.alias().add_path_to_settings()
+      ("CHECK MK CLIENT SECTION", "Section for check_mk active/passive check module.")
 
-			("handlers", sh::fun_values_path(boost::bind(&CheckMKClient::add_command, this, boost::placeholders::_1, boost::placeholders::_2)),
-				"CLIENT HANDLER SECTION", "",
-				"CLIENT", "For more configuration options add a dedicated section")
+      ("handlers", sh::fun_values_path([this] (auto key, auto value) { this->add_command(key, value); }),
+	      "CLIENT HANDLER SECTION", "",
+	      "CLIENT", "For more configuration options add a dedicated section")
 
-			("targets", sh::fun_values_path(boost::bind(&CheckMKClient::add_target, this, boost::placeholders::_1, boost::placeholders::_2)),
-				"REMOTE TARGET DEFINITIONS", "",
-				"TARGET", "For more configuration options add a dedicated section")
+      ("targets", sh::fun_values_path([this] (auto key, auto value) { this->add_target(key, value); }),
+	      "REMOTE TARGET DEFINITIONS", "",
+	      "TARGET", "For more configuration options add a dedicated section")
 
-			("scripts", sh::fun_values_path(boost::bind(&CheckMKClient::add_script, this, boost::placeholders::_1, boost::placeholders::_2)),
-				"REMOTE TARGET DEFINITIONS", "",
-				"SCRIPT", "For more configuration options add a dedicated section")
-			;
+      ("scripts", sh::fun_values_path([this] (auto key, auto value) { this->add_script(key, value); }),
+	      "REMOTE TARGET DEFINITIONS", "",
+	      "SCRIPT", "For more configuration options add a dedicated section")
+      ;
 
     // clang-format on
     settings.alias().add_key_to_settings().add_string("channel", sh::string_key(&channel_, "CheckMK"), "CHANNEL", "The channel to listen to.")

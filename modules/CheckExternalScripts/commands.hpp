@@ -20,7 +20,6 @@
 #pragma once
 
 #include <boost/algorithm/string/case_conv.hpp>
-#include <boost/bind/bind.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
@@ -69,7 +68,7 @@ struct command_object : public nscapi::settings_objects::object_instance_interfa
       root_path.add_path()("script: " + get_alias(), "The configuration section for the  " + get_alias() + " script.");
 
       root_path.add_key()
-          .add_string("command", sh::string_fun_key(boost::bind(&command_object::set_command, this, boost::placeholders::_1)), "COMMAND", "Command to execute")
+          .add_string("command", sh::string_fun_key([this](auto value) { this->set_command(value); }), "COMMAND", "Command to execute")
 
           .add_string("user", nscapi::settings_helper::string_key(&user), "USER", "The user to run the command as", true)
 

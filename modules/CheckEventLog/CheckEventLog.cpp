@@ -24,7 +24,6 @@
 
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/assign.hpp>
-#include <boost/bind/bind.hpp>
 #include <boost/program_options.hpp>
 #include <buffer.hpp>
 #include <compat.hpp>
@@ -46,7 +45,6 @@
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
-namespace ph = boost::placeholders;
 
 #include "eventlog_record.hpp"
 #include "realtime_thread.hpp"
@@ -72,9 +70,9 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 
       ("real-time", "Real-time eventlog monitoring", "A set of options to configure the real time checks")
 
-          ("real-time/filters",
-           sh::fun_values_path(
-               boost::bind(&real_time_thread::add_realtime_filter, thread_, nscapi::settings_proxy::create(get_id(), get_core()), ph::_1, ph::_2)),
+          ("real-time/filters", sh::fun_values_path([this](auto key, auto value) {
+             thread_->add_realtime_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value);
+           }),
            "Real-time eventlog filters", "A set of filters to use in real-time mode", "FILTER DEFENITION",
            "For more configuration options add a dedicated section");
 
@@ -95,10 +93,10 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
   settings.alias()
       .add_key_to_settings("real-time")
 
-      .add_bool("enabled", sh::bool_fun_key(boost::bind(&real_time_thread::set_enabled, thread_, ph::_1), false), "Enable realtime monitoring",
+      .add_bool("enabled", sh::bool_fun_key([this](auto value) { thread_->set_enabled(value); }, false), "Enable realtime monitoring",
                 "Spawns a background thread which detects issues and reports them back instantly.")
 
-      .add_string("startup age", sh::string_fun_key(boost::bind(&real_time_thread::set_start_age, thread_, ph::_1), "30m"), "Read old records at startup",
+      .add_string("startup age", sh::string_fun_key([this](auto value) { thread_->set_start_age(value); }, "30m"), "Read old records at startup",
                   "The initial age to scan when starting NSClient++")
 
       .add_string("log", sh::string_key(&thread_->logs_, "application,system"), "Logs to check", "Comma separated list of logs to check")
