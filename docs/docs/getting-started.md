@@ -16,9 +16,6 @@ We will start with a clean slate and work our way in small easy to follow steps 
 * [Changing settings via command line](#changing-settings-via-command-line)
 * [Adding certificates to NSClient++](#adding-certificates-to-nsclient)
 * [Checking with NRPE client](#checking-with-nrpe-client)
-  * [Insecure version](#insecure-version)
-  * [Using certificates (still insecure)](#using-certificates-still-insecure)
-  * [Using client certificates](#using-client-certificates)
 * [TODO: Using the query language](#todo-using-the-query-language)
 * [TODO: Checking with REST client](#todo-checking-with-rest-client)
 * [TODO: Checking with NRDP](#todo-checking-with-nrdp)
@@ -338,6 +335,13 @@ mkcert -uninstall
 
 ## Checking with NRPE client
 
+**Sections:**
+
+* [Insecure version](#insecure-version)
+* [Using certificates (still insecure)](#using-certificates-still-insecure)
+* [Using client certificates](#using-client-certificates)
+
+
 ### Insecure version
 
 When NRPE was first released the world was a different place and security was not a big concern.
@@ -405,7 +409,7 @@ exit
 And run the check again using the `check_nrpe` command line tool.
 
 ```commandline
-$ /usr/lib/nagios/plugins/check_nrpe -H 127.0.0.1 --ssl-version TLSv1.2+
+$ check_nrpe -H 127.0.0.1 --ssl-version TLSv1.2+
 I (0.4.0 2025-08-30) seem to be doing fine...
 ```
 
@@ -435,7 +439,8 @@ copy rootCA.pem "c:\program files\nsclient++\security\ca.pem"
 
 Now we can restart NSClient++ in debug mode again:
 
-```nscp test
+```
+nscp test
 ...
 exit
 ```
@@ -450,14 +455,14 @@ Next copy the generated files to the Nagios server.
 Then we need to configure the `check_nrpe` command to use the client certificate.
 
 ```commandline
-$ /usr/lib/nagios/plugins/check_nrpe -H 127.0.0.1 -3 --cert nagios-client.pem --key nagios-client-key.pem
+$ check_nrpe -H 127.0.0.1 -3 --cert nagios-client.pem --key nagios-client-key.pem
 I (0.4.0 2025-08-30) seem to be doing fine...
 ```
 
 Next to verify that the client certificate is required we can try to run the command without the certificate.
 
 ```commandline
-$ /usr/lib/nagios/plugins/check_nrpe -H 127.0.0.1 -3
+$ check_nrpe -H 127.0.0.1 -3
 CHECK_NRPE: Receive header underflow - only 0 bytes received (4 expected).
 ```
 
