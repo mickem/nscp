@@ -70,11 +70,11 @@ bool int_value::find_performance_data(evaluation_context context, performance_co
   collector.set_candidate_value(shared_from_this());
   return false;
 }
-value_container float_value::get_value(evaluation_context errors, value_type type) const {
-  if (type == type_float) {
+value_container float_value::get_value(evaluation_context errors, value_type new_type) const {
+  if (new_type == type_float) {
     return value_container::create_float(static_cast<double>(value_), is_unsure_);
   }
-  if (type == type_int) {
+  if (new_type == type_int) {
     return value_container::create_int(static_cast<long long>(value_), is_unsure_);
   }
   errors->error("Failed to convert string to ?: " + str::xtos(value_));

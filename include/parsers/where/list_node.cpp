@@ -38,16 +38,16 @@ std::string list_node::to_string(evaluation_context errors) const {
   return ret;
 }
 
-value_container list_node::get_value(evaluation_context errors, value_type type) const {
-  if (type == type_int) {
+value_container list_node::get_value(evaluation_context errors, value_type new_type) const {
+  if (new_type == type_int) {
     errors->error("Cant get number from a list");
     return value_container::create_nil();
   }
-  if (type == type_float) {
+  if (new_type == type_float) {
     errors->error("Cant get number from a list");
     return value_container::create_nil();
   }
-  if (type == type_string) {
+  if (new_type == type_string) {
     std::string s;
     for (const node_type& n : value_) {
       if (!s.empty()) s += ", ";
