@@ -1,10 +1,45 @@
 from difflib import unified_diff
-from subprocess import run
+from subprocess import run, CalledProcessError
 from os import path, makedirs
 from shutil import rmtree
 from configparser import ConfigParser
 import yaml
 from winreg import HKEY_LOCAL_MACHINE, OpenKey, DeleteKey, KEY_ALL_ACCESS, EnumKey
+
+
+def run_with_timeout(command):
+    """
+    Executes a command using subprocess, preventing hangs by handling stdout and stderr and timeout.
+    """
+    print(f" .. Executing: {' '.join(command)}", flush=True)
+    try:
+        result = run(
+            command,
+            shell=True,
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='ignore',
+            timeout=120
+        )
+        if result.stdout:
+            print(f" .. STDOUT: {result.stdout.strip()}", flush=True)
+        if result.stderr:
+            print(f" .. STDERR: {result.stderr.strip()}", flush=True)
+
+        return result.returncode
+
+    except CalledProcessError as e:
+        print(f"! Command failed with exit code {e.returncode}", flush=True)
+        if e.stdout:
+            print(f"! STDOUT: {e.stdout.strip()}", flush=True)
+        if e.stderr:
+            print(f"! STDERR: {e.stderr.strip()}", flush=True)
+        if e.returncode == 1605:
+            return e.returncode
+        raise
+
 
 def delete_registry_tree(root, subkey):
     try:
@@ -29,24 +64,27 @@ def delete_registry_tree(root, subkey):
         print(f"! Failed to delete registry key {subkey}: {e}, {e.errno}", flush=True)
         raise e
 
+
 def ensure_uninstalled(msi_file, target_folder):
     print(f"- Uninstalling", flush=True)
     try:
-        uninstall = run(["msiexec", "/l*", "uninstall.log", "/x", f"{msi_file}", "/q"], timeout=120)
+        return_code = run_with_timeout(["msiexec", "/l*", "uninstall.log", "/x", f"{msi_file}", "/q"])
     except Exception as e:
         print(f"! Uninstall process failed: {e}", flush=True)
         exit(1)
-    if uninstall.returncode == 1605:
+    if return_code == 1605:
         print("- No installation found, continuing with install.", flush=True)
-    elif uninstall.returncode == 0:
+    elif return_code == 0:
         print("- Uninstallation completed successfully.", flush=True)
     else:
-        print(f"! Uninstall returned with code: {uninstall.returncode}", flush=True)
+        print(f"! Uninstall returned with code: {return_code}", flush=True)
         exit(1)
 
     print("- Killing any running NSClient++ processes.", flush=True)
-    run(["taskkill", "/F", "/IM", "nscp.exe"], timeout=30)
-
+    try:
+        run_with_timeout(["taskkill", "/F", "/IM", "nscp.exe"])
+    except Exception as e:
+        print(f" .. Ignoring failed to kill nscp.exe: {e}", flush=True)
 
     print("- Removing registry keys.", flush=True)
     delete_registry_tree(HKEY_LOCAL_MACHINE, r"Software\NSClient++")
@@ -65,15 +103,16 @@ def read_config(config_file):
         content = yaml.safe_load(file)
     return content
 
+
 def install(msi_file, target_folder, command_line):
     command_line = list(map(lambda x: x.replace("$MSI-FILE", msi_file), command_line))
     print(f"- Installing NSClient++: {' '.join(command_line)}", flush=True)
     try:
-        process = run(command_line, timeout=120)
-        if process.returncode == 0:
+        return_code = run_with_timeout(command_line)
+        if return_code == 0:
             print("- Installation completed successfully.", flush=True)
         else:
-            print(f"! The exit code was: {process.returncode}", flush=True)
+            print(f"! The exit code was: {return_code}", flush=True)
             exit(1)
     except Exception as e:
         print(f"! Install failed: {e}", flush=True)
@@ -84,6 +123,7 @@ def install(msi_file, target_folder, command_line):
     else:
         print(f"! Installation folder does not exist: {target_folder}", flush=True)
         exit(1)
+
 
 def compare_file(target_folder, file_name, test_case):
     """Compare a file in the target folder with the expected content from the test case."""
@@ -110,14 +150,16 @@ def compare_file(target_folder, file_name, test_case):
         print(line, flush=True)
     return False
 
+
 def compare_config(expected, actual):
     """Compare two configuration strings and return a list of differences."""
     expected_lines = expected.splitlines()
     actual_lines = actual.splitlines()
     if len(expected_lines) > 1 or len(actual_lines) > 1:
-        diff = list(unified_diff(expected_lines, actual_lines,fromfile="expected", tofile="actual", lineterm=""))
+        diff = list(unified_diff(expected_lines, actual_lines, fromfile="expected", tofile="actual", lineterm=""))
         return diff
     return None
+
 
 def reorder_config(config):
     """Reorder the configuration sections and options."""
@@ -131,6 +173,7 @@ def reorder_config(config):
             ordered_config.append(f"{option} = {value}")
         ordered_config.append("")
     return "\n".join(ordered_config).strip()
+
 
 def read_and_remove_bom(file_path):
     """Read a file and remove the UTF-8 BOM if it exists."""
