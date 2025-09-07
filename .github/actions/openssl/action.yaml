@@ -38,9 +38,9 @@ runs:
 
     - name: Download openssl
       run: |
-            curl -L https://www.openssl.org/source/openssl-${{ inputs.version }}.tar.gz --output openssl.tar.gz
-            7z x openssl.tar.gz
-            7z x openssl.tar
+            curl -L https://github.com/openssl/openssl/releases/download/openssl-${{ inputs.version }}/openssl-${{ inputs.version }}.tar.gz --output openssl-${{ inputs.version }}.tar.gz
+            7z x openssl-${{ inputs.version }}.tar.gz
+            7z x openssl-${{ inputs.version }}.tar
       working-directory: tmp
       shell: cmd
 
