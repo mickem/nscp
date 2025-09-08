@@ -84,7 +84,7 @@ runs:
           tmp/openssl-${{ inputs.version }}/include/openssl/x509_vfy.h
 
 
-- name: Build openssl
+    - name: Build openssl
       run: |
           perl Configure ${{ steps.setup.outputs.cmd }} no-asm no-shared ${{ steps.setup.outputs.shared_flags }}
           nmake
