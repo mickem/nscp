@@ -49,11 +49,11 @@ mkdir %BUILD_FOLDER%\nscp
 Run the following commands in a Visual Studio Command Prompt (2015 x64 Native):
 
 ```commandline
-SET OPENSSL_VERSION=1.1.1w
+SET OPENSSL_VERSION=3.5.2
 cd %BUILD_FOLDER%
-curl -L https://www.openssl.org/source/openssl-%OPENSSL_VERSION%.tar.gz --output openssl.tar.gz
-7z x openssl.tar.gz
-7z x openssl.tar
+curl -L https://github.com/openssl/openssl/releases/download/openssl-%OPENSSL_VERSION%/openssl-%OPENSSL_VERSION%.tar.gz --output openssl-%OPENSSL_VERSION%.tar.gz
+7z x openssl-%OPENSSL_VERSION%.tar.gz
+7z x openssl-%OPENSSL_VERSION%.tar
 
 cd %BUILD_FOLDER%\openssl-%OPENSSL_VERSION%
 perl Configure VC-WIN64A no-asm no-shared
@@ -230,11 +230,11 @@ set NSCP_VERSION=NORMALLY READ FROM GIT
 Run the following commands in a Visual Studio Command Prompt (2015 x64 Native):
 
 ```commandline
-SET OPENSSL_VERSION=1.1.1w
+SET OPENSSL_VERSION=3.5.2
 cd %BUILD_FOLDER%
-curl -L https://www.openssl.org/source/openssl-%OPENSSL_VERSION%.tar.gz --output openssl.tar.gz
-7z x openssl.tar.gz
-7z x openssl.tar
+curl -L https://github.com/openssl/openssl/releases/download/openssl-%OPENSSL_VERSION%/openssl-%OPENSSL_VERSION%.tar.gz --output openssl-%OPENSSL_VERSION%.tar.gz
+7z x openssl-%OPENSSL_VERSION%.tar.gz
+7z x openssl-%OPENSSL_VERSION%.tar
 
 cd %BUILD_FOLDER%\openssl-%OPENSSL_VERSION%
 perl Configure VC-WIN32 no-asm no-shared -D_WIN32_WINNT=0x0501

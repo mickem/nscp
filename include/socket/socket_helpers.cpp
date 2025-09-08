@@ -27,6 +27,7 @@
 #ifndef WIN32
 #define OPENSSL_NO_CRYPTO_MDEBUG
 #include <openssl/crypto.h>
+#include <openssl/evp.h>
 #include <openssl/x509v3.h>
 #endif
 const int socket_helpers::connection_info::backlog_default = 0;
@@ -346,81 +347,132 @@ int add_ext(X509 *cert, const int nid, const char *value) {
   X509_EXTENSION_free(ex);
   return 1;
 }
-void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, const int bits, const int serial, const int days, bool ca) {
-  X509 *x;
-  EVP_PKEY *pk;
-  X509_NAME *name = nullptr;
-  if ((pkeyp == nullptr) || (*pkeyp == nullptr)) {
-    if ((pk = EVP_PKEY_new()) == nullptr) throw socket_helpers::socket_exception("Failed to create private key");
-  } else
-    pk = *pkeyp;
 
-  if ((x509p == nullptr) || (*x509p == nullptr)) {
-    if ((x = X509_new()) == nullptr) throw socket_helpers::socket_exception("Failed to create certificate");
-  } else
-    x = *x509p;
+using BIO_ptr = std::unique_ptr<BIO, decltype(&::BIO_free)>;
+using EVP_PKEY_ptr = std::unique_ptr<EVP_PKEY, decltype(&::EVP_PKEY_free)>;
+using X509_ptr = std::unique_ptr<X509, decltype(&::X509_free)>;
+using BIGNUM_ptr = std::unique_ptr<BIGNUM, decltype(&::BN_free)>;
+using X509_EXTENSION_ptr = std::unique_ptr<X509_EXTENSION, decltype(&::X509_EXTENSION_free)>;
+using EVP_PKEY_CTX_ptr = std::unique_ptr<EVP_PKEY_CTX, decltype(&::EVP_PKEY_CTX_free)>;
+using ASN1_INTEGER_ptr = std::unique_ptr<ASN1_INTEGER, decltype(&::ASN1_INTEGER_free)>;
 
-  RSA *rsa = RSA_generate_key(bits, RSA_F4, genkey_callback, nullptr);
-  if (!EVP_PKEY_assign_RSA(pk, rsa)) throw socket_helpers::socket_exception("Failed to assign RSA data");
-  rsa = nullptr;
+std::string get_open_ssl_error() {
+  std::stringstream ss;
+  unsigned long err_code;
+  while ((err_code = ERR_get_error())) {
+    char err_buf[256];
+    ERR_error_string_n(err_code, err_buf, sizeof(err_buf));
+    ss << err_buf << std::endl;
+  }
+  return ss.str();
+}
 
-  X509_set_version(x, 2);
-  ASN1_INTEGER_set(X509_get_serialNumber(x), serial);
-  X509_gmtime_adj(X509_get_notBefore(x), 0);
-  X509_gmtime_adj(X509_get_notAfter(x), static_cast<long>(60) * 60 * 24 * days);
-  X509_set_pubkey(x, pk);
-
-  name = X509_get_subject_name(x);
-
-  // X509_NAME_add_entry_by_txt(name,"C", MBSTRING_ASC, (unsigned char*)"NA", -1, -1, 0);
-  X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (unsigned char *)"localhost", -1, -1, 0);
-
-  X509_set_issuer_name(x, name);
-
-  if (ca) {
-    add_ext(x, NID_basic_constraints, "critical,CA:TRUE");
-    add_ext(x, NID_key_usage, "critical,keyCertSign,cRLSign");
-    add_ext(x, NID_subject_key_identifier, "hash");
-    add_ext(x, NID_netscape_cert_type, "sslCA");
-    add_ext(x, NID_netscape_comment, "example comment extension");
+void make_certificate(const X509_ptr &cert, EVP_PKEY_ptr &pkey, const int bits, const int days, bool ca) {
+  EVP_PKEY_CTX_ptr pctx(EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr), EVP_PKEY_CTX_free);
+  if (!pctx) {
+    throw socket_helpers::socket_exception("Failed to create EVP_PKEY_CTX: " + get_open_ssl_error());
+  }
+  if (EVP_PKEY_keygen_init(pctx.get()) <= 0) {
+    throw socket_helpers::socket_exception("Failed to initialize keygen: " + get_open_ssl_error());
+  }
+  if (EVP_PKEY_CTX_set_rsa_keygen_bits(pctx.get(), bits) <= 0) {
+    throw socket_helpers::socket_exception("Failed to set RSA keygen bits: " + get_open_ssl_error());
   }
 
-  if (!X509_sign(x, pk, EVP_sha256())) throw socket_helpers::socket_exception("Failed to sign certificate");
+  EVP_PKEY *pkey_raw = pkey.release();  // release ownership to keygen
+  const auto ret = EVP_PKEY_keygen(pctx.get(), &pkey_raw);
+  pkey.reset(pkey_raw);  // take ownership back
+  if (ret <= 0) {
+    throw socket_helpers::socket_exception("Failed to generate key: " + get_open_ssl_error());
+  }
 
-  *x509p = x;
-  *pkeyp = pk;
+  if (X509_set_version(cert.get(), 2) == 0) {
+    throw socket_helpers::socket_exception("Failed to set X509 version: " + get_open_ssl_error());
+  }
+
+  const BIGNUM_ptr bn(BN_new(), BN_free);
+  if (!bn) {
+    throw socket_helpers::socket_exception("Failed to create BIGNUM: " + get_open_ssl_error());
+  }
+  if (BN_rand(bn.get(), 128, -1, 0) == 0) {
+    throw socket_helpers::socket_exception("Failed to generate random BIGNUM: " + get_open_ssl_error());
+  }
+  const ASN1_INTEGER_ptr serial_instance(ASN1_INTEGER_new(), ASN1_INTEGER_free);
+  if (!serial_instance) {
+    throw socket_helpers::socket_exception("Failed to create ASN1_INTEGER: " + get_open_ssl_error());
+  }
+  BN_to_ASN1_INTEGER(bn.get(), serial_instance.get());
+  if (X509_set_serialNumber(cert.get(), serial_instance.get()) == 0) {
+    throw socket_helpers::socket_exception("Failed to set serial number: " + get_open_ssl_error());
+  }
+
+  X509_gmtime_adj(X509_getm_notBefore(cert.get()), 0);
+  X509_gmtime_adj(X509_getm_notAfter(cert.get()), days * 24 * 3600);
+
+  if (X509_set_pubkey(cert.get(), pkey.get()) == 0) {
+    throw socket_helpers::socket_exception("Failed to set public key: " + get_open_ssl_error());
+  }
+
+  X509_NAME *name = X509_get_subject_name(cert.get());
+  if (!name) {
+    throw socket_helpers::socket_exception("Failed to get subject name: " + get_open_ssl_error());
+  }
+
+  if (X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, reinterpret_cast<const unsigned char *>("SE"), -1, -1, 0) == 0) {
+    throw socket_helpers::socket_exception("Failed to add C: " + get_open_ssl_error());
+  }
+  if (X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC, reinterpret_cast<const unsigned char *>("NSClient++"), -1, -1, 0) == 0) {
+    throw socket_helpers::socket_exception("Failed to add O: " + get_open_ssl_error());
+  }
+  if (X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, reinterpret_cast<const unsigned char *>("generated-certificate"), -1, -1, 0) == 0) {
+    throw socket_helpers::socket_exception("Failed to add CN: " + get_open_ssl_error());
+  }
+
+  if (X509_set_issuer_name(cert.get(), name) == 0) {
+    throw socket_helpers::socket_exception("Failed to set issuer name: " + get_open_ssl_error());
+  }
+
+  add_ext(cert.get(), NID_subject_key_identifier, "hash");
+  add_ext(cert.get(), NID_authority_key_identifier, "keyid:always,issuer");
+  add_ext(cert.get(), NID_subject_alt_name, "DNS:localhost,IP:127.0.0.1");
+
+  if (ca) {
+    add_ext(cert.get(), NID_basic_constraints, "critical,CA:TRUE");
+    add_ext(cert.get(), NID_key_usage, "critical,keyCertSign,cRLSign");
+    add_ext(cert.get(), NID_netscape_cert_type, "sslCA");
+  }
+
+  if (X509_sign(cert.get(), pkey.get(), EVP_sha256()) == 0) {
+    throw socket_helpers::socket_exception("Failed to sign certificate: " + get_open_ssl_error());
+  }
 }
 
 void socket_helpers::write_certs(const std::string &cert, const bool ca) {
-  X509 *x509 = nullptr;
-  EVP_PKEY *pkey = nullptr;
+  const X509_ptr certificate_instance(X509_new(), X509_free);
+  if (!certificate_instance) {
+    throw socket_exception("Failed to create X509 object: " + get_open_ssl_error());
+  }
+  EVP_PKEY_ptr private_key_instance(EVP_PKEY_new(), EVP_PKEY_free);
+  if (!private_key_instance) {
+    throw socket_exception("Failed to create private key: " + get_open_ssl_error());
+  }
 
-  make_certificate(&x509, &pkey, 2048, 0, 365, ca);
+  make_certificate(certificate_instance, private_key_instance, 2048, 365, ca);
 
-  BIO *bio = BIO_new(BIO_s_mem());
-  PEM_write_bio_PKCS8PrivateKey(bio, pkey, nullptr, nullptr, 0, nullptr, nullptr);
-  PEM_write_bio_X509(bio, x509);
+  const BIO_ptr bio(BIO_new(BIO_s_mem()), BIO_free);
+  PEM_write_bio_PKCS8PrivateKey(bio.get(), private_key_instance.get(), nullptr, nullptr, 0, nullptr, nullptr);
+  PEM_write_bio_X509(bio.get(), certificate_instance.get());
 
-  const std::size_t size = BIO_ctrl_pending(bio);
-  char *buf = new char[size];
-  if (BIO_read(bio, buf, static_cast<int>(size)) < 0) {
+  const std::size_t size = BIO_ctrl_pending(bio.get());
+  const auto buf = std::make_unique<char[]>(size);
+  if (BIO_read(bio.get(), buf.get(), static_cast<int>(size)) < 0) {
     throw socket_exception("Failed to write key");
   }
 
-  BIO_free(bio);
-
   FILE *file = fopen(cert.c_str(), "wb");
   if (file == nullptr) throw socket_exception("Failed to open file: " + cert);
-  fwrite(buf, sizeof(char), size, file);
+  fwrite(buf.get(), sizeof(char), size, file);
   fclose(file);
-
-  X509_free(x509);
-  EVP_PKEY_free(pkey);
-
-#ifndef OPENSSL_NO_ENGINE
-  ENGINE_cleanup();
-#endif
-  CRYPTO_cleanup_all_ex_data();
 }
 
 boost::asio::ssl::context_base::method socket_helpers::tls_method_parser(const std::string &tls_version) {

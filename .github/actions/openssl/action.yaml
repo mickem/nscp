@@ -38,9 +38,9 @@ runs:
 
     - name: Download openssl
       run: |
-            curl -L https://www.openssl.org/source/openssl-${{ inputs.version }}.tar.gz --output openssl.tar.gz
-            7z x openssl.tar.gz
-            7z x openssl.tar
+            curl -L https://github.com/openssl/openssl/releases/download/openssl-${{ inputs.version }}/openssl-${{ inputs.version }}.tar.gz --output openssl-${{ inputs.version }}.tar.gz
+            7z x openssl-${{ inputs.version }}.tar.gz
+            7z x openssl-${{ inputs.version }}.tar
       working-directory: tmp
       shell: cmd
 
@@ -51,9 +51,38 @@ runs:
         path: |
           tmp/openssl-${{ inputs.version }}/libcrypto*.*
           tmp/openssl-${{ inputs.version }}/libssl*.*
-          tmp/openssl-${{ inputs.version }}/include/openssl/opensslconf.h
           tmp/openssl-${{ inputs.version }}/include/crypto/dso_conf.h
           tmp/openssl-${{ inputs.version }}/include/crypto/bn_conf.h
+          tmp/openssl-${{ inputs.version }}/include/internal/param_names.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/asn1.h          
+          tmp/openssl-${{ inputs.version }}/include/openssl/asn1t.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/bio.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/cmp.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/cms.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/comp.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/conf.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/configuration.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/core_names.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/crmf.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/crypto.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/ct.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/err.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/ess.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/fipskey.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/lhash.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/ocsp.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/opensslv.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/pkcs12.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/pkcs7.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/safestack.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/srp.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/ssl.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/ui.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/x509.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/x509v3.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/x509_acert.h
+          tmp/openssl-${{ inputs.version }}/include/openssl/x509_vfy.h
+
 
     - name: Build openssl
       run: |
