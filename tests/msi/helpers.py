@@ -65,8 +65,19 @@ def delete_registry_tree(root, subkey):
         raise e
 
 
+
+def kill_all_processes(exe_file):
+    print(f"- Killing any running {exe_file} processes.", flush=True)
+    try:
+        run_with_timeout(["taskkill", "/F", "/IM", exe_file])
+    except Exception as e:
+        print(f" .. Ignoring failed to kill msiexec.exe: {e}", flush=True)
+
+
 def ensure_uninstalled(msi_file, target_folder):
     print(f"- Uninstalling", flush=True)
+    kill_all_processes("msiexec.exe")
+
     try:
         return_code = run_with_timeout(["msiexec", "/l*", "uninstall.log", "/x", f"{msi_file}", "/q"])
     except Exception as e:
@@ -80,11 +91,7 @@ def ensure_uninstalled(msi_file, target_folder):
         print(f"! Uninstall returned with code: {return_code}", flush=True)
         exit(1)
 
-    print("- Killing any running NSClient++ processes.", flush=True)
-    try:
-        run_with_timeout(["taskkill", "/F", "/IM", "nscp.exe"])
-    except Exception as e:
-        print(f" .. Ignoring failed to kill nscp.exe: {e}", flush=True)
+    kill_all_processes("nscp.exe")
 
     print("- Removing registry keys.", flush=True)
     delete_registry_tree(HKEY_LOCAL_MACHINE, r"Software\NSClient++")
