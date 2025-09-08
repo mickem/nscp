@@ -421,7 +421,6 @@ void make_certificate(const X509_ptr &cert, EVP_PKEY_ptr &pkey, const int bits, 
     throw socket_helpers::socket_exception("Failed to set issuer name: " + get_open_ssl_error());
   }
 
-  add_ext(cert.get(), NID_basic_constraints, "critical,CA:TRUE");
   add_ext(cert.get(), NID_subject_key_identifier, "hash");
   add_ext(cert.get(), NID_authority_key_identifier, "keyid:always,issuer");
   add_ext(cert.get(), NID_subject_alt_name, "DNS:localhost,IP:127.0.0.1");

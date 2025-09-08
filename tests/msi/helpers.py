@@ -71,7 +71,7 @@ def kill_all_processes(exe_file):
     try:
         run_with_timeout(["taskkill", "/F", "/IM", exe_file])
     except Exception as e:
-        print(f" .. Ignoring failed to kill msiexec.exe: {e}", flush=True)
+        print(f" .. Ignoring failed to kill {exe_file}: {e}", flush=True)
 
 
 def ensure_uninstalled(msi_file, target_folder):
