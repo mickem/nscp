@@ -40,6 +40,7 @@ struct client_handler : public client::cli_handler {
 
 class CommandClient : public nscapi::impl::simple_plugin {
   boost::scoped_ptr<client::cli_client> client;
+  void read_input_thread() const;
 
  public:
   CommandClient() {}
