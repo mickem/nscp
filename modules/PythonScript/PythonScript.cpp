@@ -57,7 +57,7 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias(alias, "python");
 
-    provider_.reset(new script_provider(get_id(), get_core(), settings.alias().get_path(), root_));
+    provider_.reset(new script_provider(get_id(), get_core(), root_));
 
     // clang-format off
     settings.alias().add_path_to_settings()
