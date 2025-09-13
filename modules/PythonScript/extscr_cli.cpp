@@ -177,37 +177,6 @@ void extscr_cli::show(const PB::Commands::ExecuteRequestMessage::Request &reques
     nscapi::protobuf::functions::set_response_good(*response, npo::help(desc));
     return;
   }
-
-  // 	commands::command_object_instance command_def = provider_->find_command(script);
-  // 	if (command_def) {
-  // 		nscapi::protobuf::functions::set_response_good(*response, command_def->command);
-  // 	} else {
-  // 		fs::path pscript = script;
-  // 		bool found = fs::is_regular_file(pscript);
-  // 		if (!found) {
-  // 			pscript = provider_->get_core()->expand_path("${base-path}/" + script);
-  // 			found = fs::is_regular_file(pscript);
-  // 		}
-  // #ifdef WIN32
-  // 		if (!found) {
-  // 			pscript = boost::algorithm::replace_all_copy(script, "/", "\\");
-  // 			found = fs::is_regular_file(pscript);
-  // 		}
-  // #endif
-  // 		if (found) {
-  // 			if (!validate_sandbox(pscript, response)) {
-  // 				return;
-  // 			}
-  //
-  // 			std::ifstream t(pscript.string().c_str());
-  // 			std::string str((std::istreambuf_iterator<char>(t)),
-  // 				std::istreambuf_iterator<char>());
-  //
-  // 			nscapi::protobuf::functions::set_response_good(*response, str);
-  // 		} else {
-  // 			nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + script);
-  // 		}
-  // 	}
 }
 
 void extscr_cli::delete_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
@@ -241,39 +210,6 @@ void extscr_cli::delete_script(const PB::Commands::ExecuteRequestMessage::Reques
     nscapi::protobuf::functions::set_response_good(*response, npo::help(desc));
     return;
   }
-
-  // 	commands::command_object_instance command_def = provider_->find_command(script);
-  // 	if (command_def) {
-  // 		provider_->remove_command(script);
-  //
-  // 		nscapi::protobuf::functions::settings_query s(provider_->get_id());
-  // 		s.save();
-  // 		provider_->get_core()->settings_query(s.request(), s.response());
-  // 		if (!s.validate_response()) {
-  // 			nscapi::protobuf::functions::set_response_bad(*response, s.get_response_error());
-  // 			return;
-  // 		}
-  // 		nscapi::protobuf::functions::set_response_good(*response, "Script definition has been removed don't forget to delete any artifact for: " +
-  // command_def->command); 	} else { 		fs::path pscript = script; 		bool found = fs::is_regular_file(pscript); 		if
-  // (!found) { 			pscript = provider_->get_core()->expand_path("${base-path}/" + script); 			found =
-  // fs::is_regular_file(pscript);
-  // 		}
-  // #ifdef WIN32
-  // 		if (!found) {
-  // 			pscript = boost::algorithm::replace_all_copy(script, "/", "\\");
-  // 			found = fs::is_regular_file(pscript);
-  // 		}
-  // #endif
-  // 		if (found) {
-  // 			if (!validate_sandbox(pscript, response)) {
-  // 				return;
-  // 			}
-  // 			fs::remove(pscript);
-  // 			nscapi::protobuf::functions::set_response_good(*response, "Script file was removed");
-  // 		} else {
-  // 			nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + script);
-  // 		}
-  // 	}
 }
 
 void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {

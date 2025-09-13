@@ -1,7 +1,6 @@
 #pragma once
 
 #include <boost/thread/shared_mutex.hpp>
-#include <map>
 #include <string>
 
 #include "python_script.hpp"
@@ -18,7 +17,7 @@ struct script_provider : public script_provider_interface {
   instance_list_type instances_;
 
  public:
-  script_provider(int id, nscapi::core_wrapper *core, std::string settings_path, boost::filesystem::path root);
+  script_provider(int id, nscapi::core_wrapper *core, boost::filesystem::path root);
 
   unsigned int get_id();
   nscapi::core_wrapper *get_core();
@@ -28,7 +27,6 @@ struct script_provider : public script_provider_interface {
   boost::optional<boost::filesystem::path> find_file(std::string file);
 
   void add_command(std::string script_alias, std::string script, std::string plugin_alias);
-  // commands::command_object_instance find_command(std::string alias);
   void remove_command(std::string alias);
   void clear();
 };
