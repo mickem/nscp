@@ -157,8 +157,8 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
   std::string allowed_hosts, cert, key, arguments = "false", ciphers, insecure = "true", ca;
   unsigned int length = 1024;
   const std::string path = "/settings/NRPE/server";
-  std::string verify;
-  std::string sslops = "";
+  std::string verify = "peer-cert";
+  std::string sslops = "no-sslv2,no-sslv3,no-tlsv1_1";
   std::string port = "5666";
 
   pf::settings_query q(get_id());
@@ -170,7 +170,7 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
   q.get(path, "allow arguments", false);
   q.get(path, "allow nasty characters", false);
   q.get(path, "allowed ciphers", "");
-  q.get(path, "verify mode", verify);
+  q.get(path, "verify mode", "");
   q.get(path, "ssl options", "");
   q.get(path, "port", "5666");
 
@@ -213,18 +213,10 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
     insecure = "true";
   } else if (ciphers == "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") {
     insecure = "false";
-  } else {
+  } else if (!ciphers.empty()) {
     result << "WARNING: Inconsistent insecure option will overwrite: ciphers=" << ciphers << " with ALL:!MD5:@STRENGTH:@SECLEVEL=0\n";
     insecure = "false";
-  }
-  if (insecure == "false" && sslops != "no-sslv2,no-sslv3") {
-    result << "WARNING: Inconsistent ssl options will overwrite ssl options=" << sslops << " with no-sslv2,no-sslv3\n";
-  }
-  if (insecure == "true" && !sslops.empty()) {
-    result << "WARNING: Inconsistent ssl options will overwrite: " << sslops << " with \"\"\n";
-  }
-  if (insecure == "true" && !verify.empty() && (verify != "none" || verify.empty())) {
-    result << "WARNING: Inconsistent verify mode will overwrite: verify=" << verify << " with none\n";
+    ciphers = "ALL:!MD5:@STRENGTH:@SECLEVEL=0";
   }
 
   // clang-format off
@@ -241,7 +233,7 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
     ("certificate-key", po::value<std::string>(&key)->default_value(key),
 	    "Client certificate to use")
     ("insecure", po::value<std::string>(&insecure)->default_value(insecure)->implicit_value("true"),
-	    "Use \"old\" legacy NRPE.")
+            "Use \"old\" legacy NRPE.")
     ("payload-length,l", po::value<unsigned int>(&length)->default_value(1024),
 	    "Length of payload (has to be same as on both the server and client)")
     ("arguments", po::value<std::string>(&arguments)->default_value(arguments)->implicit_value("safe"),
@@ -266,16 +258,19 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
     }
 
     if (insecure == "true" && verify != "none") {
-      result << "WARNING: Inconsistent insecure option will overwrite verify=" << verify << " with none\n";
+      result << "WARNING: Inconsistent insecure option will overwrite verify=" << verify << " with none due to --insecure\n";
       verify = "none";
     }
     if (verify != "none" && ca.empty()) {
-      nscapi::protobuf::functions::set_response_bad(*response, "When using verify mode \"" + verify + "\" you need to specify a CA");
+      std::stringstream error;
+      error << "When using verify mode \"" << verify << "\" you need to specify a CA" << std::endl;
+      error << "Perhaps you want --insecure to use legacy mode or perhaps you want --verify=none to disable certificate validation";
+      nscapi::protobuf::functions::set_response_bad(*response, error.str());
       return true;
     }
 
     nscapi::protobuf::functions::settings_query s(get_id());
-    result << "Enabling NRPE via SSL from: " << allowed_hosts << " on port " << port << std::endl;
+    result << "Enabling NRPE via SSL from: " << allowed_hosts << " on port " << port << "." << std::endl;
     s.set("/settings/default", "allowed hosts", allowed_hosts);
     s.set(MAIN_MODULES_SECTION, "NRPEServer", "enabled");
     s.set("/settings/NRPE/server", "port", port);
@@ -283,11 +278,18 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
     if (insecure == "true") {
       result << "WARNING: NRPE is currently insecure." << std::endl;
       s.set("/settings/NRPE/server", "insecure", "true");
-      s.set("/settings/NRPE/server", "allowed ciphers", "ADH");
+      s.set("/settings/NRPE/server", "allowed ciphers", "ALL:!MD5:@STRENGTH:@SECLEVEL=0");
       s.set("/settings/NRPE/server", "ssl options", "");
+      s.set("/settings/NRPE/server", "verify mode", "");
+      s.set("/settings/NRPE/server", "ca", "");
+      s.set("/settings/NRPE/server", "certificate", "");
+      s.set("/settings/NRPE/server", "certificate key", "");
     } else {
+      if (verify == "peer") {
+        result << "WARNING: Setting verify to peer means we also allow connections without certificates." << std::endl;
+      }
       if (verify == "peer-cert") {
-        result << "NRPE is currently reasonably secure and will require certificates." << std::endl;
+        result << "NRPE is currently reasonably secure and will require client certificates." << std::endl;
         result << "The clients need to have a certificate issued from " << ca << std::endl;
       } else {
         result << "WARNING: NRPE is not secure, while we have proper encryption there is no authentication expect for only accepting traffic from "
@@ -299,10 +301,11 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
         result << "Traffic is encrypted using " << cert << " and " << key << "." << std::endl;
       s.set("/settings/NRPE/server", "insecure", "false");
       s.set("/settings/NRPE/server", "allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+      s.set("/settings/NRPE/server", "ssl options", "no-sslv2,no-sslv3");
+      s.set("/settings/NRPE/server", "verify mode", verify);
       s.set("/settings/NRPE/server", "ca", ca);
       s.set("/settings/NRPE/server", "certificate", cert);
       s.set("/settings/NRPE/server", "certificate key", key);
-      s.set("/settings/NRPE/server", "ssl options", "no-sslv2,no-sslv3");
     }
     if (arguments == "all" || arguments == "unsafe") {
       result << "UNSAFE Arguments are allowed." << std::endl;
