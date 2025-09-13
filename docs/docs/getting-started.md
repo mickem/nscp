@@ -353,8 +353,8 @@ To use the insecure version of NRPE you need to enable the insecure mode in NSCl
 You can do this using the command line:
 
 ```commandline
-$ nscp nrpe install --insecure --arguments=safe
-WARNING: Inconsistent ssl options will overwrite:  with no-sslv2,no-sslv3
+$ nscp nrpe install --allowed-hosts 127.0.0.1 --insecure --arguments=safe
+WARNING: Inconsistent insecure option will overwrite verify=peer-cert with none due to --insecure
 Enabling NRPE via SSL from: 127.0.0.1 on port 5666
 WARNING: NRPE is currently insecure.
 SAFE Arguments are allowed.
@@ -374,7 +374,7 @@ exit
 And next lets run a check using the `check_nrpe` command line tool.
 
 ```commandline
-$ check_nrpe -H 127.0.0.1 -2 -d 1
+$ check_nrpe -H 127.0.0.1 -2
 I (0.4.0 2025-08-30) seem to be doing fine...
 ```
 
@@ -385,17 +385,21 @@ Here we set `-2` to use the old version of NRPE and `-d 1` to enable insecure AD
 Next up lets make this a bit more secure by using TLS certificates.
 
 ```commandline
-$ nscp nrpe install --insecure=false --arguments=safe --allowed-hosts=172.17.251.17                                                                                                      Enabling NRPE via SSL from: 172.17.251.17 on port 5666
-NRPE is currently reasonably secure using ${certificate-path}/certificate.pem.
-SAFE Arguments are allowed.
+$ nscp nrpe install --allowed-hosts 127.0.0.1 --insecure=false
+Enabling NRPE via SSL from: 127.0.0.1 on port 5666.
+WARNING: NRPE is currently insecure.
+Arguments are NOT allowed.
 ```
 
 As you can see it used the default certificate and not our custom certificate.
 SO lets change that:
 
 ```commandline
-$ nscp settings --path /settings/NRPE/server --key certificate --set "${certificate-path}\server.pem"
-$ nscp settings --path /settings/NRPE/server --key "certificate key" --set "${certificate-path}\server.key"
+$ nscp nrpe install --allowed-hosts 127.0.0.1  --insecure=false --verify=none --certificate ${certificate-path}\server.pem --certificate-key ${certificate-path}\server.key
+Enabling NRPE via SSL from: 127.0.0.1 on port 5666.
+WARNING: NRPE is not secure, while we have proper encryption there is no authentication expect for only accepting traffic from 127.0.0.1.
+Traffic is encrypted using nrpe_test\server.crt and nrpe_test\server.key.
+Arguments are NOT allowed.
 ```
 
 Now we can restart NSClient++ in debug mode again:
@@ -421,8 +425,12 @@ To make this a bit better we can use client certificates to authenticate the cli
 First we need to enable client certificate authentication in NSClient++.
 
 ```commandline
-$ nscp settings --path /settings/NRPE/server --key "ca" --set "${certificate-path}\ca.pem"
-$ nscp settings --path /settings/NRPE/server --key "verify mode" --set perr-cert
+$ nscp nrpe install --allowed-hosts 127.0.0.1 --insecure=false --verify=peer-cert --certificate ${certificate-path}\server.pem --certificate-key ${certificate-path}\server.key --ca ${certificate-path}\ca.pem
+Enabling NRPE via SSL from: 127.0.0.1 on port 5666.
+NRPE is currently reasonably secure and will require client certificates.
+The clients need to have a certificate issued from nrpe_test\ca.crt
+Traffic is encrypted using nrpe_test\server.crt and nrpe_test\server.key.
+Arguments are NOT allowed.
 ```
 
 Then we also need to get the root certificate from mkcert.
@@ -455,7 +463,7 @@ Next copy the generated files to the Nagios server.
 Then we need to configure the `check_nrpe` command to use the client certificate.
 
 ```commandline
-$ check_nrpe -H 127.0.0.1 -3 --cert nagios-client.pem --key nagios-client-key.pem
+$ check_nrpe -H 127.0.0.1 -3 --client-cert nagios-client.pem --key nagios-client-key.pem
 I (0.4.0 2025-08-30) seem to be doing fine...
 ```
 

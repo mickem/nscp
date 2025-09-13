@@ -6,12 +6,25 @@ project(${TARGET})
 
 create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-set(SRCS ${SRCS} "${TARGET}.cpp" ${NSCP_DEF_PLUGIN_CPP})
+set(SRCS
+    ${SRCS}
+    "${TARGET}.cpp"
+    extscr_cli.cpp
+    script_provider.cpp
+    ${NSCP_INCLUDEDIR}/json/use_json.cpp
+    ${NSCP_DEF_PLUGIN_CPP}
+)
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
 
 if(WIN32)
-    set(SRCS ${SRCS} "${TARGET}.h" ${NSCP_DEF_PLUGIN_HPP})
+    set(SRCS
+        ${SRCS}
+        "${TARGET}.h"
+        extscr_cli.h
+        script_provider.hpp
+        ${NSCP_DEF_PLUGIN_HPP}
+    )
 endif(WIN32)
 include_directories(${LUA_INCLUDE_DIR})
 add_library(${TARGET} MODULE ${SRCS})

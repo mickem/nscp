@@ -20,12 +20,15 @@
 #include "LUAScript.h"
 
 #include <boost/program_options.hpp>
+#include <boost/smart_ptr/make_shared_object.hpp>
 #include <file_helpers.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
+
+#include "extscr_cli.h"
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
@@ -44,8 +47,8 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     settings.alias().add_path_to_settings()
 
       ("scripts", sh::fun_values_path([this] (auto key, auto value) { this->loadScript(key, value); }),
-	      "Lua scripts", "A list of scripts available to run from the LuaSCript module.",
-	      "SCRIPT DEFENTION", "For more configuration options add a dedicated section")
+	      "Lua scripts", "A list of scripts available to run from the LuaScript module.",
+	      "SCRIPT DEFINITION", "For more configuration options add a dedicated section")
       ;
     // clang-format on
 
@@ -120,51 +123,39 @@ void LUAScript::query_fallback(const PB::Commands::QueryRequestMessage::Request 
 
 bool LUAScript::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request,
                                 PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message) {
-  if (request.command() != "lua-script" && request.command() != "lua-run" && request.command() != "run" && request.command() != "execute" &&
-      request.command() != "") {
-    try {
+  std::string command = request.command();
+  if (command == "ext-scr" && request.arguments_size() > 0)
+    command = request.arguments(0);
+  else if (command.empty() && target_mode == NSCAPI::target_module && request.arguments_size() > 0)
+    command = request.arguments(0);
+  else if (command.empty() && target_mode == NSCAPI::target_module)
+    command = "help";
+  try {
+    if (command == "help") {
+      nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp py [add|execute|list|install|delete] --help");
+      return true;
+    } else if (command == "execute" || command == "lua-script" || command == "lua-run") {
       boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command(scripts::nscp::tags::simple_exec_tag, request.command());
       if (cmd) {
         lua_runtime_->on_exec(request.command(), cmd->information, cmd->function, true, request, response, request_message);
       }
       return true;
-    } catch (const std::exception &e) {
-      nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute lua script " + utf8::utf8_from_native(e.what()));
-      return true;
-    } catch (...) {
-      nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute lua script.");
+    }
+
+    sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
+    auto provider = boost::make_shared<script_provider>(get_id(), get_core(), get_core()->expand_path("${base-path}"));
+
+    extscr_cli client(provider);
+    if (client.run(command, request, response)) {
       return true;
     }
-  }
-
-  try {
-    po::options_description desc = nscapi::program_options::create_desc(request);
-    std::string file;
-    // clang-format off
-		desc.add_options()
-			("script", po::value<std::string>(&file), "The script to run")
-			("file", po::value<std::string>(&file), "The script to run")
-			;
-    // clang-format on
-    boost::program_options::variables_map vm;
-    nscapi::program_options::unrecognized_map script_options;
-    if (!nscapi::program_options::process_arguments_unrecognized(vm, script_options, desc, request, *response)) return true;
-
-    boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, file);
-    if (!ofile) {
-      nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file);
-      return true;
-    }
-    scripts::script_information<lua::lua_traits> *instance = scripts_->add_and_load("exec", (*ofile).string());
-    lua_runtime_->exec_main(instance, script_options, response);
-    return true;
   } catch (const std::exception &e) {
-    nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute script " + utf8::utf8_from_native(e.what()));
-    return true;
+    nscapi::protobuf::functions::set_response_bad(*response, "Error: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
-    nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute script.");
-    return true;
+    nscapi::protobuf::functions::set_response_bad(*response, "Error: ");
   }
+
+  return false;
 }
 
 void LUAScript::handleNotification(const std::string &channel, const PB::Commands::QueryResponseMessage::Response &request,

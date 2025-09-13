@@ -246,6 +246,11 @@ jobs:
     - name: Run rest tests
       uses: ./.github/actions/rest-test
 
+    - name: Run NRPE tests
+      working-directory: tmp/nscp
+      run: |
+        ..\..\tests\nrpe\run-test.bat
+
     - name: Run installer tests
       uses: ./.github/actions/installer-test
 

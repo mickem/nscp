@@ -1,20 +1,15 @@
 #pragma once
 
-#include <boost/thread/shared_mutex.hpp>
+#include <boost/filesystem/path.hpp>
+#include <nscapi/nscapi_core_wrapper.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
 #include <string>
 
-#include "python_script.hpp"
-#include "script_interface.hpp"
-
-struct script_provider : public script_provider_interface {
+struct script_provider {
  private:
   int id_;
   nscapi::core_wrapper *core_;
   boost::filesystem::path root_;
-  boost::shared_mutex mutex_;
-
-  typedef std::list<boost::shared_ptr<python_script> > instance_list_type;
-  instance_list_type instances_;
 
  public:
   script_provider(int id, nscapi::core_wrapper *core, boost::filesystem::path root);
@@ -25,8 +20,4 @@ struct script_provider : public script_provider_interface {
 
   boost::filesystem::path get_root();
   boost::optional<boost::filesystem::path> find_file(std::string file);
-
-  void add_command(std::string script_alias, std::string script, std::string plugin_alias);
-  void remove_command(std::string alias);
-  void clear();
 };

@@ -27,6 +27,7 @@
 #include <boost/optional.hpp>
 #include <boost/program_options.hpp>
 #include <file_helpers.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf_settings_functions.hpp>
@@ -41,13 +42,13 @@ namespace pf = nscapi::protobuf::functions;
 namespace npo = nscapi::program_options;
 namespace fs = boost::filesystem;
 
-#define SCRIPT_PATH "/settings/python/scripts"
-#define MODULE_NAME "PythonScript"
-#define REL_SCRIPT_PATH "scripts\\python\\"
+#define SCRIPT_PATH "/settings/lua/scripts"
+#define MODULE_NAME "LuaScript"
+#define REL_SCRIPT_PATH "scripts\\lua\\"
 
 namespace json = boost::json;
 
-extscr_cli::extscr_cli(boost::shared_ptr<script_provider_interface> provider, std::string alias_) : provider_(std::move(provider)), alias_(alias_) {}
+extscr_cli::extscr_cli(boost::shared_ptr<script_provider> provider) : provider_(std::move(provider)) {}
 
 bool extscr_cli::run(std::string cmd, const PB::Commands::ExecuteRequestMessage_Request &request, PB::Commands::ExecuteResponseMessage_Response *response) {
   if (cmd == "add")
@@ -124,8 +125,8 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
       }
     }
   } else {
-    fs::path dir = provider_->get_core()->expand_path("${scripts}/python");
-    fs::path rel = provider_->get_core()->expand_path("${base-path}/python");
+    fs::path dir = provider_->get_core()->expand_path("${scripts}/lua");
+    fs::path rel = provider_->get_core()->expand_path("${base-path}/lua");
     fs::recursive_directory_iterator iter(dir), eod;
     for (fs::path const &i : boost::make_iterator_range(iter, eod)) {
       std::string s = i.string();
@@ -259,6 +260,10 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
     nscapi::protobuf::functions::set_response_good(*response, npo::help(desc));
     return;
   }
+  if (script.empty()) {
+    nscapi::protobuf::functions::set_response_bad(*response, "No script specified add --script");
+    return;
+  }
   fs::path file = provider_->get_core()->expand_path(script);
   fs::path script_root = provider_->get_root();
 
@@ -308,11 +313,7 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
       return;
     }
   }
-  std::string actual;
-  provider_->add_command(alias, script, alias_);
-  nscapi::core_helper core(provider_->get_core(), provider_->get_id());
-  core.register_command(alias, "Alias for: " + script);
-  nscapi::protobuf::functions::set_response_good(*response, "Added " + alias + " as " + script + actual);
+  nscapi::protobuf::functions::set_response_good(*response, "Added " + alias + " as " + script);
 }
 
 void extscr_cli::configure(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
