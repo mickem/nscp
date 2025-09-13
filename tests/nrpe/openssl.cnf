@@ -1,0 +1,10 @@
+[ req ]
+distinguished_name = req_distinguished_name
+
+[ req_distinguished_name ]
+C = US
+ST = California
+L = San Francisco
+O = MyCompany
+OU = MyDept
+CN = my-domain.com

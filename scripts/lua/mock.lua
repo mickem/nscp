@@ -11,7 +11,14 @@ function mock_submission(channel, command, result, msgs)
     return 'ok', 'Everything is fine'
 end
 
+
+function mock_exit(command, msgs)
+	core:simple_exec("CommandClient","exit", {})
+    return 'ok', 'Service shutting down'
+end
+
 local reg = Registry()
 reg:simple_function('mock_query', mock_query, 'Mock query used during tests')
 reg:simple_cmdline('mock_exec', mock_exec, 'Mock command used during tests')
 reg:simple_subscription('mock_submission', mock_submission, 'Mock submission used during tests')
+reg:simple_function('mock_exit', mock_exit, 'Mock query used during tests')
