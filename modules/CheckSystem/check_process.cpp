@@ -46,21 +46,17 @@ filter_obj_handler::filter_obj_handler() {
   static const parsers::where::value_type type_custom_state = parsers::where::type_custom_int_1;
   static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
 
+  registry_.add_string("filename", &filter_obj::get_filename, "Name of process (with path)")
+      .add_string("exe", &filter_obj::get_exe, "The name of the executable")
+      .add_string("error", &filter_obj::get_error, "Any error messages associated with fetching info")
+      .add_string("command_line", &filter_obj::get_command_line, "Command line of process (not always available)")
+      .add_string("legacy_state", &filter_obj::get_legacy_state_s, "Get process status (for legacy use via check_nt only)");
+  registry_.add_int_x("pid", &filter_obj::get_pid, "Process id")
+      .add_int_x("started", parsers::where::type_bool, &filter_obj::get_started, "Process is started")
+      .add_int_x("hung", parsers::where::type_bool, &filter_obj::get_hung, "Process is hung")
+      .add_int_x("stopped", parsers::where::type_bool, &filter_obj::get_stopped, "Process is stopped")
+      .add_int_x("new", parsers::where::type_bool, &filter_obj::get_is_new, "Process is new (can inly be used for real-time filters)");
   // clang-format off
-  registry_.add_string()
-    ("filename", [](auto obj, auto context) {return obj->get_filename(); }, "Name of process (with path)")
-    ("exe", [](auto obj, auto context) {return obj->get_exe(); }, "The name of the executable")
-    ("error", [](auto obj, auto context) {return obj->get_error(); }, "Any error messages associated with fetching info")
-    ("command_line", [](auto obj, auto context) {return obj->get_command_line(); }, "Command line of process (not always available)")
-    ("legacy_state", [](auto obj, auto context) {return obj->get_legacy_state_s(); }, "Get process status (for legacy use via check_nt only)")
-    ;
-  registry_.add_int()
-    ("pid", [](auto obj, auto context) {return obj->get_pid(); }, "Process id")
-    ("started", parsers::where::type_bool, [](auto obj, auto context) {return obj->get_started(); }, "Process is started")
-    ("hung", parsers::where::type_bool, [](auto obj, auto context) {return obj->get_hung(); }, "Process is hung")
-    ("stopped", parsers::where::type_bool, [](auto obj, auto context) {return obj->get_stopped(); }, "Process is stopped")
-    ("new", parsers::where::type_bool, [](auto obj, auto context) {return obj->get_is_new(); }, "Process is new (can inly be used for real-time filters)")
-    ;
   registry_.add_int()
     ("handles", [](auto obj, auto context) {return obj->get_handleCount(); }, "Number of handles").add_perf("", "", " handle count")
     ("gdi_handles", [](auto obj, auto context) {return obj->get_gdiHandleCount(); }, "Number of handles").add_perf("", "", " GDI handle count")
@@ -84,15 +80,11 @@ filter_obj_handler::filter_obj_handler() {
 
     ("state", type_custom_state, [](auto obj, auto context) {return obj->get_state_i(); }, "The current state (started, stopped hung)").add_perf("", "", " state")
     ;
-
-  registry_.add_human_string()
-    ("state", [](auto obj, auto context) {return obj->get_state_s(); }, "The current state (started, stopped hung)")
-    ;
-
-  registry_.add_converter()
-    (type_custom_state, &parse_state)
-    ;
   // clang-format on
+
+  registry_.add_human_string("state", &filter_obj::get_state_s, "The current state (started, stopped hung)");
+
+  registry_.add_converter()(type_custom_state, &parse_state);
 }
 
 }  // namespace check_proc_filter

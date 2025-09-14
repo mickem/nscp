@@ -321,60 +321,39 @@ parsers::where::node_type fun_convert_old_type(boost::shared_ptr<filter_obj> obj
 
 //////////////////////////////////////////////////////////////////////////
 
-// clang-format off
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string()
-    ("source", [] (auto obj, auto context) { return obj->get_provider(); }, "Source system.")
-    ("message", [] (auto obj, auto context) { return obj->get_message(); }, "The message rendered as a string.")
-    ("computer", [] (auto obj, auto context) { return obj->get_computer(); }, "Which computer generated the message")
-    ("log", [] (auto obj, auto context) { return obj->get_log(); }, "alias for file")
-    ("file", [] (auto obj, auto context) { return obj->get_log(); }, "The logfile name")
-    ("guid", [] (auto obj, auto context) { return obj->get_guid(); }, "The logfile name")
-    ("provider", [] (auto obj, auto context) { return obj->get_provider(); }, "Source system.")
-    ("task", [] (auto obj, auto context) { return obj->get_task(); }, "The type of event (task)")
-    ("keyword", [] (auto obj, auto context) { return obj->get_keyword(); }, "The keyword associated with this event")
-    ("written_str", [] (auto obj, auto context) { return obj->get_written_hs(); }, "When the message was written to file as an absolute date string")
-    ;
+  registry_.add_string("source", &filter_obj::get_provider, "Source system.")
+      .add_string("message", &filter_obj::get_message, "The message rendered as a string.")
+      .add_string("computer", &filter_obj::get_computer, "Which computer generated the message")
+      .add_string("log", &filter_obj::get_log, "alias for file")
+      .add_string("file", &filter_obj::get_log, "The logfile name")
+      .add_string("guid", &filter_obj::get_guid, "The logfile name")
+      .add_string("provider", &filter_obj::get_provider, "Source system.")
+      .add_string("task", &filter_obj::get_task, "The type of event (task)")
+      .add_string("keyword", &filter_obj::get_keyword, "The keyword associated with this event")
+      .add_string("written_str", &filter_obj::get_written_hs, "When the message was written to file as an absolute date string");
 
-  registry_.add_int()
-    ("id", [] (auto obj, auto context) { return obj->get_id(); }, "Eventlog id")
-    ("type", type_custom_type, [] (auto obj, auto context) { return obj->get_el_type(); }, "alias for level (old, deprecated)")
-    ("written", type_date, [] (auto obj, auto context) { return obj->get_written(); }, [] (auto obj, auto context) { return obj->get_written_s(); }, "When the message was written to file")
-    ("category", [] (auto obj, auto context) { return obj->get_category(); }, "TODO")
-    ("customer", [] (auto obj, auto context) { return obj->get_customer(); }, "TODO")
-    ("rawid", [] (auto obj, auto context) { return obj->get_raw_id(); }, "Raw message id (contains many other fields all baked into a single number)")
-    ;
+  registry_.add_int_x("id", &filter_obj::get_id, "Eventlog id")
+      .add_int_x("type", type_custom_type, &filter_obj::get_el_type, "alias for level (old, deprecated)")
+      .add_int_x("written", type_date, &filter_obj::get_written, &filter_obj::get_written_s, "When the message was written to file")
+      .add_int_x("category", &filter_obj::get_category, "TODO")
+      .add_int_x("customer", &filter_obj::get_customer, "TODO")
+      .add_int_x("rawid", &filter_obj::get_raw_id, "Raw message id (contains many other fields all baked into a single number)");
 
-  registry_.add_human_string()
-    ("type", [] (auto obj, auto context) { return obj->get_el_type_s(); }, "")
-    ("level", [] (auto obj, auto context) { return obj->get_el_type_s(); }, "")
-    ;
+  registry_.add_human_string("type", &filter_obj::get_el_type_s, "").add_human_string("level", &filter_obj::get_el_type_s, "");
   if (eventlog::api::supports_modern()) {
-    registry_.add_string()
-      ("xml", [] (auto obj, auto context) { return obj->get_xml(); }, "Get event as XML message.")
-      ;
-    registry_.add_converter()
-      (type_custom_type, &fun_convert_new_type)
-      ;
-    registry_.add_int()
-      ("level", type_custom_type, [] (auto obj, auto context) { return obj->get_el_type(); }, "Severity level (error, warning, info, success, auditSuccess, auditFailure)")
-      ;
+    registry_.add_string("xml", &filter_obj::get_xml, "Get event as XML message.");
+    registry_.add_converter()(type_custom_type, &fun_convert_new_type);
+    registry_.add_int_x("level", type_custom_type, &filter_obj::get_el_type, "Severity level (error, warning, info, success, auditSuccess, auditFailure)");
   } else {
-    registry_.add_int()
-      ("level", type_custom_type, [] (auto obj, auto context) { return obj->get_el_type(); }, "Severity level (error, warning, info)")
-      ("severity", type_custom_severity, [] (auto obj, auto context) { return obj->get_severity(); }, "Legacy: Probably not what you want.This is the technical severity of the message often level is what you are looking for.")
-      ("generated", type_date, [] (auto obj, auto context) { return obj->get_generated(); }, "When the message was generated")
-      ("qualifier", [] (auto obj, auto context) { return obj->get_facility(); }, "TODO")
-      ("facility", [] (auto obj, auto context) { return obj->get_facility(); }, "TODO")
-      ;
-    registry_.add_string()
-      ("strings", [] (auto obj, auto context) { return obj->get_strings(); }, "The message content. Significantly faster than message yet yields similar results.")
-      ;
-    registry_.add_converter()
-      (type_custom_severity, &fun_convert_old_severity)
-      (type_custom_type, &fun_convert_old_type)
-      ;
-    // clang-format on
+    registry_.add_int_x("level", type_custom_type, &filter_obj::get_el_type, "Severity level (error, warning, info)")
+        .add_int_x("severity", type_custom_severity, &filter_obj::get_severity,
+                   "Legacy: Probably not what you want.This is the technical severity of the message often level is what you are looking for.")
+        .add_int_x("generated", type_date, &filter_obj::get_generated, "When the message was generated")
+        .add_int_x("qualifier", &filter_obj::get_facility, "TODO")
+        .add_int_x("facility", &filter_obj::get_facility, "TODO");
+    registry_.add_string("strings", &filter_obj::get_strings, "The message content. Significantly faster than message yet yields similar results.");
+    registry_.add_converter()(type_custom_severity, &fun_convert_old_severity)(type_custom_type, &fun_convert_old_type);
   }
 }
 

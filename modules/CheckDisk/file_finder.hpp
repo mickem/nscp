@@ -31,7 +31,7 @@ bool is_directory(unsigned long dwAttr);
 struct scanner_context {
   bool debug;
   std::string pattern;
-  DWORD now;
+  long long now;
   int max_depth;
   bool is_valid_level(int current_level) const;
   void report_error(const std::string &str) const;

@@ -62,39 +62,26 @@ node_type fun_convert_status(boost::shared_ptr<tasksched_filter::filter_obj> obj
 }
 
 tasksched_filter::filter_obj_handler::filter_obj_handler() {
-  // clang-format off
-  registry_.add_string()
-  ("folder", [](auto obj, auto context) { return obj->get_folder(); }, "The task folder")
-    ("title", [](auto obj, auto context) { return obj->get_title(); }, "The task title")
-    //		("account",  [](auto obj, auto context) { return obj->get_account_name(); }, "Retrieves the account name for the work item.")
-    ("application", [](auto obj, auto context) { return obj->get_application_name(); }, "Retrieves the name of the application that the task is associated with.")
-    ("comment", [](auto obj, auto context) { return obj->get_comment(); }, "Retrieves the comment or description for the work item.")
-    ("creator", [](auto obj, auto context) { return obj->get_creator(); }, "Retrieves the creator of the work item.")
-    ("parameters", [](auto obj, auto context) { return obj->get_parameters(); }, "Retrieves the command-line parameters of a task.")
-    ("working_directory", [](auto obj, auto context) { return obj->get_working_directory(); }, "Retrieves the working directory of the task.")
-    ;
+  registry_.add_string("folder", &filter_obj::get_folder, "The task folder")
+      .add_string("title", &filter_obj::get_title, "The task title")
+      .add_string("application", &filter_obj::get_application_name, "Retrieves the name of the application that the task is associated with.")
+      .add_string("comment", &filter_obj::get_comment, "Retrieves the comment or description for the work item.")
+      .add_string("creator", &filter_obj::get_creator, "Retrieves the creator of the work item.")
+      .add_string("parameters", &filter_obj::get_parameters, "Retrieves the command-line parameters of a task.")
+      .add_string("working_directory", &filter_obj::get_working_directory, "Retrieves the working directory of the task.");
 
-  registry_.add_int()
-    ("exit_code", [](auto obj, auto context) { return obj->get_exit_code(); }, "Retrieves the work item's last exit code.")
-    ("enabled", [](auto obj, auto context) { return obj->is_enabled(); }, "TODO.")
-    // 		("flags",  [](auto obj, auto context) { return obj->get_flags, _1), "TODO")
-    ("max_run_time", [](auto obj, auto context) { return obj->get_max_run_time(); }, "Retrieves the maximum length of time the task can run.")
-    ("priority", [](auto obj, auto context) { return obj->get_priority(); }, "Retrieves the priority for the task.")
-    ("task_status", type_custom_state, [](auto obj, auto context) { return obj->get_status(); }, "Retrieves the status of the work item.")
-    ("most_recent_run_time", type_date, [](auto obj, auto context) { return obj->get_most_recent_run_time(); }, "Retrieves the most recent time the work item began running.")
-    ("has_run", type_bool, [](auto obj, auto context) { return obj->get_has_run(); }, "True if the task has ever executed.")
-    ;
+  registry_.add_int_x("exit_code", &filter_obj::get_exit_code, "Retrieves the work item's last exit code.")
+      .add_int_x("enabled", &filter_obj::is_enabled, "TODO.")
+      .add_int_x("max_run_time", &filter_obj::get_max_run_time, "Retrieves the maximum length of time the task can run.")
+      .add_int_x("priority", &filter_obj::get_priority, "Retrieves the priority for the task.")
+      .add_int_x("task_status", type_custom_state, &filter_obj::get_status, "Retrieves the status of the work item.")
+      .add_int_x("most_recent_run_time", type_date, &filter_obj::get_most_recent_run_time, "Retrieves the most recent time the work item began running.")
+      .add_int_x("has_run", type_bool, &filter_obj::get_has_run, "True if the task has ever executed.");
 
-  registry_.add_human_string()
-    ("task_status", [](auto obj, auto context) { return obj->get_status_s(); }, "")
-    ("most_recent_run_time", [](auto obj, auto context) { return obj->get_most_recent_run_time_s(); }, "")
-    ;
+  registry_.add_human_string("task_status", &filter_obj::get_status_s, "")
+      .add_human_string("most_recent_run_time", &filter_obj::get_most_recent_run_time_s, "");
 
-  registry_.add_converter()
-    (type_custom_state, &fun_convert_status)
-    // 		(type_int, type_custom_hresult, &fun_convert_status)
-    ;
-  // clang-format on
+  registry_.add_converter()(type_custom_state, &fun_convert_status);
 }
 
 namespace tasksched_filter {

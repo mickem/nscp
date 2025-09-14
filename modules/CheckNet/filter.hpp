@@ -48,11 +48,11 @@ struct filter_obj {
   //		std::string get_filename() { return filename; }
   //	std::string get_path(parsers::where::evaluation_context) { return path.string(); }
 
-  std::string get_host(parsers::where::evaluation_context) {
+  std::string get_host() {
     if (is_total_) return "total";
     return result.destination_;
   }
-  std::string get_ip(parsers::where::evaluation_context) {
+  std::string get_ip() {
     if (is_total_) return "total";
     return result.ip_;
   }
@@ -61,9 +61,9 @@ struct filter_obj {
   void add(boost::shared_ptr<filter_obj> info);
   void make_total() { is_total_ = true; }
   bool is_total() const { return is_total_; }
-  long long get_sent(parsers::where::evaluation_context) { return result.num_send_; }
-  long long get_recv(parsers::where::evaluation_context) { return result.num_replies_; }
-  long long get_timeout(parsers::where::evaluation_context) { return result.num_timeouts_; }
+  long long get_sent() { return result.num_send_; }
+  long long get_recv() { return result.num_replies_; }
+  long long get_timeout() { return result.num_timeouts_; }
 
   long long get_loss(parsers::where::evaluation_context c) {
     if (result.num_send_ == 0) {
@@ -72,7 +72,7 @@ struct filter_obj {
     }
     return result.num_timeouts_ * 100 / result.num_send_;
   }
-  long long get_time(parsers::where::evaluation_context) { return result.time_; }
+  long long get_time() { return result.time_; }
 
   bool is_total_;
   result_container result;

@@ -120,8 +120,8 @@ struct filter_obj {
   explicit filter_obj(const drive_container &drive)
       : drive(drive), drive_type(0), user_free(0), total_free(0), drive_size(0), has_size(false), has_type(false), unreadable(true) {};
 
-  std::string get_drive(parsers::where::evaluation_context) const { return drive.letter; }
-  std::string get_letter(parsers::where::evaluation_context) const {
+  std::string get_drive() const { return drive.letter; }
+  std::string get_letter() const {
     if (drive.letter.size() >= 2) {
       if (drive.letter[1] == ':') {
         return drive.letter.substr(0, 1);
@@ -129,11 +129,11 @@ struct filter_obj {
     }
     return "";
   }
-  std::string get_name(parsers::where::evaluation_context) const { return drive.name; }
-  std::string get_id(parsers::where::evaluation_context) const { return drive.id; }
-  std::string get_drive_or_id(parsers::where::evaluation_context) const { return drive.letter.empty() ? drive.id : drive.letter; }
-  std::string get_drive_or_name(parsers::where::evaluation_context) const { return drive.letter.empty() ? drive.name : drive.letter; }
-  std::string get_flags(parsers::where::evaluation_context) const {
+  std::string get_name() const { return drive.name; }
+  std::string get_id() const { return drive.id; }
+  std::string get_drive_or_id() const { return drive.letter.empty() ? drive.id : drive.letter; }
+  std::string get_drive_or_name() const { return drive.letter.empty() ? drive.name : drive.letter; }
+  std::string get_flags() const {
     std::string ret;
     if ((drive.flags & drive_container::df_mounted) == drive_container::df_mounted) str::format::append_list(ret, "mounted");
     if ((drive.flags & drive_container::df_hotplug) == drive_container::df_hotplug) str::format::append_list(ret, "hotplug");
@@ -315,16 +315,14 @@ struct filter_obj_handler : public native_context {
   static const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_9;
 
   filter_obj_handler() {
+    registry_.add_string("name", &filter_obj::get_name, "Descriptive name of drive")
+        .add_string("id", &filter_obj::get_id, "Drive or id of drive")
+        .add_string("drive", &filter_obj::get_drive, "Technical name of drive")
+        .add_string("letter", &filter_obj::get_letter, "Letter the drive is mountedd on")
+        .add_string("flags", &filter_obj::get_flags, "String representation of flags")
+        .add_string("drive_or_id", &filter_obj::get_drive_or_id, "Drive letter if present if not use id")
+        .add_string("drive_or_name", &filter_obj::get_drive_or_name, "Drive letter if present if not use name");
     // clang-format off
-    registry_.add_string()
-      ("name", &filter_obj::get_name, "Descriptive name of drive")
-      ("id", &filter_obj::get_id, "Drive or id of drive")
-      ("drive", &filter_obj::get_drive, "Technical name of drive")
-      ("letter", &filter_obj::get_letter, "Letter the drive is mountedd on")
-      ("flags", &filter_obj::get_flags, "String representation of flags")
-      ("drive_or_id", &filter_obj::get_drive_or_id, "Drive letter if present if not use id")
-      ("drive_or_name", &filter_obj::get_drive_or_name, "Drive letter if present if not use name")
-    ;
     registry_.add_int()
       ("free", type_custom_total_free, &filter_obj::get_total_free, "Shorthand for total_free (Number of free bytes)")
         .add_scaled_byte([] (auto _ignored1, auto _ignored2) { return get_zero(); }, &filter_obj::get_drive_size, "", " free")
@@ -361,26 +359,19 @@ struct filter_obj_handler : public native_context {
       ("erasable", &filter_obj::get_erasable, "1 (true) if drive is erasable")
       ("media_type", &filter_obj::get_media_type, "Get the media type")
     ;
-
-    registry_.add_human_string()
-      ("free", &filter_obj::get_total_free_human, "")
-      ("total_free", &filter_obj::get_total_free_human, "")
-      ("user_free", &filter_obj::get_user_free_human, "")
-      ("size", &filter_obj::get_drive_size_human, "")
-      ("total_used", &filter_obj::get_total_used_human, "")
-      ("used", &filter_obj::get_total_used_human, "")
-      ("user_used", &filter_obj::get_user_used_human, "")
-      ("type", &filter_obj::get_type_as_string, "")
-    ;
-
-    registry_.add_converter()
-      (type_custom_total_free, &calculate_total_used)
-      (type_custom_total_used, &calculate_total_used)
-      (type_custom_user_free, &calculate_user_used)
-      (type_custom_user_used, &calculate_user_used)
-      (type_custom_type, &convert_type)
-    ;
     // clang-format on
+
+    registry_.add_human_string_context("free", &filter_obj::get_total_free_human, "")
+        .add_human_string_context("total_free", &filter_obj::get_total_free_human, "")
+        .add_human_string_context("user_free", &filter_obj::get_user_free_human, "")
+        .add_human_string_context("size", &filter_obj::get_drive_size_human, "")
+        .add_human_string_context("total_used", &filter_obj::get_total_used_human, "")
+        .add_human_string_context("used", &filter_obj::get_total_used_human, "")
+        .add_human_string_context("user_used", &filter_obj::get_user_used_human, "")
+        .add_human_string_context("type", &filter_obj::get_type_as_string, "");
+
+    registry_.add_converter()(type_custom_total_free, &calculate_total_used)(type_custom_total_used, &calculate_total_used)(
+        type_custom_user_free, &calculate_user_used)(type_custom_user_used, &calculate_user_used)(type_custom_type, &convert_type);
   }
 };
 

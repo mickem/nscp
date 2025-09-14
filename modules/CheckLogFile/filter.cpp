@@ -39,24 +39,27 @@ node_type get_column_fun(const value_type, evaluation_context context, const nod
 //////////////////////////////////////////////////////////////////////////
 
 logfile_filter::filter_obj_handler::filter_obj_handler() {
-  // clang-format off
-  registry_.add_string()
-    ("line", [] (auto obj, auto context) { return obj->get_line(); }, "Match the content of an entire line")
-    ("column1", [] (auto obj, auto context) { return obj->get_column(1); }, [] (auto obj, auto context) { return obj->get_column_number(1); }, "The value in the first column")
-    ("column2", [] (auto obj, auto context) { return obj->get_column(2); }, [] (auto obj, auto context) { return obj->get_column_number(2); }, "The value in the second column")
-    ("column3", [] (auto obj, auto context) { return obj->get_column(3); }, [] (auto obj, auto context) { return obj->get_column_number(3); }, "The value in the third column")
-    ("column4", [] (auto obj, auto context) { return obj->get_column(4); }, [] (auto obj, auto context) { return obj->get_column_number(4); }, "The value in the 4:th column")
-    ("column5", [] (auto obj, auto context) { return obj->get_column(5); }, [] (auto obj, auto context) { return obj->get_column_number(5); }, "The value in the 5:th column")
-    ("column6", [] (auto obj, auto context) { return obj->get_column(6); }, [] (auto obj, auto context) { return obj->get_column_number(6); }, "The value in the 6:th column")
-    ("column7", [] (auto obj, auto context) { return obj->get_column(7); }, [] (auto obj, auto context) { return obj->get_column_number(7); }, "The value in the 7:th column")
-    ("column8", [] (auto obj, auto context) { return obj->get_column(8); }, [] (auto obj, auto context) { return obj->get_column_number(8); }, "The value in the 8:th column")
-    ("column9", [] (auto obj, auto context) { return obj->get_column(9); }, [] (auto obj, auto context) { return obj->get_column_number(9); }, "The value in the 9:th column")
-      ("filename", [](auto obj, auto context) { return obj->filename; }, "The name of the file")
-      ("file", [](auto obj, auto context) { return obj->filename; }, "The name of the file")
-    ;
+  registry_.add_string("line", &filter_obj::get_line, "Match the content of an entire line")
+      .add_string(
+          "column1", [](auto obj) { return obj->get_column(1); }, [](auto obj) { return obj->get_column_number(1); }, "The value in the first column")
+      .add_string(
+          "column2", [](auto obj) { return obj->get_column(2); }, [](auto obj) { return obj->get_column_number(2); }, "The value in the second column")
+      .add_string(
+          "column3", [](auto obj) { return obj->get_column(3); }, [](auto obj) { return obj->get_column_number(3); }, "The value in the third column")
+      .add_string(
+          "column4", [](auto obj) { return obj->get_column(4); }, [](auto obj) { return obj->get_column_number(4); }, "The value in the 4:th column")
+      .add_string(
+          "column5", [](auto obj) { return obj->get_column(5); }, [](auto obj) { return obj->get_column_number(5); }, "The value in the 5:th column")
+      .add_string(
+          "column6", [](auto obj) { return obj->get_column(6); }, [](auto obj) { return obj->get_column_number(6); }, "The value in the 6:th column")
+      .add_string(
+          "column7", [](auto obj) { return obj->get_column(7); }, [](auto obj) { return obj->get_column_number(7); }, "The value in the 7:th column")
+      .add_string(
+          "column8", [](auto obj) { return obj->get_column(8); }, [](auto obj) { return obj->get_column_number(8); }, "The value in the 8:th column")
+      .add_string(
+          "column9", [](auto obj) { return obj->get_column(9); }, [](auto obj) { return obj->get_column_number(9); }, "The value in the 9:th column")
+      .add_string("filename", &filter_obj::filename, "The name of the file")
+      .add_string("file", &filter_obj::filename, "The name of the file");
 
-  registry_.add_string_fun()
-    ("column", &get_column_fun, "Fetch the value from the given column number.\nSyntax: column(<coulmn number>)")
-    ;
-  // clang-format on
+  registry_.add_string_fun()("column", &get_column_fun, "Fetch the value from the given column number.\nSyntax: column(<coulmn number>)");
 }

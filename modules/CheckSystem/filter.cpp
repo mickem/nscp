@@ -39,25 +39,20 @@ parsers::where::node_type calculate_load(boost::shared_ptr<filter_obj> object, p
 filter_obj_handler::filter_obj_handler() {
   static const parsers::where::value_type type_custom_pct = parsers::where::type_custom_int_1;
 
-  // clang-format off
-  registry_.add_string()
-    ("time", [] (auto obj, auto context) { return obj->get_time(); }, "The time frame to check")
-    ("core", [] (auto obj, auto context) { return obj->get_core_s(); }, [] (auto obj, auto context) { return obj->get_core_i(); }, "The core to check (total or core ##)")
-    ("core_id", [] (auto obj, auto context) { return obj->get_core_id(); }, [] (auto obj, auto context) { return obj->get_core_i(); }, "The core to check (total or core_##)")
-    ;
-  registry_.add_int()
-    ("load", type_custom_pct, [] (auto obj, auto context) { return obj->get_total(); }, "deprecated (use total instead)").add_perf("%")
-    ("total", type_custom_pct, [] (auto obj, auto context) { return obj->get_total(); }, "The current load used by user and system").add_perf("%")
-    ("user", type_custom_pct, [] (auto obj, auto context) { return obj->get_user(); }, "The current load used by user applications").add_perf("%")
-    ("idle", [] (auto obj, auto context) { return obj->get_idle(); }, "The current idle load for a given core")
-    ("system", [] (auto obj, auto context) { return obj->get_kernel(); }, "The current load used by the system (kernel)")
-    ("kernel", [] (auto obj, auto context) { return obj->get_kernel(); }, "deprecated (use system instead)")
-    ;
+  registry_.add_string("time", &filter_obj::get_time, "The time frame to check")
+      .add_string("core", &filter_obj::get_core_s, &filter_obj::get_core_i, "The core to check (total or core ##)")
+      .add_string("core_id", &filter_obj::get_core_id, &filter_obj::get_core_i, "The core to check (total or core_##)");
+  registry_.add_int_x("load", type_custom_pct, &filter_obj::get_total, "deprecated (use total instead)")
+      .add_int_perf("%")
+      .add_int_x("total", type_custom_pct, &filter_obj::get_total, "The current load used by user and system")
+      .add_int_perf("%")
+      .add_int_x("user", type_custom_pct, &filter_obj::get_user, "The current load used by user applications")
+      .add_int_perf("%")
+      .add_int_x("idle", &filter_obj::get_idle, "The current idle load for a given core")
+      .add_int_x("system", &filter_obj::get_kernel, "The current load used by the system (kernel)")
+      .add_int_x("kernel", &filter_obj::get_kernel, "deprecated (use system instead)");
 
-  registry_.add_converter()
-    (type_custom_pct, &calculate_load)
-    ;
-  // clang-format on
+  registry_.add_converter()(type_custom_pct, &calculate_load);
 }
 }  // namespace check_cpu_filter
 
@@ -81,10 +76,8 @@ filter_obj_handler::filter_obj_handler() {
   static const parsers::where::value_type type_custom_used = parsers::where::type_custom_int_1;
   static const parsers::where::value_type type_custom_free = parsers::where::type_custom_int_2;
 
+  registry_.add_string("name", &filter_obj::get_name, "The name of the page file (location)");
   // clang-format off
-  registry_.add_string()
-    ("name", [] (auto obj, auto context) { return obj->get_name(); }, "The name of the page file (location)")
-    ;
   registry_.add_int()
     ("size", [] (auto obj, auto context) { return obj->get_total(); }, "Total size of pagefile")
     ("free", type_custom_free, [] (auto obj, auto context) { return obj->get_free(); }, "Free memory in bytes (g,m,k,b) or percentages %")
@@ -97,17 +90,12 @@ filter_obj_handler::filter_obj_handler() {
     ("free_pct", [] (auto obj, auto context) { return obj->get_free_pct(); }, "% free memory")
     ("used_pct", [] (auto obj, auto context) { return obj->get_used_pct(); }, "% used memory")
     ;
-  registry_.add_human_string()
-    ("size", [] (auto obj, auto context) { return obj->get_total_human(); }, "")
-    ("free", [] (auto obj, auto context) { return obj->get_free_human(); }, "")
-    ("used", [] (auto obj, auto context) { return obj->get_used_human(); }, "")
-    ;
-
-  registry_.add_converter()
-    (type_custom_free, &calculate_free)
-    (type_custom_used, &calculate_free)
-    ;
   // clang-format on
+  registry_.add_human_string("size", &filter_obj::get_total_human, "")
+      .add_human_string("free", &filter_obj::get_free_human, "")
+      .add_human_string("used", &filter_obj::get_used_human, "");
+
+  registry_.add_converter()(type_custom_free, &calculate_free)(type_custom_used, &calculate_free);
 }
 }  // namespace check_page_filter
 
@@ -175,37 +163,29 @@ filter_obj_handler::filter_obj_handler() {
   static const parsers::where::value_type type_custom_state = parsers::where::type_custom_int_1;
   static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
 
-  // clang-format off
-  registry_.add_string()
-    ("name", [] (auto obj, auto context) { return obj->get_name(); }, "Service name")
-    ("desc", [] (auto obj, auto context) { return obj->get_desc(); }, "Service description")
-    ("legacy_state", [] (auto obj, auto context) { return obj->get_legacy_state_s(); }, "Get legacy state (deprecated and only used by check_nt)")
-    ("classification", [] (auto obj, auto context) { return obj->get_classification(); }, "Get classification")
-    ;
-  registry_.add_int()
-    ("pid", [] (auto obj, auto context) { return obj->get_pid(); }, "Process id")
-    ("state", type_custom_state, [] (auto obj, auto context) { return obj->get_state_i(); }, "The current state ()").add_perf("", "")
-    ("start_type", type_custom_start_type, [] (auto obj, auto context) { return obj->get_start_type_i(); }, "The configured start type ()")
-    ("delayed", parsers::where::type_bool, [] (auto obj, auto context) { return obj->get_delayed(); }, "If the service is delayed")
-    ("is_trigger", parsers::where::type_bool, [] (auto obj, auto context) { return obj->get_is_trigger(); }, "If the service is has associated triggers")
-    ("triggers", parsers::where::type_int, [] (auto obj, auto context) { return obj->get_triggers(); }, "The number of associated triggers for this service")
-    ;
+  registry_.add_string("name", &filter_obj::get_name, "Service name")
+      .add_string("desc", &filter_obj::get_desc, "Service description")
+      .add_string("legacy_state", &filter_obj::get_legacy_state_s, "Get legacy state (deprecated and only used by check_nt)")
+      .add_string("classification", &filter_obj::get_classification, "Get classification");
+  registry_.add_int_x("pid", &filter_obj::get_pid, "Process id")
+      .add_int_x("state", type_custom_state, &filter_obj::get_state_i, "The current state ()")
+      .add_int_perf("", "")
+      .add_int_x("start_type", type_custom_start_type, &filter_obj::get_start_type_i, "The configured start type ()")
+      .add_int_x("delayed", parsers::where::type_bool, &filter_obj::get_delayed, "If the service is delayed")
+      .add_int_x("is_trigger", parsers::where::type_bool, &filter_obj::get_is_trigger, "If the service is has associated triggers")
+      .add_int_x("triggers", parsers::where::type_int, &filter_obj::get_triggers, "The number of associated triggers for this service");
 
+  // clang-format off
   registry_.add_int_fun()
     ("state_is_perfect", parsers::where::type_bool, &state_is_perfect, "Check if the state is ok, i.e. all running services are running")
     ("state_is_ok", parsers::where::type_bool, &state_is_ok, "Check if the state is ok, i.e. all running services are runningelayed services are allowed to be stopped)")
     ;
-
-  registry_.add_human_string()
-    ("state", [] (auto obj, auto context) { return obj->get_state_s(); }, "The current state ()")
-    ("start_type", [] (auto obj, auto context) { return obj->get_start_type_s(); }, "The configured start type ()")
-    ;
-
-  registry_.add_converter()
-    (type_custom_state, &parse_state)
-    (type_custom_start_type, &parse_start_type)
-    ;
   // clang-format on
+
+  registry_.add_human_string("state", &filter_obj::get_state_s, "The current state ()")
+      .add_human_string("start_type", &filter_obj::get_start_type_s, "The configured start type ()");
+
+  registry_.add_converter()(type_custom_state, &parse_state)(type_custom_start_type, &parse_start_type);
 }
 }  // namespace check_svc_filter
 
@@ -218,34 +198,27 @@ parsers::where::node_type parse_time(boost::shared_ptr<filter_obj> object, parse
 
 static const parsers::where::value_type type_custom_uptime = parsers::where::type_custom_int_1;
 filter_obj_handler::filter_obj_handler() {
-  // clang-format off
-  registry_.add_int()
-    ("boot", parsers::where::type_date, [] (auto obj, auto context) { return obj->get_boot(); }, "System boot time")
-    ("uptime", type_custom_uptime, [] (auto obj, auto context) { return obj->get_uptime(); }, "Time since last boot").add_perf("s", "", "")
-    ;
-  registry_.add_converter()
-    (type_custom_uptime, &parse_time)
-    ;
-  registry_.add_human_string()
-    ("boot", [] (auto obj, auto context) { return obj->get_boot_s(); }, "The system boot time")
-    ("uptime", [] (auto obj, auto context) { return obj->get_uptime_s(); }, "Time sine last boot")
-    ;
-  // clang-format on
+  registry_.add_int_x("boot", parsers::where::type_date, &filter_obj::get_boot, "System boot time")
+      .add_int_x("uptime", type_custom_uptime, &filter_obj::get_uptime, "Time since last boot")
+      .add_int_perf("s", "", "");
+  registry_.add_converter()(type_custom_uptime, &parse_time);
+  registry_.add_human_string("boot", &filter_obj::get_boot_s, "The system boot time")
+      .add_human_string("uptime", &filter_obj::get_uptime_s, "Time sine last boot");
 }
 }  // namespace check_uptime_filter
 
 namespace os_version_filter {
 filter_obj_handler::filter_obj_handler() {
-  // clang-format off
-  registry_.add_int()
-    ("major", [] (auto obj, auto context) { return obj->get_major(); }, "Major version number").add_perf("")
-    ("version", [] (auto obj, auto context) { return obj->get_version_i(); }, [] (auto obj, auto context) { return obj->get_version_s(); }, "The system version").add_perf("")
-    ("minor", [] (auto obj, auto context) { return obj->get_minor(); }, "Minor version number").add_perf("")
-    ("build", [] (auto obj, auto context) { return obj->get_build(); }, "Build version number").add_perf("")
-    ;
-  registry_.add_string()
-    ("suite", [] (auto obj, auto context) { return obj->get_suite_string(); }, "Which suites are installed on the machine (Microsoft BackOffice, Web Edition, Compute Cluster Edition, Datacenter Edition, Enterprise Edition, Embedded, Home Edition, Remote Desktop Support, Small Business Server, Storage Server, Terminal Services, Home Server)")
-    ;
-  // clang-format on
+  registry_.add_int_x("major", &filter_obj::get_major, "Major version number")
+      .add_int_perf("")
+      .add_int_x("version", &filter_obj::get_version_i, &filter_obj::get_version_s, "The system version")
+      .add_int_perf("")
+      .add_int_x("minor", &filter_obj::get_minor, "Minor version number")
+      .add_int_perf("")
+      .add_int_x("build", &filter_obj::get_build, "Build version number")
+      .add_int_perf("");
+  registry_.add_string("suite", &filter_obj::get_suite_string,
+                       "Which suites are installed on the machine (Microsoft BackOffice, Web Edition, Compute Cluster Edition, Datacenter Edition, Enterprise "
+                       "Edition, Embedded, Home Edition, Remote Desktop Support, Small Business Server, Storage Server, Terminal Services, Home Server)");
 }
 }  // namespace os_version_filter

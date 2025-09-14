@@ -73,10 +73,8 @@ struct filter_obj_handler : public native_context {
     static const parsers::where::value_type type_custom_used = parsers::where::type_custom_int_1;
     static const parsers::where::value_type type_custom_free = parsers::where::type_custom_int_2;
 
+    registry_.add_string("type", &filter_obj::get_type, "The type of memory to check");
     // clang-format off
-    registry_.add_string()
-      ("type", [](auto obj, auto context) { return obj->get_type(); }, "The type of memory to check")
-      ;
     registry_.add_int()
       ("size", [](auto obj, auto context) { return obj->get_total(); }, "Total size of memory")
       ("free", type_custom_free, [](auto obj, auto context) { return obj->get_free(); }, "Free memory in bytes (g,m,k,b) or percentages %")
@@ -88,17 +86,12 @@ struct filter_obj_handler : public native_context {
       ("free_pct", [](auto obj, auto context) { return obj->get_free_pct(); }, "% free memory")
     ("used_pct", [](auto obj, auto context) { return obj->get_used_pct(); }, "% used memory")
       ;
-    registry_.add_human_string()
-      ("size", [](auto obj, auto context) { return obj->get_total_human(); }, "")
-      ("free", [](auto obj, auto context) { return obj->get_free_human(); }, "")
-      ("used", [](auto obj, auto context) { return obj->get_used_human(); }, "")
-      ;
-
-    registry_.add_converter()
-      (type_custom_free, &calculate_free)
-      (type_custom_used, &calculate_free)
-      ;
     // clang-format on
+    registry_.add_human_string("size", &filter_obj::get_total_human, "")
+        .add_human_string("free", &filter_obj::get_free_human, "")
+        .add_human_string("used", &filter_obj::get_used_human, "");
+
+    registry_.add_converter()(type_custom_free, &calculate_free)(type_custom_used, &calculate_free);
   }
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
