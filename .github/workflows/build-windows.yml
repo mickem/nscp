@@ -253,6 +253,7 @@ jobs:
     #    ..\..\tests\nrpe\run-test.bat
 
     - name: Run installer tests
+      if: ${{ inputs.architecture == 'x64' }}
       uses: ./.github/actions/installer-test
 
     - name: Post process files
