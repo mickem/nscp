@@ -66,6 +66,7 @@ file_filter::filter_obj_handler::filter_obj_handler() {
   registry_.add_string("path", &filter_obj::get_path, "Path of file")
       .add_string("version", &filter_obj::get_version, "Windows exe/dll file version")
       .add_string("filename", &filter_obj::get_filename, "The name of the file")
+      .add_string("extension", &filter_obj::get_extension, "The filename extension")
       .add_string("file", &filter_obj::get_filename, "The name of the file")
       .add_string("name", &filter_obj::get_filename, "The name of the file")
       .add_string("access_l", &filter_obj::get_access_sl, "Last access time (local time)")
