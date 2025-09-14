@@ -1,5 +1,5 @@
 from difflib import unified_diff
-from subprocess import run, CalledProcessError
+from subprocess import run, CalledProcessError, CREATE_NEW_PROCESS_GROUP
 from os import path, makedirs
 from shutil import rmtree
 from configparser import ConfigParser
@@ -18,6 +18,7 @@ def run_with_timeout(command):
             shell=True,
             check=True,
             capture_output=True,
+            creationflags=CREATE_NEW_PROCESS_GROUP,
             text=True,
             encoding='utf-8',
             errors='ignore',
@@ -76,8 +77,6 @@ def kill_all_processes(exe_file):
 
 def ensure_uninstalled(msi_file, target_folder):
     print(f"- Uninstalling", flush=True)
-    kill_all_processes("msiexec.exe")
-
     try:
         return_code = run_with_timeout(["msiexec", "/l*", "uninstall.log", "/x", f"{msi_file}", "/q"])
     except Exception as e:
