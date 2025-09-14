@@ -535,6 +535,7 @@ Include the total of either (filter) all files matching the filter or (all) all 
 | crit_count    | Number of items matched the critical criteria. Common option for all checks.                                 |
 | crit_list     | A list of all items which matched the critical criteria. Common option for all checks.                       |
 | detail_list   | A special list with critical, then warning and finally ok. Common option for all checks.                     |
+| extension     | The filename extension                                                                                       |
 | file          | The name of the file                                                                                         |
 | filename      | The name of the file                                                                                         |
 | line_count    | Number of lines in the file (text files)                                                                     |
