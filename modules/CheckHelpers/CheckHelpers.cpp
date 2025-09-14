@@ -419,18 +419,14 @@ struct filter_obj_handler : public native_context {
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
 filter_obj_handler::filter_obj_handler() {
-  // clang-format off
-  registry_.add_string()
-    ("key", [] (auto obj, auto context) { return obj->get_key(); }, "Major version number")
-    ("value", [] (auto obj, auto context) { return obj->get_value(); }, "Major version number")
-    ("unit", [] (auto obj, auto context) { return obj->get_unit(); }, "Major version number")
-    ("warn", [] (auto obj, auto context) { return obj->get_warn(); }, "Major version number")
-    ("crit", [] (auto obj, auto context) { return obj->get_crit(); }, "Major version number")
-    ("max", [] (auto obj, auto context) { return obj->get_min(); }, "Major version number")
-    ("min", [] (auto obj, auto context) { return obj->get_max(); }, "Major version number")
-    ("message", [] (auto obj, auto context) { return obj->get_key(); }, "Major version number")
-    ;
-  // clang-format on
+  registry_.add_string("key", &filter_obj::get_key, "Major version number")
+      .add_string("value", &filter_obj::get_value, "Major version number")
+      .add_string("unit", &filter_obj::get_unit, "Major version number")
+      .add_string("warn", &filter_obj::get_warn, "Major version number")
+      .add_string("crit", &filter_obj::get_crit, "Major version number")
+      .add_string("max", &filter_obj::get_min, "Major version number")
+      .add_string("min", &filter_obj::get_max, "Major version number")
+      .add_string("message", &filter_obj::get_key, "Major version number");
 }
 }  // namespace perf_filter
 

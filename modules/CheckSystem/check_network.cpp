@@ -181,25 +181,16 @@ struct filter_obj_handler : public native_context {
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_type;
 
 filter_obj_handler::filter_obj_handler() {
-  static const parsers::where::value_type type_custom_state = parsers::where::type_custom_int_1;
-  static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
+  registry_.add_string("name", &filter_obj::get_name, "Network interface name")
+      .add_string("net_connection_id", &filter_obj::get_NetConnectionID, "Network connection id")
+      .add_string("MAC", &filter_obj::get_MACAddress, "The MAC address")
+      .add_string("status", &filter_obj::get_NetConnectionStatus, "Network connection status")
+      .add_string("enabled", &filter_obj::get_NetEnabled, "True if the network interface is enabled")
+      .add_string("speed", &filter_obj::get_Speed, "The network interface speed");
 
-  // clang-format off
-  registry_.add_string()
-    ("name", [](auto obj, auto context) { return obj->get_name(); }, "Network interface name")
-    ("net_connection_id", [](auto obj, auto context) { return obj->get_NetConnectionID(); }, "Network connection id")
-    ("MAC", [](auto obj, auto context) { return obj->get_MACAddress(); }, "The MAC address")
-    ("status", [](auto obj, auto context) { return obj->get_NetConnectionStatus(); }, "Network connection status")
-    ("enabled", [](auto obj, auto context) { return obj->get_NetEnabled(); }, "True if the network interface is enabled")
-    ("speed", [](auto obj, auto context) { return obj->get_Speed(); }, "The network interface speed")
-    ;
-
-  registry_.add_int()
-    ("received", [](auto obj, auto context) { return obj->getBytesReceivedPersec(); }, "Bytes received per second")
-    ("sent", [](auto obj, auto context) { return obj->getBytesSentPersec(); }, "Bytes sent per second")
-    ("total", [](auto obj, auto context) { return obj->getBytesTotalPersec(); }, "Bytes total per second")
-    ;
-  // clang-format on
+  registry_.add_int_x("received", &filter_obj::getBytesReceivedPersec, "Bytes received per second")
+      .add_int_x("sent", &filter_obj::getBytesSentPersec, "Bytes sent per second")
+      .add_int_x("total", &filter_obj::getBytesTotalPersec, "Bytes total per second");
 }
 
 void check_network(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, nics_type nicdata) {

@@ -38,32 +38,15 @@ parsers::where::node_type get_percentage(boost::shared_ptr<ping_filter::filter_o
 }
 
 ping_filter::filter_obj_handler::filter_obj_handler() {
-  static const parsers::where::value_type type_custom_pct = parsers::where::type_custom_int_1;
+  static constexpr parsers::where::value_type type_custom_pct = parsers::where::type_custom_int_1;
 
-  // clang-format off
-	registry_.add_string()
-		("host", &filter_obj::get_host, "The host name or ip address (as given on command line)")
-		("ip", &filter_obj::get_ip, "The ip address name")
-		// 		("version", [] (auto obj, auto context) { return obj->get_version(); }, "Windows exe/dll file version")
-		// 		("filename", [] (auto obj, auto context) { return obj->get_filename(); }, "The name of the file")
-		// 		("file", [] (auto obj, auto context) { return obj->get_filename(); }, "The name of the file")
-		// 		("name", [] (auto obj, auto context) { return obj->get_filename(); }, "The name of the file")
-		;
-	registry_.add_int()
-		("loss", type_custom_pct, &filter_obj::get_loss, "Packet loss")
-		("time", type_int, &filter_obj::get_time, "Round trip time in ms")
-		("sent", type_int, &filter_obj::get_sent, "Number of packets sent to the host")
-		("recv", type_int, &filter_obj::get_recv, "Number of packets received from the host")
-		("timeout", type_int, &filter_obj::get_timeout, "Number of packets which timed out from the host")
-		;
-	/*
-		registry_.add_human_string()
-			("access", [] (auto obj, auto context) { return obj->get_access_s(); }, "")
-			("creation", [] (auto obj, auto context) { return obj->get_creation_s(); }, "")
-			("written", [] (auto obj, auto context) { return obj->get_written_s(); }, "")
-			;
-			*/
-  // clang-format on
+  registry_.add_string("host", &filter_obj::get_host, "The host name or ip address (as given on command line)")
+      .add_string("ip", &filter_obj::get_ip, "The ip address name");
+  registry_.add_int_context("loss", type_custom_pct, &filter_obj::get_loss, "Packet loss")
+      .add_int_x("time", type_int, &filter_obj::get_time, "Round trip time in ms")
+      .add_int_x("sent", type_int, &filter_obj::get_sent, "Number of packets sent to the host")
+      .add_int_x("recv", type_int, &filter_obj::get_recv, "Number of packets received from the host")
+      .add_int_x("timeout", type_int, &filter_obj::get_timeout, "Number of packets which timed out from the host");
   registry_.add_converter()(type_custom_pct, &get_percentage);
 }
 

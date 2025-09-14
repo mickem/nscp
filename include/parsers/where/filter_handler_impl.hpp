@@ -20,6 +20,7 @@
 #pragma once
 
 #include <boost/function.hpp>
+#include <boost/make_shared.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/unordered_map.hpp>
 #include <map>
@@ -39,9 +40,10 @@ struct filter_variable {
   std::string name;
   value_type type;
   std::string description;
-  typedef boost::shared_ptr<parsers::where::number_performance_generator_interface<T, long long> > int_perf_generator_type;
-  typedef boost::shared_ptr<parsers::where::number_performance_generator_interface<T, double> > float_perf_generator_type;
+  typedef boost::shared_ptr<parsers::where::number_performance_generator_interface<T, long long>> int_perf_generator_type;
+  typedef boost::shared_ptr<parsers::where::number_performance_generator_interface<T, double>> float_perf_generator_type;
   typedef boost::function<std::string(T, evaluation_context)> str_fun_type;
+  typedef boost::function<std::string(T)> str_fun_type_no_context;
   typedef boost::function<long long(T, evaluation_context)> int_fun_type;
   typedef boost::function<double(T, evaluation_context)> float_fun_type;
   str_fun_type s_function;
@@ -83,7 +85,7 @@ struct registry_adders_variables_int {
 
   registry_adders_variables_int& operator()(std::string key, typename filter_variable<T>::int_fun_type i_fun, typename filter_variable<T>::str_fun_type s_fun,
                                             std::string description) {
-    boost::shared_ptr<filter_variable<T> > var(new filter_variable<T>(key, type_int, description));
+    boost::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_int, description));
     var->s_function = s_fun;
     var->i_function = i_fun;
     add_variables(var);
@@ -91,20 +93,20 @@ struct registry_adders_variables_int {
   }
   registry_adders_variables_int& operator()(std::string key, value_type type, typename filter_variable<T>::int_fun_type i_fun,
                                             typename filter_variable<T>::str_fun_type s_fun, std::string description) {
-    boost::shared_ptr<filter_variable<T> > var(new filter_variable<T>(key, type, description));
+    boost::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
     var->i_function = i_fun;
     var->s_function = s_fun;
     add_variables(var);
     return *this;
   }
   registry_adders_variables_int& operator()(std::string key, value_type type, typename filter_variable<T>::int_fun_type i_fun, std::string description) {
-    boost::shared_ptr<filter_variable<T> > var(new filter_variable<T>(key, type, description));
+    boost::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
     var->i_function = i_fun;
     add_variables(var);
     return *this;
   }
   registry_adders_variables_int& operator()(std::string key, typename filter_variable<T>::int_fun_type i_fun, std::string description) {
-    boost::shared_ptr<filter_variable<T> > var(new filter_variable<T>(key, type_int, description));
+    boost::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_int, description));
     var->i_function = i_fun;
     add_variables(var);
     return *this;
@@ -138,105 +140,8 @@ struct registry_adders_variables_int {
   }
 
  private:
-  boost::shared_ptr<filter_variable<T> > get_last();
-  void add_variables(boost::shared_ptr<filter_variable<T> > d);
-  function_registry<T>* owner;
-  bool human;
-};
-
-template <class T>
-struct registry_adders_variables_float {
-  typedef typename filter_variable<T>::float_perf_generator_type perf_generator_type;
-
-  registry_adders_variables_float(function_registry<T>* owner_, bool human = false) : owner(owner_), human(human) {}
-
-  registry_adders_variables_float& operator()(std::string key, value_type type, typename filter_variable<T>::float_fun_type f_fun, std::string description) {
-    boost::shared_ptr<filter_variable<T> > var(new filter_variable<T>(key, type, description));
-    var->f_function = f_fun;
-    add_variables(var);
-    return *this;
-  }
-  registry_adders_variables_float& operator()(std::string key, typename filter_variable<T>::float_fun_type f_fun, std::string description) {
-    boost::shared_ptr<filter_variable<T> > var(new filter_variable<T>(key, type_float, description));
-    var->f_function = f_fun;
-    add_variables(var);
-    return *this;
-  }
-  registry_adders_variables_float& add_perf(std::string unit = "", std::string prefix = "", std::string suffix = "") {
-    get_last()->float_perf.push_back(perf_generator_type(new parsers::where::simple_number_performance_generator<T, double>(unit, prefix, suffix)));
-    return *this;
-  }
-  registry_adders_variables_float& no_perf() {
-    get_last()->set_no_perf();
-    return *this;
-  }
-
- private:
-  boost::shared_ptr<filter_variable<T> > get_last();
-  void add_variables(boost::shared_ptr<filter_variable<T> > d);
-  function_registry<T>* owner;
-  bool human;
-};
-
-template <class T>
-struct registry_adders_variables_number {
-  typedef typename filter_variable<T>::float_perf_generator_type perf_generator_type;
-
-  registry_adders_variables_number(function_registry<T>* owner_, bool human = false) : owner(owner_), human(human) {}
-
-  registry_adders_variables_number& operator()(std::string key, value_type type, typename filter_variable<T>::int_fun_type i_fun,
-                                               typename filter_variable<T>::float_fun_type f_fun, std::string description) {
-    boost::shared_ptr<filter_variable<T> > var(new filter_variable<T>(key, type, description));
-    var->i_function = i_fun;
-    var->f_function = f_fun;
-    add_variables(var);
-    return *this;
-  }
-  registry_adders_variables_number& operator()(std::string key, typename filter_variable<T>::int_fun_type i_fun,
-                                               typename filter_variable<T>::float_fun_type f_fun, std::string description) {
-    boost::shared_ptr<filter_variable<T> > var(new filter_variable<T>(key, type_float, description));
-    var->i_function = i_fun;
-    var->f_function = f_fun;
-    add_variables(var);
-    return *this;
-  }
-  registry_adders_variables_number& add_perf(std::string unit = "", std::string prefix = "", std::string suffix = "") {
-    get_last()->float_perf.push_back(perf_generator_type(new parsers::where::simple_number_performance_generator<T, double>(unit, prefix, suffix)));
-    return *this;
-  }
-  registry_adders_variables_number& no_perf() {
-    get_last()->set_no_perf();
-    return *this;
-  }
-
- private:
-  boost::shared_ptr<filter_variable<T> > get_last();
-  void add_variables(boost::shared_ptr<filter_variable<T> > d);
-  function_registry<T>* owner;
-  bool human;
-};
-
-template <class T>
-struct registry_adders_variables_string {
-  registry_adders_variables_string(function_registry<T>* owner_, bool human = false) : owner(owner_), human(human) {}
-
-  registry_adders_variables_string& operator()(std::string key, typename filter_variable<T>::str_fun_type s_fun,
-                                               typename filter_variable<T>::int_fun_type i_fun, std::string description) {
-    boost::shared_ptr<filter_variable<T> > var(new filter_variable<T>(key, type_string, description));
-    var->s_function = s_fun;
-    var->i_function = i_fun;
-    add_variables(var);
-    return *this;
-  }
-  registry_adders_variables_string& operator()(std::string key, typename filter_variable<T>::str_fun_type fun, std::string description) {
-    boost::shared_ptr<filter_variable<T> > var(new filter_variable<T>(key, type_string, description));
-    var->s_function = fun;
-    add_variables(var);
-    return *this;
-  }
-
- private:
-  void add_variables(boost::shared_ptr<filter_variable<T> > d);
+  boost::shared_ptr<filter_variable<T>> get_last();
+  void add_variables(boost::shared_ptr<filter_variable<T>> d);
   function_registry<T>* owner;
   bool human;
 };
@@ -246,13 +151,13 @@ struct registry_adders_converters {
   registry_adders_converters(function_registry<T>* owner_) : owner(owner_) {}
 
   registry_adders_converters& operator()(value_type type, typename filter_converter<T>::converter_fun_type fun) {
-    boost::shared_ptr<filter_converter<T> > var(new filter_converter<T>(type, fun));
+    boost::shared_ptr<filter_converter<T>> var(new filter_converter<T>(type, fun));
     add_converter(var);
     return *this;
   }
 
  private:
-  void add_converter(boost::shared_ptr<filter_converter<T> > d);
+  void add_converter(boost::shared_ptr<filter_converter<T>> d);
   function_registry<T>* owner;
 };
 
@@ -285,30 +190,114 @@ struct registry_adders_function {
 
 template <class T>
 struct function_registry {
-  typedef std::map<std::string, boost::shared_ptr<filter_variable<T> > > variable_type;
-  typedef std::map<std::string, boost::shared_ptr<filter_function> > function_type;
-  typedef std::map<value_type, boost::shared_ptr<filter_converter<T> > > converter_type;
+  typedef std::map<std::string, boost::shared_ptr<filter_variable<T>>> variable_type;
+  typedef std::map<std::string, boost::shared_ptr<filter_function>> function_type;
+  typedef std::map<value_type, boost::shared_ptr<filter_converter<T>>> converter_type;
   variable_type variables;
   variable_type human_variables;
   function_type functions;
   converter_type converters;
-  boost::shared_ptr<filter_variable<T> > last_variable;
+  boost::shared_ptr<filter_variable<T>> last_variable;
+
+  function_registry<T>& add_int_x(std::string key, std::function<long long(T)> i_fun, std::string description) {
+    boost::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_int, description));
+    var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
+    add(var, false);
+    return *this;
+  }
+  function_registry<T>& add_int_x(std::string key, std::function<long long(T)> i_fun, std::function<std::string(T)> s_fun, std::string description) {
+    boost::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_int, description));
+    var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
+    var->s_function = [s_fun](auto obj, auto) { return s_fun(obj); };
+    add(var, false);
+    return *this;
+  }
+  function_registry<T>& add_int_x(std::string key, value_type type, std::function<long long(T)> i_fun, std::string description) {
+    boost::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
+    var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
+    add(var, false);
+    return *this;
+  }
+  function_registry<T>& add_int_x(std::string key, value_type type, std::function<long long(T)> i_fun, std::function<std::string(T)> s_fun,
+                                  std::string description) {
+    boost::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
+    var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
+    var->s_function = [s_fun](auto obj, auto) { return s_fun(obj); };
+    add(var, false);
+    return *this;
+  }
+  function_registry<T>& add_int_context(std::string key, std::function<long long(T, evaluation_context)> i_fun, std::string description) {
+    boost::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_int, description));
+    var->i_function = i_fun;
+    add(var, false);
+    return *this;
+  }
+  function_registry<T>& add_int_context(std::string key, value_type type, std::function<long long(T, evaluation_context)> i_fun, std::string description) {
+    boost::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
+    var->i_function = i_fun;
+    add(var, false);
+    return *this;
+  }
+  function_registry<T>& add_numbers(std::string key, value_type type, std::function<long long(T)> i_fun, std::function<double(T)> f_fun,
+                                    std::string description) {
+    boost::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
+    var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
+    var->f_function = [f_fun](auto obj, auto) { return f_fun(obj); };
+    add(var, false);
+    return *this;
+  }
+  function_registry<T>& add_float(std::string key, std::function<double(T)> f_fun, std::string description) {
+    boost::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_float, description));
+    var->f_function = [f_fun](auto obj, auto) { return f_fun(obj); };
+    add(var, false);
+    return *this;
+  }
 
   registry_adders_variables_int<T> add_int() { return registry_adders_variables_int<T>(this); }
-  registry_adders_variables_number<T> add_number() { return registry_adders_variables_number<T>(this); }
-  registry_adders_variables_float<T> add_float() { return registry_adders_variables_float<T>(this); }
-  registry_adders_variables_string<T> add_string() { return registry_adders_variables_string<T>(this); }
-  registry_adders_variables_int<T> add_human_int() { return registry_adders_variables_int<T>(this, true); }
-  registry_adders_variables_string<T> add_human_string() { return registry_adders_variables_string<T>(this, true); }
-
+  function_registry<T>& add_string(std::string key, std::function<std::string(T)> s_fun, std::string description) {
+    boost::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_string, description));
+    var->s_function = [s_fun](auto obj, auto context) { return s_fun(obj); };
+    add(var, false);
+    return *this;
+  }
+  function_registry<T>& add_string(std::string key, std::function<std::string(T)> s_fun, std::function<long long(T)> i_fun, std::string description) {
+    boost::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_string, description));
+    var->s_function = [s_fun](auto obj, auto context) { return s_fun(obj); };
+    var->i_function = [i_fun](auto obj, auto context) { return i_fun(obj); };
+    add(var, false);
+    return *this;
+  }
+  function_registry<T>& add_human_string(std::string key, std::function<std::string(T)> s_fun, std::string description) {
+    boost::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_string, description));
+    var->s_function = [s_fun](auto obj, auto context) { return s_fun(obj); };
+    add(var, true);
+    return *this;
+  }
+  function_registry<T>& add_human_string_context(std::string key, std::function<std::string(T, evaluation_context)> s_fun, std::string description) {
+    boost::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_string, description));
+    var->s_function = s_fun;
+    add(var, true);
+    return *this;
+  }
   registry_adders_function<T> add_string_fun() { return registry_adders_function<T>(this, type_string); }
   registry_adders_function<T> add_int_fun() { return registry_adders_function<T>(this, type_int); }
   registry_adders_converters<T> add_converter() { return registry_adders_converters<T>(this); }
 
+  typedef typename filter_variable<T>::int_perf_generator_type int_perf_generator_type;
+  function_registry<T>& add_int_perf(std::string unit = "", std::string prefix = "", std::string suffix = "") {
+    get_last_variable()->int_perf.push_back(
+        int_perf_generator_type(new parsers::where::simple_number_performance_generator<T, long long>(unit, prefix, suffix)));
+    return *this;
+  }
+  function_registry<T>& no_perf() {
+    get_last_variable()->set_no_perf();
+    return *this;
+  }
+
   bool has_converter(const value_type type) const { return converters.find(type) != converters.end(); }
   bool has_variable(const std::string& key) const { return variables.find(key) != variables.end() || human_variables.find(key) != human_variables.end(); }
   bool has_function(const std::string& key) const { return functions.find(key) != functions.end(); }
-  boost::shared_ptr<filter_variable<T> > get_variable(const std::string& key, bool human_readable) const {
+  boost::shared_ptr<filter_variable<T>> get_variable(const std::string& key, bool human_readable) const {
     if (human_readable) {
       typename variable_type::const_iterator cit = human_variables.find(key);
       if (cit != human_variables.end()) {
@@ -319,14 +308,14 @@ struct function_registry {
     if (cit != variables.end()) {
       return cit->second;
     }
-    return boost::shared_ptr<filter_variable<T> >(new filter_variable<T>("dummy", type_tbd, "dummy"));
+    return boost::make_shared<filter_variable<T>>("dummy", type_tbd, "dummy");
   }
-  boost::shared_ptr<filter_converter<T> > get_converter(const value_type type) const {
+  boost::shared_ptr<filter_converter<T>> get_converter(const value_type type) const {
     typename converter_type::const_iterator cit = converters.find(type);
     if (cit != converters.end()) {
       return cit->second;
     }
-    return boost::shared_ptr<filter_converter<T> >(new filter_converter<T>(type_tbd));
+    return boost::make_shared<filter_converter<T>>(type_tbd);
   }
   std::list<std::string> get_variables() const {
     std::list<std::string> ret;
@@ -340,46 +329,34 @@ struct function_registry {
     if (cit != functions.end()) {
       return cit->second;
     }
-    return boost::shared_ptr<filter_function>(new filter_function("dummy"));
+    return boost::make_shared<filter_function>("dummy");
   }
-  void add(boost::shared_ptr<filter_variable<T> > d, bool human) {
+  void add(boost::shared_ptr<filter_variable<T>> d, bool human) {
     if (human)
       human_variables[d->name] = d;
     else
       variables[d->name] = d;
     last_variable = d;
   }
-  boost::shared_ptr<filter_variable<T> > get_last_variable() { return last_variable; }
+  boost::shared_ptr<filter_variable<T>> get_last_variable() { return last_variable; }
   void add(boost::shared_ptr<filter_function> d) { functions[d->name] = d; }
-  void add(boost::shared_ptr<filter_converter<T> > d) { converters[d->type] = d; }
+  void add(boost::shared_ptr<filter_converter<T>> d) { converters[d->type] = d; }
 };
 
 template <class T>
-void registry_adders_variables_int<T>::add_variables(boost::shared_ptr<filter_variable<T> > d) {
+void registry_adders_variables_int<T>::add_variables(boost::shared_ptr<filter_variable<T>> d) {
   owner->add(d, human);
 }
 template <class T>
-void registry_adders_variables_float<T>::add_variables(boost::shared_ptr<filter_variable<T> > d) {
-  owner->add(d, human);
-}
-template <class T>
-void registry_adders_variables_number<T>::add_variables(boost::shared_ptr<filter_variable<T> > d) {
-  owner->add(d, human);
-}
-template <class T>
-boost::shared_ptr<filter_variable<T> > registry_adders_variables_int<T>::get_last() {
+boost::shared_ptr<filter_variable<T>> registry_adders_variables_int<T>::get_last() {
   return owner->get_last_variable();
-}
-template <class T>
-void registry_adders_variables_string<T>::add_variables(boost::shared_ptr<filter_variable<T> > d) {
-  owner->add(d, human);
 }
 template <class T>
 void registry_adders_function<T>::add_functions(boost::shared_ptr<filter_function> d) {
   owner->add(d);
 }
 template <class T>
-void registry_adders_converters<T>::add_converter(boost::shared_ptr<filter_converter<T> > d) {
+void registry_adders_converters<T>::add_converter(boost::shared_ptr<filter_converter<T>> d) {
   owner->add(d);
 }
 
@@ -523,7 +500,7 @@ struct filter_handler_impl : public parsers::where::evaluation_context_impl<TObj
   }
   virtual node_type create_variable(const std::string& name, bool human_readable) {
     if (registry_.has_variable(name)) {
-      boost::shared_ptr<filter_variable<object_type> > var = registry_.get_variable(name, human_readable);
+      boost::shared_ptr<filter_variable<object_type>> var = registry_.get_variable(name, human_readable);
       if (var) {
         if (var->f_function) {
           if (var->float_perf.empty() && var->add_default_perf) {
@@ -607,39 +584,37 @@ struct filter_handler_impl : public parsers::where::evaluation_context_impl<TObj
 template <class TObject>
 node_type generic_summary<TObject>::create_variable(const std::string& key, bool) {
   if (key == "count")
-    return node_type(
-        new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_count_match(); }));
+    return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject>>(key, [](auto value) { return value->get_count_match(); }));
   if (key == "total")
-    return node_type(
-        new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_count_total(); }));
+    return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject>>(key, [](auto value) { return value->get_count_total(); }));
   if (key == "ok_count")
-    return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_count_ok(); }));
+    return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject>>(key, [](auto value) { return value->get_count_ok(); }));
   if (key == "warn_count")
-    return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_count_warn(); }));
+    return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject>>(key, [](auto value) { return value->get_count_warn(); }));
   if (key == "crit_count")
-    return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_count_crit(); }));
+    return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject>>(key, [](auto value) { return value->get_count_crit(); }));
   if (key == "problem_count")
     return node_type(
-        new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_count_problem(); }));
+        new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject>>(key, [](auto value) { return value->get_count_problem(); }));
   if (key == "list" || key == "match_list" || key == "lines")
     return node_type(
-        new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_list_match(); }));
+        new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject>>(key, [](auto value) { return value->get_list_match(); }));
   if (key == "ok_list")
-    return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_list_ok(); }));
+    return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject>>(key, [](auto value) { return value->get_list_ok(); }));
   if (key == "warn_list")
     return node_type(
-        new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_list_warn(); }));
+        new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject>>(key, [](auto value) { return value->get_list_warn(); }));
   if (key == "crit_list")
     return node_type(
-        new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_list_crit(); }));
+        new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject>>(key, [](auto value) { return value->get_list_crit(); }));
   if (key == "problem_list")
     return node_type(
-        new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_list_problem(); }));
+        new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject>>(key, [](auto value) { return value->get_list_problem(); }));
   if (key == "detail_list")
     return node_type(
-        new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_list_detail(); }));
+        new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject>>(key, [](auto value) { return value->get_list_detail(); }));
   if (key == "status")
-    return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, [](auto value) { return value->get_status(); }));
+    return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject>>(key, [](auto value) { return value->get_status(); }));
   return parsers::where::factory::create_false();
 }
 

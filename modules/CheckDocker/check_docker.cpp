@@ -76,21 +76,14 @@ struct filter_obj {
 typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler() {
-    static const parsers::where::value_type type_custom_used = parsers::where::type_custom_int_1;
-    static const parsers::where::value_type type_custom_free = parsers::where::type_custom_int_2;
-
-    // clang-format off
-    registry_.add_string()
-        ("id", [](auto obj, auto context) { return obj->get_id();  }, "Container id")
-      ("image", [](auto obj, auto context) { return obj->get_image();  }, "Container image")
-      ("image_id", [](auto obj, auto context) { return obj->get_imageId();  }, "Container image id")
-      ("command", [](auto obj, auto context) { return obj->get_command();  }, "Command")
-      ("container_state", [](auto obj, auto context) { return obj->get_state();  }, "Container image")
-      ("status", [](auto obj, auto context) { return obj->get_status();  }, "Container image")
-      ("names", [](auto obj, auto context) { return obj->get_names();  }, "Container image")
-      ("ip", [](auto obj, auto context) { return obj->get_ip();  }, "IP of container")
-    ;
-    // clang-format on
+    registry_.add_string("id", &filter_obj::get_id, "Container id")
+        .add_string("image", &filter_obj::get_image, "Container image")
+        .add_string("image_id", &filter_obj::get_imageId, "Container image id")
+        .add_string("command", &filter_obj::get_command, "Command")
+        .add_string("container_state", &filter_obj::get_state, "Container image")
+        .add_string("status", &filter_obj::get_status, "Container image")
+        .add_string("names", &filter_obj::get_names, "Container image")
+        .add_string("ip", &filter_obj::get_ip, "IP of container");
   }
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;

@@ -155,29 +155,23 @@ struct filter_obj {
   filter_obj() {}
   filter_obj(nscp_version version) : version(version) {}
 
-  long long get_major(parsers::where::evaluation_context context) const { return version.major_version; }
-  long long get_minor(parsers::where::evaluation_context context) const { return version.minor_version; }
-  long long get_build(parsers::where::evaluation_context context) const { return version.build; }
-  long long get_release(parsers::where::evaluation_context context) const { return version.release; }
-  std::string get_version_s(parsers::where::evaluation_context context) const { return version.to_string(); }
-  std::string get_date_s(parsers::where::evaluation_context context) const { return version.date; }
+  long long get_major() const { return version.major_version; }
+  long long get_minor() const { return version.minor_version; }
+  long long get_build() const { return version.build; }
+  long long get_release() const { return version.release; }
+  std::string get_version_s() const { return version.to_string(); }
+  std::string get_date_s() const { return version.date; }
 };
 typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
 
 struct filter_obj_handler : public native_context {
-  // clang-format off
-		filter_obj_handler() {
-			registry_.add_string()
-				("version", &filter_obj::get_version_s, "The NSClient++ Version as a string")
-				("date", &filter_obj::get_date_s, "The NSClient++ Build date")
-				;
-			registry_.add_int()
-				("release", &filter_obj::get_release, "The release (the 0 in 0.1.2.3)")
-				("major", &filter_obj::get_major, "The major (the 1 in 0.1.2.3)")
-				("minor", &filter_obj::get_minor, "The minor (the 2 in 0.1.2.3)")
-				("build", &filter_obj::get_build, "The build (the 3 in 0.1.2.3) not available in release versions after 0.6.0")
-				;
-    // clang-format on
+  filter_obj_handler() {
+    registry_.add_string("version", &filter_obj::get_version_s, "The NSClient++ Version as a string")
+        .add_string("date", &filter_obj::get_date_s, "The NSClient++ Build date");
+    registry_.add_int_x("release", &filter_obj::get_release, "The release (the 0 in 0.1.2.3)")
+        .add_int_x("major", &filter_obj::get_major, "The major (the 1 in 0.1.2.3)")
+        .add_int_x("minor", &filter_obj::get_minor, "The minor (the 2 in 0.1.2.3)")
+        .add_int_x("build", &filter_obj::get_build, "The build (the 3 in 0.1.2.3) not available in release versions after 0.6.0");
   }
 };
 

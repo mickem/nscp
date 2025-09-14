@@ -57,23 +57,13 @@ void counter_config_object::read(nscapi::settings_helper::settings_impl_interfac
 }
 
 filter_obj_handler::filter_obj_handler() {
-  // clang-format off
-  registry_.add_string()
-    ("counter", [] (auto obj, auto context) { return obj->get_counter(); }, "The counter name")
-    ("alias", [] (auto obj, auto context) { return obj->get_alias(); }, "The counter alias")
-    ("time", [] (auto obj, auto context) { return obj->get_time(); }, "The time for rrd checks")
-  ;
+  registry_.add_string("counter", &filter_obj::get_counter, "The counter name")
+      .add_string("alias", &filter_obj::get_alias, "The counter alias")
+      .add_string("time", &filter_obj::get_time, "The time for rrd checks");
 
-  registry_.add_number()
-    ("value", parsers::where::type_float, [] (auto obj, auto context) { return obj->get_value_i(); }, [] (auto obj, auto context) { return obj->get_value_f(); }, "The counter value (either float or int)")
-  ;
-  registry_.add_int()
-    ("value_i", [] (auto obj, auto context) { return obj->get_value_i(); }, "The counter value (force int value)")
-  ;
-  registry_.add_float()
-    ("value_f", [] (auto obj, auto context) { return obj->get_value_f(); }, "The counter value (force float value)")
-  ;
-  // clang-format on
+  registry_.add_numbers("value", parsers::where::type_float, &filter_obj::get_value_i, &filter_obj::get_value_f, "The counter value (either float or int)");
+  registry_.add_int_x("value_i", &filter_obj::get_value_i, "The counter value (force int value)");
+  registry_.add_float("value_f", &filter_obj::get_value_f, "The counter value (force float value)");
 }
 
 void check::clear() { counters_.clear(); }
