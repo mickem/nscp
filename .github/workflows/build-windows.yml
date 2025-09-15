@@ -277,3 +277,4 @@ jobs:
         echo "| Protobuf | ${{ env.PROTOBUF_VERSION }} |" >> $GITHUB_STEP_SUMMARY
         echo "| TinyXml2 | ${{ env.TINY_XML_2_VERSION }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Mongoose | ${{ env.MONGOOSE_VERSION }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Python | ${{ env.PYTHON_VERSION }} |" >> $GITHUB_STEP_SUMMARY
