@@ -155,7 +155,8 @@ struct settings_helper {
         .add_string("ca", nscapi::settings_helper::path_fun_key([&object](auto value) { object.set_property_string("ca", value); }), "CA", "", true)
 
         .add_string("allowed ciphers",
-                    nscapi::settings_helper::string_fun_key([&object](auto value) { object.set_property_string("allowed ciphers", value); }, "ADH"),
+                    nscapi::settings_helper::string_fun_key([&object](auto value) { object.set_property_string("allowed ciphers", value); },
+                                                            "ALL:!MD5:@STRENGTH:@SECLEVEL=0"),
                     "ALLOWED CIPHERS", "A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH", false)
 
         .add_string("verify mode", nscapi::settings_helper::string_fun_key([&object](auto value) { object.set_property_string("verify mode", value); }, "none"),

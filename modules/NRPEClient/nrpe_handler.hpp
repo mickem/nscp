@@ -38,7 +38,6 @@ struct nrpe_target_object : public nscapi::targets::target_object {
     set_property_string("certificate format", "PEM");
     set_property_string("allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
     set_property_string("verify mode", "none");
-    set_property_bool("insecure", false);
     set_property_bool("ssl", true);
     set_property_int("payload length", 1024);
     set_property_int("version", 2);
@@ -78,12 +77,14 @@ struct nrpe_target_object : public nscapi::targets::target_object {
 
   virtual void translate(const std::string &key, const std::string &value) {
     if (key == "insecure") {
-      if (value == "true" && get_property_string("insecure", "false") != value) {
+      auto old_value = get_property_string("insecure", "unknown");
+      if (old_value != "unknown" && value == "true") {
         set_property_string("certificate", "");
         set_property_string("certificate key", "");
         set_property_string("allowed ciphers", "ALL:!MD5:@STRENGTH:@SECLEVEL=0");
         set_property_string("verify mode", "none");
         set_property_bool("ssl", true);
+        set_property_string("allowed ciphers", "ALL:!MD5:@STRENGTH:@SECLEVEL=0");
       }
     }
     parent::translate(key, value);
@@ -103,7 +104,7 @@ struct options_reader_impl : public client::options_reader_interface {
 
     // clang-format off
     desc.add_options()
-      ("insecure", po::value<bool>()->zero_tokens()->default_value(false)->notifier([&target](auto value) { target.set_bool_data("insecure", value); }),
+      ("insecure", po::value<bool>()->implicit_value(true)->notifier([&target](auto value) { target.set_bool_data("insecure", value); }),
       "Use insecure legacy mode")
       ("payload-length,l", po::value<unsigned int>()->notifier([&target](auto value) { target.set_int_data("payload length", value); }),
       "Length of payload (has to be same as on the server)")
