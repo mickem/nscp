@@ -58,7 +58,13 @@ start nscp test
 
 timeout /t 3 /nobreak >nul
 
-echo - Testing without TLS...
+echo - Testing without TLS (nsclient)...
+nscp nrpe --host 127.0.0.1 --insecure --command mock_query
+if not %errorlevel%==0 (
+    echo ! Failed to connect with NRPE, Error level was: %errorlevel%
+    exit /b 1
+)
+echo - Testing without TLS (check_nrpe)...
 docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 -c mock_query
 if not %errorlevel%==0 (
   echo ! Failed to connect with NRPE, Error level was: %errorlevel%
@@ -84,13 +90,25 @@ start nscp test
 
 timeout /t 3 /nobreak >nul
 
-echo - Testing without client certificate...
+echo - Testing without client certificate (nsclient)...
+nscp nrpe --host 127.0.0.1 --command mock_query
+if not %errorlevel%==0 (
+    echo ! Failed to connect with NRPE, Error level was: %errorlevel%
+    exit /b 1
+)
+echo - Testing without client certificate (check_nrpe)...
 docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 --ssl-version TLSv1.2+ -c mock_query
 if not %errorlevel%==0 (
   echo ! Failed to connect with NRPE, Error level was: %errorlevel%
   exit /b 1
 )
-echo - Testing invalid TLS version...
+echo - Testing insecure mode (can negotiate better ciphers) (nsclient)...
+nscp nrpe --host 127.0.0.1 --command mock_query --insecure
+if not %errorlevel%==0 (
+    echo ! Failed to connect with NRPE, Error level was: %errorlevel%
+    exit /b 1
+)
+echo - Testing invalid TLS version (check_nrpe)...
 docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 --ssl-version SSLv3 --client-cert /test/client.crt --key-file /test/client.key -c mock_query
 if not %errorlevel%==2 (
   echo ! Succeeded to connect with invalid TLS version, Error level was: %errorlevel%
@@ -115,19 +133,31 @@ start nscp test
 
 timeout /t 3 /nobreak >nul
 
-echo - Testing valid client certificate...
+echo - Testing valid client certificate (nsclient)...
+nscp nrpe --host 127.0.0.1 --certificate nrpe_test\client.crt --certificate-key nrpe_test\client.key --command mock_query
+if not %errorlevel%==0 (
+  echo ! Failed to connect with NRPE, Error level was: %errorlevel%
+  exit /b 1
+)
+echo - Testing valid client certificate (check_nrpe)...
 docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 --ssl-version TLSv1.2+ --client-cert /test/client.crt --key-file /test/client.key -c mock_query
 if not %errorlevel%==0 (
   echo ! Failed to connect with NRPE, Error level was: %errorlevel%
   exit /b 1
 )
-echo - Testing without certificate...
+echo - Testing without certificate (nsclient)...
+nscp nrpe --host 127.0.0.1 --command mock_query
+if not %errorlevel%==3 (
+  echo ! Failed to connect with NRPE, Error level was: %errorlevel%
+  exit /b 1
+)
+echo - Testing without certificate (check_nrpe)...
 docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 -c mock_query
 if not %errorlevel%==3 (
   echo ! Succeeded to connect with invalid certificate, Error level was: %errorlevel%
   exit /b 1
 )
-echo - Testing invalid TLS version...
+echo - Testing invalid TLS version (check_nrpe)...
 docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 --ssl-version SSLv3 --client-cert /test/client.crt --key-file /test/client.key -c mock_query
 if not %errorlevel%==2 (
   echo ! Succeeded to connect with invalid TLS version, Error level was: %errorlevel%

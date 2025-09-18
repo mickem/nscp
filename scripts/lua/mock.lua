@@ -1,3 +1,4 @@
+local core = Core()
 function mock_query(command, args)
     return 'ok', command .. "::" .. table.concat(args, ","), "'a label'=30Z;20;30;10;50 'another label'=33Z;20;30"
 end
@@ -14,7 +15,7 @@ end
 
 function mock_exit(command, msgs)
 	core:simple_exec("CommandClient","exit", {})
-    return 'ok', 'Service shutting down'
+    return 'ok', 'Service shutting down', ""
 end
 
 local reg = Registry()

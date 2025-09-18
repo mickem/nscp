@@ -42,14 +42,13 @@ struct connection_data : public socket_helpers::connection_info {
     version = target.get_int_data("version", 2);
 
     ssl.enabled = target.get_bool_data("ssl", true);
-    if (target.get_bool_data("insecure", false)) {
-      ssl.certificate = target.get_string_data("certificate");
-      ssl.certificate_key = target.get_string_data("certificate key");
-      ssl.certificate_key_format = target.get_string_data("certificate format");
-      ssl.ca_path = target.get_string_data("ca");
-      ssl.allowed_ciphers = target.get_string_data("allowed ciphers", "ADH@SECLEVEL=0");
-      ssl.dh_key = target.get_string_data("dh");
-      ssl.verify_mode = target.get_string_data("verify mode");
+    if (target.has_data("insecure") && target.get_bool_data("insecure", false)) {
+      ssl.certificate = "";
+      ssl.certificate_key = "";
+      ssl.certificate_key_format = "";
+      ssl.ca_path = "";
+      ssl.allowed_ciphers = "ALL:!MD5:@STRENGTH:@SECLEVEL=0";
+      ssl.verify_mode = "none";
     } else {
       ssl.certificate = target.get_string_data("certificate", "${certificate-path}/certificate.pem");
       ssl.certificate_key = target.get_string_data("certificate key");
