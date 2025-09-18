@@ -28,7 +28,14 @@ runs:
       run: | 
         npm run test
 
+    - name: show logs
+      working-directory: tmp/nscp
+      if: always()
+      shell: cmd
+      run: type nsclient.log
+
     - name: Stop NSClient++
+      if: always()
       working-directory: tmp/nscp
       shell: cmd
       run: taskkill /F /im nscp.exe
