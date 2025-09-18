@@ -99,7 +99,7 @@ struct filter_obj {
   __int64 to_local_time(const __int64& t) {
     FILETIME ft;
     ft.dwHighDateTime = t >> 32;
-    ft.dwLowDateTime = static_cast<DWORD>(t);
+    ft.dwLowDateTime = static_cast<DWORD>(t & 0xFFFFFFFF);
     FILETIME lft = ft_utc_to_local_time(ft);
     return (lft.dwHighDateTime * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)lft.dwLowDateTime;
   }
@@ -121,7 +121,7 @@ struct filter_obj {
   std::string get_written_sl() { return str::format::format_filetime(to_local_time(ullLastWriteTime)); }
   std::string get_extension() {
     auto extension_with_dot = boost::filesystem::path(filename).extension().string();
-    return extension_with_dot.empty() ? extension_with_dot : extension_with_dot.substr(1);
+    return (extension_with_dot.size() > 1 && extension_with_dot[0] == '.') ? extension_with_dot.substr(1) : "";
   }
   unsigned long long get_type();
   std::string get_type_su();

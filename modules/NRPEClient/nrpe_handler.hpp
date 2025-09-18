@@ -84,7 +84,6 @@ struct nrpe_target_object : public nscapi::targets::target_object {
         set_property_string("allowed ciphers", "ALL:!MD5:@STRENGTH:@SECLEVEL=0");
         set_property_string("verify mode", "none");
         set_property_bool("ssl", true);
-        set_property_string("allowed ciphers", "ALL:!MD5:@STRENGTH:@SECLEVEL=0");
       }
     }
     parent::translate(key, value);
