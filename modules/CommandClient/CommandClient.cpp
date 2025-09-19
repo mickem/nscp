@@ -198,7 +198,7 @@ bool CommandClient::commandLineExec(const int target_mode, const PB::Commands::E
 
   input_thread = boost::thread([this]() { this->read_input_thread(); });
 
-  NSC_DEBUG_MSG("Enter command to execute, help for help or exit to exit XXX...");
+  NSC_DEBUG_MSG("Enter command to execute, help for help or exit to exit...");
   input_thread.join();
   nscapi::protobuf::functions::set_response_good(*response, "Done");
   return true;
