@@ -154,6 +154,7 @@ struct filter_obj {
 
   filter_obj() {}
   filter_obj(nscp_version version) : version(version) {}
+  std::string show() const { return version.to_string(); }
 
   long long get_major() const { return version.major_version; }
   long long get_minor() const { return version.minor_version; }

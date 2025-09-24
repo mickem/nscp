@@ -38,6 +38,7 @@ struct filter_obj {
 
   filter_obj(std::string time, std::string core) : time(time), core(core) {}
 
+  std::string show() const { return "core: " + core + " time: " + time; }
   long long get_total() const { return 0; }
   long long get_idle() const { return 0; }
   long long get_kernel() const { return 0; }
@@ -64,6 +65,11 @@ struct filter_obj {
 
   filter_obj(std::string type, unsigned long long free, unsigned long long total) : type(type), free(free), total(total) {}
   filter_obj(const filter_obj &other) : type(other.type), free(other.free), total(other.total) {}
+
+  std::string show() const {
+    return "type: " + type + " total: " + str::format::format_byte_units(total) + " free: " + str::format::format_byte_units(free) +
+           " used: " + str::format::format_byte_units(total - free);
+  }
 
   long long get_total() const { return total; }
   long long get_used() const { return total - free; }
@@ -105,6 +111,11 @@ struct filter_obj {
 
   filter_obj() {}
 
+  std::string show() const {
+    return "kernel: " + kernel_name + " nodename: " + nodename + " version: " + kernel_version + " release: " + kernel_release + " machine: " + machine +
+           " processor: " + processor + " os: " + os;
+  }
+
   std::string get_kernel_name() const { return kernel_name; }
   std::string get_nodename() const { return nodename; }
   std::string get_kernel_version() const { return kernel_version; }
@@ -130,6 +141,8 @@ struct filter_obj {
   boost::posix_time::ptime boot;
 
   filter_obj(long long uptime, long long now, boost::posix_time::ptime boot) : uptime(uptime), now(now), boot(boot) {}
+
+  std::string show() const { return "uptime: " + str::format::itos_as_time(uptime * 1000) + " boot: " + str::format::format_date(boot); }
 
   long long get_uptime() const { return uptime; }
   long long get_boot() const { return now - uptime; }

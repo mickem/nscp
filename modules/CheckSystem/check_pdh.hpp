@@ -67,6 +67,7 @@ struct filter_obj {
   filter_obj(std::string alias, std::string counter, std::string time, long long value_i, double value_f)
       : alias(alias), counter(counter), time(time), value_i(value_i), value_f(value_f) {}
 
+  std::string show() const { return counter + "=" + str::xtos(value_f) + " (" + str::xtos(value_i) + ")"; }
   long long get_value_i() const { return value_i; }
   double get_value_f() const { return value_f; }
   std::string get_counter() const { return counter; }

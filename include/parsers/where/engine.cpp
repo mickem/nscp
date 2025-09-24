@@ -74,9 +74,6 @@ bool engine_filter::match(error_handler error, execution_context_type context, b
   if (context->has_warn()) {
     error->log_warning(context->get_warn() + ": " + ast_parser.result_as_tree(context));
   }
-  if (context->has_debug()) {
-    error->log_debug(context->get_debug() + ": " + ast_parser.result_as_tree(context));
-  }
   context->clear();
   if (v.is_unsure) {
     error->log_warning("Ignoring unsure result: " + ast_parser.result_as_tree(context));

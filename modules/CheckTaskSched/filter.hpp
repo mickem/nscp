@@ -166,6 +166,8 @@ struct com_variable {
 struct filter_obj {
   virtual bool is_new() = 0;
 
+  virtual std::string show() = 0;
+
   virtual std::string get_folder() = 0;
   virtual std::string get_title() = 0;
 
@@ -217,8 +219,10 @@ struct old_filter_obj : public filter_obj {
 
   bool is_new() { return false; }
 
+  std::string show() const { return title; }
   std::string get_title() { return title; }
   std::string get_folder() { return "/"; }
+  std::string show() { return get_title(); }
 
   long long is_enabled() { return ((get_status() & SCHED_S_TASK_DISABLED) == SCHED_S_TASK_DISABLED) ? 0 : 1; }
 
@@ -292,6 +296,7 @@ struct new_filter_obj : public filter_obj {
   std::string get_folder() { return folder; }
 
   long long is_enabled() { return enabled(task, get_title()); }
+  std::string show() { return folder + "\\" + get_title(); }
 
   std::string get_title() {
     if (str_title.empty()) str_title = title(task, "unknown");

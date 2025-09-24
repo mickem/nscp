@@ -37,6 +37,11 @@ struct filter_obj {
 
   filter_obj(std::string time, std::string core, const windows::system_info::load_entry &value) : time(time), core(core), value(value) {}
 
+  std::string show() const {
+    return core + " user: " + str::xtos(value.user) + "% kernel: " + str::xtos(value.kernel) + "% idle: " + str::xtos(value.idle) +
+           "% total: " + str::xtos(get_total()) + "%";
+  }
+
   long long get_total() const { return static_cast<long long>(value.user + value.kernel); }
   long long get_user() const { return static_cast<long long>(value.user); }
   long long get_idle() const { return static_cast<long long>(value.idle); }
@@ -60,6 +65,8 @@ struct filter_obj {
   const windows::system_info::pagefile_info &info;
 
   filter_obj(const windows::system_info::pagefile_info &info) : info(info) {}
+
+  std::string show() const { return info.name; }
 
   long long get_peak() const { return info.peak_usage; }
   long long get_total() const { return info.size; }
@@ -98,6 +105,7 @@ struct filter_obj {
 
   filter_obj(long long uptime, long long now, boost::posix_time::ptime boot) : uptime(uptime), now(now), boot(boot) {}
 
+  std::string show() const { return get_uptime_s(); }
   long long get_uptime() const { return uptime; }
   long long get_boot() const { return now - uptime; }
   std::string get_boot_s() const { return str::format::format_date(boot); }
@@ -123,6 +131,8 @@ struct filter_obj {
 
   filter_obj() : major_version(0), minor_version(0), build(0), plattform(0), version_i(0) {}
 
+  std::string show() const { return version_s; }
+  std::string to_string() const { return version_s; }
   long long get_major() const { return major_version; }
   long long get_minor() const { return minor_version; }
   long long get_build() const { return build; }

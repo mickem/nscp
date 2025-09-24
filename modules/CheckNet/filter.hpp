@@ -45,6 +45,13 @@ struct filter_obj {
 
   static boost::shared_ptr<ping_filter::filter_obj> get_total();
 
+  std::string show() const {
+    if (is_total_)
+      return "total";
+    else
+      return result.destination_ + "(" + result.ip_ + ")";
+  }
+
   //		std::string get_filename() { return filename; }
   //	std::string get_path(parsers::where::evaluation_context) { return path.string(); }
 

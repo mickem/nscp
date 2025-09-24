@@ -98,6 +98,8 @@ struct filter_obj {
   wmi_impl::row &row;
   filter_obj(wmi_impl::row &row) : row(row) {}
 
+  std::string show() const { return row.to_string(); }
+
   std::string get_string(const std::string col) const { return row.get_string(col); }
   std::string get_row() const { return row.to_string(); }
   long long get_int(const std::string col) const { return row.get_int(col); }

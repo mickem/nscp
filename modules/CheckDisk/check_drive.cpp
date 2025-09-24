@@ -129,6 +129,12 @@ struct filter_obj {
     }
     return "";
   }
+  std::string show() const {
+    if (!drive.letter.empty()) {
+      return drive.letter;
+    }
+    return drive.id;
+  }
   std::string get_name() const { return drive.name; }
   std::string get_id() const { return drive.id; }
   std::string get_drive_or_id() const { return drive.letter.empty() ? drive.id : drive.letter; }

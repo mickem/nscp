@@ -20,6 +20,7 @@
 #pragma once
 
 #include <list>
+#include <str/xtos.hpp>
 #include <string>
 #include <win_sysinfo/win_sysinfo.hpp>
 
@@ -65,6 +66,11 @@ struct service_info {
 
   std::string binary_path;
   std::string classification_;
+
+  std::string show() const {
+    return name + " (" + displayname + ") - " + get_state_s() + " (" + get_start_type_s() + ") - pid: " + str::xtos(pid) + " - type: " + get_type() +
+           (delayed ? " (delayed)" : "") + (triggers > 0 ? " (trigger)" : "") + " - path: " + binary_path;
+  }
 
   std::string get_state_s() const;
   std::string get_legacy_state_s() const;

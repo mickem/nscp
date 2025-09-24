@@ -24,6 +24,7 @@
 
 #include <boost/shared_ptr.hpp>
 #include <list>
+#include <str/xtos.hpp>
 #include <string>
 
 #define DEFAULT_BUFFER_SIZE 4096
@@ -110,6 +111,8 @@ struct process_info {
 
   process_info() {}
   process_info(const std::string s) : exe(s), started(false) {}
+
+  std::string show() const { return filename.get() + ", " + command_line.get() + ", pid: " + str::xtos(pid) + ", state: " + get_state_s(); }
 
   std::string get_state_s() const {
     if (has_error) return "error";

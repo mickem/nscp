@@ -40,6 +40,11 @@ struct filter_obj {
 
   filter_obj(std::string type, unsigned long long used, unsigned long long total) : type(type), used(used), total(total) {}
 
+  std::string show() const {
+    return type + " used: " + str::xtos(used) + " total: " + str::xtos(total) + " free: " + str::xtos(get_free()) + " used%: " + str::xtos(get_used_pct()) +
+           "% free%: " + str::xtos(get_free_pct()) + "%";
+  }
+
   long long get_total() const { return total; }
   long long get_used() const { return used; }
   long long get_free() const { return total - used; }
