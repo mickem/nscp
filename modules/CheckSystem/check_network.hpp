@@ -95,6 +95,8 @@ struct network_interface {
     return *this;
   }
 
+  std::string show() const { return name + " (" + NetConnectionID + ")"; }
+
   void read_wna(wmi_impl::row r);
   void read_prd(wmi_impl::row r, long long delta);
 

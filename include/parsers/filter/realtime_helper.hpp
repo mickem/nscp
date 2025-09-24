@@ -33,7 +33,7 @@ template <class runtime_data, class config_object>
 struct realtime_filter_helper {
   nscapi::core_wrapper *core;
   int plugin_id;
-  realtime_filter_helper(nscapi::core_wrapper *core, int plugin_id) : core(core), plugin_id(plugin_id) {}
+  realtime_filter_helper(nscapi::core_wrapper *core, const int plugin_id) : core(core), plugin_id(plugin_id) {}
 
   typedef typename runtime_data::filter_type filter_type;
   typedef typename runtime_data::transient_data_type transient_data_type;
@@ -65,10 +65,10 @@ struct realtime_filter_helper {
     bool escape_html;
     runtime_data data;
 
-    container(std::string alias, std::string event_name, runtime_data data)
-        : alias(alias), event_name(event_name), command(alias), debug(false), escape_html(false), data(data) {}
+    container(const std::string &alias, const std::string &event_name, runtime_data data)
+        : alias(alias), event_name(event_name), command(alias), severity(0), debug(false), escape_html(false), data(data) {}
 
-    void set_target(std::string new_target, std::string new_target_id, std::string new_source_id) {
+    void set_target(const std::string &new_target, const std::string &new_target_id, const std::string &new_source_id) {
       target = new_target;
       target_id = new_target_id;
       source_id = new_source_id;
@@ -101,7 +101,7 @@ struct realtime_filter_helper {
       return true;
     }
 
-    bool is_silent(const boost::posix_time::ptime &now) {
+    bool is_silent(const boost::posix_time::ptime &now) const {
       if (!silent_period) {
         return false;
       }
@@ -134,7 +134,7 @@ struct realtime_filter_helper {
 
   std::list<container_type> items;
 
-  bool add_item(const boost::shared_ptr<config_object> object, const runtime_data &source_data, const std::string event_name) {
+  bool add_item(const boost::shared_ptr<config_object> object, const runtime_data &source_data, const std::string &event_name) {
     container_type item(new container(object->get_alias(), event_name, source_data));
     item->set_target(object->filter.target, object->filter.target_id, object->filter.source_id);
     item->timeout_msg = object->filter.timeout_msg;
@@ -165,7 +165,7 @@ struct realtime_filter_helper {
     }
   }
 
-  bool process_item(container_type item, transient_data_type data, bool is_silent) {
+  bool process_item(container_type item, transient_data_type data, const bool is_silent) {
     std::string response;
     if (item->is_events() || item->is_event()) {
       item->filter.fetch_hash(true);
@@ -173,7 +173,7 @@ struct realtime_filter_helper {
     item->filter.start_match();
     if (item->severity != -1) item->filter.summary.returnCode = item->severity;
 
-    modern_filter::match_result result = item->data.process_item(item->filter, data);
+    const modern_filter::match_result result = item->data.process_item(item->filter, data);
     if (!result.matched_filter) {
       return false;
     }

@@ -34,6 +34,8 @@ struct filter_obj {
   typedef parsers::where::node_type node_type;
   filter_obj(std::string filename, std::string line, std::list<std::string> chunks) : filename(filename), line(line), chunks(chunks.begin(), chunks.end()) {}
 
+  std::string show() const { return filename + ":" + str::xtos(line); }
+
   std::string get_column(std::size_t col) const {
     if (col >= 1 && col <= chunks.size()) return chunks[col - 1];
     return "";

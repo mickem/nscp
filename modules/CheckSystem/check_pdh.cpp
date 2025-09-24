@@ -21,6 +21,7 @@
 #include <boost/regex.hpp>
 #include <map>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
 

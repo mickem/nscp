@@ -115,6 +115,14 @@ enum NSCAPI_EXPORT value_type {
   type_custom_4 = 4096 + 4
 };
 
+enum NSCAPI_EXPORT object_match {
+  none,
+  match,
+  ok,
+  warning,
+  critical,
+};
+
 struct NSCAPI_EXPORT value_container {
   boost::optional<long long> i_value;
   boost::optional<double> f_value;
@@ -199,18 +207,19 @@ struct NSCAPI_EXPORT value_container {
 };
 
 struct evaluation_context_interface {
+  virtual ~evaluation_context_interface() = default;
   virtual bool has_error() const = 0;
   virtual std::string get_error() const = 0;
-  virtual void error(const std::string) = 0;
+  virtual void error(std::string) = 0;
   virtual bool has_warn() const = 0;
   virtual std::string get_warn() const = 0;
-  virtual void warn(const std::string) = 0;
+  virtual void warn(std::string) = 0;
   virtual void clear() = 0;
 
   virtual void enable_debug(bool enable_debug) = 0;
-  virtual bool has_debug() const = 0;
+  virtual bool debug_enabled() = 0;
   virtual std::string get_debug() const = 0;
-  virtual void debug(const std::string) = 0;
+  virtual void debug(object_match reason) = 0;
 };
 typedef boost::shared_ptr<evaluation_context_interface> evaluation_context;
 
@@ -272,19 +281,20 @@ struct binary_operator_impl {
   virtual node_type evaluate(evaluation_context context, const node_type left, const node_type right) const = 0;
 };
 struct binary_function_impl {
+  virtual ~binary_function_impl() = default;
   virtual node_type evaluate(value_type type, evaluation_context context, const node_type subject) const = 0;
 };
 struct unary_operator_impl {
   virtual node_type evaluate(evaluation_context context, const node_type subject) const = 0;
 };
 
-struct object_converter_interface : public evaluation_context_interface {
+struct object_converter_interface : evaluation_context_interface {
   virtual bool can_convert(value_type from, value_type to) = 0;
   virtual bool can_convert(std::string name, boost::shared_ptr<any_node> subject, value_type to) = 0;
   virtual boost::shared_ptr<binary_function_impl> create_converter(std::string name, boost::shared_ptr<any_node> subject, value_type to) = 0;
 };
 typedef boost::shared_ptr<object_converter_interface> object_converter;
-struct object_factory_interface : public object_converter_interface {
+struct object_factory_interface : object_converter_interface {
   typedef std::size_t index_type;
 
   virtual bool has_variable(const std::string &name) = 0;
@@ -303,6 +313,7 @@ struct NSCAPI_EXPORT any_node {
   value_type type;
 
  public:
+  virtual ~any_node() = default;
   any_node() : type(type_tbd) {}
   any_node(const value_type type) : type(type) {}
   any_node(const any_node &other) : type(other.type) {}

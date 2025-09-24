@@ -383,6 +383,7 @@ struct filter_obj {
 
   filter_obj(const PB::Common::PerformanceData &data) : data(data) {}
 
+  std::string show() const { return data.alias() + "=" + get_value() + get_unit(); }
   std::string get_key() const { return data.alias(); }
   std::string get_unit() const {
     if (data.has_float_value()) return data.float_value().unit();

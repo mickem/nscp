@@ -24,16 +24,11 @@
 #include <Windows.h>
 #endif
 
-#include <boost/noncopyable.hpp>
 #include <boost/optional.hpp>
-#include <boost/shared_ptr.hpp>
 #include <buffer.hpp>
-#include <error/error.hpp>
 #include <handle.hpp>
 #include <map>
 #include <parsers/filter/modern_filter.hpp>
-#include <parsers/where.hpp>
-#include <parsers/where/engine.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/where/node.hpp>
 #include <str/format.hpp>
@@ -48,6 +43,8 @@ struct filter_obj : boost::noncopyable {
 
   filter_obj(unsigned long long now) : now_(now) {}
   virtual ~filter_obj() {}
+
+  virtual std::string show() = 0;
 
   virtual long long get_id() const = 0;
   virtual std::string get_provider() const = 0;
@@ -85,6 +82,8 @@ struct old_filter_obj : filter_obj {
   old_filter_obj(unsigned long long now, std::string file, const EVENTLOGRECORD *pevlr, const int truncate_message)
       : filter_obj(now), record(file, pevlr), truncate_message(truncate_message) {}
 
+  std::string show() { return get_log() + ":" + str::xtos(get_id()) + "=" + get_el_type_s() + "('" + get_message() + "')"; }
+
   long long get_id() const { return record.eventID(); }
   std::string get_provider() const { return utf8::cvt<std::string>(record.get_source()); }
   std::string get_computer() const { return utf8::cvt<std::string>(record.get_computer()); }
@@ -120,6 +119,8 @@ struct new_filter_obj : filter_obj {
   new_filter_obj(unsigned long long now, const std::string &logfile, eventlog::api::EVT_HANDLE hEvent, eventlog::evt_handle &hContext,
                  const int truncate_message);
   virtual ~new_filter_obj() {}
+
+  std::string show() { return get_log() + ":" + str::xtos(get_id()) + "=" + get_el_type_s() + "('" + get_message() + "')"; }
 
   long long get_id() const { return buffer.get()[eventlog::api::EvtSystemEventID].UInt16Val; }
   std::string get_provider() const;

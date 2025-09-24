@@ -21,6 +21,7 @@
 
 #include <boost/json.hpp>
 #include <http/client.hpp>
+#include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
@@ -62,6 +63,8 @@ struct filter_obj {
     // Object: HostConfig
     // List of objects: Mounts
   }
+
+  std::string show() const { return id + " " + image + " " + command + " " + state + " " + status + " " + names + " " + ip; }
 
   std::string get_id() const { return id; }
   std::string get_image() const { return image; }

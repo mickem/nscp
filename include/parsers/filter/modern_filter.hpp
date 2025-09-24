@@ -21,7 +21,6 @@
 
 #include <NSCAPI.h>
 
-#include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/unordered_set.hpp>
 #include <nscapi/nscapi_helper.hpp>
@@ -29,7 +28,6 @@
 #include <parsers/perfconfig/perfconfig.hpp>
 #include <parsers/where/engine.hpp>
 #include <parsers/where/engine_impl.hpp>
-#include <str/utils.hpp>
 #include <str/xtos.hpp>
 
 #ifdef WIN32
@@ -39,25 +37,26 @@
 
 namespace parsers {
 namespace where {
-template <class Tobject>
+template <class TObject>
 struct generic_summary;
 }
 }  // namespace parsers
 
 struct perf_writer_interface {
+  virtual ~perf_writer_interface() = default;
   virtual void write(const parsers::where::performance_data &value) = 0;
 };
 
 namespace modern_filter {
-template <class Tfactory>
+template <class TFactory>
 struct filter_text_renderer {
   typedef boost::shared_ptr<parsers::where::error_handler_interface> error_handler;
   struct my_entry {
     parsers::simple_expression::entry origin;
     parsers::where::node_type node;
-    my_entry(const parsers::simple_expression::entry &origin) : origin(origin) {}
+    explicit my_entry(const parsers::simple_expression::entry &origin) : origin(origin) {}
     my_entry(const my_entry &other) : origin(other.origin), node(other.node) {}
-    const my_entry &operator=(const my_entry &other) {
+    my_entry &operator=(const my_entry &other) {
       origin = other.origin;
       node = other.node;
       return *this;
@@ -69,7 +68,7 @@ struct filter_text_renderer {
   filter_text_renderer() {}
 
   bool empty() const { return entries.empty(); }
-  bool parse(boost::shared_ptr<Tfactory> context, const std::string str, error_handler error) {
+  bool parse(boost::shared_ptr<TFactory> context, const std::string &str, const error_handler &error) {
     if (str.empty() || str == "none") return true;
     parsers::simple_expression::result_type keys;
     if (error->is_debug()) {
@@ -97,7 +96,7 @@ struct filter_text_renderer {
     }
     return true;
   }
-  std::string render(boost::shared_ptr<Tfactory> context) const {
+  std::string render(boost::shared_ptr<TFactory> context) const {
     std::string ret;
     for (const my_entry &e : entries) {
       if (!e.origin.is_variable)
@@ -113,14 +112,14 @@ struct filter_text_renderer {
   }
 };
 
-template <class Tfactory>
+template <class TFactory>
 struct filter_hash_renderer {
   struct my_entry {
     std::string key;
     parsers::where::node_type node;
-    my_entry(const std::string &key, parsers::where::node_type node) : key(key), node(node) {}
+    my_entry(const std::string &key, const parsers::where::node_type &node) : key(key), node(node) {}
     my_entry(const my_entry &other) : key(other.key), node(other.node) {}
-    const my_entry &operator=(const my_entry &other) {
+    my_entry &operator=(const my_entry &other) {
       key = other.key;
       node = other.node;
       return *this;
@@ -132,14 +131,14 @@ struct filter_hash_renderer {
   filter_hash_renderer() {}
 
   bool empty() const { return entries.empty(); }
-  bool parse(boost::shared_ptr<Tfactory> context) {
+  bool parse(boost::shared_ptr<TFactory> context) {
     for (const std::string &e : context->get_variables()) {
       my_entry my_e(e, context->create_variable(e, true));
       entries.push_back(my_e);
     }
     return true;
   }
-  std::map<std::string, std::string> render(boost::shared_ptr<Tfactory> context) const {
+  std::map<std::string, std::string> render(boost::shared_ptr<TFactory> context) const {
     std::map<std::string, std::string> ret;
     for (const my_entry &e : entries) {
       if (e.node->is_int())
@@ -153,7 +152,7 @@ struct filter_hash_renderer {
   }
 };
 
-template <class Tfactory>
+template <class TFactory>
 struct perf_config_parser {
   typedef std::map<std::string, std::string> values_type;
   struct config_entry {
@@ -173,7 +172,7 @@ struct perf_config_parser {
   std::list<std::string> extra_perf;
   perf_config_parser() {}
 
-  bool parse(boost::shared_ptr<Tfactory> context, const std::string str, error_handler error) {
+  bool parse(boost::shared_ptr<TFactory> context, const std::string &str, const error_handler &error) {
     parsers::perfconfig::result_type keys;
     parsers::perfconfig parser;
     if (!parser.parse(str, keys)) {
@@ -213,14 +212,9 @@ struct match_result {
 
   match_result(bool matched_filter, bool matched_bound) : matched_filter(matched_filter), matched_bound(matched_bound), is_done_(false) {}
 
-  match_result(const match_result &other) : matched_filter(other.matched_filter), matched_bound(other.matched_bound), is_done_(other.is_done_) {}
+  match_result(const match_result &other) = default;
 
-  const match_result &operator=(const match_result &other) {
-    matched_filter = other.matched_filter;
-    matched_bound = other.matched_bound;
-    is_done_ = other.is_done_;
-    return *this;
-  }
+  match_result &operator=(const match_result &other) = default;
 
   void append(const match_result &other) {
     matched_filter |= other.matched_filter;
@@ -232,45 +226,45 @@ struct match_result {
 class error_handler_impl : public parsers::where::error_handler_interface {
   std::string error;
   bool debug_;
-  error_handler_impl() {}
+  error_handler_impl() : debug_(false) {}
 
  public:
-  error_handler_impl(bool debug) : debug_(debug) {}
-  void log_error(const std::string error);
-  void log_warning(const std::string error);
-  void log_debug(const std::string error);
-  bool is_debug() const;
-  void set_debug(bool debug_);
+  explicit error_handler_impl(const bool debug) : debug_(debug) {}
+  void log_error(std::string error) override;
+  void log_warning(std::string error) override;
+  void log_debug(std::string error) override;
+  bool is_debug() const override;
+  void set_debug(bool debug_) override;
   bool has_errors() const;
   std::string get_errors() const;
 };
 
-template <class Tobject, class Tfactory>
+template <class TObject, class TFactory>
 struct modern_filters {
   typedef boost::shared_ptr<error_handler_impl> error_type;
   typedef boost::shared_ptr<parsers::where::engine> filter_engine;
-  typedef parsers::where::performance_collector::boundries_type boundries_type;
-  typedef boost::shared_ptr<Tobject> object_type;
+  typedef parsers::where::performance_collector::boundries_type boundaries_type;
+  typedef boost::shared_ptr<TObject> object_type;
 
-  filter_text_renderer<Tfactory> renderer_top;
-  filter_text_renderer<Tfactory> renderer_detail;
-  filter_hash_renderer<Tfactory> renderer_hash;
-  filter_text_renderer<Tfactory> renderer_perf;
-  filter_text_renderer<Tfactory> renderer_unqiue;
-  filter_text_renderer<Tfactory> renderer_ok;
-  filter_text_renderer<Tfactory> renderer_empty;
+  filter_text_renderer<TFactory> renderer_top;
+  filter_text_renderer<TFactory> renderer_detail;
+  filter_hash_renderer<TFactory> renderer_hash;
+  filter_text_renderer<TFactory> renderer_perf;
+  filter_text_renderer<TFactory> renderer_unique;
+  filter_text_renderer<TFactory> renderer_ok;
+  filter_text_renderer<TFactory> renderer_empty;
   filter_engine engine_filter;
   filter_engine engine_warn;
   filter_engine engine_crit;
   filter_engine engine_ok;
-  perf_config_parser<Tfactory> perf_config;
+  perf_config_parser<TFactory> perf_config;
   parsers::where::generic_summary<object_type> summary;
   boost::unordered_set<std::string> unique_index;
   bool has_matched;
   typedef std::map<std::string, std::string> hash_type;
   typedef std::list<hash_type> hash_list_type;
   hash_list_type records_;
-  boost::shared_ptr<Tfactory> context;
+  boost::shared_ptr<TFactory> context;
   bool fetch_hash_;
   bool has_unique_index;
   error_type error_handler_;
@@ -289,7 +283,7 @@ struct modern_filters {
   typedef std::map<std::string, perf_entry> leaf_performance_entry_type;
   leaf_performance_entry_type leaf_performance_data;
 
-  modern_filters() : context(new Tfactory()), fetch_hash_(false), has_unique_index(false) { context->set_summary(&summary); }
+  modern_filters() : has_matched(false), context(new TFactory()), fetch_hash_(false), has_unique_index(false) { context->set_summary(&summary); }
 
   std::map<std::string, std::string> get_filter_syntax() const {
     std::map<std::string, std::string> ret;
@@ -299,10 +293,9 @@ struct modern_filters {
     ret.insert(m2.begin(), m2.end());
     return ret;
   }
-  bool build_index(const std::string &unqie, std::string &gerror) {
-    std::string lerror;
-    if (!renderer_unqiue.parse(context, unqie, error_handler_)) {
-      gerror = "Invalid unique-syntax: " + lerror;
+  bool build_index(const std::string &unique, std::string &global_error) {
+    if (!renderer_unique.parse(context, unique, error_handler_)) {
+      global_error = "Invalid unique-syntax: " + unique;
       return false;
     }
     has_unique_index = true;
@@ -374,7 +367,7 @@ struct modern_filters {
       return false;
     }
     if (engine_warn) {
-      for (const boundries_type::value_type &v : engine_warn->fetch_performance_data()) {
+      for (const boundaries_type::value_type &v : engine_warn->fetch_performance_data()) {
         register_leaf_performance_data(v.second, false);
       }
     }
@@ -383,7 +376,7 @@ struct modern_filters {
       return false;
     }
     if (engine_crit) {
-      for (const boundries_type::value_type &v : engine_crit->fetch_performance_data()) {
+      for (const boundaries_type::value_type &v : engine_crit->fetch_performance_data()) {
         register_leaf_performance_data(v.second, true);
       }
     }
@@ -405,8 +398,8 @@ struct modern_filters {
     if (error_handler_) return error_handler_->get_errors();
     return "unknown";
   }
-  bool should_log_debug() { return error_handler_ && error_handler_->is_debug(); }
-  void log_debug(const std::string &str) {
+  bool should_log_debug() const { return error_handler_ && error_handler_->is_debug(); }
+  void log_debug(const std::string &str) const {
     if (error_handler_) {
       error_handler_->log_debug(str);
     }
@@ -446,7 +439,7 @@ struct modern_filters {
   }
 
   bool has_filter() const { return engine_filter.get(); }
-  void fetch_hash(bool fetch_hash) { fetch_hash_ = fetch_hash; }
+  void fetch_hash(const bool fetch_hash) { fetch_hash_ = fetch_hash; }
   void start_match() {
     summary.returnCode = NSCAPI::query_return_codes::returnOK;
     has_matched = false;
@@ -455,12 +448,19 @@ struct modern_filters {
   }
   match_result match(object_type record) {
     context->set_object(record);
+    auto debug = context->debug_enabled();
+    if (debug) {
+      context->debug(parsers::where::object_match::none);
+    }
     bool matched_filter = false;
     bool matched_bound = false;
     // done should be set if we want to bail out after the first hit!
     // I.e. mode==first (mode==all)
     summary.count();
     if (!engine_filter.get() || engine_filter->match(context, true)) {
+      if (debug) {
+        context->debug(parsers::where::object_match::match);
+      }
       matched_filter = true;
       if (fetch_hash_) {
         records_.push_back(renderer_hash.render(context));
@@ -469,7 +469,7 @@ struct modern_filters {
       std::string perf_alias = renderer_perf.render(context);
       bool second_unique_match = false;
       if (has_unique_index) {
-        std::string tmp = renderer_unqiue.render(context);
+        std::string tmp = renderer_unique.render(context);
         second_unique_match = unique_index.find(tmp) != unique_index.end();
         if (!second_unique_match) unique_index.emplace(tmp);
       }
@@ -484,7 +484,9 @@ struct modern_filters {
       else
         summary.matched(current);
       if (engine_crit && engine_crit->match(context, true)) {
-        if (should_log_debug()) log_debug("Crit match: " + current);
+        if (debug) {
+          context->debug(parsers::where::object_match::critical);
+        }
         if (second_unique_match)
           summary.matched_crit_unique();
         else
@@ -492,7 +494,9 @@ struct modern_filters {
         nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
         matched_bound = true;
       } else if (engine_warn && engine_warn->match(context, true)) {
-        if (should_log_debug()) log_debug("Warn match: " + current);
+        if (debug) {
+          context->debug(parsers::where::object_match::warning);
+        }
         if (second_unique_match)
           summary.matched_warn_unique();
         else
@@ -500,7 +504,9 @@ struct modern_filters {
         nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
         matched_bound = true;
       } else if (engine_ok && engine_ok->match(context, true)) {
-        if (should_log_debug()) log_debug("Ok match: " + current);
+        if (debug) {
+          context->debug(parsers::where::object_match::ok);
+        }
         // TODO: Unsure of this, should this not re-set matched?
         // What is matched for?
         if (second_unique_match)
@@ -509,7 +515,6 @@ struct modern_filters {
           summary.matched_ok(current);
         matched_bound = true;
       } else {
-        if (should_log_debug()) log_debug("Crit/warn/ok did not match: " + current);
         if (second_unique_match)
           summary.matched_ok_unique();
         else
@@ -518,8 +523,6 @@ struct modern_filters {
       if (matched_bound) {
         has_matched = true;
       }
-    } else if (should_log_debug()) {
-      log_debug("Filter did not match: " + renderer_detail.render(context));
     }
     return match_result(matched_filter, matched_bound);
   }
@@ -544,12 +547,6 @@ struct modern_filters {
       // TODO: Unsure of this, should this not re-set matched?
       // What is matched for?
       matched = true;
-    } else if (should_log_debug()) {
-      log_debug("Crit/warn/ok did not match: <END>");
-      if (context->has_debug()) {
-        log_debug(context->get_debug());
-        context->clear();
-      }
     }
     return matched;
   }
@@ -562,7 +559,7 @@ struct modern_filters {
       if (perf.size() > 0) performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
     }
   }
-  void fetch_perf(perf_writer_interface *writer) {
+  void fetch_perf(perf_writer_interface *writer) const {
     for (const parsers::where::perf_list_type::value_type &entry : performance_instance_data) {
       writer->write(entry);
     }

@@ -35,6 +35,7 @@ struct filter_obj {
   std::string counter;
   long long value;
   filter_obj(std::string counter) : counter(counter) {}
+  std::string show() const { return counter + "=" + str::xtos(value); }
 
   std::string get_counter() const { return counter; }
 };

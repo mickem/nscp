@@ -88,6 +88,7 @@ struct filter_obj {
   static boost::shared_ptr<file_filter::filter_obj> get_total(unsigned long long now);
   std::string get_filename() { return filename; }
   std::string get_path() { return path.string(); }
+  std::string show() const { return path.string() + "\\" + filename; }
 
   long long get_creation() { return str::format::filetime_to_time(ullCreationTime); }
   long long get_access() { return str::format::filetime_to_time(ullLastAccessTime); }
