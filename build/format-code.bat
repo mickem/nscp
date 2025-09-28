@@ -35,16 +35,11 @@ echo Formatting changed files based on Git status...
 :: Get a list of all modified and untracked files from Git
 git ls-files -m -o --exclude-standard > changed-files.tmp
 
-:: Create the list of C/C++ files to format by filtering the Git output
+echo Looking for changed C/C++ and CMake files...
 findstr /I "\.h \.hpp \.c \.cpp" changed-files.tmp | findstr /v /I "%CODE_EXCLUDE_FILTER%" > format-code.tmp
 
-:: Create the list of CMake files to format by filtering the Git output
+echo Looking for changed CMake files...
 findstr /I "\.cmake CMakeLists.txt" changed-files.tmp | findstr /v /I "%CMAKE_EXCLUDE_FILTER%" > format-cmake.tmp
-
-if %errorlevel% neq 0 (
-    echo Error: Failed to create file lists.
-    exit /b %errorlevel%
-)
 
 del changed-files.tmp
 goto format
@@ -82,7 +77,6 @@ if not exist format-code.tmp (
 )
 
 :format_c
-:: --- Format C/C++ Files ---
 echo.
 echo Formatting C/C++ code...
 for /f "delims=" %%f in (format-code.tmp) do (
@@ -96,8 +90,6 @@ if %errorlevel% neq 0 (
 )
 
 :format_cmake
-:: --- Format CMake Files ---
-
 if not exist format-cmake.tmp (
     echo No CMake files to format.
     goto cleanup
