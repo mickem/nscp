@@ -1,0 +1,50 @@
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "TLS_VERIFY_MODE=none", "TLS_VERSION=1.2", "IMPORT_CONFIG=https://raw.githubusercontent.com/mickem/nscp/refs/heads/main/tests/rest/nsclient.ini" ]
+replace_password: true
+boot.ini: |
+  [settings]
+  1 = ini://${shared-path}/nsclient.ini
+  [tls]
+  verify mode = none
+  version = 1.2
+
+nsclient.ini: |
+  [/modules]
+  CheckSystem = disabled
+  WEBServer = enabled
+  CheckHelpers = enabled
+  LuaScript = enabled
+  NRPEServer = enabled
+  
+  [/settings/default]
+  password = $$PASSWORD$$
+  allowed hosts = 127.0.0.1,::1
+  
+  [/settings/NRPE/server]
+  insecure = false
+  ssl options =
+  tls version = tlsv1.2+
+  verify mode = peer-cert
+  
+  [/settings/lua/scripts]
+  mock = mock.lua
+  
+  [/settings/WEB/server/roles]
+  view = *
+  legacy = legacy,login.get
+  full = *
+  client = public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list
+  
+  [/settings/WEB/server/users/client]
+  role = client
+  password = $$PASSWORD$$
+  
+  [/settings/WEB/server/users/legacy]
+  role = legacy
+  password = $$PASSWORD$$
+  
+  [/settings/WEB/server/users/admin]
+  role = full
+  password = $$PASSWORD$$
+  
+  [/settings/WEB/server/users/default-admin]
+  role = full
