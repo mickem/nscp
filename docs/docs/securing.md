@@ -9,7 +9,7 @@ NSClient++ supports a multitude of protocols thus securing the server will depen
 For details on setting up and using NRPE please see the [Getting started guide](./getting-started.md).
 
 In general when using NRPE do not use NRPE version 2 with the ADH key and do not rely on allowed hosts as the security mechanism.
-Instead, certificates are proper two-way TLS is preferred.
+Instead, certificates and proper two-way TLS are preferred.
 
 To set up NRPE with two-way TLS you need to:
 1. Create a CA (Certificate Authority) or use an existing one.

@@ -1,6 +1,6 @@
 # Installing NSClient++
 
-This is a grooving process before it was all manual but slowly we are getting a more "automated" installation process so
+This is a growing process before it was all manual but slowly we are getting a more "automated" installation process so
 hopefully this will keep improving in the future as well and some of the steps might go away.
 
 
