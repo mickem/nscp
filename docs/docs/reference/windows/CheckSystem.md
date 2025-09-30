@@ -190,7 +190,6 @@ Filter which marks items which generates an ok state.
 If anything matches this any previous state for this item will be reset to ok.
 
 
-
 <h5 id="check_cpu_empty-state">empty-state:</h5>
 
 Return status to use when nothing matched filter.
@@ -400,7 +399,6 @@ Filter which marks items which generates an ok state.
 If anything matches this any previous state for this item will be reset to ok.
 
 
-
 <h5 id="check_memory_empty-state">empty-state:</h5>
 
 Return status to use when nothing matched filter.
@@ -556,7 +554,6 @@ If anything matches this filter the return status will be escalated to critical.
 
 Filter which marks items which generates an ok state.
 If anything matches this any previous state for this item will be reset to ok.
-
 
 
 <h5 id="check_network_empty-state">empty-state:</h5>
@@ -745,7 +742,6 @@ If anything matches this filter the return status will be escalated to critical.
 
 Filter which marks items which generates an ok state.
 If anything matches this any previous state for this item will be reset to ok.
-
 
 
 <h5 id="check_os_version_empty-state">empty-state:</h5>
@@ -948,7 +944,6 @@ If anything matches this filter the return status will be escalated to critical.
 
 Filter which marks items which generates an ok state.
 If anything matches this any previous state for this item will be reset to ok.
-
 
 
 <h5 id="check_pagefile_empty-state">empty-state:</h5>
@@ -1197,7 +1192,6 @@ Filter which marks items which generates an ok state.
 If anything matches this any previous state for this item will be reset to ok.
 
 
-
 <h5 id="check_pdh_empty-state">empty-state:</h5>
 
 Return status to use when nothing matched filter.
@@ -1423,7 +1417,6 @@ If anything matches this filter the return status will be escalated to critical.
 
 Filter which marks items which generates an ok state.
 If anything matches this any previous state for this item will be reset to ok.
-
 
 
 <h5 id="check_process_empty-state">empty-state:</h5>
@@ -1700,7 +1693,6 @@ Filter which marks items which generates an ok state.
 If anything matches this any previous state for this item will be reset to ok.
 
 
-
 <h5 id="check_service_empty-state">empty-state:</h5>
 
 Return status to use when nothing matched filter.
@@ -1904,7 +1896,6 @@ If anything matches this filter the return status will be escalated to critical.
 
 Filter which marks items which generates an ok state.
 If anything matches this any previous state for this item will be reset to ok.
-
 
 
 <h5 id="check_uptime_empty-state">empty-state:</h5>

@@ -68,7 +68,6 @@ Request remote information via NRPE.
 <a name="check_nrpe_ca"/>
 <a name="check_nrpe_verify"/>
 <a name="check_nrpe_allowed-ciphers"/>
-<a name="check_nrpe_insecure"/>
 <a name="check_nrpe_payload-length"/>
 <a name="check_nrpe_version"/>
 <a name="check_nrpe_buffer-length"/>
@@ -76,43 +75,49 @@ Request remote information via NRPE.
 #### Command-line Arguments
 
 
-| Option                 | Default Value | Description                                                                                                                                                               |
-|------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| help                   | N/A           | Show help screen (this screen)                                                                                                                                            |
-| help-pb                | N/A           | Show help screen as a protocol buffer payload                                                                                                                             |
-| show-default           | N/A           | Show default values for a given command                                                                                                                                   |
-| help-short             | N/A           | Show help screen (short format).                                                                                                                                          |
-| host                   |               | The host of the host running the server                                                                                                                                   |
-| port                   |               | The port of the host running the server                                                                                                                                   |
-| address                |               | The address (host:port) of the host running the server                                                                                                                    |
-| timeout                |               | Number of seconds before connection times out (default=10)                                                                                                                |
-| target                 |               | Target to use (lookup connection info from config)                                                                                                                        |
-| retry                  |               | Number of times ti retry a failed connection attempt (default=2)                                                                                                          |
-| retries                |               | legacy version of retry                                                                                                                                                   |
-| source-host            |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
-| sender-host            |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
-| command                |               | The name of the command that the remote daemon should run                                                                                                                 |
-| argument               |               | Set command line arguments                                                                                                                                                |
-| separator              |               | Separator to use for the batch command (default is |)                                                                                                                     |
-| batch                  |               | Add multiple records using the separator format is: command|argument|argument                                                                                             |
-| certificate            |               | The client certificate to use                                                                                                                                             |
-| dh                     |               | The DH key to use                                                                                                                                                         |
-| certificate-key        |               | Client certificate to use                                                                                                                                                 |
-| certificate-format     |               | Client certificate format                                                                                                                                                 |
-| ca                     |               | Certificate authority                                                                                                                                                     |
-| verify                 |               | Client certificate format                                                                                                                                                 |
-| allowed-ciphers        |               | Client certificate format                                                                                                                                                 |
-| [ssl](#check_nrpe_ssl) | 1             | Initial an ssl handshake with the server.                                                                                                                                 |
-| insecure               | N/A           | Use insecure legacy mode                                                                                                                                                  |
-| payload-length         |               | Length of payload (has to be same as on the server)                                                                                                                       |
-| version                |               | The NRPE version to use (2 or 4)                                                                                                                                          |
-| buffer-length          |               | Length of payload to/from the NRPE agent. This is a hard specific value so you have to "configure" (read recompile) your NRPE agent to use the same value for it to work. |
+| Option                           | Default Value | Description                                                                                                                                                               |
+|----------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| help                             | N/A           | Show help screen (this screen)                                                                                                                                            |
+| help-pb                          | N/A           | Show help screen as a protocol buffer payload                                                                                                                             |
+| show-default                     | N/A           | Show default values for a given command                                                                                                                                   |
+| help-short                       | N/A           | Show help screen (short format).                                                                                                                                          |
+| host                             |               | The host of the host running the server                                                                                                                                   |
+| port                             |               | The port of the host running the server                                                                                                                                   |
+| address                          |               | The address (host:port) of the host running the server                                                                                                                    |
+| timeout                          |               | Number of seconds before connection times out (default=10)                                                                                                                |
+| target                           |               | Target to use (lookup connection info from config)                                                                                                                        |
+| retry                            |               | Number of times ti retry a failed connection attempt (default=2)                                                                                                          |
+| retries                          |               | legacy version of retry                                                                                                                                                   |
+| source-host                      |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
+| sender-host                      |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
+| command                          |               | The name of the command that the remote daemon should run                                                                                                                 |
+| argument                         |               | Set command line arguments                                                                                                                                                |
+| separator                        |               | Separator to use for the batch command (default is |)                                                                                                                     |
+| batch                            |               | Add multiple records using the separator format is: command|argument|argument                                                                                             |
+| certificate                      |               | The client certificate to use                                                                                                                                             |
+| dh                               |               | The DH key to use                                                                                                                                                         |
+| certificate-key                  |               | Client certificate to use                                                                                                                                                 |
+| certificate-format               |               | Client certificate format                                                                                                                                                 |
+| ca                               |               | Certificate authority                                                                                                                                                     |
+| verify                           |               | Client certificate format                                                                                                                                                 |
+| allowed-ciphers                  |               | Client certificate format                                                                                                                                                 |
+| [ssl](#check_nrpe_ssl)           | 1             | Initial an ssl handshake with the server.                                                                                                                                 |
+| [insecure](#check_nrpe_insecure) | 1             | Use insecure legacy mode                                                                                                                                                  |
+| payload-length                   |               | Length of payload (has to be same as on the server)                                                                                                                       |
+| version                          |               | The NRPE version to use (2 or 4)                                                                                                                                          |
+| buffer-length                    |               | Length of payload to/from the NRPE agent. This is a hard specific value so you have to "configure" (read recompile) your NRPE agent to use the same value for it to work. |
 
 
 
 <h5 id="check_nrpe_ssl">ssl:</h5>
 
 Initial an ssl handshake with the server.
+
+*Default Value:* `1`
+
+<h5 id="check_nrpe_insecure">insecure:</h5>
+
+Use insecure legacy mode
 
 *Default Value:* `1`
 
@@ -152,7 +157,6 @@ Execute remote script via NRPE. (Most likely you want nrpe_query).
 <a name="exec_nrpe_ca"/>
 <a name="exec_nrpe_verify"/>
 <a name="exec_nrpe_allowed-ciphers"/>
-<a name="exec_nrpe_insecure"/>
 <a name="exec_nrpe_payload-length"/>
 <a name="exec_nrpe_version"/>
 <a name="exec_nrpe_buffer-length"/>
@@ -160,43 +164,49 @@ Execute remote script via NRPE. (Most likely you want nrpe_query).
 #### Command-line Arguments
 
 
-| Option                | Default Value | Description                                                                                                                                                               |
-|-----------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| help                  | N/A           | Show help screen (this screen)                                                                                                                                            |
-| help-pb               | N/A           | Show help screen as a protocol buffer payload                                                                                                                             |
-| show-default          | N/A           | Show default values for a given command                                                                                                                                   |
-| help-short            | N/A           | Show help screen (short format).                                                                                                                                          |
-| host                  |               | The host of the host running the server                                                                                                                                   |
-| port                  |               | The port of the host running the server                                                                                                                                   |
-| address               |               | The address (host:port) of the host running the server                                                                                                                    |
-| timeout               |               | Number of seconds before connection times out (default=10)                                                                                                                |
-| target                |               | Target to use (lookup connection info from config)                                                                                                                        |
-| retry                 |               | Number of times ti retry a failed connection attempt (default=2)                                                                                                          |
-| retries               |               | legacy version of retry                                                                                                                                                   |
-| source-host           |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
-| sender-host           |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
-| command               |               | The name of the command that the remote daemon should run                                                                                                                 |
-| argument              |               | Set command line arguments                                                                                                                                                |
-| separator             |               | Separator to use for the batch command (default is |)                                                                                                                     |
-| batch                 |               | Add multiple records using the separator format is: command|argument|argument                                                                                             |
-| certificate           |               | The client certificate to use                                                                                                                                             |
-| dh                    |               | The DH key to use                                                                                                                                                         |
-| certificate-key       |               | Client certificate to use                                                                                                                                                 |
-| certificate-format    |               | Client certificate format                                                                                                                                                 |
-| ca                    |               | Certificate authority                                                                                                                                                     |
-| verify                |               | Client certificate format                                                                                                                                                 |
-| allowed-ciphers       |               | Client certificate format                                                                                                                                                 |
-| [ssl](#exec_nrpe_ssl) | 1             | Initial an ssl handshake with the server.                                                                                                                                 |
-| insecure              | N/A           | Use insecure legacy mode                                                                                                                                                  |
-| payload-length        |               | Length of payload (has to be same as on the server)                                                                                                                       |
-| version               |               | The NRPE version to use (2 or 4)                                                                                                                                          |
-| buffer-length         |               | Length of payload to/from the NRPE agent. This is a hard specific value so you have to "configure" (read recompile) your NRPE agent to use the same value for it to work. |
+| Option                          | Default Value | Description                                                                                                                                                               |
+|---------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| help                            | N/A           | Show help screen (this screen)                                                                                                                                            |
+| help-pb                         | N/A           | Show help screen as a protocol buffer payload                                                                                                                             |
+| show-default                    | N/A           | Show default values for a given command                                                                                                                                   |
+| help-short                      | N/A           | Show help screen (short format).                                                                                                                                          |
+| host                            |               | The host of the host running the server                                                                                                                                   |
+| port                            |               | The port of the host running the server                                                                                                                                   |
+| address                         |               | The address (host:port) of the host running the server                                                                                                                    |
+| timeout                         |               | Number of seconds before connection times out (default=10)                                                                                                                |
+| target                          |               | Target to use (lookup connection info from config)                                                                                                                        |
+| retry                           |               | Number of times ti retry a failed connection attempt (default=2)                                                                                                          |
+| retries                         |               | legacy version of retry                                                                                                                                                   |
+| source-host                     |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
+| sender-host                     |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
+| command                         |               | The name of the command that the remote daemon should run                                                                                                                 |
+| argument                        |               | Set command line arguments                                                                                                                                                |
+| separator                       |               | Separator to use for the batch command (default is |)                                                                                                                     |
+| batch                           |               | Add multiple records using the separator format is: command|argument|argument                                                                                             |
+| certificate                     |               | The client certificate to use                                                                                                                                             |
+| dh                              |               | The DH key to use                                                                                                                                                         |
+| certificate-key                 |               | Client certificate to use                                                                                                                                                 |
+| certificate-format              |               | Client certificate format                                                                                                                                                 |
+| ca                              |               | Certificate authority                                                                                                                                                     |
+| verify                          |               | Client certificate format                                                                                                                                                 |
+| allowed-ciphers                 |               | Client certificate format                                                                                                                                                 |
+| [ssl](#exec_nrpe_ssl)           | 1             | Initial an ssl handshake with the server.                                                                                                                                 |
+| [insecure](#exec_nrpe_insecure) | 1             | Use insecure legacy mode                                                                                                                                                  |
+| payload-length                  |               | Length of payload (has to be same as on the server)                                                                                                                       |
+| version                         |               | The NRPE version to use (2 or 4)                                                                                                                                          |
+| buffer-length                   |               | Length of payload to/from the NRPE agent. This is a hard specific value so you have to "configure" (read recompile) your NRPE agent to use the same value for it to work. |
 
 
 
 <h5 id="exec_nrpe_ssl">ssl:</h5>
 
 Initial an ssl handshake with the server.
+
+*Default Value:* `1`
+
+<h5 id="exec_nrpe_insecure">insecure:</h5>
+
+Use insecure legacy mode
 
 *Default Value:* `1`
 
@@ -259,7 +269,6 @@ Request remote information via NRPE.
 <a name="nrpe_query_ca"/>
 <a name="nrpe_query_verify"/>
 <a name="nrpe_query_allowed-ciphers"/>
-<a name="nrpe_query_insecure"/>
 <a name="nrpe_query_payload-length"/>
 <a name="nrpe_query_version"/>
 <a name="nrpe_query_buffer-length"/>
@@ -267,43 +276,49 @@ Request remote information via NRPE.
 #### Command-line Arguments
 
 
-| Option                 | Default Value | Description                                                                                                                                                               |
-|------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| help                   | N/A           | Show help screen (this screen)                                                                                                                                            |
-| help-pb                | N/A           | Show help screen as a protocol buffer payload                                                                                                                             |
-| show-default           | N/A           | Show default values for a given command                                                                                                                                   |
-| help-short             | N/A           | Show help screen (short format).                                                                                                                                          |
-| host                   |               | The host of the host running the server                                                                                                                                   |
-| port                   |               | The port of the host running the server                                                                                                                                   |
-| address                |               | The address (host:port) of the host running the server                                                                                                                    |
-| timeout                |               | Number of seconds before connection times out (default=10)                                                                                                                |
-| target                 |               | Target to use (lookup connection info from config)                                                                                                                        |
-| retry                  |               | Number of times ti retry a failed connection attempt (default=2)                                                                                                          |
-| retries                |               | legacy version of retry                                                                                                                                                   |
-| source-host            |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
-| sender-host            |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
-| command                |               | The name of the command that the remote daemon should run                                                                                                                 |
-| argument               |               | Set command line arguments                                                                                                                                                |
-| separator              |               | Separator to use for the batch command (default is |)                                                                                                                     |
-| batch                  |               | Add multiple records using the separator format is: command|argument|argument                                                                                             |
-| certificate            |               | The client certificate to use                                                                                                                                             |
-| dh                     |               | The DH key to use                                                                                                                                                         |
-| certificate-key        |               | Client certificate to use                                                                                                                                                 |
-| certificate-format     |               | Client certificate format                                                                                                                                                 |
-| ca                     |               | Certificate authority                                                                                                                                                     |
-| verify                 |               | Client certificate format                                                                                                                                                 |
-| allowed-ciphers        |               | Client certificate format                                                                                                                                                 |
-| [ssl](#nrpe_query_ssl) | 1             | Initial an ssl handshake with the server.                                                                                                                                 |
-| insecure               | N/A           | Use insecure legacy mode                                                                                                                                                  |
-| payload-length         |               | Length of payload (has to be same as on the server)                                                                                                                       |
-| version                |               | The NRPE version to use (2 or 4)                                                                                                                                          |
-| buffer-length          |               | Length of payload to/from the NRPE agent. This is a hard specific value so you have to "configure" (read recompile) your NRPE agent to use the same value for it to work. |
+| Option                           | Default Value | Description                                                                                                                                                               |
+|----------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| help                             | N/A           | Show help screen (this screen)                                                                                                                                            |
+| help-pb                          | N/A           | Show help screen as a protocol buffer payload                                                                                                                             |
+| show-default                     | N/A           | Show default values for a given command                                                                                                                                   |
+| help-short                       | N/A           | Show help screen (short format).                                                                                                                                          |
+| host                             |               | The host of the host running the server                                                                                                                                   |
+| port                             |               | The port of the host running the server                                                                                                                                   |
+| address                          |               | The address (host:port) of the host running the server                                                                                                                    |
+| timeout                          |               | Number of seconds before connection times out (default=10)                                                                                                                |
+| target                           |               | Target to use (lookup connection info from config)                                                                                                                        |
+| retry                            |               | Number of times ti retry a failed connection attempt (default=2)                                                                                                          |
+| retries                          |               | legacy version of retry                                                                                                                                                   |
+| source-host                      |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
+| sender-host                      |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
+| command                          |               | The name of the command that the remote daemon should run                                                                                                                 |
+| argument                         |               | Set command line arguments                                                                                                                                                |
+| separator                        |               | Separator to use for the batch command (default is |)                                                                                                                     |
+| batch                            |               | Add multiple records using the separator format is: command|argument|argument                                                                                             |
+| certificate                      |               | The client certificate to use                                                                                                                                             |
+| dh                               |               | The DH key to use                                                                                                                                                         |
+| certificate-key                  |               | Client certificate to use                                                                                                                                                 |
+| certificate-format               |               | Client certificate format                                                                                                                                                 |
+| ca                               |               | Certificate authority                                                                                                                                                     |
+| verify                           |               | Client certificate format                                                                                                                                                 |
+| allowed-ciphers                  |               | Client certificate format                                                                                                                                                 |
+| [ssl](#nrpe_query_ssl)           | 1             | Initial an ssl handshake with the server.                                                                                                                                 |
+| [insecure](#nrpe_query_insecure) | 1             | Use insecure legacy mode                                                                                                                                                  |
+| payload-length                   |               | Length of payload (has to be same as on the server)                                                                                                                       |
+| version                          |               | The NRPE version to use (2 or 4)                                                                                                                                          |
+| buffer-length                    |               | Length of payload to/from the NRPE agent. This is a hard specific value so you have to "configure" (read recompile) your NRPE agent to use the same value for it to work. |
 
 
 
 <h5 id="nrpe_query_ssl">ssl:</h5>
 
 Initial an ssl handshake with the server.
+
+*Default Value:* `1`
+
+<h5 id="nrpe_query_insecure">insecure:</h5>
+
+Use insecure legacy mode
 
 *Default Value:* `1`
 
@@ -345,7 +360,6 @@ Submit information to remote host via NRPE. (Most likely you want nrpe_query).
 <a name="submit_nrpe_ca"/>
 <a name="submit_nrpe_verify"/>
 <a name="submit_nrpe_allowed-ciphers"/>
-<a name="submit_nrpe_insecure"/>
 <a name="submit_nrpe_payload-length"/>
 <a name="submit_nrpe_version"/>
 <a name="submit_nrpe_buffer-length"/>
@@ -353,45 +367,51 @@ Submit information to remote host via NRPE. (Most likely you want nrpe_query).
 #### Command-line Arguments
 
 
-| Option                  | Default Value | Description                                                                                                                                                               |
-|-------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| help                    | N/A           | Show help screen (this screen)                                                                                                                                            |
-| help-pb                 | N/A           | Show help screen as a protocol buffer payload                                                                                                                             |
-| show-default            | N/A           | Show default values for a given command                                                                                                                                   |
-| help-short              | N/A           | Show help screen (short format).                                                                                                                                          |
-| host                    |               | The host of the host running the server                                                                                                                                   |
-| port                    |               | The port of the host running the server                                                                                                                                   |
-| address                 |               | The address (host:port) of the host running the server                                                                                                                    |
-| timeout                 |               | Number of seconds before connection times out (default=10)                                                                                                                |
-| target                  |               | Target to use (lookup connection info from config)                                                                                                                        |
-| retry                   |               | Number of times ti retry a failed connection attempt (default=2)                                                                                                          |
-| retries                 |               | legacy version of retry                                                                                                                                                   |
-| source-host             |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
-| sender-host             |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
-| command                 |               | The name of the command that the remote daemon should run                                                                                                                 |
-| alias                   |               | Same as command                                                                                                                                                           |
-| message                 |               | Message                                                                                                                                                                   |
-| result                  |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                                                                                                    |
-| separator               |               | Separator to use for the batch command (default is |)                                                                                                                     |
-| batch                   |               | Add multiple records using the separator format is: command|result|message                                                                                                |
-| certificate             |               | The client certificate to use                                                                                                                                             |
-| dh                      |               | The DH key to use                                                                                                                                                         |
-| certificate-key         |               | Client certificate to use                                                                                                                                                 |
-| certificate-format      |               | Client certificate format                                                                                                                                                 |
-| ca                      |               | Certificate authority                                                                                                                                                     |
-| verify                  |               | Client certificate format                                                                                                                                                 |
-| allowed-ciphers         |               | Client certificate format                                                                                                                                                 |
-| [ssl](#submit_nrpe_ssl) | 1             | Initial an ssl handshake with the server.                                                                                                                                 |
-| insecure                | N/A           | Use insecure legacy mode                                                                                                                                                  |
-| payload-length          |               | Length of payload (has to be same as on the server)                                                                                                                       |
-| version                 |               | The NRPE version to use (2 or 4)                                                                                                                                          |
-| buffer-length           |               | Length of payload to/from the NRPE agent. This is a hard specific value so you have to "configure" (read recompile) your NRPE agent to use the same value for it to work. |
+| Option                            | Default Value | Description                                                                                                                                                               |
+|-----------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| help                              | N/A           | Show help screen (this screen)                                                                                                                                            |
+| help-pb                           | N/A           | Show help screen as a protocol buffer payload                                                                                                                             |
+| show-default                      | N/A           | Show default values for a given command                                                                                                                                   |
+| help-short                        | N/A           | Show help screen (short format).                                                                                                                                          |
+| host                              |               | The host of the host running the server                                                                                                                                   |
+| port                              |               | The port of the host running the server                                                                                                                                   |
+| address                           |               | The address (host:port) of the host running the server                                                                                                                    |
+| timeout                           |               | Number of seconds before connection times out (default=10)                                                                                                                |
+| target                            |               | Target to use (lookup connection info from config)                                                                                                                        |
+| retry                             |               | Number of times ti retry a failed connection attempt (default=2)                                                                                                          |
+| retries                           |               | legacy version of retry                                                                                                                                                   |
+| source-host                       |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
+| sender-host                       |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
+| command                           |               | The name of the command that the remote daemon should run                                                                                                                 |
+| alias                             |               | Same as command                                                                                                                                                           |
+| message                           |               | Message                                                                                                                                                                   |
+| result                            |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                                                                                                    |
+| separator                         |               | Separator to use for the batch command (default is |)                                                                                                                     |
+| batch                             |               | Add multiple records using the separator format is: command|result|message                                                                                                |
+| certificate                       |               | The client certificate to use                                                                                                                                             |
+| dh                                |               | The DH key to use                                                                                                                                                         |
+| certificate-key                   |               | Client certificate to use                                                                                                                                                 |
+| certificate-format                |               | Client certificate format                                                                                                                                                 |
+| ca                                |               | Certificate authority                                                                                                                                                     |
+| verify                            |               | Client certificate format                                                                                                                                                 |
+| allowed-ciphers                   |               | Client certificate format                                                                                                                                                 |
+| [ssl](#submit_nrpe_ssl)           | 1             | Initial an ssl handshake with the server.                                                                                                                                 |
+| [insecure](#submit_nrpe_insecure) | 1             | Use insecure legacy mode                                                                                                                                                  |
+| payload-length                    |               | Length of payload (has to be same as on the server)                                                                                                                       |
+| version                           |               | The NRPE version to use (2 or 4)                                                                                                                                          |
+| buffer-length                     |               | Length of payload to/from the NRPE agent. This is a hard specific value so you have to "configure" (read recompile) your NRPE agent to use the same value for it to work. |
 
 
 
 <h5 id="submit_nrpe_ssl">ssl:</h5>
 
 Initial an ssl handshake with the server.
+
+*Default Value:* `1`
+
+<h5 id="submit_nrpe_insecure">insecure:</h5>
+
+Use insecure legacy mode
 
 *Default Value:* `1`
 
