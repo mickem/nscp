@@ -193,8 +193,8 @@ std::wstring read_map_data(msi_helper &h) {
 
 void dump_config(msi_helper &h, std::wstring title) {
   h.dumpReason(title);
-  for (const auto key :
-       {ALLOWED_HOSTS, NSCLIENT_PWD, CONF_SCHEDULER, CONF_CHECKS, CONF_NRPE, CONF_NSCA, CONF_WEB, CONF_NSCLIENT, NRPEMODE, CONFIGURATION_TYPE, CONF_INCLUDES}) {
+  for (const auto key : {ALLOWED_HOSTS, NSCLIENT_PWD, CONF_SCHEDULER, CONF_CHECKS, CONF_NRPE, CONF_NSCA, CONF_WEB, CONF_NSCLIENT, NRPEMODE, CONFIGURATION_TYPE,
+                         CONF_INCLUDES, IMPORT_CONFIG}) {
     h.dumpProperties(key);
   }
   h.dumpProperty(BACKUP_FILE);
@@ -311,7 +311,16 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
       return ERROR_SUCCESS;
     }
 
-    auto wanted_context = h.getProperyValue(CONFIGURATION_TYPE);
+    auto wanted_source_context = h.getProperyValue(IMPORT_CONFIG);
+    auto wanted_target_context = h.getProperyValue(CONFIGURATION_TYPE);
+    std::wstring wanted_context;
+    bool should_import = false;
+    if (wanted_source_context.empty()) {
+      wanted_context = wanted_target_context;
+    } else {
+      wanted_context = wanted_source_context;
+      should_import = true;
+    }
     auto default_context = h.getProperyKey(CONFIGURATION_TYPE);
     auto context = wanted_context.empty() ? default_context : wanted_context;
     h.logMessage(L"Reading existing config using: " + context + L" tls version=" + utf8::cvt<std::wstring>(tls_version) + L", tls_verify=" +
@@ -354,25 +363,40 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 
     h.logMessage(L"Previous configuration loaded correctly...");
 
-    if (!settings_manager::get_settings()->supports_updates()) {
-      h.applyPropertyValue(CONFIGURATION_TYPE);
-      h.logMessage(L"Settings does not support updates");
-      h.setConfCanChange(false, L"Using a settings system which do no support updates by installer");
-      return ERROR_SUCCESS;
-    }
+    if (should_import) {
+      h.logMessage(L"Importing configuration from: " + utf8::cvt<std::wstring>(wanted_source_context) + L" to " +
+                   utf8::cvt<std::wstring>(wanted_target_context));
+      auto can_edit = settings_manager::get_core()->supports_edit(utf8::cvt<std::string>(wanted_target_context));
+      if (!can_edit) {
+        h.errorMessage(L"Cannot edit target context: " + utf8::cvt<std::wstring>(wanted_target_context));
+        h.setConfHasErrors(L"Target configuration cannot be edited by installer");
+        dump_config(h, L"After ImportConfig");
+        return ERROR_INSTALL_FAILURE;
+      }
+      h.setConfCanChange(true, L"Target store is technically updatable");
+      h.setPropertyKeyAndDefault(IMPORT_CONFIG, wanted_source_context, L"");
+    } else {
+      h.logMessage(L"No import requested, just reading existing configuration: " + utf8::cvt<std::wstring>(wanted_target_context));
+      if (!settings_manager::get_settings()->supports_updates()) {
+        h.applyPropertyValue(CONFIGURATION_TYPE);
+        h.logMessage(L"Settings does not support updates");
+        h.setConfCanChange(false, L"Using a settings system which do no support updates by installer");
+        return ERROR_SUCCESS;
+      }
 
-    auto actual_context = utf8::cvt<std::wstring>(settings_manager::get_settings()->get_context());
-    h.setPropertyKeyAndDefault(CONFIGURATION_TYPE, actual_context, actual_context);
-    h.logMessage(L"Using configuration context: " + actual_context + L", " + utf8::cvt<std::wstring>(settings_manager::get_settings()->get_info()));
-    if (!settings_manager::get_settings()->supports_updates()) {
-      h.errorMessage(L"Updates not supported");
-      h.setConfCanChange(false, L"Using a settings system which do no support updates by installer");
-      return ERROR_SUCCESS;
-    }
-    if (!settings_manager::get_core()->supports_updates()) {
-      h.errorMessage(L"Using a settings wtore which cannot be updated by installer");
-      h.setConfCanChange(false, L"Settings store does not support updates by installer");
-      return ERROR_SUCCESS;
+      auto actual_context = utf8::cvt<std::wstring>(settings_manager::get_settings()->get_context());
+      h.setPropertyKeyAndDefault(CONFIGURATION_TYPE, actual_context, actual_context);
+      h.logMessage(L"Using configuration context: " + actual_context + L", " + utf8::cvt<std::wstring>(settings_manager::get_settings()->get_info()));
+      if (!settings_manager::get_settings()->supports_updates()) {
+        h.errorMessage(L"Updates not supported");
+        h.setConfCanChange(false, L"Using a settings system which do no support updates by installer");
+        return ERROR_SUCCESS;
+      }
+      if (!settings_manager::get_core()->supports_updates()) {
+        h.errorMessage(L"Using a settings store which cannot be updated by installer");
+        h.setConfCanChange(false, L"Settings store does not support updates by installer");
+        return ERROR_SUCCESS;
+      }
     }
 
     if (settings_manager::get_core()->use_sensitive_keys()) {
@@ -571,6 +595,7 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
     data.write_string(h.getProperyKey(CONFIGURATION_TYPE));
     data.write_string(h.getMsiPropery(L"RESTORE_FILE"));
     data.write_string(h.getMsiPropery(BACKUP_FILE));
+    data.write_string(h.getProperyKey(IMPORT_CONFIG));
 
     data.write_string(h.getMsiPropery(L"TLS_VERSION"));
     data.write_string(h.getMsiPropery(L"TLS_VERIFY_MODE"));
@@ -689,10 +714,10 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     msi_helper::custom_action_data_r data(h.getMsiPropery(L"CustomActionData"));
     h.logMessage(L"Got CA data: " + data.to_string());
     std::wstring target = data.get_next_string();
-    std::wstring context_w = data.get_next_string();
-    std::string context = utf8::cvt<std::string>(context_w);
+    std::string target_context = utf8::cvt<std::string>(data.get_next_string());
     std::wstring restore = data.get_next_string();
     std::wstring backup = data.get_next_string();
+    std::wstring import_context = data.get_next_string();
 
     std::wstring tls_version = data.get_next_string();
     std::wstring tls_verify_mode = data.get_next_string();
@@ -700,10 +725,21 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     int update_nsclient_ini = data.get_next_int();
 
     h.logMessage(L"Target: " + target);
-    h.logMessage("Context: " + context);
+    h.logMessage("Context: " + target_context);
     h.logMessage(L"Restore: " + restore);
     h.logMessage(L"Backup: " + backup);
+    h.logMessage(L"Import config: " + import_context);
     h.logMessage(L"Update ns-client.ini: " + update_nsclient_ini ? L"Yes" : L"No");
+
+    std::string source_context;
+    bool do_import = false;
+    if (!import_context.empty()) {
+      source_context = utf8::cvt<std::string>(import_context);
+      do_import = true;
+    } else {
+      source_context = target_context;
+    }
+    h.logMessage(L"Source config: " + utf8::cvt<std::wstring>(source_context));
 
     boost::filesystem::path target_path = target;
     boost::filesystem::path old_path = target_path / "nsc.ini.old";
@@ -745,9 +781,10 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     auto use_tls_verify_mode = tls_verify_mode.empty() ? "none" : utf8::cvt<std::string>(tls_verify_mode);
     auto use_tls_ca = tls_ca.empty() ? "" : utf8::cvt<std::string>(tls_ca);
 
-    h.logMessage(L"Writing existing config using: " + utf8::cvt<std::wstring>(context) + L" tls version=" + utf8::cvt<std::wstring>(use_tls_version) +
-                 L", tls_verify=" + utf8::cvt<std::wstring>(use_tls_verify_mode) + L", tls_ca=" + utf8::cvt<std::wstring>(use_tls_ca));
-    if (!settings_manager::init_installer_settings(&provider, context, use_tls_version, use_tls_verify_mode, use_tls_ca)) {
+    h.logMessage(L"Writing existing config TLS options: tls version=" + utf8::cvt<std::wstring>(use_tls_version) + L", tls_verify=" +
+                 utf8::cvt<std::wstring>(use_tls_verify_mode) + L", tls_ca=" + utf8::cvt<std::wstring>(use_tls_ca));
+    h.logMessage(L"Loading config: " + utf8::cvt<std::wstring>(source_context));
+    if (!settings_manager::init_installer_settings(&provider, source_context, use_tls_version, use_tls_verify_mode, use_tls_ca)) {
       h.errorMessage(L"Failed to boot settings when writing: " + provider.get_error());
       return ERROR_SUCCESS;
     }
@@ -766,15 +803,15 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     }
 
     if (!update_nsclient_ini) {
-      h.logMessage("Changing context: " + context);
-      settings_manager::set_boot_ini_primary(context);
+      h.logMessage("Changing context: " + target_context);
+      settings_manager::set_boot_ini_primary(target_context);
 
       h.logMessage(L"Not updating nsclient.ini");
       return ERROR_SUCCESS;
     }
 
-    h.logMessage("Switching to: " + context);
-    settings_manager::change_context(context);
+    h.logMessage("Switching to: " + target_context);
+    settings_manager::change_context(target_context);
 
     while (data.has_more()) {
       unsigned int mode = data.get_next_int();
@@ -792,8 +829,8 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
         return ERROR_INSTALL_FAILURE;
       }
     }
-    h.logMessage("Saving settings, not updating existing keys: " + context);
-    settings_manager::get_settings()->save(false);
+    h.logMessage("Saving settings, not updating existing keys: " + target_context);
+    settings_manager::get_settings()->save(do_import);
   } catch (const installer_exception &e) {
     h.errorMessage(L"Failed to write configuration: " + e.what());
     return ERROR_INSTALL_FAILURE;

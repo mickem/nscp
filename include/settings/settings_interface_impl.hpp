@@ -479,7 +479,7 @@ class settings_interface_impl : public settings_interface {
     }
     other->clear_cache();
     st_copy_section("", other);
-    other->save(false);
+    other->save(true);
   }
   void st_copy_section(std::string path, instance_ptr other) {
     if (!other) throw settings_exception(__FILE__, __LINE__, "No target instance: Cant copy settings");

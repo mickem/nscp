@@ -264,6 +264,16 @@ class settings_core {
   /// @author mickem
   virtual instance_raw_ptr create_instance(std::string alias, std::string context) = 0;
 
+
+  //////////////////////////////////////////////////////////////////////////
+  /// Check if a given context can be updated.
+  ///
+  /// @param context the context to check
+  /// @return if the given store supports updates
+  ///
+  /// @author mickem
+  virtual bool supports_edit(const std::string key) = 0;
+
   //////////////////////////////////////////////////////////////////////////
   /// Set the basepath for the settings subsystem.
   /// In other words set where the settings files reside

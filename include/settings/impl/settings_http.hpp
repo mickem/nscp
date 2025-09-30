@@ -53,6 +53,7 @@ class settings_http : public settings::settings_interface_impl {
   std::string url_;
   boost::filesystem::path local_file_;
   net::url remote_url;
+  instance_raw_ptr child_instance;
 
  public:
   settings_http(settings::settings_core *core, std::string alias, std::string context) : settings::settings_interface_impl(core, alias, context) {
@@ -232,7 +233,8 @@ class settings_http : public settings::settings_interface_impl {
   void initial_load() {
     boost::filesystem::path local_file = resolve_cache_file(remote_url);
     cache_remote_file(remote_url, local_file.string());
-    fetch_attachments(add_child("remote_http_file", "ini://" + local_file.string()));
+    child_instance = add_child("remote_http_file", "ini://" + local_file.string());
+    fetch_attachments(child_instance);
   }
 
   void reload_data() {
@@ -314,7 +316,12 @@ class settings_http : public settings::settings_interface_impl {
   /// @return a list of sections
   ///
   /// @author mickem
-  virtual void get_real_sections(std::string, string_list &) {}
+  virtual void get_real_sections(std::string section, string_list &list) {
+    if (child_instance) {
+      auto child_list = child_instance->get_sections(section);
+      list.insert(list.end(), child_list.begin(), child_list.end());
+    }
+  }
   //////////////////////////////////////////////////////////////////////////
   /// Get all keys given a path/section.
   /// If the path is empty all root sections will be returned
@@ -324,7 +331,12 @@ class settings_http : public settings::settings_interface_impl {
   /// @return a list of sections
   ///
   /// @author mickem
-  virtual void get_real_keys(std::string, string_list &) {}
+  virtual void get_real_keys(std::string path, string_list &list) {
+    if (child_instance) {
+      auto child_list = child_instance->get_keys(path);
+      list.insert(list.end(), child_list.begin(), child_list.end());
+    }
+  }
   //////////////////////////////////////////////////////////////////////////
   /// Save the settings store
   ///
