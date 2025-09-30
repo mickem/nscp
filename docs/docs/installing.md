@@ -165,7 +165,7 @@ This is done by adding `/l* log.txt` to the command line (you can of course chan
 
 ## Specifying your monitoring tool
 
-THere is an option which can be used to define a base-lin for your monitoring tool.
+There is an option which can be used to define a base-line for your monitoring tool.
 If you do not have a supported monitoring tool you can set it to "none" which will use the generic configuration which 
 works with all monitoring tools.
 
