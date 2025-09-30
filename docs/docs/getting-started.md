@@ -472,7 +472,7 @@ Next copy the generated files to the Nagios server.
 Then we need to configure the `check_nrpe` command to use the client certificate.
 
 ```commandline
-$ check_nrpe -H 127.0.0.1 -3 --client-cert nagios-client.pem --key nagios-client-key.pem
+$ check_nrpe -H 127.0.0.1 -3 --cert nagios-client.pem --key nagios-client-key.pem
 I (0.4.0 2025-08-30) seem to be doing fine...
 ```
 
