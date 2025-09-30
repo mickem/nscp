@@ -313,7 +313,6 @@ Filter which marks items which generates an ok state.
 If anything matches this any previous state for this item will be reset to ok.
 
 
-
 <h5 id="check_eventlog_empty-state">empty-state:</h5>
 
 Return status to use when nothing matched filter.
