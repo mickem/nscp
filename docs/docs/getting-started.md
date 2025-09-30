@@ -395,7 +395,11 @@ As you can see it used the default certificate and not our custom certificate.
 SO lets change that:
 
 ```commandline
-$ nscp nrpe install --allowed-hosts 127.0.0.1  --insecure=false --verify=none --certificate ${certificate-path}\server.pem --certificate-key ${certificate-path}\server.key
+$ nscp nrpe install ^
+        --allowed-hosts 127.0.0.1 ^
+        --insecure=false --verify=none ^
+        --certificate ${certificate-path}\server.pem ^
+        --certificate-key ${certificate-path}\server.key
 Enabling NRPE via SSL from: 127.0.0.1 on port 5666.
 WARNING: NRPE is not secure, while we have proper encryption there is no authentication expect for only accepting traffic from 127.0.0.1.
 Traffic is encrypted using nrpe_test\server.crt and nrpe_test\server.key.
@@ -425,7 +429,12 @@ To make this a bit better we can use client certificates to authenticate the cli
 First we need to enable client certificate authentication in NSClient++.
 
 ```commandline
-$ nscp nrpe install --allowed-hosts 127.0.0.1 --insecure=false --verify=peer-cert --certificate ${certificate-path}\server.pem --certificate-key ${certificate-path}\server.key --ca ${certificate-path}\ca.pem
+$ nscp nrpe install ^
+        --allowed-hosts 127.0.0.1 ^
+        --insecure=false --verify=peer-cert ^
+        --certificate ${certificate-path}\server.pem ^
+        --certificate-key ${certificate-path}\server.key ^
+        --ca ${certificate-path}\ca.pem
 Enabling NRPE via SSL from: 127.0.0.1 on port 5666.
 NRPE is currently reasonably secure and will require client certificates.
 The clients need to have a certificate issued from nrpe_test\ca.crt
