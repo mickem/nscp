@@ -6,7 +6,37 @@ NSClient++ supports a multitude of protocols thus securing the server will depen
 
 ## NRPE
 
-> TODO: Add example of configuring certificates
+For details on setting up and using NRPE please see the [Getting started guide](./getting-started.md).
+
+In general when using NRPE do not use NRPE version 2 with thr ADH key and do not rely on allowed hosts as the security mechanism.
+Instead, certificates are proper two-way TLS is preferred.
+
+To set up NRPE with two-way TLS you need to:
+1. Create a CA (Certificate Authority) or use an existing one.
+2. Create a server certificate for the NSClient++ server signed by the CA.
+3. Create a client certificate for the monitoring server signed by the CA.
+4. Configure NSClient++ to use the server certificate and trust the CA.
+5. Configure the monitoring server to use the client certificate and trust the CA.
+
+Step 1-3 will depend on your environment and is covered in the [Getting started guide](./getting-started.md).
+Step 4 can easily be setup with from the command line lik so:
+
+```commandline:
+$ nscp nrpe install ^
+	--allowed-hosts 127.0.0.1 ^
+	--insecure=false --verify=peer-cert ^
+	--certificate nsclient.pem ^
+	--certificate-key nsclient.key ^
+	--ca ca.pem
+```
+
+A quick breakdown of the options:
+* `--allowed-hosts`: List of allowed hosts to connect from.
+* `--insecure`: If true, do not verify the server certificate.
+* `--verify`: What to verify, can be `none`, `peer-cert`.
+* `--certificate`: Path to the server certificate.
+* `--certificate-key`: Path to the server certificate key.
+* `--ca`: Path to the CA certificate.
 
 ## NRDP
 
@@ -41,18 +71,18 @@ To move the config file to `C:\Windows\System32\Config\systemprofile\NSClient++`
 
 First create the folder:
 ```commandline
-PsExec -i -s cmd /c mkdir "C:\Windows\System32\Config\systemprofile\NSClient++"
+$ PsExec -i -s cmd /c mkdir "C:\Windows\System32\Config\systemprofile\NSClient++"
 ```
 
 Then move the settings file:
 ```commandline
-PsExec -i -s "c:\program files\nsclient++\nscp" settings --migrate-to "ini:C:\Windows\System32\Config\systemprofile\NSClient++\nsclient.ini"
+$ PsExec -i -s "c:\program files\nsclient++\nscp" settings --migrate-to "ini:C:\Windows\System32\Config\systemprofile\NSClient++\nsclient.ini"
 ```
 What this will do is update `boot.ini` to point to the new location and move all settings from the old config file to the new one.
 
 And finally delete the old config file:
 ```commandline
-del "C:\Program Files\NSClient++\nsclient.ini"
+$ del "C:\Program Files\NSClient++\nsclient.ini"
 ```
 
 Restart NSClient++ to make sure the new config file is used.
