@@ -32,7 +32,7 @@ echo Creating the Client Certificate
 echo -------------------------------
 echo - Generating client private key...
 openssl genpkey -algorithm RSA -out client.key -pkeyopt rsa_keygen_bits:2048
-echo - Generating client Certificate Signing Request (CSR)...
+echo - Generating client Certificate Signing Request (3CSR)...
 openssl req -new -key client.key -out client.csr -subj /CN=localhost
 echo - Signing client CSR with CA key...
 openssl x509 -req -in client.csr -CA ca.crt -CAkey ca.key -out client.crt -days 365 -set_serial 02
@@ -47,6 +47,82 @@ if not %errorlevel%==0 (
   echo ! Failed to build check_nrpe docker image, Error level was: %errorlevel%
   exit /b 1
 )
+
+
+echo -----------------------------------
+echo Running non standard payload length
+echo -----------------------------------
+nscp nrpe install --allowed-hosts 127.0.0.1 --insecure=true
+nscp settings --path /settings/NRPE/server --key "payload length" --set 4095
+nscp lua install
+nscp lua add --script mock
+start nscp test
+
+timeout /t 3 /nobreak >nul
+
+echo - Testing 4096 (nsclient)...
+nscp nrpe --host 127.0.0.1 --insecure --version 2 --payload-length 4096 --command mock_query
+if not %errorlevel%==0 (
+    echo ! Failed to connect with NRPE, Error level was: %errorlevel%
+    exit /b 1
+)
+echo - Testing 4096 (check_nrpe)...
+docker run --rm check_nrpe check_nrpe_4096 -H host.docker.internal -p 5666 -t5 -c mock_query
+if not %errorlevel%==0 (
+  echo ! Failed to connect with NRPE, Error level was: %errorlevel%
+  exit /b 1
+)
+echo - Shutting down server...
+docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 -c mock_exit
+if not %errorlevel%==0 (
+  echo ! Failed to exit via NRPE, Error level was: %errorlevel%
+  exit /b 1
+)
+
+timeout /t 3 /nobreak >nul
+
+echo ---------------------
+echo Running NRPE v2 tests
+echo ---------------------
+nscp nrpe install --allowed-hosts 127.0.0.1 --insecure=true
+nscp lua install
+nscp lua add --script mock
+start nscp test
+
+timeout /t 3 /nobreak >nul
+
+echo - Testing version 2 (nsclient)...
+nscp nrpe --host 127.0.0.1 --insecure --version 2 --command mock_query
+if not %errorlevel%==0 (
+  echo ! Failed to connect with NRPE, Error level was: %errorlevel%
+  exit /b 1
+)
+echo - Testing 4096 (check_nrpe)...
+docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 -c mock_query
+if not %errorlevel%==0 (
+  echo ! Failed to connect with NRPE, Error level was: %errorlevel%
+  exit /b 1
+)
+echo - Testing version 2 with invalid length (nsclient)...
+nscp nrpe --host 127.0.0.1 --insecure --version 2 --payload-length 4096 --command mock_query
+if not %errorlevel%==3 (
+  echo ! Succeeded to connect with NRPE, Error level was: %errorlevel%
+  exit /b 1
+)
+echo - Testing 2 with invalid length (check_nrpe)...
+docker run --rm check_nrpe check_nrpe_4096 -H host.docker.internal -p 5666 -t5 -c mock_query
+if not %errorlevel%==3 (
+  echo ! Succeeded to connect with NRPE, Error level was: %errorlevel%
+  exit /b 1
+)
+echo - Shutting down server...
+docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 -c mock_exit
+if not %errorlevel%==0 (
+  echo ! Failed to exit via NRPE, Error level was: %errorlevel%
+  exit /b 1
+)
+
+timeout /t 3 /nobreak >nul
 
 echo ------------------------------
 echo Running unencrypted NRPE test

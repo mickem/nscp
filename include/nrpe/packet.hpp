@@ -274,7 +274,7 @@ class packet /*: public boost::noncopyable*/ {
     calculatedCRC32_ = calculate_crc32(tb, static_cast<int>(get_packet_length_v2()));
     delete[] tb;
     if (crc32_ != calculatedCRC32_) {
-      throw nrpe_exception("Invalid checksum in NRPE packet: " + str::xtos(crc32_) + "!=" + str::xtos(calculatedCRC32_));
+      throw nrpe_exception("Invalid checksum reading v2 NRPE packet: " + str::xtos(crc32_) + "!=" + str::xtos(calculatedCRC32_));
     }
     // Verify CRC32 end
     result_ = swap_bytes::ntoh<int16_t>(p->result_code);
@@ -315,7 +315,7 @@ class packet /*: public boost::noncopyable*/ {
     calculatedCRC32_ = calculate_crc32(tb, static_cast<int>(source_data_length));
     delete[] tb;
     if (crc32_ != calculatedCRC32_) {
-      throw nrpe_exception("Invalid checksum in NRPE packet: " + str::xtos(crc32_) + "!=" + str::xtos(calculatedCRC32_));
+      throw nrpe_exception("Invalid checksum reading v3 NRPE packet: " + str::xtos(crc32_) + "!=" + str::xtos(calculatedCRC32_));
     }
     // Verify CRC32 end
     result_ = swap_bytes::ntoh<int16_t>(p->result_code);
