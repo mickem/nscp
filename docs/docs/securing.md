@@ -21,7 +21,7 @@ To set up NRPE with two-way TLS you need to:
 Step 1-3 will depend on your environment and is covered in the [Getting started guide](./getting-started.md).
 Step 4 can easily be setup with from the command line like so:
 
-```commandline:
+```commandline
 $ nscp nrpe install ^
 	--allowed-hosts 127.0.0.1 ^
 	--insecure=false --verify=peer-cert ^
