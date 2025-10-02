@@ -25,13 +25,13 @@ jobs:
       with:
         python-version: ${{ ENV.PYTHON_VERSION }}
 
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: NSCP-${{ inputs.version }}-x64
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: NSCP-${{ inputs.version }}-Win32
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: NSCP-${{ inputs.version }}-Win32-legacy-xp
 
