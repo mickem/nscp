@@ -120,6 +120,7 @@ A list of all the MSI options can be found below.
 | TLS_VERIFY_MODE    | The TLS verify mode to use (*none*, peer, fail_if_no_peer_cert)                                                         |
 | TLS_CA             | The CA file to use for TLS connections (if not using the system default)                                                |
 | CONF_SET           | Set a configuration value in the form of section1;key1;value1;section2;key2;value2...                                   |
+| IMPORT_CONFIG      | URL or file path to a configuration file to copy during install and use as the configuration for NSClient++             |
 
 ### Features
 

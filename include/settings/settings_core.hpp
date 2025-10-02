@@ -264,7 +264,6 @@ class settings_core {
   /// @author mickem
   virtual instance_raw_ptr create_instance(std::string alias, std::string context) = 0;
 
-
   //////////////////////////////////////////////////////////////////////////
   /// Check if a given context can be updated.
   ///
