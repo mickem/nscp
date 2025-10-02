@@ -12,7 +12,7 @@ RUN wget https://github.com/NagiosEnterprises/nrpe/releases/download/nrpe-4.1.3/
     ./configure --enable-ssl && \
     make all && \
     cp src/check_nrpe /usr/bin/check_nrpe && \
-	sed -i '/#define.*MAX_PACKETBUFFER_LENGTH/c\#define MAX_PACKETBUFFER_LENGTH 4096' include/common.h && \
+    sed -i '/#define.*MAX_PACKETBUFFER_LENGTH/c\#define MAX_PACKETBUFFER_LENGTH 4096' include/common.h && \
     make all && \
     cp src/check_nrpe /usr/bin/check_nrpe_4096 && \
     rm -rf /tmp/nrpe.tar.gz /tmp/nrpe-4.1.3
