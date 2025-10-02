@@ -185,7 +185,7 @@ void nsclient::core::plugin_manager::load_active_plugins() {
 }
 // Load all available plugins (from the filesystem)
 void nsclient::core::plugin_manager::load_all_plugins() {
-  for (plugin_alias_list_type::value_type v : find_all_plugins()) {
+  for (const plugin_alias_list_type::value_type &v : find_all_plugins()) {
     if (v.second == "NSCPDOTNET.dll" || v.second == "NSCPDOTNET" || v.second == "NSCP.Core") continue;
     try {
       add_plugin(v.second, v.first);
@@ -376,8 +376,8 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_
     if (plugin->has_on_event()) {
       event_subscribers_.add_plugin(plugin);
     }
-    settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, "string", plugin->getModule(), plugin->getName(), plugin->getDescription(), "0",
-                                               false, false);
+    auto key = alias.empty() ? plugin->getModule() : alias;
+    settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, key, "string", plugin->getName(), plugin->getDescription(), "0", false, false);
     plugin_cache_.add_plugin(plugin);
     return plugin;
   } catch (const nsclient::core::plugin_exception &e) {

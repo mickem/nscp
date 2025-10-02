@@ -535,10 +535,15 @@ class settings_interface_impl : public settings_interface {
       }
     }
 
-    std::set<std::string> sections;
+    std::set<std::string> paths;
     for (cache_type::const_iterator cit = settings_cache_.begin(); cit != settings_cache_.end(); ++cit) {
       set_real_value((*cit).first, (*cit).second);
-      sections.insert((*cit).first.first);
+      paths.insert((*cit).first.first);
+    }
+    if (re_save_all) {
+      for (const auto &path : paths) {
+        set_real_path(path);
+      }
     }
     for (instance_raw_ptr &child : children_) {
       child->save(re_save_all);
