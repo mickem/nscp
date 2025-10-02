@@ -92,7 +92,7 @@ class INISettings : public settings::settings_interface_impl {
 
   std::string render_comment(const boost::optional<settings_core::key_description> &desc) {
     if (!desc.has_value()) {
-      return "; Undocumented key";
+      return "";
     }
     std::string comment = "; ";
     if (!desc.value().title.empty()) comment += desc.value().title + " - ";

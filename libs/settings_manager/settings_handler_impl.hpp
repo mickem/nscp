@@ -241,6 +241,13 @@ class settings_handler_impl : public settings_core {
         settings_core::key_description ret = (*cit2).second;
         return ret;
       }
+      subkey_description subkey = (*cit).second.subkey;
+      if (subkey.is_subkey) {
+        return settings_core::key_description(0xffff, "string", subkey.title, subkey.description, "", subkey.advanced, subkey.is_sample);
+      }
+    }
+    if (path == "/modules") {
+      return settings_core::key_description(0, "bool", "Load on startup", "If the module should be loaded on startup", "false", false, false);
     }
     return boost::none;
   }

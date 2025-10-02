@@ -48,7 +48,7 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
       ("scripts", sh::fun_values_path([this] (auto key, auto value) { this->loadScript(key, value); }),
 	      "Lua scripts", "A list of scripts available to run from the LuaScript module.",
-	      "SCRIPT DEFINITION", "For more configuration options add a dedicated section")
+	      "Script", "A lua script to load")
       ;
     // clang-format on
 
