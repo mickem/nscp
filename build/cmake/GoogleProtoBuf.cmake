@@ -24,8 +24,6 @@ function(WRAP_PROTO VAR)
     set(${VAR}_H)
     set(${VAR}_LUA_C)
     set(${VAR}_LUA_H)
-    set(${VAR}_JSON_C)
-    set(${VAR}_JSON_H)
     set(${VAR}_CS)
     if(PROTOC_GEN_LUA_FOUND)
         list(
@@ -54,7 +52,6 @@ function(WRAP_PROTO VAR)
         # configure_file(${ABS_FIL}.h.in ${ABS_FIL}.h)
         file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/scripts/python/lib)
         file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/libs/lua_pb)
-        file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/libs/json_pb)
 
         set(ARGS)
         list(
@@ -131,8 +128,6 @@ function(WRAP_PROTO VAR)
                     ${${VAR}_H}
                     ${${VAR}_LUA_C}
                     ${${VAR}_LUA_H}
-                    ${${VAR}_JSON_C}
-                    ${${VAR}_JSON_H}
                     ${${VAR}_CS}
                     ${PROJECT_BINARY_DIR}/scripts/python/lib/${FIL_WE}_pb2.py
                 COMMAND SET PYTHON=${Python3_EXECUTABLE}
@@ -149,8 +144,6 @@ function(WRAP_PROTO VAR)
                     ${${VAR}_H}
                     ${${VAR}_LUA_C}
                     ${${VAR}_LUA_H}
-                    ${${VAR}_JSON_C}
-                    ${${VAR}_JSON_H}
                     ${PROJECT_BINARY_DIR}/scripts/python/lib/${FIL_WE}_pb2.py
                 COMMAND ${PROTOBUF_PROTOC_EXECUTABLE}
                 ARGS ${ARGS} --proto_path ${CMAKE_CURRENT_SOURCE_DIR} ${ABS_FIL}
@@ -166,8 +159,6 @@ function(WRAP_PROTO VAR)
             ${${VAR}_H}
             ${${VAR}_LUA_C}
             ${${VAR}_LUA_H}
-            ${${VAR}_JSON_C}
-            ${${VAR}_JSON_H}
             ${${VAR}_CS}
             PROPERTIES GENERATED TRUE
         )
@@ -177,7 +168,5 @@ function(WRAP_PROTO VAR)
     set(${VAR}_H ${${VAR}_H} PARENT_SCOPE)
     set(${VAR}_LUA_C ${${VAR}_LUA_C} PARENT_SCOPE)
     set(${VAR}_LUA_H ${${VAR}_LUA_H} PARENT_SCOPE)
-    set(${VAR}_JSON_C ${${VAR}_JSON_C} PARENT_SCOPE)
-    set(${VAR}_JSON_H ${${VAR}_JSON_H} PARENT_SCOPE)
     set(${VAR}_CS ${${VAR}_CS} PARENT_SCOPE)
 endfunction(WRAP_PROTO)

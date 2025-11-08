@@ -31,7 +31,7 @@ using namespace System::Reflection;
 using namespace System::Collections::Generic;
 using namespace System::Runtime::InteropServices;
 
-using namespace PB::Commands;
+//using namespace PB::Commands;
 
 nscapi::core_wrapper* CoreImpl::get_core() {
 	return core;

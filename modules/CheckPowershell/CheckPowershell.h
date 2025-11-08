@@ -20,6 +20,7 @@
 #pragma once
 
 #include <nscapi/nscapi_thin_plugin_impl.hpp>
+using namespace PB::Commands;
 
 #include <vcclr.h>
 

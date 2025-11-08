@@ -4,33 +4,13 @@ Check and run powershell scripts natievly
 
 
 
+## Enable module
 
+To enable this module and and allow using the commands you need to ass `CheckPowershell = enabled` to the `[/modules]` section in nsclient.ini:
 
-
-## Configuration
-
-
-
-| Path / Section                                      | Description        |
-|-----------------------------------------------------|--------------------|
-| [/modules/powershell/commands](#powershell-scripts) | Powershell scripts |
-
-
-
-### Powershell scripts <a id="/modules/powershell/commands"/>
-
-Native powershell script execution
-
-
-
-
-
-
-
-```ini
-# Native powershell script execution
-[/modules/powershell/commands]
-
+```
+[/modules]
+CheckPowershell = enabled
 ```
 
 

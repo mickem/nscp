@@ -1,24 +1,26 @@
 cmake_minimum_required(VERSION 3.10)
 
-# IF(CSHARP_FOUND AND WIN32) PROJECT(NSCP.Protobuf)
-#
-# file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/Google.Protobuf.dll DESTINATION
-# ${NSCP_PROJECT_BINARY_DIR})
-#
-# SET(CSHARP_BINARY_DIRECTORY ${NSCP_PROJECT_BINARY_DIR})
-# INCLUDE(${CSHARP_USE_FILE})
-#
-# SET(CSHARP_BINARY_DIRECTORY ${BUILD_TARGET_EXE_PATH})
-# CSHARP_ADD_LIBRARY(NSCP.Protobuf "${CMAKE_CURRENT_SOURCE_DIR}/Helpers.cs"
-# "${PROJECT_BINARY_DIR}/Plugin.cs" "${PROJECT_BINARY_DIR}/Metrics.cs"
-# "${PROJECT_BINARY_DIR}/Log.cs" "${PROJECT_BINARY_DIR}/Registry.cs"
-# "${PROJECT_BINARY_DIR}/Settings.cs" "${PROJECT_BINARY_DIR}/Storage.cs"
-# "${PROJECT_BINARY_DIR}/Common.cs"
-#
-# ${NSCP_PROJECT_BINARY_DIR}/Google.Protobuf.dll
-# ${NSCP_PROJECT_BINARY_DIR}/NSCP.Core.dll ) ADD_DEPENDENCIES(NSCP.Protobuf
-# NSCP.Core) SET_TARGET_PROPERTIES(NSCP.Protobuf PROPERTIES FOLDER
-# "libraries/dotnet") INSTALL(FILES ${BUILD_TARGET_EXE_PATH}/NSCP.Protobuf.dll
-# Google.ProtocolBuffers.dll DESTINATION .)
-#
-# ENDIF()
+PROJECT(NSCP.Protobuf LANGUAGES CSharp)
+
+
+#file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/Google.Protobuf.dll DESTINATION  ${NSCP_PROJECT_BINARY_DIR})
+
+SET(CSHARP_BINARY_DIRECTORY ${NSCP_PROJECT_BINARY_DIR})
+
+SET(CSHARP_BINARY_DIRECTORY ${BUILD_TARGET_EXE_PATH})
+ADD_LIBRARY(NSCP.Protobuf Helpers.cs Plugin.cs Metrics.cs Log.cs Registry.cs Settings.cs Storage.cs Common.cs)
+
+set_property(TARGET NSCP.Protobuf PROPERTY VS_DOTNET_REFERENCES
+        #Microsoft.CSharp
+        System
+        System.Memory
+        NSCP.Core
+        # This is ugly...
+        # Need to build this...
+        "C:\\src\\build\\protobuf-21.12\\csharp\\src\\Google.Protobuf\\bin\\Release\\net45\\Google.Protobuf.dll"
+)
+
+add_dependencies(${TARGET} NSCP.Core)
+set_library_out_folder(NSCP.Protobuf)
+
+SET_TARGET_PROPERTIES(NSCP.Protobuf PROPERTIES FOLDER  "libraries/dotnet")

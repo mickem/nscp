@@ -48,7 +48,7 @@ extern int NSLoadModuleEx(unsigned int id, char* alias, int mode) {
 		nscapi::basic_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
 		return wrapper.NSLoadModuleExNoExcept(id, alias, mode);
 	} catch (System::Exception^ e) {
-		NSC_LOG_ERROR("Exception in NSLoadModuleEx: " + to_nstring(e->Message));
+		NSC_LOG_ERROR("Exception in NSLoadModuleEx: " + to_nstring(e->Message) + " trace:\n" + to_nstring(e->StackTrace));
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("NSLoadModuleEx", e);
 	} catch (...) {
@@ -139,8 +139,10 @@ bool DotnetPlugins::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 	NSCP::Helpers::SettingsHelper^ settings = gcnew NSCP::Helpers::SettingsHelper(gcnew CoreImpl(this), get_id());
 
 	settings->registerPath(to_mstring(settings_path), "DOT NET MODULES", "Modules written in dotnet/CLR", false);
+	NSC_LOG_CRITICAL("++++");
 
 	for each (System::String^ s in settings->getKeys("/modules/dotnet")) {
+		NSC_DEBUG_MSG("Loading: " + to_nstring(s));
 		settings->registerKey(to_mstring(settings_path), s, 0, "DOT NET Module", "dotnet plugin", "", false);
 		std::string v = to_nstring(settings->getString(to_mstring(settings_path), s, ""));
 		std::string factory = to_nstring(settings->getString(to_mstring(settings_path + "/" + to_nstring(s)), to_mstring(factory_key), to_mstring(factory_default)));

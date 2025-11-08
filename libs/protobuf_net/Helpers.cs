@@ -1,13 +1,10 @@
+using Google.Protobuf;
 using NSCP.Core;
 using PB.Log;
-using PB.Settings;
-using PB.Common;
 using PB.Registry;
-using System;
-using System.IO;
-using System.Diagnostics;
+using PB.Settings;
 using System.Collections.Generic;
-using Google.Protobuf;
+using System.Diagnostics;
 
 namespace NSCP.Helpers
 {
@@ -70,15 +67,33 @@ namespace NSCP.Helpers
         public List<string> getKeys(string path)
         {
             List<string> ret = new List<string>();
-            SettingsRequestMessage newMessage = new SettingsRequestMessage();
+            SettingsRequestMessage newMessage = new SettingsRequestMessage
+            {
+            };
+            newMessage.Payload.Add(new SettingsRequestMessage.Types.Request
+            {
+                PluginId = plugin_id,
+                Query = new SettingsRequestMessage.Types.Request.Types.Query
+                {
+                    Node = new Node
+                    {
+                        Path = path
+                    },
+                    Recursive = false,
+                    IncludeKeys = true
+                }
+            });
+            /*
             SettingsRequestMessage.Types.Request.Types.Query newQuery = new SettingsRequestMessage.Types.Request.Types.Query();
             newQuery.Node = new Node();
             newQuery.Node.Path = path;
             newQuery.Recursive = false;
+            newQuery.IncludeKeys = true;
             SettingsRequestMessage.Types.Request request = new SettingsRequestMessage.Types.Request();
             request.PluginId = plugin_id;
             request.Query = newQuery;
             newMessage.Payload.Add(request);
+            */
 
             NSCP.Core.Result res = core.settings(newMessage.ToByteArray());
 

@@ -30,7 +30,7 @@
 #include <managed/convert.hpp>
 #include <managed/core_impl.hpp>
 
-#using <C:\\source\\build\\x64\\dev\\System.Management.Automation.dll>
+#using <C:\\src\\build\\wtf\\System.Management.Automation.dll>
 
 using namespace System;
 //using namespace System::Management::Automation;

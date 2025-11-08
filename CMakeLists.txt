@@ -849,16 +849,6 @@ file(
 foreach(CURRENT_LIB ${ALL_LIB_PROJECTS})
     get_filename_component(CURRENT_LIB_PATH ${CURRENT_LIB} PATH)
     get_filename_component(CURRENT_LIB_NAME ${CURRENT_LIB_PATH} NAME)
-    if(
-        CURRENT_LIB_NAME STREQUAL "protobuf_net"
-        OR CURRENT_LIB_NAME STREQUAL "dotnet-plugin-api"
-    )
-        message(
-            STATUS
-            " - Skipping Library: ${CURRENT_LIB_PATH} (${CURRENT_LIB_NAME})"
-        )
-        continue()
-    endif()
     message(STATUS " + Library: ${CURRENT_LIB_PATH} (${CURRENT_LIB_NAME})")
     add_subdirectory("${CURRENT_LIB_PATH}")
     set(ALL_LIB_NAMES ${ALL_LIB_NAMES} ${CURRENT_LIB_NAME})

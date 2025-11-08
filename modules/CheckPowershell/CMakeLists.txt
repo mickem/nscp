@@ -34,50 +34,25 @@ if(WIN32)
     )
 endif(WIN32)
 
-string(REPLACE "/EHsc" "/EHa" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-string(REPLACE "/EHs" "/EHa" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-string(REPLACE "/MT" "/MD" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-string(
-    REPLACE
-    "/EHsc"
-    "/EHa"
-    CMAKE_CXX_FLAGS_RELWITHDEBINFO
-    ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
-)
-string(
-    REPLACE
-    "/EHs"
-    "/EHa"
-    CMAKE_CXX_FLAGS_RELWITHDEBINFO
-    ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
-)
-string(
-    REPLACE
-    "/MT"
-    "/MD"
-    CMAKE_CXX_FLAGS_RELWITHDEBINFO
-    ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
-)
-string(
-    REPLACE
-    "/MT"
-    "/MD"
-    CMAKE_CXX_FLAGS_MINSIZEREL
-    ${CMAKE_CXX_FLAGS_MINSIZEREL}
-)
-string(REPLACE "/MT" "/MD" CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
-string(REPLACE "/EHsc" "/EHa" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-string(REPLACE "/EHs" "/EHa" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-string(REPLACE "/MTd" "/MDd" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-string(REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-string(REPLACE "/RTCs" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-string(REPLACE "/RTCu" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-string(REPLACE "/GZ" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} /clr /EHa /FU${NSCP_PROJECT_BINARY_DIR}/Google.Protobuf.dll /FU${NSCP_PROJECT_BINARY_DIR}/NSCP.Core.dll /FU${NSCP_PROJECT_BINARY_DIR}/NSCP.Protobuf.dll"
-)
+
+
 add_library(${TARGET} MODULE ${SRCS})
 nscp_debug_symbols(${TARGET})
+
+set_library_out_folder_module(${TARGET})
+
+set_target_properties(${TARGET} PROPERTIES FOLDER "libraries/dotnet")
+set_target_properties(${TARGET} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+set_target_properties(${TARGET} PROPERTIES VS_DOTNET_TARGET_FRAMEWORK_VERSION "v4.7.2")
+set_target_properties(${TARGET} PROPERTIES COMMON_LANGUAGE_RUNTIME "")
+set_target_properties(${TARGET} PROPERTIES FOLDER ${MODULE_SUBFOLDER})
+
+set_property(TARGET ${TARGET} PROPERTY VS_DOTNET_REFERENCES
+        NSCP.Core
+        # This is ugly...
+        # Need to build this...
+        "C:\\src\\build\\protobuf-21.12\\csharp\\src\\Google.Protobuf\\bin\\Release\\net45\\Google.Protobuf.dll"
+)
 
 add_dependencies(${TARGET} NSCP.Core)
 add_dependencies(${TARGET} NSCP.Protobuf)

@@ -25,7 +25,6 @@
 #include <functional>
 
 #include <NSCAPI.h>
-//#include <nscapi/nscapi_plugin_wrapper.hpp>
 
 #include <win/windows.hpp>
 

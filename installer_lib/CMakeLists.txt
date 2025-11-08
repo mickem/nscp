@@ -237,4 +237,3 @@ target_link_libraries(
     CRYPT32
     Msi.lib
 )
-# SET_LIBRARY_OUT_FOLDER_MODULE(${TARGET})

@@ -21,6 +21,9 @@
 
 // We are using the Visual Studio Compiler and building Shared libraries
 
+#ifdef _MANAGED
+#define NSCAPI_EXPORT
+#else
 #if defined(_WIN32)
 #if defined(plugin_api_NOLIB)
 #define NSCAPI_EXPORT
@@ -42,4 +45,5 @@
 #define NSCAPI_EXPORT
 #endif /* plugin_api_EXPORTS */
 #endif /* plugin_api_NOLIB */
-#endif
+#endif /* defined (_WIN32) */
+#endif /* _MANAGED */

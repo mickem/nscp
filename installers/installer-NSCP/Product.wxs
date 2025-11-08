@@ -141,11 +141,9 @@
             <Component Id="LuaScript" Guid="C5A3C7E2-77A0-4BE2-B60D-808F4B14F56F" Win64="$(var.Win64)">
               <File Id="ModLUAScript.dll" Name="LUAScript.dll" DiskId="1" Source="$(var.Source)/modules/LUAScript.dll" Vital="no" />
             </Component>
-            <!--
             <Component Id="DotNetPlugins" Guid="E57F4EE3-D5A6-46ED-BC99-018708258154" Win64="$(var.Win64)">
               <File Id="ModDotnetPlugins.dll" Name="DotnetPlugins.dll" DiskId="1" Source="$(var.Source)/modules/DotnetPlugins.dll" Vital="no" />
             </Component>
-            -->
             <Component Id="Op5Client" Guid="D8378E84-4785-41FD-8FCD-2409135FBFF4" Win64="$(var.Win64)">
               <File Id="ModOp5Client.dll" Name="Op5Client.dll" DiskId="1" Source="$(var.Source)/modules/Op5Client.dll" Vital="no" />
             </Component>
@@ -164,13 +162,11 @@
               <File Id="LuaDLL" Name="lua.dll" DiskId="1" Source="$(var.Source)/lua.dll" Vital="no" />
             </Component>
           <?endif?>
-          <!--
           <Component Id="LibDotNet" Guid="29AC2A9A-D1D1-4E86-BEE0-5428C86422F6">
             <File Id="DOTNET_PB" Name="Google.ProtocolBuffers.dll" DiskId="1" Source="$(var.Source)/Google.ProtocolBuffers.dll" Vital="yes" />
             <File Id="DOTNET_CORE" Name="NSCP.Core.dll" DiskId="1" Source="$(var.Source)/NSCP.Core.dll" Vital="yes" />
             <File Id="DOTNET_NSPB" Name="NSCP.Protobuf.dll" DiskId="1" Source="$(var.Source)/NSCP.Protobuf.dll" Vital="yes" />
           </Component>
-          -->
         </Directory>
       </Directory>
 
@@ -210,12 +206,10 @@
         <Feature Id="FirewallConfig" Title="Firewall Exception" Description="A firewall exception to allow NSClient++ to open ports" Level="1" Absent="allow">
           <ComponentRef Id="FWException" />
         </Feature>
-        <!--
         <Feature Id="DotNetPluginSupport" Title=".net plugin support" Description="Support for loading modules written in .dot net (Requires installing .net framework)" Level="1" Absent="allow">
           <ComponentRef Id="LibDotNet" />
           <ComponentRef Id="DotNetPlugins" />
         </Feature>
-        -->
       </Feature>
       <Feature Id="OP5Montoring" Title="OP5 Monitoring system" Description="Configuration and scripts to use NSClien++ with OP5 monitoring solution" Level="1" Absent="allow">
           <ComponentGroupRef Id="Op5ConfigResources" />

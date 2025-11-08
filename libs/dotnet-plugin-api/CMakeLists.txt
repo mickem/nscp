@@ -4,62 +4,12 @@ if(WIN32)
 
     set(SRCS AssemblyInfo.cpp NSCP.h)
 
-    string(REPLACE "/EHsc" "/EHa" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    string(REPLACE "/EHs" "/EHa" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    string(REPLACE "/MT" "/MD" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    string(
-        REPLACE
-        "/EHsc"
-        "/EHa"
-        CMAKE_CXX_FLAGS_RELWITHDEBINFO
-        ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
-    )
-    string(
-        REPLACE
-        "/EHs"
-        "/EHa"
-        CMAKE_CXX_FLAGS_RELWITHDEBINFO
-        ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
-    )
-    string(
-        REPLACE
-        "/MT"
-        "/MD"
-        CMAKE_CXX_FLAGS_RELWITHDEBINFO
-        ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
-    )
-    string(
-        REPLACE
-        "/MT"
-        "/MD"
-        CMAKE_CXX_FLAGS_MINSIZEREL
-        ${CMAKE_CXX_FLAGS_MINSIZEREL}
-    )
-    string(
-        REPLACE
-        "/MT"
-        "/MD"
-        CMAKE_CXX_FLAGS_RELEASE
-        ${CMAKE_CXX_FLAGS_RELEASE}
-    )
-    string(
-        REPLACE
-        "/EHsc"
-        "/EHa"
-        CMAKE_CXX_FLAGS_DEBUG
-        ${CMAKE_CXX_FLAGS_DEBUG}
-    )
-    string(REPLACE "/EHs" "/EHa" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-    string(REPLACE "/MTd" "/MDd" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-    string(REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-    string(REPLACE "/RTCs" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-    string(REPLACE "/RTCu" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-    string(REPLACE "/GZ" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /clr /EHa")
-
-    add_library(NSCP.Core MODULE ${SRCS})
-    set_library_out_folder_module(NSCP.Core)
+    add_library(NSCP.Core SHARED ${SRCS})
+    set_library_out_folder(NSCP.Core)
 
     set_target_properties(NSCP.Core PROPERTIES FOLDER "libraries/dotnet")
+    set_target_properties(NSCP.Core PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+    set_target_properties(NSCP.Core PROPERTIES VS_DOTNET_TARGET_FRAMEWORK_VERSION "v4.7.2")
+    set_target_properties(NSCP.Core PROPERTIES COMMON_LANGUAGE_RUNTIME "")
     install(TARGETS NSCP.Core DESTINATION .)
 endif(WIN32)

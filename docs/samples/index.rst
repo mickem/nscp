@@ -177,6 +177,7 @@ L        cli  Performance data: 'AsChkDev.txt size'=29.04101KB;20;0 'AsDCDVer.tx
 
 
 
+
 CheckSystem
 ===========
 
@@ -654,6 +655,7 @@ check_wmi "query=Select BuildNumber from win32_OperatingSystem" "warn=BuildNumbe
 L        cli OK: You have build 10240
 L        cli  Performance data: 'BuildNumber'=10240;9600;8000
 ```
+
 
 
 
