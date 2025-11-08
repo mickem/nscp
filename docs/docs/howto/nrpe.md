@@ -192,7 +192,7 @@ allowed hosts = 192.168.0.1/24
 port = 5666
 ```
 
-There are a lot of other options as well but these are the most used ones for details please refer to the [reference section](../reference/NRPEServer).
+There are a lot of other options as well but these are the most used ones for details please refer to the [reference section](../reference/client/NRPEServer.md).
 
 
 ### NRPE version 3 and 4

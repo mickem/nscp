@@ -42,7 +42,7 @@ INI settings: (ini://${shared-path}/nsclient.ini, C:\source\build\x64\dev/nsclie
 ```
 
 Now this configuration can include other configuration backends and files so your setup might be more complicated.
-For details on the configuration options check the [the reference documentation](reference)
+For details on the configuration options check the [the reference documentation](reference/index.md)
 
 ### Windows Firewall
 
