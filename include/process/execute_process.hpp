@@ -19,9 +19,10 @@
 
 #pragma once
 #include <string>
+#include <utility>
 
 namespace process {
-class process_exception : public std::exception {
+class process_exception final : public std::exception {
   std::string error;
 
  public:
@@ -30,21 +31,30 @@ class process_exception : public std::exception {
   /// @param error the error message
   ///
   /// @author mickem
-  process_exception(std::string error) : error(error) {}
-  ~process_exception() throw() {}
+  explicit process_exception(std::string error) : error(std::move(error)) {}
+  ~process_exception() noexcept override = default;
 
   //////////////////////////////////////////////////////////////////////////
   /// Retrieve the error message from the exception.
   /// @return the error message
   ///
   /// @author mickem
-  const char *what() const throw() { return error.c_str(); }
+  const char *what() const noexcept override { return error.c_str(); }
 };
 
 class exec_arguments {
  public:
-  exec_arguments(std::string root_path_, std::string command_, unsigned int timeout_, const std::string &encoding, std::string session, bool, bool fork)
-      : root_path(root_path_), command(command_), timeout(timeout_), encoding(encoding), session(session), display(false), ignore_perf(false), fork(fork) {}
+  exec_arguments(std::string root_path_, std::string command_, const unsigned int timeout_, std::string encoding, std::string session, bool, const bool fork,
+                 bool kill_tree)
+      : root_path(std::move(root_path_)),
+        command(std::move(command_)),
+        timeout(timeout_),
+        encoding(std::move(encoding)),
+        session(std::move(session)),
+        display(false),
+        ignore_perf(false),
+        fork(fork),
+        kill_tree(kill_tree) {}
 
   std::string alias;
   std::string root_path;
@@ -58,7 +68,8 @@ class exec_arguments {
   bool display;
   bool ignore_perf;
   bool fork;
+  bool kill_tree;
 };
 void kill_all();
-int execute_process(process::exec_arguments args, std::string &output);
+int execute_process(const exec_arguments &args, std::string &output);
 }  // namespace process

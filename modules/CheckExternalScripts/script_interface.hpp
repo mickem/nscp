@@ -7,6 +7,7 @@
 #include "commands.hpp"
 
 struct script_provider_interface {
+  virtual ~script_provider_interface() = default;
   virtual unsigned int get_id() = 0;
   virtual nscapi::core_wrapper* get_core() = 0;
   virtual boost::shared_ptr<nscapi::settings_proxy> get_settings_proxy() = 0;

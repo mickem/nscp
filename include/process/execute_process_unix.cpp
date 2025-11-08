@@ -48,7 +48,7 @@ void process::kill_all() {
   // TODO: Fixme
 }
 
-int process::execute_process(process::exec_arguments args, std::string &output) {
+int process::execute_process(const process::exec_arguments &args, std::string &output) {
   NSCAPI::nagiosReturn result;
   int fd[2];
   std::size_t bytes_read = 0;

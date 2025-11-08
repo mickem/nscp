@@ -39,7 +39,7 @@
 
 namespace sh = nscapi::settings_helper;
 
-CheckExternalScripts::CheckExternalScripts() {}
+CheckExternalScripts::CheckExternalScripts() : kill_tree(false) {}
 CheckExternalScripts::~CheckExternalScripts() {}
 
 void CheckExternalScripts::addAllScriptsFrom(std::string str_path) {
@@ -93,16 +93,13 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
     // clang-format off
     settings.alias().add_path_to_settings()
-
       ("wrappings", sh::string_map_path(&wrappings)
 	      , "Script wrappings", "A list of templates for defining script commands.\nEnter any command line here and they will be expanded by scripts placed under the wrapped scripts section. %SCRIPT% will be replaced by the actual script an %ARGS% will be replaced by any given arguments.",
 	      "WRAPPING", "An external script wrapping")
-
       ("alias", sh::fun_values_path([this] (auto key, auto value) { this->add_alias(key, value); }),
 	      "Command aliases", "A list of aliases for already defined commands (with arguments).\n"
 	      "An alias is an internal command that has been predefined to provide a single command without arguments. Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)",
 	      "ALIAS", "Query alias")
-
       ;
     // clang-format on
 
@@ -166,6 +163,8 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
         .add_int("timeout", sh::uint_key(&timeout, 60), "Command timeout",
                  "The maximum time in seconds that a command can execute. (if more then this execution will be aborted). NOTICE this only affects external "
                  "commands not internal ones.")
+        .add_bool("kill tree", sh::bool_key(&kill_tree, false), "Kill process tree",
+                  "Kill all child processes (notice this might accidentally kill other processes if PIDs are reused when killing the process).")
 
         .add_bool("allow arguments", sh::bool_key(&allowArgs_, false), "Allow arguments when executing external scripts",
                   "This option determines whether or not the we will allow clients to specify arguments to commands that are executed.")
@@ -390,7 +389,7 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
   }
   NSC_TRACE_ENABLED() { NSC_TRACE_MSG(cd.get_alias() + " command line: " + cmdline); }
 
-  process::exec_arguments arg(root_, cmdline, timeout, cd.encoding, cd.session, cd.display, !cd.no_fork);
+  process::exec_arguments arg(root_, cmdline, timeout, cd.encoding, cd.session, cd.display, !cd.no_fork, kill_tree);
   if (!cd.user.empty()) {
     arg.user = cd.user;
     arg.domain = cd.domain;

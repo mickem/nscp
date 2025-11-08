@@ -155,6 +155,7 @@ General settings for the external scripts module (CheckExternalScripts).
 |----------------------------------------------------------------------------------------|---------------|-------------------------------------------------------------|
 | [allow arguments](#allow-arguments-when-executing-external-scripts)                    | false         | Allow arguments when executing external scripts             |
 | [allow nasty characters](#allow-certain-potentially-dangerous-characters-in-arguments) | false         | Allow certain potentially dangerous characters in arguments |
+| [kill tree](#kill-process-tree)                                                        | false         | Kill process tree                                           |
 | [script path](#load-all-scripts-in-a-given-folder)                                     |               | Load all scripts in a given folder                          |
 | [script root](#script-root-folder)                                                     | ${scripts}    | Script root folder                                          |
 | [timeout](#command-timeout)                                                            | 60            | Command timeout                                             |
@@ -166,6 +167,7 @@ General settings for the external scripts module (CheckExternalScripts).
 [/settings/external scripts]
 allow arguments=false
 allow nasty characters=false
+kill tree=false
 script root=${scripts}
 timeout=60
 
@@ -223,6 +225,32 @@ This option determines whether or not the we will allow clients to specify nasty
 [/settings/external scripts]
 # Allow certain potentially dangerous characters in arguments
 allow nasty characters=false
+```
+
+
+
+#### Kill process tree <a id="/settings/external scripts/kill tree"></a>
+
+Kill all child processes (notice this might accidentally kill other processes if PIDs are reused when killing the process).
+
+
+
+
+
+| Key            | Description                                               |
+|----------------|-----------------------------------------------------------|
+| Path:          | [/settings/external scripts](#/settings/external scripts) |
+| Key:           | kill tree                                                 |
+| Default value: | `false`                                                   |
+| Used by:       | CheckExternalScripts                                      |
+
+
+**Sample:**
+
+```
+[/settings/external scripts]
+# Kill process tree
+kill tree=false
 ```
 
 
