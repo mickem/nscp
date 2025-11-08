@@ -1,4 +1,4 @@
-Configuration to setup the module::
+Configuration to set up the module:
 
 ```
 [/modules]
@@ -9,13 +9,13 @@ CauseCrashes = enabled
 allowed hosts = 127.0.0.1
 ```
 
-Then execute the following command on Nagios::
+Then execute the following command on Nagios:
 
 ```
 nscp nrpe --host 127.0.0.1 --command crashclient
 ```
 
-Then execute the following command on the NSClient++ machine::
+Then execute the following command on the NSClient++ machine:
 
 ```
 nscp test

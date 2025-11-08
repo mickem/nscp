@@ -26,7 +26,7 @@ ElasticClient = enabled
 
 
 
-### /settings/elastic/client <a id="/settings/elastic/client"/>
+### /settings/elastic/client <a id="/settings/elastic/client"></a>
 
 
 

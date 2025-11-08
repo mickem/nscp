@@ -43,22 +43,24 @@ A list of all short hand aliases for queries (check commands)
 Fetch results from the cache.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_cache_options)
 
 
 
 
 
-<a name="check_cache_help"/>
-<a name="check_cache_help-pb"/>
-<a name="check_cache_show-default"/>
-<a name="check_cache_help-short"/>
-<a name="check_cache_key"/>
-<a name="check_cache_host"/>
-<a name="check_cache_command"/>
-<a name="check_cache_channel"/>
-<a name="check_cache_alias"/>
-<a name="check_cache_options"/>
+<a id="check_cache_help"></a>
+<a id="check_cache_help-pb"></a>
+<a id="check_cache_show-default"></a>
+<a id="check_cache_help-short"></a>
+<a id="check_cache_key"></a>
+<a id="check_cache_host"></a>
+<a id="check_cache_command"></a>
+<a id="check_cache_channel"></a>
+<a id="check_cache_alias"></a>
+<a id="check_cache_options"></a>
 #### Command-line Arguments
 
 
@@ -96,17 +98,19 @@ The return status to return when a message is not found
 List all keys in the cache.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#list_cache_options)
 
 
 
 
 
-<a name="list_cache_help"/>
-<a name="list_cache_help-pb"/>
-<a name="list_cache_show-default"/>
-<a name="list_cache_help-short"/>
-<a name="list_cache_options"/>
+<a id="list_cache_help"></a>
+<a id="list_cache_help-pb"></a>
+<a id="list_cache_show-default"></a>
+<a id="list_cache_help-short"></a>
+<a id="list_cache_options"></a>
 #### Command-line Arguments
 
 
@@ -132,7 +136,7 @@ List all keys in the cache.
 
 
 
-### CACHE <a id="/settings/cache"/>
+### CACHE <a id="/settings/cache"></a>
 
 Section for simple cache module (SimpleCache.dll).
 

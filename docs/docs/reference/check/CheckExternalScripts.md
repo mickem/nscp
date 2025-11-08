@@ -144,7 +144,7 @@ The draw back to this is that the script cannot return any output neither messag
 
 
 
-### External script settings <a id="/settings/external scripts"/>
+### External script settings <a id="/settings/external scripts"></a>
 
 General settings for the external scripts module (CheckExternalScripts).
 
@@ -305,7 +305,7 @@ timeout=60
 ```
 
 
-### Command aliases <a id="/settings/external scripts/alias"/>
+### Command aliases <a id="/settings/external scripts/alias"></a>
 
 A list of aliases for already defined commands (with arguments).
 An alias is an internal command that has been predefined to provide a single command without arguments. Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)
@@ -368,7 +368,7 @@ parent=default
 
 
 
-### External scripts <a id="/settings/external scripts/scripts"/>
+### External scripts <a id="/settings/external scripts/scripts"></a>
 
 A list of scripts available to run from the CheckExternalScripts module. Syntax is: `command=script arguments`
 
@@ -420,7 +420,7 @@ parent=default
 
 
 
-### Wrapped scripts <a id="/settings/external scripts/wrapped scripts"/>
+### Wrapped scripts <a id="/settings/external scripts/wrapped scripts"></a>
 
 A list of wrapped scripts (ie. script using a template mechanism).
 The template used will be defined by the extension of the script. Thus a foo.ps1 will use the ps1 wrapping from the wrappings section.
@@ -433,7 +433,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-### Script wrappings <a id="/settings/external scripts/wrappings"/>
+### Script wrappings <a id="/settings/external scripts/wrappings"></a>
 
 A list of templates for defining script commands.
 Enter any command line here and they will be expanded by scripts placed under the wrapped scripts section. %SCRIPT% will be replaced by the actual script an %ARGS% will be replaced by any given arguments.

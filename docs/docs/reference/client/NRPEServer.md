@@ -29,7 +29,7 @@ NRPEServer = enabled
 
 
 
-### Default values <a id="/settings/default"/>
+### Default values <a id="/settings/default"></a>
 
 Default values used in other config sections.
 
@@ -305,7 +305,7 @@ timeout=30
 ```
 
 
-### NRPE Server <a id="/settings/NRPE/server"/>
+### NRPE Server <a id="/settings/NRPE/server"></a>
 
 Section for NRPE (NRPEServer.dll) (check_nrpe) protocol options.
 

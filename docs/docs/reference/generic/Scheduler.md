@@ -102,7 +102,7 @@ The syntax of the schedule is similar to a cron expression in that you have:
 
 
 
-### Scheduler <a id="/settings/scheduler"/>
+### Scheduler <a id="/settings/scheduler"></a>
 
 Section for the Scheduler module.
 
@@ -151,7 +151,7 @@ threads=5
 ```
 
 
-### Schedules <a id="/settings/scheduler/schedules"/>
+### Schedules <a id="/settings/scheduler/schedules"></a>
 
 Section for the Scheduler module.
 

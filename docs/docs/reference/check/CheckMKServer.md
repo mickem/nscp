@@ -28,7 +28,7 @@ CheckMKServer = enabled
 
 
 
-### CHECK MK SERVER SECTION <a id="/settings/check_mk/server"/>
+### CHECK MK SERVER SECTION <a id="/settings/check_mk/server"></a>
 
 Section for check_mk (CheckMKServer.dll) protocol options.
 
@@ -589,7 +589,7 @@ verify mode=none
 ```
 
 
-### REMOTE TARGET DEFINITIONS <a id="/settings/check_mk/server/scripts"/>
+### REMOTE TARGET DEFINITIONS <a id="/settings/check_mk/server/scripts"></a>
 
 
 
@@ -601,7 +601,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-### Default values <a id="/settings/default"/>
+### Default values <a id="/settings/default"></a>
 
 Default values used in other config sections.
 

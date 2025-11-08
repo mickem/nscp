@@ -38,40 +38,42 @@ A list of all available queries (check commands)
 Request remote information via NRPE.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_nrpe_options)
 
 
 
 
 
-<a name="check_nrpe_help"/>
-<a name="check_nrpe_help-pb"/>
-<a name="check_nrpe_show-default"/>
-<a name="check_nrpe_help-short"/>
-<a name="check_nrpe_host"/>
-<a name="check_nrpe_port"/>
-<a name="check_nrpe_address"/>
-<a name="check_nrpe_timeout"/>
-<a name="check_nrpe_target"/>
-<a name="check_nrpe_retry"/>
-<a name="check_nrpe_retries"/>
-<a name="check_nrpe_source-host"/>
-<a name="check_nrpe_sender-host"/>
-<a name="check_nrpe_command"/>
-<a name="check_nrpe_argument"/>
-<a name="check_nrpe_separator"/>
-<a name="check_nrpe_batch"/>
-<a name="check_nrpe_certificate"/>
-<a name="check_nrpe_dh"/>
-<a name="check_nrpe_certificate-key"/>
-<a name="check_nrpe_certificate-format"/>
-<a name="check_nrpe_ca"/>
-<a name="check_nrpe_verify"/>
-<a name="check_nrpe_allowed-ciphers"/>
-<a name="check_nrpe_payload-length"/>
-<a name="check_nrpe_version"/>
-<a name="check_nrpe_buffer-length"/>
-<a name="check_nrpe_options"/>
+<a id="check_nrpe_help"></a>
+<a id="check_nrpe_help-pb"></a>
+<a id="check_nrpe_show-default"></a>
+<a id="check_nrpe_help-short"></a>
+<a id="check_nrpe_host"></a>
+<a id="check_nrpe_port"></a>
+<a id="check_nrpe_address"></a>
+<a id="check_nrpe_timeout"></a>
+<a id="check_nrpe_target"></a>
+<a id="check_nrpe_retry"></a>
+<a id="check_nrpe_retries"></a>
+<a id="check_nrpe_source-host"></a>
+<a id="check_nrpe_sender-host"></a>
+<a id="check_nrpe_command"></a>
+<a id="check_nrpe_argument"></a>
+<a id="check_nrpe_separator"></a>
+<a id="check_nrpe_batch"></a>
+<a id="check_nrpe_certificate"></a>
+<a id="check_nrpe_dh"></a>
+<a id="check_nrpe_certificate-key"></a>
+<a id="check_nrpe_certificate-format"></a>
+<a id="check_nrpe_ca"></a>
+<a id="check_nrpe_verify"></a>
+<a id="check_nrpe_allowed-ciphers"></a>
+<a id="check_nrpe_payload-length"></a>
+<a id="check_nrpe_version"></a>
+<a id="check_nrpe_buffer-length"></a>
+<a id="check_nrpe_options"></a>
 #### Command-line Arguments
 
 
@@ -127,40 +129,42 @@ Use insecure legacy mode
 Execute remote script via NRPE. (Most likely you want nrpe_query).
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#exec_nrpe_options)
 
 
 
 
 
-<a name="exec_nrpe_help"/>
-<a name="exec_nrpe_help-pb"/>
-<a name="exec_nrpe_show-default"/>
-<a name="exec_nrpe_help-short"/>
-<a name="exec_nrpe_host"/>
-<a name="exec_nrpe_port"/>
-<a name="exec_nrpe_address"/>
-<a name="exec_nrpe_timeout"/>
-<a name="exec_nrpe_target"/>
-<a name="exec_nrpe_retry"/>
-<a name="exec_nrpe_retries"/>
-<a name="exec_nrpe_source-host"/>
-<a name="exec_nrpe_sender-host"/>
-<a name="exec_nrpe_command"/>
-<a name="exec_nrpe_argument"/>
-<a name="exec_nrpe_separator"/>
-<a name="exec_nrpe_batch"/>
-<a name="exec_nrpe_certificate"/>
-<a name="exec_nrpe_dh"/>
-<a name="exec_nrpe_certificate-key"/>
-<a name="exec_nrpe_certificate-format"/>
-<a name="exec_nrpe_ca"/>
-<a name="exec_nrpe_verify"/>
-<a name="exec_nrpe_allowed-ciphers"/>
-<a name="exec_nrpe_payload-length"/>
-<a name="exec_nrpe_version"/>
-<a name="exec_nrpe_buffer-length"/>
-<a name="exec_nrpe_options"/>
+<a id="exec_nrpe_help"></a>
+<a id="exec_nrpe_help-pb"></a>
+<a id="exec_nrpe_show-default"></a>
+<a id="exec_nrpe_help-short"></a>
+<a id="exec_nrpe_host"></a>
+<a id="exec_nrpe_port"></a>
+<a id="exec_nrpe_address"></a>
+<a id="exec_nrpe_timeout"></a>
+<a id="exec_nrpe_target"></a>
+<a id="exec_nrpe_retry"></a>
+<a id="exec_nrpe_retries"></a>
+<a id="exec_nrpe_source-host"></a>
+<a id="exec_nrpe_sender-host"></a>
+<a id="exec_nrpe_command"></a>
+<a id="exec_nrpe_argument"></a>
+<a id="exec_nrpe_separator"></a>
+<a id="exec_nrpe_batch"></a>
+<a id="exec_nrpe_certificate"></a>
+<a id="exec_nrpe_dh"></a>
+<a id="exec_nrpe_certificate-key"></a>
+<a id="exec_nrpe_certificate-format"></a>
+<a id="exec_nrpe_ca"></a>
+<a id="exec_nrpe_verify"></a>
+<a id="exec_nrpe_allowed-ciphers"></a>
+<a id="exec_nrpe_payload-length"></a>
+<a id="exec_nrpe_version"></a>
+<a id="exec_nrpe_buffer-length"></a>
+<a id="exec_nrpe_options"></a>
 #### Command-line Arguments
 
 
@@ -216,14 +220,16 @@ Use insecure legacy mode
 Forward the request as-is to remote host via NRPE.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#nrpe_forward_options)
 
 
 
 
 
-<a name="nrpe_forward_*"/>
-<a name="nrpe_forward_options"/>
+<a id="nrpe_forward_*"></a>
+<a id="nrpe_forward_options"></a>
 #### Command-line Arguments
 
 
@@ -239,40 +245,42 @@ Forward the request as-is to remote host via NRPE.
 Request remote information via NRPE.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#nrpe_query_options)
 
 
 
 
 
-<a name="nrpe_query_help"/>
-<a name="nrpe_query_help-pb"/>
-<a name="nrpe_query_show-default"/>
-<a name="nrpe_query_help-short"/>
-<a name="nrpe_query_host"/>
-<a name="nrpe_query_port"/>
-<a name="nrpe_query_address"/>
-<a name="nrpe_query_timeout"/>
-<a name="nrpe_query_target"/>
-<a name="nrpe_query_retry"/>
-<a name="nrpe_query_retries"/>
-<a name="nrpe_query_source-host"/>
-<a name="nrpe_query_sender-host"/>
-<a name="nrpe_query_command"/>
-<a name="nrpe_query_argument"/>
-<a name="nrpe_query_separator"/>
-<a name="nrpe_query_batch"/>
-<a name="nrpe_query_certificate"/>
-<a name="nrpe_query_dh"/>
-<a name="nrpe_query_certificate-key"/>
-<a name="nrpe_query_certificate-format"/>
-<a name="nrpe_query_ca"/>
-<a name="nrpe_query_verify"/>
-<a name="nrpe_query_allowed-ciphers"/>
-<a name="nrpe_query_payload-length"/>
-<a name="nrpe_query_version"/>
-<a name="nrpe_query_buffer-length"/>
-<a name="nrpe_query_options"/>
+<a id="nrpe_query_help"></a>
+<a id="nrpe_query_help-pb"></a>
+<a id="nrpe_query_show-default"></a>
+<a id="nrpe_query_help-short"></a>
+<a id="nrpe_query_host"></a>
+<a id="nrpe_query_port"></a>
+<a id="nrpe_query_address"></a>
+<a id="nrpe_query_timeout"></a>
+<a id="nrpe_query_target"></a>
+<a id="nrpe_query_retry"></a>
+<a id="nrpe_query_retries"></a>
+<a id="nrpe_query_source-host"></a>
+<a id="nrpe_query_sender-host"></a>
+<a id="nrpe_query_command"></a>
+<a id="nrpe_query_argument"></a>
+<a id="nrpe_query_separator"></a>
+<a id="nrpe_query_batch"></a>
+<a id="nrpe_query_certificate"></a>
+<a id="nrpe_query_dh"></a>
+<a id="nrpe_query_certificate-key"></a>
+<a id="nrpe_query_certificate-format"></a>
+<a id="nrpe_query_ca"></a>
+<a id="nrpe_query_verify"></a>
+<a id="nrpe_query_allowed-ciphers"></a>
+<a id="nrpe_query_payload-length"></a>
+<a id="nrpe_query_version"></a>
+<a id="nrpe_query_buffer-length"></a>
+<a id="nrpe_query_options"></a>
 #### Command-line Arguments
 
 
@@ -328,42 +336,44 @@ Use insecure legacy mode
 Submit information to remote host via NRPE. (Most likely you want nrpe_query).
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#submit_nrpe_options)
 
 
 
 
 
-<a name="submit_nrpe_help"/>
-<a name="submit_nrpe_help-pb"/>
-<a name="submit_nrpe_show-default"/>
-<a name="submit_nrpe_help-short"/>
-<a name="submit_nrpe_host"/>
-<a name="submit_nrpe_port"/>
-<a name="submit_nrpe_address"/>
-<a name="submit_nrpe_timeout"/>
-<a name="submit_nrpe_target"/>
-<a name="submit_nrpe_retry"/>
-<a name="submit_nrpe_retries"/>
-<a name="submit_nrpe_source-host"/>
-<a name="submit_nrpe_sender-host"/>
-<a name="submit_nrpe_command"/>
-<a name="submit_nrpe_alias"/>
-<a name="submit_nrpe_message"/>
-<a name="submit_nrpe_result"/>
-<a name="submit_nrpe_separator"/>
-<a name="submit_nrpe_batch"/>
-<a name="submit_nrpe_certificate"/>
-<a name="submit_nrpe_dh"/>
-<a name="submit_nrpe_certificate-key"/>
-<a name="submit_nrpe_certificate-format"/>
-<a name="submit_nrpe_ca"/>
-<a name="submit_nrpe_verify"/>
-<a name="submit_nrpe_allowed-ciphers"/>
-<a name="submit_nrpe_payload-length"/>
-<a name="submit_nrpe_version"/>
-<a name="submit_nrpe_buffer-length"/>
-<a name="submit_nrpe_options"/>
+<a id="submit_nrpe_help"></a>
+<a id="submit_nrpe_help-pb"></a>
+<a id="submit_nrpe_show-default"></a>
+<a id="submit_nrpe_help-short"></a>
+<a id="submit_nrpe_host"></a>
+<a id="submit_nrpe_port"></a>
+<a id="submit_nrpe_address"></a>
+<a id="submit_nrpe_timeout"></a>
+<a id="submit_nrpe_target"></a>
+<a id="submit_nrpe_retry"></a>
+<a id="submit_nrpe_retries"></a>
+<a id="submit_nrpe_source-host"></a>
+<a id="submit_nrpe_sender-host"></a>
+<a id="submit_nrpe_command"></a>
+<a id="submit_nrpe_alias"></a>
+<a id="submit_nrpe_message"></a>
+<a id="submit_nrpe_result"></a>
+<a id="submit_nrpe_separator"></a>
+<a id="submit_nrpe_batch"></a>
+<a id="submit_nrpe_certificate"></a>
+<a id="submit_nrpe_dh"></a>
+<a id="submit_nrpe_certificate-key"></a>
+<a id="submit_nrpe_certificate-format"></a>
+<a id="submit_nrpe_ca"></a>
+<a id="submit_nrpe_verify"></a>
+<a id="submit_nrpe_allowed-ciphers"></a>
+<a id="submit_nrpe_payload-length"></a>
+<a id="submit_nrpe_version"></a>
+<a id="submit_nrpe_buffer-length"></a>
+<a id="submit_nrpe_options"></a>
 #### Command-line Arguments
 
 
@@ -430,7 +440,7 @@ Use insecure legacy mode
 
 
 
-### NRPE CLIENT SECTION <a id="/settings/NRPE/client"/>
+### NRPE CLIENT SECTION <a id="/settings/NRPE/client"></a>
 
 Section for NRPE active/passive check module.
 
@@ -479,7 +489,7 @@ channel=NRPE
 ```
 
 
-### CLIENT HANDLER SECTION <a id="/settings/NRPE/client/handlers"/>
+### CLIENT HANDLER SECTION <a id="/settings/NRPE/client/handlers"></a>
 
 
 
@@ -491,7 +501,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-### REMOTE TARGET DEFINITIONS <a id="/settings/NRPE/client/targets"/>
+### REMOTE TARGET DEFINITIONS <a id="/settings/NRPE/client/targets"></a>
 
 
 

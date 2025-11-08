@@ -42,6 +42,8 @@ A list of all short hand aliases for queries (check commands)
 Check for errors in log file or generic pattern matching in text files.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_logfile_options)
 * [Filter keywords](#check_logfile_filter_keys)
 
@@ -49,18 +51,18 @@ Check for errors in log file or generic pattern matching in text files.
 
 
 
-<a name="check_logfile_warn"/>
-<a name="check_logfile_crit"/>
-<a name="check_logfile_debug"/>
-<a name="check_logfile_show-all"/>
-<a name="check_logfile_escape-html"/>
-<a name="check_logfile_help"/>
-<a name="check_logfile_help-pb"/>
-<a name="check_logfile_show-default"/>
-<a name="check_logfile_help-short"/>
-<a name="check_logfile_split"/>
-<a name="check_logfile_files"/>
-<a name="check_logfile_options"/>
+<a id="check_logfile_warn"></a>
+<a id="check_logfile_crit"></a>
+<a id="check_logfile_debug"></a>
+<a id="check_logfile_show-all"></a>
+<a id="check_logfile_escape-html"></a>
+<a id="check_logfile_help"></a>
+<a id="check_logfile_help-pb"></a>
+<a id="check_logfile_show-default"></a>
+<a id="check_logfile_help-short"></a>
+<a id="check_logfile_split"></a>
+<a id="check_logfile_files"></a>
+<a id="check_logfile_options"></a>
 #### Command-line Arguments
 
 
@@ -192,7 +194,7 @@ In other words if one file contains an error the entire check will result in err
 
 
 
-<a name="check_logfile_filter_keys"/>
+<a id="check_logfile_filter_keys"></a>
 #### Filter keywords
 
 
@@ -239,7 +241,7 @@ In other words if one file contains an error the entire check will result in err
 
 
 
-### Real-time filtering <a id="/settings/logfile/real-time"/>
+### Real-time filtering <a id="/settings/logfile/real-time"></a>
 
 A set of options to configure the real time checks
 
@@ -288,7 +290,7 @@ enabled=false
 ```
 
 
-### Real-time filters <a id="/settings/logfile/real-time/checks"/>
+### Real-time filters <a id="/settings/logfile/real-time/checks"></a>
 
 A set of filters to use in real-time mode
 

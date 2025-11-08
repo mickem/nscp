@@ -27,7 +27,7 @@ NSClientServer = enabled
 
 
 
-### Default values <a id="/settings/default"/>
+### Default values <a id="/settings/default"></a>
 
 Default values used in other config sections.
 
@@ -303,7 +303,7 @@ timeout=30
 ```
 
 
-### NSCLIENT SERVER SECTION <a id="/settings/NSClient/server"/>
+### NSCLIENT SERVER SECTION <a id="/settings/NSClient/server"></a>
 
 Section for NSClient (NSClientServer.dll) (check_nt) protocol options.
 

@@ -26,7 +26,7 @@ PythonScript = enabled
 
 
 
-### Python scripts <a id="/settings/python/scripts"/>
+### Python scripts <a id="/settings/python/scripts"></a>
 
 A list of scripts available to run from the PythonScript module.
 

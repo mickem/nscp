@@ -30,7 +30,7 @@ WEBServer = enabled
 
 
 
-### Default values <a id="/settings/default"/>
+### Default values <a id="/settings/default"></a>
 
 Default values used in other config sections.
 
@@ -306,7 +306,7 @@ timeout=30
 ```
 
 
-### Web server <a id="/settings/WEB/server"/>
+### Web server <a id="/settings/WEB/server"></a>
 
 Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 
@@ -523,7 +523,7 @@ threads=10
 ```
 
 
-### Log configuration <a id="/settings/WEB/server/log"/>
+### Log configuration <a id="/settings/WEB/server/log"></a>
 
 Configure which messages from the web server are logged.
 
@@ -628,7 +628,7 @@ info=false
 ```
 
 
-### Web server roles <a id="/settings/WEB/server/roles"/>
+### Web server roles <a id="/settings/WEB/server/roles"></a>
 
 A list of roles and with coma separated list of access rights.
 
@@ -761,7 +761,7 @@ view=*
 ```
 
 
-### Web server users <a id="/settings/WEB/server/users"/>
+### Web server users <a id="/settings/WEB/server/users"></a>
 
 Users which can access the REST API
 

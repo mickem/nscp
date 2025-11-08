@@ -34,6 +34,8 @@ A list of all available queries (check commands)
 Ping another host and check the result.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_ping_options)
 * [Filter keywords](#check_ping_filter_keys)
 
@@ -41,19 +43,19 @@ Ping another host and check the result.
 
 
 
-<a name="check_ping_warn"/>
-<a name="check_ping_crit"/>
-<a name="check_ping_debug"/>
-<a name="check_ping_show-all"/>
-<a name="check_ping_escape-html"/>
-<a name="check_ping_help"/>
-<a name="check_ping_help-pb"/>
-<a name="check_ping_show-default"/>
-<a name="check_ping_help-short"/>
-<a name="check_ping_host"/>
-<a name="check_ping_total"/>
-<a name="check_ping_hosts"/>
-<a name="check_ping_options"/>
+<a id="check_ping_warn"></a>
+<a id="check_ping_crit"></a>
+<a id="check_ping_debug"></a>
+<a id="check_ping_show-all"></a>
+<a id="check_ping_escape-html"></a>
+<a id="check_ping_help"></a>
+<a id="check_ping_help-pb"></a>
+<a id="check_ping_show-default"></a>
+<a id="check_ping_help-short"></a>
+<a id="check_ping_host"></a>
+<a id="check_ping_total"></a>
+<a id="check_ping_hosts"></a>
+<a id="check_ping_options"></a>
 #### Command-line Arguments
 
 
@@ -188,7 +190,7 @@ The payload to send in the ping request (default: 'Hello from NSClient++')
 *Default Value:* `Hello from NSClient++.`
 
 
-<a name="check_ping_filter_keys"/>
+<a id="check_ping_filter_keys"></a>
 #### Filter keywords
 
 

@@ -34,41 +34,43 @@ A list of all available queries (check commands)
 Submit information to the remote syslog server.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#submit_syslog_options)
 
 
 
 
 
-<a name="submit_syslog_help"/>
-<a name="submit_syslog_help-pb"/>
-<a name="submit_syslog_show-default"/>
-<a name="submit_syslog_help-short"/>
-<a name="submit_syslog_host"/>
-<a name="submit_syslog_port"/>
-<a name="submit_syslog_address"/>
-<a name="submit_syslog_timeout"/>
-<a name="submit_syslog_target"/>
-<a name="submit_syslog_retry"/>
-<a name="submit_syslog_retries"/>
-<a name="submit_syslog_source-host"/>
-<a name="submit_syslog_sender-host"/>
-<a name="submit_syslog_command"/>
-<a name="submit_syslog_alias"/>
-<a name="submit_syslog_message"/>
-<a name="submit_syslog_result"/>
-<a name="submit_syslog_separator"/>
-<a name="submit_syslog_batch"/>
-<a name="submit_syslog_path"/>
-<a name="submit_syslog_severity"/>
-<a name="submit_syslog_unknown-severity"/>
-<a name="submit_syslog_ok-severity"/>
-<a name="submit_syslog_warning-severity"/>
-<a name="submit_syslog_critical-severity"/>
-<a name="submit_syslog_facility"/>
-<a name="submit_syslog_tag template"/>
-<a name="submit_syslog_message template"/>
-<a name="submit_syslog_options"/>
+<a id="submit_syslog_help"></a>
+<a id="submit_syslog_help-pb"></a>
+<a id="submit_syslog_show-default"></a>
+<a id="submit_syslog_help-short"></a>
+<a id="submit_syslog_host"></a>
+<a id="submit_syslog_port"></a>
+<a id="submit_syslog_address"></a>
+<a id="submit_syslog_timeout"></a>
+<a id="submit_syslog_target"></a>
+<a id="submit_syslog_retry"></a>
+<a id="submit_syslog_retries"></a>
+<a id="submit_syslog_source-host"></a>
+<a id="submit_syslog_sender-host"></a>
+<a id="submit_syslog_command"></a>
+<a id="submit_syslog_alias"></a>
+<a id="submit_syslog_message"></a>
+<a id="submit_syslog_result"></a>
+<a id="submit_syslog_separator"></a>
+<a id="submit_syslog_batch"></a>
+<a id="submit_syslog_path"></a>
+<a id="submit_syslog_severity"></a>
+<a id="submit_syslog_unknown-severity"></a>
+<a id="submit_syslog_ok-severity"></a>
+<a id="submit_syslog_warning-severity"></a>
+<a id="submit_syslog_critical-severity"></a>
+<a id="submit_syslog_facility"></a>
+<a id="submit_syslog_tag template"></a>
+<a id="submit_syslog_message template"></a>
+<a id="submit_syslog_options"></a>
 #### Command-line Arguments
 
 
@@ -120,7 +122,7 @@ Submit information to the remote syslog server.
 
 
 
-### SYSLOG CLIENT SECTION <a id="/settings/syslog/client"/>
+### SYSLOG CLIENT SECTION <a id="/settings/syslog/client"></a>
 
 Section for SYSLOG passive check module.
 
@@ -208,7 +210,7 @@ hostname=auto
 ```
 
 
-### CLIENT HANDLER SECTION <a id="/settings/syslog/client/handlers"/>
+### CLIENT HANDLER SECTION <a id="/settings/syslog/client/handlers"></a>
 
 
 
@@ -220,7 +222,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-### REMOTE TARGET DEFINITIONS <a id="/settings/syslog/client/targets"/>
+### REMOTE TARGET DEFINITIONS <a id="/settings/syslog/client/targets"></a>
 
 
 

@@ -34,37 +34,39 @@ A list of all available queries (check commands)
 Request remote information via check_mk.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_mk_query_options)
 
 
 
 
 
-<a name="check_mk_query_help"/>
-<a name="check_mk_query_help-pb"/>
-<a name="check_mk_query_show-default"/>
-<a name="check_mk_query_help-short"/>
-<a name="check_mk_query_host"/>
-<a name="check_mk_query_port"/>
-<a name="check_mk_query_address"/>
-<a name="check_mk_query_timeout"/>
-<a name="check_mk_query_target"/>
-<a name="check_mk_query_retry"/>
-<a name="check_mk_query_retries"/>
-<a name="check_mk_query_source-host"/>
-<a name="check_mk_query_sender-host"/>
-<a name="check_mk_query_command"/>
-<a name="check_mk_query_argument"/>
-<a name="check_mk_query_separator"/>
-<a name="check_mk_query_batch"/>
-<a name="check_mk_query_certificate"/>
-<a name="check_mk_query_dh"/>
-<a name="check_mk_query_certificate-key"/>
-<a name="check_mk_query_certificate-format"/>
-<a name="check_mk_query_ca"/>
-<a name="check_mk_query_verify"/>
-<a name="check_mk_query_allowed-ciphers"/>
-<a name="check_mk_query_options"/>
+<a id="check_mk_query_help"></a>
+<a id="check_mk_query_help-pb"></a>
+<a id="check_mk_query_show-default"></a>
+<a id="check_mk_query_help-short"></a>
+<a id="check_mk_query_host"></a>
+<a id="check_mk_query_port"></a>
+<a id="check_mk_query_address"></a>
+<a id="check_mk_query_timeout"></a>
+<a id="check_mk_query_target"></a>
+<a id="check_mk_query_retry"></a>
+<a id="check_mk_query_retries"></a>
+<a id="check_mk_query_source-host"></a>
+<a id="check_mk_query_sender-host"></a>
+<a id="check_mk_query_command"></a>
+<a id="check_mk_query_argument"></a>
+<a id="check_mk_query_separator"></a>
+<a id="check_mk_query_batch"></a>
+<a id="check_mk_query_certificate"></a>
+<a id="check_mk_query_dh"></a>
+<a id="check_mk_query_certificate-key"></a>
+<a id="check_mk_query_certificate-format"></a>
+<a id="check_mk_query_ca"></a>
+<a id="check_mk_query_verify"></a>
+<a id="check_mk_query_allowed-ciphers"></a>
+<a id="check_mk_query_options"></a>
 #### Command-line Arguments
 
 
@@ -120,7 +122,7 @@ Initial an ssl handshake with the server.
 
 
 
-### CHECK MK CLIENT SECTION <a id="/settings/check_mk/client"/>
+### CHECK MK CLIENT SECTION <a id="/settings/check_mk/client"></a>
 
 Section for check_mk active/passive check module.
 
@@ -169,7 +171,7 @@ channel=CheckMK
 ```
 
 
-### CLIENT HANDLER SECTION <a id="/settings/check_mk/client/handlers"/>
+### CLIENT HANDLER SECTION <a id="/settings/check_mk/client/handlers"></a>
 
 
 
@@ -181,7 +183,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-### REMOTE TARGET DEFINITIONS <a id="/settings/check_mk/client/scripts"/>
+### REMOTE TARGET DEFINITIONS <a id="/settings/check_mk/client/scripts"></a>
 
 
 
@@ -193,7 +195,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-### REMOTE TARGET DEFINITIONS <a id="/settings/check_mk/client/targets"/>
+### REMOTE TARGET DEFINITIONS <a id="/settings/check_mk/client/targets"></a>
 
 
 

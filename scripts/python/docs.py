@@ -84,17 +84,22 @@ A list of all short hand aliases for queries (check commands)
 ### {{query.key}}
 
 {{query.info.description}}
+{% if query.ext_desc %}
+{{query.ext_desc}}
+{%- endif %}
+
+**Jump to section:**
 
 {% if query.sample -%}
-* [Samples](#{{"samples"|md_prefix_lnk(query.key)}})
-{% endif %}
+* [Sample Commands](#{{"samples"|md_prefix_lnk(query.key)}})
+{% endif -%}
 * [Command-line Arguments](#{{"options"|md_prefix_lnk(query.key)}})
 {% if query.fields -%}
 * [Filter keywords](#{{"filter_keys"|md_prefix_lnk(query.key)}})
 {% endif %}
 
 {% if query.sample -%}
-<a name="{{"samples"|md_prefix_lnk(query.key)}}"/>
+<a id="{{"samples"|md_prefix_lnk(query.key)}}"></a>
 #### Sample Commands
 
 _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/{{query.sample_source}})_
@@ -103,8 +108,8 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 {%- endif %}
 
 {% for help in query.params -%}{%- if help.is_simple %}
-<a name="{{help.name|md_prefix_lnk(query.key)}}"/>{% endif %}{%- endfor %}
-<a name="{{"options"|md_prefix_lnk(query.key)}}"/>
+<a id="{{help.name|md_prefix_lnk(query.key)}}"></a>{% endif %}{%- endfor %}
+<a id="{{"options"|md_prefix_lnk(query.key)}}"></a>
 #### Command-line Arguments
 
 {% set table = [] -%}
@@ -129,7 +134,7 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 {%- endif %}{%- endfor %}
 
 {% if query.fields -%}
-<a name="{{"filter_keys"|md_prefix_lnk(query.key)}}"/>
+<a id="{{"filter_keys"|md_prefix_lnk(query.key)}}"></a>
 #### Filter keywords
 
 {% set table = [] -%}
@@ -160,7 +165,7 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 
 
 {% for pkey,path in module.paths|dictsort -%}
-### {% if path.info.title %}{{path.info.title}}{%else%}{{pkey}}{%endif%} <a id="{{path.key}}"/>
+### {% if path.info.title %}{{path.info.title}}{%else%}{{pkey}}{%endif%} <a id="{{path.key}}"></a>
 
 {{path.info.description}}
 
@@ -265,62 +270,26 @@ index_template = u"""
 
 {% set table = [] -%}
 {% for key,module in plugins|dictsort  -%}
-    {% do table.append([module.namespace, ('reference/' + module.namespace + '/' + module.key)|md_link(module.key), module.info.description|firstline]) -%}
-{%- endfor %}
+    {% do table.append([module.namespace, (module.namespace + '/' + module.key + '.md')|md_link(module.key), module.info.description|firstline]) -%}
+{%- endfor -%}
 {{table|rst_table('Type', 'Module', 'Description')}}
 
 # Queries
-
 {% set table = [] -%}
 {% for mk,module in plugins|dictsort  -%}
     {% for key,query in module.queries|dictsort  -%}
-        {% set desc = query.info.description|firstline %}
+        {% set desc = query.info.description|firstline -%}
         {% if desc.startswith('Alternative name for:') -%}
             {% set desc = query.info.description[22:]|rst_link('query') -%}
         {%- elif desc.startswith('Legacy version of ') -%}
             {% set desc = '**Deprecated** please use: ' + query.info.description[18:]|rst_link('query') -%}
         {%- elif query.info.description.startswith('Alias for:') -%}
             {% set desc = query.info.description[11:]|rst_link('query') -%}
-        {%- endif %}
-        {% do table.append([mk, ('reference/' + module.namespace + '/' + module.key + '#' + query.key)|md_link(query.key), desc]) -%}
-    {%- endfor %}
-{%- endfor %}
+        {%- endif -%}
+        {% do table.append([mk, (module.namespace + '/' + module.key + '.md#' + query.key)|md_link(query.key), desc]) -%}
+    {%- endfor -%}
+{%- endfor -%}
 {{table|rst_table('Module', 'Command', 'Description')}}
-"""
-
-
-samples_template = u""".. default-domain:: nscp
-
-.. default-domain:: nscp
-
-===========
-All samples
-===========
-
-A collection of all sample commands
-
-{% for mk,module in plugins|dictsort  -%}
-{% set vars = {'found': False} -%}
-{% for qk,query in module.queries|dictsort -%}
-{% if query.sample -%}
-{% if vars.update({'found': True}) -%}{%- endif %}
-{%- endif %}
-{%- endfor %}
-{% if vars.found -%}
-{{mk|rst_heading('=')}}
-
-{% for qk,query in module.queries|dictsort -%}
-{% if query.sample -%}
-{{qk|rst_heading}}
-
-{{query.info.description|firstline}}
-
-.. include:: ../samples/{{query.sample}}
-
-{% endif %}
-{%- endfor %}
-{%- endif %}
-{%- endfor %}
 """
 
 def split_argllist(name, desc):
@@ -352,6 +321,7 @@ class root_container(object):
     check_modules = ['CheckExternalScripts',  'CheckHelpers',  'CheckLogFile',  'CheckMKClient',  'CheckMKServer',  'CheckNSCP']
     client_modules = ['GraphiteClient',  'NRDPClient',  'NRPEClient',  'NRPEServer',  'NSCAClient',  'NSCAServer',  'NSClientServer',  'SMTPClient',  'SyslogClient']
     generic_modules = ['CommandClient',  'DotnetPlugins',  'LUAScript',  'PythonScript',  'Scheduler',  'SimpleCache',  'SimpleFileWriter', 'WEBServer']
+    ignored_modules = ['CauseCrashes']
 
     def __init__(self):
         self.paths = {}
@@ -404,6 +374,8 @@ class root_container(object):
 
     def append_plugin(self, info, folder):
         name = info.name
+        if name in self.ignored_modules:
+            return
         namespace = ''
         if name in self.windows_modules:
             namespace = 'windows'
@@ -430,7 +402,7 @@ class root_container(object):
             self.plugins[name].ext_desc = ''
             if os.path.exists(spath):
                 with open(spath) as f:
-                    self.plugins[name].ext_desc = f.read()
+                    self.plugins[name].ext_desc = f.read().strip(" \t")
                     self.plugins[name].ext_desc_source = 'samples/%s_desc.md'%(name)
             
     def get_hash(self):
@@ -449,6 +421,8 @@ class path_container(object):
         self.info = info.info
         self.default = None
         self.sample = None
+        self.ext_desc = None
+        self.ext_desc_source = None
         self.objects = {}
         
     def append_key(self, info):
@@ -717,6 +691,14 @@ class DocumentationHelper(object):
             with open(spath) as f:
                 cinfo.sample = f.read()
                 cinfo.sample_source = 'samples/%s_%s_samples.md'%(module, command)
+
+        spath = '%s/samples/%s_%s_desc.md'%(self.folder, module, command)
+        cinfo.ext_desc = ''
+        if os.path.exists(spath):
+            with open(spath) as f:
+                cinfo.ext_desc = f.read().strip(" \t")
+                cinfo.ext_desc_source = 'samples/%s_%s_desc.md'%(module, command)
+
         self.command_cache[command] = cinfo
         return cinfo
 
@@ -755,6 +737,8 @@ class DocumentationHelper(object):
                 minfo.sample = os.path.basename(sfile)
 
             for (c,cinfo) in sorted(root.commands.items()):
+                if cinfo.info.description.startswith('Legacy version of'):
+                    continue
                 if module in cinfo.info.plugin:
                     more_info = self.fetch_command(module, minfo, c,cinfo)
                     if more_info:
@@ -788,10 +772,6 @@ class DocumentationHelper(object):
         template = env.from_string(index_template)
         render_template(hash, template, '%s/docs/reference/index.md'%output_dir)
         
-        log_debug('%s/samples/index.rst'%output_dir)
-        template = env.from_string(samples_template)
-        render_template(hash, template, '%s/samples/index.rst'%output_dir)
-
     def main(self, args):
         parser = OptionParser(prog="")
         parser.add_option("-o", "--output", help="write report to FILE(s)")
