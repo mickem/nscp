@@ -89,7 +89,7 @@ struct filter_obj_handler : public native_context {
       .add_scaled_byte([](auto obj, auto context) { return get_zero(); }, [](auto obj, auto context) { return obj->get_total(); })
       .add_percentage([](auto obj, auto context) { return obj->get_total(); }, "", " %")
       ("free_pct", [](auto obj, auto context) { return obj->get_free_pct(); }, "% free memory")
-    ("used_pct", [](auto obj, auto context) { return obj->get_used_pct(); }, "% used memory")
+      ("used_pct", [](auto obj, auto context) { return obj->get_used_pct(); }, "% used memory")
       ;
     // clang-format on
     registry_.add_human_string("size", &filter_obj::get_total_human, "")
@@ -189,7 +189,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
 
   filter_type filter;
   filter_helper.add_options("used > 80%", "used > 90%", "", filter.get_filter_syntax(), "ignored");
-  filter_helper.add_syntax("${status}: ${list}", "${type} = ${used}", "${type}", "", "");
+  filter_helper.add_syntax("${status}: ${list}", "${type}: ${used}/${size}", "${type}", "", "");
   filter_helper.get_desc().add_options()("type", po::value<std::vector<std::string>>(&types),
                                          "The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)");
 
