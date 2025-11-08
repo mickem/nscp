@@ -26,7 +26,7 @@ SimpleFileWriter = enabled
 
 
 
-### FILE WRITER <a id="/settings/writers/file"/>
+### FILE WRITER <a id="/settings/writers/file"></a>
 
 Section for simple file writer module (SimpleFileWriter.dll).
 

@@ -34,37 +34,39 @@ A list of all available queries (check commands)
 Submit information to the remote SMTP server.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#submit_smtp_options)
 
 
 
 
 
-<a name="submit_smtp_help"/>
-<a name="submit_smtp_help-pb"/>
-<a name="submit_smtp_show-default"/>
-<a name="submit_smtp_help-short"/>
-<a name="submit_smtp_host"/>
-<a name="submit_smtp_port"/>
-<a name="submit_smtp_address"/>
-<a name="submit_smtp_timeout"/>
-<a name="submit_smtp_target"/>
-<a name="submit_smtp_retry"/>
-<a name="submit_smtp_retries"/>
-<a name="submit_smtp_source-host"/>
-<a name="submit_smtp_sender-host"/>
-<a name="submit_smtp_command"/>
-<a name="submit_smtp_alias"/>
-<a name="submit_smtp_message"/>
-<a name="submit_smtp_result"/>
-<a name="submit_smtp_separator"/>
-<a name="submit_smtp_batch"/>
-<a name="submit_smtp_sender"/>
-<a name="submit_smtp_recipient"/>
-<a name="submit_smtp_template"/>
-<a name="submit_smtp_source-host"/>
-<a name="submit_smtp_sender-host"/>
-<a name="submit_smtp_options"/>
+<a id="submit_smtp_help"></a>
+<a id="submit_smtp_help-pb"></a>
+<a id="submit_smtp_show-default"></a>
+<a id="submit_smtp_help-short"></a>
+<a id="submit_smtp_host"></a>
+<a id="submit_smtp_port"></a>
+<a id="submit_smtp_address"></a>
+<a id="submit_smtp_timeout"></a>
+<a id="submit_smtp_target"></a>
+<a id="submit_smtp_retry"></a>
+<a id="submit_smtp_retries"></a>
+<a id="submit_smtp_source-host"></a>
+<a id="submit_smtp_sender-host"></a>
+<a id="submit_smtp_command"></a>
+<a id="submit_smtp_alias"></a>
+<a id="submit_smtp_message"></a>
+<a id="submit_smtp_result"></a>
+<a id="submit_smtp_separator"></a>
+<a id="submit_smtp_batch"></a>
+<a id="submit_smtp_sender"></a>
+<a id="submit_smtp_recipient"></a>
+<a id="submit_smtp_template"></a>
+<a id="submit_smtp_source-host"></a>
+<a id="submit_smtp_sender-host"></a>
+<a id="submit_smtp_options"></a>
 #### Command-line Arguments
 
 
@@ -112,7 +114,7 @@ Submit information to the remote SMTP server.
 
 
 
-### SMTP CLIENT SECTION <a id="/settings/SMTP/client"/>
+### SMTP CLIENT SECTION <a id="/settings/SMTP/client"></a>
 
 Section for SMTP passive check module.
 
@@ -161,7 +163,7 @@ channel=SMTP
 ```
 
 
-### CLIENT HANDLER SECTION <a id="/settings/SMTP/client/handlers"/>
+### CLIENT HANDLER SECTION <a id="/settings/SMTP/client/handlers"></a>
 
 
 
@@ -173,7 +175,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-### REMOTE TARGET DEFINITIONS <a id="/settings/SMTP/client/targets"/>
+### REMOTE TARGET DEFINITIONS <a id="/settings/SMTP/client/targets"></a>
 
 
 

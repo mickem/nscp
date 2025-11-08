@@ -34,43 +34,45 @@ A list of all available queries (check commands)
 Submit information to the remote NSCA server.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#submit_nsca_options)
 
 
 
 
 
-<a name="submit_nsca_help"/>
-<a name="submit_nsca_help-pb"/>
-<a name="submit_nsca_show-default"/>
-<a name="submit_nsca_help-short"/>
-<a name="submit_nsca_host"/>
-<a name="submit_nsca_port"/>
-<a name="submit_nsca_address"/>
-<a name="submit_nsca_timeout"/>
-<a name="submit_nsca_target"/>
-<a name="submit_nsca_retry"/>
-<a name="submit_nsca_retries"/>
-<a name="submit_nsca_source-host"/>
-<a name="submit_nsca_sender-host"/>
-<a name="submit_nsca_command"/>
-<a name="submit_nsca_alias"/>
-<a name="submit_nsca_message"/>
-<a name="submit_nsca_result"/>
-<a name="submit_nsca_separator"/>
-<a name="submit_nsca_batch"/>
-<a name="submit_nsca_certificate"/>
-<a name="submit_nsca_dh"/>
-<a name="submit_nsca_certificate-key"/>
-<a name="submit_nsca_certificate-format"/>
-<a name="submit_nsca_ca"/>
-<a name="submit_nsca_verify"/>
-<a name="submit_nsca_allowed-ciphers"/>
-<a name="submit_nsca_payload-length"/>
-<a name="submit_nsca_buffer-length"/>
-<a name="submit_nsca_password"/>
-<a name="submit_nsca_time-offset"/>
-<a name="submit_nsca_options"/>
+<a id="submit_nsca_help"></a>
+<a id="submit_nsca_help-pb"></a>
+<a id="submit_nsca_show-default"></a>
+<a id="submit_nsca_help-short"></a>
+<a id="submit_nsca_host"></a>
+<a id="submit_nsca_port"></a>
+<a id="submit_nsca_address"></a>
+<a id="submit_nsca_timeout"></a>
+<a id="submit_nsca_target"></a>
+<a id="submit_nsca_retry"></a>
+<a id="submit_nsca_retries"></a>
+<a id="submit_nsca_source-host"></a>
+<a id="submit_nsca_sender-host"></a>
+<a id="submit_nsca_command"></a>
+<a id="submit_nsca_alias"></a>
+<a id="submit_nsca_message"></a>
+<a id="submit_nsca_result"></a>
+<a id="submit_nsca_separator"></a>
+<a id="submit_nsca_batch"></a>
+<a id="submit_nsca_certificate"></a>
+<a id="submit_nsca_dh"></a>
+<a id="submit_nsca_certificate-key"></a>
+<a id="submit_nsca_certificate-format"></a>
+<a id="submit_nsca_ca"></a>
+<a id="submit_nsca_verify"></a>
+<a id="submit_nsca_allowed-ciphers"></a>
+<a id="submit_nsca_payload-length"></a>
+<a id="submit_nsca_buffer-length"></a>
+<a id="submit_nsca_password"></a>
+<a id="submit_nsca_time-offset"></a>
+<a id="submit_nsca_options"></a>
 #### Command-line Arguments
 
 
@@ -153,7 +155,7 @@ gost = GOST
 
 
 
-### NSCA CLIENT SECTION <a id="/settings/NSCA/client"/>
+### NSCA CLIENT SECTION <a id="/settings/NSCA/client"></a>
 
 Section for NSCA passive check module.
 
@@ -270,7 +272,7 @@ hostname=auto
 ```
 
 
-### CLIENT HANDLER SECTION <a id="/settings/NSCA/client/handlers"/>
+### CLIENT HANDLER SECTION <a id="/settings/NSCA/client/handlers"></a>
 
 
 
@@ -282,7 +284,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-### REMOTE TARGET DEFINITIONS <a id="/settings/NSCA/client/targets"/>
+### REMOTE TARGET DEFINITIONS <a id="/settings/NSCA/client/targets"></a>
 
 
 

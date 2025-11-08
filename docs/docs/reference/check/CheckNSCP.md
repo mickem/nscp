@@ -35,17 +35,19 @@ A list of all available queries (check commands)
 Check the internal health of NSClient++.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_nscp_options)
 
 
 
 
 
-<a name="check_nscp_help"/>
-<a name="check_nscp_help-pb"/>
-<a name="check_nscp_show-default"/>
-<a name="check_nscp_help-short"/>
-<a name="check_nscp_options"/>
+<a id="check_nscp_help"></a>
+<a id="check_nscp_help-pb"></a>
+<a id="check_nscp_show-default"></a>
+<a id="check_nscp_help-short"></a>
+<a id="check_nscp_options"></a>
 #### Command-line Arguments
 
 
@@ -64,6 +66,8 @@ Check the internal health of NSClient++.
 Check the version of NSClient++ which is used.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_nscp_version_options)
 * [Filter keywords](#check_nscp_version_filter_keys)
 
@@ -71,16 +75,16 @@ Check the version of NSClient++ which is used.
 
 
 
-<a name="check_nscp_version_warn"/>
-<a name="check_nscp_version_crit"/>
-<a name="check_nscp_version_debug"/>
-<a name="check_nscp_version_show-all"/>
-<a name="check_nscp_version_escape-html"/>
-<a name="check_nscp_version_help"/>
-<a name="check_nscp_version_help-pb"/>
-<a name="check_nscp_version_show-default"/>
-<a name="check_nscp_version_help-short"/>
-<a name="check_nscp_version_options"/>
+<a id="check_nscp_version_warn"></a>
+<a id="check_nscp_version_crit"></a>
+<a id="check_nscp_version_debug"></a>
+<a id="check_nscp_version_show-all"></a>
+<a id="check_nscp_version_escape-html"></a>
+<a id="check_nscp_version_help"></a>
+<a id="check_nscp_version_help-pb"></a>
+<a id="check_nscp_version_show-default"></a>
+<a id="check_nscp_version_help-short"></a>
+<a id="check_nscp_version_options"></a>
 #### Command-line Arguments
 
 
@@ -187,7 +191,7 @@ This is the syntax for the base names of the performance data.
 *Default Value:* `version`
 
 
-<a name="check_nscp_version_filter_keys"/>
+<a id="check_nscp_version_filter_keys"></a>
 #### Filter keywords
 
 

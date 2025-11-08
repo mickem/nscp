@@ -4,7 +4,7 @@ CheckDisk can check various file and disk related things.
 
 `CheckDisk` is provides two disk related checks one for checking size of drives and the other for checking status of files and folders.
 
-!!! danger
+!!! warning "UNC and Network Paths"
     Please note that UNC and network paths are only available in each session meaning a user mounted share will not be visible to NSClient++ (since services run in their own session).
     But as long as NSClient++ can access the share you can still check it as you specify the UNC path.
     In other words the following will **NOT** work: `check_drivesize drive=m:` But the following will: `check_drivesize drive=\\myserver\\mydrive`
@@ -32,8 +32,6 @@ A list of all available queries (check commands)
 |-------------------------------------|---------------------------------------------------|
 | [check_drivesize](#check_drivesize) | Check the size (free-space) of a drive or volume. |
 | [check_files](#check_files)         | Check various aspects of a file and/or folder.    |
-| [checkdrivesize](#checkdrivesize)   | Legacy version of check_drivesize                 |
-| [checkfiles](#checkfiles)           | Legacy version of check_drivesize                 |
 
 
 
@@ -42,18 +40,20 @@ A list of all available queries (check commands)
 
 Check the size (free-space) of a drive or volume.
 
-* [Samples](#check_drivesize_samples)
 
+**Jump to section:**
+
+* [Sample Commands](#check_drivesize_samples)
 * [Command-line Arguments](#check_drivesize_options)
 * [Filter keywords](#check_drivesize_filter_keys)
 
 
-<a name="check_drivesize_samples"/>
+<a id="check_drivesize_samples"></a>
 #### Sample Commands
 
 _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckDisk_check_drivesize_samples.md)_
 
-To check the size of **the C:\ drive** and **make sure it has atleast 10% free** space::
+To check the size of **the C:\ drive** and **make sure it has at least 10% free** space:
 
 ```
 check_drivesize "crit=free<10%" drive=c:
@@ -61,7 +61,7 @@ L     client CRITICAL: c:: 205GB/223GB used
 L     client  Performance data: 'c: free'=18GB;0;22;0;223 'c: free %'=8%;0;9;0;100
 ```
 
-To check the size of **all the drives** and make sure it has at least 10% free space::
+To check the size of **all the drives** and make sure it has at least 10% free space:
 
 ```
 check_drivesize "crit=free<10%" drive=*
@@ -69,7 +69,7 @@ L     client OK: All drives ok
 L     client  Performance data: 'C:\ free'=18GB;0;2;0;223 'C:\ free %'=8%;0;0;0;100 'D:\ free'=18GB;0;4;0;465 'D:\ free %'=3%;0;0;0;100 'M:\ free'=83GB;0;27;0;2746 'M:\ free %'=3%;0;0;0;100
 ```
 
-To check the size of all the drives and **display all values, not just problems**::
+To check the size of all the drives and **display all values, not just problems**:
 
 ```
 check_drivesize drive=* --show-all
@@ -77,7 +77,8 @@ L     client CRITICAL: c:: 205GB/223GB used
 L     client  Performance data: 'c: free'=18GB;0;22;0;223 'c: free %'=8%;0;9;0;100
 ```
 
-To check the size of all the drives and **return the value in gigabytes**. By default units on performance data will be scaled to "something appropriate"::
+To check the size of all the drives and **return the value in gigabytes**. 
+By default, units on performance data will be scaled to "something appropriate":
 
 ```
 check_drivesize "perf-config=*(unit:g)"
@@ -85,14 +86,14 @@ L        cli CRITICAL: CRITICAL C:\\: 208.147GB/223.471GB used, D:\\: 399.607GB/
 L        cli  Performance data: 'C:\ used'=0.00019g;0.00017;0.00019;0;0.00021 'C:\ used %'=93%;79;89;0;100 'D:\ used'=0.00038g;0.00035;0.00039;0;0.00044 'D:\ used %'=85%;79;89;0;100 'E:\ used'=0g;0;0;0;0 '\\?\Volume{d458535f-27c7-11e4-be66-806e6f6e6963}\ used'=0g;0;0;0;0 '\\?\Volume{d458535f-27c7-11e4-be66-806e6f6e6963}\ used %'=33%;79;89;0;100
 ```
 
-To check the size of **a mounted volume** (c:\volume_test) and **make sure it has 1M free** space **warn if free space is less then 10M**::
+To check the size of **a mounted volume** (c:\volume_test) and **make sure it has 1M free** space **warn if free space is less than 10M**:
 
 ```
    check_drivesize "crit=free<1M" "warn=free<10M" drive=c:\\volume_test
    C:: Total: 74.5G - Used: 71.2G (95%) - Free: 3.28G (5%) < critical,C:;5%;10;5;
 ```
 
-To check the size of **all volumes** and **make sure they have 1M space free**::
+To check the size of **all volumes** and **make sure they have 1M space free**:
 
 ```
 check_drivesize "crit=free<1M" drive=all-volumes
@@ -100,7 +101,7 @@ L     client OK: All drives ok
 L     client  Performance data: 'C:\ free'=18GB;0;2;0;223 'C:\ free %'=8%;0;0;0;100 'D:\ free'=18GB;0;4;0;465 'D:\ free %'=3%;0;0;0;100 'E:\ free'=0B;0;0;0;0 'F:\ free'=0B;0;0;0;0
 ```
 
-To check the size of **all fixed and network drives** and make sure they have at least 1gig free space::
+To check the size of **all fixed and network drives** and make sure they have at least 1gig free space:
 
 ```
 check_drivesize "crit=free<1g" drive=* "filter=type in ('fixed', 'remote')"
@@ -109,7 +110,7 @@ L     client  Performance data: 'C:\ free'=18GB;0;2;0;223 'C:\ free %'=8%;0;0;0;
 ```
 
 
-To check **all fixed and network drives but ignore C and F**::
+To check **all fixed and network drives but ignore C and F**:
 
 ```
 check_drivesize "crit=free<1g" drive=* "filter=type in ('fixed', 'remote')" exclude=C:\\ exclude=D:\\
@@ -126,20 +127,20 @@ C:\: 205GB/223GB used, D:\: 448GB/466GB used, M:\: 2.6TB/2.68TB used|'C:\ used'=
 
 
 
-<a name="check_drivesize_warn"/>
-<a name="check_drivesize_crit"/>
-<a name="check_drivesize_debug"/>
-<a name="check_drivesize_show-all"/>
-<a name="check_drivesize_escape-html"/>
-<a name="check_drivesize_help"/>
-<a name="check_drivesize_help-pb"/>
-<a name="check_drivesize_show-default"/>
-<a name="check_drivesize_help-short"/>
-<a name="check_drivesize_mounted"/>
-<a name="check_drivesize_magic"/>
-<a name="check_drivesize_exclude"/>
-<a name="check_drivesize_total"/>
-<a name="check_drivesize_options"/>
+<a id="check_drivesize_warn"></a>
+<a id="check_drivesize_crit"></a>
+<a id="check_drivesize_debug"></a>
+<a id="check_drivesize_show-all"></a>
+<a id="check_drivesize_escape-html"></a>
+<a id="check_drivesize_help"></a>
+<a id="check_drivesize_help-pb"></a>
+<a id="check_drivesize_show-default"></a>
+<a id="check_drivesize_help-short"></a>
+<a id="check_drivesize_mounted"></a>
+<a id="check_drivesize_magic"></a>
+<a id="check_drivesize_exclude"></a>
+<a id="check_drivesize_total"></a>
+<a id="check_drivesize_options"></a>
 #### Command-line Arguments
 
 
@@ -269,7 +270,7 @@ For instance Microsoft Office creates a drive which cannot be read by normal use
 
 
 
-<a name="check_drivesize_filter_keys"/>
+<a id="check_drivesize_filter_keys"></a>
 #### Filter keywords
 
 
@@ -322,13 +323,15 @@ For instance Microsoft Office creates a drive which cannot be read by normal use
 
 Check various aspects of a file and/or folder.
 
-* [Samples](#check_files_samples)
 
+**Jump to section:**
+
+* [Sample Commands](#check_files_samples)
 * [Command-line Arguments](#check_files_options)
 * [Filter keywords](#check_files_filter_keys)
 
 
-<a name="check_files_samples"/>
+<a id="check_files_samples"></a>
 #### Sample Commands
 
 _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckDisk_check_files_samples.md)_
@@ -371,19 +374,19 @@ L        cli  Performance data: 'AsChkDev.txt size'=29.04101KB;20;0 'AsDCDVer.tx
 
 
 
-<a name="check_files_warn"/>
-<a name="check_files_crit"/>
-<a name="check_files_debug"/>
-<a name="check_files_show-all"/>
-<a name="check_files_escape-html"/>
-<a name="check_files_help"/>
-<a name="check_files_help-pb"/>
-<a name="check_files_show-default"/>
-<a name="check_files_help-short"/>
-<a name="check_files_file"/>
-<a name="check_files_paths"/>
-<a name="check_files_max-depth"/>
-<a name="check_files_options"/>
+<a id="check_files_warn"></a>
+<a id="check_files_crit"></a>
+<a id="check_files_debug"></a>
+<a id="check_files_show-all"></a>
+<a id="check_files_escape-html"></a>
+<a id="check_files_help"></a>
+<a id="check_files_help-pb"></a>
+<a id="check_files_show-default"></a>
+<a id="check_files_help-short"></a>
+<a id="check_files_file"></a>
+<a id="check_files_paths"></a>
+<a id="check_files_max-depth"></a>
+<a id="check_files_options"></a>
 #### Command-line Arguments
 
 
@@ -516,7 +519,7 @@ Include the total of either (filter) all files matching the filter or (all) all 
 *Default Value:* `filter`
 
 
-<a name="check_files_filter_keys"/>
+<a id="check_files_filter_keys"></a>
 #### Filter keywords
 
 
@@ -555,143 +558,6 @@ Include the total of either (filter) all files matching the filter or (all) all 
 | written       | When file was last written to                                                                                |
 | written_l     | When file was last written  to (local time)                                                                  |
 | written_u     | When file was last written  to (UTC)                                                                         |
-
-
-### checkdrivesize
-
-Legacy version of check_drivesize
-
-
-* [Command-line Arguments](#checkdrivesize_options)
-
-
-
-
-
-<a name="checkdrivesize_help"/>
-<a name="checkdrivesize_help-pb"/>
-<a name="checkdrivesize_show-default"/>
-<a name="checkdrivesize_help-short"/>
-<a name="checkdrivesize_Drive"/>
-<a name="checkdrivesize_FilterType"/>
-<a name="checkdrivesize_perf-unit"/>
-<a name="checkdrivesize_MaxWarn"/>
-<a name="checkdrivesize_MaxCrit"/>
-<a name="checkdrivesize_MinWarn"/>
-<a name="checkdrivesize_MinCrit"/>
-<a name="checkdrivesize_MaxWarnFree"/>
-<a name="checkdrivesize_MaxCritFree"/>
-<a name="checkdrivesize_MinWarnFree"/>
-<a name="checkdrivesize_MinCritFree"/>
-<a name="checkdrivesize_MaxWarnUsed"/>
-<a name="checkdrivesize_MaxCritUsed"/>
-<a name="checkdrivesize_MinWarnUsed"/>
-<a name="checkdrivesize_MinCritUsed"/>
-<a name="checkdrivesize_options"/>
-#### Command-line Arguments
-
-
-| Option                                           | Default Value | Description                                                                                                                |
-|--------------------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------------|
-| help                                             | N/A           | Show help screen (this screen)                                                                                             |
-| help-pb                                          | N/A           | Show help screen as a protocol buffer payload                                                                              |
-| show-default                                     | N/A           | Show default values for a given command                                                                                    |
-| help-short                                       | N/A           | Show help screen (short format).                                                                                           |
-| [CheckAll](#checkdrivesize_CheckAll)             | true          | Checks all drives.                                                                                                         |
-| [CheckAllOthers](#checkdrivesize_CheckAllOthers) | true          | Checks all drives turns the drive option into an exclude option.                                                           |
-| Drive                                            |               | The drives to check                                                                                                        |
-| FilterType                                       |               | The type of drives to check fixed, remote, cdrom, ramdisk, removable                                                       |
-| perf-unit                                        |               | Force performance data to use a given unit prevents scaling which can cause problems over time in some graphing solutions. |
-| [ShowAll](#checkdrivesize_ShowAll)               | short         | Configures display format (if set shows all items not only failures, if set to long shows all cores).                      |
-| MaxWarn                                          |               | Maximum value before a warning is returned.                                                                                |
-| MaxCrit                                          |               | Maximum value before a critical is returned.                                                                               |
-| MinWarn                                          |               | Minimum value before a warning is returned.                                                                                |
-| MinCrit                                          |               | Minimum value before a critical is returned.                                                                               |
-| MaxWarnFree                                      |               | Maximum value before a warning is returned.                                                                                |
-| MaxCritFree                                      |               | Maximum value before a critical is returned.                                                                               |
-| MinWarnFree                                      |               | Minimum value before a warning is returned.                                                                                |
-| MinCritFree                                      |               | Minimum value before a critical is returned.                                                                               |
-| MaxWarnUsed                                      |               | Maximum value before a warning is returned.                                                                                |
-| MaxCritUsed                                      |               | Maximum value before a critical is returned.                                                                               |
-| MinWarnUsed                                      |               | Minimum value before a warning is returned.                                                                                |
-| MinCritUsed                                      |               | Minimum value before a critical is returned.                                                                               |
-
-
-
-<h5 id="checkdrivesize_CheckAll">CheckAll:</h5>
-
-Checks all drives.
-
-*Default Value:* `true`
-
-<h5 id="checkdrivesize_CheckAllOthers">CheckAllOthers:</h5>
-
-Checks all drives turns the drive option into an exclude option.
-
-*Default Value:* `true`
-
-<h5 id="checkdrivesize_ShowAll">ShowAll:</h5>
-
-Configures display format (if set shows all items not only failures, if set to long shows all cores).
-
-*Default Value:* `short`
-
-
-### checkfiles
-
-Legacy version of check_drivesize
-
-
-* [Command-line Arguments](#checkfiles_options)
-
-
-
-
-
-<a name="checkfiles_help"/>
-<a name="checkfiles_help-pb"/>
-<a name="checkfiles_show-default"/>
-<a name="checkfiles_help-short"/>
-<a name="checkfiles_syntax"/>
-<a name="checkfiles_master-syntax"/>
-<a name="checkfiles_path"/>
-<a name="checkfiles_pattern"/>
-<a name="checkfiles_alias"/>
-<a name="checkfiles_debug"/>
-<a name="checkfiles_max-dir-depth"/>
-<a name="checkfiles_filter"/>
-<a name="checkfiles_warn"/>
-<a name="checkfiles_crit"/>
-<a name="checkfiles_MaxWarn"/>
-<a name="checkfiles_MaxCrit"/>
-<a name="checkfiles_MinWarn"/>
-<a name="checkfiles_MinCrit"/>
-<a name="checkfiles_options"/>
-#### Command-line Arguments
-
-
-| Option        | Default Value | Description                                         |
-|---------------|---------------|-----------------------------------------------------|
-| help          | N/A           | Show help screen (this screen)                      |
-| help-pb       | N/A           | Show help screen as a protocol buffer payload       |
-| show-default  | N/A           | Show default values for a given command             |
-| help-short    | N/A           | Show help screen (short format).                    |
-| syntax        |               | Syntax for individual items (detail-syntax).        |
-| master-syntax |               | Syntax for top syntax (top-syntax).                 |
-| path          |               | The file or path to check                           |
-| pattern       |               | Deprecated and ignored                              |
-| alias         |               | Deprecated and ignored                              |
-| debug         | N/A           | Debug                                               |
-| max-dir-depth |               | The maximum level to recurse                        |
-| filter        |               | The filter to use when including files in the check |
-| warn          |               | Deprecated and ignored                              |
-| crit          |               | Deprecated and ignored                              |
-| MaxWarn       |               | Maximum value before a warning is returned.         |
-| MaxCrit       |               | Maximum value before a critical is returned.        |
-| MinWarn       |               | Minimum value before a warning is returned.         |
-| MinCrit       |               | Minimum value before a critical is returned.        |
-
-
 
 
 

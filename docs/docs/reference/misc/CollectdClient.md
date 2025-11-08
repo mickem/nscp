@@ -27,7 +27,7 @@ CollectdClient = enabled
 
 
 
-### COLLECTD CLIENT SECTION <a id="/settings/collectd/client"/>
+### COLLECTD CLIENT SECTION <a id="/settings/collectd/client"></a>
 
 Section for NSCA passive check module.
 
@@ -87,7 +87,7 @@ hostname=auto
 ```
 
 
-### REMOTE TARGET DEFINITIONS <a id="/settings/collectd/client/targets"/>
+### REMOTE TARGET DEFINITIONS <a id="/settings/collectd/client/targets"></a>
 
 
 

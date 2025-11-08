@@ -27,7 +27,7 @@ Op5Client = enabled
 
 
 
-### Op5 Configuration <a id="/settings/op5"/>
+### Op5 Configuration <a id="/settings/op5"></a>
 
 Section for the Op5 server
 
@@ -339,7 +339,7 @@ user=
 ```
 
 
-### Op5 passive Commands <a id="/settings/op5/checks"/>
+### Op5 passive Commands <a id="/settings/op5/checks"></a>
 
 
 

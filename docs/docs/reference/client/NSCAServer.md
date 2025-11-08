@@ -27,7 +27,7 @@ NSCAServer = enabled
 
 
 
-### Default values <a id="/settings/default"/>
+### Default values <a id="/settings/default"></a>
 
 Default values used in other config sections.
 
@@ -303,7 +303,7 @@ timeout=30
 ```
 
 
-### NSCA SERVER SECTION <a id="/settings/NSCA/server"/>
+### NSCA SERVER SECTION <a id="/settings/NSCA/server"></a>
 
 Section for NSCA (NSCAServer) (check_nsca) protocol options.
 

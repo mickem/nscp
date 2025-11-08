@@ -219,7 +219,6 @@ A list of all available queries (check commands)
 | Command                           | Description                        |
 |-----------------------------------|------------------------------------|
 | [check_eventlog](#check_eventlog) | Check for errors in the event log. |
-| [checkeventlog](#checkeventlog)   | Legacy version of check_eventlog   |
 
 
 
@@ -229,6 +228,8 @@ A list of all available queries (check commands)
 Check for errors in the event log.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_eventlog_options)
 * [Filter keywords](#check_eventlog_filter_keys)
 
@@ -236,18 +237,18 @@ Check for errors in the event log.
 
 
 
-<a name="check_eventlog_warn"/>
-<a name="check_eventlog_crit"/>
-<a name="check_eventlog_debug"/>
-<a name="check_eventlog_show-all"/>
-<a name="check_eventlog_escape-html"/>
-<a name="check_eventlog_help"/>
-<a name="check_eventlog_help-pb"/>
-<a name="check_eventlog_show-default"/>
-<a name="check_eventlog_help-short"/>
-<a name="check_eventlog_log"/>
-<a name="check_eventlog_truncate-message"/>
-<a name="check_eventlog_options"/>
+<a id="check_eventlog_warn"></a>
+<a id="check_eventlog_crit"></a>
+<a id="check_eventlog_debug"></a>
+<a id="check_eventlog_show-all"></a>
+<a id="check_eventlog_escape-html"></a>
+<a id="check_eventlog_help"></a>
+<a id="check_eventlog_help-pb"></a>
+<a id="check_eventlog_show-default"></a>
+<a id="check_eventlog_help-short"></a>
+<a id="check_eventlog_log"></a>
+<a id="check_eventlog_truncate-message"></a>
+<a id="check_eventlog_options"></a>
 #### Command-line Arguments
 
 
@@ -397,7 +398,7 @@ Use bookmarks to only look for messages since last check (with the same bookmark
 *Default Value:* `auto`
 
 
-<a name="check_eventlog_filter_keys"/>
+<a id="check_eventlog_filter_keys"></a>
 #### Filter keywords
 
 
@@ -436,90 +437,6 @@ Use bookmarks to only look for messages since last check (with the same bookmark
 | xml           | Get event as XML message.                                                                                    |
 
 
-### checkeventlog
-
-Legacy version of check_eventlog
-
-
-* [Command-line Arguments](#checkeventlog_options)
-
-
-
-
-
-<a name="checkeventlog_help"/>
-<a name="checkeventlog_help-pb"/>
-<a name="checkeventlog_show-default"/>
-<a name="checkeventlog_help-short"/>
-<a name="checkeventlog_MaxWarn"/>
-<a name="checkeventlog_MaxCrit"/>
-<a name="checkeventlog_MinWarn"/>
-<a name="checkeventlog_MinCrit"/>
-<a name="checkeventlog_warn"/>
-<a name="checkeventlog_crit"/>
-<a name="checkeventlog_filter"/>
-<a name="checkeventlog_file"/>
-<a name="checkeventlog_truncate"/>
-<a name="checkeventlog_scan-range"/>
-<a name="checkeventlog_options"/>
-#### Command-line Arguments
-
-
-| Option                                      | Default Value       | Description                                   |
-|---------------------------------------------|---------------------|-----------------------------------------------|
-| help                                        | N/A                 | Show help screen (this screen)                |
-| help-pb                                     | N/A                 | Show help screen as a protocol buffer payload |
-| show-default                                | N/A                 | Show default values for a given command       |
-| help-short                                  | N/A                 | Show help screen (short format).              |
-| MaxWarn                                     |                     | Maximum value before a warning is returned.   |
-| MaxCrit                                     |                     | Maximum value before a critical is returned.  |
-| MinWarn                                     |                     | Minimum value before a warning is returned.   |
-| MinCrit                                     |                     | Minimum value before a critical is returned.  |
-| warn                                        |                     | Maximum value before a warning is returned.   |
-| crit                                        |                     | Maximum value before a critical is returned.  |
-| filter                                      |                     | The filter to use.                            |
-| file                                        |                     | The file to check                             |
-| [debug](#checkeventlog_debug)               | 1                   | The file to check                             |
-| truncate                                    |                     | Deprecated and has no meaning                 |
-| [descriptions](#checkeventlog_descriptions) | 1                   | Deprecated and has no meaning                 |
-| [unique](#checkeventlog_unique)             | 1                   |                                               |
-| [syntax](#checkeventlog_syntax)             | %source%, %strings% | The syntax string                             |
-| [top-syntax](#checkeventlog_top-syntax)     | ${list}             | The top level syntax string                   |
-| scan-range                                  |                     | TODO                                          |
-
-
-
-<h5 id="checkeventlog_debug">debug:</h5>
-
-The file to check
-
-*Default Value:* `1`
-
-<h5 id="checkeventlog_descriptions">descriptions:</h5>
-
-Deprecated and has no meaning
-
-*Default Value:* `1`
-
-<h5 id="checkeventlog_unique">unique:</h5>
-
-
-
-*Default Value:* `1`
-
-<h5 id="checkeventlog_syntax">syntax:</h5>
-
-The syntax string
-
-*Default Value:* `%source%, %strings%`
-
-<h5 id="checkeventlog_top-syntax">top-syntax:</h5>
-
-The top level syntax string
-
-*Default Value:* `${list}`
-
-
 
 
 ## Configuration
@@ -534,7 +451,7 @@ The top level syntax string
 
 
 
-### Eventlog <a id="/settings/eventlog"/>
+### Eventlog <a id="/settings/eventlog"></a>
 
 Section for the EventLog Checker (CheckEventLog.dll).
 
@@ -667,7 +584,7 @@ syntax=
 ```
 
 
-### Real-time eventlog monitoring <a id="/settings/eventlog/real-time"/>
+### Real-time eventlog monitoring <a id="/settings/eventlog/real-time"></a>
 
 A set of options to configure the real time checks
 
@@ -800,7 +717,7 @@ startup age=30m
 ```
 
 
-### Real-time eventlog filters <a id="/settings/eventlog/real-time/filters"/>
+### Real-time eventlog filters <a id="/settings/eventlog/real-time/filters"></a>
 
 A set of filters to use in real-time mode
 

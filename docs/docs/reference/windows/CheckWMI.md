@@ -41,13 +41,15 @@ A list of all short hand aliases for queries (check commands)
 
 Check a set of WMI values and return rows which are matching criteria.
 
-* [Samples](#check_wmi_samples)
 
+**Jump to section:**
+
+* [Sample Commands](#check_wmi_samples)
 * [Command-line Arguments](#check_wmi_options)
 * [Filter keywords](#check_wmi_filter_keys)
 
 
-<a name="check_wmi_samples"/>
+<a id="check_wmi_samples"></a>
 #### Sample Commands
 
 _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckWMI_check_wmi_samples.md)_
@@ -100,20 +102,20 @@ L        cli  Performance data: 'BuildNumber'=10240;9600;8000
 
 
 
-<a name="check_wmi_warn"/>
-<a name="check_wmi_crit"/>
-<a name="check_wmi_debug"/>
-<a name="check_wmi_show-all"/>
-<a name="check_wmi_escape-html"/>
-<a name="check_wmi_help"/>
-<a name="check_wmi_help-pb"/>
-<a name="check_wmi_show-default"/>
-<a name="check_wmi_help-short"/>
-<a name="check_wmi_target"/>
-<a name="check_wmi_user"/>
-<a name="check_wmi_password"/>
-<a name="check_wmi_query"/>
-<a name="check_wmi_options"/>
+<a id="check_wmi_warn"></a>
+<a id="check_wmi_crit"></a>
+<a id="check_wmi_debug"></a>
+<a id="check_wmi_show-all"></a>
+<a id="check_wmi_escape-html"></a>
+<a id="check_wmi_help"></a>
+<a id="check_wmi_help-pb"></a>
+<a id="check_wmi_show-default"></a>
+<a id="check_wmi_help-short"></a>
+<a id="check_wmi_target"></a>
+<a id="check_wmi_user"></a>
+<a id="check_wmi_password"></a>
+<a id="check_wmi_query"></a>
+<a id="check_wmi_options"></a>
 #### Command-line Arguments
 
 
@@ -230,7 +232,7 @@ The WMI root namespace to bind to.
 *Default Value:* `root\cimv2`
 
 
-<a name="check_wmi_filter_keys"/>
+<a id="check_wmi_filter_keys"></a>
 #### Filter keywords
 
 
@@ -263,7 +265,7 @@ The WMI root namespace to bind to.
 
 
 
-### TARGET LIST SECTION <a id="/settings/targets"/>
+### TARGET LIST SECTION <a id="/settings/targets"></a>
 
 A list of available remote target systems
 

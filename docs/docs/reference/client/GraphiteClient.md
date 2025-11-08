@@ -34,33 +34,35 @@ A list of all available queries (check commands)
 Submit information to the remote Graphite server.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#submit_graphite_options)
 
 
 
 
 
-<a name="submit_graphite_help"/>
-<a name="submit_graphite_help-pb"/>
-<a name="submit_graphite_show-default"/>
-<a name="submit_graphite_help-short"/>
-<a name="submit_graphite_host"/>
-<a name="submit_graphite_port"/>
-<a name="submit_graphite_address"/>
-<a name="submit_graphite_timeout"/>
-<a name="submit_graphite_target"/>
-<a name="submit_graphite_retry"/>
-<a name="submit_graphite_retries"/>
-<a name="submit_graphite_source-host"/>
-<a name="submit_graphite_sender-host"/>
-<a name="submit_graphite_command"/>
-<a name="submit_graphite_alias"/>
-<a name="submit_graphite_message"/>
-<a name="submit_graphite_result"/>
-<a name="submit_graphite_separator"/>
-<a name="submit_graphite_batch"/>
-<a name="submit_graphite_path"/>
-<a name="submit_graphite_options"/>
+<a id="submit_graphite_help"></a>
+<a id="submit_graphite_help-pb"></a>
+<a id="submit_graphite_show-default"></a>
+<a id="submit_graphite_help-short"></a>
+<a id="submit_graphite_host"></a>
+<a id="submit_graphite_port"></a>
+<a id="submit_graphite_address"></a>
+<a id="submit_graphite_timeout"></a>
+<a id="submit_graphite_target"></a>
+<a id="submit_graphite_retry"></a>
+<a id="submit_graphite_retries"></a>
+<a id="submit_graphite_source-host"></a>
+<a id="submit_graphite_sender-host"></a>
+<a id="submit_graphite_command"></a>
+<a id="submit_graphite_alias"></a>
+<a id="submit_graphite_message"></a>
+<a id="submit_graphite_result"></a>
+<a id="submit_graphite_separator"></a>
+<a id="submit_graphite_batch"></a>
+<a id="submit_graphite_path"></a>
+<a id="submit_graphite_options"></a>
 #### Command-line Arguments
 
 
@@ -104,7 +106,7 @@ Submit information to the remote Graphite server.
 
 
 
-### GRAPHITE CLIENT SECTION <a id="/settings/graphite/client"/>
+### GRAPHITE CLIENT SECTION <a id="/settings/graphite/client"></a>
 
 Section for graphite passive check module.
 
@@ -192,7 +194,7 @@ hostname=auto
 ```
 
 
-### CLIENT HANDLER SECTION <a id="/settings/graphite/client/handlers"/>
+### CLIENT HANDLER SECTION <a id="/settings/graphite/client/handlers"></a>
 
 
 
@@ -204,7 +206,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-### REMOTE TARGET DEFINITIONS <a id="/settings/graphite/client/targets"/>
+### REMOTE TARGET DEFINITIONS <a id="/settings/graphite/client/targets"></a>
 
 
 

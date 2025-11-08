@@ -26,7 +26,7 @@ LUAScript = enabled
 
 
 
-### Lua scripts <a id="/settings/lua/scripts"/>
+### Lua scripts <a id="/settings/lua/scripts"></a>
 
 A list of scripts available to run from the LuaScript module.
 

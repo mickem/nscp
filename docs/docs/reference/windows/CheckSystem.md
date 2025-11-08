@@ -22,23 +22,17 @@ A quick reference for all available queries (check commands) in the CheckSystem 
 
 A list of all available queries (check commands)
 
-| Command                                 | Description                                                                   |
-|-----------------------------------------|-------------------------------------------------------------------------------|
-| [check_cpu](#check_cpu)                 | Check that the load of the CPU(s) are within bounds.                          |
-| [check_memory](#check_memory)           | Check free/used memory on the system.                                         |
-| [check_network](#check_network)         | Check network interface status.                                               |
-| [check_os_version](#check_os_version)   | Check the version of the underlying OS.                                       |
-| [check_pagefile](#check_pagefile)       | Check the size of the system pagefile(s).                                     |
-| [check_pdh](#check_pdh)                 | Check the value of a performance (PDH) counter on the local or remote system. |
-| [check_process](#check_process)         | Check state/metrics of one or more of the processes running on the computer.  |
-| [check_service](#check_service)         | Check the state of one or more of the computer services.                      |
-| [check_uptime](#check_uptime)           | Check time since last server re-boot.                                         |
-| [checkcounter](#checkcounter)           | Legacy version of check_pdh                                                   |
-| [checkcpu](#checkcpu)                   | Legacy version of check_cpu                                                   |
-| [checkmem](#checkmem)                   | Legacy version of check_mem                                                   |
-| [checkprocstate](#checkprocstate)       | Legacy version of check_process                                               |
-| [checkservicestate](#checkservicestate) | Legacy version of check_service                                               |
-| [checkuptime](#checkuptime)             | Legacy version of check_uptime                                                |
+| Command                               | Description                                                                   |
+|---------------------------------------|-------------------------------------------------------------------------------|
+| [check_cpu](#check_cpu)               | Check that the load of the CPU(s) are within bounds.                          |
+| [check_memory](#check_memory)         | Check free/used memory on the system.                                         |
+| [check_network](#check_network)       | Check network interface status.                                               |
+| [check_os_version](#check_os_version) | Check the version of the underlying OS.                                       |
+| [check_pagefile](#check_pagefile)     | Check the size of the system pagefile(s).                                     |
+| [check_pdh](#check_pdh)               | Check the value of a performance (PDH) counter on the local or remote system. |
+| [check_process](#check_process)       | Check state/metrics of one or more of the processes running on the computer.  |
+| [check_service](#check_service)       | Check the state of one or more of the computer services.                      |
+| [check_uptime](#check_uptime)         | Check time since last server re-boot.                                         |
 
 
 **List of command aliases:**
@@ -59,13 +53,15 @@ The check_cpu command is a query based command which means it has a filter where
 The filter is written using the filter query language and in it you can use various filter keywords to define the filtering logic.
 The filter keywords can also be used to create the bound expressions for the warning and critical which defines when a check returns warning or critical.
 
-* [Samples](#check_cpu_samples)
 
+**Jump to section:**
+
+* [Sample Commands](#check_cpu_samples)
 * [Command-line Arguments](#check_cpu_options)
 * [Filter keywords](#check_cpu_filter_keys)
 
 
-<a name="check_cpu_samples"/>
+<a id="check_cpu_samples"></a>
 #### Sample Commands
 
 _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSystem_check_cpu_samples.md)_
@@ -118,18 +114,18 @@ L        cli OK: OK: Cpu usage is 26 %
 
 
 
-<a name="check_cpu_warn"/>
-<a name="check_cpu_crit"/>
-<a name="check_cpu_debug"/>
-<a name="check_cpu_show-all"/>
-<a name="check_cpu_escape-html"/>
-<a name="check_cpu_help"/>
-<a name="check_cpu_help-pb"/>
-<a name="check_cpu_show-default"/>
-<a name="check_cpu_help-short"/>
-<a name="check_cpu_time"/>
-<a name="check_cpu_cores"/>
-<a name="check_cpu_options"/>
+<a id="check_cpu_warn"></a>
+<a id="check_cpu_crit"></a>
+<a id="check_cpu_debug"></a>
+<a id="check_cpu_show-all"></a>
+<a id="check_cpu_escape-html"></a>
+<a id="check_cpu_help"></a>
+<a id="check_cpu_help-pb"></a>
+<a id="check_cpu_show-default"></a>
+<a id="check_cpu_help-short"></a>
+<a id="check_cpu_time"></a>
+<a id="check_cpu_cores"></a>
+<a id="check_cpu_options"></a>
 #### Command-line Arguments
 
 
@@ -242,7 +238,7 @@ This is the syntax for the base names of the performance data.
 *Default Value:* `${core} ${time}`
 
 
-<a name="check_cpu_filter_keys"/>
+<a id="check_cpu_filter_keys"></a>
 #### Filter keywords
 
 
@@ -275,13 +271,26 @@ This is the syntax for the base names of the performance data.
 
 Check free/used memory on the system.
 
-* [Samples](#check_memory_samples)
+#### Kinds of memory
 
+There are several different kinds of memory that a computer system uses to manage data and processes. 
+Here are the main types:
+
+* `physical` Memory (RAM): This is the actual, tangible memory chips installed in your computer.  It's often referred to as RAM (Random Access Memory).
+* `committed` Memory: Committed memory refers to the amount of virtual memory that has been reserved by processes. 
+  When a program requests memory from the operating system, that memory is "committed."
+  This committed memory is guaranteed to be available to the process, meaning Windows has set aside enough resources (either physical RAM or space in the page file) to back that memory.
+* `virtual` Memory: Virtual memory is an abstraction layer created by the operating system (Windows) to provide a larger, contiguous address space to each process than the physical RAM actually available.
+
+
+**Jump to section:**
+
+* [Sample Commands](#check_memory_samples)
 * [Command-line Arguments](#check_memory_options)
 * [Filter keywords](#check_memory_filter_keys)
 
 
-<a name="check_memory_samples"/>
+<a id="check_memory_samples"></a>
 #### Sample Commands
 
 _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSystem_check_memory_samples.md)_
@@ -330,43 +339,43 @@ page = 8.05G, physical = 7.85G
 
 
 
-<a name="check_memory_warn"/>
-<a name="check_memory_crit"/>
-<a name="check_memory_debug"/>
-<a name="check_memory_show-all"/>
-<a name="check_memory_escape-html"/>
-<a name="check_memory_help"/>
-<a name="check_memory_help-pb"/>
-<a name="check_memory_show-default"/>
-<a name="check_memory_help-short"/>
-<a name="check_memory_type"/>
-<a name="check_memory_options"/>
+<a id="check_memory_warn"></a>
+<a id="check_memory_crit"></a>
+<a id="check_memory_debug"></a>
+<a id="check_memory_show-all"></a>
+<a id="check_memory_escape-html"></a>
+<a id="check_memory_help"></a>
+<a id="check_memory_help-pb"></a>
+<a id="check_memory_show-default"></a>
+<a id="check_memory_help-short"></a>
+<a id="check_memory_type"></a>
+<a id="check_memory_options"></a>
 #### Command-line Arguments
 
 
-| Option                                       | Default Value      | Description                                                                                                      |
-|----------------------------------------------|--------------------|------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_memory_filter)               |                    | Filter which marks interesting items.                                                                            |
-| [warning](#check_memory_warning)             | used > 80%         | Filter which marks items which generates a warning state.                                                        |
-| warn                                         |                    | Short alias for warning                                                                                          |
-| [critical](#check_memory_critical)           | used > 90%         | Filter which marks items which generates a critical state.                                                       |
-| crit                                         |                    | Short alias for critical.                                                                                        |
-| [ok](#check_memory_ok)                       |                    | Filter which marks items which generates an ok state.                                                            |
-| debug                                        | N/A                | Show debugging information in the log                                                                            |
-| show-all                                     | N/A                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-| [empty-state](#check_memory_empty-state)     | ignored            | Return status to use when nothing matched filter.                                                                |
-| [perf-config](#check_memory_perf-config)     |                    | Performance data generation configuration                                                                        |
-| escape-html                                  | N/A                | Escape any < and > characters to prevent HTML encoding                                                           |
-| help                                         | N/A                | Show help screen (this screen)                                                                                   |
-| help-pb                                      | N/A                | Show help screen as a protocol buffer payload                                                                    |
-| show-default                                 | N/A                | Show default values for a given command                                                                          |
-| help-short                                   | N/A                | Show help screen (short format).                                                                                 |
-| [top-syntax](#check_memory_top-syntax)       | ${status}: ${list} | Top level syntax.                                                                                                |
-| [ok-syntax](#check_memory_ok-syntax)         |                    | ok syntax.                                                                                                       |
-| [empty-syntax](#check_memory_empty-syntax)   |                    | Empty syntax.                                                                                                    |
-| [detail-syntax](#check_memory_detail-syntax) | ${type} = ${used}  | Detail level syntax.                                                                                             |
-| [perf-syntax](#check_memory_perf-syntax)     | ${type}            | Performance alias syntax.                                                                                        |
-| type                                         |                    | The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)               |
+| Option                                       | Default Value             | Description                                                                                                      |
+|----------------------------------------------|---------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_memory_filter)               |                           | Filter which marks interesting items.                                                                            |
+| [warning](#check_memory_warning)             | used > 80%                | Filter which marks items which generates a warning state.                                                        |
+| warn                                         |                           | Short alias for warning                                                                                          |
+| [critical](#check_memory_critical)           | used > 90%                | Filter which marks items which generates a critical state.                                                       |
+| crit                                         |                           | Short alias for critical.                                                                                        |
+| [ok](#check_memory_ok)                       |                           | Filter which marks items which generates an ok state.                                                            |
+| debug                                        | N/A                       | Show debugging information in the log                                                                            |
+| show-all                                     | N/A                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_memory_empty-state)     | ignored                   | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_memory_perf-config)     |                           | Performance data generation configuration                                                                        |
+| escape-html                                  | N/A                       | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                         | N/A                       | Show help screen (this screen)                                                                                   |
+| help-pb                                      | N/A                       | Show help screen as a protocol buffer payload                                                                    |
+| show-default                                 | N/A                       | Show default values for a given command                                                                          |
+| help-short                                   | N/A                       | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_memory_top-syntax)       | ${status}: ${list}        | Top level syntax.                                                                                                |
+| [ok-syntax](#check_memory_ok-syntax)         |                           | ok syntax.                                                                                                       |
+| [empty-syntax](#check_memory_empty-syntax)   |                           | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_memory_detail-syntax) | ${type} = ${used}/${size} | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_memory_perf-syntax)     | ${type}                   | Performance alias syntax.                                                                                        |
+| type                                         |                           | The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)               |
 
 
 
@@ -440,7 +449,7 @@ Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-*Default Value:* `${type} = ${used}`
+*Default Value:* `${type} = ${used}/${size}`
 
 <h5 id="check_memory_perf-syntax">perf-syntax:</h5>
 
@@ -450,7 +459,7 @@ This is the syntax for the base names of the performance data.
 *Default Value:* `${type}`
 
 
-<a name="check_memory_filter_keys"/>
+<a id="check_memory_filter_keys"></a>
 #### Filter keywords
 
 
@@ -482,6 +491,8 @@ This is the syntax for the base names of the performance data.
 Check network interface status.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_network_options)
 * [Filter keywords](#check_network_filter_keys)
 
@@ -489,16 +500,16 @@ Check network interface status.
 
 
 
-<a name="check_network_warn"/>
-<a name="check_network_crit"/>
-<a name="check_network_debug"/>
-<a name="check_network_show-all"/>
-<a name="check_network_escape-html"/>
-<a name="check_network_help"/>
-<a name="check_network_help-pb"/>
-<a name="check_network_show-default"/>
-<a name="check_network_help-short"/>
-<a name="check_network_options"/>
+<a id="check_network_warn"></a>
+<a id="check_network_crit"></a>
+<a id="check_network_debug"></a>
+<a id="check_network_show-all"></a>
+<a id="check_network_escape-html"></a>
+<a id="check_network_help"></a>
+<a id="check_network_help-pb"></a>
+<a id="check_network_show-default"></a>
+<a id="check_network_help-short"></a>
+<a id="check_network_options"></a>
 #### Command-line Arguments
 
 
@@ -608,7 +619,7 @@ This is the syntax for the base names of the performance data.
 *Default Value:* `${name}`
 
 
-<a name="check_network_filter_keys"/>
+<a id="check_network_filter_keys"></a>
 #### Filter keywords
 
 
@@ -640,13 +651,15 @@ This is the syntax for the base names of the performance data.
 
 Check the version of the underlying OS.
 
-* [Samples](#check_os_version_samples)
 
+**Jump to section:**
+
+* [Sample Commands](#check_os_version_samples)
 * [Command-line Arguments](#check_os_version_options)
 * [Filter keywords](#check_os_version_filter_keys)
 
 
-<a name="check_os_version_samples"/>
+<a id="check_os_version_samples"></a>
 #### Sample Commands
 
 _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSystem_check_os_version_samples.md)_
@@ -677,16 +690,16 @@ Windows 2012 (6.2.9200)|'version'=62;50;50
 
 
 
-<a name="check_os_version_warn"/>
-<a name="check_os_version_crit"/>
-<a name="check_os_version_debug"/>
-<a name="check_os_version_show-all"/>
-<a name="check_os_version_escape-html"/>
-<a name="check_os_version_help"/>
-<a name="check_os_version_help-pb"/>
-<a name="check_os_version_show-default"/>
-<a name="check_os_version_help-short"/>
-<a name="check_os_version_options"/>
+<a id="check_os_version_warn"></a>
+<a id="check_os_version_crit"></a>
+<a id="check_os_version_debug"></a>
+<a id="check_os_version_show-all"></a>
+<a id="check_os_version_escape-html"></a>
+<a id="check_os_version_help"></a>
+<a id="check_os_version_help-pb"></a>
+<a id="check_os_version_show-default"></a>
+<a id="check_os_version_help-short"></a>
+<a id="check_os_version_options"></a>
 #### Command-line Arguments
 
 
@@ -795,7 +808,7 @@ This is the syntax for the base names of the performance data.
 *Default Value:* `version`
 
 
-<a name="check_os_version_filter_keys"/>
+<a id="check_os_version_filter_keys"></a>
 #### Filter keywords
 
 
@@ -825,13 +838,15 @@ This is the syntax for the base names of the performance data.
 
 Check the size of the system pagefile(s).
 
-* [Samples](#check_pagefile_samples)
 
+**Jump to section:**
+
+* [Sample Commands](#check_pagefile_samples)
 * [Command-line Arguments](#check_pagefile_options)
 * [Filter keywords](#check_pagefile_filter_keys)
 
 
-<a name="check_pagefile_samples"/>
+<a id="check_pagefile_samples"></a>
 #### Sample Commands
 
 _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSystem_check_pagefile_samples.md)_
@@ -879,16 +894,16 @@ check_pagefile help
 
 
 
-<a name="check_pagefile_warn"/>
-<a name="check_pagefile_crit"/>
-<a name="check_pagefile_debug"/>
-<a name="check_pagefile_show-all"/>
-<a name="check_pagefile_escape-html"/>
-<a name="check_pagefile_help"/>
-<a name="check_pagefile_help-pb"/>
-<a name="check_pagefile_show-default"/>
-<a name="check_pagefile_help-short"/>
-<a name="check_pagefile_options"/>
+<a id="check_pagefile_warn"></a>
+<a id="check_pagefile_crit"></a>
+<a id="check_pagefile_debug"></a>
+<a id="check_pagefile_show-all"></a>
+<a id="check_pagefile_escape-html"></a>
+<a id="check_pagefile_help"></a>
+<a id="check_pagefile_help-pb"></a>
+<a id="check_pagefile_show-default"></a>
+<a id="check_pagefile_help-short"></a>
+<a id="check_pagefile_options"></a>
 #### Command-line Arguments
 
 
@@ -997,7 +1012,7 @@ This is the syntax for the base names of the performance data.
 *Default Value:* `${name}`
 
 
-<a name="check_pagefile_filter_keys"/>
+<a id="check_pagefile_filter_keys"></a>
 #### Filter keywords
 
 
@@ -1029,13 +1044,15 @@ This is the syntax for the base names of the performance data.
 Check the value of a performance (PDH) counter on the local or remote system.
 The counters can also be added and polled periodically to get average values. Performance Log Users group membership is required to check performance counters.
 
-* [Samples](#check_pdh_samples)
 
+**Jump to section:**
+
+* [Sample Commands](#check_pdh_samples)
 * [Command-line Arguments](#check_pdh_options)
 * [Filter keywords](#check_pdh_filter_keys)
 
 
-<a name="check_pdh_samples"/>
+<a id="check_pdh_samples"></a>
 #### Sample Commands
 
 _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSystem_check_pdh_samples.md)_
@@ -1110,24 +1127,24 @@ L     client OK: \\MIME-LAPTOP\Processor(0)\% processortid = 100, \\MIME-LAPTOP\
 
 
 
-<a name="check_pdh_warn"/>
-<a name="check_pdh_crit"/>
-<a name="check_pdh_debug"/>
-<a name="check_pdh_show-all"/>
-<a name="check_pdh_escape-html"/>
-<a name="check_pdh_help"/>
-<a name="check_pdh_help-pb"/>
-<a name="check_pdh_show-default"/>
-<a name="check_pdh_help-short"/>
-<a name="check_pdh_counter"/>
-<a name="check_pdh_expand-index"/>
-<a name="check_pdh_instances"/>
-<a name="check_pdh_reload"/>
-<a name="check_pdh_averages"/>
-<a name="check_pdh_time"/>
-<a name="check_pdh_flags"/>
-<a name="check_pdh_ignore-errors"/>
-<a name="check_pdh_options"/>
+<a id="check_pdh_warn"></a>
+<a id="check_pdh_crit"></a>
+<a id="check_pdh_debug"></a>
+<a id="check_pdh_show-all"></a>
+<a id="check_pdh_escape-html"></a>
+<a id="check_pdh_help"></a>
+<a id="check_pdh_help-pb"></a>
+<a id="check_pdh_show-default"></a>
+<a id="check_pdh_help-short"></a>
+<a id="check_pdh_counter"></a>
+<a id="check_pdh_expand-index"></a>
+<a id="check_pdh_instances"></a>
+<a id="check_pdh_reload"></a>
+<a id="check_pdh_averages"></a>
+<a id="check_pdh_time"></a>
+<a id="check_pdh_flags"></a>
+<a id="check_pdh_ignore-errors"></a>
+<a id="check_pdh_options"></a>
 #### Command-line Arguments
 
 
@@ -1249,7 +1266,7 @@ Format of value (double, long, large)
 *Default Value:* `large`
 
 
-<a name="check_pdh_filter_keys"/>
+<a id="check_pdh_filter_keys"></a>
 #### Filter keywords
 
 
@@ -1280,13 +1297,15 @@ Format of value (double, long, large)
 
 Check state/metrics of one or more of the processes running on the computer.
 
-* [Samples](#check_process_samples)
 
+**Jump to section:**
+
+* [Sample Commands](#check_process_samples)
 * [Command-line Arguments](#check_process_options)
 * [Filter keywords](#check_process_filter_keys)
 
 
-<a name="check_process_samples"/>
+<a id="check_process_samples"></a>
 #### Sample Commands
 
 _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSystem_check_process_samples.md)_
@@ -1340,21 +1359,21 @@ OK all processes are ok.|'csrss.exe state'=1;0;0 'svchost.exe state'=1;0;0 'Avas
 
 
 
-<a name="check_process_warn"/>
-<a name="check_process_crit"/>
-<a name="check_process_debug"/>
-<a name="check_process_show-all"/>
-<a name="check_process_escape-html"/>
-<a name="check_process_help"/>
-<a name="check_process_help-pb"/>
-<a name="check_process_show-default"/>
-<a name="check_process_help-short"/>
-<a name="check_process_process"/>
-<a name="check_process_scan-info"/>
-<a name="check_process_scan-16bit"/>
-<a name="check_process_scan-unreadable"/>
-<a name="check_process_total"/>
-<a name="check_process_options"/>
+<a id="check_process_warn"></a>
+<a id="check_process_crit"></a>
+<a id="check_process_debug"></a>
+<a id="check_process_show-all"></a>
+<a id="check_process_escape-html"></a>
+<a id="check_process_help"></a>
+<a id="check_process_help-pb"></a>
+<a id="check_process_show-default"></a>
+<a id="check_process_help-short"></a>
+<a id="check_process_process"></a>
+<a id="check_process_scan-info"></a>
+<a id="check_process_scan-16bit"></a>
+<a id="check_process_scan-unreadable"></a>
+<a id="check_process_total"></a>
+<a id="check_process_options"></a>
 #### Command-line Arguments
 
 
@@ -1478,7 +1497,7 @@ This call will measure values and then sleep for 2 second and then measure again
 
 
 
-<a name="check_process_filter_keys"/>
+<a id="check_process_filter_keys"></a>
 #### Filter keywords
 
 
@@ -1528,13 +1547,15 @@ This call will measure values and then sleep for 2 second and then measure again
 
 Check the state of one or more of the computer services.
 
-* [Samples](#check_service_samples)
 
+**Jump to section:**
+
+* [Sample Commands](#check_service_samples)
 * [Command-line Arguments](#check_service_options)
 * [Filter keywords](#check_service_filter_keys)
 
 
-<a name="check_service_samples"/>
+<a id="check_service_samples"></a>
 #### Sample Commands
 
 _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSystem_check_service_samples.md)_
@@ -1606,25 +1627,25 @@ check_service service=nscp "crit=state = 'started'" warn=none
 
 
 
-<a name="check_service_warn"/>
-<a name="check_service_crit"/>
-<a name="check_service_debug"/>
-<a name="check_service_show-all"/>
-<a name="check_service_escape-html"/>
-<a name="check_service_help"/>
-<a name="check_service_help-pb"/>
-<a name="check_service_show-default"/>
-<a name="check_service_help-short"/>
-<a name="check_service_computer"/>
-<a name="check_service_service"/>
-<a name="check_service_exclude"/>
-<a name="check_service_only-essential"/>
-<a name="check_service_only-ignored"/>
-<a name="check_service_only-role"/>
-<a name="check_service_only-supporting"/>
-<a name="check_service_only-system"/>
-<a name="check_service_only-user"/>
-<a name="check_service_options"/>
+<a id="check_service_warn"></a>
+<a id="check_service_crit"></a>
+<a id="check_service_debug"></a>
+<a id="check_service_show-all"></a>
+<a id="check_service_escape-html"></a>
+<a id="check_service_help"></a>
+<a id="check_service_help-pb"></a>
+<a id="check_service_show-default"></a>
+<a id="check_service_help-short"></a>
+<a id="check_service_computer"></a>
+<a id="check_service_service"></a>
+<a id="check_service_exclude"></a>
+<a id="check_service_only-essential"></a>
+<a id="check_service_only-ignored"></a>
+<a id="check_service_only-role"></a>
+<a id="check_service_only-supporting"></a>
+<a id="check_service_only-system"></a>
+<a id="check_service_only-user"></a>
+<a id="check_service_options"></a>
 #### Command-line Arguments
 
 
@@ -1758,7 +1779,7 @@ The types of services to enumerate available states are active, inactive or all
 *Default Value:* `all`
 
 
-<a name="check_service_filter_keys"/>
+<a id="check_service_filter_keys"></a>
 #### Filter keywords
 
 
@@ -1795,13 +1816,15 @@ The types of services to enumerate available states are active, inactive or all
 
 Check time since last server re-boot.
 
-* [Samples](#check_uptime_samples)
 
+**Jump to section:**
+
+* [Sample Commands](#check_uptime_samples)
 * [Command-line Arguments](#check_uptime_options)
 * [Filter keywords](#check_uptime_filter_keys)
 
 
-<a name="check_uptime_samples"/>
+<a id="check_uptime_samples"></a>
 #### Sample Commands
 
 _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSystem_check_uptime_samples.md)_
@@ -1831,16 +1854,16 @@ uptime: -0:3, boot: 2013-sep-08 18:41:06 (UCT)|'uptime'=1378665666;1378579481;13
 
 
 
-<a name="check_uptime_warn"/>
-<a name="check_uptime_crit"/>
-<a name="check_uptime_debug"/>
-<a name="check_uptime_show-all"/>
-<a name="check_uptime_escape-html"/>
-<a name="check_uptime_help"/>
-<a name="check_uptime_help-pb"/>
-<a name="check_uptime_show-default"/>
-<a name="check_uptime_help-short"/>
-<a name="check_uptime_options"/>
+<a id="check_uptime_warn"></a>
+<a id="check_uptime_crit"></a>
+<a id="check_uptime_debug"></a>
+<a id="check_uptime_show-all"></a>
+<a id="check_uptime_escape-html"></a>
+<a id="check_uptime_help"></a>
+<a id="check_uptime_help-pb"></a>
+<a id="check_uptime_show-default"></a>
+<a id="check_uptime_help-short"></a>
+<a id="check_uptime_options"></a>
 #### Command-line Arguments
 
 
@@ -1949,7 +1972,7 @@ This is the syntax for the base names of the performance data.
 *Default Value:* `uptime`
 
 
-<a name="check_uptime_filter_keys"/>
+<a id="check_uptime_filter_keys"></a>
 #### Filter keywords
 
 
@@ -1972,289 +1995,6 @@ This is the syntax for the base names of the performance data.
 | warn_list     | A list of all items which matched the warning criteria. Common option for all checks.                        |
 
 
-### checkcounter
-
-Legacy version of check_pdh
-
-
-* [Command-line Arguments](#checkcounter_options)
-
-
-
-
-
-<a name="checkcounter_help"/>
-<a name="checkcounter_help-pb"/>
-<a name="checkcounter_show-default"/>
-<a name="checkcounter_help-short"/>
-<a name="checkcounter_Counter"/>
-<a name="checkcounter_MaxWarn"/>
-<a name="checkcounter_MaxCrit"/>
-<a name="checkcounter_MinWarn"/>
-<a name="checkcounter_MinCrit"/>
-<a name="checkcounter_options"/>
-#### Command-line Arguments
-
-
-| Option                           | Default Value | Description                                                                                           |
-|----------------------------------|---------------|-------------------------------------------------------------------------------------------------------|
-| help                             | N/A           | Show help screen (this screen)                                                                        |
-| help-pb                          | N/A           | Show help screen as a protocol buffer payload                                                         |
-| show-default                     | N/A           | Show default values for a given command                                                               |
-| help-short                       | N/A           | Show help screen (short format).                                                                      |
-| Counter                          |               | The time to check                                                                                     |
-| [ShowAll](#checkcounter_ShowAll) | short         | Configures display format (if set shows all items not only failures, if set to long shows all cores). |
-| MaxWarn                          |               | Maximum value before a warning is returned.                                                           |
-| MaxCrit                          |               | Maximum value before a critical is returned.                                                          |
-| MinWarn                          |               | Minimum value before a warning is returned.                                                           |
-| MinCrit                          |               | Minimum value before a critical is returned.                                                          |
-
-
-
-<h5 id="checkcounter_ShowAll">ShowAll:</h5>
-
-Configures display format (if set shows all items not only failures, if set to long shows all cores).
-
-*Default Value:* `short`
-
-
-### checkcpu
-
-Legacy version of check_cpu
-
-
-* [Command-line Arguments](#checkcpu_options)
-
-
-
-
-
-<a name="checkcpu_help"/>
-<a name="checkcpu_help-pb"/>
-<a name="checkcpu_show-default"/>
-<a name="checkcpu_help-short"/>
-<a name="checkcpu_time"/>
-<a name="checkcpu_MaxWarn"/>
-<a name="checkcpu_MaxCrit"/>
-<a name="checkcpu_MinWarn"/>
-<a name="checkcpu_MinCrit"/>
-<a name="checkcpu_warn"/>
-<a name="checkcpu_crit"/>
-<a name="checkcpu_options"/>
-#### Command-line Arguments
-
-
-| Option                       | Default Value | Description                                                                                           |
-|------------------------------|---------------|-------------------------------------------------------------------------------------------------------|
-| help                         | N/A           | Show help screen (this screen)                                                                        |
-| help-pb                      | N/A           | Show help screen as a protocol buffer payload                                                         |
-| show-default                 | N/A           | Show default values for a given command                                                               |
-| help-short                   | N/A           | Show help screen (short format).                                                                      |
-| time                         |               | The time to check                                                                                     |
-| [ShowAll](#checkcpu_ShowAll) | short         | Configures display format (if set shows all items not only failures, if set to long shows all cores). |
-| MaxWarn                      |               | Maximum value before a warning is returned.                                                           |
-| MaxCrit                      |               | Maximum value before a critical is returned.                                                          |
-| MinWarn                      |               | Minimum value before a warning is returned.                                                           |
-| MinCrit                      |               | Minimum value before a critical is returned.                                                          |
-| warn                         |               | Maximum value before a warning is returned.                                                           |
-| crit                         |               | Maximum value before a critical is returned.                                                          |
-
-
-
-<h5 id="checkcpu_ShowAll">ShowAll:</h5>
-
-Configures display format (if set shows all items not only failures, if set to long shows all cores).
-
-*Default Value:* `short`
-
-
-### checkmem
-
-Legacy version of check_mem
-
-
-* [Command-line Arguments](#checkmem_options)
-
-
-
-
-
-<a name="checkmem_help"/>
-<a name="checkmem_help-pb"/>
-<a name="checkmem_show-default"/>
-<a name="checkmem_help-short"/>
-<a name="checkmem_type"/>
-<a name="checkmem_MaxWarn"/>
-<a name="checkmem_MaxCrit"/>
-<a name="checkmem_MinWarn"/>
-<a name="checkmem_MinCrit"/>
-<a name="checkmem_warn"/>
-<a name="checkmem_crit"/>
-<a name="checkmem_options"/>
-#### Command-line Arguments
-
-
-| Option                       | Default Value | Description                                                                                           |
-|------------------------------|---------------|-------------------------------------------------------------------------------------------------------|
-| help                         | N/A           | Show help screen (this screen)                                                                        |
-| help-pb                      | N/A           | Show help screen as a protocol buffer payload                                                         |
-| show-default                 | N/A           | Show default values for a given command                                                               |
-| help-short                   | N/A           | Show help screen (short format).                                                                      |
-| type                         |               | The types to check                                                                                    |
-| [ShowAll](#checkmem_ShowAll) | short         | Configures display format (if set shows all items not only failures, if set to long shows all cores). |
-| MaxWarn                      |               | Maximum value before a warning is returned.                                                           |
-| MaxCrit                      |               | Maximum value before a critical is returned.                                                          |
-| MinWarn                      |               | Minimum value before a warning is returned.                                                           |
-| MinCrit                      |               | Minimum value before a critical is returned.                                                          |
-| warn                         |               | Maximum value before a warning is returned.                                                           |
-| crit                         |               | Maximum value before a critical is returned.                                                          |
-
-
-
-<h5 id="checkmem_ShowAll">ShowAll:</h5>
-
-Configures display format (if set shows all items not only failures, if set to long shows all cores).
-
-*Default Value:* `short`
-
-
-### checkprocstate
-
-Legacy version of check_process
-
-
-* [Command-line Arguments](#checkprocstate_options)
-
-
-
-
-
-<a name="checkprocstate_help"/>
-<a name="checkprocstate_help-pb"/>
-<a name="checkprocstate_show-default"/>
-<a name="checkprocstate_help-short"/>
-<a name="checkprocstate_MaxWarnCount"/>
-<a name="checkprocstate_MaxCritCount"/>
-<a name="checkprocstate_MinWarnCount"/>
-<a name="checkprocstate_MinCritCount"/>
-<a name="checkprocstate_options"/>
-#### Command-line Arguments
-
-
-| Option                             | Default Value | Description                                                                                           |
-|------------------------------------|---------------|-------------------------------------------------------------------------------------------------------|
-| help                               | N/A           | Show help screen (this screen)                                                                        |
-| help-pb                            | N/A           | Show help screen as a protocol buffer payload                                                         |
-| show-default                       | N/A           | Show default values for a given command                                                               |
-| help-short                         | N/A           | Show help screen (short format).                                                                      |
-| [ShowAll](#checkprocstate_ShowAll) | short         | Configures display format (if set shows all items not only failures, if set to long shows all cores). |
-| MaxWarnCount                       |               | Maximum value before a warning is returned.                                                           |
-| MaxCritCount                       |               | Maximum value before a critical is returned.                                                          |
-| MinWarnCount                       |               | Minimum value before a warning is returned.                                                           |
-| MinCritCount                       |               | Minimum value before a critical is returned.                                                          |
-
-
-
-<h5 id="checkprocstate_ShowAll">ShowAll:</h5>
-
-Configures display format (if set shows all items not only failures, if set to long shows all cores).
-
-*Default Value:* `short`
-
-
-### checkservicestate
-
-Legacy version of check_service
-
-
-* [Command-line Arguments](#checkservicestate_options)
-
-
-
-
-
-<a name="checkservicestate_help"/>
-<a name="checkservicestate_help-pb"/>
-<a name="checkservicestate_show-default"/>
-<a name="checkservicestate_help-short"/>
-<a name="checkservicestate_exclude"/>
-<a name="checkservicestate_options"/>
-#### Command-line Arguments
-
-
-| Option                                  | Default Value | Description                                                                                           |
-|-----------------------------------------|---------------|-------------------------------------------------------------------------------------------------------|
-| help                                    | N/A           | Show help screen (this screen)                                                                        |
-| help-pb                                 | N/A           | Show help screen as a protocol buffer payload                                                         |
-| show-default                            | N/A           | Show default values for a given command                                                               |
-| help-short                              | N/A           | Show help screen (short format).                                                                      |
-| [CheckAll](#checkservicestate_CheckAll) | true          | Check all services.                                                                                   |
-| exclude                                 |               | Exclude services                                                                                      |
-| [ShowAll](#checkservicestate_ShowAll)   | short         | Configures display format (if set shows all items not only failures, if set to long shows all cores). |
-
-
-
-<h5 id="checkservicestate_CheckAll">CheckAll:</h5>
-
-Check all services.
-
-*Default Value:* `true`
-
-<h5 id="checkservicestate_ShowAll">ShowAll:</h5>
-
-Configures display format (if set shows all items not only failures, if set to long shows all cores).
-
-*Default Value:* `short`
-
-
-### checkuptime
-
-Legacy version of check_uptime
-
-
-* [Command-line Arguments](#checkuptime_options)
-
-
-
-
-
-<a name="checkuptime_help"/>
-<a name="checkuptime_help-pb"/>
-<a name="checkuptime_show-default"/>
-<a name="checkuptime_help-short"/>
-<a name="checkuptime_MaxWarn"/>
-<a name="checkuptime_MaxCrit"/>
-<a name="checkuptime_MinWarn"/>
-<a name="checkuptime_MinCrit"/>
-<a name="checkuptime_warn"/>
-<a name="checkuptime_crit"/>
-<a name="checkuptime_options"/>
-#### Command-line Arguments
-
-
-| Option                          | Default Value | Description                                                                                           |
-|---------------------------------|---------------|-------------------------------------------------------------------------------------------------------|
-| help                            | N/A           | Show help screen (this screen)                                                                        |
-| help-pb                         | N/A           | Show help screen as a protocol buffer payload                                                         |
-| show-default                    | N/A           | Show default values for a given command                                                               |
-| help-short                      | N/A           | Show help screen (short format).                                                                      |
-| [ShowAll](#checkuptime_ShowAll) | short         | Configures display format (if set shows all items not only failures, if set to long shows all cores). |
-| MaxWarn                         |               | Maximum value before a warning is returned.                                                           |
-| MaxCrit                         |               | Maximum value before a critical is returned.                                                          |
-| MinWarn                         |               | Minimum value before a warning is returned.                                                           |
-| MinCrit                         |               | Minimum value before a critical is returned.                                                          |
-| warn                            |               | Maximum value before a warning is returned.                                                           |
-| crit                            |               | Maximum value before a critical is returned.                                                          |
-
-
-
-<h5 id="checkuptime_ShowAll">ShowAll:</h5>
-
-Configures display format (if set shows all items not only failures, if set to long shows all cores).
-
-*Default Value:* `short`
-
-
 
 
 ## Configuration
@@ -2272,7 +2012,7 @@ Configures display format (if set shows all items not only failures, if set to l
 
 
 
-### Windows system <a id="/settings/system/windows"/>
+### Windows system <a id="/settings/system/windows"></a>
 
 Section for system checks and system settings
 
@@ -2438,7 +2178,7 @@ use pdh for cpu=false
 ```
 
 
-### PDH Counters <a id="/settings/system/windows/counters"/>
+### PDH Counters <a id="/settings/system/windows/counters"></a>
 
 Add counters to check
 
@@ -2491,7 +2231,7 @@ parent=default
 
 
 
-### Legacy generic filters <a id="/settings/system/windows/real-time/checks"/>
+### Legacy generic filters <a id="/settings/system/windows/real-time/checks"></a>
 
 A set of filters to use in real-time mode
 
@@ -2563,7 +2303,7 @@ silent period=false
 
 
 
-### Realtime cpu filters <a id="/settings/system/windows/real-time/cpu"/>
+### Realtime cpu filters <a id="/settings/system/windows/real-time/cpu"></a>
 
 A set of filters to use in real-time mode
 
@@ -2631,7 +2371,7 @@ silent period=false
 
 
 
-### Realtime memory filters <a id="/settings/system/windows/real-time/memory"/>
+### Realtime memory filters <a id="/settings/system/windows/real-time/memory"></a>
 
 A set of filters to use in real-time mode
 
@@ -2699,7 +2439,7 @@ silent period=false
 
 
 
-### Realtime process filters <a id="/settings/system/windows/real-time/process"/>
+### Realtime process filters <a id="/settings/system/windows/real-time/process"></a>
 
 A set of filters to use in real-time mode
 

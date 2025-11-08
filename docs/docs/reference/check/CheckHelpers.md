@@ -64,17 +64,19 @@ A list of all short hand aliases for queries (check commands)
 Run another check and regardless of its return code return CRITICAL.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_always_critical_options)
 
 
 
 
 
-<a name="check_always_critical_help"/>
-<a name="check_always_critical_help-pb"/>
-<a name="check_always_critical_show-default"/>
-<a name="check_always_critical_help-short"/>
-<a name="check_always_critical_options"/>
+<a id="check_always_critical_help"></a>
+<a id="check_always_critical_help-pb"></a>
+<a id="check_always_critical_show-default"></a>
+<a id="check_always_critical_help-short"></a>
+<a id="check_always_critical_options"></a>
 #### Command-line Arguments
 
 
@@ -93,17 +95,19 @@ Run another check and regardless of its return code return CRITICAL.
 Run another check and regardless of its return code return OK.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_always_ok_options)
 
 
 
 
 
-<a name="check_always_ok_help"/>
-<a name="check_always_ok_help-pb"/>
-<a name="check_always_ok_show-default"/>
-<a name="check_always_ok_help-short"/>
-<a name="check_always_ok_options"/>
+<a id="check_always_ok_help"></a>
+<a id="check_always_ok_help-pb"></a>
+<a id="check_always_ok_show-default"></a>
+<a id="check_always_ok_help-short"></a>
+<a id="check_always_ok_options"></a>
 #### Command-line Arguments
 
 
@@ -122,17 +126,19 @@ Run another check and regardless of its return code return OK.
 Run another check and regardless of its return code return WARNING.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_always_warning_options)
 
 
 
 
 
-<a name="check_always_warning_help"/>
-<a name="check_always_warning_help-pb"/>
-<a name="check_always_warning_show-default"/>
-<a name="check_always_warning_help-short"/>
-<a name="check_always_warning_options"/>
+<a id="check_always_warning_help"></a>
+<a id="check_always_warning_help-pb"></a>
+<a id="check_always_warning_show-default"></a>
+<a id="check_always_warning_help-short"></a>
+<a id="check_always_warning_options"></a>
 #### Command-line Arguments
 
 
@@ -151,20 +157,22 @@ Run another check and regardless of its return code return WARNING.
 Run a check and forward the result as a passive check.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_and_forward_options)
 
 
 
 
 
-<a name="check_and_forward_help"/>
-<a name="check_and_forward_help-pb"/>
-<a name="check_and_forward_show-default"/>
-<a name="check_and_forward_help-short"/>
-<a name="check_and_forward_target"/>
-<a name="check_and_forward_command"/>
-<a name="check_and_forward_arguments"/>
-<a name="check_and_forward_options"/>
+<a id="check_and_forward_help"></a>
+<a id="check_and_forward_help-pb"></a>
+<a id="check_and_forward_show-default"></a>
+<a id="check_and_forward_help-short"></a>
+<a id="check_and_forward_target"></a>
+<a id="check_and_forward_command"></a>
+<a id="check_and_forward_arguments"></a>
+<a id="check_and_forward_options"></a>
 #### Command-line Arguments
 
 
@@ -186,17 +194,19 @@ Run a check and forward the result as a passive check.
 Just return CRITICAL (anything passed along will be used as a message).
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_critical_options)
 
 
 
 
 
-<a name="check_critical_help"/>
-<a name="check_critical_help-pb"/>
-<a name="check_critical_show-default"/>
-<a name="check_critical_help-short"/>
-<a name="check_critical_options"/>
+<a id="check_critical_help"></a>
+<a id="check_critical_help-pb"></a>
+<a id="check_critical_show-default"></a>
+<a id="check_critical_help-short"></a>
+<a id="check_critical_options"></a>
 #### Command-line Arguments
 
 
@@ -222,21 +232,23 @@ Message to return
 Run more then one check and return the worst state.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_multi_options)
 
 
 
 
 
-<a name="check_multi_help"/>
-<a name="check_multi_help-pb"/>
-<a name="check_multi_show-default"/>
-<a name="check_multi_help-short"/>
-<a name="check_multi_command"/>
-<a name="check_multi_arguments"/>
-<a name="check_multi_prefix"/>
-<a name="check_multi_suffix"/>
-<a name="check_multi_options"/>
+<a id="check_multi_help"></a>
+<a id="check_multi_help-pb"></a>
+<a id="check_multi_show-default"></a>
+<a id="check_multi_help-short"></a>
+<a id="check_multi_command"></a>
+<a id="check_multi_arguments"></a>
+<a id="check_multi_prefix"></a>
+<a id="check_multi_suffix"></a>
+<a id="check_multi_options"></a>
 #### Command-line Arguments
 
 
@@ -266,23 +278,25 @@ Separator between messages
 Run a check and alter the return status codes according to arguments.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_negate_options)
 
 
 
 
 
-<a name="check_negate_help"/>
-<a name="check_negate_help-pb"/>
-<a name="check_negate_show-default"/>
-<a name="check_negate_help-short"/>
-<a name="check_negate_ok"/>
-<a name="check_negate_warning"/>
-<a name="check_negate_critical"/>
-<a name="check_negate_unknown"/>
-<a name="check_negate_command"/>
-<a name="check_negate_arguments"/>
-<a name="check_negate_options"/>
+<a id="check_negate_help"></a>
+<a id="check_negate_help-pb"></a>
+<a id="check_negate_show-default"></a>
+<a id="check_negate_help-short"></a>
+<a id="check_negate_ok"></a>
+<a id="check_negate_warning"></a>
+<a id="check_negate_critical"></a>
+<a id="check_negate_unknown"></a>
+<a id="check_negate_command"></a>
+<a id="check_negate_arguments"></a>
+<a id="check_negate_options"></a>
 #### Command-line Arguments
 
 
@@ -307,17 +321,19 @@ Run a check and alter the return status codes according to arguments.
 Just return OK (anything passed along will be used as a message).
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_ok_options)
 
 
 
 
 
-<a name="check_ok_help"/>
-<a name="check_ok_help-pb"/>
-<a name="check_ok_show-default"/>
-<a name="check_ok_help-short"/>
-<a name="check_ok_options"/>
+<a id="check_ok_help"></a>
+<a id="check_ok_help-pb"></a>
+<a id="check_ok_show-default"></a>
+<a id="check_ok_help-short"></a>
+<a id="check_ok_options"></a>
 #### Command-line Arguments
 
 
@@ -343,21 +359,23 @@ Message to return
 Run a check and timeout after a given amount of time if the check has not returned.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_timeout_options)
 
 
 
 
 
-<a name="check_timeout_help"/>
-<a name="check_timeout_help-pb"/>
-<a name="check_timeout_show-default"/>
-<a name="check_timeout_help-short"/>
-<a name="check_timeout_timeout"/>
-<a name="check_timeout_command"/>
-<a name="check_timeout_arguments"/>
-<a name="check_timeout_return"/>
-<a name="check_timeout_options"/>
+<a id="check_timeout_help"></a>
+<a id="check_timeout_help-pb"></a>
+<a id="check_timeout_show-default"></a>
+<a id="check_timeout_help-short"></a>
+<a id="check_timeout_timeout"></a>
+<a id="check_timeout_command"></a>
+<a id="check_timeout_arguments"></a>
+<a id="check_timeout_return"></a>
+<a id="check_timeout_options"></a>
 #### Command-line Arguments
 
 
@@ -380,17 +398,19 @@ Run a check and timeout after a given amount of time if the check has not return
 Just return the NSClient++ version.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_version_options)
 
 
 
 
 
-<a name="check_version_help"/>
-<a name="check_version_help-pb"/>
-<a name="check_version_show-default"/>
-<a name="check_version_help-short"/>
-<a name="check_version_options"/>
+<a id="check_version_help"></a>
+<a id="check_version_help-pb"></a>
+<a id="check_version_show-default"></a>
+<a id="check_version_help-short"></a>
+<a id="check_version_options"></a>
 #### Command-line Arguments
 
 
@@ -409,17 +429,19 @@ Just return the NSClient++ version.
 Just return WARNING (anything passed along will be used as a message).
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#check_warning_options)
 
 
 
 
 
-<a name="check_warning_help"/>
-<a name="check_warning_help-pb"/>
-<a name="check_warning_show-default"/>
-<a name="check_warning_help-short"/>
-<a name="check_warning_options"/>
+<a id="check_warning_help"></a>
+<a id="check_warning_help-pb"></a>
+<a id="check_warning_show-default"></a>
+<a id="check_warning_help-short"></a>
+<a id="check_warning_options"></a>
 #### Command-line Arguments
 
 
@@ -445,19 +467,21 @@ Message to return
 Run a check and filter performance data.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#filter_perf_options)
 
 
 
 
 
-<a name="filter_perf_help"/>
-<a name="filter_perf_help-pb"/>
-<a name="filter_perf_show-default"/>
-<a name="filter_perf_help-short"/>
-<a name="filter_perf_command"/>
-<a name="filter_perf_arguments"/>
-<a name="filter_perf_options"/>
+<a id="filter_perf_help"></a>
+<a id="filter_perf_help-pb"></a>
+<a id="filter_perf_show-default"></a>
+<a id="filter_perf_help-short"></a>
+<a id="filter_perf_command"></a>
+<a id="filter_perf_arguments"></a>
+<a id="filter_perf_options"></a>
 #### Command-line Arguments
 
 
@@ -492,6 +516,8 @@ The maximum number of items to return (0 returns all items)
 Run a check and render the performance data as output message.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#render_perf_options)
 * [Filter keywords](#render_perf_filter_keys)
 
@@ -499,19 +525,19 @@ Run a check and render the performance data as output message.
 
 
 
-<a name="render_perf_warn"/>
-<a name="render_perf_crit"/>
-<a name="render_perf_debug"/>
-<a name="render_perf_show-all"/>
-<a name="render_perf_escape-html"/>
-<a name="render_perf_help"/>
-<a name="render_perf_help-pb"/>
-<a name="render_perf_show-default"/>
-<a name="render_perf_help-short"/>
-<a name="render_perf_command"/>
-<a name="render_perf_arguments"/>
-<a name="render_perf_remove-perf"/>
-<a name="render_perf_options"/>
+<a id="render_perf_warn"></a>
+<a id="render_perf_crit"></a>
+<a id="render_perf_debug"></a>
+<a id="render_perf_show-all"></a>
+<a id="render_perf_escape-html"></a>
+<a id="render_perf_help"></a>
+<a id="render_perf_help-pb"></a>
+<a id="render_perf_show-default"></a>
+<a id="render_perf_help-short"></a>
+<a id="render_perf_command"></a>
+<a id="render_perf_arguments"></a>
+<a id="render_perf_remove-perf"></a>
+<a id="render_perf_options"></a>
 #### Command-line Arguments
 
 
@@ -623,7 +649,7 @@ This is the syntax for the base names of the performance data.
 *Default Value:* `%(key)`
 
 
-<a name="render_perf_filter_keys"/>
+<a id="render_perf_filter_keys"></a>
 #### Filter keywords
 
 
@@ -657,22 +683,24 @@ This is the syntax for the base names of the performance data.
 Run a check and transform the performance data in various (currently one) way.
 
 
+**Jump to section:**
+
 * [Command-line Arguments](#xform_perf_options)
 
 
 
 
 
-<a name="xform_perf_help"/>
-<a name="xform_perf_help-pb"/>
-<a name="xform_perf_show-default"/>
-<a name="xform_perf_help-short"/>
-<a name="xform_perf_command"/>
-<a name="xform_perf_arguments"/>
-<a name="xform_perf_mode"/>
-<a name="xform_perf_field"/>
-<a name="xform_perf_replace"/>
-<a name="xform_perf_options"/>
+<a id="xform_perf_help"></a>
+<a id="xform_perf_help-pb"></a>
+<a id="xform_perf_show-default"></a>
+<a id="xform_perf_help-short"></a>
+<a id="xform_perf_command"></a>
+<a id="xform_perf_arguments"></a>
+<a id="xform_perf_mode"></a>
+<a id="xform_perf_field"></a>
+<a id="xform_perf_replace"></a>
+<a id="xform_perf_options"></a>
 #### Command-line Arguments
 
 
