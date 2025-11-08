@@ -353,29 +353,29 @@ page = 8.05G, physical = 7.85G
 #### Command-line Arguments
 
 
-| Option                                       | Default Value             | Description                                                                                                      |
-|----------------------------------------------|---------------------------|------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_memory_filter)               |                           | Filter which marks interesting items.                                                                            |
-| [warning](#check_memory_warning)             | used > 80%                | Filter which marks items which generates a warning state.                                                        |
-| warn                                         |                           | Short alias for warning                                                                                          |
-| [critical](#check_memory_critical)           | used > 90%                | Filter which marks items which generates a critical state.                                                       |
-| crit                                         |                           | Short alias for critical.                                                                                        |
-| [ok](#check_memory_ok)                       |                           | Filter which marks items which generates an ok state.                                                            |
-| debug                                        | N/A                       | Show debugging information in the log                                                                            |
-| show-all                                     | N/A                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-| [empty-state](#check_memory_empty-state)     | ignored                   | Return status to use when nothing matched filter.                                                                |
-| [perf-config](#check_memory_perf-config)     |                           | Performance data generation configuration                                                                        |
-| escape-html                                  | N/A                       | Escape any < and > characters to prevent HTML encoding                                                           |
-| help                                         | N/A                       | Show help screen (this screen)                                                                                   |
-| help-pb                                      | N/A                       | Show help screen as a protocol buffer payload                                                                    |
-| show-default                                 | N/A                       | Show default values for a given command                                                                          |
-| help-short                                   | N/A                       | Show help screen (short format).                                                                                 |
-| [top-syntax](#check_memory_top-syntax)       | ${status}: ${list}        | Top level syntax.                                                                                                |
-| [ok-syntax](#check_memory_ok-syntax)         |                           | ok syntax.                                                                                                       |
-| [empty-syntax](#check_memory_empty-syntax)   |                           | Empty syntax.                                                                                                    |
-| [detail-syntax](#check_memory_detail-syntax) | ${type} = ${used}/${size} | Detail level syntax.                                                                                             |
-| [perf-syntax](#check_memory_perf-syntax)     | ${type}                   | Performance alias syntax.                                                                                        |
-| type                                         |                           | The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)               |
+| Option                                       | Default Value            | Description                                                                                                      |
+|----------------------------------------------|--------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_memory_filter)               |                          | Filter which marks interesting items.                                                                            |
+| [warning](#check_memory_warning)             | used > 80%               | Filter which marks items which generates a warning state.                                                        |
+| warn                                         |                          | Short alias for warning                                                                                          |
+| [critical](#check_memory_critical)           | used > 90%               | Filter which marks items which generates a critical state.                                                       |
+| crit                                         |                          | Short alias for critical.                                                                                        |
+| [ok](#check_memory_ok)                       |                          | Filter which marks items which generates an ok state.                                                            |
+| debug                                        | N/A                      | Show debugging information in the log                                                                            |
+| show-all                                     | N/A                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_memory_empty-state)     | ignored                  | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_memory_perf-config)     |                          | Performance data generation configuration                                                                        |
+| escape-html                                  | N/A                      | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                         | N/A                      | Show help screen (this screen)                                                                                   |
+| help-pb                                      | N/A                      | Show help screen as a protocol buffer payload                                                                    |
+| show-default                                 | N/A                      | Show default values for a given command                                                                          |
+| help-short                                   | N/A                      | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_memory_top-syntax)       | ${status}: ${list}       | Top level syntax.                                                                                                |
+| [ok-syntax](#check_memory_ok-syntax)         |                          | ok syntax.                                                                                                       |
+| [empty-syntax](#check_memory_empty-syntax)   |                          | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_memory_detail-syntax) | ${type}: ${used}/${size} | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_memory_perf-syntax)     | ${type}                  | Performance alias syntax.                                                                                        |
+| type                                         |                          | The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)               |
 
 
 
@@ -449,7 +449,7 @@ Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-*Default Value:* `${type} = ${used}/${size}`
+*Default Value:* `${type}: ${used}/${size}`
 
 <h5 id="check_memory_perf-syntax">perf-syntax:</h5>
 
