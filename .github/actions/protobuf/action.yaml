@@ -72,16 +72,16 @@ runs:
 
     - name: CMake
       run: |
-        cmake -DBUILD_SHARED_LIBS=${{ steps.setup.outputs.shared_libs }} -G "Visual Studio 17" -T ${{ inputs.toolset }} -A ${{ steps.setup.outputs.platform }} ..
+        cmake -DBUILD_SHARED_LIBS=${{ steps.setup.outputs.shared_libs }} -Dprotobuf_WITH_ZLIB=OFF -G "Visual Studio 17" -T ${{ inputs.toolset }} -A ${{ steps.setup.outputs.platform }} ..
       working-directory: tmp/protobuf-${{ inputs.version }}/build
       shell: cmd
 
     - name: Build
       run: |
-        echo msbuild libprotobuf.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=v141_xp ${{ steps.setup.outputs.additional_options }}
-        msbuild libprotobuf.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=v141_xp ${{ steps.setup.outputs.additional_options }}
-        msbuild libprotoc.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=v141_xp
-        msbuild protoc.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=v141_xp
+        echo msbuild libprotobuf.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }} ${{ steps.setup.outputs.additional_options }}
+        msbuild libprotobuf.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }} ${{ steps.setup.outputs.additional_options }}
+        msbuild libprotoc.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
+        msbuild protoc.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
       working-directory: tmp/protobuf-${{ inputs.version }}/build
       shell: cmd
       if: ${{ steps.cache.outputs.cache-hit != 'true' }}
