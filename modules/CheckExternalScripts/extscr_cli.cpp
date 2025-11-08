@@ -25,7 +25,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/json.hpp>
 #include <boost/program_options.hpp>
-#include <boost/regex.hpp>
 #include <file_helpers.hpp>
 #include <fstream>
 #include <nscapi/nscapi_program_options.hpp>
@@ -40,7 +39,7 @@ namespace pf = nscapi::protobuf::functions;
 namespace npo = nscapi::program_options;
 namespace json = boost::json;
 
-extscr_cli::extscr_cli(boost::shared_ptr<script_provider_interface> provider) : provider_(provider) {}
+extscr_cli::extscr_cli(const boost::shared_ptr<script_provider_interface> &provider) : provider_(provider) {}
 
 bool extscr_cli::run(std::string cmd, const PB::Commands::ExecuteRequestMessage_Request &request, PB::Commands::ExecuteResponseMessage_Response *response) {
   if (cmd == "add")
@@ -58,13 +57,6 @@ bool extscr_cli::run(std::string cmd, const PB::Commands::ExecuteRequestMessage_
   return true;
 }
 
-// nscapi::core_wrapper* extscr_cli::get_core() const {
-// 	return core_;
-// }
-// boost::shared_ptr<nscapi::settings_proxy> extscr_cli::get_settings_proxy() {
-// 	return boost::shared_ptr<nscapi::settings_proxy>(new nscapi::settings_proxy(get_id(), get_core()));
-// }
-
 bool extscr_cli::validate_sandbox(boost::filesystem::path pscript, PB::Commands::ExecuteResponseMessage::Response *response) {
   boost::filesystem::path path = provider_->get_root();
   if (!file_helpers::checks::path_contains_file(path, pscript)) {
@@ -80,12 +72,12 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
   bool json = false, query = false, lib = false;
 
   // clang-format off
-	desc.add_options()
-		("help", "Show help.")
-		("json", po::bool_switch(&json), "Return the list in json format.")
-		("query", po::bool_switch(&query), "List queries instead of scripts (for aliases).")
-		("include-lib", po::bool_switch(&lib), "Do not ignore any lib folders.")
-		;
+  desc.add_options()
+    ("help", "Show help.")
+    ("json", po::bool_switch(&json), "Return the list in json format.")
+    ("query", po::bool_switch(&query), "List queries instead of scripts (for aliases).")
+    ("include-lib", po::bool_switch(&lib), "Do not ignore any lib folders.")
+    ;
   // clang-format on
 
   try {
@@ -147,12 +139,11 @@ void extscr_cli::show(const PB::Commands::ExecuteRequestMessage::Request &reques
   std::string script;
 
   // clang-format off
-	desc.add_options()
-		("help", "Show help.")
-
-		("script", po::value<std::string>(&script),
-		"Script to show.")
-		;
+  desc.add_options()
+    ("help", "Show help.")
+    ("script", po::value<std::string>(&script),
+    "Script to show.")
+    ;
   // clang-format on
 
   try {
@@ -210,12 +201,11 @@ void extscr_cli::delete_script(const PB::Commands::ExecuteRequestMessage::Reques
   std::string script;
 
   // clang-format off
-	desc.add_options()
-		("help", "Show help.")
-
-		("script", po::value<std::string>(&script),
-		"Script to delete.")
-		;
+  desc.add_options()
+    ("help", "Show help.")
+    ("script", po::value<std::string>(&script),
+    "Script to delete.")
+    ;
   // clang-format on
 
   try {
@@ -281,34 +271,17 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
   bool wrapped = false, list = false, replace = false, no_config = false;
 
   // clang-format off
-	desc.add_options()
-		("help", "Show help.")
-
-		("script", po::value<std::string>(&script),
-			"Script to add")
-
-		("alias", po::value<std::string>(&alias),
-			"Name of command to execute script (defaults to basename of script)")
-
-		("arguments", po::value<std::string>(&arguments),
-			"Arguments for script.")
-
-		("list", po::bool_switch(&list),
-			"List all scripts in the scripts folder.")
-
-		("wrapped", po::bool_switch(&wrapped),
-			"Add this to add a wrapped script such as ps1, vbs or similar..")
-
-		("import", po::value<std::string>(&import_script),
-		"Import (copy to script folder) a script.")
-
-		("replace", po::bool_switch(&replace),
-		"Used when importing to specify that the script will be overwritten.")
-
-		("no-config", po::bool_switch(&no_config),
-		"Do not write the updated configuration (i.e. changes are only transient).")
-
-		;
+  desc.add_options()
+    ("help", "Show help.")
+    ("script", po::value<std::string>(&script), "Script to add")
+    ("alias", po::value<std::string>(&alias), "Name of command to execute script (defaults to basename of script)")
+    ("arguments", po::value<std::string>(&arguments), "Arguments for script.")
+    ("list", po::bool_switch(&list), "List all scripts in the scripts folder.")
+    ("wrapped", po::bool_switch(&wrapped), "Add this to add a wrapped script such as ps1, vbs or similar..")
+    ("import", po::value<std::string>(&import_script), "Import (copy to script folder) a script.")
+    ("replace", po::bool_switch(&replace), "Used when importing to specify that the script will be overwritten.")
+    ("no-config", po::bool_switch(&no_config), "Do not write the updated configuration (i.e. changes are only transient).")
+  ;
   // clang-format on
 
   try {
@@ -409,12 +382,8 @@ void extscr_cli::configure(const PB::Commands::ExecuteRequestMessage::Request &r
     else if (val.matches(path, "allow nasty characters") && val.get_bool())
       arguments = "safe";
   }
-  desc.add_options()("help", "Show help.")
-
-      ("arguments", po::value<std::string>(&arguments)->default_value(arguments)->implicit_value("safe"),
-       "Allow arguments. false=don't allow, safe=allow non escape chars, all=allow all arguments.")
-
-      ;
+  desc.add_options()("help", "Show help.")("arguments", po::value<std::string>(&arguments)->default_value(arguments)->implicit_value("safe"),
+                                           "Allow arguments. false=don't allow, safe=allow non escape chars, all=allow all arguments.");
 
   try {
     npo::basic_command_line_parser cmd(request);
