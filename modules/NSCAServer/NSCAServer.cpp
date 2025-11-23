@@ -60,7 +60,7 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       .add_bool("performance data", sh::bool_fun_key([this](auto value) { this->set_perf_data(value); }, true), "PERFORMANCE DATA",
                 "Send performance data back to nagios (set this to false to remove all performance data).")
 
-      .add_string("encryption", sh::string_fun_key([this](auto value) { this->set_encryption(value); }, "aes"), "ENCRYPTION",
+      .add_string("encryption", sh::string_fun_key([this](auto value) { this->set_encryption(value); }, "aes256"), "ENCRYPTION",
                   std::string("Name of encryption algorithm to use.\nHas to be the same as your agent i using or it wont work at all."
                               "This is also independent of SSL and generally used instead of SSL.\nAvailable encryption algorithms are:\n") +
                       nscp::encryption::helpers::get_crypto_string("\n"));

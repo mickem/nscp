@@ -32,7 +32,7 @@ struct nsca_target_object : public nscapi::targets::target_object {
   nsca_target_object(std::string alias, std::string path) : parent(alias, path) {
     set_property_int("timeout", 30);
     set_property_int("retries", 3);
-    set_property_string("encryption", "ase");
+    set_property_string("encryption", "aes256");
     set_property_int("payload length", 512);
     set_property_string("port", "5667");
     set_property_int("time offset", 0);
@@ -95,6 +95,8 @@ struct options_reader_impl : public client::options_reader_interface {
 	    "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
     ("password", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("password", value); }),
 	    "Password")
+    ("hostname", po::value<std::string>()->notifier([&source] (auto value) { source.set_string_data("host", value); }),
+      "Host name to report")
     ("time-offset", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("time offset", value); }),
 	    "")
   ;
