@@ -30,7 +30,7 @@ extra:
 nav:
   - Manual:
     - NSClient++: index.md
-    - Getting Started: getting-started.md
+    - Getting Started: getting-started/index.md
     - Theory: theory.md
     - Checking Things: checks.md
     - Installing NSClient++: installing.md
