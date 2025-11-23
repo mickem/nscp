@@ -1,8 +1,9 @@
-# Getting started with NSClient++
+# Getting started with NSCA
 
-This guide is split into multiple sections to help you get started with using NSClient++.
+The getting started guide has been split into multiple sections to allow easier reading.
 
-* [Getting-started index](./index.md)
+* [Getting-started](./index.md)
+* [Getting-started with NSClient++](./nsclient.md)
 * [Checking with NRPE client](./nrpe.md)
 * [Checking with NSCA client](./nsca.md)
 

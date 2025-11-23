@@ -1,8 +1,9 @@
-# Getting started with NSClient++
+# Getting started with NRPE
 
-This guide is split into multiple sections to help you get started with using NSClient++.
+The getting started guide has been split into multiple sections to allow easier reading.
 
-* [Getting-started index](./index.md)
+* [Getting-started](./index.md)
+* [Getting-started with NSClient++](./nsclient.md)
 * [Checking with NRPE client](./nrpe.md)
 * [Checking with NSCA client](./nsca.md)
 
@@ -165,10 +166,3 @@ openssl s_client -connect 127.0.0.1:5666 -cert nagios-client.pem -key nagios-cli
 ```
 
 In general certificates can be a bit tricky to get right.
-
-## TODO: Using the query language
-
-## TODO: Checking with REST client
-
-## TODO: Checking with NRDP
-
