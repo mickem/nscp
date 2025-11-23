@@ -322,7 +322,7 @@ Section for NSCA (NSCAServer) (check_nsca) protocol options.
 | [certificate key](#ssl-certificate)                  |                                     | SSL CERTIFICATE                     |
 | [debug verify](#debug-peer-certificate-verification) | false                               | Debug peer certificate verification |
 | [dh](#dh-key)                                        |                                     | DH KEY                              |
-| [encryption](#encryption)                            | aes                                 | ENCRYPTION                          |
+| [encryption](#encryption)                            | aes256                              | ENCRYPTION                          |
 | [inbox](#inbox)                                      | inbox                               | INBOX                               |
 | [password](#password)                                |                                     | Password                            |
 | [payload length](#payload-length)                    | 512                                 | PAYLOAD LENGTH                      |
@@ -348,7 +348,7 @@ cache allowed hosts=true
 certificate=${certificate-path}/certificate.pem
 certificate format=PEM
 debug verify=false
-encryption=aes
+encryption=aes256
 inbox=inbox
 payload length=512
 performance data=true
@@ -665,7 +665,7 @@ gost = GOST
 |----------------|-------------------------------------------------|
 | Path:          | [/settings/NSCA/server](#/settings/NSCA/server) |
 | Key:           | encryption                                      |
-| Default value: | `aes`                                           |
+| Default value: | `aes256`                                        |
 | Used by:       | NSCAServer                                      |
 
 
@@ -674,7 +674,7 @@ gost = GOST
 ```
 [/settings/NSCA/server]
 # ENCRYPTION
-encryption=aes
+encryption=aes256
 ```
 
 
