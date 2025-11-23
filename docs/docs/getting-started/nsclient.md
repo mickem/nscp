@@ -41,7 +41,7 @@ Currently, the following monitoring tools are supported:
 * Generic: Select this for any other monitoring solution.
 * Op5 Monitor: Select this if you are using Op5 Monitor.
 
-![installer select tool](images/installer-select-tool.png)
+![installer select tool](../images/installer-select-tool.png)
 
 ### Select Configuration
 
@@ -49,7 +49,7 @@ If you select `custom install` you will get the options to configure NSClient++ 
 The next step is to select the configuration you want to use.
 
 The default is fine it means you will use a configuration file in the ini format stored in the NSClient++ folder.
-![installer select config](images/installer-select-config.png)
+![installer select config](../images/installer-select-config.png)
 
 Options here would be to use a remote configuration file for instance hosted on a web server or place the configuration in the registry.
 
@@ -57,7 +57,7 @@ Options here would be to use a remote configuration file for instance hosted on 
 
 Next we get to pick some basic configuration options.
 
-![installer configuration](images/installer-configuration.png)
+![installer configuration](../images/installer-configuration.png)
 
 > This is important so make sure you read and understand the options carefully.
 
@@ -151,14 +151,14 @@ nscp test
 
 Next up to access the web interface you can open a web browser and navigate to `https://localhost:8443/`.
 Then you are met with a scary looking dialog (in your language) about an untrusted certificate:
-![untrusted certificates](images/web-untrusted-certificates.png)
+![untrusted certificates](../images/web-untrusted-certificates.png)
 
 This is normal and due to the fact that to use TLS (HTTPS) NSClient++ generates a self-signed certificate on startup.
 If you have a CA in your organization you can use that to sign trusted certificates or you can click `Advanced` and then `Accept the risk and continue` to proceed to the web interface.
 
 Next up we need to login:
 
-![web login](images/web-login.png)
+![web login](../images/web-login.png)
 
 Here you can login with the username `admin` and the password you set during installation.
 If you do not remember the password you can reset it using the command line:
@@ -168,7 +168,7 @@ nscp settings --path /settings/default --key password --set your_password
 ```
 Once you have logged in you will be presented with the NSClient++ web interface.
 
-![Welcome](images/web-welcome.png)
+![Welcome](../images/web-welcome.png)
 
 > If you fail to log in, ensure you are not running a service in the background, or that you have restarted since changing the password.
 
@@ -183,10 +183,10 @@ Modules can be loaded and unloaded at runtime and they provide various features 
 If we click on `Queries` in the web interface we will see a list of available queries.
 In the list you will find `check_cpu` so lets try it out.
 
-![select check_cpu](images/web-select-check_cpu.png)
+![select check_cpu](../images/web-select-check_cpu.png)
 
 Then you are met with a screen which looks a bit like this:
-![check_cpu](images/web-check_cpu.png)
+![check_cpu](../images/web-check_cpu.png)
 
 Here we can:
 
@@ -196,7 +196,7 @@ Here we can:
 
 Let start by click `Execute` and see what happens.
 
-![check_cpu result](images/web-check_cpu-result.png)
+![check_cpu result](../images/web-check_cpu-result.png)
 
 If you click the `Expand` chevron you will also see the performance data from the check.
 
@@ -204,7 +204,7 @@ Next up lets click `Get Help` to see how to use the check.
 At the very end you can find the `cores` options, so lets try that out.
 
 Enter `cores`in the arguments field and click `Execute` again.
-![check_cpu cores](images/web-check_cpu-cores.png)
+![check_cpu cores](../images/web-check_cpu-cores.png)
 
 And there you have it the CPU load for each core.
 
@@ -217,11 +217,11 @@ To do this we will click on `Modules` in the web interface.
 Here you will see a list of available modules.
 Click the `CheckNet` module to configure that module.
 
-![modules](images/web-modules.png)
+![modules](../images/web-modules.png)
 
 Here we can see that the module is neither loaded nor enabled.
 
-![modules check_net](images/web-modules-check_net.png)
+![modules check_net](../images/web-modules-check_net.png)
 
 A quick word about the difference between loaded and enabled.
 
@@ -231,7 +231,7 @@ A quick word about the difference between loaded and enabled.
 Normally you want the module to be both loaded and enabled.
 So lets click the `Load & Enable` button to load the module.
 
-![modules check_net loaded](images/web-modules-check_net-loaded.png)
+![modules check_net loaded](../images/web-modules-check_net-loaded.png)
 
 Now we can see the queries provided by the module.
 Lets try out the `check_ping` query which checks the ping response time to a host.
@@ -239,7 +239,7 @@ Lets try out the `check_ping` query which checks the ping response time to a hos
 As you noticed this is the same dialog as we saw before when we executed the `check_cpu` query.
 So lets try it out by entering `host=nsclient.org` in the `Arguments` field and clicking `Execute`.
 
-![check_ping](images/web-check_ping.png)
+![check_ping](../images/web-check_ping.png)
 
 ## Configuration via Web Interface
 
@@ -247,19 +247,19 @@ The web interface also allows you to configure NSClient++.
 To do this you can use the `Settings` tab but a simpler way is to use the settings widget on the module dialog as that only have settings relevant for a given module so that is what we will do.
 So lets click `Modules` in the web interface and then click on the `WEBServer` module.
 
-![modules webserver](images/web-modules-webserver.png).
+![modules webserver](../images/web-modules-webserver.png).
 
 Once you are here Click `Settings` and then expand `/settings/WEB/server` to show the port setting.
 
-![webserver settings](images/web-webserver-settings.png)
+![webserver settings](../images/web-webserver-settings.png)
 
 You should now be able to change the `port` to `1234` and click save:
 
-![webserver settings port](images/web-webserver-settings-port.png)
+![webserver settings port](../images/web-webserver-settings-port.png)
 
 After this you should get a popup asking you to save and update the settings.
 
-![webserver settings save](images/web-webserver-settings-save.png)
+![webserver settings save](../images/web-webserver-settings-save.png)
 
 If you click `Save and reload` the service will restart and the web server will now be served on port 1234 instead.
 So navigate to `http://localhost:1234/` and you should see the web interface again.
