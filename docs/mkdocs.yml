@@ -20,17 +20,14 @@ extra:
     title: 0.5.2
     link: version.md
     page: History
-  versions:
-    - 0.5.2
-    - 0.5.1
-    - 0.5.0
-    - 0.4.4
-    - 0.4.3
-    - 0.4.2
 nav:
   - Manual:
     - NSClient++: index.md
-    - Getting Started: getting-started/index.md
+    - Getting Started:
+        - Getting Started: getting-started/index.md
+        - NSClient++: getting-started/nsclient.md
+        - NRPE: getting-started/nrpe.md
+        - NSCA: getting-started/nsca.md
     - Theory: theory.md
     - Checking Things: checks.md
     - Installing NSClient++: installing.md
@@ -39,16 +36,6 @@ nav:
     - FAQ: faq.md
   - About:
     - Documentation: about/index.md
-    - Whats New: 
-      - History: about/whatsnew/index.md
-      - 0.4.0: about/whatsnew/0.4.0.md
-      - 0.4.1: about/whatsnew/0.4.1.md
-      - 0.4.2: about/whatsnew/0.4.2.md
-      - 0.4.3: about/whatsnew/0.4.3.md
-      - 0.4.4: about/whatsnew/0.4.4.md
-      - 0.5.0: about/whatsnew/0.5.0.md
-      - 0.5.1: about/whatsnew/0.5.1.md
-      - 0.5.2: about/whatsnew/0.5.2.md
     - Building NSClient++: about/build.md
     - Reporting Bugs: about/reporting-bugs.md
     - License: about/license.md

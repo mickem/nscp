@@ -1,18 +1,23 @@
-# Getting started with NSClient++
+# Getting started with NSCA
 
-This guide is split into multiple sections to help you get started with using NSClient++.
+The getting started guide has been split into multiple sections to allow easier reading.
 
-* [Getting-started index](./index.md)
+* [Getting-started](./index.md)
+* [Getting-started with NSClient++](./nsclient.md)
 * [Checking with NRPE client](./nrpe.md)
 * [Checking with NSCA client](./nsca.md)
-
-## Checking with NSCA client
 
 **Sections:**
 
 * [Ciphers and encryption](#ciphers-and-encryption)
 * [Password](#password)
+* [Configure NSCA server](#configure-nsca-server)
 * [Verifying connection](#verifying-connection)
+* [Loading modules](#loading-modules)
+* [Add scheduled jobs](#add-scheduled-jobs)
+* [Configure NSCA client](#configure-nsca-client)
+* [Restart NSClient++](#restart-nsclient)
+* [Further configuration](#further-configuration)
 
 NSCA is a protocol used to send passive check results to Nagios.
 Passive means that the monitoring server does not actively query the client for information but instead the client sends the information to the server.
@@ -26,23 +31,24 @@ Both NSClient++ and NSCA supports multiple encryption methods and ciphers.
 As they use different libraries though not all are compatible.
 Here is a list of supported encryption methods:
 
-| Encryption Method | NSClient++ (Crypto++) | NSCA (libmcrypto) |
-|-------------------|-----------------------|-------------------|
-| none / 0          | Yes                   | Yes               |
-| XOR / 1           | Yes                   | Yes               |
-| DES / 2           | Yes                   | Yes               |
-| 3DES / 3          | Yes                   | Yes               |
-| CAST128 / 4       | Yes                   | Yes               |
-| XTEA / 6          | Yes                   | Yes               |
-| Blowfish / 8      | Yes                   | Yes               |
-| Twofish / 9       | Yes                   | No                |
-| RC2 / 11          | Yes                   | Yes               |
-| AES256 / 14       | Yes                   | Yes (1)           |
-| Serpent / 20      | Yes                   | No                |
-| GOST / 23         | Yes                   | No                |
+| NSClient++ (Crypto++) | NSCA (libmcrypto) | Security               |
+|-----------------------|-------------------|------------------------|
+| ⚠️ none               | ️0                | ️Not secure            |
+| ⚠️ xor                | ️1                | ️Not secure            |
+| ⚠️ des                | ️2                | ️Insecure              |
+| ⚠️ 3des               | ️3                | ️️Legacy               |
+| 🟡 cast128            | 4                 | Moderate security      |
+| 🟡 xtea               | 6                 | Moderate security      |
+| 🟡 blowfish           | 8                 | Moderate security      |
+| 🟢 twofish            | 9                 | Very secure            |
+| ⚠️ rc2                | ️11               | ️Insecure              |
+| ✅ aes256              | 14                | Industry standard (1)  |
+| 🟢 serpent            | 20                | Paranoid Security      |
+| ⚠️ gost               | ️23               | ️Questionable security |
 
-> (1) Please note that NSCA specifys block-size and NSClient++ specify key-size.
+> (1) Please note that NSCA specify block-size and NSClient++ specify key-size.
 > This means `RIJNDAEL-128` (14) is the same as `AES-256` in NSClient++.
+> AES is only allowed with 128 bit block size so the other NSCA options are not valid.
 
 ## Password
 
@@ -58,13 +64,13 @@ So lets start by configuring the NSCA server and in this example we will use AES
 Here are relevant configuration for the NSCA server:
 
 ```text
-decryption_method=14
-password=secret-password
+decryption_method = 14
+password          = secret-password
 ```
 
 If you are having issues it might be useful to change the result file to be able to see what is generated: 
 ```text
-command_file=/tmo/result.txt
+command_file = /tmo/result.txt
 ```
 
 ## Verifying connection
@@ -80,6 +86,7 @@ Submission successful
 ```
 
 Where:
+
 * `--host` is the address of the NSCA server (Nagios server)
 * `--password` is the shared secret password
 * `--encryption` is the encryption method to use
@@ -125,6 +132,7 @@ report=all
 ```
 
 Here:
+
 * `channel` specifies the channel to use for sending the results (NSCA in this case)
 * `interval` specifies how often to run the check
 * `report` specifies what results to report (all in this case)
@@ -164,11 +172,12 @@ A common problem is that your windows machines is not named the same way in your
 To fix this you can set the hostname to use in the NSCA client configuration like so:
 ```ini
 [/settings/NSCA/client]
-hostname = my-host
+hostname = win_${host_lc}.${domain_lc}
 ```
 
 Here you can use parameters to automatically set the hostname.
 The following keywords are supported:
+
 * `auto` - Automatically detect the hostname
 * `${host}` - The current hostname
 * `${host_lc}` - The current hostname in lowercase
@@ -176,6 +185,7 @@ The following keywords are supported:
 * `${domain}` - The current domainname
 * `${domain_lc}` - The current domainname in lowercase
 * `${domain_uc}` - The current domainname in uppercase
+
 These can be combined to form the desired hostname like `${host_lc}.${domain_lc}.local`.
 
 This will ensure that the correct hostname is used when sending passive check results.

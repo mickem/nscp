@@ -1,12 +1,11 @@
-# Getting started with NSClient++
+# Getting started with NRPE
 
-This guide is split into multiple sections to help you get started with using NSClient++.
+The getting started guide has been split into multiple sections to allow easier reading.
 
-* [Getting-started index](./index.md)
+* [Getting-started](./index.md)
+* [Getting-started with NSClient++](./nsclient.md)
 * [Checking with NRPE client](./nrpe.md)
 * [Checking with NSCA client](./nsca.md)
-
-## Checking with NRPE client
 
 **Sections:**
 
@@ -15,7 +14,7 @@ This guide is split into multiple sections to help you get started with using NS
 * [Using client certificates](#using-client-certificates)
 
 
-### Insecure version
+## Insecure version
 
 When NRPE was first released the world was a different place and security was not a big concern.
 So the first version of NRPE did not have any real authentication or encryption.
@@ -53,7 +52,7 @@ I (0.4.0 2025-08-30) seem to be doing fine...
 
 Here we set `-2` to use the old version of NRPE and `-d 1` to enable insecure ADH key exchange.
 
-### Using certificates (still insecure)
+## Using certificates (still insecure)
 
 Next up lets make this a bit more secure by using TLS certificates.
 
@@ -94,7 +93,7 @@ $ check_nrpe -H 127.0.0.1 --ssl-version TLSv1.2+
 I (0.4.0 2025-08-30) seem to be doing fine...
 ```
 
-### Using client certificates
+## Using client certificates
 
 As you can see there is still no authentication but at least the traffic is encrypted.
 To make this a bit better we can use client certificates to authenticate the client.
@@ -165,10 +164,3 @@ openssl s_client -connect 127.0.0.1:5666 -cert nagios-client.pem -key nagios-cli
 ```
 
 In general certificates can be a bit tricky to get right.
-
-## TODO: Using the query language
-
-## TODO: Checking with REST client
-
-## TODO: Checking with NRDP
-
