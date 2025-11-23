@@ -11,7 +11,13 @@ The getting started guide has been split into multiple sections to allow easier 
 
 * [Ciphers and encryption](#ciphers-and-encryption)
 * [Password](#password)
+* [Configure NSCA server](#configure-nsca-server)
 * [Verifying connection](#verifying-connection)
+* [Loading modules](#loading-modules)
+* [Add scheduled jobs](#add-scheduled-jobs)
+* [Configure NSCA client](#configure-nsca-client)
+* [Restart NSClient++](#restart-nsclient)
+* [Further configuration](#further-configuration)
 
 NSCA is a protocol used to send passive check results to Nagios.
 Passive means that the monitoring server does not actively query the client for information but instead the client sends the information to the server.
