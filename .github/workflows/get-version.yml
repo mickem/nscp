@@ -21,7 +21,7 @@ jobs:
 
     - name: Fetch version from git tags
       id: version
-      uses: codacy/git-version@2.8.2
+      uses: codacy/git-version@2.8.6
       with:
         release-branch: main
 
