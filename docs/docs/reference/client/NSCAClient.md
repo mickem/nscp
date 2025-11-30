@@ -71,7 +71,7 @@ Submit information to the remote NSCA server.
 <a id="submit_nsca_payload-length"></a>
 <a id="submit_nsca_buffer-length"></a>
 <a id="submit_nsca_password"></a>
-<a id="submit_nsca_host"></a>
+<a id="submit_nsca_hostname"></a>
 <a id="submit_nsca_time-offset"></a>
 <a id="submit_nsca_options"></a>
 #### Command-line Arguments
@@ -110,7 +110,7 @@ Submit information to the remote NSCA server.
 | payload-length                        |               | Length of payload (has to be same as on the server)                                                                                                                       |
 | buffer-length                         |               | Length of payload to/from the NRPE agent. This is a hard specific value so you have to "configure" (read recompile) your NRPE agent to use the same value for it to work. |
 | password                              |               | Password                                                                                                                                                                  |
-| host                                  |               | Host name                                                                                                                                                                 |
+| hostname                              |               | Host name to report                                                                                                                                                       |
 | time-offset                           |               |                                                                                                                                                                           |
 
 
