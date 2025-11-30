@@ -386,6 +386,8 @@ parent=default
 *  alias_sched_task
 *  alias_service
 *  alias_service_ex
+*  alias_top_memory_users
+*  alias_top_memory_users_ex
 *  alias_up
 *  alias_volumes
 *  alias_volumes_loose

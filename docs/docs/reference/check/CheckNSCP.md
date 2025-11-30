@@ -195,27 +195,32 @@ This is the syntax for the base names of the performance data.
 #### Filter keywords
 
 
-| Option        | Description                                                                                                  |
-|---------------|--------------------------------------------------------------------------------------------------------------|
-| build         | The build (the 3 in 0.1.2.3) not available in release versions after 0.6.0                                   |
-| count         | Number of items matching the filter. Common option for all checks.                                           |
-| crit_count    | Number of items matched the critical criteria. Common option for all checks.                                 |
-| crit_list     | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| date          | The NSClient++ Build date                                                                                    |
-| detail_list   | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| list          | A list of all items which matched the filter. Common option for all checks.                                  |
-| major         | The major (the 1 in 0.1.2.3)                                                                                 |
-| minor         | The minor (the 2 in 0.1.2.3)                                                                                 |
-| ok_count      | Number of items matched the ok criteria. Common option for all checks.                                       |
-| ok_list       | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| problem_count | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| problem_list  | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| release       | The release (the 0 in 0.1.2.3)                                                                               |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| total         | Total number of items. Common option for all checks.                                                         |
-| version       | The NSClient++ Version as a string                                                                           |
-| warn_count    | Number of items matched the warning criteria. Common option for all checks.                                  |
-| warn_list     | A list of all items which matched the warning criteria. Common option for all checks.                        |
+| Option  | Description                                                                |
+|---------|----------------------------------------------------------------------------|
+| build   | The build (the 3 in 0.1.2.3) not available in release versions after 0.6.0 |
+| date    | The NSClient++ Build date                                                  |
+| major   | The major (the 1 in 0.1.2.3)                                               |
+| minor   | The minor (the 2 in 0.1.2.3)                                               |
+| release | The release (the 0 in 0.1.2.3)                                             |
+| version | The NSClient++ Version as a string                                         |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 
 

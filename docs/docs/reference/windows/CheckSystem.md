@@ -242,29 +242,34 @@ This is the syntax for the base names of the performance data.
 #### Filter keywords
 
 
-| Option        | Description                                                                                                  |
-|---------------|--------------------------------------------------------------------------------------------------------------|
-| core          | The core to check (total or core ##)                                                                         |
-| core_id       | The core to check (total or core_##)                                                                         |
-| count         | Number of items matching the filter. Common option for all checks.                                           |
-| crit_count    | Number of items matched the critical criteria. Common option for all checks.                                 |
-| crit_list     | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| detail_list   | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| idle          | The current idle load for a given core                                                                       |
-| kernel        | deprecated (use system instead)                                                                              |
-| list          | A list of all items which matched the filter. Common option for all checks.                                  |
-| load          | deprecated (use total instead)                                                                               |
-| ok_count      | Number of items matched the ok criteria. Common option for all checks.                                       |
-| ok_list       | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| problem_count | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| problem_list  | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| system        | The current load used by the system (kernel)                                                                 |
-| time          | The time frame to check                                                                                      |
-| total         | Total number of items. Common option for all checks.                                                         |
-| user          | The current load used by user applications                                                                   |
-| warn_count    | Number of items matched the warning criteria. Common option for all checks.                                  |
-| warn_list     | A list of all items which matched the warning criteria. Common option for all checks.                        |
+| Option  | Description                                  |
+|---------|----------------------------------------------|
+| core    | The core to check (total or core ##)         |
+| core_id | The core to check (total or core_##)         |
+| idle    | The current idle load for a given core       |
+| kernel  | deprecated (use system instead)              |
+| load    | deprecated (use total instead)               |
+| system  | The current load used by the system (kernel) |
+| time    | The time frame to check                      |
+| user    | The current load used by user applications   |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 
 ### check_memory
@@ -463,27 +468,32 @@ This is the syntax for the base names of the performance data.
 #### Filter keywords
 
 
-| Option        | Description                                                                                                  |
-|---------------|--------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter. Common option for all checks.                                           |
-| crit_count    | Number of items matched the critical criteria. Common option for all checks.                                 |
-| crit_list     | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| detail_list   | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| free          | Free memory in bytes (g,m,k,b) or percentages %                                                              |
-| free_pct      | % free memory                                                                                                |
-| list          | A list of all items which matched the filter. Common option for all checks.                                  |
-| ok_count      | Number of items matched the ok criteria. Common option for all checks.                                       |
-| ok_list       | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| problem_count | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| problem_list  | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| size          | Total size of memory                                                                                         |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| total         | Total number of items. Common option for all checks.                                                         |
-| type          | The type of memory to check                                                                                  |
-| used          | Used memory in bytes (g,m,k,b) or percentages %                                                              |
-| used_pct      | % used memory                                                                                                |
-| warn_count    | Number of items matched the warning criteria. Common option for all checks.                                  |
-| warn_list     | A list of all items which matched the warning criteria. Common option for all checks.                        |
+| Option   | Description                                     |
+|----------|-------------------------------------------------|
+| free     | Free memory in bytes (g,m,k,b) or percentages % |
+| free_pct | % free memory                                   |
+| size     | Total size of memory                            |
+| type     | The type of memory to check                     |
+| used     | Used memory in bytes (g,m,k,b) or percentages % |
+| used_pct | % used memory                                   |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 
 ### check_network
@@ -623,28 +633,33 @@ This is the syntax for the base names of the performance data.
 #### Filter keywords
 
 
-| Option            | Description                                                                                                  |
-|-------------------|--------------------------------------------------------------------------------------------------------------|
-| MAC               | The MAC address                                                                                              |
-| count             | Number of items matching the filter. Common option for all checks.                                           |
-| crit_count        | Number of items matched the critical criteria. Common option for all checks.                                 |
-| crit_list         | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| detail_list       | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| enabled           | True if the network interface is enabled                                                                     |
-| list              | A list of all items which matched the filter. Common option for all checks.                                  |
-| name              | Network interface name                                                                                       |
-| net_connection_id | Network connection id                                                                                        |
-| ok_count          | Number of items matched the ok criteria. Common option for all checks.                                       |
-| ok_list           | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| problem_count     | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| problem_list      | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| received          | Bytes received per second                                                                                    |
-| sent              | Bytes sent per second                                                                                        |
-| speed             | The network interface speed                                                                                  |
-| status            | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| total             | Total number of items. Common option for all checks.                                                         |
-| warn_count        | Number of items matched the warning criteria. Common option for all checks.                                  |
-| warn_list         | A list of all items which matched the warning criteria. Common option for all checks.                        |
+| Option            | Description                              |
+|-------------------|------------------------------------------|
+| MAC               | The MAC address                          |
+| enabled           | True if the network interface is enabled |
+| name              | Network interface name                   |
+| net_connection_id | Network connection id                    |
+| received          | Bytes received per second                |
+| sent              | Bytes sent per second                    |
+| speed             | The network interface speed              |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 
 ### check_os_version
@@ -812,26 +827,31 @@ This is the syntax for the base names of the performance data.
 #### Filter keywords
 
 
-| Option        | Description                                                                                                                                                                                                                                                           |
-|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| build         | Build version number                                                                                                                                                                                                                                                  |
-| count         | Number of items matching the filter. Common option for all checks.                                                                                                                                                                                                    |
-| crit_count    | Number of items matched the critical criteria. Common option for all checks.                                                                                                                                                                                          |
-| crit_list     | A list of all items which matched the critical criteria. Common option for all checks.                                                                                                                                                                                |
-| detail_list   | A special list with critical, then warning and finally ok. Common option for all checks.                                                                                                                                                                              |
-| list          | A list of all items which matched the filter. Common option for all checks.                                                                                                                                                                                           |
-| major         | Major version number                                                                                                                                                                                                                                                  |
-| minor         | Minor version number                                                                                                                                                                                                                                                  |
-| ok_count      | Number of items matched the ok criteria. Common option for all checks.                                                                                                                                                                                                |
-| ok_list       | A list of all items which matched the ok criteria. Common option for all checks.                                                                                                                                                                                      |
-| problem_count | Number of items matched either warning or critical criteria. Common option for all checks.                                                                                                                                                                            |
-| problem_list  | A list of all items which matched either the critical or the warning criteria. Common option for all checks.                                                                                                                                                          |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                                                                                                                                                                             |
-| suite         | Which suites are installed on the machine (Microsoft BackOffice, Web Edition, Compute Cluster Edition, Datacenter Edition, Enterprise Edition, Embedded, Home Edition, Remote Desktop Support, Small Business Server, Storage Server, Terminal Services, Home Server) |
-| total         | Total number of items. Common option for all checks.                                                                                                                                                                                                                  |
-| version       | The system version                                                                                                                                                                                                                                                    |
-| warn_count    | Number of items matched the warning criteria. Common option for all checks.                                                                                                                                                                                           |
-| warn_list     | A list of all items which matched the warning criteria. Common option for all checks.                                                                                                                                                                                 |
+| Option  | Description                                                                                                                                                                                                                                                           |
+|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| build   | Build version number                                                                                                                                                                                                                                                  |
+| major   | Major version number                                                                                                                                                                                                                                                  |
+| minor   | Minor version number                                                                                                                                                                                                                                                  |
+| suite   | Which suites are installed on the machine (Microsoft BackOffice, Web Edition, Compute Cluster Edition, Datacenter Edition, Enterprise Edition, Embedded, Home Edition, Remote Desktop Support, Small Business Server, Storage Server, Terminal Services, Home Server) |
+| version | The system version                                                                                                                                                                                                                                                    |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 
 ### check_pagefile
@@ -1016,27 +1036,32 @@ This is the syntax for the base names of the performance data.
 #### Filter keywords
 
 
-| Option        | Description                                                                                                  |
-|---------------|--------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter. Common option for all checks.                                           |
-| crit_count    | Number of items matched the critical criteria. Common option for all checks.                                 |
-| crit_list     | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| detail_list   | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| free          | Free memory in bytes (g,m,k,b) or percentages %                                                              |
-| free_pct      | % free memory                                                                                                |
-| list          | A list of all items which matched the filter. Common option for all checks.                                  |
-| name          | The name of the page file (location)                                                                         |
-| ok_count      | Number of items matched the ok criteria. Common option for all checks.                                       |
-| ok_list       | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| problem_count | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| problem_list  | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| size          | Total size of pagefile                                                                                       |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| total         | Total number of items. Common option for all checks.                                                         |
-| used          | Used memory in bytes (g,m,k,b) or percentages %                                                              |
-| used_pct      | % used memory                                                                                                |
-| warn_count    | Number of items matched the warning criteria. Common option for all checks.                                  |
-| warn_list     | A list of all items which matched the warning criteria. Common option for all checks.                        |
+| Option   | Description                                     |
+|----------|-------------------------------------------------|
+| free     | Free memory in bytes (g,m,k,b) or percentages % |
+| free_pct | % free memory                                   |
+| name     | The name of the page file (location)            |
+| size     | Total size of pagefile                          |
+| used     | Used memory in bytes (g,m,k,b) or percentages % |
+| used_pct | % used memory                                   |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 
 ### check_pdh
@@ -1270,27 +1295,32 @@ Format of value (double, long, large)
 #### Filter keywords
 
 
-| Option        | Description                                                                                                  |
-|---------------|--------------------------------------------------------------------------------------------------------------|
-| alias         | The counter alias                                                                                            |
-| count         | Number of items matching the filter. Common option for all checks.                                           |
-| counter       | The counter name                                                                                             |
-| crit_count    | Number of items matched the critical criteria. Common option for all checks.                                 |
-| crit_list     | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| detail_list   | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| list          | A list of all items which matched the filter. Common option for all checks.                                  |
-| ok_count      | Number of items matched the ok criteria. Common option for all checks.                                       |
-| ok_list       | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| problem_count | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| problem_list  | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| time          | The time for rrd checks                                                                                      |
-| total         | Total number of items. Common option for all checks.                                                         |
-| value         | The counter value (either float or int)                                                                      |
-| value_f       | The counter value (force float value)                                                                        |
-| value_i       | The counter value (force int value)                                                                          |
-| warn_count    | Number of items matched the warning criteria. Common option for all checks.                                  |
-| warn_list     | A list of all items which matched the warning criteria. Common option for all checks.                        |
+| Option  | Description                             |
+|---------|-----------------------------------------|
+| alias   | The counter alias                       |
+| counter | The counter name                        |
+| time    | The time for rrd checks                 |
+| value   | The counter value (either float or int) |
+| value_f | The counter value (force float value)   |
+| value_i | The counter value (force int value)     |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 
 ### check_process
@@ -1501,46 +1531,51 @@ This call will measure values and then sleep for 2 second and then measure again
 #### Filter keywords
 
 
-| Option           | Description                                                                                                  |
-|------------------|--------------------------------------------------------------------------------------------------------------|
-| command_line     | Command line of process (not always available)                                                               |
-| count            | Number of items matching the filter. Common option for all checks.                                           |
-| creation         | Creation time                                                                                                |
-| crit_count       | Number of items matched the critical criteria. Common option for all checks.                                 |
-| crit_list        | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| detail_list      | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| error            | Any error messages associated with fetching info                                                             |
-| exe              | The name of the executable                                                                                   |
-| filename         | Name of process (with path)                                                                                  |
-| gdi_handles      | Number of handles                                                                                            |
-| handles          | Number of handles                                                                                            |
-| hung             | Process is hung                                                                                              |
-| kernel           | Kernel time in seconds                                                                                       |
-| legacy_state     | Get process status (for legacy use via check_nt only)                                                        |
-| list             | A list of all items which matched the filter. Common option for all checks.                                  |
-| new              | Process is new (can inly be used for real-time filters)                                                      |
-| ok_count         | Number of items matched the ok criteria. Common option for all checks.                                       |
-| ok_list          | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| page_fault       | Page fault count                                                                                             |
-| pagefile         | Peak page file use in bytes                                                                                  |
-| peak_pagefile    | Page file usage in bytes                                                                                     |
-| peak_virtual     | Peak virtual size in bytes                                                                                   |
-| peak_working_set | Peak working set in bytes                                                                                    |
-| pid              | Process id                                                                                                   |
-| problem_count    | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| problem_list     | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| started          | Process is started                                                                                           |
-| state            | The current state (started, stopped hung)                                                                    |
-| status           | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| stopped          | Process is stopped                                                                                           |
-| time             | User-kernel time in seconds                                                                                  |
-| total            | Total number of items. Common option for all checks.                                                         |
-| user             | User time in seconds                                                                                         |
-| user_handles     | Number of handles                                                                                            |
-| virtual          | Virtual size in bytes                                                                                        |
-| warn_count       | Number of items matched the warning criteria. Common option for all checks.                                  |
-| warn_list        | A list of all items which matched the warning criteria. Common option for all checks.                        |
-| working_set      | Working set in bytes                                                                                         |
+| Option           | Description                                             |
+|------------------|---------------------------------------------------------|
+| command_line     | Command line of process (not always available)          |
+| creation         | Creation time                                           |
+| error            | Any error messages associated with fetching info        |
+| exe              | The name of the executable                              |
+| filename         | Name of process (with path)                             |
+| gdi_handles      | Number of handles                                       |
+| handles          | Number of handles                                       |
+| hung             | Process is hung                                         |
+| kernel           | Kernel time in seconds                                  |
+| legacy_state     | Get process status (for legacy use via check_nt only)   |
+| new              | Process is new (can inly be used for real-time filters) |
+| page_fault       | Page fault count                                        |
+| pagefile         | Peak page file use in bytes                             |
+| peak_pagefile    | Page file usage in bytes                                |
+| peak_virtual     | Peak virtual size in bytes                              |
+| peak_working_set | Peak working set in bytes                               |
+| pid              | Process id                                              |
+| started          | Process is started                                      |
+| state            | The current state (started, stopped hung)               |
+| stopped          | Process is stopped                                      |
+| time             | User-kernel time in seconds                             |
+| user             | User time in seconds                                    |
+| user_handles     | Number of handles                                       |
+| virtual          | Virtual size in bytes                                   |
+| working_set      | Working set in bytes                                    |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 
 ### check_service
@@ -1783,33 +1818,38 @@ The types of services to enumerate available states are active, inactive or all
 #### Filter keywords
 
 
-| Option             | Description                                                                                                  |
-|--------------------|--------------------------------------------------------------------------------------------------------------|
-| classification     | Get classification                                                                                           |
-| count              | Number of items matching the filter. Common option for all checks.                                           |
-| crit_count         | Number of items matched the critical criteria. Common option for all checks.                                 |
-| crit_list          | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| delayed            | If the service is delayed                                                                                    |
-| desc               | Service description                                                                                          |
-| detail_list        | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| is_trigger         | If the service is has associated triggers                                                                    |
-| legacy_state       | Get legacy state (deprecated and only used by check_nt)                                                      |
-| list               | A list of all items which matched the filter. Common option for all checks.                                  |
-| name               | Service name                                                                                                 |
-| ok_count           | Number of items matched the ok criteria. Common option for all checks.                                       |
-| ok_list            | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| pid                | Process id                                                                                                   |
-| problem_count      | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| problem_list       | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| start_type         | The configured start type ()                                                                                 |
-| state              | The current state ()                                                                                         |
-| state_is_ok()      | Check if the state is ok, i.e. all running services are runningelayed services are allowed to be stopped)    |
-| state_is_perfect() | Check if the state is ok, i.e. all running services are running                                              |
-| status             | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| total              | Total number of items. Common option for all checks.                                                         |
-| triggers           | The number of associated triggers for this service                                                           |
-| warn_count         | Number of items matched the warning criteria. Common option for all checks.                                  |
-| warn_list          | A list of all items which matched the warning criteria. Common option for all checks.                        |
+| Option             | Description                                                                                               |
+|--------------------|-----------------------------------------------------------------------------------------------------------|
+| classification     | Get classification                                                                                        |
+| delayed            | If the service is delayed                                                                                 |
+| desc               | Service description                                                                                       |
+| is_trigger         | If the service is has associated triggers                                                                 |
+| legacy_state       | Get legacy state (deprecated and only used by check_nt)                                                   |
+| name               | Service name                                                                                              |
+| pid                | Process id                                                                                                |
+| start_type         | The configured start type ()                                                                              |
+| state              | The current state ()                                                                                      |
+| state_is_ok()      | Check if the state is ok, i.e. all running services are runningelayed services are allowed to be stopped) |
+| state_is_perfect() | Check if the state is ok, i.e. all running services are running                                           |
+| triggers           | The number of associated triggers for this service                                                        |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 
 ### check_uptime
@@ -1976,23 +2016,28 @@ This is the syntax for the base names of the performance data.
 #### Filter keywords
 
 
-| Option        | Description                                                                                                  |
-|---------------|--------------------------------------------------------------------------------------------------------------|
-| boot          | System boot time                                                                                             |
-| count         | Number of items matching the filter. Common option for all checks.                                           |
-| crit_count    | Number of items matched the critical criteria. Common option for all checks.                                 |
-| crit_list     | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| detail_list   | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| list          | A list of all items which matched the filter. Common option for all checks.                                  |
-| ok_count      | Number of items matched the ok criteria. Common option for all checks.                                       |
-| ok_list       | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| problem_count | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| problem_list  | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| total         | Total number of items. Common option for all checks.                                                         |
-| uptime        | Time since last boot                                                                                         |
-| warn_count    | Number of items matched the warning criteria. Common option for all checks.                                  |
-| warn_list     | A list of all items which matched the warning criteria. Common option for all checks.                        |
+| Option | Description          |
+|--------|----------------------|
+| boot   | System boot time     |
+| uptime | Time since last boot |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 
 

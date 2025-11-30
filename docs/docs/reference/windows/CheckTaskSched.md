@@ -196,35 +196,40 @@ This is the syntax for the base names of the performance data.
 #### Filter keywords
 
 
-| Option               | Description                                                                                                  |
-|----------------------|--------------------------------------------------------------------------------------------------------------|
-| application          | Retrieves the name of the application that the task is associated with.                                      |
-| comment              | Retrieves the comment or description for the work item.                                                      |
-| count                | Number of items matching the filter. Common option for all checks.                                           |
-| creator              | Retrieves the creator of the work item.                                                                      |
-| crit_count           | Number of items matched the critical criteria. Common option for all checks.                                 |
-| crit_list            | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| detail_list          | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| enabled              | TODO.                                                                                                        |
-| exit_code            | Retrieves the work item's last exit code.                                                                    |
-| folder               | The task folder                                                                                              |
-| has_run              | True if the task has ever executed.                                                                          |
-| list                 | A list of all items which matched the filter. Common option for all checks.                                  |
-| max_run_time         | Retrieves the maximum length of time the task can run.                                                       |
-| most_recent_run_time | Retrieves the most recent time the work item began running.                                                  |
-| ok_count             | Number of items matched the ok criteria. Common option for all checks.                                       |
-| ok_list              | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| parameters           | Retrieves the command-line parameters of a task.                                                             |
-| priority             | Retrieves the priority for the task.                                                                         |
-| problem_count        | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| problem_list         | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| status               | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| task_status          | Retrieves the status of the work item.                                                                       |
-| title                | The task title                                                                                               |
-| total                | Total number of items. Common option for all checks.                                                         |
-| warn_count           | Number of items matched the warning criteria. Common option for all checks.                                  |
-| warn_list            | A list of all items which matched the warning criteria. Common option for all checks.                        |
-| working_directory    | Retrieves the working directory of the task.                                                                 |
+| Option               | Description                                                             |
+|----------------------|-------------------------------------------------------------------------|
+| application          | Retrieves the name of the application that the task is associated with. |
+| comment              | Retrieves the comment or description for the work item.                 |
+| creator              | Retrieves the creator of the work item.                                 |
+| enabled              | TODO.                                                                   |
+| exit_code            | Retrieves the work item's last exit code.                               |
+| folder               | The task folder                                                         |
+| has_run              | True if the task has ever executed.                                     |
+| max_run_time         | Retrieves the maximum length of time the task can run.                  |
+| most_recent_run_time | Retrieves the most recent time the work item began running.             |
+| parameters           | Retrieves the command-line parameters of a task.                        |
+| priority             | Retrieves the priority for the task.                                    |
+| task_status          | Retrieves the status of the work item.                                  |
+| title                | The task title                                                          |
+| working_directory    | Retrieves the working directory of the task.                            |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 
 
