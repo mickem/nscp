@@ -24,12 +24,16 @@
 #include <boost/date_time.hpp>
 #include <str/xtos.hpp>
 #include <swap_bytes.hpp>
+#include <utility>
 
 namespace nsca {
+
+constexpr boost::posix_time::ptime EPOCH_TIME_T(boost::gregorian::date(1970, 1, 1));
+
 class data {
  public:
-  static const short transmitted_iuv_size = 128;
-  static const int16_t version3 = 3;
+  static constexpr short transmitted_iuv_size = 128;
+  static constexpr int16_t version3 = 3;
 
   typedef struct data_packet : boost::noncopyable {
     int16_t packet_version;
@@ -37,21 +41,15 @@ class data {
     uint32_t timestamp;
     int16_t return_code;
     char data[];
-    /*
-    char     host_name[];
-    char     svc_description[];
-    char     plugin_output[];
-    */
-    // data_packet_struct() : packet_version(NSCA_PACKET_VERSION_3) {}
 
-    char* get_data_offset(unsigned int offset) { return &data[offset]; }
-    const char* get_data_offset(unsigned int offset) const { return &data[offset]; }
+    char* get_data_offset(const unsigned int offset) { return &data[offset]; }
+    const char* get_data_offset(const unsigned int offset) const { return &data[offset]; }
     const char* get_host_ptr() const { return get_data_offset(0); }
-    const char* get_desc_ptr(unsigned int host_len) const { return get_data_offset(host_len); }
-    const char* get_result_ptr(unsigned int host_len, unsigned int desc_len) const { return get_data_offset(host_len + desc_len); }
+    const char* get_desc_ptr(const unsigned int host_len) const { return get_data_offset(host_len); }
+    const char* get_result_ptr(const unsigned int host_len, const unsigned int desc_len) const { return get_data_offset(host_len + desc_len); }
     char* get_host_ptr() { return get_data_offset(0); }
-    char* get_desc_ptr(unsigned int host_len) { return get_data_offset(host_len); }
-    char* get_result_ptr(unsigned int host_len, unsigned int desc_len) { return get_data_offset(host_len + desc_len); }
+    char* get_desc_ptr(const unsigned int host_len) { return get_data_offset(host_len); }
+    char* get_result_ptr(const unsigned int host_len, const unsigned int desc_len) { return get_data_offset(host_len + desc_len); }
   } data_packet;
 
   /* initialization packet containing IV and timestamp */
@@ -66,33 +64,37 @@ class nsca_exception : public std::exception {
   std::string msg_;
 
  public:
-  nsca_exception() {}
-  ~nsca_exception() throw() {}
-  nsca_exception(std::string msg) : msg_(msg) {}
-  const char* what() const throw() { return msg_.c_str(); }
+  nsca_exception() = default;
+  explicit nsca_exception(std::string msg) : msg_(std::move(msg)) {}
+
+  nsca_exception(const nsca_exception& other) noexcept : exception(other) { msg_ = other.msg_; }
+  nsca_exception& operator=(const nsca_exception& other) noexcept = default;
+  ~nsca_exception() noexcept override = default;
+
+  const char* what() const noexcept override { return msg_.c_str(); }
 };
 
 class length {
  public:
   typedef unsigned int size_type;
-  static const std::size_t host_length = 64;
-  static const std::size_t desc_length = 128;
+  static constexpr std::size_t host_length = 64;
+  static constexpr std::size_t desc_length = 128;
 
  public:
   static size_type payload_length_;
   static void set_payload_length(size_type length) { payload_length_ = length; }
   static size_type get_packet_length() { return get_packet_length(payload_length_); }
   static size_type get_packet_length(size_type output_length) {
-    return sizeof(nsca::data::data_packet) + output_length * sizeof(char) + host_length * sizeof(char) + desc_length * sizeof(char);
+    return sizeof(data::data_packet) + output_length * sizeof(char) + host_length * sizeof(char) + desc_length * sizeof(char);
   }
   static size_type get_payload_length() { return payload_length_; }
   static size_type get_payload_length(size_type packet_length) {
-    return (packet_length - (host_length * sizeof(char) + desc_length * sizeof(char) + sizeof(nsca::data::data_packet))) / sizeof(char);
+    return (packet_length - (host_length * sizeof(char) + desc_length * sizeof(char) + sizeof(data::data_packet))) / sizeof(char);
   }
   class iv {
    public:
-    static const unsigned int payload_length_ = nsca::data::transmitted_iuv_size;
-    static size_type get_packet_length() { return sizeof(nsca::data::iv_packet); }
+    static constexpr unsigned int payload_length_ = data::transmitted_iuv_size;
+    static size_type get_packet_length() { return sizeof(data::iv_packet); }
     static size_type get_payload_length() { return payload_length_; }
   };
 };
@@ -106,24 +108,23 @@ class packet {
   uint32_t time;
   unsigned int payload_length_;
 
- public:
-  packet(std::string _host, unsigned int payload_length = 512, int time_delta = 0) : host(_host), payload_length_(payload_length) {
-    boost::posix_time::ptime now = boost::posix_time::second_clock::local_time() + boost::posix_time::seconds(time_delta);
-    boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
-    boost::posix_time::time_duration diff = now - time_t_epoch;
+  explicit packet(std::string _host, const unsigned int payload_length = 512, const int time_delta = 0)
+      : host(std::move(_host)), code(0), payload_length_(payload_length) {
+    const boost::posix_time::ptime now = boost::posix_time::second_clock::local_time() + boost::posix_time::seconds(time_delta);
+    const boost::posix_time::time_duration diff = now - EPOCH_TIME_T;
     time = static_cast<uint32_t>(diff.total_seconds());
   }
-  packet(unsigned int payload_length) : payload_length_(payload_length) {}
-  packet() : payload_length_(nsca::length::get_payload_length()) {}
-  packet operator=(const packet& other) {
-    service = other.service;
-    result = other.result;
-    host = other.host;
-    code = other.code;
-    time = other.time;
-    payload_length_ = other.payload_length_;
-    return *this;
+  explicit packet(const unsigned int payload_length) : code(0), payload_length_(payload_length) {
+    const boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+    const boost::posix_time::time_duration diff = now - EPOCH_TIME_T;
+    time = static_cast<uint32_t>(diff.total_seconds());
   }
+  packet() : code(0), time(0), payload_length_(length::get_payload_length()) {
+    const boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+    const boost::posix_time::time_duration diff = now - EPOCH_TIME_T;
+    time = static_cast<uint32_t>(diff.total_seconds());
+  }
+  packet& operator=(const packet& other) = default;
 
   std::string to_string() const {
     return "host: " + host + ", " + "service: " + service + ", " + "code: " + str::xtos(code) + ", " + "time: " + str::xtos(time) + ", " + "result: " + result;
@@ -132,29 +133,26 @@ class packet {
   void parse_data(const char* buffer, std::size_t buffer_len) {
     char* tmp = new char[buffer_len];
     memcpy(tmp, buffer, buffer_len);
-    nsca::data::data_packet* data = reinterpret_cast<nsca::data::data_packet*>(tmp);
-    // packet_version=swap_bytes::ntoh<int16_t>(data->packet_version);
+    auto* data = reinterpret_cast<data::data_packet*>(tmp);
     time = swap_bytes::ntoh<uint32_t>(data->timestamp);
     code = swap_bytes::ntoh<int16_t>(data->return_code);
-    // data->crc32_value= swap_bytes::hton<uint32_t>(0);
 
     host = data->get_host_ptr();
-    service = data->get_desc_ptr(nsca::length::host_length);
-    result = data->get_result_ptr(nsca::length::host_length, nsca::length::desc_length);
+    service = data->get_desc_ptr(length::host_length);
+    result = data->get_result_ptr(length::host_length, length::desc_length);
 
-    unsigned int crc32 = swap_bytes::ntoh<uint32_t>(data->crc32_value);
+    const auto crc32 = swap_bytes::ntoh<uint32_t>(data->crc32_value);
     data->crc32_value = 0;
-    unsigned int calculated_crc32 = calculate_crc32(tmp, buffer_len);
+    const unsigned int calculated_crc32 = calculate_crc32(tmp, buffer_len);
     delete[] tmp;
-    if (crc32 != calculated_crc32) throw nsca::nsca_exception("Invalid crc: " + str::xtos(crc32) + " != " + str::xtos(calculated_crc32));
+    if (crc32 != calculated_crc32) throw nsca_exception("Invalid crc: " + str::xtos(crc32) + " != " + str::xtos(calculated_crc32));
   }
   void validate_lengths() const {
-    if (service.length() >= nsca::length::desc_length)
-      throw nsca::nsca_exception("Description field to long: " + str::xtos(service.length()) + " > " + str::xtos(nsca::length::desc_length));
-    if (host.length() >= nsca::length::host_length)
-      throw nsca::nsca_exception("Host field to long: " + str::xtos(host.length()) + " > " + str::xtos(nsca::length::host_length));
+    if (service.length() >= length::desc_length)
+      throw nsca_exception("Description field to long: " + str::xtos(service.length()) + " > " + str::xtos(length::desc_length));
+    if (host.length() >= length::host_length) throw nsca_exception("Host field to long: " + str::xtos(host.length()) + " > " + str::xtos(length::host_length));
     if (result.length() >= get_payload_length())
-      throw nsca::nsca_exception("Result field to long: " + str::xtos(result.length()) + " > " + str::xtos(get_payload_length()));
+      throw nsca_exception("Result field to long: " + str::xtos(result.length()) + " > " + str::xtos(get_payload_length()));
   }
 
   static void copy_string(char* data, const std::string& value, std::string::size_type max_length) {
@@ -162,24 +160,23 @@ class packet {
     value.copy(data, value.size() > max_length ? max_length : value.size());
   }
 
-  void get_buffer(std::string& buffer, int servertime = 0) const {
-    nsca::data::data_packet* data = reinterpret_cast<nsca::data::data_packet*>(&*buffer.begin());
-    if (buffer.size() < get_packet_length())
-      throw nsca::nsca_exception("Buffer is to short: " + str::xtos(buffer.length()) + " > " + str::xtos(get_packet_length()));
+  void get_buffer(std::string& buffer, const int servertime = 0) const {
+    data::data_packet* data = reinterpret_cast<data::data_packet*>(&*buffer.begin());
+    if (buffer.size() < get_packet_length()) throw nsca_exception("Buffer is to short: " + str::xtos(buffer.length()) + " > " + str::xtos(get_packet_length()));
 
-    data->packet_version = swap_bytes::hton<int16_t>(nsca::data::version3);
+    data->packet_version = swap_bytes::hton<int16_t>(data::version3);
     if (servertime != 0)
       data->timestamp = swap_bytes::hton<uint32_t>(static_cast<uint32_t>(servertime));
     else
-      data->timestamp = swap_bytes::hton<uint32_t>(static_cast<uint32_t>(time));
+      data->timestamp = swap_bytes::hton<uint32_t>(time);
     data->return_code = swap_bytes::hton<int16_t>(static_cast<int16_t>(code));
     data->crc32_value = swap_bytes::hton<uint32_t>(0);
 
-    copy_string(data->get_host_ptr(), host, nsca::length::host_length);
-    copy_string(data->get_desc_ptr(nsca::length::host_length), service, nsca::length::desc_length);
-    copy_string(data->get_result_ptr(nsca::length::host_length, nsca::length::desc_length), result, get_payload_length());
+    copy_string(data->get_host_ptr(), host, length::host_length);
+    copy_string(data->get_desc_ptr(length::host_length), service, length::desc_length);
+    copy_string(data->get_result_ptr(length::host_length, length::desc_length), result, get_payload_length());
 
-    unsigned int calculated_crc32 = calculate_crc32(buffer.c_str(), static_cast<int>(buffer.size()));
+    const unsigned int calculated_crc32 = calculate_crc32(buffer.c_str(), static_cast<int>(buffer.size()));
     data->crc32_value = swap_bytes::hton<uint32_t>(calculated_crc32);
   }
   std::string get_buffer() const {
@@ -187,7 +184,7 @@ class packet {
     get_buffer(buffer);
     return buffer;
   }
-  unsigned int get_packet_length() const { return nsca::length::get_packet_length(payload_length_); }
+  unsigned int get_packet_length() const { return length::get_packet_length(payload_length_); }
   unsigned int get_payload_length() const { return payload_length_; }
 };
 
@@ -196,33 +193,31 @@ class iv_packet {
   uint32_t time;
 
  public:
-  iv_packet(std::string iv, uint32_t time) : iv(iv), time(time) {}
-  iv_packet(std::string iv, boost::posix_time::ptime now) : iv(iv), time(ptime_to_unixtime(now)) {}
-  iv_packet(std::string buffer) { parse(buffer); }
-  uint32_t ptime_to_unixtime(boost::posix_time::ptime now) {
-    // boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
-    boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
-    boost::posix_time::time_duration diff = now - time_t_epoch;
+  iv_packet(std::string iv, const uint32_t time) : iv(std::move(iv)), time(time) {}
+  iv_packet(std::string iv, const boost::posix_time::ptime now) : iv(std::move(iv)), time(ptime_to_unixtime(now)) {}
+  explicit iv_packet(const std::string& buffer) : time(0) { parse(buffer); }
+  uint32_t ptime_to_unixtime(const boost::posix_time::ptime now) {
+    const boost::posix_time::time_duration diff = now - EPOCH_TIME_T;
     return static_cast<uint32_t>(diff.total_seconds());
   }
   uint32_t get_time() const { return time; }
   std::string get_iv() const { return iv; }
 
   std::string get_buffer() const {
-    if (iv.size() != nsca::length::iv::get_payload_length())
-      throw nsca::nsca_exception("Invalid IV size: " + str::xtos(iv.size()) + " != " + str::xtos(nsca::length::iv::get_payload_length()));
-    nsca::data::iv_packet data;
+    if (iv.size() != length::iv::get_payload_length())
+      throw nsca_exception("Invalid IV size: " + str::xtos(iv.size()) + " != " + str::xtos(length::iv::get_payload_length()));
+    data::iv_packet data{};
     memcpy(data.iv, iv.c_str(), iv.size());
     data.timestamp = swap_bytes::hton<uint32_t>(time);
-    char* src = reinterpret_cast<char*>(&data);
-    std::string buffer(src, nsca::length::iv::get_packet_length());
+    const char* src = reinterpret_cast<char*>(&data);
+    std::string buffer(src, length::iv::get_packet_length());
     return buffer;
   }
   void parse(const std::string& buffer) {
-    if (buffer.size() < nsca::length::iv::get_packet_length())
-      throw nsca::nsca_exception("Buffer is to short: " + str::xtos(buffer.length()) + " > " + str::xtos(nsca::length::iv::get_packet_length()));
-    const nsca::data::iv_packet* data = reinterpret_cast<const nsca::data::iv_packet*>(buffer.c_str());
-    iv = std::string(data->iv, nsca::data::transmitted_iuv_size);
+    if (buffer.size() < length::iv::get_packet_length())
+      throw nsca_exception("Buffer is to short: " + str::xtos(buffer.length()) + " > " + str::xtos(length::iv::get_packet_length()));
+    const auto* data = reinterpret_cast<const data::iv_packet*>(buffer.c_str());
+    iv = std::string(data->iv, data::transmitted_iuv_size);
     time = swap_bytes::ntoh<uint32_t>(data->timestamp);
   }
 };

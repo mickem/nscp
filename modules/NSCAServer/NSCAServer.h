@@ -16,12 +16,12 @@
  * You should have received a copy of the GNU General Public License
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
+#pragma once
 
 #include <nsca/server/protocol.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 
-class NSCAServer : public nscapi::impl::simple_plugin, nsca::server::handler {
- private:
+class NSCAServer final : public nscapi::impl::simple_plugin, nsca::server::handler {
   nscapi::core_wrapper* core_;
   unsigned int payload_length_;
   int plugin_id_;
@@ -33,34 +33,35 @@ class NSCAServer : public nscapi::impl::simple_plugin, nsca::server::handler {
   int encryption_;
   std::string password_;
 
-  void set_encryption(std::string enc) { encryption_ = nscp::encryption::helpers::encryption_to_int(enc); }
-  void set_perf_data(bool v) {
-    noPerfData_ = !v;
+  void set_encryption(const std::string& enc) { encryption_ = nscp::encryption::helpers::encryption_to_int(enc); }
+  void set_perf_data(const bool value) {
+    noPerfData_ = !value;
     if (noPerfData_) log_debug("nsca", __FILE__, __LINE__, "Performance data disabled!");
   }
 
  public:
-  NSCAServer() {}
-  virtual ~NSCAServer() {}
+  NSCAServer()
+      : simple_plugin(), core_(nullptr), payload_length_(0), plugin_id_(0), noPerfData_(false), allowNasty_(false), allowArgs_(false), encryption_(0) {}
+  virtual ~NSCAServer() = default;
   // Module calls
-  bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+  bool loadModuleEx(const std::string& alias, NSCAPI::moduleLoadMode mode);
   bool unloadModule();
 
   // handler
-  void handle(nsca::packet packet);
-  void log_debug(std::string module, std::string file, int line, std::string msg) const {
+  void handle(nsca::packet packet) override;
+  void log_debug(std::string module, std::string file, int line, std::string msg) const override {
     if (get_core()->should_log(NSCAPI::log_level::debug)) {
       get_core()->log(NSCAPI::log_level::debug, file, line, msg);
     }
   }
-  void log_error(std::string module, std::string file, int line, std::string msg) const {
+  void log_error(std::string module, std::string file, int line, std::string msg) const override {
     if (get_core()->should_log(NSCAPI::log_level::error)) {
       get_core()->log(NSCAPI::log_level::error, file, line, msg);
     }
   }
-  unsigned int get_payload_length() { return payload_length_; }
-  int get_encryption() { return encryption_; }
-  std::string get_password() { return password_; }
+  unsigned int get_payload_length() override { return payload_length_; }
+  int get_encryption() override { return encryption_; }
+  std::string get_password() override { return password_; }
 
  private:
   socket_helpers::connection_info info_;

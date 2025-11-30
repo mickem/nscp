@@ -34,7 +34,6 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
-#include <parsers/where/helpers.hpp>
 #include <str/format.hpp>
 
 namespace sh = nscapi::settings_helper;
@@ -226,7 +225,7 @@ void CheckNSCP::check_nscp(const PB::Commands::QueryRequestMessage::Request &req
     str::format::append_list(message, std::string("last crash: " + last), std::string(", "));
   }
 
-  int err_count = get_errors(last);
+  auto err_count = get_errors(last);
   str::format::append_list(message, str::xtos(err_count) + " error(s)", std::string(", "));
   if (err_count > 0) {
     response->set_result(PB::Common::ResultCode::CRITICAL);

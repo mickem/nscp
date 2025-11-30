@@ -358,11 +358,12 @@ using ASN1_INTEGER_ptr = std::unique_ptr<ASN1_INTEGER, decltype(&::ASN1_INTEGER_
 
 std::string get_open_ssl_error() {
   std::stringstream ss;
-  unsigned long err_code;
-  while ((err_code = ERR_get_error())) {
+  unsigned long err_code = ERR_get_error();
+  while (err_code) {
     char err_buf[256];
     ERR_error_string_n(err_code, err_buf, sizeof(err_buf));
     ss << err_buf << std::endl;
+    err_code = ERR_get_error();
   }
   return ss.str();
 }

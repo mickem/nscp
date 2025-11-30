@@ -39,17 +39,17 @@ class protocol : public boost::noncopyable {
 
  private:
   std::vector<char> buffer_;
-  unsigned int payload_length_;
+  std::size_t payload_length_;
   boost::shared_ptr<client_handler> handler_;
   response_type responses_;
 
   enum state { none, connected, has_request, sent_response, has_more, done };
   state current_state_;
 
-  void set_state(state new_state) { current_state_ = new_state; }
+  void set_state(const state new_state) { current_state_ = new_state; }
 
  public:
-  protocol(boost::shared_ptr<client_handler> handler) : payload_length_(0), handler_(handler), current_state_(none) {}
+  explicit protocol(const boost::shared_ptr<client_handler>& handler) : payload_length_(0), handler_(handler), current_state_(none) {}
   virtual ~protocol() {}
 
   void on_connect() { set_state(connected); }

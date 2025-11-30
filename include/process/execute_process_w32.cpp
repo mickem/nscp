@@ -93,10 +93,10 @@ struct impersonator {
   bool isActive() const { return active; }
 };
 
-static std::string readFromFile(buffer_type &buffer, HANDLE file_handle) {
+static std::string readFromFile(buffer_type &buffer, const HANDLE file_handle) {
   DWORD dwRead = 0;
   std::string str;
-  const DWORD chunk_size = buffer.size() - 10;
+  const DWORD chunk_size = static_cast<DWORD>(buffer.size()) - 10;
   do {
     const DWORD retval = ReadFile(file_handle, buffer, chunk_size, &dwRead, nullptr);
     if (retval == 0 || dwRead <= 0 || dwRead > chunk_size) return str;

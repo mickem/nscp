@@ -25,6 +25,7 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <str/utils.hpp>
+#include <utility>
 
 #include "nsca_client.hpp"
 #include "nsca_handler.hpp"
@@ -33,18 +34,19 @@
  * Default c-tor
  * @return
  */
-NSCAClient::NSCAClient() : client_("nsca", boost::make_shared<nsca_client::nsca_client_handler>(), boost::make_shared<nsca_handler::options_reader_impl>()) {}
+NSCAClient::NSCAClient()
+    : simple_plugin(), client_("nsca", boost::make_shared<nsca_client::nsca_client_handler>(), boost::make_shared<nsca_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor
  * @return
  */
-NSCAClient::~NSCAClient() {}
+NSCAClient::~NSCAClient() = default;
 
 bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   try {
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
-    settings.set_alias("NSCA", alias, "client");
+    settings.set_alias("NSCA", std::move(alias), "client");
     client_.set_path(settings.alias().get_settings_path("targets"));
 
     // clang-format off
@@ -98,16 +100,16 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
       try {
         boost::asio::io_service svc;
-        boost::asio::ip::tcp::resolver resolver(svc);
-        boost::asio::ip::tcp::resolver::query query(boost::asio::ip::host_name(), "");
-        boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve(query), end;
+        tcp::resolver resolver(svc);
+        tcp::resolver::query query(boost::asio::ip::host_name(), "");
+        tcp::resolver::iterator iter = resolver.resolve(query), end;
 
         std::string s;
         while (iter != end) {
           s += iter->host_name();
           s += " - ";
           s += iter->endpoint().address().to_string();
-          iter++;
+          ++iter;
         }
       } catch (const std::exception &e) {
         NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
@@ -141,7 +143,7 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 // Settings helpers
 //
 
-void NSCAClient::add_target(std::string key, std::string arg) {
+void NSCAClient::add_target(const std::string &key, const std::string &arg) {
   try {
     client_.add_target(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
   } catch (const std::exception &e) {
@@ -151,7 +153,7 @@ void NSCAClient::add_target(std::string key, std::string arg) {
   }
 }
 
-void NSCAClient::add_command(std::string key, std::string arg) {
+void NSCAClient::add_command(const std::string &key, const std::string &arg) {
   try {
     nscapi::core_helper core(get_core(), get_id());
     std::string k = client_.add_command(key, arg);

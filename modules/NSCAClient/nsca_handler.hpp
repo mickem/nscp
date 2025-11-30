@@ -29,7 +29,7 @@ namespace sh = nscapi::settings_helper;
 struct nsca_target_object : public nscapi::targets::target_object {
   typedef nscapi::targets::target_object parent;
 
-  nsca_target_object(std::string alias, std::string path) : parent(alias, path) {
+  nsca_target_object(const std::string &alias, const std::string &path) : parent(alias, path) {
     set_property_int("timeout", 30);
     set_property_int("retries", 3);
     set_property_string("encryption", "aes256");
@@ -37,9 +37,9 @@ struct nsca_target_object : public nscapi::targets::target_object {
     set_property_string("port", "5667");
     set_property_int("time offset", 0);
   }
-  nsca_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
+  nsca_target_object(const nscapi::settings_objects::object_instance &other, const std::string &alias, const std::string &path) : parent(other, alias, path) {}
 
-  virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
+  void read(const nscapi::settings_helper::settings_impl_interface_ptr proxy, const bool oneliner, const bool is_sample) override {
     parent::read(proxy, oneliner, is_sample);
 
     nscapi::settings_helper::settings_registry settings(proxy);
@@ -76,12 +76,12 @@ struct nsca_target_object : public nscapi::targets::target_object {
 };
 
 struct options_reader_impl : public client::options_reader_interface {
-  virtual nscapi::settings_objects::object_instance create(std::string alias, std::string path) { return boost::make_shared<nsca_target_object>(alias, path); }
-  virtual nscapi::settings_objects::object_instance clone(nscapi::settings_objects::object_instance parent, const std::string alias, const std::string path) {
+  nscapi::settings_objects::object_instance create(std::string alias, std::string path) override { return boost::make_shared<nsca_target_object>(alias, path); }
+  nscapi::settings_objects::object_instance clone(nscapi::settings_objects::object_instance parent, const std::string alias, const std::string path) override {
     return boost::make_shared<nsca_target_object>(parent, alias, path);
   }
 
-  void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
+  void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) override {
     add_ssl_options(desc, data);
 
     // clang-format off

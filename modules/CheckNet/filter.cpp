@@ -27,18 +27,17 @@ using namespace parsers::where;
 
 //////////////////////////////////////////////////////////////////////////
 
-parsers::where::node_type get_percentage(boost::shared_ptr<ping_filter::filter_obj> object, parsers::where::evaluation_context context,
-                                         parsers::where::node_type subject) {
-  parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
+node_type get_percentage(boost::shared_ptr<ping_filter::filter_obj> object, evaluation_context context, node_type subject) {
+  helpers::read_arg_type value = helpers::read_arguments(context, subject, "%");
   double number = value.get<1>();
   std::string unit = value.get<2>();
 
   if (unit != "%") context->error("Invalid unit: " + unit);
-  return parsers::where::factory::create_int(number);
+  return factory::create_int(static_cast<long long>(number));
 }
 
 ping_filter::filter_obj_handler::filter_obj_handler() {
-  static constexpr parsers::where::value_type type_custom_pct = parsers::where::type_custom_int_1;
+  static constexpr value_type type_custom_pct = type_custom_int_1;
 
   registry_.add_string("host", &filter_obj::get_host, "The host name or ip address (as given on command line)")
       .add_string("ip", &filter_obj::get_ip, "The ip address name");
