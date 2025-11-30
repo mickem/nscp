@@ -61,7 +61,7 @@ spi_container pdh_thread::fetch_spi(error_list &errors) {
   return ret;
 }
 
-bool first = true;
+bool first_time = true;
 
 void pdh_thread::write_metrics(const spi_container &handles, const windows::system_info::cpu_load &load, PDH::PDHQuery *pdh, error_list &errors) {
   boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
@@ -87,10 +87,10 @@ void pdh_thread::write_metrics(const spi_container &handles, const windows::syst
     metrics["procs.threads"] = handles.threads;
     metrics["procs.procs"] = handles.procs;
   } catch (const PDH::pdh_exception &e) {
-    if (first) {
+    if (first_time) {
       // If this is the first run an error will be thrown since the data is not yet available
       // This is "ok" but perhaps another solution would be better, but this works :)
-      first = false;
+      first_time = false;
     } else {
       errors.push_back("Failed to query performance counters: " + e.reason());
     }

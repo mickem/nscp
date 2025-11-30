@@ -82,27 +82,27 @@ pdh_object::data_types pdh_object::get_type() {
   if ((flags_ & format_double) == format_double) return type_double;
   throw pdh_exception("No type specified");
 }
-void pdh_object::set_type(const data_types type) {
+void pdh_object::set_type(const data_types new_type) {
   flags_ &= ~(format_double | format_long | format_large);
-  if (type == type_double)
+  if (new_type == type_double)
     flags_ |= format_double;
-  else if (type == type_long)
+  else if (new_type == type_long)
     flags_ |= format_long;
-  else if (type == type_large)
+  else if (new_type == type_large)
     flags_ |= format_large;
   else
     throw pdh_exception("Invalid type specified");
 }
-void pdh_object::set_type(const std::string &type) {
+void pdh_object::set_type(const std::string &new_type) {
   flags_ &= ~(format_double | format_long | format_large);
-  if (type == "double")
+  if (new_type == "double")
     flags_ |= format_double;
-  else if (type == "long")
+  else if (new_type == "long")
     flags_ |= format_long;
-  else if (type == "large" || type == "long long")
+  else if (new_type == "large" || new_type == "long long")
     flags_ |= format_large;
   else
-    throw pdh_exception("Invalid type specified: " + type);
+    throw pdh_exception("Invalid type specified: " + new_type);
 }
 
 void pdh_object::set_flags(const std::string &value) {

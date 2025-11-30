@@ -130,22 +130,22 @@ class value_collector : public base_collector<T> {
   virtual double get_average(long) {
     boost::shared_lock<boost::shared_mutex> lock(mutex_);
     if (!lock.owns_lock()) throw PDH::pdh_exception(get_name(), "Could not get mutex");
-    return value;
+    return static_cast<double>(value);
   }
   virtual double get_value() {
     boost::shared_lock<boost::shared_mutex> lock(mutex_);
     if (!lock.owns_lock()) throw PDH::pdh_exception(get_name(), "Could not get mutex");
-    return static_cast<T>(value);
+    return static_cast<double>(value);
   }
   virtual long long get_int_value() {
     boost::shared_lock<boost::shared_mutex> lock(mutex_);
     if (!lock.owns_lock()) throw PDH::pdh_exception(get_name(), "Could not get mutex");
-    return value;
+    return static_cast<long long>(value);
   }
   virtual double get_float_value() {
     boost::shared_lock<boost::shared_mutex> lock(mutex_);
     if (!lock.owns_lock()) throw PDH::pdh_exception(get_name(), "Could not get mutex");
-    return value;
+    return static_cast<double>(value);
   }
   virtual void update(T newValue) {
     boost::shared_lock<boost::shared_mutex> lock(mutex_);
@@ -184,17 +184,17 @@ class rrd_collector : public base_collector<T> {
   virtual double get_value() {
     boost::shared_lock<boost::shared_mutex> lock(mutex_);
     if (!lock.owns_lock()) throw PDH::pdh_exception(get_name(), "Could not get mutex");
-    return values.back();
+    return static_cast<double>(values.back());
   }
   virtual long long get_int_value() {
     boost::shared_lock<boost::shared_mutex> lock(mutex_);
     if (!lock.owns_lock()) throw PDH::pdh_exception(get_name(), "Could not get mutex");
-    return values.back();
+    return static_cast<long long>(values.back());
   }
   virtual double get_float_value() {
     boost::shared_lock<boost::shared_mutex> lock(mutex_);
     if (!lock.owns_lock()) throw PDH::pdh_exception(get_name(), "Could not get mutex");
-    return values.back();
+    return static_cast<double>(values.back());
   }
 
   virtual void update(T value) {

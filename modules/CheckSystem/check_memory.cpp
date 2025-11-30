@@ -129,7 +129,7 @@ void runtime_data::add(const std::string &data) { checks.push_back(data); }
 
 modern_filter::match_result runtime_data::process_item(filter_type &filter, transient_data_type memoryChecker) {
   modern_filter::match_result ret;
-  CheckMemory::memData mem_data;
+  CheckMemory::memData mem_data = {};
   try {
     mem_data = memoryChecker->getMemoryStatus();
   } catch (const CheckMemoryException &e) {

@@ -242,7 +242,7 @@ void check::check_pdh(boost::shared_ptr<pdh_thread> &collector, const PB::Comman
         }
         if (values.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value");
         for (const value_list_type::value_type &v : values) {
-          boost::shared_ptr<filter_obj> record(new filter_obj(vc.first, v.first, time, v.second, v.second));
+          boost::shared_ptr<filter_obj> record(new filter_obj(vc.first, v.first, time, v.second, static_cast<double>(v.second)));
           modern_filter::match_result ret = filter.match(record);
         }
       }

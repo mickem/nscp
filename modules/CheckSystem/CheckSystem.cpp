@@ -932,9 +932,9 @@ void CheckSystem::check_process(const PB::Commands::QueryRequestMessage::Request
 void CheckSystem::checkCounter(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   boost::program_options::options_description desc;
 
-  std::vector<std::string> counters;
+  std::vector<std::string> counter_list;
   nscapi::program_options::add_help(desc);
-  desc.add_options()("Counter", po::value<std::vector<std::string>>(&counters), "The time to check");
+  desc.add_options()("Counter", po::value<std::vector<std::string>>(&counter_list), "The time to check");
   compat::addShowAll(desc);
   compat::addAllNumeric(desc);
 
@@ -960,7 +960,7 @@ void CheckSystem::checkCounter(PB::Commands::QueryRequestMessage::Request &reque
     }
   }
 
-  for (const std::string &t : counters) {
+  for (const std::string &t : counter_list) {
     request.add_arguments("counter=" + t);
   }
   request.add_arguments("perf-config=*(suffix:none)");
