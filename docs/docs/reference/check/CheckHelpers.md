@@ -466,7 +466,7 @@ Message to return
 
 Run a check and filter performance data.
 
-`filter_perf` while badly named can be used to prost process performance data.
+`filter_perf` while badly named can be used to post process performance data.
 
 It can be useful for sorting performance data or limiting the number of performance data items shown.
 
@@ -477,7 +477,7 @@ L        cli WARNING: WARNING: clion64.exe=started
 L        cli  Performance data: ' ws_size'=0GB;3;5 ' ws_size'=0GB;3;5 ' ws_size'=0GB;3;5 ' ...
 ```
 
-This will not do an anything by itself but we can for instance dort performance data entries by adding `sort=normal`:
+This will not do anything by itself but we can for instance sort performance data entries by adding `sort=normal`:
 ```
 filter_perf sort=normal command=check_process arguments "filter=exe not in ('sqlservr.exe')" "warn=working_set > 3G" "crit=working_set > 5G"
 L        cli WARNING: WARNING: clion64.exe=started
