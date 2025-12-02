@@ -48,7 +48,7 @@ class icmp_header {
     address_reply = 18
   };
 
-  icmp_header() { std::fill(rep_, rep_ + sizeof(rep_), 0); }
+  icmp_header() { std::fill_n(rep_, sizeof(rep_), 0); }
 
   unsigned char type() const { return rep_[0]; }
   unsigned char code() const { return rep_[1]; }
@@ -56,25 +56,25 @@ class icmp_header {
   unsigned short identifier() const { return decode(4, 5); }
   unsigned short sequence_number() const { return decode(6, 7); }
 
-  void type(unsigned char n) { rep_[0] = n; }
-  void code(unsigned char n) { rep_[1] = n; }
-  void checksum(unsigned short n) { encode(2, 3, n); }
-  void identifier(unsigned short n) { encode(4, 5, n); }
-  void sequence_number(unsigned short n) { encode(6, 7, n); }
+  void type(const unsigned char n) { rep_[0] = n; }
+  void code(const unsigned char n) { rep_[1] = n; }
+  void checksum(const unsigned short n) { encode(2, 3, n); }
+  void identifier(const unsigned short n) { encode(4, 5, n); }
+  void sequence_number(const unsigned short n) { encode(6, 7, n); }
 
   friend std::istream& operator>>(std::istream& is, icmp_header& header) { return is.read(reinterpret_cast<char*>(header.rep_), 8); }
 
   friend std::ostream& operator<<(std::ostream& os, const icmp_header& header) { return os.write(reinterpret_cast<const char*>(header.rep_), 8); }
 
  private:
-  unsigned short decode(int a, int b) const { return (rep_[a] << 8) + rep_[b]; }
+  unsigned short decode(const int a, const int b) const { return (rep_[a] << 8) + rep_[b]; }
 
-  void encode(int a, int b, unsigned short n) {
+  void encode(const int a, const int b, unsigned short n) {
     rep_[a] = static_cast<unsigned char>(n >> 8);
     rep_[b] = static_cast<unsigned char>(n & 0xFF);
   }
 
-  unsigned char rep_[8];
+  unsigned char rep_[8]{};
 };
 
 template <typename Iterator>

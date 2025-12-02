@@ -67,7 +67,7 @@ class nsca_exception : public std::exception {
   nsca_exception() = default;
   explicit nsca_exception(std::string msg) : msg_(std::move(msg)) {}
 
-  nsca_exception(const nsca_exception& other) noexcept : exception(other) { msg_ = other.msg_; }
+  nsca_exception(const nsca_exception& other) noexcept : exception(other), msg_(other.msg_) {}
   nsca_exception& operator=(const nsca_exception& other) noexcept = default;
   ~nsca_exception() noexcept override = default;
 

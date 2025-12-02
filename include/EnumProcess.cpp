@@ -59,7 +59,7 @@ void enable_token_privilege(LPTSTR privilege, bool enable) {
     token_privileges.Privileges[0].Attributes = 0;
   if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, token.ref()))
     throw nsclient::nsclient_exception("Failed to open process token: " + error::lookup::last_error());
-  if (!AdjustTokenPrivileges(token.get(), FALSE, &token_privileges, sizeof(TOKEN_PRIVILEGES), (PTOKEN_PRIVILEGES)nullptr, (PDWORD)nullptr))
+  if (!AdjustTokenPrivileges(token.get(), FALSE, &token_privileges, sizeof(TOKEN_PRIVILEGES), (PTOKEN_PRIVILEGES) nullptr, (PDWORD) nullptr))
     throw nsclient::nsclient_exception("Failed to adjust token privilege: " + error::lookup::last_error());
 }
 
@@ -68,7 +68,7 @@ struct find_16bit_container {
   DWORD pid;
 };
 BOOL CALLBACK Enum16Proc(DWORD, WORD, WORD, PSZ, PSZ pszFileName, LPARAM lpUserDefined) {
-  find_16bit_container *container = reinterpret_cast<find_16bit_container *>(lpUserDefined);
+  auto *container = reinterpret_cast<find_16bit_container *>(lpUserDefined);
   process_info pEntry;
   pEntry.pid = container->pid;
   std::string tmp = pszFileName;
@@ -194,12 +194,14 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable) {
     FILETIME kernelTime;
     FILETIME userTime;
     if (GetProcessTimes(handle, &creationTime, &exitTime, &kernelTime, &userTime)) {
-      entry.kernel_time_raw = (kernelTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(kernelTime.dwLowDateTime);
-      entry.user_time_raw = (userTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(userTime.dwLowDateTime);
+      entry.kernel_time_raw =
+          (kernelTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(kernelTime.dwLowDateTime);
+      entry.user_time_raw =
+          (userTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(userTime.dwLowDateTime);
       entry.kernel_time = entry.kernel_time_raw / 10000000;
       entry.user_time = entry.user_time_raw / 10000000;
-      entry.creation_time =
-          str::format::filetime_to_time((creationTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(creationTime.dwLowDateTime));
+      entry.creation_time = str::format::filetime_to_time((creationTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) +
+                                                          static_cast<unsigned long long>(creationTime.dwLowDateTime));
     }
 
     SIZE_T minimumWorkingSetSize;
@@ -276,7 +278,7 @@ process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool d
   }
 
   std::list<process_info> ret;
-  DWORD *dwPIDs = new DWORD[buffer_size + 1];
+  auto *dwPIDs = new DWORD[buffer_size + 1];
   DWORD cbNeeded = 0;
   BOOL OK = EnumProcesses(dwPIDs, buffer_size * sizeof(DWORD), &cbNeeded);
   if (cbNeeded >= DEFAULT_BUFFER_SIZE * sizeof(DWORD)) {
@@ -308,11 +310,12 @@ process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool d
         }
       }
       if (find_16bit) {
-        if (entry.filename.get().length() >= 9 && boost::algorithm::iequals(entry.filename.get().substr(0, 9), "NTVDM.EXE")) {
+        auto filename = entry.filename.get();
+        if (filename.length() >= 9 && boost::algorithm::iequals(filename.substr(0, 9), "NTVDM.EXE")) {
           find_16bit_container container{};
           container.target = &ret;
           container.pid = entry.pid;
-          windows::winapi::VDMEnumTaskWOWEx(container.pid, (windows::winapi::tTASKENUMPROCEX)&Enum16Proc, reinterpret_cast<LPARAM>(&container));
+          windows::winapi::VDMEnumTaskWOWEx(container.pid, &Enum16Proc, reinterpret_cast<LPARAM>(&container));
         }
       }
       if (ignore_unreadable && entry.unreadable) continue;
@@ -404,9 +407,12 @@ process_list enumerate_processes_delta(bool ignore_unreadable, error_reporter *e
   const process_map p1 = get_process_data(ignore_unreadable, error_interface);
   Sleep(1000);
   if (GetSystemTimes(&idleTime, &kernelTime, &userTime)) {
-    kernel_time = (kernelTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(kernelTime.dwLowDateTime) - kernel_time;
-    user_time = (userTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(userTime.dwLowDateTime) - user_time;
-    idle_time = (idleTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(idleTime.dwLowDateTime) - idle_time;
+    kernel_time =
+        (kernelTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(kernelTime.dwLowDateTime) - kernel_time;
+    user_time =
+        (userTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(userTime.dwLowDateTime) - user_time;
+    idle_time =
+        (idleTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(idleTime.dwLowDateTime) - idle_time;
   }
   const long long total_time = kernel_time + user_time + idle_time;
 
