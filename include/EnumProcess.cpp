@@ -315,7 +315,7 @@ process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool d
           find_16bit_container container{};
           container.target = &ret;
           container.pid = entry.pid;
-          windows::winapi::VDMEnumTaskWOWEx(container.pid, &Enum16Proc, reinterpret_cast<LPARAM>(&container));
+          windows::winapi::VDMEnumTaskWOWEx(container.pid, (windows::winapi::tTASKENUMPROCEX)&Enum16Proc, reinterpret_cast<LPARAM>(&container));
         }
       }
       if (ignore_unreadable && entry.unreadable) continue;
