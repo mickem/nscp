@@ -90,7 +90,7 @@ struct rrd_buffer {
     for (const value_type &entry : buffer) {
       ret.add(entry);
     }
-    ret.normalize(buffer.size());
+    ret.normalize(static_cast<double>(buffer.size()));
     return ret;
   }
 

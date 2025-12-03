@@ -39,7 +39,7 @@ class parser : public boost::noncopyable {
 
   template <typename InputIterator>
   boost::tuple<bool, InputIterator> digest(InputIterator begin, InputIterator end) {
-    int count = packet_length_ - buffer_.size();
+    auto count = packet_length_ - buffer_.size();
     for (; count > 0 && begin != end; ++begin, --count) buffer_.push_back(*begin);
     return boost::make_tuple(buffer_.size() >= packet_length_, begin);
   }

@@ -115,7 +115,6 @@ std::string filter_config_object::to_string() const {
 
 void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
   if (!get_value().empty()) filter.set_filter_string(get_value().c_str());
-  std::string alias;
   const bool is_default = parent::is_default();
 
   nscapi::settings_helper::settings_registry settings(proxy);

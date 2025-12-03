@@ -84,30 +84,30 @@ struct connection_data : public socket_helpers::connection_info {
 struct client_handler : public socket_helpers::client::client_handler {
   unsigned int encryption_;
   std::string password_;
-  client_handler(const connection_data &con) : encryption_(con.get_encryption()), password_(con.password) {}
-  void log_debug(std::string file, int line, std::string msg) const {
+  explicit client_handler(const connection_data &con) : encryption_(con.get_encryption()), password_(con.password) {}
+  void log_debug(const std::string file, const int line, const std::string msg) const override {
     if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
       GET_CORE()->log(NSCAPI::log_level::debug, file, line, msg);
     }
   }
-  void log_error(std::string file, int line, std::string msg) const {
+  void log_error(const std::string file, const int line, const std::string msg) const override {
     if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
       GET_CORE()->log(NSCAPI::log_level::error, file, line, msg);
     }
   }
-  unsigned int get_encryption() { return encryption_; }
-  std::string get_password() { return password_; }
-  std::string expand_path(std::string path) { return GET_CORE()->expand_path(path); }
+  unsigned int get_encryption() const { return encryption_; }
+  std::string get_password() const { return password_; }
+  std::string expand_path(const std::string path) override { return GET_CORE()->expand_path(path); }
 };
 
-struct nsca_client_handler : public client::handler_interface {
+struct nsca_client_handler final : public client::handler_interface {
   bool query(client::destination_container sender, client::destination_container target, const PB::Commands::QueryRequestMessage &request_message,
-             PB::Commands::QueryResponseMessage &response_message) {
+             PB::Commands::QueryResponseMessage &response_message) override {
     return false;
   }
 
   bool submit(client::destination_container sender, client::destination_container target, const PB::Commands::SubmitRequestMessage &request_message,
-              PB::Commands::SubmitResponseMessage &response_message) {
+              PB::Commands::SubmitResponseMessage &response_message) override {
     const PB::Common::Header &request_header = request_message.header();
     nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
     connection_data con(target, sender);
@@ -135,13 +135,15 @@ struct nsca_client_handler : public client::handler_interface {
   }
 
   bool exec(client::destination_container sender, client::destination_container target, const PB::Commands::ExecuteRequestMessage &request_message,
-            PB::Commands::ExecuteResponseMessage &response_message) {
+            PB::Commands::ExecuteResponseMessage &response_message) override {
     return false;
   }
 
-  bool metrics(client::destination_container sender, client::destination_container target, const PB::Metrics::MetricsMessage &request_message) { return false; }
+  bool metrics(client::destination_container sender, client::destination_container target, const PB::Metrics::MetricsMessage &request_message) override {
+    return false;
+  }
 
-  void send(PB::Commands::SubmitResponseMessage::Response *payload, const connection_data con, const std::list<nsca::packet> packets) {
+  void send(PB::Commands::SubmitResponseMessage::Response *payload, const connection_data &con, const std::list<nsca::packet> &packets) {
     try {
       socket_helpers::client::client<nsca::client::protocol<client_handler> > client(con, boost::make_shared<client_handler>(con));
       NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Connecting to: " + con.to_string()); }

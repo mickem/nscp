@@ -50,6 +50,7 @@ struct object_instance_interface {
   options_map options;
 
  public:
+  virtual ~object_instance_interface() = default;
   object_instance_interface(std::string alias, std::string base_path)
       : alias(alias), base_path(base_path), path(make_obj_path(base_path, alias)), is_template_(false), parent("default") {}
   object_instance_interface(const boost::shared_ptr<object_instance_interface> other, std::string alias, std::string base_path)

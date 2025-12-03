@@ -466,6 +466,31 @@ Message to return
 
 Run a check and filter performance data.
 
+`filter_perf` while badly named can be used to post process performance data.
+
+It can be useful for sorting performance data or limiting the number of performance data items shown.
+
+In its most basic form you can run `filter_perf command=COMMAND arguments REGULAR ARGUMENTS` for example `check_process`:
+```
+filter_perf command=check_process arguments "filter=exe not in ('sqlservr.exe')" "warn=working_set > 3G" "crit=working_set > 5G"
+L        cli WARNING: WARNING: clion64.exe=started
+L        cli  Performance data: ' ws_size'=0GB;3;5 ' ws_size'=0GB;3;5 ' ws_size'=0GB;3;5 ' ...
+```
+
+This will not do anything by itself but we can for instance sort performance data entries by adding `sort=normal`:
+```
+filter_perf sort=normal command=check_process arguments "filter=exe not in ('sqlservr.exe')" "warn=working_set > 3G" "crit=working_set > 5G"
+L        cli WARNING: WARNING: clion64.exe=started
+L        cli  Performance data: 'clion64.exe ws_size'=3.30851GB;3;5 'Rider.Backend.exe ws_size'=1.80017GB;3;5 'clangd.exe ws_size'=1.4822GB;3;5 'devenv.exe ws_size'=1.14938GB;3;5 ...
+```
+
+And further can also limit the number of results shown by adding `limit=5` like so:
+```
+filter_perf sort=normal limit=5 command=check_process arguments "filter=exe not in ('sqlservr.exe')" "warn=working_set > 3G" "crit=working_set > 5G"
+L        cli WARNING: WARNING: clion64.exe=started
+L        cli  Performance data: 'clion64.exe ws_size'=3.30852GB;3;5 'Rider.Backend.exe ws_size'=1.80017GB;3;5 'clangd.exe ws_size'=1.4822GB;3;5 'devenv.exe ws_size'=1.14938GB;3;5 'msedge.exe ws_size'=0.5757GB;3;5
+```
+
 
 **Jump to section:**
 
@@ -653,29 +678,34 @@ This is the syntax for the base names of the performance data.
 #### Filter keywords
 
 
-| Option        | Description                                                                                                  |
-|---------------|--------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter. Common option for all checks.                                           |
-| crit          | Major version number                                                                                         |
-| crit_count    | Number of items matched the critical criteria. Common option for all checks.                                 |
-| crit_list     | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| detail_list   | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| key           | Major version number                                                                                         |
-| list          | A list of all items which matched the filter. Common option for all checks.                                  |
-| max           | Major version number                                                                                         |
-| message       | Major version number                                                                                         |
-| min           | Major version number                                                                                         |
-| ok_count      | Number of items matched the ok criteria. Common option for all checks.                                       |
-| ok_list       | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| problem_count | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| problem_list  | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| total         | Total number of items. Common option for all checks.                                                         |
-| unit          | Major version number                                                                                         |
-| value         | Major version number                                                                                         |
-| warn          | Major version number                                                                                         |
-| warn_count    | Number of items matched the warning criteria. Common option for all checks.                                  |
-| warn_list     | A list of all items which matched the warning criteria. Common option for all checks.                        |
+| Option  | Description          |
+|---------|----------------------|
+| crit    | Major version number |
+| key     | Major version number |
+| max     | Major version number |
+| message | Major version number |
+| min     | Major version number |
+| unit    | Major version number |
+| value   | Major version number |
+| warn    | Major version number |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 
 ### xform_perf

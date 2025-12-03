@@ -28,12 +28,11 @@
 
 namespace CryptoPP {
 const std::string DEFAULT_CHANNEL = "";
-//	const std::string AAD_CHANNEL = "AAD";
 }  // namespace CryptoPP
 
 namespace sh = nscapi::settings_helper;
 
-bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+bool NSCAServer::loadModuleEx(const std::string &alias, const NSCAPI::moduleLoadMode mode) {
   try {
     if (server_) {
       server_->stop();
@@ -126,11 +125,11 @@ void NSCAServer::handle(nsca::packet p) {
   std::string::size_type pos = p.result.find('|');
   nscapi::core_helper helper(get_core(), get_id());
   if (pos != std::string::npos) {
-    std::string msg = p.result.substr(0, pos);
-    std::string perf = p.result.substr(++pos);
+    const std::string msg = p.result.substr(0, pos);
+    const std::string perf = p.result.substr(++pos);
     helper.submit_simple_message(channel_, p.host, "", p.service, nscapi::plugin_helper::int2nagios(p.code), msg, perf, response);
   } else {
-    std::string empty, msg = p.result;
+    const std::string empty, msg = p.result;
     helper.submit_simple_message(channel_, p.host, "", p.service, nscapi::plugin_helper::int2nagios(p.code), msg, empty, response);
   }
 }

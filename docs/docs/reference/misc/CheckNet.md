@@ -194,28 +194,33 @@ The payload to send in the ping request (default: 'Hello from NSClient++')
 #### Filter keywords
 
 
-| Option        | Description                                                                                                  |
-|---------------|--------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter. Common option for all checks.                                           |
-| crit_count    | Number of items matched the critical criteria. Common option for all checks.                                 |
-| crit_list     | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| detail_list   | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| host          | The host name or ip address (as given on command line)                                                       |
-| ip            | The ip address name                                                                                          |
-| list          | A list of all items which matched the filter. Common option for all checks.                                  |
-| loss          | Packet loss                                                                                                  |
-| ok_count      | Number of items matched the ok criteria. Common option for all checks.                                       |
-| ok_list       | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| problem_count | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| problem_list  | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| recv          | Number of packets received from the host                                                                     |
-| sent          | Number of packets sent to the host                                                                           |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| time          | Round trip time in ms                                                                                        |
-| timeout       | Number of packets which timed out from the host                                                              |
-| total         | Total number of items. Common option for all checks.                                                         |
-| warn_count    | Number of items matched the warning criteria. Common option for all checks.                                  |
-| warn_list     | A list of all items which matched the warning criteria. Common option for all checks.                        |
+| Option  | Description                                            |
+|---------|--------------------------------------------------------|
+| host    | The host name or ip address (as given on command line) |
+| ip      | The ip address name                                    |
+| loss    | Packet loss                                            |
+| recv    | Number of packets received from the host               |
+| sent    | Number of packets sent to the host                     |
+| time    | Round trip time in ms                                  |
+| timeout | Number of packets which timed out from the host        |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 
 

@@ -261,7 +261,7 @@ struct collectd_builder {
     if (svalue.first == "derive") {
       std::string vkey = svalue.second;
       if (vkey.size() > 0 && vkey[0] >= '0' && vkey[0] <= '9')
-        metric.derives.push_back(str::stox<double>(svalue.second, 0));
+        metric.derives.push_back(static_cast<long long>(str::stox<double>(svalue.second, 0)));
       else
         metric.derives.push_back(str::stox<unsigned long long>(metrics[svalue.second], 0));
     }

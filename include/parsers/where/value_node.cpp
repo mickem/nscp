@@ -53,7 +53,7 @@ bool string_value::find_performance_data(evaluation_context context, performance
 }
 value_container int_value::get_value(evaluation_context errors, value_type new_type) const {
   if (new_type == type_float) {
-    return value_container::create_float(value_, is_unsure_);
+    return value_container::create_float(static_cast<double>(value_), is_unsure_);
   }
   if (new_type == type_int) {
     return value_container::create_int(value_, is_unsure_);

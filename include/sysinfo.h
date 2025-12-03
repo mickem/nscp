@@ -35,12 +35,14 @@ typedef LANGID (*tGetSystemDefaultUILanguage)(void);
 inline LANGID GetSystemDefaultLangID() { return ::GetSystemDefaultLangID(); }
 
 LANGID GetSystemDefaultUILanguage();
+#pragma warning(disable : 4996)
 inline OSVERSIONINFO getOSVersion() {
   OSVERSIONINFO OSversion;
   OSversion.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
   ::GetVersionEx(&OSversion);
   return OSversion;
 }
+#pragma warning(default : 4996)
 
 inline bool isNTBased(const OSVERSIONINFO &osVersion) { return osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT; }
 inline bool isBelowNT4(const OSVERSIONINFO &osVersion) { return ((osVersion.dwPlatformId == VER_PLATFORM_WIN32_NT) && (osVersion.dwMajorVersion <= 4)); }

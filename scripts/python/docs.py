@@ -138,8 +138,14 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 #### Filter keywords
 
 {% set table = [] -%}
-{% for help in query.fields -%}
+{% for help in query.own_fields -%}
     {% do table.append([help.name,help.long_description|firstline]) %}
+{%- endfor %}
+{{table|rst_table('Option', 'Description')}}
+**Common options for all checks:**
+{% set table = [] -%}
+{% for help in query.generic_fields -%}
+    {% do table.append([help.name,help.long_description|replace("Common option for all checks.","")|firstline]) %}
 {%- endfor %}
 {{table|rst_table('Option', 'Description')}}
 {{'\n'}}
@@ -682,6 +688,8 @@ class DocumentationHelper(object):
         if command in self.command_cache:
             return self.command_cache[command]
         cinfo.fields = cinfo.parameters.fields
+        cinfo.generic_fields = list(filter(lambda tf: tf.long_description.endswith('Common option for all checks.'), cinfo.parameters.fields))
+        cinfo.own_fields = list(filter(lambda tf: not tf.long_description.endswith('Common option for all checks.'), cinfo.parameters.fields))
         cinfo.params = []
         for p in cinfo.parameters.parameter:
             cinfo.params.append(param_container(p))

@@ -198,34 +198,39 @@ In other words if one file contains an error the entire check will result in err
 #### Filter keywords
 
 
-| Option        | Description                                                                                                  |
-|---------------|--------------------------------------------------------------------------------------------------------------|
-| column()      | Fetch the value from the given column number.                                                                |
-| column1       | The value in the first column                                                                                |
-| column2       | The value in the second column                                                                               |
-| column3       | The value in the third column                                                                                |
-| column4       | The value in the 4:th column                                                                                 |
-| column5       | The value in the 5:th column                                                                                 |
-| column6       | The value in the 6:th column                                                                                 |
-| column7       | The value in the 7:th column                                                                                 |
-| column8       | The value in the 8:th column                                                                                 |
-| column9       | The value in the 9:th column                                                                                 |
-| count         | Number of items matching the filter. Common option for all checks.                                           |
-| crit_count    | Number of items matched the critical criteria. Common option for all checks.                                 |
-| crit_list     | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| detail_list   | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| file          | The name of the file                                                                                         |
-| filename      | The name of the file                                                                                         |
-| line          | Match the content of an entire line                                                                          |
-| list          | A list of all items which matched the filter. Common option for all checks.                                  |
-| ok_count      | Number of items matched the ok criteria. Common option for all checks.                                       |
-| ok_list       | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| problem_count | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| problem_list  | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| total         | Total number of items. Common option for all checks.                                                         |
-| warn_count    | Number of items matched the warning criteria. Common option for all checks.                                  |
-| warn_list     | A list of all items which matched the warning criteria. Common option for all checks.                        |
+| Option   | Description                                   |
+|----------|-----------------------------------------------|
+| column() | Fetch the value from the given column number. |
+| column1  | The value in the first column                 |
+| column2  | The value in the second column                |
+| column3  | The value in the third column                 |
+| column4  | The value in the 4:th column                  |
+| column5  | The value in the 5:th column                  |
+| column6  | The value in the 6:th column                  |
+| column7  | The value in the 7:th column                  |
+| column8  | The value in the 8:th column                  |
+| column9  | The value in the 9:th column                  |
+| file     | The name of the file                          |
+| filename | The name of the file                          |
+| line     | Match the content of an entire line           |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 
 

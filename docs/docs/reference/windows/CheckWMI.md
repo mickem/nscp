@@ -236,21 +236,24 @@ The WMI root namespace to bind to.
 #### Filter keywords
 
 
-| Option        | Description                                                                                                  |
-|---------------|--------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter. Common option for all checks.                                           |
-| crit_count    | Number of items matched the critical criteria. Common option for all checks.                                 |
-| crit_list     | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| detail_list   | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| list          | A list of all items which matched the filter. Common option for all checks.                                  |
-| ok_count      | Number of items matched the ok criteria. Common option for all checks.                                       |
-| ok_list       | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| problem_count | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| problem_list  | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| total         | Total number of items. Common option for all checks.                                                         |
-| warn_count    | Number of items matched the warning criteria. Common option for all checks.                                  |
-| warn_list     | A list of all items which matched the warning criteria. Common option for all checks.                        |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 
 

@@ -115,7 +115,7 @@ struct smtp_client_handler : public client::handler_interface {
       boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
       boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
       boost::posix_time::time_duration diff = now - time_t_epoch;
-      int x = diff.total_seconds();
+      auto x = diff.total_seconds();
 
       for (const g_data &d : data) {
         std::string msg = d.path + " " + d.value + " " + boost::lexical_cast<std::string>(x) + "\n";

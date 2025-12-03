@@ -25,6 +25,7 @@
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_metrics.hpp>
 #include <nscapi/nscapi_targets.hpp>
+#include <utility>
 
 namespace client {
 struct cli_exception final : std::exception {
@@ -46,14 +47,14 @@ struct destination_container {
 
   destination_container() : timeout(10), retry(2) {}
 
-  void apply(nscapi::settings_objects::object_instance obj) {
+  void apply(const nscapi::settings_objects::object_instance &obj) {
     for (const nscapi::settings_objects::options_map::value_type &k : obj->get_options()) {
       set_string_data(k.first, k.second);
     }
   }
 
   void apply(const std::string &key, const PB::Common::Header &header) {
-    for (PB::Common::Host host : header.hosts()) {
+    for (const PB::Common::Host &host : header.hosts()) {
       if (host.id() == key) {
         apply_host(host);
       }
@@ -68,19 +69,19 @@ struct destination_container {
     }
   }
 
-  void set_host(std::string value) { address.host = value; }
+  void set_host(std::string value) { address.host = std::move(value); }
   std::string get_host() const { return address.host; }
-  void set_address(std::string value) { address = net::parse(value); }
-  void set_port(std::string value) { address.port = str::stox<unsigned int>(value); }
+  void set_address(const std::string &value) { address = net::parse(value); }
+  void set_port(const std::string &value) { address.port = str::stox<unsigned int>(value); }
   std::string get_protocol() const { return address.protocol; }
   bool has_protocol() const { return !address.protocol.empty(); }
 
-  static bool to_bool(std::string value, bool def = false) {
+  static bool to_bool(const std::string &value, const bool def = false) {
     if (value.empty()) return def;
     if (value == "true" || value == "1" || value == "True") return true;
     return false;
   }
-  static int to_int(std::string value, int def = 0) {
+  static int to_int(const std::string &value, const int def = 0) {
     if (value.empty()) return def;
     try {
       return boost::lexical_cast<int>(value);
@@ -89,22 +90,22 @@ struct destination_container {
     }
   }
 
-  int get_int_data(std::string key, int def = 0) { return to_int(data[key], def); }
-  bool get_bool_data(std::string key, bool def = false) { return to_bool(data[key], def); }
-  std::string get_string_data(std::string key, std::string def = "") {
-    data_map::iterator it = data.find(key);
+  int get_int_data(const std::string &key, const int def = 0) { return to_int(data[key], def); }
+  bool get_bool_data(const std::string &key, const bool def = false) { return to_bool(data[key], def); }
+  std::string get_string_data(const std::string &key, std::string def = "") {
+    const auto it = data.find(key);
     if (it == data.end()) return def;
     return it->second;
   }
-  bool has_data(std::string key) { return data.find(key) != data.end(); }
+  bool has_data(const std::string &key) { return data.find(key) != data.end(); }
 
-  void set_string_data(std::string key, std::string value) {
+  void set_string_data(const std::string &key, const std::string &value) {
     if (key == "host")
       set_host(value);
     else if (key == "address")
       set_address(value);
     else if (key == "port")
-      address.port = to_int(value, address.port);
+      address.port = to_int(value, static_cast<int>(address.port));
     else if (key == "timeout")
       timeout = to_int(value, timeout);
     else if (key == "retry")
@@ -112,8 +113,8 @@ struct destination_container {
     else
       data[key] = value;
   }
-  void set_int_data(std::string key, int value) { set_string_data(key, str::xtos(value)); }
-  void set_bool_data(std::string key, bool value) { set_string_data(key, value ? "true" : "false"); }
+  void set_int_data(const std::string &key, const int value) { set_string_data(key, str::xtos(value)); }
+  void set_bool_data(const std::string &key, const bool value) { set_string_data(key, value ? "true" : "false"); }
 
   std::string to_string() const;
 };
@@ -123,14 +124,9 @@ struct command_container {
   std::string key;
   std::list<std::string> arguments;
 
-  command_container() {}
-  command_container(const command_container &other) : command(other.command), key(other.key), arguments(other.arguments) {}
-  const command_container &operator=(const command_container &other) {
-    command = other.command;
-    arguments = other.arguments;
-    key = other.key;
-    return *this;
-  }
+  command_container() = default;
+  command_container(const command_container &other) = default;
+  command_container &operator=(const command_container &other) = default;
 };
 
 struct nscp_clp_data {
@@ -144,8 +140,8 @@ struct nscp_clp_data {
   destination_container host_self;
   std::list<destination_container> targets;
 
-  nscp_clp_data(nscapi::targets::target_object parent) {}
-  std::string to_string() {
+  explicit nscp_clp_data(const nscapi::targets::target_object &parent) {}
+  std::string to_string() const {
     std::stringstream ss;
     ss << "Command: " << command;
     ss << ", target: " << target_id;
@@ -156,7 +152,7 @@ struct nscp_clp_data {
     ss << ", message: " << message;
     ss << ", result: " << result;
     int i = 0;
-    for (std::string a : arguments) {
+    for (const std::string &a : arguments) {
       ss << ", argument[" << i++ << "]: " << a;
     }
     return ss.str();
@@ -194,7 +190,8 @@ struct configuration : public boost::noncopyable {
   std::string default_sender;
   command_type commands;
 
-  configuration(std::string caption, handler_type handler, options_reader_type reader) : handler(handler), reader(reader), targets(reader) {}
+  configuration(const std::string &caption, handler_type handler, const options_reader_type &reader)
+      : handler(std::move(handler)), reader(reader), targets(reader) {}
 
   std::string to_string() {
     std::stringstream ss;
@@ -203,14 +200,14 @@ struct configuration : public boost::noncopyable {
     return ss.str();
   }
 
-  void set_path(std::string path) { targets.set_path(path); }
+  void set_path(const std::string &path) { targets.set_path(path); }
 
-  void set_sender(std::string _sender) { default_sender = _sender; }
+  void set_sender(const std::string &_sender) { default_sender = _sender; }
 
   destination_container get_target(const std::string &name) const;
   destination_container get_sender() const;
 
-  void add_target(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string value) { targets.add(proxy, key, value); }
+  void add_target(const boost::shared_ptr<nscapi::settings_proxy> &proxy, const std::string &key, const std::string &value) { targets.add(proxy, key, value); }
   std::string add_command(const std::string &name, const std::string &args);
   void clear() {
     targets.clear();

@@ -135,6 +135,12 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
       add_alias("alias_cpu", "check_cpu");
       add_alias("alias_cpu_ex", "check_cpu \"warn=load > $ARG1$\" \"crit=load > $ARG2$\" time=5m time=1m time=30s");
       add_alias("alias_mem", "check_memory");
+      add_alias("alias_top_memory_users",
+                "filter_perf sort=normal limit=5 command=check_process arguments \"warn=working_set > 3G\" \"crit=working_set > 4G\" \"detail-syntax=%(exe) "
+                "ws=%(working_set)\"");
+      add_alias("alias_top_memory_users_ex",
+                "filter_perf sort=normal limit=5 command=check_process arguments \"warn=working_set > $ARG1$\" \"crit=working_set > $ARG2$\" "
+                "\"detail-syntax=%(exe) ws=%(working_set)\"");
       add_alias("alias_up", "check_uptime");
       add_alias("alias_disk", "check_drivesize");
       add_alias("alias_disk_loose", "check_drivesize");

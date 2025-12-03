@@ -402,39 +402,44 @@ Use bookmarks to only look for messages since last check (with the same bookmark
 #### Filter keywords
 
 
-| Option        | Description                                                                                                  |
-|---------------|--------------------------------------------------------------------------------------------------------------|
-| category      | TODO                                                                                                         |
-| computer      | Which computer generated the message                                                                         |
-| count         | Number of items matching the filter. Common option for all checks.                                           |
-| crit_count    | Number of items matched the critical criteria. Common option for all checks.                                 |
-| crit_list     | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| customer      | TODO                                                                                                         |
-| detail_list   | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| file          | The logfile name                                                                                             |
-| guid          | The logfile name                                                                                             |
-| id            | Eventlog id                                                                                                  |
-| keyword       | The keyword associated with this event                                                                       |
-| level         | Severity level (error, warning, info, success, auditSuccess, auditFailure)                                   |
-| list          | A list of all items which matched the filter. Common option for all checks.                                  |
-| log           | alias for file                                                                                               |
-| message       | The message rendered as a string.                                                                            |
-| ok_count      | Number of items matched the ok criteria. Common option for all checks.                                       |
-| ok_list       | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| problem_count | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| problem_list  | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| provider      | Source system.                                                                                               |
-| rawid         | Raw message id (contains many other fields all baked into a single number)                                   |
-| source        | Source system.                                                                                               |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| task          | The type of event (task)                                                                                     |
-| total         | Total number of items. Common option for all checks.                                                         |
-| type          | alias for level (old, deprecated)                                                                            |
-| warn_count    | Number of items matched the warning criteria. Common option for all checks.                                  |
-| warn_list     | A list of all items which matched the warning criteria. Common option for all checks.                        |
-| written       | When the message was written to file                                                                         |
-| written_str   | When the message was written to file as an absolute date string                                              |
-| xml           | Get event as XML message.                                                                                    |
+| Option      | Description                                                                |
+|-------------|----------------------------------------------------------------------------|
+| category    | TODO                                                                       |
+| computer    | Which computer generated the message                                       |
+| customer    | TODO                                                                       |
+| file        | The logfile name                                                           |
+| guid        | The logfile name                                                           |
+| id          | Eventlog id                                                                |
+| keyword     | The keyword associated with this event                                     |
+| level       | Severity level (error, warning, info, success, auditSuccess, auditFailure) |
+| log         | alias for file                                                             |
+| message     | The message rendered as a string.                                          |
+| provider    | Source system.                                                             |
+| rawid       | Raw message id (contains many other fields all baked into a single number) |
+| source      | Source system.                                                             |
+| task        | The type of event (task)                                                   |
+| type        | alias for level (old, deprecated)                                          |
+| written     | When the message was written to file                                       |
+| written_str | When the message was written to file as an absolute date string            |
+| xml         | Get event as XML message.                                                  |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 
 

@@ -23,13 +23,11 @@
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_targets.hpp>
-#include <socket/client.hpp>
 
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;
 
 class NSCAClient : public nscapi::impl::simple_plugin {
- private:
   std::string channel_;
   std::string hostname_;
   std::string encoding_;
@@ -49,6 +47,6 @@ class NSCAClient : public nscapi::impl::simple_plugin {
                           PB::Commands::SubmitResponseMessage *response_message);
 
  private:
-  void add_command(std::string key, std::string args);
-  void add_target(std::string key, std::string args);
+  void add_command(const std::string &key, const std::string &args);
+  void add_target(const std::string &key, const std::string &args);
 };
