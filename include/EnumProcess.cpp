@@ -67,13 +67,13 @@ struct find_16bit_container {
   std::list<process_info> *target;
   DWORD pid;
 };
-BOOL CALLBACK Enum16Proc(DWORD, WORD, WORD, PSZ, PSZ pszFileName, LPARAM lpUserDefined) {
+BOOL CALLBACK Enum16Proc(DWORD, WORD, WORD, PSZ, const PSZ pszFileName, LPARAM lpUserDefined) {
   auto *container = reinterpret_cast<find_16bit_container *>(lpUserDefined);
   process_info pEntry;
   pEntry.pid = container->pid;
-  std::string tmp = pszFileName;
+  const std::string tmp = pszFileName;
   pEntry.command_line = tmp;
-  std::string::size_type pos = tmp.find_last_of("\\");
+  std::string::size_type pos = tmp.find_last_of('\\');
   if (pos != std::string::npos)
     pEntry.filename = tmp.substr(++pos);
   else
@@ -87,8 +87,8 @@ struct enum_data {
   std::vector<DWORD> crashed_pids;
 };
 
-BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
-  auto data = reinterpret_cast<enum_data *>(lParam);
+BOOL CALLBACK EnumWindowsProc(const HWND hwnd, const LPARAM lParam) {
+  const auto data = reinterpret_cast<enum_data *>(lParam);
   if (!IsWindowVisible(hwnd)) return TRUE;
   if (GetWindow(hwnd, GW_OWNER) != nullptr) return TRUE;
   if (IsHungAppWindow(hwnd)) {
@@ -108,7 +108,7 @@ std::vector<DWORD> find_crashed_pids(error_reporter *error_interface) {
   return data.crashed_pids;
 }
 
-void nscpGetCommandLine(HANDLE hProcess, LPVOID pebAddress, process_info &entry) {
+void nscpGetCommandLine(const HANDLE hProcess, const LPVOID pebAddress, process_info &entry) {
   windows::winapi::UNICODE_STRING commandLine;
   LPVOID rtlUserProcParamsAddress;
 #ifdef _WIN64
@@ -125,7 +125,7 @@ void nscpGetCommandLine(HANDLE hProcess, LPVOID pebAddress, process_info &entry)
 #endif
 
   /* allocate memory to hold the command line */
-  wchar_t *commandLineContents = new wchar_t[commandLine.Length + 2];
+  auto *commandLineContents = new wchar_t[commandLine.Length + 2];
   memset(commandLineContents, 0, commandLine.Length);
 
   /* read the command line */
@@ -160,11 +160,11 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable) {
     }
   }
 
-  hlp::buffer<wchar_t> nmbuffer(MAX_PATH);
-  DWORD len = GetProcessImageFileName(handle, nmbuffer, nmbuffer.size());
+  hlp::buffer<wchar_t> buffer(MAX_PATH);
+  DWORD len = GetProcessImageFileName(handle, buffer, static_cast<DWORD>(buffer.size()));
   if (len > 0) {
-    nmbuffer[len] = 0;
-    auto tmp = utf8::cvt<std::string>(std::wstring(nmbuffer.get()));
+    buffer[len] = 0;
+    auto tmp = utf8::cvt<std::string>(std::wstring(buffer.get()));
     entry.filename = tmp;
     std::size_t pos = tmp.find_last_of('\\');
     if (pos != std::string::npos)
@@ -200,7 +200,7 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable) {
           (userTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(userTime.dwLowDateTime);
       entry.kernel_time = entry.kernel_time_raw / 10000000;
       entry.user_time = entry.user_time_raw / 10000000;
-      entry.creation_time = str::format::filetime_to_time((creationTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) +
+      entry.creation_time = str::format::filetime_to_time(creationTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1) +
                                                           static_cast<unsigned long long>(creationTime.dwLowDateTime));
     }
 
@@ -230,8 +230,8 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable) {
       entry.QuotaPagedPoolUsage = vmc.QuotaPagedPoolUsage;
       entry.QuotaPeakNonPagedPoolUsage = vmc.QuotaPeakNonPagedPoolUsage;
       entry.QuotaNonPagedPoolUsage = vmc.QuotaNonPagedPoolUsage;
-      entry.PagefileUsage = vmc.PagefileUsage;
-      entry.PeakPagefileUsage = vmc.PeakPagefileUsage;
+      entry.PageFileUsage = vmc.PagefileUsage;
+      entry.PeakPageFileUsage = vmc.PeakPagefileUsage;
     }
     // 	KERNEL_USER_TIMES kut;
     // 	memset(&kut, 0x00, sizeof(kut));
@@ -253,12 +253,12 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable) {
   DWORD size;
   // Get the first module (the process itself)
   if (EnumProcessModules(handle, &hMod, sizeof(hMod), &size)) {
-    TCHAR buffer[MAX_FILENAME + 1];
-    if (!GetModuleFileNameEx(handle, hMod, reinterpret_cast<LPTSTR>(&buffer), MAX_FILENAME)) {
+    TCHAR buffer2[MAX_FILENAME + 1];
+    if (!GetModuleFileNameEx(handle, hMod, reinterpret_cast<LPTSTR>(&buffer2), MAX_FILENAME)) {
       CloseHandle(handle);
       throw nsclient::nsclient_exception("Failed to find name for: " + str::xtos(pid) + ": " + error::lookup::last_error());
     } else {
-      std::wstring path = buffer;
+      std::wstring path = buffer2;
       entry.filename = utf8::cvt<std::string>(path);
       std::wstring::size_type pos = path.find_last_of(_T("\\"));
       if (pos != std::wstring::npos) {
@@ -280,7 +280,7 @@ process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool d
   std::list<process_info> ret;
   auto *dwPIDs = new DWORD[buffer_size + 1];
   DWORD cbNeeded = 0;
-  BOOL OK = EnumProcesses(dwPIDs, buffer_size * sizeof(DWORD), &cbNeeded);
+  const BOOL OK = EnumProcesses(dwPIDs, buffer_size * sizeof(DWORD), &cbNeeded);
   if (cbNeeded >= DEFAULT_BUFFER_SIZE * sizeof(DWORD)) {
     delete[] dwPIDs;
     if (error_interface != nullptr) error_interface->report_debug("Need larger buffer: " + str::xtos(buffer_size));
@@ -314,7 +314,7 @@ process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool d
         if (filename.length() >= 9 && boost::algorithm::iequals(filename.substr(0, 9), "NTVDM.EXE")) {
           find_16bit_container container{};
           container.target = &ret;
-          container.pid = entry.pid;
+          container.pid = entry.pid.get();
           windows::winapi::VDMEnumTaskWOWEx(container.pid, (windows::winapi::tTASKENUMPROCEX)&Enum16Proc, reinterpret_cast<LPARAM>(&container));
         }
       }
@@ -347,9 +347,9 @@ process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool d
 }
 
 typedef std::map<DWORD, process_info> process_map;
-process_map get_process_data(bool ignore_unreadable, error_reporter *error_interface, unsigned int buffer_size = DEFAULT_BUFFER_SIZE) {
+process_map get_process_data(bool ignore_unreadable, error_reporter *error_interface, const unsigned int buffer_size = DEFAULT_BUFFER_SIZE) {
   process_map ret;
-  auto dwPIDs = new DWORD[buffer_size + 1];
+  const auto dwPIDs = new DWORD[buffer_size + 1];
   DWORD cbNeeded = 0;
   const BOOL OK = EnumProcesses(dwPIDs, buffer_size * sizeof(DWORD), &cbNeeded);
   if (cbNeeded >= DEFAULT_BUFFER_SIZE * sizeof(DWORD)) {
@@ -414,7 +414,7 @@ process_list enumerate_processes_delta(bool ignore_unreadable, error_reporter *e
     idle_time =
         (idleTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(idleTime.dwLowDateTime) - idle_time;
   }
-  const long long total_time = kernel_time + user_time + idle_time;
+  const unsigned long long total_time = kernel_time + user_time + idle_time;
 
   process_map p2 = get_process_data(ignore_unreadable, error_interface);
   for (const auto &v1 : p1) {

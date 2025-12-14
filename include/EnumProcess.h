@@ -19,35 +19,38 @@
 
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN  // Exclude rarely-used stuff from Windows headers
-#include <Windows.h>
+#include <win/windows.hpp>
 
 #include <boost/shared_ptr.hpp>
 #include <list>
 #include <str/xtos.hpp>
+#include <str/format.hpp>
 #include <string>
+#include <utility>
 
 #define DEFAULT_BUFFER_SIZE 4096
 
 namespace process_helper {
+template<class T>
 struct int_var {
-  long long value;
+  T value;
   int_var() : value(0) {}
-  long long get() const { return value; }
-  int_var &operator=(const long long v) {
+  T get() const { return value; }
+  int_var &operator=(const T v) {
     value = v;
     return *this;
   }
-  operator long long() const { return value; }
-  int_var &operator+=(long long other) {
+  // ReSharper disable once CppNonExplicitConversionOperator
+  operator T() const { return value; }
+  int_var &operator+=(T other) {
     value += other;
     return *this;
   }
-  int_var &operator-=(long long other) {
+  int_var &operator-=(T other) {
     value -= other;
     return *this;
   }
-  void delta(long long previous, long long total) {
+  void delta(T previous, T total) {
     if (total == 0) {
       value = 0;
     } else {
@@ -55,6 +58,9 @@ struct int_var {
     }
   }
 };
+typedef int_var<long long> ll_var;
+typedef int_var<unsigned long long> ull_var;
+
 struct bool_var {
   bool value;
   bool_var() : value(false) {}
@@ -63,26 +69,26 @@ struct bool_var {
     value = v;
     return *this;
   }
+  // ReSharper disable once CppNonExplicitConversionOperator
   operator bool() const { return value; }
 };
 struct string_var {
   std::string value;
-  string_var() {}
-  string_var(const std::string &s) : value(s) {}
+  string_var() = default;
+  explicit string_var(std::string s) : value(std::move(s)) {}
   std::string get() const { return value; }
   string_var &operator=(const std::string &v) {
     value = v;
     return *this;
   }
+  // ReSharper disable once CppNonExplicitConversionOperator
   operator std::string() const { return value; }
 };
 
-#define STR_GETTER(name) \
-  std::string get_##name() const { return name; }
-#define INT_GETTER(name) \
-  long long get_##name() const { return name; }
-#define BOL_GETTER(name) \
-  bool get_##name() const { return name; }
+#define STR_GETTER(name) std::string get_##name() const { return (name).get(); }
+#define INT_GETTER(name) long long get_##name() const { return (name).get(); }
+#define BOL_GETTER(name) bool get_##name() const { return (name).get(); }
+#define HUMAN_SIZE_GETTER(name) std::string get_##name##_human() const { return str::format::format_byte_units((name).get()); }
 
 struct process_info {
   string_var filename;
@@ -92,27 +98,27 @@ struct process_info {
   STR_GETTER(command_line);
   STR_GETTER(exe);
 
-  int_var pid;
+  int_var<DWORD> pid;
   INT_GETTER(pid);
 
-  bool started;
+  bool started{};
   bool_var is_new;
   bool_var hung;
   bool_var wow64;
   bool_var has_error;
   bool_var unreadable;
   string_var error;
-  BOL_GETTER(started);
+  bool get_started() const { return started; }
   BOL_GETTER(hung);
   BOL_GETTER(wow64);
   BOL_GETTER(has_error);
   BOL_GETTER(unreadable);
   STR_GETTER(error);
 
-  process_info() {}
-  process_info(const std::string s) : exe(s), started(false) {}
+  process_info() = default;
+  explicit process_info(const std::string &s) : exe(s) {}
 
-  std::string show() const { return filename.get() + ", " + command_line.get() + ", pid: " + str::xtos(pid) + ", state: " + get_state_s(); }
+  std::string show() const { return filename.get() + ", " + command_line.get() + ", pid: " + str::xtos(pid.get()) + ", state: " + get_state_s(); }
 
   std::string get_state_s() const {
     if (has_error) return "error";
@@ -128,70 +134,76 @@ struct process_info {
     return "not running";
   }
   bool get_stopped() const { return !started; }
-  bool get_is_new() const { return is_new; }
+  bool get_is_new() const { return is_new.get(); }
 
   // Handles
-  int_var handleCount;
-  int_var gdiHandleCount;
-  int_var userHandleCount;
+  ll_var handleCount;
+  ll_var gdiHandleCount;
+  ll_var userHandleCount;
   INT_GETTER(handleCount);
   INT_GETTER(gdiHandleCount);
   INT_GETTER(userHandleCount);
 
-  // TImes
-  int_var creation_time;
-  int_var kernel_time;
-  unsigned long long user_time_raw;
-  unsigned long long kernel_time_raw;
-  int_var user_time;
-  int_var total_time;
+  // Times
+  ull_var creation_time;
+  ull_var kernel_time;
+  unsigned long long user_time_raw{};
+  unsigned long long kernel_time_raw{};
+  ull_var user_time;
+  ull_var total_time;
   INT_GETTER(creation_time);
   INT_GETTER(kernel_time);
   INT_GETTER(user_time);
   INT_GETTER(total_time);
 
   // IO Counters
-  int_var readOperationCount;
-  int_var writeOperationCount;
-  int_var otherOperationCount;
-  int_var readTransferCount;
-  int_var writeTransferCount;
-  int_var otherTransferCount;
+  ull_var readOperationCount;
+  ull_var writeOperationCount;
+  ull_var otherOperationCount;
+  ull_var readTransferCount;
+  ull_var writeTransferCount;
+  ull_var otherTransferCount;
 
   // Mem Counters
-  int_var PeakVirtualSize;
-  int_var VirtualSize;
-  int_var PageFaultCount;
-  int_var PeakWorkingSetSize;
-  int_var WorkingSetSize;
-  int_var QuotaPeakPagedPoolUsage;
-  int_var QuotaPagedPoolUsage;
-  int_var QuotaPeakNonPagedPoolUsage;
-  int_var QuotaNonPagedPoolUsage;
-  int_var PagefileUsage;
-  int_var PeakPagefileUsage;
+  ull_var PeakVirtualSize;
+  ull_var VirtualSize;
+  ull_var PageFaultCount;
+  ull_var PeakWorkingSetSize;
+  ull_var WorkingSetSize;
+  ull_var QuotaPeakPagedPoolUsage;
+  ull_var QuotaPagedPoolUsage;
+  ull_var QuotaPeakNonPagedPoolUsage;
+  ull_var QuotaNonPagedPoolUsage;
+  ull_var PageFileUsage;
+  ull_var PeakPageFileUsage;
   INT_GETTER(PeakVirtualSize);
+  HUMAN_SIZE_GETTER(PeakVirtualSize);
   INT_GETTER(VirtualSize);
+  HUMAN_SIZE_GETTER(VirtualSize);
   INT_GETTER(PageFaultCount);
   INT_GETTER(PeakWorkingSetSize);
+  HUMAN_SIZE_GETTER(PeakWorkingSetSize);
   INT_GETTER(WorkingSetSize);
+  HUMAN_SIZE_GETTER(WorkingSetSize);
   INT_GETTER(QuotaPeakPagedPoolUsage);
   INT_GETTER(QuotaPagedPoolUsage);
   INT_GETTER(QuotaPeakNonPagedPoolUsage);
   INT_GETTER(QuotaNonPagedPoolUsage);
-  INT_GETTER(PagefileUsage);
-  INT_GETTER(PeakPagefileUsage);
+  INT_GETTER(PageFileUsage);
+  HUMAN_SIZE_GETTER(PageFileUsage);
+  INT_GETTER(PeakPageFileUsage);
+  HUMAN_SIZE_GETTER(PeakPageFileUsage);
 
-  void set_error(std::string msg) {
+  void set_error(const std::string& msg) {
     has_error = true;
     error = msg;
   }
 
-  static const long long state_started = 1;
-  static const long long state_stopped = 0;
-  static const long long state_unreadable = -1;
-  static const long long state_hung = -2;
-  static const long long state_unknown = -10;
+  static constexpr long long state_started = 1;
+  static constexpr long long state_stopped = 0;
+  static constexpr long long state_unreadable = -1;
+  static constexpr long long state_hung = -2;
+  static constexpr long long state_unknown = -10;
 
   long long get_state_i() const {
     if (unreadable) return state_unreadable;
@@ -210,96 +222,97 @@ struct process_info {
 
   process_info &operator+=(const process_info &other) {
     // Handles
-    handleCount += other.handleCount;
-    gdiHandleCount += other.gdiHandleCount;
-    userHandleCount += other.userHandleCount;
+    handleCount += other.handleCount.get();
+    gdiHandleCount += other.gdiHandleCount.get();
+    userHandleCount += other.userHandleCount.get();
 
     // TImes
-    creation_time += other.creation_time;
-    kernel_time += other.kernel_time;
-    user_time += other.user_time;
+    creation_time += other.creation_time.get();
+    kernel_time += other.kernel_time.get();
+    user_time += other.user_time.get();
     kernel_time_raw += other.kernel_time_raw;
     user_time_raw += other.user_time_raw;
 
     // IO Counters
-    readOperationCount += other.readOperationCount;
-    writeOperationCount += other.writeOperationCount;
-    otherOperationCount += other.otherOperationCount;
-    readTransferCount += other.readTransferCount;
-    writeTransferCount += other.writeTransferCount;
-    otherTransferCount += other.otherTransferCount;
+    readOperationCount += other.readOperationCount.get();
+    writeOperationCount += other.writeOperationCount.get();
+    otherOperationCount += other.otherOperationCount.get();
+    readTransferCount += other.readTransferCount.get();
+    writeTransferCount += other.writeTransferCount.get();
+    otherTransferCount += other.otherTransferCount.get();
 
     // Mem Counters
-    PeakVirtualSize += other.PeakVirtualSize;
-    VirtualSize += other.VirtualSize;
-    PageFaultCount += other.PageFaultCount;
-    PeakWorkingSetSize += other.PeakWorkingSetSize;
-    WorkingSetSize += other.WorkingSetSize;
-    QuotaPeakPagedPoolUsage += other.QuotaPeakPagedPoolUsage;
-    QuotaPagedPoolUsage += other.QuotaPagedPoolUsage;
-    QuotaPeakNonPagedPoolUsage += other.QuotaPeakNonPagedPoolUsage;
-    QuotaNonPagedPoolUsage += other.QuotaNonPagedPoolUsage;
-    PagefileUsage += other.PagefileUsage;
-    PeakPagefileUsage += other.PeakPagefileUsage;
+    PeakVirtualSize += other.PeakVirtualSize.get();
+    VirtualSize += other.VirtualSize.get();
+    PageFaultCount += other.PageFaultCount.get();
+    PeakWorkingSetSize += other.PeakWorkingSetSize.get();
+    WorkingSetSize += other.WorkingSetSize.get();
+    QuotaPeakPagedPoolUsage += other.QuotaPeakPagedPoolUsage.get();
+    QuotaPagedPoolUsage += other.QuotaPagedPoolUsage.get();
+    QuotaPeakNonPagedPoolUsage += other.QuotaPeakNonPagedPoolUsage.get();
+    QuotaNonPagedPoolUsage += other.QuotaNonPagedPoolUsage.get();
+    PageFileUsage += other.PageFileUsage.get();
+    PeakPageFileUsage += other.PeakPageFileUsage.get();
 
     return *this;
   }
 
   process_info &operator-=(const process_info &other) {
     // Handles
-    handleCount -= other.handleCount;
-    gdiHandleCount -= other.gdiHandleCount;
-    userHandleCount -= other.userHandleCount;
+    handleCount -= other.handleCount.get();
+    gdiHandleCount -= other.gdiHandleCount.get();
+    userHandleCount -= other.userHandleCount.get();
 
     // TImes
-    creation_time -= other.creation_time;
-    kernel_time -= other.kernel_time;
-    user_time -= other.user_time;
+    creation_time -= other.creation_time.get();
+    kernel_time -= other.kernel_time.get();
+    user_time -= other.user_time.get();
     kernel_time_raw -= other.kernel_time_raw;
     user_time_raw -= other.user_time_raw;
 
     // IO Counters
-    readOperationCount -= other.readOperationCount;
-    writeOperationCount -= other.writeOperationCount;
-    otherOperationCount -= other.otherOperationCount;
-    readTransferCount -= other.readTransferCount;
-    writeTransferCount -= other.writeTransferCount;
-    otherTransferCount -= other.otherTransferCount;
+    readOperationCount -= other.readOperationCount.get();
+    writeOperationCount -= other.writeOperationCount.get();
+    otherOperationCount -= other.otherOperationCount.get();
+    readTransferCount -= other.readTransferCount.get();
+    writeTransferCount -= other.writeTransferCount.get();
+    otherTransferCount -= other.otherTransferCount.get();
 
     // Mem Counters
-    PeakVirtualSize -= other.PeakVirtualSize;
-    VirtualSize -= other.VirtualSize;
-    PageFaultCount -= other.PageFaultCount;
-    PeakWorkingSetSize -= other.PeakWorkingSetSize;
-    WorkingSetSize -= other.WorkingSetSize;
-    QuotaPeakPagedPoolUsage -= other.QuotaPeakPagedPoolUsage;
-    QuotaPagedPoolUsage -= other.QuotaPagedPoolUsage;
-    QuotaPeakNonPagedPoolUsage -= other.QuotaPeakNonPagedPoolUsage;
-    QuotaNonPagedPoolUsage -= other.QuotaNonPagedPoolUsage;
-    PagefileUsage -= other.PagefileUsage;
-    PeakPagefileUsage -= other.PeakPagefileUsage;
+    PeakVirtualSize -= other.PeakVirtualSize.get();
+    VirtualSize -= other.VirtualSize.get();
+    PageFaultCount -= other.PageFaultCount.get();
+    PeakWorkingSetSize -= other.PeakWorkingSetSize.get();
+    WorkingSetSize -= other.WorkingSetSize.get();
+    QuotaPeakPagedPoolUsage -= other.QuotaPeakPagedPoolUsage.get();
+    QuotaPagedPoolUsage -= other.QuotaPagedPoolUsage.get();
+    QuotaPeakNonPagedPoolUsage -= other.QuotaPeakNonPagedPoolUsage.get();
+    QuotaNonPagedPoolUsage -= other.QuotaNonPagedPoolUsage.get();
+    PageFileUsage -= other.PageFileUsage.get();
+    PeakPageFileUsage -= other.PeakPageFileUsage.get();
 
     return *this;
   }
 
-  void make_cpu_delta(unsigned long long kernel, unsigned long long user, unsigned long long total) {
-    if (kernel > 0) kernel_time = kernel_time_raw * 100 / kernel;
-    if (user > 0) user_time = user_time_raw * 100 / user;
-    if (total > 0) total_time = (kernel_time_raw + user_time_raw) * 100 / total;
+  void make_cpu_delta(const unsigned long long kernel, const unsigned long long user, const unsigned long long total) {
+    if (kernel > 0) kernel_time = kernel_time_raw * 100ull / kernel;
+    if (user > 0) user_time = user_time_raw * 100ull / user;
+    if (total > 0) total_time = (kernel_time_raw + user_time_raw) * 100ull / total;
   }
-  static boost::shared_ptr<process_helper::process_info> get_total();
+  static boost::shared_ptr<process_info> get_total();
 
-  std::string to_string() { return exe.get(); }
+  std::string to_string() const { return exe.get(); }
 };
 
 struct error_reporter {
+  virtual ~error_reporter() = default;
   virtual void report_error(std::string error) = 0;
   virtual void report_warning(std::string error) = 0;
   virtual void report_debug(std::string error) = 0;
 };
 
 typedef std::list<process_info> process_list;
-process_list enumerate_processes(bool ignore_unreadable = false, bool find_16bit = false, bool deep_scan = true, error_reporter *error_interface = NULL,
+process_list enumerate_processes(bool ignore_unreadable = false, bool find_16bit = false, bool deep_scan = true, error_reporter *error_interface = nullptr,
                                  unsigned int buffer_size = DEFAULT_BUFFER_SIZE);
 process_list enumerate_processes_delta(bool ignore_unreadable, error_reporter *error_interface);
 
