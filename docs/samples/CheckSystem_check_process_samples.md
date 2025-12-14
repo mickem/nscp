@@ -33,7 +33,7 @@ Performance data: 'explorer.exe ws_size'=73M;70;0
 
 ```
 check_process process=explorer.exe "warn=working_set > 70m" "detail-syntax=${exe} ws:${working_set}, handles: ${handles}, user time:${user}s"
-explorer.exe ws:77271040, handles: 800, user time:107s
+WARNING: Explorer.EXE ws:431.812MB, handles: 5639, user time:2535s
 Performance data: 'explorer.exe ws_size'=73M;70;0
 ```
 

@@ -61,17 +61,17 @@ filter_obj_handler::filter_obj_handler() {
     ("handles", [](auto obj, auto context) {return obj->get_handleCount(); }, "Number of handles").add_perf("", "", " handle count")
     ("gdi_handles", [](auto obj, auto context) {return obj->get_gdiHandleCount(); }, "Number of handles").add_perf("", "", " GDI handle count")
     ("user_handles", [](auto obj, auto context) {return obj->get_userHandleCount(); }, "Number of handles").add_perf("", "", " USER handle count")
-    ("peak_virtual", parsers::where::type_size, [](auto obj, auto context) {return obj->get_PeakVirtualSize(); }, "Peak virtual size in bytes").add_scaled_byte(std::string(""), " pv_size")
-    ("virtual", parsers::where::type_size,[](auto obj, auto context) {return obj->get_VirtualSize(); }, "Virtual size in bytes").add_scaled_byte(std::string(""), " v_size")
+    ("peak_virtual", parsers::where::type_size, [](auto obj, auto context) {return obj->get_PeakVirtualSize(); }, "Peak virtual size in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " pv_size")
+    ("virtual", parsers::where::type_size,[](auto obj, auto context) {return obj->get_VirtualSize(); }, "Virtual size in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " v_size")
     ("page_fault", [](auto obj, auto context) {return obj->get_PageFaultCount(); }, "Page fault count").add_perf("", "", " pf_count")
-    ("peak_working_set", parsers::where::type_size, [](auto obj, auto context) {return obj->get_PeakWorkingSetSize(); }, "Peak working set in bytes").add_scaled_byte(std::string(""), " pws_size")
-    ("working_set", parsers::where::type_size, [](auto obj, auto context) {return obj->get_WorkingSetSize(); }, "Working set in bytes").add_scaled_byte(std::string(""), " ws_size")
+    ("peak_working_set", parsers::where::type_size, [](auto obj, auto context) {return obj->get_PeakWorkingSetSize(); }, "Peak working set in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " pws_size")
+    ("working_set", parsers::where::type_size, [](auto obj, auto context) {return obj->get_WorkingSetSize(); }, "Working set in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " ws_size")
     // 			("qouta", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaPeakPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
     // 			("virtual_size", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
     // 			("virtual_size", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaPeakNonPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
     // 			("virtual_size", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaNonPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
-    ("peak_pagefile", parsers::where::type_size,[](auto obj, auto context) {return obj->get_PagefileUsage(); }, "Page file usage in bytes").add_scaled_byte(std::string(""), " ppf_use")
-    ("pagefile", parsers::where::type_size, [](auto obj, auto context) {return obj->get_PeakPagefileUsage(); }, "Peak page file use in bytes").add_scaled_byte(std::string(""), " pf_use")
+    ("peak_pagefile", parsers::where::type_size,[](auto obj, auto context) {return obj->get_PageFileUsage(); }, "Page file usage in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " ppf_use")
+    ("pagefile", parsers::where::type_size, [](auto obj, auto context) {return obj->get_PeakPageFileUsage(); }, "Peak page file use in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " pf_use")
 
     ("creation", parsers::where::type_date, [](auto obj, auto context) {return obj->get_creation_time(); }, "Creation time").add_perf("", "", " creation")
     ("kernel", [](auto obj, auto context) {return obj->get_kernel_time(); }, "Kernel time in seconds").add_perf("", "", " kernel")
@@ -83,6 +83,12 @@ filter_obj_handler::filter_obj_handler() {
   // clang-format on
 
   registry_.add_human_string("state", &filter_obj::get_state_s, "The current state (started, stopped hung)");
+  registry_.add_human_string("peak_virtual", &filter_obj::get_PeakVirtualSize_human, "");
+  registry_.add_human_string("virtual", &filter_obj::get_VirtualSize_human, "");
+  registry_.add_human_string("peak_working_set", &filter_obj::get_PeakWorkingSetSize_human, "");
+  registry_.add_human_string("working_set", &filter_obj::get_WorkingSetSize_human, "");
+  registry_.add_human_string("peak_pagefile", &filter_obj::get_PageFileUsage_human, "");
+  registry_.add_human_string("pagefile", &filter_obj::get_PeakPageFileUsage_human, "");
 
   registry_.add_converter()(type_custom_state, &parse_state);
 }
@@ -229,7 +235,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   if (!filter_helper.parse_options()) return;
 
   if (processes.empty()) {
-    processes.push_back("*");
+    processes.emplace_back("*");
   }
   if (!filter_helper.build_filter(filter)) return;
 
@@ -262,7 +268,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   boost::shared_ptr<process_helper::process_info> total_obj;
   if (total) total_obj = process_helper::process_info::get_total();
 
-  for (const std::string proc : procs) {
+  for (const std::string& proc : procs) {
     boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(proc));
     modern_filter::match_result ret = filter.match(record);
     if (total_obj && ret.matched_filter) total_obj->operator+=(*record);
