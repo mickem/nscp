@@ -26,6 +26,11 @@ else(USE_STATIC_RUNTIME)
     set(RUNTIME "dynamic")
 endif(USE_STATIC_RUNTIME)
 
+if(CHECK_NSCLIENT_MISSING)
+    set(HAS_NSCLIENT "false")
+else()
+    set(HAS_NSCLIENT "true")
+endif()
 # GET_FILENAME_COMPONENT(_tmp_FILE WixUI_en-us.wxl ABSOLUTE)
 
 set(LOCALIZATIONS en-us)
@@ -52,6 +57,7 @@ endif()
 set(WIX_CANDLE_FLAGS
     -dboost=true
     -darch=${ARCH}
+    -dhas_client=${HAS_NSCLIENT}
     -arch
     ${ARCH}
     -dVersion.Major=${VERSION_SERIES}

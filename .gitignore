@@ -44,3 +44,6 @@ cmake-build
 build.cmake
 
 *.tmp
+
+
+rust/*/target

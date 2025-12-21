@@ -77,6 +77,11 @@ jobs:
             SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
             SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
             set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
+            set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}")
+
+    - uses: actions/download-artifact@v4
+      with:
+        name: check_nsclient-linux-${{ inputs.architecture }}
 
     - name: CMake (NSCP)
       working-directory: tmp/nscp

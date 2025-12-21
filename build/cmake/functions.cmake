@@ -83,49 +83,6 @@ macro(copy_single_file_755 _TARGET_LIST src destDir)
     install(FILES ${target_file} DESTINATION ${INSTALL_FILES_BASE}${destDir})
 endmacro(copy_single_file_755)
 
-macro(add_nscp_py_test name script)
-    add_test(
-        "${name}"
-        nscp
-        unit
-        --language
-        python
-        --script
-        ${script}
-    )
-endmacro(add_nscp_py_test)
-macro(add_nscp_py_test_case name script case)
-    add_test(
-        "${name}_${case}"
-        nscp
-        unit
-        --language
-        python
-        --script
-        ${script}
-        --case
-        ${case}
-    )
-endmacro(add_nscp_py_test_case)
-
-macro(add_nscp_lua_test name script)
-    if(LUA_FOUND)
-        add_test(
-            "${name}"
-            nscp
-            unit
-            --language
-            lua
-            --script
-            ${script}.lua
-            --log
-            error
-        )
-    else(LUA_FOUND)
-        message(STATUS "Skipping test ${name} since lua is not available")
-    endif(LUA_FOUND)
-endmacro(add_nscp_lua_test)
-
 macro(CREATE_MODULE _SRCS _SOURCE _TARGET)
     include_directories(${_TARGET})
     add_custom_command(

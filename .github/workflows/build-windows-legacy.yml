@@ -193,6 +193,7 @@ jobs:
             SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
             set(GTEST_ROOT "${{ steps.google-test.outputs.path_unix }}")
             set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
+            set(CHECK_NSCLIENT_MISSING TRUE)
 
     - name: Make python dist
       working-directory: tmp/nscp

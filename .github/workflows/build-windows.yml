@@ -1,4 +1,4 @@
-name: Build Windows
+name: Build Windows Server
 
 on:
   workflow_call:
@@ -199,12 +199,18 @@ jobs:
             SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
             set(GTEST_ROOT "${{ steps.google-test.outputs.path_unix }}")
             set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
+            set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/tmp")
 
     - name: Make python dist
       working-directory: tmp/nscp
       run: |
         & "$env:Python_ROOT_DIR\python" ..\..\build\python\mk_pyzip.py --source ${{ env.Python_ROOT_DIR }}
       shell: pwsh
+
+    - uses: actions/download-artifact@v4
+      with:
+        name: check_nsclient-windows-${{ inputs.architecture }}
+        path: tmp
 
     - name: CMake (installer_lib)
       working-directory: tmp/installer_lib
@@ -226,6 +232,11 @@ jobs:
       run: |
         msbuild NSCP.sln /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }}
 
+    - name: Run tests
+      working-directory: tmp/nscp
+      run: |
+        ctest --output-on-failure -C Release
+
     - name: Sign binaries
       uses: ./.github/actions/sign-windows-binaries
       with:
@@ -237,24 +248,6 @@ jobs:
       working-directory: tmp/nscp
       run: |
         msbuild installers\installer-NSCP\installer_NSCP.vcxproj /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }} /p:BuildProjectReferences=false
-
-    - name: Run tests
-      working-directory: tmp/nscp
-      run: |
-        ctest --output-on-failure -C Release
-
-    - name: Run rest tests
-      uses: ./.github/actions/rest-test
-
-    # TODO: Disabled for now due to issues with docker on windows runners
-    #- name: Run NRPE tests
-    #  working-directory: tmp/nscp
-    #  run: |
-    #    ..\..\tests\nrpe\run-test.bat
-
-    - name: Run installer tests
-      if: ${{ inputs.architecture == 'x64' }}
-      uses: ./.github/actions/installer-test
 
     - name: Post process files
       uses: ./.github/actions/post-process-windows-binaries

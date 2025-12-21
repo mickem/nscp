@@ -1375,7 +1375,7 @@ Performance data: 'explorer.exe ws_size'=73M;70;0
 
 ```
 check_process process=explorer.exe "warn=working_set > 70m" "detail-syntax=${exe} ws:${working_set}, handles: ${handles}, user time:${user}s"
-explorer.exe ws:77271040, handles: 800, user time:107s
+WARNING: Explorer.EXE ws:431.812MB, handles: 5639, user time:2535s
 Performance data: 'explorer.exe ws_size'=73M;70;0
 ```
 
@@ -1545,10 +1545,10 @@ This call will measure values and then sleep for 2 second and then measure again
 | legacy_state     | Get process status (for legacy use via check_nt only)   |
 | new              | Process is new (can inly be used for real-time filters) |
 | page_fault       | Page fault count                                        |
-| pagefile         | Peak page file use in bytes                             |
-| peak_pagefile    | Page file usage in bytes                                |
-| peak_virtual     | Peak virtual size in bytes                              |
-| peak_working_set | Peak working set in bytes                               |
+| pagefile         | Peak page file use in bytes (g,m,k,b)                   |
+| peak_pagefile    | Page file usage in bytes (g,m,k,b)                      |
+| peak_virtual     | Peak virtual size in bytes (g,m,k,b)                    |
+| peak_working_set | Peak working set in bytes (g,m,k,b)                     |
 | pid              | Process id                                              |
 | started          | Process is started                                      |
 | state            | The current state (started, stopped hung)               |
@@ -1556,8 +1556,8 @@ This call will measure values and then sleep for 2 second and then measure again
 | time             | User-kernel time in seconds                             |
 | user             | User time in seconds                                    |
 | user_handles     | Number of handles                                       |
-| virtual          | Virtual size in bytes                                   |
-| working_set      | Working set in bytes                                    |
+| virtual          | Virtual size in bytes (g,m,k,b)                         |
+| working_set      | Working set in bytes (g,m,k,b)                          |
 
 **Common options for all checks:**
 
