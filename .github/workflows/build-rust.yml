@@ -1,0 +1,107 @@
+name: Build Rust Client
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        description: 'Operating System'
+        required: true
+        type: string
+      arch:
+        description: 'Architecture'
+        required: true
+        type: string
+      version:
+        type: string
+        description: 'Version to build'
+        required: true
+    secrets:
+      AZURE_TENANT_ID:
+        description: 'Azure tenant ID'
+        required: true
+      AZURE_CLIENT_ID:
+        description: 'Azure client ID'
+        required: true
+      AZURE_CLIENT_SECRET:
+        description: 'Azure client secret'
+        required: true
+
+jobs:
+  build:
+    name: Build ${{ inputs.os }} ${{ inputs.arch }}
+    runs-on: ${{ inputs.os }}
+    defaults:
+      run:
+        working-directory: rust/nscp_client
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Calculate Target
+        id: target
+        shell: bash
+        run: |
+          if [[ "${{ inputs.os }}" == "windows-latest" ]]; then
+            echo "os_name=windows" >> $GITHUB_OUTPUT
+            echo "file_ext=.exe" >> $GITHUB_OUTPUT
+            if [[ "${{ inputs.arch }}" == "x64" ]]; then
+              echo "triple=x86_64-pc-windows-msvc" >> $GITHUB_OUTPUT
+            else
+              echo "triple=i686-pc-windows-msvc" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "os_name=linux" >> $GITHUB_OUTPUT
+            echo "file_ext=" >> $GITHUB_OUTPUT
+            if [[ "${{ inputs.arch }}" == "x64" ]]; then
+              echo "triple=x86_64-unknown-linux-gnu" >> $GITHUB_OUTPUT
+            else
+              echo "triple=i686-unknown-linux-gnu" >> $GITHUB_OUTPUT
+              sudo apt-get update
+              sudo apt-get install -y gcc-multilib
+            fi
+          fi
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ steps.target.outputs.triple }}
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/nscp_client/target
+          key: ${{ runner.os }}-${{ inputs.arch }}-cargo-${{ hashFiles('rust/nscp_client/Cargo.lock') }}
+
+      - name: Set Version
+        shell: bash
+        run: sed -i 's/^version = ".*"/version = "${{ inputs.version }}"/' Cargo.toml
+
+      - name: Build
+        run: cargo build --release --target ${{ steps.target.outputs.triple }}
+
+      - name: Test
+        run: cargo test --release --target ${{ steps.target.outputs.triple }}
+
+      - name: Sign Windows Binary
+        if: inputs.os == 'windows-latest'
+        uses: azure/trusted-signing-action@v0.5.1
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: https://neu.codesigning.azure.net
+          trusted-signing-account-name: nsclient
+          certificate-profile-name: nsclient
+          files: ${{ github.workspace }}/rust/nscp_client/target/${{ steps.target.outputs.triple }}/release/check_nsclient.exe
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: check_nsclient-${{ steps.target.outputs.os_name }}-${{ inputs.arch }}
+          path: rust/nscp_client/target/${{ steps.target.outputs.triple }}/release/check_nsclient${{ inputs.os == 'windows-latest' && '.exe' || '' }}

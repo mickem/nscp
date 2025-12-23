@@ -47,6 +47,11 @@
             <RemoveFolder Id="RemoveMenuShortcuts" Directory="ProgramMenuDir" On="uninstall" />
             <RemoveFolder Id="RemoveSecurityFolder" Directory="INSTALLLOCATION_SECURITY" On="uninstall" />
           </Component>
+          <?if "$(var.has_client)" = "true"?>
+            <Component Id="CheckNSClient" Guid="73a5c58c-4aab-424b-81dc-7a9f742b8fce" Win64="$(var.Win64)">
+              <File Id="CheckNSClientExe" Name="check_nsclient.exe" DiskId="1" Source="$(var.Source)/check_nsclient.exe" Vital="no" />
+            </Component>
+          <?endif?>
           <Component Id="FWException" Guid="7A02C807-749C-4F10-B7C3-8B50BFA74204" Win64="$(var.Win64)">
             <fire:FirewallException Id="FWException" Program="[#NSClientEXE]" Name="$(var.App.Title) Monitoring Agent" Scope="any" IgnoreFailure="yes" />
             <RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="firewall exception" Type="integer" Value="1" KeyPath="yes"/>
@@ -191,6 +196,9 @@
 							 Display="expand"  Level="1" ConfigurableDirectory="INSTALLLOCATION" Absent="disallow">
       <Feature Id="MainProgram" Title="Program" Description="Main Service" Level="1" Absent="disallow">
         <ComponentRef Id="MainClient" />
+        <?if "$(var.has_client)" = "true"?>
+          <ComponentRef Id="CheckNSClient" />
+        <?endif?>
         <ComponentRef Id="RandomFiles" />
         <ComponentRef Id="NSCPEXE" />
         <ComponentRef Id="GeneratedCerts" />

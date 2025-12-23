@@ -7,8 +7,19 @@ on:
 jobs:
   get-version:
     uses: ./.github/workflows/get-version.yml
-  build-x64:
+  build-client-x64:
     needs: get-version
+    uses: ./.github/workflows/build-rust.yml
+    with:
+      os: windows-latest
+      arch: x64
+      version: ${{ needs.get-version.outputs.version }}
+    secrets:
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  build-server-x64:
+    needs: [get-version, build-client-x64]
     uses: ./.github/workflows/build-windows.yml
     with: 
       architecture: x64
@@ -17,8 +28,29 @@ jobs:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-  build-x86:
+  integration-tests-x64:
+    needs: [get-version, build-server-x64]
+    uses: ./.github/workflows/run-windows-tests.yml
+    with:
+      architecture: x64
+      version: ${{ needs.get-version.outputs.version }}
+    secrets:
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  build-client-x86:
     needs: get-version
+    uses: ./.github/workflows/build-rust.yml
+    with:
+      os: windows-latest
+      arch: x86
+      version: ${{ needs.get-version.outputs.version }}
+    secrets:
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  build-server-x86:
+    needs: [get-version, build-client-x86]
     uses: ./.github/workflows/build-windows.yml
     with:
       architecture: x86
@@ -37,8 +69,19 @@ jobs:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-  build-ubuntu-x64:
+  build-client-ubuntu-x64:
     needs: get-version
+    uses: ./.github/workflows/build-rust.yml
+    with:
+      os: ubuntu-latest
+      arch: x64
+      version: ${{ needs.get-version.outputs.version }}
+    secrets:
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  build-ubuntu-x64:
+    needs: [get-version, build-client-ubuntu-x64]
     uses: ./.github/workflows/build-linux.yml
     with:
       architecture: x64

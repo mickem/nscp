@@ -279,7 +279,16 @@ message(STATUS "Copying redist libraries to target")
 message(STATUS " + ${_NAME}")
 
 copy_file(${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME} ${PROJECT_BINARY_DIR})
-install(FILES "${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME}" DESTINATION .)
+install(FILES "${PROJECT_BINARY_DIR}/${_NAME}" DESTINATION .)
+if(NOT CHECK_NSCLIENT_MISSING)
+    if(WIN32)
+        set(CHECK_NSCLIENT_FILENAME "check_nsclient.exe")
+    else()
+        set(CHECK_NSCLIENT_FILENAME "check_nsclient")
+    endif()
+copy_file(${CHECK_NSCLIENT_LOCATION}/${CHECK_NSCLIENT_FILENAME} ${PROJECT_BINARY_DIR})
+install(FILES "${CHECK_NSCLIENT_LOCATION}/${CHECK_NSCLIENT_FILENAME}" DESTINATION .)
+endif()
 
 if(USE_STATIC_RUNTIME)
 else(USE_STATIC_RUNTIME)
@@ -977,46 +986,6 @@ add_subdirectory("docs")
 
 if(WIN32)
     load_sections(ALL_INSTALLERS_NAMES "installers/*/CMakeLists.txt" "Installers")
-endif(WIN32)
-
-# ##############################################################################
-#
-# CTest setup and add testcases
-#
-# ##############################################################################
-foreach(
-    case
-    "none"
-    "xor"
-    "des"
-    "3des"
-    "cast128"
-    "xtea"
-    "blowfish"
-    "twofish"
-    "rc2"
-    "aes"
-    "aes256"
-    "aes192"
-    "aes128"
-    "serpent"
-    "gost"
-    "3way"
-)
-    add_nscp_py_test_case(nsca test_nsca ${case})
-endforeach()
-add_nscp_py_test(nrpe test_nrpe)
-add_nscp_lua_test(lua_nrpe test_nrpe)
-add_nscp_py_test(python test_python)
-add_nscp_py_test(log_file test_log_file)
-add_nscp_py_test(external_script test_external_script)
-add_nscp_py_test(scheduler test_scheduler)
-if(WIN32)
-    # Disabled as is is not a unit test per see, since it requires extenal non
-    # mocked stimula add_nscp_py_test(eventlog test_eventlog) notepad no longer
-    # exists add_nscp_py_test(w32_system test_w32_system)
-    add_nscp_py_test(w32_system test_w32_file)
-    add_nscp_py_test(w32_taskScheduler test_w32_schetask)
 endif(WIN32)
 
 # ##############################################################################
