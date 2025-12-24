@@ -88,7 +88,7 @@ jobs:
       version: ${{ needs.get-version.outputs.version }}
 
   release:
-    needs: [get-version, build-x64, build-x86, build-x86-static, build-ubuntu-x64]
+    needs: [get-version, build-server-x64, build-server-<x86, build-x86-static, build-ubuntu-x64]
     uses: ./.github/workflows/release.yml
     with:
       version: ${{ needs.get-version.outputs.version }}
