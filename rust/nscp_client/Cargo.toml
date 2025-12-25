@@ -14,3 +14,7 @@ serde_yaml = "0.9.33"
 tabled = "0.20.0"
 anyhow = "1.0.100"
 csv = "1.4.0"
+indexmap = { version = "2.2.6", features = ["serde"] }
+
+[dev-dependencies]
+wiremock = "0.6.5"

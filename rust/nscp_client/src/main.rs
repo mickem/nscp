@@ -4,7 +4,7 @@ mod rendering;
 
 use crate::cli::{Cli, Commands};
 use crate::nsclient::route_ns_client;
-use crate::rendering::Rendering;
+use crate::rendering::{PrintRender, Rendering};
 use clap::Parser;
 
 #[tokio::main]
@@ -18,26 +18,12 @@ async fn main() -> anyhow::Result<()> {
 
     // Handle Subcommands
     match &cli.command {
-        Commands::NSClient {
-            command,
-            url,
-            base_path,
-            timeout_s,
-            user_agent,
-            insecure,
-            username,
-            password,
-        } => {
+        Commands::NSClient(args) => {
+            let output_sink = Box::new(PrintRender::new());
+
             route_ns_client(
-                Rendering::new(cli.output, cli.output_style, cli.output_long),
-                command,
-                url,
-                base_path,
-                timeout_s,
-                user_agent,
-                insecure,
-                username,
-                password,
+                Rendering::new(cli.output, cli.output_style, cli.output_long, output_sink),
+                args,
             )
             .await?
         }

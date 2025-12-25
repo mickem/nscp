@@ -1,43 +1,46 @@
 mod api;
 mod messages;
+mod module_commands;
+mod query_commands;
 
-use crate::cli::{ModulesCommand, NSClientCommands};
+use crate::cli::{NSClientCommandOptions, NSClientCommands};
 use crate::nsclient::api::ApiClient;
+use crate::nsclient::module_commands::route_module_commands;
+use crate::nsclient::query_commands::route_query_commands;
 use crate::rendering::Rendering;
 use std::time::Duration;
 
-pub async fn route_ns_client(
-    output: Rendering,
-    command: &NSClientCommands,
-    url: &str,
-    base_path: &str,
-    timeout_s: &u64,
-    user_agent: &str,
-    insecure: &bool,
-    username: &String,
-    password: &String,
-) -> anyhow::Result<()> {
+fn preprocess_url(url: &str, base_path: &str) -> String {
     let url = url.trim_end_matches('/');
     let base_path = base_path.trim_matches('/');
 
     let base_url = format!("{}/{}", url, base_path);
-    let base_url = if base_url.ends_with("/") {
+    if base_url.ends_with("/") {
         base_url
     } else {
         format!("{base_url}/")
-    };
+    }
+}
+pub async fn route_ns_client(
+    output: Rendering,
+    args: &NSClientCommandOptions,
+) -> anyhow::Result<()> {
+    let url = preprocess_url(&args.url, &args.base_path);
 
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(timeout_s.to_owned()))
-        .user_agent(user_agent)
-        .danger_accept_invalid_certs(insecure.to_owned());
+        .timeout(Duration::from_secs(args.timeout_s.to_owned()))
+        .user_agent(&args.user_agent)
+        .danger_accept_invalid_certs(args.insecure.to_owned());
 
-    let api = ApiClient::new(client, base_url, username.clone(), password.clone())?;
+    let api = ApiClient::new(client, &url, &args.username, &args.password)?;
 
-    match command {
+    match &args.command {
         NSClientCommands::Ping {} => match api.ping().await {
             Ok(item) => {
-                println!("Successfully pinged {} version {}", item.name, item.version);
+                output.print(&format!(
+                    "Successfully pinged {} version {}",
+                    item.name, item.version
+                ));
                 Ok(())
             }
             Err(e) => anyhow::bail!("Failed to ping server: {:#}", e),
@@ -52,76 +55,330 @@ pub async fn route_ns_client(
             }
             Err(e) => anyhow::bail!("Failed to fetch version from: {:#}", e),
         },
-        NSClientCommands::Modules { command } => match &command {
-            ModulesCommand::List { all } => match api.list_modules(all).await {
-                Ok(modules) => {
-                    if output.is_flat() {
-                        let flat_modules = modules.iter().map(|m| m.to_flat()).collect::<Vec<_>>();
-                        output
-                            .render_flat_list(&flat_modules, &["description", "name", "plugin_id"])
-                    } else {
-                        output.render_nested_list(&modules)
-                    }
-                }
-                Err(e) => anyhow::bail!("Failed to fetch modules from: {:#}", e),
-            },
-            &ModulesCommand::Show { id } => match api.get_module(&id).await {
-                Ok(module) => {
-                    if output.is_flat() {
-                        output.render_flat_single(&module.to_dict())
-                    } else {
-                        output.render_nested_single(&module)
-                    }
-                }
-                Err(e) => anyhow::bail!("Failed to fetch module {id} from: {:#}", e),
-            },
-            &ModulesCommand::Load { id } => match api.module_command(&id, "load").await {
-                Ok(()) => {
-                    println!(
-                        "Successfully unloaded module {}, you can now interact with it but next time the service is restarted it will be unloaded",
-                        id
-                    );
-                    Ok(())
-                }
-                Err(e) => anyhow::bail!("Failed to load module {id} from: {:#}", e),
-            },
-            &ModulesCommand::Unload { id } => match api.module_command(&id, "unload").await {
-                Ok(()) => {
-                    println!("Successfully unloaded module {}", id);
-                    Ok(())
-                }
-                Err(e) => anyhow::bail!("Failed to unload module {id} from: {:#}", e),
-            },
-            &ModulesCommand::Enable { id } => match api.module_command(&id, "enable").await {
-                Ok(()) => {
-                    println!(
-                        "Successfully enabled module {}, this module will be available if you restart the service or if you load it",
-                        id
-                    );
-                    Ok(())
-                }
-                Err(e) => anyhow::bail!("Failed to enable module {id} from: {:#}", e),
-            },
-            &ModulesCommand::Disable { id } => match api.module_command(&id, "disable").await {
-                Ok(()) => {
-                    println!(
-                        "Successfully disabled module {}, this module will not be available if you restart the service",
-                        id
-                    );
-                    Ok(())
-                }
-                Err(e) => anyhow::bail!("Failed to disabled module {id} from: {:#}", e),
-            },
-            &ModulesCommand::Use { id } => {
-                if let Err(e) = api.module_command(&id, "load").await {
-                    anyhow::bail!("Failed to disabled load {id} from: {:#}", e);
-                }
-                if let Err(e) = api.module_command(&id, "enable").await {
-                    anyhow::bail!("Failed to disabled enable {id} from: {:#}", e);
-                }
-                println!("Successfully loaded and enable module {}", id);
-                Ok(())
+        NSClientCommands::Modules { command } => route_module_commands(output, &api, command).await,
+        NSClientCommands::Queries { command } => route_query_commands(output, &api, command).await,
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::OutputFormat;
+    use crate::cli::OutputStyle;
+    use crate::rendering::RenderToString;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    pub struct StringRender {
+        pub string: Rc<RefCell<String>>,
+    }
+    impl StringRender {
+        pub fn new() -> Self {
+            Self {
+                string: Rc::new(RefCell::new(String::new())),
             }
-        },
+        }
+    }
+    impl RenderToString for StringRender {
+        fn render(&self, str: &str) {
+            self.string.borrow_mut().push_str(&str);
+            self.string.borrow_mut().push_str("\n");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_ping_text() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path("/api/v2/info"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "name": "NSClient++",
+                "version": "0.5.2.35"
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let mock_output = StringRender::new();
+        let output_sink = Box::new(mock_output);
+        let output_ref = output_sink.string.clone();
+
+        let output = Rendering::new(OutputFormat::Text, OutputStyle::Rounded, false, output_sink);
+
+        let result = route_ns_client(
+            output,
+            &NSClientCommandOptions {
+                command: NSClientCommands::Ping {},
+                url: mock_server.uri(),
+                base_path: "/".to_owned(),
+                timeout_s: 30,
+                user_agent: "nscp-client".to_owned(),
+                insecure: false,
+                username: "admin".to_owned(),
+                password: "password".to_string(),
+            },
+        )
+        .await;
+
+        assert_eq!(
+            output_ref.borrow().as_str(),
+            "Successfully pinged NSClient++ version 0.5.2.35\n"
+        );
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_ping_error() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path("/api/v2/info"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&mock_server)
+            .await;
+
+        let mock_output = StringRender::new();
+        let output_sink = Box::new(mock_output);
+
+        let output = Rendering::new(OutputFormat::Text, OutputStyle::Rounded, false, output_sink);
+
+        let result = route_ns_client(
+            output,
+            &NSClientCommandOptions {
+                command: NSClientCommands::Ping {},
+                url: mock_server.uri(),
+                base_path: "/".to_owned(),
+                timeout_s: 30,
+                user_agent: "nscp-client".to_owned(),
+                insecure: false,
+                username: "admin".to_owned(),
+                password: "password".to_string(),
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Failed to ping server")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_version_json() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path("/api/v2/info"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "name": "NSClient++",
+                "version": "0.5.2.35"
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let mock_output = StringRender::new();
+        let output_sink = Box::new(mock_output);
+        let output_ref = output_sink.string.clone();
+
+        let output = Rendering::new(OutputFormat::Json, OutputStyle::Rounded, false, output_sink);
+
+        let result = route_ns_client(
+            output,
+            &NSClientCommandOptions {
+                command: NSClientCommands::Version {},
+                url: mock_server.uri(),
+                base_path: "/".to_owned(),
+                timeout_s: 30,
+                user_agent: "nscp-client".to_owned(),
+                insecure: false,
+                username: "admin".to_owned(),
+                password: "password".to_string(),
+            },
+        )
+        .await;
+
+        assert_eq!(
+            output_ref.borrow().as_str(),
+            r#"{
+  "name": "NSClient++",
+  "version": "0.5.2.35"
+}
+"#
+        );
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_version_text() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path("/api/v2/info"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "name": "NSClient++",
+                "version": "0.5.2.35"
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let mock_output = StringRender::new();
+        let output_sink = Box::new(mock_output);
+        let output_ref = output_sink.string.clone();
+
+        let output = Rendering::new(OutputFormat::Text, OutputStyle::Rounded, false, output_sink);
+
+        let result = route_ns_client(
+            output,
+            &NSClientCommandOptions {
+                command: NSClientCommands::Version {},
+                url: mock_server.uri(),
+                base_path: "/".to_owned(),
+                timeout_s: 30,
+                user_agent: "nscp-client".to_owned(),
+                insecure: false,
+                username: "admin".to_owned(),
+                password: "password".to_string(),
+            },
+        )
+        .await;
+
+        assert_eq!(
+            output_ref.borrow().as_str(),
+            r#"╭─────────┬────────────╮
+│ name    │ NSClient++ │
+│ version │ 0.5.2.35   │
+╰─────────┴────────────╯
+"#
+        );
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_version_yaml() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path("/api/v2/info"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "name": "NSClient++",
+                "version": "0.5.2.35"
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let output_sink = Box::new(StringRender::new());
+        let output_ref = output_sink.string.clone();
+
+        let output = Rendering::new(OutputFormat::Yaml, OutputStyle::Rounded, false, output_sink);
+
+        let result = route_ns_client(
+            output,
+            &NSClientCommandOptions {
+                command: NSClientCommands::Version {},
+                url: mock_server.uri(),
+                base_path: "/".to_owned(),
+                timeout_s: 30,
+                user_agent: "nscp-client".to_owned(),
+                insecure: false,
+                username: "admin".to_owned(),
+                password: "password".to_string(),
+            },
+        )
+        .await;
+
+        assert_eq!(
+            output_ref.borrow().as_str(),
+            r#"name: NSClient++
+version: 0.5.2.35
+
+"#
+        );
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_version_csv() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path("/api/v2/info"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "name": "NSClient++",
+                "version": "0.5.2.35"
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let output_sink = Box::new(StringRender::new());
+        let output_ref = output_sink.string.clone();
+
+        let output = Rendering::new(OutputFormat::Csv, OutputStyle::Rounded, false, output_sink);
+
+        let result = route_ns_client(
+            output,
+            &NSClientCommandOptions {
+                command: NSClientCommands::Version {},
+                url: mock_server.uri(),
+                base_path: "/".to_owned(),
+                timeout_s: 30,
+                user_agent: "nscp-client".to_owned(),
+                insecure: false,
+                username: "admin".to_owned(),
+                password: "password".to_string(),
+            },
+        )
+        .await;
+
+        assert_eq!(
+            output_ref.borrow().as_str(),
+            r#"name,NSClient++
+version,0.5.2.35
+
+"#
+        );
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_version_error() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path("/api/v2/info"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&mock_server)
+            .await;
+
+        let mock_output = StringRender::new();
+        let output_sink = Box::new(mock_output);
+
+        let output = Rendering::new(OutputFormat::Text, OutputStyle::Rounded, false, output_sink);
+
+        let result = route_ns_client(
+            output,
+            &NSClientCommandOptions {
+                command: NSClientCommands::Version {},
+                url: mock_server.uri(),
+                base_path: "/".to_owned(),
+                timeout_s: 30,
+                user_agent: "nscp-client".to_owned(),
+                insecure: false,
+                username: "admin".to_owned(),
+                password: "password".to_string(),
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Failed to fetch version from")
+        );
     }
 }
