@@ -34,13 +34,16 @@ jobs:
     - uses: actions/download-artifact@v4
       with:
         name: NSCP-${{ inputs.version }}-Win32-legacy-xp
+    - uses: actions/download-artifact@v4
+      with:
+        name: NSCP-${{ inputs.version }}-ubuntu-x64-xp
 
     - name: Rename docs
       run: |
-        ls
         mv NSCP-${{ inputs.version }}-x64-docs.zip NSCP-${{ inputs.version }}-docs.zip
         rm NSCP-${{ inputs.version }}-Win32-docs.zip
         rm NSCP-${{ inputs.version }}-Win32-legacy-xp-docs.zip
+        ls
       shell: pwsh
 
     - name: Create Release
@@ -55,7 +58,9 @@ jobs:
         artifacts: |
           NSCP-${{ inputs.version }}-docs.zip
           NSCP-${{ inputs.version }}-x64.zip
+          check_nsclient-${{ inputs.version }}-x64.exe
           NSCP-${{ inputs.version }}-Win32.zip
+          check_nsclient-${{ inputs.version }}-Win32.exe
           NSCP-${{ inputs.version }}-Win32-legacy-xp.zip
           installers/installer-NSCP/NSCP-${{ inputs.version }}-x64.msi
           installers/installer-NSCP/NSCP-${{ inputs.version }}-Win32.msi
@@ -63,4 +68,6 @@ jobs:
           NSCP-${{ inputs.version }}-x64-symbols.zip
           NSCP-${{ inputs.version }}-Win32-symbols.zip
           NSCP-${{ inputs.version }}-Win32-legacy-xp-symbols.zip
+          check_nsclient-${{ inputs.version }}-ubuntu-x64.exe
+          
 

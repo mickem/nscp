@@ -93,10 +93,19 @@ jobs:
       run: |
         make
 
-    #- name: Run tests
-    #  working-directory: tmp/nscp
-    #  run: |
-    #    ctest --output-on-failure -C Release
-#
-    #- name: Run rest tests
-    #  uses: ./.github/actions/rest-test
+    - name: rename client
+      run: |
+        mv check_nsclient check_nsclient-${{ inputs.version }}-ubuntu-x64
+      shell: bash
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: NSCP-${{ inputs.version }}-ubuntu-x64
+        path: |
+          check_nsclient-${{ inputs.version }}-ubuntu-x64
+        if-no-files-found: error
+
+    - name: Run tests
+      working-directory: tmp/nscp
+      run: |
+        ctest --output-on-failure -C Release
