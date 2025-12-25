@@ -254,6 +254,16 @@ jobs:
         azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
         azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
 
+    - uses: actions/upload-artifact@v4
+      with:
+        name: NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-legacy-xp
+        path: |
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-legacy-xp-docs.zip
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-legacy-xp.zip
+          tmp/nscp/installers/installer-NSCP/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-legacy-xp.msi
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}-legacy-xp-symbols.zip
+        if-no-files-found: error
+
     - name: Add versions
       shell: bash
       run: |

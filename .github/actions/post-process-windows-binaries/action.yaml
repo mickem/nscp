@@ -60,12 +60,3 @@ runs:
         timestamp-rfc3161: http://timestamp.acs.microsoft.com
         timestamp-digest: SHA256
 
-    - uses: actions/upload-artifact@v4
-      with:
-        name: NSCP-${{ inputs.version }}-${{ inputs.platform }}${{ inputs.suffix }}
-        path: |
-          tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}${{ inputs.suffix }}-docs.zip
-          tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}${{ inputs.suffix }}.zip
-          tmp/nscp/installers/installer-NSCP/NSCP-${{ inputs.version }}-${{ inputs.platform }}${{ inputs.suffix }}.msi
-          tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}${{ inputs.suffix }}-symbols.zip
-        if-no-files-found: error

@@ -258,6 +258,22 @@ jobs:
         azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
         azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
 
+    - name: rename client
+      run: |
+          move tmp\check_nsclient.exe tmp\nscp\check_nsclient-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.exe
+      shell: cmd
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}
+        path: |
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-docs.zip
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.zip
+          tmp/nscp/installers/installer-NSCP/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.msi
+          tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}-symbols.zip
+          tmp/nscp/check_nsclient-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.exe
+        if-no-files-found: error
+
     - name: Add versions
       shell: bash
       run: |
