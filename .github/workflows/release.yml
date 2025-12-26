@@ -68,6 +68,6 @@ jobs:
           NSCP-${{ inputs.version }}-x64-symbols.zip
           NSCP-${{ inputs.version }}-Win32-symbols.zip
           NSCP-${{ inputs.version }}-Win32-legacy-xp-symbols.zip
-          check_nsclient-${{ inputs.version }}-ubuntu-x64.exe
+          check_nsclient-${{ inputs.version }}-ubuntu-x64
           
 
