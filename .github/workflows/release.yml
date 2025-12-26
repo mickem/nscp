@@ -36,7 +36,7 @@ jobs:
         name: NSCP-${{ inputs.version }}-Win32-legacy-xp
     - uses: actions/download-artifact@v4
       with:
-        name: NSCP-${{ inputs.version }}-ubuntu-x64-xp
+        name: NSCP-${{ inputs.version }}-ubuntu-x64
 
     - name: Rename docs
       run: |
