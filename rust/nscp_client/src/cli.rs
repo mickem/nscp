@@ -74,6 +74,31 @@ pub enum NSClientCommands {
         #[command(subcommand)]
         command: QueriesCommand,
     },
+    /// Inspect/acknowledge logs
+    Logs {
+        #[command(subcommand)]
+        command: LogsCommand,
+    },
+    /// Manage scripts
+    Scripts {
+        #[command(subcommand)]
+        command: ScriptsCommand,
+    },
+    /// Inspect settings
+    Settings {
+        #[command(subcommand)]
+        command: SettingsCommand,
+    },
+    /// Metrics & health surfaces
+    Metrics {
+        #[command(subcommand)]
+        command: MetricsCommand,
+    },
+    /// Auth / session helpers
+    Auth {
+        #[command(subcommand)]
+        command: AuthCommand,
+    },
 }
 #[derive(Args)]
 pub struct NSClientCommandOptions {
@@ -97,7 +122,7 @@ pub struct NSClientCommandOptions {
     pub(crate) username: String,
     /// Password for authentication
     #[arg(short = 'p', long)]
-    pub(crate) password: String,
+    pub(crate) password: Option<String>,
     /// The subcommand to run
     #[command(subcommand)]
     pub(crate) command: NSClientCommands,
@@ -165,6 +190,95 @@ pub enum QueriesCommand {
         /// Additional query options (use key=value, values keep order specified)
         #[arg(value_name = "KEY=VALUE", value_parser = parse_kv_option)]
         args: Vec<(String, String)>,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum LogsCommand {
+    /// List log records (paginated)
+    List {
+        /// Page number (starts at 0)
+        #[arg(long, default_value_t = 1u64)]
+        page: u64,
+        /// Page size
+        #[arg(long, default_value_t = 50u64)]
+        size: u64,
+        /// Filter by level (INFO/WARNING/ERROR/...)
+        #[arg(long)]
+        level: Option<String>,
+        /// Show file/line columns
+        #[arg(short, long)]
+        long: bool,
+    },
+    /// Show current log counter status
+    Status {},
+    /// Reset aggregated log status counters
+    Reset {},
+}
+
+#[derive(Subcommand)]
+pub enum ScriptsCommand {
+    /// List scripts
+    ListRuntimes {},
+    List {
+        #[arg(long)]
+        runtime: String,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum SettingsCommand {
+    /// Summary if settings are dirty
+    Status {},
+    /// List settings entries
+    List {},
+    /// Show setting descriptions
+    Descriptions {},
+    /// Update a setting value
+    Set {
+        /// Path of the setting (section)
+        #[arg(long)]
+        path: String,
+        /// Key of the setting
+        #[arg(long)]
+        key: String,
+        /// New value
+        #[arg(long)]
+        value: String,
+    },
+    /// Issue settings command (load/save/reload)
+    Command {
+        #[arg(value_enum)]
+        action: SettingsCommandActionCli,
+    },
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum SettingsCommandActionCli {
+    Load,
+    Save,
+    Reload,
+}
+
+#[derive(Subcommand)]
+pub enum MetricsCommand {
+    /// Dump Prometheus style metrics
+    Show {},
+}
+
+#[derive(Subcommand)]
+pub enum AuthCommand {
+    /// Login and print the API token key
+    Login {
+        #[arg(long, default_value = "admin")]
+        username: String,
+        #[arg(long)]
+        password: String,
+    },
+    /// Logout and forget stored token
+    Logout {
+        #[arg(long, default_value = "admin")]
+        username: String,
     },
 }
 

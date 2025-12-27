@@ -1,6 +1,7 @@
 mod cli;
 mod nsclient;
 mod rendering;
+mod tokens;
 
 use crate::cli::{Cli, Commands};
 use crate::nsclient::route_ns_client;

@@ -1,12 +1,22 @@
 mod api;
+mod auth_commands;
+mod logs_commands;
 mod messages;
+mod metrics_commands;
 mod module_commands;
 mod query_commands;
+mod scripts_commands;
+mod settings_commands;
 
 use crate::cli::{NSClientCommandOptions, NSClientCommands};
 use crate::nsclient::api::ApiClient;
+use crate::nsclient::auth_commands::route_auth_commands;
+use crate::nsclient::logs_commands::route_log_commands;
+use crate::nsclient::metrics_commands::route_metrics_commands;
 use crate::nsclient::module_commands::route_module_commands;
 use crate::nsclient::query_commands::route_query_commands;
+use crate::nsclient::scripts_commands::route_script_commands;
+use crate::nsclient::settings_commands::route_settings_commands;
 use crate::rendering::Rendering;
 use std::time::Duration;
 
@@ -32,7 +42,7 @@ pub async fn route_ns_client(
         .user_agent(&args.user_agent)
         .danger_accept_invalid_certs(args.insecure.to_owned());
 
-    let api = ApiClient::new(client, &url, &args.username, &args.password)?;
+    let api = ApiClient::new(client, &url, args.username.clone(), args.password.clone())?;
 
     match &args.command {
         NSClientCommands::Ping {} => match api.ping().await {
@@ -57,6 +67,15 @@ pub async fn route_ns_client(
         },
         NSClientCommands::Modules { command } => route_module_commands(output, &api, command).await,
         NSClientCommands::Queries { command } => route_query_commands(output, &api, command).await,
+        NSClientCommands::Logs { command } => route_log_commands(output, &api, command).await,
+        NSClientCommands::Scripts { command } => route_script_commands(output, &api, command).await,
+        NSClientCommands::Settings { command } => {
+            route_settings_commands(output, &api, command).await
+        }
+        NSClientCommands::Metrics { command } => {
+            route_metrics_commands(output, &api, command).await
+        }
+        NSClientCommands::Auth { command } => route_auth_commands(output, &api, command).await,
     }
 }
 #[cfg(test)]
@@ -115,8 +134,8 @@ mod tests {
                 timeout_s: 30,
                 user_agent: "nscp-client".to_owned(),
                 insecure: false,
-                username: "admin".to_owned(),
-                password: "password".to_string(),
+                username: None,
+                password: None,
             },
         )
         .await;

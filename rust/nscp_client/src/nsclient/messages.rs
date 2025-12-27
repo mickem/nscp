@@ -1,5 +1,6 @@
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
 use tabled::Tabled;
 
@@ -18,6 +19,101 @@ impl PingResult {
         map.insert("version".to_string(), self.version.clone());
         map
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, Tabled)]
+pub struct LogRecord {
+    #[tabled()]
+    pub level: String,
+    #[tabled()]
+    pub date: String,
+    #[tabled()]
+    pub file: String,
+    #[tabled()]
+    pub line: u64,
+    #[tabled()]
+    pub message: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LogStatus {
+    pub errors: u64,
+    pub last_error: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Tabled)]
+pub struct ScriptRuntimes {
+    #[tabled()]
+    pub module: String,
+    #[tabled()]
+    pub name: String,
+    #[tabled()]
+    pub title: String,
+}
+
+pub type Metrics = HashMap<String, Value>;
+
+#[derive(Debug, Serialize)]
+#[serde(bound(serialize = "T: Serialize"))]
+pub struct PaginatedResponse<T> {
+    pub content: T,
+    pub page: u64,
+    pub pages: u64,
+    pub limit: u64,
+    pub count: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SettingsStatus {
+    pub context: String,
+    #[serde(rename = "type")]
+    pub status_type: String,
+    #[serde(rename = "has_changed")]
+    pub has_changed: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Tabled)]
+pub struct SettingsEntry {
+    pub key: String,
+    pub path: String,
+    pub value: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SettingsDescription {
+    pub default_value: String,
+    pub description: String,
+    pub icon: String,
+    pub is_advanced_key: bool,
+    pub is_object: bool,
+    pub is_sample_key: bool,
+    pub is_template_key: bool,
+    pub key: String,
+    pub path: String,
+    #[serde(rename = "type")]
+    pub value_type: String,
+    pub plugins: Vec<String>,
+    pub sample_usage: String,
+    pub title: String,
+    pub value: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+pub enum SettingsCommandAction {
+    Load,
+    Save,
+    Reload,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SettingsCommandRequest {
+    pub command: SettingsCommandAction,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LoginResponse {
+    pub key: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Tabled)]
@@ -42,12 +138,6 @@ pub struct ListModulesResult {
     pub loaded: bool,
     #[tabled(inline)]
     pub metadata: ListModulesMetadata,
-    #[tabled(skip)]
-    pub load_url: String,
-    #[tabled(skip)]
-    pub module_url: String,
-    #[tabled(skip)]
-    pub unload_url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Tabled)]
@@ -93,8 +183,6 @@ pub struct ModulesResult {
     pub enabled: bool,
     pub loaded: bool,
     pub metadata: ListModulesMetadata,
-    pub load_url: String,
-    pub unload_url: String,
 }
 
 impl ModulesResult {
@@ -122,8 +210,6 @@ pub struct ListQueriesResult {
     pub description: String,
     #[tabled()]
     pub plugin: String,
-    #[tabled(skip)]
-    pub query_url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Tabled)]
@@ -136,10 +222,6 @@ pub struct QueryResult {
     pub description: String,
     #[tabled()]
     pub plugin: String,
-    #[tabled(skip)]
-    pub execute_url: String,
-    #[tabled(skip)]
-    pub execute_nagios_url: String,
     #[tabled(skip)]
     pub metadata: HashMap<String, String>,
 }
