@@ -1,5 +1,5 @@
 use crate::cli::{SettingsCommand, SettingsCommandActionCli};
-use crate::nsclient::api::ApiClient;
+use crate::nsclient::api::ApiClientApi;
 use crate::nsclient::messages::{SettingsCommandAction, SettingsEntry};
 use crate::rendering::Rendering;
 
@@ -13,12 +13,18 @@ fn map_action(action: &SettingsCommandActionCli) -> SettingsCommandAction {
 
 pub async fn route_settings_commands(
     output: Rendering,
-    api: &ApiClient,
+    api: Box<dyn ApiClientApi>,
     command: &SettingsCommand,
 ) -> anyhow::Result<()> {
     match command {
         SettingsCommand::Status {} => match api.get_settings_status().await {
-            Ok(status) => output.render_nested_single(&status),
+            Ok(status) => {
+                if output.is_flat() {
+                    output.render_flat_single(&status.to_dict())
+                } else {
+                    output.render_nested_single(&status)
+                }
+            }
             Err(e) => anyhow::bail!("Failed to fetch settings status: {:#}", e),
         },
         SettingsCommand::List {} => match api.get_settings().await {
@@ -31,12 +37,28 @@ pub async fn route_settings_commands(
             }
             Err(e) => anyhow::bail!("Failed to fetch settings entries: {:#}", e),
         },
-        SettingsCommand::Descriptions {} => match api.get_settings_descriptions().await {
+        SettingsCommand::Descriptions { long } => match api.get_settings_descriptions().await {
             Ok(descriptions) => {
                 if output.is_flat() {
-                    anyhow::bail!("Settings descriptions only support nested outputs");
+                    let descriptions = descriptions.iter().map(|d| d.to_flat()).collect::<Vec<_>>();
+                    output.render_flat_list(
+                        &descriptions,
+                        &long,
+                        &[
+                            "icon",
+                            "is_template_key",
+                            "is_advanced_key",
+                            "is_object",
+                            "is_sample_key",
+                            "sample_usage",
+                            "value",
+                            "default_value",
+                            "description",
+                        ],
+                    )
+                } else {
+                    output.render_nested_single(&descriptions)
                 }
-                output.render_nested_single(&descriptions)
             }
             Err(e) => anyhow::bail!("Failed to fetch settings descriptions: {:#}", e),
         },

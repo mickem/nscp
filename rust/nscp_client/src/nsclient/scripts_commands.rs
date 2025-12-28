@@ -1,10 +1,10 @@
 use crate::cli::ScriptsCommand;
-use crate::nsclient::api::ApiClient;
+use crate::nsclient::api::ApiClientApi;
 use crate::rendering::Rendering;
 
 pub async fn route_script_commands(
     output: Rendering,
-    api: &ApiClient,
+    api: Box<dyn ApiClientApi>,
     command: &ScriptsCommand,
 ) -> anyhow::Result<()> {
     match command {

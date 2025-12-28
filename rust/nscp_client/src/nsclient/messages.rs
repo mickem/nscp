@@ -72,6 +72,16 @@ pub struct SettingsStatus {
     pub has_changed: bool,
 }
 
+impl SettingsStatus {
+    pub(crate) fn to_dict(&self) -> IndexMap<String, String> {
+        let mut map = IndexMap::new();
+        map.insert("context".to_string(), self.context.clone());
+        map.insert("type".to_string(), self.status_type.clone());
+        map.insert("has_changed".to_string(), self.has_changed.to_string());
+        map
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Tabled)]
 pub struct SettingsEntry {
     pub key: String,
@@ -96,6 +106,59 @@ pub struct SettingsDescription {
     pub sample_usage: String,
     pub title: String,
     pub value: String,
+}
+impl SettingsDescription {
+    pub fn to_flat(&self) -> FlatSettingsDescription {
+        FlatSettingsDescription {
+            default_value: self.default_value.clone(),
+            description: self.description.clone(),
+            icon: self.icon.clone(),
+            is_advanced_key: self.is_advanced_key,
+            is_object: self.is_object,
+            is_sample_key: self.is_sample_key,
+            is_template_key: self.is_template_key,
+            key: self.key.clone(),
+            path: self.path.clone(),
+            value_type: self.value_type.clone(),
+            plugins: self.plugins.join(", "),
+            sample_usage: self.sample_usage.clone(),
+            title: self.title.clone(),
+            value: self.value.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Tabled)]
+pub struct FlatSettingsDescription {
+    #[tabled()]
+    pub key: String,
+    #[tabled()]
+    pub path: String,
+    #[tabled()]
+    pub value: String,
+    #[tabled()]
+    pub default_value: String,
+    #[tabled()]
+    pub description: String,
+    #[tabled()]
+    pub icon: String,
+    #[tabled()]
+    pub is_advanced_key: bool,
+    #[tabled()]
+    pub is_object: bool,
+    #[tabled()]
+    pub is_sample_key: bool,
+    #[tabled()]
+    pub is_template_key: bool,
+    #[tabled()]
+    #[serde(rename = "type")]
+    pub value_type: String,
+    #[tabled()]
+    pub plugins: String,
+    #[tabled()]
+    pub sample_usage: String,
+    #[tabled()]
+    pub title: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]

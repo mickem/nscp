@@ -233,7 +233,11 @@ pub enum SettingsCommand {
     /// List settings entries
     List {},
     /// Show setting descriptions
-    Descriptions {},
+    Descriptions {
+        /// Show all information (same as --output-long)
+        #[arg(short, long)]
+        long: bool,
+    },
     /// Update a setting value
     Set {
         /// Path of the setting (section)

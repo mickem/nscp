@@ -1,11 +1,11 @@
 use crate::cli::MetricsCommand;
-use crate::nsclient::api::ApiClient;
+use crate::nsclient::api::ApiClientApi;
 use crate::rendering::Rendering;
 use indexmap::IndexMap;
 
 pub async fn route_metrics_commands(
     output: Rendering,
-    api: &ApiClient,
+    api: Box<dyn ApiClientApi>,
     command: &MetricsCommand,
 ) -> anyhow::Result<()> {
     match command {

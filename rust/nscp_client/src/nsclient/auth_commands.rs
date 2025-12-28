@@ -1,11 +1,11 @@
 use crate::cli::AuthCommand;
-use crate::nsclient::api::ApiClient;
+use crate::nsclient::api::ApiClientApi;
 use crate::rendering::Rendering;
 use crate::tokens::{clear_token, store_token};
 
 pub async fn route_auth_commands(
     output: Rendering,
-    api: &ApiClient,
+    api: Box<dyn ApiClientApi>,
     command: &AuthCommand,
 ) -> anyhow::Result<()> {
     match command {

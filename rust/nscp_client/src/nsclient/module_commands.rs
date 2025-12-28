@@ -1,10 +1,10 @@
 use crate::cli::ModulesCommand;
-use crate::nsclient::api::ApiClient;
+use crate::nsclient::api::ApiClientApi;
 use crate::rendering::Rendering;
 
 pub async fn route_module_commands(
     output: Rendering,
-    api: &ApiClient,
+    api: Box<dyn ApiClientApi>,
     command: &ModulesCommand,
 ) -> anyhow::Result<()> {
     match &command {
