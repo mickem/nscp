@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "check_nsclient"
 version = "0.1.0"
 authors = ["Michael Medin <michael@medin.name>"]
@@ -15,6 +15,9 @@ tabled = "0.20.0"
 anyhow = "1.0.100"
 csv = "1.4.0"
 indexmap = { version = "2.2.6", features = ["serde"] }
+keyring = "2.3.3"
+async-trait = "0.1.89"
 
 [dev-dependencies]
 wiremock = "0.6.5"
+mockall = "0.14"

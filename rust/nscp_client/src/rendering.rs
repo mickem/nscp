@@ -1,6 +1,10 @@
 use crate::cli::{OutputFormat, OutputStyle};
 use indexmap::IndexMap;
 use serde::Serialize;
+#[cfg(test)]
+use std::cell::RefCell;
+#[cfg(test)]
+use std::rc::Rc;
 use tabled::settings::location::ByColumnName;
 use tabled::settings::{Remove, Style};
 use tabled::{Table, Tabled};
@@ -154,5 +158,25 @@ impl Rendering {
 
     pub(crate) fn print(&self, text: &str) {
         self.sink.render(text);
+    }
+}
+
+#[cfg(test)]
+pub struct StringRender {
+    pub string: Rc<RefCell<String>>,
+}
+#[cfg(test)]
+impl StringRender {
+    pub fn new() -> Self {
+        Self {
+            string: Rc::new(RefCell::new(String::new())),
+        }
+    }
+}
+#[cfg(test)]
+impl RenderToString for StringRender {
+    fn render(&self, str: &str) {
+        self.string.borrow_mut().push_str(&str);
+        self.string.borrow_mut().push_str("\n");
     }
 }
