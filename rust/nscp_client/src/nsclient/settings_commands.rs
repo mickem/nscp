@@ -43,7 +43,7 @@ pub async fn route_settings_commands(
                     let descriptions = descriptions.iter().map(|d| d.to_flat()).collect::<Vec<_>>();
                     output.render_flat_list(
                         &descriptions,
-                        &long,
+                        long,
                         &[
                             "icon",
                             "is_template_key",

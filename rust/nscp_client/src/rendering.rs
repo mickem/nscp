@@ -1,6 +1,10 @@
 use crate::cli::{OutputFormat, OutputStyle};
 use indexmap::IndexMap;
 use serde::Serialize;
+#[cfg(test)]
+use std::cell::RefCell;
+#[cfg(test)]
+use std::rc::Rc;
 use tabled::settings::location::ByColumnName;
 use tabled::settings::{Remove, Style};
 use tabled::{Table, Tabled};
