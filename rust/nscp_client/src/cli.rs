@@ -99,33 +99,37 @@ pub enum NSClientCommands {
         #[command(subcommand)]
         command: AuthCommand,
     },
+    /// Legacy command (same as client)
+    Test {},
+    /// Connect to and interact with NSClient
+    Client {},
 }
 #[derive(Args)]
 pub struct NSClientCommandOptions {
-    /// The URL of the NSClient server
-    #[arg(short = 'U', long, default_value = "https://localhost:8443")]
-    pub(crate) url: String,
-    /// The base path of the API
-    #[arg(short, long, default_value = "/")]
-    pub(crate) base_path: String,
     /// The timeout in seconds
     #[arg(short, long, default_value_t = 30)]
     pub(crate) timeout_s: u64,
     /// The user agent to use
     #[arg(short = 'A', long, default_value = "nscp-client")]
     pub(crate) user_agent: String,
-    /// Allow untrusted connections
-    #[arg(short, long)]
-    pub(crate) insecure: bool,
-    /// Username for authentication
-    #[arg(short = 'u', long, default_value = "admin")]
-    pub(crate) username: String,
-    /// Password for authentication
+    /// The profile to connect to
     #[arg(short = 'p', long)]
-    pub(crate) password: Option<String>,
+    pub(crate) profile: Option<String>,
     /// The subcommand to run
     #[command(subcommand)]
     pub(crate) command: NSClientCommands,
+}
+
+#[derive(Subcommand)]
+pub enum ProfileCommands {
+    /// List all profiles
+    List {},
+    /// Show details about a profile
+    Show { id: String },
+    /// Set the default profile
+    SetDefault { id: String },
+    /// Remove a profile
+    Remove { id: String },
 }
 
 #[derive(Subcommand)]
@@ -135,6 +139,11 @@ pub enum Commands {
     NSClient(NSClientCommandOptions),
     /// Show version
     Version {},
+    /// Manage profiles
+    Profile {
+        #[command(subcommand)]
+        command: ProfileCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -272,18 +281,26 @@ pub enum MetricsCommand {
 
 #[derive(Subcommand)]
 pub enum AuthCommand {
-    /// Login and print the API token key
+    /// Login and store token
     Login {
+        /// Profile ID to store the token under
+        #[arg(default_value = "default")]
+        id: String,
+        /// NSClient++ URL
+        #[arg(long, default_value = "https://localhost:8443")]
+        url: String,
+        /// Username to login with
         #[arg(long, default_value = "admin")]
         username: String,
+        /// Password to login with
         #[arg(long)]
         password: String,
+        /// Allow insecure TLS connections (i.e. dont validate certificate)
+        #[arg(long)]
+        insecure: bool,
     },
     /// Logout and forget stored token
-    Logout {
-        #[arg(long, default_value = "admin")]
-        username: String,
-    },
+    Logout { id: String },
 }
 
 #[cfg(test)]
