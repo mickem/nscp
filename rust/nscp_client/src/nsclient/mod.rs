@@ -1,5 +1,6 @@
 mod api;
 mod auth_commands;
+pub mod client;
 mod generic_commands;
 mod logs_commands;
 mod messages;
@@ -10,7 +11,8 @@ mod scripts_commands;
 mod settings_commands;
 
 use crate::cli::{NSClientCommandOptions, NSClientCommands};
-use crate::nsclient::api::{ApiClient, ApiClientApi};
+use crate::config;
+use crate::nsclient::api::{ApiClient, ApiClientApi, Auth};
 use crate::nsclient::auth_commands::route_auth_commands;
 use crate::nsclient::generic_commands::{handle_ping_command, handle_version_command};
 use crate::nsclient::logs_commands::route_log_commands;
@@ -22,25 +24,49 @@ use crate::nsclient::settings_commands::route_settings_commands;
 use crate::rendering::Rendering;
 use std::time::Duration;
 
-fn preprocess_url(url: &str, base_path: &str) -> String {
+fn preprocess_url(url: &str) -> String {
     let url = url.trim_end_matches('/');
-    let base_path = base_path.trim_matches('/');
-
-    let base_url = format!("{}/{}", url, base_path);
-    if base_url.ends_with("/") {
-        base_url
-    } else {
-        format!("{base_url}/")
-    }
+    format!("{url}/")
 }
 
-pub fn build_client(args: &NSClientCommandOptions) -> anyhow::Result<Box<dyn ApiClientApi>> {
-    let url = preprocess_url(&args.url, &args.base_path);
+pub fn build_client_from_profile(
+    args: &NSClientCommandOptions,
+) -> anyhow::Result<Box<dyn ApiClientApi>> {
+    let profile = match args.profile.as_ref() {
+        Some(profile_id) => match config::get_nsclient_profile(profile_id)? {
+            Some(profile) => profile,
+            None => anyhow::bail!("NSClient++ profile '{}' not found.", profile_id),
+        },
+        None => match config::get_default_nsclient_profile()? {
+            Some(profile) => profile,
+            None => anyhow::bail!(
+                "No default NSClient++ profile set. Please specify a profile using --profile or set a default profile."
+            ),
+        },
+    };
+    let api_key = config::get_api_key(&profile.id)?;
+    build_client(
+        &profile.url,
+        args.timeout_s,
+        &args.user_agent,
+        Auth::Token(api_key),
+        profile.insecure,
+    )
+}
+
+pub fn build_client(
+    url: &str,
+    timeout_s: u64,
+    user_agent: &str,
+    auth: Auth,
+    insecure: bool,
+) -> anyhow::Result<Box<dyn ApiClientApi>> {
+    let url = preprocess_url(url);
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(args.timeout_s.to_owned()))
-        .user_agent(&args.user_agent)
-        .danger_accept_invalid_certs(args.insecure.to_owned());
-    let client = ApiClient::new(client, &url, args.username.clone(), args.password.clone())?;
+        .timeout(Duration::from_secs(timeout_s))
+        .user_agent(user_agent)
+        .danger_accept_invalid_certs(insecure);
+    let client = ApiClient::new(client, &url, auth)?;
     Ok(Box::new(client))
 }
 
@@ -48,20 +74,34 @@ pub async fn route_ns_client(
     output: Rendering,
     args: &NSClientCommandOptions,
 ) -> anyhow::Result<()> {
-    let api = build_client(args)?;
-
     match &args.command {
-        NSClientCommands::Ping {} => handle_ping_command(output, api).await,
-        NSClientCommands::Version {} => handle_version_command(output, api).await,
-        NSClientCommands::Modules { command } => route_module_commands(output, api, command).await,
-        NSClientCommands::Queries { command } => route_query_commands(output, api, command).await,
-        NSClientCommands::Logs { command } => route_log_commands(output, api, command).await,
-        NSClientCommands::Scripts { command } => route_script_commands(output, api, command).await,
-        NSClientCommands::Settings { command } => {
-            route_settings_commands(output, api, command).await
+        NSClientCommands::Ping {} => {
+            handle_ping_command(output, build_client_from_profile(args)?).await
         }
-        NSClientCommands::Metrics { command } => route_metrics_commands(output, api, command).await,
-        NSClientCommands::Auth { command } => route_auth_commands(output, api, command).await,
+        NSClientCommands::Version {} => {
+            handle_version_command(output, build_client_from_profile(args)?).await
+        }
+        NSClientCommands::Modules { command } => {
+            route_module_commands(output, build_client_from_profile(args)?, command).await
+        }
+        NSClientCommands::Queries { command } => {
+            route_query_commands(output, build_client_from_profile(args)?, command).await
+        }
+        NSClientCommands::Logs { command } => {
+            route_log_commands(output, build_client_from_profile(args)?, command).await
+        }
+        NSClientCommands::Scripts { command } => {
+            route_script_commands(output, build_client_from_profile(args)?, command).await
+        }
+        NSClientCommands::Settings { command } => {
+            route_settings_commands(output, build_client_from_profile(args)?, command).await
+        }
+        NSClientCommands::Metrics { command } => {
+            route_metrics_commands(output, build_client_from_profile(args)?, command).await
+        }
+        NSClientCommands::Auth { command } => route_auth_commands(output, command).await,
+        NSClientCommands::Client {} => client::run_client(build_client_from_profile(args)?).await,
+        NSClientCommands::Test {} => client::run_client(build_client_from_profile(args)?).await,
     }
 }
 #[cfg(test)]
@@ -69,11 +109,13 @@ mod tests {
     use super::*;
     use crate::cli::OutputFormat;
     use crate::cli::OutputStyle;
+    use crate::config::add_nsclient_profile;
     use crate::rendering::StringRender;
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     #[tokio::test]
+    #[serial_test::serial(config)]
     async fn test_ping() {
         let mock_server = MockServer::start().await;
 
@@ -85,6 +127,7 @@ mod tests {
             })))
             .mount(&mock_server)
             .await;
+        add_nsclient_profile("test-profile-ping", &mock_server.uri(), false, "test-token").unwrap();
 
         let output_sink = Box::new(StringRender::new());
         let output_ref = output_sink.string.clone();
@@ -95,25 +138,26 @@ mod tests {
             output,
             &NSClientCommandOptions {
                 command: NSClientCommands::Ping {},
-                url: mock_server.uri(),
-                base_path: "/".to_owned(),
                 timeout_s: 30,
                 user_agent: "nscp-client".to_owned(),
-                insecure: false,
-                username: "admin".to_owned(),
-                password: Some("password".to_string()),
+                profile: Some("test-profile-ping".into()),
             },
         )
         .await;
 
+        assert!(
+            result.is_ok(),
+            "Ping command failed: {:?}",
+            result.unwrap_err()
+        );
         assert_eq!(
             output_ref.borrow().as_str(),
             "Successfully pinged NSClient++ version 0.5.2.35\n"
         );
-        assert!(result.is_ok());
     }
 
     #[tokio::test]
+    #[serial_test::serial(config)]
     async fn test_version() {
         let mock_server = MockServer::start().await;
 
@@ -125,6 +169,13 @@ mod tests {
             })))
             .mount(&mock_server)
             .await;
+        add_nsclient_profile(
+            "test-profile-version",
+            &mock_server.uri(),
+            false,
+            "test-token",
+        )
+        .unwrap();
 
         let mock_output = StringRender::new();
         let output_sink = Box::new(mock_output);
@@ -136,17 +187,18 @@ mod tests {
             output,
             &NSClientCommandOptions {
                 command: NSClientCommands::Version {},
-                url: mock_server.uri(),
-                base_path: "/".to_owned(),
                 timeout_s: 30,
                 user_agent: "nscp-client".to_owned(),
-                insecure: false,
-                username: "admin".to_owned(),
-                password: Some("password".to_string()),
+                profile: Some("test-profile-version".into()),
             },
         )
         .await;
 
+        assert!(
+            result.is_ok(),
+            "Version command failed: {:?}",
+            result.unwrap_err()
+        );
         assert_eq!(
             output_ref.borrow().as_str(),
             r#"╭─────────┬────────────╮
@@ -155,6 +207,5 @@ mod tests {
 ╰─────────┴────────────╯
 "#
         );
-        assert!(result.is_ok());
     }
 }
