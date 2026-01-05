@@ -261,7 +261,6 @@ dependencies = [
  "indexmap",
  "keyring",
  "mockall",
- "once_cell",
  "ratatui",
  "reqwest",
  "serde",

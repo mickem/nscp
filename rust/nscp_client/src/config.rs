@@ -1,6 +1,9 @@
 use crate::constants::SERVICE_NAME;
 use crate::tokens;
+use keyring::set_default_credential_builder;
 use serde::{Deserialize, Serialize};
+use std::env;
+use tempfile::{TempDir, tempdir};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct NSClientProfile {
@@ -89,7 +92,10 @@ pub fn get_nsclient_profile(id: &str) -> anyhow::Result<Option<NSClientProfile>>
 }
 
 pub fn get_api_key(id: &str) -> anyhow::Result<String> {
-    tokens::load_token(id)
+    match tokens::load_token(id) {
+        Ok(token) => Ok(token),
+        Err(e) => anyhow::bail!("Failed to load API key for profile '{}': {:#}", id, e),
+    }
 }
 
 pub fn remove_nsclient_profile(id: &str) -> anyhow::Result<()> {
@@ -112,23 +118,28 @@ pub fn list_nsclient_profiles() -> anyhow::Result<(Vec<NSClientProfile>, Option<
 }
 
 #[cfg(test)]
+#[path = "custom_mock_keyring.rs"]
+mod custom_mock_keyring;
+
+#[cfg(test)]
+pub fn mock_test_config() -> TempDir {
+    println!("Setting up mock test config");
+    set_default_credential_builder(custom_mock_keyring::default_credential_builder());
+    let tmp = tempdir().unwrap();
+    let fake_home = tmp.path();
+    unsafe {
+        if cfg!(windows) {
+            env::set_var("APPDATA", fake_home);
+        } else {
+            env::set_var("HOME", fake_home);
+        }
+    }
+    tmp
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
-    use tempfile::{TempDir, tempdir};
-
-    fn mock_test_config() -> TempDir {
-        let tmp = tempdir().unwrap();
-        let fake_home = tmp.path();
-        unsafe {
-            if cfg!(windows) {
-                env::set_var("APPDATA", fake_home);
-            } else {
-                env::set_var("HOME", fake_home);
-            }
-        }
-        tmp
-    }
 
     #[test]
     #[serial_test::serial(config)]

@@ -109,7 +109,7 @@ mod tests {
     use super::*;
     use crate::cli::OutputFormat;
     use crate::cli::OutputStyle;
-    use crate::config::add_nsclient_profile;
+    use crate::config::{add_nsclient_profile, mock_test_config};
     use crate::rendering::StringRender;
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -117,6 +117,7 @@ mod tests {
     #[tokio::test]
     #[serial_test::serial(config)]
     async fn test_ping() {
+        let tmp = mock_test_config();
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
@@ -154,11 +155,13 @@ mod tests {
             output_ref.borrow().as_str(),
             "Successfully pinged NSClient++ version 0.5.2.35\n"
         );
+        drop(tmp);
     }
 
     #[tokio::test]
     #[serial_test::serial(config)]
     async fn test_version() {
+        let tmp = mock_test_config();
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
@@ -207,5 +210,6 @@ mod tests {
 ╰─────────┴────────────╯
 "#
         );
+        drop(tmp);
     }
 }
