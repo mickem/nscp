@@ -35,6 +35,19 @@ pub struct LogRecord {
     pub message: String,
 }
 
+impl LogRecord {
+    pub(crate) fn calculate_hash(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        self.level.hash(&mut hasher);
+        self.date.hash(&mut hasher);
+        self.file.hash(&mut hasher);
+        self.line.hash(&mut hasher);
+        self.message.hash(&mut hasher);
+        hasher.finish()
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LogStatus {
     pub errors: u64,

@@ -3,21 +3,63 @@ use tui_prompts::FocusState::Focused;
 use tui_prompts::{State, TextState};
 
 const VALID_COMMANDS: &[&str] = &[
-    "ping", "version", "modules", "queries", "logs", "scripts", "settings", "metrics", "auth",
-    "test", "client",
+    "ping", "version", "query", "modules", "settings", "metrics", "refresh",
 ];
 
-pub struct Command {
+pub struct QueryCommand {
     pub command: String,
-    pub args: Vec<String>,
+    pub args: Vec<(String, String)>,
+}
+
+impl QueryCommand {
+    fn from_tokens(tokens: &[String]) -> Self {
+        Self {
+            command: tokens[0].clone(),
+            args: parse_arguments(&tokens[1..]),
+        }
+    }
+}
+
+fn parse_arguments(args: &[String]) -> Vec<(String, String)> {
+    let mut map = Vec::new();
+    for arg in args {
+        if let Some((key, value)) = arg.split_once('=') {
+            map.push((key.to_string(), value.to_string()));
+        } else {
+            map.push((arg.to_string(), String::new()));
+        }
+    }
+    map
+}
+
+pub enum CommandType {
+    Ping,
+    Version,
+    Refresh,
+    Query(QueryCommand),
+}
+pub struct Command {
+    pub command: CommandType,
 }
 
 #[derive(Debug)]
 pub struct CommandInput<'a> {
     command_state: TextState<'a>,
+    available_commands: Vec<String>,
 }
 
 impl<'a> CommandInput<'a> {
+    pub(crate) fn new() -> Self {
+        CommandInput {
+            command_state: TextState::new().with_focus(Focused),
+            available_commands: Vec::new(),
+        }
+    }
+
+    pub fn update_commands(&mut self, commands: Vec<String>) {
+        self.available_commands = commands;
+    }
+
     pub(crate) fn get_state(&mut self) -> &mut TextState<'a> {
         &mut self.command_state
     }
@@ -29,15 +71,12 @@ impl<'a> CommandInput<'a> {
 
     pub fn get_command(&mut self) -> anyhow::Result<Command> {
         let tokens = tokenize_command(self.command_state.value())?;
-        if tokens.is_empty() || !is_valid_command(&tokens[0]) {
+        if tokens.is_empty() || !is_valid_command(&tokens[0], &self.available_commands) {
             anyhow::bail!("Invalid command")
         }
         self.command_state.truncate();
         *self.command_state.status_mut() = tui_prompts::Status::Pending;
-        Ok(Command {
-            command: tokens[0].clone(),
-            args: tokens[1..].to_vec(),
-        })
+        parse_command(&tokens)
     }
 
     fn set_status_ok(&mut self) {
@@ -91,7 +130,7 @@ impl<'a> CommandInput<'a> {
 
         match tokenize_command(value) {
             Ok(tokens) if !tokens.is_empty() => {
-                if is_valid_command(&tokens[0]) {
+                if is_valid_command(&tokens[0], &self.available_commands) {
                     self.set_status_ok();
                 } else {
                     self.set_status_error();
@@ -101,18 +140,37 @@ impl<'a> CommandInput<'a> {
         }
     }
 }
-impl Default for CommandInput<'_> {
-    fn default() -> Self {
-        CommandInput {
-            command_state: TextState::new().with_focus(Focused),
-        }
+
+fn parse_command(tokens: &[String]) -> anyhow::Result<Command> {
+    if tokens.is_empty() {
+        anyhow::bail!("No command provided");
+    }
+    match tokens[0].to_lowercase().as_str() {
+        "ping" => Ok(Command {
+            command: CommandType::Ping,
+        }),
+        "version" => Ok(Command {
+            command: CommandType::Version,
+        }),
+        "refresh" => Ok(Command {
+            command: CommandType::Refresh,
+        }),
+        "query" => Ok(Command {
+            command: CommandType::Query(QueryCommand::from_tokens(&tokens[1..])),
+        }),
+        _ => Ok(Command {
+            command: CommandType::Query(QueryCommand::from_tokens(tokens)),
+        }),
     }
 }
 
-fn is_valid_command(candidate: &str) -> bool {
+fn is_valid_command(candidate: &str, queries: &[String]) -> bool {
     VALID_COMMANDS
         .iter()
         .any(|cmd| candidate.eq_ignore_ascii_case(cmd))
+        | queries
+            .iter()
+            .any(|cmd| candidate.eq_ignore_ascii_case(cmd))
 }
 
 fn tokenize_command(input: &str) -> anyhow::Result<Vec<String>> {
@@ -184,7 +242,8 @@ mod tests {
 
     #[test]
     fn command_input_accepts_valid_command_case_insensitive() {
-        assert!(is_valid_command("PiNg"));
-        assert!(!is_valid_command("unknown"));
+        assert!(is_valid_command("PiNg", &[]));
+        assert!(!is_valid_command("unknown", &[]));
+        assert!(is_valid_command("ExtraCommand", &["ExtraCommand".into()]));
     }
 }

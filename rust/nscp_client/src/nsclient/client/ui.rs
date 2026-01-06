@@ -1,5 +1,5 @@
 use crate::nsclient::client::command_input::CommandInput;
-use crate::nsclient::client::events::UIEvent;
+use crate::nsclient::client::events::{APIEvent, UIEvent};
 use crate::nsclient::client::status_widget::StatusWidget;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -9,6 +9,7 @@ use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, List, ListItem};
 use ratatui::{DefaultTerminal, Frame};
 use tokio::sync::mpsc;
+use tokio::sync::mpsc::Sender;
 use tui_prompts::{Prompt, TextPrompt};
 
 pub struct UI<'a> {
@@ -16,15 +17,17 @@ pub struct UI<'a> {
     command: CommandInput<'a>,
     status: StatusWidget,
     logs: Vec<String>,
+    api_sender: Sender<APIEvent>,
 }
 
 impl UI<'_> {
-    pub fn new() -> Self {
+    pub fn new(api_sender: Sender<APIEvent>) -> Self {
         Self {
             exit: false,
-            command: CommandInput::default(),
+            command: CommandInput::new(),
             status: StatusWidget::default(),
             logs: Vec::new(),
+            api_sender,
         }
     }
 
@@ -42,11 +45,14 @@ impl UI<'_> {
                             if key_event.code == KeyCode::Esc {
                                 return Ok(());
                             }
-                            self.handle_key_event(key_event)
+                            self.handle_key_event(key_event).await
                         },
                         UIEvent::Status(event) => self.on_info(&event),
                         UIEvent::Error(error) => self.on_error(&error),
                         UIEvent::Log(error) => self.on_log(&error),
+                        UIEvent::Commands(commands) => {
+                            self.command.update_commands(commands);
+                        }
                     }
                 }
             }
@@ -87,8 +93,7 @@ impl UI<'_> {
         let items: Vec<ListItem> = self
             .logs
             .iter()
-            .enumerate()
-            .map(|(_, l)| ListItem::new(Line::styled(l, SLATE.c200)))
+            .map(|l| ListItem::new(Line::styled(l, SLATE.c200)))
             .collect();
 
         let log = List::new(items).block(log_block);
@@ -103,11 +108,11 @@ impl UI<'_> {
     fn draw_text_prompt(&mut self, frame: &mut Frame, area: Rect) {
         TextPrompt::from("Command").draw(frame, area, self.command.get_state());
     }
-    fn handle_key_event(&mut self, key_event: KeyEvent) {
+    async fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Esc => self.exit(),
             KeyCode::Enter => {
-                self.execute();
+                self.execute().await;
             }
             _ => self.command.handle_key_event(key_event),
         }
@@ -117,15 +122,18 @@ impl UI<'_> {
         self.exit = true;
     }
 
-    fn execute(&mut self) {
+    async fn execute(&mut self) {
         if !self.command.has_value() {
             return;
         }
-        let command = match self.command.get_command() {
-            Ok(cmd) => cmd,
+        match self.command.get_command() {
+            Ok(cmd) => {
+                if let Err(e) = self.api_sender.send(APIEvent::Command(cmd)).await {
+                    eprintln!("Error sending API event: {}", e);
+                }
+            }
             Err(_) => {
                 println!("Invalid command");
-                return;
             }
         };
     }

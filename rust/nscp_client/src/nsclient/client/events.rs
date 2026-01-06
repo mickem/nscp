@@ -1,3 +1,4 @@
+use crate::nsclient::client::command_input::Command;
 use crossterm::event::KeyEvent;
 use tokio::sync::mpsc;
 
@@ -11,4 +12,9 @@ pub enum UIEvent {
     Status(String),
     Error(String),
     Log(String),
+    Commands(Vec<String>),
+}
+
+pub enum APIEvent {
+    Command(Command),
 }
