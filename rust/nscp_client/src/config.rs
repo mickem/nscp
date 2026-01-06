@@ -136,6 +136,7 @@ pub fn mock_test_config() -> TempDir {
             env::set_var("APPDATA", fake_home);
         } else {
             env::set_var("HOME", fake_home);
+            env::set_var("XDG_CONFIG_HOME", fake_home);
         }
     }
     tmp
