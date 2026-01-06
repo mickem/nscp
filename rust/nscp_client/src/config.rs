@@ -1,9 +1,6 @@
 use crate::constants::SERVICE_NAME;
 use crate::tokens;
-use keyring::set_default_credential_builder;
 use serde::{Deserialize, Serialize};
-use std::env;
-use tempfile::{TempDir, tempdir};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct NSClientProfile {
@@ -120,6 +117,13 @@ pub fn list_nsclient_profiles() -> anyhow::Result<(Vec<NSClientProfile>, Option<
 #[cfg(test)]
 #[path = "custom_mock_keyring.rs"]
 mod custom_mock_keyring;
+
+#[cfg(test)]
+use keyring::set_default_credential_builder;
+#[cfg(test)]
+use std::env;
+#[cfg(test)]
+use tempfile::{TempDir, tempdir};
 
 #[cfg(test)]
 pub fn mock_test_config() -> TempDir {
