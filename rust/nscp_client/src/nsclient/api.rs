@@ -4,7 +4,6 @@ use crate::nsclient::messages::{
     ScriptRuntimes, SettingsCommandAction, SettingsCommandRequest, SettingsDescription,
     SettingsEntry, SettingsStatus,
 };
-use crate::tokens::load_token;
 use async_trait::async_trait;
 #[cfg(test)]
 use mockall::automock;
@@ -12,25 +11,24 @@ use reqwest::header::{AUTHORIZATION, HeaderMap};
 use reqwest::{ClientBuilder, Method};
 use serde::de::DeserializeOwned;
 
+#[derive(Clone)]
+pub enum Auth {
+    Password(String, String),
+    Token(String),
+}
+
 pub struct ApiClient {
     client: reqwest::Client,
     base_url: String,
-    username: String,
-    password: Option<String>,
+    auth: Auth,
 }
 
 impl ApiClient {
-    pub(crate) fn new(
-        builder: ClientBuilder,
-        base_url: &str,
-        username: String,
-        password: Option<String>,
-    ) -> anyhow::Result<Self> {
+    pub(crate) fn new(builder: ClientBuilder, base_url: &str, auth: Auth) -> anyhow::Result<Self> {
         Ok(Self {
             client: builder.build()?,
             base_url: base_url.to_owned(),
-            username,
-            password,
+            auth,
         })
     }
 
@@ -86,17 +84,15 @@ impl ApiClient {
         path: &str,
     ) -> anyhow::Result<reqwest::RequestBuilder> {
         let url = self.url_for(path);
-        if self.password.is_some() {
-            Ok(self
+        match &self.auth {
+            Auth::Password(username, password) => Ok(self
                 .client
                 .request(method, url)
-                .basic_auth(&self.username, self.password.clone()))
-        } else {
-            let token = load_token(&self.username)?;
-            Ok(self
+                .basic_auth(username, Some(password.clone()))),
+            Auth::Token(token) => Ok(self
                 .client
                 .request(method, url)
-                .header(AUTHORIZATION, format!("Bearer {token}")))
+                .header(AUTHORIZATION, format!("Bearer {token}"))),
         }
     }
 
@@ -172,7 +168,7 @@ pub trait ApiClientApi: Send + Sync {
     async fn get_settings_descriptions(&self) -> anyhow::Result<Vec<SettingsDescription>>;
     async fn update_settings(&self, settings: &SettingsEntry) -> anyhow::Result<()>;
     async fn settings_command(&self, command: SettingsCommandAction) -> anyhow::Result<()>;
-    async fn login(&self, username: &str, password: &str) -> anyhow::Result<String>;
+    async fn login(&self) -> anyhow::Result<LoginResponse>;
     async fn get_metrics(&self) -> anyhow::Result<Metrics>;
 }
 
@@ -296,19 +292,8 @@ impl ApiClientApi for ApiClient {
         .map(|_| ())
     }
 
-    async fn login(&self, username: &str, password: &str) -> anyhow::Result<String> {
-        let path = "api/v2/login";
-        let url = self.url_for(path);
-        let response = self
-            .client
-            .get(&url)
-            .basic_auth(username, Some(password))
-            .send()
-            .await?;
-        if !response.status().is_success() {
-            anyhow::bail!("Invalid response status from {path}: {}", response.status());
-        }
-        Ok(response.json::<LoginResponse>().await?.key)
+    async fn login(&self) -> anyhow::Result<LoginResponse> {
+        self.get_json("api/v2/login").await
     }
 
     async fn get_metrics(&self) -> anyhow::Result<Metrics> {
@@ -360,7 +345,7 @@ pub mod mocks {
                 &self,
                 command: SettingsCommandAction,
             ) -> anyhow::Result<()>;
-            async fn login(&self, username: &str, password: &str) -> anyhow::Result<String>;
+            async fn login(&self) -> anyhow::Result<LoginResponse>;
             async fn get_metrics(&self) -> anyhow::Result<Metrics>;
         }
     }

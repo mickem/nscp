@@ -1,10 +1,14 @@
 mod cli;
+mod config;
+mod constants;
 mod nsclient;
+mod profile;
 mod rendering;
 mod tokens;
 
 use crate::cli::{Cli, Commands};
 use crate::nsclient::route_ns_client;
+use crate::profile::route_profile;
 use crate::rendering::{PrintRender, Rendering};
 use clap::Parser;
 
@@ -30,6 +34,14 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Version {} => {
             println!("Version: {}", env!("CARGO_PKG_VERSION"));
+        }
+        Commands::Profile { command } => {
+            let output_sink = Box::new(PrintRender::new());
+            route_profile(
+                Rendering::new(cli.output, cli.output_style, cli.output_long, output_sink),
+                command,
+            )
+            .await?
         }
     }
 

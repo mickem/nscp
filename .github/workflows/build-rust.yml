@@ -52,11 +52,12 @@ jobs:
           else
             echo "os_name=linux" >> $GITHUB_OUTPUT
             echo "file_ext=" >> $GITHUB_OUTPUT
+            sudo apt-get update
+            sudo apt-get install -y libdbus-1-dev pkg-config
             if [[ "${{ inputs.arch }}" == "x64" ]]; then
               echo "triple=x86_64-unknown-linux-gnu" >> $GITHUB_OUTPUT
             else
               echo "triple=i686-unknown-linux-gnu" >> $GITHUB_OUTPUT
-              sudo apt-get update
               sudo apt-get install -y gcc-multilib
             fi
           fi
