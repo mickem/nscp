@@ -3,8 +3,11 @@ use tui_prompts::FocusState::Focused;
 use tui_prompts::{State, TextState};
 
 const VALID_COMMANDS: &[&str] = &[
-    "ping", "version", "query", "modules", "settings", "metrics", "refresh",
+    "ping", "version", "query", "modules", "settings", "metrics", "refresh", "history", "exit",
+    "help",
 ];
+
+const MAX_HISTORY_LENGTH: usize = 30;
 
 pub struct QueryCommand {
     pub command: String,
@@ -32,11 +35,20 @@ fn parse_arguments(args: &[String]) -> Vec<(String, String)> {
     map
 }
 
+pub enum HistoryCommand {
+    List,
+    Clear,
+    Delete(usize),
+}
+
 pub enum CommandType {
     Ping,
     Version,
     Refresh,
+    Exit,
+    Help,
     Query(QueryCommand),
+    History(HistoryCommand),
 }
 pub struct Command {
     pub command: CommandType,
@@ -46,14 +58,25 @@ pub struct Command {
 pub struct CommandInput<'a> {
     command_state: TextState<'a>,
     available_commands: Vec<String>,
+    history: Vec<String>,
+    history_index: Option<usize>,
+    has_changed: bool,
 }
 
+
 impl<'a> CommandInput<'a> {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(history: Vec<String>) -> Self {
         CommandInput {
             command_state: TextState::new().with_focus(Focused),
             available_commands: Vec::new(),
+            history,
+            history_index: None,
+            has_changed: false,
         }
+    }
+
+    pub(crate) fn get_history(&self) -> Vec<String> {
+        self.history.clone()
     }
 
     pub fn update_commands(&mut self, commands: Vec<String>) {
@@ -69,11 +92,30 @@ impl<'a> CommandInput<'a> {
         !value.trim().is_empty()
     }
 
+    fn add_history(&mut self, value: &str) {
+        let value = value.trim();
+        if value.is_empty() {
+            return;
+        }
+        self.history.retain(|x| x != value);
+        self.history.push(value.to_owned());
+        if self.history.len() > MAX_HISTORY_LENGTH {
+            self.history.remove(0);
+        }
+    }
+
     pub fn get_command(&mut self) -> anyhow::Result<Command> {
-        let tokens = tokenize_command(self.command_state.value())?;
+        let value = self.command_state.value().to_owned();
+        self.add_history(&value);
+
+        self.history_index = None;
+        self.has_changed = false;
+
+        let tokens = tokenize_command(&value)?;
         if tokens.is_empty() || !is_valid_command(&tokens[0], &self.available_commands) {
             anyhow::bail!("Invalid command")
         }
+
         self.command_state.truncate();
         *self.command_state.status_mut() = tui_prompts::Status::Pending;
         parse_command(&tokens)
@@ -89,12 +131,91 @@ impl<'a> CommandInput<'a> {
         *self.command_state.status_mut() = tui_prompts::Status::Pending;
     }
 
+    fn push_history_if_changed(&mut self) {
+        if self.has_changed {
+            let value = self.command_state.value().to_owned();
+            self.add_history(&value);
+            self.has_changed = false;
+        }
+    }
+    fn history_up(&mut self) {
+        if self.history.is_empty() {
+            return;
+        }
+        self.push_history_if_changed();
+        let new_index = match self.history_index {
+            None => self.history.len() - 1,
+            Some(i) => {
+                if i > 0 {
+                    i - 1
+                } else {
+                    0
+                }
+            }
+        };
+        self.history_index = Some(new_index);
+        self.update_input_from_history();
+    }
+
+    fn history_down(&mut self) {
+        if self.history.is_empty() {
+            return;
+        }
+        self.push_history_if_changed();
+        if let Some(i) = self.history_index {
+            if i < self.history.len() - 1 {
+                self.history_index = Some(i + 1);
+                self.update_input_from_history();
+            } else {
+                self.history_index = None;
+                self.command_state.truncate();
+            }
+        }
+    }
+
+    pub(crate) fn handle_history(&mut self, command: HistoryCommand) -> Vec<String> {
+        match command {
+            HistoryCommand::List => self
+                .history
+                .iter()
+                .enumerate()
+                .map(|(i, cmd)| format!("{i}: {cmd}"))
+                .collect(),
+            HistoryCommand::Clear => {
+                self.history.clear();
+                vec!["History cleared".into()]
+            }
+            HistoryCommand::Delete(index) => {
+                self.history.remove(index);
+                vec!["History deleted".into()]
+            }
+        }
+    }
+
+    fn update_input_from_history(&mut self) {
+        if let Some(idx) = self.history_index {
+            if let Some(cmd) = self.history.get(idx) {
+                self.command_state.truncate();
+                self.command_state.value_mut().push_str(cmd);
+                self.command_state.move_end();
+            }
+        }
+    }
+
     pub(crate) fn handle_key_event(&mut self, event: KeyEvent) {
         if event.kind == KeyEventKind::Release {
             return;
         }
 
         match (event.code, event.modifiers) {
+            (KeyCode::Up, _) => {
+                self.history_up();
+                return;
+            }
+            (KeyCode::Down, _) => {
+                self.history_down();
+                return;
+            }
             (KeyCode::Left, _) | (KeyCode::Char('b'), KeyModifiers::CONTROL) => {
                 self.command_state.move_left();
                 return;
@@ -113,11 +234,16 @@ impl<'a> CommandInput<'a> {
             }
             (KeyCode::Backspace, _) | (KeyCode::Char('h'), KeyModifiers::CONTROL) => {
                 self.command_state.backspace();
+                self.has_changed = true;
             }
             (KeyCode::Delete, _) | (KeyCode::Char('d'), KeyModifiers::CONTROL) => {
-                self.command_state.delete()
+                self.command_state.delete();
+                self.has_changed = true;
             }
-            (KeyCode::Char(c), _) => self.command_state.push(c),
+            (KeyCode::Char(c), _) => {
+                self.command_state.push(c);
+                self.has_changed = true;
+            }
             _ => {
                 return;
             }
@@ -139,6 +265,20 @@ impl<'a> CommandInput<'a> {
             _ => self.set_status_error(),
         }
     }
+
+    pub fn handle_help(&mut self) -> Vec<String> {
+        vec![
+            "Available commands:".into(),
+            "  help:    Show help".into(),
+            "  exit:    Exit program (Esc)".into(),
+            "  history: Show and manipulate history".into(),
+            "  ping:    Check if backend is reachable".into(),
+            "  version: Show backend version".into(),
+            "  query:   Execute a query (check command)".into(),
+            "  ...      Any query (check_command) can be executed as-is".into(),
+
+        ]
+    }
 }
 
 fn parse_command(tokens: &[String]) -> anyhow::Result<Command> {
@@ -155,12 +295,42 @@ fn parse_command(tokens: &[String]) -> anyhow::Result<Command> {
         "refresh" => Ok(Command {
             command: CommandType::Refresh,
         }),
+        "history" => Ok(Command {
+            command: parse_history_command(&tokens[1..])?,
+        }),
+        "exit" => Ok(Command {
+            command: CommandType::Exit,
+        }),
+        "help" => Ok(Command {
+            command: CommandType::Help,
+        }),
         "query" => Ok(Command {
             command: CommandType::Query(QueryCommand::from_tokens(&tokens[1..])),
         }),
         _ => Ok(Command {
             command: CommandType::Query(QueryCommand::from_tokens(tokens)),
         }),
+    }
+}
+
+fn parse_history_command(args: &[String]) -> anyhow::Result<CommandType> {
+    if args.is_empty() {
+        return Ok(CommandType::History(HistoryCommand::List));
+    }
+    match args[0].to_lowercase().as_str() {
+        "list" => Ok(CommandType::History(HistoryCommand::List)),
+        "clear" => Ok(CommandType::History(HistoryCommand::Clear)),
+        "delete" => {
+            if args.len() != 2 {
+                anyhow::bail!("Invalid syntax: history delete <index>");
+            }
+            let index = match args[1].parse::<usize>() {
+                Ok(value) => value,
+                Err(e) => anyhow::bail!("Error: {e}"),
+            };
+            Ok(CommandType::History(HistoryCommand::Delete(index)))
+        }
+        &_ => anyhow::bail!("Invalid history command"),
     }
 }
 

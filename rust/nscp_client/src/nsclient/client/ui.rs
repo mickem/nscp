@@ -1,4 +1,4 @@
-use crate::nsclient::client::command_input::CommandInput;
+use crate::nsclient::client::command_input::{CommandInput, CommandType};
 use crate::nsclient::client::events::{APIEvent, UIEvent};
 use crate::nsclient::client::status_widget::StatusWidget;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -11,6 +11,7 @@ use ratatui::{DefaultTerminal, Frame};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender;
 use tui_prompts::{Prompt, TextPrompt};
+use crate::config::{load_history, store_history};
 
 pub struct UI<'a> {
     exit: bool,
@@ -22,9 +23,13 @@ pub struct UI<'a> {
 
 impl UI<'_> {
     pub fn new(api_sender: Sender<APIEvent>) -> Self {
+        let history = load_history().unwrap_or_else(|e| {
+            eprintln!("Failed to load history: {}", e);
+            vec![]
+        });
         Self {
             exit: false,
-            command: CommandInput::new(),
+            command: CommandInput::new(history),
             status: StatusWidget::default(),
             logs: Vec::new(),
             api_sender,
@@ -43,6 +48,7 @@ impl UI<'_> {
                     match event {
                         UIEvent::Key(key_event) => {
                             if key_event.code == KeyCode::Esc {
+                                self.exit();
                                 return Ok(());
                             }
                             self.handle_key_event(key_event).await
@@ -53,6 +59,9 @@ impl UI<'_> {
                         UIEvent::Commands(commands) => {
                             self.command.update_commands(commands);
                         }
+                    }
+                    if self.exit {
+                        return Ok(());
                     }
                 }
             }
@@ -119,6 +128,10 @@ impl UI<'_> {
     }
 
     fn exit(&mut self) {
+        let history = self.command.get_history();
+        if let Err(e) = store_history(history) {
+            eprintln!("Failed to save history: {}", e);
+        }
         self.exit = true;
     }
 
@@ -127,13 +140,29 @@ impl UI<'_> {
             return;
         }
         match self.command.get_command() {
-            Ok(cmd) => {
-                if let Err(e) = self.api_sender.send(APIEvent::Command(cmd)).await {
-                    eprintln!("Error sending API event: {}", e);
+            Ok(cmd) => match cmd.command {
+                CommandType::History(command) => {
+                    let result = self.command.handle_history(command);
+                    for line in result {
+                        self.on_log(&line);
+                    }
                 }
-            }
+                CommandType::Exit => self.exit(),
+                CommandType::Help => {
+                    let result = self.command.handle_help();
+                    for line in result {
+                        self.on_log(&line);
+                    }
+                }
+
+                _ => {
+                    if let Err(e) = self.api_sender.send(APIEvent::Command(cmd)).await {
+                        eprintln!("Error sending API event: {}", e);
+                    }
+                }
+            },
             Err(_) => {
-                println!("Invalid command");
+                self.on_error("Invalid command");
             }
         };
     }

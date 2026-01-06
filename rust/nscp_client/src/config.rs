@@ -10,28 +10,17 @@ pub struct NSClientProfile {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
-struct NSClientConfigExternal {
-    nsclient_profiles: Option<Vec<NSClientProfile>>,
-    default_nsclient_profile: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
 struct NSClientConfig {
+    #[serde(skip_serializing_if = "Vec::is_empty", default = "Vec::default")]
     nsclient_profiles: Vec<NSClientProfile>,
     default_nsclient_profile: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default = "Vec::default")]
+    history: Vec<String>,
 }
 
-impl From<NSClientConfigExternal> for NSClientConfig {
-    fn from(external: NSClientConfigExternal) -> Self {
-        NSClientConfig {
-            nsclient_profiles: external.nsclient_profiles.unwrap_or_default(),
-            default_nsclient_profile: external.default_nsclient_profile,
-        }
-    }
-}
 
 fn load_config() -> anyhow::Result<NSClientConfig> {
-    let external_cfg: NSClientConfigExternal = confy::load(SERVICE_NAME, None)?;
+    let external_cfg: NSClientConfig = confy::load(SERVICE_NAME, None)?;
     Ok(NSClientConfig::from(external_cfg))
 }
 
@@ -112,6 +101,18 @@ pub fn remove_nsclient_profile(id: &str) -> anyhow::Result<()> {
 pub fn list_nsclient_profiles() -> anyhow::Result<(Vec<NSClientProfile>, Option<String>)> {
     let cfg: NSClientConfig = confy::load(SERVICE_NAME, None)?;
     Ok((cfg.nsclient_profiles, cfg.default_nsclient_profile))
+}
+
+pub fn store_history(history: Vec<String>) -> anyhow::Result<()> {
+    let mut cfg: NSClientConfig = confy::load(SERVICE_NAME, None)?;
+    cfg.history = history;
+    confy::store(SERVICE_NAME, None, cfg)?;
+    Ok(())
+}
+
+pub fn load_history() -> anyhow::Result<Vec<String>> {
+    let cfg: NSClientConfig = confy::load(SERVICE_NAME, None)?;
+    Ok(cfg.history)
 }
 
 #[cfg(test)]

@@ -102,28 +102,47 @@ impl BackendProxy {
                 },
                 event = self.api_receiver.recv() => {
                     if let Some(event) = event {
-                        self.on_api_event(event).await;
+                        if let Err(err) = self.on_api_event(event).await {
+                            self.send_or_error(UIEvent::Error(format!(
+                                "Error handling API event: {}",
+                                err
+                            )))
+                            .await;
+                        }
                     }
                 },
                 _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {}
             }
         }
     }
-    pub async fn on_api_event(&self, event: APIEvent) {
+    pub async fn on_api_event(&self, event: APIEvent) -> anyhow::Result<()> {
         match event {
             APIEvent::Command(command) => match command.command {
                 CommandType::Ping => {
                     self.handle_ping_command().await;
+                    Ok(())
                 }
                 CommandType::Version => {
                     self.handle_version_command().await;
+                    Ok(())
                 }
                 CommandType::Query(query) => {
                     self.handle_query_command(query).await;
+                    Ok(())
                 }
                 CommandType::Refresh => {
                     self.update_status().await;
                     self.get_commands().await;
+                    Ok(())
+                }
+                CommandType::History(_) => {
+                    anyhow::bail!("History should not be sent to API");
+                }
+                CommandType::Help => {
+                    anyhow::bail!("Help should not be sent to API");
+                }
+                CommandType::Exit => {
+                    anyhow::bail!("Exit should not be sent to API");
                 }
             },
         }
