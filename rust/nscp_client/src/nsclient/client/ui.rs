@@ -1,28 +1,25 @@
+use crate::config::{load_history, store_history};
 use crate::nsclient::client::command_input::{CommandInput, CommandType};
-use crate::nsclient::client::events::{APIEvent, UIEvent};
+use crate::nsclient::client::events::{UICommand, UIEvent};
+use crate::nsclient::client::log_widget::{LogRecord, LogWidget};
 use crate::nsclient::client::status_widget::StatusWidget;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::prelude::Style;
-use ratatui::style::palette::tailwind::SLATE;
-use ratatui::text::Line;
-use ratatui::widgets::{Block, Borders, List, ListItem};
 use ratatui::{DefaultTerminal, Frame};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender;
 use tui_prompts::{Prompt, TextPrompt};
-use crate::config::{load_history, store_history};
 
 pub struct UI<'a> {
     exit: bool,
     command: CommandInput<'a>,
     status: StatusWidget,
-    logs: Vec<String>,
-    api_sender: Sender<APIEvent>,
+    log: LogWidget,
+    api_sender: Sender<UICommand>,
 }
 
 impl UI<'_> {
-    pub fn new(api_sender: Sender<APIEvent>) -> Self {
+    pub fn new(api_sender: Sender<UICommand>) -> Self {
         let history = load_history().unwrap_or_else(|e| {
             eprintln!("Failed to load history: {}", e);
             vec![]
@@ -30,8 +27,8 @@ impl UI<'_> {
         Self {
             exit: false,
             command: CommandInput::new(history),
+            log: LogWidget::new(),
             status: StatusWidget::default(),
-            logs: Vec::new(),
             api_sender,
         }
     }
@@ -45,21 +42,7 @@ impl UI<'_> {
             terminal.draw(|f| self.draw(f))?;
             tokio::select! {
                 Some(event) = rx.recv() => {
-                    match event {
-                        UIEvent::Key(key_event) => {
-                            if key_event.code == KeyCode::Esc {
-                                self.exit();
-                                return Ok(());
-                            }
-                            self.handle_key_event(key_event).await
-                        },
-                        UIEvent::Status(event) => self.on_info(&event),
-                        UIEvent::Error(error) => self.on_error(&error),
-                        UIEvent::Log(error) => self.on_log(&error),
-                        UIEvent::Commands(commands) => {
-                            self.command.update_commands(commands);
-                        }
-                    }
+                    self.handle_ui_event(event).await;
                     if self.exit {
                         return Ok(());
                     }
@@ -68,14 +51,38 @@ impl UI<'_> {
         }
     }
 
-    pub(crate) fn on_log(&mut self, log: &str) {
-        self.logs.push(log.to_owned());
+    async fn handle_ui_event(&mut self, event: UIEvent) {
+        match event {
+            UIEvent::Key(key_event) => {
+                if key_event.code == KeyCode::Esc {
+                    self.exit();
+                    return;
+                }
+                self.handle_key_event(key_event).await
+            }
+            UIEvent::Status(event) => self.on_info(&event),
+            UIEvent::Output(event) => self.output(&event),
+            UIEvent::Error(error) => self.on_error(&error),
+            UIEvent::Log(log) => self.on_log(log),
+            UIEvent::Commands(commands) => {
+                self.command.update_commands(commands);
+            }
+        }
+    }
+
+    pub(crate) fn on_log(&mut self, log: LogRecord) {
+        self.log.add(log);
+    }
+
+    pub fn output(&self, message: &str) {
+        self.log.add(LogRecord::from_output(message))
     }
 
     pub(crate) fn on_info(&mut self, status: &str) {
         self.status.on_info(status);
     }
     pub(crate) fn on_error(&mut self, error: &str) {
+        self.log.add(LogRecord::from_error(error));
         self.status.on_error(error);
     }
 
@@ -89,26 +96,7 @@ impl UI<'_> {
             ])
             .split(frame.area());
 
-        let log_block = Block::default()
-            .borders(Borders::ALL)
-            .style(Style::default());
-
-        let height = (chunks[1].height - 2) as usize;
-        if self.logs.len() > height {
-            let excess = self.logs.len() - height;
-            self.logs.drain(0..excess);
-        }
-
-        let items: Vec<ListItem> = self
-            .logs
-            .iter()
-            .map(|l| ListItem::new(Line::styled(l, SLATE.c200)))
-            .collect();
-
-        let log = List::new(items).block(log_block);
-
-        frame.render_widget(log, chunks[1]);
-
+        self.log.render(frame, chunks[1]);
         self.status.render(frame, chunks[0]);
 
         self.draw_text_prompt(frame, chunks[2]);
@@ -144,19 +132,19 @@ impl UI<'_> {
                 CommandType::History(command) => {
                     let result = self.command.handle_history(command);
                     for line in result {
-                        self.on_log(&line);
+                        self.output(&line);
                     }
                 }
                 CommandType::Exit => self.exit(),
                 CommandType::Help => {
                     let result = self.command.handle_help();
                     for line in result {
-                        self.on_log(&line);
+                        self.output(&line);
                     }
                 }
 
                 _ => {
-                    if let Err(e) = self.api_sender.send(APIEvent::Command(cmd)).await {
+                    if let Err(e) = self.api_sender.send(UICommand::Command(cmd)).await {
                         eprintln!("Error sending API event: {}", e);
                     }
                 }

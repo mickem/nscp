@@ -18,7 +18,6 @@ struct NSClientConfig {
     history: Vec<String>,
 }
 
-
 fn load_config() -> anyhow::Result<NSClientConfig> {
     let external_cfg: NSClientConfig = confy::load(SERVICE_NAME, None)?;
     Ok(NSClientConfig::from(external_cfg))

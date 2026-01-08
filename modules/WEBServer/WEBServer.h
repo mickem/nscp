@@ -63,4 +63,5 @@ class WEBServer : public nscapi::impl::simple_plugin {
   boost::shared_ptr<Mongoose::Server> server;
 
   web_server::user_config users_;
+  unsigned long last_log_index;
 };

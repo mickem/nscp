@@ -11,6 +11,13 @@ use reqwest::header::{AUTHORIZATION, HeaderMap};
 use reqwest::{ClientBuilder, Method};
 use serde::de::DeserializeOwned;
 
+fn header_or_zero(headers: &HeaderMap, key: &str) -> u64 {
+    headers
+        .get(key)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(0)
+}
 #[derive(Clone)]
 pub enum Auth {
     Password(String, String),
@@ -113,13 +120,6 @@ impl ApiClient {
     }
 
     fn build_page<T>(content: T, headers: &HeaderMap) -> PaginatedResponse<T> {
-        fn header_or_zero(headers: &HeaderMap, key: &str) -> u64 {
-            headers
-                .get(key)
-                .and_then(|value| value.to_str().ok())
-                .and_then(|value| value.parse::<u64>().ok())
-                .unwrap_or(0)
-        }
         let count = header_or_zero(headers, "X-Pagination-Count");
         let page = header_or_zero(headers, "X-Pagination-Page");
         let limit = header_or_zero(headers, "X-Pagination-Limit");
@@ -144,6 +144,12 @@ pub trait ApiClientApi: Send + Sync {
         size: u64,
         level: Option<String>,
     ) -> anyhow::Result<PaginatedResponse<Vec<LogRecord>>>;
+    async fn get_logs_since(
+        &self,
+        page: u64,
+        size: u64,
+        since: usize,
+    ) -> anyhow::Result<(PaginatedResponse<Vec<LogRecord>>, usize)>;
     async fn get_log_status(&self) -> anyhow::Result<LogStatus>;
     async fn reset_log_status(&self) -> anyhow::Result<()>;
     async fn list_modules(&self, all: &bool) -> anyhow::Result<Vec<ListModulesResult>>;
@@ -186,7 +192,7 @@ impl ApiClientApi for ApiClient {
     ) -> anyhow::Result<PaginatedResponse<Vec<LogRecord>>> {
         let mut params: Vec<(String, String)> = Vec::new();
         params.push(("page".to_string(), page.to_string()));
-        params.push(("size".to_string(), size.to_string()));
+        params.push(("per_page".to_string(), size.to_string()));
         if let Some(level) = level {
             params.push(("level".to_string(), level.to_string()));
         }
@@ -201,6 +207,30 @@ impl ApiClientApi for ApiClient {
         let headers = response.headers().clone();
         let content = response.json::<Vec<LogRecord>>().await?;
         Ok(Self::build_page(content, &headers))
+    }
+
+    async fn get_logs_since(
+        &self,
+        page: u64,
+        size: u64,
+        since: usize,
+    ) -> anyhow::Result<(PaginatedResponse<Vec<LogRecord>>, usize)> {
+        let mut params: Vec<(String, String)> = Vec::new();
+        params.push(("page".to_string(), page.to_string()));
+        params.push(("per_page".to_string(), size.to_string()));
+        params.push(("since".to_string(), since.to_string()));
+        let query: Vec<(&str, &str)> = params
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        let path = "api/v2/logs/since";
+        let response = self
+            .send(self.authed_request(Method::GET, path)?.query(&query), path)
+            .await?;
+        let headers = response.headers().clone();
+        let content = response.json::<Vec<LogRecord>>().await?;
+        let last_index = header_or_zero(&headers, "X-Log-Index") as usize;
+        Ok((Self::build_page(content, &headers), last_index))
     }
 
     async fn get_log_status(&self) -> anyhow::Result<LogStatus> {
@@ -318,6 +348,7 @@ pub mod mocks {
                 size: u64,
                 level: Option<String>,
             ) -> anyhow::Result<PaginatedResponse<Vec<LogRecord>>>;
+            async fn get_logs_since(&self, page: u64, size: u64, since: usize) -> anyhow::Result<(PaginatedResponse<Vec<LogRecord>>, usize)>;
             async fn get_log_status(&self) -> anyhow::Result<LogStatus>;
             async fn reset_log_status(&self) -> anyhow::Result<()>;
             async fn list_modules(&self, all: &bool) -> anyhow::Result<Vec<ListModulesResult>>;

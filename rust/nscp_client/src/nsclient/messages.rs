@@ -35,19 +35,6 @@ pub struct LogRecord {
     pub message: String,
 }
 
-impl LogRecord {
-    pub(crate) fn calculate_hash(&self) -> u64 {
-        use std::hash::{Hash, Hasher};
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        self.level.hash(&mut hasher);
-        self.date.hash(&mut hasher);
-        self.file.hash(&mut hasher);
-        self.line.hash(&mut hasher);
-        self.message.hash(&mut hasher);
-        hasher.finish()
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LogStatus {
     pub errors: u64,
@@ -417,6 +404,15 @@ fn perf_to_simple_string(perf: &PerfData) -> String {
 pub struct ExecuteNagiosLine {
     pub message: String,
     pub perf: String,
+}
+
+impl ExecuteNagiosLine {
+    pub(crate) fn render(&self) -> String {
+        if self.perf.is_empty() {
+            return self.message.clone();
+        }
+        format!("{} | {}", self.message, self.perf)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

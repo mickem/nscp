@@ -62,3 +62,25 @@ error_handler::log_list error_handler::get_messages(std::list<std::string> level
   }
   return ret;
 }
+
+
+error_handler::log_list error_handler::get_messages_since(std::size_t since, std::size_t position, std::size_t ipp, std::size_t &count) {
+  log_list ret;
+  boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  if (!lock.owns_lock()) return ret;
+  int i = 0;
+  for (const log_entry &e : log_entries) {
+    if (e.index <= since) {
+      continue;
+    }
+    i++;
+    if (i < position) {
+      continue;
+    }
+    if (i <= position + ipp) {
+      ret.push_back(e);
+    }
+  }
+  count = i;
+  return ret;
+}
