@@ -1,4 +1,5 @@
 use crate::nsclient::client::command_input::Command;
+use crate::nsclient::client::log_widget::LogRecord;
 use crossterm::event::KeyEvent;
 use tokio::sync::mpsc;
 
@@ -10,11 +11,12 @@ pub async fn send_or_error<T>(sender: &mpsc::Sender<T>, event: T) {
 pub enum UIEvent {
     Key(KeyEvent),
     Status(String),
+    Output(String),
     Error(String),
-    Log(String),
+    Log(LogRecord),
     Commands(Vec<String>),
 }
 
-pub enum APIEvent {
+pub enum UICommand {
     Command(Command),
 }

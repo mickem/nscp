@@ -1,6 +1,7 @@
 mod command_input;
 mod events;
 mod input_event_loop;
+mod log_widget;
 mod proxy;
 mod status_widget;
 mod ui;

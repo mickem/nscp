@@ -33,6 +33,7 @@ log_controller::log_controller(const int version, const boost::shared_ptr<sessio
   addRoute("POST", "/?$", this, &log_controller::add_log);
   addRoute("GET", "/status?$", this, &log_controller::get_status);
   addRoute("DELETE", "/status?$", this, &log_controller::reset_status);
+  addRoute("GET", "/since?$", this, &log_controller::get_log_since);
 }
 
 void log_controller::get_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
@@ -74,6 +75,51 @@ void log_controller::get_log(Mongoose::Request &request, boost::smatch &what, Mo
   response.setHeader("X-Pagination-Limit", str::xtos(ipp));
   response.append(json::serialize(root));
 }
+
+
+void log_controller::get_log_since(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
+  if (!session->is_loggedin("logs.list", request, response)) return;
+
+  json::array root;
+
+  auto since = str::stox<std::size_t>(request.get("since", "0"), 0);
+
+  std::size_t count = 0;
+  std::size_t page = str::stox<std::size_t>(request.get("page", "1"), 1);
+  std::size_t ipp = str::stox<std::size_t>(request.get("per_page", "10"), 10);
+  if (ipp < 2 || ipp > 100 || page < 0) {
+    response.setCodeBadRequest("Invalid request");
+    return;
+  }
+  std::size_t pos = (page - 1) * ipp;
+  std::size_t last_index = since;
+  for (const error_handler_interface::log_entry &e : session->get_log_data()->get_messages_since(since, pos, ipp, count)) {
+    json::object node;
+    node.insert(json::object::value_type("file", e.file));
+    node.insert(json::object::value_type("line", e.line));
+    node.insert(json::object::value_type("level", e.type));
+    node.insert(json::object::value_type("date", e.date));
+    node.insert(json::object::value_type("message", e.message));
+    root.push_back(node);
+    last_index = e.index;
+  }
+  std::string base = request.get_host() + get_prefix() + "?page=";
+  std::string tail = "&per_page=" + str::xtos(ipp) + "&since=" + str::xtos(since);
+  std::string next = "";
+  if ((page * ipp) < count) {
+    next = "<" + base + str::xtos(page + 1) + tail + ">; rel=\"next\", ";
+  }
+  response.setHeader("Link", next + "<" + base + str::xtos((count / ipp) + 1) + tail + ">; rel=\"last\"");
+  response.setHeader("X-Pagination-Count", str::xtos(count));
+  response.setHeader("X-Pagination-Page", str::xtos(page));
+  response.setHeader("X-Pagination-Limit", str::xtos(ipp));
+  response.setHeader("X-Log-Index", str::xtos(last_index));
+  response.append(json::serialize(root));
+}
+
+
+
+
 
 void log_controller::add_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin("logs.put", request, response)) return;

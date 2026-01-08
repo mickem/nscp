@@ -82,7 +82,7 @@ class WEBServerLogger : public WebLogger {
   }
 };
 
-WEBServer::WEBServer() : simple_plugin(), session(new session_manager_interface()) {}
+WEBServer::WEBServer() : simple_plugin(), session(new session_manager_interface()), last_log_index(0) {}
 WEBServer::~WEBServer() = default;
 
 bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
@@ -246,6 +246,7 @@ void WEBServer::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
   using namespace boost::gregorian;
 
   error_handler_interface::log_entry entry;
+  entry.index = last_log_index++;
   entry.line = message.line();
   entry.file = message.file();
   entry.message = message.message();

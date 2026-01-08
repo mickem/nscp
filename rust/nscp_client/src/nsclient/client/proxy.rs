@@ -1,6 +1,7 @@
 use crate::nsclient::api::ApiClientApi;
 use crate::nsclient::client::command_input::{CommandType, QueryCommand};
-use crate::nsclient::client::events::{APIEvent, UIEvent, send_or_error};
+use crate::nsclient::client::events::{UICommand, UIEvent, send_or_error};
+use crate::nsclient::client::log_widget::{LogLevel, LogRecord};
 use tokio::select;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
@@ -12,21 +13,21 @@ pub struct Status {
 pub struct BackendProxy {
     api: Box<dyn ApiClientApi>,
     ui_sender: mpsc::Sender<UIEvent>,
-    api_receiver: mpsc::Receiver<APIEvent>,
-    last_log_record_hash: Option<u64>,
+    api_receiver: mpsc::Receiver<UICommand>,
+    last_log_index: usize,
 }
 
 impl BackendProxy {
     pub fn new(
         api: Box<dyn ApiClientApi>,
         ui_sender: mpsc::Sender<UIEvent>,
-        api_receiver: mpsc::Receiver<APIEvent>,
+        api_receiver: mpsc::Receiver<UICommand>,
     ) -> Self {
         Self {
             api,
             ui_sender,
             api_receiver,
-            last_log_record_hash: None,
+            last_log_index: 0,
         }
     }
 
@@ -62,24 +63,21 @@ impl BackendProxy {
     }
 
     pub async fn update_log(&mut self) {
-        match self.api.get_logs(1, 10, None).await {
-            Ok(response) => {
-                // TODO: This is pretty ugly, a better API is needed...
-                let mut new_records = Vec::new();
-                for entry in response.content.iter().rev() {
-                    let hash = entry.calculate_hash();
-                    if let Some(last_hash) = self.last_log_record_hash
-                        && hash == last_hash
-                    {
-                        break;
-                    }
-                    new_records.push(entry);
-                }
-                for entry in new_records.iter().rev() {
-                    self.send_or_error(UIEvent::Log(format!("[{}] {}", entry.date, entry.message)))
+        match self.api.get_logs_since(1, 100, self.last_log_index).await {
+            Ok((response, next_last_index)) => {
+                for entry in response.content.iter() {
+                    let message = format!("[{}] {}", entry.level, entry.message);
+                    let level = match entry.level.as_str() {
+                        "debug" => LogLevel::Debug,
+                        "info" => LogLevel::Info,
+                        "error" => LogLevel::Error,
+                        "warning" => LogLevel::Warning,
+                        _ => LogLevel::Error,
+                    };
+                    self.send_or_error(UIEvent::Log(LogRecord { level, message }))
                         .await;
-                    self.last_log_record_hash = Some(entry.calculate_hash());
                 }
+                self.last_log_index = next_last_index;
             }
             Err(err) => {
                 self.send_or_error(UIEvent::Error(format!(
@@ -115,9 +113,9 @@ impl BackendProxy {
             }
         }
     }
-    pub async fn on_api_event(&self, event: APIEvent) -> anyhow::Result<()> {
+    pub async fn on_api_event(&self, event: UICommand) -> anyhow::Result<()> {
         match event {
-            APIEvent::Command(command) => match command.command {
+            UICommand::Command(command) => match command.command {
                 CommandType::Ping => {
                     self.handle_ping_command().await;
                     Ok(())
@@ -151,7 +149,7 @@ impl BackendProxy {
     pub async fn handle_ping_command(&self) {
         match self.api.ping().await {
             Ok(result) => {
-                self.send_or_error(UIEvent::Status(format!(
+                self.send_or_error(UIEvent::Output(format!(
                     "Ping successful: {}.",
                     result.name
                 )))
@@ -167,7 +165,7 @@ impl BackendProxy {
     pub async fn handle_version_command(&self) {
         match self.api.ping().await {
             Ok(version) => {
-                self.send_or_error(UIEvent::Status(format!(
+                self.send_or_error(UIEvent::Output(format!(
                     "Backend version: {}.",
                     version.version
                 )))
@@ -181,27 +179,22 @@ impl BackendProxy {
     }
 
     pub async fn handle_query_command(&self, query: QueryCommand) {
+        self.send_or_error(UIEvent::Output(format!("Executing: {}", query.command)))
+            .await;
         match self
             .api
             .execute_query_nagios(&query.command, &query.args)
             .await
         {
             Ok(result) => {
-                self.send_or_error(UIEvent::Log(format!(
-                    "Query result: {}: {}",
-                    result.command, result.result
-                )))
-                .await;
-                for line in result.lines {
-                    self.send_or_error(UIEvent::Log(format!(
-                        " - {} | {}",
-                        line.message, line.perf
-                    )))
+                self.send_or_error(UIEvent::Output(format!("Response: {}", result.result)))
                     .await;
+                for line in result.lines {
+                    self.send_or_error(UIEvent::Output(line.render())).await;
                 }
             }
             Err(err) => {
-                self.send_or_error(UIEvent::Error(format!("Query failed: {}", err)))
+                self.send_or_error(UIEvent::Error(format!("Failed to execute query: {}", err)))
                     .await;
             }
         }

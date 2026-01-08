@@ -63,7 +63,6 @@ pub struct CommandInput<'a> {
     has_changed: bool,
 }
 
-
 impl<'a> CommandInput<'a> {
     pub(crate) fn new(history: Vec<String>) -> Self {
         CommandInput {
@@ -276,7 +275,6 @@ impl<'a> CommandInput<'a> {
             "  version: Show backend version".into(),
             "  query:   Execute a query (check command)".into(),
             "  ...      Any query (check_command) can be executed as-is".into(),
-
         ]
     }
 }
