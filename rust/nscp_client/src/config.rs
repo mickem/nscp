@@ -19,8 +19,7 @@ struct NSClientConfig {
 }
 
 fn load_config() -> anyhow::Result<NSClientConfig> {
-    let external_cfg: NSClientConfig = confy::load(SERVICE_NAME, None)?;
-    Ok(NSClientConfig::from(external_cfg))
+    Ok(confy::load(SERVICE_NAME, None)?)
 }
 
 pub fn add_nsclient_profile(

@@ -13,6 +13,7 @@ pub enum UIEvent {
     Status(String),
     Output(String),
     Error(String),
+    Performance(f64, f64, f64),
     Log(LogRecord),
     Commands(Vec<String>),
 }

@@ -1,10 +1,16 @@
 use crate::nsclient::api::ApiClientApi;
-use crate::nsclient::client::command_input::{CommandType, QueryCommand};
+use crate::nsclient::client::command_input::{CommandType, ModuleCommand, QueryCommand};
 use crate::nsclient::client::events::{UICommand, UIEvent, send_or_error};
 use crate::nsclient::client::log_widget::{LogLevel, LogRecord};
+use crate::nsclient::messages::Metrics;
+use std::time::Duration;
 use tokio::select;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
+
+fn bool_to_check(value: bool) -> String {
+    if value { "✓".into() } else { "☐".into() }
+}
 
 pub struct Status {
     pub(crate) error: Option<String>,
@@ -51,7 +57,7 @@ impl BackendProxy {
         })
         .await;
     }
-    pub async fn get_commands(&self) {
+    pub async fn update_commands(&self) {
         self.send_or_error(match self.api.list_queries(&false).await {
             Ok(queries) => {
                 let queries = queries.iter().map(|q| q.name.clone()).collect();
@@ -80,40 +86,41 @@ impl BackendProxy {
                 self.last_log_index = next_last_index;
             }
             Err(err) => {
-                self.send_or_error(UIEvent::Error(format!(
-                    "Error fetching log entries: {}",
-                    err
-                )))
-                .await;
+                self.on_error(format!("Error fetching log entries: {}", err))
+                    .await;
             }
         }
     }
 
     pub async fn event_loop(&mut self, token: CancellationToken) {
-        self.get_commands().await;
+        self.update_commands().await;
         self.update_status().await;
         loop {
-            self.update_log().await;
+            self.house_keeping().await;
             select! {
                 _ = token.cancelled() => {
                     return;
                 },
-                event = self.api_receiver.recv() => {
-                    if let Some(event) = event {
-                        if let Err(err) = self.on_api_event(event).await {
-                            self.send_or_error(UIEvent::Error(format!(
-                                "Error handling API event: {}",
-                                err
-                            )))
-                            .await;
-                        }
-                    }
-                },
-                _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {}
+                event = self.api_receiver.recv() => self.handle_ui_event(event).await,
+                _ = tokio::time::sleep(Duration::from_secs(5)) => {}
             }
         }
     }
-    pub async fn on_api_event(&self, event: UICommand) -> anyhow::Result<()> {
+
+    pub async fn house_keeping(&mut self) {
+        self.update_log().await;
+        self.update_metrics().await;
+    }
+
+    pub async fn handle_ui_event(&mut self, event: Option<UICommand>) {
+        if let Some(event) = event
+            && let Err(err) = self.on_api_request(event).await
+        {
+            self.on_error(format!("Error handling API event: {}", err))
+                .await;
+        }
+    }
+    pub async fn on_api_request(&mut self, event: UICommand) -> anyhow::Result<()> {
         match event {
             UICommand::Command(command) => match command.command {
                 CommandType::Ping => {
@@ -128,9 +135,24 @@ impl BackendProxy {
                     self.handle_query_command(query).await;
                     Ok(())
                 }
+                CommandType::Module(command) => {
+                    if let Err(e) = self.handle_module_command(command).await {
+                        self.on_error(format!("Error handling module command: {}", e))
+                            .await
+                    }
+                    Ok(())
+                }
+                CommandType::Queries => {
+                    let commands = self.api.list_queries(&false).await?;
+                    self.update_log().await;
+                    for command in commands {
+                        self.output(command.name).await;
+                    }
+                    Ok(())
+                }
                 CommandType::Refresh => {
                     self.update_status().await;
-                    self.get_commands().await;
+                    self.update_commands().await;
                     Ok(())
                 }
                 CommandType::History(_) => {
@@ -149,15 +171,11 @@ impl BackendProxy {
     pub async fn handle_ping_command(&self) {
         match self.api.ping().await {
             Ok(result) => {
-                self.send_or_error(UIEvent::Output(format!(
-                    "Ping successful: {}.",
-                    result.name
-                )))
-                .await;
+                self.output(format!("Ping successful: {}.", result.name))
+                    .await;
             }
             Err(err) => {
-                self.send_or_error(UIEvent::Error(format!("Ping failed: {}", err)))
-                    .await;
+                self.on_error(format!("Ping failed: {}", err)).await;
             }
         }
     }
@@ -165,38 +183,97 @@ impl BackendProxy {
     pub async fn handle_version_command(&self) {
         match self.api.ping().await {
             Ok(version) => {
-                self.send_or_error(UIEvent::Output(format!(
-                    "Backend version: {}.",
-                    version.version
-                )))
-                .await;
+                self.output(format!("Backend version: {}.", version.version))
+                    .await;
             }
             Err(err) => {
-                self.send_or_error(UIEvent::Error(format!("Failed to get version: {}", err)))
+                self.on_error(format!("Failed to get version: {}", err))
                     .await;
             }
         }
     }
 
     pub async fn handle_query_command(&self, query: QueryCommand) {
-        self.send_or_error(UIEvent::Output(format!("Executing: {}", query.command)))
-            .await;
+        self.output(format!("Executing: {}", query.command)).await;
         match self
             .api
             .execute_query_nagios(&query.command, &query.args)
             .await
         {
             Ok(result) => {
-                self.send_or_error(UIEvent::Output(format!("Response: {}", result.result)))
-                    .await;
+                self.output(format!("Response: {}", result.result)).await;
                 for line in result.lines {
-                    self.send_or_error(UIEvent::Output(line.render())).await;
+                    self.output(line.render()).await;
                 }
             }
             Err(err) => {
-                self.send_or_error(UIEvent::Error(format!("Failed to execute query: {}", err)))
+                self.on_error(format!("Failed to execute query: {}", err))
                     .await;
             }
         }
     }
+
+    pub async fn handle_module_command(&mut self, command: ModuleCommand) -> anyhow::Result<()> {
+        match command {
+            ModuleCommand::List => {
+                let modules = self.api.list_modules(&true).await?;
+                self.update_log().await;
+                for module in modules {
+                    self.output(format!("{} {}", bool_to_check(module.loaded), module.name))
+                        .await;
+                }
+                Ok(())
+            }
+            ModuleCommand::Load(module) => {
+                self.api.module_command(&module, "load").await?;
+                self.update_log().await;
+                self.update_commands().await;
+                self.output(format!("Module {} loaded.", module)).await;
+                Ok(())
+            }
+            ModuleCommand::Unload(module) => {
+                self.api.module_command(&module, "unload").await?;
+                self.update_log().await;
+                self.update_commands().await;
+                self.output(format!("Module {} unloaded.", module)).await;
+                Ok(())
+            }
+        }
+    }
+
+    async fn update_metrics(&self) {
+        let metrics = match self.api.get_metrics().await {
+            Ok(metrics) => metrics,
+            Err(err) => {
+                self.on_error(format!("Error fetching metrics: {}", err))
+                    .await;
+                return;
+            }
+        };
+        let cpu_user = get_float(&metrics, "system.cpu.total.user");
+        let cpu_kernel = get_float(&metrics, "system.cpu.total.kernel");
+        let memory_used = get_float(&metrics, "system.mem.physical.used");
+        let memory_total = get_float(&metrics, "system.mem.physical.total");
+        let memory = if memory_total != 0.0f64 {
+            memory_used / memory_total
+        } else {
+            0.0
+        };
+        self.send_or_error(UIEvent::Performance(cpu_user, cpu_kernel, memory))
+            .await;
+    }
+
+    pub async fn on_error(&self, message: String) {
+        self.send_or_error(UIEvent::Error(message)).await;
+    }
+    pub async fn output(&self, message: String) {
+        self.send_or_error(UIEvent::Output(message)).await;
+    }
+}
+
+fn get_float(metrics: &Metrics, key: &str) -> f64 {
+    metrics
+        .get(key)
+        .and_then(|value| value.as_f64())
+        .unwrap_or(0.0)
 }

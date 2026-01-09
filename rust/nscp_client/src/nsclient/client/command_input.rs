@@ -4,7 +4,7 @@ use tui_prompts::{State, TextState};
 
 const VALID_COMMANDS: &[&str] = &[
     "ping", "version", "query", "modules", "settings", "metrics", "refresh", "history", "exit",
-    "help",
+    "help", "queries", "load", "unload", "plugins",
 ];
 
 const MAX_HISTORY_LENGTH: usize = 30;
@@ -21,6 +21,12 @@ impl QueryCommand {
             args: parse_arguments(&tokens[1..]),
         }
     }
+}
+
+pub enum ModuleCommand {
+    Load(String),
+    Unload(String),
+    List,
 }
 
 fn parse_arguments(args: &[String]) -> Vec<(String, String)> {
@@ -48,7 +54,9 @@ pub enum CommandType {
     Exit,
     Help,
     Query(QueryCommand),
+    Queries,
     History(HistoryCommand),
+    Module(ModuleCommand),
 }
 pub struct Command {
     pub command: CommandType,
@@ -192,12 +200,12 @@ impl<'a> CommandInput<'a> {
     }
 
     fn update_input_from_history(&mut self) {
-        if let Some(idx) = self.history_index {
-            if let Some(cmd) = self.history.get(idx) {
-                self.command_state.truncate();
-                self.command_state.value_mut().push_str(cmd);
-                self.command_state.move_end();
-            }
+        if let Some(idx) = self.history_index
+            && let Some(cmd) = self.history.get(idx)
+        {
+            self.command_state.truncate();
+            self.command_state.value_mut().push_str(cmd);
+            self.command_state.move_end();
         }
     }
 
@@ -274,7 +282,9 @@ impl<'a> CommandInput<'a> {
             "  ping:    Check if backend is reachable".into(),
             "  version: Show backend version".into(),
             "  query:   Execute a query (check command)".into(),
-            "  ...      Any query (check_command) can be executed as-is".into(),
+            "  modules: Show and manipulate modules".into(),
+            "  queries: List all available queries (check commands)".into(),
+            "  ...      Any query (check command) can be executed as-is".into(),
         ]
     }
 }
@@ -296,6 +306,18 @@ fn parse_command(tokens: &[String]) -> anyhow::Result<Command> {
         "history" => Ok(Command {
             command: parse_history_command(&tokens[1..])?,
         }),
+        "modules" => Ok(Command {
+            command: parse_modules_command(&tokens[1..])?,
+        }),
+        "load" => Ok(Command {
+            command: CommandType::Module(ModuleCommand::Load(tokens[1].clone())),
+        }),
+        "unload" => Ok(Command {
+            command: CommandType::Module(ModuleCommand::Unload(tokens[1].clone())),
+        }),
+        "plugins" => Ok(Command {
+            command: CommandType::Module(ModuleCommand::List),
+        }),
         "exit" => Ok(Command {
             command: CommandType::Exit,
         }),
@@ -304,6 +326,12 @@ fn parse_command(tokens: &[String]) -> anyhow::Result<Command> {
         }),
         "query" => Ok(Command {
             command: CommandType::Query(QueryCommand::from_tokens(&tokens[1..])),
+        }),
+        "list" => Ok(Command {
+            command: CommandType::Queries,
+        }),
+        "queries" => Ok(Command {
+            command: CommandType::Queries,
         }),
         _ => Ok(Command {
             command: CommandType::Query(QueryCommand::from_tokens(tokens)),
@@ -329,6 +357,28 @@ fn parse_history_command(args: &[String]) -> anyhow::Result<CommandType> {
             Ok(CommandType::History(HistoryCommand::Delete(index)))
         }
         &_ => anyhow::bail!("Invalid history command"),
+    }
+}
+
+fn parse_modules_command(args: &[String]) -> anyhow::Result<CommandType> {
+    if args.is_empty() {
+        return Ok(CommandType::Module(ModuleCommand::List));
+    }
+    match args[0].to_lowercase().as_str() {
+        "list" => Ok(CommandType::Module(ModuleCommand::List)),
+        "load" => {
+            if args.len() != 2 {
+                anyhow::bail!("Invalid syntax: modules load <module>");
+            }
+            Ok(CommandType::Module(ModuleCommand::Load(args[1].clone())))
+        }
+        "unload" => {
+            if args.len() != 2 {
+                anyhow::bail!("Invalid syntax: modules unload <module>");
+            }
+            Ok(CommandType::Module(ModuleCommand::Unload(args[1].clone())))
+        }
+        &_ => anyhow::bail!("Invalid modules command"),
     }
 }
 

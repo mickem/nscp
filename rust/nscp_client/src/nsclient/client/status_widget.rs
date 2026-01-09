@@ -1,52 +1,57 @@
 use ratatui::Frame;
-use ratatui::layout::Rect;
-use ratatui::prelude::{Color, Style, Text};
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::layout::{Direction, Rect};
+use ratatui::prelude::{Color, Style};
+use ratatui::text::Line;
+use ratatui::widgets::{Bar, BarChart, BarGroup, Block};
 
-enum StatusLevel {
-    Info,
-    Error,
-}
+#[derive(Default)]
 pub struct StatusWidget {
-    status: String,
-    level: StatusLevel,
-}
-
-impl Default for StatusWidget {
-    fn default() -> Self {
-        Self {
-            status: "...".to_string(),
-            level: StatusLevel::Info,
-        }
-    }
+    user: u64,
+    kernel: u64,
+    memory: u64,
 }
 
 impl StatusWidget {
-    pub(crate) fn on_info(&mut self, msg: &str) {
-        self.status = msg.to_owned();
-        self.level = StatusLevel::Info;
-    }
-
-    pub(crate) fn on_error(&mut self, error: &str) {
-        self.status = error.to_owned();
-        self.level = StatusLevel::Error;
+    pub(crate) fn on_performance(&mut self, user: f64, kernel: f64, memory: f64) {
+        self.user = user as u64;
+        self.kernel = kernel as u64;
+        self.memory = (100.0 * memory) as u64;
     }
 
     pub fn render(&self, frame: &mut Frame, rect: Rect) {
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .style(Style::default());
-        let color = match self.level {
-            StatusLevel::Info => Color::Green,
-            StatusLevel::Error => Color::Red,
-        };
+        let bars: Vec<Bar> = vec![
+            Bar::default()
+                .value(self.user)
+                .label(Line::raw("User"))
+                .style(get_style(self.user)),
+            Bar::default()
+                .value(self.kernel)
+                .label(Line::raw("Kernel"))
+                .style(get_style(self.kernel)),
+            Bar::default()
+                .value(self.memory)
+                .label(Line::raw("Memory"))
+                .style(get_style(self.memory)),
+        ];
 
-        let paragraph = Paragraph::new(Text::styled(
-            self.status.as_str(),
-            Style::default().fg(color),
-        ))
-        .block(block);
+        let chart = BarChart::default()
+            .block(Block::new())
+            .data(BarGroup::default().bars(&bars))
+            .bar_width(1)
+            .bar_gap(0)
+            .max(100)
+            .direction(Direction::Horizontal);
 
-        frame.render_widget(paragraph, rect);
+        frame.render_widget(chart, rect);
     }
+}
+
+fn get_style(value: u64) -> Style {
+    if value > 80 {
+        return Style::new().fg(Color::Red);
+    }
+    if value > 50 {
+        return Style::new().fg(Color::Yellow);
+    }
+    Style::new().fg(Color::Green)
 }
