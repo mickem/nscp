@@ -60,12 +60,15 @@ impl UI<'_> {
                 }
                 self.handle_key_event(key_event).await
             }
-            UIEvent::Status(event) => self.on_info(&event),
+            UIEvent::Status(event) => self.on_error(&event),
             UIEvent::Output(event) => self.output(&event),
             UIEvent::Error(error) => self.on_error(&error),
             UIEvent::Log(log) => self.on_log(log),
             UIEvent::Commands(commands) => {
                 self.command.update_commands(commands);
+            }
+            UIEvent::Performance(user, kernel, memory) => {
+                self.status.on_performance(user, kernel, memory)
             }
         }
     }
@@ -78,12 +81,8 @@ impl UI<'_> {
         self.log.add(LogRecord::from_output(message))
     }
 
-    pub(crate) fn on_info(&mut self, status: &str) {
-        self.status.on_info(status);
-    }
     pub(crate) fn on_error(&mut self, error: &str) {
         self.log.add(LogRecord::from_error(error));
-        self.status.on_error(error);
     }
 
     fn draw(&mut self, frame: &mut Frame) {

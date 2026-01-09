@@ -63,7 +63,7 @@ impl LogWidget {
             .iter()
             .map(|l| {
                 ListItem::new(Line::styled(
-                    format!("{}", l.message),
+                    l.message.to_string(),
                     color_from_level(&l.level),
                 ))
             })

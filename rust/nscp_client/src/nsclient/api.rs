@@ -215,10 +215,11 @@ impl ApiClientApi for ApiClient {
         size: u64,
         since: usize,
     ) -> anyhow::Result<(PaginatedResponse<Vec<LogRecord>>, usize)> {
-        let mut params: Vec<(String, String)> = Vec::new();
-        params.push(("page".to_string(), page.to_string()));
-        params.push(("per_page".to_string(), size.to_string()));
-        params.push(("since".to_string(), since.to_string()));
+        let params: Vec<(String, String)> = vec![
+            ("page".to_string(), page.to_string()),
+            ("per_page".to_string(), size.to_string()),
+            ("since".to_string(), since.to_string()),
+        ];
         let query: Vec<(&str, &str)> = params
             .iter()
             .map(|(k, v)| (k.as_str(), v.as_str()))
