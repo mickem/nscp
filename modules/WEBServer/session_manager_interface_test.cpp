@@ -163,6 +163,6 @@ TEST_F(SessionManagerTest, IsLoggedInWithToken) {
   std::string token = smi.generate_token("user");
   req.get_headers()["TOKEN"] = token;
 
-  EXPECT_TRUE(smi.is_logged_in("read", req, resp));
+  EXPECT_TRUE(smi.is_logged_in("something:read", req, resp));
   EXPECT_EQ(resp.getCookie("token"), token);
 }
