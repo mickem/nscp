@@ -87,7 +87,13 @@ if(GTEST_FOUND)
         ${NSCP_INCLUDEDIR}/utf8.cpp
         token_store_test.cpp
         token_store.cpp
+        grant_store_test.cpp
         grant_store.cpp
+        session_manager_interface_test.cpp
+        session_manager_interface.cpp
+        user_manager.cpp
+        error_handler.cpp
+        metrics_handler.cpp
         ${NSCP_INCLUDEDIR}/socket/allowed_hosts_test.cpp
         ${NSCP_INCLUDEDIR}/socket/allowed_hosts.cpp
     )
@@ -98,6 +104,7 @@ if(GTEST_FOUND)
         GTest::gtest_main
         ${Boost_LIBRARIES}
         ${EXTRA_LIBS}
+        nscp_mongoose
     )
 
     nscp_add_test(${TARGET}_test)

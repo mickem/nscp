@@ -2,7 +2,7 @@
 
 void error_handler::add_message(bool is_error, const log_entry &message) {
   {
-    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    const boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!lock.owns_lock()) return;
     log_entries.push_back(message);
     if (is_error) {
@@ -12,7 +12,7 @@ void error_handler::add_message(bool is_error, const log_entry &message) {
   }
 }
 void error_handler::reset() {
-  boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  const boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!lock.owns_lock()) return;
   log_entries.clear();
   last_error_ = "";
@@ -20,7 +20,7 @@ void error_handler::reset() {
 }
 error_handler::status error_handler::get_status() {
   status ret;
-  boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  const boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!lock.owns_lock()) return ret;
   ret.error_count = error_count_;
   ret.last_error = last_error_;
@@ -28,7 +28,7 @@ error_handler::status error_handler::get_status() {
 }
 error_handler::log_list error_handler::get_messages(std::list<std::string> levels, std::size_t position, std::size_t ipp, std::size_t &count) {
   log_list ret;
-  boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  const boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!lock.owns_lock()) return ret;
   if (levels.empty()) {
     count = log_entries.size();
@@ -63,10 +63,9 @@ error_handler::log_list error_handler::get_messages(std::list<std::string> level
   return ret;
 }
 
-
 error_handler::log_list error_handler::get_messages_since(std::size_t since, std::size_t position, std::size_t ipp, std::size_t &count) {
   log_list ret;
-  boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  const boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!lock.owns_lock()) return ret;
   int i = 0;
   for (const log_entry &e : log_entries) {

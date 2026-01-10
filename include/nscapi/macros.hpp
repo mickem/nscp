@@ -19,6 +19,10 @@
 
 #pragma once
 
+#ifdef NSCAPI_UNIT_TESTS
+#include <iostream>
+#endif
+
 //////////////////////////////////////////////////////////////////////////
 // Logging calls for the core wrapper
 
@@ -34,10 +38,14 @@
   if (GET_CORE()->should_log(NSCAPI::log_level::error)) {    \
     NSC_ANY_MSG((std::string)msg, NSCAPI::log_level::error); \
   }
+#ifdef NSCAPI_UNIT_TESTS
+#define NSC_LOG_ERROR(msg) std::cout << "ERROR: " << msg << std::endl;
+#else
 #define NSC_LOG_ERROR(msg)                                \
   if (GET_CORE()->should_log(NSCAPI::log_level::error)) { \
     NSC_ANY_MSG(msg, NSCAPI::log_level::error);           \
   }
+#endif
 #define NSC_LOG_ERROR_WA(msg, ws)                                                         \
   if (GET_CORE()->should_log(NSCAPI::log_level::error)) {                                 \
     NSC_ANY_MSG((std::string)msg + utf8::cvt<std::string>(ws), NSCAPI::log_level::error); \

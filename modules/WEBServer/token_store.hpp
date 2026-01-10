@@ -64,7 +64,7 @@ class token_store {
       tokens.erase(it);
     }
   }
-  bool can(std::string uid, std::string grant);
-  void add_user(std::string user, std::string role);
-  void add_grant(std::string role, std::string grant);
+  bool can(const std::string &uid, const std::string &grant);
+  void add_user(const std::string &user, const std::string &role);
+  void add_grant(const std::string &role, const std::string &grant);
 };

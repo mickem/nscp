@@ -77,31 +77,6 @@ long socket_helpers::connection_info::get_ctx_opts() const {
   return opts;
 }
 
-std::string socket_helpers::allowed_hosts_manager::to_string() const {
-  std::string ret;
-  for (const host_record_v4 &r : entries_v4) {
-    ip::address_v4 a(r.addr);
-    ip::address_v4 m(r.mask);
-    std::string s = a.to_string() + "(" + m.to_string() + ")";
-    str::format::append_list(ret, s);
-  }
-  for (const host_record_v6 &r : entries_v6) {
-    ip::address_v6 a(r.addr);
-    ip::address_v6 m(r.mask);
-    std::string s = a.to_string() + "(" + m.to_string() + ")";
-    str::format::append_list(ret, s);
-  }
-  return ret;
-}
-
-void socket_helpers::allowed_hosts_manager::set_source(const std::string &source) {
-  sources.clear();
-  for (std::string s : str::utils::split_lst(source, std::string(","))) {
-    boost::trim(s);
-    if (!s.empty()) sources.push_back(s);
-  }
-}
-
 void socket_helpers::io::set_result(boost::optional<boost::system::error_code> *a, const boost::system::error_code &b) {
   if (!b) {
     a->reset(b);

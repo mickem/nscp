@@ -2,26 +2,26 @@
 
 #include <str/utils.hpp>
 
-void grant_store::add_role(std::string &role, std::string &grant) {
+void grant_store::add_role(const std::string &role, const std::string &grant) {
   for (const std::string &g : str::utils::split<std::list<std::string> >(grant, ",")) {
     roles[role].rules.push_back(g);
   }
 }
 
-void grant_store::add_user(std::string &user, std::string &role) { users[user] = role; }
+void grant_store::add_user(const std::string &user, const std::string &role) { users[user] = role; }
 
-void grant_store::remove_role(std::string &role) { roles.erase(role); }
+void grant_store::remove_role(const std::string &role) { roles.erase(role); }
 
-void grant_store::remove_user(std::string &uid) { users.erase(uid); }
+void grant_store::remove_user(const std::string &uid) { users.erase(uid); }
 
 void grant_store::clear() {
   roles.clear();
   users.clear();
 }
 
-bool grant_store::validate(const std::string &uid, std::string &check) {
+bool grant_store::validate(const std::string &uid, const std::string &check) {
   std::list<std::string> need = str::utils::split_lst(check, ".");
-  grants g = fetch_role(uid);
+  const grants g = fetch_role(uid);
   for (const std::string &rule : g.rules) {
     std::list<std::string> tokens = str::utils::split_lst(rule, ".");
     if (validate_grants(tokens, need)) {
@@ -32,28 +32,28 @@ bool grant_store::validate(const std::string &uid, std::string &check) {
 }
 
 grants grant_store::fetch_role(const std::string &uid) {
-  std::string role = users[uid];
+  const std::string role = users[uid];
   if (role.empty()) {
-    return grants();
+    return {};
   }
   return roles[role];
 }
 
 bool grant_store::validate_grants(std::list<std::string> &grant, std::list<std::string> &need) {
-  grant_list::const_iterator cg = grant.begin();
-  grant_list::const_iterator cn = need.begin();
-  while (cn != need.end()) {
-    if (cg == grant.end()) {
+  grant_list::const_iterator grant_it = grant.begin();
+  grant_list::const_iterator need_it = need.begin();
+  while (need_it != need.end()) {
+    if (grant_it == grant.end()) {
       return false;
     }
-    if (*cg == "*") {
+    if (*grant_it == "*") {
       return true;
     }
-    if (*cn != *cg) {
+    if (*need_it != *grant_it) {
       return false;
     }
-    cg++;
-    cn++;
+    ++grant_it;
+    ++need_it;
   }
-  return true;
+  return grant_it == grant.end();
 }
