@@ -14,8 +14,7 @@ std::size_t extract_mask(const std::string &mask, std::size_t mask_length) {
     if (start_pos_number != std::string::npos) {
       const std::string::size_type end_pos_number = mask.find_first_not_of("0123456789", start_pos_number);
       if (end_pos_number != std::string::npos) {
-        // TODO: This seems wrong should likely be end_pos_number-start_pos_number.
-        mask_length = str::stox<std::size_t>(mask.substr(start_pos_number, end_pos_number));
+        mask_length = str::stox<std::size_t>(mask.substr(start_pos_number, end_pos_number-start_pos_number));
       } else {
         mask_length = str::stox<std::size_t>(mask.substr(start_pos_number));
       }

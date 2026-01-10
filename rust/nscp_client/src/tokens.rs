@@ -34,7 +34,7 @@ pub fn load_token(key_type: KeyType, id: &str) -> anyhow::Result<String> {
     match entry.get_password() {
         Ok(token) => Ok(token),
         Err(err) => {
-            anyhow::bail!("No {key_type} token found for user {id}: {err:?}")
+            anyhow::bail!("No {key_type} found for user {id}: {err:?}")
         }
     }
 }

@@ -97,6 +97,7 @@ bool session_manager_interface::is_logged_in(const std::string &grant, Mongoose:
   if (!can(grant, response)) {
     NSC_LOG_ERROR("Rejected connection from: " + request.getRemoteIp() + " due to insufficient permissions");
     response.setCodeForbidden(NOT_ALLOWED);
+    return false;
   }
   return true;
 }
