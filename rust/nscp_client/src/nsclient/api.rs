@@ -1,3 +1,5 @@
+use crate::config;
+use crate::nsclient::login_helper::login_and_fetch_key;
 use crate::nsclient::messages::{
     ExecuteNagiosResult, ExecuteResult, ListModulesResult, ListQueriesResult, LogRecord, LogStatus,
     LoginResponse, Metrics, ModulesResult, PaginatedResponse, PingResult, QueryResult,
@@ -8,7 +10,7 @@ use async_trait::async_trait;
 #[cfg(test)]
 use mockall::automock;
 use reqwest::header::{AUTHORIZATION, HeaderMap};
-use reqwest::{ClientBuilder, Method};
+use reqwest::{ClientBuilder, Method, Response};
 use serde::de::DeserializeOwned;
 
 fn header_or_zero(headers: &HeaderMap, key: &str) -> u64 {
@@ -28,14 +30,21 @@ pub struct ApiClient {
     client: reqwest::Client,
     base_url: String,
     auth: Auth,
+    id: Option<String>,
 }
 
 impl ApiClient {
-    pub(crate) fn new(builder: ClientBuilder, base_url: &str, auth: Auth) -> anyhow::Result<Self> {
+    pub(crate) fn new(
+        builder: ClientBuilder,
+        base_url: &str,
+        auth: Auth,
+        id: Option<String>,
+    ) -> anyhow::Result<Self> {
         Ok(Self {
             client: builder.build()?,
             base_url: base_url.to_owned(),
             auth,
+            id,
         })
     }
 
@@ -50,6 +59,28 @@ impl ApiClient {
         self.send(self.authed_request(Method::GET, path)?, path)
             .await
             .map(|_| ())
+    }
+
+    async fn refresh_token(&self) -> anyhow::Result<()> {
+        if let Some(id) = &self.id {
+            let profile = match config::get_nsclient_profile(&id)? {
+                Some(profile) => profile,
+                None => {
+                    anyhow::bail!("Failed to refresh token because profile {id} does not exist")
+                }
+            };
+            let password = config::get_password(&id)?;
+
+            let token = login_and_fetch_key(
+                &profile.url,
+                &profile.username,
+                &password,
+                &profile.insecure,
+            )
+            .await?;
+            config::update_token(&id, &token)?;
+        }
+        Ok(())
     }
 
     async fn get_with_query<T: DeserializeOwned>(
@@ -103,12 +134,24 @@ impl ApiClient {
         }
     }
 
-    async fn send(
-        &self,
-        builder: reqwest::RequestBuilder,
-        path: &str,
-    ) -> anyhow::Result<reqwest::Response> {
+    async fn send(&self, builder: reqwest::RequestBuilder, path: &str) -> anyhow::Result<Response> {
+        let builder_clone = builder.try_clone();
         let response = builder.send().await?;
+        if response.status() == reqwest::StatusCode::UNAUTHORIZED
+            || response.status() == reqwest::StatusCode::FORBIDDEN
+        {
+            self.refresh_token().await?;
+            if let Some(builder) = builder_clone {
+                let response = builder.send().await?;
+                if response.status() == reqwest::StatusCode::UNAUTHORIZED
+                    || response.status() == reqwest::StatusCode::FORBIDDEN
+                {
+                    anyhow::bail!("Failed to refresh token");
+                }
+                return Ok(response);
+            }
+            anyhow::bail!("Invalid response status from {path}: {}", response.status());
+        }
         if !response.status().is_success() {
             anyhow::bail!("Invalid response status from {path}: {}", response.status());
         }

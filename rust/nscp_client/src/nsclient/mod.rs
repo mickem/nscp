@@ -2,6 +2,7 @@ mod api;
 mod auth_commands;
 pub mod client;
 mod generic_commands;
+mod login_helper;
 mod logs_commands;
 mod messages;
 mod metrics_commands;
@@ -51,6 +52,7 @@ pub fn build_client_from_profile(
         &args.user_agent,
         Auth::Token(api_key),
         profile.insecure,
+        Some(profile.id.to_owned()),
     )
 }
 
@@ -60,13 +62,14 @@ pub fn build_client(
     user_agent: &str,
     auth: Auth,
     insecure: bool,
+    profile_id: Option<String>,
 ) -> anyhow::Result<Box<dyn ApiClientApi>> {
     let url = preprocess_url(url);
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(timeout_s))
         .user_agent(user_agent)
         .danger_accept_invalid_certs(insecure);
-    let client = ApiClient::new(client, &url, auth)?;
+    let client = ApiClient::new(client, &url, auth, profile_id)?;
     Ok(Box::new(client))
 }
 

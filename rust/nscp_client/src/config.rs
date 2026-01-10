@@ -5,7 +5,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug)]
 pub struct NSClientProfile {
     pub(crate) id: String,
+    #[serde(default = "String::default")]
     pub(crate) url: String,
+    #[serde(default = "String::default")]
+    pub(crate) username: String,
     pub(crate) insecure: bool,
 }
 
@@ -26,6 +29,8 @@ pub fn add_nsclient_profile(
     id: &str,
     url: &str,
     insecure: bool,
+    username: &str,
+    password: &str,
     api_key: &str,
 ) -> anyhow::Result<()> {
     let mut cfg: NSClientConfig = load_config()?;
@@ -33,6 +38,7 @@ pub fn add_nsclient_profile(
     let profile = NSClientProfile {
         id: id.to_string(),
         url: url.to_string(),
+        username: username.to_string(),
         insecure,
     };
     cfg.nsclient_profiles.push(profile);
@@ -40,7 +46,8 @@ pub fn add_nsclient_profile(
         cfg.default_nsclient_profile = Some(id.to_string());
     }
     confy::store(SERVICE_NAME, None, cfg)?;
-    tokens::store_token(id, api_key)
+    tokens::store_token(KeyType::Password, id, password)?;
+    tokens::store_token(KeyType::Token, id, api_key)
 }
 
 pub fn set_default_nsclient_profile(id: &str) -> anyhow::Result<()> {
@@ -76,10 +83,21 @@ pub fn get_nsclient_profile(id: &str) -> anyhow::Result<Option<NSClientProfile>>
 }
 
 pub fn get_api_key(id: &str) -> anyhow::Result<String> {
-    match tokens::load_token(id) {
+    match tokens::load_token(KeyType::Token, id) {
         Ok(token) => Ok(token),
         Err(e) => anyhow::bail!("Failed to load API key for profile '{}': {:#}", id, e),
     }
+}
+
+pub fn get_password(id: &str) -> anyhow::Result<String> {
+    match tokens::load_token(KeyType::Password, id) {
+        Ok(token) => Ok(token),
+        Err(e) => anyhow::bail!("Failed to load password for profile '{}': {:#}", id, e),
+    }
+}
+
+pub fn update_token(id: &str, token: &str) -> anyhow::Result<()> {
+    tokens::store_token(KeyType::Token, id, token)
 }
 
 pub fn remove_nsclient_profile(id: &str) -> anyhow::Result<()> {
@@ -117,6 +135,7 @@ pub fn load_history() -> anyhow::Result<Vec<String>> {
 #[path = "custom_mock_keyring.rs"]
 mod custom_mock_keyring;
 
+use crate::tokens::KeyType;
 #[cfg(test)]
 use keyring::set_default_credential_builder;
 #[cfg(test)]

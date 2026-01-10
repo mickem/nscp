@@ -301,6 +301,12 @@ pub enum AuthCommand {
     },
     /// Logout and forget stored token
     Logout { id: String },
+    /// Refresh the api key (using the stored password)
+    Refresh {
+        /// Profile ID of profile to refresh token
+        #[arg(default_value = "default")]
+        id: String,
+    },
 }
 
 #[cfg(test)]

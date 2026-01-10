@@ -66,6 +66,7 @@ describe("log", () => {
         await request(URL)
             .get("/api/v2/logs")
             .set("Authorization", `Bearer ${key}`)
+            .query({per_page: 500, page: 1})
             .trustLocalhost(true)
             .expect(200)
             .then((response) => {
@@ -85,6 +86,7 @@ describe("log", () => {
         await request(URL)
             .get("/api/v2/logs/since")
             .set("Authorization", `Bearer ${key}`)
+            .query({per_page: 500, page: 1})
             .trustLocalhost(true)
             .expect(200)
             .then((response) => {
@@ -121,7 +123,7 @@ describe("log", () => {
         await request(URL)
             .get("/api/v2/logs/since")
             .set("Authorization", `Bearer ${key}`)
-            .query({since: index})
+            .query({per_page: 500, page: 1, since: index})
             .trustLocalhost(true)
             .expect(200)
             .then((response) => {
