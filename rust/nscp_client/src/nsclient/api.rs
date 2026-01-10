@@ -148,6 +148,9 @@ impl ApiClient {
                 {
                     anyhow::bail!("Failed to refresh token");
                 }
+                if !response.status().is_success() {
+                    anyhow::bail!("Invalid response status from {path}: {}", response.status());
+                }
                 return Ok(response);
             }
             anyhow::bail!("Authentication failure from {path}, and it was not possible to refresh the token: {}", response.status());
