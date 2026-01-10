@@ -131,7 +131,15 @@ mod tests {
             })))
             .mount(&mock_server)
             .await;
-        add_nsclient_profile("test-profile-ping", &mock_server.uri(), false, "test-token").unwrap();
+        add_nsclient_profile(
+            "test-profile-ping",
+            &mock_server.uri(),
+            false,
+            "username",
+            "password",
+            "test-token",
+        )
+        .unwrap();
 
         let output_sink = Box::new(StringRender::new());
         let output_ref = output_sink.string.clone();
@@ -179,6 +187,8 @@ mod tests {
             "test-profile-version",
             &mock_server.uri(),
             false,
+            "username",
+            "password",
             "test-token",
         )
         .unwrap();

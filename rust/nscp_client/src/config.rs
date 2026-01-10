@@ -168,7 +168,14 @@ mod tests {
     #[serial_test::serial(config)]
     fn test_add_and_get_and_delete_profile() {
         let tmp = mock_test_config();
-        let _ = add_nsclient_profile("test1", "http://localhost:8080", false, "apikey1");
+        let _ = add_nsclient_profile(
+            "test1",
+            "http://localhost:8080",
+            false,
+            "username",
+            "password",
+            "apikey1",
+        );
         let profile = get_nsclient_profile("test1").unwrap().unwrap();
         assert_eq!(profile.id, "test1");
         assert_eq!(profile.url, "http://localhost:8080");
@@ -185,11 +192,11 @@ mod tests {
     #[serial_test::serial(config)]
     fn test_add_should_replace_old_profile() {
         let tmp = mock_test_config();
-        let _ = add_nsclient_profile("test2", "old-url", false, "");
+        let _ = add_nsclient_profile("test2", "old-url", false, "username", "password", "");
         let profile = get_nsclient_profile("test2").unwrap().unwrap();
         assert_eq!(profile.url, "old-url");
 
-        let _ = add_nsclient_profile("test2", "new-url", false, "");
+        let _ = add_nsclient_profile("test2", "new-url", false, "username", "password", "");
         let profile = get_nsclient_profile("test2").unwrap().unwrap();
         assert_eq!(profile.url, "new-url");
         drop(tmp);
@@ -199,7 +206,14 @@ mod tests {
     #[serial_test::serial(config)]
     fn test_set_and_get_default_profile() {
         let tmp = mock_test_config();
-        let _ = add_nsclient_profile("test3", "http://localhost:8081", true, "apikey2");
+        let _ = add_nsclient_profile(
+            "test3",
+            "http://localhost:8081",
+            true,
+            "username",
+            "password",
+            "apikey2",
+        );
         let _ = set_default_nsclient_profile("test3");
         let default_profile = get_default_nsclient_profile().unwrap().unwrap();
         assert_eq!(default_profile.id, "test3");
@@ -245,8 +259,22 @@ mod tests {
     #[serial_test::serial(config)]
     fn test_list_profiles() {
         let tmp = mock_test_config();
-        let _ = add_nsclient_profile("test1", "http://localhost:8080", false, "apikey1");
-        let _ = add_nsclient_profile("test2", "http://localhost:9090", true, "apikey2");
+        let _ = add_nsclient_profile(
+            "test1",
+            "http://localhost:8080",
+            false,
+            "username",
+            "password",
+            "apikey1",
+        );
+        let _ = add_nsclient_profile(
+            "test2",
+            "http://localhost:9090",
+            true,
+            "username",
+            "password",
+            "apikey2",
+        );
 
         let (profiles, default_id) = list_nsclient_profiles().unwrap();
         assert_eq!(profiles.len(), 2);
