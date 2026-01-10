@@ -18,6 +18,7 @@ The getting started guide has been split into multiple sections to allow easier 
 * [Configuration via Web Interface](#configuration-via-web-interface)
 * [Changing settings via command line](#changing-settings-via-command-line)
 * [Adding certificates to NSClient++](#adding-certificates-to-nsclient)
+* [Using `check_nsclient` Command](#using-check_nsclient-command)
 * [Checking with NRPE client](./nrpe.md)
 * [Checking with NSCA](./nsca.md)
 * [TODO: Using the query language](#todo-using-the-query-language)
@@ -336,6 +337,69 @@ If you wish to remove the root certificate you can do so using:
 ```
 mkcert -uninstall
 ```
+
+## Using `check_nsclient` Command
+
+If we want to use trusted communication we can use the root cert from `mkcert`. To extract this we can run: 
+
+```
+mkcert -CAROOT
+```
+This will give us the path to the root certificate which we can use when we login with `check_nsclient`.
+If you do not want to use trusted connections you can instead use the `--insecure` flag to skip certificate validation.
+
+```commandline
+$ check_nsclient nsclient auth login --password PASSWORD --ca %LOCALAPPDATA%\mkcert\rootCA.pem
+Successfully logged in
+
+# or optionally
+$ check_nsclient nsclient auth login --password PASSWORD --insecure
+Successfully logged in
+```
+
+This command will connect to a local NSClient instance and authenticate using the provided password and CA certificate.
+The password and key will be store in your local credential store.
+To logout (and remove password and key from credential store) you can run:
+
+```
+check_nsclient nsclient auth logout
+```
+
+Next up we can try to connect using the ping command:
+
+```
+check_nsclient nsclient check ping
+Successfully pinged NSClient++ version 0.4.0 2026-01-10
+```
+
+This tool can also be used to connect to remote NSClient++ instances by providing the `--url` option:
+```commandline
+$ check_nsclient nsclient auth login --help
+Login and store token
+
+Usage: check_nsclient.exe nsclient auth login [OPTIONS] --password <PASSWORD> [ID]
+
+Arguments:
+  [ID]  Profile ID to store the token under [default: default]
+
+Options:
+      --url <URL>            NSClient++ URL [default: https://localhost:8443]
+      --username <USERNAME>  Username to login with [default: admin]
+      --password <PASSWORD>  Password to login with
+      --insecure             Allow insecure TLS connections (i.e. dont validate certificate)
+      --ca <CA>              CA File to use for TLS connections
+  -h, --help                 Print help
+```
+
+One of the benefits of the `check_nsclient` tool apart from having a CLI interface where you can manage NSClient is that it also has an interactive client you can use:
+
+```commandline
+$ check_nsclient nsclient client
+```
+
+![Example CLI UI](client-ui.png)
+
+In this client you can execute queries, check status, see log and so on and so fort.
 
 ## Checking things
 
