@@ -298,6 +298,9 @@ pub enum AuthCommand {
         /// Allow insecure TLS connections (i.e. dont validate certificate)
         #[arg(long)]
         insecure: bool,
+        /// CA File to use for TLS connections
+        #[arg(long)]
+        ca: Option<String>,
     },
     /// Logout and forget stored token
     Logout { id: String },

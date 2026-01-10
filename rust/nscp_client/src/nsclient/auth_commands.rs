@@ -11,12 +11,22 @@ pub async fn route_auth_commands(output: Rendering, command: &AuthCommand) -> an
             password,
             url,
             insecure,
+            ca,
         } => {
-            let key = match login_and_fetch_key(url, username, password, insecure).await {
-                Ok(key) => key,
-                Err(e) => anyhow::bail!("Failed to login: {:#}", e),
-            };
-            config::add_nsclient_profile(id, url, *insecure, &username, &password, &key)?;
+            let key =
+                match login_and_fetch_key(url, username, password, insecure, ca.to_owned()).await {
+                    Ok(key) => key,
+                    Err(e) => anyhow::bail!("Failed to login: {:#}", e),
+                };
+            config::add_nsclient_profile(
+                id,
+                url,
+                *insecure,
+                &username,
+                &password,
+                &key,
+                ca.to_owned(),
+            )?;
             output.print("Successfully logged in");
             Ok(())
         }
@@ -31,6 +41,7 @@ pub async fn route_auth_commands(output: Rendering, command: &AuthCommand) -> an
                 &profile.username,
                 &password,
                 &profile.insecure,
+                profile.ca,
             )
             .await
             {

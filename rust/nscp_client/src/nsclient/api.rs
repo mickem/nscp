@@ -76,6 +76,7 @@ impl ApiClient {
                 &profile.username,
                 &password,
                 &profile.insecure,
+                profile.ca,
             )
             .await?;
             config::update_token(&id, &token)?;
@@ -153,7 +154,10 @@ impl ApiClient {
                 }
                 return Ok(response);
             }
-            anyhow::bail!("Authentication failure from {path}, and it was not possible to refresh the token: {}", response.status());
+            anyhow::bail!(
+                "Authentication failure from {path}, and it was not possible to refresh the token: {}",
+                response.status()
+            );
         }
         if !response.status().is_success() {
             anyhow::bail!("Invalid response status from {path}: {}", response.status());

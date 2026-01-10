@@ -23,6 +23,7 @@ use crate::nsclient::query_commands::route_query_commands;
 use crate::nsclient::scripts_commands::route_script_commands;
 use crate::nsclient::settings_commands::route_settings_commands;
 use crate::rendering::Rendering;
+use reqwest::Certificate;
 use std::time::Duration;
 
 fn preprocess_url(url: &str) -> String {
@@ -53,6 +54,7 @@ pub fn build_client_from_profile(
         Auth::Token(api_key),
         profile.insecure,
         Some(profile.id.to_owned()),
+        profile.ca,
     )
 }
 
@@ -63,12 +65,18 @@ pub fn build_client(
     auth: Auth,
     insecure: bool,
     profile_id: Option<String>,
+    ca_file: Option<String>,
 ) -> anyhow::Result<Box<dyn ApiClientApi>> {
     let url = preprocess_url(url);
-    let client = reqwest::Client::builder()
+    let mut client = reqwest::Client::builder()
         .timeout(Duration::from_secs(timeout_s))
         .user_agent(user_agent)
         .danger_accept_invalid_certs(insecure);
+    if let Some(ca_file) = ca_file {
+        let ca_pem = std::fs::read(&ca_file)?;
+        let cert = Certificate::from_pem(&ca_pem)?;
+        client = client.tls_certs_merge(vec![cert]);
+    }
     let client = ApiClient::new(client, &url, auth, profile_id)?;
     Ok(Box::new(client))
 }

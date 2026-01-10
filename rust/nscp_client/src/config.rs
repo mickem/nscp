@@ -9,6 +9,8 @@ pub struct NSClientProfile {
     pub(crate) url: String,
     #[serde(default = "String::default")]
     pub(crate) username: String,
+    #[serde(skip_serializing_if = "Option::is_none", default = "Option::default")]
+    pub(crate) ca: Option<String>,
     pub(crate) insecure: bool,
 }
 
@@ -32,6 +34,7 @@ pub fn add_nsclient_profile(
     username: &str,
     password: &str,
     api_key: &str,
+    ca: Option<String>,
 ) -> anyhow::Result<()> {
     let mut cfg: NSClientConfig = load_config()?;
     cfg.nsclient_profiles.retain(|p| p.id != id);
@@ -40,6 +43,7 @@ pub fn add_nsclient_profile(
         url: url.to_string(),
         username: username.to_string(),
         insecure,
+        ca,
     };
     cfg.nsclient_profiles.push(profile);
     if cfg.default_nsclient_profile.is_none() {

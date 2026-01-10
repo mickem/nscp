@@ -6,6 +6,7 @@ pub async fn login_and_fetch_key(
     username: &String,
     password: &String,
     insecure: &bool,
+    ca: Option<String>,
 ) -> anyhow::Result<String> {
     let api = build_client(
         url,
@@ -14,6 +15,7 @@ pub async fn login_and_fetch_key(
         Auth::Password(username.to_owned(), password.to_owned()),
         *insecure,
         None,
+        ca,
     )?;
     match api.login().await {
         Ok(details) => Ok(details.key),
