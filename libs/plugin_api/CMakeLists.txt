@@ -78,4 +78,4 @@ target_link_libraries(
     ${EXTRA_LIBS}
     ${Boost_DATE_TIME_LIBRARY}
 )
-nscp_gtest_discover_tests(${TARGET}_test)
+nscp_add_test(${TARGET}_test)

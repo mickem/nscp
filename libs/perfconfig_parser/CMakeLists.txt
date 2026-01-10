@@ -25,4 +25,4 @@ target_link_libraries(
     ${GTEST_GTEST_MAIN_LIBRARY}
     ${TARGET}
 )
-nscp_gtest_discover_tests(${TARGET}_test)
+nscp_add_test(${TARGET}_test)

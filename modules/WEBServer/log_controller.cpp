@@ -37,7 +37,7 @@ log_controller::log_controller(const int version, const boost::shared_ptr<sessio
 }
 
 void log_controller::get_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("logs.list", request, response)) return;
+  if (!session->is_logged_in("logs.list", request, response)) return;
 
   json::array root;
 
@@ -76,9 +76,8 @@ void log_controller::get_log(Mongoose::Request &request, boost::smatch &what, Mo
   response.append(json::serialize(root));
 }
 
-
 void log_controller::get_log_since(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("logs.list", request, response)) return;
+  if (!session->is_logged_in("logs.list", request, response)) return;
 
   json::array root;
 
@@ -117,12 +116,8 @@ void log_controller::get_log_since(Mongoose::Request &request, boost::smatch &wh
   response.append(json::serialize(root));
 }
 
-
-
-
-
 void log_controller::add_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("logs.put", request, response)) return;
+  if (!session->is_logged_in("logs.put", request, response)) return;
 
   try {
     auto root = json::parse(request.getData());
@@ -140,7 +135,7 @@ void log_controller::add_log(Mongoose::Request &request, boost::smatch &what, Mo
 }
 
 void log_controller::get_status(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("logs.list", request, response)) return;
+  if (!session->is_logged_in("logs.list", request, response)) return;
   error_handler_interface::status status = session->get_log_data()->get_status();
   json::object node;
   node.insert(json::object::value_type("errors", status.error_count));
@@ -149,7 +144,7 @@ void log_controller::get_status(Mongoose::Request &request, boost::smatch &what,
 }
 
 void log_controller::reset_status(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("logs.list", request, response)) return;
+  if (!session->is_logged_in("logs.list", request, response)) return;
   session->reset_log();
   json::object node;
   node.insert(json::object::value_type("errors", 0));

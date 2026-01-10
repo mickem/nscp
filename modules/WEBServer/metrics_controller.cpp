@@ -12,7 +12,7 @@ metrics_controller::metrics_controller(const int version, const boost::shared_pt
 }
 
 void metrics_controller::get_metrics(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("metrics.list", request, response)) return;
+  if (!session->is_logged_in("metrics.list", request, response)) return;
 
   response.append(session->get_metrics_v2());
 }

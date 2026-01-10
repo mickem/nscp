@@ -160,4 +160,4 @@ target_link_libraries(
     ${Boost_DATE_TIME_LIBRARY}
     settings_manager
 )
-nscp_gtest_discover_tests(${TARGET}_test)
+nscp_add_test(${TARGET}_test)

@@ -22,7 +22,7 @@ query_controller::query_controller(const int version, const boost::shared_ptr<se
 }
 
 void query_controller::get_queries(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("queries.list", request, response)) return;
+  if (!session->is_logged_in("queries.list", request, response)) return;
 
   std::string fetch_all = request.get("all", "true");
   PB::Registry::RegistryRequestMessage rrm;
@@ -58,7 +58,7 @@ void query_controller::get_queries(Mongoose::Request &request, boost::smatch &wh
 }
 
 void query_controller::get_query(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("queries.get", request, response)) return;
+  if (!session->is_logged_in("queries.get", request, response)) return;
 
   if (what.size() != 2) {
     response.setCodeNotFound("Query not found");
@@ -99,7 +99,7 @@ void query_controller::get_query(Mongoose::Request &request, boost::smatch &what
 }
 
 void query_controller::query_command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("queries.execute", request, response)) return;
+  if (!session->is_logged_in("queries.execute", request, response)) return;
 
   if (what.size() != 3) {
     response.setCodeNotFound("Invalid request");

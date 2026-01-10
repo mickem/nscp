@@ -10,10 +10,10 @@ login_controller::login_controller(const int version, const boost::shared_ptr<se
 }
 
 void login_controller::is_loggedin(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("login.get", request, response)) return;
+  if (!session->is_logged_in("login.get", request, response)) return;
 
   std::string user, key;
-  session->get_user(response, user, key);
+  session_manager_interface::get_user_from_response(response, user, key);
   json::object root;
   root["user"] = user;
   root["key"] = key;

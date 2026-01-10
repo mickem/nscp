@@ -11,6 +11,7 @@ set(SRCS
     "${TARGET}.cpp"
     ${NSCP_INCLUDEDIR}/check_nt/packet.cpp
     ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/socket/allowed_hosts.cpp
     ${NSCP_DEF_PLUGIN_CPP}
 )
 

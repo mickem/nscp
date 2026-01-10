@@ -52,7 +52,7 @@ scripts_controller::scripts_controller(const int version, boost::shared_ptr<sess
 }
 
 void scripts_controller::get_runtimes(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("scripts.list.runtimes", request, response)) return;
+  if (!session->is_logged_in("scripts.list.runtimes", request, response)) return;
 
   PB::Registry::RegistryRequestMessage rrm;
   PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
@@ -91,7 +91,7 @@ void scripts_controller::get_runtimes(Mongoose::Request &request, boost::smatch 
 }
 
 void scripts_controller::get_scripts(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("scripts", request, response)) return;
+  if (!session->is_logged_in("scripts", request, response)) return;
 
   if (!validate_arguments(1, what, response)) {
     return;
@@ -100,7 +100,7 @@ void scripts_controller::get_scripts(Mongoose::Request &request, boost::smatch &
 
   std::string fetch_all = request.get("all", "false");
 
-  if (!session->can("scripts.lists." + runtime, request, response)) return;
+  if (!session->can("scripts.lists." + runtime, response)) return;
 
   PB::Commands::ExecuteRequestMessage rm;
   PB::Commands::ExecuteRequestMessage::Request *payload = rm.add_payload();
@@ -123,7 +123,7 @@ void scripts_controller::get_scripts(Mongoose::Request &request, boost::smatch &
 }
 
 void scripts_controller::get_script(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("scripts", request, response)) return;
+  if (!session->is_logged_in("scripts", request, response)) return;
 
   if (!validate_arguments(2, what, response)) {
     return;
@@ -131,7 +131,7 @@ void scripts_controller::get_script(Mongoose::Request &request, boost::smatch &w
   std::string runtime = get_runtime(what.str(1));
   std::string script = what.str(2);
 
-  if (!session->can("scripts.get." + runtime, request, response)) return;
+  if (!session->can("scripts.get." + runtime, response)) return;
 
   PB::Commands::ExecuteRequestMessage rm;
   PB::Commands::ExecuteRequestMessage::Request *payload = rm.add_payload();
@@ -152,7 +152,7 @@ void scripts_controller::get_script(Mongoose::Request &request, boost::smatch &w
 }
 
 void scripts_controller::add_script(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("scripts", request, response)) return;
+  if (!session->is_logged_in("scripts", request, response)) return;
 
   if (!validate_arguments(2, what, response)) {
     return;
@@ -160,7 +160,7 @@ void scripts_controller::add_script(Mongoose::Request &request, boost::smatch &w
   std::string runtime = get_runtime(what.str(1));
   std::string script = what.str(2);
 
-  if (!session->can("scripts.add." + runtime, request, response)) return;
+  if (!session->can("scripts.add." + runtime, response)) return;
 
   boost::filesystem::path name = script;
   boost::filesystem::path file = core->expand_path("${temp}/" + file_helpers::meta::get_filename(name));
@@ -193,7 +193,7 @@ void scripts_controller::add_script(Mongoose::Request &request, boost::smatch &w
 }
 
 void scripts_controller::delete_script(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("scripts", request, response)) return;
+  if (!session->is_logged_in("scripts", request, response)) return;
 
   if (!validate_arguments(2, what, response)) {
     return;
@@ -201,7 +201,7 @@ void scripts_controller::delete_script(Mongoose::Request &request, boost::smatch
   std::string runtime = get_runtime(what.str(1));
   std::string script = what.str(2);
 
-  if (!session->can("scripts.delete." + runtime, request, response)) return;
+  if (!session->can("scripts.delete." + runtime, response)) return;
 
   PB::Commands::ExecuteRequestMessage rm;
   PB::Commands::ExecuteRequestMessage::Request *payload = rm.add_payload();

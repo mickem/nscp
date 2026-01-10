@@ -28,14 +28,9 @@ namespace socket_helpers {
 struct allowed_hosts_manager {
   template <class addr_type_t>
   struct host_record {
-    host_record(std::string host, addr_type_t addr, addr_type_t mask) : host(host), addr(addr), mask(mask) {}
-    host_record(const host_record &other) : host(other.host), addr(other.addr), mask(other.mask) {}
-    const host_record &operator=(const host_record &other) {
-      host = other.host;
-      addr = other.addr;
-      mask = other.mask;
-      return *this;
-    }
+    host_record(const std::string &host, const addr_type_t addr, const addr_type_t mask) : host(host), addr(addr), mask(mask) {}
+    host_record(const host_record &other) = default;
+    host_record &operator=(const host_record &other) = default;
     std::string host;
     addr_type_t addr;
     addr_type_t mask;
@@ -52,15 +47,8 @@ struct allowed_hosts_manager {
   bool cached;
 
   allowed_hosts_manager() : cached(true) {}
-  allowed_hosts_manager(const allowed_hosts_manager &other)
-      : entries_v4(other.entries_v4), entries_v6(other.entries_v6), sources(other.sources), cached(other.cached) {}
-  const allowed_hosts_manager &operator=(const allowed_hosts_manager &other) {
-    entries_v4 = other.entries_v4;
-    entries_v6 = other.entries_v6;
-    sources = other.sources;
-    cached = other.cached;
-    return *this;
-  }
+  allowed_hosts_manager(const allowed_hosts_manager &other) = default;
+  allowed_hosts_manager &operator=(const allowed_hosts_manager &other) = default;
 
   void set_source(const std::string &source);
   addr_v4 lookup_mask_v4(std::string mask);
@@ -68,7 +56,7 @@ struct allowed_hosts_manager {
   void refresh(std::list<std::string> &errors);
 
   template <class T>
-  inline bool match_host(const T &allowed, const T &mask, const T &remote) const {
+  static bool match_host(const T &allowed, const T &mask, const T &remote) {
     for (std::size_t i = 0; i < allowed.size(); i++) {
       if ((allowed[i] & mask[i]) != (remote[i] & mask[i])) return false;
     }

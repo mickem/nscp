@@ -26,7 +26,7 @@ modules_controller::modules_controller(const int version, const boost::shared_pt
 }
 
 void modules_controller::get_modules(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("modules.list", request, response)) return;
+  if (!session->is_logged_in("modules.list", request, response)) return;
 
   std::string fetch_all = request.get("all", "false");
   PB::Registry::RegistryRequestMessage rrm;
@@ -70,7 +70,7 @@ void modules_controller::get_modules(Mongoose::Request &request, boost::smatch &
 }
 
 void modules_controller::get_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("modules.get", request, response)) return;
+  if (!session->is_logged_in("modules.get", request, response)) return;
 
   if (what.size() != 2) {
     response.setCodeNotFound("Module not found");
@@ -122,7 +122,7 @@ void modules_controller::get_module(Mongoose::Request &request, boost::smatch &w
 }
 
 void modules_controller::module_command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("modules", request, response)) return;
+  if (!session->is_logged_in("modules", request, response)) return;
 
   if (!validate_arguments(2, what, response)) {
     return;
@@ -131,16 +131,16 @@ void modules_controller::module_command(Mongoose::Request &request, boost::smatc
   std::string command = what.str(2);
 
   if (command == "load") {
-    if (!session->can("modules.load", request, response)) return;
+    if (!session->can("modules.load", response)) return;
     load_module(module, response);
   } else if (command == "unload") {
-    if (!session->can("modules.unload", request, response)) return;
+    if (!session->can("modules.unload", response)) return;
     unload_module(module, response);
   } else if (command == "enable") {
-    if (!session->can("modules.enable", request, response)) return;
+    if (!session->can("modules.enable", response)) return;
     enable_module(module, response);
   } else if (command == "disable") {
-    if (!session->can("modules.disable", request, response)) return;
+    if (!session->can("modules.disable", response)) return;
     disable_module(module, response);
   } else {
     response.setCodeNotFound("unknown command: " + command);
@@ -225,7 +225,7 @@ void modules_controller::disable_module(std::string module, Mongoose::StreamResp
 
 void modules_controller::put_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
   // TODO: THis works strangely and should be rewritten.
-  if (!session->is_loggedin("modules.put", request, response)) return;
+  if (!session->is_logged_in("modules.put", request, response)) return;
 
   if (!validate_arguments(1, what, response)) {
     return;
@@ -262,11 +262,11 @@ void modules_controller::put_module(Mongoose::Request &request, boost::smatch &w
           }
           if (target_is_loaded != is_loaded) {
             if (target_is_loaded) {
-              if (!session->can("modules.load", request, response)) return;
+              if (!session->can("modules.load", response)) return;
               load_module(module, response);
               return;
             } else {
-              if (!session->can("modules.unload", request, response)) return;
+              if (!session->can("modules.unload", response)) return;
               unload_module(module, response);
               return;
             }
@@ -284,7 +284,7 @@ void modules_controller::put_module(Mongoose::Request &request, boost::smatch &w
 }
 
 void modules_controller::post_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("modules.post", request, response)) return;
+  if (!session->is_logged_in("modules.post", request, response)) return;
 
   if (!validate_arguments(1, what, response)) {
     return;

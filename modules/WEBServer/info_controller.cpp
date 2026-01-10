@@ -17,7 +17,7 @@ info_controller::info_controller(const int version, boost::shared_ptr<session_ma
 }
 
 void info_controller::get_info(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("info.get", request, response)) return;
+  if (!session->is_logged_in("info.get", request, response)) return;
 
   json::object root;
   root["name"] = core->getApplicationName();
@@ -27,7 +27,7 @@ void info_controller::get_info(Mongoose::Request &request, boost::smatch &what, 
 }
 
 void info_controller::get_version(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("info.get.version", request, response)) return;
+  if (!session->is_logged_in("info.get.version", request, response)) return;
 
   json::object root;
   root["version"] = core->getApplicationVersionString();

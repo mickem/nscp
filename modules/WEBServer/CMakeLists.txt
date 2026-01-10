@@ -11,6 +11,7 @@ set(SRCS
     "${TARGET}.cpp"
     static_controller.cpp
     token_store.cpp
+    user_manager.cpp
     grant_store.cpp
     session_manager_interface.cpp
     metrics_handler.cpp
@@ -57,6 +58,7 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/client/simple_client.hpp
         ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.hpp
         ${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+        ${NSCP_INCLUDEDIR}/socket/allowed_hosts.cpp
         info_controller.hpp
         settings_controller.hpp
         metrics_controller.hpp
@@ -79,3 +81,24 @@ target_link_libraries(
     nscp_mongoose
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
+
+if(GTEST_FOUND)
+    set(TEST_SRCS
+        ${NSCP_INCLUDEDIR}/utf8.cpp
+        token_store_test.cpp
+        token_store.cpp
+        grant_store.cpp
+        ${NSCP_INCLUDEDIR}/socket/allowed_hosts_test.cpp
+        ${NSCP_INCLUDEDIR}/socket/allowed_hosts.cpp
+    )
+    add_executable(${TARGET}_test ${TEST_SRCS})
+    target_link_libraries(
+        ${TARGET}_test
+        GTest::gtest
+        GTest::gtest_main
+        ${Boost_LIBRARIES}
+        ${EXTRA_LIBS}
+    )
+
+    nscp_add_test(${TARGET}_test)
+endif(GTEST_FOUND)
