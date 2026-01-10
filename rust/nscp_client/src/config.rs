@@ -179,6 +179,7 @@ mod tests {
             "username",
             "password",
             "apikey1",
+            None,
         );
         let profile = get_nsclient_profile("test1").unwrap().unwrap();
         assert_eq!(profile.id, "test1");
@@ -196,11 +197,11 @@ mod tests {
     #[serial_test::serial(config)]
     fn test_add_should_replace_old_profile() {
         let tmp = mock_test_config();
-        let _ = add_nsclient_profile("test2", "old-url", false, "username", "password", "");
+        let _ = add_nsclient_profile("test2", "old-url", false, "username", "password", "", None);
         let profile = get_nsclient_profile("test2").unwrap().unwrap();
         assert_eq!(profile.url, "old-url");
 
-        let _ = add_nsclient_profile("test2", "new-url", false, "username", "password", "");
+        let _ = add_nsclient_profile("test2", "new-url", false, "username", "password", "", None);
         let profile = get_nsclient_profile("test2").unwrap().unwrap();
         assert_eq!(profile.url, "new-url");
         drop(tmp);
@@ -217,6 +218,7 @@ mod tests {
             "username",
             "password",
             "apikey2",
+            None,
         );
         let _ = set_default_nsclient_profile("test3");
         let default_profile = get_default_nsclient_profile().unwrap().unwrap();
@@ -270,6 +272,7 @@ mod tests {
             "username",
             "password",
             "apikey1",
+            None,
         );
         let _ = add_nsclient_profile(
             "test2",
@@ -278,6 +281,7 @@ mod tests {
             "username",
             "password",
             "apikey2",
+            None,
         );
 
         let (profiles, default_id) = list_nsclient_profiles().unwrap();

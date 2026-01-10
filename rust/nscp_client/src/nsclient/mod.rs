@@ -146,6 +146,7 @@ mod tests {
             "username",
             "password",
             "test-token",
+            None,
         )
         .unwrap();
 
@@ -198,6 +199,7 @@ mod tests {
             "username",
             "password",
             "test-token",
+            None,
         )
         .unwrap();
 
