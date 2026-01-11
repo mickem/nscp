@@ -334,10 +334,11 @@ macro(NSCP_MAKE_EXE _TARGET _SRCS _FOLDER)
     endif()
 endmacro()
 
-macro(nscp_gtest_discover_tests _TARGET)
+macro(nscp_add_test _TARGET)
     if(WIN32)
         install(TARGETS ${_TARGET} RUNTIME DESTINATION .)
     endif()
+    target_compile_definitions(${_TARGET} PRIVATE NSCAPI_UNIT_TESTS)
     if(MSVC11)
         set_target_properties(
             ${_TARGET}
@@ -368,7 +369,7 @@ macro(nscp_gtest_discover_tests _TARGET)
         )
         set_target_properties(${_TARGET} PROPERTIES FOLDER "tests")
     endif()
-    gtest_discover_tests(${_TARGET})
+    add_test(NAME ${_TARGET} COMMAND ${_TARGET})
 endmacro()
 
 macro(NSCP_MAKE_EXE_SBIN _TARGET _SRCS)

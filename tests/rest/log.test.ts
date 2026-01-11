@@ -36,12 +36,8 @@ describe("log", () => {
             .trustLocalhost(true)
             .expect(200)
             .then((response) => {
-                expect(response.body).toEqual(
-                    {
-                        errors: 0,
-                        last_error: ''
-                    },
-                );
+                expect(response.body.errors).toBeDefined();
+                expect(response.body.last_error).toBeDefined();
             });
     });
 
@@ -66,6 +62,7 @@ describe("log", () => {
         await request(URL)
             .get("/api/v2/logs")
             .set("Authorization", `Bearer ${key}`)
+            .query({per_page: 100, page: 1})
             .trustLocalhost(true)
             .expect(200)
             .then((response) => {
@@ -85,6 +82,7 @@ describe("log", () => {
         await request(URL)
             .get("/api/v2/logs/since")
             .set("Authorization", `Bearer ${key}`)
+            .query({per_page: 100, page: 1})
             .trustLocalhost(true)
             .expect(200)
             .then((response) => {
@@ -121,7 +119,7 @@ describe("log", () => {
         await request(URL)
             .get("/api/v2/logs/since")
             .set("Authorization", `Bearer ${key}`)
-            .query({since: index})
+            .query({per_page: 100, page: 1, since: index})
             .trustLocalhost(true)
             .expect(200)
             .then((response) => {

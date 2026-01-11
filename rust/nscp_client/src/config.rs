@@ -5,7 +5,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug)]
 pub struct NSClientProfile {
     pub(crate) id: String,
+    #[serde(default = "String::default")]
     pub(crate) url: String,
+    #[serde(default = "String::default")]
+    pub(crate) username: String,
+    #[serde(skip_serializing_if = "Option::is_none", default = "Option::default")]
+    pub(crate) ca: Option<String>,
     pub(crate) insecure: bool,
 }
 
@@ -26,21 +31,27 @@ pub fn add_nsclient_profile(
     id: &str,
     url: &str,
     insecure: bool,
+    username: &str,
+    password: &str,
     api_key: &str,
+    ca: Option<String>,
 ) -> anyhow::Result<()> {
     let mut cfg: NSClientConfig = load_config()?;
     cfg.nsclient_profiles.retain(|p| p.id != id);
     let profile = NSClientProfile {
         id: id.to_string(),
         url: url.to_string(),
+        username: username.to_string(),
         insecure,
+        ca,
     };
     cfg.nsclient_profiles.push(profile);
     if cfg.default_nsclient_profile.is_none() {
         cfg.default_nsclient_profile = Some(id.to_string());
     }
     confy::store(SERVICE_NAME, None, cfg)?;
-    tokens::store_token(id, api_key)
+    tokens::store_token(KeyType::Password, id, password)?;
+    tokens::store_token(KeyType::Token, id, api_key)
 }
 
 pub fn set_default_nsclient_profile(id: &str) -> anyhow::Result<()> {
@@ -76,10 +87,21 @@ pub fn get_nsclient_profile(id: &str) -> anyhow::Result<Option<NSClientProfile>>
 }
 
 pub fn get_api_key(id: &str) -> anyhow::Result<String> {
-    match tokens::load_token(id) {
+    match tokens::load_token(KeyType::Token, id) {
         Ok(token) => Ok(token),
         Err(e) => anyhow::bail!("Failed to load API key for profile '{}': {:#}", id, e),
     }
+}
+
+pub fn get_password(id: &str) -> anyhow::Result<String> {
+    match tokens::load_token(KeyType::Password, id) {
+        Ok(token) => Ok(token),
+        Err(e) => anyhow::bail!("Failed to load password for profile '{}': {:#}", id, e),
+    }
+}
+
+pub fn update_token(id: &str, token: &str) -> anyhow::Result<()> {
+    tokens::store_token(KeyType::Token, id, token)
 }
 
 pub fn remove_nsclient_profile(id: &str) -> anyhow::Result<()> {
@@ -117,6 +139,7 @@ pub fn load_history() -> anyhow::Result<Vec<String>> {
 #[path = "custom_mock_keyring.rs"]
 mod custom_mock_keyring;
 
+use crate::tokens::KeyType;
 #[cfg(test)]
 use keyring::set_default_credential_builder;
 #[cfg(test)]
@@ -149,7 +172,15 @@ mod tests {
     #[serial_test::serial(config)]
     fn test_add_and_get_and_delete_profile() {
         let tmp = mock_test_config();
-        let _ = add_nsclient_profile("test1", "http://localhost:8080", false, "apikey1");
+        let _ = add_nsclient_profile(
+            "test1",
+            "http://localhost:8080",
+            false,
+            "username",
+            "password",
+            "apikey1",
+            None,
+        );
         let profile = get_nsclient_profile("test1").unwrap().unwrap();
         assert_eq!(profile.id, "test1");
         assert_eq!(profile.url, "http://localhost:8080");
@@ -166,11 +197,11 @@ mod tests {
     #[serial_test::serial(config)]
     fn test_add_should_replace_old_profile() {
         let tmp = mock_test_config();
-        let _ = add_nsclient_profile("test2", "old-url", false, "");
+        let _ = add_nsclient_profile("test2", "old-url", false, "username", "password", "", None);
         let profile = get_nsclient_profile("test2").unwrap().unwrap();
         assert_eq!(profile.url, "old-url");
 
-        let _ = add_nsclient_profile("test2", "new-url", false, "");
+        let _ = add_nsclient_profile("test2", "new-url", false, "username", "password", "", None);
         let profile = get_nsclient_profile("test2").unwrap().unwrap();
         assert_eq!(profile.url, "new-url");
         drop(tmp);
@@ -180,7 +211,15 @@ mod tests {
     #[serial_test::serial(config)]
     fn test_set_and_get_default_profile() {
         let tmp = mock_test_config();
-        let _ = add_nsclient_profile("test3", "http://localhost:8081", true, "apikey2");
+        let _ = add_nsclient_profile(
+            "test3",
+            "http://localhost:8081",
+            true,
+            "username",
+            "password",
+            "apikey2",
+            None,
+        );
         let _ = set_default_nsclient_profile("test3");
         let default_profile = get_default_nsclient_profile().unwrap().unwrap();
         assert_eq!(default_profile.id, "test3");
@@ -226,8 +265,24 @@ mod tests {
     #[serial_test::serial(config)]
     fn test_list_profiles() {
         let tmp = mock_test_config();
-        let _ = add_nsclient_profile("test1", "http://localhost:8080", false, "apikey1");
-        let _ = add_nsclient_profile("test2", "http://localhost:9090", true, "apikey2");
+        let _ = add_nsclient_profile(
+            "test1",
+            "http://localhost:8080",
+            false,
+            "username",
+            "password",
+            "apikey1",
+            None,
+        );
+        let _ = add_nsclient_profile(
+            "test2",
+            "http://localhost:9090",
+            true,
+            "username",
+            "password",
+            "apikey2",
+            None,
+        );
 
         let (profiles, default_id) = list_nsclient_profiles().unwrap();
         assert_eq!(profiles.len(), 2);

@@ -19,7 +19,7 @@ settings_controller::settings_controller(const int version, boost::shared_ptr<se
 }
 
 void settings_controller::get(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("settings.get", request, response)) return;
+  if (!session->is_logged_in("settings.get", request, response)) return;
 
   if (!validate_arguments(1, what, response)) {
     return;
@@ -63,7 +63,7 @@ void settings_controller::get(Mongoose::Request &request, boost::smatch &what, M
 }
 
 void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("settings.get", request, response)) return;
+  if (!session->is_logged_in("settings.get", request, response)) return;
 
   if (!validate_arguments(1, what, response)) {
     return;
@@ -166,7 +166,7 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
 }
 
 void settings_controller::put(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("settings.put", request, response)) return;
+  if (!session->is_logged_in("settings.put", request, response)) return;
   std::string response_pb;
   if (!core->settings_query(request.getData(), response_pb)) {
     response.setCodeServerError("500 Query failed");
@@ -242,12 +242,13 @@ void settings_controller::put(Mongoose::Request &request, boost::smatch &what, M
     response.append(json::serialize(node));
 
   } catch (const std::exception &e) {
+    NSC_LOG_ERROR("Failed to parse JSON: " + std::string(e.what()));
     response.setCodeBadRequest("Problems parsing JSON");
   }
 }
 
 void settings_controller::command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("settings.put", request, response)) return;
+  if (!session->is_logged_in("settings.put", request, response)) return;
   std::string response_pb;
   if (!core->settings_query(request.getData(), response_pb)) {
     response.setCodeServerError("500 Query failed");
@@ -261,7 +262,7 @@ void settings_controller::command(Mongoose::Request &request, boost::smatch &wha
     auto command = o["command"].as_string();
 
     if (command == "reload") {
-      if (!session->is_loggedin("settings.put", request, response)) return;
+      if (!session->is_logged_in("settings.put", request, response)) return;
       if (!core->reload("delayed,service")) {
         response.setCodeServerError("500 Query failed");
         return;
@@ -288,12 +289,13 @@ void settings_controller::command(Mongoose::Request &request, boost::smatch &wha
     node["status"] = "success";
     response.append(json::serialize(node));
   } catch (const std::exception &e) {
+    NSC_LOG_ERROR("Failed to parse JSON: " + std::string(e.what()));
     response.setCodeBadRequest("Problems parsing JSON");
   }
 }
 
 void settings_controller::status(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("settings.get", request, response)) return;
+  if (!session->is_logged_in("settings.get", request, response)) return;
   PB::Settings::SettingsRequestMessage rm;
   PB::Settings::SettingsRequestMessage::Request *payload = rm.add_payload();
   payload->mutable_status();

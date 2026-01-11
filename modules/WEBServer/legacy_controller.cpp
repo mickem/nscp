@@ -41,7 +41,7 @@ bool legacy_controller::set_status(std::string status_) {
 }
 
 void legacy_controller::console_exec(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("legacy", request, response)) return;
+  if (!session->is_logged_in("legacy", request, response)) return;
   const std::string command = request.get("command", "help");
 
   client->handle_command(command);
@@ -49,7 +49,7 @@ void legacy_controller::console_exec(Mongoose::Request &request, Mongoose::Strea
 }
 
 void legacy_controller::settings_query_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("legacy", request, response)) return;
+  if (!session->is_logged_in("legacy", request, response)) return;
   std::string response_pb;
   if (!core->settings_query(request.getData(), response_pb)) {
     response.setCodeServerError("500 Query failed");
@@ -58,7 +58,7 @@ void legacy_controller::settings_query_pb(Mongoose::Request &request, Mongoose::
   response.append(response_pb);
 }
 void legacy_controller::run_query_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("legacy", request, response)) return;
+  if (!session->is_logged_in("legacy", request, response)) return;
   std::string response_pb;
   if (!core->query(request.getData(), response_pb)) {
     response.setCodeServerError("500 Query failed");
@@ -67,7 +67,7 @@ void legacy_controller::run_query_pb(Mongoose::Request &request, Mongoose::Strea
   response.append(response_pb);
 }
 void legacy_controller::run_exec_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("legacy", request, response)) return;
+  if (!session->is_logged_in("legacy", request, response)) return;
   std::string response_pb;
   if (!core->exec_command("*", request.getData(), response_pb)) return;
   response.append(response_pb);
@@ -95,14 +95,14 @@ void legacy_controller::auth_logout(Mongoose::Request &request, Mongoose::Stream
 }
 
 void legacy_controller::log_status(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("legacy", request, response)) return;
+  if (!session->is_logged_in("legacy", request, response)) return;
   const error_handler_interface::status current_status = session->get_log_data()->get_status();
   std::string tmp = current_status.last_error;
   boost::replace_all(tmp, "\\", "/");
   response.append("{ \"status\" : { \"count\" : " + str::xtos(current_status.error_count) + ", \"error\" : \"" + tmp + "\"} }");
 }
 void legacy_controller::log_messages(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("legacy", request, response)) return;
+  if (!session->is_logged_in("legacy", request, response)) return;
   json::object root, log;
   json::array data;
 
@@ -126,16 +126,16 @@ void legacy_controller::log_messages(Mongoose::Request &request, Mongoose::Strea
   response.append(json::serialize(root));
 }
 void legacy_controller::get_metrics(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("legacy", request, response)) return;
+  if (!session->is_logged_in("legacy", request, response)) return;
   response.append(session->get_metrics());
 }
 void legacy_controller::log_reset(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("legacy", request, response)) return;
+  if (!session->is_logged_in("legacy", request, response)) return;
   session->reset_log();
   response.append("{\"status\" : \"ok\"}");
 }
 void legacy_controller::reload(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("legacy", request, response)) return;
+  if (!session->is_logged_in("legacy", request, response)) return;
   if (!core->reload("delayed,service")) {
     response.setCodeServerError("500 Query failed");
     return;

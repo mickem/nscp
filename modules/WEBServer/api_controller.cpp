@@ -13,7 +13,7 @@ api_controller::api_controller(const boost::shared_ptr<session_manager_interface
 }
 
 void api_controller::get_versions(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("public", request, response)) return;
+  if (!session->is_logged_in("public", request, response)) return;
 
   const std::string host = request.get_host();
 
@@ -25,7 +25,7 @@ void api_controller::get_versions(Mongoose::Request &request, boost::smatch &wha
 }
 
 void api_controller::get_eps(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("public", request, response)) return;
+  if (!session->is_logged_in("public", request, response)) return;
 
   const std::string host = request.get_host();
 

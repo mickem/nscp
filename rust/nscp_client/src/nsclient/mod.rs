@@ -2,6 +2,7 @@ mod api;
 mod auth_commands;
 pub mod client;
 mod generic_commands;
+mod login_helper;
 mod logs_commands;
 mod messages;
 mod metrics_commands;
@@ -22,6 +23,7 @@ use crate::nsclient::query_commands::route_query_commands;
 use crate::nsclient::scripts_commands::route_script_commands;
 use crate::nsclient::settings_commands::route_settings_commands;
 use crate::rendering::Rendering;
+use reqwest::Certificate;
 use std::time::Duration;
 
 fn preprocess_url(url: &str) -> String {
@@ -51,6 +53,8 @@ pub fn build_client_from_profile(
         &args.user_agent,
         Auth::Token(api_key),
         profile.insecure,
+        Some(profile.id.to_owned()),
+        profile.ca,
     )
 }
 
@@ -60,13 +64,20 @@ pub fn build_client(
     user_agent: &str,
     auth: Auth,
     insecure: bool,
+    profile_id: Option<String>,
+    ca_file: Option<String>,
 ) -> anyhow::Result<Box<dyn ApiClientApi>> {
     let url = preprocess_url(url);
-    let client = reqwest::Client::builder()
+    let mut client = reqwest::Client::builder()
         .timeout(Duration::from_secs(timeout_s))
         .user_agent(user_agent)
         .danger_accept_invalid_certs(insecure);
-    let client = ApiClient::new(client, &url, auth)?;
+    if let Some(ca_file) = ca_file {
+        let ca_pem = std::fs::read(&ca_file)?;
+        let cert = Certificate::from_pem(&ca_pem)?;
+        client = client.tls_certs_merge(vec![cert]);
+    }
+    let client = ApiClient::new(client, &url, auth, profile_id)?;
     Ok(Box::new(client))
 }
 
@@ -128,7 +139,16 @@ mod tests {
             })))
             .mount(&mock_server)
             .await;
-        add_nsclient_profile("test-profile-ping", &mock_server.uri(), false, "test-token").unwrap();
+        add_nsclient_profile(
+            "test-profile-ping",
+            &mock_server.uri(),
+            false,
+            "username",
+            "password",
+            "test-token",
+            None,
+        )
+        .unwrap();
 
         let output_sink = Box::new(StringRender::new());
         let output_ref = output_sink.string.clone();
@@ -176,7 +196,10 @@ mod tests {
             "test-profile-version",
             &mock_server.uri(),
             false,
+            "username",
+            "password",
             "test-token",
+            None,
         )
         .unwrap();
 

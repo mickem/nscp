@@ -13,7 +13,7 @@ openmetrics_controller::openmetrics_controller(const int version, const boost::s
 }
 
 void openmetrics_controller::get_openmetrics(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin("openmetrics.list", request, response)) return;
+  if (!session->is_logged_in("openmetrics.list", request, response)) return;
 
-  response.append(session->get_openmetrics());
+  response.append(session->get_open_metrics());
 }

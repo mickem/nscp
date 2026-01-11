@@ -20,7 +20,6 @@ class NSCAPI_EXPORT Request {
   typedef std::vector<arg_entry> arg_vector;
   typedef std::map<std::string, std::string> headers_type;
 
- public:
   Request(const std::string ip, bool is_ssl, std::string method, std::string url, std::string query, headers_type headers, std::string data);
 
   /**
@@ -28,7 +27,7 @@ class NSCAPI_EXPORT Request {
    *
    * @param Response a response for this request
    */
-  void writeResponse(Response *response);
+  void writeResponse(Response* response);
 
   /**
    * Check if the variable given by key is present in GET or POST data
@@ -50,6 +49,8 @@ class NSCAPI_EXPORT Request {
   std::string get(std::string key, std::string fallback = "");
   bool get_bool(std::string key, bool fallback = false);
   long long get_number(std::string key, long long fallback = 0);
+
+  headers_type& get_headers() { return headers; }
 
   /**
    * Try to get the cookie value

@@ -19,4 +19,4 @@ endif(CMAKE_COMPILER_IS_GNUCXX)
 
 add_executable(${TARGET}_test expression_test.cpp)
 target_link_libraries(${TARGET}_test GTest::gtest GTest::gtest_main ${TARGET})
-nscp_gtest_discover_tests(${TARGET}_test)
+nscp_add_test(${TARGET}_test)

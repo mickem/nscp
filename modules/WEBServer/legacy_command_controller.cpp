@@ -15,7 +15,7 @@ legacy_command_controller::legacy_command_controller(const boost::shared_ptr<ses
 }
 
 void legacy_command_controller::handle_query(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &http_response) {
-  if (!session->is_loggedin("legacy", request, http_response)) return;
+  if (!session->is_logged_in("legacy", request, http_response)) return;
 
   if (what.size() != 2) {
     http_response.setCodeNotFound("Query not found");
