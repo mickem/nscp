@@ -337,9 +337,7 @@ bool WEBServer::cli_add_user(const PB::Commands::ExecuteRequestMessage::Request 
       nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
       return true;
     }
-    bool old = false;
     for (const pf::settings_query::key_values &val : q.get_query_key_response()) {
-      old = true;
       if (val.matches(path, "password") && password.empty())
         password = val.get_string();
       else if (val.matches(path, "role") && role.empty())

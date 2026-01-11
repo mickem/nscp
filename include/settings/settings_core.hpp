@@ -64,16 +64,7 @@ class settings_core {
       append_plugin(plugin_id);
     }
     key_description() : advanced(false), is_sample(false) {}
-    key_description &operator=(const key_description &other) {
-      type = other.type;
-      title = other.title;
-      description = other.description;
-      default_value = other.default_value;
-      advanced = other.advanced;
-      is_sample = other.is_sample;
-      plugins = other.plugins;
-      return *this;
-    }
+    key_description &operator=(const key_description &other) = default;
     bool has_plugin(unsigned int plugin_id) const { return plugins.find(plugin_id) != plugins.end(); }
     void append_plugin(unsigned int plugin_id) { plugins.insert(plugin_id); }
   };

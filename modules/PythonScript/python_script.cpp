@@ -88,7 +88,6 @@ static bool has_init = false;
 void python_script::init() {
   NSC_DEBUG_MSG("boot python");
 
-  bool do_init = false;
   if (!has_init) {
     has_init = true;
     PyImport_AppendInittab("NSCP", &PyInit_NSCP);
@@ -108,7 +107,7 @@ void python_script::init() {
         PyRun_SimpleString("import sys");
         PyRun_SimpleString("sys.stderr = StringIO()");
 
-      } catch (py::error_already_set e) {
+      } catch (py::error_already_set &e) {
         script_wrapper::log_exception();
       }
     }
@@ -162,7 +161,7 @@ bool python_script::callFunction(const std::string &functionName) {
       py::object scriptFunction = py::extract<py::object>(localDict->get(functionName));
       if (scriptFunction) scriptFunction();
       return true;
-    } catch (py::error_already_set e) {
+    } catch (py::error_already_set &e) {
       script_wrapper::log_exception();
       return false;
     }
@@ -179,7 +178,7 @@ bool python_script::callFunction(const std::string &functionName, const std::lis
       py::object scriptFunction = py::extract<py::object>(localDict->get(functionName));
       if (scriptFunction) scriptFunction(script_wrapper::convert(args));
       return true;
-    } catch (py::error_already_set e) {
+    } catch (py::error_already_set &e) {
       script_wrapper::log_exception();
       return false;
     }
@@ -196,7 +195,7 @@ bool python_script::callFunction(const std::string &functionName, unsigned int i
       py::object scriptFunction = py::extract<py::object>(localDict->get(functionName));
       if (scriptFunction) scriptFunction(i1, s1, s2);
       return true;
-    } catch (py::error_already_set e) {
+    } catch (py::error_already_set &e) {
       script_wrapper::log_exception();
       return false;
     }
@@ -235,7 +234,7 @@ void python_script::_exec(const std::string &scriptfile) {
 #else
         PyRun_SimpleString(("sys.path.append('" + path.string() + "')").c_str());
 #endif
-      } catch (py::error_already_set e) {
+      } catch (py::error_already_set &e) {
         NSC_LOG_ERROR("Failed to setup env for script: " + scriptfile);
         script_wrapper::log_exception();
         return;
@@ -255,7 +254,7 @@ void python_script::_exec(const std::string &scriptfile) {
 
 //			py::object ignored = exec_file(scriptfile.c_str(), *localDict, *localDict);
 #endif
-    } catch (py::error_already_set e) {
+    } catch (py::error_already_set &e) {
       NSC_LOG_ERROR("Failed to load script: " + scriptfile);
       script_wrapper::log_exception();
     } catch (const std::exception &e) {

@@ -281,9 +281,7 @@ bool Op5Client::cli_install(const PB::Commands::ExecuteRequestMessage::Request &
       nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
       return true;
     }
-    bool old = false;
     for (const pf::settings_query::key_values &val : q.get_query_key_response()) {
-      old = true;
       if (val.matches(path, "user") && user.empty())
         user = val.get_string();
       else if (val.matches(path, "password") && password.empty())
@@ -374,9 +372,7 @@ bool Op5Client::cli_add(const PB::Commands::ExecuteRequestMessage::Request &requ
       nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
       return true;
     }
-    bool old = false;
     for (const pf::settings_query::key_values &val : q.get_query_key_response()) {
-      old = true;
       if (val.matches(path, alias) && command.empty()) command = val.get_string();
     }
 

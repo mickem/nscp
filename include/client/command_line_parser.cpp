@@ -406,7 +406,7 @@ bool client::configuration::do_exec(const PB::Commands::ExecuteRequestMessage &r
   else if (!request.header().destination_id().empty())
     target = request.header().destination_id();
 
-  for (const std::string t : str::utils::split_lst(target, std::string(","))) {
+  for (const std::string &t : str::utils::split_lst(target, std::string(","))) {
     destination_container d = get_target(t);
     destination_container s = get_sender();
 

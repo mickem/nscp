@@ -265,7 +265,7 @@ struct operator_regexp : public simple_bool_binary_operator_impl {
     try {
       boost::regex re(regexp);
       return value_container::create_int(boost::regex_match(str, re), lhs.is_unsure || rhs.is_unsure);
-    } catch (const boost::bad_expression e) {
+    } catch (const boost::bad_expression &e) {
       errors->error("Invalid syntax in regular expression:" + regexp);
       return value_container::create_nil();
     } catch (...) {
@@ -295,7 +295,7 @@ struct operator_not_regexp : public simple_bool_binary_operator_impl {
     try {
       boost::regex re(regexp);
       return value_container::create_int(!boost::regex_match(str, re), lhs.is_unsure || rhs.is_unsure);
-    } catch (const boost::bad_expression e) {
+    } catch (const boost::bad_expression &e) {
       errors->error("Invalid syntax in regular expression:" + regexp);
       return value_container::create_nil();
     } catch (...) {

@@ -40,7 +40,7 @@ class key_interface {
 };
 typedef boost::shared_ptr<key_interface> key_type;
 
-key_type string_key(std::string* val, std::string def);
+key_type string_key(std::string* val, const std::string& def);
 key_type string_key(std::string* val);
 key_type int_key(int* val, int def = 0);
 key_type size_key(std::size_t* val, std::size_t def = 0);

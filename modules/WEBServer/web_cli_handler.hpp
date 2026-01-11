@@ -5,8 +5,8 @@
 #include "error_handler_interface.hpp"
 
 class web_cli_handler : public client::cli_handler {
-  const nscapi::core_wrapper* core;
   boost::shared_ptr<error_handler_interface> error_handler;
+  const nscapi::core_wrapper* core;
   int plugin_id;
 
  public:

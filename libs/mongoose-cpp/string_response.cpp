@@ -3,8 +3,8 @@
 namespace mcp {
 
 string_response::string_response() : response_code(0) {}
-string_response::string_response(int response_code, std::string &data) : response_code(response_code), data(data) {}
-string_response::string_response(int &response_code, std::string data) : response_code(response_code), data(data) {}
+string_response::string_response(int response_code, std::string &data) : data(data), response_code(response_code) {}
+string_response::string_response(int &response_code, std::string data) : data(data), response_code(response_code) {}
 
 std::string string_response::getBody() { return data; }
 

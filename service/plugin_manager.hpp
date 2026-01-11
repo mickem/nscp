@@ -80,15 +80,15 @@ class plugin_manager : public boost::enable_shared_from_this<plugin_manager> {
  private:
   boost::filesystem::path plugin_path_;
 
+  nsclient::core::path_instance path_;
   nsclient::logging::logger_instance log_instance_;
+  nsclient::core::master_plugin_list plugin_list_;
   nsclient::commands commands_;
   nsclient::channels channels_;
   nsclient::simple_plugins_list metrics_fetchers_;
   nsclient::simple_plugins_list metrics_submitetrs_;
   nsclient::core::plugin_cache plugin_cache_;
   nsclient::event_subscribers event_subscribers_;
-  nsclient::core::master_plugin_list plugin_list_;
-  nsclient::core::path_instance path_;
 
  public:
   plugin_manager(nsclient::core::path_instance path_, nsclient::logging::logger_instance log_instance);

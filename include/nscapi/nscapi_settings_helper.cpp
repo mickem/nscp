@@ -55,8 +55,8 @@ class typed_key : public key_interface {
   bool has_default_;
   std::string default_value_;
 
-  post_ptr post_functor_;
   store_ptr store_functor_;
+  post_ptr post_functor_;
 
  public:
   typed_key(store_functor *store_functor) : has_default_(false), store_functor_(store_ptr(store_functor)) {}
@@ -67,13 +67,13 @@ class typed_key : public key_interface {
   typed_key(store_functor *store_functor, const std::string &default_value, post_processor *post_functor)
       : has_default_(true), default_value_(default_value), store_functor_(store_ptr(store_functor)), post_functor_(post_ptr(post_functor)) {}
 
-  std::string get_default() const { return default_value_; }
+  std::string get_default() const override { return default_value_; }
   void update_target(std::string &value) const {
     if (store_functor_) store_functor_->store(value);
   }
-  virtual void notify_path(settings_impl_interface_ptr core_, std::string path) const { throw nsclient::nsclient_exception("Not implemented: notify_path"); }
+  void notify_path(settings_impl_interface_ptr core_, std::string path) const override { throw nsclient::nsclient_exception("Not implemented: notify_path"); }
 
-  void notify(settings_impl_interface_ptr core_, std::string path, std::string key) const {
+  void notify(settings_impl_interface_ptr core_, std::string path, std::string key) const override {
     std::string dummy("$$DUMMY_VALUE_DO_NOT_USE$$");
     if (has_default_) dummy = default_value_;
     std::string data = core_->get_string(path, key, dummy);
@@ -105,7 +105,7 @@ class typed_key : public key_interface {
 };
 
 struct lookup_path_processor : public post_processor {
-  virtual std::string process(settings_impl_interface_ptr core_, std::string value) { return core_->expand_path(value); }
+  std::string process(settings_impl_interface_ptr core_, std::string value) override { return core_->expand_path(value); }
 };
 
 class typed_kvp_value : public key_interface {
@@ -115,16 +115,16 @@ class typed_kvp_value : public key_interface {
  public:
   typed_kvp_value(store_bin_functor *store_functor) : store_functor_(bin_ptr(store_functor)) {}
 
-  std::string get_default() const { return ""; }
+  std::string get_default() const override { return ""; }
 
-  virtual void notify(settings_impl_interface_ptr core_, std::string path, std::string key) const {
+  void notify(settings_impl_interface_ptr core_, std::string path, std::string key) const override {
     throw nsclient::nsclient_exception("Not implemented: notify");
   }
-  virtual void notify(settings_impl_interface_ptr core_, std::string parent, std::string path, std::string key) const {
+  void notify(settings_impl_interface_ptr core_, std::string parent, std::string path, std::string key) const override {
     throw nsclient::nsclient_exception("Not implemented: notify");
   }
 
-  virtual void notify_path(settings_impl_interface_ptr core_, std::string path) const {
+  void notify_path(settings_impl_interface_ptr core_, std::string path) const override {
     if (store_functor_) {
       for (std::string key : core_->get_keys(path)) {
         std::string val = core_->get_string(path, key, "");
@@ -140,7 +140,7 @@ class typed_kvp_value : public key_interface {
 struct string_storer : public store_functor {
   std::string *store_to_;
   string_storer(std::string *store_to) : store_to_(store_to) {}
-  void store(std::string value) {
+  void store(std::string value) override {
     if (store_to_) *store_to_ = value;
   }
 };
@@ -148,14 +148,14 @@ template <class T>
 struct int_storer : public store_functor {
   T *store_to_;
   int_storer(T *store_to) : store_to_(store_to) {}
-  void store(std::string value) {
+  void store(std::string value) override {
     if (store_to_) *store_to_ = str::stox<T>(value, 0);
   }
 };
 struct bool_storer : public store_functor {
   bool *store_to_;
   bool_storer(bool *store_to) : store_to_(store_to) {}
-  void store(std::string value) {
+  void store(std::string value) override {
     if (store_to_) *store_to_ = s::settings_value::to_bool(value);
   }
 };
@@ -163,7 +163,7 @@ struct bool_storer : public store_functor {
 struct path_storer : public store_functor {
   boost::filesystem::path *store_to_;
   path_storer(boost::filesystem::path *store_to) : store_to_(store_to) {}
-  void store(std::string value) {
+  void store(std::string value) override {
     if (store_to_) *store_to_ = value;
   }
 };
@@ -171,16 +171,16 @@ struct path_storer : public store_functor {
 struct string_fun_storer : public store_functor {
   typedef boost::function<void(std::string)> fun_type;
   fun_type callback_;
-  string_fun_storer(fun_type callback) : callback_(callback) {}
-  void store(std::string value) {
+  string_fun_storer(fun_type callback) : callback_(std::move(callback)) {}
+  void store(std::string value) override {
     if (callback_) callback_(value);
   }
 };
 struct cstring_fun_storer : public store_functor {
   typedef boost::function<void(const char *)> fun_type;
   fun_type callback_;
-  cstring_fun_storer(fun_type callback) : callback_(callback) {}
-  void store(std::string value) {
+  cstring_fun_storer(fun_type callback) : callback_(std::move(callback)) {}
+  void store(std::string value) override {
     if (callback_) callback_(value.c_str());
   }
 };
@@ -188,16 +188,16 @@ template <class T>
 struct int_fun_storer : public store_functor {
   typedef boost::function<void(T)> fun_type;
   fun_type callback_;
-  int_fun_storer(fun_type callback) : callback_(callback) {}
-  void store(std::string value) {
+  int_fun_storer(fun_type callback) : callback_(std::move(callback)) {}
+  void store(std::string value) override {
     if (callback_) callback_(str::stox<T>(value, -1));
   }
 };
 struct bool_fun_storer : public store_functor {
   typedef boost::function<void(bool)> fun_type;
   fun_type callback_;
-  bool_fun_storer(fun_type callback) : callback_(callback) {}
-  void store(std::string value) {
+  bool_fun_storer(fun_type callback) : callback_(std::move(callback)) {}
+  void store(std::string value) override {
     if (callback_) callback_(s::settings_value::to_bool(value));
   }
 };
@@ -262,7 +262,7 @@ key_type path_key(boost::filesystem::path *val) {
   key_type r(new typed_key(new path_storer(val), new lookup_path_processor()));
   return r;
 }
-key_type string_key(std::string *val, std::string def) {
+key_type string_key(std::string *val, const std::string& def) {
   key_type r(new typed_key(new string_storer(val), def));
   return r;
 }
@@ -270,11 +270,11 @@ key_type string_key(std::string *val) {
   key_type r(new typed_key(new string_storer(val)));
   return r;
 }
-key_type int_key(int *val, int def) {
+key_type int_key(int *val, const int def) {
   key_type r(new typed_key(new int_storer<int>(val), s::settings_value::from_int(def)));
   return r;
 }
-key_type size_key(std::size_t *val, std::size_t def) {
+key_type size_key(std::size_t *val, const std::size_t def) {
   key_type r(new typed_key(new int_storer<std::size_t>(val), str::xtos<std::size_t>(def)));
   return r;
 }
@@ -503,13 +503,13 @@ void settings_keys_easy_init::add(boost::shared_ptr<key_info> d) const {
 }
 
 void settings_registry::register_all() const {
-  for (const key_list::value_type v : keys_) {
+  for (const key_list::value_type &v : keys_) {
     if (v->key) {
       std::list<std::string> paths = {v->path};
       if (v->has_parent()) {
         paths.insert(paths.begin(), v->parent);
       }
-      for (const auto path : paths) {
+      for (const auto &path : paths) {
         if (v->description.type == key_type_bool) {
           core_->register_key(path, v->key_name, "bool", v->description.title, v->description.description, v->key->get_default(), v->description.advanced,
                               v->is_sample, v->sensitive);

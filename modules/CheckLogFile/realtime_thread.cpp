@@ -181,7 +181,7 @@ bool real_time_thread::stop() {
 #ifdef WIN32
   SetEvent(stop_event_);
 #else
-  if (write(stop_event_[1], " ", 4) == -1) {
+  if (write(stop_event_[1], " ", 2) == -1) {
     NSC_LOG_ERROR("Failed to signal a stop");
   }
 #endif

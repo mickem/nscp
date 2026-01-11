@@ -104,15 +104,15 @@ struct nscp_version {
         major_version(other.major_version),
         minor_version(other.minor_version),
         build(other.build),
-        date(other.date),
-        has_build(other.has_build) {}
+        has_build(other.has_build),
+        date(other.date) {}
   nscp_version &operator=(const nscp_version &other) {
     release = other.release;
     major_version = other.major_version;
     minor_version = other.minor_version;
     build = other.build;
-    date = other.date;
     has_build = other.has_build;
+    date = other.date;
     return *this;
   }
   nscp_version(std::string v) : release(0), major_version(0), minor_version(0), build(0), has_build(false) {

@@ -40,7 +40,7 @@ unsigned long calculate_crc32(const char *buffer, const std::size_t buffer_size)
 
   unsigned long crc = 0xFFFFFFFF;
 
-  for (int current_index = 0; current_index < buffer_size; current_index++) {
+  for (std::size_t current_index = 0; current_index < buffer_size; current_index++) {
     const int this_char = static_cast<unsigned char>(buffer[current_index]);
     crc = ((crc >> 8) & 0x00FFFFFF) ^ crc32_table[(crc ^ this_char) & 0xFF];
   }
@@ -53,7 +53,7 @@ unsigned long calculate_crc32(const unsigned char *buffer, const std::size_t buf
 
   unsigned long crc = 0xFFFFFFFF;
 
-  for (int current_index = 0; current_index < buffer_size; current_index++) {
+  for (std::size_t current_index = 0; current_index < buffer_size; current_index++) {
     const int this_char = buffer[current_index];
     crc = ((crc >> 8) & 0x00FFFFFF) ^ crc32_table[(crc ^ this_char) & 0xFF];
   }

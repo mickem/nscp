@@ -899,6 +899,7 @@ set(NSCP_DEF_PLUGIN_CPP
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
 )
 set(NSCP_DEF_PLUGIN_HPP
     ${NSCP_INCLUDEDIR}/utf8.hpp
