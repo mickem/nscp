@@ -7,6 +7,10 @@ from shutil import copyfile
 WANTED_PACKAGES = [
     'site-packages/requests',
     'site-packages/google/protobuf',
+    'site-packages/google/protobuf/compiler',
+    'site-packages/google/protobuf/internal',
+    'site-packages/google/protobuf/pyext',
+    'site-packages/google/protobuf/util',
     'encodings',
     'site-packages/jinja2',
     'site-packages/markupsafe',
