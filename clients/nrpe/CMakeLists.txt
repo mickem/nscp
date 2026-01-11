@@ -16,6 +16,7 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/utils.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
     ${NSCP_CLIENT_CPP}
     ../../resources/nsclient.ico
 )

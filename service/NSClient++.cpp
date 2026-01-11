@@ -141,7 +141,9 @@ bool NSClientT::load_configuration(const bool override_log) {
   LOG_DEBUG_CORE("Booted settings subsystem...");
 
   bool crash_archive = false;
+#ifdef WIN32
   bool crash_restart = false;
+#endif
   bool use_credentials = false;
   std::string crash_folder, log_level;
   try {

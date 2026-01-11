@@ -46,7 +46,7 @@ struct connection_data : public socket_helpers::connection_info {
     if (protocol == "https")
       port_ = arguments.address.get_port_string("443");
     else {
-      protocol == "http";
+      protocol = "http";
       port_ = arguments.address.get_port_string("80");
     }
     timeout = arguments.get_int_data("timeout", 30);

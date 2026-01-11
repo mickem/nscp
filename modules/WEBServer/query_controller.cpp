@@ -36,8 +36,8 @@ void query_controller::get_queries(Mongoose::Request &request, boost::smatch &wh
   pb_response.ParseFromString(str_response);
   json::array root;
 
-  for (const PB::Registry::RegistryResponseMessage::Response r : pb_response.payload()) {
-    for (const PB::Registry::RegistryResponseMessage::Response::Inventory i : r.inventory()) {
+  for (const PB::Registry::RegistryResponseMessage::Response &r : pb_response.payload()) {
+    for (const PB::Registry::RegistryResponseMessage::Response::Inventory &i : r.inventory()) {
       json::object node;
       node["name"] = i.name();
       if (i.info().plugin_size() > 0) {
@@ -77,8 +77,8 @@ void query_controller::get_query(Mongoose::Request &request, boost::smatch &what
   pb_response.ParseFromString(str_response);
   json::object node;
 
-  for (const PB::Registry::RegistryResponseMessage::Response r : pb_response.payload()) {
-    for (const PB::Registry::RegistryResponseMessage::Response::Inventory i : r.inventory()) {
+  for (const PB::Registry::RegistryResponseMessage::Response &r : pb_response.payload()) {
+    for (const PB::Registry::RegistryResponseMessage::Response::Inventory &i : r.inventory()) {
       node["name"] = i.name();
       if (i.info().plugin_size() > 0) {
         node["plugin"] = i.info().plugin(0);

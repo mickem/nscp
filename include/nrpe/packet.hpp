@@ -296,7 +296,7 @@ class packet /*: public boost::noncopyable*/ {
       throw nrpe_exception("Invalid packet version: " + str::xtos(version_));
     }
     std::size_t payload_length = swap_bytes::ntoh<int32_t>(p->buffer_length);
-    if (payload_length < 0 || payload_length > 1024 * 1024) {
+    if (payload_length > 1024 * 1024) {
       throw nrpe_exception("Invalid packet length specified: " + str::xtos(payload_length));
     }
     std::size_t source_data_length = version_ == 4 ? length::get_packet_length_v4(payload_length) : length::get_packet_length_v3(payload_length);

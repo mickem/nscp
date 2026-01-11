@@ -175,7 +175,7 @@ struct syslog_client_handler : public client::handler_interface {
       boost::asio::ip::udp::socket socket(io_service);
       socket.open(boost::asio::ip::udp::v4());
 
-      for (const std::string msg : messages) {
+      for (const std::string &msg : messages) {
         NSC_DEBUG_MSG_STD("Sending data: " + msg);
         socket.send_to(boost::asio::buffer(msg), receiver_endpoint);
       }

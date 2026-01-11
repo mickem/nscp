@@ -271,7 +271,7 @@ void PythonScript::onEvent(const PB::Commands::EventMessage &request, const std:
   for (const ::PB::Commands::EventMessage::Request &line : request.payload()) {
     if (inst->has_simple_event_handler(line.event())) {
       boost::python::dict data;
-      for (const PB::Common::KeyValue e : line.data()) {
+      for (const PB::Common::KeyValue &e : line.data()) {
         data[e.key()] = e.value();
       }
       inst->on_simple_event(line.event(), data);

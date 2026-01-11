@@ -298,7 +298,7 @@ void cli_client::handle_command(const std::string &command) {
           PB::Commands::QueryResponseMessage message;
           message.ParseFromString(response);
 
-          for (const PB::Commands::QueryResponseMessage::Response payload : message.payload()) {
+          for (const PB::Commands::QueryResponseMessage::Response &payload : message.payload()) {
             for (const PB::Commands::QueryResponseMessage::Response::Line &l : payload.lines()) {
               handler->output_message(nscapi::plugin_helper::translateReturn(payload.result()) + ": " + l.message());
               std::string perf = nscapi::protobuf::functions::build_performance_data(l, nscapi::protobuf::functions::no_truncation);

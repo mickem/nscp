@@ -11,6 +11,7 @@ If you want to produce debug builds and/or w32 some adjustments will be required
 * [Prerequisites](#prerequisites)
 * [x64 version (dynamic runtime)](#x64-version-dynamic-runtime)
 * [Win32 version (static link)](#win32-version-static-link)
+* [Linux version](#linux-version)
 
 ## Prerequisites
 
@@ -370,3 +371,71 @@ cd nscp
 cmake %SOURCE_ROOT% -T v141_xp -G "Visual Studio 17" -A Win32 -DBUILD_VERSION=%NSCP_VERSION%
 msbuild nscp.sln /p:Configuration=Release /p:Platform=Win32
 ```
+
+## Linux version
+
+### Install dependencies
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential cmake libssl-dev libboost-all-dev libprotobuf-dev protobuf-compiler liblua5.4-dev libtinyxml2-dev libffi-dev python3.12-dev python3-protobuf
+```
+
+In addition to this you also need to install rust: https://rust-lang.org/tools/install/
+
+### Download dependencies
+
+To build NSClient++ we need to download a few dependencies which are linked to NSClient.
+These can be placed anywhere but for this example we will place them in `~/dependencies`.
+
+```bash
+export DEPENDENCIES_FOLDER="${HOME}/dependencies"
+mkdir -p $DEPENDENCIES_FOLDER
+```
+
+#### Download TinyXML-2
+TinyXML2 does not require building instead we need to download and configure where the build system can find it.
+
+```bash
+cd $DEPENDENCIES_FOLDER
+SET TINY_XML2_VERSION=10.1.0
+curl -L https://github.com/leethomason/tinyxml2/archive/refs/tags/${TINY_XML2_VERSION}.zip --output tinyxml2.zip
+unzip tinyxml2.zip
+```
+
+#### Download Mongoose
+Mongoose does not require building instead we need to download and configure where the build system can find
+it.
+
+```bash
+cd $DEPENDENCIES_FOLDER
+SET MONGOOSE_VERSION=7.19
+curl -L https://github.com/cesanta/mongoose/archive/refs/tags/${MONGOOSE_VERSION}.zip --output mongoose.zip
+unzip mongoose.zip
+```
+
+#### Build Rust NSClient check_nsclient client
+
+The Rust based `check_nsclient` tool needs to be built before building NSClient++.
+
+```bash
+cd $SOURCE_ROOT/rust/check_nsclient
+cargo build --release
+```
+
+### Configuration
+
+Create a `build.cmake` file adding the paths to the above tools and libraries.
+```cmake
+SET(DEPENDENCIES_FOLDER "${HOME}/dependencies")
+SET(TINY_XML2_SOURCE_DIR "${DEPENDENCIES_FOLDER}/tinyxml2-10.1.0")
+set(MONGOOSE_SOURCE_DIR "${DEPENDENCIES_FOLDER}/mongoose-7.19")
+set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/rust/check_nsclient/target/release/check_nsclient")
+```
+
+### Build NSClient++
+```bash
+cd $BUILD_FOLDER/nscp
+cmake $SOURCE_ROOT -DBUILD_VERSION=$NSCP_VERSION
+make -j$(nproc)
+```
+

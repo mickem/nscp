@@ -24,7 +24,7 @@ static int mg_strncasecmp(const char *s1, const char *s2, size_t len) {
   return diff;
 }
 
-static void mg_strlcpy(register char *dst, register const char *src, size_t n) {
+static void mg_strlcpy(char *dst, const char *src, size_t n) {
   for (; *src != '\0' && n > 1; n--) {
     *dst++ = *src++;
   }
@@ -83,7 +83,9 @@ static long long mg_get_cookie(const char *cookie_header, const char *var_name, 
 namespace Mongoose {
 
 Request::Request(const std::string ip, bool is_ssl, std::string method, std::string url, std::string query, headers_type headers, std::string data)
-    : is_ssl_(is_ssl), method(method), ip(ip), url(url), query(query), headers(headers), data(data) {}
+    : is_ssl_(is_ssl), method(method), url(url), query(query), data(data), ip(ip), headers(headers) {}
+
+bool Request::hasVariable(string key) { return headers.find(key) != headers.end(); }
 
 string Request::getUrl() { return url; }
 
@@ -92,8 +94,6 @@ string Request::getMethod() { return method; }
 string Request::getData() { return data; }
 
 string Request::getRemoteIp() { return ip; }
-
-bool Request::hasVariable(string key) { return headers.find(key) != headers.end(); }
 
 Request::arg_vector get_var_vector(const char *data, size_t data_len) {
   Request::arg_vector ret;

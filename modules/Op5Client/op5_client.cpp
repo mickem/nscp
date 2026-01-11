@@ -39,7 +39,7 @@
 namespace json = boost::json;
 
 op5_client::op5_client(const nscapi::core_wrapper *core, int plugin_id, op5_config config)
-    : core_(core), plugin_id_(plugin_id_), config_(config), stop_thread_(false) {
+    : core_(core), plugin_id_(plugin_id), config_(config), stop_thread_(false) {
   thread_ = boost::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
 }
 

@@ -244,12 +244,11 @@ void ElasticClient::onEvent(const PB::Commands::EventMessage &request, const std
     return;
   }
   std::string time = boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::universal_time());
-  boost::uuids::uuid uuid = boost::uuids::random_generator()();
 
   std::vector<std::string> payloads;
   for (const ::PB::Commands::EventMessage::Request &line : request.payload()) {
     json::object node;
-    for (const PB::Common::KeyValue e : line.data()) {
+    for (const PB::Common::KeyValue &e : line.data()) {
       if (e.key() == "written_str") {
         time = e.value();
       } else if (e.key() != "xml" && e.key() != "written") {

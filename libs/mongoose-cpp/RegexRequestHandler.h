@@ -10,6 +10,7 @@ namespace Mongoose {
 
 class RegexpRequestHandlerBase {
  public:
+  virtual ~RegexpRequestHandlerBase() = default;
   virtual Response *process(Request &request, boost::smatch &what) = 0;
 };
 
@@ -20,12 +21,12 @@ class RegexpRequestHandler : public RegexpRequestHandlerBase {
 
   RegexpRequestHandler(T *controller_, fPtr function_) : controller(controller_), function(function_) {}
 
-  Response *process(Request &request, boost::smatch &what) {
+  Response *process(Request &request, boost::smatch &what) override {
     R *response = new R;
 
     try {
       (controller->*function)(request, what, *response);
-    } catch (std::string exception) {
+    } catch (std::string &exception) {
       return controller->serverInternalError(exception);
     } catch (const std::exception &exception) {
       return controller->serverInternalError(exception.what());

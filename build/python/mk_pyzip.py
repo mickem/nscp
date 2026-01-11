@@ -6,6 +6,12 @@ from shutil import copyfile
 
 WANTED_PACKAGES = [
     'site-packages/requests',
+    'site-packages/google',
+    'site-packages/google/protobuf',
+    'site-packages/google/protobuf/compiler',
+    'site-packages/google/protobuf/internal',
+    'site-packages/google/protobuf/pyext',
+    'site-packages/google/protobuf/util',
     'encodings',
     'site-packages/jinja2',
     'site-packages/markupsafe',
@@ -50,6 +56,8 @@ if __name__ == '__main__':
 
     with ZipFile(target_zip, 'w') as zipf:
         zipdir(source_lib, zipf)
+        zipf.writestr('google/__init__.py', '')
+
     print("Created python lib zip: %s"%target_zip)
 
     for f in ['_socket.pyd', 'unicodedata.pyd']:

@@ -40,8 +40,8 @@ void modules_controller::get_modules(Mongoose::Request &request, boost::smatch &
   pb_response.ParseFromString(str_response);
   json::array root;
 
-  for (const PB::Registry::RegistryResponseMessage::Response r : pb_response.payload()) {
-    for (const PB::Registry::RegistryResponseMessage::Response::Inventory i : r.inventory()) {
+  for (const PB::Registry::RegistryResponseMessage::Response &r : pb_response.payload()) {
+    for (const PB::Registry::RegistryResponseMessage::Response::Inventory &i : r.inventory()) {
       json::object node;
       node["name"] = i.name();
       node["id"] = i.id();
@@ -89,12 +89,12 @@ void modules_controller::get_module(Mongoose::Request &request, boost::smatch &w
   pb_response.ParseFromString(str_response);
   json::object node;
 
-  for (const PB::Registry::RegistryResponseMessage::Response r : pb_response.payload()) {
+  for (const PB::Registry::RegistryResponseMessage::Response &r : pb_response.payload()) {
     if (r.inventory_size() == 0) {
       response.setCodeNotFound("Module not found: " + module);
       return;
     }
-    for (const PB::Registry::RegistryResponseMessage::Response::Inventory i : r.inventory()) {
+    for (const PB::Registry::RegistryResponseMessage::Response::Inventory &i : r.inventory()) {
       node["name"] = i.name();
       node["id"] = i.id();
       node["title"] = i.info().title();
@@ -250,8 +250,8 @@ void modules_controller::put_module(Mongoose::Request &request, boost::smatch &w
     pb_response.ParseFromString(str_response);
     json::object node;
 
-    for (const PB::Registry::RegistryResponseMessage::Response r : pb_response.payload()) {
-      for (const PB::Registry::RegistryResponseMessage::Response::Inventory i : r.inventory()) {
+    for (const PB::Registry::RegistryResponseMessage::Response &r : pb_response.payload()) {
+      for (const PB::Registry::RegistryResponseMessage::Response::Inventory &i : r.inventory()) {
         if (i.name() == module) {
           bool is_loaded = false;
           for (const PB::Common::KeyValue &kvp : i.info().metadata()) {

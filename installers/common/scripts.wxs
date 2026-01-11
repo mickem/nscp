@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Fragment>
-        <DirectoryRef Id="INSTALLLOCATION">
+        <DirectoryRef Id="TARGETDIR">
             <Directory Id="dirC722990CDCB916A6A44099040A99483A" Name="scripts" />
         </DirectoryRef>
     </Fragment>
@@ -15,6 +15,9 @@
             </Component>
             <Component Id="cmpD75076D34C7D471C4AA6236AD2E204C1" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{B67D70A7-88CD-458D-A37A-93E379B68AA5}">
                 <File Id="fil92513D9EE2A1D76870FEDE6A7B4D419A" KeyPath="yes" Source="$(var.ScriptSource)\check_files.vbs" />
+            </Component>
+            <Component Id="cmp4D528D695F26FE07E5D5CB6B329905E7" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{63880A9B-7241-48A6-8CFE-39E18501FFF4}">
+                <File Id="fil10C6FD9961FD41F7ABC32725A17F8E87" KeyPath="yes" Source="$(var.ScriptSource)\check_long.bat" />
             </Component>
             <Component Id="cmp5EA253F887CA02B9AD0C700D1DD8C76A" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{F20CB5DA-A61E-4F35-9731-E11CEA7D4706}">
                 <File Id="fil8B326ABE4703117B7B1BF8983F4DAE27" KeyPath="yes" Source="$(var.ScriptSource)\check_no_rdp.bat" />
@@ -31,6 +34,9 @@
             <Component Id="cmp17F62F611C71EF1FC3C22EFF410A903D" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{C3B8C720-96A3-4329-88AD-EA95A01FD83F}">
                 <File Id="fil2B631277A3B36D08BD79BB1BE29F5B0B" KeyPath="yes" Source="$(var.ScriptSource)\check_updates.vbs" />
             </Component>
+            <Component Id="cmp4270C1CDBEB9E8560DF47AE8E1546D51" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{C5EA7E25-F8CA-4084-85F5-EBF65BA901DD}">
+                <File Id="filB88A15D872FA433B41D87681D3B23EF6" KeyPath="yes" Source="$(var.ScriptSource)\powershell.ps1" />
+            </Component>
             <Component Id="cmpED0695794ED2441265BC9F979D959617" Directory="dir7E9C001792A99FF4CF9F68CADB7B09CA" Guid="{89281C7F-12A0-48DB-93C8-96B74259AA02}">
                 <File Id="filEF1424FC53E410BD9334DBDAA99F5212" KeyPath="yes" Source="$(var.ScriptSource)\lib\NagiosPlugins.vbs" />
             </Component>
@@ -43,91 +49,40 @@
             <Component Id="cmpB661928B73E115BF02F46679B648BACB" Directory="dirEAE7F9BEB0F783B5EC9C5AC27AB441E6" Guid="{7D842F5D-048C-46B3-814A-ADBB87161887}">
                 <File Id="fil19E4918C167D7C5765CD7A5CB8641BAF" KeyPath="yes" Source="$(var.ScriptSource)\lua\default_check_mk.lua" />
             </Component>
-            <Component Id="cmpB661928B73E115BF02F46679B648BACW" Directory="dirEAE7F9BEB0F783B5EC9C5AC27AB441E6" Guid="{fb70f63c-b5a5-4048-a111-6d9dc4b521f6}">
-                <File Id="fil19E4918C167D7C5765CD7A5CB8641BAG" KeyPath="yes" Source="$(var.ScriptSource)\lua\test.lua" />
-            </Component>
             <Component Id="cmp1199343909C9149C322FD038B800AB4F" Directory="dirEAE7F9BEB0F783B5EC9C5AC27AB441E6" Guid="{DD229AA9-FF2A-4A3A-9BE1-8AD87C5F7D11}">
                 <File Id="fil3916432D6FD9E9E4BCDF3F7587882857" KeyPath="yes" Source="$(var.ScriptSource)\lua\noperf.lua" />
             </Component>
             <Component Id="cmpF75C78276C34963843935D90A01FD60F" Directory="dir8BEE7999728EED0063087637B6BE9812" Guid="{65E45FFC-947F-4A29-AB30-200B73A50185}">
                 <File Id="fil6C82EAD213B94F7CF4F7A5397E5A9C78" KeyPath="yes" Source="$(var.ScriptSource)\python\__init__.py" />
             </Component>
-            <Component Id="cmp72D3A9758623A76C634A8BE1DEBB2C1B" Directory="dir42740DFEBE9B04C5E878DF2E63442AC0" Guid="{08ADB471-7901-4A43-9295-15B63D5CD642}">
+            <Component Id="cmpE202309018DF733BA5E07AD78F1A26DF" Directory="dir42740DFEBE9B04C5E878DF2E63442AC0" Guid="{AA232EE5-4758-4715-BAB9-875675606ABD}">
+                <File Id="fil1BEBC5FA26859B740D67653D070E7400" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\common_pb2.py" />
+            </Component>
+            <Component Id="cmpED9D821793B77C147A7291D6BB85719A" Directory="dir42740DFEBE9B04C5E878DF2E63442AC0" Guid="{6A75B36E-A765-4363-8015-4BC66435BAFB}">
+                <File Id="fil0AF56908FF3A73CE9EB49663412D24DD" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\log_pb2.py" />
+            </Component>
+            <Component Id="cmpCA41F14D906147DC35C8C4489737C8CA" Directory="dir42740DFEBE9B04C5E878DF2E63442AC0" Guid="{F91EAC29-1EC6-4C58-9241-4D0C95CCD2D3}">
+                <File Id="filE9BF59BB94ECDA21513F48127BD6D61A" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\metrics_pb2.py" />
+            </Component>
+            <Component Id="cmpC256D85724316C574EF9F8BF70FC9D9C" Directory="dir42740DFEBE9B04C5E878DF2E63442AC0" Guid="{852E2863-1306-43B5-965F-87E76C889AD7}">
+                <File Id="filB5EE40547086CCC8E8297FEAA1AFDFB4" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\plugin_pb2.py" />
+            </Component>
+            <Component Id="cmp31A90353CC9E1D3BF1E911A1ABD48108" Directory="dir42740DFEBE9B04C5E878DF2E63442AC0" Guid="{9711A45D-45C4-4EFB-816A-CFB9BB91B3B2}">
+                <File Id="fil19341CB1BFA7DCF9542BB6A64B7598F0" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\registry_pb2.py" />
+            </Component>
+            <Component Id="cmpE2201E0F261E67BE5ACEC47C359B3630" Directory="dir42740DFEBE9B04C5E878DF2E63442AC0" Guid="{197A796F-E0E3-484B-B2E2-6CB9B9328EB1}">
+                <File Id="fil1C5AA6483E26430E368B8D0D320309BA" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\settings_pb2.py" />
+            </Component>
+            <Component Id="cmp9D9AE241E11885133AAD492362301060" Directory="dir42740DFEBE9B04C5E878DF2E63442AC0" Guid="{94B9BCC3-5F33-4AD6-AD39-D8DAC28DE929}">
+                <File Id="fil6E10E6021ED242AFC67D457620FAA90F" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\storage_pb2.py" />
+            </Component>
+            <Component Id="cmp72D3A9758623A76C634A8BE1DEBB2C1B" Directory="dir42740DFEBE9B04C5E878DF2E63442AC0" Guid="{E24E8306-26C0-4727-914F-2B0CC27C754D}">
                 <File Id="fil832B0F274326DB64D5EA9954EF8E4C50" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\__init__.py" />
             </Component>
-            <Component Id="cmp17E58BBA623351C58C57768C1B45058D" Directory="dirD6EF9C9C33262F86DC78E833B018462C" Guid="{DE5A0794-5B0F-43B7-AB88-D1853D9CF229}">
-                <File Id="fil9B45A725854813E0D42631FDC8E1C964" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\descriptor.py" />
-            </Component>
-            <Component Id="cmp9528CF8B8D53FAAC1260DECCB8C3C628" Directory="dirD6EF9C9C33262F86DC78E833B018462C" Guid="{07A42078-9BFA-472B-839D-7BF1866F3336}">
-                <File Id="fil87EE90A3BC7888F58A077B6C69655FDD" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\descriptor_pb2.py" />
-            </Component>
-            <Component Id="cmpCCF07DB458D8583E1B0374E50E7027D0" Directory="dirD6EF9C9C33262F86DC78E833B018462C" Guid="{ED9DED1A-5AAE-412C-99FB-E04075E5572D}">
-                <File Id="filB12ED18EB902BE731399675092C6B368" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\message.py" />
-            </Component>
-            <Component Id="cmp0A88744DA85DCB05DEA2D91AF43C860D" Directory="dirD6EF9C9C33262F86DC78E833B018462C" Guid="{A3BA063F-99EC-4E0E-A1E2-0E11A1F405D6}">
-                <File Id="fil97FA2126F786DE813CFCF911FFE7CFCD" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\reflection.py" />
-            </Component>
-            <Component Id="cmp7F967F42E8DBED4AC94CB7B229819665" Directory="dirD6EF9C9C33262F86DC78E833B018462C" Guid="{DD27E920-481D-4E6C-8E7C-5C030AC1F395}">
-                <File Id="filC7C94C02BF2CEF920E6788D20A589FB5" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\service.py" />
-            </Component>
-            <Component Id="cmp9AD23D77759C8BEB33BC8D737EEF2266" Directory="dirD6EF9C9C33262F86DC78E833B018462C" Guid="{D4E69C0F-B5CD-4365-9C95-3AF38379AD50}">
-                <File Id="fil06A2FDDE7C44F97FAC26530D96294A63" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\service_reflection.py" />
-            </Component>
-            <Component Id="cmpBC588BC3AD9B0162CB4E5CB056C72352" Directory="dirD6EF9C9C33262F86DC78E833B018462C" Guid="{C9761074-F775-4861-928D-AF99111CD001}">
-                <File Id="filF47397415C404D2E929C6ACF262ADDBF" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\text_format.py" />
-            </Component>
-            <Component Id="cmpF06308E4407C90FAAAEAD6DFDF7B6BEF" Directory="dirD6EF9C9C33262F86DC78E833B018462C" Guid="{3C2A1821-F9D7-4F03-B325-F840FDD5A52A}">
-                <File Id="filE2538F04DE03512FF1CF73670BA65DA7" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\__init__.py" />
-            </Component>
-            <Component Id="cmpF6760C1C6912BAA72C36229757B4E874" Directory="dir43A021861BEC2DE0C5347AB22706B3B0" Guid="{F2B76566-2BFC-4A3A-914B-B16AB412A2C1}">
-                <File Id="fil2569C9F814D400485B579F6568C736EC" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\compiler\plugin_pb2.py" />
-            </Component>
-            <Component Id="cmp8DF1D76053A504E09AB668B6A60382FF" Directory="dirA35E89FEAA157D4F23DE035BD6CAA56B" Guid="{581D5206-20D8-4A25-98A2-FBC01D9BC0D4}">
-                <File Id="fil66812AE44363B8032BA10B7DED2A3497" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\internal\api_implementation.py" />
-            </Component>
-            <Component Id="cmp9DFD8709747C9D8C452B7EC6B7DAB62A" Directory="dirA35E89FEAA157D4F23DE035BD6CAA56B" Guid="{7610BDFD-3C53-48B6-BACF-793A9FE29E43}">
-                <File Id="filC11C68336A82D5D69CFBF26A7E7E90D9" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\internal\containers.py" />
-            </Component>
-            <Component Id="cmpD32F01DAF6DA742580D624CDA05CB79A" Directory="dirA35E89FEAA157D4F23DE035BD6CAA56B" Guid="{912902BE-DD29-4A9D-BA8E-9F9E3AC01DA9}">
-                <File Id="filC5CC6DBCA07FB4804BA29D068D927C39" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\internal\decoder.py" />
-            </Component>
-            <Component Id="cmp2ECA7427A675F40DF8435B599D94CDF9" Directory="dirA35E89FEAA157D4F23DE035BD6CAA56B" Guid="{468F8B83-23AA-4E49-B2FF-C941B00F7CDD}">
-                <File Id="fil9255614CC4C4B1502051D33F973DADB0" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\internal\encoder.py" />
-            </Component>
-            <Component Id="cmpA9A3EC13291BBD6E868B1985FBDAA7C4" Directory="dirA35E89FEAA157D4F23DE035BD6CAA56B" Guid="{5059CA56-C310-4873-8F1D-287200E9BBA6}">
-                <File Id="fil4DAA013C2998A59E9BD4FBD67BE11AFD" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\internal\message_listener.py" />
-            </Component>
-            <Component Id="cmp1A112B00CB253028CAC123BC93ECB10A" Directory="dirA35E89FEAA157D4F23DE035BD6CAA56B" Guid="{E9C10FE9-AA55-4C3F-BB4F-E887F6CB36DF}">
-                <File Id="fil97AA0D9FEFF6997FA1E8700A91F6C41E" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\internal\python_message.py" />
-            </Component>
-            <Component Id="cmp961A11488823A0E698918F1B4F55B782" Directory="dirA35E89FEAA157D4F23DE035BD6CAA56B" Guid="{B6D88C1D-ED64-4D79-B91A-4D15E447F014}">
-                <File Id="filF1E19521293D1DC3FB1018866A668F45" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\internal\type_checkers.py" />
-            </Component>
-            <Component Id="cmpB8B792A59086A4939644A71308009F78" Directory="dirA35E89FEAA157D4F23DE035BD6CAA56B" Guid="{57AFD445-17F5-4956-B47F-5A01D7488A72}">
-                <File Id="fil30EC5D366824A79E7FA2E4D02712611C" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\internal\wire_format.py" />
-            </Component>
-            <Component Id="cmpE3AE8830B84786423485C8DA10B2A5B6" Directory="dirA35E89FEAA157D4F23DE035BD6CAA56B" Guid="{989E712E-3053-4F54-AA64-F96A7AECD8AA}">
-                <File Id="fil8DBCCBD5111099E194B8725A77D3DFB2" KeyPath="yes" Source="$(var.ScriptSource)\python\lib\google\protobuf\internal\__init__.py" />
-            </Component>
-            <Component Id="cmp8490508AE4A6CDA57FD853E9BB53349B" Directory="dir75D361DD902DAA5B5D1768197D50410D" Guid="{2FF313EF-5061-4A37-AE8B-1335041D1857}">
+            <Component Id="cmp8490508AE4A6CDA57FD853E9BB53349B" Directory="dir75D361DD902DAA5B5D1768197D50410D" Guid="{13C3F223-BA64-4BFD-AAD9-455AEB532648}">
                 <File Id="filE2A7D31F684EEE1041F6EEA78ACFAF28" KeyPath="yes" Source="$(var.ScriptSource)\python\sample\list_all_wmi_objects.py" />
             </Component>
         </ComponentGroup>
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dir42740DFEBE9B04C5E878DF2E63442AC0">
-            <Directory Id="dir03549DDEFA34A91A8D8F65F4D1D39DF5" Name="google" />
-        </DirectoryRef>
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dir8B749E2F3570E6379C154F09B53F2CA4">
-            <Directory Id="dir0A709720915642DD649316BFFFF9A902" Name="python" />
-        </DirectoryRef>
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dirC722990CDCB916A6A44099040A99483A">
-            <Directory Id="dir3D821B200F79F737EA443C544D206FC3" Name="custom" />
-        </DirectoryRef>
     </Fragment>
     <Fragment>
         <DirectoryRef Id="dir8BEE7999728EED0063087637B6BE9812">
@@ -137,21 +92,6 @@
     <Fragment>
         <DirectoryRef Id="dirEAE7F9BEB0F783B5EC9C5AC27AB441E6">
             <Directory Id="dir429945C5CA9AEA09AFF20DAC406B3AB3" Name="lib" />
-        </DirectoryRef>
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dirD6EF9C9C33262F86DC78E833B018462C">
-            <Directory Id="dir43A021861BEC2DE0C5347AB22706B3B0" Name="compiler" />
-        </DirectoryRef>
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dirC722990CDCB916A6A44099040A99483A">
-            <Directory Id="dir550C3F5AB6129ED20A3CA7AD45B9C203" Name="modules" />
-        </DirectoryRef>
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dirEF2D16A1B6CAA0973979A8D081950086">
-            <Directory Id="dir649FA9E9CC6F9D39DCC84AF1D87807AF" Name="scripts" />
         </DirectoryRef>
     </Fragment>
     <Fragment>
@@ -165,63 +105,13 @@
         </DirectoryRef>
     </Fragment>
     <Fragment>
-        <DirectoryRef Id="dir550C3F5AB6129ED20A3CA7AD45B9C203">
-            <Directory Id="dir806E6C4397985F9DD12BF849BA70F90E" Name="icinga-client" />
-        </DirectoryRef>
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dir8FA72D38D121EF82452D4FDC42004605">
-            <Directory Id="dir8B749E2F3570E6379C154F09B53F2CA4" Name="scripts" />
-        </DirectoryRef>
-    </Fragment>
-    <Fragment>
         <DirectoryRef Id="dirC722990CDCB916A6A44099040A99483A">
             <Directory Id="dir8BEE7999728EED0063087637B6BE9812" Name="python" />
         </DirectoryRef>
     </Fragment>
     <Fragment>
-        <DirectoryRef Id="dir550C3F5AB6129ED20A3CA7AD45B9C203">
-            <Directory Id="dir8FA72D38D121EF82452D4FDC42004605" Name="icamp" />
-        </DirectoryRef>
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dirD6EF9C9C33262F86DC78E833B018462C">
-            <Directory Id="dirA35E89FEAA157D4F23DE035BD6CAA56B" Name="internal" />
-        </DirectoryRef>
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dirC722990CDCB916A6A44099040A99483A">
-            <Directory Id="dirB9B12B0D84E740B9CDAA261D7D572316" Name="helper" />
-        </DirectoryRef>
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dir649FA9E9CC6F9D39DCC84AF1D87807AF">
-            <Directory Id="dirC898F1872B5A707EE8621289D3393097" Name="python" />
-        </DirectoryRef>
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dir03549DDEFA34A91A8D8F65F4D1D39DF5">
-            <Directory Id="dirD6EF9C9C33262F86DC78E833B018462C" Name="protobuf" />
-        </DirectoryRef>
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dirFFA6E5E711750F904F8FE2BD4C2C9BF4">
-            <Directory Id="dirE151B86C5DE83216BBBC3A2C2C7CC232" Name="python" />
-        </DirectoryRef>
-    </Fragment>
-    <Fragment>
         <DirectoryRef Id="dirC722990CDCB916A6A44099040A99483A">
             <Directory Id="dirEAE7F9BEB0F783B5EC9C5AC27AB441E6" Name="lua" />
-        </DirectoryRef>
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dir550C3F5AB6129ED20A3CA7AD45B9C203">
-            <Directory Id="dirEF2D16A1B6CAA0973979A8D081950086" Name="remote-modules" />
-        </DirectoryRef>
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dir806E6C4397985F9DD12BF849BA70F90E">
-            <Directory Id="dirFFA6E5E711750F904F8FE2BD4C2C9BF4" Name="scripts" />
         </DirectoryRef>
     </Fragment>
 </Wix>

@@ -63,10 +63,11 @@ class socket_exception : public std::exception {
 
 struct connection_info {
   struct ssl_opts {
-    ssl_opts() : enabled(false), tls_version("1.2+"), debug_verify(false) {}
+    ssl_opts() : enabled(false), debug_verify(false), tls_version("1.2+") {}
 
     ssl_opts(const ssl_opts& other)
         : enabled(other.enabled),
+          debug_verify(other.debug_verify),
           certificate(other.certificate),
           certificate_format(other.certificate_format),
           certificate_key(other.certificate_key),
@@ -75,10 +76,10 @@ struct connection_info {
           dh_key(other.dh_key),
           verify_mode(other.verify_mode),
           tls_version(other.tls_version),
-          ssl_options(other.ssl_options),
-          debug_verify(other.debug_verify) {}
+          ssl_options(other.ssl_options) {}
     ssl_opts& operator=(const ssl_opts& other) {
       enabled = other.enabled;
+      debug_verify = other.debug_verify;
       certificate = other.certificate;
       certificate_format = other.certificate_format;
       certificate_key = other.certificate_key;
@@ -88,7 +89,6 @@ struct connection_info {
       verify_mode = other.verify_mode;
       tls_version = other.tls_version;
       ssl_options = other.ssl_options;
-      debug_verify = other.debug_verify;
       return *this;
     }
 

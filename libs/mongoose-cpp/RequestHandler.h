@@ -9,6 +9,7 @@
 namespace Mongoose {
 class RequestHandlerBase {
  public:
+  virtual ~RequestHandlerBase() = default;
   virtual Response *process(Request &request) = 0;
 };
 
@@ -17,9 +18,9 @@ class RequestHandler : public RequestHandlerBase {
  public:
   typedef void (T::*fPtr)(Request &request, R &response);
 
-  RequestHandler(T *controller_, fPtr function_) : controller(controller_), function(function_) {}
+  RequestHandler(T *controller_, const fPtr function_) : controller(controller_), function(function_) {}
 
-  Response *process(Request &request) {
+  Response *process(Request &request) override {
     R *response = new R;
 
     try {

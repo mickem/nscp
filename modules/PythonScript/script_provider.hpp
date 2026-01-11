@@ -8,8 +8,8 @@
 
 struct script_provider : public script_provider_interface {
  private:
-  int id_;
   nscapi::core_wrapper *core_;
+  int id_;
   boost::filesystem::path root_;
   boost::shared_mutex mutex_;
 

@@ -46,7 +46,7 @@ struct evaluation_context_impl : object_factory_interface {
 
   std::string get_debug() const override {
     std::stringstream ss;
-    for (const auto obj : object_debug_) {
+    for (const auto &obj : object_debug_) {
       switch (obj.second) {
         case none:
           ss << "ignored  ";

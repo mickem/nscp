@@ -273,7 +273,7 @@ struct realtime_filter_helper {
     op_duration ret;
     boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
     boost::optional<boost::posix_time::ptime> minNext;
-    for (const container_type item : items) {
+    for (const container_type &item : items) {
       item->find_minimum_timeout(minNext);
     }
 
@@ -285,7 +285,7 @@ struct realtime_filter_helper {
         NSC_LOG_ERROR("Invalid duration for eventlog check, assuming all values stale");
         touch_all();
         minNext = boost::none;
-        for (const container_type item : items) {
+        for (const container_type &item : items) {
           item->find_minimum_timeout(minNext);
         }
         dur = *minNext - current_time;

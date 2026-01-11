@@ -102,7 +102,7 @@ std::list<std::string> script_wrapper::convert(py::list lst) {
         ret.push_back(::str::xtos(ei()));
       else
         NSC_LOG_ERROR_STD("Failed to convert object in list");
-    } catch (py::error_already_set e) {
+    } catch (py::error_already_set &e) {
       log_exception();
     } catch (...) {
       NSC_LOG_ERROR_STD("Failed to parse list");
@@ -357,7 +357,7 @@ int script_wrapper::function_wrapper::handle_query(const std::string cmd, const 
         if (py::len(ret) > 0) ret_code = py::extract<int>(ret[0]);
         if (py::len(ret) > 1) response = py::extract<std::string>(ret[1]);
         return ret_code;
-      } catch (py::error_already_set e) {
+      } catch (py::error_already_set &e) {
         log_exception();
         return NSCAPI::query_return_codes::returnUNKNOWN;
       }
@@ -395,7 +395,7 @@ int script_wrapper::function_wrapper::handle_simple_query(const std::string cmd,
         if (len(ret) > 1) msg = pystr(ret[1]);
         if (len(ret) > 2) perf = pystr(ret[2]);
         return ret_code;
-      } catch (py::error_already_set e) {
+      } catch (py::error_already_set &e) {
         log_exception();
         msg = "Exception in: " + cmd;
         return NSCAPI::query_return_codes::returnUNKNOWN;
@@ -435,7 +435,7 @@ int script_wrapper::function_wrapper::handle_exec(const std::string cmd, const s
         if (py::len(ret) > 0) ret_code = py::extract<int>(ret[0]);
         if (py::len(ret) > 1) response = pystr(ret[1]);
         return ret_code;
-      } catch (py::error_already_set e) {
+      } catch (py::error_already_set &e) {
         log_exception();
         return NSCAPI::exec_return_codes::returnERROR;
       }
@@ -469,7 +469,7 @@ int script_wrapper::function_wrapper::handle_simple_exec(const std::string cmd, 
         if (py::len(ret) > 0) ret_code = py::extract<int>(ret[0]);
         if (py::len(ret) > 1) result = py::extract<std::string>(ret[1]);
         return ret_code;
-      } catch (py::error_already_set e) {
+      } catch (py::error_already_set &e) {
         log_exception();
         result = "Exception in: " + cmd;
         return NSCAPI::exec_return_codes::returnERROR;
@@ -510,7 +510,7 @@ int script_wrapper::function_wrapper::handle_message(const std::string channel, 
         }
         if (py::len(ret) > 0) ret_code = py::extract<bool>(ret[0]) ? NSCAPI::api_return_codes::isSuccess : NSCAPI::api_return_codes::hasFailed;
         if (py::len(ret) > 1) response = py::extract<std::string>(ret[1]);
-      } catch (py::error_already_set e) {
+      } catch (py::error_already_set &e) {
         log_exception();
         return NSCAPI::api_return_codes::hasFailed;
       }
@@ -543,7 +543,7 @@ int script_wrapper::function_wrapper::handle_simple_message(const std::string ch
           ret_code = py::extract<bool>(ret) ? NSCAPI::api_return_codes::isSuccess : NSCAPI::api_return_codes::hasFailed;
         }
         return ret_code;
-      } catch (py::error_already_set e) {
+      } catch (py::error_already_set &e) {
         log_exception();
         return NSCAPI::api_return_codes::hasFailed;
       }
@@ -574,7 +574,7 @@ void script_wrapper::function_wrapper::on_event(const std::string event, const s
       thread_locker locker;
       try {
         py::call<py::object>(py::object(it->second).ptr(), event, request);
-      } catch (py::error_already_set e) {
+      } catch (py::error_already_set &e) {
         log_exception();
       }
     }
@@ -594,7 +594,7 @@ void script_wrapper::function_wrapper::on_simple_event(const std::string event, 
       thread_locker locker;
       try {
         py::call<void>(py::object(it->second).ptr(), event, data);
-      } catch (py::error_already_set e) {
+      } catch (py::error_already_set &e) {
         log_exception();
       }
     }
@@ -639,7 +639,7 @@ void script_wrapper::function_wrapper::submit_metrics(const std::string &request
         thread_locker locker;
         try {
           py::call<py::object>(py::object(v).ptr(), metrics, pystr(""));
-        } catch (py::error_already_set e) {
+        } catch (py::error_already_set &e) {
           log_exception();
         }
       }
