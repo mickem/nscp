@@ -6,6 +6,7 @@ from shutil import copyfile
 
 WANTED_PACKAGES = [
     'site-packages/requests',
+    'site-packages/google/protobuf',
     'encodings',
     'site-packages/jinja2',
     'site-packages/markupsafe',
