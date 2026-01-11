@@ -25,7 +25,7 @@ pub fn make_entry(key_type: &KeyType, id: &str) -> anyhow::Result<Entry> {
 fn show_wsl_info() {
     if !WSL_WORKAROUND.load(Ordering::Relaxed) {
         eprintln!(
-            "Failed to store token in keystore, if your running under wsl try specifying: check_nsclient --wsl"
+            "Failed to store token in keystore, if you're running under wsl try specifying: check_nsclient --wsl"
         );
     }
 }
