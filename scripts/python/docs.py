@@ -1,7 +1,7 @@
 ﻿#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from NSCP import Settings, Registry, Core, log, log_debug, log_error, status
-import plugin_pb2
+#import plugin_pb2
 import registry_pb2
 import settings_pb2
 from optparse import OptionParser
