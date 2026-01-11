@@ -45,14 +45,21 @@ pub struct Cli {
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub(crate) debug: u8,
 
+    /// Show more information
     #[arg(long, value_enum)]
     pub output_long: bool,
 
+    /// Set the output style (if format is text)
     #[arg(long, value_enum, default_value_t = OutputStyle::Rounded)]
     pub output_style: OutputStyle,
 
+    /// Set the output format (text, json, yaml or csv)
     #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
     pub output: OutputFormat,
+
+    /// Use WSL workarounds for keyring (token storage)
+    #[arg(long)]
+    pub(crate) wsl: bool,
 
     #[command(subcommand)]
     pub(crate) command: Commands,

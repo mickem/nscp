@@ -20,6 +20,9 @@ async fn main() -> anyhow::Result<()> {
     if cli.debug > 0 {
         println!("Debug mode enabled (level {})", cli.debug);
     }
+    if cli.wsl {
+        tokens::enable_wsl_workaround();
+    }
 
     // Handle Subcommands
     match &cli.command {
