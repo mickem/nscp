@@ -429,7 +429,7 @@ Create a `build.cmake` file adding the paths to the above tools and libraries.
 SET(DEPENDENCIES_FOLDER "${HOME}/dependencies")
 SET(TINY_XML2_SOURCE_DIR "${DEPENDENCIES_FOLDER}/tinyxml2-10.1.0")
 set(MONGOOSE_SOURCE_DIR "${DEPENDENCIES_FOLDER}/mongoose-7.19")
-set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/rust/check_nsclient/target/release/check_nsclient")
+set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/rust/nscp_client/target/release")
 ```
 
 ### Build NSClient++

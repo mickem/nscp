@@ -2,16 +2,10 @@ use crate::cli::ProfileCommands;
 use crate::config::{self, NSClientProfile};
 use crate::rendering::Rendering;
 use crate::tokens;
+use crate::tokens::KeyType;
 use indexmap::IndexMap;
 use serde::Serialize;
 use tabled::Tabled;
-
-fn get_password_key(profile_id: &str) -> String {
-    format!("{profile_id}_password")
-}
-fn get_token_key(profile_id: &str) -> String {
-    format!("{profile_id}_token")
-}
 
 #[derive(Tabled, Serialize)]
 struct ProfileRow {
@@ -38,8 +32,8 @@ fn display_bool(value: &bool) -> String {
 }
 
 fn map_profile_to_row(profile: &NSClientProfile, default_id: Option<&str>) -> ProfileRow {
-    let has_token = tokens::token_exists(&get_token_key(&profile.id));
-    let has_password = tokens::token_exists(&get_password_key(&profile.id));
+    let has_token = tokens::token_exists(KeyType::Token, &profile.id);
+    let has_password = tokens::token_exists(KeyType::Password, &profile.id);
     ProfileRow {
         id: profile.id.clone(),
         url: profile.url.clone(),
@@ -51,8 +45,8 @@ fn map_profile_to_row(profile: &NSClientProfile, default_id: Option<&str>) -> Pr
 }
 
 fn profile_to_indexmap(profile: &NSClientProfile) -> IndexMap<String, String> {
-    let has_token = tokens::token_exists(&get_token_key(&profile.id));
-    let has_password = tokens::token_exists(&get_password_key(&profile.id));
+    let has_token = tokens::token_exists(KeyType::Token, &profile.id);
+    let has_password = tokens::token_exists(KeyType::Password, &profile.id);
     let mut map = IndexMap::new();
     map.insert("id".to_string(), profile.id.clone());
     map.insert("url".to_string(), profile.url.clone());

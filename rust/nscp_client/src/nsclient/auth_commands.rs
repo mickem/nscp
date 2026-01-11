@@ -18,7 +18,7 @@ pub async fn route_auth_commands(output: Rendering, command: &AuthCommand) -> an
                     Ok(key) => key,
                     Err(e) => anyhow::bail!("Failed to login: {:#}", e),
                 };
-            config::add_nsclient_profile(
+            if let Err(e) = config::add_nsclient_profile(
                 id,
                 url,
                 *insecure,
@@ -26,7 +26,9 @@ pub async fn route_auth_commands(output: Rendering, command: &AuthCommand) -> an
                 &password,
                 &key,
                 ca.to_owned(),
-            )?;
+            ) {
+                anyhow::bail!("Failed to save profile: {:#}", e);
+            }
             output.print("Successfully logged in");
             Ok(())
         }
