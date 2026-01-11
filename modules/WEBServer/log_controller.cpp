@@ -46,7 +46,7 @@ void log_controller::get_log(Mongoose::Request &request, boost::smatch &what, Mo
   std::size_t count = 0;
   std::size_t page = str::stox<std::size_t>(request.get("page", "1"), 1);
   std::size_t ipp = str::stox<std::size_t>(request.get("per_page", "10"), 10);
-  if (ipp < 2 || ipp > 100) {
+  if (ipp < 2 || ipp > 500) {
     response.setCodeBadRequest("Invalid request");
     return;
   }
@@ -86,7 +86,7 @@ void log_controller::get_log_since(Mongoose::Request &request, boost::smatch &wh
   std::size_t count = 0;
   std::size_t page = str::stox<std::size_t>(request.get("page", "1"), 1);
   std::size_t ipp = str::stox<std::size_t>(request.get("per_page", "10"), 10);
-  if (ipp < 2 || ipp > 100) {
+  if (ipp < 2 || ipp > 500) {
     response.setCodeBadRequest("Invalid request");
     return;
   }
