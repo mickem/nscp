@@ -1,11 +1,12 @@
-import { describe, expect, it } from "@jest/globals";
+import {beforeAll, describe, expect, it} from "@jest/globals";
 import request = require("supertest");
 
 const URL = "https://127.0.0.1:8443";
 describe("log", () => {
     let key = undefined;
     let index = 0;
-    it("can login", async () => {
+
+    beforeAll(async () => {
         await request(URL)
             .get("/api/v2/login")
             .auth("admin", "default-password")
@@ -15,6 +16,18 @@ describe("log", () => {
                 expect(response.body.user).toEqual("admin");
                 expect(response.body.key).toBeDefined();
                 key = response.body.key;
+            });
+    });
+
+
+    it("clear_log", async () => {
+        await request(URL)
+            .delete("/api/v2/logs")
+            .set("Authorization", `Bearer ${key}`)
+            .trustLocalhost(true)
+            .expect(200)
+            .then((response) => {
+                expect(response.body).toEqual({count: 0});
             });
     });
 
@@ -136,4 +149,31 @@ describe("log", () => {
             });
 
     });
+
+    it("clear_log", async () => {
+        await request(URL)
+            .delete("/api/v2/logs")
+            .set("Authorization", `Bearer ${key}`)
+            .trustLocalhost(true)
+            .expect(200)
+            .then((response) => {
+                expect(response.body).toEqual({count: 0});
+            });
+    });
+
+    it("ensure_log_was_cleared", async () => {
+        await request(URL)
+            .get("/api/v2/logs")
+            .set("Authorization", `Bearer ${key}`)
+            .query({per_page: 200, page: 1})
+            .trustLocalhost(true)
+            .expect(200)
+            .then((response) => {
+                expect(response.body).toBeDefined();
+                expect(Array.isArray(response.body)).toBe(true);
+                const logs = response.body;
+                const testLog = logs.find((log: any) => log.message === "001: This is a test log message from automated tests");
+                expect(testLog).not.toBeDefined();
+            });
+        });
 });
