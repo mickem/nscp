@@ -56,7 +56,7 @@ export default function Welcome() {
                 xAxis={[
                   {
                     data: [-45, -40, -35, -30, -25, -20, -15, -10, -5, 0],
-                    valueFormatter: (value) => (value === 0 ? "now" : `${value} s`),
+                    valueFormatter: (value: number) => (value === 0 ? "now" : `${value} s`),
                     min: -45,
                     max: 0,
                   },
@@ -95,7 +95,7 @@ export default function Welcome() {
                 xAxis={[
                   {
                     data: [-45, -40, -35, -30, -25, -20, -15, -10, -5, 0],
-                    valueFormatter: (value) => (value === 0 ? "now" : `${value} s`),
+                    valueFormatter: (value: number) => (value === 0 ? "now" : `${value} s`),
                     min: -45,
                     max: 0,
                   },

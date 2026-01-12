@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery, FetchBaseQueryMeta } from "@reduxjs/toolkit/query/react";
+import { BaseQueryFn, FetchArgs, FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { RootState } from "../store/store.ts";
 import { authSlice } from "../common/authSlice.ts";
 
@@ -21,7 +22,10 @@ export interface LogQuery extends PaginatedQuery {
   level?: string;
 }
 
-export const responseHandler = (response: Response): Promise<any> => {
+export type Metrics = { [key: string]: string | number };
+export type ApiErrorResponse = { error: string; status: number };
+
+export const responseHandler = (response: Response): Promise<ApiErrorResponse | unknown> => {
   if (
     response.status === 400 ||
     response.status === 401 ||
@@ -208,8 +212,6 @@ export interface SettingsDescription {
   value: string;
 }
 
-export type Metrics = { [key: string]: string | number };
-
 const baseQuery = fetchBaseQuery({
   baseUrl: "/api",
   prepareHeaders: (headers, { getState }) => {
@@ -225,7 +227,7 @@ const baseQuery = fetchBaseQuery({
   validateStatus: (response) => {
     return response.status >= 200 && response.status <= 299;
   },
-  responseHandler: (response: Response): Promise<any> => {
+  responseHandler: (response: Response): Promise<ApiErrorResponse | unknown> => {
     if (response.status === 400 || response.status === 401 || response.status === 403 || response.status === 404) {
       return new Promise((resolve) => {
         response.text().then((text) => {
@@ -237,7 +239,11 @@ const baseQuery = fetchBaseQuery({
   },
 });
 
-const baseQueryWithAuthFail = async (args: any, api: any, extraOptions: any) => {
+const baseQueryWithAuthFail: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> = async (
+  args,
+  api,
+  extraOptions,
+) => {
   const result = await baseQuery(args, api, extraOptions);
   if (result.error && result.error.status === 403) {
     api.dispatch(authSlice.actions.removeToken());
@@ -415,7 +421,7 @@ export const nsclientApi = createApi({
           ...settings,
         },
       }),
-      invalidatesTags: (_result, _error, _id) => [
+      invalidatesTags: () => [
         { type: "Settings" },
         { type: "SettingsStatus" },
         { type: "SettingsDescriptions" },
@@ -429,7 +435,7 @@ export const nsclientApi = createApi({
           ...settings,
         },
       }),
-      invalidatesTags: (_result, _error, _id) => [
+      invalidatesTags: () => [
         { type: "Settings" },
         { type: "SettingsStatus" },
         { type: "SettingsDescriptions" },
@@ -444,7 +450,7 @@ export const nsclientApi = createApi({
         },
         url: "/v2/login",
         method: "GET",
-        responseHandler: async (response: any) => {
+        responseHandler: async (response: Response) => {
           if (!response.ok) {
             throw new Error("Failed to login");
           }
