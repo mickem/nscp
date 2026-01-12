@@ -33,6 +33,7 @@ log_controller::log_controller(const int version, const boost::shared_ptr<sessio
   addRoute("POST", "/?$", this, &log_controller::add_log);
   addRoute("GET", "/status?$", this, &log_controller::get_status);
   addRoute("DELETE", "/status?$", this, &log_controller::reset_status);
+  addRoute("DELETE", "/?$", this, &log_controller::delete_logs);
   addRoute("GET", "/since?$", this, &log_controller::get_log_since);
 }
 
@@ -149,4 +150,12 @@ void log_controller::reset_status(Mongoose::Request &request, boost::smatch &wha
   json::object node;
   node.insert(json::object::value_type("errors", 0));
   node.insert(json::object::value_type("last_error", ""));
+}
+
+void log_controller::delete_logs(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
+  if (!session->is_logged_in("logs.delete", request, response)) return;
+  session->reset_log();
+  json::object node;
+  node.insert(json::object::value_type("count", 0));
+  response.append(json::serialize(node));
 }

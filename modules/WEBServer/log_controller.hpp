@@ -25,4 +25,5 @@ class log_controller : public Mongoose::RegexpController {
   void add_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
   void get_status(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
   void reset_status(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+  void delete_logs(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 };

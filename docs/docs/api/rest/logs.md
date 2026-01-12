@@ -7,6 +7,7 @@ The logs API can be used to read and write log entries.
 * [List logs since](#list-since)
 * [Get status](#status)
 * [Reset status](#reset-status)
+* [Delete logs](#delete)
 
 ## List
 
@@ -133,4 +134,20 @@ Reset the log status.
 ### Response
 ```json
 ""
+```
+
+## Delete
+
+Delete all cached log entries.
+
+| Key     | Value        |
+|---------|--------------|
+| Verb    | DELETE       |
+| Address | /api/v2/logs |
+
+### Response
+```json
+{
+    "count": 0
+}
 ```
