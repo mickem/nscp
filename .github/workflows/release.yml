@@ -1,5 +1,9 @@
 name: Create release
 
+permissions:
+  contents: read
+  pull-requests: write
+
 on:
   workflow_call:
     inputs:

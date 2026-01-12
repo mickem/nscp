@@ -1,5 +1,10 @@
 name: Build Rust Client
 
+permissions:
+  contents: read
+  pull-requests: write
+
+
 on:
   workflow_call:
     inputs:
