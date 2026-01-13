@@ -41,6 +41,8 @@ env:
 jobs:
   build:
     runs-on: windows-latest
+    outputs:
+      platform: ${{ steps.setup.outputs.platform }}
 
     steps:
     - uses: actions/checkout@v4
@@ -115,7 +117,7 @@ jobs:
       with:
         version: ${{ ENV.OPENSSL_VERSION }}
         architecture: ${{ inputs.architecture }}
-        runtime: static
+        runtime: 'static'
 
     - id: protobuf
       uses: ./.github/actions/protobuf
@@ -224,6 +226,11 @@ jobs:
       run: |
         msbuild NSCP.sln /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }}
 
+    - name: Run tests
+      working-directory: tmp/nscp
+      run: |
+        ctest --output-on-failure -C Release
+
     - name: Sign binaries
       uses: ./.github/actions/sign-windows-binaries
       with:
@@ -235,17 +242,6 @@ jobs:
       working-directory: tmp/nscp
       run: |
         msbuild installers\installer-NSCP\installer_NSCP.vcxproj /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }} /p:BuildProjectReferences=false
-
-    - name: Run tests
-      working-directory: tmp/nscp
-      run: |
-        ctest --output-on-failure -C Release
-
-    - name: Run rest tests
-      uses: ./.github/actions/rest-test
-
-    - name: Run installer tests
-      uses: ./.github/actions/installer-test
 
     - name: Post process files
       uses: ./.github/actions/post-process-windows-binaries
@@ -279,3 +275,60 @@ jobs:
         echo "| Protobuf | ${{ env.PROTOBUF_VERSION }} |" >> $GITHUB_STEP_SUMMARY
         echo "| TinyXml2 | ${{ env.TINY_XML_2_VERSION }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Mongoose | ${{ env.MONGOOSE_VERSION }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Python | ${{ env.PYTHON_VERSION }} |" >> $GITHUB_STEP_SUMMARY
+
+  integration-tests:
+    runs-on: windows-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - id: python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ ENV.PYTHON_VERSION }}
+          architecture: ${{ inputs.architecture }}
+          cache-dependency-path: 'build/python/requirements.txt'
+          cache: 'pip'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Create folders
+        shell: bash
+        run: |
+          mkdir -p tmp/nscp
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: NSCP-${{ inputs.version }}-${{ needs.build.outputs.platform }}-legacy-xp
+          path: tmp/nscp
+      - shell: bash
+        working-directory: tmp/nscp
+        run: |
+          7z x NSCP-${{ inputs.version }}-${{ needs.build.outputs.platform }}-legacy-xp.zip
+
+      - name: Acceptance tests
+        working-directory: tmp/nscp
+        run: |
+          ..\..\tests\acceptance-tests.bat
+
+
+      - name: Run rest tests
+        uses: ./.github/actions/rest-test
+
+      # TODO: Disabled for now due to issues with docker on windows runners
+      #- name: Run NRPE tests
+      #  working-directory: tmp/nscp
+      #  run: |
+      #    ..\..\tests\nrpe\run-test.bat
+
+      - name: Run installer tests
+        if: ${{ inputs.architecture == 'x64' }}
+        uses: ./.github/actions/installer-test

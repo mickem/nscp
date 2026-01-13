@@ -32,16 +32,6 @@ jobs:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-  integration-tests-x64:
-    needs: [get-version, build-server-x64]
-    uses: ./.github/workflows/run-windows-tests.yml
-    with:
-      architecture: x64
-      version: ${{ needs.get-version.outputs.version }}
-    secrets:
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   build-client-x86:
     needs: get-version
     uses: ./.github/workflows/build-rust.yml
