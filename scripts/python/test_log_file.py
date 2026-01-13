@@ -1,5 +1,5 @@
 from NSCP import Settings, Registry, Core, log, status, log_error, sleep
-from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
+from test_helper import BasicTest, TestResult, install_testcases, init_testcases, shutdown_testcases
 from types import *
 import uuid
 import os
@@ -126,7 +126,7 @@ class LogFileTest(BasicTest):
 		result.append(self.run_boundry_test())
 		return result
 
-	def install(self, arguments):
+	def install(self):
 		conf = self.conf
 		conf.set_string('/modules', 'test_disk', 'CheckLogFile')
 		conf.set_string('/modules', 'pytest', 'PythonScript')
@@ -139,7 +139,7 @@ class LogFileTest(BasicTest):
 	def help(self):
 		None
 
-	def init(self, plugin_id, prefix):
+	def init(self, plugin_id):
 		self.reg = Registry.get(plugin_id)
 		self.core = Core.get(plugin_id)
 		self.conf = Settings.get(plugin_id)
@@ -147,9 +147,7 @@ class LogFileTest(BasicTest):
 	def shutdown(self):
 		None
 
-setup_singleton(LogFileTest)
-
-all_tests = [LogFileTest]
+all_tests = [LogFileTest()]
 
 def __main__(args):
 	install_testcases(all_tests)

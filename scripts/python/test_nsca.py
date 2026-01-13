@@ -1,10 +1,8 @@
 from NSCP import Settings, Registry, Core, log, status, log_error, log_debug, sleep
-from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
+from test_helper import BasicTest, TestResult, install_testcases, init_testcases, shutdown_testcases
 import plugin_pb2
-from types import *
 import socket
 import uuid
-import unicodedata
 
 import threading
 sync = threading.RLock()
@@ -70,7 +68,14 @@ class NSCAServerTest(BasicTest):
 	conf = None
 	core = None
 	_responses = {}
-	
+
+	@staticmethod
+	def getInstance():
+		if NSCAServerTest.instance is None :
+			object = NSCAServerTest()
+			NSCAServerTest.instance = object
+		return NSCAServerTest.instance
+
 	def has_response(self, id):
 		with sync:
 			return id in self._responses
@@ -314,7 +319,7 @@ class NSCAServerTest(BasicTest):
 		
 		return result
 		
-	def install(self, arguments):
+	def install(self):
 		conf = self.conf
 		conf.set_string('/modules', 'test_nsca_server', 'NSCAServer')
 		conf.set_string('/modules', 'test_nsca_client', 'NSCAClient')
@@ -336,8 +341,8 @@ class NSCAServerTest(BasicTest):
 	def help(self):
 		None
 
-	def init(self, plugin_id, prefix):
-		self.key = '_%stest_command'%prefix
+	def init(self, plugin_id):
+		self.key = '_test_command'
 		self.reg = Registry.get(plugin_id)
 		self.core = Core.get(plugin_id)
 		self.conf = Settings.get(plugin_id)
@@ -349,9 +354,7 @@ class NSCAServerTest(BasicTest):
 		return True
 		
 
-setup_singleton(NSCAServerTest)
-
-all_tests = [NSCAServerTest]
+all_tests = [NSCAServerTest()]
 
 def __main__(args):
 	install_testcases(all_tests)

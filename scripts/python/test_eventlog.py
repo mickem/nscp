@@ -1,9 +1,6 @@
 from NSCP import Settings, Registry, Core, log, status, sleep
-from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
+from test_helper import BasicTest, TestResult, install_testcases, init_testcases, shutdown_testcases
 import plugin_pb2
-from types import *
-import socket
-import unicodedata
 import uuid
 
 
@@ -65,7 +62,7 @@ class EventLogTest(BasicTest):
             object = EventLogTest()
             EventLogTest.instance = object
         return EventLogTest.instance
-        
+
 
     def desc(self):
         return 'Testcase for eventlog'
@@ -242,7 +239,7 @@ class EventLogTest(BasicTest):
         conf.set_string(path, 'log', 'application')
         conf.set_string(path, 'debug', 'true')
     
-    def install(self, arguments):
+    def install(self):
         conf = self.conf
         conf.set_string('/modules', 'pytest_eventlog', 'CheckEventLog')
         conf.set_string('/modules', 'pytest', 'PythonScript')
@@ -271,7 +268,7 @@ class EventLogTest(BasicTest):
     def help(self):
         None
 
-    def init(self, plugin_id, prefix):
+    def init(self, plugin_id):
         self.reg = Registry.get(plugin_id)
         self.core = Core.get(plugin_id)
         self.conf = Settings.get(plugin_id)
@@ -279,9 +276,7 @@ class EventLogTest(BasicTest):
     def shutdown(self):
         None
 
-setup_singleton(EventLogTest)
-
-all_tests = [EventLogTest]
+all_tests = [EventLogTest()]
 
 def __main__(args):
     install_testcases(all_tests)

@@ -1,6 +1,5 @@
 from NSCP import Settings, Registry, Core, log, status, log_error, log_debug, sleep
-from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
-from types import *
+from test_helper import BasicTest, TestResult, install_testcases, init_testcases, shutdown_testcases
 from time import time
 
 install_checks = 1000
@@ -18,14 +17,14 @@ class PythonTest(BasicTest):
 
 	@staticmethod
 	def noop_handler(arguments):
-		instance = PythonTest.getInstance()
+		global instance
 		instance.noop_count = instance.noop_count + 1
-		return (status.OK, 'Got call %d'%instance.noop_count, '')
+		return status.OK, 'Got call %d'%instance.noop_count, ''
 
 	
 	@staticmethod
 	def stress_handler(channel, source, command, code, message, perf):
-		instance = PythonTest.getInstance()
+		global instance
 		instance.stress_count = instance.stress_count + 1
 		log_debug('Got message %d/%d on %s'%(instance.stress_count, instance.noop_count, channel))
 	
@@ -66,7 +65,7 @@ class PythonTest(BasicTest):
 		result.add_message(True, 'Summary Collected %d instance in %d seconds: %d/s'%(self.stress_count, elapsed, self.stress_count/elapsed))
 		return result
 
-	def install(self, arguments):
+	def install(self):
 		self.conf.set_string('/modules', 'test_scheduler', 'Scheduler')
 		self.conf.set_string('/modules', 'pytest', 'PythonScript')
 
@@ -92,8 +91,8 @@ class PythonTest(BasicTest):
 	def help(self):
 		None
 
-	def init(self, plugin_id, prefix):
-		self.key = '_%stest_command'%prefix
+	def init(self, plugin_id):
+		self.key = '_test_command'
 		self.reg = Registry.get(plugin_id)
 		self.core = Core.get(plugin_id)
 		self.conf = Settings.get(plugin_id)
@@ -103,9 +102,8 @@ class PythonTest(BasicTest):
 	def shutdown(self):
 		None
 
-setup_singleton(PythonTest)
-
-all_tests = [PythonTest]
+instance = PythonTest()
+all_tests = [instance]
 
 def __main__(args):
 	install_testcases(all_tests)
