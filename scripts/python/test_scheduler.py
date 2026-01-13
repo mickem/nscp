@@ -1,9 +1,6 @@
 from NSCP import Settings, Registry, Core, log, status, log_debug, log_error, sleep
-from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
-from types import *
+from test_helper import BasicTest, TestResult, install_testcases, init_testcases, shutdown_testcases
 from time import time
-import random
-import os
 
 prefix = 'scheduler'
 
@@ -20,7 +17,7 @@ class SchedulerTest(BasicTest):
     
     @staticmethod
     def simple_check_handler(arguments):
-        instance = SchedulerTest.getInstance()
+        global instance
         return instance.wrapped_simple_check_handler(arguments)
 
     def wrapped_simple_check_handler(self, arguments):
@@ -35,7 +32,7 @@ class SchedulerTest(BasicTest):
 
     @staticmethod
     def on_stress_handler(channel, source, command, code, message, perf):
-        instance = SchedulerTest.getInstance()
+        global instance
         instance.wrapped_on_stress_handler(channel, source, command, code, message, perf)
 
     def wrapped_on_stress_handler(self, channel, source, command, code, message, perf):
@@ -85,7 +82,7 @@ class SchedulerTest(BasicTest):
 
         return result
 
-    def install(self, arguments):
+    def install(self):
         # Configure required modules
         self.conf.set_string('/modules', 'pytest', 'PythonScript')
         #self.conf.set_string('/modules', self.sched_alias, 'Scheduler')
@@ -127,7 +124,7 @@ class SchedulerTest(BasicTest):
     def help(self):
         None
 
-    def init(self, plugin_id, prefix):
+    def init(self, plugin_id):
         self.reg = Registry.get(plugin_id)
         self.conf = Settings.get(plugin_id)
         self.core = Core.get(plugin_id)
@@ -139,9 +136,8 @@ class SchedulerTest(BasicTest):
     def require_boot(self):
         return True
 
-setup_singleton(SchedulerTest)
-
-all_tests = [SchedulerTest]
+instance = SchedulerTest()
+all_tests = [instance]
 
 def __main__(args):
     install_testcases(all_tests)

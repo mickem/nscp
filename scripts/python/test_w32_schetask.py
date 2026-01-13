@@ -1,11 +1,7 @@
 from NSCP import Settings, Registry, Core, log, log_debug, status, log_error, sleep
-from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
-from types import *
-import random
-import subprocess
-import uuid
+from test_helper import BasicTest, TestResult, install_testcases, init_testcases, shutdown_testcases
 import os
-import sys, stat, datetime, time
+import datetime, time
 from subprocess import check_output
 
 class Win32SchedTaskTest(BasicTest):
@@ -13,6 +9,9 @@ class Win32SchedTaskTest(BasicTest):
     reg = None
     conf = None
     core = None
+
+    def __init__(self):
+        self.plugin_id = None
 
     def desc(self):
         return 'Testcase for w32 check_wmi module'
@@ -24,9 +23,9 @@ class Win32SchedTaskTest(BasicTest):
         self.reg = Registry.get(plugin_id)
 
     def teardown(self):
-        None
+        pass
     
-    def get_count(self,perf):
+    def get_count(self, perf):
         if not perf:
             return -1
         (title, data) = perf.split('=')
@@ -39,8 +38,7 @@ class Win32SchedTaskTest(BasicTest):
         result = TestResult('Checking task %s'%task)
         for i in [0, 1, 2, 3, 4]:
             # check_tasksched "filter=title = 'NSCPSample_CRIT'" "warn=exit_code != 3"
-            args = ["filter=title = 'NSCPSample_%s'"%task, 
-                "warn=exit_code = %d"%i]
+            args = ["filter=title = 'NSCPSample_%s'"%task, "warn=exit_code = %d"%i]
             log_debug(', '.join(args))
             (ret, msg, perf) = self.core.simple_query('check_tasksched', args)
             
@@ -70,7 +68,7 @@ class Win32SchedTaskTest(BasicTest):
         log("Waiting 1 minute (for tasks to run)")
         time.sleep(60)
         
-    def install(self, arguments):
+    def install(self):
         conf = self.conf
         conf.set_string('/modules', 'test_tsch', 'CheckTaskSched')
         conf.set_string('/modules', 'pytest', 'PythonScript')
@@ -83,18 +81,16 @@ class Win32SchedTaskTest(BasicTest):
             check_output("schtasks.exe /Delete /TN NSCPSample_%s /F"%state)
 
     def help(self):
-        None
+        pass
 
-    def init(self, plugin_id, prefix):
+    def init(self, plugin_id):
         self.plugin_id = plugin_id
         self.reg = Registry.get(plugin_id)
         self.core = Core.get(plugin_id)
         self.conf = Settings.get(plugin_id)
 
 
-setup_singleton(Win32SchedTaskTest)
-
-all_tests = [Win32SchedTaskTest]
+all_tests = [Win32SchedTaskTest()]
 
 def __main__(args):
     install_testcases(all_tests)

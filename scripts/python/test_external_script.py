@@ -1,13 +1,9 @@
 from NSCP import Settings, Registry, Core, log, status, log_error, sleep
-import sys, difflib
+import difflib
 import os
 
-from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
+from test_helper import BasicTest, TestResult, install_testcases, init_testcases, shutdown_testcases
 import plugin_pb2
-from types import *
-import socket
-import uuid
-import unicodedata
 
 import threading
 sync = threading.RLock()
@@ -124,7 +120,7 @@ class ExternalScriptTest(BasicTest):
 		ret.add(result)
 		return ret
 		
-	def install(self, arguments):
+	def install(self):
 		self.conf.set_string('/modules', 'test_external_scripts', 'CheckExternalScripts')
 		self.conf.set_string('/modules', 'pytest', 'PythonScript')
 		
@@ -179,7 +175,7 @@ class ExternalScriptTest(BasicTest):
 	def help(self):
 		None
 
-	def init(self, plugin_id, prefix):
+	def init(self, plugin_id):
 		self.reg = Registry.get(plugin_id)
 		self.core = Core.get(plugin_id)
 		self.conf = Settings.get(plugin_id)
@@ -190,9 +186,7 @@ class ExternalScriptTest(BasicTest):
 	def require_boot(self):
 		return True
 
-setup_singleton(ExternalScriptTest)
-
-all_tests = [ExternalScriptTest]
+all_tests = [ExternalScriptTest()]
 
 def __main__(args):
 	install_testcases(all_tests)

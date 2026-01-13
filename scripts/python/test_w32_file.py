@@ -1,11 +1,8 @@
 from NSCP import Settings, Registry, Core, log, status, log_error, sleep
-from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
-from types import *
-import random
-import subprocess
+from test_helper import BasicTest, TestResult, install_testcases, init_testcases, shutdown_testcases
 import uuid
 import os
-import sys, stat, datetime, time
+import datetime, time
 
 class Win32FileTest(BasicTest):
 
@@ -14,6 +11,9 @@ class Win32FileTest(BasicTest):
 	core = None
 
 	def __init__(self):
+		BasicTest.__init__(self)
+		self.temp_path = None
+		self.work_path = None
 		self.test_data = [
 			['test.001', 		4, 	-5, ''],
 			['test-001.txt', 	4, 	-5, ''],
@@ -42,14 +42,14 @@ class Win32FileTest(BasicTest):
 		os.mkdir(self.work_path)
 
 	def teardown(self):
-		None
-	
-	def get_real_filename(self, name, path):
+		pass
+
+	def get_real_filename(self, name : str, path : str):
 		if path != '':
 			folder = os.path.join(self.work_path, path)
-			return (folder, os.path.join(folder, name))
+			return folder, os.path.join(folder, name)
 		else:
-			return (self.work_path, os.path.join(self.work_path, name))
+			return self.work_path, os.path.join(self.work_path, name)
 		
 	def create_file(self, name, size, time_offset, path = ''):
 		(folder, file_name) = self.get_real_filename(name, path)
@@ -57,6 +57,7 @@ class Win32FileTest(BasicTest):
 			os.makedirs(folder)
 		
 		if not os.path.exists(file_name):
+			print(f"Creating {file_name} of size {size}")
 			f = open(file_name, 'w')
 			for x in range(0,size):
 				f.write('%d'%(x%10))
@@ -79,7 +80,7 @@ class Win32FileTest(BasicTest):
 			try:
 				os.rmdir(folder)
 			except OSError:
-				None
+				pass
 
 	def setup_files(self):
 		for data in self.test_data:
@@ -113,8 +114,8 @@ class Win32FileTest(BasicTest):
 		args = ['path=%s'%self.work_path, 'filter=%s'%filter, 'syntax=%filename%: %size% %write%', 'warn=gt:1', 'crit=gt:3']
 		args.extend(extra_args)
 		(ret, msg, perf) = self.core.simple_query('CheckFiles', args)
-		#log("Messge: %s"%msg)
-		#log("Perf: %s"%perf)
+		log("Messge: %s"%msg)
+		log("Perf: %s"%perf)
 		count = self.get_count(perf)
 		result.add_message(count == expected, 'Check that we get correct number of files', 'Invalid result: got %s expected %s'%(count, expected))
 		if expected > 3:
@@ -135,7 +136,6 @@ class Win32FileTest(BasicTest):
 		#log("Messge: %s"%msg)
 		#log("Perf: %s"%perf)
 		result.add_message(ret == status.UNKNOWN, 'Check that we get correct status back', 'Return status was wrong: %s'%ret)
-		#count = self.get_count(perf)
 		result.assert_equals(msg, 'No files found', 'Validate return message')
 			
 		return result
@@ -175,7 +175,7 @@ class Win32FileTest(BasicTest):
 		
 		return result
 
-	def install(self, arguments):
+	def install(self):
 		conf = self.conf
 		conf.set_string('/modules', 'test_disk', 'CheckDisk')
 		conf.set_string('/modules', 'pytest', 'PythonScript')
@@ -183,22 +183,20 @@ class Win32FileTest(BasicTest):
 		conf.save()
 
 	def uninstall(self):
-		None
+		pass
 
 	def help(self):
-		None
+		pass
 
-	def init(self, plugin_id, prefix):
+	def init(self, plugin_id):
 		self.reg = Registry.get(plugin_id)
 		self.core = Core.get(plugin_id)
 		self.conf = Settings.get(plugin_id)
 
 	def shutdown(self):
-		None
+		pass
 
-setup_singleton(Win32FileTest)
-
-all_tests = [Win32FileTest]
+all_tests = [Win32FileTest()]
 
 def __main__(args):
 	install_testcases(all_tests)
