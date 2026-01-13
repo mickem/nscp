@@ -17,14 +17,14 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         submodules: true
         fetch-depth: 0
 
     - name: Fetch version from git tags
       id: version
-      uses: codacy/git-version@2.8.2
+      uses: codacy/git-version@2.8.6
       with:
         release-branch: main
 

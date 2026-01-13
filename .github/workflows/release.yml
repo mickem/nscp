@@ -20,25 +20,25 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         submodules: true
 
     - id: python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ ENV.PYTHON_VERSION }}
 
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v6
       with:
         name: NSCP-${{ inputs.version }}-x64
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v6
       with:
         name: NSCP-${{ inputs.version }}-Win32
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v6
       with:
         name: NSCP-${{ inputs.version }}-Win32-legacy-xp
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v6
       with:
         name: NSCP-${{ inputs.version }}-ubuntu-x64
 
