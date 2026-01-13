@@ -17,7 +17,7 @@ With a tool like NSClient++ which often goes deep it can sometimes be challangin
 
 ## Updates
 
-There is no fixed cadens for updates but in general there are new updates about one per months. Sometimes there are more and sometimes there are less.
+There is no fixed cadence for updates but in general there are new updates about one per months. Sometimes there are more and sometimes there are less.
 If you want to know dependencies for releases you can check the pipeline configuration to see versions: https://github.com/mickem/nscp/blob/main/.github/workflows/build-windows.yml#L30-L39 or you can review pipeline output which prints the same.
 We try to ensure dependencies are reviewd and updated at least every 4 mounths and we also try to stay on top of things and capture security issues on a daily basis but if you find a security issue in a dependency please di let us know so we can review if it impacts NSClient.
 
