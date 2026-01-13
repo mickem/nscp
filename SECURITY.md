@@ -1,34 +1,44 @@
 # Security Policy
 
+| Version | Supported | Notes
+| --- | --- | --- |
+| Latest Release | ✅ | Yes,Please upgrade to the latest stable version. |
+| Pre-releases | ⚠️ | Limited,"Safe for use, but intended for testing/feedback." |
+| Releases in the last 12 months | ⚠️ | Will get fixes for severe security issues (if there is a breaking change, preventing upgrading) |
+| Older Versions | ❌ | No, We do not backport security fixes to older versions unless requested. |
+
 ## Reporting a Vulnerability
 
-To report a vulnerability either use the [GitHub security vulnerability tool](https://github.com/mickem/nscp/security/advisories/new) or send an e-mail to the author michael at medin dot name.
-Please note that due to spam filtering if you do not receive a reply to the email in 48 hours please re-try or preferably use the GitHub link.
+We prioritize security reports and appreciate the community's help in keeping NSClient++ safe.
 
-## Which version should I use?
+1. **GitHub (Preferred)**: Please use the [GitHub Security Advisory tool](https://github.com/mickem/nscp/security/advisories/new). This allows for private collaboration and disclosure.
+2. **Email**: You may also email the author directly at `michael at medin dot name`.
 
-It is strongly recommended to use the latest release.
-Most security issues are fixed in "the next version" unless they are severe.
+> **Note:** Due to aggressive spam filtering, emails occasionally get lost. If you do not receive a reply within **48 hours**, please assume the email was filtered and kindly re-send it or, preferably, open a ticket via the GitHub link above.
 
-## Pre-release versus release
+## Patching & Release Cadence
 
-We frequently publish pre-releases. It is in general safe to use those versions and they are not experimental in terms of untested code (review the release note which usually explains the changes). 
-With a tool like NSClient++ which often goes deep it can sometimes be challenging to validate that everything works on everything and sometimes I want feedback on new features.
+### Release Schedule
+There is no fixed cadence for updates, but we generally target **one release per month**.
+* **Vulnerabilities:** Addressed immediately in a hotfix release.
+* **Other security issues:** Addressed in the next scheduled maintenance release.
 
-## Updates
+### Pre-releases
+We frequently publish pre-releases. While these contain new code, they are generally safe to use and are not considered "experimental" in terms of stability. However, due to the complexity of the environments NSClient++ operates in, we rely on these releases to validate new features across different system configurations.
 
-There is no fixed cadence for updates but in general there are new updates about one per months. Sometimes there are more and sometimes there are less.
-If you want to know dependencies for releases you can check the pipeline configuration to see versions: https://github.com/mickem/nscp/blob/main/.github/workflows/build-windows.yml#L30-L39 or you can review pipeline output which prints the same.
-We try to ensure dependencies are reviewed and updated at least every 4 mounths and we also try to stay on top of things and capture security issues on a daily basis but if you find a security issue in a dependency please di let us know so we can review if it impacts NSClient.
+## Supply Chain & Dependencies
 
-Dependencies:
+We strive to review and update dependencies at least every **4 months**, and we monitor for security issues on a daily basis. You can review the exact versions used in our build pipeline configuration [here](https://github.com/mickem/nscp/blob/main/.github/workflows/build-windows.yml#L30-L39).
+
+If you identify a vulnerability in one of our dependencies that impacts NSClient++, please report it to us.
+
+**Dependency Security References:**
 * [OpenSSL](https://openssl-library.org/news/vulnerabilities/index.html)
-* [Mongoose](https://github.com/cesanta/mongoose/releases)
-* [Boost](https://www.boost.org/releases/latest/)
+* [Mongoose Web Server](https://github.com/cesanta/mongoose/releases)
+* [Boost C++ Libraries](https://www.boost.org/releases/latest/)
 * [Python](https://mail.python.org/archives/list/security-announce@python.org/latest)
-* [Protobuf](https://github.com/protocolbuffers/protobuf/security/advisories)
+* [Google Protobuf](https://github.com/protocolbuffers/protobuf/security/advisories)
 * [Crypto++](https://www.cryptopp.com/)
-* Lua - TODO
-* Tiny XML - TODO
-* MiniZ - TODO
-
+* [Lua Bugs & Vulnerabilities](https://www.lua.org/bugs.html)
+* [TinyXML (CVE Search)](https://cve.mitre.org/cgi-bin/cvekey.cgi?keyword=TinyXML)
+* [MiniZ](https://github.com/richgel999/miniz)
