@@ -1,7 +1,8 @@
 name: Build release
 
 permissions:
-  contents: read
+  contents: write
+  actions: read
 
 on:
   push:
