@@ -7,7 +7,7 @@ Please note that due to spam filtering if you do not receive a reply to the emai
 
 ## Which version should I use?
 
-It is strongly recomended to use the latest release.
+It is strongly recommended to use the latest release.
 Most security issues are fixed in "the next version" unless they are severe.
 
 ## Pre-release versus release
