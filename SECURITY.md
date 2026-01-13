@@ -13,7 +13,7 @@ Most security issues are fixed in "the next version" unless they are severe.
 ## Pre-release versus release
 
 We frequently publish pre-releases. It is in general safe to use those versions and they are not experimental in terms of untested code (review the release note which usually explains the changes). 
-With a tool like NSClient++ which often goes deep it can sometimes be challanging to validate that everything works on everything and sometimes I want feedback on new features.
+With a tool like NSClient++ which often goes deep it can sometimes be challenging to validate that everything works on everything and sometimes I want feedback on new features.
 
 ## Updates
 
