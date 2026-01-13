@@ -112,6 +112,10 @@ set(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DBOOST_PHOENIX_STL_TUPLE_H_)
 if(WIN32)
     # On Windows we build boost with layout=system
     add_definitions(-DBOOST_AUTO_LINK_SYSTEM -DBOOST_ALL_NO_LIB)
+
+    install(FILES "${PROJECT_BINARY_DIR}/_ctypes.pyd" DESTINATION .)
+    install(FILES "${PROJECT_BINARY_DIR}/_socket.pyd" DESTINATION .)
+    install(FILES "${PROJECT_BINARY_DIR}/unicodedata.pyd" DESTINATION .)
 endif()
 if(NOT DEFINED USE_STATIC_RUNTIME)
     set(USE_STATIC_RUNTIME FALSE)

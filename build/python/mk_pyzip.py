@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import os
-from zipfile import ZipFile
+from zipfile import ZipFile, ZIP_DEFLATED
 from optparse import OptionParser
 from shutil import copyfile
 
@@ -13,6 +13,10 @@ WANTED_PACKAGES = [
     'site-packages/google/protobuf/pyext',
     'site-packages/google/protobuf/util',
     'encodings',
+    're',
+    'importlib',
+    'ctypes',
+    'collections',
     'site-packages/jinja2',
     'site-packages/markupsafe',
 ]
@@ -31,6 +35,14 @@ def zipdir(path, ziph):
                 for file in files:
                     if file.endswith('.py'):
                         ziph.write(os.path.join(root, file), os.path.join(folder, file))
+        if rel_path == '.':
+            for file in files:
+                if file.endswith('.py'):
+                    print(f"Adding: {file} to zip dist")
+                    folder = ''
+                    ziph.write(os.path.join(root, file), os.path.join(folder, file))
+
+
     if missing:
         print(f"Error: Missing packages in {path}: {missing}")
         exit(1)
@@ -54,11 +66,11 @@ if __name__ == '__main__':
     source_pyd = os.path.join(options.source, 'DLLs')
     source_lib = os.path.join(options.source, 'lib')
 
-    with ZipFile(target_zip, 'w') as zipf:
+    with ZipFile(target_zip, 'w', compression=ZIP_DEFLATED) as zipf:
         zipdir(source_lib, zipf)
         zipf.writestr('google/__init__.py', '')
 
     print("Created python lib zip: %s"%target_zip)
 
-    for f in ['_socket.pyd', 'unicodedata.pyd']:
+    for f in ['_socket.pyd', 'unicodedata.pyd', '_ctypes.pyd']:
         copyfile(os.path.join(source_pyd, f), os.path.join(options.target, f))

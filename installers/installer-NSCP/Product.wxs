@@ -163,6 +163,7 @@
             <File Id="PythonZIP" Name="python311.zip" DiskId="1" Source="$(var.Source)/python311.zip" Vital="no" />
             <File Id="PythonPYD1" Name="_socket.pyd" DiskId="1" Source="$(var.Source)/_socket.pyd" Vital="no" />
             <File Id="PythonPYD2" Name="unicodedata.pyd" DiskId="1" Source="$(var.Source)/unicodedata.pyd" Vital="no" />
+            <File Id="PythonPYD3" Name="_ctypes.pyd" DiskId="1" Source="$(var.Source)/_ctypes.pyd" Vital="no" />
           </Component>
           <?if "$(var.Runtime)" = "dynamic"?>
             <Component Id="LuaLibs" Guid="513b45d4-c0f4-4531-9baf-0db466e4e51c">
