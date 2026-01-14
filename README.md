@@ -55,3 +55,7 @@ NSClient++ should run on the following operating systems:
 
 NSClient++ is built using CMake and Visual Studio 2022.
 You can find detailed instructions for building locally in the [build.md](build.md) file.
+
+### Powered by
+[![JetBrains logo.](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg)](https://jb.gg/OpenSource)
+
