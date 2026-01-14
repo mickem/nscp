@@ -20,6 +20,7 @@ runs:
       working-directory: tmp/nscp
       shell: cmd
       run: |
+        del nsclient.log
         cmd /c "start nscp test --settings ..\..\tests\rest\nsclient.ini"
 
     - name: Install dependencies

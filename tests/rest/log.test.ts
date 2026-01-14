@@ -83,6 +83,9 @@ describe("log", () => {
                 expect(Array.isArray(response.body)).toBe(true);
                 const logs = response.body;
                 const testLog = logs.find((log: any) => log.message === "001: This is a test log message from automated tests");
+                if (!testLog) {
+                    console.log("Logs returned:", logs);
+                }
                 expect(testLog).toBeDefined();
                 expect(testLog.level).toBe("info");
                 expect(testLog.file).toBe("rest.test.ts");
