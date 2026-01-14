@@ -213,7 +213,7 @@ jobs:
         & "$env:Python_ROOT_DIR\python" ..\..\build\python\mk_pyzip.py --source ${{ env.Python_ROOT_DIR }}
       shell: pwsh
 
-    - uses: actions/download-artifact@v6
+    - uses: actions/download-artifact@v7
       with:
         name: check_nsclient-windows-${{ inputs.architecture }}
         path: tmp
@@ -322,7 +322,7 @@ jobs:
         run: |
           mkdir -p tmp/nscp
 
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: NSCP-${{ inputs.version }}-${{ needs.build.outputs.platform }}
           path: tmp/nscp
