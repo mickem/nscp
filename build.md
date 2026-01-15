@@ -50,7 +50,7 @@ mkdir %BUILD_FOLDER%\nscp
 Run the following commands in a Visual Studio Command Prompt (2015 x64 Native):
 
 ```commandline
-SET OPENSSL_VERSION=3.5.2
+SET OPENSSL_VERSION=3.5.4
 cd %BUILD_FOLDER%
 curl -L https://github.com/openssl/openssl/releases/download/openssl-%OPENSSL_VERSION%/openssl-%OPENSSL_VERSION%.tar.gz --output openssl-%OPENSSL_VERSION%.tar.gz
 7z x openssl-%OPENSSL_VERSION%.tar.gz
@@ -66,7 +66,7 @@ nmake
 Run the following commands in a Visual Studio Command Prompt (2015 x64 Native):
 
 ```commandline
-SET BOOST_VERSION=1.83.0
+SET BOOST_VERSION=1.86.0
 SET BOOST_VERSION_=%BOOST_VERSION:.=_%
 cd %BUILD_FOLDER%
 curl -L https://archives.boost.io/release/%BOOST_VERSION%/source/boost_%BOOST_VERSION_%.tar.gz --output boost.tar.gz
@@ -76,7 +76,7 @@ xcopy boost_%BOOST_VERSION_% boost_%BOOST_VERSION_%_static /E /I
 
 cd %BUILD_FOLDER%\boost_%BOOST_VERSION_%
 call bootstrap.bat
-b2.exe --layout=system address-model=64 toolset=msvc-14.1 variant=release link=shared runtime-link=shared warnings=off -d0 --with-system --with-filesystem --with-thread --with-regex --with-date_time --with-program_options --with-python --with-chrono
+b2.exe --layout=system address-model=64 toolset=msvc-14.1 variant=release link=shared runtime-link=shared warnings=off -d0 --with-system --with-filesystem --with-thread --with-regex --with-date_time --with-program_options --with-python --with-chrono --with-json --with-container
 
 cd %BUILD_FOLDER%\boost_%BOOST_VERSION_%_static
 call bootstrap.bat

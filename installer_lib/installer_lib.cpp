@@ -561,9 +561,9 @@ extern "C" UINT __stdcall BackupConfig(MSIHANDLE hInstall) {
     }
 
     std::wstring target = h.getTargetPath(L"INSTALLLOCATION");
-    boost::filesystem::wpath backup = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
-    boost::filesystem::wpath target_path = target;
-    boost::filesystem::wpath config_file = target_path / L"nsclient.ini";
+    boost::filesystem::path backup = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+    boost::filesystem::path target_path = target;
+    boost::filesystem::path config_file = target_path / L"nsclient.ini";
     if (boost::filesystem::exists(config_file)) {
       h.logMessage(L"Config file found: " + config_file.wstring());
       h.logMessage(L"Backup file: " + backup.wstring());
@@ -586,9 +586,9 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
     dump_config(h, L"Before ScheduleWriteConfig");
 
     std::wstring target = h.getTargetPath(L"INSTALLLOCATION");
-    boost::filesystem::wpath backup = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
-    boost::filesystem::wpath target_path = target;
-    boost::filesystem::wpath config_file = target_path / L"nsclient.ini";
+    boost::filesystem::path backup = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+    boost::filesystem::path target_path = target;
+    boost::filesystem::path config_file = target_path / L"nsclient.ini";
 
     msi_helper::custom_action_data_w data;
     data.write_string(h.getTargetPath(L"INSTALLLOCATION"));
