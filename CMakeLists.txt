@@ -117,6 +117,22 @@ if(WIN32)
     install(FILES "${PROJECT_BINARY_DIR}/_socket.pyd" DESTINATION .)
     install(FILES "${PROJECT_BINARY_DIR}/unicodedata.pyd" DESTINATION .)
 endif()
+if(WIN32)
+    # Target windows version
+    if(USE_STATIC_RUNTIME)
+        add_definitions(
+                -DWINVER=0x0501
+                -D_WIN32_WINNT=0x0501
+                -DBOOST_USE_WINAPI_VERSION=0x501
+        )
+    else()
+        add_definitions(
+                -DWINVER=0x0601
+                -D_WIN32_WINNT=0x0601
+                -DBOOST_USE_WINAPI_VERSION=0x601
+        )
+    endif()
+endif()
 if(NOT DEFINED USE_STATIC_RUNTIME)
     set(USE_STATIC_RUNTIME FALSE)
 endif(NOT DEFINED USE_STATIC_RUNTIME)
@@ -135,10 +151,7 @@ if(USE_STATIC_RUNTIME)
     if(WIN32)
         # Workaround for building with XP support
         add_definitions(
-            -DWINVER=0x0501
-            -D_WIN32_WINNT=0x0501
             -DNTDDI_VERSION=0x05010000
-            -DBOOST_USE_WINAPI_VERSION=0x501
             -DBOOST_NO_CXX17_HDR_SHARED_MUTEX
             -D_USING_V110_SDK71_
         )

@@ -17,15 +17,15 @@ on:
         required: true
 
 env:
-  TINY_XML_2_VERSION: 10.1.0
-  MONGOOSE_VERSION: 7.19
+  TINY_XML_2_VERSION: "10.1.0"
+  MONGOOSE_VERSION: "7.20"
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
       with:
         submodules: true
 
@@ -37,7 +37,7 @@ jobs:
         cache-dependency-path: 'build/python/requirements.txt'
         cache: 'pip'
 
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v6
       with:
         node-version: 20
         cache: 'npm'
@@ -82,7 +82,7 @@ jobs:
             set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
             set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}")
 
-    - uses: actions/download-artifact@v6
+    - uses: actions/download-artifact@v7
       with:
         name: check_nsclient-linux-${{ inputs.architecture }}
 

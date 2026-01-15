@@ -9,3 +9,15 @@ updates:
     directory: "/web"
     schedule:
       interval: "weekly"
+  - package-ecosystem: cargo
+    directory: "/rust/nscp_client"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: pip
+    directory: "/build/python"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: pip
+    directory: "tests/msi"
+    schedule:
+      interval: "weekly"

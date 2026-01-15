@@ -20,7 +20,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
       with:
         submodules: true
 
@@ -29,16 +29,16 @@ jobs:
       with:
         python-version: ${{ ENV.PYTHON_VERSION }}
 
-    - uses: actions/download-artifact@v6
+    - uses: actions/download-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-x64
-    - uses: actions/download-artifact@v6
+    - uses: actions/download-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-Win32
-    - uses: actions/download-artifact@v6
+    - uses: actions/download-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-Win32-legacy-xp
-    - uses: actions/download-artifact@v6
+    - uses: actions/download-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-ubuntu-x64
 
