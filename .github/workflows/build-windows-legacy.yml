@@ -31,12 +31,12 @@ env:
   PYTHON_VERSION: 3.11
   OPENSSL_VERSION: 3.5.4
   PROTOBUF_VERSION: 21.12
-  BOOST_VERSION: 1.83.0
+  BOOST_VERSION: 1.86.0
   CRYPTOPP_VERSION: 8.9.0
-  LUA_VERSION: 5.4.7
+  LUA_VERSION: 5.4.8
   TINY_XML_2_VERSION: 10.1.0
   GOOGLE_TEST_VERSION: 1.12.1
-  MONGOOSE_VERSION: 7.19
+  MONGOOSE_VERSION: "7.20"
 
 jobs:
   build:
@@ -45,7 +45,7 @@ jobs:
       platform: ${{ steps.setup.outputs.platform }}
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
       with:
         submodules: true
 
@@ -68,7 +68,7 @@ jobs:
         cache-dependency-path: 'build/python/requirements.txt'
         cache: 'pip'
 
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v6
       with:
         node-version: 20
         cache: 'npm'
@@ -282,7 +282,7 @@ jobs:
     needs: build
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           submodules: true
 
@@ -294,7 +294,7 @@ jobs:
           cache-dependency-path: 'build/python/requirements.txt'
           cache: 'pip'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: 'npm'
@@ -305,7 +305,7 @@ jobs:
         run: |
           mkdir -p tmp/nscp
 
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: NSCP-${{ inputs.version }}-${{ needs.build.outputs.platform }}-legacy-xp
           path: tmp/nscp
