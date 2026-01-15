@@ -101,9 +101,9 @@ api::EVT_HANDLE EvtCreateBookmark(LPCWSTR BookmarkXml) {
   return api::pEvtCreateBookmark(BookmarkXml);
 }
 
-BOOL EvtUpdateBookmark(api::EVT_HANDLE Bookmark, api::EVT_HANDLE Event) {
+bool nscpEvtUpdateBookmark(api::EVT_HANDLE Bookmark, api::EVT_HANDLE Event) {
   if (!api::pEvtUpdateBookmark) throw nsclient::nsclient_exception("Failed to load: EvtUpdateBookmark");
-  return api::pEvtUpdateBookmark(Bookmark, Event);
+  return api::pEvtUpdateBookmark(Bookmark, Event) == TRUE;
 }
 
 api::EVT_HANDLE EvtOpenPublisherMetadata(api::EVT_HANDLE Session, LPCWSTR PublisherId, LPCWSTR LogFilePath, LCID Locale, DWORD Flags) {

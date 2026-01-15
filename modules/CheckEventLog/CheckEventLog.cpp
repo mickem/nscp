@@ -231,7 +231,7 @@ void CheckEventLog::save_bookmark(const std::string bookmark, eventlog::api::EVT
     NSC_LOG_ERROR("Failed to create bookmark: " + error::lookup::last_error());
     return;
   }
-  if (!EvtUpdateBookmark(hBookmark, hResults)) {
+  if (!nscpEvtUpdateBookmark(hBookmark, hResults)) {
     NSC_LOG_ERROR("Failed to create bookmark: " + error::lookup::last_error());
     return;
   }

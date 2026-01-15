@@ -294,7 +294,7 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
     return;
   }
   if (alias.empty()) {
-    alias = fs::basename(file.filename());
+    alias = file.filename().string();
   }
 
   if (!no_config) {

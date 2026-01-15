@@ -319,7 +319,7 @@ BOOL EvtNextPublisherId(api::EVT_HANDLE PublisherEnum, DWORD PublisherIdBufferSi
 api::EVT_HANDLE EvtOpenChannelEnum(api::EVT_HANDLE Session, DWORD Flags);
 BOOL EvtNextChannelPath(api::EVT_HANDLE PublisherEnum, DWORD PublisherIdBufferSize, LPWSTR PublisherIdBuffer, PDWORD PublisherIdBufferUsed);
 api::EVT_HANDLE EvtCreateBookmark(LPCWSTR BookmarkXml);
-BOOL EvtUpdateBookmark(api::EVT_HANDLE Bookmark, api::EVT_HANDLE Event);
+bool nscpEvtUpdateBookmark(api::EVT_HANDLE Bookmark, api::EVT_HANDLE Event);
 
 BOOL EvtGetPublisherMetadataProperty(api::EVT_HANDLE PublisherMetadata, api::EVT_PUBLISHER_METADATA_PROPERTY_ID PropertyId, DWORD Flags,
                                      DWORD PublisherMetadataPropertyBufferSize, api::PEVT_VARIANT PublisherMetadataPropertyBuffer,
