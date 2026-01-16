@@ -244,6 +244,7 @@ jobs:
         ctest --output-on-failure -C Release
 
     - name: Sign binaries
+      if: github.actor != 'dependabot[bot]'
       uses: ./.github/actions/sign-windows-binaries
       with:
         azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -263,6 +264,7 @@ jobs:
         azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
         azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+        signing-enabled: ${{ github.actor != 'dependabot[bot]' }}
 
     - name: rename client
       run: |
