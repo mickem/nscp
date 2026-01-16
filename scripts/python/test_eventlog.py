@@ -132,7 +132,7 @@ class EventLogTest(BasicTest):
         result.assert_equals(msg, expected, "Validate message rendering syntax: %s"%msg)
         return result
         
-    def run_test(self):
+    def run_test(self, cases = None):
         result = TestResult('Checking CheckEventLog')
         cache = TestResult('Checking CheckEventLog CACHE')
 

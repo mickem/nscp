@@ -61,7 +61,7 @@ class ExternalScriptTest(BasicTest):
 				log_error(l)
 		return result
 
-	def run_test(self):
+	def run_test(self, cases = None):
 		ret = TestResult('External scripts test suite')
 		result = TestResult('Arguments NOT allowed')
 		result.add(self.do_one_test('tes_script_ok', message='OK: Everything is going to be fine'))

@@ -88,7 +88,7 @@ class ChannelTest:
 		return result
 		
 
-	def run_test(self):
+	def run_test(self, cases = None):
 		result = TestResult()
 		result.add(self.test_simple('foobar', status.OK, 'qwerty', '', 'simple ok'))
 		result.add(self.test_simple('foobar', status.WARNING, 'foobar', '', 'simple warning'))

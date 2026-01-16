@@ -125,7 +125,7 @@ class Win32SystemTest(BasicTest):
 		result.add(self.check_counter('\\%s\\%s'%(name1, name2), ['ShowAll', 'MaxWarn=10']))
 		return result
 		
-	def run_test(self):
+	def run_test(self, cases = None):
 		result = TestResult('Testing W32 systems')
 		result.add(self.run_test_proc())
 		result.add(self.run_test_counters())
