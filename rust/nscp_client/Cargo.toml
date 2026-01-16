@@ -14,7 +14,7 @@ serde_yaml = "0.9.33"
 tabled = "0.20.0"
 anyhow = "1.0.100"
 csv = "1.4.0"
-indexmap = { version = "2.2.6", features = ["serde"] }
+indexmap = { version = "2.13.0", features = ["serde"] }
 keyring = {  version="3.6.3", features = ["apple-native", "windows-native", "sync-secret-service", "linux-native"] }
 async-trait = "0.1.89"
 crossterm = "0.29.0"
