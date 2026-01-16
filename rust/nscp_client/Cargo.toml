@@ -21,7 +21,7 @@ crossterm = "0.29.0"
 ratatui = "0.30.0"
 tui-prompts = "0.6.1"
 confy = "2.0.0"
-tokio-util = "0.7.17"
+tokio-util = "0.7.18"
 
 [dev-dependencies]
 wiremock = "0.6.5"
