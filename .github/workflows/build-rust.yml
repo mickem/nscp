@@ -105,7 +105,7 @@ jobs:
           timestamp-digest: SHA256
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: check_nsclient-${{ steps.target.outputs.os_name }}-${{ inputs.arch }}
           path: rust/nscp_client/target/${{ steps.target.outputs.triple }}/release/check_nsclient${{ inputs.os == 'windows-latest' && '.exe' || '' }}
