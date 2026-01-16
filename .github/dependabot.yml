@@ -5,19 +5,47 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      actions:
+        patterns:
+          - "*"
   - package-ecosystem: npm
     directory: "/web"
     schedule:
       interval: "weekly"
+    groups:
+      frontend:
+        patterns:
+          - "*"
+  - package-ecosystem: npm
+    directory: "/test/rest"
+    schedule:
+      interval: "weekly"
+    groups:
+      testing:
+        patterns:
+          - "*"
   - package-ecosystem: cargo
     directory: "/rust/nscp_client"
     schedule:
       interval: "weekly"
+    groups:
+      client:
+        patterns:
+          - "*"
   - package-ecosystem: pip
     directory: "/build/python"
     schedule:
       interval: "weekly"
+    groups:
+      build:
+        patterns:
+          - "*"
   - package-ecosystem: pip
     directory: "tests/msi"
     schedule:
       interval: "weekly"
+    groups:
+      testing:
+        patterns:
+          - "*"
