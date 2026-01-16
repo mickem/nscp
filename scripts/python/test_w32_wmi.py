@@ -70,7 +70,7 @@ class Win32WMITest(BasicTest):
 			result.add_message(check(ns_msgs[0]), 'Check that it contains the right data')
 		return result
 		
-	def run_test(self):
+	def run_test(self, cases = None):
 		result = TestResult('Testing W32 file systems')
 		result.add(self.check_cli_ns())
 		result.add(self.check_cli_ls(None, 'Win32_Processor', 'LogFileEventConsumer'))

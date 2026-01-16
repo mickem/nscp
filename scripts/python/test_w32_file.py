@@ -140,7 +140,7 @@ class Win32FileTest(BasicTest):
 			
 		return result
 
-	def run_test(self):
+	def run_test(self, cases = None):
 		result = TestResult('Testing W32 file systems')
 
 		# Check size

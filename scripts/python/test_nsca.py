@@ -292,7 +292,7 @@ class NSCAServerTest(BasicTest):
 			result.add(self.test_one_crypto_full(crypto, status.CRITICAL, 'crit', target, length))
 		return result
 
-	def run_test(self, cases=None):
+	def run_test(self, cases = None):
 		result = TestResult()
 		cryptos = ["none", "xor", "des", "3des", "cast128", "xtea", "blowfish", "twofish", "rc2", "aes", "aes256", "aes192", "aes128", "serpent", "gost", "3way"]
 		for c in cryptos:

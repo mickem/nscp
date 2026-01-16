@@ -60,7 +60,7 @@ class SchedulerTest(BasicTest):
         result.assert_gt(self.command_count[key], min, 'check %s (%d) fired more then %d'%(key, self.command_count[key], min))
         result.assert_lt(self.command_count[key], max, 'check %s (%d) fired less then %d'%(key, self.command_count[key], max))
     
-    def run_test(self):
+    def run_test(self, cases = None):
         self.core.load_module('Scheduler', self.sched_alias)
         result = TestResult()
         start = time()

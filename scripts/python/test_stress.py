@@ -101,7 +101,7 @@ class StressTest(BasicTest):
 			self.conf.set_string(self.sched_base_path, 'threads', '0')
 			self.core.reload(self.sched_alias)
 
-	def run_test(self):
+	def run_test(self, cases = None):
 		global time_to_run, check_per_second
 		result = TestResult()
 		start = time()
@@ -237,4 +237,4 @@ def init(plugin_id, plugin_alias, script_alias):
 
 def shutdown():
 	shutdown_testcases()
-
+

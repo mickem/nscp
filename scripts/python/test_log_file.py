@@ -120,7 +120,7 @@ class LogFileTest(BasicTest):
 		
 		return result
 
-	def run_test(self):
+	def run_test(self, cases = None):
 		result = TestResult('Test')
 		result.append(self.run_filter_operator_test())
 		result.append(self.run_boundry_test())

@@ -21,7 +21,7 @@ class BasicTest:
     def teardown(self):
         pass
 
-    def run_test(self):
+    def run_test(self, cases = None):
         result = TestResult('run_test')
         result.add_message(False, 'TODO add implementation')
         return result
@@ -68,7 +68,7 @@ class TestManager:
     def set_show_ok(self):
         self.show_all = True
 
-    def add_case(self, cases):
+    def add_case(self, cases : List[str]):
         self.cases.extend(cases)
 
     def add(self, suites : List[BasicTest]):
@@ -80,7 +80,8 @@ class TestManager:
         for suite in self.suites:
             suite.setup(self.plugin_id, self.prefix)
             suite_result = TestResult('Running suite: %s'%suite.title())
-            suite_result.append(suite.run_test())
+            cases = self.cases if self.cases else None
+            suite_result.append(suite.run_test(cases))
             result.append(suite_result)
             result.add_message(suite_result.is_ok(), 'Result from suite: %s'%suite.title())
             suite.teardown()

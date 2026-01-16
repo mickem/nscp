@@ -48,7 +48,7 @@ class PythonTest(BasicTest):
 		self.core.reload('test_scheduler')
 		None
 
-	def run_test(self):
+	def run_test(self, cases = None):
 		result = TestResult()
 		start = time()
 		total_count = install_checks*time_to_run/5

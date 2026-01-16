@@ -49,7 +49,7 @@ class Win32SchedTaskTest(BasicTest):
             
         return result
         
-    def run_test(self):
+    def run_test(self, cases = None):
         result = TestResult('Testing W32 task scheduler')
         for (state, code) in [('OK', 0), ('WARN', 1), ('CRIT', 2), ('LONG', 0)]:
             result.add(self.check_ts_query(state, code))
