@@ -101,7 +101,7 @@ jobs:
         mv check_nsclient check_nsclient-${{ inputs.version }}-ubuntu-x64
       shell: bash
 
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v6
       with:
         name: NSCP-${{ inputs.version }}-ubuntu-x64
         path: |
