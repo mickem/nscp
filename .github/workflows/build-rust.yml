@@ -71,7 +71,7 @@ jobs:
           targets: ${{ steps.target.outputs.triple }}
 
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin
@@ -92,7 +92,7 @@ jobs:
 
       - name: Sign Windows Binary
         if: inputs.os == 'windows-latest'
-        uses: azure/trusted-signing-action@v0.5.1
+        uses: azure/trusted-signing-action@v1.0.0
         with:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -105,7 +105,7 @@ jobs:
           timestamp-digest: SHA256
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: check_nsclient-${{ steps.target.outputs.os_name }}-${{ inputs.arch }}
           path: rust/nscp_client/target/${{ steps.target.outputs.triple }}/release/check_nsclient${{ inputs.os == 'windows-latest' && '.exe' || '' }}

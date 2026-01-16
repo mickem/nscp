@@ -269,7 +269,7 @@ jobs:
           move tmp\check_nsclient.exe tmp\nscp\check_nsclient-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.exe
       shell: cmd
 
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v6
       with:
         name: NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}
         path: |
