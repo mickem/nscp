@@ -62,10 +62,10 @@ for test_case_file in test_cases:
             print("! Test failed.", flush=True)
             failure = True
 
-    if not args.keep:
-        ensure_uninstalled(msi_file, target_folder)
     if failure:
         break
+    if not args.keep:
+        ensure_uninstalled(msi_file, target_folder)
 if failure:
     print("! One or more tests failed.", flush=True)
     exit(1)

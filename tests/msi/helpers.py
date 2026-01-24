@@ -214,15 +214,15 @@ def create_upgrade_config(upgrade_config, target_folder):
 def validate_files(target_folder, required_files):
     """Validate that required files exist in the target folder."""
     all_exist = True
-    for block in required_files.keys():
+    for file_group in required_files.keys():
         missing_files = []
-        print(f"- Validating required files in block: {block}", flush=True)
-        for req_file in required_files[block]:
+        print(f"- Validating required files in block: {file_group}", flush=True)
+        for req_file in required_files[file_group]:
             file_path = path.join(target_folder, req_file.replace('/', path.sep))
             if not path.exists(file_path):
                 missing_files.append(req_file)
                 all_exist = False
         if missing_files:
             missing_files_str = ", ".join(missing_files)
-            print(f"! Required file in {block} does not exist: {missing_files_str}", flush=True)
+            print(f"! Required file in {file_group} does not exist: {missing_files_str}", flush=True)
     return all_exist
