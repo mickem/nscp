@@ -23,3 +23,67 @@ nsclient.ini: |
   [/settings/default]
   allowed hosts = 127.0.0.1
   password = $$PASSWORD$$
+
+required_files:
+  dlls:
+    - boost_chrono.dll
+    - boost_date_time.dll
+    - boost_filesystem.dll
+    - boost_program_options.dll
+    - boost_python311.dll
+    - boost_regex.dll
+    - boost_system.dll
+    - boost_thread.dll
+    - nscp_mongoose.dll
+    - nscp_protobuf.dll
+    - plugin_api.dll
+    - python311.dll
+    - where_filter.dll
+  exe-files:
+    - check_nrpe.exe
+    - check_nsclient.exe
+    - nscp.exe
+  scripts:
+    - scripts/check_ok.bat
+    - scripts/powershell.ps1
+    - scripts/check_60s.bat
+    - scripts/check_ping.bat
+    - scripts/check_long.bat
+    - scripts/check_no_rdp.bat
+    - scripts/check_battery.vbs
+    - scripts/check_updates.vbs
+    - scripts/check_printer.vbs
+    - scripts/check_files.vbs
+  modules:
+    - modules/CheckDisk.dll
+    - modules/CheckEventLog.dll
+    - modules/CheckExternalScripts.dll
+    - modules/CheckHelpers.dll
+    - modules/CheckLogFile.dll
+    - modules/CheckMKClient.dll
+    - modules/CheckMKServer.dll
+    - modules/CheckNet.dll
+    - modules/CheckNSCP.dll
+    - modules/CheckSystem.dll
+    - modules/CheckTaskSched.dll
+    - modules/CheckWMI.dll
+    - modules/CommandClient.dll
+    - modules/ElasticClient.dll
+    - modules/GraphiteClient.dll
+    - modules/LUAScript.dll
+    - modules/NRDPClient.dll
+    - modules/NRPEClient.dll
+    - modules/NRPEServer.dll
+    - modules/NSCAClient.dll
+    - modules/NSCAServer.dll
+    - modules/NSClientServer.dll
+    - modules/PythonScript.dll
+    - modules/Scheduler.dll
+    - modules/SimpleCache.dll
+    - modules/SimpleFileWriter.dll
+    - modules/SMTPClient.dll
+    - modules/SyslogClient.dll
+    - modules/WEBServer.dll
+  zip-modules:
+    - modules/icinga-client.zip
+    - modules/remote-modules.zip
