@@ -377,7 +377,7 @@ msbuild nscp.sln /p:Configuration=Release /p:Platform=Win32
 ### Install dependencies
 ```bash
 sudo apt-get update
-sudo apt-get install -y build-essential cmake libssl-dev libboost-all-dev libprotobuf-dev protobuf-compiler liblua5.4-dev libtinyxml2-dev libffi-dev python3.12-dev python3-protobuf
+sudo apt-get install -y build-essential cmake libssl-dev libboost-all-dev libprotobuf-dev protobuf-compiler liblua5.4-dev libtinyxml2-dev libffi-dev python3.12-dev python3-protobuf libdbus-1-dev pkg-config rpm
 ```
 
 In addition to this you also need to install rust: https://rust-lang.org/tools/install/
@@ -397,7 +397,7 @@ TinyXML2 does not require building instead we need to download and configure whe
 
 ```bash
 cd $DEPENDENCIES_FOLDER
-SET TINY_XML2_VERSION=10.1.0
+export TINY_XML2_VERSION=10.1.0
 curl -L https://github.com/leethomason/tinyxml2/archive/refs/tags/${TINY_XML2_VERSION}.zip --output tinyxml2.zip
 unzip tinyxml2.zip
 ```
@@ -408,7 +408,7 @@ it.
 
 ```bash
 cd $DEPENDENCIES_FOLDER
-SET MONGOOSE_VERSION=7.19
+export MONGOOSE_VERSION=7.19
 curl -L https://github.com/cesanta/mongoose/archive/refs/tags/${MONGOOSE_VERSION}.zip --output mongoose.zip
 unzip mongoose.zip
 ```

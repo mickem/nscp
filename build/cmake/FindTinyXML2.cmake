@@ -7,7 +7,7 @@
 #
 find_path(
     TINYXML2_INCLUDE_DIR
-    NAMES tinyxml2.h
+    NAMES tinyxml2.cpp
     PATHS ${TINY_XML2_SOURCE_DIR} ${TINYXML2_INCLUDE_DIR} ${NSCP_INCLUDEDIR}
 )
 

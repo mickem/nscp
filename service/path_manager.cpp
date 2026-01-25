@@ -120,7 +120,11 @@ std::string nsclient::core::path_manager::getFolder(std::string key) {
     // Use default;
   } else if (key == "temp") {
     default_value = getTempPath().string();
-  } else if (key == "shared-path" || key == "base-path" || key == "exe-path") {
+  } else if (key == "shared-path") {
+#ifndef WIN32
+    default_value = UNIX_SHARED_PATH_FOLDER;
+#endif
+  } else if (key == "base-path" || key == "exe-path") {
     // Use default;
   } else if (key == "data-path") {
 #ifdef WIN32

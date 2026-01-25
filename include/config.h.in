@@ -62,6 +62,10 @@
 #define SCRIPTS_FOLDER			"@CONFIG_SCRIPTS_FOLDER@"
 #define CERT_FOLDER			"@CONFIG_CERT_FOLDER@"
 #define LOG_FOLDER			"@CONFIG_LOG_FOLDER@"
+#ifndef WIN32
+#define UNIX_SHARED_PATH_FOLDER			"@UNIX_SHARED_PATH_FOLDER@"
+#endif
+
 
 #define NASTY_METACHARS         "|`&><'\"\\[]{}"        /* This may need to be modified for windows directory seperator */
 
