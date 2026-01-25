@@ -34,8 +34,12 @@ nsclient_core::settings_client::~settings_client() { terminate(); }
 
 void nsclient_core::settings_client::startup() {
   if (started_) return;
-  if (!core_->load_configuration(true)) {
-    std::cout << "boot::init failed" << std::endl;
+  if (!core_->load_configuration_1()) {
+    std::cout << "boot::init::1 failed" << std::endl;
+    return;
+  }
+  if (!core_->load_configuration_2(true)) {
+    std::cout << "boot::init::2 failed" << std::endl;
     return;
   }
   if (load_all_) core_->boot_load_all_plugin_files();

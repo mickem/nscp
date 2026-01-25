@@ -715,7 +715,7 @@ else()
         "Path for log files"
     )
     set(CONFIG_DEFAULT_LOG_LOCATION
-        "\${shared-path}/log/nsclient.log"
+        "\${log-path}/nsclient.log"
         CACHE STRING
         "PAth for log file"
     )

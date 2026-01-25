@@ -124,7 +124,8 @@ namespace sh = nscapi::settings_helper;
  * @return success
  * @author mickem
  */
-bool NSClientT::load_configuration(const bool override_log) {
+bool NSClientT::load_configuration_1() {
+  // TODO: These are split temporarily to allow overriding log-path
 #ifdef WIN32
   SetErrorMode(SEM_FAILCRITICALERRORS);
 #endif
@@ -134,7 +135,10 @@ bool NSClientT::load_configuration(const bool override_log) {
   if (!settings_manager::init_settings(provider_, context_)) {
     return false;
   }
+  return true;
+}
 
+bool NSClientT::load_configuration_2(const bool override_log) {
   log_instance_->configure();
 
   LOG_DEBUG_CORE(utf8::cvt<std::string>(SERVICE_NAME) + " booting...");
@@ -412,7 +416,8 @@ void NSClientT::handle_startup(std::string service_name) {
 #ifdef WIN32
   ExceptionManager::instance()->setup_service_name(service_name);
 #endif
-  load_configuration();
+  load_configuration_1();
+  load_configuration_2();
   boot_load_active_plugins();
   boot_start_plugins(true);
   LOG_DEBUG_CORE("Starting: DONE");

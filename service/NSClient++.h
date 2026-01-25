@@ -78,7 +78,8 @@ class NSClientT : public nsclient::core::core_interface {
   virtual ~NSClientT();
 
   // Startup/Shutdown
-  bool load_configuration(const bool override_log = false);
+  bool load_configuration_1();
+  bool load_configuration_2(const bool override_log = false);
   bool boot_load_active_plugins();
   void boot_load_all_plugin_files();
   bool boot_load_single_plugin(const std::string& plugin);
