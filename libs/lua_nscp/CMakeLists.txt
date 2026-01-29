@@ -20,11 +20,7 @@ if(LUA_FOUND OR LUA_SOURCE_FOUND)
             ${NSCP_INCLUDEDIR}/scripts/script_nscp.hpp
         )
     endif(WIN32)
-    if(LUA_FOUND)
-        include_directories(${LUA_INCLUDE_DIR})
-    else()
-        include_directories(${LUA_SOURCE_DIR})
-    endif()
+    include_directories(${LUA_INCLUDE_DIR})
 
     if(PROTOC_GEN_LUA_FOUND)
         add_definitions(-DHAVE_LUA_PB)
@@ -38,8 +34,16 @@ if(LUA_FOUND OR LUA_SOURCE_FOUND)
     nscp_debug_symbols(${TARGET})
 
     if(PROTOC_GEN_LUA_FOUND)
-        target_link_libraries(${TARGET} nscp_lua_pb ${Boost_THREAD_LIBRARY})
+        target_link_libraries(${TARGET}
+                nscp_lua_pb
+                ${Boost_THREAD_LIBRARY}
+                ${LUA_LIBRARIES}
+        )
         add_dependencies(${TARGET} nscp_lua_pb)
+    else()
+        target_link_libraries(${TARGET}
+                ${LUA_LIBRARIES}
+        )
     endif(PROTOC_GEN_LUA_FOUND)
     add_dependencies(${TARGET} nscp_protobuf)
 

@@ -57,7 +57,7 @@ target_link_libraries(
     ${Boost_THREAD_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}
     ${EXTRA_LIBS}
-    ${LUA_LIB}
+    ${LUA_LIBRARIES}
     lua_nscp
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)

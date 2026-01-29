@@ -105,7 +105,7 @@ if(PROTOC_GEN_LUA_FOUND AND (LUA_FOUND OR LUA_SOURCE_FOUND))
         ${TARGET}
         ${PROTOBUF_LIBRARY}
         nscp_protobuf
-        ${LUA_LIB}
+        ${LUA_LIBRARIES}
     )
     if(WIN32)
         target_compile_options(${TARGET} PRIVATE /wd4251)

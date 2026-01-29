@@ -10,7 +10,7 @@ find_package(Python3 COMPONENTS Interpreter Development)
 find_package(TinyXML2)
 find_package(CryptoPP)
 find_package(Lua)
-if(NOT LUA_FOUND)
+if(NOT Lua_FOUND)
     find_package(LUASource)
 endif()
 
