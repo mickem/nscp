@@ -116,9 +116,9 @@ void nsclient::core::storage_manager::save() {
     }
     boost::filesystem::rename(get_tmpname(), get_filename());
   } catch (const std::exception &e) {
-    LOG_ERROR_CORE("Failed to save settings: " + utf8::utf8_from_native(e.what()));
+    LOG_ERROR_CORE("Failed to save storage: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
-    LOG_ERROR_CORE("Failed to save settings: UNKNOWN EXCEPTION");
+    LOG_ERROR_CORE("Failed to save storage: UNKNOWN EXCEPTION");
   }
 }
 

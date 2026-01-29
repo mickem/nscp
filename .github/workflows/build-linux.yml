@@ -96,9 +96,16 @@ jobs:
       run: |
         make
 
-    - name: rename client
+    - name: CPack
+      working-directory: tmp/nscp
+      run: |
+        cpack
+
+    - name: rename dist files
       run: |
         mv check_nsclient check_nsclient-${{ inputs.version }}-ubuntu-x64
+        mv tmp/nscp/NSCP-${{ inputs.version }}-amd64.deb NSCP-${{ inputs.version }}-amd64.deb  
+        mv tmp/nscp/NSCP-${{ inputs.version }}-amd64.rpm NSCP-${{ inputs.version }}-amd64.rpm
       shell: bash
 
     - uses: actions/upload-artifact@v6
@@ -106,6 +113,8 @@ jobs:
         name: NSCP-${{ inputs.version }}-ubuntu-x64
         path: |
           check_nsclient-${{ inputs.version }}-ubuntu-x64
+          NSCP-${{ inputs.version }}-amd64.deb
+          NSCP-${{ inputs.version }}-amd64.rpm
         if-no-files-found: error
 
     - name: Run tests

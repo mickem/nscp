@@ -409,6 +409,22 @@ int cli_parser::parse_service(int argc, char *argv[]) {
   }
 }
 
+void apply_overrides(const std::vector<std::string> &defines) {
+  for (const std::string &s : defines) {
+    std::string::size_type p1 = s.find(':');
+    if (p1 == std::string::npos) {
+      std::cerr << "Failed to parse: " << s << std::endl;
+      continue;
+    }
+    const std::string::size_type p2 = s.find('=', p1);
+    if (p2 == std::string::npos) {
+      std::cerr << "Failed to parse: " << s << std::endl;
+      continue;
+    }
+    settings_manager::get_settings()->set_string(s.substr(0, p1), s.substr(p1 + 1, p2 - p1 - 1), s.substr(p2 + 1));
+  }
+}
+
 struct client_arguments {
   std::string module;
   bool boot;
@@ -418,21 +434,9 @@ struct client_arguments {
   bool run_pre(NSClient *core_, const std::vector<std::string> &defines) {
     try {
       if (module == "CommandClient") boot = true;
-
-      core_->load_configuration(true);
-      for (const std::string &s : defines) {
-        std::string::size_type p1 = s.find(':');
-        if (p1 == std::string::npos) {
-          std::cerr << "Failed to parse: " << s << std::endl;
-          continue;
-        }
-        const std::string::size_type p2 = s.find('=', p1);
-        if (p2 == std::string::npos) {
-          std::cerr << "Failed to parse: " << s << std::endl;
-          continue;
-        }
-        settings_manager::get_settings()->set_string(s.substr(0, p1), s.substr(p1 + 1, p2 - p1 - 1), s.substr(p2 + 1));
-      }
+      core_->load_configuration_1();
+      apply_overrides(defines);
+      core_->load_configuration_2(true);
       if (load_all) core_->boot_load_all_plugin_files();
       if (module.empty() || module == "CommandClient")
         core_->boot_load_active_plugins();

@@ -37,17 +37,17 @@ Default values used in other config sections.
 
 
 
-| Key                                         | Default Value | Description           |
-|---------------------------------------------|---------------|-----------------------|
-| [allowed hosts](#allowed-hosts)             | 127.0.0.1     | ALLOWED HOSTS         |
-| [bind to](#bind-to-address)                 |               | BIND TO ADDRESS       |
-| [cache allowed hosts](#cache-allowed-hosts) | true          | CACHE ALLOWED HOSTS   |
-| [encoding](#nrpe-payload-encoding)          |               | NRPE PAYLOAD ENCODING |
-| [inbox](#inbox)                             | inbox         | INBOX                 |
-| [password](#password)                       |               | Password              |
-| [socket queue size](#listen-queue)          | 0             | LISTEN QUEUE          |
-| [thread pool](#thread-pool)                 | 10            | THREAD POOL           |
-| [timeout](#timeout)                         | 30            | TIMEOUT               |
+| Key                                                 | Default Value | Description                 |
+|-----------------------------------------------------|---------------|-----------------------------|
+| [allowed hosts](#allowed-hosts)                     | 127.0.0.1     | Allowed hosts               |
+| [bind to](#bind-to-address)                         |               | BIND TO ADDRESS             |
+| [cache allowed hosts](#cache-list-of-allowed-hosts) | true          | Cache list of allowed hosts |
+| [encoding](#nrpe-payload-encoding)                  |               | NRPE PAYLOAD ENCODING       |
+| [inbox](#inbox)                                     | inbox         | INBOX                       |
+| [password](#password)                               |               | Password                    |
+| [socket queue size](#listen-queue)                  | 0             | LISTEN QUEUE                |
+| [thread pool](#thread-pool)                         | 10            | THREAD POOL                 |
+| [timeout](#timeout)                                 | 30            | TIMEOUT                     |
 
 
 
@@ -67,7 +67,7 @@ timeout=30
 
 
 
-#### ALLOWED HOSTS <a id="/settings/default/allowed hosts"></a>
+#### Allowed hosts <a id="/settings/default/allowed hosts"></a>
 
 A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.
 
@@ -87,7 +87,7 @@ A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
 
 ```
 [/settings/default]
-# ALLOWED HOSTS
+# Allowed hosts
 allowed hosts=127.0.0.1
 ```
 
@@ -120,7 +120,7 @@ bind to=
 
 
 
-#### CACHE ALLOWED HOSTS <a id="/settings/default/cache allowed hosts"></a>
+#### Cache list of allowed hosts <a id="/settings/default/cache allowed hosts"></a>
 
 If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.
 
@@ -140,7 +140,7 @@ If host names (DNS entries) should be cached, improves speed and security somewh
 
 ```
 [/settings/default]
-# CACHE ALLOWED HOSTS
+# Cache list of allowed hosts
 cache allowed hosts=true
 ```
 

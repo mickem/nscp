@@ -306,6 +306,7 @@ boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_fi
   }
   names.push_back(get_plugin_file(name));
   names.push_back(name + ".zip");
+  names.push_back("lib" + name + ".so");
 
   for (const std::string &current_name : names) {
     boost::filesystem::path tmp = plugin_path_ / current_name;

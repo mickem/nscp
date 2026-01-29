@@ -109,9 +109,9 @@ struct settings_helper {
                     "to all available IP addresses.")
 
         .add_string("allowed hosts", nscapi::settings_helper::string_fun_key([&info_](auto value) { info_.allowed_hosts.set_source(value); }, "127.0.0.1"),
-                    "ALLOWED HOSTS", "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
+                    "Allowed hosts", "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
 
-        .add_string("cache allowed hosts", nscapi::settings_helper::bool_key(&info_.allowed_hosts.cached, true), "CACHE ALLOWED HOSTS",
+        .add_string("cache allowed hosts", nscapi::settings_helper::bool_key(&info_.allowed_hosts.cached, true), "Cache list of allowed hosts",
                     "If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your "
                     "Nagios server.")
 

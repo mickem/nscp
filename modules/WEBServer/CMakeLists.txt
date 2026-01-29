@@ -29,6 +29,7 @@ set(SRCS
     metrics_controller.cpp
     openmetrics_controller.cpp
     ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/socket/allowed_hosts.cpp
     ${NSCP_INCLUDEDIR}/client/simple_client.cpp
     ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
     ${NSCP_DEF_PLUGIN_CPP}

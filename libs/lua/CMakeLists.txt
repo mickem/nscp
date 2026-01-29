@@ -50,5 +50,5 @@ if(LUA_SOURCE_FOUND)
 
     nscp_make_library(${TARGET} "${SRCS}")
 
-    set(LUA_LIB lua PARENT_SCOPE)
+    set(LUA_LIBRARIES lua PARENT_SCOPE)
 endif()

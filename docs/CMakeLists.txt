@@ -2,14 +2,32 @@ cmake_minimum_required(VERSION 3.10)
 
 if(MKDOCS_FOUND)
     project(generate_docs)
-    set(DEFINEARG "/paths:module-path=%(base-path)/modules")
+    if(WIN32)
+        set(MODULE_ARG "/paths:module-path=\${base-path}/modules")
+        set(COMMAND_LINE ${CMAKE_BINARY_DIR}/nscp client --module PythonScript
+                --settings dummy
+                --load-all --log info --log oneline
+                --define "${MODULE_ARG}"
+                -- execute --script scripts/python/docs.py
+                --input docs --output docs
+        )
+    else()
+        set(MODULE_ARG "/paths:module-path=${CMAKE_BINARY_DIR}/modules")
+        set(LOG_ARG "/paths:log-path=.")
+        SET(DATA_ARGS "/paths:data-path=.")
+        set(COMMAND_LINE ${CMAKE_BINARY_DIR}/nscp client --module PythonScript
+                --settings dummy
+                --load-all --log info --log oneline
+                --define "\"${MODULE_ARG}\""
+                --define "\"${LOG_ARG}\""
+                --define "\"${DATA_ARGS}\""
+                -- execute --script scripts/python/docs.py
+                --input docs --output docs
+        )
+    endif()
     add_custom_target(
         generate_doc_sources
-        COMMAND
-            ${CMAKE_BINARY_DIR}/nscp client --module PythonScript --settings
-            dummy --load-all --log info --log oneline --define
-            "\"${DEFINEARG}\"" -- execute --script scripts/python/docs.py
-            --input docs --output docs
+        COMMAND ${COMMAND_LINE}
         WORKING_DIRECTORY ${BUILD_ROOT_FOLDER}
         DEPENDS nscp ${ALL_MODULE_NAMES} copy_files
         COMMENT "Generate RST documentation source"

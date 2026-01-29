@@ -105,8 +105,8 @@ set(LIB_TARGET_FOLDER lib)
 set(SYSTEMD_TARGET_FOLDER /lib/systemd/system)
 set(SBIN_TARGET_FOLDER sbin)
 set(BIN_TARGET_FOLDER bin)
-set(LOG_TARGET_FOLDER /var/log)
-set(ETC_TARGET_FOLDER /etc)
+set(LOG_TARGET_FOLDER var/log)
+set(ETC_TARGET_FOLDER etc)
 
 set(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DBOOST_PHOENIX_STL_TUPLE_H_)
 if(WIN32)
@@ -178,54 +178,6 @@ else(USE_STATIC_RUNTIME)
     set(BUILD_STATIC_LIBS OFF)
 endif(USE_STATIC_RUNTIME)
 
-if(WIN32)
-    set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY 0)
-    set(CPACK_GENERATOR ZIP)
-else()
-    set(CMAKE_INSTALL_PREFIX "/usr")
-    execute_process(
-        COMMAND lsb_release -si
-        OUTPUT_VARIABLE DISTRIBUTION
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    if(DISTRIBUTION STREQUAL "Fedora" OR DISTRIBUTION STREQUAL "CentOS")
-        execute_process(
-            COMMAND rpm -qa *-release
-            OUTPUT_VARIABLE LINUXVERSION
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-        string(
-            REGEX REPLACE
-            ".*\\.(el[0-9]+)\\..*"
-            "\\1"
-            LINUXDIST
-            ${LINUXVERSION}
-        )
-        if(LINUXDIST STREQUAL "el7")
-            message(
-                STATUS
-                "Linux detected as redhat clone with systemd (${LINUXDIST})"
-            )
-            set(SYSTEMD ON)
-            set(INITD OFF)
-        else()
-            message(
-                STATUS
-                "Linux detected as redhat clone with initd (${LINUXDIST})"
-            )
-            set(SYSTEMD OFF)
-            set(INITD ON)
-        endif()
-        set(REDHAT_CLONE ON)
-        set(DEBIAN_CLONE OFF)
-    else()
-        message(STATUS "Linux detected as debian clone with initd")
-        set(SYSTEMD OFF)
-        set(INITD ON)
-        set(REDHAT_CLONE OFF)
-        set(DEBIAN_CLONE ON)
-    endif()
-endif()
 
 include(${BUILD_CMAKE_FOLDER}/SetMultiThread.cmake)
 include(${BUILD_CMAKE_FOLDER}/GoogleProtoBuf.cmake)
@@ -278,12 +230,12 @@ else(NOT HAVE_REQUIRED_DEPENDENCIES)
     )
 endif(NOT HAVE_REQUIRED_DEPENDENCIES)
 
+if(WIN32)
 install(
     FILES
         ${PROJECT_BINARY_DIR}/python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.zip
     DESTINATION .
 )
-
 # Copy python binaries
 string(REPLACE ".lib" ".dll" PY_LIB_RELEASE_DLL ${Python3_LIBRARIES})
 get_filename_component(_NAME "${PY_LIB_RELEASE_DLL}" NAME)
@@ -297,6 +249,8 @@ message(STATUS " + ${_NAME}")
 
 copy_file(${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME} ${PROJECT_BINARY_DIR})
 install(FILES "${PROJECT_BINARY_DIR}/${_NAME}" DESTINATION .)
+endif()
+
 if(NOT CHECK_NSCLIENT_MISSING)
     if(WIN32)
         set(CHECK_NSCLIENT_FILENAME "check_nsclient.exe")
@@ -487,7 +441,13 @@ if(WIN32)
         set(RELEASE_SUFFIX "")
     endif(USE_STATIC_RUNTIME)
 else(WIN32)
-    set(VERSION_ARCH Unknown)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "amd64|x86_64")
+        set(VERSION_ARCH "amd64")
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+        set(VERSION_ARCH "arm64")
+    else()
+        set(VERSION_ARCH ${CMAKE_SYSTEM_PROCESSOR})
+    endif()
 endif(WIN32)
 
 # ##############################################################################
@@ -732,6 +692,7 @@ else()
         CACHE STRING
         "modules folder"
     )
+    set(UNIX_SHARED_PATH_FOLDER "/usr/lib/nsclient" CACHE STRING "Shared files on linux")
     set(CONFIG_WEB_FOLDER "\${shared-path}/web" CACHE STRING "web folder")
     set(CONFIG_SCRIPTS_FOLDER
         "\${shared-path}/scripts"
@@ -754,7 +715,7 @@ else()
         "Path for log files"
     )
     set(CONFIG_DEFAULT_LOG_LOCATION
-        "\${shared-path}/log/nsclient.log"
+        "\${log-path}/nsclient.log"
         CACHE STRING
         "PAth for log file"
     )
@@ -1011,6 +972,65 @@ endif(WIN32)
 # CPacke setup
 #
 # ##############################################################################
+
+set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY 0)
+set(CPACK_PACKAGE_VERSION ${NSCP_FULL_VERSION})
+if(WIN32)
+    set(CPACK_GENERATOR ZIP)
+    set(CPACK_PACKAGE_FILE_NAME
+            "NSCP-${CPACK_PACKAGE_VERSION}-${VERSION_ARCH}${RELEASE_SUFFIX}"
+    )
+else()
+    set(CPACK_GENERATOR "ZIP;DEB;RPM")
+    set(CPACK_PACKAGE_FILE_NAME
+            "NSCP-${CPACK_PACKAGE_VERSION}-${VERSION_ARCH}${RELEASE_SUFFIX}"
+    )
+    set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY TRUE)
+
+    # Debian-specific (Dependencies, etc.)
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "adduser, sudo")
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Michael Medin <michael@medin.name>")
+    set(CPACK_DEBIAN_PACKAGE_LICENSE "GPL-2.0")
+
+    # RPM-specific
+    set(CPACK_RPM_PACKAGE_LICENSE "GPL-2.0")
+    set(CPACK_RPM_PACKAGE_REQUIRES "libstdc++, glibc >= 2.17")
+
+    if(NOT CPACK_SYSTEM_NAME)
+        set(CPACK_SYSTEM_NAME ${CMAKE_SYSTEM_PROCESSOR})
+    endif()
+
+    # Map the system processor to Debian/RPM standards
+    if(${CPACK_SYSTEM_NAME} STREQUAL "x86_64")
+        set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
+        set(CPACK_RPM_PACKAGE_ARCHITECTURE "x86_64")
+    elseif(${CPACK_SYSTEM_NAME} STREQUAL "aarch64")
+        set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "arm64")
+        set(CPACK_RPM_PACKAGE_ARCHITECTURE "aarch64")
+    endif()
+
+    set(CMAKE_INSTALL_PREFIX "usr")
+
+    option(USE_SYSTEMD "Install systemd service files" ON)
+    option(USE_INITD   "Install legacy init.d scripts" OFF)
+
+    if(USE_SYSTEMD)
+        # Define where systemd units go (usually /lib/systemd/system or /usr/lib/...)
+        set(SYSTEMD_UNIT_DIR "lib/systemd/system")
+        # TODO: Add service desc here
+        #install(FILES myapp.service DESTINATION ${SYSTEMD_UNIT_DIR} COMPONENT runtime)
+    endif()
+
+    if(USE_INITD)
+        install(PROGRAMS files/init.debian.sh
+                DESTINATION etc/init.d
+                RENAME nsclient
+                COMPONENT runtime)
+    endif()
+endif()
+
+
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "NSClient++")
 set(CPACK_PACKAGE_VENDOR "MySolutions NORDIC")
 set(CPACK_PACKAGE_CONTACT "Michael Medin <michael@medin.name>")
@@ -1018,7 +1038,6 @@ set(CPACK_PACKAGE_CONTACT "Michael Medin <michael@medin.name>")
 # "${CMAKE_CURRENT_SOURCE_DIR}/docs/readme.txt") SET(CPACK_RESOURCE_FILE_LICENSE
 # "${CMAKE_CURRENT_SOURCE_DIR}/Copyright.txt")
 
-set(CPACK_PACKAGE_VERSION ${NSCP_FULL_VERSION})
 
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Monitoring Agent")
 set(CPACK_PACKAGE_NAME "nscp")
@@ -1029,22 +1048,6 @@ set(CPACK_PACKAGE_INSTALL_DIRECTORY "nscp-folder")
 set(CPACK_RPM_PACKAGE_DESCRIPTION
     "NSClient++ (nscp) aims to be a simple yet powerful and secure monitoring daemon. It was built for Naemon/Nagios/Icinga, but nothing in the daemon is Naemon/Nagios/Icinga specific and it can be used in many other scenarios where you want to receive/distribute check metrics."
 )
-
-if(WIN32)
-    set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY 0)
-    set(CPACK_PACKAGE_FILE_NAME
-        "NSCP-${CPACK_PACKAGE_VERSION}-${VERSION_ARCH}${RELEASE_SUFFIX}"
-    )
-    set(CPACK_GENERATOR ZIP)
-else()
-    set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY 0)
-    set(CPACK_PACKAGE_FILE_NAME
-        "NSCP-${CPACK_PACKAGE_VERSION}-${VERSION_ARCH}${RELEASE_SUFFIX}"
-    )
-    set(CPACK_GENERATOR ZIP)
-    set(CPACK_SOURCE_GENERATOR "TGZ")
-    set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY TRUE)
-endif()
 
 include(CPack)
 
