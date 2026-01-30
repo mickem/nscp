@@ -31,7 +31,7 @@ macro(LOAD_SECTIONS _TARGET_LIST _path _title)
     endforeach(_CURRENT_MODULE ${TMP_LIST})
 endmacro(LOAD_SECTIONS)
 
-macro(copy_single_file _TARGET_LIST src destDir)
+macro(copy_single_file_helper _TARGET_LIST src destDir CHMOD)
     get_filename_component(TARGET ${src} NAME)
     set(source_file ${CMAKE_CURRENT_SOURCE_DIR}/${src})
     if(${destDir} STREQUAL ".")
@@ -39,49 +39,40 @@ macro(copy_single_file _TARGET_LIST src destDir)
     else(${destDir} STREQUAL ".")
         set(target_file ${CMAKE_BINARY_DIR}/${destDir}/${TARGET})
     endif(${destDir} STREQUAL ".")
-    # MESSAGE(STATUS " - Copying ${source_file} to ${target_file}...")
-    add_custom_command(
-        OUTPUT ${target_file}
-        COMMAND ${CMAKE_COMMAND}
-        ARGS -E copy "${source_file}" "${target_file}"
-        COMMENT "Copying ${source_file} to ${target_file}"
-        DEPENDS ${source_file}
-    )
+    if(WIN32 OR ${CHMOD} EQUAL 0)
+        add_custom_command(
+                OUTPUT ${target_file}
+                COMMAND ${CMAKE_COMMAND}
+                ARGS -E copy "${source_file}" "${target_file}"
+                COMMENT "Copying ${source_file} to ${target_file}"
+                DEPENDS ${source_file}
+        )
+    else()
+        add_custom_command(
+                OUTPUT ${target_file}
+                COMMAND ${CMAKE_COMMAND}
+                ARGS -E copy "${source_file}" "${target_file}"
+                COMMAND chmod
+                ARGS 755 "${target_file}"
+                COMMENT "Copying ${source_file} to ${target_file}"
+                DEPENDS ${source_file}
+        )
+    endif()
     set(${_TARGET_LIST} ${${_TARGET_LIST}} ${target_file})
+endmacro()
+macro(copy_single_test_file _TARGET_LIST src destDir)
+    copy_single_file_helper(${_TARGET_LIST} ${src} ${destDir} 0)
+endmacro()
+
+macro(copy_single_file _TARGET_LIST src destDir)
+    copy_single_file_helper(${_TARGET_LIST} ${src} ${destDir} 0)
     install(FILES ${target_file} DESTINATION ${INSTALL_FILES_BASE}${destDir})
-endmacro(copy_single_file)
+endmacro()
 
 macro(copy_single_file_755 _TARGET_LIST src destDir)
-    get_filename_component(TARGET ${src} NAME)
-    set(source_file ${CMAKE_CURRENT_SOURCE_DIR}/${src})
-    if(${destDir} STREQUAL ".")
-        set(target_file ${CMAKE_BINARY_DIR}/${TARGET})
-    else(${destDir} STREQUAL ".")
-        set(target_file ${CMAKE_BINARY_DIR}/${destDir}/${TARGET})
-    endif(${destDir} STREQUAL ".")
-    # MESSAGE(STATUS " - Copying ${source_file} to ${target_file}...")
-    if(WIN32)
-        add_custom_command(
-            OUTPUT ${target_file}
-            COMMAND ${CMAKE_COMMAND}
-            ARGS -E copy "${source_file}" "${target_file}"
-            COMMENT "Copying ${source_file} to ${target_file}"
-            DEPENDS ${source_file}
-        )
-    else(WIN32)
-        add_custom_command(
-            OUTPUT ${target_file}
-            COMMAND ${CMAKE_COMMAND}
-            ARGS -E copy "${source_file}" "${target_file}"
-            COMMAND chmod
-            ARGS 755 "${target_file}"
-            COMMENT "Copying ${source_file} to ${target_file}"
-            DEPENDS ${source_file}
-        )
-    endif(WIN32)
-    set(${_TARGET_LIST} ${${_TARGET_LIST}} ${target_file})
+    copy_single_file_helper(${_TARGET_LIST} ${src} ${destDir} 1)
     install(FILES ${target_file} DESTINATION ${INSTALL_FILES_BASE}${destDir})
-endmacro(copy_single_file_755)
+endmacro()
 
 macro(CREATE_MODULE _SRCS _SOURCE _TARGET)
     include_directories(${_TARGET})

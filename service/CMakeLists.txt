@@ -104,7 +104,7 @@ if(WIN32)
     add_definitions(-D_WIN32_DCOM)
 endif(WIN32)
 
-add_definitions(${NSCP_GLOBAL_DEFINES} -Dplugin_api_NOLIB)
+add_definitions(${NSCP_GLOBAL_DEFINES} -Dnscp_plugin_api_NOLIB)
 
 # Add python
 if(WIN32)

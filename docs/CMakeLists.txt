@@ -52,10 +52,12 @@ if(MKDOCS_FOUND)
     add_dependencies(build_docs_html generate_doc_sources)
 
     set_target_properties(build_docs_html PROPERTIES FOLDER "docs")
-    install(
-        DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/html/"
-        DESTINATION "${INSTALL_FILES_BASE}web/help"
-    )
+    if(WIN32)
+        install(
+            DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/html/"
+            DESTINATION "${INSTALL_FILES_BASE}web/help"
+        )
+    endif()
 else(MKDOCS_FOUND)
     message(STATUS "mkdocs not found: No documentation will be built")
 endif(MKDOCS_FOUND)

@@ -141,8 +141,8 @@ if(USE_STATIC_RUNTIME)
     set(BUILD_SHARED_LIBS OFF)
     add_definitions(
         -Dnscp_protobuf_NOLIB
-        -Dplugin_api_NOLIB
-        -Dwhere_filter_NOLIB
+        -Dnscp_plugin_api_NOLIB
+        -Dnscp_where_filter_NOLIB
         -Djson_protobuf_NOLIB
         -Dlua_protobuf_NOLIB
         -Dlib_mongoose_NOLIB
@@ -905,7 +905,7 @@ set(NSCP_FILTER_HPP
     ${NSCP_INCLUDEDIR}/parsers/filter/cli_helper.hpp
     ${NSCP_INCLUDEDIR}/parsers/where.hpp
 )
-set(NSCP_FILTER_LIB where_filter perfconfig_parser)
+set(NSCP_FILTER_LIB nscp_where_filter perfconfig_parser)
 
 set(NSCP_CLIENT_CPP
     ${NSCP_INCLUDEDIR}/utf8.cpp
@@ -927,7 +927,7 @@ set(NSCP_DEF_PLUGIN_LIB
     ${PROTOBUF_LIBRARY}
     ${ICONV_LIBRARIES}
     nscp_protobuf
-    plugin_api
+    nscp_plugin_api
 )
 
 # ##############################################################################

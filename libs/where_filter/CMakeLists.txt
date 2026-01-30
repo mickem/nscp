@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-set(TARGET where_filter)
+set(TARGET nscp_where_filter)
 
 include_directories(${BOOST_INCLUDE_DIRS})
 link_directories(${BOOST_LIB_DIRS})
