@@ -8,9 +8,8 @@
 #include "../libs/settings_manager/settings_manager_impl.h"
 
 #ifdef WIN32
-#define WIN32_LEAN_AND_MEAN  // Exclude rarely-used stuff from Windows headers
 // clang-format off
-#include <Windows.h>
+#include <win/windows.hpp>
 #include <Shlobj.h>
 #include <shellapi.h>
 // clang-format on
@@ -18,13 +17,13 @@
 
 #include <boost/filesystem.hpp>
 
-nsclient::core::path_manager::path_manager(nsclient::logging::logger_instance log_instance_) : log_instance_(log_instance_) {}
+nsclient::core::path_manager::path_manager(const logging::log_client_accessor &log_instance_) : log_instance_(log_instance_) {}
 
 #ifdef WIN32
 boost::filesystem::path get_selfpath() {
   wchar_t buff[4096];
-  if (GetModuleFileName(NULL, buff, sizeof(buff) - 1)) {
-    boost::filesystem::path p = std::wstring(buff);
+  if (GetModuleFileName(nullptr, buff, sizeof(buff) - 1)) {
+    const boost::filesystem::path p = std::wstring(buff);
     return p.parent_path();
   }
   return boost::filesystem::initial_path();
@@ -42,7 +41,7 @@ boost::filesystem::path get_selfpath() {
 }
 #endif
 boost::filesystem::path nsclient::core::path_manager::getBasePath() {
-  boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  const boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!lock.owns_lock()) {
     LOG_ERROR_CORE("FATAL ERROR: Could not get mutex.");
     return boost::filesystem::path("/");
@@ -65,20 +64,20 @@ boost::filesystem::path nsclient::core::path_manager::getBasePath() {
 typedef DWORD(WINAPI *PFGetTempPath)(__in DWORD nBufferLength, __out LPTSTR lpBuffer);
 #endif
 boost::filesystem::path nsclient::core::path_manager::getTempPath() {
-  boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  const boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!lock.owns_lock()) {
     LOG_ERROR_CORE("FATAL ERROR: Could not get mutex.");
     return "";
   }
   if (!tempPath.empty()) return tempPath;
 #ifdef WIN32
-  unsigned int buf_len = 4096;
   HMODULE hKernel = ::LoadLibrary(L"kernel32");
   if (hKernel) {
     // Find PSAPI functions
-    PFGetTempPath FGetTempPath = (PFGetTempPath)::GetProcAddress(hKernel, "GetTempPathW");
+    auto FGetTempPath = reinterpret_cast<PFGetTempPath>(::GetProcAddress(hKernel, "GetTempPathW"));
     if (FGetTempPath) {
-      wchar_t *buffer = new wchar_t[buf_len + 1];
+      constexpr unsigned int buf_len = 4096;
+      auto *buffer = new wchar_t[buf_len + 1];
       if (FGetTempPath(buf_len, buffer)) {
         tempPath = buffer;
       }
@@ -90,17 +89,30 @@ boost::filesystem::path nsclient::core::path_manager::getTempPath() {
 #endif
   return tempPath;
 }
+std::string nsclient::core::path_manager::get_app_data_path() {
+#ifdef WIN32
+  wchar_t buf[MAX_PATH + 1];
+  if (SHGetSpecialFolderPath(nullptr, buf, CSIDL_APPDATA, FALSE)) {
+    return utf8::cvt<std::string>(buf) + "\\nsclient";
+  }
+  return getBasePath().string();
+#else
+  return "/var/lib/nsclient";
+#endif
+}
 
-std::string nsclient::core::path_manager::getFolder(std::string key) {
+std::string nsclient::core::path_manager::getFolder(const std::string &key) {
   {
-    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    const boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (lock.owns_lock()) {
-      paths_type::const_iterator p = paths_cache_.find(key);
-      if (p != paths_cache_.end()) return p->second;
+      const auto p = paths_cache_.find(key);
+      if (p != paths_cache_.end()) {
+        return p->second;
+      }
     }
   }
 
-  boost::filesystem::path base_path = getBasePath();
+  const auto base_path = getBasePath();
   std::string default_value = base_path.string();
   if (key == "certificate-path") {
     default_value = CERT_FOLDER;
@@ -121,31 +133,25 @@ std::string nsclient::core::path_manager::getFolder(std::string key) {
   } else if (key == "temp") {
     default_value = getTempPath().string();
   } else if (key == "shared-path") {
-#ifndef WIN32
+#ifdef WIN32
+    // Use default;
+#else
     default_value = UNIX_SHARED_PATH_FOLDER;
 #endif
   } else if (key == "base-path" || key == "exe-path") {
     // Use default;
   } else if (key == "data-path") {
-#ifdef WIN32
-    wchar_t buf[MAX_PATH + 1];
-    if (SHGetSpecialFolderPath(NULL, buf, CSIDL_APPDATA, FALSE))
-      default_value = utf8::cvt<std::string>(buf) + "\\nsclient";
-    else
-      default_value = getBasePath().string();
-#else
-    default_value = "/var/lib/nsclient";
-#endif
+    default_value = get_app_data_path();
 #ifdef WIN32
   } else if (key == "common-appdata") {
     wchar_t buf[MAX_PATH + 1];
-    if (SHGetSpecialFolderPath(NULL, buf, CSIDL_COMMON_APPDATA, FALSE))
+    if (SHGetSpecialFolderPath(nullptr, buf, CSIDL_COMMON_APPDATA, FALSE))
       default_value = utf8::cvt<std::string>(buf);
     else
       default_value = getBasePath().string();
   } else if (key == "appdata") {
     wchar_t buf[MAX_PATH + 1];
-    if (SHGetSpecialFolderPath(NULL, buf, CSIDL_APPDATA, FALSE))
+    if (SHGetSpecialFolderPath(nullptr, buf, CSIDL_APPDATA, FALSE))
       default_value = utf8::cvt<std::string>(buf);
     else
       default_value = getBasePath().string();

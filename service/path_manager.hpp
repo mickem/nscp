@@ -11,24 +11,24 @@ namespace nsclient {
 namespace core {
 
 class path_manager {
- private:
   typedef std::map<std::string, std::string> paths_type;
 
-  nsclient::logging::logger_instance log_instance_;
+  logging::log_client_accessor log_instance_;
   boost::timed_mutex mutex_;
   boost::filesystem::path basePath;
   boost::filesystem::path tempPath;
   paths_type paths_cache_;
 
  public:
-  path_manager(nsclient::logging::logger_instance log_instance_);
-  std::string getFolder(std::string key);
+  path_manager(const logging::log_client_accessor& log_instance_);
+  std::string getFolder(const std::string& key);
   std::string expand_path(std::string file);
 
  private:
+  std::string get_app_data_path();
   boost::filesystem::path getBasePath();
   boost::filesystem::path getTempPath();
-  nsclient::logging::logger_instance get_logger() { return log_instance_; }
+  logging::log_client_accessor get_logger() { return log_instance_; }
 };
 typedef boost::shared_ptr<path_manager> path_instance;
 }  // namespace core
