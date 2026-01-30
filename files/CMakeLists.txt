@@ -6,8 +6,7 @@ copy_single_file(ALL_FILES license.txt .)
 copy_single_file(ALL_FILES nrpe_dh_512.pem security)
 copy_single_file(ALL_FILES nrpe_dh_2048.pem security)
 copy_single_file(ALL_FILES old-settings.map .)
-copy_single_file(ALL_FILES nsclient.dist .)
-copy_single_file(ALL_FILES ../changelog .)
+copy_single_test_file(ALL_FILES nsclient.dist .)
 
 if(NOT WIN32)
     configure_file(

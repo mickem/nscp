@@ -11,6 +11,8 @@ on:
 jobs:
   get-version:
     uses: ./.github/workflows/get-version.yml
+  create-test-bundle:
+    uses: ./.github/workflows/create-test-bundle.yml
   build-client-x64:
     needs: get-version
     uses: ./.github/workflows/build-rust.yml
@@ -23,7 +25,7 @@ jobs:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   build-server-x64:
-    needs: [get-version, build-client-x64]
+    needs: [get-version, build-client-x64, create-test-bundle]
     uses: ./.github/workflows/build-windows.yml
     with: 
       architecture: x64
@@ -44,7 +46,7 @@ jobs:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   build-server-x86:
-    needs: [get-version, build-client-x86]
+    needs: [get-version, build-client-x86, create-test-bundle]
     uses: ./.github/workflows/build-windows.yml
     with:
       architecture: x86
@@ -75,7 +77,7 @@ jobs:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   build-ubuntu-x64:
-    needs: [get-version, build-client-ubuntu-x64]
+    needs: [get-version, build-client-ubuntu-x64, create-test-bundle]
     uses: ./.github/workflows/build-linux.yml
     with:
       architecture: x64

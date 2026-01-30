@@ -316,6 +316,13 @@ jobs:
         run: |
           7z x NSCP-${{ inputs.version }}-${{ needs.build.outputs.platform }}-legacy-xp.zip
 
+      - name: Copy test scripts
+        working-directory: tmp/nscp
+        shell: bash
+        run: |
+          cp -r ../../scripts/* scripts
+          find scripts
+
       - name: Acceptance tests
         working-directory: tmp/nscp
         run: |

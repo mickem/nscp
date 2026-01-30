@@ -1,0 +1,33 @@
+name: Create archive with test scripts
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs: {}
+
+jobs:
+  build:
+    name: Create a zipfile with test scripts
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Create test bundle
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          find scripts -type f -name 'test_*' -print > artifacts/filelist.txt
+          if [ ! -s artifacts/filelist.txt ]; then
+            echo "No test_ files found under scripts" >&2
+            exit 1
+          fi
+          zip -@ artifacts/test-scripts.zip < artifacts/filelist.txt
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-scripts
+          path: artifacts/test-scripts.zip
