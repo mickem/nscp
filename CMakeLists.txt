@@ -121,15 +121,15 @@ if(WIN32)
     # Target windows version
     if(USE_STATIC_RUNTIME)
         add_definitions(
-                -DWINVER=0x0501
-                -D_WIN32_WINNT=0x0501
-                -DBOOST_USE_WINAPI_VERSION=0x501
+            -DWINVER=0x0501
+            -D_WIN32_WINNT=0x0501
+            -DBOOST_USE_WINAPI_VERSION=0x501
         )
     else()
         add_definitions(
-                -DWINVER=0x0601
-                -D_WIN32_WINNT=0x0601
-                -DBOOST_USE_WINAPI_VERSION=0x601
+            -DWINVER=0x0601
+            -D_WIN32_WINNT=0x0601
+            -DBOOST_USE_WINAPI_VERSION=0x601
         )
     endif()
 endif()
@@ -177,7 +177,6 @@ else(USE_STATIC_RUNTIME)
     set(CRYPTOPP_RUNTIME_TYPE "SHARED")
     set(BUILD_STATIC_LIBS OFF)
 endif(USE_STATIC_RUNTIME)
-
 
 include(${BUILD_CMAKE_FOLDER}/SetMultiThread.cmake)
 include(${BUILD_CMAKE_FOLDER}/GoogleProtoBuf.cmake)
@@ -231,24 +230,24 @@ else(NOT HAVE_REQUIRED_DEPENDENCIES)
 endif(NOT HAVE_REQUIRED_DEPENDENCIES)
 
 if(WIN32)
-install(
-    FILES
-        ${PROJECT_BINARY_DIR}/python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.zip
-    DESTINATION .
-)
-# Copy python binaries
-string(REPLACE ".lib" ".dll" PY_LIB_RELEASE_DLL ${Python3_LIBRARIES})
-get_filename_component(_NAME "${PY_LIB_RELEASE_DLL}" NAME)
-message(
-    STATUS
-    "Assuming python lib is in: ${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME}"
-)
+    install(
+        FILES
+            ${PROJECT_BINARY_DIR}/python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.zip
+        DESTINATION .
+    )
+    # Copy python binaries
+    string(REPLACE ".lib" ".dll" PY_LIB_RELEASE_DLL ${Python3_LIBRARIES})
+    get_filename_component(_NAME "${PY_LIB_RELEASE_DLL}" NAME)
+    message(
+        STATUS
+        "Assuming python lib is in: ${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME}"
+    )
 
-message(STATUS "Copying redist libraries to target")
-message(STATUS " + ${_NAME}")
+    message(STATUS "Copying redist libraries to target")
+    message(STATUS " + ${_NAME}")
 
-copy_file(${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME} ${PROJECT_BINARY_DIR})
-install(FILES "${PROJECT_BINARY_DIR}/${_NAME}" DESTINATION .)
+    copy_file(${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME} ${PROJECT_BINARY_DIR})
+    install(FILES "${PROJECT_BINARY_DIR}/${_NAME}" DESTINATION .)
 endif()
 
 if(NOT CHECK_NSCLIENT_MISSING)
@@ -257,8 +256,11 @@ if(NOT CHECK_NSCLIENT_MISSING)
     else()
         set(CHECK_NSCLIENT_FILENAME "check_nsclient")
     endif()
-copy_file(${CHECK_NSCLIENT_LOCATION}/${CHECK_NSCLIENT_FILENAME} ${PROJECT_BINARY_DIR})
-install(FILES "${CHECK_NSCLIENT_LOCATION}/${CHECK_NSCLIENT_FILENAME}" DESTINATION .)
+    copy_file(${CHECK_NSCLIENT_LOCATION}/${CHECK_NSCLIENT_FILENAME} ${PROJECT_BINARY_DIR})
+    install(
+        FILES "${CHECK_NSCLIENT_LOCATION}/${CHECK_NSCLIENT_FILENAME}"
+        DESTINATION .
+    )
 endif()
 
 if(USE_STATIC_RUNTIME)
@@ -692,7 +694,11 @@ else()
         CACHE STRING
         "modules folder"
     )
-    set(UNIX_SHARED_PATH_FOLDER "/usr/lib/nsclient" CACHE STRING "Shared files on linux")
+    set(UNIX_SHARED_PATH_FOLDER
+        "/usr/lib/nsclient"
+        CACHE STRING
+        "Shared files on linux"
+    )
     set(CONFIG_WEB_FOLDER "\${shared-path}/web" CACHE STRING "web folder")
     set(CONFIG_SCRIPTS_FOLDER
         "\${shared-path}/scripts"
@@ -978,12 +984,12 @@ set(CPACK_PACKAGE_VERSION ${NSCP_FULL_VERSION})
 if(WIN32)
     set(CPACK_GENERATOR ZIP)
     set(CPACK_PACKAGE_FILE_NAME
-            "NSCP-${CPACK_PACKAGE_VERSION}-${VERSION_ARCH}${RELEASE_SUFFIX}"
+        "NSCP-${CPACK_PACKAGE_VERSION}-${VERSION_ARCH}${RELEASE_SUFFIX}"
     )
 else()
     set(CPACK_GENERATOR "ZIP;DEB;RPM")
     set(CPACK_PACKAGE_FILE_NAME
-            "NSCP-${CPACK_PACKAGE_VERSION}-${VERSION_ARCH}${RELEASE_SUFFIX}"
+        "NSCP-${CPACK_PACKAGE_VERSION}-${VERSION_ARCH}${RELEASE_SUFFIX}"
     )
     set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY TRUE)
 
@@ -1013,7 +1019,7 @@ else()
     set(CMAKE_INSTALL_PREFIX "usr")
 
     option(USE_SYSTEMD "Install systemd service files" ON)
-    option(USE_INITD   "Install legacy init.d scripts" OFF)
+    option(USE_INITD "Install legacy init.d scripts" OFF)
 
     if(USE_SYSTEMD)
         # Define where systemd units go (usually /lib/systemd/system or /usr/lib/...)
@@ -1023,13 +1029,14 @@ else()
     endif()
 
     if(USE_INITD)
-        install(PROGRAMS files/init.debian.sh
-                DESTINATION etc/init.d
-                RENAME nsclient
-                COMPONENT runtime)
+        install(
+            PROGRAMS files/init.debian.sh
+            DESTINATION etc/init.d
+            RENAME nsclient
+            COMPONENT runtime
+        )
     endif()
 endif()
-
 
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "NSClient++")
 set(CPACK_PACKAGE_VENDOR "MySolutions NORDIC")
@@ -1037,7 +1044,6 @@ set(CPACK_PACKAGE_CONTACT "Michael Medin <michael@medin.name>")
 # SET(CPACK_PACKAGE_DESCRIPTION_FILE
 # "${CMAKE_CURRENT_SOURCE_DIR}/docs/readme.txt") SET(CPACK_RESOURCE_FILE_LICENSE
 # "${CMAKE_CURRENT_SOURCE_DIR}/Copyright.txt")
-
 
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Monitoring Agent")
 set(CPACK_PACKAGE_NAME "nscp")

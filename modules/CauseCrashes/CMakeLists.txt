@@ -37,27 +37,24 @@ else()
 endif()
 if(MSVC11 OR MSVC12 OR MSVC13 OR MSVC14 OR APPLE)
     set_target_properties(
-            ${TARGET}
-            PROPERTIES
-            LIBRARY_OUTPUT_DIRECTORY ${BUILD_TARGET_ROOT_PATH}/${_FOLDER}
+        ${TARGET}
+        PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${BUILD_TARGET_ROOT_PATH}/${_FOLDER}
     )
     set_target_properties(
-            ${TARGET}
-            PROPERTIES
-            LIBRARY_OUTPUT_DIRECTORY_DEBUG
-            ${BUILD_TARGET_ROOT_PATH}/${_FOLDER}
+        ${TARGET}
+        PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY_DEBUG ${BUILD_TARGET_ROOT_PATH}/${_FOLDER}
     )
     set_target_properties(
-            ${TARGET}
-            PROPERTIES
+        ${TARGET}
+        PROPERTIES
             LIBRARY_OUTPUT_DIRECTORY_RELEASE
-            ${BUILD_TARGET_ROOT_PATH}/${_FOLDER}
+                ${BUILD_TARGET_ROOT_PATH}/${_FOLDER}
     )
     set_target_properties(
-            ${TARGET}
-            PROPERTIES
+        ${TARGET}
+        PROPERTIES
             LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO
-            ${BUILD_TARGET_ROOT_PATH}/${_FOLDER}
+                ${BUILD_TARGET_ROOT_PATH}/${_FOLDER}
     )
 endif()
-

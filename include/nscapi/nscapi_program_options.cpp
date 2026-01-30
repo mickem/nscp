@@ -53,8 +53,12 @@ po::options_description nscapi::program_options::create_desc(const std::string c
   add_help(desc);
   return desc;
 }
-po::options_description nscapi::program_options::create_desc(const PB::Commands::QueryRequestMessage::Request &request) { return create_desc(request.command()); }
-po::options_description nscapi::program_options::create_desc(const PB::Commands::ExecuteRequestMessage::Request &request) { return create_desc(request.command()); }
+po::options_description nscapi::program_options::create_desc(const PB::Commands::QueryRequestMessage::Request &request) {
+  return create_desc(request.command());
+}
+po::options_description nscapi::program_options::create_desc(const PB::Commands::ExecuteRequestMessage::Request &request) {
+  return create_desc(request.command());
+}
 
 void nscapi::program_options::format_paragraph(std::ostream &os, std::string par, std::size_t indent, std::size_t line_length) {
   bool extra_indent = false;  // true if we want to add a tab char
@@ -333,8 +337,8 @@ std::string nscapi::program_options::help_show_default(const po::options_descrip
   return ret.str();
 }
 
-void nscapi::program_options::add_standard_filter(po::options_description &desc, standard_filter_config &filter, std::string default_top_syntax, std::string top_keylist,
-                                std::string default_syntax, std::string keylist) {
+void nscapi::program_options::add_standard_filter(po::options_description &desc, standard_filter_config &filter, std::string default_top_syntax,
+                                                  std::string top_keylist, std::string default_syntax, std::string keylist) {
   // clang-format off
   desc.add_options()
     ("filter", po::value<std::string>(&filter.filter_string),
@@ -362,7 +366,6 @@ void nscapi::program_options::add_standard_filter(po::options_description &desc,
     ;
   // clang-format on
 }
-
 
 void nscapi::program_options::add_help(po::options_description &desc) {
   // clang-format off

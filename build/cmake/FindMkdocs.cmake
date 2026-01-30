@@ -1,7 +1,11 @@
 find_program(
     MKDOCS_EXECUTABLE
     NAMES mkdocs mkdocs.exe
-    HINTS $ENV{MKDOCS_DIR} ${MKDOCS_DIR} ${Python3_EXECUTABLE}../../scripts ${Python3_EXECUTABLE}/../
+    HINTS
+        $ENV{MKDOCS_DIR}
+        ${MKDOCS_DIR}
+        ${Python3_EXECUTABLE}../../scripts
+        ${Python3_EXECUTABLE}/../
     PATH_SUFFIXES bin
     DOC "Mkdocs documentation generator"
 )
