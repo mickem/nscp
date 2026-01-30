@@ -154,6 +154,7 @@ add_executable(
     plugin_manager.cpp
     plugin_manager_test.cpp
     path_manager.cpp
+    path_manager_test.cpp
     dll_plugin.cpp
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ../include/parsers/cron/cron_parser.hpp

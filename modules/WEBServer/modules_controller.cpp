@@ -299,6 +299,7 @@ void modules_controller::post_module(Mongoose::Request &request, boost::smatch &
       ofs << request.getData();
       ofs.close();
     } catch (const std::exception &e) {
+      NSC_LOG_ERROR("Failed to upload module: " + std::string(e.what()));
       response.setCodeBadRequest("Failed to upload module");
     }
 
