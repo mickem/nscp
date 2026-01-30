@@ -41,21 +41,21 @@ macro(copy_single_file_helper _TARGET_LIST src destDir CHMOD)
     endif(${destDir} STREQUAL ".")
     if(WIN32 OR ${CHMOD} EQUAL 0)
         add_custom_command(
-                OUTPUT ${target_file}
-                COMMAND ${CMAKE_COMMAND}
-                ARGS -E copy "${source_file}" "${target_file}"
-                COMMENT "Copying ${source_file} to ${target_file}"
-                DEPENDS ${source_file}
+            OUTPUT ${target_file}
+            COMMAND ${CMAKE_COMMAND}
+            ARGS -E copy "${source_file}" "${target_file}"
+            COMMENT "Copying ${source_file} to ${target_file}"
+            DEPENDS ${source_file}
         )
     else()
         add_custom_command(
-                OUTPUT ${target_file}
-                COMMAND ${CMAKE_COMMAND}
-                ARGS -E copy "${source_file}" "${target_file}"
-                COMMAND chmod
-                ARGS 755 "${target_file}"
-                COMMENT "Copying ${source_file} to ${target_file}"
-                DEPENDS ${source_file}
+            OUTPUT ${target_file}
+            COMMAND ${CMAKE_COMMAND}
+            ARGS -E copy "${source_file}" "${target_file}"
+            COMMAND chmod
+            ARGS 755 "${target_file}"
+            COMMENT "Copying ${source_file} to ${target_file}"
+            DEPENDS ${source_file}
         )
     endif()
     set(${_TARGET_LIST} ${${_TARGET_LIST}} ${target_file})

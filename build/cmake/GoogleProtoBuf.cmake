@@ -63,7 +63,10 @@ function(WRAP_PROTO VAR)
             --cpp_out=dllexport_decl=NSCAPI_PROTOBUF_EXPORT:${CMAKE_CURRENT_BINARY_DIR}
         )
         list(APPEND ARGS --python_out ${PROJECT_BINARY_DIR}/scripts/python/lib)
-        install(FILES ${PROJECT_BINARY_DIR}/scripts/python/lib/${FIL_WE}_pb2.py DESTINATION ${INSTALL_FILES_BASE}scripts/python/lib/)
+        install(
+            FILES ${PROJECT_BINARY_DIR}/scripts/python/lib/${FIL_WE}_pb2.py
+            DESTINATION ${INSTALL_FILES_BASE}scripts/python/lib/
+        )
         if(CSHARP_FOUND AND WIN32)
             list(
                 APPEND

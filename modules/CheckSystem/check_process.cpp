@@ -268,7 +268,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   boost::shared_ptr<process_helper::process_info> total_obj;
   if (total) total_obj = process_helper::process_info::get_total();
 
-  for (const std::string& proc : procs) {
+  for (const std::string &proc : procs) {
     boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(proc));
     modern_filter::match_result ret = filter.match(record);
     if (total_obj && ret.matched_filter) total_obj->operator+=(*record);

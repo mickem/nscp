@@ -19,19 +19,18 @@
 
 #pragma once
 
-#include <win/windows.hpp>
-
 #include <boost/shared_ptr.hpp>
 #include <list>
-#include <str/xtos.hpp>
 #include <str/format.hpp>
+#include <str/xtos.hpp>
 #include <string>
 #include <utility>
+#include <win/windows.hpp>
 
 #define DEFAULT_BUFFER_SIZE 4096
 
 namespace process_helper {
-template<class T>
+template <class T>
 struct int_var {
   T value;
   int_var() : value(0) {}
@@ -85,10 +84,14 @@ struct string_var {
   operator std::string() const { return value; }
 };
 
-#define STR_GETTER(name) std::string get_##name() const { return (name).get(); }
-#define INT_GETTER(name) long long get_##name() const { return (name).get(); }
-#define BOL_GETTER(name) bool get_##name() const { return (name).get(); }
-#define HUMAN_SIZE_GETTER(name) std::string get_##name##_human() const { return str::format::format_byte_units((name).get()); }
+#define STR_GETTER(name) \
+  std::string get_##name() const { return (name).get(); }
+#define INT_GETTER(name) \
+  long long get_##name() const { return (name).get(); }
+#define BOL_GETTER(name) \
+  bool get_##name() const { return (name).get(); }
+#define HUMAN_SIZE_GETTER(name) \
+  std::string get_##name##_human() const { return str::format::format_byte_units((name).get()); }
 
 struct process_info {
   string_var filename;
@@ -194,7 +197,7 @@ struct process_info {
   INT_GETTER(PeakPageFileUsage);
   HUMAN_SIZE_GETTER(PeakPageFileUsage);
 
-  void set_error(const std::string& msg) {
+  void set_error(const std::string &msg) {
     has_error = true;
     error = msg;
   }

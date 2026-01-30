@@ -262,7 +262,7 @@ key_type path_key(boost::filesystem::path *val) {
   key_type r(new typed_key(new path_storer(val), new lookup_path_processor()));
   return r;
 }
-key_type string_key(std::string *val, const std::string& def) {
+key_type string_key(std::string *val, const std::string &def) {
   key_type r(new typed_key(new string_storer(val), def));
   return r;
 }

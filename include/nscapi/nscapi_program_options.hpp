@@ -406,7 +406,7 @@ struct standard_filter_config {
 };
 
 void add_standard_filter(po::options_description &desc, standard_filter_config &filter, std::string default_top_syntax, std::string top_keylist,
-                                std::string default_syntax, std::string keylist);
+                         std::string default_syntax, std::string keylist);
 }  // namespace program_options
 }  // namespace nscapi
 #ifdef WIN32
