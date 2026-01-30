@@ -148,6 +148,14 @@ add_executable(
     various_test.cpp
     performance_data_test.cpp
     cron_test.cpp
+    master_plugin_list.cpp
+    zip_plugin.cpp
+    plugin_cache.cpp
+    plugin_manager.cpp
+    plugin_manager_test.cpp
+    path_manager.cpp
+    dll_plugin.cpp
+    ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ../include/parsers/cron/cron_parser.hpp
     ../include/nscapi/nscapi_protobuf_functions.cpp
     ../include/nscapi/nscapi_protobuf_functions.hpp
@@ -158,6 +166,10 @@ target_link_libraries(
     ${NSCP_DEF_PLUGIN_LIB}
     ${EXTRA_LIBS}
     ${Boost_DATE_TIME_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
     settings_manager
+    nscp_miniz
+    expression_parser
 )
 nscp_add_test(${TARGET}_test)

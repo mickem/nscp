@@ -97,6 +97,7 @@ struct logger : public log_interface {
   virtual void set_backend(std::string backend) = 0;
 };
 typedef boost::shared_ptr<logger> logger_instance;
+typedef boost::shared_ptr<log_interface> log_client_accessor;
 
 }
 }

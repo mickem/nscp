@@ -46,7 +46,7 @@ class commands : boost::noncopyable {
     std::string name;
   };
 
-  typedef boost::shared_ptr<nsclient::core::plugin_interface> plugin_type;
+  typedef boost::shared_ptr<core::plugin_interface> plugin_type;
   typedef std::map<unsigned long, plugin_type> plugin_list_type;
   typedef std::map<std::string, command_info> description_list_type;
   typedef std::map<std::string, plugin_type> command_list_type;
@@ -57,10 +57,10 @@ class commands : boost::noncopyable {
   command_list_type commands_;
   command_list_type aliases_;
   boost::shared_mutex mutex_;
-  nsclient::logging::logger_instance logger_;
+  logging::log_client_accessor logger_;
 
  public:
-  commands(nsclient::logging::logger_instance logger) : logger_(logger) {}
+  commands(logging::log_client_accessor logger) : logger_(logger) {}
 
   void add_plugin(plugin_type plugin) {
     if (!plugin || !plugin->hasCommandHandler()) {

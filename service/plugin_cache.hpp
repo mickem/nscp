@@ -44,13 +44,13 @@ class plugin_cache {
   typedef std::list<plugin_cache_item> plugin_cache_list_type;
 
  private:
-  nsclient::logging::logger_instance logger_;
+  logging::log_client_accessor logger_;
   plugin_cache_list_type plugin_cache_;
   boost::shared_mutex m_mutexRW;
   bool has_all_;
 
  public:
-  plugin_cache(nsclient::logging::logger_instance logger) : logger_(logger), has_all_(false) {}
+  plugin_cache(logging::log_client_accessor logger) : logger_(logger), has_all_(false) {}
   void add_plugins(const plugin_cache_list_type& item);
   plugin_cache_list_type get_list();
   bool has_all();
@@ -63,7 +63,7 @@ class plugin_cache {
   void remove_plugin(unsigned int plugin_id);
 
  private:
-  nsclient::logging::logger_instance get_logger() { return logger_; }
+  logging::log_client_accessor get_logger() { return logger_; }
 };
 }  // namespace core
 }  // namespace nsclient
