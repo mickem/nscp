@@ -49,9 +49,9 @@ struct simple_plugins_list : public boost::noncopyable {
   typedef std::list<plugin_type> simple_plugin_list_type;
   simple_plugin_list_type plugins_;
   boost::shared_mutex mutex_;
-  nsclient::logging::logger_instance logger_;
+  logging::log_client_accessor logger_;
 
-  simple_plugins_list(nsclient::logging::logger_instance logger) : logger_(logger) {}
+  simple_plugins_list(logging::log_client_accessor logger) : logger_(logger) {}
 
   bool has_valid_lock_log(boost::unique_lock<boost::shared_mutex> &lock, std::string key) {
     if (!lock.owns_lock()) {
@@ -139,9 +139,9 @@ template <class parent>
 struct plugins_list : boost::noncopyable, public parent {
   plugin_list_type plugins_;
   boost::shared_mutex mutex_;
-  nsclient::logging::logger_instance logger_;
+  logging::log_client_accessor logger_;
 
-  plugins_list(nsclient::logging::logger_instance logger) : parent(), logger_(logger) {}
+  plugins_list(logging::log_client_accessor logger) : parent(), logger_(logger) {}
 
   bool has_valid_lock_log(boost::unique_lock<boost::shared_mutex> &lock, std::string key) {
     if (!lock.owns_lock()) {
@@ -262,7 +262,7 @@ struct plugins_list_listeners_impl {
 struct plugins_list_with_listener : plugins_list<plugins_list_listeners_impl> {
   typedef plugins_list<plugins_list_listeners_impl> parent_type;
 
-  plugins_list_with_listener(nsclient::logging::logger_instance logger) : parent_type(logger) {}
+  plugins_list_with_listener(logging::log_client_accessor logger) : parent_type(logger) {}
 
   void register_listener(unsigned long plugin_id, const std::string &channel) {
     boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));

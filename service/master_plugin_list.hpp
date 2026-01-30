@@ -28,17 +28,17 @@ namespace nsclient {
 namespace core {
 class master_plugin_list {
  public:
-  typedef boost::shared_ptr<nsclient::core::plugin_interface> plugin_type;
+  typedef boost::shared_ptr<plugin_interface> plugin_type;
 
  private:
   typedef std::vector<plugin_type> pluginList;
   pluginList plugins_;
   boost::shared_mutex m_mutexRW;
   unsigned int next_plugin_id_;
-  nsclient::logging::logger_instance log_instance_;
+  logging::log_client_accessor log_instance_;
 
  public:
-  master_plugin_list(nsclient::logging::logger_instance log_instance);
+  master_plugin_list(logging::log_client_accessor log_instance);
   virtual ~master_plugin_list();
 
   void append_plugin(plugin_type plugin);
@@ -56,7 +56,7 @@ class master_plugin_list {
   unsigned int get_next_id() { return next_plugin_id_++; }
 
  private:
-  nsclient::logging::logger_instance get_logger() { return log_instance_; }
+  logging::log_client_accessor get_logger() { return log_instance_; }
 };
 }  // namespace core
 }  // namespace nsclient

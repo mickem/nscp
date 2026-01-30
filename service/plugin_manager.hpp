@@ -67,10 +67,10 @@ class core_exception : public std::exception {
   std::string what_;
 
  public:
-  core_exception(std::string error) throw() : what_(error.c_str()) {}
-  virtual ~core_exception() throw() {};
+  explicit core_exception(const std::string &error) throw() : what_(error.c_str()) {}
+  ~core_exception() throw() override {};
 
-  virtual const char *what() const throw() { return what_.c_str(); }
+  const char *what() const throw() override { return what_.c_str(); }
 };
 
 class plugin_manager : public boost::enable_shared_from_this<plugin_manager> {
@@ -80,24 +80,24 @@ class plugin_manager : public boost::enable_shared_from_this<plugin_manager> {
  private:
   boost::filesystem::path plugin_path_;
 
-  nsclient::core::path_instance path_;
-  nsclient::logging::logger_instance log_instance_;
-  nsclient::core::master_plugin_list plugin_list_;
-  nsclient::commands commands_;
-  nsclient::channels channels_;
-  nsclient::simple_plugins_list metrics_fetchers_;
-  nsclient::simple_plugins_list metrics_submitetrs_;
-  nsclient::core::plugin_cache plugin_cache_;
-  nsclient::event_subscribers event_subscribers_;
+  path_instance path_;
+  logging::logger_instance log_instance_;
+  master_plugin_list plugin_list_;
+  commands commands_;
+  channels channels_;
+  simple_plugins_list metrics_fetchers_;
+  simple_plugins_list metrics_submitters_;
+  plugin_cache plugin_cache_;
+  event_subscribers event_subscribers_;
 
  public:
-  plugin_manager(nsclient::core::path_instance path_, nsclient::logging::logger_instance log_instance);
+  plugin_manager(path_instance path_, logging::logger_instance log_instance);
   virtual ~plugin_manager();
 
-  nsclient::core::plugin_cache *get_plugin_cache() { return &plugin_cache_; }
-  nsclient::commands *get_commands() { return &commands_; }
-  nsclient::channels *get_channels() { return &channels_; }
-  nsclient::event_subscribers *get_event_subscribers() { return &event_subscribers_; }
+  plugin_cache *get_plugin_cache() { return &plugin_cache_; }
+  commands *get_commands() { return &commands_; }
+  channels *get_channels() { return &channels_; }
+  event_subscribers *get_event_subscribers() { return &event_subscribers_; }
 
   void set_path(boost::filesystem::path path);
 
@@ -136,14 +136,14 @@ class plugin_manager : public boost::enable_shared_from_this<plugin_manager> {
   typedef std::multimap<std::string, std::string> plugin_alias_list_type;
 
   boost::optional<boost::filesystem::path> find_file(const std::string &file_name);
-  bool contains_plugin(nsclient::core::plugin_manager::plugin_alias_list_type &ret, std::string alias, std::string plugin);
+  bool contains_plugin(plugin_alias_list_type &ret, std::string alias, std::string plugin);
   std::string get_plugin_module_name(unsigned int plugin_id);
 
   plugin_type add_plugin(const std::string &file_name, const std::string &alias);
 
   plugin_alias_list_type find_all_plugins();
   plugin_alias_list_type find_all_active_plugins();
-  nsclient::logging::logger_instance get_logger() { return log_instance_; }
+  logging::logger_instance get_logger() { return log_instance_; }
   struct plugin_status {
     std::string alias;
     std::string plugin;

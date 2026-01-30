@@ -21,7 +21,7 @@
 
 #include <str/xtos.hpp>
 
-nsclient::core::master_plugin_list::master_plugin_list(nsclient::logging::logger_instance log_instance) : next_plugin_id_(0), log_instance_(log_instance) {}
+nsclient::core::master_plugin_list::master_plugin_list(nsclient::logging::log_client_accessor log_instance) : next_plugin_id_(0), log_instance_(log_instance) {}
 
 nsclient::core::master_plugin_list::~master_plugin_list() {}
 
