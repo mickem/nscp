@@ -108,6 +108,21 @@ jobs:
         mv tmp/nscp/NSCP-${{ inputs.version }}-amd64.rpm NSCP-${{ inputs.version }}-amd64.rpm
       shell: bash
 
+    - name: Test DEB package installation (Ubuntu)
+      run: |
+        docker run --rm -v ${{ github.workspace }}:/workspace ubuntu:latest bash -c "
+          apt-get update && \
+          apt-get install -y /workspace/NSCP-${{ inputs.version }}-amd64.deb && \
+          nscp settings --load-all --list --add-defaults
+        "
+
+    - name: Test RPM package installation (Rocky Linux)
+      run: |
+        docker run --rm -v ${{ github.workspace }}:/workspace rockylinux:9 bash -c "
+          dnf install -y /workspace/NSCP-${{ inputs.version }}-amd64.rpm && \
+          nscp settings --load-all --list --add-defaults
+        "
+
     - uses: actions/upload-artifact@v6
       with:
         name: NSCP-${{ inputs.version }}-ubuntu-x64
