@@ -25,7 +25,7 @@
 
 settings::settings_core *nsclient_core::settings_client::get_core() const { return settings_manager::get_core(); }
 
-nsclient_core::settings_client::settings_client(NSClient *core, bool update_defaults, bool remove_defaults, bool load_all, bool use_samples)
+ nsclient_core::settings_client::settings_client(std::shared_ptr<NSClient> core, bool update_defaults, bool remove_defaults, bool load_all, bool use_samples)
     : started_(false), core_(core), default_(update_defaults), remove_default_(remove_defaults), load_all_(load_all), use_samples_(use_samples) {
   startup();
 }

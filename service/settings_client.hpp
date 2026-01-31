@@ -26,7 +26,7 @@
 namespace nsclient_core {
 class settings_client {
   bool started_;
-  NSClient* core_;
+  std::shared_ptr<NSClient> core_;
   bool default_;
   bool remove_default_;
   bool load_all_;
@@ -35,7 +35,7 @@ class settings_client {
   settings::settings_core* get_core() const;
 
  public:
-  settings_client(NSClient* core, bool update_defaults, bool remove_defaults, bool load_all, bool use_samples);
+  settings_client(std::shared_ptr<NSClient> core, bool update_defaults, bool remove_defaults, bool load_all, bool use_samples);
 
   ~settings_client();
 

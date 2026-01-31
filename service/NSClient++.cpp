@@ -41,7 +41,7 @@ com_helper::initialize_com com_helper_;
 #include <breakpad/exception_handler_win32.hpp>
 #endif
 
-NSClient *mainClient = NULL;  // Global core instance.
+std::shared_ptr<NSClient> mainClient;  // Global core instance.
 
 /**
  * Application startup point
@@ -73,12 +73,19 @@ int main(int argc, char *argv[]) { return nscp_main(argc, argv); }
 #endif
 
 int nscp_main(int argc, char *argv[]) {
-  mainClient = new NSClient();
-  srand((unsigned)time(NULL));
-  cli_parser parser(mainClient);
-  int exit = parser.parse(argc, argv);
-  delete mainClient;
-  return exit;
+  try {
+    mainClient.reset(new NSClient());
+    srand(static_cast<unsigned>(time(nullptr)));
+    cli_parser parser(mainClient);
+    const int exit = parser.parse(argc, argv);
+    return exit;
+  } catch (const std::exception &e) {
+    std::cerr << "Exception raised: " << e.what() << std::endl;
+    return 1;
+  } catch (...) {
+    std::cerr << "Unknown exception raised" << std::endl;
+    return 1;
+  }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -224,8 +231,13 @@ bool NSClientT::load_configuration_2(const bool override_log) {
 
   boost::filesystem::path pluginPath = path_->expand_path("${module-path}");
   if (!boost::filesystem::is_directory(pluginPath)) {
-    LOG_ERROR_CORE("Failed to find modules folder: " + pluginPath.string());
-    return false;
+    const auto tmpPluginPath = path_->expand_path("${exe-path}/modules");
+    if (boost::filesystem::is_directory(tmpPluginPath)) {
+      pluginPath = tmpPluginPath;
+    } else {
+      LOG_ERROR_CORE("Failed to find modules folder: " + pluginPath.string());
+      return false;
+    }
   }
   plugins_->set_path(pluginPath);
 
@@ -409,7 +421,7 @@ NSCAPI::errorReturn NSClientT::reload(const std::string module) {
 }
 
 // Service API
-NSClient *NSClientT::get_global_instance() { return mainClient; }
+NSClient *NSClientT::get_global_instance() { return mainClient.get(); }
 void NSClientT::handle_startup(std::string service_name) {
   LOG_DEBUG_CORE("Starting: " + service_name);
   service_name_ = service_name;
