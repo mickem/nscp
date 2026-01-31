@@ -97,6 +97,8 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.hpp
         ${NSCP_INCLUDEDIR}/pid_file.hpp
         ${NSCP_INCLUDEDIR}/has-threads.hpp
+        ${NSCP_INCLUDEDIR}/win/shellapi.cpp
+        ${NSCP_INCLUDEDIR}/win/shellapi.hpp
     )
     # SET(service_SRCS ${service_SRCS}
     # ${CMAKE_CURRENT_SOURCE_DIR}/NSClient++.manifest )
@@ -160,6 +162,7 @@ add_executable(
     ../include/parsers/cron/cron_parser.hpp
     ../include/nscapi/nscapi_protobuf_functions.cpp
     ../include/nscapi/nscapi_protobuf_functions.hpp
+    ${NSCP_INCLUDEDIR}/win/shellapi.cpp
 )
 target_link_libraries(
     ${TARGET}_test

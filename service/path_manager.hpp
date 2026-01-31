@@ -20,12 +20,13 @@ class path_manager {
   paths_type paths_cache_;
 
  public:
-  path_manager(const logging::log_client_accessor& log_instance_);
+  explicit path_manager(const logging::log_client_accessor& log_instance_);
   std::string getFolder(const std::string& key);
   std::string expand_path(std::string file);
 
  private:
-  std::string get_app_data_path();
+  std::string get_path_for_key(const std::string& key);
+  boost::filesystem::path get_app_data_path();
   boost::filesystem::path getBasePath();
   boost::filesystem::path getTempPath();
   logging::log_client_accessor get_logger() { return log_instance_; }

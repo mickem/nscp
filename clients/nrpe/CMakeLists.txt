@@ -45,6 +45,8 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
         ${NSCP_INCLUDEDIR}/utils.h
         ${NSCP_CLIENT_HPP}
+        ${NSCP_INCLUDEDIR}/win/shellapi.cpp
+        ${NSCP_INCLUDEDIR}/win/shellapi.hpp
     )
 endif(WIN32)
 
