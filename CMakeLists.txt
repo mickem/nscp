@@ -674,21 +674,15 @@ if(WIN32)
 else()
     set(INSTALL_FILES_BASE "share/nsclient/")
 
-    set(CONFIG_BOOT_CONF_LOCATION
-        "/etc/nsclient/boot.ini"
-        CACHE STRING
-        "Location of boot ini (the file which specified where to load the config)"
-    )
+    set(CONFIG_DEFAULT_CONFIG_FOLDER "/etc/nsclient" CACHE STRING "Base location for ini files")
+
+    set(CONFIG_BOOT_CONF_LOCATION "${CONFIG_DEFAULT_CONFIG_FOLDER}/boot.ini")
     set(CONFIG_DEFAULT_CONF_LOCATION
         "ini"
         CACHE STRING
         "Default configuration store"
     )
-    set(CONFIG_DEFAULT_CONF_INI_BASE
-        "ini:///etc/nsclient/"
-        CACHE STRING
-        "Base location for ini files"
-    )
+    set(CONFIG_DEFAULT_CONF_INI_BASE "ini://${CONFIG_DEFAULT_CONFIG_FOLDER}")
     set(CONFIG_MODULE_FOLDER
         "\${shared-path}/modules"
         CACHE STRING
@@ -1027,21 +1021,21 @@ else()
     option(USE_SYSTEMD "Install systemd service files" ON)
     option(USE_INITD "Install legacy init.d scripts" OFF)
 
-    if(USE_SYSTEMD)
-        # Define where systemd units go (usually /lib/systemd/system or /usr/lib/...)
-        set(SYSTEMD_UNIT_DIR "lib/systemd/system")
-        # TODO: Add service desc here
-        #install(FILES myapp.service DESTINATION ${SYSTEMD_UNIT_DIR} COMPONENT runtime)
-    endif()
+    set(CPACK_PACKAGING_INSTALL_PREFIX "/") # Critical for absolute paths like /etc
 
-    if(USE_INITD)
-        install(
-            PROGRAMS files/init.debian.sh
-            DESTINATION etc/init.d
-            RENAME nsclient
-            COMPONENT runtime
-        )
-    endif()
+    set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
+            "${CMAKE_CURRENT_SOURCE_DIR}/files/deb/postinst;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/prerm;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/conffiles")
+    set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/files/rpm/postinstall.sh")
+    set(CPACK_RPM_PRE_UNINSTALL_SCRIPT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/files/rpm/preuninstall.sh")
+
+    set(CPACK_RPM_PACKAGE_CONFIG_FILES "/etc/nsclient/boot.ini")
+    set(CPACK_RPM_PACKAGE_CONFIG_FILES "/etc/nsclient/nsclient.ini")
+
+    # Ensure empty directories are included in the RPM
+    set(CPACK_RPM_USER_FILELIST
+            "%dir /var/log/nsclient"
+    )
+
 endif()
 
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "NSClient++")

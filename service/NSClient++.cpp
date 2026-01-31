@@ -233,6 +233,7 @@ bool NSClientT::load_configuration_2(const bool override_log) {
   if (!boost::filesystem::is_directory(pluginPath)) {
     const auto tmpPluginPath = path_->expand_path("${exe-path}/modules");
     if (boost::filesystem::is_directory(tmpPluginPath)) {
+      LOG_WARN_CORE("Modules folder " + pluginPath.string() + " not found using " + tmpPluginPath + " instead.");
       pluginPath = tmpPluginPath;
     } else {
       LOG_ERROR_CORE("Failed to find modules folder: " + pluginPath.string());

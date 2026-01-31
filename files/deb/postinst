@@ -1,22 +1,24 @@
-#!/bin/bash
+#!/bin/sh
+set -e
 
-if ! grep -q nsclient /etc/passwd; then
-	adduser --system --no-create-home nsclient
-	addgroup --system nsclient
-	adduser nsclient nsclient
+
+if [ "$1" = "configure" ]; then
+
+  if ! grep -q nsclient /etc/passwd; then
+  	adduser --system --no-create-home nsclient
+  	addgroup --system nsclient
+  	adduser nsclient nsclient
+  fi
+
+    # Create log folder if it doesn't exist (redundancy check)
+    mkdir -p /var/log/nsclient
+
+    # Reload systemd to recognize the new service
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl daemon-reload
+
+        # Enable and start the service (optional, policy dependent)
+        systemctl enable nsclient
+        systemctl start nsclient
+    fi
 fi
-
-
-# create logdir -- note: this should agree with logpath in nsclient.ini
-mkdir -p /var/log/nsclient
-chown -R nsclient:nsclient /var/log/nsclient
-
-mkdir -p /var/log/nsclient
-chown -R nsclient:nsclient /var/log/nsclient
-
-chown -R nsclient:nsclient /usr/share/nsclient
-
-su nsclient -s /bin/bash -c "nscp nrpe make-cert"
-
-# load library path
-sudo ldconfig

@@ -17,49 +17,23 @@ if(NOT WIN32)
     install(
         FILES ${PROJECT_BINARY_DIR}/unix-nsclient.conf
         DESTINATION ${ETC_TARGET_FOLDER}/nsclient
+        COMPONENT configs
         RENAME nsclient.ini
     )
     file(MAKE_DIRECTORY ${LOG_TARGET_FOLDER})
-    install(DIRECTORY "nsclient" DESTINATION ${LOG_TARGET_FOLDER})
+    install(DIRECTORY "nsclient" DESTINATION ${LOG_TARGET_FOLDER}
+            DIRECTORY_PERMISSIONS
+            OWNER_WRITE OWNER_READ OWNER_EXECUTE
+            GROUP_READ GROUP_EXECUTE
+            WORLD_READ WORLD_EXECUTE
+            COMPONENT logs
+    )
 endif()
 if(SYSTEMD)
-    install(
-        FILES nsclient.service
-        DESTINATION ${SYSTEMD_TARGET_FOLDER}
-        PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
-    ) # 775
-elseif(INITD)
-    if(REDHAT_CLONE)
-        install(
-            FILES init.centos.sh
-            DESTINATION ${ETC_TARGET_FOLDER}/init.d
-            RENAME nsclient
-            PERMISSIONS
-                OWNER_READ
-                OWNER_WRITE
-                OWNER_EXECUTE
-                GROUP_READ
-                GROUP_EXECUTE
-                WORLD_READ
-                WORLD_EXECUTE
-        ) # 775
-    elseif(DEBIAN_CLONE)
-        install(
-            FILES init.debian.sh
-            DESTINATION ${ETC_TARGET_FOLDER}/init.d
-            RENAME nsclient
-            PERMISSIONS
-                OWNER_READ
-                OWNER_WRITE
-                OWNER_EXECUTE
-                GROUP_READ
-                GROUP_EXECUTE
-                WORLD_READ
-                WORLD_EXECUTE
-        ) # 775
-    else()
-        message(FATAL "Unknown distribution")
-    endif()
+    install(FILES nsclient.service
+            DESTINATION /lib/systemd/system
+            COMPONENT runtime
+    )
 endif()
 
 add_custom_target(copy_files ALL DEPENDS ${ALL_FILES})
