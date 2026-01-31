@@ -19,14 +19,16 @@
 
 #include "master_plugin_list.hpp"
 
+#include <boost/filesystem/path.hpp>
+#include <boost/thread/mutex.hpp>
 #include <str/xtos.hpp>
 
-nsclient::core::master_plugin_list::master_plugin_list(nsclient::logging::log_client_accessor log_instance) : next_plugin_id_(0), log_instance_(log_instance) {}
+nsclient::core::master_plugin_list::master_plugin_list(logging::log_client_accessor log_instance) : next_plugin_id_(0), log_instance_(log_instance) {}
 
 nsclient::core::master_plugin_list::~master_plugin_list() {}
 
 void nsclient::core::master_plugin_list::append_plugin(plugin_type plugin) {
-  boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
+  const boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
   if (!writeLock.owns_lock()) {
     LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
     return;
@@ -35,7 +37,7 @@ void nsclient::core::master_plugin_list::append_plugin(plugin_type plugin) {
 }
 
 void nsclient::core::master_plugin_list::remove(std::size_t id) {
-  boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
+  const boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!writeLock.owns_lock()) {
     LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
     return;
@@ -50,7 +52,7 @@ void nsclient::core::master_plugin_list::remove(std::size_t id) {
 }
 
 void nsclient::core::master_plugin_list::clear() {
-  boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
+  const boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!writeLock.owns_lock()) {
     LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
     return;
@@ -60,7 +62,7 @@ void nsclient::core::master_plugin_list::clear() {
 
 std::list<nsclient::core::master_plugin_list::plugin_type> nsclient::core::master_plugin_list::get_plugins() {
   std::list<plugin_type> ret;
-  boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+  const boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
   if (!readLock.owns_lock()) {
     LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
     return ret;
@@ -75,7 +77,7 @@ nsclient::core::master_plugin_list::plugin_type nsclient::core::master_plugin_li
   if (module.empty()) {
     return plugin_type();
   }
-  boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
+  const boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!readLock.owns_lock()) {
     LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
     return plugin_type();
@@ -92,7 +94,7 @@ nsclient::core::master_plugin_list::plugin_type nsclient::core::master_plugin_li
   if (alias.empty()) {
     return plugin_type();
   }
-  boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
+  const boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!readLock.owns_lock()) {
     LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
     return plugin_type();
@@ -106,7 +108,7 @@ nsclient::core::master_plugin_list::plugin_type nsclient::core::master_plugin_li
 }
 
 nsclient::core::master_plugin_list::plugin_type nsclient::core::master_plugin_list::find_by_id(const unsigned int plugin_id) {
-  boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+  const boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
   if (!readLock.owns_lock()) {
     LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
     return plugin_type();
@@ -117,26 +119,8 @@ nsclient::core::master_plugin_list::plugin_type nsclient::core::master_plugin_li
   return plugin_type();
 }
 
-// nsclient::core::master_plugin_list::plugin_type nsclient::core::master_plugin_list::find_plugin(const std::string key_ic) {
-// 	std::string key = boost::to_lower_copy(key_ic);
-// 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
-// 	if (!readLock.owns_lock()) {
-// 		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
-// 		return plugin_type();
-// 	}
-// 	for(plugin_type plugin: plugins_) {
-// 		std::string s = boost::to_lower_copy(plugin->get_alias());
-// 		if (s == key)
-// 			return plugin;
-// 		s = boost::to_lower_copy(plugin->getModule());
-// 		if (s == key)
-// 			return plugin;
-// 	}
-// 	return plugin_type();
-// }
-
 nsclient::core::master_plugin_list::plugin_type nsclient::core::master_plugin_list::find_duplicate(boost::filesystem::path file, std::string alias) {
-  boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
+  const boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
   if (!writeLock.owns_lock()) {
     LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
     return plugin_type();

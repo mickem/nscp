@@ -21,8 +21,8 @@
 
 #include <str/xtos.hpp>
 
+#include "../core_api.h"
 #include "NSCAPI.h"
-#include "core_api.h"
 
 /**
  * Default c-tor
@@ -38,26 +38,26 @@ nsclient::core::dll_plugin::dll_plugin(const unsigned int id, const boost::files
       loading_(false),
       broken_(false),
       started_(false),
-      fModuleHelperInit(NULL),
-      fLoadModule(NULL),
-      fStartModule(NULL),
-      fGetName(NULL),
-      fGetVersion(NULL),
-      fGetDescription(NULL),
-      fHasCommandHandler(NULL),
-      fHasMessageHandler(NULL),
-      fHandleCommand(NULL),
-      fHandleMessage(NULL),
-      fDeleteBuffer(NULL),
-      fUnLoadModule(NULL),
-      fCommandLineExec(NULL),
-      fHasNotificationHandler(NULL),
-      fHandleNotification(NULL),
-      fHasRoutingHandler(NULL),
-      fRouteMessage(NULL),
-      fFetchMetrics(NULL),
-      fSubmitMetrics(NULL),
-      fOnEvent(NULL) {
+      fModuleHelperInit(nullptr),
+      fLoadModule(nullptr),
+      fStartModule(nullptr),
+      fGetName(nullptr),
+      fGetVersion(nullptr),
+      fGetDescription(nullptr),
+      fHasCommandHandler(nullptr),
+      fHasMessageHandler(nullptr),
+      fHandleCommand(nullptr),
+      fHandleMessage(nullptr),
+      fDeleteBuffer(nullptr),
+      fUnLoadModule(nullptr),
+      fCommandLineExec(nullptr),
+      fHasNotificationHandler(nullptr),
+      fHandleNotification(nullptr),
+      fHasRoutingHandler(nullptr),
+      fRouteMessage(nullptr),
+      fFetchMetrics(nullptr),
+      fSubmitMetrics(nullptr),
+      fOnEvent(nullptr) {
   load_dll();
 }
 /**
@@ -66,7 +66,7 @@ nsclient::core::dll_plugin::dll_plugin(const unsigned int id, const boost::files
 nsclient::core::dll_plugin::~dll_plugin() {
   if (isLoaded()) {
     try {
-      unload_plugin();
+      dll_plugin::unload_plugin();
     } catch (const plugin_exception &) {
       // ...
     }
@@ -131,7 +131,7 @@ bool nsclient::core::dll_plugin::load_plugin(NSCAPI::moduleLoadMode mode) {
   return false;
 }
 
-bool nsclient::core::dll_plugin::has_start() { return fStartModule != NULL; }
+bool nsclient::core::dll_plugin::has_start() { return fStartModule != nullptr; }
 
 bool nsclient::core::dll_plugin::start_plugin() {
   if (started_) {
@@ -146,16 +146,16 @@ bool nsclient::core::dll_plugin::start_plugin() {
 }
 
 void nsclient::core::dll_plugin::setBroken(bool broken) { broken_ = broken; }
-bool nsclient::core::dll_plugin::isBroken() { return broken_; }
+bool nsclient::core::dll_plugin::isBroken() const { return broken_; }
 
 /**
  * Get the plug in version.
  *
  * @bug Not implemented as of yet
  *
- * @param *major
- * @param *minor
- * @param *revision
+ * @param major Major version
+ * @param minor Minor version
+ * @param revision Revision
  * @return False
  */
 bool nsclient::core::dll_plugin::getVersion(int *major, int *minor, int *revision) {
@@ -226,30 +226,27 @@ bool nsclient::core::dll_plugin::has_routing_handler() {
  *
  * Plug ins may refuse to handle the plug in (if not applicable) by returning an empty string.
  *
- * @param command The command name (is a string encoded number for legacy commands)
- * @param argLen The length of the argument buffer.
- * @param **arguments The arguments for this command
- * @param returnMessageBuffer Return buffer for plug in to store the result of the executed command.
- * @param returnMessageBufferLen Size of returnMessageBuffer
- * @param returnPerfBuffer Return buffer for performance data
- * @param returnPerfBufferLen Size of returnPerfBuffer
+ * @param request The request buffer
+ * @param request_length Request buffer length
+ * @param response The response buffer
+ * @param response_length Response buffer length
  * @return Status of execution. Could be error codes, buffer length messages etc.
  * @throws NSPluginException if the module is not loaded.
  */
-NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleCommand(const char *dataBuffer, unsigned int dataBuffer_len, char **returnBuffer,
-                                                               unsigned int *returnBuffer_len) {
-  if (!isLoaded() || !loaded_ || fHandleCommand == NULL) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
+NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleCommand(const char *request, unsigned int request_length, char **response,
+                                                               unsigned int *response_length) {
+  if (!isLoaded() || !loaded_ || fHandleCommand == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
   try {
-    return fHandleCommand(get_id(), dataBuffer, dataBuffer_len, returnBuffer, returnBuffer_len);
+    return fHandleCommand(get_id(), request, request_length, response, response_length);
   } catch (...) {
     throw plugin_exception(get_alias_or_name(), "Unhandled exception in handleCommand.");
   }
 }
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleCommand(const std::string request, std::string &reply) {
-  char *buffer = NULL;
+  char *buffer = nullptr;
   unsigned int len = 0;
   NSCAPI::nagiosReturn ret = handleCommand(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &len);
-  if (buffer != NULL) {
+  if (buffer != nullptr) {
     reply = std::string(buffer, len);
     deleteBuffer(&buffer);
   }
@@ -257,7 +254,7 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleCommand(const std::string
 }
 
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::handle_schedule(const char *dataBuffer, const unsigned int dataBuffer_len) {
-  if (!isLoaded() || fHandleSchedule == NULL) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
+  if (!isLoaded() || fHandleSchedule == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
   try {
     return fHandleSchedule(get_id(), dataBuffer, dataBuffer_len);
   } catch (...) {
@@ -270,10 +267,10 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::handle_schedule(const std::stri
 }
 
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleNotification(const char *channel, std::string &request, std::string &reply) {
-  char *buffer = NULL;
+  char *buffer = nullptr;
   unsigned int len = 0;
-  NSCAPI::nagiosReturn ret = handleNotification(channel, request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &len);
-  if (buffer != NULL) {
+  const NSCAPI::nagiosReturn ret = handleNotification(channel, request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &len);
+  if (buffer != nullptr) {
     reply = std::string(buffer, len);
     deleteBuffer(&buffer);
   }
@@ -282,7 +279,7 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleNotification(const char *
 
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::handleNotification(const char *channel, const char *dataBuffer, const unsigned int dataBuffer_len,
                                                                     char **returnBuffer, unsigned int *returnBuffer_len) {
-  if (!isLoaded() || !loaded_ || fHandleNotification == NULL) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
+  if (!isLoaded() || !loaded_ || fHandleNotification == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
   try {
     return fHandleNotification(get_id(), channel, dataBuffer, dataBuffer_len, returnBuffer, returnBuffer_len);
   } catch (...) {
@@ -294,7 +291,7 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::on_event(const std::string &req
   return on_event(request.c_str(), static_cast<unsigned int>(request.size()));
 }
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::on_event(const char *request_buffer, const unsigned int request_buffer_len) {
-  if (!isLoaded() || !loaded_ || fOnEvent == NULL) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
+  if (!isLoaded() || !loaded_ || fOnEvent == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
   try {
     return fOnEvent(get_id(), request_buffer, request_buffer_len);
   } catch (...) {
@@ -303,14 +300,14 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::on_event(const char *request_bu
 }
 bool nsclient::core::dll_plugin::has_on_event() {
   if (!isLoaded()) throw plugin_exception(get_alias_or_name(), "Module not loaded");
-  return fOnEvent != NULL;
+  return fOnEvent != nullptr;
 }
 
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::fetchMetrics(std::string &request) {
-  char *buffer = NULL;
+  char *buffer = nullptr;
   unsigned int len = 0;
   NSCAPI::nagiosReturn ret = fetchMetrics(&buffer, &len);
-  if (buffer != NULL) {
+  if (buffer != nullptr) {
     request = std::string(buffer, len);
     deleteBuffer(&buffer);
   }
@@ -318,7 +315,7 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::fetchMetrics(std::string &reque
 }
 
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::fetchMetrics(char **returnBuffer, unsigned int *returnBuffer_len) {
-  if (!isLoaded() || !loaded_ || fFetchMetrics == NULL) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
+  if (!isLoaded() || !loaded_ || fFetchMetrics == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
   try {
     return fFetchMetrics(get_id(), returnBuffer, returnBuffer_len);
   } catch (...) {
@@ -331,7 +328,7 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::submitMetrics(const std::string
 }
 
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::submitMetrics(const char *buffer, const unsigned int buffer_len) {
-  if (!isLoaded() || !loaded_ || fSubmitMetrics == NULL) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
+  if (!isLoaded() || !loaded_ || fSubmitMetrics == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
   try {
     return fSubmitMetrics(get_id(), buffer, buffer_len);
   } catch (...) {
@@ -341,7 +338,7 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::submitMetrics(const char *buffe
 
 bool nsclient::core::dll_plugin::route_message(const char *channel, const char *buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer,
                                                unsigned int *new_buffer_len) {
-  if (!isLoaded() || !loaded_ || fRouteMessage == NULL) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
+  if (!isLoaded() || !loaded_ || fRouteMessage == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
   try {
     return fRouteMessage(get_id(), channel, buffer, buffer_len, new_channel_buffer, new_buffer, new_buffer_len);
   } catch (...) {
@@ -390,30 +387,30 @@ void nsclient::core::dll_plugin::unload_plugin() {
   }
 }
 void nsclient::core::dll_plugin::unload_dll() {
-  fModuleHelperInit = NULL;
-  fLoadModule = NULL;
-  fGetName = NULL;
-  fGetVersion = NULL;
-  fGetDescription = NULL;
-  fHasCommandHandler = NULL;
-  fHasMessageHandler = NULL;
-  fHandleCommand = NULL;
-  fDeleteBuffer = NULL;
-  fHandleMessage = NULL;
-  fUnLoadModule = NULL;
-  fCommandLineExec = NULL;
-  fHasNotificationHandler = NULL;
-  fHandleNotification = NULL;
-  fHasRoutingHandler = NULL;
-  fRouteMessage = NULL;
-  fHandleSchedule = NULL;
-  fFetchMetrics = NULL;
-  fSubmitMetrics = NULL;
-  fOnEvent = NULL;
+  fModuleHelperInit = nullptr;
+  fLoadModule = nullptr;
+  fGetName = nullptr;
+  fGetVersion = nullptr;
+  fGetDescription = nullptr;
+  fHasCommandHandler = nullptr;
+  fHasMessageHandler = nullptr;
+  fHandleCommand = nullptr;
+  fDeleteBuffer = nullptr;
+  fHandleMessage = nullptr;
+  fUnLoadModule = nullptr;
+  fCommandLineExec = nullptr;
+  fHasNotificationHandler = nullptr;
+  fHandleNotification = nullptr;
+  fHasRoutingHandler = nullptr;
+  fRouteMessage = nullptr;
+  fHandleSchedule = nullptr;
+  fFetchMetrics = nullptr;
+  fSubmitMetrics = nullptr;
+  fOnEvent = nullptr;
   module_.unload_library();
 }
 bool nsclient::core::dll_plugin::getName_(char *buf, unsigned int buflen) {
-  if (fGetName == NULL) return false;
+  if (fGetName == nullptr) return false;
   try {
     return fGetName(buf, buflen) ? true : false;
   } catch (...) {
@@ -421,7 +418,7 @@ bool nsclient::core::dll_plugin::getName_(char *buf, unsigned int buflen) {
   }
 }
 bool nsclient::core::dll_plugin::getDescription_(char *buf, unsigned int buflen) {
-  if (fGetDescription == NULL) throw plugin_exception(get_alias_or_name(), "Critical error (fGetDescription)");
+  if (fGetDescription == nullptr) throw plugin_exception(get_alias_or_name(), "Critical error (fGetDescription)");
   try {
     return fGetDescription(buf, buflen) ? true : false;
   } catch (...) {
@@ -498,17 +495,17 @@ void nsclient::core::dll_plugin::loadRemoteProcs_(void) {
 }
 
 int nsclient::core::dll_plugin::commandLineExec(bool targeted, std::string &request, std::string &reply) {
-  char *buffer = NULL;
+  char *buffer = nullptr;
   unsigned int len = 0;
-  NSCAPI::nagiosReturn ret = commandLineExec(targeted, request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &len);
-  if (buffer != NULL) {
+  const NSCAPI::nagiosReturn ret = commandLineExec(targeted, request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &len);
+  if (buffer != nullptr) {
     reply = std::string(buffer, len);
     deleteBuffer(&buffer);
   }
   return ret;
 }
 
-bool nsclient::core::dll_plugin::has_command_line_exec() { return (isLoaded() && !loaded_) || (fCommandLineExec != NULL); }
+bool nsclient::core::dll_plugin::has_command_line_exec() { return (isLoaded() && !loaded_) || (fCommandLineExec != nullptr); }
 
 int nsclient::core::dll_plugin::commandLineExec(bool targeted, const char *request, const unsigned int request_len, char **reply, unsigned int *reply_len) {
   if (!has_command_line_exec()) throw plugin_exception(get_alias_or_name(), "Library is not loaded or modules does not support command line");

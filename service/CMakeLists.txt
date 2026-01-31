@@ -9,10 +9,12 @@ link_directories(${BOOST_LIB_DIRS})
 set(service_SRCS
     NSClient++.cpp
     core_api.cpp
-    plugin_manager.cpp
-    master_plugin_list.cpp
     path_manager.cpp
-    dll_plugin.cpp
+    plugins/plugin_manager.cpp
+    plugins/master_plugin_list.cpp
+    plugins/dll_plugin.cpp
+    plugins/plugin_cache.cpp
+    plugins/zip_plugin.cpp
     ${NSCP_INCLUDEDIR}/utf8.cpp
     # logger
     logger/nsclient_logger.cpp
@@ -22,7 +24,6 @@ set(service_SRCS
     settings_query_handler.cpp
     registry_query_handler.cpp
     storage_query_handler.cpp
-    plugin_cache.cpp
     storage_manager.cpp
     cli_parser.cpp
     settings_client.cpp
@@ -40,7 +41,6 @@ set(service_SRCS
     ${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
     ${NSCP_INCLUDEDIR}/pid_file.cpp
     ${NSCP_INCLUDEDIR}/has-threads.cpp
-    zip_plugin.cpp
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ../resources/nsclient.ico
 )
@@ -57,13 +57,8 @@ if(WIN32)
         cli_parser.hpp
         ${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.hpp
         scheduler_handler.hpp
-        plugin_manager.hpp
-        master_plugin_list.hpp
         path_manager.hpp
-        dll_plugin.h
-        plugin_interface.hpp
         storage_manager.hpp
-        plugin_list.hpp
         commands.hpp
         channels.hpp
         routers.hpp
@@ -77,9 +72,14 @@ if(WIN32)
         settings_query_handler.hpp
         registry_query_handler.hpp
         storage_query_handler.hpp
-        plugin_cache.hpp
+        plugins/plugin_manager.hpp
+        plugins/dll_plugin.h
+        plugins/plugin_interface.hpp
+        plugins/plugin_list.hpp
+        plugins/plugin_cache.hpp
+        plugins/zip_plugin.h
+        plugins/master_plugin_list.hpp
         service_manager.hpp
-        zip_plugin.h
         # ${NSCP_INCLUDEDIR}/config.h
         ${NSCP_INCLUDEDIR}/com_helpers.hpp
         ${NSCP_INCLUDEDIR}/dll/dll.hpp
@@ -150,14 +150,14 @@ add_executable(
     various_test.cpp
     performance_data_test.cpp
     cron_test.cpp
-    master_plugin_list.cpp
-    zip_plugin.cpp
-    plugin_cache.cpp
-    plugin_manager.cpp
-    plugin_manager_test.cpp
     path_manager.cpp
     path_manager_test.cpp
-    dll_plugin.cpp
+    plugins/master_plugin_list.cpp
+    plugins/zip_plugin.cpp
+    plugins/plugin_cache.cpp
+    plugins/plugin_manager.cpp
+    plugins/plugin_manager_test.cpp
+    plugins/dll_plugin.cpp
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ../include/parsers/cron/cron_parser.hpp
     ../include/nscapi/nscapi_protobuf_functions.cpp

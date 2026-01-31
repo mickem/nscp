@@ -19,8 +19,10 @@
 
 #pragma once
 
-#include <boost/thread.hpp>
+#include <boost/thread/shared_mutex.hpp>
+#include <list>
 #include <nsclient/logger/logger.hpp>
+#include <vector>
 
 #include "plugin_interface.hpp"
 
@@ -48,8 +50,8 @@ class master_plugin_list {
   std::list<plugin_type> get_plugins();
 
   plugin_type find_by_module(std::string module);
-  plugin_type find_by_alias(const std::string module);
-  plugin_type find_by_id(const unsigned int plugin_id);
+  plugin_type find_by_alias(std::string module);
+  plugin_type find_by_id(unsigned int plugin_id);
 
   plugin_type find_duplicate(boost::filesystem::path file, std::string alias);
 

@@ -24,9 +24,8 @@ struct plugin_cache_item {
 
   plugin_cache_item() : id(0), is_loaded(false) {}
   plugin_cache_item(const plugin_type& other);
-  plugin_cache_item(const plugin_cache_item& other)
-      : id(other.id), dll(other.dll), alias(other.alias), title(other.title), desc(other.desc), version(other.version), is_loaded(other.is_loaded) {}
-  const plugin_cache_item& operator=(const plugin_cache_item& other) {
+  plugin_cache_item(const plugin_cache_item& other) = default;
+  plugin_cache_item& operator=(const plugin_cache_item& other) {
     id = other.id;
     dll = other.dll;
     alias = other.alias;

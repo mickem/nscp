@@ -55,8 +55,7 @@
  */
 namespace nsclient {
 namespace core {
-class dll_plugin : public boost::noncopyable, public nsclient::core::plugin_interface {
- private:
+class dll_plugin : public boost::noncopyable, public plugin_interface {
   ::dll::dll_impl module_;
   bool loaded_;
   bool loading_;
@@ -87,39 +86,39 @@ class dll_plugin : public boost::noncopyable, public nsclient::core::plugin_inte
 
  public:
   dll_plugin(const unsigned int id, const boost::filesystem::path file, std::string alias);
-  virtual ~dll_plugin();
+  ~dll_plugin() override;
 
-  bool load_plugin(NSCAPI::moduleLoadMode mode);
-  bool has_start();
-  bool start_plugin();
-  void unload_plugin();
+  bool load_plugin(NSCAPI::moduleLoadMode mode) override;
+  bool has_start() override;
+  bool start_plugin() override;
+  void unload_plugin() override;
 
-  std::string getName();
-  std::string getDescription();
-  bool hasCommandHandler();
-  bool hasNotificationHandler();
-  bool hasMessageHandler();
-  NSCAPI::nagiosReturn handleCommand(const std::string request, std::string &reply);
-  NSCAPI::nagiosReturn handle_schedule(const std::string &request);
-  NSCAPI::nagiosReturn handleNotification(const char *channel, std::string &request, std::string &reply);
-  bool has_on_event();
-  NSCAPI::nagiosReturn on_event(const std::string &request);
-  NSCAPI::nagiosReturn fetchMetrics(std::string &request);
-  NSCAPI::nagiosReturn submitMetrics(const std::string &request);
-  void handleMessage(const char *data, unsigned int len);
-  int commandLineExec(bool targeted, std::string &request, std::string &reply);
-  bool has_command_line_exec();
-  bool is_duplicate(boost::filesystem::path file, std::string alias);
+  std::string getName() override;
+  std::string getDescription() override;
+  bool hasCommandHandler() override;
+  bool hasNotificationHandler() override;
+  bool hasMessageHandler() override;
+  NSCAPI::nagiosReturn handleCommand(const std::string request, std::string &reply) override;
+  NSCAPI::nagiosReturn handle_schedule(const std::string &request) override;
+  NSCAPI::nagiosReturn handleNotification(const char *channel, std::string &request, std::string &reply) override;
+  bool has_on_event() override;
+  NSCAPI::nagiosReturn on_event(const std::string &request) override;
+  NSCAPI::nagiosReturn fetchMetrics(std::string &request) override;
+  NSCAPI::nagiosReturn submitMetrics(const std::string &request) override;
+  void handleMessage(const char *data, unsigned int len) override;
+  int commandLineExec(bool targeted, std::string &request, std::string &reply) override;
+  bool has_command_line_exec() override;
+  bool is_duplicate(boost::filesystem::path file, std::string alias) override;
 
-  bool has_routing_handler();
+  bool has_routing_handler() override;
 
   bool route_message(const char *channel, const char *buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer,
-                     unsigned int *new_buffer_len);
+                     unsigned int *new_buffer_len) override;
 
-  bool hasMetricsFetcher() { return fFetchMetrics != NULL; }
-  bool hasMetricsSubmitter() { return fSubmitMetrics != NULL; }
+  bool hasMetricsFetcher() override { return fFetchMetrics != nullptr; }
+  bool hasMetricsSubmitter() override { return fSubmitMetrics != nullptr; }
 
-  std::string getModule() {
+  std::string getModule() override {
 #ifndef WIN32
     std::string file = module_.get_module_name();
     if (file.substr(0, 3) == "lib") file = file.substr(3);
@@ -129,17 +128,17 @@ class dll_plugin : public boost::noncopyable, public nsclient::core::plugin_inte
 #endif
   }
 
-  void on_log_message(std::string &payload) { handleMessage(payload.c_str(), static_cast<unsigned int>(payload.size())); }
-  std::string get_version();
+  void on_log_message(std::string &payload) override { handleMessage(payload.c_str(), static_cast<unsigned int>(payload.size())); }
+  std::string get_version() override;
 
  private:
   void load_dll();
   void unload_dll();
 
   void setBroken(bool broken);
-  bool isBroken();
+  bool isBroken() const;
 
-  NSCAPI::nagiosReturn handleCommand(const char *dataBuffer, const unsigned int dataBuffer_len, char **returnBuffer, unsigned int *returnBuffer_len);
+  NSCAPI::nagiosReturn handleCommand(const char *request, const unsigned int request_length, char **response, unsigned int *response_length);
   NSCAPI::nagiosReturn handle_schedule(const char *dataBuffer, const unsigned int dataBuffer_len);
   NSCAPI::nagiosReturn handleNotification(const char *channel, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer,
                                           unsigned int *response_buffer_len);
