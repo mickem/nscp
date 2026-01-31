@@ -2,6 +2,6 @@
 
 if [ "$1" -eq 0 ]; then
     # Package is being removed
-    systemctl stop myservice
-    systemctl disable myservice
+    systemctl stop nsclient
+    systemctl disable nsclient
 fi

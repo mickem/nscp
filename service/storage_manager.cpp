@@ -106,6 +106,7 @@ void nsclient::core::storage_manager::save() {
       header.set_entries(storage_.size());
       if (!write_chunk<>(*coded_out, header)) {
         LOG_ERROR_CORE("Failed to write header to storage.");
+        return;
       }
 
       for (const storage_type::value_type &v : storage_) {

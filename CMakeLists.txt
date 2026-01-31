@@ -1028,8 +1028,7 @@ else()
     set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/files/rpm/postinstall.sh")
     set(CPACK_RPM_PRE_UNINSTALL_SCRIPT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/files/rpm/preuninstall.sh")
 
-    set(CPACK_RPM_PACKAGE_CONFIG_FILES "/etc/nsclient/boot.ini")
-    set(CPACK_RPM_PACKAGE_CONFIG_FILES "/etc/nsclient/nsclient.ini")
+    set(CPACK_RPM_PACKAGE_CONFIG_FILES "/etc/nsclient/boot.ini" "/etc/nsclient/nsclient.ini")
 
     # Ensure empty directories are included in the RPM
     set(CPACK_RPM_USER_FILELIST
