@@ -103,7 +103,9 @@ if(GTEST_FOUND)
         ${TARGET}_test
         GTest::gtest
         GTest::gtest_main
-        ${Boost_LIBRARIES}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
         ${EXTRA_LIBS}
         nscp_mongoose
     )

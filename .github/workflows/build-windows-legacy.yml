@@ -183,6 +183,7 @@ jobs:
             set(Boost_USE_STATIC_RUNTIME ON)
             set(Boost_USE_STATIC_LIBS ON)
             SET(USE_STATIC_RUNTIME TRUE)
+            SET(NSCP_BOOST_PYTHON_VERSION "python311")
 
             SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
             SET(BOOST_ROOT "${{ steps.paths.outputs.static_boost_root }}")
