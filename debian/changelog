@@ -1,5 +1,0 @@
-nsclient++ (0.5.2.33-1) unstable; urgency=low
-
-  * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
-
- -- vagrant <vagrant@precise64.build.nscp.org>  Thu, 01 Dec 2016 16:34:05 +0000
