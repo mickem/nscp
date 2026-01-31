@@ -13,7 +13,7 @@
 namespace nsclient {
 namespace core {
 
-typedef boost::shared_ptr<nsclient::core::plugin_interface> plugin_type;
+typedef boost::shared_ptr<plugin_interface> plugin_type;
 
 struct storage_item {
   bool is_modified;
@@ -39,24 +39,25 @@ class storage_manager {
   typedef std::list<PB::Storage::Storage_Entry> entry_list;
 
  private:
-  nsclient::core::path_instance path_;
-  nsclient::logging::logger_instance logger_;
+  path_instance path_;
+  logging::logger_instance logger_;
   storage_type storage_;
   key_list_type deleted_;
   bool has_read_;
+  bool has_changed_;
   boost::shared_mutex m_mutexRW;
 
  public:
-  storage_manager(nsclient::core::path_instance path_, nsclient::logging::logger_instance logger) : path_(path_), logger_(logger), has_read_(false) {}
+  storage_manager(const path_instance& path_, const logging::logger_instance& logger) : path_(path_), logger_(logger), has_read_(false), has_changed_(false) {}
   void load();
   void put(std::string plugin_name, const ::PB::Storage::Storage_Entry& entry);
   entry_list get(std::string plugin_name, std::string context);
   void save();
 
  private:
-  nsclient::logging::logger_instance get_logger() { return logger_; }
-  std::string get_filename();
-  std::string get_tmpname();
+  logging::logger_instance get_logger() { return logger_; }
+  std::string get_filename() const;
+  std::string get_tmp_name() const;
 };
 typedef boost::shared_ptr<storage_manager> storage_manager_instance;
 

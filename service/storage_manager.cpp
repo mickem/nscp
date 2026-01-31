@@ -44,6 +44,7 @@ void nsclient::core::storage_manager::load() {
     }
     storage_[mk_key(block.owner(), block.entry().context(), block.entry().key())] = storage_item(block.owner(), block.entry());
   }
+  has_changed_ = false;
 }
 
 void nsclient::core::storage_manager::put(std::string plugin_name, const ::PB::Storage::Storage_Entry &entry) {
@@ -54,6 +55,7 @@ void nsclient::core::storage_manager::put(std::string plugin_name, const ::PB::S
   }
   std::string key = mk_key(plugin_name, entry.context(), entry.key());
   storage_[key] = storage_item(plugin_name, entry);
+  has_changed_ = true;
 }
 
 nsclient::core::storage_manager::entry_list nsclient::core::storage_manager::get(std::string plugin_name, std::string context) {
@@ -84,7 +86,10 @@ bool write_chunk(::google::protobuf::io::CodedOutputStream &stream, const T &obj
 void nsclient::core::storage_manager::save() {
   try {
     {
-      std::string file = get_tmpname();
+      if (!has_changed_) {
+        return;
+      }
+      std::string file = get_tmp_name();
       std::string path = file_helpers::meta::get_path(file);
       if (!file_helpers::checks::is_file(path)) {
         boost::filesystem::create_directories(path);
@@ -101,7 +106,6 @@ void nsclient::core::storage_manager::save() {
       header.set_entries(storage_.size());
       if (!write_chunk<>(*coded_out, header)) {
         LOG_ERROR_CORE("Failed to write header to storage.");
-        return;
       }
 
       for (const storage_type::value_type &v : storage_) {
@@ -114,7 +118,7 @@ void nsclient::core::storage_manager::save() {
         }
       }
     }
-    boost::filesystem::rename(get_tmpname(), get_filename());
+    boost::filesystem::rename(get_tmp_name(), get_filename());
   } catch (const std::exception &e) {
     LOG_ERROR_CORE("Failed to save storage: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
@@ -122,5 +126,5 @@ void nsclient::core::storage_manager::save() {
   }
 }
 
-std::string nsclient::core::storage_manager::get_filename() { return path_->expand_path("${data-path}/nsclient.db"); }
-std::string nsclient::core::storage_manager::get_tmpname() { return path_->expand_path("${data-path}/nsclient.tmp"); }
+std::string nsclient::core::storage_manager::get_filename() const { return path_->expand_path("${data-path}/nsclient.db"); }
+std::string nsclient::core::storage_manager::get_tmp_name() const { return path_->expand_path("${data-path}/nsclient.tmp"); }
