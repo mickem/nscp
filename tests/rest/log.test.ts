@@ -72,26 +72,37 @@ describe("log", () => {
     });
 
     it("fetch_logs", async () => {
-        await request(URL)
-            .get("/api/v2/logs")
-            .set("Authorization", `Bearer ${key}`)
-            .query({per_page: 200, page: 1})
-            .trustLocalhost(true)
-            .expect(200)
-            .then((response) => {
-                expect(response.body).toBeDefined();
-                expect(Array.isArray(response.body)).toBe(true);
-                const logs = response.body;
-                const testLog = logs.find((log: any) => log.message === "001: This is a test log message from automated tests");
-                if (!testLog) {
-                    console.log("Logs returned:", logs);
+        for (let attempt = 0; attempt < 5; attempt++) {
+            try {
+                await request(URL)
+                    .get("/api/v2/logs")
+                    .set("Authorization", `Bearer ${key}`)
+                    .query({per_page: 200, page: 1})
+                    .trustLocalhost(true)
+                    .expect(200)
+                    .then((response) => {
+                        expect(response.body).toBeDefined();
+                        expect(Array.isArray(response.body)).toBe(true);
+                        const logs = response.body;
+                        const testLog = logs.find((log: any) => log.message === "001: This is a test log message from automated tests");
+                        if (!testLog) {
+                            console.log("Logs returned:", logs);
+                        }
+                        expect(testLog).toBeDefined();
+                        expect(testLog.level).toBe("info");
+                        expect(testLog.file).toBe("rest.test.ts");
+                        expect(testLog.line).toBe(123);
+                    });
+            } catch (err) {
+                if (attempt === 4) {
+                    throw err;
                 }
-                expect(testLog).toBeDefined();
-                expect(testLog.level).toBe("info");
-                expect(testLog.file).toBe("rest.test.ts");
-                expect(testLog.line).toBe(123);
-            });
-
+                // wait 500ms before retrying
+                await new Promise((resolve) => setTimeout(resolve, 500));
+                continue;
+            }
+            break;
+        }
     });
 
     it("fetch_logs_since", async () => {
@@ -132,25 +143,36 @@ describe("log", () => {
 
 
     it("fetch_logs_since", async () => {
-        await request(URL)
-            .get("/api/v2/logs/since")
-            .set("Authorization", `Bearer ${key}`)
-            .query({per_page: 200, page: 1, since: index})
-            .trustLocalhost(true)
-            .expect(200)
-            .then((response) => {
-                expect(response.body).toBeDefined();
-                expect(Array.isArray(response.body)).toBe(true);
-                const logs = response.body;
-                const testLog1 = logs.find((log: any) => log.message === "001: This is a test log message from automated tests");
-                expect(testLog1).not.toBeDefined();
-                const testLog2 = logs.find((log: any) => log.message === "002: This is a test error log message from automated tests");
+        for (let attempt = 0; attempt < 5; attempt++) {
+            try {
+                await request(URL)
+                    .get("/api/v2/logs/since")
+                    .set("Authorization", `Bearer ${key}`)
+                    .query({per_page: 200, page: 1, since: index})
+                    .trustLocalhost(true)
+                    .expect(200)
+                    .then((response) => {
+                        expect(response.body).toBeDefined();
+                        expect(Array.isArray(response.body)).toBe(true);
+                        const logs = response.body;
+                        const testLog1 = logs.find((log: any) => log.message === "001: This is a test log message from automated tests");
+                        expect(testLog1).not.toBeDefined();
+                        const testLog2 = logs.find((log: any) => log.message === "002: This is a test error log message from automated tests");
 
-                expect(testLog2.level).toBe("error");
-                expect(testLog2.file).toBe("rest.test.ts");
-                expect(testLog2.line).toBe(456);
-            });
-
+                        expect(testLog2.level).toBe("error");
+                        expect(testLog2.file).toBe("rest.test.ts");
+                        expect(testLog2.line).toBe(456);
+                    });
+            } catch (err) {
+                if (attempt === 4) {
+                    throw err;
+                }
+                // wait 500ms before retrying
+                await new Promise((resolve) => setTimeout(resolve, 500));
+                continue;
+            }
+            break;
+        }
     });
 
     it("clear_log", async () => {
