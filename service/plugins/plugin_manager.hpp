@@ -27,12 +27,12 @@
 #include <nscapi/nscapi_protobuf_metrics.hpp>
 #include <nsclient/logger/logger.hpp>
 
-#include "channels.hpp"
-#include "commands.hpp"
+#include "../channels.hpp"
+#include "../commands.hpp"
+#include "../path_manager.hpp"
+#include "../routers.hpp"
 #include "master_plugin_list.hpp"
-#include "path_manager.hpp"
 #include "plugin_cache.hpp"
-#include "routers.hpp"
 
 /**
  * @ingroup NSClient++

@@ -23,8 +23,8 @@
 #include <service/system_service.hpp>
 
 #include "nsclient_core_interface.hpp"
-#include "plugin_cache.hpp"
-#include "plugin_manager.hpp"
+#include "plugins/plugin_cache.hpp"
+#include "plugins/plugin_manager.hpp"
 #include "scheduler_handler.hpp"
 #include "storage_manager.hpp"
 

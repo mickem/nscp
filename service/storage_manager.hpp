@@ -8,7 +8,7 @@
 #include <string>
 
 #include "path_manager.hpp"
-#include "plugin_interface.hpp"
+#include "plugins/plugin_interface.hpp"
 
 namespace nsclient {
 namespace core {

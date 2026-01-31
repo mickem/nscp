@@ -4,21 +4,20 @@
 #include <nsclient/logger/logger.hpp>
 
 #include "path_manager.hpp"
-#include "plugin_manager.hpp"
+#include "plugins/plugin_manager.hpp"
 
 namespace nsclient {
 
 namespace core {
 
 class registry_query_handler {
- private:
-  nsclient::core::path_instance path_;
-  nsclient::core::plugin_mgr_instance plugins_;
-  nsclient::logging::logger_instance logger_;
+  path_instance path_;
+  plugin_mgr_instance plugins_;
+  logging::logger_instance logger_;
   const PB::Registry::RegistryRequestMessage &request_;
 
  public:
-  registry_query_handler(nsclient::core::path_instance path_, nsclient::core::plugin_mgr_instance plugins_, nsclient::logging::logger_instance logger_,
+  registry_query_handler(path_instance path_, plugin_mgr_instance plugins_, logging::logger_instance logger_,
                          const PB::Registry::RegistryRequestMessage &request);
 
   void parse(PB::Registry::RegistryResponseMessage &response);
@@ -33,9 +32,9 @@ class registry_query_handler {
                             PB::Registry::RegistryResponseMessage::Response *rp);
 
  private:
-  nsclient::logging::logger_instance get_logger() const { return logger_; }
+  logging::logger_instance get_logger() const { return logger_; }
   void add_module(PB::Registry::RegistryResponseMessage::Response *rp, const plugin_cache_item &plugin, bool is_enabled);
-  plugin_cache_item inventory_plugin_on_disk(nsclient::core::plugin_cache::plugin_cache_list_type &list, std::string plugin);
+  plugin_cache_item inventory_plugin_on_disk(plugin_cache::plugin_cache_list_type &list, std::string plugin);
 };
 
 }  // namespace core

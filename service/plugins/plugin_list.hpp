@@ -20,10 +20,11 @@
 #pragma once
 
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/function.hpp>
 #include <boost/thread.hpp>
 #include <nsclient/logger/logger.hpp>
 #include <set>
+#include <exception>
+#include <memory>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
 #include <utf8.hpp>
@@ -31,27 +32,25 @@
 #include "plugin_interface.hpp"
 
 namespace nsclient {
-typedef boost::shared_ptr<nsclient::core::plugin_interface> plugin_type;
+typedef boost::shared_ptr<core::plugin_interface> plugin_type;
 typedef std::map<unsigned long, plugin_type> plugin_list_type;
 typedef std::set<unsigned long> plugin_id_type;
 
 class plugins_list_exception : public std::exception {
-  std::string what_;
+  std::shared_ptr<std::string> what_;
 
  public:
-  explicit plugins_list_exception(std::string error) noexcept : what_(error.c_str()) {}
-  ~plugins_list_exception() noexcept override = default;
-
-  const char *what() const noexcept override { return what_.c_str(); }
+  explicit plugins_list_exception(std::string error) : what_(std::make_shared<std::string>(error)) {}
+  const char *what() const noexcept override { return what_ ? what_->c_str() : ""; }
 };
 
-struct simple_plugins_list : public boost::noncopyable {
+struct simple_plugins_list : boost::noncopyable {
   typedef std::list<plugin_type> simple_plugin_list_type;
   simple_plugin_list_type plugins_;
   boost::shared_mutex mutex_;
   logging::log_client_accessor logger_;
 
-  simple_plugins_list(logging::log_client_accessor logger) : logger_(logger) {}
+  explicit simple_plugins_list(logging::log_client_accessor logger) : logger_(logger) {}
 
   bool has_valid_lock_log(boost::unique_lock<boost::shared_mutex> &lock, std::string key) {
     if (!lock.owns_lock()) {

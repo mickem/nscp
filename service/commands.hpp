@@ -26,7 +26,7 @@
 #include <str/xtos.hpp>
 #include <utf8.hpp>
 
-#include "plugin_interface.hpp"
+#include "plugins/plugin_interface.hpp"
 
 namespace nsclient {
 class commands : boost::noncopyable {

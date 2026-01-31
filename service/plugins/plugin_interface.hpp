@@ -5,6 +5,7 @@
 #include <boost/filesystem/path.hpp>
 #include <nsclient/logger/logger.hpp>
 #include <string>
+#include <utility>
 namespace nsclient {
 namespace core {
 class plugin_exception : public std::exception {
@@ -14,31 +15,31 @@ class plugin_exception : public std::exception {
  public:
   //////////////////////////////////////////////////////////////////////////
   /// Constructor takes an error message.
+  /// @param module The module name
   /// @param error the error message
   ///
   /// @author mickem
-  plugin_exception(const std::string &module, const std::string &error) : file_(module), error_(error) {}
-  virtual ~plugin_exception() throw() {}
+  plugin_exception(std::string module, std::string error) : file_(std::move(module)), error_(std::move(error)) {}
+  ~plugin_exception() noexcept override = default;
 
   //////////////////////////////////////////////////////////////////////////
   /// Retrieve the error message from the exception.
   /// @return the error message
   ///
   /// @author mickem
-  const char *what() const throw() { return error_.c_str(); }
-  const std::string file() const throw() { return file_; }
-  std::string reason() const throw() { return error_; }
+  const char *what() const noexcept override { return error_.c_str(); }
+  std::string file() const noexcept { return file_; }
+  std::string reason() const noexcept { return error_; }
 };
 
-class plugin_interface : public nsclient::logging::logging_subscriber {
- private:
+class plugin_interface : public logging::logging_subscriber {
   unsigned int plugin_id_;
   std::string alias_;
 
  public:
-  plugin_interface(const unsigned int id, std::string alias) : plugin_id_(id), alias_(alias) {}
+  plugin_interface(const unsigned int id, std::string alias) : plugin_id_(id), alias_(std::move(alias)) {}
 
-  virtual ~plugin_interface() {}
+  virtual ~plugin_interface() = default;
 
   virtual bool load_plugin(NSCAPI::moduleLoadMode mode) = 0;
   virtual bool has_start() = 0;
@@ -50,7 +51,7 @@ class plugin_interface : public nsclient::logging::logging_subscriber {
   virtual std::string get_version() = 0;
 
   virtual bool hasCommandHandler() = 0;
-  virtual NSCAPI::nagiosReturn handleCommand(const std::string request, std::string &reply) = 0;
+  virtual NSCAPI::nagiosReturn handleCommand(std::string request, std::string &reply) = 0;
   virtual bool hasNotificationHandler() = 0;
   virtual NSCAPI::nagiosReturn handleNotification(const char *channel, std::string &request, std::string &reply) = 0;
   virtual NSCAPI::nagiosReturn handle_schedule(const std::string &request) = 0;

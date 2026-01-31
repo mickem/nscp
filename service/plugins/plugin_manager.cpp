@@ -27,7 +27,7 @@
 #include <settings/settings_core.hpp>
 #include <str/format.hpp>
 
-#include "../libs/settings_manager/settings_manager_impl.h"
+#include "../../libs/settings_manager/settings_manager_impl.h"
 #include "dll_plugin.h"
 #include "zip_plugin.h"
 
