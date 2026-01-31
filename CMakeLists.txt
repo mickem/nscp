@@ -699,6 +699,11 @@ else()
         CACHE STRING
         "Shared files on linux"
     )
+    set(UNIX_DATA_PATH_FOLDER
+        "/var/lib/nsclient"
+        CACHE STRING
+        "Data path on linux"
+    )
     set(CONFIG_WEB_FOLDER "\${shared-path}/web" CACHE STRING "web folder")
     set(CONFIG_SCRIPTS_FOLDER
         "\${shared-path}/scripts"
@@ -950,6 +955,7 @@ add_subdirectory("op5/config")
 add_subdirectory("op5/scripts")
 add_subdirectory("web")
 add_subdirectory("files")
+add_subdirectory("tests")
 
 load_sections(ALL_MODULE_NAMES "modules/*/module.cmake" "Modules")
 load_sections(ALL_CLIENT_NAMES "clients/*/module.cmake" "Clients")

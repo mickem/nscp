@@ -26,6 +26,7 @@
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
 #include "../modules/NSCPClient/nscp_handler.hpp"
+#include "win/shellapi.hpp"
 
 std::string gLog = "";
 
@@ -57,16 +58,9 @@ int main(int argc, char *argv[]) {
 }
 
 #ifdef WIN32
-boost::filesystem::path get_selfpath() {
-  wchar_t buff[4096];
-  if (GetModuleFileName(NULL, buff, sizeof(buff) - 1)) {
-    boost::filesystem::path p = std::wstring(buff);
-    return p.parent_path();
-  }
-  return boost::filesystem::initial_path();
-}
+boost::filesystem::path get_self_path() { return shellapi::get_module_file_name(); }
 #else
-boost::filesystem::path get_selfpath() {
+boost::filesystem::path get_self_path() {
   char buff[1024];
   ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff) - 1);
   if (len != -1) {
@@ -77,49 +71,17 @@ boost::filesystem::path get_selfpath() {
   return boost::filesystem::initial_path();
 }
 #endif
-boost::filesystem::path getBasePath(void) { return get_selfpath(); }
+boost::filesystem::path getBasePath() { return get_self_path(); }
 
-#ifdef WIN32
-typedef DWORD(WINAPI *PFGetTempPath)(__in DWORD nBufferLength, __out LPTSTR lpBuffer);
-#endif
 boost::filesystem::path getTempPath() {
   std::string tempPath;
 #ifdef WIN32
-  unsigned int buf_len = 4096;
-  HMODULE hKernel = ::LoadLibrary(L"kernel32");
-  if (hKernel) {
-    // Find PSAPI functions
-    PFGetTempPath FGetTempPath = (PFGetTempPath)::GetProcAddress(hKernel, "GetTempPathW");
-    if (FGetTempPath) {
-      wchar_t *buffer = new wchar_t[buf_len + 1];
-      if (FGetTempPath(buf_len, buffer)) {
-        std::wstring s = buffer;
-        tempPath = utf8::cvt<std::string>(s);
-      }
-      delete[] buffer;
-    }
-  }
+  tempPath = shellapi::get_temp_path().string();
 #else
   tempPath = "/tmp";
 #endif
   return tempPath;
 }
-#ifdef WIN32
-#ifndef CSIDL_COMMON_APPDATA
-#define CSIDL_COMMON_APPDATA 0x0023
-#endif
-typedef BOOL(WINAPI *fnSHGetSpecialFolderPath)(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate);
-
-__inline BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate) {
-  static fnSHGetSpecialFolderPath __SHGetSpecialFolderPath = NULL;
-  if (!__SHGetSpecialFolderPath) {
-    HMODULE hDLL = LoadLibrary(L"shfolder.dll");
-    if (hDLL != NULL) __SHGetSpecialFolderPath = (fnSHGetSpecialFolderPath)GetProcAddress(hDLL, "SHGetSpecialFolderPathW");
-  }
-  if (__SHGetSpecialFolderPath) return __SHGetSpecialFolderPath(hwndOwner, lpszPath, nFolder, fCreate);
-  return FALSE;
-}
-#endif
 
 struct stdout_client_handler : public socket_helpers::client::client_handler {
   void log_debug(std::string, int, std::string msg) const {
@@ -152,11 +114,7 @@ struct stdout_client_handler : public socket_helpers::client::client_handler {
     }
 #ifdef WIN32
     else if (key == "common-appdata") {
-      wchar_t buf[MAX_PATH + 1];
-      if (_SHGetSpecialFolderPath(NULL, buf, CSIDL_COMMON_APPDATA, FALSE))
-        default_value = utf8::cvt<std::string>(buf);
-      else
-        default_value = getBasePath().string();
+      default_value = shellapi::get_special_folder_path(CSIDL_COMMON_APPDATA, getBasePath()).string();
     }
 #else
     else if (key == "etc") {

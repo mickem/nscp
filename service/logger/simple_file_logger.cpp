@@ -33,6 +33,7 @@
 #endif
 
 #include "../libs/settings_manager/settings_manager_impl.h"
+#include "win/shellapi.hpp"
 
 namespace nsclient {
 namespace logging {
@@ -43,14 +44,7 @@ namespace sh = nscapi::settings_helper;
 simple_file_logger::simple_file_logger(std::string file) : max_size_(0), format_("%Y-%m-%d %H:%M:%S") { file_ = base_path() + file; }
 std::string simple_file_logger::base_path() {
 #ifdef WIN32
-  unsigned int buf_len = 4096;
-  char *buffer = new char[buf_len + 1];
-  GetModuleFileNameA(NULL, buffer, buf_len);
-  std::string path = buffer;
-  std::string::size_type pos = path.rfind('\\');
-  path = path.substr(0, pos + 1);
-  delete[] buffer;
-  return path;
+  return shellapi::get_module_file_name().string();
 #else
   return "";
 #endif

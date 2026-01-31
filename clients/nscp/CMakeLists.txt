@@ -38,6 +38,8 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/socket/client.hpp
         ${NSCP_INCLUDEDIR}/http/client.hpp
         ${NSCP_CLIENT_HPP}
+        ${NSCP_INCLUDEDIR}/win/shellapi.cpp
+        ${NSCP_INCLUDEDIR}/win/shellapi.hpp
     )
 endif(WIN32)
 

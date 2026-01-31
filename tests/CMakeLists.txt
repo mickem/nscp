@@ -1,0 +1,22 @@
+if(WIN32)
+    add_executable(
+        shellapi_test
+        shellapi_test.cpp
+        ${CMAKE_SOURCE_DIR}/include/utf8.cpp
+        ${CMAKE_SOURCE_DIR}/include/win/shellapi.cpp
+    )
+    target_link_libraries(
+        shellapi_test
+        gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        Userenv
+        ole32
+        Shell32
+    )
+    target_include_directories(
+        shellapi_test
+        PRIVATE ${CMAKE_SOURCE_DIR}/include
+    )
+    nscp_add_test(shellapi_test)
+endif()
