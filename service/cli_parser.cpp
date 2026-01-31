@@ -36,7 +36,7 @@
 #define LOG_MODULE "client"
 namespace po = boost::program_options;
 
-cli_parser::cli_parser(NSClient *core)
+cli_parser::cli_parser(const std::shared_ptr<NSClient> &core)
     : core_(core),
       common_light("Common options"),
       common("Common options"),
@@ -431,7 +431,7 @@ struct client_arguments {
   bool load_all;
   client_arguments() : boot(false), load_all(false) {}
 
-  bool run_pre(NSClient *core_, const std::vector<std::string> &defines) {
+  bool run_pre(std::shared_ptr<NSClient> core_, const std::vector<std::string> &defines) {
     try {
       if (module == "CommandClient") boot = true;
       core_->load_configuration_1();
@@ -452,7 +452,7 @@ struct client_arguments {
       return false;
     }
   }
-  int run_exec(NSClient *core_, const std::string &command, const std::vector<std::string> &arguments, std::list<std::string> &result) const {
+  int run_exec(std::shared_ptr<NSClient> core_, const std::string &command, const std::vector<std::string> &arguments, std::list<std::string> &result) const {
     try {
       int ret = 0;
       ret = core_->get_plugin_manager()->simple_exec(module + "." + command, arguments, result);
@@ -471,7 +471,7 @@ struct client_arguments {
     }
   }
 
-  static bool run_reload(NSClient *core_) {
+  static bool run_reload(std::shared_ptr<NSClient> core_) {
     try {
       core_->reload("instant,service");
       return true;
@@ -484,7 +484,7 @@ struct client_arguments {
     }
   }
 
-  int run_query(NSClient *core_, const std::string &command, const std::vector<std::string> &arguments, std::list<std::string> &result) const {
+  int run_query(std::shared_ptr<NSClient> core_, const std::string &command, const std::vector<std::string> &arguments, std::list<std::string> &result) const {
     try {
       int ret = 0;
       ret = core_->get_plugin_manager()->simple_query(module, command, arguments, result);
@@ -505,7 +505,7 @@ struct client_arguments {
       return NSCAPI::exec_return_codes::returnERROR;
     }
   }
-  static bool run_post(NSClient *core_) {
+  static bool run_post(std::shared_ptr<NSClient> core_) {
     try {
       core_->stop_nsclient();
       return true;

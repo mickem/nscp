@@ -30,6 +30,7 @@ void nsclient::logging::logger_helper::log_fatal(std::string message) {
     std::ofstream stream("nsclient.fatal", std::ios::out | std::ios::app | std::ios::ate);
     stream << message << "\n";
   } catch (...) {
+    // ignored, since it has also been logged to display...
   }
 }
 

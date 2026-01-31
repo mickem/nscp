@@ -26,7 +26,7 @@
 
 namespace po = boost::program_options;
 class cli_parser : public boost::noncopyable {
-  NSClient* core_;
+  std::shared_ptr<NSClient> core_;
   po::options_description common_light;
   po::options_description common;
   po::options_description settings;
@@ -53,7 +53,7 @@ class cli_parser : public boost::noncopyable {
   bool process_common_options(const std::string& context, const po::options_description& desc);
 
  public:
-  cli_parser(NSClient* core);
+  cli_parser(const std::shared_ptr<NSClient>& core);
   int parse(int argc, char* argv[]);
 
  private:
