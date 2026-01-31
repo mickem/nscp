@@ -50,6 +50,9 @@ std::string simple_file_logger::base_path() {
 #endif
 }
 
+static bool reported_log_failure = false;
+static bool reported_mkdir_failure = false;
+
 void simple_file_logger::do_log(const std::string data) {
   if (file_.empty()) return;
   try {
@@ -74,11 +77,14 @@ void simple_file_logger::do_log(const std::string data) {
         try {
           boost::filesystem::create_directories(parent);
         } catch (...) {
-          logger_helper::log_fatal("Failed to create directory: " + parent.string());
+          if (!reported_mkdir_failure) {
+            reported_mkdir_failure = true;
+            logger_helper::log_fatal("Failed to create directory: " + parent.string());
+          }
         }
       }
     }
-    std::string date = nsclient::logging::logger_helper::get_formated_date(format_);
+    std::string date = logger_helper::get_formated_date(format_);
 
     PB::Log::LogEntry message;
     if (!message.ParseFromString(data)) {
@@ -93,7 +99,11 @@ void simple_file_logger::do_log(const std::string data) {
       try {
         std::ofstream stream(file_.c_str(), std::ios::out | std::ios::app | std::ios::ate);
         if (!stream) {
-          logger_helper::log_fatal(file_ + " could not be opened, Discarding: " + tmp.str());
+          if (!reported_log_failure) {
+            reported_log_failure = true;
+            logger_helper::log_fatal("Failed to open log file: " + file_);
+          }
+          logger_helper::log_fatal(tmp.str());
         } else {
           stream << tmp.str();
         }
