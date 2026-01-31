@@ -103,8 +103,8 @@ endif()
 set(MODULE_TARGET_FOLDER lib/nsclient/modules)
 set(LIB_TARGET_FOLDER lib)
 set(SYSTEMD_TARGET_FOLDER /lib/systemd/system)
-set(SBIN_TARGET_FOLDER sbin)
-set(BIN_TARGET_FOLDER bin)
+set(SBIN_TARGET_FOLDER usr/sbin)
+set(BIN_TARGET_FOLDER usr/bin)
 set(LOG_TARGET_FOLDER var/log)
 set(ETC_TARGET_FOLDER etc)
 
@@ -1021,7 +1021,7 @@ else()
     option(USE_SYSTEMD "Install systemd service files" ON)
     option(USE_INITD "Install legacy init.d scripts" OFF)
 
-    set(CPACK_PACKAGING_INSTALL_PREFIX "/") # Critical for absolute paths like /etc
+    set(CPACK_PACKAGING_INSTALL_PREFIX "/")
 
     set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
             "${CMAKE_CURRENT_SOURCE_DIR}/files/deb/postinst;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/prerm;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/conffiles")
@@ -1033,6 +1033,28 @@ else()
     # Ensure empty directories are included in the RPM
     set(CPACK_RPM_USER_FILELIST
             "%dir /var/log/nsclient"
+    )
+
+    set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION
+            "/bin"
+            "/lib"
+            "/lib/systemd"
+            "/lib/systemd/system"
+            "/sbin"
+            "/usr"
+            "/usr/bin"
+            "/usr/sbin"
+            "/usr/lib"
+            "/usr/lib/nsclient"
+            "/usr/lib/nsclient/modules"
+            "/usr/share"
+            "/usr/share/nsclient"
+            "/etc"
+            "/etc/nsclient"
+            "/var"
+            "/var/lib"
+            "/var/log"
+            "/var/log/nsclient"
     )
 
 endif()
