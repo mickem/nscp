@@ -194,6 +194,7 @@ jobs:
             SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
             SET(BOOST_ROOT "${{ steps.paths.outputs.boost_root }}")
             SET(BOOST_LIBRARYDIR "${{ steps.paths.outputs.boost_librarydir }}")
+            SET(NSCP_BOOST_PYTHON_VERSION "python311")
             SET(PROTOBUF_ROOT "${{ steps.protobuf.outputs.path_unix }}")
             SET(PROTOBUF_LIBRARYDIR "${PROTOBUF_ROOT}/build/Release")
             SET(OPENSSL_ROOT_DIR "${{ steps.openssl.outputs.path_unix }}")

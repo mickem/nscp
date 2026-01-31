@@ -190,6 +190,7 @@ Create a file called `build.cmake` adding the paths to the above tools and libra
 SET(USE_STATIC_RUNTIME FALSE)
 set(Boost_USE_STATIC_RUNTIME ON)
 SET(BOOST_ROOT "BUILD_FOLDER/boost_VERSION")
+SET(NSCP_BOOST_PYTHON_VERSION "python311")
 SET(BOOST_LIBRARYDIR "BUILD_FOLDER/boost_VERSION/stage/lib")
 SET(PROTOBUF_LIBRARYDIR "BUILD_FOLDER/protobuf-VERSION/build/Release")
 SET(OPENSSL_USE_STATIC_LIBS TRUE)
@@ -352,6 +353,7 @@ Create a file called `build.cmake` adding the paths to the above tools and libra
 ```cmake
 SET(USE_STATIC_RUNTIME FALSE)
 set(Boost_USE_STATIC_RUNTIME ON)
+SET(NSCP_BOOST_PYTHON_VERSION "python311")
 SET(BOOST_ROOT "BUILD_FOLDER/boost_VERSION_static")
 SET(BOOST_LIBRARYDIR "BUILD_FOLDER/boost_VERSION_static/stage/lib")
 SET(PROTOBUF_LIBRARYDIR "BUILD_FOLDER/protobuf-VERSION_static/build/Release")
@@ -427,6 +429,7 @@ cargo build --release
 Create a `build.cmake` file adding the paths to the above tools and libraries.
 ```cmake
 SET(DEPENDENCIES_FOLDER "${HOME}/dependencies")
+SET(NSCP_BOOST_PYTHON_VERSION "python312")
 SET(TINY_XML2_SOURCE_DIR "${DEPENDENCIES_FOLDER}/tinyxml2-10.1.0")
 set(MONGOOSE_SOURCE_DIR "${DEPENDENCIES_FOLDER}/mongoose-7.19")
 set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/rust/nscp_client/target/release")

@@ -21,11 +21,6 @@ find_package(GTest)
 find_package(OpenSSL)
 find_package(Miniz)
 find_package(Mongoose)
-if(WIN32)
-    set(boost_python_dep python311)
-else(WIN32)
-    set(boost_python_dep python312)
-endif(WIN32)
 find_package(
     Boost
     COMPONENTS
@@ -35,7 +30,7 @@ find_package(
         regex
         date_time
         program_options
-        ${boost_python_dep}
+        ${NSCP_BOOST_PYTHON_VERSION}
         chrono
         json
         container

@@ -78,6 +78,7 @@ jobs:
         path: tmp/nscp/build.cmake
         contents: |
             SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
+            SET(NSCP_BOOST_PYTHON_VERSION "python312")
             SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
             set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
             set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -150,6 +151,7 @@ jobs:
           openssl-devel \
           python3 \
           python3-pip \
+          python3-devel \
           nodejs \
           npm \
           lua-devel
@@ -188,6 +190,7 @@ jobs:
       run: |
         cat > tmp/nscp/build.cmake << 'EOF'
         SET(LIBRARY_ROOT_FOLDER "${{ env.GITHUB_WORKSPACE }}")
+        SET(NSCP_BOOST_PYTHON_VERSION "python313")
         SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
         set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
         set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}")
