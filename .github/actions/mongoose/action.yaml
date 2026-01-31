@@ -39,10 +39,14 @@ runs:
 
     - id: path
       run: |
-        ls
-        $path=$pwd.path
-        $path_unix=$pwd.path.replace('\','/')
-        echo "path=$path" >> $env:GITHUB_OUTPUT
-        echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
-      shell: pwsh
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          path=$(pwd -W)
+          path_unix=$(pwd -W | sed 's/\\/\//g')
+        else
+          path=$(pwd)
+          path_unix=$path
+        fi
+        echo "path=$path" >> $GITHUB_OUTPUT
+        echo "path_unix=$path_unix" >> $GITHUB_OUTPUT
+      shell: bash
       working-directory: tmp/mongoose-${{ inputs.version }}
