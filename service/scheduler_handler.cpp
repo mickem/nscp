@@ -25,7 +25,7 @@
 #include "../libs/settings_manager/settings_manager_impl.h"
 #include "NSClient++.h"
 
-extern NSClient *mainClient;
+extern std::shared_ptr<NSClient> mainClient;
 
 namespace task_scheduler {
 schedule_metadata scheduler::get(int id) {

@@ -32,6 +32,11 @@
     get_logger()->error("core", __FILE__, __LINE__, msg); \
   }
 #define LOG_ERROR_CORE_STD(msg) LOG_ERROR_CORE(std::string(msg))
+#define LOG_WARN_CORE(msg)                               \
+  {                                                       \
+    get_logger()->warning("core", __FILE__, __LINE__, msg); \
+  }
+#define LOG_WARN_CORE_STD(msg) LOG_WARN_CORE(std::string(msg))
 #define LOG_INFO_CORE(msg)                               \
   {                                                      \
     get_logger()->info("core", __FILE__, __LINE__, msg); \

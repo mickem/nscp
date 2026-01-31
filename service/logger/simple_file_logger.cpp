@@ -73,13 +73,15 @@ void simple_file_logger::do_log(const std::string data) {
     }
     if (!boost::filesystem::exists(file_.c_str())) {
       boost::filesystem::path parent = file_helpers::meta::get_path(file_);
-      if (!boost::filesystem::exists(parent.string())) {
-        try {
-          boost::filesystem::create_directories(parent);
-        } catch (...) {
-          if (!reported_mkdir_failure) {
-            reported_mkdir_failure = true;
-            logger_helper::log_fatal("Failed to create directory: " + parent.string());
+      if (!parent.empty()) {
+        if (!boost::filesystem::exists(parent.string())) {
+          try {
+            boost::filesystem::create_directories(parent);
+          } catch (...) {
+            if (!reported_mkdir_failure) {
+              reported_mkdir_failure = true;
+              logger_helper::log_fatal("Failed to create log directory: " + parent.string());
+            }
           }
         }
       }

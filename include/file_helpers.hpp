@@ -107,6 +107,9 @@ class patterns {
 
 struct finder {
   static boost::optional<boost::filesystem::path> locate_file_icase(const boost::filesystem::path& path, const std::string& filename) {
+    if (!exists(path)) {
+      return boost::optional<boost::filesystem::path>();
+    }
     boost::filesystem::path fullpath = path / filename;
 #ifdef WIN32
     auto tmp = utf8::cvt<std::wstring>(fullpath.string());

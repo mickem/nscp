@@ -149,7 +149,9 @@ void NSCSettingsImpl::boot(std::string key) {
   }
   if (order.size() == 0) {
     get_logger()->debug("settings", __FILE__, __LINE__, "No entries found looking in (adding default): " + boot_.string());
+#ifdef WIN32
     order.push_back(DEFAULT_CONF_OLD_LOCATION);
+#endif
     order.push_back(DEFAULT_CONF_INI_LOCATION);
   }
   std::string boot_order;

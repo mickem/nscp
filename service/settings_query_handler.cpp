@@ -13,7 +13,7 @@ namespace nsclient {
 
 namespace core {
 
-settings_query_handler::settings_query_handler(nsclient::core::core_interface *core, const PB::Settings::SettingsRequestMessage &request)
+settings_query_handler::settings_query_handler(std::shared_ptr<core_interface> core, const PB::Settings::SettingsRequestMessage &request)
     : logger_(core->get_logger()), request_(request), core_(core) {}
 
 void settings_query_handler::settings_add_plugin_data(const std::set<unsigned int> &plugins, PB::Settings::Information *info) {

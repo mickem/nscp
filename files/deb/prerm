@@ -1,7 +1,7 @@
 #!/bin/sh
-# prerm script for nsclient
-#
+set -e
 
-if [ -x "/etc/init.d/nsclient" ] || [ -e "/etc/init/nsclient.conf" ]; then
-        invoke-rc.d nsclient stop || exit 0
+if [ "$1" = "remove" ]; then
+    systemctl stop nsclient || true
+    systemctl disable nsclient || true
 fi

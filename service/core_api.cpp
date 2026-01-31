@@ -41,7 +41,7 @@
     core->get_logger()->error("core", __FILE__, __LINE__, msg); \
   }
 
-extern NSClient *mainClient;  // Global core instance forward declaration.
+extern std::shared_ptr<NSClient> mainClient;  // Global core instance forward declaration.
 
 NSCAPI::errorReturn NSAPIExpandPath(const char *key, char *buffer, unsigned int bufLen) {
   return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient->get_path()->expand_path(key), NSCAPI::api_return_codes::isSuccess);

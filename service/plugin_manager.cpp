@@ -166,7 +166,7 @@ nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_ma
 // Load all configured (nsclient.ini) plugins.
 void nsclient::core::plugin_manager::load_active_plugins() {
   if (plugin_path_.empty()) {
-    throw core_exception("Please configure plugin_manager first");
+    throw core_exception("No plugin path found.");
   }
   for (const plugin_alias_list_type::value_type &v : find_all_active_plugins()) {
     std::string module = v.first;
@@ -312,7 +312,9 @@ boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_fi
 
   for (const std::string &current_name : names) {
     boost::filesystem::path tmp = plugin_path_ / current_name;
-    if (boost::filesystem::is_regular_file(tmp)) return tmp;
+    if (boost::filesystem::is_regular_file(tmp)) {
+      return tmp;
+    }
   }
 
   for (const std::string &current_name : names) {
@@ -326,7 +328,7 @@ boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_fi
     }
   }
   LOG_ERROR_CORE("Failed to find plugin: " + file_name + " in " + plugin_path_.string());
-  return boost::optional<boost::filesystem::path>();
+  return {};
 }
 
 nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only_load_module(const std::string &module, const std::string &alias,
@@ -334,7 +336,7 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only
   loaded = false;
   boost::optional<boost::filesystem::path> real_file = find_file(module);
   if (!real_file) {
-    return plugin_type();
+    return {};
   }
   LOG_DEBUG_CORE_STD("Loading module " + real_file->string() + " (" + alias + ")");
   plugin_type dup = plugin_list_.find_duplicate(*real_file, alias);
