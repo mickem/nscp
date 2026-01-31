@@ -749,13 +749,6 @@ configure_file(
     ${PROJECT_BINARY_DIR}/include/version.hpp
     @ONLY
 )
-if(NOT WIN32)
-    configure_file(
-        ${CMAKE_SOURCE_DIR}/files/nscp.spec.in
-        ${PROJECT_BINARY_DIR}/SPECS/nscp.spec
-        @ONLY
-    )
-endif()
 
 # INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
