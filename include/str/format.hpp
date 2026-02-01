@@ -122,7 +122,7 @@ inline std::string format_date(const std::time_t time, const std::string &format
   return format_date(boost::posix_time::from_time_t(time), format);
 }
 #define MK_FORMAT_FTD(min, key, val)                  \
-  if (mtm->tm_year > (min))                           \
+  if ((mtm->tm_year) > (min))                           \
     str::utils::replace(format, key, str::xtos(val)); \
   else                                                \
     str::utils::replace(format, key, "0");
@@ -329,8 +329,16 @@ std::string format_byte_units(T value, std::string unit) {
     if (unit[0] == BKMG_RANGE[i]) {
       ss << std::setiosflags(std::ios::fixed) << std::setprecision(3) << cpy;
       std::string s = ss.str();
-      const std::string::size_type pos = s.find_last_not_of("0.");
+      std::string::size_type pos = s.find_last_not_of('0');
       if (pos != std::string::npos) {
+        if (s[pos] == '.') {
+          if (pos == 0) {
+            // Handle strings like ".000" by normalizing to "0"
+            s = "0";
+            return s;
+          }
+          --pos;
+        }
         s = s.substr(0, pos + 1);
       }
       return s;

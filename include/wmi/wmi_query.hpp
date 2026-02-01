@@ -20,7 +20,7 @@
 #pragma once
 
 #include <atlbase.h>
-#include <wbemcli.h>
+#include <WbemCli.h>
 
 #include <boost/lexical_cast.hpp>
 #include <error/error.hpp>
