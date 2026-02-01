@@ -5,7 +5,7 @@ authors = ["Michael Medin <michael@medin.name>"]
 edition = "2024"
 
 [dependencies]
-clap = { version = "4.5.54", features = ["derive"] }
+clap = { version = "4.5.56", features = ["derive"] }
 reqwest = { version = "0.13.1", features = ["json", "query"] }
 tokio = { version = "1.49.0", features = ["full"] }
 serde = { version = "1.0.228", features = ["derive"] }
