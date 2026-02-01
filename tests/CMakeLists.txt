@@ -1,7 +1,7 @@
 if(WIN32)
     nscp_create_test(shellapi_test
         SOURCES
-            shellapi_test.cpp
+            ${NSCP_INCLUDEDIR}/win/shellapi_test.cpp
             ${NSCP_INCLUDEDIR}/utf8.cpp
             ${NSCP_INCLUDEDIR}/win/shellapi.cpp
         LIBRARIES
@@ -11,6 +11,21 @@ if(WIN32)
             Userenv
             ole32
             Shell32
+        INCLUDES
+            ${NSCP_INCLUDEDIR}
+    )
+    nscp_create_test(wmi_query_test
+        SOURCES
+            ${NSCP_INCLUDEDIR}/wmi/wmi_query_test.cpp
+            ${NSCP_INCLUDEDIR}/wmi/wmi_query.cpp
+            ${NSCP_INCLUDEDIR}/error/error_w32.cpp
+            ${NSCP_INCLUDEDIR}/utf8.cpp
+        LIBRARIES
+            gtest_main
+            ${Boost_FILESYSTEM_LIBRARY}
+            ${Boost_SYSTEM_LIBRARY}
+            ole32
+            wbemuuid
         INCLUDES
             ${NSCP_INCLUDEDIR}
     )
