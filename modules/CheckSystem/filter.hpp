@@ -19,14 +19,13 @@
 
 #pragma once
 
-#include <EnumNtSrv.h>
-#include <EnumProcess.h>
-
 #include <boost/date_time.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <str/format.hpp>
 #include <string>
+#include <win/processes.hpp>
+#include <win/services.hpp>
 #include <win_sysinfo/win_sysinfo.hpp>
 
 namespace check_cpu_filter {
@@ -89,7 +88,7 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }  // namespace check_page_filter
 
 namespace check_svc_filter {
-typedef services_helper::service_info filter_obj;
+typedef win_list_services::service_info filter_obj;
 typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler();

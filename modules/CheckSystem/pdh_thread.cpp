@@ -33,7 +33,7 @@
 
 typedef parsers::where::realtime_filter_helper<check_cpu_filter::runtime_data, filters::cpu::filter_config_object> cpu_filter_helper;
 
-struct NSC_error_pdh : public process_helper::error_reporter {
+struct NSC_error_pdh : public win_list_processes::error_reporter {
   std::list<std::string> l;
   void report_error(std::string error) {
     // l.push_back(error);

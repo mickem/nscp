@@ -17,8 +17,6 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "EnumNtSrv.h"
-
 #include <boost/unordered_map.hpp>
 #include <buffer.hpp>
 #include <error/error.hpp>
@@ -29,6 +27,7 @@
 #include <str/format.hpp>
 #include <str/utils.hpp>
 #include <utf8.hpp>
+#include <win/services.hpp>
 #include <win/windows.hpp>
 #include <win/winsvc.hpp>
 #include <win_sysinfo/win_sysinfo.hpp>
@@ -36,13 +35,13 @@
 typedef boost::unordered_map<std::string, std::string> hash_map;
 hash_map smap;
 
-std::string services_helper::get_service_classification(const std::string &name) {
+std::string win_list_services::get_service_classification(const std::string &name) {
   hash_map::const_iterator cit = smap.find(name);
   if (cit == smap.end()) return "custom";
   return cit->second;
 }
 
-void services_helper::init() {
+void win_list_services::init() {
   smap["BITS"] = "essential";
   smap["COMSysApp"] = "essential";
   smap["Dnscache"] = "essential";
@@ -267,7 +266,7 @@ struct service_closer {
   static void close(SC_HANDLE handle) { CloseServiceHandle(handle); }
 };
 typedef hlp::handle<SC_HANDLE, service_closer> service_handle;
-namespace services_helper {
+namespace win_list_services {
 DWORD parse_service_type(const std::string str) {
   DWORD ret = 0;
   for (const std::string key : str::utils::split_lst(str, std::string(","))) {
@@ -511,4 +510,4 @@ std::string service_info::get_type() const {
   if (type & SERVICE_INTERACTIVE_PROCESS) str::format::append_list(str, "interactive");
   return str;
 }
-}  // namespace services_helper
+}  // namespace win_list_services

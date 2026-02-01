@@ -19,8 +19,6 @@
 
 #include "check_process.hpp"
 
-#include <EnumProcess.h>
-
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -28,9 +26,10 @@
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/where/node.hpp>
 #include <string>
+#include <win/processes.hpp>
 
 namespace check_proc_filter {
-typedef process_helper::process_info filter_obj;
+typedef win_list_processes::process_info filter_obj;
 
 typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler : public native_context {
@@ -95,7 +94,7 @@ filter_obj_handler::filter_obj_handler() {
 
 }  // namespace check_proc_filter
 
-class NSC_error : public process_helper::error_reporter {
+class NSC_error : public win_list_processes::error_reporter {
   void report_error(std::string error) { NSC_LOG_ERROR(error); }
   void report_warning(std::string error) { NSC_LOG_MESSAGE(error); }
   void report_debug(std::string error) { NSC_DEBUG_MSG_STD(error); }
@@ -106,9 +105,9 @@ namespace process_checks {
 namespace realtime {
 
 struct transient_data {
-  process_helper::process_list list;
+  win_list_processes::process_list list;
 
-  transient_data(process_helper::process_list list) : list(list) {}
+  transient_data(win_list_processes::process_list list) : list(list) {}
   const transient_data &operator=(const transient_data &other) {
     list = other.list;
     return *this;
@@ -151,15 +150,15 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
   modern_filter::match_result ret;
 
   if (has_check_all) {
-    for (const process_helper::process_info &info : data->list) {
-      boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(info));
+    for (const win_list_processes::process_info &info : data->list) {
+      boost::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
       ret.append(filter.match(record));
     }
   } else {
-    for (const process_helper::process_info &info : data->list) {
+    for (const win_list_processes::process_info &info : data->list) {
       bool found = (std::find(checks.begin(), checks.end(), info.exe.get()) != checks.end());
       if (found) {
-        boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(info));
+        boost::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
         ret.append(filter.match(record));
       }
     }
@@ -182,8 +181,8 @@ void helper::boot() { proc_helper->helper.touch_all(); }
 void helper::check() {
   NSC_error err;
 
-  runtime_data::transient_data_type data(new transient_data(process_helper::enumerate_processes_delta(true, &err)));
-  for (process_helper::process_info &i : data->list) {
+  runtime_data::transient_data_type data(new transient_data(win_list_processes::enumerate_processes_delta(true, &err)));
+  for (win_list_processes::process_info &i : data->list) {
     if (known_processes_.find(i.exe.get()) == known_processes_.end()) {
       i.is_new = true;
       known_processes_.emplace(i.exe.get());
@@ -249,12 +248,12 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   }
 
   std::vector<std::string> matched;
-  process_helper::process_list list = delta_scan ? process_helper::enumerate_processes_delta(!unreadable_scan, &err)
-                                                 : process_helper::enumerate_processes(!unreadable_scan, vdm_scan, deep_scan, &err);
-  for (const process_helper::process_info &info : list) {
+  win_list_processes::process_list list = delta_scan ? win_list_processes::enumerate_processes_delta(!unreadable_scan, &err)
+                                                     : win_list_processes::enumerate_processes(!unreadable_scan, vdm_scan, deep_scan, &err);
+  for (const win_list_processes::process_info &info : list) {
     bool wanted = procs.count(info.exe);
     if (all || wanted) {
-      boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(info));
+      boost::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
       filter.match(record);
     }
     if (wanted) {
@@ -265,11 +264,11 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
     procs.erase(proc);
   }
 
-  boost::shared_ptr<process_helper::process_info> total_obj;
-  if (total) total_obj = process_helper::process_info::get_total();
+  boost::shared_ptr<win_list_processes::process_info> total_obj;
+  if (total) total_obj = win_list_processes::process_info::get_total();
 
   for (const std::string &proc : procs) {
-    boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(proc));
+    boost::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(proc));
     modern_filter::match_result ret = filter.match(record);
     if (total_obj && ret.matched_filter) total_obj->operator+=(*record);
   }
