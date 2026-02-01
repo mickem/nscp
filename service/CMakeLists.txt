@@ -169,6 +169,12 @@ nscp_create_test(service_test
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
+if(WIN32)
+    set(service_test_SRCS ${NSCP_INCLUDEDIR}/error/error_w32.cpp)
+else()
+    set(service_test_SRCS)
+endif()
+
 
 nscp_create_test(plugins_test
     SOURCES
@@ -184,7 +190,7 @@ nscp_create_test(plugins_test
         plugins/plugin_list_test.cpp
         plugins/zip_plugin.cpp
         path_manager.cpp
-        ${NSCP_INCLUDEDIR}/error/error_w32.cpp
+        ${service_test_SRCS}
         ${NSCP_INCLUDEDIR}/json/use_json.cpp
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
     LIBRARIES

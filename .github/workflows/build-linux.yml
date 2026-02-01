@@ -70,7 +70,7 @@ jobs:
 
     - name: Install boost
       run: |
-        sudo apt-get install -y libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev
+        sudo apt-get install -y libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev
 
     - uses: DamianReeves/write-file-action@master
       name: Write NSClient++ cmake config
@@ -146,6 +146,7 @@ jobs:
           boost-devel \
           boost-static \
           gtest-devel \
+          gmock-devel \
           protobuf-compiler \
           protobuf-devel \
           openssl-devel \
