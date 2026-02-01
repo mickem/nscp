@@ -48,7 +48,7 @@ endif(OPENSSL_FOUND)
 
 add_library(${TARGET} STATIC ${service_SRCS})
 
-target_link_libraries(${TARGET} ${EXTRA_LIBS} nscp_protobuf)
+target_link_libraries(${TARGET} ${EXTRA_LIBS} nscp_protobuf ${Boost_THREAD_LIBRARY})
 
 set_target_properties(${TARGET} PROPERTIES FOLDER "core")
 

@@ -379,7 +379,7 @@ msbuild nscp.sln /p:Configuration=Release /p:Platform=Win32
 ### Install dependencies
 ```bash
 sudo apt-get update
-sudo apt-get install -y build-essential cmake libssl-dev libboost-all-dev libprotobuf-dev protobuf-compiler liblua5.4-dev libtinyxml2-dev libffi-dev python3.12-dev python3-protobuf libdbus-1-dev pkg-config rpm
+sudo apt-get install -y build-essential cmake libssl-dev libboost-all-dev libprotobuf-dev protobuf-compiler liblua5.4-dev libtinyxml2-dev libffi-dev python3.12-dev python3-protobuf libdbus-1-dev pkg-config rpm libgmock-dev
 ```
 
 In addition to this you also need to install rust: https://rust-lang.org/tools/install/
