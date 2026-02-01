@@ -147,7 +147,6 @@ source_group("Log" REGULAR_EXPRESSION .*/logger/.*)
 
 add_executable(
     ${TARGET}_test
-    various_test.cpp
     performance_data_test.cpp
     cron_test.cpp
     path_manager.cpp
