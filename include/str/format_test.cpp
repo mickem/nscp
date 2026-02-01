@@ -48,7 +48,7 @@ TEST(format, format_byte_units_units) {
   EXPECT_EQ(str::format::format_byte_units(9223372036854775807ULL), "8EB");
   EXPECT_EQ(str::format::format_byte_units(1024ULL * 1024ULL * 1024ULL * 1024ULL), "1TB");
 
-  EXPECT_EQ(str::format::format_byte_units(13347635876348), "12.14TB");
+  EXPECT_EQ(str::format::format_byte_units(13347635876348ULL), "12.14TB");
 }
 
 TEST(format, format_byte_units_common) {
