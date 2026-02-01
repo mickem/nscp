@@ -62,7 +62,7 @@ struct simple_plugins_list : boost::noncopyable {
   }
   bool has_valid_lock_log(const boost::shared_lock<boost::shared_mutex> &lock, const std::string &key) {
     if (!lock.owns_lock()) {
-      log_error(__FILE__, __LINE__, "Failed to get mutex", std::move(key));
+      log_error(__FILE__, __LINE__, "Failed to get mutex", key);
       return false;
     }
     return true;
