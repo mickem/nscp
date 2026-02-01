@@ -42,32 +42,31 @@ std::string joinEx(const T &lst, const std::string key) {
 // Parsing commands
 //
 template <class T>
-inline void parse_command(const std::string &cmd_line, T &args) {
-  boost::tokenizer<boost::escaped_list_separator<char>, std::string::const_iterator, std::string> tok(cmd_line,
-                                                                                                      boost::escaped_list_separator<char>('\\', ' ', '\"'));
+void parse_command(const std::string &cmd_line, T &args) {
+  const boost::tokenizer<boost::escaped_list_separator<char>> tok(cmd_line, boost::escaped_list_separator<char>('\\', ' ', '\"'));
   for (std::string s : tok) {
     if (!s.empty()) args.push_back(s);
   }
 }
 inline std::list<std::string> parse_command(const std::string &cmd_line) {
   std::list<std::string> args;
-  boost::tokenizer<boost::escaped_list_separator<char>, std::string::const_iterator, std::string> tok(cmd_line,
-                                                                                                      boost::escaped_list_separator<char>('\\', ' ', '\"'));
-  for (std::string s : tok) {
+  const boost::tokenizer<boost::escaped_list_separator<char>> tok(cmd_line, boost::escaped_list_separator<char>('\\', ' ', '\"'));
+  for (const std::string &s : tok) {
     if (!s.empty()) args.push_back(s);
   }
   return args;
 }
-inline void parse_command(std::string cmd_line, std::string &cmd, std::list<std::string> &args) {
-  boost::tokenizer<boost::escaped_list_separator<char>, std::string::const_iterator, std::string> tok(cmd_line,
-                                                                                                      boost::escaped_list_separator<char>('\\', ' ', '\"'));
+inline void parse_command(const std::string &cmd_line, std::string &cmd, std::list<std::string> &args) {
+  const boost::tokenizer<boost::escaped_list_separator<char>> tok(cmd_line, boost::escaped_list_separator<char>('\\', ' ', '\"'));
   bool first = true;
-  for (std::string s : tok) {
+  for (const std::string &s : tok) {
     if (first) {
       cmd = s;
       first = false;
     } else {
-      args.push_back(s);
+      if (!s.empty()) {
+        args.push_back(s);
+      }
     }
   }
 }

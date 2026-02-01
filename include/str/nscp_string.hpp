@@ -25,16 +25,16 @@
 
 namespace strEx {
 namespace s {
-inline boost::tuple<std::string, std::string> split2(const std::string str, const std::string key) {
-  std::string::size_type pos = str.find(key);
+inline boost::tuple<std::string, std::string> split2(const std::string &str, const std::string &key) {
+  const auto pos = str.find(key);
   if (pos == std::string::npos) {
     return boost::make_tuple(str, "");
   }
   return boost::make_tuple(str.substr(0, pos), str.substr(pos + 1));
 }
-inline std::list<std::string> splitEx(const std::string str, const std::string key) {
+inline std::list<std::string> splitEx(const std::string &str, const std::string &key) {
   std::list<std::string> ret;
-  std::string::size_type pos = 0, lpos = 0;
+  std::size_t pos = 0, lpos = 0;
   while ((pos = str.find(key, pos)) != std::string::npos) {
     ret.push_back(str.substr(lpos, pos - lpos));
     lpos = ++pos;
@@ -45,7 +45,8 @@ inline std::list<std::string> splitEx(const std::string str, const std::string k
 template <class T>
 T split(const std::string str, const std::string key) {
   T ret;
-  std::string::size_type pos = 0, lpos = 0;
+  std::size_t pos = 0;
+  std::size_t lpos = 0;
   while ((pos = str.find(key, pos)) != std::string::npos) {
     ret.push_back(str.substr(lpos, pos - lpos));
     lpos = ++pos;
@@ -64,37 +65,35 @@ std::string joinEx(const T &lst, const std::string key) {
 }
 
 typedef std::pair<std::string, std::string> token;
-inline token getToken(std::string buffer, char split) {
+inline token getToken(const std::string &buffer, const char split) {
   std::string::size_type pos = std::string::npos;
   pos = buffer.find(split);
-  if (pos == std::string::npos) return token(buffer, "");
-  if (pos == buffer.length() - 1) return token(buffer.substr(0, pos), "");
-  return token(buffer.substr(0, pos), buffer.substr(pos + 1));
+  if (pos == std::string::npos) return {buffer, ""};
+  if (pos == buffer.length() - 1) return {buffer.substr(0, pos), ""};
+  return {buffer.substr(0, pos), buffer.substr(pos + 1)};
 }
 
 template <class T>
-inline void parse_command(const std::string &cmd_line, T &args) {
-  boost::tokenizer<boost::escaped_list_separator<char>, std::string::const_iterator, std::string> tok(cmd_line,
-                                                                                                      boost::escaped_list_separator<char>('\\', ' ', '\"'));
+void parse_command(const std::string &cmd_line, T &args) {
+  const boost::tokenizer<boost::escaped_list_separator<char>> tok(cmd_line, boost::escaped_list_separator<char>('\\', ' ', '\"'));
   for (std::string s : tok) {
     if (!s.empty()) args.push_back(s);
   }
 }
 inline std::list<std::string> parse_command(const std::string &cmd_line) {
   std::list<std::string> args;
-  boost::tokenizer<boost::escaped_list_separator<char>, std::string::const_iterator, std::string> tok(cmd_line,
-                                                                                                      boost::escaped_list_separator<char>('\\', ' ', '\"'));
-  for (std::string s : tok) {
+  const boost::tokenizer<boost::escaped_list_separator<char>> tok(cmd_line, boost::escaped_list_separator<char>('\\', ' ', '\"'));
+  for (const std::string &s : tok) {
     if (!s.empty()) args.push_back(s);
   }
   return args;
 }
 
-inline std::string rpad(std::string str, std::size_t len) {
+inline std::string rpad(const std::string &str, const std::size_t len) {
   if (str.length() > len) return str.substr(str.length() - len);
   return std::string(len - str.length(), ' ') + str;
 }
-inline std::string lpad(std::string str, std::size_t len) {
+inline std::string lpad(const std::string &str, const std::size_t len) {
   if (str.length() > len) return str.substr(0, len);
   return str + std::string(len - str.length(), ' ');
 }

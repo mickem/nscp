@@ -1,22 +1,29 @@
 if(WIN32)
-    add_executable(
-        shellapi_test
-        shellapi_test.cpp
-        ${CMAKE_SOURCE_DIR}/include/utf8.cpp
-        ${CMAKE_SOURCE_DIR}/include/win/shellapi.cpp
+    nscp_create_test(shellapi_test
+        SOURCES
+            shellapi_test.cpp
+            ${NSCP_INCLUDEDIR}/utf8.cpp
+            ${NSCP_INCLUDEDIR}/win/shellapi.cpp
+        LIBRARIES
+            gtest_main
+            ${Boost_FILESYSTEM_LIBRARY}
+            ${Boost_SYSTEM_LIBRARY}
+            Userenv
+            ole32
+            Shell32
+        INCLUDES
+            ${NSCP_INCLUDEDIR}
     )
-    target_link_libraries(
-        shellapi_test
-        gtest_main
-        ${Boost_FILESYSTEM_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
-        Userenv
-        ole32
-        Shell32
-    )
-    target_include_directories(
-        shellapi_test
-        PRIVATE ${CMAKE_SOURCE_DIR}/include
-    )
-    nscp_add_test(shellapi_test)
 endif()
+nscp_create_test(str_test
+        SOURCES
+            ${NSCP_INCLUDEDIR}/str/format_test.cpp
+            ${NSCP_INCLUDEDIR}/str/xtos_test.cpp
+            ${NSCP_INCLUDEDIR}/str/nscp_string_test.cpp
+            ${NSCP_INCLUDEDIR}/str/utils_test.cpp
+            ${NSCP_INCLUDEDIR}/str/wstring_test.cpp
+        LIBRARIES
+            gtest_main
+        INCLUDES
+            ${NSCP_INCLUDEDIR}
+)

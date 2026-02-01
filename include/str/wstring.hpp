@@ -18,17 +18,18 @@
  */
 
 #pragma once
+#include <boost/lexical_cast.hpp>
 #include <list>
 #include <string>
 
 namespace strEx {
 template <class T>
-inline std::wstring xtos(T i) {
+std::wstring xtos(T i) {
   std::wstringstream ss;
   ss << i;
   return ss.str();
 }
-inline std::list<std::wstring> splitEx(const std::wstring str, const std::wstring key) {
+inline std::list<std::wstring> splitEx(const std::wstring &str, const std::wstring &key) {
   std::list<std::wstring> ret;
   std::wstring::size_type pos = 0, lpos = 0;
   while ((pos = str.find(key, pos)) != std::wstring::npos) {
@@ -39,10 +40,10 @@ inline std::list<std::wstring> splitEx(const std::wstring str, const std::wstrin
   return ret;
 }
 template <class T>
-inline T stox(std::wstring s) {
+T stox(const std::wstring s) {
   return boost::lexical_cast<T>(s.c_str());
 }
-inline void replace(std::wstring &string, const std::wstring replace, const std::wstring with) {
+inline void replace(std::wstring &string, const std::wstring &replace, const std::wstring &with) {
   std::wstring::size_type pos = string.find(replace);
   std::wstring::size_type len = replace.length();
   while (pos != std::wstring::npos) {
