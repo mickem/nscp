@@ -262,7 +262,7 @@ constexpr std::size_t BKMG_SIZE = 7;
 
 inline std::string format_byte_units(const long long i) {
   auto cpy = static_cast<double>(i);
-  int idx = 0;
+  std::size_t idx = 0;
   double acpy = cpy < 0 ? -cpy : cpy;
   while ((acpy > 999) && (idx < BKMG_SIZE)) {
     cpy /= 1024;
@@ -283,7 +283,7 @@ inline std::string format_byte_units(const long long i) {
 }
 inline std::string format_byte_units(const unsigned long long i) {
   auto cpy = static_cast<double>(i);
-  int idx = 0;
+  std::size_t idx = 0;
   while ((cpy > 999) && (idx < BKMG_SIZE)) {
     cpy /= 1024;
     idx++;
@@ -303,7 +303,7 @@ inline std::string format_byte_units(const unsigned long long i) {
 template <class T>
 double convert_to_byte_units(T i, const std::string unit) {
   std::string unit_uc = boost::to_upper_copy(unit);
-  int idx = 0;
+  std::size_t idx = 0;
   if (unit_uc.size() == 0) {
     return static_cast<double>(i);
   }
@@ -342,7 +342,7 @@ std::string format_byte_units(T value, std::string unit) {
 }
 inline std::string find_proper_unit_BKMG(unsigned long long i) {
   auto cpy = static_cast<double>(i);
-  int idx = 0;
+  std::size_t idx = 0;
   while ((cpy > 999) && (idx < BKMG_SIZE)) {
     cpy /= 1024;
     idx++;
