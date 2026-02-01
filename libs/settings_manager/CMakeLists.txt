@@ -19,6 +19,7 @@ set(service_SRCS
 if(WIN32)
     set(service_SRCS
         ${service_SRCS}
+        ${NSCP_INCLUDEDIR}/error/error_w32.cpp
         settings_manager_impl.h
         settings_handler_impl.hpp
         ${NSCP_INCLUDEDIR}/win/credentials.cpp

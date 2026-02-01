@@ -27,16 +27,6 @@ class mock_logger : public nsclient::logging::log_interface {
 
 nscapi::core_api::FUNPTR NSAPILoader(const char *buffer) { return nullptr; }
 
-#ifdef WIN32
-// Mock error lookup
-namespace error {
-namespace win32 {
-unsigned int lookup() { return 0; }
-std::string format_message(unsigned long attrs, std::string module, unsigned long dwError) { return ""; }
-}  // namespace win32
-}  // namespace error
-#endif
-
 TEST(plugin_manager_test, test_is_module) {
   boost::filesystem::path dll_path("test.dll");
   boost::filesystem::path so_path("test.so");

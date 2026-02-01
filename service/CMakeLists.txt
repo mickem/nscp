@@ -145,34 +145,58 @@ source_group("Settings" REGULAR_EXPRESSION .*include/settings/.*)
 # SOURCE_GROUP("Common Files" REGULAR_EXPRESSION .*include/.*)
 source_group("Log" REGULAR_EXPRESSION .*/logger/.*)
 
-add_executable(
-    ${TARGET}_test
-    performance_data_test.cpp
-    cron_test.cpp
-    path_manager.cpp
-    path_manager_test.cpp
-    plugins/master_plugin_list.cpp
-    plugins/zip_plugin.cpp
-    plugins/plugin_cache.cpp
-    plugins/plugin_manager.cpp
-    plugins/plugin_manager_test.cpp
-    plugins/dll_plugin.cpp
-    ${NSCP_INCLUDEDIR}/json/use_json.cpp
-    ../include/parsers/cron/cron_parser.hpp
-    ../include/nscapi/nscapi_protobuf_functions.cpp
-    ../include/nscapi/nscapi_protobuf_functions.hpp
-    ${NSCP_INCLUDEDIR}/win/shellapi.cpp
+nscp_create_test(service_test
+    SOURCES
+        performance_data_test.cpp
+        cron_test.cpp
+        path_manager.cpp
+        path_manager_test.cpp
+        ${NSCP_INCLUDEDIR}/json/use_json.cpp
+        ../include/parsers/cron/cron_parser.hpp
+        ../include/nscapi/nscapi_protobuf_functions.cpp
+        ../include/nscapi/nscapi_protobuf_functions.hpp
+        ${NSCP_INCLUDEDIR}/win/shellapi.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${EXTRA_LIBS}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        settings_manager
+        nscp_miniz
+        expression_parser
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
 )
-target_link_libraries(
-    ${TARGET}_test
-    GTest::gtest_main
-    ${NSCP_DEF_PLUGIN_LIB}
-    ${EXTRA_LIBS}
-    ${Boost_DATE_TIME_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
-    settings_manager
-    nscp_miniz
-    expression_parser
+
+nscp_create_test(plugins_test
+    SOURCES
+        plugins/master_plugin_list.cpp
+        plugins/master_plugin_list_test.cpp
+        plugins/plugin_cache.cpp
+        plugins/plugin_cache_test.cpp
+        plugins/plugin_manager.cpp
+        plugins/plugin_manager_test.cpp
+        plugins/plugin_interface_test.cpp
+        plugins/dll_plugin.cpp
+        plugins/dll_plugin_test.cpp
+        plugins/plugin_list_test.cpp
+        plugins/zip_plugin.cpp
+        path_manager.cpp
+        ${NSCP_INCLUDEDIR}/error/error_w32.cpp
+        ${NSCP_INCLUDEDIR}/json/use_json.cpp
+        ${NSCP_INCLUDEDIR}/win/shellapi.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${EXTRA_LIBS}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        settings_manager
+        nscp_miniz
+        expression_parser
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
 )
-nscp_add_test(${TARGET}_test)
