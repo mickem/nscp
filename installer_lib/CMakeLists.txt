@@ -199,7 +199,7 @@ add_definitions(-DUSE_SSL)
 
 set(SRCS
     ${TARGET}.cpp
-    ${NSCP_INCLUDEDIR}/ServiceCmd.cpp
+    ${NSCP_INCLUDEDIR}/win/service_control.cpp
     ${NSCP_INCLUDEDIR}/error/error_w32.cpp
     ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
     ../libs/settings_manager/settings_manager_impl.cpp
@@ -211,7 +211,7 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/win/credentials.hpp
     "${TARGET}.def"
     installer_helper.hpp
-    ${NSCP_INCLUDEDIR}/ServiceCmd.h
+    ${NSCP_INCLUDEDIR}/win/service_control.hpp
     ${NSCP_ERROR_CPP}
     ${NSCP_ERROR_HPP}
     # Logger

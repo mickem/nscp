@@ -27,7 +27,7 @@
 
 #include "NSClient++.h"
 #ifdef _WIN32
-#include <ServiceCmd.h>
+#include <win/service_control.hpp>
 #endif
 #include <nscapi/nscapi_protobuf_settings.hpp>
 #include <nsclient/logger/logger.hpp>

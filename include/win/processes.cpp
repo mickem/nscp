@@ -17,8 +17,6 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "EnumProcess.h"
-
 #include <tchar.h>
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -32,6 +30,7 @@
 #include <str/xtos.hpp>
 #include <string>
 #include <utf8.hpp>
+#include <win/processes.hpp>
 #include <win/psapi.hpp>
 #include <win/windows.hpp>
 #include <win_sysinfo/win_defines.hpp>
@@ -44,7 +43,7 @@ struct generic_closer {
 };
 typedef hlp::handle<HANDLE, generic_closer> generic_handle;
 
-namespace process_helper {
+namespace win_list_processes {
 void enable_token_privilege(LPTSTR privilege, bool enable) {
   generic_handle token;
   TOKEN_PRIVILEGES token_privileges;
@@ -438,4 +437,4 @@ process_list enumerate_processes_delta(bool ignore_unreadable, error_reporter *e
 
 boost::shared_ptr<process_info> process_info::get_total() { return boost::make_shared<process_info>("total"); }
 
-}  // namespace process_helper
+}  // namespace win_list_processes

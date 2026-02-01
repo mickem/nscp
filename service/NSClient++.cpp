@@ -31,9 +31,8 @@
 #include "logger/nsclient_logger.hpp"
 
 #ifdef WIN32
-#include <ServiceCmd.h>
-
 #include <com_helpers.hpp>
+#include <win/service_control.hpp>
 com_helper::initialize_com com_helper_;
 #endif
 
@@ -441,18 +440,18 @@ NSClientT::service_controller NSClientT::get_service_control() { return service_
 
 void NSClientT::service_controller::stop() {
 #ifdef WIN32
-  serviceControll::StopNoWait(utf8::cvt<std::wstring>(get_service_name()));
+  win_service_control::StopNoWait(utf8::cvt<std::wstring>(get_service_name()));
 #endif
 }
 void NSClientT::service_controller::start() {
 #ifdef WIN32
-  serviceControll::Start(utf8::cvt<std::wstring>(get_service_name()));
+  win_service_control::Start(utf8::cvt<std::wstring>(get_service_name()));
 #endif
 }
 bool NSClientT::service_controller::is_started() {
 #ifdef WIN32
   try {
-    if (serviceControll::isStarted(utf8::cvt<std::wstring>(get_service_name()))) {
+    if (win_service_control::isStarted(utf8::cvt<std::wstring>(get_service_name()))) {
       return true;
     }
   } catch (...) {

@@ -20,46 +20,119 @@
 #include <gtest/gtest.h>
 
 #include <str/format.hpp>
+#include <str/xtos.hpp>
 #include <string>
 
-TEST(format, format_byte_units_units) {
-  EXPECT_EQ(str::format::format_byte_units(0LL), "0B");
-  EXPECT_EQ(str::format::format_byte_units(1LL), "1B");
-  EXPECT_EQ(str::format::format_byte_units(1024LL), "1KB");
-  EXPECT_EQ(str::format::format_byte_units(1024 * 1024LL), "1MB");
-  EXPECT_EQ(str::format::format_byte_units(1024 * 1024 * 1024LL), "1GB");
-  EXPECT_EQ(str::format::format_byte_units(1024 * 1024 * 1024 * 1024LL), "1TB");
-  EXPECT_EQ(str::format::format_byte_units(-76100000000LL), "-70.874GB");
-  EXPECT_EQ(str::format::format_byte_units(9223372036854775807LL), "8EB");
-  EXPECT_EQ(str::format::format_byte_units(-1LL), "-1B");
-  EXPECT_EQ(str::format::format_byte_units(-1024LL), "-1KB");
-  EXPECT_EQ(str::format::format_byte_units(-1024 * 1024LL), "-1MB");
-  EXPECT_EQ(str::format::format_byte_units(-1024 * 1024 * 1024LL), "-1GB");
-  EXPECT_EQ(str::format::format_byte_units(-1024LL * 1024LL * 1024LL * 1024LL), "-1TB");
-
-  EXPECT_EQ(str::format::format_byte_units(0ULL), "0B");
-  EXPECT_EQ(str::format::format_byte_units(1ULL), "1B");
-  EXPECT_EQ(str::format::format_byte_units(1024ULL), "1KB");
-  EXPECT_EQ(str::format::format_byte_units(1024 * 1024ULL), "1MB");
-  EXPECT_EQ(str::format::format_byte_units(1024 * 1024 * 1024ULL), "1GB");
-  EXPECT_EQ(str::format::format_byte_units(1024 * 1024 * 1024 * 1024ULL), "1TB");
-  EXPECT_EQ(str::format::format_byte_units(9223372036854775807ULL), "8EB");
-  EXPECT_EQ(str::format::format_byte_units(1024ULL * 1024ULL * 1024ULL * 1024ULL), "1TB");
+// ============================================================================
+// Tests for stox<T>(string s) - string to type conversion
+// ============================================================================
+TEST(xtos, stox_int) {
+  EXPECT_EQ(str::stox<int>("42"), 42);
+  EXPECT_EQ(str::stox<int>("-123"), -123);
+  EXPECT_EQ(str::stox<int>("0"), 0);
 }
 
-TEST(format, format_byte_units_common) {
-  EXPECT_EQ(str::format::format_byte_units(512LL), "512B");
-  EXPECT_EQ(str::format::format_byte_units(999LL), "999B");
+TEST(xtos, stox_long) {
+  EXPECT_EQ(str::stox<long>("1234567890"), 1234567890L);
+  EXPECT_EQ(str::stox<long>("-1234567890"), -1234567890L);
 }
 
-TEST(format, format_byte_units_rounding) {
-  EXPECT_EQ(str::format::format_byte_units(0LL), "0B");
-  EXPECT_EQ(str::format::format_byte_units(1000LL), "0.977KB");
-  EXPECT_EQ(str::format::format_byte_units(1023LL), "0.999KB");
-  EXPECT_EQ(str::format::format_byte_units(1024LL), "1KB");
-  EXPECT_EQ(str::format::format_byte_units(1126LL), "1.1KB");
-  EXPECT_EQ(str::format::format_byte_units(1136LL), "1.109KB");
+TEST(xtos, stox_long_long) {
+  EXPECT_EQ(str::stox<long long>("9223372036854775807"), 9223372036854775807LL);
+  EXPECT_EQ(str::stox<long long>("-9223372036854775807"), -9223372036854775807LL);
 }
+
+TEST(xtos, stox_unsigned) {
+  EXPECT_EQ(str::stox<unsigned int>("100"), 100u);
+  EXPECT_EQ(str::stox<unsigned int>("0"), 0u);
+  EXPECT_EQ(str::stox<unsigned int>("4294967295"), 4294967295u);
+}
+
+TEST(xtos, stox_double) {
+  EXPECT_DOUBLE_EQ(str::stox<double>("3.14"), 3.14);
+  EXPECT_DOUBLE_EQ(str::stox<double>("-2.5"), -2.5);
+  EXPECT_DOUBLE_EQ(str::stox<double>("0.0"), 0.0);
+}
+
+TEST(xtos, stox_float) {
+  EXPECT_FLOAT_EQ(str::stox<float>("3.14"), 3.14f);
+  EXPECT_FLOAT_EQ(str::stox<float>("-2.5"), -2.5f);
+}
+
+// ============================================================================
+// Tests for stox<T>(string s, T def) - string to type with default
+// ============================================================================
+TEST(xtos, stox_with_default_valid) {
+  EXPECT_EQ(str::stox<int>("42", 0), 42);
+  EXPECT_EQ(str::stox<int>("-123", 0), -123);
+  EXPECT_EQ(str::stox<double>("3.14", 0.0), 3.14);
+}
+
+TEST(xtos, stox_with_default_invalid) {
+  EXPECT_EQ(str::stox<int>("not_a_number", 99), 99);
+  EXPECT_EQ(str::stox<int>("", 42), 42);
+  EXPECT_EQ(str::stox<int>("abc123", -1), -1);
+}
+
+TEST(xtos, stox_with_default_empty_string) {
+  EXPECT_EQ(str::stox<int>("", 100), 100);
+  EXPECT_EQ(str::stox<double>("", 3.14), 3.14);
+  EXPECT_EQ(str::stox<long>("", 999L), 999L);
+}
+
+TEST(xtos, stox_with_default_partial_number) {
+  // These should fail and return default since they're not valid numbers
+  EXPECT_EQ(str::stox<int>("123abc", 0), 0);
+  EXPECT_EQ(str::stox<int>("12.34", 0), 0);  // int can't parse decimals
+}
+
+// ============================================================================
+// Tests for xtos<T>(T i) - type to string conversion
+// ============================================================================
+TEST(xtos, xtos_int) {
+  EXPECT_EQ(str::xtos(42), "42");
+  EXPECT_EQ(str::xtos(-123), "-123");
+  EXPECT_EQ(str::xtos(0), "0");
+}
+
+TEST(xtos, xtos_long) {
+  EXPECT_EQ(str::xtos(1234567890L), "1234567890");
+  EXPECT_EQ(str::xtos(-1234567890L), "-1234567890");
+}
+
+TEST(xtos, xtos_unsigned) {
+  EXPECT_EQ(str::xtos(100u), "100");
+  EXPECT_EQ(str::xtos(0u), "0");
+}
+
+// ============================================================================
+// Tests for ihextos(unsigned int i) - integer to hex string
+// ============================================================================
+TEST(xtos, ihextos_basic) {
+  EXPECT_EQ(str::ihextos(0), "0");
+  EXPECT_EQ(str::ihextos(1), "1");
+  EXPECT_EQ(str::ihextos(10), "a");
+  EXPECT_EQ(str::ihextos(15), "f");
+  EXPECT_EQ(str::ihextos(16), "10");
+}
+
+TEST(xtos, ihextos_larger_values) {
+  EXPECT_EQ(str::ihextos(255), "ff");
+  EXPECT_EQ(str::ihextos(256), "100");
+  EXPECT_EQ(str::ihextos(4096), "1000");
+  EXPECT_EQ(str::ihextos(65535), "ffff");
+}
+
+TEST(xtos, ihextos_max_values) {
+  EXPECT_EQ(str::ihextos(0xDEADBEEF), "deadbeef");
+  EXPECT_EQ(str::ihextos(0xFFFFFFFF), "ffffffff");
+  EXPECT_EQ(str::ihextos(0x12345678), "12345678");
+}
+
+// ============================================================================
+// Tests for xtos_non_sci<T>(T i) - type to string without scientific notation
+// ============================================================================
+
 TEST(format, strex_s__xtos_non_sci_int) {
   EXPECT_EQ(str::xtos_non_sci(0LL), "0");
   EXPECT_EQ(str::xtos_non_sci(1000LL), "1000");
@@ -132,17 +205,4 @@ TEST(format, strex_s__xtos_no_sci_float_1) {
 #else
   EXPECT_EQ(str::xtos_non_sci(9223372036854775807.98798789879887), "9223372036854775808");
 #endif
-}
-
-TEST(format, itos_as_time) {
-  EXPECT_EQ(str::format::itos_as_time(12345), "12s");
-  EXPECT_EQ(str::format::itos_as_time(1234512), "0:20");
-  EXPECT_EQ(str::format::itos_as_time(123451234), "1d 10:17");
-  EXPECT_EQ(str::format::itos_as_time(1234512345), "2w 0d 06:55");
-  EXPECT_EQ(str::format::itos_as_time(12345123456), "20w 2d 21:12");
-}
-
-TEST(format, format_date) {
-  boost::posix_time::ptime time(boost::gregorian::date(2002, 3, 4), boost::posix_time::time_duration(5, 6, 7));
-  EXPECT_EQ(str::format::format_date(time), "2002-03-04 05:06:07");
 }

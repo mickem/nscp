@@ -19,7 +19,6 @@
 
 #include "CheckSystem.h"
 
-#include <EnumNtSrv.h>
 #include <sysinfo.h>
 
 #include <boost/assign/list_of.hpp>
@@ -36,6 +35,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <pdh/pdh_enumerations.hpp>
 #include <set>
+#include <win/services.hpp>
 #include <win_sysinfo/win_sysinfo.hpp>
 
 #include "check_memory.hpp"
@@ -58,7 +58,7 @@ std::pair<bool, std::string> validate_counter(std::string counter) {
       str::utils::replace(c, "$INSTANCE$", "*");
       std::string err;
       bool status = true;
-      for (std::string s : PDH::Enumerations::expand_wild_card_path(c, err)) {
+      for (const std::string &s : PDH::Enumerations::expand_wild_card_path(c, err)) {
         std::string::size_type pos1 = s.find('(');
         std::string tag = s;
         if (pos1 != std::string::npos) {
@@ -116,7 +116,7 @@ void load_counters(std::map<std::string, std::string> &counters, sh::settings_re
  */
 bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   if (mode == NSCAPI::normalStart) {
-    services_helper::init();
+    win_list_services::init();
   }
   collector.reset(new pdh_thread(get_core(), get_id()));
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
@@ -768,19 +768,19 @@ void CheckSystem::check_service(const PB::Commands::QueryRequestMessage::Request
 
   for (const std::string &service : services) {
     if (service == "*") {
-      for (const services_helper::service_info &info :
-           services_helper::enum_services(computer, services_helper::parse_service_type(type), services_helper::parse_service_state(state))) {
+      for (const win_list_services::service_info &info :
+           win_list_services::enum_services(computer, win_list_services::parse_service_type(type), win_list_services::parse_service_state(state))) {
         if (std::find(excludes.begin(), excludes.end(), info.get_name()) != excludes.end() ||
             std::find(excludes.begin(), excludes.end(), info.get_desc()) != excludes.end())
           continue;
-        boost::shared_ptr<services_helper::service_info> record(new services_helper::service_info(info));
+        boost::shared_ptr<win_list_services::service_info> record(new win_list_services::service_info(info));
         filter.match(record);
         if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed (see log for details)");
       }
     } else {
       try {
-        services_helper::service_info info = services_helper::get_service_info(computer, service);
-        boost::shared_ptr<services_helper::service_info> record(new services_helper::service_info(info));
+        win_list_services::service_info info = win_list_services::get_service_info(computer, service);
+        boost::shared_ptr<win_list_services::service_info> record(new win_list_services::service_info(info));
         filter.match(record);
       } catch (const nsclient::nsclient_exception &e) {
         return nscapi::protobuf::functions::set_response_bad(*response, e.reason());

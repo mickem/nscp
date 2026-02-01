@@ -19,17 +19,17 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
-#include <list>
 #include <str/format.hpp>
 #include <str/xtos.hpp>
+#include <boost/shared_ptr.hpp>
+#include <list>
 #include <string>
 #include <utility>
 #include <win/windows.hpp>
 
 #define DEFAULT_BUFFER_SIZE 4096
 
-namespace process_helper {
+namespace win_list_processes {
 template <class T>
 struct int_var {
   T value;
@@ -320,4 +320,4 @@ process_list enumerate_processes(bool ignore_unreadable = false, bool find_16bit
 process_list enumerate_processes_delta(bool ignore_unreadable, error_reporter *error_interface);
 
 void enable_token_privilege(LPTSTR privilege, bool enable);
-}  // namespace process_helper
+}  // namespace win_list_processes
