@@ -32,8 +32,8 @@
     get_logger()->error("core", __FILE__, __LINE__, msg); \
   }
 #define LOG_ERROR_CORE_STD(msg) LOG_ERROR_CORE(std::string(msg))
-#define LOG_WARN_CORE(msg)                               \
-  {                                                       \
+#define LOG_WARN_CORE(msg)                                  \
+  {                                                         \
     get_logger()->warning("core", __FILE__, __LINE__, msg); \
   }
 #define LOG_WARN_CORE_STD(msg) LOG_WARN_CORE(std::string(msg))
@@ -70,6 +70,7 @@ struct logging_subscriber {
 typedef boost::shared_ptr<logging_subscriber> logging_subscriber_instance;
 
 struct log_interface {
+  virtual ~log_interface() = default;
   virtual void trace(const std::string &module, const char *file, const int line, const std::string &message) = 0;
   virtual void debug(const std::string &module, const char *file, const int line, const std::string &message) = 0;
   virtual void info(const std::string &module, const char *file, const int line, const std::string &message) = 0;

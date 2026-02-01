@@ -21,13 +21,14 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread.hpp>
-#include <nsclient/logger/logger.hpp>
-#include <set>
 #include <exception>
 #include <memory>
+#include <nsclient/logger/logger.hpp>
+#include <set>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
 #include <utf8.hpp>
+#include <utility>
 
 #include "plugin_interface.hpp"
 
@@ -50,37 +51,37 @@ struct simple_plugins_list : boost::noncopyable {
   boost::shared_mutex mutex_;
   logging::log_client_accessor logger_;
 
-  explicit simple_plugins_list(logging::log_client_accessor logger) : logger_(logger) {}
+  explicit simple_plugins_list(logging::log_client_accessor logger) : logger_(std::move(logger)) {}
 
-  bool has_valid_lock_log(boost::unique_lock<boost::shared_mutex> &lock, std::string key) {
+  bool has_valid_lock_log(const boost::unique_lock<boost::shared_mutex> &lock, const std::string &key) {
     if (!lock.owns_lock()) {
       log_error(__FILE__, __LINE__, "Failed to get mutex", key);
       return false;
     }
     return true;
   }
-  bool has_valid_lock_log(boost::shared_lock<boost::shared_mutex> &lock, std::string key) {
+  bool has_valid_lock_log(const boost::shared_lock<boost::shared_mutex> &lock, const std::string &key) {
     if (!lock.owns_lock()) {
-      log_error(__FILE__, __LINE__, "Failed to get mutex", key);
+      log_error(__FILE__, __LINE__, "Failed to get mutex", std::move(key));
       return false;
     }
     return true;
   }
-  void has_valid_lock_throw(boost::unique_lock<boost::shared_mutex> &lock, std::string key) {
+  void has_valid_lock_throw(const boost::unique_lock<boost::shared_mutex> &lock, const std::string &key) {
     if (!lock.owns_lock()) {
       log_error(__FILE__, __LINE__, "Failed to get mutex", key);
       throw plugins_list_exception("Failed to get mutex: " + utf8::cvt<std::string>(key));
     }
   }
-  void has_valid_lock_throw(boost::shared_lock<boost::shared_mutex> &lock, std::string key) {
+  void has_valid_lock_throw(const boost::shared_lock<boost::shared_mutex> &lock, const std::string &key) {
     if (!lock.owns_lock()) {
       log_error(__FILE__, __LINE__, "Failed to get mutex", key);
       throw plugins_list_exception("Failed to get mutex: " + utf8::cvt<std::string>(key));
     }
   }
 
-  void add_plugin(plugin_type plugin) {
-    boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
+  void add_plugin(const plugin_type &plugin) {
+    const boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
     if (!has_valid_lock_log(writeLock, "plugins_list::add_plugin")) return;
     for (const plugin_type &p : plugins_) {
       if (p->get_id() == plugin->get_id()) {
@@ -92,13 +93,13 @@ struct simple_plugins_list : boost::noncopyable {
   }
 
   void remove_all() {
-    boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
+    const boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
     if (!has_valid_lock_log(writeLock, "plugins_list::remove_all")) return;
     plugins_.clear();
   }
 
   void remove_plugin(unsigned long id) {
-    boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
+    const boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
     if (!has_valid_lock_log(writeLock, "plugins_list::remove_plugin" + str::xtos(id))) return;
     auto it = plugins_.begin();
     while (it != plugins_.end()) {
@@ -109,8 +110,8 @@ struct simple_plugins_list : boost::noncopyable {
     }
   }
 
-  void do_all(boost::function<void(plugin_type)> fun) {
-    boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  void do_all(const boost::function<void(plugin_type)> &fun) {
+    const boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!has_valid_lock_log(readLock, "plugins_list::list")) return;
     for (const plugin_type &p : plugins_) {
       fun(p);
@@ -119,7 +120,7 @@ struct simple_plugins_list : boost::noncopyable {
 
   std::string to_string() {
     std::string ret;
-    boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    const boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!has_valid_lock_log(readLock, "plugins_list::list")) return "";
     for (const plugin_type &p : plugins_) {
       if (!ret.empty()) ret += ", ";
@@ -212,12 +213,12 @@ struct plugins_list : boost::noncopyable, public parent {
     return ret + parent::to_string();
   }
 
-  inline std::string make_key(const std::string &key) { return boost::algorithm::to_lower_copy(key); }
+  std::string make_key(const std::string &key) { return boost::algorithm::to_lower_copy(key); }
   void log_error(const char *file, int line, std::string error) { logger_->error("plugin", file, line, error); }
   void log_error(const char *file, int line, std::string error, std::string key) {
     logger_->error("plugin", file, line, error + " for " + utf8::cvt<std::string>(key));
   }
-  inline bool have_plugin(unsigned long plugin_id) { return !(plugins_.find(plugin_id) == plugins_.end()); }
+  bool have_plugin(unsigned long plugin_id) { return !(plugins_.find(plugin_id) == plugins_.end()); }
 };
 
 struct plugins_list_listeners_impl {
@@ -228,19 +229,19 @@ struct plugins_list_listeners_impl {
 
   void remove_all() { listeners_.clear(); }
 
-  void remove_plugin(unsigned long id) {
+  void remove_plugin(const unsigned long id) {
     auto it = listeners_.begin();
     while (it != listeners_.end()) {
       if (it->second.count(id) > 0) {
-        auto toerase = it;
+        auto to_erase = it;
         ++it;
-        listeners_.erase(toerase);
+        listeners_.erase(to_erase);
       } else
         ++it;
     }
   }
 
-  void list(std::list<std::string> &lst) {
+  void list(std::list<std::string> &lst) const {
     for (const listener_list_type::value_type &i : listeners_) {
       lst.push_back(i.first);
     }
@@ -259,22 +260,22 @@ struct plugins_list_listeners_impl {
 };
 
 struct plugins_list_with_listener : plugins_list<plugins_list_listeners_impl> {
-  typedef plugins_list<plugins_list_listeners_impl> parent_type;
+  typedef plugins_list parent_type;
 
-  plugins_list_with_listener(logging::log_client_accessor logger) : parent_type(logger) {}
+  explicit plugins_list_with_listener(const logging::log_client_accessor &logger) : parent_type(logger) {}
 
   void register_listener(unsigned long plugin_id, const std::string &channel) {
     boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
     if (!writeLock.owns_lock()) {
-      parent_type::log_error(__FILE__, __LINE__, "Failed to get mutex: ", channel);
+      log_error(__FILE__, __LINE__, "Failed to get mutex: ", channel);
       return;
     }
-    std::string lc = make_key(channel);
+    const std::string lower_case = make_key(channel);
     if (!have_plugin(plugin_id)) {
       writeLock.unlock();
       throw plugins_list_exception("Failed to find plugin: " + str::xtos(plugin_id) + ", Plugins: " + to_string());
     }
-    for (const std::string &c : str::utils::split_lst(lc, ",")) {
+    for (const std::string &c : str::utils::split_lst(lower_case, ",")) {
       listeners_[c].insert(plugin_id);
     }
   }
@@ -282,10 +283,10 @@ struct plugins_list_with_listener : plugins_list<plugins_list_listeners_impl> {
   std::list<plugin_type> get(const std::string &channel) {
     boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     has_valid_lock_throw(readLock, "plugins_list::get:" + channel);
-    std::string lc = make_key(channel);
-    const auto cit = listeners_.find(lc);
+    const std::string lower_case = make_key(channel);
+    const auto cit = listeners_.find(lower_case);
     if (cit == listeners_.end()) {
-      return std::list<plugin_type>();  // throw plugins_list_exception("Channel not found: '" + ::to_string(channel) + "'" + to_string());
+      return std::list<plugin_type>();
     }
     std::list<plugin_type> ret;
     for (unsigned long id : cit->second) {
