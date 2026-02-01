@@ -20,7 +20,7 @@
 #pragma once
 
 #ifdef _WIN32
-#include <ServiceCmd.h>
+#include <win/service_control.hpp>
 #endif
 #include <config.h>
 
@@ -46,15 +46,15 @@ class service_manager {
     try {
       std::string args = get_default_arguments();
       if (service_name_ != get_default_service_name()) args += " --name " + service_name_;
-      serviceControll::Install(utf8::cvt<std::wstring>(service_name_), utf8::cvt<std::wstring>(service_description),
-                               utf8::cvt<std::wstring>(get_default_service_deps()), SERVICE_WIN32_OWN_PROCESS, utf8::cvt<std::wstring>(args));
-    } catch (const serviceControll::SCException& e) {
+      win_service_control::Install(utf8::cvt<std::wstring>(service_name_), utf8::cvt<std::wstring>(service_description),
+                                   utf8::cvt<std::wstring>(get_default_service_deps()), SERVICE_WIN32_OWN_PROCESS, utf8::cvt<std::wstring>(args));
+    } catch (const win_service_control::service_control_exception& e) {
       print_error("Service installation failed of '" + service_name_ + "' failed: " + e.error_);
       return -1;
     }
     try {
-      serviceControll::SetDescription(utf8::cvt<std::wstring>(service_name_), utf8::cvt<std::wstring>(service_description));
-    } catch (const serviceControll::SCException& e) {
+      win_service_control::SetDescription(utf8::cvt<std::wstring>(service_name_), utf8::cvt<std::wstring>(service_description));
+    } catch (const win_service_control::service_control_exception& e) {
       print_error("Couldn't set service description: " + e.error_);
     }
     print_msg("Service installed successfully!");
@@ -62,8 +62,8 @@ class service_manager {
   }
   int uninstall() {
     try {
-      serviceControll::Uninstall(utf8::cvt<std::wstring>(service_name_));
-    } catch (const serviceControll::SCException& e) {
+      win_service_control::Uninstall(utf8::cvt<std::wstring>(service_name_));
+    } catch (const win_service_control::service_control_exception& e) {
       print_error("Service de-installation (" + service_name_ + ") failed; " + e.error_ + "\nMaybe the service was not previously installed properly?");
       return 0;
     }
@@ -72,8 +72,8 @@ class service_manager {
   }
   int start() {
     try {
-      serviceControll::Start(utf8::cvt<std::wstring>(service_name_));
-    } catch (const serviceControll::SCException& e) {
+      win_service_control::Start(utf8::cvt<std::wstring>(service_name_));
+    } catch (const win_service_control::service_control_exception& e) {
       print_error("Service failed to start: " + e.error_);
       return -1;
     }
@@ -81,8 +81,8 @@ class service_manager {
   }
   int stop() {
     try {
-      serviceControll::Stop(utf8::cvt<std::wstring>(service_name_));
-    } catch (const serviceControll::SCException& e) {
+      win_service_control::Stop(utf8::cvt<std::wstring>(service_name_));
+    } catch (const win_service_control::service_control_exception& e) {
       print_error("Service failed to stop: " + e.error_);
       return -1;
     }
@@ -90,8 +90,8 @@ class service_manager {
   }
   std::string info() {
     try {
-      return utf8::cvt<std::string>(serviceControll::get_exe_path(utf8::cvt<std::wstring>(service_name_)));
-    } catch (const serviceControll::SCException& e) {
+      return utf8::cvt<std::string>(win_service_control::get_exe_path(utf8::cvt<std::wstring>(service_name_)));
+    } catch (const win_service_control::service_control_exception& e) {
       print_error("Failed to find service: " + e.error_);
       return "";
     }

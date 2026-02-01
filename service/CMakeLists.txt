@@ -46,7 +46,7 @@ set(service_SRCS
 )
 
 if(WIN32)
-    set(service_SRCS ${service_SRCS} ${NSCP_INCLUDEDIR}/ServiceCmd.cpp)
+    set(service_SRCS ${service_SRCS} ${NSCP_INCLUDEDIR}/win/service_control.cpp)
     set(service_SRCS
         ${service_SRCS}
         NSClient++.h

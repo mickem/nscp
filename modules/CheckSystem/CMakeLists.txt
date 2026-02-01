@@ -31,8 +31,8 @@ set(SRCS
     ${NSCP_ERROR_CPP}
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
     ${NSCP_INCLUDEDIR}/wmi/wmi_query.cpp
-    ${NSCP_INCLUDEDIR}/EnumProcess.cpp
-    ${NSCP_INCLUDEDIR}/EnumNtSrv.cpp
+    ${NSCP_INCLUDEDIR}/win/processes.cpp
+    ${NSCP_INCLUDEDIR}/win/services.cpp
     ${NSCP_INCLUDEDIR}/sysinfo.cpp
     ${NSCP_INCLUDEDIR}/compat.cpp
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
@@ -46,8 +46,8 @@ if(WIN32)
         "${TARGET}.h"
         filter.hpp
         counter_filter.hpp
-        ${NSCP_INCLUDEDIR}/EnumProcess.h
-        ${NSCP_INCLUDEDIR}/EnumNtSrv.h
+        ${NSCP_INCLUDEDIR}/win/services.hpp
+        ${NSCP_INCLUDEDIR}/win/processes.hpp
         ${NSCP_INCLUDEDIR}/sysinfo.h
         pdh_thread.hpp
         check_pdh.hpp

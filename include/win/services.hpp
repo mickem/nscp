@@ -22,9 +22,9 @@
 #include <list>
 #include <str/xtos.hpp>
 #include <string>
-#include <win_sysinfo/win_sysinfo.hpp>
+#include <win/windows.hpp>
 
-namespace services_helper {
+namespace win_list_services {
 
 void init();
 std::string get_service_classification(const std::string &name);
@@ -94,4 +94,4 @@ DWORD parse_service_type(const std::string str = "service");
 DWORD parse_service_state(const std::string str = "all");
 std::list<service_info> enum_services(const std::string computer, DWORD dwServiceType, DWORD dwServiceState);
 service_info get_service_info(const std::string computer, const std::string service);
-}  // namespace services_helper
+}  // namespace win_list_services
