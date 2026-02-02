@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "purge" ]; then
+    # Remove the user and group created during installation
+    if grep -q nsclient /etc/passwd; then
+        deluser nsclient || true
+    fi
+
+    if grep -q nsclient /etc/group; then
+        delgroup nsclient || true
+    fi
+
+    # Remove log directory
+    rm -rf /var/log/nsclient
+fi

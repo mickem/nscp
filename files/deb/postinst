@@ -12,6 +12,7 @@ if [ "$1" = "configure" ]; then
 
     # Create log folder if it doesn't exist (redundancy check)
     mkdir -p /var/log/nsclient
+    chown nsclient:nsclient /var/log/nsclient
 
     # Reload systemd to recognize the new service
     if command -v systemctl >/dev/null 2>&1; then

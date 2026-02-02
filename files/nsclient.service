@@ -2,7 +2,7 @@
 Description=NSClient++ Monitoring Agent
 
 [Service]
-WorkingDirectory=/usr/share/nsclient
+WorkingDirectory=/usr/lib/nsclient
 User=nsclient
 PIDFile=/usr/share/nsclient/nscp.pid
 

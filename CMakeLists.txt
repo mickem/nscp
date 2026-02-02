@@ -1017,7 +1017,7 @@ else()
     set(CPACK_PACKAGING_INSTALL_PREFIX "/")
 
     set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
-            "${CMAKE_CURRENT_SOURCE_DIR}/files/deb/postinst;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/prerm;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/conffiles")
+            "${CMAKE_CURRENT_SOURCE_DIR}/files/deb/postinst;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/prerm;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/postrm;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/conffiles")
     set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/files/rpm/postinstall.sh")
     set(CPACK_RPM_PRE_UNINSTALL_SCRIPT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/files/rpm/preuninstall.sh")
 
