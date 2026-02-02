@@ -28,10 +28,8 @@ if(NOT WIN32)
             WORLD_READ WORLD_EXECUTE
             COMPONENT logs
     )
-endif()
-if(SYSTEMD)
     install(FILES nsclient.service
-            DESTINATION /lib/systemd/system
+            DESTINATION lib/systemd/system
             COMPONENT runtime
     )
 endif()
