@@ -76,6 +76,8 @@ if(WIN32)
         )
         set(VSTUDIO_EXPRESS ON)
     endif(FOUND_ATL)
+else()
+    set(CMAKE_INSTALL_PREFIX "usr")
 endif()
 
 set(BUILD_PYTHON_FOLDER "${CMAKE_SOURCE_DIR}/build/python")
@@ -96,9 +98,6 @@ if(WIN32)
         NSCP_PROJECT_BINARY_DIR_NATIVE
         ${NSCP_PROJECT_BINARY_DIR_NATIVE}
     )
-endif()
-if(NOT CMAKE_INSTALL_PREFIX)
-    set(CMAKE_INSTALL_PREFIX "/usr")
 endif()
 set(MODULE_TARGET_FOLDER lib/nsclient/modules)
 set(LIB_TARGET_FOLDER lib)
@@ -521,11 +520,6 @@ else(WIN32)
         CACHE STRING
         "Default path for libraries within ${CMAKE_INSTALL_PREFIX}"
     )
-    set(RUNDIR
-        "/usr/wt/run"
-        CACHE PATH
-        "Default path for wt session management (only used by FCGI connector; not relative to CMAKE_INSTALL_PREFIX)"
-    )
     set(CONFIGURATION
         /etc/nscp/boot.ini
         CACHE PATH
@@ -672,7 +666,7 @@ if(WIN32)
         "PAth for log file"
     )
 else()
-    set(INSTALL_FILES_BASE "share/nsclient/")
+    set(INSTALL_FILES_BASE "usr/lib/nsclient/")
 
     set(CONFIG_DEFAULT_CONFIG_FOLDER "/etc/nsclient" CACHE STRING "Base location for ini files")
 
@@ -1008,8 +1002,6 @@ else()
         set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "arm64")
         set(CPACK_RPM_PACKAGE_ARCHITECTURE "aarch64")
     endif()
-
-    set(CMAKE_INSTALL_PREFIX "usr")
 
     option(USE_SYSTEMD "Install systemd service files" ON)
     option(USE_INITD "Install legacy init.d scripts" OFF)

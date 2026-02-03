@@ -1,9 +1,1 @@
-
-[/paths]
-
-shared-path=@CMAKE_INSTALL_PREFIX@/@INSTALL_FILES_BASE@
-module-path=@UNIX_SHARED_PATH_FOLDER@/modules/
-log-path=/var/log/nsclient
-
-[/settings/log]
-file name=${log-path}/nsclient.log
+; Add configuration to this ini file.
