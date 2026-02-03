@@ -38,17 +38,30 @@ std::list<std::string> socket_helpers::connection_info::validate() const { retur
 void socket_helpers::validate_certificate(const std::string &certificate, std::list<std::string> &list) {
 #ifdef USE_SSL
   if (!certificate.empty() && !boost::filesystem::is_regular_file(certificate)) {
+    const auto parent_path = boost::filesystem::path(certificate).parent_path();
+    if (!exists(parent_path)) {
+      boost::filesystem::create_directories(parent_path);
+      list.emplace_back("Creating certificate folder: " + parent_path.string());
+    }
     if (boost::algorithm::ends_with(certificate, "/certificate.pem")) {
-      list.push_back("Certificate not found: " + certificate + " (generating a default certificate)");
-      write_certs(certificate, false);
+      list.emplace_back("Certificate not found: " + certificate + " (generating a default certificate)");
+      try {
+        write_certs(certificate, false);
+      } catch (const std::exception &e) {
+        list.emplace_back(e.what());
+      }
     } else if (boost::algorithm::ends_with(certificate, "/ca.pem")) {
-      list.push_back("CA not found: " + certificate + " (generating a default CA)");
-      write_certs(certificate, true);
+      list.emplace_back("CA not found: " + certificate + " (generating a default CA)");
+      try {
+        write_certs(certificate, true);
+      } catch (const std::exception &e) {
+        list.emplace_back(e.what());
+      }
     } else
-      list.push_back("Certificate not found: " + certificate);
+      list.emplace_back("Certificate not found: " + certificate);
   }
 #else
-  list.push_back("SSL is not supported (not compiled with openssl)");
+  list.emplace_back("SSL is not supported (not compiled with openssl)");
 #endif
 }
 
@@ -353,17 +366,21 @@ void socket_helpers::write_certs(const std::string &cert, const bool ca) {
   make_certificate(certificate_instance, private_key_instance, 2048, 365, ca);
 
   const BIO_ptr bio(BIO_new(BIO_s_mem()), BIO_free);
-  PEM_write_bio_PKCS8PrivateKey(bio.get(), private_key_instance.get(), nullptr, nullptr, 0, nullptr, nullptr);
-  PEM_write_bio_X509(bio.get(), certificate_instance.get());
+  if (!PEM_write_bio_PKCS8PrivateKey(bio.get(), private_key_instance.get(), nullptr, nullptr, 0, nullptr, nullptr)) {
+    throw socket_exception("Failed to serialize key to " + cert);
+  }
+  if (!PEM_write_bio_X509(bio.get(), certificate_instance.get())) {
+    throw socket_exception("Failed to serialize certificate to " + cert);
+  }
 
   const std::size_t size = BIO_ctrl_pending(bio.get());
   const auto buf = std::make_unique<char[]>(size);
   if (BIO_read(bio.get(), buf.get(), static_cast<int>(size)) < 0) {
-    throw socket_exception("Failed to write key");
+    throw socket_exception("Failed to read serialized key");
   }
 
   FILE *file = fopen(cert.c_str(), "wb");
-  if (file == nullptr) throw socket_exception("Failed to open file: " + cert);
+  if (file == nullptr) throw socket_exception("Failed to write certificate to: " + cert);
   fwrite(buf.get(), sizeof(char), size, file);
   fclose(file);
 }

@@ -479,6 +479,7 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
     else if (val.matches(path, "port"))
       port = val.get_string();
   }
+  bool want_https = !cert.empty();
 
   // clang-format off
   desc.add_options()("help", "Show help.")
@@ -487,6 +488,7 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       ("certificate-key", po::value<std::string>(&key)->default_value(key), "Client certificate to use")
       ("port", po::value<std::string>(&port)->default_value(port), "Port to use")
       ("password", po::value<std::string>(&password)->default_value(password), "Password to use to authenticate (if none a generated password will be set)")
+      ("https", boost::program_options::bool_switch(&want_https), "Enable https")
       ;
   // clang-format on
 
@@ -510,24 +512,33 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       password = token_store::generate_token(32);
     }
 
-    bool https = false;
     nscapi::protobuf::functions::settings_query s(get_id());
     result << "Enabling WEB access from " << allowed_hosts << std::endl;
     s.set("/settings/default", "allowed hosts", allowed_hosts);
     s.set("/modules", "WEBServer", "enabled");
-    if (port.find('s') != std::string::npos) {
-      https = true;
-      result << "HTTP(s) is enabled using " << get_core()->expand_path(cert);
-      if (!key.empty()) result << " and " << get_core()->expand_path(key);
-      result << "." << std::endl;
-    }
-    if (!https) {
+    boost::replace_all(port, "s", "");
+    if (!want_https) {
       cert = "";
       key = "";
+      result << "Point your browser to http://localhost:" << port << std::endl;
+    } else {
+      if (cert == key || key.empty()) {
+        result << "Certificate & key: " << get_core()->expand_path(cert) << "." << std::endl;
+      } else {
+        result << "Certificate: " << get_core()->expand_path(cert) << std::endl;
+        result << "Certificate key: " << get_core()->expand_path(key) << std::endl;
+      }
+      const auto certificate = get_core()->expand_path(cert);
+      std::list<std::string> messages;
+      socket_helpers::validate_certificate(certificate, messages);
+      for (const auto &e: messages) {
+        result << "Certificate validation: " << e << std::endl;
+      }
+      result << "Point your browser to -- https://localhost:" << port << std::endl;
     }
     s.set(path, "certificate", cert);
     s.set(path, "certificate key", key);
-    result << "Point your browser to https://localhost:" << boost::replace_all_copy(port, "s", "") << std::endl;
+
     result << "Login using this password " << password << std::endl;
     s.set("/settings/default", "password", password);
     s.set(path, "port", port);
