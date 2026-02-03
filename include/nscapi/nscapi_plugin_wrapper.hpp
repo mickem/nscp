@@ -20,11 +20,11 @@
 #pragma once
 
 #include <NSCAPI.h>
-#include <string.h>
 
-#include <boost/make_shared.hpp>
+#include <cstring>
 #include <list>
 #include <map>
+#include <memory>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_helper.hpp>
@@ -41,18 +41,23 @@ struct module_version {
 };
 template <class impl_type>
 struct plugin_instance_data {
-  typedef std::map<unsigned int, boost::shared_ptr<impl_type> > plugin_list_type;
+  plugin_instance_data(const plugin_instance_data&) = delete;
+  plugin_instance_data& operator=(const plugin_instance_data&) = delete;
+
+  typedef std::map<unsigned int, std::shared_ptr<impl_type> > plugin_list_type;
   plugin_list_type plugins;
-  boost::shared_ptr<impl_type> get(unsigned int id) {
-    typename plugin_list_type::iterator it = plugins.find(id);
-    if (it != plugins.end()) return it->second;
-    boost::shared_ptr<impl_type> impl = boost::make_shared<impl_type>();
+  std::shared_ptr<impl_type> get(unsigned int id) {
+    const auto it = plugins.find(id);
+    if (it != plugins.end()) {
+      return it->second;
+    }
+    std::shared_ptr<impl_type> impl = std::make_shared<impl_type>();
     plugins[id] = impl;
     return impl;
   }
   void erase(unsigned int id) { plugins.erase(id); }
   void add_alias(const unsigned int existing_id, const unsigned int new_id) {
-    boost::shared_ptr<impl_type> old = get(existing_id);
+    std::shared_ptr<impl_type> old = get(existing_id);
     plugins[new_id] = old;
   }
 };
@@ -60,9 +65,9 @@ struct plugin_instance_data {
 struct helpers {
   static void wrap_string(const std::string &string, char **buffer, unsigned int *buffer_len) {
     // TODO: Make this global to allow remote deletion!!!
-    size_t buf_len = string.size();
+    const size_t buf_len = string.size();
     *buffer = new char[buf_len + 10];
-    memcpy(*buffer, string.c_str(), buf_len + 1);
+    std::memcpy(*buffer, string.c_str(), buf_len + 1);
     (*buffer)[buf_len] = 0;
     (*buffer)[buf_len + 1] = 0;
     *buffer_len = static_cast<unsigned int>(buf_len);
@@ -79,9 +84,9 @@ struct helpers {
 };
 template <class impl_class>
 struct basic_wrapper_static {
-  static int NSModuleHelperInit(nscapi::core_api::lpNSAPILoader f) {
+  static int NSModuleHelperInit(core_api::lpNSAPILoader f) {
     try {
-      return nscapi::plugin_singleton->get_core()->load_endpoints(f) ? NSCAPI::api_return_codes::isSuccess : NSCAPI::api_return_codes::hasFailed;
+      return plugin_singleton->get_core()->load_endpoints(f) ? NSCAPI::api_return_codes::isSuccess : NSCAPI::api_return_codes::hasFailed;
     } catch (...) {
       NSC_LOG_CRITICAL("Unknown exception in: wrapModuleHelperInit");
       return NSCAPI::api_return_codes::hasFailed;
@@ -128,9 +133,11 @@ struct basic_wrapper_static {
 
 template <class impl_class>
 struct basic_wrapper {
-  boost::shared_ptr<impl_class> instance;
-  basic_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
-  int NSLoadModuleEx(unsigned int id, char *alias, int mode) {
+  std::shared_ptr<impl_class> instance;
+  explicit basic_wrapper(std::shared_ptr<impl_class> instance) : instance(instance) {}
+  basic_wrapper(const basic_wrapper&) = delete;
+  basic_wrapper& operator=(const basic_wrapper&) = delete;
+  int NSLoadModuleEx(const unsigned int id, char *alias, const int mode) {
     try {
       return NSLoadModuleExNoExcept(id, alias, mode);
     } catch (const std::exception &e) {
@@ -141,12 +148,17 @@ struct basic_wrapper {
     return NSCAPI::api_return_codes::hasFailed;
   }
   int NSLoadModuleExNoExcept(unsigned int id, char *alias, int mode) {
+    if (!instance) {
+      return NSCAPI::api_return_codes::hasFailed;
+    }
     instance->set_id(id);
     return instance->loadModuleEx(alias, mode) ? NSCAPI::api_return_codes::isSuccess : NSCAPI::api_return_codes::hasFailed;
   }
   int NSUnloadModule() {
     try {
-      if (instance && instance->unloadModule()) return NSCAPI::api_return_codes::hasFailed;
+      if (instance && instance->unloadModule()) {
+        return NSCAPI::api_return_codes::isSuccess;
+      }
     } catch (...) {
       NSC_LOG_CRITICAL("Unknown exception in: NSUnloadModule");
     }
@@ -156,8 +168,8 @@ struct basic_wrapper {
 
 template <class impl_class>
 struct on_start_wrapper {
-  boost::shared_ptr<impl_class> instance;
-  on_start_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
+  std::shared_ptr<impl_class> instance;
+  explicit on_start_wrapper(std::shared_ptr<impl_class> instance) : instance(instance) {}
   NSCAPI::boolReturn NSStartModule() {
     try {
       return instance->startModule();
@@ -169,8 +181,8 @@ struct on_start_wrapper {
 };
 template <class impl_class>
 struct message_wrapper {
-  boost::shared_ptr<impl_class> instance;
-  message_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
+  std::shared_ptr<impl_class> instance;
+  explicit message_wrapper(std::shared_ptr<impl_class> instance) : instance(instance) {}
   void NSHandleMessage(const char *request_buffer, unsigned int request_buffer_len) {
     try {
       instance->handleMessageRAW(std::string(request_buffer, request_buffer_len));
@@ -189,15 +201,15 @@ struct message_wrapper {
 };
 template <class impl_class>
 struct command_wrapper {
-  boost::shared_ptr<impl_class> instance;
-  command_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
+  std::shared_ptr<impl_class> instance;
+  explicit command_wrapper(std::shared_ptr<impl_class> instance) : instance(instance) {}
 
   NSCAPI::nagiosReturn NSHandleCommand(const char *request_buffer, const unsigned int request_buffer_len, char **reply_buffer, unsigned int *reply_buffer_len) {
     try {
       std::string request(request_buffer, request_buffer_len), reply;
-      NSCAPI::nagiosReturn retCode = instance->handleRAWCommand(request, reply);
+      const NSCAPI::nagiosReturn retCode = instance->handleRAWCommand(request, reply);
       helpers::wrap_string(reply, reply_buffer, reply_buffer_len);
-      if (!nscapi::plugin_helper::isMyNagiosReturn(retCode)) {
+      if (!plugin_helper::isMyNagiosReturn(retCode)) {
         NSC_LOG_ERROR("A module returned an invalid return code");
       }
       return retCode;
@@ -208,7 +220,6 @@ struct command_wrapper {
       NSC_LOG_ERROR_EX("NSHandleCommand");
       return NSCAPI::cmd_return_codes::hasFailed;
     }
-    return NSCAPI::cmd_return_codes::returnIgnored;
   }
   NSCAPI::boolReturn NSHasCommandHandler() {
     try {
@@ -222,14 +233,14 @@ struct command_wrapper {
 
 template <class impl_class>
 struct routing_wrapper {
-  boost::shared_ptr<impl_class> instance;
-  routing_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
+  std::shared_ptr<impl_class> instance;
+  explicit routing_wrapper(std::shared_ptr<impl_class> instance) : instance(instance) {}
 
   NSCAPI::nagiosReturn NSRouteMessage(const wchar_t *channel, const wchar_t *command, const char *request_buffer, const unsigned int request_buffer_len,
                                       char **reply_buffer, unsigned int *reply_buffer_len) {
     try {
       std::string request(request_buffer, request_buffer_len), reply;
-      NSCAPI::nagiosReturn retCode = instance->RAWRouteMessage(channel, command, request, reply);
+      const NSCAPI::nagiosReturn retCode = instance->RAWRouteMessage(channel, command, request, reply);
       helpers::wrap_string(reply, reply_buffer, reply_buffer_len);
       return retCode;
     } catch (...) {
@@ -249,8 +260,8 @@ struct routing_wrapper {
 
 template <class impl_class>
 struct submission_wrapper {
-  boost::shared_ptr<impl_class> instance;
-  submission_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
+  std::shared_ptr<impl_class> instance;
+  explicit submission_wrapper(std::shared_ptr<impl_class> instance) : instance(instance) {}
 
   NSCAPI::nagiosReturn NSHandleNotification(const char *channel, const char *buffer, unsigned int buffer_len, char **response_buffer,
                                             unsigned int *response_buffer_len) {
@@ -279,14 +290,14 @@ struct submission_wrapper {
 
 template <class impl_class>
 struct cliexec_wrapper {
-  boost::shared_ptr<impl_class> instance;
-  cliexec_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
+  std::shared_ptr<impl_class> instance;
+  explicit cliexec_wrapper(std::shared_ptr<impl_class> instance) : instance(instance) {}
 
   int NSCommandLineExec(const int target_mode, char *request_buffer, unsigned int request_buffer_len, char **response_buffer,
                         unsigned int *response_buffer_len) {
     try {
       std::string request(request_buffer, request_buffer_len), reply;
-      NSCAPI::nagiosReturn retCode = instance->commandRAWLineExec(target_mode, request, reply);
+      const NSCAPI::nagiosReturn retCode = instance->commandRAWLineExec(target_mode, request, reply);
       helpers::wrap_string(reply, response_buffer, response_buffer_len);
       return retCode;
     } catch (const std::exception &e) {
@@ -300,8 +311,8 @@ struct cliexec_wrapper {
 
 template <class impl_class>
 struct metrics_wrapper {
-  boost::shared_ptr<impl_class> instance;
-  metrics_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
+  std::shared_ptr<impl_class> instance;
+  explicit metrics_wrapper(std::shared_ptr<impl_class> instance) : instance(instance) {}
 
   int NSFetchMetrics(char **response_buffer, unsigned int *response_buffer_len) {
     try {
@@ -331,8 +342,8 @@ struct metrics_wrapper {
 
 template <class impl_class>
 struct event_wrapper {
-  boost::shared_ptr<impl_class> instance;
-  event_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
+  std::shared_ptr<impl_class> instance;
+  explicit event_wrapper(std::shared_ptr<impl_class> instance) : instance(instance) {}
 
   int NSOnEvent(const char *buffer, const unsigned int buffer_len) {
     try {

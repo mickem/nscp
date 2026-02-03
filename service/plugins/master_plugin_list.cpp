@@ -25,7 +25,7 @@
 
 nsclient::core::master_plugin_list::master_plugin_list(logging::log_client_accessor log_instance) : next_plugin_id_(0), log_instance_(log_instance) {}
 
-nsclient::core::master_plugin_list::~master_plugin_list() {}
+nsclient::core::master_plugin_list::~master_plugin_list() = default;
 
 void nsclient::core::master_plugin_list::append_plugin(plugin_type plugin) {
   const boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
@@ -42,7 +42,7 @@ void nsclient::core::master_plugin_list::remove(std::size_t id) {
     LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
     return;
   }
-  for (pluginList::iterator it = plugins_.begin(); it != plugins_.end();) {
+  for (auto it = plugins_.begin(); it != plugins_.end();) {
     if ((*it)->get_id() == id) {
       it = plugins_.erase(it);
     } else {
@@ -75,55 +75,55 @@ std::list<nsclient::core::master_plugin_list::plugin_type> nsclient::core::maste
 
 nsclient::core::master_plugin_list::plugin_type nsclient::core::master_plugin_list::find_by_module(std::string module) {
   if (module.empty()) {
-    return plugin_type();
+    return {};
   }
   const boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!readLock.owns_lock()) {
     LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
-    return plugin_type();
+    return {};
   }
   for (plugin_type plugin : plugins_) {
     if (plugin && (plugin->getModule() == module)) {
       return plugin;
     }
   }
-  return plugin_type();
+  return {};
 }
 
 nsclient::core::master_plugin_list::plugin_type nsclient::core::master_plugin_list::find_by_alias(const std::string alias) {
   if (alias.empty()) {
-    return plugin_type();
+    return {};
   }
   const boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!readLock.owns_lock()) {
     LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
-    return plugin_type();
+    return {};
   }
   for (plugin_type plugin : plugins_) {
     if (plugin && (plugin->get_alias_or_name() == alias)) {
       return plugin;
     }
   }
-  return plugin_type();
+  return {};
 }
 
 nsclient::core::master_plugin_list::plugin_type nsclient::core::master_plugin_list::find_by_id(const unsigned int plugin_id) {
   const boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
   if (!readLock.owns_lock()) {
     LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
-    return plugin_type();
+    return {};
   }
   for (plugin_type plugin : plugins_) {
     if (plugin->get_id() == plugin_id) return plugin;
   }
-  return plugin_type();
+  return {};
 }
 
 nsclient::core::master_plugin_list::plugin_type nsclient::core::master_plugin_list::find_duplicate(boost::filesystem::path file, std::string alias) {
   const boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
   if (!writeLock.owns_lock()) {
     LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
-    return plugin_type();
+    return {};
   }
 
   for (plugin_type plug : plugins_) {
@@ -132,5 +132,5 @@ nsclient::core::master_plugin_list::plugin_type nsclient::core::master_plugin_li
       return plug;
     }
   }
-  return plugin_type();
+  return {};
 }
