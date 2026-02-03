@@ -206,7 +206,7 @@ void nsclient::core::plugin_manager::load_all_plugins() {
 
 bool nsclient::core::plugin_manager::load_single_plugin(const std::string &plugin, const std::string &alias, bool start) {
   try {
-    plugin_type instance = add_plugin(plugin, alias);
+    const plugin_type instance = add_plugin(plugin, alias);
     if (!instance) {
       LOG_ERROR_CORE("Failed to load: " + plugin);
       return false;
@@ -245,8 +245,16 @@ void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) 
       LOG_ERROR_CORE_STD("Could not load plugin: " + plugin->getModule());
     }
   }
-  for (const long &id : broken) {
-    plugin_list_.remove(id);
+  for (const long &plugin_id : broken) {
+    auto plugin = plugin_list_.find_by_id(plugin_id);
+    plugin_list_.remove(plugin_id);
+    commands_.remove_plugin(plugin_id);
+    metrics_fetchers_.remove_plugin(plugin_id);
+    metrics_submitters_.remove_plugin(plugin_id);
+    if (plugin) {
+      plugin->unload_plugin();
+    }
+    plugin_cache_.remove_plugin(plugin_id);
   }
 }
 

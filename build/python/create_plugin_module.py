@@ -616,7 +616,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
 {% endif %}
 	nscapi::helper_singleton* nscapi::plugin_singleton = new nscapi::helper_singleton();
 	typedef {{module.name}}Module plugin_impl_class;
-	static nscapi::plugin_instance_data<plugin_impl_class> plugin_instance;
+	static nscapi::plugin_instance_data<plugin_impl_class> plugin_instance{};
 	extern int NSModuleHelperInit(unsigned int, nscapi::core_api::lpNSAPILoader f) {
 		return nscapi::basic_wrapper_static<plugin_impl_class>::NSModuleHelperInit(f); 
 	}
