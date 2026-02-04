@@ -648,7 +648,7 @@ if(WIN32)
     set(CONFIG_CERT_FOLDER
         "\${shared-path}/security"
         CACHE STRING
-        "securoty (certificates) folder"
+        "security (certificates) folder"
     )
     set(CONFIG_DEFAULT_CACHE_PATH
         "\${shared-path}/cache"
