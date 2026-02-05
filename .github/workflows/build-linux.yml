@@ -83,6 +83,7 @@ jobs:
             SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
             set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
             set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}")
+            set(USE_STATIC_RUNTIME OFF)
 
     - uses: actions/download-artifact@v7
       with:
@@ -91,7 +92,7 @@ jobs:
     - name: CMake (NSCP)
       working-directory: tmp/nscp
       run: |
-        cmake ../.. -D BUILD_VERSION=${{ inputs.version }} -D CPACK_GENERATOR=DEB
+        cmake ../.. -D BUILD_VERSION=${{ inputs.version }} -D CPACK_GENERATOR=DEB -DCMAKE_BUILD_TYPE=Release
 
     - name: Build nsclient
       working-directory: tmp/nscp
@@ -245,6 +246,7 @@ jobs:
         SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
         set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
         set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}")
+        set(USE_STATIC_RUNTIME OFF)
         EOF
 
     - uses: actions/download-artifact@v7
@@ -254,7 +256,7 @@ jobs:
     - name: CMake (NSCP)
       working-directory: tmp/nscp
       run: |
-        cmake ../.. -D BUILD_VERSION=${{ inputs.version }} -D CPACK_GENERATOR=RPM
+        cmake ../.. -D BUILD_VERSION=${{ inputs.version }} -D CPACK_GENERATOR=RPM -DCMAKE_BUILD_TYPE=Release
 
     - name: Build nsclient
       working-directory: tmp/nscp

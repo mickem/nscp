@@ -168,6 +168,7 @@ else(USE_STATIC_RUNTIME)
         -DBOOST_PROGRAM_OPTIONS_DYN_LINK
     )
     set(BUILD_SHARED_LIBS ON)
+    set(Boost_USE_STATIC_RUNTIME OFF)
     if(WIN32)
         set(Boost_USE_STATIC_LIBS OFF)
         set(Boost_USE_STATIC_RUNTIME OFF)
