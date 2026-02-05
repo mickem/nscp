@@ -108,7 +108,7 @@ void python_script::init() {
         PyRun_SimpleString("sys.stderr = StringIO()");
 
       } catch (py::error_already_set &e) {
-        script_wrapper::log_exception();
+        script_wrapper::log_exception(__FILE__, __LINE__);
       }
     }
   } catch (std::exception &e) {
@@ -162,7 +162,7 @@ bool python_script::callFunction(const std::string &functionName) {
       if (scriptFunction) scriptFunction();
       return true;
     } catch (py::error_already_set &e) {
-      script_wrapper::log_exception();
+      script_wrapper::log_exception(__FILE__, __LINE__);
       return false;
     }
   } catch (...) {
@@ -179,7 +179,7 @@ bool python_script::callFunction(const std::string &functionName, const std::lis
       if (scriptFunction) scriptFunction(script_wrapper::convert(args));
       return true;
     } catch (py::error_already_set &e) {
-      script_wrapper::log_exception();
+      script_wrapper::log_exception(__FILE__, __LINE__);
       return false;
     }
   } catch (...) {
@@ -196,7 +196,7 @@ bool python_script::callFunction(const std::string &functionName, unsigned int i
       if (scriptFunction) scriptFunction(i1, s1, s2);
       return true;
     } catch (py::error_already_set &e) {
-      script_wrapper::log_exception();
+      script_wrapper::log_exception(__FILE__, __LINE__, functionName);
       return false;
     }
   } catch (...) {
@@ -235,7 +235,7 @@ void python_script::_exec(const std::string &scriptfile) {
 #endif
       } catch (py::error_already_set &e) {
         NSC_LOG_ERROR("Failed to setup env for script: " + scriptfile);
-        script_wrapper::log_exception();
+        script_wrapper::log_exception(__FILE__, __LINE__, scriptfile);
         return;
       }
 
@@ -255,7 +255,7 @@ void python_script::_exec(const std::string &scriptfile) {
 #endif
     } catch (py::error_already_set &e) {
       NSC_LOG_ERROR("Failed to load script: " + scriptfile);
-      script_wrapper::log_exception();
+      script_wrapper::log_exception(__FILE__, __LINE__, scriptfile);
     } catch (const std::exception &e) {
       NSC_LOG_ERROR("Failed to load script: " + scriptfile);
       NSC_LOG_ERROR_EXR("python script", e);
