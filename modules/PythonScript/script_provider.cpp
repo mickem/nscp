@@ -20,15 +20,14 @@ boost::optional<boost::filesystem::path> script_provider::find_file(std::string 
   std::list<boost::filesystem::path> checks;
   checks.push_back(file);
   checks.push_back(file + ".py");
-  checks.push_back(root_ / "scripts" / "python" / file);
-  checks.push_back(root_ / "scripts" / "python" / (file + ".py"));
-  checks.push_back(root_ / "scripts" / file);
-  checks.push_back(root_ / "scripts" / (file + ".py"));
+  checks.push_back(root_ / "python" / file);
+  checks.push_back(root_ / "python" / (file + ".py"));
   checks.push_back(root_ / file);
+  checks.push_back(root_ / (file + ".py"));
   for (boost::filesystem::path c : checks) {
     if (boost::filesystem::exists(c) && boost::filesystem::is_regular_file(c)) return boost::optional<boost::filesystem::path>(c);
   }
-  get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Script not found: " + file);
+  get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Script not found: " + file + " looking in " + get_root().string());
   return boost::optional<boost::filesystem::path>();
 }
 
