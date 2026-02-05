@@ -103,7 +103,7 @@ std::list<std::string> script_wrapper::convert(py::list lst) {
       else
         NSC_LOG_ERROR_STD("Failed to convert object in list");
     } catch (py::error_already_set &e) {
-      log_exception();
+      log_exception(__FILE__, __LINE__);
     } catch (...) {
       NSC_LOG_ERROR_STD("Failed to parse list");
     }
@@ -148,8 +148,11 @@ void script_wrapper::sleep(unsigned int ms) {
   }
 }
 
-void script_wrapper::log_exception() {
-  NSC_LOG_ERROR_EX("Python script throw unexpected exception");
+void script_wrapper::log_exception(const std::string &file, const int line, std::string context) {
+  const std::string message = context.empty() ?  "Python script throw unexpected exception" : "Exception in " + context + ": Python script throw unexpected exception";
+  if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
+    GET_CORE()->log(NSCAPI::log_level::error, file, line, message);
+  }
   try {
     PyErr_Print();
     py::object sys = py::import("sys");
@@ -358,7 +361,7 @@ int script_wrapper::function_wrapper::handle_query(const std::string cmd, const 
         if (py::len(ret) > 1) response = py::extract<std::string>(ret[1]);
         return ret_code;
       } catch (py::error_already_set &e) {
-        log_exception();
+        log_exception(__FILE__, __LINE__);
         return NSCAPI::query_return_codes::returnUNKNOWN;
       }
     }
@@ -396,7 +399,7 @@ int script_wrapper::function_wrapper::handle_simple_query(const std::string cmd,
         if (len(ret) > 2) perf = pystr(ret[2]);
         return ret_code;
       } catch (py::error_already_set &e) {
-        log_exception();
+        log_exception(__FILE__, __LINE__, cmd);
         msg = "Exception in: " + cmd;
         return NSCAPI::query_return_codes::returnUNKNOWN;
       }
@@ -436,7 +439,7 @@ int script_wrapper::function_wrapper::handle_exec(const std::string cmd, const s
         if (py::len(ret) > 1) response = pystr(ret[1]);
         return ret_code;
       } catch (py::error_already_set &e) {
-        log_exception();
+        log_exception(__FILE__, __LINE__, cmd);
         return NSCAPI::exec_return_codes::returnERROR;
       }
     }
@@ -470,7 +473,7 @@ int script_wrapper::function_wrapper::handle_simple_exec(const std::string cmd, 
         if (py::len(ret) > 1) result = py::extract<std::string>(ret[1]);
         return ret_code;
       } catch (py::error_already_set &e) {
-        log_exception();
+        log_exception(__FILE__, __LINE__, cmd);
         result = "Exception in: " + cmd;
         return NSCAPI::exec_return_codes::returnERROR;
       }
@@ -511,7 +514,7 @@ int script_wrapper::function_wrapper::handle_message(const std::string channel, 
         if (py::len(ret) > 0) ret_code = py::extract<bool>(ret[0]) ? NSCAPI::api_return_codes::isSuccess : NSCAPI::api_return_codes::hasFailed;
         if (py::len(ret) > 1) response = py::extract<std::string>(ret[1]);
       } catch (py::error_already_set &e) {
-        log_exception();
+        log_exception(__FILE__, __LINE__, channel);
         return NSCAPI::api_return_codes::hasFailed;
       }
       return ret_code;
@@ -544,7 +547,7 @@ int script_wrapper::function_wrapper::handle_simple_message(const std::string ch
         }
         return ret_code;
       } catch (py::error_already_set &e) {
-        log_exception();
+        log_exception(__FILE__, __LINE__, channel);
         return NSCAPI::api_return_codes::hasFailed;
       }
     }
@@ -575,7 +578,7 @@ void script_wrapper::function_wrapper::on_event(const std::string event, const s
       try {
         py::call<py::object>(py::object(it->second).ptr(), event, request);
       } catch (py::error_already_set &e) {
-        log_exception();
+        log_exception(__FILE__, __LINE__, event);
       }
     }
   } catch (const std::exception &e) {
@@ -595,7 +598,7 @@ void script_wrapper::function_wrapper::on_simple_event(const std::string event, 
       try {
         py::call<void>(py::object(it->second).ptr(), event, data);
       } catch (py::error_already_set &e) {
-        log_exception();
+        log_exception(__FILE__, __LINE__, event);
       }
     }
   } catch (const std::exception &e) {
@@ -640,7 +643,7 @@ void script_wrapper::function_wrapper::submit_metrics(const std::string &request
         try {
           py::call<py::object>(py::object(v).ptr(), metrics, pystr(""));
         } catch (py::error_already_set &e) {
-          log_exception();
+          log_exception(__FILE__, __LINE__);
         }
       }
     } catch (const std::exception &e) {
@@ -694,7 +697,7 @@ void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const
           }
         }
       } catch (const py::error_already_set &e) {
-        log_exception();
+        log_exception(__FILE__, __LINE__);
       }
     }
     payload.mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);

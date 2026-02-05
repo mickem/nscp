@@ -79,7 +79,7 @@ enum status {
 status nagios_return_to_py(int code);
 int py_to_nagios_return(status code);
 
-void log_exception();
+ void log_exception(const std::string &file, int line, std::string context = "");
 void log_msg(py::object x);
 void log_debug(py::object x);
 void log_error(py::object x);
@@ -241,15 +241,5 @@ struct settings_wrapper {
   void settings_register_key(std::string path, std::string key, std::string stype, std::string title, std::string description, std::string defaultValue);
   void settings_register_path(std::string path, std::string title, std::string description);
   py::tuple query(py::object request);
-};
-
-class PyInitializer {
- public:
-  PyInitializer() { Py_Initialize(); }
-  ~PyInitializer() { Py_Finalize(); }
-
- private:
-  PyInitializer(const PyInitializer &);
-  PyInitializer &operator=(const PyInitializer &);
 };
 }  // namespace script_wrapper
