@@ -223,7 +223,6 @@ void python_script::_exec(const std::string &scriptfile) {
       PyRun_SimpleString("sys.stderr = StringIO()");
 
       boost::filesystem::path path = base_path;
-      path /= "scripts";
       path /= "python";
       path /= "lib";
       NSC_DEBUG_MSG("Lib path: " + path.string());

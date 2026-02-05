@@ -52,7 +52,7 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
   }
 
   try {
-    root_ = get_base_path();
+    root_ = get_core()->expand_path("${scripts}");
 
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias(alias, "python");
