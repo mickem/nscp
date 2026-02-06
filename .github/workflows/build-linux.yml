@@ -169,6 +169,7 @@ jobs:
       - name: Acceptance tests
         run: |
           sudo cp -r scripts/* /usr/lib/nsclient/scripts
+          sudo nscp nrpe install --certificate --verify none
           ./tests/acceptance-tests.sh
 
       - name: Run rest tests
