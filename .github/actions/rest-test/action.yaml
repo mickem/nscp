@@ -25,11 +25,9 @@ runs:
 
     - name: Start NSClient++ (Linux)
       if: runner.os == 'Linux'
-      working-directory: tmp/nscp
       shell: bash
       run: |
-        rm -f nsclient.log
-        ./nscp test --settings ../../tests/rest/nsclient.ini &
+        nscp test --settings tests/rest/nsclient.ini &
 
     - name: Run tests
       working-directory: tests/rest
@@ -38,7 +36,7 @@ runs:
 
     - name: Show logs
       working-directory: tmp/nscp
-      if: always()
+      if: always() && runner.os == 'Windows'
       shell: bash
       run: cat nsclient.log || true
 
