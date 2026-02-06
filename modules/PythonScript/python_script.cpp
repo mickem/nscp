@@ -85,26 +85,24 @@ void python_script::init(const std::string& python_cache_path, const std::string
     PyImport_AppendInittab("NSCP", &PyInit_NSCP);
     // Py_SetProgramName("NSCP");
 
-    PyStatus status;
-    PyConfig config;
-    PyConfig_InitPythonConfig(&config);
     if (!python_cache_path.empty()) {
-      status = PyConfig_SetBytesString(&config, &config.pycache_prefix, python_cache_path.c_str());
+      PyConfig config;
+      PyConfig_InitPythonConfig(&config);
+      PyStatus status = PyConfig_SetBytesString(&config, &config.pycache_prefix, python_cache_path.c_str());
       if (PyStatus_Exception(status)) {
         NSC_LOG_ERROR("Failed to setup python cache path: " + python_cache_path);
         PyConfig_Clear(&config);
         return;
       }
-    }
-    status = Py_InitializeFromConfig(&config);
-    if (PyStatus_Exception(status)) {
-      NSC_LOG_ERROR("Failed to initialize Python");
-      PyConfig_Clear(&config);
-      return;
-    }
+      status = Py_InitializeFromConfig(&config);
+      if (PyStatus_Exception(status)) {
+        NSC_LOG_ERROR("Failed to initialize Python");
+        PyConfig_Clear(&config);
+        return;
+      }
 
-    // Clean up config structure
-    PyConfig_Clear(&config);
+      PyConfig_Clear(&config);
+    }
 
 #ifdef __linux__
     if (!lib_python_path.empty()) {
@@ -266,18 +264,9 @@ void python_script::_exec(const std::string &scriptfile) {
 
       py::object global(main.attr("__dict__"));
 
-      FILE* fp = fopen(scriptfile.c_str(), "r");
-      if (!fp) {
-        NSC_LOG_ERROR("Could not open script file: " + scriptfile);
-        return;
-      }
-      try {
-        PyRun_File(fp, scriptfile.c_str(), Py_file_input, localDict->ptr(), localDict->ptr());
-      } catch (...) {
-        fclose(fp); // Ensure cleanup
-        throw;
-      }
-      fclose(fp);
+      py::object sFile = pystr2(scriptfile);
+      FILE *fp = _Py_fopen_obj(sFile.ptr(), "r");
+      PyRun_File(fp, scriptfile.c_str(), Py_file_input, localDict->ptr(), localDict->ptr());
     } catch (py::error_already_set &e) {
       NSC_LOG_ERROR("Failed to load script: " + scriptfile);
       script_wrapper::log_exception(__FILE__, __LINE__, scriptfile);
