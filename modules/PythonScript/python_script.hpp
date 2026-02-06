@@ -16,6 +16,6 @@ struct python_script : public boost::noncopyable {
   bool callFunction(const std::string &functionName, const std::list<std::string> &args);
   void _exec(const std::string &scriptfile);
 
-  static void init();
+  static void init(const std::string &python_cache_path, const std::string &lib_python_path);
   static void destroy();
 };

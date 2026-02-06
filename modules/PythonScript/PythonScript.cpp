@@ -52,10 +52,22 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
   }
 
   try {
+    std::string python_cache;
+    std::string python_lib;
     root_ = get_core()->expand_path("${scripts}");
 
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias(alias, "python");
+
+
+    settings.alias()
+        .add_key_to_settings()
+        .add_string("python cache", sh::string_key(&python_cache), "Python cache", "Override python cache folder.")
+#ifdef __linux__
+        .add_string("python lib", sh::string_key(&python_lib, DEFAULT_PYTHON_LIB), "Python lib", "The python DLL to load")
+#endif
+    ;
+
 
     provider_.reset(new script_provider(get_id(), get_core(), root_));
 
@@ -84,10 +96,10 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
     // clang-format on
 
     settings.register_all();
-
-    python_script::init();
-
     settings.notify();
+
+    python_script::init(python_cache, python_lib);
+
   } catch (...) {
     NSC_LOG_ERROR_STD("Exception caught: <UNKNOWN EXCEPTION>");
     return false;

@@ -4,6 +4,10 @@
 #include <boost/shared_ptr.hpp>
 #include <utf8.hpp>
 
+#ifdef __linux__
+#include <dlfcn.h>
+#endif
+
 #include "script_wrapper.hpp"
 
 namespace py = boost::python;
@@ -73,13 +77,44 @@ BOOST_PYTHON_MODULE(NSCP) {
 
 static bool has_init = false;
 
-void python_script::init() {
+void python_script::init(const std::string& python_cache_path, const std::string &lib_python_path) {
   NSC_DEBUG_MSG("boot python");
 
   if (!has_init) {
     has_init = true;
     PyImport_AppendInittab("NSCP", &PyInit_NSCP);
     // Py_SetProgramName("NSCP");
+
+    PyStatus status;
+    PyConfig config;
+    PyConfig_InitPythonConfig(&config);
+    if (!python_cache_path.empty()) {
+      status = PyConfig_SetBytesString(&config, &config.pycache_prefix, python_cache_path.c_str());
+      if (PyStatus_Exception(status)) {
+        NSC_LOG_ERROR("Failed to setup python cache path: " + python_cache_path);
+        PyConfig_Clear(&config);
+        return;
+      }
+    }
+    status = Py_InitializeFromConfig(&config);
+    if (PyStatus_Exception(status)) {
+      NSC_LOG_ERROR("Failed to initialize Python");
+      PyConfig_Clear(&config);
+      return;
+    }
+
+    // Clean up config structure
+    PyConfig_Clear(&config);
+
+#ifdef __linux__
+    if (!lib_python_path.empty()) {
+      void* lib = dlopen(lib_python_path.c_str(), RTLD_NOW | RTLD_GLOBAL);
+      if (!lib) {
+        NSC_LOG_ERROR("Failed to promote Python library to global: " + std::string(dlerror()));
+      }
+    }
+#endif
+
     Py_Initialize();
     PyEval_InitThreads();
     PyEval_SaveThread();

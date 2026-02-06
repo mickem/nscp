@@ -30,7 +30,17 @@ if(WIN32)
         script_provider.hpp
         ${NSCP_DEF_PLUGIN_HPP}
     )
-endif(WIN32)
+else()
+    if(NSCP_BOOST_PYTHON_VERSION STREQUAL "python313")
+        add_definitions(${NSCP_GLOBAL_DEFINES} -DDEFAULT_PYTHON_LIB="libpython3.13.so")
+    elseif(NSCP_BOOST_PYTHON_VERSION STREQUAL "python312")
+        add_definitions(${NSCP_GLOBAL_DEFINES} -DDEFAULT_PYTHON_LIB="libpython3.12.so")
+    elseif(NSCP_BOOST_PYTHON_VERSION STREQUAL "python311")
+        add_definitions(${NSCP_GLOBAL_DEFINES} -DDEFAULT_PYTHON_LIB="libpython3.11.so")
+    else()
+        message(FATAL_ERROR "Unknown python version: ${NSCP_BOOST_PYTHON_VERSION}")
+    endif()
+endif()
 include_directories(${Python3_INCLUDE_DIRS})
 
 add_library(${TARGET} MODULE ${SRCS})
@@ -52,5 +62,6 @@ target_link_libraries(
     ${NSCP_DEF_PLUGIN_LIB}
     ${Python3_LIBRARIES}
 )
+
 
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
