@@ -226,14 +226,12 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
 	    "Set which hosts are allowed to connect")
     ("port", po::value<std::string>(&port)->default_value(port),
 	    "Set the port NRPE listens on")
-    ("ca", po::value<std::string>(&ca)->default_value(ca),
+    ("ca", po::value<std::string>(&ca)->default_value(ca)->implicit_value("${certificate-path}/ca.pem"),
             "Length of payload (has to be same as on the server)")
-    ("certificate", po::value<std::string>(&cert)->default_value(cert),
+    ("certificate", po::value<std::string>(&cert)->default_value(cert)->implicit_value("${certificate-path}/certificate.pem"),
 	    "Length of payload (has to be same as on the server)")
     ("certificate-key", po::value<std::string>(&key)->default_value(key),
 	    "Client certificate to use")
-    ("insecure", po::value<std::string>(&insecure)->default_value(insecure)->implicit_value("true"),
-            "Use \"old\" legacy NRPE.")
     ("payload-length,l", po::value<unsigned int>(&length)->default_value(1024),
 	    "Length of payload (has to be same as on both the server and client)")
     ("arguments", po::value<std::string>(&arguments)->default_value(arguments)->implicit_value("safe"),
@@ -290,15 +288,22 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
       }
       if (verify == "peer-cert") {
         result << "NRPE is currently reasonably secure and will require client certificates." << std::endl;
-        result << "The clients need to have a certificate issued from " << ca << std::endl;
+        result << "The clients need to have a certificate issued from " << get_core()->expand_path(ca) << std::endl;
       } else {
         result << "WARNING: NRPE is not secure, while we have proper encryption there is no authentication expect for only accepting traffic from "
                << allowed_hosts << "." << std::endl;
       }
       if (key.empty())
-        result << "Traffic is encrypted using " << cert << "." << std::endl;
+        result << "Traffic is encrypted using " <<  get_core()->expand_path(cert) << "." << std::endl;
       else
-        result << "Traffic is encrypted using " << cert << " and " << key << "." << std::endl;
+        result << "Traffic is encrypted using " << get_core()->expand_path(cert) << " and " << get_core()->expand_path(key) << "." << std::endl;
+
+      std::list<std::string> messages;
+      socket_helpers::validate_certificate(get_core()->expand_path(cert), messages);
+      for (const auto &e: messages) {
+        result << "Certificate validation: " << e << std::endl;
+      }
+
       s.set("/settings/NRPE/server", "insecure", "false");
       s.set("/settings/NRPE/server", "allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
       s.set("/settings/NRPE/server", "ssl options", "no-sslv2,no-sslv3");
