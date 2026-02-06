@@ -227,6 +227,12 @@ jobs:
       run: |
         msbuild NSCP.sln /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }}
 
+    - name: Build nsclient (take 2)
+      if: always()
+      working-directory: tmp/nscp
+      run: |
+        msbuild NSCP.sln /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }}
+
     - name: Run tests
       working-directory: tmp/nscp
       run: |
