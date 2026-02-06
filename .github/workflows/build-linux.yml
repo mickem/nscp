@@ -154,7 +154,7 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: tests/rest/package-lock.json
 
       - uses: actions/download-artifact@v7
         with:
