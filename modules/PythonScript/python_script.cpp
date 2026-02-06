@@ -8,18 +8,6 @@
 
 namespace py = boost::python;
 
-#if BOOST_VERSION == 105800
-py::object fix_for_broken_exec_file(char const *filename, py::object global, py::object local) {
-  char *f = const_cast<char *>(filename);
-  PyObject *pyfile = PyFile_FromString(f, const_cast<char *>("r"));
-  if (!pyfile) throw std::invalid_argument(std::string(filename) + " : no such file");
-  py::handle<> file(pyfile);
-  FILE *fs = PyFile_AsFile(file.get());
-  PyObject *result = PyRun_File(fs, f, Py_file_input, global.ptr(), local.ptr());
-  if (!result) py::throw_error_already_set();
-  return py::object(py::detail::new_reference(result));
-}
-#endif
 
 BOOST_PYTHON_MODULE(NSCP) {
   py::class_<script_wrapper::settings_wrapper, boost::shared_ptr<script_wrapper::settings_wrapper> >("Settings", py::no_init)
@@ -239,20 +227,22 @@ void python_script::_exec(const std::string &scriptfile) {
         return;
       }
 
-#if BOOST_VERSION == 105800
-      py::object ignored = fix_for_broken_exec_file(scriptfile.c_str(), localDict, localDict);
-#else
       py::object main = py::import("__main__");
 
       py::object global(main.attr("__dict__"));
 
-      py::object sFile = pystr2(scriptfile);
-      FILE *fp = _Py_fopen_obj(sFile.ptr(), "r+");
-      PyRun_File(fp, scriptfile.c_str(), Py_file_input, localDict->ptr(), localDict->ptr());
-//			py::object result3= exec_file(script, *localDict, *localDict);
-
-//			py::object ignored = exec_file(scriptfile.c_str(), *localDict, *localDict);
-#endif
+      FILE* fp = fopen(scriptfile.c_str(), "r");
+      if (!fp) {
+        NSC_LOG_ERROR("Could not open script file: " + scriptfile);
+        return;
+      }
+      try {
+        PyRun_File(fp, scriptfile.c_str(), Py_file_input, localDict->ptr(), localDict->ptr());
+      } catch (...) {
+        fclose(fp); // Ensure cleanup
+        throw;
+      }
+      fclose(fp);
     } catch (py::error_already_set &e) {
       NSC_LOG_ERROR("Failed to load script: " + scriptfile);
       script_wrapper::log_exception(__FILE__, __LINE__, scriptfile);
