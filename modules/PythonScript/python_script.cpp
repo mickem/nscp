@@ -85,6 +85,8 @@ void python_script::init(const std::string& python_cache_path, const std::string
     PyImport_AppendInittab("NSCP", &PyInit_NSCP);
     // Py_SetProgramName("NSCP");
 
+    NSC_LOG_ERROR("+++ Configure: " + python_cache_path);
+
     if (!python_cache_path.empty()) {
       PyConfig config;
       PyConfig_InitPythonConfig(&config);
@@ -103,6 +105,8 @@ void python_script::init(const std::string& python_cache_path, const std::string
 
       PyConfig_Clear(&config);
     }
+
+    NSC_LOG_ERROR("+++ Configured: " + python_cache_path);
 
 #ifdef __linux__
     if (!lib_python_path.empty()) {
@@ -263,6 +267,8 @@ void python_script::_exec(const std::string &scriptfile) {
       py::object main = py::import("__main__");
 
       py::object global(main.attr("__dict__"));
+
+      NSC_LOG_ERROR("+++ Opening script file: " + scriptfile);
 
       FILE* fp = fopen(scriptfile.c_str(), "r");
       if (!fp) {

@@ -6,7 +6,7 @@ if(MKDOCS_FOUND)
         set(MODULE_ARG "/paths:module-path=\${base-path}/modules")
         set(COMMAND_LINE ${CMAKE_BINARY_DIR}/nscp client --module PythonScript
                 --settings dummy
-                --load-all --log info --log oneline
+                --load-all --log trace --log oneline
                 --define "${MODULE_ARG}"
                 -- execute --script scripts/python/docs.py
                 --input docs --output docs
