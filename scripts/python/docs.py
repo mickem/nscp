@@ -9,6 +9,7 @@ import os
 from functools import reduce
 from jinja2 import Template, Environment
 import hashlib
+import sys
 helper = None
 
 module_template = u"""# {{module.key}}
@@ -323,7 +324,6 @@ class root_container(object):
     aliases = {}
     plugins = {}
     windows_modules = ['CheckSystem', 'CheckDisk', 'NSClientServer', 'DotnetPlugins', 'CheckEventLog',  'CheckTaskSched',  'CheckWMI']
-    unix_modules = ['CheckSystemUnix']
     check_modules = ['CheckExternalScripts',  'CheckHelpers',  'CheckLogFile',  'CheckMKClient',  'CheckMKServer',  'CheckNSCP']
     client_modules = ['GraphiteClient',  'NRDPClient',  'NRPEClient',  'NRPEServer',  'NSCAClient',  'NSCAServer',  'NSClientServer',  'SMTPClient',  'SyslogClient']
     generic_modules = ['CommandClient',  'DotnetPlugins',  'LUAScript',  'PythonScript',  'Scheduler',  'SimpleCache',  'SimpleFileWriter', 'WEBServer']
@@ -383,9 +383,9 @@ class root_container(object):
         if name in self.ignored_modules:
             return
         namespace = ''
-        if name in self.windows_modules:
+        if name in self.windows_modules and sys.platform == 'win32':
             namespace = 'windows'
-        elif name in self.unix_modules:
+        elif name in self.windows_modules:
             namespace = 'unix'
         elif name in self.check_modules:
             namespace = 'check'
