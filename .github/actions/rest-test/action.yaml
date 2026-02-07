@@ -27,18 +27,23 @@ runs:
       if: runner.os == 'Linux'
       shell: bash
       run: |
-        nscp test --settings tests/rest/nsclient.ini &
+        nscp test --settings tests/rest/nsclient.ini > /tmp/nsclient.log 2>&1 &
 
     - name: Run tests
       working-directory: tests/rest
       shell: bash
       run: npm run test
 
-    - name: Show logs
+    - name: Show logs (Windows)
       working-directory: tmp/nscp
       if: always() && runner.os == 'Windows'
       shell: bash
       run: cat nsclient.log || true
+
+    - name: Show logs (Linux)
+      if: always() && runner.os == 'Linux'
+      shell: bash
+      run: cat /tmp/nsclient.log || true
 
     - name: Stop NSClient++ (Windows)
       if: always() && runner.os == 'Windows'
