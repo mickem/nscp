@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <atlbase.h>
 #include <WbemCli.h>
+#include <atlbase.h>
 
 #include <boost/lexical_cast.hpp>
 #include <error/error.hpp>

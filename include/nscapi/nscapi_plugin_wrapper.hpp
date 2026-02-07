@@ -41,8 +41,8 @@ struct module_version {
 };
 template <class impl_type>
 struct plugin_instance_data {
-  plugin_instance_data(const plugin_instance_data&) = delete;
-  plugin_instance_data& operator=(const plugin_instance_data&) = delete;
+  plugin_instance_data(const plugin_instance_data &) = delete;
+  plugin_instance_data &operator=(const plugin_instance_data &) = delete;
 
   typedef std::map<unsigned int, std::shared_ptr<impl_type> > plugin_list_type;
   plugin_list_type plugins;
@@ -135,8 +135,8 @@ template <class impl_class>
 struct basic_wrapper {
   std::shared_ptr<impl_class> instance;
   explicit basic_wrapper(std::shared_ptr<impl_class> instance) : instance(instance) {}
-  basic_wrapper(const basic_wrapper&) = delete;
-  basic_wrapper& operator=(const basic_wrapper&) = delete;
+  basic_wrapper(const basic_wrapper &) = delete;
+  basic_wrapper &operator=(const basic_wrapper &) = delete;
   int NSLoadModuleEx(const unsigned int id, char *alias, const int mode) {
     try {
       return NSLoadModuleExNoExcept(id, alias, mode);

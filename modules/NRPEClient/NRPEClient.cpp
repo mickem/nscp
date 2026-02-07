@@ -294,13 +294,13 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
                << allowed_hosts << "." << std::endl;
       }
       if (key.empty())
-        result << "Traffic is encrypted using " <<  get_core()->expand_path(cert) << "." << std::endl;
+        result << "Traffic is encrypted using " << get_core()->expand_path(cert) << "." << std::endl;
       else
         result << "Traffic is encrypted using " << get_core()->expand_path(cert) << " and " << get_core()->expand_path(key) << "." << std::endl;
 
       std::list<std::string> messages;
       socket_helpers::validate_certificate(get_core()->expand_path(cert), messages);
-      for (const auto &e: messages) {
+      for (const auto &e : messages) {
         result << "Certificate validation: " << e << std::endl;
       }
 

@@ -12,7 +12,6 @@
 
 namespace py = boost::python;
 
-
 BOOST_PYTHON_MODULE(NSCP) {
   py::class_<script_wrapper::settings_wrapper, boost::shared_ptr<script_wrapper::settings_wrapper> >("Settings", py::no_init)
       .def("get", &script_wrapper::settings_wrapper::create)
@@ -77,7 +76,7 @@ BOOST_PYTHON_MODULE(NSCP) {
 
 static bool has_init = false;
 
-void python_script::init(const std::string& python_cache_path, const std::string &lib_python_path) {
+void python_script::init(const std::string &python_cache_path, const std::string &lib_python_path) {
   NSC_DEBUG_MSG("boot python");
 
   if (!has_init) {
@@ -106,7 +105,7 @@ void python_script::init(const std::string& python_cache_path, const std::string
 
 #ifdef __linux__
     if (!lib_python_path.empty()) {
-      void* lib = dlopen(lib_python_path.c_str(), RTLD_NOW | RTLD_GLOBAL);
+      void *lib = dlopen(lib_python_path.c_str(), RTLD_NOW | RTLD_GLOBAL);
       if (!lib) {
         NSC_LOG_ERROR("Failed to promote Python library to global: " + std::string(dlerror()));
       }

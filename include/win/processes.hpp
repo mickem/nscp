@@ -19,10 +19,10 @@
 
 #pragma once
 
-#include <str/format.hpp>
-#include <str/xtos.hpp>
 #include <boost/shared_ptr.hpp>
 #include <list>
+#include <str/format.hpp>
+#include <str/xtos.hpp>
 #include <string>
 #include <utility>
 #include <win/windows.hpp>
