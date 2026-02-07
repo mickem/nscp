@@ -265,7 +265,7 @@ void python_script::_exec(const std::string &scriptfile) {
       py::object global(main.attr("__dict__"));
 
       py::object sFile = pystr2(scriptfile);
-      FILE *fp = _Py_fopen_obj(sFile.ptr(), "r+");
+      FILE *fp = _Py_fopen_obj(sFile.ptr(), "r");
       PyRun_File(fp, scriptfile.c_str(), Py_file_input, localDict->ptr(), localDict->ptr());
     } catch (py::error_already_set &e) {
       NSC_LOG_ERROR("Failed to load script: " + scriptfile);
