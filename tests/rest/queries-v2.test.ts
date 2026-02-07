@@ -2,6 +2,8 @@ import { describe, expect, it } from "@jest/globals";
 import request = require("supertest");
 
 const URL = "https://127.0.0.1:8443";
+// Plugin name differs between platforms: "LuaScript" on Windows, "LUAScript" on Linux
+const luaScriptPlugin = expect.stringMatching(/^L[Uu][Aa]Script$/);
 describe("queries", () => {
   let key = undefined;
   it("can login", async () => {
@@ -33,7 +35,7 @@ describe("queries", () => {
             description: "Mock query used during tests",
             metadata: {},
             name: "mock_query",
-            plugin: "LuaScript",
+            plugin: luaScriptPlugin,
             query_url: "https://127.0.0.1:8443/api/v2/queries/mock_query/",
             title: "mock_query",
           },
@@ -57,7 +59,7 @@ describe("queries", () => {
             description: "Mock query used during tests",
             metadata: {},
             name: "mock_query",
-            plugin: "LuaScript",
+            plugin: luaScriptPlugin,
             query_url: "https://127.0.0.1:8443/api/v2/queries/mock_query/",
             title: "mock_query",
           },
@@ -81,7 +83,7 @@ describe("queries", () => {
             "https://127.0.0.1:8443/api/v2/queries/mock_query/commands/execute",
           metadata: {},
           name: "mock_query",
-          plugin: "LuaScript",
+          plugin: luaScriptPlugin,
           title: "mock_query",
         });
       });
