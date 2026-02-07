@@ -21,6 +21,8 @@
 
 #include <NSCAPI.h>
 
+#include <nscapi/nscapi_helper.hpp>
+
 #include <string>
 
 namespace nscapi {
