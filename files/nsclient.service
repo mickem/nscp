@@ -6,7 +6,7 @@ WorkingDirectory=/usr/lib/nsclient
 User=nsclient
 PIDFile=/usr/share/nsclient/nscp.pid
 
-ExecStart=/usr/sbin/nscp service --run --pid /usr/share/nsclient/nscp.pid
+ExecStart=/usr/sbin/nscp service --log-backend threaded-file --run --pid /usr/share/nsclient/nscp.pid
 
 [Install]
 WantedBy=multi-user.target

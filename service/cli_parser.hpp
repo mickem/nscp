@@ -37,6 +37,7 @@ class cli_parser : public boost::noncopyable {
   bool help;
   bool version;
   bool log_debug;
+  std::string log_backend;
   bool no_stderr;
   std::vector<std::string> log_level;
   std::vector<std::string> defines;
