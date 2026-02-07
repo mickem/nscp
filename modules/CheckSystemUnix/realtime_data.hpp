@@ -21,7 +21,6 @@
 #include <boost/filesystem/path.hpp>
 #include <list>
 
-#include "filter.hpp"
 #include "realtime_thread.hpp"
 /*
 namespace check_cpu_filter {

@@ -1,5 +1,6 @@
 if(NOT WIN32)
     set(BUILD_MODULE 1)
+    set(CURRENT_MODULE_NAME "CheckSystem")
 else()
     set(BUILD_MODULE_SKIP_REASON "Not supported on Windows")
 endif()

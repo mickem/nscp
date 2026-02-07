@@ -24,10 +24,125 @@
 #include <boost/thread.hpp>
 #include <boost/unordered_map.hpp>
 #include <error/error.hpp>
+#include <map>
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nsclient/nsclient_exception.hpp>
+#include <string>
+#include <vector>
 
 #include "filter_config_object.hpp"
+
+// CPU load entry structure (similar to Windows version)
+struct load_entry {
+  double idle;
+  double user;
+  double kernel;
+  int core;
+
+  load_entry() : idle(0.0), user(0.0), kernel(0.0), core(-1) {}
+  load_entry(double idle, double user, double kernel, int core = -1) : idle(idle), user(user), kernel(kernel), core(core) {}
+  load_entry(const load_entry &obj) : idle(obj.idle), user(obj.user), kernel(obj.kernel), core(obj.core) {}
+
+  load_entry &operator=(const load_entry &obj) {
+    idle = obj.idle;
+    user = obj.user;
+    kernel = obj.kernel;
+    core = obj.core;
+    return *this;
+  }
+
+  void add(const load_entry &other) {
+    idle += other.idle;
+    user += other.user;
+    kernel += other.kernel;
+  }
+
+  void normalize(double value) {
+    if (value > 0) {
+      idle /= value;
+      user /= value;
+      kernel /= value;
+    }
+  }
+};
+
+// Structure to hold CPU load for all cores
+struct cpu_load {
+  int cores;
+  load_entry total;
+  std::vector<load_entry> core;
+
+  cpu_load() : cores(0) {}
+
+  void add(const cpu_load &other) {
+    total.add(other.total);
+    if (core.empty()) {
+      core = other.core;
+    } else {
+      for (size_t i = 0; i < core.size() && i < other.core.size(); ++i) {
+        core[i].add(other.core[i]);
+      }
+    }
+  }
+
+  void normalize(double value) {
+    total.normalize(value);
+    for (auto &c : core) {
+      c.normalize(value);
+    }
+  }
+};
+
+// Structure to hold memory information
+struct memory_entry {
+  unsigned long long total;
+  unsigned long long free;
+
+  memory_entry() : total(0), free(0) {}
+  memory_entry(unsigned long long total, unsigned long long free) : total(total), free(free) {}
+  memory_entry(const memory_entry &obj) : total(obj.total), free(obj.free) {}
+
+  memory_entry &operator=(const memory_entry &obj) {
+    total = obj.total;
+    free = obj.free;
+    return *this;
+  }
+
+  void add(const memory_entry &other) {
+    total += other.total;
+    free += other.free;
+  }
+
+  void normalize(double value) {
+    if (value > 0) {
+      total = static_cast<unsigned long long>(total / value);
+      free = static_cast<unsigned long long>(free / value);
+    }
+  }
+
+  unsigned long long get_used() const { return total > free ? total - free : 0; }
+};
+
+// Structure to hold all memory types
+struct memory_info {
+  memory_entry physical;
+  memory_entry cached;
+  memory_entry swap;
+
+  memory_info() {}
+
+  void add(const memory_info &other) {
+    physical.add(other.physical);
+    cached.add(other.cached);
+    swap.add(other.swap);
+  }
+
+  void normalize(double value) {
+    physical.normalize(value);
+    cached.normalize(value);
+    swap.normalize(value);
+  }
+};
 
 /**
  * @ingroup NSClientCompat
@@ -65,29 +180,37 @@ struct rrd_buffer {
     minutes.resize(60);
     hours.resize(24);
   }
+
+  bool has_data() const { return !seconds.empty() && seconds.size() > 0; }
+
   value_type get_average(long time) const {
     value_type ret;
-    if (time <= 60) {
-      for (const_iterator cit = seconds.end() - time; cit != seconds.end(); ++cit) {
+    if (time <= 0) time = 1;
+
+    if (time <= static_cast<long>(seconds.size())) {
+      long count = std::min(time, static_cast<long>(seconds.size()));
+      for (const_iterator cit = seconds.end() - count; cit != seconds.end(); ++cit) {
         ret.add(*cit);
       }
-      ret.normalize(time);
+      ret.normalize(count);
       return ret;
     }
     time /= 60;
-    if (time <= 60) {
-      for (const_iterator cit = minutes.end() - time; cit != minutes.end(); ++cit) {
+    if (time <= static_cast<long>(minutes.size())) {
+      long count = std::min(time, static_cast<long>(minutes.size()));
+      for (const_iterator cit = minutes.end() - count; cit != minutes.end(); ++cit) {
         ret.add(*cit);
       }
-      ret.normalize(time);
+      ret.normalize(count);
       return ret;
     }
     time /= 60;
     if (time >= 24) throw nsclient::nsclient_exception("Size larger than buffer");
-    for (const_iterator cit = hours.end() - time; cit != hours.end(); ++cit) {
+    long count = std::min(time, static_cast<long>(hours.size()));
+    for (const_iterator cit = hours.end() - count; cit != hours.end(); ++cit) {
       ret.add(*cit);
     }
-    ret.normalize(time);
+    ret.normalize(count);
     return ret;
   }
   value_type calculate_avg(list_type &buffer) const {
@@ -116,31 +239,59 @@ struct rrd_buffer {
 
 class pdh_thread {
  private:
-  //	typedef boost::unordered_map<std::string,PDH::pdh_instance> lookup_type;
-
   boost::shared_ptr<boost::thread> thread_;
-  boost::shared_mutex mutex_;
-  //	HANDLE stop_event_;
+  mutable boost::shared_mutex mutex_;
+  bool stop_requested_;
 
-  //	std::list<PDH::pdh_object> configs_;
-  //	std::list<PDH::pdh_instance> counters_;
-  //	rrd_buffer<windows::system_info::cpu_load> cpu;
-  //	lookup_type lookups_;
+  // CPU data collection
+  rrd_buffer<cpu_load> cpu_buffer_;
+
+  // Memory data collection
+  rrd_buffer<memory_info> memory_buffer_;
+
+  // Raw CPU times for delta calculation
+  struct cpu_times {
+    std::string name;
+    unsigned long long user;
+    unsigned long long nice;
+    unsigned long long system;
+    unsigned long long idle;
+    unsigned long long iowait;
+    unsigned long long irq;
+    unsigned long long softirq;
+    unsigned long long steal;
+
+    cpu_times() : user(0), nice(0), system(0), idle(0), iowait(0), irq(0), softirq(0), steal(0) {}
+
+    unsigned long long total_idle() const { return idle + iowait; }
+    unsigned long long total_busy() const { return user + nice + system + irq + softirq + steal; }
+    unsigned long long total() const { return total_idle() + total_busy(); }
+  };
+
+  std::map<std::string, cpu_times> last_cpu_times_;
+
  public:
   std::string subsystem;
   std::string default_buffer_size;
   std::string filters_path_;
 
  public:
-  //	void add_counter(const PDH::pdh_object &counter);
-  /*
-          std::map<std::string,double> get_value(std::string counter);
-          std::map<std::string,double> get_average(std::string counter, long seconds);
-          std::map<std::string,long long> get_int_value(std::string counter);
-          std::map<std::string,windows::system_info::load_entry> get_cpu_load(long seconds);
-  */
+  pdh_thread() : stop_requested_(false) {}
+
   bool start();
   bool stop();
+
+  // Get CPU load averaged over the specified number of seconds
+  std::map<std::string, load_entry> get_cpu_load(long seconds);
+
+  // Check if we have collected any data yet
+  bool has_cpu_data() const;
+
+  // Get memory info averaged over the specified number of seconds
+  memory_info get_memory(long seconds);
+
+  // Check if we have collected any memory data yet
+  bool has_memory_data() const;
 
   void add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
 
@@ -148,4 +299,7 @@ class pdh_thread {
   filters::filter_config_handler filters_;
 
   void thread_proc();
+  std::map<std::string, cpu_times> read_cpu_times();
+  cpu_load calculate_cpu_load(const std::map<std::string, cpu_times> &old_times, const std::map<std::string, cpu_times> &new_times);
+  memory_info read_memory_info();
 };

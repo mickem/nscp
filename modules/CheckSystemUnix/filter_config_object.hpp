@@ -30,8 +30,6 @@
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <string>
 
-#include "filter.hpp"
-
 namespace filters {
 
 struct file_container {
