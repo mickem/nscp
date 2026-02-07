@@ -491,7 +491,7 @@ static int lua_get_setting(lua_State *L) {
 const luaL_Reg nscp_funcs[] = {{"sleep", lua_sleep}, {"info", info}, {"print", info}, {"error", error}, {"getSetting", lua_get_setting}, {NULL, NULL}};
 
 void lua::lua_script::luaopen(lua_State *L) {
-  lua::lua_wrapper lua_instance(L);
+  lua_wrapper lua_instance(L);
 
   lua_instance.setup_functions("nscp", nscp_funcs);
   lua_instance.setup_global_function("Core", &lua::core_wrapper::create_core);
@@ -511,14 +511,12 @@ void lua::lua_script::luaopen(lua_State *L) {
 
 boost::optional<boost::filesystem::path> lua::lua_script::find_script(boost::filesystem::path root, std::string file) {
   std::list<boost::filesystem::path> checks;
-  checks.push_back(file);
-  checks.push_back(root / "scripts" / "lua" / file);
-  checks.push_back(root / "scripts" / file);
-  checks.push_back(root / "lua" / file);
-  checks.push_back(root / file);
+  checks.emplace_back(file);
+  checks.emplace_back(root / "lua" / file);
+  checks.emplace_back(root / file);
   for (boost::filesystem::path c : checks) {
-    if (boost::filesystem::exists(c)) return boost::optional<boost::filesystem::path>(c);
+    if (boost::filesystem::exists(c)) return c;
     if (boost::filesystem::exists(c.string() + ".lua")) return boost::optional<boost::filesystem::path>(c.string() + ".lua");
   }
-  return boost::optional<boost::filesystem::path>();
+  return {};
 }
