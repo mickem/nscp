@@ -29,7 +29,12 @@
 #define CONSOLE_BACKEND "console"
 #define THREADED_FILE_BACKEND "threaded-file"
 #define FILE_BACKEND "file"
+#ifdef WIN32
 #define DEFAULT_BACKEND THREADED_FILE_BACKEND
+#else
+#define DEFAULT_BACKEND CONSOLE_BACKEND
+#endif
+
 
 void nsclient::logging::impl::nsclient_logger::set_backend(std::string backend) {
   nsclient::logging::log_driver_instance tmp;
