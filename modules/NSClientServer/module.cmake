@@ -1,1 +1,5 @@
-set(BUILD_MODULE 1)
+if(WIN32)
+    set(BUILD_MODULE 1)
+else ()
+    set(BUILD_MODULE 0)
+endif()
