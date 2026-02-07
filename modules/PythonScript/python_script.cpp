@@ -264,30 +264,9 @@ void python_script::_exec(const std::string &scriptfile) {
 
       py::object global(main.attr("__dict__"));
 
-      FILE* fp = fopen(scriptfile.c_str(), "r");
-      if (!fp) {
-        NSC_LOG_ERROR("Could not open script file: " + scriptfile);
-        return;
-      }
-      try {
-        PyRun_File(fp, scriptfile.c_str(), Py_file_input, localDict->ptr(), localDict->ptr());
-      } catch (py::error_already_set &e) {
-        //fclose(fp); // Ensure cleanup
-        NSC_LOG_ERROR("Failed to load script: " + scriptfile);
-        script_wrapper::log_exception(__FILE__, __LINE__, scriptfile);
-        return;
-      } catch (const std::exception &e) {
-        //fclose(fp); // Ensure cleanup
-        NSC_LOG_ERROR("Failed to load script: " + scriptfile);
-        NSC_LOG_ERROR_EXR("python script", e);
-        return;
-      } catch (...) {
-        //fclose(fp); // Ensure cleanup
-        NSC_LOG_ERROR("Failed to load script: " + scriptfile);
-        NSC_LOG_ERROR_EX("python script");
-        return;
-      }
-      //fclose(fp);
+      py::object sFile = pystr2(scriptfile);
+      FILE *fp = _Py_fopen_obj(sFile.ptr(), "r+");
+      PyRun_File(fp, scriptfile.c_str(), Py_file_input, localDict->ptr(), localDict->ptr());
     } catch (py::error_already_set &e) {
       NSC_LOG_ERROR("Failed to load script: " + scriptfile);
       script_wrapper::log_exception(__FILE__, __LINE__, scriptfile);
