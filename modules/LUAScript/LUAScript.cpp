@@ -35,7 +35,7 @@ namespace po = boost::program_options;
 
 bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   try {
-    root_ = get_base_path();
+    root_ = get_core()->expand_path("${scripts}");
     nscp_runtime_.reset(new scripts::nscp::nscp_runtime_impl(get_id(), get_core()));
     lua_runtime_.reset(new lua::lua_runtime(utf8::cvt<std::string>(root_.string())));
     scripts_.reset(new scripts::script_manager<lua::lua_traits>(lua_runtime_, nscp_runtime_, get_id(), utf8::cvt<std::string>(alias)));
@@ -92,7 +92,10 @@ bool LUAScript::loadScript(std::string alias, std::string file) {
     }
 
     boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, file);
-    if (!ofile) return false;
+    if (!ofile) {
+      NSC_LOG_ERROR("Failed to find script: " + ofile->string());
+      return false;
+    }
     NSC_DEBUG_MSG_STD("Adding script: " + ofile->string());
     scripts_->add(alias, ofile->string());
     return true;
