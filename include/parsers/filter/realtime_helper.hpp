@@ -26,6 +26,8 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nsclient/nsclient_exception.hpp>
+#include <parsers/filter/modern_filter.hpp>
+#include <utf8.hpp>
 
 namespace parsers {
 namespace where {

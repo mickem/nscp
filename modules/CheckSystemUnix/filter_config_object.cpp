@@ -31,8 +31,6 @@
 #include <str/utils.hpp>
 #include <string>
 
-#include "filter.hpp"
-
 namespace sh = nscapi::settings_helper;
 
 namespace filters {

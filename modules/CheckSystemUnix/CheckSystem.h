@@ -21,26 +21,28 @@
 
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_settings_object.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
 
 #include "filter_config_object.hpp"
+#include "realtime_thread.hpp"
 
 class CheckSystem : public nscapi::impl::simple_plugin {
+  boost::shared_ptr<pdh_thread> collector_;
+
  public:
-  CheckSystem() {}
-  virtual ~CheckSystem() {}
+  CheckSystem() : simple_plugin() {}
+  virtual ~CheckSystem() = default;
 
   virtual bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
   virtual bool unloadModule();
 
   void check_service(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_memory(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
-  // void check_pdh(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_process(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_cpu(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_uptime(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_pagefile(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
-  void add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string path, std::string key, std::string query);
   void check_os_version(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+
+  // Accessor for the collector thread (used by check_cpu)
+  boost::shared_ptr<pdh_thread> get_collector() { return collector_; }
 };
