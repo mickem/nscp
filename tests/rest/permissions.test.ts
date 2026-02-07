@@ -31,26 +31,26 @@ describe("admin user", () => {
 
   it("can load a module", async () => {
     await request(URL)
-      .get("/api/v2/modules/CheckDisk/commands/load")
+      .get("/api/v2/modules/CheckLogFile/commands/load")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
       .expect(200)
       .then((response) => {
         expect(response.body).toBeDefined();
-        expect(response.body.message).toEqual("Success load CheckDisk");
+        expect(response.body.message).toEqual("Success load CheckLogFile");
         expect(response.body.result).toEqual(0);
       });
   });
 
   it("can unload a module", async () => {
     await request(URL)
-      .get("/api/v2/modules/CheckDisk/commands/unload")
+      .get("/api/v2/modules/CheckLogFile/commands/unload")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
       .expect(200)
       .then((response) => {
         expect(response.body).toBeDefined();
-        expect(response.body.message).toEqual("Success unload CheckDisk");
+        expect(response.body.message).toEqual("Success unload CheckLogFile");
         expect(response.body.result).toEqual(0);
       });
   });
@@ -81,7 +81,7 @@ describe("legacy user", () => {
 
   it("can not load a module", async () => {
     await request(URL)
-      .get("/api/v2/modules/CheckDisk/commands/load")
+      .get("/api/v2/modules/CheckLogFile/commands/load")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
       .expect(403);
@@ -89,7 +89,7 @@ describe("legacy user", () => {
 
   it("can not unload a module", async () => {
     await request(URL)
-      .get("/api/v2/modules/CheckDisk/commands/unload")
+      .get("/api/v2/modules/CheckLogFile/commands/unload")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
       .expect(403);
@@ -125,7 +125,7 @@ describe("client user", () => {
 
   it("can not load a module", async () => {
     await request(URL)
-      .get("/api/v2/modules/CheckDisk/commands/load")
+      .get("/api/v2/modules/CheckLogFile/commands/load")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
       .expect(403);
@@ -133,7 +133,7 @@ describe("client user", () => {
 
   it("can not unload a module", async () => {
     await request(URL)
-      .get("/api/v2/modules/CheckDisk/commands/unload")
+      .get("/api/v2/modules/CheckLogFile/commands/unload")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
       .expect(403);
