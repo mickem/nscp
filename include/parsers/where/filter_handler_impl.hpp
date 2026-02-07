@@ -28,6 +28,8 @@
 #include <parsers/where/helpers.hpp>
 #include <parsers/where/variable.hpp>
 #include <str/format.hpp>
+#include <NSCAPI.h>
+#include <nscapi/nscapi_helper.hpp>
 
 namespace parsers {
 namespace where {
