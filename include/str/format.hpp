@@ -122,7 +122,7 @@ inline std::string format_date(const std::time_t time, const std::string &format
   return format_date(boost::posix_time::from_time_t(time), format);
 }
 #define MK_FORMAT_FTD(min, key, val)                  \
-  if ((mtm->tm_year) > (min))                           \
+  if ((mtm->tm_year) > (min))                         \
     str::utils::replace(format, key, str::xtos(val)); \
   else                                                \
     str::utils::replace(format, key, "0");

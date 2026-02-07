@@ -19,17 +19,18 @@
 
 #pragma once
 
+#include <NSCAPI.h>
+
 #include <boost/function.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/unordered_map.hpp>
 #include <map>
+#include <nscapi/nscapi_helper.hpp>
 #include <parsers/where/engine_impl.hpp>
 #include <parsers/where/helpers.hpp>
 #include <parsers/where/variable.hpp>
 #include <str/format.hpp>
-#include <NSCAPI.h>
-#include <nscapi/nscapi_helper.hpp>
 
 namespace parsers {
 namespace where {

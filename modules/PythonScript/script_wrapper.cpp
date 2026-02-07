@@ -149,7 +149,8 @@ void script_wrapper::sleep(unsigned int ms) {
 }
 
 void script_wrapper::log_exception(const std::string &file, const int line, std::string context) {
-  const std::string message = context.empty() ?  "Python script throw unexpected exception" : "Exception in " + context + ": Python script throw unexpected exception";
+  const std::string message =
+      context.empty() ? "Python script throw unexpected exception" : "Exception in " + context + ": Python script throw unexpected exception";
   if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
     GET_CORE()->log(NSCAPI::log_level::error, file, line, message);
   }

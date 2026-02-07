@@ -79,7 +79,7 @@ enum status {
 status nagios_return_to_py(int code);
 int py_to_nagios_return(status code);
 
- void log_exception(const std::string &file, int line, std::string context = "");
+void log_exception(const std::string &file, int line, std::string context = "");
 void log_msg(py::object x);
 void log_debug(py::object x);
 void log_error(py::object x);

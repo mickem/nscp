@@ -531,7 +531,7 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       const auto certificate = get_core()->expand_path(cert);
       std::list<std::string> messages;
       socket_helpers::validate_certificate(certificate, messages);
-      for (const auto &e: messages) {
+      for (const auto &e : messages) {
         result << "Certificate validation: " << e << std::endl;
       }
       result << "Point your browser to -- https://localhost:" << port << std::endl;

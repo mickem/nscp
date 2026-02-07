@@ -217,7 +217,7 @@ TEST(format, format_byte_units_with_unit) {
   EXPECT_EQ(str::format::format_byte_units(2048LL, "K"), "2");
   EXPECT_EQ(str::format::format_byte_units(1024LL * 1024LL, "M"), "1");
   EXPECT_FALSE(str::format::format_byte_units(1024LL, "").empty());
-  EXPECT_EQ(str::format::format_byte_units(1000LL* 1000LL * 1024LL, "K"), "1000000");
+  EXPECT_EQ(str::format::format_byte_units(1000LL * 1000LL * 1024LL, "K"), "1000000");
   EXPECT_EQ(str::format::format_byte_units(1000LL * 1024LL * 1024LL, "M"), "1000");
 
   EXPECT_EQ(str::format::format_byte_units(5734563876, "G"), "5.341");

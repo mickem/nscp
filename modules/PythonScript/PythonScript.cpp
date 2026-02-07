@@ -59,15 +59,13 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias(alias, "python");
 
-
     settings.alias()
         .add_key_to_settings()
         .add_string("python cache", sh::string_key(&python_cache), "Python cache", "Override python cache folder.")
 #ifdef __linux__
         .add_string("python lib", sh::string_key(&python_lib, DEFAULT_PYTHON_LIB), "Python lib", "The python DLL to load")
 #endif
-    ;
-
+        ;
 
     provider_.reset(new script_provider(get_id(), get_core(), root_));
 
