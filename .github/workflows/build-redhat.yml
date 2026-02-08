@@ -117,13 +117,13 @@ jobs:
         ctest --output-on-failure -C Release
 
   integration-tests:
-    needs: build-deb
+    needs: build-rpm
     uses: ./.github/workflows/integration-tests.yml
     with:
       os: ubuntu-latest
       architecture: ${{ inputs.architecture }}
       version: ${{ inputs.version }}
-      artifact-name: NSCP-${{ inputs.version }}-ubuntu-x64
-      platform: ubuntu-x64
-      package-type: deb
+      artifact-name: NSCP-${{ inputs.version }}-fedora-x64
+      platform: fedora-x64
+      package-type: rpm
 
