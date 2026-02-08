@@ -15,4 +15,5 @@ runs:
       working-directory: tmp/nscp
       shell: cmd
       run: |
+        dir
         python ..\..\tests\msi\test-install.py

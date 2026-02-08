@@ -89,8 +89,11 @@ jobs:
         run: |
           mkdir -p tmp/nscp
           cd tmp/nscp
-          mv ../../*.msi .
+          ls -al .
+          ls -al ..
+          ls -al ../..
           7z x ../../NSCP-${{ inputs.version }}-${{ inputs.platform }}.zip
+          ls -al .
 
       - name: Copy test scripts (Windows)
         if: runner.os == 'Windows'
