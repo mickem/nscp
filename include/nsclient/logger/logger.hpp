@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <string>
 
 #define LOG_CRITICAL_CORE(msg)                               \
@@ -65,9 +65,10 @@
 namespace nsclient {
 namespace logging {
 struct logging_subscriber {
-  virtual void on_log_message(std::string &payload) = 0;
+  virtual ~logging_subscriber() = default;
+  virtual void on_log_message(const std::string &payload) = 0;
 };
-typedef boost::shared_ptr<logging_subscriber> logging_subscriber_instance;
+typedef std::shared_ptr<logging_subscriber> logging_subscriber_instance;
 
 struct log_interface {
   virtual ~log_interface() = default;
@@ -86,7 +87,7 @@ struct log_interface {
   virtual bool should_critical() const = 0;
 };
 
-struct logger : public log_interface {
+struct logger : log_interface {
   virtual void raw(const std::string &message) = 0;
 
   virtual void add_subscriber(logging_subscriber_instance subscriber) = 0;
@@ -102,8 +103,8 @@ struct logger : public log_interface {
 
   virtual void set_backend(std::string backend) = 0;
 };
-typedef boost::shared_ptr<logger> logger_instance;
-typedef boost::shared_ptr<log_interface> log_client_accessor;
+typedef std::shared_ptr<logger> logger_instance;
+typedef std::shared_ptr<log_interface> log_client_accessor;
 
 }
 }

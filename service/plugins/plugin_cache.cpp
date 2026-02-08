@@ -77,7 +77,7 @@ std::string nsclient::core::plugin_cache::find_plugin_alias(unsigned int plugin_
   return info->dll;
 }
 
-void nsclient::core::plugin_cache::add_plugin(nsclient::core::plugin_type plugin) {
+void nsclient::core::plugin_cache::add_plugin(plugin_type plugin) {
   plugin_cache_item item(plugin);
   {
     boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));

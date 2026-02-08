@@ -74,12 +74,12 @@ class MockPlugin : public nsclient::core::plugin_interface {
   bool route_message(const char*, const char*, unsigned int, char**, char**, unsigned int*) override { return false; }
   bool is_duplicate(boost::filesystem::path file, std::string alias) override { return module_ == file.string() && get_alias() == alias; }
   std::string getModule() override { return module_; }
-  void on_log_message(std::string&) override {}
+  void on_log_message(const std::string&) override {}
 };
 class MasterPluginListTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    logger_ = boost::make_shared<MockListLogger>();
+    logger_ = std::make_shared<MockListLogger>();
     list_ = std::make_unique<nsclient::core::master_plugin_list>(logger_);
   }
   nsclient::logging::logger_instance logger_;
@@ -95,28 +95,28 @@ TEST_F(MasterPluginListTest, GetNextIdIncrementsSequentially) {
   EXPECT_EQ(list_->get_next_id(), 2u);
 }
 TEST_F(MasterPluginListTest, AppendPlugin) {
-  const auto plugin = boost::make_shared<MockPlugin>(0, "alias1", "module1");
+  const auto plugin = std::make_shared<MockPlugin>(0, "alias1", "module1");
   list_->append_plugin(plugin);
   const auto plugins = list_->get_plugins();
   EXPECT_EQ(plugins.size(), 1u);
 }
 TEST_F(MasterPluginListTest, AppendMultiplePlugins) {
   for (int i = 0; i < 5; ++i) {
-    auto plugin = boost::make_shared<MockPlugin>(i, "alias" + std::to_string(i), "module" + std::to_string(i));
+    auto plugin = std::make_shared<MockPlugin>(i, "alias" + std::to_string(i), "module" + std::to_string(i));
     list_->append_plugin(plugin);
   }
   const auto plugins = list_->get_plugins();
   EXPECT_EQ(plugins.size(), 5u);
 }
 TEST_F(MasterPluginListTest, FindByModule) {
-  const auto plugin = boost::make_shared<MockPlugin>(1, "test_alias", "TestModule");
+  const auto plugin = std::make_shared<MockPlugin>(1, "test_alias", "TestModule");
   list_->append_plugin(plugin);
   const auto found = list_->find_by_module("TestModule");
   EXPECT_TRUE(found != nullptr);
   EXPECT_EQ(found->getModule(), "TestModule");
 }
 TEST_F(MasterPluginListTest, FindByModuleNotFound) {
-  const auto plugin = boost::make_shared<MockPlugin>(1, "alias", "SomeModule");
+  const auto plugin = std::make_shared<MockPlugin>(1, "alias", "SomeModule");
   list_->append_plugin(plugin);
   const auto found = list_->find_by_module("NonExistent");
   EXPECT_TRUE(found == nullptr);
@@ -126,14 +126,14 @@ TEST_F(MasterPluginListTest, FindByModuleEmptyString) {
   EXPECT_TRUE(found == nullptr);
 }
 TEST_F(MasterPluginListTest, FindByAlias) {
-  const auto plugin = boost::make_shared<MockPlugin>(1, "my_alias", "MyModule");
+  const auto plugin = std::make_shared<MockPlugin>(1, "my_alias", "MyModule");
   list_->append_plugin(plugin);
   const auto found = list_->find_by_alias("my_alias");
   EXPECT_TRUE(found != nullptr);
   EXPECT_EQ(found->get_alias(), "my_alias");
 }
 TEST_F(MasterPluginListTest, FindByAliasNotFound) {
-  const auto plugin = boost::make_shared<MockPlugin>(1, "alias", "Module");
+  const auto plugin = std::make_shared<MockPlugin>(1, "alias", "Module");
   list_->append_plugin(plugin);
   const auto found = list_->find_by_alias("wrong_alias");
   EXPECT_TRUE(found == nullptr);
@@ -143,34 +143,34 @@ TEST_F(MasterPluginListTest, FindByAliasEmptyString) {
   EXPECT_TRUE(found == nullptr);
 }
 TEST_F(MasterPluginListTest, FindById) {
-  const auto plugin = boost::make_shared<MockPlugin>(42, "alias", "Module");
+  const auto plugin = std::make_shared<MockPlugin>(42, "alias", "Module");
   list_->append_plugin(plugin);
   const auto found = list_->find_by_id(42);
   EXPECT_TRUE(found != nullptr);
   EXPECT_EQ(found->get_id(), 42u);
 }
 TEST_F(MasterPluginListTest, FindByIdNotFound) {
-  const auto plugin = boost::make_shared<MockPlugin>(1, "alias", "Module");
+  const auto plugin = std::make_shared<MockPlugin>(1, "alias", "Module");
   list_->append_plugin(plugin);
   const auto found = list_->find_by_id(999);
   EXPECT_TRUE(found == nullptr);
 }
 TEST_F(MasterPluginListTest, RemovePlugin) {
-  const auto plugin = boost::make_shared<MockPlugin>(10, "alias", "Module");
+  const auto plugin = std::make_shared<MockPlugin>(10, "alias", "Module");
   list_->append_plugin(plugin);
   EXPECT_EQ(list_->get_plugins().size(), 1u);
   list_->remove(10);
   EXPECT_EQ(list_->get_plugins().size(), 0u);
 }
 TEST_F(MasterPluginListTest, RemoveNonExistentPlugin) {
-  const auto plugin = boost::make_shared<MockPlugin>(1, "alias", "Module");
+  const auto plugin = std::make_shared<MockPlugin>(1, "alias", "Module");
   list_->append_plugin(plugin);
   list_->remove(999);
   EXPECT_EQ(list_->get_plugins().size(), 1u);
 }
 TEST_F(MasterPluginListTest, Clear) {
   for (int i = 0; i < 5; ++i) {
-    auto plugin = boost::make_shared<MockPlugin>(i, "alias" + std::to_string(i), "module" + std::to_string(i));
+    auto plugin = std::make_shared<MockPlugin>(i, "alias" + std::to_string(i), "module" + std::to_string(i));
     list_->append_plugin(plugin);
   }
   EXPECT_EQ(list_->get_plugins().size(), 5u);
@@ -178,14 +178,14 @@ TEST_F(MasterPluginListTest, Clear) {
   EXPECT_EQ(list_->get_plugins().size(), 0u);
 }
 TEST_F(MasterPluginListTest, FindDuplicate) {
-  const auto plugin = boost::make_shared<MockPlugin>(1, "alias", "module.dll");
+  const auto plugin = std::make_shared<MockPlugin>(1, "alias", "module.dll");
   list_->append_plugin(plugin);
   const auto dup = list_->find_duplicate(boost::filesystem::path("module.dll"), "alias");
   EXPECT_TRUE(dup != nullptr);
   EXPECT_EQ(dup->get_id(), 1u);
 }
 TEST_F(MasterPluginListTest, FindDuplicateNotFound) {
-  const auto plugin = boost::make_shared<MockPlugin>(1, "alias", "module.dll");
+  const auto plugin = std::make_shared<MockPlugin>(1, "alias", "module.dll");
   list_->append_plugin(plugin);
   const auto dup = list_->find_duplicate(boost::filesystem::path("other.dll"), "alias");
   EXPECT_TRUE(dup == nullptr);

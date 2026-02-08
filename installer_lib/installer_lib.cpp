@@ -20,6 +20,7 @@
 #include <str/wstring.hpp>
 #include <str/xtos.hpp>
 #include <string>
+#include <memory>
 
 #include "../libs/settings_manager/settings_manager_impl.h"
 #include "installer_helper.hpp"
@@ -97,7 +98,7 @@ class msi_logger : public nsclient::logging::logger {
   void nsclient::logging::logger::set_backend(std::string) {}
 };
 
-void nsclient::logging::log_message_factory::log_fatal(std::string message) {}
+void nsclient::logging::log_message_factory::log_fatal(const std::string &message) {}
 
 std::string nsclient::logging::log_message_factory::create_critical(const std::string &module, const char *file, const int line, const std::string &message) {
   return "critical: " + message;
@@ -122,7 +123,7 @@ struct installer_settings_provider : public settings_manager::provider_interface
   msi_helper *h;
   std::string basepath;
   std::string old_settings_map;
-  boost::shared_ptr<msi_logger> logger;
+  std::shared_ptr<msi_logger> logger;
 
   installer_settings_provider(msi_helper *h, std::wstring basepath, std::wstring old_settings_map)
       : h(h), basepath(utf8::cvt<std::string>(basepath)), old_settings_map(utf8::cvt<std::string>(old_settings_map)), logger(new msi_logger(h)) {}

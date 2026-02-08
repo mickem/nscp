@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/smart_ptr/make_shared_object.hpp>
+#include <memory>
 // Mock logger for testing
 class MockCacheLogger : public nsclient::logging::logger {
  public:
@@ -42,7 +42,7 @@ class MockCacheLogger : public nsclient::logging::logger {
 class PluginCacheTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    logger_ = boost::make_shared<MockCacheLogger>();
+    logger_ = std::make_shared<MockCacheLogger>();
     cache_ = std::make_unique<nsclient::core::plugin_cache>(logger_);
   }
   nsclient::logging::logger_instance logger_;

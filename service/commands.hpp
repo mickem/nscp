@@ -20,11 +20,10 @@
 #pragma once
 
 #include <boost/algorithm/string/case_conv.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/thread.hpp>
 #include <nsclient/logger/logger.hpp>
 #include <str/xtos.hpp>
 #include <utf8.hpp>
+#include <memory>
 
 #include "plugins/plugin_interface.hpp"
 
@@ -46,7 +45,7 @@ class commands : boost::noncopyable {
     std::string name;
   };
 
-  typedef boost::shared_ptr<core::plugin_interface> plugin_type;
+  typedef std::shared_ptr<core::plugin_interface> plugin_type;
   typedef std::map<unsigned long, plugin_type> plugin_list_type;
   typedef std::map<std::string, command_info> description_list_type;
   typedef std::map<std::string, plugin_type> command_list_type;

@@ -35,7 +35,6 @@ set(service_SRCS
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     # Logger
     ${NSCP_INCLUDEDIR}/nsclient/logger/log_level.cpp
-    ${NSCP_INCLUDEDIR}/nsclient/logger/base_logger_impl.cpp
     ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp
     ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.cpp
     ${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c

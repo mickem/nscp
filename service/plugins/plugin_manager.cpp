@@ -353,9 +353,9 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only
   }
   loaded = true;
   if (boost::algorithm::ends_with(real_file->string(), ".zip")) {
-    return plugin_type(new zip_plugin(plugin_list_.get_next_id(), real_file->lexically_normal(), alias, path_, shared_from_this(), log_instance_));
+    return std::make_shared<zip_plugin>(plugin_list_.get_next_id(), real_file->lexically_normal(), alias, path_, shared_from_this(), log_instance_);
   }
-  return plugin_type(new dll_plugin(plugin_list_.get_next_id(), real_file->lexically_normal(), alias));
+  return std::make_shared<dll_plugin>(plugin_list_.get_next_id(), real_file->lexically_normal(), alias);
 }
 
 /**

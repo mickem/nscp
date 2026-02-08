@@ -71,11 +71,11 @@ std::string nsclient::logging::logger_helper::render_log_level_long(::PB::Log::L
 }
 
 std::pair<bool, std::string> nsclient::logging::logger_helper::render_console_message(const bool oneline, const std::string &data) {
-  std::stringstream ss;
-  bool is_error = false;
   try {
+    std::stringstream ss;
+    bool is_error = false;
     PB::Log::LogEntry message;
-    if (!message.ParseFromString(data)) {
+    if (data.empty() || !message.ParseFromString(data)) {
       log_fatal("Failed to parse message: " + str::format::strip_ctrl_chars(data));
       return std::make_pair(true, "ERROR");
     }
@@ -107,9 +107,9 @@ std::pair<bool, std::string> nsclient::logging::logger_helper::render_console_me
   return std::make_pair(true, "ERROR");
 }
 
-std::string nsclient::logging::logger_helper::get_formated_date(std::string format) {
+std::string nsclient::logging::logger_helper::get_formated_date(const std::string& format) {
   std::stringstream ss;
-  boost::posix_time::time_facet *facet = new boost::posix_time::time_facet(format.c_str());
+  auto *facet = new boost::posix_time::time_facet(format.c_str());
   ss.imbue(std::locale(std::cout.getloc(), facet));
   ss << boost::posix_time::second_clock::local_time();
   return ss.str();

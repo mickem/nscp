@@ -21,6 +21,7 @@
 
 #include <iostream>
 #include <nsclient/logger/logger_helper.hpp>
+#include <utility>
 
 const static std::string QUIT_MESSAGE = "$$QUIT$$";
 const static std::string CONFIGURE_MESSAGE = "$$CONFIGURE$$";
@@ -30,8 +31,8 @@ namespace nsclient {
 namespace logging {
 namespace impl {
 threaded_logger::threaded_logger(logging_subscriber *subscriber_manager, log_driver_instance background_logger)
-    : subscriber_manager_(subscriber_manager), background_logger_(background_logger) {}
-threaded_logger::~threaded_logger() { shutdown(); }
+    : subscriber_manager_(subscriber_manager), background_logger_(std::move(background_logger)) {}
+threaded_logger::~threaded_logger() { threaded_logger::shutdown(); }
 
 void threaded_logger::do_log(const std::string data) { push(data); }
 void threaded_logger::push(const std::string &data) { log_queue_.push(data); }
@@ -43,7 +44,8 @@ void threaded_logger::thread_proc() {
       log_queue_.wait_and_pop(data);
       if (data == QUIT_MESSAGE) {
         return;
-      } else if (data == CONFIGURE_MESSAGE) {
+      }
+      if (data == CONFIGURE_MESSAGE) {
         if (background_logger_) background_logger_->asynch_configure();
       } else if (data.size() > SET_CONFIG_MESSAGE.size() && data.substr(0, SET_CONFIG_MESSAGE.size()) == SET_CONFIG_MESSAGE) {
         background_logger_->set_config(data.substr(SET_CONFIG_MESSAGE.size()));
@@ -71,7 +73,7 @@ void threaded_logger::synch_configure() { background_logger_->synch_configure();
 bool threaded_logger::startup() {
   if (is_started()) return true;
   thread_ = boost::thread([this]() { this->thread_proc(); });
-  return nsclient::logging::log_driver_interface_impl::startup();
+  return log_driver_interface_impl::startup();
 }
 bool threaded_logger::shutdown() {
   if (!is_started()) return true;
@@ -79,11 +81,11 @@ bool threaded_logger::shutdown() {
     push(QUIT_MESSAGE);
     if (!thread_.timed_join(boost::posix_time::seconds(10))) {
       logger_helper::log_fatal("Failed to exit log slave!");
-      nsclient::logging::log_driver_interface_impl::shutdown();
+      log_driver_interface_impl::shutdown();
       return false;
     }
     background_logger_->shutdown();
-    return nsclient::logging::log_driver_interface_impl::shutdown();
+    return log_driver_interface_impl::shutdown();
   } catch (const std::exception &e) {
     logger_helper::log_fatal(std::string("Failed to exit log slave: ") + e.what());
   } catch (...) {
@@ -92,7 +94,7 @@ bool threaded_logger::shutdown() {
   return false;
 }
 void threaded_logger::set_config(const std::string &key) {
-  std::string message = SET_CONFIG_MESSAGE + key;
+  const std::string message = SET_CONFIG_MESSAGE + key;
   push(message);
 }
 }  // namespace impl

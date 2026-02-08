@@ -32,7 +32,7 @@ namespace impl {
 
 namespace sh = nscapi::settings_helper;
 
-simple_console_logger::simple_console_logger() : format_("%Y-%m-%d %H:%M:%S"), buf_(65536) { std::cout.rdbuf()->pubsetbuf(buf_.data(), buf_.size()); }
+simple_console_logger::simple_console_logger(logging_subscriber *subscriber_manager) : format_("%Y-%m-%d %H:%M:%S"), buf_(65536), subscriber_manager_(subscriber_manager) { std::cout.rdbuf()->pubsetbuf(buf_.data(), buf_.size()); }
 
 void simple_console_logger::do_log(const std::string data) {
   if (is_console()) {
@@ -42,6 +42,7 @@ void simple_console_logger::do_log(const std::string data) {
     else
       std::cout << m.second;
   }
+  subscriber_manager_->on_log_message(data);
 }
 simple_console_logger::config_data simple_console_logger::do_config() {
   config_data ret;
@@ -49,16 +50,21 @@ simple_console_logger::config_data simple_console_logger::do_config() {
     sh::settings_registry settings(settings_manager::get_proxy());
     settings.set_alias("log");
 
-    //						settings.add_path_to_settings()
-    //							("log", "Log file", "Configure log file properties.")
-    //							;
+    // clang-format off
+    settings.add_path_to_settings()
+      ("log", "Log file", "Configure log file properties.")
+    ;
 
-    settings.add_key_to_settings("log").add_string("date format", sh::string_key(&format_, "%Y-%m-%d %H:%M:%S"), "Console date mask",
-                                                   "The syntax of the dates in the log file.");
+    settings.add_key_to_settings("log")
+      .add_string("date format", sh::string_key(&format_, "%Y-%m-%d %H:%M:%S"),
+        "Console date mask", "The syntax of the dates in the log file.")
+    ;
+    // clang-format on
+
 
     settings.register_all();
     settings.notify();
-  } catch (nsclient::nsclient_exception &e) {
+  } catch (nsclient_exception &e) {
     logger_helper::log_fatal(std::string("Failed to register command: ") + e.what());
   } catch (std::exception &e) {
     logger_helper::log_fatal(std::string("Exception caught: ") + e.what());
@@ -70,9 +76,9 @@ simple_console_logger::config_data simple_console_logger::do_config() {
 void simple_console_logger::synch_configure() { do_config(); }
 void simple_console_logger::asynch_configure() {
   try {
-    config_data config = do_config();
+    const config_data config = do_config();
     format_ = config.format;
-  } catch (nsclient::nsclient_exception &e) {
+  } catch (nsclient_exception &e) {
     logger_helper::log_fatal(std::string("Failed to register command: ") + e.what());
   } catch (std::exception &e) {
     logger_helper::log_fatal(std::string("Exception caught: ") + e.what());

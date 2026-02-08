@@ -19,7 +19,6 @@
 
 #include "nsclient_logger.hpp"
 
-#include <nsclient/logger/base_logger_impl.hpp>
 #include <nsclient/logger/logger.hpp>
 
 #include "simple_console_logger.hpp"
@@ -36,17 +35,17 @@
 #endif
 
 
-void nsclient::logging::impl::nsclient_logger::set_backend(std::string backend) {
-  nsclient::logging::log_driver_instance tmp;
+void nsclient::logging::impl::nsclient_logger::set_backend(const std::string backend) {
+  log_driver_instance tmp;
   if (backend == CONSOLE_BACKEND) {
-    tmp = log_driver_instance(new simple_console_logger());
+    tmp = std::make_shared<simple_console_logger>(this);
   } else if (backend == THREADED_FILE_BACKEND) {
-    nsclient::logging::log_driver_instance inner = log_driver_instance(new simple_file_logger("nsclient.log"));
-    tmp = log_driver_instance(new threaded_logger(this, inner));
+    log_driver_instance inner = std::make_shared<simple_file_logger>("nsclient.log");
+    tmp = std::make_shared<threaded_logger>(this, inner);
   } else if (backend == FILE_BACKEND) {
-    tmp = log_driver_instance(new simple_file_logger("nsclient.log"));
+    tmp = std::make_shared<simple_file_logger>("nsclient.log");
   } else {
-    tmp = log_driver_instance(new simple_console_logger());
+    tmp = std::make_shared<simple_console_logger>(this);
   }
   if (backend_ && tmp) {
     tmp->set_config(backend_);
@@ -55,13 +54,13 @@ void nsclient::logging::impl::nsclient_logger::set_backend(std::string backend) 
   backend_.swap(tmp);
 }
 
-nsclient::logging::impl::nsclient_logger::nsclient_logger() { set_backend(DEFAULT_BACKEND); }
+nsclient::logging::impl::nsclient_logger::nsclient_logger() { nsclient_logger::set_backend(DEFAULT_BACKEND); }
 
-nsclient::logging::impl::nsclient_logger::~nsclient_logger() { destroy(); }
+nsclient::logging::impl::nsclient_logger::~nsclient_logger() { nsclient_logger::destroy(); }
 
 void nsclient::logging::impl::nsclient_logger::destroy() { backend_.reset(); }
 
-void nsclient::logging::impl::nsclient_logger::add_subscriber(nsclient::logging::logging_subscriber_instance subscriber) { subscribers_.push_back(subscriber); }
+void nsclient::logging::impl::nsclient_logger::add_subscriber(const logging_subscriber_instance subscriber) { subscribers_.push_back(subscriber); }
 
 void nsclient::logging::impl::nsclient_logger::clear_subscribers() { subscribers_.clear(); }
 bool nsclient::logging::impl::nsclient_logger::startup() {

@@ -216,7 +216,6 @@ set(SRCS
     ${NSCP_ERROR_HPP}
     # Logger
     ${NSCP_INCLUDEDIR}/nsclient/logger/log_level.cpp
-    ${NSCP_INCLUDEDIR}/nsclient/logger/base_logger_impl.cpp
 )
 
 add_definitions(${NSCP_GLOBAL_DEFINES})

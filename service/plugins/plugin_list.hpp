@@ -33,7 +33,7 @@
 #include "plugin_interface.hpp"
 
 namespace nsclient {
-typedef boost::shared_ptr<core::plugin_interface> plugin_type;
+typedef std::shared_ptr<core::plugin_interface> plugin_type;
 typedef std::map<unsigned long, plugin_type> plugin_list_type;
 typedef std::set<unsigned long> plugin_id_type;
 

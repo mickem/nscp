@@ -121,6 +121,7 @@ class zip_plugin : public boost::noncopyable, public nsclient::core::plugin_inte
 
  private:
   nsclient::logging::logger_instance get_logger() { return logger_; }
+  void on_log_message(const std::string&) override {}
   void read_metadata();
   void read_metadata(const std::string &string);
 };

@@ -20,24 +20,29 @@
 #include <boost/algorithm/string.hpp>
 #include <nsclient/logger/log_level.hpp>
 
-bool nsclient::logging::log_level::set(const std::string level) {
-  std::string lc = boost::to_lower_copy(level);
+bool nsclient::logging::log_level::set(const std::string& level) {
+  const std::string lc = boost::to_lower_copy(level);
   if (lc == "critical" || lc == "crit" || lc == "c") {
     current_level_ = critical;
     return true;
-  } else if (lc == "error" || lc == "err" || lc == "e") {
+  }
+  if (lc == "error" || lc == "err" || lc == "e") {
     current_level_ = error;
     return true;
-  } else if (lc == "warning" || lc == "warn" || lc == "w") {
+  }
+  if (lc == "warning" || lc == "warn" || lc == "w") {
     current_level_ = warning;
     return true;
-  } else if (lc == "info" || lc == "log" || lc == "i") {
+  }
+  if (lc == "info" || lc == "log" || lc == "i") {
     current_level_ = info;
     return true;
-  } else if (lc == "debug" || lc == "d") {
+  }
+  if (lc == "debug" || lc == "d") {
     current_level_ = debug;
     return true;
-  } else if (lc == "trace" || lc == "t") {
+  }
+  if (lc == "trace" || lc == "t") {
     current_level_ = trace;
     return true;
   }

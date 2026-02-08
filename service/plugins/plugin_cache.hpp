@@ -5,13 +5,14 @@
 #include <list>
 #include <nsclient/logger/logger.hpp>
 #include <string>
+#include <memory>
 
 #include "plugin_interface.hpp"
 
 namespace nsclient {
 namespace core {
 
-typedef boost::shared_ptr<nsclient::core::plugin_interface> plugin_type;
+typedef std::shared_ptr<plugin_interface> plugin_type;
 
 struct plugin_cache_item {
   unsigned int id;

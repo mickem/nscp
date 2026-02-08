@@ -25,13 +25,13 @@ namespace nsclient {
 namespace logging {
 
 class log_level {
-  static const int off = 0;       // Used to disable logging
-  static const int critical = 1;  // Critical error
-  static const int error = 2;     // Error
-  static const int warning = 3;   // Warning
-  static const int info = 10;     // information
-  static const int debug = 50;    // Debug messages
-  static const int trace = 99;    // Trace messages
+  static constexpr int off = 0;       // Used to disable logging
+  static constexpr int critical = 1;  // Critical error
+  static constexpr int error = 2;     // Error
+  static constexpr int warning = 3;   // Warning
+  static constexpr int info = 10;     // information
+  static constexpr int debug = 50;    // Debug messages
+  static constexpr int trace = 99;    // Trace messages
 
   int current_level_;
 
@@ -45,7 +45,7 @@ class log_level {
   bool should_error() const { return current_level_ >= error; }
   bool should_critical() const { return current_level_ >= critical; }
 
-  bool set(const std::string level);
+  bool set(const std::string& level);
 
   std::string get() const;
 };

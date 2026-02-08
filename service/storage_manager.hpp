@@ -1,11 +1,11 @@
 #pragma once
 
-#include <boost/optional.hpp>
 #include <boost/thread/shared_mutex.hpp>
 #include <list>
 #include <nscapi/nscapi_protobuf_storage.hpp>
 #include <nsclient/logger/logger.hpp>
 #include <string>
+#include <memory>
 
 #include "path_manager.hpp"
 #include "plugins/plugin_interface.hpp"
@@ -13,7 +13,7 @@
 namespace nsclient {
 namespace core {
 
-typedef boost::shared_ptr<plugin_interface> plugin_type;
+typedef std::shared_ptr<plugin_interface> plugin_type;
 
 struct storage_item {
   bool is_modified;
