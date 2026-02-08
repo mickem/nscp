@@ -290,4 +290,3 @@ jobs:
       artifact-name: NSCP-${{ inputs.version }}-${{ needs.build.outputs.platform }}-legacy-xp
       platform: ${{ needs.build.outputs.platform }}-legacy-xp
       package-type: zip
-      run-installer-tests: true

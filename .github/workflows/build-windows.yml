@@ -307,4 +307,3 @@ jobs:
       artifact-name: NSCP-${{ inputs.version }}-${{ needs.build.outputs.platform }}
       platform: ${{ needs.build.outputs.platform }}
       package-type: zip
-      run-installer-tests: true

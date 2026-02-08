@@ -31,11 +31,6 @@ on:
         type: string
         description: 'Package type (deb, rpm, zip)'
         required: true
-      run-installer-tests:
-        type: boolean
-        description: 'Whether to run installer tests (Windows only)'
-        required: false
-        default: false
 
 env:
   PYTHON_VERSION: 3.11
@@ -83,7 +78,7 @@ jobs:
         shell: bash
         run: |
           docker run --rm -v ${{ github.workspace }}:/workspace fedora:42 bash -c "
-            dnf install -y python3-devel /workspace/NSCP-${{ inputs.version }}-amd64.rpm && \
+            dnf install -y python3-devel python3-protobuf /workspace/NSCP-${{ inputs.version }}-amd64.rpm && \
             nscp settings --load-all --list --add-defaults
           "
 
@@ -94,6 +89,7 @@ jobs:
         run: |
           mkdir -p tmp/nscp
           cd tmp/nscp
+          mv ../../*.msi .
           7z x ../../NSCP-${{ inputs.version }}-${{ inputs.platform }}.zip
 
       - name: Copy test scripts (Windows)
@@ -117,7 +113,7 @@ jobs:
         if: runner.os == 'Linux' && inputs.package-type == 'rpm'
         run: |
           docker run --rm -v ${{ github.workspace }}:/workspace fedora:42 bash -c "
-            dnf install -y python3-devel /workspace/NSCP-${{ inputs.version }}-amd64.rpm && \
+            dnf install -y python3-devel python3-protobuf /workspace/NSCP-${{ inputs.version }}-amd64.rpm && \
             cp -r /workspace/scripts/* /usr/lib/nsclient/scripts && \
             nscp nrpe install --certificate --verify none && \
             cd /workspace && \
@@ -142,6 +138,6 @@ jobs:
       #    ..\..\tests\nrpe\run-test.bat
 
       - name: Run installer tests
-        if: runner.os == 'Windows' && inputs.run-installer-tests && inputs.architecture == 'x64'
+        if: runner.os == 'Windows' && inputs.architecture == 'x64'
         uses: ./.github/actions/installer-test
 
