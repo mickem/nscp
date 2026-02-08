@@ -88,7 +88,7 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/service/win32_service.hpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
         # Logger
-        ${NSCP_INCLUDEDIR}/nsclient/logger/base_logger_impl.hpp
+        ${NSCP_INCLUDEDIR}/nsclient/logger/logger_impl.hpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/log_driver_interface.hpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/log_level.hpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/logger.hpp
