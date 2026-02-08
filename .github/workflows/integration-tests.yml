@@ -83,7 +83,7 @@ jobs:
         shell: bash
         run: |
           docker run --rm -v ${{ github.workspace }}:/workspace fedora:42 bash -c "
-            dnf install -y /workspace/NSCP-${{ inputs.version }}-amd64.rpm && \
+            dnf install -y python3-devel /workspace/NSCP-${{ inputs.version }}-amd64.rpm && \
             nscp settings --load-all --list --add-defaults
           "
 
@@ -93,6 +93,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p tmp/nscp
+          cd tmp/nscp
           7z x ../../NSCP-${{ inputs.version }}-${{ inputs.platform }}.zip
 
       - name: Copy test scripts (Windows)
@@ -116,7 +117,7 @@ jobs:
         if: runner.os == 'Linux' && inputs.package-type == 'rpm'
         run: |
           docker run --rm -v ${{ github.workspace }}:/workspace fedora:42 bash -c "
-            dnf install -y /workspace/NSCP-${{ inputs.version }}-amd64.rpm && \
+            dnf install -y python3-devel /workspace/NSCP-${{ inputs.version }}-amd64.rpm && \
             cp -r /workspace/scripts/* /usr/lib/nsclient/scripts && \
             nscp nrpe install --certificate --verify none && \
             cd /workspace && \
