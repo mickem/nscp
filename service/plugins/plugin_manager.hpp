@@ -75,7 +75,7 @@ class core_exception : public std::exception {
 
 class plugin_manager : public boost::enable_shared_from_this<plugin_manager> {
  public:
-  typedef boost::shared_ptr<nsclient::core::plugin_interface> plugin_type;
+  typedef std::shared_ptr<plugin_interface> plugin_type;
 
  private:
   boost::filesystem::path plugin_path_;

@@ -2,7 +2,7 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <nsclient/logger/logger.hpp>
 
 class MockLogger : public nsclient::logging::log_interface {
@@ -28,7 +28,7 @@ class PathManagerTest : public ::testing::Test {
   nsclient::core::path_manager *pm;
 
   void SetUp() override {
-    log_instance_ = boost::make_shared<MockLogger>();
+    log_instance_ = std::make_shared<MockLogger>();
     pm = new nsclient::core::path_manager(log_instance_);
   }
 

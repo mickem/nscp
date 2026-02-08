@@ -42,3 +42,22 @@ nscp_create_test(str_test
         INCLUDES
             ${NSCP_INCLUDEDIR}
 )
+nscp_create_test(logger_test
+        SOURCES
+            ${NSCP_INCLUDEDIR}/nsclient/logger/log_level_test.cpp
+            ${NSCP_INCLUDEDIR}/nsclient/logger/log_level.cpp
+            ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory_test.cpp
+            ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.cpp
+            ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper_test.cpp
+            ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp
+            ${NSCP_INCLUDEDIR}/nsclient/logger/log_driver_interface_impl_test.cpp
+            ${NSCP_INCLUDEDIR}/nsclient/logger/logger_impl_test.cpp
+            ${NSCP_INCLUDEDIR}/utf8.cpp
+        LIBRARIES
+            GTest::gtest
+            GTest::gtest_main
+            nscp_protobuf
+            ${Boost_DATE_TIME_LIBRARY}
+        INCLUDES
+            ${NSCP_INCLUDEDIR}
+)

@@ -21,13 +21,13 @@
 
 #include <boost/thread.hpp>
 #include <concurrent_queue.hpp>
-#include <nsclient/logger/base_logger_impl.hpp>
+#include <nsclient/logger/log_driver_interface_impl.hpp>
 #include <string>
 
 namespace nsclient {
 namespace logging {
 namespace impl {
-class threaded_logger : public nsclient::logging::log_driver_interface_impl {
+class threaded_logger : public log_driver_interface_impl {
   concurrent_queue<std::string> log_queue_;
   boost::thread thread_;
 
@@ -36,20 +36,19 @@ class threaded_logger : public nsclient::logging::log_driver_interface_impl {
 
  public:
   threaded_logger(logging_subscriber *subscriber_manager, log_driver_instance background_logger);
-  virtual ~threaded_logger();
+  ~threaded_logger() override;
 
-  virtual void do_log(const std::string data);
+  void do_log(std::string data) override;
   void push(const std::string &data);
 
   void thread_proc();
 
-  virtual void asynch_configure();
-  virtual void synch_configure();
-  virtual bool startup();
-  virtual bool shutdown();
+  void asynch_configure() override;
+  void synch_configure() override;
+  bool startup() override;
+  bool shutdown() override;
 
-  // virtual void set_log_level(NSCAPI::log_level::level level);
-  virtual void set_config(const std::string &key);
+  void set_config(const std::string &key) override;
 };
 }  // namespace impl
 }  // namespace logging

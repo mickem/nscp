@@ -128,7 +128,7 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
 #endif
   }
 
-  void on_log_message(std::string &payload) override { handleMessage(payload.c_str(), static_cast<unsigned int>(payload.size())); }
+  void on_log_message(const std::string &payload) override { handleMessage(payload.c_str(), static_cast<unsigned int>(payload.size())); }
   std::string get_version() override;
 
  private:

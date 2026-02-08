@@ -21,6 +21,7 @@
 
 #include <boost/thread/shared_mutex.hpp>
 #include <list>
+#include <memory>
 #include <nsclient/logger/logger.hpp>
 #include <vector>
 
@@ -30,7 +31,7 @@ namespace nsclient {
 namespace core {
 class master_plugin_list {
  public:
-  typedef boost::shared_ptr<plugin_interface> plugin_type;
+  typedef std::shared_ptr<plugin_interface> plugin_type;
 
  private:
   typedef std::vector<plugin_type> pluginList;

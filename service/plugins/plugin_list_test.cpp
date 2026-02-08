@@ -20,6 +20,7 @@
 #include "plugin_list.hpp"
 
 #include <gtest/gtest.h>
+#include <memory>
 
 #include "plugin_interface.hpp"
 
@@ -74,7 +75,7 @@ class MockListPlugin : public nsclient::core::plugin_interface {
   bool route_message(const char*, const char*, unsigned int, char**, char**, unsigned int*) override { return false; }
   bool is_duplicate(boost::filesystem::path file, std::string alias) override { return module_ == file.string() && get_alias() == alias; }
   std::string getModule() override { return module_; }
-  void on_log_message(std::string&) override {}
+  void on_log_message(const std::string&) override {}
 };
 
 // ============================================================================
@@ -120,7 +121,7 @@ TEST(PluginsListExceptionTest, ThrowAndCatchAsStdException) {
 class SimplePluginsListTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    logger_ = boost::make_shared<MockPluginListLogger>();
+    logger_ = std::make_shared<MockPluginListLogger>();
     list_ = std::make_unique<nsclient::simple_plugins_list>(logger_);
   }
   nsclient::logging::log_client_accessor logger_;
@@ -130,14 +131,14 @@ class SimplePluginsListTest : public ::testing::Test {
 TEST_F(SimplePluginsListTest, InitialStateEmpty) { EXPECT_EQ(list_->to_string(), ""); }
 
 TEST_F(SimplePluginsListTest, AddPlugin) {
-  const auto plugin = boost::make_shared<MockListPlugin>(1, "test_alias", "TestModule");
+  const auto plugin = std::make_shared<MockListPlugin>(1, "test_alias", "TestModule");
   list_->add_plugin(plugin);
   EXPECT_EQ(list_->to_string(), "TestModule");
 }
 
 TEST_F(SimplePluginsListTest, AddMultiplePlugins) {
-  const auto plugin1 = boost::make_shared<MockListPlugin>(1, "alias1", "Module1");
-  const auto plugin2 = boost::make_shared<MockListPlugin>(2, "alias2", "Module2");
+  const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  const auto plugin2 = std::make_shared<MockListPlugin>(2, "alias2", "Module2");
   list_->add_plugin(plugin1);
   list_->add_plugin(plugin2);
 
@@ -147,8 +148,8 @@ TEST_F(SimplePluginsListTest, AddMultiplePlugins) {
 }
 
 TEST_F(SimplePluginsListTest, AddDuplicateIdIgnored) {
-  const auto plugin1 = boost::make_shared<MockListPlugin>(1, "alias1", "Module1");
-  const auto plugin2 = boost::make_shared<MockListPlugin>(1, "alias2", "Module2");  // Same ID
+  const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  const auto plugin2 = std::make_shared<MockListPlugin>(1, "alias2", "Module2");  // Same ID
   list_->add_plugin(plugin1);
   list_->add_plugin(plugin2);
 
@@ -158,8 +159,8 @@ TEST_F(SimplePluginsListTest, AddDuplicateIdIgnored) {
 }
 
 TEST_F(SimplePluginsListTest, RemoveAll) {
-  const auto plugin1 = boost::make_shared<MockListPlugin>(1, "alias1", "Module1");
-  const auto plugin2 = boost::make_shared<MockListPlugin>(2, "alias2", "Module2");
+  const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  const auto plugin2 = std::make_shared<MockListPlugin>(2, "alias2", "Module2");
   list_->add_plugin(plugin1);
   list_->add_plugin(plugin2);
 
@@ -168,8 +169,8 @@ TEST_F(SimplePluginsListTest, RemoveAll) {
 }
 
 TEST_F(SimplePluginsListTest, RemovePlugin) {
-  const auto plugin1 = boost::make_shared<MockListPlugin>(1, "alias1", "Module1");
-  const auto plugin2 = boost::make_shared<MockListPlugin>(2, "alias2", "Module2");
+  const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  const auto plugin2 = std::make_shared<MockListPlugin>(2, "alias2", "Module2");
   list_->add_plugin(plugin1);
   list_->add_plugin(plugin2);
 
@@ -181,7 +182,7 @@ TEST_F(SimplePluginsListTest, RemovePlugin) {
 }
 
 TEST_F(SimplePluginsListTest, RemoveNonExistentPlugin) {
-  const auto plugin = boost::make_shared<MockListPlugin>(1, "alias", "Module");
+  const auto plugin = std::make_shared<MockListPlugin>(1, "alias", "Module");
   list_->add_plugin(plugin);
 
   // Removing non-existent plugin should not crash
@@ -191,8 +192,8 @@ TEST_F(SimplePluginsListTest, RemoveNonExistentPlugin) {
 }
 
 TEST_F(SimplePluginsListTest, DoAllCallback) {
-  const auto plugin1 = boost::make_shared<MockListPlugin>(1, "alias1", "Module1");
-  const auto plugin2 = boost::make_shared<MockListPlugin>(2, "alias2", "Module2");
+  const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  const auto plugin2 = std::make_shared<MockListPlugin>(2, "alias2", "Module2");
   list_->add_plugin(plugin1);
   list_->add_plugin(plugin2);
 
@@ -216,7 +217,7 @@ TEST_F(SimplePluginsListTest, DoAllOnEmptyList) {
 class PluginsListWithListenerTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    logger_ = boost::make_shared<MockPluginListLogger>();
+    logger_ = std::make_shared<MockPluginListLogger>();
     list_ = std::make_unique<nsclient::plugins_list_with_listener>(logger_);
   }
   nsclient::logging::log_client_accessor logger_;
@@ -229,7 +230,7 @@ TEST_F(PluginsListWithListenerTest, InitialStateEmpty) {
 }
 
 TEST_F(PluginsListWithListenerTest, AddPlugin) {
-  const auto plugin = boost::make_shared<MockListPlugin>(1, "alias", "Module");
+  const auto plugin = std::make_shared<MockListPlugin>(1, "alias", "Module");
   list_->add_plugin(plugin);
 
   // The plugin should be findable
@@ -237,7 +238,7 @@ TEST_F(PluginsListWithListenerTest, AddPlugin) {
 }
 
 TEST_F(PluginsListWithListenerTest, RegisterListenerForChannel) {
-  const auto plugin = boost::make_shared<MockListPlugin>(1, "alias", "Module");
+  const auto plugin = std::make_shared<MockListPlugin>(1, "alias", "Module");
   list_->add_plugin(plugin);
 
   list_->register_listener(1, "test_channel");
@@ -247,7 +248,7 @@ TEST_F(PluginsListWithListenerTest, RegisterListenerForChannel) {
 }
 
 TEST_F(PluginsListWithListenerTest, RegisterListenerForMultipleChannels) {
-  const auto plugin = boost::make_shared<MockListPlugin>(1, "alias", "Module");
+  const auto plugin = std::make_shared<MockListPlugin>(1, "alias", "Module");
   list_->add_plugin(plugin);
 
   list_->register_listener(1, "channel1,channel2");
@@ -260,7 +261,7 @@ TEST_F(PluginsListWithListenerTest, RegisterListenerForMultipleChannels) {
 }
 
 TEST_F(PluginsListWithListenerTest, GetNonExistentChannelReturnsEmpty) {
-  const auto plugin = boost::make_shared<MockListPlugin>(1, "alias", "Module");
+  const auto plugin = std::make_shared<MockListPlugin>(1, "alias", "Module");
   list_->add_plugin(plugin);
 
   const auto listeners = list_->get("nonexistent");
@@ -273,8 +274,8 @@ TEST_F(PluginsListWithListenerTest, RegisterListenerWithNonExistentPluginThrows)
 }
 
 TEST_F(PluginsListWithListenerTest, MultiplePluginsOnSameChannel) {
-  const auto plugin1 = boost::make_shared<MockListPlugin>(1, "alias1", "Module1");
-  const auto plugin2 = boost::make_shared<MockListPlugin>(2, "alias2", "Module2");
+  const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  const auto plugin2 = std::make_shared<MockListPlugin>(2, "alias2", "Module2");
   list_->add_plugin(plugin1);
   list_->add_plugin(plugin2);
 
@@ -286,7 +287,7 @@ TEST_F(PluginsListWithListenerTest, MultiplePluginsOnSameChannel) {
 }
 
 TEST_F(PluginsListWithListenerTest, RemovePluginRemovesFromListeners) {
-  const auto plugin = boost::make_shared<MockListPlugin>(1, "alias", "Module");
+  const auto plugin = std::make_shared<MockListPlugin>(1, "alias", "Module");
   list_->add_plugin(plugin);
   list_->register_listener(1, "channel");
 
@@ -299,7 +300,7 @@ TEST_F(PluginsListWithListenerTest, RemovePluginRemovesFromListeners) {
 }
 
 TEST_F(PluginsListWithListenerTest, RemoveAllClearsListeners) {
-  const auto plugin = boost::make_shared<MockListPlugin>(1, "alias", "Module");
+  const auto plugin = std::make_shared<MockListPlugin>(1, "alias", "Module");
   list_->add_plugin(plugin);
   list_->register_listener(1, "channel");
 
@@ -310,7 +311,7 @@ TEST_F(PluginsListWithListenerTest, RemoveAllClearsListeners) {
 }
 
 TEST_F(PluginsListWithListenerTest, ChannelNameIsCaseInsensitive) {
-  const auto plugin = boost::make_shared<MockListPlugin>(1, "alias", "Module");
+  const auto plugin = std::make_shared<MockListPlugin>(1, "alias", "Module");
   list_->add_plugin(plugin);
 
   list_->register_listener(1, "TestChannel");
@@ -326,7 +327,7 @@ TEST_F(PluginsListWithListenerTest, ToStringWithNoPlugins) {
 }
 
 TEST_F(PluginsListWithListenerTest, ToStringWithPlugins) {
-  const auto plugin = boost::make_shared<MockListPlugin>(1, "alias", "TestModule");
+  const auto plugin = std::make_shared<MockListPlugin>(1, "alias", "TestModule");
   list_->add_plugin(plugin);
   list_->register_listener(1, "channel");
 
@@ -335,7 +336,7 @@ TEST_F(PluginsListWithListenerTest, ToStringWithPlugins) {
 }
 
 TEST_F(PluginsListWithListenerTest, HavePluginReturnsTrueForExisting) {
-  const auto plugin = boost::make_shared<MockListPlugin>(42, "alias", "Module");
+  const auto plugin = std::make_shared<MockListPlugin>(42, "alias", "Module");
   list_->add_plugin(plugin);
 
   EXPECT_TRUE(list_->have_plugin(42));
