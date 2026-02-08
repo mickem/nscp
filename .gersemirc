@@ -1,0 +1,152 @@
+# Gersemi configuration file for CMake formatting
+# https://github.com/BlankSpruce/gersemi
+
+# Line width for formatting
+line_length: 80
+
+# Use tabs or spaces for indentation
+indent: 4
+
+# Formatting for list expansion
+list_expansion: favour-expansion
+
+# Unsafe mode allows formatting of files that might have issues
+unsafe: false
+
+# Custom command definitions from build/cmake/functions.cmake
+# These define the argument structure for custom macros and functions
+
+definitions:
+  # LOAD_SECTIONS(_TARGET_LIST _path _title)
+  - command: LOAD_SECTIONS
+    front_positional_arguments:
+      - _TARGET_LIST
+      - _path
+      - _title
+
+  # copy_single_file_helper(_TARGET_LIST src destDir CHMOD)
+  - command: copy_single_file_helper
+    front_positional_arguments:
+      - _TARGET_LIST
+      - src
+      - destDir
+      - CHMOD
+
+  # copy_single_test_file(_TARGET_LIST src destDir)
+  - command: copy_single_test_file
+    front_positional_arguments:
+      - _TARGET_LIST
+      - src
+      - destDir
+
+  # copy_single_file(_TARGET_LIST src destDir)
+  - command: copy_single_file
+    front_positional_arguments:
+      - _TARGET_LIST
+      - src
+      - destDir
+
+  # copy_single_file_755(_TARGET_LIST src destDir)
+  - command: copy_single_file_755
+    front_positional_arguments:
+      - _TARGET_LIST
+      - src
+      - destDir
+
+  # CREATE_MODULE(_SRCS _SOURCE _TARGET)
+  - command: CREATE_MODULE
+    front_positional_arguments:
+      - _SRCS
+      - _SOURCE
+      - _TARGET
+
+  # CREATE_ZIP_MODULE(_MODULE _SOURCE)
+  - command: CREATE_ZIP_MODULE
+    front_positional_arguments:
+      - _MODULE
+      - _SOURCE
+
+  # OPENSSL_LINK_FIX(_TARGET)
+  - command: OPENSSL_LINK_FIX
+    front_positional_arguments:
+      - _TARGET
+
+  # SET_LIBRARY_OUT_FOLDER(_TARGET)
+  - command: SET_LIBRARY_OUT_FOLDER
+    front_positional_arguments:
+      - _TARGET
+
+  # SET_LIBRARY_OUT_FOLDER_MODULE(_TARGET)
+  - command: SET_LIBRARY_OUT_FOLDER_MODULE
+    front_positional_arguments:
+      - _TARGET
+
+  # COPY_FILE(_SOURCE _TARGET)
+  - command: COPY_FILE
+    front_positional_arguments:
+      - _SOURCE
+      - _TARGET
+
+  # NSCP_DEBUG_SYMBOLS(TARGET_NAME)
+  - command: NSCP_DEBUG_SYMBOLS
+    front_positional_arguments:
+      - TARGET_NAME
+
+  # NSCP_INSTALL_MODULE(_TARGET)
+  - command: NSCP_INSTALL_MODULE
+    front_positional_arguments:
+      - _TARGET
+
+  # NSCP_MAKE_LIBRARY(_TARGET _SRCS)
+  - command: NSCP_MAKE_LIBRARY
+    front_positional_arguments:
+      - _TARGET
+      - _SRCS
+
+  # NSCP_MAKE_EXE(_TARGET _SRCS _FOLDER)
+  - command: NSCP_MAKE_EXE
+    front_positional_arguments:
+      - _TARGET
+      - _SRCS
+      - _FOLDER
+
+  # nscp_add_test(_TARGET)
+  - command: nscp_add_test
+    front_positional_arguments:
+      - _TARGET
+
+  # NSCP_CREATE_TEST(_TARGET SOURCES ... LIBRARIES ... INCLUDES ...)
+  - command: NSCP_CREATE_TEST
+    front_positional_arguments:
+      - _TARGET
+    options:
+      - name: SOURCES
+        multi_value: true
+      - name: LIBRARIES
+        multi_value: true
+      - name: INCLUDES
+        multi_value: true
+
+  # NSCP_MAKE_EXE_SBIN(_TARGET _SRCS)
+  - command: NSCP_MAKE_EXE_SBIN
+    front_positional_arguments:
+      - _TARGET
+      - _SRCS
+
+  # NSCP_MAKE_EXE_BIN(_TARGET _SRCS)
+  - command: NSCP_MAKE_EXE_BIN
+    front_positional_arguments:
+      - _TARGET
+      - _SRCS
+
+  # NSCP_FORCE_INCLUDE(_TARGET _SRC)
+  - command: NSCP_FORCE_INCLUDE
+    front_positional_arguments:
+      - _TARGET
+      - _SRC
+
+  # find_redist(_TARGET_VAR)
+  - command: find_redist
+    front_positional_arguments:
+      - _TARGET_VAR
+
