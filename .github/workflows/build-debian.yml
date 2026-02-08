@@ -1,0 +1,143 @@
+name: Build Debian package
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      architecture:
+        type: string
+        description: 'Architecture to build'
+        required: true
+        default: 'x64'
+      version:
+        type: string
+        description: 'Version to build'
+        required: true
+
+env:
+  TINY_XML_2_VERSION: "10.1.0"
+  MONGOOSE_VERSION: "7.20"
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: true
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev liblua5.4-dev
+
+    - id: python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ ENV.PYTHON_VERSION }}
+        architecture: ${{ inputs.architecture }}
+        cache-dependency-path: 'build/python/requirements.txt'
+        cache: 'pip'
+
+    - uses: actions/setup-node@v6
+      with:
+        node-version: 20
+        cache: 'npm'
+        cache-dependency-path: web/package-lock.json
+    - id: build-web
+      working-directory: web
+      run: |
+        npm install
+        npm run build
+
+    - name: make dirs
+      run: |
+        mkdir -p tmp/nscp
+      shell: bash
+
+    - name: setup python dependencies
+      shell: bash
+      run: |
+        pip3 install -r build/python/requirements.txt
+
+    - id: tinyxml2
+      uses: ./.github/actions/tinyxml2
+      with:
+        version: ${{ ENV.TINY_XML_2_VERSION }}
+
+    - id: mongoose
+      uses: ./.github/actions/mongoose
+      with:
+        version: ${{ ENV.MONGOOSE_VERSION }}
+
+    - uses: DamianReeves/write-file-action@master
+      name: Write NSClient++ cmake config
+      with:
+        path: tmp/nscp/build.cmake
+        contents: |
+            SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
+            SET(NSCP_BOOST_PYTHON_VERSION "python312")
+            SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
+            set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
+            set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}")
+            set(USE_STATIC_RUNTIME OFF)
+
+    - uses: actions/download-artifact@v7
+      with:
+        name: check_nsclient-linux-${{ inputs.architecture }}
+
+    - name: CMake (NSCP)
+      working-directory: tmp/nscp
+      run: |
+        cmake ../.. -D BUILD_VERSION=${{ inputs.version }} -D CPACK_GENERATOR=DEB -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build nsclient
+      working-directory: tmp/nscp
+      run: |
+        make
+
+    - name: CPack
+      working-directory: tmp/nscp
+      run: |
+        cpack -G DEB
+
+    - name: rename dist files
+      run: |
+        mv check_nsclient check_nsclient-${{ inputs.version }}-ubuntu-x64
+        mv tmp/nscp/NSCP-${{ inputs.version }}-amd64.deb NSCP-${{ inputs.version }}-amd64.deb
+      shell: bash
+
+    - name: Test DEB package installation (Ubuntu)
+      run: |
+        docker run --rm -v ${{ github.workspace }}:/workspace ubuntu:latest bash -c "
+          apt-get update && \
+          apt-get install -y /workspace/NSCP-${{ inputs.version }}-amd64.deb && \
+          nscp settings --load-all --list --add-defaults
+        "
+
+    - uses: actions/upload-artifact@v6
+      with:
+        name: NSCP-${{ inputs.version }}-ubuntu-x64
+        path: |
+          check_nsclient-${{ inputs.version }}-ubuntu-x64
+          NSCP-${{ inputs.version }}-amd64.deb
+        if-no-files-found: error
+
+    - name: Run tests
+      working-directory: tmp/nscp
+      run: |
+        ctest --output-on-failure -C Release
+
+  integration-tests:
+    needs: build-deb
+    uses: ./.github/workflows/integration-tests.yml
+    with:
+      os: ubuntu-latest
+      architecture: ${{ inputs.architecture }}
+      version: ${{ inputs.version }}
+      artifact-name: NSCP-${{ inputs.version }}-ubuntu-x64
+      platform: ubuntu-x64
+      package-type: deb

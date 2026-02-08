@@ -1,0 +1,129 @@
+name: Build Linux
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      architecture:
+        type: string
+        description: 'Architecture to build'
+        required: true
+        default: 'x64'
+      version:
+        type: string
+        description: 'Version to build'
+        required: true
+
+env:
+  TINY_XML_2_VERSION: "10.1.0"
+  MONGOOSE_VERSION: "7.20"
+
+jobs:
+
+  build-rpm:
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:42
+
+    steps:
+    - name: Install build dependencies
+      run: |
+        dnf install -y git cmake gcc-c++ make rpm-build boost-devel boost-static gtest-devel gmock-devel \
+          protobuf-compiler protobuf-devel openssl-devel python3 python3-pip python3-devel cryptopp-devel \
+          nodejs npm lua-devel
+
+    - uses: actions/checkout@v6
+      with:
+        submodules: true
+
+    - name: make dirs
+      run: |
+        mkdir -p tmp/nscp
+      shell: bash
+
+    - name: setup python dependencies
+      shell: bash
+      run: |
+        pip3 install -r build/python/requirements.txt
+
+    - id: tinyxml2
+      uses: ./.github/actions/tinyxml2
+      with:
+        version: ${{ env.TINY_XML_2_VERSION }}
+
+    - id: mongoose
+      uses: ./.github/actions/mongoose
+      with:
+        version: ${{ env.MONGOOSE_VERSION }}
+
+    - id: build-web
+      working-directory: web
+      run: |
+        npm install
+        npm run build
+
+    - name: Write NSClient++ cmake config
+      run: |
+        cat > tmp/nscp/build.cmake << 'EOF'
+        SET(LIBRARY_ROOT_FOLDER "${{ env.GITHUB_WORKSPACE }}")
+        SET(NSCP_BOOST_PYTHON_VERSION "python313")
+        SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
+        set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
+        set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}")
+        set(USE_STATIC_RUNTIME OFF)
+        EOF
+
+    - uses: actions/download-artifact@v7
+      with:
+        name: check_nsclient-linux-${{ inputs.architecture }}
+
+    - name: CMake (NSCP)
+      working-directory: tmp/nscp
+      run: |
+        cmake ../.. -D BUILD_VERSION=${{ inputs.version }} -D CPACK_GENERATOR=RPM -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build nsclient
+      working-directory: tmp/nscp
+      run: |
+        make
+
+    - name: CPack
+      working-directory: tmp/nscp
+      run: |
+        cpack -G RPM
+
+    - name: rename dist files
+      run: |
+        mv tmp/nscp/NSCP-${{ inputs.version }}-amd64.rpm NSCP-${{ inputs.version }}-amd64.rpm
+      shell: bash
+
+    - name: Test RPM package installation
+      run: |
+        dnf install -y NSCP-${{ inputs.version }}-amd64.rpm
+        nscp settings --load-all --list --add-defaults
+
+    - uses: actions/upload-artifact@v6
+      with:
+        name: NSCP-${{ inputs.version }}-fedora-x64
+        path: |
+          NSCP-${{ inputs.version }}-amd64.rpm
+        if-no-files-found: error
+
+    - name: Run tests
+      working-directory: tmp/nscp
+      run: |
+        ctest --output-on-failure -C Release
+
+  integration-tests:
+    needs: build-deb
+    uses: ./.github/workflows/integration-tests.yml
+    with:
+      os: ubuntu-latest
+      architecture: ${{ inputs.architecture }}
+      version: ${{ inputs.version }}
+      artifact-name: NSCP-${{ inputs.version }}-ubuntu-x64
+      platform: ubuntu-x64
+      package-type: deb
+

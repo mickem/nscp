@@ -76,9 +76,15 @@ jobs:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-  build-ubuntu-x64:
+  build-debian:
     needs: [get-version, build-client-ubuntu-x64, create-test-bundle]
-    uses: ./.github/workflows/build-linux.yml
+    uses: ./.github/workflows/build-debian.yml
+    with:
+      architecture: x64
+      version: ${{ needs.get-version.outputs.version }}
+  build-redhat:
+    needs: [get-version, build-client-ubuntu-x64, create-test-bundle]
+    uses: ./.github/workflows/build-redhat.yml
     with:
       architecture: x64
       version: ${{ needs.get-version.outputs.version }}
