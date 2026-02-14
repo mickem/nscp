@@ -24,7 +24,7 @@ param(
     [string]$ResourceGroupName = "NSCP-RG",
     [string]$Location = "WestEurope",
     [string]$VmName = "NSCP-Test",
-    [string]$Version = "0.9.14",
+    [string]$Version = "0.11.13",
     [string]$Arch = "x64",
     [string]$WindowsVersion = "windows-11",
     [string]$AdminUsername = "azureadmin"

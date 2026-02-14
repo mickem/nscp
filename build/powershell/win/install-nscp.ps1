@@ -17,7 +17,7 @@
 param(
     [string]$ResourceGroupName = "NSCP-RG",
     [string]$VmName = "NSCP-Test",
-    [string]$Version = "0.9.14",
+    [string]$Version = "0.11.13",
     [string]$Arch = "x64"
 )
 Write-Host "ℹ️ Installing NSCP on VM '$VmName' in resource group '$ResourceGroupName'..."

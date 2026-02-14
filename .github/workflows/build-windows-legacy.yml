@@ -27,7 +27,6 @@ on:
         required: true
 
 env:
-  PERL_VERSION: 5.34
   PYTHON_VERSION: 3.11
   OPENSSL_VERSION: 3.5.4
   PROTOBUF_VERSION: 21.12
@@ -97,7 +96,8 @@ jobs:
 
     - uses: shogo82148/actions-setup-perl@v1
       with:
-        perl-version: ${{ ENV.PERL_VERSION }}
+        perl-version: 'latest'
+        distribution: strawberry
 
     - name: setup python dependencies
       run: |
