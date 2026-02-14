@@ -97,6 +97,7 @@ jobs:
     - uses: shogo82148/actions-setup-perl@v1
       with:
         perl-version: 'latest'
+        distribution: strawberry
 
     - name: setup python dependencies
       run: |
