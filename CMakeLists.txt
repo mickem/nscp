@@ -720,7 +720,7 @@ else()
     )
 endif()
 set(CONFIG_DEFAULT_CONF_INI_LOCATION
-    "${CONFIG_DEFAULT_CONF_INI_BASE}nsclient.ini"
+    "${CONFIG_DEFAULT_CONF_INI_BASE}/nsclient.ini"
     CACHE STRING
     "Default location for ini files"
 )
