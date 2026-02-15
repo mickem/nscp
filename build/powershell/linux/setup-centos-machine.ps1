@@ -37,6 +37,7 @@ Connect-AzAccount
 Set-AzContext -Subscription (Get-AzSubscription)[0]
 Write-Host "✅ Successfully connected to Azure."
 
+
 # Generate SSH key pair for authentication
 $sshKeyPath = "$env:USERPROFILE\.ssh\az_$($VmName)_rsa"
 if (-not (Test-Path $sshKeyPath)) {
@@ -82,7 +83,20 @@ switch ($CentOSVersion) {
 
 # Accept marketplace terms for Rocky Linux
 Write-Host "ℹ️ Accepting marketplace terms for Rocky Linux..."
-Get-AzMarketplaceTerms -Publisher $PublisherName -Product $Offer -Name $Skus | Set-AzMarketplaceTerms -Accept
+try {
+    $terms = Get-AzMarketplaceTerms -Publisher $PublisherName -Product $Offer -Name $Skus -ErrorAction Stop
+    if (-not $terms.Accepted) {
+        $terms | Set-AzMarketplaceTerms -Accept
+        Write-Host "✅ Marketplace terms accepted."
+    } else {
+        Write-Host "✅ Marketplace terms already accepted."
+    }
+} catch {
+    # Terms don't exist yet, create and accept them
+    Write-Host "ℹ️ Terms not found, accepting for the first time..."
+    Set-AzMarketplaceTerms -Publisher $PublisherName -Product $Offer -Name $Skus -Accept
+    Write-Host "✅ Marketplace terms accepted."
+}
 
 Write-Host "ℹ️ Creating the Virtual Machine: $VmName with Rocky Linux $CentOSVersion..."
 $vmConfig = New-AzVMConfig -VMName $VmName -VMSize $VMSize | `
@@ -96,8 +110,12 @@ New-AzVM -ResourceGroupName $ResourceGroupName -Location $Location -VM $vmConfig
 
 Write-Host "ℹ️ Installing NSCP on VM '$VmName' in resource group '$ResourceGroupName'..."
 
-$RpmUrl = "https://github.com/mickem/nscp/releases/download/${Version}/nscp-${Version}-1.el${CentOSVersion}.${Arch}.rpm"
+$RpmUrl = "https://github.com/mickem/nscp/releases/download/${Version}/nscp-${Version}-amd64.rpm"
 Write-Host "ℹ️ Fetching RPM from URL: $RpmUrl"
+
+# Generate a random password for the web interface
+$WebPassword = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 16 | ForEach-Object { [char]$_ })
+Write-Host "ℹ️ Generated web interface password."
 
 $scriptBlock = @"
 #!/bin/bash
@@ -105,7 +123,23 @@ set -e
 mkdir -p /tmp/nscp
 cd /tmp/nscp
 curl -L -o nscp.rpm '$RpmUrl'
+# Install EPEL repository for additional dependencies
+sudo dnf install -y epel-release || sudo yum install -y epel-release
+# Install required dependencies
+sudo dnf install -y boost-filesystem boost-program-options boost-thread \
+boost-python3 protobuf lua-libs cryptopp || \
+sudo yum install -y boost-filesystem boost-program-options boost-thread \
+boost-python3 protobuf lua-libs cryptopp
+# Install the RPM package
 sudo dnf install -y ./nscp.rpm || sudo yum install -y ./nscp.rpm
+# Configure web interface with password
+sudo nscp web install --https --allowed-hosts '*' --password '$WebPassword'
+# Configure firewall
+sudo firewall-cmd --permanent --add-port=8443/tcp || true
+sudo firewall-cmd --permanent --add-port=5666/tcp || true
+sudo firewall-cmd --reload || true
+# Restart the nsclient service
+sudo systemctl restart nsclient
 "@
 
 $result = Invoke-AzVMRunCommand -ResourceGroupName $ResourceGroupName `
@@ -123,7 +157,7 @@ Write-Host "ℹ️️ Checking version $Version on VM '$VmName' in resource grou
 $scriptBlock = @"
 #!/bin/bash
 set -e
-output=`$(nscp --version 2>&1 || /usr/sbin/nscp --version 2>&1 || /opt/nsclient/nscp --version 2>&1 || echo "Could not find nscp")
+output=`$(nscp --version 2>&1 || /sbin/nscp --version 2>&1 || /usr/sbin/nscp --version 2>&1 || echo "Could not find nscp")
 echo "NSClient++ version: `$output"
 if echo "`$output" | grep -q "$Version"; then
     echo "SUCCESS: Version matches expected version $Version."
@@ -163,4 +197,5 @@ Write-Host "✅ Correct version installed!"
 $vmPublicIp = (Get-AzPublicIpAddress -Name "$($VmName)-pip" -ResourceGroupName $ResourceGroupName).IpAddress
 Write-Host "✅ Script finished! VM '$VmName' is deployed and NSCP has been installed."
 Write-Host "ℹ️ Connect via SSH: ssh -i $sshKeyPath $AdminUsername@$vmPublicIp"
-
+Write-Host "ℹ️ Web interface: https://$($vmPublicIp):8443"
+Write-Host "ℹ️ Web password: $WebPassword"
