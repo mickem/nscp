@@ -30,7 +30,7 @@ jobs:
     - name: Install dependencies
       run: |
         apt-get update
-        apt-get install -y libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev liblua5.4-dev
+        apt-get install -y libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev liblua5.3-dev
 
     - uses: actions/checkout@v6
       with:
