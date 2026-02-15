@@ -26,7 +26,7 @@ param(
     [string]$ResourceGroupName = "NSCP-RG",
     [string]$Location = "WestEurope",
     [string]$VmName = "NSCP-Ubuntu-Test",
-    [string]$Version = "0.11.13",
+    [string]$Version = "0.11.14",
     [string]$Arch = "amd64",
     [string]$UbuntuVersion = "24.04",
     [string]$AdminUsername = "azureadmin"
@@ -118,7 +118,7 @@ libboost-python1.83.0 libboost-python1.83.0-py312 libboost-thread1.83.0 \
 libcrypto++8t64 liblua5.4-0 libprotobuf32t64
 sudo dpkg -i nscp.deb
 # Configure web interface with password
-sudo nscp web install --https --password '$WebPassword'
+sudo nscp web install --https --allowed-hosts * --password '$WebPassword'
 # Restart the nsclient service
 sudo systemctl restart nsclient
 "@
