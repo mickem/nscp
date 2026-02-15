@@ -23,14 +23,29 @@ env:
 jobs:
   build-deb:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - distro: ubuntu
+            distro_version: "20.04"
+            lua_package: liblua5.3-dev
+            python_version: python38
+          - distro: ubuntu
+            distro_version: "22.04"
+            lua_package: liblua5.4-dev
+            python_version: python310
+          - distro: ubuntu
+            distro_version: "24.04"
+            lua_package: liblua5.4-dev
+            python_version: python312
     container:
-      image: ubuntu:20.04
+      image: ${{ matrix.distro }}:${{ matrix.distro_version }}
 
     steps:
     - name: Install dependencies
       run: |
         apt-get update
-        DEBIAN_FRONTEND=noninteractive apt-get install -y libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev liblua5.3-dev
+        DEBIAN_FRONTEND=noninteractive apt-get install -y git libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev ${{ matrix.lua_package }} cmake build-essential python3-pip
 
     - uses: actions/checkout@v6
       with:
@@ -72,7 +87,7 @@ jobs:
       run: |
         cat > tmp/nscp/build.cmake << 'EOF'
         SET(LIBRARY_ROOT_FOLDER "${{ env.GITHUB_WORKSPACE }}")
-        SET(NSCP_BOOST_PYTHON_VERSION "python38")
+        SET(NSCP_BOOST_PYTHON_VERSION "${{ matrix.python_version }}")
         SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
         set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
         set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -86,7 +101,7 @@ jobs:
     - name: CMake (NSCP)
       working-directory: tmp/nscp
       run: |
-        cmake ../.. -D BUILD_VERSION=${{ inputs.version }} -D CPACK_GENERATOR=RPM -DCMAKE_BUILD_TYPE=Release
+        cmake ../.. -D BUILD_VERSION=${{ inputs.version }} -D CPACK_GENERATOR=DEB -DCMAKE_BUILD_TYPE=Release
 
     - name: Build nsclient
       working-directory: tmp/nscp
@@ -100,21 +115,21 @@ jobs:
 
     - name: rename dist files
       run: |
-        mv check_nsclient check_nsclient-${{ inputs.version }}-ubuntu-x64
-        mv tmp/nscp/NSCP-${{ inputs.version }}-amd64.deb NSCP-${{ inputs.version }}-amd64.deb
+        mv check_nsclient check_nsclient-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
+        mv tmp/nscp/NSCP-${{ inputs.version }}-amd64.deb NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-amd64.deb
       shell: bash
 
-    - name: Test RPM package installation
+    - name: Test DEB package installation
       run: |
-        apt-get install -y NSCP-${{ inputs.version }}-amd64.deb
+        apt-get install -y ./NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-amd64.deb
         nscp settings --load-all --list --add-defaults
 
     - uses: actions/upload-artifact@v6
       with:
-        name: NSCP-${{ inputs.version }}-ubuntu-x64
+        name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
         path: |
-          check_nsclient-${{ inputs.version }}-ubuntu-x64
-          NSCP-${{ inputs.version }}-amd64.deb
+          check_nsclient-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
+          NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-amd64.deb
         if-no-files-found: error
 
     - name: Run tests
@@ -124,10 +139,21 @@ jobs:
 
   integration-tests:
     needs: build-deb
+    strategy:
+      matrix:
+        include:
+          - distro: ubuntu
+            distro_version: "20.04"
+          - distro: ubuntu
+            distro_version: "22.04"
+          - distro: ubuntu
+            distro_version: "24.04"
     uses: ./.github/workflows/integration-tests-linux.yml
     with:
       architecture: ${{ inputs.architecture }}
       version: ${{ inputs.version }}
-      artifact-name: NSCP-${{ inputs.version }}-ubuntu-x64
+      artifact-name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
       package-type: deb
-      container: 'ubuntu:20.04'
+      container: '${{ matrix.distro }}:${{ matrix.distro_version }}'
+      distro: ${{ matrix.distro }}
+      distro_version: ${{ matrix.distro_version }}

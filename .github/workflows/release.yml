@@ -29,6 +29,7 @@ jobs:
       with:
         python-version: ${{ ENV.PYTHON_VERSION }}
 
+    # Windows artifacts
     - uses: actions/download-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-x64
@@ -38,12 +39,28 @@ jobs:
     - uses: actions/download-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-Win32-legacy-xp
+
+    # Ubuntu artifacts
     - uses: actions/download-artifact@v7
       with:
-        name: NSCP-${{ inputs.version }}-ubuntu-x64
+        name: NSCP-${{ inputs.version }}-ubuntu-20.04-x64
     - uses: actions/download-artifact@v7
       with:
-        name: NSCP-${{ inputs.version }}-fedora-x64
+        name: NSCP-${{ inputs.version }}-ubuntu-22.04-x64
+    - uses: actions/download-artifact@v7
+      with:
+        name: NSCP-${{ inputs.version }}-ubuntu-24.04-x64
+
+    # Fedora artifacts
+    - uses: actions/download-artifact@v7
+      with:
+        name: NSCP-${{ inputs.version }}-fedora-40-x64
+    - uses: actions/download-artifact@v7
+      with:
+        name: NSCP-${{ inputs.version }}-fedora-41-x64
+    - uses: actions/download-artifact@v7
+      with:
+        name: NSCP-${{ inputs.version }}-fedora-42-x64
 
     - name: Rename docs
       run: |
@@ -74,8 +91,15 @@ jobs:
           NSCP-${{ inputs.version }}-x64-symbols.zip
           NSCP-${{ inputs.version }}-Win32-symbols.zip
           NSCP-${{ inputs.version }}-Win32-legacy-xp-symbols.zip
-          check_nsclient-${{ inputs.version }}-ubuntu-x64
-          NSCP-${{ inputs.version }}-amd64.deb
-          NSCP-${{ inputs.version }}-amd64.rpm
-          
-
+          check_nsclient-${{ inputs.version }}-ubuntu-20.04-x64
+          check_nsclient-${{ inputs.version }}-ubuntu-22.04-x64
+          check_nsclient-${{ inputs.version }}-ubuntu-24.04-x64
+          NSCP-${{ inputs.version }}-ubuntu-20.04-amd64.deb
+          NSCP-${{ inputs.version }}-ubuntu-22.04-amd64.deb
+          NSCP-${{ inputs.version }}-ubuntu-24.04-amd64.deb
+          check_nsclient-${{ inputs.version }}-fedora-40-x64
+          check_nsclient-${{ inputs.version }}-fedora-41-x64
+          check_nsclient-${{ inputs.version }}-fedora-42-x64
+          NSCP-${{ inputs.version }}-fedora-40-amd64.rpm
+          NSCP-${{ inputs.version }}-fedora-41-amd64.rpm
+          NSCP-${{ inputs.version }}-fedora-42-amd64.rpm

@@ -23,27 +23,29 @@ env:
 jobs:
   build-rpm:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - distro: fedora
+            distro_version: "40"
+            python_version: python312
+          - distro: fedora
+            distro_version: "41"
+            python_version: python313
+          - distro: fedora
+            distro_version: "42"
+            python_version: python313
     container:
-      image: almalinux:9
+      image: ${{ matrix.distro }}:${{ matrix.distro_version }}
 
     steps:
-    - name: Install build dependencies
+    - name: Install dependencies
       run: |
-        dnf install -y epel-release 'dnf-command(config-manager)'
-        dnf config-manager --set-enabled crb
-        dnf install -y git cmake gcc-c++ make rpm-build boost-devel boost-static gtest-devel gmock-devel \
-          protobuf-compiler protobuf-devel openssl-devel python3 python3-pip python3-devel cryptopp-devel \
-          nodejs npm lua-devel
+        dnf install -y git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build nodejs npm
 
     - uses: actions/checkout@v6
       with:
         submodules: true
-
-    - uses: actions/setup-node@v6
-      with:
-        node-version: 20
-        cache: 'npm'
-        cache-dependency-path: web/package-lock.json
 
     - name: make dirs
       run: |
@@ -75,7 +77,7 @@ jobs:
       run: |
         cat > tmp/nscp/build.cmake << 'EOF'
         SET(LIBRARY_ROOT_FOLDER "${{ env.GITHUB_WORKSPACE }}")
-        SET(NSCP_BOOST_PYTHON_VERSION "python39")
+        SET(NSCP_BOOST_PYTHON_VERSION "${{ matrix.python_version }}")
         SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
         set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
         set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -103,21 +105,21 @@ jobs:
 
     - name: rename dist files
       run: |
-        mv check_nsclient check_nsclient-${{ inputs.version }}-fedora-x64
-        mv tmp/nscp/NSCP-${{ inputs.version }}-amd64.rpm NSCP-${{ inputs.version }}-amd64.rpm
+        mv check_nsclient check_nsclient-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
+        mv tmp/nscp/NSCP-${{ inputs.version }}-amd64.rpm NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-amd64.rpm
       shell: bash
 
     - name: Test RPM package installation
       run: |
-        dnf install -y NSCP-${{ inputs.version }}-amd64.rpm
+        dnf install -y ./NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-amd64.rpm
         nscp settings --load-all --list --add-defaults
 
     - uses: actions/upload-artifact@v6
       with:
-        name: NSCP-${{ inputs.version }}-fedora-x64
+        name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
         path: |
-          check_nsclient-${{ inputs.version }}-fedora-x64
-          NSCP-${{ inputs.version }}-amd64.rpm
+          check_nsclient-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
+          NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-amd64.rpm
         if-no-files-found: error
 
     - name: Run tests
@@ -127,10 +129,21 @@ jobs:
 
   integration-tests:
     needs: build-rpm
+    strategy:
+      matrix:
+        include:
+          - distro: fedora
+            distro_version: "40"
+          - distro: fedora
+            distro_version: "41"
+          - distro: fedora
+            distro_version: "42"
     uses: ./.github/workflows/integration-tests-linux.yml
     with:
       architecture: ${{ inputs.architecture }}
       version: ${{ inputs.version }}
-      artifact-name: NSCP-${{ inputs.version }}-fedora-x64
+      artifact-name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
       package-type: rpm
-      container: 'almalinux:9'
+      container: '${{ matrix.distro }}:${{ matrix.distro_version }}'
+      distro: ${{ matrix.distro }}
+      distro_version: ${{ matrix.distro_version }}
