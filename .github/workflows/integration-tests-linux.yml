@@ -1,4 +1,4 @@
-name: Integration Tests
+name: Integration Tests (Linux)
 
 permissions:
   contents: read
@@ -6,9 +6,9 @@ permissions:
 on:
   workflow_call:
     inputs:
-      os:
+      container:
         type: string
-        description: 'Operating system (ubuntu-latest or windows-latest)'
+        description: 'Docker container to use for testing (e.g., fedora:42)'
         required: true
       architecture:
         type: string
@@ -23,10 +23,6 @@ on:
         type: string
         description: 'Name of the artifact to download'
         required: true
-      platform:
-        type: string
-        description: 'Platform identifier (e.g., x64, Win32, ubuntu-x64)'
-        required: true
       package-type:
         type: string
         description: 'Package type (deb, rpm, zip)'
@@ -37,7 +33,9 @@ env:
 
 jobs:
   integration-tests:
-    runs-on: ${{ inputs.os }}
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ inputs.container }}
 
     steps:
       - uses: actions/checkout@v6
@@ -56,7 +54,7 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
-          cache-dependency-path: ${{ runner.os == 'Linux' && 'tests/rest/package-lock.json' || 'web/package-lock.json' }}
+          cache-dependency-path: 'tests/rest/package-lock.json'
 
       - uses: actions/download-artifact@v7
         with:
@@ -69,7 +67,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-protobuf liblua5.4-0
+          sudo apt-get install -y python3-protobuf liblua5.3-0
           sudo apt-get install -y ./NSCP-${{ inputs.version }}-amd64.deb
 
       # Linux: Install RPM package (Fedora container)
@@ -81,23 +79,6 @@ jobs:
             dnf install -y python3-devel python3-protobuf /workspace/NSCP-${{ inputs.version }}-amd64.rpm && \
             nscp settings --load-all --list --add-defaults
           "
-
-      # Windows: Extract ZIP archive
-      - name: Create folders (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          mkdir -p tmp/nscp
-          cd tmp/nscp
-          7z x ../../NSCP-${{ inputs.version }}-${{ inputs.platform }}.zip
-
-      - name: Copy test scripts (Windows)
-        if: runner.os == 'Windows'
-        working-directory: tmp/nscp
-        shell: bash
-        run: |
-          cp -r ../../scripts/* scripts
-          find scripts
 
       # Linux: Acceptance tests (DEB)
       - name: Acceptance tests (Linux DEB)
@@ -119,15 +100,7 @@ jobs:
             ./tests/acceptance-tests.sh
           "
 
-      # Windows: Acceptance tests
-      - name: Acceptance tests (Windows)
-        if: runner.os == 'Windows'
-        working-directory: tmp/nscp
-        run: |
-          ..\..\tests\acceptance-tests.bat
-
       - name: Run rest tests
-        if: inputs.package-type != 'rpm'
         uses: ./.github/actions/rest-test
 
       # TODO: Disabled for now due to issues with docker on windows runners
@@ -135,8 +108,3 @@ jobs:
       #  working-directory: tmp/nscp
       #  run: |
       #    ..\..\tests\nrpe\run-test.bat
-
-      - name: Run installer tests
-        if: runner.os == 'Windows' && inputs.architecture == 'x64'
-        uses: ./.github/actions/installer-test
-

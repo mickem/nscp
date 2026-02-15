@@ -127,11 +127,10 @@ jobs:
 
   integration-tests:
     needs: build-rpm
-    uses: ./.github/workflows/integration-tests.yml
+    uses: ./.github/workflows/integration-tests-linux.yml
     with:
-      os: ubuntu-latest
       architecture: ${{ inputs.architecture }}
       version: ${{ inputs.version }}
       artifact-name: NSCP-${{ inputs.version }}-fedora-x64
-      platform: fedora-x64
       package-type: rpm
+      container: 'almalinux:9'

@@ -124,11 +124,10 @@ jobs:
 
   integration-tests:
     needs: build-deb
-    uses: ./.github/workflows/integration-tests.yml
+    uses: ./.github/workflows/integration-tests-linux.yml
     with:
-      os: ubuntu-latest
       architecture: ${{ inputs.architecture }}
       version: ${{ inputs.version }}
       artifact-name: NSCP-${{ inputs.version }}-ubuntu-x64
-      platform: ubuntu-x64
       package-type: deb
+      container: 'ubuntu:20.04'
