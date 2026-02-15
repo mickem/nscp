@@ -23,16 +23,18 @@ env:
 jobs:
   build-deb:
     runs-on: ubuntu-latest
+    container:
+      image: ubuntu:20.04
 
     steps:
-    - uses: actions/checkout@v6
-      with:
-        submodules: true
-
     - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev liblua5.4-dev
+
+    - uses: actions/checkout@v6
+      with:
+        submodules: true
 
     - id: python
       uses: actions/setup-python@v6
@@ -47,11 +49,6 @@ jobs:
         node-version: 20
         cache: 'npm'
         cache-dependency-path: web/package-lock.json
-    - id: build-web
-      working-directory: web
-      run: |
-        npm install
-        npm run build
 
     - name: make dirs
       run: |
@@ -66,24 +63,29 @@ jobs:
     - id: tinyxml2
       uses: ./.github/actions/tinyxml2
       with:
-        version: ${{ ENV.TINY_XML_2_VERSION }}
+        version: ${{ env.TINY_XML_2_VERSION }}
 
     - id: mongoose
       uses: ./.github/actions/mongoose
       with:
-        version: ${{ ENV.MONGOOSE_VERSION }}
+        version: ${{ env.MONGOOSE_VERSION }}
 
-    - uses: DamianReeves/write-file-action@master
-      name: Write NSClient++ cmake config
-      with:
-        path: tmp/nscp/build.cmake
-        contents: |
-            SET(LIBRARY_ROOT_FOLDER	"${{ env.GITHUB_WORKSPACE }}")
-            SET(NSCP_BOOST_PYTHON_VERSION "python312")
-            SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
-            set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
-            set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}")
-            set(USE_STATIC_RUNTIME OFF)
+    - id: build-web
+      working-directory: web
+      run: |
+        npm install
+        npm run build
+
+    - name: Write NSClient++ cmake config
+      run: |
+        cat > tmp/nscp/build.cmake << 'EOF'
+        SET(LIBRARY_ROOT_FOLDER "${{ env.GITHUB_WORKSPACE }}")
+        SET(NSCP_BOOST_PYTHON_VERSION "python38")
+        SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
+        set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
+        set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}")
+        set(USE_STATIC_RUNTIME OFF)
+        EOF
 
     - uses: actions/download-artifact@v7
       with:
@@ -92,7 +94,7 @@ jobs:
     - name: CMake (NSCP)
       working-directory: tmp/nscp
       run: |
-        cmake ../.. -D BUILD_VERSION=${{ inputs.version }} -D CPACK_GENERATOR=DEB -DCMAKE_BUILD_TYPE=Release
+        cmake ../.. -D BUILD_VERSION=${{ inputs.version }} -D CPACK_GENERATOR=RPM -DCMAKE_BUILD_TYPE=Release
 
     - name: Build nsclient
       working-directory: tmp/nscp
@@ -110,13 +112,10 @@ jobs:
         mv tmp/nscp/NSCP-${{ inputs.version }}-amd64.deb NSCP-${{ inputs.version }}-amd64.deb
       shell: bash
 
-    - name: Test DEB package installation (Ubuntu)
+    - name: Test RPM package installation
       run: |
-        docker run --rm -v ${{ github.workspace }}:/workspace ubuntu:latest bash -c "
-          apt-get update && \
-          apt-get install -y /workspace/NSCP-${{ inputs.version }}-amd64.deb && \
-          nscp settings --load-all --list --add-defaults
-        "
+        apt-get install -y NSCP-${{ inputs.version }}-amd64.deb
+        nscp settings --load-all --list --add-defaults
 
     - uses: actions/upload-artifact@v6
       with:
