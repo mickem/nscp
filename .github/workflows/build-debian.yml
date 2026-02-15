@@ -29,20 +29,12 @@ jobs:
     steps:
     - name: Install dependencies
       run: |
-        sudo apt-get update
-        sudo apt-get install -y libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev liblua5.4-dev
+        apt-get update
+        apt-get install -y libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev liblua5.4-dev
 
     - uses: actions/checkout@v6
       with:
         submodules: true
-
-    - id: python
-      uses: actions/setup-python@v6
-      with:
-        python-version: ${{ ENV.PYTHON_VERSION }}
-        architecture: ${{ inputs.architecture }}
-        cache-dependency-path: 'build/python/requirements.txt'
-        cache: 'pip'
 
     - uses: actions/setup-node@v6
       with:
