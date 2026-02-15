@@ -4,7 +4,7 @@
 
 <#
 .SYNOPSIS
-    Used to deploy CentOS Stream VM in Azure with NSClient++
+    Used to deploy Rocky Linux VM in Azure with NSClient++
 .DESCRIPTION
     This is not to be used, it is only for setting up personal test machines
 .PARAMETER ResourceGroupName
@@ -17,18 +17,18 @@
     The version of the software to install.
 .PARAMETER Arch
     The architecture of the software to install (e.g., "x86_64").
-.PARAMETER CentOSVersion
-    The CentOS Stream version to deploy (e.g., "9", "8").
+.PARAMETER RockyVersion
+    The Rocky Linux version to deploy (e.g., "9", "8").
 .PARAMETER AdminUsername
     The administrator username for the new VM.
 #>
 param(
     [string]$ResourceGroupName = "NSCP-RG",
     [string]$Location = "WestEurope",
-    [string]$VmName = "NSCP-CentOS-Test",
-    [string]$Version = "0.11.13",
+    [string]$VmName = "NSCP-Rocky-Test",
+    [string]$Version = "0.11.15",
     [string]$Arch = "x86_64",
-    [string]$CentOSVersion = "9",
+    [string]$RockyVersion = "9",
     [string]$AdminUsername = "azureadmin"
 )
 
@@ -61,44 +61,31 @@ $nsg = New-AzNetworkSecurityGroup -Name "$($VmName)-nsg" -ResourceGroupName $Res
 
 $nic = New-AzNetworkInterface -Name "$($VmName)-nic" -ResourceGroupName $ResourceGroupName -Location $Location -SubnetId $vnet.Subnets[0].Id -PublicIpAddressId $publicIp.Id -NetworkSecurityGroupId $nsg.Id
 
-# Set CentOS Stream image based on version
+# Set Rocky Linux image based on version
 $VMSize = "Standard_D2ls_v6"
 
-switch ($CentOSVersion) {
+switch ($RockyVersion) {
     "9" {
         $PublisherName = "resf"
         $Offer = "rockylinux-x86_64"
-        $Skus = "9-base"
+        $Skus = "9-lvm"
     }
     "8" {
         $PublisherName = "resf"
         $Offer = "rockylinux-x86_64"
-        $Skus = "8-base"
+        $Skus = "8-lvm"
     }
     default {
-        Write-Error "❌ Unsupported CentOS/Rocky version: $CentOSVersion. Supported versions: 9, 8"
+        Write-Error "❌ Unsupported Rocky Linux version: $RockyVersion. Supported versions: 9, 8"
         exit 1
     }
 }
 
 # Accept marketplace terms for Rocky Linux
 Write-Host "ℹ️ Accepting marketplace terms for Rocky Linux..."
-try {
-    $terms = Get-AzMarketplaceTerms -Publisher $PublisherName -Product $Offer -Name $Skus -ErrorAction Stop
-    if (-not $terms.Accepted) {
-        $terms | Set-AzMarketplaceTerms -Accept
-        Write-Host "✅ Marketplace terms accepted."
-    } else {
-        Write-Host "✅ Marketplace terms already accepted."
-    }
-} catch {
-    # Terms don't exist yet, create and accept them
-    Write-Host "ℹ️ Terms not found, accepting for the first time..."
-    Set-AzMarketplaceTerms -Publisher $PublisherName -Product $Offer -Name $Skus -Accept
-    Write-Host "✅ Marketplace terms accepted."
-}
+Get-AzMarketplaceTerms -Publisher $PublisherName -Product $Offer -Name $Skus | Set-AzMarketplaceTerms -Accept
 
-Write-Host "ℹ️ Creating the Virtual Machine: $VmName with Rocky Linux $CentOSVersion..."
+Write-Host "ℹ️ Creating the Virtual Machine: $VmName with Rocky Linux $RockyVersion..."
 $vmConfig = New-AzVMConfig -VMName $VmName -VMSize $VMSize | `
     Set-AzVMOperatingSystem -Linux -ComputerName $VmName -Credential (New-Object PSCredential($AdminUsername, (ConvertTo-SecureString -String "TempPassword123!" -AsPlainText -Force))) -DisablePasswordAuthentication | `
     Set-AzVMSourceImage -PublisherName $PublisherName -Offer $Offer -Skus $Skus -Version "latest" | `
@@ -110,8 +97,11 @@ New-AzVM -ResourceGroupName $ResourceGroupName -Location $Location -VM $vmConfig
 
 Write-Host "ℹ️ Installing NSCP on VM '$VmName' in resource group '$ResourceGroupName'..."
 
-$RpmUrl = "https://github.com/mickem/nscp/releases/download/${Version}/nscp-${Version}-amd64.rpm"
-Write-Host "ℹ️ Fetching RPM from URL: $RpmUrl"
+# Use el8 or el9 specific RPM URL based on target
+$RpmUrl = "https://github.com/mickem/nscp/releases/download/${Version}/nscp-${Version}-el${RockyVersion}.${Arch}.rpm"
+$RpmUrlFallback = "https://github.com/mickem/nscp/releases/download/${Version}/nscp-${Version}-${Arch}.rpm"
+Write-Host "ℹ️ Primary RPM URL: $RpmUrl"
+Write-Host "ℹ️ Fallback RPM URL: $RpmUrlFallback"
 
 # Generate a random password for the web interface
 $WebPassword = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 16 | ForEach-Object { [char]$_ })
@@ -122,22 +112,35 @@ $scriptBlock = @"
 set -e
 mkdir -p /tmp/nscp
 cd /tmp/nscp
-curl -L -o nscp.rpm '$RpmUrl'
-# Install EPEL repository for additional dependencies
-sudo dnf install -y epel-release || sudo yum install -y epel-release
+
+# Try distribution-specific RPM first, then fallback to generic
+if curl -L -f -o nscp.rpm '$RpmUrl' 2>/dev/null; then
+    echo "Downloaded el$RockyVersion RPM."
+elif curl -L -f -o nscp.rpm '$RpmUrlFallback' 2>/dev/null; then
+    echo "Downloaded generic RPM."
+else
+    echo "ERROR: Could not download RPM."
+    exit 1
+fi
+
+# Install EPEL for additional dependencies
+sudo dnf install -y epel-release
+
 # Install required dependencies
 sudo dnf install -y boost-filesystem boost-program-options boost-thread \
-boost-python3 protobuf lua-libs cryptopp || \
-sudo yum install -y boost-filesystem boost-program-options boost-thread \
-boost-python3 protobuf lua-libs cryptopp
+    boost-python3 protobuf lua-libs || true
+
 # Install the RPM package
-sudo dnf install -y ./nscp.rpm || sudo yum install -y ./nscp.rpm
+sudo dnf install -y ./nscp.rpm
+
 # Configure web interface with password
 sudo nscp web install --https --allowed-hosts '*' --password '$WebPassword'
+
 # Configure firewall
 sudo firewall-cmd --permanent --add-port=8443/tcp || true
 sudo firewall-cmd --permanent --add-port=5666/tcp || true
 sudo firewall-cmd --reload || true
+
 # Restart the nsclient service
 sudo systemctl restart nsclient
 "@

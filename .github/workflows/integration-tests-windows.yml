@@ -1,0 +1,89 @@
+name: Integration Tests (Windows)
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      architecture:
+        type: string
+        description: 'Architecture to test'
+        required: true
+        default: 'x64'
+      version:
+        type: string
+        description: 'Version to test'
+        required: true
+      artifact-name:
+        type: string
+        description: 'Name of the artifact to download'
+        required: true
+      platform:
+        type: string
+        description: 'Platform identifier (e.g., x64, Win32, ubuntu-x64)'
+        required: true
+
+env:
+  PYTHON_VERSION: 3.11
+
+jobs:
+  integration-tests:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+
+      - id: python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          architecture: ${{ inputs.architecture }}
+          cache-dependency-path: 'build/python/requirements.txt'
+          cache: 'pip'
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'web/package-lock.json'
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: .
+
+      - name: Create folders (Windows)
+        shell: bash
+        run: |
+          mkdir -p tmp/nscp
+          cd tmp/nscp
+          7z x ../../NSCP-${{ inputs.version }}-${{ inputs.platform }}.zip
+
+      - name: Copy test scripts
+        working-directory: tmp/nscp
+        shell: bash
+        run: |
+          cp -r ../../scripts/* scripts
+          find scripts
+
+      - name: Acceptance tests (Windows)
+        working-directory: tmp/nscp
+        run: |
+          ..\..\tests\acceptance-tests.bat
+
+      - name: Run rest tests
+        uses: ./.github/actions/rest-test
+
+      # TODO: Disabled for now due to issues with docker on windows runners
+      #- name: Run NRPE tests
+      #  working-directory: tmp/nscp
+      #  run: |
+      #    ..\..\tests\nrpe\run-test.bat
+
+      - name: Run installer tests
+        if: inputs.architecture == 'x64'
+        uses: ./.github/actions/installer-test
+
