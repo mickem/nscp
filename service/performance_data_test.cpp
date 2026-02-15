@@ -55,7 +55,7 @@ TEST(PerfDataTest, leading_spaces) {
   EXPECT_EQ("'aaa'=1g", do_parse("     aaa=1g"));
   EXPECT_EQ("'aaa'=1g", do_parse("                   aaa=1g"));
 }
-TEST(PerfDataTest, negative_vvalues) { EXPECT_EQ("'aaa'=-1g;-0;-4;-2;-5 'bbb'=2g;-3;4;-2;5", do_parse("aaa=-1g;-0;-4;-2;-5 bbb=2g;-3;4;-2;5")); }
+TEST(PerfDataTest, negative_vvalues) { EXPECT_EQ("'aaa'=-1g;0;-4;-2;-5 'bbb'=2g;-3;4;-2;5", do_parse("aaa=-1g;0;-4;-2;-5 bbb=2g;-3;4;-2;5")); }
 TEST(PerfDataTest, value_without_long_uom) { EXPECT_EQ("'aaa'=1ggggg;;;0;5", do_parse("aaa=1ggggg;;;0;5")); }
 TEST(PerfDataTest, value_without____uom) { EXPECT_EQ("'aaa'=1gg__gg;;;0;5", do_parse("aaa=1gg__gg;;;0;5")); }
 

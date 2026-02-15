@@ -282,11 +282,9 @@ jobs:
 
   integration-tests:
     needs: build
-    uses: ./.github/workflows/integration-tests.yml
+    uses: ./.github/workflows/integration-tests-windows.yml
     with:
-      os: windows-latest
       architecture: ${{ inputs.architecture }}
       version: ${{ inputs.version }}
       artifact-name: NSCP-${{ inputs.version }}-${{ needs.build.outputs.platform }}-legacy-xp
       platform: ${{ needs.build.outputs.platform }}-legacy-xp
-      package-type: zip

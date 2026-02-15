@@ -1,0 +1,113 @@
+name: Integration Tests (Linux)
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      container:
+        type: string
+        description: 'Docker container to use for testing (e.g., fedora:42)'
+        required: true
+      architecture:
+        type: string
+        description: 'Architecture to test'
+        required: true
+        default: 'x64'
+      version:
+        type: string
+        description: 'Version to test'
+        required: true
+      artifact-name:
+        type: string
+        description: 'Name of the artifact to download'
+        required: true
+      package-type:
+        type: string
+        description: 'Package type (deb, rpm, zip)'
+        required: true
+      distro:
+        type: string
+        description: 'Distribution name (ubuntu, fedora)'
+        required: true
+      distro_version:
+        type: string
+        description: 'Distribution version (e.g., 20.04, 42)'
+        required: true
+
+env:
+  PYTHON_VERSION: 3.11
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ inputs.container }}
+
+    steps:
+      - name: Install base dependencies (DEB)
+        if: inputs.package-type == 'deb'
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-pip python3-venv nodejs npm
+
+      - name: Install base dependencies (RPM)
+        if: inputs.package-type == 'rpm'
+        run: |
+          dnf install -y git python3 python3-pip nodejs npm
+
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: .
+
+      # Linux: Install DEB package
+      - name: Install DEB package (Linux)
+        if: inputs.package-type == 'deb'
+        shell: bash
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y python3-protobuf liblua5.3-0 || DEBIAN_FRONTEND=noninteractive apt-get install -y python3-protobuf liblua5.4-0
+          DEBIAN_FRONTEND=noninteractive apt-get install -y ./NSCP-${{ inputs.version }}-${{ inputs.distro }}-${{ inputs.distro_version }}-amd64.deb
+
+      # Linux: Install RPM package
+      - name: Install RPM package (Linux)
+        if: inputs.package-type == 'rpm'
+        shell: bash
+        run: |
+          dnf install -y python3-protobuf lua ./NSCP-${{ inputs.version }}-${{ inputs.distro }}-${{ inputs.distro_version }}-amd64.rpm
+          nscp settings --load-all --list --add-defaults
+
+      # Linux: Acceptance tests (DEB)
+      - name: Acceptance tests (Linux DEB)
+        if: inputs.package-type == 'deb'
+        run: |
+          cp -r scripts/* /usr/lib/nsclient/scripts
+          nscp nrpe install --certificate --verify none
+          ./tests/acceptance-tests.sh
+
+      # Linux: Acceptance tests (RPM)
+      - name: Acceptance tests (Linux RPM)
+        if: inputs.package-type == 'rpm'
+        run: |
+          cp -r scripts/* /usr/lib/nsclient/scripts
+          nscp nrpe install --certificate --verify none
+          ./tests/acceptance-tests.sh
+
+      - name: Setup Python for tests
+        run: |
+          pip3 install -r build/python/requirements.txt
+
+      - name: Run rest tests
+        uses: ./.github/actions/rest-test
+
+      # TODO: Disabled for now due to issues with docker on windows runners
+      #- name: Run NRPE tests
+      #  working-directory: tmp/nscp
+      #  run: |
+      #    ..\..\tests\nrpe\run-test.bat
