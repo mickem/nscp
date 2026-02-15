@@ -127,6 +127,18 @@ definitions:
       - name: INCLUDES
         multi_value: true
 
+  # nscp_create_test(_TARGET SOURCES ... LIBRARIES ... INCLUDES ...) - lowercase version
+  - command: nscp_create_test
+    front_positional_arguments:
+      - _TARGET
+    options:
+      - name: SOURCES
+        multi_value: true
+      - name: LIBRARIES
+        multi_value: true
+      - name: INCLUDES
+        multi_value: true
+
   # NSCP_MAKE_EXE_SBIN(_TARGET _SRCS)
   - command: NSCP_MAKE_EXE_SBIN
     front_positional_arguments:

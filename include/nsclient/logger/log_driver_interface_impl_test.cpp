@@ -217,4 +217,3 @@ TEST(log_driver_interface_impl, do_log_multiple_messages) {
   EXPECT_EQ(driver.logged_messages[1], msg2);
   EXPECT_EQ(driver.logged_messages[2], msg3);
 }
-

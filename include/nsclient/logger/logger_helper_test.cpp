@@ -20,8 +20,8 @@
 #include <gtest/gtest.h>
 
 #include <nscapi/nscapi_protobuf_log.hpp>
-#include <nsclient/logger/logger_helper.hpp>
 #include <nsclient/logger/log_message_factory.hpp>
+#include <nsclient/logger/logger_helper.hpp>
 
 // ============================================================================
 // Tests for render_log_level_short
@@ -146,8 +146,7 @@ TEST(logger_helper, render_console_message_all_levels_oneline) {
   for (const auto& test_case : test_cases) {
     auto result = nsclient::logging::logger_helper::render_console_message(true, test_case.first);
     EXPECT_FALSE(result.first);
-    EXPECT_NE(result.second.find(test_case.second), std::string::npos)
-        << "Expected level '" << test_case.second << "' in output: " << result.second;
+    EXPECT_NE(result.second.find(test_case.second), std::string::npos) << "Expected level '" << test_case.second << "' in output: " << result.second;
   }
 }
 
@@ -180,4 +179,3 @@ TEST(logger_helper, get_formated_date_empty_format) {
   // Empty format should return empty or default behavior
   // The exact behavior depends on implementation
 }
-

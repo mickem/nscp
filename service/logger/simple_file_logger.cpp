@@ -94,7 +94,7 @@ void simple_file_logger::do_log(const std::string data) {
     } else {
       std::stringstream tmp;
       for (int i = 0; i < message.entry_size(); i++) {
-        const auto& msg = message.entry(i);
+        const auto &msg = message.entry(i);
         tmp << date << (": ") << utf8::cvt<std::string>(logger_helper::render_log_level_long(msg.level())) << (":") << msg.file() << (":") << msg.line()
             << (": ") << msg.message() << "\n";
       }

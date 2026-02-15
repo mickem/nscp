@@ -17,6 +17,7 @@
 #include <NSCAPI.h>
 
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/make_shared.hpp>
 #include <boost/optional.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
@@ -44,9 +45,9 @@ inline PB::Common::Result::StatusCodeType gbp_to_nagios_gbp_status(PB::Common::R
 std::string functions::query_data_to_nagios_string(const PB::Commands::QueryResponseMessage &message, std::size_t max_length) {
   std::stringstream ss;
   for (int i = 0; i < message.payload_size(); ++i) {
-    PB::Commands::QueryResponseMessage::Response p = message.payload(i);
+    const auto &p = message.payload(i);
     for (int j = 0; j < p.lines_size(); ++j) {
-      PB::Commands::QueryResponseMessage::Response::Line l = p.lines(j);
+      const auto &l = p.lines(j);
       if (l.perf_size() > 0)
         ss << l.message() << "|" << build_performance_data(l, max_length);
       else
@@ -95,7 +96,7 @@ void functions::set_response_good(::PB::Commands::ExecuteResponseMessage_Respons
 std::string functions::query_data_to_nagios_string(const PB::Commands::QueryResponseMessage::Response &p, std::size_t max_length) {
   std::stringstream ss;
   for (int j = 0; j < p.lines_size(); ++j) {
-    PB::Commands::QueryResponseMessage::Response::Line l = p.lines(j);
+    const auto &l = p.lines(j);
     if (l.perf_size() > 0)
       ss << l.message() << "|" << build_performance_data(l, max_length);
     else
@@ -106,15 +107,15 @@ std::string functions::query_data_to_nagios_string(const PB::Commands::QueryResp
 
 //////////////////////////////////////////////////////////////////////////
 
-void functions::make_submit_from_query(std::string &message, const std::string channel, const std::string alias, const std::string target,
-                                       const std::string source) {
+void functions::make_submit_from_query(std::string &message, const std::string &channel, const std::string &alias, const std::string &target,
+                                       const std::string &source) {
   PB::Commands::QueryResponseMessage response;
   response.ParseFromString(message);
   PB::Commands::SubmitRequestMessage request;
   request.mutable_header()->CopyFrom(response.header());
   request.mutable_header()->set_source_id(request.mutable_header()->recipient_id());
   for (int i = 0; i < request.mutable_header()->hosts_size(); i++) {
-    PB::Common::Host *host = request.mutable_header()->mutable_hosts(i);
+    auto *host = request.mutable_header()->mutable_hosts(i);
     if (host->id() == request.mutable_header()->recipient_id()) {
       host->clear_address();
       host->clear_metadata();
@@ -126,14 +127,14 @@ void functions::make_submit_from_query(std::string &message, const std::string c
     request.mutable_header()->set_sender_id(source);
     bool found = false;
     for (int i = 0; i < request.mutable_header()->hosts_size(); i++) {
-      PB::Common::Host *host = request.mutable_header()->mutable_hosts(i);
+      auto *host = request.mutable_header()->mutable_hosts(i);
       if (host->id() == source) {
         host->set_address(source);
         found = true;
       }
     }
     if (!found) {
-      PB::Common::Host *host = request.mutable_header()->add_hosts();
+      auto *host = request.mutable_header()->add_hosts();
       host->set_id(source);
       host->set_address(source);
     }
@@ -151,7 +152,7 @@ void functions::make_query_from_exec(std::string &data) {
   PB::Commands::QueryResponseMessage query_response_message;
   query_response_message.mutable_header()->CopyFrom(exec_response_message.header());
   for (int i = 0; i < exec_response_message.payload_size(); ++i) {
-    PB::Commands::ExecuteResponseMessage::Response p = exec_response_message.payload(i);
+    const auto &p = exec_response_message.payload(i);
     append_simple_query_response_payload(query_response_message.add_payload(), p.command(), p.result(), p.message());
   }
   data = query_response_message.SerializeAsString();
@@ -162,7 +163,7 @@ void functions::make_query_from_submit(std::string &data) {
   PB::Commands::QueryResponseMessage query_response_message;
   query_response_message.mutable_header()->CopyFrom(submit_response_message.header());
   for (int i = 0; i < submit_response_message.payload_size(); ++i) {
-    PB::Commands::SubmitResponseMessage::Response p = submit_response_message.payload(i);
+    const auto &p = submit_response_message.payload(i);
     append_simple_query_response_payload(query_response_message.add_payload(), p.command(), gbp_status_to_gbp_nagios(p.result().code()), p.result().message(),
                                          "");
   }
@@ -175,7 +176,7 @@ void functions::make_exec_from_submit(std::string &data) {
   PB::Commands::ExecuteResponseMessage exec_response_message;
   exec_response_message.mutable_header()->CopyFrom(submit_response_message.header());
   for (int i = 0; i < submit_response_message.payload_size(); ++i) {
-    PB::Commands::SubmitResponseMessage::Response p = submit_response_message.payload(i);
+    const auto &p = submit_response_message.payload(i);
     append_simple_exec_response_payload(exec_response_message.add_payload(), p.command(), gbp_status_to_gbp_nagios(p.result().code()), p.result().message());
   }
   data = exec_response_message.SerializeAsString();
@@ -186,25 +187,25 @@ void functions::make_return_header(PB::Common::Header *target, const PB::Common:
   target->set_source_id(target->recipient_id());
 }
 
-void functions::create_simple_submit_request(std::string channel, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf,
+void functions::create_simple_submit_request(std::string channel, std::string command, const NSCAPI::nagiosReturn ret, std::string msg, const std::string &perf,
                                              std::string &buffer) {
   PB::Commands::SubmitRequestMessage message;
   message.set_channel(channel);
 
-  PB::Commands::QueryResponseMessage::Response *payload = message.add_payload();
+  auto *payload = message.add_payload();
   payload->set_command(command);
   payload->set_result(nagios_status_to_gpb(ret));
-  ::PB::Commands::QueryResponseMessage_Response_Line *l = payload->add_lines();
+  auto *l = payload->add_lines();
   l->set_message(msg);
   if (!perf.empty()) parse_performance_data(l, perf);
 
   message.SerializeToString(&buffer);
 }
 
-void functions::create_simple_submit_response_ok(const std::string channel, const std::string command, const std::string msg, std::string &buffer) {
+void functions::create_simple_submit_response_ok(const std::string &channel, const std::string &command, const std::string &msg, std::string &buffer) {
   PB::Commands::SubmitResponseMessage message;
 
-  PB::Commands::SubmitResponseMessage::Response *payload = message.add_payload();
+  auto *payload = message.add_payload();
   payload->set_command(command);
   payload->mutable_result()->set_message(msg);
   payload->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
@@ -212,34 +213,37 @@ void functions::create_simple_submit_response_ok(const std::string channel, cons
 }
 bool functions::parse_simple_submit_response(const std::string &request, std::string &response) {
   PB::Commands::SubmitResponseMessage message;
-  message.ParseFromString(request);
+  if (!message.ParseFromString(request)) {
+    response = "Failed to parse submit response message";
+    return false;
+  }
 
   if (message.payload_size() != 1) {
     THROW_INVALID_SIZE(message.payload_size());
   }
-  ::PB::Commands::SubmitResponseMessage::Response payload = message.payload().Get(0);
+  auto payload = message.payload().Get(0);
   response = payload.mutable_result()->message();
   return payload.mutable_result()->code() == PB::Common::Result_StatusCodeType_STATUS_OK;
 }
-void functions::create_simple_query_request(std::string command, std::list<std::string> arguments, std::string &buffer) {
+void functions::create_simple_query_request(std::string command, const std::list<std::string> &arguments, std::string &buffer) {
   PB::Commands::QueryRequestMessage message;
 
-  PB::Commands::QueryRequestMessage::Request *payload = message.add_payload();
+  auto *payload = message.add_payload();
   payload->set_command(command);
 
-  for (std::string s : arguments) {
+  for (const std::string &s : arguments) {
     payload->add_arguments(s);
   }
 
   message.SerializeToString(&buffer);
 }
-void functions::create_simple_query_request(std::string command, std::vector<std::string> arguments, std::string &buffer) {
+void functions::create_simple_query_request(std::string command, const std::vector<std::string> &arguments, std::string &buffer) {
   PB::Commands::QueryRequestMessage message;
 
-  PB::Commands::QueryRequestMessage::Request *payload = message.add_payload();
+  auto *payload = message.add_payload();
   payload->set_command(command);
 
-  for (std::string s : arguments) {
+  for (const std::string &s : arguments) {
     payload->add_arguments(s);
   }
 
@@ -247,10 +251,10 @@ void functions::create_simple_query_request(std::string command, std::vector<std
 }
 
 void functions::append_simple_query_response_payload(PB::Commands::QueryResponseMessage::Response *payload, std::string command, NSCAPI::nagiosReturn ret,
-                                                     std::string msg, std::string perf) {
+                                                     std::string msg, const std::string &perf) {
   payload->set_command(command);
   payload->set_result(nagios_status_to_gpb(ret));
-  PB::Commands::QueryResponseMessage::Response::Line *l = payload->add_lines();
+  auto *l = payload->add_lines();
   l->set_message(msg);
   if (!perf.empty()) parse_performance_data(l, perf);
 }
@@ -267,7 +271,7 @@ void functions::append_simple_submit_response_payload(PB::Commands::SubmitRespon
 }
 
 void functions::append_simple_query_request_payload(PB::Commands::QueryRequestMessage::Request *payload, std::string command,
-                                                    std::vector<std::string> arguments) {
+                                                    const std::vector<std::string> &arguments) {
   payload->set_command(command);
   for (const std::string &s : arguments) {
     payload->add_arguments(s);
@@ -275,7 +279,7 @@ void functions::append_simple_query_request_payload(PB::Commands::QueryRequestMe
 }
 
 void functions::append_simple_exec_request_payload(PB::Commands::ExecuteRequestMessage::Request *payload, std::string command,
-                                                   std::vector<std::string> arguments) {
+                                                   const std::vector<std::string> &arguments) {
   payload->set_command(command);
   for (const std::string &s : arguments) {
     payload->add_arguments(s);
@@ -284,28 +288,33 @@ void functions::append_simple_exec_request_payload(PB::Commands::ExecuteRequestM
 
 void functions::parse_simple_query_request(std::list<std::string> &args, const std::string &request) {
   PB::Commands::QueryRequestMessage message;
-  message.ParseFromString(request);
+  if (!message.ParseFromString(request)) {
+    return;
+  }
 
   if (message.payload_size() != 1) {
     THROW_INVALID_SIZE(message.payload_size());
   }
-  ::PB::Commands::QueryRequestMessage::Request payload = message.payload().Get(0);
+  const auto payload = message.payload().Get(0);
   for (int i = 0; i < payload.arguments_size(); i++) {
     args.push_back(payload.arguments(i));
   }
 }
 int functions::parse_simple_query_response(const std::string &response, std::string &msg, std::string &perf, std::size_t max_length) {
   PB::Commands::QueryResponseMessage message;
-  message.ParseFromString(response);
+  if (!message.ParseFromString(response)) {
+    return NSCAPI::query_return_codes::returnUNKNOWN;
+  }
 
   if (message.payload_size() == 0 || message.payload(0).lines_size() == 0) {
     return NSCAPI::query_return_codes::returnUNKNOWN;
-  } else if (message.payload_size() > 1 && message.payload(0).lines_size() > 1) {
+  }
+  if (message.payload_size() > 1 && message.payload(0).lines_size() > 1) {
     THROW_INVALID_SIZE(message.payload_size());
   }
 
-  PB::Commands::QueryResponseMessage::Response payload = message.payload().Get(0);
-  for (const PB::Commands::QueryResponseMessage::Response::Line &l : payload.lines()) {
+  const auto payload = message.payload().Get(0);
+  for (const auto &l : payload.lines()) {
     msg += l.message();
     std::string tmpPerf = build_performance_data(l, max_length);
     if (!tmpPerf.empty()) {
@@ -324,12 +333,12 @@ int functions::parse_simple_query_response(const std::string &response, std::str
 void functions::create_simple_exec_request(const std::string &module, const std::string &command, const std::list<std::string> &args, std::string &request) {
   PB::Commands::ExecuteRequestMessage message;
   if (!module.empty()) {
-    PB::Common::KeyValue *kvp = message.mutable_header()->add_metadata();
+    auto *kvp = message.mutable_header()->add_metadata();
     kvp->set_key("target");
     kvp->set_value(module);
   }
 
-  PB::Commands::ExecuteRequestMessage::Request *payload = message.add_payload();
+  auto *payload = message.add_payload();
   payload->set_command(command);
 
   for (const std::string &s : args) payload->add_arguments(s);
@@ -340,35 +349,37 @@ void functions::create_simple_exec_request(const std::string &module, const std:
 void functions::create_simple_exec_request(const std::string &module, const std::string &command, const std::vector<std::string> &args, std::string &request) {
   PB::Commands::ExecuteRequestMessage message;
   if (!module.empty()) {
-    PB::Common::KeyValue *kvp = message.mutable_header()->add_metadata();
+    auto *kvp = message.mutable_header()->add_metadata();
     kvp->set_key("target");
     kvp->set_value(module);
   }
 
-  PB::Commands::ExecuteRequestMessage::Request *payload = message.add_payload();
+  auto *payload = message.add_payload();
   payload->set_command(command);
 
-  for (std::string s : args) payload->add_arguments(s);
+  for (const std::string &s : args) payload->add_arguments(s);
 
   message.SerializeToString(&request);
 }
 int functions::parse_simple_exec_response(const std::string &response, std::list<std::string> &result) {
   int ret = 0;
   PB::Commands::ExecuteResponseMessage message;
-  message.ParseFromString(response);
+  if (!message.ParseFromString(response)) {
+    return NSCAPI::query_return_codes::returnUNKNOWN;
+  }
 
   for (int i = 0; i < message.payload_size(); i++) {
     result.push_back(message.payload(i).message());
-    int r = gbp_to_nagios_status(message.payload(i).result());
+    const int r = gbp_to_nagios_status(message.payload(i).result());
     if (r > ret) ret = r;
   }
   return ret;
 }
 
-int functions::create_simple_exec_response(const std::string &command, NSCAPI::nagiosReturn ret, const std::string result, std::string &response) {
+int functions::create_simple_exec_response(const std::string &command, NSCAPI::nagiosReturn ret, const std::string &result, std::string &response) {
   PB::Commands::ExecuteResponseMessage message;
 
-  PB::Commands::ExecuteResponseMessage::Response *payload = message.add_payload();
+  auto *payload = message.add_payload();
   payload->set_command(command);
   payload->set_message(result);
 
@@ -379,7 +390,7 @@ int functions::create_simple_exec_response(const std::string &command, NSCAPI::n
 int functions::create_simple_exec_response_unknown(std::string command, std::string result, std::string &response) {
   PB::Commands::ExecuteResponseMessage message;
 
-  PB::Commands::ExecuteResponseMessage::Response *payload = message.add_payload();
+  auto *payload = message.add_payload();
   payload->set_command(command);
   payload->set_message(result);
 
@@ -400,72 +411,74 @@ long long get_multiplier(const std::string &unit) {
 }
 std::string functions::extract_perf_value_as_string(const PB::Common::PerformanceData &perf) {
   if (perf.has_float_value()) {
-    const PB::Common::PerformanceData::FloatValue &val = perf.float_value();
-    return str::xtos_non_sci(val.value() * get_multiplier(val.unit()));
-  } else if (perf.has_string_value()) {
-    const PB::Common::PerformanceData::StringValue &val = perf.string_value();
+    const auto &val = perf.float_value();
+    return str::xtos_non_sci(val.value() * static_cast<double>(get_multiplier(val.unit())));
+  }
+  if (perf.has_string_value()) {
+    const auto &val = perf.string_value();
     return val.value();
   }
   return "unknown";
 }
 long long functions::extract_perf_value_as_int(const PB::Common::PerformanceData &perf) {
   if (perf.has_float_value()) {
-    const PB::Common::PerformanceData::FloatValue &val = perf.float_value();
-    if (!val.unit().empty()) return static_cast<long long>(val.value() * get_multiplier(val.unit()));
+    const auto &val = perf.float_value();
+    if (!val.unit().empty()) return static_cast<long long>(val.value() * static_cast<double>(get_multiplier(val.unit())));
     return static_cast<long long>(val.value());
-  } else if (perf.has_string_value()) {
+  }
+  if (perf.has_string_value()) {
     return 0;
   }
   return 0;
 }
 std::string functions::extract_perf_maximum_as_string(const PB::Common::PerformanceData &perf) {
   if (perf.has_float_value()) {
-    const PB::Common::PerformanceData::FloatValue &val = perf.float_value();
-    if (!val.unit().empty()) return str::xtos_non_sci(val.maximum().value() * get_multiplier(val.unit()));
+    const auto &val = perf.float_value();
+    if (!val.unit().empty()) return str::xtos_non_sci(val.maximum().value() * static_cast<double>(get_multiplier(val.unit())));
     return str::xtos_non_sci(val.maximum().value());
   }
   return "unknown";
 }
 
-struct builder {
-  virtual void add(std::string alias) = 0;
-  virtual void set_value(float value) = 0;
-  virtual void set_warning(float value) = 0;
-  virtual void set_critical(float value) = 0;
-  virtual void set_minimum(float value) = 0;
-  virtual void set_maximum(float value) = 0;
-  virtual void set_unit(const std::string &value) = 0;
-
-  virtual void add_string(std::string alias, std::string value) = 0;
-};
-
-struct perf_builder : public parsers::perfdata::builder {
+struct perf_builder : parsers::perfdata::builder {
   PB::Commands::QueryResponseMessage::Response::Line *payload;
-  PB::Common::PerformanceData *lastPerf = NULL;
+  PB::Common::PerformanceData *lastPerf = nullptr;
 
   perf_builder(PB::Commands::QueryResponseMessage::Response::Line *payload) : payload(payload) {}
 
-  void add_string(std::string alias, std::string value) {
-    PB::Common::PerformanceData *perfData = payload->add_perf();
+  void add_string(std::string alias, std::string value) override {
+    auto *perfData = payload->add_perf();
     perfData->set_alias(alias);
     perfData->mutable_string_value()->set_value(value);
   }
 
-  void add(std::string alias) {
+  void add(std::string alias) override {
     lastPerf = payload->add_perf();
     lastPerf->set_alias(alias);
   }
-  void set_value(double value) { lastPerf->mutable_float_value()->set_value(value); }
-  void set_warning(double value) { lastPerf->mutable_float_value()->mutable_warning()->set_value(value); }
-  void set_critical(double value) { lastPerf->mutable_float_value()->mutable_critical()->set_value(value); }
-  void set_minimum(double value) { lastPerf->mutable_float_value()->mutable_minimum()->set_value(value); }
-  void set_maximum(double value) { lastPerf->mutable_float_value()->mutable_maximum()->set_value(value); }
-  void set_unit(const std::string &value) { lastPerf->mutable_float_value()->set_unit(value); }
-  void next() {}
+  void set_value(double value) override {
+    if (lastPerf) lastPerf->mutable_float_value()->set_value(value);
+  }
+  void set_warning(double value) override {
+    if (lastPerf) lastPerf->mutable_float_value()->mutable_warning()->set_value(value);
+  }
+  void set_critical(double value) override {
+    if (lastPerf) lastPerf->mutable_float_value()->mutable_critical()->set_value(value);
+  }
+  void set_minimum(double value) override {
+    if (lastPerf) lastPerf->mutable_float_value()->mutable_minimum()->set_value(value);
+  }
+  void set_maximum(double value) override {
+    if (lastPerf) lastPerf->mutable_float_value()->mutable_maximum()->set_value(value);
+  }
+  void set_unit(const std::string &value) override {
+    if (lastPerf) lastPerf->mutable_float_value()->set_unit(value);
+  }
+  void next() override {}
 };
 
 void functions::parse_performance_data(PB::Commands::QueryResponseMessage::Response::Line *payload, const std::string &perf) {
-  parsers::perfdata::parse(boost::shared_ptr<parsers::perfdata::builder>(new perf_builder(payload)), perf);
+  parsers::perfdata::parse(boost::make_shared<perf_builder>(payload), perf);
 }
 
 void parse_float_perf_value(std::stringstream &ss, const PB::Common::PerformanceData_FloatValue &val) {
@@ -491,65 +504,31 @@ void parse_float_perf_value(std::stringstream &ss, const PB::Common::Performance
   }
   ss << ";";
   if (val.has_maximum()) ss << str::xtos_non_sci(val.maximum().value());
-  return;
 }
-/*
-void parse_int_perf_value(std::stringstream &ss, const PB::Common::PerformanceData_IntValue &val) {
-        ss << val.value();
-        if (!val.unit().empty())
-                ss << val.unit();
-        if (!val.has_warning() && !val.has_critical() && !val.has_minimum() && !val.has_maximum()) {
-                return;
-        }
-        ss << ";";
-        if (val.has_warning())
-                ss << val.warning().value();
-        if (!val.has_critical() && !val.has_minimum() && !val.has_maximum()) {
-                return;
-        }
-        ss << ";";
-        if (val.has_critical())
-                ss << val.critical().value();
-        if (!val.has_minimum() && !val.has_maximum()) {
-                return;
-        }
-        ss << ";";
-        if (val.has_minimum())
-                ss << val.minimum().value();
-        if (!val.has_maximum()) {
-                return;
-        }
-        ss << ";";
-        if (val.has_maximum())
-                ss << val.maximum().value();
-        return;
-}
-*/
-std::string functions::build_performance_data(PB::Commands::QueryResponseMessage::Response::Line const &payload, std::size_t len) {
+
+std::string functions::build_performance_data(PB::Commands::QueryResponseMessage::Response::Line const &payload, const std::size_t max_length) {
   std::string ret;
 
   bool first = true;
   for (int i = 0; i < payload.perf_size(); i++) {
     std::stringstream ss;
     ss.precision(5);
-    PB::Common::PerformanceData perfData = payload.perf(i);
+    const auto &perfData = payload.perf(i);
     if (!first) ss << " ";
     first = false;
     ss << '\'' << perfData.alias() << "'=";
     if (perfData.has_float_value()) {
       parse_float_perf_value(ss, perfData.float_value());
-      //} else if (perfData.has_int_value()) {
-      //	parse_int_perf_value(ss, perfData.int_value());
     }
     std::string tmp = ss.str();
-    if (len == no_truncation || ret.length() + tmp.length() <= len) {
+    if (max_length == no_truncation || ret.length() + tmp.length() <= max_length) {
       ret += tmp;
     }
   }
   return ret;
 }
 
-PB::Common::ResultCode functions::nagios_status_to_gpb(int ret) {
+PB::Common::ResultCode functions::nagios_status_to_gpb(const int ret) {
   if (ret == NSCAPI::query_return_codes::returnOK) return PB::Common::ResultCode::OK;
   if (ret == NSCAPI::query_return_codes::returnWARN) return PB::Common::ResultCode::WARNING;
   if (ret == NSCAPI::query_return_codes::returnCRIT) return PB::Common::ResultCode::CRITICAL;
@@ -582,56 +561,58 @@ void functions::set_response_bad(::PB::Commands::ExecuteResponseMessage::Respons
 }
 
 PB::Common::ResultCode functions::parse_nagios(const std::string &status) {
-  std::string lcstat = boost::to_lower_copy(status);
-  if (lcstat == "o" || lcstat == "ok" || lcstat == "0") return PB::Common::ResultCode::OK;
-  if (lcstat == "w" || lcstat == "warn" || lcstat == "warning" || lcstat == "1") return PB::Common::ResultCode::WARNING;
-  if (lcstat == "c" || lcstat == "crit" || lcstat == "critical" || lcstat == "2") return PB::Common::ResultCode::CRITICAL;
+  const std::string lower_case_status = boost::to_lower_copy(status);
+  if (lower_case_status == "o" || lower_case_status == "ok" || lower_case_status == "0") return PB::Common::ResultCode::OK;
+  if (lower_case_status == "w" || lower_case_status == "warn" || lower_case_status == "warning" || lower_case_status == "1")
+    return PB::Common::ResultCode::WARNING;
+  if (lower_case_status == "c" || lower_case_status == "crit" || lower_case_status == "critical" || lower_case_status == "2")
+    return PB::Common::ResultCode::CRITICAL;
   return PB::Common::ResultCode::UNKNOWN;
 }
 
-void functions::copy_response(const std::string command, ::PB::Commands::QueryResponseMessage::Response *target,
-                              const ::PB::Commands::ExecuteResponseMessage::Response source) {
-  ::PB::Commands::QueryResponseMessage::Response::Line *line = target->add_lines();
+void functions::copy_response(const std::string &command, ::PB::Commands::QueryResponseMessage::Response *target,
+                              const ::PB::Commands::ExecuteResponseMessage::Response &source) {
+  auto *line = target->add_lines();
   line->set_message(source.message());
   target->set_command(command);
 }
-void functions::copy_response(const std::string command, ::PB::Commands::QueryResponseMessage::Response *target,
-                              const ::PB::Commands::SubmitResponseMessage::Response source) {
-  ::PB::Commands::QueryResponseMessage::Response::Line *line = target->add_lines();
+void functions::copy_response(const std::string &command, ::PB::Commands::QueryResponseMessage::Response *target,
+                              const ::PB::Commands::SubmitResponseMessage::Response &source) {
+  auto *line = target->add_lines();
   line->set_message(source.result().message());
   target->set_command(command);
   target->set_result(gbp_status_to_gbp_nagios(source.result().code()));
 }
-void functions::copy_response(const std::string command, ::PB::Commands::QueryResponseMessage::Response *target,
-                              const ::PB::Commands::QueryResponseMessage::Response source) {
+void functions::copy_response(const std::string &command, ::PB::Commands::QueryResponseMessage::Response *target,
+                              const ::PB::Commands::QueryResponseMessage::Response &source) {
   target->CopyFrom(source);
 }
-void functions::copy_response(const std::string command, ::PB::Commands::ExecuteResponseMessage::Response *target,
-                              const ::PB::Commands::ExecuteResponseMessage::Response source) {
+void functions::copy_response(const std::string &command, ::PB::Commands::ExecuteResponseMessage::Response *target,
+                              const ::PB::Commands::ExecuteResponseMessage::Response &source) {
   target->CopyFrom(source);
 }
-void functions::copy_response(const std::string command, ::PB::Commands::ExecuteResponseMessage::Response *target,
-                              const ::PB::Commands::SubmitResponseMessage::Response source) {
+void functions::copy_response(const std::string &command, ::PB::Commands::ExecuteResponseMessage::Response *target,
+                              const ::PB::Commands::SubmitResponseMessage::Response &source) {
   target->set_message(source.result().message());
   target->set_command(source.command());
   target->set_result(gbp_status_to_gbp_nagios(source.result().code()));
 }
-void functions::copy_response(const std::string command, ::PB::Commands::ExecuteResponseMessage::Response *target,
-                              const ::PB::Commands::QueryResponseMessage::Response source) {
+void functions::copy_response(const std::string &command, ::PB::Commands::ExecuteResponseMessage::Response *target,
+                              const ::PB::Commands::QueryResponseMessage::Response &source) {
   target->set_message(query_data_to_nagios_string(source, no_truncation));
   target->set_command(source.command());
   target->set_result(source.result());
 }
-void functions::copy_response(const std::string command, ::PB::Commands::SubmitResponseMessage::Response *target,
-                              const ::PB::Commands::ExecuteResponseMessage::Response source) {
+void functions::copy_response(const std::string &command, ::PB::Commands::SubmitResponseMessage::Response *target,
+                              const ::PB::Commands::ExecuteResponseMessage::Response &source) {
   target->mutable_result()->set_message(source.message());
 }
-void functions::copy_response(const std::string command, ::PB::Commands::SubmitResponseMessage::Response *target,
-                              const ::PB::Commands::SubmitResponseMessage::Response source) {
+void functions::copy_response(const std::string &command, ::PB::Commands::SubmitResponseMessage::Response *target,
+                              const ::PB::Commands::SubmitResponseMessage::Response &source) {
   target->CopyFrom(source);
 }
-void functions::copy_response(const std::string command, ::PB::Commands::SubmitResponseMessage::Response *target,
-                              const ::PB::Commands::QueryResponseMessage::Response source) {
+void functions::copy_response(const std::string &command, ::PB::Commands::SubmitResponseMessage::Response *target,
+                              const ::PB::Commands::QueryResponseMessage::Response &source) {
   target->mutable_result()->set_message(query_data_to_nagios_string(source, no_truncation));
   target->mutable_result()->set_code(gbp_to_nagios_gbp_status(source.result()));
 }

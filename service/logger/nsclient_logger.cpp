@@ -34,7 +34,6 @@
 #define DEFAULT_BACKEND CONSOLE_BACKEND
 #endif
 
-
 void nsclient::logging::impl::nsclient_logger::set_backend(const std::string backend) {
   log_driver_instance tmp;
   if (backend == CONSOLE_BACKEND) {

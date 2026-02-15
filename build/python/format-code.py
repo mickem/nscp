@@ -25,6 +25,7 @@ CODE_EXCLUDE_DIRS: Set[str] = {
     "cmake-build",
     "cmake-build-debug",
     "cmake-build-debug-wsl",
+    "cmake-build-relwithdebinfo-visual-studio",
     "cmake-build-release",
     "managed",
     "miniz",

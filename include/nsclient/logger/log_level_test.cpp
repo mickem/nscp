@@ -219,4 +219,3 @@ TEST(log_level, set_empty_returns_false) {
   nsclient::logging::log_level level;
   EXPECT_FALSE(level.set(""));
 }
-

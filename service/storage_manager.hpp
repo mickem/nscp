@@ -2,10 +2,10 @@
 
 #include <boost/thread/shared_mutex.hpp>
 #include <list>
+#include <memory>
 #include <nscapi/nscapi_protobuf_storage.hpp>
 #include <nsclient/logger/logger.hpp>
 #include <string>
-#include <memory>
 
 #include "path_manager.hpp"
 #include "plugins/plugin_interface.hpp"

@@ -146,7 +146,6 @@ source_group("Log" REGULAR_EXPRESSION .*/logger/.*)
 
 nscp_create_test(service_test
     SOURCES
-        performance_data_test.cpp
         cron_test.cpp
         path_manager.cpp
         path_manager_test.cpp

@@ -20,10 +20,10 @@
 #pragma once
 
 #include <boost/algorithm/string/case_conv.hpp>
+#include <memory>
 #include <nsclient/logger/logger.hpp>
 #include <str/xtos.hpp>
 #include <utf8.hpp>
-#include <memory>
 
 #include "plugins/plugin_interface.hpp"
 

@@ -187,4 +187,3 @@ TEST(log_message_factory, create_with_negative_line_number) {
   ASSERT_EQ(entry.entry_size(), 1);
   EXPECT_EQ(entry.entry(0).line(), -1);
 }
-

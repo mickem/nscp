@@ -21,7 +21,7 @@
 #include <nscapi/nscapi_protobuf_log.hpp>
 #include <nsclient/logger/log_message_factory.hpp>
 
-void nsclient::logging::log_message_factory::log_fatal(const std::string& message) { std::cout << message << "\n"; }
+void nsclient::logging::log_message_factory::log_fatal(const std::string &message) { std::cout << message << "\n"; }
 
 std::string create_message(const std::string &module, PB::Log::LogEntry::Entry::Level level, const char *file, const int line, const std::string &logMessage) {
   std::string str;
