@@ -4,7 +4,7 @@ set(TARGET NRPEServer)
 
 project(${TARGET})
 
-create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 set(SRCS
     ${SRCS}
@@ -20,9 +20,15 @@ add_definitions(${NSCP_GLOBAL_DEFINES})
 if(OPENSSL_FOUND)
     include_directories(${OPENSSL_INCLUDE_DIR})
     add_definitions(-DUSE_SSL)
-    set(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
+    set(EXTRA_LIBS
+        ${EXTRA_LIBS}
+        ${OPENSSL_LIBRARIES}
+    )
     if(WIN32)
-        set(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32)
+        set(EXTRA_LIBS
+            ${EXTRA_LIBS}
+            CRYPT32
+        )
     endif(WIN32)
 endif(OPENSSL_FOUND)
 
@@ -45,8 +51,8 @@ if(WIN32)
 endif(WIN32)
 
 add_library(${TARGET} MODULE ${SRCS})
-nscp_debug_symbols(${TARGET})
-openssl_link_fix(${TARGET})
+NSCP_DEBUG_SYMBOLS(${TARGET})
+OPENSSL_LINK_FIX(${TARGET})
 
 target_link_libraries(
     ${TARGET}

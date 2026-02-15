@@ -4,7 +4,7 @@ set(TARGET ElasticClient)
 
 project(${TARGET})
 
-create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 set(SRCS
     ${SRCS}
@@ -36,15 +36,21 @@ if(OPENSSL_FOUND)
     add_definitions(-DMG_ENABLE_OPENSSL=1)
     add_definitions(-DMG_DISABLE_PFS=1)
     add_definitions(-DUSE_SSL)
-    set(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
+    set(EXTRA_LIBS
+        ${EXTRA_LIBS}
+        ${OPENSSL_LIBRARIES}
+    )
     if(WIN32)
-        set(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32)
+        set(EXTRA_LIBS
+            ${EXTRA_LIBS}
+            CRYPT32
+        )
     endif(WIN32)
 endif(OPENSSL_FOUND)
 include_directories(../../libs/mongoose-cpp)
 
 add_library(${TARGET} MODULE ${SRCS})
-nscp_debug_symbols(${TARGET})
+NSCP_DEBUG_SYMBOLS(${TARGET})
 
 target_link_libraries(
     ${TARGET}

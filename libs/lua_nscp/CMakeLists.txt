@@ -31,7 +31,7 @@ if(LUA_FOUND OR LUA_SOURCE_FOUND)
     add_definitions(${NSCP_GLOBAL_DEFINES})
 
     add_library(${TARGET} STATIC ${SRCS})
-    nscp_debug_symbols(${TARGET})
+    NSCP_DEBUG_SYMBOLS(${TARGET})
 
     if(PROTOC_GEN_LUA_FOUND)
         target_link_libraries(
@@ -46,11 +46,21 @@ if(LUA_FOUND OR LUA_SOURCE_FOUND)
     endif(PROTOC_GEN_LUA_FOUND)
     add_dependencies(${TARGET} nscp_protobuf)
 
-    set_target_properties(${TARGET} PROPERTIES FOLDER "libraries")
+    set_target_properties(
+        ${TARGET}
+        PROPERTIES
+            FOLDER
+                "libraries"
+    )
 
     if(CMAKE_COMPILER_IS_GNUCXX)
         if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
-            set_target_properties(${TARGET} PROPERTIES COMPILE_FLAGS -fPIC)
+            set_target_properties(
+                ${TARGET}
+                PROPERTIES
+                    COMPILE_FLAGS
+                        -fPIC
+            )
         endif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
     endif(CMAKE_COMPILER_IS_GNUCXX)
 endif()

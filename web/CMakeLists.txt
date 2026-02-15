@@ -5,7 +5,11 @@ project(copy_web)
 file(GLOB_RECURSE resources_HTML "dist/*.html")
 file(GLOB_RECURSE resources_JS "dist/*.js")
 file(GLOB_RECURSE resources_PNG "dist/*.png")
-set(resources_ALL ${resources_HTML} ${resources_JS} ${resources_PNG})
+set(resources_ALL
+    ${resources_HTML}
+    ${resources_JS}
+    ${resources_PNG}
+)
 set(ALL_RESOURCES)
 
 foreach(file ${resources_ALL})
@@ -15,7 +19,15 @@ foreach(file ${resources_ALL})
     string(REPLACE "/" "_" alias "${relpath}")
     string(REPLACE "." "_" alias "${alias}")
     copy_single_file(ALL_RESOURCES dist/${relpath}/${filename} web/${relpath})
-endforeach(file ${resources_ALL})
+endforeach(
+    file
+    ${resources_ALL}
+)
 
 add_custom_target(copy_resources ALL DEPENDS ${ALL_RESOURCES})
-set_target_properties(copy_resources PROPERTIES FOLDER "files")
+set_target_properties(
+    copy_resources
+    PROPERTIES
+        FOLDER
+            "files"
+)

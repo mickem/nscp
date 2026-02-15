@@ -77,7 +77,7 @@ set(CMAKE_CXX_FLAGS
     "${CMAKE_CXX_FLAGS} /clr /EHa /FU${NSCP_PROJECT_BINARY_DIR}/Google.Protobuf.dll /FU${NSCP_PROJECT_BINARY_DIR}/NSCP.Core.dll /FU${NSCP_PROJECT_BINARY_DIR}/NSCP.Protobuf.dll"
 )
 add_library(${TARGET} MODULE ${SRCS})
-nscp_debug_symbols(${TARGET})
+NSCP_DEBUG_SYMBOLS(${TARGET})
 
 add_dependencies(${TARGET} NSCP.Core)
 add_dependencies(${TARGET} NSCP.Protobuf)

@@ -9,13 +9,21 @@ if(WIN32)
     set(SRCS ${NSCP_INCLUDEDIR}/win_sysinfo/win_sysinfo.cpp)
 
     if(WIN32)
-        set(SRCS ${SRCS} ${NSCP_INCLUDEDIR}/win_sysinfo/win_sysinfo.hpp)
+        set(SRCS
+            ${SRCS}
+            ${NSCP_INCLUDEDIR}/win_sysinfo/win_sysinfo.hpp
+        )
     endif(WIN32)
 
     add_definitions(${NSCP_GLOBAL_DEFINES})
 
     add_library(${TARGET} STATIC ${SRCS})
-    nscp_debug_symbols(${TARGET})
+    NSCP_DEBUG_SYMBOLS(${TARGET})
 
-    set_target_properties(${TARGET} PROPERTIES FOLDER "libraries")
+    set_target_properties(
+        ${TARGET}
+        PROPERTIES
+            FOLDER
+                "libraries"
+    )
 endif(WIN32)

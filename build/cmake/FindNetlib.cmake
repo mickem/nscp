@@ -7,7 +7,8 @@
 # (project) to add as dependency
 find_path(
     NETLIB_INCLUDE_DIR
-    NAMES boost/network.hpp
+    NAMES
+        boost/network.hpp
     PATHS
         ${CMAKE_SOURCE_DIR}/ext/cpp-netlib
         ${NETLIB_DIR}
@@ -25,4 +26,7 @@ else(NETLIB_INCLUDE_DIR)
     set(NETLIB_SERVER_LIBRARY)
     set(NETLIB_URI_LIBRARY)
 endif(NETLIB_INCLUDE_DIR)
-mark_as_advanced(NETLIB_INCLUDE_DIR NETLIB_LIBRARY)
+mark_as_advanced(
+    NETLIB_INCLUDE_DIR
+    NETLIB_LIBRARY
+)

@@ -13,20 +13,31 @@ endif(WIN32)
 file(GLOB_RECURSE scripts_PYT "python/*.py")
 file(GLOB_RECURSE scripts_LUA "lua/*.lua")
 
-set(script_ALL ${scripts_BAT} ${scripts_VBS} ${scripts_PS1} ${scripts_SH})
+set(script_ALL
+    ${scripts_BAT}
+    ${scripts_VBS}
+    ${scripts_PS1}
+    ${scripts_SH}
+)
 set(ALL_FILES)
 
 foreach(file ${script_ALL})
     get_filename_component(filename ${file} NAME)
     # MESSAGE(STATUS " + ${filename} (${file})")
     copy_single_file_755(ALL_FILES ${filename} scripts)
-endforeach(file ${script_ALL})
+endforeach(
+    file
+    ${script_ALL}
+)
 
 foreach(file ${scripts_LIB})
     get_filename_component(filename ${file} NAME)
     # MESSAGE(STATUS " + lib - ${filename}")
     copy_single_file(ALL_FILES lib/${filename} scripts/lib)
-endforeach(file ${scripts_LIB})
+endforeach(
+    file
+    ${scripts_LIB}
+)
 
 foreach(file ${scripts_PYT})
     get_filename_component(filename ${file} NAME)
@@ -40,11 +51,18 @@ foreach(file ${scripts_PYT})
 
     # MESSAGE(STATUS " + python - ${filename} - ${relpath} - ${alias}")
     if(filename MATCHES "^test_" OR ${filename} STREQUAL "docs.py")
-        copy_single_test_file(ALL_FILES ${relpath}/${filename} scripts/${relpath})
+        copy_single_test_file(
+            ALL_FILES
+            ${relpath}/${filename}
+            scripts/${relpath}
+        )
     else()
         copy_single_file(ALL_FILES ${relpath}/${filename} scripts/${relpath})
     endif()
-endforeach(file ${scripts_PYT})
+endforeach(
+    file
+    ${scripts_PYT}
+)
 
 foreach(file ${scripts_LUA})
     get_filename_component(filename ${file} NAME)
@@ -54,11 +72,23 @@ foreach(file ${scripts_LUA})
     string(REPLACE "." "_" alias "${alias}")
     # MESSAGE(STATUS " + lua - ${filename} - ${relpath} - ${alias}")
     if(filename MATCHES "^test_" OR filename STREQUAL "test_helper.lua")
-        copy_single_test_file(ALL_FILES ${relpath}/${filename} scripts/${relpath})
+        copy_single_test_file(
+            ALL_FILES
+            ${relpath}/${filename}
+            scripts/${relpath}
+        )
     else()
         copy_single_file(ALL_FILES ${relpath}/${filename} scripts/${relpath})
     endif()
-endforeach(file ${scripts_LUA})
+endforeach(
+    file
+    ${scripts_LUA}
+)
 
 add_custom_target(copy_scripts ALL DEPENDS ${ALL_FILES})
-set_target_properties(copy_scripts PROPERTIES FOLDER "files")
+set_target_properties(
+    copy_scripts
+    PROPERTIES
+        FOLDER
+            "files"
+)

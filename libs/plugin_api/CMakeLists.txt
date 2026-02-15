@@ -48,12 +48,18 @@ if(APPLE)
 endif()
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
-nscp_make_library(${TARGET} "${SRCS}")
-nscp_force_include(
-  ${TARGET} "${BUILD_ROOT_FOLDER}/include/nscapi/dll_defines_protobuf.hpp"
+NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}")
+NSCP_FORCE_INCLUDE(
+    ${TARGET}
+    "${BUILD_ROOT_FOLDER}/include/nscapi/dll_defines_protobuf.hpp"
 )
 
-set_target_properties(${TARGET} PROPERTIES FOLDER "libraries")
+set_target_properties(
+    ${TARGET}
+    PROPERTIES
+        FOLDER
+            "libraries"
+)
 target_link_libraries(
     ${TARGET}
     ${Boost_SYSTEM_LIBRARY}

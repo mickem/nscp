@@ -166,7 +166,7 @@ def format_with_gersemi(files: List[Path]) -> bool:
     for file in files:
         print(f"  {file}")
         try:
-            subprocess.run(["gersemi", "-i", str(file)], check=True)
+            subprocess.run(["gersemi", "--definitions", "build/cmake", "-i", str(file)], check=True)
         except subprocess.CalledProcessError as e:
             print(f"Error: gersemi failed on {file}: {e}", file=sys.stderr)
             success = False

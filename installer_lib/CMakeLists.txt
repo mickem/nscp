@@ -22,7 +22,12 @@ if(WIN32)
 endif()
 set(Boost_USE_STATIC_LIBS ON)
 set(Boost_USE_STATIC_RUNTIME ON)
-find_package(Boost COMPONENTS system filesystem)
+find_package(
+    Boost
+    COMPONENTS
+        system
+        filesystem
+)
 if(Boost_FOUND)
     message(
         STATUS
@@ -46,7 +51,11 @@ include_directories(${NSCP_INCLUDEDIR})
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${PROJECT_BINARY_DIR}/include)
 include(${BUILD_CMAKE_FOLDER}/functions.cmake)
-add_definitions(-DUNICODE -D_UNICODE -DBOOST_ALL_NO_LIB)
+add_definitions(
+    -DUNICODE
+    -D_UNICODE
+    -DBOOST_ALL_NO_LIB
+)
 
 # ##############################################################################
 #
@@ -225,7 +234,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 add_library(${TARGET} SHARED ${SRCS})
 
 if(WIN32 AND NOT CMAKE_CL_64)
-    openssl_link_fix(${TARGET})
+    OPENSSL_LINK_FIX(${TARGET})
 endif(WIN32 AND NOT CMAKE_CL_64)
 
 target_link_libraries(

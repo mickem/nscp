@@ -4,7 +4,7 @@ set(TARGET CheckMKServer)
 
 project(${TARGET})
 
-create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 set(SRCS
     ${SRCS}
@@ -21,9 +21,15 @@ include_directories(${LUA_INCLUDE_DIR})
 if(OPENSSL_FOUND)
     include_directories(${OPENSSL_INCLUDE_DIR})
     add_definitions(-DUSE_SSL)
-    set(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
+    set(EXTRA_LIBS
+        ${EXTRA_LIBS}
+        ${OPENSSL_LIBRARIES}
+    )
     if(WIN32)
-        set(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32)
+        set(EXTRA_LIBS
+            ${EXTRA_LIBS}
+            CRYPT32
+        )
     endif(WIN32)
 endif(OPENSSL_FOUND)
 
@@ -43,8 +49,8 @@ if(WIN32)
 endif(WIN32)
 
 add_library(${TARGET} MODULE ${SRCS})
-nscp_debug_symbols(${TARGET})
-openssl_link_fix(${TARGET})
+NSCP_DEBUG_SYMBOLS(${TARGET})
+OPENSSL_LINK_FIX(${TARGET})
 
 set(LUA_PB)
 if(PROTOC_GEN_LUA_FOUND)

@@ -62,9 +62,15 @@ function(WRAP_PROTO VAR)
             ARGS
             --cpp_out=dllexport_decl=NSCAPI_PROTOBUF_EXPORT:${CMAKE_CURRENT_BINARY_DIR}
         )
-        list(APPEND ARGS --python_out ${PROJECT_BINARY_DIR}/scripts/python/lib)
+        list(
+            APPEND
+            ARGS
+            --python_out
+            ${PROJECT_BINARY_DIR}/scripts/python/lib
+        )
         install(
-            FILES ${PROJECT_BINARY_DIR}/scripts/python/lib/${FIL_WE}_pb2.py
+            FILES
+                ${PROJECT_BINARY_DIR}/scripts/python/lib/${FIL_WE}_pb2.py
             DESTINATION ${INSTALL_FILES_BASE}scripts/python/lib/
         )
         if(CSHARP_FOUND AND WIN32)
@@ -139,10 +145,14 @@ function(WRAP_PROTO VAR)
                     ${${VAR}_JSON_H}
                     ${${VAR}_CS}
                     ${PROJECT_BINARY_DIR}/scripts/python/lib/${FIL_WE}_pb2.py
-                COMMAND SET PYTHON=${Python3_EXECUTABLE}
-                COMMAND ${PROTOBUF_PROTOC_EXECUTABLE}
-                ARGS ${ARGS} --proto_path ${CMAKE_CURRENT_SOURCE_DIR} ${ABS_FIL}
-                DEPENDS ${ABS_FIL}
+                COMMAND
+                    SET PYTHON=${Python3_EXECUTABLE}
+                COMMAND
+                    ${PROTOBUF_PROTOC_EXECUTABLE}
+                ARGS
+                    ${ARGS} --proto_path ${CMAKE_CURRENT_SOURCE_DIR} ${ABS_FIL}
+                DEPENDS
+                    ${ABS_FIL}
                 COMMENT "Running protocol buffer compiler on ${FIL} (PY)"
                 VERBATIM
             )
@@ -156,9 +166,12 @@ function(WRAP_PROTO VAR)
                     ${${VAR}_JSON_C}
                     ${${VAR}_JSON_H}
                     ${PROJECT_BINARY_DIR}/scripts/python/lib/${FIL_WE}_pb2.py
-                COMMAND ${PROTOBUF_PROTOC_EXECUTABLE}
-                ARGS ${ARGS} --proto_path ${CMAKE_CURRENT_SOURCE_DIR} ${ABS_FIL}
-                DEPENDS ${ABS_FIL}
+                COMMAND
+                    ${PROTOBUF_PROTOC_EXECUTABLE}
+                ARGS
+                    ${ARGS} --proto_path ${CMAKE_CURRENT_SOURCE_DIR} ${ABS_FIL}
+                DEPENDS
+                    ${ABS_FIL}
                 COMMENT
                     "Running protocol buffer compiler on ${FIL} - ${PROTOBUF_PROTOC_EXECUTABLE}"
                 VERBATIM
@@ -173,7 +186,9 @@ function(WRAP_PROTO VAR)
             ${${VAR}_JSON_C}
             ${${VAR}_JSON_H}
             ${${VAR}_CS}
-            PROPERTIES GENERATED TRUE
+            PROPERTIES
+                GENERATED
+                    TRUE
         )
     endforeach(FIL)
 

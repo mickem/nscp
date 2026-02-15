@@ -171,8 +171,10 @@ else(UNIX)
     )
     find_program(
         csharp_mono_compiler # variable is added to the cache, we removed it below
-        NAMES ${chsarp_mono_names}
-        PATHS ${csharp_mono_paths}
+        NAMES
+            ${chsarp_mono_names}
+        PATHS
+            ${csharp_mono_paths}
     )
 
     if(EXISTS ${csharp_mono_compiler})
@@ -180,12 +182,15 @@ else(UNIX)
         find_program(
             csharp_mono_interpreter # variable is added to the cache, we removed it
             # below
-            NAMES mono
-            PATHS ${csharp_mono_paths}
+            NAMES
+                mono
+            PATHS
+                ${csharp_mono_paths}
         )
         if(EXISTS ${csharp_mono_interpreter})
             execute_process(
-                COMMAND ${csharp_mono_interpreter} -V
+                COMMAND
+                    ${csharp_mono_interpreter} -V
                 OUTPUT_VARIABLE csharp_mono_version_string
             )
             string(

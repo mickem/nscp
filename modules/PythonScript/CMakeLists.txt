@@ -4,7 +4,7 @@ set(TARGET PythonScript)
 
 project(${TARGET})
 
-create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 set(SRCS
     ${SRCS}
@@ -17,7 +17,10 @@ set(SRCS
     ${NSCP_DEF_PLUGIN_CPP}
 )
 
-add_definitions(${NSCP_GLOBAL_DEFINES} -DBOOST_PYTHON_STATIC_LIB)
+add_definitions(
+    ${NSCP_GLOBAL_DEFINES}
+    -DBOOST_PYTHON_STATIC_LIB
+)
 
 if(WIN32)
     set(SRCS
@@ -32,19 +35,31 @@ if(WIN32)
     )
 else()
     if(NSCP_BOOST_PYTHON_VERSION STREQUAL "python313")
-        add_definitions(${NSCP_GLOBAL_DEFINES} -DDEFAULT_PYTHON_LIB="libpython3.13.so")
+        add_definitions(
+            ${NSCP_GLOBAL_DEFINES}
+            -DDEFAULT_PYTHON_LIB="libpython3.13.so"
+        )
     elseif(NSCP_BOOST_PYTHON_VERSION STREQUAL "python312")
-        add_definitions(${NSCP_GLOBAL_DEFINES} -DDEFAULT_PYTHON_LIB="libpython3.12.so")
+        add_definitions(
+            ${NSCP_GLOBAL_DEFINES}
+            -DDEFAULT_PYTHON_LIB="libpython3.12.so"
+        )
     elseif(NSCP_BOOST_PYTHON_VERSION STREQUAL "python311")
-        add_definitions(${NSCP_GLOBAL_DEFINES} -DDEFAULT_PYTHON_LIB="libpython3.11.so")
+        add_definitions(
+            ${NSCP_GLOBAL_DEFINES}
+            -DDEFAULT_PYTHON_LIB="libpython3.11.so"
+        )
     else()
-        message(FATAL_ERROR "Unknown python version: ${NSCP_BOOST_PYTHON_VERSION}")
+        message(
+            FATAL_ERROR
+            "Unknown python version: ${NSCP_BOOST_PYTHON_VERSION}"
+        )
     endif()
 endif()
 include_directories(${Python3_INCLUDE_DIRS})
 
 add_library(${TARGET} MODULE ${SRCS})
-nscp_debug_symbols(${TARGET})
+NSCP_DEBUG_SYMBOLS(${TARGET})
 
 if(WIN32)
     set(BOOST_PYTHON_LIBRARY ${Boost_PYTHON311_LIBRARY})
@@ -62,6 +77,5 @@ target_link_libraries(
     ${NSCP_DEF_PLUGIN_LIB}
     ${Python3_LIBRARIES}
 )
-
 
 include(${BUILD_CMAKE_FOLDER}/module.cmake)

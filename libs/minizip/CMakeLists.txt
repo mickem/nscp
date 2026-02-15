@@ -17,4 +17,9 @@ set(miniz_SOURCE
 
 add_library(${TARGET} STATIC ${miniz_SOURCE})
 
-set_target_properties(${TARGET} PROPERTIES FOLDER "core")
+set_target_properties(
+    ${TARGET}
+    PROPERTIES
+        FOLDER
+            "core"
+)

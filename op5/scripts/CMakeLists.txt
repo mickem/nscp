@@ -23,7 +23,10 @@ set(ALL_FILES)
 foreach(file ${script_op5_ALL})
     get_filename_component(filename ${file} NAME)
     copy_single_file_755(ALL_FILES ${filename} scripts/op5)
-endforeach(file ${script_op5_ALL})
+endforeach(
+    file
+    ${script_op5_ALL}
+)
 
 foreach(file ${scripts_op5_PYT})
     get_filename_component(filename ${file} NAME)
@@ -32,7 +35,10 @@ foreach(file ${scripts_op5_PYT})
     string(REPLACE "/" "_" alias "${relpath}")
     string(REPLACE "." "_" alias "${alias}")
     copy_single_file(ALL_FILES ${relpath}/${filename} scripts/op5/${relpath})
-endforeach(file ${scripts_op5_PYT})
+endforeach(
+    file
+    ${scripts_op5_PYT}
+)
 
 foreach(file ${scripts_op5_LUA})
     get_filename_component(filename ${file} NAME)
@@ -41,7 +47,15 @@ foreach(file ${scripts_op5_LUA})
     string(REPLACE "/" "_" alias "${relpath}")
     string(REPLACE "." "_" alias "${alias}")
     copy_single_file(ALL_FILES ${relpath}/${filename} scripts/op5/${relpath})
-endforeach(file ${scripts_op5_LUA})
+endforeach(
+    file
+    ${scripts_op5_LUA}
+)
 
 add_custom_target(copy_op5_scripts ALL DEPENDS ${ALL_FILES})
-set_target_properties(copy_op5_scripts PROPERTIES FOLDER "files")
+set_target_properties(
+    copy_op5_scripts
+    PROPERTIES
+        FOLDER
+            "files"
+)

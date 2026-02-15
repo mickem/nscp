@@ -4,6 +4,6 @@ set(TARGET icinga-client)
 
 project(${TARGET})
 
-create_zip_module(${TARGET} ${CMAKE_CURRENT_SOURCE_DIR})
+CREATE_ZIP_MODULE(${TARGET} ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_custom_target(${TARGET} ALL DEPENDS ${BUILD_TARGET_LIB_PATH}/${TARGET}.zip)

@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.10)
 
-wrap_proto(PROTO_PLUGIN_SRC plugin.proto)
-wrap_proto(COMMON_PLUGIN_SRC common.proto)
-wrap_proto(METRICS_PLUGIN_SRC metrics.proto)
-wrap_proto(LOG_PLUGIN_SRC log.proto)
-wrap_proto(REGISTRY_PLUGIN_SRC registry.proto)
-wrap_proto(SETTINGS_PLUGIN_SRC settings.proto)
-wrap_proto(STORAGE_PLUGIN_SRC storage.proto)
+WRAP_PROTO(PROTO_PLUGIN_SRC plugin.proto)
+WRAP_PROTO(COMMON_PLUGIN_SRC common.proto)
+WRAP_PROTO(METRICS_PLUGIN_SRC metrics.proto)
+WRAP_PROTO(LOG_PLUGIN_SRC log.proto)
+WRAP_PROTO(REGISTRY_PLUGIN_SRC registry.proto)
+WRAP_PROTO(SETTINGS_PLUGIN_SRC settings.proto)
+WRAP_PROTO(STORAGE_PLUGIN_SRC storage.proto)
 
 set(TARGET nscp_protobuf)
 
@@ -38,9 +38,10 @@ if(WIN32)
         ${STORAGE_PLUGIN_SRC_H}
     )
 endif(WIN32)
-nscp_make_library(${TARGET} "${SRCS}")
-nscp_force_include(${TARGET}
-                   ${BUILD_ROOT_FOLDER}/include/nscapi/dll_defines_protobuf.hpp
+NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}")
+NSCP_FORCE_INCLUDE(
+    ${TARGET}
+    ${BUILD_ROOT_FOLDER}/include/nscapi/dll_defines_protobuf.hpp
 )
 
 target_link_libraries(${TARGET} ${PROTOBUF_LIBRARY})
@@ -96,9 +97,10 @@ if(PROTOC_GEN_LUA_FOUND AND (LUA_FOUND OR LUA_SOURCE_FOUND))
     else(USE_STATIC_RUNTIME)
         add_definitions(-Dlua_protobuf_EXPORTS)
     endif(USE_STATIC_RUNTIME)
-    nscp_make_library(${TARGET} "${SRCS}")
-    nscp_force_include(
-            ${TARGET} ${BUILD_ROOT_FOLDER}/include/nscapi/dll_defines_protobuf.hpp
+    NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}")
+    NSCP_FORCE_INCLUDE(
+        ${TARGET}
+        ${BUILD_ROOT_FOLDER}/include/nscapi/dll_defines_protobuf.hpp
     )
 
     target_link_libraries(

@@ -18,9 +18,15 @@ set(SRCS
 add_definitions(${NSCP_GLOBAL_DEFINES})
 if(OPENSSL_FOUND)
     add_definitions(-DUSE_SSL)
-    set(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
+    set(EXTRA_LIBS
+        ${EXTRA_LIBS}
+        ${OPENSSL_LIBRARIES}
+    )
     if(WIN32)
-        set(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32)
+        set(EXTRA_LIBS
+            ${EXTRA_LIBS}
+            CRYPT32
+        )
     endif(WIN32)
     include_directories(${OPENSSL_INCLUDE_DIR})
 endif(OPENSSL_FOUND)
@@ -46,9 +52,9 @@ endif(WIN32)
 include_directories(${BOOST_INCLUDE_DIRS})
 link_directories(${BOOST_LIB_DIRS})
 
-nscp_make_exe_bin(${TARGET} "${SRCS}")
+NSCP_MAKE_EXE_BIN(${TARGET} "${SRCS}")
 if(WIN32 AND NOT CMAKE_CL_64)
-    openssl_link_fix(${TARGET})
+    OPENSSL_LINK_FIX(${TARGET})
 endif(WIN32 AND NOT CMAKE_CL_64)
 
 target_link_libraries(
@@ -59,7 +65,12 @@ target_link_libraries(
     ${NSCP_DEF_PLUGIN_LIB}
     ${EXTRA_LIBS}
 )
-set_target_properties(${TARGET} PROPERTIES FOLDER "clients")
+set_target_properties(
+    ${TARGET}
+    PROPERTIES
+        FOLDER
+            "clients"
+)
 
 source_group("Client" REGULAR_EXPRESSION .*include/socket/clients/http/.*)
 source_group("Socket" REGULAR_EXPRESSION .*include/socket/.*)

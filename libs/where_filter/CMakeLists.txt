@@ -50,7 +50,7 @@ if(APPLE)
     set(EXTRA_LIBS ${ICONV_LIBRARIES})
 endif()
 
-nscp_make_library(${TARGET} "${SRCS}")
+NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}")
 
 target_link_libraries(
     ${TARGET}

@@ -39,18 +39,34 @@ endif(WIN32)
 add_definitions(${NSCP_GLOBAL_DEFINES})
 if(OPENSSL_FOUND)
     add_definitions(-DUSE_SSL)
-    set(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
+    set(EXTRA_LIBS
+        ${EXTRA_LIBS}
+        ${OPENSSL_LIBRARIES}
+    )
     if(WIN32)
-        set(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32)
+        set(EXTRA_LIBS
+            ${EXTRA_LIBS}
+            CRYPT32
+        )
     endif(WIN32)
     include_directories(${OPENSSL_INCLUDE_DIR})
 endif(OPENSSL_FOUND)
 
 add_library(${TARGET} STATIC ${service_SRCS})
 
-target_link_libraries(${TARGET} ${EXTRA_LIBS} nscp_protobuf ${Boost_THREAD_LIBRARY})
+target_link_libraries(
+    ${TARGET}
+    ${EXTRA_LIBS}
+    nscp_protobuf
+    ${Boost_THREAD_LIBRARY}
+)
 
-set_target_properties(${TARGET} PROPERTIES FOLDER "core")
+set_target_properties(
+    ${TARGET}
+    PROPERTIES
+        FOLDER
+            "core"
+)
 
 source_group("Common Files" REGULAR_EXPRESSION .*include/.*)
 source_group("Settings" REGULAR_EXPRESSION .*include/settings/.*)

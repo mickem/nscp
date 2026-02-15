@@ -22,7 +22,10 @@ set(SRCS
 if(USE_STATIC_RUNTIME)
     set(RUNTIME "static")
 else(USE_STATIC_RUNTIME)
-    set(SRCS ${SRCS} RUNTIME_DLL.wxs)
+    set(SRCS
+        ${SRCS}
+        RUNTIME_DLL.wxs
+    )
     set(RUNTIME "dynamic")
 endif(USE_STATIC_RUNTIME)
 
@@ -40,7 +43,7 @@ if(CMAKE_CL_64)
     set(ARCH x64)
 endif(CMAKE_CL_64)
 
-wix_find_merge_module(CRT_MERGE_MODULE "Microsoft_VC143_CRT")
+WIX_FIND_MERGE_MODULE(CRT_MERGE_MODULE "Microsoft_VC143_CRT")
 message(STATUS "CRT_MERGE_MODULE: ${CRT_MERGE_MODULE}")
 if(NOT CRT_MERGE_MODULE)
     message(WARNING "CRT_MERGE_MODULE not found: ${CRT_MERGE_MODULE}")
@@ -89,7 +92,7 @@ source_group(Generated FILES ${SRCS})
 # set_source_files_properties(${WIXOBJ_LIST} ${WIX_DEST} PROPERTIES GENERATED 1)
 
 source_group(Sources FILES ${SRCS})
-add_wix_installer(${ALIAS} "${SRCS}" "${DEPENDENCIES}" "${LOCALIZATIONS}")
+ADD_WIX_INSTALLER(${ALIAS} "${SRCS}" "${DEPENDENCIES}" "${LOCALIZATIONS}")
 add_dependencies(
     ${TARGET}
     ${MAIN_NSCP_TARGET}
@@ -106,5 +109,15 @@ add_dependencies(
     copy_op5_scripts
 )
 
-set_target_properties(${TARGET} PROPERTIES EXCLUDE_FROM_ALL true)
-set_target_properties(${TARGET} PROPERTIES FOLDER "installers")
+set_target_properties(
+    ${TARGET}
+    PROPERTIES
+        EXCLUDE_FROM_ALL
+            true
+)
+set_target_properties(
+    ${TARGET}
+    PROPERTIES
+        FOLDER
+            "installers"
+)
