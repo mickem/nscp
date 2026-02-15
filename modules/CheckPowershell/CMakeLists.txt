@@ -4,7 +4,7 @@ set(TARGET CheckPowershell)
 
 project(${TARGET})
 
-create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 set(SRCS
     ${SRCS}
@@ -77,7 +77,7 @@ set(CMAKE_CXX_FLAGS
     "${CMAKE_CXX_FLAGS} /clr /EHa /FU${NSCP_PROJECT_BINARY_DIR}/Google.Protobuf.dll /FU${NSCP_PROJECT_BINARY_DIR}/NSCP.Core.dll /FU${NSCP_PROJECT_BINARY_DIR}/NSCP.Protobuf.dll"
 )
 add_library(${TARGET} MODULE ${SRCS})
-nscp_debug_symbols(${TARGET})
+NSCP_DEBUG_SYMBOLS(${TARGET})
 
 add_dependencies(${TARGET} NSCP.Core)
 add_dependencies(${TARGET} NSCP.Protobuf)

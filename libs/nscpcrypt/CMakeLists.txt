@@ -17,7 +17,12 @@ if(MSVC)
 endif(MSVC)
 
 add_library(nscpcrypt STATIC ${cryptopp_SOURCES})
-set_target_properties(nscpcrypt PROPERTIES FOLDER "libraries")
+set_target_properties(
+    nscpcrypt
+    PROPERTIES
+        FOLDER
+            "libraries"
+)
 
 if(CRYPTOPP_FOUND)
     target_link_libraries(nscpcrypt ${CRYPTOPP_LIBRARIES})
@@ -29,6 +34,11 @@ endif(WIN32)
 
 if(CMAKE_COMPILER_IS_GNUCXX)
     if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
-        set_target_properties(nscpcrypt PROPERTIES COMPILE_FLAGS -fPIC)
+        set_target_properties(
+            nscpcrypt
+            PROPERTIES
+                COMPILE_FLAGS
+                    -fPIC
+        )
     endif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
 endif(CMAKE_COMPILER_IS_GNUCXX)

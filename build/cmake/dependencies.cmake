@@ -6,7 +6,12 @@ cmake_minimum_required(VERSION 3.10)
 #
 # ##############################################################################
 message(STATUS "Looking for dependencies:")
-find_package(Python3 COMPONENTS Interpreter Development)
+find_package(
+    Python3
+    COMPONENTS
+        Interpreter
+        Development
+)
 find_package(TinyXML2)
 find_package(CryptoPP)
 find_package(Lua)

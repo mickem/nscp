@@ -10,6 +10,7 @@ namespace parsers {
 namespace perfdata {
 
 struct builder {
+  virtual ~builder() = default;
   virtual void add(std::string alias) = 0;
   virtual void set_value(double value) = 0;
   virtual void set_warning(double value) = 0;

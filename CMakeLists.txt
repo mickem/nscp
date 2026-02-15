@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(NSCP CXX C)
+project(
+    NSCP
+    CXX
+    C
+)
 
 enable_testing()
 if(COMMAND CMAKE_POLICY)
@@ -59,14 +63,22 @@ else(NSCP_CMAKE_CONFIG)
         "NO build configuration found, see NSCP_CMAKE_CONFIG=${NSCP_CMAKE_CONFIG}"
     )
 endif(NSCP_CMAKE_CONFIG)
-set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+set_property(
+    GLOBAL
+    PROPERTY
+        USE_FOLDERS
+            ON
+)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/build/cmake;${CMAKE_MODULE_PATH}")
 set(MODULE_SUBFOLDER "modules")
 
 if(WIN32)
     set(CMAKE_INSTALL_PREFIX ${PROJECT_BINARY_DIR})
     include(CheckIncludeFileCXX)
-    check_include_file_cxx(atlbase.h FOUND_ATL)
+    check_include_file_cxx(
+        atlbase.h
+        FOUND_ATL
+    )
     if(FOUND_ATL)
         set(VSTUDIO_EXPRESS OFF)
     else(FOUND_ATL)
@@ -107,10 +119,16 @@ set(BIN_TARGET_FOLDER usr/bin)
 set(LOG_TARGET_FOLDER var/log)
 set(ETC_TARGET_FOLDER etc)
 
-set(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DBOOST_PHOENIX_STL_TUPLE_H_)
+set(NSCP_GLOBAL_DEFINES
+    ${NSCP_GLOBAL_DEFINES}
+    -DBOOST_PHOENIX_STL_TUPLE_H_
+)
 if(WIN32)
     # On Windows we build boost with layout=system
-    add_definitions(-DBOOST_AUTO_LINK_SYSTEM -DBOOST_ALL_NO_LIB)
+    add_definitions(
+        -DBOOST_AUTO_LINK_SYSTEM
+        -DBOOST_ALL_NO_LIB
+    )
 
     install(FILES "${PROJECT_BINARY_DIR}/_ctypes.pyd" DESTINATION .)
     install(FILES "${PROJECT_BINARY_DIR}/_socket.pyd" DESTINATION .)
@@ -245,7 +263,7 @@ if(WIN32)
     message(STATUS "Copying redist libraries to target")
     message(STATUS " + ${_NAME}")
 
-    copy_file(${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME} ${PROJECT_BINARY_DIR})
+    COPY_FILE(${Python3_RUNTIME_LIBRARY_DIRS}/${_NAME} ${PROJECT_BINARY_DIR})
     install(FILES "${PROJECT_BINARY_DIR}/${_NAME}" DESTINATION .)
 endif()
 
@@ -255,9 +273,13 @@ if(NOT CHECK_NSCLIENT_MISSING)
     else()
         set(CHECK_NSCLIENT_FILENAME "check_nsclient")
     endif()
-    copy_file(${CHECK_NSCLIENT_LOCATION}/${CHECK_NSCLIENT_FILENAME} ${PROJECT_BINARY_DIR})
+    COPY_FILE(
+        ${CHECK_NSCLIENT_LOCATION}/${CHECK_NSCLIENT_FILENAME}
+        ${PROJECT_BINARY_DIR}
+    )
     install(
-        FILES "${CHECK_NSCLIENT_LOCATION}/${CHECK_NSCLIENT_FILENAME}"
+        FILES
+            "${CHECK_NSCLIENT_LOCATION}/${CHECK_NSCLIENT_FILENAME}"
         DESTINATION ${BIN_TARGET_FOLDER}
     )
 endif()
@@ -269,7 +291,7 @@ else(USE_STATIC_RUNTIME)
         foreach(LIB ${REDIST_LIST})
             get_filename_component(_NAME ${LIB} NAME)
             message(STATUS " +  ${_NAME}")
-            copy_file(${LIB} ${PROJECT_BINARY_DIR})
+            COPY_FILE(${LIB} ${PROJECT_BINARY_DIR})
             install(FILES "${LIB}" DESTINATION .)
         endforeach()
         set(LIBS
@@ -297,7 +319,10 @@ else(USE_STATIC_RUNTIME)
                     NAME
                 )
                 message(STATUS " + ${_NAME} - ${LIB}")
-                copy_file(${Boost_${LIB}_LIBRARY_RELEASE_DLL} ${PROJECT_BINARY_DIR})
+                COPY_FILE(
+                    ${Boost_${LIB}_LIBRARY_RELEASE_DLL}
+                    ${PROJECT_BINARY_DIR}
+                )
                 string(
                     REPLACE
                     ".lib"
@@ -309,13 +334,17 @@ else(USE_STATIC_RUNTIME)
                 install(FILES ${Boost_${LIB}_LIBRARY_RELEASE_DLL} DESTINATION .)
             endif()
         endforeach()
-        set(LIBS LIB_EAY SSL_EAY PROTOBUF_LIBRARY)
+        set(LIBS
+            LIB_EAY
+            SSL_EAY
+            PROTOBUF_LIBRARY
+        )
         foreach(LIB ${LIBS})
             string(REPLACE ".lib" ".dll" ${LIB}_RELEASE_DLL "${${LIB}_RELEASE}")
             if(EXISTS "${${LIB}_RELEASE_DLL}")
                 get_filename_component(_NAME "${${LIB}_RELEASE_DLL}" NAME)
                 message(STATUS " + ${_NAME}")
-                copy_file("${${LIB}_RELEASE_DLL}" ${PROJECT_BINARY_DIR})
+                COPY_FILE("${${LIB}_RELEASE_DLL}" ${PROJECT_BINARY_DIR})
                 install(FILES "${${LIB}_RELEASE_DLL}" DESTINATION .)
             else()
                 get_filename_component(_PATH "${${LIB}_RELEASE_DLL}" DIRECTORY)
@@ -324,7 +353,7 @@ else(USE_STATIC_RUNTIME)
                 foreach(FILE ${FILES})
                     get_filename_component(_NAME "${FILE}" NAME)
                     message(STATUS " + ${_NAME}")
-                    copy_file("${FILE}" ${PROJECT_BINARY_DIR})
+                    COPY_FILE("${FILE}" ${PROJECT_BINARY_DIR})
                     install(FILES "${FILE}" DESTINATION .)
                 endforeach()
             endif()
@@ -457,12 +486,15 @@ endif(WIN32)
 #
 # ##############################################################################
 set(NSCP_INCLUDEDIR ${CMAKE_SOURCE_DIR}/include)
-include_directories(${NSCP_INCLUDEDIR} ${CMAKE_CURRENT_BINARY_DIR}/libs)
+include_directories(
+    ${NSCP_INCLUDEDIR}
+    ${CMAKE_CURRENT_BINARY_DIR}/libs
+)
 set(CMAKE_LIBRARY_PATH
     "${CMAKE_LIBRARY_PATH};${OPENSSL_LIBRARY_DIR};${NSCP_LIBRARYDIR};${BOOST_LIBRARYDIR}"
 )
 
-set_multithread()
+SET_MULTITHREAD()
 
 if(MSVC)
     # Force to always compile with W4
@@ -505,7 +537,10 @@ endif(NOT SHARED_LIBS)
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories("${PROTOBUF_INCLUDE_DIR}")
 include_directories("${PROJECT_BINARY_DIR}")
-add_definitions(-DUNICODE -D_UNICODE)
+add_definitions(
+    -DUNICODE
+    -D_UNICODE
+)
 
 if(WIN32)
     set(RUNDIR "c:/nscp" CACHE PATH "Not really used in WIN32")
@@ -540,7 +575,11 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     endif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
 endif(CMAKE_COMPILER_IS_GNUCXX)
 
-set(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DUNICODE -D_UNICODE)
+set(NSCP_GLOBAL_DEFINES
+    ${NSCP_GLOBAL_DEFINES}
+    -DUNICODE
+    -D_UNICODE
+)
 if(WIN32)
     set(NSCP_GLOBAL_DEFINES
         "${NSCP_GLOBAL_DEFINES} -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0501 -DWINVER=0x0501"
@@ -548,7 +587,11 @@ if(WIN32)
 endif(WIN32)
 
 if(WIN32)
-    set(EXTRA_LIBS ${EXTRA_LIBS} Userenv ole32)
+    set(EXTRA_LIBS
+        ${EXTRA_LIBS}
+        Userenv
+        ole32
+    )
 endif(WIN32)
 
 if(CMAKE_HOST_UNIX)
@@ -559,10 +602,16 @@ if(CMAKE_HOST_UNIX)
         FORCE
     )
     if(UNIX_FLAVOUR STREQUAL LINUX)
-        set(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DLINUX)
+        set(NSCP_GLOBAL_DEFINES
+            ${NSCP_GLOBAL_DEFINES}
+            -DLINUX
+        )
     endif(UNIX_FLAVOUR STREQUAL LINUX)
 
-    set(EXTRA_LIBS ${EXTRA_LIBS} ${CMAKE_DL_LIBS})
+    set(EXTRA_LIBS
+        ${EXTRA_LIBS}
+        ${CMAKE_DL_LIBS}
+    )
 endif()
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -668,7 +717,11 @@ if(WIN32)
 else()
     set(INSTALL_FILES_BASE "usr/lib/nsclient/")
 
-    set(CONFIG_DEFAULT_CONFIG_FOLDER "/etc/nsclient" CACHE STRING "Base location for ini files")
+    set(CONFIG_DEFAULT_CONFIG_FOLDER
+        "/etc/nsclient"
+        CACHE STRING
+        "Base location for ini files"
+    )
 
     set(CONFIG_BOOT_CONF_LOCATION "${CONFIG_DEFAULT_CONFIG_FOLDER}/boot.ini")
     set(CONFIG_DEFAULT_CONF_LOCATION
@@ -773,7 +826,12 @@ if(CRYPTOPP_CMAKE)
     set(CRYPTOPP_BUILD_TESTS FALSE)
     set(CRYPTOPP_LIBRARY_TYPE "STATIC")
     add_subdirectory(${CRYPTOPP_CMAKE})
-    set_target_properties(cryptlib PROPERTIES FOLDER "libraries")
+    set_target_properties(
+        cryptlib
+        PROPERTIES
+            FOLDER
+                "libraries"
+    )
 endif(CRYPTOPP_CMAKE)
 
 include(FetchContent)
@@ -804,16 +862,27 @@ if(NETLIB_FOUND)
         set(BUILD_SHARED_LIBS ${OLD_BUILD_SHARED_LIBS})
         set_target_properties(
             cppnetlib-client-connections
-            PROPERTIES FOLDER "libraries"
+            PROPERTIES
+                FOLDER
+                    "libraries"
         )
         set_target_properties(
             cppnetlib-server-parsers
-            PROPERTIES FOLDER "libraries"
+            PROPERTIES
+                FOLDER
+                    "libraries"
         )
-        set_target_properties(cppnetlib-uri PROPERTIES FOLDER "libraries")
+        set_target_properties(
+            cppnetlib-uri
+            PROPERTIES
+                FOLDER
+                    "libraries"
+        )
         set_target_properties(
             cppnetlib-client-connections
-            PROPERTIES COMPILE_DEFINITIONS "BOOST_ALL_NO_LIB"
+            PROPERTIES
+                COMPILE_DEFINITIONS
+                    "BOOST_ALL_NO_LIB"
         )
     endif()
 endif()
@@ -829,8 +898,12 @@ foreach(CURRENT_LIB ${ALL_LIB_PROJECTS})
     get_filename_component(CURRENT_LIB_PATH ${CURRENT_LIB} PATH)
     get_filename_component(CURRENT_LIB_NAME ${CURRENT_LIB_PATH} NAME)
     if(
-        CURRENT_LIB_NAME STREQUAL "protobuf_net"
-        OR CURRENT_LIB_NAME STREQUAL "dotnet-plugin-api"
+        CURRENT_LIB_NAME
+            STREQUAL
+            "protobuf_net"
+        OR CURRENT_LIB_NAME
+            STREQUAL
+            "dotnet-plugin-api"
     )
         message(
             STATUS
@@ -840,8 +913,14 @@ foreach(CURRENT_LIB ${ALL_LIB_PROJECTS})
     endif()
     message(STATUS " + Library: ${CURRENT_LIB_PATH} (${CURRENT_LIB_NAME})")
     add_subdirectory("${CURRENT_LIB_PATH}")
-    set(ALL_LIB_NAMES ${ALL_LIB_NAMES} ${CURRENT_LIB_NAME})
-endforeach(CURRENT_LIB ${ALL_LIB_PROJECTS})
+    set(ALL_LIB_NAMES
+        ${ALL_LIB_NAMES}
+        ${CURRENT_LIB_NAME}
+    )
+endforeach(
+    CURRENT_LIB
+    ${ALL_LIB_PROJECTS}
+)
 
 set(ALL_ZIP_MODULES)
 message(STATUS "Adding zip-modules")
@@ -855,8 +934,14 @@ foreach(CURRENT ${ALL_ZIP_PROJECTS})
     get_filename_component(CURRENT_NAME ${CURRENT_PATH} NAME)
     message(STATUS " + Zip-module: ${CURRENT_PATH} (${CURRENT_NAME})")
     add_subdirectory("${CURRENT_PATH}")
-    set(ALL_ZIP_MODULES ${ALL_ZIP_MODULES} ${CURRENT_NAME})
-endforeach(CURRENT ${ALL_ZIP_PROJECTS})
+    set(ALL_ZIP_MODULES
+        ${ALL_ZIP_MODULES}
+        ${CURRENT_NAME}
+    )
+endforeach(
+    CURRENT
+    ${ALL_ZIP_PROJECTS}
+)
 
 # ##############################################################################
 #
@@ -897,7 +982,10 @@ set(NSCP_FILTER_HPP
     ${NSCP_INCLUDEDIR}/parsers/filter/cli_helper.hpp
     ${NSCP_INCLUDEDIR}/parsers/where.hpp
 )
-set(NSCP_FILTER_LIB nscp_where_filter perfconfig_parser)
+set(NSCP_FILTER_LIB
+    nscp_where_filter
+    perfconfig_parser
+)
 
 set(NSCP_CLIENT_CPP
     ${NSCP_INCLUDEDIR}/utf8.cpp
@@ -938,10 +1026,10 @@ add_subdirectory("web")
 add_subdirectory("files")
 add_subdirectory("tests")
 
-load_sections(ALL_MODULE_NAMES "modules/*/module.cmake" "Modules")
-load_sections(ALL_CLIENT_NAMES "clients/*/module.cmake" "Clients")
+LOAD_SECTIONS(ALL_MODULE_NAMES "modules/*/module.cmake" "Modules")
+LOAD_SECTIONS(ALL_CLIENT_NAMES "clients/*/module.cmake" "Clients")
 if(WIN32)
-    load_sections(ALL_TOOL_NAMES "tools/*/module.cmake" "Tools")
+    LOAD_SECTIONS(ALL_TOOL_NAMES "tools/*/module.cmake" "Tools")
 endif(WIN32)
 set_target_properties(
     nscp
@@ -949,15 +1037,22 @@ set_target_properties(
     ${ALL_MODULE_NAMES}
     ${ALL_TOOL_NAMES}
     PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY "${BUILD_TARGET_EXE_PATH}"
-        LIBRARY_OUTPUT_DIRECTORY "${BUILD_TARGET_LIB_PATH}"
-        MODULE_OUTPUT_DIRECTORY "${BUILD_TARGET_LIB_PATH}"
+        RUNTIME_OUTPUT_DIRECTORY
+            "${BUILD_TARGET_EXE_PATH}"
+        LIBRARY_OUTPUT_DIRECTORY
+            "${BUILD_TARGET_LIB_PATH}"
+        MODULE_OUTPUT_DIRECTORY
+            "${BUILD_TARGET_LIB_PATH}"
 )
 
 add_subdirectory("docs")
 
 if(WIN32)
-    load_sections(ALL_INSTALLERS_NAMES "installers/*/CMakeLists.txt" "Installers")
+    LOAD_SECTIONS(
+        ALL_INSTALLERS_NAMES
+        "installers/*/CMakeLists.txt"
+        "Installers"
+    )
 endif(WIN32)
 
 # ##############################################################################
@@ -1009,39 +1104,44 @@ else()
     set(CPACK_PACKAGING_INSTALL_PREFIX "/")
 
     set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
-            "${CMAKE_CURRENT_SOURCE_DIR}/files/deb/postinst;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/prerm;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/postrm;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/conffiles")
-    set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/files/rpm/postinstall.sh")
-    set(CPACK_RPM_PRE_UNINSTALL_SCRIPT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/files/rpm/preuninstall.sh")
+        "${CMAKE_CURRENT_SOURCE_DIR}/files/deb/postinst;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/prerm;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/postrm;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/conffiles"
+    )
+    set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE
+        "${CMAKE_CURRENT_SOURCE_DIR}/files/rpm/postinstall.sh"
+    )
+    set(CPACK_RPM_PRE_UNINSTALL_SCRIPT_FILE
+        "${CMAKE_CURRENT_SOURCE_DIR}/files/rpm/preuninstall.sh"
+    )
 
-    set(CPACK_RPM_PACKAGE_CONFIG_FILES "/etc/nsclient/boot.ini" "/etc/nsclient/nsclient.ini")
+    set(CPACK_RPM_PACKAGE_CONFIG_FILES
+        "/etc/nsclient/boot.ini"
+        "/etc/nsclient/nsclient.ini"
+    )
 
     # Ensure empty directories are included in the RPM
-    set(CPACK_RPM_USER_FILELIST
-            "%dir /var/log/nsclient"
-    )
+    set(CPACK_RPM_USER_FILELIST "%dir /var/log/nsclient")
 
     set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION
-            "/bin"
-            "/lib"
-            "/lib/systemd"
-            "/lib/systemd/system"
-            "/sbin"
-            "/usr"
-            "/usr/bin"
-            "/usr/sbin"
-            "/usr/lib"
-            "/usr/lib/nsclient"
-            "/usr/lib/nsclient/modules"
-            "/usr/share"
-            "/usr/share/nsclient"
-            "/etc"
-            "/etc/nsclient"
-            "/var"
-            "/var/lib"
-            "/var/log"
-            "/var/log/nsclient"
+        "/bin"
+        "/lib"
+        "/lib/systemd"
+        "/lib/systemd/system"
+        "/sbin"
+        "/usr"
+        "/usr/bin"
+        "/usr/sbin"
+        "/usr/lib"
+        "/usr/lib/nsclient"
+        "/usr/lib/nsclient/modules"
+        "/usr/share"
+        "/usr/share/nsclient"
+        "/etc"
+        "/etc/nsclient"
+        "/var"
+        "/var/lib"
+        "/var/log"
+        "/var/log/nsclient"
     )
-
 endif()
 
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "NSClient++")
@@ -1064,4 +1164,8 @@ set(CPACK_RPM_PACKAGE_DESCRIPTION
 include(CPack)
 
 add_custom_target(clion__build_all)
-add_dependencies(clion__build_all nscp ${ALL_MODULE_NAMES})
+add_dependencies(
+    clion__build_all
+    nscp
+    ${ALL_MODULE_NAMES}
+)

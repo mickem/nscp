@@ -13,7 +13,14 @@ endif(ICONV_INCLUDE_DIR AND ICONV_LIBRARIES)
 
 find_path(ICONV_INCLUDE_DIR iconv.h)
 
-find_library(ICONV_LIBRARIES NAMES iconv libiconv libiconv-2 c)
+find_library(
+    ICONV_LIBRARIES
+    NAMES
+        iconv
+        libiconv
+        libiconv-2
+        c
+)
 
 if(ICONV_INCLUDE_DIR AND ICONV_LIBRARIES)
     set(ICONV_FOUND TRUE)

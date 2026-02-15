@@ -20,6 +20,7 @@
 #include "plugin_list.hpp"
 
 #include <gtest/gtest.h>
+
 #include <memory>
 
 #include "plugin_interface.hpp"

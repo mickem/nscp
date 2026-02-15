@@ -50,7 +50,9 @@ else()
         find_path(
             PROTOBUF_INCLUDE_DIR
             google/protobuf/package_info.h
-            PATHS ${PROTOBUF_ROOT} ${PROTOBUF_ROOT}/src
+            PATHS
+                ${PROTOBUF_ROOT}
+                ${PROTOBUF_ROOT}/src
         )
     endif(NOT PROTOBUF_INCLUDE_DIR)
     if(CMAKE_TRACE)
@@ -143,7 +145,8 @@ else()
     set(PROTOBUF_PROTOC_VERSION "")
     if(PROTOBUF_PROTOC_EXECUTABLE)
         execute_process(
-            COMMAND ${PROTOBUF_PROTOC_EXECUTABLE} --version
+            COMMAND
+                ${PROTOBUF_PROTOC_EXECUTABLE} --version
             OUTPUT_VARIABLE TMP_VERSION
             OUTPUT_STRIP_TRAILING_WHITESPACE
         )

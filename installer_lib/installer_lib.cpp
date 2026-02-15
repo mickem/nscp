@@ -13,6 +13,7 @@
 #include <boost/algorithm/string.hpp>
 #include <error/error.hpp>
 #include <file_helpers.hpp>
+#include <memory>
 #include <nsclient/logger/log_message_factory.hpp>
 #include <nsclient/logger/logger.hpp>
 #include <nsclient/nsclient_exception.hpp>
@@ -20,7 +21,6 @@
 #include <str/wstring.hpp>
 #include <str/xtos.hpp>
 #include <string>
-#include <memory>
 
 #include "../libs/settings_manager/settings_manager_impl.h"
 #include "installer_helper.hpp"

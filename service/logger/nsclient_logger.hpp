@@ -22,8 +22,8 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/thread/mutex.hpp>
 #include <list>
-#include <nsclient/logger/logger_impl.hpp>
 #include <nsclient/logger/logger.hpp>
+#include <nsclient/logger/logger_impl.hpp>
 #include <string>
 
 namespace nsclient {
@@ -40,7 +40,7 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
   nsclient_logger();
   ~nsclient_logger() override;
 
-  void add(const logging_subscriber_instance& subscriber) {
+  void add(const logging_subscriber_instance &subscriber) {
     boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!lock.owns_lock()) return;
     subscribers_.push_back(subscriber);

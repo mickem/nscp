@@ -56,24 +56,36 @@ if(OPENSSL_FOUND)
     include_directories("${OPENSSL_INCLUDE_DIR}")
     add_definitions(-DMG_ENABLE_OPENSSL=1)
     add_definitions(-DMG_DISABLE_PFS=1)
-    set(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
+    set(EXTRA_LIBS
+        ${EXTRA_LIBS}
+        ${OPENSSL_LIBRARIES}
+    )
     if(WIN32)
-        set(EXTRA_LIBS ${EXTRA_LIBS} CRYPT32)
+        set(EXTRA_LIBS
+            ${EXTRA_LIBS}
+            CRYPT32
+        )
     endif(WIN32)
 endif(OPENSSL_FOUND)
 
 # Adding dl
 if(NOT WIN32)
-    set(EXTRA_LIBS ${EXTRA_LIBS} dl)
+    set(EXTRA_LIBS
+        ${EXTRA_LIBS}
+        dl
+    )
 endif(NOT WIN32)
 
 # Adding sockets for Win32
 if(WIN32)
-    set(EXTRA_LIBS ${EXTRA_LIBS} ws2_32)
+    set(EXTRA_LIBS
+        ${EXTRA_LIBS}
+        ws2_32
+    )
 endif(WIN32)
 
 # Compiling library
-nscp_make_library(nscp_mongoose "${SOURCES}")
+NSCP_MAKE_LIBRARY(nscp_mongoose "${SOURCES}")
 # SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "libraries")
 
 target_link_libraries(

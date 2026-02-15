@@ -48,7 +48,7 @@ if(LUA_SOURCE_FOUND)
         add_definitions(-DLUA_BUILD_AS_DLL)
     endif()
 
-    nscp_make_library(${TARGET} "${SRCS}")
+    NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}")
 
     set(LUA_LIBRARIES lua PARENT_SCOPE)
 endif()

@@ -40,11 +40,11 @@ elseif(CSHARP_TYPE MATCHES "Mono")
 endif(CSHARP_TYPE MATCHES ".NET")
 
 macro(CSHARP_ADD_LIBRARY name)
-    csharp_add_project("library" ${name} ${ARGN})
+    CSHARP_ADD_PROJECT("library" ${name} ${ARGN})
 endmacro(CSHARP_ADD_LIBRARY)
 
 macro(CSHARP_ADD_EXECUTABLE name)
-    csharp_add_project("exe" ${name} ${ARGN})
+    CSHARP_ADD_PROJECT("exe" ${name} ${ARGN})
 endmacro(CSHARP_ADD_EXECUTABLE)
 
 # Private macro
@@ -127,7 +127,9 @@ macro(CSHARP_ADD_PROJECT type name)
     add_custom_target(
         ${name}
         ALL
-        DEPENDS ${CSHARP_BINARY_DIRECTORY}/${name}.${output}
-        SOURCES ${sources_dep}
+        DEPENDS
+            ${CSHARP_BINARY_DIRECTORY}/${name}.${output}
+        SOURCES
+            ${sources_dep}
     )
 endmacro(CSHARP_ADD_PROJECT)

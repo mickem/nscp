@@ -5,7 +5,8 @@ else(WIN32)
 endif(WIN32)
 find_program(
     PROTOC_GEN_MD_BIN
-    NAMES ${EXE_NAME}
+    NAMES
+        ${EXE_NAME}
     PATHS
         ${CMAKE_SOURCE_DIR}/ext/md-protobuf
         ${PROTOC_GEN_MD}

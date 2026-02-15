@@ -32,7 +32,10 @@ namespace impl {
 
 namespace sh = nscapi::settings_helper;
 
-simple_console_logger::simple_console_logger(logging_subscriber *subscriber_manager) : format_("%Y-%m-%d %H:%M:%S"), buf_(65536), subscriber_manager_(subscriber_manager) { std::cout.rdbuf()->pubsetbuf(buf_.data(), buf_.size()); }
+simple_console_logger::simple_console_logger(logging_subscriber *subscriber_manager)
+    : format_("%Y-%m-%d %H:%M:%S"), buf_(65536), subscriber_manager_(subscriber_manager) {
+  std::cout.rdbuf()->pubsetbuf(buf_.data(), buf_.size());
+}
 
 void simple_console_logger::do_log(const std::string data) {
   if (is_console()) {
@@ -60,7 +63,6 @@ simple_console_logger::config_data simple_console_logger::do_config() {
         "Console date mask", "The syntax of the dates in the log file.")
     ;
     // clang-format on
-
 
     settings.register_all();
     settings.notify();

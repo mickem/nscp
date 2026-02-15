@@ -12,9 +12,19 @@
 
 set(SCP_EXECUTABLE)
 if(WINDOWS)
-    find_program(SCP_EXECUTABLE NAMES pscp pscp.exe)
+    find_program(
+        SCP_EXECUTABLE
+        NAMES
+            pscp
+            pscp.exe
+    )
 else(WINDOWS)
-    find_program(SCP_EXECUTABLE NAMES scp scp.exe)
+    find_program(
+        SCP_EXECUTABLE
+        NAMES
+            scp
+            scp.exe
+    )
 endif(WINDOWS)
 
 if(SCP_EXECUTABLE)
@@ -36,4 +46,8 @@ else(SCP_FOUND)
     endif(SCP_FIND_REQUIRED)
 endif(SCP_FOUND)
 
-mark_as_advanced(SCP_EXECUTABLE SCP_FOUND SCP_BATCH_FLAG)
+mark_as_advanced(
+    SCP_EXECUTABLE
+    SCP_FOUND
+    SCP_BATCH_FLAG
+)

@@ -56,22 +56,22 @@ class NSCAPI_EXPORT settings_query {
   settings_query(int plugin_id);
   ~settings_query();
 
-  void get(const std::string path, const std::string key, const std::string def);
-  void get(const std::string path, const std::string key, const char *def);
-  void get(const std::string path, const std::string key, const long long def);
-  void get(const std::string path, const std::string key, const bool def);
-  void list(const std::string path, const bool recursive = false);
+  void get(const std::string &path, const std::string &key, const std::string &def) const;
+  void get(const std::string &path, const std::string &key, const char *def) const;
+  void get(const std::string &path, const std::string &key, const long long def) const;
+  void get(const std::string &path, const std::string &key, const bool def) const;
+  void list(const std::string &path, const bool recursive = false) const;
 
-  void set(const std::string path, const std::string key, std::string value);
-  void erase(const std::string path, const std::string key);
-  const std::string request() const;
+  void set(const std::string &path, const std::string &key, const std::string &value) const;
+  void erase(const std::string &path, const std::string &key) const;
+  std::string request() const;
   std::string &response() const;
   bool validate_response() const;
   std::list<key_values> get_query_key_response() const;
   std::string get_response_error() const;
-  void save();
-  void load();
-  void reload();
+  void save() const;
+  void load() const;
+  void reload() const;
 };
 }  // namespace functions
 }  // namespace protobuf

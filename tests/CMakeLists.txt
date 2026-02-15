@@ -1,5 +1,6 @@
 if(WIN32)
-    nscp_create_test(shellapi_test
+    nscp_create_test(
+        shellapi_test
         SOURCES
             ${NSCP_INCLUDEDIR}/win/shellapi_test.cpp
             ${NSCP_INCLUDEDIR}/utf8.cpp
@@ -14,7 +15,8 @@ if(WIN32)
         INCLUDES
             ${NSCP_INCLUDEDIR}
     )
-    nscp_create_test(wmi_query_test
+    nscp_create_test(
+        wmi_query_test
         SOURCES
             ${NSCP_INCLUDEDIR}/wmi/wmi_query_test.cpp
             ${NSCP_INCLUDEDIR}/wmi/wmi_query.cpp
@@ -30,34 +32,87 @@ if(WIN32)
             ${NSCP_INCLUDEDIR}
     )
 endif()
-nscp_create_test(str_test
-        SOURCES
-            ${NSCP_INCLUDEDIR}/str/format_test.cpp
-            ${NSCP_INCLUDEDIR}/str/xtos_test.cpp
-            ${NSCP_INCLUDEDIR}/str/nscp_string_test.cpp
-            ${NSCP_INCLUDEDIR}/str/utils_test.cpp
-            ${NSCP_INCLUDEDIR}/str/wstring_test.cpp
-        LIBRARIES
-            gtest_main
-        INCLUDES
-            ${NSCP_INCLUDEDIR}
+
+add_definitions(
+    ${NSCP_GLOBAL_DEFINES}
+    -Dnscp_plugin_api_NOLIB
 )
-nscp_create_test(logger_test
-        SOURCES
-            ${NSCP_INCLUDEDIR}/nsclient/logger/log_level_test.cpp
-            ${NSCP_INCLUDEDIR}/nsclient/logger/log_level.cpp
-            ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory_test.cpp
-            ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.cpp
-            ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper_test.cpp
-            ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp
-            ${NSCP_INCLUDEDIR}/nsclient/logger/log_driver_interface_impl_test.cpp
-            ${NSCP_INCLUDEDIR}/nsclient/logger/logger_impl_test.cpp
-            ${NSCP_INCLUDEDIR}/utf8.cpp
-        LIBRARIES
-            GTest::gtest
-            GTest::gtest_main
-            nscp_protobuf
-            ${Boost_DATE_TIME_LIBRARY}
-        INCLUDES
-            ${NSCP_INCLUDEDIR}
+
+nscp_create_test(
+    nscapi_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_settings_functions_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_settings_functions.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_settings_functions.hpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+nscp_create_test(
+    str_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/str/format_test.cpp
+        ${NSCP_INCLUDEDIR}/str/xtos_test.cpp
+        ${NSCP_INCLUDEDIR}/str/nscp_string_test.cpp
+        ${NSCP_INCLUDEDIR}/str/utils_test.cpp
+        ${NSCP_INCLUDEDIR}/str/wstring_test.cpp
+    LIBRARIES
+        gtest_main
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+nscp_create_test(
+    logger_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/nsclient/logger/log_level_test.cpp
+        ${NSCP_INCLUDEDIR}/nsclient/logger/log_level.cpp
+        ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory_test.cpp
+        ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.cpp
+        ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper_test.cpp
+        ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp
+        ${NSCP_INCLUDEDIR}/nsclient/logger/log_driver_interface_impl_test.cpp
+        ${NSCP_INCLUDEDIR}/nsclient/logger/logger_impl_test.cpp
+        ${NSCP_INCLUDEDIR}/utf8.cpp
+    LIBRARIES
+        GTest::gtest
+        GTest::gtest_main
+        nscp_protobuf
+        ${Boost_DATE_TIME_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+nscp_create_test(
+    settings_helper_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
+        ${NSCP_INCLUDEDIR}/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+nscp_create_test(
+    settings_object_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
+        ${NSCP_INCLUDEDIR}/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
 )

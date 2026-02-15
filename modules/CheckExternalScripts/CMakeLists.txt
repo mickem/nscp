@@ -4,7 +4,7 @@ set(TARGET CheckExternalScripts)
 
 project(${TARGET})
 
-create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 set(SRCS
     ${SRCS}
@@ -33,14 +33,23 @@ if(WIN32)
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_ERROR_HPP}
     )
-    set(SRCS ${SRCS} ${NSCP_INCLUDEDIR}/process/execute_process_w32.cpp)
+    set(SRCS
+        ${SRCS}
+        ${NSCP_INCLUDEDIR}/process/execute_process_w32.cpp
+    )
 else(WIN32)
-    set(EXTRA_LIBS ${EXTRA_LIBS} pthread)
-    set(SRCS ${SRCS} ${NSCP_INCLUDEDIR}/process/execute_process_unix.cpp)
+    set(EXTRA_LIBS
+        ${EXTRA_LIBS}
+        pthread
+    )
+    set(SRCS
+        ${SRCS}
+        ${NSCP_INCLUDEDIR}/process/execute_process_unix.cpp
+    )
 endif(WIN32)
 
 add_library(${TARGET} MODULE ${SRCS})
-nscp_debug_symbols(${TARGET})
+NSCP_DEBUG_SYMBOLS(${TARGET})
 
 target_link_libraries(
     ${TARGET}

@@ -6,8 +6,12 @@
 # MONGOOSE_INCLUDE_DIR - The directory where mongoose.h is found
 find_path(
     MONGOOSE_INCLUDE_DIR
-    NAMES mongoose.h
-    PATHS ${MONGOOSE_SOURCE_DIR} ${MONGOOSE_INCLUDE_DIR} ${NSCP_INCLUDEDIR}
+    NAMES
+        mongoose.h
+    PATHS
+        ${MONGOOSE_SOURCE_DIR}
+        ${MONGOOSE_INCLUDE_DIR}
+        ${NSCP_INCLUDEDIR}
 )
 
 if(MONGOOSE_INCLUDE_DIR)
@@ -17,4 +21,7 @@ else(MONGOOSE_INCLUDE_DIR)
     set(MONGOOSE_FOUND FALSE)
     set(MONGOOSE_LIBRARY)
 endif(MONGOOSE_INCLUDE_DIR)
-mark_as_advanced(MONGOOSE_INCLUDE_DIR MONGOOSE_LIBRARY)
+mark_as_advanced(
+    MONGOOSE_INCLUDE_DIR
+    MONGOOSE_LIBRARY
+)

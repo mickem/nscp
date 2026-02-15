@@ -31,7 +31,10 @@ endif()
 
 find_library(
     CRYPTOPP_LIBRARIES_RELEASE
-    NAMES crypto++ cryptlib cryptopp
+    NAMES
+        crypto++
+        cryptlib
+        cryptopp
     PATHS
         ${CRYPTOPP_LIB_ROOT}/Output/Release
         ${CRYPTOPP_LIB_ROOT}/Output
@@ -39,7 +42,10 @@ find_library(
 )
 find_library(
     CRYPTOPP_LIBRARIES_DEBUG
-    NAMES crypto++ cryptlib cryptopp
+    NAMES
+        crypto++
+        cryptlib
+        cryptopp
     PATHS
         ${CRYPTOPP_LIB_ROOT}/Output/Debug
         ${CRYPTOPP_LIB_ROOT}/Output

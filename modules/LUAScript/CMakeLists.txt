@@ -4,7 +4,7 @@ set(TARGET LUAScript)
 
 project(${TARGET})
 
-create_module(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 set(SRCS
     ${SRCS}
@@ -28,7 +28,7 @@ if(WIN32)
 endif(WIN32)
 include_directories(${LUA_INCLUDE_DIR})
 add_library(${TARGET} MODULE ${SRCS})
-nscp_debug_symbols(${TARGET})
+NSCP_DEBUG_SYMBOLS(${TARGET})
 
 target_link_libraries(
     ${TARGET}

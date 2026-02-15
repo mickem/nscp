@@ -45,7 +45,10 @@ set(service_SRCS
 )
 
 if(WIN32)
-    set(service_SRCS ${service_SRCS} ${NSCP_INCLUDEDIR}/win/service_control.cpp)
+    set(service_SRCS
+        ${service_SRCS}
+        ${NSCP_INCLUDEDIR}/win/service_control.cpp
+    )
     set(service_SRCS
         ${service_SRCS}
         NSClient++.h
@@ -105,7 +108,10 @@ if(WIN32)
     add_definitions(-D_WIN32_DCOM)
 endif(WIN32)
 
-add_definitions(${NSCP_GLOBAL_DEFINES} -Dnscp_plugin_api_NOLIB)
+add_definitions(
+    ${NSCP_GLOBAL_DEFINES}
+    -Dnscp_plugin_api_NOLIB
+)
 
 # Add python
 if(WIN32)
@@ -114,11 +120,19 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/breakpad/exception_handler_win32.cpp
         ${NSCP_INCLUDEDIR}/breakpad/exception_handler_win32.hpp
     )
-    set(EXTRA_LIBS ${EXTRA_LIBS} psapi)
+    set(EXTRA_LIBS
+        ${EXTRA_LIBS}
+        psapi
+    )
 endif(WIN32)
 
-nscp_make_exe_sbin(${TARGET} "${service_SRCS}")
-set_target_properties(${TARGET} PROPERTIES FOLDER "core")
+NSCP_MAKE_EXE_SBIN(${TARGET} "${service_SRCS}")
+set_target_properties(
+    ${TARGET}
+    PROPERTIES
+        FOLDER
+            "core"
+)
 
 # if(WIN32) SET_TARGET_PROPERTIES(${TARGET} PROPERTIES LINK_FLAGS
 # "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"
@@ -144,9 +158,9 @@ source_group("Settings" REGULAR_EXPRESSION .*include/settings/.*)
 # SOURCE_GROUP("Common Files" REGULAR_EXPRESSION .*include/.*)
 source_group("Log" REGULAR_EXPRESSION .*/logger/.*)
 
-nscp_create_test(service_test
+nscp_create_test(
+    service_test
     SOURCES
-        performance_data_test.cpp
         cron_test.cpp
         path_manager.cpp
         path_manager_test.cpp
@@ -174,8 +188,8 @@ else()
     set(service_test_SRCS)
 endif()
 
-
-nscp_create_test(plugins_test
+nscp_create_test(
+    plugins_test
     SOURCES
         plugins/master_plugin_list.cpp
         plugins/master_plugin_list_test.cpp

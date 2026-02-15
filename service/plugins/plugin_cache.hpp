@@ -3,9 +3,9 @@
 #include <boost/optional.hpp>
 #include <boost/thread/shared_mutex.hpp>
 #include <list>
+#include <memory>
 #include <nsclient/logger/logger.hpp>
 #include <string>
-#include <memory>
 
 #include "plugin_interface.hpp"
 

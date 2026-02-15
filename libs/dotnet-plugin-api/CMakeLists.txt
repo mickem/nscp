@@ -2,7 +2,10 @@ cmake_minimum_required(VERSION 3.10)
 if(WIN32)
     project(NSCP.Core)
 
-    set(SRCS AssemblyInfo.cpp NSCP.h)
+    set(SRCS
+        AssemblyInfo.cpp
+        NSCP.h
+    )
 
     string(REPLACE "/EHsc" "/EHa" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     string(REPLACE "/EHs" "/EHa" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
@@ -58,8 +61,13 @@ if(WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /clr /EHa")
 
     add_library(NSCP.Core MODULE ${SRCS})
-    set_library_out_folder_module(NSCP.Core)
+    SET_LIBRARY_OUT_FOLDER_MODULE(NSCP.Core)
 
-    set_target_properties(NSCP.Core PROPERTIES FOLDER "libraries/dotnet")
+    set_target_properties(
+        NSCP.Core
+        PROPERTIES
+            FOLDER
+                "libraries/dotnet"
+    )
     install(TARGETS NSCP.Core DESTINATION .)
 endif(WIN32)

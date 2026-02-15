@@ -37,13 +37,9 @@ class TestLogger : public nsclient::logging::logger_impl {
     }
   }
 
-  void add_subscriber(const nsclient::logging::logging_subscriber_instance subscriber) override {
-    subscribers_.push_back(subscriber);
-  }
+  void add_subscriber(const nsclient::logging::logging_subscriber_instance subscriber) override { subscribers_.push_back(subscriber); }
 
-  void clear_subscribers() override {
-    subscribers_.clear();
-  }
+  void clear_subscribers() override { subscribers_.clear(); }
 
   bool startup() override { return true; }
   bool shutdown() override { return true; }
@@ -58,9 +54,7 @@ class TestLogger : public nsclient::logging::logger_impl {
 class TestSubscriber : public nsclient::logging::logging_subscriber {
  public:
   std::vector<std::string> received_messages;
-  void on_log_message(const std::string& payload) override {
-    received_messages.push_back(payload);
-  }
+  void on_log_message(const std::string& payload) override { received_messages.push_back(payload); }
 };
 
 // ============================================================================
@@ -325,4 +319,3 @@ TEST(logger_impl, log_message_contains_correct_line) {
   ASSERT_GT(entry.entry_size(), 0);
   EXPECT_EQ(entry.entry(0).line(), 42);
 }
-

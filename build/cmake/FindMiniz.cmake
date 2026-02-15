@@ -4,8 +4,12 @@
 # to where miniz is found
 find_path(
     MINIZ_INCLUDE_DIR
-    NAMES miniz.c
-    PATHS ${CMAKE_SOURCE_DIR}/ext/miniz ${MINIZ_INCLUDE_DIR} ${NSCP_INCLUDEDIR}
+    NAMES
+        miniz.c
+    PATHS
+        ${CMAKE_SOURCE_DIR}/ext/miniz
+        ${MINIZ_INCLUDE_DIR}
+        ${NSCP_INCLUDEDIR}
 )
 if(MINIZ_INCLUDE_DIR)
     set(MINIZ_FOUND TRUE)

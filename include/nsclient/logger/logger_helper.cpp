@@ -107,7 +107,7 @@ std::pair<bool, std::string> nsclient::logging::logger_helper::render_console_me
   return std::make_pair(true, "ERROR");
 }
 
-std::string nsclient::logging::logger_helper::get_formated_date(const std::string& format) {
+std::string nsclient::logging::logger_helper::get_formated_date(const std::string &format) {
   std::stringstream ss;
   auto *facet = new boost::posix_time::time_facet(format.c_str());
   ss.imbue(std::locale(std::cout.getloc(), facet));
