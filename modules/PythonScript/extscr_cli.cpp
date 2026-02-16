@@ -28,11 +28,11 @@
 #include <boost/program_options.hpp>
 #include <file_helpers.hpp>
 #include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/protobuf/settings_functions.hpp>
+#include <nscapi/settings/helper.hpp>
+#include <nscapi/settings/proxy.hpp>
 #include <string>
 #include <utility>
 

@@ -26,13 +26,13 @@
 #include <file_helpers.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/protobuf/functions_status.hpp>
 #include <nscapi/protobuf/nagios.hpp>
+#include <nscapi/settings/helper.hpp>
 #include <process/execute_process.hpp>
 #include <str/format.hpp>
 #include <str/utils.hpp>

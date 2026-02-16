@@ -22,7 +22,7 @@
 #include <boost/make_shared.hpp>
 #include <http/client.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/settings/helper.hpp>
 #include <str/utils.hpp>
 
 #include "nrdp_client.hpp"

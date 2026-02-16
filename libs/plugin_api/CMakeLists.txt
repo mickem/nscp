@@ -21,11 +21,10 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_status.cpp
     ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_targets.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_filter.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_proxy.cpp
     ${NSCP_INCLUDEDIR}/nscapi/command_client.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/settings/filter.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/settings/proxy.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
 )
 
 if(WIN32)
@@ -40,11 +39,11 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.hpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions.hpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_targets.hpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_filter.hpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_proxy.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/filter.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/proxy.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/object.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.hpp
         ${NSCP_INCLUDEDIR}/nscapi/macros.hpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.hpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
     )
 endif(WIN32)
 

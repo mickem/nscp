@@ -953,7 +953,7 @@ set(NSCP_DEF_PLUGIN_CPP
     ${NSCP_INCLUDEDIR}/utf8.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
 )
 set(NSCP_DEF_PLUGIN_HPP
@@ -963,8 +963,8 @@ set(NSCP_DEF_PLUGIN_HPP
     # ${NSCP_INCLUDEDIR}/config.h
     ${NSCP_INCLUDEDIR}/NSCAPI.h
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.hpp
+    ${NSCP_INCLUDEDIR}/nscapi/settings/helper.hpp
+    ${NSCP_INCLUDEDIR}/nscapi/settings/object.hpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_common_options.hpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.hpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.hpp
@@ -972,10 +972,7 @@ set(NSCP_DEF_PLUGIN_HPP
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.hpp
 )
 
-set(NSCP_FILTER_CPP
-    ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.cpp
-)
+set(NSCP_FILTER_CPP ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp)
 set(NSCP_FILTER_HPP
     ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.hpp
     ${NSCP_INCLUDEDIR}/parsers/filter/realtime_helper.hpp
@@ -990,12 +987,11 @@ set(NSCP_FILTER_LIB
 set(NSCP_CLIENT_CPP
     ${NSCP_INCLUDEDIR}/utf8.cpp
     ${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.cpp
 )
 set(NSCP_CLIENT_HPP
     ${NSCP_INCLUDEDIR}/utf8.hpp
     ${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.hpp
+    ${NSCP_INCLUDEDIR}/nscapi/settings/object.hpp
 )
 
 set(NSCP_DEF_PLUGIN_LIB

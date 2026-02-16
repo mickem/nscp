@@ -15,8 +15,8 @@
  */
 
 #include <net/net.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_targets.hpp>
+#include <nscapi/settings/helper.hpp>
 
 namespace sh = nscapi::settings_helper;
 

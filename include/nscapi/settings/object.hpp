@@ -19,13 +19,13 @@
 
 #pragma once
 #include <boost/make_shared.hpp>
-#include <boost/unordered_map.hpp>
 #include <list>
-#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/settings/helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <settings/client/settings_client_interface.hpp>
 #include <str/xtos.hpp>
 #include <string>
+#include <unordered_map>
 #include <utility>
 
 namespace nscapi {
@@ -36,11 +36,7 @@ inline void import_string(std::string &object, const std::string &parent) {
 
 inline std::string make_obj_path(const std::string &base_path, const std::string &alias) { return base_path + "/" + alias; }
 
-typedef boost::unordered_map<std::string, std::string> options_map;
-
 struct object_instance_interface {
-  typedef boost::unordered_map<std::string, std::string> options_map;
-
  private:
   std::string alias;
   std::string base_path;
@@ -48,7 +44,7 @@ struct object_instance_interface {
   bool is_template_;
   std::string parent;
   std::string value;
-  options_map options;
+  std::unordered_map<std::string, std::string> options;
 
  public:
   virtual ~object_instance_interface() = default;
@@ -57,20 +53,23 @@ struct object_instance_interface {
   object_instance_interface(const boost::shared_ptr<object_instance_interface> &other, const std::string &alias, const std::string &base_path)
       : alias(alias), base_path(base_path), path(make_obj_path(base_path, alias)), is_template_(false), parent(other->alias) {
     value = other->value;
-    for (const options_map::value_type &e : other->options) {
+    for (const auto &e : other->options) {
       options.insert(e);
     }
   }
   object_instance_interface(const object_instance_interface &other) = default;
 
   bool is_template() const { return is_template_; }
-  void make_template(bool tpl) { is_template_ = tpl; }
-  void setup(const std::string &inAlias, const std::string &inPath) {
+  void make_template(const bool tpl) { is_template_ = tpl; }
+  void setup(const std::string &inAlias, const std::string &inPath, const std::string &inParent = "") {
     alias = inAlias;
     path = inPath + "/" + inAlias;
     base_path = inPath;
+    if (!inParent.empty()) {
+      parent = inParent;
+    }
   }
-  const options_map &get_options() const { return options; }
+  const std::unordered_map<std::string, std::string> &get_options() const { return options; }
   virtual void read(settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool _is_sample) {
     settings_helper::settings_registry settings(std::move(proxy));
     if (oneliner) {
@@ -152,7 +151,7 @@ struct simple_object_factory : object_factory_interface<T> {
   object_instance clone(object_instance parent, const std::string alias, const std::string path) override {
     object_instance inst = boost::make_shared<T>(*parent);
     if (inst) {
-      inst->setup(alias, path);
+      inst->setup(alias, path, parent->get_alias());
     }
     return inst;
   }
@@ -161,7 +160,7 @@ struct simple_object_factory : object_factory_interface<T> {
 template <class T, class TFactory = simple_object_factory<T> >
 struct object_handler : boost::noncopyable {
   typedef boost::shared_ptr<T> object_instance;
-  typedef boost::unordered_map<std::string, object_instance> object_map;
+  typedef std::unordered_map<std::string, object_instance> object_map;
   typedef std::list<object_instance> object_list_type;
 
   object_map objects;

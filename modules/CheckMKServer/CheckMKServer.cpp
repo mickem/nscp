@@ -19,7 +19,7 @@
 
 #include "CheckMKServer.h"
 
-#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/settings/helper.hpp>
 #include <socket/socket_settings_helper.hpp>
 
 #include "handler_impl.hpp"

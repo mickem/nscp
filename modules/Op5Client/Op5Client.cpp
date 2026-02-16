@@ -26,12 +26,12 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/protobuf/nagios.hpp>
 #include <nscapi/protobuf/settings_functions.hpp>
+#include <nscapi/settings/helper.hpp>
 #include <str/format.hpp>
 #include <str/utils.hpp>
 /**

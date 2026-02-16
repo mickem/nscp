@@ -27,6 +27,7 @@ namespace settings_helper {
 
 class settings_impl_interface {
  public:
+  virtual ~settings_impl_interface() = default;
   typedef std::list<std::string> string_list;
 
   //////////////////////////////////////////////////////////////////////////

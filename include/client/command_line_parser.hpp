@@ -48,7 +48,7 @@ struct destination_container {
   destination_container() : timeout(10), retry(2) {}
 
   void apply(const nscapi::settings_objects::object_instance &obj) {
-    for (const nscapi::settings_objects::options_map::value_type &k : obj->get_options()) {
+    for (const auto &k : obj->get_options()) {
       set_string_data(k.first, k.second);
     }
   }

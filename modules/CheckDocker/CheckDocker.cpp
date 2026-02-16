@@ -20,7 +20,7 @@
 #include "CheckDocker.h"
 
 #include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/settings/helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 
 #include "check_docker.hpp"

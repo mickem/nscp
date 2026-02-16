@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/settings/helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <settings/settings_core.hpp>
 #include <utf8.hpp>

@@ -21,8 +21,8 @@
 
 #include <boost/optional.hpp>
 #include <nscapi/nscapi_helper.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_settings_object.hpp>
+#include <nscapi/settings/helper.hpp>
+#include <nscapi/settings/object.hpp>
 #include <parsers/cron/cron_parser.hpp>
 #include <scheduler/simple_scheduler.hpp>
 #include <str/format.hpp>

@@ -25,9 +25,9 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/protobuf/nagios.hpp>
+#include <nscapi/settings/helper.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>

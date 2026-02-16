@@ -29,9 +29,9 @@
 #include <file_helpers.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/protobuf/settings_functions.hpp>
+#include <nscapi/settings/helper.hpp>
 #include <string>
 #include <utility>
 

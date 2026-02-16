@@ -18,6 +18,7 @@
  */
 
 #include <nscapi/nscapi_plugin_impl.hpp>
+#include <nscapi/protobuf/command.hpp>
 #include <string>
 
 #include "alias.hpp"

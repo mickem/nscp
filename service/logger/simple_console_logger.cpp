@@ -20,7 +20,7 @@
 #include "simple_console_logger.hpp"
 
 #include <iostream>
-#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/settings/helper.hpp>
 #include <nsclient/logger/logger_helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
 

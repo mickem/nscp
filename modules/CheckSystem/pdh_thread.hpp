@@ -22,7 +22,7 @@
 #include <boost/thread/thread.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/settings/proxy.hpp>
 #include <pdh/pdh_interface.hpp>
 #include <pdh/pdh_query.hpp>
 #include <rrd_buffer.hpp>
