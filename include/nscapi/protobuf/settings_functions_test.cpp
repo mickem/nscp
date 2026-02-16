@@ -405,3 +405,385 @@ TEST_F(SettingsQueryEdgeCaseTest, SelfAssignment) {
   EXPECT_EQ("key", kv.key());
   EXPECT_EQ("value", kv.get_string());
 }
+
+// ============================================================================
+// Additional Type Conversion Tests
+// ============================================================================
+
+class TypeConversionTest : public ::testing::Test {};
+
+TEST_F(TypeConversionTest, GetBoolFromMixedCaseTrue) {
+  const settings_query::key_values kv1("/test/path", "key", std::string("True"));
+  EXPECT_TRUE(kv1.get_bool());
+
+  const settings_query::key_values kv2("/test/path", "key", std::string("tRuE"));
+  EXPECT_TRUE(kv2.get_bool());
+
+  const settings_query::key_values kv3("/test/path", "key", std::string("TrUe"));
+  EXPECT_TRUE(kv3.get_bool());
+}
+
+TEST_F(TypeConversionTest, GetBoolFromWhitespaceString) {
+  const settings_query::key_values kv("/test/path", "key", std::string("  true  "));
+  // Whitespace not trimmed, should return false
+  EXPECT_FALSE(kv.get_bool());
+}
+
+TEST_F(TypeConversionTest, GetBoolFromEmptyString) {
+  const settings_query::key_values kv("/test/path", "key", std::string(""));
+  EXPECT_FALSE(kv.get_bool());
+}
+
+TEST_F(TypeConversionTest, GetIntFromNegativeString) {
+  const settings_query::key_values kv("/test/path", "key", std::string("-456"));
+  EXPECT_EQ(-456, kv.get_int());
+}
+
+TEST_F(TypeConversionTest, GetIntFromZeroString) {
+  const settings_query::key_values kv("/test/path", "key", std::string("0"));
+  EXPECT_EQ(0, kv.get_int());
+}
+
+TEST_F(TypeConversionTest, GetStringFromNegativeInt) {
+  const settings_query::key_values kv("/test/path", "key", -999LL);
+  EXPECT_EQ("-999", kv.get_string());
+}
+
+TEST_F(TypeConversionTest, GetStringFromZeroInt) {
+  const settings_query::key_values kv("/test/path", "key", 0LL);
+  EXPECT_EQ("0", kv.get_string());
+}
+
+// ============================================================================
+// Copy Constructor Tests for Different Value Types
+// ============================================================================
+
+class CopyConstructorTest : public ::testing::Test {};
+
+TEST_F(CopyConstructorTest, CopyIntValue) {
+  const settings_query::key_values kv1("/test/path", "key", 12345LL);
+  const settings_query::key_values kv2(kv1);
+  EXPECT_EQ(kv1.path(), kv2.path());
+  EXPECT_EQ(kv1.key(), kv2.key());
+  EXPECT_EQ(kv1.get_int(), kv2.get_int());
+}
+
+TEST_F(CopyConstructorTest, CopyBoolValue) {
+  const settings_query::key_values kv1("/test/path", "key", true);
+  const settings_query::key_values kv2(kv1);
+  EXPECT_EQ(kv1.path(), kv2.path());
+  EXPECT_EQ(kv1.key(), kv2.key());
+  EXPECT_EQ(kv1.get_bool(), kv2.get_bool());
+}
+
+TEST_F(CopyConstructorTest, CopyPathOnly) {
+  const settings_query::key_values kv1("/test/path");
+  const settings_query::key_values kv2(kv1);
+  EXPECT_EQ(kv1.path(), kv2.path());
+  EXPECT_EQ(kv1.key(), kv2.key());
+}
+
+// ============================================================================
+// Assignment Operator Tests for Different Value Types
+// ============================================================================
+
+class AssignmentOperatorTest : public ::testing::Test {};
+
+TEST_F(AssignmentOperatorTest, AssignIntValue) {
+  const settings_query::key_values kv1("/path1", "key1", 100LL);
+  settings_query::key_values kv2("/path2", "key2", std::string("value2"));
+  kv2 = kv1;
+  EXPECT_EQ(kv1.path(), kv2.path());
+  EXPECT_EQ(kv1.key(), kv2.key());
+  EXPECT_EQ(kv1.get_int(), kv2.get_int());
+}
+
+TEST_F(AssignmentOperatorTest, AssignBoolValue) {
+  const settings_query::key_values kv1("/path1", "key1", true);
+  settings_query::key_values kv2("/path2", "key2", false);
+  kv2 = kv1;
+  EXPECT_EQ(kv1.path(), kv2.path());
+  EXPECT_EQ(kv1.key(), kv2.key());
+  EXPECT_EQ(kv1.get_bool(), kv2.get_bool());
+}
+
+TEST_F(AssignmentOperatorTest, AssignFromPathOnlyToFull) {
+  const settings_query::key_values kv1("/path1");
+  settings_query::key_values kv2("/path2", "key2", std::string("value2"));
+  kv2 = kv1;
+  EXPECT_EQ("/path1", kv2.path());
+  EXPECT_EQ("", kv2.key());
+}
+
+TEST_F(AssignmentOperatorTest, AssignFromFullToPathOnly) {
+  const settings_query::key_values kv1("/path1", "key1", std::string("value1"));
+  settings_query::key_values kv2("/path2");
+  kv2 = kv1;
+  EXPECT_EQ("/path1", kv2.path());
+  EXPECT_EQ("key1", kv2.key());
+  EXPECT_EQ("value1", kv2.get_string());
+}
+
+// ============================================================================
+// Matches Method Edge Cases
+// ============================================================================
+
+class MatchesEdgeCaseTest : public ::testing::Test {};
+
+TEST_F(MatchesEdgeCaseTest, MatchesEmptyPathAndKey) {
+  const settings_query::key_values kv("", "", std::string("value"));
+  EXPECT_TRUE(kv.matches("", ""));
+  EXPECT_TRUE(kv.matches(std::string(""), std::string("")));
+}
+
+TEST_F(MatchesEdgeCaseTest, MatchesEmptyPath) {
+  const settings_query::key_values kv("", "key", std::string("value"));
+  EXPECT_TRUE(kv.matches(""));
+  EXPECT_TRUE(kv.matches(std::string("")));
+}
+
+TEST_F(MatchesEdgeCaseTest, MatchesWithSpecialCharacters) {
+  const settings_query::key_values kv("/path/with!@#$%^&*()", "key!@#", std::string("value"));
+  EXPECT_TRUE(kv.matches("/path/with!@#$%^&*()", "key!@#"));
+  EXPECT_FALSE(kv.matches("/path/with!@#$%^&*()", "key"));
+}
+
+TEST_F(MatchesEdgeCaseTest, MatchesWithSlashes) {
+  const settings_query::key_values kv("/a/b/c/d/e", "key/with/slashes", std::string("value"));
+  EXPECT_TRUE(kv.matches("/a/b/c/d/e", "key/with/slashes"));
+}
+
+TEST_F(MatchesEdgeCaseTest, MatchesCaseSensitive) {
+  const settings_query::key_values kv("/Test/Path", "MyKey", std::string("value"));
+  EXPECT_TRUE(kv.matches("/Test/Path", "MyKey"));
+  EXPECT_FALSE(kv.matches("/test/path", "mykey"));
+  EXPECT_FALSE(kv.matches("/TEST/PATH", "MYKEY"));
+}
+
+// ============================================================================
+// Settings Query Operation Chaining Tests
+// ============================================================================
+
+class SettingsQueryChainingTest : public ::testing::Test {};
+
+TEST_F(SettingsQueryChainingTest, MultipleSetOperations) {
+  settings_query query(1);
+  query.set("/path1", "key1", "value1");
+  query.set("/path2", "key2", "value2");
+  query.set("/path3", "key3", "value3");
+  const std::string request = query.request();
+  EXPECT_FALSE(request.empty());
+}
+
+TEST_F(SettingsQueryChainingTest, MultipleGetOperations) {
+  settings_query query(1);
+  query.get("/path1", "key1", std::string("default1"));
+  query.get("/path2", "key2", 100LL);
+  query.get("/path3", "key3", true);
+  query.get("/path4", "key4", "default4");
+  const std::string request = query.request();
+  EXPECT_FALSE(request.empty());
+}
+
+TEST_F(SettingsQueryChainingTest, MixedOperations) {
+  settings_query query(1);
+  query.set("/path1", "key1", "value1");
+  query.get("/path2", "key2", std::string("default2"));
+  query.erase("/path3", "key3");
+  query.list("/path4");
+  query.list("/path5", true);
+  const std::string request = query.request();
+  EXPECT_FALSE(request.empty());
+}
+
+TEST_F(SettingsQueryChainingTest, ControlOperations) {
+  settings_query query(1);
+  query.save();
+  query.load();
+  query.reload();
+  const std::string request = query.request();
+  EXPECT_FALSE(request.empty());
+}
+
+// ============================================================================
+// Settings Query with Various Path Formats
+// ============================================================================
+
+class SettingsQueryPathFormatTest : public ::testing::Test {};
+
+TEST_F(SettingsQueryPathFormatTest, EmptyPath) {
+  settings_query query(1);
+  query.get("", "key", std::string("default"));
+  const std::string request = query.request();
+  EXPECT_FALSE(request.empty());
+}
+
+TEST_F(SettingsQueryPathFormatTest, RootPath) {
+  settings_query query(1);
+  query.get("/", "key", std::string("default"));
+  const std::string request = query.request();
+  EXPECT_FALSE(request.empty());
+}
+
+TEST_F(SettingsQueryPathFormatTest, DeepNestedPath) {
+  settings_query query(1);
+  query.get("/a/b/c/d/e/f/g/h/i/j", "key", std::string("default"));
+  const std::string request = query.request();
+  EXPECT_FALSE(request.empty());
+}
+
+TEST_F(SettingsQueryPathFormatTest, PathWithNumbers) {
+  settings_query query(1);
+  query.get("/path/123/456", "key789", std::string("default"));
+  const std::string request = query.request();
+  EXPECT_FALSE(request.empty());
+}
+
+TEST_F(SettingsQueryPathFormatTest, PathWithSpaces) {
+  settings_query query(1);
+  query.get("/path with spaces/more spaces", "key with space", std::string("default value"));
+  const std::string request = query.request();
+  EXPECT_FALSE(request.empty());
+}
+
+// ============================================================================
+// Settings Query List Operation Tests
+// ============================================================================
+
+class SettingsQueryListTest : public ::testing::Test {};
+
+TEST_F(SettingsQueryListTest, ListNonRecursive) {
+  settings_query query(1);
+  query.list("/test/path", false);
+  const std::string request = query.request();
+  EXPECT_FALSE(request.empty());
+}
+
+TEST_F(SettingsQueryListTest, ListRecursive) {
+  settings_query query(1);
+  query.list("/test/path", true);
+  const std::string request = query.request();
+  EXPECT_FALSE(request.empty());
+}
+
+TEST_F(SettingsQueryListTest, ListDefaultNonRecursive) {
+  settings_query query(1);
+  query.list("/test/path");  // Default should be false
+  const std::string request = query.request();
+  EXPECT_FALSE(request.empty());
+}
+
+TEST_F(SettingsQueryListTest, ListEmptyPath) {
+  settings_query query(1);
+  query.list("");
+  const std::string request = query.request();
+  EXPECT_FALSE(request.empty());
+}
+
+TEST_F(SettingsQueryListTest, ListRootPath) {
+  settings_query query(1);
+  query.list("/");
+  const std::string request = query.request();
+  EXPECT_FALSE(request.empty());
+}
+
+// ============================================================================
+// Key Values Boundary Tests
+// ============================================================================
+
+class KeyValuesBoundaryTest : public ::testing::Test {};
+
+TEST_F(KeyValuesBoundaryTest, VeryLongPath) {
+  const std::string longPath(1000, 'a');  // 1000 character path
+  const settings_query::key_values kv(longPath, "key", std::string("value"));
+  EXPECT_EQ(longPath, kv.path());
+}
+
+TEST_F(KeyValuesBoundaryTest, VeryLongKey) {
+  const std::string longKey(1000, 'k');  // 1000 character key
+  const settings_query::key_values kv("/path", longKey, std::string("value"));
+  EXPECT_EQ(longKey, kv.key());
+}
+
+TEST_F(KeyValuesBoundaryTest, VeryLongValue) {
+  const std::string longValue(10000, 'v');  // 10000 character value
+  const settings_query::key_values kv("/path", "key", longValue);
+  EXPECT_EQ(longValue, kv.get_string());
+}
+
+TEST_F(KeyValuesBoundaryTest, MaxLongLongValue) {
+  constexpr long long maxVal = 9223372036854775807LL;
+  const settings_query::key_values kv("/path", "key", maxVal);
+  EXPECT_EQ(maxVal, kv.get_int());
+}
+
+TEST_F(KeyValuesBoundaryTest, MinLongLongValue) {
+  constexpr long long minVal = -9223372036854775807LL - 1;
+  const settings_query::key_values kv("/path", "key", minVal);
+  EXPECT_EQ(minVal, kv.get_int());
+}
+
+// ============================================================================
+// Key Values with Null/Empty Edge Cases
+// ============================================================================
+
+class KeyValuesNullEdgeCaseTest : public ::testing::Test {};
+
+TEST_F(KeyValuesNullEdgeCaseTest, AllEmptyStrings) {
+  const settings_query::key_values kv("", "", std::string(""));
+  EXPECT_EQ("", kv.path());
+  EXPECT_EQ("", kv.key());
+  EXPECT_EQ("", kv.get_string());
+  EXPECT_EQ(0, kv.get_int());
+  EXPECT_FALSE(kv.get_bool());
+}
+
+TEST_F(KeyValuesNullEdgeCaseTest, EmptyStringValue) {
+  const settings_query::key_values kv("/path", "key", std::string(""));
+  EXPECT_EQ("", kv.get_string());
+}
+
+TEST_F(KeyValuesNullEdgeCaseTest, WhitespaceOnlyValue) {
+  const settings_query::key_values kv("/path", "key", std::string("   "));
+  EXPECT_EQ("   ", kv.get_string());
+}
+
+TEST_F(KeyValuesNullEdgeCaseTest, NewlineInValue) {
+  const settings_query::key_values kv("/path", "key", std::string("line1\nline2\nline3"));
+  EXPECT_EQ("line1\nline2\nline3", kv.get_string());
+}
+
+TEST_F(KeyValuesNullEdgeCaseTest, TabInValue) {
+  const settings_query::key_values kv("/path", "key", std::string("col1\tcol2\tcol3"));
+  EXPECT_EQ("col1\tcol2\tcol3", kv.get_string());
+}
+
+// ============================================================================
+// Multiple Queries Same Instance Tests
+// ============================================================================
+
+class MultipleQueriesSameInstanceTest : public ::testing::Test {};
+
+TEST_F(MultipleQueriesSameInstanceTest, RequestAccumulatesOperations) {
+  settings_query query(1);
+  query.get("/path1", "key1", std::string("default1"));
+  const std::string request1 = query.request();
+
+  query.get("/path2", "key2", std::string("default2"));
+  const std::string request2 = query.request();
+
+  // Second request should be longer as it contains both operations
+  EXPECT_GT(request2.length(), request1.length());
+}
+
+TEST_F(MultipleQueriesSameInstanceTest, MultipleSetsAccumulate) {
+  settings_query query(1);
+  query.set("/path1", "key1", "value1");
+  const std::string request1 = query.request();
+
+  query.set("/path2", "key2", "value2");
+  query.set("/path3", "key3", "value3");
+  const std::string request2 = query.request();
+
+  EXPECT_GT(request2.length(), request1.length());
+}

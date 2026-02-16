@@ -66,3 +66,60 @@ TEST(StatusConversionTest, nagios_status_to_gpb) {
   EXPECT_EQ(PB::Common::ResultCode::CRITICAL, nscapi::protobuf::functions::nagios_status_to_gpb(NSCAPI::query_return_codes::returnCRIT));
   EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, nscapi::protobuf::functions::nagios_status_to_gpb(NSCAPI::query_return_codes::returnUNKNOWN));
 }
+
+TEST(StatusConversionTest, nagios_status_to_gpb_invalid_value) {
+  // Invalid status values should map to UNKNOWN
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, nscapi::protobuf::functions::nagios_status_to_gpb(999));
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, nscapi::protobuf::functions::nagios_status_to_gpb(-1));
+}
+
+// gbp_status_to_gbp_nagios inline function tests
+TEST(StatusConversionTest, gbp_status_to_gbp_nagios_ok) {
+  EXPECT_EQ(PB::Common::ResultCode::OK, nscapi::protobuf::functions::gbp_status_to_gbp_nagios(PB::Common::Result_StatusCodeType_STATUS_OK));
+}
+
+TEST(StatusConversionTest, gbp_status_to_gbp_nagios_error) {
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, nscapi::protobuf::functions::gbp_status_to_gbp_nagios(PB::Common::Result_StatusCodeType_STATUS_ERROR));
+}
+
+// gbp_to_nagios_gbp_status inline function tests
+TEST(StatusConversionTest, gbp_to_nagios_gbp_status_ok) {
+  EXPECT_EQ(PB::Common::Result_StatusCodeType_STATUS_OK, nscapi::protobuf::functions::gbp_to_nagios_gbp_status(PB::Common::ResultCode::OK));
+}
+
+TEST(StatusConversionTest, gbp_to_nagios_gbp_status_warning) {
+  EXPECT_EQ(PB::Common::Result_StatusCodeType_STATUS_ERROR, nscapi::protobuf::functions::gbp_to_nagios_gbp_status(PB::Common::ResultCode::WARNING));
+}
+
+TEST(StatusConversionTest, gbp_to_nagios_gbp_status_critical) {
+  EXPECT_EQ(PB::Common::Result_StatusCodeType_STATUS_ERROR, nscapi::protobuf::functions::gbp_to_nagios_gbp_status(PB::Common::ResultCode::CRITICAL));
+}
+
+TEST(StatusConversionTest, gbp_to_nagios_gbp_status_unknown) {
+  EXPECT_EQ(PB::Common::Result_StatusCodeType_STATUS_ERROR, nscapi::protobuf::functions::gbp_to_nagios_gbp_status(PB::Common::ResultCode::UNKNOWN));
+}
+
+// Additional parse_nagios tests for edge cases
+TEST(StatusConversionTest, parse_nagios_empty_string) { EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, nscapi::protobuf::functions::parse_nagios("")); }
+
+TEST(StatusConversionTest, parse_nagios_mixed_case) {
+  EXPECT_EQ(PB::Common::ResultCode::OK, nscapi::protobuf::functions::parse_nagios("Ok"));
+  EXPECT_EQ(PB::Common::ResultCode::WARNING, nscapi::protobuf::functions::parse_nagios("WaRn"));
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, nscapi::protobuf::functions::parse_nagios("CrIt"));
+}
+
+TEST(StatusConversionTest, parse_nagios_full_words) {
+  EXPECT_EQ(PB::Common::ResultCode::WARNING, nscapi::protobuf::functions::parse_nagios("warning"));
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, nscapi::protobuf::functions::parse_nagios("critical"));
+}
+
+TEST(StatusConversionTest, parse_nagios_with_spaces) {
+  // Leading/trailing spaces should result in unknown (not trimmed)
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, nscapi::protobuf::functions::parse_nagios(" ok"));
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, nscapi::protobuf::functions::parse_nagios("ok "));
+}
+
+TEST(StatusConversionTest, parse_nagios_numeric_out_of_range) {
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, nscapi::protobuf::functions::parse_nagios("4"));
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, nscapi::protobuf::functions::parse_nagios("10"));
+}
