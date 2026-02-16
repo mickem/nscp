@@ -202,3 +202,187 @@ TEST(PerfDataExtractionTest, extract_perf_maximum_as_string_no_float) {
   const auto result = nscapi::protobuf::functions::extract_perf_maximum_as_string(perf);
   EXPECT_EQ("unknown", result);
 }
+
+// Additional extraction tests for edge cases
+TEST(PerfDataExtractionTest, extract_perf_value_as_string_with_G_unit) {
+  PB::Common::PerformanceData perf;
+  perf.mutable_float_value()->set_value(1);
+  perf.mutable_float_value()->set_unit("G");
+
+  const auto result = nscapi::protobuf::functions::extract_perf_value_as_string(perf);
+  EXPECT_EQ("1073741824", result);  // 1 * 1024^3
+}
+
+TEST(PerfDataExtractionTest, extract_perf_value_as_string_with_T_unit) {
+  PB::Common::PerformanceData perf;
+  perf.mutable_float_value()->set_value(1);
+  perf.mutable_float_value()->set_unit("T");
+
+  const auto result = nscapi::protobuf::functions::extract_perf_value_as_string(perf);
+  EXPECT_EQ("1099511627776", result);  // 1 * 1024^4
+}
+
+TEST(PerfDataExtractionTest, extract_perf_value_as_int_with_G_unit) {
+  PB::Common::PerformanceData perf;
+  perf.mutable_float_value()->set_value(2);
+  perf.mutable_float_value()->set_unit("G");
+
+  const auto result = nscapi::protobuf::functions::extract_perf_value_as_int(perf);
+  EXPECT_EQ(2147483648LL, result);  // 2 * 1024^3
+}
+
+TEST(PerfDataExtractionTest, extract_perf_value_as_int_with_T_unit) {
+  PB::Common::PerformanceData perf;
+  perf.mutable_float_value()->set_value(1);
+  perf.mutable_float_value()->set_unit("T");
+
+  const auto result = nscapi::protobuf::functions::extract_perf_value_as_int(perf);
+  EXPECT_EQ(1099511627776LL, result);  // 1 * 1024^4
+}
+
+TEST(PerfDataExtractionTest, extract_perf_value_as_int_no_value) {
+  const PB::Common::PerformanceData perf;
+
+  const auto result = nscapi::protobuf::functions::extract_perf_value_as_int(perf);
+  EXPECT_EQ(0, result);
+}
+
+TEST(PerfDataExtractionTest, extract_perf_maximum_as_string_string_value) {
+  PB::Common::PerformanceData perf;
+  perf.mutable_string_value()->set_value("test");
+
+  const auto result = nscapi::protobuf::functions::extract_perf_maximum_as_string(perf);
+  EXPECT_EQ("unknown", result);
+}
+
+TEST(PerfDataExtractionTest, extract_perf_value_as_string_empty_unit) {
+  PB::Common::PerformanceData perf;
+  perf.mutable_float_value()->set_value(50);
+  perf.mutable_float_value()->set_unit("");
+
+  const auto result = nscapi::protobuf::functions::extract_perf_value_as_string(perf);
+  EXPECT_EQ("50", result);
+}
+
+TEST(PerfDataExtractionTest, extract_perf_value_as_int_empty_unit) {
+  PB::Common::PerformanceData perf;
+  perf.mutable_float_value()->set_value(123.9);
+  perf.mutable_float_value()->set_unit("");
+
+  const auto result = nscapi::protobuf::functions::extract_perf_value_as_int(perf);
+  EXPECT_EQ(123, result);
+}
+
+TEST(PerfDataExtractionTest, extract_perf_maximum_as_string_with_G_unit) {
+  PB::Common::PerformanceData perf;
+  perf.mutable_float_value()->mutable_maximum()->set_value(2);
+  perf.mutable_float_value()->set_unit("G");
+
+  const auto result = nscapi::protobuf::functions::extract_perf_maximum_as_string(perf);
+  EXPECT_EQ("2147483648", result);  // 2 * 1024^3
+}
+
+TEST(PerfDataExtractionTest, extract_perf_maximum_as_string_with_T_unit) {
+  PB::Common::PerformanceData perf;
+  perf.mutable_float_value()->mutable_maximum()->set_value(1);
+  perf.mutable_float_value()->set_unit("T");
+
+  const auto result = nscapi::protobuf::functions::extract_perf_maximum_as_string(perf);
+  EXPECT_EQ("1099511627776", result);  // 1 * 1024^4
+}
+
+// Performance data parsing edge cases
+TEST(PerfDataTest, parse_only_alias_no_value) {
+  // Invalid perf data format - should handle gracefully
+  EXPECT_EQ("'aaa'=0", do_parse("aaa"));
+}
+
+TEST(PerfDataTest, parse_string_value) {
+  // String values in perf data
+  EXPECT_EQ("'aaa'=0", do_parse("'aaa'=\"string_value\""));
+}
+
+TEST(PerfDataTest, decimal_only_value) { EXPECT_EQ("'aaa'=0.5", do_parse("aaa=0.5")); }
+
+TEST(PerfDataTest, very_small_value) { EXPECT_EQ("'aaa'=0.00001", do_parse("aaa=0.00001")); }
+
+TEST(PerfDataTest, zero_value) { EXPECT_EQ("'aaa'=0", do_parse("aaa=0")); }
+
+TEST(PerfDataTest, percent_unit) { EXPECT_EQ("'aaa'=50%", do_parse("aaa=50%")); }
+
+TEST(PerfDataTest, bytes_unit) { EXPECT_EQ("'aaa'=1024B", do_parse("aaa=1024B")); }
+
+TEST(PerfDataTest, milliseconds_unit) { EXPECT_EQ("'aaa'=100ms", do_parse("aaa=100ms")); }
+
+TEST(PerfDataTest, seconds_unit) { EXPECT_EQ("'aaa'=5s", do_parse("aaa=5s")); }
+
+TEST(PerfDataTest, alias_with_spaces) { EXPECT_EQ("'disk usage'=50%", do_parse("'disk usage'=50%")); }
+
+TEST(PerfDataTest, alias_with_special_chars) { EXPECT_EQ("'cpu/total'=75%", do_parse("'cpu/total'=75%")); }
+
+// Build performance data tests
+TEST(PerfDataBuildTest, build_empty_line) {
+  PB::Commands::QueryResponseMessage::Response::Line line;
+
+  const auto result = nscapi::protobuf::functions::build_performance_data(line, nscapi::protobuf::functions::no_truncation);
+  EXPECT_EQ("", result);
+}
+
+TEST(PerfDataBuildTest, build_single_perf) {
+  PB::Commands::QueryResponseMessage::Response::Line line;
+  auto* perf = line.add_perf();
+  perf->set_alias("test");
+  perf->mutable_float_value()->set_value(42);
+
+  const auto result = nscapi::protobuf::functions::build_performance_data(line, nscapi::protobuf::functions::no_truncation);
+  EXPECT_EQ("'test'=42", result);
+}
+
+TEST(PerfDataBuildTest, build_perf_with_all_thresholds) {
+  PB::Commands::QueryResponseMessage::Response::Line line;
+  auto* perf = line.add_perf();
+  perf->set_alias("metric");
+  perf->mutable_float_value()->set_value(50);
+  perf->mutable_float_value()->set_unit("%");
+  perf->mutable_float_value()->mutable_warning()->set_value(70);
+  perf->mutable_float_value()->mutable_critical()->set_value(90);
+  perf->mutable_float_value()->mutable_minimum()->set_value(0);
+  perf->mutable_float_value()->mutable_maximum()->set_value(100);
+
+  const auto result = nscapi::protobuf::functions::build_performance_data(line, nscapi::protobuf::functions::no_truncation);
+  EXPECT_EQ("'metric'=50%;70;90;0;100", result);
+}
+
+TEST(PerfDataBuildTest, build_multiple_perfs) {
+  PB::Commands::QueryResponseMessage::Response::Line line;
+  auto* perf1 = line.add_perf();
+  perf1->set_alias("cpu");
+  perf1->mutable_float_value()->set_value(50);
+  auto* perf2 = line.add_perf();
+  perf2->set_alias("mem");
+  perf2->mutable_float_value()->set_value(75);
+
+  const auto result = nscapi::protobuf::functions::build_performance_data(line, nscapi::protobuf::functions::no_truncation);
+  EXPECT_EQ("'cpu'=50 'mem'=75", result);
+}
+
+TEST(PerfDataBuildTest, build_with_truncation_exact) {
+  PB::Commands::QueryResponseMessage::Response::Line line;
+  auto* perf = line.add_perf();
+  perf->set_alias("test");
+  perf->mutable_float_value()->set_value(1);
+
+  const auto result = nscapi::protobuf::functions::build_performance_data(line, 10);  // "'test'=1" is 8 chars
+  EXPECT_EQ("'test'=1", result);
+}
+
+TEST(PerfDataBuildTest, build_with_no_string_value) {
+  // When perf has alias but no value type set
+  PB::Commands::QueryResponseMessage::Response::Line line;
+  auto* perf = line.add_perf();
+  perf->set_alias("test");
+  // No value set
+
+  const auto result = nscapi::protobuf::functions::build_performance_data(line, nscapi::protobuf::functions::no_truncation);
+  EXPECT_EQ("'test'=", result);
+}

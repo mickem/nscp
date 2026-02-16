@@ -109,7 +109,13 @@ std::string settings_query::key_values::get_string() const {
 
 long long settings_query::key_values::get_int() const {
   if (!pimpl) return 0;
-  if (pimpl->str_value) return str::stox<long long>(*pimpl->str_value);
+  if (pimpl->str_value) {
+    try {
+      return str::stox<long long>(*pimpl->str_value);
+    } catch (const std::exception &) {
+      return 0;  // Return 0 if conversion fails
+    }
+  };
   if (pimpl->int_value) return *pimpl->int_value;
   if (pimpl->bool_value) return *pimpl->bool_value ? 1 : 0;
   return 0;

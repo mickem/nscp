@@ -36,7 +36,7 @@ class NSCAPI_EXPORT settings_query {
  public:
   struct NSCAPI_EXPORT key_values {
     settings_query_key_values_data *pimpl;
-    key_values(std::string path);
+    explicit key_values(std::string path);
     key_values(std::string path, std::string key, std::string str_value);
     key_values(std::string path, std::string key, long long int_value);
     key_values(std::string path, std::string key, bool bool_value);

@@ -208,3 +208,93 @@ TEST(ParseFunctionsTest, parse_simple_query_response_empty_string) {
 
   EXPECT_EQ(NSCAPI::query_return_codes::returnUNKNOWN, ret);
 }
+
+// Additional query response tests
+TEST(QueryResponseTest, parse_simple_query_response_multiple_lines_perf) {
+  PB::Commands::QueryResponseMessage message;
+  auto* payload = message.add_payload();
+  payload->set_result(PB::Common::ResultCode::OK);
+
+  auto* line1 = payload->add_lines();
+  line1->set_message("Line 1");
+  auto* perf1 = line1->add_perf();
+  perf1->set_alias("metric1");
+  perf1->mutable_float_value()->set_value(10);
+
+  auto* line2 = payload->add_lines();
+  line2->set_message("Line 2");
+  auto* perf2 = line2->add_perf();
+  perf2->set_alias("metric2");
+  perf2->mutable_float_value()->set_value(20);
+
+  const auto response = message.SerializeAsString();
+  std::string msg, perf;
+  const auto ret = nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf, 0);
+
+  EXPECT_EQ(NSCAPI::query_return_codes::returnOK, ret);
+  EXPECT_EQ("Line 1Line 2", msg);
+  // Perf data from multiple lines should be aggregated with space separator
+  EXPECT_TRUE(perf.find("'metric1'=10") != std::string::npos);
+  EXPECT_TRUE(perf.find("'metric2'=20") != std::string::npos);
+}
+
+TEST(AppendPayloadTest, append_simple_query_response_payload_empty_perf) {
+  PB::Commands::QueryResponseMessage::Response payload;
+  nscapi::protobuf::functions::append_simple_query_response_payload(&payload, "cmd", NSCAPI::query_return_codes::returnOK, "All OK", "");
+
+  EXPECT_EQ("cmd", payload.command());
+  EXPECT_EQ(PB::Common::ResultCode::OK, payload.result());
+  EXPECT_EQ(1, payload.lines_size());
+  EXPECT_EQ("All OK", payload.lines(0).message());
+  EXPECT_EQ(0, payload.lines(0).perf_size());  // No perf data should be added
+}
+
+TEST(QueryRequestTest, create_simple_query_request_empty_args_list) {
+  std::string buffer;
+  const std::list<std::string> args;
+
+  nscapi::protobuf::functions::create_simple_query_request("test_command", args, buffer);
+
+  PB::Commands::QueryRequestMessage message;
+  ASSERT_TRUE(message.ParseFromString(buffer));
+  EXPECT_EQ(1, message.payload_size());
+  EXPECT_EQ("test_command", message.payload(0).command());
+  EXPECT_EQ(0, message.payload(0).arguments_size());
+}
+
+TEST(QueryRequestTest, create_simple_query_request_empty_args_vector) {
+  std::string buffer;
+  const std::vector<std::string> args;
+
+  nscapi::protobuf::functions::create_simple_query_request("test_command", args, buffer);
+
+  PB::Commands::QueryRequestMessage message;
+  ASSERT_TRUE(message.ParseFromString(buffer));
+  EXPECT_EQ(0, message.payload(0).arguments_size());
+}
+
+TEST(QueryResponseTest, query_data_to_nagios_string_empty_message) {
+  PB::Commands::QueryResponseMessage message;
+  // No payloads added
+
+  const auto result = nscapi::protobuf::functions::query_data_to_nagios_string(message, 0);
+  EXPECT_EQ("", result);
+}
+
+TEST(QueryResponseTest, query_data_to_nagios_string_response_no_perf) {
+  PB::Commands::QueryResponseMessage::Response payload;
+  auto* line = payload.add_lines();
+  line->set_message("Test output no perf");
+
+  const auto result = nscapi::protobuf::functions::query_data_to_nagios_string(payload, 0);
+  EXPECT_EQ("Test output no perf", result);
+}
+
+TEST(AppendPayloadTest, append_simple_query_request_payload_empty_args) {
+  PB::Commands::QueryRequestMessage::Request payload;
+  const std::vector<std::string> args;
+  nscapi::protobuf::functions::append_simple_query_request_payload(&payload, "cmd", args);
+
+  EXPECT_EQ("cmd", payload.command());
+  EXPECT_EQ(0, payload.arguments_size());
+}
