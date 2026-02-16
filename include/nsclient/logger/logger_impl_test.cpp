@@ -19,7 +19,7 @@
 
 #include <gtest/gtest.h>
 
-#include <nscapi/nscapi_protobuf_log.hpp>
+#include <nscapi/protobuf/log.hpp>
 #include <nsclient/logger/logger_impl.hpp>
 #include <string>
 #include <vector>

@@ -19,7 +19,7 @@
 
 #include <boost/shared_ptr.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/protobuf/command.hpp>
 
 #include "bookmarks.hpp"
 #include "filter.hpp"

@@ -1,7 +1,7 @@
 #ifndef NSCP_CHECK_PAGEFILE_H
 #define NSCP_CHECK_PAGEFILE_H
 #include <boost/shared_ptr.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <str/format.hpp>

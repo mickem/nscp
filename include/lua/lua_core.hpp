@@ -26,7 +26,7 @@ extern "C" {
 #include <boost/shared_ptr.hpp>
 #include <list>
 #include <lua/lua_script.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/protobuf/command.hpp>
 #include <scripts/script_interface.hpp>
 #include <string>
 

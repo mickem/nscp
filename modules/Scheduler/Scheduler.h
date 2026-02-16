@@ -18,7 +18,7 @@
  */
 
 #include <nscapi/nscapi_plugin_impl.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <nscapi/protobuf/metrics.hpp>
 #include <scheduler/simple_scheduler.hpp>
 
 #include "schedules_handler.hpp"

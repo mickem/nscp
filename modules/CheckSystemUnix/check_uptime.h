@@ -1,7 +1,7 @@
 #ifndef NSCP_CHECK_UPTIME_H
 #define NSCP_CHECK_UPTIME_H
 #include <boost/date_time/posix_time/ptime.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 

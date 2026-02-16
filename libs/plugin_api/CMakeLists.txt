@@ -11,8 +11,15 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_settings_functions.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_convert.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_copy.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_perfdata.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_query.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_exec.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_response.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_submit.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_status.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_targets.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_filter.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_proxy.cpp
@@ -31,8 +38,7 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_helper.hpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.hpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.hpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_settings_functions.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions.hpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_targets.hpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_filter.hpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_proxy.hpp

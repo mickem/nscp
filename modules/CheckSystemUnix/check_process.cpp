@@ -6,7 +6,8 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 #include <fstream>
-#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/protobuf/functions_convert.hpp>
+#include <nscapi/protobuf/functions_exec.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <set>
 #include <sstream>

@@ -20,7 +20,7 @@
 #pragma once
 
 #include <nscapi/nscapi_plugin_impl.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/protobuf/command.hpp>
 
 class CauseCrashes : public nscapi::impl::simple_plugin {
  public:

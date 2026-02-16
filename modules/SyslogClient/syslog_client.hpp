@@ -22,6 +22,9 @@
 #include <boost/asio.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/protobuf/functions_convert.hpp>
+#include <nscapi/protobuf/functions_perfdata.hpp>
+#include <nscapi/protobuf/functions_query.hpp>
 #include <socket/socket_helpers.hpp>
 #include <str/format.hpp>
 

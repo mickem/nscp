@@ -24,7 +24,9 @@
 #include <nsca/nsca_packet.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_protobuf_nagios.hpp>
+#include <nscapi/protobuf/functions_convert.hpp>
+#include <nscapi/protobuf/functions_query.hpp>
+#include <nscapi/protobuf/nagios.hpp>
 #include <socket/client.hpp>
 #include <str/format.hpp>
 

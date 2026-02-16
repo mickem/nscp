@@ -1,6 +1,6 @@
 #ifndef NSCP_CHECK_OS_VERSION_H
 #define NSCP_CHECK_OS_VERSION_H
-#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 

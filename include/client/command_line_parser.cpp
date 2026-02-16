@@ -19,9 +19,10 @@
 
 #include <boost/algorithm/string.hpp>
 #include <client/command_line_parser.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
-#include <nscapi/nscapi_protobuf_nagios.hpp>
+#include <nscapi/protobuf/command.hpp>
+#include <nscapi/protobuf/functions_copy.hpp>
+#include <nscapi/protobuf/metrics.hpp>
+#include <nscapi/protobuf/nagios.hpp>
 #include <utf8.hpp>
 
 #ifdef _WIN32

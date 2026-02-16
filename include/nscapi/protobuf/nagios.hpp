@@ -20,7 +20,7 @@
 #pragma once
 
 #include <nscapi/dll_defines.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/protobuf/command.hpp>
 #include <string>
 
 namespace nscapi {

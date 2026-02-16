@@ -20,7 +20,7 @@
 #pragma once
 
 #include <boost/program_options.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/protobuf/command.hpp>
 #include <string>
 
 namespace compat {

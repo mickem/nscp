@@ -5,7 +5,9 @@
 #include <boost/program_options.hpp>
 #include <cstdio>
 #include <memory>
-#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/protobuf/functions_convert.hpp>
+#include <nscapi/protobuf/functions_exec.hpp>
+#include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <sstream>
 

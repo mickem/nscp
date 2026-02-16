@@ -19,13 +19,13 @@
 
 #pragma once
 
+#include <nscapi/protobuf/command.hpp>
+#include <nscapi/protobuf/log.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/thread/thread.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_log.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <nscapi/protobuf/metrics.hpp>
 #include <nscapi/plugin.hpp>
 #include <string>
 

@@ -23,7 +23,11 @@
 
 #include <boost/filesystem.hpp>
 #include <nscapi/nscapi_helper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/protobuf/functions_convert.hpp>
+#include <nscapi/protobuf/functions_copy.hpp>
+#include <nscapi/protobuf/functions_exec.hpp>
+#include <nscapi/protobuf/functions_perfdata.hpp>
+#include <nscapi/protobuf/functions_status.hpp>
 
 #include "../../modules/NRPEClient/nrpe_client.hpp"
 #include "../../modules/NRPEClient/nrpe_handler.hpp"

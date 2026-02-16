@@ -15,8 +15,10 @@
  */
 
 #include <boost/optional.hpp>
-#include <nscapi/nscapi_protobuf_settings.hpp>
-#include <nscapi/nscapi_protobuf_settings_functions.hpp>
+#include <nscapi/protobuf/functions_convert.hpp>
+#include <nscapi/protobuf/functions_exec.hpp>
+#include <nscapi/protobuf/settings.hpp>
+#include <nscapi/protobuf/settings_functions.hpp>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
 #include <utility>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nscapi/nscapi_protobuf_settings.hpp>
+#include <nscapi/protobuf/settings.hpp>
 #include <nsclient/logger/logger.hpp>
 #include <timer.hpp>
 

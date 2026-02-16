@@ -18,7 +18,7 @@
  */
 
 #include <iostream>
-#include <nscapi/nscapi_protobuf_log.hpp>
+#include <nscapi/protobuf/log.hpp>
 #include <nsclient/logger/log_message_factory.hpp>
 
 void nsclient::logging::log_message_factory::log_fatal(const std::string &message) { std::cout << message << "\n"; }

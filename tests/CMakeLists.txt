@@ -1,5 +1,5 @@
 if(WIN32)
-    nscp_create_test(
+    NSCP_CREATE_TEST(
         shellapi_test
         SOURCES
             ${NSCP_INCLUDEDIR}/win/shellapi_test.cpp
@@ -15,7 +15,7 @@ if(WIN32)
         INCLUDES
             ${NSCP_INCLUDEDIR}
     )
-    nscp_create_test(
+    NSCP_CREATE_TEST(
         wmi_query_test
         SOURCES
             ${NSCP_INCLUDEDIR}/wmi/wmi_query_test.cpp
@@ -38,22 +38,35 @@ add_definitions(
     -Dnscp_plugin_api_NOLIB
 )
 
-nscp_create_test(
-    nscapi_test
+NSCP_CREATE_TEST(
+    nscapi_protobuf_test
     SOURCES
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions_test.cpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.cpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.hpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_settings_functions_test.cpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_settings_functions.cpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_settings_functions.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_convert_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_copy_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_exec_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_perfdata_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_query_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_response_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_status_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_submit_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_convert.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_copy.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_exec.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_perfdata.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_query.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_response.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_status.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_submit.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions.cpp
     LIBRARIES
         GTest::gtest_main
         nscp_protobuf
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
-nscp_create_test(
+NSCP_CREATE_TEST(
     str_test
     SOURCES
         ${NSCP_INCLUDEDIR}/str/format_test.cpp
@@ -66,7 +79,7 @@ nscp_create_test(
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
-nscp_create_test(
+NSCP_CREATE_TEST(
     logger_test
     SOURCES
         ${NSCP_INCLUDEDIR}/nsclient/logger/log_level_test.cpp
@@ -87,7 +100,7 @@ nscp_create_test(
         ${NSCP_INCLUDEDIR}
 )
 
-nscp_create_test(
+NSCP_CREATE_TEST(
     settings_helper_test
     SOURCES
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper_test.cpp
@@ -102,7 +115,7 @@ nscp_create_test(
         ${NSCP_INCLUDEDIR}
 )
 
-nscp_create_test(
+NSCP_CREATE_TEST(
     settings_object_test
     SOURCES
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object_test.cpp

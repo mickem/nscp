@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/protobuf/command.hpp>
+#include <nscapi/protobuf/functions_response.hpp>
 #include <str/utils.hpp>
 #include <utf8.hpp>
 

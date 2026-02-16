@@ -19,7 +19,7 @@
 
 #include <gtest/gtest.h>
 
-#include <nscapi/nscapi_protobuf_settings_functions.hpp>
+#include <nscapi/protobuf/settings_functions.hpp>
 #include <string>
 
 using namespace nscapi::protobuf::functions;

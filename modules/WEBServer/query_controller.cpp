@@ -4,9 +4,13 @@
 #include <boost/json.hpp>
 #include <boost/regex.hpp>
 #include <nscapi/nscapi_helper.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf_registry.hpp>
+#include <nscapi/protobuf/command.hpp>
+#include <nscapi/protobuf/functions_convert.hpp>
+#include <nscapi/protobuf/functions_copy.hpp>
+#include <nscapi/protobuf/functions_exec.hpp>
+#include <nscapi/protobuf/functions_perfdata.hpp>
+#include <nscapi/protobuf/functions_submit.hpp>
+#include <nscapi/protobuf/registry.hpp>
 #include <str/xtos.hpp>
 
 #include "helpers.hpp"

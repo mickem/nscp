@@ -16,15 +16,16 @@
  * You should have received a copy of the GNU General Public License
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
+#pragma once
 
 #include <Server.h>
 
 #include <boost/shared_ptr.hpp>
 #include <client/simple_client.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_log.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
 #include <nscapi/plugin.hpp>
+#include <nscapi/protobuf/command.hpp>
+#include <nscapi/protobuf/log.hpp>
+#include <nscapi/protobuf/metrics.hpp>
 
 #include "error_handler_interface.hpp"
 #include "session_manager_interface.hpp"

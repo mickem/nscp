@@ -18,7 +18,10 @@
  */
 
 #include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/protobuf/functions_exec.hpp>
+#include <nscapi/protobuf/functions_perfdata.hpp>
+#include <nscapi/protobuf/functions_query.hpp>
+#include <nscapi/protobuf/functions_submit.hpp>
 #include <scripts/script_nscp.hpp>
 
 std::list<std::string> scripts::nscp::settings_provider_impl::get_section(std::string section) { return settings_.get_keys(section); }

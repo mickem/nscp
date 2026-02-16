@@ -23,8 +23,8 @@
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <nscapi/protobuf/command.hpp>
+#include <nscapi/protobuf/metrics.hpp>
 #include <nsclient/logger/logger.hpp>
 
 #include "../channels.hpp"

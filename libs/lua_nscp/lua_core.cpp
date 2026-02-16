@@ -6,7 +6,12 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/protobuf/functions_exec.hpp>
+#include <nscapi/protobuf/functions_perfdata.hpp>
+#include <nscapi/protobuf/functions_query.hpp>
+#include <nscapi/protobuf/functions_response.hpp>
+#include <nscapi/protobuf/functions_status.hpp>
+#include <nscapi/protobuf/functions_submit.hpp>
 
 void lua::lua_runtime::register_query(const std::string &command, const std::string &description) {
   throw lua_exception("The method or operation is not implemented(reg_query).");

@@ -94,14 +94,21 @@ using namespace Google::Protobuf;
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf_nagios.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/protobuf/functions_status.hpp>
+#include <nscapi/protobuf/functions_response.hpp>
+#include <nscapi/protobuf/functions_query.hpp>
+#include <nscapi/protobuf/functions_submit.hpp>
+#include <nscapi/protobuf/functions_exec.hpp>
+#include <nscapi/protobuf/functions_convert.hpp>
+#include <nscapi/protobuf/functions_perfdata.hpp>
+#include <nscapi/protobuf/functions_copy.hpp>
+#include <nscapi/protobuf/nagios.hpp>
+#include <nscapi/protobuf/command.hpp>
 {% if module.metrics %}
-#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <nscapi/protobuf/metrics.hpp>
 {% endif %}
 {%if module.log_handler %}
-#include <nscapi/nscapi_protobuf_log.hpp>
+#include <nscapi/protobuf/log.hpp>
 {% endif %}
 
 #include <nscapi/command_proxy.hpp>

@@ -22,8 +22,8 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/protobuf/command.hpp>
 #include <str/xtos.hpp>
 #include <wmi/wmi_query.hpp>
 

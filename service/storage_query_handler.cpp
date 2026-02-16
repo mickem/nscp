@@ -1,6 +1,7 @@
 #include "storage_query_handler.hpp"
 
-#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/protobuf/functions_convert.hpp>
+#include <nscapi/protobuf/functions_exec.hpp>
 
 #include "plugins/dll_plugin.h"
 

@@ -29,7 +29,7 @@
 #ifdef _WIN32
 #include <win/service_control.hpp>
 #endif
-#include <nscapi/nscapi_protobuf_settings.hpp>
+#include <nscapi/protobuf/settings.hpp>
 #include <nsclient/logger/logger.hpp>
 
 #include "registry_query_handler.hpp"

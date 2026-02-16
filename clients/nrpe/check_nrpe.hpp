@@ -20,7 +20,7 @@
 #pragma once
 
 #include <client/command_line_parser.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/protobuf/command.hpp>
 
 class check_nrpe {
  private:

@@ -6,7 +6,8 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/protobuf/functions_copy.hpp>
+#include <nscapi/protobuf/functions_query.hpp>
 #include <scripts/script_nscp.hpp>
 
 const std::string lua::lua_traits::user_data_tag = "nscp.userdata.info";

@@ -21,7 +21,7 @@
 
 #include <boost/thread/mutex.hpp>
 #include <map>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <nscapi/protobuf/metrics.hpp>
 #include <string>
 
 namespace metrics {

@@ -4,7 +4,9 @@
 #include <map>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/protobuf/functions_query.hpp>
+#include <nscapi/protobuf/functions_response.hpp>
+#include <nscapi/protobuf/functions_status.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/where/helpers.hpp>
 #include <str/format.hpp>
