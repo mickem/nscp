@@ -21,8 +21,8 @@
 
 #include <boost/filesystem.hpp>
 #include <file_helpers.hpp>
-#include <nscapi/nscapi_protobuf_log.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/protobuf/log.hpp>
 #include <nsclient/logger/logger_helper.hpp>
 #include <str/format.hpp>
 

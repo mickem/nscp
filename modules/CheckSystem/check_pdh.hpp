@@ -19,14 +19,10 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
+#include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
-#include <parsers/where.hpp>
-#include <parsers/where/engine.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
-#include <parsers/where/node.hpp>
 
 #include "pdh_thread.hpp"
 

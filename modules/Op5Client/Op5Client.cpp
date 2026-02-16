@@ -21,19 +21,17 @@
 
 #include <Client.hpp>
 #include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/replace.hpp>
-#include <boost/algorithm/string/split.hpp>
 #include <boost/asio.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/json.hpp>
-#include <boost/range/iterator_range.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf_nagios.hpp>
-#include <nscapi/nscapi_protobuf_settings_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/protobuf/functions_perfdata.hpp>
+#include <nscapi/protobuf/functions_query.hpp>
+#include <nscapi/protobuf/functions_response.hpp>
+#include <nscapi/protobuf/nagios.hpp>
+#include <nscapi/protobuf/settings_functions.hpp>
 #include <str/format.hpp>
 #include <str/utils.hpp>
 /**

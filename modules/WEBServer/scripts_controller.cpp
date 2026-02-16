@@ -6,7 +6,7 @@
 #include <boost/regex.hpp>
 #include <file_helpers.hpp>
 #include <fstream>
-#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/protobuf/command.hpp>
 #include <utility>
 
 #define EXT_SCR "CheckExternalScripts"

@@ -22,8 +22,8 @@
 #include <CheckMemory.h>
 
 #include <nscapi/nscapi_plugin_impl.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <nscapi/protobuf/command.hpp>
+#include <nscapi/protobuf/metrics.hpp>
 
 #include "check_pdh.hpp"
 #include "filter_config_object.hpp"

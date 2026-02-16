@@ -25,7 +25,10 @@
 #include <nrpe/packet.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/protobuf/command.hpp>
+#include <nscapi/protobuf/functions_exec.hpp>
+#include <nscapi/protobuf/functions_query.hpp>
+#include <nscapi/protobuf/functions_submit.hpp>
 #include <socket/client.hpp>
 
 namespace nrpe_client {

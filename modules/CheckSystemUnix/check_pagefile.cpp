@@ -1,7 +1,8 @@
 #include "check_pagefile.h"
 
 #include <boost/program_options.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/protobuf/functions_convert.hpp>
+#include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/where/helpers.hpp>
 

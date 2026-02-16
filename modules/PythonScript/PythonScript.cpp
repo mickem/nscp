@@ -24,10 +24,12 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
-#include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/protobuf/functions_perfdata.hpp>
+#include <nscapi/protobuf/functions_query.hpp>
+#include <nscapi/protobuf/functions_response.hpp>
+#include <nscapi/protobuf/functions_status.hpp>
+#include <nscapi/protobuf/metrics.hpp>
 
 #include "extscr_cli.h"
 #include "python_script.hpp"

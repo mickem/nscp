@@ -2,8 +2,8 @@
 
 #include <boost/json.hpp>
 #include <boost/unordered_set.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf_settings.hpp>
+#include <nscapi/protobuf/functions_query.hpp>
+#include <nscapi/protobuf/settings.hpp>
 
 #include "../libs/settings_manager/settings_manager_impl.h"
 

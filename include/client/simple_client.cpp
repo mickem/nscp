@@ -23,11 +23,11 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
-#include <nscapi/nscapi_protobuf_settings.hpp>
-#include <nscapi/nscapi_protobuf_settings_functions.hpp>
+#include <nscapi/protobuf/command.hpp>
+#include <nscapi/protobuf/functions_perfdata.hpp>
+#include <nscapi/protobuf/metrics.hpp>
+#include <nscapi/protobuf/settings.hpp>
+#include <nscapi/protobuf/settings_functions.hpp>
 #include <str/utils.hpp>
 #include <utf8.hpp>
 

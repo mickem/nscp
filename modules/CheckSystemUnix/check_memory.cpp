@@ -1,11 +1,11 @@
 #include "check_memory.h"
 
 #include <boost/assign.hpp>
-#include <list>
-#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/protobuf/functions_convert.hpp>
+#include <nscapi/protobuf/functions_exec.hpp>
+#include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/where/helpers.hpp>
-#include <str/utils.hpp>
 
 #include "realtime_thread.hpp"
 

@@ -19,7 +19,6 @@
 
 #include "check_process.hpp"
 
-#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/filter/realtime_helper.hpp>

@@ -26,9 +26,9 @@
 #include <nscapi/nscapi_common_options.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/protobuf/command.hpp>
+#include <nscapi/protobuf/functions_perfdata.hpp>
 #include <socket/socket_settings_helper.hpp>
 #include <str/utils.hpp>
 

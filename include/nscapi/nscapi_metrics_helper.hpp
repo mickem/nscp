@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <nscapi/protobuf/metrics.hpp>
 
 namespace nscapi {
 namespace metrics {

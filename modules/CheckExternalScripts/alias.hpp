@@ -23,9 +23,9 @@
 #include <boost/shared_ptr.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
+#include <nscapi/protobuf/functions_query.hpp>
 #include <str/utils.hpp>
 #include <string>
 #include <utf8.hpp>

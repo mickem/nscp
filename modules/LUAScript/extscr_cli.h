@@ -18,7 +18,7 @@
  */
 #pragma once
 #include <boost/filesystem/path.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
+#include <nscapi/protobuf/command.hpp>
 
 #include "script_provider.hpp"
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nscapi/nscapi_protobuf_storage.hpp>
+#include <nscapi/protobuf/storage.hpp>
 #include <nsclient/logger/logger.hpp>
 
 #include "plugins/plugin_manager.hpp"

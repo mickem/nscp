@@ -23,7 +23,9 @@
 
 #include <boost/filesystem.hpp>
 #include <nscapi/nscapi_helper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/protobuf/functions_copy.hpp>
+#include <nscapi/protobuf/functions_perfdata.hpp>
+#include <nscapi/protobuf/functions_status.hpp>
 
 #include "../modules/NSCPClient/nscp_handler.hpp"
 #include "win/shellapi.hpp"

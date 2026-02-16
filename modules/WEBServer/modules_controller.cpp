@@ -6,7 +6,7 @@
 #include <boost/regex.hpp>
 #include <file_helpers.hpp>
 #include <fstream>
-#include <nscapi/nscapi_protobuf_registry.hpp>
+#include <nscapi/protobuf/registry.hpp>
 #include <str/xtos.hpp>
 
 #ifdef WIN32

@@ -19,8 +19,13 @@
 
 #pragma once
 
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <nscapi/protobuf/functions_convert.hpp>
+#include <nscapi/protobuf/functions_exec.hpp>
+#include <nscapi/protobuf/functions_perfdata.hpp>
+#include <nscapi/protobuf/functions_query.hpp>
+#include <nscapi/protobuf/functions_response.hpp>
+#include <nscapi/protobuf/functions_submit.hpp>
+#include <nscapi/protobuf/metrics.hpp>
 #include <socket/socket_helpers.hpp>
 
 #include "smtp.hpp"

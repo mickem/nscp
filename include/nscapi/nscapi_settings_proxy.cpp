@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <nscapi/nscapi_protobuf_settings.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/protobuf/settings.hpp>
 
 template <class T>
 void report_errors(const T &response, nscapi::core_wrapper *core, const std::string &action) {

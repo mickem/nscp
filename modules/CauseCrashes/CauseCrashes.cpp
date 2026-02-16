@@ -20,7 +20,8 @@
 #include "CauseCrashes.h"
 
 #include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/protobuf/functions_convert.hpp>
+#include <nscapi/protobuf/functions_response.hpp>
 
 namespace po = boost::program_options;
 

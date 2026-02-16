@@ -3,8 +3,8 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/json.hpp>
 #include <client/simple_client.hpp>
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_nagios.hpp>
+#include <nscapi/protobuf/command.hpp>
+#include <nscapi/protobuf/nagios.hpp>
 
 namespace json = boost::json;
 

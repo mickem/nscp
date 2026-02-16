@@ -22,8 +22,8 @@
 #include <boost/thread/shared_mutex.hpp>
 #include <boost/unordered_map.hpp>
 #include <list>
-#include <nscapi/nscapi_protobuf_command.hpp>
-#include <nscapi/nscapi_protobuf_metrics.hpp>
+#include <nscapi/protobuf/command.hpp>
+#include <nscapi/protobuf/metrics.hpp>
 #include <string>
 #include <wmi/wmi_query.hpp>
 

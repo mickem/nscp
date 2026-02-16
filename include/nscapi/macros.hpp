@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <nscapi/nscapi_helper_singleton.hpp>
 #ifdef NSCAPI_UNIT_TESTS
 #include <iostream>
 #endif

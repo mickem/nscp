@@ -29,7 +29,14 @@ set(service_SRCS
     settings_client.cpp
     ${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.cpp
     scheduler_handler.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_convert.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_copy.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_exec.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_perfdata.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_query.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_response.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_status.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_submit.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
@@ -101,6 +108,15 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/has-threads.hpp
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
         ${NSCP_INCLUDEDIR}/win/shellapi.hpp
+        # Protobuf
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_convert.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_copy.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_exec.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_perfdata.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_query.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_response.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_status.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_submit.hpp
     )
     # SET(service_SRCS ${service_SRCS}
     # ${CMAKE_CURRENT_SOURCE_DIR}/NSClient++.manifest )
@@ -158,7 +174,7 @@ source_group("Settings" REGULAR_EXPRESSION .*include/settings/.*)
 # SOURCE_GROUP("Common Files" REGULAR_EXPRESSION .*include/.*)
 source_group("Log" REGULAR_EXPRESSION .*/logger/.*)
 
-nscp_create_test(
+NSCP_CREATE_TEST(
     service_test
     SOURCES
         cron_test.cpp
@@ -166,8 +182,6 @@ nscp_create_test(
         path_manager_test.cpp
         ${NSCP_INCLUDEDIR}/json/use_json.cpp
         ../include/parsers/cron/cron_parser.hpp
-        ../include/nscapi/nscapi_protobuf_functions.cpp
-        ../include/nscapi/nscapi_protobuf_functions.hpp
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
     LIBRARIES
         GTest::gtest_main
@@ -188,7 +202,7 @@ else()
     set(service_test_SRCS)
 endif()
 
-nscp_create_test(
+NSCP_CREATE_TEST(
     plugins_test
     SOURCES
         plugins/master_plugin_list.cpp

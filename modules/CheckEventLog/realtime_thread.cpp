@@ -23,7 +23,6 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <parsers/filter/realtime_helper.hpp>
 #include <str/format.hpp>
 
