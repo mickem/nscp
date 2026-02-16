@@ -20,8 +20,8 @@
 #pragma once
 
 #include <boost/shared_ptr.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/settings/helper.hpp>
+#include <nscapi/settings/proxy.hpp>
 #include <socket/socket_helpers.hpp>
 
 namespace socket_helpers {

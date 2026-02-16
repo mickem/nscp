@@ -20,7 +20,7 @@
 #pragma once
 
 #include <nscapi/nscapi_core_wrapper.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/settings/proxy.hpp>
 #include <scripts/script_interface.hpp>
 
 namespace scripts {

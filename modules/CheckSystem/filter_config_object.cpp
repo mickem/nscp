@@ -20,7 +20,7 @@
 #include "filter_config_object.hpp"
 
 #include <boost/date_time.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/settings/helper.hpp>
 #include <str/utils.hpp>
 #include <string>
 

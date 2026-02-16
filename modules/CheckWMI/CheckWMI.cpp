@@ -23,8 +23,8 @@
 #include <boost/program_options.hpp>
 #include <map>
 #include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/settings/helper.hpp>
+#include <nscapi/settings/proxy.hpp>
 #include <vector>
 
 namespace sh = nscapi::settings_helper;

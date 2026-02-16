@@ -22,9 +22,9 @@
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 #include <map>
-#include <nscapi/nscapi_settings_filter.hpp>
-#include <nscapi/nscapi_settings_object.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/settings/filter.hpp>
+#include <nscapi/settings/object.hpp>
+#include <nscapi/settings/proxy.hpp>
 #include <str/utils.hpp>
 #include <string>
 

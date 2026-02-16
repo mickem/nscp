@@ -3,7 +3,7 @@
 #include <boost/thread.hpp>
 #include <file_helpers.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/settings/proxy.hpp>
 #include <str/utils.hpp>
 
 script_provider::script_provider(int id, nscapi::core_wrapper* core, boost::filesystem::path root) : core_(core), id_(id), root_(root) {}

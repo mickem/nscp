@@ -21,7 +21,7 @@
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/unordered_set.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/settings/helper.hpp>
 #include <settings/settings_core.hpp>
 
 #include "../libs/settings_manager/settings_manager_impl.h"

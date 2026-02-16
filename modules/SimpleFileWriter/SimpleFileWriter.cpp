@@ -26,10 +26,10 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/protobuf/functions_submit.hpp>
 #include <nscapi/protobuf/nagios.hpp>
+#include <nscapi/settings/helper.hpp>
+#include <nscapi/settings/proxy.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <ostream>
 #include <parsers/expression/expression.hpp>

@@ -2,7 +2,7 @@
 
 #include <boost/filesystem/path.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/settings/proxy.hpp>
 #include <string>
 
 struct script_provider {

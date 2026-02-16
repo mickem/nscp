@@ -19,8 +19,8 @@
 
 #include "filter_config_object.hpp"
 
-#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
+#include <nscapi/settings/helper.hpp>
 #include <str/utils.hpp>
 #include <string>
 

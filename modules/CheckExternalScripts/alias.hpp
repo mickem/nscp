@@ -20,12 +20,10 @@
 #pragma once
 
 #include <boost/algorithm/string/case_conv.hpp>
-#include <boost/shared_ptr.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_settings_object.hpp>
-#include <nscapi/protobuf/functions_query.hpp>
+#include <nscapi/settings/helper.hpp>
+#include <nscapi/settings/object.hpp>
 #include <str/utils.hpp>
 #include <string>
 #include <utf8.hpp>

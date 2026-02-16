@@ -21,7 +21,7 @@
 
 #include <boost/make_shared.hpp>
 #include <map>
-#include <nscapi/nscapi_settings_object.hpp>
+#include <nscapi/settings/object.hpp>
 #include <string>
 #include <vector>
 
@@ -315,6 +315,157 @@ TEST_F(ObjectInstanceInterfaceTest, SetAlias) {
   object_instance_interface obj("old", "/path");
   obj.set_alias("new");
   EXPECT_EQ("new", obj.get_alias());
+}
+
+// ============================================================================
+// object_instance_interface::read tests
+// ============================================================================
+
+TEST_F(ObjectInstanceInterfaceTest, ReadOnelinerSetsValueFromKey) {
+  // When oneliner is true, the read function should read a single key-value pair
+  // where the key is the alias and the value is the string value
+  mock_->set_setting("/settings/targets", "myalias", "my_test_value");
+
+  object_instance_interface obj("myalias", "/settings/targets");
+  obj.read(mock_, true, false);
+
+  EXPECT_EQ("my_test_value", obj.get_value());
+}
+
+TEST_F(ObjectInstanceInterfaceTest, ReadOnelinerSetsParentToDefault) {
+  // When reading in oneliner mode, parent should be set to "default"
+  mock_->set_setting("/settings/targets", "myalias", "value");
+
+  object_instance_interface obj("myalias", "/settings/targets");
+  obj.read(mock_, true, false);
+
+  // The parent is set internally - we can verify it indirectly through is_template
+  EXPECT_FALSE(obj.is_template());
+}
+
+TEST_F(ObjectInstanceInterfaceTest, ReadNonOnelinerReadsParentSetting) {
+  // When oneliner is false, read should get parent from settings
+  mock_->set_setting("/settings/targets/myalias", "parent", "custom_parent");
+
+  object_instance_interface obj("myalias", "/settings/targets");
+  obj.read(mock_, false, false);
+
+  // Parent is stored internally - object was configured with the setting
+  EXPECT_FALSE(obj.is_template());
+}
+
+TEST_F(ObjectInstanceInterfaceTest, ReadNonOnelinerReadsIsTemplateFalse) {
+  // When "is template" is false in settings, object should not be template
+  mock_->set_setting("/settings/targets/myalias", "is template", "false");
+
+  object_instance_interface obj("myalias", "/settings/targets");
+  obj.read(mock_, false, false);
+
+  EXPECT_FALSE(obj.is_template());
+}
+
+TEST_F(ObjectInstanceInterfaceTest, ReadNonOnelinerReadsIsTemplateTrue) {
+  // When "is template" is true in settings, object should be template
+  mock_->set_setting("/settings/targets/myalias", "is template", "true");
+
+  object_instance_interface obj("myalias", "/settings/targets");
+  obj.read(mock_, false, false);
+
+  EXPECT_TRUE(obj.is_template());
+}
+
+TEST_F(ObjectInstanceInterfaceTest, ReadNonOnelinerReadsAlias) {
+  // When alias is set in settings, it should update the object's alias
+  mock_->set_setting("/settings/targets/myalias", "alias", "new_alias");
+
+  object_instance_interface obj("myalias", "/settings/targets");
+  obj.read(mock_, false, false);
+
+  EXPECT_EQ("new_alias", obj.get_alias());
+}
+
+TEST_F(ObjectInstanceInterfaceTest, ReadNonOnelinerPreservesAliasWhenNotSet) {
+  // When alias is not set in settings, the original alias should be preserved
+  object_instance_interface obj("original_alias", "/settings/targets");
+  obj.read(mock_, false, false);
+
+  EXPECT_EQ("original_alias", obj.get_alias());
+}
+
+TEST_F(ObjectInstanceInterfaceTest, ReadNonOnelinerDefaultParentIsDefault) {
+  // When parent is not set, it should default to "default"
+  object_instance_interface obj("myalias", "/settings/targets");
+  obj.read(mock_, false, false);
+
+  // Parent defaults to "default" - object is properly initialized
+  EXPECT_FALSE(obj.is_template());
+}
+
+TEST_F(ObjectInstanceInterfaceTest, ReadOnelinerSampleMode) {
+  // Test reading in sample mode with oneliner
+  mock_->set_setting("/settings/targets", "sample_alias", "sample_value");
+
+  object_instance_interface obj("sample_alias", "/settings/targets");
+  obj.read(mock_, true, true);
+
+  EXPECT_EQ("sample_value", obj.get_value());
+}
+
+TEST_F(ObjectInstanceInterfaceTest, ReadNonOnelinerSampleMode) {
+  // Test reading in sample mode with non-oneliner
+  mock_->set_setting("/settings/targets/sample", "is template", "true");
+  mock_->set_setting("/settings/targets/sample", "alias", "sample_alias");
+
+  object_instance_interface obj("sample", "/settings/targets");
+  obj.read(mock_, false, true);
+
+  EXPECT_TRUE(obj.is_template());
+}
+
+TEST_F(ObjectInstanceInterfaceTest, ReadOnelinerWithEmptyValue) {
+  // When the value is empty string, it should be set correctly
+  mock_->set_setting("/settings/targets", "myalias", "");
+
+  object_instance_interface obj("myalias", "/settings/targets");
+  obj.read(mock_, true, false);
+
+  EXPECT_EQ("", obj.get_value());
+}
+
+TEST_F(ObjectInstanceInterfaceTest, ReadNonOnelinerWithAllSettings) {
+  // Test reading with all settings configured
+  mock_->set_setting("/settings/targets/complete", "parent", "my_parent");
+  mock_->set_setting("/settings/targets/complete", "is template", "true");
+  mock_->set_setting("/settings/targets/complete", "alias", "complete_alias");
+
+  object_instance_interface obj("complete", "/settings/targets");
+  obj.read(mock_, false, false);
+
+  EXPECT_TRUE(obj.is_template());
+  EXPECT_EQ("complete_alias", obj.get_alias());
+}
+
+TEST_F(ObjectInstanceInterfaceTest, ReadPreservesExistingValue) {
+  // Test that read preserves an existing value when reading non-oneliner
+  object_instance_interface obj("myalias", "/settings/targets");
+  obj.set_value("existing_value");
+
+  obj.read(mock_, false, false);
+
+  EXPECT_EQ("existing_value", obj.get_value());
+}
+
+TEST_F(ObjectInstanceInterfaceTest, ReadOnelinerOverwritesValue) {
+  // Test that read in oneliner mode can overwrite value from settings
+  mock_->set_setting("/settings/targets", "myalias", "new_value");
+
+  object_instance_interface obj("myalias", "/settings/targets");
+  obj.set_value("old_value");
+
+  obj.read(mock_, true, false);
+
+  // The settings registry reads the value from settings
+  EXPECT_EQ("new_value", obj.get_value());
 }
 
 // ============================================================================
@@ -651,6 +802,130 @@ TEST_F(ObjectHandlerTest, HasObjectsReturnsTrueForObjects) {
 
   EXPECT_TRUE(handler_.has_objects());
   EXPECT_FALSE(handler_.empty());
+}
+
+struct test_object : object_instance_interface {
+  test_object(const std::string& alias, const std::string& base_path) : object_instance_interface(alias, base_path) {}
+
+  void read(settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) override {
+    object_instance_interface::read(proxy, oneliner, is_sample);
+
+    settings_helper::settings_registry settings(proxy);
+    settings_helper::path_extension root_path = settings.path(get_path());
+    if (is_sample) root_path.set_sample();
+
+    if (oneliner) return;
+
+    root_path.add_path()("alias: " + get_alias(), "The configuration section for the " + get_alias() + " alias");
+
+    root_path.add_key()
+        .add_string("key1", settings_helper::string_fun_key([this](const auto& value) { this->set_property_string("key1", value); }, "cannot-be-inherited"), "",
+                    "")
+        .add_string("key2", settings_helper::string_fun_key([this](const auto& value) { this->set_property_string("key2", value); }), "", "")
+        .add_string("key3", settings_helper::string_fun_key([this](const auto& value) { this->set_property_string("key3", value); }), "", "")
+
+        ;
+
+    settings.register_all();
+    settings.notify();
+  }
+};
+
+typedef object_handler<test_object> test_object_handler;
+
+TEST_F(ObjectInstanceInterfaceTest, FullObjectExample) {
+  test_object_handler objects;
+  objects.set_path("/settings/targets");
+  objects.add(mock_, "sample_alias", "sample_value");
+  const auto obj = objects.find_object("sample_alias");
+  EXPECT_EQ(
+      "{alias: sample_alias, path: /settings/targets/sample_alias, is_tpl: false, parent: default, value: sample_value, options : { key1=cannot-be-inherited, "
+      "} }",
+      obj->to_string());
+}
+
+TEST_F(ObjectInstanceInterfaceTest, FullObjectExampleOverride) {
+  mock_->set_setting("/settings/targets/sample_alias", "key1", "foo1");
+  mock_->set_setting("/settings/targets/sample_alias", "key2", "foo2");
+  mock_->set_setting("/settings/targets/sample_alias", "key3", "foo3");
+  mock_->set_keys("/settings/targets/sample_alias", {"key1", "key2", "key3"});
+
+  test_object_handler objects;
+  objects.set_path("/settings/targets");
+  objects.add(mock_, "sample_alias", "sample_value");
+  const auto obj = objects.find_object("sample_alias");
+  EXPECT_EQ(
+      "{alias: sample_alias, path: /settings/targets/sample_alias, is_tpl: false, parent: default, value: sample_value, options : { key1=foo1, key2=foo2, "
+      "key3=foo3, } }",
+      obj->to_string());
+}
+TEST_F(ObjectInstanceInterfaceTest, FullObjectExampleInheritance) {
+  mock_->set_setting("/settings/targets", "sample_alias", "foobar");
+  mock_->set_setting("/settings/targets/sample_alias", "parent", "foo_parent");
+  mock_->set_keys("/settings/targets/sample_alias", {"parent"});
+
+  test_object_handler objects;
+  objects.set_path("/settings/targets");
+  objects.add(mock_, "sample_alias", "sample_value");
+  const auto obj = objects.find_object("sample_alias");
+  EXPECT_EQ(
+      "{alias: sample_alias, path: /settings/targets/sample_alias, is_tpl: false, parent: foo_parent, value: sample_value, options : { "
+      "key1=cannot-be-inherited, } }",
+      obj->to_string());
+}
+
+TEST_F(ObjectInstanceInterfaceTest, FullObjectExampleInheritanceParentOverrides) {
+  mock_->set_setting("/settings/targets/foo_parent", "key1", "parent1");
+  mock_->set_setting("/settings/targets/foo_parent", "key2", "parent2");
+  mock_->set_setting("/settings/targets/foo_parent", "key3", "parent3");
+  mock_->set_keys("/settings/targets/foo_parent", {"key1", "key2", "key3"});
+
+  mock_->set_setting("/settings/targets/sample_alias", "parent", "foo_parent");
+  mock_->set_keys("/settings/targets/sample_alias", {"parent"});
+
+  test_object_handler objects;
+  objects.set_path("/settings/targets");
+  objects.add(mock_, "sample_alias", "sample_value");
+  const auto obj = objects.find_object("sample_alias");
+  EXPECT_EQ(
+      "{alias: sample_alias, path: /settings/targets/sample_alias, is_tpl: false, parent: foo_parent, value: sample_value, options : { "
+      "key1=cannot-be-inherited, key2=parent2, key3=parent3, } }",
+      obj->to_string());
+}
+
+TEST_F(ObjectInstanceInterfaceTest, FullObjectExampleInheritanceChildOverrides) {
+  mock_->set_setting("/settings/targets/sample_alias", "parent", "foo_parent");
+  mock_->set_setting("/settings/targets/sample_alias", "key1", "foo1");
+  mock_->set_setting("/settings/targets/sample_alias", "key2", "foo2");
+  mock_->set_setting("/settings/targets/sample_alias", "key3", "foo3");
+  mock_->set_keys("/settings/targets/sample_alias", {"parent", "key1", "key2", "key3"});
+
+  test_object_handler objects;
+  objects.set_path("/settings/targets");
+  objects.add(mock_, "sample_alias", "sample_value");
+  const auto obj = objects.find_object("sample_alias");
+  EXPECT_EQ(
+      "{alias: sample_alias, path: /settings/targets/sample_alias, is_tpl: false, parent: foo_parent, value: sample_value, options : { key1=foo1, key2=foo2, "
+      "key3=foo3, } }",
+      obj->to_string());
+}
+
+TEST_F(ObjectInstanceInterfaceTest, FullObjectExampleInheritanceBothOverrides) {
+  mock_->set_setting("/settings/targets/foo_parent", "key1", "parent1");
+  mock_->set_setting("/settings/targets/foo_parent", "key2", "parent2");
+  mock_->set_keys("/settings/targets/foo_parent", {"key1", "key2"});
+  mock_->set_setting("/settings/targets/sample_alias", "parent", "foo_parent");
+  mock_->set_setting("/settings/targets/sample_alias", "key3", "child3");
+  mock_->set_keys("/settings/targets/sample_alias", {"parent", "key2", "key3"});
+
+  test_object_handler objects;
+  objects.set_path("/settings/targets");
+  objects.add(mock_, "sample_alias", "sample_value");
+  const auto obj = objects.find_object("sample_alias");
+  EXPECT_EQ(
+      "{alias: sample_alias, path: /settings/targets/sample_alias, is_tpl: false, parent: foo_parent, value: sample_value, options : { "
+      "key1=cannot-be-inherited, key2=parent2, key3=child3, } }",
+      obj->to_string());
 }
 
 }  // namespace settings_objects

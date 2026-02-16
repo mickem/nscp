@@ -103,9 +103,9 @@ NSCP_CREATE_TEST(
 NSCP_CREATE_TEST(
     settings_helper_test
     SOURCES
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper_test.cpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.hpp
         ${NSCP_INCLUDEDIR}/utf8.cpp
     LIBRARIES
         GTest::gtest_main
@@ -118,12 +118,45 @@ NSCP_CREATE_TEST(
 NSCP_CREATE_TEST(
     settings_object_test
     SOURCES
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object_test.cpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/object_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.hpp
         ${NSCP_INCLUDEDIR}/utf8.cpp
     LIBRARIES
         GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
+    settings_filter_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/nscapi/settings/filter_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/filter.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/filter.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
+    settings_proxy_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/nscapi/settings/proxy_test.cpp
+        ${NSCP_INCLUDEDIR}/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_SYSTEM_LIBRARY}
     INCLUDES

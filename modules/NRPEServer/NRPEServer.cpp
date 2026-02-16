@@ -24,7 +24,7 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/settings/helper.hpp>
 #include <socket/socket_settings_helper.hpp>
 #include <str/utils.hpp>
 

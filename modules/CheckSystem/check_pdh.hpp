@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <nscapi/nscapi_settings_object.hpp>
 #include <nscapi/protobuf/command.hpp>
+#include <nscapi/settings/object.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 

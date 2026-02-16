@@ -20,7 +20,7 @@
 #pragma once
 
 #include <boost/make_shared.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/settings/helper.hpp>
 
 namespace collectd_handler {
 namespace sh = nscapi::settings_helper;

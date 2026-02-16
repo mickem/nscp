@@ -19,9 +19,9 @@
 
 #pragma once
 
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_settings_object.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/settings/helper.hpp>
+#include <nscapi/settings/object.hpp>
+#include <nscapi/settings/proxy.hpp>
 
 namespace web_server {
 namespace sh = nscapi::settings_helper;

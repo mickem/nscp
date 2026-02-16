@@ -20,9 +20,9 @@
 #pragma once
 
 #include <boost/algorithm/string/case_conv.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_settings_object.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/settings/helper.hpp>
+#include <nscapi/settings/object.hpp>
+#include <nscapi/settings/proxy.hpp>
 #include <string>
 
 namespace sh = nscapi::settings_helper;

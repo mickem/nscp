@@ -21,7 +21,7 @@
 
 #include <boost/make_shared.hpp>
 #include <map>
-#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/settings/helper.hpp>
 #include <string>
 #include <vector>
 

@@ -20,8 +20,8 @@
 #pragma once
 
 #include <boost/optional.hpp>
-#include <nscapi/nscapi_settings_filter.hpp>
-#include <nscapi/nscapi_settings_object.hpp>
+#include <nscapi/settings/filter.hpp>
+#include <nscapi/settings/object.hpp>
 #include <string>
 
 #include "filter.hpp"

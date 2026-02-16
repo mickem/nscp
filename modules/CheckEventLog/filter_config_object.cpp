@@ -21,11 +21,8 @@
 
 #include "filter_config_object.hpp"
 
-#include <boost/optional.hpp>
-#include <boost/shared_ptr.hpp>
-#include <map>
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_settings_object.hpp>
+#include <nscapi/settings/helper.hpp>
+#include <nscapi/settings/object.hpp>
 #include <string>
 
 #include "filter.hpp"

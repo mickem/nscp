@@ -3,7 +3,7 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/shared_ptr.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/settings/proxy.hpp>
 #include <string>
 
 struct script_provider_interface {

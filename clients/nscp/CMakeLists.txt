@@ -9,7 +9,7 @@ set(SRCS
     check_nscp.cpp
     ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
     ${NSCP_CLIENT_CPP}
     ../../resources/nsclient.ico
@@ -37,7 +37,7 @@ if(WIN32)
         check_nscp.hpp
         ../../modules/NSCPClient/nscp_client.hpp
         ../../modules/NSCPClient/nscp_handler.hpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.hpp
         ${NSCP_INCLUDEDIR}/socket/clients/http/http_client_protocol.hpp
         ${NSCP_INCLUDEDIR}/socket/clients/http/http_packet.hpp
         ${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp

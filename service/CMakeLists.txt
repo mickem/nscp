@@ -37,8 +37,7 @@ set(service_SRCS
     ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_response.cpp
     ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_status.cpp
     ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_submit.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
+    ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     # Logger
     ${NSCP_INCLUDEDIR}/nsclient/logger/log_level.cpp

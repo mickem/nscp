@@ -21,7 +21,7 @@
 
 #include <boost/make_shared.hpp>
 #include <nsca/client/nsca_client_protocol.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/settings/helper.hpp>
 
 namespace nsca_handler {
 namespace sh = nscapi::settings_helper;
