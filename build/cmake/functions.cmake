@@ -355,8 +355,8 @@ macro(nscp_add_test _TARGET)
                 RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO
                     ${BUILD_TARGET_ROOT_PATH}
         )
-        set_target_properties(${_TARGET} PROPERTIES FOLDER "tests")
     endif()
+    set_target_properties(${_TARGET} PROPERTIES FOLDER "tests")
     add_test(NAME ${_TARGET} COMMAND ${_TARGET})
 endmacro()
 
