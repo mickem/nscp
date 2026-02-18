@@ -18,6 +18,7 @@
  */
 
 #pragma once
+#include <algorithm>
 #include <boost/make_shared.hpp>
 #include <list>
 #include <nscapi/settings/helper.hpp>
@@ -27,6 +28,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace nscapi {
 namespace settings_objects {
@@ -98,7 +100,9 @@ struct object_instance_interface {
     std::stringstream ss;
     ss << "{alias: " << alias << ", path: " << path << ", is_tpl: " << (is_template_ ? "true" : "false") << ", parent: " << parent << ", value: " << value
        << ", options : { ";
-    for (const auto &e : options) {
+    std::vector<std::pair<std::string, std::string>> sorted_options(options.begin(), options.end());
+    std::sort(sorted_options.begin(), sorted_options.end());
+    for (const auto &e : sorted_options) {
       ss << e.first << "=" << e.second << ", ";
     }
     ss << "} }";

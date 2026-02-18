@@ -25,7 +25,7 @@
 #include <boost/unordered_map.hpp>
 #include <error/error.hpp>
 #include <map>
-#include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/settings/proxy.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <string>
 #include <vector>
