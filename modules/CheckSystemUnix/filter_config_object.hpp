@@ -19,15 +19,10 @@
 
 #pragma once
 
-#include <NSCAPI.h>
-
-#include <boost/cstdint.hpp>
 #include <boost/date_time.hpp>
 #include <boost/optional.hpp>
-#include <map>
-#include <nscapi/nscapi_settings_filter.hpp>
-#include <nscapi/nscapi_settings_object.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/settings/filter.hpp>
+#include <nscapi/settings/object.hpp>
 #include <string>
 
 namespace filters {
@@ -38,7 +33,7 @@ struct file_container {
 };
 
 struct filter_config_object : public nscapi::settings_objects::object_instance_interface {
-  typedef nscapi::settings_objects::object_instance_interface parent;
+  typedef object_instance_interface parent;
 
   nscapi::settings_filters::filter_object filter;
   std::string check;

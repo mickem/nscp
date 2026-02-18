@@ -21,7 +21,7 @@
 
 #include <boost/program_options.hpp>
 #include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/settings/helper.hpp>
 
 #include "check_cpu.h"
 #include "check_memory.h"

@@ -21,7 +21,7 @@
 
 #include <boost/date_time.hpp>
 #include <boost/optional.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/settings/helper.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <str/utils.hpp>
 #include <string>
