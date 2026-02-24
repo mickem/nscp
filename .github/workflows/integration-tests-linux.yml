@@ -8,7 +8,7 @@ on:
     inputs:
       container:
         type: string
-        description: 'Docker container to use for testing (e.g., fedora:42)'
+        description: 'Docker container to use for testing (e.g., rockylinux/rockylinux:9)'
         required: true
       architecture:
         type: string
@@ -29,11 +29,11 @@ on:
         required: true
       distro:
         type: string
-        description: 'Distribution name (ubuntu, fedora)'
+        description: 'Distribution name (ubuntu, rocky)'
         required: true
       distro_version:
         type: string
-        description: 'Distribution version (e.g., 20.04, 42)'
+        description: 'Distribution version (e.g., 20.04, 9)'
         required: true
 
 env:
@@ -54,8 +54,18 @@ jobs:
 
       - name: Install base dependencies (RPM)
         if: inputs.package-type == 'rpm'
+        shell: sh
         run: |
-          dnf install -y git python3 python3-pip nodejs npm
+          dnf install -y epel-release
+          dnf install -y dnf-plugins-core
+          if [ "${{ matrix.distro_version }}" = "8" ]; then
+            dnf config-manager --set-enabled powertools
+          else
+            dnf config-manager --set-enabled crb
+          fi
+          dnf update -y
+          curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+          dnf install -y --allowerasing coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build nodejs python3-devel dbus-devel bash nodejs coreutils procps-ng
 
       - uses: actions/checkout@v6
         with:
@@ -78,8 +88,11 @@ jobs:
       # Linux: Install RPM package
       - name: Install RPM package (Linux)
         if: inputs.package-type == 'rpm'
-        shell: bash
+        shell: /usr/bin/bash {0}
+        env:
+          PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
         run: |
+          dnf install -y epel-release || true
           dnf install -y python3-devel python3 python3-protobuf lua 
           dnf install -y ./NSCP-${{ inputs.version }}-${{ inputs.distro }}-${{ inputs.distro_version }}-amd64.rpm
           nscp settings --load-all --list --add-defaults
@@ -105,6 +118,7 @@ jobs:
           pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt
 
       - name: Run rest tests
+        if: inputs.package-type == 'deb'
         uses: ./.github/actions/rest-test
 
       # TODO: Disabled for now due to issues with docker on windows runners
