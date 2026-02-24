@@ -26,23 +26,30 @@ jobs:
     strategy:
       matrix:
         include:
-          - distro: fedora
-            distro_version: "40"
+          - distro: rocky
+            distro_version: "9"
+            python_version: python39
+          - distro: rocky
+            distro_version: "10"
             python_version: python312
-          - distro: fedora
-            distro_version: "41"
-            python_version: python313
-          - distro: fedora
-            distro_version: "42"
-            python_version: python313
     container:
-      image: ${{ matrix.distro }}:${{ matrix.distro_version }}
+      image: rockylinux/rockylinux:${{ matrix.distro_version }}
+      options: --user root
 
     steps:
     - name: Install dependencies
+      shell: sh
       run: |
-        dnf install -y git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build nodejs npm python3-devel dbus-devel
-
+        dnf install -y epel-release
+        dnf install -y dnf-plugins-core
+        if [ "${{ matrix.distro_version }}" = "8" ]; then
+          dnf config-manager --set-enabled powertools
+        else
+          dnf config-manager --set-enabled crb
+        fi
+        dnf update -y
+        curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+        dnf install -y --allowerasing coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build nodejs python3-devel dbus-devel bash
     - uses: actions/checkout@v6
       with:
         submodules: true
@@ -50,12 +57,16 @@ jobs:
     - name: make dirs
       run: |
         mkdir -p tmp/nscp
-      shell: bash
+      shell: /usr/bin/bash {0}
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
     - name: setup python dependencies
-      shell: bash
+      shell: /usr/bin/bash {0}
       run: |
         pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
     - id: tinyxml2
       uses: ./.github/actions/tinyxml2
@@ -107,7 +118,9 @@ jobs:
       run: |
         mv check_nsclient check_nsclient-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
         mv tmp/nscp/NSCP-${{ inputs.version }}-amd64.rpm NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-amd64.rpm
-      shell: bash
+      shell: /usr/bin/bash {0}
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
     - name: Test RPM package installation
       run: |
@@ -132,18 +145,17 @@ jobs:
     strategy:
       matrix:
         include:
-          - distro: fedora
-            distro_version: "40"
-          - distro: fedora
-            distro_version: "41"
-          - distro: fedora
-            distro_version: "42"
+          # Disabled as python 3.9 does not support type annotations in some of the test code
+          #- distro: rocky
+          #  distro_version: "9"
+          - distro: rocky
+            distro_version: "10"
     uses: ./.github/workflows/integration-tests-linux.yml
     with:
       architecture: ${{ inputs.architecture }}
       version: ${{ inputs.version }}
       artifact-name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
       package-type: rpm
-      container: '${{ matrix.distro }}:${{ matrix.distro_version }}'
+      container: 'rockylinux/rockylinux:${{ matrix.distro_version }}'
       distro: ${{ matrix.distro }}
       distro_version: ${{ matrix.distro_version }}

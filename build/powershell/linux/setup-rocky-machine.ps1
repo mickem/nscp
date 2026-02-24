@@ -16,7 +16,7 @@
 .PARAMETER Version
     The version of the software to install.
 .PARAMETER Arch
-    The architecture of the software to install (e.g., "x86_64").
+    The architecture of the software to install (e.g., "amd64").
 .PARAMETER RockyVersion
     The Rocky Linux version to deploy (e.g., "9", "8").
 .PARAMETER AdminUsername
@@ -26,30 +26,29 @@ param(
     [string]$ResourceGroupName = "NSCP-RG",
     [string]$Location = "WestEurope",
     [string]$VmName = "NSCP-Rocky-Test",
-    [string]$Version = "0.11.15",
-    [string]$Arch = "x86_64",
+    [string]$Version = "0.11.16",
+    [string]$Arch = "amd64",
     [string]$RockyVersion = "9",
     [string]$AdminUsername = "azureadmin"
 )
 
-Write-Host "ℹ️ Connecting to Azure account..."
+Write-Host "Connecting to Azure account..."
 Connect-AzAccount
 Set-AzContext -Subscription (Get-AzSubscription)[0]
 Write-Host "✅ Successfully connected to Azure."
 
-
 # Generate SSH key pair for authentication
 $sshKeyPath = "$env:USERPROFILE\.ssh\az_$($VmName)_rsa"
 if (-not (Test-Path $sshKeyPath)) {
-    Write-Host "ℹ️ Generating SSH key pair..."
+    Write-Host "Generating SSH key pair..."
     ssh-keygen -t rsa -b 4096 -f $sshKeyPath -N '""' -q
 }
 $sshPublicKey = Get-Content "$sshKeyPath.pub"
 
-Write-Host "ℹ️ Creating resource group: $ResourceGroupName..."
+Write-Host "Creating resource group: $ResourceGroupName..."
 New-AzResourceGroup -Name $ResourceGroupName -Location $Location -Force
 
-Write-Host "ℹ️ Configuring virtual network and security rules..."
+Write-Host "Configuring virtual network and security rules..."
 $subnetConfig = New-AzVirtualNetworkSubnetConfig -Name "default-subnet" -AddressPrefix "10.0.0.0/24"
 $vnet = New-AzVirtualNetwork -Name "$($VmName)-vnet" -ResourceGroupName $ResourceGroupName -Location $Location -AddressPrefix "10.0.0.0/16" -Subnet $subnetConfig
 $publicIp = New-AzPublicIpAddress -Name "$($VmName)-pip" -ResourceGroupName $ResourceGroupName -Location $Location -AllocationMethod Static -Sku Standard
@@ -62,16 +61,15 @@ $nsg = New-AzNetworkSecurityGroup -Name "$($VmName)-nsg" -ResourceGroupName $Res
 $nic = New-AzNetworkInterface -Name "$($VmName)-nic" -ResourceGroupName $ResourceGroupName -Location $Location -SubnetId $vnet.Subnets[0].Id -PublicIpAddressId $publicIp.Id -NetworkSecurityGroupId $nsg.Id
 
 # Set Rocky Linux image based on version
+$PublisherName = "resf"
 $VMSize = "Standard_D2ls_v6"
 
 switch ($RockyVersion) {
     "9" {
-        $PublisherName = "resf"
         $Offer = "rockylinux-x86_64"
         $Skus = "9-lvm"
     }
     "8" {
-        $PublisherName = "resf"
         $Offer = "rockylinux-x86_64"
         $Skus = "8-lvm"
     }
@@ -82,10 +80,10 @@ switch ($RockyVersion) {
 }
 
 # Accept marketplace terms for Rocky Linux
-Write-Host "ℹ️ Accepting marketplace terms for Rocky Linux..."
+Write-Host "Accepting marketplace terms for Rocky Linux..."
 Get-AzMarketplaceTerms -Publisher $PublisherName -Product $Offer -Name $Skus | Set-AzMarketplaceTerms -Accept
 
-Write-Host "ℹ️ Creating the Virtual Machine: $VmName with Rocky Linux $RockyVersion..."
+Write-Host "Creating the Virtual Machine: $VmName with Rocky Linux $RockyVersion..."
 $vmConfig = New-AzVMConfig -VMName $VmName -VMSize $VMSize | `
     Set-AzVMOperatingSystem -Linux -ComputerName $VmName -Credential (New-Object PSCredential($AdminUsername, (ConvertTo-SecureString -String "TempPassword123!" -AsPlainText -Force))) -DisablePasswordAuthentication | `
     Set-AzVMSourceImage -PublisherName $PublisherName -Offer $Offer -Skus $Skus -Version "latest" | `
@@ -95,37 +93,21 @@ $vmConfig = New-AzVMConfig -VMName $VmName -VMSize $VMSize | `
 
 New-AzVM -ResourceGroupName $ResourceGroupName -Location $Location -VM $vmConfig
 
-Write-Host "ℹ️ Installing NSCP on VM '$VmName' in resource group '$ResourceGroupName'..."
+Write-Host "Installing NSCP on VM '$VmName' in resource group '$ResourceGroupName'..."
 
-# Use el8 or el9 specific RPM URL based on target
-$RpmUrl = "https://github.com/mickem/nscp/releases/download/${Version}/nscp-${Version}-el${RockyVersion}.${Arch}.rpm"
-$RpmUrlFallback = "https://github.com/mickem/nscp/releases/download/${Version}/nscp-${Version}-${Arch}.rpm"
-Write-Host "ℹ️ Primary RPM URL: $RpmUrl"
-Write-Host "ℹ️ Fallback RPM URL: $RpmUrlFallback"
+$RpmUrl = "https://github.com/mickem/nscp/releases/download/${Version}/NSCP-${Version}-rocky-${RockyVersion}-${Arch}.rpm"
+Write-Host "Fetching RPM from URL: $RpmUrl"
 
 # Generate a random password for the web interface
 $WebPassword = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 16 | ForEach-Object { [char]$_ })
-Write-Host "ℹ️ Generated web interface password."
+Write-Host "Generated web interface password."
 
 $scriptBlock = @"
 #!/bin/bash
 set -e
 mkdir -p /tmp/nscp
 cd /tmp/nscp
-
-# Try distribution-specific RPM first, then fallback to generic
-if curl -L -f -o nscp.rpm '$RpmUrl' 2>/dev/null; then
-    echo "Downloaded el$RockyVersion RPM."
-elif curl -L -f -o nscp.rpm '$RpmUrlFallback' 2>/dev/null; then
-    echo "Downloaded generic RPM."
-else
-    echo "ERROR: Could not download RPM."
-    exit 1
-fi
-
-# Install EPEL for additional dependencies
-sudo dnf install -y epel-release
-
+wget -q '$RpmUrl' -O nscp.rpm
 # Install required dependencies
 sudo dnf install -y boost-filesystem boost-program-options boost-thread \
     boost-python3 protobuf lua-libs || true
@@ -134,7 +116,7 @@ sudo dnf install -y boost-filesystem boost-program-options boost-thread \
 sudo dnf install -y ./nscp.rpm
 
 # Configure web interface with password
-sudo nscp web install --https --allowed-hosts '*' --password '$WebPassword'
+sudo nscp web install --https --allowed-hosts * --password '$WebPassword'
 
 # Configure firewall
 sudo firewall-cmd --permanent --add-port=8443/tcp || true
@@ -156,7 +138,7 @@ if ($result.Status -ne "Succeeded") {
 }
 $result.Value | ForEach-Object { $_.Message }
 
-Write-Host "ℹ️️ Checking version $Version on VM '$VmName' in resource group '$ResourceGroupName'..."
+Write-Host "Checking version $Version on VM '$VmName' in resource group '$ResourceGroupName'..."
 $scriptBlock = @"
 #!/bin/bash
 set -e
@@ -199,6 +181,6 @@ Write-Host "✅ Correct version installed!"
 
 $vmPublicIp = (Get-AzPublicIpAddress -Name "$($VmName)-pip" -ResourceGroupName $ResourceGroupName).IpAddress
 Write-Host "✅ Script finished! VM '$VmName' is deployed and NSCP has been installed."
-Write-Host "ℹ️ Connect via SSH: ssh -i $sshKeyPath $AdminUsername@$vmPublicIp"
-Write-Host "ℹ️ Web interface: https://$($vmPublicIp):8443"
-Write-Host "ℹ️ Web password: $WebPassword"
+Write-Host "Connect via SSH: ssh -i $sshKeyPath $AdminUsername@$vmPublicIp"
+Write-Host "Web interface: https://$($vmPublicIp):8443"
+Write-Host "Web password: $WebPassword"

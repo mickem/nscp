@@ -26,13 +26,13 @@ param(
     [string]$ResourceGroupName = "NSCP-RG",
     [string]$Location = "WestEurope",
     [string]$VmName = "NSCP-Ubuntu-Test",
-    [string]$Version = "0.11.14",
+    [string]$Version = "0.11.16",
     [string]$Arch = "amd64",
     [string]$UbuntuVersion = "24.04",
     [string]$AdminUsername = "azureadmin"
 )
 
-Write-Host "ℹ️ Connecting to Azure account..."
+Write-Host "Connecting to Azure account..."
 Connect-AzAccount
 Set-AzContext -Subscription (Get-AzSubscription)[0]
 Write-Host "✅ Successfully connected to Azure."
@@ -40,15 +40,15 @@ Write-Host "✅ Successfully connected to Azure."
 # Generate SSH key pair for authentication
 $sshKeyPath = "$env:USERPROFILE\.ssh\az_$($VmName)_rsa"
 if (-not (Test-Path $sshKeyPath)) {
-    Write-Host "ℹ️ Generating SSH key pair..."
+    Write-Host "Generating SSH key pair..."
     ssh-keygen -t rsa -b 4096 -f $sshKeyPath -N '""' -q
 }
 $sshPublicKey = Get-Content "$sshKeyPath.pub"
 
-Write-Host "ℹ️ Creating resource group: $ResourceGroupName..."
+Write-Host "Creating resource group: $ResourceGroupName..."
 New-AzResourceGroup -Name $ResourceGroupName -Location $Location -Force
 
-Write-Host "ℹ️ Configuring virtual network and security rules..."
+Write-Host "Configuring virtual network and security rules..."
 $subnetConfig = New-AzVirtualNetworkSubnetConfig -Name "default-subnet" -AddressPrefix "10.0.0.0/24"
 $vnet = New-AzVirtualNetwork -Name "$($VmName)-vnet" -ResourceGroupName $ResourceGroupName -Location $Location -AddressPrefix "10.0.0.0/16" -Subnet $subnetConfig
 $publicIp = New-AzPublicIpAddress -Name "$($VmName)-pip" -ResourceGroupName $ResourceGroupName -Location $Location -AllocationMethod Static -Sku Standard
@@ -87,7 +87,7 @@ switch ($UbuntuVersion) {
     }
 }
 
-Write-Host "ℹ️ Creating the Virtual Machine: $VmName with Ubuntu $UbuntuVersion..."
+Write-Host "Creating the Virtual Machine: $VmName with Ubuntu $UbuntuVersion..."
 $vmConfig = New-AzVMConfig -VMName $VmName -VMSize $VMSize | `
     Set-AzVMOperatingSystem -Linux -ComputerName $VmName -Credential (New-Object PSCredential($AdminUsername, (ConvertTo-SecureString -String "TempPassword123!" -AsPlainText -Force))) -DisablePasswordAuthentication | `
     Set-AzVMSourceImage -PublisherName $PublisherName -Offer $Offer -Skus $Skus -Version "latest" | `
@@ -96,14 +96,18 @@ $vmConfig = New-AzVMConfig -VMName $VmName -VMSize $VMSize | `
 
 New-AzVM -ResourceGroupName $ResourceGroupName -Location $Location -VM $vmConfig
 
-Write-Host "ℹ️ Installing NSCP on VM '$VmName' in resource group '$ResourceGroupName'..."
 
-$DebUrl = "https://github.com/mickem/nscp/releases/download/${Version}/nscp-${Version}-${Arch}.deb"
-Write-Host "ℹ️ Fetching DEB from URL: $DebUrl"
+$vmPublicIp = (Get-AzPublicIpAddress -Name "$($VmName)-pip" -ResourceGroupName $ResourceGroupName).IpAddress
+Write-Host "Connect via SSH: ssh -i $sshKeyPath $AdminUsername@$vmPublicIp"
+
+Write-Host "Installing NSCP on VM '$VmName' in resource group '$ResourceGroupName'..."
+
+$DebUrl = "https://github.com/mickem/nscp/releases/download/${Version}/NSCP-${Version}-ubuntu-${UbuntuVersion}-${Arch}.deb"
+Write-Host "Fetching DEB from URL: $DebUrl"
 
 # Generate a random password for the web interface
 $WebPassword = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 16 | ForEach-Object { [char]$_ })
-Write-Host "ℹ️ Generated web interface password."
+Write-Host "Generated web interface password."
 
 $scriptBlock = @"
 #!/bin/bash
@@ -134,7 +138,7 @@ if ($result.Status -ne "Succeeded") {
 }
 $result.Value | ForEach-Object { $_.Message }
 
-Write-Host "ℹ️️ Checking version $Version on VM '$VmName' in resource group '$ResourceGroupName'..."
+Write-Host "Checking version $Version on VM '$VmName' in resource group '$ResourceGroupName'..."
 $scriptBlock = @"
 #!/bin/bash
 set -e
@@ -177,6 +181,6 @@ Write-Host "✅ Correct version installed!"
 
 $vmPublicIp = (Get-AzPublicIpAddress -Name "$($VmName)-pip" -ResourceGroupName $ResourceGroupName).IpAddress
 Write-Host "✅ Script finished! VM '$VmName' is deployed and NSCP has been installed."
-Write-Host "ℹ️ Connect via SSH: ssh -i $sshKeyPath $AdminUsername@$vmPublicIp"
-Write-Host "ℹ️ Web interface: https://$($vmPublicIp):8443"
-Write-Host "ℹ️ Web password: $WebPassword"
+Write-Host "Connect via SSH: ssh -i $sshKeyPath $AdminUsername@$vmPublicIp"
+Write-Host "Web interface: https://$($vmPublicIp):8443"
+Write-Host "Web password: $WebPassword"

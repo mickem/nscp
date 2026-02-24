@@ -7,12 +7,19 @@ runs:
     - uses: actions/setup-node@v6
       with:
         node-version: 20
-        cache: 'npm'
-        cache-dependency-path: tests/rest/package-lock.json
 
-    - name: Install dependencies
+    - name: Install dependencies (Windows)
+      if: runner.os == 'Windows'
       working-directory: tests/rest
-      shell: bash
+      shell: cmd
+      run: npm install
+
+    - name: Install dependencies (Linux)
+      if: runner.os == 'Linux'
+      working-directory: tests/rest
+      shell: /usr/bin/bash {0}
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       run: npm install
 
     - name: Start NSClient++ (Windows)
@@ -25,24 +32,36 @@ runs:
 
     - name: Start NSClient++ (Linux)
       if: runner.os == 'Linux'
-      shell: bash
+      shell: /usr/bin/bash {0}
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       run: |
         nscp test --settings tests/rest/nsclient.ini > /tmp/nsclient.log 2>&1 &
 
-    - name: Run tests
+    - name: Run tests (Windows)
+      if: always() && runner.os == 'Windows'
       working-directory: tests/rest
-      shell: bash
+      shell: sh
+      run: npm run test
+    - name: Run tests (Linux)
+      if: runner.os == 'Linux'
+      working-directory: tests/rest
+      shell: /usr/bin/bash {0}
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       run: npm run test
 
     - name: Show logs (Windows)
       working-directory: tmp/nscp
       if: always() && runner.os == 'Windows'
-      shell: bash
+      shell: sh
       run: cat nsclient.log || true
 
     - name: Show logs (Linux)
       if: always() && runner.os == 'Linux'
-      shell: bash
+      shell: /usr/bin/bash {0}
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       run: cat /tmp/nsclient.log || true
 
     - name: Stop NSClient++ (Windows)
@@ -53,6 +72,8 @@ runs:
 
     - name: Stop NSClient++ (Linux)
       if: always() && runner.os == 'Linux'
-      shell: bash
+      shell: /usr/bin/bash {0}
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       run: pkill -f nscp || true
 
