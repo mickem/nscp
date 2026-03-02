@@ -1,6 +1,3 @@
-#Requires -Module Az.Accounts
-#Requires -Module Az.Compute
-#Requires -Module Az.Network
 
 <#
 .SYNOPSIS
@@ -26,11 +23,20 @@ param(
     [string]$ResourceGroupName = "NSCP-RG",
     [string]$Location = "WestEurope",
     [string]$VmName = "NSCP-Rocky-Test",
-    [string]$Version = "0.11.16",
+    [string]$Version = "0.11.17",
     [string]$Arch = "amd64",
     [string]$RockyVersion = "9",
     [string]$AdminUsername = "azureadmin"
 )
+
+# Ensure required modules are installed
+foreach ($module in @('Az.Accounts', 'Az.Compute', 'Az.Network', 'Az.MarketplaceOrdering')) {
+    if (-not (Get-Module -ListAvailable -Name $module)) {
+        Write-Host "Installing module $module..."
+        Install-Module -Name $module -Scope CurrentUser -Force -AllowClobber
+    }
+    Import-Module $module
+}
 
 Write-Host "Connecting to Azure account..."
 Connect-AzAccount
@@ -81,7 +87,20 @@ switch ($RockyVersion) {
 
 # Accept marketplace terms for Rocky Linux
 Write-Host "Accepting marketplace terms for Rocky Linux..."
-Get-AzMarketplaceTerms -Publisher $PublisherName -Product $Offer -Name $Skus | Set-AzMarketplaceTerms -Accept
+$needsAcceptance = $true
+try {
+    $agreementTerms = Get-AzMarketplaceTerms -Publisher $PublisherName -Product $Offer -Name $Skus
+    if ($agreementTerms.Accepted) {
+        $needsAcceptance = $false
+        Write-Host "Marketplace terms already accepted."
+    }
+} catch {
+    Write-Host "No existing marketplace terms found, will accept now."
+}
+if ($needsAcceptance) {
+    Set-AzMarketplaceTerms -Publisher $PublisherName -Product $Offer -Name $Skus -Accept
+    Write-Host "✅ Marketplace terms accepted."
+}
 
 Write-Host "Creating the Virtual Machine: $VmName with Rocky Linux $RockyVersion..."
 $vmConfig = New-AzVMConfig -VMName $VmName -VMSize $VMSize | `
@@ -105,6 +124,8 @@ Write-Host "Generated web interface password."
 $scriptBlock = @"
 #!/bin/bash
 set -e
+sudo dnf install -y epel-release
+sudo dnf install -y wget
 mkdir -p /tmp/nscp
 cd /tmp/nscp
 wget -q '$RpmUrl' -O nscp.rpm
@@ -119,6 +140,8 @@ sudo dnf install -y ./nscp.rpm
 sudo nscp web install --https --allowed-hosts * --password '$WebPassword'
 
 # Configure firewall
+sudo dnf install -y firewalld
+sudo systemctl enable --now firewalld
 sudo firewall-cmd --permanent --add-port=8443/tcp || true
 sudo firewall-cmd --permanent --add-port=5666/tcp || true
 sudo firewall-cmd --reload || true
@@ -137,6 +160,9 @@ if ($result.Status -ne "Succeeded") {
     exit 1
 }
 $result.Value | ForEach-Object { $_.Message }
+
+$vmPublicIp = (Get-AzPublicIpAddress -Name "$($VmName)-pip" -ResourceGroupName $ResourceGroupName).IpAddress
+Write-Host "Connect via SSH: ssh -i $sshKeyPath $AdminUsername@$vmPublicIp"
 
 Write-Host "Checking version $Version on VM '$VmName' in resource group '$ResourceGroupName'..."
 $scriptBlock = @"
@@ -179,7 +205,6 @@ if ($value0 -match "SUCCESS: ") {
 
 Write-Host "✅ Correct version installed!"
 
-$vmPublicIp = (Get-AzPublicIpAddress -Name "$($VmName)-pip" -ResourceGroupName $ResourceGroupName).IpAddress
 Write-Host "✅ Script finished! VM '$VmName' is deployed and NSCP has been installed."
 Write-Host "Connect via SSH: ssh -i $sshKeyPath $AdminUsername@$vmPublicIp"
 Write-Host "Web interface: https://$($vmPublicIp):8443"

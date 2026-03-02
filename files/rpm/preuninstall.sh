@@ -2,6 +2,20 @@
 
 if [ "$1" -eq 0 ]; then
     # Package is being removed
-    systemctl stop nsclient
-    systemctl disable nsclient
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl stop nsclient
+        systemctl disable nsclient
+    fi
+
+    # Remove the user and group created during installation
+    if grep -q nsclient /etc/passwd; then
+        userdel nsclient || true
+    fi
+
+    if grep -q nsclient /etc/group; then
+        groupdel nsclient || true
+    fi
+
+    # Remove log directory
+    rm -rf /var/log/nsclient
 fi
