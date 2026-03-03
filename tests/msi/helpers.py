@@ -110,6 +110,20 @@ def read_config(config_file):
     return content
 
 
+def print_install_log():
+    """Print the contents of the installer log file if it exists."""
+    log_file = "log.txt"
+    if path.exists(log_file):
+        print(f"--- Start of {log_file} ---", flush=True)
+        content = read_and_remove_bom(log_file)
+        safe_content = content.encode('ascii', errors='replace').decode('ascii')
+        safe_content = '\n'.join(line for line in safe_content.splitlines() if line.strip())
+        print(safe_content, flush=True)
+        print(f"--- End of {log_file} ---", flush=True)
+    else:
+        print(f"! Log file {log_file} does not exist.", flush=True)
+
+
 def install(msi_file, target_folder, command_line):
     command_line = list(map(lambda x: x.replace("$MSI-FILE", msi_file), command_line))
     print(f"- Installing NSClient++: {' '.join(command_line)}", flush=True)
@@ -119,15 +133,18 @@ def install(msi_file, target_folder, command_line):
             print("- Installation completed successfully.", flush=True)
         else:
             print(f"! The exit code was: {return_code}", flush=True)
+            print_install_log()
             exit(1)
     except Exception as e:
         print(f"! Install failed: {e}", flush=True)
+        print_install_log()
         exit(1)
 
     if path.exists(target_folder) and path.isdir(target_folder) and path.exists(path.join(target_folder, "nscp.exe")):
         print(f"- Installation seems successfully: {target_folder}", flush=True)
     else:
         print(f"! Installation folder does not exist: {target_folder}", flush=True)
+        print_install_log()
         exit(1)
 
 
@@ -182,14 +199,23 @@ def reorder_config(config):
 
 
 def read_and_remove_bom(file_path):
-    """Read a file and remove the UTF-8 BOM if it exists."""
+    """Read a file and remove the BOM if it exists (supports UTF-8, UTF-16 LE, and UTF-16 BE)."""
     with open(file_path, 'rb') as f:
         content = f.read()
-    # UTF-8 BOM
-    bom = b'\xef\xbb\xbf'
-    if content.startswith(bom):
-        return content[len(bom):].decode('utf-8')
-    return content.decode('utf-8')
+    try:
+        # UTF-16 LE BOM
+        if content.startswith(b'\xff\xfe'):
+            return content[2:].decode('utf-16-le')
+        # UTF-16 BE BOM
+        if content.startswith(b'\xfe\xff'):
+            return content[2:].decode('utf-16-be')
+        # UTF-8 BOM
+        if content.startswith(b'\xef\xbb\xbf'):
+            return content[3:].decode('utf-8')
+        return content.decode('utf-8')
+    except UnicodeDecodeError as e:
+        print(f"! Failed to decode file {file_path}: {e}", flush=True)
+        return content.decode('utf-8', errors='replace')
 
 
 def create_upgrade_config(upgrade_config, target_folder):
