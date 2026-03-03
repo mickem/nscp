@@ -20,10 +20,10 @@ param(
     [string]$Version = "0.11.13",
     [string]$Arch = "x64"
 )
-Write-Host "ℹ️ Installing NSCP on VM '$VmName' in resource group '$ResourceGroupName'..."
+Write-Host "● Installing NSCP on VM '$VmName' in resource group '$ResourceGroupName'..."
 
 $MsiUrl = "https://github.com/mickem/nscp/releases/download/${Version}/NSCP-${Version}-${Arch}.msi"
-Write-Host "ℹ️ Fetching MSI from URL: $MsiUrl"
+Write-Host "● Fetching MSI from URL: $MsiUrl"
 $scriptBlock = @"
 New-Item -ItemType Directory -Path 'C:\temp' -Force
 Invoke-WebRequest -Uri '$($MsiUrl)' -OutFile 'C:\temp\installer.msi'
@@ -39,7 +39,7 @@ if ($result.Status -ne "Succeeded") {
 }
 $Result.Value | ForEach-Object { $_.Message }
 
-Write-Host "ℹ️️ Checking version $Version on VM '$VmName' in resource group '$ResourceGroupName'..."
+Write-Host "●️ Checking version $Version on VM '$VmName' in resource group '$ResourceGroupName'..."
 $scriptBlock = @"
 `$output = & 'C:\Program Files\NSClient++\nscp.exe' --version
 Write-Output "NSClient++ version: `$output"
