@@ -305,18 +305,18 @@
     <Binary Id='InstallerHelper' SourceFile='$(var.InstallerDllPath)/installer_lib.dll' />
 
     <InstallExecuteSequence>
-      <RemoveExistingProducts After='BackupConfig'></RemoveExistingProducts>
       <InstallServices>NOT (NO_SERVICE = 1)</InstallServices>
       <StartServices>NOT (NO_SERVICE = 1)</StartServices>
 
       <Custom Action="BackupConfig" After="InstallInitialize">NOT (REMOVE ="ALL")</Custom>
+      <RemoveExistingProducts After='BackupConfig'></RemoveExistingProducts>
 
       <Custom Action="DetectTool" After="CostFinalize">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
       <Custom Action="NeedUninstall" After="FindRelatedProducts">1</Custom>
       <Custom Action="ApplyTool" After="DetectTool">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
       <Custom Action="ImportConfig" After="ApplyTool">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
 
-      <Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
+      <Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWERVERSIONDETECTED</Custom>
       <Custom Action="ScheduleWriteConfig" After="InstallFiles">NOT (REMOVE ="ALL")</Custom>
       <Custom Action="GenConfig.Command" After="ScheduleWriteConfig">NOT (REMOVE ="ALL") AND GENERATE_SAMPLE_CONFIG = 1</Custom>
       <Custom Action="GenConfig" After="GenConfig.Command">NOT (REMOVE ="ALL") AND GENERATE_SAMPLE_CONFIG = 1</Custom>
@@ -329,7 +329,7 @@
     </InstallExecuteSequence>
 
     <InstallUISequence>
-      <Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
+      <Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWERVERSIONDETECTED</Custom>
       <Custom Action="DetectTool" After="FindRelatedProducts">1</Custom>
     </InstallUISequence>
 
