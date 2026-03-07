@@ -617,7 +617,7 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
 
       return ERROR_SUCCESS;
     } else {
-      h.logMessage(L"Configuration changes allowed (updating boot.ini)");
+      h.logMessage(L"Configuration changes allowed (updating boot.ini and nsclient.ini)");
       data.write_int(1);
     }
 
