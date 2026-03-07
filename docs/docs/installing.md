@@ -95,32 +95,33 @@ $ msiexec /i NSCP-VERSION-x64.msi ADDLOCAL=ALL REMOVE=PythonScript INSTALLLOCATI
 
 A list of all the MSI options can be found below.
 
-| Keyword            | Description                                                                                                             |
-|--------------------|-------------------------------------------------------------------------------------------------------------------------|
-| INSTALLLOCATION    | Folder where NSClient++ is installed.                                                                                   |
-| ADD_DEFAULTS       | Add default values to the configuration file.                                                                           |
-| ALLOWED_HOSTS      | Set allowed hosts value                                                                                                 |
-| CONFIGURATION_TYPE | Configuration context to use                                                                                            |
-| CONF_CHECKS        | Enable default check plugins                                                                                            |
-| CONF_NRPE          | Enable NRPE server                                                                                                      |
-| CONF_NSCA          | Enable NSCA Collection /OU probably need scheduler as well)                                                             |
-| CONF_NSCLIENT      | Enable NSClient Server (check_nt)                                                                                       |
-| CONF_SCHEDULER     | Enable Scheduler (required by NSCA)                                                                                     |
-| CONF_WEB           | Enabled WEB Server                                                                                                      |
-| NRPEMODE           | NRPE Mode (LEGACY, SECURE for using ceretificates)                                                                      |
-| NSCLIENT_PWD       | Password to use for check_nt (and web server)                                                                           |
-| CONF_INCLUDES      | Additional files to include in the config syntax: <alias>;<file> For instance CONF_INCLUDES=op5;op5.ini;local;local.ini |
-| OP5_SERVER         | OP5 Server if you want to automatically submit passive checks via Op5 northbound API.                                   |
-| OP5_USER           | The username to login with on the OP5_SERVER                                                                            |
-| OP5_PASSWORD       | The password to login with on the OP5_SERVER                                                                            |
-| OP5_HOSTGROUPS     | Additional hostgroups to add to the host.                                                                               |
-| OP5_CONTACTGROUP   | Additional contactgroups to add to the host.                                                                            |
-| NO_SERVICE         | Set to 1 to disable installing the service (then you can manually create and activate the service when needed)          |
-| TLS_VERSION        | The TLS version to use (1.0, 1.1, 1.2, *1.3*)                                                                           |
-| TLS_VERIFY_MODE    | The TLS verify mode to use (*none*, peer, fail_if_no_peer_cert)                                                         |
-| TLS_CA             | The CA file to use for TLS connections (if not using the system default)                                                |
-| CONF_SET           | Set a configuration value in the form of section1;key1;value1;section2;key2;value2...                                   |
-| IMPORT_CONFIG      | URL or file path to a configuration file to copy during install and use as the configuration for NSClient++             |
+| Keyword             | Description                                                                                                             |
+|---------------------|-------------------------------------------------------------------------------------------------------------------------|
+| INSTALLLOCATION     | Folder where NSClient++ is installed.                                                                                   |
+| ADD_DEFAULTS        | Add default values to the configuration file.                                                                           |
+| ALLOWED_HOSTS       | Set allowed hosts value                                                                                                 |
+| ALLOW_CONFIGURATION | If set to 1 allows configuration changes. If set to 0 disable all configuration support in the installer                |
+| CONFIGURATION_TYPE  | Configuration context to use                                                                                            |
+| CONF_CHECKS         | Enable default check plugins                                                                                            |
+| CONF_NRPE           | Enable NRPE server                                                                                                      |
+| CONF_NSCA           | Enable NSCA Collection /OU probably need scheduler as well)                                                             |
+| CONF_NSCLIENT       | Enable NSClient Server (check_nt)                                                                                       |
+| CONF_SCHEDULER      | Enable Scheduler (required by NSCA)                                                                                     |
+| CONF_WEB            | Enabled WEB Server                                                                                                      |
+| NRPEMODE            | NRPE Mode (LEGACY, SECURE for using ceretificates)                                                                      |
+| NSCLIENT_PWD        | Password to use for check_nt (and web server)                                                                           |
+| CONF_INCLUDES       | Additional files to include in the config syntax: <alias>;<file> For instance CONF_INCLUDES=op5;op5.ini;local;local.ini |
+| OP5_SERVER          | OP5 Server if you want to automatically submit passive checks via Op5 northbound API.                                   |
+| OP5_USER            | The username to login with on the OP5_SERVER                                                                            |
+| OP5_PASSWORD        | The password to login with on the OP5_SERVER                                                                            |
+| OP5_HOSTGROUPS      | Additional hostgroups to add to the host.                                                                               |
+| OP5_CONTACTGROUP    | Additional contactgroups to add to the host.                                                                            |
+| NO_SERVICE          | Set to 1 to disable installing the service (then you can manually create and activate the service when needed)          |
+| TLS_VERSION         | The TLS version to use (1.0, 1.1, 1.2, *1.3*)                                                                           |
+| TLS_VERIFY_MODE     | The TLS verify mode to use (*none*, peer, fail_if_no_peer_cert)                                                         |
+| TLS_CA              | The CA file to use for TLS connections (if not using the system default)                                                |
+| CONF_SET            | Set a configuration value in the form of section1;key1;value1;section2;key2;value2...                                   |
+| IMPORT_CONFIG       | URL or file path to a configuration file to copy during install and use as the configuration for NSClient++             |
 
 ### Features
 

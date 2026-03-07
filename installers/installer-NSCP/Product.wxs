@@ -63,14 +63,14 @@
           <Component Id="NSClientConfig" Guid="7B3CFBD8-47F8-4CCD-8D20-34B279070B5E" Win64="$(var.Win64)">
             <File Id="NSClientINI" Name="nsclient.ini" DiskId="1" Source="$(var.Path.ini)/nsclient.dist" Vital="no" PatchIgnore="yes"/>
             <RemoveFile Id="PurgeConfigFiles" Name="*.ini" On="uninstall" />
-            <Condition>NOT USER_WRITABLE_CONFIG</Condition>
+            <Condition>NOT USER_WRITABLE_CONFIG AND NOT ALLOW_CONFIGURATION="0"</Condition>
           </Component>
           <Component Id="NSClientConfigUser" Guid="BF040814-8FAB-47b9-B700-1E1F0BF420FC" Win64="$(var.Win64)">
             <File Id="NSClientINIUser" Name="nsclient.ini" DiskId="1" Source="$(var.Path.ini)/nsclient.dist" Vital="no" PatchIgnore="yes">
               <Permission User="[USERGROUP_USERS]" GenericRead="yes" Read="yes" GenericWrite="yes" Write="yes"/>
             </File>
             <RemoveFile Id="PurgeConfigFilesUser" Name="*.ini" On="uninstall" />
-            <Condition>USER_WRITABLE_CONFIG</Condition>
+            <Condition>USER_WRITABLE_CONFIG AND NOT ALLOW_CONFIGURATION="0"</Condition>
           </Component>
 
           <Component Id="RandomFiles" Guid="E23865C3-C11F-4d11-BE63-C670D60B0CD0" Win64="$(var.Win64)">
