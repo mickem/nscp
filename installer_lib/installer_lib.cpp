@@ -754,9 +754,9 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     if (boost::filesystem::exists(legacy_config_path)) h.logMessage(L"Found legacy file: " + strEx::xtos(boost::filesystem::file_size(legacy_config_path)));
 
     if (boost::filesystem::exists(backup_path)) {
-      h.logMessage(L"Found Backup file: " + strEx::xtos(boost::filesystem::file_size(backup_path)));
-      boost::filesystem::path config_path = target_path / "nsclient.ini";
       h.logMessage(L"Restoring from backup: " + backup_path.wstring());
+      h.logMessage(L"Found Backup file with size: " + strEx::xtos(boost::filesystem::file_size(backup_path)));
+      boost::filesystem::path config_path = target_path / "nsclient.ini";
       copy_file(h, backup_path.wstring(), config_path.wstring());
       if (!boost::filesystem::remove(backup_path)) {
         h.errorMessage(L"Failed to remove backup file: " + backup_path.wstring());

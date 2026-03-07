@@ -745,7 +745,7 @@ This is a section of objects. This means that you will create objects below this
 | filter        |                           | FILTER          |
 | log           |                           | FILE            |
 | logs          |                           | FILES           |
-| maximum age   | 5m                        | MAGIMUM AGE     |
+| maximum age   | 5m                        | MAXIMUM AGE     |
 | ok            |                           | OK FILTER       |
 | ok syntax     |                           | SYNTAX          |
 | perf config   |                           | PERF CONFIG     |

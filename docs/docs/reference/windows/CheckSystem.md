@@ -2298,7 +2298,7 @@ This is a section of objects. This means that you will create objects below this
 | empty message | eventlog found no records | EMPTY MESSAGE   |
 | escape html   |                           | ESCAPE HTML     |
 | filter        |                           | FILTER          |
-| maximum age   | 5m                        | MAGIMUM AGE     |
+| maximum age   | 5m                        | MAXIMUM AGE     |
 | ok            |                           | OK FILTER       |
 | ok syntax     |                           | SYNTAX          |
 | perf config   |                           | PERF CONFIG     |
@@ -2369,7 +2369,7 @@ This is a section of objects. This means that you will create objects below this
 | empty message | eventlog found no records | EMPTY MESSAGE   |
 | escape html   |                           | ESCAPE HTML     |
 | filter        |                           | FILTER          |
-| maximum age   | 5m                        | MAGIMUM AGE     |
+| maximum age   | 5m                        | MAXIMUM AGE     |
 | ok            |                           | OK FILTER       |
 | ok syntax     |                           | SYNTAX          |
 | perf config   |                           | PERF CONFIG     |
@@ -2437,7 +2437,7 @@ This is a section of objects. This means that you will create objects below this
 | empty message | eventlog found no records | EMPTY MESSAGE   |
 | escape html   |                           | ESCAPE HTML     |
 | filter        |                           | FILTER          |
-| maximum age   | 5m                        | MAGIMUM AGE     |
+| maximum age   | 5m                        | MAXIMUM AGE     |
 | ok            |                           | OK FILTER       |
 | ok syntax     |                           | SYNTAX          |
 | perf config   |                           | PERF CONFIG     |
@@ -2505,7 +2505,7 @@ This is a section of objects. This means that you will create objects below this
 | empty message | eventlog found no records | EMPTY MESSAGE   |
 | escape html   |                           | ESCAPE HTML     |
 | filter        |                           | FILTER          |
-| maximum age   | 5m                        | MAGIMUM AGE     |
+| maximum age   | 5m                        | MAXIMUM AGE     |
 | ok            |                           | OK FILTER       |
 | ok syntax     |                           | SYNTAX          |
 | perf config   |                           | PERF CONFIG     |

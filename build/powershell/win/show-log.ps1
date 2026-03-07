@@ -10,7 +10,8 @@
 #>
 param(
     [string]$ResourceGroupName = "NSCP-RG",
-    [string]$VmName = "NSCP-Test"
+    [string]$VmName = "NSCP-Test",
+    [bool]$Installer = $true
 )
 
 # Ensure required modules are installed
@@ -108,7 +109,9 @@ Write-Output `$b64.Substring(`$start, `$len)
     Write-Host $content
     Write-Host ""
 }
-
-Get-RemoteLog -FilePath 'C:\temp\install.log' -Label 'MSI Install Log'
+if ($Installer)
+{
+    Get-RemoteLog -FilePath 'C:\temp\install.log' -Label 'MSI Install Log'
+}
 Get-RemoteLog -FilePath 'C:\Program Files\NSClient++\nsclient.log' -Label 'NSClient++ Log'
 

@@ -36,12 +36,11 @@ foreach ($module in @('Az.Accounts', 'Az.Compute', 'Az.Network')) {
     Import-Module $module
 }
 
-Write-Host "● Connecting to Azure account..."
-Connect-AzAccount
-Set-AzContext -Subscription (Get-AzSubscription)[0]
-Write-Host "✅ Successfully connected to Azure."
-
-$credential = Get-Credential -UserName $AdminUsername -Message "Enter the password for the VM's admin account"
+# Generate a random password for the VM admin account
+$AdminPassword = -join ((65..90) + (97..122) + (48..57) + (33, 35, 37, 38, 42, 64) | Get-Random -Count 20 | ForEach-Object { [char]$_ })
+$securePassword = ConvertTo-SecureString $AdminPassword -AsPlainText -Force
+$credential = New-Object System.Management.Automation.PSCredential($AdminUsername, $securePassword)
+Write-Host "● Generated VM admin password."
 
 Write-Host "● Creating resource group: $ResourceGroupName..."
 New-AzResourceGroup -Name $ResourceGroupName -Location $Location -Force
@@ -181,6 +180,20 @@ if ($value0 -match "SUCCESS: ")
 Write-Host "✅ Correct version installed!"
 
 $vmPublicIp = (Get-AzPublicIpAddress -Name "$($VmName)-pip" -ResourceGroupName $ResourceGroupName).IpAddress
+
+# Save credentials to .vm.pwd file
+$pwdFile = Join-Path $PSScriptRoot ".vm.pwd"
+@"
+VM Name:        $VmName
+Resource Group: $ResourceGroupName
+Public IP:      $vmPublicIp
+RDP:            $vmPublicIp:3389
+Admin Username: $AdminUsername
+Admin Password: $AdminPassword
+Web URL:        https://$($vmPublicIp):8443
+Web Password:   $WebPassword
+"@ | Set-Content -Path $pwdFile -Force
+Write-Host "● Credentials saved to $pwdFile"
 
 Write-Host "✅ Script finished! VM '$VmName' is deployed and NSCP has been installed."
 Write-Host "Connect via RDP: $vmPublicIp"

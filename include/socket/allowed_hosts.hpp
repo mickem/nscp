@@ -73,6 +73,7 @@ struct allowed_hosts_manager {
     for (const host_record_v4 &r : entries_v4) {
       if (match_host(r.addr, r.mask, remote)) return true;
     }
+    errors.emplace_back("IP address not allowed");
     return false;
   }
   bool is_allowed_v6(const addr_v6 &remote, std::list<std::string> &errors) {
@@ -80,6 +81,7 @@ struct allowed_hosts_manager {
     for (const host_record_v6 &r : entries_v6) {
       if (match_host(r.addr, r.mask, remote)) return true;
     }
+    errors.emplace_back("IP address not allowed");
     return false;
   }
   std::string to_string() const;
