@@ -49,3 +49,6 @@ build.cmake
 rust/*/target
 
 nsclient.db
+
+# VM credentials
+.vm.pwd

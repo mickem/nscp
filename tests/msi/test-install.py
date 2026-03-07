@@ -35,6 +35,7 @@ else:
     test_cases = args.tests if args.tests else all_test_cases
 
 failure = False
+results = []
 
 for test_case_file in test_cases:
     print("", flush=True)
@@ -63,9 +64,15 @@ for test_case_file in test_cases:
             failure = True
 
     if failure:
+        results.append((test_case_file, False))
         break
     if not args.keep:
         ensure_uninstalled(msi_file, target_folder)
+    results.append((test_case_file, True))
+print("", flush=True)
+print("- Test results:", flush=True)
+for test_case_file, result in results:
+    print(f"  {'PASS' if result else 'FAIL'} - {test_case_file}", flush=True)
 if failure:
     print("! One or more tests failed.", flush=True)
     exit(1)

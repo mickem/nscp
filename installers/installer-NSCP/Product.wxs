@@ -309,7 +309,7 @@
       <StartServices>NOT (NO_SERVICE = 1)</StartServices>
 
       <Custom Action="BackupConfig" After="InstallInitialize">NOT (REMOVE ="ALL")</Custom>
-      <RemoveExistingProducts After='BackupConfig'></RemoveExistingProducts>
+      <RemoveExistingProducts After='InstallFinalize'></RemoveExistingProducts>
 
       <Custom Action="DetectTool" After="CostFinalize">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
       <Custom Action="NeedUninstall" After="FindRelatedProducts">1</Custom>
