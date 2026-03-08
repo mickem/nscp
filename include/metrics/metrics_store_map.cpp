@@ -21,11 +21,10 @@
 #include <str/xtos.hpp>
 
 namespace metrics {
+namespace {
 
 void build_metrics(metrics_store::values_map &metrics, const PB::Metrics::MetricsBundle &b, const std::string &path) {
-  std::string p = "";
-  if (!path.empty()) p += path + ".";
-  p += b.key();
+  const std::string p = path.empty() ? b.key() : path + "." + b.key();
 
   for (const PB::Metrics::MetricsBundle &b2 : b.children()) {
     build_metrics(metrics, b2, p);
@@ -39,6 +38,8 @@ void build_metrics(metrics_store::values_map &metrics, const PB::Metrics::Metric
   }
 }
 
+}  // namespace
+
 void metrics_store::set(const PB::Metrics::MetricsMessage &response) {
   values_map tmp;
 
@@ -48,17 +49,17 @@ void metrics_store::set(const PB::Metrics::MetricsMessage &response) {
     }
   }
   {
-    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    const boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!lock.owns_lock()) return;
-    values_ = tmp;
+    values_ = std::move(tmp);
   }
 }
 
-metrics_store::values_map metrics_store::get(const std::string &filter) {
+metrics_store::values_map metrics_store::get(const std::string &filter) const {
   const bool f = !filter.empty();
   values_map ret;
   {
-    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    const boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!lock.owns_lock()) return ret;
 
     for (const values_map::value_type &v : values_) {

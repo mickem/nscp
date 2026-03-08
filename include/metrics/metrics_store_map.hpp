@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <boost/thread/mutex.hpp>
+#include <boost/thread.hpp>
 #include <map>
 #include <nscapi/protobuf/metrics.hpp>
 #include <string>
@@ -29,11 +29,11 @@ namespace metrics {
 struct metrics_store {
   typedef std::map<std::string, std::string> values_map;
   void set(const PB::Metrics::MetricsMessage &response);
-  values_map get(const std::string &filter);
+  values_map get(const std::string &filter) const;
 
  private:
   values_map values_;
-  boost::timed_mutex mutex_;
+  mutable boost::timed_mutex mutex_;
 };
 
 }  // namespace metrics
