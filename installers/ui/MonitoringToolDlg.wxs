@@ -28,7 +28,7 @@
         </Control>
         <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
         <Control Id="DescriptionWrite" Type="Text" X="25" Y="23" Width="280" Height="15" Hidden="yes" Transparent="yes" NoPrefix="yes">
-          <Text>Basic Configuration, for more option please use WEBUi or command line</Text>
+          <Text>Basic Configuration, for more options please use the WebUI or command line</Text>
         </Control>
         <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
         <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes">

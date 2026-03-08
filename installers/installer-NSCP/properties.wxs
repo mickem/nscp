@@ -2,10 +2,10 @@
 	<!-- CONFIGURE APPLICATION INFORMATION -->
 	<Property Id="ARPCOMMENTS">NSClient++ is a monitoring Agent for amongst other systems Nagios</Property>
 	<Property Id="ARPCONTACT">michael@medin.name</Property>
-	<Property Id="ARPHELPLINK">http://nsclient.org</Property>
-	<Property Id="ARPURLINFOABOUT">http://nsclient.org</Property>
-	<Property Id="ARPURLUPDATEINFO">http://nsclient.org</Property>
-	<Property Id="ARPHELPTELEPHONE">http://nsclient.org</Property>
+	<Property Id="ARPHELPLINK">https://nsclient.org</Property>
+	<Property Id="ARPURLINFOABOUT">https://nsclient.org</Property>
+	<Property Id="ARPURLUPDATEINFO">https://nsclient.org</Property>
+	<Property Id="ARPHELPTELEPHONE">https://nsclient.org</Property>
 	<Property Id="ARPPRODUCTICON">nscp.exe</Property>
 
 	<!-- DEFAULT MONITORING TOOL -->
@@ -17,7 +17,7 @@
 	<WixVariable Id="WixUIDialogBmp" Value="Bitmaps\dlgbmp.bmp" />
 
 	<!-- CONFIGURE THE PROGRAM -->
-	<Property Id="HELP_LINK">http://nsclient.org/nscp/</Property>
+	<Property Id="HELP_LINK">https://nsclient.org/nscp/</Property>
 	<Property Id="SERVICE_NAME">$(var.App.ServiceName)</Property>
 	<Property Id="APP_TITLE">$(var.App.Title) Monitoring Agent</Property>
   

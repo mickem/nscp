@@ -5,14 +5,14 @@
 
   <?define Version.Tag = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Build)" ?>
   
-  <?define UpgradeCode = "$(var.App.UppgradeCode)" ?>
+  <?define UpgradeCode = "$(var.App.UpgradeCode)" ?>
 
   <?include config.wxs ?>
 
   <Product Id="*" Name="$(var.App.Title) ($(var.arch))" Language="1033" Version="$(var.Version.Tag)" Manufacturer="MySolutions NORDIC" UpgradeCode="$(var.UpgradeCode)">
 
     <Package InstallerVersion="405" Id="*" Description="A simple windows monitor agent for (amongst others) Nagios."
-						 Comments="This will appear in the file summary stream." Compressed="yes" Languages="1033" Platform="$(var.Plattform)" />
+						 Comments="This will appear in the file summary stream." Compressed="yes" Languages="1033" Platform="$(var.Platform)" />
 
     <Upgrade Id="$(var.UpgradeCode)">
       <UpgradeVersion Property="OLDERVERSIONBEINGUPGRADED" IncludeMinimum="yes" Minimum="0.3.0.0" IncludeMaximum="no" Maximum="$(var.Version.Tag)"/>
@@ -167,7 +167,7 @@
             <File Id="PythonPYD3" Name="_ctypes.pyd" DiskId="1" Source="$(var.Source)/_ctypes.pyd" Vital="no" />
           </Component>
           <?if "$(var.Runtime)" = "dynamic"?>
-            <Component Id="LuaLibs" Guid="513b45d4-c0f4-4531-9baf-0db466e4e51c">
+            <Component Id="LuaLibs" Guid="513b45d4-c0f4-4531-9baf-0db466e4e51c" Win64="$(var.Win64)">
               <File Id="LuaDLL" Name="lua.dll" DiskId="1" Source="$(var.Source)/lua.dll" Vital="no" />
             </Component>
           <?endif?>
@@ -230,7 +230,7 @@
         </Feature>
         -->
       </Feature>
-      <Feature Id="OP5Montoring" Title="OP5 Monitoring system" Description="Configuration and scripts to use NSClien++ with OP5 monitoring solution" Level="1" Absent="allow">
+      <Feature Id="OP5Monitoring" Title="OP5 Monitoring system" Description="Configuration and scripts to use NSClient++ with OP5 monitoring solution" Level="1" Absent="allow">
           <ComponentGroupRef Id="Op5ConfigResources" />
           <ComponentGroupRef Id="Op5ScriptResources" />
           <ComponentRef Id="Op5Client" />
@@ -267,12 +267,12 @@
         <Feature Id="ElasticPlugin" Title="Elastic plugin" Description="Plugin to submit passive results and metrics to an Elastic server" Level="1" Absent="allow">
           <ComponentRef Id="ElasticClient" />
         </Feature>
-        <Feature Id="ExtraClientPlugin" Title="Various client plugins" Description="Plugins to connect to various sytems such as syslog, graphite and smtp" Level="1" Absent="allow">
+        <Feature Id="ExtraClientPlugin" Title="Various client plugins" Description="Plugins to connect to various systems such as syslog, graphite and smtp" Level="1" Absent="allow">
           <ComponentRef Id="ExtraClients" />
         </Feature>
         <Feature Id="PythonScript" Title="Python Scripting" Description="Allows running INTERNAL scripts written in Python" Level="1" Absent="allow">
           <ComponentRef Id="PythonScript" />
-          <Feature Id="PythonScriptPythonRuntime" Title="Python Runtime" Description="Runtime environment for python (if you already have python install down install this)" Level="1" Absent="allow">
+          <Feature Id="PythonScriptPythonRuntime" Title="Python Runtime" Description="Runtime environment for Python (if you already have Python installed, do not install this)" Level="1" Absent="allow">
             <ComponentRef Id="PythonBin" />
           </Feature>
         </Feature>
@@ -339,7 +339,7 @@
     </InstallUISequence>
 
     <Property Id="ALLUSERS">
-      <![CDATA[2]]>
+      <![CDATA[1]]>
     </Property>
     <?include properties.wxs ?>
 
