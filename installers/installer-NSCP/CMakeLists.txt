@@ -49,13 +49,6 @@ if(NOT CRT_MERGE_MODULE)
     message(WARNING "CRT_MERGE_MODULE not found: ${CRT_MERGE_MODULE}")
 endif(NOT CRT_MERGE_MODULE)
 
-if(OPENSSL_INCLUDE_DIR MATCHES ".*1\\.1\\.0.*")
-    set(MSI_OPENSSL_CRYPTO libcrypto-1_1-x64.dll)
-    set(MSI_OPENSSL_LIB libssl-1_1-x64.dll)
-else()
-    set(MSI_OPENSSL_CRYPTO libeay32.dll)
-    set(MSI_OPENSSL_LIB ssleay32.dll)
-endif()
 
 set(WIX_CANDLE_FLAGS
     -dboost=true
@@ -79,9 +72,7 @@ set(WIX_CANDLE_FLAGS
     "-dApp.ShortPath=NSClient"
     "-dApp.StartMenuPath=NSClient++"
     "-dApp.ServiceName=nscp"
-    "-dApp.UppgradeCode=0B36E3B7-0042-452d-B376-57E0C07ADDBB"
-    -dOpenSSlCrypto=${MSI_OPENSSL_CRYPTO}
-    -dOpenSSlLib=${MSI_OPENSSL_LIB}
+    "-dApp.UpgradeCode=0B36E3B7-0042-452d-B376-57E0C07ADDBB"
     -dSource=${NSCP_PROJECT_BINARY_DIR}
     -dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
     -dCRTMergeModule=${CRT_MERGE_MODULE}
