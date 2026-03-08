@@ -36,7 +36,7 @@ required_files:
     - boost_thread.dll
     - nscp_mongoose.dll
     - nscp_protobuf.dll
-    - nscp_plugin_api.dll
+    - plugin_api.dll
     - python311.dll
     - nscp_where_filter.dll
   exe-files:
