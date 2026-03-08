@@ -215,7 +215,9 @@
         <?if "$(var.Runtime)" = "dynamic"?>
         <MergeRef Id="VCRedist110"/>
         <ComponentRef Id="LibCommon"/>
-        <ComponentRef Id="LibNSCP"/>
+        <ComponentRef Id="LibNSCPPluginApi"/>
+        <ComponentRef Id="LibNSCPWhereFilter"/>
+        <ComponentRef Id="LibNSCPProtobuf"/>
         <?endif?>
         <ComponentRef Id="RequiredPlugins"/>
         <Feature Id="FirewallConfig" Title="Firewall Exception" Description="A firewall exception to allow NSClient++ to open ports" Level="1" Absent="allow">
