@@ -322,7 +322,7 @@ TEST(Ipv4Header, DefaultConstruction) {
   EXPECT_FALSE(hdr.dont_fragment());
   EXPECT_FALSE(hdr.more_fragments());
   EXPECT_EQ(0, hdr.fragment_offset());
-  EXPECT_EQ(0u, hdr.time_to_live());
+  EXPECT_EQ(0, hdr.time_to_live());
   EXPECT_EQ(0, hdr.protocol());
   EXPECT_EQ(0, hdr.header_checksum());
 }
@@ -377,7 +377,7 @@ TEST(Ipv4Header, ParseMinimalHeader) {
   EXPECT_TRUE(ss.good());
   EXPECT_EQ(4, hdr.version());
   EXPECT_EQ(20, hdr.header_length());
-  EXPECT_EQ(64u, hdr.time_to_live());
+  EXPECT_EQ(64, hdr.time_to_live());
   EXPECT_EQ(1, hdr.protocol());  // ICMP
   EXPECT_EQ(boost::asio::ip::address_v4::from_string("192.168.1.1"), hdr.source_address());
   EXPECT_EQ(boost::asio::ip::address_v4::from_string("10.0.0.1"), hdr.destination_address());
@@ -556,7 +556,7 @@ TEST(IcmpEchoReply, ParseCombinedIpv4AndIcmpHeaders) {
 
   EXPECT_TRUE(ss.good());
   EXPECT_EQ(4, ipv4_hdr.version());
-  EXPECT_EQ(64u, ipv4_hdr.time_to_live());
+  EXPECT_EQ(64, ipv4_hdr.time_to_live());
   EXPECT_EQ(boost::asio::ip::address_v4::from_string("8.8.8.8"), ipv4_hdr.source_address());
 
   EXPECT_EQ(icmp_header::echo_reply, icmp_hdr.type());
