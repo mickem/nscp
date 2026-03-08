@@ -267,12 +267,12 @@
         <Feature Id="ElasticPlugin" Title="Elastic plugin" Description="Plugin to submit passive results and metrics to an Elastic server" Level="1" Absent="allow">
           <ComponentRef Id="ElasticClient" />
         </Feature>
-        <Feature Id="ExtraClientPlugin" Title="Various client plugins" Description="Plugins to connect to various sytems such as syslog, graphite and smtp" Level="1" Absent="allow">
+        <Feature Id="ExtraClientPlugin" Title="Various client plugins" Description="Plugins to connect to various systems such as syslog, graphite and smtp" Level="1" Absent="allow">
           <ComponentRef Id="ExtraClients" />
         </Feature>
         <Feature Id="PythonScript" Title="Python Scripting" Description="Allows running INTERNAL scripts written in Python" Level="1" Absent="allow">
           <ComponentRef Id="PythonScript" />
-          <Feature Id="PythonScriptPythonRuntime" Title="Python Runtime" Description="Runtime environment for python (if you already have python install down install this)" Level="1" Absent="allow">
+          <Feature Id="PythonScriptPythonRuntime" Title="Python Runtime" Description="Runtime environment for Python (if you already have Python installed, do not install this)" Level="1" Absent="allow">
             <ComponentRef Id="PythonBin" />
           </Feature>
         </Feature>
