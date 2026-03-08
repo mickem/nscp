@@ -20,7 +20,10 @@ macro(LOAD_SECTIONS _TARGET_LIST _path _title)
                 endif(MODULE_NOTE)
                 message(STATUS " + ${CURRENT_MODULE_NAME}${MODULE_NOTE}")
                 add_subdirectory("${CURRENT_MODULE_PATH}")
-                set(${_TARGET_LIST} ${${_TARGET_LIST}} ${CURRENT_MODULE_NAME})
+                set(${_TARGET_LIST}
+                    ${${_TARGET_LIST}}
+                    ${CURRENT_MODULE_NAME}
+                )
             else(BUILD_MODULE)
                 message(
                     STATUS
@@ -28,7 +31,10 @@ macro(LOAD_SECTIONS _TARGET_LIST _path _title)
                 )
             endif(BUILD_MODULE)
         endif()
-    endforeach(_CURRENT_MODULE ${TMP_LIST})
+    endforeach(
+        _CURRENT_MODULE
+        ${TMP_LIST}
+    )
 endmacro(LOAD_SECTIONS)
 
 macro(copy_single_file_helper _TARGET_LIST src destDir CHMOD)
@@ -41,24 +47,37 @@ macro(copy_single_file_helper _TARGET_LIST src destDir CHMOD)
     endif(${destDir} STREQUAL ".")
     if(WIN32 OR ${CHMOD} EQUAL 0)
         add_custom_command(
-            OUTPUT ${target_file}
-            COMMAND ${CMAKE_COMMAND}
-            ARGS -E copy "${source_file}" "${target_file}"
+            OUTPUT
+                ${target_file}
+            COMMAND
+                ${CMAKE_COMMAND}
+            ARGS
+                -E copy "${source_file}" "${target_file}"
             COMMENT "Copying ${source_file} to ${target_file}"
-            DEPENDS ${source_file}
+            DEPENDS
+                ${source_file}
         )
     else()
         add_custom_command(
-            OUTPUT ${target_file}
-            COMMAND ${CMAKE_COMMAND}
-            ARGS -E copy "${source_file}" "${target_file}"
-            COMMAND chmod
-            ARGS 755 "${target_file}"
+            OUTPUT
+                ${target_file}
+            COMMAND
+                ${CMAKE_COMMAND}
+            ARGS
+                -E copy "${source_file}" "${target_file}"
+            COMMAND
+                chmod
+            ARGS
+                755 "${target_file}"
             COMMENT "Copying ${source_file} to ${target_file}"
-            DEPENDS ${source_file}
+            DEPENDS
+                ${source_file}
         )
     endif()
-    set(${_TARGET_LIST} ${${_TARGET_LIST}} ${target_file})
+    set(${_TARGET_LIST}
+        ${${_TARGET_LIST}}
+        ${target_file}
+    )
 endmacro()
 macro(copy_single_test_file _TARGET_LIST src destDir)
     copy_single_file_helper(${_TARGET_LIST} ${src} ${destDir} 0)
@@ -82,39 +101,66 @@ macro(CREATE_MODULE _SRCS _SOURCE _TARGET)
             ${_TARGET}/module.hpp
             ${_TARGET}/module.def
             ${_TARGET}/module.rc
-        COMMAND ${Python3_EXECUTABLE}
+        COMMAND
+            ${Python3_EXECUTABLE}
         ARGS
             "${BUILD_PYTHON_FOLDER}/create_plugin_module.py" --source ${_SOURCE}
             --target ${_TARGET}
         COMMENT
             "Generating ${_TARGET}/module.cpp and ${_TARGET}/module.hpp from ${_SOURCE}/module.json"
-        DEPENDS ${_SOURCE}/module.json
+        DEPENDS
+            ${_SOURCE}/module.json
     )
-    set(${_SRCS} ${${_SRCS}} ${_TARGET}/module.cpp)
+    set(${_SRCS}
+        ${${_SRCS}}
+        ${_TARGET}/module.cpp
+    )
     if(WIN32)
-        set(${_SRCS} ${${_SRCS}} ${_TARGET}/module.hpp)
-        set(${_SRCS} ${${_SRCS}} ${_TARGET}/module.def)
-        set(${_SRCS} ${${_SRCS}} ${_TARGET}/module.rc)
+        set(${_SRCS}
+            ${${_SRCS}}
+            ${_TARGET}/module.hpp
+        )
+        set(${_SRCS}
+            ${${_SRCS}}
+            ${_TARGET}/module.def
+        )
+        set(${_SRCS}
+            ${${_SRCS}}
+            ${_TARGET}/module.rc
+        )
     endif(WIN32)
 endmacro(CREATE_MODULE)
 
 macro(CREATE_ZIP_MODULE _MODULE _SOURCE)
     # ADD_CUSTOM_TARGET(
     add_custom_command(
-        OUTPUT ${BUILD_TARGET_LIB_PATH}/${_MODULE}.zip
-        COMMAND ${Python3_EXECUTABLE}
+        OUTPUT
+            ${BUILD_TARGET_LIB_PATH}/${_MODULE}.zip
+        COMMAND
+            ${Python3_EXECUTABLE}
         ARGS
             "${BUILD_PYTHON_FOLDER}/create_zip_module.py" --source ${_SOURCE}
             --target ${BUILD_TARGET_LIB_PATH}
         COMMENT "Generating ${BUILD_TARGET_LIB_PATH}/${_MODULE}.zip"
-        DEPENDS ${_SOURCE}/module.json
+        DEPENDS
+            ${_SOURCE}/module.json
     )
 endmacro(CREATE_ZIP_MODULE)
 
 macro(OPENSSL_LINK_FIX _TARGET)
     if(WIN32)
-        set_target_properties(${_TARGET} PROPERTIES LINK_FLAGS /SAFESEH:NO)
-        set_target_properties(${_TARGET} PROPERTIES LINK_FLAGS /IGNORE:4099)
+        set_target_properties(
+            ${_TARGET}
+            PROPERTIES
+                LINK_FLAGS
+                    /SAFESEH:NO
+        )
+        set_target_properties(
+            ${_TARGET}
+            PROPERTIES
+                LINK_FLAGS
+                    /IGNORE:4099
+        )
     endif(WIN32)
 endmacro(OPENSSL_LINK_FIX)
 
@@ -122,20 +168,27 @@ macro(SET_LIBRARY_OUT_FOLDER _TARGET)
     if(MSVC11 OR MSVC12 OR MSVC13 OR MSVC14 OR APPLE)
         set_target_properties(
             ${_TARGET}
-            PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${BUILD_TARGET_EXE_PATH}
-        )
-        set_target_properties(
-            ${_TARGET}
-            PROPERTIES RUNTIME_OUTPUT_DIRECTORY_DEBUG ${BUILD_TARGET_EXE_PATH}
-        )
-        set_target_properties(
-            ${_TARGET}
-            PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE ${BUILD_TARGET_EXE_PATH}
+            PROPERTIES
+                RUNTIME_OUTPUT_DIRECTORY
+                    ${BUILD_TARGET_EXE_PATH}
         )
         set_target_properties(
             ${_TARGET}
             PROPERTIES
-                RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${BUILD_TARGET_EXE_PATH}
+                RUNTIME_OUTPUT_DIRECTORY_DEBUG
+                    ${BUILD_TARGET_EXE_PATH}
+        )
+        set_target_properties(
+            ${_TARGET}
+            PROPERTIES
+                RUNTIME_OUTPUT_DIRECTORY_RELEASE
+                    ${BUILD_TARGET_EXE_PATH}
+        )
+        set_target_properties(
+            ${_TARGET}
+            PROPERTIES
+                RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO
+                    ${BUILD_TARGET_EXE_PATH}
         )
     endif()
 endmacro(SET_LIBRARY_OUT_FOLDER)
@@ -144,35 +197,52 @@ macro(SET_LIBRARY_OUT_FOLDER_MODULE _TARGET)
     if(MSVC11 OR MSVC12 OR MSVC13 OR MSVC14 OR APPLE)
         set_target_properties(
             ${_TARGET}
-            PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${BUILD_TARGET_EXE_PATH}
-        )
-        set_target_properties(
-            ${_TARGET}
-            PROPERTIES LIBRARY_OUTPUT_DIRECTORY_DEBUG ${BUILD_TARGET_EXE_PATH}
-        )
-        set_target_properties(
-            ${_TARGET}
-            PROPERTIES LIBRARY_OUTPUT_DIRECTORY_RELEASE ${BUILD_TARGET_EXE_PATH}
+            PROPERTIES
+                LIBRARY_OUTPUT_DIRECTORY
+                    ${BUILD_TARGET_EXE_PATH}
         )
         set_target_properties(
             ${_TARGET}
             PROPERTIES
-                LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO ${BUILD_TARGET_EXE_PATH}
+                LIBRARY_OUTPUT_DIRECTORY_DEBUG
+                    ${BUILD_TARGET_EXE_PATH}
+        )
+        set_target_properties(
+            ${_TARGET}
+            PROPERTIES
+                LIBRARY_OUTPUT_DIRECTORY_RELEASE
+                    ${BUILD_TARGET_EXE_PATH}
+        )
+        set_target_properties(
+            ${_TARGET}
+            PROPERTIES
+                LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO
+                    ${BUILD_TARGET_EXE_PATH}
         )
     endif()
 endmacro(SET_LIBRARY_OUT_FOLDER_MODULE)
 
 macro(COPY_FILE _SOURCE _TARGET)
     if(
-        (${CMAKE_MAJOR_VERSION} EQUAL 2 AND ${CMAKE_MINOR_VERSION} GREATER 6)
-        OR ${CMAKE_MAJOR_VERSION} GREATER 2
+        (
+            ${CMAKE_MAJOR_VERSION}
+                EQUAL
+                2
+            AND ${CMAKE_MINOR_VERSION}
+                GREATER
+                6
+        )
+        OR ${CMAKE_MAJOR_VERSION}
+            GREATER
+            2
     )
         file(COPY ${_SOURCE} DESTINATION ${_TARGET})
     else()
         add_custom_command(
             TARGET copy_${_SOURCE}
             PRE_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_directory ${_SOURCE} ${_TARGET}
+            COMMAND
+                ${CMAKE_COMMAND} -E copy_directory ${_SOURCE} ${_TARGET}
         )
     endif()
 endmacro()
@@ -181,7 +251,9 @@ macro(NSCP_DEBUG_SYMBOLS TARGET_NAME)
     if(WIN32)
         set_target_properties(
             ${TARGET_NAME}
-            PROPERTIES LINK_FLAGS "/PDBSTRIPPED:${TARGET_NAME}-stripped.pdb"
+            PROPERTIES
+                LINK_FLAGS
+                    "/PDBSTRIPPED:${TARGET_NAME}-stripped.pdb"
         )
     endif(WIN32)
 endmacro()
@@ -190,10 +262,14 @@ macro(NSCP_INSTALL_MODULE _TARGET)
     if(WIN32)
         set(_FOLDER "${MODULE_SUBFOLDER}")
         install(
-            TARGETS ${_TARGET}
-            RUNTIME DESTINATION ${_FOLDER}
-            LIBRARY DESTINATION ${_FOLDER}
-            ARCHIVE DESTINATION ${_FOLDER}
+            TARGETS
+                ${_TARGET}
+            RUNTIME
+                DESTINATION ${_FOLDER}
+            LIBRARY
+                DESTINATION ${_FOLDER}
+            ARCHIVE
+                DESTINATION ${_FOLDER}
         )
     elseif(APPLE)
         set(_FOLDER ${MODULE_SUBFOLDER})
@@ -206,7 +282,8 @@ macro(NSCP_INSTALL_MODULE _TARGET)
         set_target_properties(
             ${TARGET}
             PROPERTIES
-                LIBRARY_OUTPUT_DIRECTORY ${BUILD_TARGET_ROOT_PATH}/${_FOLDER}
+                LIBRARY_OUTPUT_DIRECTORY
+                    ${BUILD_TARGET_ROOT_PATH}/${_FOLDER}
         )
         set_target_properties(
             ${TARGET}
@@ -234,37 +311,58 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
         add_library(${_TARGET} STATIC ${_SRCS})
         if(
             CMAKE_COMPILER_IS_GNUCXX
-            AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64"
+            AND "${CMAKE_SYSTEM_PROCESSOR}"
+                STREQUAL
+                "x86_64"
             AND NOT APPLE
         )
-            set_target_properties(${_TARGET} PROPERTIES COMPILE_FLAGS "-fPIC")
+            set_target_properties(
+                ${_TARGET}
+                PROPERTIES
+                    COMPILE_FLAGS
+                        "-fPIC"
+            )
         endif(
             CMAKE_COMPILER_IS_GNUCXX
-            AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64"
+            AND "${CMAKE_SYSTEM_PROCESSOR}"
+                STREQUAL
+                "x86_64"
             AND NOT APPLE
         )
-        set_target_properties(
-            ${_TARGET}
-            PROPERTIES VERSION "${NSCP_LIB_VERSION}"
-        )
-    else(USE_STATIC_RUNTIME)
-        add_library(${_TARGET} SHARED ${_SRCS})
-        set_library_out_folder(${_TARGET})
         set_target_properties(
             ${_TARGET}
             PROPERTIES
-                VERSION "${NSCP_LIB_VERSION}"
-                SOVERSION "${NSCP_LIB_VERSION}"
+                VERSION
+                    "${NSCP_LIB_VERSION}"
+        )
+    else(USE_STATIC_RUNTIME)
+        add_library(${_TARGET} SHARED ${_SRCS})
+        SET_LIBRARY_OUT_FOLDER(${_TARGET})
+        set_target_properties(
+            ${_TARGET}
+            PROPERTIES
+                VERSION
+                    "${NSCP_LIB_VERSION}"
+                SOVERSION
+                    "${NSCP_LIB_VERSION}"
         )
     endif(USE_STATIC_RUNTIME)
-    set_target_properties(${_TARGET} PROPERTIES FOLDER "libraries")
+    set_target_properties(
+        ${_TARGET}
+        PROPERTIES
+            FOLDER
+                "libraries"
+    )
 
     if(NOT USE_STATIC_RUNTIME)
         if(WIN32)
             install(
-                TARGETS ${_TARGET}
-                RUNTIME DESTINATION .
-                LIBRARY DESTINATION .
+                TARGETS
+                    ${_TARGET}
+                RUNTIME
+                    DESTINATION .
+                LIBRARY
+                    DESTINATION .
             )
         else()
             install(TARGETS ${_TARGET} LIBRARY DESTINATION ${LIB_TARGET_FOLDER})
@@ -272,17 +370,21 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
         if(MSVC11 OR MSVC12 OR MSVC13 OR MSVC14 OR APPLE)
             set_target_properties(
                 ${_TARGET}
-                PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${BUILD_TARGET_ROOT_PATH}
+                PROPERTIES
+                    LIBRARY_OUTPUT_DIRECTORY
+                        ${BUILD_TARGET_ROOT_PATH}
             )
             set_target_properties(
                 ${_TARGET}
                 PROPERTIES
-                    LIBRARY_OUTPUT_DIRECTORY_DEBUG ${BUILD_TARGET_ROOT_PATH}
+                    LIBRARY_OUTPUT_DIRECTORY_DEBUG
+                        ${BUILD_TARGET_ROOT_PATH}
             )
             set_target_properties(
                 ${_TARGET}
                 PROPERTIES
-                    LIBRARY_OUTPUT_DIRECTORY_RELEASE ${BUILD_TARGET_ROOT_PATH}
+                    LIBRARY_OUTPUT_DIRECTORY_RELEASE
+                        ${BUILD_TARGET_ROOT_PATH}
             )
             set_target_properties(
                 ${_TARGET}
@@ -296,7 +398,7 @@ endmacro()
 
 macro(NSCP_MAKE_EXE _TARGET _SRCS _FOLDER)
     add_executable(${_TARGET} ${_SRCS})
-    nscp_debug_symbols(${_TARGET})
+    NSCP_DEBUG_SYMBOLS(${_TARGET})
     if(WIN32)
         install(TARGETS ${_TARGET} RUNTIME DESTINATION .)
     else()
@@ -305,16 +407,21 @@ macro(NSCP_MAKE_EXE _TARGET _SRCS _FOLDER)
     if(MSVC11 OR MSVC12 OR MSVC13 OR MSVC14 OR APPLE)
         set_target_properties(
             ${_TARGET}
-            PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${BUILD_TARGET_ROOT_PATH}
-        )
-        set_target_properties(
-            ${_TARGET}
-            PROPERTIES RUNTIME_OUTPUT_DIRECTORY_DEBUG ${BUILD_TARGET_ROOT_PATH}
+            PROPERTIES
+                RUNTIME_OUTPUT_DIRECTORY
+                    ${BUILD_TARGET_ROOT_PATH}
         )
         set_target_properties(
             ${_TARGET}
             PROPERTIES
-                RUNTIME_OUTPUT_DIRECTORY_RELEASE ${BUILD_TARGET_ROOT_PATH}
+                RUNTIME_OUTPUT_DIRECTORY_DEBUG
+                    ${BUILD_TARGET_ROOT_PATH}
+        )
+        set_target_properties(
+            ${_TARGET}
+            PROPERTIES
+                RUNTIME_OUTPUT_DIRECTORY_RELEASE
+                    ${BUILD_TARGET_ROOT_PATH}
         )
         set_target_properties(
             ${_TARGET}
@@ -338,16 +445,21 @@ macro(nscp_add_test _TARGET)
     if(MSVC11 OR MSVC12 OR MSVC13 OR MSVC14 OR APPLE)
         set_target_properties(
             ${_TARGET}
-            PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${BUILD_TARGET_ROOT_PATH}
-        )
-        set_target_properties(
-            ${_TARGET}
-            PROPERTIES RUNTIME_OUTPUT_DIRECTORY_DEBUG ${BUILD_TARGET_ROOT_PATH}
+            PROPERTIES
+                RUNTIME_OUTPUT_DIRECTORY
+                    ${BUILD_TARGET_ROOT_PATH}
         )
         set_target_properties(
             ${_TARGET}
             PROPERTIES
-                RUNTIME_OUTPUT_DIRECTORY_RELEASE ${BUILD_TARGET_ROOT_PATH}
+                RUNTIME_OUTPUT_DIRECTORY_DEBUG
+                    ${BUILD_TARGET_ROOT_PATH}
+        )
+        set_target_properties(
+            ${_TARGET}
+            PROPERTIES
+                RUNTIME_OUTPUT_DIRECTORY_RELEASE
+                    ${BUILD_TARGET_ROOT_PATH}
         )
         set_target_properties(
             ${_TARGET}
@@ -356,7 +468,12 @@ macro(nscp_add_test _TARGET)
                     ${BUILD_TARGET_ROOT_PATH}
         )
     endif()
-    set_target_properties(${_TARGET} PROPERTIES FOLDER "tests")
+    set_target_properties(
+        ${_TARGET}
+        PROPERTIES
+            FOLDER
+                "tests"
+    )
     add_test(NAME ${_TARGET} COMMAND ${_TARGET})
 endmacro()
 
@@ -373,10 +490,10 @@ function(NSCP_CREATE_TEST _TARGET)
 endfunction()
 
 macro(NSCP_MAKE_EXE_SBIN _TARGET _SRCS)
-    nscp_make_exe(${_TARGET} "${_SRCS}" ${SBIN_TARGET_FOLDER})
+    NSCP_MAKE_EXE(${_TARGET} "${_SRCS}" ${SBIN_TARGET_FOLDER})
 endmacro()
 macro(NSCP_MAKE_EXE_BIN _TARGET _SRCS)
-    nscp_make_exe(${_TARGET} "${_SRCS}" ${BIN_TARGET_FOLDER})
+    NSCP_MAKE_EXE(${_TARGET} "${_SRCS}" ${BIN_TARGET_FOLDER})
 endmacro()
 
 macro(NSCP_FORCE_INCLUDE _TARGET _SRC)
@@ -384,23 +501,31 @@ macro(NSCP_FORCE_INCLUDE _TARGET _SRC)
         string(REPLACE "/" "\\" WINSRC "${_SRC}")
         set_target_properties(
             ${TARGET}
-            PROPERTIES COMPILE_FLAGS "/FI\"${WINSRC}\""
+            PROPERTIES
+                COMPILE_FLAGS
+                    "/FI\"${WINSRC}\""
         )
     else(WIN32)
         if(
             USE_STATIC_RUNTIME
             AND CMAKE_COMPILER_IS_GNUCXX
-            AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64"
+            AND "${CMAKE_SYSTEM_PROCESSOR}"
+                STREQUAL
+                "x86_64"
             AND NOT APPLE
         )
             set_target_properties(
                 ${TARGET}
-                PROPERTIES COMPILE_FLAGS "-fPIC -include \"${_SRC}\""
+                PROPERTIES
+                    COMPILE_FLAGS
+                        "-fPIC -include \"${_SRC}\""
             )
         else()
             set_target_properties(
                 ${TARGET}
-                PROPERTIES COMPILE_FLAGS "-include \"${_SRC}\""
+                PROPERTIES
+                    COMPILE_FLAGS
+                        "-include \"${_SRC}\""
             )
         endif()
     endif(WIN32)

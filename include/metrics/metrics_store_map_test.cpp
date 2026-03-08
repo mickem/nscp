@@ -28,8 +28,7 @@
 // ============================================================================
 // Helper: build a MetricsMessage with a single bundle containing gauge values
 // ============================================================================
-static PB::Metrics::MetricsMessage make_gauge_message(const std::string &bundle_key,
-                                                      const std::vector<std::pair<std::string, double>> &values) {
+static PB::Metrics::MetricsMessage make_gauge_message(const std::string &bundle_key, const std::vector<std::pair<std::string, double>> &values) {
   PB::Metrics::MetricsMessage msg;
   PB::Metrics::MetricsMessage::Response *resp = msg.add_payload();
   PB::Metrics::MetricsBundle *bundle = resp->add_bundles();
@@ -45,8 +44,7 @@ static PB::Metrics::MetricsMessage make_gauge_message(const std::string &bundle_
 // ============================================================================
 // Helper: build a MetricsMessage with a single bundle containing string values
 // ============================================================================
-static PB::Metrics::MetricsMessage make_string_message(const std::string &bundle_key,
-                                                       const std::vector<std::pair<std::string, std::string>> &values) {
+static PB::Metrics::MetricsMessage make_string_message(const std::string &bundle_key, const std::vector<std::pair<std::string, std::string>> &values) {
   PB::Metrics::MetricsMessage msg;
   PB::Metrics::MetricsMessage::Response *resp = msg.add_payload();
   PB::Metrics::MetricsBundle *bundle = resp->add_bundles();
@@ -487,4 +485,3 @@ TEST_F(MetricsStoreTest, BundleWithBothChildrenAndValues) {
   EXPECT_NE(result.end(), result.find("system.uptime"));
   EXPECT_NE(result.end(), result.find("system.cpu.load"));
 }
-

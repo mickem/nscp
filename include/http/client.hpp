@@ -92,7 +92,8 @@ struct ssl_socket final : generic_socket {
   tcp::resolver resolver_;
   boost::asio::ssl::verify_mode verify_;
 
-  explicit ssl_socket(boost::asio::io_service &io_service, boost::asio::ssl::context::method method, boost::asio::ssl::verify_mode verify, const std::string &ca)
+  explicit ssl_socket(boost::asio::io_service &io_service, boost::asio::ssl::context::method method, boost::asio::ssl::verify_mode verify,
+                      const std::string &ca)
       : context_(method), ssl_socket_(io_service, context_), resolver_(io_service), verify_(verify) {
     if (!ca.empty() && ca != "none") {
       try {
@@ -257,8 +258,8 @@ class simple_client {
     const response response = read_result(response_buffer);
 
     if (!response.is_2xx()) {
-      throw socket_helpers::socket_exception("Failed to " + request.verb_ + " " + server + ":" + port + " " + str::xtos(response.status_code_) +
-                                             ": " + response.status_message_);
+      throw socket_helpers::socket_exception("Failed to " + request.verb_ + " " + server + ":" + port + " " + str::xtos(response.status_code_) + ": " +
+                                             response.status_message_);
     }
     if (response_buffer.size() > 0) os << &response_buffer;
 

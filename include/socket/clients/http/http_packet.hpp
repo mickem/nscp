@@ -152,7 +152,9 @@ struct packet {
       : verb_(std::move(verb)), server_(std::move(server)), path_(std::move(path)), payload_(std::move(payload)), status_code_(0) {
     add_default_headers();
   }
-  packet(std::string verb, std::string server, std::string path) : verb_(std::move(verb)), server_(std::move(server)), path_(std::move(path)), status_code_(0) { add_default_headers(); }
+  packet(std::string verb, std::string server, std::string path) : verb_(std::move(verb)), server_(std::move(server)), path_(std::move(path)), status_code_(0) {
+    add_default_headers();
+  }
   explicit packet(const std::vector<char> &data) : status_code_(0) {
     auto its = data.begin();
     const auto ite = std::adjacent_find(its, data.end(), find_line_end);

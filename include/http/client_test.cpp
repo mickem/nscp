@@ -329,30 +329,20 @@ TEST(http_response, add_header_from_line_no_colon) {
 // uri_encode tests
 // =============================================================================
 
-TEST(uri_encode, encodes_space_as_plus) {
-  EXPECT_EQ(http::uri_encode("hello world"), "hello+world");
-}
+TEST(uri_encode, encodes_space_as_plus) { EXPECT_EQ(http::uri_encode("hello world"), "hello+world"); }
 
-TEST(uri_encode, leaves_alphanumeric_unchanged) {
-  EXPECT_EQ(http::uri_encode("abcXYZ012"), "abcXYZ012");
-}
+TEST(uri_encode, leaves_alphanumeric_unchanged) { EXPECT_EQ(http::uri_encode("abcXYZ012"), "abcXYZ012"); }
 
 TEST(uri_encode, encodes_special_characters) {
   const std::string result = http::uri_encode("@#$");
   EXPECT_EQ(result, "%40%23%24");
 }
 
-TEST(uri_encode, preserves_mark_characters) {
-  EXPECT_EQ(http::uri_encode("-_.!~*'()"), "-_.!~*'()");
-}
+TEST(uri_encode, preserves_mark_characters) { EXPECT_EQ(http::uri_encode("-_.!~*'()"), "-_.!~*'()"); }
 
-TEST(uri_encode, empty_string) {
-  EXPECT_EQ(http::uri_encode(""), "");
-}
+TEST(uri_encode, empty_string) { EXPECT_EQ(http::uri_encode(""), ""); }
 
-TEST(uri_encode, encodes_slash) {
-  EXPECT_EQ(http::uri_encode("/"), "%2F");
-}
+TEST(uri_encode, encodes_slash) { EXPECT_EQ(http::uri_encode("/"), "%2F"); }
 
 // =============================================================================
 // simple_client constructor tests (socket type selection)
@@ -437,4 +427,3 @@ TEST(socket_exception, copy_constructor) {
   const socket_helpers::socket_exception ex2(ex1);
   EXPECT_EQ(ex2.reason(), "original");
 }
-
