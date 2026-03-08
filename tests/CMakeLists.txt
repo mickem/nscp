@@ -162,3 +162,38 @@ NSCP_CREATE_TEST(
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
+
+NSCP_CREATE_TEST(
+    metrics_store_map_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/metrics/metrics_store_map_test.cpp
+        ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+if(OPENSSL_FOUND)
+    NSCP_CREATE_TEST(
+        http_client_test
+        SOURCES
+            ${NSCP_INCLUDEDIR}/http/client_test.cpp
+            ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+            ${NSCP_INCLUDEDIR}/utf8.cpp
+        LIBRARIES
+            GTest::gtest_main
+            ${Boost_FILESYSTEM_LIBRARY}
+            ${Boost_SYSTEM_LIBRARY}
+            ${OPENSSL_LIBRARIES}
+            $<$<PLATFORM_ID:Windows>:CRYPT32>
+        INCLUDES
+            ${NSCP_INCLUDEDIR}
+            ${OPENSSL_INCLUDE_DIR}
+    )
+    target_compile_definitions(http_client_test PRIVATE USE_SSL)
+endif()

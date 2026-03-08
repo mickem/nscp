@@ -25,16 +25,15 @@
 
 namespace http {
 
-bool find_line_end(char c1, char c2) { return c1 == '\r' && c2 == '\n'; }
-bool find_header_break(char c1, char c2) { return c1 == '\n' && c2 == '\r'; }
+inline bool find_line_end(const char c1, const char c2) { return c1 == '\r' && c2 == '\n'; }
+inline bool find_header_break(const char c1, const char c2) { return c1 == '\n' && c2 == '\r'; }
 
-static std::string charToHex(char c) {
+static std::string charToHex(const char c) {
   std::string result;
-  char first, second;
 
-  first = (c & 0xF0) / 16;
+  char first = (c & 0xF0) / 16;
   first += first > 9 ? 'A' - 10 : '0';
-  second = c & 0x0F;
+  char second = c & 0x0F;
   second += second > 9 ? 'A' - 10 : '0';
 
   result.append(1, first);
@@ -45,10 +44,9 @@ static std::string charToHex(char c) {
 
 static std::string uri_encode(const std::string &src) {
   std::string result;
-  std::string::const_iterator iter;
 
-  for (iter = src.begin(); iter != src.end(); ++iter) {
-    switch (*iter) {
+  for (const char iter : src) {
+    switch (iter) {
       case ' ':
         result.append(1, '+');
         break;
@@ -125,12 +123,12 @@ static std::string uri_encode(const std::string &src) {
       case '\'':
       case '(':
       case ')':
-        result.append(1, *iter);
+        result.append(1, iter);
         break;
         // escape
       default:
         result.append(1, '%');
-        result.append(charToHex(*iter));
+        result.append(charToHex(iter));
         break;
     }
   }
@@ -149,22 +147,22 @@ struct packet {
   std::string payload_;
   int status_code_;
 
-  packet() {}
+  packet() : status_code_(0) {}
   packet(std::string verb, std::string server, std::string path, std::string payload)
-      : verb_(verb), server_(server), path_(path), payload_(payload), status_code_(0) {
+      : verb_(std::move(verb)), server_(std::move(server)), path_(std::move(path)), payload_(std::move(payload)), status_code_(0) {
     add_default_headers();
   }
-  packet(std::string verb, std::string server, std::string path) : verb_(verb), server_(server), path_(path), status_code_(0) { add_default_headers(); }
-  packet(std::vector<char> &data) {
-    std::vector<char>::iterator its = data.begin();
-    std::vector<char>::iterator ite = std::adjacent_find(its, data.end(), find_line_end);
+  packet(std::string verb, std::string server, std::string path) : verb_(std::move(verb)), server_(std::move(server)), path_(std::move(path)), status_code_(0) { add_default_headers(); }
+  explicit packet(const std::vector<char> &data) : status_code_(0) {
+    auto its = data.begin();
+    const auto ite = std::adjacent_find(its, data.end(), find_line_end);
     if (ite == data.end()) return;
     parse_http_response(std::string(its, ite));
     its = ite + 2;
     while (true) {
-      std::vector<char>::iterator iterator = std::adjacent_find(its, data.end(), find_line_end);
+      const auto iterator = std::adjacent_find(its, data.end(), find_line_end);
       if (iterator == data.end()) break;
-      std::string line(its, iterator);
+      const std::string line(its, iterator);
       if (line.empty()) {
         payload_ = std::string(iterator + 2, data.end());
         break;
@@ -175,20 +173,20 @@ struct packet {
   }
 
   void set_path(std::string verb, std::string path) {
-    verb_ = verb;
-    path_ = path;
+    verb_ = std::move(verb);
+    path_ = std::move(path);
   }
-  void parse_http_response(std::string line) {
-    std::string::size_type pos = line.find(' ');
+  void parse_http_response(const std::string &line) {
+    const std::string::size_type pos = line.find(' ');
     if (pos == std::string::npos)
       set_http_response(line, "500");
     else
       set_http_response(line.substr(0, pos), line.substr(pos + 1));
   }
-  void set_http_response(std::string version, std::string code) { status_code_ = str::stox<int>(code); }
-  void add_header(std::string key, std::string value) { headers_[key] = value; }
-  void add_header(std::string line) {
-    std::string::size_type pos = line.find(':');
+  void set_http_response(const std::string &version, const std::string &code) { status_code_ = str::stox<int>(code); }
+  void add_header(std::string key, std::string value) { headers_[std::move(key)] = std::move(value); }
+  void add_header(const std::string &line) {
+    const std::string::size_type pos = line.find(':');
     if (pos == std::string::npos)
       add_header(line, "");
     else
@@ -198,7 +196,7 @@ struct packet {
     add_header("Accept", "*/*");
     add_header("Connection", "close");
   }
-  void set_payload(std::string data) { payload_ = data; }
+  void set_payload(std::string data) { payload_ = std::move(data); }
 
   std::string to_string() const {
     std::stringstream ss;
@@ -226,9 +224,9 @@ struct packet {
 
   std::vector<char> get_packet() const {
     std::vector<char> ret;
-    std::string h = get_header();
+    const std::string h = get_header();
     ret.insert(ret.end(), h.begin(), h.end());
-    std::string p = get_payload();
+    const std::string p = get_payload();
     ret.insert(ret.end(), p.begin(), p.end());
     return ret;
   }
@@ -236,7 +234,7 @@ struct packet {
   static packet create_timeout(std::string message) {
     packet p;
     p.status_code_ = 99;
-    p.payload_ = message;
+    p.payload_ = std::move(message);
     return p;
   }
 
@@ -284,35 +282,22 @@ struct response {
   std::string status_message_;
   std::string payload_;
 
-  response() {}
-  response(std::string http_version, unsigned int status_code, std::string status_message)
-      : http_version_(http_version), status_code_(status_code), status_message_(status_message) {}
-  response(const response &other)
-      : headers_(other.headers_),
-        http_version_(other.http_version_),
-        status_code_(other.status_code_),
-        status_message_(other.status_message_),
-        payload_(other.payload_) {}
+  response() : status_code_(0) {}
+  response(std::string http_version, const unsigned int status_code, std::string status_message)
+      : http_version_(std::move(http_version)), status_code_(status_code), status_message_(std::move(status_message)) {}
+  response(const response &other) = default;
+  response &operator=(const response &other) = default;
 
-  const response &operator=(const response &other) {
-    headers_ = other.headers_;
-    http_version_ = other.http_version_;
-    status_code_ = other.status_code_;
-    status_message_ = other.status_message_;
-    payload_ = other.payload_;
-    return *this;
-  }
-
-  void add_header(std::string key, std::string value) { headers_[key] = value; }
-  void add_header(std::string line) {
-    std::string::size_type pos = line.find(':');
+  void add_header(std::string key, std::string value) { headers_[std::move(key)] = std::move(value); }
+  void add_header(const std::string &line) {
+    const std::string::size_type pos = line.find(':');
     if (pos == std::string::npos)
       add_header(line, "");
     else
       add_header(line.substr(0, pos), line.substr(pos + 1));
   }
 
-  bool is_2xx() { return status_code_ >= 200 && status_code_ < 300; }
+  bool is_2xx() const { return status_code_ >= 200 && status_code_ < 300; }
 };
 
 }  // namespace http
