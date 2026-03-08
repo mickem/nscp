@@ -131,7 +131,7 @@ Tests are registered with CMake in **`C:\src\nscp\tests\CMakeLists.txt`** using 
 |-----------|-----------|
 | `libs/plugin_api/nscapi_helper_test.cpp` | NSCAPI helper |
 | `libs/perfconfig_parser/perfconfig_test.cpp` | Performance config parser |
-| `libs/expression_parser/expression_test.cpp` | Expression parser |
+| `libs/expression_parser/expression_test_old.cpp` | Expression parser |
 
 #### Module Tests (`modules/`)
 

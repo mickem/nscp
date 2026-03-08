@@ -29,12 +29,3 @@ if(CMAKE_COMPILER_IS_GNUCXX)
         )
     endif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
 endif(CMAKE_COMPILER_IS_GNUCXX)
-
-add_executable(${TARGET}_test expression_test.cpp)
-target_link_libraries(
-    ${TARGET}_test
-    GTest::gtest
-    GTest::gtest_main
-    ${TARGET}
-)
-nscp_add_test(${TARGET}_test)

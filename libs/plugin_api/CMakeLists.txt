@@ -74,18 +74,19 @@ target_link_libraries(
 )
 add_dependencies(${TARGET} nscp_protobuf)
 
-add_executable(
-    ${TARGET}_test
-    nscapi_helper_test.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
-    ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
+NSCP_CREATE_TEST(
+        ${TARGET}_test
+    SOURCES
+        nscapi_helper_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
+    LIBRARIES
+        GTest::gtest
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${EXTRA_LIBS}
+        ${Boost_DATE_TIME_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
 )
-target_link_libraries(
-    ${TARGET}_test
-    GTest::gtest
-    GTest::gtest_main
-    ${NSCP_DEF_PLUGIN_LIB}
-    ${EXTRA_LIBS}
-    ${Boost_DATE_TIME_LIBRARY}
-)
-nscp_add_test(${TARGET}_test)
+

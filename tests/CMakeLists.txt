@@ -205,6 +205,7 @@ NSCP_CREATE_TEST(
     simple_expression_test
     SOURCES
         ${NSCP_INCLUDEDIR}/parsers/expression/expression_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/expression/expression_test_old.cpp
         ${NSCP_INCLUDEDIR}/parsers/expression/expression.cpp
     LIBRARIES
         GTest::gtest_main
@@ -212,6 +213,17 @@ NSCP_CREATE_TEST(
         ${Boost_SYSTEM_LIBRARY}
         ${Boost_THREAD_LIBRARY}
     INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
+        perf_config_parser_test
+        SOURCES
+        ${NSCP_INCLUDEDIR}/parsers/perfconfig/perfconfig_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/perfconfig/perfconfig.cpp
+        LIBRARIES
+        GTest::gtest_main
+        INCLUDES
         ${NSCP_INCLUDEDIR}
 )
 

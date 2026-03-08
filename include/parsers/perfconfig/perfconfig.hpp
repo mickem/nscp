@@ -34,6 +34,6 @@ struct perfconfig {
     std::vector<perf_option> options;
   };
   typedef std::vector<perf_rule> result_type;
-  bool parse(const std::string& str, result_type& v);
+  static bool parse(const std::string& str, result_type& v);
 };
 }  // namespace parsers
