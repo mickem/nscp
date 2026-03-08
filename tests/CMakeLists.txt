@@ -205,7 +205,6 @@ NSCP_CREATE_TEST(
     simple_expression_test
     SOURCES
         ${NSCP_INCLUDEDIR}/parsers/expression/expression_test.cpp
-        ${NSCP_INCLUDEDIR}/parsers/expression/expression_test_old.cpp
         ${NSCP_INCLUDEDIR}/parsers/expression/expression.cpp
     LIBRARIES
         GTest::gtest_main
