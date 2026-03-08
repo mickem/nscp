@@ -339,7 +339,7 @@
     </InstallUISequence>
 
     <Property Id="ALLUSERS">
-      <![CDATA[2]]>
+      <![CDATA[1]]>
     </Property>
     <?include properties.wxs ?>
 
