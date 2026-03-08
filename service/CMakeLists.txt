@@ -125,7 +125,7 @@ endif(WIN32)
 
 add_definitions(
     ${NSCP_GLOBAL_DEFINES}
-    -Dnscp_plugin_api_NOLIB
+    -D${PLUGIN_API_TARGET}_NOLIB
 )
 
 # Add python

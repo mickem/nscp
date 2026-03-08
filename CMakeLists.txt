@@ -14,6 +14,11 @@ endif(COMMAND CMAKE_POLICY)
 set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT
     "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>"
 )
+if(WIN32)
+    set(PLUGIN_API_TARGET plugin_api)
+else()
+    set(PLUGIN_API_TARGET nscp_plugin_api)
+endif()
 
 # ##############################################################################
 #
@@ -158,7 +163,7 @@ if(USE_STATIC_RUNTIME)
     set(BUILD_SHARED_LIBS OFF)
     add_definitions(
         -Dnscp_protobuf_NOLIB
-        -Dnscp_plugin_api_NOLIB
+        -D${PLUGIN_API_TARGET}_NOLIB
         -Dnscp_where_filter_NOLIB
         -Djson_protobuf_NOLIB
         -Dlua_protobuf_NOLIB
@@ -1003,7 +1008,7 @@ set(NSCP_DEF_PLUGIN_LIB
     ${PROTOBUF_LIBRARY}
     ${ICONV_LIBRARIES}
     nscp_protobuf
-    nscp_plugin_api
+    ${PLUGIN_API_TARGET}
 )
 
 # ##############################################################################

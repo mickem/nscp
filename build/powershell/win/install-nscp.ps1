@@ -26,8 +26,8 @@ $MsiUrl = "https://github.com/mickem/nscp/releases/download/${Version}/NSCP-${Ve
 Write-Host "● Fetching MSI from URL: $MsiUrl"
 $scriptBlock = @"
 New-Item -ItemType Directory -Path 'C:\temp' -Force
-Invoke-WebRequest -Uri '$($MsiUrl)' -OutFile 'C:\temp\installer.msi'
-Start-Process msiexec.exe -ArgumentList '/i C:\temp\installer.msi /l* c:\temp\install.log /qn' -Wait
+Invoke-WebRequest -Uri '$($MsiUrl)' -OutFile 'C:\temp\upgrade.msi'
+Start-Process msiexec.exe -ArgumentList '/i C:\temp\upgrade.msi /l* c:\temp\install.log /qn' -Wait
 "@
 $result = Invoke-AzVMRunCommand -ResourceGroupName $ResourceGroupName `
     -VMName $VmName `

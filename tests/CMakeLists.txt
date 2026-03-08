@@ -35,7 +35,7 @@ endif()
 
 add_definitions(
     ${NSCP_GLOBAL_DEFINES}
-    -Dnscp_plugin_api_NOLIB
+    -D${PLUGIN_API_TARGET}_NOLIB
 )
 
 NSCP_CREATE_TEST(
