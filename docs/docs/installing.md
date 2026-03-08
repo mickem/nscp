@@ -142,7 +142,7 @@ NSClient++ consists of the following features most which can be disabled when do
 | SampleScripts     | Scripts                | Scripts for checking and testing various aspects of your computer and NSClient++          |
 | Shortcuts         | Shortcuts              | Main Service shortcuts                                                                    |
 | WEBPlugins        | WEB Server             | NSClient WEB Server. Use this to administrate or check NSClient via a browser or REST API |
-| OP5Montoring      | OP5 Monitoring         | Scripts/config for the op5 monitoring system.                                             |
+| OP5Monitoring     | OP5 Monitoring         | Scripts/config for the op5 monitoring system.                                             |
 
 ### Silent install
 

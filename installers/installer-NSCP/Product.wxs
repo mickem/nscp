@@ -230,7 +230,7 @@
         </Feature>
         -->
       </Feature>
-      <Feature Id="OP5Montoring" Title="OP5 Monitoring system" Description="Configuration and scripts to use NSClien++ with OP5 monitoring solution" Level="1" Absent="allow">
+      <Feature Id="OP5Monitoring" Title="OP5 Monitoring system" Description="Configuration and scripts to use NSClient++ with OP5 monitoring solution" Level="1" Absent="allow">
           <ComponentGroupRef Id="Op5ConfigResources" />
           <ComponentGroupRef Id="Op5ScriptResources" />
           <ComponentRef Id="Op5Client" />
