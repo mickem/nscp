@@ -201,6 +201,20 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 
+NSCP_CREATE_TEST(
+    simple_expression_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/parsers/expression/expression_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/expression/expression.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
 if(OPENSSL_FOUND)
     NSCP_CREATE_TEST(
         http_client_test
