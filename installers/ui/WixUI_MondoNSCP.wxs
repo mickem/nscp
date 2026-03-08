@@ -52,8 +52,7 @@ Patch dialog sequence:
 
       <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999">1</Publish>
 
-      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="MonitoringToolDlg">NOT Installed AND NOT PATCH</Publish>
-      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="MonitoringToolDlg">Installed AND PATCH</Publish>
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="MonitoringToolDlg">1</Publish>
 
       <Publish Dialog="MonitoringToolDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg">1</Publish>
       <Publish Dialog="MonitoringToolDlg" Control="Next" Event="NewDialog" Value="SetupTypeDlg">1</Publish>
@@ -72,9 +71,9 @@ Patch dialog sequence:
 
       <Publish Dialog="CustomizeDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="1">WixUI_InstallMode = "Change"</Publish>
       <Publish Dialog="CustomizeDlg" Control="Back" Event="NewDialog" Value="SetupTypeDlg" Order="2">WixUI_InstallMode = "InstallCustom"</Publish>
+      <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="InvalidConfigDlg1" Order="1">CONF_HAS_ERRORS = "1"</Publish>
+      <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="SelectConfigurationDlg" Order="2">CONF_CAN_CHANGE = "1"</Publish>
       <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="3">1</Publish>
-      <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="InvalidConfigDlg1" Order="4">CONF_HAS_ERRORS = "1"</Publish>
-      <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="SelectConfigurationDlg" Order="5">CONF_CAN_CHANGE = "1"</Publish>
 
       <Publish Dialog="InvalidConfigDlg1" Control="Back" Event="NewDialog" Value="CustomizeDlg" Order="1">WixUI_InstallMode = "Change" OR WixUI_InstallMode = "InstallCustom"</Publish>
       <Publish Dialog="InvalidConfigDlg1" Control="Back" Event="NewDialog" Value="SetupTypeDlg" Order="2">WixUI_InstallMode = "InstallTypical" OR WixUI_InstallMode = "InstallComplete"</Publish>

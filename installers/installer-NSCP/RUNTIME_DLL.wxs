@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+  <?include setup.wxs ?>
   <Fragment>
 	<DirectoryRef Id="INSTALLLOCATION">
-	  <Component Id="LibCommon" Guid="AA72FE42-6AF4-41B6-B77E-E554860E4508">
+	  <Component Id="LibCommon" Guid="AA72FE42-6AF4-41B6-B77E-E554860E4508" Win64="$(var.Win64)">
         <File Id="BOOST_DT" Name="boost_date_time.dll" DiskId="1" Source="$(var.Source)/boost_date_time.dll" Vital="yes" />
         <File Id="BOOST_C" Name="boost_chrono.dll" DiskId="1" Source="$(var.Source)/boost_chrono.dll" Vital="yes" />
         <File Id="BOOST_FS" Name="boost_filesystem.dll" DiskId="1" Source="$(var.Source)/boost_filesystem.dll" Vital="yes" />
@@ -13,19 +14,19 @@
 		<File Id="BOOST_T" Name="boost_thread.dll" DiskId="1" Source="$(var.Source)/boost_thread.dll" Vital="yes" />
 		<File Id="PROTOBUF" Name="libprotobuf.dll" DiskId="1" Source="$(var.Source)/libprotobuf.dll" Vital="yes" />
       </Component>
-      <Component Id="LibNSCPPluginApi" Guid="4108ED1F-403A-4C4A-8D26-B24E0F7E5B82">
+      <Component Id="LibNSCPPluginApi" Guid="4108ED1F-403A-4C4A-8D26-B24E0F7E5B82" Win64="$(var.Win64)">
         <File Id="NSCP_PLUG" Name="nscp_plugin_api.dll" DiskId="1" Source="$(var.Source)/nscp_plugin_api.dll" Vital="yes" KeyPath="yes" />
         <RemoveFile Id="RemoveOldPluginApi" Name="plugin_api.dll" On="install" />
       </Component>
-      <Component Id="LibNSCPWhereFilter" Guid="E30887FE-1A2A-4DF2-97B6-6FCF446C2545">
+      <Component Id="LibNSCPWhereFilter" Guid="E30887FE-1A2A-4DF2-97B6-6FCF446C2545" Win64="$(var.Win64)">
         <File Id="NSCP_WF" Name="nscp_where_filter.dll" DiskId="1" Source="$(var.Source)/nscp_where_filter.dll" Vital="yes" KeyPath="yes" />
         <RemoveFile Id="RemoveOldWhereFilter" Name="where_filter.dll" On="install" />
       </Component>
-      <Component Id="LibNSCPProtobuf" Guid="A19797CE-94DE-42E7-97E3-5087B2164C54">
+      <Component Id="LibNSCPProtobuf" Guid="A19797CE-94DE-42E7-97E3-5087B2164C54" Win64="$(var.Win64)">
         <File Id="NSCP_PB" Name="nscp_protobuf.dll" DiskId="1" Source="$(var.Source)/nscp_protobuf.dll" Vital="yes" KeyPath="yes" />
         <RemoveFile Id="RemoveOldProtobuf" Name="protobuf.dll" On="install" />
       </Component>
-      <Component Id="MongooseLibs" Guid="843AB2C6-C144-40EA-8673-70CDB2173BE7">
+      <Component Id="MongooseLibs" Guid="843AB2C6-C144-40EA-8673-70CDB2173BE7" Win64="$(var.Win64)">
         <File Id="libMongoose.dll" Name="nscp_mongoose.dll" DiskId="1" Source="$(var.Source)/nscp_mongoose.dll" Vital="no" KeyPath="yes" />
         <RemoveFile Id="RemoveOldMongoose" Name="mongoose.dll" On="install" />
       </Component>

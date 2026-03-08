@@ -2,10 +2,10 @@
 	<?if "$(var.arch)" = "x64"?>
 	<?define ProgramFiles = "ProgramFiles64Folder" ?>
 	<?define Win64 = "yes" ?>
-	<?define Plattform = "x64" ?>
+	<?define Platform = "x64" ?>
 	<?else?>
 	<?define ProgramFiles = "ProgramFilesFolder" ?>
 	<?define Win64 = "no" ?>
-	<?define Plattform = "x86" ?>
+	<?define Platform = "x86" ?>
 	<?endif?>
 </Include>

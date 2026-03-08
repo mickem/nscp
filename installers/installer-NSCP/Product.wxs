@@ -5,14 +5,14 @@
 
   <?define Version.Tag = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Build)" ?>
   
-  <?define UpgradeCode = "$(var.App.UppgradeCode)" ?>
+  <?define UpgradeCode = "$(var.App.UpgradeCode)" ?>
 
   <?include config.wxs ?>
 
   <Product Id="*" Name="$(var.App.Title) ($(var.arch))" Language="1033" Version="$(var.Version.Tag)" Manufacturer="MySolutions NORDIC" UpgradeCode="$(var.UpgradeCode)">
 
     <Package InstallerVersion="405" Id="*" Description="A simple windows monitor agent for (amongst others) Nagios."
-						 Comments="This will appear in the file summary stream." Compressed="yes" Languages="1033" Platform="$(var.Plattform)" />
+						 Comments="This will appear in the file summary stream." Compressed="yes" Languages="1033" Platform="$(var.Platform)" />
 
     <Upgrade Id="$(var.UpgradeCode)">
       <UpgradeVersion Property="OLDERVERSIONBEINGUPGRADED" IncludeMinimum="yes" Minimum="0.3.0.0" IncludeMaximum="no" Maximum="$(var.Version.Tag)"/>
@@ -167,7 +167,7 @@
             <File Id="PythonPYD3" Name="_ctypes.pyd" DiskId="1" Source="$(var.Source)/_ctypes.pyd" Vital="no" />
           </Component>
           <?if "$(var.Runtime)" = "dynamic"?>
-            <Component Id="LuaLibs" Guid="513b45d4-c0f4-4531-9baf-0db466e4e51c">
+            <Component Id="LuaLibs" Guid="513b45d4-c0f4-4531-9baf-0db466e4e51c" Win64="$(var.Win64)">
               <File Id="LuaDLL" Name="lua.dll" DiskId="1" Source="$(var.Source)/lua.dll" Vital="no" />
             </Component>
           <?endif?>
