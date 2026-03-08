@@ -319,21 +319,21 @@ TEST(CronParser, FindNextMonthFebruary) {
 TEST(CronParser, FindNextDowSunday) {
   // 2016-01-03 is a Sunday (dow=0)
   EXPECT_EQ("2016-01-03T00:01:00", get_next("* * * * 0", "2016-01-03 00:00:00"));
-  // After 23:59 the hour overflows adding a day, then dow overflows adding a week
-  EXPECT_EQ("2016-01-11T00:00:00", get_next("* * * * 0", "2016-01-03 23:59:00"));
+  // After 23:59 on Sunday, bumps to Monday 00:00, next Sunday is Jan 10
+  EXPECT_EQ("2016-01-10T00:00:00", get_next("* * * * 0", "2016-01-03 23:59:00"));
 }
 
 TEST(CronParser, FindNextDowMonday) {
   // 2016-01-04 is a Monday (dow=1)
   EXPECT_EQ("2016-01-04T23:59:00", get_next("* * * * 1", "2016-01-04 23:58:00"));
-  EXPECT_EQ("2016-01-12T00:00:00", get_next("* * * * 1", "2016-01-04 23:59:00"));
-  EXPECT_EQ("2016-01-12T00:00:00", get_next("* * * * 1", "2016-01-05 00:00:00"));
+  EXPECT_EQ("2016-01-11T00:00:00", get_next("* * * * 1", "2016-01-04 23:59:00"));
+  EXPECT_EQ("2016-01-11T00:00:00", get_next("* * * * 1", "2016-01-05 00:00:00"));
 }
 
 TEST(CronParser, FindNextDowTuesday) {
   // 2016-01-05 is a Tuesday (dow=2)
   EXPECT_EQ("2016-01-05T23:59:00", get_next("* * * * 2", "2016-01-05 23:58:00"));
-  EXPECT_EQ("2016-01-13T00:00:00", get_next("* * * * 2", "2016-01-05 23:59:00"));
+  EXPECT_EQ("2016-01-12T00:00:00", get_next("* * * * 2", "2016-01-05 23:59:00"));
 }
 
 // ======================================================================
@@ -365,23 +365,23 @@ TEST(CronParser, FindNextHourList) {
 TEST(CronParser, FindNextExactTimeNextDay) {
   // 30 14 => every day at 14:30
   EXPECT_EQ("2016-01-01T14:30:00", get_next("30 14 * * *", "2016-01-01 00:00:00"));
-  // When now is exactly 14:30, bumps to 14:31; min(30) overflows => adds 1 hour => 15:30
-  EXPECT_EQ("2016-01-01T15:30:00", get_next("30 14 * * *", "2016-01-01 14:30:00"));
+  // When now is exactly 14:30, bumps to 14:31; min(30) overflows and hour(14) overflows => next day
+  EXPECT_EQ("2016-01-02T14:30:00", get_next("30 14 * * *", "2016-01-01 14:30:00"));
   EXPECT_EQ("2016-01-02T14:30:00", get_next("30 14 * * *", "2016-01-01 15:00:00"));
 }
 
 TEST(CronParser, FindNextMinuteAndHourCombination) {
-  // every day at 00:00 — when now=00:00, bumps to 00:01; min(0) overflows => +1h => 01:00
-  EXPECT_EQ("2016-01-01T01:00:00", get_next("0 0 * * *", "2016-01-01 00:00:00"));
-  // when now=23:59, bumps to 24:00 => min(0) no overflow, hour(0) overflows => +1 day
-  EXPECT_EQ("2016-01-02T01:00:00", get_next("0 0 * * *", "2016-01-01 23:59:00"));
+  // every day at 00:00 — when now=00:00, bumps to 00:01; min(0) and hour(0) overflow => next day
+  EXPECT_EQ("2016-01-02T00:00:00", get_next("0 0 * * *", "2016-01-01 00:00:00"));
+  // when now=23:59, hour(0) overflows => next day at 00:00
+  EXPECT_EQ("2016-01-02T00:00:00", get_next("0 0 * * *", "2016-01-01 23:59:00"));
 }
 
 TEST(CronParser, FindNextSpecificDateAndTime) {
   // 15th of every month at 12:00
   EXPECT_EQ("2016-01-15T12:00:00", get_next("0 12 15 * *", "2016-01-01 00:00:00"));
-  // When now=12:00, bumps to 12:01; min(0) overflows => +1h => 13:00 same day
-  EXPECT_EQ("2016-01-15T13:00:00", get_next("0 12 15 * *", "2016-01-15 12:00:00"));
+  // When now=12:00, bumps to 12:01; min(0) and hour(12) overflow => next 15th is Feb 15
+  EXPECT_EQ("2016-02-15T12:00:00", get_next("0 12 15 * *", "2016-01-15 12:00:00"));
 }
 
 // ======================================================================
