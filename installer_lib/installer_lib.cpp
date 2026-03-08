@@ -249,7 +249,7 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 
       h.setPropertyKeyAndDefault(CONF_INCLUDES, L"op5;op5.ini", L"");
       h.setPropertyKeyAndDefault(CONFIGURATION_TYPE, L"registry://HKEY_LOCAL_MACHINE/software/NSClient++", L"");
-      h.setFeatureLocal(L"OP5Montoring");
+      h.setFeatureLocal(L"OP5Monitoring");
       h.setConfCanChange(true, L"Op5 applied");
     } else if (tool == L"GENERIC") {
       h.logMessage(L"Setting base config as Generic");
@@ -265,7 +265,7 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 
       h.setPropertyKeyAndDefault(CONF_INCLUDES, L"", L"");
       h.setPropertyKeyAndDefault(CONFIGURATION_TYPE, L"ini://${shared-path}/nsclient.ini", L"");
-      h.setFeatureAbsent(L"OP5Montoring");
+      h.setFeatureAbsent(L"OP5Monitoring");
       h.setConfCanChange(true, L"Generic applied");
     }
 
