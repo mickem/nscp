@@ -95,7 +95,7 @@ jobs:
         set(USE_STATIC_RUNTIME OFF)
         EOF
 
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: check_nsclient-linux-${{ inputs.architecture }}
 
@@ -127,7 +127,7 @@ jobs:
         dnf install -y ./NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-amd64.rpm
         nscp settings --load-all --list --add-defaults
 
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
         path: |
