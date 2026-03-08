@@ -37,6 +37,9 @@ if(WIN32)
         ${SETTINGS_PLUGIN_SRC_H}
         ${STORAGE_PLUGIN_SRC_H}
     )
+    if(NOT USE_STATIC_RUNTIME)
+        set(SRCS ${SRCS} ${CMAKE_CURRENT_SOURCE_DIR}/nscp_protobuf.rc)
+    endif()
 endif(WIN32)
 NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}")
 NSCP_FORCE_INCLUDE(
@@ -79,6 +82,9 @@ if(PROTOC_GEN_LUA_FOUND AND (LUA_FOUND OR LUA_SOURCE_FOUND))
             ${SETTINGS_PLUGIN_SRC_LUA_H}
             ${STORAGE_PLUGIN_SRC_LUA_H}
         )
+        if(NOT USE_STATIC_RUNTIME)
+            set(SRCS ${SRCS} ${CMAKE_CURRENT_SOURCE_DIR}/nscp_lua_pb.rc)
+        endif()
     endif(WIN32)
     include_directories(${LUA_INCLUE_DIR})
     include_directories(${LUA_SOURCE_DIR})
