@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 
-#include <boost/version.hpp>
 #include <parsers/perfconfig/perfconfig.hpp>
 #include <sstream>
 #include <string>
@@ -19,13 +18,10 @@ std::string to_string(const parsers::perfconfig::result_type &v) {
 }
 bool do_parse(const std::string& str, parsers::perfconfig::result_type &v) {
   v.clear();
-  parsers::perfconfig expr;
-  return expr.parse(str, v);
+  return parsers::perfconfig::parse(str, v);
 }
 
 parsers::perfconfig::result_type v;
-
-#if BOOST_VERSION >= 104200
 
 // ==============================================================
 // Basic parsing
@@ -244,15 +240,11 @@ TEST(PerfConfigTest, whitespace_only) {
 }
 
 TEST(PerfConfigTest, missing_closing_paren) {
-  // TODO: this should fail
-  EXPECT_TRUE(do_parse("foo(a:b", v));
-  ASSERT_EQ(0, v.size());
+  EXPECT_FALSE(do_parse("foo(a:b", v));
 }
 
 TEST(PerfConfigTest, missing_opening_paren) {
-  // TODO: this should fail
-  EXPECT_TRUE(do_parse("foo a:b)", v));
-  ASSERT_EQ(0, v.size());
+  EXPECT_FALSE(do_parse("foo a:b)", v));
 }
 
 TEST(PerfConfigTest, no_options) {
@@ -284,9 +276,6 @@ TEST(PerfConfigTest, realistic_multiple_config) {
   ASSERT_EQ(2, v.size());
   EXPECT_EQ("*(suffix:g;prefix:check;)disk(unit:B;)", to_string(v));
 }
-
-#if BOOST_VERSION >= 104900
-// These tests only work in boost after 1.49
 
 TEST(PerfConfigTest, percentage_sign) {
   EXPECT_TRUE(do_parse("foo %(a:b)", v));
@@ -360,7 +349,3 @@ TEST(PerfConfigTest, keyword_with_spaces_in_name) {
   ASSERT_EQ(1, v.size());
   EXPECT_EQ("foo bar", v[0].name);
 }
-
-#endif
-
-#endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2016 Michael Medin
+ * Copyright (C) 2004-2026 Michael Medin
  *
  * This file is part of NSClient++ - https://nsclient.org
  *
@@ -37,8 +37,8 @@ namespace qi = boost::spirit::qi;
 namespace ascii = boost::spirit::ascii;
 namespace phoenix = boost::phoenix;
 
-typedef parsers::perfconfig::perf_rule perf_rule;
-typedef parsers::perfconfig::perf_option perf_option;
+using perf_rule = parsers::perfconfig::perf_rule;
+using perf_option = parsers::perfconfig::perf_option;
 
 BOOST_FUSION_ADAPT_STRUCT(perf_option, (std::string, key)(std::string, value))
 
@@ -59,23 +59,22 @@ struct spirit_perfconfig_parser {
     qi::rule<Iterator, std::string(), ascii::space_type> op_value;
     qi::rule<Iterator, std::string(), ascii::space_type> keyword;
     qi::rule<Iterator, std::string(), ascii::space_type> valid_keyword;
-    qi::rule<Iterator, std::string(), ascii::space_type> valid_value;
 
-    rules %= *rule;
+    rules %= *rule >> qi::eoi;
     rule %= keyword >> "(" >> options >> ")";
     options = *(option >> ";") >> option;
     option = op_key[at_c<0>(qi::_val) = qi::_1]
-	    >> ":" >> op_value[at_c<1>(qi::_val) = qi::_1]
-	    | op_key[at_c<0>(qi::_val) = qi::_1];
+      >> ":" >> op_value[at_c<1>(qi::_val) = qi::_1]
+      | op_key[at_c<0>(qi::_val) = qi::_1];
     keyword %= valid_keyword;
 
     op_key %= valid_keyword;
     op_value = qi::lexeme['\''
-	    >> +(ascii::char_ - '\'')[qi::_val += qi::_1]
-	    >> '\'']
-	    | "''"
-	    | valid_keyword[qi::_val = qi::_1];
-    valid_keyword %= lexeme[+(qi::char_("-_a-zA-Z0-9*+%'.")) >> *(qi::hold[+(qi::char_(' ')) >> +(qi::char_("-_a-zA-Z0-9+%'."))])];
+      >> +(ascii::char_ - '\'')[qi::_val += qi::_1]
+      >> '\'']
+      | qi::lit("''")[qi::_val = ""]
+      | valid_keyword[qi::_val = qi::_1];
+    valid_keyword %= lexeme[+(qi::char_("-_a-zA-Z0-9*+%.")) >> *(qi::hold[+(qi::char_(' ')) >> +(qi::char_("-_a-zA-Z0-9+%."))])];
     return qi::phrase_parse(first, last, rules, ascii::space, v);
     // clang-format on
   }

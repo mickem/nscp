@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2016 Michael Medin
+ * Copyright (C) 2004-2026 Michael Medin
  *
  * This file is part of NSClient++ - https://nsclient.org
  *
