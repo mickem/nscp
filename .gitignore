@@ -55,4 +55,4 @@ nsclient.db
 
 # AI agent instructions (local only)
 AGENT_INSTRUCTIONS.md
-
+.github/copilot-instructions.md
