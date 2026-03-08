@@ -14,12 +14,11 @@
 <!--
 First-time install dialog sequence:
 - WixUI_WelcomeDlg
-- WixUI_LicenseAgreementDlg
+- MonitoringToolDlg
 - WixUI_SetupTypeDlg
-- WixUI_VerifyReadyDlg
-- WixUI_CustomizeDlg
-- WixUI_DiskCostDlg
-- WixUI_BrowseDlg
+  - Typical: ConfigureDlg / InvalidConfigDlg1 / VerifyReadyDlg
+  - Custom: CustomizeDlg / SelectConfigurationDlg / ConfigureDlg / VerifyReadyDlg
+  - Complete: SelectConfigurationDlg / ConfigureDlg / VerifyReadyDlg
 
 Maintenance dialog sequence:
 - WixUI_MaintenanceWelcomeDlg

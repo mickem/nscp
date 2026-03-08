@@ -4,7 +4,7 @@
         <UI>
             <Dialog Id="InvalidConfigDlg3" Width="370" Height="270" Title="[ProductName] [Setup]" NoMinimize="yes">
                 <Control Id="HelpTextOld" Type="Text" X="45" Y="53" Width="260" Height="40" Hidden="no" Transparent="yes" NoPrefix="yes">
-                    <Text>Reading the old configuration failed if you continue changes will be made to the existing configuration.</Text>
+                    <Text>Reading the old configuration failed. If you continue, changes will be made to the existing configuration.</Text>
                 </Control>
                 <Control Id="ErrorTextNew" Type="Text" X="45" Y="140" Width="260" Height="41" Hidden="no" Transparent="yes" NoPrefix="yes">
                     <Text>Problem was: [NSCP_ERROR]</Text>
