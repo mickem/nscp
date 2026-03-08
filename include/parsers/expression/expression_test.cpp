@@ -254,6 +254,9 @@ TEST(ExpressionParser, SingleCharLiteralBetweenVariables) {
 
 TEST(ExpressionParser, NestedLookingDollarBraceIsNotNested) {
   result_type v;
+  // With fallback rule: "${" starts variable_rule_d, but "outer${inner" contains no '}',
+  // so variable_rule_d fails. The fallback rule consumes "$" as literal, then "{" as literal,
+  // then the rest is parsed normally. The net result is all characters consumed as literals/variables.
   EXPECT_TRUE(parse("${outer${inner}}", v));
   // TODO: Should this be an error?
   ASSERT_EQ(2u, v.size());
@@ -269,6 +272,97 @@ TEST(ExpressionParser, AdjacentDollarBraceAndPercentParen) {
   expect_variable(v[1], "b");
   expect_variable(v[2], "c");
   expect_variable(v[3], "d");
+}
+
+// ======================================================================
+// Unclosed / malformed variables (fallback handling)
+// ======================================================================
+
+TEST(ExpressionParser, UnclosedDollarBraceIsTreatedAsLiteral) {
+  result_type v;
+  EXPECT_TRUE(parse("hello ${unclosed", v));
+  // The fallback rule consumes "${" character by character as literals
+  ASSERT_EQ(3u, v.size());
+  expect_literal(v[0], "hello ");
+  expect_literal(v[1], "$");
+  expect_literal(v[2], "{unclosed");
+}
+
+TEST(ExpressionParser, UnclosedPercentParenIsTreatedAsLiteral) {
+  result_type v;
+  EXPECT_TRUE(parse("hello %(unclosed", v));
+  ASSERT_EQ(3u, v.size());
+  expect_literal(v[0], "hello ");
+  expect_literal(v[1], "%");
+  expect_literal(v[2], "(unclosed");
+}
+
+TEST(ExpressionParser, EmptyDollarBraceVariable) {
+  result_type v;
+  // "${}" has no content between delimiters — the '+' operator requires at least one char
+  // so variable_rule_d fails and fallback consumes "$", "{", "}" as literals
+  EXPECT_TRUE(parse("${}", v));
+  ASSERT_EQ(2u, v.size());
+  expect_literal(v[0], "$");
+  expect_literal(v[1], "{}");
+}
+
+TEST(ExpressionParser, EmptyPercentParenVariable) {
+  result_type v;
+  // "%()" — same as above for percent-paren style
+  EXPECT_TRUE(parse("%()", v));
+  ASSERT_EQ(2u, v.size());
+  expect_literal(v[0], "%");
+  expect_literal(v[1], "()");
+}
+
+TEST(ExpressionParser, LoneDollarBraceOpener) {
+  result_type v;
+  EXPECT_TRUE(parse("${", v));
+  ASSERT_EQ(2u, v.size());
+  expect_literal(v[0], "$");
+  expect_literal(v[1], "{");
+}
+
+TEST(ExpressionParser, LonePercentParenOpener) {
+  result_type v;
+  EXPECT_TRUE(parse("%(", v));
+  ASSERT_EQ(2u, v.size());
+  expect_literal(v[0], "%");
+  expect_literal(v[1], "(");
+}
+
+TEST(ExpressionParser, ClosingBraceAloneIsLiteral) {
+  result_type v;
+  EXPECT_TRUE(parse("}", v));
+  ASSERT_EQ(1u, v.size());
+  expect_literal(v[0], "}");
+}
+
+TEST(ExpressionParser, ClosingParenAloneIsLiteral) {
+  result_type v;
+  EXPECT_TRUE(parse(")", v));
+  ASSERT_EQ(1u, v.size());
+  expect_literal(v[0], ")");
+}
+
+TEST(ExpressionParser, UnclosedFollowedByValidVariable) {
+  result_type v;
+  EXPECT_TRUE(parse("${bad${good}", v));
+  ASSERT_EQ(1u, v.size());
+  expect_variable(v[0], "bad${good");
+}
+
+TEST(ExpressionParser, SpecialCharMixFromOldTests) {
+  result_type v;
+  EXPECT_TRUE(parse("Hello$}Wo%)rld}$Fo%o}Ba)r%$%En%%)kkk(uuu)kkk{yyyy}d", v));
+  // All non-variable text should be consumed as literals
+  std::string reconstructed;
+  for (const auto& e : v) {
+    EXPECT_FALSE(e.is_variable);
+    reconstructed += e.name;
+  }
+  EXPECT_EQ("Hello$}Wo%)rld}$Fo%o}Ba)r%$%En%%)kkk(uuu)kkk{yyyy}d", reconstructed);
 }
 
 // ======================================================================
@@ -304,5 +398,29 @@ TEST(ExpressionParser, UrlTemplate) {
   expect_variable(v[3], "port");
   expect_literal(v[4], "/api/");
   expect_variable(v[5], "version");
+}
+
+TEST(ExpressionParser, ComplexDollarBraceWithBracesInText) {
+  result_type v;
+  EXPECT_TRUE(parse("HelloWorld${foobar}MoreData${test}-}}{{-${test{{2}", v));
+  ASSERT_EQ(6u, v.size());
+  expect_literal(v[0], "HelloWorld");
+  expect_variable(v[1], "foobar");
+  expect_literal(v[2], "MoreData");
+  expect_variable(v[3], "test");
+  expect_literal(v[4], "-}}{{-");
+  expect_variable(v[5], "test{{2");
+}
+
+TEST(ExpressionParser, ComplexPercentParenWithParensInText) {
+  result_type v;
+  EXPECT_TRUE(parse("HelloWorld%(foobar)MoreData%(test)-))((-%(test((2)", v));
+  ASSERT_EQ(6u, v.size());
+  expect_literal(v[0], "HelloWorld");
+  expect_variable(v[1], "foobar");
+  expect_literal(v[2], "MoreData");
+  expect_variable(v[3], "test");
+  expect_literal(v[4], "-))((-");
+  expect_variable(v[5], "test((2");
 }
 
