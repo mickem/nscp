@@ -164,6 +164,18 @@ NSCP_CREATE_TEST(
 )
 
 NSCP_CREATE_TEST(
+    pinger_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/net/pinger_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
     metrics_store_map_test
     SOURCES
         ${NSCP_INCLUDEDIR}/metrics/metrics_store_map_test.cpp
