@@ -62,10 +62,10 @@ TEST(cron, test_parse_list) {
   EXPECT_EQ("59 10,12,23 31 12 6", s.to_string());
 }
 
-std::string get_next(std::string schedule, std::string date) {
-  cron_parser::schedule s = cron_parser::parse(schedule);
-  boost::posix_time::ptime now(boost::posix_time::time_from_string(date));
-  boost::posix_time::ptime next = s.find_next(now);
+std::string get_next(const std::string &schedule, const std::string &date) {
+  const cron_parser::schedule s = cron_parser::parse(schedule);
+  const boost::posix_time::ptime now(boost::posix_time::time_from_string(date));
+  const boost::posix_time::ptime next = s.find_next(now);
   return boost::posix_time::to_iso_extended_string(next);
 }
 
@@ -98,10 +98,12 @@ TEST(cron, test_parse_single_date_1) {
   EXPECT_EQ("2017-01-01T00:00:00", get_next("* * * 1 *", "2016-09-07 23:18:14"));
 
   // day of week
-  EXPECT_EQ("2016-01-03T00:00:00", get_next("* * * * 1", "2016-01-03 00:00:00"));
+  // 2016-01-03 is a Sunday (dow=0), next Monday (dow=1) is Jan 4
+  EXPECT_EQ("2016-01-04T00:00:00", get_next("* * * * 1", "2016-01-03 00:00:00"));
   EXPECT_EQ("2016-01-04T23:59:00", get_next("* * * * 1", "2016-01-04 23:58:00"));
-  EXPECT_EQ("2016-01-12T00:00:00", get_next("* * * * 1", "2016-01-04 23:59:00"));
-  EXPECT_EQ("2016-01-12T00:00:00", get_next("* * * * 1", "2016-01-05 00:00:00"));
+  // After Monday 23:59, bumps to Tuesday 00:00, next Monday is Jan 11
+  EXPECT_EQ("2016-01-11T00:00:00", get_next("* * * * 1", "2016-01-04 23:59:00"));
+  EXPECT_EQ("2016-01-11T00:00:00", get_next("* * * * 1", "2016-01-05 00:00:00"));
 }
 
 TEST(cron, test_parse_single_date_2) {
@@ -131,10 +133,12 @@ TEST(cron, test_parse_single_date_2) {
   EXPECT_EQ("2017-02-01T00:00:00", get_next("* * * 2 *", "2016-03-07 23:18:14"));
 
   // day of week
-  EXPECT_EQ("2016-01-04T00:00:00", get_next("* * * * 2", "2016-01-04 00:00:00"));
+  // 2016-01-04 is a Monday (dow=1), next Tuesday (dow=2) is Jan 5
+  EXPECT_EQ("2016-01-05T00:00:00", get_next("* * * * 2", "2016-01-04 00:00:00"));
   EXPECT_EQ("2016-01-05T23:59:00", get_next("* * * * 2", "2016-01-05 23:58:00"));
-  EXPECT_EQ("2016-01-13T00:00:00", get_next("* * * * 2", "2016-01-05 23:59:00"));
-  EXPECT_EQ("2016-01-13T00:00:00", get_next("* * * * 2", "2016-01-06 00:00:00"));
+  // After Tuesday 23:59, bumps to Wednesday 00:00, next Tuesday is Jan 12
+  EXPECT_EQ("2016-01-12T00:00:00", get_next("* * * * 2", "2016-01-05 23:59:00"));
+  EXPECT_EQ("2016-01-12T00:00:00", get_next("* * * * 2", "2016-01-06 00:00:00"));
 }
 
 TEST(cron, test_eval_list) {

@@ -52,3 +52,7 @@ nsclient.db
 
 # VM credentials
 .vm.pwd
+
+# AI agent instructions (local only)
+AGENT_INSTRUCTIONS.md
+.github/copilot-instructions.md

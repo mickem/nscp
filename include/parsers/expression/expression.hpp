@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2016 Michael Medin
+ * Copyright (C) 2004-2026 Michael Medin
  *
  * This file is part of NSClient++ - https://nsclient.org
  *
@@ -28,16 +28,14 @@ struct simple_expression {
     bool is_variable;
     std::string name;
     entry() : is_variable(false) {}
-    entry(bool is_variable, std::string name) : is_variable(is_variable), name(name) {}
-    entry(bool is_variable, std::vector<char> name) : is_variable(is_variable), name(name.begin(), name.end()) {}
-    entry(const entry &other) : is_variable(other.is_variable), name(other.name) {}
-    const entry &operator=(const entry &other) {
-      is_variable = other.is_variable;
-      name = other.name;
-      return *this;
-    }
+    entry(bool is_var, std::string n) : is_variable(is_var), name(std::move(n)) {}
+    entry(bool is_var, std::vector<char> n) : is_variable(is_var), name(n.begin(), n.end()) {}
+    entry(const entry &other) = default;
+    entry(entry &&other) = default;
+    entry &operator=(const entry &other) = default;
+    entry &operator=(entry &&other) = default;
   };
-  typedef std::vector<entry> result_type;
+  using result_type = std::vector<entry>;
   static bool parse(const std::string &str, result_type &v);
 };
 }  // namespace parsers

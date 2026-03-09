@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2016 Michael Medin
+ * Copyright (C) 2004-2026 Michael Medin
  *
  * This file is part of NSClient++ - https://nsclient.org
  *
@@ -33,36 +33,43 @@
 #endif
 
 namespace qi = boost::spirit::qi;
-namespace ascii = boost::spirit::ascii;
 namespace phoenix = boost::phoenix;
 
-typedef parsers::simple_expression::entry entry;
+using entry = parsers::simple_expression::entry;
+
+namespace {
 struct spirit_expression_parser {
   template <class Iterator>
-  bool parse_raw(Iterator first, Iterator last, parsers::simple_expression::result_type& v) {
+  bool parse_raw(Iterator first, Iterator last, parsers::simple_expression::result_type &v) {
     using phoenix::push_back;
     using qi::lexeme;
     qi::rule<Iterator, entry()> normal_rule;
     qi::rule<Iterator, entry()> variable_rule_d;
     qi::rule<Iterator, entry()> variable_rule_p;
+    qi::rule<Iterator, entry()> fallback_rule;
     // clang-format off
-		normal_rule = lexeme[+(qi::char_ - "${" - "%(")][qi::_val = phoenix::construct<entry>(false, qi::_1)];
-		variable_rule_d = ("${" >> lexeme[+(qi::char_ - '}')] >> "}")[qi::_val = phoenix::construct<entry>(true, qi::_1)];
-		variable_rule_p = ("%(" >> lexeme[+(qi::char_ - ')')] >> ")")[qi::_val = phoenix::construct<entry>(true, qi::_1)];
-		return qi::parse(first, last,
-			*(
-				normal_rule[push_back(phoenix::ref(v), qi::_1)]
-				||
-				variable_rule_d[push_back(phoenix::ref(v), qi::_1)]
-				||
-				variable_rule_p[push_back(phoenix::ref(v), qi::_1)]
-				)
-			);
+    normal_rule     = lexeme[+(qi::char_ - "${" - "%(")][qi::_val = phoenix::construct<entry>(false, qi::_1)];
+    variable_rule_d = ("${" >> lexeme[+(qi::char_ - '}')] >> "}")[qi::_val = phoenix::construct<entry>(true, qi::_1)];
+    variable_rule_p = ("%(" >> lexeme[+(qi::char_ - ')')] >> ")")[qi::_val = phoenix::construct<entry>(true, qi::_1)];
+    fallback_rule   = qi::as_string[lexeme[qi::char_]][qi::_val = phoenix::construct<entry>(false, qi::_1)];
+    bool ok = qi::parse(first, last,
+      *(
+        normal_rule[push_back(phoenix::ref(v), qi::_1)]
+        |
+        variable_rule_d[push_back(phoenix::ref(v), qi::_1)]
+        |
+        variable_rule_p[push_back(phoenix::ref(v), qi::_1)]
+        |
+        fallback_rule[push_back(phoenix::ref(v), qi::_1)]
+      )
+    );
     // clang-format on
+    return ok && (first == last);
   }
 };
+}  // namespace
 
-bool parsers::simple_expression::parse(const std::string& str, result_type& v) {
+bool parsers::simple_expression::parse(const std::string &str, result_type &v) {
   spirit_expression_parser parser;
   return parser.parse_raw(str.begin(), str.end(), v);
 }

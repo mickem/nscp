@@ -161,7 +161,7 @@ struct simple_object_factory : object_factory_interface<T> {
   }
 };
 
-template <class T, class TFactory = simple_object_factory<T> >
+template <class T, class TFactory = simple_object_factory<T>>
 struct object_handler : boost::noncopyable {
   typedef boost::shared_ptr<T> object_instance;
   typedef std::unordered_map<std::string, object_instance> object_map;

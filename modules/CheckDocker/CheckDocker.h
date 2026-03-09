@@ -19,14 +19,14 @@
 
 #pragma once
 
-#include <nscapi/protobuf/command.hpp>
-#include <nscapi/protobuf/log.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/thread/thread.hpp>
-#include <nscapi/protobuf/metrics.hpp>
 #include <nscapi/plugin.hpp>
+#include <nscapi/protobuf/command.hpp>
+#include <nscapi/protobuf/log.hpp>
+#include <nscapi/protobuf/metrics.hpp>
 #include <string>
 
 class CheckDocker : public nscapi::impl::simple_plugin {

@@ -11,7 +11,6 @@
 #ifndef ICMP_HEADER_HPP
 #define ICMP_HEADER_HPP
 
-#include <algorithm>
 #include <istream>
 #include <ostream>
 
@@ -48,7 +47,7 @@ class icmp_header {
     address_reply = 18
   };
 
-  icmp_header() { std::fill_n(rep_, sizeof(rep_), 0); }
+  icmp_header() = default;
 
   unsigned char type() const { return rep_[0]; }
   unsigned char code() const { return rep_[1]; }
@@ -67,7 +66,7 @@ class icmp_header {
   friend std::ostream& operator<<(std::ostream& os, const icmp_header& header) { return os.write(reinterpret_cast<const char*>(header.rep_), 8); }
 
  private:
-  unsigned short decode(const int a, const int b) const { return (rep_[a] << 8) + rep_[b]; }
+  unsigned short decode(const int a, const int b) const { return static_cast<unsigned short>(static_cast<unsigned short>(rep_[a]) << 8) | rep_[b]; }
 
   void encode(const int a, const int b, unsigned short n) {
     rep_[a] = static_cast<unsigned char>(n >> 8);
