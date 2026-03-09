@@ -41,7 +41,6 @@ add_definitions(
 NSCP_CREATE_TEST(
     nscapi_protobuf_test
     SOURCES
-        ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions.hpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_convert_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_copy_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_exec_test.cpp
@@ -50,6 +49,9 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_response_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_status_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_submit_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions_test.cpp
+
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions.hpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_convert.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_copy.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_exec.cpp
@@ -58,7 +60,6 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_response.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_status.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_submit.cpp
-        ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions.cpp
     LIBRARIES
         GTest::gtest_main
@@ -223,6 +224,70 @@ NSCP_CREATE_TEST(
         LIBRARIES
         GTest::gtest_main
         INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
+    realtime_helper_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/parsers/filter/realtime_helper_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
+        ${NSCP_INCLUDEDIR}/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_where_filter
+        perfconfig_parser
+        expression_parser
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
+    modern_filter_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
+        ${NSCP_INCLUDEDIR}/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_where_filter
+        perfconfig_parser
+        expression_parser
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
+    cli_helper_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/parsers/filter/cli_helper_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        nscp_where_filter
+        perfconfig_parser
+        expression_parser
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+    INCLUDES
         ${NSCP_INCLUDEDIR}
 )
 
