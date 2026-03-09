@@ -19,16 +19,15 @@
 
 #pragma once
 
-#include <sstream>
-#include <string>
-#include <vector>
-
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <nsclient/nsclient_exception.hpp>
+#include <sstream>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
+#include <string>
+#include <vector>
 
 namespace cron_parser {
 struct next_value {
@@ -126,8 +125,8 @@ struct schedule {
       const long long mon_start = (year == static_cast<int>(now_time.date().year())) ? now_time.date().month().as_number() : mon.min_;
       for (next_value nmon = mon.find_next(mon_start); !nmon.overflow; nmon = mon.find_next(nmon.value + 1)) {
         const long long dom_start = (year == static_cast<int>(now_time.date().year()) && nmon.value == now_time.date().month().as_number())
-                                  ? now_time.date().day().as_number()
-                                  : dom.min_;
+                                        ? now_time.date().day().as_number()
+                                        : dom.min_;
         for (next_value ndom = dom.find_next(dom_start); !ndom.overflow; ndom = dom.find_next(ndom.value + 1)) {
           // Validate the date is real (e.g., Feb 30 doesn't exist)
           try {

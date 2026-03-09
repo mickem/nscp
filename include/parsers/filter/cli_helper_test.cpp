@@ -787,4 +787,3 @@ TEST_F(CliHelperTest, ParseOptionsPostShowAllWithDetailListClearsSyntaxOk) {
   // detail_list triggers syntax_ok clearing
   EXPECT_EQ("", data_.syntax_ok);
 }
-

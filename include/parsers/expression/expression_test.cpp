@@ -30,9 +30,7 @@
 using entry = parsers::simple_expression::entry;
 using result_type = parsers::simple_expression::result_type;
 
-static bool parse(const std::string& str, result_type& v) {
-  return parsers::simple_expression::parse(str, v);
-}
+static bool parse(const std::string& str, result_type& v) { return parsers::simple_expression::parse(str, v); }
 
 static void expect_literal(const entry& e, const std::string& expected_name) {
   EXPECT_FALSE(e.is_variable) << "expected literal, got variable: " << e.name;
@@ -423,4 +421,3 @@ TEST(ExpressionParser, ComplexPercentParenWithParensInText) {
   expect_literal(v[4], "-))((-");
   expect_variable(v[5], "test((2");
 }
-

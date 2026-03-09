@@ -44,9 +44,7 @@ TEST(CronParser, ParseSimpleValues) {
   EXPECT_EQ("59 23 31 12 6", cron_parser::parse("59 23 31 12 6").to_string());
 }
 
-TEST(CronParser, ParseAllWildcards) {
-  EXPECT_EQ("* * * * *", cron_parser::parse("* * * * *").to_string());
-}
+TEST(CronParser, ParseAllWildcards) { EXPECT_EQ("* * * * *", cron_parser::parse("* * * * *").to_string()); }
 
 TEST(CronParser, ParseMixedWildcards) {
   EXPECT_EQ("* 23 31 12 6", cron_parser::parse("* 23 31 12 6").to_string());
@@ -81,18 +79,14 @@ TEST(CronParser, ParseTooFewFields) {
   EXPECT_THROW(cron_parser::parse(""), nsclient::nsclient_exception);
 }
 
-TEST(CronParser, ParseTooManyFields) {
-  EXPECT_THROW(cron_parser::parse("0 0 1 1 0 0"), nsclient::nsclient_exception);
-}
+TEST(CronParser, ParseTooManyFields) { EXPECT_THROW(cron_parser::parse("0 0 1 1 0 0"), nsclient::nsclient_exception); }
 
 TEST(CronParser, ParseMinuteOutOfRange) {
   EXPECT_THROW(cron_parser::parse("60 0 1 1 0"), nsclient::nsclient_exception);
   EXPECT_THROW(cron_parser::parse("-1 0 1 1 0"), nsclient::nsclient_exception);
 }
 
-TEST(CronParser, ParseHourOutOfRange) {
-  EXPECT_THROW(cron_parser::parse("0 24 1 1 0"), nsclient::nsclient_exception);
-}
+TEST(CronParser, ParseHourOutOfRange) { EXPECT_THROW(cron_parser::parse("0 24 1 1 0"), nsclient::nsclient_exception); }
 
 TEST(CronParser, ParseDomOutOfRange) {
   EXPECT_THROW(cron_parser::parse("0 0 0 1 0"), nsclient::nsclient_exception);
@@ -104,9 +98,7 @@ TEST(CronParser, ParseMonthOutOfRange) {
   EXPECT_THROW(cron_parser::parse("0 0 1 13 0"), nsclient::nsclient_exception);
 }
 
-TEST(CronParser, ParseDowOutOfRange) {
-  EXPECT_THROW(cron_parser::parse("0 0 1 1 7"), nsclient::nsclient_exception);
-}
+TEST(CronParser, ParseDowOutOfRange) { EXPECT_THROW(cron_parser::parse("0 0 1 1 7"), nsclient::nsclient_exception); }
 
 TEST(CronParser, ParseInvalidTokens) {
   EXPECT_THROW(cron_parser::parse("a 0 1 1 0"), nsclient::nsclient_exception);
@@ -421,8 +413,7 @@ TEST(CronParser, ToStringList) {
 // ======================================================================
 
 TEST(CronParser, ScheduleToStringRoundTrip) {
-  const std::vector<std::string> expressions = {"* * * * *",       "0 0 1 1 0",       "30 14 * * *",
-                                           "0,15,30,45 * * * *", "59 23 31 12 6", "* 6,12,18 * * *"};
+  const std::vector<std::string> expressions = {"* * * * *", "0 0 1 1 0", "30 14 * * *", "0,15,30,45 * * * *", "59 23 31 12 6", "* 6,12,18 * * *"};
   for (const auto &expr : expressions) {
     EXPECT_EQ(expr, cron_parser::parse(expr).to_string());
   }
@@ -460,4 +451,3 @@ TEST(CronParser, ScheduleCopy) {
   cron_parser::schedule copy(s);
   EXPECT_EQ("30 14 1 6 3", copy.to_string());
 }
-

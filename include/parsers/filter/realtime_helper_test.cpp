@@ -401,4 +401,3 @@ TEST(RealtimeFilterHelper, InitiallyEmpty) {
   helper_type helper(nullptr, 0);
   EXPECT_TRUE(helper.items.empty());
 }
-

@@ -640,4 +640,3 @@ TEST(Pinger, PingerSendsToResolvedEndpoint) {
   EXPECT_EQ(0u, result.num_replies_);
   EXPECT_EQ(0u, result.num_timeouts_);
 }
-

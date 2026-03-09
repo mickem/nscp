@@ -264,4 +264,3 @@ TEST(ErrorHandlerImpl, PolymorphicUsageThroughInterface) {
   EXPECT_TRUE(impl->has_errors());
   EXPECT_EQ(impl->get_errors(), "interface error");
 }
-
