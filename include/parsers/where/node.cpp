@@ -196,7 +196,7 @@ node_type factory::create_true() { return node_type(new int_value(1)); }
 parsers::where::node_type factory::create_num(value_container value) {
   if (value.is(type_int)) return node_type(new int_value(value.get_int(0), value.is_unsure));
   if (value.is(type_float)) return node_type(new float_value(value.get_float(0.0), value.is_unsure));
-  if (value.is(type_string)) return node_type(new string_value(value.get_string(0), value.is_unsure));
+  if (value.is(type_string)) return node_type(new string_value(value.get_string("0"), value.is_unsure));
   return node_type(new int_value(0));
 }
 }  // namespace where

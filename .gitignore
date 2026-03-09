@@ -56,3 +56,7 @@ nsclient.db
 # AI agent instructions (local only)
 AGENT_INSTRUCTIONS.md
 .github/copilot-instructions.md
+
+
+build_output.txt
+cmake_output.txt

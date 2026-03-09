@@ -61,7 +61,7 @@ value_container int_value::get_value(evaluation_context errors, value_type new_t
   if (new_type == type_string) {
     return value_container::create_string(str::xtos(value_), is_unsure_);
   }
-  errors->error("Failed to convert int to ?: " + value_);
+  errors->error("Failed to convert int to ?: " + str::xtos(value_));
   return value_container::create_nil();
 }
 std::string int_value::to_string() const { return "(i){" + str::xtos(value_) + "}"; }

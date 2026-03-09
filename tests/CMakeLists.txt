@@ -50,7 +50,6 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_status_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_submit_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions_test.cpp
-
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions.hpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_convert.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_copy.cpp
@@ -217,13 +216,13 @@ NSCP_CREATE_TEST(
 )
 
 NSCP_CREATE_TEST(
-        perf_config_parser_test
-        SOURCES
+    perf_config_parser_test
+    SOURCES
         ${NSCP_INCLUDEDIR}/parsers/perfconfig/perfconfig_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/perfconfig/perfconfig.cpp
-        LIBRARIES
+    LIBRARIES
         GTest::gtest_main
-        INCLUDES
+    INCLUDES
         ${NSCP_INCLUDEDIR}
 )
 
@@ -285,6 +284,30 @@ NSCP_CREATE_TEST(
         expression_parser
         ${Boost_PROGRAM_OPTIONS_LIBRARY}
         ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
+    parsers_where_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/parsers/where/binary_op_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/where/list_node_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/where/node_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/where/unary_fun_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/where/unary_op_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/where/value_node_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/where/variable_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/where/list_node.cpp
+        ${NSCP_INCLUDEDIR}/parsers/where/unary_fun.cpp
+        ${NSCP_INCLUDEDIR}/parsers/where/value_node.cpp
+        ${NSCP_INCLUDEDIR}/parsers/operators.cpp
+        ${NSCP_INCLUDEDIR}/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_where_filter
         ${Boost_SYSTEM_LIBRARY}
         ${Boost_REGEX_LIBRARY}
     INCLUDES
