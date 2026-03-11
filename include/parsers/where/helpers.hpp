@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <parsers/where/dll_defines.hpp>
 #include <parsers/where/node.hpp>
@@ -40,7 +39,8 @@ NSCAPI_EXPORT bool is_upper(operators op);
 NSCAPI_EXPORT bool is_lower(operators op);
 
 typedef boost::tuple<long long, double, std::string> read_arg_type;
-NSCAPI_EXPORT read_arg_type read_arguments(parsers::where::evaluation_context context, parsers::where::node_type subject, std::string default_unit);
+NSCAPI_EXPORT read_arg_type read_arguments(evaluation_context context, node_type subject, std::string default_unit);
+node_type add_convert_node(node_type subject, value_type newtype);
 }  // namespace helpers
 }  // namespace where
 }  // namespace parsers

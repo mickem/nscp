@@ -19,34 +19,33 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
 #include <list>
 #include <parsers/where/node.hpp>
 #include <string>
 
 namespace parsers {
 namespace where {
-struct list_node : public list_node_interface {
-  list_node() {}
+struct list_node : list_node_interface {
+  list_node() = default;
   std::list<node_type> value_;
 
-  void push_back(node_type value) { value_.push_back(value); }
+  void push_back(const node_type value) override { value_.push_back(value); }
 
-  virtual std::string to_string() const;
-  virtual std::string to_string(evaluation_context errors) const;
+  std::string to_string() const override;
+  std::string to_string(evaluation_context context) const override;
 
-  value_container get_value(evaluation_context context, value_type type) const;
-  std::list<node_type> get_list_value(evaluation_context errors) const { return value_; }
+  value_container get_value(evaluation_context context, value_type type) const override;
+  std::list<node_type> get_list_value(evaluation_context errors) const override { return value_; }
 
-  bool can_evaluate() const { return false; }
-  node_type evaluate(evaluation_context context) const;
-  bool bind(object_converter context);
+  bool can_evaluate() const override { return false; }
+  node_type evaluate(evaluation_context context) const override;
+  bool bind(object_converter context) override;
 
-  value_type infer_type(object_converter converter);
-  value_type infer_type(object_converter converter, value_type suggestion);
-  bool find_performance_data(evaluation_context context, performance_collector &collector);
-  bool static_evaluate(evaluation_context context) const;
-  bool require_object(evaluation_context context) const;
+  value_type infer_type(object_converter converter) override;
+  value_type infer_type(object_converter converter, value_type suggestion) override;
+  bool find_performance_data(evaluation_context context, performance_collector &collector) override;
+  bool static_evaluate(evaluation_context context) const override;
+  bool require_object(evaluation_context context) const override;
 };
 }  // namespace where
 }  // namespace parsers

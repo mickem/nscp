@@ -19,7 +19,6 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/make_shared.hpp>
 #include <list>
 #include <parsers/where/list_node.hpp>
 #include <parsers/where/node.hpp>
@@ -78,16 +77,16 @@ struct mock_object_converter final : object_converter_interface {
   void debug(object_match) override {}
 
   bool can_convert(value_type, value_type) override { return false; }
-  bool can_convert(std::string, boost::shared_ptr<any_node>, value_type) override { return false; }
-  boost::shared_ptr<binary_function_impl> create_converter(std::string, boost::shared_ptr<any_node>, value_type) override { return nullptr; }
+  bool can_convert(std::string, std::shared_ptr<any_node>, value_type) override { return false; }
+  std::shared_ptr<binary_function_impl> create_converter(std::string, std::shared_ptr<any_node>, value_type) override { return nullptr; }
 };
 
 // ======================================================================
 // Helpers
 // ======================================================================
 
-static evaluation_context make_context() { return boost::make_shared<mock_evaluation_context>(); }
-static object_converter make_converter() { return boost::make_shared<mock_object_converter>(); }
+static evaluation_context make_context() { return std::make_shared<mock_evaluation_context>(); }
+static object_converter make_converter() { return std::make_shared<mock_object_converter>(); }
 
 // ======================================================================
 // list_node — construction
@@ -196,6 +195,16 @@ TEST(ListNode, GetValueAsFloatReturnsNilAndSetsError) {
   const auto ctx = make_context();
   auto val = node.get_value(ctx, type_float);
   EXPECT_TRUE(ctx->has_error());
+  EXPECT_EQ(ctx->get_error(), "Cant get number from a list");
+}
+
+TEST(ListNode, GetValueAsTBDReturnsNilAndSetsError) {
+  list_node node;
+  node.push_back(factory::create_float(1.5));
+  const auto ctx = make_context();
+  auto val = node.get_value(ctx, type_tbd);
+  EXPECT_TRUE(ctx->has_error());
+  EXPECT_EQ(ctx->get_error(), "Invalid type");
 }
 
 // ======================================================================
@@ -237,14 +246,14 @@ TEST(ListNode, EvaluateReturnsNode) {
   node.push_back(factory::create_string("a"));
   const auto ctx = make_context();
   const auto result = node.evaluate(ctx);
-  ASSERT_TRUE(result);
+  EXPECT_EQ(result->get_int_value(ctx), 0);
 }
 
 TEST(ListNode, EvaluateEmptyListReturnsNode) {
   const list_node node;
   const auto ctx = make_context();
   const auto result = node.evaluate(ctx);
-  ASSERT_TRUE(result);
+  EXPECT_EQ(result->get_int_value(ctx), 0);
 }
 
 // ======================================================================

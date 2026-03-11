@@ -1,6 +1,5 @@
 #pragma once
 
-#include <boost/shared_ptr.hpp>
 #include <str/utils_no_boost.hpp>
 #include <str/xtos.hpp>
 #include <string>
@@ -38,7 +37,7 @@ double trim_to_double(std::string s) {
   }
 }
 
-void parse(boost::shared_ptr<builder> builder, const std::string &perff) {
+void parse(std::shared_ptr<builder> builder, const std::string &perff) {
   std::string perf = perff;
   // TODO: make this work with const!
 

@@ -20,11 +20,12 @@
 #pragma once
 
 #include <boost/optional.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <list>
 #include <map>
 #include <parsers/where/dll_defines.hpp>
 #include <string>
+#include <utility>
 #ifdef WIN32
 #pragma warning(push)
 #pragma warning(disable : 4251)
@@ -36,10 +37,10 @@ class NSCAPI_EXPORT filter_exception : public std::exception {
   std::string what_;
 
  public:
-  filter_exception(std::string what) : what_(what) {}
-  ~filter_exception() throw() {}
-  const char *what() const throw() { return what_.c_str(); }
-  std::string reason() const throw();
+  filter_exception(std::string what) : what_(std::move(what)) {}
+  ~filter_exception() noexcept override = default;
+  const char *what() const noexcept override { return what_.c_str(); }
+  std::string reason() const noexcept;
 };
 
 enum operators {
@@ -60,7 +61,7 @@ enum operators {
   op_binand,
   op_binor,
   op_regexp,
-  op_not_regexp
+  op_not_regexp,
 };
 
 enum NSCAPI_EXPORT value_type {
@@ -154,7 +155,7 @@ struct NSCAPI_EXPORT value_container {
   }
   static value_container create_string(std::string value, bool is_unsure = false) {
     value_container ret(is_unsure);
-    ret.set_string(value);
+    ret.set_string(std::move(value));
     return ret;
   }
   static value_container create_nil(bool is_unsure = false) {
@@ -221,10 +222,10 @@ struct evaluation_context_interface {
   virtual std::string get_debug() const = 0;
   virtual void debug(object_match reason) = 0;
 };
-typedef boost::shared_ptr<evaluation_context_interface> evaluation_context;
+typedef std::shared_ptr<evaluation_context_interface> evaluation_context;
 
 struct any_node;
-typedef boost::shared_ptr<any_node> node_type;
+typedef std::shared_ptr<any_node> node_type;
 typedef std::list<std::string> variable_list_type;
 
 struct performance_data {
@@ -241,8 +242,8 @@ struct performance_data {
   std::string unit;
   boost::optional<perf_value> float_value;
   boost::optional<std::string> string_value;
-  void set(boost::optional<perf_value> v) { float_value = v; }
-  void set(boost::optional<std::string> v) { string_value = v; }
+  void set(boost::optional<perf_value> v) { float_value = std::move(v); }
+  void set(boost::optional<std::string> v) { string_value = std::move(v); }
 };
 typedef std::list<performance_data> perf_list_type;
 
@@ -251,7 +252,7 @@ struct performance_node {
   std::string variable;
   node_type value;
   performance_node_type perf_node_type;
-  performance_node() {}
+  performance_node() = default;
 };
 struct NSCAPI_EXPORT performance_collector {
   typedef std::map<std::string, performance_node> boundries_type;
@@ -268,7 +269,7 @@ struct NSCAPI_EXPORT performance_collector {
   void set_candidate_variable(std::string name);
   void set_candidate_value(node_type value);
   void clear_candidates();
-  bool add_bounds_candidates(const performance_collector &left, const performance_collector &right);
+  bool add_bounds_candidates(const performance_collector &lower, const performance_collector &upper);
   bool add_neutral_candidates(const performance_collector &left, const performance_collector &right);
   bool has_candidate_value() const;
   bool has_candidate_variable() const;
@@ -278,22 +279,22 @@ struct NSCAPI_EXPORT performance_collector {
 };
 
 struct binary_operator_impl {
-  virtual node_type evaluate(evaluation_context context, const node_type left, const node_type right) const = 0;
+  virtual node_type evaluate(evaluation_context context, node_type left, node_type right) const = 0;
 };
 struct binary_function_impl {
   virtual ~binary_function_impl() = default;
-  virtual node_type evaluate(value_type type, evaluation_context context, const node_type subject) const = 0;
+  virtual node_type evaluate(value_type type, evaluation_context context, node_type subject) const = 0;
 };
 struct unary_operator_impl {
-  virtual node_type evaluate(evaluation_context context, const node_type subject) const = 0;
+  virtual node_type evaluate(evaluation_context context, node_type subject) const = 0;
 };
 
 struct object_converter_interface : evaluation_context_interface {
   virtual bool can_convert(value_type from, value_type to) = 0;
-  virtual bool can_convert(std::string name, boost::shared_ptr<any_node> subject, value_type to) = 0;
-  virtual boost::shared_ptr<binary_function_impl> create_converter(std::string name, boost::shared_ptr<any_node> subject, value_type to) = 0;
+  virtual bool can_convert(std::string name, std::shared_ptr<any_node> subject, value_type to) = 0;
+  virtual std::shared_ptr<binary_function_impl> create_converter(std::string name, std::shared_ptr<any_node> subject, value_type to) = 0;
 };
-typedef boost::shared_ptr<object_converter_interface> object_converter;
+typedef std::shared_ptr<object_converter_interface> object_converter;
 struct object_factory_interface : object_converter_interface {
   typedef std::size_t index_type;
 
@@ -303,10 +304,10 @@ struct object_factory_interface : object_converter_interface {
   virtual bool has_function(const std::string &name) = 0;
   virtual node_type create_function(const std::string &name, node_type subject) = 0;
 
-  virtual std::string get_performance_config_key(const std::string prefix, const std::string object, const std::string suffix, const std::string key,
-                                                 const std::string unit) const = 0;
+  virtual std::string get_performance_config_key(std::string prefix, std::string object, std::string suffix, std::string key,
+                                                 std::string unit) const = 0;
 };
-typedef boost::shared_ptr<object_factory_interface> object_factory;
+typedef std::shared_ptr<object_factory_interface> object_factory;
 
 struct NSCAPI_EXPORT any_node {
  private:
@@ -316,15 +317,12 @@ struct NSCAPI_EXPORT any_node {
   virtual ~any_node() = default;
   any_node() : type(type_tbd) {}
   any_node(const value_type type) : type(type) {}
-  any_node(const any_node &other) : type(other.type) {}
-  const any_node &operator=(const any_node &other) {
-    type = other.type;
-    return *this;
-  }
+  any_node(const any_node &other) = default;
+  any_node &operator=(const any_node &other) = default;
 
-  std::string get_string_value(evaluation_context errors) const { return get_value(errors, type_string).get_string(""); }
-  long long get_int_value(evaluation_context errors) const { return get_value(errors, type_int).get_int(0); }
-  double get_float_value(evaluation_context errors) const { return get_value(errors, type_float).get_float(0.0); }
+  std::string get_string_value(evaluation_context errors) const { return get_value(std::move(errors), type_string).get_string(""); }
+  long long get_int_value(evaluation_context errors) const { return get_value(std::move(errors), type_int).get_int(0); }
+  double get_float_value(evaluation_context errors) const { return get_value(std::move(errors), type_float).get_float(0.0); }
   virtual value_type get_type() const { return type; }
   virtual void set_type(value_type newtype) { type = newtype; };
   bool is_int() const;
@@ -337,10 +335,10 @@ struct NSCAPI_EXPORT any_node {
   virtual std::string to_string(evaluation_context errors) const = 0;
 
   virtual value_container get_value(evaluation_context errors, value_type type) const = 0;
-  virtual std::list<boost::shared_ptr<any_node> > get_list_value(evaluation_context errors) const = 0;
+  virtual std::list<std::shared_ptr<any_node> > get_list_value(evaluation_context errors) const = 0;
 
   virtual bool can_evaluate() const = 0;
-  virtual boost::shared_ptr<any_node> evaluate(evaluation_context errors) const = 0;
+  virtual std::shared_ptr<any_node> evaluate(evaluation_context errors) const = 0;
   virtual bool static_evaluate(evaluation_context errors) const = 0;
   virtual bool require_object(evaluation_context errors) const = 0;
   virtual bool bind(object_converter errors) = 0;
@@ -353,10 +351,10 @@ struct NSCAPI_EXPORT any_node {
   }
 };
 
-struct list_node_interface : public any_node {
+struct list_node_interface : any_node {
   virtual void push_back(node_type value) = 0;
 };
-typedef boost::shared_ptr<list_node_interface> list_node_type;
+typedef std::shared_ptr<list_node_interface> list_node_type;
 
 struct factory {
   static NSCAPI_EXPORT node_type create_list(const std::list<std::string> &other);
@@ -364,9 +362,9 @@ struct factory {
   static NSCAPI_EXPORT node_type create_list(const std::list<long long> &other);
   static NSCAPI_EXPORT node_type create_list(const std::list<double> &other);
   static NSCAPI_EXPORT node_type create_bin_op(const operators &op, node_type lhs, node_type rhs);
-  static NSCAPI_EXPORT node_type create_un_op(const operators op, node_type node);
+  static NSCAPI_EXPORT node_type create_un_op(operators op, node_type node);
   static NSCAPI_EXPORT node_type create_conversion(node_type node);
-  static NSCAPI_EXPORT node_type create_fun(object_factory factory, const std::string op, node_type node);
+  static NSCAPI_EXPORT node_type create_fun(object_factory factory, std::string op, node_type node);
   static NSCAPI_EXPORT node_type create_string(const std::string &value);
   static NSCAPI_EXPORT node_type create_int(const long long &value);
   static NSCAPI_EXPORT node_type create_float(const double &value);

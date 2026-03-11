@@ -504,27 +504,26 @@ struct operator_not : public unary_operator_impl, binary_function_impl {
 
 op_factory::bin_op_type op_factory::get_binary_operator(operators op, const node_type, const node_type) {
   // op_in, op_nin
-  if (op == op_eq) return op_factory::bin_op_type(new operator_impl::operator_eq());
-  if (op == op_gt) return op_factory::bin_op_type(new operator_impl::operator_gt());
-  if (op == op_lt) return op_factory::bin_op_type(new operator_impl::operator_lt());
-  if (op == op_le) return op_factory::bin_op_type(new operator_impl::operator_le());
-  if (op == op_ge) return op_factory::bin_op_type(new operator_impl::operator_ge());
-  if (op == op_ne) return op_factory::bin_op_type(new operator_impl::operator_ne());
-  if (op == op_like) return op_factory::bin_op_type(new operator_impl::operator_like());
-  if (op == op_not_like) return op_factory::bin_op_type(new operator_impl::operator_not_like());
-  if (op == op_regexp) return op_factory::bin_op_type(new operator_impl::operator_regexp());
-  if (op == op_not_regexp) return op_factory::bin_op_type(new operator_impl::operator_not_regexp());
+  if (op == op_eq) return bin_op_type(new operator_impl::operator_eq());
+  if (op == op_gt) return bin_op_type(new operator_impl::operator_gt());
+  if (op == op_lt) return bin_op_type(new operator_impl::operator_lt());
+  if (op == op_le) return bin_op_type(new operator_impl::operator_le());
+  if (op == op_ge) return bin_op_type(new operator_impl::operator_ge());
+  if (op == op_ne) return bin_op_type(new operator_impl::operator_ne());
+  if (op == op_like) return bin_op_type(new operator_impl::operator_like());
+  if (op == op_not_like) return bin_op_type(new operator_impl::operator_not_like());
+  if (op == op_regexp) return bin_op_type(new operator_impl::operator_regexp());
+  if (op == op_not_regexp) return bin_op_type(new operator_impl::operator_not_regexp());
 
-  if (op == op_and) return op_factory::bin_op_type(new operator_impl::operator_and());
-  if (op == op_or) return op_factory::bin_op_type(new operator_impl::operator_or());
-  if (op == op_in) return op_factory::bin_op_type(new operator_impl::operator_in());
-  if (op == op_nin) return op_factory::bin_op_type(new operator_impl::operator_not_in());
+  if (op == op_and) return bin_op_type(new operator_impl::operator_and());
+  if (op == op_or) return bin_op_type(new operator_impl::operator_or());
+  if (op == op_in) return bin_op_type(new operator_impl::operator_in());
+  if (op == op_nin) return bin_op_type(new operator_impl::operator_not_in());
 
-  if (op == op_binand) return op_factory::bin_op_type(new operator_impl::operator_and());
-  if (op == op_binor) return op_factory::bin_op_type(new operator_impl::operator_or());
+  if (op == op_binand) return bin_op_type(new operator_impl::operator_and());
+  if (op == op_binor) return bin_op_type(new operator_impl::operator_or());
 
-  std::cout << "======== UNHANDLED OPERATOR\n";
-  return op_factory::bin_op_type(new operator_impl::operator_false());
+  return bin_op_type(new operator_impl::operator_false());
 }
 
 bool op_factory::is_binary_function(std::string name) {

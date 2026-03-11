@@ -19,16 +19,16 @@
 
 #pragma once
 
-#include <boost/enable_shared_from_this.hpp>
+#include <memory>
 #include <parsers/where/node.hpp>
 
 namespace parsers {
 namespace where {
-struct unary_fun : public any_node, boost::enable_shared_from_this<unary_fun> {
+struct unary_fun : public any_node, std::enable_shared_from_this<unary_fun> {
  private:
   std::string name;
   node_type subject;
-  boost::shared_ptr<binary_function_impl> function;
+  std::shared_ptr<binary_function_impl> function;
 
  public:
   unary_fun(std::string name, node_type const subject) : name(name), subject(subject) {}

@@ -19,8 +19,6 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/make_shared.hpp>
-#include <boost/shared_ptr.hpp>
 #include <parsers/where/node.hpp>
 #include <parsers/where/variable.hpp>
 #include <string>
@@ -84,10 +82,10 @@ struct mock_variable_context : evaluation_context_interface {
 // Helpers
 // ======================================================================
 
-static evaluation_context make_var_context() { return boost::make_shared<mock_variable_context>(); }
+static evaluation_context make_var_context() { return std::make_shared<mock_variable_context>(); }
 
 static evaluation_context make_var_context_with_object(mock_object obj) {
-  auto ctx = boost::make_shared<mock_variable_context>();
+  auto ctx = std::make_shared<mock_variable_context>();
   ctx->set_object(obj);
   return ctx;
 }
@@ -119,11 +117,11 @@ struct mock_object_converter final : object_converter_interface {
   void debug(object_match) override {}
 
   bool can_convert(value_type, value_type) override { return false; }
-  bool can_convert(std::string, boost::shared_ptr<any_node>, value_type) override { return false; }
-  boost::shared_ptr<binary_function_impl> create_converter(std::string, boost::shared_ptr<any_node>, value_type) override { return nullptr; }
+  bool can_convert(std::string, std::shared_ptr<any_node>, value_type) override { return false; }
+  std::shared_ptr<binary_function_impl> create_converter(std::string, std::shared_ptr<any_node>, value_type) override { return nullptr; }
 };
 
-static object_converter make_converter() { return boost::make_shared<mock_object_converter>(); }
+static object_converter make_converter() { return std::make_shared<mock_object_converter>(); }
 
 // ======================================================================
 // int_variable_node — construction and type

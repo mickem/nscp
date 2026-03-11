@@ -294,12 +294,14 @@ NSCP_CREATE_TEST(
     parsers_where_test
     SOURCES
         ${NSCP_INCLUDEDIR}/parsers/where/binary_op_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/where/helpers_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/list_node_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/node_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/unary_fun_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/unary_op_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/value_node_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/variable_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/operators_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/list_node.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/unary_fun.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/value_node.cpp

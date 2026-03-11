@@ -25,22 +25,22 @@
 namespace parsers {
 namespace where {
 bool binary_op::can_evaluate() const { return true; }
-node_type binary_op::evaluate(evaluation_context errors) const {
-  op_factory::bin_op_type impl = op_factory::get_binary_operator(op, left, right);
+node_type binary_op::evaluate(evaluation_context contxt) const {
+  const op_factory::bin_op_type impl = op_factory::get_binary_operator(op, left, right);
   if (is_int() || is_string()) {
-    return impl->evaluate(errors, left, right);
+    return impl->evaluate(contxt, left, right);
   }
-  errors->error("Missing operator implementation");
+  contxt->error("Binary operator does not work with " + helpers::type_to_string(get_type()));
   return factory::create_false();
 }
-bool binary_op::bind(object_converter errors) { return left->bind(errors) && right->bind(errors); }
+bool binary_op::bind(const object_converter contxt) { return left->bind(contxt) && right->bind(contxt); }
 
-value_container binary_op::get_value(evaluation_context errors, value_type wanted_type) const { return evaluate(errors)->get_value(errors, wanted_type); }
-std::list<node_type> binary_op::get_list_value(evaluation_context errors) const { return std::list<node_type>(); }
+value_container binary_op::get_value(const evaluation_context contxt, value_type wanted_type) const { return evaluate(contxt)->get_value(contxt, wanted_type); }
+std::list<node_type> binary_op::get_list_value(evaluation_context errors) const { return {}; }
 
-value_type binary_op::infer_type(object_converter converter, value_type) { return infer_type(converter); }
+value_type binary_op::infer_type(const object_converter converter, value_type) { return infer_type(converter); }
 
-value_type binary_op::infer_type(object_converter converter) {
+value_type binary_op::infer_type(const object_converter converter) {
   value_type inferred_type = helpers::infer_binary_type(converter, left, right);
   if (inferred_type == type_invalid) return inferred_type;
   inferred_type = helpers::get_return_type(op, inferred_type);
@@ -59,12 +59,12 @@ std::string binary_op::to_string(evaluation_context errors) const {
   return ss.str();
 }
 
-bool binary_op::find_performance_data(evaluation_context context, performance_collector &collector) {
+bool binary_op::find_performance_data(const evaluation_context context, performance_collector &collector) {
   if (op == op_nin || op == op_in) return false;
   performance_collector sub_collector_left;
   performance_collector sub_collector_right;
-  bool l = left->find_performance_data(context, sub_collector_left);
-  bool r = right->find_performance_data(context, sub_collector_right);
+  const bool l = left->find_performance_data(context, sub_collector_left);
+  const bool r = right->find_performance_data(context, sub_collector_right);
   if (l || r) {
     // We found performance data
     collector.add_perf(sub_collector_left);

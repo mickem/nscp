@@ -42,7 +42,7 @@ class NSCAPI_EXPORT error_handler_interface {
 };
 
 struct NSCAPI_EXPORT engine_filter {
-  typedef boost::shared_ptr<error_handler_interface> error_handler;
+  typedef std::shared_ptr<error_handler_interface> error_handler;
   typedef evaluation_context execution_context_type;
   parser ast_parser;
   std::string filter_string;
@@ -60,7 +60,7 @@ struct NSCAPI_EXPORT engine_filter {
 };
 
 struct NSCAPI_EXPORT engine {
-  typedef boost::shared_ptr<error_handler_interface> error_handler;
+  typedef std::shared_ptr<error_handler_interface> error_handler;
   typedef evaluation_context execution_context_type;
 
   std::list<engine_filter> filters_;

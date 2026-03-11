@@ -19,10 +19,8 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/make_shared.hpp>
 #include <list>
 #include <parsers/where/node.hpp>
-#include <parsers/where/value_node.hpp>
 #include <string>
 
 using namespace parsers::where;
@@ -77,8 +75,8 @@ struct mock_object_converter final : object_converter_interface {
   void debug(object_match) override {}
 
   bool can_convert(value_type, value_type) override { return false; }
-  bool can_convert(std::string, boost::shared_ptr<any_node>, value_type) override { return false; }
-  boost::shared_ptr<binary_function_impl> create_converter(std::string, boost::shared_ptr<any_node>, value_type) override { return nullptr; }
+  bool can_convert(std::string, std::shared_ptr<any_node>, value_type) override { return false; }
+  std::shared_ptr<binary_function_impl> create_converter(std::string, std::shared_ptr<any_node>, value_type) override { return nullptr; }
 };
 
 // ======================================================================
@@ -107,8 +105,8 @@ struct mock_object_factory final : object_factory_interface {
   void debug(object_match) override {}
 
   bool can_convert(value_type, value_type) override { return false; }
-  bool can_convert(std::string, boost::shared_ptr<any_node>, value_type) override { return false; }
-  boost::shared_ptr<binary_function_impl> create_converter(std::string, boost::shared_ptr<any_node>, value_type) override { return nullptr; }
+  bool can_convert(std::string, std::shared_ptr<any_node>, value_type) override { return false; }
+  std::shared_ptr<binary_function_impl> create_converter(std::string, std::shared_ptr<any_node>, value_type) override { return nullptr; }
 
   bool has_variable(const std::string &name) override { return variables_.find(name) != variables_.end(); }
   node_type create_variable(const std::string &name, bool) override { return variables_[name]; }
@@ -123,12 +121,12 @@ struct mock_object_factory final : object_factory_interface {
 // Helpers
 // ======================================================================
 
-static evaluation_context make_context() { return boost::make_shared<mock_evaluation_context>(); }
-static object_converter make_converter() { return boost::make_shared<mock_object_converter>(); }
-static object_factory make_factory() { return boost::make_shared<mock_object_factory>(); }
+static evaluation_context make_context() { return std::make_shared<mock_evaluation_context>(); }
+static object_converter make_converter() { return std::make_shared<mock_object_converter>(); }
+static object_factory make_factory() { return std::make_shared<mock_object_factory>(); }
 
 static object_factory make_factory_with_variable(const std::string &name, node_type value) {
-  auto f = boost::make_shared<mock_object_factory>();
+  auto f = std::make_shared<mock_object_factory>();
   f->variables_[name] = value;
   return f;
 }

@@ -21,7 +21,6 @@
 
 #include <algorithm>
 #include <boost/function.hpp>
-#include <boost/shared_ptr.hpp>
 #include <parsers/where/helpers.hpp>
 #include <parsers/where/node.hpp>
 #include <str/format.hpp>
@@ -193,7 +192,7 @@ struct int_variable_node : public any_node {
   typedef TContext *native_context_type;
   typedef typename TContext::bound_int_type function_type;
   typedef typename TContext::object_type object_type;
-  typedef boost::shared_ptr<number_performance_generator_interface<object_type, long long> > int_performance_generator;
+  typedef std::shared_ptr<number_performance_generator_interface<object_type, long long> > int_performance_generator;
 
   function_type fun;
   std::list<int_performance_generator> perfgen;
@@ -204,7 +203,7 @@ struct int_variable_node : public any_node {
 
   virtual std::list<node_type> get_list_value(evaluation_context errors) const { return std::list<node_type>(); }
   virtual bool can_evaluate() const { return true; }
-  virtual boost::shared_ptr<any_node> evaluate(evaluation_context context) const {
+  virtual std::shared_ptr<any_node> evaluate(evaluation_context context) const {
     try {
       native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
       if (native_context != NULL && fun && native_context->has_object()) {
@@ -286,7 +285,7 @@ struct float_variable_node : public any_node {
   typedef TContext *native_context_type;
   typedef typename TContext::bound_float_type function_type;
   typedef typename TContext::object_type object_type;
-  typedef boost::shared_ptr<number_performance_generator_interface<object_type, double> > float_performance_generator;
+  typedef std::shared_ptr<number_performance_generator_interface<object_type, double> > float_performance_generator;
 
   function_type fun;
   std::list<float_performance_generator> perfgen;
@@ -297,7 +296,7 @@ struct float_variable_node : public any_node {
 
   virtual std::list<node_type> get_list_value(evaluation_context errors) const { return std::list<node_type>(); }
   virtual bool can_evaluate() const { return true; }
-  virtual boost::shared_ptr<any_node> evaluate(evaluation_context context) const {
+  virtual std::shared_ptr<any_node> evaluate(evaluation_context context) const {
     try {
       native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
       if (native_context != NULL && fun && native_context->has_object()) return factory::create_float(fun(native_context->get_object(), context));
@@ -384,7 +383,7 @@ struct str_variable_node : public any_node {
 
   virtual std::list<node_type> get_list_value(evaluation_context errors) const { return std::list<node_type>(); }
   virtual bool can_evaluate() const { return true; }
-  virtual boost::shared_ptr<any_node> evaluate(evaluation_context context) const {
+  virtual std::shared_ptr<any_node> evaluate(evaluation_context context) const {
     try {
       native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
       if (native_context != NULL && fun && native_context->has_object()) return factory::create_string(fun(native_context->get_object(), context));
@@ -448,7 +447,7 @@ struct dual_variable_node : public any_node {
   typedef typename TContext::bound_int_type i_function_type;
   typedef typename TContext::bound_float_type f_function_type;
   typedef typename TContext::object_type object_type;
-  typedef boost::shared_ptr<number_performance_generator_interface<object_type, long long> > int_performance_generator;
+  typedef std::shared_ptr<number_performance_generator_interface<object_type, long long> > int_performance_generator;
   value_type fallback_type;
 
   i_function_type i_fun;
@@ -466,7 +465,7 @@ struct dual_variable_node : public any_node {
 
   virtual std::list<node_type> get_list_value(evaluation_context errors) const { return std::list<node_type>(); }
   virtual bool can_evaluate() const { return true; }
-  virtual boost::shared_ptr<any_node> evaluate(evaluation_context context) const {
+  virtual std::shared_ptr<any_node> evaluate(evaluation_context context) const {
     // TODO!!!
     if (is_string()) {
       try {
@@ -597,7 +596,7 @@ struct custom_function_node : public any_node {
 
   virtual std::list<node_type> get_list_value(evaluation_context errors) const { return std::list<node_type>(); }
   virtual bool can_evaluate() const { return false; }
-  virtual boost::shared_ptr<any_node> evaluate(evaluation_context context) const {
+  virtual std::shared_ptr<any_node> evaluate(evaluation_context context) const {
     try {
       if (fun) return fun(get_type(), context, subject);
       context->error("Failed to evaluate " + name_ + " no function");
@@ -629,7 +628,7 @@ struct summary_int_variable_node : public any_node {
   typedef TContext *native_context_type;
   typedef typename TContext::object_type object_type;
   typedef typename TContext::summary_type summary_type;
-  typedef boost::shared_ptr<number_performance_generator_interface<object_type, long long> > int_performance_generator;
+  typedef std::shared_ptr<number_performance_generator_interface<object_type, long long> > int_performance_generator;
   typedef typename boost::function<long long(summary_type)> function_type;
 
   function_type fun;
@@ -652,7 +651,7 @@ struct summary_int_variable_node : public any_node {
     }
     return false;
   }
-  virtual boost::shared_ptr<any_node> evaluate(evaluation_context context) const {
+  virtual std::shared_ptr<any_node> evaluate(evaluation_context context) const {
     long long value = 0;
     bool summary = false;
     if (!int_get_value(context, summary, value)) {
@@ -719,7 +718,7 @@ struct summary_string_variable_node : public any_node {
   typedef TContext *native_context_type;
   typedef typename TContext::object_type object_type;
   typedef typename TContext::summary_type summary_type;
-  typedef boost::shared_ptr<number_performance_generator_interface<object_type, long long> > int_performance_generator;
+  typedef std::shared_ptr<number_performance_generator_interface<object_type, long long> > int_performance_generator;
   typedef typename boost::function<std::string(summary_type)> function_type;
 
   function_type fun;
@@ -728,7 +727,7 @@ struct summary_string_variable_node : public any_node {
 
   virtual std::list<node_type> get_list_value(evaluation_context errors) const { return std::list<node_type>(); }
   virtual bool can_evaluate() const { return true; }
-  virtual boost::shared_ptr<any_node> evaluate(evaluation_context context) const {
+  virtual std::shared_ptr<any_node> evaluate(evaluation_context context) const {
     try {
       native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
       if (native_context != NULL && fun) return factory::create_string(fun(native_context->get_summary()));

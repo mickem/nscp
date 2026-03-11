@@ -43,7 +43,7 @@ std::list<node_type> unary_fun::get_list_value(evaluation_context errors) const 
 }
 
 bool unary_fun::can_evaluate() const { return true; }
-boost::shared_ptr<any_node> unary_fun::evaluate(evaluation_context errors) const {
+std::shared_ptr<any_node> unary_fun::evaluate(evaluation_context errors) const {
   if (function) return function->evaluate(get_type(), errors, subject);
   errors->error("Missing function binding: " + name + "bound: " + str::xtos(is_bound()));
   return factory::create_false();

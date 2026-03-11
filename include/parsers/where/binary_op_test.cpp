@@ -19,13 +19,47 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/make_shared.hpp>
-#include <parsers/where/binary_op.hpp>
 #include <parsers/where/helpers.hpp>
 #include <parsers/where/node.hpp>
-#include <parsers/where/value_node.hpp>
 
 using namespace parsers::where;
+
+// ======================================================================
+// Mock node: configurable find_performance_data behavior
+// ======================================================================
+
+struct mock_perf_node final : any_node {
+  bool perf_return_;           // what find_performance_data returns
+  bool set_variable_;          // whether to set a candidate variable
+  std::string variable_name_;  // the variable name to set
+  bool set_value_;             // whether to set a candidate value
+  node_type value_node_;       // the value node to set
+
+  mock_perf_node(bool perf_return, bool set_variable, std::string variable_name, bool set_value, node_type value_node)
+      : any_node(type_int), perf_return_(perf_return), set_variable_(set_variable), variable_name_(std::move(variable_name)), set_value_(set_value), value_node_(std::move(value_node)) {}
+
+  std::string to_string() const override { return "mock"; }
+  std::string to_string(evaluation_context) const override { return "mock"; }
+  value_container get_value(evaluation_context, value_type) const override { return value_container::create_int(0); }
+  std::list<node_type> get_list_value(evaluation_context) const override { return {}; }
+  bool can_evaluate() const override { return false; }
+  node_type evaluate(evaluation_context) const override { return nullptr; }
+  bool static_evaluate(evaluation_context) const override { return true; }
+  bool require_object(evaluation_context) const override { return false; }
+  bool bind(object_converter) override { return true; }
+  value_type infer_type(object_converter) override { return type_int; }
+  value_type infer_type(object_converter, value_type) override { return type_int; }
+
+  bool find_performance_data(evaluation_context, performance_collector &collector) override {
+    if (set_variable_) collector.set_candidate_variable(variable_name_);
+    if (set_value_ && value_node_) collector.set_candidate_value(value_node_);
+    return perf_return_;
+  }
+};
+
+static node_type make_mock_perf(bool perf_return, bool set_variable = false, std::string variable_name = "", bool set_value = false, node_type value_node = nullptr) {
+  return std::make_shared<mock_perf_node>(perf_return, set_variable, std::move(variable_name), set_value, std::move(value_node));
+}
 
 // ======================================================================
 // Mock evaluation context
@@ -77,17 +111,17 @@ struct mock_object_converter final : object_converter_interface {
   void debug(object_match) override {}
 
   bool can_convert(value_type, value_type) override { return false; }
-  bool can_convert(std::string, boost::shared_ptr<any_node>, value_type) override { return false; }
-  boost::shared_ptr<binary_function_impl> create_converter(std::string, boost::shared_ptr<any_node>, value_type) override { return nullptr; }
+  bool can_convert(std::string, std::shared_ptr<any_node>, value_type) override { return false; }
+  std::shared_ptr<binary_function_impl> create_converter(std::string, std::shared_ptr<any_node>, value_type) override { return nullptr; }
 };
 
 // ======================================================================
 // Helpers
 // ======================================================================
 
-static evaluation_context make_context() { return boost::make_shared<mock_evaluation_context>(); }
+static evaluation_context make_context() { return std::make_shared<mock_evaluation_context>(); }
 
-static object_converter make_converter() { return boost::make_shared<mock_object_converter>(); }
+static object_converter make_converter() { return std::make_shared<mock_object_converter>(); }
 
 static node_type make_int(long long v) { return factory::create_int(v); }
 static node_type make_float(double v) { return factory::create_float(v); }
@@ -95,6 +129,11 @@ static node_type make_string(const std::string &v) { return factory::create_stri
 
 static node_type make_bin_op(operators op, node_type lhs, node_type rhs) { return factory::create_bin_op(op, lhs, rhs); }
 
+
+TEST(BinaryOp, NewNodeShouldBeTBD) {
+  const node_type node = make_bin_op(op_eq, make_int(1), make_int(1));
+  EXPECT_EQ(node->get_type(), type_tbd);
+}
 // ======================================================================
 // can_evaluate
 // ======================================================================
@@ -417,6 +456,20 @@ TEST(BinaryOp, StaticEvaluateBothSidesMustBeTrue) {
 }
 
 // ======================================================================
+// evaluate
+// ======================================================================
+
+TEST(BinaryOp, EvaluateShouldFailIfNoType) {
+  const auto ctx = make_context();
+  const node_type node = make_bin_op(op_and, make_int(1), make_int(1));
+  const auto result = node->evaluate(ctx);
+  EXPECT_EQ(result->get_int_value(ctx), 0);
+  EXPECT_TRUE(ctx->has_error());
+  EXPECT_EQ(ctx->get_error(), "Binary operator does not work with tbd");
+}
+
+
+// ======================================================================
 // require_object
 // ======================================================================
 
@@ -562,3 +615,221 @@ TEST(BinaryOp, EvaluateLikeEmptyPattern) {
   node->infer_type(make_converter());
   EXPECT_FALSE(node->get_value(ctx, type_int).is_true());
 }
+
+// ======================================================================
+// find_performance_data: left child returns true (perf data found)
+// ======================================================================
+
+TEST(BinaryOp, FindPerformanceDataReturnsTrueWhenLeftChildReturnsTrue) {
+  const auto ctx = make_context();
+  performance_collector collector;
+  // Left child returns true from find_performance_data, right returns false
+  const node_type node = make_bin_op(op_eq, make_mock_perf(true), make_mock_perf(false));
+  EXPECT_TRUE(node->find_performance_data(ctx, collector));
+}
+
+TEST(BinaryOp, FindPerformanceDataReturnsTrueWhenRightChildReturnsTrue) {
+  const auto ctx = make_context();
+  performance_collector collector;
+  // Left child returns false, right returns true
+  const node_type node = make_bin_op(op_eq, make_mock_perf(false), make_mock_perf(true));
+  EXPECT_TRUE(node->find_performance_data(ctx, collector));
+}
+
+TEST(BinaryOp, FindPerformanceDataReturnsTrueWhenBothChildrenReturnTrue) {
+  const auto ctx = make_context();
+  performance_collector collector;
+  const node_type node = make_bin_op(op_eq, make_mock_perf(true), make_mock_perf(true));
+  EXPECT_TRUE(node->find_performance_data(ctx, collector));
+}
+
+// ======================================================================
+// find_performance_data: upper bound (op_gt, op_ge) with candidates
+// ======================================================================
+
+TEST(BinaryOp, FindPerformanceDataUpperBoundWithGt) {
+  const auto ctx = make_context();
+  performance_collector collector;
+  // Left has variable candidate, right has value candidate => is_upper(op_gt) => add_bounds_candidates(left, right)
+  const node_type node = make_bin_op(op_gt, make_mock_perf(false, true, "cpu", false, nullptr), make_mock_perf(false, false, "", true, make_int(80)));
+  const bool result = node->find_performance_data(ctx, collector);
+  EXPECT_TRUE(result);
+  auto candidates = collector.get_candidates();
+  EXPECT_EQ(1u, candidates.size());
+  EXPECT_TRUE(candidates.find("cpu") != candidates.end());
+}
+
+TEST(BinaryOp, FindPerformanceDataUpperBoundWithGe) {
+  const auto ctx = make_context();
+  performance_collector collector;
+  const node_type node = make_bin_op(op_ge, make_mock_perf(false, true, "mem", false, nullptr), make_mock_perf(false, false, "", true, make_int(90)));
+  const bool result = node->find_performance_data(ctx, collector);
+  EXPECT_TRUE(result);
+  auto candidates = collector.get_candidates();
+  EXPECT_EQ(1u, candidates.size());
+  EXPECT_TRUE(candidates.find("mem") != candidates.end());
+}
+
+// ======================================================================
+// find_performance_data: lower bound (op_lt, op_le) with candidates
+// ======================================================================
+
+TEST(BinaryOp, FindPerformanceDataLowerBoundWithLt) {
+  const auto ctx = make_context();
+  performance_collector collector;
+  // is_lower(op_lt) => add_bounds_candidates(right, left) — args are swapped
+  const node_type node = make_bin_op(op_lt, make_mock_perf(false, true, "disk", false, nullptr), make_mock_perf(false, false, "", true, make_int(50)));
+  const bool result = node->find_performance_data(ctx, collector);
+  EXPECT_TRUE(result);
+  auto candidates = collector.get_candidates();
+  EXPECT_EQ(1u, candidates.size());
+  EXPECT_TRUE(candidates.find("disk") != candidates.end());
+}
+
+TEST(BinaryOp, FindPerformanceDataLowerBoundWithLe) {
+  const auto ctx = make_context();
+  performance_collector collector;
+  const node_type node = make_bin_op(op_le, make_mock_perf(false, true, "temp", false, nullptr), make_mock_perf(false, false, "", true, make_int(70)));
+  const bool result = node->find_performance_data(ctx, collector);
+  EXPECT_TRUE(result);
+  auto candidates = collector.get_candidates();
+  EXPECT_EQ(1u, candidates.size());
+  EXPECT_TRUE(candidates.find("temp") != candidates.end());
+}
+
+// ======================================================================
+// find_performance_data: neutral (op_eq, op_ne, etc.) with candidates
+// ======================================================================
+
+TEST(BinaryOp, FindPerformanceDataNeutralWithEq) {
+  const auto ctx = make_context();
+  performance_collector collector;
+  // op_eq is neither upper nor lower => add_neutral_candidates
+  const node_type node = make_bin_op(op_eq, make_mock_perf(false, true, "status", false, nullptr), make_mock_perf(false, false, "", true, make_int(1)));
+  const bool result = node->find_performance_data(ctx, collector);
+  EXPECT_TRUE(result);
+  auto candidates = collector.get_candidates();
+  EXPECT_EQ(1u, candidates.size());
+  EXPECT_TRUE(candidates.find("status") != candidates.end());
+}
+
+TEST(BinaryOp, FindPerformanceDataNeutralWithNe) {
+  const auto ctx = make_context();
+  performance_collector collector;
+  const node_type node = make_bin_op(op_ne, make_mock_perf(false, true, "count", false, nullptr), make_mock_perf(false, false, "", true, make_int(0)));
+  const bool result = node->find_performance_data(ctx, collector);
+  EXPECT_TRUE(result);
+  auto candidates = collector.get_candidates();
+  EXPECT_EQ(1u, candidates.size());
+  EXPECT_TRUE(candidates.find("count") != candidates.end());
+}
+
+// ======================================================================
+// find_performance_data: candidates on swapped sides (variable on right)
+// ======================================================================
+
+TEST(BinaryOp, FindPerformanceDataUpperBoundVariableOnRight) {
+  const auto ctx = make_context();
+  performance_collector collector;
+  // Variable on the right side, value on the left
+  const node_type node = make_bin_op(op_gt, make_mock_perf(false, false, "", true, make_int(100)), make_mock_perf(false, true, "load", false, nullptr));
+  const bool result = node->find_performance_data(ctx, collector);
+  EXPECT_TRUE(result);
+  auto candidates = collector.get_candidates();
+  EXPECT_EQ(1u, candidates.size());
+  EXPECT_TRUE(candidates.find("load") != candidates.end());
+}
+
+TEST(BinaryOp, FindPerformanceDataLowerBoundVariableOnRight) {
+  const auto ctx = make_context();
+  performance_collector collector;
+  const node_type node = make_bin_op(op_lt, make_mock_perf(false, false, "", true, make_int(20)), make_mock_perf(false, true, "free", false, nullptr));
+  const bool result = node->find_performance_data(ctx, collector);
+  EXPECT_TRUE(result);
+  auto candidates = collector.get_candidates();
+  EXPECT_EQ(1u, candidates.size());
+  EXPECT_TRUE(candidates.find("free") != candidates.end());
+}
+
+// ======================================================================
+// find_performance_data: no candidates on either side
+// ======================================================================
+
+TEST(BinaryOp, FindPerformanceDataReturnsFalseWhenNoCandidates) {
+  const auto ctx = make_context();
+  performance_collector collector;
+  // Neither side sets any candidate => has_candidates() is false for both
+  const node_type node = make_bin_op(op_eq, make_mock_perf(false), make_mock_perf(false));
+  EXPECT_FALSE(node->find_performance_data(ctx, collector));
+}
+
+// ======================================================================
+// find_performance_data: only one side has candidates
+// ======================================================================
+
+TEST(BinaryOp, FindPerformanceDataReturnsFalseWhenOnlyLeftHasCandidates) {
+  const auto ctx = make_context();
+  performance_collector collector;
+  // Left has a variable candidate, right has nothing => only left has_candidates
+  const node_type node = make_bin_op(op_eq, make_mock_perf(false, true, "var1", false, nullptr), make_mock_perf(false));
+  EXPECT_FALSE(node->find_performance_data(ctx, collector));
+}
+
+TEST(BinaryOp, FindPerformanceDataReturnsFalseWhenOnlyRightHasCandidates) {
+  const auto ctx = make_context();
+  performance_collector collector;
+  // Right has a value candidate, left has nothing
+  const node_type node = make_bin_op(op_eq, make_mock_perf(false), make_mock_perf(false, false, "", true, make_int(42)));
+  EXPECT_FALSE(node->find_performance_data(ctx, collector));
+}
+
+// ======================================================================
+// find_performance_data: perf found takes priority over candidates
+// ======================================================================
+
+TEST(BinaryOp, FindPerformanceDataPerfFoundTakesPriorityOverCandidates) {
+  const auto ctx = make_context();
+  performance_collector collector;
+  // Left returns true AND has candidates; right has candidates too.
+  // The perf found (l || r) branch should be taken, not the candidates branch.
+  const node_type node = make_bin_op(op_gt, make_mock_perf(true, true, "x", true, make_int(1)), make_mock_perf(false, true, "y", true, make_int(2)));
+  EXPECT_TRUE(node->find_performance_data(ctx, collector));
+  // Candidates branch is NOT entered, so no bounds/neutral entries
+  auto candidates = collector.get_candidates();
+  EXPECT_TRUE(candidates.empty());
+}
+
+// ======================================================================
+// find_performance_data: op_and / op_or with candidates (neutral path)
+// ======================================================================
+
+TEST(BinaryOp, FindPerformanceDataWithAndOpFallsToNeutral) {
+  const auto ctx = make_context();
+  performance_collector collector;
+  // op_and is neither upper nor lower => neutral
+  const node_type node = make_bin_op(op_and, make_mock_perf(false, true, "proc", false, nullptr), make_mock_perf(false, false, "", true, make_int(5)));
+  const bool result = node->find_performance_data(ctx, collector);
+  EXPECT_TRUE(result);
+}
+
+TEST(BinaryOp, FindPerformanceDataWithOrOpFallsToNeutral) {
+  const auto ctx = make_context();
+  performance_collector collector;
+  const node_type node = make_bin_op(op_or, make_mock_perf(false, true, "svc", false, nullptr), make_mock_perf(false, false, "", true, make_int(1)));
+  const bool result = node->find_performance_data(ctx, collector);
+  EXPECT_TRUE(result);
+}
+
+// ======================================================================
+// find_performance_data: both sides have variable candidates only (no value)
+// ======================================================================
+
+TEST(BinaryOp, FindPerformanceDataBothVariablesNoValueNeutralReturnsFalse) {
+  const auto ctx = make_context();
+  performance_collector collector;
+  // Both have variable candidates but no value candidate => add_neutral_candidates returns false
+  const node_type node = make_bin_op(op_eq, make_mock_perf(false, true, "a", false, nullptr), make_mock_perf(false, true, "b", false, nullptr));
+  EXPECT_FALSE(node->find_performance_data(ctx, collector));
+}
+
+

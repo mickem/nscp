@@ -29,56 +29,56 @@ std::string list_node::to_string() const {
   }
   return ret;
 }
-std::string list_node::to_string(evaluation_context errors) const {
+std::string list_node::to_string(const evaluation_context context) const {
   std::string ret;
   for (const node_type& n : value_) {
     if (!ret.empty()) ret += ", ";
-    ret += n->to_string(errors);
+    ret += n->to_string(context);
   }
   return ret;
 }
 
-value_container list_node::get_value(evaluation_context errors, value_type new_type) const {
+value_container list_node::get_value(const evaluation_context context, value_type new_type) const {
   if (new_type == type_int) {
-    errors->error("Cant get number from a list");
+    context->error("Cant get number from a list");
     return value_container::create_nil();
   }
   if (new_type == type_float) {
-    errors->error("Cant get number from a list");
+    context->error("Cant get number from a list");
     return value_container::create_nil();
   }
   if (new_type == type_string) {
     std::string s;
     for (const node_type& n : value_) {
       if (!s.empty()) s += ", ";
-      s += n->get_string_value(errors);
+      s += n->get_string_value(context);
     }
     return value_container::create_string(s);
   }
-  errors->error("Invalid type");
+  context->error("Invalid type");
   return value_container::create_nil();
 }
 
-node_type list_node::evaluate(evaluation_context errors) const {
+node_type list_node::evaluate(evaluation_context context) const {
   for (const node_type& n : value_) {
-    n->evaluate(errors);
+    n->evaluate(context);
   }
   return factory::create_false();
 }
-bool list_node::bind(object_converter errors) {
+bool list_node::bind(object_converter context) {
   bool ret = true;
   for (const node_type& n : value_) {
-    if (!n->bind(errors)) ret = false;
+    if (!n->bind(context)) ret = false;
   }
   return ret;
 }
-value_type list_node::infer_type(object_converter converter, value_type suggestion) {
+value_type list_node::infer_type(const object_converter converter, value_type suggestion) {
   for (const node_type& n : value_) {
     n->infer_type(converter, suggestion);
   }
   return type_tbd;
 }
-value_type list_node::infer_type(object_converter converter) {
+value_type list_node::infer_type(const object_converter converter) {
   bool first = true;
   value_type types = type_tbd;
 
@@ -95,21 +95,21 @@ value_type list_node::infer_type(object_converter converter) {
   if (types != type_tbd) set_type(types);
   return types;
 }
-bool list_node::find_performance_data(evaluation_context context, performance_collector& collector) {
+bool list_node::find_performance_data(const evaluation_context context, performance_collector& collector) {
   for (const node_type& n : value_) {
     n->find_performance_data(context, collector);
   }
   return false;
 }
-bool list_node::static_evaluate(evaluation_context errors) const {
+bool list_node::static_evaluate(const evaluation_context context) const {
   for (const node_type& n : value_) {
-    n->static_evaluate(errors);
+    n->static_evaluate(context);
   }
   return true;
 }
-bool list_node::require_object(evaluation_context errors) const {
+bool list_node::require_object(const evaluation_context context) const {
   for (const node_type& n : value_) {
-    n->require_object(errors);
+    n->require_object(context);
   }
   return true;
 }

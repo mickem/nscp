@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <boost/enable_shared_from_this.hpp>
 #include <parsers/where/helpers.hpp>
 #include <parsers/where/node.hpp>
 
@@ -43,13 +42,13 @@ struct node_value_impl : public any_node {
     return ret;
   }
   virtual bool can_evaluate() const { return false; }
-  virtual boost::shared_ptr<any_node> evaluate(evaluation_context context) const { return factory::create_false(); }
+  virtual std::shared_ptr<any_node> evaluate(evaluation_context context) const { return factory::create_false(); }
   virtual bool bind(object_converter context) { return true; }
   virtual bool static_evaluate(evaluation_context context) const { return true; }
   virtual bool require_object(evaluation_context context) const { return false; }
 };
 
-struct string_value : public node_value_impl<std::string>, boost::enable_shared_from_this<string_value> {
+struct string_value : public node_value_impl<std::string>, std::enable_shared_from_this<string_value> {
   string_value(const std::string &value, bool is_unsure = false) : node_value_impl<std::string>(value, type_string, is_unsure) {}
   value_container get_value(evaluation_context context, value_type type) const;
   virtual std::string to_string() const;
@@ -58,7 +57,7 @@ struct string_value : public node_value_impl<std::string>, boost::enable_shared_
   value_type infer_type(object_converter) { return type_string; }
   bool find_performance_data(evaluation_context context, performance_collector &collector);
 };
-struct int_value : public node_value_impl<long long>, boost::enable_shared_from_this<int_value> {
+struct int_value : public node_value_impl<long long>, std::enable_shared_from_this<int_value> {
   int_value(const long long &value, bool is_unsure = false) : node_value_impl<long long>(value, type_int, is_unsure) {}
   value_container get_value(evaluation_context context, value_type type) const;
   virtual std::string to_string() const;
@@ -74,7 +73,7 @@ struct int_value : public node_value_impl<long long>, boost::enable_shared_from_
   value_type infer_type(object_converter converter) { return type_int; }
   bool find_performance_data(evaluation_context context, performance_collector &collector);
 };
-struct float_value : public node_value_impl<double>, boost::enable_shared_from_this<float_value> {
+struct float_value : public node_value_impl<double>, std::enable_shared_from_this<float_value> {
   float_value(const double &value, bool is_unsure = false) : node_value_impl<double>(value, type_float, is_unsure) {}
   value_container get_value(evaluation_context context, value_type type) const;
   virtual std::string to_string() const;
