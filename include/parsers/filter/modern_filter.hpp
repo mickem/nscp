@@ -243,7 +243,7 @@ template <class TObject, class TFactory>
 struct modern_filters {
   typedef std::shared_ptr<error_handler_impl> error_type;
   typedef boost::shared_ptr<parsers::where::engine> filter_engine;
-  typedef parsers::where::performance_collector::boundries_type boundaries_type;
+  typedef parsers::where::performance_collector::boundaries_type boundaries_type;
   typedef boost::shared_ptr<TObject> object_type;
 
   filter_text_renderer<TFactory> renderer_top;

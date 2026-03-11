@@ -65,7 +65,7 @@ struct NSCAPI_EXPORT engine {
 
   std::list<engine_filter> filters_;
   bool perf_collection;
-  typedef performance_collector::boundries_type boundries_type;
+  typedef performance_collector::boundaries_type boundries_type;
   performance_collector boundries;
   error_handler error;
   boost::optional<bool> requires_object;

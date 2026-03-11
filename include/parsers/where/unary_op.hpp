@@ -23,26 +23,25 @@
 
 namespace parsers {
 namespace where {
-struct unary_op : public any_node {
-  unary_op(operators op, node_type const subject) : op(op), subject(subject) {}
+struct unary_op : any_node {
+  unary_op(const operators op, node_type const &subject) : op(op), subject(subject) {}
+  unary_op() = delete;
 
-  virtual std::string to_string(evaluation_context errors) const;
-  virtual std::string to_string() const;
+  std::string to_string(evaluation_context context) const override;
+  std::string to_string() const override;
 
-  virtual value_container get_value(evaluation_context context, value_type type) const;
-  virtual std::list<node_type> get_list_value(evaluation_context errors) const;
+  value_container get_value(evaluation_context context, value_type type) const override;
+  std::list<node_type> get_list_value(evaluation_context context) const override;
 
-  virtual bool can_evaluate() const;
-  virtual node_type evaluate(evaluation_context context) const;
-  virtual bool bind(object_converter context);
-  value_type infer_type(object_converter converter);
-  value_type infer_type(object_converter converter, value_type suggestion);
-  virtual bool find_performance_data(evaluation_context context, performance_collector &collector);
-  virtual bool static_evaluate(evaluation_context context) const;
-  virtual bool require_object(evaluation_context context) const;
+  bool can_evaluate() const override;
+  node_type evaluate(evaluation_context context) const override;
+  bool bind(object_converter context) override;
+  value_type infer_type(object_converter converter) override;
+  value_type infer_type(object_converter converter, value_type suggestion) override;
+  bool find_performance_data(evaluation_context context, performance_collector &collector) override;
+  bool static_evaluate(evaluation_context context) const override;
+  bool require_object(evaluation_context context) const override;
 
- private:
-  unary_op() {}
   operators op;
   node_type subject;
 };

@@ -131,7 +131,7 @@ std::string functions::extract_perf_maximum_as_string(const PB::Common::Performa
 }
 
 void functions::parse_performance_data(PB::Commands::QueryResponseMessage::Response::Line *payload, const std::string &perf) {
-  parsers::perfdata::parse(boost::make_shared<perf_builder>(payload), perf);
+  parsers::perfdata::parse(std::make_shared<perf_builder>(payload), perf);
 }
 
 std::string functions::build_performance_data(PB::Commands::QueryResponseMessage::Response::Line const &payload, const std::size_t max_length) {

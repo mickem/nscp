@@ -59,7 +59,7 @@ value_container list_node::get_value(const evaluation_context context, value_typ
   return value_container::create_nil();
 }
 
-node_type list_node::evaluate(evaluation_context context) const {
+node_type list_node::evaluate(const evaluation_context context) const {
   for (const node_type& n : value_) {
     n->evaluate(context);
   }
@@ -72,7 +72,7 @@ bool list_node::bind(object_converter context) {
   }
   return ret;
 }
-value_type list_node::infer_type(const object_converter converter, value_type suggestion) {
+value_type list_node::infer_type(const object_converter converter, const value_type suggestion) {
   for (const node_type& n : value_) {
     n->infer_type(converter, suggestion);
   }

@@ -94,17 +94,11 @@ static node_type make_int(long long v) { return factory::create_int(v); }
 static node_type make_float(double v) { return factory::create_float(v); }
 static node_type make_string(const std::string &v) { return factory::create_string(v); }
 
-static node_type make_int_list(std::initializer_list<long long> values) {
-  return factory::create_list(std::list<long long>(values));
-}
+static node_type make_int_list(std::initializer_list<long long> values) { return factory::create_list(std::list<long long>(values)); }
 
-static node_type make_string_list(std::initializer_list<std::string> values) {
-  return factory::create_list(std::list<std::string>(values));
-}
+static node_type make_string_list(std::initializer_list<std::string> values) { return factory::create_list(std::list<std::string>(values)); }
 
-static node_type make_float_list(std::initializer_list<double> values) {
-  return factory::create_list(std::list<double>(values));
-}
+static node_type make_float_list(std::initializer_list<double> values) { return factory::create_list(std::list<double>(values)); }
 
 // Helper to evaluate a binary operator directly
 static value_container eval_bin_op(operators op, node_type lhs, node_type rhs, evaluation_context ctx) {
@@ -142,17 +136,11 @@ TEST(OpFactory, GetBinaryOperatorReturnsNonNullForAllOps) {
 // op_factory::is_binary_function
 // ======================================================================
 
-TEST(OpFactory, IsBinaryFunctionConvert) {
-  EXPECT_TRUE(op_factory::is_binary_function("convert"));
-}
+TEST(OpFactory, IsBinaryFunctionConvert) { EXPECT_TRUE(op_factory::is_binary_function("convert")); }
 
-TEST(OpFactory, IsBinaryFunctionAutoConvert) {
-  EXPECT_TRUE(op_factory::is_binary_function("auto_convert"));
-}
+TEST(OpFactory, IsBinaryFunctionAutoConvert) { EXPECT_TRUE(op_factory::is_binary_function("auto_convert")); }
 
-TEST(OpFactory, IsBinaryFunctionNeg) {
-  EXPECT_TRUE(op_factory::is_binary_function("neg"));
-}
+TEST(OpFactory, IsBinaryFunctionNeg) { EXPECT_TRUE(op_factory::is_binary_function("neg")); }
 
 TEST(OpFactory, IsBinaryFunctionUnknown) {
   EXPECT_FALSE(op_factory::is_binary_function("unknown_function"));
@@ -1262,4 +1250,3 @@ TEST(OperatorNotRegexp, DotStarMatchesReturnsFalse) {
   auto result = eval_bin_op(op_not_regexp, make_string("anything"), make_string(".*"), ctx);
   EXPECT_FALSE(result.is_true());
 }
-

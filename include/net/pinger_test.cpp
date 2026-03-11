@@ -634,9 +634,9 @@ TEST(Pinger, PingerSendsToResolvedEndpoint) {
   // Use "127.0.0.1" which resolves without DNS
   try {
     pinger p(io_service, result, "127.0.0.1", 1000, 42, "payload");
-  } catch (const boost::system::system_error& e) {
+  } catch (const boost::system::system_error &e) {
     GTEST_SKIP() << "Skipping: unable to create ICMP socket or resolve address: " << e.what();
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     GTEST_SKIP() << "Skipping: pinger construction failed: " << e.what();
   }
 

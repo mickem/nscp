@@ -22,12 +22,12 @@
 
 namespace parsers {
 namespace where {
-value_container string_value::get_value(evaluation_context errors, value_type new_type) const {
+value_container string_value::get_value(const evaluation_context context, value_type new_type) const {
   if (new_type == type_float) {
     try {
       return value_container::create_float(str::stox<double>(value_), is_unsure_);
     } catch (const std::exception &) {
-      errors->error("Failed to convert string to number: " + value_);
+      context->error("Failed to convert string to number: " + value_);
       return value_container::create_nil();
     }
   }
@@ -35,14 +35,14 @@ value_container string_value::get_value(evaluation_context errors, value_type ne
     try {
       return value_container::create_int(str::stox<long long>(value_), is_unsure_);
     } catch (const std::exception &) {
-      errors->error("Failed to convert string to number: " + value_);
+      context->error("Failed to convert string to number: " + value_);
       return value_container::create_nil();
     }
   }
   if (new_type == type_string) {
     return value_container::create_string(value_, is_unsure_);
   }
-  errors->error("Failed to convert string to ?: " + value_);
+  context->error("Failed to convert string to ?: " + value_);
   return value_container::create_nil();
 }
 std::string string_value::to_string() const { return "(s){" + value_ + "}"; }
@@ -51,7 +51,7 @@ bool string_value::find_performance_data(evaluation_context context, performance
   collector.set_candidate_value(shared_from_this());
   return false;
 }
-value_container int_value::get_value(evaluation_context errors, value_type new_type) const {
+value_container int_value::get_value(const evaluation_context context, value_type new_type) const {
   if (new_type == type_float) {
     return value_container::create_float(static_cast<double>(value_), is_unsure_);
   }
@@ -61,7 +61,7 @@ value_container int_value::get_value(evaluation_context errors, value_type new_t
   if (new_type == type_string) {
     return value_container::create_string(str::xtos(value_), is_unsure_);
   }
-  errors->error("Failed to convert int to ?: " + str::xtos(value_));
+  context->error("Failed to convert int to ?: " + str::xtos(value_));
   return value_container::create_nil();
 }
 std::string int_value::to_string() const { return "(i){" + str::xtos(value_) + "}"; }
@@ -70,14 +70,14 @@ bool int_value::find_performance_data(evaluation_context context, performance_co
   collector.set_candidate_value(shared_from_this());
   return false;
 }
-value_container float_value::get_value(evaluation_context errors, value_type new_type) const {
+value_container float_value::get_value(const evaluation_context context, value_type new_type) const {
   if (new_type == type_float) {
-    return value_container::create_float(static_cast<double>(value_), is_unsure_);
+    return value_container::create_float(value_, is_unsure_);
   }
   if (new_type == type_int) {
     return value_container::create_int(static_cast<long long>(value_), is_unsure_);
   }
-  errors->error("Failed to convert string to ?: " + str::xtos(value_));
+  context->error("Failed to convert string to ?: " + str::xtos(value_));
   return value_container::create_nil();
 }
 std::string float_value::to_string() const { return "(f){" + str::xtos(value_) + "}"; }

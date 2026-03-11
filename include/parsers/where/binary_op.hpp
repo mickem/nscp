@@ -29,10 +29,10 @@ struct binary_op : any_node {
   binary_op(const operators op, node_type left, node_type right) : op(op), left(std::move(left)), right(std::move(right)) {}
 
   std::string to_string() const override;
-  std::string to_string(evaluation_context errors) const override;
+  std::string to_string(evaluation_context context) const override;
 
   value_container get_value(evaluation_context contxt, value_type type) const override;
-  std::list<std::shared_ptr<any_node> > get_list_value(evaluation_context errors) const override;
+  std::list<std::shared_ptr<any_node> > get_list_value(evaluation_context context) const override;
 
   bool can_evaluate() const override;
   node_type evaluate(evaluation_context contxt) const override;

@@ -35,7 +35,7 @@ struct list_node : list_node_interface {
   std::string to_string(evaluation_context context) const override;
 
   value_container get_value(evaluation_context context, value_type type) const override;
-  std::list<node_type> get_list_value(evaluation_context errors) const override { return value_; }
+  std::list<node_type> get_list_value(evaluation_context context) const override { return value_; }
 
   bool can_evaluate() const override { return false; }
   node_type evaluate(evaluation_context context) const override;

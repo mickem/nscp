@@ -22,9 +22,9 @@
 #include <NSCAPI.h>
 
 #include <boost/function.hpp>
-#include <memory>
 #include <boost/unordered_map.hpp>
 #include <map>
+#include <memory>
 #include <nscapi/nscapi_helper.hpp>
 #include <parsers/where/engine_impl.hpp>
 #include <parsers/where/helpers.hpp>

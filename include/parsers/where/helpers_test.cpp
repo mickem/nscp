@@ -21,9 +21,8 @@
 
 #include <parsers/where/helpers.hpp>
 #include <parsers/where/value_node.hpp>
-#include <string>
-
 #include <parsers/where/variable.hpp>
+#include <string>
 
 using namespace parsers::where;
 using namespace parsers::where::helpers;
@@ -157,9 +156,7 @@ TEST(WhereHelpers, TypeIsIntFalseForNonInt) {
   EXPECT_FALSE(type_is_int(type_custom));
 }
 
-TEST(WhereHelpers, TypeIsIntCustomIntEnd) {
-  EXPECT_FALSE(type_is_int(type_custom_int_end));
-}
+TEST(WhereHelpers, TypeIsIntCustomIntEnd) { EXPECT_FALSE(type_is_int(type_custom_int_end)); }
 
 // ======================================================================
 // type_is_float
@@ -191,21 +188,15 @@ TEST(WhereHelpers, TypeIsFloatFalseForNonFloat) {
   EXPECT_FALSE(type_is_float(type_custom));
 }
 
-TEST(WhereHelpers, TypeIsFloatCustomIntEnd) {
-  EXPECT_FALSE(type_is_float(type_custom_int_end));
-}
+TEST(WhereHelpers, TypeIsFloatCustomIntEnd) { EXPECT_FALSE(type_is_float(type_custom_int_end)); }
 
-TEST(WhereHelpers, TypeIsFloatCustomFloatEnd) {
-  EXPECT_FALSE(type_is_float(type_custom_float_end));
-}
+TEST(WhereHelpers, TypeIsFloatCustomFloatEnd) { EXPECT_FALSE(type_is_float(type_custom_float_end)); }
 
 // ======================================================================
 // type_is_string
 // ======================================================================
 
-TEST(WhereHelpers, TypeIsStringForStringTypes) {
-  EXPECT_TRUE(type_is_string(type_string));
-}
+TEST(WhereHelpers, TypeIsStringForStringTypes) { EXPECT_TRUE(type_is_string(type_string)); }
 
 TEST(WhereHelpers, TypeIsStringForCustomString) {
   EXPECT_TRUE(type_is_string(type_custom_string));
@@ -226,9 +217,7 @@ TEST(WhereHelpers, TypeIsStringFalseForNonString) {
   EXPECT_FALSE(type_is_string(type_custom));
 }
 
-TEST(WhereHelpers, TypeIsStringCustomStringEnd) {
-  EXPECT_FALSE(type_is_string(type_custom_string_end));
-}
+TEST(WhereHelpers, TypeIsStringCustomStringEnd) { EXPECT_FALSE(type_is_string(type_custom_string_end)); }
 
 // ======================================================================
 // get_return_type
@@ -653,8 +642,6 @@ TEST(WhereHelpers, InferBinaryTypeWithCanConvertOnConverter) {
   EXPECT_EQ(type_string, result);
 }
 
-
-
 TEST(WhereHelpers, InferBinaryTypeStringAndIntUsesBuiltinConvert) {
   auto converter = make_converter(false);
   node_type left = factory::create_string("42");
@@ -739,4 +726,3 @@ TEST(WhereHelpers, ReadArgumentsEmptyDefaultUnit) {
   read_arg_type result = read_arguments(ctx, n, "");
   EXPECT_EQ("", boost::get<2>(result));
 }
-

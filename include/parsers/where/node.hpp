@@ -20,9 +20,9 @@
 #pragma once
 
 #include <boost/optional.hpp>
-#include <memory>
 #include <list>
 #include <map>
+#include <memory>
 #include <parsers/where/dll_defines.hpp>
 #include <string>
 #include <utility>
@@ -37,7 +37,7 @@ class NSCAPI_EXPORT filter_exception : public std::exception {
   std::string what_;
 
  public:
-  filter_exception(std::string what) : what_(std::move(what)) {}
+  explicit filter_exception(std::string what) : what_(std::move(what)) {}
   ~filter_exception() noexcept override = default;
   const char *what() const noexcept override { return what_.c_str(); }
   std::string reason() const noexcept;
@@ -131,34 +131,34 @@ struct NSCAPI_EXPORT value_container {
   bool is_unsure;
 
   value_container() : is_unsure(false) {}
-  value_container(bool is_unsure) : is_unsure(is_unsure) {}
+  value_container(const bool is_unsure) : is_unsure(is_unsure) {}
   value_container(const value_container &other) : is_unsure(other.is_unsure) { set_value(other); }
   value_container &operator=(const value_container &other) {
     is_unsure = other.is_unsure;
     set_value(other);
     return *this;
   }
-  static value_container create_int(long long value, bool is_unsure = false) {
+  static value_container create_int(const long long value, const bool is_unsure = false) {
     value_container ret(is_unsure);
     ret.set_int(value);
     return ret;
   }
-  static value_container create_float(double value, bool is_unsure = false) {
+  static value_container create_float(const double value, const bool is_unsure = false) {
     value_container ret(is_unsure);
     ret.set_float(value);
     return ret;
   }
-  static value_container create_bool(bool value, bool is_unsure = false) {
+  static value_container create_bool(const bool value, const bool is_unsure = false) {
     value_container ret(is_unsure);
     ret.set_int(value ? 1 : 0);
     return ret;
   }
-  static value_container create_string(std::string value, bool is_unsure = false) {
+  static value_container create_string(std::string value, const bool is_unsure = false) {
     value_container ret(is_unsure);
     ret.set_string(std::move(value));
     return ret;
   }
-  static value_container create_nil(bool is_unsure = false) {
+  static value_container create_nil(const bool is_unsure = false) {
     value_container ret(is_unsure);
     return ret;
   }
@@ -183,12 +183,12 @@ struct NSCAPI_EXPORT value_container {
     if (f_value) return static_cast<double>(*f_value);
     throw filter_exception("Type is not float");
   }
-  long long get_int(long long def) const {
+  long long get_int(const long long def) const {
     if (i_value) return *i_value;
     if (f_value) return static_cast<long long>(*f_value);
     return def;
   }
-  double get_float(double def) const {
+  double get_float(const double def) const {
     if (i_value) return static_cast<double>(*i_value);
     if (f_value) return *f_value;
     return def;
@@ -199,7 +199,7 @@ struct NSCAPI_EXPORT value_container {
   }
   std::string get_string() const;
   std::string get_string(std::string def) const;
-  bool is(int type) const {
+  bool is(const int type) const {
     if (type == type_int) return i_value.is_initialized();
     if (type == type_float) return f_value.is_initialized();
     if (type == type_string) return s_value.is_initialized();
@@ -255,10 +255,10 @@ struct performance_node {
   performance_node() = default;
 };
 struct NSCAPI_EXPORT performance_collector {
-  typedef std::map<std::string, performance_node> boundries_type;
+  typedef std::map<std::string, performance_node> boundaries_type;
 
  private:
-  boundries_type boundries;
+  boundaries_type boundaries;
   node_type candidate_value_;
   std::string candidate_variable_;
 
@@ -266,8 +266,8 @@ struct NSCAPI_EXPORT performance_collector {
   void add_perf(const performance_collector &other);
   bool has_candidates() const;
   void add_candidates(const performance_collector &other);
-  void set_candidate_variable(std::string name);
-  void set_candidate_value(node_type value);
+  void set_candidate_variable(const std::string &name);
+  void set_candidate_value(const node_type &value);
   void clear_candidates();
   bool add_bounds_candidates(const performance_collector &lower, const performance_collector &upper);
   bool add_neutral_candidates(const performance_collector &left, const performance_collector &right);
@@ -275,10 +275,11 @@ struct NSCAPI_EXPORT performance_collector {
   bool has_candidate_variable() const;
   std::string get_variable() const;
   node_type get_value() const;
-  boundries_type get_candidates();
+  boundaries_type get_candidates();
 };
 
 struct binary_operator_impl {
+  virtual ~binary_operator_impl() = default;
   virtual node_type evaluate(evaluation_context context, node_type left, node_type right) const = 0;
 };
 struct binary_function_impl {
@@ -286,6 +287,7 @@ struct binary_function_impl {
   virtual node_type evaluate(value_type type, evaluation_context context, node_type subject) const = 0;
 };
 struct unary_operator_impl {
+  virtual ~unary_operator_impl() = default;
   virtual node_type evaluate(evaluation_context context, node_type subject) const = 0;
 };
 
@@ -304,8 +306,7 @@ struct object_factory_interface : object_converter_interface {
   virtual bool has_function(const std::string &name) = 0;
   virtual node_type create_function(const std::string &name, node_type subject) = 0;
 
-  virtual std::string get_performance_config_key(std::string prefix, std::string object, std::string suffix, std::string key,
-                                                 std::string unit) const = 0;
+  virtual std::string get_performance_config_key(std::string prefix, std::string object, std::string suffix, std::string key, std::string unit) const = 0;
 };
 typedef std::shared_ptr<object_factory_interface> object_factory;
 
@@ -316,13 +317,13 @@ struct NSCAPI_EXPORT any_node {
  public:
   virtual ~any_node() = default;
   any_node() : type(type_tbd) {}
-  any_node(const value_type type) : type(type) {}
+  explicit any_node(const value_type type) : type(type) {}
   any_node(const any_node &other) = default;
   any_node &operator=(const any_node &other) = default;
 
-  std::string get_string_value(evaluation_context errors) const { return get_value(std::move(errors), type_string).get_string(""); }
-  long long get_int_value(evaluation_context errors) const { return get_value(std::move(errors), type_int).get_int(0); }
-  double get_float_value(evaluation_context errors) const { return get_value(std::move(errors), type_float).get_float(0.0); }
+  std::string get_string_value(evaluation_context context) const { return get_value(std::move(context), type_string).get_string(""); }
+  virtual long long get_int_value(evaluation_context context) const { return get_value(std::move(context), type_int).get_int(0); }
+  virtual double get_float_value(evaluation_context context) const { return get_value(std::move(context), type_float).get_float(0.0); }
   virtual value_type get_type() const { return type; }
   virtual void set_type(value_type newtype) { type = newtype; };
   bool is_int() const;
@@ -332,16 +333,16 @@ struct NSCAPI_EXPORT any_node {
   virtual value_type infer_type(object_converter converter, value_type suggestion) = 0;
 
   virtual std::string to_string() const = 0;
-  virtual std::string to_string(evaluation_context errors) const = 0;
+  virtual std::string to_string(evaluation_context context) const = 0;
 
-  virtual value_container get_value(evaluation_context errors, value_type type) const = 0;
-  virtual std::list<std::shared_ptr<any_node> > get_list_value(evaluation_context errors) const = 0;
+  virtual value_container get_value(evaluation_context context, value_type type) const = 0;
+  virtual std::list<std::shared_ptr<any_node> > get_list_value(evaluation_context context) const = 0;
 
   virtual bool can_evaluate() const = 0;
-  virtual std::shared_ptr<any_node> evaluate(evaluation_context errors) const = 0;
-  virtual bool static_evaluate(evaluation_context errors) const = 0;
-  virtual bool require_object(evaluation_context errors) const = 0;
-  virtual bool bind(object_converter errors) = 0;
+  virtual std::shared_ptr<any_node> evaluate(evaluation_context context) const = 0;
+  virtual bool static_evaluate(evaluation_context context) const = 0;
+  virtual bool require_object(evaluation_context context) const = 0;
+  virtual bool bind(object_converter converter) = 0;
 
   // Performance data functions
   virtual bool find_performance_data(evaluation_context context, performance_collector &collector) = 0;
@@ -362,9 +363,9 @@ struct factory {
   static NSCAPI_EXPORT node_type create_list(const std::list<long long> &other);
   static NSCAPI_EXPORT node_type create_list(const std::list<double> &other);
   static NSCAPI_EXPORT node_type create_bin_op(const operators &op, node_type lhs, node_type rhs);
-  static NSCAPI_EXPORT node_type create_un_op(operators op, node_type node);
+  static NSCAPI_EXPORT node_type create_un_op(operators op, const node_type &node);
   static NSCAPI_EXPORT node_type create_conversion(node_type node);
-  static NSCAPI_EXPORT node_type create_fun(object_factory factory, std::string op, node_type node);
+  static NSCAPI_EXPORT node_type create_fun(const object_factory &factory, const std::string &op, const node_type &node);
   static NSCAPI_EXPORT node_type create_string(const std::string &value);
   static NSCAPI_EXPORT node_type create_int(const long long &value);
   static NSCAPI_EXPORT node_type create_float(const double &value);
@@ -372,7 +373,7 @@ struct factory {
   static NSCAPI_EXPORT node_type create_ios(const std::string &value);
   static NSCAPI_EXPORT node_type create_ios(const double &value);
   static NSCAPI_EXPORT node_type create_neg_int(const long long &value);
-  static NSCAPI_EXPORT node_type create_variable(object_factory factory, const std::string &name);
+  static NSCAPI_EXPORT node_type create_variable(const object_factory &factory, const std::string &name);
   static NSCAPI_EXPORT node_type create_false();
   static NSCAPI_EXPORT node_type create_true();
   static NSCAPI_EXPORT node_type create_num(value_container value);

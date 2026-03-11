@@ -36,7 +36,12 @@ struct mock_perf_node final : any_node {
   node_type value_node_;       // the value node to set
 
   mock_perf_node(bool perf_return, bool set_variable, std::string variable_name, bool set_value, node_type value_node)
-      : any_node(type_int), perf_return_(perf_return), set_variable_(set_variable), variable_name_(std::move(variable_name)), set_value_(set_value), value_node_(std::move(value_node)) {}
+      : any_node(type_int),
+        perf_return_(perf_return),
+        set_variable_(set_variable),
+        variable_name_(std::move(variable_name)),
+        set_value_(set_value),
+        value_node_(std::move(value_node)) {}
 
   std::string to_string() const override { return "mock"; }
   std::string to_string(evaluation_context) const override { return "mock"; }
@@ -57,7 +62,8 @@ struct mock_perf_node final : any_node {
   }
 };
 
-static node_type make_mock_perf(bool perf_return, bool set_variable = false, std::string variable_name = "", bool set_value = false, node_type value_node = nullptr) {
+static node_type make_mock_perf(bool perf_return, bool set_variable = false, std::string variable_name = "", bool set_value = false,
+                                node_type value_node = nullptr) {
   return std::make_shared<mock_perf_node>(perf_return, set_variable, std::move(variable_name), set_value, std::move(value_node));
 }
 
@@ -128,7 +134,6 @@ static node_type make_float(double v) { return factory::create_float(v); }
 static node_type make_string(const std::string &v) { return factory::create_string(v); }
 
 static node_type make_bin_op(operators op, node_type lhs, node_type rhs) { return factory::create_bin_op(op, lhs, rhs); }
-
 
 TEST(BinaryOp, NewNodeShouldBeTBD) {
   const node_type node = make_bin_op(op_eq, make_int(1), make_int(1));
@@ -467,7 +472,6 @@ TEST(BinaryOp, EvaluateShouldFailIfNoType) {
   EXPECT_TRUE(ctx->has_error());
   EXPECT_EQ(ctx->get_error(), "Binary operator does not work with tbd");
 }
-
 
 // ======================================================================
 // require_object
@@ -831,5 +835,3 @@ TEST(BinaryOp, FindPerformanceDataBothVariablesNoValueNeutralReturnsFalse) {
   const node_type node = make_bin_op(op_eq, make_mock_perf(false, true, "a", false, nullptr), make_mock_perf(false, true, "b", false, nullptr));
   EXPECT_FALSE(node->find_performance_data(ctx, collector));
 }
-
-
