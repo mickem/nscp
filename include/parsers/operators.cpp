@@ -20,7 +20,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/optional.hpp>
 #include <boost/regex.hpp>
-#include <cmath> // Required on linux
+#include <cmath>  // Required on linux
 #include <iostream>
 #include <parsers/helpers.hpp>
 #include <parsers/operators.hpp>
@@ -33,8 +33,8 @@
 namespace parsers {
 namespace where {
 namespace operator_impl {
-struct simple_bool_binary_operator_impl : public binary_operator_impl {
-  node_type evaluate(evaluation_context context, const node_type left, const node_type right) const override {
+struct simple_bool_binary_operator_impl : binary_operator_impl {
+  node_type evaluate(const evaluation_context context, const node_type left, const node_type right) const override {
     const value_type ltype = left->get_type();
     const value_type rtype = right->get_type();
 
@@ -42,7 +42,7 @@ struct simple_bool_binary_operator_impl : public binary_operator_impl {
 
     if (helpers::type_is_float(ltype) && helpers::type_is_float(rtype)) return factory::create_num(eval_float(ltype, context, left, right));
 
-    if ((ltype != rtype) && (rtype != type_tbd)) {
+    if (ltype != rtype && rtype != type_tbd) {
       context->error("Invalid types (not same) for binary operator");
       return factory::create_false();
     }
@@ -60,7 +60,7 @@ struct simple_bool_binary_operator_impl : public binary_operator_impl {
 };
 
 struct even_simpler_bool_binary_operator_impl : simple_bool_binary_operator_impl {
-  value_container eval_int(value_type type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_int(const value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_int);
     const value_container rhs = right->get_value(context, type_int);
     if (!lhs.is(type_int) || !rhs.is(type_int)) {
@@ -69,7 +69,7 @@ struct even_simpler_bool_binary_operator_impl : simple_bool_binary_operator_impl
     }
     return do_eval_int(type, context, lhs, rhs);
   };
-  value_container eval_float(value_type type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_float(const value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_float);
     const value_container rhs = right->get_value(context, type_float);
     if (!lhs.is(type_float) || !rhs.is(type_float)) {
@@ -78,7 +78,7 @@ struct even_simpler_bool_binary_operator_impl : simple_bool_binary_operator_impl
     }
     return do_eval_float(type, context, lhs, rhs);
   };
-  value_container eval_string(value_type type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_string(const value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_string);
     const value_container rhs = right->get_value(context, type_string);
     if (!lhs.is(type_string) || !rhs.is(type_string)) {
@@ -101,7 +101,6 @@ struct eval_helper {
   const value_type rtype;
   boost::optional<value_container> lhs;
   boost::optional<value_container> rhs;
-  boost::optional<value_container> result_;
 
   eval_helper(const evaluation_context &context, const node_type &left, const node_type &right)
       : left(left), right(right), context(context), ltype(left->get_type()), rtype(right->get_type()) {}
@@ -221,15 +220,15 @@ struct operator_or : simple_int_binary_operator_impl {
 };
 
 struct operator_like : simple_bool_binary_operator_impl {
-  value_container eval_int(value_type type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     context->error("Like not supported on numbers...");
     return value_container::create_nil();
   };
-  value_container eval_float(value_type type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_float(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     context->error("Like not supported on numbers...");
     return value_container::create_nil();
   };
-  value_container eval_string(value_type type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_string(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_string);
     const value_container rhs = right->get_value(context, type_string);
     if (!lhs.is(type_string) || !rhs.is(type_string)) {
@@ -245,15 +244,15 @@ struct operator_like : simple_bool_binary_operator_impl {
   }
 };
 struct operator_regexp : simple_bool_binary_operator_impl {
-  value_container eval_int(value_type type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     context->error("Like not supported on numbers...");
     return value_container::create_nil();
   };
-  value_container eval_float(value_type type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_float(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     context->error("Like not supported on numbers...");
     return value_container::create_nil();
   };
-  value_container eval_string(value_type type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_string(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_string);
     const value_container rhs = right->get_value(context, type_string);
     if (!lhs.is(type_string) || !rhs.is(type_string)) {
@@ -266,7 +265,7 @@ struct operator_regexp : simple_bool_binary_operator_impl {
       const boost::regex re(regexp);
       return value_container::create_int(boost::regex_match(str, re), lhs.is_unsure || rhs.is_unsure);
     } catch (const boost::bad_expression &e) {
-      context->error("Invalid syntax in regular expression:" + regexp);
+      context->error("Invalid syntax in regular expression:" + regexp + " error: " + e.what());
       return value_container::create_nil();
     } catch (...) {
       context->error("Invalid syntax in regular expression:" + regexp);
@@ -275,15 +274,15 @@ struct operator_regexp : simple_bool_binary_operator_impl {
   }
 };
 struct operator_not_regexp : simple_bool_binary_operator_impl {
-  value_container eval_int(value_type type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     context->error("Like not supported on numbers...");
     return value_container::create_nil();
   };
-  value_container eval_float(value_type type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_float(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     context->error("Like not supported on numbers...");
     return value_container::create_nil();
   };
-  value_container eval_string(value_type type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_string(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_string);
     const value_container rhs = right->get_value(context, type_string);
     if (!lhs.is(type_string) || !rhs.is(type_string)) {
@@ -296,7 +295,7 @@ struct operator_not_regexp : simple_bool_binary_operator_impl {
       const boost::regex re(regexp);
       return value_container::create_int(!boost::regex_match(str, re), lhs.is_unsure || rhs.is_unsure);
     } catch (const boost::bad_expression &e) {
-      context->error("Invalid syntax in regular expression:" + regexp);
+      context->error("Invalid syntax in regular expression:" + regexp + " error: " + e.what());
       return value_container::create_nil();
     } catch (...) {
       context->error("Invalid syntax in regular expression:" + regexp);
@@ -305,15 +304,15 @@ struct operator_not_regexp : simple_bool_binary_operator_impl {
   }
 };
 struct operator_not_like : simple_bool_binary_operator_impl {
-  value_container eval_int(value_type type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     context->error("Like not supported on numbers...");
     return value_container::create_nil();
   };
-  value_container eval_float(value_type type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_float(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     context->error("Like not supported on numbers...");
     return value_container::create_nil();
   };
-  value_container eval_string(value_type type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_string(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_string);
     const value_container rhs = right->get_value(context, type_string);
     if (!lhs.is(type_string) || !rhs.is(type_string)) {
@@ -329,7 +328,7 @@ struct operator_not_like : simple_bool_binary_operator_impl {
   }
 };
 struct operator_not_in : simple_bool_binary_operator_impl {
-  value_container eval_int(value_type type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_int);
     const long long val = lhs.get_int();
     for (const node_type itm : right->get_list_value(context)) {
@@ -337,7 +336,7 @@ struct operator_not_in : simple_bool_binary_operator_impl {
     }
     return value_container::create_int(true, lhs.is_unsure);
   }
-  value_container eval_float(value_type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_float(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_float);
     const double val = lhs.get_float();
     for (const node_type itm : right->get_list_value(context)) {
@@ -345,7 +344,7 @@ struct operator_not_in : simple_bool_binary_operator_impl {
     }
     return value_container::create_int(true, lhs.is_unsure);
   }
-  value_container eval_string(value_type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_string(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_string);
     const std::string val = lhs.get_string();
     for (const node_type itm : right->get_list_value(context)) {
@@ -355,7 +354,7 @@ struct operator_not_in : simple_bool_binary_operator_impl {
   };
 };
 struct operator_in : simple_bool_binary_operator_impl {
-  value_container eval_int(value_type type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_int);
     const long long val = lhs.get_int();
     for (const node_type itm : right->get_list_value(context)) {
@@ -364,7 +363,7 @@ struct operator_in : simple_bool_binary_operator_impl {
     }
     return value_container::create_int(false, lhs.is_unsure);
   }
-  value_container eval_float(value_type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_float(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_float);
     const double val = lhs.get_float();
     for (const node_type itm : right->get_list_value(context)) {
@@ -372,7 +371,7 @@ struct operator_in : simple_bool_binary_operator_impl {
     }
     return value_container::create_int(false, lhs.is_unsure);
   }
-  value_container eval_string(value_type, evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_string(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_string);
     const std::string val = lhs.get_string();
     for (const node_type itm : right->get_list_value(context)) {
@@ -437,45 +436,45 @@ struct function_convert : binary_function_impl {
     return v;
   }
 
-  static long long parse_time(long long new_value, std::string mew_unit) {
-    long long now = constants::get_now();
-    if (mew_unit.empty()) return now + new_value;
-    if ((mew_unit == "s") || (mew_unit == "S")) return now + (new_value);
-    if ((mew_unit == "m") || (mew_unit == "M")) return now + (new_value * 60);
-    if ((mew_unit == "h") || (mew_unit == "H")) return now + (new_value * 60 * 60);
-    if ((mew_unit == "d") || (mew_unit == "D")) return now + (new_value * 24 * 60 * 60);
-    if ((mew_unit == "w") || (mew_unit == "W")) return now + (new_value * 7 * 24 * 60 * 60);
+  static long long parse_time(const long long new_value, const std::string &new_unit) {
+    const long long now = constants::get_now();
+    if (new_unit.empty()) return now + new_value;
+    if ((new_unit == "s") || (new_unit == "S")) return now + (new_value);
+    if ((new_unit == "m") || (new_unit == "M")) return now + (new_value * 60);
+    if ((new_unit == "h") || (new_unit == "H")) return now + (new_value * 60 * 60);
+    if ((new_unit == "d") || (new_unit == "D")) return now + (new_value * 24 * 60 * 60);
+    if ((new_unit == "w") || (new_unit == "W")) return now + (new_value * 7 * 24 * 60 * 60);
     return now + new_value;
   }
 
-  static long long parse_size(long long new_value, std::string mew_unit) {
-    if (mew_unit.empty()) return new_value;
-    if ((mew_unit == "b") || (mew_unit == "B")) return new_value;
-    if ((mew_unit == "k") || (mew_unit == "k")) return new_value * 1024;
-    if ((mew_unit == "m") || (mew_unit == "M")) return new_value * 1024 * 1024;
-    if ((mew_unit == "g") || (mew_unit == "G")) return new_value * 1024 * 1024 * 1024;
-    if ((mew_unit == "t") || (mew_unit == "T")) return new_value * 1024 * 1024 * 1024 * 1024;
+  static long long parse_size(const long long new_value, const std::string &new_unit) {
+    if (new_unit.empty()) return new_value;
+    if ((new_unit == "b") || (new_unit == "B")) return new_value;
+    if ((new_unit == "k") || (new_unit == "K")) return new_value * 1024;
+    if ((new_unit == "m") || (new_unit == "M")) return new_value * 1024 * 1024;
+    if ((new_unit == "g") || (new_unit == "G")) return new_value * 1024 * 1024 * 1024;
+    if ((new_unit == "t") || (new_unit == "T")) return new_value * 1024 * 1024 * 1024 * 1024;
     return new_value;
   }
 };
 
 struct simple_bool_unary_operator_impl : unary_operator_impl {
-  node_type evaluate(evaluation_context context, const node_type subject) const override {
+  node_type evaluate(const evaluation_context context, const node_type subject) const override {
     const value_type type = subject->get_type();
     if (helpers::type_is_int(type)) return eval_int(type, context, subject) ? factory::create_true() : factory::create_false();
     if (type == type_string) return eval_string(type, context, subject) ? factory::create_true() : factory::create_false();
     context->error("missing impl for bool unary operator");
     return factory::create_false();
   }
-  virtual bool eval_int(value_type type, evaluation_context context, const node_type subject) const = 0;
-  virtual bool eval_string(value_type type, evaluation_context context, const node_type subject) const = 0;
+  virtual bool eval_int(value_type type, evaluation_context context, node_type subject) const = 0;
+  virtual bool eval_string(value_type type, evaluation_context context, node_type subject) const = 0;
 };
 
 struct operator_not : unary_operator_impl, binary_function_impl {
-  explicit operator_not(const node_type) {}
+  explicit operator_not(const node_type &) {}
   operator_not() {}
-  node_type evaluate(evaluation_context context, const node_type subject) const override { return evaluate(subject->get_type(), context, subject); }
-  node_type evaluate(value_type type, evaluation_context context, const node_type subject) const override {
+  node_type evaluate(const evaluation_context context, const node_type subject) const override { return evaluate(subject->get_type(), context, subject); }
+  node_type evaluate(const value_type type, const evaluation_context context, const node_type subject) const override {
     if (type == type_bool) return subject->get_int_value(context) ? factory::create_false() : factory::create_true();
     if (type == type_int) return factory::create_int(-subject->get_int_value(context));
     if (type == type_date) {
@@ -489,7 +488,7 @@ struct operator_not : unary_operator_impl, binary_function_impl {
 };
 }  // namespace operator_impl
 
-op_factory::bin_op_type op_factory::get_binary_operator(operators op, const node_type, const node_type) {
+op_factory::bin_op_type op_factory::get_binary_operator(const operators op, const node_type &, const node_type &) {
   // op_in, op_nin
   if (op == op_eq) return std::make_shared<operator_impl::operator_eq>();
   if (op == op_gt) return std::make_shared<operator_impl::operator_gt>();
@@ -513,18 +512,18 @@ op_factory::bin_op_type op_factory::get_binary_operator(operators op, const node
   return std::make_shared<operator_impl::operator_false>();
 }
 
-bool op_factory::is_binary_function(std::string name) {
+bool op_factory::is_binary_function(const std::string &name) {
   if (name == "convert" || name == "auto_convert") return true;
   if (name == "neg") return true;
   return false;
 }
-op_factory::bin_fun_type op_factory::get_binary_function(evaluation_context context, std::string name, const node_type subject) {
+op_factory::bin_fun_type op_factory::get_binary_function(evaluation_context context, const std::string &name, const node_type &subject) {
   if (name == "convert" || name == "auto_convert") return std::make_shared<operator_impl::function_convert>(context, subject);
   if (name == "neg") return std::make_shared<operator_impl::operator_not>(subject);
   std::cout << "======== UNDEFINED FUNCTION: " << name << std::endl;
   return std::make_shared<operator_impl::operator_false>();
 }
-op_factory::un_op_type op_factory::get_unary_operator(operators op) {
+op_factory::un_op_type op_factory::get_unary_operator(const operators op) {
   // op_inv, op_not
   if (op == op_not) return std::make_shared<operator_impl::operator_not>();
   std::cout << "======== UNHANDLED OPERATOR\n";

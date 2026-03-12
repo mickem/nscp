@@ -219,6 +219,7 @@ NSCP_CREATE_TEST(
     perf_config_parser_test
     SOURCES
         ${NSCP_INCLUDEDIR}/parsers/perfconfig/perfconfig_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/perfdata_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/perfconfig/perfconfig.cpp
     LIBRARIES
         GTest::gtest_main
@@ -301,11 +302,14 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/parsers/where/unary_op_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/value_node_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/variable_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/where_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/operators_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/list_node.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/unary_fun.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/value_node.cpp
         ${NSCP_INCLUDEDIR}/parsers/operators.cpp
+        ${NSCP_INCLUDEDIR}/parsers/where.cpp
+        ${NSCP_INCLUDEDIR}/parsers/where/grammar/grammar.cpp
         ${NSCP_INCLUDEDIR}/utf8.cpp
     LIBRARIES
         GTest::gtest_main
