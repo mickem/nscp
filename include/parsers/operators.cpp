@@ -20,6 +20,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/optional.hpp>
 #include <boost/regex.hpp>
+#include <cmath> // Required on linux
 #include <iostream>
 #include <parsers/helpers.hpp>
 #include <parsers/operators.hpp>
