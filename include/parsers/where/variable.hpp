@@ -21,7 +21,6 @@
 
 #include <algorithm>
 #include <boost/function.hpp>
-#include <boost/shared_ptr.hpp>
 #include <parsers/where/helpers.hpp>
 #include <parsers/where/node.hpp>
 #include <str/format.hpp>
@@ -31,27 +30,28 @@ namespace parsers {
 namespace where {
 template <class TObject, typename TDataType>
 struct number_performance_generator_interface {
+  virtual ~number_performance_generator_interface() = default;
   virtual bool is_configured() = 0;
-  virtual void configure(const std::string key, object_factory context) = 0;
+  virtual void configure(std::string key, object_factory context) = 0;
   virtual void eval(perf_list_type &list, evaluation_context context, std::string alias, TDataType current_value, TDataType warn, TDataType crit,
                     TObject object) = 0;
 };
 
 template <class TContext, typename TDataType>
-struct simple_number_performance_generator : public number_performance_generator_interface<TContext, TDataType> {
+struct simple_number_performance_generator : number_performance_generator_interface<TContext, TDataType> {
   std::string unit;
   std::string prefix;
   std::string suffix;
   bool configured;
   bool ignored;
-  simple_number_performance_generator(const std::string unit, std::string prefix, std::string suffix)
+  simple_number_performance_generator(const std::string &unit, const std::string &prefix, const std::string &suffix)
       : unit(unit), prefix(prefix), suffix(suffix), configured(false), ignored(false) {}
-  simple_number_performance_generator(const std::string unit) : unit(unit), configured(false), ignored(false) {}
-  virtual bool is_configured() { return configured; }
-  virtual void configure(const std::string key, object_factory context) {
-    std::string p = boost::trim_copy(prefix);
-    std::string k = boost::trim_copy(key);
-    std::string s = boost::trim_copy(suffix);
+  explicit simple_number_performance_generator(const std::string &unit) : unit(unit), configured(false), ignored(false) {}
+  bool is_configured() override { return configured; }
+  void configure(const std::string key, const object_factory context) override {
+    const std::string p = boost::trim_copy(prefix);
+    const std::string k = boost::trim_copy(key);
+    const std::string s = boost::trim_copy(suffix);
     unit = context->get_performance_config_key(p, k, s, "unit", unit);
     prefix = context->get_performance_config_key(p, k, s, "prefix", prefix);
     suffix = context->get_performance_config_key(p, k, s, "suffix", suffix);
@@ -60,8 +60,8 @@ struct simple_number_performance_generator : public number_performance_generator
     if (context->get_performance_config_key(p, k, s, "ignored", "false") == "true") ignored = true;
     configured = true;
   }
-  virtual void eval(perf_list_type &list, evaluation_context context, std::string alias, TDataType current_value, TDataType warn, TDataType crit,
-                    TContext object) {
+  void eval(perf_list_type &list, evaluation_context context, const std::string alias, TDataType current_value, TDataType warn, TDataType crit,
+            TContext object) override {
     if (ignored) return;
     performance_data data;
     performance_data::perf_value int_data;
@@ -76,7 +76,7 @@ struct simple_number_performance_generator : public number_performance_generator
 };
 
 template <class TContext>
-struct percentage_int_performance_generator : public number_performance_generator_interface<TContext, long long> {
+struct percentage_int_performance_generator : number_performance_generator_interface<TContext, long long> {
   typedef boost::function<long long(TContext, evaluation_context)> maxfun_type;
   maxfun_type maxfun;
   std::string prefix;
@@ -85,11 +85,11 @@ struct percentage_int_performance_generator : public number_performance_generato
   bool ignored;
   percentage_int_performance_generator(maxfun_type maxfun, std::string prefix, std::string suffix)
       : maxfun(maxfun), prefix(prefix), suffix(suffix), configured(false), ignored(false) {}
-  virtual bool is_configured() { return configured; }
-  virtual void configure(const std::string key, object_factory context) {
-    std::string p = boost::trim_copy(prefix);
-    std::string k = boost::trim_copy(key);
-    std::string s = boost::trim_copy(suffix);
+  bool is_configured() override { return configured; }
+  void configure(const std::string key, const object_factory context) override {
+    const std::string p = boost::trim_copy(prefix);
+    const std::string k = boost::trim_copy(key);
+    const std::string s = boost::trim_copy(suffix);
     prefix = context->get_performance_config_key(p, k, s, "prefix", prefix);
     suffix = context->get_performance_config_key(p, k, s, "suffix", suffix);
     if (prefix == "none") prefix = "";
@@ -98,8 +98,8 @@ struct percentage_int_performance_generator : public number_performance_generato
     configured = true;
   }
   double round(double number) { return number < 0.0 ? ceil(number - 0.5) : floor(number + 0.5); }
-  virtual void eval(perf_list_type &list, evaluation_context context, std::string alias, long long current_value, long long warn, long long crit,
-                    TContext object) {
+  void eval(perf_list_type &list, evaluation_context context, std::string alias, long long current_value, long long warn, long long crit,
+            TContext object) override {
     if (ignored) return;
     long long maximum = maxfun(object, context);
     performance_data data;
@@ -119,7 +119,7 @@ struct percentage_int_performance_generator : public number_performance_generato
 };
 
 template <class TContext>
-struct scaled_byte_int_performance_generator : public number_performance_generator_interface<TContext, long long> {
+struct scaled_byte_int_performance_generator : number_performance_generator_interface<TContext, long long> {
   typedef boost::function<long long(TContext, evaluation_context)> maxfun_type;
   maxfun_type minfun;
   maxfun_type maxfun;
@@ -128,16 +128,17 @@ struct scaled_byte_int_performance_generator : public number_performance_generat
   std::string unit;
   bool configured;
   bool ignored;
-  scaled_byte_int_performance_generator(maxfun_type minfun, maxfun_type maxfun, std::string prefix, std::string suffix)
+  scaled_byte_int_performance_generator(maxfun_type minfun, maxfun_type maxfun, const std::string &prefix, const std::string &suffix)
       : minfun(minfun), maxfun(maxfun), prefix(prefix), suffix(suffix), configured(false), ignored(false) {}
-  scaled_byte_int_performance_generator(maxfun_type maxfun, std::string prefix, std::string suffix)
+  scaled_byte_int_performance_generator(maxfun_type maxfun, const std::string &prefix, const std::string &suffix)
       : maxfun(maxfun), prefix(prefix), suffix(suffix), configured(false), ignored(false) {}
-  scaled_byte_int_performance_generator(std::string prefix, std::string suffix) : prefix(prefix), suffix(suffix), configured(false), ignored(false) {}
-  virtual bool is_configured() { return configured; }
-  virtual void configure(const std::string key, object_factory context) {
-    std::string p = boost::trim_copy(prefix);
-    std::string k = boost::trim_copy(key);
-    std::string s = boost::trim_copy(suffix);
+  scaled_byte_int_performance_generator(const std::string &prefix, const std::string &suffix)
+      : prefix(prefix), suffix(suffix), configured(false), ignored(false) {}
+  bool is_configured() override { return configured; }
+  void configure(const std::string key, object_factory context) override {
+    const std::string p = boost::trim_copy(prefix);
+    const std::string k = boost::trim_copy(key);
+    const std::string s = boost::trim_copy(suffix);
     unit = context->get_performance_config_key(p, k, s, "unit", unit);
     prefix = context->get_performance_config_key(p, k, s, "prefix", prefix);
     suffix = context->get_performance_config_key(p, k, s, "suffix", suffix);
@@ -146,8 +147,8 @@ struct scaled_byte_int_performance_generator : public number_performance_generat
     if (context->get_performance_config_key(p, k, s, "ignored", "false") == "true") ignored = true;
     configured = true;
   }
-  virtual void eval(perf_list_type &list, evaluation_context context, std::string alias, long long current_value, long long warn, long long crit,
-                    TContext object) {
+  void eval(perf_list_type &list, evaluation_context context, const std::string alias, const long long current_value, const long long warn,
+            const long long crit, TContext object) override {
     if (ignored) return;
     std::string active_unit = unit;
     long long max_value = 0;
@@ -188,26 +189,26 @@ struct scaled_byte_int_performance_generator : public number_performance_generat
 };
 
 template <class TContext>
-struct int_variable_node : public any_node {
+struct int_variable_node : any_node {
   std::string name_;
   typedef TContext *native_context_type;
   typedef typename TContext::bound_int_type function_type;
   typedef typename TContext::object_type object_type;
-  typedef boost::shared_ptr<number_performance_generator_interface<object_type, long long> > int_performance_generator;
+  typedef std::shared_ptr<number_performance_generator_interface<object_type, long long> > int_performance_generator;
 
   function_type fun;
   std::list<int_performance_generator> perfgen;
 
-  int_variable_node(const std::string name, value_type type, function_type fun, std::list<int_performance_generator> perfgen)
+  int_variable_node(const std::string &name, value_type type, function_type fun, std::list<int_performance_generator> perfgen)
       : any_node(type), name_(name), fun(fun), perfgen(perfgen) {}
   // TODO: add c-tors
 
-  virtual std::list<node_type> get_list_value(evaluation_context errors) const { return std::list<node_type>(); }
-  virtual bool can_evaluate() const { return true; }
-  virtual boost::shared_ptr<any_node> evaluate(evaluation_context context) const {
+  std::list<node_type> get_list_value(evaluation_context context) const override { return std::list<node_type>(); }
+  bool can_evaluate() const override { return true; }
+  std::shared_ptr<any_node> evaluate(evaluation_context context) const override {
     try {
       native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-      if (native_context != NULL && fun && native_context->has_object()) {
+      if (native_context != nullptr && fun && native_context->has_object()) {
         return factory::create_int(fun(native_context->get_object(), context));
       }
       context->error("Failed to evaluate " + name_ + " no object instance");
@@ -216,26 +217,23 @@ struct int_variable_node : public any_node {
     }
     return factory::create_false();
   }
-  virtual bool bind(object_converter context) { return true; }
-  virtual bool static_evaluate(evaluation_context context) const { return false; }
-  virtual bool require_object(evaluation_context context) const { return true; }
-  value_container get_value(evaluation_context context, value_type vt) const {
-    bool ti = helpers::type_is_int(vt);
-    bool tf = helpers::type_is_float(vt);
+  bool bind(object_converter context) override { return true; }
+  bool static_evaluate(evaluation_context context) const override { return false; }
+  bool require_object(evaluation_context context) const override { return true; }
+  value_container get_value(evaluation_context context, const value_type vt) const override {
+    const bool ti = helpers::type_is_int(vt);
+    const bool tf = helpers::type_is_float(vt);
     if (ti || tf) {
       try {
         native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-        if (native_context != NULL && fun && native_context->has_object()) {
-          long long v = fun(native_context->get_object(), context);
+        if (native_context != nullptr && fun && native_context->has_object()) {
+          const long long v = fun(native_context->get_object(), context);
           if (ti) return value_container::create_int(v);
-          if (tf) return value_container::create_float(static_cast<double>(v));
-        } else {
-          context->warn("Failed to get " + name_ + " no object instance");
-          if (ti) return value_container::create_int(0, true);
-          if (tf) return value_container::create_float(0, true);
+          return value_container::create_float(static_cast<double>(v));
         }
-        context->error("Failed to evaluate " + name_);
-        return value_container::create_nil();
+        context->warn("Failed to get " + name_ + " no object instance");
+        if (ti) return value_container::create_int(0, true);
+        return value_container::create_float(0, true);
       } catch (const std::exception &e) {
         context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
         return value_container::create_nil();
@@ -244,29 +242,30 @@ struct int_variable_node : public any_node {
     context->error("Invalid type " + name_ + " we are int but wanted: " + str::xtos(vt));
     return value_container::create_nil();
   }
-  virtual std::string to_string(evaluation_context context) const {
+  std::string to_string(evaluation_context context) const override {
     native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-    if (native_context != NULL && fun && native_context->has_object()) {
+    if (native_context != nullptr && fun && native_context->has_object()) {
       return str::xtos(fun(native_context->get_object(), context));
     }
     return name_ + "?";
   }
-  std::string to_string() const { return "(int)var:" + name_; }
-  value_type infer_type(object_converter converter, value_type vt) {
+  std::string to_string() const override { return "(int)var:" + name_; }
+  value_type infer_type(object_converter converter, const value_type vt) override {
     if (helpers::type_is_int(vt)) return get_type();
     if (helpers::type_is_float(vt)) set_type(vt);
     return get_type();
   }
-  value_type infer_type(object_converter converter) { return get_type(); }
-  bool find_performance_data(evaluation_context context, performance_collector &collector) {
+  value_type infer_type(object_converter converter) override { return get_type(); }
+  bool find_performance_data(evaluation_context context, performance_collector &collector) override {
     collector.set_candidate_variable(name_);
     return false;
   }
 
-  virtual perf_list_type get_performance_data(object_factory context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum) {
+  perf_list_type get_performance_data(object_factory context, std::string alias, const node_type warn, const node_type crit, node_type minimum,
+                                      node_type maximum) override {
     perf_list_type ret;
     native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-    if (native_context != NULL && native_context->has_object()) {
+    if (native_context != nullptr && native_context->has_object()) {
       long long warn_value = 0;
       long long crit_value = 0;
       long long current_value = get_int_value(context);
@@ -281,52 +280,49 @@ struct int_variable_node : public any_node {
   }
 };
 template <class TContext>
-struct float_variable_node : public any_node {
+struct float_variable_node : any_node {
   std::string name_;
   typedef TContext *native_context_type;
   typedef typename TContext::bound_float_type function_type;
   typedef typename TContext::object_type object_type;
-  typedef boost::shared_ptr<number_performance_generator_interface<object_type, double> > float_performance_generator;
+  typedef std::shared_ptr<number_performance_generator_interface<object_type, double> > float_performance_generator;
 
   function_type fun;
   std::list<float_performance_generator> perfgen;
 
-  float_variable_node(const std::string name, value_type type, function_type fun, std::list<float_performance_generator> perfgen)
+  float_variable_node(const std::string &name, value_type type, function_type fun, std::list<float_performance_generator> perfgen)
       : any_node(type), name_(name), fun(fun), perfgen(perfgen) {}
   // TODO: add c-tors
 
-  virtual std::list<node_type> get_list_value(evaluation_context errors) const { return std::list<node_type>(); }
-  virtual bool can_evaluate() const { return true; }
-  virtual boost::shared_ptr<any_node> evaluate(evaluation_context context) const {
+  std::list<node_type> get_list_value(evaluation_context context) const override { return std::list<node_type>(); }
+  bool can_evaluate() const override { return true; }
+  std::shared_ptr<any_node> evaluate(evaluation_context context) const override {
     try {
       native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-      if (native_context != NULL && fun && native_context->has_object()) return factory::create_float(fun(native_context->get_object(), context));
+      if (native_context != nullptr && fun && native_context->has_object()) return factory::create_float(fun(native_context->get_object(), context));
       context->error("Failed to evaluate " + name_ + " no object instance");
     } catch (const std::exception &e) {
       context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
     }
     return factory::create_false();
   }
-  virtual bool bind(object_converter context) { return true; }
-  virtual bool static_evaluate(evaluation_context context) const { return false; }
-  virtual bool require_object(evaluation_context context) const { return true; }
-  value_container get_value(evaluation_context context, value_type vt) const {
-    bool ti = helpers::type_is_int(vt);
-    bool tf = helpers::type_is_float(vt);
+  bool bind(object_converter context) override { return true; }
+  bool static_evaluate(evaluation_context context) const override { return false; }
+  bool require_object(evaluation_context context) const override { return true; }
+  value_container get_value(evaluation_context context, value_type vt) const override {
+    const bool ti = helpers::type_is_int(vt);
+    const bool tf = helpers::type_is_float(vt);
     if (ti || tf) {
       try {
         native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-        if (native_context != NULL && fun && native_context->has_object()) {
-          double v = fun(native_context->get_object(), context);
+        if (native_context != nullptr && fun && native_context->has_object()) {
+          const double v = fun(native_context->get_object(), context);
           if (ti) return value_container::create_int(static_cast<long long>(v));
-          if (tf) return value_container::create_float(v);
-        } else {
-          context->warn("Failed to get " + name_ + " no object instance");
-          if (ti) return value_container::create_int(0, true);
-          if (tf) return value_container::create_float(0, true);
+          return value_container::create_float(v);
         }
-        context->error("Failed to evaluate " + name_ + " unknown error");
-        return value_container::create_nil();
+        context->warn("Failed to get " + name_ + " no object instance");
+        if (ti) return value_container::create_int(0, true);
+        return value_container::create_float(0, true);
       } catch (const std::exception &e) {
         context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
         return value_container::create_nil();
@@ -335,28 +331,29 @@ struct float_variable_node : public any_node {
     context->error("Invalid type " + name_ + " we are float but wanted: " + str::xtos(vt));
     return value_container::create_nil();
   }
-  virtual std::string to_string(evaluation_context context) const {
+  std::string to_string(evaluation_context context) const override {
     native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-    if (native_context != NULL && fun && native_context->has_object()) {
+    if (native_context != nullptr && fun && native_context->has_object()) {
       return str::xtos(fun(native_context->get_object(), context));
     }
     return "(float)var:" + name_;
   }
-  std::string to_string() const { return "(float)var:" + name_; }
-  value_type infer_type(object_converter converter, value_type vt) {
+  std::string to_string() const override { return "(float)var:" + name_; }
+  value_type infer_type(object_converter converter, const value_type vt) override {
     if (helpers::type_is_int(vt)) set_type(vt);
     return get_type();
   }
-  value_type infer_type(object_converter converter) { return get_type(); }
-  bool find_performance_data(evaluation_context context, performance_collector &collector) {
+  value_type infer_type(object_converter converter) override { return get_type(); }
+  bool find_performance_data(evaluation_context context, performance_collector &collector) override {
     collector.set_candidate_variable(name_);
     return false;
   }
 
-  virtual perf_list_type get_performance_data(object_factory context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum) {
+  perf_list_type get_performance_data(object_factory context, std::string alias, const node_type warn, const node_type crit, node_type minimum,
+                                      node_type maximum) override {
     perf_list_type ret;
     native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-    if (native_context != NULL && native_context->has_object()) {
+    if (native_context != nullptr && native_context->has_object()) {
       double warn_value = 0;
       double crit_value = 0;
       double current_value = get_float_value(context);
@@ -372,40 +369,40 @@ struct float_variable_node : public any_node {
 };
 
 template <class TContext>
-struct str_variable_node : public any_node {
+struct str_variable_node : any_node {
   std::string name_;
   typedef TContext *native_context_type;
   typedef typename TContext::bound_string_type function_type;
 
   function_type fun;
 
-  str_variable_node(const std::string name, value_type type, function_type fun) : any_node(type), name_(name), fun(fun) {}
+  str_variable_node(const std::string &name, const value_type type, function_type fun) : any_node(type), name_(name), fun(fun) {}
   // TODO: add c-tors
 
-  virtual std::list<node_type> get_list_value(evaluation_context errors) const { return std::list<node_type>(); }
-  virtual bool can_evaluate() const { return true; }
-  virtual boost::shared_ptr<any_node> evaluate(evaluation_context context) const {
+  std::list<node_type> get_list_value(evaluation_context context) const override { return std::list<node_type>(); }
+  bool can_evaluate() const override { return true; }
+  std::shared_ptr<any_node> evaluate(evaluation_context context) const override {
     try {
       native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-      if (native_context != NULL && fun && native_context->has_object()) return factory::create_string(fun(native_context->get_object(), context));
+      if (native_context != nullptr && fun && native_context->has_object()) return factory::create_string(fun(native_context->get_object(), context));
       context->error("Failed to evaluate " + name_ + " no object instance");
     } catch (const std::exception &e) {
       context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
     }
     return factory::create_false();
   }
-  virtual bool bind(object_converter context) { return true; }
-  virtual bool static_evaluate(evaluation_context context) const { return false; }
-  virtual bool require_object(evaluation_context context) const { return true; }
-  long long get_int_value(evaluation_context context) const {
+  bool bind(object_converter context) override { return true; }
+  bool static_evaluate(evaluation_context context) const override { return false; }
+  bool require_object(evaluation_context context) const override { return true; }
+  long long get_int_value(const evaluation_context context) const override {
     context->error("Invalid type: " + name_);
     return 0;
   }
-  double get_float_value(evaluation_context context) const {
+  double get_float_value(const evaluation_context context) const override {
     context->error("Invalid type: " + name_);
     return 0;
   }
-  value_container get_value(evaluation_context context, value_type vt) const {
+  value_container get_value(evaluation_context context, const value_type vt) const override {
     if (vt == type_string) {
       try {
         native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
@@ -413,7 +410,7 @@ struct str_variable_node : public any_node {
           context->error("Unbound function " + name_);
           return value_container::create_nil();
         }
-        if (native_context != NULL && fun) return value_container::create_string(fun(native_context->get_object(), context));
+        if (native_context != nullptr && fun) return value_container::create_string(fun(native_context->get_object(), context));
         context->warn("Failed to get " + name_ + " no object instance");
         return value_container::create_int(0, true);
       } catch (const std::exception &e) {
@@ -424,31 +421,31 @@ struct str_variable_node : public any_node {
     context->error("Invalid type " + name_);
     return value_container::create_nil();
   }
-  virtual std::string to_string(evaluation_context context) const {
+  std::string to_string(evaluation_context context) const override {
     native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-    if (native_context != NULL && native_context->has_object()) {
+    if (native_context != nullptr && native_context->has_object()) {
       return fun(native_context->get_object(), context);
     }
     return "(string)var:" + name_;
   }
-  std::string to_string() const { return "(string)var:" + name_; }
-  value_type infer_type(object_converter, value_type) { return get_type(); }
-  value_type infer_type(object_converter) { return get_type(); }
-  bool find_performance_data(evaluation_context context, performance_collector &collector) {
+  std::string to_string() const override { return "(string)var:" + name_; }
+  value_type infer_type(object_converter, value_type) override { return get_type(); }
+  value_type infer_type(object_converter) override { return get_type(); }
+  bool find_performance_data(evaluation_context context, performance_collector &collector) override {
     collector.set_candidate_variable(name_);
     return false;
   }
 };
 
 template <class TContext>
-struct dual_variable_node : public any_node {
+struct dual_variable_node : any_node {
   std::string name_;
   typedef TContext *native_context_type;
   typedef typename TContext::bound_string_type s_function_type;
   typedef typename TContext::bound_int_type i_function_type;
   typedef typename TContext::bound_float_type f_function_type;
   typedef typename TContext::object_type object_type;
-  typedef boost::shared_ptr<number_performance_generator_interface<object_type, long long> > int_performance_generator;
+  typedef std::shared_ptr<number_performance_generator_interface<object_type, long long> > int_performance_generator;
   value_type fallback_type;
 
   i_function_type i_fun;
@@ -456,54 +453,54 @@ struct dual_variable_node : public any_node {
   s_function_type s_fun;
   std::list<int_performance_generator> perfgen;
 
-  dual_variable_node(const std::string name, value_type fallback_type, i_function_type i_fun, s_function_type s_fun,
+  dual_variable_node(const std::string &name, value_type fallback_type, i_function_type i_fun, s_function_type s_fun,
                      std::list<int_performance_generator> perfgen)
       : any_node(type_multi), name_(name), fallback_type(fallback_type), i_fun(i_fun), s_fun(s_fun), perfgen(perfgen) {}
-  dual_variable_node(const std::string name, value_type fallback_type, i_function_type i_fun, f_function_type f_fun,
+  dual_variable_node(const std::string &name, value_type fallback_type, i_function_type i_fun, f_function_type f_fun,
                      std::list<int_performance_generator> perfgen)
       : any_node(type_multi), name_(name), fallback_type(fallback_type), i_fun(i_fun), f_fun(f_fun), perfgen(perfgen) {}
   // TODO: add c-tors
 
-  virtual std::list<node_type> get_list_value(evaluation_context errors) const { return std::list<node_type>(); }
-  virtual bool can_evaluate() const { return true; }
-  virtual boost::shared_ptr<any_node> evaluate(evaluation_context context) const {
+  std::list<node_type> get_list_value(evaluation_context context) const override { return std::list<node_type>(); }
+  bool can_evaluate() const override { return true; }
+  std::shared_ptr<any_node> evaluate(evaluation_context context) const override {
     // TODO!!!
     if (is_string()) {
       try {
         native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-        if (native_context != NULL && s_fun && native_context->has_object()) return factory::create_string(s_fun(native_context->get_object(), context));
-        context->error("Failed to evaluate " + name_ + " no object instance");
-      } catch (const std::exception &e) {
-        context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
-      }
-      return factory::create_false();
-    } else if (is_float()) {
-      try {
-        native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-        if (native_context != NULL && f_fun && native_context->has_object()) return factory::create_float(f_fun(native_context->get_object(), context));
-        context->error("Failed to evaluate " + name_ + " no object instance");
-      } catch (const std::exception &e) {
-        context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
-      }
-      return factory::create_false();
-    } else {
-      try {
-        native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-        if (native_context != NULL && i_fun && native_context->has_object()) return factory::create_int(i_fun(native_context->get_object(), context));
+        if (native_context != nullptr && s_fun && native_context->has_object()) return factory::create_string(s_fun(native_context->get_object(), context));
         context->error("Failed to evaluate " + name_ + " no object instance");
       } catch (const std::exception &e) {
         context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
       }
       return factory::create_false();
     }
-  }
-  virtual bool bind(object_converter context) { return true; }
-  virtual bool static_evaluate(evaluation_context context) const { return false; }
-  virtual bool require_object(evaluation_context context) const { return true; }
-  value_container get_value(evaluation_context context, value_type vt) const {
+    if (is_float()) {
+      try {
+        native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+        if (native_context != nullptr && f_fun && native_context->has_object()) return factory::create_float(f_fun(native_context->get_object(), context));
+        context->error("Failed to evaluate " + name_ + " no object instance");
+      } catch (const std::exception &e) {
+        context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
+      }
+      return factory::create_false();
+    }
     try {
       native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-      if (native_context != NULL && native_context->has_object()) {
+      if (native_context != nullptr && i_fun && native_context->has_object()) return factory::create_int(i_fun(native_context->get_object(), context));
+      context->error("Failed to evaluate " + name_ + " no object instance");
+    } catch (const std::exception &e) {
+      context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
+    }
+    return factory::create_false();
+  }
+  bool bind(object_converter context) override { return true; }
+  bool static_evaluate(evaluation_context context) const override { return false; }
+  bool require_object(evaluation_context context) const override { return true; }
+  value_container get_value(evaluation_context context, value_type vt) const override {
+    try {
+      native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+      if (native_context != nullptr && native_context->has_object()) {
         if (helpers::type_is_int(vt) && i_fun) return value_container::create_int(i_fun(native_context->get_object(), context));
         if (helpers::type_is_float(vt) && f_fun) return value_container::create_float(f_fun(native_context->get_object(), context));
         if (vt == type_string && s_fun) return value_container::create_string(s_fun(native_context->get_object(), context));
@@ -523,30 +520,25 @@ struct dual_variable_node : public any_node {
     context->error("Failed to evaluate " + name_);
     return value_container::create_nil();
   }
-  virtual std::string to_string(evaluation_context context) const {
+  std::string to_string(evaluation_context context) const override {
     native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-    if (native_context != NULL && native_context->has_object()) {
+    if (native_context != nullptr && native_context->has_object()) {
       if (s_fun) return s_fun(native_context->get_object(), context);
       if (i_fun) return str::xtos(i_fun(native_context->get_object(), context));
       if (f_fun) return str::xtos(f_fun(native_context->get_object(), context));
     }
-    if (is_int())
-      return name_ + "?";
-    else if (is_string())
-      return name_ + "?";
-    else if (is_float())
-      return name_ + "?";
+    if (is_int()) return name_ + "?";
+    if (is_string()) return name_ + "?";
+    if (is_float()) return name_ + "?";
     return name_ + "?";
   }
 
-  std::string to_string() const {
-    if (is_int())
-      return "(int)var:" + name_;
-    else if (is_string())
-      return "(string)var:" + name_;
+  std::string to_string() const override {
+    if (is_int()) return "(int)var:" + name_;
+    if (is_string()) return "(string)var:" + name_;
     return "(?)var:" + name_;
   }
-  value_type infer_type(object_converter converter, value_type suggestion) {
+  value_type infer_type(object_converter converter, value_type suggestion) override {
     if (helpers::type_is_int(suggestion)) {
       set_type(type_int);
     } else if (helpers::type_is_float(suggestion)) {
@@ -559,16 +551,17 @@ struct dual_variable_node : public any_node {
 
     return get_type();
   }
-  value_type infer_type(object_converter converter) { return get_type(); }
-  bool find_performance_data(evaluation_context context, performance_collector &collector) {
+  value_type infer_type(object_converter converter) override { return get_type(); }
+  bool find_performance_data(evaluation_context context, performance_collector &collector) override {
     if (get_type() != type_string) collector.set_candidate_variable(name_);
     return false;
   }
 
-  virtual perf_list_type get_performance_data(object_factory context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum) {
+  perf_list_type get_performance_data(object_factory context, std::string alias, node_type warn, node_type crit, node_type minimum,
+                                      node_type maximum) override {
     perf_list_type ret;
     native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-    if (native_context != NULL && native_context->has_object()) {
+    if (native_context != nullptr && native_context->has_object()) {
       long long warn_value = 0;
       long long crit_value = 0;
       long long current_value = get_int_value(context);
@@ -585,19 +578,19 @@ struct dual_variable_node : public any_node {
 
 //////////////////////////////////////////////////////////////////////////
 
-struct custom_function_node : public any_node {
-  typedef boost::function<node_type(const value_type, evaluation_context, const node_type)> bound_function_type;
+struct custom_function_node : any_node {
+  typedef boost::function<node_type(value_type, evaluation_context, node_type)> bound_function_type;
 
   std::string name_;
   bound_function_type fun;
   node_type subject;
 
-  custom_function_node(const std::string name, bound_function_type fun, node_type subject, value_type type)
+  custom_function_node(const std::string &name, bound_function_type fun, const node_type &subject, value_type type)
       : any_node(type), name_(name), fun(fun), subject(subject) {}
 
-  virtual std::list<node_type> get_list_value(evaluation_context errors) const { return std::list<node_type>(); }
-  virtual bool can_evaluate() const { return false; }
-  virtual boost::shared_ptr<any_node> evaluate(evaluation_context context) const {
+  std::list<node_type> get_list_value(evaluation_context context) const override { return std::list<node_type>(); }
+  bool can_evaluate() const override { return false; }
+  std::shared_ptr<any_node> evaluate(const evaluation_context context) const override {
     try {
       if (fun) return fun(get_type(), context, subject);
       context->error("Failed to evaluate " + name_ + " no function");
@@ -606,42 +599,42 @@ struct custom_function_node : public any_node {
     }
     return factory::create_false();
   }
-  virtual bool bind(object_converter context) { return true; }
-  virtual bool static_evaluate(evaluation_context context) const { return false; }
-  virtual bool require_object(evaluation_context context) const { return true; }
-  value_container get_value(evaluation_context context, value_type vt) const { return evaluate(context)->get_value(context, vt); }
-  virtual std::string to_string(evaluation_context context) const {
+  bool bind(object_converter context) override { return true; }
+  bool static_evaluate(evaluation_context context) const override { return false; }
+  bool require_object(evaluation_context context) const override { return true; }
+  value_container get_value(const evaluation_context context, value_type vt) const override { return evaluate(context)->get_value(context, vt); }
+  std::string to_string(const evaluation_context context) const override {
     if (fun) return fun(type_string, context, subject)->get_string_value(context);
     return "(string)fun:" + name_;
   }
-  std::string to_string() const { return "(string)fun:" + name_; }
-  value_type infer_type(object_converter converter, value_type) { return type_string; }
-  value_type infer_type(object_converter converter) { return type_string; }
-  bool find_performance_data(evaluation_context context, performance_collector &) {
+  std::string to_string() const override { return "(string)fun:" + name_; }
+  value_type infer_type(object_converter converter, value_type) override { return type_string; }
+  value_type infer_type(object_converter converter) override { return type_string; }
+  bool find_performance_data(evaluation_context context, performance_collector &) override {
     // collector.set_candidate_variable(name_);
     return false;
   }
 };
 
 template <class TContext>
-struct summary_int_variable_node : public any_node {
+struct summary_int_variable_node : any_node {
   std::string name_;
   typedef TContext *native_context_type;
   typedef typename TContext::object_type object_type;
   typedef typename TContext::summary_type summary_type;
-  typedef boost::shared_ptr<number_performance_generator_interface<object_type, long long> > int_performance_generator;
+  typedef std::shared_ptr<number_performance_generator_interface<object_type, long long> > int_performance_generator;
   typedef typename boost::function<long long(summary_type)> function_type;
 
   function_type fun;
 
-  summary_int_variable_node(const std::string name, function_type fun) : any_node(type_int), name_(name), fun(fun) {}
+  summary_int_variable_node(const std::string &name, function_type fun) : any_node(type_int), name_(name), fun(fun) {}
 
-  virtual std::list<node_type> get_list_value(evaluation_context errors) const { return std::list<node_type>(); }
-  virtual bool can_evaluate() const { return true; }
-  bool int_get_value(evaluation_context context, bool &summary, long long &value) const {
+  std::list<node_type> get_list_value(evaluation_context context) const override { return std::list<node_type>(); }
+  bool can_evaluate() const override { return true; }
+  bool int_get_value(const evaluation_context &context, bool &summary, long long &value) const {
     try {
       native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-      if (native_context != NULL && fun) {
+      if (native_context != nullptr && fun) {
         summary = !native_context->has_object();
         value = fun(native_context->get_summary());
         return true;
@@ -652,7 +645,7 @@ struct summary_int_variable_node : public any_node {
     }
     return false;
   }
-  virtual boost::shared_ptr<any_node> evaluate(evaluation_context context) const {
+  std::shared_ptr<any_node> evaluate(const evaluation_context context) const override {
     long long value = 0;
     bool summary = false;
     if (!int_get_value(context, summary, value)) {
@@ -660,10 +653,10 @@ struct summary_int_variable_node : public any_node {
     }
     return factory::create_int(value);
   }
-  virtual bool bind(object_converter context) { return true; }
-  virtual bool static_evaluate(evaluation_context context) const { return false; }
-  virtual bool require_object(evaluation_context context) const { return false; }
-  value_container get_value(evaluation_context context, value_type wanted_type) const {
+  bool bind(object_converter context) override { return true; }
+  bool static_evaluate(evaluation_context context) const override { return false; }
+  bool require_object(evaluation_context context) const override { return false; }
+  value_container get_value(const evaluation_context context, value_type wanted_type) const override {
     if (wanted_type == type_int) {
       long long value = 0;
       bool summary = false;
@@ -676,7 +669,7 @@ struct summary_int_variable_node : public any_node {
     context->error("Unknown type: " + name_);
     return value_container::create_nil();
   }
-  virtual std::string to_string(evaluation_context context) const {
+  std::string to_string(const evaluation_context context) const override {
     long long value = 0;
     bool summary = false;
     if (int_get_value(context, summary, value)) {
@@ -685,20 +678,21 @@ struct summary_int_variable_node : public any_node {
     }
     return name_ + "?";
   }
-  std::string to_string() const { return "(int)var:" + name_; }
-  value_type infer_type(object_converter converter, value_type) { return get_type(); }
-  value_type infer_type(object_converter converter) { return get_type(); }
-  bool find_performance_data(evaluation_context context, performance_collector &collector) {
+  std::string to_string() const override { return "(int)var:" + name_; }
+  value_type infer_type(object_converter converter, value_type) override { return get_type(); }
+  value_type infer_type(object_converter converter) override { return get_type(); }
+  bool find_performance_data(evaluation_context context, performance_collector &collector) override {
     collector.set_candidate_variable(name_);
     return false;
   }
-  virtual perf_list_type get_performance_data(object_factory context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum) {
+  perf_list_type get_performance_data(const object_factory context, std::string alias, const node_type warn, const node_type crit, node_type minimum,
+                                      node_type maximum) override {
     perf_list_type ret;
     native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-    if (native_context != NULL && !native_context->has_object()) {
+    if (native_context != nullptr && !native_context->has_object()) {
       long long warn_value = 0;
       long long crit_value = 0;
-      long long current_value = get_int_value(context);
+      const long long current_value = get_int_value(context);
       if (warn) warn_value = warn->get_int_value(context);
       if (crit) crit_value = crit->get_int_value(context);
       performance_data data;
@@ -714,56 +708,56 @@ struct summary_int_variable_node : public any_node {
   }
 };
 template <class TContext>
-struct summary_string_variable_node : public any_node {
+struct summary_string_variable_node : any_node {
   std::string name_;
   typedef TContext *native_context_type;
   typedef typename TContext::object_type object_type;
   typedef typename TContext::summary_type summary_type;
-  typedef boost::shared_ptr<number_performance_generator_interface<object_type, long long> > int_performance_generator;
+  typedef std::shared_ptr<number_performance_generator_interface<object_type, long long> > int_performance_generator;
   typedef typename boost::function<std::string(summary_type)> function_type;
 
   function_type fun;
 
-  summary_string_variable_node(const std::string name, function_type fun) : any_node(type_string), name_(name), fun(fun) {}
+  summary_string_variable_node(const std::string &name, function_type fun) : any_node(type_string), name_(name), fun(fun) {}
 
-  virtual std::list<node_type> get_list_value(evaluation_context errors) const { return std::list<node_type>(); }
-  virtual bool can_evaluate() const { return true; }
-  virtual boost::shared_ptr<any_node> evaluate(evaluation_context context) const {
+  std::list<node_type> get_list_value(evaluation_context context) const override { return std::list<node_type>(); }
+  bool can_evaluate() const override { return true; }
+  std::shared_ptr<any_node> evaluate(const evaluation_context context) const override {
     try {
       native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-      if (native_context != NULL && fun) return factory::create_string(fun(native_context->get_summary()));
+      if (native_context != nullptr && fun) return factory::create_string(fun(native_context->get_summary()));
       context->error("Failed to evaluate " + name_ + " no function");
     } catch (const std::exception &e) {
       context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
     }
     return factory::create_false();
   }
-  virtual bool bind(object_converter context) { return true; }
-  virtual bool static_evaluate(evaluation_context context) const { return false; }
-  virtual bool require_object(evaluation_context context) const { return false; }
-  value_container get_value(evaluation_context context, value_type tpe) const {
+  bool bind(object_converter context) override { return true; }
+  bool static_evaluate(evaluation_context context) const override { return false; }
+  bool require_object(evaluation_context context) const override { return false; }
+  value_container get_value(const evaluation_context context, value_type tpe) const override {
     if (tpe == type_int || tpe == type_float) {
       context->error("Function not numeric: " + name_);
       return value_container::create_nil();
     }
     if (tpe == type_string) {
       native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-      if (native_context != NULL && fun) return value_container::create_string(fun(native_context->get_summary()));
+      if (native_context != nullptr && fun) return value_container::create_string(fun(native_context->get_summary()));
       context->error("Invalid function: " + name_);
       return value_container::create_nil();
     }
     context->error("Unknown type: " + name_);
     return value_container::create_nil();
   }
-  virtual std::string to_string(evaluation_context context) const {
+  std::string to_string(evaluation_context context) const override {
     native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-    if (native_context != NULL && fun) return fun(native_context->get_summary());
+    if (native_context != nullptr && fun) return fun(native_context->get_summary());
     return "(str)var:" + name_;
   }
-  std::string to_string() const { return "(str)var:" + name_; }
-  value_type infer_type(object_converter converter, value_type) { return get_type(); }
-  value_type infer_type(object_converter converter) { return get_type(); }
-  bool find_performance_data(evaluation_context, performance_collector &) { return false; }
+  std::string to_string() const override { return "(str)var:" + name_; }
+  value_type infer_type(object_converter converter, value_type) override { return get_type(); }
+  value_type infer_type(object_converter converter) override { return get_type(); }
+  bool find_performance_data(evaluation_context, performance_collector &) override { return false; }
 };
 }  // namespace where
 }  // namespace parsers

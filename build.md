@@ -442,3 +442,10 @@ cmake $SOURCE_ROOT -DBUILD_VERSION=$NSCP_VERSION
 make -j$(nproc)
 ```
 
+
+### Build NSClient++
+```bash
+cd $BUILD_FOLDER/nscp
+cmake $SOURCE_ROOT -DBUILD_VERSION=$NSCP_VERSION
+make -j$(nproc)
+```

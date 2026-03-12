@@ -20,32 +20,30 @@
 #pragma once
 
 #include <parsers/where/node.hpp>
+#include <utility>
 
 namespace parsers {
 namespace where {
-struct binary_op : public any_node {
-  binary_op(operators op, node_type left, node_type right) : op(op), left(left), right(right) {}
+struct binary_op : any_node {
+  binary_op() = delete;
+  binary_op(const operators op, node_type left, node_type right) : op(op), left(std::move(left)), right(std::move(right)) {}
 
-  // virtual bool can_convert_to(value_type newtype) = 0;
-  // virtual void force_type(value_type newtype) = 0;
+  std::string to_string() const override;
+  std::string to_string(evaluation_context context) const override;
 
-  virtual std::string to_string() const;
-  virtual std::string to_string(evaluation_context errors) const;
+  value_container get_value(evaluation_context contxt, value_type type) const override;
+  std::list<std::shared_ptr<any_node> > get_list_value(evaluation_context context) const override;
 
-  virtual value_container get_value(evaluation_context contxt, value_type type) const;
-  virtual std::list<boost::shared_ptr<any_node> > get_list_value(evaluation_context errors) const;
-
-  virtual bool can_evaluate() const;
-  virtual node_type evaluate(evaluation_context contxt) const;
-  virtual bool bind(object_converter contxt);
-  virtual value_type infer_type(object_converter converter);
-  virtual value_type infer_type(object_converter converter, value_type suggestion);
-  virtual bool find_performance_data(evaluation_context context, performance_collector &collector);
-  virtual bool static_evaluate(evaluation_context contxt) const;
-  virtual bool require_object(evaluation_context contxt) const;
+  bool can_evaluate() const override;
+  node_type evaluate(evaluation_context contxt) const override;
+  bool bind(object_converter contxt) override;
+  value_type infer_type(object_converter converter) override;
+  value_type infer_type(object_converter converter, value_type suggestion) override;
+  bool find_performance_data(evaluation_context context, performance_collector &collector) override;
+  bool static_evaluate(evaluation_context contxt) const override;
+  bool require_object(evaluation_context contxt) const override;
 
  private:
-  binary_op() {}
   operators op;
   node_type left;
   node_type right;

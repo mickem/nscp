@@ -50,7 +50,7 @@ struct perf_writer_interface {
 namespace modern_filter {
 template <class TFactory>
 struct filter_text_renderer {
-  typedef boost::shared_ptr<parsers::where::error_handler_interface> error_handler;
+  typedef std::shared_ptr<parsers::where::error_handler_interface> error_handler;
   struct my_entry {
     parsers::simple_expression::entry origin;
     parsers::where::node_type node;
@@ -68,7 +68,7 @@ struct filter_text_renderer {
   filter_text_renderer() {}
 
   bool empty() const { return entries.empty(); }
-  bool parse(boost::shared_ptr<TFactory> context, const std::string &str, const error_handler &error) {
+  bool parse(std::shared_ptr<TFactory> context, const std::string &str, const error_handler &error) {
     if (str.empty() || str == "none") return true;
     parsers::simple_expression::result_type keys;
     if (error->is_debug()) {
@@ -96,7 +96,7 @@ struct filter_text_renderer {
     }
     return true;
   }
-  std::string render(boost::shared_ptr<TFactory> context) const {
+  std::string render(std::shared_ptr<TFactory> context) const {
     std::string ret;
     for (const my_entry &e : entries) {
       if (!e.origin.is_variable)
@@ -131,14 +131,14 @@ struct filter_hash_renderer {
   filter_hash_renderer() {}
 
   bool empty() const { return entries.empty(); }
-  bool parse(boost::shared_ptr<TFactory> context) {
+  bool parse(std::shared_ptr<TFactory> context) {
     for (const std::string &e : context->get_variables()) {
       my_entry my_e(e, context->create_variable(e, true));
       entries.push_back(my_e);
     }
     return true;
   }
-  std::map<std::string, std::string> render(boost::shared_ptr<TFactory> context) const {
+  std::map<std::string, std::string> render(std::shared_ptr<TFactory> context) const {
     std::map<std::string, std::string> ret;
     for (const my_entry &e : entries) {
       if (e.node->is_int())
@@ -167,12 +167,12 @@ struct perf_config_parser {
   };
 
   typedef std::list<config_entry> entry_list;
-  typedef boost::shared_ptr<parsers::where::error_handler_interface> error_handler;
+  typedef std::shared_ptr<parsers::where::error_handler_interface> error_handler;
   entry_list entries;
   std::list<std::string> extra_perf;
   perf_config_parser() {}
 
-  bool parse(boost::shared_ptr<TFactory> context, const std::string &str, const error_handler &error) {
+  bool parse(std::shared_ptr<TFactory> context, const std::string &str, const error_handler &error) {
     parsers::perfconfig::result_type keys;
     parsers::perfconfig parser;
     if (!parser.parse(str, keys)) {
@@ -241,9 +241,9 @@ class error_handler_impl : public parsers::where::error_handler_interface {
 
 template <class TObject, class TFactory>
 struct modern_filters {
-  typedef boost::shared_ptr<error_handler_impl> error_type;
+  typedef std::shared_ptr<error_handler_impl> error_type;
   typedef boost::shared_ptr<parsers::where::engine> filter_engine;
-  typedef parsers::where::performance_collector::boundries_type boundaries_type;
+  typedef parsers::where::performance_collector::boundaries_type boundaries_type;
   typedef boost::shared_ptr<TObject> object_type;
 
   filter_text_renderer<TFactory> renderer_top;
@@ -264,7 +264,7 @@ struct modern_filters {
   typedef std::map<std::string, std::string> hash_type;
   typedef std::list<hash_type> hash_list_type;
   hash_list_type records_;
-  boost::shared_ptr<TFactory> context;
+  std::shared_ptr<TFactory> context;
   bool fetch_hash_;
   bool has_unique_index;
   error_type error_handler_;

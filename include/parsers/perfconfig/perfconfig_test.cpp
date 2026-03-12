@@ -16,7 +16,7 @@ std::string to_string(const parsers::perfconfig::result_type &v) {
   }
   return ss.str();
 }
-bool do_parse(const std::string& str, parsers::perfconfig::result_type &v) {
+bool do_parse(const std::string &str, parsers::perfconfig::result_type &v) {
   v.clear();
   return parsers::perfconfig::parse(str, v);
 }
@@ -239,13 +239,9 @@ TEST(PerfConfigTest, whitespace_only) {
   EXPECT_EQ(0, v.size());
 }
 
-TEST(PerfConfigTest, missing_closing_paren) {
-  EXPECT_FALSE(do_parse("foo(a:b", v));
-}
+TEST(PerfConfigTest, missing_closing_paren) { EXPECT_FALSE(do_parse("foo(a:b", v)); }
 
-TEST(PerfConfigTest, missing_opening_paren) {
-  EXPECT_FALSE(do_parse("foo a:b)", v));
-}
+TEST(PerfConfigTest, missing_opening_paren) { EXPECT_FALSE(do_parse("foo a:b)", v)); }
 
 TEST(PerfConfigTest, no_options) {
   EXPECT_TRUE(do_parse("foo(a)", v));

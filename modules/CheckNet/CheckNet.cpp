@@ -20,6 +20,7 @@
 #include "CheckNet.h"
 
 #include <boost/atomic.hpp>
+#include <boost/make_shared.hpp>
 #include <net/pinger.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
