@@ -125,7 +125,7 @@ $Result.Value | ForEach-Object { $_.Message }
 Write-Host "● Configuring web server and firewall on VM '$VmName'..."
 $scriptBlock = @"
 # Configure web interface with password
-& 'C:\Program Files\NSClient++\nscp.exe' web install --https --allowed-hosts * --password '$WebPassword'
+& 'C:\Program Files\NSClient++\nscp.exe' web install --https --allowed-hosts '*' --password '$WebPassword'
 
 # Configure Windows Firewall
 New-NetFirewallRule -DisplayName 'NSClient++ HTTPS' -Direction Inbound -Protocol TCP -LocalPort 8443 -Action Allow -ErrorAction SilentlyContinue
