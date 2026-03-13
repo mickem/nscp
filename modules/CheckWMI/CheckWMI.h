@@ -25,7 +25,7 @@
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <str/xtos.hpp>
-#include <wmi/wmi_query.hpp>
+#include <win/wmi/wmi_query.hpp>
 
 struct target_helper {
   struct target_info {

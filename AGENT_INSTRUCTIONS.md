@@ -81,36 +81,36 @@ Tests are registered with CMake in **`C:\src\nscp\tests\CMakeLists.txt`** using 
 
 #### Header/Include Library Tests (`include/`)
 
-| Test Target | Test File(s) | Component |
-|-------------|-------------|-----------|
-| `http_client_test` | `include/http/client_test.cpp` | HTTP client (requires OpenSSL) |
-| `str_test` | `include/str/format_test.cpp` | String formatting |
-| | `include/str/xtos_test.cpp` | String-to-number conversion |
-| | `include/str/nscp_string_test.cpp` | NSCP string utilities |
-| | `include/str/utils_test.cpp` | String utilities |
-| | `include/str/wstring_test.cpp` | Wide string utilities |
-| `logger_test` | `include/nsclient/logger/log_level_test.cpp` | Log level |
-| | `include/nsclient/logger/log_message_factory_test.cpp` | Log message factory |
-| | `include/nsclient/logger/logger_helper_test.cpp` | Logger helper |
+| Test Target | Test File(s)                                                 | Component |
+|-------------|--------------------------------------------------------------|-----------|
+| `http_client_test` | `include/http/client_test.cpp`                               | HTTP client (requires OpenSSL) |
+| `str_test` | `include/str/format_test.cpp`                                | String formatting |
+| | `include/str/xtos_test.cpp`                                  | String-to-number conversion |
+| | `include/str/nscp_string_test.cpp`                           | NSCP string utilities |
+| | `include/str/utils_test.cpp`                                 | String utilities |
+| | `include/str/wstring_test.cpp`                               | Wide string utilities |
+| `logger_test` | `include/nsclient/logger/log_level_test.cpp`                 | Log level |
+| | `include/nsclient/logger/log_message_factory_test.cpp`       | Log message factory |
+| | `include/nsclient/logger/logger_helper_test.cpp`             | Logger helper |
 | | `include/nsclient/logger/log_driver_interface_impl_test.cpp` | Log driver interface |
-| | `include/nsclient/logger/logger_impl_test.cpp` | Logger implementation |
-| `nscapi_protobuf_test` | `include/nscapi/protobuf/functions_convert_test.cpp` | Protobuf convert functions |
-| | `include/nscapi/protobuf/functions_copy_test.cpp` | Protobuf copy functions |
-| | `include/nscapi/protobuf/functions_exec_test.cpp` | Protobuf exec functions |
-| | `include/nscapi/protobuf/functions_perfdata_test.cpp` | Protobuf perfdata functions |
-| | `include/nscapi/protobuf/functions_query_test.cpp` | Protobuf query functions |
-| | `include/nscapi/protobuf/functions_response_test.cpp` | Protobuf response functions |
-| | `include/nscapi/protobuf/functions_status_test.cpp` | Protobuf status functions |
-| | `include/nscapi/protobuf/functions_submit_test.cpp` | Protobuf submit functions |
-| | `include/nscapi/protobuf/settings_functions_test.cpp` | Protobuf settings functions |
-| `settings_helper_test` | `include/nscapi/settings/helper_test.cpp` | Settings helper |
-| `settings_object_test` | `include/nscapi/settings/object_test.cpp` | Settings object |
-| `settings_filter_test` | `include/nscapi/settings/filter_test.cpp` | Settings filter |
-| `settings_proxy_test` | `include/nscapi/settings/proxy_test.cpp` | Settings proxy |
-| `shellapi_test` | `include/win/shellapi_test.cpp` | Windows Shell API (Win32 only) |
-| `wmi_query_test` | `include/wmi/wmi_query_test.cpp` | WMI queries (Win32 only) |
-| — | `include/socket/allowed_hosts_test.cpp` | Socket allowed hosts |
-| — | `include/nscapi/nscapi_protobuf_functions_test.cpp` | NSCAPI protobuf functions |
+| | `include/nsclient/logger/logger_impl_test.cpp`               | Logger implementation |
+| `nscapi_protobuf_test` | `include/nscapi/protobuf/functions_convert_test.cpp`         | Protobuf convert functions |
+| | `include/nscapi/protobuf/functions_copy_test.cpp`            | Protobuf copy functions |
+| | `include/nscapi/protobuf/functions_exec_test.cpp`            | Protobuf exec functions |
+| | `include/nscapi/protobuf/functions_perfdata_test.cpp`        | Protobuf perfdata functions |
+| | `include/nscapi/protobuf/functions_query_test.cpp`           | Protobuf query functions |
+| | `include/nscapi/protobuf/functions_response_test.cpp`        | Protobuf response functions |
+| | `include/nscapi/protobuf/functions_status_test.cpp`          | Protobuf status functions |
+| | `include/nscapi/protobuf/functions_submit_test.cpp`          | Protobuf submit functions |
+| | `include/nscapi/protobuf/settings_functions_test.cpp`        | Protobuf settings functions |
+| `settings_helper_test` | `include/nscapi/settings/helper_test.cpp`                    | Settings helper |
+| `settings_object_test` | `include/nscapi/settings/object_test.cpp`                    | Settings object |
+| `settings_filter_test` | `include/nscapi/settings/filter_test.cpp`                    | Settings filter |
+| `settings_proxy_test` | `include/nscapi/settings/proxy_test.cpp`                     | Settings proxy |
+| `shellapi_test` | `include/win/shellapi_test.cpp`                              | Windows Shell API (Win32 only) |
+| `wmi_query_test` | `include/win/wmi/wmi_query_test.cpp`                         | WMI queries (Win32 only) |
+| — | `include/socket/allowed_hosts_test.cpp`                      | Socket allowed hosts |
+| — | `include/nscapi/nscapi_protobuf_functions_test.cpp`          | NSCAPI protobuf functions |
 
 #### Service Tests (`service/`)
 

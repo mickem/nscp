@@ -89,7 +89,7 @@ if(WIN32)
         plugins/master_plugin_list.hpp
         service_manager.hpp
         # ${NSCP_INCLUDEDIR}/config.h
-        ${NSCP_INCLUDEDIR}/com_helpers.hpp
+        ${NSCP_INCLUDEDIR}/win/com_helpers.hpp
         ${NSCP_INCLUDEDIR}/dll/dll.hpp
         ${NSCP_INCLUDEDIR}/dll/impl_unix.hpp
         ${NSCP_INCLUDEDIR}/dll/impl_w32.hpp

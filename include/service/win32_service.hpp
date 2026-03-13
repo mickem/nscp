@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <sysinfo.h>
+#include <win/sysinfo/sysinfo.h>
 
 #include <boost/thread/mutex.hpp>
 #include <error/error.hpp>

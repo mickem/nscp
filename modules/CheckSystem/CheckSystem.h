@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <CheckMemory.h>
+#include <win/CheckMemory.h>
 
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>

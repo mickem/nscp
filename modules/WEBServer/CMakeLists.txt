@@ -89,30 +89,29 @@ target_link_libraries(
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 
-
 NSCP_CREATE_TEST(
-            ${TARGET}_test
-        SOURCES
-            ${NSCP_INCLUDEDIR}/utf8.cpp
-            token_store_test.cpp
-            token_store.cpp
-            grant_store_test.cpp
-            grant_store.cpp
-            session_manager_interface_test.cpp
-            session_manager_interface.cpp
-            user_manager.cpp
-            error_handler.cpp
-            metrics_handler.cpp
-            ${NSCP_INCLUDEDIR}/socket/allowed_hosts_test.cpp
-            ${NSCP_INCLUDEDIR}/socket/allowed_hosts.cpp
-        LIBRARIES
-            GTest::gtest
-            GTest::gtest_main
-            ${Boost_FILESYSTEM_LIBRARY}
-            ${Boost_DATE_TIME_LIBRARY}
-            ${Boost_REGEX_LIBRARY}
-            ${EXTRA_LIBS}
-            nscp_mongoose
-        INCLUDES
-            ${NSCP_INCLUDEDIR}
+    ${TARGET}_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/utf8.cpp
+        token_store_test.cpp
+        token_store.cpp
+        grant_store_test.cpp
+        grant_store.cpp
+        session_manager_interface_test.cpp
+        session_manager_interface.cpp
+        user_manager.cpp
+        error_handler.cpp
+        metrics_handler.cpp
+        ${NSCP_INCLUDEDIR}/socket/allowed_hosts_test.cpp
+        ${NSCP_INCLUDEDIR}/socket/allowed_hosts.cpp
+    LIBRARIES
+        GTest::gtest
+        GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+        ${EXTRA_LIBS}
+        nscp_mongoose
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
 )

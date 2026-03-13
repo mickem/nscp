@@ -21,7 +21,7 @@
 
 #ifdef WIN32
 
-#include <wmi/wmi_query.hpp>
+#include <win/wmi/wmi_query.hpp>
 
 // Test fixture for WMI tests that require COM initialization
 class WmiQueryTest : public ::testing::Test {

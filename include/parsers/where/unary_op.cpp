@@ -24,7 +24,9 @@
 namespace parsers {
 namespace where {
 std::string unary_op::to_string() const { return helpers::operator_to_string(op) + " ( " + subject->to_string() + " ) "; }
-std::string unary_op::to_string(const evaluation_context context) const { return helpers::operator_to_string(op) + " ( " + subject->to_string(context) + " ) "; }
+std::string unary_op::to_string(const evaluation_context context) const {
+  return helpers::operator_to_string(op) + " ( " + subject->to_string(context) + " ) ";
+}
 
 value_container unary_op::get_value(const evaluation_context context, value_type new_type) const { return evaluate(context)->get_value(context, new_type); }
 std::list<node_type> unary_op::get_list_value(evaluation_context context) const { return std::list<node_type>(); }

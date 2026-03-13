@@ -18,8 +18,8 @@ if(WIN32)
     NSCP_CREATE_TEST(
         wmi_query_test
         SOURCES
-            ${NSCP_INCLUDEDIR}/wmi/wmi_query_test.cpp
-            ${NSCP_INCLUDEDIR}/wmi/wmi_query.cpp
+            ${NSCP_INCLUDEDIR}/win/wmi/wmi_query_test.cpp
+            ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.cpp
             ${NSCP_INCLUDEDIR}/error/error_w32.cpp
             ${NSCP_INCLUDEDIR}/utf8.cpp
         LIBRARIES

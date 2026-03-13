@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <win/windows.hpp>
+#include <windows.hpp>
 
 namespace simple_registry {
 class registry_exception {

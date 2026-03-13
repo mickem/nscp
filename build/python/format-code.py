@@ -22,11 +22,6 @@ from typing import List, Set
 # Directories to exclude from code formatting (C/C++ files)
 CODE_EXCLUDE_DIRS: Set[str] = {
     "_deps",
-    "cmake-build",
-    "cmake-build-debug",
-    "cmake-build-debug-wsl",
-    "cmake-build-relwithdebinfo-visual-studio",
-    "cmake-build-release",
     "managed",
     "miniz",
     "gtest",
@@ -46,10 +41,6 @@ CODE_EXCLUDE_FILES: Set[str] = {
 # Directories to exclude from CMake formatting
 CMAKE_EXCLUDE_DIRS: Set[str] = {
     "gtest",
-    "cmake-build",
-    "cmake-build-debug",
-    "cmake-build-debug-wsl",
-    "cmake-build-release",
     "miniz",
     "vagrant",
     "rust",
@@ -82,7 +73,7 @@ def is_excluded_path(file_path: Path, exclude_dirs: Set[str], exclude_files: Set
     """Check if a file path should be excluded based on directory or file name."""
     parts = file_path.parts
     for part in parts:
-        if part in exclude_dirs:
+        if part in exclude_dirs or part.startswith("cmake-build-"):
             return True
     if exclude_files and file_path.name in exclude_files:
         return True

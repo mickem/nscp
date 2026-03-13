@@ -25,7 +25,7 @@
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 #include <string>
-#include <wmi/wmi_query.hpp>
+#include <win/wmi/wmi_query.hpp>
 
 namespace network_check {
 struct helper {

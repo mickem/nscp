@@ -30,10 +30,10 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/pdh/thread_safe_impl.cpp
     ${NSCP_ERROR_CPP}
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
-    ${NSCP_INCLUDEDIR}/wmi/wmi_query.cpp
+    ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.cpp
     ${NSCP_INCLUDEDIR}/win/processes.cpp
     ${NSCP_INCLUDEDIR}/win/services.cpp
-    ${NSCP_INCLUDEDIR}/sysinfo.cpp
+    ${NSCP_INCLUDEDIR}/win/sysinfo/sysinfo.cpp
     ${NSCP_INCLUDEDIR}/compat.cpp
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
 )
@@ -48,7 +48,7 @@ if(WIN32)
         counter_filter.hpp
         ${NSCP_INCLUDEDIR}/win/services.hpp
         ${NSCP_INCLUDEDIR}/win/processes.hpp
-        ${NSCP_INCLUDEDIR}/sysinfo.h
+        ${NSCP_INCLUDEDIR}/win/sysinfo/sysinfo.h
         pdh_thread.hpp
         check_pdh.hpp
         check_memory.hpp
@@ -64,7 +64,7 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/pdh/pdh_query.hpp
         ${NSCP_INCLUDEDIR}/pdh/pdh_resolver.hpp
         ${NSCP_INCLUDEDIR}/pdh/thread_safe_impl.hpp
-        ${NSCP_INCLUDEDIR}/wmi/wmi_query.hpp
+        ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.hpp
         ${NSCP_ERROR_HPP}
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.hpp
         ${NSCP_DEF_PLUGIN_HPP}

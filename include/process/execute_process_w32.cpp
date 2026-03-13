@@ -32,8 +32,8 @@
 #include <str/xtos.hpp>
 #include <string>
 #include <utf8.hpp>
+#include <win/sysinfo/win_sysinfo.hpp>
 #include <win/userenv.hpp>
-#include <win_sysinfo/win_sysinfo.hpp>
 
 void kill_process_tree(const DWORD parent_pid) {
   HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);

@@ -28,9 +28,9 @@
 #include <str/utils.hpp>
 #include <utf8.hpp>
 #include <win/services.hpp>
+#include <win/sysinfo/win_sysinfo.hpp>
 #include <win/windows.hpp>
 #include <win/winsvc.hpp>
-#include <win_sysinfo/win_sysinfo.hpp>
 
 typedef boost::unordered_map<std::string, std::string> hash_map;
 hash_map smap;

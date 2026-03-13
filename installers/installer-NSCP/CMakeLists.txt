@@ -49,7 +49,6 @@ if(NOT CRT_MERGE_MODULE)
     message(WARNING "CRT_MERGE_MODULE not found: ${CRT_MERGE_MODULE}")
 endif(NOT CRT_MERGE_MODULE)
 
-
 set(WIX_CANDLE_FLAGS
     -dboost=true
     -darch=${ARCH}
