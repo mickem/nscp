@@ -9,7 +9,7 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
-    ${NSCP_INCLUDEDIR}/wmi/wmi_query.cpp
+    ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     ${NSCP_ERROR_CPP}
@@ -21,7 +21,7 @@ if(WIN32)
     set(SRCS
         ${SRCS}
         "${TARGET}.h"
-        ${NSCP_INCLUDEDIR}/wmi/wmi_query.hpp
+        ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_FILTER_HPP}
         ${NSCP_ERROR_HPP}

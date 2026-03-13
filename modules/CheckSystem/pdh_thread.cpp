@@ -19,7 +19,7 @@
 
 #include "pdh_thread.hpp"
 
-#include <sysinfo.h>
+#include <win/sysinfo/sysinfo.h>
 
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>

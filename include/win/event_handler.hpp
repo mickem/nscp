@@ -21,7 +21,7 @@
 
 #include <error.hpp>
 #include <iostream>
-#include <win/windows.hpp>
+#include <windows.hpp>
 
 #include "strEx.h"
 

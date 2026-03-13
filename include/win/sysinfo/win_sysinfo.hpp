@@ -24,8 +24,8 @@
 #include <buffer.hpp>
 #include <string>
 #include <vector>
+#include <win/win_defines.hpp>
 #include <win/windows.hpp>
-#include <win_sysinfo/win_defines.hpp>
 
 #define WINDOWS_ANCIENT 0
 #define WINDOWS_XP 51

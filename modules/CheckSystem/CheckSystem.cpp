@@ -19,7 +19,7 @@
 
 #include "CheckSystem.h"
 
-#include <sysinfo.h>
+#include <win/sysinfo/sysinfo.h>
 
 #include <boost/assign/list_of.hpp>
 #include <boost/json.hpp>
@@ -36,7 +36,7 @@
 #include <pdh/pdh_enumerations.hpp>
 #include <set>
 #include <win/services.hpp>
-#include <win_sysinfo/win_sysinfo.hpp>
+#include <win/sysinfo/win_sysinfo.hpp>
 
 #include "check_memory.hpp"
 #include "check_process.hpp"

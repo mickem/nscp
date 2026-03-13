@@ -17,8 +17,8 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <sysinfo.h>
 #include <tchar.h>
+#include <win/sysinfo/sysinfo.h>
 
 #include <error/error.hpp>
 #include <win/windows.hpp>

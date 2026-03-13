@@ -25,8 +25,8 @@
 #include <error/error.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <utf8.hpp>
-#include <win_sysinfo/win_defines.hpp>
-#include <win_sysinfo/win_sysinfo.hpp>
+#include <win/sysinfo/win_sysinfo.hpp>
+#include <win/win_defines.hpp>
 
 namespace windows {
 #define STATUS_SUCCESS ((windows::winapi::NTSTATUS)0x00000000L)

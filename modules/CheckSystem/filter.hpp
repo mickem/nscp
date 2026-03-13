@@ -26,7 +26,7 @@
 #include <string>
 #include <win/processes.hpp>
 #include <win/services.hpp>
-#include <win_sysinfo/win_sysinfo.hpp>
+#include <win/sysinfo/win_sysinfo.hpp>
 
 namespace check_cpu_filter {
 struct filter_obj {

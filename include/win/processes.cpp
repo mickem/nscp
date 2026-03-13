@@ -32,9 +32,9 @@
 #include <utf8.hpp>
 #include <win/processes.hpp>
 #include <win/psapi.hpp>
+#include <win/sysinfo/win_sysinfo.hpp>
+#include <win/win_defines.hpp>
 #include <win/windows.hpp>
-#include <win_sysinfo/win_defines.hpp>
-#include <win_sysinfo/win_sysinfo.hpp>
 
 constexpr int MAX_FILENAME = 256;
 

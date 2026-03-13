@@ -28,8 +28,8 @@ if(WIN32)
         script_provider.hpp
         script_interface.hpp
         ${NSCP_INCLUDEDIR}/process/execute_process.hpp
-        ${NSCP_INCLUDEDIR}/win_sysinfo/win_sysinfo.cpp
-        ${NSCP_INCLUDEDIR}/win_sysinfo/win_sysinfo.hpp
+        ${NSCP_INCLUDEDIR}/win/sysinfo/win_sysinfo.cpp
+        ${NSCP_INCLUDEDIR}/win/sysinfo/win_sysinfo.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_ERROR_HPP}
     )

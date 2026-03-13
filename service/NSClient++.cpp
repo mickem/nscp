@@ -31,7 +31,7 @@
 #include "logger/nsclient_logger.hpp"
 
 #ifdef WIN32
-#include <com_helpers.hpp>
+#include <win/com_helpers.hpp>
 #include <win/service_control.hpp>
 com_helper::initialize_com com_helper_;
 #endif

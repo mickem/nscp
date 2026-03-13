@@ -26,7 +26,7 @@
 #include <pdh/pdh_interface.hpp>
 #include <pdh/pdh_query.hpp>
 #include <rrd_buffer.hpp>
-#include <win_sysinfo/win_sysinfo.hpp>
+#include <win/sysinfo/win_sysinfo.hpp>
 
 #include "check_network.hpp"
 #include "filter_config_object.hpp"

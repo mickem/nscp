@@ -23,7 +23,7 @@
 
 #include <error/error_com.hpp>
 #include <utility>
-#include <wmi/wmi_query.hpp>
+#include <win/wmi/wmi_query.hpp>
 
 namespace wmi_impl {
 struct identity_container {

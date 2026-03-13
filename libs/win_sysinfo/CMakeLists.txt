@@ -6,12 +6,12 @@ if(WIN32)
     link_directories(${BOOST_LIB_DIRS})
     # INCLUDE_DIRECTORIES(${NSCP_INCLUDEDIR})
 
-    set(SRCS ${NSCP_INCLUDEDIR}/win_sysinfo/win_sysinfo.cpp)
+    set(SRCS ${NSCP_INCLUDEDIR}/win/sysinfo/win_sysinfo.cpp)
 
     if(WIN32)
         set(SRCS
             ${SRCS}
-            ${NSCP_INCLUDEDIR}/win_sysinfo/win_sysinfo.hpp
+            ${NSCP_INCLUDEDIR}/win/sysinfo/win_sysinfo.hpp
         )
     endif(WIN32)
 
