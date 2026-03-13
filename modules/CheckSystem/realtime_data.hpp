@@ -21,7 +21,7 @@
 #include <boost/filesystem/path.hpp>
 #include <list>
 
-#include "../../include/win/CheckMemory.h"
+#include "win/CheckMemory.h"
 #include "filter.hpp"
 #include "pdh_thread.hpp"
 
