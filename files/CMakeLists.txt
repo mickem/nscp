@@ -15,24 +15,39 @@ if(NOT WIN32)
         @ONLY
     )
     install(
-        FILES ${PROJECT_BINARY_DIR}/unix-nsclient.conf
+        FILES
+            ${PROJECT_BINARY_DIR}/unix-nsclient.conf
         DESTINATION ${ETC_TARGET_FOLDER}/nsclient
         COMPONENT configs
         RENAME nsclient.ini
     )
     file(MAKE_DIRECTORY ${LOG_TARGET_FOLDER})
-    install(DIRECTORY "nsclient" DESTINATION ${LOG_TARGET_FOLDER}
-            DIRECTORY_PERMISSIONS
-            OWNER_WRITE OWNER_READ OWNER_EXECUTE
-            GROUP_READ GROUP_EXECUTE
-            WORLD_READ WORLD_EXECUTE
-            COMPONENT logs
+    install(
+        DIRECTORY
+            "nsclient"
+        DESTINATION ${LOG_TARGET_FOLDER}
+        DIRECTORY_PERMISSIONS
+            OWNER_WRITE
+            OWNER_READ
+            OWNER_EXECUTE
+            GROUP_READ
+            GROUP_EXECUTE
+            WORLD_READ
+            WORLD_EXECUTE
+        COMPONENT logs
     )
-    install(FILES nsclient.service
-            DESTINATION lib/systemd/system
-            COMPONENT runtime
+    install(
+        FILES
+            nsclient.service
+        DESTINATION lib/systemd/system
+        COMPONENT runtime
     )
 endif()
 
 add_custom_target(copy_files ALL DEPENDS ${ALL_FILES})
-set_target_properties(copy_files PROPERTIES FOLDER "files")
+set_target_properties(
+    copy_files
+    PROPERTIES
+        FOLDER
+            "files"
+)

@@ -75,7 +75,7 @@ target_link_libraries(
 add_dependencies(${TARGET} nscp_protobuf)
 
 NSCP_CREATE_TEST(
-        ${TARGET}_test
+    ${TARGET}_test
     SOURCES
         nscapi_helper_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
@@ -89,4 +89,3 @@ NSCP_CREATE_TEST(
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
-
