@@ -18,7 +18,7 @@
  */
 
 #include <boost/unordered_map.hpp>
-#include <buffer.hpp>
+#include <bytes/buffer.hpp>
 #include <error/error.hpp>
 #include <handle.hpp>
 #include <nscapi/macros.hpp>

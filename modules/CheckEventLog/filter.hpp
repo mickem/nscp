@@ -25,7 +25,7 @@
 #endif
 
 #include <boost/optional.hpp>
-#include <buffer.hpp>
+#include <bytes/buffer.hpp>
 #include <handle.hpp>
 #include <map>
 #include <parsers/filter/modern_filter.hpp>

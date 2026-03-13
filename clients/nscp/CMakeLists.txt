@@ -7,7 +7,7 @@ project(clients)
 set(SRCS
     ${SRCS}
     check_nscp.cpp
-    ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
@@ -38,11 +38,11 @@ if(WIN32)
         ../../modules/NSCPClient/nscp_client.hpp
         ../../modules/NSCPClient/nscp_handler.hpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.hpp
-        ${NSCP_INCLUDEDIR}/socket/clients/http/http_client_protocol.hpp
-        ${NSCP_INCLUDEDIR}/socket/clients/http/http_packet.hpp
-        ${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
-        ${NSCP_INCLUDEDIR}/socket/client.hpp
-        ${NSCP_INCLUDEDIR}/http/client.hpp
+        ${NSCP_INCLUDEDIR}/net/http/http_client_protocol.hpp
+        ${NSCP_INCLUDEDIR}/net/http/http_packet.hpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
+        ${NSCP_INCLUDEDIR}/net/http/client.hpp
         ${NSCP_CLIENT_HPP}
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
         ${NSCP_INCLUDEDIR}/win/shellapi.hpp

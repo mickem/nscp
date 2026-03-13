@@ -23,8 +23,8 @@
 #include <win/tool-helper.h>
 
 #include <boost/thread.hpp>
-#include <buffer.hpp>
-#include <char_buffer.hpp>
+#include <bytes/buffer.hpp>
+#include <bytes/char_buffer.hpp>
 #include <error/error.hpp>
 #include <handle.hpp>
 #include <iostream>

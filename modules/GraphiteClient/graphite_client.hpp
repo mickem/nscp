@@ -20,11 +20,11 @@
 #pragma once
 
 #include <boost/tuple/tuple.hpp>
+#include <net/socket/socket_helpers.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/protobuf/nagios.hpp>
-#include <socket/socket_helpers.hpp>
 
 namespace graphite_client {
 struct connection_data : public socket_helpers::connection_info {

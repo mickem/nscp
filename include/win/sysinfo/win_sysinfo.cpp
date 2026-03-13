@@ -21,7 +21,7 @@
 #include <windows.h>
 
 #include <boost/scoped_array.hpp>
-#include <buffer.hpp>
+#include <bytes/buffer.hpp>
 #include <error/error.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <utf8.hpp>

@@ -21,7 +21,7 @@
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/make_shared.hpp>
-#include <buffer.hpp>
+#include <bytes/buffer.hpp>
 #include <error/error.hpp>
 #include <handle.hpp>
 #include <map>

@@ -20,14 +20,14 @@
 #pragma once
 
 #include <client/command_line_parser.hpp>
-#include <nsca/client/nsca_client_protocol.hpp>
-#include <nsca/nsca_packet.hpp>
+#include <net/nsca/client/nsca_client_protocol.hpp>
+#include <net/nsca/nsca_packet.hpp>
+#include <net/socket/client.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
 #include <nscapi/protobuf/nagios.hpp>
-#include <socket/client.hpp>
 #include <str/format.hpp>
 
 namespace nsca_client {

@@ -12,7 +12,7 @@ set(service_SRCS
     settings_handler_impl.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
-    ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/utf8.cpp
 )
 
@@ -31,7 +31,7 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/settings/impl/settings_old.hpp
         ${NSCP_INCLUDEDIR}/settings/impl/settings_registry.hpp
         ${NSCP_INCLUDEDIR}/settings/impl/settings_http.hpp
-        ${NSCP_INCLUDEDIR}/http/client.hpp
+        ${NSCP_INCLUDEDIR}/net/http/client.hpp
         ${NSCP_INCLUDEDIR}/utf8.hpp
     )
 endif(WIN32)

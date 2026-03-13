@@ -18,7 +18,7 @@
  */
 #pragma once
 
-#include <nsca/server/protocol.hpp>
+#include <net/nsca/server/protocol.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 
 class NSCAServer final : public nscapi::impl::simple_plugin, nsca::server::handler {

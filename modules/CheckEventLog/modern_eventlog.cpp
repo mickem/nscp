@@ -21,7 +21,7 @@
 
 #include "modern_eventlog.hpp"
 
-#include <buffer.hpp>
+#include <bytes/buffer.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <str/xtos.hpp>
 #include <utf8.hpp>

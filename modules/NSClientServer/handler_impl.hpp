@@ -20,8 +20,8 @@
 #pragma once
 
 #include <boost/tuple/tuple.hpp>
-#include <check_nt/packet.hpp>
-#include <check_nt/server/handler.hpp>
+#include <net/check_nt/packet.hpp>
+#include <net/check_nt/server/handler.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 

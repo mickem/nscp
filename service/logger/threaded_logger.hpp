@@ -20,9 +20,9 @@
 #pragma once
 
 #include <boost/thread.hpp>
-#include <concurrent_queue.hpp>
 #include <nsclient/logger/log_driver_interface_impl.hpp>
 #include <string>
+#include <threads/concurrent_queue.hpp>
 
 namespace nsclient {
 namespace logging {

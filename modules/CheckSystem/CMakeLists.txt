@@ -20,14 +20,14 @@ set(SRCS
     check_pdh.cpp
     filter_config_object.cpp
     realtime_data.cpp
-    ${NSCP_INCLUDEDIR}/pdh/basic_impl.cpp
-    ${NSCP_INCLUDEDIR}/pdh/pdh_collectors.cpp
-    ${NSCP_INCLUDEDIR}/pdh/pdh_counters.cpp
-    ${NSCP_INCLUDEDIR}/pdh/pdh_enumerations.cpp
-    ${NSCP_INCLUDEDIR}/pdh/pdh_interface.cpp
-    ${NSCP_INCLUDEDIR}/pdh/pdh_query.cpp
-    ${NSCP_INCLUDEDIR}/pdh/pdh_resolver.cpp
-    ${NSCP_INCLUDEDIR}/pdh/thread_safe_impl.cpp
+    ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.cpp
+    ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.cpp
+    ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.cpp
+    ${NSCP_INCLUDEDIR}/win/pdh/pdh_enumerations.cpp
+    ${NSCP_INCLUDEDIR}/win/pdh/pdh_interface.cpp
+    ${NSCP_INCLUDEDIR}/win/pdh/pdh_query.cpp
+    ${NSCP_INCLUDEDIR}/win/pdh/pdh_resolver.cpp
+    ${NSCP_INCLUDEDIR}/win/pdh/thread_safe_impl.cpp
     ${NSCP_ERROR_CPP}
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
     ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.cpp
@@ -56,14 +56,14 @@ if(WIN32)
         realtime_data.hpp
         check_network.hpp
         check_process.hpp
-        ${NSCP_INCLUDEDIR}/pdh/basic_impl.hpp
-        ${NSCP_INCLUDEDIR}/pdh/pdh_collectors.hpp
-        ${NSCP_INCLUDEDIR}/pdh/pdh_counters.hpp
-        ${NSCP_INCLUDEDIR}/pdh/pdh_enumerations.hpp
-        ${NSCP_INCLUDEDIR}/pdh/pdh_interface.hpp
-        ${NSCP_INCLUDEDIR}/pdh/pdh_query.hpp
-        ${NSCP_INCLUDEDIR}/pdh/pdh_resolver.hpp
-        ${NSCP_INCLUDEDIR}/pdh/thread_safe_impl.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_enumerations.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_interface.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_query.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_resolver.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/thread_safe_impl.hpp
         ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.hpp
         ${NSCP_ERROR_HPP}
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.hpp

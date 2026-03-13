@@ -9,8 +9,8 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
-    ${NSCP_INCLUDEDIR}/collectd/collectd_packet.cpp
-    ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/net/collectd/collectd_packet.cpp
+    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_CLIENT_CPP}
 )
@@ -23,9 +23,9 @@ if(WIN32)
         "${TARGET}.h"
         collectd_client.hpp
         collectd_handler.hpp
-        ${NSCP_INCLUDEDIR}/collectd/collectd_packet.hpp
-        ${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
-        ${NSCP_INCLUDEDIR}/socket/client.hpp
+        ${NSCP_INCLUDEDIR}/net/collectd/collectd_packet.hpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_CLIENT_HPP}
     )

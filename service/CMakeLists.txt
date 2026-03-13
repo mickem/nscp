@@ -45,7 +45,7 @@ set(service_SRCS
     ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.cpp
     ${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
     ${NSCP_INCLUDEDIR}/pid_file.cpp
-    ${NSCP_INCLUDEDIR}/has-threads.cpp
+    ${NSCP_INCLUDEDIR}/threads/has-threads.cpp
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ../resources/nsclient.ico
 )
@@ -104,7 +104,7 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.hpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.hpp
         ${NSCP_INCLUDEDIR}/pid_file.hpp
-        ${NSCP_INCLUDEDIR}/has-threads.hpp
+        ${NSCP_INCLUDEDIR}/threads/has-threads.hpp
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
         ${NSCP_INCLUDEDIR}/win/shellapi.hpp
         # Protobuf

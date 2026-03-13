@@ -25,7 +25,7 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/assign.hpp>
 #include <boost/program_options.hpp>
-#include <buffer.hpp>
+#include <bytes/buffer.hpp>
 #include <compat.hpp>
 #include <error/error.hpp>
 #include <handle.hpp>

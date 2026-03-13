@@ -17,9 +17,9 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <nrpe/packet.hpp>
-#include <nrpe/server/handler.hpp>
-#include <nrpe/server/protocol.hpp>
+#include <net/nrpe/packet.hpp>
+#include <net/nrpe/server/handler.hpp>
+#include <net/nrpe/server/protocol.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_targets.hpp>
 

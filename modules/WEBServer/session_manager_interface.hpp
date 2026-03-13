@@ -4,7 +4,7 @@
 #include <StreamResponse.h>
 
 #include <list>
-#include <socket/allowed_hosts.hpp>
+#include <net/socket/allowed_hosts.hpp>
 #include <string>
 
 #include "error_handler_interface.hpp"

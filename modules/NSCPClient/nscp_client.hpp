@@ -21,6 +21,8 @@
 
 #include <boost/tuple/tuple.hpp>
 #include <client/command_line_parser.hpp>
+#include <net/http/http_client_protocol.hpp>
+#include <net/socket/client.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/command.hpp>
@@ -28,8 +30,6 @@
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
 #include <nscapi/protobuf/functions_submit.hpp>
-#include <socket/client.hpp>
-#include <socket/clients/http/http_client_protocol.hpp>
 #include <str/format.hpp>
 
 namespace nscp_client {

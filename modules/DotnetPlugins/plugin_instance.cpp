@@ -17,8 +17,6 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <types.hpp>
-
 #include <string>
 #include <functional>
 

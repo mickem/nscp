@@ -20,8 +20,8 @@
 #pragma once
 
 #include <boost/make_shared.hpp>
-#include <nsca/client/nsca_client_protocol.hpp>
-#include <nsca/nsca_packet.hpp>
+#include <net/nsca/client/nsca_client_protocol.hpp>
+#include <net/nsca/nsca_packet.hpp>
 #include <nscapi/settings/helper.hpp>
 
 namespace nrpe_handler {

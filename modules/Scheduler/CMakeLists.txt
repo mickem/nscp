@@ -10,7 +10,7 @@ set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
     ${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.cpp
-    ${NSCP_INCLUDEDIR}/has-threads.cpp
+    ${NSCP_INCLUDEDIR}/threads/has-threads.cpp
     schedules_handler.cpp
     ${NSCP_DEF_PLUGIN_CPP}
 )
@@ -23,7 +23,7 @@ if(WIN32)
         "${TARGET}.h"
         ${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.hpp
         schedules_handler.hpp
-        ${NSCP_INCLUDEDIR}/has-threads.hpp
+        ${NSCP_INCLUDEDIR}/threads/has-threads.hpp
         ${NSCP_DEF_PLUGIN_HPP}
     )
 endif(WIN32)

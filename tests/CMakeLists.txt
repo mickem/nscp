@@ -324,8 +324,8 @@ if(OPENSSL_FOUND)
     NSCP_CREATE_TEST(
         http_client_test
         SOURCES
-            ${NSCP_INCLUDEDIR}/http/client_test.cpp
-            ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+            ${NSCP_INCLUDEDIR}/net/http/client_test.cpp
+            ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
             ${NSCP_INCLUDEDIR}/utf8.cpp
         LIBRARIES
             GTest::gtest_main

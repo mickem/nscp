@@ -20,8 +20,8 @@
 #pragma once
 
 #include <boost/make_shared.hpp>
+#include <net/socket/client.hpp>
 #include <nscapi/settings/helper.hpp>
-#include <socket/client.hpp>
 
 namespace elastic_handler {
 namespace sh = nscapi::settings_helper;

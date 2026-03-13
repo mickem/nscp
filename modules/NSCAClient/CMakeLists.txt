@@ -9,9 +9,9 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
-    ${NSCP_INCLUDEDIR}/nsca/nsca_packet.cpp
-    ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
-    ${NSCP_INCLUDEDIR}/utils.cpp
+    ${NSCP_INCLUDEDIR}/net/nsca/nsca_packet.cpp
+    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/bytes/crc32.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_CLIENT_CPP}
 )
@@ -38,13 +38,13 @@ if(WIN32)
         "${TARGET}.h"
         nsca_client.hpp
         nsca_handler.hpp
-        ${NSCP_INCLUDEDIR}/nsca/nsca_packet.hpp
-        ${NSCP_INCLUDEDIR}/nsca/client/nsca_client_protocol.hpp
+        ${NSCP_INCLUDEDIR}/net/nsca/nsca_packet.hpp
+        ${NSCP_INCLUDEDIR}/net/nsca/client/nsca_client_protocol.hpp
         ${NSCP_INCLUDEDIR}/nscpcrypt/nscpcrypt.hpp
-        ${NSCP_INCLUDEDIR}/swap_bytes.hpp
-        ${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
-        ${NSCP_INCLUDEDIR}/socket/client.hpp
-        ${NSCP_INCLUDEDIR}/utils.h
+        ${NSCP_INCLUDEDIR}/bytes/swap_bytes.hpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
+        ${NSCP_INCLUDEDIR}/bytes/crc32.h
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_CLIENT_HPP}
     )

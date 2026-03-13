@@ -33,8 +33,8 @@
 #include <nscapi/settings/helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <parsers/filter/cli_helper.hpp>
-#include <pdh/pdh_enumerations.hpp>
 #include <set>
+#include <win/pdh/pdh_enumerations.hpp>
 #include <win/services.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
 

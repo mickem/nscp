@@ -20,11 +20,11 @@
 #pragma once
 
 #include <boost/scoped_ptr.hpp>
-#include <check_mk/client/client_protocol.hpp>
+#include <net/check_mk/client/client_protocol.hpp>
+#include <net/socket/client.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
-#include <socket/client.hpp>
 
 namespace check_mk_client {
 struct connection_data : public socket_helpers::connection_info {
