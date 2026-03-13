@@ -27,9 +27,9 @@
 #include <map>
 #include <nsclient/nsclient_exception.hpp>
 #include <str/format.hpp>
+#include <str/utf8.hpp>
 #include <str/xtos.hpp>
 #include <string>
-#include <utf8.hpp>
 #include <win/processes.hpp>
 #include <win/psapi.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>

@@ -18,8 +18,8 @@
  */
 
 #include <str/format.hpp>
+#include <str/utf8.hpp>
 #include <str/utils.hpp>
-#include <utf8.hpp>
 #include <win/pdh/basic_impl.hpp>
 #include <win/pdh/pdh_collectors.hpp>
 #include <win/pdh/pdh_enumerations.hpp>

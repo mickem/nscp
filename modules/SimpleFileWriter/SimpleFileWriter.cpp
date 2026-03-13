@@ -33,7 +33,7 @@
 #include <nsclient/nsclient_exception.hpp>
 #include <ostream>
 #include <parsers/expression/expression.hpp>
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 #include <vector>
 
 namespace sh = nscapi::settings_helper;

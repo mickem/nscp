@@ -17,7 +17,7 @@
 #include <nscapi/settings/helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <settings/settings_core.hpp>
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 #include <utility>
 
 namespace nscapi {

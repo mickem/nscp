@@ -24,9 +24,9 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/object.hpp>
+#include <str/utf8.hpp>
 #include <str/utils.hpp>
 #include <string>
-#include <utf8.hpp>
 
 namespace sh = nscapi::settings_helper;
 

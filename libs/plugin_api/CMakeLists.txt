@@ -5,7 +5,7 @@ include_directories(${BOOST_INCLUDE_DIRS})
 link_directories(${BOOST_LIB_DIRS})
 
 set(SRCS
-    ${NSCP_INCLUDEDIR}/utf8.cpp
+    ${NSCP_INCLUDEDIR}/str/utf8.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
@@ -29,7 +29,7 @@ set(SRCS
 if(WIN32)
     set(SRCS
         ${SRCS}
-        ${NSCP_INCLUDEDIR}/utf8.hpp
+        ${NSCP_INCLUDEDIR}/str/utf8.hpp
         # ${NSCP_INCLUDEDIR}/config.h
         ${NSCP_INCLUDEDIR}/NSCAPI.h
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.hpp

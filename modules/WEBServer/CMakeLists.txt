@@ -92,7 +92,7 @@ include(${BUILD_CMAKE_FOLDER}/module.cmake)
 NSCP_CREATE_TEST(
     ${TARGET}_test
     SOURCES
-        ${NSCP_INCLUDEDIR}/utf8.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
         token_store_test.cpp
         token_store.cpp
         grant_store_test.cpp

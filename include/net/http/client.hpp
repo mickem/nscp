@@ -26,9 +26,9 @@
 #include <net/http/http_packet.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <ostream>
+#include <str/utf8.hpp>
 #include <str/xtos.hpp>
 #include <string>
-#include <utf8.hpp>
 #include <utility>
 
 using boost::asio::ip::tcp;

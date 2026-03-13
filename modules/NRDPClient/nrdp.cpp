@@ -21,8 +21,8 @@
 
 #include <tinyxml2.h>
 
+#include <str/utf8.hpp>
 #include <str/xtos.hpp>
-#include <utf8.hpp>
 
 namespace nrdp {
 void data::add_host(std::string host, NSCAPI::nagiosReturn result, std::string message) {

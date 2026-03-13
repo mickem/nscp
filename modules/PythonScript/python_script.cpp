@@ -2,7 +2,7 @@
 
 #include <boost/python.hpp>
 #include <boost/shared_ptr.hpp>
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 
 #ifdef __linux__
 #include <dlfcn.h>

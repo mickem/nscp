@@ -22,8 +22,8 @@
 #include <boost/filesystem.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <str/format.hpp>
+#include <str/utf8.hpp>
 #include <str/utils.hpp>
-#include <utf8.hpp>
 #ifndef WIN32
 #define OPENSSL_NO_CRYPTO_MDEBUG
 #include <openssl/crypto.h>

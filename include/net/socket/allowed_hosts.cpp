@@ -2,8 +2,8 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <net/socket/allowed_hosts.hpp>
 #include <str/format.hpp>
+#include <str/utf8.hpp>
 #include <string>
-#include <utf8.hpp>
 
 using namespace boost::asio;
 using namespace boost::asio::ip;

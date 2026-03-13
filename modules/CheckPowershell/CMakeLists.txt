@@ -12,7 +12,7 @@ set(SRCS
     block_allocator.cpp
     ${NSCP_INCLUDEDIR}/managed/convert.cpp
     ${NSCP_INCLUDEDIR}/managed/core_impl.cpp
-    ${NSCP_INCLUDEDIR}/utf8.cpp
+    ${NSCP_INCLUDEDIR}/str/utf8.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.cpp
@@ -26,7 +26,7 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/managed/convert.hpp
         ${NSCP_INCLUDEDIR}/managed/core_impl.hpp
         block_allocator.h
-        ${NSCP_INCLUDEDIR}/utf8.hpp
+        ${NSCP_INCLUDEDIR}/str/utf8.hpp
         ${NSCP_INCLUDEDIR}/str/format.hpp
         ${NSCP_INCLUDEDIR}/str/utils.hpp
         # ${NSCP_INCLUDEDIR}/config.h

@@ -28,7 +28,7 @@
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_submit.hpp>
 #include <str/format.hpp>
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 
 #include "PythonScript.h"
 

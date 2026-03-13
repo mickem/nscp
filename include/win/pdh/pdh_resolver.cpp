@@ -22,8 +22,8 @@
 #include <pdh.h>
 
 #include <list>
+#include <str/utf8.hpp>
 #include <str/xtos.hpp>
-#include <utf8.hpp>
 #include <win/pdh/pdh_resolver.hpp>
 
 namespace PDH {

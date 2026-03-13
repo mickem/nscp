@@ -3,7 +3,7 @@ if(WIN32)
         shellapi_test
         SOURCES
             ${NSCP_INCLUDEDIR}/win/shellapi_test.cpp
-            ${NSCP_INCLUDEDIR}/utf8.cpp
+            ${NSCP_INCLUDEDIR}/str/utf8.cpp
             ${NSCP_INCLUDEDIR}/win/shellapi.cpp
         LIBRARIES
             gtest_main
@@ -21,7 +21,7 @@ if(WIN32)
             ${NSCP_INCLUDEDIR}/win/wmi/wmi_query_test.cpp
             ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.cpp
             ${NSCP_INCLUDEDIR}/error/error_w32.cpp
-            ${NSCP_INCLUDEDIR}/utf8.cpp
+            ${NSCP_INCLUDEDIR}/str/utf8.cpp
         LIBRARIES
             gtest_main
             ${Boost_FILESYSTEM_LIBRARY}
@@ -90,7 +90,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/log_driver_interface_impl_test.cpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/logger_impl_test.cpp
-        ${NSCP_INCLUDEDIR}/utf8.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest
         GTest::gtest_main
@@ -106,7 +106,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.hpp
-        ${NSCP_INCLUDEDIR}/utf8.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
         ${Boost_FILESYSTEM_LIBRARY}
@@ -121,7 +121,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/settings/object_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.hpp
-        ${NSCP_INCLUDEDIR}/utf8.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
         ${Boost_FILESYSTEM_LIBRARY}
@@ -139,7 +139,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.hpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
-        ${NSCP_INCLUDEDIR}/utf8.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
         ${Boost_FILESYSTEM_LIBRARY}
@@ -153,7 +153,7 @@ NSCP_CREATE_TEST(
     settings_proxy_test
     SOURCES
         ${NSCP_INCLUDEDIR}/nscapi/settings/proxy_test.cpp
-        ${NSCP_INCLUDEDIR}/utf8.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
         nscp_protobuf
@@ -235,7 +235,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
-        ${NSCP_INCLUDEDIR}/utf8.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
         nscp_where_filter
@@ -257,7 +257,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
-        ${NSCP_INCLUDEDIR}/utf8.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
         nscp_where_filter
@@ -276,7 +276,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/parsers/filter/cli_helper_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
-        ${NSCP_INCLUDEDIR}/utf8.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
         nscp_protobuf
@@ -310,7 +310,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/parsers/operators.cpp
         ${NSCP_INCLUDEDIR}/parsers/where.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/grammar/grammar.cpp
-        ${NSCP_INCLUDEDIR}/utf8.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
         nscp_where_filter
@@ -326,7 +326,7 @@ if(OPENSSL_FOUND)
         SOURCES
             ${NSCP_INCLUDEDIR}/net/http/client_test.cpp
             ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
-            ${NSCP_INCLUDEDIR}/utf8.cpp
+            ${NSCP_INCLUDEDIR}/str/utf8.cpp
         LIBRARIES
             GTest::gtest_main
             ${Boost_FILESYSTEM_LIBRARY}

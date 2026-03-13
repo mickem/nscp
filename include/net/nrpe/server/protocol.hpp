@@ -25,8 +25,8 @@
 #include <boost/noncopyable.hpp>
 #include <net/socket/server.hpp>
 #include <net/socket/socket_helpers.hpp>
+#include <str/utf8.hpp>
 #include <str/xtos.hpp>
-#include <utf8.hpp>
 
 #include "handler.hpp"
 #include "parser.hpp"

@@ -29,8 +29,8 @@
 
 #include <boost/asio/ssl/stream.hpp>
 #include <list>
+#include <str/utf8.hpp>
 #include <str/xtos.hpp>
-#include <utf8.hpp>
 
 namespace socket_helpers {
 namespace server {

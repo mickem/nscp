@@ -25,8 +25,8 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <str/format.hpp>
+#include <str/utf8.hpp>
 #include <str/utils.hpp>
-#include <utf8.hpp>
 #include <win/services.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
 #include <win/windows.hpp>

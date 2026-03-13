@@ -35,8 +35,8 @@
 #include <nscapi/protobuf/functions_query.hpp>
 #include <nscapi/protobuf/functions_status.hpp>
 #include <str/format.hpp>
+#include <str/utf8.hpp>
 #include <str/utils.hpp>
-#include <utf8.hpp>
 
 namespace json = boost::json;
 

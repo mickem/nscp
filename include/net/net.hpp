@@ -22,7 +22,7 @@
 #include <algorithm>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/lexical_cast.hpp>
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 
 namespace net {
 

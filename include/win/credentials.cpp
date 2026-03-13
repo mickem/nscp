@@ -5,7 +5,7 @@
 #include <wincred.h>
 
 #include <nsclient/nsclient_exception.hpp>
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 
 void save_credential(const std::string &alias, const std::string &password) {
   const auto alias_w = utf8::cvt<std::wstring>(alias);

@@ -28,8 +28,8 @@
 #include <nscapi/protobuf/metrics.hpp>
 #include <nscapi/protobuf/settings.hpp>
 #include <nscapi/protobuf/settings_functions.hpp>
+#include <str/utf8.hpp>
 #include <str/utils.hpp>
-#include <utf8.hpp>
 
 static void create_registry_query(const nscapi::core_wrapper *core, const std::string &command, const PB::Registry::ItemType &type,
                                   PB::Registry::RegistryResponseMessage &response_message) {

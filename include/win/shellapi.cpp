@@ -1,6 +1,6 @@
 #ifdef WIN32
 #include <boost/filesystem/operations.hpp>
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 #include <win/shellapi.hpp>
 
 boost::filesystem::path shellapi::get_module_file_name() {

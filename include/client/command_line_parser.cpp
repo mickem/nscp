@@ -23,7 +23,7 @@
 #include <nscapi/protobuf/functions_copy.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 #include <nscapi/protobuf/nagios.hpp>
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 
 #ifdef _WIN32
 #pragma warning(disable : 4100)

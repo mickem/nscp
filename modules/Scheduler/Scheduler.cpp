@@ -28,7 +28,7 @@
 #include <nscapi/protobuf/functions_submit.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 
 namespace sh = nscapi::settings_helper;
 

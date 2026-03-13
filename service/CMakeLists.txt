@@ -15,7 +15,7 @@ set(service_SRCS
     plugins/dll_plugin.cpp
     plugins/plugin_cache.cpp
     plugins/zip_plugin.cpp
-    ${NSCP_INCLUDEDIR}/utf8.cpp
+    ${NSCP_INCLUDEDIR}/str/utf8.cpp
     # logger
     logger/nsclient_logger.cpp
     logger/simple_console_logger.cpp
@@ -59,7 +59,7 @@ if(WIN32)
         ${service_SRCS}
         NSClient++.h
         NSClient++.rc
-        ${NSCP_INCLUDEDIR}/utf8.hpp
+        ${NSCP_INCLUDEDIR}/str/utf8.hpp
         core_api.h
         settings_client.hpp
         cli_parser.hpp

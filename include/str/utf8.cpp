@@ -1,7 +1,7 @@
 #include <boost/lexical_cast.hpp>
 #include <cctype>
 #include <locale>
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 #ifdef WIN32
 #include <win/windows.hpp>
 #endif
