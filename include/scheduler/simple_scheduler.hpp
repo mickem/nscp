@@ -25,10 +25,10 @@
 #include <boost/thread.hpp>
 #include <boost/thread/shared_mutex.hpp>
 #include <boost/unordered_map.hpp>
-#include <has-threads.hpp>
 #include <parsers/cron/cron_parser.hpp>
 #include <queue>
 #include <string>
+#include <threads/has-threads.hpp>
 
 namespace simple_scheduler {
 

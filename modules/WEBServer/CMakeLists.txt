@@ -28,8 +28,8 @@ set(SRCS
     login_controller.cpp
     metrics_controller.cpp
     openmetrics_controller.cpp
-    ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
-    ${NSCP_INCLUDEDIR}/socket/allowed_hosts.cpp
+    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
     ${NSCP_INCLUDEDIR}/client/simple_client.cpp
     ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
     ${NSCP_DEF_PLUGIN_CPP}
@@ -64,8 +64,8 @@ if(WIN32)
         "${TARGET}.h"
         ${NSCP_INCLUDEDIR}/client/simple_client.hpp
         ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.hpp
-        ${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
-        ${NSCP_INCLUDEDIR}/socket/allowed_hosts.cpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
+        ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
         info_controller.hpp
         settings_controller.hpp
         metrics_controller.hpp
@@ -92,7 +92,7 @@ include(${BUILD_CMAKE_FOLDER}/module.cmake)
 NSCP_CREATE_TEST(
     ${TARGET}_test
     SOURCES
-        ${NSCP_INCLUDEDIR}/utf8.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
         token_store_test.cpp
         token_store.cpp
         grant_store_test.cpp
@@ -102,8 +102,8 @@ NSCP_CREATE_TEST(
         user_manager.cpp
         error_handler.cpp
         metrics_handler.cpp
-        ${NSCP_INCLUDEDIR}/socket/allowed_hosts_test.cpp
-        ${NSCP_INCLUDEDIR}/socket/allowed_hosts.cpp
+        ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts_test.cpp
+        ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
     LIBRARIES
         GTest::gtest
         GTest::gtest_main

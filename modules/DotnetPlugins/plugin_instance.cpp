@@ -17,8 +17,6 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <types.hpp>
-
 #include <string>
 #include <functional>
 
@@ -30,7 +28,7 @@
 
 #include <list>
 
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 
 #include "plugin_instance.hpp"
 

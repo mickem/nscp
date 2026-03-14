@@ -22,7 +22,7 @@
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/program_options.hpp>
 #include <boost/tuple/tuple.hpp>
-#include <char_buffer.hpp>
+#include <bytes/char_buffer.hpp>
 #include <error/error.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>

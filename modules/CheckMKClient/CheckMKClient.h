@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <check_mk/lua/lua_check_mk.hpp>
 #include <client/command_line_parser.hpp>
+#include <net/check_mk/lua/lua_check_mk.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <scripts/script_nscp.hpp>
 

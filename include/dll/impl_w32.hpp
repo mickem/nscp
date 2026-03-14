@@ -22,7 +22,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/noncopyable.hpp>
 #include <error/error.hpp>
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 #include <win/windows.hpp>
 
 namespace dll {

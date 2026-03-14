@@ -13,7 +13,7 @@ set(SOURCES
     Client.cpp
     StreamResponse.cpp
     string_response.cpp
-    ${NSCP_INCLUDEDIR}/has-threads.cpp
+    ${NSCP_INCLUDEDIR}/threads/has-threads.cpp
     ${MONGOOSE_INCLUDE_DIR}/mongoose.c
 )
 if(WIN32)
@@ -34,7 +34,7 @@ if(WIN32)
         dll_defines.hpp
         mcp_exception.hpp
         string_response.hpp
-        ${NSCP_INCLUDEDIR}/has-threads.hpp
+        ${NSCP_INCLUDEDIR}/threads/has-threads.hpp
         ${MONGOOSE_INCLUDE_DIR}/mongoose.h
     )
 endif()

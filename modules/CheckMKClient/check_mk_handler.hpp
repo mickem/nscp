@@ -20,7 +20,7 @@
 #pragma once
 
 #include <boost/make_shared.hpp>
-#include <check_mk/client/client_protocol.hpp>
+#include <net/check_mk/client/client_protocol.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/settings/helper.hpp>
 

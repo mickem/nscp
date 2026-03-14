@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <boost/asio/ip/address.hpp>
-#include <socket/allowed_hosts.hpp>
+#include <net/socket/allowed_hosts.hpp>
 
 using namespace socket_helpers;
 

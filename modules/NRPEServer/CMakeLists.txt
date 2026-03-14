@@ -9,10 +9,10 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
-    ${NSCP_INCLUDEDIR}/nrpe/packet.cpp
-    ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
-    ${NSCP_INCLUDEDIR}/socket/allowed_hosts.cpp
-    ${NSCP_INCLUDEDIR}/utils.cpp
+    ${NSCP_INCLUDEDIR}/net/nrpe/packet.cpp
+    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
+    ${NSCP_INCLUDEDIR}/bytes/crc32.cpp
     ${NSCP_DEF_PLUGIN_CPP}
 )
 
@@ -36,16 +36,16 @@ if(WIN32)
     set(SRCS
         ${SRCS}
         "${TARGET}.h"
-        ${NSCP_INCLUDEDIR}/nrpe/server/protocol.hpp
-        ${NSCP_INCLUDEDIR}/nrpe/server/handler.hpp
-        ${NSCP_INCLUDEDIR}/nrpe/server/parser.hpp
-        ${NSCP_INCLUDEDIR}/nrpe/packet.hpp
-        ${NSCP_INCLUDEDIR}/swap_bytes.hpp
-        ${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
-        ${NSCP_INCLUDEDIR}/socket/socket_settings_helper.hpp
-        ${NSCP_INCLUDEDIR}/socket/server.hpp
-        ${NSCP_INCLUDEDIR}/socket/connection.hpp
-        ${NSCP_INCLUDEDIR}/utils.h
+        ${NSCP_INCLUDEDIR}/net/nrpe/server/protocol.hpp
+        ${NSCP_INCLUDEDIR}/net/nrpe/server/handler.hpp
+        ${NSCP_INCLUDEDIR}/net/nrpe/server/parser.hpp
+        ${NSCP_INCLUDEDIR}/net/nrpe/packet.hpp
+        ${NSCP_INCLUDEDIR}/bytes/swap_bytes.hpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_settings_helper.hpp
+        ${NSCP_INCLUDEDIR}/net/socket/server.hpp
+        ${NSCP_INCLUDEDIR}/net/socket/connection.hpp
+        ${NSCP_INCLUDEDIR}/bytes/crc32.h
         ${NSCP_DEF_PLUGIN_HPP}
     )
 endif(WIN32)

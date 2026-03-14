@@ -11,10 +11,10 @@ project(clients)
 set(SRCS
     ${SRCS}
     check_nrpe.cpp
-    ${NSCP_INCLUDEDIR}/nrpe/packet.cpp
-    ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/net/nrpe/packet.cpp
+    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
-    ${NSCP_INCLUDEDIR}/utils.cpp
+    ${NSCP_INCLUDEDIR}/bytes/crc32.cpp
     ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
     ${NSCP_CLIENT_CPP}
@@ -43,13 +43,13 @@ if(WIN32)
         check_nrpe.hpp
         ../../modules/NRPEClient/nrpe_client.hpp
         ../../modules/NRPEClient/nrpe_handler.hpp
-        ${NSCP_INCLUDEDIR}/nrpe/packet.hpp
-        ${NSCP_INCLUDEDIR}/nrpe/client/nrpe_client_protocol.hpp
-        ${NSCP_INCLUDEDIR}/swap_bytes.hpp
-        ${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
-        ${NSCP_INCLUDEDIR}/socket/client.hpp
+        ${NSCP_INCLUDEDIR}/net/nrpe/packet.hpp
+        ${NSCP_INCLUDEDIR}/net/nrpe/client/nrpe_client_protocol.hpp
+        ${NSCP_INCLUDEDIR}/bytes/swap_bytes.hpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.hpp
-        ${NSCP_INCLUDEDIR}/utils.h
+        ${NSCP_INCLUDEDIR}/bytes/crc32.h
         ${NSCP_CLIENT_HPP}
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
         ${NSCP_INCLUDEDIR}/win/shellapi.hpp

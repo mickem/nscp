@@ -22,7 +22,7 @@
 #include <config.h>
 
 #include <boost/algorithm/string.hpp>
-#include <buffer.hpp>
+#include <bytes/buffer.hpp>
 #include <error/error.hpp>
 #include <handle.hpp>
 #include <settings/settings_core.hpp>

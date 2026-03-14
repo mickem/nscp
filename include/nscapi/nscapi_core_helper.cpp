@@ -25,7 +25,7 @@
 #include <nscapi/protobuf/functions_status.hpp>
 #include <nscapi/protobuf/functions_submit.hpp>
 #include <nscapi/protobuf/storage.hpp>
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 
 #define CORE_LOG_ERROR(msg) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, msg);
 #define CORE_LOG_ERROR_EX(msg) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Exception in: " + msg);

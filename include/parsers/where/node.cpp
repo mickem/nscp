@@ -25,8 +25,8 @@
 #include <parsers/where/unary_fun.hpp>
 #include <parsers/where/unary_op.hpp>
 #include <parsers/where/value_node.hpp>
+#include <str/utf8.hpp>
 #include <str/xtos.hpp>
-#include <utf8.hpp>
 
 namespace parsers {
 namespace where {

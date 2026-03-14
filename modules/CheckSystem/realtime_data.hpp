@@ -21,9 +21,9 @@
 #include <boost/filesystem/path.hpp>
 #include <list>
 
-#include "win/CheckMemory.h"
 #include "filter.hpp"
 #include "pdh_thread.hpp"
+#include "win/CheckMemory.h"
 
 namespace check_cpu_filter {
 struct runtime_data {

@@ -24,7 +24,7 @@
 #include <parsers/where/helpers.hpp>
 #include <parsers/where/node.hpp>
 #include <str/format.hpp>
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 
 namespace parsers {
 namespace where {

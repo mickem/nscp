@@ -40,12 +40,12 @@
 #include <config.h>
 
 #include <file_helpers.hpp>
-#include <http/client.hpp>
+#include <net/http/client.hpp>
+#include <net/http/http_client_protocol.hpp>
 #include <net/net.hpp>
+#include <net/socket/client.hpp>
 #include <settings/settings_core.hpp>
 #include <settings/settings_interface_impl.hpp>
-#include <socket/client.hpp>
-#include <socket/clients/http/http_client_protocol.hpp>
 
 namespace settings {
 class settings_http : public settings::settings_interface_impl {

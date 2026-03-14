@@ -21,8 +21,8 @@
 #include <iostream>
 #include <nsclient/logger/logger_helper.hpp>
 #include <str/format.hpp>
+#include <str/utf8.hpp>
 #include <str/utils.hpp>
-#include <utf8.hpp>
 
 void nsclient::logging::logger_helper::log_fatal(std::string message) {
   std::cout << message << "\n";

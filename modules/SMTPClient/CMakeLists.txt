@@ -10,7 +10,7 @@ set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
     smtp.cpp
-    ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_CLIENT_CPP}
 )
@@ -24,7 +24,7 @@ if(WIN32)
         smtp_client.hpp
         smtp_handler.hpp
         smtp.hpp
-        ${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_CLIENT_HPP}
     )

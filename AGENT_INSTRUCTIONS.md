@@ -83,7 +83,7 @@ Tests are registered with CMake in **`C:\src\nscp\tests\CMakeLists.txt`** using 
 
 | Test Target | Test File(s)                                                 | Component |
 |-------------|--------------------------------------------------------------|-----------|
-| `http_client_test` | `include/http/client_test.cpp`                               | HTTP client (requires OpenSSL) |
+| `http_client_test` | `include/net/http/client_test.cpp`                           | HTTP client (requires OpenSSL) |
 | `str_test` | `include/str/format_test.cpp`                                | String formatting |
 | | `include/str/xtos_test.cpp`                                  | String-to-number conversion |
 | | `include/str/nscp_string_test.cpp`                           | NSCP string utilities |
@@ -109,7 +109,7 @@ Tests are registered with CMake in **`C:\src\nscp\tests\CMakeLists.txt`** using 
 | `settings_proxy_test` | `include/nscapi/settings/proxy_test.cpp`                     | Settings proxy |
 | `shellapi_test` | `include/win/shellapi_test.cpp`                              | Windows Shell API (Win32 only) |
 | `wmi_query_test` | `include/win/wmi/wmi_query_test.cpp`                         | WMI queries (Win32 only) |
-| — | `include/socket/allowed_hosts_test.cpp`                      | Socket allowed hosts |
+| — | `include/net/socket/allowed_hosts_test.cpp`                      | Socket allowed hosts |
 | — | `include/nscapi/nscapi_protobuf_functions_test.cpp`          | NSCAPI protobuf functions |
 
 #### Service Tests (`service/`)
@@ -145,7 +145,7 @@ Tests are registered with CMake in **`C:\src\nscp\tests\CMakeLists.txt`** using 
 
 | Path | Component |
 |------|-----------|
-| `tests/socket/allowed_hosts_test.cpp` | Socket allowed hosts (integration) |
+| `tests/net/socket/allowed_hosts_test.cpp` | Socket allowed hosts (integration) |
 | `tests/acceptance-tests.bat` | Windows acceptance tests |
 | `tests/acceptance-tests.sh` | Linux acceptance tests |
 | `tests/nrpe/` | NRPE protocol tests |

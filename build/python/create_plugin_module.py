@@ -116,7 +116,7 @@ using namespace Google::Protobuf;
 namespace ch = nscapi::command_helper;
 {% endif %}
 
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 
 /**
  * New version of the load call.

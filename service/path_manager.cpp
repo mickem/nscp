@@ -3,7 +3,7 @@
 #include <config.h>
 
 #include <parsers/expression/expression.hpp>
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 
 #include "../libs/settings_manager/settings_manager_impl.h"
 

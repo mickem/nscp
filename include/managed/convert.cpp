@@ -19,21 +19,16 @@
 
  #include <managed/convert.hpp>
 
-#include <types.hpp>
-
 #include <string>
 #include <functional>
 
 #include <NSCAPI.h>
-//#include <nscapi/nscapi_plugin_wrapper.hpp>
 
 #include <win/windows.hpp>
 
 #include <list>
 
-#include <utf8.hpp>
-
-//#include <nscapi/macros.hpp>
+#include <str/utf8.hpp>
 
 using namespace System;
 using namespace System::IO;

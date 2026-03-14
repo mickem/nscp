@@ -25,9 +25,9 @@
 #include <memory>
 #include <nsclient/logger/logger.hpp>
 #include <set>
+#include <str/utf8.hpp>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
-#include <utf8.hpp>
 #include <utility>
 
 #include "plugin_interface.hpp"

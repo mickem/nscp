@@ -18,15 +18,15 @@
  */
 
 #include <boost/unordered_map.hpp>
-#include <buffer.hpp>
+#include <bytes/buffer.hpp>
 #include <error/error.hpp>
 #include <handle.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <str/format.hpp>
+#include <str/utf8.hpp>
 #include <str/utils.hpp>
-#include <utf8.hpp>
 #include <win/services.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
 #include <win/windows.hpp>

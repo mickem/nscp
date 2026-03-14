@@ -15,7 +15,7 @@ set(service_SRCS
     plugins/dll_plugin.cpp
     plugins/plugin_cache.cpp
     plugins/zip_plugin.cpp
-    ${NSCP_INCLUDEDIR}/utf8.cpp
+    ${NSCP_INCLUDEDIR}/str/utf8.cpp
     # logger
     logger/nsclient_logger.cpp
     logger/simple_console_logger.cpp
@@ -45,7 +45,7 @@ set(service_SRCS
     ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.cpp
     ${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
     ${NSCP_INCLUDEDIR}/pid_file.cpp
-    ${NSCP_INCLUDEDIR}/has-threads.cpp
+    ${NSCP_INCLUDEDIR}/threads/has-threads.cpp
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ../resources/nsclient.ico
 )
@@ -59,7 +59,7 @@ if(WIN32)
         ${service_SRCS}
         NSClient++.h
         NSClient++.rc
-        ${NSCP_INCLUDEDIR}/utf8.hpp
+        ${NSCP_INCLUDEDIR}/str/utf8.hpp
         core_api.h
         settings_client.hpp
         cli_parser.hpp
@@ -104,7 +104,7 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.hpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.hpp
         ${NSCP_INCLUDEDIR}/pid_file.hpp
-        ${NSCP_INCLUDEDIR}/has-threads.hpp
+        ${NSCP_INCLUDEDIR}/threads/has-threads.hpp
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
         ${NSCP_INCLUDEDIR}/win/shellapi.hpp
         # Protobuf

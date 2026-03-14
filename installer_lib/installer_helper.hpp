@@ -7,10 +7,10 @@
 #include <MsiQuery.h>
 #include <msi.h>
 
-#include <char_buffer.hpp>
+#include <bytes/char_buffer.hpp>
 #include <error/error.hpp>
+#include <str/utf8.hpp>
 #include <str/wstring.hpp>
-#include <utf8.hpp>
 #include <vector>
 
 #include "keys.hpp"

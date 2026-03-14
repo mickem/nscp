@@ -20,9 +20,9 @@
 #pragma once
 
 #include <boost/tuple/tuple.hpp>
-#include <check_mk/data.hpp>
-#include <check_mk/lua/lua_check_mk.hpp>
-#include <check_mk/server/server_handler.hpp>
+#include <net/check_mk/data.hpp>
+#include <net/check_mk/lua/lua_check_mk.hpp>
+#include <net/check_mk/server/server_handler.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 

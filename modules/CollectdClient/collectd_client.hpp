@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <collectd/collectd_packet.hpp>
+#include <net/collectd/collectd_packet.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>

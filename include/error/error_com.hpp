@@ -21,7 +21,7 @@
 #include <atlbase.h>
 #include <comdef.h>
 
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 
 namespace error {
 class com {

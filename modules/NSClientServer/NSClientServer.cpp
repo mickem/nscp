@@ -22,6 +22,7 @@
 #include <time.h>
 
 #include <boost/assign.hpp>
+#include <net/socket/socket_settings_helper.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_common_options.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -29,7 +30,6 @@
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/settings/helper.hpp>
-#include <socket/socket_settings_helper.hpp>
 #include <str/utils.hpp>
 
 #include "handler_impl.hpp"

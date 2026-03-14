@@ -20,7 +20,7 @@
 #pragma once
 #include <string>
 #ifdef _WIN32
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 #include <win/windows.hpp>
 #endif
 

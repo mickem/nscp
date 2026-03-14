@@ -11,7 +11,7 @@ set(SRCS
     "${TARGET}.cpp"
     nrdp.cpp
     ${TINYXML2_INCLUDE_DIR}/tinyxml2.cpp
-    ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_CLIENT_CPP}
 )
@@ -40,7 +40,7 @@ if(WIN32)
         nrdp.hpp
         nrdp_client.hpp
         nrdp_handler.hpp
-        ${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
         ${TINYXML2_INCLUDE_DIR}/tinyxml2.h
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_CLIENT_HPP}

@@ -10,7 +10,7 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/parsers/where.cpp
     ${NSCP_INCLUDEDIR}/parsers/operators.cpp
     ${NSCP_INCLUDEDIR}/parsers/helpers.cpp
-    ${NSCP_INCLUDEDIR}/utf8.cpp
+    ${NSCP_INCLUDEDIR}/str/utf8.cpp
     ${NSCP_INCLUDEDIR}/parsers/where/binary_op.cpp
     ${NSCP_INCLUDEDIR}/parsers/where/helpers.cpp
     ${NSCP_INCLUDEDIR}/parsers/where/list_node.cpp
@@ -29,7 +29,7 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/parsers/operators.hpp
         ${NSCP_INCLUDEDIR}/parsers/helpers.hpp
         ${NSCP_INCLUDEDIR}/parsers/where.hpp
-        ${NSCP_INCLUDEDIR}/utf8.hpp
+        ${NSCP_INCLUDEDIR}/str/utf8.hpp
         ${NSCP_INCLUDEDIR}/parsers/where/binary_op.hpp
         ${NSCP_INCLUDEDIR}/parsers/where/helpers.hpp
         ${NSCP_INCLUDEDIR}/parsers/where/list_node.hpp

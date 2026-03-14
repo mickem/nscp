@@ -19,15 +19,14 @@
 
 #pragma once
 
-#include <http/client.hpp>
+#include <net/http/client.hpp>
+#include <net/socket/socket_helpers.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
-#include <nscapi/protobuf/nagios.hpp>
-#include <socket/socket_helpers.hpp>
 
 #include "nrdp.hpp"
 

@@ -20,7 +20,7 @@
 #pragma once
 
 #include <boost/make_shared.hpp>
-#include <nsca/client/nsca_client_protocol.hpp>
+#include <net/nsca/client/nsca_client_protocol.hpp>
 #include <nscapi/settings/helper.hpp>
 
 namespace nsca_handler {

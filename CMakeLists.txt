@@ -955,14 +955,14 @@ endforeach(
 # ##############################################################################
 
 set(NSCP_DEF_PLUGIN_CPP
-    ${NSCP_INCLUDEDIR}/utf8.cpp
+    ${NSCP_INCLUDEDIR}/str/utf8.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.cpp
     ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
 )
 set(NSCP_DEF_PLUGIN_HPP
-    ${NSCP_INCLUDEDIR}/utf8.hpp
+    ${NSCP_INCLUDEDIR}/str/utf8.hpp
     ${NSCP_INCLUDEDIR}/str/format.hpp
     ${NSCP_INCLUDEDIR}/str/utils.hpp
     # ${NSCP_INCLUDEDIR}/config.h
@@ -990,11 +990,11 @@ set(NSCP_FILTER_LIB
 )
 
 set(NSCP_CLIENT_CPP
-    ${NSCP_INCLUDEDIR}/utf8.cpp
+    ${NSCP_INCLUDEDIR}/str/utf8.cpp
     ${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
 )
 set(NSCP_CLIENT_HPP
-    ${NSCP_INCLUDEDIR}/utf8.hpp
+    ${NSCP_INCLUDEDIR}/str/utf8.hpp
     ${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
     ${NSCP_INCLUDEDIR}/nscapi/settings/object.hpp
 )

@@ -20,10 +20,10 @@
 #pragma once
 
 #include <client/command_line_parser.hpp>
+#include <net/socket/client.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_targets.hpp>
 #include <nscapi/protobuf/metrics.hpp>
-#include <socket/client.hpp>
 
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;

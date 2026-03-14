@@ -29,8 +29,8 @@
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <str/utf8.hpp>
 #include <string>
-#include <utf8.hpp>
 
 namespace nscapi {
 

@@ -12,7 +12,7 @@ set(SRCS
     check_docker.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
-    ${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
 )
 

@@ -25,7 +25,7 @@
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 #include <tchar.h>
 
 #include <stack>

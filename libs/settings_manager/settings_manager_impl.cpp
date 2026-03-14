@@ -13,8 +13,8 @@
 #include <file_helpers.hpp>
 #include <settings/client/settings_proxy.hpp>
 #include <str/format.hpp>
+#include <str/utf8.hpp>
 #include <str/xtos.hpp>
-#include <utf8.hpp>
 #include <utility>
 
 static settings_manager::NSCSettingsImpl *settings_impl = nullptr;

@@ -23,15 +23,15 @@
 #include <win/tool-helper.h>
 
 #include <boost/thread.hpp>
-#include <buffer.hpp>
-#include <char_buffer.hpp>
+#include <bytes/buffer.hpp>
+#include <bytes/char_buffer.hpp>
 #include <error/error.hpp>
 #include <handle.hpp>
 #include <iostream>
 #include <process/execute_process.hpp>
+#include <str/utf8.hpp>
 #include <str/xtos.hpp>
 #include <string>
-#include <utf8.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
 #include <win/userenv.hpp>
 

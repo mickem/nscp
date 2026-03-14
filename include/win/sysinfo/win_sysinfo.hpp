@@ -21,7 +21,7 @@
 
 #include <minmax.h>
 
-#include <buffer.hpp>
+#include <bytes/buffer.hpp>
 #include <string>
 #include <vector>
 #include <win/win_defines.hpp>

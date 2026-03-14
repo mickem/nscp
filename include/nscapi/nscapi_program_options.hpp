@@ -21,8 +21,8 @@
 
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
+#include <str/utf8.hpp>
 #include <str/utils.hpp>
-#include <utf8.hpp>
 
 #ifdef WIN32
 #pragma warning(push)

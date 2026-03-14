@@ -21,11 +21,11 @@
 
 #include <config.h>
 
+#include <net/socket/socket_settings_helper.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/settings/helper.hpp>
-#include <socket/socket_settings_helper.hpp>
 #include <str/utils.hpp>
 
 namespace sh = nscapi::settings_helper;

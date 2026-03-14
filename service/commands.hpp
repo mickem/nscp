@@ -22,8 +22,8 @@
 #include <boost/algorithm/string/case_conv.hpp>
 #include <memory>
 #include <nsclient/logger/logger.hpp>
+#include <str/utf8.hpp>
 #include <str/xtos.hpp>
-#include <utf8.hpp>
 
 #include "plugins/plugin_interface.hpp"
 

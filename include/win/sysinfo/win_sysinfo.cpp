@@ -21,10 +21,10 @@
 #include <windows.h>
 
 #include <boost/scoped_array.hpp>
-#include <buffer.hpp>
+#include <bytes/buffer.hpp>
 #include <error/error.hpp>
 #include <nsclient/nsclient_exception.hpp>
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
 #include <win/win_defines.hpp>
 

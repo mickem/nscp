@@ -19,7 +19,7 @@
 
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <scheduler/simple_scheduler.hpp>
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 
 #if BOOST_VERSION >= 105300
 #include <boost/interprocess/detail/atomic.hpp>

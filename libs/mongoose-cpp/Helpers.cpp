@@ -2,7 +2,7 @@
 
 #include <mongoose.h>
 
-#include <char_buffer.hpp>
+#include <bytes/char_buffer.hpp>
 
 /**
  * A stream response to a request

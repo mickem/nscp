@@ -22,6 +22,7 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/json.hpp>
 #include <boost/program_options.hpp>
+#include <net/socket/socket_helpers.hpp>
 #include <nscapi/nscapi_common_options.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -29,7 +30,6 @@
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/protobuf/settings_functions.hpp>
 #include <nscapi/settings/helper.hpp>
-#include <socket/socket_helpers.hpp>
 #include <str/format.hpp>
 #include <str/xtos.hpp>
 #include <utility>

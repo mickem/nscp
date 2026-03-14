@@ -21,15 +21,15 @@
 
 #include <boost/tuple/tuple.hpp>
 #include <client/command_line_parser.hpp>
-#include <nrpe/client/nrpe_client_protocol.hpp>
-#include <nrpe/packet.hpp>
+#include <net/nrpe/client/nrpe_client_protocol.hpp>
+#include <net/nrpe/packet.hpp>
+#include <net/socket/client.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
 #include <nscapi/protobuf/functions_submit.hpp>
-#include <socket/client.hpp>
 
 namespace nrpe_client {
 struct connection_data : public socket_helpers::connection_info {

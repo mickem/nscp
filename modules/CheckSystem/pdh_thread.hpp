@@ -23,9 +23,9 @@
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
 #include <nscapi/settings/proxy.hpp>
-#include <pdh/pdh_interface.hpp>
-#include <pdh/pdh_query.hpp>
 #include <rrd_buffer.hpp>
+#include <win/pdh/pdh_interface.hpp>
+#include <win/pdh/pdh_query.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
 
 #include "check_network.hpp"

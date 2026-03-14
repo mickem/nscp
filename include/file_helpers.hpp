@@ -24,7 +24,7 @@
 #include <boost/optional.hpp>
 #include <fstream>
 #include <sstream>
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 
 #ifdef WIN32
 // clang-format off
