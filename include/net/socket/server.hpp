@@ -75,9 +75,7 @@ class server : boost::noncopyable {
 #ifdef USE_SSL
   boost::asio::ssl::context context_;
 
-  static boost::asio::ssl::context_base::method make_context(const connection_info &info) {
-    return tls_method_parser(info.ssl.tls_version);
-  }
+  static boost::asio::ssl::context_base::method make_context(const connection_info &info) { return tls_method_parser(info.ssl.tls_version); }
 #endif
 
   boost::shared_ptr<connection_type> new_connection_;

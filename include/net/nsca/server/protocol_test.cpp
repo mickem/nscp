@@ -120,4 +120,3 @@ TEST(NscaServerProtocol, GetInfoReturnsConnectionInfo) {
   auto retrieved = proto->get_info();
   EXPECT_EQ(retrieved.ssl.enabled, false);
 }
-

@@ -244,4 +244,3 @@ TEST(NrpeServerProtocol, LogErrorDelegatesToHandler) {
   ASSERT_EQ(handler.error_msgs.size(), 1u);
   EXPECT_EQ(handler.error_msgs[0], "error message");
 }
-

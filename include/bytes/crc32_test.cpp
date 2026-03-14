@@ -17,9 +17,8 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <gtest/gtest.h>
-
 #include <bytes/crc32.h>
+#include <gtest/gtest.h>
 
 #include <cstring>
 #include <string>
@@ -106,4 +105,3 @@ TEST(crc32, generate_table_idempotent) {
   EXPECT_EQ(crc1, crc2);
   EXPECT_EQ(crc1, 0xCBF43926UL);
 }
-

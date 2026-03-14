@@ -17,9 +17,8 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <gtest/gtest.h>
-
 #include <bytes/base64.h>
+#include <gtest/gtest.h>
 
 #include <cstring>
 #include <string>
@@ -265,4 +264,3 @@ TEST(base64_roundtrip, various_lengths) {
     EXPECT_EQ(std::memcmp(decoded.data(), input.data(), len), 0);
   }
 }
-

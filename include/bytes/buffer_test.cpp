@@ -20,7 +20,6 @@
 #include <gtest/gtest.h>
 
 #include <bytes/buffer.hpp>
-
 #include <cstring>
 
 // --- Construction ---
@@ -153,4 +152,3 @@ TEST(buffer, integer_buffer_from_data) {
   EXPECT_EQ(buf[1], 20);
   EXPECT_EQ(buf[2], 30);
 }
-

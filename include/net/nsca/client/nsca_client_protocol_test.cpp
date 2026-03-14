@@ -113,7 +113,6 @@ TEST(NscaClientProtocol, OnReadProcessesIvPacket) {
   EXPECT_FALSE(proto.wants_data());
 }
 
-
 // =============================================================================
 // prepare_request from sent_request transitions to has_request
 // =============================================================================
@@ -259,7 +258,7 @@ TEST(NscaClientProtocol, FullSendCycle) {
   pkt.result = "OK - 50% free";
   pkt.code = 0;
   proto.prepare_request(pkt);
-  //EXPECT_TRUE(proto.has_data());
+  // EXPECT_TRUE(proto.has_data());
 
   // 4. get outbound buffer and write
   auto& outbound = proto.get_outbound();
@@ -311,4 +310,3 @@ TEST(NscaClientProtocol, EncryptionXorProducesEncryptedOutbound) {
 
   EXPECT_NE(outbound, outbound2);
 }
-

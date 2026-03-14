@@ -123,9 +123,7 @@ class ServerConnectionTest : public ::testing::Test {
 
   void SetUp() override { protocol_ = boost::make_shared<MockProtocol>(); }
 
-  boost::shared_ptr<TestConnection> make_connection(bool open = false) {
-    return boost::shared_ptr<TestConnection>(new TestConnection(io_, protocol_, open));
-  }
+  boost::shared_ptr<TestConnection> make_connection(bool open = false) { return boost::shared_ptr<TestConnection>(new TestConnection(io_, protocol_, open)); }
 };
 
 }  // namespace
@@ -326,4 +324,3 @@ TEST_F(ServerConnectionTest, OnDone_TracksResult) {
   conn2->on_done(false);
   EXPECT_FALSE(conn2->on_done_result);
 }
-

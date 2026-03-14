@@ -44,7 +44,7 @@ struct buffer {
   }
   T& operator[](const std::size_t pos) { return data[pos]; }
   ~buffer() { delete[] data; }
-  explicit operator T*() const { return data; }
+  operator T*() const { return data; }
   std::size_t size() const { return size_; }
   std::size_t size_in_bytes() const { return size_ * sizeof(T); }
   U get(std::size_t offset = 0) const { return reinterpret_cast<U>(&data[offset]); }

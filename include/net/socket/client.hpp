@@ -21,9 +21,9 @@
 
 #include <boost/algorithm/string.hpp>
 #include <net/socket/socket_helpers.hpp>
+#include <str/utf8.hpp>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
-#include <str/utf8.hpp>
 
 using boost::asio::ip::tcp;
 

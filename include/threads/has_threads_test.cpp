@@ -19,11 +19,9 @@
 
 #include <gtest/gtest.h>
 
-#include <threads/has-threads.hpp>
-
-#include <boost/thread.hpp>
-
 #include <atomic>
+#include <boost/thread.hpp>
+#include <threads/has-threads.hpp>
 
 // --- Construction / destruction ---
 
@@ -203,4 +201,3 @@ TEST(has_threads, thread_exception_is_caught) {
   ht.waitForThreads();
   EXPECT_TRUE(other_ran.load());
 }
-

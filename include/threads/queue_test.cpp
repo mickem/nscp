@@ -19,10 +19,9 @@
 
 #include <gtest/gtest.h>
 
-#include <threads/queue.hpp>
-
 #include <queue>
 #include <string>
+#include <threads/queue.hpp>
 
 // Use std::queue (FIFO) as the underlying container for simpler test reasoning
 using int_queue = nscp_thread::safe_queue<int, std::queue<int>>;
@@ -170,4 +169,3 @@ TEST(safe_queue, concurrent_push_pop) {
     EXPECT_EQ(results[i], i);
   }
 }
-

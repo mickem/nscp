@@ -54,9 +54,7 @@ TEST(NrpeData, VersionConstants) {
 // length helpers
 // =============================================================================
 
-TEST(NrpeLength, GetMinHeaderLength) {
-  EXPECT_EQ(length::get_min_header_length(), sizeof(data::packet_header));
-}
+TEST(NrpeLength, GetMinHeaderLength) { EXPECT_EQ(length::get_min_header_length(), sizeof(data::packet_header)); }
 
 TEST(NrpeLength, GetPacketLengthV2) {
   std::size_t payload = 1024;
@@ -304,4 +302,3 @@ TEST(NrpePacket, GetBufferReturnsNonEmpty) {
   EXPECT_FALSE(buf.empty());
   EXPECT_EQ(buf.size(), length::get_packet_length_v2(1024));
 }
-

@@ -20,7 +20,6 @@
 #include <gtest/gtest.h>
 
 #include <bytes/swap_bytes.hpp>
-
 #include <cstdint>
 
 // --- SwapBytes direct tests ---
@@ -157,4 +156,3 @@ TEST(swap_bytes, signed_int16_swap) {
   int16_t swapped = swap_bytes::SwapBytes<int16_t, 2>(val);
   EXPECT_EQ(static_cast<uint16_t>(swapped), 0x0201);
 }
-

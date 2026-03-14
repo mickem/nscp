@@ -159,7 +159,7 @@ inline std::string format_filetime(const unsigned long long filetime, const std:
 #endif
 
 template <class T>
-T decode_time(const std::string& time, unsigned int factor = 1) {
+T decode_time(const std::string &time, unsigned int factor = 1) {
   const auto p = time.find_first_of("sSmMhHdDwW");
   const auto pend = time.find_first_not_of("0123456789");
   T value = boost::lexical_cast<T>(pend == std::string::npos ? time : time.substr(0, pend));
@@ -218,7 +218,7 @@ inline std::string itos_as_time(const unsigned long long time) {
   return ss.str();
 }
 template <class T>
-T stox_as_time_sec(const std::string& time, const std::string& default_unit) {
+T stox_as_time_sec(const std::string &time, const std::string &default_unit) {
   const auto p = time.find_first_of("sSmMhHdDwW");
   const auto pend = time.find_first_not_of("0123456789");
   T value = str::stox<T>(pend == std::string::npos ? time : time.substr(0, pend));
@@ -301,7 +301,7 @@ inline std::string format_byte_units(const unsigned long long i) {
   return ret;
 }
 template <class T>
-double convert_to_byte_units(T i, const std::string& unit) {
+double convert_to_byte_units(T i, const std::string &unit) {
   const std::string unit_uc = boost::to_upper_copy(unit);
   std::size_t idx = 0;
   if (unit_uc.empty()) {

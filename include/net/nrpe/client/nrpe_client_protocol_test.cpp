@@ -281,4 +281,3 @@ TEST(NrpeClientProtocol, FullCycle) {
   EXPECT_EQ(responses.front().getPayload(), "OK - disk fine");
   EXPECT_EQ(responses.front().getResult(), 0);
 }
-

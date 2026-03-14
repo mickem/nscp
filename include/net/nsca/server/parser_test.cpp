@@ -242,4 +242,3 @@ TEST(NscaParser, IncompleteDigestReturnsFalse) {
   EXPECT_FALSE(complete);
   EXPECT_EQ(parser.size(), 10u);
 }
-

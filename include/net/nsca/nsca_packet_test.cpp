@@ -19,9 +19,9 @@
 
 #include <gtest/gtest.h>
 
+#include <cstring>
 #include <net/nsca/nsca_packet.hpp>
 #include <string>
-#include <cstring>
 
 // =============================================================================
 // nsca_exception
@@ -47,21 +47,15 @@ TEST(NscaException, CopyConstructor) {
 // data constants
 // =============================================================================
 
-TEST(NscaData, TransmittedIuvSize) {
-  EXPECT_EQ(nsca::data::transmitted_iuv_size, 128);
-}
+TEST(NscaData, TransmittedIuvSize) { EXPECT_EQ(nsca::data::transmitted_iuv_size, 128); }
 
-TEST(NscaData, Version3) {
-  EXPECT_EQ(nsca::data::version3, 3);
-}
+TEST(NscaData, Version3) { EXPECT_EQ(nsca::data::version3, 3); }
 
 // =============================================================================
 // length helpers
 // =============================================================================
 
-TEST(NscaLength, DefaultPayloadLength) {
-  EXPECT_EQ(nsca::length::get_payload_length(), 512u);
-}
+TEST(NscaLength, DefaultPayloadLength) { EXPECT_EQ(nsca::length::get_payload_length(), 512u); }
 
 TEST(NscaLength, SetAndGetPayloadLength) {
   unsigned int orig = nsca::length::get_payload_length();
@@ -72,10 +66,8 @@ TEST(NscaLength, SetAndGetPayloadLength) {
 
 TEST(NscaLength, GetPacketLengthIncludesHeaderAndFields) {
   unsigned int payload = 512;
-  unsigned int expected = sizeof(nsca::data::data_packet)
-    + payload * sizeof(char)
-    + nsca::length::host_length * sizeof(char)
-    + nsca::length::desc_length * sizeof(char);
+  unsigned int expected =
+      sizeof(nsca::data::data_packet) + payload * sizeof(char) + nsca::length::host_length * sizeof(char) + nsca::length::desc_length * sizeof(char);
   EXPECT_EQ(nsca::length::get_packet_length(payload), expected);
 }
 
@@ -90,13 +82,9 @@ TEST(NscaLength, HostAndDescLengthConstants) {
   EXPECT_EQ(nsca::length::desc_length, 128u);
 }
 
-TEST(NscaLength, IvPayloadLength) {
-  EXPECT_EQ(nsca::length::iv::get_payload_length(), 128u);
-}
+TEST(NscaLength, IvPayloadLength) { EXPECT_EQ(nsca::length::iv::get_payload_length(), 128u); }
 
-TEST(NscaLength, IvPacketLength) {
-  EXPECT_EQ(nsca::length::iv::get_packet_length(), sizeof(nsca::data::iv_packet));
-}
+TEST(NscaLength, IvPacketLength) { EXPECT_EQ(nsca::length::iv::get_packet_length(), sizeof(nsca::data::iv_packet)); }
 
 // =============================================================================
 // packet — constructors
@@ -414,4 +402,3 @@ TEST(NscaIvPacket, GetIvPreservesBinaryContent) {
   EXPECT_EQ(parsed.get_iv(), iv);
   EXPECT_EQ(parsed.get_time(), timestamp);
 }
-

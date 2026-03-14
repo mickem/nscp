@@ -19,11 +19,9 @@
 
 #include <gtest/gtest.h>
 
-#include <threads/concurrent_queue.hpp>
-
 #include <boost/thread.hpp>
-
 #include <string>
+#include <threads/concurrent_queue.hpp>
 #include <vector>
 
 // --- empty ---
@@ -177,4 +175,3 @@ TEST(concurrent_queue, concurrent_push_wait_and_pop) {
     EXPECT_EQ(results[i], i);
   }
 }
-

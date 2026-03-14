@@ -334,4 +334,3 @@ TEST(utf8, wstring_to_string_with_tabs) {
   std::string result = utf8::wstring_to_string(input);
   EXPECT_EQ(result, "col1\tcol2\tcol3");
 }
-

@@ -167,8 +167,8 @@ NSCP_CREATE_TEST(
 
 if(OPENSSL_FOUND)
     NSCP_CREATE_TEST(
-            net_test
-            SOURCES
+        net_test
+        SOURCES
             ${NSCP_INCLUDEDIR}/net/pinger_test.cpp
             ${NSCP_INCLUDEDIR}/net/http/client_test.cpp
             ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts_test.cpp
@@ -183,14 +183,13 @@ if(OPENSSL_FOUND)
             ${NSCP_INCLUDEDIR}/net/nsca/server/parser_test.cpp
             ${NSCP_INCLUDEDIR}/net/nsca/server/protocol_test.cpp
             ${NSCP_INCLUDEDIR}/net/nsca/client/nsca_client_protocol_test.cpp
-
             ${NSCP_INCLUDEDIR}/nscpcrypt/nscpcrypt.hpp
             ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
             ${NSCP_INCLUDEDIR}/net/nrpe/packet.cpp
             ${NSCP_INCLUDEDIR}/net/nsca/nsca_packet.cpp
             ${NSCP_INCLUDEDIR}/bytes/crc32.cpp
             ${NSCP_INCLUDEDIR}/str/utf8.cpp
-            LIBRARIES
+        LIBRARIES
             GTest::gtest_main
             nscpcrypt
             ${Boost_FILESYSTEM_LIBRARY}
@@ -198,7 +197,7 @@ if(OPENSSL_FOUND)
             ${Boost_DATE_TIME_LIBRARY}
             ${OPENSSL_LIBRARIES}
             $<$<PLATFORM_ID:Windows>:CRYPT32>
-            INCLUDES
+        INCLUDES
             ${NSCP_INCLUDEDIR}
             ${OPENSSL_INCLUDE_DIR}
     )

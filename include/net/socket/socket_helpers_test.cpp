@@ -586,45 +586,25 @@ TEST(ConnectionInfoCtxOpts, DelegatesToSslOpts) {
 // SSL-specific: tls_method_parser
 // =============================================================================
 
-TEST(TlsMethodParser, Tls13) {
-  EXPECT_EQ(+socket_helpers::tls_method_parser("tlsv1.3"), +boost::asio::ssl::context::tlsv13);
-}
+TEST(TlsMethodParser, Tls13) { EXPECT_EQ(+socket_helpers::tls_method_parser("tlsv1.3"), +boost::asio::ssl::context::tlsv13); }
 
-TEST(TlsMethodParser, Tls13Short) {
-  EXPECT_EQ(+socket_helpers::tls_method_parser("1.3"), +boost::asio::ssl::context::tlsv13);
-}
+TEST(TlsMethodParser, Tls13Short) { EXPECT_EQ(+socket_helpers::tls_method_parser("1.3"), +boost::asio::ssl::context::tlsv13); }
 
-TEST(TlsMethodParser, Tls12) {
-  EXPECT_EQ(+socket_helpers::tls_method_parser("tlsv1.2"), +boost::asio::ssl::context::tlsv12);
-}
+TEST(TlsMethodParser, Tls12) { EXPECT_EQ(+socket_helpers::tls_method_parser("tlsv1.2"), +boost::asio::ssl::context::tlsv12); }
 
-TEST(TlsMethodParser, Tls12WithPlus) {
-  EXPECT_EQ(+socket_helpers::tls_method_parser("tlsv1.2+"), +boost::asio::ssl::context::tlsv12);
-}
+TEST(TlsMethodParser, Tls12WithPlus) { EXPECT_EQ(+socket_helpers::tls_method_parser("tlsv1.2+"), +boost::asio::ssl::context::tlsv12); }
 
-TEST(TlsMethodParser, Tls11) {
-  EXPECT_EQ(+socket_helpers::tls_method_parser("tls1.1"), +boost::asio::ssl::context::tlsv11);
-}
+TEST(TlsMethodParser, Tls11) { EXPECT_EQ(+socket_helpers::tls_method_parser("tls1.1"), +boost::asio::ssl::context::tlsv11); }
 
-TEST(TlsMethodParser, Tls10) {
-  EXPECT_EQ(+socket_helpers::tls_method_parser("tls1.0"), +boost::asio::ssl::context::tlsv1);
-}
+TEST(TlsMethodParser, Tls10) { EXPECT_EQ(+socket_helpers::tls_method_parser("tls1.0"), +boost::asio::ssl::context::tlsv1); }
 
-TEST(TlsMethodParser, Sslv3) {
-  EXPECT_EQ(+socket_helpers::tls_method_parser("sslv3"), +boost::asio::ssl::context::sslv23);
-}
+TEST(TlsMethodParser, Sslv3) { EXPECT_EQ(+socket_helpers::tls_method_parser("sslv3"), +boost::asio::ssl::context::sslv23); }
 
-TEST(TlsMethodParser, Ssl3) {
-  EXPECT_EQ(+socket_helpers::tls_method_parser("ssl3"), +boost::asio::ssl::context::sslv23);
-}
+TEST(TlsMethodParser, Ssl3) { EXPECT_EQ(+socket_helpers::tls_method_parser("ssl3"), +boost::asio::ssl::context::sslv23); }
 
-TEST(TlsMethodParser, CaseInsensitive) {
-  EXPECT_EQ(+socket_helpers::tls_method_parser("TLSv1.2"), +boost::asio::ssl::context::tlsv12);
-}
+TEST(TlsMethodParser, CaseInsensitive) { EXPECT_EQ(+socket_helpers::tls_method_parser("TLSv1.2"), +boost::asio::ssl::context::tlsv12); }
 
-TEST(TlsMethodParser, InvalidThrows) {
-  EXPECT_THROW(socket_helpers::tls_method_parser("invalid"), socket_helpers::socket_exception);
-}
+TEST(TlsMethodParser, InvalidThrows) { EXPECT_THROW(socket_helpers::tls_method_parser("invalid"), socket_helpers::socket_exception); }
 
 // =============================================================================
 // SSL-specific: verify_mode_parser
@@ -666,9 +646,7 @@ TEST(VerifyModeParser, PeerCert) {
   EXPECT_NE(+mode & +boost::asio::ssl::verify_fail_if_no_peer_cert, 0);
 }
 
-TEST(VerifyModeParser, InvalidThrows) {
-  EXPECT_THROW(socket_helpers::verify_mode_parser("bogus"), socket_helpers::socket_exception);
-}
+TEST(VerifyModeParser, InvalidThrows) { EXPECT_THROW(socket_helpers::verify_mode_parser("bogus"), socket_helpers::socket_exception); }
 
 TEST(VerifyModeParser, CommaDelimited) {
   auto mode = socket_helpers::verify_mode_parser("peer,fail-if-no-cert");
@@ -677,4 +655,3 @@ TEST(VerifyModeParser, CommaDelimited) {
 }
 
 #endif  // USE_SSL
-

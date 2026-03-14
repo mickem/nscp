@@ -25,6 +25,7 @@
 #include <bytes/swap_bytes.hpp>
 #include <str/xtos.hpp>
 #include <string>
+#include <vector>
 
 namespace nrpe {
 class data {
@@ -236,7 +237,7 @@ class packet /*: public boost::noncopyable*/ {
 
   std::vector<char> get_buffer() {
     const buffer_holder buffer = create_buffer();
-    std::vector buf(buffer.first, buffer.first + buffer.second);
+    std::vector<char> buf(buffer.first, buffer.first + buffer.second);
     return buf;
   }
 

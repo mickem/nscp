@@ -20,7 +20,6 @@
 #include <gtest/gtest.h>
 
 #include <bytes/char_buffer.hpp>
-
 #include <cstring>
 #include <string>
 
@@ -125,4 +124,3 @@ TEST(tchar_buffer, zero_clears_buffer) {
     }
   }
 }
-

@@ -19,9 +19,8 @@
 
 #pragma once
 
-#include <cstring>
-
 #include <bytes/buffer.hpp>
+#include <cstring>
 #include <string>
 
 namespace hlp {
