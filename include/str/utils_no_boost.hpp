@@ -43,7 +43,7 @@ inline void replace(std::string& string, const std::string& replace, const std::
 // Split
 //
 template <class T>
-void split(T& ret, const std::string str, const std::string key) {
+void split(T& ret, const std::string& str, const std::string& key) {
   std::string::size_type pos = 0, lpos = 0;
   while ((pos = str.find(key, pos)) != std::string::npos) {
     ret.push_back(str.substr(lpos, pos - lpos));
@@ -68,7 +68,7 @@ inline std::list<std::string> split_lst(const std::string& str, const std::strin
   return ret;
 }
 template <class T>
-T split(const std::string str, const std::string key) {
+T split(const std::string& str, const std::string& key) {
   T ret;
   std::string::size_type pos = 0, lpos = 0;
   while ((pos = str.find(key, pos)) != std::string::npos) {

@@ -53,19 +53,19 @@ class server_exception : public std::exception {
 namespace ip = boost::asio::ip;
 
 template <class protocol_type, std::size_t N>
-class server : private boost::noncopyable {
-  typedef socket_helpers::server::connection<protocol_type, N> connection_type;
-  typedef socket_helpers::server::tcp_connection<protocol_type, N> tcp_connection_type;
+class server : boost::noncopyable {
+  typedef connection<protocol_type, N> connection_type;
+  typedef tcp_connection<protocol_type, N> tcp_connection_type;
 #ifdef USE_SSL
-  typedef socket_helpers::server::ssl_connection<protocol_type, N> ssl_connection_type;
+  typedef ssl_connection<protocol_type, N> ssl_connection_type;
 #endif
   bool is_shutting_down_;
-  socket_helpers::connection_info info_;
+  connection_info info_;
   int threads_;
   typename protocol_type::handler_type handler_;
   boost::asio::io_service io_service_;
-  boost::asio::ip::tcp::acceptor acceptor_v4;
-  boost::asio::ip::tcp::acceptor acceptor_v6;
+  tcp::acceptor acceptor_v4;
+  tcp::acceptor acceptor_v6;
 #if BOOST_VERSION >= 106800
   boost::asio::io_service::strand accept_strand_;
 #else
@@ -75,8 +75,8 @@ class server : private boost::noncopyable {
 #ifdef USE_SSL
   boost::asio::ssl::context context_;
 
-  static boost::asio::ssl::context_base::method make_context(const socket_helpers::connection_info &info) {
-    return socket_helpers::tls_method_parser(info.ssl.tls_version);
+  static boost::asio::ssl::context_base::method make_context(const connection_info &info) {
+    return tls_method_parser(info.ssl.tls_version);
   }
 #endif
 
@@ -84,12 +84,11 @@ class server : private boost::noncopyable {
   boost::thread_group thread_group_;
 
  public:
-  server(socket_helpers::connection_info info, typename protocol_type::handler_type handler)
+  server(const connection_info &info, typename protocol_type::handler_type handler)
       : is_shutting_down_(false),
         info_(info),
         threads_(0),
         handler_(handler),
-        io_service_(),
         acceptor_v4(io_service_),
         acceptor_v6(io_service_),
         accept_strand_(io_service_),

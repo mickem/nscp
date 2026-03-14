@@ -72,7 +72,7 @@ class protocol : public boost::noncopyable {
   bool wants_data() const { return current_state_ == sent_response || current_state_ == has_more; }
 
   bool on_read(std::size_t) {
-    packet packet = nrpe::packet(&buffer_[0], static_cast<unsigned int>(buffer_.size()));
+    const auto packet = nrpe::packet(&buffer_[0], static_cast<unsigned int>(buffer_.size()));
     if (packet.getType() == data::moreResponsePacket)
       set_state(has_more);
     else

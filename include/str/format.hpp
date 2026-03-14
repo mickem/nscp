@@ -159,10 +159,10 @@ inline std::string format_filetime(const unsigned long long filetime, const std:
 #endif
 
 template <class T>
-T decode_time(const std::string time, unsigned int factor = 1) {
+T decode_time(const std::string& time, unsigned int factor = 1) {
   const auto p = time.find_first_of("sSmMhHdDwW");
   const auto pend = time.find_first_not_of("0123456789");
-  T value = boost::lexical_cast<T>(pend == std::string::npos ? time : time.substr(0, pend).c_str());
+  T value = boost::lexical_cast<T>(pend == std::string::npos ? time : time.substr(0, pend));
   if (p == std::string::npos) return value * factor;
   if ((time[p] == 's') || (time[p] == 'S')) return value * factor;
   if ((time[p] == 'm') || (time[p] == 'M')) return value * 60 * factor;
@@ -191,7 +191,7 @@ inline std::string itos_as_time(const unsigned long long time) {
     ss << w;
     ss << "w " << d << "d ";
     ss << std::setfill('0') << std::setw(2);
-    ss << h << ":" << m;
+    ss << h << ":" << std::setw(2) << m;
   } else if (time > DAY) {
     const auto d = static_cast<unsigned int>(rest / DAY);
     rest -= (static_cast<unsigned long long>(d) * DAY);
@@ -201,16 +201,16 @@ inline std::string itos_as_time(const unsigned long long time) {
     ss << d;
     ss << "d ";
     ss << std::setfill('0') << std::setw(2);
-    ss << h << ":" << m;
+    ss << h << ":" << std::setw(2) << m;
   } else if (time > HOUR) {
     const auto h = static_cast<unsigned int>(rest / HOUR);
     rest -= (static_cast<unsigned long long>(h) * HOUR);
     const auto m = static_cast<unsigned int>(rest / MINUTE);
     ss << std::setfill('0') << std::setw(2);
-    ss << h << ":" << m;
+    ss << h << ":" << std::setw(2) << m;
   } else if (time > MINUTE) {
-    ss << std::setfill('0') << std::setw(2);
-    ss << "0:" << static_cast<unsigned int>(time / (60 * 1000));
+    ss << std::setfill('0');
+    ss << "0:" << std::setw(2) << static_cast<unsigned int>(time / (60 * 1000));
   } else if (time > SEC)
     ss << boost::lexical_cast<std::string>(static_cast<unsigned int>(time / (1000))) << "s";
   else
@@ -218,16 +218,16 @@ inline std::string itos_as_time(const unsigned long long time) {
   return ss.str();
 }
 template <class T>
-T stox_as_time_sec(const std::string time, const std::string default_unit) {
+T stox_as_time_sec(const std::string& time, const std::string& default_unit) {
   const auto p = time.find_first_of("sSmMhHdDwW");
   const auto pend = time.find_first_not_of("0123456789");
-  T value = str::stox<T>(pend == std::string::npos ? time : time.substr(0, pend).c_str());
+  T value = str::stox<T>(pend == std::string::npos ? time : time.substr(0, pend));
   std::string unit = default_unit;
   if (p != std::string::npos) {
     unit = time.substr(p);
   }
   char u = ' ';
-  if (unit.length() > 0) {
+  if (!unit.empty()) {
     u = unit[0];
   }
   if ((u == 's') || (u == 'S')) return value;
@@ -301,13 +301,13 @@ inline std::string format_byte_units(const unsigned long long i) {
   return ret;
 }
 template <class T>
-double convert_to_byte_units(T i, const std::string unit) {
-  std::string unit_uc = boost::to_upper_copy(unit);
+double convert_to_byte_units(T i, const std::string& unit) {
+  const std::string unit_uc = boost::to_upper_copy(unit);
   std::size_t idx = 0;
-  if (unit_uc.size() == 0) {
+  if (unit_uc.empty()) {
     return static_cast<double>(i);
   }
-  double cpy = static_cast<double>(i);
+  auto cpy = static_cast<double>(i);
   while (idx < BKMG_SIZE) {
     if (unit_uc[0] == BKMG_RANGE[idx]) {
       return cpy;
@@ -320,8 +320,8 @@ double convert_to_byte_units(T i, const std::string unit) {
 template <class T>
 std::string format_byte_units(T value, std::string unit) {
   std::stringstream ss;
-  double cpy = static_cast<double>(value);
-  if (unit.size() == 0) {
+  auto cpy = static_cast<double>(value);
+  if (unit.empty()) {
     ss << cpy;
     return ss.str();
   }

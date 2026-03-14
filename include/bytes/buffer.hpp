@@ -24,23 +24,27 @@ template <class T, class U = T*>
 struct buffer {
   T* data;
   std::size_t size_;
-  buffer(std::size_t size) : size_(size) { data = new T[size]; }
-  buffer(std::size_t size, const T* srcdata) : size_(size) {
+  explicit buffer(const std::size_t size) : size_(size) { data = new T[size]; }
+  buffer(const std::size_t size, const T* src_data) : size_(size) {
     data = new T[size];
-    memcpy(data, srcdata, size * sizeof(T));
+    memcpy(data, src_data, size * sizeof(T));
   }
-  buffer(const buffer<T, U>& other) : size_(other.size_) {
+  buffer(const buffer& other) : size_(other.size_) {
     data = new T[size_];
     memcpy(data, other.data, size_ * sizeof(T));
   }
-  buffer<T, U>* operator=(const buffer<T, U>& other) {
-    size_ = other.size;
+  buffer& operator=(const buffer& other) {
+    if (this == &other) {
+      return *this;
+    }
+    size_ = other.size_;
     data = new T[size_];
     memcpy(data, other.data, size_ * sizeof(T));
+    return *this;
   }
   T& operator[](const std::size_t pos) { return data[pos]; }
   ~buffer() { delete[] data; }
-  operator T*() const { return data; }
+  explicit operator T*() const { return data; }
   std::size_t size() const { return size_; }
   std::size_t size_in_bytes() const { return size_ * sizeof(T); }
   U get(std::size_t offset = 0) const { return reinterpret_cast<U>(&data[offset]); }
@@ -48,7 +52,7 @@ struct buffer {
   V get_t(std::size_t offset = 0) const {
     return reinterpret_cast<V>(&data[offset]);
   }
-  void resize(std::size_t size) {
+  void resize(const std::size_t size) {
     size_ = size;
     delete[] data;
     data = new T[size_];

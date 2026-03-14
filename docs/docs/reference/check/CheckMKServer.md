@@ -646,12 +646,12 @@ A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | allowed hosts                                                    |
-| Default value: | `127.0.0.1`                                                      |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                                      |
+|----------------|--------------------------------------------------|
+| Path:          | [/settings/default](#/settings/default)          |
+| Key:           | allowed hosts                                    |
+| Default value: | `127.0.0.1`                                      |
+| Used by:       | CheckMKServer, NRPEServer, NSCAServer, WEBServer |
 
 
 **Sample:**
@@ -673,12 +673,12 @@ Allows you to bind server to a specific local address. This has to be a dotted i
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | bind to                                                          |
-| Default value: | _N/A_                                                            |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                                      |
+|----------------|--------------------------------------------------|
+| Path:          | [/settings/default](#/settings/default)          |
+| Key:           | bind to                                          |
+| Default value: | _N/A_                                            |
+| Used by:       | CheckMKServer, NRPEServer, NSCAServer, WEBServer |
 
 
 **Sample:**
@@ -699,12 +699,12 @@ If host names (DNS entries) should be cached, improves speed and security somewh
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | cache allowed hosts                                              |
-| Default value: | `true`                                                           |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                                      |
+|----------------|--------------------------------------------------|
+| Path:          | [/settings/default](#/settings/default)          |
+| Key:           | cache allowed hosts                              |
+| Default value: | `true`                                           |
+| Used by:       | CheckMKServer, NRPEServer, NSCAServer, WEBServer |
 
 
 **Sample:**
@@ -726,13 +726,13 @@ cache allowed hosts=true
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | encoding                                                         |
-| Advanced:      | Yes (means it is not commonly used)                              |
-| Default value: | _N/A_                                                            |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                                      |
+|----------------|--------------------------------------------------|
+| Path:          | [/settings/default](#/settings/default)          |
+| Key:           | encoding                                         |
+| Advanced:      | Yes (means it is not commonly used)              |
+| Default value: | _N/A_                                            |
+| Used by:       | CheckMKServer, NRPEServer, NSCAServer, WEBServer |
 
 
 **Sample:**
@@ -753,12 +753,12 @@ The default channel to post incoming messages on
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | inbox                                                            |
-| Default value: | `inbox`                                                          |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                                      |
+|----------------|--------------------------------------------------|
+| Path:          | [/settings/default](#/settings/default)          |
+| Key:           | inbox                                            |
+| Default value: | `inbox`                                          |
+| Used by:       | CheckMKServer, NRPEServer, NSCAServer, WEBServer |
 
 
 **Sample:**
@@ -780,12 +780,12 @@ Password used to authenticate against server
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | password                                                         |
-| Default value: | _N/A_                                                            |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                                      |
+|----------------|--------------------------------------------------|
+| Path:          | [/settings/default](#/settings/default)          |
+| Key:           | password                                         |
+| Default value: | _N/A_                                            |
+| Used by:       | CheckMKServer, NRPEServer, NSCAServer, WEBServer |
 
 
 **Sample:**
@@ -806,13 +806,13 @@ Number of sockets to queue before starting to refuse new incoming connections. T
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | socket queue size                                                |
-| Advanced:      | Yes (means it is not commonly used)                              |
-| Default value: | `0`                                                              |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                                      |
+|----------------|--------------------------------------------------|
+| Path:          | [/settings/default](#/settings/default)          |
+| Key:           | socket queue size                                |
+| Advanced:      | Yes (means it is not commonly used)              |
+| Default value: | `0`                                              |
+| Used by:       | CheckMKServer, NRPEServer, NSCAServer, WEBServer |
 
 
 **Sample:**
@@ -833,13 +833,13 @@ socket queue size=0
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | thread pool                                                      |
-| Advanced:      | Yes (means it is not commonly used)                              |
-| Default value: | `10`                                                             |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                                      |
+|----------------|--------------------------------------------------|
+| Path:          | [/settings/default](#/settings/default)          |
+| Key:           | thread pool                                      |
+| Advanced:      | Yes (means it is not commonly used)              |
+| Default value: | `10`                                             |
+| Used by:       | CheckMKServer, NRPEServer, NSCAServer, WEBServer |
 
 
 **Sample:**
@@ -860,12 +860,12 @@ Timeout (in seconds) when reading packets on incoming sockets. If the data has n
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | timeout                                                          |
-| Default value: | `30`                                                             |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                                      |
+|----------------|--------------------------------------------------|
+| Path:          | [/settings/default](#/settings/default)          |
+| Key:           | timeout                                          |
+| Default value: | `30`                                             |
+| Used by:       | CheckMKServer, NRPEServer, NSCAServer, WEBServer |
 
 
 **Sample:**

@@ -16,25 +16,25 @@ class safe_queue {
   boost::shared_mutex mutex_;
 
  public:
-  bool empty(unsigned int timeout = 5) {
+  bool empty(const unsigned int timeout = 5) {
     boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(timeout));
     if (!lock.owns_lock()) return false;
     return queue_.empty();
   }
 
-  boost::optional<T> top(unsigned int timeout = 5) {
+  boost::optional<T> top(const unsigned int timeout = 5) {
     boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(timeout));
     if (!lock || queue_.empty()) return boost::optional<T>();
     return boost::optional<T>(queue_.front());
   }
 
-  std::size_t size(unsigned int timeout = 5) {
+  std::size_t size(const unsigned int timeout = 5) {
     boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(timeout));
     if (!lock || queue_.empty()) return 0;
     return queue_.size();
   }
 
-  boost::optional<T> pop(unsigned int timeout = 5) {
+  boost::optional<T> pop(const unsigned int timeout = 5) {
     boost::unique_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(timeout));
     if (!lock || queue_.empty()) return boost::optional<T>();
     boost::optional<T> ret = queue_.front();
@@ -42,7 +42,7 @@ class safe_queue {
     return ret;
   }
 
-  bool push(T instance, unsigned int timeout = 5) {
+  bool push(T instance, const unsigned int timeout = 5) {
     boost::unique_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(timeout));
     if (!lock) {
       return false;

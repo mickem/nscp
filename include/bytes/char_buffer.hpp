@@ -19,26 +19,26 @@
 
 #pragma once
 
-#include <string.h>
+#include <cstring>
 
 #include <bytes/buffer.hpp>
 #include <string>
 
 namespace hlp {
-class tchar_buffer : public hlp::buffer<wchar_t> {
+class tchar_buffer : public buffer<wchar_t> {
  public:
-  tchar_buffer(std::wstring str) : hlp::buffer<wchar_t>(str.length() + 2) { wcsncpy(get(), str.c_str(), str.length()); }
-  tchar_buffer(std::size_t len) : hlp::buffer<wchar_t>(len) {}
-  void zero() {
+  tchar_buffer(const std::wstring& str) : buffer(str.length() + 2) { wcsncpy(get(), str.c_str(), str.length()); }
+  tchar_buffer(const std::size_t len) : buffer(len) {}
+  void zero() const {
     if (size() > 1) memset(get(), 0, size());
   }
 };
 
-class char_buffer : public hlp::buffer<char> {
+class char_buffer : public buffer<char> {
  public:
-  char_buffer(std::string str) : hlp::buffer<char>(str.length() + 2) { strncpy(get(), str.c_str(), str.length()); }
-  char_buffer(std::size_t len) : hlp::buffer<char>(len) {}
-  void zero() {
+  explicit char_buffer(const std::string& str) : buffer(str.length() + 2) { strncpy(get(), str.c_str(), str.length()); }
+  explicit char_buffer(const std::size_t len) : buffer(len) {}
+  void zero() const {
     if (size() > 1) memset(get(), 0, size());
   }
   std::string str() const { return std::string(get(), size()); }

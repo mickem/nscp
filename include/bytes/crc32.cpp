@@ -20,12 +20,12 @@
 #include <bytes/crc32.h>
 
 static unsigned long crc32_table[256];
-static bool hascrc32 = false;
+static bool has_crc32 = false;
 void generate_crc32_table() {
-  unsigned long poly = 0xEDB88320L;
   for (int i = 0; i < 256; i++) {
     unsigned long crc = i;
     for (int j = 8; j > 0; j--) {
+      constexpr auto poly = 0xEDB88320L;
       if (crc & 1)
         crc = (crc >> 1) ^ poly;
       else
@@ -33,10 +33,10 @@ void generate_crc32_table() {
     }
     crc32_table[i] = crc;
   }
-  hascrc32 = true;
+  has_crc32 = true;
 }
 unsigned long calculate_crc32(const char *buffer, const std::size_t buffer_size) {
-  if (!hascrc32) generate_crc32_table();
+  if (!has_crc32) generate_crc32_table();
 
   unsigned long crc = 0xFFFFFFFF;
 
@@ -49,7 +49,7 @@ unsigned long calculate_crc32(const char *buffer, const std::size_t buffer_size)
 }
 
 unsigned long calculate_crc32(const unsigned char *buffer, const std::size_t buffer_size) {
-  if (!hascrc32) generate_crc32_table();
+  if (!has_crc32) generate_crc32_table();
 
   unsigned long crc = 0xFFFFFFFF;
 
