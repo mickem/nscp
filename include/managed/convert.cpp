@@ -28,7 +28,7 @@
 
 #include <list>
 
-#include <utf8.hpp>
+#include <str/utf8.hpp>
 
 using namespace System;
 using namespace System::IO;
