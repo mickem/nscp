@@ -346,13 +346,10 @@ TEST(format, format_time_delta) {
   EXPECT_EQ(result, "1 days 10 hours 48 minutes 13 seconds");
 }
 
-TEST(format, format_time_delta_from_tm) {
-  tm t = {};
-  t.tm_year = 0;  // <= 70, should produce "0" for %Y
-  t.tm_mon = 3;
-  t.tm_mday = 5;
-  t.tm_hour = 6;
-  t.tm_min = 7;
+TEST(format, filetime_to_time) {
+  // Test epoch conversion
+  const unsigned long long filetime = str::format::SECS_BETWEEN_EPOCHS * str::format::SECS_TO_100NS;
+  EXPECT_EQ(str::format::filetime_to_time(filetime), 0ULL);
 
   // Test 1 second after epoch
   const unsigned long long filetime_1sec = filetime + str::format::SECS_TO_100NS;
@@ -368,23 +365,22 @@ TEST(format, filetime_to_time_large_value) {
 TEST(format, format_filetime) {
   EXPECT_EQ(str::format::format_filetime(0), "ZERO");
   const unsigned long long filetime = (str::format::SECS_BETWEEN_EPOCHS + 1000000000ULL) * str::format::SECS_TO_100NS;
-  EXPECT_EQ(str::format::format_filetime(filetime), "2001-09-09 01:46:40");
-}
-
-TEST(format, format_filetime_custom_format) {
-  const unsigned long long filetime = (str::format::SECS_BETWEEN_EPOCHS + 1000000000ULL) * str::format::SECS_TO_100NS;
-  EXPECT_EQ(str::format::format_filetime(filetime, "%Y"), "2001");
+  const std::string result = str::format::format_filetime(filetime);
+  EXPECT_EQ(result, "2001-09-09 01:46:40");
 }
 
 TEST(format, format_filetime_delta) {
   EXPECT_EQ(str::format::format_filetime_delta(0), "ZERO");
 
-  // 1 hour in 100ns ticks
   unsigned long long filetime = 10000000ULL * 3600ULL;
   std::string result = str::format::format_filetime_delta(filetime);
-  EXPECT_FALSE(result.empty());
-  EXPECT_NE(result, "ZERO");
+  EXPECT_EQ(result, "0-0-0 1:0:0");
+
+  filetime = 234789234792 * 3600ULL;
+  result = str::format::format_filetime_delta(filetime);
+  EXPECT_EQ(result, "72-8-4 6:55:24");
 }
+#endif
 
 // --- Additional edge case tests for full coverage ---
 
@@ -399,203 +395,160 @@ TEST(format, lpad_zero_length) {
   EXPECT_EQ(str::format::lpad("", 0), "");
 }
 
-// strip_ctrl_chars with empty string
-// Control chars should appear as '?' in the text portion
-EXPECT_NE(result.find("?A??"), std::string::npos);
-}
-#endif
-
-// format_buffer with exactly 32 bytes (row boundary)
-TEST(format, format_buffer_exact_32_bytes) {
-  std::string buf(32, 'A');
-  std::string result = str::format::format_buffer(buf);
-  // Should contain a newline at the 32-byte boundary
-  EXPECT_NE(result.find('\n'), std::string::npos);
-  // Should start a new row at offset 0x20
-  EXPECT_NE(result.find("00000020:"), std::string::npos);
+TEST(format, stox_as_time_sec_uppercase_default) {
+  EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "S"), 10);
+  EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "M"), 600);
+  EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "H"), 36000);
+  EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "D"), 864000);
+  EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "W"), 6048000);
 }
 
-const std::string result = str::format::format_filetime(filetime);
-EXPECT_EQ(result, "2001-09-09 01:46:40");
-EXPECT_NE(result.find("00000020:"), std::string::npos);
+// stox_as_time_sec with lowercase default units
+TEST(format, stox_as_time_sec_lowercase_default) {
+  EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "h"), 36000);
+  EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "d"), 864000);
+  EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "w"), 6048000);
 }
 
-// format_buffer string overload
-TEST(format, format_buffer_string_overload) {
-  std::string buf = "XY";
-  std::string result = str::format::format_buffer(buf);
-  EXPECT_NE(result.find("58"), std::string::npos);  // 'X' = 0x58
-  EXPECT_NE(result.find("XY"), std::string::npos);
+// stox_as_time_sec with unknown default unit (falls through to return value)
+TEST(format, stox_as_time_sec_unknown_default_unit) {
+  EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "x"), 10);
+  EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "Z"), 10);
 }
 
-// decode_time with factor on non-second units
-TEST(format, decode_time_factor_with_units) {
-  EXPECT_EQ(result, "0-0-0 1:0:0");
-  // 'x' is not in "sSmMhHdDwW", so p == npos, pend == 2
-  // value = stox("10"), returns value * factor
-  EXPECT_EQ(str::format::decode_time<int>("10x"), 10);
-  EXPECT_EQ(str::format::decode_time<int>("10x", 3), 30);
+// stox_as_time_sec with different template types
+TEST(format, stox_as_time_sec_long) {
+  EXPECT_EQ(str::format::stox_as_time_sec<long>("60s", "m"), 60L);
+  EXPECT_EQ(str::format::stox_as_time_sec<long long>("2h", "s"), 7200LL);
 }
 
-// decode_time with different template types
-TEST(format, decode_time_unsigned_long_long) {
-  filetime = 234789234792 * 3600ULL;
-  result = str::format::format_filetime_delta(filetime);
-  EXPECT_EQ(result, "72-8-4 6:55:24");
-  TEST(format, stox_as_time_sec_uppercase_default) {
-    EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "S"), 10);
-    EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "M"), 600);
-    EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "H"), 36000);
-    EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "D"), 864000);
-    EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "W"), 6048000);
-  }
+// decode_byte_units with unknown unit (fallthrough)
+TEST(format, decode_byte_units_unknown_unit) {
+  EXPECT_EQ(str::format::decode_byte_units(42LL, "Z"), 42LL);
+  EXPECT_EQ(str::format::decode_byte_units(42LL, "x"), 42LL);
+}
 
-  // stox_as_time_sec with lowercase default units
-  TEST(format, stox_as_time_sec_lowercase_default) {
-    EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "h"), 36000);
-    EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "d"), 864000);
-    EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "w"), 6048000);
-  }
+// decode_byte_units with different template type (int)
+TEST(format, decode_byte_units_int_type) {
+  EXPECT_EQ(str::format::decode_byte_units(1, "K"), 1024);
+  EXPECT_EQ(str::format::decode_byte_units(2, "M"), 2 * 1024 * 1024);
+}
 
-  // stox_as_time_sec with unknown default unit (falls through to return value)
-  TEST(format, stox_as_time_sec_unknown_default_unit) {
-    EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "x"), 10);
-    EXPECT_EQ(str::format::stox_as_time_sec<int>("10", "Z"), 10);
-  }
+// decode_byte_units(string) exception paths
+TEST(format, decode_byte_units_string_throws_on_empty) { EXPECT_THROW(str::format::decode_byte_units(""), boost::bad_lexical_cast); }
 
-  // stox_as_time_sec with different template types
-  TEST(format, stox_as_time_sec_long) {
-    EXPECT_EQ(str::format::stox_as_time_sec<long>("60s", "m"), 60L);
-    EXPECT_EQ(str::format::stox_as_time_sec<long long>("2h", "s"), 7200LL);
-  }
+TEST(format, decode_byte_units_string_throws_on_no_digits) { EXPECT_THROW(str::format::decode_byte_units("KB"), boost::bad_lexical_cast); }
 
-  // decode_byte_units with unknown unit (fallthrough)
-  TEST(format, decode_byte_units_unknown_unit) {
-    EXPECT_EQ(str::format::decode_byte_units(42LL, "Z"), 42LL);
-    EXPECT_EQ(str::format::decode_byte_units(42LL, "x"), 42LL);
-  }
+// format_byte_units(long long) with small negative values
+TEST(format, format_byte_units_negative_small) {
+  EXPECT_EQ(str::format::format_byte_units(-512LL), "-512B");
+  EXPECT_EQ(str::format::format_byte_units(-999LL), "-999B");
+  EXPECT_EQ(str::format::format_byte_units(-1000LL), "-0.977KB");
+}
 
-  // decode_byte_units with different template type (int)
-  TEST(format, decode_byte_units_int_type) {
-    EXPECT_EQ(str::format::decode_byte_units(1, "K"), 1024);
-    EXPECT_EQ(str::format::decode_byte_units(2, "M"), 2 * 1024 * 1024);
-  }
+// convert_to_byte_units with lowercase unit (tests to_upper_copy path)
+TEST(format, convert_to_byte_units_lowercase) {
+  EXPECT_DOUBLE_EQ(str::format::convert_to_byte_units(1024LL, "k"), 1.0);
+  EXPECT_DOUBLE_EQ(str::format::convert_to_byte_units(1024LL * 1024LL, "m"), 1.0);
+  EXPECT_DOUBLE_EQ(str::format::convert_to_byte_units(1024LL * 1024LL * 1024LL, "g"), 1.0);
+}
 
-  // decode_byte_units(string) exception paths
-  TEST(format, decode_byte_units_string_throws_on_empty) { EXPECT_THROW(str::format::decode_byte_units(""), boost::bad_lexical_cast); }
+// convert_to_byte_units with T (terabyte)
+TEST(format, convert_to_byte_units_terabyte) {
+  EXPECT_DOUBLE_EQ(str::format::convert_to_byte_units(1024LL * 1024LL * 1024LL * 1024LL, "T"), 1.0);
+  EXPECT_DOUBLE_EQ(str::format::convert_to_byte_units(1024LL * 1024LL * 1024LL * 1024LL, "t"), 1.0);
+}
 
-  TEST(format, decode_byte_units_string_throws_on_no_digits) { EXPECT_THROW(str::format::decode_byte_units("KB"), boost::bad_lexical_cast); }
+// convert_to_byte_units with int template type
+TEST(format, convert_to_byte_units_int_type) {
+  EXPECT_DOUBLE_EQ(str::format::convert_to_byte_units(1024, "K"), 1.0);
+  EXPECT_DOUBLE_EQ(str::format::convert_to_byte_units(2048, "K"), 2.0);
+}
 
-  // format_byte_units(long long) with small negative values
-  TEST(format, format_byte_units_negative_small) {
-    EXPECT_EQ(str::format::format_byte_units(-512LL), "-512B");
-    EXPECT_EQ(str::format::format_byte_units(-999LL), "-999B");
-    EXPECT_EQ(str::format::format_byte_units(-1000LL), "-0.977KB");
-  }
+// format_byte_units<T>(value, unit) with non-zero unknown unit (falls through loop)
+TEST(format, format_byte_units_with_unit_unknown_nonzero) {
+  std::string result = str::format::format_byte_units(1024LL, "Z");
+  EXPECT_FALSE(result.empty());
+  // After dividing by 1024 seven times: 1024 / 1024^7 → very small number
+  double val = std::stod(result);
+  EXPECT_GT(val, 0.0);
+}
 
-  // convert_to_byte_units with lowercase unit (tests to_upper_copy path)
-  TEST(format, convert_to_byte_units_lowercase) {
-    EXPECT_DOUBLE_EQ(str::format::convert_to_byte_units(1024LL, "k"), 1.0);
-    EXPECT_DOUBLE_EQ(str::format::convert_to_byte_units(1024LL * 1024LL, "m"), 1.0);
-    EXPECT_DOUBLE_EQ(str::format::convert_to_byte_units(1024LL * 1024LL * 1024LL, "g"), 1.0);
-  }
+// format_byte_units<T>(value, unit) with T (terabyte) unit
+TEST(format, format_byte_units_with_unit_terabyte) { EXPECT_EQ(str::format::format_byte_units(1024LL * 1024LL * 1024LL * 1024LL, "T"), "1"); }
 
-  // convert_to_byte_units with T (terabyte)
-  TEST(format, convert_to_byte_units_terabyte) {
-    EXPECT_DOUBLE_EQ(str::format::convert_to_byte_units(1024LL * 1024LL * 1024LL * 1024LL, "T"), 1.0);
-    EXPECT_DOUBLE_EQ(str::format::convert_to_byte_units(1024LL * 1024LL * 1024LL * 1024LL, "t"), 1.0);
-  }
+// format_byte_units<T>(value, unit) with P (petabyte) unit
+TEST(format, format_byte_units_with_unit_petabyte) { EXPECT_EQ(str::format::format_byte_units(1024LL * 1024LL * 1024LL * 1024LL * 1024LL, "P"), "1"); }
 
-  // convert_to_byte_units with int template type
-  TEST(format, convert_to_byte_units_int_type) {
-    EXPECT_DOUBLE_EQ(str::format::convert_to_byte_units(1024, "K"), 1.0);
-    EXPECT_DOUBLE_EQ(str::format::convert_to_byte_units(2048, "K"), 2.0);
-  }
+// format_byte_units<T>(value, unit) with int template
+TEST(format, format_byte_units_with_unit_int_type) {
+  EXPECT_EQ(str::format::format_byte_units(1024, "K"), "1");
+  EXPECT_EQ(str::format::format_byte_units(2048, "K"), "2");
+}
 
-  // format_byte_units<T>(value, unit) with non-zero unknown unit (falls through loop)
-  TEST(format, format_byte_units_with_unit_unknown_nonzero) {
-    std::string result = str::format::format_byte_units(1024LL, "Z");
-    EXPECT_FALSE(result.empty());
-    // After dividing by 1024 seven times: 1024 / 1024^7 → very small number
-    double val = std::stod(result);
-    EXPECT_GT(val, 0.0);
-  }
+// find_proper_unit_BKMG with PB and EB
+TEST(format, find_proper_unit_BKMG_large) {
+  EXPECT_EQ(str::format::find_proper_unit_BKMG(1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL), "PB");
+  EXPECT_EQ(str::format::find_proper_unit_BKMG(1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL), "EB");
+}
 
-  // format_byte_units<T>(value, unit) with T (terabyte) unit
-  TEST(format, format_byte_units_with_unit_terabyte) { EXPECT_EQ(str::format::format_byte_units(1024LL * 1024LL * 1024LL * 1024LL, "T"), "1"); }
+// find_proper_unit_BKMG with max unsigned long long
+TEST(format, find_proper_unit_BKMG_max) {
+  std::string result = str::format::find_proper_unit_BKMG(ULLONG_MAX);
+  // ULLONG_MAX is ~18.4 EB, should return EB
+  EXPECT_EQ(result, "EB");
+}
 
-  // format_byte_units<T>(value, unit) with P (petabyte) unit
-  TEST(format, format_byte_units_with_unit_petabyte) { EXPECT_EQ(str::format::format_byte_units(1024LL * 1024LL * 1024LL * 1024LL * 1024LL, "P"), "1"); }
+// itos_as_time: verify seconds are discarded in longer formats
+TEST(format, itos_as_time_residual_seconds_discarded) {
+  // 1 week + 30 seconds (30000ms) — seconds should not appear
+  std::string result = str::format::itos_as_time(604800001ULL + 30000ULL);
+  EXPECT_EQ(result.find("s"), std::string::npos);  // no "s" suffix
+  EXPECT_NE(result.find("w"), std::string::npos);  // has week indicator
+}
 
-  // format_byte_units<T>(value, unit) with int template
-  TEST(format, format_byte_units_with_unit_int_type) {
-    EXPECT_EQ(str::format::format_byte_units(1024, "K"), "1");
-    EXPECT_EQ(str::format::format_byte_units(2048, "K"), "2");
-  }
+// itos_as_time: hour boundary with minutes
+TEST(format, itos_as_time_hour_with_minutes) {
+  // 2 hours 30 minutes = (2*3600 + 30*60) * 1000 + 1
+  unsigned long long t = (2ULL * 3600 + 30 * 60) * 1000 + 1;
+  EXPECT_EQ(str::format::itos_as_time(t), "02:30");
+}
 
-  // find_proper_unit_BKMG with PB and EB
-  TEST(format, find_proper_unit_BKMG_large) {
-    EXPECT_EQ(str::format::find_proper_unit_BKMG(1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL), "PB");
-    EXPECT_EQ(str::format::find_proper_unit_BKMG(1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL), "EB");
-  }
+// itos_as_time: day with hours and minutes
+TEST(format, itos_as_time_day_with_hours_minutes) {
+  // 2 days, 5 hours, 15 minutes
+  unsigned long long t = (2ULL * 86400 + 5 * 3600 + 15 * 60) * 1000 + 1;
+  EXPECT_EQ(str::format::itos_as_time(t), "2d 05:15");
+}
 
-  // find_proper_unit_BKMG with max unsigned long long
-  TEST(format, find_proper_unit_BKMG_max) {
-    std::string result = str::format::find_proper_unit_BKMG(ULLONG_MAX);
-    // ULLONG_MAX is ~18.4 EB, should return EB
-    EXPECT_EQ(result, "EB");
-  }
+// itos_as_time: week with days, hours and minutes
+TEST(format, itos_as_time_week_with_days_hours_minutes) {
+  // 3 weeks, 2 days, 10 hours, 45 minutes
+  unsigned long long t = (3ULL * 604800 + 2 * 86400 + 10 * 3600 + 45 * 60) * 1000 + 1;
+  EXPECT_EQ(str::format::itos_as_time(t), "3w 2d 10:45");
+}
 
-  // itos_as_time: verify seconds are discarded in longer formats
-  TEST(format, itos_as_time_residual_seconds_discarded) {
-    // 1 week + 30 seconds (30000ms) — seconds should not appear
-    std::string result = str::format::itos_as_time(604800001ULL + 30000ULL);
-    EXPECT_EQ(result.find("s"), std::string::npos);  // no "s" suffix
-    EXPECT_NE(result.find("w"), std::string::npos);  // has week indicator
-  }
+// append_list with empty initial list and custom separator
+TEST(format, append_list_empty_start_custom_sep) {
+  std::string lst;
+  str::format::append_list(lst, "only", " | ");
+  EXPECT_EQ(lst, "only");
+}
 
-  // itos_as_time: hour boundary with minutes
-  TEST(format, itos_as_time_hour_with_minutes) {
-    // 2 hours 30 minutes = (2*3600 + 30*60) * 1000 + 1
-    unsigned long long t = (2ULL * 3600 + 30 * 60) * 1000 + 1;
-    EXPECT_EQ(str::format::itos_as_time(t), "02:30");
-  }
+// format_byte_units(unsigned long long) fractional values
+TEST(format, format_byte_units_ull_fractional) {
+  // 1536 bytes = 1.5KB
+  EXPECT_EQ(str::format::format_byte_units(1536ULL), "1.5KB");
+}
 
-  // itos_as_time: day with hours and minutes
-  TEST(format, itos_as_time_day_with_hours_minutes) {
-    // 2 days, 5 hours, 15 minutes
-    unsigned long long t = (2ULL * 86400 + 5 * 3600 + 15 * 60) * 1000 + 1;
-    EXPECT_EQ(str::format::itos_as_time(t), "2d 05:15");
-  }
+// format_byte_units(long long) fractional values
+TEST(format, format_byte_units_ll_fractional) {
+  EXPECT_EQ(str::format::format_byte_units(1536LL), "1.5KB");
+  EXPECT_EQ(str::format::format_byte_units(-1536LL), "-1.5KB");
+}
 
-  // itos_as_time: week with days, hours and minutes
-  TEST(format, itos_as_time_week_with_days_hours_minutes) {
-    // 3 weeks, 2 days, 10 hours, 45 minutes
-    unsigned long long t = (3ULL * 604800 + 2 * 86400 + 10 * 3600 + 45 * 60) * 1000 + 1;
-    EXPECT_EQ(str::format::itos_as_time(t), "3w 2d 10:45");
-  }
-
-  // append_list with empty initial list and custom separator
-  TEST(format, append_list_empty_start_custom_sep) {
-    std::string lst;
-    str::format::append_list(lst, "only", " | ");
-    EXPECT_EQ(lst, "only");
-  }
-
-  // format_byte_units(unsigned long long) fractional values
-  TEST(format, format_byte_units_ull_fractional) {
-    // 1536 bytes = 1.5KB
-    EXPECT_EQ(str::format::format_byte_units(1536ULL), "1.5KB");
-  }
-
-  // format_byte_units(long long) fractional values
-  TEST(format, format_byte_units_ll_fractional) {
-    EXPECT_EQ(str::format::format_byte_units(1536LL), "1.5KB");
-    EXPECT_EQ(str::format::format_byte_units(-1536LL), "-1.5KB");
-  }
-
-  // Constants accessibility
-  TEST(format, constants) {
-    EXPECT_EQ(str::format::SECS_BETWEEN_EPOCHS, 11644473600ULL);
-    EXPECT_EQ(str::format::SECS_TO_100NS, 10000000ULL);
-  }
+// Constants accessibility
+TEST(format, constants) {
+  EXPECT_EQ(str::format::SECS_BETWEEN_EPOCHS, 11644473600ULL);
+  EXPECT_EQ(str::format::SECS_TO_100NS, 10000000ULL);
+}
