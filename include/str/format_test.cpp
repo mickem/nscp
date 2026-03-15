@@ -335,12 +335,15 @@ TEST(format, find_proper_unit_BKMG) {
 }
 
 #ifdef WIN32
-std::string result = str::format::format_time_delta(test_time, "%d days %H hours %M minutes %S seconds");
-EXPECT_EQ(result, "1 days 1 hours 1 minutes 1 seconds");
+TEST(format, format_time_delta) {
+  // Test with a known time value
+  time_t test_time = 90061;  // 1 day, 1 hour, 1 minute, 1 second
+  std::string result = str::format::format_time_delta(test_time, "%d days %H hours %M minutes %S seconds");
+  EXPECT_EQ(result, "1 days 1 hours 1 minutes 1 seconds");
 
-test_time = 125293;
-result = str::format::format_time_delta(test_time, "%d days %H hours %M minutes %S seconds");
-EXPECT_EQ(result, "1 days 10 hours 48 minutes 13 seconds");
+  test_time = 125293;
+  result = str::format::format_time_delta(test_time, "%d days %H hours %M minutes %S seconds");
+  EXPECT_EQ(result, "1 days 10 hours 48 minutes 13 seconds");
 }
 
 TEST(format, format_time_delta_from_tm) {
