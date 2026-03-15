@@ -59,8 +59,8 @@ std::wstring utf8::to_unicode(std::string const &str) {
 UINT parse_encoding(const std::string &str) {
   if (str.empty()) return CP_ACP;
   if (str == "system") return CP_ACP;
-  if (str == "utf8" || str == "utf-8") return CP_UTF8;
-  if (str == "utf7" || str == "utf-7") return CP_UTF7;
+  if (str == "utf8" || str == "utf-8" || str == "UTF-8" || str == "UTF8") return CP_UTF8;
+  if (str == "utf7" || str == "utf-7" || str == "UTF-7" || str == "UTF7") return CP_UTF7;
   if (str == "oem") return CP_OEMCP;
   return CP_ACP;
 }

@@ -74,6 +74,8 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/str/nscp_string_test.cpp
         ${NSCP_INCLUDEDIR}/str/utils_test.cpp
         ${NSCP_INCLUDEDIR}/str/wstring_test.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8_test.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         gtest_main
     INCLUDES
@@ -163,17 +165,44 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 
-NSCP_CREATE_TEST(
-    pinger_test
-    SOURCES
-        ${NSCP_INCLUDEDIR}/net/pinger_test.cpp
-    LIBRARIES
-        GTest::gtest_main
-        ${Boost_DATE_TIME_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
-    INCLUDES
-        ${NSCP_INCLUDEDIR}
-)
+if(OPENSSL_FOUND)
+    NSCP_CREATE_TEST(
+        net_test
+        SOURCES
+            ${NSCP_INCLUDEDIR}/net/pinger_test.cpp
+            ${NSCP_INCLUDEDIR}/net/http/client_test.cpp
+            ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts_test.cpp
+            ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
+            ${NSCP_INCLUDEDIR}/net/socket/socket_helpers_test.cpp
+            ${NSCP_INCLUDEDIR}/net/socket/connection_test.cpp
+            ${NSCP_INCLUDEDIR}/net/nrpe/packet_test.cpp
+            ${NSCP_INCLUDEDIR}/net/nrpe/server/parser_test.cpp
+            ${NSCP_INCLUDEDIR}/net/nrpe/server/protocol_test.cpp
+            ${NSCP_INCLUDEDIR}/net/nrpe/client/nrpe_client_protocol_test.cpp
+            ${NSCP_INCLUDEDIR}/net/nsca/nsca_packet_test.cpp
+            ${NSCP_INCLUDEDIR}/net/nsca/server/parser_test.cpp
+            ${NSCP_INCLUDEDIR}/net/nsca/server/protocol_test.cpp
+            ${NSCP_INCLUDEDIR}/net/nsca/client/nsca_client_protocol_test.cpp
+            ${NSCP_INCLUDEDIR}/nscpcrypt/nscpcrypt.hpp
+            ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+            ${NSCP_INCLUDEDIR}/net/nrpe/packet.cpp
+            ${NSCP_INCLUDEDIR}/net/nsca/nsca_packet.cpp
+            ${NSCP_INCLUDEDIR}/bytes/crc32.cpp
+            ${NSCP_INCLUDEDIR}/str/utf8.cpp
+        LIBRARIES
+            GTest::gtest_main
+            nscpcrypt
+            ${Boost_FILESYSTEM_LIBRARY}
+            ${Boost_SYSTEM_LIBRARY}
+            ${Boost_DATE_TIME_LIBRARY}
+            ${OPENSSL_LIBRARIES}
+            $<$<PLATFORM_ID:Windows>:CRYPT32>
+        INCLUDES
+            ${NSCP_INCLUDEDIR}
+            ${OPENSSL_INCLUDE_DIR}
+    )
+    target_compile_definitions(net_test PRIVATE USE_SSL)
+endif()
 
 NSCP_CREATE_TEST(
     metrics_store_map_test
@@ -320,22 +349,36 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 
-if(OPENSSL_FOUND)
-    NSCP_CREATE_TEST(
-        http_client_test
-        SOURCES
-            ${NSCP_INCLUDEDIR}/net/http/client_test.cpp
-            ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
-            ${NSCP_INCLUDEDIR}/str/utf8.cpp
-        LIBRARIES
-            GTest::gtest_main
-            ${Boost_FILESYSTEM_LIBRARY}
-            ${Boost_SYSTEM_LIBRARY}
-            ${OPENSSL_LIBRARIES}
-            $<$<PLATFORM_ID:Windows>:CRYPT32>
-        INCLUDES
-            ${NSCP_INCLUDEDIR}
-            ${OPENSSL_INCLUDE_DIR}
-    )
-    target_compile_definitions(http_client_test PRIVATE USE_SSL)
-endif()
+NSCP_CREATE_TEST(
+    bytes_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/bytes/base64_test.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+        ${NSCP_INCLUDEDIR}/bytes/crc32_test.cpp
+        ${NSCP_INCLUDEDIR}/bytes/crc32.cpp
+        ${NSCP_INCLUDEDIR}/bytes/buffer_test.cpp
+        ${NSCP_INCLUDEDIR}/bytes/char_buffer_test.cpp
+        ${NSCP_INCLUDEDIR}/bytes/swap_bytes_test.cpp
+    LIBRARIES
+        gtest_main
+    INCLUDES
+        ${NSCP_INCLUDEDIR}/bytes
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
+    threads_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/threads/queue_test.cpp
+        ${NSCP_INCLUDEDIR}/threads/concurrent_queue_test.cpp
+        ${NSCP_INCLUDEDIR}/threads/has_threads_test.cpp
+        ${NSCP_INCLUDEDIR}/threads/has-threads.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_CHRONO_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)

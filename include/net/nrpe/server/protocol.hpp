@@ -44,7 +44,7 @@ using boost::asio::ip::tcp;
 // on_write		-> done
 
 static constexpr int socket_bufer_size = 8096;
-struct read_protocol : public boost::noncopyable {
+struct read_protocol : boost::noncopyable {
   static constexpr bool debug_trace = false;
 
   typedef std::vector<char> outbound_buffer_type;
@@ -62,28 +62,27 @@ struct read_protocol : public boost::noncopyable {
   int version_;
 
   static boost::shared_ptr<read_protocol> create(socket_helpers::connection_info info, handler_type handler) {
-    return boost::shared_ptr<read_protocol>(new read_protocol(info, handler));
+    return boost::make_shared<read_protocol>(info, handler);
   }
 
-  read_protocol(socket_helpers::connection_info info, handler_type handler)
+  read_protocol(const socket_helpers::connection_info &info, const handler_type handler)
       : info_(info), handler_(handler), parser_(handler->get_payload_length()), current_state_(none), version_(data::version2) {}
 
-  inline void set_state(state new_state) { current_state_ = new_state; }
+  void set_state(const state new_state) { current_state_ = new_state; }
 
-  bool on_accept(boost::asio::ip::tcp::socket &socket, int count) {
+  bool on_accept(const tcp::socket &socket, const int count) {
     std::list<std::string> errors;
     parser_.reset();
-    std::string s = socket.remote_endpoint().address().to_string();
+    const std::string s = socket.remote_endpoint().address().to_string();
     if (info_.allowed_hosts.is_allowed(socket.remote_endpoint().address(), errors)) {
       log_debug(__FILE__, __LINE__, "Accepting connection from: " + s + ", count=" + str::xtos(count));
       return true;
-    } else {
-      for (const std::string &e : errors) {
-        log_error(__FILE__, __LINE__, e);
-      }
-      log_error(__FILE__, __LINE__, "Rejected connection from: " + s);
-      return false;
     }
+    for (const std::string &e : errors) {
+      log_error(__FILE__, __LINE__, e);
+    }
+    log_error(__FILE__, __LINE__, "Rejected connection from: " + s);
+    return false;
   }
 
   bool on_connect() {
@@ -97,11 +96,11 @@ struct read_protocol : public boost::noncopyable {
   bool on_read(char *begin, char *end) {
     while (begin != end) {
       bool result;
-      iterator_type old_begin = begin;
+      const iterator_type old_begin = begin;
       boost::tie(result, begin) = parser_.digest(begin, end);
       if (result) {
         try {
-          packet request = parser_.parse();
+          const packet request = parser_.parse();
           version_ = request.getVersion();
           responses_ = handler_->handle(request);
         } catch (const std::exception &e) {
@@ -142,8 +141,8 @@ struct read_protocol : public boost::noncopyable {
 
   socket_helpers::connection_info get_info() const { return info_; }
 
-  void log_debug(std::string file, int line, std::string msg) const { handler_->log_debug("nrpe", file, line, msg); }
-  void log_error(std::string file, int line, std::string msg) const { handler_->log_error("nrpe", file, line, msg); }
+  void log_debug(const std::string &file, const int line, const std::string &msg) const { handler_->log_debug("nrpe", file, line, msg); }
+  void log_error(const std::string &file, const int line, const std::string &msg) const { handler_->log_error("nrpe", file, line, msg); }
 };
 
 namespace server {

@@ -1,5 +1,5 @@
 /* /////////////////////////////////////////////////////////////////////////////
- * File:        b64/b64.h
+ * File:        b64/base64.h
  *
  * Purpose:     Header file for the b64 library
  *
@@ -37,7 +37,7 @@
  *
  * ////////////////////////////////////////////////////////////////////////// */
 
-/** \file b64/b64.h Header file for the b64 library
+/** \file b64/base64.h Header file for the b64 library
  */
 
 #ifndef B64_INCL_B64_H_B64

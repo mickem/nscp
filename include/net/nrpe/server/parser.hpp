@@ -73,7 +73,6 @@ class parser : public boost::noncopyable {
     if (packet_length < 1024 || packet_length > 2048 * 1024) {
       return boost::make_tuple(true, begin);
     }
-
     return boost::make_tuple(buffer_.size() >= packet_length, begin);
   }
 

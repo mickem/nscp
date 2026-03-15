@@ -102,7 +102,6 @@ NSCP_CREATE_TEST(
         user_manager.cpp
         error_handler.cpp
         metrics_handler.cpp
-        ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts_test.cpp
         ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
     LIBRARIES
         GTest::gtest

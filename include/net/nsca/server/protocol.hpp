@@ -79,7 +79,7 @@ struct read_protocol : public boost::noncopyable {
     set_state(connected);
     std::vector<boost::asio::const_buffer> buffers;
 
-    std::string iv = nscp::encryption::engine::generate_transmitted_iv();
+    const std::string iv = nscp::encryption::engine::generate_transmitted_iv();
     encryption_instance_.encrypt_init(handler_->get_password(), handler_->get_encryption(), iv);
 
     nsca::iv_packet packet(iv, boost::posix_time::second_clock::local_time());

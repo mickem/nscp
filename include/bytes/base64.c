@@ -1,5 +1,5 @@
 /* /////////////////////////////////////////////////////////////////////////////
- * File:        b64.c
+ * File:        base64.c
  *
  * Purpose:     Implementation file for the b64 library
  *
@@ -37,7 +37,7 @@
  *
  * ////////////////////////////////////////////////////////////////////////// */
 
-/** \file b64.c Implementation file for the b64 library
+/** \file base64.c Implementation file for the b64 library
  */
 
 /* /////////////////////////////////////////////////////////////////////////////
@@ -56,7 +56,7 @@
  */
 
 #include <assert.h>
-#include <b64/b64.h>
+#include <bytes/base64.h>
 #include <string.h>
 
 /* /////////////////////////////////////////////////////////////////////////////
@@ -152,12 +152,10 @@ static size_t b64_encode_(unsigned char const *src, size_t srcSize, char *const 
       characters[2] = (char)(((src[1] & 0x0f) << 2) + ((src[2] & 0xc0) >> 6));
       characters[3] = (char)(src[2] & 0x3f);
 
-#ifndef __WATCOMC__
       assert(characters[0] >= 0 && characters[0] < 64);
       assert(characters[1] >= 0 && characters[1] < 64);
       assert(characters[2] >= 0 && characters[2] < 64);
       assert(characters[3] >= 0 && characters[3] < 64);
-#endif /* __WATCOMC__ */
 
       src += NUM_PLAIN_DATA_BYTES;
       *p++ = b64_chars[(unsigned char)characters[0]];

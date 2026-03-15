@@ -27,7 +27,7 @@ namespace swap_bytes {
 // this function swap the bytes of values given it's size as a template
 // parameter (could sizeof be used?).
 template <class T, unsigned int size>
-inline T SwapBytes(T value) {
+T SwapBytes(T value) {
   union {
     T value;
     char bytes[size];
@@ -47,7 +47,7 @@ inline T SwapBytes(T value) {
 #pragma warning(disable : 4127)
 #endif
 template <EEndian from, EEndian to, class T>
-inline T EndianSwapBytes(T value) {
+T EndianSwapBytes(T value) {
   BOOST_STATIC_ASSERT(sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8);
   BOOST_STATIC_ASSERT(boost::is_arithmetic<T>::value);
   if (from == to) return value;
@@ -55,19 +55,19 @@ inline T EndianSwapBytes(T value) {
 }
 
 template <class T>
-inline T ntoh(T value) {
+T ntoh(T value) {
   return EndianSwapBytes<BIG_ENDIAN_ORDER, HOST_ENDIAN_ORDER, T>(value);
 }
 template <typename T>
-inline T hton(T value) {
+T hton(T value) {
   return EndianSwapBytes<HOST_ENDIAN_ORDER, BIG_ENDIAN_ORDER, T>(value);
 }
 template <class T>
-inline T ltoh(T value) {
+T ltoh(T value) {
   return EndianSwapBytes<LITTLE_ENDIAN_ORDER, HOST_ENDIAN_ORDER, T>(value);
 }
 template <typename T>
-inline T htol(T value) {
+T htol(T value) {
   return EndianSwapBytes<HOST_ENDIAN_ORDER, LITTLE_ENDIAN_ORDER, T>(value);
 }
 #ifdef WIN32
