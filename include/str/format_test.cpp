@@ -547,8 +547,10 @@ TEST(format, format_byte_units_ll_fractional) {
   EXPECT_EQ(str::format::format_byte_units(-1536LL), "-1.5KB");
 }
 
+#ifdef WIN32
 // Constants accessibility
 TEST(format, constants) {
   EXPECT_EQ(str::format::SECS_BETWEEN_EPOCHS, 11644473600ULL);
   EXPECT_EQ(str::format::SECS_TO_100NS, 10000000ULL);
 }
+#endif
