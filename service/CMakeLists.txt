@@ -4,6 +4,7 @@ set(TARGET nscp)
 
 project(service)
 include_directories(${BOOST_INCLUDE_DIRS})
+include_directories(${MINIZ_INCLUDE_DIR})
 link_directories(${BOOST_LIB_DIRS})
 
 set(service_SRCS
