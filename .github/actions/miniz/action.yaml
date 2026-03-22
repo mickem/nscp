@@ -1,0 +1,55 @@
+---
+name: Download Miniz
+description: Download Miniz
+inputs:
+  version:
+    description: The Miniz version to download
+    required: true
+outputs:
+  path:
+    description: The path to the folder (windows \ format)
+    value:  ${{ steps.path.outputs.path }}
+  path_unix:
+    description: The path to the folder (unix / format)
+    value:  ${{ steps.path.outputs.path_unix }}
+runs:
+  using: composite
+  steps:
+    - name: Download
+      run: |
+        curl -L https://github.com/richgel999/miniz/releases/download/${{ inputs.version }}/miniz-${{ inputs.version }}.zip --output miniz.zip
+      working-directory: tmp
+      shell: bash
+
+    - name: Unzip on windows
+      if: runner.os == 'Windows'
+      run: |
+        mkdir miniz-${{ inputs.version }}
+        7z x miniz.zip -ominiz-${{ inputs.version }}
+        del miniz.zip
+      working-directory: tmp
+      shell: cmd
+
+    - name: Unzip on linux
+      if: runner.os != 'Windows'
+      run: |
+          mkdir -p miniz-${{ inputs.version }}
+          unzip miniz.zip -d miniz-${{ inputs.version }}
+          rm miniz.zip
+      working-directory: tmp
+      shell: bash
+
+    - id: path
+      run: |
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          path=$(pwd -W)
+          path_unix=$(pwd -W | sed 's/\\/\//g')
+        else
+          path=$(pwd)
+          path_unix=$path
+        fi
+        echo "path=$path" >> $GITHUB_OUTPUT
+        echo "path_unix=$path_unix" >> $GITHUB_OUTPUT
+      shell: bash
+      working-directory: tmp/miniz-${{ inputs.version }}
+

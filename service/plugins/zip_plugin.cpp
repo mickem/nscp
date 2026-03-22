@@ -23,7 +23,7 @@
 #include <file_helpers.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <str/nscp_string.hpp>
-#include <zip/miniz.hpp>
+#include <miniz.h>
 
 #include "NSCAPI.h"
 
