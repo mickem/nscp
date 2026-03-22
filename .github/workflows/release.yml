@@ -28,26 +28,26 @@ jobs:
         python-version: ${{ ENV.PYTHON_VERSION }}
 
     # Windows artifacts
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-x64
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-Win32
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-Win32-legacy-xp
 
     # Ubuntu artifacts
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-ubuntu-24.04-x64
 
     # RedHat (rocky) artifacts
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-rocky-9-x64
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: NSCP-${{ inputs.version }}-rocky-10-x64
 
