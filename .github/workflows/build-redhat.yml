@@ -19,6 +19,7 @@ on:
 env:
   TINY_XML_2_VERSION: "10.1.0"
   MONGOOSE_VERSION: "7.20"
+  MINIZ_VERSION: "3.1.1"
 
 jobs:
   build-rpm:
@@ -51,8 +52,6 @@ jobs:
         curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
         dnf install -y --allowerasing coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build nodejs python3-devel dbus-devel bash
     - uses: actions/checkout@v6
-      with:
-        submodules: true
 
     - name: make dirs
       run: |
@@ -78,6 +77,11 @@ jobs:
       with:
         version: ${{ env.MONGOOSE_VERSION }}
 
+    - id: miniz
+      uses: ./.github/actions/miniz
+      with:
+        version: ${{ env.MINIZ_VERSION }}
+
     - id: build-web
       working-directory: web
       run: |
@@ -91,6 +95,7 @@ jobs:
         SET(NSCP_BOOST_PYTHON_VERSION "${{ matrix.python_version }}")
         SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
         set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
+        set(MINIZ_INCLUDE_DIR "${{ steps.miniz.outputs.path_unix }}")
         set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}")
         set(USE_STATIC_RUNTIME OFF)
         EOF

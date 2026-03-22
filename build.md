@@ -158,7 +158,20 @@ cd %BUILD_FOLDER%
 curl -L https://github.com/cesanta/mongoose/archive/refs/tags/%MONGOOSE_VERSION%.zip --output mongoose-%MONGOOSE_VERSION%.zip
 7z x mongoose-%MONGOOSE_VERSION%.zip
 del mongoose-%MONGOOSE_VERSION%.zip
-````
+```
+
+#### Download Miniz
+
+Miniz does not require building instead we need to download and configure where the build system can find it.
+
+```commandline
+SET MINIZ_VERSION=3.1.1
+cd %BUILD_FOLDER%
+curl -L https://github.com/richgel999/miniz/releases/download/%MINIZ_VERSION%/miniz-%MINIZ_VERSION%.zip --output miniz.zip
+mkdir miniz-%MINIZ_VERSION%
+7z x miniz.zip -ominiz-%MINIZ_VERSION%
+del miniz.zip
+```
 
 
 ### Build installer library
@@ -199,6 +212,7 @@ SET(LUA_SOURCE_DIR "BUILD_FOLDER/lua-VERSION/src")
 SET(CRYPTOPP_ROOT "BUILD_FOLDER/CRYPTOPP_VERSION")
 SET(TINY_XML2_SOURCE_DIR "BUILD_FOLDER/tinyxml2-VERSION")
 SET(MONGOOSE_SOURCE_DIR "BUILD_FOLDER/mongoose-VERSION")
+SET(MINIZ_INCLUDE_DIR "BUILD_FOLDER/miniz-VERSION")
 ```
 
 ### Build NSClient++
@@ -325,6 +339,19 @@ curl -L https://github.com/leethomason/tinyxml2/archive/refs/tags/%TINY_XML2_VER
 del tinyxml.zip
 ```
 
+#### Download Miniz
+
+Miniz does not require building instead we need to download and configure where the build system can find it.
+
+```commandline
+SET MINIZ_VERSION=3.1.1
+cd %BUILD_FOLDER%
+curl -L https://github.com/richgel999/miniz/releases/download/%MINIZ_VERSION%/miniz-%MINIZ_VERSION%.zip --output miniz.zip
+mkdir miniz-%MINIZ_VERSION%
+7z x miniz.zip -ominiz-%MINIZ_VERSION%
+del miniz.zip
+```
+
 ### Build installer library
 
 ```commandline
@@ -362,6 +389,7 @@ SET(OPENSSL_ROOT_DIR "BUILD_FOLDER/openssl-VERSION")
 SET(LUA_SOURCE_DIR "BUILD_FOLDER/lua-VERSION/src")
 SET(CRYPTOPP_ROOT "BUILD_FOLDER/CRYPTOPP_VERSION")
 SET(TINY_XML2_SOURCE_DIR "BUILD_FOLDER/tinyxml2-VERSION")
+SET(MINIZ_INCLUDE_DIR "BUILD_FOLDER/miniz-VERSION")
 ```
 
 ### Build NSClient++
@@ -415,6 +443,18 @@ curl -L https://github.com/cesanta/mongoose/archive/refs/tags/${MONGOOSE_VERSION
 unzip mongoose.zip
 ```
 
+#### Download Miniz
+Miniz does not require building instead we need to download and configure where the build system can find it.
+
+```bash
+cd $DEPENDENCIES_FOLDER
+export MINIZ_VERSION=3.1.1
+curl -L https://github.com/richgel999/miniz/releases/download/${MINIZ_VERSION}/miniz-${MINIZ_VERSION}.zip --output miniz.zip
+mkdir -p miniz-${MINIZ_VERSION}
+unzip miniz.zip -d miniz-${MINIZ_VERSION}
+rm miniz.zip
+```
+
 #### Build Rust NSClient check_nsclient client
 
 The Rust based `check_nsclient` tool needs to be built before building NSClient++.
@@ -432,6 +472,7 @@ SET(DEPENDENCIES_FOLDER "${HOME}/dependencies")
 SET(NSCP_BOOST_PYTHON_VERSION "python312")
 SET(TINY_XML2_SOURCE_DIR "${DEPENDENCIES_FOLDER}/tinyxml2-10.1.0")
 set(MONGOOSE_SOURCE_DIR "${DEPENDENCIES_FOLDER}/mongoose-7.19")
+set(MINIZ_INCLUDE_DIR "${DEPENDENCIES_FOLDER}/miniz-3.1.1")
 set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/rust/nscp_client/target/release")
 ```
 

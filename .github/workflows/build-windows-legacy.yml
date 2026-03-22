@@ -36,6 +36,7 @@ env:
   TINY_XML_2_VERSION: 10.1.0
   GOOGLE_TEST_VERSION: 1.12.1
   MONGOOSE_VERSION: "7.20"
+  MINIZ_VERSION: "3.1.1"
 
 jobs:
   build:
@@ -45,8 +46,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v6
-      with:
-        submodules: true
 
     - id: setup
       run: |
@@ -151,6 +150,11 @@ jobs:
       with:
         version: ${{ ENV.MONGOOSE_VERSION }}
 
+    - id: miniz
+      uses: ./.github/actions/miniz
+      with:
+        version: ${{ ENV.MINIZ_VERSION }}
+
     - name: Build Boost (static)
       id: static_boost
       uses: mickem/build-boost@42c59d10fc12f919a986f7e1c2f7c752d4960190
@@ -199,6 +203,7 @@ jobs:
             SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
             set(GTEST_ROOT "${{ steps.google-test.outputs.path_unix }}")
             set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
+            set(MINIZ_INCLUDE_DIR "${{ steps.miniz.outputs.path_unix }}")
             set(CHECK_NSCLIENT_MISSING TRUE)
 
     - name: Make python dist
@@ -278,6 +283,7 @@ jobs:
         echo "| Protobuf | ${{ env.PROTOBUF_VERSION }} |" >> $GITHUB_STEP_SUMMARY
         echo "| TinyXml2 | ${{ env.TINY_XML_2_VERSION }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Mongoose | ${{ env.MONGOOSE_VERSION }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Miniz | ${{ env.MINIZ_VERSION }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Python | ${{ env.PYTHON_VERSION }} |" >> $GITHUB_STEP_SUMMARY
 
   integration-tests:

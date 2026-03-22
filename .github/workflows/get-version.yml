@@ -19,7 +19,6 @@ jobs:
     steps:
     - uses: actions/checkout@v6
       with:
-        submodules: true
         fetch-depth: 0
 
     - name: Fetch version from git tags

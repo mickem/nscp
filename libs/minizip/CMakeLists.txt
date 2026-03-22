@@ -5,14 +5,8 @@ set(TARGET nscp_miniz)
 project(${TARGET})
 
 set(miniz_SOURCE
-    ../../ext/miniz/miniz.c
-    ../../ext/miniz/miniz.h
-    ../../ext/miniz/miniz_zip.c
-    ../../ext/miniz/miniz_zip.h
-    ../../ext/miniz/miniz_tinfl.c
-    ../../ext/miniz/miniz_tinfl.h
-    ../../ext/miniz/miniz_tdef.c
-    ../../ext/miniz/miniz_tdef.h
+    ${MINIZ_INCLUDE_DIR}/miniz.c
+    ${MINIZ_INCLUDE_DIR}/miniz.h
 )
 
 add_library(${TARGET} STATIC ${miniz_SOURCE})
