@@ -169,8 +169,6 @@ class packet /*: public boost::noncopyable*/ {
   static char* payload_offset(data::packet_v2* p) { return &reinterpret_cast<char*>(p)[data::buffer_offset_v2]; }
   static const char* payload_offset(const data::packet_v2* p) { return &reinterpret_cast<const char*>(p)[data::buffer_offset_v2]; }
   static const char* payload_offset(const data::packet_v3* p) { return &reinterpret_cast<const char*>(p)[data::buffer_offset_v3]; }
-  static std::size_t payload_length(const data::packet_v2* p, std::size_t packet_length) { return packet_length - data::buffer_offset_v2; }
-  static std::size_t payload_length(const data::packet_v3* p) { return static_cast<std::size_t>(swap_bytes::ntoh<int32_t>(p->buffer_length)); }
   static void update_payload(data::packet_v2* p, const std::string& payload) {
     char* data = payload_offset(p);
     strncpy(data, payload.c_str(), payload.length());
@@ -181,16 +179,13 @@ class packet /*: public boost::noncopyable*/ {
     strncpy(data, payload.c_str(), payload.length());
     data[payload.length()] = 0;
   }
-  static std::string fetch_payload(const data::packet_v2* p, std::size_t packet_length) {
+  static std::string fetch_payload(const data::packet_v2* p) {
     const char* data = payload_offset(p);
-    const std::size_t len = payload_length(p, packet_length);
-    const std::size_t str_len = strnlen(data, len);
-    return std::string(data, str_len);
+    return std::string(data);
   }
-  static std::string fetch_payload(const data::packet_v3* p, std::size_t packet_length) {
+  static std::string fetch_payload(const data::packet_v3* p) {
     const char* data = payload_offset(p);
-    const std::size_t len = payload_length(p);
-    return std::string(data, len);
+    return std::string(data);
   }
 
   buffer_holder create_buffer() {
@@ -280,11 +275,12 @@ class packet /*: public boost::noncopyable*/ {
     calculatedCRC32_ = calculate_crc32(tb, static_cast<int>(get_packet_length_v2()));
     delete[] tb;
     if (crc32_ != calculatedCRC32_) {
-      throw nrpe_exception("Invalid checksum reading v2 NRPE packet: " + str::xtos(crc32_) + "!=" + str::xtos(calculatedCRC32_));
+      throw nrpe_exception("Invalid checksum reading v2 NRPE packet: " + str::xtos(crc32_) + "!=" + str::xtos(calculatedCRC32_) +
+                           " payload length: " + str::xtos(payload_length_));
     }
     // Verify CRC32 end
     result_ = swap_bytes::ntoh<int16_t>(p->result_code);
-    payload_ = fetch_payload(p, get_payload_length());
+    payload_ = fetch_payload(p);
   }
 
   void readFromV3(const char* buffer, const std::size_t length) {
@@ -325,7 +321,7 @@ class packet /*: public boost::noncopyable*/ {
     }
     // Verify CRC32 end
     result_ = swap_bytes::ntoh<int16_t>(p->result_code);
-    payload_ = fetch_payload(p, get_payload_length());
+    payload_ = fetch_payload(p);
   }
 
   unsigned short getVersion() const { return version_; }

@@ -52,8 +52,8 @@ if not %errorlevel%==0 (
 echo -----------------------------------
 echo Running non standard payload length
 echo -----------------------------------
-nscp nrpe install --allowed-hosts 127.0.0.1 --insecure=true
-nscp settings --path /settings/NRPE/server --key "payload length" --set 4095
+nscp nrpe install --allowed-hosts 127.0.0.1 --insecure --verify=none
+nscp settings --path /settings/NRPE/server --key "payload length" --set 4096
 nscp lua install
 nscp lua add --script mock
 start nscp test
@@ -84,7 +84,7 @@ timeout /t 3 /nobreak >nul
 echo ---------------------
 echo Running NRPE v2 tests
 echo ---------------------
-nscp nrpe install --allowed-hosts 127.0.0.1 --insecure=true
+nscp nrpe install --allowed-hosts 127.0.0.1 --insecure=true --verify=none
 nscp lua install
 nscp lua add --script mock
 start nscp test
@@ -97,7 +97,7 @@ if not %errorlevel%==0 (
   echo ! Failed to connect with NRPE, Error level was: %errorlevel%
   exit /b 1
 )
-echo - Testing 4096 (check_nrpe)...
+echo - Testing version 2 (check_nrpe)...
 docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 -c mock_query
 if not %errorlevel%==0 (
   echo ! Failed to connect with NRPE, Error level was: %errorlevel%
@@ -127,7 +127,7 @@ timeout /t 3 /nobreak >nul
 echo ------------------------------
 echo Running unencrypted NRPE test
 echo ------------------------------
-nscp nrpe install --allowed-hosts 127.0.0.1 --insecure
+nscp nrpe install --allowed-hosts 127.0.0.1 --insecure --verify=none
 nscp lua install
 nscp lua add --script mock
 start nscp test
