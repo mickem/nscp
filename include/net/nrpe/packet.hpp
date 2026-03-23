@@ -179,13 +179,17 @@ class packet /*: public boost::noncopyable*/ {
     strncpy(data, payload.c_str(), payload.length());
     data[payload.length()] = 0;
   }
-  static std::string fetch_payload(const data::packet_v2* p) {
+  static std::string fetch_payload(const data::packet_v2* p, std::size_t packet_length) {
     const char* data = payload_offset(p);
-    return std::string(data);
+    const std::size_t len = packet_length - data::buffer_offset_v2;
+    const std::size_t str_len = strnlen(data, len);
+    return std::string(data, str_len);
   }
-  static std::string fetch_payload(const data::packet_v3* p) {
+  static std::string fetch_payload(const data::packet_v3* p, std::size_t packet_length) {
     const char* data = payload_offset(p);
-    return std::string(data);
+    const std::size_t len = packet_length - data::buffer_offset_v3;
+    const std::size_t str_len = strnlen(data, len);
+    return std::string(data, str_len);
   }
 
   buffer_holder create_buffer() {
@@ -280,7 +284,7 @@ class packet /*: public boost::noncopyable*/ {
     }
     // Verify CRC32 end
     result_ = swap_bytes::ntoh<int16_t>(p->result_code);
-    payload_ = fetch_payload(p);
+    payload_ = fetch_payload(p, length);
   }
 
   void readFromV3(const char* buffer, const std::size_t length) {
@@ -321,7 +325,7 @@ class packet /*: public boost::noncopyable*/ {
     }
     // Verify CRC32 end
     result_ = swap_bytes::ntoh<int16_t>(p->result_code);
-    payload_ = fetch_payload(p);
+    payload_ = fetch_payload(p, length);
   }
 
   unsigned short getVersion() const { return version_; }
