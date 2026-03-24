@@ -56,8 +56,12 @@ runs:
         }
         if ("${{ inputs.support_xp }}" -eq "true") {
           echo 'additional_options=/p:AdditionalOptions="/DGOOGLE_PROTOBUF_SUPPORT_WINDOWS_XP %(AdditionalOptions)"' >> $env:GITHUB_OUTPUT
+          echo "cmake_toolset=${{ inputs.toolset }},version=14.16" >> $env:GITHUB_OUTPUT
+          echo "vctools_version=/p:VCToolsVersion=14.16.27023" >> $env:GITHUB_OUTPUT
         } else {
           echo "additional_options=" >> $env:GITHUB_OUTPUT
+          echo "cmake_toolset=${{ inputs.toolset }}" >> $env:GITHUB_OUTPUT
+          echo "vctools_version=" >> $env:GITHUB_OUTPUT
         }
         
 
@@ -72,16 +76,16 @@ runs:
 
     - name: CMake
       run: |
-        cmake -DBUILD_SHARED_LIBS=${{ steps.setup.outputs.shared_libs }} -Dprotobuf_WITH_ZLIB=OFF -G "Visual Studio 17" -T ${{ inputs.toolset }} -A ${{ steps.setup.outputs.platform }} ..
+        cmake -DBUILD_SHARED_LIBS=${{ steps.setup.outputs.shared_libs }} -Dprotobuf_WITH_ZLIB=OFF -G "Visual Studio 17" -T ${{ steps.setup.outputs.cmake_toolset }} -A ${{ steps.setup.outputs.platform }} ..
       working-directory: tmp/protobuf-${{ inputs.version }}/build
       shell: cmd
 
     - name: Build
       run: |
-        echo msbuild libprotobuf.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }} ${{ steps.setup.outputs.additional_options }}
-        msbuild libprotobuf.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }} ${{ steps.setup.outputs.additional_options }}
-        msbuild libprotoc.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
-        msbuild protoc.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
+        echo msbuild libprotobuf.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }} ${{ steps.setup.outputs.vctools_version }} ${{ steps.setup.outputs.additional_options }}
+        msbuild libprotobuf.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }} ${{ steps.setup.outputs.vctools_version }} ${{ steps.setup.outputs.additional_options }}
+        msbuild libprotoc.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }} ${{ steps.setup.outputs.vctools_version }}
+        msbuild protoc.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }} ${{ steps.setup.outputs.vctools_version }}
       working-directory: tmp/protobuf-${{ inputs.version }}/build
       shell: cmd
       if: ${{ steps.cache.outputs.cache-hit != 'true' }}
