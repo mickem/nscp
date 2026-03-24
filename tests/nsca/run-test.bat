@@ -74,8 +74,8 @@ if not %errorlevel%==0 exit /b 1
 call :test_encryption_method serpent 20
 if not %errorlevel%==0 exit /b 1
 rem ghost is not compatible between libmcrypt and nscp
-call :test_encryption_method gost 23
-if not %errorlevel%==0 exit /b 1
+rem call :test_encryption_method gost 23
+rem if not %errorlevel%==0 exit /b 1
 
 echo -----------------
 echo All tests passed

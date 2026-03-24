@@ -112,7 +112,7 @@ struct read_protocol : boost::noncopyable {
         return true;
       }
       if (begin == old_begin) {
-        log_error(__FILE__, __LINE__, "Digester failed to parse chunk, giving up.");
+        log_error(__FILE__, __LINE__, "Digester failed to parse NRPE data after " + str::xtos(parser_.size()) + " bytes, giving up.");
         return false;
       }
     }

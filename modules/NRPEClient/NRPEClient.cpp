@@ -233,7 +233,9 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
 	    "Length of payload (has to be same as on the server)")
     ("certificate-key", po::value<std::string>(&key)->default_value(key),
 	    "Client certificate to use")
-    ("payload-length,l", po::value<unsigned int>(&length)->default_value(1024),
+    ("insecure", po::value<std::string>(&insecure)->default_value(insecure)->implicit_value("true"),
+            "Use \"old\" legacy NRPE.")
+  ("payload-length,l", po::value<unsigned int>(&length)->default_value(1024),
 	    "Length of payload (has to be same as on both the server and client)")
     ("arguments", po::value<std::string>(&arguments)->default_value(arguments)->implicit_value("safe"),
 	    "Allow arguments. false=don't allow, safe=allow non escape chars, all=allow all arguments.")

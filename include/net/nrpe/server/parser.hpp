@@ -82,6 +82,7 @@ class parser : public boost::noncopyable {
     return packet;
   }
   void reset() { buffer_.clear(); }
+  std::size_t size() const { return buffer_.size(); }
 };
 }  // namespace server
 }  // namespace nrpe
