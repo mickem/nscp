@@ -4,8 +4,6 @@ import AppNavbar from "./AppNavbar.tsx";
 import { Outlet } from "react-router";
 import { useState } from "react";
 import SettingsChangedWidget from "./atoms/SettingsChangedWidget.tsx";
-import ErrorLogWidget from "./ErrorLogWidget.tsx";
-import Stack from "@mui/material/Stack";
 
 const drawerWidth = 240;
 
@@ -40,10 +38,7 @@ export default function MainPage() {
         }}
       >
         <Toolbar />
-        <Stack direction="row" spacing={2} sx={{ justifyContent: "center" }}>
-          <SettingsChangedWidget />
-          <ErrorLogWidget />
-        </Stack>
+        <SettingsChangedWidget />
         <Outlet />
       </Box>
     </Box>

@@ -1,120 +1,141 @@
-import { nsclientApi, useGetMetricsQuery } from "../api/api.ts";
-import { LineChart } from "@mui/x-charts/LineChart";
+import { useGetMetricsQuery } from "../api/api.ts";
 import { parseMetrics } from "../metric_parser.ts";
-import { useEffect, useMemo, useState } from "react";
-import { useAppDispatch } from "../store/store.ts";
-import { Box, Card, CardContent } from "@mui/material";
+import { useEffect, useMemo } from "react";
+import { Box, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import Grid from "@mui/material/Grid";
+import CpuWidget from "./CpuWidget.tsx";
+import MemoryWidget from "./MemoryWidget.tsx";
+import NetworkWidget from "./NetworkWidget.tsx";
+import SystemInfoWidget from "./SystemInfoWidget.tsx";
+import { useAppDispatch, useAppSelector } from "../store/store.ts";
+import { setRefreshRate } from "../common/dashboardSlice.ts";
+
+const HISTORY_SIZE = 30;
+
+const REFRESH_RATES = [
+  { label: "Off", value: 0 },
+  { label: "1 second", value: 1000 },
+  { label: "5 seconds", value: 5000 },
+  { label: "10 seconds", value: 10000 },
+  { label: "30 seconds", value: 30000 },
+  { label: "1 minute", value: 60000 },
+];
+
+function buildXAxis(intervalMs: number, size: number = HISTORY_SIZE) {
+  const stepSec = intervalMs / 1000;
+  return Array.from({ length: size }, (_, i) => (i - size + 1) * stepSec);
+}
+
+function formatXValue(value: number) {
+  if (value === 0) return "now";
+  const seconds = Math.round(value);
+  if (Math.abs(seconds) < 120) return `${seconds} s`;
+  return `${Math.round(seconds / 60)} min`;
+}
 
 export default function Welcome() {
   const dispatch = useAppDispatch();
-  const { data: metrics } = useGetMetricsQuery();
-  const [kernelCpu, setKernelCpu] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-  const [userCpu, setUserCpu] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-  const [mem, setMem] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-
-  useEffect(() => {
-    setInterval(() => {
-      dispatch(nsclientApi.util.invalidateTags(["Metrics"]));
-    }, 5000);
-  }, [dispatch]);
+  const refreshRate = useAppSelector((state) => state.dashboard.refreshRate);
+  const { data: metrics, fulfilledTimeStamp } = useGetMetricsQuery(undefined, {
+    pollingInterval: refreshRate || undefined,
+  });
 
   const result = useMemo(() => parseMetrics(metrics), [metrics]);
-  const filteredMetrics = useMemo(
-    () => result.metrics.filter((m) => m.key.startsWith("system.cpu.total") || m.key.startsWith("system.mem.physical")),
-    [result.metrics],
+
+  // --- Server-reported refresh intervals (seconds) ---
+  const serverIntervals = useMemo(() => {
+    const get = (key: string) => {
+      const m = result.metrics.find((metric) => metric.key === key);
+      return m !== undefined ? Number(m.value) : undefined;
+    };
+    return {
+      workersRefresh: get("workers.refresh_interval") ?? 10,
+      systemRefresh: get("system.refresh_interval") ?? 10,
+      networkRefresh: get("system.network_refresh_interval") ?? 100,
+    };
+  }, [result.metrics]);
+
+  // Minimum sensible polling interval (ms) – no point polling faster than the server updates
+  const maxRefreshMs = useMemo(
+    () =>
+      Math.min(serverIntervals.workersRefresh, serverIntervals.systemRefresh) * 1000,
+    [serverIntervals],
   );
 
+  // Auto-clamp refresh rate if it is faster than the server can deliver
   useEffect(() => {
-    const kernelCpuMetric = filteredMetrics.find((m) => m.key === "system.cpu.total.kernel");
-    if (kernelCpuMetric) {
-      setKernelCpu((old) => [...old, kernelCpuMetric.value as number].slice(-10));
+    if (refreshRate > 0 && refreshRate < maxRefreshMs) {
+      dispatch(setRefreshRate(maxRefreshMs));
     }
-    const userCpuMetric = filteredMetrics.find((m) => m.key === "system.cpu.total.user");
-    if (userCpuMetric) {
-      setUserCpu((old) => [...old, userCpuMetric.value as number].slice(-10));
-    }
-    const memUsed = filteredMetrics.find((m) => m.key === "system.mem.physical.used");
-    const memTotal = filteredMetrics.find((m) => m.key === "system.mem.physical.total");
-    if (memUsed && memTotal) {
-      const pct = Math.round((1000 * (memUsed.value as number)) / (memTotal.value as number)) / 10;
-      setMem((old) => [...old, pct].slice(-10));
-    }
-  }, [filteredMetrics]);
+  }, [refreshRate, maxRefreshMs, dispatch]);
+
+  // --- X-axis for system widgets (CPU / Memory) ---
+  const xAxisData = useMemo(() => buildXAxis(refreshRate || 5000), [refreshRate]);
+  const xAxisMin = xAxisData[0];
+  const xAxis = useMemo(
+    () => [{ data: xAxisData, valueFormatter: formatXValue, min: xAxisMin, max: 0 }],
+    [xAxisData, xAxisMin],
+  );
+
+  const handleRefreshRateChange = (event: SelectChangeEvent<number>) => {
+    dispatch(setRefreshRate(event.target.value as number));
+  };
 
   return (
     <Box>
       <Grid container spacing={2}>
-        <Grid>
-          <Card variant="outlined">
-            <CardContent>
-              <Typography gutterBottom variant="h5" component="div">
-                CPU Load
-              </Typography>
-              <LineChart
-                xAxis={[
-                  {
-                    data: [-45, -40, -35, -30, -25, -20, -15, -10, -5, 0],
-                    valueFormatter: (value: number) => (value === 0 ? "now" : `${value} s`),
-                    min: -45,
-                    max: 0,
-                  },
-                ]}
-                series={[
-                  {
-                    id: "Kernel",
-                    label: "Kernel time (%)",
-                    data: kernelCpu,
-                    stack: "total",
-                    area: true,
-                  },
-                  {
-                    id: "User",
-                    label: "User time (%)",
-                    data: userCpu,
-                    stack: "total",
-                    area: true,
-                  },
-                ]}
-                grid={{ vertical: true, horizontal: true }}
-                width={500}
-                height={300}
-                yAxis={[{ min: 0, max: 100 }]}
-              />
-            </CardContent>
-          </Card>
+        <Grid size={12}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Typography variant="h4" component="div">
+              Dashboard
+            </Typography>
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel id="refresh-rate-label">Refresh rate</InputLabel>
+              <Select
+                labelId="refresh-rate-label"
+                value={refreshRate}
+                label="Refresh rate"
+                onChange={handleRefreshRateChange}
+              >
+                {REFRESH_RATES.map((r) => (
+                  <MenuItem key={r.value} value={r.value} disabled={r.value > 0 && r.value < maxRefreshMs}>
+                    {r.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
         </Grid>
         <Grid>
-          <Card variant="outlined">
-            <CardContent>
-              <Typography gutterBottom variant="h5" component="div">
-                Memory usage
-              </Typography>
-              <LineChart
-                xAxis={[
-                  {
-                    data: [-45, -40, -35, -30, -25, -20, -15, -10, -5, 0],
-                    valueFormatter: (value: number) => (value === 0 ? "now" : `${value} s`),
-                    min: -45,
-                    max: 0,
-                  },
-                ]}
-                yAxis={[{ min: 0, max: 100 }]}
-                series={[
-                  {
-                    id: "Memory",
-                    label: "Memory (%)",
-                    data: mem,
-                    area: true,
-                  },
-                ]}
-                grid={{ vertical: true, horizontal: true }}
-                width={500}
-                height={300}
-              />
-            </CardContent>
-          </Card>
+          <CpuWidget
+            key={refreshRate}
+            metrics={result.metrics}
+            fulfilledTimeStamp={fulfilledTimeStamp}
+            xAxis={xAxis}
+            historySize={HISTORY_SIZE}
+          />
+        </Grid>
+        <Grid>
+          <MemoryWidget
+            key={refreshRate}
+            metrics={result.metrics}
+            fulfilledTimeStamp={fulfilledTimeStamp}
+            xAxis={xAxis}
+            historySize={HISTORY_SIZE}
+          />
+        </Grid>
+        <Grid>
+          <NetworkWidget
+            key={refreshRate}
+            metrics={result.metrics}
+            fulfilledTimeStamp={fulfilledTimeStamp}
+            xAxis={xAxis}
+            historySize={HISTORY_SIZE}
+          />
+        </Grid>
+        <Grid>
+          <SystemInfoWidget metrics={result.metrics} />
         </Grid>
       </Grid>
     </Box>

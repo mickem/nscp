@@ -1,13 +1,16 @@
 import AppBar from "@mui/material/AppBar";
 import Typography from "@mui/material/Typography";
-import { Box, IconButton, Toolbar } from "@mui/material";
+import { Badge, Box, IconButton, Toolbar, Tooltip } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
-import { useGetInfoQuery } from "../api/api.ts";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import { useGetInfoQuery, useGetLogStatusQuery } from "../api/api.ts";
 import AccountCircle from "@mui/icons-material/AccountCircle";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import { useAuthentication } from "../common/hooks/auth";
 import { useState, MouseEvent } from "react";
+import { useNavigate } from "react-router";
+import { useAppSelector } from "../store/store.ts";
 
 interface Props {
   handleDrawerToggle: () => void;
@@ -17,6 +20,14 @@ export default function AppNavbar({ handleDrawerToggle }: Props) {
   const { data: info } = useGetInfoQuery();
   const version = info?.version || "unknown";
   const { logout } = useAuthentication();
+  const navigate = useNavigate();
+  const refreshRate = useAppSelector((state) => state.dashboard.refreshRate);
+  const { data: logStatus } = useGetLogStatusQuery(undefined, {
+    pollingInterval: refreshRate || undefined,
+  });
+  const errors = logStatus?.errors || 0;
+  const lastError = logStatus?.last_error || "No errors found";
+
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const handleMenu = (event: MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -57,6 +68,15 @@ export default function AppNavbar({ handleDrawerToggle }: Props) {
           >
             {version}
           </Typography>
+          {errors > 0 && (
+            <Tooltip title={lastError}>
+              <IconButton color="error" onClick={() => navigate("/logs")}>
+                <Badge badgeContent={errors} color="error">
+                  <ErrorOutlineIcon />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+          )}
           <Box sx={{ flexGrow: 0 }}>
             <IconButton
               size="large"
