@@ -33,6 +33,9 @@ namespace network_check {
 std::string helper::nif_query =
     "select NetConnectionID, MACAddress, Name, NetConnectionStatus, NetEnabled, Speed from Win32_NetworkAdapter where PhysicalAdapter=True and MACAddress <> "
     "null";
+// Win32_PerfRawData counters are cumulative totals despite the "Persec" suffix.
+// We use PerfRawData (not PerfFormattedData) so we can control the sampling interval
+// and compute the per-second rate ourselves in read_prd().
 std::string helper::prd_query = "select Name, BytesReceivedPersec, BytesSentPersec, BytesTotalPersec from Win32_PerfRawData_Tcpip_NetworkInterface";
 
 std::string helper::parse_nif_name(std::string name) { return name; }
@@ -56,7 +59,11 @@ void network_interface::read_wna(wmi_impl::row r) {
 }
 
 void network_interface::read_prd(wmi_impl::row r, long long delta) {
+  // The "Persec" fields from Win32_PerfRawData are raw cumulative byte counts,
+  // NOT pre-computed rates. To derive the actual bytes/sec we compute:
+  //   (current_cumulative - previous_cumulative) / elapsed_seconds
   if (delta == 0) {
+    // First sample or no time elapsed — can't compute a rate yet.
     BytesReceivedPersec = 0;
     BytesSentPersec = 0;
     BytesTotalPersec = 0;
@@ -161,6 +168,7 @@ void network_data::fetch() {
     boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!writeLock.owns_lock()) throw nsclient::nsclient_exception("Failed to get mutex for writing");
     nics_ = tmp;
+    last_ = now;
   }
 }
 
