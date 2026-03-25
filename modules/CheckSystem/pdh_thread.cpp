@@ -238,7 +238,6 @@ void pdh_thread::thread_proc() {
   memory_helper.boot();
   process_helper.boot();
 
-  int min_threshold = 10;
   DWORD waitStatus = 0;
   int i = 0;
 
@@ -304,12 +303,12 @@ void pdh_thread::thread_proc() {
     } catch (...) {
       errors.push_back("Failed to get network metrics");
     }
-    if (has_realtime && i == (min_threshold - 1)) {
+    if (has_realtime && i == (min_threshold_ - 1)) {
       if (has_cpu_realtime) cpu_helper.process_items(this);
       if (has_mem_realtime) memory_helper.check();
       if (has_proc_realtime) process_helper.check();
     }
-    if (i++ > min_threshold) i = 0;
+    if (i++ > min_threshold_) i = 0;
     for (const std::string &s : errors) {
       NSC_LOG_ERROR(s);
     }

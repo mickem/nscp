@@ -482,6 +482,11 @@ PB::Metrics::MetricsBundle NSClientT::ownMetricsFetcher() {
     m = bundle.add_value();
     m->set_key("threads");
     m->mutable_gauge_value()->set_value(static_cast<double>(threads));
+    m = bundle.add_value();
+    m->set_key("refresh_interval");
+    m->mutable_gauge_value()->set_value(scheduler_.get_metrics_interval());
+
+
   } else {
     PB::Metrics::Metric *m = bundle.add_value();
     m->set_key("metrics.available");

@@ -60,7 +60,11 @@ boost::posix_time::seconds parse_interval(const std::string &str) {
 }
 
 void scheduler::add_task(schedule_metadata::task_source source, std::string interval, const std::string info) {
-  unsigned int id = tasks.add_task("internal", parse_interval(interval), 0.5);
+  const auto metrics_interval = parse_interval(interval);
+  if (source == schedule_metadata::METRICS) {
+    metrics_interval_ = metrics_interval.total_seconds();
+  }
+  unsigned int id = tasks.add_task("internal", metrics_interval, 0.5);
   schedule_metadata data;
   data.source = source;
   data.info = info;
