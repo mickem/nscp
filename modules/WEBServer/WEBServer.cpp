@@ -22,6 +22,9 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/json.hpp>
 #include <boost/program_options.hpp>
+#include <cmath>
+#include <cstdint>
+#include <limits>
 #include <net/socket/socket_helpers.hpp>
 #include <nscapi/nscapi_common_options.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -634,6 +637,16 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
   return true;
 }
 
+namespace {
+json::value gauge_to_json(double v) {
+  if (std::trunc(v) == v && v >= static_cast<double>(std::numeric_limits<std::int64_t>::min()) &&
+      v <= static_cast<double>(std::numeric_limits<std::int64_t>::max())) {
+    return json::value(static_cast<std::int64_t>(v));
+  }
+  return json::value(v);
+}
+}  // namespace
+
 void build_metrics(json::object &metrics, json::object &metrics_list, std::list<std::string> &openmetrics, const std::string &trail,
                    const std::string &opentrail, const PB::Metrics::MetricsBundle &b) {
   json::object node;
@@ -642,8 +655,8 @@ void build_metrics(json::object &metrics, json::object &metrics_list, std::list<
   }
   for (const PB::Metrics::Metric &v : b.value()) {
     if (v.has_gauge_value()) {
-      node.insert(json::object::value_type(v.key(), v.gauge_value().value()));
-      metrics_list.insert(json::object::value_type(trail + "." + v.key(), v.gauge_value().value()));
+      node.insert(json::object::value_type(v.key(), gauge_to_json(v.gauge_value().value())));
+      metrics_list.insert(json::object::value_type(trail + "." + v.key(), gauge_to_json(v.gauge_value().value())));
       openmetrics.push_back(opentrail + "_" + v.key() + " " + str::xtos(v.gauge_value().value()));
     } else if (v.has_string_value()) {
       node.insert(json::object::value_type(v.key(), v.string_value().value()));
