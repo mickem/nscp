@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef } from "react";
 import { Box, Card, CardContent, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import { LineChart } from "@mui/x-charts/LineChart";
@@ -14,6 +14,36 @@ function scaleUnit(bytesPerSec: number[]): { label: string; divisor: number } {
   return { label: "B/s", divisor: 1 };
 }
 
+interface NetworkHistory {
+  bytesReceived: number[];
+  bytesSent: number[];
+}
+
+type NetworkAction =
+  | { type: "push"; received?: number; sent?: number; historySize: number }
+  | { type: "reset"; historySize: number };
+
+function networkReducer(state: NetworkHistory, action: NetworkAction): NetworkHistory {
+  switch (action.type) {
+    case "push":
+      return {
+        bytesReceived:
+          action.received !== undefined
+            ? [...state.bytesReceived, action.received].slice(-action.historySize)
+            : state.bytesReceived,
+        bytesSent:
+          action.sent !== undefined
+            ? [...state.bytesSent, action.sent].slice(-action.historySize)
+            : state.bytesSent,
+      };
+    case "reset":
+      return {
+        bytesReceived: Array(action.historySize).fill(0),
+        bytesSent: Array(action.historySize).fill(0),
+      };
+  }
+}
+
 interface NetworkWidgetProps {
   metrics: Metric[];
   fulfilledTimeStamp: number | undefined;
@@ -25,8 +55,10 @@ export default function NetworkWidget({ metrics, fulfilledTimeStamp, xAxis, hist
   const dispatch = useAppDispatch();
   const userSelectedNic = useAppSelector((state) => state.dashboard.selectedNic);
   const prevTimestampRef = useRef(fulfilledTimeStamp);
-  const [bytesReceived, setBytesReceived] = useState<number[]>(() => Array(historySize).fill(0));
-  const [bytesSent, setBytesSent] = useState<number[]>(() => Array(historySize).fill(0));
+  const [history, dispatchHistory] = useReducer(networkReducer, historySize, (size) => ({
+    bytesReceived: Array(size).fill(0),
+    bytesSent: Array(size).fill(0),
+  }));
 
   const networkCards = useMemo(() => {
     const cards = new Map<string, string>();
@@ -36,7 +68,12 @@ export default function NetworkWidget({ metrics, fulfilledTimeStamp, xAxis, hist
     return cards;
   }, [metrics]);
 
-  const selectedNic = userSelectedNic || (networkCards.size > 0 ? Array.from(networkCards.keys())[0] : "");
+  const selectedNic =
+    userSelectedNic && networkCards.has(userSelectedNic)
+      ? userSelectedNic
+      : networkCards.size > 0
+        ? Array.from(networkCards.keys())[0]
+        : "";
 
   useEffect(() => {
     if (metrics.length > 0 && fulfilledTimeStamp !== prevTimestampRef.current) {
@@ -47,14 +84,16 @@ export default function NetworkWidget({ metrics, fulfilledTimeStamp, xAxis, hist
         const receivedMetric = networkFiltered.find(
           (m) => m.instance === selectedNic && m.metric === "BytesReceivedPersec",
         );
-        if (receivedMetric) {
-          setBytesReceived((old) => [...old, receivedMetric.value as number].slice(-historySize));
-        }
         const sentMetric = networkFiltered.find(
           (m) => m.instance === selectedNic && m.metric === "BytesSentPersec",
         );
-        if (sentMetric) {
-          setBytesSent((old) => [...old, sentMetric.value as number].slice(-historySize));
+        if (receivedMetric || sentMetric) {
+          dispatchHistory({
+            type: "push",
+            received: receivedMetric ? (receivedMetric.value as number) : undefined,
+            sent: sentMetric ? (sentMetric.value as number) : undefined,
+            historySize,
+          });
         }
       }
     }
@@ -62,13 +101,13 @@ export default function NetworkWidget({ metrics, fulfilledTimeStamp, xAxis, hist
 
   const handleNicChange = (event: SelectChangeEvent) => {
     dispatch(setSelectedNic(event.target.value));
-    setBytesReceived(Array(historySize).fill(0));
-    setBytesSent(Array(historySize).fill(0));
+    dispatchHistory({ type: "reset", historySize });
+    prevTimestampRef.current = undefined;
   };
 
-  const { label: unit, divisor } = scaleUnit([...bytesReceived, ...bytesSent]);
-  const scaledReceived = bytesReceived.map((v) => v / divisor);
-  const scaledSent = bytesSent.map((v) => v / divisor);
+  const { label: unit, divisor } = scaleUnit([...history.bytesReceived, ...history.bytesSent]);
+  const scaledReceived = history.bytesReceived.map((v) => v / divisor);
+  const scaledSent = history.bytesSent.map((v) => v / divisor);
 
   return (
     <Card variant="outlined">

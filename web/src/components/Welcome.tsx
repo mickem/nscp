@@ -1,6 +1,6 @@
 import { useGetMetricsQuery } from "../api/api.ts";
 import { parseMetrics } from "../metric_parser.ts";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { Box, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import Grid from "@mui/material/Grid";

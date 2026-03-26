@@ -1,9 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import { Card, CardContent } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import { LineChart } from "@mui/x-charts/LineChart";
 import { Metric } from "../metric_parser.ts";
 import type { ComponentProps } from "react";
+
+type MemAction = { type: "push"; value: number; historySize: number };
+
+function memReducer(state: number[], action: MemAction): number[] {
+  return [...state, action.value].slice(-action.historySize);
+}
 
 interface MemoryWidgetProps {
   metrics: Metric[];
@@ -14,7 +20,7 @@ interface MemoryWidgetProps {
 
 export default function MemoryWidget({ metrics, fulfilledTimeStamp, xAxis, historySize }: MemoryWidgetProps) {
   const prevTimestampRef = useRef(fulfilledTimeStamp);
-  const [mem, setMem] = useState<number[]>(() => Array(historySize).fill(0));
+  const [mem, dispatch] = useReducer(memReducer, historySize, (size) => Array(size).fill(0));
 
   useEffect(() => {
     if (metrics.length > 0 && fulfilledTimeStamp !== prevTimestampRef.current) {
@@ -24,7 +30,7 @@ export default function MemoryWidget({ metrics, fulfilledTimeStamp, xAxis, histo
       const memTotal = metrics.find((m) => m.key === "system.mem.physical.total");
       if (memUsed && memTotal) {
         const pct = Math.round((1000 * (memUsed.value as number)) / (memTotal.value as number)) / 10;
-        setMem((old) => [...old, pct].slice(-historySize));
+        dispatch({ type: "push", value: pct, historySize });
       }
     }
   }, [fulfilledTimeStamp, metrics, historySize]);
