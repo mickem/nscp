@@ -2,10 +2,12 @@ import { configureStore } from "@reduxjs/toolkit";
 import { TypedUseSelectorHook, useDispatch, useSelector } from "react-redux";
 import { nsclientApi } from "../api/api";
 import { authSlice } from "../common/authSlice";
+import { dashboardSlice } from "../common/dashboardSlice";
 
 export const store = configureStore({
   reducer: {
     [authSlice.name]: authSlice.reducer,
+    [dashboardSlice.name]: dashboardSlice.reducer,
     [nsclientApi.reducerPath]: nsclientApi.reducer,
   },
   middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(nsclientApi.middleware),

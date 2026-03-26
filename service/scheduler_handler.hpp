@@ -34,6 +34,7 @@ struct scheduler : public simple_scheduler::handler {
   typedef boost::unordered_map<int, schedule_metadata> metadata_map;
   metadata_map metadata;
   simple_scheduler::scheduler tasks;
+  unsigned int metrics_interval_ = 0;
 
   schedule_metadata get(int id);
   void handle_plugin(const schedule_metadata& metadata);
@@ -52,5 +53,9 @@ struct scheduler : public simple_scheduler::handler {
   virtual void on_error(const char* file, int line, std::string error);
   virtual void on_trace(const char* file, int line, std::string error);
   void set_threads(int count);
+
+  unsigned int get_metrics_interval() const {
+    return metrics_interval_;
+  }
 };
 }  // namespace task_scheduler

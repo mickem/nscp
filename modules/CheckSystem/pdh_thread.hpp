@@ -64,12 +64,13 @@ class pdh_thread {
  public:
   bool read_core_load;
   bool use_pdh_for_cpu;
+  int min_threshold_;
   std::string subsystem;
   std::string disable_;
   std::string default_buffer_size;
 
  public:
-  pdh_thread(nscapi::core_wrapper *core, int plugin_id) : core_(core), plugin_id(plugin_id), read_core_load(true), use_pdh_for_cpu(false) { mutex_.lock(); }
+  pdh_thread(nscapi::core_wrapper *core, int plugin_id) : core_(core), plugin_id(plugin_id), read_core_load(true), use_pdh_for_cpu(false), min_threshold_(10) { mutex_.lock(); }
   void add_counter(const PDH::pdh_object &counter);
 
   std::map<std::string, double> get_value(std::string counter);

@@ -22,17 +22,16 @@ import { Spacing } from "./atoms/Spacing.tsx";
 import { useMemo, useState } from "react";
 import CloseIcon from "@mui/icons-material/Close";
 import Button from "@mui/material/Button";
-import Typography from "@mui/material/Typography";
 import DangerousIcon from '@mui/icons-material/Dangerous';
 
 const ICONS = {
-  critical: <DangerousIcon color="error" />,
-  error: <ErrorIcon color="error" />,
-  warning: <WarningIcon color="warning" />,
-  info: <InfoIcon color="primary" />,
-  success: <DoneIcon color="success" />,
-  debug: <AdbIcon color="secondary" />,
-  unknown: <ErrorIcon color="error" />,
+  critical: <DangerousIcon fontSize="small" color="error" />,
+  error: <ErrorIcon fontSize="small" color="error" />,
+  warning: <WarningIcon fontSize="small" color="warning" />,
+  info: <InfoIcon fontSize="small" color="primary" />,
+  success: <DoneIcon fontSize="small" color="success" />,
+  debug: <AdbIcon fontSize="small" color="secondary" />,
+  unknown: <ErrorIcon fontSize="small" color="error" />,
 };
 
 export default function Logs() {
@@ -73,12 +72,13 @@ export default function Logs() {
     <Box>
       <Stack direction="column">
         <Toolbar>
-          <Typography variant="body2">Filter:</Typography>
           <ToggleButtonGroup
+            size="small"
             value={level}
             exclusive={false}
             onChange={(_e, level) => changeLevel(level)}
-            aria-label="text alignment"
+            aria-label="log level filter"
+            sx={{ "& .MuiToggleButton-root": { px: 1, py: 0.5 } }}
           >
             <ToggleButton value="debug">{ICONS.debug}</ToggleButton>
             <ToggleButton value="info">{ICONS.info}</ToggleButton>
@@ -86,7 +86,7 @@ export default function Logs() {
             <ToggleButton value="error">{ICONS.error}</ToggleButton>
             <ToggleButton value="critical">{ICONS.critical}</ToggleButton>
             <ToggleButton value="*">
-              <CloseIcon /> Show all
+              <CloseIcon fontSize="small" /> Show all
             </ToggleButton>
           </ToggleButtonGroup>
 

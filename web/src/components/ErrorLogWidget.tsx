@@ -1,23 +1,17 @@
-import { nsclientApi, useGetLogStatusQuery } from "../api/api.ts";
-import { useEffect } from "react";
+import { useGetLogStatusQuery } from "../api/api.ts";
 import { useNavigate } from "react-router";
-import { useAppDispatch } from "../store/store.ts";
 import NscpAlert from "./atoms/NscpAlert.tsx";
 import { Box } from "@mui/material";
+import { useAppSelector } from "../store/store.ts";
 
 export default function ErrorLogWidget() {
-  const { data: logStatus } = useGetLogStatusQuery();
-  const dispatch = useAppDispatch();
+  const refreshRate = useAppSelector((state) => state.dashboard.refreshRate);
+  const { data: logStatus } = useGetLogStatusQuery(undefined, {
+    pollingInterval: refreshRate || undefined,
+  });
   const navigate = useNavigate();
   const errors = logStatus?.errors || 0;
 
-  useEffect(() => {
-    const onRefresh = () => dispatch(nsclientApi.util.invalidateTags(["LogStatus", "Logs"]));
-    const interval = setInterval(onRefresh, 5_000);
-    return () => {
-      clearInterval(interval);
-    };
-  }, [dispatch]);
   const lastError = logStatus?.last_error || "No errors found";
 
   const viewLogs = () => {

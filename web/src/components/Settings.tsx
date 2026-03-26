@@ -5,15 +5,13 @@ import {
   useGetSettingsStatusQuery,
   useSettingsCommandMutation,
 } from "../api/api.ts";
-import { Accordion, AccordionDetails, AccordionSummary, Alert, List, Snackbar } from "@mui/material";
+import { Accordion, AccordionDetails, AccordionSummary, Alert, ButtonGroup, Chip, List, Snackbar } from "@mui/material";
 import { Toolbar } from "./atoms/Toolbar.tsx";
 import { Spacing } from "./atoms/Spacing.tsx";
 import { RefreshButton } from "./atoms/RefreshButton.tsx";
 import { useAppDispatch } from "../store/store.ts";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Button from "@mui/material/Button";
-import Divider from "@mui/material/Divider";
-import Typography from "@mui/material/Typography";
 import SettingsItem from "./atoms/SettingsItem.tsx";
 import { useState } from "react";
 
@@ -69,16 +67,17 @@ export default function Settings() {
   return (
     <Stack direction="column" spacing={3}>
       <Toolbar>
-        <Typography>{settingsStatus?.context}</Typography>
-        <Divider orientation="vertical" flexItem />
-        <Button onClick={loadSettings} loading={busy}>
-          Load
-        </Button>
-        <Button onClick={saveSettings} loading={busy}>
-          Save
-        </Button>
+        <Chip label={settingsStatus?.context} size="small" variant="outlined" />
+        <ButtonGroup size="small" variant="outlined">
+          <Button onClick={loadSettings} loading={busy}>
+            Load
+          </Button>
+          <Button onClick={saveSettings} loading={busy}>
+            Save
+          </Button>
+        </ButtonGroup>
         <Spacing />
-        <Button onClick={reloadSettings} loading={busy}>
+        <Button size="small" variant="outlined" onClick={reloadSettings} loading={busy}>
           Reload service
         </Button>
         <RefreshButton onRefresh={onRefresh} />

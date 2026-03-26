@@ -27,6 +27,9 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <cmath>
+#include <cstdint>
+#include <limits>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -262,6 +265,16 @@ void ElasticClient::onEvent(const PB::Commands::EventMessage &request, const std
   send_to_elastic(address, event_index, event_type, payloads, true);
 }
 
+namespace {
+json::value gauge_to_json(double v) {
+  if (std::trunc(v) == v && v >= static_cast<double>(std::numeric_limits<std::int64_t>::min()) &&
+      v <= static_cast<double>(std::numeric_limits<std::int64_t>::max())) {
+    return json::value(static_cast<std::int64_t>(v));
+  }
+  return json::value(v);
+}
+}  // namespace
+
 void build_metrics(json::object &metrics, const std::string trail, const PB::Metrics::MetricsBundle &b) {
   json::object node;
   for (const PB::Metrics::MetricsBundle &b2 : b.children()) {
@@ -270,7 +283,7 @@ void build_metrics(json::object &metrics, const std::string trail, const PB::Met
   for (const PB::Metrics::Metric &v : b.value()) {
     std::string key = trail.empty() ? boost::replace_all_copy(v.key(), ".", "_") : trail + "_" + boost::replace_all_copy(v.key(), ".", "_");
     if (v.has_gauge_value())
-      node.insert(json::object::value_type(key, v.gauge_value().value()));
+      node.insert(json::object::value_type(key, gauge_to_json(v.gauge_value().value())));
     else if (v.has_string_value())
       node.insert(json::object::value_type(key, v.string_value().value()));
   }
