@@ -9,19 +9,23 @@ interface Props {
 }
 
 export function Toolbar({ children, sx = {} }: Props) {
+  const baseSx: SxProps<Theme> = {
+    px: 2,
+    py: 1,
+    mb: 2,
+    borderBottom: 1,
+    borderColor: "divider",
+  };
+
   return (
     <Stack
       direction="row"
       alignItems="center"
       spacing={1}
-      sx={{
-        px: 2,
-        py: 1,
-        mb: 2,
-        borderBottom: 1,
-        borderColor: "divider",
-        ...sx as object,
-      }}
+      sx={[
+        ...(Array.isArray(baseSx) ? baseSx : [baseSx]),
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ]}
     >
       {children}
     </Stack>

@@ -1003,7 +1003,7 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   PB::Metrics::MetricsBundle *bundle = response->add_bundles();
   bundle->set_key("system");
   add_metric(bundle, "refresh_interval", 1ll);
-  add_metric(bundle, "network_refresh_interval", static_cast<long long>(collector->min_threshold_));
+  add_metric(bundle, "network_refresh_interval", static_cast<long long>(collector->min_threshold_ + 2));
   try {
     PB::Metrics::MetricsBundle *mem = bundle->add_children();
     mem->set_key("mem");

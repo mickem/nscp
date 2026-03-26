@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import { LineChart } from "@mui/x-charts/LineChart";
@@ -13,19 +13,21 @@ interface MemoryWidgetProps {
 }
 
 export default function MemoryWidget({ metrics, fulfilledTimeStamp, xAxis, historySize }: MemoryWidgetProps) {
-  const [prevTimestamp, setPrevTimestamp] = useState(fulfilledTimeStamp);
+  const prevTimestampRef = useRef(fulfilledTimeStamp);
   const [mem, setMem] = useState<number[]>(() => Array(historySize).fill(0));
 
-  if (metrics.length > 0 && fulfilledTimeStamp !== prevTimestamp) {
-    setPrevTimestamp(fulfilledTimeStamp);
+  useEffect(() => {
+    if (metrics.length > 0 && fulfilledTimeStamp !== prevTimestampRef.current) {
+      prevTimestampRef.current = fulfilledTimeStamp;
 
-    const memUsed = metrics.find((m) => m.key === "system.mem.physical.used");
-    const memTotal = metrics.find((m) => m.key === "system.mem.physical.total");
-    if (memUsed && memTotal) {
-      const pct = Math.round((1000 * (memUsed.value as number)) / (memTotal.value as number)) / 10;
-      setMem((old) => [...old, pct].slice(-historySize));
+      const memUsed = metrics.find((m) => m.key === "system.mem.physical.used");
+      const memTotal = metrics.find((m) => m.key === "system.mem.physical.total");
+      if (memUsed && memTotal) {
+        const pct = Math.round((1000 * (memUsed.value as number)) / (memTotal.value as number)) / 10;
+        setMem((old) => [...old, pct].slice(-historySize));
+      }
     }
-  }
+  }, [fulfilledTimeStamp, metrics, historySize]);
 
   return (
     <Card variant="outlined">

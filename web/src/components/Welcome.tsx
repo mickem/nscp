@@ -59,16 +59,9 @@ export default function Welcome() {
   // Minimum sensible polling interval (ms) – no point polling faster than the server updates
   const maxRefreshMs = useMemo(
     () =>
-      Math.min(serverIntervals.workersRefresh, serverIntervals.systemRefresh) * 1000,
+      Math.max(serverIntervals.workersRefresh, serverIntervals.systemRefresh) * 1000,
     [serverIntervals],
   );
-
-  // Auto-clamp refresh rate if it is faster than the server can deliver
-  useEffect(() => {
-    if (refreshRate > 0 && refreshRate < maxRefreshMs) {
-      dispatch(setRefreshRate(maxRefreshMs));
-    }
-  }, [refreshRate, maxRefreshMs, dispatch]);
 
   // --- X-axis for system widgets (CPU / Memory) ---
   const xAxisData = useMemo(() => buildXAxis(refreshRate || 5000), [refreshRate]);

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Card, CardContent, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import { LineChart } from "@mui/x-charts/LineChart";
@@ -24,7 +24,7 @@ interface NetworkWidgetProps {
 export default function NetworkWidget({ metrics, fulfilledTimeStamp, xAxis, historySize }: NetworkWidgetProps) {
   const dispatch = useAppDispatch();
   const userSelectedNic = useAppSelector((state) => state.dashboard.selectedNic);
-  const [prevTimestamp, setPrevTimestamp] = useState(fulfilledTimeStamp);
+  const prevTimestampRef = useRef(fulfilledTimeStamp);
   const [bytesReceived, setBytesReceived] = useState<number[]>(() => Array(historySize).fill(0));
   const [bytesSent, setBytesSent] = useState<number[]>(() => Array(historySize).fill(0));
 
@@ -38,25 +38,27 @@ export default function NetworkWidget({ metrics, fulfilledTimeStamp, xAxis, hist
 
   const selectedNic = userSelectedNic || (networkCards.size > 0 ? Array.from(networkCards.keys())[0] : "");
 
-  if (metrics.length > 0 && fulfilledTimeStamp !== prevTimestamp) {
-    setPrevTimestamp(fulfilledTimeStamp);
+  useEffect(() => {
+    if (metrics.length > 0 && fulfilledTimeStamp !== prevTimestampRef.current) {
+      prevTimestampRef.current = fulfilledTimeStamp;
 
-    if (selectedNic) {
-      const networkFiltered = metrics.filter((m) => m.type === "network");
-      const receivedMetric = networkFiltered.find(
-        (m) => m.instance === selectedNic && m.metric === "BytesReceivedPersec",
-      );
-      if (receivedMetric) {
-        setBytesReceived((old) => [...old, receivedMetric.value as number].slice(-historySize));
-      }
-      const sentMetric = networkFiltered.find(
-        (m) => m.instance === selectedNic && m.metric === "BytesSentPersec",
-      );
-      if (sentMetric) {
-        setBytesSent((old) => [...old, sentMetric.value as number].slice(-historySize));
+      if (selectedNic) {
+        const networkFiltered = metrics.filter((m) => m.type === "network");
+        const receivedMetric = networkFiltered.find(
+          (m) => m.instance === selectedNic && m.metric === "BytesReceivedPersec",
+        );
+        if (receivedMetric) {
+          setBytesReceived((old) => [...old, receivedMetric.value as number].slice(-historySize));
+        }
+        const sentMetric = networkFiltered.find(
+          (m) => m.instance === selectedNic && m.metric === "BytesSentPersec",
+        );
+        if (sentMetric) {
+          setBytesSent((old) => [...old, sentMetric.value as number].slice(-historySize));
+        }
       }
     }
-  }
+  }, [fulfilledTimeStamp, metrics, historySize, selectedNic]);
 
   const handleNicChange = (event: SelectChangeEvent) => {
     dispatch(setSelectedNic(event.target.value));

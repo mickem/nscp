@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import { LineChart } from "@mui/x-charts/LineChart";
@@ -13,22 +13,24 @@ interface CpuWidgetProps {
 }
 
 export default function CpuWidget({ metrics, fulfilledTimeStamp, xAxis, historySize }: CpuWidgetProps) {
-  const [prevTimestamp, setPrevTimestamp] = useState(fulfilledTimeStamp);
+  const prevTimestampRef = useRef(fulfilledTimeStamp);
   const [kernelCpu, setKernelCpu] = useState<number[]>(() => Array(historySize).fill(0));
   const [userCpu, setUserCpu] = useState<number[]>(() => Array(historySize).fill(0));
 
-  if (metrics.length > 0 && fulfilledTimeStamp !== prevTimestamp) {
-    setPrevTimestamp(fulfilledTimeStamp);
+  useEffect(() => {
+    if (metrics.length > 0 && fulfilledTimeStamp !== prevTimestampRef.current) {
+      prevTimestampRef.current = fulfilledTimeStamp;
 
-    const kernelCpuMetric = metrics.find((m) => m.key === "system.cpu.total.kernel");
-    if (kernelCpuMetric) {
-      setKernelCpu((old) => [...old, kernelCpuMetric.value as number].slice(-historySize));
+      const kernelCpuMetric = metrics.find((m) => m.key === "system.cpu.total.kernel");
+      if (kernelCpuMetric) {
+        setKernelCpu((old) => [...old, kernelCpuMetric.value as number].slice(-historySize));
+      }
+      const userCpuMetric = metrics.find((m) => m.key === "system.cpu.total.user");
+      if (userCpuMetric) {
+        setUserCpu((old) => [...old, userCpuMetric.value as number].slice(-historySize));
+      }
     }
-    const userCpuMetric = metrics.find((m) => m.key === "system.cpu.total.user");
-    if (userCpuMetric) {
-      setUserCpu((old) => [...old, userCpuMetric.value as number].slice(-historySize));
-    }
-  }
+  }, [fulfilledTimeStamp, metrics, historySize]);
 
   return (
     <Card variant="outlined">

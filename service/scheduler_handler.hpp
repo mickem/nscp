@@ -34,7 +34,7 @@ struct scheduler : public simple_scheduler::handler {
   typedef boost::unordered_map<int, schedule_metadata> metadata_map;
   metadata_map metadata;
   simple_scheduler::scheduler tasks;
-  unsigned int metrics_interval_;
+  unsigned int metrics_interval_ = 0;
 
   schedule_metadata get(int id);
   void handle_plugin(const schedule_metadata& metadata);
