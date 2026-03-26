@@ -6,7 +6,7 @@ interface DashboardState {
 }
 
 const initialState: DashboardState = {
-  refreshRate: 5000,
+  refreshRate: 10000,
   selectedNic: "",
 };
 
