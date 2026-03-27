@@ -39,7 +39,7 @@ class Scheduler : public schedules::task_handler, public nscapi::impl::simple_pl
   // Metrics
   void fetchMetrics(PB::Metrics::MetricsMessage_Response* response);
 
-  void add_schedule(std::string alias, std::string command);
+  void add_schedule(const std::string& alias, const std::string& command);
   bool handle_schedule(schedules::target_object task);
 
   void on_error(const char* file, int line, std::string error);
