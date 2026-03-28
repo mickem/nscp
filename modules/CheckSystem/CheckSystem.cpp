@@ -40,6 +40,7 @@
 
 #include "check_memory.hpp"
 #include "check_process.hpp"
+#include "check_temperature.hpp"
 #include "counter_filter.hpp"
 #include "filter.hpp"
 #include "module.hpp"
@@ -164,7 +165,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       "Use PDH to fetch CPU load", "When using PDH you might get better accuracy and hel alleviate invalid CPU values on multi core systems. The drawback is that PDH counters are sometimes missing and have invalid indexes so your milage may vary", true)
 
     .add_string("disable", sh::string_key(&collector->disable_, ""),
-        "Disable automatic checks", "A comma separated list of checks to disable in the collector: cpu,handles,network,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
+        "Disable automatic checks", "A comma separated list of checks to disable in the collector: cpu,handles,network,temperature,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
     ;
 
   settings.alias().add_templates()
@@ -664,6 +665,10 @@ void CheckSystem::check_network(const PB::Commands::QueryRequestMessage::Request
   network_check::check::check_network(request, response, collector->get_network());
 }
 
+void CheckSystem::check_temperature(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  temperature_check::check::check_temperature(request, response, collector->get_temperature());
+}
+
 void CheckSystem::checkServiceState(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   boost::program_options::options_description desc;
   std::vector<std::string> excludes;
@@ -1082,6 +1087,15 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("network");
     for (const network_check::nics_type::value_type &v : net) {
+      v.build_metrics(section);
+    }
+  }
+
+  auto temps = collector->get_temperature();
+  if (!temps.empty()) {
+    PB::Metrics::MetricsBundle *section = bundle->add_children();
+    section->set_key("temperature");
+    for (const temperature_check::zones_type::value_type &v : temps) {
       v.build_metrics(section);
     }
   }

@@ -27,7 +27,8 @@
 		"check_os_version"	: "Check the version of the underlying OS.",
 		"check_pagefile"	: "Check the size of the system pagefile(s).",
 		"check_network"		: "Check network interface status." ,
-		
+		"check_temperature"	: "Check ACPI thermal zone temperatures." ,
+
 		"checkServiceState"	: "Legacy version of check_service",
 		"checkCpu"			: "Legacy version of check_cpu",
 		"checkUptime"		: "Legacy version of check_uptime",

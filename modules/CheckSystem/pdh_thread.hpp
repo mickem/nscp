@@ -29,6 +29,7 @@
 #include <win/sysinfo/win_sysinfo.hpp>
 
 #include "check_network.hpp"
+#include "check_temperature.hpp"
 #include "filter_config_object.hpp"
 
 struct spi_container {
@@ -60,6 +61,7 @@ class pdh_thread {
   rrd_buffer<windows::system_info::cpu_load> cpu;
   lookup_type lookups_;
   network_check::network_data network;
+  temperature_check::temperature_data temperature;
 
  public:
   bool read_core_load;
@@ -70,7 +72,9 @@ class pdh_thread {
   std::string default_buffer_size;
 
  public:
-  pdh_thread(nscapi::core_wrapper *core, int plugin_id) : core_(core), plugin_id(plugin_id), read_core_load(true), use_pdh_for_cpu(false), min_threshold_(10) { mutex_.lock(); }
+  pdh_thread(nscapi::core_wrapper *core, int plugin_id) : core_(core), plugin_id(plugin_id), read_core_load(true), use_pdh_for_cpu(false), min_threshold_(10) {
+    mutex_.lock();
+  }
   void add_counter(const PDH::pdh_object &counter);
 
   std::map<std::string, double> get_value(std::string counter);
@@ -79,6 +83,7 @@ class pdh_thread {
   std::map<std::string, windows::system_info::load_entry> get_cpu_load(long seconds);
 
   network_check::nics_type get_network();
+  temperature_check::zones_type get_temperature();
   metrics_hash get_metrics();
 
   bool start();

@@ -15,6 +15,7 @@ set(SRCS
     ${NSCP_FILTER_CPP}
     pdh_thread.cpp
     check_network.cpp
+    check_temperature.cpp
     check_process.cpp
     check_memory.cpp
     check_pdh.cpp
@@ -55,6 +56,7 @@ if(WIN32)
         filter_config_object.hpp
         realtime_data.hpp
         check_network.hpp
+        check_temperature.hpp
         check_process.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.hpp
