@@ -10,6 +10,7 @@
 		"check_drivesize"	: "Check the size (free-space) of a drive or volume.",
 		"check_files"		: "Check various aspects of a file and/or folder.",
 		"check_disk_io"		: "Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).",
+		"check_disk_health"	: "Combined per-drive health check (free space + I/O metrics).",
 		"checkFiles"		: "Legacy version of check_drivesize",
 		"checkDriveSize"	: "Legacy version of check_drivesize"
 	},

@@ -11,6 +11,7 @@ set(SRCS
     "${TARGET}.cpp"
     check_drive.cpp
     check_disk_io.cpp
+    check_disk_health.cpp
     collector_thread.cpp
     file_finder.cpp
     filter.cpp
@@ -30,6 +31,7 @@ if(WIN32)
         "${TARGET}.h"
         check_drive.hpp
         check_disk_io.hpp
+        check_disk_health.hpp
         collector_thread.hpp
         file_finder.hpp
         filter.hpp
@@ -64,6 +66,39 @@ NSCP_CREATE_TEST(
     check_disk_test
     SOURCES
         check_disk_io_test.cpp
+        check_disk_io.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
+        ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
+        ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.cpp
+        ${NSCP_INCLUDEDIR}/error/error_w32.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        ${NSCP_FILTER_LIB}
+        expression_parser
+        plugin_api
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+        Wbemuuid.lib
+        ole32
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+NSCP_CREATE_TEST(
+    check_disk_health_test
+    SOURCES
+        check_disk_health_test.cpp
+        check_disk_health.cpp
         check_disk_io.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp

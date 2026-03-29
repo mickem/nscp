@@ -32,6 +32,7 @@
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/helpers.hpp>
 
+#include "check_disk_health.hpp"
 #include "check_drive.hpp"
 #include "file_finder.hpp"
 #include "filter.hpp"
@@ -76,7 +77,24 @@ void CheckDisk::check_disk_io(const PB::Commands::QueryRequestMessage::Request &
     nscapi::protobuf::functions::set_response_bad(*response, "Collector not started");
     return;
   }
-  disk_io_check::check::check_disk_io(request, response, collector_->get_disk_io());
+  try {
+    disk_io_check::check::check_disk_io(request, response, collector_->get_disk_io());
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to get disk I/O data: " + std::string(e.what()));
+  }
+}
+
+void CheckDisk::check_disk_health(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  if (!collector_) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Collector not started");
+    return;
+  }
+  try {
+    auto data = disk_health_check::join(collector_->get_disk_io(), collector_->get_disk_free());
+    disk_health_check::check::check_disk_health(request, response, data);
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to get disk health data: " + std::string(e.what()));
+  }
 }
 
 void CheckDisk::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
