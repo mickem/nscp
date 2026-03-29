@@ -276,7 +276,10 @@ void pdh_thread::thread_proc() {
     NSC_LOG_MESSAGE("WARNING: pdh writing is disabled");
   }
   spi_container handles;
+  DWORD sleep_ms = 1000;
+  ULONGLONG last_overrun_warning = 0;
   do {
+    const ULONGLONG tick_start = GetTickCount64();
     std::list<std::string> errors;
     {
       if (!disable_handles && i == 0) {
@@ -299,7 +302,7 @@ void pdh_thread::thread_proc() {
         }
       }
       if (!disable_metrics) {
-        write_metrics(handles, load, check_pdh ? &pdh : NULL, errors);
+        write_metrics(handles, load, check_pdh ? &pdh : nullptr, errors);
       }
     }
     try {
@@ -338,7 +341,17 @@ void pdh_thread::thread_proc() {
     for (const std::string &s : errors) {
       NSC_LOG_ERROR(s);
     }
-  } while ((waitStatus = WaitForSingleObject(stop_event_, 1000)) == WAIT_TIMEOUT);
+    const ULONGLONG elapsed_ms = GetTickCount64() - tick_start;
+    if (elapsed_ms >= 1000) {
+      sleep_ms = 0;
+      if (tick_start - last_overrun_warning >= 300000) {
+        last_overrun_warning = tick_start;
+        NSC_LOG_MESSAGE("WARNING: PDH collection took " + str::xtos(elapsed_ms) + "ms, exceeding the 1-second cadence");
+      }
+    } else {
+      sleep_ms = static_cast<DWORD>(1000 - elapsed_ms);
+    }
+  } while ((waitStatus = WaitForSingleObject(stop_event_, sleep_ms)) == WAIT_TIMEOUT);
   if (waitStatus != WAIT_OBJECT_0) {
     NSC_LOG_ERROR("Something odd happened when terminating PDH collection thread!");
     return;
