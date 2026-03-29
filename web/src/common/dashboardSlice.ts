@@ -3,11 +3,13 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 interface DashboardState {
   refreshRate: number;
   selectedNic: string;
+  selectedDisk: string;
 }
 
 const initialState: DashboardState = {
   refreshRate: 10000,
   selectedNic: "",
+  selectedDisk: "",
 };
 
 export const dashboardSlice = createSlice({
@@ -20,8 +22,11 @@ export const dashboardSlice = createSlice({
     setSelectedNic(state, action: PayloadAction<string>) {
       state.selectedNic = action.payload;
     },
+    setSelectedDisk(state, action: PayloadAction<string>) {
+      state.selectedDisk = action.payload;
+    },
   },
 });
 
-export const { setRefreshRate, setSelectedNic } = dashboardSlice.actions;
+export const { setRefreshRate, setSelectedNic, setSelectedDisk } = dashboardSlice.actions;
 
