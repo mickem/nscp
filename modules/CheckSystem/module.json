@@ -28,6 +28,7 @@
 		"check_pagefile"	: "Check the size of the system pagefile(s).",
 		"check_network"		: "Check network interface status." ,
 		"check_temperature"	: "Check ACPI thermal zone temperatures." ,
+		"check_cpu_frequency"	: "Check CPU clock frequency (current vs max) per processor." ,
 
 		"checkServiceState"	: "Legacy version of check_service",
 		"checkCpu"			: "Legacy version of check_cpu",

@@ -28,6 +28,7 @@
 #include <win/pdh/pdh_query.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
 
+#include "check_cpu_frequency.hpp"
 #include "check_network.hpp"
 #include "check_temperature.hpp"
 #include "filter_config_object.hpp"
@@ -62,6 +63,7 @@ class pdh_thread {
   lookup_type lookups_;
   network_check::network_data network;
   temperature_check::temperature_data temperature;
+  cpu_frequency_check::cpu_frequency_data cpu_frequency;
 
  public:
   bool read_core_load;
@@ -84,6 +86,7 @@ class pdh_thread {
 
   network_check::nics_type get_network();
   temperature_check::zones_type get_temperature();
+  cpu_frequency_check::cpus_type get_cpu_frequency();
   metrics_hash get_metrics();
 
   bool start();

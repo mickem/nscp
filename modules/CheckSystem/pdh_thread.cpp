@@ -254,6 +254,10 @@ void pdh_thread::thread_proc() {
   if (disable_temperature) {
     NSC_LOG_MESSAGE("WARNING: temperature checking is disabled");
   }
+  bool disable_cpu_frequency = disable_.find("cpu_frequency") != std::string::npos;
+  if (disable_cpu_frequency) {
+    NSC_LOG_MESSAGE("WARNING: cpu frequency checking is disabled");
+  }
   bool disable_handles = disable_.find("handles") != std::string::npos;
   if (disable_handles) {
     NSC_LOG_MESSAGE("WARNING: handle checking is disabled");
@@ -315,6 +319,15 @@ void pdh_thread::thread_proc() {
       errors.push_back("Failed to get temperature metrics: " + utf8::utf8_from_native(e.what()));
     } catch (...) {
       errors.push_back("Failed to get temperature metrics");
+    }
+    try {
+      if (i == 0 && !disable_cpu_frequency) cpu_frequency.fetch();
+    } catch (const nsclient::nsclient_exception &e) {
+      errors.push_back("Failed to get CPU frequency metrics: " + e.reason());
+    } catch (const std::exception &e) {
+      errors.push_back("Failed to get CPU frequency metrics: " + utf8::utf8_from_native(e.what()));
+    } catch (...) {
+      errors.push_back("Failed to get CPU frequency metrics");
     }
     if (has_realtime && i == (min_threshold_ - 1)) {
       if (has_cpu_realtime) cpu_helper.process_items(this);
@@ -426,6 +439,8 @@ std::map<std::string, double> pdh_thread::get_average(std::string counter, long 
 network_check::nics_type pdh_thread::get_network() { return network.get(); }
 
 temperature_check::zones_type pdh_thread::get_temperature() { return temperature.get(); }
+
+cpu_frequency_check::cpus_type pdh_thread::get_cpu_frequency() { return cpu_frequency.get(); }
 
 std::map<std::string, windows::system_info::load_entry> pdh_thread::get_cpu_load(long seconds) {
   std::map<std::string, windows::system_info::load_entry> ret;

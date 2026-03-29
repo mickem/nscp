@@ -38,6 +38,7 @@
 #include <win/services.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
 
+#include "check_cpu_frequency.hpp"
 #include "check_memory.hpp"
 #include "check_process.hpp"
 #include "check_temperature.hpp"
@@ -662,11 +663,27 @@ void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Requ
 }
 
 void CheckSystem::check_network(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  network_check::check::check_network(request, response, collector->get_network());
+  try {
+    network_check::check::check_network(request, response, collector->get_network());
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to get network data: " + std::string(e.what()));
+  }
 }
 
 void CheckSystem::check_temperature(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  temperature_check::check::check_temperature(request, response, collector->get_temperature());
+  try {
+    temperature_check::check::check_temperature(request, response, collector->get_temperature());
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to get temperature data: " + std::string(e.what()));
+  }
+}
+
+void CheckSystem::check_cpu_frequency(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  try {
+    cpu_frequency_check::check::check_cpu_frequency(request, response, collector->get_cpu_frequency());
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to get CPU frequency data: " + std::string(e.what()));
+  }
 }
 
 void CheckSystem::checkServiceState(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
@@ -1082,7 +1099,7 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
 
   std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(5);
 
-  auto net = collector->get_network();
+  const auto net = collector->get_network();
   if (!net.empty()) {
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("network");
@@ -1091,12 +1108,25 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     }
   }
 
-  auto temps = collector->get_temperature();
+  const auto temps = collector->get_temperature();
   if (!temps.empty()) {
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("temperature");
     for (const temperature_check::zones_type::value_type &v : temps) {
       v.build_metrics(section);
     }
+  }
+
+  try {
+    const auto cpu_frequencies = collector->get_cpu_frequency();
+    if (!cpu_frequencies.empty()) {
+      PB::Metrics::MetricsBundle *section = bundle->add_children();
+      section->set_key("cpu_frequency");
+      for (const cpu_frequency_check::cpus_type::value_type &v : cpu_frequencies) {
+        v.build_metrics(section);
+      }
+    }
+  } catch (...) {
+    NSC_LOG_ERROR("Failed to get CPU frequency metrics");
   }
 }

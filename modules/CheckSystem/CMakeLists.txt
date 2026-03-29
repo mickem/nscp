@@ -16,6 +16,7 @@ set(SRCS
     pdh_thread.cpp
     check_network.cpp
     check_temperature.cpp
+    check_cpu_frequency.cpp
     check_process.cpp
     check_memory.cpp
     check_pdh.cpp
@@ -57,6 +58,7 @@ if(WIN32)
         realtime_data.hpp
         check_network.hpp
         check_temperature.hpp
+        check_cpu_frequency.hpp
         check_process.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.hpp
@@ -93,3 +95,36 @@ target_link_libraries(
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("pdh" REGULAR_EXPRESSION .*include/pdh/.*)
+
+NSCP_CREATE_TEST(
+    check_cpu_frequency_test
+    SOURCES
+        check_cpu_frequency_test.cpp
+        check_cpu_frequency.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
+        ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
+        ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.cpp
+        ${NSCP_INCLUDEDIR}/error/error_w32.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        ${NSCP_FILTER_LIB}
+        expression_parser
+        plugin_api
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+        Wbemuuid.lib
+        ole32
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+

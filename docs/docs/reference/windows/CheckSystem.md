@@ -22,18 +22,19 @@ A quick reference for all available queries (check commands) in the CheckSystem 
 
 A list of all available queries (check commands)
 
-| Command                                 | Description                                                                   |
-|-----------------------------------------|-------------------------------------------------------------------------------|
-| [check_cpu](#check_cpu)                 | Check that the load of the CPU(s) are within bounds.                          |
-| [check_memory](#check_memory)           | Check free/used memory on the system.                                         |
-| [check_network](#check_network)         | Check network interface status.                                               |
-| [check_os_version](#check_os_version)   | Check the version of the underlying OS.                                       |
-| [check_pagefile](#check_pagefile)       | Check the size of the system pagefile(s).                                     |
-| [check_pdh](#check_pdh)                 | Check the value of a performance (PDH) counter on the local or remote system. |
-| [check_process](#check_process)         | Check state/metrics of one or more of the processes running on the computer.  |
-| [check_service](#check_service)         | Check the state of one or more of the computer services.                      |
-| [check_temperature](#check_temperature) | Check ACPI thermal zone temperatures.                                         |
-| [check_uptime](#check_uptime)           | Check time since last server re-boot.                                         |
+| Command                                     | Description                                                                   |
+|---------------------------------------------|-------------------------------------------------------------------------------|
+| [check_cpu](#check_cpu)                     | Check that the load of the CPU(s) are within bounds.                          |
+| [check_cpu_frequency](#check_cpu_frequency) | Check CPU clock frequency (current vs max) per processor.                     |
+| [check_memory](#check_memory)               | Check free/used memory on the system.                                         |
+| [check_network](#check_network)             | Check network interface status.                                               |
+| [check_os_version](#check_os_version)       | Check the version of the underlying OS.                                       |
+| [check_pagefile](#check_pagefile)           | Check the size of the system pagefile(s).                                     |
+| [check_pdh](#check_pdh)                     | Check the value of a performance (PDH) counter on the local or remote system. |
+| [check_process](#check_process)             | Check state/metrics of one or more of the processes running on the computer.  |
+| [check_service](#check_service)             | Check the state of one or more of the computer services.                      |
+| [check_temperature](#check_temperature)     | Check ACPI thermal zone temperatures.                                         |
+| [check_uptime](#check_uptime)               | Check time since last server re-boot.                                         |
 
 
 **List of command aliases:**
@@ -253,6 +254,171 @@ This is the syntax for the base names of the performance data.
 | system  | The current load used by the system (kernel) |
 | time    | The time frame to check                      |
 | user    | The current load used by user applications   |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
+
+
+### check_cpu_frequency
+
+Check CPU clock frequency (current vs max) per processor.
+
+
+**Jump to section:**
+
+* [Command-line Arguments](#check_cpu_frequency_options)
+* [Filter keywords](#check_cpu_frequency_filter_keys)
+
+
+
+
+
+<a id="check_cpu_frequency_warn"></a>
+<a id="check_cpu_frequency_crit"></a>
+<a id="check_cpu_frequency_debug"></a>
+<a id="check_cpu_frequency_show-all"></a>
+<a id="check_cpu_frequency_escape-html"></a>
+<a id="check_cpu_frequency_help"></a>
+<a id="check_cpu_frequency_help-pb"></a>
+<a id="check_cpu_frequency_show-default"></a>
+<a id="check_cpu_frequency_help-short"></a>
+<a id="check_cpu_frequency_options"></a>
+#### Command-line Arguments
+
+
+| Option                                              | Default Value                                              | Description                                                                                                      |
+|-----------------------------------------------------|------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_cpu_frequency_filter)               |                                                            | Filter which marks interesting items.                                                                            |
+| [warning](#check_cpu_frequency_warning)             | frequency_pct < 50                                         | Filter which marks items which generates a warning state.                                                        |
+| warn                                                |                                                            | Short alias for warning                                                                                          |
+| [critical](#check_cpu_frequency_critical)           | frequency_pct < 30                                         | Filter which marks items which generates a critical state.                                                       |
+| crit                                                |                                                            | Short alias for critical.                                                                                        |
+| [ok](#check_cpu_frequency_ok)                       |                                                            | Filter which marks items which generates an ok state.                                                            |
+| debug                                               | N/A                                                        | Show debugging information in the log                                                                            |
+| show-all                                            | N/A                                                        | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_cpu_frequency_empty-state)     | warning                                                    | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_cpu_frequency_perf-config)     |                                                            | Performance data generation configuration                                                                        |
+| escape-html                                         | N/A                                                        | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                                | N/A                                                        | Show help screen (this screen)                                                                                   |
+| help-pb                                             | N/A                                                        | Show help screen as a protocol buffer payload                                                                    |
+| show-default                                        | N/A                                                        | Show default values for a given command                                                                          |
+| help-short                                          | N/A                                                        | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_cpu_frequency_top-syntax)       | ${status}: ${list}                                         | Top level syntax.                                                                                                |
+| [ok-syntax](#check_cpu_frequency_ok-syntax)         | %(status): All CPU frequencies seem ok.                    | ok syntax.                                                                                                       |
+| [empty-syntax](#check_cpu_frequency_empty-syntax)   |                                                            | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_cpu_frequency_detail-syntax) | ${name}: ${current_mhz}/${max_mhz} MHz (${frequency_pct}%) | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_cpu_frequency_perf-syntax)     | ${name}                                                    | Performance alias syntax.                                                                                        |
+
+
+
+<h5 id="check_cpu_frequency_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+<h5 id="check_cpu_frequency_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+*Default Value:* `frequency_pct < 50`
+
+<h5 id="check_cpu_frequency_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+*Default Value:* `frequency_pct < 30`
+
+<h5 id="check_cpu_frequency_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_cpu_frequency_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `warning`
+
+<h5 id="check_cpu_frequency_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_cpu_frequency_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${status}: ${list}`
+
+<h5 id="check_cpu_frequency_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+*Default Value:* `%(status): All CPU frequencies seem ok.`
+
+<h5 id="check_cpu_frequency_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+
+<h5 id="check_cpu_frequency_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${name}: ${current_mhz}/${max_mhz} MHz (${frequency_pct}%)`
+
+<h5 id="check_cpu_frequency_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `${name}`
+
+
+<a id="check_cpu_frequency_filter_keys"></a>
+#### Filter keywords
+
+
+| Option             | Description                                |
+|--------------------|--------------------------------------------|
+| cores              | Number of physical cores                   |
+| current_mhz        | Current clock speed in MHz                 |
+| frequency_pct      | Current frequency as percentage of maximum |
+| logical_processors | Number of logical processors (threads)     |
+| max_mhz            | Maximum clock speed in MHz                 |
+| name               | CPU name / model string                    |
 
 **Common options for all checks:**
 
