@@ -342,7 +342,7 @@ void pdh_thread::thread_proc() {
     for (const std::string &s : errors) {
       NSC_LOG_ERROR(s);
     }
-    const ULONGLONG elapsed_ms = GetTickCount64() - tick_start;
+    const ULONGLONG elapsed_ms = nscpGetTickCount64() - tick_start;
     if (elapsed_ms >= 1000) {
       sleep_ms = 0;
       if (tick_start - last_overrun_warning >= 300000) {
