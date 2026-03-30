@@ -97,24 +97,52 @@ include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("pdh" REGULAR_EXPRESSION .*include/pdh/.*)
 
 NSCP_CREATE_TEST(
-    check_cpu_frequency_test
+    check_system_test
     SOURCES
         check_cpu_frequency_test.cpp
+        check_pdh_test.cpp
+        check_network_test.cpp
+        check_temperature_test.cpp
+
+        check_system_test.cpp
         check_cpu_frequency.cpp
+        check_temperature.cpp
+        check_network.cpp
+        check_pdh.cpp
+        pdh_thread.cpp
+        filter_config_object.cpp
+        realtime_data.cpp
+        check_process.cpp
+        check_memory.cpp
+        counter_filter.cpp
+        filter.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
         ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
         ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_enumerations.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_interface.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_query.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_resolver.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/thread_safe_impl.cpp
+        ${NSCP_INCLUDEDIR}/win/processes.cpp
+        ${NSCP_INCLUDEDIR}/win/services.cpp
+        ${NSCP_INCLUDEDIR}/win/sysinfo/sysinfo.cpp
         ${NSCP_INCLUDEDIR}/error/error_w32.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
+        ${NSCP_INCLUDEDIR}/compat.cpp
     LIBRARIES
         GTest::gtest_main
         nscp_protobuf
         ${NSCP_FILTER_LIB}
         expression_parser
         plugin_api
+        winsys_info
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_THREAD_LIBRARY}
         ${Boost_DATE_TIME_LIBRARY}
@@ -123,8 +151,8 @@ NSCP_CREATE_TEST(
         ${Boost_REGEX_LIBRARY}
         Wbemuuid.lib
         ole32
+        psapi
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
-

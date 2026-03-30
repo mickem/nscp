@@ -19,16 +19,11 @@
 
 #include <gtest/gtest.h>
 
-#include <nscapi/nscapi_helper_singleton.hpp>
-
 #ifdef WIN32
 #include <objbase.h>
 #endif
 
 #include "check_cpu_frequency.hpp"
-
-// Provide the NSCAPI singleton so modern_filter.cpp can link.
-nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
 
 // ============================================================================
 // cpu_frequency struct tests
