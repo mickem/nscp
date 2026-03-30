@@ -18,18 +18,14 @@
  */
 
 #include <boost/date_time/gregorian/gregorian.hpp>
+#include <boost/interprocess/detail/atomic.hpp>
 #include <scheduler/simple_scheduler.hpp>
 #include <str/utf8.hpp>
-
-#if BOOST_VERSION >= 105300
-#include <boost/interprocess/detail/atomic.hpp>
-#endif
 
 boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
 
 namespace simple_scheduler {
 
-#if BOOST_VERSION >= 105300
 volatile boost::uint32_t metric_executed = 0;
 volatile boost::uint32_t metric_compleated = 0;
 volatile boost::uint32_t metric_errors = 0;
@@ -44,26 +40,8 @@ inline void my_atomic_add(volatile boost::uint32_t *mem, boost::uint32_t value) 
     c = old;
   }
 }
-#else
-volatile int metric_executed = 0;
-volatile int metric_compleated = 0;
-volatile int metric_errors = 0;
-volatile long long metric_time = 0;
-volatile long long metric_count = 0;
-volatile long long metric_max_time = 0;
-volatile int metric_start = 0;
-int atomic_inc32(volatile int *i) { return 0; }
-int atomic_read32(volatile int *i) { return 0; }
-void my_atomic_add(volatile int *i, int j) {}
-#endif
 
-bool scheduler::has_metrics() const {
-#if BOOST_VERSION >= 105300
-  return true;
-#else
-  return false;
-#endif
-}
+bool scheduler::has_metrics() const { return true; }
 
 int scheduler::get_metric_executed() const { return atomic_read32(&metric_executed); }
 int scheduler::get_metric_compleated() const { return atomic_read32(&metric_compleated); }

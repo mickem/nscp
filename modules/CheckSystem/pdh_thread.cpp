@@ -30,6 +30,7 @@
 #include "check_process.hpp"
 #include "realtime_data.hpp"
 #include "settings.hpp"
+#include "tick_count.h"
 
 typedef parsers::where::realtime_filter_helper<check_cpu_filter::runtime_data, filters::cpu::filter_config_object> cpu_filter_helper;
 
@@ -250,6 +251,14 @@ void pdh_thread::thread_proc() {
   if (disable_network) {
     NSC_LOG_MESSAGE("WARNING: network checking is disabled");
   }
+  bool disable_temperature = disable_.find("temperature") != std::string::npos;
+  if (disable_temperature) {
+    NSC_LOG_MESSAGE("WARNING: temperature checking is disabled");
+  }
+  bool disable_cpu_frequency = disable_.find("cpu_frequency") != std::string::npos;
+  if (disable_cpu_frequency) {
+    NSC_LOG_MESSAGE("WARNING: cpu frequency checking is disabled");
+  }
   bool disable_handles = disable_.find("handles") != std::string::npos;
   if (disable_handles) {
     NSC_LOG_MESSAGE("WARNING: handle checking is disabled");
@@ -268,7 +277,10 @@ void pdh_thread::thread_proc() {
     NSC_LOG_MESSAGE("WARNING: pdh writing is disabled");
   }
   spi_container handles;
+  DWORD sleep_ms = 1000;
+  ULONGLONG last_overrun_warning = 0;
   do {
+    const ULONGLONG tick_start = nscpGetTickCount64();
     std::list<std::string> errors;
     {
       if (!disable_handles && i == 0) {
@@ -291,7 +303,7 @@ void pdh_thread::thread_proc() {
         }
       }
       if (!disable_metrics) {
-        write_metrics(handles, load, check_pdh ? &pdh : NULL, errors);
+        write_metrics(handles, load, check_pdh ? &pdh : nullptr, errors);
       }
     }
     try {
@@ -303,6 +315,24 @@ void pdh_thread::thread_proc() {
     } catch (...) {
       errors.push_back("Failed to get network metrics");
     }
+    try {
+      if (i == 0 && !disable_temperature) temperature.fetch();
+    } catch (const nsclient::nsclient_exception &e) {
+      errors.push_back("Failed to get temperature metrics: " + e.reason());
+    } catch (const std::exception &e) {
+      errors.push_back("Failed to get temperature metrics: " + utf8::utf8_from_native(e.what()));
+    } catch (...) {
+      errors.push_back("Failed to get temperature metrics");
+    }
+    try {
+      if (i == 0 && !disable_cpu_frequency) cpu_frequency.fetch();
+    } catch (const nsclient::nsclient_exception &e) {
+      errors.push_back("Failed to get CPU frequency metrics: " + e.reason());
+    } catch (const std::exception &e) {
+      errors.push_back("Failed to get CPU frequency metrics: " + utf8::utf8_from_native(e.what()));
+    } catch (...) {
+      errors.push_back("Failed to get CPU frequency metrics");
+    }
     if (has_realtime && i == (min_threshold_ - 1)) {
       if (has_cpu_realtime) cpu_helper.process_items(this);
       if (has_mem_realtime) memory_helper.check();
@@ -312,7 +342,17 @@ void pdh_thread::thread_proc() {
     for (const std::string &s : errors) {
       NSC_LOG_ERROR(s);
     }
-  } while ((waitStatus = WaitForSingleObject(stop_event_, 1000)) == WAIT_TIMEOUT);
+    const ULONGLONG elapsed_ms = nscpGetTickCount64() - tick_start;
+    if (elapsed_ms >= 1000) {
+      sleep_ms = 0;
+      if (tick_start - last_overrun_warning >= 300000) {
+        last_overrun_warning = tick_start;
+        NSC_LOG_MESSAGE("WARNING: PDH collection took " + str::xtos(elapsed_ms) + "ms, exceeding the 1-second cadence");
+      }
+    } else {
+      sleep_ms = static_cast<DWORD>(1000 - elapsed_ms);
+    }
+  } while ((waitStatus = WaitForSingleObject(stop_event_, sleep_ms)) == WAIT_TIMEOUT);
   if (waitStatus != WAIT_OBJECT_0) {
     NSC_LOG_ERROR("Something odd happened when terminating PDH collection thread!");
     return;
@@ -411,6 +451,10 @@ std::map<std::string, double> pdh_thread::get_average(std::string counter, long 
 }
 
 network_check::nics_type pdh_thread::get_network() { return network.get(); }
+
+temperature_check::zones_type pdh_thread::get_temperature() { return temperature.get(); }
+
+cpu_frequency_check::cpus_type pdh_thread::get_cpu_frequency() { return cpu_frequency.get(); }
 
 std::map<std::string, windows::system_info::load_entry> pdh_thread::get_cpu_load(long seconds) {
   std::map<std::string, windows::system_info::load_entry> ret;

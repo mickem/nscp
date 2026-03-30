@@ -13,8 +13,11 @@ set(SRCS
     counter_filter.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
+    tick_count.cpp
     pdh_thread.cpp
     check_network.cpp
+    check_temperature.cpp
+    check_cpu_frequency.cpp
     check_process.cpp
     check_memory.cpp
     check_pdh.cpp
@@ -46,6 +49,7 @@ if(WIN32)
         "${TARGET}.h"
         filter.hpp
         counter_filter.hpp
+        tick_count.h
         ${NSCP_INCLUDEDIR}/win/services.hpp
         ${NSCP_INCLUDEDIR}/win/processes.hpp
         ${NSCP_INCLUDEDIR}/win/sysinfo/sysinfo.h
@@ -55,6 +59,8 @@ if(WIN32)
         filter_config_object.hpp
         realtime_data.hpp
         check_network.hpp
+        check_temperature.hpp
+        check_cpu_frequency.hpp
         check_process.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.hpp
@@ -91,3 +97,64 @@ target_link_libraries(
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("pdh" REGULAR_EXPRESSION .*include/pdh/.*)
+
+NSCP_CREATE_TEST(
+    check_system_test
+    SOURCES
+        check_cpu_frequency_test.cpp
+        check_pdh_test.cpp
+        check_network_test.cpp
+        check_temperature_test.cpp
+        check_system_test.cpp
+        tick_count.cpp
+        check_cpu_frequency.cpp
+        check_temperature.cpp
+        check_network.cpp
+        check_pdh.cpp
+        pdh_thread.cpp
+        filter_config_object.cpp
+        realtime_data.cpp
+        check_process.cpp
+        check_memory.cpp
+        counter_filter.cpp
+        filter.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
+        ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
+        ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_enumerations.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_interface.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_query.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_resolver.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/thread_safe_impl.cpp
+        ${NSCP_INCLUDEDIR}/win/processes.cpp
+        ${NSCP_INCLUDEDIR}/win/services.cpp
+        ${NSCP_INCLUDEDIR}/win/sysinfo/sysinfo.cpp
+        ${NSCP_INCLUDEDIR}/error/error_w32.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+        ${NSCP_INCLUDEDIR}/compat.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        ${NSCP_FILTER_LIB}
+        expression_parser
+        plugin_api
+        winsys_info
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+        Wbemuuid.lib
+        ole32
+        psapi
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)

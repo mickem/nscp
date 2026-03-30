@@ -10,6 +10,8 @@ import NetworkWidget from "./NetworkWidget.tsx";
 import SystemInfoWidget from "./SystemInfoWidget.tsx";
 import { useAppDispatch, useAppSelector } from "../store/store.ts";
 import { setRefreshRate } from "../common/dashboardSlice.ts";
+import DiskIoWidget from "./DiskIoWidget.tsx";
+import DiskFreeWidget from "./DiskFreeWidget.tsx";
 
 const HISTORY_SIZE = 30;
 
@@ -126,6 +128,18 @@ export default function Welcome() {
             xAxis={xAxis}
             historySize={HISTORY_SIZE}
           />
+        </Grid>
+        <Grid>
+          <DiskIoWidget
+            key={refreshRate}
+            metrics={result.metrics}
+            fulfilledTimeStamp={fulfilledTimeStamp}
+            xAxis={xAxis}
+            historySize={HISTORY_SIZE}
+          />
+        </Grid>
+        <Grid>
+          <DiskFreeWidget metrics={result.metrics} />
         </Grid>
         <Grid>
           <SystemInfoWidget metrics={result.metrics} />

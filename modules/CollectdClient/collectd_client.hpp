@@ -228,12 +228,9 @@ struct collectd_client_handler : public client::handler_interface {
         bool is_multicast = false;
         if (target_address.is_v4()) {
           is_multicast = target_address.to_v4().is_multicast();
-        }
-#if BOOST_VERSION >= 105300
-        else if (target_address.is_v6()) {
+        } else if (target_address.is_v6()) {
           is_multicast = target_address.to_v6().is_multicast();
         }
-#endif
 
         if (is_multicast) {
           while (endpoint_iterator != end) {

@@ -22,14 +22,17 @@
 #include <compat.hpp>
 #include <file_helpers.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <nscapi/settings/proxy.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/helpers.hpp>
 
+#include "check_disk_health.hpp"
 #include "check_drive.hpp"
 #include "file_finder.hpp"
 #include "filter.hpp"
@@ -39,6 +42,88 @@ namespace po = boost::program_options;
 
 CheckDisk::CheckDisk() : show_errors_(false) {}
 
+bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+  collector_.reset(new collector_thread(get_core(), get_id()));
+
+  sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
+  settings.set_alias("disk", alias);
+
+  // clang-format off
+  settings.alias().add_key_to_settings()
+    .add_string("disable", sh::string_key(&collector_->disable_, ""),
+        "Disable automatic checks",
+        "A comma separated list of checks to disable in the collector: disk_io, disk_free. "
+        "Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
+    ;
+  // clang-format on
+  settings.register_all();
+  settings.notify();
+
+  if (mode == NSCAPI::normalStart) {
+    collector_->start();
+  }
+  return true;
+}
+
+bool CheckDisk::unloadModule() {
+  if (collector_) {
+    collector_->stop();
+  }
+  return true;
+}
+
+void CheckDisk::check_disk_io(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  if (!collector_) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Collector not started");
+    return;
+  }
+  try {
+    disk_io_check::check::check_disk_io(request, response, collector_->get_disk_io());
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to get disk I/O data: " + std::string(e.what()));
+  }
+}
+
+void CheckDisk::check_disk_health(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  if (!collector_) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Collector not started");
+    return;
+  }
+  try {
+    auto data = disk_health_check::join(collector_->get_disk_io(), collector_->get_disk_free());
+    disk_health_check::check::check_disk_health(request, response, data);
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to get disk health data: " + std::string(e.what()));
+  }
+}
+
+void CheckDisk::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
+  if (!collector_) return;
+
+  using namespace nscapi::metrics;
+
+  PB::Metrics::MetricsBundle *bundle = response->add_bundles();
+  bundle->set_key("disk");
+
+  const auto disks = collector_->get_disk_io();
+  if (!disks.empty()) {
+    PB::Metrics::MetricsBundle *section = bundle->add_children();
+    section->set_key("io");
+    for (const disk_io_check::disks_type::value_type &v : disks) {
+      v.build_metrics(section);
+    }
+  }
+
+  const auto drives = collector_->get_disk_free();
+  if (!drives.empty()) {
+    PB::Metrics::MetricsBundle *section = bundle->add_children();
+    section->set_key("free");
+    for (const disk_free_check::drives_type::value_type &v : drives) {
+      v.build_metrics(section);
+    }
+  }
+}
+
 void CheckDisk::checkDriveSize(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   boost::program_options::options_description desc;
 
@@ -47,13 +132,13 @@ void CheckDisk::checkDriveSize(PB::Commands::QueryRequestMessage::Request &reque
   std::string perf_unit;
   nscapi::program_options::add_help(desc);
   // clang-format off
-	desc.add_options()
-		("CheckAll", po::value<std::string>()->implicit_value("true"), "Checks all drives.")
-		("CheckAllOthers", po::value<std::string>()->implicit_value("true"), "Checks all drives turns the drive option into an exclude option.")
-		("Drive", po::value<std::vector<std::string>>(&times), "The drives to check")
-		("FilterType", po::value<std::vector<std::string>>(&types), "The type of drives to check fixed, remote, cdrom, ramdisk, removable")
-		("perf-unit", po::value<std::string>(&perf_unit), "Force performance data to use a given unit prevents scaling which can cause problems over time in some graphing solutions.")
-		;
+  desc.add_options()
+    ("CheckAll", po::value<std::string>()->implicit_value("true"), "Checks all drives.")
+    ("CheckAllOthers", po::value<std::string>()->implicit_value("true"), "Checks all drives turns the drive option into an exclude option.")
+    ("Drive", po::value<std::vector<std::string>>(&times), "The drives to check")
+    ("FilterType", po::value<std::vector<std::string>>(&types), "The type of drives to check fixed, remote, cdrom, ramdisk, removable")
+    ("perf-unit", po::value<std::string>(&perf_unit), "Force performance data to use a given unit prevents scaling which can cause problems over time in some graphing solutions.")
+    ;
   // clang-format on
   compat::addShowAll(desc);
   compat::addAllNumeric(desc);
@@ -120,18 +205,18 @@ void CheckDisk::checkFiles(PB::Commands::QueryRequestMessage::Request &request, 
   int maxDepth = 0;
   nscapi::program_options::add_help(desc);
   // clang-format off
-	desc.add_options()
-		("syntax", po::value<std::string>(&syntax), "Syntax for individual items (detail-syntax).")
-		("master-syntax", po::value<std::string>(&master_syntax), "Syntax for top syntax (top-syntax).")
-		("path", po::value<std::string>(&path), "The file or path to check")
-		("pattern", po::value<std::string>(&pattern), "Deprecated and ignored")
-		("alias", po::value<std::string>(), "Deprecated and ignored")
-		("debug", po::bool_switch(&debug), "Debug")
-		("max-dir-depth", po::value<int>(&maxDepth), "The maximum level to recurse")
-		("filter", po::value<std::string>(&filter), "The filter to use when including files in the check")
-		("warn", po::value<std::string>(&warn2), "Deprecated and ignored")
-		("crit", po::value<std::string>(&crit2), "Deprecated and ignored")
-		;
+  desc.add_options()
+    ("syntax", po::value<std::string>(&syntax), "Syntax for individual items (detail-syntax).")
+    ("master-syntax", po::value<std::string>(&master_syntax), "Syntax for top syntax (top-syntax).")
+    ("path", po::value<std::string>(&path), "The file or path to check")
+    ("pattern", po::value<std::string>(&pattern), "Deprecated and ignored")
+    ("alias", po::value<std::string>(), "Deprecated and ignored")
+    ("debug", po::bool_switch(&debug), "Debug")
+    ("max-dir-depth", po::value<int>(&maxDepth), "The maximum level to recurse")
+    ("filter", po::value<std::string>(&filter), "The filter to use when including files in the check")
+    ("warn", po::value<std::string>(&warn2), "Deprecated and ignored")
+    ("crit", po::value<std::string>(&crit2), "Deprecated and ignored")
+    ;
   // clang-format on
   compat::addAllNumeric(desc);
 

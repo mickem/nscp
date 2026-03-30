@@ -28,12 +28,361 @@ A quick reference for all available queries (check commands) in the CheckDisk mo
 
 A list of all available queries (check commands)
 
-| Command                             | Description                                       |
-|-------------------------------------|---------------------------------------------------|
-| [check_drivesize](#check_drivesize) | Check the size (free-space) of a drive or volume. |
-| [check_files](#check_files)         | Check various aspects of a file and/or folder.    |
+| Command                                 | Description                                                                     |
+|-----------------------------------------|---------------------------------------------------------------------------------|
+| [check_disk_health](#check_disk_health) | Combined per-drive health check (free space + I/O metrics).                     |
+| [check_disk_io](#check_disk_io)         | Check disk I/O performance metrics (throughput, IOPS, queue length, busy time). |
+| [check_drivesize](#check_drivesize)     | Check the size (free-space) of a drive or volume.                               |
+| [check_files](#check_files)             | Check various aspects of a file and/or folder.                                  |
 
 
+
+
+### check_disk_health
+
+Combined per-drive health check (free space + I/O metrics).
+
+
+**Jump to section:**
+
+* [Command-line Arguments](#check_disk_health_options)
+* [Filter keywords](#check_disk_health_filter_keys)
+
+
+
+
+
+<a id="check_disk_health_warn"></a>
+<a id="check_disk_health_crit"></a>
+<a id="check_disk_health_debug"></a>
+<a id="check_disk_health_show-all"></a>
+<a id="check_disk_health_escape-html"></a>
+<a id="check_disk_health_help"></a>
+<a id="check_disk_health_help-pb"></a>
+<a id="check_disk_health_show-default"></a>
+<a id="check_disk_health_help-short"></a>
+<a id="check_disk_health_options"></a>
+#### Command-line Arguments
+
+
+| Option                                            | Default Value                                                                          | Description                                                                                                      |
+|---------------------------------------------------|----------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_disk_health_filter)               | name != '_Total'                                                                       | Filter which marks interesting items.                                                                            |
+| [warning](#check_disk_health_warning)             | free_pct < 20 or percent_disk_time > 80                                                | Filter which marks items which generates a warning state.                                                        |
+| warn                                              |                                                                                        | Short alias for warning                                                                                          |
+| [critical](#check_disk_health_critical)           | free_pct < 10 or percent_disk_time > 95                                                | Filter which marks items which generates a critical state.                                                       |
+| crit                                              |                                                                                        | Short alias for critical.                                                                                        |
+| [ok](#check_disk_health_ok)                       |                                                                                        | Filter which marks items which generates an ok state.                                                            |
+| debug                                             | N/A                                                                                    | Show debugging information in the log                                                                            |
+| show-all                                          | N/A                                                                                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_disk_health_empty-state)     | critical                                                                               | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_disk_health_perf-config)     |                                                                                        | Performance data generation configuration                                                                        |
+| escape-html                                       | N/A                                                                                    | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                              | N/A                                                                                    | Show help screen (this screen)                                                                                   |
+| help-pb                                           | N/A                                                                                    | Show help screen as a protocol buffer payload                                                                    |
+| show-default                                      | N/A                                                                                    | Show default values for a given command                                                                          |
+| help-short                                        | N/A                                                                                    | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_disk_health_top-syntax)       | ${status}: ${list}                                                                     | Top level syntax.                                                                                                |
+| [ok-syntax](#check_disk_health_ok-syntax)         | %(status): All disks are healthy.                                                      | ok syntax.                                                                                                       |
+| [empty-syntax](#check_disk_health_empty-syntax)   |                                                                                        | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_disk_health_detail-syntax) | ${name}: ${free_pct}% free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops} | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_disk_health_perf-syntax)     | ${name}                                                                                | Performance alias syntax.                                                                                        |
+
+
+
+<h5 id="check_disk_health_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+*Default Value:* `name != '_Total'`
+
+<h5 id="check_disk_health_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+*Default Value:* `free_pct < 20 or percent_disk_time > 80`
+
+<h5 id="check_disk_health_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+*Default Value:* `free_pct < 10 or percent_disk_time > 95`
+
+<h5 id="check_disk_health_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_disk_health_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `critical`
+
+<h5 id="check_disk_health_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_disk_health_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${status}: ${list}`
+
+<h5 id="check_disk_health_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+*Default Value:* `%(status): All disks are healthy.`
+
+<h5 id="check_disk_health_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+
+<h5 id="check_disk_health_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${name}: ${free_pct}% free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}`
+
+<h5 id="check_disk_health_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `${name}`
+
+
+<a id="check_disk_health_filter_keys"></a>
+#### Filter keywords
+
+
+| Option              | Description                                        |
+|---------------------|----------------------------------------------------|
+| free                | Free disk space in bytes                           |
+| free_pct            | Percentage of free disk space                      |
+| iops                | Total IOPS (reads + writes)                        |
+| name                | Drive name (e.g. C:, D:, _Total)                   |
+| percent_disk_time   | Percent of time the disk is busy                   |
+| percent_idle_time   | Percent of time the disk is idle                   |
+| queue_length        | Current disk queue length                          |
+| read_bytes_per_sec  | Bytes read per second                              |
+| reads_per_sec       | Read IOPS                                          |
+| split_io_per_sec    | Split I/O operations per second                    |
+| total_bytes_per_sec | Total bytes per second (read + write)              |
+| used                | Used disk space in bytes                           |
+| used_pct            | Percentage of used disk space                      |
+| user_free           | Free disk space available to current user in bytes |
+| write_bytes_per_sec | Bytes written per second                           |
+| writes_per_sec      | Write IOPS                                         |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
+
+
+### check_disk_io
+
+Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).
+
+
+**Jump to section:**
+
+* [Command-line Arguments](#check_disk_io_options)
+* [Filter keywords](#check_disk_io_filter_keys)
+
+
+
+
+
+<a id="check_disk_io_warn"></a>
+<a id="check_disk_io_crit"></a>
+<a id="check_disk_io_debug"></a>
+<a id="check_disk_io_show-all"></a>
+<a id="check_disk_io_escape-html"></a>
+<a id="check_disk_io_help"></a>
+<a id="check_disk_io_help-pb"></a>
+<a id="check_disk_io_show-default"></a>
+<a id="check_disk_io_help-short"></a>
+<a id="check_disk_io_options"></a>
+#### Command-line Arguments
+
+
+| Option                                        | Default Value                                                                                                        | Description                                                                                                      |
+|-----------------------------------------------|----------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_disk_io_filter)               | name != '_Total'                                                                                                     | Filter which marks interesting items.                                                                            |
+| [warning](#check_disk_io_warning)             | percent_disk_time > 80                                                                                               | Filter which marks items which generates a warning state.                                                        |
+| warn                                          |                                                                                                                      | Short alias for warning                                                                                          |
+| [critical](#check_disk_io_critical)           | percent_disk_time > 95                                                                                               | Filter which marks items which generates a critical state.                                                       |
+| crit                                          |                                                                                                                      | Short alias for critical.                                                                                        |
+| [ok](#check_disk_io_ok)                       |                                                                                                                      | Filter which marks items which generates an ok state.                                                            |
+| debug                                         | N/A                                                                                                                  | Show debugging information in the log                                                                            |
+| show-all                                      | N/A                                                                                                                  | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_disk_io_empty-state)     | critical                                                                                                             | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_disk_io_perf-config)     |                                                                                                                      | Performance data generation configuration                                                                        |
+| escape-html                                   | N/A                                                                                                                  | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                          | N/A                                                                                                                  | Show help screen (this screen)                                                                                   |
+| help-pb                                       | N/A                                                                                                                  | Show help screen as a protocol buffer payload                                                                    |
+| show-default                                  | N/A                                                                                                                  | Show default values for a given command                                                                          |
+| help-short                                    | N/A                                                                                                                  | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_disk_io_top-syntax)       | ${status}: ${list}                                                                                                   | Top level syntax.                                                                                                |
+| [ok-syntax](#check_disk_io_ok-syntax)         | %(status): All disk I/O seems ok.                                                                                    | ok syntax.                                                                                                       |
+| [empty-syntax](#check_disk_io_empty-syntax)   |                                                                                                                      | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_disk_io_detail-syntax) | ${name}: ${percent_disk_time}% busy, read=${read_bytes_per_sec}B/s write=${write_bytes_per_sec}B/s q=${queue_length} | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_disk_io_perf-syntax)     | ${name}                                                                                                              | Performance alias syntax.                                                                                        |
+
+
+
+<h5 id="check_disk_io_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+*Default Value:* `name != '_Total'`
+
+<h5 id="check_disk_io_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+*Default Value:* `percent_disk_time > 80`
+
+<h5 id="check_disk_io_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+*Default Value:* `percent_disk_time > 95`
+
+<h5 id="check_disk_io_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_disk_io_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `critical`
+
+<h5 id="check_disk_io_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_disk_io_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${status}: ${list}`
+
+<h5 id="check_disk_io_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+*Default Value:* `%(status): All disk I/O seems ok.`
+
+<h5 id="check_disk_io_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+
+<h5 id="check_disk_io_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${name}: ${percent_disk_time}% busy, read=${read_bytes_per_sec}B/s write=${write_bytes_per_sec}B/s q=${queue_length}`
+
+<h5 id="check_disk_io_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `${name}`
+
+
+<a id="check_disk_io_filter_keys"></a>
+#### Filter keywords
+
+
+| Option              | Description                             |
+|---------------------|-----------------------------------------|
+| iops                | Total IOPS (reads + writes)             |
+| name                | Logical disk name (e.g. C:, D:, _Total) |
+| percent_disk_time   | Percent of time the disk is busy        |
+| percent_idle_time   | Percent of time the disk is idle        |
+| queue_length        | Current disk queue length               |
+| read_bytes_per_sec  | Bytes read per second                   |
+| reads_per_sec       | Read IOPS                               |
+| split_io_per_sec    | Split I/O operations per second         |
+| total_bytes_per_sec | Total bytes per second (read + write)   |
+| write_bytes_per_sec | Bytes written per second                |
+| writes_per_sec      | Write IOPS                              |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 
 ### check_drivesize
@@ -570,5 +919,65 @@ Include the total of either (filter) all files matching the filter or (all) all 
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
 
+
+
+## Configuration
+
+
+
+| Path / Section      | Description |
+|---------------------|-------------|
+| [/settings/disk](#) |             |
+
+
+
+### /settings/disk <a id="/settings/disk"></a>
+
+
+
+
+
+
+| Key                                  | Default Value | Description              |
+|--------------------------------------|---------------|--------------------------|
+| [disable](#disable-automatic-checks) |               | Disable automatic checks |
+
+
+
+```ini
+# 
+[/settings/disk]
+
+```
+
+
+
+
+
+#### Disable automatic checks <a id="/settings/disk/disable"></a>
+
+A comma separated list of checks to disable in the collector: disk_io, disk_free. Please note disabling these will mean part of NSClient++ will no longer function as expected.
+
+
+
+
+
+
+| Key            | Description                         |
+|----------------|-------------------------------------|
+| Path:          | [/settings/disk](#/settings/disk)   |
+| Key:           | disable                             |
+| Advanced:      | Yes (means it is not commonly used) |
+| Default value: | _N/A_                               |
+| Used by:       | CheckDisk                           |
+
+
+**Sample:**
+
+```
+[/settings/disk]
+# Disable automatic checks
+disable=
+```
 
 

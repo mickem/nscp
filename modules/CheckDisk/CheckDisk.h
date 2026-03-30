@@ -18,14 +18,24 @@
  */
 #pragma once
 
+#include <boost/shared_ptr.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
+#include <nscapi/protobuf/metrics.hpp>
+
+#include "collector_thread.hpp"
 
 class CheckDisk : public nscapi::impl::simple_plugin {
   bool show_errors_;
+  boost::shared_ptr<collector_thread> collector_;
 
  public:
   CheckDisk();
+  virtual ~CheckDisk() {}
+
+  // Module calls
+  bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+  bool unloadModule();
 
   std::wstring get_filter(unsigned int drvType);
 
@@ -36,7 +46,13 @@ class CheckDisk : public nscapi::impl::simple_plugin {
                                    std::string &perf);
   void check_files(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_drivesize(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  void check_disk_io(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  void check_disk_health(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
+  // Metrics
+  void fetchMetrics(PB::Metrics::MetricsMessage::Response *response);
+
+  // Legacy checks
   void checkDriveSize(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void checkFiles(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 };

@@ -84,7 +84,7 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   schedules_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
   for (const schedules::schedule_handler::object_list_type::value_type &o : schedules_.get_object_list()) {
-    if (o->duration && (*o->duration).total_seconds() == 0) {
+    if (o->duration && o->duration->total_seconds() == 0) {
       NSC_LOG_ERROR("WE cant add schedules with 0 duration: " + o->to_string());
       continue;
     }
@@ -111,7 +111,7 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   return true;
 }
 
-void Scheduler::add_schedule(std::string key, std::string arg) {
+void Scheduler::add_schedule(const std::string &key, const std::string &arg) {
   try {
     schedules_.add(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
   } catch (const std::exception &e) {
@@ -129,14 +129,14 @@ bool Scheduler::unloadModule() {
   return true;
 }
 
-void Scheduler::on_error(const char *file, int line, std::string msg) { GET_CORE()->log(NSCAPI::log_level::error, file, line, msg); }
-void Scheduler::on_trace(const char *file, int line, std::string msg) { GET_CORE()->log(NSCAPI::log_level::trace, file, line, msg); }
+void Scheduler::on_error(const char *file, const int line, std::string msg) { GET_CORE()->log(NSCAPI::log_level::error, file, line, msg); }
+void Scheduler::on_trace(const char *file, const int line, std::string msg) { GET_CORE()->log(NSCAPI::log_level::trace, file, line, msg); }
 
-bool Scheduler::handle_schedule(schedules::target_object item) {
+bool Scheduler::handle_schedule(const schedules::target_object item) {
   try {
     std::string response;
     nscapi::core_helper ch(get_core(), get_id());
-    if (!ch.simple_query(item->command.c_str(), item->arguments, response)) {
+    if (!ch.simple_query(item->command, item->arguments, response)) {
       NSC_LOG_ERROR("Failed to execute: " + item->command);
       if (item->channel.empty()) {
         NSC_LOG_ERROR_WA("No channel specified for ", item->get_alias());
@@ -194,23 +194,23 @@ void Scheduler::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
   PB::Metrics::MetricsBundle *bundle = response->add_bundles();
   bundle->set_key("scheduler");
   if (scheduler_.get_scheduler().has_metrics()) {
-    boost::uint64_t taskes__ = scheduler_.get_scheduler().get_metric_executed();
-    boost::uint64_t submitted__ = scheduler_.get_scheduler().get_metric_compleated();
-    boost::uint64_t errors__ = scheduler_.get_scheduler().get_metric_errors();
-    boost::uint64_t threads = scheduler_.get_scheduler().get_metric_threads();
-    boost::uint64_t queue = scheduler_.get_scheduler().get_metric_ql();
-    boost::uint64_t avgtime = scheduler_.get_scheduler().get_avg_time();
-    boost::uint64_t rate = scheduler_.get_scheduler().get_metric_rate();
+    const auto tasks = scheduler_.get_scheduler().get_metric_executed();
+    const auto submitted = scheduler_.get_scheduler().get_metric_compleated();
+    const auto errors = scheduler_.get_scheduler().get_metric_errors();
+    const auto threads = scheduler_.get_scheduler().get_metric_threads();
+    const auto queue = scheduler_.get_scheduler().get_metric_ql();
+    const auto avg_time = scheduler_.get_scheduler().get_avg_time();
+    const auto rate = scheduler_.get_scheduler().get_metric_rate();
 
     PB::Metrics::Metric *m = bundle->add_value();
     m->set_key("jobs");
-    m->mutable_gauge_value()->set_value(static_cast<double>(taskes__));
+    m->mutable_gauge_value()->set_value(static_cast<double>(tasks));
     m = bundle->add_value();
     m->set_key("submitted");
-    m->mutable_gauge_value()->set_value(static_cast<double>(submitted__));
+    m->mutable_gauge_value()->set_value(static_cast<double>(submitted));
     m = bundle->add_value();
     m->set_key("errors");
-    m->mutable_gauge_value()->set_value(static_cast<double>(errors__));
+    m->mutable_gauge_value()->set_value(static_cast<double>(errors));
     m = bundle->add_value();
     m->set_key("threads");
     m->mutable_gauge_value()->set_value(static_cast<double>(threads));
@@ -219,7 +219,7 @@ void Scheduler::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
     m->mutable_gauge_value()->set_value(static_cast<double>(queue));
     m = bundle->add_value();
     m->set_key("avgtime");
-    m->mutable_gauge_value()->set_value(static_cast<double>(avgtime));
+    m->mutable_gauge_value()->set_value(static_cast<double>(avg_time));
     m = bundle->add_value();
     m->set_key("rate");
     m->mutable_gauge_value()->set_value(static_cast<double>(rate));

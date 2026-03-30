@@ -38,11 +38,14 @@
 #include <win/services.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
 
+#include "check_cpu_frequency.hpp"
 #include "check_memory.hpp"
 #include "check_process.hpp"
+#include "check_temperature.hpp"
 #include "counter_filter.hpp"
 #include "filter.hpp"
 #include "module.hpp"
+#include "tick_count.h"
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
@@ -164,7 +167,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       "Use PDH to fetch CPU load", "When using PDH you might get better accuracy and hel alleviate invalid CPU values on multi core systems. The drawback is that PDH counters are sometimes missing and have invalid indexes so your milage may vary", true)
 
     .add_string("disable", sh::string_key(&collector->disable_, ""),
-        "Disable automatic checks", "A comma separated list of checks to disable in the collector: cpu,handles,network,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
+        "Disable automatic checks", "A comma separated list of checks to disable in the collector: cpu,handles,network,temperature,cpu_frequency,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
     ;
 
   settings.alias().add_templates()
@@ -565,20 +568,6 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
   filter_helper.post_process(filter);
 }
 
-typedef ULONGLONG (*tGetTickCount64)();
-
-tGetTickCount64 pGetTickCount64 = NULL;
-
-ULONGLONG nscpGetTickCount64() {
-  if (pGetTickCount64 == NULL) {
-    HMODULE hMod = ::LoadLibrary(_TEXT("kernel32"));
-    if (hMod == NULL) return 0;
-    pGetTickCount64 = reinterpret_cast<tGetTickCount64>(GetProcAddress(hMod, "GetTickCount64"));
-    if (pGetTickCount64 == NULL) return 0;
-  }
-  return pGetTickCount64();
-}
-
 void CheckSystem::checkUptime(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   boost::program_options::options_description desc;
 
@@ -661,7 +650,27 @@ void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Requ
 }
 
 void CheckSystem::check_network(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  network_check::check::check_network(request, response, collector->get_network());
+  try {
+    network_check::check::check_network(request, response, collector->get_network());
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to get network data: " + std::string(e.what()));
+  }
+}
+
+void CheckSystem::check_temperature(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  try {
+    temperature_check::check::check_temperature(request, response, collector->get_temperature());
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to get temperature data: " + std::string(e.what()));
+  }
+}
+
+void CheckSystem::check_cpu_frequency(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  try {
+    cpu_frequency_check::check::check_cpu_frequency(request, response, collector->get_cpu_frequency());
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to get CPU frequency data: " + std::string(e.what()));
+  }
 }
 
 void CheckSystem::checkServiceState(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
@@ -1077,12 +1086,34 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
 
   std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(5);
 
-  auto net = collector->get_network();
+  const auto net = collector->get_network();
   if (!net.empty()) {
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("network");
     for (const network_check::nics_type::value_type &v : net) {
       v.build_metrics(section);
     }
+  }
+
+  const auto temps = collector->get_temperature();
+  if (!temps.empty()) {
+    PB::Metrics::MetricsBundle *section = bundle->add_children();
+    section->set_key("temperature");
+    for (const temperature_check::zones_type::value_type &v : temps) {
+      v.build_metrics(section);
+    }
+  }
+
+  try {
+    const auto cpu_frequencies = collector->get_cpu_frequency();
+    if (!cpu_frequencies.empty()) {
+      PB::Metrics::MetricsBundle *section = bundle->add_children();
+      section->set_key("cpu_frequency");
+      for (const cpu_frequency_check::cpus_type::value_type &v : cpu_frequencies) {
+        v.build_metrics(section);
+      }
+    }
+  } catch (...) {
+    NSC_LOG_ERROR("Failed to get CPU frequency metrics");
   }
 }
