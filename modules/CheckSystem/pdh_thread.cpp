@@ -30,6 +30,7 @@
 #include "check_process.hpp"
 #include "realtime_data.hpp"
 #include "settings.hpp"
+#include "tick_count.h"
 
 typedef parsers::where::realtime_filter_helper<check_cpu_filter::runtime_data, filters::cpu::filter_config_object> cpu_filter_helper;
 
@@ -279,7 +280,7 @@ void pdh_thread::thread_proc() {
   DWORD sleep_ms = 1000;
   ULONGLONG last_overrun_warning = 0;
   do {
-    const ULONGLONG tick_start = GetTickCount64();
+    const ULONGLONG tick_start = nscpGetTickCount64();
     std::list<std::string> errors;
     {
       if (!disable_handles && i == 0) {

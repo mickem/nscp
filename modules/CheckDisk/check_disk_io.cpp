@@ -197,7 +197,7 @@ void disk_free_data::set(const drives_type &drives) {
 
 drives_type disk_free_data::get() {
   const boost::shared_lock<boost::shared_mutex> read_lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-  if (!read_lock.owns_lock()) return drives_type();
+  if (!read_lock.owns_lock()) throw nsclient::nsclient_exception("Failed to get mutex for writing disk free data");
   return drives_;
 }
 

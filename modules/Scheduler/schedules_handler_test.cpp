@@ -17,9 +17,9 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <gtest/gtest.h>
-
 #include "schedules_handler.hpp"
+
+#include <gtest/gtest.h>
 
 #include <boost/make_shared.hpp>
 #include <nscapi/nscapi_helper.hpp>
@@ -805,11 +805,7 @@ TEST_F(SchedulerTest, GetMetadataForNonExistentTaskReturnsNull) {
 // schedules::scheduler: metrics interface (what fetchMetrics exercises)
 // ============================================================================
 
-TEST_F(SchedulerTest, MetricsAvailableOnModernBoost) {
-  // On Boost >= 1.53, has_metrics() returns true
-  // Our build uses Boost 1.86, so this should be true
-  EXPECT_TRUE(sched.get_scheduler().has_metrics());
-}
+TEST_F(SchedulerTest, MetricsAvailableOnModernBoost) { EXPECT_TRUE(sched.get_scheduler().has_metrics()); }
 
 TEST_F(SchedulerTest, MetricsDefaultToZero) {
   // Before any tasks are run, metrics should be 0 or reasonable defaults

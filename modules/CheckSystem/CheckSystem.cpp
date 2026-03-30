@@ -45,6 +45,7 @@
 #include "counter_filter.hpp"
 #include "filter.hpp"
 #include "module.hpp"
+#include "tick_count.h"
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
@@ -166,7 +167,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       "Use PDH to fetch CPU load", "When using PDH you might get better accuracy and hel alleviate invalid CPU values on multi core systems. The drawback is that PDH counters are sometimes missing and have invalid indexes so your milage may vary", true)
 
     .add_string("disable", sh::string_key(&collector->disable_, ""),
-        "Disable automatic checks", "A comma separated list of checks to disable in the collector: cpu,handles,network,temperature,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
+        "Disable automatic checks", "A comma separated list of checks to disable in the collector: cpu,handles,network,temperature,cpu_frequency,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
     ;
 
   settings.alias().add_templates()
@@ -565,20 +566,6 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
     }
   }
   filter_helper.post_process(filter);
-}
-
-typedef ULONGLONG (*tGetTickCount64)();
-
-tGetTickCount64 pGetTickCount64 = NULL;
-
-ULONGLONG nscpGetTickCount64() {
-  if (pGetTickCount64 == NULL) {
-    HMODULE hMod = ::LoadLibrary(_TEXT("kernel32"));
-    if (hMod == NULL) return 0;
-    pGetTickCount64 = reinterpret_cast<tGetTickCount64>(GetProcAddress(hMod, "GetTickCount64"));
-    if (pGetTickCount64 == NULL) return 0;
-  }
-  return pGetTickCount64();
 }
 
 void CheckSystem::checkUptime(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {

@@ -110,7 +110,7 @@ void check_disk_health(const PB::Commands::QueryRequestMessage::Request &request
 
   if (!filter_helper.build_filter(filter)) return;
   for (const disk_health &d : data) {
-    boost::shared_ptr<filter_obj> record(new filter_obj(d));
+    const boost::shared_ptr<filter_obj> record(new filter_obj(d));
     filter.match(record);
   }
   filter_helper.post_process(filter);

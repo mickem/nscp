@@ -13,6 +13,7 @@ set(SRCS
     counter_filter.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
+    tick_count.cpp
     pdh_thread.cpp
     check_network.cpp
     check_temperature.cpp
@@ -48,6 +49,7 @@ if(WIN32)
         "${TARGET}.h"
         filter.hpp
         counter_filter.hpp
+        tick_count.h
         ${NSCP_INCLUDEDIR}/win/services.hpp
         ${NSCP_INCLUDEDIR}/win/processes.hpp
         ${NSCP_INCLUDEDIR}/win/sysinfo/sysinfo.h
@@ -103,8 +105,8 @@ NSCP_CREATE_TEST(
         check_pdh_test.cpp
         check_network_test.cpp
         check_temperature_test.cpp
-
         check_system_test.cpp
+        tick_count.cpp
         check_cpu_frequency.cpp
         check_temperature.cpp
         check_network.cpp

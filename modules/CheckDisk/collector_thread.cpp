@@ -44,11 +44,11 @@ bool collector_thread::stop() {
 }
 
 void collector_thread::thread_proc() {
-  const bool disable_disk_io = disable_.find("disk_io") != std::string::npos;
+  bool disable_disk_io = disable_.find("disk_io") != std::string::npos;
   if (disable_disk_io) {
     NSC_LOG_MESSAGE("WARNING: disk I/O checking is disabled");
   }
-  const bool disable_disk_free = disable_.find("disk_free") != std::string::npos;
+  bool disable_disk_free = disable_.find("disk_free") != std::string::npos;
   if (disable_disk_free) {
     NSC_LOG_MESSAGE("WARNING: disk free checking is disabled");
   }
@@ -61,6 +61,7 @@ void collector_thread::thread_proc() {
       NSC_LOG_ERROR("Initial disk I/O fetch failed: " + e.reason());
     } catch (...) {
       NSC_LOG_ERROR("Initial disk I/O fetch failed");
+      disable_disk_io = false;
     }
   }
   if (!disable_disk_free) {
@@ -68,6 +69,7 @@ void collector_thread::thread_proc() {
       disk_free_.fetch();
     } catch (...) {
       NSC_LOG_ERROR("Initial disk free fetch failed");
+      disable_disk_free = true;
     }
   }
 
