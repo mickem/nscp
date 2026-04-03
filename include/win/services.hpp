@@ -42,6 +42,7 @@ struct service_info {
         type(0),
         delayed(false),
         triggers(0),
+        exit_code(0),
         classification_(get_service_classification(name)) {}
   service_info(const service_info &other)
       : name(other.name),
@@ -53,6 +54,7 @@ struct service_info {
         type(other.type),
         delayed(other.delayed),
         triggers(other.triggers),
+        exit_code(other.exit_code),
         binary_path(other.binary_path),
         classification_(other.classification_) {}
 
@@ -63,13 +65,14 @@ struct service_info {
   DWORD type;
   bool delayed;
   int triggers;
+  DWORD exit_code;
 
   std::string binary_path;
   std::string classification_;
 
   std::string show() const {
-    return name + " (" + displayname + ") - " + get_state_s() + " (" + get_start_type_s() + ") - pid: " + str::xtos(pid) + " - type: " + get_type() +
-           (delayed ? " (delayed)" : "") + (triggers > 0 ? " (trigger)" : "") + " - path: " + binary_path;
+    return name + " (" + displayname + "), " + get_state_s() + " (" + get_start_type_s() + "), type: " + get_type() + (delayed ? " (delayed)" : "") +
+           (triggers > 0 ? " (trigger)" : "") + ", exit_code: " + str::xtos(exit_code);
   }
 
   std::string get_state_s() const;
@@ -85,6 +88,7 @@ struct service_info {
   long long get_delayed() const { return delayed ? 1 : 0; }
   long long get_is_trigger() const { return triggers > 0 ? 1 : 0; }
   long long get_triggers() const { return triggers; }
+  long long get_exit_code() const { return exit_code; }
 
   static long long parse_start_type(const std::string &s);
   static long long parse_state(const std::string &s);

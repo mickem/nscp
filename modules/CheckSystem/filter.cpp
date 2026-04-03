@@ -124,7 +124,8 @@ node_type state_is_ok(const value_type, evaluation_context context, const node_t
   DWORD start_type = n_context->get_object()->start_type;
   bool delayed = n_context->get_object()->get_delayed() == 1;
   bool trigger = n_context->get_object()->get_is_trigger() == 1;
-  if (check_state_is_ok(state, start_type, delayed, trigger))
+  DWORD exit_code = n_context->get_object()->exit_code;
+  if (check_state_is_ok(state, start_type, delayed, trigger, exit_code))
     return factory::create_true();
   else
     return factory::create_false();
@@ -173,7 +174,8 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_x("start_type", type_custom_start_type, &filter_obj::get_start_type_i, "The configured start type ()")
       .add_int_x("delayed", parsers::where::type_bool, &filter_obj::get_delayed, "If the service is delayed")
       .add_int_x("is_trigger", parsers::where::type_bool, &filter_obj::get_is_trigger, "If the service is has associated triggers")
-      .add_int_x("triggers", parsers::where::type_int, &filter_obj::get_triggers, "The number of associated triggers for this service");
+      .add_int_x("triggers", parsers::where::type_int, &filter_obj::get_triggers, "The number of associated triggers for this service")
+      .add_int_x("exit_code", parsers::where::type_int, &filter_obj::get_exit_code, "The Win32 exit code of the service");
 
   // clang-format off
   registry_.add_int_fun()

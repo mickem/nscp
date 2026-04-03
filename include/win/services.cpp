@@ -397,6 +397,7 @@ std::list<service_info> enum_services(const std::string computer, DWORD dwServic
     info.pid = data[i].ServiceStatusProcess.dwProcessId;
     info.state = data[i].ServiceStatusProcess.dwCurrentState;
     info.type = data[i].ServiceStatusProcess.dwServiceType;
+    info.exit_code = data[i].ServiceStatusProcess.dwWin32ExitCode;
 
     service_handle hService = OpenService(sc, data[i].lpServiceName, SERVICE_QUERY_CONFIG);
     if (!hService) throw nsclient::nsclient_exception("Failed to open service: " + info.name);
@@ -446,6 +447,7 @@ service_info get_service_info(const std::string computer, const std::string serv
   info.pid = ssp.get()->dwProcessId;
   info.state = ssp.get()->dwCurrentState;
   info.type = ssp.get()->dwServiceType;
+  info.exit_code = ssp.get()->dwWin32ExitCode;
 
   DWORD bytesNeeded2 = 0;
   DWORD deErr = 0;
