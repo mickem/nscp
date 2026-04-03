@@ -103,16 +103,22 @@ namespace check_svc_filter {
 bool check_state_is_perfect(DWORD state, DWORD start_type, bool trigger) {
   if (start_type == SERVICE_BOOT_START) return state == SERVICE_RUNNING;
   if (start_type == SERVICE_SYSTEM_START) return state == SERVICE_RUNNING;
-  if (start_type == SERVICE_AUTO_START) return state == SERVICE_RUNNING;
+  if (start_type == SERVICE_AUTO_START) {
+    if (trigger) return true;
+    return state == SERVICE_RUNNING;
+  }
   if (start_type == SERVICE_DEMAND_START) return true;
   if (start_type == SERVICE_DISABLED) return state == SERVICE_STOPPED;
   return false;
 }
 
-bool check_state_is_ok(DWORD state, DWORD start_type, bool delayed, bool trigger) {
+bool check_state_is_ok(DWORD state, DWORD start_type, bool delayed, bool trigger, DWORD win32_exit_code) {
   if ((state == SERVICE_START_PENDING) && (start_type == SERVICE_BOOT_START || start_type == SERVICE_SYSTEM_START || start_type == SERVICE_AUTO_START))
     return true;
-  if (delayed) {
+  if (delayed || trigger) {
+    if (start_type == SERVICE_BOOT_START || start_type == SERVICE_SYSTEM_START || start_type == SERVICE_AUTO_START) return true;
+  }
+  if (state == SERVICE_STOPPED && win32_exit_code == 0) {
     if (start_type == SERVICE_BOOT_START || start_type == SERVICE_SYSTEM_START || start_type == SERVICE_AUTO_START) return true;
   }
   return check_state_is_perfect(state, start_type, trigger);

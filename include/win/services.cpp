@@ -509,8 +509,18 @@ std::string service_info::get_legacy_state_s() const {
   return "unknown";
 }
 std::string service_info::get_start_type_s() const {
-  if (delayed) return "delayed";
-  if (start_type == SERVICE_AUTO_START) return "auto";
+  if (delayed) {
+    if (triggers > 0) {
+      return "delayed_trigger";
+    }
+    return "delayed";
+  }
+  if (start_type == SERVICE_AUTO_START) {
+    if (triggers > 0) {
+      return "auto_trigger";
+    }
+    return "auto";
+  }
   if (start_type == SERVICE_BOOT_START) return "boot";
   if (start_type == SERVICE_DEMAND_START) return "demand";
   if (start_type == SERVICE_DISABLED) return "disabled";
