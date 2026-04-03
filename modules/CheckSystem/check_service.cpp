@@ -18,6 +18,7 @@
  */
 
 #include "check_service.h"
+#include <algorithm>
 
 #include "nsclient/nsclient_exception.hpp"
 #include "parsers/filter/cli_helper.hpp"
@@ -172,8 +173,7 @@ void service_checks::check(const PB::Commands::QueryRequestMessage::Request &req
     if (service == "*") {
       for (const win_list_services::service_info &info :
            win_list_services::enum_services(computer, win_list_services::parse_service_type(type), win_list_services::parse_service_state(state), excludes)) {
-        if (std::find(excludes.begin(), excludes.end(), info.get_name()) != excludes.end() ||
-            std::find(excludes.begin(), excludes.end(), info.get_desc()) != excludes.end())
+        if (std::find(excludes.begin(), excludes.end(), info.get_desc()) != excludes.end())
           continue;
         boost::shared_ptr<win_list_services::service_info> record(new win_list_services::service_info(info));
         filter.match(record);

@@ -22,6 +22,7 @@
 #include <list>
 #include <str/xtos.hpp>
 #include <string>
+#include <vector>
 #include <win/windows.hpp>
 
 namespace win_list_services {
