@@ -13,7 +13,7 @@
 
 // clang-format off
 // Has to be after boost or we get namespace clashes
-#include <mongoose.h>
+#include "mongoose_wrapper.h"
 // clang-format on
 
 /**

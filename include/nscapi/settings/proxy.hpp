@@ -27,6 +27,14 @@
 #include <string>
 
 namespace nscapi {
+
+// Disable C4275: non dll-interface class used as base for dll-interface class
+// This is safe because settings_impl_interface is a pure interface with no data members
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4275)
+#endif
+
 class NSCAPI_EXPORT settings_proxy : public settings_helper::settings_impl_interface {
   unsigned int plugin_id_;
   core_wrapper* core_;

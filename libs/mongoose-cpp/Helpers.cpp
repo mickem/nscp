@@ -1,6 +1,6 @@
 #include "Helpers.h"
 
-#include <mongoose.h>
+#include "mongoose_wrapper.h"
 
 #include <bytes/char_buffer.hpp>
 

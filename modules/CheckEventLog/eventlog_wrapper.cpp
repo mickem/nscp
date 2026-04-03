@@ -38,12 +38,11 @@ std::string eventlog_wrapper::find_eventlog_name(const std::string name) {
         str::utils::replace(real_name, "\n", "");
         str::utils::replace(real_name, "\r", "");
         if (real_name == name) return utf8::cvt<std::string>(k);
-      } catch (simple_registry::registry_exception &e) {
-        e;
+      } catch (simple_registry::registry_exception &) {
       }
     }
     return name;
-  } catch (simple_registry::registry_exception &e) {
+  } catch (simple_registry::registry_exception &) {
     return name;
   } catch (...) {
     return name;
@@ -229,7 +228,7 @@ eventlog_filter::filter::object_type eventlog_wrapper_old::read_record(HANDLE &h
 
 DWORD eventlog_wrapper_old::do_record(DWORD dwRecordNumber, DWORD dwFlags) {
   DWORD status = ERROR_SUCCESS;
-  DWORD dwBytesToRead = buffer.size() - 10;
+  DWORD dwBytesToRead = static_cast<DWORD>(buffer.size()) - 10;
   lastReadSize = 0;
   nextBufferPosition = 0;
   DWORD dwMinimumBytesToRead = 0;
@@ -239,7 +238,7 @@ DWORD eventlog_wrapper_old::do_record(DWORD dwRecordNumber, DWORD dwFlags) {
     if (ERROR_INSUFFICIENT_BUFFER == status) {
       status = ERROR_SUCCESS;
       buffer.resize(dwMinimumBytesToRead + 20);
-      dwBytesToRead = buffer.size() - 10;
+      dwBytesToRead = static_cast<DWORD>(buffer.size()) - 10;
 
       if (!ReadEventLog(hLog, dwFlags, dwRecordNumber, (LPBYTE)buffer, dwBytesToRead, &lastReadSize, &dwMinimumBytesToRead)) {
         status = GetLastError();
