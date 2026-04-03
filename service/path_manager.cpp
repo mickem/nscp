@@ -154,7 +154,7 @@ std::string nsclient::core::path_manager::getFolder(const std::string &key) {
     } else {
       LOG_DEBUG_CORE("Settings not ready so we cant lookup: " + key);
     }
-  } catch (const settings::settings_exception &e) {
+  } catch (const settings::settings_exception &) {
     // TODO: Maybe this should be fixed!
     paths_cache_[key] = default_value;
   }

@@ -35,6 +35,11 @@ class data {
   static constexpr short transmitted_iuv_size = 128;
   static constexpr int16_t version3 = 3;
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4200)  // nonstandard extension used: zero-sized array in struct/union
+#endif
+
   typedef struct data_packet : boost::noncopyable {
     int16_t packet_version;
     uint32_t crc32_value;
@@ -51,6 +56,10 @@ class data {
     char* get_desc_ptr(const unsigned int host_len) { return get_data_offset(host_len); }
     char* get_result_ptr(const unsigned int host_len, const unsigned int desc_len) { return get_data_offset(host_len + desc_len); }
   } data_packet;
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
   /* initialization packet containing IV and timestamp */
   typedef struct iv_packet {

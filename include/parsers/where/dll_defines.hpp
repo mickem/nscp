@@ -20,6 +20,8 @@
 #pragma once
 
 // We are using the Visual Studio Compiler and building Shared libraries
+// Only define NSCAPI_EXPORT if not already defined by nscapi/dll_defines.hpp
+#ifndef NSCAPI_EXPORT
 #if defined(_WIN32)
 #if defined(nscp_where_filter_NOLIB)
 #define NSCAPI_EXPORT
@@ -33,3 +35,4 @@
 #else  /* defined (_WIN32) */
 #define NSCAPI_EXPORT
 #endif
+#endif /* NSCAPI_EXPORT */
