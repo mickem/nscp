@@ -35,14 +35,14 @@ namespace nrpe_client {
 struct connection_data : public socket_helpers::connection_info {
   int buffer_length;
   std::string encoding;
-  int version;
+  short version;
   boost::shared_ptr<socket_helpers::client::client_handler> handler;
 
   connection_data(client::destination_container source, client::destination_container target, boost::shared_ptr<socket_helpers::client::client_handler> handler)
       : buffer_length(0), handler(handler) {
     address = target.address.host;
     port_ = target.address.get_port_string("5666");
-    version = target.get_int_data("version", 2);
+    version = static_cast<short>(target.get_int_data("version", 2));
 
     ssl.enabled = target.get_bool_data("ssl", true);
     if (target.has_data("insecure") && target.get_bool_data("insecure", false)) {

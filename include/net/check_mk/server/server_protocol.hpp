@@ -41,7 +41,7 @@ using boost::asio::ip::tcp;
 
 static const int socket_bufer_size = 8096;
 struct read_protocol : public boost::noncopyable {
-  static const bool debug_trace = false;
+  static constexpr bool debug_trace = false;
 
   typedef std::vector<char> outbound_buffer_type;
 

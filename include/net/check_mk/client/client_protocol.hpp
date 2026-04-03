@@ -38,7 +38,7 @@ class protocol : public boost::noncopyable {
   typedef std::string request_type;
   typedef check_mk::packet response_type;
   typedef socket_helpers::client::client_handler client_handler;
-  static const bool debug_trace = false;
+  static constexpr bool debug_trace = false;
 
  private:
   enum state { none, connected, wants_response, done };

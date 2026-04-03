@@ -1,7 +1,9 @@
 #pragma once
 
 #include <boost/filesystem/path.hpp>
-#include <boost/python/dict.hpp>
+
+#include "boost_python_wrapper.hpp"
+
 #include <list>
 #include <memory>
 #include <string>

@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <boost/python.hpp>
-#include <boost/python/suite/indexing/vector_indexing_suite.hpp>
+#include "boost_python_wrapper.hpp"
+
 #include <memory>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>

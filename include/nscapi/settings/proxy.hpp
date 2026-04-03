@@ -72,4 +72,9 @@ class NSCAPI_EXPORT settings_proxy : public settings_helper::settings_impl_inter
   void debug(const char* file, int line, std::string message) override;
   void save(std::string context = "");
 };
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 }  // namespace nscapi

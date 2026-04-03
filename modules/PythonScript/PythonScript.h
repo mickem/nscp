@@ -19,7 +19,9 @@
 #pragma once
 
 #include <boost/filesystem.hpp>
-#include <boost/python.hpp>
+
+#include "boost_python_wrapper.hpp"
+
 #include <memory>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>

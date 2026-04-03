@@ -75,10 +75,10 @@ struct nrpe_target_object : public nscapi::targets::target_object {
     settings.notify();
   }
 
-  virtual void translate(const std::string &key, const std::string &value) {
+  virtual void translate(const std::string &key, const std::string &new_value) {
     if (key == "insecure") {
       auto old_value = get_property_string("insecure", "unknown");
-      if (old_value != "unknown" && value == "true") {
+      if (old_value != "unknown" && new_value == "true") {
         set_property_string("certificate", "");
         set_property_string("certificate key", "");
         set_property_string("allowed ciphers", "ALL:!MD5:@STRENGTH:@SECLEVEL=0");
@@ -86,7 +86,7 @@ struct nrpe_target_object : public nscapi::targets::target_object {
         set_property_bool("ssl", true);
       }
     }
-    parent::translate(key, value);
+    parent::translate(key, new_value);
   }
 };
 
