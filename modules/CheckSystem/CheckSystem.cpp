@@ -742,8 +742,8 @@ void CheckSystem::check_service(const PB::Commands::QueryRequestMessage::Request
 
   filter_type filter;
   filter_helper.add_options("not state_is_perfect()", "not state_is_ok()", "", filter.get_filter_syntax(), "unknown");
-  filter_helper.add_syntax("${status}: ${crit_list}, delayed (${warn_list})", "${name}=${state} (${start_type})", "${name}", "%(status): No services found",
-                           "%(status): All %(count) service(s) are ok.");
+  filter_helper.add_syntax("${status}: ${crit_list}, delayed (${warn_list})", "${name}=${state}, exit=%(exit_code), type=%(start_type)", "${name}",
+                           "%(status): No services found", "%(status): All %(count) service(s) are ok.");
   // clang-format off
   filter_helper.get_desc().add_options()
     ("computer", po::value<std::string>(&computer), "The name of the remote computer to check")
