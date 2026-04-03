@@ -338,14 +338,19 @@ hlp::buffer<BYTE, SERVICE_STATUS_PROCESS *> queryServiceStatusEx(SC_HANDLE hServ
 void fetch_triggers(service_handle &hService, service_info &info) {
   DWORD bytesNeeded = 0;
   DWORD deErr = 0;
-  if (QueryServiceConfig2W(hService, SERVICE_CONFIG_TRIGGER_INFO, NULL, 0, &bytesNeeded) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER) return;
+  if (QueryServiceConfig2W(hService, SERVICE_CONFIG_TRIGGER_INFO, NULL, 0, &bytesNeeded)) return;
+  deErr = GetLastError();
+  if (deErr != ERROR_INSUFFICIENT_BUFFER) {
+    if (deErr != ERROR_INVALID_PARAMETER) {
+      NSC_LOG_ERROR("Failed to query trigger info size: " + info.name + ": " + error::lookup::last_error(deErr));
+    }
+    return;
+  }
   hlp::buffer<BYTE> buffer(bytesNeeded + 10);
 
   if (QueryServiceConfig2W(hService, SERVICE_CONFIG_TRIGGER_INFO, buffer.get(), bytesNeeded, &bytesNeeded) == 0) {
     deErr = GetLastError();
-    if (deErr == ERROR_INVALID_PARAMETER) {
-      return;
-    } else {
+    if (deErr != ERROR_INVALID_PARAMETER) {
       NSC_LOG_ERROR("Failed to query trigger details: " + info.name + ": " + error::lookup::last_error(deErr));
     }
   } else {
