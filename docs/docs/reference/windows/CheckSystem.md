@@ -2012,21 +2012,21 @@ The types of services to enumerate available states are active, inactive or all
 #### Filter keywords
 
 
-| Option             | Description                                                                                               |
-|--------------------|-----------------------------------------------------------------------------------------------------------|
-| classification     | Get classification                                                                                        |
-| delayed            | If the service is delayed                                                                                 |
-| desc               | Service description                                                                                       |
-| exit_code          | The Win32 exit code of the service                                                                        |
-| is_trigger         | If the service is has associated triggers                                                                 |
-| legacy_state       | Get legacy state (deprecated and only used by check_nt)                                                   |
-| name               | Service name                                                                                              |
-| pid                | Process id                                                                                                |
-| start_type         | The configured start type ()                                                                              |
-| state              | The current state ()                                                                                      |
-| state_is_ok()      | Check if the state is ok, i.e. all running services are runningelayed services are allowed to be stopped) |
-| state_is_perfect() | Check if the state is ok, i.e. all running services are running                                           |
-| triggers           | The number of associated triggers for this service                                                        |
+| Option             | Description                                                                                                  |
+|--------------------|--------------------------------------------------------------------------------------------------------------|
+| classification     | Get classification                                                                                           |
+| delayed            | If the service is delayed                                                                                    |
+| desc               | Service description                                                                                          |
+| exit_code          | The Win32 exit code of the service                                                                           |
+| is_trigger         | If the service is has associated triggers                                                                    |
+| legacy_state       | Get legacy state (deprecated and only used by check_nt)                                                      |
+| name               | Service name                                                                                                 |
+| pid                | Process id                                                                                                   |
+| start_type         | The configured start type ()                                                                                 |
+| state              | The current state ()                                                                                         |
+| state_is_ok()      | Check if the state is ok, i.e. all running services are running (delayed services are allowed to be stopped) |
+| state_is_perfect() | Check if the state is ok, i.e. all running services are running                                              |
+| triggers           | The number of associated triggers for this service                                                           |
 
 **Common options for all checks:**
 
