@@ -42,12 +42,13 @@ std::string win_list_services::get_service_classification(const std::string &nam
 }
 
 void win_list_services::init() {
+  // == essential: Core services expected to be running ==
   smap["BITS"] = "essential";
-  smap["COMSysApp"] = "essential";
+  smap["CoreMessagingRegistrar"] = "essential";
   smap["Dnscache"] = "essential";
   smap["DPS"] = "essential";
   smap["EventLog"] = "essential";
-  smap["Eventsystem"] = "essential";
+  smap["EventSystem"] = "essential";
   smap["iphlpsvc"] = "essential";
   smap["LanmanServer"] = "essential";
   smap["LanmanWorkstation"] = "essential";
@@ -57,6 +58,7 @@ void win_list_services::init() {
   smap["ProfSvc"] = "essential";
   smap["RpcEptMapper"] = "essential";
   smap["RpcSs"] = "essential";
+  smap["StateRepository"] = "essential";
   smap["UALSVC"] = "essential";
   smap["vmicheartbeat"] = "essential";
   smap["vmicshutdown"] = "essential";
@@ -64,28 +66,55 @@ void win_list_services::init() {
   smap["VMTools"] = "essential";
   smap["Winmgmt"] = "essential";
   smap["WinRM"] = "essential";
+
+  // == system: Low-level OS infrastructure ==
+  smap["BFE"] = "system";
+  smap["BrokerInfrastructure"] = "system";
+  smap["DcomLaunch"] = "system";
+  smap["LSM"] = "system";
+  smap["Power"] = "system";
+  smap["SamSs"] = "system";
+  smap["Schedule"] = "system";
+  smap["SecurityHealthService"] = "system";
+  smap["SystemEventsBroker"] = "system";
+  smap["WinDefend"] = "system";
+
+  // == ignored: Trigger-start, one-shot, or on-demand services ==
   smap["ALG"] = "ignored";
   smap["AppReadiness"] = "ignored";
   smap["AppXSvc"] = "ignored";
+  smap["ClipSVC"] = "ignored";
+  smap["COMSysApp"] = "ignored";
+  smap["DoSvc"] = "ignored";
   smap["dot3svc"] = "ignored";
   smap["DsmSvc"] = "ignored";
   smap["EFS"] = "ignored";
   smap["hidserv"] = "ignored";
-  smap["lltdsvc"] = "ignored";
+  smap["InstallService"] = "ignored";
+  smap["LicenseManager"] = "ignored";
+  smap["MapsBroker"] = "ignored";
   smap["msiserver"] = "ignored";
+  smap["SDRSVC"] = "ignored";
   smap["SNMPTRAP"] = "ignored";
   smap["SysMain"] = "ignored";
-  smap["TabletInputService"] = "ignored";
   smap["TrustedInstaller"] = "ignored";
   smap["upnphost"] = "ignored";
+  smap["UsoSvc"] = "ignored";
   smap["vmicvss"] = "ignored";
   smap["vmvss"] = "ignored";
   smap["VSS"] = "ignored";
+  smap["WaaSMedicSvc"] = "ignored";
   smap["Wecsvc"] = "ignored";
+  smap["wercplsupport"] = "ignored";
+  smap["WerSvc"] = "ignored";
+  smap["WpnService"] = "ignored";
+  smap["WslInstaller"] = "ignored";
+
+  // == role: Part of an installed Windows Server role or feature ==
   smap["adfssrv"] = "role";
   smap["ADWS"] = "role";
-  smap["BITSCompactServer"] = "role";
   smap["c2wts"] = "role";
+  smap["cexecsvc"] = "role";
   smap["CertSvc"] = "role";
   smap["ClusSvc"] = "role";
   smap["ddpsvc"] = "role";
@@ -100,8 +129,8 @@ void win_list_services::init() {
   smap["FDResPub"] = "role";
   smap["fssagent"] = "role";
   smap["hkmsvc"] = "role";
+  smap["HNS"] = "role";
   smap["IAS"] = "role";
-  smap["IISADMIN"] = "role";
   smap["IKEEXT"] = "role";
   smap["IsmServ"] = "role";
   smap["Kdc"] = "role";
@@ -117,13 +146,11 @@ void win_list_services::init() {
   smap["MSMQ"] = "role";
   smap["MSMQTriggers"] = "role";
   smap["MSSQL$MICROSOFT##WID"] = "role";
-  smap["MSStrgSvc"] = "role";
   smap["NetMsmqActivator"] = "role";
   smap["NetPipeActivator"] = "role";
   smap["NetTcpActivator"] = "role";
   smap["NetTcpPortSharing"] = "role";
   smap["NfsService"] = "role";
-  smap["NtFrs"] = "role";
   smap["OcspSvc"] = "role";
   smap["PeerDistSvc"] = "role";
   smap["PNRPAutoReg"] = "role";
@@ -134,22 +161,19 @@ void win_list_services::init() {
   smap["RasMan"] = "role";
   smap["RDMS"] = "role";
   smap["RemoteAccess"] = "role";
-  smap["RPCHTTPLBS"] = "role";
   smap["RpcLocator"] = "role";
   smap["rqs"] = "role";
   smap["SessionEnv"] = "role";
-  smap["simptcp"] = "role";
   smap["SmbHash"] = "role";
   smap["SmbWitness"] = "role";
   smap["smphost"] = "role";
-  smap["SMTPSVC"] = "role";
   smap["SNMP"] = "role";
   smap["SrmReports"] = "role";
   smap["SrmSvc"] = "role";
+  smap["sshd"] = "role";
   smap["SstpSvc"] = "role";
   smap["stisvc"] = "role";
   smap["StorSvc"] = "role";
-  smap["svsvc"] = "role";
   smap["SyncShareSvc"] = "role";
   smap["SyncShareTTSvc"] = "role";
   smap["TapiSrv"] = "role";
@@ -157,68 +181,59 @@ void win_list_services::init() {
   smap["TermServLicensing"] = "role";
   smap["THREADORDER"] = "role";
   smap["TieringEngineService"] = "role";
-  smap["TimeBroker"] = "role";
-  smap["TlntSvr"] = "role";
   smap["TPAutoConnSvc"] = "role";
   smap["TPVCGateway"] = "role";
   smap["TrkWks"] = "role";
   smap["TScPubRPC"] = "role";
   smap["TSGateway"] = "role";
   smap["Tssdis"] = "role";
-  smap["UI0Detect"] = "role";
   smap["UmRdpService"] = "role";
+  smap["vmcompute"] = "role";
   smap["w3logsvc"] = "role";
   smap["W3SVC"] = "role";
   smap["WAS"] = "role";
   smap["wbengine"] = "role";
   smap["WbioSrvc"] = "role";
   smap["WDSServer"] = "role";
-  smap["WEPHOSTSVC"] = "role";
-  smap["wercplsupport"] = "role";
-  smap["WerSvc"] = "role";
-  smap["WFFSvc"] = "role";
   smap["WiaRpc"] = "role";
   smap["WIDWriter"] = "role";
   smap["WinTarget"] = "role";
-  smap["WSusCertServer"] = "role";
   smap["WsusService"] = "role";
+
+  // == supporting: General supporting services ==
   smap["AeLookupSvc"] = "supporting";
   smap["AppHostSvc"] = "supporting";
   smap["AppIDSvc"] = "supporting";
   smap["Appinfo"] = "supporting";
   smap["AppMgmt"] = "supporting";
-  smap["aspnet_state"] = "supporting";
   smap["AudioEndpointBuilder"] = "supporting";
   smap["Audiosrv"] = "supporting";
   smap["AxInstSV"] = "supporting";
   smap["BDESVC"] = "supporting";
-  smap["Browser"] = "supporting";
+  smap["CDPSvc"] = "supporting";
   smap["CertPropSvc"] = "supporting";
   smap["CryptSvc"] = "supporting";
-  smap["CscService"] = "supporting";
   smap["defragsvc"] = "supporting";
   smap["DeviceAssociationService"] = "supporting";
   smap["DeviceInstall"] = "supporting";
   smap["Dhcp"] = "supporting";
   smap["DiagTrack"] = "supporting";
+  smap["DsSvc"] = "supporting";
   smap["FontCache"] = "supporting";
   smap["gpsvc"] = "supporting";
-  smap["IEEtwCollectorService"] = "supporting";
   smap["lmhosts"] = "supporting";
-  smap["napagent"] = "supporting";
+  smap["LxssManager"] = "supporting";
   smap["NcaSvc"] = "supporting";
   smap["NcbService"] = "supporting";
   smap["Netman"] = "supporting";
   smap["netprofm"] = "supporting";
   smap["NlaSvc"] = "supporting";
   smap["nsi"] = "supporting";
-  smap["p2pimsvc"] = "supporting";
   smap["PerfHost"] = "supporting";
   smap["PlugPlay"] = "supporting";
   smap["PolicyAgent"] = "supporting";
   smap["QWAVE"] = "supporting";
   smap["RemoteRegistry"] = "supporting";
-  smap["RSoPProv"] = "supporting";
   smap["sacsvr"] = "supporting";
   smap["SCardSvr"] = "supporting";
   smap["ScDeviceEnum"] = "supporting";
@@ -231,8 +246,8 @@ void win_list_services::init() {
   smap["sppsvc"] = "supporting";
   smap["SSDPSRV"] = "supporting";
   smap["swprv"] = "supporting";
-  smap["systemEventsBroker"] = "supporting";
   smap["Themes"] = "supporting";
+  smap["UserManager"] = "supporting";
   smap["VaultSvc"] = "supporting";
   smap["vds"] = "supporting";
   smap["vmicguestinterface"] = "supporting";
@@ -252,14 +267,6 @@ void win_list_services::init() {
   smap["WSService"] = "supporting";
   smap["wuauserv"] = "supporting";
   smap["wudfsvc"] = "supporting";
-  smap["BFE"] = "system";
-  smap["BrokerInfrastructure"] = "system";
-  smap["DcomLaunch"] = "system";
-  smap["LSM"] = "system";
-  smap["Power"] = "system";
-  smap["SamSs"] = "system";
-  smap["Schedule"] = "system";
-  smap["WinDefend"] = "system";
 }
 
 struct service_closer {
