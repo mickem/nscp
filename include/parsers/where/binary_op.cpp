@@ -50,7 +50,7 @@ value_type binary_op::infer_type(const object_converter converter) {
 
 std::string binary_op::to_string() const {
   std::stringstream ss;
-  ss << "(" << helpers::type_to_string(get_type()) + "){" << left->to_string() << " " << helpers::operator_to_string(op) << " " << right->to_string() << "}";
+  ss << "{" << helpers::type_to_string(get_type()) + "}(" << left->to_string() << " " << helpers::operator_to_string(op) << " " << right->to_string() << ")";
   return ss.str();
 }
 std::string binary_op::to_string(const evaluation_context context) const {

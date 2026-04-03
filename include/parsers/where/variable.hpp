@@ -249,7 +249,7 @@ struct int_variable_node : any_node {
     }
     return name_ + "?";
   }
-  std::string to_string() const override { return "(int)var:" + name_; }
+  std::string to_string() const override { return "{int}" + name_; }
   value_type infer_type(object_converter converter, const value_type vt) override {
     if (helpers::type_is_int(vt)) return get_type();
     if (helpers::type_is_float(vt)) set_type(vt);
@@ -338,7 +338,7 @@ struct float_variable_node : any_node {
     }
     return "(float)var:" + name_;
   }
-  std::string to_string() const override { return "(float)var:" + name_; }
+  std::string to_string() const override { return "{float}" + name_; }
   value_type infer_type(object_converter converter, const value_type vt) override {
     if (helpers::type_is_int(vt)) set_type(vt);
     return get_type();
@@ -428,7 +428,7 @@ struct str_variable_node : any_node {
     }
     return "(string)var:" + name_;
   }
-  std::string to_string() const override { return "(string)var:" + name_; }
+  std::string to_string() const override { return "{string}" + name_; }
   value_type infer_type(object_converter, value_type) override { return get_type(); }
   value_type infer_type(object_converter) override { return get_type(); }
   bool find_performance_data(evaluation_context context, performance_collector &collector) override {
@@ -534,9 +534,9 @@ struct dual_variable_node : any_node {
   }
 
   std::string to_string() const override {
-    if (is_int()) return "(int)var:" + name_;
-    if (is_string()) return "(string)var:" + name_;
-    return "(?)var:" + name_;
+    if (is_int()) return "{int}" + name_;
+    if (is_string()) return "{string}" + name_;
+    return "{" + helpers::type_to_string(get_type()) + "}" + name_;
   }
   value_type infer_type(object_converter converter, value_type suggestion) override {
     if (helpers::type_is_int(suggestion)) {
@@ -607,7 +607,7 @@ struct custom_function_node : any_node {
     if (fun) return fun(type_string, context, subject)->get_string_value(context);
     return "(string)fun:" + name_;
   }
-  std::string to_string() const override { return "(string)fun:" + name_; }
+  std::string to_string() const override { return "{string}" + name_ + "()"; }
   value_type infer_type(object_converter converter, value_type) override { return type_string; }
   value_type infer_type(object_converter converter) override { return type_string; }
   bool find_performance_data(evaluation_context context, performance_collector &) override {
@@ -678,7 +678,7 @@ struct summary_int_variable_node : any_node {
     }
     return name_ + "?";
   }
-  std::string to_string() const override { return "(int)var:" + name_; }
+  std::string to_string() const override { return "{int}" + name_ + "()"; }
   value_type infer_type(object_converter converter, value_type) override { return get_type(); }
   value_type infer_type(object_converter converter) override { return get_type(); }
   bool find_performance_data(evaluation_context context, performance_collector &collector) override {
@@ -754,7 +754,7 @@ struct summary_string_variable_node : any_node {
     if (native_context != nullptr && fun) return fun(native_context->get_summary());
     return "(str)var:" + name_;
   }
-  std::string to_string() const override { return "(str)var:" + name_; }
+  std::string to_string() const override { return "{str}" + name_ + "()"; }
   value_type infer_type(object_converter converter, value_type) override { return get_type(); }
   value_type infer_type(object_converter converter) override { return get_type(); }
   bool find_performance_data(evaluation_context, performance_collector &) override { return false; }

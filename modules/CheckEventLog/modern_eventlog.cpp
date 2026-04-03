@@ -204,7 +204,7 @@ eventlog_table fetch_table(api::EVT_HANDLE PublisherMetadata, api::EVT_PUBLISHER
   if (eventlog::EvtGetPublisherMetadataProperty(PublisherMetadata, PropertyId, 0, 0, NULL, &dwBufferSize)) return ret;
   hlp::buffer<wchar_t, eventlog::api::PEVT_VARIANT> buffer1(dwBufferSize + 10);
 
-  if (!eventlog::EvtGetPublisherMetadataProperty(PublisherMetadata, PropertyId, 0, buffer1.size(), buffer1.get(), &dwBufferSize)) {
+  if (!eventlog::EvtGetPublisherMetadataProperty(PublisherMetadata, PropertyId, 0, static_cast<DWORD>(buffer1.size()), buffer1.get(), &dwBufferSize)) {
     return ret;
   }
   eventlog::api::PEVT_VARIANT var1 = buffer1.get();
@@ -214,12 +214,12 @@ eventlog_table fetch_table(api::EVT_HANDLE PublisherMetadata, api::EVT_PUBLISHER
     return ret;
   }
   hlp::buffer<wchar_t, eventlog::api::PEVT_VARIANT> buffer2(4096);
-  for (int i = 0; i < dwArraySize; i++) {
-    if (!eventlog::EvtGetObjectArrayProperty(var1->EvtHandleVal, KeyPropertyId, i, 0, buffer2.size(), buffer2.get(), &dwBufferSize)) {
+  for (DWORD i = 0; i < dwArraySize; i++) {
+    if (!eventlog::EvtGetObjectArrayProperty(var1->EvtHandleVal, KeyPropertyId, i, 0, static_cast<DWORD>(buffer2.size()), buffer2.get(), &dwBufferSize)) {
       status = GetLastError();
       if (status == ERROR_INSUFFICIENT_BUFFER) {
         buffer2.resize(dwBufferSize);
-        if (!eventlog::EvtGetObjectArrayProperty(var1->EvtHandleVal, KeyPropertyId, i, 0, buffer2.size(), buffer2.get(), &dwBufferSize)) {
+        if (!eventlog::EvtGetObjectArrayProperty(var1->EvtHandleVal, KeyPropertyId, i, 0, static_cast<DWORD>(buffer2.size()), buffer2.get(), &dwBufferSize)) {
           return ret;
         }
       } else {
@@ -229,11 +229,11 @@ eventlog_table fetch_table(api::EVT_HANDLE PublisherMetadata, api::EVT_PUBLISHER
     eventlog::api::PEVT_VARIANT varKey = buffer2.get();
     long long key = get_int(varKey);
 
-    if (!eventlog::EvtGetObjectArrayProperty(var1->EvtHandleVal, ValuePropertyId, i, 0, buffer2.size(), buffer2.get(), &dwBufferSize)) {
+    if (!eventlog::EvtGetObjectArrayProperty(var1->EvtHandleVal, ValuePropertyId, i, 0, static_cast<DWORD>(buffer2.size()), buffer2.get(), &dwBufferSize)) {
       status = GetLastError();
       if (status == ERROR_INSUFFICIENT_BUFFER) {
         buffer2.resize(dwBufferSize);
-        if (!eventlog::EvtGetObjectArrayProperty(var1->EvtHandleVal, ValuePropertyId, i, 0, buffer2.size(), buffer2.get(), &dwBufferSize)) {
+        if (!eventlog::EvtGetObjectArrayProperty(var1->EvtHandleVal, ValuePropertyId, i, 0, static_cast<DWORD>(buffer2.size()), buffer2.get(), &dwBufferSize)) {
           return ret;
         }
       } else {

@@ -168,7 +168,7 @@ TEST(StringValue, GetValuePreservesUnsureFlag) {
 
 TEST(StringValue, ToStringWithoutContext) {
   string_value sv("hello");
-  EXPECT_EQ(sv.to_string(), "(s){hello}");
+  EXPECT_EQ(sv.to_string(), "\"hello\"");
 }
 
 TEST(StringValue, ToStringWithContext) {
@@ -283,7 +283,7 @@ TEST(IntValue, GetValueAsUnknownTypeSetsError) {
   int_value iv(42);
   auto vc = iv.get_value(ctx, type_date);
   EXPECT_TRUE(ctx->has_error());
-  EXPECT_EQ("Failed to convert int to ?: 42", ctx->get_error());
+  EXPECT_EQ("Failed to convert int to date: 42", ctx->get_error());
 }
 
 TEST(IntValue, GetValuePreservesUnsureFlag) {
@@ -313,7 +313,7 @@ TEST(IntValue, GetValueZero) {
 
 TEST(IntValue, ToStringWithoutContext) {
   int_value iv(42);
-  EXPECT_EQ(iv.to_string(), "(i){42}");
+  EXPECT_EQ(iv.to_string(), "42");
 }
 
 TEST(IntValue, ToStringWithContext) {
@@ -324,7 +324,7 @@ TEST(IntValue, ToStringWithContext) {
 
 TEST(IntValue, ToStringNegative) {
   int_value iv(-7);
-  EXPECT_EQ(iv.to_string(), "(i){-7}");
+  EXPECT_EQ(iv.to_string(), "-7");
 }
 
 // ======================================================================
@@ -459,8 +459,7 @@ TEST(FloatValue, GetValueZero) {
 TEST(FloatValue, ToStringWithoutContext) {
   float_value fv(3.14);
   std::string result = fv.to_string();
-  EXPECT_NE(result.find("(f){"), std::string::npos);
-  EXPECT_NE(result.find("3.14"), std::string::npos);
+  EXPECT_EQ(result, "3.14");
 }
 
 TEST(FloatValue, ToStringWithContext) {

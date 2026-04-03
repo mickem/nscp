@@ -51,6 +51,15 @@ add_definitions(-DMG_ENABLE_THREADS)
 add_definitions(-DMG_TLS=MG_TLS_OPENSSL)
 add_definitions(${NSCP_GLOBAL_DEFINES})
 
+# Disable warnings for third-party mongoose library
+if(MSVC)
+    set_source_files_properties(
+        ${MONGOOSE_INCLUDE_DIR}/mongoose.c
+        PROPERTIES
+            COMPILE_OPTIONS "/wd4201;/wd4204;/wd4267;/wd4310"
+    )
+endif()
+
 include_directories("${MONGOOSE_INCLUDE_DIR}")
 if(OPENSSL_FOUND)
     include_directories("${OPENSSL_INCLUDE_DIR}")

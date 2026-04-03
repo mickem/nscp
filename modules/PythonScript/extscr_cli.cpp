@@ -48,7 +48,7 @@ namespace fs = boost::filesystem;
 
 namespace json = boost::json;
 
-extscr_cli::extscr_cli(boost::shared_ptr<script_provider_interface> provider, std::string alias_) : provider_(std::move(provider)), alias_(alias_) {}
+extscr_cli::extscr_cli(std::shared_ptr<script_provider_interface> provider, std::string alias_) : provider_(std::move(provider)), alias_(alias_) {}
 
 bool extscr_cli::run(std::string cmd, const PB::Commands::ExecuteRequestMessage_Request &request, PB::Commands::ExecuteResponseMessage_Response *response) {
   if (cmd == "add")

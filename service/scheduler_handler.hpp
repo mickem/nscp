@@ -54,8 +54,6 @@ struct scheduler : public simple_scheduler::handler {
   virtual void on_trace(const char* file, int line, std::string error);
   void set_threads(int count);
 
-  unsigned int get_metrics_interval() const {
-    return metrics_interval_;
-  }
+  unsigned int get_metrics_interval() const { return metrics_interval_; }
 };
 }  // namespace task_scheduler

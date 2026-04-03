@@ -200,10 +200,17 @@ class connection : public boost::enable_shared_from_this<connection<protocol_typ
   //////////////////////////////////////////////////////////////////////////
   // Internal helper functions
   //
-  inline void trace(std::string msg) const {
+  void trace(std::string msg) const {
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4127)  // conditional expression is constant
+#endif
     if (protocol_type::debug_trace && handler_) handler_->log_debug(__FILE__, __LINE__, msg);
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
   }
-  inline void log_error(std::string _file, int _line, std::string msg) const {
+  void log_error(std::string _file, int _line, std::string msg) const {
     if (handler_) handler_->log_error(__FILE__, __LINE__, msg);
   }
 

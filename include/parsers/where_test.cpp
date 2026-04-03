@@ -150,7 +150,7 @@ TEST(WhereParser, ParseSimpleIntegerLiteral) {
   parser p;
   EXPECT_TRUE(p.parse(make_factory(), "42"));
   EXPECT_TRUE(p.rest.empty());
-  EXPECT_EQ(p.result_as_tree(), "(i){42}");
+  EXPECT_EQ(p.result_as_tree(), "42");
 }
 
 TEST(WhereParser, ParseNegativeIntegerLiteral) {
@@ -163,7 +163,7 @@ TEST(WhereParser, ParseStringLiteral) {
   parser p;
   EXPECT_TRUE(p.parse(make_factory(), "'hello'"));
   EXPECT_TRUE(p.rest.empty());
-  EXPECT_EQ(p.result_as_tree(), "(s){hello}");
+  EXPECT_EQ(p.result_as_tree(), "\"hello\"");
 }
 
 // ======================================================================

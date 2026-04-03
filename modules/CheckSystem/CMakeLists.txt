@@ -18,6 +18,7 @@ set(SRCS
     check_network.cpp
     check_temperature.cpp
     check_cpu_frequency.cpp
+    check_service.cpp
     check_process.cpp
     check_memory.cpp
     check_pdh.cpp
@@ -59,6 +60,7 @@ if(WIN32)
         filter_config_object.hpp
         realtime_data.hpp
         check_network.hpp
+        check_service.h
         check_temperature.hpp
         check_cpu_frequency.hpp
         check_process.hpp
@@ -105,10 +107,12 @@ NSCP_CREATE_TEST(
         check_pdh_test.cpp
         check_network_test.cpp
         check_temperature_test.cpp
+        check_service_test.cpp
         check_system_test.cpp
         tick_count.cpp
         check_cpu_frequency.cpp
         check_temperature.cpp
+        check_service.cpp
         check_network.cpp
         check_pdh.cpp
         pdh_thread.cpp

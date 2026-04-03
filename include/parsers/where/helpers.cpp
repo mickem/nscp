@@ -32,10 +32,10 @@ std::string type_to_string(const value_type type) {
   if (type == type_size) return "size";
   if (type == type_invalid) return "invalid";
   if (type == type_tbd) return "tbd";
-  if (type >= type_custom) return "u:" + str::xtos(type - type_custom);
-  if (type >= type_custom_float) return "uf:" + str::xtos(type - type_custom_float);
-  if (type >= type_custom_string) return "us:" + str::xtos(type - type_custom_string);
-  if (type >= type_custom_int) return "ui:" + str::xtos(type - type_custom_int);
+  if (type >= type_custom) return "custom_" + str::xtos(type - type_custom);
+  if (type >= type_custom_float) return "float_" + str::xtos(type - type_custom_float);
+  if (type >= type_custom_string) return "string_" + str::xtos(type - type_custom_string);
+  if (type >= type_custom_int) return "int_" + str::xtos(type - type_custom_int);
   return "unknown:" + str::xtos(type);
 }
 
@@ -67,6 +67,12 @@ std::string operator_to_string(operators const &identifier) {
   if (identifier == op_binand) return "&";
   if (identifier == op_binor) return "|";
   if (identifier == op_like) return "like";
+  if (identifier == op_not_like) return "not_like";
+  if (identifier == op_ne) return "!=";
+  if (identifier == op_inv) return "invert";
+  if (identifier == op_not) return "not";
+  if (identifier == op_regexp) return "regexp";
+  if (identifier == op_not_regexp) return "not_regexp";
   return "?";
 }
 

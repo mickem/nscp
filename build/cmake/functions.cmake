@@ -153,13 +153,7 @@ macro(OPENSSL_LINK_FIX _TARGET)
             ${_TARGET}
             PROPERTIES
                 LINK_FLAGS
-                    /SAFESEH:NO
-        )
-        set_target_properties(
-            ${_TARGET}
-            PROPERTIES
-                LINK_FLAGS
-                    /IGNORE:4099
+                    "/SAFESEH:NO /IGNORE:4099"
         )
     endif(WIN32)
 endmacro(OPENSSL_LINK_FIX)

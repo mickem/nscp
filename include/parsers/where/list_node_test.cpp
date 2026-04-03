@@ -110,7 +110,7 @@ TEST(ListNode, EmptyListToStringWithContext) {
 TEST(ListNode, SingleElementToString) {
   list_node node;
   node.push_back(factory::create_string("hello"));
-  EXPECT_EQ(node.to_string(), "(s){hello}");
+  EXPECT_EQ(node.to_string(), "\"hello\"");
 }
 
 TEST(ListNode, MultipleElementsToString) {
@@ -118,7 +118,7 @@ TEST(ListNode, MultipleElementsToString) {
   node.push_back(factory::create_string("a"));
   node.push_back(factory::create_string("b"));
   node.push_back(factory::create_string("c"));
-  EXPECT_EQ(node.to_string(), "(s){a}, (s){b}, (s){c}");
+  EXPECT_EQ(node.to_string(), "\"a\", \"b\", \"c\"");
 }
 
 TEST(ListNode, SingleElementToStringWithContext) {
@@ -140,14 +140,14 @@ TEST(ListNode, IntElementsToString) {
   list_node node;
   node.push_back(factory::create_int(42));
   node.push_back(factory::create_int(99));
-  EXPECT_EQ(node.to_string(), "(i){42}, (i){99}");
+  EXPECT_EQ(node.to_string(), "42, 99");
 }
 
 TEST(ListNode, MixedElementsToString) {
   list_node node;
   node.push_back(factory::create_string("hello"));
   node.push_back(factory::create_int(42));
-  EXPECT_EQ(node.to_string(), "(s){hello}, (i){42}");
+  EXPECT_EQ(node.to_string(), "\"hello\", 42");
 }
 
 // ======================================================================
@@ -386,14 +386,14 @@ TEST(ListNode, FactoryCreateListFromStrings) {
   const std::list<std::string> items = {"alpha", "beta", "gamma"};
   const auto node = factory::create_list(items);
   ASSERT_TRUE(node);
-  EXPECT_EQ(node->to_string(), "(s){alpha}, (s){beta}, (s){gamma}");
+  EXPECT_EQ(node->to_string(), "\"alpha\", \"beta\", \"gamma\"");
 }
 
 TEST(ListNode, FactoryCreateListFromInts) {
   const std::list<long long> items = {1, 2, 3};
   const auto node = factory::create_list(items);
   ASSERT_TRUE(node);
-  EXPECT_EQ(node->to_string(), "(i){1}, (i){2}, (i){3}");
+  EXPECT_EQ(node->to_string(), "1, 2, 3");
 }
 
 TEST(ListNode, FactoryCreateListFromDoubles) {
@@ -415,7 +415,7 @@ TEST(ListNode, FactoryCreateListPushBack) {
   const auto node = factory::create_list();
   node->push_back(factory::create_string("one"));
   node->push_back(factory::create_string("two"));
-  EXPECT_EQ(node->to_string(), "(s){one}, (s){two}");
+  EXPECT_EQ(node->to_string(), "\"one\", \"two\"");
 }
 
 TEST(ListNode, FactoryCreateListFromEmptyStringList) {

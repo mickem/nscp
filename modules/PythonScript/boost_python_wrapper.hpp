@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2016 Michael Medin
+ * Copyright (C) 2004-2026 Michael Medin
  *
  * This file is part of NSClient++ - https://nsclient.org
  *
@@ -19,20 +19,17 @@
 
 #pragma once
 
-// We are using the Visual Studio Compiler and building Shared libraries
-// Only define NSCAPI_EXPORT if not already defined by nscapi/dll_defines.hpp
-#ifndef NSCAPI_EXPORT
-#if defined(_WIN32)
-#if defined(nscp_where_filter_NOLIB)
-#define NSCAPI_EXPORT
-#else
-#if defined(nscp_where_filter_EXPORTS)
-#define NSCAPI_EXPORT __declspec(dllexport)
-#else
-#define NSCAPI_EXPORT __declspec(dllimport)
-#endif /* nscp_where_filter_EXPORTS */
-#endif /* nscp_where_filter_NOLIB */
-#else  /* defined (_WIN32) */
-#define NSCAPI_EXPORT
+// Wrapper for Boost.Python includes to suppress third-party warnings
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4244)  // conversion from 'long double' to 'double', possible loss of data
 #endif
-#endif /* NSCAPI_EXPORT */
+
+#include <boost/python.hpp>
+#include <boost/python/dict.hpp>
+#include <boost/python/suite/indexing/vector_indexing_suite.hpp>
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+

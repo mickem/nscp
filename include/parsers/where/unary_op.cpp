@@ -23,7 +23,9 @@
 
 namespace parsers {
 namespace where {
-std::string unary_op::to_string() const { return helpers::operator_to_string(op) + " ( " + subject->to_string() + " ) "; }
+std::string unary_op::to_string() const {
+  return "{" + helpers::type_to_string(get_type()) + "}" + helpers::operator_to_string(op) + "( " + subject->to_string() + " ) ";
+}
 std::string unary_op::to_string(const evaluation_context context) const {
   return helpers::operator_to_string(op) + " ( " + subject->to_string(context) + " ) ";
 }
@@ -47,8 +49,11 @@ value_type unary_op::infer_type(const object_converter converter, const value_ty
   return helpers::get_return_type(op, wanted_type);
 }
 value_type unary_op::infer_type(const object_converter converter) {
-  const value_type wanted_type = subject->infer_type(converter);
-  return helpers::get_return_type(op, wanted_type);
+  value_type inferred_type = subject->infer_type(converter);
+  if (inferred_type == type_invalid) return inferred_type;
+  inferred_type = helpers::get_return_type(op, inferred_type);
+  set_type(inferred_type);
+  return inferred_type;
 }
 bool unary_op::find_performance_data(const evaluation_context context, performance_collector &collector) {
   return subject->find_performance_data(context, collector);

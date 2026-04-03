@@ -110,7 +110,7 @@ void has_threads::runThread(Callable f, boost::thread* tp) {
 
   try {
     f();
-  } catch (boost::thread_interrupted& e) {
+  } catch (boost::thread_interrupted&) {
     // Yes, we should catch this exception! Letting it bubble over is _potentially_ dangerous:
     // http://stackoverflow.com/questions/6375121
 

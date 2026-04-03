@@ -1749,6 +1749,33 @@ This call will measure values and then sleep for 2 second and then measure again
 
 Check the state of one or more of the computer services.
 
+#### `state_is_ok`
+
+Helper function that checks if the state of a service is "OK". It returns `True` if the state is "OK" and `False` otherwise.
+This can be used in filter expressions to warn about services that are not running properly.
+
+| Configured            | State     | exit_code | Result of `state_is_ok` |
+|-----------------------|-----------|-----------|-------------------------|
+| auto-start            | running   | any       | ✅ ok                    |
+| delayed auto-start    | stopped   | any       | ✅ ok                    |
+| auto-start + triggers | stopped   | any       | ✅ ok                    |
+| auto-start            | stopped   | 0         | ✅ ok                    |
+| auto-start            | stopped   | non zero  | ❌ not ok                |
+| demand-start          | any state | any       | ✅ ok                    |
+
+#### `state_is_perfect`
+
+Helper function that checks if the state of a service is "perfect". It returns `True` if the state is "perfect" and `False` otherwise.
+This can be used in filter expressions to warn about services that are not running perfectly.
+
+| Configured            | State     | Result of `state_is_perfect` |
+|-----------------------|-----------|------------------------------|
+| auto-start            | running   | ✅ perfect                    |
+| auto-start            | stopped   | ❌ not perfect                |
+| auto-start + triggers | stopped   | ✅ perfect                    |
+| demand-start          | any state | ✅ perfect                    |
+| disabled              | stopped   | ✅ perfect                    |
+
 
 **Jump to section:**
 
@@ -1851,39 +1878,39 @@ check_service service=nscp "crit=state = 'started'" warn=none
 #### Command-line Arguments
 
 
-| Option                                        | Default Value                                   | Description                                                                                                                                           |
-|-----------------------------------------------|-------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_service_filter)               |                                                 | Filter which marks interesting items.                                                                                                                 |
-| [warning](#check_service_warning)             | not state_is_perfect()                          | Filter which marks items which generates a warning state.                                                                                             |
-| warn                                          |                                                 | Short alias for warning                                                                                                                               |
-| [critical](#check_service_critical)           | not state_is_ok()                               | Filter which marks items which generates a critical state.                                                                                            |
-| crit                                          |                                                 | Short alias for critical.                                                                                                                             |
-| [ok](#check_service_ok)                       |                                                 | Filter which marks items which generates an ok state.                                                                                                 |
-| debug                                         | N/A                                             | Show debugging information in the log                                                                                                                 |
-| show-all                                      | N/A                                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                      |
-| [empty-state](#check_service_empty-state)     | unknown                                         | Return status to use when nothing matched filter.                                                                                                     |
-| [perf-config](#check_service_perf-config)     |                                                 | Performance data generation configuration                                                                                                             |
-| escape-html                                   | N/A                                             | Escape any < and > characters to prevent HTML encoding                                                                                                |
-| help                                          | N/A                                             | Show help screen (this screen)                                                                                                                        |
-| help-pb                                       | N/A                                             | Show help screen as a protocol buffer payload                                                                                                         |
-| show-default                                  | N/A                                             | Show default values for a given command                                                                                                               |
-| help-short                                    | N/A                                             | Show help screen (short format).                                                                                                                      |
-| [top-syntax](#check_service_top-syntax)       | ${status}: ${crit_list}, delayed (${warn_list}) | Top level syntax.                                                                                                                                     |
-| [ok-syntax](#check_service_ok-syntax)         | %(status): All %(count) service(s) are ok.      | ok syntax.                                                                                                                                            |
-| [empty-syntax](#check_service_empty-syntax)   | %(status): No services found                    | Empty syntax.                                                                                                                                         |
-| [detail-syntax](#check_service_detail-syntax) | ${name}=${state} (${start_type})                | Detail level syntax.                                                                                                                                  |
-| [perf-syntax](#check_service_perf-syntax)     | ${name}                                         | Performance alias syntax.                                                                                                                             |
-| computer                                      |                                                 | The name of the remote computer to check                                                                                                              |
-| service                                       |                                                 | The service to check, set this to * to check all services                                                                                             |
-| exclude                                       |                                                 | A list of services to ignore (mainly useful in combination with service=*)                                                                            |
-| [type](#check_service_type)                   | service                                         | The types of services to enumerate available types are driver, file-system-driver, kernel-driver, service, service-own-process, service-share-process |
-| [state](#check_service_state)                 | all                                             | The types of services to enumerate available states are active, inactive or all                                                                       |
-| only-essential                                | N/A                                             | Set filter to classification = 'essential'                                                                                                            |
-| only-ignored                                  | N/A                                             | Set filter to classification = 'ignored'                                                                                                              |
-| only-role                                     | N/A                                             | Set filter to classification = 'role'                                                                                                                 |
-| only-supporting                               | N/A                                             | Set filter to classification = 'supporting'                                                                                                           |
-| only-system                                   | N/A                                             | Set filter to classification = 'system'                                                                                                               |
-| only-user                                     | N/A                                             | Set filter to classification = 'user'                                                                                                                 |
+| Option                                        | Default Value                                           | Description                                                                                                                                           |
+|-----------------------------------------------|---------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_service_filter)               |                                                         | Filter which marks interesting items.                                                                                                                 |
+| [warning](#check_service_warning)             | not state_is_perfect()                                  | Filter which marks items which generates a warning state.                                                                                             |
+| warn                                          |                                                         | Short alias for warning                                                                                                                               |
+| [critical](#check_service_critical)           | not state_is_ok()                                       | Filter which marks items which generates a critical state.                                                                                            |
+| crit                                          |                                                         | Short alias for critical.                                                                                                                             |
+| [ok](#check_service_ok)                       |                                                         | Filter which marks items which generates an ok state.                                                                                                 |
+| debug                                         | N/A                                                     | Show debugging information in the log                                                                                                                 |
+| show-all                                      | N/A                                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                      |
+| [empty-state](#check_service_empty-state)     | unknown                                                 | Return status to use when nothing matched filter.                                                                                                     |
+| [perf-config](#check_service_perf-config)     |                                                         | Performance data generation configuration                                                                                                             |
+| escape-html                                   | N/A                                                     | Escape any < and > characters to prevent HTML encoding                                                                                                |
+| help                                          | N/A                                                     | Show help screen (this screen)                                                                                                                        |
+| help-pb                                       | N/A                                                     | Show help screen as a protocol buffer payload                                                                                                         |
+| show-default                                  | N/A                                                     | Show default values for a given command                                                                                                               |
+| help-short                                    | N/A                                                     | Show help screen (short format).                                                                                                                      |
+| [top-syntax](#check_service_top-syntax)       | ${status}: ${crit_list}, delayed (${warn_list})         | Top level syntax.                                                                                                                                     |
+| [ok-syntax](#check_service_ok-syntax)         | %(status): All %(count) service(s) are ok.              | ok syntax.                                                                                                                                            |
+| [empty-syntax](#check_service_empty-syntax)   | %(status): No services found                            | Empty syntax.                                                                                                                                         |
+| [detail-syntax](#check_service_detail-syntax) | ${name}=${state}, exit=%(exit_code), type=%(start_type) | Detail level syntax.                                                                                                                                  |
+| [perf-syntax](#check_service_perf-syntax)     | ${name}                                                 | Performance alias syntax.                                                                                                                             |
+| computer                                      |                                                         | The name of the remote computer to check                                                                                                              |
+| service                                       |                                                         | The service to check, set this to * to check all services                                                                                             |
+| exclude                                       |                                                         | A list of services to ignore (mainly useful in combination with service=*)                                                                            |
+| [type](#check_service_type)                   | service                                                 | The types of services to enumerate available types are driver, file-system-driver, kernel-driver, service, service-own-process, service-share-process |
+| [state](#check_service_state)                 | all                                                     | The types of services to enumerate available states are active, inactive or all                                                                       |
+| only-essential                                | N/A                                                     | Set filter to classification = 'essential'                                                                                                            |
+| only-ignored                                  | N/A                                                     | Set filter to classification = 'ignored'                                                                                                              |
+| only-role                                     | N/A                                                     | Set filter to classification = 'role'                                                                                                                 |
+| only-supporting                               | N/A                                                     | Set filter to classification = 'supporting'                                                                                                           |
+| only-system                                   | N/A                                                     | Set filter to classification = 'system'                                                                                                               |
+| only-user                                     | N/A                                                     | Set filter to classification = 'user'                                                                                                                 |
 
 
 
@@ -1959,7 +1986,7 @@ Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-*Default Value:* `${name}=${state} (${start_type})`
+*Default Value:* `${name}=${state}, exit=%(exit_code), type=%(start_type)`
 
 <h5 id="check_service_perf-syntax">perf-syntax:</h5>
 
@@ -1985,20 +2012,21 @@ The types of services to enumerate available states are active, inactive or all
 #### Filter keywords
 
 
-| Option             | Description                                                                                               |
-|--------------------|-----------------------------------------------------------------------------------------------------------|
-| classification     | Get classification                                                                                        |
-| delayed            | If the service is delayed                                                                                 |
-| desc               | Service description                                                                                       |
-| is_trigger         | If the service is has associated triggers                                                                 |
-| legacy_state       | Get legacy state (deprecated and only used by check_nt)                                                   |
-| name               | Service name                                                                                              |
-| pid                | Process id                                                                                                |
-| start_type         | The configured start type ()                                                                              |
-| state              | The current state ()                                                                                      |
-| state_is_ok()      | Check if the state is ok, i.e. all running services are runningelayed services are allowed to be stopped) |
-| state_is_perfect() | Check if the state is ok, i.e. all running services are running                                           |
-| triggers           | The number of associated triggers for this service                                                        |
+| Option             | Description                                                                                                  |
+|--------------------|--------------------------------------------------------------------------------------------------------------|
+| classification     | Get classification                                                                                           |
+| delayed            | If the service is delayed                                                                                    |
+| desc               | Service description                                                                                          |
+| exit_code          | The Win32 exit code of the service                                                                           |
+| is_trigger         | If the service is has associated triggers                                                                    |
+| legacy_state       | Get legacy state (deprecated and only used by check_nt)                                                      |
+| name               | Service name                                                                                                 |
+| pid                | Process id                                                                                                   |
+| start_type         | The configured start type ()                                                                                 |
+| state              | The current state ()                                                                                         |
+| state_is_ok()      | Check if the state is ok, i.e. all running services are running (delayed services are allowed to be stopped) |
+| state_is_perfect() | Check if the state is ok, i.e. all running services are running                                              |
+| triggers           | The number of associated triggers for this service                                                           |
 
 **Common options for all checks:**
 

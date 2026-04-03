@@ -29,29 +29,17 @@
 // helper::parse_prd_name tests
 // ============================================================================
 
-TEST(NetworkHelper, ParsePrdNameNoSpecialChars) {
-  EXPECT_EQ(network_check::helper::parse_prd_name("Intel Ethernet"), "Intel Ethernet");
-}
+TEST(NetworkHelper, ParsePrdNameNoSpecialChars) { EXPECT_EQ(network_check::helper::parse_prd_name("Intel Ethernet"), "Intel Ethernet"); }
 
-TEST(NetworkHelper, ParsePrdNameSquareBrackets) {
-  EXPECT_EQ(network_check::helper::parse_prd_name("NIC [1]"), "NIC (1)");
-}
+TEST(NetworkHelper, ParsePrdNameSquareBrackets) { EXPECT_EQ(network_check::helper::parse_prd_name("NIC [1]"), "NIC (1)"); }
 
-TEST(NetworkHelper, ParsePrdNameHash) {
-  EXPECT_EQ(network_check::helper::parse_prd_name("NIC#2"), "NIC_2");
-}
+TEST(NetworkHelper, ParsePrdNameHash) { EXPECT_EQ(network_check::helper::parse_prd_name("NIC#2"), "NIC_2"); }
 
-TEST(NetworkHelper, ParsePrdNameSlashes) {
-  EXPECT_EQ(network_check::helper::parse_prd_name("a/b\\c"), "a_b_c");
-}
+TEST(NetworkHelper, ParsePrdNameSlashes) { EXPECT_EQ(network_check::helper::parse_prd_name("a/b\\c"), "a_b_c"); }
 
-TEST(NetworkHelper, ParsePrdNameCombined) {
-  EXPECT_EQ(network_check::helper::parse_prd_name("[eth#0/vlan\\1]"), "(eth_0_vlan_1)");
-}
+TEST(NetworkHelper, ParsePrdNameCombined) { EXPECT_EQ(network_check::helper::parse_prd_name("[eth#0/vlan\\1]"), "(eth_0_vlan_1)"); }
 
-TEST(NetworkHelper, ParsePrdNameEmpty) {
-  EXPECT_EQ(network_check::helper::parse_prd_name(""), "");
-}
+TEST(NetworkHelper, ParsePrdNameEmpty) { EXPECT_EQ(network_check::helper::parse_prd_name(""), ""); }
 
 TEST(NetworkHelper, ParseNifNamePassthrough) {
   // parse_nif_name is identity
@@ -222,4 +210,3 @@ TEST_F(NetworkDataTest, FetchedInterfacesAreComplete) {
     EXPECT_TRUE(n.is_compleate());
   }
 }
-

@@ -57,5 +57,6 @@ target_link_libraries(
     ${NSCP_DEF_PLUGIN_LIB}
     ${EXTRA_LIBS}
 )
+OPENSSL_LINK_FIX(${TARGET})
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("Server" REGULAR_EXPRESSION .*include/nrdp/.*)

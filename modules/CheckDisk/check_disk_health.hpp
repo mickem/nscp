@@ -91,9 +91,7 @@ typedef std::list<disk_health> health_type;
 health_type join(const disk_io_check::disks_type &io_data, const disk_free_check::drives_type &free_data);
 
 namespace check {
-void check_disk_health(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
-                       health_type data);
+void check_disk_health(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, health_type data);
 }  // namespace check
 
 }  // namespace disk_health_check
-
