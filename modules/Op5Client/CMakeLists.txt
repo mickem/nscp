@@ -59,4 +59,5 @@ target_link_libraries(
     ${NSCP_DEF_PLUGIN_LIB}
     nscp_mongoose
 )
+OPENSSL_LINK_FIX(${TARGET})
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
