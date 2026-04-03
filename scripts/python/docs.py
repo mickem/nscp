@@ -401,13 +401,13 @@ class root_container(object):
             spath = '%s/samples/%s_samples.md'%(folder, name)
             self.plugins[name].sample = ''
             if os.path.exists(spath):
-                with open(spath) as f:
+                with open(spath, encoding='utf-8') as f:
                     self.plugins[name].sample = f.read()
                     self.plugins[name].sample_source = 'samples/%s_samples.md'%(name)
             spath = '%s/samples/%s_desc.md'%(folder, name)
             self.plugins[name].ext_desc = ''
             if os.path.exists(spath):
-                with open(spath) as f:
+                with open(spath, encoding='utf-8') as f:
                     self.plugins[name].ext_desc = f.read().strip(" \t")
                     self.plugins[name].ext_desc_source = 'samples/%s_desc.md'%(name)
             
@@ -555,7 +555,7 @@ def render_template(hash, template, filename):
         m1 = hashlib.sha256()
         m1.update(data)
         sha1 = m1.digest()
-        with open(filename) as f:
+        with open(filename, encoding='utf-8') as f:
             m2 = hashlib.sha256()
             m2.update(f.read().encode('utf8'))
             sha2 = m2.digest()
@@ -696,14 +696,14 @@ class DocumentationHelper(object):
         spath = '%s/samples/%s_%s_samples.md'%(self.folder, module, command)
         cinfo.sample = ''
         if os.path.exists(spath):
-            with open(spath) as f:
+            with open(spath, encoding='utf-8') as f:
                 cinfo.sample = f.read()
                 cinfo.sample_source = 'samples/%s_%s_samples.md'%(module, command)
 
         spath = '%s/samples/%s_%s_desc.md'%(self.folder, module, command)
         cinfo.ext_desc = ''
         if os.path.exists(spath):
-            with open(spath) as f:
+            with open(spath, encoding='utf-8') as f:
                 cinfo.ext_desc = f.read().strip(" \t")
                 cinfo.ext_desc_source = 'samples/%s_%s_desc.md'%(module, command)
 
