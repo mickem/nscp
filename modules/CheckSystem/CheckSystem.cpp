@@ -778,13 +778,13 @@ void CheckSystem::check_service(const PB::Commands::QueryRequestMessage::Request
   for (const std::string &service : services) {
     if (service == "*") {
       for (const win_list_services::service_info &info :
-           win_list_services::enum_services(computer, win_list_services::parse_service_type(type), win_list_services::parse_service_state(state))) {
+           win_list_services::enum_services(computer, win_list_services::parse_service_type(type), win_list_services::parse_service_state(state), excludes)) {
         if (std::find(excludes.begin(), excludes.end(), info.get_name()) != excludes.end() ||
             std::find(excludes.begin(), excludes.end(), info.get_desc()) != excludes.end())
           continue;
         boost::shared_ptr<win_list_services::service_info> record(new win_list_services::service_info(info));
         filter.match(record);
-        if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed (see log for details)");
+        if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());
       }
     } else {
       try {

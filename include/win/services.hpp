@@ -92,6 +92,6 @@ struct service_info {
 
 DWORD parse_service_type(const std::string str = "service");
 DWORD parse_service_state(const std::string str = "all");
-std::list<service_info> enum_services(const std::string computer, DWORD dwServiceType, DWORD dwServiceState);
+std::list<service_info> enum_services(const std::string computer, DWORD dwServiceType, DWORD dwServiceState, std::vector<std::string> excludes);
 service_info get_service_info(const std::string computer, const std::string service);
 }  // namespace win_list_services

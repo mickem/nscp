@@ -354,7 +354,7 @@ void fetch_delayed(service_handle &hService, service_info &info) {
   }
 }
 
-std::list<service_info> enum_services(const std::string computer, DWORD dwServiceType, DWORD dwServiceState) {
+std::list<service_info> enum_services(const std::string computer, DWORD dwServiceType, DWORD dwServiceState, std::vector<std::string> excludes) {
   std::list<service_info> ret;
   std::wstring comp = utf8::cvt<std::wstring>(computer);
 
@@ -377,6 +377,10 @@ std::list<service_info> enum_services(const std::string computer, DWORD dwServic
   if (!bRet) throw nsclient::nsclient_exception("Failed to enumerate service: " + error::lookup::last_error());
   ENUM_SERVICE_STATUS_PROCESS *data = buf.get();
   for (DWORD i = 0; i < count; ++i) {
+    const auto service_name = utf8::cvt<std::string>(data[i].lpServiceName);
+    if (std::find(excludes.begin(), excludes.end(), service_name) != excludes.end()) {
+      continue;
+    }
     service_info info(utf8::cvt<std::string>(data[i].lpServiceName), utf8::cvt<std::string>(data[i].lpDisplayName));
     info.pid = data[i].ServiceStatusProcess.dwProcessId;
     info.state = data[i].ServiceStatusProcess.dwCurrentState;
