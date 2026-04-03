@@ -41,6 +41,7 @@
 #include "check_cpu_frequency.hpp"
 #include "check_memory.hpp"
 #include "check_process.hpp"
+#include "check_service.h"
 #include "check_temperature.hpp"
 #include "counter_filter.hpp"
 #include "filter.hpp"
@@ -731,72 +732,7 @@ void CheckSystem::checkServiceState(PB::Commands::QueryRequestMessage::Request &
 }
 
 void CheckSystem::check_service(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  typedef check_svc_filter::filter filter_type;
-  modern_filter::data_container data;
-  modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
-  std::vector<std::string> services, excludes;
-  std::string type;
-  std::string state;
-  std::string computer;
-  bool class_e = false, class_i = false, class_r = false, class_s = false, class_y = false, class_u = false;
-
-  filter_type filter;
-  filter_helper.add_options("not state_is_perfect()", "not state_is_ok()", "", filter.get_filter_syntax(), "unknown");
-  filter_helper.add_syntax("${status}: ${crit_list}, delayed (${warn_list})", "${name}=${state}, exit=%(exit_code), type=%(start_type)", "${name}",
-                           "%(status): No services found", "%(status): All %(count) service(s) are ok.");
-  // clang-format off
-  filter_helper.get_desc().add_options()
-    ("computer", po::value<std::string>(&computer), "The name of the remote computer to check")
-    ("service", po::value<std::vector<std::string>>(&services), "The service to check, set this to * to check all services")
-    ("exclude", po::value<std::vector<std::string>>(&excludes), "A list of services to ignore (mainly useful in combination with service=*)")
-    ("type", po::value<std::string>(&type)->default_value("service"), "The types of services to enumerate available types are driver, file-system-driver, kernel-driver, service, service-own-process, service-share-process")
-    ("state", po::value<std::string>(&state)->default_value("all"), "The types of services to enumerate available states are active, inactive or all")
-    ("only-essential", po::bool_switch(&class_e), "Set filter to classification = 'essential'")
-    ("only-ignored", po::bool_switch(&class_i), "Set filter to classification = 'ignored'")
-    ("only-role", po::bool_switch(&class_r), "Set filter to classification = 'role'")
-    ("only-supporting", po::bool_switch(&class_s), "Set filter to classification = 'supporting'")
-    ("only-system", po::bool_switch(&class_y), "Set filter to classification = 'system'")
-    ("only-user", po::bool_switch(&class_u), "Set filter to classification = 'user'")
-    ;
-  // clang-format on
-
-  if (!filter_helper.parse_options()) return;
-  if (class_e) filter_helper.append_all_filters("and", "classification = 'essential'");
-  if (class_i) filter_helper.append_all_filters("and", "classification = 'ignored'");
-  if (class_r) filter_helper.append_all_filters("and", "classification = 'role'");
-  if (class_s) filter_helper.append_all_filters("and", "classification = 'supporting'");
-  if (class_y) filter_helper.append_all_filters("and", "classification = 'system'");
-  if (class_u) filter_helper.append_all_filters("and", "classification = 'user'");
-
-  if (services.empty()) {
-    services.push_back("*");
-  } else {
-    if (filter_helper.data.perf_config.empty()) filter_helper.data.perf_config = "extra(state)";
-  }
-  if (!filter_helper.build_filter(filter)) return;
-
-  for (const std::string &service : services) {
-    if (service == "*") {
-      for (const win_list_services::service_info &info :
-           win_list_services::enum_services(computer, win_list_services::parse_service_type(type), win_list_services::parse_service_state(state), excludes)) {
-        if (std::find(excludes.begin(), excludes.end(), info.get_name()) != excludes.end() ||
-            std::find(excludes.begin(), excludes.end(), info.get_desc()) != excludes.end())
-          continue;
-        boost::shared_ptr<win_list_services::service_info> record(new win_list_services::service_info(info));
-        filter.match(record);
-        if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());
-      }
-    } else {
-      try {
-        win_list_services::service_info info = win_list_services::get_service_info(computer, service);
-        boost::shared_ptr<win_list_services::service_info> record(new win_list_services::service_info(info));
-        filter.match(record);
-      } catch (const nsclient::nsclient_exception &e) {
-        return nscapi::protobuf::functions::set_response_bad(*response, e.reason());
-      }
-    }
-  }
-  filter_helper.post_process(filter);
+  service_checks::check(request, response);
 }
 
 void CheckSystem::check_pagefile(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {

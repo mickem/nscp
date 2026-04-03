@@ -274,9 +274,9 @@ struct service_closer {
 };
 typedef hlp::handle<SC_HANDLE, service_closer> service_handle;
 namespace win_list_services {
-DWORD parse_service_type(const std::string str) {
+DWORD parse_service_type(const std::string& str) {
   DWORD ret = 0;
-  for (const std::string key : str::utils::split_lst(str, std::string(","))) {
+  for (const std::string& key : str::utils::split_lst(str, std::string(","))) {
     if (key == "driver" || key == "drv")
       ret |= SERVICE_DRIVER;
     else if (key == "file-system-driver" || key == "fs-drv")
@@ -294,9 +294,9 @@ DWORD parse_service_type(const std::string str) {
   }
   return ret;
 }
-DWORD parse_service_state(const std::string str) {
+DWORD parse_service_state(const std::string& str) {
   DWORD ret = 0;
-  for (const std::string key : str::utils::split_lst(str, std::string(","))) {
+  for (const std::string &key : str::utils::split_lst(str, std::string(","))) {
     if (key == "active")
       ret |= SERVICE_ACTIVE;
     else if (key == "inactive")
@@ -309,11 +309,11 @@ DWORD parse_service_state(const std::string str) {
   return ret;
 }
 
-hlp::buffer<BYTE, QUERY_SERVICE_CONFIG *> queryServiceConfig(SC_HANDLE hService, std::string service) {
+hlp::buffer<BYTE, QUERY_SERVICE_CONFIG *> queryServiceConfig(SC_HANDLE hService, const std::string& service) {
   DWORD bytesNeeded = 0;
   DWORD deErr = 0;
 
-  if (QueryServiceConfig(hService, NULL, 0, &bytesNeeded) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
+  if (QueryServiceConfig(hService, nullptr, 0, &bytesNeeded) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
     throw nsclient::nsclient_exception("Failed to query size of service config: " + service + ": " + error::lookup::last_error(deErr));
 
   hlp::buffer<BYTE, QUERY_SERVICE_CONFIG *> buf(bytesNeeded + 10);
@@ -322,11 +322,12 @@ hlp::buffer<BYTE, QUERY_SERVICE_CONFIG *> queryServiceConfig(SC_HANDLE hService,
   return buf;
 }
 
-hlp::buffer<BYTE, SERVICE_STATUS_PROCESS *> queryServiceStatusEx(SC_HANDLE hService, std::string service) {
+hlp::buffer<BYTE, SERVICE_STATUS_PROCESS *> queryServiceStatusEx(SC_HANDLE hService, const std::string &service) {
   DWORD bytesNeeded = 0;
   DWORD deErr = 0;
 
-  if (windows::winapi::QueryServiceStatusEx(hService, SC_STATUS_PROCESS_INFO, NULL, 0, &bytesNeeded) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
+  if (windows::winapi::QueryServiceStatusEx(hService, SC_STATUS_PROCESS_INFO, nullptr, 0, &bytesNeeded) ||
+      (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
     throw nsclient::nsclient_exception("Failed to query size of service status: " + service + ": " + error::lookup::last_error(deErr));
 
   hlp::buffer<BYTE, SERVICE_STATUS_PROCESS *> buf(bytesNeeded + 10);
@@ -335,10 +336,10 @@ hlp::buffer<BYTE, SERVICE_STATUS_PROCESS *> queryServiceStatusEx(SC_HANDLE hServ
   return buf;
 }
 
-void fetch_triggers(service_handle &hService, service_info &info) {
+void fetch_triggers(const service_handle &hService, service_info &info) {
   DWORD bytesNeeded = 0;
   DWORD deErr = 0;
-  if (QueryServiceConfig2W(hService, SERVICE_CONFIG_TRIGGER_INFO, NULL, 0, &bytesNeeded)) return;
+  if (QueryServiceConfig2W(hService, SERVICE_CONFIG_TRIGGER_INFO, nullptr, 0, &bytesNeeded)) return;
   deErr = GetLastError();
   if (deErr != ERROR_INSUFFICIENT_BUFFER) {
     if (deErr != ERROR_INVALID_PARAMETER) {
@@ -358,7 +359,7 @@ void fetch_triggers(service_handle &hService, service_info &info) {
   }
 }
 
-void fetch_delayed(service_handle &hService, service_info &info) {
+void fetch_delayed(const service_handle &hService, service_info &info) {
   SERVICE_DELAYED_AUTO_START_INFO delayed;
   DWORD size = sizeof(SERVICE_DELAYED_AUTO_START_INFO);
   if (windows::winapi::QueryServiceConfig2W(hService, SERVICE_CONFIG_DELAYED_AUTO_START_INFO, reinterpret_cast<LPBYTE>(&delayed), size, &size)) {
@@ -366,17 +367,17 @@ void fetch_delayed(service_handle &hService, service_info &info) {
   }
 }
 
-std::list<service_info> enum_services(const std::string computer, DWORD dwServiceType, DWORD dwServiceState, std::vector<std::string> excludes) {
+std::list<service_info> enum_services(const std::string &computer, const DWORD dwServiceType, const DWORD dwServiceState, std::vector<std::string> excludes) {
   std::list<service_info> ret;
-  std::wstring comp = utf8::cvt<std::wstring>(computer);
+  const std::wstring comp = utf8::cvt<std::wstring>(computer);
 
-  service_handle sc = OpenSCManager(comp.empty() ? nullptr : comp.c_str(), nullptr, SC_MANAGER_ENUMERATE_SERVICE);
+  const service_handle sc = OpenSCManager(comp.empty() ? nullptr : comp.c_str(), nullptr, SC_MANAGER_ENUMERATE_SERVICE);
   if (!sc) throw nsclient::nsclient_exception("Failed to open service manager: " + error::lookup::last_error());
 
   DWORD bytesNeeded = 0;
   DWORD count = 0;
   DWORD handle = 0;
-  BOOL bRet = windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, nullptr, 0, &bytesNeeded, &count, &handle, NULL);
+  BOOL bRet = windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, nullptr, 0, &bytesNeeded, &count, &handle, nullptr);
   if (bRet != 0) {
     auto err = GetLastError();
     if (err != ERROR_MORE_DATA) {
@@ -384,10 +385,10 @@ std::list<service_info> enum_services(const std::string computer, DWORD dwServic
     }
   }
 
-  hlp::buffer<BYTE, ENUM_SERVICE_STATUS_PROCESS *> buf(bytesNeeded + 10);
-  bRet = windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, buf, bytesNeeded, &bytesNeeded, &count, &handle, NULL);
+  const hlp::buffer<BYTE, ENUM_SERVICE_STATUS_PROCESS *> buf(bytesNeeded + 10);
+  bRet = windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, buf, bytesNeeded, &bytesNeeded, &count, &handle, nullptr);
   if (!bRet) throw nsclient::nsclient_exception("Failed to enumerate service: " + error::lookup::last_error());
-  ENUM_SERVICE_STATUS_PROCESS *data = buf.get();
+  const ENUM_SERVICE_STATUS_PROCESS *data = buf.get();
   for (DWORD i = 0; i < count; ++i) {
     const auto service_name = utf8::cvt<std::string>(data[i].lpServiceName);
     if (std::find(excludes.begin(), excludes.end(), service_name) != excludes.end()) {
@@ -420,17 +421,17 @@ std::list<service_info> enum_services(const std::string computer, DWORD dwServic
   return ret;
 }
 
-service_info get_service_info(const std::string computer, const std::string service) {
-  std::wstring comp = utf8::cvt<std::wstring>(computer);
+service_info get_service_info(const std::string &computer, const std::string &service) {
+  const std::wstring comp = utf8::cvt<std::wstring>(computer);
 
-  service_handle sc = OpenSCManager(comp.empty() ? NULL : comp.c_str(), NULL, SC_MANAGER_ENUMERATE_SERVICE);
+  const service_handle sc = OpenSCManager(comp.empty() ? nullptr : comp.c_str(), nullptr, SC_MANAGER_ENUMERATE_SERVICE);
   if (!sc) throw nsclient::nsclient_exception("Failed to open service manager: " + error::lookup::last_error());
 
   service_handle hService = OpenService(sc, utf8::cvt<std::wstring>(service).c_str(), SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS);
   if (!hService) {
-    DWORD error = GetLastError();
+    const DWORD error = GetLastError();
     if (error == ERROR_SERVICE_DOES_NOT_EXIST) {
-      hlp::buffer<wchar_t> buf(2048);
+      const hlp::buffer<wchar_t> buf(2048);
       DWORD size = buf.size();
       if (!GetServiceKeyName(sc, utf8::cvt<std::wstring>(service).c_str(), buf.get(), &size)) {
         throw nsclient::nsclient_exception("Failed to open service " + service + ": " + error::lookup::last_error(error));
@@ -451,13 +452,13 @@ service_info get_service_info(const std::string computer, const std::string serv
 
   DWORD bytesNeeded2 = 0;
   DWORD deErr = 0;
-  if (QueryServiceConfig(hService, NULL, 0, &bytesNeeded2) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
+  if (QueryServiceConfig(hService, nullptr, 0, &bytesNeeded2) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
     throw nsclient::nsclient_exception("Failed to open service " + info.name + ": " + error::lookup::last_error(deErr));
-  hlp::buffer<BYTE> buf2(bytesNeeded2 + 10);
+  const hlp::buffer<BYTE> buf2(bytesNeeded2 + 10);
 
   if (!QueryServiceConfig(hService, reinterpret_cast<QUERY_SERVICE_CONFIG *>(buf2.get()), bytesNeeded2, &bytesNeeded2))
     throw nsclient::nsclient_exception("Failed to open service: " + info.name);
-  QUERY_SERVICE_CONFIG *data2 = reinterpret_cast<QUERY_SERVICE_CONFIG *>(buf2.get());
+  const auto *data2 = reinterpret_cast<QUERY_SERVICE_CONFIG *>(buf2.get());
   info.start_type = data2->dwStartType;
   info.binary_path = utf8::cvt<std::string>(data2->lpBinaryPathName);
   info.error_control = data2->dwErrorControl;
@@ -474,7 +475,7 @@ long long service_info::parse_start_type(const std::string &s) {
   if (s == "demand") return SERVICE_DEMAND_START;
   if (s == "disabled") return SERVICE_DISABLED;
   if (s == "system") return SERVICE_SYSTEM_START;
-  throw std::string("Invalid start type: " + s);
+  throw nsclient::nsclient_exception("Invalid start type: " + s);
 }
 long long service_info::parse_state(const std::string &s) {
   if (s == "continuing") return SERVICE_CONTINUE_PENDING;
@@ -485,7 +486,7 @@ long long service_info::parse_state(const std::string &s) {
   if (s == "starting") return SERVICE_START_PENDING;
   if (s == "stopping") return SERVICE_STOP_PENDING;
   if (s == "stopped") return SERVICE_STOPPED;
-  throw std::string("Invalid state: " + s);
+  throw nsclient::nsclient_exception("Invalid state: " + s);
 }
 
 std::string service_info::get_state_s() const {
@@ -529,7 +530,7 @@ std::string service_info::get_start_type_s() const {
 }
 // Return a service type as a string
 std::string service_info::get_type() const {
-  std::string str = "";
+  std::string str;
   if (type & SERVICE_FILE_SYSTEM_DRIVER) str::format::append_list(str, "system-driver");
   if (type & SERVICE_KERNEL_DRIVER) str::format::append_list(str, "kernel-driver");
   if (type & SERVICE_WIN32_OWN_PROCESS) str::format::append_list(str, "service-own-process");
