@@ -16,17 +16,19 @@
  * You should have received a copy of the GNU General Public License
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
+#pragma once
+#include <memory>
 #include <nscapi/protobuf/command.hpp>
 
 #include "script_interface.hpp"
 
 class extscr_cli {
  private:
-  boost::shared_ptr<script_provider_interface> provider_;
+  std::shared_ptr<script_provider_interface> provider_;
   std::string alias_;
 
  public:
-  extscr_cli(boost::shared_ptr<script_provider_interface> provider_, std::string alias_);
+  extscr_cli(std::shared_ptr<script_provider_interface> provider_, std::string alias_);
 
   bool run(std::string cmd, const PB::Commands::ExecuteRequestMessage_Request &request, PB::Commands::ExecuteResponseMessage_Response *response);
   void add_script(const PB::Commands::ExecuteRequestMessage_Request &request, PB::Commands::ExecuteResponseMessage_Response *response);

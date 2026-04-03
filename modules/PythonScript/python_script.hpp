@@ -3,12 +3,13 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/python/dict.hpp>
 #include <list>
+#include <memory>
 #include <string>
 
 struct python_script : public boost::noncopyable {
   std::string base_path;
   unsigned int plugin_id;
-  boost::shared_ptr<boost::python::dict> localDict;
+  std::shared_ptr<boost::python::dict> localDict;
   python_script(unsigned int plugin_id, const std::string base_path, const std::string plugin_alias, const std::string script_alias, const std::string script);
   ~python_script();
   bool callFunction(const std::string &functionName);

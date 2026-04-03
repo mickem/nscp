@@ -69,7 +69,7 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 #endif
         ;
 
-    provider_.reset(new script_provider(get_id(), get_core(), root_));
+    provider_ = std::make_shared<script_provider>(get_id(), get_core(), root_);
 
     // clang-format off
     settings.alias().add_path_to_settings()
@@ -150,7 +150,7 @@ bool PythonScript::commandLineExec(const int target_mode, const PB::Commands::Ex
     nscapi::protobuf::functions::set_response_bad(*response, "Error: ");
   }
 
-  boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
+  std::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
   if (inst->has_cmdline(request.command())) {
     std::string buffer;
     inst->handle_exec(request.command(), request_message.SerializeAsString(), buffer);
@@ -226,7 +226,7 @@ void PythonScript::execute_script(const PB::Commands::ExecuteRequestMessage::Req
 
 void PythonScript::query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                                   const PB::Commands::QueryRequestMessage &request_message) {
-  boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
+  std::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
   if (inst->has_function(request.command())) {
     std::string buffer;
     if (inst->handle_query(request.command(), request_message.SerializeAsString(), buffer) != NSCAPI::query_return_codes::returnOK) {
@@ -251,7 +251,7 @@ void PythonScript::query_fallback(const PB::Commands::QueryRequestMessage::Reque
 
 void PythonScript::handleNotification(const std::string &channel, const PB::Commands::QueryResponseMessage::Response &request,
                                       PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message) {
-  boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
+  std::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
   if (inst->has_message_handler(channel)) {
     std::string buffer;
     if (inst->handle_message(channel, request_message.SerializeAsString(), buffer) == NSCAPI::api_return_codes::isSuccess) {
@@ -276,7 +276,7 @@ void PythonScript::handleNotification(const std::string &channel, const PB::Comm
 }
 
 void PythonScript::onEvent(const PB::Commands::EventMessage &request, const std::string &buffer) {
-  boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
+  std::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
   if (inst->has_event_handler("$$event$$")) {
     inst->on_event("$$event$$", buffer);
   }
@@ -292,14 +292,14 @@ void PythonScript::onEvent(const PB::Commands::EventMessage &request, const std:
 }
 
 void PythonScript::submitMetrics(const PB::Metrics::MetricsMessage &response) {
-  boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
+  std::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
   if (inst->has_submit_metrics()) {
     std::string buffer;
     inst->submit_metrics(response.SerializeAsString());
   }
 }
 void PythonScript::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
-  boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
+  std::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
   if (inst->has_metrics_fetcher()) {
     std::string buffer;
     PB::Metrics::MetricsMessage::Response r2;

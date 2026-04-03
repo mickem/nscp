@@ -1,15 +1,16 @@
 #pragma once
 
 #include <boost/filesystem/path.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/settings/proxy.hpp>
 #include <string>
 
 struct script_provider_interface {
+  virtual ~script_provider_interface() = default;
   virtual unsigned int get_id() = 0;
   virtual nscapi::core_wrapper* get_core() = 0;
-  virtual boost::shared_ptr<nscapi::settings_proxy> get_settings_proxy() = 0;
+  virtual std::shared_ptr<nscapi::settings_proxy> get_settings_proxy() = 0;
 
   virtual boost::filesystem::path get_root() = 0;
   virtual boost::optional<boost::filesystem::path> find_file(std::string file) = 0;

@@ -20,6 +20,8 @@
 #pragma once
 
 #include <boost/python.hpp>
+#include <boost/python/suite/indexing/vector_indexing_suite.hpp>
+#include <memory>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -106,9 +108,9 @@ struct functions {
   function_list_type submit_metrics;
   function_list_type fetch_metrics;
 
-  static boost::shared_ptr<functions> instance;
-  static boost::shared_ptr<functions> get() {
-    if (!instance) instance = boost::shared_ptr<functions>(new functions());
+  static std::shared_ptr<functions> instance;
+  static std::shared_ptr<functions> get() {
+    if (!instance) instance = std::make_shared<functions>();
     return instance;
   }
   static void destroy() { instance.reset(); }
@@ -140,7 +142,7 @@ struct function_wrapper {
   typedef std::map<std::string, PyObject *> function_map_type;
   // typedef boost::python::tuple simple_return;
 
-  static boost::shared_ptr<function_wrapper> create(unsigned int plugin_id);
+  static std::shared_ptr<function_wrapper> create(unsigned int plugin_id);
 
   void register_simple_cmdline(std::string name, PyObject *callable);
   void register_cmdline(std::string name, PyObject *callable);
@@ -196,7 +198,7 @@ struct command_wrapper {
   command_wrapper(nscapi::core_wrapper *core, unsigned int plugin_id) : core(core), plugin_id(plugin_id) {}
 
  public:
-  static boost::shared_ptr<command_wrapper> create(unsigned int plugin_id);
+  static std::shared_ptr<command_wrapper> create(unsigned int plugin_id);
 
   py::tuple simple_query(std::string command, boost::python::list args);
   py::tuple query(std::string command, py::object request);
@@ -227,7 +229,7 @@ struct settings_wrapper {
   settings_wrapper(nscapi::core_wrapper *core, unsigned int plugin_id) : core(core), plugin_id(plugin_id), settings(plugin_id, core) {}
 
  public:
-  static boost::shared_ptr<settings_wrapper> create(unsigned int plugin_id);
+  static std::shared_ptr<settings_wrapper> create(unsigned int plugin_id);
 
   std::string get_string(std::string path, std::string key, std::string def = "");
   void set_string(std::string path, std::string key, std::string value);
@@ -243,3 +245,4 @@ struct settings_wrapper {
   py::tuple query(py::object request);
 };
 }  // namespace script_wrapper
+

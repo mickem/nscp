@@ -16,11 +16,11 @@
  * You should have received a copy of the GNU General Public License
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
+#pragma once
 
 #include <boost/filesystem.hpp>
-#include <boost/optional.hpp>
 #include <boost/python.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
@@ -32,7 +32,7 @@ class PythonScript : public nscapi::impl::simple_plugin {
   boost::filesystem::path root_;
   std::string alias_;
 
-  boost::shared_ptr<script_provider_interface> provider_;
+  std::shared_ptr<script_provider_interface> provider_;
 
  public:
   PythonScript() {}
@@ -55,5 +55,4 @@ class PythonScript : public nscapi::impl::simple_plugin {
 
  private:
   void loadScript(std::string alias, std::string script);
-  // boost::optional<boost::filesystem::path> find_file(std::string file);
 };

@@ -34,7 +34,7 @@
 
 namespace py = boost::python;
 
-boost::shared_ptr<script_wrapper::functions> script_wrapper::functions::instance;
+std::shared_ptr<script_wrapper::functions> script_wrapper::functions::instance;
 
 nscapi::core_wrapper *get_core() { return nscapi::plugin_singleton->get_core(); }
 
@@ -181,8 +181,8 @@ void script_wrapper::log_exception(const std::string &file, const int line, std:
   }
 }
 
-boost::shared_ptr<script_wrapper::function_wrapper> script_wrapper::function_wrapper::create(unsigned int plugin_id) {
-  return boost::shared_ptr<function_wrapper>(new function_wrapper(get_core(), plugin_id));
+std::shared_ptr<script_wrapper::function_wrapper> script_wrapper::function_wrapper::create(unsigned int plugin_id) {
+  return std::make_shared<function_wrapper>(get_core(), plugin_id);
 }
 
 void script_wrapper::function_wrapper::subscribe_simple_function(std::string channel, PyObject *callable) {
@@ -737,8 +737,8 @@ std::string script_wrapper::function_wrapper::get_commands() {
 //////////////////////////////////////////////////////////////////////////
 // Callouts from python into NSClient++
 //
-boost::shared_ptr<script_wrapper::command_wrapper> script_wrapper::command_wrapper::create(unsigned int plugin_id) {
-  return boost::shared_ptr<command_wrapper>(new command_wrapper(get_core(), plugin_id));
+std::shared_ptr<script_wrapper::command_wrapper> script_wrapper::command_wrapper::create(unsigned int plugin_id) {
+  return std::make_shared<command_wrapper>(get_core(), plugin_id);
 }
 
 py::tuple script_wrapper::command_wrapper::simple_submit(std::string channel, std::string command, status code, std::string message, std::string perf) {
@@ -863,8 +863,8 @@ py::tuple script_wrapper::command_wrapper::exec(std::string target, std::string 
   }
 }
 
-boost::shared_ptr<script_wrapper::settings_wrapper> script_wrapper::settings_wrapper::create(unsigned int plugin_id) {
-  return boost::shared_ptr<settings_wrapper>(new settings_wrapper(get_core(), plugin_id));
+std::shared_ptr<script_wrapper::settings_wrapper> script_wrapper::settings_wrapper::create(unsigned int plugin_id) {
+  return std::make_shared<settings_wrapper>(get_core(), plugin_id);
 }
 
 std::string script_wrapper::settings_wrapper::get_string(std::string path, std::string key, std::string def) { return settings.get_string(path, key, def); }

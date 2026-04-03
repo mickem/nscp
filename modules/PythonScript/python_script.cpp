@@ -1,19 +1,18 @@
 #include "python_script.hpp"
+#include "script_wrapper.hpp"
 
-#include <boost/python.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <str/utf8.hpp>
 
 #ifdef __linux__
 #include <dlfcn.h>
 #endif
 
-#include "script_wrapper.hpp"
 
 namespace py = boost::python;
 
 BOOST_PYTHON_MODULE(NSCP) {
-  py::class_<script_wrapper::settings_wrapper, boost::shared_ptr<script_wrapper::settings_wrapper> >("Settings", py::no_init)
+  py::class_<script_wrapper::settings_wrapper, std::shared_ptr<script_wrapper::settings_wrapper>>("Settings", py::no_init)
       .def("get", &script_wrapper::settings_wrapper::create)
       .staticmethod("get")
       .def("create", &script_wrapper::settings_wrapper::create)
@@ -29,7 +28,7 @@ BOOST_PYTHON_MODULE(NSCP) {
       .def("register_path", &script_wrapper::settings_wrapper::settings_register_path)
       .def("register_key", &script_wrapper::settings_wrapper::settings_register_key)
       .def("query", &script_wrapper::settings_wrapper::query);
-  py::class_<script_wrapper::function_wrapper, boost::shared_ptr<script_wrapper::function_wrapper> >("Registry", py::no_init)
+  py::class_<script_wrapper::function_wrapper, std::shared_ptr<script_wrapper::function_wrapper>>("Registry", py::no_init)
       .def("get", &script_wrapper::function_wrapper::create)
       .staticmethod("get")
       .def("create", &script_wrapper::function_wrapper::create)
@@ -45,7 +44,7 @@ BOOST_PYTHON_MODULE(NSCP) {
       .def("event_pb", &script_wrapper::function_wrapper::register_event_pb)
       .def("event", &script_wrapper::function_wrapper::register_event)
       .def("query", &script_wrapper::function_wrapper::query);
-  py::class_<script_wrapper::command_wrapper, boost::shared_ptr<script_wrapper::command_wrapper> >("Core", py::no_init)
+  py::class_<script_wrapper::command_wrapper, std::shared_ptr<script_wrapper::command_wrapper>>("Core", py::no_init)
       .def("get", &script_wrapper::command_wrapper::create)
       .staticmethod("get")
       .def("create", &script_wrapper::command_wrapper::create)
