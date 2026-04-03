@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2004-2026 Michael Medin
+ * Copyright (C) 2004-2026 Michael Medin
  *
  * This file is part of NSClient++ - https://nsclient.org
  *
@@ -16,7 +16,6 @@
  * You should have received a copy of the GNU General Public License
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 
 #include "check_service.h"
 
@@ -54,7 +53,7 @@ bool check_state_is_ok(const DWORD state, const DWORD start_type, const bool del
 }
 
 node_type state_is_ok(const value_type, const evaluation_context &raw_context, const node_type &subject) {
-  const auto context = reinterpret_cast<native_context*>(raw_context.get());
+  const auto context = reinterpret_cast<native_context *>(raw_context.get());
   const DWORD state = context->get_object()->state;
   const DWORD start_type = context->get_object()->start_type;
   const bool delayed = context->get_object()->get_delayed() == 1;
@@ -67,28 +66,27 @@ node_type state_is_ok(const value_type, const evaluation_context &raw_context, c
 }
 
 node_type state_is_perfect(const value_type, const evaluation_context &raw_context, const node_type &subject) {
-  auto context = reinterpret_cast<native_context*>(raw_context.get());
+  auto context = reinterpret_cast<native_context *>(raw_context.get());
   const DWORD state = context->get_object()->state;
   const DWORD start_type = context->get_object()->start_type;
   const bool trigger = context->get_object()->get_is_trigger() == 1;
-  if (check_state_is_perfect(state, start_type, trigger))
-    return factory::create_true();
+  if (check_state_is_perfect(state, start_type, trigger)) return factory::create_true();
   return factory::create_false();
 }
 
 node_type parse_state(boost::shared_ptr<filter_obj> /*object*/, const evaluation_context &context, const node_type &subject) {
   try {
     return factory::create_int(filter_obj::parse_state(subject->get_string_value(context)));
-  } catch (const std::string& e) {
-    context->error(e);
+  } catch (const std::exception &e) {
+    context->error(e.what());
     return factory::create_false();
   }
 }
 node_type parse_start_type(boost::shared_ptr<filter_obj> /*object*/, const evaluation_context &context, const node_type &subject) {
   try {
     return factory::create_int(filter_obj::parse_start_type(subject->get_string_value(context)));
-  } catch (const std::string& e) {
-    context->error(e);
+  } catch (const std::exception &e) {
+    context->error(e.what());
     return factory::create_false();
   }
 }
@@ -113,7 +111,7 @@ filter_obj_handler::filter_obj_handler() {
   // clang-format off
   registry_.add_int_fun()
     ("state_is_perfect", type_bool, &state_is_perfect, "Check if the state is ok, i.e. all running services are running")
-    ("state_is_ok", type_bool, &state_is_ok, "Check if the state is ok, i.e. all running services are runningelayed services are allowed to be stopped)")
+    ("state_is_ok", type_bool, &state_is_ok, "Check if the state is ok, i.e. all running services are running (delayed services are allowed to be stopped)")
     ;
   // clang-format on
 
@@ -123,8 +121,7 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_converter()(type_custom_state, &parse_state)(type_custom_start_type, &parse_start_type);
 }
 }  // namespace check_svc_filter
-}
-
+}  // namespace service_checks
 
 void service_checks::check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   typedef check_svc_filter::filter filter_type;
@@ -181,7 +178,7 @@ void service_checks::check(const PB::Commands::QueryRequestMessage::Request &req
         boost::shared_ptr<win_list_services::service_info> record(new win_list_services::service_info(info));
         filter.match(record);
         if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());
-           }
+      }
     } else {
       try {
         win_list_services::service_info info = win_list_services::get_service_info(computer, service);

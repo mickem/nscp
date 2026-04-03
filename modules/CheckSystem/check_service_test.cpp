@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2004-2026 Michael Medin
+ * Copyright (C) 2004-2026 Michael Medin
  *
  * This file is part of NSClient++ - https://nsclient.org
  *
@@ -16,12 +16,12 @@
  * You should have received a copy of the GNU General Public License
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include "check_service.h"
+
 #include <gtest/gtest.h>
 
 #include <nsclient/nsclient_exception.hpp>
 #include <win/winsvc.hpp>
-
-#include "check_service.h"
 
 // ============================================================================
 // check_state_is_perfect tests
@@ -266,9 +266,7 @@ TEST(ServiceInfo, ParseState) {
   EXPECT_EQ(win_list_services::service_info::parse_state("continuing"), SERVICE_CONTINUE_PENDING);
 }
 
-TEST(ServiceInfo, ParseStateInvalidThrows) {
-  EXPECT_THROW(win_list_services::service_info::parse_state("invalid"), nsclient::nsclient_exception);
-}
+TEST(ServiceInfo, ParseStateInvalidThrows) { EXPECT_THROW(win_list_services::service_info::parse_state("invalid"), nsclient::nsclient_exception); }
 
 TEST(ServiceInfo, ParseStartType) {
   EXPECT_EQ(win_list_services::service_info::parse_start_type("auto"), SERVICE_AUTO_START);
@@ -278,9 +276,7 @@ TEST(ServiceInfo, ParseStartType) {
   EXPECT_EQ(win_list_services::service_info::parse_start_type("system"), SERVICE_SYSTEM_START);
 }
 
-TEST(ServiceInfo, ParseStartTypeInvalidThrows) {
-  EXPECT_THROW(win_list_services::service_info::parse_start_type("invalid"), nsclient::nsclient_exception);
-}
+TEST(ServiceInfo, ParseStartTypeInvalidThrows) { EXPECT_THROW(win_list_services::service_info::parse_start_type("invalid"), nsclient::nsclient_exception); }
 
 TEST(ServiceInfo, GetDelayed) {
   win_list_services::service_info info("Svc", "Service");
@@ -332,9 +328,7 @@ TEST(ParseServiceType, CombinedTypes) {
   EXPECT_TRUE(result & SERVICE_DRIVER);
 }
 
-TEST(ParseServiceType, InvalidTypeThrows) {
-  EXPECT_THROW(win_list_services::parse_service_type("invalid"), nsclient::nsclient_exception);
-}
+TEST(ParseServiceType, InvalidTypeThrows) { EXPECT_THROW(win_list_services::parse_service_type("invalid"), nsclient::nsclient_exception); }
 
 TEST(ParseServiceState, AllStates) {
   EXPECT_EQ(win_list_services::parse_service_state("all"), SERVICE_STATE_ALL);
@@ -342,9 +336,7 @@ TEST(ParseServiceState, AllStates) {
   EXPECT_EQ(win_list_services::parse_service_state("inactive"), SERVICE_INACTIVE);
 }
 
-TEST(ParseServiceState, InvalidStateThrows) {
-  EXPECT_THROW(win_list_services::parse_service_state("invalid"), nsclient::nsclient_exception);
-}
+TEST(ParseServiceState, InvalidStateThrows) { EXPECT_THROW(win_list_services::parse_service_state("invalid"), nsclient::nsclient_exception); }
 
 // ============================================================================
 // get_service_classification tests
@@ -373,5 +365,3 @@ TEST(ServiceClassification, UnknownServiceIsCustom) {
   win_list_services::init();
   EXPECT_EQ(win_list_services::get_service_classification("MyCustomService"), "custom");
 }
-
-

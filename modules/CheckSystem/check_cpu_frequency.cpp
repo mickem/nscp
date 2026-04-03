@@ -133,4 +133,3 @@ void check_cpu_frequency(const PB::Commands::QueryRequestMessage::Request &reque
 }  // namespace check
 
 }  // namespace cpu_frequency_check
-

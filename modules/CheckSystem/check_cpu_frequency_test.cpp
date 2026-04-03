@@ -215,4 +215,3 @@ TEST(CpuFrequency, LargeValues) {
   EXPECT_EQ(c.get_number_of_cores(), 128);
   EXPECT_EQ(c.get_number_of_logical_processors(), 256);
 }
-

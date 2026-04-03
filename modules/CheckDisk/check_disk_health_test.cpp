@@ -17,11 +17,11 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "check_disk_health.hpp"
+
 #include <gtest/gtest.h>
 
 #include <nscapi/nscapi_helper_singleton.hpp>
-
-#include "check_disk_health.hpp"
 
 // Provide the NSCAPI singleton so modern_filter.cpp can link.
 nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
@@ -364,4 +364,3 @@ TEST(DiskHealthJoin, EmptyFreeData) {
   EXPECT_EQ(result.front().queue_length, 5);
   EXPECT_EQ(result.front().total, 0);
 }
-

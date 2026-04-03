@@ -87,7 +87,6 @@ struct filter_obj_handler : public native_context {
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }  // namespace check_page_filter
 
-
 namespace check_uptime_filter {
 struct filter_obj {
   long long uptime;

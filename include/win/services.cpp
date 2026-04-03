@@ -274,9 +274,9 @@ struct service_closer {
 };
 typedef hlp::handle<SC_HANDLE, service_closer> service_handle;
 namespace win_list_services {
-DWORD parse_service_type(const std::string& str) {
+DWORD parse_service_type(const std::string &str) {
   DWORD ret = 0;
-  for (const std::string& key : str::utils::split_lst(str, std::string(","))) {
+  for (const std::string &key : str::utils::split_lst(str, std::string(","))) {
     if (key == "driver" || key == "drv")
       ret |= SERVICE_DRIVER;
     else if (key == "file-system-driver" || key == "fs-drv")
@@ -294,7 +294,7 @@ DWORD parse_service_type(const std::string& str) {
   }
   return ret;
 }
-DWORD parse_service_state(const std::string& str) {
+DWORD parse_service_state(const std::string &str) {
   DWORD ret = 0;
   for (const std::string &key : str::utils::split_lst(str, std::string(","))) {
     if (key == "active")
@@ -309,7 +309,7 @@ DWORD parse_service_state(const std::string& str) {
   return ret;
 }
 
-hlp::buffer<BYTE, QUERY_SERVICE_CONFIG *> queryServiceConfig(SC_HANDLE hService, const std::string& service) {
+hlp::buffer<BYTE, QUERY_SERVICE_CONFIG *> queryServiceConfig(SC_HANDLE hService, const std::string &service) {
   DWORD bytesNeeded = 0;
   DWORD deErr = 0;
 
@@ -367,7 +367,8 @@ void fetch_delayed(const service_handle &hService, service_info &info) {
   }
 }
 
-std::list<service_info> enum_services(const std::string &computer, const DWORD dwServiceType, const DWORD dwServiceState, std::vector<std::string> excludes) {
+std::list<service_info> enum_services(const std::string &computer, const DWORD dwServiceType, const DWORD dwServiceState,
+                                      const std::vector<std::string> &excludes) {
   std::list<service_info> ret;
   const std::wstring comp = utf8::cvt<std::wstring>(computer);
 
@@ -377,7 +378,8 @@ std::list<service_info> enum_services(const std::string &computer, const DWORD d
   DWORD bytesNeeded = 0;
   DWORD count = 0;
   DWORD handle = 0;
-  BOOL bRet = windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, nullptr, 0, &bytesNeeded, &count, &handle, nullptr);
+  BOOL bRet =
+      windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, nullptr, 0, &bytesNeeded, &count, &handle, nullptr);
   if (bRet != 0) {
     auto err = GetLastError();
     if (err != ERROR_MORE_DATA) {
@@ -386,7 +388,8 @@ std::list<service_info> enum_services(const std::string &computer, const DWORD d
   }
 
   const hlp::buffer<BYTE, ENUM_SERVICE_STATUS_PROCESS *> buf(bytesNeeded + 10);
-  bRet = windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, buf, bytesNeeded, &bytesNeeded, &count, &handle, nullptr);
+  bRet =
+      windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, buf, bytesNeeded, &bytesNeeded, &count, &handle, nullptr);
   if (!bRet) throw nsclient::nsclient_exception("Failed to enumerate service: " + error::lookup::last_error());
   const ENUM_SERVICE_STATUS_PROCESS *data = buf.get();
   for (DWORD i = 0; i < count; ++i) {

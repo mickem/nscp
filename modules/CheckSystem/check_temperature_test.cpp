@@ -34,9 +34,7 @@ TEST(TemperatureHelper, ParseZoneNameAcpiPath) {
   EXPECT_EQ(temperature_check::helper::parse_zone_name("\\_TZ.THM0"), "Thermal Zone (THM0)");
 }
 
-TEST(TemperatureHelper, ParseZoneNameDeepAcpiPath) {
-  EXPECT_EQ(temperature_check::helper::parse_zone_name("\\_SB.PCI0.LPCB.EC0.TZ00"), "Thermal Zone (TZ00)");
-}
+TEST(TemperatureHelper, ParseZoneNameDeepAcpiPath) { EXPECT_EQ(temperature_check::helper::parse_zone_name("\\_SB.PCI0.LPCB.EC0.TZ00"), "Thermal Zone (TZ00)"); }
 
 TEST(TemperatureHelper, ParseZoneNameWmiInstancePath) {
   // "ACPI\ThermalZone\THM0_0" -> take after last backslash
@@ -197,4 +195,3 @@ TEST_F(TemperatureDataTest, FetchedDataHasNames) {
     EXPECT_FALSE(z.name.empty());
   }
 }
-
