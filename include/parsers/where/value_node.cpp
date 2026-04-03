@@ -42,10 +42,10 @@ value_container string_value::get_value(const evaluation_context context, value_
   if (new_type == type_string) {
     return value_container::create_string(value_, is_unsure_);
   }
-  context->error("Failed to convert string to ?: " + value_);
+  context->error("Failed to convert string to " + helpers::type_to_string(new_type) + ": " + value_);
   return value_container::create_nil();
 }
-std::string string_value::to_string() const { return "(s){" + value_ + "}"; }
+std::string string_value::to_string() const { return "\"" + value_ + "\""; }
 std::string string_value::to_string(evaluation_context context) const { return value_; }
 bool string_value::find_performance_data(evaluation_context context, performance_collector &collector) {
   collector.set_candidate_value(shared_from_this());
@@ -61,10 +61,10 @@ value_container int_value::get_value(const evaluation_context context, value_typ
   if (new_type == type_string) {
     return value_container::create_string(str::xtos(value_), is_unsure_);
   }
-  context->error("Failed to convert int to ?: " + str::xtos(value_));
+  context->error("Failed to convert int to " + helpers::type_to_string(new_type) + ": " + str::xtos(value_));
   return value_container::create_nil();
 }
-std::string int_value::to_string() const { return "(i){" + str::xtos(value_) + "}"; }
+std::string int_value::to_string() const { return str::xtos(value_); }
 std::string int_value::to_string(evaluation_context context) const { return str::xtos(value_); }
 bool int_value::find_performance_data(evaluation_context context, performance_collector &collector) {
   collector.set_candidate_value(shared_from_this());
@@ -77,10 +77,10 @@ value_container float_value::get_value(const evaluation_context context, value_t
   if (new_type == type_int) {
     return value_container::create_int(static_cast<long long>(value_), is_unsure_);
   }
-  context->error("Failed to convert string to ?: " + str::xtos(value_));
+  context->error("Failed to convert string to " + helpers::type_to_string(new_type) + ": " + str::xtos(value_));
   return value_container::create_nil();
 }
-std::string float_value::to_string() const { return "(f){" + str::xtos(value_) + "}"; }
+std::string float_value::to_string() const { return str::xtos(value_); }
 std::string float_value::to_string(evaluation_context context) const { return str::xtos(value_); }
 bool float_value::find_performance_data(evaluation_context context, performance_collector &collector) {
   collector.set_candidate_value(shared_from_this());

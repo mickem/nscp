@@ -34,6 +34,7 @@ namespace parsers {
 namespace where {
 namespace operator_impl {
 struct simple_bool_binary_operator_impl : binary_operator_impl {
+  explicit simple_bool_binary_operator_impl(std::string desc) : binary_operator_impl(std::move(desc)) {}
   node_type evaluate(const evaluation_context context, const node_type left, const node_type right) const override {
     const value_type ltype = left->get_type();
     const value_type rtype = right->get_type();
@@ -60,6 +61,7 @@ struct simple_bool_binary_operator_impl : binary_operator_impl {
 };
 
 struct even_simpler_bool_binary_operator_impl : simple_bool_binary_operator_impl {
+  explicit even_simpler_bool_binary_operator_impl(std::string desc) : simple_bool_binary_operator_impl(std::move(desc)) {}
   value_container eval_int(const value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_int);
     const value_container rhs = right->get_value(context, type_int);
@@ -116,6 +118,8 @@ struct eval_helper {
   }
 };
 struct simple_int_binary_operator_impl : binary_operator_impl {
+  explicit simple_int_binary_operator_impl(std::string desc) : binary_operator_impl(std::move(desc)) {}
+
   node_type evaluate(const evaluation_context context_, const node_type left_, const node_type right_) const override {
     eval_helper helper(context_, left_, right_);
 
@@ -123,16 +127,17 @@ struct simple_int_binary_operator_impl : binary_operator_impl {
       return factory::create_num(eval_int(helper));
     }
     if ((helper.ltype != helper.rtype) && (helper.rtype != type_tbd)) {
-      helper.context->error("Incompatible types in binary operator");
+      helper.context->error("Incompatible types in binary operator: " + desc_);
       return factory::create_false();
     }
-    helper.context->error("Invalid types in binary operator");
+    helper.context->error("Invalid types in binary operator " + desc_);
     return factory::create_false();
   }
   virtual value_container eval_int(eval_helper &helper) const = 0;
 };
 
 struct operator_eq : even_simpler_bool_binary_operator_impl {
+  explicit operator_eq(std::string desc) : even_simpler_bool_binary_operator_impl(std::move(desc)) {}
   value_container do_eval_int(value_type, evaluation_context context, const value_container lhs, const value_container rhs) const override {
     return value_container::create_int(lhs.get_int() == rhs.get_int(), lhs.is_unsure | rhs.is_unsure);
   }
@@ -144,6 +149,7 @@ struct operator_eq : even_simpler_bool_binary_operator_impl {
   };
 };
 struct operator_ne : even_simpler_bool_binary_operator_impl {
+  explicit operator_ne(std::string desc) : even_simpler_bool_binary_operator_impl(std::move(desc)) {}
   value_container do_eval_int(value_type, evaluation_context context, const value_container lhs, const value_container rhs) const override {
     return value_container::create_int(lhs.get_int() != rhs.get_int(), lhs.is_unsure | rhs.is_unsure);
   }
@@ -155,6 +161,7 @@ struct operator_ne : even_simpler_bool_binary_operator_impl {
   };
 };
 struct operator_gt : even_simpler_bool_binary_operator_impl {
+  explicit operator_gt(std::string desc) : even_simpler_bool_binary_operator_impl(std::move(desc)) {}
   value_container do_eval_int(value_type, evaluation_context context, const value_container lhs, const value_container rhs) const override {
     return value_container::create_int(lhs.get_int() > rhs.get_int(), lhs.is_unsure | rhs.is_unsure);
   }
@@ -166,6 +173,7 @@ struct operator_gt : even_simpler_bool_binary_operator_impl {
   };
 };
 struct operator_lt : even_simpler_bool_binary_operator_impl {
+  explicit operator_lt(std::string desc) : even_simpler_bool_binary_operator_impl(std::move(desc)) {}
   value_container do_eval_int(value_type, evaluation_context context, const value_container lhs, const value_container rhs) const override {
     return value_container::create_int(lhs.get_int() < rhs.get_int(), lhs.is_unsure | rhs.is_unsure);
   }
@@ -178,6 +186,7 @@ struct operator_lt : even_simpler_bool_binary_operator_impl {
   };
 };
 struct operator_le : even_simpler_bool_binary_operator_impl {
+  explicit operator_le(std::string desc) : even_simpler_bool_binary_operator_impl(std::move(desc)) {}
   value_container do_eval_int(value_type, evaluation_context context, const value_container lhs, const value_container rhs) const override {
     return value_container::create_int(lhs.get_int() <= rhs.get_int(), lhs.is_unsure | rhs.is_unsure);
   }
@@ -189,6 +198,7 @@ struct operator_le : even_simpler_bool_binary_operator_impl {
   };
 };
 struct operator_ge : even_simpler_bool_binary_operator_impl {
+  explicit operator_ge(std::string desc) : even_simpler_bool_binary_operator_impl(std::move(desc)) {}
   value_container do_eval_int(value_type, evaluation_context context, const value_container lhs, const value_container rhs) const override {
     return value_container::create_int(lhs.get_int() >= rhs.get_int(), lhs.is_unsure | rhs.is_unsure);
   }
@@ -201,6 +211,8 @@ struct operator_ge : even_simpler_bool_binary_operator_impl {
 };
 
 struct operator_and : simple_int_binary_operator_impl {
+  explicit operator_and(std::string desc) : simple_int_binary_operator_impl(std::move(desc)) {}
+
   value_container eval_int(eval_helper &helper) const override {
     const long long lhsi = helper.get_lhs().get_int();
     if (!lhsi && !helper.get_lhs().is_unsure) return value_container::create_bool(false, false);
@@ -210,6 +222,8 @@ struct operator_and : simple_int_binary_operator_impl {
   }
 };
 struct operator_or : simple_int_binary_operator_impl {
+  explicit operator_or(std::string desc) : simple_int_binary_operator_impl(std::move(desc)) {}
+
   value_container eval_int(eval_helper &helper) const override {
     const long long lhsi = helper.get_lhs().get_int();
     if (lhsi && !helper.get_lhs().is_unsure) return value_container::create_bool(true, false);
@@ -220,6 +234,7 @@ struct operator_or : simple_int_binary_operator_impl {
 };
 
 struct operator_like : simple_bool_binary_operator_impl {
+  explicit operator_like(std::string desc) : simple_bool_binary_operator_impl(std::move(desc)) {}
   value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     context->error("Like not supported on numbers...");
     return value_container::create_nil();
@@ -244,6 +259,7 @@ struct operator_like : simple_bool_binary_operator_impl {
   }
 };
 struct operator_regexp : simple_bool_binary_operator_impl {
+  explicit operator_regexp(std::string desc) : simple_bool_binary_operator_impl(std::move(desc)) {}
   value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     context->error("Like not supported on numbers...");
     return value_container::create_nil();
@@ -274,6 +290,7 @@ struct operator_regexp : simple_bool_binary_operator_impl {
   }
 };
 struct operator_not_regexp : simple_bool_binary_operator_impl {
+  explicit operator_not_regexp(std::string desc) : simple_bool_binary_operator_impl(std::move(desc)) {}
   value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     context->error("Like not supported on numbers...");
     return value_container::create_nil();
@@ -304,6 +321,7 @@ struct operator_not_regexp : simple_bool_binary_operator_impl {
   }
 };
 struct operator_not_like : simple_bool_binary_operator_impl {
+  explicit operator_not_like(std::string desc) : simple_bool_binary_operator_impl(std::move(desc)) {}
   value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     context->error("Like not supported on numbers...");
     return value_container::create_nil();
@@ -328,6 +346,7 @@ struct operator_not_like : simple_bool_binary_operator_impl {
   }
 };
 struct operator_not_in : simple_bool_binary_operator_impl {
+  explicit operator_not_in(std::string desc) : simple_bool_binary_operator_impl(std::move(desc)) {}
   value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_int);
     const long long val = lhs.get_int();
@@ -354,6 +373,7 @@ struct operator_not_in : simple_bool_binary_operator_impl {
   };
 };
 struct operator_in : simple_bool_binary_operator_impl {
+  explicit operator_in(std::string desc) : simple_bool_binary_operator_impl(std::move(desc)) {}
   value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_int);
     const long long val = lhs.get_int();
@@ -381,6 +401,7 @@ struct operator_in : simple_bool_binary_operator_impl {
   };
 };
 struct operator_false : binary_operator_impl, unary_operator_impl, binary_function_impl {
+  explicit operator_false(std::string desc) : binary_operator_impl(std::move(desc)) {}
   node_type evaluate(const evaluation_context context, const node_type, const node_type) const override {
     context->error("missing impl for FALSE");
     return factory::create_false();
@@ -488,28 +509,29 @@ struct operator_not : unary_operator_impl, binary_function_impl {
 };
 }  // namespace operator_impl
 
-op_factory::bin_op_type op_factory::get_binary_operator(const operators op, const node_type &, const node_type &) {
+op_factory::bin_op_type op_factory::get_binary_operator(const operators op, const node_type &left, const node_type &right) {
+  std::string desc = left->to_string() + " " + helpers::operator_to_string(op) + " " + right->to_string();
   // op_in, op_nin
-  if (op == op_eq) return std::make_shared<operator_impl::operator_eq>();
-  if (op == op_gt) return std::make_shared<operator_impl::operator_gt>();
-  if (op == op_lt) return std::make_shared<operator_impl::operator_lt>();
-  if (op == op_le) return std::make_shared<operator_impl::operator_le>();
-  if (op == op_ge) return std::make_shared<operator_impl::operator_ge>();
-  if (op == op_ne) return std::make_shared<operator_impl::operator_ne>();
-  if (op == op_like) return std::make_shared<operator_impl::operator_like>();
-  if (op == op_not_like) return std::make_shared<operator_impl::operator_not_like>();
-  if (op == op_regexp) return std::make_shared<operator_impl::operator_regexp>();
-  if (op == op_not_regexp) return std::make_shared<operator_impl::operator_not_regexp>();
+  if (op == op_eq) return std::make_shared<operator_impl::operator_eq>(desc);
+  if (op == op_gt) return std::make_shared<operator_impl::operator_gt>(desc);
+  if (op == op_lt) return std::make_shared<operator_impl::operator_lt>(desc);
+  if (op == op_le) return std::make_shared<operator_impl::operator_le>(desc);
+  if (op == op_ge) return std::make_shared<operator_impl::operator_ge>(desc);
+  if (op == op_ne) return std::make_shared<operator_impl::operator_ne>(desc);
+  if (op == op_like) return std::make_shared<operator_impl::operator_like>(desc);
+  if (op == op_not_like) return std::make_shared<operator_impl::operator_not_like>(desc);
+  if (op == op_regexp) return std::make_shared<operator_impl::operator_regexp>(desc);
+  if (op == op_not_regexp) return std::make_shared<operator_impl::operator_not_regexp>(desc);
 
-  if (op == op_and) return std::make_shared<operator_impl::operator_and>();
-  if (op == op_or) return std::make_shared<operator_impl::operator_or>();
-  if (op == op_in) return std::make_shared<operator_impl::operator_in>();
-  if (op == op_nin) return std::make_shared<operator_impl::operator_not_in>();
+  if (op == op_and) return std::make_shared<operator_impl::operator_and>(desc);
+  if (op == op_or) return std::make_shared<operator_impl::operator_or>(desc);
+  if (op == op_in) return std::make_shared<operator_impl::operator_in>(desc);
+  if (op == op_nin) return std::make_shared<operator_impl::operator_not_in>(desc);
 
-  if (op == op_binand) return std::make_shared<operator_impl::operator_and>();
-  if (op == op_binor) return std::make_shared<operator_impl::operator_or>();
+  if (op == op_binand) return std::make_shared<operator_impl::operator_and>(desc);
+  if (op == op_binor) return std::make_shared<operator_impl::operator_or>(desc);
 
-  return std::make_shared<operator_impl::operator_false>();
+  return std::make_shared<operator_impl::operator_false>(desc);
 }
 
 bool op_factory::is_binary_function(const std::string &name) {
@@ -521,13 +543,13 @@ op_factory::bin_fun_type op_factory::get_binary_function(evaluation_context cont
   if (name == "convert" || name == "auto_convert") return std::make_shared<operator_impl::function_convert>(context, subject);
   if (name == "neg") return std::make_shared<operator_impl::operator_not>(subject);
   std::cout << "======== UNDEFINED FUNCTION: " << name << std::endl;
-  return std::make_shared<operator_impl::operator_false>();
+  return std::make_shared<operator_impl::operator_false>("TODO");
 }
 op_factory::un_op_type op_factory::get_unary_operator(const operators op) {
   // op_inv, op_not
   if (op == op_not) return std::make_shared<operator_impl::operator_not>();
   std::cout << "======== UNHANDLED OPERATOR\n";
-  return std::make_shared<operator_impl::operator_false>();
+  return std::make_shared<operator_impl::operator_false>("TODO");
 }
 }  // namespace where
 }  // namespace parsers

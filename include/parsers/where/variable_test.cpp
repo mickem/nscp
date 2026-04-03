@@ -163,7 +163,7 @@ TEST(IntVariableNode, CanEvaluateReturnsTrue) {
 TEST(IntVariableNode, ToStringWithoutContext) {
   std::list<int_var_node::int_performance_generator> perfgen;
   int_var_node node("my_var", type_int, make_int_fun(), perfgen);
-  EXPECT_EQ(node.to_string(), "(int)var:my_var");
+  EXPECT_EQ(node.to_string(), "{int}my_var");
 }
 
 TEST(IntVariableNode, ToStringWithContextAndObject) {
@@ -307,7 +307,7 @@ TEST(FloatVariableNode, CanEvaluateReturnsTrue) {
 TEST(FloatVariableNode, ToStringWithoutContext) {
   std::list<float_var_node::float_performance_generator> perfgen;
   float_var_node node("my_float", type_float, make_float_fun(), perfgen);
-  EXPECT_EQ(node.to_string(), "(float)var:my_float");
+  EXPECT_EQ(node.to_string(), "{float}my_float");
 }
 
 TEST(FloatVariableNode, ToStringWithContextAndObject) {
@@ -436,7 +436,7 @@ TEST(StrVariableNode, CanEvaluateReturnsTrue) {
 
 TEST(StrVariableNode, ToStringWithoutContext) {
   str_var_node node("my_str", type_string, make_str_fun());
-  EXPECT_EQ(node.to_string(), "(string)var:my_str");
+  EXPECT_EQ(node.to_string(), "{string}my_str");
 }
 
 TEST(StrVariableNode, ToStringWithContextAndObject) {
@@ -556,21 +556,21 @@ TEST(DualVariableNode, ToStringWithoutContextInt) {
   std::list<dual_var_node::int_performance_generator> perfgen;
   dual_var_node node("my_dual", type_int, make_int_fun(), make_str_fun(), perfgen);
   // type is type_multi initially, so to_string depends on inferred type
-  EXPECT_EQ(node.to_string(), "(?)var:my_dual");
+  EXPECT_EQ(node.to_string(), "{unknown:88}my_dual");
 }
 
 TEST(DualVariableNode, ToStringWithoutContextAfterInferInt) {
   std::list<dual_var_node::int_performance_generator> perfgen;
   dual_var_node node("my_dual", type_int, make_int_fun(), make_str_fun(), perfgen);
   node.infer_type(make_converter(), type_int);
-  EXPECT_EQ(node.to_string(), "(int)var:my_dual");
+  EXPECT_EQ(node.to_string(), "{int}my_dual");
 }
 
 TEST(DualVariableNode, ToStringWithoutContextAfterInferString) {
   std::list<dual_var_node::int_performance_generator> perfgen;
   dual_var_node node("my_dual", type_int, make_int_fun(), make_str_fun(), perfgen);
   node.infer_type(make_converter(), type_string);
-  EXPECT_EQ(node.to_string(), "(string)var:my_dual");
+  EXPECT_EQ(node.to_string(), "{string}my_dual");
 }
 
 TEST(DualVariableNode, ToStringWithContextAndObjectUsesStringFun) {
@@ -792,7 +792,7 @@ TEST(CustomFunctionNode, ToStringWithoutContext) {
   auto fun = [](const value_type vt, evaluation_context, const node_type subject) -> node_type { return factory::create_string("result"); };
   node_type subject = factory::create_string("input");
   custom_function_node node("my_func", fun, subject, type_string);
-  EXPECT_EQ(node.to_string(), "(string)fun:my_func");
+  EXPECT_EQ(node.to_string(), "{string}my_func()");
 }
 
 TEST(CustomFunctionNode, EvaluateCallsFunction) {

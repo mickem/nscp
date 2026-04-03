@@ -279,6 +279,8 @@ struct NSCAPI_EXPORT performance_collector {
 };
 
 struct binary_operator_impl {
+  std::string desc_;
+  explicit binary_operator_impl(std::string desc) : desc_(std::move(desc)) {}
   virtual ~binary_operator_impl() = default;
   virtual node_type evaluate(evaluation_context context, node_type left, node_type right) const = 0;
 };

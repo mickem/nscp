@@ -23,7 +23,7 @@
 
 namespace parsers {
 namespace where {
-std::string unary_op::to_string() const { return helpers::operator_to_string(op) + " ( " + subject->to_string() + " ) "; }
+std::string unary_op::to_string() const { return "{" + helpers::type_to_string(get_type()) + "}" + helpers::operator_to_string(op) +"( " + subject->to_string() + " ) "; }
 std::string unary_op::to_string(const evaluation_context context) const {
   return helpers::operator_to_string(op) + " ( " + subject->to_string(context) + " ) ";
 }

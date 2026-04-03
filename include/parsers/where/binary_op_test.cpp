@@ -363,7 +363,7 @@ TEST(BinaryOp, EvaluateLikeCaseInsensitive) {
 TEST(BinaryOp, ToStringContainsOperatorAndOperands) {
   const node_type node = make_bin_op(op_eq, make_int(1), make_int(2));
   const std::string s = node->to_string();
-  EXPECT_EQ(s, "(tbd){(i){1} = (i){2}}");
+  EXPECT_EQ(s, "{tbd}(1 = 2)");
 }
 
 TEST(BinaryOp, ToStringWithContextContainsOperands) {

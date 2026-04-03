@@ -110,23 +110,23 @@ TEST(WhereHelpers, TypeToStringInvalid) { EXPECT_EQ("invalid", type_to_string(ty
 TEST(WhereHelpers, TypeToStringTbd) { EXPECT_EQ("tbd", type_to_string(type_tbd)); }
 
 TEST(WhereHelpers, TypeToStringCustom) {
-  EXPECT_EQ("u:0", type_to_string(type_custom));
-  EXPECT_EQ("u:1", type_to_string(type_custom_1));
+  EXPECT_EQ("custom_0", type_to_string(type_custom));
+  EXPECT_EQ("custom_1", type_to_string(type_custom_1));
 }
 
 TEST(WhereHelpers, TypeToStringCustomFloat) {
-  EXPECT_EQ("uf:0", type_to_string(type_custom_float));
-  EXPECT_EQ("uf:1", type_to_string(type_custom_float_1));
+  EXPECT_EQ("float_0", type_to_string(type_custom_float));
+  EXPECT_EQ("float_1", type_to_string(type_custom_float_1));
 }
 
 TEST(WhereHelpers, TypeToStringCustomString) {
-  EXPECT_EQ("us:0", type_to_string(type_custom_string));
-  EXPECT_EQ("us:1", type_to_string(type_custom_string_1));
+  EXPECT_EQ("string_0", type_to_string(type_custom_string));
+  EXPECT_EQ("string_1", type_to_string(type_custom_string_1));
 }
 
 TEST(WhereHelpers, TypeToStringCustomInt) {
-  EXPECT_EQ("ui:0", type_to_string(type_custom_int));
-  EXPECT_EQ("ui:1", type_to_string(type_custom_int_1));
+  EXPECT_EQ("int_0", type_to_string(type_custom_int));
+  EXPECT_EQ("int_1", type_to_string(type_custom_int_1));
 }
 
 // ======================================================================
@@ -268,16 +268,12 @@ TEST(WhereHelpers, OperatorToStringNin) { EXPECT_EQ("not in", operator_to_string
 TEST(WhereHelpers, OperatorToStringBinand) { EXPECT_EQ("&", operator_to_string(op_binand)); }
 TEST(WhereHelpers, OperatorToStringBinor) { EXPECT_EQ("|", operator_to_string(op_binor)); }
 TEST(WhereHelpers, OperatorToStringLike) { EXPECT_EQ("like", operator_to_string(op_like)); }
-
-TEST(WhereHelpers, OperatorToStringUnknown) {
-  // Operators not explicitly listed should return "?"
-  EXPECT_EQ("?", operator_to_string(op_ne));
-  EXPECT_EQ("?", operator_to_string(op_not));
-  EXPECT_EQ("?", operator_to_string(op_inv));
-  EXPECT_EQ("?", operator_to_string(op_regexp));
-  EXPECT_EQ("?", operator_to_string(op_not_regexp));
-  EXPECT_EQ("?", operator_to_string(op_not_like));
-}
+TEST(WhereHelpers, OperatorToStringNotLike) { EXPECT_EQ("not_like", operator_to_string(op_not_like)); }
+TEST(WhereHelpers, OperatorToStringRegexp) { EXPECT_EQ("regexp", operator_to_string(op_regexp)); }
+TEST(WhereHelpers, OperatorToStringNotRegexp) { EXPECT_EQ("not_regexp", operator_to_string(op_not_regexp)); }
+TEST(WhereHelpers, OperatorToStringInv) { EXPECT_EQ("invert", operator_to_string(op_inv)); }
+TEST(WhereHelpers, OperatorToStringNe) { EXPECT_EQ("!=", operator_to_string(op_ne)); }
+TEST(WhereHelpers, OperatorToStringNot) { EXPECT_EQ("not", operator_to_string(op_not)); }
 
 // ======================================================================
 // can_convert
@@ -384,15 +380,6 @@ TEST(WhereHelpers, TypeToStringMulti) {
   // type_multi (88) is not explicitly listed, falls through to custom range checks
   // Since type_multi=88 is below type_custom_int=1024, it should return "unknown:88"
   EXPECT_EQ("unknown:88", type_to_string(type_multi));
-}
-
-// ======================================================================
-// operator_to_string — ne operator
-// ======================================================================
-
-TEST(WhereHelpers, OperatorToStringNe) {
-  // op_ne is not in the mapping, should return "?"
-  EXPECT_EQ("?", operator_to_string(op_ne));
 }
 
 // ======================================================================
