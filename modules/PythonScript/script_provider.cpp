@@ -11,9 +11,7 @@ unsigned int script_provider::get_id() { return id_; }
 
 nscapi::core_wrapper* script_provider::get_core() { return core_; }
 
-std::shared_ptr<nscapi::settings_proxy> script_provider::get_settings_proxy() {
-  return std::make_shared<nscapi::settings_proxy>(get_id(), get_core());
-}
+std::shared_ptr<nscapi::settings_proxy> script_provider::get_settings_proxy() { return std::make_shared<nscapi::settings_proxy>(get_id(), get_core()); }
 
 boost::filesystem::path script_provider::get_root() { return root_ / "scripts" / "python"; }
 

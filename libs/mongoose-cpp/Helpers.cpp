@@ -1,8 +1,8 @@
 #include "Helpers.h"
 
-#include "mongoose_wrapper.h"
-
 #include <bytes/char_buffer.hpp>
+
+#include "mongoose_wrapper.h"
 
 /**
  * A stream response to a request

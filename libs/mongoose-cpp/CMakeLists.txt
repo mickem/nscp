@@ -56,7 +56,8 @@ if(MSVC)
     set_source_files_properties(
         ${MONGOOSE_INCLUDE_DIR}/mongoose.c
         PROPERTIES
-            COMPILE_OPTIONS "/wd4201;/wd4204;/wd4267;/wd4310"
+            COMPILE_OPTIONS
+                "/wd4201;/wd4204;/wd4267;/wd4310"
     )
 endif()
 
