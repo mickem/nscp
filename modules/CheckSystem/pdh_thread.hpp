@@ -68,11 +68,11 @@ class pdh_thread {
   cpu_frequency_check::cpu_frequency_data cpu_frequency;
   battery_check::battery_data battery;
   process_history_check::process_history_data process_history;
-  bool gather_processes_;
 
  public:
   bool read_core_load;
   bool use_pdh_for_cpu;
+  bool process_history_enabled;
   int min_threshold_;
   std::string subsystem;
   std::string disable_;
@@ -80,7 +80,13 @@ class pdh_thread {
 
  public:
   pdh_thread(nscapi::core_wrapper *core, int plugin_id)
-      : stop_event_(nullptr), plugin_id(plugin_id), core_(core), gather_processes_(false), read_core_load(true), use_pdh_for_cpu(false), min_threshold_(10) {
+      : stop_event_(nullptr),
+        plugin_id(plugin_id),
+        core_(core),
+        read_core_load(true),
+        use_pdh_for_cpu(false),
+        process_history_enabled(false),
+        min_threshold_(10) {
     mutex_.lock();
   }
   void add_counter(const PDH::pdh_object &counter);

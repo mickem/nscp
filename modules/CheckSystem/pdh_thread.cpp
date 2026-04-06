@@ -264,6 +264,10 @@ void pdh_thread::thread_proc() {
     check_pdh = false;
     NSC_LOG_MESSAGE("WARNING: pdh writing is disabled");
   }
+  bool disable_battery = disable_.find("battery") != std::string::npos;
+  if (disable_battery) {
+    NSC_LOG_MESSAGE("WARNING: battery checking is disabled");
+  }
   spi_container handles;
   DWORD sleep_ms = 1000;
   ULONGLONG last_overrun_warning = 0;
@@ -322,7 +326,7 @@ void pdh_thread::thread_proc() {
       errors.push_back("Failed to get CPU frequency metrics");
     }
     try {
-      if (i == 0) battery.fetch();
+      if (i == 0 && !disable_battery) battery.fetch();
     } catch (const nsclient::nsclient_exception &e) {
       errors.push_back("Failed to get battery metrics: " + e.reason());
     } catch (const std::exception &e) {
@@ -331,7 +335,9 @@ void pdh_thread::thread_proc() {
       errors.push_back("Failed to get battery metrics");
     }
     try {
-      if (i == 0) process_history.fetch();
+      if (i == 0 && (has_proc_realtime || process_history_enabled)) {
+        process_history.fetch();
+      }
     } catch (const nsclient::nsclient_exception &e) {
       errors.push_back("Failed to get process history: " + e.reason());
     } catch (const std::exception &e) {
@@ -342,7 +348,6 @@ void pdh_thread::thread_proc() {
     if (has_realtime && i == (min_threshold_ - 1)) {
       if (has_cpu_realtime) cpu_helper.process_items(this);
       if (has_mem_realtime) memory_helper.check();
-      if (has_proc_realtime) process_helper.check();
     }
     if (i++ > min_threshold_) i = 0;
     for (const std::string &s : errors) {

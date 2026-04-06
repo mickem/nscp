@@ -73,6 +73,7 @@ class process_history_data final {
   process_history_data() : fetch_history_(true) {}
 
   void fetch();
+  void fetch(const std::set<std::string> &running_exes);
   history_type get();
   void clear();
   long long get_count();

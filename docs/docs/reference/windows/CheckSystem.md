@@ -1957,7 +1957,7 @@ Check the history of processes that have been running since NSClient++ started. 
 | [ok](#check_process_history_ok)                       |                                           | Filter which marks items which generates an ok state.                                                                    |
 | debug                                                 | N/A                                       | Show debugging information in the log                                                                                    |
 | show-all                                              | N/A                                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).         |
-| [empty-state](#check_process_history_empty-state)     | unknown                                   | Return status to use when nothing matched filter.                                                                        |
+| [empty-state](#check_process_history_empty-state)     | ok                                        | Return status to use when nothing matched filter.                                                                        |
 | [perf-config](#check_process_history_perf-config)     |                                           | Performance data generation configuration                                                                                |
 | escape-html                                           | N/A                                       | Escape any < and > characters to prevent HTML encoding                                                                   |
 | help                                                  | N/A                                       | Show help screen (this screen)                                                                                           |
@@ -2005,7 +2005,7 @@ If anything matches this any previous state for this item will be reset to ok.
 Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
-*Default Value:* `unknown`
+*Default Value:* `ok`
 
 <h5 id="check_process_history_perf-config">perf-config:</h5>
 
@@ -2121,7 +2121,7 @@ Check for new processes that appeared within a specified time window. Useful for
 | [ok](#check_process_history_new_ok)                       |                                    | Filter which marks items which generates an ok state.                                                                   |
 | debug                                                     | N/A                                | Show debugging information in the log                                                                                   |
 | show-all                                                  | N/A                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).        |
-| [empty-state](#check_process_history_new_empty-state)     | warning                            | Return status to use when nothing matched filter.                                                                       |
+| [empty-state](#check_process_history_new_empty-state)     | ok                                 | Return status to use when nothing matched filter.                                                                       |
 | [perf-config](#check_process_history_new_perf-config)     |                                    | Performance data generation configuration                                                                               |
 | escape-html                                               | N/A                                | Escape any < and > characters to prevent HTML encoding                                                                  |
 | help                                                      | N/A                                | Show help screen (this screen)                                                                                          |
@@ -2169,7 +2169,7 @@ If anything matches this any previous state for this item will be reset to ok.
 Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
-*Default Value:* `warning`
+*Default Value:* `ok`
 
 <h5 id="check_process_history_new_perf-config">perf-config:</h5>
 
@@ -2936,6 +2936,7 @@ Section for system checks and system settings
 | [default buffer length](#default-buffer-time) | 1h            | Default buffer time       |
 | [disable](#disable-automatic-checks)          |               | Disable automatic checks  |
 | [fetch core loads](#fetch-core-load)          | true          | Fetch core load           |
+| [process history](#track-process-history)     | false         | Track process history     |
 | [subsystem](#pdh-subsystem)                   | default       | PDH subsystem             |
 | [use pdh for cpu](#use-pdh-to-fetch-cpu-load) | false         | Use PDH to fetch CPU load |
 
@@ -2946,6 +2947,7 @@ Section for system checks and system settings
 [/settings/system/windows]
 default buffer length=1h
 fetch core loads=true
+process history=false
 subsystem=default
 use pdh for cpu=false
 
@@ -3032,6 +3034,32 @@ Set to false to use a different API for fetching CPU load (will not provide core
 [/settings/system/windows]
 # Fetch core load
 fetch core loads=true
+```
+
+
+
+#### Track process history <a id="/settings/system/windows/process history"></a>
+
+Enable tracking of process history for use with check_process_history and check_process_history_new commands.
+
+
+
+
+
+| Key            | Description                                           |
+|----------------|-------------------------------------------------------|
+| Path:          | [/settings/system/windows](#/settings/system/windows) |
+| Key:           | process history                                       |
+| Default value: | `false`                                               |
+| Used by:       | CheckSystem                                           |
+
+
+**Sample:**
+
+```
+[/settings/system/windows]
+# Track process history
+process history=false
 ```
 
 

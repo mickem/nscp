@@ -71,10 +71,6 @@ struct silent_error_reporter : public win_list_processes::error_reporter {
 void process_history_data::fetch() {
   if (!fetch_history_) return;
 
-  // Get current timestamp
-  const boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
-  const long long now_ts = (now - EPOCH).total_seconds();
-
   // Enumerate current processes (fast scan, no deep info needed)
   silent_error_reporter err;
   const win_list_processes::process_list current_processes = win_list_processes::enumerate_processes(true, false, false, &err);
@@ -88,6 +84,16 @@ void process_history_data::fetch() {
     }
   }
 
+  fetch(running_now);
+}
+
+void process_history_data::fetch(const std::set<std::string> &running_exes) {
+  if (!fetch_history_) return;
+
+  // Get current timestamp
+  const boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
+  const long long now_ts = (now - EPOCH).total_seconds();
+
   {
     boost::unique_lock<boost::shared_mutex> write_lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!write_lock.owns_lock()) {
@@ -95,15 +101,14 @@ void process_history_data::fetch() {
     }
 
     // First pass: Update history with current processes (before marking anything as not running)
-    for (const auto &proc : current_processes) {
-      std::string exe_lower = boost::algorithm::to_lower_copy(proc.exe.get());
+    for (const std::string &exe_lower : running_exes) {
       if (exe_lower.empty()) continue;
 
       auto it = history_.find(exe_lower);
       if (it == history_.end()) {
         // New process - add to history
         process_record record;
-        record.exe = proc.exe.get();  // Keep original case
+        record.exe = exe_lower;  // Use lowercase since we don't have original case
         record.first_seen = now_ts;
         record.last_seen = now_ts;
         record.times_seen = 1;
@@ -119,9 +124,9 @@ void process_history_data::fetch() {
       }
     }
 
-    // Second pass: Mark processes not in running_now as not currently running
+    // Second pass: Mark processes not in running_exes as not currently running
     for (auto &entry : history_) {
-      if (running_now.find(boost::algorithm::to_lower_copy(entry.second.exe)) == running_now.end()) {
+      if (running_exes.find(boost::algorithm::to_lower_copy(entry.second.exe)) == running_exes.end()) {
         entry.second.currently_running = false;
       }
     }
@@ -199,7 +204,7 @@ void check_process_history(const PB::Commands::QueryRequestMessage::Request &req
   std::vector<std::string> processes;
 
   filter_type filter;
-  filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
+  filter_helper.add_options("", "", "", filter.get_filter_syntax(), "ok");
   filter_helper.add_syntax("${status}: ${problem_list}", "${exe} (${running})", "${exe}", "", "%(status): ${count} processes in history.");
 
   // clang-format off
@@ -267,7 +272,7 @@ void check_process_history_new(const PB::Commands::QueryRequestMessage::Request 
   std::string time_window = "5m";
 
   filter_type filter;
-  filter_helper.add_options("", "", "", filter.get_filter_syntax(), "warning");
+  filter_helper.add_options("", "", "", filter.get_filter_syntax(), "ok");
   filter_helper.add_syntax("${status}: ${list}", "${exe} (first seen: ${first_seen})", "${exe}", "", "%(status): No new processes found.");
 
   // clang-format off

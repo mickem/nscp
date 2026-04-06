@@ -22,6 +22,8 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/unordered_set.hpp>
 #include <nscapi/protobuf/command.hpp>
+#include <set>
+#include <string>
 
 #include "filter_config_object.hpp"
 
@@ -39,6 +41,7 @@ struct helper {
   void add_obj(boost::shared_ptr<filters::proc::filter_config_object> object);
   void boot();
   void check();
+  std::set<std::string> check_shared();
 };
 }  // namespace realtime
 

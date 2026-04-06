@@ -169,6 +169,9 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     .add_bool("use pdh for cpu", sh::bool_key(&collector->use_pdh_for_cpu, false),
       "Use PDH to fetch CPU load", "When using PDH you might get better accuracy and hel alleviate invalid CPU values on multi core systems. The drawback is that PDH counters are sometimes missing and have invalid indexes so your milage may vary", true)
 
+    .add_bool("process history", sh::bool_key(&collector->process_history_enabled, false),
+      "Track process history", "Enable tracking of process history for use with check_process_history and check_process_history_new commands.")
+
     .add_string("disable", sh::string_key(&collector->disable_, ""),
         "Disable automatic checks", "A comma separated list of checks to disable in the collector: cpu,handles,network,temperature,cpu_frequency,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
     ;

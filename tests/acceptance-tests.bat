@@ -40,6 +40,10 @@ echo Running Windows Task Scheduler tests...
 nscp unit --language python --script test_w32_schetask
 if errorlevel 1 goto :failed
 
+echo Running Windows System tests...
+nscp unit --language python --script test_w32_system
+if errorlevel 1 goto :failed
+
 echo All tests passed successfully.
 exit /b 0
 
