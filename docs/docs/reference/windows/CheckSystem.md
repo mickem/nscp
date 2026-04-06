@@ -35,6 +35,7 @@ A list of all available queries (check commands)
 | [check_service](#check_service)             | Check the state of one or more of the computer services.                      |
 | [check_temperature](#check_temperature)     | Check ACPI thermal zone temperatures.                                         |
 | [check_uptime](#check_uptime)               | Check time since last server re-boot.                                         |
+| [check_battery](#check_battery)                         | Check battery status including charge level, power source, and battery health.                                                                   |
 
 
 **List of command aliases:**
@@ -45,6 +46,177 @@ A list of all short hand aliases for queries (check commands)
 | Command       | Description                   |
 |---------------|-------------------------------|
 | check_counter | Alias for: :query:`check_pdh` |
+
+
+### check_battery
+
+Check battery status including charge level, power source, and battery health.
+
+
+**Jump to section:**
+
+* [Command-line Arguments](#check_battery_options)
+* [Filter keywords](#check_battery_filter_keys)
+
+
+
+
+
+<a id="check_battery_warn"></a>
+<a id="check_battery_crit"></a>
+<a id="check_battery_debug"></a>
+<a id="check_battery_show-all"></a>
+<a id="check_battery_escape-html"></a>
+<a id="check_battery_help"></a>
+<a id="check_battery_help-pb"></a>
+<a id="check_battery_show-default"></a>
+<a id="check_battery_help-short"></a>
+<a id="check_battery_options"></a>
+#### Command-line Arguments
+
+
+| Option                                        | Default Value                                    | Description                                                                                                      |
+|-----------------------------------------------|--------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_battery_filter)               | battery_present = 'true'                         | Filter which marks interesting items.                                                                            |
+| [warning](#check_battery_warning)             | charge < 20                                      | Filter which marks items which generates a warning state.                                                        |
+| warn                                          |                                                  | Short alias for warning                                                                                          |
+| [critical](#check_battery_critical)           | charge < 10                                      | Filter which marks items which generates a critical state.                                                       |
+| crit                                          |                                                  | Short alias for critical.                                                                                        |
+| [ok](#check_battery_ok)                       |                                                  | Filter which marks items which generates an ok state.                                                            |
+| debug                                         | N/A                                              | Show debugging information in the log                                                                            |
+| show-all                                      | N/A                                              | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_battery_empty-state)     | warning                                          | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_battery_perf-config)     |                                                  | Performance data generation configuration                                                                        |
+| escape-html                                   | N/A                                              | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                          | N/A                                              | Show help screen (this screen)                                                                                   |
+| help-pb                                       | N/A                                              | Show help screen as a protocol buffer payload                                                                    |
+| show-default                                  | N/A                                              | Show default values for a given command                                                                          |
+| help-short                                    | N/A                                              | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_battery_top-syntax)       | ${status}: ${list}                               | Top level syntax.                                                                                                |
+| [ok-syntax](#check_battery_ok-syntax)         | %(status): No battery found or all batteries ok. | ok syntax.                                                                                                       |
+| [empty-syntax](#check_battery_empty-syntax)   |                                                  | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_battery_detail-syntax) | ${name}: ${charge}% (${power_source}, ${status}) | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_battery_perf-syntax)     | ${name}                                          | Performance alias syntax.                                                                                        |
+
+
+
+<h5 id="check_battery_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+*Default Value:* `battery_present = 'true'`
+
+<h5 id="check_battery_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+*Default Value:* `charge < 20`
+
+<h5 id="check_battery_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+*Default Value:* `charge < 10`
+
+<h5 id="check_battery_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_battery_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `warning`
+
+<h5 id="check_battery_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_battery_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${status}: ${list}`
+
+<h5 id="check_battery_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+*Default Value:* `%(status): No battery found or all batteries ok.`
+
+<h5 id="check_battery_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+
+<h5 id="check_battery_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${name}: ${charge}% (${power_source}, ${status})`
+
+<h5 id="check_battery_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `${name}`
+
+
+<a id="check_battery_filter_keys"></a>
+#### Filter keywords
+
+
+| Option             | Description                                                       |
+|--------------------|-------------------------------------------------------------------|
+| battery_present    | Whether a battery is present: 'true' or 'false'                   |
+| charge             | Battery charge level in percent (0-100)                           |
+| charge_rate        | Current charge rate in mW (when charging)                         |
+| design_capacity    | Design capacity in mWh                                            |
+| discharge_rate     | Current discharge rate in mW (when discharging)                   |
+| full_capacity      | Current full charge capacity in mWh                               |
+| health             | Battery health in percent (full_capacity / design_capacity * 100) |
+| name               | Battery name/identifier                                           |
+| power_source       | Power source: 'ac', 'battery', or 'unknown'                       |
+| remaining_capacity | Current remaining capacity in mWh                                 |
+| time_remaining     | Estimated time remaining in seconds (-1 if unknown or on AC)      |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 
 ### check_cpu

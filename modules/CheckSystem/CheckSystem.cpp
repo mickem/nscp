@@ -38,6 +38,7 @@
 #include <win/services.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
 
+#include "check_battery.hpp"
 #include "check_cpu_frequency.hpp"
 #include "check_memory.hpp"
 #include "check_process.hpp"
@@ -674,6 +675,13 @@ void CheckSystem::check_cpu_frequency(const PB::Commands::QueryRequestMessage::R
   }
 }
 
+void CheckSystem::check_battery(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  try {
+    battery_check::check::check_battery(request, response, collector->get_battery());
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to get battery data: " + std::string(e.what()));
+  }
+}
 void CheckSystem::checkServiceState(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   boost::program_options::options_description desc;
   std::vector<std::string> excludes;

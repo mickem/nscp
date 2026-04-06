@@ -18,6 +18,8 @@ set(SRCS
     check_network.cpp
     check_temperature.cpp
     check_cpu_frequency.cpp
+    check_battery.cpp
+    check_process_history.cpp
     check_service.cpp
     check_process.cpp
     check_memory.cpp
@@ -63,6 +65,8 @@ if(WIN32)
         check_service.h
         check_temperature.hpp
         check_cpu_frequency.hpp
+        check_battery.hpp
+        check_process_history.hpp
         check_process.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.hpp
@@ -103,6 +107,8 @@ source_group("pdh" REGULAR_EXPRESSION .*include/pdh/.*)
 NSCP_CREATE_TEST(
     check_system_test
     SOURCES
+        check_battery_test.cpp
+        check_process_history_test.cpp
         check_cpu_frequency_test.cpp
         check_pdh_test.cpp
         check_network_test.cpp
@@ -114,6 +120,8 @@ NSCP_CREATE_TEST(
         check_temperature.cpp
         check_service.cpp
         check_network.cpp
+        check_battery.cpp
+        check_process_history.cpp
         check_pdh.cpp
         pdh_thread.cpp
         filter_config_object.cpp
