@@ -34,27 +34,18 @@
 
 typedef parsers::where::realtime_filter_helper<check_cpu_filter::runtime_data, filters::cpu::filter_config_object> cpu_filter_helper;
 
-struct NSC_error_pdh : public win_list_processes::error_reporter {
-  std::list<std::string> l;
-  void report_error(std::string error) {
-    // l.push_back(error);
-  }
-  void report_warning(std::string error) {}
-  void report_debug(std::string error) {}
-};
-
 spi_container pdh_thread::fetch_spi(error_list &errors) {
   spi_container ret;
   try {
     hlp::buffer<BYTE, windows::winapi::SYSTEM_PROCESS_INFORMATION *> buffer = windows::system_info::get_system_process_information();
     windows::winapi::SYSTEM_PROCESS_INFORMATION *b = buffer.get();
-    while (b != NULL) {
+    while (b != nullptr) {
       ret.handles += b->HandleCount;
       ret.threads += b->NumberOfThreads;
       ret.procs++;
 
       if (b->NextEntryOffset == NULL) return ret;
-      b = (windows::winapi::SYSTEM_PROCESS_INFORMATION *)((PCHAR)b + b->NextEntryOffset);
+      b = reinterpret_cast<windows::winapi::SYSTEM_PROCESS_INFORMATION *>(reinterpret_cast<PCHAR>(b) + b->NextEntryOffset);
     }
   } catch (...) {
     errors.push_back("Failed to get metrics");
@@ -72,7 +63,7 @@ void pdh_thread::write_metrics(const spi_container &handles, const windows::syst
   }
   try {
     cpu.push(load);
-    if (pdh != NULL) pdh->gatherData();
+    if (pdh != nullptr) pdh->gatherData();
 
     for (const lookup_type::value_type &e : lookups_) {
       if (e.second->has_instances()) {
@@ -102,9 +93,6 @@ void pdh_thread::write_metrics(const spi_container &handles, const windows::syst
 
 /**
  * Thread that collects the data every "CHECK_INTERVAL" seconds.
- *
- * @param lpParameter Not used
- * @return thread exit status
  *
  * @author mickem
  *
@@ -212,13 +200,13 @@ void pdh_thread::thread_proc() {
   cpu_filter_helper cpu_helper(core_, plugin_id);
   for (boost::shared_ptr<filters::legacy::filter_config_object> object : legacy_filters_.get_object_list()) {
     if (object->check == "memory") {
-      memory_helper.add_obj(boost::shared_ptr<filters::mem::filter_config_object>(new filters::mem::filter_config_object(*object)));
+      memory_helper.add_obj(boost::make_shared<filters::mem::filter_config_object>(*object));
     } else {
       check_cpu_filter::runtime_data data;
       for (const std::string &d : object->data) {
         data.add(d);
       }
-      cpu_helper.add_item(boost::shared_ptr<filters::cpu::filter_config_object>(new filters::cpu::filter_config_object(*object)), data, "system.cpu");
+      cpu_helper.add_item(boost::make_shared<filters::cpu::filter_config_object>(*object), data, "system.cpu");
     }
   }
   for (boost::shared_ptr<filters::mem::filter_config_object> object : mem_filters_.get_object_list()) {

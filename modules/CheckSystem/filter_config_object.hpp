@@ -68,15 +68,15 @@ typedef nscapi::settings_objects::object_handler<filter_config_object> filter_co
 }  // namespace mem
 
 namespace cpu {
-struct filter_config_object : public nscapi::settings_objects::object_instance_interface {
-  typedef nscapi::settings_objects::object_instance_interface parent;
+struct filter_config_object : nscapi::settings_objects::object_instance_interface {
+  typedef object_instance_interface parent;
 
   nscapi::settings_filters::filter_object filter;
   std::list<std::string> data;
 
   filter_config_object(std::string alias, std::string path) : parent(alias, path), filter("${list}", "${core}>${load}%", "NSCA") {}
 
-  filter_config_object(filters::legacy::filter_config_object &other) : parent(other.get_alias(), other.get_path()), filter(other.filter), data(other.data) {}
+  filter_config_object(legacy::filter_config_object &other) : parent(other.get_alias(), other.get_path()), filter(other.filter), data(other.data) {}
 
   void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample);
 
