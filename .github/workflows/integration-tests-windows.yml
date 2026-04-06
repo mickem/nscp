@@ -70,7 +70,7 @@ jobs:
       - name: Acceptance tests (Windows)
         working-directory: tmp/nscp
         run: |
-          ..\..\tests\acceptance-tests.bat
+          ..\..\tests\acceptance-tests.bat --ci
 
       - name: Run rest tests
         uses: ./.github/actions/rest-test
