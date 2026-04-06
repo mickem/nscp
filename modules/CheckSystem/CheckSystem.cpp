@@ -173,7 +173,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       "Track process history", "Enable tracking of process history for use with check_process_history and check_process_history_new commands.")
 
     .add_string("disable", sh::string_key(&collector->disable_, ""),
-        "Disable automatic checks", "A comma separated list of checks to disable in the collector: cpu,handles,network,temperature,cpu_frequency,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
+        "Disable automatic checks", "A comma separated list of checks to disable in the collector: battery,cpu,handles,network,temperature,cpu_frequency,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
     ;
 
   settings.alias().add_templates()
