@@ -42,6 +42,7 @@
 #include "check_cpu_frequency.hpp"
 #include "check_memory.hpp"
 #include "check_process.hpp"
+#include "check_process_history.hpp"
 #include "check_service.h"
 #include "check_temperature.hpp"
 #include "counter_filter.hpp"
@@ -682,6 +683,23 @@ void CheckSystem::check_battery(const PB::Commands::QueryRequestMessage::Request
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get battery data: " + std::string(e.what()));
   }
 }
+
+void CheckSystem::check_process_history(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  try {
+    process_history_check::check::check_process_history(request, response, collector->get_process_history());
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to get process history data: " + std::string(e.what()));
+  }
+}
+
+void CheckSystem::check_process_history_new(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  try {
+    process_history_check::check::check_process_history_new(request, response, collector->get_process_history());
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to get process history data: " + std::string(e.what()));
+  }
+}
+
 void CheckSystem::checkServiceState(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   boost::program_options::options_description desc;
   std::vector<std::string> excludes;
@@ -1059,5 +1077,30 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     }
   } catch (...) {
     NSC_LOG_ERROR("Failed to get CPU frequency metrics");
+  }
+
+  try {
+    const auto batteries = collector->get_battery();
+    if (!batteries.empty()) {
+      PB::Metrics::MetricsBundle *section = bundle->add_children();
+      section->set_key("battery");
+      for (const battery_check::batteries_type::value_type &v : batteries) {
+        v.build_metrics(section);
+      }
+    }
+  } catch (...) {
+    NSC_LOG_ERROR("Failed to get battery metrics");
+  }
+
+  try {
+    const auto history = collector->get_process_history();
+    if (!history.empty()) {
+      PB::Metrics::MetricsBundle *section = bundle->add_children();
+      section->set_key("process_history");
+      using namespace nscapi::metrics;
+      add_metric(section, "unique_processes", static_cast<long long>(history.size()));
+    }
+  } catch (...) {
+    NSC_LOG_ERROR("Failed to get process history metrics");
   }
 }

@@ -22,20 +22,22 @@ A quick reference for all available queries (check commands) in the CheckSystem 
 
 A list of all available queries (check commands)
 
-| Command                                     | Description                                                                   |
-|---------------------------------------------|-------------------------------------------------------------------------------|
-| [check_cpu](#check_cpu)                     | Check that the load of the CPU(s) are within bounds.                          |
-| [check_cpu_frequency](#check_cpu_frequency) | Check CPU clock frequency (current vs max) per processor.                     |
-| [check_memory](#check_memory)               | Check free/used memory on the system.                                         |
-| [check_network](#check_network)             | Check network interface status.                                               |
-| [check_os_version](#check_os_version)       | Check the version of the underlying OS.                                       |
-| [check_pagefile](#check_pagefile)           | Check the size of the system pagefile(s).                                     |
-| [check_pdh](#check_pdh)                     | Check the value of a performance (PDH) counter on the local or remote system. |
-| [check_process](#check_process)             | Check state/metrics of one or more of the processes running on the computer.  |
-| [check_service](#check_service)             | Check the state of one or more of the computer services.                      |
-| [check_temperature](#check_temperature)     | Check ACPI thermal zone temperatures.                                         |
-| [check_uptime](#check_uptime)               | Check time since last server re-boot.                                         |
+| Command                                                 | Description                                                                                                                                      |
+|---------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
 | [check_battery](#check_battery)                         | Check battery status including charge level, power source, and battery health.                                                                   |
+| [check_cpu](#check_cpu)                                 | Check that the load of the CPU(s) are within bounds.                                                                                             |
+| [check_cpu_frequency](#check_cpu_frequency)             | Check CPU clock frequency (current vs max) per processor.                                                                                        |
+| [check_memory](#check_memory)                           | Check free/used memory on the system.                                                                                                            |
+| [check_network](#check_network)                         | Check network interface status.                                                                                                                  |
+| [check_os_version](#check_os_version)                   | Check the version of the underlying OS.                                                                                                          |
+| [check_pagefile](#check_pagefile)                       | Check the size of the system pagefile(s).                                                                                                        |
+| [check_pdh](#check_pdh)                                 | Check the value of a performance (PDH) counter on the local or remote system.                                                                    |
+| [check_process](#check_process)                         | Check state/metrics of one or more of the processes running on the computer.                                                                     |
+| [check_process_history](#check_process_history)         | Check the history of processes that have been running since NSClient++ started. Useful for verifying if certain applications have been executed. |
+| [check_process_history_new](#check_process_history_new) | Check for new processes that appeared within a specified time window. Useful for detecting unexpected or unauthorized applications.              |
+| [check_service](#check_service)                         | Check the state of one or more of the computer services.                                                                                         |
+| [check_temperature](#check_temperature)                 | Check ACPI thermal zone temperatures.                                                                                                            |
+| [check_uptime](#check_uptime)                           | Check time since last server re-boot.                                                                                                            |
 
 
 **List of command aliases:**

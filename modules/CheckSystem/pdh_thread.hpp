@@ -28,8 +28,10 @@
 #include <win/pdh/pdh_query.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
 
+#include "check_battery.hpp"
 #include "check_cpu_frequency.hpp"
 #include "check_network.hpp"
+#include "check_process_history.hpp"
 #include "check_temperature.hpp"
 #include "filter_config_object.hpp"
 
@@ -64,6 +66,9 @@ class pdh_thread {
   network_check::network_data network;
   temperature_check::temperature_data temperature;
   cpu_frequency_check::cpu_frequency_data cpu_frequency;
+  battery_check::battery_data battery;
+  process_history_check::process_history_data process_history;
+  bool gather_processes_;
 
  public:
   bool read_core_load;
@@ -74,7 +79,8 @@ class pdh_thread {
   std::string default_buffer_size;
 
  public:
-  pdh_thread(nscapi::core_wrapper *core, int plugin_id) : core_(core), plugin_id(plugin_id), read_core_load(true), use_pdh_for_cpu(false), min_threshold_(10) {
+  pdh_thread(nscapi::core_wrapper *core, int plugin_id)
+      : stop_event_(nullptr), plugin_id(plugin_id), core_(core), gather_processes_(false), read_core_load(true), use_pdh_for_cpu(false), min_threshold_(10) {
     mutex_.lock();
   }
   void add_counter(const PDH::pdh_object &counter);
@@ -87,6 +93,8 @@ class pdh_thread {
   network_check::nics_type get_network();
   temperature_check::zones_type get_temperature();
   cpu_frequency_check::cpus_type get_cpu_frequency();
+  battery_check::batteries_type get_battery();
+  process_history_check::history_type get_process_history();
   metrics_hash get_metrics();
 
   bool start();
@@ -103,7 +111,7 @@ class pdh_thread {
   std::string to_string() const { return "pdh"; }
 
  private:
-  spi_container fetch_spi(error_list &errors);
+  static spi_container fetch_spi(error_list &errors);
   void write_metrics(const spi_container &handles, const windows::system_info::cpu_load &load, PDH::PDHQuery *pdh, error_list &errors);
 
   filters::mem::filter_config_handler mem_filters_;

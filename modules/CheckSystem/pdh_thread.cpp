@@ -342,6 +342,15 @@ void pdh_thread::thread_proc() {
     } catch (...) {
       errors.push_back("Failed to get battery metrics");
     }
+    try {
+      if (i == 0) process_history.fetch();
+    } catch (const nsclient::nsclient_exception &e) {
+      errors.push_back("Failed to get process history: " + e.reason());
+    } catch (const std::exception &e) {
+      errors.push_back("Failed to get process history: " + utf8::utf8_from_native(e.what()));
+    } catch (...) {
+      errors.push_back("Failed to get process history");
+    }
     if (has_realtime && i == (min_threshold_ - 1)) {
       if (has_cpu_realtime) cpu_helper.process_items(this);
       if (has_mem_realtime) memory_helper.check();
@@ -466,6 +475,8 @@ temperature_check::zones_type pdh_thread::get_temperature() { return temperature
 cpu_frequency_check::cpus_type pdh_thread::get_cpu_frequency() { return cpu_frequency.get(); }
 
 battery_check::batteries_type pdh_thread::get_battery() { return battery.get(); }
+
+process_history_check::history_type pdh_thread::get_process_history() { return process_history.get(); }
 
 std::map<std::string, windows::system_info::load_entry> pdh_thread::get_cpu_load(long seconds) {
   std::map<std::string, windows::system_info::load_entry> ret;
