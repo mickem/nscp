@@ -19,15 +19,17 @@
 
 #pragma once
 
+#include <algorithms/pair_hash.h>
+
 #include <boost/thread/thread.hpp>
-#include <boost/unordered_map.hpp>
-#include <boost/unordered_set.hpp>
 #include <map>
 #include <net/net.hpp>
 #include <nsclient/logger/logger.hpp>
 #include <set>
 #include <settings/settings_core.hpp>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 
 #define MUTEX_GUARD()                                                                                             \
   boost::unique_lock<boost::timed_mutex> mutex(mutex_, boost::get_system_time() + boost::posix_time::seconds(5)); \
@@ -86,10 +88,10 @@ class settings_interface_impl : public settings_interface {
     }
   };
   typedef settings_core::key_path_type cache_key_type;
-  typedef boost::unordered_map<cache_key_type, conainer> cache_type;
-  typedef boost::unordered_set<std::string> path_cache_type;
-  typedef boost::unordered_set<cache_key_type> path_delete_cache_type;
-  typedef boost::unordered_map<std::string, std::set<std::string> > key_cache_type;
+  typedef std::unordered_map<cache_key_type, conainer, pair_hash> cache_type;
+  typedef std::unordered_set<std::string> path_cache_type;
+  typedef std::unordered_set<cache_key_type, pair_hash> path_delete_cache_type;
+  typedef std::unordered_map<std::string, std::set<std::string>> key_cache_type;
 
   cache_type settings_cache_;
   path_delete_cache_type settings_delete_cache_;
@@ -158,7 +160,7 @@ class settings_interface_impl : public settings_interface {
     }
   }
 
-  virtual std::list<boost::shared_ptr<settings_interface> > get_children() { return children_; }
+  virtual std::list<boost::shared_ptr<settings_interface>> get_children() { return children_; }
 
   template <class T>
   typename T::op_type getter(std::string path, std::string key) {

@@ -38,20 +38,16 @@ target_link_libraries(
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 
-
-
 NSCP_CREATE_TEST(
-        schedules_module_test
+    schedules_module_test
     SOURCES
         schedules_handler_test.cpp
-
         schedules_handler.cpp
         ${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.cpp
         ${NSCP_INCLUDEDIR}/threads/has-threads.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
-
     LIBRARIES
         GTest::gtest_main
         ${Boost_FILESYSTEM_LIBRARY}
@@ -63,4 +59,3 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
         ${CMAKE_SOURCE_DIR}/modules/Scheduler
 )
-

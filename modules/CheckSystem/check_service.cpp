@@ -18,6 +18,7 @@
  */
 
 #include "check_service.h"
+
 #include <algorithm>
 
 #include "nsclient/nsclient_exception.hpp"
@@ -173,8 +174,7 @@ void service_checks::check(const PB::Commands::QueryRequestMessage::Request &req
     if (service == "*") {
       for (const win_list_services::service_info &info :
            win_list_services::enum_services(computer, win_list_services::parse_service_type(type), win_list_services::parse_service_state(state), excludes)) {
-        if (std::find(excludes.begin(), excludes.end(), info.get_desc()) != excludes.end())
-          continue;
+        if (std::find(excludes.begin(), excludes.end(), info.get_desc()) != excludes.end()) continue;
         boost::shared_ptr<win_list_services::service_info> record(new win_list_services::service_info(info));
         filter.match(record);
         if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());

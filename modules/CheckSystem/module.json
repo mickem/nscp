@@ -29,6 +29,9 @@
 		"check_network"		: "Check network interface status." ,
 		"check_temperature"	: "Check ACPI thermal zone temperatures." ,
 		"check_cpu_frequency"	: "Check CPU clock frequency (current vs max) per processor." ,
+		"check_battery"		: "Check battery status including charge level, power source, and battery health." ,
+		"check_process_history"	: "Check the history of processes that have been running since NSClient++ started. Useful for verifying if certain applications have been executed." ,
+		"check_process_history_new"	: "Check for new processes that appeared within a specified time window. Useful for detecting unexpected or unauthorized applications." ,
 
 		"checkServiceState"	: "Legacy version of check_service",
 		"checkCpu"			: "Legacy version of check_cpu",

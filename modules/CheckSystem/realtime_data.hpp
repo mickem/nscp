@@ -40,7 +40,7 @@ struct runtime_data {
   void boot() {}
   void touch(boost::posix_time::ptime _now) {}
   bool has_changed(transient_data_type) const { return true; }
-  modern_filter::match_result process_item(filter_type &filter, transient_data_type);
+  modern_filter::match_result process_item(filter_type &filter, transient_data_type) const;
   void add(const std::string &time);
 };
 }  // namespace check_cpu_filter

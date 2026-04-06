@@ -19,13 +19,13 @@
 
 #pragma once
 
-#include "boost_python_wrapper.hpp"
-
 #include <memory>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/settings/proxy.hpp>
+
+#include "boost_python_wrapper.hpp"
 #ifdef WIN32
 #undef snprintf
 #undef vsnprintf
@@ -245,4 +245,3 @@ struct settings_wrapper {
   py::tuple query(py::object request);
 };
 }  // namespace script_wrapper
-

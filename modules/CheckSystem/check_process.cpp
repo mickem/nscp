@@ -19,6 +19,7 @@
 
 #include "check_process.hpp"
 
+#include <boost/algorithm/string.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/filter/realtime_helper.hpp>
@@ -188,6 +189,26 @@ void helper::check() {
     }
   }
   proc_helper->helper.process_items(data);
+}
+
+std::set<std::string> helper::check_shared() {
+  NSC_error err;
+  std::set<std::string> running_exes;
+
+  runtime_data::transient_data_type data(new transient_data(win_list_processes::enumerate_processes_delta(true, &err)));
+  for (win_list_processes::process_info &i : data->list) {
+    std::string exe_lower = boost::algorithm::to_lower_copy(i.exe.get());
+    if (!exe_lower.empty()) {
+      running_exes.insert(exe_lower);
+    }
+    if (known_processes_.find(i.exe.get()) == known_processes_.end()) {
+      i.is_new = true;
+      known_processes_.emplace(i.exe.get());
+    }
+  }
+  proc_helper->helper.process_items(data);
+
+  return running_exes;
 }
 
 }  // namespace realtime

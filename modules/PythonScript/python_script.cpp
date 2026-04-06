@@ -1,13 +1,13 @@
 #include "python_script.hpp"
-#include "script_wrapper.hpp"
 
 #include <memory>
 #include <str/utf8.hpp>
 
+#include "script_wrapper.hpp"
+
 #ifdef __linux__
 #include <dlfcn.h>
 #endif
-
 
 namespace py = boost::python;
 

@@ -1,12 +1,11 @@
 #pragma once
 
 #include <boost/filesystem/path.hpp>
-
-#include "boost_python_wrapper.hpp"
-
 #include <list>
 #include <memory>
 #include <string>
+
+#include "boost_python_wrapper.hpp"
 
 struct python_script : public boost::noncopyable {
   std::string base_path;
