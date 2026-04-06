@@ -335,9 +335,7 @@ void pdh_thread::thread_proc() {
       errors.push_back("Failed to get battery metrics");
     }
     try {
-      if (i == 0 && (has_proc_realtime || process_history_enabled)) {
-        process_history.fetch();
-      }
+      if (i == 0 && !has_proc_realtime && process_history_enabled) process_history.fetch();
     } catch (const nsclient::nsclient_exception &e) {
       errors.push_back("Failed to get process history: " + e.reason());
     } catch (const std::exception &e) {
@@ -348,6 +346,20 @@ void pdh_thread::thread_proc() {
     if (has_realtime && i == (min_threshold_ - 1)) {
       if (has_cpu_realtime) cpu_helper.process_items(this);
       if (has_mem_realtime) memory_helper.check();
+      if (has_proc_realtime) {
+        try {
+          std::set<std::string> running_exes = process_helper.check_shared();
+          if (process_history_enabled) {
+            process_history.fetch(running_exes);
+          }
+        } catch (const nsclient::nsclient_exception &e) {
+          errors.push_back("Failed to check processes: " + e.reason());
+        } catch (const std::exception &e) {
+          errors.push_back("Failed to check processes: " + utf8::utf8_from_native(e.what()));
+        } catch (...) {
+          errors.push_back("Failed to check processes");
+        }
+      }
     }
     if (i++ > min_threshold_) i = 0;
     for (const std::string &s : errors) {
