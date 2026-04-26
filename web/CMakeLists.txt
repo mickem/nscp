@@ -15,9 +15,24 @@ set(ALL_RESOURCES)
 foreach(file ${resources_ALL})
     get_filename_component(filename ${file} NAME)
     get_filename_component(filepath ${file} PATH)
-    file(RELATIVE_PATH relpath "${CMAKE_CURRENT_SOURCE_DIR}/dist" "${filepath}")
-    string(REPLACE "/" "_" alias "${relpath}")
-    string(REPLACE "." "_" alias "${alias}")
+    file(
+        RELATIVE_PATH
+        relpath
+        "${CMAKE_CURRENT_SOURCE_DIR}/dist"
+        "${filepath}"
+    )
+    string(
+        REPLACE "/"
+        "_"
+        alias
+        "${relpath}"
+    )
+    string(
+        REPLACE "."
+        "_"
+        alias
+        "${alias}"
+    )
     copy_single_file(ALL_RESOURCES dist/${relpath}/${filename} web/${relpath})
 endforeach(
     file

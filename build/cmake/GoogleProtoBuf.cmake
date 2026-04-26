@@ -29,13 +29,11 @@ function(WRAP_PROTO VAR)
     set(${VAR}_CS)
     if(PROTOC_GEN_LUA_FOUND)
         list(
-            APPEND
-            ${VAR}_LUA_C
+            APPEND ${VAR}_LUA_C
             "${PROJECT_BINARY_DIR}/libs/lua_pb/lua-protobuf.cc"
         )
         list(
-            APPEND
-            ${VAR}_LUA_H
+            APPEND ${VAR}_LUA_H
             "${PROJECT_BINARY_DIR}/libs/lua_pb/lua-protobuf.h"
         )
     endif(PROTOC_GEN_LUA_FOUND)
@@ -45,8 +43,18 @@ function(WRAP_PROTO VAR)
         get_filename_component(FIL_WE ${FIL} NAME_WE)
         get_filename_component(FIL_NAME ${FIL} NAME)
         string(TOUPPER ${FIL_WE} tmp1)
-        string(SUBSTRING ${tmp1} 0 1 tmp2)
-        string(SUBSTRING ${FIL_WE} 1 -1 tmp3)
+        string(
+            SUBSTRING ${tmp1}
+            0
+            1
+            tmp2
+        )
+        string(
+            SUBSTRING ${FIL_WE}
+            1
+            -1
+            tmp3
+        )
         set(FILE_PKG "${tmp2}${tmp3}")
         list(APPEND ${VAR}_C "${CMAKE_CURRENT_BINARY_DIR}/${FIL_WE}.pb.cc")
         list(APPEND ${VAR}_H "${CMAKE_CURRENT_BINARY_DIR}/${FIL_WE}.pb.h")
@@ -58,13 +66,11 @@ function(WRAP_PROTO VAR)
 
         set(ARGS)
         list(
-            APPEND
-            ARGS
+            APPEND ARGS
             --cpp_out=dllexport_decl=NSCAPI_PROTOBUF_EXPORT:${CMAKE_CURRENT_BINARY_DIR}
         )
         list(
-            APPEND
-            ARGS
+            APPEND ARGS
             --python_out
             ${PROJECT_BINARY_DIR}/scripts/python/lib
         )
@@ -75,14 +81,12 @@ function(WRAP_PROTO VAR)
         )
         if(CSHARP_FOUND AND WIN32)
             list(
-                APPEND
-                ARGS
+                APPEND ARGS
                 --csharp_out
                 ${PROJECT_BINARY_DIR}/libs/protobuf_net
             )
             list(
-                APPEND
-                ${VAR}_CS
+                APPEND ${VAR}_CS
                 "${PROJECT_BINARY_DIR}/libs/protobuf_net/${FILE_PKG}.cs"
             )
         endif()
@@ -93,23 +97,20 @@ function(WRAP_PROTO VAR)
                 )
             endif(PROTOC_GEN_LUA_BIN)
             list(
-                APPEND
-                ARGS
+                APPEND ARGS
                 --lua_out
                 ${PROJECT_BINARY_DIR}/libs/lua_pb
                 ${PROTOC_GEN_LUA_EXTRA}
             )
             list(
-                APPEND
-                ${VAR}_LUA_C
+                APPEND ${VAR}_LUA_C
                 "${PROJECT_BINARY_DIR}/libs/lua_pb/${FIL_WE}.pb-lua.cc"
             )
             # LIST(APPEND ${VAR}_LUA_C
             # "${PROJECT_BINARY_DIR}/libs/lua_pb/lua-protobuf.cc") LIST(APPEND
             # ${VAR}_LUA_H "${PROJECT_BINARY_DIR}/libs/lua_pb/lua-protobuf.h")
             list(
-                APPEND
-                ${VAR}_LUA_H
+                APPEND ${VAR}_LUA_H
                 "${PROJECT_BINARY_DIR}/libs/lua_pb/${FIL_WE}.pb-lua.h"
             )
         endif(PROTOC_GEN_LUA_FOUND)
@@ -120,15 +121,13 @@ function(WRAP_PROTO VAR)
                 )
             endif(PROTOC_GEN_MD_BIN)
             list(
-                APPEND
-                ARGS
+                APPEND ARGS
                 --md_out
                 ${BUILD_ROOT_FOLDER}/docs/docs/api
                 ${PROTOC_GEN_MD_EXTRA}
             )
             list(
-                APPEND
-                ${VAR}_MD
+                APPEND ${VAR}_MD
                 "${BUILD_ROOT_FOLDER}/docs/docs/api/${FIL_WE}.md"
             )
         endif()

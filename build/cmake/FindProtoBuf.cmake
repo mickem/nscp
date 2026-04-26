@@ -155,8 +155,7 @@ else()
             OUTPUT_STRIP_TRAILING_WHITESPACE
         )
         string(
-            REGEX REPLACE
-            "[a-z]+ ([0-9.]+)$"
+            REGEX REPLACE "[a-z]+ ([0-9.]+)$"
             "\\1"
             PROTOBUF_PROTOC_VERSION
             ${TMP_VERSION}

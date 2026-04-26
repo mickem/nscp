@@ -264,13 +264,16 @@ endmacro()
 function(nscp_apply_pic _TARGET)
     if(
         CMAKE_COMPILER_IS_GNUCXX
-        AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|aarch64|arm64"
+        AND CMAKE_SYSTEM_PROCESSOR
+            MATCHES
+            "x86_64|aarch64|arm64"
         AND NOT APPLE
     )
         set_target_properties(
             ${_TARGET}
             PROPERTIES
-                POSITION_INDEPENDENT_CODE ON
+                POSITION_INDEPENDENT_CODE
+                    ON
         )
     endif()
 endfunction()
@@ -476,7 +479,13 @@ macro(nscp_add_test _TARGET)
 endmacro()
 
 function(NSCP_CREATE_TEST _TARGET)
-    cmake_parse_arguments(PARSE_ARGV 1 ARG "" "" "SOURCES;LIBRARIES;INCLUDES")
+    cmake_parse_arguments(
+        PARSE_ARGV 1
+        ARG
+        ""
+        ""
+        "SOURCES;LIBRARIES;INCLUDES"
+    )
     add_executable(${_TARGET} ${ARG_SOURCES})
     if(ARG_LIBRARIES)
         target_link_libraries(${_TARGET} ${ARG_LIBRARIES})
@@ -496,7 +505,12 @@ endmacro()
 
 macro(NSCP_FORCE_INCLUDE _TARGET _SRC)
     if(WIN32)
-        string(REPLACE "/" "\\" WINSRC "${_SRC}")
+        string(
+            REPLACE "/"
+            "\\"
+            WINSRC
+            "${_SRC}"
+        )
         set_target_properties(
             ${TARGET}
             PROPERTIES

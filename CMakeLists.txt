@@ -109,8 +109,7 @@ set(NSCP_PROJECT_BINARY_DIR ${PROJECT_BINARY_DIR})
 set(NSCP_PROJECT_BINARY_DIR_NATIVE ${PROJECT_BINARY_DIR})
 if(WIN32)
     string(
-        REPLACE
-        "/"
+        REPLACE "/"
         "\\"
         NSCP_PROJECT_BINARY_DIR_NATIVE
         ${NSCP_PROJECT_BINARY_DIR_NATIVE}
@@ -259,7 +258,12 @@ if(WIN32)
         DESTINATION .
     )
     # Copy python binaries
-    string(REPLACE ".lib" ".dll" PY_LIB_RELEASE_DLL ${Python3_LIBRARIES})
+    string(
+        REPLACE ".lib"
+        ".dll"
+        PY_LIB_RELEASE_DLL
+        ${Python3_LIBRARIES}
+    )
     get_filename_component(_NAME "${PY_LIB_RELEASE_DLL}" NAME)
     message(
         STATUS
@@ -314,8 +318,7 @@ else(USE_STATIC_RUNTIME)
         foreach(LIB ${LIBS})
             if(Boost_${LIB}_LIBRARY_RELEASE)
                 string(
-                    REPLACE
-                    ".lib"
+                    REPLACE ".lib"
                     ".dll"
                     Boost_${LIB}_LIBRARY_RELEASE_DLL
                     ${Boost_${LIB}_LIBRARY_RELEASE}
@@ -331,8 +334,7 @@ else(USE_STATIC_RUNTIME)
                     ${PROJECT_BINARY_DIR}
                 )
                 string(
-                    REPLACE
-                    ".lib"
+                    REPLACE ".lib"
                     ".dll"
                     Boost_${LIB}_LIBRARY_DEBUG_DLL
                     ${Boost_${LIB}_LIBRARY_DEBUG}
@@ -340,7 +342,10 @@ else(USE_STATIC_RUNTIME)
                 # COPY_FILE(${Boost_${LIB}_LIBRARY_DEBUG_DLL} ${PROJECT_BINARY_DIR})
                 install(FILES ${Boost_${LIB}_LIBRARY_RELEASE_DLL} DESTINATION .)
             else()
-                message(WARNING " + Boost_${LIB}_LIBRARY_RELEASE - is missing (${Boost_${LIB}_LIBRARY_RELEASE})")
+                message(
+                    WARNING
+                    " + Boost_${LIB}_LIBRARY_RELEASE - is missing (${Boost_${LIB}_LIBRARY_RELEASE})"
+                )
             endif()
         endforeach()
         set(LIBS
@@ -349,7 +354,12 @@ else(USE_STATIC_RUNTIME)
             PROTOBUF_LIBRARY
         )
         foreach(LIB ${LIBS})
-            string(REPLACE ".lib" ".dll" ${LIB}_RELEASE_DLL "${${LIB}_RELEASE}")
+            string(
+                REPLACE ".lib"
+                ".dll"
+                ${LIB}_RELEASE_DLL
+                "${${LIB}_RELEASE}"
+            )
             if(EXISTS "${${LIB}_RELEASE_DLL}")
                 get_filename_component(_NAME "${${LIB}_RELEASE_DLL}" NAME)
                 message(STATUS " + ${_NAME}")
@@ -357,7 +367,12 @@ else(USE_STATIC_RUNTIME)
                 install(FILES "${${LIB}_RELEASE_DLL}" DESTINATION .)
             else()
                 get_filename_component(_PATH "${${LIB}_RELEASE_DLL}" DIRECTORY)
-                string(REPLACE ".lib" "*.dll" LIB_PATTERN "${${LIB}_RELEASE}")
+                string(
+                    REPLACE ".lib"
+                    "*.dll"
+                    LIB_PATTERN
+                    "${${LIB}_RELEASE}"
+                )
                 file(GLOB FILES ${LIB_PATTERN})
                 foreach(FILE ${FILES})
                     get_filename_component(_NAME "${FILE}" NAME)
@@ -396,14 +411,14 @@ if(BUILD_VERSION MATCHES ".*-.*")
     if(BUILD_VERSION MATCHES ".*\.sha\..*")
         string(
             REGEX REPLACE
-            "^([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.sha\.([^\.]*)$"
+                "^([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.sha\.([^\.]*)$"
             "\\1.\\2.\\3"
             NSCP_VERSION_NUMBER
             "${BUILD_VERSION}"
         )
         string(
             REGEX REPLACE
-            "^([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.sha\.([^\.]*)$"
+                "^([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.sha\.([^\.]*)$"
             "\\5"
             VERSION_BUILD
             "${BUILD_VERSION}"
@@ -411,14 +426,14 @@ if(BUILD_VERSION MATCHES ".*-.*")
     else()
         string(
             REGEX REPLACE
-            "^([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)$"
+                "^([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)$"
             "\\1.\\2.\\3"
             NSCP_VERSION_NUMBER
             "${BUILD_VERSION}"
         )
         string(
             REGEX REPLACE
-            "^([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)$"
+                "^([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)$"
             "\\5"
             VERSION_BUILD
             "${BUILD_VERSION}"
@@ -442,22 +457,19 @@ message(
     "Version: ${BUILD_VERSION} decoded as ${NSCP_VERSION_NUMBER}.${VERSION_BUILD}"
 )
 string(
-    REGEX REPLACE
-    ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)"
+    REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)"
     "\\1"
     VERSION_SERIES
     ${NSCP_VERSION_NUMBER}
 )
 string(
-    REGEX REPLACE
-    ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)"
+    REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)"
     "\\2"
     VERSION_MAJOR
     ${NSCP_VERSION_NUMBER}
 )
 string(
-    REGEX REPLACE
-    ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)"
+    REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)"
     "\\3"
     VERSION_MINOR
     ${NSCP_VERSION_NUMBER}
@@ -467,7 +479,12 @@ message(
     "Version: ${NSCP_VERSION_NUMBER} decoded as ${VERSION_SERIES}.${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_BUILD}"
 )
 
-string(REPLACE "." "," NSCP_VERSION_COMMA ${NSCP_VERSION_NUMBER})
+string(
+    REPLACE "."
+    ","
+    NSCP_VERSION_COMMA
+    ${NSCP_VERSION_NUMBER}
+)
 string(TIMESTAMP NSCP_VERSION_DATE "%Y-%m-%d" UTC)
 if(WIN32)
     set(VERSION_ARCH Win32)
@@ -509,8 +526,7 @@ if(MSVC)
     # Force to always compile with W4
     if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
         string(
-            REGEX REPLACE
-            "/W[0-4]"
+            REGEX REPLACE "/W[0-4]"
             "/W4"
             CMAKE_CXX_FLAGS
             "${CMAKE_CXX_FLAGS}"

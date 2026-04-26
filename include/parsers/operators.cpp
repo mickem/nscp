@@ -266,8 +266,8 @@ struct operator_like : simple_bool_binary_operator_impl {
   // "the smaller string is a substring of the larger one". Empty inputs are
   // handled the same way the previous code did (both empty => match,
   // exactly one empty => no match).
-  static value_container like_match_to_container(const evaluation_context context, const std::string &subject, const value_container &pattern, const bool negate,
-                                                 const bool is_unsure) {
+  static value_container like_match_to_container(const evaluation_context context, const std::string &subject, const value_container &pattern,
+                                                 const bool negate, const bool is_unsure) {
     if (!pattern.is(type_string)) {
       context->error("invalid type");
       return value_container::create_nil();
@@ -313,8 +313,8 @@ struct operator_regexp : simple_bool_binary_operator_impl {
 
   // Helpers shared with operator_not_regexp; static so they can be reused
   // without friending or duplicating the boost::regex try/catch logic.
-  static value_container regex_match_to_container(const evaluation_context context, const std::string &subject, const value_container &pattern, const bool negate,
-                                                  const bool is_unsure) {
+  static value_container regex_match_to_container(const evaluation_context context, const std::string &subject, const value_container &pattern,
+                                                  const bool negate, const bool is_unsure) {
     if (!pattern.is(type_string)) {
       context->error("invalid type");
       return value_container::create_nil();

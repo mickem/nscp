@@ -118,8 +118,7 @@ struct new_filter_obj : filter_obj {
   int truncate_message;
   std::map<std::string, eventlog::evt_handle> providers_;
 
-  new_filter_obj(unsigned long long now, std::string logfile, eventlog::api::EVT_HANDLE hEvent, const eventlog::evt_handle &hContext,
-                 int truncate_message);
+  new_filter_obj(unsigned long long now, std::string logfile, eventlog::api::EVT_HANDLE hEvent, const eventlog::evt_handle &hContext, int truncate_message);
   ~new_filter_obj() override = default;
 
   std::string show() override { return get_log() + ":" + str::xtos(get_id()) + "=" + get_el_type_s() + "('" + get_message() + "')"; }
@@ -147,7 +146,7 @@ struct new_filter_obj : filter_obj {
   std::string get_opcode() override;
   std::string get_keyword() override;
   std::string get_el_type_s() const override;
-  long long get_severity() const  override { return 0; }
+  long long get_severity() const override { return 0; }
   std::string get_message() override;
   std::string get_xml() override;
   void set_truncate(const int truncate) override { truncate_message = truncate; }
@@ -160,7 +159,7 @@ struct new_filter_obj : filter_obj {
   long long get_raw_id() const override { return get_raw_id_dword(); }
   long long get_generated() const override { return 0; }
   bool is_modern() const override { return true; }
-  eventlog::evt_handle &get_provider_handle(const std::string& provider);
+  eventlog::evt_handle &get_provider_handle(const std::string &provider);
   std::string to_string() const override { return logfile + ":" + str::xtos(get_id()) + "=" + get_el_type_s(); }
 };
 

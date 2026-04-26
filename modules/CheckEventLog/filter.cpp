@@ -197,7 +197,7 @@ std::string new_filter_obj::get_keyword() {
   return ret;
 }
 
-eventlog::evt_handle &new_filter_obj::get_provider_handle(const std::string& provider) {
+eventlog::evt_handle &new_filter_obj::get_provider_handle(const std::string &provider) {
   if (providers_.find(provider) == providers_.end()) {
     const eventlog::api::EVT_HANDLE tmp = eventlog::EvtOpenPublisherMetadata(nullptr, utf8::cvt<std::wstring>(provider).c_str(), nullptr, 0, 0);
     if (!tmp) throw nsclient::nsclient_exception("EvtOpenPublisherMetadata failed for '" + provider + "': " + error::lookup::last_error());
@@ -212,8 +212,7 @@ std::string new_filter_obj::get_message() {
     const int status = eventlog::EvtFormatMessage(get_provider_handle(get_provider()), hEvent, 0, 0, nullptr, eventlog::api::EvtFormatMessageEvent, msg);
     if (status != ERROR_SUCCESS) {
       NSC_DEBUG_MSG("Failed to format eventlog record: ID=" + str::xtos(get_id()) + ": " + error::format::from_system(status));
-      if (status == ERROR_INVALID_PARAMETER || status == ERROR_EVT_MESSAGE_NOT_FOUND || status == ERROR_EVT_MESSAGE_ID_NOT_FOUND)
-        return "";
+      if (status == ERROR_INVALID_PARAMETER || status == ERROR_EVT_MESSAGE_NOT_FOUND || status == ERROR_EVT_MESSAGE_ID_NOT_FOUND) return "";
       if (status == ERROR_EVT_UNRESOLVED_VALUE_INSERT)
         throw nsclient::nsclient_exception("Invalidly formatted eventlog message for: " + error::lookup::last_error(status));
       throw nsclient::nsclient_exception("EvtFormatMessage failed: " + error::lookup::last_error(status));
@@ -235,8 +234,7 @@ std::string new_filter_obj::get_xml() {
     const int status = eventlog::EvtFormatMessage(get_provider_handle(get_provider()), hEvent, 0, 0, nullptr, eventlog::api::EvtFormatMessageXml, xml);
     if (status != ERROR_SUCCESS) {
       NSC_DEBUG_MSG("Failed to format eventlog record: ID=" + str::xtos(get_id()) + ": " + error::format::from_system(status));
-      if (status == ERROR_INVALID_PARAMETER || status == ERROR_EVT_MESSAGE_NOT_FOUND || status == ERROR_EVT_MESSAGE_ID_NOT_FOUND)
-        return "";
+      if (status == ERROR_INVALID_PARAMETER || status == ERROR_EVT_MESSAGE_NOT_FOUND || status == ERROR_EVT_MESSAGE_ID_NOT_FOUND) return "";
       if (status == ERROR_EVT_UNRESOLVED_VALUE_INSERT)
         throw nsclient::nsclient_exception("Invalidly formatted eventlog message for: " + error::lookup::last_error(status));
       throw nsclient::nsclient_exception("EvtFormatMessage failed: " + error::lookup::last_error(status));
@@ -273,7 +271,7 @@ long long new_filter_obj::get_category() const {
 
 using namespace parsers::where;
 
-int convert_old_severity(const evaluation_context& context, const std::string& str) {
+int convert_old_severity(const evaluation_context &context, const std::string &str) {
   if (str == "success" || str == "ok") return 0;
   if (str == "informational" || str == "info" || str == "information") return 1;
   if (str == "warning" || str == "warn") return 2;
@@ -281,7 +279,7 @@ int convert_old_severity(const evaluation_context& context, const std::string& s
   context->error("Invalid severity: " + str);
   return str::stox<int>(str);
 }
-int convert_old_type(const evaluation_context &context, const std::string& str) {
+int convert_old_type(const evaluation_context &context, const std::string &str) {
   if (str == "error") return EVENTLOG_ERROR_TYPE;
   if (str == "warning") return EVENTLOG_WARNING_TYPE;
   if (str == "informational" || str == "info" || str == "information") return EVENTLOG_INFORMATION_TYPE;
@@ -296,7 +294,7 @@ int convert_old_type(const evaluation_context &context, const std::string& str) 
     return EVENTLOG_ERROR_TYPE;
   }
 }
-int convert_new_type(const evaluation_context& context, const std::string &str) {
+int convert_new_type(const evaluation_context &context, const std::string &str) {
   if (str == "critical") return 1;
   if (str == "error") return 2;
   if (str == "warning" || str == "warn") return 3;
@@ -310,16 +308,13 @@ int convert_new_type(const evaluation_context& context, const std::string &str) 
   }
 }
 
-node_type fun_convert_old_severity(const boost::shared_ptr<filter_obj>& object, const evaluation_context& context,
-                                                   const node_type& subject) {
+node_type fun_convert_old_severity(const boost::shared_ptr<filter_obj> &object, const evaluation_context &context, const node_type &subject) {
   return factory::create_int(convert_old_severity(context, subject->get_string_value(context)));
 }
-node_type fun_convert_new_type(const boost::shared_ptr<filter_obj>& object, const evaluation_context& context,
-                                               const node_type& subject) {
+node_type fun_convert_new_type(const boost::shared_ptr<filter_obj> &object, const evaluation_context &context, const node_type &subject) {
   return factory::create_int(convert_new_type(context, subject->get_string_value(context)));
 }
-node_type fun_convert_old_type(const boost::shared_ptr<filter_obj>& object, const evaluation_context& context,
-                                               const node_type& subject) {
+node_type fun_convert_old_type(const boost::shared_ptr<filter_obj> &object, const evaluation_context &context, const node_type &subject) {
   return factory::create_int(convert_old_type(context, subject->get_string_value(context)));
 }
 

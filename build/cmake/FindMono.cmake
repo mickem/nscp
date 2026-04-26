@@ -79,7 +79,12 @@ if(WIN32)
     # "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Novell\\Mono;DefaultCLR]" NAME )
 
     foreach(csharp_mono_bin_dir ${csharp_mono_bin_dirs})
-        string(REPLACE "\\" "/" csharp_mono_bin_dir ${csharp_mono_bin_dir})
+        string(
+            REPLACE "\\"
+            "/"
+            csharp_mono_bin_dir
+            ${csharp_mono_bin_dir}
+        )
         if(EXISTS "${csharp_mono_bin_dir}/dmcs.bat")
             set(csharp_mono_executable "${csharp_mono_bin_dir}/dmcs.bat")
         elseif(EXISTS "${csharp_mono_bin_dir}/gmcs.bat")
@@ -91,8 +96,7 @@ if(WIN32)
         if(csharp_mono_valid)
             # Extract version number (eg. 2.10.2)
             string(
-                REGEX MATCH
-                "([0-9]*)([.])([0-9]*)([.]*)([0-9]*)"
+                REGEX MATCH "([0-9]*)([.])([0-9]*)([.]*)([0-9]*)"
                 csharp_mono_version_temp
                 ${csharp_mono_bin_dir}
             )
@@ -194,8 +198,7 @@ else(UNIX)
                 OUTPUT_VARIABLE csharp_mono_version_string
             )
             string(
-                REGEX MATCH
-                "([0-9]*)([.])([0-9]*)([.]*)([0-9]*)"
+                REGEX MATCH "([0-9]*)([.])([0-9]*)([.]*)([0-9]*)"
                 csharp_mono_version_temp
                 ${csharp_mono_version_string}
             )

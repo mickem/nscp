@@ -52,8 +52,7 @@ endif()
 
 # Search for .NET versions
 string(
-    REPLACE
-    "\\"
+    REPLACE "\\"
     "/"
     csharp_dotnet_framework_dir
     ${csharp_dotnet_framework_dir}
@@ -68,15 +67,13 @@ foreach(csharp_dotnet_executable ${csharp_dotnet_executables})
     if(csharp_dotnet_valid)
         # Extract version number (eg. v4.0.30319) TODO: Consider using REGEX
         string(
-            REPLACE
-            "${csharp_dotnet_framework_dir}/"
+            REPLACE "${csharp_dotnet_framework_dir}/"
             ""
             csharp_dotnet_version_temp
             ${csharp_dotnet_executable}
         )
         string(
-            REPLACE
-            "/csc.exe"
+            REPLACE "/csc.exe"
             ""
             csharp_dotnet_version_temp
             ${csharp_dotnet_version_temp}

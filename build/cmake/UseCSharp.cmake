@@ -84,9 +84,19 @@ macro(CSHARP_ADD_PROJECT type name)
             if(SOURCE)
                 list(APPEND sources_dep "${SOURCE}")
                 if(WIN32)
-                    string(REPLACE "/" "\\" SOURCE "${SOURCE}")
+                    string(
+                        REPLACE "/"
+                        "\\"
+                        SOURCE
+                        "${SOURCE}"
+                    )
                 else(UNIX)
-                    string(REPLACE "\\" "/" SOURCE "${SOURCE}")
+                    string(
+                        REPLACE "\\"
+                        "/"
+                        SOURCE
+                        "${SOURCE}"
+                    )
                 endif(WIN32)
                 list(APPEND sources "${SOURCE}")
             endif(SOURCE)
@@ -107,22 +117,17 @@ macro(CSHARP_ADD_PROJECT type name)
     )
     add_custom_command(
         COMMENT
-        "Compiling C# ${type} ${name}: '${CSHARP_COMPILER} /t:${type} /out:${name}.${output} /platform:${CSHARP_PLATFORM} ${CSHARP_SDK} ${refs} ${sources}'"
+            "Compiling C# ${type} ${name}: '${CSHARP_COMPILER} /t:${type} /out:${name}.${output} /platform:${CSHARP_PLATFORM} ${CSHARP_SDK} ${refs} ${sources}'"
         OUTPUT
-        ${CSHARP_BINARY_DIRECTORY}/${name}.${output}
+            ${CSHARP_BINARY_DIRECTORY}/${name}.${output}
         COMMAND
-        ${CSHARP_COMPILER}
+            ${CSHARP_COMPILER}
         ARGS
-        /t:${type}
-        /out:${name}.${output}
-        /platform:${CSHARP_PLATFORM}
-        ${CSHARP_SDK}
-        ${refs}
-        ${sources}
-        WORKING_DIRECTORY
-        ${CSHARP_BINARY_DIRECTORY}
+            /t:${type} /out:${name}.${output} /platform:${CSHARP_PLATFORM}
+            ${CSHARP_SDK} ${refs} ${sources}
+        WORKING_DIRECTORY ${CSHARP_BINARY_DIRECTORY}
         DEPENDS
-        ${sources_dep}
+            ${sources_dep}
     )
     add_custom_target(
         ${name}

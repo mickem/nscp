@@ -146,16 +146,11 @@ inline long long parse_time(std::string time) {
   const auto p = time.find_first_not_of("-0123456789");
   if (p == std::string::npos) return now + boost::lexical_cast<long long>(time);
   const auto value = boost::lexical_cast<long long>(time.substr(0, p));
-  if ((time[p] == 's') || (time[p] == 'S'))
-    return now + value;
-  if ((time[p] == 'm') || (time[p] == 'M'))
-    return now + (value * 60);
-  if ((time[p] == 'h') || (time[p] == 'H'))
-    return now + (value * 60 * 60);
-  if ((time[p] == 'd') || (time[p] == 'D'))
-    return now + (value * 24 * 60 * 60);
-  if ((time[p] == 'w') || (time[p] == 'W'))
-    return now + (value * 7 * 24 * 60 * 60);
+  if ((time[p] == 's') || (time[p] == 'S')) return now + value;
+  if ((time[p] == 'm') || (time[p] == 'M')) return now + (value * 60);
+  if ((time[p] == 'h') || (time[p] == 'H')) return now + (value * 60 * 60);
+  if ((time[p] == 'd') || (time[p] == 'D')) return now + (value * 24 * 60 * 60);
+  if ((time[p] == 'w') || (time[p] == 'W')) return now + (value * 7 * 24 * 60 * 60);
   return now + value;
 }
 

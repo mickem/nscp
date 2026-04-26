@@ -84,14 +84,14 @@ if(BUILD_VERSION MATCHES ".*-.*")
     message(STATUS "Parsing branch version: ${BUILD_VERSION}")
     string(
         REGEX REPLACE
-        "([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)"
+            "([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)"
         "\\1.\\2.\\3"
         NSCP_VERSION_NUMBER
         "${BUILD_VERSION}"
     )
     string(
         REGEX REPLACE
-        "([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)"
+            "([0-9]+)\\.([0-9]+)\\.([0-9]+)-([^\.]*)\.([0-9*]*)\.([^\.]*)"
         "\\5"
         VERSION_BUILD
         "${BUILD_VERSION}"
@@ -106,22 +106,19 @@ message(
     "Version: ${BUILD_VERSION} decoded as ${NSCP_VERSION_NUMBER}.${VERSION_BUILD}"
 )
 string(
-    REGEX REPLACE
-    ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)"
+    REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)"
     "\\1"
     VERSION_SERIES
     ${NSCP_VERSION_NUMBER}
 )
 string(
-    REGEX REPLACE
-    ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)"
+    REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)"
     "\\2"
     VERSION_MAJOR
     ${NSCP_VERSION_NUMBER}
 )
 string(
-    REGEX REPLACE
-    ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)"
+    REGEX REPLACE ".*([0-9]+)\\.([0-9]+)\\.([0-9]+)"
     "\\3"
     VERSION_MINOR
     ${NSCP_VERSION_NUMBER}
@@ -131,7 +128,12 @@ message(
     "Version: ${NSCP_VERSION_NUMBER} decoded as ${VERSION_SERIES}.${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_BUILD}"
 )
 
-string(REPLACE "." "," NSCP_VERSION_COMMA ${NSCP_VERSION_NUMBER})
+string(
+    REPLACE "."
+    ","
+    NSCP_VERSION_COMMA
+    ${NSCP_VERSION_NUMBER}
+)
 string(TIMESTAMP NSCP_VERSION_DATE "%Y-%m-%d" UTC)
 if(WIN32)
     set(VERSION_ARCH Win32)
