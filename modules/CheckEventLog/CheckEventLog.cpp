@@ -142,19 +142,19 @@ inline std::time_t to_time_t_epoch(boost::posix_time::ptime t) {
 }
 
 inline long long parse_time(std::string time) {
-  long long now = to_time_t_epoch(boost::posix_time::second_clock::universal_time());
-  std::string::size_type p = time.find_first_not_of("-0123456789");
+  const long long now = to_time_t_epoch(boost::posix_time::second_clock::universal_time());
+  const auto p = time.find_first_not_of("-0123456789");
   if (p == std::string::npos) return now + boost::lexical_cast<long long>(time);
-  long long value = boost::lexical_cast<long long>(time.substr(0, p));
+  const auto value = boost::lexical_cast<long long>(time.substr(0, p));
   if ((time[p] == 's') || (time[p] == 'S'))
     return now + value;
-  else if ((time[p] == 'm') || (time[p] == 'M'))
+  if ((time[p] == 'm') || (time[p] == 'M'))
     return now + (value * 60);
-  else if ((time[p] == 'h') || (time[p] == 'H'))
+  if ((time[p] == 'h') || (time[p] == 'H'))
     return now + (value * 60 * 60);
-  else if ((time[p] == 'd') || (time[p] == 'D'))
+  if ((time[p] == 'd') || (time[p] == 'D'))
     return now + (value * 24 * 60 * 60);
-  else if ((time[p] == 'w') || (time[p] == 'W'))
+  if ((time[p] == 'w') || (time[p] == 'W'))
     return now + (value * 7 * 24 * 60 * 60);
   return now + value;
 }
@@ -239,12 +239,12 @@ void CheckEventLog::save_bookmark(const std::string bookmark, eventlog::api::EVT
   DWORD dwBufferSize = 0;
   DWORD dwPropertyCount = 0;
 
-  if (!eventlog::EvtRender(NULL, hBookmark, eventlog::api::EvtRenderBookmark, static_cast<DWORD>(buffer.size()), buffer.get(), &dwBufferSize,
+  if (!eventlog::EvtRender(nullptr, hBookmark, eventlog::api::EvtRenderBookmark, static_cast<DWORD>(buffer.size()), buffer.get(), &dwBufferSize,
                            &dwPropertyCount)) {
     DWORD status = GetLastError();
     if (status == ERROR_INSUFFICIENT_BUFFER) {
       buffer.resize(dwBufferSize);
-      if (!eventlog::EvtRender(NULL, hBookmark, eventlog::api::EvtRenderBookmark, static_cast<DWORD>(buffer.size()), buffer.get(), &dwBufferSize,
+      if (!eventlog::EvtRender(nullptr, hBookmark, eventlog::api::EvtRenderBookmark, static_cast<DWORD>(buffer.size()), buffer.get(), &dwBufferSize,
                                &dwPropertyCount)) {
         NSC_LOG_ERROR("Failed to save bookmark: " + error::lookup::last_error());
         return;
@@ -277,7 +277,7 @@ void CheckEventLog::check_modern(const std::string &logfile, const std::string &
     flags |= eventlog::api::EvtQueryReverseDirection;
     stop_date = parse_time("24h");
   }
-  eventlog::evt_handle hResults = eventlog::EvtQuery(NULL, utf8::cvt<std::wstring>(logfile).c_str(), pwsQuery, flags);
+  const eventlog::evt_handle hResults = eventlog::EvtQuery(nullptr, utf8::cvt<std::wstring>(logfile).c_str(), pwsQuery, flags);
   if (!hResults) {
     status = GetLastError();
     if (status == ERROR_EVT_CHANNEL_NOT_FOUND)
@@ -288,7 +288,7 @@ void CheckEventLog::check_modern(const std::string &logfile, const std::string &
       throw nsclient::nsclient_exception("Failed to open " + logfile + ": " + error::lookup::last_error(status));
   }
 
-  eventlog::evt_handle hContext = eventlog::EvtCreateRenderContext(0, NULL, eventlog::api::EvtRenderContextSystem);
+  eventlog::evt_handle hContext = eventlog::EvtCreateRenderContext(0, nullptr, eventlog::api::EvtRenderContextSystem);
   if (!hContext) throw nsclient::nsclient_exception("EvtCreateRenderContext failed: " + error::lookup::last_error());
 
   if (!bookmark.empty()) {

@@ -42,7 +42,7 @@ struct filter_obj : boost::noncopyable {
   unsigned long long now_;
 
   filter_obj(unsigned long long now) : now_(now) {}
-  virtual ~filter_obj() {}
+  virtual ~filter_obj() = default;
 
   virtual std::string show() = 0;
 
@@ -82,31 +82,31 @@ struct old_filter_obj : filter_obj {
   old_filter_obj(unsigned long long now, std::string file, const EVENTLOGRECORD *pevlr, const int truncate_message)
       : filter_obj(now), record(file, pevlr), truncate_message(truncate_message) {}
 
-  std::string show() { return get_log() + ":" + str::xtos(get_id()) + "=" + get_el_type_s() + "('" + get_message() + "')"; }
+  std::string show() override { return get_log() + ":" + str::xtos(get_id()) + "=" + get_el_type_s() + "('" + get_message() + "')"; }
 
-  long long get_id() const { return record.eventID(); }
-  std::string get_provider() const { return utf8::cvt<std::string>(record.get_source()); }
-  std::string get_computer() const { return utf8::cvt<std::string>(record.get_computer()); }
-  std::string get_task() { return ""; }
-  std::string get_keyword() { return ""; }
-  long long get_el_type() const { return record.eventType(); }
-  std::string get_el_type_s() const;
-  long long get_severity() const { return record.severity(); }
-  void set_truncate(int truncate) { truncate_message = truncate; }
-  std::string get_message() { return utf8::cvt<std::string>(record.render_message(truncate_message)); }
-  std::string get_xml() { return ""; }
-  std::string get_strings() { return utf8::cvt<std::string>(record.enumStrings()); }
-  std::string get_log() const { return utf8::cvt<std::string>(record.get_log()); }
-  std::string get_guid() const { return ""; }
-  long long get_written() const { return record.written(); }
-  long long get_category() const { return record.category(); }
-  long long get_facility() const { return record.facility(); }
-  long long get_customer() const { return record.customer(); }
-  long long get_raw_id() const { return record.raw_id(); }
-  long long get_generated() const { return record.generated(); }
-  bool is_modern() const { return false; }
+  long long get_id() const override { return record.eventID(); }
+  std::string get_provider() const override { return utf8::cvt<std::string>(record.get_source()); }
+  std::string get_computer() const override { return utf8::cvt<std::string>(record.get_computer()); }
+  std::string get_task() override { return ""; }
+  std::string get_keyword() override { return ""; }
+  long long get_el_type() const override { return record.eventType(); }
+  std::string get_el_type_s() const override;
+  long long get_severity() const override { return record.severity(); }
+  void set_truncate(int truncate) override { truncate_message = truncate; }
+  std::string get_message() override { return utf8::cvt<std::string>(record.render_message(truncate_message)); }
+  std::string get_xml() override { return ""; }
+  std::string get_strings() override { return utf8::cvt<std::string>(record.enumStrings()); }
+  std::string get_log() const override { return utf8::cvt<std::string>(record.get_log()); }
+  std::string get_guid() const override { return ""; }
+  long long get_written() const override { return record.written(); }
+  long long get_category() const override { return record.category(); }
+  long long get_facility() const override { return record.facility(); }
+  long long get_customer() const override { return record.customer(); }
+  long long get_raw_id() const override { return record.raw_id(); }
+  long long get_generated() const override { return record.generated(); }
+  bool is_modern() const override { return false; }
 
-  virtual std::string to_string() const { return get_log() + ":" + str::xtos(get_id()) + "=" + get_el_type_s(); }
+  std::string to_string() const override { return get_log() + ":" + str::xtos(get_id()) + "=" + get_el_type_s(); }
 };
 
 struct new_filter_obj : filter_obj {
@@ -117,8 +117,8 @@ struct new_filter_obj : filter_obj {
   std::map<std::string, eventlog::evt_handle> providers_;
 
   new_filter_obj(unsigned long long now, const std::string &logfile, eventlog::api::EVT_HANDLE hEvent, eventlog::evt_handle &hContext,
-                 const int truncate_message);
-  virtual ~new_filter_obj() {}
+                 int truncate_message);
+  ~new_filter_obj() override = default;
 
   std::string show() { return get_log() + ":" + str::xtos(get_id()) + "=" + get_el_type_s() + "('" + get_message() + "')"; }
 
@@ -145,10 +145,32 @@ struct new_filter_obj : filter_obj {
   bool is_modern() const { return true; }
   eventlog::evt_handle &get_provider_handle(const std::string provider);
   virtual std::string to_string() const { return logfile + ":" + str::xtos(get_id()) + "=" + get_el_type_s(); }
+  std::string get_provider() const override;
+  std::string get_guid() const override;
+  std::string get_computer() const override;
+  long long get_el_type() const override;
+  std::string get_task() override;
+  std::string get_keyword() override;
+  std::string get_el_type_s() const override;
+  long long get_severity() const  override { return 0; }
+  std::string get_message() override;
+  std::string get_xml() override;
+  void set_truncate(int truncate) override { truncate_message = truncate; }
+  std::string get_strings() override { return get_message(); }
+  std::string get_log() const override;
+  long long get_written() const override;
+  long long get_category() const override;
+  long long get_facility() const override { return (get_raw_id_dword() >> 16) & 0xfff; }
+  long long get_customer() const override { return (get_raw_id_dword() >> 29) & 0x1; }
+  long long get_raw_id() const override { return get_raw_id_dword(); }
+  long long get_generated() const override { return 0; }
+  bool is_modern() const override { return true; }
+  eventlog::evt_handle &get_provider_handle(std::string provider);
+  std::string to_string() const override { return logfile + ":" + str::xtos(get_id()) + "=" + get_el_type_s(); }
 };
 
 typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
-struct filter_obj_handler : public native_context {
+struct filter_obj_handler : native_context {
   static const parsers::where::value_type type_custom_severity = parsers::where::type_custom_int_1;
   static const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_2;
   filter_obj_handler();
