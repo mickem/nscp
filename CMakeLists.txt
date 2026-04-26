@@ -176,6 +176,7 @@ if(USE_STATIC_RUNTIME)
             -DNTDDI_VERSION=0x05010000
             -DBOOST_NO_CXX17_HDR_SHARED_MUTEX
             -D_USING_V110_SDK71_
+            -DSTRSAFE_NO_DEPRECATE
         )
         set(Boost_USE_STATIC_LIBS ON)
         set(Boost_USE_STATIC_RUNTIME ON)

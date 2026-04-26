@@ -18,6 +18,7 @@ if(WIN32)
         -DBOOST_USE_WINAPI_VERSION=0x501
         -DBOOST_NO_CXX17_HDR_SHARED_MUTEX
         -D_USING_V110_SDK71_
+        -DSTRSAFE_NO_DEPRECATE
         -Dplugin_api_NOLIB
     )
 endif()
