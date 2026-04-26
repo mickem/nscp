@@ -32,6 +32,7 @@ runs:
           "Microsoft.VisualStudio.Component.VC.v141.x86.x64"
           "Microsoft.VisualStudio.Component.VC.v141.ATL"
           "Microsoft.VisualStudio.Component.WinXP"
+          "Microsoft.VisualStudio.Component.Windows81SDK"
         )
         [string]$workloadArgs = $components | ForEach-Object {" --add " +  $_}
         $Arguments = ('/c', "vs_installer.exe", 'modify', '--installPath', "`"$InstallPath`"",$workloadArgs, '--quiet', '--norestart', '--nocache')
