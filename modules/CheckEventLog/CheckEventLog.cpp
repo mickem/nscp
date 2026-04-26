@@ -165,16 +165,23 @@ void check_legacy(const std::string &logfile, std::string &scan_range, const int
   HANDLE hLog = OpenEventLog(NULL, utf8::cvt<std::wstring>(logfile).c_str());
   if (hLog == NULL) throw nsclient::nsclient_exception("Could not open the '" + logfile + "' event log: " + error::lookup::last_error());
   long long stop_date = 0;
+  long long start_date = 0;
   enum direction_type { direction_none, direction_forwards, direction_backwards };
   direction_type direction = direction_none;
   DWORD flags = EVENTLOG_SEQUENTIAL_READ;
-  if ((scan_range.size() > 0) && (scan_range[0] == L'-')) {
+  if (scan_range.size() > 0 && scan_range[0] == L'-') {
     direction = direction_backwards;
     flags |= EVENTLOG_BACKWARDS_READ;
     stop_date = parse_time(scan_range);
+  } else if (scan_range.size() > 0 && scan_range[0] == L'+') {
+    direction = direction_forwards;
+    flags |= EVENTLOG_FORWARDS_READ;
+    start_date = parse_time("0");
+    stop_date = parse_time(scan_range.substr(1));
   } else if (scan_range.size() > 0) {
     direction = direction_forwards;
     flags |= EVENTLOG_FORWARDS_READ;
+    start_date = parse_time("0");
     stop_date = parse_time(scan_range);
   } else {
     flags |= EVENTLOG_FORWARDS_READ;
@@ -213,7 +220,9 @@ void check_legacy(const std::string &logfile, std::string &scan_range, const int
         is_scanning = false;
         break;
       }
-      modern_filter::match_result ret = filter.match(filter_type::object_type(new eventlog_filter::old_filter_obj(ltime, logfile, pevlr, truncate_message)));
+      if (!(direction == direction_forwards && record.written() < start_date)) {
+        modern_filter::match_result ret = filter.match(filter_type::object_type(new eventlog_filter::old_filter_obj(ltime, logfile, pevlr, truncate_message)));
+      }
       dwRead -= pevlr->Length;
       pevlr = reinterpret_cast<EVENTLOGRECORD *>((LPBYTE)pevlr + pevlr->Length);
     }
@@ -261,16 +270,23 @@ void CheckEventLog::check_modern(const std::string &logfile, const std::string &
   const int batch_size = 10;  // TODO make configurable
   LPWSTR pwsQuery = L"*";     // TODO make configurable
   long long stop_date;
+  long long start_date = 0;
   enum direction_type { direction_none, direction_forwards, direction_backwards };
   direction_type direction = direction_none;
   DWORD flags = eventlog::api::EvtQueryChannelPath;
-  if ((scan_range.size() > 0) && (scan_range[0] == L'-')) {
+  if (scan_range.size() > 0 && scan_range[0] == L'-') {
     direction = direction_backwards;
     flags |= eventlog::api::EvtQueryReverseDirection;
     stop_date = parse_time(scan_range);
+  } else if (scan_range.size() > 0 && scan_range[0] == L'+') {
+    direction = direction_forwards;
+    flags |= eventlog::api::EvtQueryForwardDirection;
+    start_date = parse_time("0");
+    stop_date = parse_time(scan_range.substr(1));
   } else if (scan_range.size() > 0) {
     direction = direction_forwards;
     flags |= eventlog::api::EvtQueryForwardDirection;
+    start_date = parse_time("0");
     stop_date = parse_time(scan_range);
   } else {
     direction = direction_backwards;
@@ -318,7 +334,7 @@ void CheckEventLog::check_modern(const std::string &logfile, const std::string &
         if (status == ERROR_NO_MORE_ITEMS || status == ERROR_TIMEOUT) {
           if (!bookmark.empty()) {
             NSC_LOG_ERROR("Cannot update bookmarks for empty reads yet");
-            // save_bookmark(bookmark, hResults);
+            // save_bookmark(bookmark, hEvents[dwReturned - 1]);
           }
           return;
         } else if (status != ERROR_SUCCESS)
@@ -340,6 +356,10 @@ void CheckEventLog::check_modern(const std::string &logfile, const std::string &
             }
             for (; i < dwReturned; i++) eventlog::EvtClose(hEvents[i]);
             return;
+          }
+          if (direction == direction_forwards && item->get_written() < start_date) {
+            eventlog::EvtClose(hEvents[i]);
+            continue;
           }
           modern_filter::match_result ret = filter.match(item);
         } catch (const nsclient::nsclient_exception &e) {
@@ -384,7 +404,12 @@ void CheckEventLog::CheckEventLog_(PB::Commands::QueryRequestMessage::Request &r
 		("unique", po::value<bool>(&unique)->implicit_value("true"), "")
 		("syntax", po::value<std::string>(&syntax)->default_value("%source%, %strings%"), "The syntax string")
 		("top-syntax", po::value<std::string>(&top_syntax)->default_value("${list}"), "The top level syntax string")
-		("scan-range", po::value<std::string>(&scan_range), "TODO")
+		("scan-range", po::value<std::string>(&scan_range),
+			"Date range to scan.\n"
+			"A negative value (e.g. -1h) scans backward through historical events; a positive value (e.g. +1h) scans forward into future events. "
+			"The value is a relative offset from now using the suffixes s (seconds), m (minutes), h (hours), d (days) or w (weeks); a bare number is treated as seconds. "
+			"This is used as an approximate time window to limit how far the scan walks the log and significantly speeds up large logs, but messages are not guaranteed to be returned in order. "
+			"Defaults to -24h when omitted.")
 		;
   // clang-format on
 
@@ -466,15 +491,20 @@ void CheckEventLog::check_eventlog(const PB::Commands::QueryRequestMessage::Requ
   filter_helper.add_syntax("${status}: ${count} message(s) ${problem_list}", "${file} ${source} (${message})", "${file}_${source}",
                            "%(status): No entries found", "%(status): Event log seems fine");
   // clang-format off
-	filter_helper.get_desc().add_options()
-		("file", po::value<std::vector<std::string> >(&file_list), "File to read (can be specified multiple times to check multiple files.\nNotice that specifying multiple files will create an aggregate set you will not check each file individually."
-			"In other words if one file contains an error the entire check will result in error.")
-		("log", po::value<std::vector<std::string>>(&file_list), "Same as file")
-		("scan-range", po::value<std::string>(&scan_range), "Date range to scan.\nA negative value scans backward (historical events) and a positive value scans forwards (future events). This is the approximate dates to search through this speeds up searching a lot but there is no guarantee messages are ordered.")
-		("truncate-message", po::value<int>(&truncate_message), "Maximum length of message for each event log message text.")
-		("unique", po::value<bool>(&unique)->implicit_value("true"), "Shorthand for setting default unique index: ${log}-${source}-${id}.")
-		("bookmark", po::value<std::string>(&bookmark)->implicit_value("auto"), "Use bookmarks to only look for messages since last check (with the same bookmark name). If you set this to auto or leave it empty the bookmark name will be derived from your logs, filters, warn and crit.")
-		;
+  filter_helper.get_desc().add_options()
+    ("file", po::value<std::vector<std::string> >(&file_list), "File to read (can be specified multiple times to check multiple files.\nNotice that specifying multiple files will create an aggregate set you will not check each file individually."
+	    "In other words if one file contains an error the entire check will result in error.")
+    ("log", po::value<std::vector<std::string>>(&file_list), "Same as file")
+    ("scan-range", po::value<std::string>(&scan_range),
+	    "Date range to scan.\n"
+	    "A negative value (e.g. -1h) scans backward through historical events; a positive value (e.g. +1h) scans forward into future events. "
+	    "The value is a relative offset from now using the suffixes s (seconds), m (minutes), h (hours), d (days) or w (weeks); a bare number is treated as seconds. "
+	    "This is used as an approximate time window to limit how far the scan walks the log and significantly speeds up large logs, but messages are not guaranteed to be returned in order. "
+	    "Defaults to -24h when omitted.")
+    ("truncate-message", po::value<int>(&truncate_message), "Maximum length of message for each event log message text.")
+    ("unique", po::value<bool>(&unique)->implicit_value("true"), "Shorthand for setting default unique index: ${log}-${source}-${id}.")
+    ("bookmark", po::value<std::string>(&bookmark)->implicit_value("auto"), "Use bookmarks to only look for messages since last check (with the same bookmark name). If you set this to auto or leave it empty the bookmark name will be derived from your logs, filters, warn and crit.")
+    ;
   // clang-format on
   if (!filter_helper.parse_options()) return;
 
