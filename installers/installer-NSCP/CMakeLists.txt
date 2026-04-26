@@ -43,10 +43,26 @@ if(CMAKE_CL_64)
     set(ARCH x64)
 endif(CMAKE_CL_64)
 
-WIX_FIND_MERGE_MODULE(CRT_MERGE_MODULE "Microsoft_VC143_CRT")
-message(STATUS "CRT_MERGE_MODULE: ${CRT_MERGE_MODULE}")
+#WIX_FIND_MERGE_MODULE(CRT_MERGE_MODULE "Microsoft_VC143_CRT")
+# Name of the Visual C++ CRT merge module to bundle in the MSI installer.
+# Override at configure time with:
+#   cmake -DCRT_MERGE_MODULE_NAME=Microsoft_VC143_CRT ...
+# CI pipelines (.github/workflows/build-windows*.yml) set this explicitly so
+# the produced MSI matches the toolset the binaries were built with. Local
+# developer builds keep using the latest known module by default.
+set(CRT_MERGE_MODULE_NAME
+    "Microsoft_VC145_CRT"
+    CACHE STRING
+    "Name of the Visual C++ CRT WiX merge module (e.g. Microsoft_VC143_CRT, Microsoft_VC145_CRT)"
+)
+# WIX_FIND_MERGE_MODULE uses find_file() under the hood, which caches its
+# result in the named variable. Drop any previously-resolved path so a
+# re-configure with a new CRT_MERGE_MODULE_NAME actually re-searches.
+unset(CRT_MERGE_MODULE CACHE)
+WIX_FIND_MERGE_MODULE(CRT_MERGE_MODULE "${CRT_MERGE_MODULE_NAME}")
+message(STATUS "CRT_MERGE_MODULE (${CRT_MERGE_MODULE_NAME}): ${CRT_MERGE_MODULE}")
 if(NOT CRT_MERGE_MODULE)
-    message(WARNING "CRT_MERGE_MODULE not found: ${CRT_MERGE_MODULE}")
+    message(WARNING "CRT_MERGE_MODULE not found for ${CRT_MERGE_MODULE_NAME}: ${CRT_MERGE_MODULE}")
 endif(NOT CRT_MERGE_MODULE)
 
 set(WIX_CANDLE_FLAGS
