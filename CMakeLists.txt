@@ -300,11 +300,12 @@ else(USE_STATIC_RUNTIME)
             COPY_FILE(${LIB} ${PROJECT_BINARY_DIR})
             install(FILES "${LIB}" DESTINATION .)
         endforeach()
+        string(TOUPPER ${NSCP_BOOST_PYTHON_VERSION} BOOST_PYTHON_VERSION_UPPER)
         set(LIBS
             DATE_TIME
             FILESYSTEM
             PROGRAM_OPTIONS
-            PYTHON311
+            "${BOOST_PYTHON_VERSION_UPPER}"
             "REGEX"
             SYSTEM
             THREAD
@@ -338,6 +339,8 @@ else(USE_STATIC_RUNTIME)
                 )
                 # COPY_FILE(${Boost_${LIB}_LIBRARY_DEBUG_DLL} ${PROJECT_BINARY_DIR})
                 install(FILES ${Boost_${LIB}_LIBRARY_RELEASE_DLL} DESTINATION .)
+            else()
+                message(WARNING " + Boost_${LIB}_LIBRARY_RELEASE - is missing (${Boost_${LIB}_LIBRARY_RELEASE})")
             endif()
         endforeach()
         set(LIBS
