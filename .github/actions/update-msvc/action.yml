@@ -28,11 +28,14 @@ runs:
         Write-Host "* Fetching components..."
         Set-Location "C:\Program Files (x86)\Microsoft Visual Studio\Installer\"
         $InstallPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
+        # Note: Microsoft.VisualStudio.Component.Windows81SDK has been retired
+        # from the VS 2022 installer catalog and `vs_installer.exe modify --add`
+        # silently ignores it. The Windows 8.1 SDK is therefore installed
+        # separately in the next step via Chocolatey.
         $components= @(
           "Microsoft.VisualStudio.Component.VC.v141.x86.x64"
           "Microsoft.VisualStudio.Component.VC.v141.ATL"
           "Microsoft.VisualStudio.Component.WinXP"
-          "Microsoft.VisualStudio.Component.Windows81SDK"
         )
         [string]$workloadArgs = $components | ForEach-Object {" --add " +  $_}
         $Arguments = ('/c', "vs_installer.exe", 'modify', '--installPath', "`"$InstallPath`"",$workloadArgs, '--quiet', '--norestart', '--nocache')
@@ -70,3 +73,39 @@ runs:
             Write-Host "! Error: $($_.Exception.Message) trying to stop process (during failure)..."
           }
         }
+
+    - name: Install Windows 8.1 SDK
+      shell: pwsh
+      run: |
+        # The Windows 8.1 SDK is required by the v141_xp / legacy XP build
+        # path (cryptopp's .vcxproj files set <WindowsTargetPlatformVersion>8.1
+        # </WindowsTargetPlatformVersion>). It is no longer pre-installed on
+        # the windows-latest runner image and Microsoft removed the matching
+        # component from the VS 2022 installer catalog, so we install the
+        # standalone SDK package via Chocolatey instead.
+        $sdkRoot = 'C:\Program Files (x86)\Windows Kits\8.1'
+        if (Test-Path $sdkRoot) {
+          Write-Host "* Windows 8.1 SDK already installed at $sdkRoot"
+        } else {
+          Write-Host "* Installing Windows 8.1 SDK via Chocolatey..."
+          choco install windows-sdk-8.1 -y --no-progress --limit-output
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "! choco install returned $LASTEXITCODE; trying direct sdksetup.exe download as a fallback..."
+            $tmp = Join-Path $env:RUNNER_TEMP 'sdksetup.exe'
+            Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=323507' -OutFile $tmp -UseBasicParsing
+            $args = @(
+              '/features', '+',
+              '/q', '/norestart', '/ceip', 'off'
+            )
+            $p = Start-Process -FilePath $tmp -ArgumentList $args -Wait -PassThru
+            if ($p.ExitCode -ne 0) {
+              throw "sdksetup.exe failed with exit code $($p.ExitCode)"
+            }
+          }
+        }
+
+        if (-not (Test-Path $sdkRoot)) {
+          throw "Windows 8.1 SDK install reported success but $sdkRoot does not exist"
+        }
+        Write-Host "* Windows 8.1 SDK contents:"
+        Get-ChildItem $sdkRoot | Format-Table Name, LastWriteTime -AutoSize | Out-String | Write-Host
