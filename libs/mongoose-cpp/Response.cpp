@@ -1,23 +1,22 @@
 #include "Response.h"
 
 #include <sstream>
+#include <utility>
 
 using namespace std;
 
 namespace Mongoose {
-Response::Response() : code(HTTP_OK), reason(REASON_OK), headers() {}
+Response::Response() : code(HTTP_OK), reason(REASON_OK) {}
 
-Response::~Response() {}
+void Response::setHeader(const string key, string value) { headers[key] = std::move(value); }
 
-void Response::setHeader(string key, string value) { headers[key] = value; }
+bool Response::hasHeader(const string key) { return headers.find(key) != headers.end(); }
 
-bool Response::hasHeader(string key) { return headers.find(key) != headers.end(); }
+void Response::setCookie(const string key, string value) { cookies[key] = std::move(value); }
 
-void Response::setCookie(string key, string value) { cookies[key] = value; }
-
-void Response::setCode(int code_, std::string reason_) {
+void Response::setCode(const int code_, std::string reason_) {
   code = code_;
-  reason = reason_;
+  reason = std::move(reason_);
 }
 
 void Response::setCodeOk() {
@@ -25,8 +24,8 @@ void Response::setCodeOk() {
   reason = REASON_OK;
 }
 
-std::string Response::getCookie(std::string key) const {
-  header_type::const_iterator cit = cookies.find(key);
+std::string Response::getCookie(const std::string key) const {
+  const auto cit = cookies.find(key);
   if (cit == cookies.end()) {
     return "";
   }

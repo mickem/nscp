@@ -23,16 +23,39 @@ env:
 
 jobs:
   build-rpm:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - distro: rocky
             distro_version: "9"
             python_version: python39
+            arch: x64
+            rpm_arch: x86_64
+            cpack_arch: amd64
+            runner: ubuntu-latest
+          - distro: rocky
+            distro_version: "9"
+            python_version: python39
+            arch: arm64
+            rpm_arch: aarch64
+            cpack_arch: arm64
+            runner: ubuntu-24.04-arm
           - distro: rocky
             distro_version: "10"
             python_version: python312
+            arch: x64
+            rpm_arch: x86_64
+            cpack_arch: amd64
+            runner: ubuntu-latest
+          - distro: rocky
+            distro_version: "10"
+            python_version: python312
+            arch: arm64
+            rpm_arch: aarch64
+            cpack_arch: arm64
+            runner: ubuntu-24.04-arm
     container:
       image: rockylinux/rockylinux:${{ matrix.distro_version }}
       options: --user root
@@ -102,7 +125,7 @@ jobs:
 
     - uses: actions/download-artifact@v7
       with:
-        name: check_nsclient-linux-${{ inputs.architecture }}
+        name: check_nsclient-linux-${{ matrix.arch }}
 
     - name: CMake (NSCP)
       working-directory: tmp/nscp
@@ -121,23 +144,23 @@ jobs:
 
     - name: rename dist files
       run: |
-        mv check_nsclient check_nsclient-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
-        mv tmp/nscp/NSCP-${{ inputs.version }}-amd64.rpm NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-amd64.rpm
+        mv check_nsclient check_nsclient-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.arch }}
+        mv tmp/nscp/NSCP-${{ inputs.version }}-${{ matrix.cpack_arch }}.rpm NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.rpm_arch }}.rpm
       shell: /usr/bin/bash {0}
       env:
         PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
     - name: Test RPM package installation
       run: |
-        dnf install -y ./NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-amd64.rpm
+        dnf install -y ./NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.rpm_arch }}.rpm
         nscp settings --load-all --list --add-defaults
 
     - uses: actions/upload-artifact@v6
       with:
-        name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
+        name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.arch }}
         path: |
-          check_nsclient-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
-          NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-amd64.rpm
+          check_nsclient-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.arch }}
+          NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.rpm_arch }}.rpm
         if-no-files-found: error
 
     - name: Run tests
@@ -148,19 +171,38 @@ jobs:
   integration-tests:
     needs: build-rpm
     strategy:
+      fail-fast: false
       matrix:
         include:
           # Disabled as python 3.9 does not support type annotations in some of the test code
           #- distro: rocky
           #  distro_version: "9"
+          #  arch: x64
+          #  rpm_arch: x86_64
+          #  runner: ubuntu-latest
+          #- distro: rocky
+          #  distro_version: "9"
+          #  arch: arm64
+          #  rpm_arch: aarch64
+          #  runner: ubuntu-24.04-arm
           - distro: rocky
             distro_version: "10"
+            arch: x64
+            rpm_arch: x86_64
+            runner: ubuntu-latest
+          - distro: rocky
+            distro_version: "10"
+            arch: arm64
+            rpm_arch: aarch64
+            runner: ubuntu-24.04-arm
     uses: ./.github/workflows/integration-tests-linux.yml
     with:
-      architecture: ${{ inputs.architecture }}
+      architecture: ${{ matrix.arch }}
       version: ${{ inputs.version }}
-      artifact-name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
+      artifact-name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.arch }}
       package-type: rpm
+      package-arch: ${{ matrix.rpm_arch }}
       container: 'rockylinux/rockylinux:${{ matrix.distro_version }}'
       distro: ${{ matrix.distro }}
       distro_version: ${{ matrix.distro_version }}
+      runner: ${{ matrix.runner }}

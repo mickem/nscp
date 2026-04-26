@@ -23,7 +23,7 @@ typedef boost::shared_ptr<WebLogger> WebLoggerPtr;
 
 class NSCAPI_EXPORT Server {
  public:
-  static Server *make_server(WebLoggerPtr logger);
+  static Server *make_server(const WebLoggerPtr &logger);
 
   virtual ~Server() = default;
 

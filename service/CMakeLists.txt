@@ -202,6 +202,20 @@ else()
     set(service_test_SRCS)
 endif()
 
+if(WIN32)
+    NSCP_CREATE_TEST(
+        error_w32_test
+        SOURCES
+            ${NSCP_INCLUDEDIR}/error/error_w32.cpp
+            ${NSCP_INCLUDEDIR}/error/error_w32_test.cpp
+            ${NSCP_INCLUDEDIR}/str/utf8.cpp
+        LIBRARIES
+            GTest::gtest_main
+        INCLUDES
+            ${NSCP_INCLUDEDIR}
+    )
+endif()
+
 NSCP_CREATE_TEST(
     plugins_test
     SOURCES
@@ -232,4 +246,38 @@ NSCP_CREATE_TEST(
         expression_parser
     INCLUDES
         ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
+    service_logger_test
+    SOURCES
+        logger/threaded_logger.cpp
+        logger/threaded_logger_test.cpp
+        logger/simple_console_logger.cpp
+        logger/simple_console_logger_test.cpp
+        logger/simple_file_logger.cpp
+        logger/simple_file_logger_test.cpp
+        logger/nsclient_logger.cpp
+        logger/nsclient_logger_test.cpp
+        ${NSCP_INCLUDEDIR}/nsclient/logger/log_level.cpp
+        ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp
+        ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+        ${service_test_SRCS}
+        ${NSCP_INCLUDEDIR}/win/shellapi.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        settings_manager
+        ${EXTRA_LIBS}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
 )

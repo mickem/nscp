@@ -252,6 +252,29 @@ macro(NSCP_DEBUG_SYMBOLS TARGET_NAME)
     endif(WIN32)
 endmacro()
 
+# Enable position-independent code on Linux (GCC) for 64-bit architectures.
+#
+# Static libraries that get linked into NSClient++ shared modules must be
+# compiled with -fPIC. On x86_64 the linker tolerates non-PIC code via copy
+# relocations, but on aarch64 / arm64 the relocation R_AARCH64_ADR_PREL_PG_HI21
+# is not allowed in shared objects and the link fails outright.
+#
+# Apple is excluded (PIC handling is automatic on macOS) and so is anything
+# that's not GCC; on MSVC the concept doesn't apply.
+function(nscp_apply_pic _TARGET)
+    if(
+        CMAKE_COMPILER_IS_GNUCXX
+        AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|aarch64|arm64"
+        AND NOT APPLE
+    )
+        set_target_properties(
+            ${_TARGET}
+            PROPERTIES
+                POSITION_INDEPENDENT_CODE ON
+        )
+    endif()
+endfunction()
+
 macro(NSCP_INSTALL_MODULE _TARGET)
     if(WIN32)
         set(_FOLDER "${MODULE_SUBFOLDER}")
@@ -303,26 +326,7 @@ endmacro()
 macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
     if(USE_STATIC_RUNTIME)
         add_library(${_TARGET} STATIC ${_SRCS})
-        if(
-            CMAKE_COMPILER_IS_GNUCXX
-            AND "${CMAKE_SYSTEM_PROCESSOR}"
-                STREQUAL
-                "x86_64"
-            AND NOT APPLE
-        )
-            set_target_properties(
-                ${_TARGET}
-                PROPERTIES
-                    COMPILE_FLAGS
-                        "-fPIC"
-            )
-        endif(
-            CMAKE_COMPILER_IS_GNUCXX
-            AND "${CMAKE_SYSTEM_PROCESSOR}"
-                STREQUAL
-                "x86_64"
-            AND NOT APPLE
-        )
+        nscp_apply_pic(${_TARGET})
         set_target_properties(
             ${_TARGET}
             PROPERTIES
@@ -500,27 +504,17 @@ macro(NSCP_FORCE_INCLUDE _TARGET _SRC)
                     "/FI\"${WINSRC}\""
         )
     else(WIN32)
-        if(
-            USE_STATIC_RUNTIME
-            AND CMAKE_COMPILER_IS_GNUCXX
-            AND "${CMAKE_SYSTEM_PROCESSOR}"
-                STREQUAL
-                "x86_64"
-            AND NOT APPLE
+        set_target_properties(
+            ${TARGET}
+            PROPERTIES
+                COMPILE_FLAGS
+                    "-include \"${_SRC}\""
         )
-            set_target_properties(
-                ${TARGET}
-                PROPERTIES
-                    COMPILE_FLAGS
-                        "-fPIC -include \"${_SRC}\""
-            )
-        else()
-            set_target_properties(
-                ${TARGET}
-                PROPERTIES
-                    COMPILE_FLAGS
-                        "-include \"${_SRC}\""
-            )
+        if(USE_STATIC_RUNTIME)
+            # PIC is needed when this object is later linked into a shared
+            # NSCP module. Handled separately so it composes with the
+            # -include flag set above instead of overwriting COMPILE_FLAGS.
+            nscp_apply_pic(${TARGET})
         endif()
     endif(WIN32)
 endmacro()

@@ -51,6 +51,27 @@ NSClient++ should run on the following operating systems:
  * Windows: In theory from Windows XP with lots of service back (verified Windows 2008 R2 and later)
  * Linux: Debian, Centos and Ubuntu (and possibly others as well)
 
+### Which package to download
+
+The following packages are produced by the official build pipelines. Pick the one that matches your operating system and architecture:
+
+| Operating system               | Version                                           | Architecture     | Package / artifact name                          | Notes                                                                                                                                                            |
+|--------------------------------|---------------------------------------------------|------------------|--------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Windows (modern)               | Windows 10 / 11, Server 2016 / 2019 / 2022 / 2025 | x64 (64-bit)     | `NSCP-<version>-x64.msi`                         | Recommended for all modern Windows systems. Built with MSVC 2022.                                                                                                |
+| Windows (modern)               | Windows 10 / 11, Server 2016 / 2019 / 2022 / 2025 | x86 (32-bit)     | `NSCP-<version>-Win32.msi`                       | Use only on 32-bit Windows installations. Built with MSVC 2022.                                                                                                  |
+| Windows (modern)               | Windows 11 ARM, Server 2025 ARM                   | ARM64            | `NSCP-<version>-ARM64.msi`                       | Native ARM64 build, cross-compiled with the `v143` toolset. Use this on Windows-on-ARM devices (e.g. Surface Pro X / Copilot+ PCs, ARM-based Azure VMs).         |
+| Windows (legacy)               | Windows XP and above                              | x86 (32-bit)     | `NSCP-<version>-Win32-legacy-xp.msi`             | Statically linked, built with the `v141_xp` toolset. Use this on any Windows older than Windows 10 / Server 2016. Works on x64 versions of these older OSes too. |
+| Ubuntu                         | 24.04 LTS (Noble)                                 | x64 (amd64)      | `NSCP-<version>-ubuntu-24.04-amd64.deb`          | Should also install on recent Debian/Ubuntu derivatives with compatible glibc and Lua 5.4.                                                                       |
+| Ubuntu                         | 24.04 LTS (Noble)                                 | ARM64 (aarch64)  | `NSCP-<version>-ubuntu-24.04-arm64.deb`          | For 64-bit ARM hosts (e.g. AWS Graviton, Ampere Altra, Raspberry Pi 4/5 running Ubuntu 24.04 arm64).                                                             |
+| Rocky Linux / RHEL / AlmaLinux | 9                                                 | x64 (x86_64)     | `NSCP-<version>-rocky-9-x86_64.rpm`              | Compatible with RHEL 9 and other RHEL 9 rebuilds (AlmaLinux 9, Oracle Linux 9, CentOS Stream 9).                                                                 |
+| Rocky Linux / RHEL / AlmaLinux | 9                                                 | ARM64 (aarch64)  | `NSCP-<version>-rocky-9-aarch64.rpm`             | 64-bit ARM build for RHEL 9-family distributions.                                                                                                                |
+| Rocky Linux / RHEL / AlmaLinux | 10                                                | x64 (x86_64)     | `NSCP-<version>-rocky-10-x86_64.rpm`             | Compatible with RHEL 10 and other RHEL 10 rebuilds.                                                                                                              |
+| Rocky Linux / RHEL / AlmaLinux | 10                                                | ARM64 (aarch64)  | `NSCP-<version>-rocky-10-aarch64.rpm`            | 64-bit ARM build for RHEL 10-family distributions.                                                                                                               |
+
+In addition, a stand-alone `check_nsclient` binary is published alongside each Linux package for use as a Nagios/Icinga check plugin.
+
+> Note: On unsupported distributions you can build from source — see [build.md](build.md).
+
 ## Building NSClient++
 
 NSClient++ is built using CMake and Visual Studio 2022.

@@ -25,10 +25,10 @@ class RequestHandler : public RequestHandlerBase {
 
     try {
       (controller->*function)(request, *response);
-    } catch (std::string exception) {
-      return controller->serverInternalError(exception);
+    } catch (std::string &exception) {
+      return Controller::serverInternalError(exception);
     } catch (...) {
-      return controller->serverInternalError("Unknown error");
+      return Controller::serverInternalError("Unknown error");
     }
 
     return response;

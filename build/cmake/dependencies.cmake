@@ -26,6 +26,11 @@ find_package(GTest)
 find_package(OpenSSL)
 find_package(Miniz)
 find_package(Mongoose)
+# CMP0167 (CMake 3.30+) removes the bundled FindBoost module in favour of
+# upstream BoostConfig.
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 OLD)
+endif()
 find_package(
     Boost
     COMPONENTS
@@ -130,7 +135,10 @@ if(OPENSSL_FOUND)
         " - OpenSSL found in: ${OPENSSL_INCLUDE_DIR} / ${OPENSSL_LIBRARIES}"
     )
 else(OPENSSL_FOUND)
-    message(FATAL_ERROR " ! OpenSSL not found TODO=${OPENSSL_INCLUDE_DIR}")
+    message(
+        FATAL_ERROR
+        " ! OpenSSL not found OPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}"
+    )
 endif(OPENSSL_FOUND)
 if(Boost_FOUND)
     message(

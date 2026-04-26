@@ -31,12 +31,12 @@ namespace Mongoose {
 class NSCAPI_EXPORT Response {
  public:
   Response();
-  virtual ~Response();
+  virtual ~Response() = default;
 
   /**
    * Test if the given header is present
    *
-   * @param string the header key
+   * @param key the header key
    *
    * @return bool true if the header is set
    */
@@ -62,8 +62,8 @@ class NSCAPI_EXPORT Response {
    * Sets the cookie, note that you can only define one cookie by request
    * for now
    *
-   * @param string the key of the cookie
-   * @param string value the cookie value
+   * @param key the key of the cookie
+   * @param value value the cookie value
    */
   virtual void setCookie(std::string key, std::string value);
 
@@ -75,7 +75,7 @@ class NSCAPI_EXPORT Response {
   virtual void setCodeOk();
   /**
    * Get a cookie from the cookie list.
-   * @param string the key of the cookie
+   * @param key the key of the cookie
    */
   virtual std::string getCookie(std::string key) const;
 
@@ -84,7 +84,7 @@ class NSCAPI_EXPORT Response {
   virtual int get_response_code() const = 0;
 
   header_type& get_headers() { return headers; }
-  int getCode() { return code; }
+  int getCode() const { return code; }
 
  private:
   int code;

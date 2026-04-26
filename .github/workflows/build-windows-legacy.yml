@@ -225,7 +225,7 @@ jobs:
     - name: CMake (NSCP)
       working-directory: tmp/nscp
       run: |
-        cmake ../.. -T v141_xp  -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -D BUILD_VERSION=${{ inputs.version }}
+         cmake ../.. -T v141_xp  -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -D BUILD_VERSION=${{ inputs.version }} -D CRT_MERGE_MODULE_NAME=Microsoft_VC143_CRT
 
     - name: Build nsclient
       working-directory: tmp/nscp

@@ -1,9 +1,15 @@
 #include "Request.h"
 
+#include <algorithm>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/thread.hpp>
+#include <cctype>
+#include <cstring>
+#include <sstream>
 #include <str/xtos.hpp>
 #include <string>
+#include <utility>
+#include <vector>
 
 // clang-format off
 // Has to be after boost or we get namespace clashes
@@ -12,88 +18,90 @@
 
 using namespace std;
 
-static int lowercase(const char *s) { return tolower(*(const unsigned char *)s); }
+namespace {
 
-static int mg_strncasecmp(const char *s1, const char *s2, size_t len) {
-  int diff = 0;
+// Case-insensitive substring search; returns nullptr if not found.
+const char *mg_strcasestr(const char *big_str, const char *small_str) {
+  const std::size_t big_len = std::strlen(big_str);
+  const std::size_t small_len = std::strlen(small_str);
+  if (small_len == 0) return big_str;
+  if (big_len < small_len) return nullptr;
 
-  if (len > 0) do {
-      diff = lowercase(s1++) - lowercase(s2++);
-    } while (diff == 0 && s1[-1] != '\0' && --len > 0);
-
-  return diff;
+  const auto ieq = [](char a, char b) { return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b)); };
+  const auto *first = big_str;
+  const auto *last = big_str + big_len;
+  const auto it = std::search(first, last, small_str, small_str + small_len, ieq);
+  return (it == last) ? nullptr : it;
 }
 
-static void mg_strlcpy(char *dst, const char *src, size_t n) {
-  for (; *src != '\0' && n > 1; n--) {
-    *dst++ = *src++;
-  }
-  *dst = '\0';
-}
-
-static const char *mg_strcasestr(const char *big_str, const char *small_str) {
-  std::size_t i, big_len = strlen(big_str), small_len = strlen(small_str);
-
-  for (i = 0; i <= big_len - small_len; i++) {
-    if (mg_strncasecmp(big_str + i, small_str, small_len) == 0) {
-      return big_str + i;
-    }
-  }
-
-  return nullptr;
-}
-
-static long long mg_get_cookie(const char *cookie_header, const char *var_name, char *dst, size_t dst_size) {
-  const char *s, *p, *end;
-  std::size_t name_len;
-  long long len = -1;
-
-  if (dst == nullptr || dst_size == 0) {
-    len = -2;
-  } else if (var_name == nullptr || (s = cookie_header) == nullptr) {
-    len = -1;
+// Extracts the value of `var_name` from a Cookie header into `dst`.
+// Returns the decoded length, or:
+//   -1 if not found / invalid input
+//   -2 if dst is null or dst_size == 0
+//   -3 if dst is too small to hold the value
+long long mg_get_cookie(const char *cookie_header, const char *var_name, char *dst, size_t dst_size) {
+  if (dst == nullptr || dst_size == 0) return -2;
+  if (var_name == nullptr || cookie_header == nullptr) {
     dst[0] = '\0';
-  } else {
-    name_len = strlen(var_name);
-    end = s + strlen(s);
-    dst[0] = '\0';
-
-    for (; (s = mg_strcasestr(s, var_name)) != nullptr; s += name_len) {
-      if (s[name_len] == '=') {
-        s += name_len + 1;
-        if ((p = strchr(s, ' ')) == nullptr) p = end;
-        if (p[-1] == ';') p--;
-        if (*s == '"' && p[-1] == '"' && p > s + 1) {
-          s++;
-          p--;
-        }
-        if ((size_t)(p - s) < dst_size) {
-          len = p - s;
-          mg_strlcpy(dst, s, (size_t)len + 1);
-        } else {
-          len = -3;
-        }
-        break;
-      }
-    }
+    return -1;
   }
-  return len;
+
+  const std::size_t name_len = std::strlen(var_name);
+  const char *s = cookie_header;
+  const char *const end = s + std::strlen(s);
+  dst[0] = '\0';
+
+  for (; (s = mg_strcasestr(s, var_name)) != nullptr; s += name_len) {
+    if (s[name_len] != '=') continue;
+    s += name_len + 1;
+    const char *p = std::strchr(s, ' ');
+    if (p == nullptr) p = end;
+    if (p > s && p[-1] == ';') --p;
+    if (*s == '"' && p > s + 1 && p[-1] == '"') {
+      ++s;
+      --p;
+    }
+    const auto len = static_cast<size_t>(p - s);
+    if (len >= dst_size) return -3;
+    std::memcpy(dst, s, len);
+    dst[len] = '\0';
+    return static_cast<long long>(len);
+  }
+  return -1;
 }
+
+bool readVariable(const mg_str data, const string &key, string &output) {
+  if (data.len == 0) {
+    return false;
+  }
+  // The decoded variable value can never exceed the length of the source data
+  // itself, so sizing the buffer to that length guarantees a single call.
+  std::string buffer(data.len + 1, '\0');
+  const int ret = mg_http_get_var(&data, key.c_str(), &buffer[0], static_cast<int>(buffer.size()));
+
+  if (ret <= 0) {
+    return false;
+  }
+
+  buffer.resize(static_cast<size_t>(ret));
+  output = std::move(buffer);
+  return true;
+}
+
+}  // namespace
 
 namespace Mongoose {
 
-Request::Request(const std::string ip, bool is_ssl, std::string method, std::string url, std::string query, headers_type headers, std::string data)
-    : is_ssl_(is_ssl), method(method), url(url), query(query), data(data), ip(ip), headers(headers) {}
+Request::Request(std::string ip, bool is_ssl, std::string method, std::string url, std::string query, headers_type headers, std::string data)
+    : is_ssl_(is_ssl),
+      method(std::move(method)),
+      url(std::move(url)),
+      query(std::move(query)),
+      data(std::move(data)),
+      ip(std::move(ip)),
+      headers(std::move(headers)) {}
 
-bool Request::hasVariable(string key) { return headers.find(key) != headers.end(); }
-
-string Request::getUrl() { return url; }
-
-string Request::getMethod() { return method; }
-
-string Request::getData() { return data; }
-
-string Request::getRemoteIp() { return ip; }
+bool Request::hasVariable(const string &key) const { return headers.find(key) != headers.end(); }
 
 Request::arg_vector get_var_vector(const char *data, size_t data_len) {
   Request::arg_vector ret;
@@ -102,10 +110,11 @@ Request::arg_vector get_var_vector(const char *data, size_t data_len) {
 
   istringstream f(string(data, data_len));
   string s;
-  char *tmp = new char[data_len + 1];
+  // RAII buffer for url-decoded fragments.
+  std::vector<char> tmp(data_len + 1);
   // data is "var1=val1&var2=val2...". Find variable first
   while (getline(f, s, '&')) {
-    string::size_type eq_pos = s.find('=');
+    const auto eq_pos = s.find('=');
     string key, val;
     if (eq_pos != string::npos) {
       key = s.substr(0, eq_pos);
@@ -113,105 +122,64 @@ Request::arg_vector get_var_vector(const char *data, size_t data_len) {
     } else {
       key = s;
     }
-    if (mg_url_decode(key.c_str(), static_cast<int>(key.length()), tmp, static_cast<int>(data_len + 1), 1) == -1) {
-      delete[] tmp;
+    if (mg_url_decode(key.c_str(), static_cast<int>(key.length()), tmp.data(), static_cast<int>(tmp.size()), 1) == -1) {
       return ret;
     }
-    key = tmp;
+    key = tmp.data();
     if (!val.empty()) {
-      if (mg_url_decode(val.c_str(), static_cast<int>(val.length()), tmp, static_cast<int>(data_len + 1), 1) == -1) {
-        delete[] tmp;
+      if (mg_url_decode(val.c_str(), static_cast<int>(val.length()), tmp.data(), static_cast<int>(tmp.size()), 1) == -1) {
         return ret;
       }
-      val = tmp;
+      val = tmp.data();
     }
-    ret.emplace_back(key, val);
+    ret.emplace_back(std::move(key), std::move(val));
   }
-  delete[] tmp;
   return ret;
 }
 
-Request::arg_vector Request::getVariablesVector() { return get_var_vector(query.c_str(), query.size()); }
+Request::arg_vector Request::getVariablesVector() const { return get_var_vector(query.c_str(), query.size()); }
 
-std::string Request::readHeader(const std::string key) { return headers[key]; }
+std::string Request::readHeader(const std::string &key) const {
+  const auto it = headers.find(key);
+  return (it != headers.end()) ? it->second : std::string();
+}
 
-std::string Request::get_host() {
+std::string Request::get_host() const {
   if (hasVariable("Host")) {
-    std::string proto = is_ssl() ? "https://" : "http://";
-    return proto + readHeader("Host");
+    return (is_ssl() ? "https://" : "http://") + readHeader("Host");
   }
-  return "";
+  return {};
 }
 
-bool readVariable(const struct mg_str data, string key, string &output) {
-  int size = 1024, ret;
-  char *buffer = new char[size];
-
-  do {
-    ret = mg_http_get_var(&data, key.c_str(), buffer, size);
-
-    if (ret == -1 || ret == 0) {
-      delete[] buffer;
-      return false;
-    }
-
-    if (ret == -2) {
-      size *= 2;
-      delete[] buffer;
-      buffer = new char[size];
-    }
-  } while (ret == -2);
-
-  output = string(buffer);
-  delete[] buffer;
-
-  return true;
-}
-
-string Request::get(string key, string fallback) {
+string Request::get(const string &key, string fallback) const {
   string output;
-  // Looking on the query string
   if (readVariable(mg_str(query.c_str()), key, output)) {
     return output;
   }
-
-  // Looking on the POST data
-  //         dataField = data.c_str();
-  //         if (dataField != NULL && readVariable(dataField, key, output)) {
-  //             return output;
-  //         }
-
   return fallback;
 }
 
-bool Request::get_bool(string key, bool fallback) {
-  std::string v = boost::algorithm::to_lower_copy(get(key, fallback ? "true" : "false"));
+bool Request::get_bool(const string &key, const bool fallback) const {
+  const std::string v = boost::algorithm::to_lower_copy(get(key, fallback ? "true" : "false"));
   return v == "true";
 }
-long long Request::get_number(std::string key, long long fallback) { return str::stox<long long>(get("page", str::xtos(fallback)), fallback); }
 
-string Request::getCookie(string key, string fallback) {
-  long long ret = -1;
-  int size = 1024;
-  char *buffer = new char[size];
-  do {
-    ret = mg_get_cookie(headers["cookie"].c_str(), key.c_str(), buffer, size);
-    if (ret >= 0) {
-      std::string tmp = buffer;
-      delete[] buffer;
-      return tmp;
-    }
-    if (ret == -1LL) {
-      delete[] buffer;
-      return fallback;
-    }
-    if (ret == -3LL) {
-      size *= 2;
-      delete[] buffer;
-      buffer = new char[size];
-    }
-  } while (ret == -3LL);
-  delete[] buffer;
-  return fallback;
+long long Request::get_number(const std::string &key, const long long fallback) const { return str::stox<long long>(get(key, str::xtos(fallback)), fallback); }
+
+string Request::getCookie(const string &key, string fallback) const {
+  const auto it = headers.find("cookie");
+  if (it == headers.end() || it->second.empty()) {
+    return fallback;
+  }
+  const std::string &header = it->second;
+  // The decoded cookie value can never exceed the length of the Cookie header
+  // itself, so sizing the buffer to that length guarantees a single call.
+  std::string buffer(header.size() + 1, '\0');
+  const long long ret = mg_get_cookie(header.c_str(), key.c_str(), &buffer[0], buffer.size());
+  if (ret < 0) {
+    return fallback;
+  }
+  buffer.resize(static_cast<size_t>(ret));
+  return buffer;
 }
 }  // namespace Mongoose

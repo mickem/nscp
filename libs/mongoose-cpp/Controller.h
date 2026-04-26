@@ -35,7 +35,7 @@ class NSCAPI_EXPORT Controller {
    *
    * @return response a response to send, 404 will occur if NULL
    */
-  Response* serverInternalError(std::string message);
-  Response* documentMissing(std::string message);
+  static Response* serverInternalError(const std::string& message);
+  static Response* documentMissing(const std::string& message);
 };
 }  // namespace Mongoose

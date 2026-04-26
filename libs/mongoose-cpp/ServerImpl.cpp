@@ -65,7 +65,7 @@ namespace Mongoose {
 ServerImpl::ServerImpl(WebLoggerPtr logger) : logger_(std::move(logger)), stop_thread_(false) {
   mg_log_set_fn(&log_wrapper, logger_.get());
   mg_log_set(MG_LL_ERROR);
-  memset(&mgr, 0, sizeof(struct mg_mgr));
+  memset(&mgr, 0, sizeof(mg_mgr));
   mg_mgr_init(&mgr);
 }
 
@@ -108,7 +108,7 @@ void ServerImpl::thread_proc() {
 }
 
 void ServerImpl::start(const std::string &bind) {
-  mg_http_listen(&mgr, bind.c_str(), event_handler, (void *)this);
+  mg_http_listen(&mgr, bind.c_str(), event_handler, this);
   thread_ = boost::make_shared<boost::thread>([this] { thread_proc(); });
 }
 
@@ -123,9 +123,9 @@ void ServerImpl::stop() {
 
 void ServerImpl::registerController(Controller *controller) { controllers.push_back(controller); }
 
-void ServerImpl::event_handler(struct mg_connection *connection, int ev, void *ev_data) {
+void ServerImpl::event_handler(mg_connection *connection, int ev, void *ev_data) {
   if (connection->fn_data != nullptr) {
-    auto *impl = static_cast<ServerImpl *>(connection->fn_data);
+    const auto *impl = static_cast<ServerImpl *>(connection->fn_data);
     if (ev == MG_EV_ACCEPT) {
 #if MG_ENABLE_OPENSSL
       impl->initTls(connection);
@@ -172,10 +172,10 @@ Request build_request(const std::string &ip, const mg_http_message *message, con
   ostringstream postData;
   postData.write(message->body.buf, message->body.len);
   const std::string data = postData.str();
-  return Request(ip, is_ssl, method, url, query, headers, data);
+  return {ip, is_ssl, method, url, query, headers, data};
 }
 
-void ServerImpl::onHttpRequest(struct mg_connection *connection, struct mg_http_message *message) const {
+void ServerImpl::onHttpRequest(mg_connection *connection, mg_http_message *message) const {
   bool is_ssl = connection->is_tls;
   auto url = std::string(message->uri.buf, message->uri.len);
   auto method = std::string(message->method.buf, message->method.len);

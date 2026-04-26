@@ -33,12 +33,5 @@ if(WIN32)
 endif(WIN32)
 
 if(CMAKE_COMPILER_IS_GNUCXX)
-    if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
-        set_target_properties(
-            nscpcrypt
-            PROPERTIES
-                COMPILE_FLAGS
-                    -fPIC
-        )
-    endif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
+    nscp_apply_pic(nscpcrypt)
 endif(CMAKE_COMPILER_IS_GNUCXX)

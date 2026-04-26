@@ -23,14 +23,25 @@ env:
 
 jobs:
   build-deb:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - distro: ubuntu
             distro_version: "24.04"
             lua_package: liblua5.4-dev
             python_version: python312
+            arch: x64
+            deb_arch: amd64
+            runner: ubuntu-latest
+          - distro: ubuntu
+            distro_version: "24.04"
+            lua_package: liblua5.4-dev
+            python_version: python312
+            arch: arm64
+            deb_arch: arm64
+            runner: ubuntu-24.04-arm
     container:
       image: ${{ matrix.distro }}:${{ matrix.distro_version }}
 
@@ -97,7 +108,7 @@ jobs:
 
     - uses: actions/download-artifact@v7
       with:
-        name: check_nsclient-linux-${{ inputs.architecture }}
+        name: check_nsclient-linux-${{ matrix.arch }}
 
     - name: CMake (NSCP)
       working-directory: tmp/nscp
@@ -116,21 +127,21 @@ jobs:
 
     - name: rename dist files
       run: |
-        mv check_nsclient check_nsclient-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
-        mv tmp/nscp/NSCP-${{ inputs.version }}-amd64.deb NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-amd64.deb
+        mv check_nsclient check_nsclient-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.arch }}
+        mv tmp/nscp/NSCP-${{ inputs.version }}-${{ matrix.deb_arch }}.deb NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.deb_arch }}.deb
       shell: bash
 
     - name: Test DEB package installation
       run: |
-        apt-get install -y ./NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-amd64.deb
+        apt-get install -y ./NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.deb_arch }}.deb
         nscp settings --load-all --list --add-defaults
 
     - uses: actions/upload-artifact@v6
       with:
-        name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
+        name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.arch }}
         path: |
-          check_nsclient-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
-          NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-amd64.deb
+          check_nsclient-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.arch }}
+          NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.deb_arch }}.deb
         if-no-files-found: error
 
     - name: Run tests
@@ -141,16 +152,27 @@ jobs:
   integration-tests:
     needs: build-deb
     strategy:
+      fail-fast: false
       matrix:
         include:
           - distro: ubuntu
             distro_version: "24.04"
+            arch: x64
+            deb_arch: amd64
+            runner: ubuntu-latest
+          - distro: ubuntu
+            distro_version: "24.04"
+            arch: arm64
+            deb_arch: arm64
+            runner: ubuntu-24.04-arm
     uses: ./.github/workflows/integration-tests-linux.yml
     with:
-      architecture: ${{ inputs.architecture }}
+      architecture: ${{ matrix.arch }}
       version: ${{ inputs.version }}
-      artifact-name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-x64
+      artifact-name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.arch }}
       package-type: deb
+      package-arch: ${{ matrix.deb_arch }}
       container: '${{ matrix.distro }}:${{ matrix.distro_version }}'
       distro: ${{ matrix.distro }}
       distro_version: ${{ matrix.distro_version }}
+      runner: ${{ matrix.runner }}

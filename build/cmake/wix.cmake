@@ -271,6 +271,7 @@ if(WIN32)
                 "${_FILE}.msm"
                 "${_FILE}_${ARCH}.msm"
             PATHS
+                "$ENV{VCInstallDir}/Redist/MSVC/v145/MergeModules"
                 "$ENV{VCInstallDir}/Redist/MSVC/v143/MergeModules"
                 "$ENV{VCInstallDir}/Redist/MSVC/v142/MergeModules"
                 ${WIX_MERGE_MODULE_PATH}
