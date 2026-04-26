@@ -52,6 +52,7 @@ struct filter_obj : boost::noncopyable {
   virtual std::string get_computer() const = 0;
   virtual long long get_el_type() const = 0;
   virtual std::string get_task() = 0;
+  virtual std::string get_opcode() = 0;
   virtual std::string get_keyword() = 0;
   virtual std::string get_el_type_s() const = 0;
   virtual long long get_severity() const = 0;
@@ -88,6 +89,7 @@ struct old_filter_obj : filter_obj {
   std::string get_provider() const override { return utf8::cvt<std::string>(record.get_source()); }
   std::string get_computer() const override { return utf8::cvt<std::string>(record.get_computer()); }
   std::string get_task() override { return ""; }
+  std::string get_opcode() override { return ""; }
   std::string get_keyword() override { return ""; }
   long long get_el_type() const override { return record.eventType(); }
   std::string get_el_type_s() const override;
@@ -142,6 +144,7 @@ struct new_filter_obj : filter_obj {
   std::string get_computer() const override;
   long long get_el_type() const override;
   std::string get_task() override;
+  std::string get_opcode() override;
   std::string get_keyword() override;
   std::string get_el_type_s() const override;
   long long get_severity() const  override { return 0; }

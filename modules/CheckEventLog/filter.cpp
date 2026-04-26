@@ -91,6 +91,8 @@ struct data_cache {
 };
 
 data_cache<eventlog::api::EvtPublisherMetadataTasks, eventlog::api::EvtPublisherMetadataTaskValue, eventlog::api::EvtPublisherMetadataTaskName> task_cache_;
+data_cache<eventlog::api::EvtPublisherMetadataOpcodes, eventlog::api::EvtPublisherMetadataOpcodeValue, eventlog::api::EvtPublisherMetadataOpcodeName>
+    opcode_cache_;
 data_cache<eventlog::api::EvtPublisherMetadataKeywords, eventlog::api::EvtPublisherMetadataKeywordValue, eventlog::api::EvtPublisherMetadataKeywordName>
     keyword_cache_;
 
@@ -149,6 +151,16 @@ std::string new_filter_obj::get_task() {
   op_str os = task_cache_.get_cached(provider, id);
   if (os) return *os;
   os = task_cache_.get(get_provider_handle(provider), provider, id);
+  if (os) return *os;
+  return "";
+}
+std::string new_filter_obj::get_opcode() {
+  if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemOpcode].Type) return "";
+  int id = buffer.get()[eventlog::api::EvtSystemOpcode].ByteVal;
+  std::string provider = get_provider();
+  op_str os = opcode_cache_.get_cached(provider, id);
+  if (os) return *os;
+  os = opcode_cache_.get(get_provider_handle(provider), provider, id);
   if (os) return *os;
   return "";
 }
@@ -330,6 +342,7 @@ filter_obj_handler::filter_obj_handler() {
       .add_string("guid", &filter_obj::get_guid, "The logfile name")
       .add_string("provider", &filter_obj::get_provider, "Source system.")
       .add_string("task", &filter_obj::get_task, "The type of event (task)")
+      .add_string("opcode", &filter_obj::get_opcode, "The opcode associated with this event")
       .add_string("keyword", &filter_obj::get_keyword, "The keyword associated with this event")
       .add_string("written_str", &filter_obj::get_written_hs, "When the message was written to file as an absolute date string");
 
