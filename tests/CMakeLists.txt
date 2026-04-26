@@ -463,3 +463,45 @@ if(WIN32)
         COMMAND_EXPAND_LISTS
     )
 endif()
+
+NSCP_CREATE_TEST(
+    settings_value_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/settings/settings_value_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_SYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
+    pair_hash_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/algorithms/pair_hash_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
+    handle_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/handle_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
+    rrd_buffer_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/rrd_buffer_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_SYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
