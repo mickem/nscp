@@ -11,21 +11,20 @@
  */
 namespace Mongoose {
 class NSCAPI_EXPORT StreamResponse : public Response {
- private:
   std::stringstream ss;
   int response_code;
 
  public:
   StreamResponse() : response_code(0) {}
-  StreamResponse(int response_code) : response_code(response_code) {}
+  explicit StreamResponse(const int response_code) : response_code(response_code) {}
   /**
    * Gets the response body
    *
    * @return string the response body
    */
-  virtual std::string getBody();
-  virtual int get_response_code() const { return response_code; }
-  void append(std::string data);
+  std::string getBody() override;
+  int get_response_code() const override { return response_code; }
+  void append(const std::string& data);
   void write(const char* buffer, std::size_t len);
   void setCodeServerError(const std::string& msg);
   void setCodeNotFound(const std::string& msg);

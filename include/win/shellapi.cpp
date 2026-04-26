@@ -5,7 +5,9 @@
 
 boost::filesystem::path shellapi::get_module_file_name() {
   wchar_t buff[4096];
-  if (GetModuleFileName(nullptr, buff, sizeof(buff) - 1)) {
+  // GetModuleFileName's nSize is a count of TCHARs, not bytes. Passing
+  // sizeof(buff) was telling it the buffer was twice its real size.
+  if (GetModuleFileName(nullptr, buff, (sizeof(buff) / sizeof(buff[0])) - 1)) {
     const boost::filesystem::path p = std::wstring(buff);
     return p.parent_path();
   }

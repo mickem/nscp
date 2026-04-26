@@ -242,6 +242,7 @@ int add_ext(X509 *cert, const int nid, const char *value) {
   const std::size_t len = strlen(value);
   const auto tmp = new char[len + 10];
   strncpy(tmp, value, len);
+  tmp[len] = '\0';
   X509V3_CTX ctx;
   X509V3_set_ctx_nodb(&ctx);
   X509V3_set_ctx(&ctx, cert, cert, nullptr, nullptr, 0);

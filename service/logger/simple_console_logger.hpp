@@ -33,6 +33,7 @@ class simple_console_logger : public log_driver_interface_impl {
 
  public:
   simple_console_logger(logging_subscriber *subscriber_manager);
+  ~simple_console_logger() override;
   void do_log(std::string data) override;
   struct config_data {
     std::string format;

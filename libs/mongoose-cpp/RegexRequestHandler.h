@@ -19,7 +19,7 @@ class RegexpRequestHandler : public RegexpRequestHandlerBase {
  public:
   typedef void (T::*fPtr)(Request &request, boost::smatch &what, R &response);
 
-  RegexpRequestHandler(T *controller_, fPtr function_) : controller(controller_), function(function_) {}
+  RegexpRequestHandler(T *controller_, const fPtr function_) : controller(controller_), function(function_) {}
 
   Response *process(Request &request, boost::smatch &what) override {
     R *response = new R;
@@ -27,11 +27,11 @@ class RegexpRequestHandler : public RegexpRequestHandlerBase {
     try {
       (controller->*function)(request, what, *response);
     } catch (std::string &exception) {
-      return controller->serverInternalError(exception);
+      return Controller::serverInternalError(exception);
     } catch (const std::exception &exception) {
-      return controller->serverInternalError(exception.what());
+      return Controller::serverInternalError(exception.what());
     } catch (...) {
-      return controller->serverInternalError("Unknown error");
+      return Controller::serverInternalError("Unknown error");
     }
 
     return response;

@@ -17,6 +17,8 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <strsafe.h>
+
 #include <error/error_w32.hpp>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
@@ -24,6 +26,30 @@
 
 namespace error {
 namespace win32 {
+
+namespace {
+// FormatMessage's longest documented output for system messages is well under
+// a kilobyte; 4 KiB leaves comfortable headroom for the "%lx: " prefix and any
+// inserts. Using a fixed stack buffer with StringCchPrintfW removes the need
+// for new[]/delete[] and the unbounded wsprintf call this code used before.
+constexpr size_t kFormattedMessageBufChars = 4096;
+
+std::wstring safe_format(const wchar_t *fmt, ...) {
+  wchar_t buf[kFormattedMessageBufChars];
+  va_list args;
+  va_start(args, fmt);
+  const HRESULT hr = StringCchVPrintfW(buf, kFormattedMessageBufChars, fmt, args);
+  va_end(args);
+
+  if (SUCCEEDED(hr)) {
+    return {buf};
+  }
+  if (hr == STRSAFE_E_INSUFFICIENT_BUFFER) {
+    return std::wstring(buf) + L" [truncated]";
+  }
+  return L"<format_message: StringCchVPrintfW failed>";
+}
+}  // namespace
 
 unsigned int lookup() { return GetLastError(); }
 
@@ -34,58 +60,54 @@ std::string failed(unsigned long err1, unsigned long err2) {
 
 std::string format_message(unsigned long attrs, std::string module, unsigned long dwError) {
   LPVOID lpMsgBuf;
-  HMODULE hMod = NULL;
+  HMODULE hMod = nullptr;
   attrs |= FORMAT_MESSAGE_ALLOCATE_BUFFER;
   if (!module.empty()) {
     attrs |= FORMAT_MESSAGE_FROM_HMODULE;
-    hMod = LoadLibraryEx(utf8::cvt<std::wstring>(module).c_str(), NULL, DONT_RESOLVE_DLL_REFERENCES);
-    if (hMod == NULL) {
+    hMod = LoadLibraryEx(utf8::cvt<std::wstring>(module).c_str(), nullptr, DONT_RESOLVE_DLL_REFERENCES);
+    if (hMod == nullptr) {
       return failed(dwError);
     }
   } else {
     attrs |= FORMAT_MESSAGE_FROM_SYSTEM;
   }
-  unsigned long dwRet = FormatMessage(attrs, hMod, dwError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&lpMsgBuf, 0, NULL);
+  const unsigned long dwRet = FormatMessage(attrs, hMod, dwError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), reinterpret_cast<LPTSTR>(&lpMsgBuf), 0, nullptr);
   if (dwRet == 0) {
     FreeLibrary(hMod);
-    DWORD err = GetLastError();
+    const DWORD err = GetLastError();
     if (err == ERROR_MR_MID_NOT_FOUND) {
       return "";
     }
     return failed(dwError, err);
   }
-  wchar_t *szBuf = new wchar_t[dwRet + 100];
-  wsprintf(szBuf, L"%x: %s", dwError, lpMsgBuf);
-  std::string str = utf8::cvt<std::string>(std::wstring(szBuf));
-  delete[] szBuf;
+  auto str = utf8::cvt<std::string>(safe_format(L"%lx: %s", dwError, static_cast<wchar_t *>(lpMsgBuf)));
   LocalFree(lpMsgBuf);
   FreeLibrary(hMod);
   return str;
 }
+
 std::string format_message(unsigned long attrs, std::string module, unsigned long dwError, DWORD *arguments) {
   LPVOID lpMsgBuf;
-  HMODULE hMod = NULL;
+  HMODULE hMod = nullptr;
   attrs |= FORMAT_MESSAGE_ALLOCATE_BUFFER;
   attrs |= FORMAT_MESSAGE_ARGUMENT_ARRAY;
   if (!module.empty()) {
     attrs |= FORMAT_MESSAGE_FROM_HMODULE;
-    hMod = LoadLibraryEx(utf8::cvt<std::wstring>(module).c_str(), NULL, DONT_RESOLVE_DLL_REFERENCES);
-    if (hMod == NULL) {
+    hMod = LoadLibraryEx(utf8::cvt<std::wstring>(module).c_str(), nullptr, DONT_RESOLVE_DLL_REFERENCES);
+    if (hMod == nullptr) {
       return failed(dwError);
     }
   } else {
     attrs |= FORMAT_MESSAGE_FROM_SYSTEM;
   }
-  unsigned long dwRet =
-      FormatMessage(attrs, hMod, dwError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&lpMsgBuf, 0, reinterpret_cast<va_list *>(arguments));
+  const unsigned long dwRet = FormatMessage(attrs, hMod, dwError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), reinterpret_cast<LPTSTR>(&lpMsgBuf), 0,
+                                            reinterpret_cast<va_list *>(arguments));
   if (dwRet == 0) {
     FreeLibrary(hMod);
     return failed(dwError);
   }
-  wchar_t *szBuf = new wchar_t[dwRet + 100];
-  wsprintf(szBuf, L"%d: %s", dwError, static_cast<wchar_t *>(lpMsgBuf));
-  std::string str = utf8::cvt<std::string>(std::wstring(szBuf));
-  delete[] szBuf;
+  // %lu (was %d) - dwError is a DWORD (unsigned long).
+  auto str = utf8::cvt<std::string>(safe_format(L"%lu: %s", dwError, static_cast<wchar_t *>(lpMsgBuf)));
   LocalFree(lpMsgBuf);
   FreeLibrary(hMod);
   return str;

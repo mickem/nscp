@@ -34,7 +34,24 @@ namespace sh = nscapi::settings_helper;
 
 simple_console_logger::simple_console_logger(logging_subscriber *subscriber_manager)
     : format_("%Y-%m-%d %H:%M:%S"), buf_(65536), subscriber_manager_(subscriber_manager) {
-  std::cout.rdbuf()->pubsetbuf(buf_.data(), buf_.size());
+  // Install a larger buffer for std::cout. We MUST restore the default
+  // buffer in the destructor, otherwise std::cout will keep a dangling
+  // pointer into our (already-freed) vector and the next write will
+  // segfault. This used to crash the test suite when one test created
+  // a simple_console_logger and a later test wrote to std::cout (or
+  // logger_helper::log_fatal did).
+  std::cout.rdbuf()->pubsetbuf(buf_.data(), static_cast<std::streamsize>(buf_.size()));
+}
+
+simple_console_logger::~simple_console_logger() {
+  // Flush anything still sitting in our buffer and detach it from
+  // std::cout before the underlying memory disappears with `buf_`.
+  try {
+    std::cout.flush();
+    std::cout.rdbuf()->pubsetbuf(nullptr, 0);
+  } catch (...) {
+    // Destructors must not throw - swallow anything that escapes.
+  }
 }
 
 void simple_console_logger::do_log(const std::string data) {

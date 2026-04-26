@@ -25,6 +25,7 @@
 #include <nscapi/settings/helper.hpp>
 #include <nsclient/logger/logger_helper.hpp>
 #include <str/format.hpp>
+#include <vector>
 
 #include "config.h"
 
@@ -57,19 +58,18 @@ void simple_file_logger::do_log(const std::string data) {
   if (file_.empty()) return;
   try {
     if (max_size_ != 0 && boost::filesystem::exists(file_.c_str()) && boost::filesystem::file_size(file_.c_str()) > max_size_) {
-      int target_size = static_cast<int>(max_size_ * 0.7);
-      char *tmpBuffer = new char[target_size + 1];
+      std::streamsize target_size = static_cast<int>(max_size_ * 0.7);
+      std::vector<char> tmpBuffer(static_cast<std::size_t>(target_size) + 1);
       try {
         std::ifstream ifs(file_.c_str());
         ifs.seekg(-target_size, std::ios_base::end);
-        ifs.read(tmpBuffer, target_size);
+        ifs.read(tmpBuffer.data(), target_size);
         ifs.close();
         std::ofstream ofs(file_.c_str(), std::ios::trunc);
-        ofs.write(tmpBuffer, target_size);
+        ofs.write(tmpBuffer.data(), target_size);
       } catch (...) {
         logger_helper::log_fatal("Failed to truncate log file: " + file_);
       }
-      delete[] tmpBuffer;
     }
     if (!boost::filesystem::exists(file_.c_str())) {
       boost::filesystem::path parent = file_helpers::meta::get_path(file_);

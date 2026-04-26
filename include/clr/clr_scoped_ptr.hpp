@@ -67,7 +67,7 @@ public ref class clr_scoped_ptr {
       template<typename U>
       clr_scoped_ptr% operator=( U ptr ) { reset(ptr); return *this;}
   */
-  operator struct safe_bool *() { return reinterpret_cast<struct safe_bool*>(m_native_ptr); }
+  operator struct safe_bool*() { return reinterpret_cast<struct safe_bool*>(m_native_ptr); }
 
   void swap(clr_scoped_ptr<T> % other) {
     using std::swap;

@@ -16,11 +16,10 @@ class NSCAPI_EXPORT string_response : public Mongoose::Response {
 
  public:
   string_response();
-  string_response(int response_code, std::string &data);
-  string_response(int &response_code, std::string data);
+  string_response(int response_code, std::string data);
 
-  virtual std::string getBody();
-  virtual int get_response_code() const;
+  std::string getBody() override;
+  int get_response_code() const override;
   void set(std::string data);
 };
 }  // namespace mcp

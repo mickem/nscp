@@ -135,7 +135,10 @@ if(OPENSSL_FOUND)
         " - OpenSSL found in: ${OPENSSL_INCLUDE_DIR} / ${OPENSSL_LIBRARIES}"
     )
 else(OPENSSL_FOUND)
-    message(FATAL_ERROR " ! OpenSSL not found OPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}")
+    message(
+        FATAL_ERROR
+        " ! OpenSSL not found OPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}"
+    )
 endif(OPENSSL_FOUND)
 if(Boost_FOUND)
     message(

@@ -382,3 +382,73 @@ NSCP_CREATE_TEST(
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
+
+set(MONGOOSE_CPP_DIR ${CMAKE_SOURCE_DIR}/libs/mongoose-cpp)
+NSCP_CREATE_TEST(
+    mongoose_wrapper_test
+    SOURCES
+        ${MONGOOSE_CPP_DIR}/Request_test.cpp
+        ${MONGOOSE_CPP_DIR}/Response_test.cpp
+        ${MONGOOSE_CPP_DIR}/StreamResponse_test.cpp
+        ${MONGOOSE_CPP_DIR}/string_response_test.cpp
+        ${MONGOOSE_CPP_DIR}/Helpers_test.cpp
+        ${MONGOOSE_CPP_DIR}/Controller_test.cpp
+        ${MONGOOSE_CPP_DIR}/MatchController_test.cpp
+        ${MONGOOSE_CPP_DIR}/RegexController_test.cpp
+        ${MONGOOSE_CPP_DIR}/Server_test.cpp
+        # Server_test.cpp drives ServerImpl using mongoose's C API directly.
+        # Mongoose's symbols aren't exported from nscp_mongoose.dll, so we
+        # compile mongoose.c into the test exe to get a private copy.
+        ${MONGOOSE_INCLUDE_DIR}/mongoose.c
+    LIBRARIES
+        GTest::gtest_main
+        nscp_mongoose
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+    INCLUDES
+        ${MONGOOSE_CPP_DIR}
+        ${MONGOOSE_INCLUDE_DIR}
+        ${NSCP_INCLUDEDIR}
+)
+if(OPENSSL_FOUND)
+    target_compile_definitions(
+        mongoose_wrapper_test
+        PRIVATE
+            MG_ENABLE_OPENSSL=1
+            MG_DISABLE_PFS=1
+    )
+    target_include_directories(
+        mongoose_wrapper_test
+        PRIVATE
+            ${OPENSSL_INCLUDE_DIR}
+    )
+    target_link_libraries(mongoose_wrapper_test ${OPENSSL_LIBRARIES})
+    if(WIN32)
+        target_link_libraries(mongoose_wrapper_test CRYPT32)
+    endif()
+endif()
+target_compile_definitions(
+    mongoose_wrapper_test
+    PRIVATE
+        MG_ENABLE_HTTP_WEBSOCKET=0
+        MG_ENABLE_BROADCAST=1
+        MG_ENABLE_THREADS
+)
+
+# Make sure the test process can locate runtime DLLs (gtest_main, nscp_mongoose,
+# boost, openssl, ...) regardless of how it is launched (ctest, IDE runner,
+# debugger). We copy every DLL the test depends on next to the exe at build
+# time using $<TARGET_RUNTIME_DLLS> (CMake >= 3.21).
+if(WIN32)
+    add_custom_command(
+        TARGET mongoose_wrapper_test
+        POST_BUILD
+        COMMAND
+            ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_RUNTIME_DLLS:mongoose_wrapper_test>
+            $<TARGET_FILE_DIR:mongoose_wrapper_test>
+        COMMAND_EXPAND_LISTS
+    )
+endif()
