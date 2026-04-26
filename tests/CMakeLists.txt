@@ -441,14 +441,25 @@ target_compile_definitions(
 # boost, openssl, ...) regardless of how it is launched (ctest, IDE runner,
 # debugger). We copy every DLL the test depends on next to the exe at build
 # time using $<TARGET_RUNTIME_DLLS> (CMake >= 3.21).
+#
+# Note: in fully-static configurations (e.g. the legacy v141_xp / static-CRT
+# build) $<TARGET_RUNTIME_DLLS:...> evaluates to an empty list, which would
+# leave the post-build command as `cmake -E copy_if_different <destdir>` -
+# i.e. a destination with no source files. cmake then prints its `-E` usage
+# banner and exits 1, breaking the build with MSB3073. Guard the command
+# with $<BOOL:...> so it degenerates into `cmake -E true` (a no-op exit 0)
+# whenever there is nothing to copy.
 if(WIN32)
+    set(_runtime_dlls "$<TARGET_RUNTIME_DLLS:mongoose_wrapper_test>")
+    set(_have_dlls "$<BOOL:${_runtime_dlls}>")
     add_custom_command(
         TARGET mongoose_wrapper_test
         POST_BUILD
         COMMAND
-            ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_RUNTIME_DLLS:mongoose_wrapper_test>
-            $<TARGET_FILE_DIR:mongoose_wrapper_test>
+            ${CMAKE_COMMAND} -E
+            $<IF:${_have_dlls},copy_if_different,true>
+            ${_runtime_dlls}
+            $<${_have_dlls}:$<TARGET_FILE_DIR:mongoose_wrapper_test>>
         COMMAND_EXPAND_LISTS
     )
 endif()
