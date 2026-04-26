@@ -78,28 +78,62 @@ runs:
       shell: pwsh
       run: |
         # The Windows 8.1 SDK is required by the v141_xp / legacy XP build
-        # path (cryptopp's .vcxproj files set <WindowsTargetPlatformVersion>8.1
-        # </WindowsTargetPlatformVersion>). It is no longer pre-installed on
-        # the windows-latest runner image and Microsoft removed the matching
-        # component from the VS 2022 installer catalog, so we install the
-        # standalone SDK package via Chocolatey instead.
+        # path (cryptopp's .vcxproj files set
+        # <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>).
+        # It is no longer pre-installed on the windows-latest runner image
+        # and Microsoft retired the matching component from the VS 2022
+        # installer catalog, so we install the standalone SDK package
+        # ourselves.
+        #
+        # MSBuild's _CheckWindowsSDKInstalled target does NOT just look at
+        # the files under "C:\Program Files (x86)\Windows Kits\8.1": it
+        # probes the registry key
+        #   HKLM\SOFTWARE\WOW6432Node\Microsoft\Microsoft SDKs\Windows\v8.1
+        # and refuses to build with "MSB8036: The Windows SDK version 8.1
+        # was not found" if that key is missing, even when the files are
+        # present. The chocolatey `windows-sdk-8.1` package has been
+        # observed to "succeed" without writing the registry entries on the
+        # current runner image, which is why we now go via the official
+        # sdksetup.exe web installer first and only fall back to choco.
+        $ErrorActionPreference = 'Stop'
         $sdkRoot = 'C:\Program Files (x86)\Windows Kits\8.1'
-        if (Test-Path $sdkRoot) {
+        $sdkRegKey = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Microsoft SDKs\Windows\v8.1'
+
+        function Test-Win81Sdk {
+          return (Test-Path $sdkRoot) -and (Test-Path $sdkRegKey)
+        }
+
+        if (Test-Win81Sdk) {
           Write-Host "* Windows 8.1 SDK already installed at $sdkRoot"
         } else {
-          Write-Host "* Installing Windows 8.1 SDK via Chocolatey..."
-          choco install windows-sdk-8.1 -y --no-progress --limit-output
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "! choco install returned $LASTEXITCODE; trying direct sdksetup.exe download as a fallback..."
-            $tmp = Join-Path $env:RUNNER_TEMP 'sdksetup.exe'
-            Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=323507' -OutFile $tmp -UseBasicParsing
-            $args = @(
-              '/features', '+',
-              '/q', '/norestart', '/ceip', 'off'
+          Write-Host "* Installing Windows 8.1 SDK via Microsoft sdksetup.exe..."
+          $sdkSetup = Join-Path $env:RUNNER_TEMP 'sdksetup.exe'
+          try {
+            Invoke-WebRequest `
+              -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=323507' `
+              -OutFile $sdkSetup -UseBasicParsing
+          } catch {
+            Write-Host "! Failed to download sdksetup.exe: $($_.Exception.Message)"
+          }
+
+          if (Test-Path $sdkSetup) {
+            # Only install the Desktop SDK feature - we do not need the
+            # debuggers, .NET SDK, app-certification kit or MSI tools.
+            $sdkArgs = @(
+              '/features', 'OptionId.WindowsDesktopSoftwareDevelopmentKit',
+              '/quiet', '/norestart', '/ceip', 'off'
             )
-            $p = Start-Process -FilePath $tmp -ArgumentList $args -Wait -PassThru
+            $p = Start-Process -FilePath $sdkSetup -ArgumentList $sdkArgs -Wait -PassThru
             if ($p.ExitCode -ne 0) {
-              throw "sdksetup.exe failed with exit code $($p.ExitCode)"
+              Write-Host "! sdksetup.exe exited with $($p.ExitCode); will try Chocolatey as a fallback."
+            }
+          }
+
+          if (-not (Test-Win81Sdk)) {
+            Write-Host "* Falling back to: choco install windows-sdk-8.1"
+            choco install windows-sdk-8.1 -y --no-progress --limit-output
+            if ($LASTEXITCODE -ne 0) {
+              throw "choco install windows-sdk-8.1 failed with exit code $LASTEXITCODE"
             }
           }
         }
@@ -107,5 +141,10 @@ runs:
         if (-not (Test-Path $sdkRoot)) {
           throw "Windows 8.1 SDK install reported success but $sdkRoot does not exist"
         }
+        if (-not (Test-Path $sdkRegKey)) {
+          throw "Windows 8.1 SDK install reported success but registry key $sdkRegKey is missing - MSBuild will fail with MSB8036"
+        }
         Write-Host "* Windows 8.1 SDK contents:"
         Get-ChildItem $sdkRoot | Format-Table Name, LastWriteTime -AutoSize | Out-String | Write-Host
+        Write-Host "* Windows 8.1 SDK registry entries:"
+        Get-ItemProperty -Path $sdkRegKey | Format-List | Out-String | Write-Host
