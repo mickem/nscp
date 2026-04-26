@@ -235,8 +235,23 @@ struct operator_or : simple_int_binary_operator_impl {
   }
 };
 
-struct operator_like : simple_bool_binary_operator_impl {
-  explicit operator_like(std::string desc) : simple_bool_binary_operator_impl(std::move(desc)) {}
+struct pattern_binary_operator_impl : binary_operator_impl {
+  explicit pattern_binary_operator_impl(std::string desc) : binary_operator_impl(std::move(desc)) {}
+  node_type evaluate(const evaluation_context context, const node_type left, const node_type right) const override {
+    const value_type ltype = left->get_type();
+    if (helpers::type_is_int(ltype)) return factory::create_num(eval_int(ltype, context, left, right));
+    if (helpers::type_is_float(ltype)) return factory::create_num(eval_float(ltype, context, left, right));
+    if (ltype == type_string) return factory::create_num(eval_string(ltype, context, left, right));
+    context->error("missing impl for pattern binary operator: " + desc_);
+    return factory::create_false();
+  }
+  virtual value_container eval_int(value_type, evaluation_context context, node_type left, node_type right) const = 0;
+  virtual value_container eval_float(value_type, evaluation_context context, node_type left, node_type right) const = 0;
+  virtual value_container eval_string(value_type, evaluation_context context, node_type left, node_type right) const = 0;
+};
+
+struct operator_like : pattern_binary_operator_impl {
+  explicit operator_like(std::string desc) : pattern_binary_operator_impl(std::move(desc)) {}
   value_container eval_int(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     // Match the integer's textual representation, so e.g. 'cpu like "80"'
     // matches the value 80 / 180 / 800.
@@ -288,8 +303,8 @@ struct operator_like : simple_bool_binary_operator_impl {
     return value_container::create_int(negate ? !matched : matched, is_unsure);
   }
 };
-struct operator_regexp : simple_bool_binary_operator_impl {
-  explicit operator_regexp(std::string desc) : simple_bool_binary_operator_impl(std::move(desc)) {}
+struct operator_regexp : pattern_binary_operator_impl {
+  explicit operator_regexp(std::string desc) : pattern_binary_operator_impl(std::move(desc)) {}
   value_container eval_int(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     // Match the integer's textual representation, so e.g. "80" matches "8.*".
     const value_container lhs = left->get_value(context, type_int);
@@ -333,8 +348,8 @@ struct operator_regexp : simple_bool_binary_operator_impl {
     }
   }
 };
-struct operator_not_regexp : simple_bool_binary_operator_impl {
-  explicit operator_not_regexp(std::string desc) : simple_bool_binary_operator_impl(std::move(desc)) {}
+struct operator_not_regexp : pattern_binary_operator_impl {
+  explicit operator_not_regexp(std::string desc) : pattern_binary_operator_impl(std::move(desc)) {}
   value_container eval_int(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_int);
     const value_container rhs = right->get_value(context, type_string);
@@ -355,8 +370,8 @@ struct operator_not_regexp : simple_bool_binary_operator_impl {
     return operator_regexp::regex_match_to_container(context, lhs.get_string(), rhs, true, lhs.is_unsure || rhs.is_unsure);
   }
 };
-struct operator_not_like : simple_bool_binary_operator_impl {
-  explicit operator_not_like(std::string desc) : simple_bool_binary_operator_impl(std::move(desc)) {}
+struct operator_not_like : pattern_binary_operator_impl {
+  explicit operator_not_like(std::string desc) : pattern_binary_operator_impl(std::move(desc)) {}
   value_container eval_int(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_int);
     const value_container rhs = right->get_value(context, type_string);

@@ -633,11 +633,41 @@ TEST(OperatorLike, SmallerSearchInLarger) {
   EXPECT_TRUE(result.is_true());
 }
 
-TEST(OperatorLike, IntReturnsNilAndError) {
+// like on int — pattern is matched against the textual representation of the int,
+// so e.g. `cpu like "8"` matches 8, 80, 800, 18, ...
+TEST(OperatorLike, IntExactDigitMatches) {
   auto ctx = make_context();
-  auto bin_op = op_factory::get_binary_operator(op_like, make_int(1), make_int(2));
-  auto result = bin_op->evaluate(ctx, make_int(1), make_int(2));
-  EXPECT_TRUE(ctx->has_error());
+  auto result = eval_bin_op(op_like, make_int(80), make_string("80"), ctx);
+  EXPECT_TRUE(result.is_true());
+  EXPECT_FALSE(ctx->has_error());
+}
+
+TEST(OperatorLike, IntSubstringDigitMatches) {
+  auto ctx = make_context();
+  // "8" is a substring of "180"
+  auto result = eval_bin_op(op_like, make_int(180), make_string("8"), ctx);
+  EXPECT_TRUE(result.is_true());
+}
+
+TEST(OperatorLike, IntNoMatchReturnsFalse) {
+  auto ctx = make_context();
+  auto result = eval_bin_op(op_like, make_int(42), make_string("9"), ctx);
+  EXPECT_FALSE(result.is_true());
+  EXPECT_FALSE(ctx->has_error());
+}
+
+TEST(OperatorLike, FloatSubstringMatches) {
+  auto ctx = make_context();
+  // 3.14 -> "3.14" contains "14"
+  auto result = eval_bin_op(op_like, make_float(3.14), make_string("14"), ctx);
+  EXPECT_TRUE(result.is_true());
+  EXPECT_FALSE(ctx->has_error());
+}
+
+TEST(OperatorLike, FloatNoMatchReturnsFalse) {
+  auto ctx = make_context();
+  auto result = eval_bin_op(op_like, make_float(3.14), make_string("99"), ctx);
+  EXPECT_FALSE(result.is_true());
 }
 
 // ======================================================================
@@ -674,11 +704,32 @@ TEST(OperatorNotLike, CaseInsensitiveNoMatch) {
   EXPECT_TRUE(result.is_true());
 }
 
-TEST(OperatorNotLike, IntReturnsNilAndError) {
+// not_like on int / float — pattern is matched against the textual representation
+TEST(OperatorNotLike, IntMatchReturnsFalse) {
   auto ctx = make_context();
-  auto bin_op = op_factory::get_binary_operator(op_not_like, make_int(1), make_int(2));
-  auto result = bin_op->evaluate(ctx, make_int(1), make_int(2));
-  EXPECT_TRUE(ctx->has_error());
+  auto result = eval_bin_op(op_not_like, make_int(180), make_string("8"), ctx);
+  EXPECT_FALSE(result.is_true());
+  EXPECT_FALSE(ctx->has_error());
+}
+
+TEST(OperatorNotLike, IntNoMatchReturnsTrue) {
+  auto ctx = make_context();
+  auto result = eval_bin_op(op_not_like, make_int(42), make_string("9"), ctx);
+  EXPECT_TRUE(result.is_true());
+  EXPECT_FALSE(ctx->has_error());
+}
+
+TEST(OperatorNotLike, FloatMatchReturnsFalse) {
+  auto ctx = make_context();
+  auto result = eval_bin_op(op_not_like, make_float(3.14), make_string("14"), ctx);
+  EXPECT_FALSE(result.is_true());
+}
+
+TEST(OperatorNotLike, FloatNoMatchReturnsTrue) {
+  auto ctx = make_context();
+  auto result = eval_bin_op(op_not_like, make_float(3.14), make_string("99"), ctx);
+  EXPECT_TRUE(result.is_true());
+  EXPECT_FALSE(ctx->has_error());
 }
 
 // ======================================================================
@@ -716,11 +767,40 @@ TEST(OperatorRegexp, InvalidRegexReturnsError) {
   EXPECT_TRUE(ctx->has_error());
 }
 
-TEST(OperatorRegexp, IntReturnsError) {
+// regexp on int / float — pattern is matched against the textual representation
+TEST(OperatorRegexp, IntExactMatch) {
   auto ctx = make_context();
-  auto bin_op = op_factory::get_binary_operator(op_regexp, make_int(1), make_int(2));
-  auto result = bin_op->evaluate(ctx, make_int(1), make_int(2));
-  EXPECT_TRUE(ctx->has_error());
+  auto result = eval_bin_op(op_regexp, make_int(80), make_string("80"), ctx);
+  EXPECT_TRUE(result.is_true());
+  EXPECT_FALSE(ctx->has_error());
+}
+
+TEST(OperatorRegexp, IntPatternMatch) {
+  auto ctx = make_context();
+  // 180 -> "180" matches "1.*"
+  auto result = eval_bin_op(op_regexp, make_int(180), make_string("1.*"), ctx);
+  EXPECT_TRUE(result.is_true());
+}
+
+TEST(OperatorRegexp, IntPatternNoMatch) {
+  auto ctx = make_context();
+  auto result = eval_bin_op(op_regexp, make_int(42), make_string("9.*"), ctx);
+  EXPECT_FALSE(result.is_true());
+  EXPECT_FALSE(ctx->has_error());
+}
+
+TEST(OperatorRegexp, FloatPatternMatch) {
+  auto ctx = make_context();
+  // 3.14 -> "3.14" matches "3\..*"
+  auto result = eval_bin_op(op_regexp, make_float(3.14), make_string("3\\..*"), ctx);
+  EXPECT_TRUE(result.is_true());
+  EXPECT_FALSE(ctx->has_error());
+}
+
+TEST(OperatorRegexp, FloatPatternNoMatch) {
+  auto ctx = make_context();
+  auto result = eval_bin_op(op_regexp, make_float(3.14), make_string("9.*"), ctx);
+  EXPECT_FALSE(result.is_true());
 }
 
 // ======================================================================
@@ -752,11 +832,32 @@ TEST(OperatorNotRegexp, InvalidRegexReturnsError) {
   EXPECT_TRUE(ctx->has_error());
 }
 
-TEST(OperatorNotRegexp, IntReturnsError) {
+// not_regexp on int / float — pattern is matched against the textual representation
+TEST(OperatorNotRegexp, IntMatchReturnsFalse) {
   auto ctx = make_context();
-  auto bin_op = op_factory::get_binary_operator(op_not_regexp, make_int(1), make_int(2));
-  auto result = bin_op->evaluate(ctx, make_int(1), make_int(2));
-  EXPECT_TRUE(ctx->has_error());
+  auto result = eval_bin_op(op_not_regexp, make_int(80), make_string("80"), ctx);
+  EXPECT_FALSE(result.is_true());
+  EXPECT_FALSE(ctx->has_error());
+}
+
+TEST(OperatorNotRegexp, IntNoMatchReturnsTrue) {
+  auto ctx = make_context();
+  auto result = eval_bin_op(op_not_regexp, make_int(42), make_string("9.*"), ctx);
+  EXPECT_TRUE(result.is_true());
+  EXPECT_FALSE(ctx->has_error());
+}
+
+TEST(OperatorNotRegexp, FloatMatchReturnsFalse) {
+  auto ctx = make_context();
+  auto result = eval_bin_op(op_not_regexp, make_float(3.14), make_string("3\\..*"), ctx);
+  EXPECT_FALSE(result.is_true());
+}
+
+TEST(OperatorNotRegexp, FloatNoMatchReturnsTrue) {
+  auto ctx = make_context();
+  auto result = eval_bin_op(op_not_regexp, make_float(3.14), make_string("9.*"), ctx);
+  EXPECT_TRUE(result.is_true());
+  EXPECT_FALSE(ctx->has_error());
 }
 
 // ======================================================================
