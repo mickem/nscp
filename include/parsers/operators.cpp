@@ -25,6 +25,7 @@
 #include <parsers/helpers.hpp>
 #include <parsers/operators.hpp>
 #include <parsers/where/helpers.hpp>
+#include <str/xtos.hpp>
 
 #ifdef _WIN32
 #pragma warning(disable : 4100)
@@ -33,6 +34,7 @@
 namespace parsers {
 namespace where {
 namespace operator_impl {
+
 struct simple_bool_binary_operator_impl : binary_operator_impl {
   explicit simple_bool_binary_operator_impl(std::string desc) : binary_operator_impl(std::move(desc)) {}
   node_type evaluate(const evaluation_context context, const node_type left, const node_type right) const override {
@@ -233,53 +235,110 @@ struct operator_or : simple_int_binary_operator_impl {
   }
 };
 
-struct operator_like : simple_bool_binary_operator_impl {
-  explicit operator_like(std::string desc) : simple_bool_binary_operator_impl(std::move(desc)) {}
-  value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
-    context->error("Like not supported on numbers...");
-    return value_container::create_nil();
+struct pattern_binary_operator_impl : binary_operator_impl {
+  explicit pattern_binary_operator_impl(std::string desc) : binary_operator_impl(std::move(desc)) {}
+  node_type evaluate(const evaluation_context context, const node_type left, const node_type right) const override {
+    const value_type ltype = left->get_type();
+    if (helpers::type_is_int(ltype)) return factory::create_num(eval_int(ltype, context, left, right));
+    if (helpers::type_is_float(ltype)) return factory::create_num(eval_float(ltype, context, left, right));
+    if (ltype == type_string) return factory::create_num(eval_string(ltype, context, left, right));
+    context->error("missing impl for pattern binary operator: " + desc_);
+    return factory::create_false();
+  }
+  virtual value_container eval_int(value_type, evaluation_context context, node_type left, node_type right) const = 0;
+  virtual value_container eval_float(value_type, evaluation_context context, node_type left, node_type right) const = 0;
+  virtual value_container eval_string(value_type, evaluation_context context, node_type left, node_type right) const = 0;
+};
+
+struct operator_like : pattern_binary_operator_impl {
+  explicit operator_like(std::string desc) : pattern_binary_operator_impl(std::move(desc)) {}
+  value_container eval_int(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
+    // Match the integer's textual representation, so e.g. 'cpu like "80"'
+    // matches the value 80 / 180 / 800.
+    const value_container lhs = left->get_value(context, type_int);
+    const value_container rhs = right->get_value(context, type_string);
+    return like_match_to_container(context, str::xtos(lhs.get_int()), rhs, false, lhs.is_unsure || rhs.is_unsure);
   };
-  value_container eval_float(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
-    context->error("Like not supported on numbers...");
-    return value_container::create_nil();
+  value_container eval_float(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
+    const value_container lhs = left->get_value(context, type_float);
+    const value_container rhs = right->get_value(context, type_string);
+    return like_match_to_container(context, str::xtos(lhs.get_float()), rhs, false, lhs.is_unsure || rhs.is_unsure);
   };
-  value_container eval_string(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_string(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_string);
     const value_container rhs = right->get_value(context, type_string);
     if (!lhs.is(type_string) || !rhs.is(type_string)) {
       context->error("invalid type");
       return value_container::create_nil();
     }
-    const std::string s1 = boost::algorithm::to_lower_copy(lhs.get_string());
-    const std::string s2 = boost::algorithm::to_lower_copy(rhs.get_string());
-    if (s1.size() == 0 && s2.size() == 0) return value_container::create_int(1, lhs.is_unsure || rhs.is_unsure);
-    if (s1.size() == 0 || s2.size() == 0) return value_container::create_int(0, lhs.is_unsure || rhs.is_unsure);
-    if (s1.size() > s2.size() && s2.size() > 0) return value_container::create_int(s1.find(s2) != std::string::npos, lhs.is_unsure || rhs.is_unsure);
-    return value_container::create_int(s2.find(s1) != std::string::npos, lhs.is_unsure || rhs.is_unsure);
+    return like_match_to_container(context, lhs.get_string(), rhs, false, lhs.is_unsure || rhs.is_unsure);
+  }
+
+  // Helper shared with operator_not_like; static so it can be reused
+  // without friending or duplicating the substring-match logic.
+  //
+  // Semantics match the original string `like` operator: case-insensitive
+  // "the smaller string is a substring of the larger one". Empty inputs are
+  // handled the same way the previous code did (both empty => match,
+  // exactly one empty => no match).
+  static value_container like_match_to_container(const evaluation_context context, const std::string &subject, const value_container &pattern,
+                                                 const bool negate, const bool is_unsure) {
+    if (!pattern.is(type_string)) {
+      context->error("invalid type");
+      return value_container::create_nil();
+    }
+    const std::string s1 = boost::algorithm::to_lower_copy(subject);
+    const std::string s2 = boost::algorithm::to_lower_copy(pattern.get_string());
+
+    bool matched;
+    if (s1.empty() && s2.empty()) {
+      matched = true;
+    } else if (s1.empty() || s2.empty()) {
+      matched = false;
+    } else if (s1.size() > s2.size()) {
+      matched = s1.find(s2) != std::string::npos;
+    } else {
+      matched = s2.find(s1) != std::string::npos;
+    }
+    return value_container::create_int(negate ? !matched : matched, is_unsure);
   }
 };
-struct operator_regexp : simple_bool_binary_operator_impl {
-  explicit operator_regexp(std::string desc) : simple_bool_binary_operator_impl(std::move(desc)) {}
-  value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
-    context->error("Like not supported on numbers...");
-    return value_container::create_nil();
+struct operator_regexp : pattern_binary_operator_impl {
+  explicit operator_regexp(std::string desc) : pattern_binary_operator_impl(std::move(desc)) {}
+  value_container eval_int(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
+    // Match the integer's textual representation, so e.g. "80" matches "8.*".
+    const value_container lhs = left->get_value(context, type_int);
+    const value_container rhs = right->get_value(context, type_string);
+    return regex_match_to_container(context, str::xtos(lhs.get_int()), rhs, false, lhs.is_unsure || rhs.is_unsure);
   };
-  value_container eval_float(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
-    context->error("Like not supported on numbers...");
-    return value_container::create_nil();
+  value_container eval_float(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
+    const value_container lhs = left->get_value(context, type_float);
+    const value_container rhs = right->get_value(context, type_string);
+    return regex_match_to_container(context, str::xtos(lhs.get_float()), rhs, false, lhs.is_unsure || rhs.is_unsure);
   };
-  value_container eval_string(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_string(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_string);
     const value_container rhs = right->get_value(context, type_string);
     if (!lhs.is(type_string) || !rhs.is(type_string)) {
       context->error("invalid type");
       return value_container::create_nil();
     }
-    const std::string str = lhs.get_string();
-    const std::string regexp = rhs.get_string();
+    return regex_match_to_container(context, lhs.get_string(), rhs, false, lhs.is_unsure || rhs.is_unsure);
+  }
+
+  // Helpers shared with operator_not_regexp; static so they can be reused
+  // without friending or duplicating the boost::regex try/catch logic.
+  static value_container regex_match_to_container(const evaluation_context context, const std::string &subject, const value_container &pattern,
+                                                  const bool negate, const bool is_unsure) {
+    if (!pattern.is(type_string)) {
+      context->error("invalid type");
+      return value_container::create_nil();
+    }
+    const std::string regexp = pattern.get_string();
     try {
       const boost::regex re(regexp);
-      return value_container::create_int(boost::regex_match(str, re), lhs.is_unsure || rhs.is_unsure);
+      const bool matched = boost::regex_match(subject, re);
+      return value_container::create_int(negate ? !matched : matched, is_unsure);
     } catch (const boost::bad_expression &e) {
       context->error("Invalid syntax in regular expression:" + regexp + " error: " + e.what());
       return value_container::create_nil();
@@ -289,60 +348,48 @@ struct operator_regexp : simple_bool_binary_operator_impl {
     }
   }
 };
-struct operator_not_regexp : simple_bool_binary_operator_impl {
-  explicit operator_not_regexp(std::string desc) : simple_bool_binary_operator_impl(std::move(desc)) {}
-  value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
-    context->error("Like not supported on numbers...");
-    return value_container::create_nil();
+struct operator_not_regexp : pattern_binary_operator_impl {
+  explicit operator_not_regexp(std::string desc) : pattern_binary_operator_impl(std::move(desc)) {}
+  value_container eval_int(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
+    const value_container lhs = left->get_value(context, type_int);
+    const value_container rhs = right->get_value(context, type_string);
+    return operator_regexp::regex_match_to_container(context, str::xtos(lhs.get_int()), rhs, true, lhs.is_unsure || rhs.is_unsure);
   };
-  value_container eval_float(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
-    context->error("Like not supported on numbers...");
-    return value_container::create_nil();
+  value_container eval_float(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
+    const value_container lhs = left->get_value(context, type_float);
+    const value_container rhs = right->get_value(context, type_string);
+    return operator_regexp::regex_match_to_container(context, str::xtos(lhs.get_float()), rhs, true, lhs.is_unsure || rhs.is_unsure);
   };
-  value_container eval_string(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_string(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_string);
     const value_container rhs = right->get_value(context, type_string);
     if (!lhs.is(type_string) || !rhs.is(type_string)) {
       context->error("invalid type");
       return value_container::create_nil();
     }
-    const std::string str = lhs.get_string();
-    const std::string regexp = rhs.get_string();
-    try {
-      const boost::regex re(regexp);
-      return value_container::create_int(!boost::regex_match(str, re), lhs.is_unsure || rhs.is_unsure);
-    } catch (const boost::bad_expression &e) {
-      context->error("Invalid syntax in regular expression:" + regexp + " error: " + e.what());
-      return value_container::create_nil();
-    } catch (...) {
-      context->error("Invalid syntax in regular expression:" + regexp);
-      return value_container::create_nil();
-    }
+    return operator_regexp::regex_match_to_container(context, lhs.get_string(), rhs, true, lhs.is_unsure || rhs.is_unsure);
   }
 };
-struct operator_not_like : simple_bool_binary_operator_impl {
-  explicit operator_not_like(std::string desc) : simple_bool_binary_operator_impl(std::move(desc)) {}
-  value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
-    context->error("Like not supported on numbers...");
-    return value_container::create_nil();
+struct operator_not_like : pattern_binary_operator_impl {
+  explicit operator_not_like(std::string desc) : pattern_binary_operator_impl(std::move(desc)) {}
+  value_container eval_int(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
+    const value_container lhs = left->get_value(context, type_int);
+    const value_container rhs = right->get_value(context, type_string);
+    return operator_like::like_match_to_container(context, str::xtos(lhs.get_int()), rhs, true, lhs.is_unsure || rhs.is_unsure);
   };
-  value_container eval_float(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
-    context->error("Like not supported on numbers...");
-    return value_container::create_nil();
+  value_container eval_float(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
+    const value_container lhs = left->get_value(context, type_float);
+    const value_container rhs = right->get_value(context, type_string);
+    return operator_like::like_match_to_container(context, str::xtos(lhs.get_float()), rhs, true, lhs.is_unsure || rhs.is_unsure);
   };
-  value_container eval_string(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
+  value_container eval_string(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_string);
     const value_container rhs = right->get_value(context, type_string);
     if (!lhs.is(type_string) || !rhs.is(type_string)) {
       context->error("invalid type");
       return value_container::create_nil();
     }
-    const std::string s1 = boost::algorithm::to_lower_copy(lhs.get_string());
-    const std::string s2 = boost::algorithm::to_lower_copy(rhs.get_string());
-    if (s1.size() == 0 && s2.size() == 0) return value_container::create_int(0, lhs.is_unsure || rhs.is_unsure);
-    if (s1.size() == 0 || s2.size() == 0) return value_container::create_int(1, lhs.is_unsure || rhs.is_unsure);
-    if (s1.size() > s2.size() && s2.size() > 0) return value_container::create_int(s1.find(s2) == std::string::npos, lhs.is_unsure || rhs.is_unsure);
-    return value_container::create_int(s2.find(s1) == std::string::npos, lhs.is_unsure || rhs.is_unsure);
+    return operator_like::like_match_to_container(context, lhs.get_string(), rhs, true, lhs.is_unsure || rhs.is_unsure);
   }
 };
 struct operator_not_in : simple_bool_binary_operator_impl {

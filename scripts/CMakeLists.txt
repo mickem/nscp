@@ -42,9 +42,24 @@ endforeach(
 foreach(file ${scripts_PYT})
     get_filename_component(filename ${file} NAME)
     get_filename_component(filepath ${file} PATH)
-    file(RELATIVE_PATH relpath ${CMAKE_CURRENT_SOURCE_DIR} "${filepath}")
-    string(REPLACE "/" "_" alias "${relpath}")
-    string(REPLACE "." "_" alias "${alias}")
+    file(
+        RELATIVE_PATH
+        relpath
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        "${filepath}"
+    )
+    string(
+        REPLACE "/"
+        "_"
+        alias
+        "${relpath}"
+    )
+    string(
+        REPLACE "."
+        "_"
+        alias
+        "${alias}"
+    )
     if(${filename} STREQUAL "badapp.py")
         continue()
     endif()
@@ -67,9 +82,24 @@ endforeach(
 foreach(file ${scripts_LUA})
     get_filename_component(filename ${file} NAME)
     get_filename_component(filepath ${file} PATH)
-    file(RELATIVE_PATH relpath ${CMAKE_CURRENT_SOURCE_DIR} "${filepath}")
-    string(REPLACE "/" "_" alias "${relpath}")
-    string(REPLACE "." "_" alias "${alias}")
+    file(
+        RELATIVE_PATH
+        relpath
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        "${filepath}"
+    )
+    string(
+        REPLACE "/"
+        "_"
+        alias
+        "${relpath}"
+    )
+    string(
+        REPLACE "."
+        "_"
+        alias
+        "${alias}"
+    )
     # MESSAGE(STATUS " + lua - ${filename} - ${relpath} - ${alias}")
     if(filename MATCHES "^test_" OR filename STREQUAL "test_helper.lua")
         copy_single_test_file(

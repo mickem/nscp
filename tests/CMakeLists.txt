@@ -456,8 +456,7 @@ if(WIN32)
         TARGET mongoose_wrapper_test
         POST_BUILD
         COMMAND
-            ${CMAKE_COMMAND} -E
-            $<IF:${_have_dlls},copy_if_different,true>
+            ${CMAKE_COMMAND} -E $<IF:${_have_dlls},copy_if_different,true>
             ${_runtime_dlls}
             $<${_have_dlls}:$<TARGET_FILE_DIR:mongoose_wrapper_test>>
         COMMAND_EXPAND_LISTS

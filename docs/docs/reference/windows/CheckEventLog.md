@@ -382,7 +382,7 @@ Notice that specifying multiple files will create an aggregate set you will not 
 <h5 id="check_eventlog_scan-range">scan-range:</h5>
 
 Date range to scan.
-A negative value scans backward (historical events) and a positive value scans forwards (future events). This is the approximate dates to search through this speeds up searching a lot but there is no guarantee messages are ordered.
+A negative value (e.g. -1h) scans backward through historical events; a positive value (e.g. +1h) scans forward into future events. The value is a relative offset from now using the suffixes s (seconds), m (minutes), h (hours), d (days) or w (weeks); a bare number is treated as seconds. This is used as an approximate time window to limit how far the scan walks the log and significantly speeds up large logs, but messages are not guaranteed to be returned in order. Defaults to -24h when omitted.
 
 
 <h5 id="check_eventlog_unique">unique:</h5>
@@ -414,6 +414,7 @@ Use bookmarks to only look for messages since last check (with the same bookmark
 | level       | Severity level (error, warning, info, success, auditSuccess, auditFailure) |
 | log         | alias for file                                                             |
 | message     | The message rendered as a string.                                          |
+| opcode      | The opcode associated with this event                                      |
 | provider    | Source system.                                                             |
 | rawid       | Raw message id (contains many other fields all baked into a single number) |
 | source      | Source system.                                                             |

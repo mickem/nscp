@@ -96,6 +96,10 @@ jobs:
         run: cargo build --release --target ${{ steps.target.outputs.triple }}
 
       - name: Test
+        # Skip running tests when cross-compiling to a target that cannot run on the host
+        # (e.g. building aarch64-pc-windows-msvc on an x64 Windows runner produces binaries
+        # that fail with "os error 216" when executed).
+        if: ${{ !(startsWith(inputs.os, 'windows-') && inputs.arch == 'arm64') && !(startsWith(inputs.os, 'ubuntu-') && inputs.arch == 'arm64') }}
         run: cargo test --release --target ${{ steps.target.outputs.triple }}
 
       - name: Sign Windows Binary

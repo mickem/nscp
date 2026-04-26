@@ -2985,7 +2985,7 @@ default buffer length=1h
 
 #### Disable automatic checks <a id="/settings/system/windows/disable"></a>
 
-A comma separated list of checks to disable in the collector: cpu,handles,network,temperature,cpu_frequency,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.
+A comma separated list of checks to disable in the collector: battery,cpu,handles,network,temperature,cpu_frequency,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.
 
 
 
