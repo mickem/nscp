@@ -27,6 +27,16 @@ on:
         type: string
         description: 'Package type (deb, rpm, zip)'
         required: true
+      package-arch:
+        type: string
+        description: 'Package architecture suffix (e.g. amd64, arm64, x86_64, aarch64)'
+        required: false
+        default: 'amd64'
+      runner:
+        type: string
+        description: 'GitHub-hosted runner to execute on (e.g. ubuntu-latest, ubuntu-24.04-arm)'
+        required: false
+        default: 'ubuntu-latest'
       distro:
         type: string
         description: 'Distribution name (ubuntu, rocky)'
@@ -41,7 +51,7 @@ env:
 
 jobs:
   integration-tests:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
     container:
       image: ${{ inputs.container }}
 
@@ -81,7 +91,7 @@ jobs:
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y python3-protobuf liblua5.3-0 || DEBIAN_FRONTEND=noninteractive apt-get install -y python3-protobuf liblua5.4-0
-          DEBIAN_FRONTEND=noninteractive apt-get install -y ./NSCP-${{ inputs.version }}-${{ inputs.distro }}-${{ inputs.distro_version }}-amd64.deb
+          DEBIAN_FRONTEND=noninteractive apt-get install -y ./NSCP-${{ inputs.version }}-${{ inputs.distro }}-${{ inputs.distro_version }}-${{ inputs.package-arch }}.deb
 
       # Linux: Install RPM package
       - name: Install RPM package (Linux)
@@ -92,7 +102,7 @@ jobs:
         run: |
           dnf install -y epel-release || true
           dnf install -y python3-devel python3 python3-protobuf lua 
-          dnf install -y ./NSCP-${{ inputs.version }}-${{ inputs.distro }}-${{ inputs.distro_version }}-amd64.rpm
+          dnf install -y ./NSCP-${{ inputs.version }}-${{ inputs.distro }}-${{ inputs.distro_version }}-${{ inputs.package-arch }}.rpm
           nscp settings --load-all --list --add-defaults
 
       # Linux: Acceptance tests (DEB)

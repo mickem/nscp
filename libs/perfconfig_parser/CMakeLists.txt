@@ -21,12 +21,5 @@ set_target_properties(
             "libraries"
 )
 if(CMAKE_COMPILER_IS_GNUCXX)
-    if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
-        set_target_properties(
-            ${TARGET}
-            PROPERTIES
-                COMPILE_FLAGS
-                    -fPIC
-        )
-    endif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
+    nscp_apply_pic(${TARGET})
 endif(CMAKE_COMPILER_IS_GNUCXX)

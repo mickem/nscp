@@ -44,26 +44,34 @@ jobs:
         id: target
         shell: bash
         run: |
-          if [[ "${{ inputs.os }}" == "windows-latest" ]]; then
-            echo "os_name=windows" >> $GITHUB_OUTPUT
-            echo "file_ext=.exe" >> $GITHUB_OUTPUT
-            if [[ "${{ inputs.arch }}" == "x64" ]]; then
-              echo "triple=x86_64-pc-windows-msvc" >> $GITHUB_OUTPUT
-            else
-              echo "triple=i686-pc-windows-msvc" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "os_name=linux" >> $GITHUB_OUTPUT
-            echo "file_ext=" >> $GITHUB_OUTPUT
-            sudo apt-get update
-            sudo apt-get install -y libdbus-1-dev pkg-config
-            if [[ "${{ inputs.arch }}" == "x64" ]]; then
-              echo "triple=x86_64-unknown-linux-gnu" >> $GITHUB_OUTPUT
-            else
-              echo "triple=i686-unknown-linux-gnu" >> $GITHUB_OUTPUT
-              sudo apt-get install -y gcc-multilib
-            fi
-          fi
+          case "${{ inputs.os }}" in
+            windows-*)
+              echo "os_name=windows" >> $GITHUB_OUTPUT
+              echo "file_ext=.exe" >> $GITHUB_OUTPUT
+              case "${{ inputs.arch }}" in
+                x64)   echo "triple=x86_64-pc-windows-msvc"   >> $GITHUB_OUTPUT ;;
+                x86)   echo "triple=i686-pc-windows-msvc"     >> $GITHUB_OUTPUT ;;
+                arm64) echo "triple=aarch64-pc-windows-msvc"  >> $GITHUB_OUTPUT ;;
+                *) echo "Unknown windows arch '${{ inputs.arch }}'" ; exit 1 ;;
+              esac
+              ;;
+            ubuntu-*)
+              echo "os_name=linux" >> $GITHUB_OUTPUT
+              echo "file_ext=" >> $GITHUB_OUTPUT
+              sudo apt-get update
+              sudo apt-get install -y libdbus-1-dev pkg-config
+              case "${{ inputs.arch }}" in
+                x64)   echo "triple=x86_64-unknown-linux-gnu"  >> $GITHUB_OUTPUT ;;
+                x86)
+                  echo "triple=i686-unknown-linux-gnu" >> $GITHUB_OUTPUT
+                  sudo apt-get install -y gcc-multilib
+                  ;;
+                arm64) echo "triple=aarch64-unknown-linux-gnu" >> $GITHUB_OUTPUT ;;
+                *) echo "Unknown linux arch '${{ inputs.arch }}'" ; exit 1 ;;
+              esac
+              ;;
+            *) echo "Unknown OS '${{ inputs.os }}'" ; exit 1 ;;
+          esac
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -91,7 +99,7 @@ jobs:
         run: cargo test --release --target ${{ steps.target.outputs.triple }}
 
       - name: Sign Windows Binary
-        if: inputs.os == 'windows-latest'
+        if: startsWith(inputs.os, 'windows-')
         uses: azure/trusted-signing-action@v1.0.0
         with:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -108,4 +116,4 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: check_nsclient-${{ steps.target.outputs.os_name }}-${{ inputs.arch }}
-          path: rust/nscp_client/target/${{ steps.target.outputs.triple }}/release/check_nsclient${{ inputs.os == 'windows-latest' && '.exe' || '' }}
+          path: rust/nscp_client/target/${{ steps.target.outputs.triple }}/release/check_nsclient${{ startsWith(inputs.os, 'windows-') && '.exe' || '' }}

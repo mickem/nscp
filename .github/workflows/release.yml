@@ -37,11 +37,17 @@ jobs:
     - uses: actions/download-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-Win32-legacy-xp
+    - uses: actions/download-artifact@v7
+      with:
+        name: NSCP-${{ inputs.version }}-ARM64
 
     # Ubuntu artifacts
     - uses: actions/download-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-ubuntu-24.04-x64
+    - uses: actions/download-artifact@v7
+      with:
+        name: NSCP-${{ inputs.version }}-ubuntu-24.04-arm64
 
     # RedHat (rocky) artifacts
     - uses: actions/download-artifact@v7
@@ -49,13 +55,20 @@ jobs:
         name: NSCP-${{ inputs.version }}-rocky-9-x64
     - uses: actions/download-artifact@v7
       with:
+        name: NSCP-${{ inputs.version }}-rocky-9-arm64
+    - uses: actions/download-artifact@v7
+      with:
         name: NSCP-${{ inputs.version }}-rocky-10-x64
+    - uses: actions/download-artifact@v7
+      with:
+        name: NSCP-${{ inputs.version }}-rocky-10-arm64
 
     - name: Rename docs
       run: |
         mv NSCP-${{ inputs.version }}-x64-docs.zip NSCP-${{ inputs.version }}-docs.zip
         rm NSCP-${{ inputs.version }}-Win32-docs.zip
         rm NSCP-${{ inputs.version }}-Win32-legacy-xp-docs.zip
+        rm NSCP-${{ inputs.version }}-ARM64-docs.zip
       shell: pwsh
 
     - name: Create Release
@@ -74,15 +87,25 @@ jobs:
           NSCP-${{ inputs.version }}-Win32.zip
           check_nsclient-${{ inputs.version }}-Win32.exe
           NSCP-${{ inputs.version }}-Win32-legacy-xp.zip
+          NSCP-${{ inputs.version }}-ARM64.zip
+          check_nsclient-${{ inputs.version }}-ARM64.exe
           installers/installer-NSCP/NSCP-${{ inputs.version }}-x64.msi
           installers/installer-NSCP/NSCP-${{ inputs.version }}-Win32.msi
           installers/installer-NSCP/NSCP-${{ inputs.version }}-Win32-legacy-xp.msi
+          installers/installer-NSCP/NSCP-${{ inputs.version }}-ARM64.msi
           NSCP-${{ inputs.version }}-x64-symbols.zip
           NSCP-${{ inputs.version }}-Win32-symbols.zip
           NSCP-${{ inputs.version }}-Win32-legacy-xp-symbols.zip
+          NSCP-${{ inputs.version }}-ARM64-symbols.zip
           check_nsclient-${{ inputs.version }}-ubuntu-24.04-x64
+          check_nsclient-${{ inputs.version }}-ubuntu-24.04-arm64
           NSCP-${{ inputs.version }}-ubuntu-24.04-amd64.deb
+          NSCP-${{ inputs.version }}-ubuntu-24.04-arm64.deb
           check_nsclient-${{ inputs.version }}-rocky-9-x64
+          check_nsclient-${{ inputs.version }}-rocky-9-arm64
           check_nsclient-${{ inputs.version }}-rocky-10-x64
-          NSCP-${{ inputs.version }}-rocky-9-amd64.rpm
-          NSCP-${{ inputs.version }}-rocky-10-amd64.rpm
+          check_nsclient-${{ inputs.version }}-rocky-10-arm64
+          NSCP-${{ inputs.version }}-rocky-9-x86_64.rpm
+          NSCP-${{ inputs.version }}-rocky-9-aarch64.rpm
+          NSCP-${{ inputs.version }}-rocky-10-x86_64.rpm
+          NSCP-${{ inputs.version }}-rocky-10-aarch64.rpm

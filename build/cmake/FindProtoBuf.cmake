@@ -76,7 +76,9 @@ else()
             ${PROTOBUF_ROOT}/build/Release
             /usr/local/Cellar/protobuf241/2.4.1/lib
             /usr/lib/
+            /usr/lib/${CMAKE_LIBRARY_ARCHITECTURE}
             /usr/lib/x86_64-linux-gnu
+            /usr/lib/aarch64-linux-gnu
             ${GNUWIN32_DIR}/lib
         NO_DEFAULT_PATH
     )
@@ -100,7 +102,9 @@ else()
             ${PROTOBUF_ROOT}/cmake/solution/Debug
             /usr/local/Cellar/protobuf241/2.4.1/lib
             /usr/lib/
+            /usr/lib/${CMAKE_LIBRARY_ARCHITECTURE}
             /usr/lib/x86_64-linux-gnu
+            /usr/lib/aarch64-linux-gnu
             ${GNUWIN32_DIR}/lib
         NO_DEFAULT_PATH
     )
