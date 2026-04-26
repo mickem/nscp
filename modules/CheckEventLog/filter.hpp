@@ -118,13 +118,13 @@ struct new_filter_obj : filter_obj {
   int truncate_message;
   std::map<std::string, eventlog::evt_handle> providers_;
 
-  new_filter_obj(unsigned long long now, const std::string &logfile, eventlog::api::EVT_HANDLE hEvent, eventlog::evt_handle &hContext,
+  new_filter_obj(unsigned long long now, std::string logfile, eventlog::api::EVT_HANDLE hEvent, const eventlog::evt_handle &hContext,
                  int truncate_message);
   ~new_filter_obj() override = default;
 
-  std::string show() { return get_log() + ":" + str::xtos(get_id()) + "=" + get_el_type_s() + "('" + get_message() + "')"; }
+  std::string show() override { return get_log() + ":" + str::xtos(get_id()) + "=" + get_el_type_s() + "('" + get_message() + "')"; }
 
-  long long get_id() const { return buffer.get()[eventlog::api::EvtSystemEventID].UInt16Val; }
+  long long get_id() const override { return buffer.get()[eventlog::api::EvtSystemEventID].UInt16Val; }
   // Reconstruct the legacy 32-bit Event Record Id from the modern WinAPI fields.
   // Classic (legacy) providers stash the upper 16 bits of the original DWORD EventID
   // (severity/customer/reserved/facility) into EvtSystemQualifiers; manifest-based
@@ -150,7 +150,7 @@ struct new_filter_obj : filter_obj {
   long long get_severity() const  override { return 0; }
   std::string get_message() override;
   std::string get_xml() override;
-  void set_truncate(int truncate) override { truncate_message = truncate; }
+  void set_truncate(const int truncate) override { truncate_message = truncate; }
   std::string get_strings() override { return get_message(); }
   std::string get_log() const override;
   long long get_written() const override;
@@ -160,14 +160,14 @@ struct new_filter_obj : filter_obj {
   long long get_raw_id() const override { return get_raw_id_dword(); }
   long long get_generated() const override { return 0; }
   bool is_modern() const override { return true; }
-  eventlog::evt_handle &get_provider_handle(std::string provider);
+  eventlog::evt_handle &get_provider_handle(const std::string& provider);
   std::string to_string() const override { return logfile + ":" + str::xtos(get_id()) + "=" + get_el_type_s(); }
 };
 
 typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : native_context {
-  static const parsers::where::value_type type_custom_severity = parsers::where::type_custom_int_1;
-  static const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_2;
+  static constexpr parsers::where::value_type type_custom_severity = parsers::where::type_custom_int_1;
+  static constexpr parsers::where::value_type type_custom_type = parsers::where::type_custom_int_2;
   filter_obj_handler();
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
