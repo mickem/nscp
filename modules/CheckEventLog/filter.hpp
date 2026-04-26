@@ -123,28 +123,20 @@ struct new_filter_obj : filter_obj {
   std::string show() { return get_log() + ":" + str::xtos(get_id()) + "=" + get_el_type_s() + "('" + get_message() + "')"; }
 
   long long get_id() const { return buffer.get()[eventlog::api::EvtSystemEventID].UInt16Val; }
-  std::string get_provider() const;
-  std::string get_guid() const;
-  std::string get_computer() const;
-  long long get_el_type() const;
-  std::string get_task();
-  std::string get_keyword();
-  std::string get_el_type_s() const;
-  long long get_severity() const { return 0; }
-  std::string get_message();
-  std::string get_xml();
-  void set_truncate(int truncate) { truncate_message = truncate; }
-  std::string get_strings() { return get_message(); }
-  std::string get_log() const;
-  long long get_written() const;
-  long long get_category() const;
-  long long get_facility() const { return 0; }
-  long long get_customer() const { return 0; }
-  long long get_raw_id() const { return 0; }
-  long long get_generated() const { return 0; }
-  bool is_modern() const { return true; }
-  eventlog::evt_handle &get_provider_handle(const std::string provider);
-  virtual std::string to_string() const { return logfile + ":" + str::xtos(get_id()) + "=" + get_el_type_s(); }
+  // Reconstruct the legacy 32-bit Event Record Id from the modern WinAPI fields.
+  // Classic (legacy) providers stash the upper 16 bits of the original DWORD EventID
+  // (severity/customer/reserved/facility) into EvtSystemQualifiers; manifest-based
+  // modern providers leave Qualifiers as Null. This mirrors the layout exposed by
+  // old_filter_obj::get_raw_id() so that the `rawid`, `severity`, `facility` and
+  // `customer` filter variables behave consistently across both code paths.
+  unsigned long get_raw_id_dword() const {
+    const DWORD eid = static_cast<DWORD>(buffer.get()[eventlog::api::EvtSystemEventID].UInt16Val) & 0xffff;
+    DWORD qual = 0;
+    if (eventlog::api::EvtVarTypeNull != buffer.get()[eventlog::api::EvtSystemQualifiers].Type) {
+      qual = static_cast<DWORD>(buffer.get()[eventlog::api::EvtSystemQualifiers].UInt16Val) & 0xffff;
+    }
+    return (qual << 16) | eid;
+  }
   std::string get_provider() const override;
   std::string get_guid() const override;
   std::string get_computer() const override;
