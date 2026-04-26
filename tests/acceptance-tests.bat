@@ -39,6 +39,10 @@ echo Running Windows System tests...
 nscp unit --language python --script test_w32_file
 if errorlevel 1 goto :failed
 
+echo Running Windows EventLog tests...
+nscp unit --language python --script test_eventlog
+if errorlevel 1 goto :failed
+
 echo Running Windows Task Scheduler tests...
 nscp unit --language python --script test_w32_schetask
 if errorlevel 1 goto :failed
