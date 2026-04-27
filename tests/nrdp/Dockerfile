@@ -1,7 +1,7 @@
 FROM php:8.2-apache
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends wget tar ca-certificates && \
+    apt-get install -y --no-install-recommends wget tar ca-certificates openssl && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Nagios NRDP server
@@ -27,7 +27,11 @@ RUN { \
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+# Enable Apache SSL module and default-ssl site so HTTPS is available too.
+RUN a2enmod ssl && a2ensite default-ssl
+
 EXPOSE 80
+EXPOSE 443
 
 # Default Environment Variables
 ENV TOKEN="change_me"

@@ -60,3 +60,21 @@ target_link_libraries(
 OPENSSL_LINK_FIX(${TARGET})
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("Server" REGULAR_EXPRESSION .*include/nrdp/.*)
+
+NSCP_CREATE_TEST(
+    nrdp_test
+    SOURCES
+        nrdp_test.cpp
+        nrdp.cpp
+        ${TINYXML2_INCLUDE_DIR}/tinyxml2.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${TINYXML2_INCLUDE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
