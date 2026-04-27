@@ -23,8 +23,10 @@
 
 #include <boost/date_time.hpp>
 #include <bytes/swap_bytes.hpp>
+#include <cstring>
 #include <str/xtos.hpp>
 #include <utility>
+#include <vector>
 
 namespace nsca {
 
@@ -140,20 +142,24 @@ class packet {
   }
 
   void parse_data(const char* buffer, std::size_t buffer_len) {
-    char* tmp = new char[buffer_len];
-    memcpy(tmp, buffer, buffer_len);
-    auto* data = reinterpret_cast<data::data_packet*>(tmp);
+    const std::size_t min_size = sizeof(data::data_packet) + length::host_length + length::desc_length;
+    if (buffer_len < min_size) {
+      throw nsca_exception("Packet too short to parse fields: " + str::xtos(buffer_len) + " < " + str::xtos(min_size));
+    }
+    std::vector<char> tmp(buffer, buffer + buffer_len);
+    auto* data = reinterpret_cast<data::data_packet*>(tmp.data());
     time = swap_bytes::ntoh<uint32_t>(data->timestamp);
     code = swap_bytes::ntoh<int16_t>(data->return_code);
 
-    host = data->get_host_ptr();
-    service = data->get_desc_ptr(length::host_length);
-    result = data->get_result_ptr(length::host_length, length::desc_length);
+    const std::size_t payload_available = buffer_len - sizeof(data::data_packet) - length::host_length - length::desc_length;
+    host = std::string(data->get_host_ptr(), strnlen(data->get_host_ptr(), length::host_length));
+    service = std::string(data->get_desc_ptr(length::host_length), strnlen(data->get_desc_ptr(length::host_length), length::desc_length));
+    result = std::string(data->get_result_ptr(length::host_length, length::desc_length),
+                         strnlen(data->get_result_ptr(length::host_length, length::desc_length), payload_available));
 
     const auto crc32 = swap_bytes::ntoh<uint32_t>(data->crc32_value);
     data->crc32_value = 0;
-    const unsigned int calculated_crc32 = calculate_crc32(tmp, buffer_len);
-    delete[] tmp;
+    const unsigned int calculated_crc32 = calculate_crc32(tmp.data(), buffer_len);
     if (crc32 != calculated_crc32) throw nsca_exception("Invalid crc: " + str::xtos(crc32) + " != " + str::xtos(calculated_crc32));
   }
   void validate_lengths() const {
