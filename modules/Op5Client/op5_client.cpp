@@ -158,7 +158,7 @@ bool op5_client::has_host(std::string host) {
     auto root = json::parse(response.payload_);
     return root.as_array().size() > 0;
   } catch (const std::exception &e) {
-    NSC_LOG_ERROR("Failed to parse reponse: " + utf8::utf8_from_native(e.what()));
+    NSC_LOG_ERROR("Failed to parse response: " + utf8::utf8_from_native(e.what()));
     return false;
   }
   return false;
@@ -186,7 +186,7 @@ std::pair<bool, bool> op5_client::has_service(std::string service, std::string h
       return std::pair<bool, bool>(true, true);
     }
   } catch (const std::exception &e) {
-    NSC_LOG_ERROR("Failed to parse reponse: " + response.payload_);
+    NSC_LOG_ERROR("Failed to parse response: " + response.payload_);
     return std::pair<bool, bool>(false, false);
   }
 }
