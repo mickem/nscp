@@ -37,9 +37,6 @@ jobs:
     - uses: actions/download-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-Win32-legacy-xp
-    - uses: actions/download-artifact@v7
-      with:
-        name: NSCP-${{ inputs.version }}-ARM64
 
     # Ubuntu artifacts
     - uses: actions/download-artifact@v7
