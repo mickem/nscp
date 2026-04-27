@@ -41,6 +41,7 @@
 #include "check_battery.hpp"
 #include "check_cpu_frequency.hpp"
 #include "check_memory.hpp"
+#include "check_os_updates.hpp"
 #include "check_process.hpp"
 #include "check_process_history.hpp"
 #include "check_service.h"
@@ -173,7 +174,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       "Track process history", "Enable tracking of process history for use with check_process_history and check_process_history_new commands.")
 
     .add_string("disable", sh::string_key(&collector->disable_, ""),
-        "Disable automatic checks", "A comma separated list of checks to disable in the collector: battery,cpu,handles,network,temperature,cpu_frequency,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
+        "Disable automatic checks", "A comma separated list of checks to disable in the collector: battery,cpu,handles,network,temperature,cpu_frequency,os_updates,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
     ;
 
   settings.alias().add_templates()
@@ -687,6 +688,14 @@ void CheckSystem::check_battery(const PB::Commands::QueryRequestMessage::Request
   }
 }
 
+void CheckSystem::check_os_updates(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  try {
+    os_updates_check::check::check_os_updates(request, response, collector->get_os_updates());
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to get OS updates data: " + std::string(e.what()));
+  }
+}
+
 void CheckSystem::check_process_history(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   try {
     process_history_check::check::check_process_history(request, response, collector->get_process_history());
@@ -1093,6 +1102,17 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     }
   } catch (...) {
     NSC_LOG_ERROR("Failed to get battery metrics");
+  }
+
+  try {
+    const auto updates = collector->get_os_updates();
+    if (updates.fetch_succeeded) {
+      PB::Metrics::MetricsBundle *section = bundle->add_children();
+      section->set_key("os_updates");
+      updates.build_metrics(section);
+    }
+  } catch (...) {
+    NSC_LOG_ERROR("Failed to get OS updates metrics");
   }
 
   try {

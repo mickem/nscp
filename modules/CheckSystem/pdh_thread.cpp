@@ -268,6 +268,10 @@ void pdh_thread::thread_proc() {
   if (disable_battery) {
     NSC_LOG_MESSAGE("WARNING: battery checking is disabled");
   }
+  bool disable_os_updates = disable_.find("os_updates") != std::string::npos;
+  if (disable_os_updates) {
+    NSC_LOG_MESSAGE("WARNING: OS updates checking is disabled");
+  }
   spi_container handles;
   DWORD sleep_ms = 1000;
   ULONGLONG last_overrun_warning = 0;
@@ -333,6 +337,16 @@ void pdh_thread::thread_proc() {
       errors.push_back("Failed to get battery metrics: " + utf8::utf8_from_native(e.what()));
     } catch (...) {
       errors.push_back("Failed to get battery metrics");
+    }
+    try {
+      // os_updates.fetch() is a no-op until its internal TTL has elapsed (default 1h).
+      if (i == 0 && !disable_os_updates) os_updates.fetch();
+    } catch (const nsclient::nsclient_exception &e) {
+      errors.push_back("Failed to get OS updates metrics: " + e.reason());
+    } catch (const std::exception &e) {
+      errors.push_back("Failed to get OS updates metrics: " + utf8::utf8_from_native(e.what()));
+    } catch (...) {
+      errors.push_back("Failed to get OS updates metrics");
     }
     try {
       if (i == 0 && !has_proc_realtime && process_history_enabled) process_history.fetch();
@@ -480,6 +494,7 @@ temperature_check::zones_type pdh_thread::get_temperature() { return temperature
 cpu_frequency_check::cpus_type pdh_thread::get_cpu_frequency() { return cpu_frequency.get(); }
 
 battery_check::batteries_type pdh_thread::get_battery() { return battery.get(); }
+os_updates_check::os_updates_obj pdh_thread::get_os_updates() { return os_updates.get(); }
 
 process_history_check::history_type pdh_thread::get_process_history() { return process_history.get(); }
 
