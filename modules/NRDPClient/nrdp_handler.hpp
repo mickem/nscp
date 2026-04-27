@@ -78,11 +78,17 @@ struct options_reader_impl : client::options_reader_interface {
     "Source/sender host name (default is auto which means use the name of the actual host)")
     ("token", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("token", value); }),
     "The security token")
-    ("tls version", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("tls version", value); }),
+    ("tls-version", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("tls version", value); }),
       "The tls version to use 1.0, 1.1, 1.2, 1.3")
-    ("verify mode", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("verify mode", value); }),
-      "Coma separated list o9f option none, peer, peer-cert, client-once, fail-if-no-cert, workarounds, single., In general use peer-cert or none for self signed certificates.")
-    ("ca", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("ca", value); }),
+    ("tls version", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("tls version", value); }),
+      "Legacy alias for --tls-version (kept for backwards compatibility).")
+    ("verify", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("verify mode", value); }),
+      "Coma separated list of option none, peer, peer-cert, client-once, fail-if-no-cert, workarounds, single. In general use peer-cert or none for self signed certificates.")
+    ("verify-mode", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("verify mode", value); }),
+      "Alias for --verify.")
+    ("verify mode", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("verify mode", value); }),
+      "Legacy alias for --verify (kept for backwards compatibility).")
+    ("ca", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("ca", value); }),
       "Certificate authority to use when verifying certificates.")
     ;
     // clang-format on

@@ -56,6 +56,7 @@ struct connection_data : socket_helpers::connection_info {
     token = arguments.get_string_data("token");
     retry = arguments.get_int_data("retry", 3);
     tls_version = arguments.get_string_data("tls version");
+    if (tls_version.empty()) tls_version = "1.2+";
     verify_mode = arguments.get_string_data("verify mode");
     ca = arguments.get_string_data("ca");
 
