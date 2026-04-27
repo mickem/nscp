@@ -31,6 +31,7 @@
 #include "check_battery.hpp"
 #include "check_cpu_frequency.hpp"
 #include "check_network.hpp"
+#include "check_os_updates.hpp"
 #include "check_process_history.hpp"
 #include "check_temperature.hpp"
 #include "filter_config_object.hpp"
@@ -67,6 +68,7 @@ class pdh_thread {
   temperature_check::temperature_data temperature;
   cpu_frequency_check::cpu_frequency_data cpu_frequency;
   battery_check::battery_data battery;
+  os_updates_check::os_updates_data os_updates;
   process_history_check::process_history_data process_history;
 
  public:
@@ -100,11 +102,12 @@ class pdh_thread {
   temperature_check::zones_type get_temperature();
   cpu_frequency_check::cpus_type get_cpu_frequency();
   battery_check::batteries_type get_battery();
+  os_updates_check::os_updates_obj get_os_updates();
   process_history_check::history_type get_process_history();
   metrics_hash get_metrics();
 
   bool start();
-  bool stop();
+  bool stop() const;
   void set_path(const std::string mem_path, const std::string cpu_path, const std::string proc_path, const std::string legacy_path);
 
   void add_realtime_mem_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);

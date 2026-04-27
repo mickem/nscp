@@ -25,6 +25,7 @@
 
 #include "check_cpu.h"
 #include "check_memory.h"
+#include "check_os_updates.h"
 #include "check_os_version.h"
 #include "check_pagefile.h"
 #include "check_process.h"
@@ -84,4 +85,7 @@ void CheckSystem::check_pagefile(const PB::Commands::QueryRequestMessage::Reques
 }
 void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   os_version::check_os_version(request, response);
+}
+void CheckSystem::check_os_updates(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  os_updates::check_os_updates(request, response);
 }

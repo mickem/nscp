@@ -19,6 +19,7 @@ set(SRCS
     check_temperature.cpp
     check_cpu_frequency.cpp
     check_battery.cpp
+    check_os_updates.cpp
     check_process_history.cpp
     check_service.cpp
     check_process.cpp
@@ -66,6 +67,7 @@ if(WIN32)
         check_temperature.hpp
         check_cpu_frequency.hpp
         check_battery.hpp
+        check_os_updates.hpp
         check_process_history.hpp
         check_process.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
@@ -100,6 +102,7 @@ target_link_libraries(
     winsys_info
     psapi
     Wbemuuid.lib
+    OleAut32
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("pdh" REGULAR_EXPRESSION .*include/pdh/.*)
@@ -108,6 +111,7 @@ NSCP_CREATE_TEST(
     check_system_test
     SOURCES
         check_battery_test.cpp
+        check_os_updates_test.cpp
         check_process_history_test.cpp
         check_cpu_frequency_test.cpp
         check_pdh_test.cpp
@@ -121,6 +125,7 @@ NSCP_CREATE_TEST(
         check_service.cpp
         check_network.cpp
         check_battery.cpp
+        check_os_updates.cpp
         check_process_history.cpp
         check_pdh.cpp
         pdh_thread.cpp
@@ -165,6 +170,7 @@ NSCP_CREATE_TEST(
         ${Boost_REGEX_LIBRARY}
         Wbemuuid.lib
         ole32
+        OleAut32
         psapi
     INCLUDES
         ${NSCP_INCLUDEDIR}

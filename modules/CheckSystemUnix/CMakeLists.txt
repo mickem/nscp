@@ -16,6 +16,7 @@ set(SRCS
     filter_config_object.cpp
     check_uptime.cpp
     check_os_version.cpp
+    check_os_updates.cpp
     check_memory.cpp
     check_cpu.cpp
     check_service.cpp
@@ -36,6 +37,7 @@ if(WIN32)
         ${NSCP_FILTER_HPP}
         check_uptime.h
         check_os_version.h
+        check_os_updates.h
         check_memory.h
         check_cpu.h
         check_service.h
@@ -58,3 +60,30 @@ target_link_libraries(
     expression_parser
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
+
+NSCP_CREATE_TEST(
+    check_system_unix_test
+    SOURCES
+        check_system_unix_test.cpp
+        check_os_updates_test.cpp
+        check_os_updates.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
+        ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        ${NSCP_FILTER_LIB}
+        expression_parser
+        ${PLUGIN_API_TARGET}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
