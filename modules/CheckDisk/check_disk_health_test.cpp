@@ -24,7 +24,8 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 
 // Provide the NSCAPI singleton so modern_filter.cpp can link.
-nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
+// nscapi::plugin_singleton is defined once in check_disk_io_test.cpp for the
+// merged check_disk_test target.
 
 // ============================================================================
 // disk_health struct tests
