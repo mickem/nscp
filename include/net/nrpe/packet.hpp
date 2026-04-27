@@ -301,7 +301,11 @@ class packet /*: public boost::noncopyable*/ {
     if (version_ != 3 && version_ != 4) {
       throw nrpe_exception("Invalid packet version: " + str::xtos(version_));
     }
-    const std::size_t payload_length = swap_bytes::ntoh<int32_t>(p->buffer_length);
+    const int32_t raw_payload_length = swap_bytes::ntoh<int32_t>(p->buffer_length);
+    if (raw_payload_length < 0) {
+      throw nrpe_exception("Negative payload length in NRPE v3 packet: " + str::xtos(raw_payload_length));
+    }
+    const std::size_t payload_length = static_cast<std::size_t>(raw_payload_length);
     if (payload_length > 1024 * 1024) {
       throw nrpe_exception("Invalid packet length specified: " + str::xtos(payload_length));
     }
