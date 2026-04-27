@@ -31,7 +31,7 @@
 #include "nrdp.hpp"
 
 namespace nrdp_client {
-struct connection_data : public socket_helpers::connection_info {
+struct connection_data : socket_helpers::connection_info {
   std::string token;
   std::string protocol;
   std::string path;
@@ -56,6 +56,7 @@ struct connection_data : public socket_helpers::connection_info {
     token = arguments.get_string_data("token");
     retry = arguments.get_int_data("retry", 3);
     tls_version = arguments.get_string_data("tls version");
+    if (tls_version.empty()) tls_version = "1.2+";
     verify_mode = arguments.get_string_data("verify mode");
     ca = arguments.get_string_data("ca");
 
@@ -77,14 +78,14 @@ struct connection_data : public socket_helpers::connection_info {
   }
 };
 
-struct nrdp_client_handler : public client::handler_interface {
+struct nrdp_client_handler : client::handler_interface {
   bool query(client::destination_container _sender, client::destination_container _target, const PB::Commands::QueryRequestMessage &_request_message,
-             PB::Commands::QueryResponseMessage &_response_message) {
+             PB::Commands::QueryResponseMessage &_response_message) override {
     return false;
   }
 
   bool submit(client::destination_container sender, client::destination_container target, const PB::Commands::SubmitRequestMessage &request_message,
-              PB::Commands::SubmitResponseMessage &response_message) {
+              PB::Commands::SubmitResponseMessage &response_message) override {
     const PB::Common::Header &request_header = request_message.header();
     nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
     connection_data con(target, sender);
@@ -108,15 +109,15 @@ struct nrdp_client_handler : public client::handler_interface {
   }
 
   bool exec(client::destination_container _sender, client::destination_container _target, const PB::Commands::ExecuteRequestMessage &_request_message,
-            PB::Commands::ExecuteResponseMessage &_response_message) {
+            PB::Commands::ExecuteResponseMessage &_response_message) override {
     return false;
   }
 
-  bool metrics(client::destination_container _sender, client::destination_container _target, const PB::Metrics::MetricsMessage &_request_message) {
+  bool metrics(client::destination_container _sender, client::destination_container _target, const PB::Metrics::MetricsMessage &_request_message) override {
     return false;
   }
 
-  void send(PB::Commands::SubmitResponseMessage::Response *payload, connection_data con, const nrdp::data &nrdp_data) {
+  static void send(PB::Commands::SubmitResponseMessage::Response *payload, const connection_data& con, const nrdp::data &nrdp_data) {
     try {
       NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Connecting tuo: " + con.to_string()); }
       http::http_client_options options(con.protocol, con.tls_version, con.verify_mode, con.ca);
@@ -131,7 +132,7 @@ struct nrdp_client_handler : public client::handler_interface {
       std::ostringstream os;
       http::response response = c.execute(os, con.get_address(), con.get_port(), request);
       response.payload_ = os.str();
-      NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Recieved: " + response.payload_); }
+      NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Received: " + response.payload_); }
       boost::tuple<int, std::string> ret = nrdp::data::parse_response(response.payload_);
       if (ret.get<0>() != 0) {
         nscapi::protobuf::functions::set_response_bad(*payload, ret.get<1>());

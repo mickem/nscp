@@ -32,15 +32,10 @@
  * Default c-tor
  * @return
  */
-NRDPClient::NRDPClient() : client_("nrdp", boost::make_shared<nrdp_client::nrdp_client_handler>(), boost::make_shared<nrdp_handler::options_reader_impl>()) {}
+NRDPClient::NRDPClient() : simple_plugin(), client_("nrdp", boost::make_shared<nrdp_client::nrdp_client_handler>(), boost::make_shared<nrdp_handler::options_reader_impl>()) {}
 
-/**
- * Default d-tor
- * @return
- */
-NRDPClient::~NRDPClient() {}
 
-bool NRDPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
+bool NRDPClient::loadModuleEx(const std::string& alias, NSCAPI::moduleLoadMode) {
   try {
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias("NRDP", alias, "client");
@@ -49,11 +44,11 @@ bool NRDPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     // clang-format off
     settings.alias().add_path_to_settings()
       ("SMTP CLIENT SECTION", "Section for SMTP passive check module.")
-      ("handlers", sh::fun_values_path([this] (auto key, auto value) { this->add_command(key, value); }),
+      ("handlers", sh::fun_values_path([this] (const auto& key, const auto& value) { this->add_command(key, value); }),
 	      "CLIENT HANDLER SECTION", "",
 	      "CLIENT HANDLER", "For more configuration options add a dedicated section")
 
-      ("targets", sh::fun_values_path([this] (auto key, auto value) { this->add_target(key, value); }),
+      ("targets", sh::fun_values_path([this] (const auto& key, const auto& value) { this->add_target(key, value); }),
 	      "REMOTE TARGET DEFINITIONS", "",
 	      "TARGET", "For more configuration options add a dedicated section")
       ;
@@ -96,16 +91,16 @@ bool NRDPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
       try {
         boost::asio::io_service svc;
-        boost::asio::ip::tcp::resolver resolver(svc);
-        boost::asio::ip::tcp::resolver::query query(boost::asio::ip::host_name(), "");
-        boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve(query), end;
+        tcp::resolver resolver(svc);
+        tcp::resolver::query query(boost::asio::ip::host_name(), "");
+        tcp::resolver::iterator iter = resolver.resolve(query), end;
 
         std::string s;
         while (iter != end) {
           s += iter->host_name();
           s += " - ";
           s += iter->endpoint().address().to_string();
-          iter++;
+          ++iter;
         }
       } catch (const std::exception &e) {
         NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
@@ -140,7 +135,7 @@ bool NRDPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 // Settings helpers
 //
 
-void NRDPClient::add_target(std::string key, std::string arg) {
+void NRDPClient::add_target(const std::string& key, const std::string& arg) {
   try {
     client_.add_target(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
   } catch (const std::exception &e) {
@@ -150,11 +145,11 @@ void NRDPClient::add_target(std::string key, std::string arg) {
   }
 }
 
-void NRDPClient::add_command(std::string key, std::string arg) {
+void NRDPClient::add_command(const std::string &key, const std::string& arg) {
   try {
     nscapi::core_helper core(get_core(), get_id());
     std::string k = client_.add_command(key, arg);
-    if (!k.empty()) core.register_command(k.c_str(), "NRDP relay for: " + key);
+    if (!k.empty()) core.register_command(k, "NRDP relay for: " + key);
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("Failed to add command: " + key, e);
   } catch (...) {
