@@ -73,7 +73,7 @@ using check_connections_filter::filter_obj;
 
 #if defined(__linux__)
 
-// Mapping from /proc/net/{tcp,tcp6} hex state to NTP-style state name.
+// Mapping from /proc/net/{tcp,tcp6} hex state to TCP state name.
 // See linux/net/tcp_states.h.
 const char *linux_tcp_state(unsigned int s) {
   switch (s) {

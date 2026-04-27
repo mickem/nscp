@@ -90,10 +90,11 @@ void run_ntp_check(const std::string &server, unsigned short port, int timeout_m
 
     socket.open(udp::v4());
 
-    // Build the NTP request packet.
-    // Byte 0: LI (0) | VN (4) | Mode (3 = client) -> 0x23
+    // Build the NTP request packet (NTPv3 client mode, widely accepted by NTPv4 servers).
+    // Byte 0 layout: LI (2 bits) | VN (3 bits) | Mode (3 bits)
+    // 0x1b = 0b00011011 -> LI=0, VN=3, Mode=3 (client).
     unsigned char req[48] = {0};
-    req[0] = 0x1b;  // LI=0, VN=3, Mode=3 (client) - widely supported
+    req[0] = 0x1b;
 
     // Local send timestamp (T1) used as offset reference.
     const auto t1_steady = boost::chrono::steady_clock::now();
