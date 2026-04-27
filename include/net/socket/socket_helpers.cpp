@@ -134,9 +134,9 @@ void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asi
   }
   if (debug_verify) {
     context.set_verify_callback([](bool preverified, boost::asio::ssl::verify_context &v_ctx) -> bool {
-      char subject_name[256];
+      char subject_name[256] = {};
       X509 *cert = X509_STORE_CTX_get_current_cert(v_ctx.native_handle());
-      X509_NAME_oneline(X509_get_subject_name(cert), subject_name, 256);
+      X509_NAME_oneline(X509_get_subject_name(cert), subject_name, sizeof(subject_name) - 1);
       int error_code = X509_STORE_CTX_get_error(v_ctx.native_handle());
       std::cout << "Verifying: " << subject_name << std::endl;
       std::cout << "  Preverified: " << (preverified ? "Yes" : "No") << std::endl;
