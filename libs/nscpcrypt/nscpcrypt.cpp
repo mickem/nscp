@@ -5,6 +5,7 @@
 #include <boost/lexical_cast.hpp>
 #include <locale>
 #include <nscpcrypt/nscpcrypt.hpp>
+#include <random>
 #include <string>
 
 #ifdef HAVE_LIBCRYPTOPP
@@ -336,15 +337,16 @@ std::string nscp::encryption::engine::generate_transmitted_iv(unsigned int len) 
   buffer.resize(len);
 
   /*********************************************************/
-  /* fill IV buffer with data that's as random as possible */
+  /* fill IV buffer with cryptographically random data     */
   /*********************************************************/
 
-  /* else fall back to using the current time as the seed */
-  int seed = (int)time(NULL);
-
-  /* generate pseudo-random IV */
-  srand(seed);
-  for (unsigned int x = 0; x < len; x++) buffer[x] = (int)((256.0 * rand()) / (RAND_MAX + 1.0));
+#ifdef HAVE_LIBCRYPTOPP
+  CryptoPP::AutoSeededRandomPool rng;
+  rng.GenerateBlock(reinterpret_cast<unsigned char *>(&*buffer.begin()), len);
+#else
+  std::random_device rd;
+  for (unsigned int x = 0; x < len; x++) buffer[x] = static_cast<char>(rd() & 0xFF);
+#endif
   return buffer;
 }
 
