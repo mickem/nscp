@@ -24,15 +24,22 @@ Mongoose::Response *StaticController::handleRequest(Mongoose::Request &request) 
   const bool is_png = boost::algorithm::ends_with(request.getUrl(), ".png");
   auto *sr = new Mongoose::StreamResponse();
   std::string path = stripPath(request.getUrl());
-  if (path.find("..") != std::string::npos) {
-    sr->setCodeServerError("Invalid path: " + path);
-    return sr;
-  }
   if (path != "/nscp.png" && path != "/assets/index.js") {
     path = "/index.html";
   }
 
-  boost::filesystem::path file = base / path;
+  boost::filesystem::path file = boost::filesystem::path(base / path).lexically_normal();
+  boost::filesystem::path base_normal = boost::filesystem::path(base).lexically_normal();
+  // Ensure the resolved path stays within the served base directory
+  const std::string file_str = file.string();
+  std::string base_str = base_normal.string();
+  if (!base_str.empty() && base_str.back() != static_cast<char>(boost::filesystem::path::preferred_separator))
+    base_str += static_cast<char>(boost::filesystem::path::preferred_separator);
+  if (file_str.rfind(base_str, 0) != 0) {
+    sr->setCodeServerError("Invalid path: " + path);
+    return sr;
+  }
+
   if (!boost::filesystem::is_regular_file(file)) {
     NSC_LOG_ERROR("Requested resource was not found: " + file.string());
     sr->setCodeNotFound("Not found: " + path);
