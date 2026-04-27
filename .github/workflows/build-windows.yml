@@ -28,6 +28,9 @@ on:
 
 env:
   PYTHON_VERSION: 3.11
+  # Exact ARM64 Python version pulled from the python.org NuGet feed when
+  # cross-compiling for arm64 (we need the matching python311.lib + headers).
+  PYTHON_ARM64_VERSION: 3.11.9
   OPENSSL_VERSION: 3.5.4
   PROTOBUF_VERSION: 21.12
   BOOST_VERSION: 1.86.0
@@ -178,40 +181,96 @@ jobs:
       with:
         version: ${{ ENV.MINIZ_VERSION }}
 
+    # ----- Boost build -----
+    # Built locally via .github/actions/boost (no external action) so that
+    # ARM64 cross-compilation, toolset selection and caching are all under
+    # our control.
+    #
+    # For arm64 we install the official `pythonarm64` NuGet package and
+    # point boost.python at its headers and import library so the resulting
+    # boost_python311.dll links against ARM64 python311.lib. The interpreter
+    # itself is never executed during the build - host x64 Python is still
+    # used for everything that runs locally (mk_pyzip.py, etc.).
+    - name: Install ARM64 Python (cross-compile target)
+      id: arm64_python
+      if: inputs.architecture == 'arm64'
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $version = '${{ env.PYTHON_ARM64_VERSION }}'
+        $dest    = Join-Path $env:GITHUB_WORKSPACE 'tmp/python-arm64'
+        New-Item -ItemType Directory -Force -Path $dest | Out-Null
+        nuget install pythonarm64 -Version $version -OutputDirectory $dest -ExcludeVersion -DependencyVersion Ignore
+        $root    = Join-Path $dest 'pythonarm64\tools'
+        $include = Join-Path $root 'include'
+        $libs    = Join-Path $root 'libs'
+        if (-not (Test-Path $include)) { Write-Error "ARM64 Python include not found at $include"; exit 1 }
+        if (-not (Test-Path $libs))    { Write-Error "ARM64 Python libs not found at $libs";    exit 1 }
+        $major_minor = ($version -split '\.')[0..1] -join '.'
+        echo "root=$root"                              >> $env:GITHUB_OUTPUT
+        echo "include=$include"                        >> $env:GITHUB_OUTPUT
+        echo "libs=$libs"                              >> $env:GITHUB_OUTPUT
+        echo "root_unix=$($root.Replace('\','/'))"     >> $env:GITHUB_OUTPUT
+        echo "major_minor=$major_minor"                >> $env:GITHUB_OUTPUT
+
     - name: Build Boost (static)
       id: static_boost
-      uses: mickem/build-boost@v1
+      uses: ./.github/actions/boost
       with:
-        version: ${{ ENV.BOOST_VERSION }}
+        version: ${{ env.BOOST_VERSION }}
+        architecture: ${{ inputs.architecture }}
+        toolset: ${{ steps.setup.outputs.vs_toolset }}
         libraries: system filesystem
-        platform: ${{ inputs.architecture }}
-        configuration: Release
-        static: 1
-        static-runtime: 1
-        directory: ${{ runner.workspace }}/static_boost
-          
-    - name: Build Boost (regular)
-      id: boost
-      uses: mickem/build-boost@v1
+        link: static
+        runtime-link: static
+        target_folder: tmp/static_boost
+
+    - name: Build Boost (regular, x86/x64)
+      id: boost_xx
+      if: inputs.architecture != 'arm64'
+      uses: ./.github/actions/boost
       with:
-        version: ${{ ENV.BOOST_VERSION }}
+        version: ${{ env.BOOST_VERSION }}
+        architecture: ${{ inputs.architecture }}
+        toolset: ${{ steps.setup.outputs.vs_toolset }}
         libraries: system filesystem thread regex date_time program_options python chrono json
-        platform: ${{ inputs.architecture }}
-        configuration: Release
-  
+        link: shared
+        runtime-link: shared
+        target_folder: tmp/boost
+
+    - name: Build Boost (regular, arm64)
+      id: boost_arm64
+      if: inputs.architecture == 'arm64'
+      uses: ./.github/actions/boost
+      with:
+        version: ${{ env.BOOST_VERSION }}
+        architecture: ${{ inputs.architecture }}
+        toolset: ${{ steps.setup.outputs.vs_toolset }}
+        libraries: system filesystem thread regex date_time program_options python chrono json
+        link: shared
+        runtime-link: shared
+        target_folder: tmp/boost
+        python-version: ${{ steps.arm64_python.outputs.major_minor }}
+        python-include: ${{ steps.arm64_python.outputs.include }}
+        python-libs: ${{ steps.arm64_python.outputs.libs }}
+
     - id: paths
-      run: |
-        $path_unix="${{ steps.boost.outputs.root }}".replace('\','/')
-        echo "boost_root=$path_unix" >> $env:GITHUB_OUTPUT
-        $path_unix="${{ steps.boost.outputs.librarydir }}".replace('\','/')
-        echo "boost_librarydir=$path_unix" >> $env:GITHUB_OUTPUT
-        $path_unix="${{ steps.static_boost.outputs.root }}".replace('\','/')
-        echo "static_boost_root=$path_unix" >> $env:GITHUB_OUTPUT
-        $path_unix="${{ steps.static_boost.outputs.librarydir }}".replace('\','/')
-        echo "static_boost_librarydir=$path_unix" >> $env:GITHUB_OUTPUT
-        $path_unix="${{ env.Python_ROOT_DIR }}".replace('\','/')
-        echo "python_path=$path_unix" >> $env:GITHUB_OUTPUT
       shell: pwsh
+      run: |
+        if ('${{ inputs.architecture }}' -eq 'arm64') {
+            $boost_root_unix       = '${{ steps.boost_arm64.outputs.root_unix }}'
+            $boost_librarydir_unix = '${{ steps.boost_arm64.outputs.librarydir_unix }}'
+            $python_path           = '${{ steps.arm64_python.outputs.root_unix }}'
+        } else {
+            $boost_root_unix       = '${{ steps.boost_xx.outputs.root_unix }}'
+            $boost_librarydir_unix = '${{ steps.boost_xx.outputs.librarydir_unix }}'
+            $python_path           = '${{ env.Python_ROOT_DIR }}'.Replace('\','/')
+        }
+        echo "boost_root=$boost_root_unix"                                                  >> $env:GITHUB_OUTPUT
+        echo "boost_librarydir=$boost_librarydir_unix"                                      >> $env:GITHUB_OUTPUT
+        echo "static_boost_root=${{ steps.static_boost.outputs.root_unix }}"                >> $env:GITHUB_OUTPUT
+        echo "static_boost_librarydir=${{ steps.static_boost.outputs.librarydir_unix }}"    >> $env:GITHUB_OUTPUT
+        echo "python_path=$python_path"                                                     >> $env:GITHUB_OUTPUT
 
     - uses: DamianReeves/write-file-action@master
       name: Write NSClient++ cmake config
