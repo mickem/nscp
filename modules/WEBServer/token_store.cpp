@@ -1,13 +1,19 @@
 #include "token_store.hpp"
 
+#include <random>
+
 static constexpr char alphanum[] =
     "0123456789"
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "abcdefghijklmnopqrstuvwxyz";
 
 std::string token_store::generate_token(const int len) {
+  constexpr std::size_t alphanum_size = sizeof(alphanum) - 1;
+  std::random_device rd;
+  std::uniform_int_distribution<int> dist(0, static_cast<int>(alphanum_size) - 1);
   std::string ret;
-  for (int i = 0; i < len; i++) ret += alphanum[rand() % (sizeof(alphanum) - 1)];
+  ret.reserve(len);
+  for (int i = 0; i < len; i++) ret += alphanum[dist(rd)];
   return ret;
 }
 

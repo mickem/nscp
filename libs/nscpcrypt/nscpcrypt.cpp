@@ -5,6 +5,7 @@
 #include <boost/lexical_cast.hpp>
 #include <locale>
 #include <nscpcrypt/nscpcrypt.hpp>
+#include <random>
 #include <string>
 
 #ifdef HAVE_LIBCRYPTOPP
@@ -336,21 +337,24 @@ std::string nscp::encryption::engine::generate_transmitted_iv(unsigned int len) 
   buffer.resize(len);
 
   /*********************************************************/
-  /* fill IV buffer with data that's as random as possible */
+  /* fill IV buffer with cryptographically random data     */
   /*********************************************************/
 
-  /* else fall back to using the current time as the seed */
-  int seed = (int)time(NULL);
-
-  /* generate pseudo-random IV */
-  srand(seed);
-  for (unsigned int x = 0; x < len; x++) buffer[x] = (int)((256.0 * rand()) / (RAND_MAX + 1.0));
+#ifdef HAVE_LIBCRYPTOPP
+  CryptoPP::AutoSeededRandomPool rng;
+  rng.GenerateBlock(reinterpret_cast<unsigned char *>(&*buffer.begin()), len);
+#else
+  std::random_device rd;
+  for (unsigned int x = 0; x < len; x++) buffer[x] = static_cast<char>(rd() & 0xFF);
+#endif
   return buffer;
 }
 
 /* initializes encryption routines */
 void nscp::encryption::engine::encrypt_init(std::string password, int encryption_method, std::string received_iv) {
+  std::lock_guard<std::mutex> lock(mutex_);
   delete core_;
+  core_ = NULL;
   core_ = get_encryption_core(encryption_method);
   if (core_ == NULL) throw encryption_exception("Failed to get encryption module for: " + boost::lexical_cast<std::string>(encryption_method));
 
@@ -365,11 +369,13 @@ void nscp::encryption::engine::encrypt_init(std::string password, int encryption
 
 /* encrypt a buffer */
 void nscp::encryption::engine::encrypt_buffer(std::string &buffer) {
+  std::lock_guard<std::mutex> lock(mutex_);
   if (core_ == NULL) throw encryption_exception("No encryption core!");
   core_->encrypt(buffer);
 }
 /* encrypt a buffer */
 void nscp::encryption::engine::decrypt_buffer(std::string &buffer) {
+  std::lock_guard<std::mutex> lock(mutex_);
   if (core_ == NULL) throw encryption_exception("No encryption core!");
   core_->decrypt(buffer);
 }

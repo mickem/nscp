@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <mutex>
 #include <sstream>
 
 #define TRANSMITTED_IV_SIZE 128 /* size of IV to transmit - must be as big as largest IV needed for any crypto algorithm */
@@ -54,10 +55,13 @@ class engine {
  public:
  private:
   any_encryption *core_;
+  mutable std::mutex mutex_;
 
  public:
   engine() : core_(NULL) {}
   ~engine() { delete core_; }
+  engine(const engine &) = delete;
+  engine &operator=(const engine &) = delete;
 
   static bool hasEncryption(int encryption_method);
   static any_encryption *get_encryption_core(int encryption_method);

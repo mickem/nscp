@@ -23,6 +23,7 @@
 
 #include <boost/asio/buffer.hpp>
 #include <bytes/swap_bytes.hpp>
+#include <memory>
 #include <str/xtos.hpp>
 #include <string>
 #include <vector>
@@ -93,7 +94,7 @@ class packet /*: public boost::noncopyable*/ {
   typedef std::pair<const char*, std::size_t> buffer_holder;
 
  private:
-  char* tmpBuffer;
+  std::unique_ptr<char[]> tmpBuffer;
   std::size_t payload_length_;
   short type_;
   short version_;
@@ -104,24 +105,17 @@ class packet /*: public boost::noncopyable*/ {
 
  public:
   packet(const unsigned int payload_length)
-      : tmpBuffer(NULL), payload_length_(payload_length), type_(0), version_(0), result_(0), crc32_(0), calculatedCRC32_(0) {};
-  packet(std::vector<char> buffer, unsigned int payload_length) : tmpBuffer(NULL), payload_length_(payload_length) {
-    char* tmp = new char[buffer.size() + 1];
-    copy(buffer.begin(), buffer.end(), tmp);
-    try {
-      readFrom(tmp, buffer.size());
-    } catch (const nrpe_exception& e) {
-      delete[] tmp;
-      throw e;
-    }
-    delete[] tmp;
+      : payload_length_(payload_length), type_(0), version_(0), result_(0), crc32_(0), calculatedCRC32_(0) {};
+  packet(std::vector<char> buffer, unsigned int payload_length) : payload_length_(payload_length) {
+    std::vector<char> tmp(buffer.size() + 1, 0);
+    copy(buffer.begin(), buffer.end(), tmp.begin());
+    readFrom(tmp.data(), buffer.size());
   };
-  packet(const char* buffer, const std::size_t buffer_length) : tmpBuffer(NULL), payload_length_(length::get_payload_length(buffer_length)) {
+  packet(const char* buffer, const std::size_t buffer_length) : payload_length_(length::get_payload_length(buffer_length)) {
     readFrom(buffer, buffer_length);
   };
   packet(short type, short version, int16_t result, std::string payLoad, std::size_t payload_length)
-      : tmpBuffer(nullptr),
-        payload_length_(payload_length),
+      : payload_length_(payload_length),
         type_(type),
         version_(version),
         result_(result),
@@ -129,14 +123,13 @@ class packet /*: public boost::noncopyable*/ {
         crc32_(0),
         calculatedCRC32_(0) {}
   packet()
-      : tmpBuffer(nullptr),
-        payload_length_(length::get_payload_length()),
+      : payload_length_(length::get_payload_length()),
         type_(data::unknownPacket),
         version_(data::version2),
         result_(0),
         crc32_(0),
         calculatedCRC32_(0) {}
-  packet(const packet& other) : tmpBuffer(nullptr) {
+  packet(const packet& other) {
     payload_ = other.payload_;
     type_ = other.type_;
     version_ = other.version_;
@@ -146,7 +139,7 @@ class packet /*: public boost::noncopyable*/ {
     payload_length_ = other.payload_length_;
   }
   packet& operator=(packet const& other) {
-    tmpBuffer = nullptr;
+    tmpBuffer.reset();
     payload_ = other.payload_;
     type_ = other.type_;
     version_ = other.version_;
@@ -159,7 +152,7 @@ class packet /*: public boost::noncopyable*/ {
 
   static packet unknown_response(std::string message) { return packet(data::responsePacket, data::version2, 3, message, 0); }
 
-  ~packet() { delete[] tmpBuffer; }
+  ~packet() = default;
   static packet make_request(std::string payload, unsigned int buffer_length, short version) {
     if (version != 2 && version != 4) {
       throw nrpe_exception("Invalid NRPE version: " + str::xtos(version) + ", expected 2 or 4");
@@ -200,11 +193,10 @@ class packet /*: public boost::noncopyable*/ {
   }
 
   buffer_holder create_buffer_v2() {
-    delete[] tmpBuffer;
     std::size_t packet_length = length::get_packet_length_v2(payload_length_);
-    tmpBuffer = new char[packet_length + 1];
-    memset(tmpBuffer, 0, packet_length + 1);
-    auto p = reinterpret_cast<data::packet_v2*>(tmpBuffer);
+    tmpBuffer = std::make_unique<char[]>(packet_length + 1);
+    memset(tmpBuffer.get(), 0, packet_length + 1);
+    auto p = reinterpret_cast<data::packet_v2*>(tmpBuffer.get());
     p->result_code = swap_bytes::hton<int16_t>(result_);
     p->packet_type = swap_bytes::hton<int16_t>(type_);
     p->packet_version = swap_bytes::hton<int16_t>(version_);
@@ -213,16 +205,15 @@ class packet /*: public boost::noncopyable*/ {
     }
     update_payload(p, payload_);
     p->crc32_value = 0;
-    crc32_ = p->crc32_value = swap_bytes::hton<uint32_t>(calculate_crc32(tmpBuffer, static_cast<int>(packet_length)));
-    return std::make_pair(tmpBuffer, packet_length);
+    crc32_ = p->crc32_value = swap_bytes::hton<uint32_t>(calculate_crc32(tmpBuffer.get(), packet_length));
+    return std::make_pair(tmpBuffer.get(), packet_length);
   }
   buffer_holder create_buffer_v3() {
-    delete[] tmpBuffer;
     const std::size_t len = payload_.length();
     std::size_t packet_length = version_ == data::version3 ? length::get_packet_length_v3(len) : length::get_packet_length_v4(len);
-    tmpBuffer = new char[packet_length + 1];
-    memset(tmpBuffer, 0, packet_length + 1);
-    auto p = reinterpret_cast<data::packet_v3*>(tmpBuffer);
+    tmpBuffer = std::make_unique<char[]>(packet_length + 1);
+    memset(tmpBuffer.get(), 0, packet_length + 1);
+    auto p = reinterpret_cast<data::packet_v3*>(tmpBuffer.get());
     p->result_code = swap_bytes::hton<int16_t>(result_);
     p->packet_type = swap_bytes::hton<int16_t>(type_);
     p->packet_version = swap_bytes::hton<int16_t>(version_);
@@ -230,8 +221,8 @@ class packet /*: public boost::noncopyable*/ {
     p->buffer_length = swap_bytes::hton<int32_t>(static_cast<int32_t>(len));
     update_payload(p, payload_);
     p->crc32_value = 0;
-    crc32_ = p->crc32_value = swap_bytes::hton<uint32_t>(calculate_crc32(tmpBuffer, static_cast<int>(packet_length)));
-    return std::make_pair(tmpBuffer, packet_length);
+    crc32_ = p->crc32_value = swap_bytes::hton<uint32_t>(calculate_crc32(tmpBuffer.get(), packet_length));
+    return std::make_pair(tmpBuffer.get(), packet_length);
   }
 
   std::vector<char> get_buffer() {
@@ -271,13 +262,11 @@ class packet /*: public boost::noncopyable*/ {
     }
     crc32_ = swap_bytes::ntoh<uint32_t>(p->crc32_value);
     // Verify CRC32
-    // @todo Fix this, currently we need a const buffer so we cannot change the CRC to 0.
-    const auto tb = new char[length + 1];
-    memcpy(tb, buffer, length);
-    const auto p2 = reinterpret_cast<data::packet_v2*>(tb);
+    // Use a local copy so we can zero the CRC field without modifying the original buffer.
+    std::vector<char> tb(buffer, buffer + length);
+    auto p2 = reinterpret_cast<data::packet_v2*>(tb.data());
     p2->crc32_value = 0;
-    calculatedCRC32_ = calculate_crc32(tb, static_cast<int>(get_packet_length_v2()));
-    delete[] tb;
+    calculatedCRC32_ = calculate_crc32(tb.data(), get_packet_length_v2());
     if (crc32_ != calculatedCRC32_) {
       throw nrpe_exception("Invalid checksum reading v2 NRPE packet: " + str::xtos(crc32_) + "!=" + str::xtos(calculatedCRC32_) +
                            " payload length: " + str::xtos(payload_length_));
@@ -301,7 +290,11 @@ class packet /*: public boost::noncopyable*/ {
     if (version_ != 3 && version_ != 4) {
       throw nrpe_exception("Invalid packet version: " + str::xtos(version_));
     }
-    const std::size_t payload_length = swap_bytes::ntoh<int32_t>(p->buffer_length);
+    const int32_t raw_payload_length = swap_bytes::ntoh<int32_t>(p->buffer_length);
+    if (raw_payload_length < 0) {
+      throw nrpe_exception("Negative payload length in NRPE v3 packet: " + str::xtos(raw_payload_length));
+    }
+    const std::size_t payload_length = static_cast<std::size_t>(raw_payload_length);
     if (payload_length > 1024 * 1024) {
       throw nrpe_exception("Invalid packet length specified: " + str::xtos(payload_length));
     }
@@ -312,14 +305,12 @@ class packet /*: public boost::noncopyable*/ {
 
     crc32_ = swap_bytes::ntoh<uint32_t>(p->crc32_value);
     // Verify CRC32
-    // @todo Fix this, currently we need a const buffer so we cannot change the CRC to 0.
-    const auto tb = new char[length + 1];
-    memcpy(tb, buffer, length);
-    const auto p2 = reinterpret_cast<data::packet_v3*>(tb);
+    // Use a local copy so we can zero the CRC/alignment fields without modifying the original buffer.
+    std::vector<char> tb(buffer, buffer + length);
+    auto p2 = reinterpret_cast<data::packet_v3*>(tb.data());
     p2->crc32_value = 0;
     p2->alignment = 0;
-    calculatedCRC32_ = calculate_crc32(tb, static_cast<int>(source_data_length));
-    delete[] tb;
+    calculatedCRC32_ = calculate_crc32(tb.data(), source_data_length);
     if (crc32_ != calculatedCRC32_) {
       throw nrpe_exception("Invalid checksum reading v3 NRPE packet: " + str::xtos(crc32_) + "!=" + str::xtos(calculatedCRC32_));
     }

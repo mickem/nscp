@@ -1,6 +1,7 @@
 @echo off
 set script_folder=%~dp0
 
+if exist nrpe_test rmdir /s /q nrpe_test
 mkdir nrpe_test
 cd nrpe_test
 
@@ -24,7 +25,7 @@ openssl genpkey -algorithm RSA -out server.key -pkeyopt rsa_keygen_bits:2048
 echo - Generating server Certificate Signing Request (CSR)...
 openssl req -new -key server.key -out server.csr -subj "/CN=localhost"
 echo - Signing server CSR with CA key...
-openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -out server.crt -days 365 -set_serial 01
+openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -out server.crt -days 365 -set_serial 01 -extfile %OPENSSL_CONF% -extensions server_cert
 echo - Server certificate (server.crt) and key (server.key) created.
 
 echo -------------------------------
@@ -35,7 +36,7 @@ openssl genpkey -algorithm RSA -out client.key -pkeyopt rsa_keygen_bits:2048
 echo - Generating client Certificate Signing Request (CSR)...
 openssl req -new -key client.key -out client.csr -subj /CN=localhost
 echo - Signing client CSR with CA key...
-openssl x509 -req -in client.csr -CA ca.crt -CAkey ca.key -out client.crt -days 365 -set_serial 02
+openssl x509 -req -in client.csr -CA ca.crt -CAkey ca.key -out client.crt -days 365 -set_serial 02 -extfile %OPENSSL_CONF% -extensions client_cert
 echo - Client certificate (client.crt) and key (client.key) created.
 
 echo -----------------------------------------------------------
