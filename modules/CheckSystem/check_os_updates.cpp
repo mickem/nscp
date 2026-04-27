@@ -25,23 +25,22 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/thread/locks.hpp>
-#include <ctime>
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
-#include <parsers/where/node.hpp>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
+#include <utility>
 
 namespace os_updates_check {
 
 namespace {
 
-std::string bstr_to_string(BSTR b) {
-  if (!b) return std::string();
-  std::wstring ws(b, SysStringLen(b));
+std::string bstr_to_string(const BSTR b) {
+  if (!b) return {};
+  const std::wstring ws(b, SysStringLen(b));
   return utf8::cvt<std::string>(ws);
 }
 
@@ -70,15 +69,15 @@ struct bstr_holder {
   bstr_holder &operator=(const bstr_holder &) = delete;
 };
 
-long long now_seconds() { return static_cast<long long>(std::time(nullptr)); }
+long long now_seconds() { return std::time(nullptr); }
 
 }  // namespace
 
 void classify_update(const std::string &category, const std::string &severity, update_info &out) {
   out.category = category;
   out.severity = severity;
-  std::string lc_cat = boost::to_lower_copy(category);
-  std::string lc_sev = boost::to_lower_copy(severity);
+  const std::string lc_cat = boost::to_lower_copy(category);
+  const std::string lc_sev = boost::to_lower_copy(severity);
   out.is_security = lc_cat.find("security") != std::string::npos;
   out.is_critical = lc_cat.find("critical") != std::string::npos || lc_sev == "critical";
 }
@@ -181,10 +180,13 @@ void read_update(IUpdate *update, update_info &info) {
 
   classify_update(cat_s, sev_s, info);
 
-  // Reboot required.
-  VARIANT_BOOL reboot = VARIANT_FALSE;
-  if (SUCCEEDED(update->get_RebootRequired(&reboot))) {
-    info.reboot_required = (reboot != VARIANT_FALSE);
+  // Reboot required (only available on IUpdate2).
+  com_ptr<IUpdate2> update2;
+  if (SUCCEEDED(update->QueryInterface(__uuidof(IUpdate2), reinterpret_cast<void **>(update2.out()))) && update2.get()) {
+    VARIANT_BOOL reboot = VARIANT_FALSE;
+    if (SUCCEEDED(update2->get_RebootRequired(&reboot))) {
+      info.reboot_required = (reboot != VARIANT_FALSE);
+    }
   }
 }
 
@@ -321,7 +323,7 @@ void check_os_updates(const PB::Commands::QueryRequestMessage::Request &request,
 
   if (!filter_helper.build_filter(filter)) return;
 
-  boost::shared_ptr<filter_obj> record(new filter_obj(data));
+  const boost::shared_ptr<filter_obj> record(new filter_obj(std::move(data)));
   filter.match(record);
 
   filter_helper.post_process(filter);
