@@ -204,7 +204,12 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
   str::utils::token cmd = str::utils::getToken(pwd.second, '&');
   if (cmd.first.empty()) return check_nt::packet("ERROR: No command specified.");
 
-  int c = boost::lexical_cast<int>(cmd.first.c_str());
+  int c = 0;
+  try {
+    c = boost::lexical_cast<int>(cmd.first.c_str());
+  } catch (const boost::bad_lexical_cast &) {
+    return check_nt::packet("ERROR: Non-numeric command code: " + cmd.first);
+  }
 
   std::list<std::string> args;
 
