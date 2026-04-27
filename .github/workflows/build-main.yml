@@ -101,7 +101,7 @@ jobs:
       version: ${{ needs.get-version.outputs.version }}
 
   release:
-    needs: [get-version, build-server-x64, build-server-x86, build-server-arm64, build-x86-static, build-debian, build-redhat]
+    needs: [get-version, build-server-x64, build-server-x86, build-x86-static, build-debian, build-redhat]
     uses: ./.github/workflows/release.yml
     with:
       version: ${{ needs.get-version.outputs.version }}
