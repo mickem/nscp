@@ -224,22 +224,52 @@ struct filter_obj {
     ULARGE_INTEGER freeBytesAvailableToCaller;
     ULARGE_INTEGER totalNumberOfBytes;
     ULARGE_INTEGER totalNumberOfFreeBytes;
-    std::string error;
     std::wstring drv = get_volume_or_letter_w();
     if (drv.size() == 1) drv = drv + L":\\";
     if (!GetDiskFreeSpaceEx(drv.c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
       DWORD err = GetLastError();
-      if (err == ERROR_NOT_READY) {
-        has_size = true;
-        user_free = 0;
-        total_free = 0;
-        drive_size = 0;
-        return;
-      }
-      context->error("Failed to get size for " + utf8::cvt<std::string>(drv) + ": " + error::lookup::last_error(err));
-      unreadable = err == ERROR_ACCESS_DENIED;
+      // Always populate zero sizes so subsequent attribute lookups do not
+      // re-enter this function. Specific error codes below additionally clear
+      // the mounted/readable flags so the default filter excludes the drive.
       has_size = true;
-      return;
+      user_free = 0;
+      total_free = 0;
+      drive_size = 0;
+      auto clear_flags = [&](int mask) {
+        drive.flags = static_cast<drive_container::drive_flags>(static_cast<int>(drive.flags) & ~mask);
+      };
+      // A single transient, unattached or otherwise unavailable volume must not
+      // abort the entire filter run (see issues #597, #404, #230, #679, #294).
+      // Mark the drive as not mounted / not readable so the default filter
+      // (mounted = 1 and readable = 1) excludes it, and avoid context->error
+      // (which sets filter.has_errors() and aborts the whole response).
+      switch (err) {
+        case ERROR_FILE_NOT_FOUND:        // 2
+        case ERROR_PATH_NOT_FOUND:        // 3
+        case ERROR_NOT_READY:             // 21
+        case ERROR_BAD_NETPATH:           // 53
+        case ERROR_DEV_NOT_EXIST:         // 55
+        case ERROR_ADAP_HDW_ERR:          // 57
+        case ERROR_BAD_NET_NAME:          // 67
+        case ERROR_INVALID_PARAMETER:     // 87 (\\?\Volume{...} GUIDs that vanished between enumeration and query)
+        case ERROR_DEVICE_NOT_CONNECTED:  // 1167
+          unreadable = true;
+          drive.is_mounted = false;
+          clear_flags(drive_container::df_mounted | drive_container::df_readable | drive_container::df_writable);
+          return;
+        case ERROR_ACCESS_DENIED:  // 5
+          unreadable = true;
+          clear_flags(drive_container::df_readable | drive_container::df_writable);
+          return;
+        default:
+          // Unknown error: log it (so it can be diagnosed) but do not call
+          // context->error which would abort evaluation of every other drive.
+          NSC_LOG_ERROR_STD("Failed to get size for " + utf8::cvt<std::string>(drv) + ": " + error::lookup::last_error(err));
+          unreadable = true;
+          drive.is_mounted = false;
+          clear_flags(drive_container::df_mounted | drive_container::df_readable);
+          return;
+      }
     }
     has_size = true;
     user_free = freeBytesAvailableToCaller.QuadPart;
