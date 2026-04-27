@@ -256,6 +256,12 @@ class simple_client {
     request.build_request(request_stream);
     socket_->write(requestbuf);
   }
+  // Read more bytes from the underlying socket into the supplied buffer.
+  // Useful for callers that want to drain a response body after read_result()
+  // without going through execute() (which throws on non-2xx responses).
+  std::size_t read_some(boost::asio::streambuf &buf, boost::system::error_code &ec) const { return socket_->read_some(buf, ec); }
+  bool is_open() const { return socket_ && socket_->is_open(); }
+
   response read_result(boost::asio::streambuf &response_buffer) const {
     std::string http_version, status_message;
     unsigned int status_code = 0;
