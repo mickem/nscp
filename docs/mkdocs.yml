@@ -76,6 +76,7 @@ nav:
         - NSCAServer: reference/client/NSCAServer.md
         - NSCAClient: reference/client/NSCAClient.md
         - NRDPClient: reference/client/NRDPClient.md
+        - IcingaClient: reference/client/IcingaClient.md
         - SMTPClient: reference/client/SMTPClient.md
         - GraphiteClient: reference/client/GraphiteClient.md
         - SyslogClient: reference/client/SyslogClient.md

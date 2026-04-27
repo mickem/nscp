@@ -386,6 +386,20 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 
+NSCP_CREATE_TEST(
+    icinga_client_test
+    SOURCES
+        ${CMAKE_SOURCE_DIR}/modules/IcingaClient/icinga_test.cpp
+        ${CMAKE_SOURCE_DIR}/modules/IcingaClient/icinga.cpp
+        ${NSCP_INCLUDEDIR}/json/use_json.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_SYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_SOURCE_DIR}/modules/IcingaClient
+)
+
 set(MONGOOSE_CPP_DIR ${CMAKE_SOURCE_DIR}/libs/mongoose-cpp)
 NSCP_CREATE_TEST(
     mongoose_wrapper_test

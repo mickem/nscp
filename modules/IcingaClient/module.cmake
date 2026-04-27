@@ -1,0 +1,6 @@
+if(OPENSSL_FOUND)
+    set(BUILD_MODULE 1)
+else(OPENSSL_FOUND)
+    set(BUILD_MODULE 0)
+    set(BUILD_MODULE_SKIP_REASON "OpenSSL missing")
+endif(OPENSSL_FOUND)
