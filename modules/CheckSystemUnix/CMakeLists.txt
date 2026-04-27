@@ -64,6 +64,7 @@ include(${BUILD_CMAKE_FOLDER}/module.cmake)
 NSCP_CREATE_TEST(
     check_system_unix_test
     SOURCES
+        check_system_unix_test.cpp
         check_os_updates_test.cpp
         check_os_updates.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
@@ -75,7 +76,7 @@ NSCP_CREATE_TEST(
         nscp_protobuf
         ${NSCP_FILTER_LIB}
         expression_parser
-        plugin_api
+        ${PLUGIN_API_TARGET}
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_THREAD_LIBRARY}
         ${Boost_DATE_TIME_LIBRARY}
