@@ -65,6 +65,27 @@ jobs:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  build-client-arm64:
+    needs: get-version
+    uses: ./.github/workflows/build-rust.yml
+    with:
+      os: windows-latest
+      arch: arm64
+      version: ${{ needs.get-version.outputs.version }}
+    secrets:
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  build-server-arm64:
+    needs: [get-version, build-client-arm64, create-test-bundle]
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      architecture: arm64
+      version: ${{ needs.get-version.outputs.version }}
+    secrets:
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   build-client-ubuntu-x64:
     needs: get-version
     uses: ./.github/workflows/build-rust.yml
