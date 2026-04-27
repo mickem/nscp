@@ -48,7 +48,7 @@ spi_container pdh_thread::fetch_spi(error_list &errors) {
       b = reinterpret_cast<windows::winapi::SYSTEM_PROCESS_INFORMATION *>(reinterpret_cast<PCHAR>(b) + b->NextEntryOffset);
     }
   } catch (...) {
-    errors.push_back("Failed to get metrics");
+    errors.emplace_back("Failed to get metrics");
   }
   return ret;
 }
@@ -58,7 +58,7 @@ bool first_time = true;
 void pdh_thread::write_metrics(const spi_container &handles, const windows::system_info::cpu_load &load, PDH::PDHQuery *pdh, error_list &errors) {
   boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!writeLock.owns_lock()) {
-    errors.push_back("Failed to get mutex for writing");
+    errors.emplace_back("Failed to get mutex for writing");
     return;
   }
   try {
@@ -67,7 +67,7 @@ void pdh_thread::write_metrics(const spi_container &handles, const windows::syst
 
     for (const lookup_type::value_type &e : lookups_) {
       if (e.second->has_instances()) {
-        for (const PDH::pdh_instance i : e.second->get_instances()) {
+        for (const PDH::pdh_instance& i : e.second->get_instances()) {
           metrics["pdh." + e.first + "." + i->get_name()] = i->get_int_value();
         }
       } else {
@@ -87,7 +87,7 @@ void pdh_thread::write_metrics(const spi_container &handles, const windows::syst
       errors.push_back("Failed to query performance counters: " + e.reason());
     }
   } catch (...) {
-    errors.push_back("Failed to query performance counters: ");
+    errors.emplace_back("Failed to query performance counters: ");
   }
 }
 
@@ -116,12 +116,12 @@ void pdh_thread::thread_proc() {
     }
     {
       PDH::PDHQuery tmpPdh;
-      for (PDH::pdh_object obj : configs_) {
+      for (const PDH::pdh_object& obj : configs_) {
         try {
           PDH::pdh_instance instance = PDH::factory::create(obj);
 
           if (instance->has_instances()) {
-            for (PDH::pdh_instance sc : instance->get_instances()) {
+            for (const PDH::pdh_instance& sc : instance->get_instances()) {
               tmpPdh.addCounter(sc);
             }
           } else {
@@ -161,10 +161,10 @@ void pdh_thread::thread_proc() {
     // 			return;
     // 		}
     pdh.removeAllCounters();
-    for (PDH::pdh_instance c : counters_) {
+    for (const PDH::pdh_instance& c : counters_) {
       try {
         if (c->has_instances()) {
-          for (PDH::pdh_instance sc : c->get_instances()) {
+          for (const PDH::pdh_instance& sc : c->get_instances()) {
             NSC_DEBUG_MSG("Loading counter: " + sc->get_name() + " = " + sc->get_counter());
             pdh.addCounter(sc);
           }
@@ -198,7 +198,7 @@ void pdh_thread::thread_proc() {
     NSC_LOG_MESSAGE("You are using legacy filters in check system, please migrate to new filters...");
   }
   cpu_filter_helper cpu_helper(core_, plugin_id);
-  for (boost::shared_ptr<filters::legacy::filter_config_object> object : legacy_filters_.get_object_list()) {
+  for (const boost::shared_ptr<filters::legacy::filter_config_object>& object : legacy_filters_.get_object_list()) {
     if (object->check == "memory") {
       memory_helper.add_obj(boost::make_shared<filters::mem::filter_config_object>(*object));
     } else {
@@ -209,17 +209,17 @@ void pdh_thread::thread_proc() {
       cpu_helper.add_item(boost::make_shared<filters::cpu::filter_config_object>(*object), data, "system.cpu");
     }
   }
-  for (boost::shared_ptr<filters::mem::filter_config_object> object : mem_filters_.get_object_list()) {
+  for (const boost::shared_ptr<filters::mem::filter_config_object>& object : mem_filters_.get_object_list()) {
     memory_helper.add_obj(object);
   }
-  for (boost::shared_ptr<filters::cpu::filter_config_object> object : cpu_filters_.get_object_list()) {
+  for (const boost::shared_ptr<filters::cpu::filter_config_object>& object : cpu_filters_.get_object_list()) {
     check_cpu_filter::runtime_data data;
     for (const std::string &d : object->data) {
       data.add(d);
     }
     cpu_helper.add_item(object, data, "system.cpu");
   }
-  for (boost::shared_ptr<filters::proc::filter_config_object> object : proc_filters_.get_object_list()) {
+  for (const boost::shared_ptr<filters::proc::filter_config_object>& object : proc_filters_.get_object_list()) {
     process_helper.add_obj(object);
   }
 
@@ -283,7 +283,7 @@ void pdh_thread::thread_proc() {
         try {
           handles = fetch_spi(errors);
         } catch (...) {
-          errors.push_back("Failed to get handles");
+          errors.emplace_back("Failed to get handles");
         }
       }
       windows::system_info::cpu_load load;
@@ -295,7 +295,7 @@ void pdh_thread::thread_proc() {
             load = windows::system_info::get_cpu_load_total();
           }
         } catch (...) {
-          errors.push_back("Failed to get cpu load");
+          errors.emplace_back("Failed to get cpu load");
         }
       }
       if (!disable_metrics) {
@@ -309,7 +309,7 @@ void pdh_thread::thread_proc() {
     } catch (const std::exception &e) {
       errors.push_back("Failed to get network metrics: " + utf8::utf8_from_native(e.what()));
     } catch (...) {
-      errors.push_back("Failed to get network metrics");
+      errors.emplace_back("Failed to get network metrics");
     }
     try {
       if (i == 0 && !disable_temperature) temperature.fetch();
@@ -318,7 +318,7 @@ void pdh_thread::thread_proc() {
     } catch (const std::exception &e) {
       errors.push_back("Failed to get temperature metrics: " + utf8::utf8_from_native(e.what()));
     } catch (...) {
-      errors.push_back("Failed to get temperature metrics");
+      errors.emplace_back("Failed to get temperature metrics");
     }
     try {
       if (i == 0 && !disable_cpu_frequency) cpu_frequency.fetch();
@@ -327,7 +327,7 @@ void pdh_thread::thread_proc() {
     } catch (const std::exception &e) {
       errors.push_back("Failed to get CPU frequency metrics: " + utf8::utf8_from_native(e.what()));
     } catch (...) {
-      errors.push_back("Failed to get CPU frequency metrics");
+      errors.emplace_back("Failed to get CPU frequency metrics");
     }
     try {
       if (i == 0 && !disable_battery) battery.fetch();
@@ -336,7 +336,7 @@ void pdh_thread::thread_proc() {
     } catch (const std::exception &e) {
       errors.push_back("Failed to get battery metrics: " + utf8::utf8_from_native(e.what()));
     } catch (...) {
-      errors.push_back("Failed to get battery metrics");
+      errors.emplace_back("Failed to get battery metrics");
     }
     try {
       // os_updates.fetch() is a no-op until its internal TTL has elapsed (default 1h).
@@ -346,7 +346,7 @@ void pdh_thread::thread_proc() {
     } catch (const std::exception &e) {
       errors.push_back("Failed to get OS updates metrics: " + utf8::utf8_from_native(e.what()));
     } catch (...) {
-      errors.push_back("Failed to get OS updates metrics");
+      errors.emplace_back("Failed to get OS updates metrics");
     }
     try {
       if (i == 0 && !has_proc_realtime && process_history_enabled) process_history.fetch();
@@ -355,7 +355,7 @@ void pdh_thread::thread_proc() {
     } catch (const std::exception &e) {
       errors.push_back("Failed to get process history: " + utf8::utf8_from_native(e.what()));
     } catch (...) {
-      errors.push_back("Failed to get process history");
+      errors.emplace_back("Failed to get process history");
     }
     if (has_realtime && i == (min_threshold_ - 1)) {
       if (has_cpu_realtime) cpu_helper.process_items(this);
@@ -371,7 +371,7 @@ void pdh_thread::thread_proc() {
         } catch (const std::exception &e) {
           errors.push_back("Failed to check processes: " + utf8::utf8_from_native(e.what()));
         } catch (...) {
-          errors.push_back("Failed to check processes");
+          errors.emplace_back("Failed to check processes");
         }
       }
     }
@@ -430,7 +430,7 @@ std::map<std::string, long long> pdh_thread::get_int_value(std::string counter) 
   }
   const PDH::pdh_instance ptr = (*it).second;
   if (ptr->has_instances()) {
-    for (const PDH::pdh_instance i : ptr->get_instances()) {
+    for (const PDH::pdh_instance& i : ptr->get_instances()) {
       ret[i->get_name()] = i->get_int_value();
     }
   } else {
@@ -447,14 +447,14 @@ std::map<std::string, double> pdh_thread::get_value(std::string counter) {
     return ret;
   }
 
-  lookup_type::iterator it = lookups_.find(counter);
+  const auto it = lookups_.find(counter);
   if (it == lookups_.end()) {
     NSC_LOG_ERROR("Counter was not found: " + counter);
     return ret;
   }
-  const PDH::pdh_instance ptr = (*it).second;
+  const PDH::pdh_instance ptr = it->second;
   if (ptr->has_instances()) {
-    for (const PDH::pdh_instance i : ptr->get_instances()) {
+    for (const PDH::pdh_instance& i : ptr->get_instances()) {
       ret[i->get_name()] = i->get_value();
     }
   } else {
@@ -471,14 +471,14 @@ std::map<std::string, double> pdh_thread::get_average(std::string counter, long 
     return ret;
   }
 
-  lookup_type::iterator it = lookups_.find(counter);
+  const auto it = lookups_.find(counter);
   if (it == lookups_.end()) {
     NSC_LOG_ERROR("Counter was not found: " + counter);
     return ret;
   }
-  const PDH::pdh_instance ptr = (*it).second;
+  const PDH::pdh_instance ptr = it->second;
   if (ptr->has_instances()) {
-    for (const PDH::pdh_instance i : ptr->get_instances()) {
+    for (const PDH::pdh_instance& i : ptr->get_instances()) {
       ret[i->get_name()] = i->get_average(seconds);
     }
   } else {
@@ -553,11 +553,11 @@ pdh_thread::metrics_hash pdh_thread::get_metrics() {
 }
 
 bool pdh_thread::start() {
-  stop_event_ = CreateEvent(NULL, TRUE, FALSE, _T("EventLogShutdown"));
-  thread_ = boost::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
+  stop_event_ = CreateEvent(nullptr, TRUE, FALSE, _T("EventLogShutdown"));
+  thread_ = boost::make_shared<boost::thread>([this]() { this->thread_proc(); });
   return true;
 }
-bool pdh_thread::stop() {
+bool pdh_thread::stop() const {
   SetEvent(stop_event_);
   if (thread_) thread_->join();
   return true;

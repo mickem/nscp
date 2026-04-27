@@ -107,7 +107,7 @@ class pdh_thread {
   metrics_hash get_metrics();
 
   bool start();
-  bool stop();
+  bool stop() const;
   void set_path(const std::string mem_path, const std::string cpu_path, const std::string proc_path, const std::string legacy_path);
 
   void add_realtime_mem_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
