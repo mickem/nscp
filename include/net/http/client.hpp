@@ -273,6 +273,29 @@ class simple_client {
     return response;
   }
 
+  // Non-throwing variant used by clients that need to inspect the response body
+  // regardless of HTTP status (for example REST APIs that return structured
+  // error envelopes on 4xx/5xx).  Reads the entire body into `os` and returns
+  // the response with `status_code_` populated.  Network errors still throw.
+  response execute_full(std::ostream &os, const std::string &server, const std::string &port, const packet &request) {
+    connect(server, port);
+    send_request(request);
+
+    boost::asio::streambuf response_buffer;
+    const response response = read_result(response_buffer);
+
+    if (response_buffer.size() > 0) os << &response_buffer;
+
+    if (socket_->is_open()) {
+      boost::system::error_code error;
+      while (socket_->read_some(response_buffer, error)) {
+        os << &response_buffer;
+      }
+    }
+
+    return response;
+  }
+
   static bool download(std::string protocol, const std::string &server, const std::string &port, std::string path, std::string tls_version,
                        std::string verify_mode, std::string ca, std::ostream &os, std::string &error_msg) {
     try {
