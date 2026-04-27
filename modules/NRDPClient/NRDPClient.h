@@ -28,7 +28,6 @@ namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;
 
 class NRDPClient : public nscapi::impl::simple_plugin {
- private:
   std::string channel_;
   std::string hostname_;
 
@@ -36,17 +35,18 @@ class NRDPClient : public nscapi::impl::simple_plugin {
 
  public:
   NRDPClient();
-  virtual ~NRDPClient();
+  virtual ~NRDPClient() = default;
+
   // Module calls
-  bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+  bool loadModuleEx(const std::string& alias, NSCAPI::moduleLoadMode mode);
   bool unloadModule();
 
   void query_fallback(const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message);
-  bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response);
+  bool commandLineExec(int target_mode, const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response);
   void handleNotification(const std::string &channel, const PB::Commands::SubmitRequestMessage &request_message,
                           PB::Commands::SubmitResponseMessage *response_message);
 
  private:
-  void add_command(std::string key, std::string args);
-  void add_target(std::string key, std::string args);
+  void add_command(const std::string &key, const std::string& args);
+  void add_target(const std::string& key, const std::string& args);
 };

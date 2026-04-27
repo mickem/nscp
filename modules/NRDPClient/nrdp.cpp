@@ -21,46 +21,45 @@
 
 #include <tinyxml2.h>
 
-#include <str/utf8.hpp>
 #include <str/xtos.hpp>
+#include <utility>
 
 namespace nrdp {
 void data::add_host(std::string host, NSCAPI::nagiosReturn result, std::string message) {
   item_type item;
   item.type = type_host;
-  item.host = host;
+  item.host = std::move(host);
   item.result = result;
-  item.message = message;
+  item.message = std::move(message);
   items.push_back(item);
 }
 
 void data::add_service(std::string host, std::string service, NSCAPI::nagiosReturn result, std::string message) {
   item_type item;
   item.type = type_service;
-  item.host = host;
-  item.service = service;
+  item.host = std::move(host);
+  item.service = std::move(service);
   item.result = result;
-  item.message = message;
+  item.message = std::move(message);
   items.push_back(item);
 }
 
-void data::add_command(std::string command, std::list<std::string> args) {
+void data::add_command(std::string command, const std::list<std::string>& args) {
   item_type item;
   item.type = type_command;
-  item.message = command;
+  item.message = std::move(command);
   items.push_back(item);
 }
 
-void render_item(tinyxml2::XMLDocument& doc, tinyxml2::XMLNode* parent, const nrdp::data::item_type& item) {
+void render_item(tinyxml2::XMLDocument& doc, tinyxml2::XMLNode* parent, const data::item_type& item) {
   tinyxml2::XMLNode* node = parent->InsertEndChild(doc.NewElement("checkresult"));
-  tinyxml2::XMLNode* child;
-  if (item.type == nrdp::data::type_service)
+  if (item.type == data::type_service)
     node->ToElement()->SetAttribute("type", "service");
-  else if (item.type == nrdp::data::type_host)
+  else if (item.type == data::type_host)
     node->ToElement()->SetAttribute("type", "host");
-  child = node->InsertEndChild(doc.NewElement("hostname"));
+  tinyxml2::XMLNode* child = node->InsertEndChild(doc.NewElement("hostname"));
   child->InsertEndChild(doc.NewText(item.host.c_str()));
-  if (item.type == nrdp::data::type_service) {
+  if (item.type == data::type_service) {
     child = node->InsertEndChild(doc.NewElement("servicename"));
     child->InsertEndChild(doc.NewText(item.service.c_str()));
   }
@@ -86,12 +85,12 @@ boost::tuple<int, std::string> data::parse_response(const std::string& str) {
   tinyxml2::XMLDocument doc;
   doc.Parse(str.c_str(), str.length());
   tinyxml2::XMLNode* node = doc.FirstChildElement("result");
-  if (node == NULL) {
+  if (node == nullptr) {
     return boost::make_tuple(-1, "Invalid response from server");
   }
   tinyxml2::XMLNode* nStatus = node->FirstChildElement("status");
   tinyxml2::XMLNode* nError = node->FirstChildElement("message");
-  if (nStatus == NULL || nError == NULL) {
+  if (nStatus == nullptr || nError == nullptr) {
     return boost::make_tuple(-1, "Invalid response from server");
   }
   tinyxml2::XMLNode* tnStatus = nStatus->FirstChild();
