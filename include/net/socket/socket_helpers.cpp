@@ -239,15 +239,11 @@ void genkey_callback(int, int, void *) {
 }
 
 int add_ext(X509 *cert, const int nid, const char *value) {
-  const std::size_t len = strlen(value);
-  const auto tmp = new char[len + 10];
-  strncpy(tmp, value, len);
-  tmp[len] = '\0';
+  std::string val(value);
   X509V3_CTX ctx;
   X509V3_set_ctx_nodb(&ctx);
   X509V3_set_ctx(&ctx, cert, cert, nullptr, nullptr, 0);
-  X509_EXTENSION *ex = X509V3_EXT_conf_nid(nullptr, &ctx, nid, tmp);
-  delete[] tmp;
+  X509_EXTENSION *ex = X509V3_EXT_conf_nid(nullptr, &ctx, nid, val.c_str());
   if (!ex) return 0;
   X509_add_ext(cert, ex, -1);
   X509_EXTENSION_free(ex);
