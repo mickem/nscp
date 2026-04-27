@@ -18,6 +18,7 @@
  */
 
 #include "check_ntp_offset.h"
+#include "check_ntp_internal.hpp"
 
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
@@ -50,18 +51,8 @@ filter_obj_handler::filter_obj_handler() {
 
 namespace {
 
-// NTP epoch (1900-01-01) is 2208988800 seconds before the unix epoch.
-constexpr std::uint64_t kNtpUnixDelta = 2208988800ULL;
-
-// Convert an NTP timestamp (uint32 seconds, uint32 fraction) read from the wire
-// to milliseconds since the unix epoch.
-long long ntp_to_unix_ms(std::uint32_t secs, std::uint32_t frac) {
-  if (secs == 0 && frac == 0) return 0;
-  const std::uint64_t s = static_cast<std::uint64_t>(secs) - kNtpUnixDelta;
-  // Fractional part is in units of 2^-32 seconds.
-  const long long frac_ms = static_cast<long long>((static_cast<std::uint64_t>(frac) * 1000ULL) >> 32);
-  return static_cast<long long>(s) * 1000LL + frac_ms;
-}
+using check_ntp_internal::ntp_offset_ms;
+using check_ntp_internal::ntp_to_unix_ms;
 
 void run_ntp_check(const std::string &server, unsigned short port, int timeout_ms, check_ntp_filter::filter_obj &out) {
   using boost::asio::ip::udp;
@@ -175,7 +166,7 @@ void run_ntp_check(const std::string &server, unsigned short port, int timeout_m
 
     // offset = ((T2 - T1) + (T3 - T4)) / 2  (server - local)
     // We store (local - server) so positive = local ahead.
-    const long long server_minus_local = ((t2_unix_ms - t1_ms) + (t3_unix_ms - t4_ms)) / 2;
+    const long long server_minus_local = ntp_offset_ms(t1_ms, t2_unix_ms, t3_unix_ms, t4_ms);
     out.offset_ms = -server_minus_local;
 
     if (out.stratum == 0 || out.stratum >= 16) {

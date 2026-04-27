@@ -18,6 +18,7 @@
  */
 
 #include "check_http.h"
+#include "check_http_internal.hpp"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/chrono.hpp>
@@ -54,40 +55,8 @@ filter_obj_handler::filter_obj_handler() {
 
 namespace {
 
-struct parsed_url {
-  std::string protocol;
-  std::string host;
-  std::string port;
-  std::string path;
-};
-
-// Minimal URL parser for http(s)://host[:port]/path. Returns false on failure.
-bool parse_url(const std::string &url, parsed_url &out) {
-  std::string s = url;
-  const auto sep = s.find("://");
-  if (sep == std::string::npos) return false;
-  out.protocol = s.substr(0, sep);
-  boost::algorithm::to_lower(out.protocol);
-  s = s.substr(sep + 3);
-  const auto slash = s.find('/');
-  std::string host_port;
-  if (slash == std::string::npos) {
-    host_port = s;
-    out.path = "/";
-  } else {
-    host_port = s.substr(0, slash);
-    out.path = s.substr(slash);
-  }
-  const auto colon = host_port.find(':');
-  if (colon == std::string::npos) {
-    out.host = host_port;
-    out.port = (out.protocol == "https") ? "443" : "80";
-  } else {
-    out.host = host_port.substr(0, colon);
-    out.port = host_port.substr(colon + 1);
-  }
-  return !out.host.empty() && (out.protocol == "http" || out.protocol == "https");
-}
+using check_http_internal::parse_url;
+using check_http_internal::parsed_url;
 
 void run_http_check(const std::string &url_in, int /*timeout_ms*/, const std::vector<std::string> &headers, const std::string &expected_body,
                     const std::string &user_agent, check_http_filter::filter_obj &out) {
