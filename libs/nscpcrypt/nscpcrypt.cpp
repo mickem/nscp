@@ -352,7 +352,9 @@ std::string nscp::encryption::engine::generate_transmitted_iv(unsigned int len) 
 
 /* initializes encryption routines */
 void nscp::encryption::engine::encrypt_init(std::string password, int encryption_method, std::string received_iv) {
+  std::lock_guard<std::mutex> lock(mutex_);
   delete core_;
+  core_ = NULL;
   core_ = get_encryption_core(encryption_method);
   if (core_ == NULL) throw encryption_exception("Failed to get encryption module for: " + boost::lexical_cast<std::string>(encryption_method));
 
@@ -367,11 +369,13 @@ void nscp::encryption::engine::encrypt_init(std::string password, int encryption
 
 /* encrypt a buffer */
 void nscp::encryption::engine::encrypt_buffer(std::string &buffer) {
+  std::lock_guard<std::mutex> lock(mutex_);
   if (core_ == NULL) throw encryption_exception("No encryption core!");
   core_->encrypt(buffer);
 }
 /* encrypt a buffer */
 void nscp::encryption::engine::decrypt_buffer(std::string &buffer) {
+  std::lock_guard<std::mutex> lock(mutex_);
   if (core_ == NULL) throw encryption_exception("No encryption core!");
   core_->decrypt(buffer);
 }
