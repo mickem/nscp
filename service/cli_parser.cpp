@@ -161,6 +161,7 @@ cli_parser::alias_map cli_parser::get_aliases() {
   aliases["nrpe"] = "NRPEClient";
   aliases["nscp"] = "NSCPClient";
   aliases["nsca"] = "NSCAClient";
+  aliases["nrdp"] = "NRDPClient";
   aliases["eventlog"] = "CheckEventLog";
   aliases["python"] = "PythonScript";
   aliases["py"] = "PythonScript";
@@ -719,6 +720,8 @@ std::string cli_parser::get_description(const std::string &key) {
     return "Use a NSCP (the protocol) client to request information from other systems via NSCP.";
   } else if (key == "nsca") {
     return "Use a NSCA to submit passive checks to a remote system. Similar to the send_nsca command";
+  } else if (key == "nrdp") {
+    return "Use NRDP to submit passive checks to a remote system via HTTP(S).";
   } else if (key == "syslog") {
     return "Use SYSLOG (the protocol) to submit messages to a remote system.";
   } else if (key == "py" || key == "python") {
