@@ -22,10 +22,12 @@
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <istream>
+#include <map>
 #include <memory>
 #include <net/http/http_packet.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <ostream>
+#include <sstream>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
 #include <string>
@@ -34,6 +36,36 @@
 using boost::asio::ip::tcp;
 
 namespace http {
+
+struct parsed_url {
+  std::string protocol;
+  std::string host;
+  std::string port;
+  std::string path;
+};
+
+inline parsed_url parse_url(const std::string &url) {
+  parsed_url result;
+  const std::string sep = "://";
+  const auto sep_pos = url.find(sep);
+  if (sep_pos == std::string::npos) return result;
+  result.protocol = url.substr(0, sep_pos);
+  const std::string rest = url.substr(sep_pos + sep.size());
+  const auto slash_pos = rest.find('/');
+  const std::string hostport = (slash_pos != std::string::npos) ? rest.substr(0, slash_pos) : rest;
+  result.path = (slash_pos != std::string::npos) ? rest.substr(slash_pos) : "/";
+  const auto colon_pos = hostport.find(':');
+  if (colon_pos != std::string::npos) {
+    result.host = hostport.substr(0, colon_pos);
+    result.port = hostport.substr(colon_pos + 1);
+  } else {
+    result.host = hostport;
+    result.port = (result.protocol == "https") ? "443" : "80";
+  }
+  return result;
+}
+
+
 
 struct generic_socket {
   typedef boost::asio::ip::basic_endpoint<tcp> tcp_iterator;
@@ -271,6 +303,28 @@ class simple_client {
     }
 
     return response;
+  }
+
+  // Like execute() but does NOT throw on non-2xx responses.
+  // Populates response.payload_ with the response body.
+  // Only throws on connection or protocol errors.
+  response fetch(const std::string &server, const std::string &port, const packet &request) {
+    connect(server, port);
+    send_request(request);
+
+    boost::asio::streambuf response_buffer;
+    response resp = read_result(response_buffer);
+
+    std::ostringstream os;
+    if (response_buffer.size() > 0) os << &response_buffer;
+    if (socket_->is_open()) {
+      boost::system::error_code error;
+      while (socket_->read_some(response_buffer, error)) {
+        os << &response_buffer;
+      }
+    }
+    resp.payload_ = os.str();
+    return resp;
   }
 
   static bool download(std::string protocol, const std::string &server, const std::string &port, std::string path, std::string tls_version,

@@ -19,7 +19,7 @@
 
 #include "ElasticClient.h"
 
-#include <Client.hpp>
+#include <net/http/client.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/date_time/gregorian/formatters.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -191,53 +191,62 @@ void send_to_elastic(const std::string address, const std::string index, std::st
     payload += json::serialize(header) + "\n";
     payload += data + "\n";
   }
-  Mongoose::Client c(address);
-  std::map<std::string, std::string> http_hdr;
-  http_hdr["Content-Type"] = "application/x-ndjson";
 
   if (log_errors) {
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG(payload); }
   }
-  boost::shared_ptr<Mongoose::Response> r = c.fetch("POST", http_hdr, payload);
-  if (!r) {
-    if (log_errors) {
-      NSC_LOG_ERROR("Failed to send log record to elastic (no response from server)");
-    }
-    return;
-  }
-  payload = r->getBody();
-  if (log_errors) {
-    NSC_TRACE_ENABLED() {
-      NSC_TRACE_MSG("code: " + str::xtos(r->get_response_code()));
-      for (const Mongoose::Response::header_type::value_type &v : r->get_headers()) {
-        NSC_TRACE_MSG(v.first + " = " + v.second);
-      }
-      NSC_TRACE_MSG(r->getBody());
-    }
-  }
+
   try {
-    auto root = json::parse(payload).as_object();
-    if (root.contains("errors")) {
-      if (root["errors"].as_bool()) {
-        std::string errors;
-        for (const auto &item : root["items"].as_array()) {
-          auto o = item.as_object();
-          str::format::append_list(errors, o["index"].as_object()["error"].as_object()["reason"].as_string().c_str());
+    const http::parsed_url parsed = http::parse_url(address);
+    http::http_client_options opts(parsed.protocol, "1.2+", "none", "");
+    http::packet rq("POST", parsed.host, parsed.path, payload);
+    rq.add_header("Content-Type", "application/x-ndjson");
+    rq.add_header("Content-Length", str::xtos(payload.size()));
+    http::simple_client c(opts);
+    const http::response r = c.fetch(parsed.host, parsed.port, rq);
+
+    if (log_errors) {
+      NSC_TRACE_ENABLED() {
+        NSC_TRACE_MSG("code: " + str::xtos(r.status_code_));
+        for (const http::response::header_type::value_type &v : r.headers_) {
+          NSC_TRACE_MSG(v.first + " = " + v.second);
         }
-        if (log_errors) {
-          NSC_LOG_ERROR("Failed to send log record to elastic: " + errors);
-        }
+        NSC_TRACE_MSG(r.payload_);
       }
-    } else if (log_errors && root.contains("error")) {
-      NSC_LOG_ERROR("Failed to send log record to elastic: " + static_cast<std::string>(root["error"].as_object()["reason"].as_string().c_str()));
+    }
+
+    try {
+      auto root = json::parse(r.payload_).as_object();
+      if (root.contains("errors")) {
+        if (root["errors"].as_bool()) {
+          std::string errors;
+          for (const auto &item : root["items"].as_array()) {
+            auto o = item.as_object();
+            str::format::append_list(errors, o["index"].as_object()["error"].as_object()["reason"].as_string().c_str());
+          }
+          if (log_errors) {
+            NSC_LOG_ERROR("Failed to send log record to elastic: " + errors);
+          }
+        }
+      } else if (log_errors && root.contains("error")) {
+        NSC_LOG_ERROR("Failed to send log record to elastic: " + static_cast<std::string>(root["error"].as_object()["reason"].as_string().c_str()));
+      }
+    } catch (const std::exception &e) {
+      if (log_errors) {
+        NSC_LOG_ERROR_EXR("Failed to parse elastic response: ", e);
+      }
+    } catch (...) {
+      if (log_errors) {
+        NSC_LOG_ERROR_EX("Failed to parse elastic response: UNKNOWN EXCEPTION");
+      }
+    }
+  } catch (const socket_helpers::socket_exception &e) {
+    if (log_errors) {
+      NSC_LOG_ERROR("Failed to send log record to elastic (connection error): " + e.reason());
     }
   } catch (const std::exception &e) {
     if (log_errors) {
-      NSC_LOG_ERROR_EXR("Failed to parse elastic response: ", e);
-    }
-  } catch (...) {
-    if (log_errors) {
-      NSC_LOG_ERROR_EX("Failed to parse elastic response: UNKNOWN EXCEPTION");
+      NSC_LOG_ERROR_EXR("Failed to send log record to elastic: ", e);
     }
   }
 }

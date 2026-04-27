@@ -19,8 +19,8 @@
 
 #include "op5_client.hpp"
 
-#include <Helpers.h>
-
+#include <bytes/base64.h>
+#include <net/http/client.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/asio.hpp>
@@ -51,30 +51,22 @@ op5_client::op5_client(const nscapi::core_wrapper *core, int plugin_id, op5_conf
  */
 op5_client::~op5_client() {}
 
-#include <Client.hpp>
-
 #define HTTP_HDR_AUTH "Authorization"
 #define HTTP_HDR_AUTH_BASIC "Basic "
 
-bool is_200(const boost::shared_ptr<Mongoose::Response> &response) {
-  if (!response) {
-    return false;
-  }
-  return response->get_response_code() >= 200 && response->get_response_code() <= 299;
+static inline bool is_2xx(const http::response &r) { return r.status_code_ >= 200 && r.status_code_ <= 299; }
+static inline bool is_404(const http::response &r) { return r.status_code_ == 404; }
+static inline std::string get_error(const http::response &r) {
+  if (r.status_code_ == 0) return "Failed to connect to host";
+  return str::xtos(r.status_code_) + ": " + r.payload_;
 }
 
-bool is_404(const boost::shared_ptr<Mongoose::Response> &response) {
-  if (!response) {
-    return false;
-  }
-  return response->get_response_code() == 404;
-}
-
-std::string get_error(const boost::shared_ptr<Mongoose::Response> &response) {
-  if (!response) {
-    return "Failed to connect to host";
-  }
-  return str::xtos(response->get_response_code()) + ": " + response->getBody();
+static std::string encode_b64(const std::string &input) {
+  const size_t req = b64::b64_encode(input.c_str(), input.size(), nullptr, 0);
+  std::string result(req, '\0');
+  const size_t actual = b64::b64_encode(input.c_str(), input.size(), &result[0], req);
+  result.resize(actual);
+  return result;
 }
 
 std::string get_my_ip() {
@@ -108,51 +100,62 @@ std::string get_my_ip() {
   return h;
 }
 
-boost::shared_ptr<Mongoose::Response> op5_client::do_call(const char *verb, const std::string url, const std::string payload) {
+http::response op5_client::do_call(const char *verb, const std::string &url, const std::string &payload) {
   std::string base_url;
-  typedef Mongoose::Client::header_type hdr_type;
-  hdr_type hdr;
+  std::string auth_header;
   {
     boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!lock.owns_lock()) {
       NSC_LOG_ERROR("Failed to read config");
-      return boost::shared_ptr<Mongoose::Response>();
+      return http::response();
     }
     base_url = config_.url;
-    std::string uid = config_.username + ":" + config_.password;
-    hdr[HTTP_HDR_AUTH] = std::string(HTTP_HDR_AUTH_BASIC) + Mongoose::Helpers::encode_b64(uid);
+    const std::string uid = config_.username + ":" + config_.password;
+    auth_header = std::string(HTTP_HDR_AUTH_BASIC) + encode_b64(uid);
   }
-  hdr["Accept"] = "application/json";
-  hdr["Content-type"] = "application/json";
+  const std::string full_url = base_url + url;
   NSC_TRACE_ENABLED() {
-    NSC_TRACE_MSG(std::string(verb) + ": " + base_url + url);
-    for (const hdr_type::value_type &v : hdr) {
-      NSC_TRACE_MSG(v.first + "=" + v.second);
-    }
+    NSC_TRACE_MSG(std::string(verb) + ": " + full_url);
+    NSC_TRACE_MSG(std::string(HTTP_HDR_AUTH) + "=" + auth_header);
     if (!payload.empty()) {
       NSC_TRACE_MSG(payload);
     }
   }
-  Mongoose::Client query(base_url + url);
-  boost::shared_ptr<Mongoose::Response> ret = query.fetch(verb, hdr, payload);
-  NSC_TRACE_ENABLED() {
-    if (ret) {
-      NSC_TRACE_MSG(str::xtos(ret->get_response_code()) + ": " + ret->getBody());
+  try {
+    const http::parsed_url parsed = http::parse_url(full_url);
+    http::http_client_options opts(parsed.protocol, "1.2+", "none", "");
+    http::packet rq(verb, parsed.host, parsed.path, payload);
+    rq.add_header(HTTP_HDR_AUTH, auth_header);
+    rq.add_header("Accept", "application/json");
+    rq.add_header("Content-type", "application/json");
+    if (!payload.empty()) {
+      rq.add_header("Content-Length", str::xtos(payload.size()));
     }
-    NSC_TRACE_MSG("------------------------");
+    http::simple_client c(opts);
+    const http::response ret = c.fetch(parsed.host, parsed.port, rq);
+    NSC_TRACE_ENABLED() {
+      NSC_TRACE_MSG(str::xtos(ret.status_code_) + ": " + ret.payload_);
+      NSC_TRACE_MSG("------------------------");
+    }
+    return ret;
+  } catch (const socket_helpers::socket_exception &e) {
+    NSC_LOG_ERROR("HTTP call to " + full_url + " failed: " + e.reason());
+    return http::response();
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR("HTTP call to " + full_url + " failed: " + utf8::utf8_from_native(e.what()));
+    return http::response();
   }
-  return ret;
 }
 
 bool op5_client::has_host(std::string host) {
-  boost::shared_ptr<Mongoose::Response> response = do_call("GET", "/api/filter/query?query=[hosts]%20name=\"" + host + "\"", "");
-  if (!is_200(response)) {
+  const http::response response = do_call("GET", "/api/filter/query?query=[hosts]%20name=\"" + host + "\"", "");
+  if (!is_2xx(response)) {
     NSC_LOG_ERROR("Failed to check host: " + host + ": " + get_error(response));
     return false;
   }
 
   try {
-    auto root = json::parse(response->getBody());
+    auto root = json::parse(response.payload_);
     return root.as_array().size() > 0;
   } catch (const std::exception &e) {
     NSC_LOG_ERROR("Failed to parse reponse: " + utf8::utf8_from_native(e.what()));
@@ -162,18 +165,18 @@ bool op5_client::has_host(std::string host) {
 }
 
 std::pair<bool, bool> op5_client::has_service(std::string service, std::string host, std::string &hosts_string) {
-  boost::shared_ptr<Mongoose::Response> response = do_call("GET", "/api/config/service/" + service, "");
+  const http::response response = do_call("GET", "/api/config/service/" + service, "");
 
   if (is_404(response)) {
     return std::pair<bool, bool>(false, false);
   }
-  if (!is_200(response)) {
+  if (!is_2xx(response)) {
     NSC_LOG_ERROR("Failed to check host: " + service + ": " + get_error(response));
     return std::pair<bool, bool>(false, false);
   }
 
   try {
-    auto root = json::parse(response->getBody()).as_object();
+    auto root = json::parse(response.payload_).as_object();
     std::vector<std::string> hosts;
     hosts_string = root["host_name"].as_string().c_str();
     boost::split(hosts, hosts_string, boost::is_any_of(", "), boost::token_compress_on);
@@ -183,7 +186,7 @@ std::pair<bool, bool> op5_client::has_service(std::string service, std::string h
       return std::pair<bool, bool>(true, true);
     }
   } catch (const std::exception &e) {
-    NSC_LOG_ERROR("Failed to parse reponse: " + response->getBody());
+    NSC_LOG_ERROR("Failed to parse reponse: " + response.payload_);
     return std::pair<bool, bool>(false, false);
   }
 }
@@ -201,9 +204,9 @@ bool op5_client::add_host(std::string host, std::string hostgroups, std::string 
     req["contact_groups"] = contactgroups;
   }
 
-  boost::shared_ptr<Mongoose::Response> response = do_call("POST", "/api/config/host", json::serialize(req));
+  const http::response response = do_call("POST", "/api/config/host", json::serialize(req));
 
-  if (!is_200(response)) {
+  if (!is_2xx(response)) {
     NSC_LOG_ERROR("Failed to add host: " + host + ": " + get_error(response));
     return false;
   }
@@ -211,9 +214,9 @@ bool op5_client::add_host(std::string host, std::string hostgroups, std::string 
 }
 
 bool op5_client::remove_host(std::string host) {
-  boost::shared_ptr<Mongoose::Response> response = do_call("DELETE", "/api/config/host/" + host, "");
+  const http::response response = do_call("DELETE", "/api/config/host/" + host, "");
 
-  if (!is_200(response)) {
+  if (!is_2xx(response)) {
     NSC_LOG_ERROR("Failed to delete host: " + host + ": " + get_error(response));
     return false;
   }
@@ -221,9 +224,9 @@ bool op5_client::remove_host(std::string host) {
 }
 
 bool op5_client::save_config() {
-  boost::shared_ptr<Mongoose::Response> response = do_call("POST", "/api/config/change", "");
+  const http::response response = do_call("POST", "/api/config/change", "");
 
-  if (!is_200(response)) {
+  if (!is_2xx(response)) {
     NSC_LOG_ERROR("Failed to save configuration: " + get_error(response));
     return false;
   }
@@ -236,9 +239,9 @@ bool op5_client::send_host_check(std::string host, int status_code, std::string 
   req["status_code"] = status_code;
   req["plugin_output"] = msg;
 
-  boost::shared_ptr<Mongoose::Response> response = do_call("POST", "/api/command/PROCESS_HOST_CHECK_RESULT", json::serialize(req));
+  const http::response response = do_call("POST", "/api/command/PROCESS_HOST_CHECK_RESULT", json::serialize(req));
 
-  if (!is_200(response)) {
+  if (!is_2xx(response)) {
     status = "Failed to submit host check to " + host + ": " + get_error(response);
     return false;
   }
@@ -253,7 +256,7 @@ bool op5_client::send_service_check(std::string host, std::string service, int s
   req["status_code"] = status_code;
   req["plugin_output"] = msg;
 
-  boost::shared_ptr<Mongoose::Response> response = do_call("POST", "/api/command/PROCESS_SERVICE_CHECK_RESULT", json::serialize(req));
+  const http::response response = do_call("POST", "/api/command/PROCESS_SERVICE_CHECK_RESULT", json::serialize(req));
 
   if (is_404(response)) {
     if (create_if_missing) {
@@ -264,7 +267,7 @@ bool op5_client::send_service_check(std::string host, std::string service, int s
     status = "Service " + service + " does not exist on " + host;
     return false;
   }
-  if (!is_200(response)) {
+  if (!is_2xx(response)) {
     status = "Failed to submit " + service + " result: " + host + ": " + get_error(response);
     return false;
   }
@@ -280,9 +283,9 @@ bool op5_client::add_service(std::string host, std::string service) {
   req["active_checks_enabled"] = 0;
   req["freshness_threshold"] = 600;
 
-  boost::shared_ptr<Mongoose::Response> response = do_call("POST", "/api/config/service", json::serialize(req));
+  const http::response response = do_call("POST", "/api/config/service", json::serialize(req));
 
-  if (!is_200(response)) {
+  if (!is_2xx(response)) {
     NSC_LOG_ERROR("Failed to add service " + service + " to " + host + ": " + get_error(response));
     return false;
   }
@@ -298,9 +301,9 @@ bool op5_client::add_host_to_service(std::string service, std::string host, std:
   }
   req["host_name"] = host;
 
-  boost::shared_ptr<Mongoose::Response> response = do_call("PATCH", "/api/config/service/" + service, json::serialize(req));
+  const http::response response = do_call("PATCH", "/api/config/service/" + service, json::serialize(req));
 
-  if (!is_200(response)) {
+  if (!is_2xx(response)) {
     NSC_LOG_ERROR("Failed to add service " + service + " to " + host + ": " + get_error(response));
     return false;
   }
