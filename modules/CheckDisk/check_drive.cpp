@@ -224,22 +224,52 @@ struct filter_obj {
     ULARGE_INTEGER freeBytesAvailableToCaller;
     ULARGE_INTEGER totalNumberOfBytes;
     ULARGE_INTEGER totalNumberOfFreeBytes;
-    std::string error;
     std::wstring drv = get_volume_or_letter_w();
     if (drv.size() == 1) drv = drv + L":\\";
     if (!GetDiskFreeSpaceEx(drv.c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
       DWORD err = GetLastError();
-      if (err == ERROR_NOT_READY) {
-        has_size = true;
-        user_free = 0;
-        total_free = 0;
-        drive_size = 0;
-        return;
-      }
-      context->error("Failed to get size for " + utf8::cvt<std::string>(drv) + ": " + error::lookup::last_error(err));
-      unreadable = err == ERROR_ACCESS_DENIED;
+      // Always populate zero sizes so subsequent attribute lookups do not
+      // re-enter this function. Specific error codes below additionally clear
+      // the mounted/readable flags so the default filter excludes the drive.
       has_size = true;
-      return;
+      user_free = 0;
+      total_free = 0;
+      drive_size = 0;
+      auto clear_flags = [&](int mask) {
+        drive.flags = static_cast<drive_container::drive_flags>(static_cast<int>(drive.flags) & ~mask);
+      };
+      // A single transient, unattached or otherwise unavailable volume must not
+      // abort the entire filter run (see issues #597, #404, #230, #679, #294).
+      // Mark the drive as not mounted / not readable so the default filter
+      // (mounted = 1 and readable = 1) excludes it, and avoid context->error
+      // (which sets filter.has_errors() and aborts the whole response).
+      switch (err) {
+        case ERROR_FILE_NOT_FOUND:        // 2
+        case ERROR_PATH_NOT_FOUND:        // 3
+        case ERROR_NOT_READY:             // 21
+        case ERROR_BAD_NETPATH:           // 53
+        case ERROR_DEV_NOT_EXIST:         // 55
+        case ERROR_ADAP_HDW_ERR:          // 57
+        case ERROR_BAD_NET_NAME:          // 67
+        case ERROR_INVALID_PARAMETER:     // 87 (\\?\Volume{...} GUIDs that vanished between enumeration and query)
+        case ERROR_DEVICE_NOT_CONNECTED:  // 1167
+          unreadable = true;
+          drive.is_mounted = false;
+          clear_flags(drive_container::df_mounted | drive_container::df_readable | drive_container::df_writable);
+          return;
+        case ERROR_ACCESS_DENIED:  // 5
+          unreadable = true;
+          clear_flags(drive_container::df_readable | drive_container::df_writable);
+          return;
+        default:
+          // Unknown error: log it (so it can be diagnosed) but do not call
+          // context->error which would abort evaluation of every other drive.
+          NSC_LOG_ERROR_STD("Failed to get size for " + utf8::cvt<std::string>(drv) + ": " + error::lookup::last_error(err));
+          unreadable = true;
+          drive.is_mounted = false;
+          clear_flags(drive_container::df_mounted | drive_container::df_readable);
+          return;
+      }
     }
     has_size = true;
     user_free = freeBytesAvailableToCaller.QuadPart;
@@ -675,7 +705,7 @@ void find_all_drives(std::list<drive_container> &drives, std::vector<std::string
     throw nsclient::nsclient_exception("Failed to get volume list: " + error::lookup::last_error());
 }
 
-std::list<drive_container> find_drives(std::vector<std::string> drives) {
+std::list<drive_container> find_drives(std::vector<std::string> drives, std::vector<std::string> &not_found) {
   volume_helper helper;
   std::list<drive_container> ret;
   std::vector<std::string> found_drives;
@@ -690,6 +720,16 @@ std::list<drive_container> find_drives(std::vector<std::string> drives) {
     } else {
       std::wstring drive = utf8::cvt<std::wstring>(d);
       if (d.length() == 1) drive = drive + L":";
+      // Validate the drive actually exists before adding it. Without this an
+      // explicitly requested but non-existent drive would silently produce
+      // "OK" with size/used/free all reported as 0.
+      std::wstring probe = drive;
+      if (probe.empty() || probe.back() != L'\\') probe += L"\\";
+      const UINT dt = GetDriveType(probe.c_str());
+      if (dt == DRIVE_NO_ROOT_DIR) {
+        not_found.push_back(d);
+        continue;
+      }
       ret.push_back(get_dc_from_string(drive, helper));
     }
   }
@@ -756,7 +796,22 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
   boost::shared_ptr<filter_obj> total_obj(new filter_obj(total_dc));
   if (total) total_obj->make_total();
 
-  for (const drive_container &drive : find_drives(drives)) {
+  std::vector<std::string> not_found;
+  const std::list<drive_container> resolved = find_drives(drives, not_found);
+  if (!not_found.empty()) {
+    std::string msg = "Drive";
+    msg += not_found.size() == 1 ? " " : "s ";
+    bool first = true;
+    for (const std::string &d : not_found) {
+      if (!first) msg += ", ";
+      msg += d;
+      first = false;
+    }
+    msg += not_found.size() == 1 ? " was not found" : " were not found";
+    return nscapi::protobuf::functions::set_response_bad(*response, msg);
+  }
+
+  for (const drive_container &drive : resolved) {
     if (std::find(excludes.begin(), excludes.end(), drive.letter) != excludes.end() ||
         std::find(excludes.begin(), excludes.end(), drive.name) != excludes.end() ||
         std::find(excludes.begin(), excludes.end(), drive.letter_only) != excludes.end())
