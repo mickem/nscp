@@ -20,6 +20,8 @@
 #include "check_http.h"
 #include "check_http_internal.hpp"
 
+#include "check_net_error.hpp"
+
 #include <boost/algorithm/string.hpp>
 #include <boost/chrono.hpp>
 #include <boost/make_shared.hpp>
@@ -59,7 +61,8 @@ using check_http_internal::parse_url;
 using check_http_internal::parsed_url;
 
 void run_http_check(const std::string &url_in, int /*timeout_ms*/, const std::vector<std::string> &headers, const std::string &expected_body,
-                    const std::string &user_agent, check_http_filter::filter_obj &out) {
+                    const std::string &user_agent, const std::string &tls_version, const std::string &verify_mode, const std::string &ca_file,
+                    check_http_filter::filter_obj &out) {
   out.url = url_in;
   out.result = "error";
 
@@ -75,7 +78,7 @@ void run_http_check(const std::string &url_in, int /*timeout_ms*/, const std::ve
   out.protocol = u.protocol;
 
   try {
-    http::http_client_options options(u.protocol, "", "none", "");
+    http::http_client_options options(u.protocol, tls_version, verify_mode, ca_file);
     http::simple_client client(options);
     http::packet rq("GET", u.host, u.path);
     if (!user_agent.empty()) rq.add_header("User-Agent", user_agent);
@@ -123,7 +126,10 @@ void run_http_check(const std::string &url_in, int /*timeout_ms*/, const std::ve
       out.result = "http_" + std::to_string(resp.status_code_);
     }
   } catch (const std::exception &e) {
-    out.result = std::string("error: ") + e.what();
+    // Boost.Asio surfaces system errors using the OS code page (e.g. Windows
+    // ANSI like "Ingen sådan värd är känd" on Swedish locales) and tacks on a
+    // build-path source location. Convert to UTF-8 and strip the location.
+    out.result = std::string("error: ") + check_net::format_exception_message(e);
   }
 }
 
@@ -146,11 +152,14 @@ void check_http(const PB::Commands::QueryRequestMessage::Request &request, PB::C
   std::string user_agent = "NSClient++";
   std::vector<std::string> headers;
   bool use_ssl = false;
+  std::string tls_version = "tlsv1.2+";
+  std::string verify_mode = "none";
+  std::string ca_file;
 
   filter f;
-  filter_helper.add_options("time > 5000", "code < 200 or code >= 400", "", f.get_filter_syntax(), "ignored");
-  filter_helper.add_syntax("${status}: ${problem_list}", "${url} -> ${code} (${size}B in ${time}ms)", "${url}", "No URL checked",
-                           "%(status): All %(count) HTTP checks ok");
+  filter_helper.add_options("time > 5000", "code < 200 or code >= 400 or result != 'ok'", "", f.get_filter_syntax(), "ignored");
+  filter_helper.add_syntax("${status}: ${problem_list}", "${url} -> ${code} ${result} (${size}B in ${time}ms)", "${url}", "No URL checked",
+                           "%(status): %(list)");
   // clang-format off
   filter_helper.get_desc().add_options()
     ("url", po::value<std::vector<std::string> >(&urls),
@@ -166,6 +175,11 @@ void check_http(const PB::Commands::QueryRequestMessage::Request &request, PB::C
     ("user-agent", po::value<std::string>(&user_agent)->default_value("NSClient++"), "User-Agent header value.")
     ("header", po::value<std::vector<std::string> >(&headers),
         "Additional request header in 'Name: value' form (may be given multiple times).")
+    ("tls-version", po::value<std::string>(&tls_version)->default_value("tlsv1.2+"),
+        "TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).")
+    ("verify", po::value<std::string>(&verify_mode)->default_value("none"),
+        "Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.")
+    ("ca", po::value<std::string>(&ca_file), "Path to a CA bundle to use when verifying the server certificate.")
     ;
   // clang-format on
 
@@ -187,7 +201,7 @@ void check_http(const PB::Commands::QueryRequestMessage::Request &request, PB::C
 
   for (const auto &u : urls) {
     auto obj = boost::make_shared<filter_obj>();
-    run_http_check(u, timeout_ms, headers, expected_body, user_agent, *obj);
+    run_http_check(u, timeout_ms, headers, expected_body, user_agent, tls_version, verify_mode, ca_file, *obj);
     f.match(obj);
   }
 

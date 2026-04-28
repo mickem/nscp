@@ -18,6 +18,8 @@
  */
 
 #include "check_ntp_offset.h"
+
+#include "check_net_error.hpp"
 #include "check_ntp_internal.hpp"
 
 #include <boost/asio.hpp>
@@ -175,7 +177,7 @@ void run_ntp_check(const std::string &server, unsigned short port, int timeout_m
       out.result = "ok";
     }
   } catch (const std::exception &e) {
-    out.result = std::string("error: ") + e.what();
+    out.result = std::string("error: ") + check_net::format_exception_message(e);
   }
 
   boost::system::error_code ignore;
@@ -197,9 +199,9 @@ void check_ntp_offset(const PB::Commands::QueryRequestMessage::Request &request,
   int timeout_ms = 5000;
 
   filter f;
-  filter_helper.add_options("offset > 60000 or stratum >= 16", "offset > 120000 or stratum >= 16", "", f.get_filter_syntax(), "ignored");
+  filter_helper.add_options("offset > 60000 or stratum >= 16", "offset > 120000 or stratum >= 16 or result != 'ok'", "", f.get_filter_syntax(), "ignored");
   filter_helper.add_syntax("${status}: ${problem_list}", "${server} offset=${offset_signed}ms stratum=${stratum}", "${server}", "No NTP server checked",
-                           "%(status): All %(count) NTP servers in sync");
+                           "%(status): %(list)");
   // clang-format off
   filter_helper.get_desc().add_options()
     ("server", po::value<std::vector<std::string> >(&servers),

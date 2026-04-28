@@ -19,6 +19,8 @@
 
 #include "check_tcp.h"
 
+#include "check_net_error.hpp"
+
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
 #include <boost/make_shared.hpp>
@@ -155,7 +157,7 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
       }
     }
   } catch (const std::exception &e) {
-    out.result = std::string("error: ") + e.what();
+    out.result = std::string("error: ") + check_net::format_exception_message(e);
   }
 
   boost::system::error_code ignore;
@@ -179,9 +181,9 @@ void check_tcp(const PB::Commands::QueryRequestMessage::Request &request, PB::Co
   std::string expect;
 
   filter f;
-  filter_helper.add_options("time > 1000", "time > 5000", "", f.get_filter_syntax(), "ignored");
+  filter_helper.add_options("time > 1000", "time > 5000 or result != 'ok'", "", f.get_filter_syntax(), "ignored");
   filter_helper.add_syntax("${status}: ${problem_list}", "${host}:${port} ${result} in ${time}ms", "${host}_${port}", "No hosts checked",
-                           "%(status): All %(count) connections ok");
+                           "%(status): %(list)");
   // clang-format off
   filter_helper.get_desc().add_options()
     ("host", po::value<std::vector<std::string> >(&hosts), "Host(s) to connect to (may be given multiple times).")

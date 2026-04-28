@@ -20,6 +20,8 @@
 #include <boost/make_shared.hpp>
 #include <gtest/gtest.h>
 
+#include <nscapi/nscapi_helper_singleton.hpp>
+
 #include "check_connections.h"
 #include "check_connections_internal.hpp"
 #include "check_dns.h"
@@ -29,6 +31,8 @@
 #include "check_ntp_offset.h"
 #include "check_tcp.h"
 #include "filter.hpp"
+
+nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
 
 // ============================================================================
 // check_ping (existing) - filter_obj

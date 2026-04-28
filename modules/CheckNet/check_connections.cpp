@@ -39,7 +39,9 @@
 #include <windows.h>
 #include <winsock2.h>
 #include <iphlpapi.h>
-#pragma comment(lib, "iphlpapi.lib")
+#include <tcpmib.h>
+#include <udpmib.h>
+#include <win/iphlpapi_api.hpp>
 #pragma comment(lib, "ws2_32.lib")
 #endif
 
@@ -172,6 +174,36 @@ bool collect_connections_linux(std::vector<boost::shared_ptr<filter_obj> > &out,
 
 #ifdef WIN32
 
+// Compatibility layouts for IPv6 owner-PID tables returned by GetExtendedTcpTable/GetExtendedUdpTable.
+// Some SDK/header combinations do not expose MIB_TCP6TABLE_OWNER_PID and MIB_UDP6TABLE_OWNER_PID.
+struct tcp6_row_owner_pid_compat {
+  UCHAR local_addr[16];
+  DWORD local_scope_id;
+  DWORD local_port;
+  UCHAR remote_addr[16];
+  DWORD remote_scope_id;
+  DWORD remote_port;
+  DWORD state;
+  DWORD owning_pid;
+};
+
+struct tcp6_table_owner_pid_compat {
+  DWORD dwNumEntries;
+  tcp6_row_owner_pid_compat table[1];
+};
+
+struct udp6_row_owner_pid_compat {
+  UCHAR local_addr[16];
+  DWORD local_scope_id;
+  DWORD local_port;
+  DWORD owning_pid;
+};
+
+struct udp6_table_owner_pid_compat {
+  DWORD dwNumEntries;
+  udp6_row_owner_pid_compat table[1];
+};
+
 const char *win_tcp_state(DWORD s) {
   switch (s) {
     case MIB_TCP_STATE_CLOSED:
@@ -206,14 +238,15 @@ const char *win_tcp_state(DWORD s) {
 bool collect_connections_windows(std::vector<boost::shared_ptr<filter_obj> > &out, std::string &error) {
   std::map<std::string, long long> per_state;
   long long tcp4 = 0, tcp6 = 0, udp4 = 0, udp6 = 0;
+  auto &api = win::load_iphlpapi();
 
-  // TCP IPv4
-  {
-    DWORD size = 0;
-    GetExtendedTcpTable(nullptr, &size, FALSE, AF_INET, TCP_TABLE_OWNER_PID_ALL, 0);
+  // TCP IPv4 (legacy API fallback keeps XP compatibility).
+  if (api.get_tcp_table) {
+    ULONG size = 0;
+    api.get_tcp_table(NULL, &size, FALSE);
     std::vector<char> buf(size);
-    if (size && GetExtendedTcpTable(buf.data(), &size, FALSE, AF_INET, TCP_TABLE_OWNER_PID_ALL, 0) == NO_ERROR) {
-      auto *table = reinterpret_cast<MIB_TCPTABLE_OWNER_PID *>(buf.data());
+    if (size && api.get_tcp_table(reinterpret_cast<PMIB_TCPTABLE>(buf.data()), &size, FALSE) == NO_ERROR) {
+      auto *table = reinterpret_cast<PMIB_TCPTABLE>(buf.data());
       tcp4 = table->dwNumEntries;
       for (DWORD i = 0; i < table->dwNumEntries; ++i) {
         per_state[win_tcp_state(table->table[i].dwState)]++;
@@ -221,38 +254,38 @@ bool collect_connections_windows(std::vector<boost::shared_ptr<filter_obj> > &ou
     }
   }
 
-  // TCP IPv6
-  {
+  // TCP IPv6 (available on newer systems; loaded dynamically).
+  if (api.get_extended_tcp_table) {
     DWORD size = 0;
-    GetExtendedTcpTable(nullptr, &size, FALSE, AF_INET6, TCP_TABLE_OWNER_PID_ALL, 0);
+    api.get_extended_tcp_table(NULL, &size, FALSE, AF_INET6, TCP_TABLE_OWNER_PID_ALL, 0);
     std::vector<char> buf(size);
-    if (size && GetExtendedTcpTable(buf.data(), &size, FALSE, AF_INET6, TCP_TABLE_OWNER_PID_ALL, 0) == NO_ERROR) {
-      auto *table = reinterpret_cast<MIB_TCP6TABLE_OWNER_PID *>(buf.data());
+    if (size && api.get_extended_tcp_table(buf.data(), &size, FALSE, AF_INET6, TCP_TABLE_OWNER_PID_ALL, 0) == NO_ERROR) {
+      auto *table = reinterpret_cast<tcp6_table_owner_pid_compat *>(buf.data());
       tcp6 = table->dwNumEntries;
       for (DWORD i = 0; i < table->dwNumEntries; ++i) {
-        per_state[win_tcp_state(table->table[i].dwState)]++;
+        per_state[win_tcp_state(table->table[i].state)]++;
       }
     }
   }
 
-  // UDP IPv4
-  {
-    DWORD size = 0;
-    GetExtendedUdpTable(nullptr, &size, FALSE, AF_INET, UDP_TABLE_OWNER_PID, 0);
+  // UDP IPv4 (legacy API fallback keeps XP compatibility).
+  if (api.get_udp_table) {
+    ULONG size = 0;
+    api.get_udp_table(NULL, &size, FALSE);
     std::vector<char> buf(size);
-    if (size && GetExtendedUdpTable(buf.data(), &size, FALSE, AF_INET, UDP_TABLE_OWNER_PID, 0) == NO_ERROR) {
-      auto *table = reinterpret_cast<MIB_UDPTABLE_OWNER_PID *>(buf.data());
+    if (size && api.get_udp_table(reinterpret_cast<PMIB_UDPTABLE>(buf.data()), &size, FALSE) == NO_ERROR) {
+      auto *table = reinterpret_cast<PMIB_UDPTABLE>(buf.data());
       udp4 = table->dwNumEntries;
     }
   }
 
-  // UDP IPv6
-  {
+  // UDP IPv6 (available on newer systems; loaded dynamically).
+  if (api.get_extended_udp_table) {
     DWORD size = 0;
-    GetExtendedUdpTable(nullptr, &size, FALSE, AF_INET6, UDP_TABLE_OWNER_PID, 0);
+    api.get_extended_udp_table(NULL, &size, FALSE, AF_INET6, UDP_TABLE_OWNER_PID, 0);
     std::vector<char> buf(size);
-    if (size && GetExtendedUdpTable(buf.data(), &size, FALSE, AF_INET6, UDP_TABLE_OWNER_PID, 0) == NO_ERROR) {
-      auto *table = reinterpret_cast<MIB_UDP6TABLE_OWNER_PID *>(buf.data());
+    if (size && api.get_extended_udp_table(buf.data(), &size, FALSE, AF_INET6, UDP_TABLE_OWNER_PID, 0) == NO_ERROR) {
+      auto *table = reinterpret_cast<udp6_table_owner_pid_compat *>(buf.data());
       udp6 = table->dwNumEntries;
     }
   }
@@ -330,7 +363,11 @@ void check_connections(const PB::Commands::QueryRequestMessage::Request &request
   filter f;
   filter_helper.add_options("", "", "protocol = 'total'", f.get_filter_syntax(), "ignored");
   filter_helper.add_syntax("${status}: ${list}", "${protocol}/${state}: ${count}", "${protocol}_${state}", "No connection data",
-                           "%(status): connections ok");
+                           "%(status): %(list)");
+  // Emit useful default performance data for the 'total' bucket so the check
+  // graphs out of the box even without warn/crit thresholds.
+  filter_helper.set_default_perf_config(
+      "extra(total;established;listen;syn_sent;syn_recv;time_wait;close_wait;closing;fin_wait;last_ack;udp)");
 
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(f)) return;

@@ -19,6 +19,8 @@
 
 #include "check_dns.h"
 
+#include "check_net_error.hpp"
+
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
@@ -93,7 +95,7 @@ void run_dns_check(const std::string &host, int timeout_ms, const std::vector<st
 
     io_service.run();
   } catch (const std::exception &e) {
-    out.result = std::string("error: ") + e.what();
+    out.result = std::string("error: ") + check_net::format_exception_message(e);
     return;
   }
 
@@ -148,7 +150,7 @@ void check_dns(const PB::Commands::QueryRequestMessage::Request &request, PB::Co
   filter f;
   filter_helper.add_options("time > 1000", "result != 'ok'", "", f.get_filter_syntax(), "ignored");
   filter_helper.add_syntax("${status}: ${problem_list}", "${host} -> ${addresses} (${count}) in ${time}ms [${result}]", "${host}", "No DNS lookup performed",
-                           "%(status): DNS lookup ok");
+                           "%(status): %(list)");
   // clang-format off
   filter_helper.get_desc().add_options()
     ("host", po::value<std::string>(&host), "Hostname to look up.")

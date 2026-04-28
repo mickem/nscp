@@ -15,6 +15,7 @@ set(SRCS
     check_http.cpp
     check_connections.cpp
     check_ntp_offset.cpp
+    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
 )
@@ -43,7 +44,9 @@ target_link_libraries(
     ${TARGET}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_REGEX_LIBRARY}
+    ${Boost_CHRONO_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}
     ${NSCP_FILTER_LIB}
