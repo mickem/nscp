@@ -19,10 +19,45 @@
 
 #pragma once
 
+#include <cctype>
 #include <string>
 #include <vector>
 
 namespace http {
+
+namespace detail {
+
+/// Decode a percent-encoded URI component (e.g. "p%40ss" → "p@ss").
+/// Invalid or truncated escapes are passed through verbatim.
+inline std::string percent_decode(const std::string& s) {
+  std::string out;
+  out.reserve(s.size());
+  for (std::size_t i = 0; i < s.size(); ++i) {
+    if (s[i] == '%' && i + 2 < s.size() && std::isxdigit(static_cast<unsigned char>(s[i + 1])) && std::isxdigit(static_cast<unsigned char>(s[i + 2]))) {
+      const auto hex_val = [](char c) -> int {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
+        if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
+        return 0;
+      };
+      out += static_cast<char>((hex_val(s[i + 1]) << 4) | hex_val(s[i + 2]));
+      i += 2;
+    } else {
+      out += s[i];
+    }
+  }
+  return out;
+}
+
+/// ASCII lower-case (locale-independent).
+inline std::string ascii_tolower(const std::string& s) {
+  std::string out;
+  out.reserve(s.size());
+  for (char c : s) out += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  return out;
+}
+
+}  // namespace detail
 
 enum class proxy_type { NONE, HTTP, SOCKS5 };
 
@@ -71,10 +106,10 @@ inline proxy_config parse_proxy_url(const std::string& url) {
     rest = rest.substr(at_pos + 1);
     const auto colon = creds.find(':');
     if (colon != std::string::npos) {
-      cfg.username = creds.substr(0, colon);
-      cfg.password = creds.substr(colon + 1);
+      cfg.username = detail::percent_decode(creds.substr(0, colon));
+      cfg.password = detail::percent_decode(creds.substr(colon + 1));
     } else {
-      cfg.username = creds;
+      cfg.username = detail::percent_decode(creds);
     }
   }
 
@@ -100,24 +135,25 @@ inline proxy_config parse_proxy_url(const std::string& url) {
 /// Pattern rules:
 ///   "*"        — bypass all hosts.
 ///   ".suffix"  — suffix match; ".corp" matches "foo.corp" and "corp".
-///   otherwise  — exact case-insensitive match.
+///   otherwise  — exact match.
 ///
-/// Note: CIDR subnet notation is not currently supported.
+/// Hostname comparison is ASCII case-insensitive (DNS names are case-insensitive
+/// per RFC 1035 §2.3.3).  CIDR subnet notation is not currently supported.
 inline bool should_bypass(const std::string& target_host, const std::vector<std::string>& no_proxy_list) {
+  const std::string target_lc = detail::ascii_tolower(target_host);
   for (const auto& pattern : no_proxy_list) {
     if (pattern.empty()) continue;
 
     if (pattern == "*") return true;
 
-    if (pattern[0] == '.') {
+    const std::string pattern_lc = detail::ascii_tolower(pattern);
+    if (pattern_lc[0] == '.') {
       // suffix match: ".corp" matches "foo.corp" and "corp" itself
-      const std::string& suffix = pattern;
-      if (target_host.size() >= suffix.size() && target_host.compare(target_host.size() - suffix.size(), suffix.size(), suffix) == 0) return true;
+      if (target_lc.size() >= pattern_lc.size() && target_lc.compare(target_lc.size() - pattern_lc.size(), pattern_lc.size(), pattern_lc) == 0) return true;
       // also match the domain without the leading dot
-      const std::string domain = suffix.substr(1);
-      if (target_host == domain) return true;
+      if (target_lc == pattern_lc.substr(1)) return true;
     } else {
-      if (target_host == pattern) return true;
+      if (target_lc == pattern_lc) return true;
     }
   }
   return false;
