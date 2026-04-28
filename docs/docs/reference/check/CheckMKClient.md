@@ -159,7 +159,6 @@ The channel to listen to.
 | Path:          | [/settings/check_mk/client](#/settings/check_mk/client) |
 | Key:           | channel                                                 |
 | Default value: | `CheckMK`                                               |
-| Used by:       | CheckMKClient                                           |
 
 
 **Sample:**

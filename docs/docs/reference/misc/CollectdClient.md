@@ -75,7 +75,6 @@ ${domain_uc}	Domainname in uppercase
 | Path:          | [/settings/collectd/client](#/settings/collectd/client) |
 | Key:           | hostname                                                |
 | Default value: | `auto`                                                  |
-| Used by:       | CollectdClient                                          |
 
 
 **Sample:**

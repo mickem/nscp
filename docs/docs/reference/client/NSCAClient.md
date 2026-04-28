@@ -197,7 +197,6 @@ The channel to listen to.
 | Path:          | [/settings/NSCA/client](#/settings/NSCA/client) |
 | Key:           | channel                                         |
 | Default value: | `NSCA`                                          |
-| Used by:       | NSCAClient                                      |
 
 
 **Sample:**
@@ -225,7 +224,6 @@ channel=NSCA
 | Key:           | encoding                                        |
 | Advanced:      | Yes (means it is not commonly used)             |
 | Default value: | _N/A_                                           |
-| Used by:       | NSCAClient                                      |
 
 
 **Sample:**
@@ -262,7 +260,6 @@ ${domain_uc}	Domainname in uppercase
 | Path:          | [/settings/NSCA/client](#/settings/NSCA/client) |
 | Key:           | hostname                                        |
 | Default value: | `auto`                                          |
-| Used by:       | NSCAClient                                      |
 
 
 **Sample:**

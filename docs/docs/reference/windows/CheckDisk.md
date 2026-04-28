@@ -969,7 +969,6 @@ A comma separated list of checks to disable in the collector: disk_io, disk_free
 | Key:           | disable                             |
 | Advanced:      | Yes (means it is not commonly used) |
 | Default value: | _N/A_                               |
-| Used by:       | CheckDisk                           |
 
 
 **Sample:**

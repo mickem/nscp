@@ -161,7 +161,6 @@ The channel to listen to.
 | Path:          | [/settings/syslog/client](#/settings/syslog/client) |
 | Key:           | channel                                             |
 | Default value: | `syslog`                                            |
-| Used by:       | SyslogClient                                        |
 
 
 **Sample:**
@@ -198,7 +197,6 @@ ${domain_uc}	Domainname in uppercase
 | Path:          | [/settings/syslog/client](#/settings/syslog/client) |
 | Key:           | hostname                                            |
 | Default value: | `auto`                                              |
-| Used by:       | SyslogClient                                        |
 
 
 **Sample:**

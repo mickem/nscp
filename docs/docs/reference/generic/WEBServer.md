@@ -75,12 +75,11 @@ A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | allowed hosts                                                    |
-| Default value: | `127.0.0.1`                                                      |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | allowed hosts                           |
+| Default value: | `127.0.0.1`                             |
 
 
 **Sample:**
@@ -102,12 +101,11 @@ Allows you to bind server to a specific local address. This has to be a dotted i
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | bind to                                                          |
-| Default value: | _N/A_                                                            |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | bind to                                 |
+| Default value: | _N/A_                                   |
 
 
 **Sample:**
@@ -128,12 +126,11 @@ If host names (DNS entries) should be cached, improves speed and security somewh
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | cache allowed hosts                                              |
-| Default value: | `true`                                                           |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | cache allowed hosts                     |
+| Default value: | `true`                                  |
 
 
 **Sample:**
@@ -155,13 +152,12 @@ cache allowed hosts=true
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | encoding                                                         |
-| Advanced:      | Yes (means it is not commonly used)                              |
-| Default value: | _N/A_                                                            |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | encoding                                |
+| Advanced:      | Yes (means it is not commonly used)     |
+| Default value: | _N/A_                                   |
 
 
 **Sample:**
@@ -182,12 +178,11 @@ The default channel to post incoming messages on
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | inbox                                                            |
-| Default value: | `inbox`                                                          |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | inbox                                   |
+| Default value: | `inbox`                                 |
 
 
 **Sample:**
@@ -209,12 +204,11 @@ Password used to authenticate against server
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | password                                                         |
-| Default value: | _N/A_                                                            |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | password                                |
+| Default value: | _N/A_                                   |
 
 
 **Sample:**
@@ -235,13 +229,12 @@ Number of sockets to queue before starting to refuse new incoming connections. T
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | socket queue size                                                |
-| Advanced:      | Yes (means it is not commonly used)                              |
-| Default value: | `0`                                                              |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | socket queue size                       |
+| Advanced:      | Yes (means it is not commonly used)     |
+| Default value: | `0`                                     |
 
 
 **Sample:**
@@ -262,13 +255,12 @@ socket queue size=0
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | thread pool                                                      |
-| Advanced:      | Yes (means it is not commonly used)                              |
-| Default value: | `10`                                                             |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | thread pool                             |
+| Advanced:      | Yes (means it is not commonly used)     |
+| Default value: | `10`                                    |
 
 
 **Sample:**
@@ -289,12 +281,11 @@ Timeout (in seconds) when reading packets on incoming sockets. If the data has n
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | timeout                                                          |
-| Default value: | `30`                                                             |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | timeout                                 |
+| Default value: | `30`                                    |
 
 
 **Sample:**
@@ -353,7 +344,6 @@ A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
 | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
 | Key:           | allowed hosts                                 |
 | Default value: | `127.0.0.1`                                   |
-| Used by:       | WEBServer                                     |
 
 
 **Sample:**
@@ -379,7 +369,6 @@ If host names (DNS entries) should be cached, improves speed and security somewh
 | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
 | Key:           | cache allowed hosts                           |
 | Default value: | `true`                                        |
-| Used by:       | WEBServer                                     |
 
 
 **Sample:**
@@ -405,7 +394,6 @@ Ssl certificate to use for the ssl server
 | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
 | Key:           | certificate                                   |
 | Default value: | `${certificate-path}/certificate.pem`         |
-| Used by:       | WEBServer                                     |
 
 
 **Sample:**
@@ -432,7 +420,6 @@ The private key for the certificate if not in the same file
 | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
 | Key:           | certificate key                               |
 | Default value: | _N/A_                                         |
-| Used by:       | WEBServer                                     |
 
 
 **Sample:**
@@ -459,7 +446,6 @@ Password used to authenticate against server
 | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
 | Key:           | password                                      |
 | Default value: | _N/A_                                         |
-| Used by:       | WEBServer                                     |
 
 
 **Sample:**
@@ -485,7 +471,6 @@ Port to use for WEB server.
 | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
 | Key:           | port                                          |
 | Default value: | `8443`                                        |
-| Used by:       | WEBServer                                     |
 
 
 **Sample:**
@@ -511,7 +496,6 @@ The number of threads in the sever response pool.
 | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
 | Key:           | threads                                       |
 | Default value: | `10`                                          |
-| Used by:       | WEBServer                                     |
 
 
 **Sample:**
@@ -564,7 +548,6 @@ Enable logging of debug messages from the web server.
 | Path:          | [/settings/WEB/server/log](#/settings/WEB/server/log) |
 | Key:           | debug                                                 |
 | Default value: | `false`                                               |
-| Used by:       | WEBServer                                             |
 
 
 **Sample:**
@@ -590,7 +573,6 @@ Enable logging of errors from the web server.
 | Path:          | [/settings/WEB/server/log](#/settings/WEB/server/log) |
 | Key:           | error                                                 |
 | Default value: | `true`                                                |
-| Used by:       | WEBServer                                             |
 
 
 **Sample:**
@@ -616,7 +598,6 @@ Enable logging of info messages from the web server.
 | Path:          | [/settings/WEB/server/log](#/settings/WEB/server/log) |
 | Key:           | info                                                  |
 | Default value: | `false`                                               |
-| Used by:       | WEBServer                                             |
 
 
 **Sample:**
@@ -671,7 +652,6 @@ Default role for read only
 | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)                                          |
 | Key:           | client                                                                                             |
 | Default value: | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list` |
-| Used by:       | WEBServer                                                                                          |
 
 
 **Sample:**
@@ -697,7 +677,6 @@ Default role for Full access
 | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles) |
 | Key:           | full                                                      |
 | Default value: | `*`                                                       |
-| Used by:       | WEBServer                                                 |
 
 
 **Sample:**
@@ -723,7 +702,6 @@ Default role for legacy API
 | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles) |
 | Key:           | legacy                                                    |
 | Default value: | `legacy,login.get`                                        |
-| Used by:       | WEBServer                                                 |
 
 
 **Sample:**
@@ -749,7 +727,6 @@ Default role for Full access
 | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles) |
 | Key:           | view                                                      |
 | Default value: | `*`                                                       |
-| Used by:       | WEBServer                                                 |
 
 
 **Sample:**

@@ -190,7 +190,6 @@ This option determines whether or not the we will allow clients to specify argum
 | Path:          | [/settings/external scripts](#/settings/external scripts) |
 | Key:           | allow arguments                                           |
 | Default value: | `false`                                                   |
-| Used by:       | CheckExternalScripts                                      |
 
 
 **Sample:**
@@ -216,7 +215,6 @@ This option determines whether or not the we will allow clients to specify nasty
 | Path:          | [/settings/external scripts](#/settings/external scripts) |
 | Key:           | allow nasty characters                                    |
 | Default value: | `false`                                                   |
-| Used by:       | CheckExternalScripts                                      |
 
 
 **Sample:**
@@ -242,7 +240,6 @@ Kill all child processes (notice this might accidentally kill other processes if
 | Path:          | [/settings/external scripts](#/settings/external scripts) |
 | Key:           | kill tree                                                 |
 | Default value: | `false`                                                   |
-| Used by:       | CheckExternalScripts                                      |
 
 
 **Sample:**
@@ -269,7 +266,6 @@ Load all scripts in a given directory and use them as commands.
 | Path:          | [/settings/external scripts](#/settings/external scripts) |
 | Key:           | script path                                               |
 | Default value: | _N/A_                                                     |
-| Used by:       | CheckExternalScripts                                      |
 
 
 **Sample:**
@@ -295,7 +291,6 @@ Root path where all scripts are contained (You can not upload/download scripts o
 | Path:          | [/settings/external scripts](#/settings/external scripts) |
 | Key:           | script root                                               |
 | Default value: | `${scripts}`                                              |
-| Used by:       | CheckExternalScripts                                      |
 
 
 **Sample:**
@@ -321,7 +316,6 @@ The maximum time in seconds that a command can execute. (if more then this execu
 | Path:          | [/settings/external scripts](#/settings/external scripts) |
 | Key:           | timeout                                                   |
 | Default value: | `60`                                                      |
-| Used by:       | CheckExternalScripts                                      |
 
 
 **Sample:**

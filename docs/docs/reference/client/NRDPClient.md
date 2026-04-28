@@ -165,7 +165,6 @@ The channel to listen to.
 | Path:          | [/settings/NRDP/client](#/settings/NRDP/client) |
 | Key:           | channel                                         |
 | Default value: | `NRDP`                                          |
-| Used by:       | NRDPClient                                      |
 
 
 **Sample:**
@@ -202,7 +201,6 @@ ${domain_uc}	Domainname in uppercase
 | Path:          | [/settings/NRDP/client](#/settings/NRDP/client) |
 | Key:           | hostname                                        |
 | Default value: | `auto`                                          |
-| Used by:       | NRDPClient                                      |
 
 
 **Sample:**

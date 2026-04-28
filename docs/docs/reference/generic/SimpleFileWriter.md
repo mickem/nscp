@@ -71,7 +71,6 @@ The channel to listen to.
 | Path:          | [/settings/writers/file](#/settings/writers/file) |
 | Key:           | channel                                           |
 | Default value: | `FILE`                                            |
-| Used by:       | SimpleFileWriter                                  |
 
 
 **Sample:**
@@ -97,7 +96,6 @@ The filename to write output to.
 | Path:          | [/settings/writers/file](#/settings/writers/file) |
 | Key:           | file                                              |
 | Default value: | `output.txt`                                      |
-| Used by:       | SimpleFileWriter                                  |
 
 
 **Sample:**
@@ -125,7 +123,6 @@ Can be any arbitrary string as well as include any of the following special keyw
 | Path:          | [/settings/writers/file](#/settings/writers/file) |
 | Key:           | host-syntax                                       |
 | Default value: | _N/A_                                             |
-| Used by:       | SimpleFileWriter                                  |
 
 
 **Sample:**
@@ -153,7 +150,6 @@ Can be any arbitrary string as well as include any of the following special keyw
 | Path:          | [/settings/writers/file](#/settings/writers/file) |
 | Key:           | service-syntax                                    |
 | Default value: | _N/A_                                             |
-| Used by:       | SimpleFileWriter                                  |
 
 
 **Sample:**
@@ -180,7 +176,6 @@ Can be any arbitrary string as well as include any of the following special keyw
 | Path:          | [/settings/writers/file](#/settings/writers/file) |
 | Key:           | syntax                                            |
 | Default value: | `${alias-or-command} ${result} ${message}`        |
-| Used by:       | SimpleFileWriter                                  |
 
 
 **Sample:**
@@ -206,7 +201,6 @@ The date format using strftime format flags. This is the time of writing the mes
 | Path:          | [/settings/writers/file](#/settings/writers/file) |
 | Key:           | time-syntax                                       |
 | Default value: | `%Y-%m-%d %H:%M:%S`                               |
-| Used by:       | SimpleFileWriter                                  |
 
 
 **Sample:**

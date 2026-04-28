@@ -34,10 +34,9 @@ PythonScript = enabled
 
 
 
-| Key                           | Default Value    | Description  |
-|-------------------------------|------------------|--------------|
-| [python cache](#python-cache) |                  | Python cache |
-| [python lib](#python-lib)     | libpython3.12.so | Python lib   |
+| Key                           | Default Value | Description  |
+|-------------------------------|---------------|--------------|
+| [python cache](#python-cache) |               | Python cache |
 
 
 

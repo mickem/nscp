@@ -139,7 +139,6 @@ Number of threads to use.
 | Path:          | [/settings/scheduler](#/settings/scheduler) |
 | Key:           | threads                                     |
 | Default value: | `5`                                         |
-| Used by:       | Scheduler                                   |
 
 
 **Sample:**
