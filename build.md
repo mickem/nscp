@@ -75,11 +75,11 @@ curl -L https://archives.boost.io/release/%BOOST_VERSION%/source/boost_%BOOST_VE
 xcopy boost_%BOOST_VERSION_% boost_%BOOST_VERSION_%_static /E /I
 
 cd %BUILD_FOLDER%\boost_%BOOST_VERSION_%
-call bootstrap.bat
+call bootstrap.bat vc141
 b2.exe --layout=system address-model=64 toolset=msvc-14.1 variant=release link=shared runtime-link=shared warnings=off -d0 --with-system --with-filesystem --with-thread --with-regex --with-date_time --with-program_options --with-python --with-chrono --with-json --with-container
 
 cd %BUILD_FOLDER%\boost_%BOOST_VERSION_%_static
-call bootstrap.bat
+call bootstrap.bat vc141
 b2.exe --layout=system address-model=64 toolset=msvc-14.1 variant=release link=static runtime-link=static warnings=off define=BOOST_NO_CXX17_HDR_SHARED_MUTEX -d0 --with-system --with-filesystem
 ```
 
@@ -117,8 +117,10 @@ cd %BUILD_FOLDER%\CRYPTOPP_%CRYPTOPP_VERSION_%
 7z x ..\cryptopp.zip
 
 python %SOURCE_ROOT%/build/python/msdev-to-dynamic.py cryptlib.vcxproj
-msbuild cryptlib.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v141_xp
-msbuild cryptdll.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v141_xp
+msbuild cryptlib.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v141
+msbuild cryptdll.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v141
+msbuild cryptlib.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:PlatformToolset=v141
+msbuild cryptdll.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:PlatformToolset=v141
 ```
 
 #### Download Lua
@@ -180,7 +182,7 @@ del miniz.zip
 cd %BUILD_FOLDER%
 mkdir installer_lib
 cd installer_lib 
-cmake %SOURCE_ROOT%/installer_lib -T v141_xp -G "Visual Studio 17" -A x64 -DBOOST_ROOT=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static -DBOOST_LIBRARYDIR=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static/stage/lib -DOPENSSL_ROOT_DIR=%BUILD_FOLDER%\openssl-%OPENSSL_VERSION% -DBUILD_VERSION=%NSCP_VERSION% 
+cmake %SOURCE_ROOT%/installer_lib -T v141 -G "Visual Studio 18" -A x64 -DBOOST_ROOT=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static -DBOOST_LIBRARYDIR=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static/stage/lib -DOPENSSL_ROOT_DIR=%BUILD_FOLDER%\openssl-%OPENSSL_VERSION% -DBUILD_VERSION=%NSCP_VERSION% 
 msbuild installer_lib.sln /p:Configuration=Release /p:Platform=x64
 ```
 
