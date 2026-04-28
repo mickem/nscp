@@ -283,7 +283,6 @@ Spawns a background thread which waits for file changes.
 | Path:          | [/settings/logfile/real-time](#/settings/logfile/real-time) |
 | Key:           | enabled                                                     |
 | Default value: | `false`                                                     |
-| Used by:       | CheckLogFile                                                |
 
 
 **Sample:**

@@ -253,7 +253,6 @@ This is a section of objects. This means that you will create objects below this
 {% if key.info.sample -%}
 {% do table.append(['Sample key:', 'Yes (This section is only to show how this key is used)']) -%}
 {%- endif %}
-{% do table.append(['Used by:', ', '.join(path.info.plugin|sort)]) -%}
 {{table|rst_table('Key', 'Description')}}
 
 **Sample:**
@@ -545,8 +544,11 @@ def calculate_common_head(strlist):
     return getcommonletters(strlist)
 
 def render_template(hash, template, filename):
-    data = template.render(hash).encode('utf8')
-    
+    rendered = template.render(hash)
+    # Normalize line endings to Unix (LF) for consistent output across platforms
+    rendered = rendered.replace('\r\n', '\n')
+    data = rendered.encode('utf8')
+
     path = os.path.dirname(filename)
     if not os.path.exists(path):
         os.makedirs(path)

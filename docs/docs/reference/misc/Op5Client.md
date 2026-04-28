@@ -77,7 +77,6 @@ The channel to listen to.
 | Path:          | [/settings/op5](#/settings/op5) |
 | Key:           | channel                         |
 | Default value: | `op5`                           |
-| Used by:       | Op5Client                       |
 
 
 **Sample:**
@@ -104,7 +103,6 @@ A coma separated list of contact groups to add to this host when registering it 
 | Path:          | [/settings/op5](#/settings/op5) |
 | Key:           | contactgroups                   |
 | Default value: | _N/A_                           |
-| Used by:       | Op5Client                       |
 
 
 **Sample:**
@@ -130,7 +128,6 @@ Set to false to disable default checks
 | Path:          | [/settings/op5](#/settings/op5) |
 | Key:           | default checks                  |
 | Default value: | `true`                          |
-| Used by:       | Op5Client                       |
 
 
 **Sample:**
@@ -157,7 +154,6 @@ A coma separated list of host groups to add to this host when registering it in 
 | Path:          | [/settings/op5](#/settings/op5) |
 | Key:           | hostgroups                      |
 | Default value: | _N/A_                           |
-| Used by:       | Op5Client                       |
 
 
 **Sample:**
@@ -194,7 +190,6 @@ ${domain_uc}	Domainname in uppercase
 | Path:          | [/settings/op5](#/settings/op5) |
 | Key:           | hostname                        |
 | Default value: | `auto`                          |
-| Used by:       | Op5Client                       |
 
 
 **Sample:**
@@ -220,7 +215,6 @@ How often to submit passive check results you can use an optional suffix to deno
 | Path:          | [/settings/op5](#/settings/op5) |
 | Key:           | interval                        |
 | Default value: | `5m`                            |
-| Used by:       | Op5Client                       |
 
 
 **Sample:**
@@ -247,7 +241,6 @@ The password for the user to authenticate as
 | Path:          | [/settings/op5](#/settings/op5) |
 | Key:           | password                        |
 | Default value: | _N/A_                           |
-| Used by:       | Op5Client                       |
 
 
 **Sample:**
@@ -273,7 +266,6 @@ If we should remove all checks when NSClient++ shuts down (for truly elastic sce
 | Path:          | [/settings/op5](#/settings/op5) |
 | Key:           | remove                          |
 | Default value: | `false`                         |
-| Used by:       | Op5Client                       |
 
 
 **Sample:**
@@ -300,7 +292,6 @@ The op5 base url i.e. the url of the Op5 monitor REST API for instance https://m
 | Path:          | [/settings/op5](#/settings/op5) |
 | Key:           | server                          |
 | Default value: | _N/A_                           |
-| Used by:       | Op5Client                       |
 
 
 **Sample:**
@@ -327,7 +318,6 @@ The user to authenticate as
 | Path:          | [/settings/op5](#/settings/op5) |
 | Key:           | user                            |
 | Default value: | _N/A_                           |
-| Used by:       | Op5Client                       |
 
 
 **Sample:**

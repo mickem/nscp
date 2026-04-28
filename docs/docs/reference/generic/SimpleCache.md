@@ -175,7 +175,6 @@ The channel to listen to.
 | Path:          | [/settings/cache](#/settings/cache) |
 | Key:           | channel                             |
 | Default value: | `CACHE`                             |
-| Used by:       | SimpleCache                         |
 
 
 **Sample:**
@@ -202,7 +201,6 @@ Can be any arbitrary string as well as include any of the following special keyw
 | Path:          | [/settings/cache](#/settings/cache) |
 | Key:           | primary index                       |
 | Default value: | `${alias-or-command}`               |
-| Used by:       | SimpleCache                         |
 
 
 **Sample:**

@@ -145,7 +145,6 @@ The channel to listen to.
 | Path:          | [/settings/graphite/client](#/settings/graphite/client) |
 | Key:           | channel                                                 |
 | Default value: | `GRAPHITE`                                              |
-| Used by:       | GraphiteClient                                          |
 
 
 **Sample:**
@@ -182,7 +181,6 @@ ${domain_uc}	Domainname in uppercase
 | Path:          | [/settings/graphite/client](#/settings/graphite/client) |
 | Key:           | hostname                                                |
 | Default value: | `auto`                                                  |
-| Used by:       | GraphiteClient                                          |
 
 
 **Sample:**

@@ -429,7 +429,6 @@ The channel to listen to.
 | Path:          | [/settings/NSCP/client](#/settings/NSCP/client) |
 | Key:           | channel                                         |
 | Default value: | `NSCP`                                          |
-| Used by:       | NSCPClient                                      |
 
 
 **Sample:**

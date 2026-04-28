@@ -72,12 +72,11 @@ A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | allowed hosts                                                    |
-| Default value: | `127.0.0.1`                                                      |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | allowed hosts                           |
+| Default value: | `127.0.0.1`                             |
 
 
 **Sample:**
@@ -99,12 +98,11 @@ Allows you to bind server to a specific local address. This has to be a dotted i
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | bind to                                                          |
-| Default value: | _N/A_                                                            |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | bind to                                 |
+| Default value: | _N/A_                                   |
 
 
 **Sample:**
@@ -125,12 +123,11 @@ If host names (DNS entries) should be cached, improves speed and security somewh
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | cache allowed hosts                                              |
-| Default value: | `true`                                                           |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | cache allowed hosts                     |
+| Default value: | `true`                                  |
 
 
 **Sample:**
@@ -152,13 +149,12 @@ cache allowed hosts=true
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | encoding                                                         |
-| Advanced:      | Yes (means it is not commonly used)                              |
-| Default value: | _N/A_                                                            |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | encoding                                |
+| Advanced:      | Yes (means it is not commonly used)     |
+| Default value: | _N/A_                                   |
 
 
 **Sample:**
@@ -179,12 +175,11 @@ The default channel to post incoming messages on
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | inbox                                                            |
-| Default value: | `inbox`                                                          |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | inbox                                   |
+| Default value: | `inbox`                                 |
 
 
 **Sample:**
@@ -206,12 +201,11 @@ Password used to authenticate against server
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | password                                                         |
-| Default value: | _N/A_                                                            |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | password                                |
+| Default value: | _N/A_                                   |
 
 
 **Sample:**
@@ -232,13 +226,12 @@ Number of sockets to queue before starting to refuse new incoming connections. T
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | socket queue size                                                |
-| Advanced:      | Yes (means it is not commonly used)                              |
-| Default value: | `0`                                                              |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | socket queue size                       |
+| Advanced:      | Yes (means it is not commonly used)     |
+| Default value: | `0`                                     |
 
 
 **Sample:**
@@ -259,13 +252,12 @@ socket queue size=0
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | thread pool                                                      |
-| Advanced:      | Yes (means it is not commonly used)                              |
-| Default value: | `10`                                                             |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | thread pool                             |
+| Advanced:      | Yes (means it is not commonly used)     |
+| Default value: | `10`                                    |
 
 
 **Sample:**
@@ -286,12 +278,11 @@ Timeout (in seconds) when reading packets on incoming sockets. If the data has n
 
 
 
-| Key            | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| Path:          | [/settings/default](#/settings/default)                          |
-| Key:           | timeout                                                          |
-| Default value: | `30`                                                             |
-| Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | timeout                                 |
+| Default value: | `30`                                    |
 
 
 **Sample:**
@@ -375,7 +366,6 @@ The default here will differ is used in "insecure" mode or not. check_nrpe uses 
 | Key:           | allowed ciphers                                         |
 | Advanced:      | Yes (means it is not commonly used)                     |
 | Default value: | `ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH`                     |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -401,7 +391,6 @@ A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
 | Path:          | [/settings/NSClient/server](#/settings/NSClient/server) |
 | Key:           | allowed hosts                                           |
 | Default value: | `127.0.0.1`                                             |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -428,7 +417,6 @@ Allows you to bind server to a specific local address. This has to be a dotted i
 | Path:          | [/settings/NSClient/server](#/settings/NSClient/server) |
 | Key:           | bind to                                                 |
 | Default value: | _N/A_                                                   |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -455,7 +443,6 @@ bind to=
 | Key:           | ca                                                      |
 | Advanced:      | Yes (means it is not commonly used)                     |
 | Default value: | `${certificate-path}/ca.pem`                            |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -481,7 +468,6 @@ If host names (DNS entries) should be cached, improves speed and security somewh
 | Path:          | [/settings/NSClient/server](#/settings/NSClient/server) |
 | Key:           | cache allowed hosts                                     |
 | Default value: | `true`                                                  |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -508,7 +494,6 @@ cache allowed hosts=true
 | Key:           | certificate                                             |
 | Advanced:      | Yes (means it is not commonly used)                     |
 | Default value: | `${certificate-path}/certificate.pem`                   |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -535,7 +520,6 @@ certificate=${certificate-path}/certificate.pem
 | Key:           | certificate format                                      |
 | Advanced:      | Yes (means it is not commonly used)                     |
 | Default value: | `PEM`                                                   |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -563,7 +547,6 @@ certificate format=PEM
 | Key:           | certificate key                                         |
 | Advanced:      | Yes (means it is not commonly used)                     |
 | Default value: | _N/A_                                                   |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -590,7 +573,6 @@ Set this to tru to output certificate verification errors, these are outputed to
 | Key:           | debug verify                                            |
 | Advanced:      | Yes (means it is not commonly used)                     |
 | Default value: | `false`                                                 |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -618,7 +600,6 @@ debug verify=false
 | Key:           | dh                                                      |
 | Advanced:      | Yes (means it is not commonly used)                     |
 | Default value: | _N/A_                                                   |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -645,7 +626,6 @@ Password used to authenticate against server
 | Path:          | [/settings/NSClient/server](#/settings/NSClient/server) |
 | Key:           | password                                                |
 | Default value: | _N/A_                                                   |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -671,7 +651,6 @@ Send performance data back to Nagios (set this to 0 to remove all performance da
 | Path:          | [/settings/NSClient/server](#/settings/NSClient/server) |
 | Key:           | performance data                                        |
 | Default value: | `true`                                                  |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -697,7 +676,6 @@ Port to use for check_nt.
 | Path:          | [/settings/NSClient/server](#/settings/NSClient/server) |
 | Key:           | port                                                    |
 | Default value: | `12489`                                                 |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -724,7 +702,6 @@ Number of sockets to queue before starting to refuse new incoming connections. T
 | Key:           | socket queue size                                       |
 | Advanced:      | Yes (means it is not commonly used)                     |
 | Default value: | `0`                                                     |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -764,7 +741,6 @@ single-dh-use	Always create a new key when using temporary/ephemeral DH paramete
 | Key:           | ssl options                                             |
 | Advanced:      | Yes (means it is not commonly used)                     |
 | Default value: | _N/A_                                                   |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -791,7 +767,6 @@ ssl options=
 | Key:           | thread pool                                             |
 | Advanced:      | Yes (means it is not commonly used)                     |
 | Default value: | `10`                                                    |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -817,7 +792,6 @@ Timeout (in seconds) when reading packets on incoming sockets. If the data has n
 | Path:          | [/settings/NSClient/server](#/settings/NSClient/server) |
 | Key:           | timeout                                                 |
 | Default value: | `30`                                                    |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -844,7 +818,6 @@ Valid options are tlsv1.3, tlsv1.2, tlsv1.1, tlsv1.0, sslv3 as well as tlsv1.3+,
 | Key:           | tls version                                             |
 | Advanced:      | Yes (means it is not commonly used)                     |
 | Default value: | `tlsv1.2+`                                              |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -870,7 +843,6 @@ This option controls if SSL should be enabled.
 | Path:          | [/settings/NSClient/server](#/settings/NSClient/server) |
 | Key:           | use ssl                                                 |
 | Default value: | `false`                                                 |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**
@@ -908,7 +880,6 @@ client-once	Only request a client certificate on the initial TLS/SSL handshake. 
 | Key:           | verify mode                                             |
 | Advanced:      | Yes (means it is not commonly used)                     |
 | Default value: | `none`                                                  |
-| Used by:       | NSClientServer                                          |
 
 
 **Sample:**

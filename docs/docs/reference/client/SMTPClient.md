@@ -151,7 +151,6 @@ The channel to listen to.
 | Path:          | [/settings/SMTP/client](#/settings/SMTP/client) |
 | Key:           | channel                                         |
 | Default value: | `SMTP`                                          |
-| Used by:       | SMTPClient                                      |
 
 
 **Sample:**

@@ -477,7 +477,6 @@ The channel to listen to.
 | Path:          | [/settings/NRPE/client](#/settings/NRPE/client) |
 | Key:           | channel                                         |
 | Default value: | `NRPE`                                          |
-| Used by:       | NRPEClient                                      |
 
 
 **Sample:**

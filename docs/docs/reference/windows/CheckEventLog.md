@@ -499,7 +499,6 @@ The size of the buffer to use when getting messages this affects the speed and m
 | Path:          | [/settings/eventlog](#/settings/eventlog) |
 | Key:           | buffer size                               |
 | Default value: | `131072`                                  |
-| Used by:       | CheckEventLog                             |
 
 
 **Sample:**
@@ -525,7 +524,6 @@ Log more information when filtering (useful to detect issues with filters) not u
 | Path:          | [/settings/eventlog](#/settings/eventlog) |
 | Key:           | debug                                     |
 | Default value: | `false`                                   |
-| Used by:       | CheckEventLog                             |
 
 
 **Sample:**
@@ -551,7 +549,6 @@ Lookup the names of eventlog files
 | Path:          | [/settings/eventlog](#/settings/eventlog) |
 | Key:           | lookup names                              |
 | Default value: | `true`                                    |
-| Used by:       | CheckEventLog                             |
 
 
 **Sample:**
@@ -578,7 +575,6 @@ Set this to use a specific syntax string for all commands (that don't specify on
 | Path:          | [/settings/eventlog](#/settings/eventlog) |
 | Key:           | syntax                                    |
 | Default value: | _N/A_                                     |
-| Used by:       | CheckEventLog                             |
 
 
 **Sample:**
@@ -633,7 +629,6 @@ Log missed records (useful to detect issues with filters) not useful in producti
 | Path:          | [/settings/eventlog/real-time](#/settings/eventlog/real-time) |
 | Key:           | debug                                                         |
 | Default value: | `false`                                                       |
-| Used by:       | CheckEventLog                                                 |
 
 
 **Sample:**
@@ -659,7 +654,6 @@ Spawns a background thread which detects issues and reports them back instantly.
 | Path:          | [/settings/eventlog/real-time](#/settings/eventlog/real-time) |
 | Key:           | enabled                                                       |
 | Default value: | `false`                                                       |
-| Used by:       | CheckEventLog                                                 |
 
 
 **Sample:**
@@ -685,7 +679,6 @@ Comma separated list of logs to check
 | Path:          | [/settings/eventlog/real-time](#/settings/eventlog/real-time) |
 | Key:           | log                                                           |
 | Default value: | `application,system`                                          |
-| Used by:       | CheckEventLog                                                 |
 
 
 **Sample:**
@@ -711,7 +704,6 @@ The initial age to scan when starting NSClient++
 | Path:          | [/settings/eventlog/real-time](#/settings/eventlog/real-time) |
 | Key:           | startup age                                                   |
 | Default value: | `30m`                                                         |
-| Used by:       | CheckEventLog                                                 |
 
 
 **Sample:**

@@ -79,7 +79,6 @@ The address to send data to (http://127.0.0.1:9200/_bulk).
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | address                                               |
 | Default value: | _N/A_                                                 |
-| Used by:       | ElasticClient                                         |
 
 
 **Sample:**
@@ -105,7 +104,6 @@ The elastic index to use for events (log messages).
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | event index                                           |
 | Default value: | `nsclient_event-%(date)`                              |
-| Used by:       | ElasticClient                                         |
 
 
 **Sample:**
@@ -131,7 +129,6 @@ The elastic type to use for events (log messages).
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | event type                                            |
 | Default value: | `eventlog`                                            |
-| Used by:       | ElasticClient                                         |
 
 
 **Sample:**
@@ -157,7 +154,6 @@ The events to subscribe to such as eventlog:* or logfile:mylog.
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | events                                                |
 | Default value: | `eventlog:*,logfile:*`                                |
-| Used by:       | ElasticClient                                         |
 
 
 **Sample:**
@@ -194,7 +190,6 @@ ${domain_uc}	Domainname in uppercase
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | hostname                                              |
 | Default value: | `auto`                                                |
-| Used by:       | ElasticClient                                         |
 
 
 **Sample:**
@@ -220,7 +215,6 @@ The elastic index to use for metrics.
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | metrics index                                         |
 | Default value: | `nsclient_metrics-%(date)`                            |
-| Used by:       | ElasticClient                                         |
 
 
 **Sample:**
@@ -246,7 +240,6 @@ The elastic type to use for metrics.
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | metrics type                                          |
 | Default value: | `metrics`                                             |
-| Used by:       | ElasticClient                                         |
 
 
 **Sample:**
@@ -272,7 +265,6 @@ The elastic index to use for metrics.
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | nsclient log index                                    |
 | Default value: | `nsclient_log-%(date)`                                |
-| Used by:       | ElasticClient                                         |
 
 
 **Sample:**
@@ -298,7 +290,6 @@ The elastic type to use for metrics.
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | nsclient log type                                     |
 | Default value: | `nsclient log`                                        |
-| Used by:       | ElasticClient                                         |
 
 
 **Sample:**
