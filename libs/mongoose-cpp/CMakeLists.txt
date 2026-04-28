@@ -10,7 +10,6 @@ set(SOURCES
     Response.cpp
     Server.cpp
     ServerImpl.cpp
-    Client.cpp
     StreamResponse.cpp
     string_response.cpp
     ${NSCP_INCLUDEDIR}/threads/has-threads.cpp
@@ -27,7 +26,6 @@ if(WIN32)
         Response.h
         Server.h
         ServerImpl.h
-        Client.hpp
         StreamResponse.h
         RegexRequestHandler.h
         RequestHandler.h

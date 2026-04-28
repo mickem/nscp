@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <Response.h>
+#include <net/http/http_packet.hpp>
 
 #include <boost/atomic/atomic.hpp>
 #include <boost/shared_ptr.hpp>
@@ -75,7 +75,7 @@ class op5_client {
   void register_host(std::string host, std::string hostgroups, std::string contactgroups);
   void deregister_host(std::string host);
 
-  boost::shared_ptr<Mongoose::Response> do_call(const char *verb, const std::string url, const std::string payload);
+  http::response do_call(const char *verb, const std::string &url, const std::string &payload);
   void thread_proc();
   const nscapi::core_wrapper *get_core() const { return core_; }
   unsigned int get_id() const { return plugin_id_; }
