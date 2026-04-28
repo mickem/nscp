@@ -34,7 +34,6 @@
 #include <thread>
 #include <vector>
 
-#include "Client.hpp"
 #include "MatchController.h"
 #include "Request.h"
 #include "RequestHandler.h"
@@ -54,7 +53,6 @@
 #define MWT_GETPID getpid
 #endif
 
-using Mongoose::Client;
 using Mongoose::MatchController;
 using Mongoose::Request;
 using Mongoose::RequestHandlerBase;
@@ -313,47 +311,4 @@ TEST(ServerImpl, ReturnsHandlerStatusCode) {
   ASSERT_TRUE(resp.received);
   EXPECT_EQ(resp.status, 418);
   EXPECT_NE(resp.body.find("teapot"), std::string::npos);
-}
-
-// ---- Mongoose::Client tests ------------------------------------------------
-//
-// Note: Client::fetch performs a single mg_mgr_poll call which is generally
-// not enough to receive the response on a real connection. The tests below
-// document this behaviour: a non-listening host yields nullptr (correct), and
-// a live server may also yield nullptr (current limitation). These tests
-// therefore do NOT assert a successful round-trip via Client.
-
-TEST(Client, FetchAgainstNonListeningHostReturnsNull) {
-  const Client c("http://127.0.0.1:" + std::to_string(choose_port_base() + 999) + "/none");
-  const auto resp = c.fetch("GET", Client::header_type{}, "");
-  EXPECT_EQ(resp, nullptr);
-}
-
-TEST(Client, FetchAgainstLiveServerDoesNotCrash) {
-  // Smoke test: even though the round-trip rarely succeeds with a single
-  // poll, fetching against a live server must not crash or hang.
-  const int port = choose_port_base() + 5;
-  auto* controller = new MatchController();
-  controller->registerRoute("GET", "/x", new FixedHandler(200, "x"));
-  const ServerFixture fx;
-  fx.start(port, controller);
-
-  const Client c(bind_url(port) + "/x");
-  const auto resp = c.fetch("GET", Client::header_type{}, "");
-  // Either nullptr (single-poll race) or a valid Response — both acceptable.
-  if (resp != nullptr) {
-    EXPECT_EQ(resp->get_response_code(), 200);
-  }
-  fx.server->stop();
-}
-
-TEST(Client, FetchAcceptsHeadersAndPayloadWithoutCrashing) {
-  // Validates that header and payload arguments are handled without UB.
-  const Client c("http://127.0.0.1:" + std::to_string(choose_port_base() + 998));
-  const Client::header_type hdrs{
-      {"Content-Type", "application/json"},
-      {"X-Custom", "value"},
-  };
-  const auto resp = c.fetch("POST", hdrs, "{\"k\":\"v\"}");
-  EXPECT_EQ(resp, nullptr);  // nothing listening
 }

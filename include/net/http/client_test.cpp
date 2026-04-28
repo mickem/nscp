@@ -19,9 +19,59 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/asio.hpp>
 #include <net/http/client.hpp>
+#include <future>
+#include <thread>
 #include <sstream>
 #include <string>
+
+namespace {
+
+class loopback_http_server {
+ public:
+  explicit loopback_http_server(std::string response) : response_(std::move(response)), port_(0) {
+    std::promise<unsigned short> port_promise;
+    std::future<unsigned short> port_future = port_promise.get_future();
+    thread_ = std::thread([this, p = std::move(port_promise)]() mutable {
+      try {
+        boost::asio::io_context io;
+        boost::asio::ip::tcp::acceptor acceptor(io, {boost::asio::ip::tcp::v4(), 0});
+        p.set_value(acceptor.local_endpoint().port());
+
+        boost::asio::ip::tcp::socket socket(io);
+        acceptor.accept(socket);
+
+        boost::asio::streambuf request;
+        boost::asio::read_until(socket, request, "\r\n\r\n");
+        captured_request_.assign(std::istreambuf_iterator<char>(&request), std::istreambuf_iterator<char>());
+
+        boost::asio::write(socket, boost::asio::buffer(response_));
+      } catch (...) {
+        try {
+          p.set_exception(std::current_exception());
+        } catch (...) {
+        }
+      }
+    });
+    port_ = port_future.get();
+  }
+
+  ~loopback_http_server() {
+    if (thread_.joinable()) thread_.join();
+  }
+
+  unsigned short port() const { return port_; }
+  const std::string &captured_request() const { return captured_request_; }
+
+ private:
+  std::string response_;
+  unsigned short port_;
+  std::string captured_request_;
+  std::thread thread_;
+};
+
+}  // namespace
 
 // =============================================================================
 // http_client_options tests
@@ -427,3 +477,123 @@ TEST(socket_exception, copy_constructor) {
   const socket_helpers::socket_exception ex2(ex1);
   EXPECT_EQ(ex2.reason(), "original");
 }
+
+// =============================================================================
+// parse_url tests
+// =============================================================================
+
+TEST(parse_url, missing_scheme_returns_empty_result) {
+  const http::parsed_url parsed = http::parse_url("example.com/path");
+  EXPECT_TRUE(parsed.protocol.empty());
+  EXPECT_TRUE(parsed.host.empty());
+  EXPECT_TRUE(parsed.port.empty());
+  EXPECT_TRUE(parsed.path.empty());
+}
+
+TEST(parse_url, http_without_explicit_port_defaults_to_80) {
+  const http::parsed_url parsed = http::parse_url("http://example.com/path");
+  EXPECT_EQ(parsed.protocol, "http");
+  EXPECT_EQ(parsed.host, "example.com");
+  EXPECT_EQ(parsed.port, "80");
+  EXPECT_EQ(parsed.path, "/path");
+}
+
+TEST(parse_url, https_without_explicit_port_defaults_to_443) {
+  const http::parsed_url parsed = http::parse_url("https://example.com");
+  EXPECT_EQ(parsed.protocol, "https");
+  EXPECT_EQ(parsed.host, "example.com");
+  EXPECT_EQ(parsed.port, "443");
+  EXPECT_EQ(parsed.path, "/");
+}
+
+TEST(parse_url, explicit_port_is_preserved) {
+  const http::parsed_url parsed = http::parse_url("http://127.0.0.1:8080/api");
+  EXPECT_EQ(parsed.host, "127.0.0.1");
+  EXPECT_EQ(parsed.port, "8080");
+  EXPECT_EQ(parsed.path, "/api");
+}
+
+// =============================================================================
+// simple_client integration tests (loopback server)
+// =============================================================================
+
+TEST(simple_client, execute_reads_successful_response_and_body) {
+  loopback_http_server server("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nhello");
+  const http::http_client_options opts("http", "", "", "");
+  http::simple_client client(opts);
+  http::packet request("GET", "127.0.0.1", "/health");
+  std::ostringstream os;
+
+  const http::response resp = client.execute(os, "127.0.0.1", std::to_string(server.port()), request);
+
+  EXPECT_EQ(resp.status_code_, 200u);
+  EXPECT_NE(server.captured_request().find("GET /health HTTP/1.0"), std::string::npos);
+  EXPECT_EQ(os.str(), "hello");
+}
+
+TEST(simple_client, execute_throws_for_non_2xx_response) {
+  loopback_http_server server("HTTP/1.1 500 Internal Error\r\nContent-Type: text/plain\r\n\r\nfail");
+  const http::http_client_options opts("http", "", "", "");
+  http::simple_client client(opts);
+  http::packet request("GET", "127.0.0.1", "/boom");
+  std::ostringstream os;
+
+  EXPECT_THROW(client.execute(os, "127.0.0.1", std::to_string(server.port()), request), socket_helpers::socket_exception);
+}
+
+TEST(simple_client, fetch_returns_payload_for_non_2xx_response) {
+  loopback_http_server server("HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\nnot-found");
+  const http::http_client_options opts("http", "", "", "");
+  http::simple_client client(opts);
+  http::packet request("GET", "127.0.0.1", "/missing");
+
+  const http::response resp = client.fetch("127.0.0.1", std::to_string(server.port()), request);
+
+  EXPECT_EQ(resp.status_code_, 404u);
+  EXPECT_EQ(resp.payload_, "not-found");
+}
+
+TEST(simple_client, execute_throws_on_invalid_http_version) {
+  loopback_http_server server("INVALID 200 OK\r\nHeader: value\r\n\r\nbody");
+  const http::http_client_options opts("http", "", "", "");
+  http::simple_client client(opts);
+  http::packet request("GET", "127.0.0.1", "/invalid");
+  std::ostringstream os;
+
+  EXPECT_THROW(client.execute(os, "127.0.0.1", std::to_string(server.port()), request), socket_helpers::socket_exception);
+}
+
+TEST(simple_client, download_success_for_loopback_http_server) {
+  loopback_http_server server("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\ncontent");
+  std::ostringstream os;
+  std::string error_msg;
+
+  const bool ok = http::simple_client::download("http", "127.0.0.1", std::to_string(server.port()), "/file", "", "", "", os, error_msg);
+
+  EXPECT_TRUE(ok);
+  EXPECT_TRUE(error_msg.empty());
+  EXPECT_EQ(os.str(), "content");
+}
+
+// =============================================================================
+// http_packet parsing edge cases
+// =============================================================================
+
+TEST(http_packet, construct_from_raw_data_without_status_line_terminator_is_empty) {
+  const std::string raw = "HTTP/1.1 200";
+  const std::vector<char> data(raw.begin(), raw.end());
+  const http::packet p(data);
+  EXPECT_EQ(p.status_code_, 0);
+  EXPECT_TRUE(p.payload_.empty());
+}
+
+TEST(http_packet, parse_http_response_invalid_status_code_throws) {
+  http::packet p;
+  EXPECT_ANY_THROW(p.parse_http_response("HTTP/1.1 ABC"));
+}
+
+TEST(http_packet_helpers, find_header_break_matches_lf_cr) {
+  EXPECT_TRUE(http::find_header_break('\n', '\r'));
+  EXPECT_FALSE(http::find_header_break('\r', '\n'));
+}
+

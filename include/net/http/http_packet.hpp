@@ -20,6 +20,7 @@
 #pragma once
 
 #include <map>
+#include <vector>
 #include <str/xtos.hpp>
 #include <string>
 

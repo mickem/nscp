@@ -19,7 +19,6 @@
 
 #include "Op5Client.h"
 
-#include <Client.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/asio.hpp>
 #include <boost/json.hpp>
