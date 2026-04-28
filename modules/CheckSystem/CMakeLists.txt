@@ -160,7 +160,7 @@ NSCP_CREATE_TEST(
         nscp_protobuf
         ${NSCP_FILTER_LIB}
         expression_parser
-        plugin_api
+        ${PLUGIN_API_TARGET}
         winsys_info
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_THREAD_LIBRARY}
