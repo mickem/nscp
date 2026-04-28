@@ -122,11 +122,31 @@ TEST(parse_proxy_url, no_credentials_returns_empty_credentials_string) {
 }
 
 TEST(parse_proxy_url, password_with_at_symbol_handled_via_rfind) {
-  // password itself contains '@'; rfind should handle this correctly
+  // password contains percent-encoded '@'; rfind correctly splits at the
+  // last '@' (the credential/host separator), and percent-decoding then
+  // restores the literal '@' in the password.
   const http::proxy_config cfg = http::parse_proxy_url("http://user:p%40ss@proxy.corp:3128");
   EXPECT_EQ(cfg.username, "user");
-  EXPECT_EQ(cfg.password, "p%40ss");
+  EXPECT_EQ(cfg.password, "p@ss");
   EXPECT_EQ(cfg.host, "proxy.corp");
+}
+
+TEST(parse_proxy_url, percent_encoded_username) {
+  // RFC 3986 reserved chars in userinfo must be percent-encoded; we should decode them.
+  const http::proxy_config cfg = http::parse_proxy_url("http://us%3Aer:pw@proxy.corp:3128");
+  EXPECT_EQ(cfg.username, "us:er");
+  EXPECT_EQ(cfg.password, "pw");
+}
+
+TEST(parse_proxy_url, percent_encoded_password_lowercase_hex) {
+  const http::proxy_config cfg = http::parse_proxy_url("http://u:p%2bw@proxy.corp:3128");
+  EXPECT_EQ(cfg.password, "p+w");
+}
+
+TEST(parse_proxy_url, malformed_percent_sequence_passes_through) {
+  // Truncated/invalid percent sequences are kept verbatim rather than swallowed.
+  const http::proxy_config cfg = http::parse_proxy_url("http://u:bad%ZZenc@proxy.corp:3128");
+  EXPECT_EQ(cfg.password, "bad%ZZenc");
 }
 
 // =============================================================================
@@ -145,9 +165,16 @@ TEST(should_bypass, exact_match_bypasses) {
   EXPECT_TRUE(http::should_bypass("internal.corp", {"internal.corp"}));
 }
 
-TEST(should_bypass, exact_match_case_sensitive_no_bypass) {
-  // Exact comparison is case-sensitive per the implementation.
-  EXPECT_FALSE(http::should_bypass("Internal.Corp", {"internal.corp"}));
+TEST(should_bypass, exact_match_is_case_insensitive) {
+  // Hostnames are case-insensitive per RFC 1035 §2.3.3 — ensure bypass matches both cases.
+  EXPECT_TRUE(http::should_bypass("Internal.Corp", {"internal.corp"}));
+  EXPECT_TRUE(http::should_bypass("internal.corp", {"INTERNAL.CORP"}));
+  EXPECT_TRUE(http::should_bypass("MiXeD.CaSe", {"mixed.case"}));
+}
+
+TEST(should_bypass, dot_suffix_is_case_insensitive) {
+  EXPECT_TRUE(http::should_bypass("Server.CORP", {".corp"}));
+  EXPECT_TRUE(http::should_bypass("server.corp", {".CORP"}));
 }
 
 TEST(should_bypass, no_exact_match_does_not_bypass) {

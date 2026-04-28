@@ -39,7 +39,7 @@ using boost::asio::ip::tcp;
 namespace http {
 
 /// Minimal RFC 4648 base64 encoder used for Proxy-Authorization headers.
-static std::string base64_encode(const std::string& input) {
+inline std::string base64_encode(const std::string& input) {
   static const char chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   std::string result;
   result.reserve(((input.size() + 2) / 3) * 4);
@@ -229,12 +229,33 @@ struct ssl_socket final : generic_socket {
     response_stream >> http_version >> status_code;
     std::getline(response_stream, status_message);
 
-    if (status_code == 407) {
-      throw socket_helpers::socket_exception("Proxy authentication required (407) for " + proxy_.host + ":" + proxy_.port);
-    }
-    if (status_code < 200 || status_code >= 300) {
-      throw socket_helpers::socket_exception("Proxy CONNECT failed with status " + str::xtos(status_code) + ": " + status_message + " (proxy: " +
-                                             proxy_.host + ":" + proxy_.port + ")");
+    if (status_code == 407 || status_code < 200 || status_code >= 300) {
+      // Drain remaining headers + any body the proxy supplied so we can include
+      // a snippet in the exception message — a 407 body often explains *why*
+      // (realm, scheme, "user 'alice' is unknown", etc.).
+      boost::system::error_code drain_ec;
+      boost::asio::read_until(tcp_sock, response_buf, "\r\n\r\n", drain_ec);
+      // Best-effort read of remaining bytes (proxy typically closes after error).
+      while (!drain_ec) {
+        boost::asio::read(tcp_sock, response_buf, boost::asio::transfer_at_least(1), drain_ec);
+      }
+      std::string proxy_body((std::istreambuf_iterator<char>(&response_buf)), std::istreambuf_iterator<char>());
+      // Strip the headers section if present so the snippet is just the body.
+      const auto header_end = proxy_body.find("\r\n\r\n");
+      if (header_end != std::string::npos) proxy_body.erase(0, header_end + 4);
+      // Cap the snippet length to keep error messages readable.
+      static const std::size_t kMaxSnippet = 256;
+      if (proxy_body.size() > kMaxSnippet) proxy_body.resize(kMaxSnippet);
+
+      const std::string proxy_label = proxy_.host + ":" + proxy_.port;
+      if (status_code == 407) {
+        std::string msg = "Proxy authentication required (407) for " + proxy_label;
+        if (!proxy_body.empty()) msg += " — " + proxy_body;
+        throw socket_helpers::socket_exception(msg);
+      }
+      std::string msg = "Proxy CONNECT failed with status " + str::xtos(status_code) + ": " + status_message + " (proxy: " + proxy_label + ")";
+      if (!proxy_body.empty()) msg += " — " + proxy_body;
+      throw socket_helpers::socket_exception(msg);
     }
 
     // Drain remaining proxy response headers

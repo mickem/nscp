@@ -19,7 +19,10 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <boost/asio.hpp>
+#include <chrono>
+#include <net/http/client.hpp>
 #include <future>
 #include <net/http/client.hpp>
 #include <sstream>
@@ -590,6 +593,47 @@ TEST(make_proxy_request, build_request_contains_absolute_uri_in_request_line) {
   EXPECT_NE(built.find("GET http://target.corp:8080/api/v1 HTTP/1.0"), std::string::npos);
 }
 
+TEST(make_proxy_request, preserves_post_verb_and_payload) {
+  http::packet original("POST", "target.corp", "/submit");
+  original.add_post_payload("application/json", "{\"k\":\"v\"}");
+  http::proxy_config proxy;
+  proxy.type = http::proxy_type::HTTP;
+  proxy.host = "proxy.corp";
+  proxy.port = "3128";
+
+  const http::packet result = http::simple_client::make_proxy_request(original, "target.corp", "80", proxy);
+  EXPECT_EQ(result.verb_, "POST");
+  EXPECT_EQ(result.payload_, "{\"k\":\"v\"}");
+  EXPECT_EQ(result.headers_.find("Content-Type")->second, "application/json");
+  EXPECT_EQ(result.path_, "http://target.corp/submit");
+
+  std::ostringstream os;
+  result.build_request(os);
+  const std::string built = os.str();
+  EXPECT_NE(built.find("POST http://target.corp/submit HTTP/1.0"), std::string::npos);
+  EXPECT_NE(built.find("{\"k\":\"v\"}"), std::string::npos);
+}
+
+TEST(make_proxy_request, empty_path_produces_origin_only_uri) {
+  const http::packet original("GET", "target.corp", "");
+  http::proxy_config proxy;
+  proxy.type = http::proxy_type::HTTP;
+  proxy.host = "proxy.corp";
+  proxy.port = "3128";
+
+  const http::packet result = http::simple_client::make_proxy_request(original, "target.corp", "80", proxy);
+  EXPECT_EQ(result.path_, "http://target.corp");
+}
+
+TEST(make_proxy_request, custom_target_port_included_in_uri) {
+  const http::packet original("GET", "target.corp", "/x");
+  http::proxy_config proxy;
+  proxy.type = http::proxy_type::HTTP;
+
+  const http::packet result = http::simple_client::make_proxy_request(original, "target.corp", "8443", proxy);
+  EXPECT_EQ(result.path_, "http://target.corp:8443/x");
+}
+
 // =============================================================================
 // http_client_options — proxy field
 // =============================================================================
@@ -609,6 +653,195 @@ TEST(http_client_options, proxy_stored_when_provided) {
   EXPECT_EQ(opts.proxy_.type, http::proxy_type::HTTP);
   EXPECT_EQ(opts.proxy_.host, "proxy.corp");
   EXPECT_EQ(opts.proxy_.port, "3128");
+}
+
+// =============================================================================
+// In-process HTTP proxy integration tests
+//
+// These tests spin up a tiny boost::asio TCP server that impersonates an HTTP
+// proxy.  They exercise the full simple_client::execute() path for plain HTTP
+// (no TLS, since we have no test certificate infrastructure), verifying:
+//   - the request reaches the proxy address (not the target),
+//   - the request line uses absolute-URI form,
+//   - Proxy-Authorization is set when credentials are configured,
+//   - the response body flows back to the caller,
+//   - should_bypass() correctly routes around the proxy.
+// =============================================================================
+
+namespace {
+
+/// Minimal one-shot TCP server: accepts a single connection, captures the raw
+/// request bytes, replies with `response`, then closes.  The server runs on a
+/// background thread and is joined in stop().
+class FakeProxyServer {
+ public:
+  explicit FakeProxyServer(const std::string& response = "HTTP/1.0 200 OK\r\nContent-Length: 5\r\n\r\nhello") : response_(response), running_(false) {
+    using boost::asio::ip::tcp;
+    acceptor_ = std::make_unique<tcp::acceptor>(io_, tcp::endpoint(boost::asio::ip::address_v4::loopback(), 0));
+    port_ = acceptor_->local_endpoint().port();
+  }
+
+  ~FakeProxyServer() { stop(); }
+
+  void start() {
+    running_ = true;
+    thread_ = std::thread([this]() {
+      try {
+        boost::asio::ip::tcp::socket sock(io_);
+        acceptor_->accept(sock);
+
+        // Read the request until headers terminate ("\r\n\r\n").
+        boost::asio::streambuf buf;
+        boost::system::error_code ec;
+        boost::asio::read_until(sock, buf, "\r\n\r\n", ec);
+        if (ec && ec != boost::asio::error::eof) return;
+        request_.assign((std::istreambuf_iterator<char>(&buf)), std::istreambuf_iterator<char>());
+
+        // Reply with the canned response.
+        boost::asio::write(sock, boost::asio::buffer(response_), ec);
+        sock.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+        sock.close(ec);
+      } catch (...) {
+        // Test will fail via assertions on request_/response.
+      }
+    });
+  }
+
+  void stop() {
+    if (running_.exchange(false)) {
+      // Cancel any outstanding accept and close the listening socket. boost::asio
+      // on Linux returns from a blocking accept with operation_aborted/EBADF
+      // when the acceptor is closed, but to be robust against platforms that
+      // don't, we also try a self-connect that will be either accepted (and
+      // immediately discarded) or rejected — either way unblocking the worker.
+      boost::system::error_code ec;
+      try {
+        boost::asio::io_service kick_io;
+        boost::asio::ip::tcp::socket kick(kick_io);
+        kick.connect(boost::asio::ip::tcp::endpoint(boost::asio::ip::address_v4::loopback(), port_), ec);
+        kick.close(ec);
+      } catch (...) {
+      }
+      acceptor_->close(ec);
+      if (thread_.joinable()) thread_.join();
+    }
+  }
+
+  unsigned short port() const { return port_; }
+  const std::string& captured_request() const { return request_; }
+
+ private:
+  boost::asio::io_service io_;
+  std::unique_ptr<boost::asio::ip::tcp::acceptor> acceptor_;
+  unsigned short port_ = 0;
+  std::string response_;
+  std::string request_;
+  std::thread thread_;
+  std::atomic<bool> running_;
+};
+
+}  // namespace
+
+TEST(simple_client_proxy_integration, plain_http_routes_through_proxy_with_absolute_uri) {
+  FakeProxyServer server;
+  server.start();
+
+  http::proxy_config proxy;
+  proxy.type = http::proxy_type::HTTP;
+  proxy.host = "127.0.0.1";
+  proxy.port = std::to_string(server.port());
+
+  const http::http_client_options opts("http", "", "", "", proxy);
+  http::simple_client client(opts);
+  http::packet rq("GET", "target.example.com", "/api/v1");
+
+  std::ostringstream body;
+  ASSERT_NO_THROW(client.execute(body, "target.example.com", "8080", rq));
+
+  server.stop();
+
+  // The proxy (not the target) saw the request, and it used absolute-URI form.
+  const std::string& req = server.captured_request();
+  EXPECT_NE(req.find("GET http://target.example.com:8080/api/v1 HTTP/1.0"), std::string::npos) << "captured request was: " << req;
+  EXPECT_NE(req.find("Host: target.example.com"), std::string::npos);
+  // No credentials configured → no Proxy-Authorization header.
+  EXPECT_EQ(req.find("Proxy-Authorization"), std::string::npos);
+  // Response body propagated to the caller.
+  EXPECT_EQ(body.str(), "hello");
+}
+
+TEST(simple_client_proxy_integration, plain_http_sends_proxy_authorization_when_credentials_set) {
+  FakeProxyServer server;
+  server.start();
+
+  http::proxy_config proxy;
+  proxy.type = http::proxy_type::HTTP;
+  proxy.host = "127.0.0.1";
+  proxy.port = std::to_string(server.port());
+  proxy.username = "alice";
+  proxy.password = "secret";
+
+  const http::http_client_options opts("http", "", "", "", proxy);
+  http::simple_client client(opts);
+  http::packet rq("GET", "target.example.com", "/x");
+
+  std::ostringstream body;
+  ASSERT_NO_THROW(client.execute(body, "target.example.com", "80", rq));
+
+  server.stop();
+
+  // "alice:secret" → "YWxpY2U6c2VjcmV0"
+  EXPECT_NE(server.captured_request().find("Proxy-Authorization: Basic YWxpY2U6c2VjcmV0"), std::string::npos) << "captured request was: " << server.captured_request();
+  // Port 80 is omitted from the absolute URI per make_proxy_request().
+  EXPECT_NE(server.captured_request().find("GET http://target.example.com/x HTTP/1.0"), std::string::npos);
+}
+
+TEST(simple_client_proxy_integration, proxy_404_response_propagates_as_socket_exception) {
+  FakeProxyServer server("HTTP/1.0 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n");
+  server.start();
+
+  http::proxy_config proxy;
+  proxy.type = http::proxy_type::HTTP;
+  proxy.host = "127.0.0.1";
+  proxy.port = std::to_string(server.port());
+
+  const http::http_client_options opts("http", "", "", "", proxy);
+  http::simple_client client(opts);
+  http::packet rq("GET", "target.example.com", "/x");
+
+  std::ostringstream body;
+  EXPECT_THROW(client.execute(body, "target.example.com", "80", rq), socket_helpers::socket_exception);
+
+  server.stop();
+}
+
+TEST(simple_client_proxy_integration, no_proxy_pattern_bypasses_proxy_and_fails_to_target) {
+  // Configure a proxy that points at our fake server but bypass any host
+  // matching ".invalid" — the bypass list should win and the client should
+  // attempt a direct connection to the (unresolvable, per RFC 6761) target
+  // instead of going through the proxy.
+  FakeProxyServer server;
+  server.start();
+
+  http::proxy_config proxy;
+  proxy.type = http::proxy_type::HTTP;
+  proxy.host = "127.0.0.1";
+  proxy.port = std::to_string(server.port());
+  proxy.no_proxy = {".invalid"};
+
+  const http::http_client_options opts("http", "", "", "", proxy);
+  http::simple_client client(opts);
+  http::packet rq("GET", "nonexistent.invalid", "/x");
+
+  std::ostringstream body;
+  // Expect a failure connecting to the (non-existent) target rather than a
+  // success via the proxy.  The fake server should NOT have received anything.
+  // Note: the resolver in tcp_socket throws boost::system::system_error rather
+  // than socket_exception, so we expect the more general std::exception here.
+  EXPECT_THROW(client.execute(body, "nonexistent.invalid", "80", rq), std::exception);
+
+  server.stop();
+  EXPECT_TRUE(server.captured_request().empty()) << "proxy unexpectedly received: " << server.captured_request();
 }
 
 // =============================================================================
