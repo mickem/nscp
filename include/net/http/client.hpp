@@ -25,6 +25,7 @@
 #include <map>
 #include <memory>
 #include <net/http/http_packet.hpp>
+#include <net/http/proxy_config.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <ostream>
 #include <sstream>
@@ -36,6 +37,33 @@
 using boost::asio::ip::tcp;
 
 namespace http {
+
+/// Minimal RFC 4648 base64 encoder used for Proxy-Authorization headers.
+static std::string base64_encode(const std::string& input) {
+  static const char chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  std::string result;
+  result.reserve(((input.size() + 2) / 3) * 4);
+  unsigned char buf[3] = {};
+  int i = 0;
+  for (unsigned char c : input) {
+    buf[i++] = c;
+    if (i == 3) {
+      result += chars[(buf[0] >> 2) & 0x3F];
+      result += chars[((buf[0] & 0x03) << 4) | ((buf[1] >> 4) & 0x0F)];
+      result += chars[((buf[1] & 0x0F) << 2) | ((buf[2] >> 6) & 0x03)];
+      result += chars[buf[2] & 0x3F];
+      i = 0;
+    }
+  }
+  if (i > 0) {
+    for (int j = i; j < 3; j++) buf[j] = 0;
+    result += chars[(buf[0] >> 2) & 0x3F];
+    result += chars[((buf[0] & 0x03) << 4) | ((buf[1] >> 4) & 0x0F)];
+    result += (i > 1) ? chars[((buf[1] & 0x0F) << 2) | ((buf[2] >> 6) & 0x03)] : '=';
+    result += '=';
+  }
+  return result;
+}
 
 struct parsed_url {
   std::string protocol;
@@ -121,10 +149,11 @@ struct ssl_socket final : generic_socket {
   boost::asio::ssl::stream<tcp::socket> ssl_socket_;
   tcp::resolver resolver_;
   boost::asio::ssl::verify_mode verify_;
+  proxy_config proxy_;
 
   explicit ssl_socket(boost::asio::io_service &io_service, boost::asio::ssl::context::method method, boost::asio::ssl::verify_mode verify,
-                      const std::string &ca)
-      : context_(method), ssl_socket_(io_service, context_), resolver_(io_service), verify_(verify) {
+                      const std::string &ca, proxy_config proxy = proxy_config())
+      : context_(method), ssl_socket_(io_service, context_), resolver_(io_service), verify_(verify), proxy_(std::move(proxy)) {
     if (!ca.empty() && ca != "none") {
       try {
         context_.load_verify_file(ca);
@@ -157,7 +186,78 @@ struct ssl_socket final : generic_socket {
     ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
   }
 
+  /// Establish an HTTP CONNECT tunnel through proxy_ then perform TLS handshake.
+  void connect_via_http_proxy(const std::string &real_host, const std::string &real_port) {
+    // Step 1 — TCP connect to the proxy using the underlying stream socket.
+    // next_layer() returns the tcp::socket (basic_stream_socket) that supports
+    // both connect() and stream I/O; lowest_layer() only gives basic_socket.
+    auto &tcp_sock = ssl_socket_.next_layer();
+
+    const tcp::resolver::query query(proxy_.host, proxy_.port);
+    tcp::resolver::iterator endpoint_it = resolver_.resolve(query);
+    const tcp::resolver::iterator end;
+
+    boost::system::error_code error = boost::asio::error::host_not_found;
+    while (error && endpoint_it != end) {
+      tcp_sock.close();
+      tcp_sock.connect(*endpoint_it, error);
+      ++endpoint_it;
+    }
+    if (error) {
+      throw socket_helpers::socket_exception("Failed to connect to proxy " + proxy_.host + ":" + proxy_.port + ": " + error.message());
+    }
+
+    // Step 2 — Send CONNECT request
+    std::string connect_req = "CONNECT " + real_host + ":" + real_port + " HTTP/1.0\r\n" + "Host: " + real_host + ":" + real_port + "\r\n";
+    if (!proxy_.credentials().empty()) {
+      connect_req += "Proxy-Authorization: Basic " + base64_encode(proxy_.credentials()) + "\r\n";
+    }
+    connect_req += "\r\n";
+
+    boost::asio::write(tcp_sock, boost::asio::buffer(connect_req), error);
+    if (error) {
+      throw socket_helpers::socket_exception("Failed to send CONNECT to proxy " + proxy_.host + ":" + proxy_.port + ": " + error.message());
+    }
+
+    // Step 3 — Read status line
+    boost::asio::streambuf response_buf;
+    boost::asio::read_until(tcp_sock, response_buf, "\r\n");
+    std::istream response_stream(&response_buf);
+    std::string http_version;
+    unsigned int status_code = 0;
+    std::string status_message;
+    response_stream >> http_version >> status_code;
+    std::getline(response_stream, status_message);
+
+    if (status_code == 407) {
+      throw socket_helpers::socket_exception("Proxy authentication required (407) for " + proxy_.host + ":" + proxy_.port);
+    }
+    if (status_code < 200 || status_code >= 300) {
+      throw socket_helpers::socket_exception("Proxy CONNECT failed with status " + str::xtos(status_code) + ": " + status_message + " (proxy: " +
+                                             proxy_.host + ":" + proxy_.port + ")");
+    }
+
+    // Drain remaining proxy response headers
+    boost::asio::read_until(tcp_sock, response_buf, "\r\n\r\n");
+
+    // Step 4 — TLS handshake over the established tunnel
+    ssl_socket_.set_verify_mode(verify_);
+    if (!real_host.empty()) {
+      SSL_set_tlsext_host_name(ssl_socket_.native_handle(), real_host.c_str());
+    }
+    ssl_socket_.set_verify_callback(boost::asio::ssl::rfc2818_verification(real_host));
+    ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
+    if (error) {
+      throw socket_helpers::socket_exception("TLS handshake via proxy tunnel failed: " + error.message());
+    }
+  }
+
   void connect(const std::string &server, const std::string &port) override {
+    if (proxy_.is_set() && proxy_.type == proxy_type::HTTP && !should_bypass(server, proxy_.no_proxy)) {
+      connect_via_http_proxy(server, port);
+      return;
+    }
+
     const tcp::resolver::query query(server, port);
     tcp::resolver::iterator endpoint_iterator = resolver_.resolve(query);
     const tcp::resolver::iterator end;
@@ -215,9 +315,10 @@ struct http_client_options {
   std::string tls_version_;
   std::string verify_;
   std::string ca_;
+  proxy_config proxy_;
 
-  http_client_options(std::string protocol, std::string tls_version, std::string verify, std::string ca)
-      : protocol_(std::move(protocol)), tls_version_(std::move(tls_version)), verify_(std::move(verify)), ca_(std::move(ca)) {}
+  http_client_options(std::string protocol, std::string tls_version, std::string verify, std::string ca, proxy_config proxy = proxy_config())
+      : protocol_(std::move(protocol)), tls_version_(std::move(tls_version)), verify_(std::move(verify)), ca_(std::move(ca)), proxy_(std::move(proxy)) {}
 
   boost::asio::ssl::context::method get_method() const { return socket_helpers::tls_method_parser(tls_version_); }
 
@@ -230,11 +331,12 @@ struct http_client_options {
 class simple_client {
   boost::asio::io_service io_service_;
   std::unique_ptr<generic_socket> socket_;
+  http_client_options options_;
 
  public:
-  explicit simple_client(const http_client_options &options) {
+  explicit simple_client(const http_client_options &options) : options_(options) {
     if (options.is_https()) {
-      socket_ = std::make_unique<ssl_socket>(io_service_, options.get_method(), options.get_verify(), options.ca_);
+      socket_ = std::make_unique<ssl_socket>(io_service_, options.get_method(), options.get_verify(), options.ca_, options.proxy_);
 #ifdef WIN32
     } else if (options.is_pipe()) {
       socket_ = std::make_unique<file_socket>(io_service_);
@@ -286,9 +388,34 @@ class simple_client {
     return ret;
   }
 
+  /// Build a copy of request suitable for sending through an HTTP proxy.
+  /// The path is rewritten to absolute-URI form and a Proxy-Authorization
+  /// header is added when the proxy carries credentials.
+  static packet make_proxy_request(const packet &original, const std::string &server, const std::string &port, const proxy_config &proxy) {
+    packet p = original;
+    std::string abs_path = "http://" + server;
+    if (!port.empty() && port != "80") abs_path += ":" + port;
+    abs_path += original.path_;
+    p.path_ = abs_path;
+    if (!proxy.credentials().empty()) {
+      p.add_header("Proxy-Authorization", "Basic " + base64_encode(proxy.credentials()));
+    }
+    return p;
+  }
+
   response execute(std::ostream &os, const std::string &server, const std::string &port, const packet &request) {
-    connect(server, port);
-    send_request(request);
+    const bool use_proxy = options_.proxy_.is_set() && !should_bypass(server, options_.proxy_.no_proxy);
+
+    if (use_proxy && !options_.is_https()) {
+      // Plain HTTP via proxy: connect to proxy, send request with absolute URI.
+      socket_->connect(options_.proxy_.host, options_.proxy_.port);
+      const packet proxy_req = make_proxy_request(request, server, port, options_.proxy_);
+      send_request(proxy_req);
+    } else {
+      // Direct connect, or HTTPS (proxy CONNECT tunnel handled inside ssl_socket).
+      connect(server, port);
+      send_request(request);
+    }
 
     boost::asio::streambuf response_buffer;
     const response response = read_result(response_buffer);
@@ -332,10 +459,11 @@ class simple_client {
   }
 
   static bool download(std::string protocol, const std::string &server, const std::string &port, std::string path, std::string tls_version,
-                       std::string verify_mode, std::string ca, std::ostream &os, std::string &error_msg) {
+                       std::string verify_mode, std::string ca, std::ostream &os, std::string &error_msg,
+                       const proxy_config &proxy = proxy_config()) {
     try {
       packet rq("GET", server, std::move(path));
-      const http_client_options options(std::move(protocol), std::move(tls_version), std::move(verify_mode), std::move(ca));
+      const http_client_options options(std::move(protocol), std::move(tls_version), std::move(verify_mode), std::move(ca), proxy);
       simple_client c(options);
       c.execute(os, server, port, rq);
       return true;
