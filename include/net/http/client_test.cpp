@@ -513,6 +513,95 @@ TEST(parse_url, explicit_port_is_preserved) {
   EXPECT_EQ(parsed.path, "/api");
 }
 
+TEST(parse_url, unknown_scheme_defaults_to_80_when_port_missing) {
+  const http::parsed_url parsed = http::parse_url("ftp://example.com/resource");
+  EXPECT_EQ(parsed.protocol, "ftp");
+  EXPECT_EQ(parsed.host, "example.com");
+  EXPECT_EQ(parsed.port, "80");
+  EXPECT_EQ(parsed.path, "/resource");
+}
+
+TEST(parse_url, scheme_only_yields_empty_host_and_default_http_port) {
+  const http::parsed_url parsed = http::parse_url("http://");
+  EXPECT_EQ(parsed.protocol, "http");
+  EXPECT_TRUE(parsed.host.empty());
+  EXPECT_EQ(parsed.port, "80");
+  EXPECT_EQ(parsed.path, "/");
+}
+
+TEST(parse_url, empty_port_after_colon_is_preserved) {
+  const http::parsed_url parsed = http::parse_url("http://example.com:/path");
+  EXPECT_EQ(parsed.protocol, "http");
+  EXPECT_EQ(parsed.host, "example.com");
+  EXPECT_TRUE(parsed.port.empty());
+  EXPECT_EQ(parsed.path, "/path");
+}
+
+TEST(parse_url, query_and_fragment_are_kept_in_path) {
+  const http::parsed_url parsed = http::parse_url("http://example.com/api?q=1#frag");
+  EXPECT_EQ(parsed.host, "example.com");
+  EXPECT_EQ(parsed.path, "/api?q=1#frag");
+}
+
+TEST(parse_url, uppercase_protocol_is_preserved_and_defaults_to_80) {
+  const http::parsed_url parsed = http::parse_url("HTTPS://example.com/api");
+  EXPECT_EQ(parsed.protocol, "HTTPS");
+  EXPECT_EQ(parsed.host, "example.com");
+  EXPECT_EQ(parsed.port, "80");
+  EXPECT_EQ(parsed.path, "/api");
+}
+
+TEST(parse_url, userinfo_is_treated_as_host_prefix_with_colon_split) {
+  const http::parsed_url parsed = http::parse_url("http://user:pass@example.com/secret");
+  EXPECT_EQ(parsed.host, "user");
+  EXPECT_EQ(parsed.port, "pass@example.com");
+  EXPECT_EQ(parsed.path, "/secret");
+}
+
+TEST(parse_url, ipv6_bracket_literal_is_split_at_first_colon) {
+  const http::parsed_url parsed = http::parse_url("http://[2001:db8::1]:443/path");
+  EXPECT_EQ(parsed.host, "[2001");
+  EXPECT_EQ(parsed.port, "db8::1]:443");
+  EXPECT_EQ(parsed.path, "/path");
+}
+
+TEST(parse_url, path_traversal_segments_are_preserved_verbatim) {
+  const http::parsed_url parsed = http::parse_url("http://example.com/../../windows/system32");
+  EXPECT_EQ(parsed.host, "example.com");
+  EXPECT_EQ(parsed.path, "/../../windows/system32");
+}
+
+TEST(parse_url, encoded_separator_sequences_are_not_decoded) {
+  const http::parsed_url parsed = http::parse_url("http://example.com/%2e%2e/%2fadmin%3a80");
+  EXPECT_EQ(parsed.host, "example.com");
+  EXPECT_EQ(parsed.port, "80");
+  EXPECT_EQ(parsed.path, "/%2e%2e/%2fadmin%3a80");
+}
+
+TEST(parse_url, host_header_injection_payload_is_retained_in_path_component) {
+  const http::parsed_url parsed = http::parse_url("http://example.com/path\r\nInjected: yes");
+  EXPECT_EQ(parsed.host, "example.com");
+  EXPECT_EQ(parsed.path, "/path\r\nInjected: yes");
+}
+
+TEST(parse_url, request_smuggling_style_authority_is_not_interpreted_as_headers) {
+  const http::parsed_url parsed = http::parse_url("http://example.com\r\nHost:evil.test/ok");
+  EXPECT_EQ(parsed.host, "example.com\r\nHost");
+  EXPECT_EQ(parsed.port, "evil.test");
+  EXPECT_EQ(parsed.path, "/ok");
+}
+
+TEST(parse_url, embedded_nul_in_path_is_preserved_in_string_storage) {
+  const std::string url("http://example.com/a\0b", 22);
+  const http::parsed_url parsed = http::parse_url(url);
+  EXPECT_EQ(parsed.host, "example.com");
+  ASSERT_EQ(parsed.path.size(), 4u);
+  EXPECT_EQ(parsed.path[0], '/');
+  EXPECT_EQ(parsed.path[1], 'a');
+  EXPECT_EQ(parsed.path[2], '\0');
+  EXPECT_EQ(parsed.path[3], 'b');
+}
+
 // =============================================================================
 // simple_client integration tests (loopback server)
 // =============================================================================
