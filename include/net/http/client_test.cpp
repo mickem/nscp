@@ -427,3 +427,136 @@ TEST(socket_exception, copy_constructor) {
   const socket_helpers::socket_exception ex2(ex1);
   EXPECT_EQ(ex2.reason(), "original");
 }
+
+// =============================================================================
+// base64_encode (used for Proxy-Authorization)
+// =============================================================================
+
+TEST(base64_encode, empty_string) { EXPECT_EQ(http::base64_encode(""), ""); }
+
+TEST(base64_encode, single_char_padded) {
+  // 'A' = 0x41 → base64 "QQ=="
+  EXPECT_EQ(http::base64_encode("A"), "QQ==");
+}
+
+TEST(base64_encode, two_chars_padded) {
+  // "AB" → "QUI="
+  EXPECT_EQ(http::base64_encode("AB"), "QUI=");
+}
+
+TEST(base64_encode, three_chars_no_padding) {
+  // "ABC" → "QUJD"
+  EXPECT_EQ(http::base64_encode("ABC"), "QUJD");
+}
+
+TEST(base64_encode, well_known_encoding) {
+  // RFC 4648 test vector: "Man" → "TWFu"
+  EXPECT_EQ(http::base64_encode("Man"), "TWFu");
+}
+
+TEST(base64_encode, credential_string) {
+  // "user:pass" → "dXNlcjpwYXNz"
+  EXPECT_EQ(http::base64_encode("user:pass"), "dXNlcjpwYXNz");
+}
+
+// =============================================================================
+// simple_client::make_proxy_request — HTTP proxy request rewriting
+// =============================================================================
+
+TEST(make_proxy_request, rewrites_path_to_absolute_uri) {
+  const http::packet original("GET", "target.corp", "/api/v1");
+  http::proxy_config proxy;
+  proxy.type = http::proxy_type::HTTP;
+  proxy.host = "proxy.corp";
+  proxy.port = "3128";
+
+  const http::packet result = http::simple_client::make_proxy_request(original, "target.corp", "8080", proxy);
+  EXPECT_EQ(result.path_, "http://target.corp:8080/api/v1");
+}
+
+TEST(make_proxy_request, omits_port_80_from_absolute_uri) {
+  const http::packet original("GET", "target.corp", "/path");
+  http::proxy_config proxy;
+  proxy.type = http::proxy_type::HTTP;
+  proxy.host = "proxy.corp";
+  proxy.port = "3128";
+
+  const http::packet result = http::simple_client::make_proxy_request(original, "target.corp", "80", proxy);
+  EXPECT_EQ(result.path_, "http://target.corp/path");
+}
+
+TEST(make_proxy_request, adds_proxy_authorization_when_credentials_present) {
+  const http::packet original("GET", "target.corp", "/path");
+  http::proxy_config proxy;
+  proxy.type = http::proxy_type::HTTP;
+  proxy.host = "proxy.corp";
+  proxy.port = "3128";
+  proxy.username = "alice";
+  proxy.password = "secret";
+
+  const http::packet result = http::simple_client::make_proxy_request(original, "target.corp", "80", proxy);
+  const auto it = result.headers_.find("Proxy-Authorization");
+  ASSERT_NE(it, result.headers_.end());
+  // "alice:secret" in base64 is "YWxpY2U6c2VjcmV0"
+  EXPECT_EQ(it->second, "Basic YWxpY2U6c2VjcmV0");
+}
+
+TEST(make_proxy_request, no_proxy_authorization_without_credentials) {
+  const http::packet original("GET", "target.corp", "/path");
+  http::proxy_config proxy;
+  proxy.type = http::proxy_type::HTTP;
+  proxy.host = "proxy.corp";
+  proxy.port = "3128";
+
+  const http::packet result = http::simple_client::make_proxy_request(original, "target.corp", "80", proxy);
+  EXPECT_EQ(result.headers_.count("Proxy-Authorization"), 0u);
+}
+
+TEST(make_proxy_request, preserves_original_headers) {
+  http::packet original("GET", "target.corp", "/path");
+  original.add_header("X-Custom", "value");
+  http::proxy_config proxy;
+  proxy.type = http::proxy_type::HTTP;
+  proxy.host = "proxy.corp";
+  proxy.port = "3128";
+
+  const http::packet result = http::simple_client::make_proxy_request(original, "target.corp", "80", proxy);
+  const auto it = result.headers_.find("X-Custom");
+  ASSERT_NE(it, result.headers_.end());
+  EXPECT_EQ(it->second, "value");
+}
+
+TEST(make_proxy_request, build_request_contains_absolute_uri_in_request_line) {
+  const http::packet original("GET", "target.corp", "/api/v1");
+  http::proxy_config proxy;
+  proxy.type = http::proxy_type::HTTP;
+  proxy.host = "proxy.corp";
+  proxy.port = "3128";
+
+  const http::packet result = http::simple_client::make_proxy_request(original, "target.corp", "8080", proxy);
+  std::ostringstream os;
+  result.build_request(os);
+  const std::string built = os.str();
+  EXPECT_NE(built.find("GET http://target.corp:8080/api/v1 HTTP/1.0"), std::string::npos);
+}
+
+// =============================================================================
+// http_client_options — proxy field
+// =============================================================================
+
+TEST(http_client_options, proxy_defaults_to_none_when_not_provided) {
+  const http::http_client_options opts("http", "", "", "");
+  EXPECT_EQ(opts.proxy_.type, http::proxy_type::NONE);
+  EXPECT_FALSE(opts.proxy_.is_set());
+}
+
+TEST(http_client_options, proxy_stored_when_provided) {
+  http::proxy_config proxy;
+  proxy.type = http::proxy_type::HTTP;
+  proxy.host = "proxy.corp";
+  proxy.port = "3128";
+  const http::http_client_options opts("http", "", "", "", proxy);
+  EXPECT_EQ(opts.proxy_.type, http::proxy_type::HTTP);
+  EXPECT_EQ(opts.proxy_.host, "proxy.corp");
+  EXPECT_EQ(opts.proxy_.port, "3128");
+}

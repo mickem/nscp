@@ -171,6 +171,7 @@ if(OPENSSL_FOUND)
         SOURCES
             ${NSCP_INCLUDEDIR}/net/pinger_test.cpp
             ${NSCP_INCLUDEDIR}/net/http/client_test.cpp
+            ${NSCP_INCLUDEDIR}/net/http/proxy_config_test.cpp
             ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts_test.cpp
             ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
             ${NSCP_INCLUDEDIR}/net/socket/socket_helpers_test.cpp
