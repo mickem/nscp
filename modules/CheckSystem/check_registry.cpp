@@ -92,8 +92,7 @@ void registry_key_checks::check(const PB::Commands::QueryRequestMessage::Request
   // clang-format off
   filter_helper.get_desc().add_options()
     ("key",       po::value<std::vector<std::string>>(&keys),
-                  "One or more registry key paths to check (e.g. HKLM\\Software\\MyApp). "
-                  "Use '*' as a wildcard to enumerate all immediate sub-keys of a path.")
+                  "One or more registry key paths to check (e.g. HKLM\\Software\\MyApp).")
     ("exclude",   po::value<std::vector<std::string>>(&excludes),
                   "Registry key names to exclude from enumeration")
     ("computer",  po::value<std::string>(&computer),
@@ -131,10 +130,10 @@ void registry_key_checks::check(const PB::Commands::QueryRequestMessage::Request
     }
 
     // Connect to remote registry if needed
-    win_registry::raii_hkey remote_root;
     HKEY effective_root = parts.hive;
     if (!computer.empty()) {
       try {
+        win_registry::raii_hkey remote_root;
         HKEY rr = win_registry::connect_registry(computer, parts.hive);
         remote_root.hKey = rr;
         effective_root = rr;
@@ -281,10 +280,10 @@ void registry_value_checks::check(const PB::Commands::QueryRequestMessage::Reque
       return nscapi::protobuf::functions::set_response_bad(*response, e.reason());
     }
 
-    win_registry::raii_hkey remote_root;
     HKEY effective_root = parts.hive;
     if (!computer.empty()) {
       try {
+        win_registry::raii_hkey remote_root;
         HKEY rr = win_registry::connect_registry(computer, parts.hive);
         remote_root.hKey = rr;
         effective_root = rr;
@@ -301,7 +300,7 @@ void registry_value_checks::check(const PB::Commands::QueryRequestMessage::Reque
         const std::vector<win_registry::value_info> vals = win_registry::enum_values(effective_root, subpath, full_path, hive_str, access_flags);
         for (const win_registry::value_info &vi : vals) {
           if (std::find(excludes.begin(), excludes.end(), vi.name) != excludes.end()) continue;
-          boost::shared_ptr<win_registry::value_info> record(new win_registry::value_info(vi));
+          const boost::shared_ptr<win_registry::value_info> record(new win_registry::value_info(vi));
           filter.match(record);
           if (filter.has_errors()) return false;
         }
@@ -312,7 +311,7 @@ void registry_value_checks::check(const PB::Commands::QueryRequestMessage::Reque
         unsigned long long written_ft = 0;
         const std::wstring wsp = utf8::cvt<std::wstring>(subpath);
         {
-          HKEY hTmp = NULL;
+          HKEY hTmp = nullptr;
           if (RegOpenKeyExW(effective_root, wsp.empty() ? nullptr : wsp.c_str(), 0, KEY_QUERY_VALUE | KEY_READ | access_flags, &hTmp) == ERROR_SUCCESS) {
             FILETIME ft = {};
             RegQueryInfoKeyW(hTmp, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, &ft);
@@ -332,7 +331,7 @@ void registry_value_checks::check(const PB::Commands::QueryRequestMessage::Reque
           vi.written_ft = written_ft;
 
           // Open key and read value
-          HKEY hTmp = NULL;
+          HKEY hTmp = nullptr;
           if (RegOpenKeyExW(effective_root, wsp.empty() ? nullptr : wsp.c_str(), 0, KEY_QUERY_VALUE | KEY_READ | access_flags, &hTmp) == ERROR_SUCCESS) {
             win_registry::detail::fill_value(hTmp, vname, written_ft, vi);
             RegCloseKey(hTmp);
@@ -340,7 +339,7 @@ void registry_value_checks::check(const PB::Commands::QueryRequestMessage::Reque
             vi.exists = false;
           }
 
-          boost::shared_ptr<win_registry::value_info> record(new win_registry::value_info(vi));
+          const boost::shared_ptr<win_registry::value_info> record(new win_registry::value_info(vi));
           filter.match(record);
           if (filter.has_errors()) return false;
         }

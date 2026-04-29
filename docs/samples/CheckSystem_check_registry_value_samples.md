@@ -71,7 +71,7 @@ OK: HKLM\Software\NSClient\ConfigFile=..., HKLM\Software\NSClient\modules\enable
 **Exclude noisy values during enumeration:**
 
 ```
-check_registry_value "key=HKCU\Software\NSClient" exclude=LastRun exclude=Cache "warn=value_count < 3"
+check_registry_value "key=HKCU\Software\NSClient" exclude=LastRun exclude=Cache
 OK: All 5 registry value(s) are ok.
 ```
 

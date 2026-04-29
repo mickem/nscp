@@ -27,6 +27,7 @@
 #include <list>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 #include <str/format.hpp>
 #include <str/utf8.hpp>
@@ -61,7 +62,7 @@ inline std::string filetime_to_string(unsigned long long ft_ull) {
 
 // ── Type name conversion ────────────────────────────────────────────────────
 
-inline std::string type_to_string(DWORD type) {
+inline std::string type_to_string(const DWORD type) {
   switch (type) {
     case REG_NONE:          return "REG_NONE";
     case REG_SZ:            return "REG_SZ";
@@ -104,7 +105,7 @@ inline HKEY parse_hive(const std::string &hive) {
   throw nsclient::nsclient_exception("Unknown registry hive: " + hive);
 }
 
-inline std::string hive_to_string(HKEY hive) {
+inline std::string hive_to_string(const HKEY hive) {
   if (hive == HKEY_LOCAL_MACHINE)   return "HKLM";
   if (hive == HKEY_CURRENT_USER)    return "HKCU";
   if (hive == HKEY_CLASSES_ROOT)    return "HKCR";
@@ -125,7 +126,7 @@ inline DWORD parse_view(const std::string &view) {
 
 struct key_path_parts {
   std::string hive_str;
-  HKEY hive;
+  HKEY hive{};
   std::string subpath;
 };
 
@@ -142,9 +143,9 @@ inline key_path_parts parse_key_path(const std::string &full_path) {
 
 struct raii_hkey {
   HKEY hKey;
-  explicit raii_hkey(HKEY h = NULL) : hKey(h) {}
+  explicit raii_hkey(HKEY h = nullptr) : hKey(h) {}
   ~raii_hkey() {
-    if (hKey != NULL &&
+    if (hKey != nullptr &&
         hKey != HKEY_LOCAL_MACHINE &&
         hKey != HKEY_CURRENT_USER &&
         hKey != HKEY_CLASSES_ROOT &&
@@ -154,9 +155,8 @@ struct raii_hkey {
     }
   }
   HKEY get() const { return hKey; }
-  bool valid() const { return hKey != NULL; }
+  bool valid() const { return hKey != nullptr; }
 
- private:
   raii_hkey(const raii_hkey &) = delete;
   raii_hkey &operator=(const raii_hkey &) = delete;
 };
@@ -216,7 +216,7 @@ struct value_info {
   std::string get_name()         const { return name.empty() ? "(default)" : name; }
   std::string get_path()         const { return path; }
   std::string get_hive()         const { return hive; }
-  long long   get_type_i()       const { return static_cast<long long>(type); }
+  long long   get_type_i()       const { return type; }
   std::string get_type_s()       const { return type_to_string(type); }
   std::string get_string_value() const { return string_value; }
   long long   get_int_value()    const { return int_value; }
@@ -225,7 +225,7 @@ struct value_info {
   long long   get_written()      const { return filetime_to_epoch(written_ft); }
   long long   get_age()          const {
     const long long w = get_written();
-    return (w == 0) ? 0 : static_cast<long long>(time(nullptr)) - w;
+    return (w == 0) ? 0 : time(nullptr) - w;
   }
   std::string get_written_s()    const { return filetime_to_string(written_ft); }
 
@@ -240,7 +240,7 @@ namespace detail {
 
 // Expand a REG_EXPAND_SZ value
 inline std::string expand_env(const std::wstring &s) {
-  DWORD needed = ExpandEnvironmentStringsW(s.c_str(), nullptr, 0);
+  const DWORD needed = ExpandEnvironmentStringsW(s.c_str(), nullptr, 0);
   if (needed == 0) return utf8::cvt<std::string>(s);
   std::vector<wchar_t> buf(needed + 1);
   ExpandEnvironmentStringsW(s.c_str(), buf.data(), needed);
@@ -248,10 +248,10 @@ inline std::string expand_env(const std::wstring &s) {
 }
 
 // Convert a REG_MULTI_SZ double-null-terminated list to a comma-separated string
-inline std::string multi_sz_to_string(const BYTE *data, DWORD cbData) {
+inline std::string multi_sz_to_string(const BYTE *data, const DWORD cbData) {
   std::string result;
-  const wchar_t *p = reinterpret_cast<const wchar_t *>(data);
-  const wchar_t *end = reinterpret_cast<const wchar_t *>(data + cbData);
+  const auto *p = reinterpret_cast<const wchar_t *>(data);
+  const auto *end = reinterpret_cast<const wchar_t *>(data + cbData);
   while (p < end && *p != L'\0') {
     if (!result.empty()) result += ", ";
     std::wstring ws(p);
@@ -263,7 +263,7 @@ inline std::string multi_sz_to_string(const BYTE *data, DWORD cbData) {
 
 // Convert REG_BINARY to a hex string
 inline std::string binary_to_hex(const BYTE *data, DWORD cbData) {
-  static const char hex_chars[] = "0123456789ABCDEF";
+  static constexpr char hex_chars[] = "0123456789ABCDEF";
   std::string result;
   result.reserve(cbData * 3);
   for (DWORD i = 0; i < cbData; ++i) {
@@ -275,7 +275,7 @@ inline std::string binary_to_hex(const BYTE *data, DWORD cbData) {
 }
 
 // Fill value_info by reading a single registry value from an already-open key
-inline void fill_value(HKEY hKey, const std::string &value_name, unsigned long long parent_written_ft, value_info &vi) {
+inline void fill_value(HKEY hKey, const std::string &value_name, const unsigned long long parent_written_ft, value_info &vi) {
   const std::wstring wname = utf8::cvt<std::wstring>(value_name);
 
   DWORD type = 0;
@@ -389,10 +389,10 @@ inline void fill_key_metadata(HKEY hKey, key_info &ki) {
 // The caller must call RegCloseKey on the returned handle when done (use raii_hkey).
 // If computer is empty, returns NULL and no connection is made.
 inline HKEY connect_registry(const std::string &computer, HKEY hive) {
-  if (computer.empty()) return NULL;
-  HKEY remote_root = NULL;
+  if (computer.empty()) return nullptr;
+  HKEY remote_root = nullptr;
   const std::wstring wcomputer = utf8::cvt<std::wstring>("\\\\" + computer);
-  LONG ret = RegConnectRegistryW(wcomputer.c_str(), hive, &remote_root);
+  const LONG ret = RegConnectRegistryW(wcomputer.c_str(), hive, &remote_root);
   if (ret != ERROR_SUCCESS)
     throw registry_exception("Failed to connect to remote registry on " + computer + ": " + error::format::from_system(ret));
   return remote_root;
@@ -406,7 +406,7 @@ inline HKEY connect_registry(const std::string &computer, HKEY hive) {
 // base_hkey is the already-opened parent HKEY (may be a root hive or a connected remote hive).
 inline key_info open_key(HKEY base_hkey, const std::string &subpath, const std::string &full_path,
                           const std::string &name, const std::string &parent, const std::string &hive,
-                          long long depth, DWORD access_flags) {
+                          long long depth, const DWORD access_flags) {
   key_info ki;
   ki.path   = full_path;
   ki.name   = name;
@@ -415,7 +415,7 @@ inline key_info open_key(HKEY base_hkey, const std::string &subpath, const std::
   ki.depth  = depth;
   ki.exists = false;
 
-  HKEY hKey = NULL;
+  HKEY hKey = nullptr;
   const std::wstring wsubpath = utf8::cvt<std::wstring>(subpath);
   const LONG ret = RegOpenKeyExW(base_hkey, wsubpath.empty() ? nullptr : wsubpath.c_str(), 0,
                                   KEY_QUERY_VALUE | KEY_READ | access_flags, &hKey);
@@ -439,7 +439,7 @@ inline std::vector<key_info> enum_sub_keys(HKEY base_hkey, const std::string &pa
                                             long long depth, DWORD access_flags) {
   std::vector<key_info> result;
 
-  HKEY hParent = NULL;
+  HKEY hParent = nullptr;
   const std::wstring wparent = utf8::cvt<std::wstring>(parent_subpath);
   LONG ret = RegOpenKeyExW(base_hkey, wparent.empty() ? nullptr : wparent.c_str(), 0,
                             KEY_QUERY_VALUE | KEY_READ | access_flags, &hParent);
@@ -477,7 +477,7 @@ inline std::vector<key_info> enum_sub_keys(HKEY base_hkey, const std::string &pa
     ki.written_ft = filetime_to_ull(ft);
 
     // Open child to get value_count and subkey_count
-    HKEY hChild = NULL;
+    HKEY hChild = nullptr;
     const std::wstring wchild = utf8::cvt<std::wstring>(child_subpath);
     if (RegOpenKeyExW(base_hkey, wchild.c_str(), 0, KEY_QUERY_VALUE | KEY_READ | access_flags, &hChild) == ERROR_SUCCESS) {
       detail::fill_key_metadata(hChild, ki);
@@ -502,7 +502,7 @@ inline std::vector<value_info> enum_values(HKEY base_hkey, const std::string &ke
                                             DWORD access_flags) {
   std::vector<value_info> result;
 
-  HKEY hKey = NULL;
+  HKEY hKey = nullptr;
   const std::wstring wsubpath = utf8::cvt<std::wstring>(key_subpath);
   LONG ret = RegOpenKeyExW(base_hkey, wsubpath.empty() ? nullptr : wsubpath.c_str(), 0,
                             KEY_QUERY_VALUE | KEY_READ | access_flags, &hKey);
