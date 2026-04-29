@@ -25,6 +25,7 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <parsers/filter/realtime_helper.hpp>
 #include <sstream>
+#include <str/utf8.hpp>
 #include <str/xtos.hpp>
 #include <thread>
 
@@ -33,12 +34,51 @@
 #define STAT_FILE "/proc/stat"
 #define MEMINFO_FILE "/proc/meminfo"
 
+typedef parsers::where::realtime_filter_helper<checks::check_cpu_filter::runtime_data, filters::cpu::filter_config_object> cpu_filter_helper;
+typedef parsers::where::realtime_filter_helper<check_memory::check_mem_filter::runtime_data, filters::mem::filter_config_object> mem_filter_helper;
+
 /**
- * Thread that collects the data every second.
+ * Thread that collects the data every second and evaluates real-time filters.
  */
 void pdh_thread::thread_proc() {
   // Initial read to establish baseline
   last_cpu_times_ = read_cpu_times();
+
+  // Build real-time filter helpers from the configured objects
+  cpu_filter_helper cpu_helper(core_, plugin_id_);
+  mem_filter_helper mem_helper(core_, plugin_id_);
+
+  for (const boost::shared_ptr<filters::cpu::filter_config_object> &object : cpu_filters_.get_object_list()) {
+    checks::check_cpu_filter::runtime_data data;
+    if (object->data.empty()) {
+      data.add("1m");
+    } else {
+      for (const std::string &d : object->data) {
+        data.add(d);
+      }
+    }
+    cpu_helper.add_item(object, data, "system.cpu");
+  }
+  for (const boost::shared_ptr<filters::mem::filter_config_object> &object : mem_filters_.get_object_list()) {
+    check_memory::check_mem_filter::runtime_data data;
+    if (object->data.empty()) {
+      data.add("physical");
+    } else {
+      for (const std::string &d : object->data) {
+        data.add(d);
+      }
+    }
+    mem_helper.add_item(object, data, "system.memory");
+  }
+
+  cpu_helper.touch_all();
+  mem_helper.touch_all();
+
+  const bool has_cpu_realtime = !cpu_filters_.empty();
+  const bool has_mem_realtime = !mem_filters_.empty();
+  if (has_cpu_realtime || has_mem_realtime) {
+    NSC_DEBUG_MSG("Real time checks enabled");
+  }
 
   while (!stop_requested_) {
     std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -61,6 +101,14 @@ void pdh_thread::thread_proc() {
       }
     } catch (const std::exception &e) {
       NSC_LOG_ERROR("Failed to collect system data: " + std::string(e.what()));
+    }
+
+    // Evaluate real-time filters once we have collected data
+    try {
+      if (has_cpu_realtime) cpu_helper.process_items(this);
+      if (has_mem_realtime) mem_helper.process_items(this);
+    } catch (const std::exception &e) {
+      NSC_LOG_ERROR("Failed to evaluate real-time filters: " + std::string(e.what()));
     }
   }
 }
@@ -248,6 +296,32 @@ bool pdh_thread::stop() {
   return true;
 }
 
-void pdh_thread::add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
-  // Not implemented for Unix
+void pdh_thread::add_realtime_cpu_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
+  try {
+    cpu_filters_.add(proxy, key, query);
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR_EXR("Failed to add cpu real-time filter: " + key, e);
+  } catch (...) {
+    NSC_LOG_ERROR_EX("Failed to add cpu real-time filter: " + key);
+  }
+}
+
+void pdh_thread::add_realtime_mem_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
+  try {
+    mem_filters_.add(proxy, key, query);
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR_EXR("Failed to add memory real-time filter: " + key, e);
+  } catch (...) {
+    NSC_LOG_ERROR_EX("Failed to add memory real-time filter: " + key);
+  }
+}
+
+void pdh_thread::set_path(const std::string &cpu_path, const std::string &mem_path) {
+  cpu_filters_.set_path(cpu_path);
+  mem_filters_.set_path(mem_path);
+}
+
+void pdh_thread::add_samples(boost::shared_ptr<nscapi::settings_proxy> settings) {
+  cpu_filters_.add_samples(settings);
+  mem_filters_.add_samples(settings);
 }

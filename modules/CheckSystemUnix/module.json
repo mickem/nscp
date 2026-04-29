@@ -22,5 +22,7 @@
 		"check_process"		: "Check state/metrics of one or more of the processes running on the computer."
 	},
 
+	"metrics" : "produce",
+
 	"log messages" : false
 }
