@@ -1,7 +1,7 @@
 import { useGetMetricsQuery } from "../api/api.ts";
 import { parseMetrics } from "../metric_parser.ts";
 import { useMemo } from "react";
-import { Box, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent } from "@mui/material";
+import { Box, CircularProgress, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent, Tooltip } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import Grid from "@mui/material/Grid";
 import CpuWidget from "./CpuWidget.tsx";
@@ -39,7 +39,7 @@ function formatXValue(value: number) {
 export default function Welcome() {
   const dispatch = useAppDispatch();
   const refreshRate = useAppSelector((state) => state.dashboard.refreshRate);
-  const { data: metrics, fulfilledTimeStamp } = useGetMetricsQuery(undefined, {
+  const { data: metrics, fulfilledTimeStamp, isLoading } = useGetMetricsQuery(undefined, {
     pollingInterval: refreshRate || undefined,
   });
 
@@ -73,6 +73,20 @@ export default function Welcome() {
     [xAxisData, xAxisMin],
   );
 
+  // --- Data availability guards ---
+  const hasCpuData = result.metrics.some(
+    (m) => m.key === "system.cpu.total.kernel" || m.key === "system.cpu.total.user",
+  );
+  const hasMemData = result.metrics.some(
+    (m) => m.key === "system.mem.physical.used" && result.metrics.some((n) => n.key === "system.mem.physical.total"),
+  );
+  const hasNetworkData = result.metrics.some((m) => m.type === "network" && m.metric === "NetConnectionID");
+  const hasDiskIoData = result.metrics.some((m) => m.module === "disk" && m.type === "io");
+  const hasDiskFreeData = result.metrics.some((m) => m.module === "disk" && m.type === "free");
+  const hasSystemInfoData = result.metrics.some(
+    (m) => m.key.startsWith("system.uptime") || m.key.startsWith("system.metrics") || m.key.startsWith("workers."),
+  );
+
   const handleRefreshRateChange = (event: SelectChangeEvent<number>) => {
     dispatch(setRefreshRate(event.target.value as number));
   };
@@ -94,56 +108,81 @@ export default function Welcome() {
                 onChange={handleRefreshRateChange}
               >
                 {REFRESH_RATES.map((r) => (
-                  <MenuItem key={r.value} value={r.value} disabled={r.value > 0 && r.value < maxRefreshMs}>
-                    {r.label}
-                  </MenuItem>
+                  <Tooltip
+                    key={r.value}
+                    title={
+                      r.value > 0 && r.value < maxRefreshMs
+                        ? `Server updates every ${maxRefreshMs / 1000}s – polling faster has no effect`
+                        : ""
+                    }
+                    placement="right"
+                  >
+                    <span>
+                      <MenuItem value={r.value} disabled={r.value > 0 && r.value < maxRefreshMs}>
+                        {r.label}
+                      </MenuItem>
+                    </span>
+                  </Tooltip>
                 ))}
               </Select>
             </FormControl>
+            {isLoading && <CircularProgress size={20} />}
           </Box>
         </Grid>
-        <Grid>
-          <CpuWidget
-            key={refreshRate}
-            metrics={result.metrics}
-            fulfilledTimeStamp={fulfilledTimeStamp}
-            xAxis={xAxis}
-            historySize={HISTORY_SIZE}
-          />
-        </Grid>
-        <Grid>
-          <MemoryWidget
-            key={refreshRate}
-            metrics={result.metrics}
-            fulfilledTimeStamp={fulfilledTimeStamp}
-            xAxis={xAxis}
-            historySize={HISTORY_SIZE}
-          />
-        </Grid>
-        <Grid>
-          <NetworkWidget
-            key={refreshRate}
-            metrics={result.metrics}
-            fulfilledTimeStamp={fulfilledTimeStamp}
-            xAxis={xAxis}
-            historySize={HISTORY_SIZE}
-          />
-        </Grid>
-        <Grid>
-          <DiskIoWidget
-            key={refreshRate}
-            metrics={result.metrics}
-            fulfilledTimeStamp={fulfilledTimeStamp}
-            xAxis={xAxis}
-            historySize={HISTORY_SIZE}
-          />
-        </Grid>
-        <Grid>
-          <DiskFreeWidget metrics={result.metrics} />
-        </Grid>
-        <Grid>
-          <SystemInfoWidget metrics={result.metrics} />
-        </Grid>
+        {hasCpuData && (
+          <Grid>
+            <CpuWidget
+              key={refreshRate}
+              metrics={result.metrics}
+              fulfilledTimeStamp={fulfilledTimeStamp}
+              xAxis={xAxis}
+              historySize={HISTORY_SIZE}
+            />
+          </Grid>
+        )}
+        {hasMemData && (
+          <Grid>
+            <MemoryWidget
+              key={refreshRate}
+              metrics={result.metrics}
+              fulfilledTimeStamp={fulfilledTimeStamp}
+              xAxis={xAxis}
+              historySize={HISTORY_SIZE}
+            />
+          </Grid>
+        )}
+        {hasNetworkData && (
+          <Grid>
+            <NetworkWidget
+              key={refreshRate}
+              metrics={result.metrics}
+              fulfilledTimeStamp={fulfilledTimeStamp}
+              xAxis={xAxis}
+              historySize={HISTORY_SIZE}
+            />
+          </Grid>
+        )}
+        {hasDiskIoData && (
+          <Grid>
+            <DiskIoWidget
+              key={refreshRate}
+              metrics={result.metrics}
+              fulfilledTimeStamp={fulfilledTimeStamp}
+              xAxis={xAxis}
+              historySize={HISTORY_SIZE}
+            />
+          </Grid>
+        )}
+        {hasDiskFreeData && (
+          <Grid>
+            <DiskFreeWidget metrics={result.metrics} />
+          </Grid>
+        )}
+        {hasSystemInfoData && (
+          <Grid>
+            <SystemInfoWidget metrics={result.metrics} />
+          </Grid>
+        )}
       </Grid>
     </Box>
   );

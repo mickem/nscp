@@ -34,13 +34,15 @@ export default function DiskFreeWidget({ metrics }: DiskFreeWidgetProps) {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [metrics]);
 
+  if (disks.length === 0) return null;
+
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" sx={{ height: "100%" }}>
       <CardContent>
         <Typography gutterBottom variant="h5" component="div">
           Disk Space
         </Typography>
-        <Stack spacing={2} sx={{ width: 500 }}>
+        <Stack spacing={2}>
           {disks.map((disk) => (
             <Box key={disk.name}>
               <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
@@ -66,11 +68,6 @@ export default function DiskFreeWidget({ metrics }: DiskFreeWidgetProps) {
               />
             </Box>
           ))}
-          {disks.length === 0 && (
-            <Typography variant="body2" color="text.secondary">
-              No disk data available
-            </Typography>
-          )}
         </Stack>
       </CardContent>
     </Card>

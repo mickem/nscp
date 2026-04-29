@@ -11,7 +11,7 @@ export default function SystemInfoWidget({ metrics }: SystemInfoWidgetProps) {
   const systemInfo = useMemo(() => {
     const get = (key: string) => metrics.find((m) => m.key === key)?.value;
     const fmt = (v: string | number | undefined) => {
-      if (v === undefined) return "—";
+      if (v === undefined) return undefined;
       if (typeof v === "string") return v;
       return Number.isInteger(v) ? v.toLocaleString() : Math.round(v).toLocaleString();
     };
@@ -28,16 +28,18 @@ export default function SystemInfoWidget({ metrics }: SystemInfoWidgetProps) {
       { label: "Data collected every (s)", value: fmt(get("workers.refresh_interval")) },
       { label: "CPU/Memory refreshed every (s)", value: fmt(get("system.refresh_interval")) },
       { label: "Network refreshed every (s)", value: fmt(get("system.network_refresh_interval")) },
-    ];
+    ].filter((row) => row.value !== undefined) as { label: string; value: string }[];
   }, [metrics]);
 
+  if (systemInfo.length === 0) return null;
+
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" sx={{ height: "100%" }}>
       <CardContent>
         <Typography gutterBottom variant="h5" component="div">
           System Info
         </Typography>
-        <Table size="small" sx={{ width: 500 }}>
+        <Table size="small">
           <TableBody>
             {systemInfo.map((row) => (
               <TableRow key={row.label}>
