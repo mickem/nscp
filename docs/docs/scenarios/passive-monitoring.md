@@ -53,6 +53,9 @@ nscp nsca --host <nagios-server-ip> ^
     --message "Hello from NSClient++"
 ```
 
+!!! note
+    The `^` character is the Windows **Command Prompt** line-continuation character. In PowerShell use a backtick (`` ` ``) instead, or write the command on a single line.
+
 Expected output:
 
 ```
