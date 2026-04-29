@@ -110,6 +110,13 @@ target_link_libraries(
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("pdh" REGULAR_EXPRESSION .*include/pdh/.*)
 
+# check_registry_test.cpp uses GTest features that are not ABI-compatible with
+# the static (legacy) MSVC runtime, so it is excluded when USE_STATIC_RUNTIME is on.
+set(_check_system_test_extra_sources)
+if(NOT USE_STATIC_RUNTIME)
+    list(APPEND _check_system_test_extra_sources check_registry_test.cpp)
+endif()
+
 NSCP_CREATE_TEST(
     check_system_test
     SOURCES
@@ -121,7 +128,7 @@ NSCP_CREATE_TEST(
         check_network_test.cpp
         check_temperature_test.cpp
         check_service_test.cpp
-        check_registry_test.cpp
+        ${_check_system_test_extra_sources}
         check_system_test.cpp
         tick_count.cpp
         check_cpu_frequency.cpp
