@@ -14,6 +14,7 @@ settings_controller::settings_controller(const int version, boost::shared_ptr<se
   addRoute("GET", "/descriptions(.*)$", this, &settings_controller::get_desc);
   addRoute("POST", "/command$", this, &settings_controller::command);
   addRoute("GET", "/status$", this, &settings_controller::status);
+  addRoute("GET", "/diff$", this, &settings_controller::diff);
   addRoute("GET", "(.*)$", this, &settings_controller::get);
   addRoute("PUT", "(.*)$", this, &settings_controller::put);
 }
@@ -326,3 +327,71 @@ void settings_controller::status(Mongoose::Request &request, boost::smatch &what
   node["has_changed"] = status.has_changed();
   response.append(json::serialize(node));
 }
+
+namespace {
+const char *change_type_to_string(PB::Settings::SettingsResponseMessage::Response::Diff::ChangeType t) {
+  switch (t) {
+    case PB::Settings::SettingsResponseMessage::Response::Diff::ADDED:
+      return "added";
+    case PB::Settings::SettingsResponseMessage::Response::Diff::REMOVED:
+      return "removed";
+    case PB::Settings::SettingsResponseMessage::Response::Diff::PATH_ADDED:
+      return "path_added";
+    case PB::Settings::SettingsResponseMessage::Response::Diff::PATH_REMOVED:
+      return "path_removed";
+    case PB::Settings::SettingsResponseMessage::Response::Diff::MODIFIED:
+    default:
+      return "modified";
+  }
+}
+}  // namespace
+
+void settings_controller::diff(Mongoose::Request &request, boost::smatch & /*what*/, Mongoose::StreamResponse &response) {
+  if (!session->is_logged_in("settings.get", request, response)) return;
+
+  PB::Settings::SettingsRequestMessage rm;
+  PB::Settings::SettingsRequestMessage::Request *payload = rm.add_payload();
+  PB::Settings::SettingsRequestMessage::Request::Diff *diff = payload->mutable_diff();
+  std::string path_filter = request.get("path", "");
+  if (!path_filter.empty()) {
+    diff->mutable_node()->set_path(path_filter);
+  }
+  diff->set_recursive(request.get_bool("recursive", true));
+  payload->set_plugin_id(plugin_id);
+
+  std::string str_response;
+  if (!core->settings_query(rm.SerializeAsString(), str_response)) {
+    response.setCodeServerError("Failed to fetch settings diff");
+    return;
+  }
+  PB::Settings::SettingsResponseMessage pb_response;
+  pb_response.ParseFromString(str_response);
+
+  if (pb_response.payload_size() != 1) {
+    response.setCodeServerError("Failed to fetch settings diff");
+    return;
+  }
+
+  const PB::Settings::SettingsResponseMessage::Response &resp = pb_response.payload(0);
+  if (!resp.has_diff()) {
+    response.setCodeServerError("Diff missing from response");
+    return;
+  }
+
+  json::array entries;
+  for (const auto &e : resp.diff().entries()) {
+    json::object o;
+    o["path"] = e.path();
+    o["key"] = e.key();
+    o["old_value"] = e.old_value();
+    o["new_value"] = e.new_value();
+    o["change_type"] = change_type_to_string(e.change_type());
+    o["is_sensitive"] = e.is_sensitive();
+    entries.push_back(o);
+  }
+  json::object out;
+  out["entries"] = entries;
+  out["count"] = static_cast<int>(entries.size());
+  response.append(json::serialize(out));
+}
+

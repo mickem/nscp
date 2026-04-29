@@ -27,6 +27,7 @@ class settings_query_handler {
                           PB::Settings::SettingsResponseMessage::Response *rp);
   void parse_update(const PB::Settings::SettingsRequestMessage::Request::Update &q, PB::Settings::SettingsResponseMessage::Response *rp);
   void parse_control(const PB::Settings::SettingsRequestMessage::Request::Control &q, PB::Settings::SettingsResponseMessage::Response *rp);
+  void parse_diff(const PB::Settings::SettingsRequestMessage::Request::Diff &q, PB::Settings::SettingsResponseMessage::Response *rp);
 
  private:
   void recurse_find(PB::Settings::SettingsResponseMessage::Response::Query *rpp, const std::string base, bool recurse, bool fetch_keys);

@@ -1,7 +1,9 @@
 import { useGetSettingsStatusQuery, useSettingsCommandMutation } from "../../api/api.ts";
-import NscpAlert from "./NscpAlert.tsx";
-import { Box } from "@mui/material";
+import { Alert, Box, Button, Stack } from "@mui/material";
+import WarningIcon from "@mui/icons-material/Warning";
 import { useAppSelector } from "../../store/store.ts";
+import { useState } from "react";
+import SettingsDiffDialog from "./SettingsDiffDialog.tsx";
 
 export default function SettingsChangedWidget() {
   const refreshRate = useAppSelector((state) => state.dashboard.refreshRate);
@@ -9,6 +11,7 @@ export default function SettingsChangedWidget() {
     pollingInterval: refreshRate || undefined,
   });
   const [settingsCommand] = useSettingsCommandMutation();
+  const [diffOpen, setDiffOpen] = useState(false);
 
   const hasChanged = status?.has_changed || false;
 
@@ -20,14 +23,33 @@ export default function SettingsChangedWidget() {
     <>
       {hasChanged && (
         <Box sx={{ paddingBottom: 3 }}>
-          <NscpAlert
+          <Alert
+            icon={<WarningIcon fontSize="inherit" />}
             severity="warning"
-            text="You have unsaved configuration"
-            actionTitle="Save and reload"
-            onClick={saveSettings}
-          />
+            action={
+              <Stack direction="row" spacing={1}>
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={() => setDiffOpen(true)}
+                >
+                  Show changes
+                </Button>
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={saveSettings}
+                >
+                  Save and reload
+                </Button>
+              </Stack>
+            }
+          >
+            You have unsaved configuration
+          </Alert>
         </Box>
       )}
+      <SettingsDiffDialog open={diffOpen} onClose={() => setDiffOpen(false)} />
     </>
   );
 }

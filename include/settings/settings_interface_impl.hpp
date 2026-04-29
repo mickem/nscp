@@ -669,6 +669,97 @@ class settings_interface_impl : public settings_interface {
       i->house_keeping();
     }
   }
+
+  //////////////////////////////////////////////////////////////////////////
+  /// Compute the difference between the in-memory configuration and the
+  /// persisted (saved) configuration.  This walks both this store's caches
+  /// and any child stores (e.g. included files) so the result represents
+  /// the full pending change-set.
+  ///
+  /// Sensitive keys are still reported but their values are redacted in
+  /// the resulting payload (see settings_query_handler).
+  ///
+  /// @return list of pending changes
+  ///
+  /// @author mickem
+  virtual change_list get_changes() {
+    change_list result;
+    {
+      MUTEX_GUARD();
+
+      // Modified / added keys (cache entries marked dirty)
+      for (const auto &entry : settings_cache_) {
+        if (!entry.second.is_dirty()) {
+          continue;
+        }
+        change_entry ce;
+        ce.path = entry.first.first;
+        ce.key = entry.first.second;
+        ce.new_value = entry.second.get_string();
+        op_string current;
+        try {
+          current = get_real_string(entry.first);
+        } catch (...) {
+          current = op_string();
+        }
+        if (current) {
+          ce.old_value = *current;
+          ce.kind = change_entry::change_kind::modified;
+        } else {
+          ce.kind = change_entry::change_kind::added;
+        }
+        result.push_back(ce);
+      }
+
+      // Removed keys
+      for (const cache_key_type &v : settings_delete_cache_) {
+        change_entry ce;
+        ce.path = v.first;
+        ce.key = v.second;
+        try {
+          op_string current = get_real_string(v);
+          if (current) {
+            ce.old_value = *current;
+          }
+        } catch (...) {
+        }
+        ce.kind = change_entry::change_kind::removed;
+        result.push_back(ce);
+      }
+
+      // Removed paths
+      for (const std::string &v : settings_delete_path_cache_) {
+        change_entry ce;
+        ce.path = v;
+        ce.kind = change_entry::change_kind::path_removed;
+        result.push_back(ce);
+      }
+
+      // Added paths (paths in the cache that don't exist in the persisted store)
+      for (const std::string &p : path_cache_) {
+        bool exists = false;
+        try {
+          exists = has_real_path(p);
+        } catch (...) {
+          exists = false;
+        }
+        if (exists) {
+          continue;
+        }
+        change_entry ce;
+        ce.path = p;
+        ce.kind = change_entry::change_kind::path_added;
+        result.push_back(ce);
+      }
+    }
+
+    // Recurse into child stores (e.g. included config files)
+    for (parent_list_type::value_type i : children_) {
+      change_list child_changes = i->get_changes();
+      result.insert(result.end(), child_changes.begin(), child_changes.end());
+    }
+    return result;
+  }
 };
 
 }  // namespace settings

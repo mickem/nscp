@@ -68,6 +68,24 @@ class settings_interface {
   typedef boost::optional<int> op_int;
   typedef boost::optional<bool> op_bool;
 
+  /// Describes a single difference between the in-memory configuration
+  /// and the persisted (saved) configuration.
+  struct change_entry {
+    enum class change_kind {
+      modified,      // existing key whose value was changed
+      added,         // new key not present in the saved configuration
+      removed,       // key present in the saved configuration that was removed
+      path_added,    // new section/path not present in the saved configuration
+      path_removed,  // section/path that was removed
+    };
+    std::string path;
+    std::string key;
+    std::string old_value;
+    std::string new_value;
+    change_kind kind;
+  };
+  typedef std::list<change_entry> change_list;
+
   virtual void ensure_exists() = 0;
 
   //////////////////////////////////////////////////////////////////////////
@@ -203,5 +221,15 @@ class settings_interface {
 
   virtual void enable_credentials() = 0;
   virtual bool supports_updates() = 0;
+
+  //////////////////////////////////////////////////////////////////////////
+  /// Compute the difference between the in-memory configuration and the
+  /// persisted (saved) configuration.  An empty list means there are no
+  /// pending (unsaved) changes.
+  ///
+  /// @return list of pending changes
+  ///
+  /// @author mickem
+  virtual change_list get_changes() = 0;
 };
 }  // namespace settings
