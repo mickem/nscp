@@ -69,7 +69,6 @@ Settings are historically stored in an ini file but you can store settings in ma
 While the most obvious one to use is the registry there are other options as well.
 
 -   ini files
--   old ini files
 -   registry
 -   dummy
 -   http (ini files over http)
@@ -93,11 +92,11 @@ examples:
 
 *   Use the relative file foo.ini `nscp settings --migrate-to ini://foo.ini`
 *   Use the relative file foo.ini in a subfolder called conf `nscp settings --migrate-to ini://conf/foo.ini`
-*   Use a file stored in the profile folder (on windows): C:\Documents and Settings\All Users\Application Data\NSClient++ `nscp settings --migrate-to ini://%(common-appdata)/NSClient++/nsclient.ini`
+*   Use a file stored in the profile folder (on Windows): C:\Documents and Settings\All Users\Application Data\NSClient++ `nscp settings --migrate-to ini://%(common-appdata)/NSClient++/nsclient.ini`
 
 ### registry settings
 
-Registry is only available on windows and using them on windows is recommended as it integrates better with windows and windows management tools where you can push configuration changes and similar things.
+Registry is only available on Windows and using them on Windows is recommended as it integrates better with windows and windows management tools where you can push configuration changes and similar things.
 As the registry is naturally a tree structure we use folders as section and keys and values for keys and values.
 
 To use an ini file you prefix the settings url with ini:// then you can use various folder strings or specify a relative or absolute path to the file.
@@ -222,4 +221,4 @@ You can solve this in various ways:
  * The simplest approach is to move the settings file to a location only readable by the user running NSClient++.
  * Use the credential manager to store sensitive information.
 
-To learn more about the credential manager see [Securing NSClient++](securing.md).
+To learn more about the credential manager see [Securing NSClient++](../securing.md).

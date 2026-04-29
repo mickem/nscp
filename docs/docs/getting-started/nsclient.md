@@ -21,9 +21,6 @@ The getting started guide has been split into multiple sections to allow easier 
 * [Using `check_nsclient` Command](#using-check_nsclient-command)
 * [Checking with NRPE client](./nrpe.md)
 * [Checking with NSCA](./nsca.md)
-* [TODO: Using the query language](#todo-using-the-query-language)
-* [TODO: Checking with REST client](#todo-checking-with-rest-client)
-* [TODO: Checking with NRDP](#todo-checking-with-nrdp)
 
 ## Installing NSClient++
 

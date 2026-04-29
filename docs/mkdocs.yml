@@ -21,87 +21,91 @@ extra:
     link: version.md
     page: History
 nav:
-  - Manual:
-    - NSClient++: index.md
-    - Getting Started:
-        - Getting Started: getting-started/index.md
-        - NSClient++: getting-started/nsclient.md
-        - NRPE: getting-started/nrpe.md
-        - NSCA: getting-started/nsca.md
-    - Theory: theory.md
-    - Checking Things: checks.md
-    - Installing NSClient++: installing.md
-    - Configuration: settings.md
-    - WEB UI: web.md
-    - FAQ: faq.md
-  - About:
-    - Documentation: about/index.md
-    - Building NSClient++: about/build.md
-    - Reporting Bugs: about/reporting-bugs.md
-    - License: about/license.md
-  - Tutorial: tutorial/index.md
-  - Securing: securing.md
-  - Howto:
-    - Checking things: howto/checks.md
-    - Performance Counters: howto/counters.md
-    - External scripts: howto/external_scripts.md
-    - Running commands: howto/run_commands.md
-    - NRPE: howto/nrpe.md
-    - NSCA: howto/nsca.md
-    - Migrate from 0.3: howto/03x_migration.md
+  - Home: index.md
+  - Quick Start: quick-start.md
+  - Concepts:
+      - How NSClient++ Works: concepts/index.md
+      - Checks In Depth: concepts/checks.md
+      - Settings: concepts/settings.md
+  - Getting Started:
+      - Overview: getting-started/index.md
+      - Installation: installing.md
+      - First Steps: getting-started/nsclient.md
+      - Using NRPE: getting-started/nrpe.md
+      - Using NSCA: getting-started/nsca.md
+  - Monitoring Scenarios:
+      - Overview: scenarios/index.md
+      - Windows Server Health: scenarios/windows-server-health.md
+      - Disk Space Alerting: scenarios/disk-space.md
+      - Service & Process Monitoring: scenarios/service-monitoring.md
+      - Event Log Monitoring: scenarios/event-log.md
+      - Network Checks: scenarios/network-checks.md
+      - External Scripts: scenarios/external-scripts.md
+      - Passive Monitoring (NSCA/NRDP): scenarios/passive-monitoring.md
+  - How To:
+      - Performance Counters: howto/counters.md
+      - External Scripts: howto/external_scripts.md
+      - Running Commands: howto/run_commands.md
+      - Securing NSClient++: securing.md
+      - WEB UI: web.md
+      - NRPE Details: howto/nrpe.md
+      - NSCA Details: howto/nsca.md
+      - Migrate from 0.3.x: howto/03x_migration.md
   - Reference:
-    - Reference: reference/index.md
-    - Check commands:
-      - CheckDisk (Windows): reference/windows/CheckDisk.md
-      - CheckExternalScripts: reference/check/CheckExternalScripts.md
-      - CheckEventLog (Windows): reference/windows/CheckEventLog.md
-      - CheckHelpers: reference/check/CheckHelpers.md
-      - CheckLogFile: reference/check/CheckLogFile.md
-      - CheckMKClient: reference/check/CheckMKClient.md
-      - CheckMKServer: reference/check/CheckMKServer.md
-      - CheckNet: reference/misc/CheckNet.md
-      - CheckNSCP: reference/check/CheckNSCP.md
-      - CheckSystemUnix (unix): reference/unix/CheckSystemUnix.md
-      - CheckSystem (Windows): reference/windows/CheckSystem.md
-      - CheckTaskSched (Windows): reference/windows/CheckTaskSched.md
-      - CheckWMI (Windows): reference/windows/CheckWMI.md
-    - Clients & Servers:
-      - WEBServer: reference/generic/WEBServer.md
-      - WEBClient: reference/misc/WEBClient.md
-      - NRPEServer: reference/client/NRPEServer.md
-      - NRPEClient: reference/client/NRPEClient.md
-      - NSClientServer: reference/windows/NSClientServer.md
-      - NSCAServer: reference/client/NSCAServer.md
-      - NSCAClient: reference/client/NSCAClient.md
-      - NRDPClient: reference/client/NRDPClient.md
-      - SMTPClient: reference/client/SMTPClient.md
-      - GraphiteClient: reference/client/GraphiteClient.md
-      - SyslogClient: reference/client/SyslogClient.md
-      - CollectdClient: reference/misc/CollectdClient.md
-      - Op5Client: reference/misc/Op5Client.md
-      - ElasticClient: reference/misc/ElasticClient.md
-    - Helper modules:
-      - Scheduler: reference/generic/Scheduler.md
-      - SimpleFileWriter: reference/generic/SimpleFileWriter.md
-      - CommandClient: reference/generic/CommandClient.md
-      - SimpleCache: reference/generic/SimpleCache.md
-      - PythonScript: reference/generic/PythonScript.md
-      - LUAScript: reference/generic/LUAScript.md
-      - DotnetPlugins: reference/windows/DotnetPlugins.md
+      - Reference: reference/index.md
+      - Check commands:
+        - CheckDisk (Windows): reference/windows/CheckDisk.md
+        - CheckExternalScripts: reference/check/CheckExternalScripts.md
+        - CheckEventLog (Windows): reference/windows/CheckEventLog.md
+        - CheckHelpers: reference/check/CheckHelpers.md
+        - CheckLogFile: reference/check/CheckLogFile.md
+        - CheckMKClient: reference/check/CheckMKClient.md
+        - CheckMKServer: reference/check/CheckMKServer.md
+        - CheckNet: reference/misc/CheckNet.md
+        - CheckNSCP: reference/check/CheckNSCP.md
+        - CheckSystemUnix (unix): reference/unix/CheckSystemUnix.md
+        - CheckSystem (Windows): reference/windows/CheckSystem.md
+        - CheckTaskSched (Windows): reference/windows/CheckTaskSched.md
+        - CheckWMI (Windows): reference/windows/CheckWMI.md
+      - Clients & Servers:
+        - WEBServer: reference/generic/WEBServer.md
+        - WEBClient: reference/misc/WEBClient.md
+        - NRPEServer: reference/client/NRPEServer.md
+        - NRPEClient: reference/client/NRPEClient.md
+        - NSClientServer: reference/windows/NSClientServer.md
+        - NSCAServer: reference/client/NSCAServer.md
+        - NSCAClient: reference/client/NSCAClient.md
+        - NRDPClient: reference/client/NRDPClient.md
+        - SMTPClient: reference/client/SMTPClient.md
+        - GraphiteClient: reference/client/GraphiteClient.md
+        - SyslogClient: reference/client/SyslogClient.md
+        - CollectdClient: reference/misc/CollectdClient.md
+        - Op5Client: reference/misc/Op5Client.md
+        - ElasticClient: reference/misc/ElasticClient.md
+      - Helper modules:
+        - Scheduler: reference/generic/Scheduler.md
+        - SimpleFileWriter: reference/generic/SimpleFileWriter.md
+        - CommandClient: reference/generic/CommandClient.md
+        - SimpleCache: reference/generic/SimpleCache.md
+        - PythonScript: reference/generic/PythonScript.md
+        - LUAScript: reference/generic/LUAScript.md
+        - DotnetPlugins: reference/windows/DotnetPlugins.md
   - Extending:
-    - Overview: extending/index.md
-    - Python Scripts: extending/python.md
-    - Zip Modules: extending/zip-modules.md
+      - Overview: extending/index.md
+      - Python Scripts: extending/python.md
+      - Zip Modules: extending/zip-modules.md
   - API:
-    - REST:
-      - Introduction: api/rest/index.md
-      - Info: api/rest/info.md
-      - Modules: api/rest/modules.md
-      - Queries: api/rest/queries.md
-      - Scripts: api/rest/scripts.md
-      - Logs: api/rest/logs.md
-      - Legacy API: api/rest/legacy.md
-    - Plugin API: api/plugin.md
+      - REST:
+        - Introduction: api/rest/index.md
+        - Info: api/rest/info.md
+        - Modules: api/rest/modules.md
+        - Queries: api/rest/queries.md
+        - Scripts: api/rest/scripts.md
+        - Logs: api/rest/logs.md
+        - Legacy API: api/rest/legacy.md
+      - Plugin API: api/plugin.md
+  - FAQ: faq.md
+  - Legacy Tutorial: tutorial/index.md
 
 markdown_extensions:
   - admonition

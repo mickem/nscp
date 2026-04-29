@@ -1,6 +1,7 @@
 # Tutorial
 
-> **WARNING** This is an old tutorial, and a better place to start is the [Getting Started](../getting-started.md) guide.
+!!! note
+    This is an older tutorial. The [Quick Start guide](../quick-start.md) and [Getting Started](../getting-started/index.md) guide are better places to begin.
 
 ## How it works
 
@@ -55,9 +56,8 @@ But currently most modules are Windows only thus the benefit on other operating 
 
 NSClient++ should run on the following operating systems:
 
-*   Windows: From NT4 SP5 up to Windows 2008 and Windows 7 and 2012
-*   Linux: Debian, Centos and Ubuntu (and possibly others as well)
-*   Win32, x64 as well as various Linux hardware as well.
+*   Windows: Windows 10 / Server 2016 and later (Win32 and x64)
+*   Linux: Debian, CentOS and Ubuntu (and possibly others as well)
 
 
 #### Linux:
@@ -272,7 +272,11 @@ timeout = 90
 
 ## Checking things
 
-TODO: Add information about basic checks here!
+For information on basic checks and how to use them, see:
+
+- [Quick Start](../quick-start.md) — get your first check running in minutes
+- [Monitoring Scenarios](../scenarios/index.md) — step-by-step guides for common use cases
+- [Checks In Depth](../checks-in-depth/index.md) — understand filters, thresholds, and output syntax
 
 ### External scripts
 
@@ -314,18 +318,18 @@ check_updates=check_updates.vbs $ARG1$ $ARG2$
 ### Eventlogs
 
 !!! note
-    Event-logs are a great source of information for monitoring. Allow real-time monitoring and extended filtering.
-    As the subject itself is a bit complicated, start basic by grabbing all and exclude after.
+    Event-logs are a great source of information for monitoring. They allow real-time monitoring and extended filtering.
+    As the subject itself is a bit complicated, start basic by grabbing all and filtering down.
 
 ```
 check_eventlog
 ```
 
-TODO: Extend this section
+For a complete guide to event log monitoring see the [Event Log scenario](../scenarios/event-log.md).
 
 ## Installation
 
-TODO: Add section about automating installs and central config
+For information on automated installs and central configuration, see [Installing NSClient++](../installing.md).
 
 ## Security
 

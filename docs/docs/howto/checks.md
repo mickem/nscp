@@ -1,7 +1,10 @@
 # Checking things
 
-This page will tell you how to check your computer using NSClient++.
-This information in only valid for 0.4.2 and beyond since this is based off the new check syntax.
+!!! tip "Beginner?"
+    The [Checks In Depth](../checks-in-depth/index.md) section covers the same material in a more structured way, with links to real-world [Monitoring Scenarios](../scenarios/index.md). Start there if you are new to NSClient++.
+
+This page tells you how to check your computer using NSClient++.
+This information is only valid for 0.4.2 and beyond since it is based on the new check syntax.
 
 ## Getting started
 
