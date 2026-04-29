@@ -1,13 +1,18 @@
 {
 	"module"		: {
 		"title"			: "Network related checks",
-		"description"		: "Network related check such as check_ping.",
+		"description"		: "Network related checks such as check_ping, check_tcp, check_dns, check_http, check_connections and check_ntp_offset.",
 		"name"			: "CheckNet",
 		"alias"			: "net",
 		"version"		: "auto",
 		"load"			: "none"
 	},
 	"commands" : {
-		"check_ping"		: "Ping another host and check the result."
+		"check_ping"		: "Ping another host and check the result.",
+		"check_tcp"		: "Connect to a TCP port and optionally send/expect data to check that a service is reachable.",
+		"check_dns"		: "Resolve a host name and check the response time and resulting addresses.",
+		"check_http"		: "Send an HTTP/HTTPS request and check the response status, time, size and body.",
+		"check_connections"	: "Count active TCP/UDP connections and report counts per protocol and TCP state.",
+		"check_ntp_offset"	: "Query an NTP server and check the offset between the local clock and the server."
 	}
 }

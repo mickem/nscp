@@ -29,6 +29,11 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 
+#include "check_connections.h"
+#include "check_dns.h"
+#include "check_http.h"
+#include "check_ntp_offset.h"
+#include "check_tcp.h"
 #include "filter.hpp"
 
 namespace sh = nscapi::settings_helper;
@@ -87,4 +92,19 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
   }
   if (total_obj) filter.match(total_obj);
   filter_helper.post_process(filter);
+}
+void CheckNet::check_tcp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_net::check_tcp(request, response);
+}
+void CheckNet::check_dns(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_net::check_dns(request, response);
+}
+void CheckNet::check_http(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_net::check_http(request, response);
+}
+void CheckNet::check_connections(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_net::check_connections(request, response);
+}
+void CheckNet::check_ntp_offset(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_net::check_ntp_offset(request, response);
 }
