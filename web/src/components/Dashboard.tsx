@@ -36,7 +36,7 @@ function formatXValue(value: number) {
   return `${Math.round(seconds / 60)} min`;
 }
 
-export default function Welcome() {
+export default function Dashboard() {
   const dispatch = useAppDispatch();
   const refreshRate = useAppSelector((state) => state.dashboard.refreshRate);
   const { data: metrics, fulfilledTimeStamp, isLoading } = useGetMetricsQuery(undefined, {
@@ -107,23 +107,28 @@ export default function Welcome() {
                 label="Refresh rate"
                 onChange={handleRefreshRateChange}
               >
-                {REFRESH_RATES.map((r) => (
-                  <Tooltip
-                    key={r.value}
-                    title={
-                      r.value > 0 && r.value < maxRefreshMs
-                        ? `Server updates every ${maxRefreshMs / 1000}s – polling faster has no effect`
-                        : ""
-                    }
-                    placement="right"
-                  >
-                    <span>
-                      <MenuItem value={r.value} disabled={r.value > 0 && r.value < maxRefreshMs}>
-                        {r.label}
-                      </MenuItem>
-                    </span>
-                  </Tooltip>
-                ))}
+                {REFRESH_RATES.map((r) => {
+                  const tooLow = r.value > 0 && r.value < maxRefreshMs;
+                  return (
+                    <MenuItem
+                      key={r.value}
+                      value={r.value}
+                      disabled={tooLow}
+                      sx={{ "&.Mui-disabled": { pointerEvents: "auto" } }}
+                    >
+                      <Tooltip
+                        title={
+                          tooLow
+                            ? `Server updates every ${maxRefreshMs / 1000}s – polling faster has no effect`
+                            : ""
+                        }
+                        placement="right"
+                      >
+                        <Box sx={{ width: "100%" }}>{r.label}</Box>
+                      </Tooltip>
+                    </MenuItem>
+                  );
+                })}
               </Select>
             </FormControl>
             {isLoading && <CircularProgress size={20} />}

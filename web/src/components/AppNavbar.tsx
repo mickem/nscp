@@ -91,7 +91,7 @@ export default function AppNavbar({ handleDrawerToggle }: Props) {
             <Menu
               id="menu-appbar"
               anchorEl={anchorEl}
-              anchorOrigin={{ vertical: "top", horizontal: "right" }}
+              anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
               keepMounted
               transformOrigin={{ vertical: "top", horizontal: "right" }}
               open={Boolean(anchorEl)}
