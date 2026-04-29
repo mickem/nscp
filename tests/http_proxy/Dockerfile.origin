@@ -1,0 +1,8 @@
+FROM nginx:alpine
+
+# Serve a minimal NRDP-compatible stub response for any POST to /nrdp/server/
+# The NRDPClient parser expects:
+#   <result><status>0</status><message>OK</message></result>
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
