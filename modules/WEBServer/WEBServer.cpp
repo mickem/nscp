@@ -176,6 +176,15 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     socket_helpers::validate_certificate(certificate, errors);
     NSC_LOG_ERROR_LISTS(errors);
     std::string path = get_core()->expand_path("${web-path}");
+    if (!boost::filesystem::is_directory(path)) {
+      const std::string fallback = get_core()->expand_path("${exe-path}/web");
+      if (boost::filesystem::is_directory(fallback)) {
+        NSC_DEBUG_MSG("Web folder " + path + " not found, using " + fallback + " instead.");
+        path = fallback;
+      } else {
+        NSC_LOG_ERROR("Failed to find web folder: " + path + " (also tried " + fallback + ")");
+      }
+    }
     if (!boost::filesystem::is_regular_file(certificate) && port == "8443") port = "8080";
     if (boost::ends_with(port, "s")) {
       port = port.substr(0, port.length() - 1);
