@@ -48,7 +48,17 @@ The most common check commands with their default thresholds:
 
 ## Supported Platforms
 
-- **Windows**: Windows 10 / Server 2016 and later (Win32 and x64)
+- **Windows**: Windows 2008 (Win32 and x64)
 - **Linux**: Debian, Ubuntu, CentOS/RHEL (limited module support)
+- **Windows**: Windows XP and later (Legacy version)
 
-For older OS support, see the [FAQ](faq.md).
+## Supported Protocols
+
+- **NRPE**: Nagios Remote Plugin Executor — the most widely supported agent protocol
+- **NSCA**: Nagios Service Check Acceptor — for passive monitoring (push)
+- **NRDP**: Nagios Remote Data Processor — modern HTTP-based alternative to NSCA
+- **REST API**: For custom integrations and scripts
+- **check_mk**: For check_mk users, NSClient++ can be configured to work with the check_mk agent protocol
+- **Graphite**: For sending performance data to Graphite/Carbon
+- **Prometheus**: Expose metrics in Prometheus format for scraping
+

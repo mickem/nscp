@@ -25,8 +25,8 @@ nav:
   - Quick Start: quick-start.md
   - Concepts:
       - How NSClient++ Works: concepts/index.md
-      - Theory (Advanced): theory.md
-      - Settings: settings.md
+      - Checks In Depth: concepts/checks.md
+      - Settings: concepts/settings.md
   - Getting Started:
       - Overview: getting-started/index.md
       - Installation: installing.md
@@ -42,12 +42,6 @@ nav:
       - Network Checks: scenarios/network-checks.md
       - External Scripts: scenarios/external-scripts.md
       - Passive Monitoring (NSCA/NRDP): scenarios/passive-monitoring.md
-  - Checks In Depth:
-      - Overview: checks-in-depth/index.md
-      - Filters and Expressions: checks-in-depth/filters.md
-      - Thresholds (warn/crit): checks-in-depth/thresholds.md
-      - Output Syntax: checks-in-depth/syntax.md
-      - Performance Data: checks-in-depth/performance-data.md
   - How To:
       - Performance Counters: howto/counters.md
       - External Scripts: howto/external_scripts.md

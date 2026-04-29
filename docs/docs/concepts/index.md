@@ -14,7 +14,7 @@ NSClient++ is a **monitoring agent** — a small service that runs on the machin
 ```
   Monitoring Server                  Monitored Machine
   (Nagios, Icinga, Op5…)             (Windows / Linux)
-  
+
   check_nrpe ──────────────────────► NSClient++
              ◄──────── check result ─┘  (active/NRPE)
 
@@ -70,18 +70,18 @@ The fix is always the same: load the module that provides the command you need.
 
 Each module provides one or more **commands** (also called queries or checks). A command is what your monitoring server calls, and what produces a status and performance data.
 
-| Module | Commands provided |
-|---|---|
-| `CheckSystem` | `check_cpu`, `check_memory`, `check_service`, `check_process`, `check_uptime`, `check_pdh`, … |
-| `CheckDisk` | `check_drivesize`, `check_files` |
-| `CheckEventLog` | `check_eventlog` |
-| `CheckNet` | `check_ping`, `check_tcp`, `check_http`, `check_dns` |
-| `CheckExternalScripts` | Any script you add to the config |
-| `CheckWMI` | `check_wmi` |
-| `CheckTaskSched` | `check_tasksched` |
-| `NRPEServer` | Accepts incoming connections from `check_nrpe` |
-| `NSCAClient` | Pushes passive results to an NSCA server |
-| `Scheduler` | Runs commands on a timer for passive monitoring |
+| Module                 | Commands provided                                                                             |
+|------------------------|-----------------------------------------------------------------------------------------------|
+| `CheckSystem`          | `check_cpu`, `check_memory`, `check_service`, `check_process`, `check_uptime`, `check_pdh`, … |
+| `CheckDisk`            | `check_drivesize`, `check_files`                                                              |
+| `CheckEventLog`        | `check_eventlog`                                                                              |
+| `CheckNet`             | `check_ping`, `check_tcp`, `check_http`, `check_dns`                                          |
+| `CheckExternalScripts` | Any script you add to the config                                                              |
+| `CheckWMI`             | `check_wmi`                                                                                   |
+| `CheckTaskSched`       | `check_tasksched`                                                                             |
+| `NRPEServer`           | Accepts incoming connections from `check_nrpe`                                                |
+| `NSCAClient`           | Pushes passive results to an NSCA server                                                      |
+| `Scheduler`            | Runs commands on a timer for passive monitoring                                               |
 
 For a complete reference see the [Reference section](../reference/index.md).
 
@@ -116,7 +116,7 @@ All NSClient++ checks share the same engine for filtering, thresholds, and outpu
 - **`warn`** / **`crit`** — expressions that trigger warning or critical status (e.g., `warn=load > 80`)
 - **`top-syntax`** / **`detail-syntax`** — templates that control what the message looks like
 
-See [Checks In Depth](../checks-in-depth/index.md) for a full guide to these options.
+See [Checks In Depth](checks.md) for a full guide to these options.
 
 ---
 
@@ -124,13 +124,13 @@ See [Checks In Depth](../checks-in-depth/index.md) for a full guide to these opt
 
 NSClient++ speaks many protocols. The most common are:
 
-| Protocol | Direction | Use case |
-|---|---|---|
-| **NRPE** | Server polls agent | Active monitoring with Nagios/Icinga/Op5 |
-| **NSCA / NRDP** | Agent pushes to server | Passive monitoring |
-| **REST** | Both | NSClient++ native protocol, web UI |
-| **Graphite** | Agent pushes metrics | Real-time graphing |
-| **check_mk** | Server polls agent | Check_MK monitoring |
+| Protocol        | Direction              | Use case                                 |
+|-----------------|------------------------|------------------------------------------|
+| **NRPE**        | Server polls agent     | Active monitoring with Nagios/Icinga/Op5 |
+| **NSCA / NRDP** | Agent pushes to server | Passive monitoring                       |
+| **REST**        | Both                   | NSClient++ native protocol, web UI       |
+| **Graphite**    | Agent pushes metrics   | Real-time graphing                       |
+| **check_mk**    | Server polls agent     | Check_MK monitoring                      |
 
 See [Getting Started](../getting-started/index.md) for step-by-step protocol setup.
 
@@ -173,13 +173,13 @@ nscp settings --generate --remove-defaults
 
 ## Summary
 
-| Concept | What it means |
-|---|---|
-| Module | A plugin that must be loaded to enable its commands |
-| Command | A check that returns status + message + performance data |
-| Filter | An expression that selects which items to check |
-| Threshold | A `warn=` or `crit=` expression that triggers an alert |
-| Protocol | How NSClient++ talks to your monitoring server |
+| Concept   | What it means                                            |
+|-----------|----------------------------------------------------------|
+| Module    | A plugin that must be loaded to enable its commands      |
+| Command   | A check that returns status + message + performance data |
+| Filter    | An expression that selects which items to check          |
+| Threshold | A `warn=` or `crit=` expression that triggers an alert   |
+| Protocol  | How NSClient++ talks to your monitoring server           |
 
 **Next steps:**
 

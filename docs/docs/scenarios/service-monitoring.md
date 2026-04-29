@@ -181,5 +181,5 @@ check_nrpe -H <agent-ip> -c check_process --argument "process=myapp.exe"
 
 - [Event Log Monitoring](event-log.md) — catch service crash events before they are noticed
 - [Windows Server Health](windows-server-health.md) — add service checks to a full health baseline
-- [Checks In Depth: Filters](../checks-in-depth/filters.md) — understand how to write filter expressions
+- [Checks In Depth: Filters](../checks-in-depth/index.md#4-filters-choosing-what-to-check) — understand how to write filter expressions
 - [Reference: CheckSystem](../reference/windows/CheckSystem.md) — full command reference

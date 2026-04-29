@@ -3,7 +3,7 @@
 This guide takes you from zero to your first successful check in about 10 minutes.
 
 !!! note
-    This guide assumes Windows. NSClient++ also runs on Linux, but most check modules are Windows-only.
+    This guide assumes Windows. NSClient++ also runs on Linux, but some modules are Windows-only.
 
 ---
 
