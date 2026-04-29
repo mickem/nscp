@@ -81,6 +81,20 @@ void registry_query_handler::find_plugins_on_disk(boost::unordered_set<std::stri
                                                   PB::Registry::RegistryResponseMessage::Response *rp) {
   nsclient::core::plugin_cache::plugin_cache_list_type tmp_list;
   boost::filesystem::path pluginPath = path_->expand_path("${module-path}");
+  boost::system::error_code ec;
+  if (!boost::filesystem::is_directory(pluginPath, ec)) {
+    // Fall back to a local modules folder next to the executable if the configured
+    // (typically system-wide) module path does not exist. This makes "list modules"
+    // work in development setups where /usr/lib/nsclient/modules is not installed.
+    boost::filesystem::path fallback = path_->expand_path("${exe-path}/modules");
+    if (boost::filesystem::is_directory(fallback, ec)) {
+      LOG_DEBUG_CORE_STD("Module path '" + pluginPath.string() + "' not found, falling back to '" + fallback.string() + "'");
+      pluginPath = fallback;
+    } else {
+      LOG_DEBUG_CORE_STD("Module path '" + pluginPath.string() + "' not found and no fallback available; skipping on-disk plugin scan");
+      return;
+    }
+  }
   boost::filesystem::directory_iterator end_itr;  // default construction yields past-the-end
   for (boost::filesystem::directory_iterator itr(pluginPath); itr != end_itr; ++itr) {
     if (!is_directory(itr->status())) {
