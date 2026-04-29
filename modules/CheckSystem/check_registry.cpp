@@ -86,6 +86,9 @@ void registry_key_checks::check(const PB::Commands::QueryRequestMessage::Request
       "${status}: No registry keys found",
       "${status}: All %(count) registry key(s) are ok.");
 
+  filter_helper.set_default_perf_config(
+    "extra(count)");
+
   // clang-format off
   filter_helper.get_desc().add_options()
     ("key",       po::value<std::vector<std::string>>(&keys),
@@ -236,7 +239,7 @@ void registry_value_checks::check(const PB::Commands::QueryRequestMessage::Reque
       "${path}: ${string_value} (type=${type})",
       "${path}",
       "${status}: No registry values found",
-      "${status}: All %(count) registry value(s) are ok.");
+      "${status}: %(list).");
 
   // clang-format off
   filter_helper.get_desc().add_options()
