@@ -11,6 +11,7 @@ set(SRCS
     CheckSystem.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
     realtime_thread.cpp
     realtime_data.cpp
     filter_config_object.cpp

@@ -1,4 +1,4 @@
-import Welcome from "./components/Welcome.tsx";
+import Dashboard from "./components/Dashboard.tsx";
 import { BrowserRouter, Route, Routes } from "react-router";
 import MainPage from "./components/MainPage.tsx";
 import Modules from "./components/Modules.tsx";
@@ -26,7 +26,7 @@ export default function Router() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<MainPage />}>
-          <Route index={true} element={<Welcome />} />
+          <Route index={true} element={<Dashboard />} />
           <Route path={"modules"}>
             <Route path={":id"} element={<Module />} />
             <Route index={true} element={<Modules />} />

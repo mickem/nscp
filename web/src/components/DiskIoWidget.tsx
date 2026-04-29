@@ -105,14 +105,16 @@ export default function DiskIoWidget({ metrics, fulfilledTimeStamp, xAxis, histo
     prevTimestampRef.current = undefined;
   };
 
+  if (diskDrives.length === 0) return null;
+
   const { label: unit, divisor } = scaleUnit([...history.readBytes, ...history.writeBytes]);
   const scaledRead = history.readBytes.map((v) => v / divisor);
   const scaledWrite = history.writeBytes.map((v) => v / divisor);
 
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" sx={{ height: "100%" }}>
       <CardContent>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1, maxWidth: 500 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1 }}>
           <Typography variant="h5" component="div" sx={{ flexShrink: 0 }}>
             Disk I/O
           </Typography>
@@ -133,17 +135,18 @@ export default function DiskIoWidget({ metrics, fulfilledTimeStamp, xAxis, histo
             </Select>
           </FormControl>
         </Box>
-        <LineChart
-          xAxis={xAxis}
-          yAxis={[{ label: unit }]}
-          series={[
-            { id: "Read", label: `Read (${unit})`, data: scaledRead, area: true },
-            { id: "Write", label: `Write (${unit})`, data: scaledWrite, area: true },
-          ]}
-          grid={{ vertical: true, horizontal: true }}
-          width={500}
-          height={300}
-        />
+        <Box sx={{ width: "100%" }}>
+          <LineChart
+            xAxis={xAxis}
+            yAxis={[{ label: unit }]}
+            series={[
+              { id: "Read", label: `Read (${unit})`, data: scaledRead, area: true },
+              { id: "Write", label: `Write (${unit})`, data: scaledWrite, area: true },
+            ]}
+            grid={{ vertical: true, horizontal: true }}
+            height={300}
+          />
+        </Box>
       </CardContent>
     </Card>
   );

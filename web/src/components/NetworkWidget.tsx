@@ -105,14 +105,16 @@ export default function NetworkWidget({ metrics, fulfilledTimeStamp, xAxis, hist
     prevTimestampRef.current = undefined;
   };
 
+  if (networkCards.size === 0) return null;
+
   const { label: unit, divisor } = scaleUnit([...history.bytesReceived, ...history.bytesSent]);
   const scaledReceived = history.bytesReceived.map((v) => v / divisor);
   const scaledSent = history.bytesSent.map((v) => v / divisor);
 
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" sx={{ height: "100%" }}>
       <CardContent>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1, maxWidth: 500 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1 }}>
           <Typography variant="h5" component="div" sx={{ flexShrink: 0 }}>
             Network
           </Typography>
@@ -133,17 +135,18 @@ export default function NetworkWidget({ metrics, fulfilledTimeStamp, xAxis, hist
             </Select>
           </FormControl>
         </Box>
-        <LineChart
-          xAxis={xAxis}
-          yAxis={[{ label: unit }]}
-          series={[
-            { id: "Received", label: `Received (${unit})`, data: scaledReceived, area: true },
-            { id: "Sent", label: `Sent (${unit})`, data: scaledSent, area: true },
-          ]}
-          grid={{ vertical: true, horizontal: true }}
-          width={500}
-          height={300}
-        />
+        <Box sx={{ width: "100%" }}>
+          <LineChart
+            xAxis={xAxis}
+            yAxis={[{ label: unit }]}
+            series={[
+              { id: "Received", label: `Received (${unit})`, data: scaledReceived, area: true },
+              { id: "Sent", label: `Sent (${unit})`, data: scaledSent, area: true },
+            ]}
+            grid={{ vertical: true, horizontal: true }}
+            height={300}
+          />
+        </Box>
       </CardContent>
     </Card>
   );

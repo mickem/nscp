@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useRef } from "react";
-import { Card, CardContent } from "@mui/material";
+import { Box, Card, CardContent } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import { LineChart } from "@mui/x-charts/LineChart";
 import { Metric } from "../metric_parser.ts";
@@ -57,22 +57,23 @@ export default function CpuWidget({ metrics, fulfilledTimeStamp, xAxis, historyS
   }, [fulfilledTimeStamp, metrics, historySize]);
 
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" sx={{ height: "100%" }}>
       <CardContent>
         <Typography gutterBottom variant="h5" component="div">
           CPU Load
         </Typography>
-        <LineChart
-          xAxis={xAxis}
-          series={[
-            { id: "Kernel", label: "Kernel time (%)", data: history.kernel, stack: "total", area: true },
-            { id: "User", label: "User time (%)", data: history.user, stack: "total", area: true },
-          ]}
-          grid={{ vertical: true, horizontal: true }}
-          width={500}
-          height={300}
-          yAxis={[{ min: 0, max: 100, label: "%" }]}
-        />
+        <Box sx={{ width: "100%" }}>
+          <LineChart
+            xAxis={xAxis}
+            series={[
+              { id: "Kernel", label: "Kernel time (%)", data: history.kernel, stack: "total", area: true },
+              { id: "User", label: "User time (%)", data: history.user, stack: "total", area: true },
+            ]}
+            grid={{ vertical: true, horizontal: true }}
+            height={300}
+            yAxis={[{ min: 0, max: 100, label: "%" }]}
+          />
+        </Box>
       </CardContent>
     </Card>
   );

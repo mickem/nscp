@@ -28,6 +28,8 @@
 #include <string.h>
 
 #include <cstdarg>
+#include <cstdio>
+#include <cstddef>
 #endif
 
 #include <string>
@@ -53,13 +55,32 @@ class format {
   };
 #else
   static std::string from_system(int dwError) {
-    char buf[1024];
-    auto e = ::strerror_r(dwError, buf, sizeof(buf));
-    if (e) {
-      snprintf(buf, sizeof(buf), "Failed to lookup error code %d: %s", dwError, e);
-    }
-    return buf;
+    char buf[1024] = {0};
+    // strerror_r has two incompatible signatures (GNU vs XSI/POSIX). Dispatch via overload.
+    return apply(buf, sizeof(buf), ::strerror_r(dwError, buf, sizeof(buf)), dwError);
   }
+
+ private:
+  // GNU strerror_r: returns char* (may point to internal static buffer or to buf).
+  static std::string apply(char *buf, std::size_t buflen, const char *result, int dwError) {
+    if (result == nullptr) {
+      char tmp[64];
+      std::snprintf(tmp, sizeof(tmp), "Unknown error %d", dwError);
+      return tmp;
+    }
+    (void)buf;
+    (void)buflen;
+    return std::string(result);
+  }
+  // XSI/POSIX strerror_r: returns int (0 on success, errno on failure).
+  static std::string apply(char *buf, std::size_t buflen, int rc, int dwError) {
+    if (rc != 0) {
+      std::snprintf(buf, buflen, "Unknown error %d", dwError);
+    }
+    return std::string(buf);
+  }
+
+ public:
 #endif
 };
 class lookup {

@@ -25,6 +25,7 @@
 #include <boost/unordered_map.hpp>
 #include <error/error.hpp>
 #include <map>
+#include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/settings/proxy.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <string>
@@ -243,6 +244,9 @@ class pdh_thread {
   mutable boost::shared_mutex mutex_;
   bool stop_requested_;
 
+  nscapi::core_wrapper *core_;
+  int plugin_id_;
+
   // CPU data collection
   rrd_buffer<cpu_load> cpu_buffer_;
 
@@ -270,13 +274,20 @@ class pdh_thread {
 
   std::map<std::string, cpu_times> last_cpu_times_;
 
+  filters::cpu::filter_config_handler cpu_filters_;
+  filters::mem::filter_config_handler mem_filters_;
+
  public:
   std::string subsystem;
   std::string default_buffer_size;
-  std::string filters_path_;
 
  public:
-  pdh_thread() : stop_requested_(false) {}
+  pdh_thread() : stop_requested_(false), core_(nullptr), plugin_id_(0) {}
+
+  void set_core(nscapi::core_wrapper *core, int plugin_id) {
+    core_ = core;
+    plugin_id_ = plugin_id;
+  }
 
   bool start();
   bool stop();
@@ -293,10 +304,16 @@ class pdh_thread {
   // Check if we have collected any memory data yet
   bool has_memory_data() const;
 
-  void add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+  void set_path(const std::string &cpu_path, const std::string &mem_path);
+
+  void add_realtime_cpu_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+  void add_realtime_mem_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+
+  void add_samples(boost::shared_ptr<nscapi::settings_proxy> settings);
+
+  std::string to_string() const { return "system"; }
 
  private:
-  filters::filter_config_handler filters_;
 
   void thread_proc();
   std::map<std::string, cpu_times> read_cpu_times();

@@ -28,6 +28,8 @@
 #include <settings/settings_core.hpp>
 #include <settings/settings_interface_impl.hpp>
 #include <str/utils.hpp>
+
+#include <cerrno>
 #ifdef WIN32
 #include <win/credentials.hpp>
 #endif
@@ -306,8 +308,24 @@ class INISettings : public settings::settings_interface_impl {
     std::string error_str = "unknown error";
     if (err == SI_NOMEM) error_str = "Out of memory";
     if (err == SI_FAIL) error_str = "General failure";
-    if (err == SI_FILE) error_str = "I/O error: " + error::lookup::last_error();
-    throw settings_exception(__FILE__, __LINE__, msg + " '" + get_context() + "': " + error_str);
+    if (err == SI_FILE) {
+#ifdef WIN32
+      const int saved_errno = errno;
+      error_str = "I/O error: " + error::lookup::last_error();
+#else
+      const int saved_errno = errno;
+      if (saved_errno != 0) {
+        error_str = "I/O error: " + error::format::from_system(saved_errno) + " (errno=" + std::to_string(saved_errno) + ")";
+        if (saved_errno == EACCES || saved_errno == EPERM || saved_errno == EROFS) {
+          error_str += " - check that the user running nscp has write access to the settings file and its directory";
+        }
+      } else {
+        error_str = "I/O error";
+      }
+#endif
+    }
+    const std::string file_hint = filename_.empty() ? get_context() : filename_;
+    throw settings_exception(__FILE__, __LINE__, msg + " '" + file_hint + "': " + error_str);
   }
   boost::filesystem::path get_file_name() {
     if (filename_.empty()) {

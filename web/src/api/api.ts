@@ -195,6 +195,27 @@ export interface SettingsCommand {
   command: "load" | "save" | "reload";
 }
 
+export type SettingsDiffChangeType =
+  | "modified"
+  | "added"
+  | "removed"
+  | "path_added"
+  | "path_removed";
+
+export interface SettingsDiffEntry {
+  path: string;
+  key: string;
+  old_value: string;
+  new_value: string;
+  change_type: SettingsDiffChangeType;
+  is_sensitive: boolean;
+}
+
+export interface SettingsDiff {
+  entries: SettingsDiffEntry[];
+  count: number;
+}
+
 export interface SettingsDescription {
   default_value: string;
   description: string;
@@ -401,6 +422,12 @@ export const nsclientApi = createApi({
       }),
       providesTags: ["SettingsStatus"],
     }),
+    getSettingsDiff: builder.query<SettingsDiff, void>({
+      query: () => ({
+        url: "/v2/settings/diff",
+      }),
+      providesTags: ["SettingsStatus", "Settings"],
+    }),
     getSettings: builder.query<Settings[], void>({
       query: () => ({
         url: "/v2/settings",
@@ -483,6 +510,7 @@ export const {
   useGetSettingsStatusQuery,
   useGetSettingsQuery,
   useGetSettingsDescriptionsQuery,
+  useGetSettingsDiffQuery,
   useUpdateSettingsMutation,
   useSettingsCommandMutation,
   useUnloadModuleMutation,

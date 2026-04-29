@@ -71,6 +71,10 @@ message SettingsRequestMessage {
 		};
 		message Status {
 		};
+		message Diff {
+			Node node = 1;
+			bool recursive = 2;
+		};
 		int64 id = 1;
 		int32 plugin_id = 3;
 
@@ -80,6 +84,7 @@ message SettingsRequestMessage {
 		Inventory inventory = 13;
 		Control control = 14;
 		Status status = 15;
+		Diff diff = 16;
 	};
 	PB.Common.Header header = 1;
 	repeated Request payload = 2;
@@ -105,6 +110,24 @@ message SettingsResponseMessage {
 			string type = 2;
 			bool has_changed = 3;
 		};
+		message Diff {
+			enum ChangeType {
+				MODIFIED = 0;
+				ADDED = 1;
+				REMOVED = 2;
+				PATH_ADDED = 3;
+				PATH_REMOVED = 4;
+			};
+			message Entry {
+				string path = 1;
+				string key = 2;
+				string old_value = 3;
+				string new_value = 4;
+				ChangeType change_type = 5;
+				bool is_sensitive = 6;
+			};
+			repeated Entry entries = 1;
+		};
 		int64 id = 1;
 		PB.Common.Result result = 2;
 
@@ -114,6 +137,7 @@ message SettingsResponseMessage {
 		repeated Inventory inventory = 13;
 		Control control = 14;
 		Status status = 15;
+		Diff diff = 16;
 	};
 
 	PB.Common.Header header = 1;

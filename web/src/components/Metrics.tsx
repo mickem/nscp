@@ -7,48 +7,52 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Typography,
 } from "@mui/material";
 import { Toolbar } from "./atoms/Toolbar.tsx";
 import { Spacing } from "./atoms/Spacing.tsx";
 import { RefreshButton } from "./atoms/RefreshButton.tsx";
 import { useAppDispatch } from "../store/store.ts";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import CloseIcon from "@mui/icons-material/Close";
 import { parseMetrics } from "../metric_parser.ts";
+import FilterField from "./atoms/FilterField.tsx";
 
 export default function Metrics() {
   const dispatch = useAppDispatch();
   const [filter, setFilter] = useState<string>("");
   const { data: metrics } = useGetMetricsQuery();
 
-  const result = parseMetrics(metrics);
-  const filteredMetrics = result.metrics.filter((m) => filter === "" || m.key.includes(filter));
+  const result = useMemo(() => parseMetrics(metrics), [metrics]);
+
+  const needle = filter.trim().toLowerCase();
+  const filteredMetrics = useMemo(() => {
+    if (!needle) return result.metrics;
+    return result.metrics.filter((m) =>
+      [m.key, m.module, m.type, m.instance, m.metric].some((f) => (f ?? "").toLowerCase().includes(needle)),
+    );
+  }, [result.metrics, needle]);
 
   const onRefresh = () => {
     dispatch(nsclientApi.util.invalidateTags(["Metrics"]));
   };
 
-  const sortedMetrics = filteredMetrics.sort((a, b) => a.key.localeCompare(b.key));
+  const sortedMetrics = useMemo(
+    () => [...filteredMetrics].sort((a, b) => a.key.localeCompare(b.key)),
+    [filteredMetrics],
+  );
 
   return (
     <Stack direction="column">
       <Toolbar>
-        <TextField
-          label="Filter"
-          variant="standard"
-          size="small"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
         <ToggleButtonGroup
           size="small"
           value={filter}
           exclusive
-          onChange={(_e, f) => setFilter(f)}
-          aria-label="text alignment"
+          onChange={(_e, f) => setFilter(f ?? "")}
+          aria-label="filter by module"
           sx={{ "& .MuiToggleButton-root": { px: 1, py: 0.5 } }}
         >
           {result.modules.map((m) => (
@@ -61,6 +65,12 @@ export default function Metrics() {
           </ToggleButton>
         </ToggleButtonGroup>
         <Spacing />
+        <FilterField value={filter} onChange={setFilter} placeholder="Filter metrics…" />
+        {needle && (
+          <Typography variant="body2" color="text.secondary">
+            {filteredMetrics.length}/{result.metrics.length}
+          </Typography>
+        )}
         <RefreshButton onRefresh={onRefresh} />
       </Toolbar>
       <TableContainer sx={{ width: "100%" }}>

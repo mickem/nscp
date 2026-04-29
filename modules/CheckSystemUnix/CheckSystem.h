@@ -21,6 +21,7 @@
 
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
+#include <nscapi/protobuf/metrics.hpp>
 
 #include "filter_config_object.hpp"
 #include "realtime_thread.hpp"
@@ -34,6 +35,8 @@ class CheckSystem : public nscapi::impl::simple_plugin {
 
   virtual bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
   virtual bool unloadModule();
+
+  void fetchMetrics(PB::Metrics::MetricsMessage::Response *response);
 
   void check_service(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_memory(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);

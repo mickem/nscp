@@ -6,27 +6,34 @@ import TaskAltIcon from "@mui/icons-material/TaskAlt";
 import MessageIcon from "@mui/icons-material/Message";
 import SettingsIcon from "@mui/icons-material/Settings";
 import ShowChartIcon from "@mui/icons-material/ShowChart";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 
 export default function SideMenu() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isActive = (path: string) => {
+    if (path === "/") return location.pathname === "/";
+    return location.pathname.startsWith(path);
+  };
+
   return (
     <div>
       <Toolbar />
       <List>
         <ListItem disablePadding>
-          <ListItemButton onClick={() => navigate("/")}>
+          <ListItemButton selected={isActive("/")} onClick={() => navigate("/")}>
             <ListItemIcon>
               <HomeIcon />
             </ListItemIcon>
-            <ListItemText primary="Welcome" />
+            <ListItemText primary="Dashboard" />
           </ListItemButton>
         </ListItem>
       </List>
       <Divider />
       <List>
         <ListItem disablePadding>
-          <ListItemButton onClick={() => navigate("/modules")}>
+          <ListItemButton selected={isActive("/modules")} onClick={() => navigate("/modules")}>
             <ListItemIcon>
               <AppsIcon />
             </ListItemIcon>
@@ -34,7 +41,7 @@ export default function SideMenu() {
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
-          <ListItemButton onClick={() => navigate("/settings")}>
+          <ListItemButton selected={isActive("/settings")} onClick={() => navigate("/settings")}>
             <ListItemIcon>
               <SettingsIcon />
             </ListItemIcon>
@@ -45,7 +52,7 @@ export default function SideMenu() {
       <Divider />
       <List>
         <ListItem disablePadding>
-          <ListItemButton onClick={() => navigate("/queries")}>
+          <ListItemButton selected={isActive("/queries")} onClick={() => navigate("/queries")}>
             <ListItemIcon>
               <TaskAltIcon />
             </ListItemIcon>
@@ -54,7 +61,7 @@ export default function SideMenu() {
         </ListItem>
         <Divider />
         <ListItem disablePadding>
-          <ListItemButton onClick={() => navigate("/metrics")}>
+          <ListItemButton selected={isActive("/metrics")} onClick={() => navigate("/metrics")}>
             <ListItemIcon>
               <ShowChartIcon />
             </ListItemIcon>
@@ -62,7 +69,7 @@ export default function SideMenu() {
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
-          <ListItemButton onClick={() => navigate("/logs")}>
+          <ListItemButton selected={isActive("/logs")} onClick={() => navigate("/logs")}>
             <ListItemIcon>
               <MessageIcon />
             </ListItemIcon>

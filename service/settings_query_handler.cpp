@@ -46,6 +46,8 @@ void settings_query_handler::parse(PB::Settings::SettingsResponseMessage &respon
         rp->mutable_status()->set_context(settings_manager::get_settings()->get_context());
         rp->mutable_status()->set_type(settings_manager::get_settings()->get_type());
         rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
+      } else if (r.has_diff()) {
+        parse_diff(r.diff(), rp);
       } else {
         rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
         rp->mutable_result()->set_message("Settings error: Invalid action");
@@ -341,6 +343,72 @@ void settings_query_handler::parse_control(const PB::Settings::SettingsRequestMe
   } else {
     rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
     rp->mutable_result()->set_message("Unknown command");
+  }
+}
+
+namespace {
+PB::Settings::SettingsResponseMessage::Response::Diff::ChangeType to_pb_change_type(settings::settings_interface::change_entry::change_kind k) {
+  switch (k) {
+    case settings::settings_interface::change_entry::change_kind::added:
+      return PB::Settings::SettingsResponseMessage::Response::Diff::ADDED;
+    case settings::settings_interface::change_entry::change_kind::removed:
+      return PB::Settings::SettingsResponseMessage::Response::Diff::REMOVED;
+    case settings::settings_interface::change_entry::change_kind::path_added:
+      return PB::Settings::SettingsResponseMessage::Response::Diff::PATH_ADDED;
+    case settings::settings_interface::change_entry::change_kind::path_removed:
+      return PB::Settings::SettingsResponseMessage::Response::Diff::PATH_REMOVED;
+    case settings::settings_interface::change_entry::change_kind::modified:
+    default:
+      return PB::Settings::SettingsResponseMessage::Response::Diff::MODIFIED;
+  }
+}
+
+bool path_matches(const std::string &path, const std::string &filter, bool recursive) {
+  if (filter.empty()) return true;
+  if (recursive) {
+    return path == filter || (path.size() > filter.size() && path.compare(0, filter.size(), filter) == 0 &&
+                              (path[filter.size()] == '/' || filter.back() == '/'));
+  }
+  return path == filter;
+}
+}  // namespace
+
+void settings_query_handler::parse_diff(const PB::Settings::SettingsRequestMessage::Request::Diff &q,
+                                        PB::Settings::SettingsResponseMessage::Response *rp) {
+  PB::Settings::SettingsResponseMessage::Response::Diff *diff = rp->mutable_diff();
+  const std::string filter_path = q.node().path();
+  const bool recursive = q.recursive();
+  try {
+    settings::settings_interface::change_list changes = settings_manager::get_settings()->get_changes();
+    for (const settings::settings_interface::change_entry &c : changes) {
+      if (!path_matches(c.path, filter_path, recursive)) continue;
+      auto *entry = diff->add_entries();
+      entry->set_path(c.path);
+      entry->set_key(c.key);
+      entry->set_change_type(to_pb_change_type(c.kind));
+
+      bool sensitive = false;
+      if (!c.key.empty()) {
+        try {
+          sensitive = settings_manager::get_core()->is_sensitive_key(c.path, c.key);
+        } catch (...) {
+          sensitive = false;
+        }
+      }
+      entry->set_is_sensitive(sensitive);
+      if (sensitive) {
+        if (!c.old_value.empty()) entry->set_old_value("***");
+        if (!c.new_value.empty()) entry->set_new_value("***");
+      } else {
+        entry->set_old_value(c.old_value);
+        entry->set_new_value(c.new_value);
+      }
+    }
+    rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
+  } catch (const settings::settings_exception &e) {
+    rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
+    rp->mutable_result()->set_message("Settings diff error: " + utf8::utf8_from_native(e.what()));
+    LOG_ERROR_CORE_STD("Settings diff error: " + utf8::utf8_from_native(e.what()));
   }
 }
 

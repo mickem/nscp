@@ -22,15 +22,16 @@ A quick reference for all available queries (check commands) in the CheckSystem 
 
 A list of all available queries (check commands)
 
-| Command                               | Description                                                                  |
-|---------------------------------------|------------------------------------------------------------------------------|
-| [check_cpu](#check_cpu)               | Check that the load of the CPU(s) are within bounds.                         |
-| [check_memory](#check_memory)         | Check free/used memory on the system.                                        |
-| [check_os_version](#check_os_version) | Check the version of the underlying OS.                                      |
-| [check_pagefile](#check_pagefile)     | Check the size of the system pagefile(s).                                    |
-| [check_process](#check_process)       | Check state/metrics of one or more of the processes running on the computer. |
-| [check_service](#check_service)       | Check the state of one or more of the computer services.                     |
-| [check_uptime](#check_uptime)         | Check time since last server re-boot.                                        |
+| Command                               | Description                                                                                        |
+|---------------------------------------|----------------------------------------------------------------------------------------------------|
+| [check_cpu](#check_cpu)               | Check that the load of the CPU(s) are within bounds.                                               |
+| [check_memory](#check_memory)         | Check free/used memory on the system.                                                              |
+| [check_os_updates](#check_os_updates) | Check for available OS package updates via the system package manager (apt/dnf/yum/zypper/pacman). |
+| [check_os_version](#check_os_version) | Check the version of the underlying OS.                                                            |
+| [check_pagefile](#check_pagefile)     | Check the size of the system pagefile(s).                                                          |
+| [check_process](#check_process)       | Check state/metrics of one or more of the processes running on the computer.                       |
+| [check_service](#check_service)       | Check the state of one or more of the computer services.                                           |
+| [check_uptime](#check_uptime)         | Check time since last server re-boot.                                                              |
 
 
 
@@ -38,6 +39,58 @@ A list of all available queries (check commands)
 ### check_cpu
 
 Check that the load of the CPU(s) are within bounds.
+
+#### How CPU load is measured (historical buffer)
+
+`check_cpu` does not measure the CPU load at the moment the check is executed. Instead, NSClient++
+runs a background collector thread that samples the CPU load roughly **once per second** and pushes
+each sample into an in-memory ring buffer. Whenever you run `check_cpu` the values reported are
+**averages computed from this buffer** for one or more time windows.
+
+The time windows are controlled by the `time=` option. The default is to compute three averages:
+`5m`, `1m` and `5s` (which is why the default output contains rows like `total 5m load`,
+`total 1m load` and `total 5s load`). You can override this with one or more `time=` arguments,
+for example `time=10m` or `time=30s time=2m`.
+
+**Buffer size and configuration**
+
+The size of the historical buffer is controlled by the `default buffer length` setting on the
+CheckSystem section. The default is `1h`, meaning the last hour of samples is retained. The buffer
+size puts an upper bound on the time windows you can use:
+
+* If you ask for a window that is **shorter than or equal to** the buffer length, the result is the
+  average of all samples collected during that window.
+* If you ask for a window that is **longer than** the buffer length, the result will only cover the
+  samples that are actually present in the buffer (effectively capped to the buffer length).
+* If NSClient++ was started **less time ago than the requested window**, the result will only
+  reflect the samples collected since startup. Right after start-up `5m` and `1m` averages will
+  therefore be based on fewer samples than they normally would be.
+
+If you need to check on longer windows (for example `2h` or `6h`) you must increase
+`default buffer length` accordingly. Note that a larger buffer uses more memory, so only increase
+it as far as you actually need.
+
+**Impact on measurements**
+
+Because every value reported by `check_cpu` is an average over a time window, the choice of `time=`
+has a direct impact on what the check sees:
+
+* **Short windows** (e.g. `5s`, `10s`) are very reactive and will show short spikes in CPU load,
+  but they also produce a lot of noise. They are useful for catching transient bursts but can also
+  generate flapping alerts.
+* **Medium windows** (e.g. `1m`, `5m`) are a good compromise for most monitoring use cases. They
+  smooth out short spikes while still reacting to sustained load within a few minutes.
+* **Long windows** (e.g. `15m`, `1h`) smooth out almost all transients and only fire when the CPU
+  has been busy for an extended period of time. They are well suited to detecting sustained load
+  but will be slow to react and slow to recover.
+
+A common pattern is to combine windows, for example warning on a long window and critical on a
+short one (or vice versa), so that the check both catches sustained problems and ignores brief
+spikes. The default check (`5m`, `1m`, `5s`) is an example of this approach.
+
+Because the values are averages, they will not match the instantaneous CPU load shown by tools such
+as `top` at the moment the check is executed, and very short spikes that fall between collection
+ticks may be missed entirely.
 
 
 **Jump to section:**
@@ -460,6 +513,208 @@ This is the syntax for the base names of the performance data.
 | size   | Total size of memory                            |
 | type   | The type of memory to check                     |
 | used   | Used memory in bytes (g,m,k,b) or percentages % |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
+
+
+### check_os_updates
+
+Check for available OS package updates via the system package manager (apt/dnf/yum/zypper/pacman).
+
+#### Checking for Windows Updates
+
+The `check_os_updates` command allows you to monitor for missing Windows updates via the Windows Update Agent (WUA) API. You can filter the results based on severity, reboot requirements, and other attributes. 
+
+**Basic usage**
+
+To simply check if there are any pending updates:
+
+```
+check_os_updates
+```
+
+If there are any pending updates, this will return a warning state by default (because the default `warning` filter is `count > 0`).
+
+**Checking for critical updates**
+
+Often, you only want to be alerted if there are *security* or *critical* updates missing. You can configure this using the `warning` and `critical` filters:
+
+```
+check_os_updates "warning=important > 0" "critical=security > 0 or critical > 0"
+```
+
+This will return `WARNING` if there are updates with the 'Important' severity, and `CRITICAL` if there are any security updates or updates explicitly marked 'Critical'.
+
+**Checking if a reboot is required**
+
+If you want to know if the system needs a reboot after installing updates:
+
+```
+check_os_updates "warning=reboot_required > 0"
+```
+
+**Customizing the output**
+
+You can use the syntax options to format the output string:
+
+```
+check_os_updates "top-syntax=${status}: Found ${count} missing updates. Security: ${security}, Critical: ${critical}" "detail-syntax=${titles}" show-all
+```
+
+
+**Jump to section:**
+
+* [Command-line Arguments](#check_os_updates_options)
+* [Filter keywords](#check_os_updates_filter_keys)
+
+
+
+
+
+<a id="check_os_updates_warn"></a>
+<a id="check_os_updates_crit"></a>
+<a id="check_os_updates_debug"></a>
+<a id="check_os_updates_show-all"></a>
+<a id="check_os_updates_escape-html"></a>
+<a id="check_os_updates_help"></a>
+<a id="check_os_updates_help-pb"></a>
+<a id="check_os_updates_show-default"></a>
+<a id="check_os_updates_help-short"></a>
+<a id="check_os_updates_options"></a>
+#### Command-line Arguments
+
+
+| Option                                           | Default Value                                                               | Description                                                                                                      |
+|--------------------------------------------------|-----------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_os_updates_filter)               |                                                                             | Filter which marks interesting items.                                                                            |
+| [warning](#check_os_updates_warning)             | count > 0                                                                   | Filter which marks items which generates a warning state.                                                        |
+| warn                                             |                                                                             | Short alias for warning                                                                                          |
+| [critical](#check_os_updates_critical)           | security > 0                                                                | Filter which marks items which generates a critical state.                                                       |
+| crit                                             |                                                                             | Short alias for critical.                                                                                        |
+| [ok](#check_os_updates_ok)                       |                                                                             | Filter which marks items which generates an ok state.                                                            |
+| debug                                            | N/A                                                                         | Show debugging information in the log                                                                            |
+| show-all                                         | N/A                                                                         | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_os_updates_empty-state)     | ok                                                                          | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_os_updates_perf-config)     |                                                                             | Performance data generation configuration                                                                        |
+| escape-html                                      | N/A                                                                         | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                             | N/A                                                                         | Show help screen (this screen)                                                                                   |
+| help-pb                                          | N/A                                                                         | Show help screen as a protocol buffer payload                                                                    |
+| show-default                                     | N/A                                                                         | Show default values for a given command                                                                          |
+| help-short                                       | N/A                                                                         | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_os_updates_top-syntax)       | ${status}: ${count} updates available (${security} security) via ${manager} | Top level syntax.                                                                                                |
+| [ok-syntax](#check_os_updates_ok-syntax)         | %(status): No updates available.                                            | ok syntax.                                                                                                       |
+| [empty-syntax](#check_os_updates_empty-syntax)   |                                                                             | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_os_updates_detail-syntax) | ${count} updates (${security} security) via ${manager}                      | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_os_updates_perf-syntax)     | updates                                                                     | Performance alias syntax.                                                                                        |
+
+
+
+<h5 id="check_os_updates_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+<h5 id="check_os_updates_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+*Default Value:* `count > 0`
+
+<h5 id="check_os_updates_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+*Default Value:* `security > 0`
+
+<h5 id="check_os_updates_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_os_updates_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `ok`
+
+<h5 id="check_os_updates_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_os_updates_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${status}: ${count} updates available (${security} security) via ${manager}`
+
+<h5 id="check_os_updates_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+*Default Value:* `%(status): No updates available.`
+
+<h5 id="check_os_updates_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+
+<h5 id="check_os_updates_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${count} updates (${security} security) via ${manager}`
+
+<h5 id="check_os_updates_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `updates`
+
+
+<a id="check_os_updates_filter_keys"></a>
+#### Filter keywords
+
+
+| Option   | Description                                       |
+|----------|---------------------------------------------------|
+| manager  | Package manager used to query updates             |
+| packages | Comma separated list of available package updates |
+| security | Number of available security updates              |
 
 **Common options for all checks:**
 
@@ -1114,6 +1369,33 @@ This is the syntax for the base names of the performance data.
 ### check_service
 
 Check the state of one or more of the computer services.
+
+#### `state_is_ok`
+
+Helper function that checks if the state of a service is "OK". It returns `True` if the state is "OK" and `False` otherwise.
+This can be used in filter expressions to warn about services that are not running properly.
+
+| Configured            | State     | exit_code | Result of `state_is_ok` |
+|-----------------------|-----------|-----------|-------------------------|
+| auto-start            | running   | any       | ✅ ok                    |
+| delayed auto-start    | stopped   | any       | ✅ ok                    |
+| auto-start + triggers | stopped   | any       | ✅ ok                    |
+| auto-start            | stopped   | 0         | ✅ ok                    |
+| auto-start            | stopped   | non zero  | ❌ not ok                |
+| demand-start          | any state | any       | ✅ ok                    |
+
+#### `state_is_perfect`
+
+Helper function that checks if the state of a service is "perfect". It returns `True` if the state is "perfect" and `False` otherwise.
+This can be used in filter expressions to warn about services that are not running perfectly.
+
+| Configured            | State     | Result of `state_is_perfect` |
+|-----------------------|-----------|------------------------------|
+| auto-start            | running   | ✅ perfect                    |
+| auto-start            | stopped   | ❌ not perfect                |
+| auto-start + triggers | stopped   | ✅ perfect                    |
+| demand-start          | any state | ✅ perfect                    |
+| disabled              | stopped   | ✅ perfect                    |
 
 
 **Jump to section:**
