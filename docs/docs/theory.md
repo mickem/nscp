@@ -1,5 +1,8 @@
 # NSClient++ Theory
 
+!!! tip "Beginner?"
+    A friendlier introduction is available in [Concepts: How NSClient++ Works](concepts/index.md) and the [Quick Start guide](quick-start.md).
+
 Some people say NSClient++ can feel a bit daunting the first time you encounter it.
 This is often due to the number of options you have.
 NSClient++ was designed to be open-ended meaning not restrict you in favor of allowing you to do what you need in the way you need it.

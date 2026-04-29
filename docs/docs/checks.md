@@ -1,6 +1,9 @@
 # Checking things
 
-Using NSClient++ is checks is also pretty straight forward in modern NSClient++ versions.
+!!! tip "Beginner?"
+    The [Checks In Depth](checks-in-depth/index.md) section covers the same material as this page in a more structured way, with links to real-world [Monitoring Scenarios](scenarios/index.md). Start there if you are new to NSClient++.
+
+Using NSClient++ checks is pretty straightforward in modern NSClient++ versions.
 With version 0.4.3 we switched all old checks for a new check subsystem which is more uniform as well as more powerful then the old.
 Thanks to a compatibility layer most old command should still work (but there are some snags so be ware when upgrading).
 
