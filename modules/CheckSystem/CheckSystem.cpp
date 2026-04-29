@@ -44,6 +44,7 @@
 #include "check_os_updates.hpp"
 #include "check_process.hpp"
 #include "check_process_history.hpp"
+#include "check_registry.hpp"
 #include "check_service.h"
 #include "check_temperature.hpp"
 #include "counter_filter.hpp"
@@ -953,6 +954,14 @@ void CheckSystem::checkCounter(PB::Commands::QueryRequestMessage::Request &reque
 
 void CheckSystem::check_pdh(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   pdh_checker.check_pdh(collector, request, response);
+}
+
+void CheckSystem::check_registry_key(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  registry_key_checks::check(request, response);
+}
+
+void CheckSystem::check_registry_value(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  registry_value_checks::check(request, response);
 }
 
 void CheckSystem::add_counter(std::string key, std::string query) { pdh_checker.add_counter(nscapi::settings_proxy::create(get_id(), get_core()), key, query); }

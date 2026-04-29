@@ -33,6 +33,8 @@
 		"check_os_updates"	: "Check for available Windows updates via the Windows Update Agent (WUA) API.",
 		"check_process_history"	: "Check the history of processes that have been running since NSClient++ started. Useful for verifying if certain applications have been executed." ,
 		"check_process_history_new"	: "Check for new processes that appeared within a specified time window. Useful for detecting unexpected or unauthorized applications." ,
+		"check_registry_key"	: "Check existence, last-write time, and child counts of one or more Windows registry keys.",
+		"check_registry_value"	: "Check the type, content, and size of one or more Windows registry values.",
 
 		"checkServiceState"	: "Legacy version of check_service",
 		"checkCpu"			: "Legacy version of check_cpu",

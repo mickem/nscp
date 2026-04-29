@@ -36,6 +36,8 @@ A list of all available queries (check commands)
 | [check_process](#check_process)                         | Check state/metrics of one or more of the processes running on the computer.                                                                     |
 | [check_process_history](#check_process_history)         | Check the history of processes that have been running since NSClient++ started. Useful for verifying if certain applications have been executed. |
 | [check_process_history_new](#check_process_history_new) | Check for new processes that appeared within a specified time window. Useful for detecting unexpected or unauthorized applications.              |
+| [check_registry_key](#check_registry_key)               | Check existence, last-write time, and child counts of one or more Windows registry keys.                                                         |
+| [check_registry_value](#check_registry_value)           | Check the type, content, and size of one or more Windows registry values.                                                                        |
 | [check_service](#check_service)                         | Check the state of one or more of the computer services.                                                                                         |
 | [check_temperature](#check_temperature)                 | Check ACPI thermal zone temperatures.                                                                                                            |
 | [check_uptime](#check_uptime)                           | Check time since last server re-boot.                                                                                                            |
@@ -2510,6 +2512,224 @@ Time window to check for new processes (e.g., 5m, 1h, 30s). Processes first seen
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
+
+
+### check_registry_key
+
+Check existence, last-write time, and child counts of one or more Windows registry keys.
+
+**Jump to section:**
+
+* [Command-line Arguments](#check_registry_key_options)
+* [Filter keywords](#check_registry_key_filter_keys)
+
+
+<a id="check_registry_key_warn"></a>
+<a id="check_registry_key_crit"></a>
+<a id="check_registry_key_debug"></a>
+<a id="check_registry_key_show-all"></a>
+<a id="check_registry_key_escape-html"></a>
+<a id="check_registry_key_help"></a>
+<a id="check_registry_key_help-pb"></a>
+<a id="check_registry_key_show-default"></a>
+<a id="check_registry_key_help-short"></a>
+<a id="check_registry_key_options"></a>
+#### Command-line Arguments
+
+| Option                                              | Default Value                                                                                 | Description                                                                                                      |
+|-----------------------------------------------------|-----------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_registry_key_filter)                |                                                                                               | Filter which marks interesting items.                                                                            |
+| [warning](#check_registry_key_warning)              | not exists                                                                                    | Filter which marks items which generates a warning state.                                                        |
+| warn                                                |                                                                                               | Short alias for warning                                                                                          |
+| [critical](#check_registry_key_critical)            | not exists                                                                                    | Filter which marks items which generates a critical state.                                                       |
+| crit                                                |                                                                                               | Short alias for critical.                                                                                        |
+| [ok](#check_registry_key_ok)                        |                                                                                               | Filter which marks items which generates an ok state.                                                            |
+| debug                                               | N/A                                                                                           | Show debugging information in the log                                                                            |
+| show-all                                            | N/A                                                                                           | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_registry_key_empty-state)      | unknown                                                                                       | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_registry_key_perf-config)      |                                                                                               | Performance data generation configuration                                                                        |
+| escape-html                                         | N/A                                                                                           | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                                | N/A                                                                                           | Show help screen (this screen)                                                                                   |
+| help-pb                                             | N/A                                                                                           | Show help screen as a protocol buffer payload                                                                    |
+| show-default                                        | N/A                                                                                           | Show default values for a given command                                                                          |
+| help-short                                          | N/A                                                                                           | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_registry_key_top-syntax)        | ${status}: ${problem_list}                                                                    | Top level syntax.                                                                                                |
+| [ok-syntax](#check_registry_key_ok-syntax)          | ${status}: All %(count) registry key(s) are ok.                                               | ok syntax.                                                                                                       |
+| [empty-syntax](#check_registry_key_empty-syntax)    | ${status}: No registry keys found                                                             | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_registry_key_detail-syntax)  | ${path}: exists=${exists}, subkeys=${subkey_count}, values=${value_count}                     | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_registry_key_perf-syntax)      | ${path}                                                                                       | Performance alias syntax.                                                                                        |
+| key                                                 |                                                                                               | One or more registry key paths to check (e.g. `HKLM\Software\MyApp`)                                            |
+| exclude                                             |                                                                                               | Registry key names to exclude from enumeration                                                                   |
+| computer                                            |                                                                                               | Remote computer to connect to (empty = local)                                                                    |
+| view                                                | default                                                                                       | Registry view: `default`, `32` (KEY_WOW64_32KEY), or `64` (KEY_WOW64_64KEY)                                     |
+| recursive                                           | N/A                                                                                           | Recursively enumerate all sub-keys below each starting key                                                       |
+| max-depth                                           |                                                                                               | Maximum recursion depth (requires --recursive; -1 = unlimited)                                                   |
+
+
+<a id="check_registry_key_filter_keys"></a>
+#### Filter keywords
+
+| Option        | Description                                                                               |
+|---------------|-------------------------------------------------------------------------------------------|
+| age           | Seconds since the key was last written                                                    |
+| class         | Key class string (rarely set)                                                             |
+| depth         | Depth below the starting key (0 = the key itself)                                         |
+| exists        | Whether the key exists (true/false)                                                       |
+| hive          | Hive abbreviation (HKLM, HKCU, HKCR, HKU, HKCC)                                         |
+| name          | Leaf key name                                                                             |
+| parent        | Parent key path (full, including hive)                                                    |
+| path          | Full registry key path including hive (e.g. HKLM\Software\MyApp)                         |
+| subkey_count  | Number of immediate sub-keys                                                              |
+| value_count   | Number of values in this key                                                              |
+| written       | Last-write time (epoch seconds; supports date comparisons like `written < 1d`)            |
+| written_s     | Last-write time as a human-readable string                                                |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
+
+#### Examples
+
+Check whether a specific registry key exists (alerts as warning if missing):
+```
+check_registry_key key='HKLM\Software\MyApp' warn='not exists'
+```
+
+Check whether any suspicious Run key entries have been written in the last 7 days:
+```
+check_registry_key key='HKLM\Software\Microsoft\Windows\CurrentVersion\Run' recursive "filter=age < 7d"
+```
+
+Count installed software entries (warn if > 500):
+```
+check_registry_key key='HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall' recursive "warning=count > 500"
+```
+
+
+### check_registry_value
+
+Check the type, content, and size of one or more Windows registry values.
+
+**Jump to section:**
+
+* [Command-line Arguments](#check_registry_value_options)
+* [Filter keywords](#check_registry_value_filter_keys)
+
+
+<a id="check_registry_value_warn"></a>
+<a id="check_registry_value_crit"></a>
+<a id="check_registry_value_debug"></a>
+<a id="check_registry_value_show-all"></a>
+<a id="check_registry_value_escape-html"></a>
+<a id="check_registry_value_help"></a>
+<a id="check_registry_value_help-pb"></a>
+<a id="check_registry_value_show-default"></a>
+<a id="check_registry_value_help-short"></a>
+<a id="check_registry_value_options"></a>
+#### Command-line Arguments
+
+| Option                                                 | Default Value                                             | Description                                                                                                      |
+|--------------------------------------------------------|-----------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_registry_value_filter)                 |                                                           | Filter which marks interesting items.                                                                            |
+| [warning](#check_registry_value_warning)               | not exists                                                | Filter which marks items which generates a warning state.                                                        |
+| warn                                                   |                                                           | Short alias for warning                                                                                          |
+| [critical](#check_registry_value_critical)             | not exists                                                | Filter which marks items which generates a critical state.                                                       |
+| crit                                                   |                                                           | Short alias for critical.                                                                                        |
+| [ok](#check_registry_value_ok)                         |                                                           | Filter which marks items which generates an ok state.                                                            |
+| debug                                                  | N/A                                                       | Show debugging information in the log                                                                            |
+| show-all                                               | N/A                                                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_registry_value_empty-state)       | unknown                                                   | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_registry_value_perf-config)       |                                                           | Performance data generation configuration                                                                        |
+| escape-html                                            | N/A                                                       | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                                   | N/A                                                       | Show help screen (this screen)                                                                                   |
+| help-pb                                                | N/A                                                       | Show help screen as a protocol buffer payload                                                                    |
+| show-default                                           | N/A                                                       | Show default values for a given command                                                                          |
+| help-short                                             | N/A                                                       | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_registry_value_top-syntax)         | ${status}: ${problem_list}                                | Top level syntax.                                                                                                |
+| [ok-syntax](#check_registry_value_ok-syntax)           | ${status}: All %(count) registry value(s) are ok.         | ok syntax.                                                                                                       |
+| [empty-syntax](#check_registry_value_empty-syntax)     | ${status}: No registry values found                       | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_registry_value_detail-syntax)   | ${path}: ${string_value} (type=${type})                   | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_registry_value_perf-syntax)       | ${path}                                                   | Performance alias syntax.                                                                                        |
+| key                                                    |                                                           | One or more registry key paths whose values to check (e.g. `HKLM\Software\MyApp`)                               |
+| value                                                  |                                                           | Restrict to specific value names (default: all values). Supports `*` to enumerate all.                           |
+| exclude                                                |                                                           | Value names to exclude from enumeration                                                                          |
+| computer                                               |                                                           | Remote computer to connect to (empty = local)                                                                    |
+| view                                                   | default                                                   | Registry view: `default`, `32` (KEY_WOW64_32KEY), or `64` (KEY_WOW64_64KEY)                                     |
+| recursive                                              | N/A                                                       | Recursively enumerate values in all sub-keys                                                                     |
+| max-depth                                              |                                                           | Maximum recursion depth for --recursive (-1 = unlimited)                                                         |
+
+
+<a id="check_registry_value_filter_keys"></a>
+#### Filter keywords
+
+| Option        | Description                                                                                                    |
+|---------------|----------------------------------------------------------------------------------------------------------------|
+| age           | Seconds since the parent key was last written                                                                  |
+| exists        | Whether the value exists (true/false)                                                                          |
+| hive          | Hive abbreviation (HKLM, HKCU, HKCR, HKU, HKCC)                                                             |
+| int_value     | Numeric value (REG_DWORD / REG_QWORD); 0 for non-numeric types                                                |
+| key           | Parent key path (full, including hive)                                                                         |
+| name          | Value name ('(default)' for the unnamed default value)                                                         |
+| path          | Full path: key\name                                                                                            |
+| size          | Raw byte size of the value data                                                                                |
+| string_value  | Value rendered as a string (REG_SZ expanded, REG_DWORD as decimal, REG_BINARY as hex, etc.)                   |
+| type          | Value type as a string (REG_SZ, REG_DWORD, REG_QWORD, REG_BINARY, REG_MULTI_SZ, REG_EXPAND_SZ, REG_NONE)    |
+| written       | Parent key last-write time (epoch seconds; supports date comparisons like `written < 1d`)                      |
+| written_s     | Parent key last-write time as a human-readable string                                                          |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
+
+#### Examples
+
+Check that the Winlogon Shell value is `explorer.exe` (critical if not):
+```
+check_registry_value key='HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon' value='Shell' "critical=string_value != 'explorer.exe'"
+```
+
+Alert if ICMP redirect is enabled (security hardening check):
+```
+check_registry_value key='HKLM\System\CurrentControlSet\Services\Tcpip\Parameters' value='EnableICMPRedirect' "critical=int_value != 0"
+```
+
+List all REG_SZ values under the Run key to detect auto-start entries:
+```
+check_registry_value key='HKLM\Software\Microsoft\Windows\CurrentVersion\Run' "filter=type = 'REG_SZ'" show-all
+```
+
+Alert if an application version is below 2.5:
+```
+check_registry_value key='HKLM\Software\MyApp' value='Version' "critical=string_value < '2.5.0'"
+```
 
 
 ### check_service
