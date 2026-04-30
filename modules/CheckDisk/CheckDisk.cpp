@@ -34,6 +34,8 @@
 
 #include "check_disk_health.hpp"
 #include "check_drive.hpp"
+#include "check_files.hpp"
+#include "check_single_file.hpp"
 #include "file_finder.hpp"
 #include "filter.hpp"
 
@@ -255,54 +257,21 @@ void CheckDisk::checkFiles(PB::Commands::QueryRequestMessage::Request &request, 
   compat::inline_addarg(request, "path=", path);
   if (debug) request.add_arguments("debug");
   if (maxDepth > 0) request.add_arguments("max-depth=" + str::xtos(maxDepth));
+  // Legacy CheckFiles historically returned OK for "0 matching files" when
+  // the user only supplied MaxWarn/MaxCrit thresholds (i.e. an empty result
+  // set was simply "below the warning threshold"). Modern check_files now
+  // defaults empty-state to "unknown", which surfaces in legacy callers as
+  // a spurious UNKNOWN status (issue #717). Preserve the legacy behaviour
+  // by defaulting empty-state to ok for this shim.
+  request.add_arguments("empty-state=ok");
   compat::log_args(request);
   check_files(request, response);
 }
 
 void CheckDisk::check_files(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  modern_filter::data_container data;
-  modern_filter::cli_helper<file_filter::filter> filter_helper(request, response, data);
-  std::vector<std::string> file_list;
-  std::string files_string;
-  std::string mode;
-  file_finder::scanner_context context;
-  context.max_depth = -1;
-  std::string total;
+  check_files_command::check(request, response);
+}
 
-  file_filter::filter filter;
-  filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
-  filter_helper.add_syntax("${status}: ${problem_count}/${count} files (${problem_list})", "${name}", "${name}", "No files found",
-                           "%(status): All %(count) files are ok");
-  // clang-format off
-  filter_helper.get_desc().add_options()
-    ("path", po::value<std::vector<std::string> >(&file_list), "The path to search for files under.\nNotice that specifying multiple path will create an aggregate set you will not check each path individually."
-        "In other words if one path contains an error the entire check will result in error.")
-    ("file", po::value<std::vector<std::string> >(&file_list), "Alias for path.")
-    ("paths", po::value<std::string>(&files_string), "A comma separated list of paths to scan")
-    ("pattern", po::value<std::string>(&context.pattern)->default_value("*.*"), "The pattern of files to search for (works like a filter but is faster and can be combined with a filter).")
-    ("max-depth", po::value<int>(&context.max_depth), "Maximum depth to recurse")
-    ("total", po::value(&total)->implicit_value("filter"), "Include the total of either (filter) all files matching the filter or (all) all files regardless of the filter")
-  ;
-  // clang-format on
-
-  context.now = parsers::where::constants::get_now();
-
-  if (!filter_helper.parse_options()) return;
-
-  if (!files_string.empty()) boost::split(file_list, files_string, boost::is_any_of(","));
-
-  if (file_list.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "No path specified");
-
-  if (!filter_helper.build_filter(filter)) return;
-
-  boost::shared_ptr<file_filter::filter_obj> total_obj;
-  if (!total.empty()) total_obj = file_filter::filter_obj::get_total(context.now);
-
-  for (const std::string &path : file_list) {
-    file_finder::recursive_scan(filter, context, path, total_obj, total == "all");
-  }
-  if (total_obj) {
-    filter.match(total_obj);
-  }
-  filter_helper.post_process(filter);
+void CheckDisk::check_single_file(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_single_file_command::check(request, response);
 }

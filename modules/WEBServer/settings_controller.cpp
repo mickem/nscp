@@ -394,4 +394,3 @@ void settings_controller::diff(Mongoose::Request &request, boost::smatch & /*wha
   out["count"] = static_cast<int>(entries.size());
   response.append(json::serialize(out));
 }
-

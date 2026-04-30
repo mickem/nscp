@@ -19,8 +19,6 @@
 
 #include "check_dns.h"
 
-#include "check_net_error.hpp"
-
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
@@ -29,8 +27,9 @@
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
-
 #include <set>
+
+#include "check_net_error.hpp"
 
 namespace po = boost::program_options;
 

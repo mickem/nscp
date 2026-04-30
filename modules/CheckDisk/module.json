@@ -9,6 +9,7 @@
 	"commands" : {
 		"check_drivesize"	: "Check the size (free-space) of a drive or volume.",
 		"check_files"		: "Check various aspects of a file and/or folder.",
+		"check_single_file"	: "Check various aspects of a single file (size, age, line count, version, ...). Simpler alternative to check_files when you only need to inspect one specific file.",
 		"check_disk_io"		: "Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).",
 		"check_disk_health"	: "Combined per-drive health check (free space + I/O metrics).",
 		"checkFiles"		: "Legacy version of check_drivesize",

@@ -32,10 +32,10 @@
  * Default c-tor
  * @return
  */
-NRDPClient::NRDPClient() : simple_plugin(), client_("nrdp", boost::make_shared<nrdp_client::nrdp_client_handler>(), boost::make_shared<nrdp_handler::options_reader_impl>()) {}
+NRDPClient::NRDPClient()
+    : simple_plugin(), client_("nrdp", boost::make_shared<nrdp_client::nrdp_client_handler>(), boost::make_shared<nrdp_handler::options_reader_impl>()) {}
 
-
-bool NRDPClient::loadModuleEx(const std::string& alias, NSCAPI::moduleLoadMode) {
+bool NRDPClient::loadModuleEx(const std::string &alias, NSCAPI::moduleLoadMode) {
   try {
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias("NRDP", alias, "client");
@@ -135,7 +135,7 @@ bool NRDPClient::loadModuleEx(const std::string& alias, NSCAPI::moduleLoadMode) 
 // Settings helpers
 //
 
-void NRDPClient::add_target(const std::string& key, const std::string& arg) {
+void NRDPClient::add_target(const std::string &key, const std::string &arg) {
   try {
     client_.add_target(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
   } catch (const std::exception &e) {
@@ -145,7 +145,7 @@ void NRDPClient::add_target(const std::string& key, const std::string& arg) {
   }
 }
 
-void NRDPClient::add_command(const std::string &key, const std::string& arg) {
+void NRDPClient::add_command(const std::string &key, const std::string &arg) {
   try {
     nscapi::core_helper core(get_core(), get_id());
     std::string k = client_.add_command(key, arg);

@@ -117,7 +117,7 @@ struct nrdp_client_handler : client::handler_interface {
     return false;
   }
 
-  static void send(PB::Commands::SubmitResponseMessage::Response *payload, const connection_data& con, const nrdp::data &nrdp_data) {
+  static void send(PB::Commands::SubmitResponseMessage::Response *payload, const connection_data &con, const nrdp::data &nrdp_data) {
     try {
       NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Connecting tuo: " + con.to_string()); }
       http::http_client_options options(con.protocol, con.tls_version, con.verify_mode, con.ca);

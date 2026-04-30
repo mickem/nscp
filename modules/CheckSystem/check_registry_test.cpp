@@ -20,11 +20,11 @@
 #include "check_registry.hpp"
 
 #include <gtest/gtest.h>
-#include <nsclient/nsclient_exception.hpp>
-#include <win/registry.hpp>
 
 #include <ctime>
+#include <nsclient/nsclient_exception.hpp>
 #include <sstream>
+#include <win/registry.hpp>
 
 // ============================================================================
 // win_registry helpers (pure unit tests – no registry I/O)
@@ -57,16 +57,14 @@ TEST(WinRegistryParseHive, HKCC) {
   EXPECT_EQ(win_registry::parse_hive("HKEY_CURRENT_CONFIG"), HKEY_CURRENT_CONFIG);
 }
 
-TEST(WinRegistryParseHive, UnknownThrows) {
-  EXPECT_THROW(win_registry::parse_hive("HKXYZ"), nsclient::nsclient_exception);
-}
+TEST(WinRegistryParseHive, UnknownThrows) { EXPECT_THROW(win_registry::parse_hive("HKXYZ"), nsclient::nsclient_exception); }
 
 // ── hive_to_string ────────────────────────────────────────────────────────────
 
 TEST(WinRegistryHiveToString, HKLM) { EXPECT_EQ(win_registry::hive_to_string(HKEY_LOCAL_MACHINE), "HKLM"); }
 TEST(WinRegistryHiveToString, HKCU) { EXPECT_EQ(win_registry::hive_to_string(HKEY_CURRENT_USER), "HKCU"); }
 TEST(WinRegistryHiveToString, HKCR) { EXPECT_EQ(win_registry::hive_to_string(HKEY_CLASSES_ROOT), "HKCR"); }
-TEST(WinRegistryHiveToString, HKU)  { EXPECT_EQ(win_registry::hive_to_string(HKEY_USERS), "HKU"); }
+TEST(WinRegistryHiveToString, HKU) { EXPECT_EQ(win_registry::hive_to_string(HKEY_USERS), "HKU"); }
 TEST(WinRegistryHiveToString, HKCC) { EXPECT_EQ(win_registry::hive_to_string(HKEY_CURRENT_CONFIG), "HKCC"); }
 
 // ── parse_key_path ────────────────────────────────────────────────────────────
@@ -92,22 +90,20 @@ TEST(WinRegistryParseKeyPath, LongFormHive) {
   EXPECT_EQ(p.subpath, "System\\CurrentControlSet");
 }
 
-TEST(WinRegistryParseKeyPath, InvalidHiveThrows) {
-  EXPECT_THROW(win_registry::parse_key_path("INVALID\\Foo\\Bar"), nsclient::nsclient_exception);
-}
+TEST(WinRegistryParseKeyPath, InvalidHiveThrows) { EXPECT_THROW(win_registry::parse_key_path("INVALID\\Foo\\Bar"), nsclient::nsclient_exception); }
 
 // ── parse_type ────────────────────────────────────────────────────────────────
 
 TEST(WinRegistryParseType, AllKnownTypes) {
-  EXPECT_EQ(win_registry::parse_type("REG_NONE"),          REG_NONE);
-  EXPECT_EQ(win_registry::parse_type("REG_SZ"),            REG_SZ);
-  EXPECT_EQ(win_registry::parse_type("REG_EXPAND_SZ"),     REG_EXPAND_SZ);
-  EXPECT_EQ(win_registry::parse_type("REG_BINARY"),        REG_BINARY);
-  EXPECT_EQ(win_registry::parse_type("REG_DWORD"),         REG_DWORD);
+  EXPECT_EQ(win_registry::parse_type("REG_NONE"), REG_NONE);
+  EXPECT_EQ(win_registry::parse_type("REG_SZ"), REG_SZ);
+  EXPECT_EQ(win_registry::parse_type("REG_EXPAND_SZ"), REG_EXPAND_SZ);
+  EXPECT_EQ(win_registry::parse_type("REG_BINARY"), REG_BINARY);
+  EXPECT_EQ(win_registry::parse_type("REG_DWORD"), REG_DWORD);
   EXPECT_EQ(win_registry::parse_type("REG_DWORD_BIG_ENDIAN"), REG_DWORD_BIG_ENDIAN);
-  EXPECT_EQ(win_registry::parse_type("REG_LINK"),          REG_LINK);
-  EXPECT_EQ(win_registry::parse_type("REG_MULTI_SZ"),      REG_MULTI_SZ);
-  EXPECT_EQ(win_registry::parse_type("REG_QWORD"),         REG_QWORD);
+  EXPECT_EQ(win_registry::parse_type("REG_LINK"), REG_LINK);
+  EXPECT_EQ(win_registry::parse_type("REG_MULTI_SZ"), REG_MULTI_SZ);
+  EXPECT_EQ(win_registry::parse_type("REG_QWORD"), REG_QWORD);
 }
 
 TEST(WinRegistryParseType, NumericString) {
@@ -115,20 +111,18 @@ TEST(WinRegistryParseType, NumericString) {
   EXPECT_EQ(win_registry::parse_type("4"), REG_DWORD);
 }
 
-TEST(WinRegistryParseType, InvalidThrows) {
-  EXPECT_THROW(win_registry::parse_type("NOT_A_TYPE"), nsclient::nsclient_exception);
-}
+TEST(WinRegistryParseType, InvalidThrows) { EXPECT_THROW(win_registry::parse_type("NOT_A_TYPE"), nsclient::nsclient_exception); }
 
 // ── type_to_string ────────────────────────────────────────────────────────────
 
 TEST(WinRegistryTypeToString, AllKnownTypes) {
-  EXPECT_EQ(win_registry::type_to_string(REG_NONE),      "REG_NONE");
-  EXPECT_EQ(win_registry::type_to_string(REG_SZ),        "REG_SZ");
+  EXPECT_EQ(win_registry::type_to_string(REG_NONE), "REG_NONE");
+  EXPECT_EQ(win_registry::type_to_string(REG_SZ), "REG_SZ");
   EXPECT_EQ(win_registry::type_to_string(REG_EXPAND_SZ), "REG_EXPAND_SZ");
-  EXPECT_EQ(win_registry::type_to_string(REG_BINARY),    "REG_BINARY");
-  EXPECT_EQ(win_registry::type_to_string(REG_DWORD),     "REG_DWORD");
-  EXPECT_EQ(win_registry::type_to_string(REG_MULTI_SZ),  "REG_MULTI_SZ");
-  EXPECT_EQ(win_registry::type_to_string(REG_QWORD),     "REG_QWORD");
+  EXPECT_EQ(win_registry::type_to_string(REG_BINARY), "REG_BINARY");
+  EXPECT_EQ(win_registry::type_to_string(REG_DWORD), "REG_DWORD");
+  EXPECT_EQ(win_registry::type_to_string(REG_MULTI_SZ), "REG_MULTI_SZ");
+  EXPECT_EQ(win_registry::type_to_string(REG_QWORD), "REG_QWORD");
 }
 
 TEST(WinRegistryTypeToString, UnknownType) {
@@ -140,9 +134,9 @@ TEST(WinRegistryTypeToString, UnknownType) {
 // ── parse_view ────────────────────────────────────────────────────────────────
 
 TEST(WinRegistryParseView, Default) { EXPECT_EQ(win_registry::parse_view("default"), 0u); }
-TEST(WinRegistryParseView, View32)  { EXPECT_EQ(win_registry::parse_view("32"),  KEY_WOW64_32KEY); }
-TEST(WinRegistryParseView, View64)  { EXPECT_EQ(win_registry::parse_view("64"),  KEY_WOW64_64KEY); }
-TEST(WinRegistryParseView, Empty)   { EXPECT_EQ(win_registry::parse_view(""),    0u); }
+TEST(WinRegistryParseView, View32) { EXPECT_EQ(win_registry::parse_view("32"), KEY_WOW64_32KEY); }
+TEST(WinRegistryParseView, View64) { EXPECT_EQ(win_registry::parse_view("64"), KEY_WOW64_64KEY); }
+TEST(WinRegistryParseView, Empty) { EXPECT_EQ(win_registry::parse_view(""), 0u); }
 
 // ── key_info struct ───────────────────────────────────────────────────────────
 
@@ -161,23 +155,23 @@ TEST(WinRegistryKeyInfo, DefaultConstruction) {
 TEST(WinRegistryKeyInfo, ExistsGetters) {
   win_registry::key_info ki;
   ki.exists = true;
-  ki.path   = "HKLM\\Software\\Test";
-  ki.name   = "Test";
+  ki.path = "HKLM\\Software\\Test";
+  ki.name = "Test";
   ki.parent = "HKLM\\Software";
-  ki.hive   = "HKLM";
-  ki.depth  = 1;
-  ki.value_count  = 3;
+  ki.hive = "HKLM";
+  ki.depth = 1;
+  ki.value_count = 3;
   ki.subkey_count = 2;
 
-  EXPECT_EQ(ki.get_path(),        "HKLM\\Software\\Test");
-  EXPECT_EQ(ki.get_name(),        "Test");
-  EXPECT_EQ(ki.get_parent(),      "HKLM\\Software");
-  EXPECT_EQ(ki.get_hive(),        "HKLM");
-  EXPECT_EQ(ki.get_depth(),       1);
-  EXPECT_EQ(ki.get_exists(),      1);
+  EXPECT_EQ(ki.get_path(), "HKLM\\Software\\Test");
+  EXPECT_EQ(ki.get_name(), "Test");
+  EXPECT_EQ(ki.get_parent(), "HKLM\\Software");
+  EXPECT_EQ(ki.get_hive(), "HKLM");
+  EXPECT_EQ(ki.get_depth(), 1);
+  EXPECT_EQ(ki.get_exists(), 1);
   EXPECT_EQ(ki.get_value_count(), 3);
-  EXPECT_EQ(ki.get_subkey_count(),2);
-  EXPECT_EQ(ki.show(),            "HKLM\\Software\\Test");
+  EXPECT_EQ(ki.get_subkey_count(), 2);
+  EXPECT_EQ(ki.show(), "HKLM\\Software\\Test");
 }
 
 TEST(WinRegistryKeyInfo, AgeWhenFtIsZero) {
@@ -232,11 +226,11 @@ TEST(WinRegistryValueInfo, TypeGetters) {
 
 TEST(WinRegistryValueInfo, StringValue) {
   win_registry::value_info vi;
-  vi.type         = REG_SZ;
+  vi.type = REG_SZ;
   vi.string_value = "explorer.exe";
-  vi.int_value    = 0;
-  vi.size         = 26;
-  vi.exists       = true;
+  vi.int_value = 0;
+  vi.size = 26;
+  vi.exists = true;
 
   EXPECT_EQ(vi.get_string_value(), "explorer.exe");
   EXPECT_EQ(vi.get_size(), 26);
@@ -246,7 +240,7 @@ TEST(WinRegistryValueInfo, StringValue) {
 
 TEST(WinRegistryValueInfo, IntValue) {
   win_registry::value_info vi;
-  vi.type      = REG_DWORD;
+  vi.type = REG_DWORD;
   vi.int_value = 42;
   vi.string_value = "42";
   vi.exists = true;
@@ -255,7 +249,7 @@ TEST(WinRegistryValueInfo, IntValue) {
 }
 
 TEST(WinRegistryValueInfo, ParseTypeS) {
-  EXPECT_EQ(win_registry::value_info::parse_type_s("REG_SZ"),    static_cast<long long>(REG_SZ));
+  EXPECT_EQ(win_registry::value_info::parse_type_s("REG_SZ"), static_cast<long long>(REG_SZ));
   EXPECT_EQ(win_registry::value_info::parse_type_s("REG_DWORD"), static_cast<long long>(REG_DWORD));
 }
 
@@ -274,41 +268,37 @@ std::string test_base_key() {
 
 // RAII helper: creates a registry key tree for tests and deletes it on destruction
 struct TestRegistryFixture {
-  std::string base_path;      // e.g. "HKCU\Software\NSCP_test_1234"
-  std::string base_subpath;   // e.g. "Software\NSCP_test_1234"
+  std::string base_path;     // e.g. "HKCU\Software\NSCP_test_1234"
+  std::string base_subpath;  // e.g. "Software\NSCP_test_1234"
   bool setup_ok = false;
 
   TestRegistryFixture() {
-    base_path    = test_base_key();
+    base_path = test_base_key();
     const auto p = win_registry::parse_key_path(base_path);
     base_subpath = p.subpath;
 
     // Create base key
     HKEY hKey = NULL;
     DWORD disp = 0;
-    if (RegCreateKeyExW(HKEY_CURRENT_USER, utf8::cvt<std::wstring>(base_subpath).c_str(),
-                        0, nullptr, 0, KEY_ALL_ACCESS, nullptr, &hKey, &disp) != ERROR_SUCCESS) {
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, utf8::cvt<std::wstring>(base_subpath).c_str(), 0, nullptr, 0, KEY_ALL_ACCESS, nullptr, &hKey, &disp) !=
+        ERROR_SUCCESS) {
       return;
     }
 
     // Write a REG_SZ value
     const std::wstring val_sz = L"HelloWorld";
-    RegSetValueExW(hKey, L"TestSZ", 0, REG_SZ,
-                   reinterpret_cast<const BYTE *>(val_sz.c_str()),
-                   static_cast<DWORD>((val_sz.size() + 1) * sizeof(wchar_t)));
+    RegSetValueExW(hKey, L"TestSZ", 0, REG_SZ, reinterpret_cast<const BYTE *>(val_sz.c_str()), static_cast<DWORD>((val_sz.size() + 1) * sizeof(wchar_t)));
 
     // Write a REG_DWORD value
     DWORD val_dw = 42;
-    RegSetValueExW(hKey, L"TestDWORD", 0, REG_DWORD,
-                   reinterpret_cast<const BYTE *>(&val_dw), sizeof(DWORD));
+    RegSetValueExW(hKey, L"TestDWORD", 0, REG_DWORD, reinterpret_cast<const BYTE *>(&val_dw), sizeof(DWORD));
 
     RegCloseKey(hKey);
 
     // Create a sub-key
     HKEY hSub = NULL;
     const std::string sub_subpath = base_subpath + "\\SubKey";
-    RegCreateKeyExW(HKEY_CURRENT_USER, utf8::cvt<std::wstring>(sub_subpath).c_str(),
-                    0, nullptr, 0, KEY_ALL_ACCESS, nullptr, &hSub, &disp);
+    RegCreateKeyExW(HKEY_CURRENT_USER, utf8::cvt<std::wstring>(sub_subpath).c_str(), 0, nullptr, 0, KEY_ALL_ACCESS, nullptr, &hSub, &disp);
     if (hSub) RegCloseKey(hSub);
 
     setup_ok = true;
@@ -380,13 +370,11 @@ TEST(CheckRegistryIntegration, OpenKey_ExistingKey) {
   if (!fix.setup_ok) GTEST_SKIP() << "Registry fixture setup failed";
 
   const auto p = win_registry::parse_key_path(fix.base_path);
-  win_registry::key_info ki = win_registry::open_key(
-      HKEY_CURRENT_USER, p.subpath, fix.base_path,
-      "NSCP_test_key", "HKCU\\Software", "HKCU", 0, 0);
+  win_registry::key_info ki = win_registry::open_key(HKEY_CURRENT_USER, p.subpath, fix.base_path, "NSCP_test_key", "HKCU\\Software", "HKCU", 0, 0);
 
   EXPECT_TRUE(ki.exists);
-  EXPECT_GE(ki.value_count, 2);     // TestSZ + TestDWORD
-  EXPECT_GE(ki.subkey_count, 1);    // SubKey
+  EXPECT_GE(ki.value_count, 2);   // TestSZ + TestDWORD
+  EXPECT_GE(ki.subkey_count, 1);  // SubKey
   EXPECT_GT(ki.written_ft, 0u);
 }
 
@@ -395,9 +383,8 @@ TEST(CheckRegistryIntegration, OpenKey_ExistingKey) {
 TEST(CheckRegistryIntegration, OpenKey_MissingKey) {
   const std::string missing = "HKCU\\Software\\NSCP_definitely_does_not_exist_12345";
   const auto p = win_registry::parse_key_path(missing);
-  win_registry::key_info ki = win_registry::open_key(
-      HKEY_CURRENT_USER, p.subpath, missing,
-      "NSCP_definitely_does_not_exist_12345", "HKCU\\Software", "HKCU", 0, 0);
+  win_registry::key_info ki =
+      win_registry::open_key(HKEY_CURRENT_USER, p.subpath, missing, "NSCP_definitely_does_not_exist_12345", "HKCU\\Software", "HKCU", 0, 0);
 
   EXPECT_FALSE(ki.exists);
   EXPECT_EQ(ki.get_exists(), 0);
@@ -437,9 +424,7 @@ TEST(CheckRegistryIntegration, WrittenTimeIsRecentForNewKey) {
   if (!fix.setup_ok) GTEST_SKIP() << "Registry fixture setup failed";
 
   const auto p = win_registry::parse_key_path(fix.base_path);
-  win_registry::key_info ki = win_registry::open_key(
-      HKEY_CURRENT_USER, p.subpath, fix.base_path,
-      "test", "HKCU\\Software", "HKCU", 0, 0);
+  win_registry::key_info ki = win_registry::open_key(HKEY_CURRENT_USER, p.subpath, fix.base_path, "test", "HKCU\\Software", "HKCU", 0, 0);
 
   ASSERT_TRUE(ki.exists);
   EXPECT_GT(ki.get_written(), 0);

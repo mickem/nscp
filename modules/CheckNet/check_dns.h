@@ -22,7 +22,6 @@
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
-
 #include <string>
 
 namespace check_net {

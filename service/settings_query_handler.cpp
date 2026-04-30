@@ -366,15 +366,14 @@ PB::Settings::SettingsResponseMessage::Response::Diff::ChangeType to_pb_change_t
 bool path_matches(const std::string &path, const std::string &filter, bool recursive) {
   if (filter.empty()) return true;
   if (recursive) {
-    return path == filter || (path.size() > filter.size() && path.compare(0, filter.size(), filter) == 0 &&
-                              (path[filter.size()] == '/' || filter.back() == '/'));
+    return path == filter ||
+           (path.size() > filter.size() && path.compare(0, filter.size(), filter) == 0 && (path[filter.size()] == '/' || filter.back() == '/'));
   }
   return path == filter;
 }
 }  // namespace
 
-void settings_query_handler::parse_diff(const PB::Settings::SettingsRequestMessage::Request::Diff &q,
-                                        PB::Settings::SettingsResponseMessage::Response *rp) {
+void settings_query_handler::parse_diff(const PB::Settings::SettingsRequestMessage::Request::Diff &q, PB::Settings::SettingsResponseMessage::Response *rp) {
   PB::Settings::SettingsResponseMessage::Response::Diff *diff = rp->mutable_diff();
   const std::string filter_path = q.node().path();
   const bool recursive = q.recursive();

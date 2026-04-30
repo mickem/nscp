@@ -7,57 +7,96 @@ if(WIN32)
         NSCP.h
     )
 
-    string(REPLACE "/EHsc" "/EHa" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    string(REPLACE "/EHs" "/EHa" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    string(REPLACE "/MT" "/MD" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     string(
-        REPLACE
-        "/EHsc"
+        REPLACE "/EHsc"
+        "/EHa"
+        CMAKE_CXX_FLAGS
+        "${CMAKE_CXX_FLAGS}"
+    )
+    string(
+        REPLACE "/EHs"
+        "/EHa"
+        CMAKE_CXX_FLAGS
+        "${CMAKE_CXX_FLAGS}"
+    )
+    string(
+        REPLACE "/MT"
+        "/MD"
+        CMAKE_CXX_FLAGS
+        "${CMAKE_CXX_FLAGS}"
+    )
+    string(
+        REPLACE "/EHsc"
         "/EHa"
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
     )
     string(
-        REPLACE
-        "/EHs"
+        REPLACE "/EHs"
         "/EHa"
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
     )
     string(
-        REPLACE
-        "/MT"
+        REPLACE "/MT"
         "/MD"
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
     )
     string(
-        REPLACE
-        "/MT"
+        REPLACE "/MT"
         "/MD"
         CMAKE_CXX_FLAGS_MINSIZEREL
         ${CMAKE_CXX_FLAGS_MINSIZEREL}
     )
     string(
-        REPLACE
-        "/MT"
+        REPLACE "/MT"
         "/MD"
         CMAKE_CXX_FLAGS_RELEASE
         ${CMAKE_CXX_FLAGS_RELEASE}
     )
     string(
-        REPLACE
-        "/EHsc"
+        REPLACE "/EHsc"
         "/EHa"
         CMAKE_CXX_FLAGS_DEBUG
         ${CMAKE_CXX_FLAGS_DEBUG}
     )
-    string(REPLACE "/EHs" "/EHa" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-    string(REPLACE "/MTd" "/MDd" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-    string(REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-    string(REPLACE "/RTCs" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-    string(REPLACE "/RTCu" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-    string(REPLACE "/GZ" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
+    string(
+        REPLACE "/EHs"
+        "/EHa"
+        CMAKE_CXX_FLAGS_DEBUG
+        ${CMAKE_CXX_FLAGS_DEBUG}
+    )
+    string(
+        REPLACE "/MTd"
+        "/MDd"
+        CMAKE_CXX_FLAGS_DEBUG
+        ${CMAKE_CXX_FLAGS_DEBUG}
+    )
+    string(
+        REPLACE "/RTC1"
+        ""
+        CMAKE_CXX_FLAGS_DEBUG
+        ${CMAKE_CXX_FLAGS_DEBUG}
+    )
+    string(
+        REPLACE "/RTCs"
+        ""
+        CMAKE_CXX_FLAGS_DEBUG
+        ${CMAKE_CXX_FLAGS_DEBUG}
+    )
+    string(
+        REPLACE "/RTCu"
+        ""
+        CMAKE_CXX_FLAGS_DEBUG
+        ${CMAKE_CXX_FLAGS_DEBUG}
+    )
+    string(
+        REPLACE "/GZ"
+        ""
+        CMAKE_CXX_FLAGS_DEBUG
+        ${CMAKE_CXX_FLAGS_DEBUG}
+    )
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /clr /EHa")
 
     add_library(NSCP.Core MODULE ${SRCS})

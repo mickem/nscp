@@ -31,12 +31,12 @@ namespace os_updates_check {
 // A single available update, populated from IUpdate properties returned by the
 // Windows Update Agent (WUA) IUpdateSearcher.
 struct update_info {
-  std::string title;          // Update title
-  std::string severity;       // MsrcSeverity (Critical, Important, Moderate, Low, "")
-  std::string category;       // Primary category name (e.g. "Security Updates", "Critical Updates")
-  bool is_security;           // True for "Security Updates" category
-  bool is_critical;           // True for "Critical Updates" category
-  bool reboot_required;       // True if installing this update requires a reboot
+  std::string title;     // Update title
+  std::string severity;  // MsrcSeverity (Critical, Important, Moderate, Low, "")
+  std::string category;  // Primary category name (e.g. "Security Updates", "Critical Updates")
+  bool is_security;      // True for "Security Updates" category
+  bool is_critical;      // True for "Critical Updates" category
+  bool reboot_required;  // True if installing this update requires a reboot
 
   update_info() : is_security(false), is_critical(false), reboot_required(false) {}
 
@@ -50,13 +50,13 @@ struct update_info {
 
 // Aggregated update information used as the filter object.
 struct os_updates_obj {
-  long long count;             // Total number of available updates
-  long long security;          // Number of security updates
-  long long critical;          // Number of critical updates
-  long long important;         // Number of MsrcSeverity == "Important" updates
-  long long reboot_required;   // Number of updates requiring a reboot
-  bool fetch_succeeded;        // False if the WUA query has not produced any data yet
-  std::string error;           // Last error encountered while fetching (if any)
+  long long count;            // Total number of available updates
+  long long security;         // Number of security updates
+  long long critical;         // Number of critical updates
+  long long important;        // Number of MsrcSeverity == "Important" updates
+  long long reboot_required;  // Number of updates requiring a reboot
+  bool fetch_succeeded;       // False if the WUA query has not produced any data yet
+  std::string error;          // Last error encountered while fetching (if any)
   std::vector<update_info> updates;
 
   os_updates_obj() : count(0), security(0), critical(0), important(0), reboot_required(0), fetch_succeeded(false) {}
@@ -92,9 +92,9 @@ void classify_update(const std::string &category, const std::string &severity, u
 class os_updates_data final {
   boost::shared_mutex mutex_;
   os_updates_obj data_;
-  long long last_fetch_;     // last time fetch ran successfully (epoch seconds), -1 = never
-  long long ttl_seconds_;    // minimum seconds between WUA searches (default: 1 hour)
-  bool fetch_supported_;     // false once the WUA API has been determined unavailable
+  long long last_fetch_;   // last time fetch ran successfully (epoch seconds), -1 = never
+  long long ttl_seconds_;  // minimum seconds between WUA searches (default: 1 hour)
+  bool fetch_supported_;   // false once the WUA API has been determined unavailable
 
  public:
   os_updates_data();

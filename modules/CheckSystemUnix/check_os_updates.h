@@ -43,10 +43,10 @@ struct package_update {
 
 // Aggregated update information used as the filter object.
 struct filter_obj {
-  std::string manager;                    // Package manager: apt, dnf, yum, zypper, pacman, none, unknown
-  long long count;                        // Total number of available updates
-  long long security;                     // Number of security updates
-  std::vector<package_update> packages;   // List of available updates
+  std::string manager;                   // Package manager: apt, dnf, yum, zypper, pacman, none, unknown
+  long long count;                       // Total number of available updates
+  long long security;                    // Number of security updates
+  std::vector<package_update> packages;  // List of available updates
 
   filter_obj() : count(0), security(0) {}
 

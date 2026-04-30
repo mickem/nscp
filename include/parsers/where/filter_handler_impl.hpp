@@ -263,6 +263,12 @@ struct function_registry {
     add(var, false);
     return *this;
   }
+  function_registry<T>& add_string_context(std::string key, std::function<std::string(T, evaluation_context)> s_fun, std::string description) {
+    std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_string, description));
+    var->s_function = [s_fun](auto obj, auto context) { return s_fun(obj, context); };
+    add(var, false);
+    return *this;
+  }
   function_registry<T>& add_string(std::string key, std::function<std::string(T)> s_fun, std::function<long long(T)> i_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_string, description));
     var->s_function = [s_fun](auto obj, auto context) { return s_fun(obj); };

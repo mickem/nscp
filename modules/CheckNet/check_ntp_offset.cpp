@@ -19,19 +19,18 @@
 
 #include "check_ntp_offset.h"
 
-#include "check_net_error.hpp"
-#include "check_ntp_internal.hpp"
-
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/program_options.hpp>
+#include <chrono>
+#include <cstdint>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
 
-#include <chrono>
-#include <cstdint>
+#include "check_net_error.hpp"
+#include "check_ntp_internal.hpp"
 
 namespace po = boost::program_options;
 
@@ -115,14 +114,13 @@ void run_ntp_check(const std::string &server, unsigned short port, int timeout_m
       }
     });
 
-    socket.async_receive_from(boost::asio::buffer(resp_buf, sizeof(resp_buf)), sender,
-                              [&](const boost::system::error_code &ec, std::size_t n) {
-                                recv_ec = ec;
-                                bytes_received = n;
-                                recv_done = true;
-                                boost::system::error_code ignore;
-                                timer.cancel(ignore);
-                              });
+    socket.async_receive_from(boost::asio::buffer(resp_buf, sizeof(resp_buf)), sender, [&](const boost::system::error_code &ec, std::size_t n) {
+      recv_ec = ec;
+      bytes_received = n;
+      recv_done = true;
+      boost::system::error_code ignore;
+      timer.cancel(ignore);
+    });
 
     io_service.run();
 

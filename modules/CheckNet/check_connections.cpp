@@ -18,32 +18,38 @@
  */
 
 #include "check_connections.h"
-#include "check_connections_internal.hpp"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/program_options.hpp>
+#include <fstream>
+#include <map>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
-
-#include <fstream>
-#include <map>
 #include <set>
 #include <sstream>
 #include <string>
 #include <vector>
 
+#include "check_connections_internal.hpp"
+
+// clang-format off
 #ifdef WIN32
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
 #include <iphlpapi.h>
-#include <tcpmib.h>
-#include <udpmib.h>
 #include <win/iphlpapi_api.hpp>
 #pragma comment(lib, "ws2_32.lib")
 #endif
+// clang-format on
 
 namespace po = boost::program_options;
 
@@ -81,8 +87,7 @@ using check_connections_internal::linux_tcp_state;
 // Count rows in /proc/net/<file>. Each data line has the form:
 //   "  N: local rem state ..."
 // We only need the 4th field (state) as a hex byte.
-void count_proc_net(const std::string &path, const std::string &proto, bool is_tcp,
-                    std::map<std::string, long long> &per_state, long long &proto_total) {
+void count_proc_net(const std::string &path, const std::string &proto, bool is_tcp, std::map<std::string, long long> &per_state, long long &proto_total) {
   std::ifstream f(path);
   if (!f) return;
   std::string line;
@@ -362,12 +367,10 @@ void check_connections(const PB::Commands::QueryRequestMessage::Request &request
 
   filter f;
   filter_helper.add_options("", "", "protocol = 'total'", f.get_filter_syntax(), "ignored");
-  filter_helper.add_syntax("${status}: ${list}", "${protocol}/${state}: ${count}", "${protocol}_${state}", "No connection data",
-                           "%(status): %(list)");
+  filter_helper.add_syntax("${status}: ${list}", "${protocol}/${state}: ${count}", "${protocol}_${state}", "No connection data", "%(status): %(list)");
   // Emit useful default performance data for the 'total' bucket so the check
   // graphs out of the box even without warn/crit thresholds.
-  filter_helper.set_default_perf_config(
-      "extra(total;established;listen;syn_sent;syn_recv;time_wait;close_wait;closing;fin_wait;last_ack;udp)");
+  filter_helper.set_default_perf_config("extra(total;established;listen;syn_sent;syn_recv;time_wait;close_wait;closing;fin_wait;last_ack;udp)");
 
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(f)) return;

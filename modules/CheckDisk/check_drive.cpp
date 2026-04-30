@@ -235,9 +235,7 @@ struct filter_obj {
       user_free = 0;
       total_free = 0;
       drive_size = 0;
-      auto clear_flags = [&](int mask) {
-        drive.flags = static_cast<drive_container::drive_flags>(static_cast<int>(drive.flags) & ~mask);
-      };
+      auto clear_flags = [&](int mask) { drive.flags = static_cast<drive_container::drive_flags>(static_cast<int>(drive.flags) & ~mask); };
       // A single transient, unattached or otherwise unavailable volume must not
       // abort the entire filter run (see issues #597, #404, #230, #679, #294).
       // Mark the drive as not mounted / not readable so the default filter

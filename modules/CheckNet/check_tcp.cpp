@@ -19,8 +19,6 @@
 
 #include "check_tcp.h"
 
-#include "check_net_error.hpp"
-
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
 #include <boost/make_shared.hpp>
@@ -28,6 +26,8 @@
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
+
+#include "check_net_error.hpp"
 
 namespace po = boost::program_options;
 
@@ -182,8 +182,7 @@ void check_tcp(const PB::Commands::QueryRequestMessage::Request &request, PB::Co
 
   filter f;
   filter_helper.add_options("time > 1000", "time > 5000 or result != 'ok'", "", f.get_filter_syntax(), "ignored");
-  filter_helper.add_syntax("${status}: ${problem_list}", "${host}:${port} ${result} in ${time}ms", "${host}_${port}", "No hosts checked",
-                           "%(status): %(list)");
+  filter_helper.add_syntax("${status}: ${problem_list}", "${host}:${port} ${result} in ${time}ms", "${host}_${port}", "No hosts checked", "%(status): %(list)");
   // clang-format off
   filter_helper.get_desc().add_options()
     ("host", po::value<std::vector<std::string> >(&hosts), "Host(s) to connect to (may be given multiple times).")
