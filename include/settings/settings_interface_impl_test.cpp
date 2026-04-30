@@ -48,18 +48,18 @@ class memory_backend : public settings::settings_interface_impl {
   memory_backend(settings::settings_core *core, std::string alias, std::string context) : settings::settings_interface_impl(core, alias, context) {}
 
   // ---- Real (backend) operations ---------------------------------------
-  op_string get_real_string(settings_core::key_path_type key) override {
+  op_string get_real_string(settings::settings_core::key_path_type key) override {
     auto it = persisted_values.find(key);
     if (it == persisted_values.end()) return op_string();
     return it->second;
   }
-  void set_real_value(settings_core::key_path_type key, conainer value) override {
+  void set_real_value(settings::settings_core::key_path_type key, conainer value) override {
     if (!value.is_dirty()) return;
     persisted_values[key] = value.get_string();
     persisted_paths.insert(key.first);
   }
   void set_real_path(std::string path) override { persisted_paths.insert(path); }
-  void remove_real_value(settings_core::key_path_type key) override { persisted_values.erase(key); }
+  void remove_real_value(settings::settings_core::key_path_type key) override { persisted_values.erase(key); }
   void remove_real_path(std::string path) override {
     persisted_paths.erase(path);
     for (auto it = persisted_values.begin(); it != persisted_values.end();) {
@@ -69,7 +69,7 @@ class memory_backend : public settings::settings_interface_impl {
         ++it;
     }
   }
-  bool has_real_key(settings_core::key_path_type key) override { return persisted_values.find(key) != persisted_values.end(); }
+  bool has_real_key(settings::settings_core::key_path_type key) override { return persisted_values.find(key) != persisted_values.end(); }
   bool has_real_path(std::string path) override { return persisted_paths.find(path) != persisted_paths.end(); }
   void get_real_sections(std::string path, string_list &list) override {
     // Mimic the production backends: return top-level sections when path is
@@ -100,6 +100,12 @@ class memory_backend : public settings::settings_interface_impl {
   void enable_credentials() override {}
   bool supports_updates() override { return true; }
 };
+
+// Compose a (path,key) pair.  Wrapping the brace-list in a function call lets
+// us pass it through gtest's variadic-style EXPECT_EQ macros — `[{a, b}]`
+// directly inside a macro splits on the inner comma because square brackets
+// don't shield it from the preprocessor.
+inline std::pair<std::string, std::string> pk(const std::string &p, const std::string &k) { return {p, k}; }
 
 // Helper: look for a change_entry of the given kind at (path,key) in a list.
 const settings::settings_interface::change_entry *find_change(const settings::settings_interface::change_list &list, const std::string &path,
@@ -150,7 +156,7 @@ TEST(settings_interface_impl, save_flushes_pending_writes_to_backend) {
   b.set_string("/section", "key", "value");
   b.save(false);
   ASSERT_EQ(b.persisted_values.count({"/section", "key"}), 1u);
-  EXPECT_EQ(b.persisted_values[{"/section", "key"}], "value");
+  EXPECT_EQ(b.persisted_values[pk("/section", "key")], "value");
 }
 
 TEST(settings_interface_impl, save_skips_unchanged_cached_value) {
@@ -164,7 +170,7 @@ TEST(settings_interface_impl, save_skips_unchanged_cached_value) {
   b.set_string("/section", "key", "original");           // marks not-dirty
   b.persisted_values[{"/section", "key"}] = "external";  // simulate side-channel write
   b.save(false);
-  EXPECT_EQ(b.persisted_values[{"/section", "key"}], "external") << "save should not rewrite an unchanged cache entry";
+  EXPECT_EQ(b.persisted_values[pk("/section", "key")], "external") << "save should not rewrite an unchanged cache entry";
 }
 
 TEST(settings_interface_impl, save_respects_dirty_flag_difference) {
@@ -173,7 +179,7 @@ TEST(settings_interface_impl, save_respects_dirty_flag_difference) {
   b.persisted_values[{"/section", "key"}] = "original";
   b.set_string("/section", "key", "updated");
   b.save(false);
-  EXPECT_EQ(b.persisted_values[{"/section", "key"}], "updated");
+  EXPECT_EQ(b.persisted_values[pk("/section", "key")], "updated");
 }
 
 // ============================================================================
@@ -419,9 +425,9 @@ TEST(settings_interface_impl, save_to_copies_keys_into_destination) {
   src.save_to(dst);
 
   ASSERT_EQ(dst->persisted_values.count({"/a", "k1"}), 1u);
-  EXPECT_EQ(dst->persisted_values[{"/a", "k1"}], "v1");
+  EXPECT_EQ(dst->persisted_values[pk("/a", "k1")], "v1");
   ASSERT_EQ(dst->persisted_values.count({"/a", "k2"}), 1u);
-  EXPECT_EQ(dst->persisted_values[{"/a", "k2"}], "v2");
+  EXPECT_EQ(dst->persisted_values[pk("/a", "k2")], "v2");
 }
 
 TEST(settings_interface_impl, save_to_same_context_just_saves) {
@@ -432,7 +438,7 @@ TEST(settings_interface_impl, save_to_same_context_just_saves) {
   auto src = boost::make_shared<memory_backend>(&core, "x", "memory://x");
   src->set_string("/p", "k", "v");
   src->save_to(src);
-  EXPECT_EQ(src->persisted_values[{"/p", "k"}], "v");
+  EXPECT_EQ(src->persisted_values[pk("/p", "k")], "v");
 }
 
 // ============================================================================
