@@ -102,6 +102,17 @@ TEST(ScannerContext, IsValidLevelZero) {
   EXPECT_FALSE(ctx.is_valid_level(2));
 }
 
+TEST(ScannerContext, MissingPathsStartsEmpty) {
+  // The new missing_paths vector (used to surface "path not found" as UNKNOWN
+  // instead of OK / "No files found", issue #613) must default to empty so
+  // that successful scans do not accidentally trip the new error path.
+  auto ctx = make_ctx(1);
+  EXPECT_TRUE(ctx.missing_paths.empty());
+  ctx.missing_paths.push_back("X:\\does-not-exist");
+  EXPECT_EQ(ctx.missing_paths.size(), 1u);
+  EXPECT_EQ(ctx.missing_paths.front(), "X:\\does-not-exist");
+}
+
 TEST(ScannerContext, ReportHelpersDoNotCrash) {
   auto ctx = make_ctx(1, /*debug=*/true);
   EXPECT_NO_THROW(ctx.report_error("err"));

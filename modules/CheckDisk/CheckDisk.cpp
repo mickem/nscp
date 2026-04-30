@@ -301,6 +301,17 @@ void CheckDisk::check_files(const PB::Commands::QueryRequestMessage::Request &re
   for (const std::string &path : file_list) {
     file_finder::recursive_scan(filter, context, path, total_obj, total == "all");
   }
+  if (!context.missing_paths.empty()) {
+    // One or more user-supplied top-level paths could not be opened. Surface
+    // this as UNKNOWN with the offending path(s) so operators see a clear
+    // error instead of a misleading OK / "No files found" (issue #613).
+    std::string joined;
+    for (const std::string &p : context.missing_paths) {
+      if (!joined.empty()) joined += ", ";
+      joined += p;
+    }
+    return nscapi::protobuf::functions::set_response_bad(*response, "Path was not found: " + joined);
+  }
   if (total_obj) {
     filter.match(total_obj);
   }

@@ -61,9 +61,15 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
 
   const DWORD fileAttr = GetFileAttributes(wide_dir.c_str());
   if ((fileAttr == INVALID_FILE_ATTRIBUTES) && (!recursive)) {
+    // Top-level path supplied by the user does not exist (or is not
+    // accessible). Record it so the caller can surface this as an UNKNOWN
+    // result instead of silently returning "No files found" (issue #613).
+    context.missing_paths.push_back(dir.string());
     context.report_error("Invalid file specified: " + dir.string());
+    return;
   } else if (fileAttr == INVALID_FILE_ATTRIBUTES) {
     context.report_warning("Invalid file specified: " + dir.string());
+    return;
   }
 
   if (!is_directory(fileAttr)) {

@@ -23,6 +23,9 @@
 #include <boost/shared_ptr.hpp>
 #include <file_helpers.hpp>
 
+#include <string>
+#include <vector>
+
 #include "filter.hpp"
 
 namespace file_finder {
@@ -33,6 +36,11 @@ struct scanner_context {
   std::string pattern;
   long long now;
   int max_depth;
+  // Set to true when a user-supplied top-level path either does not exist or
+  // cannot be opened. This lets the caller (CheckDisk::check_files) report
+  // UNKNOWN with a useful message instead of silently returning OK / "No
+  // files found" when the operator has misconfigured the path. See #613.
+  std::vector<std::string> missing_paths;
   bool is_valid_level(int current_level) const;
   void report_error(const std::string &str) const;
   void report_debug(const std::string &str) const;
