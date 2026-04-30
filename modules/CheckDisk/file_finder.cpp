@@ -99,7 +99,14 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
   }
 }
 
-bool file_finder::scanner_context::is_valid_level(int current_level) const { return max_depth == -1 || current_level < max_depth; }
+bool file_finder::scanner_context::is_valid_level(int current_level) const {
+  // max_depth == -1 means unlimited recursion.
+  // max_depth == 0 means "scan the top directory only" (no recursion).
+  // max_depth == N (N >= 1) means "recurse up to N levels below the top directory".
+  if (max_depth == -1) return true;
+  if (max_depth == 0) return current_level == 0;
+  return current_level < max_depth;
+}
 
 void file_finder::scanner_context::report_error(const std::string &str) const { NSC_LOG_ERROR(str); }
 

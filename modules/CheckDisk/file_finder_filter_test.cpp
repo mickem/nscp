@@ -93,9 +93,13 @@ TEST(ScannerContext, IsValidLevelBounded) {
 }
 
 TEST(ScannerContext, IsValidLevelZero) {
+  // max_depth=0 must mean "scan the top directory only". Previously this was
+  // treated as "no levels are valid" which made check_files return "no files
+  // found" when users asked for non-recursive scanning (issue #730).
   auto ctx = make_ctx(0);
-  EXPECT_FALSE(ctx.is_valid_level(0));
+  EXPECT_TRUE(ctx.is_valid_level(0));
   EXPECT_FALSE(ctx.is_valid_level(1));
+  EXPECT_FALSE(ctx.is_valid_level(2));
 }
 
 TEST(ScannerContext, ReportHelpersDoNotCrash) {
