@@ -513,13 +513,16 @@ std::string service_info::get_legacy_state_s() const {
   return "unknown";
 }
 std::string service_info::get_start_type_s() const {
-  if (delayed) {
-    if (triggers > 0) {
-      return "delayed_trigger";
-    }
-    return "delayed";
-  }
+  // The fDelayedAutostart flag from SERVICE_DELAYED_AUTO_START_INFO is only
+  // meaningful for SERVICE_AUTO_START. Honoring it for other start types
+  // would mis-render manual / boot / system services as "delayed" (see #362).
   if (start_type == SERVICE_AUTO_START) {
+    if (delayed) {
+      if (triggers > 0) {
+        return "delayed_trigger";
+      }
+      return "delayed";
+    }
     if (triggers > 0) {
       return "auto_trigger";
     }

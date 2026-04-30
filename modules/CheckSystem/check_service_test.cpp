@@ -255,6 +255,29 @@ TEST(ServiceInfo, GetStartTypeString) {
   EXPECT_EQ(info.get_start_type_s(), "system");
 }
 
+TEST(ServiceInfo, GetStartTypeStringDelayedOnlyHonoredForAutoStart) {
+  // Regression for #362: the SERVICE_DELAYED_AUTO_START_INFO flag is only
+  // meaningful for SERVICE_AUTO_START. For other start types, the value
+  // returned by QueryServiceConfig2 is undefined and must not change the
+  // rendered start_type (otherwise a "Manual" service can be reported as
+  // "delayed").
+  win_list_services::service_info info("Svc", "Service");
+  info.delayed = true;
+  info.triggers = 0;
+
+  info.start_type = SERVICE_DEMAND_START;
+  EXPECT_EQ(info.get_start_type_s(), "demand");
+
+  info.start_type = SERVICE_BOOT_START;
+  EXPECT_EQ(info.get_start_type_s(), "boot");
+
+  info.start_type = SERVICE_SYSTEM_START;
+  EXPECT_EQ(info.get_start_type_s(), "system");
+
+  info.start_type = SERVICE_DISABLED;
+  EXPECT_EQ(info.get_start_type_s(), "disabled");
+}
+
 TEST(ServiceInfo, ParseState) {
   EXPECT_EQ(win_list_services::service_info::parse_state("running"), SERVICE_RUNNING);
   EXPECT_EQ(win_list_services::service_info::parse_state("started"), SERVICE_RUNNING);
