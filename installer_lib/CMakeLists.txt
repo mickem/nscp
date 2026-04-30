@@ -3,7 +3,7 @@ if(POLICY CMP0091)
     cmake_policy(SET CMP0091 NEW)
 endif()
 set(TARGET installer_lib)
-project(${TARGET} CXX)
+project(${TARGET} C CXX)
 
 set(NSCP_INCLUDEDIR ${CMAKE_SOURCE_DIR}/../include)
 set(BUILD_PYTHON_FOLDER "${CMAKE_SOURCE_DIR}/../build/python")
