@@ -171,6 +171,7 @@ if(OPENSSL_FOUND)
         SOURCES
             ${NSCP_INCLUDEDIR}/net/pinger_test.cpp
             ${NSCP_INCLUDEDIR}/net/http/client_test.cpp
+            ${NSCP_INCLUDEDIR}/net/http/proxy_config_test.cpp
             ${NSCP_INCLUDEDIR}/net/http/http_client_protocol_test.cpp
             ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts_test.cpp
             ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
@@ -188,6 +189,7 @@ if(OPENSSL_FOUND)
             ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
             ${NSCP_INCLUDEDIR}/net/nrpe/packet.cpp
             ${NSCP_INCLUDEDIR}/net/nsca/nsca_packet.cpp
+            ${NSCP_INCLUDEDIR}/bytes/base64.c
             ${NSCP_INCLUDEDIR}/bytes/crc32.cpp
             ${NSCP_INCLUDEDIR}/str/utf8.cpp
         LIBRARIES

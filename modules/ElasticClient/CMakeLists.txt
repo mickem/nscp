@@ -14,6 +14,7 @@ set(SRCS
     ${NSCP_CLIENT_CPP}
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/bytes/base64.c
 )
 
 add_definitions(${NSCP_GLOBAL_DEFINES})

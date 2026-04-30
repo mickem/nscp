@@ -72,6 +72,8 @@ Submit information to the remote NRDP Server.
 <a id="submit_nrdp_verify-mode"></a>
 <a id="submit_nrdp_verify mode"></a>
 <a id="submit_nrdp_ca"></a>
+<a id="submit_nrdp_proxy"></a>
+<a id="submit_nrdp_no-proxy"></a>
 <a id="submit_nrdp_options"></a>
 #### Command-line Arguments
 
@@ -108,6 +110,8 @@ Submit information to the remote NRDP Server.
 | verify-mode  |               | Alias for --verify.                                                                                                                                                    |
 | verify mode  |               | Legacy alias for --verify (kept for backwards compatibility).                                                                                                          |
 | ca           |               | Certificate authority to use when verifying certificates.                                                                                                              |
+| proxy        |               | HTTP proxy URL to route requests through (e.g. http://user:pass@proxy:3128/).                                                                                          |
+| no-proxy     |               | Comma-separated list of hostnames that bypass the proxy.                                                                                                               |
 
 
 
@@ -241,8 +245,10 @@ This is a section of objects. This means that you will create objects below this
 | ca          |               | Certificate Authority |
 | host        |               | TARGET HOST           |
 | key         |               | SECURITY TOKEN        |
+| no proxy    |               | No-proxy list         |
 | password    |               | SECURITY TOKEN        |
 | port        |               | TARGET PORT           |
+| proxy       |               | HTTP proxy URL        |
 | retries     | 3             | RETRIES               |
 | timeout     | 30            | TIMEOUT               |
 | tls version |               | Tls version           |
@@ -259,8 +265,10 @@ This is a section of objects. This means that you will create objects below this
 #ca=...
 #host=...
 #key=...
+#no proxy=...
 #password=...
 #port=...
+#proxy=...
 retries=3
 timeout=30
 #tls version=...

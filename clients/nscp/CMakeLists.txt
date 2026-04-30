@@ -8,6 +8,7 @@ set(SRCS
     ${SRCS}
     check_nscp.cpp
     ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/bytes/base64.c
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
