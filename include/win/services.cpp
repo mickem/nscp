@@ -447,25 +447,29 @@ service_info get_service_info(const std::string &computer, const std::string &se
 
   hlp::buffer<BYTE, SERVICE_STATUS_PROCESS *> ssp = queryServiceStatusEx(hService, service);
 
-  service_info info(service, "TODO");
+  // Query the service configuration up front so we can construct the
+  // service_info with the real display name. The previous implementation
+  // constructed the object with a "TODO" placeholder and only overwrote it
+  // afterwards, which leaked the placeholder into ${desc} for some code
+  // paths and made the data flow surprising (see #456).
+  DWORD bytesNeeded2 = 0;
+  DWORD deErr = 0;
+  if (QueryServiceConfig(hService, nullptr, 0, &bytesNeeded2) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
+    throw nsclient::nsclient_exception("Failed to query service config " + service + ": " + error::lookup::last_error(deErr));
+  const hlp::buffer<BYTE> buf2(bytesNeeded2 + 10);
+
+  if (!QueryServiceConfig(hService, reinterpret_cast<QUERY_SERVICE_CONFIG *>(buf2.get()), bytesNeeded2, &bytesNeeded2))
+    throw nsclient::nsclient_exception("Failed to query service config: " + service);
+  const auto *data2 = reinterpret_cast<QUERY_SERVICE_CONFIG *>(buf2.get());
+
+  service_info info(service, utf8::cvt<std::string>(data2->lpDisplayName));
   info.pid = ssp.get()->dwProcessId;
   info.state = ssp.get()->dwCurrentState;
   info.type = ssp.get()->dwServiceType;
   info.exit_code = ssp.get()->dwWin32ExitCode;
-
-  DWORD bytesNeeded2 = 0;
-  DWORD deErr = 0;
-  if (QueryServiceConfig(hService, nullptr, 0, &bytesNeeded2) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
-    throw nsclient::nsclient_exception("Failed to open service " + info.name + ": " + error::lookup::last_error(deErr));
-  const hlp::buffer<BYTE> buf2(bytesNeeded2 + 10);
-
-  if (!QueryServiceConfig(hService, reinterpret_cast<QUERY_SERVICE_CONFIG *>(buf2.get()), bytesNeeded2, &bytesNeeded2))
-    throw nsclient::nsclient_exception("Failed to open service: " + info.name);
-  const auto *data2 = reinterpret_cast<QUERY_SERVICE_CONFIG *>(buf2.get());
   info.start_type = data2->dwStartType;
   info.binary_path = utf8::cvt<std::string>(data2->lpBinaryPathName);
   info.error_control = data2->dwErrorControl;
-  info.displayname = utf8::cvt<std::string>(data2->lpDisplayName);
 
   fetch_delayed(hService, info);
   fetch_triggers(hService, info);
