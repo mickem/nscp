@@ -255,6 +255,13 @@ void CheckDisk::checkFiles(PB::Commands::QueryRequestMessage::Request &request, 
   compat::inline_addarg(request, "path=", path);
   if (debug) request.add_arguments("debug");
   if (maxDepth > 0) request.add_arguments("max-depth=" + str::xtos(maxDepth));
+  // Legacy CheckFiles historically returned OK for "0 matching files" when
+  // the user only supplied MaxWarn/MaxCrit thresholds (i.e. an empty result
+  // set was simply "below the warning threshold"). Modern check_files now
+  // defaults empty-state to "unknown", which surfaces in legacy callers as
+  // a spurious UNKNOWN status (issue #717). Preserve the legacy behaviour
+  // by defaulting empty-state to ok for this shim.
+  request.add_arguments("empty-state=ok");
   compat::log_args(request);
   check_files(request, response);
 }
