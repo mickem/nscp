@@ -215,6 +215,7 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/win/service_control.cpp
     ${NSCP_INCLUDEDIR}/error/error_w32.cpp
     ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/bytes/base64.c
     ../libs/settings_manager/settings_manager_impl.cpp
     ../libs/settings_manager/settings_handler_impl.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
