@@ -22,6 +22,7 @@
 #include <file_helpers.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <str/utf8.hpp>
 
 #include "filter.hpp"
 
@@ -50,7 +51,15 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
   }
   WIN32_FIND_DATA wfd;
 
-  const DWORD fileAttr = GetFileAttributes(dir.wstring().c_str());
+  // Always convert via utf8::cvt so that paths containing non-ACP characters
+  // (e.g. accented letters) are passed correctly to the Win32 wide APIs.
+  // Using boost::filesystem::path::wstring() honours the path's imbued locale
+  // (system codepage by default on Windows) and silently mangles non-ACP
+  // characters, which caused issue #598 ("File was NOT found! Invalid file
+  // specified" for paths like D:/DepotInterface/Reintégrer/).
+  const std::wstring wide_dir = utf8::cvt<std::wstring>(dir.string());
+
+  const DWORD fileAttr = GetFileAttributes(wide_dir.c_str());
   if ((fileAttr == INVALID_FILE_ATTRIBUTES) && (!recursive)) {
     context.report_error("Invalid file specified: " + dir.string());
   } else if (fileAttr == INVALID_FILE_ATTRIBUTES) {
@@ -62,7 +71,7 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
     // It is a file check it and return (don't check recursively)
     file_helpers::patterns::pattern_type single_path = file_helpers::patterns::split_path_ex(dir.string());
     if (context.debug) context.report_debug("Path is: " + single_path.first.string());
-    HANDLE hFind = FindFirstFile(dir.wstring().c_str(), &wfd);
+    HANDLE hFind = FindFirstFile(wide_dir.c_str(), &wfd);
     if (hFind != INVALID_HANDLE_VALUE) {
       boost::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(context.now, wfd, single_path.first);
       // boost::make_shared<eventlog_filter::filter_obj>(record, filter.summary.count_match)
