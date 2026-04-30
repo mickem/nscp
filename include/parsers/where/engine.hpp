@@ -56,6 +56,13 @@ struct NSCAPI_EXPORT engine_filter {
 
   bool match(error_handler error, execution_context_type context, bool expect_object);
 
+  // Force-evaluate this filter regardless of the require_object guard. This
+  // is used for the "no rows matched" path in modern_filter, where we want
+  // to evaluate mixed expressions like `state='stopped' OR count=0` even when
+  // there is no current object - object-bound variables resolve to a default
+  // (false) value, while summary variables resolve to their final values.
+  bool match_force(error_handler error, execution_context_type context);
+
   std::string to_string() const;
 };
 
@@ -79,6 +86,10 @@ struct NSCAPI_EXPORT engine {
   bool validate(object_factory context);
 
   bool match(execution_context_type context, bool expect_object);
+
+  // Force-evaluate every filter in this engine regardless of the
+  // require_object guard. See engine_filter::match_force.
+  bool match_force(execution_context_type context);
 
   std::string get_subject() { return "TODO"; }
 

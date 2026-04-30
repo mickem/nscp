@@ -81,6 +81,22 @@ bool engine_filter::match(error_handler error, execution_context_type context, b
   return v.is_true();
 }
 
+bool engine_filter::match_force(error_handler error, execution_context_type context) {
+  // Like match() but without the require_object/expect_object guard. Used by
+  // modern_filter::match_post when the iteration produced no matched rows so
+  // that mixed expressions (e.g. `state='stopped' OR count=0`) are still
+  // evaluated. Object-bound variables resolve to a default (false) value when
+  // no object is present; summary variables resolve to their final values.
+  value_container v = ast_parser.evaluate(context);
+  if (context->has_error()) {
+    error->log_error(context->get_error() + ": " + ast_parser.result_as_tree(context));
+  }
+  // Suppress warnings here: the lack of an object is intentional in this
+  // mode, so per-variable "no object instance" warnings are noise.
+  context->clear();
+  return v.is_true();
+}
+
 std::string engine_filter::to_string() const { return filter_string; }
 
 engine::engine(std::vector<std::string> filter, error_handler error) : error(error) {
@@ -103,6 +119,13 @@ bool engine::validate(object_factory context) {
 bool engine::match(execution_context_type context, bool expect_object) {
   for (engine_filter &f : filters_) {
     if (f.match(error, context, expect_object)) return true;
+  }
+  return false;
+}
+
+bool engine::match_force(execution_context_type context) {
+  for (engine_filter &f : filters_) {
+    if (f.match_force(error, context)) return true;
   }
   return false;
 }

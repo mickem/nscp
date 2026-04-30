@@ -535,11 +535,20 @@ struct modern_filters {
                                                                                              entry.second.minimum_value, entry.second.maximum_value);
       if (perf.size() > 0) performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
     }
-    if (engine_crit && engine_crit->match(context, false)) {
+    // When the iteration produced no matched rows the warn/crit expressions
+    // have never been evaluated. The default expect_object=false path below
+    // only evaluates filters whose AST does not require an object - that
+    // covers pure summary expressions like `count=0` but skips mixed
+    // expressions such as `state='stopped' OR count=0` (issues #74, #494,
+    // #200, #283). When no rows matched, additionally force-evaluate the
+    // engines: object-bound vars resolve to a default value so the summary
+    // part still drives the verdict.
+    const bool no_rows = !summary.has_matched();
+    if (engine_crit && (engine_crit->match(context, false) || (no_rows && engine_crit->match_force(context)))) {
       nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
       summary.move_hits_crit();
       matched = true;
-    } else if (engine_warn && engine_warn->match(context, false)) {
+    } else if (engine_warn && (engine_warn->match(context, false) || (no_rows && engine_warn->match_force(context)))) {
       nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
       summary.move_hits_warn();
       matched = true;
