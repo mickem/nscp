@@ -32,6 +32,9 @@
 #ifndef FILE_ATTRIBUTE_DIRECTORY
 #define FILE_ATTRIBUTE_DIRECTORY 0x00000010
 #endif
+#ifndef FILE_ATTRIBUTE_REPARSE_POINT
+#define FILE_ATTRIBUTE_REPARSE_POINT 0x00000400
+#endif
 bool file_finder::is_directory(unsigned long dwAttr) {
   if (dwAttr == INVALID_FILE_ATTRIBUTES) {
     return false;
@@ -106,6 +109,14 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
   if (hFind != INVALID_HANDLE_VALUE) {
     do {
       if (is_directory(wfd.dwFileAttributes)) {
+        // Skip reparse points (NTFS junctions, symlinks, mount points). They
+        // can point back into the same volume / directory tree and caused
+        // check_files to enumerate (and count) the same files multiple times,
+        // e.g. inside C:\Program Files (x86)\Trend Micro\... (issue #605).
+        if ((wfd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
+          if (context.debug) context.report_debug(std::string("Skipping reparse point: ") + utf8::cvt<std::string>(wfd.cFileName));
+          continue;
+        }
         if ((wcscmp(wfd.cFileName, L".") != 0) && (wcscmp(wfd.cFileName, L"..") != 0))
           recursive_scan(filter, context, dir / wfd.cFileName, total_obj, total_all, true, current_level + 1);
       }
