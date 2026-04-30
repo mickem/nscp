@@ -19,6 +19,7 @@
 
 #include "check_process.hpp"
 
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -156,7 +157,15 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
     }
   } else {
     for (const win_list_processes::process_info &info : data->list) {
-      bool found = (std::find(checks.begin(), checks.end(), info.exe.get()) != checks.end());
+      // Process names on Windows are not case-sensitive (the file system is
+      // case-preserving but case-insensitive). Match the configured process
+      // names against the running executable name case-insensitively so that
+      // e.g. "notepad.exe" matches a process whose on-disk name is
+      // "NOTEPAD.EXE". This mirrors the behaviour of the active check path
+      // (which uses CaseBlindCompare for the same reason).
+      const std::string &exe = info.exe.get();
+      const bool found = std::any_of(checks.begin(), checks.end(),
+                                     [&exe](const std::string &check) { return boost::algorithm::iequals(check, exe); });
       if (found) {
         boost::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
         ret.append(filter.match(record));
