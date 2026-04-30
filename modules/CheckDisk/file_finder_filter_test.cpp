@@ -62,6 +62,18 @@ TEST(FileFinderIsDirectory, MixedFlagsWithoutDirectory) {
 }
 
 // =========================================================================
+// file_finder::stat_single_file (negative paths only — positive paths
+// require a real file to exist on the test host. CI runners are expected
+// to provide one; for the negative path it's enough to assert that a
+// guaranteed-not-to-exist path returns an empty shared_ptr.)
+// =========================================================================
+
+TEST(StatSingleFile, ReturnsEmptyForMissingPath) {
+  auto info = file_finder::stat_single_file(boost::filesystem::path("Z:\\nscp_test_definitely_not_a_real_path_47b1f0e5\\foo.dat"), 0);
+  EXPECT_FALSE(info);
+}
+
+// =========================================================================
 // file_finder::scanner_context
 // =========================================================================
 

@@ -324,3 +324,48 @@ void CheckDisk::check_files(const PB::Commands::QueryRequestMessage::Request &re
   }
   filter_helper.post_process(filter);
 }
+
+void CheckDisk::check_single_file(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  modern_filter::data_container data;
+  modern_filter::cli_helper<file_filter::filter> filter_helper(request, response, data);
+  std::string file_path;
+
+  file_filter::filter filter;
+  // No "empty" state: a single-file check either has the file (and runs the
+  // filter) or it does not (and we return UNKNOWN with a useful message).
+  // Default to UNKNOWN if no thresholds are set, so check_single_file <file>
+  // by itself confirms the file exists rather than being a silent OK.
+  filter_helper.add_options("", "", "", filter.get_filter_syntax(), "ok");
+  filter_helper.add_syntax(
+      "%(status): %(filename) (size=%(size), age=%(age))",
+      "%(filename) (size=%(size), age=%(age))",
+      "%(filename)",
+      // The "empty" syntaxes below are unreachable for check_single_file (we
+      // always either fail with UNKNOWN or feed exactly one object to the
+      // filter) but cli_helper requires non-empty defaults.
+      "No file inspected",
+      "%(status): %(filename) is ok");
+  // clang-format off
+  filter_helper.get_desc().add_options()
+    ("file", po::value<std::string>(&file_path), "The file to check.")
+    ("path", po::value<std::string>(&file_path), "Alias for file.")
+    ;
+  // clang-format on
+
+  if (!filter_helper.parse_options()) return;
+
+  if (file_path.empty()) {
+    return nscapi::protobuf::functions::set_response_bad(*response, "No file specified (use file=<path>)");
+  }
+
+  if (!filter_helper.build_filter(filter)) return;
+
+  long long now = parsers::where::constants::get_now();
+  boost::shared_ptr<file_filter::filter_obj> info = file_finder::stat_single_file(file_path, now);
+  if (!info) {
+    return nscapi::protobuf::functions::set_response_bad(*response, "File not found: " + file_path);
+  }
+
+  filter.match(info);
+  filter_helper.post_process(filter);
+}

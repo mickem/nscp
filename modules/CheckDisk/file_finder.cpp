@@ -141,3 +141,19 @@ void file_finder::scanner_context::report_debug(const std::string &str) const {
 }
 
 void file_finder::scanner_context::report_warning(const std::string &msg) const { NSC_LOG_ERROR(msg); }
+
+boost::shared_ptr<file_filter::filter_obj> file_finder::stat_single_file(const boost::filesystem::path &path, long long now) {
+  WIN32_FIND_DATA wfd;
+  const std::wstring wide_path = utf8::cvt<std::wstring>(path.string());
+  HANDLE hFind = FindFirstFile(wide_path.c_str(), &wfd);
+  if (hFind == INVALID_HANDLE_VALUE) {
+    return boost::shared_ptr<file_filter::filter_obj>();
+  }
+  // FindFirstFile populates wfd with the entry for "path" itself; the parent
+  // directory is what filter_obj::get expects in its third argument so the
+  // rendered "path" / "filename" columns work the same as for check_files.
+  file_helpers::patterns::pattern_type single_path = file_helpers::patterns::split_path_ex(path.string());
+  boost::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(now, wfd, single_path.first);
+  FindClose(hFind);
+  return info;
+}

@@ -49,4 +49,10 @@ struct scanner_context {
 
 void recursive_scan(file_filter::filter &filter, scanner_context &context, const boost::filesystem::path &dir,
                     const boost::shared_ptr<file_filter::filter_obj> &total_obj, bool total_all, bool recursive = false, int current_level = 0);
+
+// Stat a single file path and return a filter_obj. Returns an empty
+// shared_ptr if the path does not exist or cannot be opened. Used by the
+// check_single_file command to inspect properties of one specific file
+// without involving directory recursion or pattern matching.
+boost::shared_ptr<file_filter::filter_obj> stat_single_file(const boost::filesystem::path &path, long long now);
 }  // namespace file_finder
