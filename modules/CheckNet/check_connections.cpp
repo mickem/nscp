@@ -34,17 +34,22 @@
 
 #include "check_connections_internal.hpp"
 
+// clang-format off
 #ifdef WIN32
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
-#include <iphlpapi.h>
-#include <tcpmib.h>
-#include <udpmib.h>
-#include <windows.h>
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <winsock2.h>
-
+#include <ws2tcpip.h>
+#include <windows.h>
+#include <iphlpapi.h>
 #include <win/iphlpapi_api.hpp>
 #pragma comment(lib, "ws2_32.lib")
 #endif
+// clang-format on
 
 namespace po = boost::program_options;
 
