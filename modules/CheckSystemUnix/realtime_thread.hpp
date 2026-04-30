@@ -314,7 +314,6 @@ class pdh_thread {
   std::string to_string() const { return "system"; }
 
  private:
-
   void thread_proc();
   std::map<std::string, cpu_times> read_cpu_times();
   cpu_load calculate_cpu_load(const std::map<std::string, cpu_times> &old_times, const std::map<std::string, cpu_times> &new_times);

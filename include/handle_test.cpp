@@ -72,7 +72,9 @@ TEST(handle, destructor_closes_handle) {
 
 TEST(handle, destructor_does_not_close_null_handle) {
   MockCloser::close_count = 0;
-  { mock_handle h; }
+  {
+    mock_handle h;
+  }
   EXPECT_EQ(MockCloser::close_count, 0);
 }
 

@@ -38,7 +38,7 @@ class NRDPClient : public nscapi::impl::simple_plugin {
   virtual ~NRDPClient() = default;
 
   // Module calls
-  bool loadModuleEx(const std::string& alias, NSCAPI::moduleLoadMode mode);
+  bool loadModuleEx(const std::string &alias, NSCAPI::moduleLoadMode mode);
   bool unloadModule();
 
   void query_fallback(const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message);
@@ -47,6 +47,6 @@ class NRDPClient : public nscapi::impl::simple_plugin {
                           PB::Commands::SubmitResponseMessage *response_message);
 
  private:
-  void add_command(const std::string &key, const std::string& args);
-  void add_target(const std::string& key, const std::string& args);
+  void add_command(const std::string &key, const std::string &args);
+  void add_target(const std::string &key, const std::string &args);
 };

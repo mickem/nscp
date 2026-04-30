@@ -19,7 +19,6 @@
 
 #include "ElasticClient.h"
 
-#include <net/http/client.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/date_time/gregorian/formatters.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -30,6 +29,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <net/http/client.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>

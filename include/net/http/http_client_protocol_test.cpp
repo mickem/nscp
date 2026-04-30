@@ -104,4 +104,3 @@ TEST(http_client_protocol, timeout_response_has_status_99_and_message) {
   EXPECT_EQ(timeout.status_code_, 99);
   EXPECT_EQ(timeout.payload_, "Failed to read data");
 }
-

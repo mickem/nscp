@@ -65,8 +65,6 @@ inline parsed_url parse_url(const std::string &url) {
   return result;
 }
 
-
-
 struct generic_socket {
   typedef boost::asio::ip::basic_endpoint<tcp> tcp_iterator;
 

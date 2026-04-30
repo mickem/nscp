@@ -104,31 +104,16 @@ class packet /*: public boost::noncopyable*/ {
   unsigned int calculatedCRC32_;
 
  public:
-  packet(const unsigned int payload_length)
-      : payload_length_(payload_length), type_(0), version_(0), result_(0), crc32_(0), calculatedCRC32_(0) {};
+  packet(const unsigned int payload_length) : payload_length_(payload_length), type_(0), version_(0), result_(0), crc32_(0), calculatedCRC32_(0) {};
   packet(std::vector<char> buffer, unsigned int payload_length) : payload_length_(payload_length) {
     std::vector<char> tmp(buffer.size() + 1, 0);
     copy(buffer.begin(), buffer.end(), tmp.begin());
     readFrom(tmp.data(), buffer.size());
   };
-  packet(const char* buffer, const std::size_t buffer_length) : payload_length_(length::get_payload_length(buffer_length)) {
-    readFrom(buffer, buffer_length);
-  };
+  packet(const char* buffer, const std::size_t buffer_length) : payload_length_(length::get_payload_length(buffer_length)) { readFrom(buffer, buffer_length); };
   packet(short type, short version, int16_t result, std::string payLoad, std::size_t payload_length)
-      : payload_length_(payload_length),
-        type_(type),
-        version_(version),
-        result_(result),
-        payload_(payLoad),
-        crc32_(0),
-        calculatedCRC32_(0) {}
-  packet()
-      : payload_length_(length::get_payload_length()),
-        type_(data::unknownPacket),
-        version_(data::version2),
-        result_(0),
-        crc32_(0),
-        calculatedCRC32_(0) {}
+      : payload_length_(payload_length), type_(type), version_(version), result_(result), payload_(payLoad), crc32_(0), calculatedCRC32_(0) {}
+  packet() : payload_length_(length::get_payload_length()), type_(data::unknownPacket), version_(data::version2), result_(0), crc32_(0), calculatedCRC32_(0) {}
   packet(const packet& other) {
     payload_ = other.payload_;
     type_ = other.type_;

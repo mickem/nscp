@@ -20,11 +20,11 @@
 #include <gtest/gtest.h>
 
 #include <boost/asio.hpp>
-#include <net/http/client.hpp>
 #include <future>
-#include <thread>
+#include <net/http/client.hpp>
 #include <sstream>
 #include <string>
+#include <thread>
 
 namespace {
 
@@ -685,4 +685,3 @@ TEST(http_packet_helpers, find_header_break_matches_lf_cr) {
   EXPECT_TRUE(http::find_header_break('\n', '\r'));
   EXPECT_FALSE(http::find_header_break('\r', '\n'));
 }
-

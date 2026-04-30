@@ -22,7 +22,6 @@
 #include <boost/thread/thread.hpp>
 #include <memory>
 #include <nscapi/nscapi_core_wrapper.hpp>
-#include <win/windows.hpp>
 
 #include "check_disk_io.hpp"
 

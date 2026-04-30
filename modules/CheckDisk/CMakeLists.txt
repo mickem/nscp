@@ -12,6 +12,8 @@ set(SRCS
     check_drive.cpp
     check_disk_io.cpp
     check_disk_health.cpp
+    check_files.cpp
+    check_single_file.cpp
     collector_thread.cpp
     file_finder.cpp
     filter.cpp
@@ -32,6 +34,8 @@ if(WIN32)
         check_drive.hpp
         check_disk_io.hpp
         check_disk_health.hpp
+        check_files.hpp
+        check_single_file.hpp
         collector_thread.hpp
         file_finder.hpp
         filter.hpp
@@ -69,12 +73,16 @@ NSCP_CREATE_TEST(
         check_disk_io_test.cpp
         check_disk_health_test.cpp
         check_drive_test.cpp
+        check_files_test.cpp
+        check_single_file_test.cpp
         collector_thread_test.cpp
         file_finder_filter_test.cpp
         # Module sources under test.
         check_disk_io.cpp
         check_disk_health.cpp
         check_drive.cpp
+        check_files.cpp
+        check_single_file.cpp
         collector_thread.cpp
         file_finder.cpp
         filter.cpp
@@ -106,4 +114,3 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
-

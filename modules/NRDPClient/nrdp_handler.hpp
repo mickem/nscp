@@ -44,8 +44,10 @@ struct nrdp_target_object : nscapi::targets::target_object {
 
     root_path.add_key()
         .add_string("key", sh::string_fun_key([this](const auto& value) { this->set_property_string("token", value); }), "SECURITY TOKEN", "The security token")
-        .add_password("password", sh::string_fun_key([this](const auto& value) { this->set_property_string("token", value); }), "SECURITY TOKEN", "The security token")
-        .add_password("token", sh::string_fun_key([this](const auto& value) { this->set_property_string("token", value); }), "SECURITY TOKEN", "The security token")
+        .add_password("password", sh::string_fun_key([this](const auto& value) { this->set_property_string("token", value); }), "SECURITY TOKEN",
+                      "The security token")
+        .add_password("token", sh::string_fun_key([this](const auto& value) { this->set_property_string("token", value); }), "SECURITY TOKEN",
+                      "The security token")
         .add_string("tls version", sh::string_fun_key([this](const auto& value) { this->set_property_string("tls version", value); }), "Tls version",
                     "The tls version to use 1.0, 1.1, 1.2, 1.3")
         .add_string("verify mode", sh::string_fun_key([this](const auto& value) { this->set_property_string("verify mode", value); }), "TLS peer verify mode",
@@ -65,7 +67,7 @@ struct options_reader_impl : client::options_reader_interface {
     return boost::make_shared<nrdp_target_object>(parent, alias, path);
   }
 
-  void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) override {
+  void process(boost::program_options::options_description& desc, client::destination_container& source, client::destination_container& data) override {
     // clang-format off
     desc.add_options()
     ("key", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("token", value); }),

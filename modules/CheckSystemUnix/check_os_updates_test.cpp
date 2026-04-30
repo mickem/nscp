@@ -199,8 +199,7 @@ TEST(CheckOsUpdates, parse_pacman_empty) {
 // ============================================================================
 
 TEST(CheckOsUpdates, fetch_updates_unknown_manager) {
-  filter_obj obj = os_updates::fetch_updates("",
-                                             [](const std::string &) -> std::string { return ""; });
+  filter_obj obj = os_updates::fetch_updates("", [](const std::string &) -> std::string { return ""; });
   EXPECT_EQ(obj.manager, "none");
   EXPECT_EQ(obj.count, 0);
 }
@@ -219,18 +218,14 @@ TEST(CheckOsUpdates, fetch_updates_dispatches_to_apt) {
 }
 
 TEST(CheckOsUpdates, fetch_updates_dispatches_to_yum) {
-  auto fake_exec = [](const std::string &) -> std::string {
-    return "kernel.x86_64                  5.14.0-1   baseos\n";
-  };
+  auto fake_exec = [](const std::string &) -> std::string { return "kernel.x86_64                  5.14.0-1   baseos\n"; };
   filter_obj obj = os_updates::fetch_updates("yum", fake_exec);
   EXPECT_EQ(obj.manager, "yum");
   EXPECT_EQ(obj.count, 1);
 }
 
 TEST(CheckOsUpdates, fetch_updates_dispatches_to_pacman) {
-  auto fake_exec = [](const std::string &) -> std::string {
-    return "linux 6.0 -> 6.1\n";
-  };
+  auto fake_exec = [](const std::string &) -> std::string { return "linux 6.0 -> 6.1\n"; };
   filter_obj obj = os_updates::fetch_updates("pacman", fake_exec);
   EXPECT_EQ(obj.manager, "pacman");
   EXPECT_EQ(obj.count, 1);

@@ -17,9 +17,9 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <Windows.h>
 #include <gtest/gtest.h>
 
-#include <Windows.h>
 #include <boost/shared_ptr.hpp>
 #include <climits>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -36,7 +36,7 @@
 
 // Forward declaration for free function defined in filter.cpp (no header
 // exposes it, but it has external linkage).
-extern int convert_new_type(parsers::where::evaluation_context context, std::string str);
+extern int convert_new_type(const parsers::where::evaluation_context &context, std::string str);
 
 // Mirror of file-local constants from filter.cpp.
 constexpr int kFileTypeFile = 1;
@@ -59,6 +59,18 @@ TEST(FileFinderIsDirectory, MixedFlagsWithDirectory) { EXPECT_TRUE(file_finder::
 
 TEST(FileFinderIsDirectory, MixedFlagsWithoutDirectory) {
   EXPECT_FALSE(file_finder::is_directory(FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_ARCHIVE));
+}
+
+// =========================================================================
+// file_finder::stat_single_file (negative paths only — positive paths
+// require a real file to exist on the test host. CI runners are expected
+// to provide one; for the negative path it's enough to assert that a
+// guaranteed-not-to-exist path returns an empty shared_ptr.)
+// =========================================================================
+
+TEST(StatSingleFile, ReturnsEmptyForMissingPath) {
+  auto info = file_finder::stat_single_file(boost::filesystem::path("Z:\\nscp_test_definitely_not_a_real_path_47b1f0e5\\foo.dat"), 0);
+  EXPECT_FALSE(info);
 }
 
 // =========================================================================
@@ -93,9 +105,24 @@ TEST(ScannerContext, IsValidLevelBounded) {
 }
 
 TEST(ScannerContext, IsValidLevelZero) {
+  // max_depth=0 must mean "scan the top directory only". Previously this was
+  // treated as "no levels are valid" which made check_files return "no files
+  // found" when users asked for non-recursive scanning (issue #730).
   auto ctx = make_ctx(0);
-  EXPECT_FALSE(ctx.is_valid_level(0));
+  EXPECT_TRUE(ctx.is_valid_level(0));
   EXPECT_FALSE(ctx.is_valid_level(1));
+  EXPECT_FALSE(ctx.is_valid_level(2));
+}
+
+TEST(ScannerContext, MissingPathsStartsEmpty) {
+  // The new missing_paths vector (used to surface "path not found" as UNKNOWN
+  // instead of OK / "No files found", issue #613) must default to empty so
+  // that successful scans do not accidentally trip the new error path.
+  auto ctx = make_ctx(1);
+  EXPECT_TRUE(ctx.missing_paths.empty());
+  ctx.missing_paths.push_back("X:\\does-not-exist");
+  EXPECT_EQ(ctx.missing_paths.size(), 1u);
+  EXPECT_EQ(ctx.missing_paths.front(), "X:\\does-not-exist");
 }
 
 TEST(ScannerContext, ReportHelpersDoNotCrash) {
@@ -262,5 +289,3 @@ TEST(ConvertNewType, NumericString) {
   EXPECT_EQ(convert_new_type(parsers::where::evaluation_context{}, "42"), 42);
   EXPECT_EQ(convert_new_type(parsers::where::evaluation_context{}, "0"), 0);
 }
-
-

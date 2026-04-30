@@ -67,7 +67,7 @@ void pdh_thread::write_metrics(const spi_container &handles, const windows::syst
 
     for (const lookup_type::value_type &e : lookups_) {
       if (e.second->has_instances()) {
-        for (const PDH::pdh_instance& i : e.second->get_instances()) {
+        for (const PDH::pdh_instance &i : e.second->get_instances()) {
           metrics["pdh." + e.first + "." + i->get_name()] = i->get_int_value();
         }
       } else {
@@ -116,12 +116,12 @@ void pdh_thread::thread_proc() {
     }
     {
       PDH::PDHQuery tmpPdh;
-      for (const PDH::pdh_object& obj : configs_) {
+      for (const PDH::pdh_object &obj : configs_) {
         try {
           PDH::pdh_instance instance = PDH::factory::create(obj);
 
           if (instance->has_instances()) {
-            for (const PDH::pdh_instance& sc : instance->get_instances()) {
+            for (const PDH::pdh_instance &sc : instance->get_instances()) {
               tmpPdh.addCounter(sc);
             }
           } else {
@@ -161,10 +161,10 @@ void pdh_thread::thread_proc() {
     // 			return;
     // 		}
     pdh.removeAllCounters();
-    for (const PDH::pdh_instance& c : counters_) {
+    for (const PDH::pdh_instance &c : counters_) {
       try {
         if (c->has_instances()) {
-          for (const PDH::pdh_instance& sc : c->get_instances()) {
+          for (const PDH::pdh_instance &sc : c->get_instances()) {
             NSC_DEBUG_MSG("Loading counter: " + sc->get_name() + " = " + sc->get_counter());
             pdh.addCounter(sc);
           }
@@ -198,7 +198,7 @@ void pdh_thread::thread_proc() {
     NSC_LOG_MESSAGE("You are using legacy filters in check system, please migrate to new filters...");
   }
   cpu_filter_helper cpu_helper(core_, plugin_id);
-  for (const boost::shared_ptr<filters::legacy::filter_config_object>& object : legacy_filters_.get_object_list()) {
+  for (const boost::shared_ptr<filters::legacy::filter_config_object> &object : legacy_filters_.get_object_list()) {
     if (object->check == "memory") {
       memory_helper.add_obj(boost::make_shared<filters::mem::filter_config_object>(*object));
     } else {
@@ -209,17 +209,17 @@ void pdh_thread::thread_proc() {
       cpu_helper.add_item(boost::make_shared<filters::cpu::filter_config_object>(*object), data, "system.cpu");
     }
   }
-  for (const boost::shared_ptr<filters::mem::filter_config_object>& object : mem_filters_.get_object_list()) {
+  for (const boost::shared_ptr<filters::mem::filter_config_object> &object : mem_filters_.get_object_list()) {
     memory_helper.add_obj(object);
   }
-  for (const boost::shared_ptr<filters::cpu::filter_config_object>& object : cpu_filters_.get_object_list()) {
+  for (const boost::shared_ptr<filters::cpu::filter_config_object> &object : cpu_filters_.get_object_list()) {
     check_cpu_filter::runtime_data data;
     for (const std::string &d : object->data) {
       data.add(d);
     }
     cpu_helper.add_item(object, data, "system.cpu");
   }
-  for (const boost::shared_ptr<filters::proc::filter_config_object>& object : proc_filters_.get_object_list()) {
+  for (const boost::shared_ptr<filters::proc::filter_config_object> &object : proc_filters_.get_object_list()) {
     process_helper.add_obj(object);
   }
 
@@ -430,7 +430,7 @@ std::map<std::string, long long> pdh_thread::get_int_value(std::string counter) 
   }
   const PDH::pdh_instance ptr = (*it).second;
   if (ptr->has_instances()) {
-    for (const PDH::pdh_instance& i : ptr->get_instances()) {
+    for (const PDH::pdh_instance &i : ptr->get_instances()) {
       ret[i->get_name()] = i->get_int_value();
     }
   } else {
@@ -454,7 +454,7 @@ std::map<std::string, double> pdh_thread::get_value(std::string counter) {
   }
   const PDH::pdh_instance ptr = it->second;
   if (ptr->has_instances()) {
-    for (const PDH::pdh_instance& i : ptr->get_instances()) {
+    for (const PDH::pdh_instance &i : ptr->get_instances()) {
       ret[i->get_name()] = i->get_value();
     }
   } else {
@@ -478,7 +478,7 @@ std::map<std::string, double> pdh_thread::get_average(std::string counter, long 
   }
   const PDH::pdh_instance ptr = it->second;
   if (ptr->has_instances()) {
-    for (const PDH::pdh_instance& i : ptr->get_instances()) {
+    for (const PDH::pdh_instance &i : ptr->get_instances()) {
       ret[i->get_name()] = i->get_average(seconds);
     }
   } else {

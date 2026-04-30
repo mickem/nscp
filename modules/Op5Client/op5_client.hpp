@@ -19,12 +19,11 @@
 
 #pragma once
 
-#include <net/http/http_packet.hpp>
-
 #include <boost/atomic/atomic.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
+#include <net/http/http_packet.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <string>
 

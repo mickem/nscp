@@ -19,9 +19,8 @@
 
 #pragma once
 
-#include <str/utf8.hpp>
-
 #include <exception>
+#include <str/utf8.hpp>
 #include <string>
 
 namespace check_net {
@@ -53,4 +52,3 @@ inline std::string format_exception_message(const std::exception &e) {
 }
 
 }  // namespace check_net
-

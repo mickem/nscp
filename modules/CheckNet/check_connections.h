@@ -22,17 +22,16 @@
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
-
 #include <string>
 
 namespace check_net {
 namespace check_connections_filter {
 
 struct filter_obj {
-  std::string protocol;     // tcp, tcp6, udp, udp6
-  std::string family;       // ipv4 or ipv6
-  std::string state;        // ESTABLISHED, LISTEN, ...
-  long long count;          // count for this bucket
+  std::string protocol;  // tcp, tcp6, udp, udp6
+  std::string family;    // ipv4 or ipv6
+  std::string state;     // ESTABLISHED, LISTEN, ...
+  long long count;       // count for this bucket
 
   // Aggregated, only valid on the "total" bucket.
   long long total;
