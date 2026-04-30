@@ -19,14 +19,7 @@
 
 #include <gtest/gtest.h>
 
-#include <nscapi/nscapi_helper_singleton.hpp>
-
 #include "collector_thread.hpp"
-
-// Provide the NSCAPI singleton so any logging from collector_thread.cpp links
-// safely. The wrapper has null function pointers so log calls are no-ops.
-// nscapi::plugin_singleton is defined once in check_disk_io_test.cpp for the
-// merged check_disk_test target.
 
 // ============================================================================
 // Static / constant API

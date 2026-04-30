@@ -1,6 +1,6 @@
 #### Performance
 
-Order is somewhat important but mainly in the fact that some operations are more costly then others.
+Order is somewhat important but mainly in the fact that some operations are more costly than others.
 For instance line_count requires us to read and count the lines in each file so choosing between the following:
 Fast version: `filter=creation < -2d and line_count > 100`
 

@@ -28,12 +28,13 @@ A quick reference for all available queries (check commands) in the CheckDisk mo
 
 A list of all available queries (check commands)
 
-| Command                                 | Description                                                                     |
-|-----------------------------------------|---------------------------------------------------------------------------------|
-| [check_disk_health](#check_disk_health) | Combined per-drive health check (free space + I/O metrics).                     |
-| [check_disk_io](#check_disk_io)         | Check disk I/O performance metrics (throughput, IOPS, queue length, busy time). |
-| [check_drivesize](#check_drivesize)     | Check the size (free-space) of a drive or volume.                               |
-| [check_files](#check_files)             | Check various aspects of a file and/or folder.                                  |
+| Command                                 | Description                                                                                                                                                       |
+|-----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [check_disk_health](#check_disk_health) | Combined per-drive health check (free space + I/O metrics).                                                                                                       |
+| [check_disk_io](#check_disk_io)         | Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).                                                                                   |
+| [check_drivesize](#check_drivesize)     | Check the size (free-space) of a drive or volume.                                                                                                                 |
+| [check_files](#check_files)             | Check various aspects of a file and/or folder.                                                                                                                    |
+| [check_single_file](#check_single_file) | Check various aspects of a single file (size, age, line count, version, ...). Simpler alternative to check_files when you only need to inspect one specific file. |
 
 
 
@@ -692,7 +693,7 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 
 #### Performance
 
-Order is somewhat important but mainly in the fact that some operations are more costly then others.
+Order is somewhat important but mainly in the fact that some operations are more costly than others.
 For instance line_count requires us to read and count the lines in each file so choosing between the following:
 Fast version: `filter=creation < -2d and line_count > 100`
 
@@ -874,6 +875,260 @@ Include the total of either (filter) all files matching the filter or (all) all 
 
 
 <a id="check_files_filter_keys"></a>
+#### Filter keywords
+
+
+| Option     | Description                                 |
+|------------|---------------------------------------------|
+| access     | Last access time                            |
+| access_l   | Last access time (local time)               |
+| access_u   | Last access time (UTC)                      |
+| age        | Seconds since file was last written         |
+| creation   | When file was created                       |
+| creation_l | When file was created (local time)          |
+| creation_u | When file was created (UTC)                 |
+| extension  | The filename extension                      |
+| file       | The name of the file                        |
+| filename   | The name of the file                        |
+| line_count | Number of lines in the file (text files)    |
+| name       | The name of the file                        |
+| path       | Path of file                                |
+| size       | File size                                   |
+| type       | Type of item (file or dir)                  |
+| version    | Windows exe/dll file version                |
+| write      | Alias for written                           |
+| written    | When file was last written to               |
+| written_l  | When file was last written  to (local time) |
+| written_u  | When file was last written  to (UTC)        |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
+
+
+### check_single_file
+
+Check various aspects of a single file (size, age, line count, version, ...). Simpler alternative to check_files when you only need to inspect one specific file.
+
+#### About `check_single_file`
+
+`check_single_file` is a focused variant of [`check_files`](CheckDisk_check_files_samples.md)
+for inspecting a single, known path. There is no `path` + `pattern` scan and
+no recursion — you point it at one file and apply a filter / threshold to its
+attributes (`size`, `age`, `version`, `line_count`, …).
+
+Behaviour at a glance:
+
+* If `file=` (or its alias `path=`) is missing → **UNKNOWN** with
+  `No file specified (use file=<path>)`.
+* If the file does not exist (or the path points at a directory) →
+  **UNKNOWN** with `File not found: <path>`.
+* Otherwise the single file is fed to the filter and `warn` / `crit`
+  decide the status. With no thresholds the result is **OK** confirming
+  the file exists.
+
+
+
+**Jump to section:**
+
+* [Sample Commands](#check_single_file_samples)
+* [Command-line Arguments](#check_single_file_options)
+* [Filter keywords](#check_single_file_filter_keys)
+
+
+<a id="check_single_file_samples"></a>
+#### Sample Commands
+
+_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckDisk_check_single_file_samples.md)_
+
+#### Confirm a file exists (no thresholds)
+
+```
+check_single_file file=C:/Windows/System32/notepad.exe
+L        cli OK: notepad.exe (size=201728, age=12345)
+```
+
+#### Warn when a log file grows too large
+
+```
+check_single_file file=C:/logs/app.log "warn=size > 10M" "crit=size > 100M"
+L        cli OK: app.log (size=524288, age=42)
+```
+
+#### Warn when a file becomes stale (age in seconds)
+
+```
+check_single_file file=C:/windows/WindowsUpdate.log "warn=age > 5m" "crit=age > 1h"
+L        cli CRITICAL: WindowsUpdate.log (size=276, age=917)
+```
+
+#### Check a specific binary's version
+
+```
+check_single_file file="C:/Windows/System32/notepad.exe" "crit=version != '1.2.3.4'" "detail-syntax=%(filename): %(version)"
+L        cli CRITICAL: notepad.exe: 6.2.26100.8115
+```
+
+#### Custom output formatting
+
+The same `top-syntax` / `detail-syntax` / `ok-syntax` keys as `check_files`
+are accepted. Because there is exactly one item, `%(list)` in the top
+template expands to the detail line for that single file:
+
+```
+check_single_file file=C:/windows/WindowsUpdate.log "warn=size > 1M" "top-syntax=%(status) %(list)" "detail-syntax=%(filename) is %(size) bytes, last written %(written)"
+L        cli OK: OK WindowsUpdate.log is 276 bytes, last written 2026-04-30 11:42:36
+```
+
+#### `path=` works as an alias for `file=`
+
+This makes it easy to migrate command lines from `check_files`:
+
+```
+check_single_file path=C:/Windows/win.ini
+L        cli OK: win.ini (size=92, age=873123)
+```
+
+
+
+
+<a id="check_single_file_warn"></a>
+<a id="check_single_file_crit"></a>
+<a id="check_single_file_debug"></a>
+<a id="check_single_file_show-all"></a>
+<a id="check_single_file_escape-html"></a>
+<a id="check_single_file_help"></a>
+<a id="check_single_file_help-pb"></a>
+<a id="check_single_file_show-default"></a>
+<a id="check_single_file_help-short"></a>
+<a id="check_single_file_file"></a>
+<a id="check_single_file_path"></a>
+<a id="check_single_file_options"></a>
+#### Command-line Arguments
+
+
+| Option                                            | Default Value                          | Description                                                                                                      |
+|---------------------------------------------------|----------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_single_file_filter)               |                                        | Filter which marks interesting items.                                                                            |
+| [warning](#check_single_file_warning)             |                                        | Filter which marks items which generates a warning state.                                                        |
+| warn                                              |                                        | Short alias for warning                                                                                          |
+| [critical](#check_single_file_critical)           |                                        | Filter which marks items which generates a critical state.                                                       |
+| crit                                              |                                        | Short alias for critical.                                                                                        |
+| [ok](#check_single_file_ok)                       |                                        | Filter which marks items which generates an ok state.                                                            |
+| debug                                             | N/A                                    | Show debugging information in the log                                                                            |
+| show-all                                          | N/A                                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_single_file_empty-state)     | ok                                     | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_single_file_perf-config)     |                                        | Performance data generation configuration                                                                        |
+| escape-html                                       | N/A                                    | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                              | N/A                                    | Show help screen (this screen)                                                                                   |
+| help-pb                                           | N/A                                    | Show help screen as a protocol buffer payload                                                                    |
+| show-default                                      | N/A                                    | Show default values for a given command                                                                          |
+| help-short                                        | N/A                                    | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_single_file_top-syntax)       | %(status): %(list)                     | Top level syntax.                                                                                                |
+| [ok-syntax](#check_single_file_ok-syntax)         | %(status): %(filename) is ok           | ok syntax.                                                                                                       |
+| [empty-syntax](#check_single_file_empty-syntax)   | No file inspected                      | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_single_file_detail-syntax) | %(filename) (size=%(size), age=%(age)) | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_single_file_perf-syntax)     | %(filename)                            | Performance alias syntax.                                                                                        |
+| file                                              |                                        | The file to check.                                                                                               |
+| path                                              |                                        | Alias for file.                                                                                                  |
+
+
+
+<h5 id="check_single_file_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+<h5 id="check_single_file_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+
+<h5 id="check_single_file_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+
+<h5 id="check_single_file_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_single_file_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `ok`
+
+<h5 id="check_single_file_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_single_file_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `%(status): %(list)`
+
+<h5 id="check_single_file_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+*Default Value:* `%(status): %(filename) is ok`
+
+<h5 id="check_single_file_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+*Default Value:* `No file inspected`
+
+<h5 id="check_single_file_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `%(filename) (size=%(size), age=%(age))`
+
+<h5 id="check_single_file_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `%(filename)`
+
+
+<a id="check_single_file_filter_keys"></a>
 #### Filter keywords
 
 

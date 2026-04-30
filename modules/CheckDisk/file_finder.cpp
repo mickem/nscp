@@ -134,26 +134,39 @@ bool file_finder::scanner_context::is_valid_level(int current_level) const {
   return current_level < max_depth;
 }
 
-void file_finder::scanner_context::report_error(const std::string &str) const { NSC_LOG_ERROR(str); }
+void file_finder::scanner_context::report_error(const std::string &str) { NSC_LOG_ERROR(str); }
 
 void file_finder::scanner_context::report_debug(const std::string &str) const {
   if (debug) NSC_DEBUG_MSG(str);
 }
 
-void file_finder::scanner_context::report_warning(const std::string &msg) const { NSC_LOG_ERROR(msg); }
+void file_finder::scanner_context::report_warning(const std::string &msg) { NSC_LOG_ERROR(msg); }
 
 boost::shared_ptr<file_filter::filter_obj> file_finder::stat_single_file(const boost::filesystem::path &path, long long now) {
   WIN32_FIND_DATA wfd;
   const std::wstring wide_path = utf8::cvt<std::wstring>(path.string());
-  HANDLE hFind = FindFirstFile(wide_path.c_str(), &wfd);
+  const HANDLE hFind = FindFirstFile(wide_path.c_str(), &wfd);
   if (hFind == INVALID_HANDLE_VALUE) {
+    return boost::shared_ptr<file_filter::filter_obj>();
+  }
+  // Reject directories: the single-file API is only defined for regular
+  // files. Without this guard `check_single_file file=<dir>` would silently
+  // succeed (FindFirstFile populates wfd for directories too) and surface
+  // a misleading "OK" with empty per-item fields.
+  if (wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+    FindClose(hFind);
     return boost::shared_ptr<file_filter::filter_obj>();
   }
   // FindFirstFile populates wfd with the entry for "path" itself; the parent
   // directory is what filter_obj::get expects in its third argument so the
   // rendered "path" / "filename" columns work the same as for check_files.
-  file_helpers::patterns::pattern_type single_path = file_helpers::patterns::split_path_ex(path.string());
-  boost::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(now, wfd, single_path.first);
+  // We use boost::filesystem::path::parent_path() directly here rather than
+  // file_helpers::patterns::split_path_ex(): the latter only splits on '\\'
+  // and silently returns the full path as the "directory" when the caller
+  // passed forward slashes (e.g. file=C:/Windows/explorer.exe). That breaks
+  // any per-item field that re-joins path+filename (notably get_version,
+  // which would then try to open "C:/Windows/explorer.exe\explorer.exe").
+  boost::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(now, wfd, path.parent_path());
   FindClose(hFind);
   return info;
 }

@@ -42,9 +42,9 @@ struct scanner_context {
   // files found" when the operator has misconfigured the path. See #613.
   std::vector<std::string> missing_paths;
   bool is_valid_level(int current_level) const;
-  void report_error(const std::string &str) const;
+  static void report_error(const std::string &str);
   void report_debug(const std::string &str) const;
-  void report_warning(const std::string &msg) const;
+  static void report_warning(const std::string &msg);
 };
 
 void recursive_scan(file_filter::filter &filter, scanner_context &context, const boost::filesystem::path &dir,

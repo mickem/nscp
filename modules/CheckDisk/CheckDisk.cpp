@@ -34,6 +34,8 @@
 
 #include "check_disk_health.hpp"
 #include "check_drive.hpp"
+#include "check_files.hpp"
+#include "check_single_file.hpp"
 #include "file_finder.hpp"
 #include "filter.hpp"
 
@@ -267,105 +269,9 @@ void CheckDisk::checkFiles(PB::Commands::QueryRequestMessage::Request &request, 
 }
 
 void CheckDisk::check_files(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  modern_filter::data_container data;
-  modern_filter::cli_helper<file_filter::filter> filter_helper(request, response, data);
-  std::vector<std::string> file_list;
-  std::string files_string;
-  std::string mode;
-  file_finder::scanner_context context;
-  context.max_depth = -1;
-  std::string total;
-
-  file_filter::filter filter;
-  filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
-  filter_helper.add_syntax("${status}: ${problem_count}/${count} files (${problem_list})", "${name}", "${name}", "No files found",
-                           "%(status): All %(count) files are ok");
-  // clang-format off
-  filter_helper.get_desc().add_options()
-    ("path", po::value<std::vector<std::string> >(&file_list), "The path to search for files under.\nNotice that specifying multiple path will create an aggregate set you will not check each path individually."
-        "In other words if one path contains an error the entire check will result in error.")
-    ("file", po::value<std::vector<std::string> >(&file_list), "Alias for path.")
-    ("paths", po::value<std::string>(&files_string), "A comma separated list of paths to scan")
-    ("pattern", po::value<std::string>(&context.pattern)->default_value("*.*"), "The pattern of files to search for (works like a filter but is faster and can be combined with a filter).")
-    ("max-depth", po::value<int>(&context.max_depth), "Maximum depth to recurse")
-    ("total", po::value(&total)->implicit_value("filter"), "Include the total of either (filter) all files matching the filter or (all) all files regardless of the filter")
-  ;
-  // clang-format on
-
-  context.now = parsers::where::constants::get_now();
-
-  if (!filter_helper.parse_options()) return;
-
-  if (!files_string.empty()) boost::split(file_list, files_string, boost::is_any_of(","));
-
-  if (file_list.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "No path specified");
-
-  if (!filter_helper.build_filter(filter)) return;
-
-  boost::shared_ptr<file_filter::filter_obj> total_obj;
-  if (!total.empty()) total_obj = file_filter::filter_obj::get_total(context.now);
-
-  for (const std::string &path : file_list) {
-    file_finder::recursive_scan(filter, context, path, total_obj, total == "all");
-  }
-  if (!context.missing_paths.empty()) {
-    // One or more user-supplied top-level paths could not be opened. Surface
-    // this as UNKNOWN with the offending path(s) so operators see a clear
-    // error instead of a misleading OK / "No files found" (issue #613).
-    std::string joined;
-    for (const std::string &p : context.missing_paths) {
-      if (!joined.empty()) joined += ", ";
-      joined += p;
-    }
-    return nscapi::protobuf::functions::set_response_bad(*response, "Path was not found: " + joined);
-  }
-  if (total_obj) {
-    filter.match(total_obj);
-  }
-  filter_helper.post_process(filter);
+  check_files_command::check(request, response);
 }
 
 void CheckDisk::check_single_file(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  modern_filter::data_container data;
-  modern_filter::cli_helper<file_filter::filter> filter_helper(request, response, data);
-  std::string file_path;
-
-  file_filter::filter filter;
-  // No "empty" state: a single-file check either has the file (and runs the
-  // filter) or it does not (and we return UNKNOWN with a useful message).
-  // Default to UNKNOWN if no thresholds are set, so check_single_file <file>
-  // by itself confirms the file exists rather than being a silent OK.
-  filter_helper.add_options("", "", "", filter.get_filter_syntax(), "ok");
-  filter_helper.add_syntax(
-      "%(status): %(filename) (size=%(size), age=%(age))",
-      "%(filename) (size=%(size), age=%(age))",
-      "%(filename)",
-      // The "empty" syntaxes below are unreachable for check_single_file (we
-      // always either fail with UNKNOWN or feed exactly one object to the
-      // filter) but cli_helper requires non-empty defaults.
-      "No file inspected",
-      "%(status): %(filename) is ok");
-  // clang-format off
-  filter_helper.get_desc().add_options()
-    ("file", po::value<std::string>(&file_path), "The file to check.")
-    ("path", po::value<std::string>(&file_path), "Alias for file.")
-    ;
-  // clang-format on
-
-  if (!filter_helper.parse_options()) return;
-
-  if (file_path.empty()) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "No file specified (use file=<path>)");
-  }
-
-  if (!filter_helper.build_filter(filter)) return;
-
-  long long now = parsers::where::constants::get_now();
-  boost::shared_ptr<file_filter::filter_obj> info = file_finder::stat_single_file(file_path, now);
-  if (!info) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "File not found: " + file_path);
-  }
-
-  filter.match(info);
-  filter_helper.post_process(filter);
+  check_single_file_command::check(request, response);
 }

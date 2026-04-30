@@ -36,7 +36,7 @@
 
 // Forward declaration for free function defined in filter.cpp (no header
 // exposes it, but it has external linkage).
-extern int convert_new_type(parsers::where::evaluation_context context, std::string str);
+extern int convert_new_type(const parsers::where::evaluation_context &context, std::string str);
 
 // Mirror of file-local constants from filter.cpp.
 constexpr int kFileTypeFile = 1;
