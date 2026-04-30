@@ -154,6 +154,37 @@ ca=c:\program files\NSClient++\security\ca.pem
 | verify mode | none          | none, peer      | The verify mode to use (Set this to none to use self signed certificates). |
 | ca          |               | Path to CA file | The path to the CA certificate to use.                                     |
 
+#### Using a proxy
+
+If NSClient++ has to reach the configuration server through an HTTP proxy you can configure that in `boot.ini` as well.
+The proxy is applied to the initial download and to every refresh, and is also used by any attachments declared in the
+remote configuration.  HTTPS targets are tunnelled through the proxy via an HTTP `CONNECT` request, so the same setting
+covers both `http://` and `https://` settings URLs.
+
+```ini
+[proxy]
+url = http://proxy.corp.example:3128/
+no_proxy = localhost,127.0.0.1,.internal
+```
+
+| Key      | Default Value | Values                                            | Description                                                                                                                              |
+|----------|---------------|---------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| url      |               | `scheme://[user:pass@]host[:port][/]`             | Proxy URL.  An empty value disables the proxy.  Currently only the `http` scheme is supported (CONNECT tunnelling for HTTPS targets).    |
+| no_proxy |               | comma-separated list of hostnames or `.suffix`es  | Hosts that should bypass the proxy.  An entry beginning with `.` is a suffix match (`.internal` matches `foo.internal` and `internal`).  |
+
+If the proxy requires authentication, embed the credentials in the URL — they are sent as a `Proxy-Authorization: Basic`
+header (HTTPS targets receive them in the `CONNECT` request, plain HTTP targets receive them in the proxied request).
+The username and password are URL-decoded, so any `@` or `:` inside them must be percent-encoded.
+
+```ini
+[proxy]
+url = http://alice:s%40cret@proxy.corp.example:3128/
+```
+
+> Failed downloads still fall back to the cached copy of the configuration if one is present, so a transient proxy
+> outage will not stop NSClient++ from starting — but the very first run on a fresh machine needs the proxy to be
+> reachable.
+
 ## Using settings stores
 
 NSClient++ has some feature to help work with settings stores.

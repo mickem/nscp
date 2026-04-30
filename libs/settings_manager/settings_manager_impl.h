@@ -20,6 +20,8 @@ class NSCSettingsImpl : public settings::settings_handler_impl {
   std::string tls_version_;
   std::string tls_verify_mode_;
   std::string tls_ca_;
+  std::string proxy_url_;
+  std::string no_proxy_;
 
  public:
   explicit NSCSettingsImpl(provider_interface *provider)
@@ -52,6 +54,8 @@ class NSCSettingsImpl : public settings::settings_handler_impl {
   std::string get_tls_version() const override { return tls_version_; }
   std::string get_tls_verify_mode() const override { return tls_verify_mode_; }
   std::string get_tls_ca() const override { return tls_ca_; }
+  std::string get_proxy_url() const override { return proxy_url_; }
+  std::string get_no_proxy() const override { return no_proxy_; }
 };
 
 // Alias to make handling "compatible" with old syntax

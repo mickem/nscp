@@ -466,16 +466,60 @@ if(WIN32)
     )
 endif()
 
+set(SETTINGS_INI_TEST_SOURCES
+    ${NSCP_INCLUDEDIR}/settings/impl/settings_ini_test.cpp
+    ${NSCP_INCLUDEDIR}/str/utf8.cpp
+)
+if(WIN32)
+    list(
+        APPEND SETTINGS_INI_TEST_SOURCES
+        ${NSCP_INCLUDEDIR}/win/credentials.cpp
+    )
+    list(
+        APPEND SETTINGS_INI_TEST_SOURCES
+        ${NSCP_INCLUDEDIR}/error/error_w32.cpp
+    )
+endif()
+
 NSCP_CREATE_TEST(
-    settings_value_test
+    test_settings
     SOURCES
         ${NSCP_INCLUDEDIR}/settings/settings_value_test.cpp
+        ${NSCP_INCLUDEDIR}/settings/settings_interface_impl_test.cpp
+        ${NSCP_INCLUDEDIR}/settings/impl/settings_dummy_test.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+        ${SETTINGS_INI_TEST_SOURCES}
     LIBRARIES
         GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_SYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
+
+if(OPENSSL_FOUND)
+    NSCP_CREATE_TEST(
+        settings_http_test
+        SOURCES
+            ${NSCP_INCLUDEDIR}/settings/impl/settings_http_test.cpp
+            ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+            ${NSCP_INCLUDEDIR}/bytes/base64.c
+            ${NSCP_INCLUDEDIR}/str/utf8.cpp
+        LIBRARIES
+            GTest::gtest_main
+            ${Boost_FILESYSTEM_LIBRARY}
+            ${Boost_SYSTEM_LIBRARY}
+            ${Boost_THREAD_LIBRARY}
+            ${Boost_DATE_TIME_LIBRARY}
+            ${OPENSSL_LIBRARIES}
+            $<$<PLATFORM_ID:Windows>:CRYPT32>
+        INCLUDES
+            ${NSCP_INCLUDEDIR}
+            ${OPENSSL_INCLUDE_DIR}
+    )
+    target_compile_definitions(settings_http_test PRIVATE USE_SSL)
+endif()
 
 NSCP_CREATE_TEST(
     pair_hash_test

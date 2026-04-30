@@ -23,6 +23,7 @@
 #include <boost/filesystem/path.hpp>
 #include <fstream>
 #include <iomanip>
+#include <sstream>
 #include <string>
 
 #ifdef HAVE_MINIZ
@@ -42,6 +43,7 @@
 #include <file_helpers.hpp>
 #include <net/http/client.hpp>
 #include <net/http/http_client_protocol.hpp>
+#include <net/http/proxy_config.hpp>
 #include <net/net.hpp>
 #include <net/socket/client.hpp>
 #include <settings/settings_core.hpp>
@@ -136,8 +138,21 @@ class settings_http : public settings::settings_interface_impl {
       auto verify_mode = get_core()->get_tls_verify_mode();
       auto ca = get_core()->get_tls_ca();
 
+      http::proxy_config proxy = http::parse_proxy_url(get_core()->get_proxy_url());
+      const std::string no_proxy_str = get_core()->get_no_proxy();
+      if (!no_proxy_str.empty()) {
+        std::istringstream ss(no_proxy_str);
+        std::string token;
+        while (std::getline(ss, token, ',')) {
+          if (!token.empty()) proxy.no_proxy.push_back(token);
+        }
+      }
+
       get_logger()->debug("settings", __FILE__, __LINE__, "Using TLS settings version: " + tls_version + ", verify: " + verify_mode + ", ca: " + ca);
-      if (!http::simple_client::download(url.protocol, url.host, url.get_port_string(def_port), url.path, tls_version, verify_mode, ca, os, error)) {
+      if (proxy.is_set()) {
+        get_logger()->debug("settings", __FILE__, __LINE__, "Using proxy: " + get_core()->get_proxy_url());
+      }
+      if (!http::simple_client::download(url.protocol, url.host, url.get_port_string(def_port), url.path, tls_version, verify_mode, ca, os, error, proxy)) {
         os.close();
         get_logger()->error("settings", __FILE__, __LINE__, "Failed to download " + tmp_file.string() + ": " + error);
         if (boost::filesystem::is_regular_file(local_file)) {
@@ -356,7 +371,6 @@ class settings_http : public settings::settings_interface_impl {
 
   virtual void house_keeping() { reload_data(); }
 
- private:
   std::string get_file_name() {
     if (url_.empty()) {
       url_ = get_file_from_context();
