@@ -1,62 +1,59 @@
-# Custom installers
-installers/installer-op5
+# ─── Build output ────────────────────────────────────────────────────────────
+build.cmake
+cmake-build
+cmake-build-*
+build_output.txt
+cmake_output.txt
+.cmake
 
-# Packages
-packages/*
+# ─── Runtime / data files ─────────────────────────────────────────────────────
+nsclient.log
+nsclient.fatal
+nsclient.db
 
-# Old stuff
-legacy/*
+# ─── Rust ─────────────────────────────────────────────────────────────────────
+rust/*/target
 
-# Python
+# ─── Python ───────────────────────────────────────────────────────────────────
 *.pyc
+.venv
 
-# Vagrant
-.vagrant
-.codelite
+# ─── Node ─────────────────────────────────────────────────────────────────────
+node_modules
 
-#Unix vi
+# ─── Temp / swap files ────────────────────────────────────────────────────────
+*.tmp
 *~
-*swp
+*.swp
 
-
-# CLion
+# ─── IDE — CLion / JetBrains ──────────────────────────────────────────────────
 .idea
 cmake-build-debug
 
-
-# node
-node_modules
-
-cmake-build-*
-
-
+# ─── IDE — VS Code ────────────────────────────────────────────────────────────
 .vscode
-.venv
 
-nsclient.fatal
-nsclient.log
+# ─── IDE — CodeLite ───────────────────────────────────────────────────────────
+.codelite
 
-.cmake
+# ─── IDE — Claude Code ────────────────────────────────────────────────────────
+.claude
 
-cmake-build
+# ─── Vagrant ──────────────────────────────────────────────────────────────────
+.vagrant
 
-
-build.cmake
-
-*.tmp
-
-
-rust/*/target
-
-nsclient.db
-
-# VM credentials
+# ─── Credentials / secrets ────────────────────────────────────────────────────
+# VM login credentials used by local test scripts
 .vm.pwd
 
-# AI agent instructions (local only)
+# ─── AI agent instructions (local only, not shared) ──────────────────────────
 AGENT_INSTRUCTIONS.md
 .github/copilot-instructions.md
 
-
-build_output.txt
-cmake_output.txt
+# ─── Local / custom content ───────────────────────────────────────────────────
+# Custom installers not part of the main repo
+installers/installer-op5
+# Build artefacts and packages
+packages/*
+# Legacy code not tracked
+legacy/*
