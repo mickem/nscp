@@ -16,6 +16,7 @@ set(SRCS
     check_connections.cpp
     check_ntp_offset.cpp
     ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/bytes/base64.c
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
 )

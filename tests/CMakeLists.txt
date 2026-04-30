@@ -189,6 +189,7 @@ if(OPENSSL_FOUND)
             ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
             ${NSCP_INCLUDEDIR}/net/nrpe/packet.cpp
             ${NSCP_INCLUDEDIR}/net/nsca/nsca_packet.cpp
+            ${NSCP_INCLUDEDIR}/bytes/base64.c
             ${NSCP_INCLUDEDIR}/bytes/crc32.cpp
             ${NSCP_INCLUDEDIR}/str/utf8.cpp
         LIBRARIES

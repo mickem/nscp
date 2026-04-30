@@ -482,37 +482,6 @@ TEST(socket_exception, copy_constructor) {
 }
 
 // =============================================================================
-// base64_encode (used for Proxy-Authorization)
-// =============================================================================
-
-TEST(base64_encode, empty_string) { EXPECT_EQ(http::base64_encode(""), ""); }
-
-TEST(base64_encode, single_char_padded) {
-  // 'A' = 0x41 → base64 "QQ=="
-  EXPECT_EQ(http::base64_encode("A"), "QQ==");
-}
-
-TEST(base64_encode, two_chars_padded) {
-  // "AB" → "QUI="
-  EXPECT_EQ(http::base64_encode("AB"), "QUI=");
-}
-
-TEST(base64_encode, three_chars_no_padding) {
-  // "ABC" → "QUJD"
-  EXPECT_EQ(http::base64_encode("ABC"), "QUJD");
-}
-
-TEST(base64_encode, well_known_encoding) {
-  // RFC 4648 test vector: "Man" → "TWFu"
-  EXPECT_EQ(http::base64_encode("Man"), "TWFu");
-}
-
-TEST(base64_encode, credential_string) {
-  // "user:pass" → "dXNlcjpwYXNz"
-  EXPECT_EQ(http::base64_encode("user:pass"), "dXNlcjpwYXNz");
-}
-
-// =============================================================================
 // simple_client::make_proxy_request — HTTP proxy request rewriting
 // =============================================================================
 

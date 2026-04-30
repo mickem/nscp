@@ -19,10 +19,10 @@
 
 #pragma once
 
+#include <bytes/base64.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <istream>
-#include <map>
 #include <memory>
 #include <net/http/http_packet.hpp>
 #include <net/http/proxy_config.hpp>
@@ -38,32 +38,6 @@ using boost::asio::ip::tcp;
 
 namespace http {
 
-/// Minimal RFC 4648 base64 encoder used for Proxy-Authorization headers.
-inline std::string base64_encode(const std::string& input) {
-  static const char chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  std::string result;
-  result.reserve(((input.size() + 2) / 3) * 4);
-  unsigned char buf[3] = {};
-  int i = 0;
-  for (unsigned char c : input) {
-    buf[i++] = c;
-    if (i == 3) {
-      result += chars[(buf[0] >> 2) & 0x3F];
-      result += chars[((buf[0] & 0x03) << 4) | ((buf[1] >> 4) & 0x0F)];
-      result += chars[((buf[1] & 0x0F) << 2) | ((buf[2] >> 6) & 0x03)];
-      result += chars[buf[2] & 0x3F];
-      i = 0;
-    }
-  }
-  if (i > 0) {
-    for (int j = i; j < 3; j++) buf[j] = 0;
-    result += chars[(buf[0] >> 2) & 0x3F];
-    result += chars[((buf[0] & 0x03) << 4) | ((buf[1] >> 4) & 0x0F)];
-    result += (i > 1) ? chars[((buf[1] & 0x0F) << 2) | ((buf[2] >> 6) & 0x03)] : '=';
-    result += '=';
-  }
-  return result;
-}
 
 struct parsed_url {
   std::string protocol;
@@ -210,7 +184,7 @@ struct ssl_socket final : generic_socket {
     // Step 2 — Send CONNECT request
     std::string connect_req = "CONNECT " + real_host + ":" + real_port + " HTTP/1.0\r\n" + "Host: " + real_host + ":" + real_port + "\r\n";
     if (!proxy_.credentials().empty()) {
-      connect_req += "Proxy-Authorization: Basic " + base64_encode(proxy_.credentials()) + "\r\n";
+      connect_req += "Proxy-Authorization: Basic " + bytes::base64_encode(proxy_.credentials()) + "\r\n";
     }
     connect_req += "\r\n";
 
@@ -419,7 +393,7 @@ class simple_client {
     abs_path += original.path_;
     p.path_ = abs_path;
     if (!proxy.credentials().empty()) {
-      p.add_header("Proxy-Authorization", "Basic " + base64_encode(proxy.credentials()));
+      p.add_header("Proxy-Authorization", "Basic " + bytes::base64_encode(proxy.credentials()));
     }
     return p;
   }
