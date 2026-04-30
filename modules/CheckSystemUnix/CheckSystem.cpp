@@ -24,10 +24,10 @@
 #include <boost/program_options.hpp>
 #include <fstream>
 #include <locale>
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/macros.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <str/format.hpp>
 
@@ -218,4 +218,3 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     NSC_LOG_ERROR("Failed to fetch uptime metrics");
   }
 }
-

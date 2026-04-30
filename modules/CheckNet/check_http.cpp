@@ -18,9 +18,6 @@
  */
 
 #include "check_http.h"
-#include "check_http_internal.hpp"
-
-#include "check_net_error.hpp"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/chrono.hpp>
@@ -31,8 +28,10 @@
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
-
 #include <sstream>
+
+#include "check_http_internal.hpp"
+#include "check_net_error.hpp"
 
 namespace po = boost::program_options;
 

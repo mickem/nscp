@@ -22,7 +22,6 @@
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/shared_ptr.hpp>
-
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -95,5 +94,3 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
 }
 
 }  // namespace check_files_command
-
-

@@ -17,9 +17,8 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <gtest/gtest.h>
-
 #include <Windows.h>
+#include <gtest/gtest.h>
 
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <string>
@@ -99,4 +98,3 @@ TEST(CheckDriveTypeRoundTrip, KeywordsAreRoundTrippable) {
     EXPECT_EQ(type_to_string(t), kw) << "type_to_string mismatch for: " << kw;
   }
 }
-

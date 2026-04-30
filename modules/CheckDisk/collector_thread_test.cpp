@@ -17,9 +17,9 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <gtest/gtest.h>
-
 #include "collector_thread.hpp"
+
+#include <gtest/gtest.h>
 
 // ============================================================================
 // Static / constant API
@@ -69,4 +69,3 @@ TEST(CollectorThread, StopWithoutStartIsSafe) {
   // Calling it again must remain safe.
   EXPECT_TRUE(c.stop());
 }
-

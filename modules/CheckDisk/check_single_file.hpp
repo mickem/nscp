@@ -23,4 +23,3 @@
 namespace check_single_file_command {
 void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 }
-

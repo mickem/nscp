@@ -17,9 +17,9 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <Windows.h>
 #include <gtest/gtest.h>
 
-#include <Windows.h>
 #include <boost/shared_ptr.hpp>
 #include <climits>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -289,5 +289,3 @@ TEST(ConvertNewType, NumericString) {
   EXPECT_EQ(convert_new_type(parsers::where::evaluation_context{}, "42"), 42);
   EXPECT_EQ(convert_new_type(parsers::where::evaluation_context{}, "0"), 0);
 }
-
-

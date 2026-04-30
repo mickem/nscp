@@ -30,10 +30,8 @@ namespace win {
 
 typedef DWORD(WINAPI *get_tcp_table_fn)(PMIB_TCPTABLE pTcpTable, PULONG pdwSize, BOOL bOrder);
 typedef DWORD(WINAPI *get_udp_table_fn)(PMIB_UDPTABLE pUdpTable, PULONG pdwSize, BOOL bOrder);
-typedef DWORD(WINAPI *get_extended_tcp_table_fn)(PVOID pTcpTable, PULONG pdwSize, BOOL bOrder, ULONG ulAf,
-                                                 TCP_TABLE_CLASS tableClass, ULONG reserved);
-typedef DWORD(WINAPI *get_extended_udp_table_fn)(PVOID pUdpTable, PULONG pdwSize, BOOL bOrder, ULONG ulAf,
-                                                 UDP_TABLE_CLASS tableClass, ULONG reserved);
+typedef DWORD(WINAPI *get_extended_tcp_table_fn)(PVOID pTcpTable, PULONG pdwSize, BOOL bOrder, ULONG ulAf, TCP_TABLE_CLASS tableClass, ULONG reserved);
+typedef DWORD(WINAPI *get_extended_udp_table_fn)(PVOID pUdpTable, PULONG pdwSize, BOOL bOrder, ULONG ulAf, UDP_TABLE_CLASS tableClass, ULONG reserved);
 
 struct iphlpapi_api {
   HMODULE dll;
@@ -42,8 +40,7 @@ struct iphlpapi_api {
   get_extended_tcp_table_fn get_extended_tcp_table;
   get_extended_udp_table_fn get_extended_udp_table;
 
-  iphlpapi_api()
-      : dll(NULL), get_tcp_table(NULL), get_udp_table(NULL), get_extended_tcp_table(NULL), get_extended_udp_table(NULL) {
+  iphlpapi_api() : dll(NULL), get_tcp_table(NULL), get_udp_table(NULL), get_extended_tcp_table(NULL), get_extended_udp_table(NULL) {
     dll = ::LoadLibraryA("iphlpapi.dll");
     if (!dll) return;
     get_tcp_table = reinterpret_cast<get_tcp_table_fn>(::GetProcAddress(dll, "GetTcpTable"));
@@ -65,4 +62,3 @@ inline iphlpapi_api &load_iphlpapi() {
 }  // namespace win
 
 #endif
-

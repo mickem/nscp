@@ -20,7 +20,6 @@
 #include "check_single_file.hpp"
 
 #include <boost/shared_ptr.hpp>
-
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -53,15 +52,11 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   // age=0)"). cli_helper::parse_options_post blanks `renderer_ok` when
   // the top contains `(list)`, so OK status falls through to the top
   // template too — which is exactly what we want here.
-  filter_helper.add_syntax(
-      "%(status): %(list)",
-      "%(filename) (size=%(size), age=%(age))",
-      "%(filename)",
-      // The "empty" syntaxes below are unreachable for check_single_file (we
-      // always either fail with UNKNOWN or feed exactly one object to the
-      // filter) but cli_helper requires non-empty defaults.
-      "No file inspected",
-      "%(status): %(filename) is ok");
+  filter_helper.add_syntax("%(status): %(list)", "%(filename) (size=%(size), age=%(age))", "%(filename)",
+                           // The "empty" syntaxes below are unreachable for check_single_file (we
+                           // always either fail with UNKNOWN or feed exactly one object to the
+                           // filter) but cli_helper requires non-empty defaults.
+                           "No file inspected", "%(status): %(filename) is ok");
   // clang-format off
   filter_helper.get_desc().add_options()
     ("file", po::value<std::string>(&file_path), "The file to check.")
@@ -88,4 +83,3 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
 }
 
 }  // namespace check_single_file_command
-

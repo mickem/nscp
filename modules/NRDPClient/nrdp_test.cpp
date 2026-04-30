@@ -220,4 +220,3 @@ TEST(NrdpRoundTrip, RenderedRequestParsesAsXml) {
   EXPECT_NE(xml.find("<checkresults"), std::string::npos);
   EXPECT_NE(xml.find("</checkresults>"), std::string::npos);
 }
-

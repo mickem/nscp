@@ -28,8 +28,8 @@
 #include <string.h>
 
 #include <cstdarg>
-#include <cstdio>
 #include <cstddef>
+#include <cstdio>
 #endif
 
 #include <string>

@@ -17,9 +17,10 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "check_single_file.hpp"
+
 #include <gtest/gtest.h>
 
-#include "check_single_file.hpp"
 #include "test_support.hpp"
 
 namespace {
@@ -109,4 +110,3 @@ TEST(CheckSingleFileCommand, SizeThresholdTriggersCritical) {
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::CRITICAL);
 }
-

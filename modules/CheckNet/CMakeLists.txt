@@ -63,7 +63,11 @@ if(OPENSSL_FOUND)
 endif(OPENSSL_FOUND)
 
 if(WIN32)
-    target_link_libraries(${TARGET} iphlpapi ws2_32)
+    target_link_libraries(
+        ${TARGET}
+        iphlpapi
+        ws2_32
+    )
 endif(WIN32)
 
 include(${BUILD_CMAKE_FOLDER}/module.cmake)

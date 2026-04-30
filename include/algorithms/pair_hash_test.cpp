@@ -17,9 +17,9 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <algorithms/pair_hash.h>
 #include <gtest/gtest.h>
 
-#include <algorithms/pair_hash.h>
 #include <string>
 #include <unordered_map>
 #include <utility>

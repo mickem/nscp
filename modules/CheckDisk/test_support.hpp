@@ -28,9 +28,8 @@
 
 #include <boost/filesystem.hpp>
 #include <fstream>
-#include <string>
-
 #include <nscapi/protobuf/command.hpp>
+#include <string>
 
 namespace check_disk_test_support {
 
@@ -77,9 +76,7 @@ class ScratchDir {
   // Convenience alias when the caller does not care about the returned
   // absolute path (e.g. when they only want the file to exist for a
   // recursive scan to discover).
-  void touch(const std::string &relative_name, const std::string &contents = "x") const {
-    (void)make_file(relative_name, contents);
-  }
+  void touch(const std::string &relative_name, const std::string &contents = "x") const { (void)make_file(relative_name, contents); }
 
  private:
   boost::filesystem::path base_;
@@ -98,4 +95,3 @@ inline std::string join_lines(const PB::Commands::QueryResponseMessage::Response
 }
 
 }  // namespace check_disk_test_support
-

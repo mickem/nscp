@@ -108,9 +108,12 @@ file_filter::filter_obj_handler::filter_obj_handler() {
 boost::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::get(unsigned long long now, const WIN32_FIND_DATA &info, boost::filesystem::path path) {
   return boost::make_shared<filter_obj>(
       path, utf8::cvt<std::string>(info.cFileName), now,
-      (info.ftCreationTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(info.ftCreationTime.dwLowDateTime),
-      (info.ftLastAccessTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(info.ftLastAccessTime.dwLowDateTime),
-      (info.ftLastWriteTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(info.ftLastWriteTime.dwLowDateTime),
+      (info.ftCreationTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) +
+          static_cast<unsigned long long>(info.ftCreationTime.dwLowDateTime),
+      (info.ftLastAccessTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) +
+          static_cast<unsigned long long>(info.ftLastAccessTime.dwLowDateTime),
+      (info.ftLastWriteTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) +
+          static_cast<unsigned long long>(info.ftLastWriteTime.dwLowDateTime),
       (info.nFileSizeHigh * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(info.nFileSizeLow), info.dwFileAttributes);
 };
 #endif

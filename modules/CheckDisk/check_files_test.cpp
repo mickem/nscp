@@ -17,13 +17,14 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "check_files.hpp"
+
 #include <gtest/gtest.h>
 
 #include <boost/filesystem.hpp>
 #include <fstream>
 #include <string>
 
-#include "check_files.hpp"
 #include "test_support.hpp"
 
 namespace {
@@ -141,4 +142,3 @@ TEST(CheckFilesCommand, MaxDepthZeroSkipsSubdirectories) {
   EXPECT_NE(out.find("1"), std::string::npos) << out;
   EXPECT_EQ(out.find("deep.txt"), std::string::npos) << out;
 }
-

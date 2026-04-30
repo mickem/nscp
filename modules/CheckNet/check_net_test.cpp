@@ -17,9 +17,9 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/make_shared.hpp>
 #include <gtest/gtest.h>
 
+#include <boost/make_shared.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 
 #include "check_connections.h"
@@ -215,9 +215,7 @@ TEST(CheckNtp, filter_obj_offset_is_absolute_value) {
   EXPECT_EQ(o.get_offset_signed(), 1234);
 }
 
-TEST(CheckNtp, ntp_to_unix_ms_zero_is_sentinel) {
-  EXPECT_EQ(check_net::check_ntp_internal::ntp_to_unix_ms(0, 0), 0);
-}
+TEST(CheckNtp, ntp_to_unix_ms_zero_is_sentinel) { EXPECT_EQ(check_net::check_ntp_internal::ntp_to_unix_ms(0, 0), 0); }
 
 TEST(CheckNtp, ntp_to_unix_ms_unix_epoch) {
   // The unix epoch (1970-01-01 00:00:00 UTC) is exactly kNtpUnixDelta seconds

@@ -21,19 +21,17 @@
 
 #ifdef WIN32
 
-#include <win/windows.hpp>
-
-#include <ctime>
-#include <list>
-#include <string>
-#include <vector>
 #include <algorithm>
-
+#include <ctime>
+#include <error/error.hpp>
+#include <list>
+#include <nsclient/nsclient_exception.hpp>
 #include <str/format.hpp>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
-#include <nsclient/nsclient_exception.hpp>
-#include <error/error.hpp>
+#include <string>
+#include <vector>
+#include <win/windows.hpp>
 
 namespace win_registry {
 
@@ -47,46 +45,52 @@ struct registry_exception {
 
 // ── FILETIME helpers ────────────────────────────────────────────────────────
 
-inline unsigned long long filetime_to_ull(const FILETIME &ft) {
-  return (static_cast<unsigned long long>(ft.dwHighDateTime) << 32) | ft.dwLowDateTime;
-}
+inline unsigned long long filetime_to_ull(const FILETIME &ft) { return (static_cast<unsigned long long>(ft.dwHighDateTime) << 32) | ft.dwLowDateTime; }
 
 inline long long filetime_to_epoch(unsigned long long ft_ull) {
   if (ft_ull == 0) return 0;
   return static_cast<long long>(str::format::filetime_to_time(ft_ull));
 }
 
-inline std::string filetime_to_string(unsigned long long ft_ull) {
-  return str::format::format_filetime(ft_ull);
-}
+inline std::string filetime_to_string(unsigned long long ft_ull) { return str::format::format_filetime(ft_ull); }
 
 // ── Type name conversion ────────────────────────────────────────────────────
 
 inline std::string type_to_string(const DWORD type) {
   switch (type) {
-    case REG_NONE:          return "REG_NONE";
-    case REG_SZ:            return "REG_SZ";
-    case REG_EXPAND_SZ:     return "REG_EXPAND_SZ";
-    case REG_BINARY:        return "REG_BINARY";
-    case REG_DWORD:         return "REG_DWORD";
-    case REG_DWORD_BIG_ENDIAN: return "REG_DWORD_BIG_ENDIAN";
-    case REG_LINK:          return "REG_LINK";
-    case REG_MULTI_SZ:      return "REG_MULTI_SZ";
-    case REG_QWORD:         return "REG_QWORD";
-    default:                return "REG_UNKNOWN(" + str::xtos(type) + ")";
+    case REG_NONE:
+      return "REG_NONE";
+    case REG_SZ:
+      return "REG_SZ";
+    case REG_EXPAND_SZ:
+      return "REG_EXPAND_SZ";
+    case REG_BINARY:
+      return "REG_BINARY";
+    case REG_DWORD:
+      return "REG_DWORD";
+    case REG_DWORD_BIG_ENDIAN:
+      return "REG_DWORD_BIG_ENDIAN";
+    case REG_LINK:
+      return "REG_LINK";
+    case REG_MULTI_SZ:
+      return "REG_MULTI_SZ";
+    case REG_QWORD:
+      return "REG_QWORD";
+    default:
+      return "REG_UNKNOWN(" + str::xtos(type) + ")";
   }
 }
 
 inline long long parse_type(const std::string &s) {
-  if (s == "REG_NONE")          return REG_NONE;
-  if (s == "REG_SZ")            return REG_SZ;
-  if (s == "REG_EXPAND_SZ")     return REG_EXPAND_SZ;
-  if (s == "REG_BINARY")        return REG_BINARY;
-  if (s == "REG_DWORD")         return REG_DWORD;
+  if (s == "REG_NONE") return REG_NONE;
+  if (s == "REG_SZ") return REG_SZ;
+  if (s == "REG_EXPAND_SZ") return REG_EXPAND_SZ;
+  if (s == "REG_BINARY") return REG_BINARY;
+  if (s == "REG_DWORD") return REG_DWORD;
   if (s == "REG_DWORD_BIG_ENDIAN") return REG_DWORD_BIG_ENDIAN;
-  if (s == "REG_LINK")          return REG_LINK;
-  if (s == "REG_MULTI_SZ")      return REG_MULTI_SZ;
-  if (s == "REG_QWORD")         return REG_QWORD;
+  if (s == "REG_LINK") return REG_LINK;
+  if (s == "REG_MULTI_SZ") return REG_MULTI_SZ;
+  if (s == "REG_QWORD") return REG_QWORD;
   try {
     return static_cast<long long>(str::stox<unsigned long>(s));
   } catch (...) {
@@ -97,20 +101,20 @@ inline long long parse_type(const std::string &s) {
 // ── Hive helpers ────────────────────────────────────────────────────────────
 
 inline HKEY parse_hive(const std::string &hive) {
-  if (hive == "HKLM" || hive == "HKEY_LOCAL_MACHINE")   return HKEY_LOCAL_MACHINE;
-  if (hive == "HKCU" || hive == "HKEY_CURRENT_USER")    return HKEY_CURRENT_USER;
-  if (hive == "HKCR" || hive == "HKEY_CLASSES_ROOT")    return HKEY_CLASSES_ROOT;
-  if (hive == "HKU"  || hive == "HKEY_USERS")           return HKEY_USERS;
-  if (hive == "HKCC" || hive == "HKEY_CURRENT_CONFIG")  return HKEY_CURRENT_CONFIG;
+  if (hive == "HKLM" || hive == "HKEY_LOCAL_MACHINE") return HKEY_LOCAL_MACHINE;
+  if (hive == "HKCU" || hive == "HKEY_CURRENT_USER") return HKEY_CURRENT_USER;
+  if (hive == "HKCR" || hive == "HKEY_CLASSES_ROOT") return HKEY_CLASSES_ROOT;
+  if (hive == "HKU" || hive == "HKEY_USERS") return HKEY_USERS;
+  if (hive == "HKCC" || hive == "HKEY_CURRENT_CONFIG") return HKEY_CURRENT_CONFIG;
   throw nsclient::nsclient_exception("Unknown registry hive: " + hive);
 }
 
 inline std::string hive_to_string(const HKEY hive) {
-  if (hive == HKEY_LOCAL_MACHINE)   return "HKLM";
-  if (hive == HKEY_CURRENT_USER)    return "HKCU";
-  if (hive == HKEY_CLASSES_ROOT)    return "HKCR";
-  if (hive == HKEY_USERS)           return "HKU";
-  if (hive == HKEY_CURRENT_CONFIG)  return "HKCC";
+  if (hive == HKEY_LOCAL_MACHINE) return "HKLM";
+  if (hive == HKEY_CURRENT_USER) return "HKCU";
+  if (hive == HKEY_CLASSES_ROOT) return "HKCR";
+  if (hive == HKEY_USERS) return "HKU";
+  if (hive == HKEY_CURRENT_CONFIG) return "HKCC";
   return "HKUNKNOWN";
 }
 
@@ -145,11 +149,7 @@ struct raii_hkey {
   HKEY hKey;
   explicit raii_hkey(HKEY h = nullptr) : hKey(h) {}
   ~raii_hkey() {
-    if (hKey != nullptr &&
-        hKey != HKEY_LOCAL_MACHINE &&
-        hKey != HKEY_CURRENT_USER &&
-        hKey != HKEY_CLASSES_ROOT &&
-        hKey != HKEY_USERS &&
+    if (hKey != nullptr && hKey != HKEY_LOCAL_MACHINE && hKey != HKEY_CURRENT_USER && hKey != HKEY_CLASSES_ROOT && hKey != HKEY_USERS &&
         hKey != HKEY_CURRENT_CONFIG) {
       RegCloseKey(hKey);
     }
@@ -164,70 +164,68 @@ struct raii_hkey {
 // ── Data structs ─────────────────────────────────────────────────────────────
 
 struct key_info {
-  std::string path;        // Full path including hive prefix: HKLM\Software\...
-  std::string name;        // Leaf key name
-  std::string parent;      // Parent path (full, including hive)
-  std::string hive;        // Hive abbreviation (HKLM, HKCU, ...)
-  long long depth;         // Distance from the starting key (0 = the key itself)
-  bool exists;             // Was the key successfully opened?
-  long long value_count;   // Number of values in this key
-  long long subkey_count;  // Number of immediate sub-keys
+  std::string path;               // Full path including hive prefix: HKLM\Software\...
+  std::string name;               // Leaf key name
+  std::string parent;             // Parent path (full, including hive)
+  std::string hive;               // Hive abbreviation (HKLM, HKCU, ...)
+  long long depth;                // Distance from the starting key (0 = the key itself)
+  bool exists;                    // Was the key successfully opened?
+  long long value_count;          // Number of values in this key
+  long long subkey_count;         // Number of immediate sub-keys
   unsigned long long written_ft;  // Last-write time as a FILETIME ULL (100-ns intervals from 1601-01-01)
-  std::string class_name;  // Key class string (rarely set)
+  std::string class_name;         // Key class string (rarely set)
 
-  key_info()
-      : depth(0), exists(false), value_count(0), subkey_count(0), written_ft(0) {}
+  key_info() : depth(0), exists(false), value_count(0), subkey_count(0), written_ft(0) {}
 
-  std::string get_path()       const { return path; }
-  std::string get_name()       const { return name; }
-  std::string get_parent()     const { return parent; }
-  std::string get_hive()       const { return hive; }
-  long long   get_depth()      const { return depth; }
-  long long   get_exists()     const { return exists ? 1 : 0; }
-  long long   get_value_count() const { return value_count; }
-  long long   get_subkey_count() const { return subkey_count; }
-  long long   get_written()    const { return filetime_to_epoch(written_ft); }
-  long long   get_age()        const {
+  std::string get_path() const { return path; }
+  std::string get_name() const { return name; }
+  std::string get_parent() const { return parent; }
+  std::string get_hive() const { return hive; }
+  long long get_depth() const { return depth; }
+  long long get_exists() const { return exists ? 1 : 0; }
+  long long get_value_count() const { return value_count; }
+  long long get_subkey_count() const { return subkey_count; }
+  long long get_written() const { return filetime_to_epoch(written_ft); }
+  long long get_age() const {
     const long long w = get_written();
     return (w == 0) ? 0 : static_cast<long long>(time(nullptr)) - w;
   }
-  std::string get_written_s()  const { return filetime_to_string(written_ft); }
+  std::string get_written_s() const { return filetime_to_string(written_ft); }
   std::string get_class_name() const { return class_name; }
 
   std::string show() const { return path; }
 };
 
 struct value_info {
-  std::string key;          // Full key path including hive
-  std::string name;         // Value name (empty = default value)
-  std::string path;         // key + "\" + display_name
-  std::string hive;         // Hive abbreviation
-  DWORD       type;         // REG_SZ, REG_DWORD, etc.
-  std::string string_value; // Value rendered as a string
-  long long   int_value;    // Numeric value (0 for non-numeric types)
-  long long   size;         // Raw byte size of the value data
-  bool        exists;       // Was the value successfully read?
+  std::string key;                // Full key path including hive
+  std::string name;               // Value name (empty = default value)
+  std::string path;               // key + "\" + display_name
+  std::string hive;               // Hive abbreviation
+  DWORD type;                     // REG_SZ, REG_DWORD, etc.
+  std::string string_value;       // Value rendered as a string
+  long long int_value;            // Numeric value (0 for non-numeric types)
+  long long size;                 // Raw byte size of the value data
+  bool exists;                    // Was the value successfully read?
   unsigned long long written_ft;  // Parent key's last-write time as FILETIME ULL
 
-  value_info()
-      : type(REG_NONE), int_value(0), size(0), exists(false), written_ft(0) {}
+  value_info() : type(REG_NONE), int_value(0), size(0), exists(false), written_ft(0) {}
 
-  std::string get_key()          const { return key; }
-  std::string get_name()         const { return name.empty() ? "(default)" : name; }
-  std::string get_path()         const { return path; }
-  std::string get_hive()         const { return hive; }
-  long long   get_type_i()       const { return type; }
-  std::string get_type_s()       const { return type_to_string(type); }
+  std::string get_key() const { return key; }
+  std::string get_name() const { return name.empty() ? "(default)" : name; }
+  std::string get_path() const { return path; }
+  std::string get_hive() const { return hive; }
+  long long get_type_i() const { return type; }
+  std::string get_type_s() const { return type_to_string(type); }
   std::string get_string_value() const { return string_value; }
-  long long   get_int_value()    const { return int_value; }
-  long long   get_size()         const { return size; }
-  long long   get_exists()       const { return exists ? 1 : 0; }
-  long long   get_written()      const { return filetime_to_epoch(written_ft); }
-  long long   get_age()          const {
+  long long get_int_value() const { return int_value; }
+  long long get_size() const { return size; }
+  long long get_exists() const { return exists ? 1 : 0; }
+  long long get_written() const { return filetime_to_epoch(written_ft); }
+  long long get_age() const {
     const long long w = get_written();
     return (w == 0) ? 0 : time(nullptr) - w;
   }
-  std::string get_written_s()    const { return filetime_to_string(written_ft); }
+  std::string get_written_s() const { return filetime_to_string(written_ft); }
 
   std::string show() const { return path + "=" + string_value; }
 
@@ -301,12 +299,20 @@ inline void fill_value(HKEY hKey, const std::string &value_name, const unsigned 
   switch (type) {
     case REG_SZ: {
       vi.string_value = utf8::cvt<std::string>(reinterpret_cast<const wchar_t *>(buf.data()));
-      try { vi.int_value = str::stox<long long>(vi.string_value); } catch (...) { vi.int_value = 0; }
+      try {
+        vi.int_value = str::stox<long long>(vi.string_value);
+      } catch (...) {
+        vi.int_value = 0;
+      }
       break;
     }
     case REG_EXPAND_SZ: {
       vi.string_value = expand_env(reinterpret_cast<const wchar_t *>(buf.data()));
-      try { vi.int_value = str::stox<long long>(vi.string_value); } catch (...) { vi.int_value = 0; }
+      try {
+        vi.int_value = str::stox<long long>(vi.string_value);
+      } catch (...) {
+        vi.int_value = 0;
+      }
       break;
     }
     case REG_DWORD: {
@@ -332,10 +338,7 @@ inline void fill_value(HKEY hKey, const std::string &value_name, const unsigned 
         DWORD dw = 0;
         memcpy(&dw, buf.data(), sizeof(DWORD));
         // Byte-swap to little-endian
-        dw = ((dw & 0xFF000000u) >> 24) |
-             ((dw & 0x00FF0000u) >>  8) |
-             ((dw & 0x0000FF00u) <<  8) |
-             ((dw & 0x000000FFu) << 24);
+        dw = ((dw & 0xFF000000u) >> 24) | ((dw & 0x00FF0000u) >> 8) | ((dw & 0x0000FF00u) << 8) | ((dw & 0x000000FFu) << 24);
         vi.int_value = static_cast<long long>(dw);
       }
       vi.string_value = str::xtos(vi.int_value);
@@ -343,7 +346,11 @@ inline void fill_value(HKEY hKey, const std::string &value_name, const unsigned 
     }
     case REG_MULTI_SZ: {
       vi.string_value = multi_sz_to_string(buf.data(), cbData);
-      try { vi.int_value = str::stox<long long>(vi.string_value); } catch (...) { vi.int_value = 0; }
+      try {
+        vi.int_value = str::stox<long long>(vi.string_value);
+      } catch (...) {
+        vi.int_value = 0;
+      }
       break;
     }
     case REG_BINARY: {
@@ -370,8 +377,8 @@ inline void fill_key_metadata(HKEY hKey, key_info &ki) {
   if (ret != ERROR_SUCCESS) return;
 
   ki.subkey_count = static_cast<long long>(num_subkeys);
-  ki.value_count  = static_cast<long long>(num_values);
-  ki.written_ft   = filetime_to_ull(last_write);
+  ki.value_count = static_cast<long long>(num_values);
+  ki.written_ft = filetime_to_ull(last_write);
 
   if (max_class_len > 0) {
     std::vector<wchar_t> cls(max_class_len + 2, L'\0');
@@ -393,8 +400,7 @@ inline HKEY connect_registry(const std::string &computer, HKEY hive) {
   HKEY remote_root = nullptr;
   const std::wstring wcomputer = utf8::cvt<std::wstring>("\\\\" + computer);
   const LONG ret = RegConnectRegistryW(wcomputer.c_str(), hive, &remote_root);
-  if (ret != ERROR_SUCCESS)
-    throw registry_exception("Failed to connect to remote registry on " + computer + ": " + error::format::from_system(ret));
+  if (ret != ERROR_SUCCESS) throw registry_exception("Failed to connect to remote registry on " + computer + ": " + error::format::from_system(ret));
   return remote_root;
 }
 
@@ -404,21 +410,19 @@ inline HKEY connect_registry(const std::string &computer, HKEY hive) {
 // depth is the depth relative to the starting key (0 = starting key itself).
 // access_flags may include KEY_WOW64_32KEY / KEY_WOW64_64KEY.
 // base_hkey is the already-opened parent HKEY (may be a root hive or a connected remote hive).
-inline key_info open_key(HKEY base_hkey, const std::string &subpath, const std::string &full_path,
-                          const std::string &name, const std::string &parent, const std::string &hive,
-                          long long depth, const DWORD access_flags) {
+inline key_info open_key(HKEY base_hkey, const std::string &subpath, const std::string &full_path, const std::string &name, const std::string &parent,
+                         const std::string &hive, long long depth, const DWORD access_flags) {
   key_info ki;
-  ki.path   = full_path;
-  ki.name   = name;
+  ki.path = full_path;
+  ki.name = name;
   ki.parent = parent;
-  ki.hive   = hive;
-  ki.depth  = depth;
+  ki.hive = hive;
+  ki.depth = depth;
   ki.exists = false;
 
   HKEY hKey = nullptr;
   const std::wstring wsubpath = utf8::cvt<std::wstring>(subpath);
-  const LONG ret = RegOpenKeyExW(base_hkey, wsubpath.empty() ? nullptr : wsubpath.c_str(), 0,
-                                  KEY_QUERY_VALUE | KEY_READ | access_flags, &hKey);
+  const LONG ret = RegOpenKeyExW(base_hkey, wsubpath.empty() ? nullptr : wsubpath.c_str(), 0, KEY_QUERY_VALUE | KEY_READ | access_flags, &hKey);
   if (ret != ERROR_SUCCESS) return ki;  // exists = false
 
   ki.exists = true;
@@ -434,23 +438,20 @@ inline key_info open_key(HKEY base_hkey, const std::string &subpath, const std::
 // hive: hive abbreviation string.
 // depth: depth to assign to the returned key_info objects.
 // access_flags: KEY_WOW64_32KEY / KEY_WOW64_64KEY or 0.
-inline std::vector<key_info> enum_sub_keys(HKEY base_hkey, const std::string &parent_subpath,
-                                            const std::string &parent_full_path, const std::string &hive,
-                                            long long depth, DWORD access_flags) {
+inline std::vector<key_info> enum_sub_keys(HKEY base_hkey, const std::string &parent_subpath, const std::string &parent_full_path, const std::string &hive,
+                                           long long depth, DWORD access_flags) {
   std::vector<key_info> result;
 
   HKEY hParent = nullptr;
   const std::wstring wparent = utf8::cvt<std::wstring>(parent_subpath);
-  LONG ret = RegOpenKeyExW(base_hkey, wparent.empty() ? nullptr : wparent.c_str(), 0,
-                            KEY_QUERY_VALUE | KEY_READ | access_flags, &hParent);
+  LONG ret = RegOpenKeyExW(base_hkey, wparent.empty() ? nullptr : wparent.c_str(), 0, KEY_QUERY_VALUE | KEY_READ | access_flags, &hParent);
   if (ret != ERROR_SUCCESS) return result;
 
   // Count sub-keys
   DWORD num_subkeys = 0;
   DWORD max_name_len = 0;
   FILETIME last_write_ignored = {};
-  ret = RegQueryInfoKeyW(hParent, nullptr, nullptr, nullptr, &num_subkeys, &max_name_len,
-                          nullptr, nullptr, nullptr, nullptr, nullptr, &last_write_ignored);
+  ret = RegQueryInfoKeyW(hParent, nullptr, nullptr, nullptr, &num_subkeys, &max_name_len, nullptr, nullptr, nullptr, nullptr, nullptr, &last_write_ignored);
   if (ret != ERROR_SUCCESS || num_subkeys == 0) {
     RegCloseKey(hParent);
     return result;
@@ -468,11 +469,11 @@ inline std::vector<key_info> enum_sub_keys(HKEY base_hkey, const std::string &pa
     const std::string child_full_path = parent_full_path + "\\" + child_name;
 
     key_info ki;
-    ki.path   = child_full_path;
-    ki.name   = child_name;
+    ki.path = child_full_path;
+    ki.name = child_name;
     ki.parent = parent_full_path;
-    ki.hive   = hive;
-    ki.depth  = depth;
+    ki.hive = hive;
+    ki.depth = depth;
     ki.exists = true;
     ki.written_ft = filetime_to_ull(ft);
 
@@ -497,23 +498,20 @@ inline std::vector<key_info> enum_sub_keys(HKEY base_hkey, const std::string &pa
 // key_full_path: full path including hive prefix.
 // hive: hive abbreviation.
 // access_flags: WOW64 flags or 0.
-inline std::vector<value_info> enum_values(HKEY base_hkey, const std::string &key_subpath,
-                                            const std::string &key_full_path, const std::string &hive,
-                                            DWORD access_flags) {
+inline std::vector<value_info> enum_values(HKEY base_hkey, const std::string &key_subpath, const std::string &key_full_path, const std::string &hive,
+                                           DWORD access_flags) {
   std::vector<value_info> result;
 
   HKEY hKey = nullptr;
   const std::wstring wsubpath = utf8::cvt<std::wstring>(key_subpath);
-  LONG ret = RegOpenKeyExW(base_hkey, wsubpath.empty() ? nullptr : wsubpath.c_str(), 0,
-                            KEY_QUERY_VALUE | KEY_READ | access_flags, &hKey);
+  LONG ret = RegOpenKeyExW(base_hkey, wsubpath.empty() ? nullptr : wsubpath.c_str(), 0, KEY_QUERY_VALUE | KEY_READ | access_flags, &hKey);
   if (ret != ERROR_SUCCESS) return result;
 
   // Get metadata: number of values, max name length, last-write time
   DWORD num_values = 0;
   DWORD max_name_len = 0;
   FILETIME last_write = {};
-  ret = RegQueryInfoKeyW(hKey, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
-                          &num_values, &max_name_len, nullptr, nullptr, &last_write);
+  ret = RegQueryInfoKeyW(hKey, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, &num_values, &max_name_len, nullptr, nullptr, &last_write);
   if (ret != ERROR_SUCCESS || num_values == 0) {
     RegCloseKey(hKey);
     return result;
@@ -528,7 +526,7 @@ inline std::vector<value_info> enum_values(HKEY base_hkey, const std::string &ke
 
     const std::string vname = utf8::cvt<std::string>(std::wstring(namebuf.data(), cchName));
     value_info vi;
-    vi.key  = key_full_path;
+    vi.key = key_full_path;
     vi.name = vname;
     vi.path = key_full_path + "\\" + (vname.empty() ? "(default)" : vname);
     vi.hive = hive;
@@ -543,9 +541,8 @@ inline std::vector<value_info> enum_values(HKEY base_hkey, const std::string &ke
 // Recursively enumerate sub-keys up to max_depth.
 // depth=0 means the key itself is the starting point; children get depth=1.
 // If include_root is true the starting key itself is included in the results.
-inline void recursive_enum_keys(HKEY base_hkey, const std::string &subpath, const std::string &full_path,
-                                 const std::string &hive, long long depth, long long max_depth,
-                                 DWORD access_flags, std::vector<key_info> &out) {
+inline void recursive_enum_keys(HKEY base_hkey, const std::string &subpath, const std::string &full_path, const std::string &hive, long long depth,
+                                long long max_depth, DWORD access_flags, std::vector<key_info> &out) {
   if (max_depth >= 0 && depth > max_depth) return;
 
   const std::vector<key_info> children = enum_sub_keys(base_hkey, subpath, full_path, hive, depth, access_flags);
@@ -557,9 +554,8 @@ inline void recursive_enum_keys(HKEY base_hkey, const std::string &subpath, cons
 }
 
 // Recursively enumerate values in a key tree up to max_depth.
-inline void recursive_enum_values(HKEY base_hkey, const std::string &subpath, const std::string &full_path,
-                                   const std::string &hive, long long depth, long long max_depth,
-                                   DWORD access_flags, std::vector<value_info> &out) {
+inline void recursive_enum_values(HKEY base_hkey, const std::string &subpath, const std::string &full_path, const std::string &hive, long long depth,
+                                  long long max_depth, DWORD access_flags, std::vector<value_info> &out) {
   if (max_depth >= 0 && depth > max_depth) return;
 
   const std::vector<value_info> vals = enum_values(base_hkey, subpath, full_path, hive, access_flags);
