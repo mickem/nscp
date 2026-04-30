@@ -148,18 +148,56 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable) {
 
   unsigned long ReturnLength = 0;
 
+  // Three-step fallback to maximise the number of processes the agent can see
+  // when running as a non-administrative account (issues #517, #580, #654):
+  //  1. Try the full set of access rights required for deep_scan.
+  //  2. Fall back to PROCESS_QUERY_INFORMATION (no VM access) - older fallback.
+  //  3. Fall back to PROCESS_QUERY_LIMITED_INFORMATION (Vista+). This succeeds
+  //     for processes that PROCESS_QUERY_INFORMATION cannot open, including
+  //     critical/protected processes such as csrss.exe, smss.exe, services.exe
+  //     and processes owned by other users when running unprivileged. We then
+  //     use QueryFullProcessImageName, which only requires
+  //     PROCESS_QUERY_LIMITED_INFORMATION, to obtain the executable name.
+  bool limited_only = false;
   generic_handle handle(OpenProcess(openArgs, FALSE, pid));
   if (!handle) {
     handle = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
     if (!handle) {
-      DWORD err = GetLastError();
-      entry.unreadable = true;
-      if (!ignore_unreadable || err != ERROR_ACCESS_DENIED) entry.set_error("Failed to open process " + str::xtos(pid) + ": " + error::lookup::last_error());
-      return entry;
+      handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+      if (!handle) {
+        DWORD err = GetLastError();
+        entry.unreadable = true;
+        if (!ignore_unreadable || err != ERROR_ACCESS_DENIED) entry.set_error("Failed to open process " + str::xtos(pid) + ": " + error::lookup::last_error());
+        return entry;
+      }
+      limited_only = true;
     }
   }
 
   hlp::buffer<wchar_t> buffer(MAX_PATH);
+  if (limited_only) {
+    // GetProcessImageFileName / EnumProcessModules require
+    // PROCESS_QUERY_INFORMATION (and VM read for the latter). Use
+    // QueryFullProcessImageName which only requires
+    // PROCESS_QUERY_LIMITED_INFORMATION so we can still report the executable
+    // name for processes that we could only open with limited rights.
+    DWORD size = static_cast<DWORD>(buffer.size());
+    if (QueryFullProcessImageName(handle, 0, buffer, &size) && size > 0) {
+      buffer[size] = 0;
+      auto tmp = utf8::cvt<std::string>(std::wstring(buffer.get()));
+      entry.filename = tmp;
+      std::size_t pos = tmp.find_last_of('\\');
+      if (pos != std::string::npos)
+        entry.exe = tmp.substr(pos + 1);
+      else
+        entry.exe = tmp;
+    }
+    // Without PROCESS_QUERY_INFORMATION/VM_READ we cannot fetch handle counts,
+    // VM counters, command line, etc. Return the partial entry; callers can
+    // still see that the process exists and what its name is.
+    return entry;
+  }
+
   DWORD len = GetProcessImageFileName(handle, buffer, static_cast<DWORD>(buffer.size()));
   if (len > 0) {
     buffer[len] = 0;
