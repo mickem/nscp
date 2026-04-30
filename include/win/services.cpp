@@ -375,51 +375,84 @@ std::list<service_info> enum_services(const std::string &computer, const DWORD d
   const service_handle sc = OpenSCManager(comp.empty() ? nullptr : comp.c_str(), nullptr, SC_MANAGER_ENUMERATE_SERVICE);
   if (!sc) throw nsclient::nsclient_exception("Failed to open service manager: " + error::lookup::last_error());
 
-  DWORD bytesNeeded = 0;
-  DWORD count = 0;
+  // EnumServicesStatusEx can return only a partial result, signalled by
+  // ERROR_MORE_DATA on either the probe call or the bulk call. Especially
+  // under memory pressure or on hosts with many services it is not safe to
+  // assume a single bulk call returns everything; previous code threw
+  // 'Failed to enumerate service: 6f7' (RPC_X_BAD_STUB_DATA) etc. instead
+  // of paging through the rest (#703, #229). Loop with the resume handle
+  // until the SCM signals completion.
   DWORD handle = 0;
-  BOOL bRet =
-      windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, nullptr, 0, &bytesNeeded, &count, &handle, nullptr);
-  if (bRet != 0) {
-    auto err = GetLastError();
+  for (;;) {
+    DWORD probeBytes = 0;
+    DWORD probeCount = 0;
+    BOOL bRet = windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, nullptr, 0, &probeBytes, &probeCount, &handle,
+                                                      nullptr);
+    if (bRet) {
+      // Probe call succeeded immediately => no more data to read.
+      break;
+    }
+    DWORD err = GetLastError();
     if (err != ERROR_MORE_DATA) {
       throw nsclient::nsclient_exception("Failed to enumerate service status: " + error::format::from_system(err));
     }
-  }
-
-  const hlp::buffer<BYTE, ENUM_SERVICE_STATUS_PROCESS *> buf(bytesNeeded + 10);
-  bRet =
-      windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, buf, bytesNeeded, &bytesNeeded, &count, &handle, nullptr);
-  if (!bRet) throw nsclient::nsclient_exception("Failed to enumerate service: " + error::lookup::last_error());
-  const ENUM_SERVICE_STATUS_PROCESS *data = buf.get();
-  for (DWORD i = 0; i < count; ++i) {
-    const auto service_name = utf8::cvt<std::string>(data[i].lpServiceName);
-    if (std::find(excludes.begin(), excludes.end(), service_name) != excludes.end()) {
-      continue;
+    if (probeBytes == 0) {
+      // Defensive: no further data, stop instead of looping forever.
+      break;
     }
-    service_info info(utf8::cvt<std::string>(data[i].lpServiceName), utf8::cvt<std::string>(data[i].lpDisplayName));
-    info.pid = data[i].ServiceStatusProcess.dwProcessId;
-    info.state = data[i].ServiceStatusProcess.dwCurrentState;
-    info.type = data[i].ServiceStatusProcess.dwServiceType;
-    info.exit_code = data[i].ServiceStatusProcess.dwWin32ExitCode;
 
-    service_handle hService = OpenService(sc, data[i].lpServiceName, SERVICE_QUERY_CONFIG);
-    if (!hService) throw nsclient::nsclient_exception("Failed to open service: " + info.name);
-
-    try {
-      hlp::buffer<BYTE, QUERY_SERVICE_CONFIG *> qscData = queryServiceConfig(hService, info.name);
-      info.start_type = qscData.get()->dwStartType;
-      info.binary_path = utf8::cvt<std::string>(qscData.get()->lpBinaryPathName);
-      info.error_control = qscData.get()->dwErrorControl;
-    } catch (std::exception &e) {
-      NSC_LOG_ERROR("Failed to query service config: " + info.name + ": " + e.what());
-      info.start_type = 0;
-      info.binary_path = "N/A";
-      info.error_control = 0;
+    DWORD bytesNeeded = probeBytes;
+    DWORD count = 0;
+    const hlp::buffer<BYTE, ENUM_SERVICE_STATUS_PROCESS *> buf(bytesNeeded + 10);
+    bRet = windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, buf, bytesNeeded, &bytesNeeded, &count, &handle,
+                                                 nullptr);
+    if (!bRet) {
+      err = GetLastError();
+      // ERROR_MORE_DATA here is expected for paged enumeration: this batch
+      // is filled and there are still more services to read on the next
+      // iteration. Anything else is a real failure.
+      if (err != ERROR_MORE_DATA) {
+        throw nsclient::nsclient_exception("Failed to enumerate service: " + error::format::from_system(err));
+      }
     }
-    fetch_delayed(hService, info);
-    fetch_triggers(hService, info);
-    ret.push_back(info);
+
+    const ENUM_SERVICE_STATUS_PROCESS *data = buf.get();
+    for (DWORD i = 0; i < count; ++i) {
+      const auto service_name = utf8::cvt<std::string>(data[i].lpServiceName);
+      if (std::find(excludes.begin(), excludes.end(), service_name) != excludes.end()) {
+        continue;
+      }
+      service_info info(utf8::cvt<std::string>(data[i].lpServiceName), utf8::cvt<std::string>(data[i].lpDisplayName));
+      info.pid = data[i].ServiceStatusProcess.dwProcessId;
+      info.state = data[i].ServiceStatusProcess.dwCurrentState;
+      info.type = data[i].ServiceStatusProcess.dwServiceType;
+      info.exit_code = data[i].ServiceStatusProcess.dwWin32ExitCode;
+
+      service_handle hService = OpenService(sc, data[i].lpServiceName, SERVICE_QUERY_CONFIG);
+      if (!hService) throw nsclient::nsclient_exception("Failed to open service: " + info.name);
+
+      try {
+        hlp::buffer<BYTE, QUERY_SERVICE_CONFIG *> qscData = queryServiceConfig(hService, info.name);
+        info.start_type = qscData.get()->dwStartType;
+        info.binary_path = utf8::cvt<std::string>(qscData.get()->lpBinaryPathName);
+        info.error_control = qscData.get()->dwErrorControl;
+      } catch (std::exception &e) {
+        NSC_LOG_ERROR("Failed to query service config: " + info.name + ": " + e.what());
+        info.start_type = 0;
+        info.binary_path = "N/A";
+        info.error_control = 0;
+      }
+      fetch_delayed(hService, info);
+      fetch_triggers(hService, info);
+      ret.push_back(info);
+    }
+
+    if (bRet) {
+      // Bulk call succeeded => last batch consumed, no more data.
+      break;
+    }
+    // Otherwise ERROR_MORE_DATA: handle has been advanced, loop for the
+    // next page.
   }
   return ret;
 }
