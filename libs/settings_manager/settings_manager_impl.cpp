@@ -146,6 +146,8 @@ void NSCSettingsImpl::boot(std::string key) {
     tls_version_ = utf8::cvt<std::string>(boot_conf.GetValue(L"tls", L"version", utf8::cvt<std::wstring>(tls_version_).c_str()));
     tls_verify_mode_ = utf8::cvt<std::string>(boot_conf.GetValue(L"tls", L"verify mode", utf8::cvt<std::wstring>(tls_verify_mode_).c_str()));
     tls_ca_ = utf8::cvt<std::string>(boot_conf.GetValue(L"tls", L"ca", utf8::cvt<std::wstring>(tls_ca_).c_str()));
+    proxy_url_ = utf8::cvt<std::string>(boot_conf.GetValue(L"proxy", L"url", L""));
+    no_proxy_ = utf8::cvt<std::string>(boot_conf.GetValue(L"proxy", L"no_proxy", L""));
   }
   if (order.size() == 0) {
     get_logger()->debug("settings", __FILE__, __LINE__, "No entries found looking in (adding default): " + boot_.string());

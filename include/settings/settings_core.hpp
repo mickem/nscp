@@ -292,6 +292,9 @@ class settings_core {
   virtual std::string get_tls_version() const = 0;
   virtual std::string get_tls_verify_mode() const = 0;
   virtual std::string get_tls_ca() const = 0;
+
+  virtual std::string get_proxy_url() const = 0;
+  virtual std::string get_no_proxy() const = 0;
 };
 
 }  // namespace settings
