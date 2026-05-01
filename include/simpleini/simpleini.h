@@ -193,6 +193,7 @@
 
 #ifndef INCLUDED_SimpleIni_h
 #define INCLUDED_SimpleIni_h
+#include "str/utf8.hpp"
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1020)
 #pragma once
