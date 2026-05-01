@@ -1,0 +1,173 @@
+---
+name: Build Boost
+description: Download and build Boost C++ libraries (Windows/MSVC).
+inputs:
+  version:
+    description: Boost version to build (e.g. 1.86.0)
+    required: true
+  architecture:
+    description: Target architecture (x86, x64 or arm64)
+    required: true
+  toolset:
+    description: |
+      MSVC toolset version passed to b2 (e.g. 14.1 for v141, 14.3 for v143).
+    required: true
+  libraries:
+    description: Space-separated list of Boost libraries (without the `--with-` prefix).
+    required: true
+  link:
+    description: shared or static
+    required: false
+    default: shared
+  runtime-link:
+    description: shared or static
+    required: false
+    default: shared
+  target_folder:
+    description: |
+      Directory (relative to workspace) used as both the unpacked Boost source
+      tree and the cache key. Defaults to `tmp/boost`. Use a unique value for
+      each independent build (e.g. `tmp/static_boost`).
+    required: false
+    default: tmp/boost
+  python-version:
+    description: |
+      Python major.minor (e.g. `3.11`). Required if `python` is in `libraries`
+      *and* you want to override the auto-detected interpreter (e.g. when
+      cross-compiling). Combined with `python-include` / `python-libs` it
+      writes a `user-config.jam` so b2 picks up the right headers/libs.
+    required: false
+    default: ''
+  python-include:
+    description: Python include directory for boost.python (cross-compile).
+    required: false
+    default: ''
+  python-libs:
+    description: Python import library directory for boost.python (cross-compile).
+    required: false
+    default: ''
+
+outputs:
+  root:
+    description: Root Boost directory (Windows path).
+    value: ${{ steps.path.outputs.root }}
+  root_unix:
+    description: Root Boost directory (forward-slash path).
+    value: ${{ steps.path.outputs.root_unix }}
+  librarydir:
+    description: Directory containing built Boost libraries (Windows path).
+    value: ${{ steps.path.outputs.librarydir }}
+  librarydir_unix:
+    description: Directory containing built Boost libraries (forward-slash path).
+    value: ${{ steps.path.outputs.librarydir_unix }}
+
+runs:
+  using: composite
+  steps:
+
+    - id: cache
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-boost-${{ inputs.version }}-${{ inputs.architecture }}-${{ inputs.toolset }}-${{ inputs.link }}-${{ inputs.runtime-link }}-py${{ inputs.python-version }}-${{ hashFiles('.github/actions/boost/action.yaml') }}-${{ inputs.libraries }}
+        path: |
+          ${{ inputs.target_folder }}
+
+    - id: setup
+      shell: pwsh
+      run: |
+        $arch = '${{ inputs.architecture }}'
+        switch ($arch) {
+          'x86'   { $b2_arch = @('address-model=32');                          $stage = 'x86'   }
+          'x64'   { $b2_arch = @('address-model=64');                          $stage = 'x64'   }
+          'arm64' { $b2_arch = @('architecture=arm', 'address-model=64');      $stage = 'arm64' }
+          default { Write-Error "Unsupported architecture '$arch'"; exit 1 }
+        }
+
+        $version    = '${{ inputs.version }}'
+        $underscore = $version.Replace('.', '_')
+        $stagedir   = "stage/$stage/Release"
+
+        echo "b2_arch=$($b2_arch -join ' ')"      >> $env:GITHUB_OUTPUT
+        echo "stage=$stage"                       >> $env:GITHUB_OUTPUT
+        echo "stagedir=$stagedir"                 >> $env:GITHUB_OUTPUT
+        echo "version_underscore=$underscore"     >> $env:GITHUB_OUTPUT
+
+    - name: Download Boost
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $version    = '${{ inputs.version }}'
+        $underscore = '${{ steps.setup.outputs.version_underscore }}'
+        $target     = '${{ inputs.target_folder }}'
+        $parent     = Split-Path $target
+        if (-not (Test-Path $parent)) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
+        if (Test-Path $target) { Remove-Item -Recurse -Force $target }
+
+        $archive = Join-Path $env:RUNNER_TEMP "boost_$underscore.tar.gz"
+        if (-not (Test-Path $archive)) {
+          $url = "https://archives.boost.io/release/$version/source/boost_$underscore.tar.gz"
+          Write-Host "Downloading $url"
+          Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $archive
+        }
+
+        Write-Host "Extracting $archive to $parent"
+        tar -xzf $archive -C $parent
+        Move-Item (Join-Path $parent "boost_$underscore") $target
+
+    - name: Bootstrap b2
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: cmd
+      working-directory: ${{ inputs.target_folder }}
+      run: |
+        if not exist b2.exe call bootstrap.bat
+
+    - name: Build Boost
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: pwsh
+      working-directory: ${{ inputs.target_folder }}
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $libs = '${{ inputs.libraries }}'.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries) |
+                ForEach-Object { "--with-$_" }
+        $arch = '${{ steps.setup.outputs.b2_arch }}'.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
+        $b2args = @("toolset=msvc-${{ inputs.toolset }}") + $arch + @(
+            'variant=release',
+            "link=${{ inputs.link }}",
+            "runtime-link=${{ inputs.runtime-link }}",
+            'threading=multi',
+            '--layout=system',
+            "--stagedir=${{ steps.setup.outputs.stagedir }}"
+        )
+
+        # Optional: user-config.jam for cross-compiled boost.python.
+        $py_version = '${{ inputs.python-version }}'
+        $py_include = '${{ inputs.python-include }}'
+        $py_libs    = '${{ inputs.python-libs }}'
+        if ($py_version -and $py_include -and $py_libs) {
+            $inc_fwd = $py_include.Replace('\','/')
+            $lib_fwd = $py_libs.Replace('\','/')
+            $jam = "using python : $py_version : python : `"$inc_fwd`" : `"$lib_fwd`" ;`n"
+            $jam_path = Join-Path (Resolve-Path '.').Path 'user-config.jam'
+            Set-Content -Path $jam_path -Value $jam -Encoding ASCII
+            Write-Host "Wrote $jam_path :"
+            Get-Content $jam_path
+            $b2args += "--user-config=$jam_path"
+        }
+
+        $b2args += $libs + @('-d0', 'warnings=off', 'stage')
+        Write-Host "Running: b2 $($b2args -join ' ')"
+        & .\b2.exe @b2args
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    - id: path
+      shell: pwsh
+      run: |
+        $root = (Resolve-Path '${{ inputs.target_folder }}').Path
+        $lib  = Join-Path $root '${{ steps.setup.outputs.stagedir }}/lib'
+        echo "root=$root"                           >> $env:GITHUB_OUTPUT
+        echo "root_unix=$($root.Replace('\','/'))"  >> $env:GITHUB_OUTPUT
+        echo "librarydir=$lib"                      >> $env:GITHUB_OUTPUT
+        echo "librarydir_unix=$($lib.Replace('\','/'))" >> $env:GITHUB_OUTPUT
+
+
