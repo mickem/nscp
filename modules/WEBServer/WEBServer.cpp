@@ -173,7 +173,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       session->add_grant(v.first, v.second);
     }
 
-    socket_helpers::validate_certificate(certificate, errors);
+    socket_helpers::validate_certificate(certificate, errors, false);
     NSC_LOG_ERROR_LISTS(errors);
     std::string path = get_core()->expand_path("${web-path}");
     if (!boost::filesystem::is_directory(path)) {

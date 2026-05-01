@@ -35,12 +35,21 @@ const int socket_helpers::connection_info::backlog_default = 0;
 namespace ip = boost::asio::ip;
 
 std::list<std::string> socket_helpers::connection_info::validate() const { return validate_ssl(); }
-void socket_helpers::validate_certificate(const std::string &certificate, std::list<std::string> &list) {
+void socket_helpers::validate_certificate(const std::string &certificate, std::list<std::string> &list, bool create_if_missing) {
 #ifdef USE_SSL
   if (!certificate.empty() && !boost::filesystem::is_regular_file(certificate)) {
+    if (!create_if_missing) {
+      list.emplace_back("Certificate not found: " + certificate);
+      return;
+    }
     const auto parent_path = boost::filesystem::path(certificate).parent_path();
-    if (!exists(parent_path)) {
-      boost::filesystem::create_directories(parent_path);
+    if (!parent_path.empty() && !exists(parent_path)) {
+      boost::system::error_code ec;
+      boost::filesystem::create_directories(parent_path, ec);
+      if (ec) {
+        list.emplace_back("Failed to create certificate folder '" + parent_path.string() + "': " + ec.message());
+        return;
+      }
       list.emplace_back("Creating certificate folder: " + parent_path.string());
     }
     if (boost::algorithm::ends_with(certificate, "/certificate.pem")) {

@@ -238,7 +238,18 @@ class INISettings : public settings::settings_interface_impl {
   virtual void save(bool re_save_all) {
     settings_interface_impl::save(re_save_all);
 
-    SI_Error rc = ini.SaveFile(get_file_name().string().c_str());
+    boost::filesystem::path file = get_file_name();
+    boost::filesystem::path parent = file.parent_path();
+    if (!parent.empty() && !boost::filesystem::exists(parent)) {
+      boost::system::error_code ec;
+      boost::filesystem::create_directories(parent, ec);
+      if (ec) {
+        throw settings_exception(__FILE__, __LINE__,
+                                 "Failed to create directory '" + parent.string() + "': " + ec.message());
+      }
+    }
+
+    SI_Error rc = ini.SaveFile(file.string().c_str());
     if (rc < 0) throw_SI_error(rc, "Failed to save file");
   }
 
