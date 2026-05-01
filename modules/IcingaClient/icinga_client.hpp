@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <bytes/base64.hpp>
 #include <net/http/client.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <nscapi/macros.hpp>
@@ -34,36 +35,6 @@
 #include "icinga.hpp"
 
 namespace icinga_client {
-
-inline std::string base64_encode(const std::string &input) {
-  static const char *table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  std::string out;
-  out.reserve(((input.size() + 2) / 3) * 4);
-  std::size_t i = 0;
-  while (i + 3 <= input.size()) {
-    const unsigned char a = static_cast<unsigned char>(input[i]);
-    const unsigned char b = static_cast<unsigned char>(input[i + 1]);
-    const unsigned char c = static_cast<unsigned char>(input[i + 2]);
-    out.push_back(table[(a >> 2) & 0x3F]);
-    out.push_back(table[((a << 4) | (b >> 4)) & 0x3F]);
-    out.push_back(table[((b << 2) | (c >> 6)) & 0x3F]);
-    out.push_back(table[c & 0x3F]);
-    i += 3;
-  }
-  if (i < input.size()) {
-    const unsigned char a = static_cast<unsigned char>(input[i]);
-    const unsigned char b = (i + 1 < input.size()) ? static_cast<unsigned char>(input[i + 1]) : 0;
-    out.push_back(table[(a >> 2) & 0x3F]);
-    out.push_back(table[((a << 4) | (b >> 4)) & 0x3F]);
-    if (i + 1 < input.size()) {
-      out.push_back(table[(b << 2) & 0x3F]);
-    } else {
-      out.push_back('=');
-    }
-    out.push_back('=');
-  }
-  return out;
-}
 
 struct connection_data : public socket_helpers::connection_info {
   std::string username;
@@ -128,7 +99,7 @@ struct connection_data : public socket_helpers::connection_info {
 };
 
 inline std::string make_basic_auth(const std::string &user, const std::string &pwd) {
-  return std::string("Basic ") + base64_encode(user + ":" + pwd);
+  return std::string("Basic ") + bytes::base64_encode(user + ":" + pwd);
 }
 
 struct http_response {
@@ -153,10 +124,9 @@ inline http_response do_http(const connection_data &con, const std::string &verb
     request.verb_ = verb;
   }
 
-  std::ostringstream os;
-  http::response response = c.execute_full(os, con.get_address(), con.get_port(), request);
+  http::response response = c.fetch(con.get_address(), con.get_port(), request);
   result.status = response.status_code_;
-  result.body = os.str();
+  result.body = response.payload_;
   return result;
 }
 

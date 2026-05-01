@@ -12,6 +12,7 @@ set(SRCS
     icinga.cpp
     ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
+    ${NSCP_INCLUDEDIR}/bytes/base64.c
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_CLIENT_CPP}
 )
