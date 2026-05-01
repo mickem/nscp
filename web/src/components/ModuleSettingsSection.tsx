@@ -36,7 +36,7 @@ export default function ModuleSettingsSection({ section, settings }: Props) {
       <Collapse in={open} timeout="auto" unmountOnExit>
         <List dense>
           {keys.map((setting) => (
-            <SettingsItem key={`${setting.path}-${setting.key}`} dense={true} path={setting.path} setting={setting} />
+            <SettingsItem key={`${setting.path}-${setting.key}`} path={setting.path} setting={setting} />
           ))}
           {keys.length === 0 && (
             <ListItem sx={{ paddingLeft: 3 }}>
