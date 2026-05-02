@@ -32,7 +32,7 @@ namespace json = boost::json;
 
 namespace icinga {
 
-int map_exit_status(int nagios_status, bool is_host) {
+int map_exit_status(const int nagios_status, const bool is_host) {
   if (is_host) {
     // Icinga 2 (lib/icinga/apiactions.cpp) only accepts 0 (UP) or 1 (DOWN) for hosts.
     return (nagios_status == 0) ? 0 : 1;
@@ -65,9 +65,32 @@ std::vector<std::string> split_perfdata(const std::string &perfdata) {
   return out;
 }
 
-std::string build_check_result_body(int nagios_status, const std::string &plugin_output, const std::string &perfdata, const std::string &check_source,
-                                    bool is_host) {
+namespace {
+// Escape a host or service name so it can be embedded inside a double-quoted
+// string literal in an Icinga 2 filter expression.  Icinga 2 uses C-style
+// escapes inside string literals, so backslash and double-quote are the only
+// characters we have to handle for safe injection.
+std::string filter_quote(const std::string &s) {
+  std::string out;
+  out.reserve(s.size());
+  for (const char c : s) {
+    if (c == '\\' || c == '"') out += '\\';
+    out += c;
+  }
+  return out;
+}
+}  // namespace
+
+std::string build_check_result_body(const int nagios_status, const std::string &plugin_output, const std::string &perfdata, const std::string &check_source,
+                                    const std::string &host, const std::string &service) {
+  const bool is_host = service.empty();
   json::object body;
+  body["type"] = is_host ? "Host" : "Service";
+
+  std::string filter = "host.name==\"" + filter_quote(host) + "\"";
+  if (!is_host) filter += " && service.name==\"" + filter_quote(service) + "\"";
+  body["filter"] = filter;
+
   body["exit_status"] = map_exit_status(nagios_status, is_host);
   body["plugin_output"] = plugin_output;
 
@@ -127,7 +150,19 @@ submit_result parse_check_result_response(const std::string &body) {
     return r;
   }
   try {
-    json::value v = json::parse(body);
+    // Use stream_parser rather than json::parse so that any trailing bytes
+    // after the first complete JSON value (e.g. chunked-transfer "0\r\n\r\n"
+    // residue that the HTTP client failed to strip) do not turn a successful
+    // submission into a parse failure.
+    json::stream_parser p;
+    boost::system::error_code ec;
+    p.write_some(body, ec);
+    if (ec) throw std::runtime_error(ec.message());
+    if (!p.done()) {
+      r.message = "Incomplete Icinga 2 response: " + body.substr(0, 256);
+      return r;
+    }
+    json::value v = p.release();
     if (v.is_object()) {
       const json::object &obj = v.as_object();
       auto it = obj.find("results");

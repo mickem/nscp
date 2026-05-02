@@ -66,7 +66,9 @@ TEST(IcingaTest, SplitPerfdataEmpty) {
 }
 
 TEST(IcingaTest, BuildCheckResultBodyService) {
-  const auto body = icinga::build_check_result_body(2, "CRIT", "load=0.9 mem=50%", "myhost", false);
+  const auto body = icinga::build_check_result_body(2, "CRIT", "load=0.9 mem=50%", "myhost", "myhost", "heartbeat");
+  EXPECT_NE(body.find("\"type\":\"Service\""), std::string::npos);
+  EXPECT_NE(body.find("\"filter\":\"host.name==\\\"myhost\\\" && service.name==\\\"heartbeat\\\"\""), std::string::npos);
   EXPECT_NE(body.find("\"exit_status\":2"), std::string::npos);
   EXPECT_NE(body.find("\"plugin_output\":\"CRIT\""), std::string::npos);
   EXPECT_NE(body.find("\"performance_data\":[\"load=0.9\",\"mem=50%\"]"), std::string::npos);
@@ -74,10 +76,29 @@ TEST(IcingaTest, BuildCheckResultBodyService) {
 }
 
 TEST(IcingaTest, BuildCheckResultBodyHostClamp) {
-  const auto body = icinga::build_check_result_body(2, "DOWN", "", "h", true);
+  // Empty service => host check.  Status 2 (CRIT) clamps to 1 (DOWN).
+  const auto body = icinga::build_check_result_body(2, "DOWN", "", "h", "h", "");
+  EXPECT_NE(body.find("\"type\":\"Host\""), std::string::npos);
+  EXPECT_NE(body.find("\"filter\":\"host.name==\\\"h\\\"\""), std::string::npos);
+  EXPECT_EQ(body.find("service.name"), std::string::npos);
   EXPECT_NE(body.find("\"exit_status\":1"), std::string::npos);
   // No performance_data should appear when perfdata is empty.
   EXPECT_EQ(body.find("performance_data"), std::string::npos);
+}
+
+TEST(IcingaTest, BuildCheckResultBodyEscapesQuotesAndBackslashesInFilter) {
+  // Hosts containing " or \ have to be escaped so the filter expression stays
+  // a valid Icinga 2 string literal.
+  const auto body = icinga::build_check_result_body(0, "OK", "", "", "weird\\host\"name", "svc\"x");
+  // Expected filter (in the JSON string): host.name=="weird\\host\"name" && service.name=="svc\"x"
+  // After JSON serialisation the backslashes are doubled again.
+  EXPECT_NE(body.find("host.name==\\\"weird\\\\\\\\host\\\\\\\"name\\\""), std::string::npos);
+  EXPECT_NE(body.find("service.name==\\\"svc\\\\\\\"x\\\""), std::string::npos);
+}
+
+TEST(IcingaTest, BuildCheckResultBodyOmitsCheckSourceWhenEmpty) {
+  const auto body = icinga::build_check_result_body(0, "OK", "", "", "h", "s");
+  EXPECT_EQ(body.find("check_source"), std::string::npos);
 }
 
 TEST(IcingaTest, BuildHostCreateBodyDefaultTemplate) {
@@ -126,6 +147,16 @@ TEST(IcingaTest, ParseCheckResultResponseEmpty) {
   const auto r = icinga::parse_check_result_response("");
   EXPECT_FALSE(r.ok);
   EXPECT_FALSE(r.message.empty());
+}
+
+TEST(IcingaTest, ParseCheckResultResponseToleratesChunkedTrailer) {
+  // Some HTTP responses arrive with the chunked-encoding terminator ("0\r\n")
+  // appended to the body. The parser must read the JSON object and ignore the
+  // trailer rather than reporting a parse failure on a successful submission.
+  const std::string body = "{\"results\":[{\"code\":200,\"status\":\"Successfully processed check result for object 'h!s'.\"}]}\r\n0\r\n\r\n";
+  const auto r = icinga::parse_check_result_response(body);
+  EXPECT_TRUE(r.ok);
+  EXPECT_EQ(r.message, "Successfully processed check result for object 'h!s'.");
 }
 
 TEST(IcingaTest, UrlEncode) {

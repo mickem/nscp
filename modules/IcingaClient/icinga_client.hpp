@@ -36,7 +36,7 @@
 
 namespace icinga_client {
 
-struct connection_data : public socket_helpers::connection_info {
+struct connection_data : socket_helpers::connection_info {
   std::string username;
   std::string password;
   std::string protocol;
@@ -69,7 +69,7 @@ struct connection_data : public socket_helpers::connection_info {
     username = arguments.get_string_data("username");
     password = arguments.get_string_data("password");
     retry = arguments.get_int_data("retry", 3);
-    tls_version = arguments.get_string_data("tls version");
+    tls_version = arguments.get_string_data("tls version", "1.3");
     verify_mode = arguments.get_string_data("verify mode");
     ca = arguments.get_string_data("ca");
 
@@ -79,7 +79,14 @@ struct connection_data : public socket_helpers::connection_info {
     check_command = arguments.get_string_data("check_command");
     check_source = arguments.get_string_data("check_source");
 
-    if (sender.has_data("host")) sender_hostname = sender.get_string_data("host");
+    // destination_container::set_string_data("host", ...) routes to
+    // address.host (see command_line_parser.hpp), so the sender hostname is
+    // read from the address rather than from the data map. Fall back to the
+    // local host name when no override has been supplied (e.g. submit_icinga
+    // invoked from the CLI without --hostname).
+    sender_hostname = sender.get_host();
+    if (sender_hostname.empty()) sender_hostname = sender.get_string_data("host");
+    if (sender_hostname.empty()) sender_hostname = boost::asio::ip::host_name();
     if (check_source.empty()) check_source = sender_hostname;
   }
 
@@ -98,12 +105,10 @@ struct connection_data : public socket_helpers::connection_info {
   }
 };
 
-inline std::string make_basic_auth(const std::string &user, const std::string &pwd) {
-  return std::string("Basic ") + bytes::base64_encode(user + ":" + pwd);
-}
+inline std::string make_basic_auth(const std::string &user, const std::string &pwd) { return std::string("Basic ") + bytes::base64_encode(user + ":" + pwd); }
 
 struct http_response {
-  unsigned int status;
+  unsigned int status{};
   std::string body;
 };
 
@@ -113,7 +118,7 @@ inline http_response do_http(const connection_data &con, const std::string &verb
   http::http_client_options options(con.protocol, con.tls_version, con.verify_mode, con.ca);
   http::simple_client c(options);
 
-  http::packet request(verb, con.get_address(), path);
+  http::request request(verb, con.get_address(), path);
   request.add_header("Authorization", make_basic_auth(con.username, con.password));
   request.add_header("Accept", "application/json");
   if (!json_body.empty()) {
@@ -130,23 +135,26 @@ inline http_response do_http(const connection_data &con, const std::string &verb
   return result;
 }
 
-struct icinga_client_handler : public client::handler_interface {
-  bool query(client::destination_container, client::destination_container, const PB::Commands::QueryRequestMessage &, PB::Commands::QueryResponseMessage &) {
+struct icinga_client_handler : client::handler_interface {
+  bool query(client::destination_container, client::destination_container, const PB::Commands::QueryRequestMessage &,
+             PB::Commands::QueryResponseMessage &) override {
     return false;
   }
 
-  bool exec(client::destination_container, client::destination_container, const PB::Commands::ExecuteRequestMessage &, PB::Commands::ExecuteResponseMessage &) {
+  bool exec(client::destination_container, client::destination_container, const PB::Commands::ExecuteRequestMessage &,
+            PB::Commands::ExecuteResponseMessage &) override {
     return false;
   }
 
-  bool metrics(client::destination_container, client::destination_container, const PB::Metrics::MetricsMessage &) { return false; }
+  bool metrics(client::destination_container, client::destination_container, const PB::Metrics::MetricsMessage &) override { return false; }
 
   bool submit(client::destination_container sender, client::destination_container target, const PB::Commands::SubmitRequestMessage &request_message,
-              PB::Commands::SubmitResponseMessage &response_message) {
+              PB::Commands::SubmitResponseMessage &response_message) override {
     const PB::Common::Header &request_header = request_message.header();
     nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
     connection_data con(target, sender);
 
+    NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Sender configuration: " + sender.to_string()); }
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Target configuration: " + target.to_string()); }
 
     for (const ::PB::Commands::QueryResponseMessage_Response &p : request_message.payload()) {
@@ -155,7 +163,8 @@ struct icinga_client_handler : public client::handler_interface {
     return true;
   }
 
-  void submit_one(PB::Commands::SubmitResponseMessage::Response *payload, const connection_data &con, const PB::Commands::QueryResponseMessage::Response &p) {
+  static void submit_one(PB::Commands::SubmitResponseMessage::Response *payload, const connection_data &con,
+                         const PB::Commands::QueryResponseMessage::Response &p) {
     try {
       std::string alias = p.alias();
       if (alias.empty()) alias = p.command();
@@ -188,15 +197,13 @@ struct icinga_client_handler : public client::handler_interface {
         }
       }
 
-      const std::string body = icinga::build_check_result_body(nagios_result, plugin_output, perfdata, con.check_source, is_host);
-
-      std::string query;
-      if (is_host) {
-        query = "host=" + icinga::url_encode(host);
-      } else {
-        query = "service=" + icinga::url_encode(host + "!" + alias);
-      }
-      const std::string path = "/v1/actions/process-check-result?" + query;
+      // Use the filter form (type + filter in the body) on a fixed URL.  The
+      // alternative ?host=/?service=host!service query form requires the exact
+      // Icinga 2 __name of the object, which depends on how the object was
+      // declared (apply rules in particular).  The filter form matches by the
+      // user-visible host.name / service.name and just works.
+      const std::string body = icinga::build_check_result_body(nagios_result, plugin_output, perfdata, con.check_source, host, is_host ? std::string() : alias);
+      const std::string path = "/v1/actions/process-check-result";
 
       NSC_TRACE_ENABLED() { NSC_TRACE_MSG("POST " + path + " " + body); }
       http_response res = do_http(con, "POST", path, body);
@@ -228,10 +235,10 @@ struct icinga_client_handler : public client::handler_interface {
 
   // GET first; only PUT if 404.  Icinga 2 returns HTTP 500 when an object
   // already exists (not 409), so we cannot rely on the PUT response alone.
-  bool ensure_host(const connection_data &con, const std::string &host) {
+  static bool ensure_host(const connection_data &con, const std::string &host) {
     const std::string get_path = "/v1/objects/hosts/" + icinga::url_encode(host);
     try {
-      http_response existing = do_http(con, "GET", get_path, std::string());
+      const http_response existing = do_http(con, "GET", get_path, std::string());
       if (existing.status >= 200 && existing.status < 300) return true;
       if (existing.status != 404) {
         // 401/403 etc.  Surface these via a normal create attempt failure below.
@@ -240,21 +247,21 @@ struct icinga_client_handler : public client::handler_interface {
       // fall through to create
     }
     const std::string body = icinga::build_host_create_body(host, con.host_template);
-    http_response created = do_http(con, "PUT", get_path, body);
+    const http_response created = do_http(con, "PUT", get_path, body);
     return created.status >= 200 && created.status < 300;
   }
 
-  bool ensure_service(const connection_data &con, const std::string &host, const std::string &service) {
+  static bool ensure_service(const connection_data &con, const std::string &host, const std::string &service) {
     const std::string ident = host + "!" + service;
     const std::string get_path = "/v1/objects/services/" + icinga::url_encode(ident);
     try {
-      http_response existing = do_http(con, "GET", get_path, std::string());
+      const http_response existing = do_http(con, "GET", get_path, std::string());
       if (existing.status >= 200 && existing.status < 300) return true;
     } catch (...) {
       // fall through to create
     }
     const std::string body = icinga::build_service_create_body(con.service_template, con.check_command);
-    http_response created = do_http(con, "PUT", get_path, body);
+    const http_response created = do_http(con, "PUT", get_path, body);
     return created.status >= 200 && created.status < 300;
   }
 };

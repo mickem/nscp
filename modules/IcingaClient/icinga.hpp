@@ -39,11 +39,12 @@ int map_exit_status(int nagios_status, bool is_host);
 /// embedded spaces) into individual entries to submit as a JSON array.
 std::vector<std::string> split_perfdata(const std::string &perfdata);
 
-/// Build the JSON body for a process-check-result action.  `is_host` controls
-/// the host-vs-service exit_status clamping mandated by Icinga 2's
+/// Build the JSON body for a process-check-result action using the filter
+/// form (`type` + `filter`).  An empty `service` means the result is a host
+/// check, which also drives the exit_status clamping mandated by Icinga 2's
 /// apiactions.cpp (host accepts only 0 or 1).
 std::string build_check_result_body(int nagios_status, const std::string &plugin_output, const std::string &perfdata, const std::string &check_source,
-                                    bool is_host);
+                                    const std::string &host, const std::string &service);
 
 /// Build a JSON body for `PUT /v1/objects/hosts/<host>` when ensuring objects.
 std::string build_host_create_body(const std::string &host, const std::string &templates);

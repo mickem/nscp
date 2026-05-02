@@ -21,9 +21,10 @@
 
 #include <boost/make_shared.hpp>
 #include <net/http/client.hpp>
+#include <net/socket/socket_helpers.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/settings/helper.hpp>
-#include <str/utils.hpp>
+#include <utility>
 
 #include "icinga_client.hpp"
 #include "icinga_target_object.hpp"
@@ -33,28 +34,23 @@
  * @return
  */
 IcingaClient::IcingaClient()
-    : client_("icinga", boost::make_shared<icinga_client::icinga_client_handler>(), boost::make_shared<icinga_handler::options_reader_impl>()) {}
+    : simple_plugin(),
+      client_("icinga", boost::make_shared<icinga_client::icinga_client_handler>(), boost::make_shared<icinga_handler::options_reader_impl>()) {}
 
-/**
- * Default d-tor
- * @return
- */
-IcingaClient::~IcingaClient() {}
-
-bool IcingaClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
+bool IcingaClient::loadModuleEx(const std::string &alias, NSCAPI::moduleLoadMode) {
   try {
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
-    settings.set_alias("Icinga", alias, "client");
+    settings.set_alias("icinga", alias, "client");
     client_.set_path(settings.alias().get_settings_path("targets"));
 
     // clang-format off
     settings.alias().add_path_to_settings()
       ("Icinga 2 client", "Section for Icinga 2 (Icinga REST API) passive check submission.")
-      ("handlers", sh::fun_values_path([this] (auto key, auto value) { this->add_command(key, value); }),
+      ("handlers", sh::fun_values_path([this] (auto key, auto value) { this->add_command(std::move(key), std::move(value)); }),
 	      "CLIENT HANDLER SECTION", "",
 	      "CLIENT HANDLER", "For more configuration options add a dedicated section")
 
-      ("targets", sh::fun_values_path([this] (auto key, auto value) { this->add_target(key, value); }),
+      ("targets", sh::fun_values_path([this] (auto key, auto value) { this->add_target(std::move(key), std::move(value)); }),
 	      "REMOTE TARGET DEFINITIONS", "",
 	      "TARGET", "For more configuration options add a dedicated section")
       ;
@@ -84,45 +80,7 @@ bool IcingaClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     nscapi::core_helper core(get_core(), get_id());
     core.register_channel(channel_);
 
-    if (hostname_ == "auto") {
-      hostname_ = boost::asio::ip::host_name();
-    } else if (hostname_ == "auto-lc") {
-      hostname_ = boost::asio::ip::host_name();
-      std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::tolower);
-    } else if (hostname_ == "auto-uc") {
-      hostname_ = boost::asio::ip::host_name();
-      std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::toupper);
-    } else {
-      str::utils::token dn = str::utils::getToken(boost::asio::ip::host_name(), '.');
-
-      try {
-        boost::asio::io_service svc;
-        boost::asio::ip::tcp::resolver resolver(svc);
-        boost::asio::ip::tcp::resolver::query query(boost::asio::ip::host_name(), "");
-        boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve(query), end;
-
-        std::string s;
-        while (iter != end) {
-          s += iter->host_name();
-          s += " - ";
-          s += iter->endpoint().address().to_string();
-          iter++;
-        }
-      } catch (const std::exception &e) {
-        NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
-      }
-
-      str::utils::replace(hostname_, "${host}", dn.first);
-      str::utils::replace(hostname_, "${domain}", dn.second);
-      std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::toupper);
-      std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::toupper);
-      str::utils::replace(hostname_, "${host_uc}", dn.first);
-      str::utils::replace(hostname_, "${domain_uc}", dn.second);
-      std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::tolower);
-      std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::tolower);
-      str::utils::replace(hostname_, "${host_lc}", dn.first);
-      str::utils::replace(hostname_, "${domain_lc}", dn.second);
-    }
+    hostname_ = socket_helpers::expand_hostname(hostname_);
     client_.set_sender(hostname_);
   } catch (nsclient::nsclient_exception &e) {
     NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
@@ -141,7 +99,7 @@ bool IcingaClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 // Settings helpers
 //
 
-void IcingaClient::add_target(std::string key, std::string arg) {
+void IcingaClient::add_target(const std::string &key, const std::string &arg) {
   try {
     client_.add_target(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
   } catch (const std::exception &e) {
@@ -151,11 +109,11 @@ void IcingaClient::add_target(std::string key, std::string arg) {
   }
 }
 
-void IcingaClient::add_command(std::string key, std::string arg) {
+void IcingaClient::add_command(const std::string &key, const std::string &arg) {
   try {
     nscapi::core_helper core(get_core(), get_id());
-    std::string k = client_.add_command(key, arg);
-    if (!k.empty()) core.register_command(k.c_str(), "Icinga 2 relay for: " + key);
+    const std::string k = client_.add_command(key, arg);
+    if (!k.empty()) core.register_command(k, "Icinga 2 relay for: " + key);
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("Failed to add command: " + key, e);
   } catch (...) {

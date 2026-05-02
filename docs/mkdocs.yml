@@ -41,8 +41,8 @@ nav:
       - Event Log Monitoring: scenarios/event-log.md
       - Network Checks: scenarios/network-checks.md
       - External Scripts: scenarios/external-scripts.md
-      - Passive Monitoring (NSCA/NRDP): scenarios/passive-monitoring.md
       - Passive Monitoring (NSCA/NRDP): scenarios/passive-monitoring-nsca.md
+      - Passive Monitoring (Icinga 2): scenarios/passive-monitoring-icinga.md
   - How To:
       - Performance Counters: howto/counters.md
       - External Scripts: howto/external_scripts.md
