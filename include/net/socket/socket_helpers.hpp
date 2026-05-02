@@ -39,6 +39,15 @@ void write_certs(const std::string& cert, bool ca);
 #endif
 void validate_certificate(const std::string& certificate, std::list<std::string>& list);
 
+// Resolve a hostname spec used by the various submit-clients.
+//   "auto"     -> system host name as-is
+//   "auto-lc"  -> system host name, lower-cased
+//   "auto-uc"  -> system host name, upper-cased
+//   anything else: ${host}, ${domain}, ${host_lc}, ${host_uc}, ${domain_lc}
+//   and ${domain_uc} are substituted from the system host name (split on the
+//   first '.' into host and domain). Other text is preserved.
+std::string expand_hostname(std::string spec);
+
 class socket_exception : public std::exception {
   std::string error;
 

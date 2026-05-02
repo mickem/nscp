@@ -19,6 +19,8 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/algorithm/string.hpp>
+#include <boost/asio/ip/host_name.hpp>
 #include <net/socket/server.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <string>
@@ -273,6 +275,45 @@ TEST(ConnectionInfo, ToStringContainsSslInfo) {
   EXPECT_NE(result.find("ssl disabled"), std::string::npos);
 }
 
+// =============================================================================
+// expand_hostname
+// =============================================================================
+
+TEST(ExpandHostname, AutoReturnsSystemHostname) {
+  std::string host = boost::asio::ip::host_name();
+  EXPECT_EQ(socket_helpers::expand_hostname("auto"), host);
+}
+
+TEST(ExpandHostname, AutoLcLowercases) {
+  std::string host = boost::asio::ip::host_name();
+  std::string expected = boost::algorithm::to_lower_copy(host);
+  EXPECT_EQ(socket_helpers::expand_hostname("auto-lc"), expected);
+}
+
+TEST(ExpandHostname, AutoUcUppercases) {
+  std::string host = boost::asio::ip::host_name();
+  std::string expected = boost::algorithm::to_upper_copy(host);
+  EXPECT_EQ(socket_helpers::expand_hostname("auto-uc"), expected);
+}
+
+TEST(ExpandHostname, LiteralPassthroughWithoutPlaceholders) { EXPECT_EQ(socket_helpers::expand_hostname("static-name"), "static-name"); }
+
+TEST(ExpandHostname, EmptyPassthrough) { EXPECT_EQ(socket_helpers::expand_hostname(""), ""); }
+
+TEST(ExpandHostname, HostPlaceholderIsExpanded) {
+  std::string out = socket_helpers::expand_hostname("prefix-${host}-suffix");
+  EXPECT_EQ(out.find("${host}"), std::string::npos);
+  EXPECT_NE(out.find("prefix-"), std::string::npos);
+  EXPECT_NE(out.find("-suffix"), std::string::npos);
+}
+
+TEST(ExpandHostname, CasePlaceholdersAreExpanded) {
+  // No assertion on the exact host name (varies per machine), only that all
+  // placeholders are substituted away.
+  std::string out = socket_helpers::expand_hostname("${host_lc}|${host_uc}|${domain_lc}|${domain_uc}|${domain}");
+  EXPECT_EQ(out.find("${"), std::string::npos);
+}
+
 #ifdef USE_SSL
 // =============================================================================
 // SSL-specific: get_verify_mode
@@ -397,6 +438,12 @@ TEST(SslOptsTlsMinVersion, InvalidThrows) {
   EXPECT_THROW(opts.get_tls_min_version(), socket_helpers::socket_exception);
 }
 
+TEST(SslOptsTlsMinVersion, EmptyThrows) {
+  socket_helpers::connection_info::ssl_opts opts;
+  opts.tls_version = "";
+  EXPECT_THROW(opts.get_tls_min_version(), socket_helpers::socket_exception);
+}
+
 TEST(SslOptsTlsMinVersion, CaseInsensitive) {
   socket_helpers::connection_info::ssl_opts opts;
   opts.tls_version = "TLSv1.2";
@@ -452,6 +499,12 @@ TEST(SslOptsTlsMaxVersion, Sslv3Exact) {
 TEST(SslOptsTlsMaxVersion, InvalidThrows) {
   socket_helpers::connection_info::ssl_opts opts;
   opts.tls_version = "garbage";
+  EXPECT_THROW(opts.get_tls_max_version(), socket_helpers::socket_exception);
+}
+
+TEST(SslOptsTlsMaxVersion, EmptyThrows) {
+  socket_helpers::connection_info::ssl_opts opts;
+  opts.tls_version = "";
   EXPECT_THROW(opts.get_tls_max_version(), socket_helpers::socket_exception);
 }
 
@@ -605,6 +658,8 @@ TEST(TlsMethodParser, Ssl3) { EXPECT_EQ(+socket_helpers::tls_method_parser("ssl3
 TEST(TlsMethodParser, CaseInsensitive) { EXPECT_EQ(+socket_helpers::tls_method_parser("TLSv1.2"), +boost::asio::ssl::context::tlsv12); }
 
 TEST(TlsMethodParser, InvalidThrows) { EXPECT_THROW(socket_helpers::tls_method_parser("invalid"), socket_helpers::socket_exception); }
+
+TEST(TlsMethodParser, EmptyThrows) { EXPECT_THROW(socket_helpers::tls_method_parser(""), socket_helpers::socket_exception); }
 
 // =============================================================================
 // SSL-specific: verify_mode_parser
