@@ -19,9 +19,10 @@
 
 #pragma once
 
-#include <bytes/base64.hpp>
+#include <algorithm>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
+#include <bytes/base64.hpp>
 #include <istream>
 #include <memory>
 #include <net/http/http_packet.hpp>
@@ -33,11 +34,49 @@
 #include <str/xtos.hpp>
 #include <string>
 #include <utility>
+#include <vector>
 
 using boost::asio::ip::tcp;
 
 namespace http {
 
+// Decode an HTTP/1.1 chunked-transfer-encoded body. Each chunk is preceded by
+// a hex chunk-size line ("6f\r\n"), optionally followed by a chunk-extension
+// after a ';' which is ignored, then the chunk data and a CRLF. The body ends
+// with a zero-size chunk ("0\r\n\r\n"), optionally followed by trailer
+// headers. Returns the decoded payload; on malformed input returns whatever
+// has been decoded successfully so far rather than throwing.
+inline std::string decode_chunked(const std::string &raw) {
+  std::string out;
+  out.reserve(raw.size());
+  std::size_t pos = 0;
+  while (pos < raw.size()) {
+    const std::size_t crlf = raw.find("\r\n", pos);
+    if (crlf == std::string::npos) break;
+    std::string size_line = raw.substr(pos, crlf - pos);
+    const auto semi = size_line.find(';');
+    if (semi != std::string::npos) size_line.erase(semi);
+    while (!size_line.empty() && std::isspace(static_cast<unsigned char>(size_line.back()))) size_line.pop_back();
+    std::size_t size = 0;
+    try {
+      size = std::stoul(size_line, nullptr, 16);
+    } catch (...) {
+      break;
+    }
+    pos = crlf + 2;
+    if (size == 0) break;
+    if (pos + size > raw.size()) {
+      // Truncated chunk: append what we have and stop.
+      out.append(raw, pos, raw.size() - pos);
+      break;
+    }
+    out.append(raw, pos, size);
+    pos += size;
+    // Skip the CRLF that terminates each chunk's data.
+    if (pos + 1 < raw.size() && raw[pos] == '\r' && raw[pos + 1] == '\n') pos += 2;
+  }
+  return out;
+}
 
 struct parsed_url {
   std::string protocol;
@@ -345,10 +384,10 @@ class simple_client {
 
   void connect(const std::string &server, const std::string &port) const { socket_->connect(server, port); }
 
-  void send_request(const packet &request) const {
+  void send_request(const request &req) const {
     boost::asio::streambuf requestbuf;
     std::ostream request_stream(&requestbuf);
-    request.build_request(request_stream);
+    req.build_request(request_stream);
     socket_->write(requestbuf);
   }
   // Read more bytes from the underlying socket into the supplied buffer.
@@ -386,8 +425,8 @@ class simple_client {
   /// Build a copy of request suitable for sending through an HTTP proxy.
   /// The path is rewritten to absolute-URI form and a Proxy-Authorization
   /// header is added when the proxy carries credentials.
-  static packet make_proxy_request(const packet &original, const std::string &server, const std::string &port, const proxy_config &proxy) {
-    packet p = original;
+  static request make_proxy_request(const request &original, const std::string &server, const std::string &port, const proxy_config &proxy) {
+    request p = original;
     std::string abs_path = "http://" + server;
     if (!port.empty() && port != "80") abs_path += ":" + port;
     abs_path += original.path_;
@@ -398,26 +437,26 @@ class simple_client {
     return p;
   }
 
-  response execute(std::ostream &os, const std::string &server, const std::string &port, const packet &request) {
+  response execute(std::ostream &os, const std::string &server, const std::string &port, const request &req) {
     const bool use_proxy = options_.proxy_.is_set() && !should_bypass(server, options_.proxy_.no_proxy);
 
     if (use_proxy && !options_.is_https()) {
       // Plain HTTP via proxy: connect to proxy, send request with absolute URI.
       socket_->connect(options_.proxy_.host, options_.proxy_.port);
-      const packet proxy_req = make_proxy_request(request, server, port, options_.proxy_);
+      const request proxy_req = make_proxy_request(req, server, port, options_.proxy_);
       send_request(proxy_req);
     } else {
       // Direct connect, or HTTPS (proxy CONNECT tunnel handled inside ssl_socket).
       connect(server, port);
-      send_request(request);
+      send_request(req);
     }
 
     boost::asio::streambuf response_buffer;
-    const response response = read_result(response_buffer);
+    const response resp = read_result(response_buffer);
 
-    if (!response.is_2xx()) {
-      throw socket_helpers::socket_exception("Failed to " + request.verb_ + " " + server + ":" + port + " " + str::xtos(response.status_code_) + ": " +
-                                             response.status_message_);
+    if (!resp.is_2xx()) {
+      throw socket_helpers::socket_exception("Failed to " + req.verb_ + " " + server + ":" + port + " " + str::xtos(resp.status_code_) + ": " +
+                                             resp.status_message_);
     }
     if (response_buffer.size() > 0) os << &response_buffer;
 
@@ -428,15 +467,15 @@ class simple_client {
       }
     }
 
-    return response;
+    return resp;
   }
 
   // Like execute() but does NOT throw on non-2xx responses.
   // Populates response.payload_ with the response body.
   // Only throws on connection or protocol errors.
-  response fetch(const std::string &server, const std::string &port, const packet &request) {
+  response fetch(const std::string &server, const std::string &port, const request &req) {
     connect(server, port);
-    send_request(request);
+    send_request(req);
 
     boost::asio::streambuf response_buffer;
     response resp = read_result(response_buffer);
@@ -450,14 +489,32 @@ class simple_client {
       }
     }
     resp.payload_ = os.str();
+
+    // Servers that send Transfer-Encoding: chunked frame the body as
+    // "<hex-size>\r\n<bytes>\r\n...0\r\n\r\n". Decode it here so callers see
+    // the message body rather than the framing. response::add_header lower-
+    // cases the key on storage, so a direct map lookup is sufficient.
+    const auto te_it = resp.headers_.find("transfer-encoding");
+    if (te_it != resp.headers_.end()) {
+      // The header may list multiple codings (e.g. "gzip, chunked"); we only
+      // handle plain "chunked". Detect it as the last token rather than a
+      // substring so a content type like "x-chunked-stream" wouldn't match.
+      const std::string &v = te_it->second;
+      const auto last_comma = v.rfind(',');
+      std::string last_coding = (last_comma == std::string::npos) ? v : v.substr(last_comma + 1);
+      const auto a = last_coding.find_first_not_of(" \t");
+      const auto b = last_coding.find_last_not_of(" \t");
+      if (a != std::string::npos) last_coding = last_coding.substr(a, b - a + 1);
+      std::transform(last_coding.begin(), last_coding.end(), last_coding.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+      if (last_coding == "chunked") resp.payload_ = decode_chunked(resp.payload_);
+    }
     return resp;
   }
 
   static bool download(std::string protocol, const std::string &server, const std::string &port, std::string path, std::string tls_version,
-                       std::string verify_mode, std::string ca, std::ostream &os, std::string &error_msg,
-                       const proxy_config &proxy = proxy_config()) {
+                       std::string verify_mode, std::string ca, std::ostream &os, std::string &error_msg, const proxy_config &proxy = proxy_config()) {
     try {
-      packet rq("GET", server, std::move(path));
+      request rq("GET", server, std::move(path));
       const http_client_options options(std::move(protocol), std::move(tls_version), std::move(verify_mode), std::move(ca), proxy);
       simple_client c(options);
       c.execute(os, server, port, rq);
