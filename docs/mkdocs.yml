@@ -42,6 +42,7 @@ nav:
       - Network Checks: scenarios/network-checks.md
       - External Scripts: scenarios/external-scripts.md
       - Passive Monitoring (NSCA/NRDP): scenarios/passive-monitoring.md
+      - Passive Monitoring (NSCA/NRDP): scenarios/passive-monitoring-nsca.md
   - How To:
       - Performance Counters: howto/counters.md
       - External Scripts: howto/external_scripts.md
