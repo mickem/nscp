@@ -159,14 +159,14 @@ hostname = ${host_lc}.${domain_lc}
 
 Supported variables:
 
-| Variable | Meaning |
-|---|---|
-| `${host}` | Windows computer name (mixed case) |
-| `${host_lc}` | Lowercase |
-| `${host_uc}` | Uppercase |
-| `${domain}` | Windows domain name |
-| `${domain_lc}` | Domain lowercase |
-| `${domain_uc}` | Domain uppercase |
+| Variable       | Meaning                            |
+|----------------|------------------------------------|
+| `${host}`      | Windows computer name (mixed case) |
+| `${host_lc}`   | Lowercase                          |
+| `${host_uc}`   | Uppercase                          |
+| `${domain}`    | Windows domain name                |
+| `${domain_lc}` | Domain lowercase                   |
+| `${domain_uc}` | Domain uppercase                   |
 
 ---
 

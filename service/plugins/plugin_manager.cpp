@@ -658,7 +658,7 @@ int nsclient::core::plugin_manager::simple_query(std::string module, std::string
   try {
     std::string msg, perf;
     ret = nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf, -1);
-    resp.push_back(msg + "|" + perf);
+    resp.push_back(perf.empty() ? msg : msg + "|" + perf);
   } catch (std::exception &e) {
     resp.push_back("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
     LOG_ERROR_CORE_STD("Failed to extract return message: " + utf8::utf8_from_native(e.what()));

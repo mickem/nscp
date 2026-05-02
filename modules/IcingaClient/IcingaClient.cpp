@@ -17,52 +17,45 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "GraphiteClient.h"
+#include "IcingaClient.h"
 
 #include <boost/make_shared.hpp>
+#include <net/http/client.hpp>
 #include <net/socket/socket_helpers.hpp>
-#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/settings/helper.hpp>
-#include <str/utils.hpp>
+#include <utility>
 
-#include "graphite_client.hpp"
-#include "graphite_handler.hpp"
+#include "icinga_client.hpp"
+#include "icinga_target_object.hpp"
 
 /**
  * Default c-tor
  * @return
  */
-GraphiteClient::GraphiteClient()
-    : client_("graphite", boost::make_shared<graphite_client::graphite_client_handler>(), boost::make_shared<graphite_handler::options_reader_impl>()) {}
+IcingaClient::IcingaClient()
+    : simple_plugin(),
+      client_("icinga", boost::make_shared<icinga_client::icinga_client_handler>(), boost::make_shared<icinga_handler::options_reader_impl>()) {}
 
-/**
- * Default d-tor
- * @return
- */
-GraphiteClient::~GraphiteClient() {}
-
-bool GraphiteClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
+bool IcingaClient::loadModuleEx(const std::string &alias, NSCAPI::moduleLoadMode) {
   try {
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
-    settings.set_alias("graphite", alias, "client");
+    settings.set_alias("icinga", alias, "client");
     client_.set_path(settings.alias().get_settings_path("targets"));
 
     // clang-format off
-		settings.alias().add_path_to_settings()
-			("GRAPHITE CLIENT SECTION", "Section for graphite passive check module.")
+    settings.alias().add_path_to_settings()
+      ("Icinga 2 client", "Section for Icinga 2 (Icinga REST API) passive check submission.")
+      ("handlers", sh::fun_values_path([this] (auto key, auto value) { this->add_command(std::move(key), std::move(value)); }),
+	      "CLIENT HANDLER SECTION", "",
+	      "CLIENT HANDLER", "For more configuration options add a dedicated section")
 
-			("handlers", sh::fun_values_path([this] (auto key, auto value) { this->add_command(key, value); }),
-				"CLIENT HANDLER SECTION", "",
-				"CLIENT HANDLER", "For more configuration options add a dedicated section")
-
-			("targets", sh::fun_values_path([this] (auto key, auto value) { this->add_target(key, value); }),
-				"REMOTE TARGET DEFINITIONS", "",
-				"TARGET", "For more configuration options add a dedicated section")
-			;
-
+      ("targets", sh::fun_values_path([this] (auto key, auto value) { this->add_target(std::move(key), std::move(value)); }),
+	      "REMOTE TARGET DEFINITIONS", "",
+	      "TARGET", "For more configuration options add a dedicated section")
+      ;
     // clang-format on
+
     settings.alias()
         .add_key_to_settings()
         .add_string("hostname", sh::string_key(&hostname_, "auto"), "HOSTNAME",
@@ -75,7 +68,9 @@ bool GraphiteClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
                     "${domain_lc}\tDomainname in lowercase\n"
                     "${domain_uc}\tDomainname in uppercase\n")
 
-        .add_string("channel", sh::string_key(&channel_, "GRAPHITE"), "CHANNEL", "The channel to listen to.");
+        .add_string("channel", sh::string_key(&channel_, "ICINGA"), "CHANNEL", "The channel to listen to.")
+
+        ;
 
     settings.register_all();
     settings.notify();
@@ -100,7 +95,11 @@ bool GraphiteClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   return true;
 }
 
-void GraphiteClient::add_target(std::string key, std::string arg) {
+//////////////////////////////////////////////////////////////////////////
+// Settings helpers
+//
+
+void IcingaClient::add_target(const std::string &key, const std::string &arg) {
   try {
     client_.add_target(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
   } catch (const std::exception &e) {
@@ -110,11 +109,11 @@ void GraphiteClient::add_target(std::string key, std::string arg) {
   }
 }
 
-void GraphiteClient::add_command(std::string key, std::string arg) {
+void IcingaClient::add_command(const std::string &key, const std::string &arg) {
   try {
     nscapi::core_helper core(get_core(), get_id());
-    std::string k = client_.add_command(key, arg);
-    if (!k.empty()) core.register_command(k.c_str(), "Graphite relay for: " + key);
+    const std::string k = client_.add_command(key, arg);
+    if (!k.empty()) core.register_command(k, "Icinga 2 relay for: " + key);
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("Failed to add command: " + key, e);
   } catch (...) {
@@ -122,29 +121,21 @@ void GraphiteClient::add_command(std::string key, std::string arg) {
   }
 }
 
-/**
- * Unload (terminate) module.
- * Attempt to stop the background processing thread.
- * @return true if successfully, false if not (if not things might be bad)
- */
-bool GraphiteClient::unloadModule() {
+bool IcingaClient::unloadModule() {
   client_.clear();
   return true;
 }
 
-void GraphiteClient::query_fallback(const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message) {
+void IcingaClient::query_fallback(const PB::Commands::QueryRequestMessage &request_message, PB::Commands::QueryResponseMessage &response_message) {
   client_.do_query(request_message, response_message);
 }
 
-bool GraphiteClient::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage &request,
-                                     PB::Commands::ExecuteResponseMessage &response) {
+bool IcingaClient::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response) {
   if (target_mode == NSCAPI::target_module) return client_.do_exec(request, response, "submit_");
   return false;
 }
 
-void GraphiteClient::handleNotification(const std::string &, const PB::Commands::SubmitRequestMessage &request_message,
-                                        PB::Commands::SubmitResponseMessage *response_message) {
+void IcingaClient::handleNotification(const std::string &, const PB::Commands::SubmitRequestMessage &request_message,
+                                      PB::Commands::SubmitResponseMessage *response_message) {
   client_.do_submit(request_message, *response_message);
 }
-
-void GraphiteClient::submitMetrics(const PB::Metrics::MetricsMessage &response) { client_.do_metrics(response); }

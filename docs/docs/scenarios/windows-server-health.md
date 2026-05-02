@@ -258,7 +258,7 @@ check_nrpe -H <agent-ip> -c check_uptime
 ```
 
 !!! tip
-    To run these checks on a schedule and push the results passively (without polling), see the [Passive Monitoring scenario](passive-monitoring.md).
+    To run these checks on a schedule and push the results passively (without polling), see the [Passive Monitoring scenario](passive-monitoring-nsca.md).
 
 ---
 

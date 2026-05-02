@@ -32,7 +32,7 @@ TEST(http_client_protocol, initial_state_has_no_data_and_wants_no_data) {
 TEST(http_client_protocol, prepare_request_exposes_outbound_data) {
   boost::shared_ptr<http::client::protocol::client_handler> handler;
   http::client::protocol proto(handler);
-  http::packet req("GET", "example.com", "/test");
+  http::request req("GET", "example.com", "/test");
 
   proto.prepare_request(req);
 
@@ -43,7 +43,7 @@ TEST(http_client_protocol, prepare_request_exposes_outbound_data) {
 TEST(http_client_protocol, on_write_switches_to_read_state) {
   boost::shared_ptr<http::client::protocol::client_handler> handler;
   http::client::protocol proto(handler);
-  http::packet req("GET", "example.com", "/test");
+  http::request req("GET", "example.com", "/test");
   proto.prepare_request(req);
 
   EXPECT_FALSE(proto.on_write(0));
@@ -53,7 +53,7 @@ TEST(http_client_protocol, on_write_switches_to_read_state) {
 TEST(http_client_protocol, on_read_in_read_state_collects_response_data) {
   boost::shared_ptr<http::client::protocol::client_handler> handler;
   http::client::protocol proto(handler);
-  http::packet req("GET", "example.com", "/test");
+  http::request req("GET", "example.com", "/test");
   proto.prepare_request(req);
   proto.on_write(0);
 
@@ -61,7 +61,7 @@ TEST(http_client_protocol, on_read_in_read_state_collects_response_data) {
   proto.get_inbound().assign(raw.begin(), raw.end());
 
   EXPECT_TRUE(proto.on_read(raw.size()));
-  const http::packet response = proto.get_response();
+  const http::response response = proto.get_response();
   EXPECT_EQ(response.status_code_, 200);
   EXPECT_EQ(response.payload_, "hello");
 }
@@ -79,7 +79,7 @@ TEST(http_client_protocol, on_read_when_not_waiting_marks_done) {
 TEST(http_client_protocol, on_read_error_in_read_state_finishes_successfully) {
   boost::shared_ptr<http::client::protocol::client_handler> handler;
   http::client::protocol proto(handler);
-  http::packet req("GET", "example.com", "/test");
+  http::request req("GET", "example.com", "/test");
   proto.prepare_request(req);
   proto.on_write(0);
 
@@ -100,7 +100,7 @@ TEST(http_client_protocol, timeout_response_has_status_99_and_message) {
   boost::shared_ptr<http::client::protocol::client_handler> handler;
   http::client::protocol proto(handler);
 
-  const http::packet timeout = proto.get_timeout_response();
+  const http::response timeout = proto.get_timeout_response();
   EXPECT_EQ(timeout.status_code_, 99);
   EXPECT_EQ(timeout.payload_, "Failed to read data");
 }

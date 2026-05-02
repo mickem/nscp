@@ -130,7 +130,7 @@ class settings_http : public settings::settings_interface_impl {
     std::string error;
 
     try {
-      http::packet packet("GET", url.get_host(), url.path);
+      http::request packet("GET", url.get_host(), url.path);
 
       std::string def_port = url.protocol == "https" ? "443" : "80";
 

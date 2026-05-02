@@ -228,4 +228,4 @@ check_nrpe -H <agent-ip> -c check_my_svc
 - [Reference: CheckExternalScripts](../reference/check/CheckExternalScripts.md) — full configuration reference
 - [Howto: External Scripts](../howto/external_scripts.md) — more advanced configuration options
 - [Extending: Python Scripts](../extending/python.md) — write internal scripts in Python for deeper NSClient++ integration
-- [Passive Monitoring](passive-monitoring.md) — have scripts push results on a schedule instead of being polled
+- [Passive Monitoring](passive-monitoring-nsca.md) — have scripts push results on a schedule instead of being polled

@@ -35,6 +35,22 @@ const int socket_helpers::connection_info::backlog_default = 0;
 namespace ip = boost::asio::ip;
 
 std::list<std::string> socket_helpers::connection_info::validate() const { return validate_ssl(); }
+
+std::string socket_helpers::expand_hostname(std::string spec) {
+  std::string host_name = ip::host_name();
+  if (spec == "auto") return host_name;
+  if (spec == "auto-lc") return boost::algorithm::to_lower_copy(host_name);
+  if (spec == "auto-uc") return boost::algorithm::to_upper_copy(host_name);
+
+  const str::utils::token dn = str::utils::getToken(host_name, '.');
+  str::utils::replace(spec, "${host}", dn.first);
+  str::utils::replace(spec, "${domain}", dn.second);
+  str::utils::replace(spec, "${host_uc}", boost::algorithm::to_upper_copy(dn.first));
+  str::utils::replace(spec, "${domain_uc}", boost::algorithm::to_upper_copy(dn.second));
+  str::utils::replace(spec, "${host_lc}", boost::algorithm::to_lower_copy(dn.first));
+  str::utils::replace(spec, "${domain_lc}", boost::algorithm::to_lower_copy(dn.second));
+  return spec;
+}
 void socket_helpers::validate_certificate(const std::string &certificate, std::list<std::string> &list) {
 #ifdef USE_SSL
   if (!certificate.empty() && !boost::filesystem::is_regular_file(certificate)) {

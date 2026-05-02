@@ -19,7 +19,7 @@ Browse the [Monitoring Scenarios](scenarios/index.md) for step-by-step guides co
 - [Event Log Monitoring](scenarios/event-log.md)
 - [Network Checks](scenarios/network-checks.md) — ping, TCP, HTTP
 - [External Scripts](scenarios/external-scripts.md)
-- [Passive Monitoring (NSCA/NRDP)](scenarios/passive-monitoring.md)
+- [Passive Monitoring (NSCA/NRDP)](scenarios/passive-monitoring-nsca.md)
 
 ### 🔍 I need reference material
 The [Reference section](reference/index.md) has complete documentation for every module, command, and configuration option.

@@ -22,6 +22,7 @@
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/asio.hpp>
 #include <boost/json.hpp>
+#include <net/socket/socket_helpers.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -50,7 +51,6 @@ Op5Client::~Op5Client() {}
 
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;
-namespace bai = boost::asio::ip;
 
 bool Op5Client::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   try {
@@ -129,45 +129,7 @@ bool Op5Client::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     nscapi::core_helper core(get_core(), get_id());
     core.register_channel(channel_);
 
-    if (config.hostname == "auto") {
-      config.hostname = boost::asio::ip::host_name();
-    } else if (config.hostname == "auto-lc") {
-      config.hostname = boost::asio::ip::host_name();
-      std::transform(config.hostname.begin(), config.hostname.end(), config.hostname.begin(), ::tolower);
-    } else if (config.hostname == "auto-uc") {
-      config.hostname = boost::asio::ip::host_name();
-      std::transform(config.hostname.begin(), config.hostname.end(), config.hostname.begin(), ::toupper);
-    } else {
-      str::utils::token dn = str::utils::getToken(boost::asio::ip::host_name(), '.');
-
-      try {
-        boost::asio::io_service svc;
-        bai::tcp::resolver resolver(svc);
-        bai::tcp::resolver::query query(boost::asio::ip::host_name(), "");
-        bai::tcp::resolver::iterator iter = resolver.resolve(query), end;
-
-        std::string s;
-        while (iter != end) {
-          s += iter->host_name();
-          s += " - ";
-          s += iter->endpoint().address().to_string();
-          iter++;
-        }
-      } catch (const std::exception &e) {
-        NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
-      }
-
-      str::utils::replace(config.hostname, "${host}", dn.first);
-      str::utils::replace(config.hostname, "${domain}", dn.second);
-      std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::toupper);
-      std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::toupper);
-      str::utils::replace(config.hostname, "${host_uc}", dn.first);
-      str::utils::replace(config.hostname, "${domain_uc}", dn.second);
-      std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::tolower);
-      std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::tolower);
-      str::utils::replace(config.hostname, "${host_lc}", dn.first);
-      str::utils::replace(config.hostname, "${domain_lc}", dn.second);
-    }
+    config.hostname = socket_helpers::expand_hostname(config.hostname);
 
     if (mode == NSCAPI::normalStart) {
       config.interval = str::format::stox_as_time_sec<unsigned long long>(interval, "s");

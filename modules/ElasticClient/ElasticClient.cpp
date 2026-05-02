@@ -30,6 +30,7 @@
 #include <cstdint>
 #include <limits>
 #include <net/http/client.hpp>
+#include <net/socket/socket_helpers.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -100,45 +101,7 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
     // 		nscapi::core_helper core(get_core(), get_id());
     // 		core.register_channel(channel_);
     //
-    if (hostname_ == "auto") {
-      hostname_ = boost::asio::ip::host_name();
-    } else if (hostname_ == "auto-lc") {
-      hostname_ = boost::asio::ip::host_name();
-      std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::tolower);
-    } else if (hostname_ == "auto-uc") {
-      hostname_ = boost::asio::ip::host_name();
-      std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::toupper);
-    } else {
-      str::utils::token dn = str::utils::getToken(boost::asio::ip::host_name(), '.');
-
-      try {
-        boost::asio::io_service svc;
-        boost::asio::ip::tcp::resolver resolver(svc);
-        boost::asio::ip::tcp::resolver::query query(boost::asio::ip::host_name(), "");
-        boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve(query), end;
-
-        std::string s;
-        while (iter != end) {
-          s += iter->host_name();
-          s += " - ";
-          s += iter->endpoint().address().to_string();
-          iter++;
-        }
-      } catch (const std::exception &e) {
-        NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
-      }
-
-      str::utils::replace(hostname_, "${host}", dn.first);
-      str::utils::replace(hostname_, "${domain}", dn.second);
-      std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::toupper);
-      std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::toupper);
-      str::utils::replace(hostname_, "${host_uc}", dn.first);
-      str::utils::replace(hostname_, "${domain_uc}", dn.second);
-      std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::tolower);
-      std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::tolower);
-      str::utils::replace(hostname_, "${host_lc}", dn.first);
-      str::utils::replace(hostname_, "${domain_lc}", dn.second);
-    }
+    hostname_ = socket_helpers::expand_hostname(hostname_);
 
     nscapi::core_helper ch(get_core(), get_id());
     ch.register_event(events);
@@ -199,7 +162,7 @@ void send_to_elastic(const std::string address, const std::string index, std::st
   try {
     const http::parsed_url parsed = http::parse_url(address);
     http::http_client_options opts(parsed.protocol, "1.2+", "none", "");
-    http::packet rq("POST", parsed.host, parsed.path, payload);
+    http::request rq("POST", parsed.host, parsed.path, payload);
     rq.add_header("Content-Type", "application/x-ndjson");
     rq.add_header("Content-Length", str::xtos(payload.size()));
     http::simple_client c(opts);

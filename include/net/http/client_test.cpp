@@ -22,7 +22,6 @@
 #include <atomic>
 #include <boost/asio.hpp>
 #include <chrono>
-#include <net/http/client.hpp>
 #include <future>
 #include <net/http/client.hpp>
 #include <sstream>
@@ -65,7 +64,7 @@ class loopback_http_server {
   }
 
   unsigned short port() const { return port_; }
-  const std::string &captured_request() const { return captured_request_; }
+  const std::string& captured_request() const { return captured_request_; }
 
  private:
   std::string response_;
@@ -126,11 +125,11 @@ TEST(http_client_options, stores_ca) {
 }
 
 // =============================================================================
-// http::packet tests
+// http::request tests
 // =============================================================================
 
 TEST(http_packet, default_constructor) {
-  const http::packet p;
+  const http::request p;
   EXPECT_TRUE(p.verb_.empty());
   EXPECT_TRUE(p.server_.empty());
   EXPECT_TRUE(p.path_.empty());
@@ -138,16 +137,15 @@ TEST(http_packet, default_constructor) {
 }
 
 TEST(http_packet, constructor_with_verb_server_path) {
-  const http::packet p("GET", "example.com", "/api/v1");
+  const http::request p("GET", "example.com", "/api/v1");
   EXPECT_EQ(p.verb_, "GET");
   EXPECT_EQ(p.server_, "example.com");
   EXPECT_EQ(p.path_, "/api/v1");
   EXPECT_TRUE(p.payload_.empty());
-  EXPECT_EQ(p.status_code_, 0);
 }
 
 TEST(http_packet, constructor_with_payload) {
-  const http::packet p("POST", "example.com", "/api/v1", "body data");
+  const http::request p("POST", "example.com", "/api/v1", "body data");
   EXPECT_EQ(p.verb_, "POST");
   EXPECT_EQ(p.server_, "example.com");
   EXPECT_EQ(p.path_, "/api/v1");
@@ -155,52 +153,40 @@ TEST(http_packet, constructor_with_payload) {
 }
 
 TEST(http_packet, add_default_headers) {
-  http::packet p("GET", "example.com", "/");
+  http::request p("GET", "example.com", "/");
   // add_default_headers is called by constructor
   EXPECT_EQ(p.headers_["Accept"], "*/*");
   EXPECT_EQ(p.headers_["Connection"], "close");
 }
 
 TEST(http_packet, add_header_key_value) {
-  http::packet p;
+  http::request p;
   p.add_header("Content-Type", "application/json");
   EXPECT_EQ(p.headers_["Content-Type"], "application/json");
 }
 
-TEST(http_packet, add_header_from_line) {
-  http::packet p;
-  p.add_header("Content-Type: application/json");
-  EXPECT_EQ(p.headers_["Content-Type"], " application/json");
-}
-
-TEST(http_packet, add_header_from_line_no_colon) {
-  http::packet p;
-  p.add_header("InvalidHeader");
-  EXPECT_EQ(p.headers_["InvalidHeader"], "");
-}
-
 TEST(http_packet, set_path) {
-  http::packet p;
+  http::request p;
   p.set_path("PUT", "/new/path");
   EXPECT_EQ(p.verb_, "PUT");
   EXPECT_EQ(p.path_, "/new/path");
 }
 
 TEST(http_packet, set_payload) {
-  http::packet p;
+  http::request p;
   p.set_payload("test payload");
   EXPECT_EQ(p.payload_, "test payload");
 }
 
 TEST(http_packet, get_header_contains_verb_and_path) {
-  const http::packet p("GET", "example.com", "/test");
+  const http::request p("GET", "example.com", "/test");
   const std::string header = p.get_header();
   EXPECT_NE(header.find("GET /test HTTP/1.0\r\n"), std::string::npos);
   EXPECT_NE(header.find("Host: example.com\r\n"), std::string::npos);
 }
 
 TEST(http_packet, get_header_no_host_when_server_empty) {
-  http::packet p;
+  http::request p;
   p.verb_ = "GET";
   p.path_ = "/test";
   const std::string header = p.get_header();
@@ -208,18 +194,18 @@ TEST(http_packet, get_header_no_host_when_server_empty) {
 }
 
 TEST(http_packet, get_payload_empty) {
-  const http::packet p;
+  const http::request p;
   EXPECT_EQ(p.get_payload(), "");
 }
 
 TEST(http_packet, get_payload_with_data) {
-  http::packet p;
+  http::request p;
   p.set_payload("some data");
   EXPECT_EQ(p.get_payload(), "some data");
 }
 
 TEST(http_packet, get_packet_combines_header_and_payload) {
-  const http::packet p("GET", "example.com", "/test", "payload");
+  const http::request p("GET", "example.com", "/test", "payload");
   const std::vector<char> pkt = p.get_packet();
   const std::string pkt_str(pkt.begin(), pkt.end());
   EXPECT_NE(pkt_str.find("GET /test HTTP/1.0"), std::string::npos);
@@ -227,7 +213,7 @@ TEST(http_packet, get_packet_combines_header_and_payload) {
 }
 
 TEST(http_packet, build_request_output) {
-  http::packet p("POST", "example.com", "/api");
+  http::request p("POST", "example.com", "/api");
   p.set_payload("body");
   std::ostringstream os;
   p.build_request(os);
@@ -237,22 +223,22 @@ TEST(http_packet, build_request_output) {
   EXPECT_NE(result.find("body"), std::string::npos);
 }
 
-TEST(http_packet, create_timeout) {
-  const http::packet p = http::packet::create_timeout("timed out");
+TEST(http_response, create_timeout) {
+  const http::response p = http::response::create_timeout("timed out");
   EXPECT_EQ(p.status_code_, 99);
   EXPECT_EQ(p.payload_, "timed out");
 }
 
 TEST(http_packet, to_string_output) {
-  const http::packet p("GET", "example.com", "/path");
+  const http::request p("GET", "example.com", "/path");
   const std::string s = p.to_string();
   EXPECT_NE(s.find("verb: GET"), std::string::npos);
   EXPECT_NE(s.find("path: /path"), std::string::npos);
 }
 
 TEST(http_packet, add_post_payload_map) {
-  http::packet p("GET", "example.com", "/");
-  http::packet::post_map_type payload;
+  http::request p("GET", "example.com", "/");
+  http::request::post_map_type payload;
   payload["key1"] = "value1";
   payload["key2"] = "value 2";
   p.add_post_payload(payload);
@@ -264,7 +250,7 @@ TEST(http_packet, add_post_payload_map) {
 }
 
 TEST(http_packet, add_post_payload_string) {
-  http::packet p("GET", "example.com", "/");
+  http::request p("GET", "example.com", "/");
   p.add_post_payload("application/json", "{\"key\":\"value\"}");
   EXPECT_EQ(p.verb_, "POST");
   EXPECT_EQ(p.headers_["Content-Type"], "application/json");
@@ -272,16 +258,17 @@ TEST(http_packet, add_post_payload_string) {
   EXPECT_EQ(p.headers_["Content-Length"], std::to_string(std::string("{\"key\":\"value\"}").size()));
 }
 
-TEST(http_packet, parse_http_response) {
-  http::packet p;
-  p.parse_http_response("HTTP/1.1 200");
-  EXPECT_EQ(p.status_code_, 200);
+TEST(http_response, parse_status_line) {
+  http::response p;
+  p.parse_status_line("HTTP/1.1 200");
+  EXPECT_EQ(p.status_code_, 200u);
+  EXPECT_EQ(p.http_version_, "HTTP/1.1");
 }
 
-TEST(http_packet, parse_http_response_no_space) {
-  http::packet p;
-  p.parse_http_response("HTTP/1.1");
-  EXPECT_EQ(p.status_code_, 500);
+TEST(http_response, parse_status_line_no_space) {
+  http::response p;
+  p.parse_status_line("HTTP/1.1");
+  EXPECT_EQ(p.status_code_, 500u);
 }
 
 // =============================================================================
@@ -311,7 +298,7 @@ TEST(http_response, copy_constructor) {
   EXPECT_EQ(r2.status_code_, 200u);
   EXPECT_EQ(r2.status_message_, "OK");
   EXPECT_EQ(r2.payload_, "body");
-  EXPECT_EQ(r2.headers_["Content-Type"], "text/html");
+  EXPECT_EQ(r2.headers_["content-type"], "text/html");
 }
 
 TEST(http_response, assignment_operator) {
@@ -363,19 +350,22 @@ TEST(http_response, is_2xx_false_for_199) {
 TEST(http_response, add_header_key_value) {
   http::response r;
   r.add_header("X-Custom", "value");
-  EXPECT_EQ(r.headers_["X-Custom"], "value");
+  // Keys are lower-cased on storage so callers can do case-blind lookups.
+  EXPECT_EQ(r.headers_["x-custom"], "value");
 }
 
 TEST(http_response, add_header_from_line) {
   http::response r;
   r.add_header("Content-Type: text/plain");
-  EXPECT_EQ(r.headers_["Content-Type"], " text/plain");
+  // Surrounding whitespace (including the leading space after the colon and
+  // any trailing CR) is stripped from the value at storage time.
+  EXPECT_EQ(r.headers_["content-type"], "text/plain");
 }
 
 TEST(http_response, add_header_from_line_no_colon) {
   http::response r;
   r.add_header("NoColonHeader");
-  EXPECT_EQ(r.headers_["NoColonHeader"], "");
+  EXPECT_EQ(r.headers_["nocolonheader"], "");
 }
 
 // =============================================================================
@@ -423,7 +413,7 @@ TEST(simple_client, constructor_pipe_creates_client) {
 // =============================================================================
 
 TEST(simple_client, send_request_builds_correct_http) {
-  const http::packet rq("GET", "example.com", "/test");
+  const http::request rq("GET", "example.com", "/test");
   std::ostringstream os;
   rq.build_request(os);
   const std::string request = os.str();
@@ -437,19 +427,20 @@ TEST(simple_client, send_request_builds_correct_http) {
 // Packet construction from raw data (vector<char> constructor)
 // =============================================================================
 
-TEST(http_packet, construct_from_raw_data) {
+TEST(http_response, construct_from_raw_data) {
   const std::string raw = "HTTP/1.1 200\r\nContent-Type: text/html\r\n\r\nHello Body";
   const std::vector<char> data(raw.begin(), raw.end());
-  http::packet p(data);
+  http::response p(data);
   EXPECT_EQ(p.status_code_, 200);
-  EXPECT_EQ(p.headers_["Content-Type"], " text/html");
+  // Header keys are lower-cased on storage and the value's leading whitespace is stripped.
+  EXPECT_EQ(p.headers_["content-type"], "text/html");
   EXPECT_EQ(p.payload_, "Hello Body");
 }
 
-TEST(http_packet, construct_from_raw_data_no_body) {
+TEST(http_response, construct_from_raw_data_no_body) {
   const std::string raw = "HTTP/1.1 404\r\nX-Custom: val\r\n\r\n";
   const std::vector<char> data(raw.begin(), raw.end());
-  const http::packet p(data);
+  const http::response p(data);
   EXPECT_EQ(p.status_code_, 404);
 }
 
@@ -486,29 +477,29 @@ TEST(socket_exception, copy_constructor) {
 // =============================================================================
 
 TEST(make_proxy_request, rewrites_path_to_absolute_uri) {
-  const http::packet original("GET", "target.corp", "/api/v1");
+  const http::request original("GET", "target.corp", "/api/v1");
   http::proxy_config proxy;
   proxy.type = http::proxy_type::HTTP;
   proxy.host = "proxy.corp";
   proxy.port = "3128";
 
-  const http::packet result = http::simple_client::make_proxy_request(original, "target.corp", "8080", proxy);
+  const http::request result = http::simple_client::make_proxy_request(original, "target.corp", "8080", proxy);
   EXPECT_EQ(result.path_, "http://target.corp:8080/api/v1");
 }
 
 TEST(make_proxy_request, omits_port_80_from_absolute_uri) {
-  const http::packet original("GET", "target.corp", "/path");
+  const http::request original("GET", "target.corp", "/path");
   http::proxy_config proxy;
   proxy.type = http::proxy_type::HTTP;
   proxy.host = "proxy.corp";
   proxy.port = "3128";
 
-  const http::packet result = http::simple_client::make_proxy_request(original, "target.corp", "80", proxy);
+  const http::request result = http::simple_client::make_proxy_request(original, "target.corp", "80", proxy);
   EXPECT_EQ(result.path_, "http://target.corp/path");
 }
 
 TEST(make_proxy_request, adds_proxy_authorization_when_credentials_present) {
-  const http::packet original("GET", "target.corp", "/path");
+  const http::request original("GET", "target.corp", "/path");
   http::proxy_config proxy;
   proxy.type = http::proxy_type::HTTP;
   proxy.host = "proxy.corp";
@@ -516,7 +507,7 @@ TEST(make_proxy_request, adds_proxy_authorization_when_credentials_present) {
   proxy.username = "alice";
   proxy.password = "secret";
 
-  const http::packet result = http::simple_client::make_proxy_request(original, "target.corp", "80", proxy);
+  const http::request result = http::simple_client::make_proxy_request(original, "target.corp", "80", proxy);
   const auto it = result.headers_.find("Proxy-Authorization");
   ASSERT_NE(it, result.headers_.end());
   // "alice:secret" in base64 is "YWxpY2U6c2VjcmV0"
@@ -524,38 +515,38 @@ TEST(make_proxy_request, adds_proxy_authorization_when_credentials_present) {
 }
 
 TEST(make_proxy_request, no_proxy_authorization_without_credentials) {
-  const http::packet original("GET", "target.corp", "/path");
+  const http::request original("GET", "target.corp", "/path");
   http::proxy_config proxy;
   proxy.type = http::proxy_type::HTTP;
   proxy.host = "proxy.corp";
   proxy.port = "3128";
 
-  const http::packet result = http::simple_client::make_proxy_request(original, "target.corp", "80", proxy);
+  const http::request result = http::simple_client::make_proxy_request(original, "target.corp", "80", proxy);
   EXPECT_EQ(result.headers_.count("Proxy-Authorization"), 0u);
 }
 
 TEST(make_proxy_request, preserves_original_headers) {
-  http::packet original("GET", "target.corp", "/path");
+  http::request original("GET", "target.corp", "/path");
   original.add_header("X-Custom", "value");
   http::proxy_config proxy;
   proxy.type = http::proxy_type::HTTP;
   proxy.host = "proxy.corp";
   proxy.port = "3128";
 
-  const http::packet result = http::simple_client::make_proxy_request(original, "target.corp", "80", proxy);
+  const http::request result = http::simple_client::make_proxy_request(original, "target.corp", "80", proxy);
   const auto it = result.headers_.find("X-Custom");
   ASSERT_NE(it, result.headers_.end());
   EXPECT_EQ(it->second, "value");
 }
 
 TEST(make_proxy_request, build_request_contains_absolute_uri_in_request_line) {
-  const http::packet original("GET", "target.corp", "/api/v1");
+  const http::request original("GET", "target.corp", "/api/v1");
   http::proxy_config proxy;
   proxy.type = http::proxy_type::HTTP;
   proxy.host = "proxy.corp";
   proxy.port = "3128";
 
-  const http::packet result = http::simple_client::make_proxy_request(original, "target.corp", "8080", proxy);
+  const http::request result = http::simple_client::make_proxy_request(original, "target.corp", "8080", proxy);
   std::ostringstream os;
   result.build_request(os);
   const std::string built = os.str();
@@ -563,14 +554,14 @@ TEST(make_proxy_request, build_request_contains_absolute_uri_in_request_line) {
 }
 
 TEST(make_proxy_request, preserves_post_verb_and_payload) {
-  http::packet original("POST", "target.corp", "/submit");
+  http::request original("POST", "target.corp", "/submit");
   original.add_post_payload("application/json", "{\"k\":\"v\"}");
   http::proxy_config proxy;
   proxy.type = http::proxy_type::HTTP;
   proxy.host = "proxy.corp";
   proxy.port = "3128";
 
-  const http::packet result = http::simple_client::make_proxy_request(original, "target.corp", "80", proxy);
+  const http::request result = http::simple_client::make_proxy_request(original, "target.corp", "80", proxy);
   EXPECT_EQ(result.verb_, "POST");
   EXPECT_EQ(result.payload_, "{\"k\":\"v\"}");
   EXPECT_EQ(result.headers_.find("Content-Type")->second, "application/json");
@@ -584,22 +575,22 @@ TEST(make_proxy_request, preserves_post_verb_and_payload) {
 }
 
 TEST(make_proxy_request, empty_path_produces_origin_only_uri) {
-  const http::packet original("GET", "target.corp", "");
+  const http::request original("GET", "target.corp", "");
   http::proxy_config proxy;
   proxy.type = http::proxy_type::HTTP;
   proxy.host = "proxy.corp";
   proxy.port = "3128";
 
-  const http::packet result = http::simple_client::make_proxy_request(original, "target.corp", "80", proxy);
+  const http::request result = http::simple_client::make_proxy_request(original, "target.corp", "80", proxy);
   EXPECT_EQ(result.path_, "http://target.corp");
 }
 
 TEST(make_proxy_request, custom_target_port_included_in_uri) {
-  const http::packet original("GET", "target.corp", "/x");
+  const http::request original("GET", "target.corp", "/x");
   http::proxy_config proxy;
   proxy.type = http::proxy_type::HTTP;
 
-  const http::packet result = http::simple_client::make_proxy_request(original, "target.corp", "8443", proxy);
+  const http::request result = http::simple_client::make_proxy_request(original, "target.corp", "8443", proxy);
   EXPECT_EQ(result.path_, "http://target.corp:8443/x");
 }
 
@@ -722,7 +713,7 @@ TEST(simple_client_proxy_integration, plain_http_routes_through_proxy_with_absol
 
   const http::http_client_options opts("http", "", "", "", proxy);
   http::simple_client client(opts);
-  http::packet rq("GET", "target.example.com", "/api/v1");
+  http::request rq("GET", "target.example.com", "/api/v1");
 
   std::ostringstream body;
   ASSERT_NO_THROW(client.execute(body, "target.example.com", "8080", rq));
@@ -752,7 +743,7 @@ TEST(simple_client_proxy_integration, plain_http_sends_proxy_authorization_when_
 
   const http::http_client_options opts("http", "", "", "", proxy);
   http::simple_client client(opts);
-  http::packet rq("GET", "target.example.com", "/x");
+  http::request rq("GET", "target.example.com", "/x");
 
   std::ostringstream body;
   ASSERT_NO_THROW(client.execute(body, "target.example.com", "80", rq));
@@ -760,7 +751,8 @@ TEST(simple_client_proxy_integration, plain_http_sends_proxy_authorization_when_
   server.stop();
 
   // "alice:secret" → "YWxpY2U6c2VjcmV0"
-  EXPECT_NE(server.captured_request().find("Proxy-Authorization: Basic YWxpY2U6c2VjcmV0"), std::string::npos) << "captured request was: " << server.captured_request();
+  EXPECT_NE(server.captured_request().find("Proxy-Authorization: Basic YWxpY2U6c2VjcmV0"), std::string::npos)
+      << "captured request was: " << server.captured_request();
   // Port 80 is omitted from the absolute URI per make_proxy_request().
   EXPECT_NE(server.captured_request().find("GET http://target.example.com/x HTTP/1.0"), std::string::npos);
 }
@@ -776,7 +768,7 @@ TEST(simple_client_proxy_integration, proxy_404_response_propagates_as_socket_ex
 
   const http::http_client_options opts("http", "", "", "", proxy);
   http::simple_client client(opts);
-  http::packet rq("GET", "target.example.com", "/x");
+  http::request rq("GET", "target.example.com", "/x");
 
   std::ostringstream body;
   EXPECT_THROW(client.execute(body, "target.example.com", "80", rq), socket_helpers::socket_exception);
@@ -800,7 +792,7 @@ TEST(simple_client_proxy_integration, no_proxy_pattern_bypasses_proxy_and_fails_
 
   const http::http_client_options opts("http", "", "", "", proxy);
   http::simple_client client(opts);
-  http::packet rq("GET", "nonexistent.invalid", "/x");
+  http::request rq("GET", "nonexistent.invalid", "/x");
 
   std::ostringstream body;
   // Expect a failure connecting to the (non-existent) target rather than a
@@ -945,7 +937,7 @@ TEST(simple_client, execute_reads_successful_response_and_body) {
   loopback_http_server server("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nhello");
   const http::http_client_options opts("http", "", "", "");
   http::simple_client client(opts);
-  http::packet request("GET", "127.0.0.1", "/health");
+  http::request request("GET", "127.0.0.1", "/health");
   std::ostringstream os;
 
   const http::response resp = client.execute(os, "127.0.0.1", std::to_string(server.port()), request);
@@ -959,7 +951,7 @@ TEST(simple_client, execute_throws_for_non_2xx_response) {
   loopback_http_server server("HTTP/1.1 500 Internal Error\r\nContent-Type: text/plain\r\n\r\nfail");
   const http::http_client_options opts("http", "", "", "");
   http::simple_client client(opts);
-  http::packet request("GET", "127.0.0.1", "/boom");
+  http::request request("GET", "127.0.0.1", "/boom");
   std::ostringstream os;
 
   EXPECT_THROW(client.execute(os, "127.0.0.1", std::to_string(server.port()), request), socket_helpers::socket_exception);
@@ -969,7 +961,7 @@ TEST(simple_client, fetch_returns_payload_for_non_2xx_response) {
   loopback_http_server server("HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\nnot-found");
   const http::http_client_options opts("http", "", "", "");
   http::simple_client client(opts);
-  http::packet request("GET", "127.0.0.1", "/missing");
+  http::request request("GET", "127.0.0.1", "/missing");
 
   const http::response resp = client.fetch("127.0.0.1", std::to_string(server.port()), request);
 
@@ -981,7 +973,7 @@ TEST(simple_client, execute_throws_on_invalid_http_version) {
   loopback_http_server server("INVALID 200 OK\r\nHeader: value\r\n\r\nbody");
   const http::http_client_options opts("http", "", "", "");
   http::simple_client client(opts);
-  http::packet request("GET", "127.0.0.1", "/invalid");
+  http::request request("GET", "127.0.0.1", "/invalid");
   std::ostringstream os;
 
   EXPECT_THROW(client.execute(os, "127.0.0.1", std::to_string(server.port()), request), socket_helpers::socket_exception);
@@ -1003,20 +995,76 @@ TEST(simple_client, download_success_for_loopback_http_server) {
 // http_packet parsing edge cases
 // =============================================================================
 
-TEST(http_packet, construct_from_raw_data_without_status_line_terminator_is_empty) {
+TEST(http_response, construct_from_raw_data_without_status_line_terminator_is_empty) {
   const std::string raw = "HTTP/1.1 200";
   const std::vector<char> data(raw.begin(), raw.end());
-  const http::packet p(data);
+  const http::response p(data);
   EXPECT_EQ(p.status_code_, 0);
   EXPECT_TRUE(p.payload_.empty());
 }
 
-TEST(http_packet, parse_http_response_invalid_status_code_throws) {
-  http::packet p;
-  EXPECT_ANY_THROW(p.parse_http_response("HTTP/1.1 ABC"));
+TEST(http_response, parse_status_line_invalid_status_code_throws) {
+  http::response p;
+  EXPECT_ANY_THROW(p.parse_status_line("HTTP/1.1 ABC"));
 }
 
 TEST(http_packet_helpers, find_header_break_matches_lf_cr) {
   EXPECT_TRUE(http::find_header_break('\n', '\r'));
   EXPECT_FALSE(http::find_header_break('\r', '\n'));
+}
+
+// =============================================================================
+// chunked transfer decoding
+// =============================================================================
+
+TEST(decode_chunked, single_chunk_then_terminator) {
+  // Real-world shape seen from Icinga 2: <hex-size>\r\n<body>\r\n0\r\n\r\n.
+  const std::string body = "{\"results\":[{\"code\":200,\"status\":\"Successfully processed check result for object 'h!s'.\"}]}";
+  ASSERT_EQ(body.size(), 91u);                                // sanity: the size below must match the body
+  const std::string raw = "5b\r\n" + body + "\r\n0\r\n\r\n";  // 5b == 91
+  EXPECT_EQ(http::decode_chunked(raw), body);
+}
+
+TEST(decode_chunked, multiple_chunks_concatenate) {
+  const std::string raw = "5\r\nhello\r\n6\r\n world\r\n0\r\n\r\n";
+  EXPECT_EQ(http::decode_chunked(raw), "hello world");
+}
+
+TEST(decode_chunked, ignores_chunk_extension) {
+  const std::string raw = "5;ext=foo\r\nhello\r\n0\r\n\r\n";
+  EXPECT_EQ(http::decode_chunked(raw), "hello");
+}
+
+TEST(decode_chunked, empty_body) {
+  const std::string raw = "0\r\n\r\n";
+  EXPECT_TRUE(http::decode_chunked(raw).empty());
+}
+
+TEST(decode_chunked, truncated_body_returns_partial) {
+  // Chunk says 10 bytes but only 5 are present. The decoder should return
+  // what it has rather than throwing.
+  const std::string raw = "a\r\nhello";
+  EXPECT_EQ(http::decode_chunked(raw), "hello");
+}
+
+TEST(decode_chunked, malformed_size_returns_partial) {
+  const std::string raw = "5\r\nhello\r\nGARBAGE\r\n";
+  EXPECT_EQ(http::decode_chunked(raw), "hello");
+}
+
+// =============================================================================
+// response header normalisation: keys stored lower-case, values trimmed
+// =============================================================================
+
+TEST(http_response, headers_lowercased_on_storage) {
+  http::response r;
+  r.add_header("Transfer-Encoding", " chunked\r");  // value as it would arrive from add_header(line)
+  EXPECT_EQ(r.headers_["transfer-encoding"], "chunked");
+  EXPECT_EQ(r.headers_.count("Transfer-Encoding"), 0u);
+}
+
+TEST(http_response, parsed_header_line_lowercases_key_and_trims_value) {
+  http::response r;
+  r.add_header("Content-Type: text/html\r");
+  EXPECT_EQ(r.headers_["content-type"], "text/html");
 }

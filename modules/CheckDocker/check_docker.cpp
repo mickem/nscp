@@ -121,7 +121,7 @@ void check(const PB::Commands::QueryRequestMessage::Request& request, PB::Comman
   if (!filter_helper.build_filter(filter)) return;
 
   try {
-    http::packet rq("GET", "", "/v1.40/containers/json");
+    http::request rq("GET", "", "/v1.40/containers/json");
 
     std::stringstream ss;
     std::string error;
