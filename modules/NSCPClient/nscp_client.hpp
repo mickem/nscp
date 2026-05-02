@@ -166,9 +166,9 @@ struct nscp_client_handler : public client::handler_interface {
 #ifndef USE_SSL
       if (con.ssl.enabled) return boost::make_tuple(false, "SSL support not available (compiled without USE_SSL)");
 #endif
-      http::packet packet("POST", con.path, data);
+      http::request packet("POST", con.path, data);
       socket_helpers::client::client<http::client::protocol> client(con, handler_);
-      http::packet response = client.process_request(packet);
+      http::response response = client.process_request(packet);
       return boost::make_tuple(true, response.get_payload());
     } catch (std::runtime_error &e) {
       return boost::make_tuple(false, "Socket error: " + utf8::utf8_from_native(e.what()));

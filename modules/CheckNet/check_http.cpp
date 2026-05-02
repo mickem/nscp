@@ -79,7 +79,7 @@ void run_http_check(const std::string &url_in, int /*timeout_ms*/, const std::ve
   try {
     http::http_client_options options(u.protocol, tls_version, verify_mode, ca_file);
     http::simple_client client(options);
-    http::packet rq("GET", u.host, u.path);
+    http::request rq("GET", u.host, u.path);
     if (!user_agent.empty()) rq.add_header("User-Agent", user_agent);
     for (const auto &h : headers) {
       const auto pos = h.find(':');

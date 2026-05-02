@@ -125,7 +125,7 @@ http::response op5_client::do_call(const char *verb, const std::string &url, con
   try {
     const http::parsed_url parsed = http::parse_url(full_url);
     http::http_client_options opts(parsed.protocol, "1.2+", "none", "");
-    http::packet rq(verb, parsed.host, parsed.path, payload);
+    http::request rq(verb, parsed.host, parsed.path, payload);
     rq.add_header(HTTP_HDR_AUTH, auth_header);
     rq.add_header("Accept", "application/json");
     rq.add_header("Content-type", "application/json");

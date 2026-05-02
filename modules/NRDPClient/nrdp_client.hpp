@@ -146,8 +146,8 @@ struct nrdp_client_handler : client::handler_interface {
       NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Connecting tuo: " + con.to_string()); }
       http::http_client_options options(con.protocol, con.tls_version, con.verify_mode, con.ca, con.build_proxy_config());
       http::simple_client c(options);
-      http::packet request("POST", con.get_address(), con.path);
-      http::packet::post_map_type post;
+      http::request request("POST", con.get_address(), con.path);
+      http::request::post_map_type post;
       post["token"] = con.token;
       post["XMLDATA"] = nrdp_data.render_request();
       post["cmd"] = "submitcheck";
