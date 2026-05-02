@@ -134,7 +134,8 @@ void run_http_check(const std::string &url_in, int /*timeout_ms*/, const std::ve
 
 }  // namespace
 
-void check_http(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+void check_http(const std::string &default_ca_file, const PB::Commands::QueryRequestMessage::Request &request,
+                PB::Commands::QueryResponseMessage::Response *response) {
   using check_http_filter::filter;
   using check_http_filter::filter_obj;
 
@@ -178,7 +179,7 @@ void check_http(const PB::Commands::QueryRequestMessage::Request &request, PB::C
         "TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).")
     ("verify", po::value<std::string>(&verify_mode)->default_value("none"),
         "Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.")
-    ("ca", po::value<std::string>(&ca_file), "Path to a CA bundle to use when verifying the server certificate.")
+    ("ca", po::value<std::string>(&ca_file)->default_value(default_ca_file), "Path to a CA bundle to use when verifying the server certificate.")
     ;
   // clang-format on
 

@@ -70,11 +70,11 @@ struct icinga_target_object : nscapi::targets::target_object {
                     "Override for the check_source field reported to Icinga 2. Defaults to the local hostname when empty.")
         .add_string("tls version", sh::string_fun_key([this](const auto&  value) { this->set_property_string("tls version", value); }, "1.3"),
                     "TLS VERSION", "The TLS version to use 1.0, 1.1, 1.2, 1.3")
-        .add_string("verify mode", sh::string_fun_key([this](const auto&  value) { this->set_property_string("verify mode", value); }),
+        .add_string("verify mode", sh::string_fun_key([this](const auto&  value) { this->set_property_string("verify mode", value); }, "peer"),
                     "TLS PEER VERIFY MODE",
                     "Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert, workarounds, single. "
                     "In general use peer-cert or none for self signed certificates.")
-        .add_string("ca", sh::string_fun_key([this](const auto&  value) { this->set_property_string("ca", value); }),
+        .add_string("ca", sh::string_fun_key([this](const auto& value) { this->set_property_string("ca", value); }, "${ca-path}"),
                     "CERTIFICATE AUTHORITY",
                     "Certificate authority to use when verifying certificates.")
         ;

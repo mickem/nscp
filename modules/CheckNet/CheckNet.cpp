@@ -40,6 +40,16 @@ namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 boost::atomic<unsigned short> identifier(0);
 
+bool CheckNet::loadModuleEx(const std::string &, NSCAPI::moduleLoadMode) {
+  // Resolve the trusted CA bundle path once, at module load. ${ca-path}
+  // expands to ${certificate-path}/windows-ca.pem on Windows (the auto-
+  // generated system ROOT bundle) and to /etc/ssl/certs/ca-certificates.crt
+  // on Linux. check_http hands this through as the default `ca` so HTTPS
+  // checks against public-CA-signed servers validate out of the box.
+  default_ca_ = get_core()->expand_path("${ca-path}");
+  return true;
+}
+
 void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   modern_filter::data_container data;
   modern_filter::cli_helper<ping_filter::filter> filter_helper(request, response, data);
@@ -86,7 +96,7 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
       ping.ping();
       io_service.run();
     }
-    boost::shared_ptr<ping_filter::filter_obj> obj = boost::make_shared<ping_filter::filter_obj>(result);
+    auto obj = boost::make_shared<ping_filter::filter_obj>(result);
     filter.match(obj);
     if (total_obj) total_obj->add(obj);
   }
@@ -99,8 +109,8 @@ void CheckNet::check_tcp(const PB::Commands::QueryRequestMessage::Request &reque
 void CheckNet::check_dns(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_net::check_dns(request, response);
 }
-void CheckNet::check_http(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_net::check_http(request, response);
+void CheckNet::check_http(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
+  check_net::check_http(default_ca_, request, response);
 }
 void CheckNet::check_connections(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_net::check_connections(request, response);
