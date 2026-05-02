@@ -619,7 +619,6 @@ OK: https://nsclient.org/ -> 200 ok (61204B in 561ms)| 'https://nsclient.org/_co
 <a id="check_http_ssl"></a>
 <a id="check_http_expected-body"></a>
 <a id="check_http_header"></a>
-<a id="check_http_ca"></a>
 <a id="check_http_options"></a>
 #### Command-line Arguments
 
@@ -658,7 +657,7 @@ OK: https://nsclient.org/ -> 200 ok (61204B in 561ms)| 'https://nsclient.org/_co
 | header                                     |                                                     | Additional request header in 'Name: value' form (may be given multiple times).                                   |
 | [tls-version](#check_http_tls-version)     | tlsv1.2+                                            | TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                     |
 | [verify](#check_http_verify)               | none                                                | Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.       |
-| ca                                         |                                                     | Path to a CA bundle to use when verifying the server certificate.                                                |
+| [ca](#check_http_ca)                       | C:\src\build\nscp/security/windows-ca.pem           | Path to a CA bundle to use when verifying the server certificate.                                                |
 
 
 
@@ -778,6 +777,12 @@ TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
 Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.
 
 *Default Value:* `none`
+
+<h5 id="check_http_ca">ca:</h5>
+
+Path to a CA bundle to use when verifying the server certificate.
+
+*Default Value:* `C:\src\build\nscp/security/windows-ca.pem`
 
 
 <a id="check_http_filter_keys"></a>

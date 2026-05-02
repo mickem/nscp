@@ -138,20 +138,62 @@ The arguments `C:`, `20`, and `10` are always passed to the script — they cann
 
 ### Arguments from the monitoring server (allow arguments)
 
-To allow the monitoring server to pass its own arguments:
+There are actually **two** independent `allow arguments` flags — one on the
+NRPE server, one on `CheckExternalScripts` — and the combination determines
+how exposed your scripts are. Pick the strategy that matches your threat
+model:
+
+| Strategy                                | NRPE `allow arguments` | External-scripts `allow arguments` | Trade-off                                                                                            |
+|-----------------------------------------|------------------------|------------------------------------|------------------------------------------------------------------------------------------------------|
+| **None — locked down (most secure)**    | `false`                | `false`                            | All thresholds hard-coded in `nsclient.ini`. Most secure; least flexible.                            |
+| **Built-ins only**                      | `true`                 | `false`                            | The monitoring server can drive thresholds for built-in commands (`check_cpu`, ...) but cannot pass arbitrary arguments to your scripts. Good middle ground. |
+| **Both — fully remote-controlled**      | `true`                 | `true`                             | Maximum flexibility; biggest blast radius. A compromised NRPE port can run your scripts with any arguments. Combine with strict `allowed hosts` and a firewall. |
+
+Built-ins-only configuration:
 
 ```ini
+[/settings/NRPE/server]
+allow arguments = true
+
+[/settings/external scripts]
+allow arguments = false
+```
+
+Both-allowed configuration (only with strict network restrictions):
+
+```ini
+[/settings/NRPE/server]
+allow arguments = true
+
 [/settings/external scripts]
 allow arguments = true
 
-[/settings/NRPE/server]
-allow arguments = true
+[/settings/external scripts/scripts]
+foo = scripts\foo.bat $ARG1$ $ARG2$
 ```
 
-!!! danger
-    Enabling argument pass-through is a security risk. Anyone who can reach the NRPE port can pass arbitrary arguments to your scripts. Use hard-coded arguments where possible, or combine with `allowed hosts` restrictions.
-
 Arguments are accessed in scripts as `$ARG1$`, `$ARG2$`, etc.
+
+!!! danger
+    Enabling argument pass-through (especially the second flag) is a security
+    risk: any host that can reach the NRPE port can pass arbitrary arguments
+    to whatever script you've defined. Combine with `allowed hosts` and a
+    firewall.
+
+### Protocol payload limits
+
+Each transport has its own hard-coded payload size limit. If your script
+output exceeds the limit, the result will be truncated or the protocol will
+reject it outright:
+
+| Protocol | Limit       |
+|----------|-------------|
+| NRPE v2  | 1024 bytes  |
+| NRPE v3+ | configurable, but practical limit is still small |
+| NSCA     | 512 bytes   |
+
+For long output, summarise in the message and put detail in the
+performance-data section, or split the check into multiple smaller checks.
 
 ---
 
@@ -179,6 +221,29 @@ capture output = false
 
 !!! danger
     Do **not** use `start` or similar shell tricks to background a process inside a regular script. This causes handle inheritance issues that block NSClient++'s port until it is restarted. Use `capture output = false` instead.
+
+---
+
+## Ignoring Performance Data
+
+NSClient++ parses anything after `|` in your script's output as Nagios
+performance data. If your script's pipe character isn't perfdata — or it
+emits non-conforming text that the parser then mangles — disable parsing.
+
+Per-script:
+
+```ini
+[/settings/external scripts/scripts/check_foo]
+command         = scripts\check_foo.bat
+ignore perfdata = true
+```
+
+Globally for every external script:
+
+```ini
+[/settings/external scripts/scripts/default]
+ignore perfdata = true
+```
 
 ---
 
@@ -223,9 +288,21 @@ check_nrpe -H <agent-ip> -c check_my_svc
 
 ---
 
+## Where to Find Scripts
+
+You don't have to write everything yourself. Community-maintained Nagios-
+compatible plugins live at:
+
+- [Nagios Exchange](https://exchange.nagios.org/)
+- [Icinga Exchange](https://exchange.icinga.com/)
+
+Both work with NSClient++ as long as the script honours the standard
+exit-code convention (0 OK, 1 WARN, 2 CRIT, 3 UNKNOWN).
+
+---
+
 ## Next Steps
 
 - [Reference: CheckExternalScripts](../reference/check/CheckExternalScripts.md) — full configuration reference
-- [Howto: External Scripts](../howto/external_scripts.md) — more advanced configuration options
 - [Extending: Python Scripts](../extending/python.md) — write internal scripts in Python for deeper NSClient++ integration
 - [Passive Monitoring](passive-monitoring-nsca.md) — have scripts push results on a schedule instead of being polled

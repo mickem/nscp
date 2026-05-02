@@ -214,7 +214,7 @@ check_nrpe -H <agent-ip> -c check_http --argument "url=https://myapp.example.com
 ```
 
 !!! warning
-    Passing arguments via NRPE requires `allow arguments = true` in the NRPE server configuration. See [NRPE security](../getting-started/nrpe.md).
+    Passing arguments via NRPE requires `allow arguments = true` in the NRPE server configuration. See [NRPE security](nrpe.md).
 
 ---
 

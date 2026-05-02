@@ -68,15 +68,52 @@ If you have set up a test result file on the NSCA server, you should see:
 [timestamp] PROCESS_SERVICE_CHECK_RESULT;my-windows-host;service check;2;Hello from NSClient++
 ```
 
+### NSCA server-side configuration
+
+The NSCA daemon needs the matching cipher and password in its `nsca.cfg`:
+
+```text
+decryption_method = 14
+password          = secret-password
+```
+
+If you're troubleshooting the connection, redirect the result file to a path
+you can `tail` to see what arrives:
+
+```text
+command_file = /tmp/result.txt
+```
+
+!!! note
+    The password is a shared secret — both sides must use the same value, and
+    it isn't authenticated in the cryptographic sense (no challenge/response).
+    Use a strong, long password to make brute-force impractical.
+
 ### NSCA encryption reference
 
-| NSClient++ value | NSCA method number | Security |
-|---|---|---|
-| `aes256` | 14 | ✅ Industry standard (recommended) |
-| `twofish` | 9 | 🟢 Very secure |
-| `blowfish` | 8 | 🟡 Moderate |
-| `xor` | 1 | ⚠️ Not secure — avoid |
-| `none` | 0 | ⚠️ No encryption — avoid |
+NSClient++ uses Crypto++; NSCA uses libmcrypt. The two libraries don't share a
+common identifier, so the matching is by table:
+
+| NSClient++ value | NSCA method | Security                      |
+|------------------|-------------|-------------------------------|
+| `none`           | 0           | ⚠️ Not secure — avoid         |
+| `xor`            | 1           | ⚠️ Not secure — avoid         |
+| `des`            | 2           | ⚠️ Insecure                   |
+| `3des`           | 3           | ⚠️ Legacy                     |
+| `cast128`        | 4           | 🟡 Moderate                   |
+| `xtea`           | 6           | 🟡 Moderate                   |
+| `blowfish`       | 8           | 🟡 Moderate                   |
+| `twofish`        | 9           | 🟢 Very secure                |
+| `rc2`            | 11          | ⚠️ Insecure                   |
+| `aes256`         | 14          | ✅ Industry standard (default) |
+| `serpent`        | 20          | 🟢 Paranoid                   |
+| `gost`           | 23          | ⚠️ Questionable               |
+
+!!! warning "AES naming gotcha"
+    NSCA names ciphers by **block size**, NSClient++ names them by **key
+    size**. NSCA's `RIJNDAEL-128` (method `14`) is what NSClient++ calls
+    `aes256` — same algorithm, different label. NSCA only supports AES with a
+    128-bit block, so the other AES-named NSCA values are not valid choices.
 
 ---
 
@@ -117,6 +154,62 @@ Each key becomes the **service name** that Nagios/Icinga will see in the passive
     report   = all
     ```
 
+### Schedule options reference
+
+| Option     | Description                                                                                |
+|------------|--------------------------------------------------------------------------------------------|
+| `interval` | How often the check runs (e.g. `30s`, `5m`, `1h`). Apply via the `default` template.       |
+| `command`  | The check command to execute. With short-form (`name = command`) this is the value.        |
+| `alias`    | Name reported back to Nagios. Defaults to the schedule key, so usually omitted.            |
+| `channel`  | Target channel for the result. Defaults to `NSCA`; set this to fan out to other channels.  |
+| `report`   | Filter on which results are sent: `all`, `ok`, `warning`, `critical`, or comma-combinations. |
+
+### Short-form vs. long-form schedules
+
+The `[/settings/scheduler/schedules]` block supports two equivalent shapes:
+
+```ini
+; Short form — the key is the alias, the value is the command.
+[/settings/scheduler/schedules]
+cpu  = check_cpu
+mem  = check_memory
+```
+
+```ini
+; Long form — one section per schedule, more knobs available.
+[/settings/scheduler/schedules/cpu]
+command  = check_cpu
+interval = 30s
+
+[/settings/scheduler/schedules/mem]
+command  = check_memory
+interval = 5m
+```
+
+Short form is concise but only carries `command`. Switch to long form when
+you need per-schedule overrides (interval, channel, alias, report).
+
+### Real-time channels
+
+The Scheduler isn't the only thing that can publish into the NSCA channel.
+`CheckLogFile` and `CheckEventLog` can both publish results in real time —
+useful for surfacing log/event hits without waiting for the next scheduler
+tick. They share the same channel mechanism, so a result from `CheckEventLog`
+is indistinguishable from a scheduled one on the receiving side.
+
+```ini
+[/settings/eventlog/real-time/filters/critical-app]
+log     = Application
+filter  = level = 'error' AND source = 'MyApp'
+channel = NSCA
+```
+
+### Multiple targets
+
+A single `NSCAClient` instance handles one target, but you can fan results
+out to multiple servers (or channels) by combining target sections with the
+`channel` knob on each schedule. The receiver matches by channel name.
+
 ---
 
 ## Step 3 — Configure the NSCA Client
@@ -155,6 +248,14 @@ hostname = win-server-01.example.com
 ```ini
 [/settings/NSCA/client]
 hostname = ${host_lc}.${domain_lc}
+```
+
+Variables can be combined with literal text — for example to add a `win_`
+prefix on Windows hosts that share a Linux-host naming convention:
+
+```ini
+[/settings/NSCA/client]
+hostname = win_${host_lc}.${domain_lc}
 ```
 
 Supported variables:
@@ -229,6 +330,56 @@ The scheduler configuration stays the same — just change `channel = NSCA` to `
 
 ---
 
+## Troubleshooting
+
+NSCA is fire-and-forget — the agent doesn't get a delivery acknowledgement,
+so a misconfigured client will look fine from NSClient++'s side and silent
+on the server side. The first place to look is the NSCA daemon log on the
+monitoring server:
+
+```
+sudo tail -f /var/log/syslog
+```
+
+A successful submission shows up as:
+
+```
+nsca: Connection from 192.168.0.104 port 8198
+nsca: Handling the connection...
+nsca: SERVICE CHECK -> Host Name: 'win-server-01', Service Description: 'CPU Load',
+      Return Code: '0', Output: 'OK CPU Load ok.|...'
+nsca: End of connection...
+```
+
+A misconfigured submission usually surfaces as:
+
+```
+nsca: Connection from 192.168.0.104 port 26117
+nsca: Handling the connection...
+nsca: Received invalid packet type/version from client
+```
+
+That message means almost always one of two things:
+
+- **Wrong password** — the shared secret on the agent doesn't match
+  `nsca.cfg`'s `password`.
+- **Wrong encryption** — the cipher mismatch (e.g. you set `encryption =
+  aes256` but the daemon has `decryption_method = 9`).
+
+If the daemon log is silent altogether, the connection isn't reaching it —
+check `address`, `port`, firewalls, and `allowed_hosts` on the NSCA daemon.
+
+To see what NSClient++ is sending, restart it in test mode:
+
+```
+net stop nscp
+nscp test
+```
+
+…and watch the trace lines as the scheduler fires.
+
+---
+
 ## Monitoring Configuration on the Server Side
 
 In Nagios/Icinga, define your services as **passive** with a freshness threshold:
@@ -249,7 +400,6 @@ define service {
 
 ## Next Steps
 
-- [Getting Started: NSCA](../getting-started/nsca.md) — detailed NSCA setup walkthrough
 - [Event Log Monitoring](event-log.md) — add real-time event log alerts to passive monitoring
 - [Reference: NSCAClient](../reference/client/NSCAClient.md) — full configuration reference
 - [Reference: Scheduler](../reference/generic/Scheduler.md) — full scheduler reference

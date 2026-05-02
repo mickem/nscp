@@ -134,7 +134,7 @@ Backslashes and some other control characters are handled by the shell in Nagios
 
 ### 2.4 Arguments via NRPE
 
-For details see [external script](howto/external_scripts.md#arguments)
+For details see [External Scripts](scenarios/external-scripts.md#using-arguments)
 
 ### 2.5 Nasty metacharacters
 
