@@ -49,13 +49,15 @@ cli_parser::cli_parser(const std::shared_ptr<NSClient> &core)
       no_stderr(false) {
   // clang-format off
 
-common_light.add_options()
+      common_light.add_options()
 	("settings", po::value<std::string>(&settings_store), "Override (temporarily) settings subsystem to use")
 	("debug", po::bool_switch(&log_debug), "Set log level to debug (and show debug information)")
 	("log", po::value<std::vector<std::string> >(&log_level), "The log level to use")
 	("log-backend", po::value<std::string>(&log_backend), "The log backend to use (file or console)")
 	("define", po::value<std::vector<std::string> >(&defines), "Defines to use to override settings. Syntax is PATH:KEY=VALUE")
-      ;      common.add_options()
+      ;
+
+      common.add_options()
         ("help", po::bool_switch(&help), "Show the help message for a given command")
         ("no-stderr", po::bool_switch(&no_stderr), "Do not report errors on stderr")
         ("version", po::bool_switch(&version), "Show version information")
@@ -128,7 +130,7 @@ bool cli_parser::process_common_options(const std::string &context, const po::op
   init_logger();
   if (core_->get_logger()->should_debug()) {
     for (const std::string &a : unknown_options) {
-      core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Extra options: " + utf8::cvt<std::string>(a));
+      core_->get_logger()->debug(LOG_MODULE, __FILE__, __LINE__, "Extra options: " + utf8::cvt<std::string>(a));
     }
   }
 
