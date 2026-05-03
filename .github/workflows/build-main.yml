@@ -13,6 +13,12 @@ jobs:
     uses: ./.github/workflows/get-version.yml
   create-test-bundle:
     uses: ./.github/workflows/create-test-bundle.yml
+  sanitizer-tests:
+    needs: get-version
+    uses: ./.github/workflows/tests-sanitizers.yml
+    with:
+      version: ${{ needs.get-version.outputs.version }}
+    continue-on-error: true
   build-client-x64:
     needs: get-version
     uses: ./.github/workflows/build-rust.yml

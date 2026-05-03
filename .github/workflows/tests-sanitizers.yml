@@ -1,0 +1,138 @@
+name: Unit tests (ASan + UBSan)
+
+# Builds NSClient++ unit tests on Linux with AddressSanitizer and
+# UndefinedBehaviorSanitizer enabled and runs ctest under them. This catches
+# heap/stack/global out-of-bounds reads/writes, use-after-free, leaks, signed
+# overflow, null deref, vptr mismatches, etc. — strictly more than the
+# Debug+ctest run on the regular Debian build.
+#
+# Local reproduction:
+#   cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+#                            -DNSCP_SANITIZE=address,undefined
+#   ASAN_OPTIONS=detect_leaks=0 cmake --build build-asan -j$(nproc)
+#   ASAN_OPTIONS="detect_leaks=1:detect_odr_violation=0:halt_on_error=1" \
+#     UBSAN_OPTIONS=halt_on_error=1 \
+#     ctest --test-dir build-asan -R '_test$' --output-on-failure
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        description: 'Version to build'
+        required: true
+        default: '0.0.0'
+
+env:
+  TINY_XML_2_VERSION: "10.1.0"
+  MONGOOSE_VERSION: "7.20"
+  MINIZ_VERSION: "3.1.1"
+
+jobs:
+  sanitizer-tests:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:24.04
+
+    steps:
+    - name: Install dependencies
+      run: |
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y \
+          git curl unzip cmake build-essential python3-pip \
+          libboost-all-dev libgtest-dev libgmock-dev \
+          protobuf-compiler libprotobuf-dev \
+          openssl libssl-dev libcrypto++-dev \
+          liblua5.4-dev libdbus-1-dev
+
+    - uses: actions/checkout@v6
+
+    - uses: actions/setup-node@v6
+      with:
+        node-version: 20
+        cache: 'npm'
+        cache-dependency-path: web/package-lock.json
+
+    - name: Make build dir
+      run: mkdir -p tmp/nscp
+
+    - name: Setup python dependencies
+      run: |
+        pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt
+
+    - id: tinyxml2
+      uses: ./.github/actions/tinyxml2
+      with:
+        version: ${{ env.TINY_XML_2_VERSION }}
+
+    - id: mongoose
+      uses: ./.github/actions/mongoose
+      with:
+        version: ${{ env.MONGOOSE_VERSION }}
+
+    - id: miniz
+      uses: ./.github/actions/miniz
+      with:
+        version: ${{ env.MINIZ_VERSION }}
+
+    - name: Build web
+      working-directory: web
+      run: |
+        npm install
+        npm run build
+
+    - name: Write NSClient++ cmake config
+      run: |
+        cat > tmp/nscp/build.cmake << 'EOF'
+        SET(LIBRARY_ROOT_FOLDER "${{ env.GITHUB_WORKSPACE }}")
+        SET(NSCP_BOOST_PYTHON_VERSION "python312")
+        SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
+        set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
+        set(MINIZ_INCLUDE_DIR "${{ steps.miniz.outputs.path_unix }}")
+        # Skip copying the Rust check_nsclient binary — sanitizer tests don't
+        # need it, and building the Rust client just for this run is wasteful.
+        set(CHECK_NSCLIENT_MISSING ON)
+        set(USE_STATIC_RUNTIME OFF)
+        EOF
+
+    - name: CMake configure (ASan + UBSan)
+      working-directory: tmp/nscp
+      run: |
+        cmake ../.. \
+          -DBUILD_VERSION=${{ inputs.version }} \
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+          -DNSCP_SANITIZE=address,undefined
+
+    - name: Build
+      working-directory: tmp/nscp
+      env:
+        # The build runs Python (mkdocs / proto codegen) which doesn't free
+        # its arena on exit. Disable leak-check during the build phase only;
+        # we re-enable it for the test phase below.
+        ASAN_OPTIONS: detect_leaks=0
+      run: cmake --build . -j$(nproc)
+
+    - name: Run unit tests under sanitizers
+      working-directory: tmp/nscp
+      env:
+        # halt_on_error=1 + abort_on_error=1: fail the test process on the
+        #   first violation so CI gates on it.
+        # detect_leaks=1: re-enable leak detection.
+        # detect_odr_violation=0: silence ODR violations from .cpp files
+        #   compiled into both the shared library and the test target
+        #   (e.g. grammar.cpp, mongoose.c). The duplicates are identical
+        #   builds; the proper fix is to restructure those test targets.
+        # check_initialization_order, detect_stack_use_after_return: extra
+        #   ASan checks that are cheap to enable.
+        ASAN_OPTIONS: "halt_on_error=1:abort_on_error=1:detect_leaks=1:detect_odr_violation=0:check_initialization_order=1:detect_stack_use_after_return=1:print_stacktrace=1"
+        UBSAN_OPTIONS: "halt_on_error=1:print_stacktrace=1:suppressions=${{ github.workspace }}/tools/sanitizers/ubsan-suppressions.txt"
+        LSAN_OPTIONS: "suppressions=${{ github.workspace }}/tools/sanitizers/lsan-suppressions.txt"
+      run: |
+        # Only the C++ unit tests (gtest binaries named *_test). The Python-
+        # driven integration tests under tests/{nrpe,nsca,...} spawn the
+        # daemon and don't pair well with sanitizer-instrumented modules on
+        # this first pass.
+        ctest --output-on-failure -R '_test$'

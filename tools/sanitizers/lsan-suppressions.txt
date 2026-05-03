@@ -1,0 +1,8 @@
+# LeakSanitizer suppressions for unit tests built with NSCP_SANITIZE=address.
+#
+# Format (one per line):
+#   leak:<symbol or library substring>
+#
+# The current sanitizer run is clean — this file is a placeholder so future
+# noise from third-party libraries (boost, openssl, lua, python, ...) can be
+# silenced without changing the workflow.
