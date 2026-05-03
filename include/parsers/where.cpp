@@ -91,11 +91,16 @@ value_container parser::evaluate(evaluation_context context) {
     node_type result = resulting_tree->evaluate(context);
     return result->get_value(context, type_int);
   } catch (const std::exception &e) {
+    // Mark the result as unsure so callers (engine_filter::match_force →
+    // modern_filter::match_post) escalate the verdict to UNKNOWN rather
+    // than letting a thrown subterm silently collapse the entire AST to a
+    // sure-false OK. Returning create_nil() used to drop the is_unsure
+    // signal at factory::create_num(nil) → int_value(0).
     context->error(std::string("Evaluate exception: ") + e.what());
-    return value_container::create_nil();
+    return value_container::create_int(false, /*is_unsure=*/true);
   } catch (...) {
     context->error("Evaluate exception: " + result_as_tree());
-    return value_container::create_nil();
+    return value_container::create_int(false, /*is_unsure=*/true);
   }
 }
 

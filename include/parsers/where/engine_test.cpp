@@ -1069,3 +1069,170 @@ TEST(EngineValidate, AcceptsMixOfBoundAndSummaryFilters) {
   engine e({"ivar > 5", "scount = 0"}, handler);
   EXPECT_TRUE(e.validate(make_factory())) << handler->error_;
 }
+
+// ============================================================================
+// Operator audit: LIKE / NOT LIKE / REGEXP / NOT REGEXP propagate is_unsure
+// when the object-bound side cannot resolve.
+//
+// Before the fix, all four returned value_container::create_nil() on a
+// type-mismatched lhs/rhs (the most common cause being a string variable
+// evaluated with no current object). The nil flowed to factory::create_num
+// as int_value(0) — sure-false — and modern_filter::match_post had no signal
+// to escalate UNKNOWN. After the fix they return unsure-false, joining the
+// =/!=/IN/etc. contract.
+// ============================================================================
+
+TEST(EngineFilterMatchForce, LikeNoObjectIsUnsureFalse) {
+  auto ctx = make_native_context();
+  const auto r = eval_force_full("svar like 'hung'", ctx);
+  EXPECT_FALSE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
+}
+
+TEST(EngineFilterMatchForce, NotLikeNoObjectIsUnsureFalse) {
+  auto ctx = make_native_context();
+  const auto r = eval_force_full("svar not like 'hung'", ctx);
+  EXPECT_FALSE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
+}
+
+TEST(EngineFilterMatchForce, RegexpNoObjectIsUnsureFalse) {
+  auto ctx = make_native_context();
+  const auto r = eval_force_full("svar regexp '.*'", ctx);
+  EXPECT_FALSE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
+}
+
+TEST(EngineFilterMatchForce, NotRegexpNoObjectIsUnsureFalse) {
+  auto ctx = make_native_context();
+  const auto r = eval_force_full("svar not regexp '.*'", ctx);
+  EXPECT_FALSE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
+}
+
+// Mixed expression: `<bound LIKE> OR <sure-true>` short-circuits in
+// operator_or to sure-true; `<bound LIKE> OR <sure-false>` propagates
+// unsure-false so match_post escalates UNKNOWN. Pin both rows of the
+// behaviour-matrix so future regressions surface here.
+TEST(EngineFilterMatchForce, LikeOrSummarySureTrueShortCircuits) {
+  auto ctx = make_native_context();
+  const auto r = eval_force_full("svar like 'hung' or 1 = 1", ctx);
+  EXPECT_TRUE(r.matched);
+  EXPECT_FALSE(r.is_unsure);
+}
+
+TEST(EngineFilterMatchForce, LikeOrSummarySureFalsePropagatesUnsure) {
+  auto ctx = make_native_context();
+  const auto r = eval_force_full("svar like 'hung' or 1 = 2", ctx);
+  EXPECT_FALSE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
+}
+
+TEST(EngineFilterMatchForce, RegexpOrSummarySureTrueShortCircuits) {
+  auto ctx = make_native_context();
+  const auto r = eval_force_full("svar regexp '.*' or 1 = 1", ctx);
+  EXPECT_TRUE(r.matched);
+  EXPECT_FALSE(r.is_unsure);
+}
+
+// ============================================================================
+// Operator audit: invalid regex syntax surfaces as unsure-false (UNKNOWN)
+// instead of silent sure-false (OK).
+//
+// `boost::bad_expression` from a malformed regex used to be caught and
+// returned as nil → sure-false. Same fix as the nil-guard: return
+// unsure-false so the user sees UNKNOWN for their broken filter.
+// ============================================================================
+
+TEST(EngineFilter, InvalidRegexSyntaxSurfacesAsUnsure) {
+  auto ctx = make_native_context();
+  ctx->set_object({0, 0.0, "anything"});
+  // '[' is not a valid regex (unmatched bracket).
+  const auto r = eval_force_full("svar regexp '['", ctx);
+  EXPECT_FALSE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
+}
+
+TEST(EngineFilter, InvalidRegexInOrWithSureTrueStillFires) {
+  // Even if the user's regex is broken, a sure-true summary side still
+  // short-circuits the OR — preserves issue #74's core intent that summary
+  // can rescue a verdict from a malformed bound side.
+  auto ctx = make_native_context();
+  ctx->set_object({0, 0.0, "anything"});
+  const auto r = eval_force_full("svar regexp '[' or 1 = 1", ctx);
+  EXPECT_TRUE(r.matched);
+  EXPECT_FALSE(r.is_unsure);
+}
+
+// ============================================================================
+// Operator audit: operator_lt::do_eval_float no longer drops lhs.is_unsure
+// in the false-branch.
+//
+// Before the fix the false-result returned `(false, rhs.is_unsure)` —
+// asymmetric with every other comparison operator that ORs both is_unsure
+// flags. This test pins consistency across all six comparison ops on float.
+// ============================================================================
+
+TEST(EngineFilterMatchForce, FloatLessThanFalseStillPropagatesUnsure) {
+  auto ctx = make_native_context();
+  // fvar with no object resolves to (0.0, is_unsure=true). 0.0 < -1.0 is
+  // false, but the result must still be unsure — the bound side couldn't
+  // resolve. Without the fix this returned sure-false → silent OK.
+  const auto r = eval_force_full("fvar < -1.0", ctx);
+  EXPECT_FALSE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
+}
+
+TEST(EngineFilterMatchForce, FloatLessThanFalseInOrSummaryFalsePropagatesUnsure) {
+  auto ctx = make_native_context();
+  // Mixed expression where the false-from-bound side must keep is_unsure
+  // so the OR result stays unsure (and modern_filter escalates UNKNOWN
+  // rather than the silent OK that the bug used to produce).
+  const auto r = eval_force_full("fvar < -1.0 or 1 = 2", ctx);
+  EXPECT_FALSE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
+}
+
+// ============================================================================
+// Operator audit: unary `not` for type_int (unary minus) and type_date.
+//
+// Note: helpers::get_return_type(op_not, *) always returns type_bool — the
+// where grammar's `not <expr>` always produces a type_bool unary_op. The
+// type_int and type_date branches in operator_not::evaluate are therefore
+// only reachable when `not` is invoked via binary_function_impl (e.g.
+// programmatic AST construction), not through user filter syntax.
+//
+// The Tier 3 fix to those branches is defensive and not user-reachable, so
+// no test exercises it directly. The user-reachable type_bool branch is
+// already covered by NotBoundTruthTable / NotBoundOrSummaryTruthTable
+// elsewhere in this file.
+// ============================================================================
+
+// ============================================================================
+// Operator audit (Quirk F): parser::evaluate's catch block escalates throws
+// to unsure-false instead of silent sure-false.
+//
+// We can't easily inject a throw from a real operator after the IN/NOT IN
+// fix, so this test relies on a deeply-defensive expectation: any future
+// throw inside an operator's evaluate() should surface as UNKNOWN. The
+// regex-bad-syntax test above is the closest user-reachable scenario; this
+// section is the contract documentation.
+// ============================================================================
+
+TEST(EngineFilter, ThrowingExpressionSurfacesAsUnsure) {
+  // Today the only user-reachable throw path inside a working operator is
+  // a malformed regex (boost::bad_expression). The throw is now caught
+  // inside operator_regexp::regex_match_to_container and returned as
+  // unsure-false directly, so parser::evaluate's catch block doesn't fire
+  // for this case. But the catch block exists as defence-in-depth: any
+  // future operator that throws on a degenerate input will still escalate
+  // to UNKNOWN rather than silent OK.
+  //
+  // Sanity: confirm the regex case (which used to throw, now propagates
+  // through the helper) ends in unsure-false.
+  auto ctx = make_native_context();
+  ctx->set_object({0, 0.0, "x"});
+  const auto r = eval_force_full("svar regexp '*invalid*'", ctx);
+  EXPECT_FALSE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
+}

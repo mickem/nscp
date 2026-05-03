@@ -189,8 +189,12 @@ struct operator_lt : even_simpler_bool_binary_operator_impl {
     return value_container::create_int(lhs.get_int() < rhs.get_int(), lhs.is_unsure | rhs.is_unsure);
   }
   value_container do_eval_float(value_type, evaluation_context context, const value_container lhs, const value_container rhs) const override {
-    if (lhs.get_float() < rhs.get_float()) return value_container::create_int(true, lhs.is_unsure | rhs.is_unsure);
-    return value_container::create_int(false, rhs.is_unsure);
+    // Both sides' is_unsure must propagate regardless of the comparison
+    // outcome — every other operator_eq/_ne/_gt/_lt/_le/_ge::do_eval_* uses
+    // `lhs.is_unsure | rhs.is_unsure` consistently. The previous false-branch
+    // dropped lhs.is_unsure, which silently produced sure-false for
+    // expressions like `fvar < 0` when fvar resolved to its no-object default.
+    return value_container::create_int(lhs.get_float() < rhs.get_float(), lhs.is_unsure | rhs.is_unsure);
   }
   value_container do_eval_string(value_type, evaluation_context context, const value_container lhs, const value_container rhs) const override {
     return value_container::create_int(lhs.get_string() < rhs.get_string(), lhs.is_unsure | rhs.is_unsure);
@@ -277,8 +281,11 @@ struct operator_like : pattern_binary_operator_impl {
     const value_container lhs = left->get_value(context, type_string);
     const value_container rhs = right->get_value(context, type_string);
     if (!lhs.is(type_string) || !rhs.is(type_string)) {
+      // Mirror even_simpler_bool_binary_operator_impl: nil lhs/rhs (object-
+      // bound string variable evaluated with no current object) propagates
+      // as unsure-false so modern_filter::match_post can escalate UNKNOWN.
       context->error("invalid type");
-      return value_container::create_nil();
+      return value_container::create_int(false, /*is_unsure=*/true);
     }
     return like_match_to_container(context, lhs.get_string(), rhs, false, lhs.is_unsure || rhs.is_unsure);
   }
@@ -293,8 +300,10 @@ struct operator_like : pattern_binary_operator_impl {
   static value_container like_match_to_container(const evaluation_context context, const std::string &subject, const value_container &pattern,
                                                  const bool negate, const bool is_unsure) {
     if (!pattern.is(type_string)) {
+      // Pattern (rhs) is nil — same unsure-false escalation contract as
+      // every other binary operator's nil-guard.
       context->error("invalid type");
-      return value_container::create_nil();
+      return value_container::create_int(false, /*is_unsure=*/true);
     }
     const std::string s1 = boost::algorithm::to_lower_copy(subject);
     const std::string s2 = boost::algorithm::to_lower_copy(pattern.get_string());
@@ -329,8 +338,9 @@ struct operator_regexp : pattern_binary_operator_impl {
     const value_container lhs = left->get_value(context, type_string);
     const value_container rhs = right->get_value(context, type_string);
     if (!lhs.is(type_string) || !rhs.is(type_string)) {
+      // See operator_like::eval_string for rationale.
       context->error("invalid type");
-      return value_container::create_nil();
+      return value_container::create_int(false, /*is_unsure=*/true);
     }
     return regex_match_to_container(context, lhs.get_string(), rhs, false, lhs.is_unsure || rhs.is_unsure);
   }
@@ -340,8 +350,9 @@ struct operator_regexp : pattern_binary_operator_impl {
   static value_container regex_match_to_container(const evaluation_context context, const std::string &subject, const value_container &pattern,
                                                   const bool negate, const bool is_unsure) {
     if (!pattern.is(type_string)) {
+      // Same unsure-false escalation as operator_like::like_match_to_container.
       context->error("invalid type");
-      return value_container::create_nil();
+      return value_container::create_int(false, /*is_unsure=*/true);
     }
     const std::string regexp = pattern.get_string();
     try {
@@ -349,11 +360,15 @@ struct operator_regexp : pattern_binary_operator_impl {
       const bool matched = boost::regex_match(subject, re);
       return value_container::create_int(negate ? !matched : matched, is_unsure);
     } catch (const boost::bad_expression &e) {
+      // Invalid regex is a config error from the user, not a missing-object
+      // condition, but the user-visible expectation is the same: surface
+      // UNKNOWN rather than silently OK so the user knows their filter
+      // string didn't compile. Return unsure-false for match_post to escalate.
       context->error("Invalid syntax in regular expression:" + regexp + " error: " + e.what());
-      return value_container::create_nil();
+      return value_container::create_int(false, /*is_unsure=*/true);
     } catch (...) {
       context->error("Invalid syntax in regular expression:" + regexp);
-      return value_container::create_nil();
+      return value_container::create_int(false, /*is_unsure=*/true);
     }
   }
 };
@@ -373,8 +388,9 @@ struct operator_not_regexp : pattern_binary_operator_impl {
     const value_container lhs = left->get_value(context, type_string);
     const value_container rhs = right->get_value(context, type_string);
     if (!lhs.is(type_string) || !rhs.is(type_string)) {
+      // See operator_like::eval_string for rationale.
       context->error("invalid type");
-      return value_container::create_nil();
+      return value_container::create_int(false, /*is_unsure=*/true);
     }
     return operator_regexp::regex_match_to_container(context, lhs.get_string(), rhs, true, lhs.is_unsure || rhs.is_unsure);
   }
@@ -395,8 +411,9 @@ struct operator_not_like : pattern_binary_operator_impl {
     const value_container lhs = left->get_value(context, type_string);
     const value_container rhs = right->get_value(context, type_string);
     if (!lhs.is(type_string) || !rhs.is(type_string)) {
+      // See operator_like::eval_string for rationale.
       context->error("invalid type");
-      return value_container::create_nil();
+      return value_container::create_int(false, /*is_unsure=*/true);
     }
     return operator_like::like_match_to_container(context, lhs.get_string(), rhs, true, lhs.is_unsure || rhs.is_unsure);
   }
@@ -590,11 +607,17 @@ struct operator_not : unary_operator_impl, binary_function_impl {
       const value_container v = subject->get_value(context, type_int);
       return std::make_shared<int_value>(v.get_int(0) ? 0 : 1, v.is_unsure);
     }
-    if (type == type_int) return factory::create_int(-subject->get_int_value(context));
+    if (type == type_int) {
+      // Unary minus also needs to preserve is_unsure — the subject's
+      // object-bound default of 0 must not flow into a "sure -0=0" verdict
+      // for downstream comparisons.
+      const value_container v = subject->get_value(context, type_int);
+      return std::make_shared<int_value>(-v.get_int(0), v.is_unsure);
+    }
     if (type == type_date) {
       const long long now = constants::get_now();
-      const long long val = now - (subject->get_int_value(context) - now);
-      return factory::create_int(val);
+      const value_container v = subject->get_value(context, type_int);
+      return std::make_shared<int_value>(now - (v.get_int(0) - now), v.is_unsure);
     }
     context->error("missing impl for NOT operator");
     return factory::create_false();
