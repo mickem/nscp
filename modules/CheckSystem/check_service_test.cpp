@@ -25,8 +25,6 @@
 #include <win/winsvc.hpp>
 
 #include <cstddef>
-#include <functional>
-#include <utility>
 #include <vector>
 
 // ============================================================================
@@ -437,161 +435,175 @@ struct fetch_step {
   DWORD next_handle;
 };
 
-struct scripted_fetcher {
+// State recorded across calls into the fetch lambda. Kept separate from
+// the lambda itself so tests can introspect it after enumerate returns.
+//
+// Note: was_probe uses char rather than bool to avoid the
+// vector<bool>::reference proxy when reading entries back out.
+struct fetch_state {
   std::vector<fetch_step> steps;
   std::size_t cursor = 0;
 
-  // Recorded for assertions.
-  std::vector<DWORD> handles_seen;     // resume handle in at the start of every call
-  std::vector<bool> was_probe;         // true if buf==nullptr on that call
+  std::vector<DWORD> handles_seen;     // resume handle as seen at the start of every call
+  std::vector<char> was_probe;         // 1 if buf==nullptr on that call, 0 otherwise
   std::vector<DWORD> buf_sizes_seen;   // buf_size argument
-  std::vector<DWORD> last_set_handle;  // resume handle out at the end of every call
+  std::vector<DWORD> last_set_handle;  // resume handle as it left the call
+};
 
-  win_list_services::detail::enum_page_status operator()(LPBYTE buf, DWORD buf_size, DWORD &handle) {
-    handles_seen.push_back(handle);
-    was_probe.push_back(buf == nullptr);
-    buf_sizes_seen.push_back(buf_size);
+// Builds the fetch lambda for `state`. The lambda captures by reference so
+// every recorded call mutates `state` in place.
+inline auto make_fetcher(fetch_state &state) {
+  return [&state](LPBYTE buf, DWORD buf_size, DWORD &handle) -> win_list_services::detail::enum_page_status {
+    const bool is_probe = (buf == nullptr);
+    state.handles_seen.push_back(handle);
+    state.was_probe.push_back(is_probe ? 1 : 0);
+    state.buf_sizes_seen.push_back(buf_size);
 
-    if (cursor >= steps.size()) {
-      // The harness ran out of script — fail loudly via an unexpected
-      // ERROR_GEN_FAILURE so a runaway loop surfaces as a thrown
-      // exception rather than an infinite loop.
-      win_list_services::detail::enum_page_status r{false, ERROR_GEN_FAILURE, 0, 0};
-      last_set_handle.push_back(handle);
+    if (state.cursor >= state.steps.size()) {
+      // Out of script — fail loudly with an unexpected error so a runaway
+      // loop surfaces as a thrown exception rather than an infinite loop.
+      state.last_set_handle.push_back(handle);
+      win_list_services::detail::enum_page_status r;
+      r.success = false;
+      r.last_error = ERROR_GEN_FAILURE;
+      r.bytes_needed = 0;
+      r.count = 0;
       return r;
     }
-    const fetch_step s = steps[cursor++];
-    if (!was_probe.back()) {
-      // Bulk step: emulate the SCM advancing the handle.
+    const fetch_step s = state.steps[state.cursor++];
+    if (!is_probe) {
+      // Bulk step: emulate the SCM advancing (or resetting) the handle.
       handle = s.next_handle;
     }
-    last_set_handle.push_back(handle);
+    state.last_set_handle.push_back(handle);
     win_list_services::detail::enum_page_status r;
     r.success = s.success;
     r.last_error = s.last_error;
     r.bytes_needed = s.bytes_needed;
     r.count = s.count;
     return r;
-  }
-};
+  };
+}
 
-struct process_recorder {
-  std::vector<DWORD> counts;
-  void operator()(const BYTE * /*page*/, DWORD count) { counts.push_back(count); }
-};
+inline auto make_recorder(std::vector<DWORD> &counts) {
+  return [&counts](const BYTE * /*page*/, DWORD count) { counts.push_back(count); };
+}
 
 }  // namespace
 
 TEST(EnumeratePagedServices, ProbeSucceedsImmediately_NoBulk_NoProcess) {
   // Empty SCM: probe call succeeds with no bytes_needed, no bulk follow-up.
-  scripted_fetcher fetch{{{true, 0, 0, 0, 0}}};
-  process_recorder process;
+  fetch_state fetch;
+  fetch.steps = {{true, 0, 0, 0, 0}};
+  std::vector<DWORD> counts;
 
-  win_list_services::detail::enumerate_paged_services(std::ref(fetch), std::ref(process));
+  win_list_services::detail::enumerate_paged_services(make_fetcher(fetch), make_recorder(counts));
 
-  EXPECT_EQ(fetch.cursor, 1u);
-  ASSERT_EQ(fetch.was_probe.size(), 1u);
-  EXPECT_TRUE(fetch.was_probe[0]);
-  EXPECT_TRUE(process.counts.empty());
+  EXPECT_EQ(fetch.cursor, static_cast<std::size_t>(1));
+  ASSERT_EQ(fetch.was_probe.size(), static_cast<std::size_t>(1));
+  EXPECT_EQ(fetch.was_probe[0], 1);
+  EXPECT_TRUE(counts.empty());
 }
 
 TEST(EnumeratePagedServices, ProbeMoreData_BulkSuccess_OneBatch) {
   // The standard happy path: probe says ERROR_MORE_DATA with a sized
   // hint, bulk fills the buffer and returns success.
-  scripted_fetcher fetch{{
+  fetch_state fetch;
+  fetch.steps = {
       {false, ERROR_MORE_DATA, 128, 0, 0},  // probe
       {true, 0, 128, 5, 0},                 // bulk (resume handle reset)
-  }};
-  process_recorder process;
+  };
+  std::vector<DWORD> counts;
 
-  win_list_services::detail::enumerate_paged_services(std::ref(fetch), std::ref(process));
+  win_list_services::detail::enumerate_paged_services(make_fetcher(fetch), make_recorder(counts));
 
-  EXPECT_EQ(fetch.cursor, 2u);
-  ASSERT_EQ(fetch.was_probe.size(), 2u);
-  EXPECT_TRUE(fetch.was_probe[0]);
-  EXPECT_FALSE(fetch.was_probe[1]);
-  EXPECT_EQ(fetch.buf_sizes_seen[0], 0u);
-  EXPECT_EQ(fetch.buf_sizes_seen[1], 128u);
-  ASSERT_EQ(process.counts.size(), 1u);
-  EXPECT_EQ(process.counts[0], 5u);
+  EXPECT_EQ(fetch.cursor, static_cast<std::size_t>(2));
+  ASSERT_EQ(fetch.was_probe.size(), static_cast<std::size_t>(2));
+  EXPECT_EQ(fetch.was_probe[0], 1);
+  EXPECT_EQ(fetch.was_probe[1], 0);
+  EXPECT_EQ(fetch.buf_sizes_seen[0], static_cast<DWORD>(0));
+  EXPECT_EQ(fetch.buf_sizes_seen[1], static_cast<DWORD>(128));
+  ASSERT_EQ(counts.size(), static_cast<std::size_t>(1));
+  EXPECT_EQ(counts[0], static_cast<DWORD>(5));
 }
 
 TEST(EnumeratePagedServices, BulkMoreData_LoopsToNextPage) {
   // Regression for #703 / #229: when bulk returns ERROR_MORE_DATA the old
   // code threw; the new code must process the partial batch and loop.
-  scripted_fetcher fetch{{
+  fetch_state fetch;
+  fetch.steps = {
       {false, ERROR_MORE_DATA, 128, 0, 0},   // page 1 probe
       {false, ERROR_MORE_DATA, 128, 4, 42},  // page 1 bulk: more data, advances handle to 42
       {false, ERROR_MORE_DATA, 64, 0, 0},    // page 2 probe (handle stays at 42)
       {true, 0, 64, 3, 0},                   // page 2 bulk: done, handle reset
-  }};
-  process_recorder process;
+  };
+  std::vector<DWORD> counts;
 
-  win_list_services::detail::enumerate_paged_services(std::ref(fetch), std::ref(process));
+  win_list_services::detail::enumerate_paged_services(make_fetcher(fetch), make_recorder(counts));
 
-  EXPECT_EQ(fetch.cursor, 4u);
-  ASSERT_EQ(process.counts.size(), 2u);
-  EXPECT_EQ(process.counts[0], 4u);
-  EXPECT_EQ(process.counts[1], 3u);
+  EXPECT_EQ(fetch.cursor, static_cast<std::size_t>(4));
+  ASSERT_EQ(counts.size(), static_cast<std::size_t>(2));
+  EXPECT_EQ(counts[0], static_cast<DWORD>(4));
+  EXPECT_EQ(counts[1], static_cast<DWORD>(3));
   // The probe for page 2 must see the handle the bulk for page 1 wrote.
-  ASSERT_GE(fetch.handles_seen.size(), 3u);
-  EXPECT_EQ(fetch.handles_seen[2], 42u);
+  ASSERT_GE(fetch.handles_seen.size(), static_cast<std::size_t>(3));
+  EXPECT_EQ(fetch.handles_seen[2], static_cast<DWORD>(42));
 }
 
 TEST(EnumeratePagedServices, ProbeBytesZeroWithMoreData_StopsCleanly) {
   // Defensive break: ERROR_MORE_DATA but bytes_needed=0 must not loop
   // forever and must not call bulk.
-  scripted_fetcher fetch{{
-      {false, ERROR_MORE_DATA, 0, 0, 0},
-  }};
-  process_recorder process;
+  fetch_state fetch;
+  fetch.steps = {{false, ERROR_MORE_DATA, 0, 0, 0}};
+  std::vector<DWORD> counts;
 
-  win_list_services::detail::enumerate_paged_services(std::ref(fetch), std::ref(process));
+  win_list_services::detail::enumerate_paged_services(make_fetcher(fetch), make_recorder(counts));
 
-  EXPECT_EQ(fetch.cursor, 1u);
-  EXPECT_TRUE(process.counts.empty());
+  EXPECT_EQ(fetch.cursor, static_cast<std::size_t>(1));
+  EXPECT_TRUE(counts.empty());
 }
 
 TEST(EnumeratePagedServices, ProbeNonMoreDataErrorThrows) {
-  scripted_fetcher fetch{{
-      {false, ERROR_ACCESS_DENIED, 0, 0, 0},
-  }};
-  process_recorder process;
+  fetch_state fetch;
+  fetch.steps = {{false, ERROR_ACCESS_DENIED, 0, 0, 0}};
+  std::vector<DWORD> counts;
 
-  EXPECT_THROW(win_list_services::detail::enumerate_paged_services(std::ref(fetch), std::ref(process)), nsclient::nsclient_exception);
-  EXPECT_TRUE(process.counts.empty());
+  EXPECT_THROW(win_list_services::detail::enumerate_paged_services(make_fetcher(fetch), make_recorder(counts)), nsclient::nsclient_exception);
+  EXPECT_TRUE(counts.empty());
 }
 
 TEST(EnumeratePagedServices, BulkNonMoreDataErrorThrows) {
   // RPC_X_BAD_STUB_DATA == 0x6f7 — the exact failure mode reported in #703.
-  constexpr DWORD kRpcBadStubData = 0x6f7;
-  scripted_fetcher fetch{{
+  const DWORD kRpcBadStubData = 0x6f7;
+  fetch_state fetch;
+  fetch.steps = {
       {false, ERROR_MORE_DATA, 256, 0, 0},
       {false, kRpcBadStubData, 256, 0, 0},
-  }};
-  process_recorder process;
+  };
+  std::vector<DWORD> counts;
 
-  EXPECT_THROW(win_list_services::detail::enumerate_paged_services(std::ref(fetch), std::ref(process)), nsclient::nsclient_exception);
-  EXPECT_TRUE(process.counts.empty());
+  EXPECT_THROW(win_list_services::detail::enumerate_paged_services(make_fetcher(fetch), make_recorder(counts)), nsclient::nsclient_exception);
+  EXPECT_TRUE(counts.empty());
 }
 
 TEST(EnumeratePagedServices, ManyPagesAllProcessedInOrder) {
   // Three-page run: bulk hits ERROR_MORE_DATA twice then succeeds. The
   // process callback must see counts {7, 5, 2} in order.
-  scripted_fetcher fetch{{
+  fetch_state fetch;
+  fetch.steps = {
       {false, ERROR_MORE_DATA, 1024, 0, 0},
       {false, ERROR_MORE_DATA, 1024, 7, 100},
       {false, ERROR_MORE_DATA, 1024, 0, 100},
       {false, ERROR_MORE_DATA, 1024, 5, 200},
       {false, ERROR_MORE_DATA, 512, 0, 200},
       {true, 0, 512, 2, 0},
-  }};
-  process_recorder process;
+  };
+  std::vector<DWORD> counts;
 
-  win_list_services::detail::enumerate_paged_services(std::ref(fetch), std::ref(process));
+  win_list_services::detail::enumerate_paged_services(make_fetcher(fetch), make_recorder(counts));
 
-  ASSERT_EQ(process.counts.size(), 3u);
-  EXPECT_EQ(process.counts[0], 7u);
-  EXPECT_EQ(process.counts[1], 5u);
-  EXPECT_EQ(process.counts[2], 2u);
+  ASSERT_EQ(counts.size(), static_cast<std::size_t>(3));
+  EXPECT_EQ(counts[0], static_cast<DWORD>(7));
+  EXPECT_EQ(counts[1], static_cast<DWORD>(5));
+  EXPECT_EQ(counts[2], static_cast<DWORD>(2));
 }
