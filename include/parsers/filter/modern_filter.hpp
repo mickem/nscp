@@ -582,12 +582,26 @@ struct modern_filters {
     // #200, #283). When no rows matched, additionally force-evaluate the
     // engines: object-bound vars resolve to a default value so the summary
     // part still drives the verdict.
+    //
+    // Force-eval can also produce *unsure* verdicts when an object-bound
+    // subterm could not fully resolve (e.g. `state IN ('hung','stopped')`
+    // with no current object). In that case we surface UNKNOWN rather than
+    // silently falling through to OK or to a misleading sure verdict — the
+    // user's expression depended on data that wasn't available, and they
+    // need to know about it so they can fix the filter.
     const bool no_rows = !summary.has_matched();
-    if (engine_crit && (engine_crit->match(context, false) || (no_rows && engine_crit->match_force(context)))) {
+    bool force_unsure_seen = false;
+    auto force_sure_true = [&](filter_engine &engine) -> bool {
+      if (!engine || !no_rows) return false;
+      const parsers::where::force_match_result r = engine->match_force(context);
+      if (r.is_unsure) force_unsure_seen = true;
+      return r.matched && !r.is_unsure;
+    };
+    if (engine_crit && (engine_crit->match(context, false) || force_sure_true(engine_crit))) {
       nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
       summary.move_hits_crit();
       matched = true;
-    } else if (engine_warn && (engine_warn->match(context, false) || (no_rows && engine_warn->match_force(context)))) {
+    } else if (engine_warn && (engine_warn->match(context, false) || force_sure_true(engine_warn))) {
       nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
       summary.move_hits_warn();
       matched = true;
@@ -595,6 +609,11 @@ struct modern_filters {
       // TODO: Unsure of this, should this not re-set matched?
       // What is matched for?
       matched = true;
+    } else if (force_unsure_seen) {
+      // No sure verdict could be reached but force-evaluate produced an
+      // unsure result — surface UNKNOWN. UNKNOWN here promotes returnCode
+      // only from OK (CRIT/WARN already-set are kept by escalateReturnCodeToUNKNOWN).
+      nscapi::plugin_helper::escalateReturnCodeToUNKNOWN(summary.returnCode);
     }
     return matched;
   }

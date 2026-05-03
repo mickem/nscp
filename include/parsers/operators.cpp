@@ -25,6 +25,7 @@
 #include <parsers/helpers.hpp>
 #include <parsers/operators.hpp>
 #include <parsers/where/helpers.hpp>
+#include <parsers/where/value_node.hpp>
 #include <str/xtos.hpp>
 
 #ifdef _WIN32
@@ -64,12 +65,20 @@ struct simple_bool_binary_operator_impl : binary_operator_impl {
 
 struct even_simpler_bool_binary_operator_impl : simple_bool_binary_operator_impl {
   explicit even_simpler_bool_binary_operator_impl(std::string desc) : simple_bool_binary_operator_impl(std::move(desc)) {}
+  // Type-mismatch in the lhs/rhs typically means "object-bound variable was
+  // evaluated with no current object" (modern_filter no-rows force-evaluate
+  // path). Returning sure-false (via nil → factory::create_num(nil)) used to
+  // hide this from the caller — modern_filter::match_post couldn't tell a
+  // genuine sure-false from "I couldn't fully evaluate this." Returning
+  // unsure-false here lets match_post escalate to UNKNOWN when no other
+  // sure verdict was reached, matching the contract of operator_in /
+  // operator_not_in.
   value_container eval_int(const value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_int);
     const value_container rhs = right->get_value(context, type_int);
     if (!lhs.is(type_int) || !rhs.is(type_int)) {
       context->error("invalid type");
-      return value_container::create_nil();
+      return value_container::create_int(false, /*is_unsure=*/true);
     }
     return do_eval_int(type, context, lhs, rhs);
   };
@@ -78,7 +87,7 @@ struct even_simpler_bool_binary_operator_impl : simple_bool_binary_operator_impl
     const value_container rhs = right->get_value(context, type_float);
     if (!lhs.is(type_float) || !rhs.is(type_float)) {
       context->error("invalid type");
-      return value_container::create_nil();
+      return value_container::create_int(false, /*is_unsure=*/true);
     }
     return do_eval_float(type, context, lhs, rhs);
   };
@@ -87,7 +96,7 @@ struct even_simpler_bool_binary_operator_impl : simple_bool_binary_operator_impl
     const value_container rhs = right->get_value(context, type_string);
     if (!lhs.is(type_string) || !rhs.is(type_string)) {
       context->error("invalid type");
-      return value_container::create_nil();
+      return value_container::create_int(false, /*is_unsure=*/true);
     }
     return do_eval_string(type, context, lhs, rhs);
   };
@@ -392,10 +401,33 @@ struct operator_not_like : pattern_binary_operator_impl {
     return operator_like::like_match_to_container(context, lhs.get_string(), rhs, true, lhs.is_unsure || rhs.is_unsure);
   }
 };
+// Nil-safety guard shared by IN / NOT IN. The lhs of a `<var> in (...)` /
+// `<var> not in (...)` expression can be nil when the variable is an object-
+// bound string evaluated with no current object (the modern_filter no-rows
+// force-evaluate path). The eval_string path used to dereference such a nil
+// via lhs.get_string() / lhs.get_int(), which throws filter_exception. The
+// throw propagated up through binary_op::evaluate and was caught in
+// parser::evaluate, collapsing the entire AST to nil → false. That made
+// `svar in ('hung','stopped') or count=0` silently return false for the
+// no-rows case where the equivalent chained-OR rewrite returned true.
+//
+// Mirror even_simpler_bool_binary_operator_impl::eval_string: detect the
+// type mismatch up-front and return an unsure result so the caller (and
+// modern_filter::match_post) can distinguish "object-bound subterm couldn't
+// resolve" from a sure verdict and surface UNKNOWN where appropriate.
+namespace {
+inline bool nil_lhs_unsure(const value_container& lhs, value_type wanted, const evaluation_context& context) {
+  if (lhs.is(wanted)) return false;
+  context->error("invalid type");
+  return true;
+}
+}  // namespace
+
 struct operator_not_in : simple_bool_binary_operator_impl {
   explicit operator_not_in(std::string desc) : simple_bool_binary_operator_impl(std::move(desc)) {}
   value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_int);
+    if (nil_lhs_unsure(lhs, type_int, context)) return value_container::create_int(false, /*is_unsure=*/true);
     const long long val = lhs.get_int();
     for (const node_type itm : right->get_list_value(context)) {
       if (itm->get_int_value(context) == val) return value_container::create_int(false, lhs.is_unsure);
@@ -404,6 +436,7 @@ struct operator_not_in : simple_bool_binary_operator_impl {
   }
   value_container eval_float(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_float);
+    if (nil_lhs_unsure(lhs, type_float, context)) return value_container::create_int(false, /*is_unsure=*/true);
     const double val = lhs.get_float();
     for (const node_type itm : right->get_list_value(context)) {
       if (itm->get_float_value(context) == val) return value_container::create_int(false, lhs.is_unsure);
@@ -412,6 +445,7 @@ struct operator_not_in : simple_bool_binary_operator_impl {
   }
   value_container eval_string(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_string);
+    if (nil_lhs_unsure(lhs, type_string, context)) return value_container::create_int(false, /*is_unsure=*/true);
     const std::string val = lhs.get_string();
     for (const node_type itm : right->get_list_value(context)) {
       if (itm->get_string_value(context) == val) return value_container::create_int(false, lhs.is_unsure);
@@ -423,8 +457,9 @@ struct operator_in : simple_bool_binary_operator_impl {
   explicit operator_in(std::string desc) : simple_bool_binary_operator_impl(std::move(desc)) {}
   value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_int);
+    if (nil_lhs_unsure(lhs, type_int, context)) return value_container::create_int(false, /*is_unsure=*/true);
     const long long val = lhs.get_int();
-    for (const node_type itm : right->get_list_value(context)) {
+    for (const node_type& itm : right->get_list_value(context)) {
       const long long cmp = itm->get_int_value(context);
       if (cmp == val) return value_container::create_int(true, lhs.is_unsure);
     }
@@ -432,16 +467,18 @@ struct operator_in : simple_bool_binary_operator_impl {
   }
   value_container eval_float(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_float);
+    if (nil_lhs_unsure(lhs, type_float, context)) return value_container::create_int(false, /*is_unsure=*/true);
     const double val = lhs.get_float();
-    for (const node_type itm : right->get_list_value(context)) {
+    for (const node_type& itm : right->get_list_value(context)) {
       if (itm->get_float_value(context) == val) return value_container::create_int(true, lhs.is_unsure);
     }
     return value_container::create_int(false, lhs.is_unsure);
   }
   value_container eval_string(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_string);
+    if (nil_lhs_unsure(lhs, type_string, context)) return value_container::create_int(false, /*is_unsure=*/true);
     const std::string val = lhs.get_string();
-    for (const node_type itm : right->get_list_value(context)) {
+    for (const node_type& itm : right->get_list_value(context)) {
       if (itm->get_string_value(context) == val) return value_container::create_int(true, lhs.is_unsure);
     }
     return value_container::create_int(false, lhs.is_unsure);
@@ -543,7 +580,16 @@ struct operator_not : unary_operator_impl, binary_function_impl {
   operator_not() {}
   node_type evaluate(const evaluation_context context, const node_type subject) const override { return evaluate(subject->get_type(), context, subject); }
   node_type evaluate(const value_type type, const evaluation_context context, const node_type subject) const override {
-    if (type == type_bool) return subject->get_int_value(context) ? factory::create_false() : factory::create_true();
+    if (type == type_bool) {
+      // Propagate value_container::is_unsure through the inversion. Without
+      // this, `not <object-bound predicate>` evaluated with no current
+      // object discards the unsure flag and returns a sure-true (since the
+      // bound side defaults to false) — which causes match_force callers to
+      // escalate spurious CRIT/WARN verdicts in the no-rows path. See
+      // engine_filter::match_force / modern_filter::match_post.
+      const value_container v = subject->get_value(context, type_int);
+      return std::make_shared<int_value>(v.get_int(0) ? 0 : 1, v.is_unsure);
+    }
     if (type == type_int) return factory::create_int(-subject->get_int_value(context));
     if (type == type_date) {
       const long long now = constants::get_now();

@@ -81,12 +81,16 @@ bool engine_filter::match(error_handler error, execution_context_type context, b
   return v.is_true();
 }
 
-bool engine_filter::match_force(error_handler error, execution_context_type context) {
+force_match_result engine_filter::match_force(error_handler error, execution_context_type context) {
   // Like match() but without the require_object/expect_object guard. Used by
   // modern_filter::match_post when the iteration produced no matched rows so
   // that mixed expressions (e.g. `state='stopped' OR count=0`) are still
   // evaluated. Object-bound variables resolve to a default (false) value when
   // no object is present; summary variables resolve to their final values.
+  // Returns the AST's truth value plus the value_container::is_unsure flag,
+  // so the caller can distinguish a sure verdict from "object-bound subterms
+  // could not fully resolve". The unsure case lets modern_filter surface
+  // UNKNOWN rather than silently treating the result as a sure verdict.
   value_container v = ast_parser.evaluate(context);
   if (context->has_error()) {
     error->log_error(context->get_error() + ": " + ast_parser.result_as_tree(context));
@@ -94,7 +98,7 @@ bool engine_filter::match_force(error_handler error, execution_context_type cont
   // Suppress warnings here: the lack of an object is intentional in this
   // mode, so per-variable "no object instance" warnings are noise.
   context->clear();
-  return v.is_true();
+  return {v.is_true(), v.is_unsure};
 }
 
 std::string engine_filter::to_string() const { return filter_string; }
@@ -123,11 +127,17 @@ bool engine::match(execution_context_type context, bool expect_object) {
   return false;
 }
 
-bool engine::match_force(execution_context_type context) {
+force_match_result engine::match_force(execution_context_type context) {
+  // Any-of semantics: a sure-true filter short-circuits and wins. If no filter
+  // is sure-true but at least one was unsure, return matched=false with
+  // is_unsure=true so the caller can surface UNKNOWN.
+  bool any_unsure = false;
   for (engine_filter &f : filters_) {
-    if (f.match_force(error, context)) return true;
+    const force_match_result r = f.match_force(error, context);
+    if (r.matched && !r.is_unsure) return {true, false};
+    if (r.is_unsure) any_unsure = true;
   }
-  return false;
+  return {false, any_unsure};
 }
 
 std::string engine::to_string() const {

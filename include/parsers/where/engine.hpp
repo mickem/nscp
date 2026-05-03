@@ -41,6 +41,17 @@ class NSCAPI_EXPORT error_handler_interface {
   virtual void set_debug(bool debug) = 0;
 };
 
+// Result of force-evaluating a filter without the require_object guard. The
+// `is_unsure` flag carries the value_container::is_unsure bit propagated by
+// object-bound subterms that could not fully resolve (e.g. a string variable
+// evaluated with no current object). Callers in modern_filter::match_post
+// use it to surface UNKNOWN instead of silently treating an unresolvable
+// expression as OK or as a sure verdict.
+struct NSCAPI_EXPORT force_match_result {
+  bool matched = false;
+  bool is_unsure = false;
+};
+
 struct NSCAPI_EXPORT engine_filter {
   typedef std::shared_ptr<error_handler_interface> error_handler;
   typedef evaluation_context execution_context_type;
@@ -61,7 +72,10 @@ struct NSCAPI_EXPORT engine_filter {
   // to evaluate mixed expressions like `state='stopped' OR count=0` even when
   // there is no current object - object-bound variables resolve to a default
   // (false) value, while summary variables resolve to their final values.
-  bool match_force(error_handler error, execution_context_type context);
+  // The returned `is_unsure` is set when any object-bound subterm contributed
+  // a value_container::is_unsure flag — it lets the caller distinguish a
+  // sure verdict from an "I could not fully evaluate this" outcome.
+  force_match_result match_force(error_handler error, execution_context_type context);
 
   std::string to_string() const;
 };
@@ -88,8 +102,11 @@ struct NSCAPI_EXPORT engine {
   bool match(execution_context_type context, bool expect_object);
 
   // Force-evaluate every filter in this engine regardless of the
-  // require_object guard. See engine_filter::match_force.
-  bool match_force(execution_context_type context);
+  // require_object guard. See engine_filter::match_force. Any-of semantics:
+  // a sure-true filter short-circuits and returns matched=true, is_unsure=false.
+  // If no filter is sure-true but at least one was unsure, the result is
+  // matched=false, is_unsure=true (so the caller can surface UNKNOWN).
+  force_match_result match_force(execution_context_type context);
 
   std::string get_subject() { return "TODO"; }
 
