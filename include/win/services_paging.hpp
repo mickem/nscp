@@ -55,8 +55,12 @@ struct enum_page_status {
 // paging through it) is unit-testable without a live SCM.
 template <class Fetch, class Process>
 void enumerate_paged_services(Fetch fetch, Process process) {
+  // The resume handle must persist across iterations: a bulk call that
+  // returns ERROR_MORE_DATA hands back an updated handle that the next
+  // probe must use. Declaring it inside the loop would reset paging to
+  // the start every iteration — the very bug this helper exists to test.
+  DWORD handle = 0;
   for (;;) {
-    DWORD handle = 0;
     const enum_page_status probe = fetch(nullptr, 0, handle);
     if (probe.success) return;
     if (probe.last_error != ERROR_MORE_DATA) {
