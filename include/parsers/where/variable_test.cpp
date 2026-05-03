@@ -485,11 +485,19 @@ TEST(StrVariableNode, GetFloatValueSetsError) {
   EXPECT_TRUE(ctx->has_error());
 }
 
-TEST(StrVariableNode, GetValueNoObjectSetsError) {
+TEST(StrVariableNode, GetValueNoObjectReturnsEmptyUnsureWithWarn) {
+  // Match the contract used by int_variable_node / float_variable_node: when
+  // there's no current object, return a typed default (empty string here)
+  // with is_unsure=true and a WARN (not ERROR). Centralises the unsure
+  // propagation so downstream operators don't need per-operator nil-guards.
   str_var_node node("test_str", type_string, make_str_fun());
   auto ctx = make_var_context();
   auto vc = node.get_value(ctx, type_string);
-  EXPECT_TRUE(ctx->has_error());
+  EXPECT_FALSE(ctx->has_error()) << "no-object should warn, not error: " << ctx->get_error();
+  EXPECT_TRUE(ctx->has_warn());
+  EXPECT_TRUE(vc.is(type_string));
+  EXPECT_EQ(vc.get_string(), "");
+  EXPECT_TRUE(vc.is_unsure);
 }
 
 TEST(StrVariableNode, EvaluateReturnsStringNode) {
@@ -501,11 +509,14 @@ TEST(StrVariableNode, EvaluateReturnsStringNode) {
   EXPECT_EQ(result->get_string_value(ctx), "evaluated");
 }
 
-TEST(StrVariableNode, EvaluateNoObjectSetsError) {
+TEST(StrVariableNode, EvaluateNoObjectSetsWarn) {
+  // Demoted from error → warn so production agent logs are not flooded
+  // with ERROR-level entries on every empty-rows force-evaluate tick.
   str_var_node node("test_str", type_string, make_str_fun());
   auto ctx = make_var_context();
   auto result = node.evaluate(ctx);
-  EXPECT_TRUE(ctx->has_error());
+  EXPECT_FALSE(ctx->has_error()) << "no-object evaluate should warn, not error";
+  EXPECT_TRUE(ctx->has_warn());
 }
 
 TEST(StrVariableNode, StaticEvaluateReturnsFalse) {

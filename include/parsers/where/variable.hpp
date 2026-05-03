@@ -385,7 +385,11 @@ struct str_variable_node : any_node {
     try {
       native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
       if (native_context != nullptr && fun && native_context->has_object()) return factory::create_string(fun(native_context->get_object(), context));
-      context->error("Failed to evaluate " + name_ + " no object instance");
+      // Demote to warn — the no-object case is expected during the
+      // modern_filter no-rows force-evaluate path. error logged here used to
+      // produce one ERROR per object-bound string variable per empty-rows
+      // tick in production agent logs.
+      context->warn("Failed to evaluate " + name_ + " no object instance");
     } catch (const std::exception &e) {
       context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
     }
@@ -406,13 +410,19 @@ struct str_variable_node : any_node {
     if (vt == type_string) {
       try {
         native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-        if (!native_context->has_object()) {
-          context->error("Unbound function " + name_);
-          return value_container::create_nil();
+        // Match int_variable_node / float_variable_node's no-object contract:
+        // return a typed-but-unsure default value (here, empty string with
+        // is_unsure=true) plus a warn (not error). This propagates the
+        // unsure flag through every downstream operator naturally — every
+        // comparison/LIKE/REGEXP/IN/NOT-IN sees a real string and produces
+        // a properly-flagged result. Centralises what used to be a per-
+        // operator nil-guard, and stops emitting one ERROR per empty-rows
+        // tick into production logs.
+        if (native_context != nullptr && fun && native_context->has_object()) {
+          return value_container::create_string(fun(native_context->get_object(), context));
         }
-        if (native_context != nullptr && fun) return value_container::create_string(fun(native_context->get_object(), context));
-        context->warn("Failed to get " + name_ + " no object instance");
-        return value_container::create_int(0, true);
+        context->warn("Unbound function " + name_);
+        return value_container::create_string("", /*is_unsure=*/true);
       } catch (const std::exception &e) {
         context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
         return value_container::create_nil();

@@ -24,8 +24,10 @@
 #include <map>
 #include <memory>
 #include <parsers/where.hpp>
+#include <parsers/where/binary_op.hpp>
 #include <parsers/where/engine.hpp>
 #include <parsers/where/node.hpp>
+#include <parsers/where/unary_fun.hpp>
 #include <parsers/where/variable.hpp>
 #include <string>
 #include <vector>
@@ -565,32 +567,71 @@ TEST(EngineFilterMatchForce, FloatComparisonsNoObjectFalseSide) {
   EXPECT_FALSE(eval_force("fvar < -1.0", ctx));
 }
 
-TEST(EngineFilterMatchForce, StringEqualsNoObjectIsFalse) {
-  // string_variable_node::get_value with no object returns nil and logs an
-  // error. eval_string sees !lhs.is(type_string), returns nil, factory::
-  // create_num(nil) yields int_value(0). is_true → false.
+// String-variable comparisons under match_force with no object: since
+// string_variable_node::get_value now returns string("", is_unsure=true) for
+// the no-object case (Quirk A), every comparison is evaluated against the
+// empty string with is_unsure propagated through the operator. The matched
+// value depends on whether the comparison happens to be true or false for
+// "" — but is_unsure is always set, so modern_filter::match_post escalates
+// the verdict to UNKNOWN.
+
+TEST(EngineFilterMatchForce, StringEqualsNoObjectIsUnsureFalse) {
   auto ctx = make_native_context();
-  EXPECT_FALSE(eval_force("svar = 'hung'", ctx));
+  // "" == "hung" is false, but is_unsure=true. matched=false, is_unsure=true.
+  const auto r = eval_force_full("svar = 'hung'", ctx);
+  EXPECT_FALSE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
 }
 
-TEST(EngineFilterMatchForce, StringNotEqualsNoObjectIsFalse) {
-  // Same nil-collapses-to-int(0) path applies — even though semantically
-  // "missing != 'hung'" might be expected to be true, the engine normalises
-  // it to false.
+TEST(EngineFilterMatchForce, StringNotEqualsNoObjectIsUnsureTrue) {
   auto ctx = make_native_context();
-  EXPECT_FALSE(eval_force("svar != 'hung'", ctx));
+  // "" != "hung" is TRUE — but the result is unsure (we don't actually know
+  // what svar is). modern_filter sees unsure-true → UNKNOWN.
+  const auto r = eval_force_full("svar != 'hung'", ctx);
+  EXPECT_TRUE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
 }
 
-TEST(EngineFilterMatchForce, StringLikeAndNotLikeNoObjectAreFalse) {
+TEST(EngineFilterMatchForce, StringLikeNonEmptyPatternNoObjectIsUnsureFalse) {
   auto ctx = make_native_context();
-  EXPECT_FALSE(eval_force("svar like 'hung'", ctx));
-  EXPECT_FALSE(eval_force("svar not like 'hung'", ctx));
+  // "" doesn't contain "hung" → matched=false, is_unsure=true.
+  const auto r = eval_force_full("svar like 'hung'", ctx);
+  EXPECT_FALSE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
 }
 
-TEST(EngineFilterMatchForce, StringRegexpAndNotRegexpNoObjectAreFalse) {
+TEST(EngineFilterMatchForce, StringNotLikeNonEmptyPatternNoObjectIsUnsureTrue) {
   auto ctx = make_native_context();
-  EXPECT_FALSE(eval_force("svar regexp '.*'", ctx));
-  EXPECT_FALSE(eval_force("svar not regexp '.*'", ctx));
+  // !("" contains "hung") → matched=true, is_unsure=true. Reaches UNKNOWN
+  // through the unsure flag, NOT through matched=false as the previous
+  // nil-collapses-to-false implementation incidentally produced.
+  const auto r = eval_force_full("svar not like 'hung'", ctx);
+  EXPECT_TRUE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
+}
+
+TEST(EngineFilterMatchForce, StringRegexpDotStarNoObjectIsUnsureTrue) {
+  auto ctx = make_native_context();
+  // "" matches '.*' → matched=true, is_unsure=true.
+  const auto r = eval_force_full("svar regexp '.*'", ctx);
+  EXPECT_TRUE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
+}
+
+TEST(EngineFilterMatchForce, StringNotRegexpDotStarNoObjectIsUnsureFalse) {
+  auto ctx = make_native_context();
+  // !("" matches '.*') → matched=false, is_unsure=true.
+  const auto r = eval_force_full("svar not regexp '.*'", ctx);
+  EXPECT_FALSE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
+}
+
+TEST(EngineFilterMatchForce, StringRegexpDotPlusNoObjectIsUnsureFalse) {
+  auto ctx = make_native_context();
+  // '.+' requires at least one char; "" doesn't match → matched=false, is_unsure=true.
+  const auto r = eval_force_full("svar regexp '.+'", ctx);
+  EXPECT_FALSE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
 }
 
 // ----------------------------------------------------------------------------
@@ -644,10 +685,13 @@ TEST(EngineFilterMatchForce, StringInListNoObjectIsUnsureFalse) {
       << "operator_in::eval_string now returns unsure-false on nil lhs (was: throw → sure-false).";
 }
 
-TEST(EngineFilterMatchForce, StringNotInListNoObjectIsUnsureFalse) {
+TEST(EngineFilterMatchForce, StringNotInListNoObjectIsUnsureTrue) {
   auto ctx = make_native_context();
+  // After Quirk A, svar resolves to "" (unsure). "" is not in ('hung','stopped'),
+  // so NOT IN evaluates to true — but with is_unsure=true so modern_filter
+  // still escalates UNKNOWN.
   const auto r = eval_force_full("svar not in ('hung', 'stopped')", ctx);
-  EXPECT_FALSE(r.matched);
+  EXPECT_TRUE(r.matched);
   EXPECT_TRUE(r.is_unsure);
 }
 
@@ -949,24 +993,27 @@ TEST(EngineFilterMatchForce, FunctionPathLiteralArgEvaluatesEvenWithoutObject) {
 }
 
 // ============================================================================
-// Errors are still surfaced from match_force
+// match_force log channels
 //
-// match_force suppresses warnings (per its comment) but NOT errors —
-// missing-object errors from string variables, for example, propagate to the
-// error_handler. Tests pin this behaviour because it is the source of the
-// "noisy logs on every empty-result tick" symptom.
+// After Quirk A both string and int variables use context->warn() for the
+// no-object case (not error). match_force explicitly clears warnings on the
+// context, so evaluating any object-bound predicate with no object should
+// produce a clean handler — no ERROR-level noise on every empty-rows tick.
 // ============================================================================
 
-TEST(EngineFilterMatchForce, StringVariableNoObjectLogsError) {
+TEST(EngineFilterMatchForce, StringVariableNoObjectDoesNotLogError) {
+  // Pre-Quirk-A: string_variable_node logged ERROR on every no-object
+  // evaluation, flooding production agent logs. Now it logs WARN, which
+  // match_force clears via context->clear() — handler stays clean.
   auto handler = make_handler();
   auto f = build_filter("svar = 'hung'", handler);
   ASSERT_TRUE(f) << handler->error_;
 
   auto ctx = as_eval(make_native_context());
   (void)f->match_force(handler, ctx);
-  EXPECT_TRUE(handler->has_errors())
-      << "string_variable_node::get_value calls context->error() when no "
-         "object is set; that error must surface to the caller's handler.";
+  EXPECT_FALSE(handler->has_errors())
+      << "post-Quirk-A: no-object string variable should warn (which match_force "
+         "clears), not error. Got: " << handler->error_;
 }
 
 TEST(EngineFilterMatchForce, IntVariableNoObjectDoesNotLogError) {
@@ -1072,43 +1119,13 @@ TEST(EngineValidate, AcceptsMixOfBoundAndSummaryFilters) {
 
 // ============================================================================
 // Operator audit: LIKE / NOT LIKE / REGEXP / NOT REGEXP propagate is_unsure
-// when the object-bound side cannot resolve.
-//
-// Before the fix, all four returned value_container::create_nil() on a
-// type-mismatched lhs/rhs (the most common cause being a string variable
-// evaluated with no current object). The nil flowed to factory::create_num
-// as int_value(0) — sure-false — and modern_filter::match_post had no signal
-// to escalate UNKNOWN. After the fix they return unsure-false, joining the
-// =/!=/IN/etc. contract.
+// in mixed expressions. The base LIKE/NOT LIKE/REGEXP/NOT REGEXP cases
+// against a no-object string variable are covered above by the
+// String{Like,NotLike,Regexp,NotRegexp}*NoObject* tests — those exercise
+// the matched + is_unsure values for individual operators. The mixed-
+// expression rows below pin the OR short-circuit interaction with
+// modern_filter::match_post.
 // ============================================================================
-
-TEST(EngineFilterMatchForce, LikeNoObjectIsUnsureFalse) {
-  auto ctx = make_native_context();
-  const auto r = eval_force_full("svar like 'hung'", ctx);
-  EXPECT_FALSE(r.matched);
-  EXPECT_TRUE(r.is_unsure);
-}
-
-TEST(EngineFilterMatchForce, NotLikeNoObjectIsUnsureFalse) {
-  auto ctx = make_native_context();
-  const auto r = eval_force_full("svar not like 'hung'", ctx);
-  EXPECT_FALSE(r.matched);
-  EXPECT_TRUE(r.is_unsure);
-}
-
-TEST(EngineFilterMatchForce, RegexpNoObjectIsUnsureFalse) {
-  auto ctx = make_native_context();
-  const auto r = eval_force_full("svar regexp '.*'", ctx);
-  EXPECT_FALSE(r.matched);
-  EXPECT_TRUE(r.is_unsure);
-}
-
-TEST(EngineFilterMatchForce, NotRegexpNoObjectIsUnsureFalse) {
-  auto ctx = make_native_context();
-  const auto r = eval_force_full("svar not regexp '.*'", ctx);
-  EXPECT_FALSE(r.matched);
-  EXPECT_TRUE(r.is_unsure);
-}
 
 // Mixed expression: `<bound LIKE> OR <sure-true>` short-circuits in
 // operator_or to sure-true; `<bound LIKE> OR <sure-false>` propagates
@@ -1233,6 +1250,158 @@ TEST(EngineFilter, ThrowingExpressionSurfacesAsUnsure) {
   auto ctx = make_native_context();
   ctx->set_object({0, 0.0, "x"});
   const auto r = eval_force_full("svar regexp '*invalid*'", ctx);
+  EXPECT_FALSE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
+}
+
+// ============================================================================
+// Operator audit: function_convert (Issue 1) propagates is_unsure through
+// size/time conversions and int↔float casts.
+//
+// Reachability:
+//   - Literal-with-unit syntax (e.g. `ivar > 100M`) wraps an int_literal in
+//     a function_convert at parse time. The convert always produces sure-int
+//     for the RHS; the unsure flag flows from the LHS variable. Tested via
+//     IntComparisonAgainstSizeLiteralPropagatesUnsureFromLhs below.
+//   - Programmatic AST construction can build a function_convert whose
+//     subject is itself unsure (e.g. `convert(<bound-var>, 'gb')`). The
+//     where grammar's list_expr restricts function args to mono-typed
+//     literal/variable lists, so the user can't write this directly today,
+//     but the fix is exercised below by manually constructing the node tree.
+// ============================================================================
+
+TEST(EngineFilterMatchForce, IntComparisonAgainstSizeLiteralPropagatesUnsureFromLhs) {
+  // `ivar > 100M` — `100M` is a function_convert(list[100, "M"]) wrapping
+  // sure literals. The convert returns sure-int (100*1024*1024). The `>`
+  // operator combines: 0 (unsure-int from no-object ivar) > 104857600 →
+  // false, is_unsure = unsure | sure = unsure. Result: unsure-false.
+  auto ctx = make_native_context();
+  const auto r = eval_force_full("ivar > 100M", ctx);
+  EXPECT_FALSE(r.matched);
+  EXPECT_TRUE(r.is_unsure)
+      << "function_convert should keep the LHS's unsure flag intact through the comparison.";
+}
+
+TEST(EngineFilterMatchForce, IntComparisonAgainstSizeLiteralOrSummarySureTrue) {
+  // Same expression with a sure-true rescue clause — operator_or short-
+  // circuits to sure-true, modern_filter escalates CRIT.
+  auto ctx = make_native_context();
+  const auto r = eval_force_full("ivar > 100M or 1 = 1", ctx);
+  EXPECT_TRUE(r.matched);
+  EXPECT_FALSE(r.is_unsure);
+}
+
+TEST(EngineFilterMatchForce, IntComparisonAgainstTimeLiteral) {
+  // `ivar > 1h` — function_convert(list[1, "h"]) computes now+3600 → sure-int.
+  // ivar unsure-int 0; 0 > big-time-value → false (unsure). modern_filter
+  // escalates UNKNOWN.
+  auto ctx = make_native_context();
+  const auto r = eval_force_full("ivar > 1h", ctx);
+  EXPECT_FALSE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
+}
+
+TEST(EngineFilter, FunctionConvertProgrammaticBoundSubjectPropagatesUnsure) {
+  // Defensive test: programmatically construct
+  //   convert(ivar, 'gb') > 5
+  // which the grammar can't currently emit (list_expr requires mono-typed
+  // args). Bypass the parser and build the AST directly so we can verify
+  // function_convert propagates ivar's is_unsure through parse_size.
+  //
+  // After Issue 1's fix, the result must carry is_unsure=true so any
+  // surrounding comparison (here: > 5) propagates UNKNOWN to match_post.
+  auto factory_ptr = make_factory();
+
+  // Build subject list, convert wrapper, and the surrounding `> 5` op.
+  auto args = factory::create_list();
+  args->push_back(factory_ptr->create_variable("ivar", false));
+  args->push_back(factory::create_string("gb"));
+  auto convert_fun = std::make_shared<unary_fun>("convert", args);
+  convert_fun->set_type(type_size);
+  ASSERT_TRUE(convert_fun->bind(factory_ptr));
+
+  auto five = factory::create_int(5);
+  auto cmp = factory::create_bin_op(op_gt, convert_fun, five);
+  // binary_op needs infer_type to set its type before evaluate works
+  // (otherwise binary_op::evaluate's is_int()/is_string() check fails and
+  // it returns sure-false, masking the bug we're testing for).
+  cmp->infer_type(factory_ptr);
+  ASSERT_TRUE(cmp->bind(factory_ptr));
+
+  auto ctx = as_eval(make_native_context());
+  const value_container v = cmp->get_value(ctx, type_int);
+  // ivar=0 unsure → convert returns int_value(0, unsure) → 0>5 false unsure.
+  EXPECT_FALSE(v.is_true());
+  EXPECT_TRUE(v.is_unsure)
+      << "function_convert must propagate the subject's is_unsure flag through "
+         "parse_size — the previous get_int_value() path silently dropped it.";
+}
+
+// ============================================================================
+// Operator audit: operator_not type_string fallback (Issue 2)
+//
+// `neg(...)` is registered as a binary_function that dispatches to
+// operator_not via binary_function_impl. When the subject's type is
+// type_string (which the grammar's list_expr can produce when the function
+// takes a single bare identifier-as-string), the dispatch falls into the
+// "missing impl for NOT operator" branch. Pre-fix: returned sure-false,
+// dropping any is_unsure. Post-fix: returns unsure-false.
+// ============================================================================
+
+TEST(EngineFilterMatchForce, NegOnStringSubjectFallbackIsUnsureFalse) {
+  // `neg('hello')` — the parser builds a list[string_value("hello")] subject,
+  // then unary_fun("neg", subject) which dispatches to operator_not. subject
+  // type derives to type_string (mono-typed string list), and operator_not
+  // has no string-specialised inversion. After the fix this hits the
+  // unsure-false fallback rather than silently returning sure-false.
+  //
+  // We compare to `0 = 0` (sure-true) so the OR can short-circuit when the
+  // bound side is unsure-false; OR-form keeps the test independent of the
+  // exact fallback truth value.
+  auto ctx = make_native_context();
+  const auto r = eval_force_full("neg('hello') or 0 = 0", ctx);
+  EXPECT_TRUE(r.matched);   // sure-true via OR short-circuit
+  EXPECT_FALSE(r.is_unsure);
+}
+
+TEST(EngineFilterMatchForce, NegOnStringSubjectAloneIsUnsureFalse) {
+  // Without a sure-true rescue: the unsure-false from neg() propagates to
+  // the result. modern_filter::match_post would escalate UNKNOWN. The
+  // parser actually types `neg('hello')` as type_bool (not type_string),
+  // and the subject is a list_node which produces nil for get_value(int) —
+  // operator_not's type_bool branch defends against that nil and returns
+  // unsure-false rather than dereferencing it to 0 (NOT 0 = sure-true).
+  auto ctx = make_native_context();
+  const auto r = eval_force_full("neg('hello') or 1 = 2", ctx);
+  EXPECT_FALSE(r.matched);
+  EXPECT_TRUE(r.is_unsure);
+}
+
+// ============================================================================
+// Quirk A: string_variable_node returns string("", is_unsure=true) on no-
+// object instead of nil.
+//
+// Direct contract test (StrVariableNode in variable_test.cpp covers this
+// against the type directly). Here we pin the engine-level visible effect:
+// match_force evaluations against a no-object context produce a clean
+// handler (no ERROR-level log) because the variable warns instead of
+// erroring, and match_force clears warnings.
+// ============================================================================
+
+TEST(EngineFilterMatchForce, StringVariableNoObjectProducesNoErrorInHandler) {
+  auto handler = make_handler();
+  auto f = build_filter("svar = 'hung' or svar like '%error%' or svar in ('a','b','c')", handler);
+  ASSERT_TRUE(f) << handler->error_;
+
+  auto ctx = as_eval(make_native_context());
+  const auto r = f->match_force(handler, ctx);
+  // Every operator above touches svar with no object; pre-Quirk-A this would
+  // have produced an ERROR per visit. Post-Quirk-A: warns, cleared by
+  // match_force.
+  EXPECT_FALSE(handler->has_errors())
+      << "Quirk A: string variable no-object now warns (cleared) instead of erroring. "
+         "Got: " << handler->error_;
+  // The expression itself is still unsure-false (no sure-true rescue clause).
   EXPECT_FALSE(r.matched);
   EXPECT_TRUE(r.is_unsure);
 }

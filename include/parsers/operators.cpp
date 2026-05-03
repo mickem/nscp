@@ -533,28 +533,46 @@ struct function_convert : binary_function_impl {
   }
 
   node_type evaluate(const value_type type, const evaluation_context context, const node_type subject) const override {
+    // Propagate value_container::is_unsure through every conversion so that
+    // expressions like `crit=convert(virtual, 'gb') > 5` preserve the unsure
+    // flag from the bound variable's no-object default. Previously every
+    // conversion went through `v->get_int_value(context)` (which discards
+    // is_unsure on its way to a bare long long), producing a sure-int that
+    // turned `<bound> > N` into a sure-false → silent OK in modern_filter's
+    // no-rows force-evaluate path.
     if (!value) {
       context->error("no arguments for convert(): " + subject->to_string());
-      return factory::create_false();
+      return std::make_shared<int_value>(0, /*is_unsure=*/true);
     }
     node_type v = *value;
     if (unit) {
       const node_type u = *unit;
       if (type == type_date) {
-        return factory::create_int(parse_time(v->get_int_value(context), u->get_string_value(context)));
+        const value_container vc = v->get_value(context, type_int);
+        const std::string unit_s = u->get_string_value(context);
+        return std::make_shared<int_value>(parse_time(vc.get_int(0), unit_s), vc.is_unsure);
       }
       if (type == type_size) {
-        return factory::create_int(parse_size(v->get_int_value(context), u->get_string_value(context)));
+        const value_container vc = v->get_value(context, type_int);
+        const std::string unit_s = u->get_string_value(context);
+        return std::make_shared<int_value>(parse_size(vc.get_int(0), unit_s), vc.is_unsure);
       }
       context->error("could not convert to " + helpers::type_to_string(type) + " from " + v->to_string() + ", " + u->to_string());
-      return factory::create_false();
+      return std::make_shared<int_value>(0, /*is_unsure=*/true);
     }
     if (helpers::type_is_int(type)) {
-      if (v->is_float()) return factory::create_int(llround(v->get_float_value(context)));
+      if (v->is_float()) {
+        const value_container vc = v->get_value(context, type_float);
+        return std::make_shared<int_value>(llround(vc.get_float(0.0)), vc.is_unsure);
+      }
     }
     if (helpers::type_is_float(type)) {
-      if (v->is_int()) return factory::create_float(static_cast<double>(v->get_int_value(context)));
+      if (v->is_int()) {
+        const value_container vc = v->get_value(context, type_int);
+        return std::make_shared<float_value>(static_cast<double>(vc.get_int(0)), vc.is_unsure);
+      }
     }
+    // Pass-through case — subject's own is_unsure is already on the node.
     return v;
   }
 
@@ -604,7 +622,14 @@ struct operator_not : unary_operator_impl, binary_function_impl {
       // bound side defaults to false) — which causes match_force callers to
       // escalate spurious CRIT/WARN verdicts in the no-rows path. See
       // engine_filter::match_force / modern_filter::match_post.
+      //
+      // Also defend against nil from the subject (e.g. a list_node that
+      // refuses to produce an int): without this guard, v.get_int(0)
+      // defaults to 0, NOT inverts to 1 → sure-true (a phantom verdict).
       const value_container v = subject->get_value(context, type_int);
+      if (!v.is(type_int)) {
+        return std::make_shared<int_value>(0, /*is_unsure=*/true);
+      }
       return std::make_shared<int_value>(v.get_int(0) ? 0 : 1, v.is_unsure);
     }
     if (type == type_int) {
@@ -612,15 +637,26 @@ struct operator_not : unary_operator_impl, binary_function_impl {
       // object-bound default of 0 must not flow into a "sure -0=0" verdict
       // for downstream comparisons.
       const value_container v = subject->get_value(context, type_int);
+      if (!v.is(type_int)) {
+        return std::make_shared<int_value>(0, /*is_unsure=*/true);
+      }
       return std::make_shared<int_value>(-v.get_int(0), v.is_unsure);
     }
     if (type == type_date) {
       const long long now = constants::get_now();
       const value_container v = subject->get_value(context, type_int);
+      if (!v.is(type_int)) {
+        return std::make_shared<int_value>(now, /*is_unsure=*/true);
+      }
       return std::make_shared<int_value>(now - (v.get_int(0) - now), v.is_unsure);
     }
+    // Defence-in-depth: any type not handled above (e.g. type_string reached
+    // via binary_function_impl from `unary_fun::evaluate` rather than the
+    // `not <expr>` grammar form) escalates as unsure-false rather than
+    // dropping is_unsure with a sure-false return. Not user-reachable through
+    // standard grammar, but keeps the unsure contract uniform.
     context->error("missing impl for NOT operator");
-    return factory::create_false();
+    return std::make_shared<int_value>(0, /*is_unsure=*/true);
   }
 };
 }  // namespace operator_impl
