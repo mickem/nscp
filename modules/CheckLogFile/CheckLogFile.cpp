@@ -27,6 +27,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 
+#include "file_reader.hpp"
 #include "realtime_thread.hpp"
 
 namespace sh = nscapi::settings_helper;
@@ -115,7 +116,7 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
   if (!filter_helper.build_filter(filter)) return;
 
   for (const std::string &filename : file_list) {
-    std::ifstream file(filename.c_str());
+    std::ifstream file(filename.c_str(), std::ios::in | std::ios::binary);
     if (file.is_open()) {
       std::string contents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
       file.close();
