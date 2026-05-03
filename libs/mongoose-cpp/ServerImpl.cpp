@@ -3,6 +3,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <fstream>
+#include <memory>
 #include <nsclient/nsclient_exception.hpp>
 #include <sstream>
 #include <string>
@@ -194,7 +195,7 @@ void ServerImpl::onHttpRequest(mg_connection *connection, mg_http_message *messa
       auto ip = std::string(buf);
       Request request = build_request(ip, message, is_ssl, method);
 
-      Response *response = ctrl->handleRequest(request);
+      std::unique_ptr<Response> response(ctrl->handleRequest(request));
       std::stringstream headers;
       bool has_content_type = false;
       for (const Response::header_type::value_type &v : response->get_headers()) {

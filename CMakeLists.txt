@@ -6,7 +6,7 @@ project(
     C
 )
 
-enable_testing()
+include(CTest)
 if(COMMAND CMAKE_POLICY)
     cmake_policy(SET CMP0011 NEW)
 endif(COMMAND CMAKE_POLICY)

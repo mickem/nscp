@@ -4,6 +4,7 @@
 #include <StreamResponse.h>
 
 #include <list>
+#include <memory>
 #include <net/socket/allowed_hosts.hpp>
 #include <string>
 
@@ -13,7 +14,7 @@
 #include "user_manager.h"
 struct session_manager_interface {
  private:
-  error_handler_interface *log_data;
+  std::unique_ptr<error_handler_interface> log_data;
 
   metrics_handler metrics_store;
   token_store tokens;

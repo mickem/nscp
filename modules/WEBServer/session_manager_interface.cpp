@@ -40,7 +40,7 @@ inline std::string get_auth_header(Mongoose::Request &request) {
   return request.readHeader(HTTP_HDR_AUTH_LC);
 }
 
-session_manager_interface::session_manager_interface() : log_data(new error_handler()) {}
+session_manager_interface::session_manager_interface() : log_data(std::make_unique<error_handler>()) {}
 
 std::string decode_key(const std::string &encoded) { return Mongoose::Helpers::decode_b64(encoded); }
 
@@ -168,7 +168,7 @@ void session_manager_interface::set_metrics(const std::string &metrics, const st
 void session_manager_interface::add_log_message(const bool is_error, const error_handler_interface::log_entry &entry) const {
   log_data->add_message(is_error, entry);
 }
-error_handler_interface *session_manager_interface::get_log_data() const { return log_data; }
+error_handler_interface *session_manager_interface::get_log_data() const { return log_data.get(); }
 void session_manager_interface::reset_log() const { log_data->reset(); }
 
 void session_manager_interface::set_allowed_hosts(const std::string &host) { allowed_hosts.set_source(host); }
