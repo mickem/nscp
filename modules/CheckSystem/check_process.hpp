@@ -21,6 +21,7 @@
 
 #include <boost/shared_ptr.hpp>
 #include <boost/unordered_set.hpp>
+#include <list>
 #include <nscapi/protobuf/command.hpp>
 #include <set>
 #include <string>
@@ -30,6 +31,15 @@
 namespace process_checks {
 
 namespace realtime {
+
+// Case-insensitive any-of match used by the realtime check_process path.
+// Windows process / executable names are case-insensitive (NTFS is
+// case-preserving but case-insensitive), so a configured `process=notepad.exe`
+// must match a running process whose on-disk image is `NOTEPAD.EXE`. The
+// active check path already does this via CaseBlindCompare; this helper
+// keeps the realtime path in sync (issues #587, #552). Exposed at namespace
+// scope so it is unit-testable without dragging in runtime_data.
+bool process_name_matches_any(const std::list<std::string> &names, const std::string &candidate);
 
 struct proc_filter_helper_wrapper;
 struct helper {

@@ -147,6 +147,10 @@ void runtime_data::add(const std::string &data) {
   }
 }
 
+bool process_name_matches_any(const std::list<std::string> &names, const std::string &candidate) {
+  return std::any_of(names.begin(), names.end(), [&candidate](const std::string &name) { return boost::algorithm::iequals(name, candidate); });
+}
+
 modern_filter::match_result runtime_data::process_item(filter_type &filter, transient_data_type data) {
   modern_filter::match_result ret;
 
@@ -157,16 +161,7 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
     }
   } else {
     for (const win_list_processes::process_info &info : data->list) {
-      // Process names on Windows are not case-sensitive (the file system is
-      // case-preserving but case-insensitive). Match the configured process
-      // names against the running executable name case-insensitively so that
-      // e.g. "notepad.exe" matches a process whose on-disk name is
-      // "NOTEPAD.EXE". This mirrors the behaviour of the active check path
-      // (which uses CaseBlindCompare for the same reason).
-      const std::string &exe = info.exe.get();
-      const bool found = std::any_of(checks.begin(), checks.end(),
-                                     [&exe](const std::string &check) { return boost::algorithm::iequals(check, exe); });
-      if (found) {
+      if (process_name_matches_any(checks, info.exe.get())) {
         boost::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
         ret.append(filter.match(record));
       }
