@@ -489,10 +489,16 @@ struct modern_filters {
         if (!second_unique_match) unique_index.emplace(tmp);
       }
 
-      for (const typename leaf_performance_entry_type::value_type &entry : leaf_performance_data) {
-        parsers::where::perf_list_type perf = entry.second.current_value->get_performance_data(
-            context, perf_alias, entry.second.warn_value, entry.second.crit_value, entry.second.minimum_value, entry.second.maximum_value);
-        if (perf.size() > 0) performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
+      // An empty perf-syntax (or perf-syntax=none) is the documented way
+      // to suppress per-row performance data; without this guard the loop
+      // below still emits one perf entry per matched row but with an
+      // empty alias, producing output like ''=4;0;1 ''=4;0;1 ... (#681).
+      if (!renderer_perf.empty()) {
+        for (const typename leaf_performance_entry_type::value_type &entry : leaf_performance_data) {
+          parsers::where::perf_list_type perf = entry.second.current_value->get_performance_data(
+              context, perf_alias, entry.second.warn_value, entry.second.crit_value, entry.second.minimum_value, entry.second.maximum_value);
+          if (perf.size() > 0) performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
+        }
       }
       if (second_unique_match)
         summary.matched_unique();
@@ -569,10 +575,15 @@ struct modern_filters {
     evaluate_deferred_records();
     context->remove_object();
     bool matched = summary.has_matched();
-    for (const typename leaf_performance_entry_type::value_type &entry : leaf_performance_data) {
-      parsers::where::perf_list_type perf = entry.second.current_value->get_performance_data(context, "TODO", entry.second.warn_value, entry.second.crit_value,
-                                                                                             entry.second.minimum_value, entry.second.maximum_value);
-      if (perf.size() > 0) performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
+    if (!renderer_perf.empty()) {
+      // The object was just removed from the context, so only summary_*
+      // nodes emit on this path and they ignore the alias (they use their
+      // own variable name). An empty alias is the honest value.
+      for (const typename leaf_performance_entry_type::value_type &entry : leaf_performance_data) {
+        parsers::where::perf_list_type perf = entry.second.current_value->get_performance_data(context, "", entry.second.warn_value, entry.second.crit_value,
+                                                                                               entry.second.minimum_value, entry.second.maximum_value);
+        if (perf.size() > 0) performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
+      }
     }
     // When the iteration produced no matched rows the warn/crit expressions
     // have never been evaluated. The default expect_object=false path below
@@ -620,8 +631,10 @@ struct modern_filters {
 
   void end_match() {
     context->remove_object();
+    if (renderer_perf.empty()) return;
+    // Same no-object path as match_post(): alias is ignored.
     for (const typename leaf_performance_entry_type::value_type &entry : leaf_performance_data) {
-      parsers::where::perf_list_type perf = entry.second.current_value->get_performance_data(context, "TODO", entry.second.warn_value, entry.second.crit_value,
+      parsers::where::perf_list_type perf = entry.second.current_value->get_performance_data(context, "", entry.second.warn_value, entry.second.crit_value,
                                                                                              entry.second.minimum_value, entry.second.maximum_value);
       if (perf.size() > 0) performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
     }

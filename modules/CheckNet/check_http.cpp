@@ -177,7 +177,7 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
         "Additional request header in 'Name: value' form (may be given multiple times).")
     ("tls-version", po::value<std::string>(&tls_version)->default_value("tlsv1.2+"),
         "TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).")
-    ("verify", po::value<std::string>(&verify_mode)->default_value("none"),
+    ("verify", po::value<std::string>(&verify_mode)->default_value("peer"),
         "Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.")
     ("ca", po::value<std::string>(&ca_file)->default_value(default_ca_file), "Path to a CA bundle to use when verifying the server certificate.")
     ;

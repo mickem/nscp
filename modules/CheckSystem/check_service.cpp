@@ -63,8 +63,7 @@ node_type state_is_ok(const value_type, const evaluation_context &raw_context, c
   const DWORD exit_code = context->get_object()->exit_code;
   if (check_state_is_ok(state, start_type, delayed, trigger, exit_code))
     return factory::create_true();
-  else
-    return factory::create_false();
+  return factory::create_false();
 }
 
 node_type state_is_perfect(const value_type, const evaluation_context &raw_context, const node_type &subject) {

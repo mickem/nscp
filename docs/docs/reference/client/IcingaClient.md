@@ -261,7 +261,7 @@ This is a section of objects. This means that you will create objects below this
 | timeout          | 30            | TIMEOUT                     |
 | tls version      | 1.3           | TLS VERSION                 |
 | username         |               | ICINGA API USER             |
-| verify mode      |               | TLS PEER VERIFY MODE        |
+| verify mode      | peer          | TLS PEER VERIFY MODE        |
 
 
 **Sample:**
@@ -283,7 +283,7 @@ retries=3
 timeout=30
 tls version=1.3
 #username=...
-#verify mode=...
+verify mode=peer
 
 ```
 

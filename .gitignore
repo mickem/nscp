@@ -52,6 +52,7 @@ cmake-build-debug
 # ─── AI agent instructions (local only, not shared) ──────────────────────────
 AGENT_INSTRUCTIONS.md
 .github/copilot-instructions.md
+.claude
 
 # ─── Local / custom content ───────────────────────────────────────────────────
 # Custom installers not part of the main repo

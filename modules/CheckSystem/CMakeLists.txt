@@ -56,6 +56,7 @@ if(WIN32)
         counter_filter.hpp
         tick_count.h
         ${NSCP_INCLUDEDIR}/win/services.hpp
+        ${NSCP_INCLUDEDIR}/win/services_paging.hpp
         ${NSCP_INCLUDEDIR}/win/processes.hpp
         ${NSCP_INCLUDEDIR}/win/sysinfo/sysinfo.h
         pdh_thread.hpp

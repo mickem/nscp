@@ -28,7 +28,7 @@ namespace service_checks {
 namespace check_svc_filter {
 typedef win_list_services::service_info filter_obj;
 typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
-struct filter_obj_handler : public native_context {
+struct filter_obj_handler : native_context {
   filter_obj_handler();
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;

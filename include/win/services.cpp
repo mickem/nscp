@@ -28,6 +28,7 @@
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
 #include <win/services.hpp>
+#include <win/services_paging.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
 #include <win/windows.hpp>
 #include <win/winsvc.hpp>
@@ -375,52 +376,54 @@ std::list<service_info> enum_services(const std::string &computer, const DWORD d
   const service_handle sc = OpenSCManager(comp.empty() ? nullptr : comp.c_str(), nullptr, SC_MANAGER_ENUMERATE_SERVICE);
   if (!sc) throw nsclient::nsclient_exception("Failed to open service manager: " + error::lookup::last_error());
 
-  DWORD bytesNeeded = 0;
-  DWORD count = 0;
-  DWORD handle = 0;
-  BOOL bRet =
-      windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, nullptr, 0, &bytesNeeded, &count, &handle, nullptr);
-  if (bRet != 0) {
-    auto err = GetLastError();
-    if (err != ERROR_MORE_DATA) {
-      throw nsclient::nsclient_exception("Failed to enumerate service status: " + error::format::from_system(err));
-    }
-  }
+  // The paging state machine lives in detail::enumerate_paged_services
+  // so it can be unit-tested without a live SCM. The fetch lambda is the
+  // only Win32-coupled bit; process consumes one page at a time.
+  detail::enumerate_paged_services(
+      [&](LPBYTE buf, DWORD buf_size, DWORD &handle) -> detail::enum_page_status {
+        DWORD bytes_needed = 0;
+        DWORD count = 0;
+        const BOOL b = windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, buf, buf_size, &bytes_needed, &count,
+                                                             &handle, nullptr);
+        detail::enum_page_status r;
+        r.success = b != FALSE;
+        r.last_error = r.success ? 0 : GetLastError();
+        r.bytes_needed = bytes_needed;
+        r.count = count;
+        return r;
+      },
+      [&](const BYTE *page, DWORD count) {
+        const auto *data = reinterpret_cast<const ENUM_SERVICE_STATUS_PROCESS *>(page);
+        for (DWORD i = 0; i < count; ++i) {
+          const auto service_name = utf8::cvt<std::string>(data[i].lpServiceName);
+          if (std::find(excludes.begin(), excludes.end(), service_name) != excludes.end()) {
+            continue;
+          }
+          service_info info(utf8::cvt<std::string>(data[i].lpServiceName), utf8::cvt<std::string>(data[i].lpDisplayName));
+          info.pid = data[i].ServiceStatusProcess.dwProcessId;
+          info.state = data[i].ServiceStatusProcess.dwCurrentState;
+          info.type = data[i].ServiceStatusProcess.dwServiceType;
+          info.exit_code = data[i].ServiceStatusProcess.dwWin32ExitCode;
 
-  const hlp::buffer<BYTE, ENUM_SERVICE_STATUS_PROCESS *> buf(bytesNeeded + 10);
-  bRet =
-      windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, buf, bytesNeeded, &bytesNeeded, &count, &handle, nullptr);
-  if (!bRet) throw nsclient::nsclient_exception("Failed to enumerate service: " + error::lookup::last_error());
-  const ENUM_SERVICE_STATUS_PROCESS *data = buf.get();
-  for (DWORD i = 0; i < count; ++i) {
-    const auto service_name = utf8::cvt<std::string>(data[i].lpServiceName);
-    if (std::find(excludes.begin(), excludes.end(), service_name) != excludes.end()) {
-      continue;
-    }
-    service_info info(utf8::cvt<std::string>(data[i].lpServiceName), utf8::cvt<std::string>(data[i].lpDisplayName));
-    info.pid = data[i].ServiceStatusProcess.dwProcessId;
-    info.state = data[i].ServiceStatusProcess.dwCurrentState;
-    info.type = data[i].ServiceStatusProcess.dwServiceType;
-    info.exit_code = data[i].ServiceStatusProcess.dwWin32ExitCode;
+          service_handle hService = OpenService(sc, data[i].lpServiceName, SERVICE_QUERY_CONFIG);
+          if (!hService) throw nsclient::nsclient_exception("Failed to open service: " + info.name);
 
-    service_handle hService = OpenService(sc, data[i].lpServiceName, SERVICE_QUERY_CONFIG);
-    if (!hService) throw nsclient::nsclient_exception("Failed to open service: " + info.name);
-
-    try {
-      hlp::buffer<BYTE, QUERY_SERVICE_CONFIG *> qscData = queryServiceConfig(hService, info.name);
-      info.start_type = qscData.get()->dwStartType;
-      info.binary_path = utf8::cvt<std::string>(qscData.get()->lpBinaryPathName);
-      info.error_control = qscData.get()->dwErrorControl;
-    } catch (std::exception &e) {
-      NSC_LOG_ERROR("Failed to query service config: " + info.name + ": " + e.what());
-      info.start_type = 0;
-      info.binary_path = "N/A";
-      info.error_control = 0;
-    }
-    fetch_delayed(hService, info);
-    fetch_triggers(hService, info);
-    ret.push_back(info);
-  }
+          try {
+            hlp::buffer<BYTE, QUERY_SERVICE_CONFIG *> qscData = queryServiceConfig(hService, info.name);
+            info.start_type = qscData.get()->dwStartType;
+            info.binary_path = utf8::cvt<std::string>(qscData.get()->lpBinaryPathName);
+            info.error_control = qscData.get()->dwErrorControl;
+          } catch (std::exception &e) {
+            NSC_LOG_ERROR("Failed to query service config: " + info.name + ": " + e.what());
+            info.start_type = 0;
+            info.binary_path = "N/A";
+            info.error_control = 0;
+          }
+          fetch_delayed(hService, info);
+          fetch_triggers(hService, info);
+          ret.push_back(info);
+        }
+      });
   return ret;
 }
 
@@ -447,25 +450,29 @@ service_info get_service_info(const std::string &computer, const std::string &se
 
   hlp::buffer<BYTE, SERVICE_STATUS_PROCESS *> ssp = queryServiceStatusEx(hService, service);
 
-  service_info info(service, "TODO");
+  // Query the service configuration up front so we can construct the
+  // service_info with the real display name. The previous implementation
+  // constructed the object with a "TODO" placeholder and only overwrote it
+  // afterwards, which leaked the placeholder into ${desc} for some code
+  // paths and made the data flow surprising (see #456).
+  DWORD bytesNeeded2 = 0;
+  DWORD deErr = 0;
+  if (QueryServiceConfig(hService, nullptr, 0, &bytesNeeded2) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
+    throw nsclient::nsclient_exception("Failed to query service config " + service + ": " + error::lookup::last_error(deErr));
+  const hlp::buffer<BYTE> buf2(bytesNeeded2 + 10);
+
+  if (!QueryServiceConfig(hService, reinterpret_cast<QUERY_SERVICE_CONFIG *>(buf2.get()), bytesNeeded2, &bytesNeeded2))
+    throw nsclient::nsclient_exception("Failed to query service config: " + service);
+  const auto *data2 = reinterpret_cast<QUERY_SERVICE_CONFIG *>(buf2.get());
+
+  service_info info(service, utf8::cvt<std::string>(data2->lpDisplayName));
   info.pid = ssp.get()->dwProcessId;
   info.state = ssp.get()->dwCurrentState;
   info.type = ssp.get()->dwServiceType;
   info.exit_code = ssp.get()->dwWin32ExitCode;
-
-  DWORD bytesNeeded2 = 0;
-  DWORD deErr = 0;
-  if (QueryServiceConfig(hService, nullptr, 0, &bytesNeeded2) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
-    throw nsclient::nsclient_exception("Failed to open service " + info.name + ": " + error::lookup::last_error(deErr));
-  const hlp::buffer<BYTE> buf2(bytesNeeded2 + 10);
-
-  if (!QueryServiceConfig(hService, reinterpret_cast<QUERY_SERVICE_CONFIG *>(buf2.get()), bytesNeeded2, &bytesNeeded2))
-    throw nsclient::nsclient_exception("Failed to open service: " + info.name);
-  const auto *data2 = reinterpret_cast<QUERY_SERVICE_CONFIG *>(buf2.get());
   info.start_type = data2->dwStartType;
   info.binary_path = utf8::cvt<std::string>(data2->lpBinaryPathName);
   info.error_control = data2->dwErrorControl;
-  info.displayname = utf8::cvt<std::string>(data2->lpDisplayName);
 
   fetch_delayed(hService, info);
   fetch_triggers(hService, info);
@@ -513,13 +520,16 @@ std::string service_info::get_legacy_state_s() const {
   return "unknown";
 }
 std::string service_info::get_start_type_s() const {
-  if (delayed) {
-    if (triggers > 0) {
-      return "delayed_trigger";
-    }
-    return "delayed";
-  }
+  // The fDelayedAutostart flag from SERVICE_DELAYED_AUTO_START_INFO is only
+  // meaningful for SERVICE_AUTO_START. Honoring it for other start types
+  // would mis-render manual / boot / system services as "delayed" (see #362).
   if (start_type == SERVICE_AUTO_START) {
+    if (delayed) {
+      if (triggers > 0) {
+        return "delayed_trigger";
+      }
+      return "delayed";
+    }
     if (triggers > 0) {
       return "auto_trigger";
     }
