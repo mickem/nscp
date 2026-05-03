@@ -29,6 +29,9 @@
 #include "cli_parser.hpp"
 #include "core_api.h"
 #include "logger/nsclient_logger.hpp"
+#ifdef WIN32
+#include "windows_ca_store.hpp"
+#endif
 
 #ifdef WIN32
 #include <win/com_helpers.hpp>
@@ -225,6 +228,20 @@ bool NSClientT::load_configuration_2(const bool override_log) {
   } catch (...) {
     LOG_ERROR_CORE("Unknown exception iniating COM...");
     return false;
+  }
+
+  // Export the Windows ROOT certificate store to the file pointed at by the
+  // ${ca-path} setting so SSL setup sites have a sensible default for `ca`.
+  // The bundle is regenerated on every boot.
+  try {
+    const std::string bundle_path = path_->expand_path("${ca-path}");
+    boost::filesystem::create_directories(boost::filesystem::path(bundle_path).parent_path());
+    std::list<std::string> ca_errors;
+    const unsigned int n = nsclient::windows_ca::export_root_store(bundle_path, ca_errors);
+    for (const std::string &e : ca_errors) LOG_WARN_CORE("windows-ca: " + e);
+    if (n > 0) LOG_DEBUG_CORE("Exported " + std::to_string(n) + " Windows ROOT certificates to " + bundle_path);
+  } catch (const std::exception &e) {
+    LOG_WARN_CORE(std::string("Failed to export Windows ROOT store: ") + e.what());
   }
 #endif
 

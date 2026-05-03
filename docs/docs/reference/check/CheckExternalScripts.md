@@ -22,7 +22,7 @@ Which will add the following to your configuration:
 CheckExternalScripts = enabled
 ```
 
-There is an extensive guide on using external scripts with NSClient++ [here](../../howto/external_scripts.md) as well as some examples in the [samples section](#samples) of this page.
+There is an extensive guide on using external scripts with NSClient++ [here](../../scenarios/external-scripts.md) as well as some examples in the [samples section](#samples) of this page.
 
 
 ## Enable module

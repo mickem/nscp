@@ -242,7 +242,7 @@ This is a section of objects. This means that you will create objects below this
 | Key         | Default Value | Description           |
 |-------------|---------------|-----------------------|
 | address     |               | TARGET ADDRESS        |
-| ca          |               | Certificate Authority |
+| ca          | ${ca-path}    | Certificate Authority |
 | host        |               | TARGET HOST           |
 | key         |               | SECURITY TOKEN        |
 | no proxy    |               | No-proxy list         |
@@ -262,7 +262,7 @@ This is a section of objects. This means that you will create objects below this
 # An example of a REMOTE TARGET DEFINITIONS section
 [/settings/NRDP/client/targets/sample]
 #address=...
-#ca=...
+ca=${ca-path}
 #host=...
 #key=...
 #no proxy=...

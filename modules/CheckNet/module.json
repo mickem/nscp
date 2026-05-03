@@ -5,7 +5,7 @@
 		"name"			: "CheckNet",
 		"alias"			: "net",
 		"version"		: "auto",
-		"load"			: "none"
+		"load"			: "load"
 	},
 	"commands" : {
 		"check_ping"		: "Ping another host and check the result.",

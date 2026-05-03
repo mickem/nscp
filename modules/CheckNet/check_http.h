@@ -65,5 +65,6 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
 }  // namespace check_http_filter
 
-void check_http(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+void check_http(const std::string &default_ca_file, const PB::Commands::QueryRequestMessage::Request &request,
+                PB::Commands::QueryResponseMessage::Response *response);
 }  // namespace check_net

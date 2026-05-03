@@ -48,17 +48,19 @@ struct nrdp_target_object : nscapi::targets::target_object {
                       "The security token")
         .add_password("token", sh::string_fun_key([this](const auto& value) { this->set_property_string("token", value); }), "SECURITY TOKEN",
                       "The security token")
-        .add_string("tls version", sh::string_fun_key([this](const auto& value) { this->set_property_string("tls version", value); }), "Tls version",
-                    "The tls version to use 1.0, 1.1, 1.2, 1.3")
-        .add_string("verify mode", sh::string_fun_key([this](const auto& value) { this->set_property_string("verify mode", value); }), "TLS peer verify mode",
-                    "Coma separated list o9f option none, peer, peer-cert, client-once, fail-if-no-cert, workarounds, single., In general use peer-cert or "
-                    "none for self signed certificates.")
-        .add_string("ca", sh::string_fun_key([this](const auto& value) { this->set_property_string("ca", value); }), "Certificate Authority",
-                    "Certificate authority to use when verifying certificates.")
-        .add_string("proxy", sh::string_fun_key([this](auto value) { this->set_property_string("proxy", value); }), "HTTP proxy URL",
-                "HTTP proxy to use when submitting checks (e.g. http://user:pass@proxy:3128/).")
-        .add_string("no proxy", sh::string_fun_key([this](auto value) { this->set_property_string("no proxy", value); }), "No-proxy list",
-                "Comma-separated list of hostnames that bypass the proxy.");
+        .add_string("tls version", sh::string_fun_key([this](const auto& value) { this->set_property_string("tls version", value); }, "1.3"), "Tls version",
+                    "The tls version to use 1.0, 1.1, 1.2, 1.3 or any")
+        .add_string("verify mode", sh::string_fun_key([this](const auto& value) { this->set_property_string("verify mode", value); }, "peer"),
+                    "TLS peer verify mode",
+                    "Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert, workarounds, single. "
+                    "In general use peer-cert or none for self signed certificates.")
+        .add_string("ca", sh::string_fun_key([this](const auto& value) { this->set_property_string("ca", value); }, "${ca-path}"), "Certificate Authority",
+                    "Certificate authority to use when verifying certificates. Defaults to ${ca-path} (the auto-generated system ROOT bundle on Windows, "
+                    "the distribution CA store on Linux).")
+        .add_string("proxy", sh::string_fun_key([this](const auto& value) { this->set_property_string("proxy", value); }), "HTTP proxy URL",
+                    "HTTP proxy to use when submitting checks (e.g. http://user:pass@proxy:3128/).")
+        .add_string("no proxy", sh::string_fun_key([this](const auto& value) { this->set_property_string("no proxy", value); }), "No-proxy list",
+                    "Comma-separated list of hostnames that bypass the proxy.");
 
     settings.register_all();
     settings.notify();
@@ -96,9 +98,9 @@ struct options_reader_impl : client::options_reader_interface {
       "Legacy alias for --verify (kept for backwards compatibility).")
     ("ca", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("ca", value); }),
       "Certificate authority to use when verifying certificates.")
-    ("proxy", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("proxy", value); }),
+    ("proxy", po::value<std::string>()->notifier([&data] (const auto &value) { data.set_string_data("proxy", value); }),
       "HTTP proxy URL to route requests through (e.g. http://user:pass@proxy:3128/).")
-    ("no-proxy", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("no proxy", value); }),
+    ("no-proxy", po::value<std::string>()->notifier([&data] (const auto &value) { data.set_string_data("no proxy", value); }),
       "Comma-separated list of hostnames that bypass the proxy.")
     ;
     // clang-format on

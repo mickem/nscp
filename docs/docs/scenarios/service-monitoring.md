@@ -150,7 +150,7 @@ check_nrpe -H <agent-ip> -c check_process --argument "process=myapp.exe"
 ```
 
 !!! warning
-    Passing arguments via NRPE requires `allow arguments = true` in the NRPE server config. See [NRPE security](../getting-started/nrpe.md) for the security implications.
+    Passing arguments via NRPE requires `allow arguments = true` in the NRPE server config. See [NRPE security](nrpe.md) for the security implications.
 
 ---
 

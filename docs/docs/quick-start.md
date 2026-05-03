@@ -112,15 +112,14 @@ check_memory "top-syntax=${list}" "detail-syntax=${type} free: ${free} used: ${u
 
 ## Step 5 — What Next?
 
-Now that NSClient++ is running and you have run your first checks, choose a path:
+Now that NSClient++ is running, and you have run your first checks, choose a path:
 
-| I want to… | Go to… |
-|---|---|
-| Monitor a real server end-to-end | [Windows Server Health scenario](scenarios/windows-server-health.md) |
-| Set up disk space alerting | [Disk Space scenario](scenarios/disk-space.md) |
-| Monitor a Windows service | [Service Monitoring scenario](scenarios/service-monitoring.md) |
-| Monitor the Windows event log | [Event Log scenario](scenarios/event-log.md) |
-| Connect to my monitoring server via NRPE | [Getting Started: NRPE](getting-started/nrpe.md) |
-| Connect via passive monitoring (NSCA) | [Getting Started: NSCA](getting-started/nsca.md) |
-| Understand filters and thresholds | [Checks In Depth](checks-in-depth/index.md) |
-| Understand how modules work | [Concepts: How NSClient++ Works](concepts/index.md) |
+| I want to…                               | Go to…                                                               |
+|------------------------------------------|----------------------------------------------------------------------|
+| Monitor a real server end-to-end         | [Windows Server Health scenario](scenarios/windows-server-health.md) |
+| Set up disk space alerting               | [Disk Space scenario](scenarios/disk-space.md)                       |
+| Monitor a Windows service                | [Service Monitoring scenario](scenarios/service-monitoring.md)       |
+| Monitor the Windows event log            | [Event Log scenario](scenarios/event-log.md)                         |
+| Connect to my monitoring server via NRPE | [Connecting via NRPE](scenarios/nrpe.md)                             |
+| Connect via passive monitoring (NSCA)    | [Getting Started: NSCA](scenarios/passive-monitoring-nsca.md)        |
+| Understand filters and thresholds        | [Checks In Depth](concepts/index.md)                                 |

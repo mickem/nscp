@@ -56,12 +56,26 @@ TEST_F(PathManagerTest, ExpandPathWithVariables) {
 }
 
 TEST_F(PathManagerTest, GetFolderKeys) {
-  const char *keys[] = {"certificate-path", "module-path", "web-path", "scripts",     "log-path", "cache-folder",
-                        "crash-folder",     "base-path",   "temp",     "shared-path", "exe-path", "data-path"};
+  const char *keys[] = {"certificate-path", "module-path", "web-path",    "scripts",  "log-path",  "cache-folder", "crash-folder",
+                        "base-path",        "temp",        "shared-path", "exe-path", "data-path", "ca-path"};
 
   for (const auto &key : keys) {
     EXPECT_FALSE(pm->getFolder(key).empty()) << "Failed for key: " << key;
   }
+}
+
+TEST_F(PathManagerTest, CaPathExpandsToBundleFile) {
+  // ca-path must expand to an absolute file path (not leave any ${...}
+  // placeholders behind). On Windows it points inside ${certificate-path};
+  // on Linux it points under /etc.
+  const std::string expanded = pm->expand_path("${ca-path}");
+  EXPECT_FALSE(expanded.empty());
+  EXPECT_EQ(expanded.find("${"), std::string::npos);
+#ifdef WIN32
+  EXPECT_NE(expanded.find("windows-ca.pem"), std::string::npos);
+#else
+  EXPECT_EQ(expanded.rfind("/etc/", 0), 0u);
+#endif
 }
 
 #ifdef WIN32

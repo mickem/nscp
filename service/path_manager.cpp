@@ -78,6 +78,18 @@ std::string nsclient::core::path_manager::get_path_for_key(const std::string &ke
   if (key == "certificate-path") {
     return CERT_FOLDER;
   }
+  if (key == "ca-path") {
+    // Default trusted-CA bundle. On Windows the service exports the system
+    // ROOT store to this file at boot (see windows_ca_store). On Linux we
+    // point at the de-facto Debian/Ubuntu location; operators on other
+    // distros (or who manage their own bundle) can override this in
+    // [/paths] without touching every module.
+#ifdef WIN32
+    return "${certificate-path}/windows-ca.pem";
+#else
+    return "/etc/ssl/certs/ca-certificates.crt";
+#endif
+  }
   if (key == "module-path") {
     return MODULE_FOLDER;
   }

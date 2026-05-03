@@ -28,30 +28,23 @@ nav:
       - Checks In Depth: concepts/checks.md
       - Settings: concepts/settings.md
   - Getting Started:
-      - Overview: getting-started/index.md
       - Installation: installing.md
-      - First Steps: getting-started/nsclient.md
-      - Using NRPE: getting-started/nrpe.md
-      - Using NSCA: getting-started/nsca.md
   - Monitoring Scenarios:
       - Overview: scenarios/index.md
+      - Web Interface: scenarios/web-interface.md
       - Windows Server Health: scenarios/windows-server-health.md
       - Disk Space Alerting: scenarios/disk-space.md
       - Service & Process Monitoring: scenarios/service-monitoring.md
       - Event Log Monitoring: scenarios/event-log.md
       - Network Checks: scenarios/network-checks.md
-      - External Scripts: scenarios/external-scripts.md
+      - Active Monitoring with NRPE: scenarios/nrpe.md
       - Passive Monitoring (NSCA/NRDP): scenarios/passive-monitoring-nsca.md
       - Passive Monitoring (Icinga 2): scenarios/passive-monitoring-icinga.md
+      - External Scripts: scenarios/external-scripts.md
   - How To:
       - Performance Counters: howto/counters.md
-      - External Scripts: howto/external_scripts.md
       - Running Commands: howto/run_commands.md
       - Securing NSClient++: securing.md
-      - WEB UI: web.md
-      - NRPE Details: howto/nrpe.md
-      - NSCA Details: howto/nsca.md
-      - Migrate from 0.3.x: howto/03x_migration.md
   - Reference:
       - Reference: reference/index.md
       - Check commands:
@@ -107,7 +100,6 @@ nav:
         - Legacy API: api/rest/legacy.md
       - Plugin API: api/plugin.md
   - FAQ: faq.md
-  - Legacy Tutorial: tutorial/index.md
 
 markdown_extensions:
   - admonition

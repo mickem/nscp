@@ -55,6 +55,13 @@ if(WIN32)
     set(service_SRCS
         ${service_SRCS}
         ${NSCP_INCLUDEDIR}/win/service_control.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+        windows_ca_store.cpp
+        windows_ca_store.hpp
+    )
+    set(EXTRA_LIBS
+        ${EXTRA_LIBS}
+        CRYPT32
     )
     set(service_SRCS
         ${service_SRCS}
@@ -213,6 +220,22 @@ if(WIN32)
             GTest::gtest_main
         INCLUDES
             ${NSCP_INCLUDEDIR}
+    )
+
+    NSCP_CREATE_TEST(
+        windows_ca_store_test
+        SOURCES
+            windows_ca_store.cpp
+            windows_ca_store_test.cpp
+            ${NSCP_INCLUDEDIR}/bytes/base64.c
+        LIBRARIES
+            GTest::gtest_main
+            ${Boost_FILESYSTEM_LIBRARY}
+            ${Boost_SYSTEM_LIBRARY}
+            CRYPT32
+        INCLUDES
+            ${NSCP_INCLUDEDIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}
     )
 endif()
 
