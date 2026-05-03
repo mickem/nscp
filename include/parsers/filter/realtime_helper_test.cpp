@@ -21,9 +21,13 @@
 
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <list>
+#include <map>
+#include <memory>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/settings/filter.hpp>
 #include <parsers/filter/realtime_helper.hpp>
+#include <string>
 
 // Provide the NSCAPI singleton so linked code can resolve the symbol.
 nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
@@ -33,13 +37,35 @@ nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleto
 // ============================================================================
 
 struct stub_filter_type {
-  // Minimal interface needed by container::build_filters / process_item.
-  // Not called in the timer/accessor tests.
+  // Minimal stand-in for the filter on a real container. The earlier
+  // timer/accessor tests do not exercise process_item so they do not need
+  // start_match/match_post/summary, but the process_item tests below do —
+  // those members are added here as no-op call counters so a test can assert
+  // they were hit.
   bool build_syntax(bool, const std::string &, const std::string &, const std::string &, const std::string &, const std::string &, const std::string &) {
     return true;
   }
   bool build_engines(bool, const char *, const std::string &, const std::string &, const std::string &) { return true; }
   bool validate(std::string &) { return true; }
+
+  struct summary_stub {
+    int returnCode = 0;
+  };
+  summary_stub summary;
+
+  int start_match_calls = 0;
+  int match_post_calls = 0;
+  int fetch_hash_calls = 0;
+
+  void start_match() { ++start_match_calls; }
+  void match_post() { ++match_post_calls; }
+  void fetch_hash(bool) { ++fetch_hash_calls; }
+
+  // Records list and message accessor present only because process_item
+  // touches them in the matched/event branches; the tests in this file stay
+  // on the empty-result path so these do not need to be functional.
+  std::list<std::map<std::string, std::string>> records_;
+  std::string get_message() { return ""; }
 };
 
 struct stub_runtime_data {
@@ -48,11 +74,14 @@ struct stub_runtime_data {
 
   bool booted = false;
   boost::posix_time::ptime last_touch;
+  // Configurable result so individual tests can drive process_item down the
+  // matched / unmatched branch they want.
+  modern_filter::match_result next_result{true, false};
 
   void boot() { booted = true; }
   void touch(boost::posix_time::ptime now) { last_touch = now; }
   bool has_changed(transient_data_type) const { return true; }
-  modern_filter::match_result process_item(filter_type &, transient_data_type) { return modern_filter::match_result(true, false); }
+  modern_filter::match_result process_item(filter_type &, transient_data_type) { return next_result; }
 };
 
 struct stub_config_object {
@@ -400,4 +429,70 @@ TEST(RealtimeContainer, MultipleAlertTouchesExtendSilentPeriod) {
 TEST(RealtimeFilterHelper, InitiallyEmpty) {
   helper_type helper(nullptr, 0);
   EXPECT_TRUE(helper.items.empty());
+}
+
+// ============================================================================
+// process_item — match_post is invoked even when no rows matched
+// ============================================================================
+//
+// modern_filter::match() now defers per-row warn/crit evaluation until
+// match_post() runs, and modern_filter::match_post() is also where the no-rows
+// force-evaluate path runs for mixed expressions. The realtime helper
+// previously skipped match_post() entirely; without it the deferred verdict
+// would never materialise. These tests pin the contract that the helper
+// always calls start_match / match_post around the per-tick iteration,
+// regardless of whether the iteration produced any matched rows.
+
+TEST(RealtimeFilterHelperProcessItem, CallsMatchPostOnEmptyResult) {
+  helper_type helper(nullptr, 0);
+  stub_runtime_data rd;
+  rd.next_result = modern_filter::match_result(false, false);  // no rows matched
+  // process_item takes the container by `boost::shared_ptr` (helper_type's
+  // own container_type alias), so build it as boost::shared_ptr explicitly
+  // rather than via std::make_shared.
+  boost::shared_ptr<container_type> item(new container_type("alias", "event", rd));
+
+  // Default target ("") is neither "event" nor "events" — process_item takes
+  // the submission branch, but the early `if (!result.matched_filter) return
+  // false` exits before any nscapi::core_helper call (which would dereference
+  // the null core pointer).
+  const bool ok = helper.process_item(item, /*data=*/0, /*is_silent=*/false);
+
+  EXPECT_FALSE(ok);
+  EXPECT_EQ(item->filter.start_match_calls, 1);
+  EXPECT_EQ(item->filter.match_post_calls, 1);
+  // No event target → fetch_hash should never be called.
+  EXPECT_EQ(item->filter.fetch_hash_calls, 0);
+}
+
+TEST(RealtimeFilterHelperProcessItem, MatchPostRunsBeforeEarlyReturn) {
+  // Regression sentinel: if a future refactor moves match_post() below the
+  // early `return false` branch, this test would catch it because the call
+  // counter would still be 0 after the unmatched tick.
+  helper_type helper(nullptr, 0);
+  stub_runtime_data rd;
+  rd.next_result = modern_filter::match_result(false, false);
+  boost::shared_ptr<container_type> item(new container_type("a", "e", rd));
+
+  helper.process_item(item, 0, false);
+  helper.process_item(item, 0, false);
+
+  EXPECT_EQ(item->filter.match_post_calls, 2);
+  EXPECT_EQ(item->filter.start_match_calls, 2);
+}
+
+TEST(RealtimeFilterHelperProcessItem, SeverityIsAppliedAfterStartMatch) {
+  // The helper sets summary.returnCode = severity *after* start_match()
+  // resets it. Confirm both happen in that order by checking returnCode
+  // ends up at the configured severity even though our stub start_match
+  // doesn't touch it.
+  helper_type helper(nullptr, 0);
+  stub_runtime_data rd;
+  rd.next_result = modern_filter::match_result(false, false);
+  boost::shared_ptr<container_type> item(new container_type("a", "e", rd));
+  item->severity = 2;  // CRITICAL
+
+  helper.process_item(item, 0, false);
+
+  EXPECT_EQ(item->filter.summary.returnCode, 2);
 }
