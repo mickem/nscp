@@ -65,14 +65,18 @@ struct mock_summary {
   std::string status;
 };
 
-// ---- Native context -------------------------------------------------------
+// ---- Native context / factory --------------------------------------------
 //
-// Variable nodes do `reinterpret_cast<TContext*>(context.get())`, so the
-// interface and the concrete struct must be the same type and that type must
-// implement evaluation_context_interface. We also expose the bound_*_type
-// typedefs the variable templates require.
+// Production unifies the factory and native context into a single class
+// (parsers::where::evaluation_context_impl<TObject> in engine_impl.hpp), so
+// `int_variable_node`'s `reinterpret_cast<TContext*>(context.get())` always
+// lands on a valid object. The mock follows the same pattern: one struct
+// that is both an `object_factory_interface` (used during bind / validate)
+// and the native context the variable templates downcast to. Splitting the
+// two would let bind-time evaluation downcast a factory pointer through an
+// unrelated branch of the interface hierarchy, reading garbage.
 
-struct mock_native_context : evaluation_context_interface {
+struct mock_native_context : object_factory_interface {
   using object_type = mock_object;
   using summary_type = mock_summary*;
   using bound_int_type = boost::function<long long(object_type, evaluation_context)>;
@@ -109,6 +113,32 @@ struct mock_native_context : evaluation_context_interface {
   bool debug_enabled() override { return debug_enabled_; }
   std::string get_debug() const override { return ""; }
   void debug(object_match) override {}
+
+  // ---- Converter (no implicit conversions in this test fixture) -----------
+  bool can_convert(value_type, value_type) override { return false; }
+  bool can_convert(std::string, std::shared_ptr<any_node>, value_type) override { return false; }
+  std::shared_ptr<binary_function_impl> create_converter(std::string, std::shared_ptr<any_node>, value_type) override { return nullptr; }
+
+  // ---- Variables ----------------------------------------------------------
+  // Recognised names:
+  //   ivar    -> object_->ival     (object-bound int)
+  //   fvar    -> object_->fval     (object-bound float)
+  //   svar    -> object_->sval     (object-bound string)
+  //   scount  -> summary_->count   (summary int — does NOT require object)
+  //   sstatus -> summary_->status  (summary string — does NOT require object)
+  bool has_variable(const std::string& name) override {
+    return name == "ivar" || name == "fvar" || name == "svar" || name == "scount" || name == "sstatus";
+  }
+
+  node_type create_variable(const std::string& name, bool /*human_readable*/) override;
+
+  // ---- Functions ----------------------------------------------------------
+  // identity(x) returns x evaluated as a string. Useful for exercising the
+  // function path without depending on any specific transformation.
+  bool has_function(const std::string& name) override { return name == "identity"; }
+  node_type create_function(const std::string& name, node_type subject) override;
+
+  std::string get_performance_config_key(std::string, std::string, std::string, std::string, std::string) const override { return ""; }
 };
 
 using ivar_node = int_variable_node<mock_native_context>;
@@ -117,95 +147,45 @@ using svar_node = str_variable_node<mock_native_context>;
 using sint_node = summary_int_variable_node<mock_native_context>;
 using sstr_node = summary_string_variable_node<mock_native_context>;
 
-// ---- Factory --------------------------------------------------------------
-//
-// The factory recognises a small fixed set of names so tests can build
-// expressions that reference actual object / summary fields. Names:
-//   ivar  -> object_->ival   (object-bound int)
-//   fvar  -> object_->fval   (object-bound float)
-//   svar  -> object_->sval   (object-bound string)
-//   scount -> summary_->count   (summary int — does NOT require object)
-//   sstatus -> summary_->status (summary string — does NOT require object)
-//
-// The factory also registers one custom function so the function path can be
-// exercised: identity(x) returns x evaluated as a string.
+// `mock_factory` was historically a separate type; production combines the
+// two roles (see engine_impl.hpp) and so does this fixture now.
+using mock_factory = mock_native_context;
 
-struct mock_factory : object_factory_interface {
-  std::string error_;
-  std::string warn_;
-  bool debug_enabled_ = false;
-
-  bool has_error() const override { return !error_.empty(); }
-  std::string get_error() const override { return error_; }
-  void error(std::string msg) override {
-    if (!error_.empty()) error_ += ", ";
-    error_ += msg;
+node_type mock_native_context::create_variable(const std::string& name, bool /*human_readable*/) {
+  if (name == "ivar") {
+    return std::make_shared<ivar_node>(name, type_int,
+                                       [](mock_object o, evaluation_context) -> long long { return o.ival; },
+                                       std::list<ivar_node::int_performance_generator>{});
   }
-  bool has_warn() const override { return !warn_.empty(); }
-  std::string get_warn() const override { return warn_; }
-  void warn(std::string msg) override { warn_ += msg; }
-  void clear() override {
-    error_.clear();
-    warn_.clear();
+  if (name == "fvar") {
+    return std::make_shared<fvar_node>(name, type_float,
+                                       [](mock_object o, evaluation_context) -> double { return o.fval; },
+                                       std::list<fvar_node::float_performance_generator>{});
   }
-  void enable_debug(bool enable) override { debug_enabled_ = enable; }
-  bool debug_enabled() override { return debug_enabled_; }
-  std::string get_debug() const override { return ""; }
-  void debug(object_match) override {}
-
-  // ---- Converter (no implicit conversions in this test fixture) -----------
-  bool can_convert(value_type, value_type) override { return false; }
-  bool can_convert(std::string, std::shared_ptr<any_node>, value_type) override { return false; }
-  std::shared_ptr<binary_function_impl> create_converter(std::string, std::shared_ptr<any_node>, value_type) override { return nullptr; }
-
-  // ---- Variables ----------------------------------------------------------
-  bool has_variable(const std::string& name) override {
-    return name == "ivar" || name == "fvar" || name == "svar" || name == "scount" || name == "sstatus";
+  if (name == "svar") {
+    return std::make_shared<svar_node>(name, type_string,
+                                       [](mock_object o, evaluation_context) -> std::string { return o.sval; });
   }
-
-  node_type create_variable(const std::string& name, bool /*human_readable*/) override {
-    if (name == "ivar") {
-      return std::make_shared<ivar_node>(name, type_int,
-                                         [](mock_object o, evaluation_context) -> long long { return o.ival; },
-                                         std::list<ivar_node::int_performance_generator>{});
-    }
-    if (name == "fvar") {
-      return std::make_shared<fvar_node>(name, type_float,
-                                         [](mock_object o, evaluation_context) -> double { return o.fval; },
-                                         std::list<fvar_node::float_performance_generator>{});
-    }
-    if (name == "svar") {
-      return std::make_shared<svar_node>(name, type_string,
-                                         [](mock_object o, evaluation_context) -> std::string { return o.sval; });
-    }
-    if (name == "scount") {
-      return std::make_shared<sint_node>(name, [](mock_summary* s) -> long long { return s ? s->count : 0; });
-    }
-    if (name == "sstatus") {
-      return std::make_shared<sstr_node>(name, [](mock_summary* s) -> std::string { return s ? s->status : ""; });
-    }
-    error("Unknown variable: " + name);
-    return factory::create_false();
+  if (name == "scount") {
+    return std::make_shared<sint_node>(name, [](mock_summary* s) -> long long { return s ? s->count : 0; });
   }
-
-  // ---- Functions ----------------------------------------------------------
-  bool has_function(const std::string& name) override { return name == "identity"; }
-
-  node_type create_function(const std::string& name, node_type subject) override {
-    if (name == "identity") {
-      // identity(x) returns x evaluated as a string. Useful for exercising
-      // the function path without depending on any specific transformation.
-      auto fun = [](value_type, evaluation_context ctx, node_type s) -> node_type {
-        return factory::create_string(s->get_string_value(ctx));
-      };
-      return std::make_shared<custom_function_node>(name, fun, subject, type_string);
-    }
-    error("Unknown function: " + name);
-    return factory::create_false();
+  if (name == "sstatus") {
+    return std::make_shared<sstr_node>(name, [](mock_summary* s) -> std::string { return s ? s->status : ""; });
   }
+  error("Unknown variable: " + name);
+  return factory::create_false();
+}
 
-  std::string get_performance_config_key(std::string, std::string, std::string, std::string, std::string) const override { return ""; }
-};
+node_type mock_native_context::create_function(const std::string& name, node_type subject) {
+  if (name == "identity") {
+    auto fun = [](value_type, evaluation_context ctx, node_type s) -> node_type {
+      return factory::create_string(s->get_string_value(ctx));
+    };
+    return std::make_shared<custom_function_node>(name, fun, subject, type_string);
+  }
+  error("Unknown function: " + name);
+  return factory::create_false();
+}
 
 // ---- Error handler --------------------------------------------------------
 

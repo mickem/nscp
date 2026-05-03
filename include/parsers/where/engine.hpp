@@ -85,7 +85,7 @@ struct NSCAPI_EXPORT engine {
   typedef evaluation_context execution_context_type;
 
   std::list<engine_filter> filters_;
-  bool perf_collection;
+  bool perf_collection = false;
   typedef performance_collector::boundaries_type boundries_type;
   performance_collector boundries;
   error_handler error;
