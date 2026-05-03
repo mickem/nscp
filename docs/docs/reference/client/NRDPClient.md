@@ -251,9 +251,9 @@ This is a section of objects. This means that you will create objects below this
 | proxy       |               | HTTP proxy URL        |
 | retries     | 3             | RETRIES               |
 | timeout     | 30            | TIMEOUT               |
-| tls version |               | Tls version           |
+| tls version | 1.3           | Tls version           |
 | token       |               | SECURITY TOKEN        |
-| verify mode |               | TLS peer verify mode  |
+| verify mode | peer          | TLS peer verify mode  |
 
 
 **Sample:**
@@ -271,9 +271,9 @@ ca=${ca-path}
 #proxy=...
 retries=3
 timeout=30
-#tls version=...
+tls version=1.3
 #token=...
-#verify mode=...
+verify mode=peer
 
 ```
 

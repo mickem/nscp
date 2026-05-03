@@ -34,17 +34,15 @@ PythonScript = enabled
 
 
 
-| Key                           | Default Value    | Description  |
-|-------------------------------|------------------|--------------|
-| [python cache](#python-cache) |                  | Python cache |
-| [python lib](#python-lib)     | libpython3.12.so | Python lib   |
+| Key                           | Default Value | Description  |
+|-------------------------------|---------------|--------------|
+| [python cache](#python-cache) |               | Python cache |
 
 
 
 ```ini
 # 
 [/settings/python]
-python lib=libpython3.12.so
 
 ```
 
@@ -74,31 +72,6 @@ Override python cache folder.
 [/settings/python]
 # Python cache
 python cache=
-```
-
-
-
-#### Python lib <a id="/settings/python/python lib"></a>
-
-The python DLL to load
-
-
-
-
-
-| Key            | Description                           |
-|----------------|---------------------------------------|
-| Path:          | [/settings/python](#/settings/python) |
-| Key:           | python lib                            |
-| Default value: | `libpython3.12.so`                    |
-
-
-**Sample:**
-
-```
-[/settings/python]
-# Python lib
-python lib=libpython3.12.so
 ```
 
 
