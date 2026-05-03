@@ -176,6 +176,11 @@ struct realtime_filter_helper {
     if (item->severity != -1) item->filter.summary.returnCode = item->severity;
 
     const modern_filter::match_result result = item->data.process_item(item->filter, data);
+    // Evaluate deferred warn/crit records and post-iteration summary
+    // expressions so the summary state reflects the final verdict before we
+    // act on it. This mirrors the cli_helper::post_process flow used by the
+    // active check path.
+    item->filter.match_post();
     if (!result.matched_filter) {
       return false;
     }

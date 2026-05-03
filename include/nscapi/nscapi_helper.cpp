@@ -147,6 +147,9 @@ void nscapi::plugin_helper::escalteReturnCodeToCRIT(NSCAPI::nagiosReturn &curren
 void nscapi::plugin_helper::escalteReturnCodeToWARN(NSCAPI::nagiosReturn &currentReturnCode) {
   if (currentReturnCode != NSCAPI::query_return_codes::returnCRIT) currentReturnCode = NSCAPI::query_return_codes::returnWARN;
 }
+void nscapi::plugin_helper::escalateReturnCodeToUNKNOWN(NSCAPI::nagiosReturn &currentReturnCode) {
+  if (currentReturnCode == NSCAPI::query_return_codes::returnOK) currentReturnCode = NSCAPI::query_return_codes::returnUNKNOWN;
+}
 
 /**
  * Translate a return code into the corresponding string

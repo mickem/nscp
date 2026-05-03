@@ -264,12 +264,11 @@ NSCP_CREATE_TEST(
     SOURCES
         ${NSCP_INCLUDEDIR}/parsers/filter/realtime_helper_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.cpp
-        ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
+        ${PLUGIN_API_TARGET}
+        nscp_protobuf
         nscp_where_filter
         perfconfig_parser
         expression_parser
@@ -334,6 +333,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/parsers/where/unary_op_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/value_node_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/variable_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/where/engine_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/where_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/operators_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/list_node.cpp

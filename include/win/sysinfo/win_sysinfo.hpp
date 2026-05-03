@@ -156,6 +156,12 @@ BOOL QueryServiceConfig2(SC_HANDLE hService, DWORD dwInfoLevel, LPBYTE lpBuffer,
 BOOL QueryServiceStatusEx(SC_HANDLE hService, SC_STATUS_TYPE InfoLevel, LPBYTE lpBuffer, DWORD cbBufSize, LPDWORD pcbBytesNeeded);
 bool IsWow64(HANDLE hProcess, bool def = false);
 DWORD GetProcessImageFileName(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize);
+// Dynamic wrapper for the Vista+ kernel32 entry point QueryFullProcessImageNameW.
+// We target Windows XP (5.x) which doesn't have it, so we resolve via
+// GetProcAddress and report failure when the runtime OS pre-dates Vista.
+// Returns FALSE (with GetLastError set to ERROR_PROC_NOT_FOUND) on XP/2003;
+// returns the underlying API result on Vista+.
+BOOL QueryFullProcessImageName(HANDLE hProcess, DWORD dwFlags, LPWSTR lpExeName, PDWORD lpdwSize);
 LONG NtQueryInformationProcess(HANDLE ProcessHandle, DWORD ProcessInformationClass, PVOID ProcessInformation, DWORD ProcessInformationLength,
                                PDWORD ReturnLength);
 

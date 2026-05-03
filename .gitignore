@@ -2,6 +2,9 @@
 build.cmake
 cmake-build
 cmake-build-*
+# Sanitizer build dirs created by tools/sanitizers/run.sh (build-address+undefined,
+# build-thread, etc.) and any other ad-hoc build-<flavor>/ trees.
+build-*
 build_output.txt
 cmake_output.txt
 .cmake

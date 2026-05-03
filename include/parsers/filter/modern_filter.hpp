@@ -283,6 +283,21 @@ struct modern_filters {
   typedef std::map<std::string, perf_entry> leaf_performance_entry_type;
   leaf_performance_entry_type leaf_performance_data;
 
+  // A deferred record represents a row that passed the top-level filter but
+  // whose warn/crit verdict has been postponed to match_post(). Deferring
+  // ensures summary variables such as `count` see their final post-iteration
+  // values when the warn/crit expressions are evaluated, instead of the
+  // running-total values they would see during the per-row pass (which caused
+  // bugs like `crit=count<5` firing on the first row even when the final
+  // count is 5; issues #97, #159, #291, #486 - and more importantly mixed
+  // expressions like `crit=state='hung' OR count<2`).
+  struct deferred_record {
+    object_type record;
+    std::string current;
+    bool second_unique_match;
+  };
+  std::list<deferred_record> deferred_records_;
+
   modern_filters() : has_matched(false), context(new TFactory()), fetch_hash_(false), has_unique_index(false) { context->set_summary(&summary); }
 
   std::map<std::string, std::string> get_filter_syntax() const {
@@ -445,6 +460,7 @@ struct modern_filters {
     has_matched = false;
     summary.reset();
     records_.clear();
+    deferred_records_.clear();
   }
   match_result match(object_type record) {
     context->set_object(record);
@@ -453,7 +469,6 @@ struct modern_filters {
       context->debug(parsers::where::object_match::none);
     }
     bool matched_filter = false;
-    bool matched_bound = false;
     // done should be set if we want to bail out after the first hit!
     // I.e. mode==first (mode==all)
     summary.count();
@@ -483,51 +498,75 @@ struct modern_filters {
         summary.matched_unique();
       else
         summary.matched(current);
+      // Defer the warn/crit/ok evaluation for this row to match_post() so
+      // that summary variables like `count` reflect their final
+      // post-iteration values rather than running totals. This is essential
+      // for mixed expressions such as `crit=state='hung' OR count<5` and
+      // also makes pure-summary expressions consistent in their semantics.
+      deferred_records_.push_back(deferred_record{record, current, second_unique_match});
+    }
+    return match_result(matched_filter, false);
+  }
+
+  // Evaluate the warn/crit/ok engines against the deferred records. At this
+  // point summary variables (count, total, ok_count, ...) have their final
+  // post-iteration values, so per-row evaluations of mixed expressions see a
+  // stable summary state.
+  void evaluate_deferred_records() {
+    if (deferred_records_.empty()) return;
+    auto debug = context->debug_enabled();
+    bool any_bound = false;
+    for (const deferred_record &d : deferred_records_) {
+      context->set_object(d.record);
+      if (debug) {
+        context->debug(parsers::where::object_match::match);
+      }
       if (engine_crit && engine_crit->match(context, true)) {
         if (debug) {
           context->debug(parsers::where::object_match::critical);
         }
-        if (second_unique_match)
+        if (d.second_unique_match)
           summary.matched_crit_unique();
         else
-          summary.matched_crit(current);
+          summary.matched_crit(d.current);
         nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
-        matched_bound = true;
+        any_bound = true;
       } else if (engine_warn && engine_warn->match(context, true)) {
         if (debug) {
           context->debug(parsers::where::object_match::warning);
         }
-        if (second_unique_match)
+        if (d.second_unique_match)
           summary.matched_warn_unique();
         else
-          summary.matched_warn(current);
+          summary.matched_warn(d.current);
         nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
-        matched_bound = true;
+        any_bound = true;
       } else if (engine_ok && engine_ok->match(context, true)) {
         if (debug) {
           context->debug(parsers::where::object_match::ok);
         }
-        // TODO: Unsure of this, should this not re-set matched?
-        // What is matched for?
-        if (second_unique_match)
+        if (d.second_unique_match)
           summary.matched_ok_unique();
         else
-          summary.matched_ok(current);
-        matched_bound = true;
+          summary.matched_ok(d.current);
+        any_bound = true;
       } else {
-        if (second_unique_match)
+        if (d.second_unique_match)
           summary.matched_ok_unique();
         else
-          summary.matched_ok(current);
-      }
-      if (matched_bound) {
-        has_matched = true;
+          summary.matched_ok(d.current);
       }
     }
-    return match_result(matched_filter, matched_bound);
+    if (any_bound) {
+      has_matched = true;
+    }
+    deferred_records_.clear();
   }
 
   bool match_post() {
+    // Evaluate any rows that were deferred from match() now that summary
+    // counters are stable.
+    evaluate_deferred_records();
     context->remove_object();
     bool matched = summary.has_matched();
     for (const typename leaf_performance_entry_type::value_type &entry : leaf_performance_data) {
@@ -535,11 +574,34 @@ struct modern_filters {
                                                                                              entry.second.minimum_value, entry.second.maximum_value);
       if (perf.size() > 0) performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
     }
-    if (engine_crit && engine_crit->match(context, false)) {
+    // When the iteration produced no matched rows the warn/crit expressions
+    // have never been evaluated. The default expect_object=false path below
+    // only evaluates filters whose AST does not require an object - that
+    // covers pure summary expressions like `count=0` but skips mixed
+    // expressions such as `state='stopped' OR count=0` (issues #74, #494,
+    // #200, #283). When no rows matched, additionally force-evaluate the
+    // engines: object-bound vars resolve to a default value so the summary
+    // part still drives the verdict.
+    //
+    // Force-eval can also produce *unsure* verdicts when an object-bound
+    // subterm could not fully resolve (e.g. `state IN ('hung','stopped')`
+    // with no current object). In that case we surface UNKNOWN rather than
+    // silently falling through to OK or to a misleading sure verdict — the
+    // user's expression depended on data that wasn't available, and they
+    // need to know about it so they can fix the filter.
+    const bool no_rows = !summary.has_matched();
+    bool force_unsure_seen = false;
+    auto force_sure_true = [&](filter_engine &engine) -> bool {
+      if (!engine || !no_rows) return false;
+      const parsers::where::force_match_result r = engine->match_force(context);
+      if (r.is_unsure) force_unsure_seen = true;
+      return r.matched && !r.is_unsure;
+    };
+    if (engine_crit && (engine_crit->match(context, false) || force_sure_true(engine_crit))) {
       nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
       summary.move_hits_crit();
       matched = true;
-    } else if (engine_warn && engine_warn->match(context, false)) {
+    } else if (engine_warn && (engine_warn->match(context, false) || force_sure_true(engine_warn))) {
       nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
       summary.move_hits_warn();
       matched = true;
@@ -547,6 +609,11 @@ struct modern_filters {
       // TODO: Unsure of this, should this not re-set matched?
       // What is matched for?
       matched = true;
+    } else if (force_unsure_seen) {
+      // No sure verdict could be reached but force-evaluate produced an
+      // unsure result — surface UNKNOWN. UNKNOWN here promotes returnCode
+      // only from OK (CRIT/WARN already-set are kept by escalateReturnCodeToUNKNOWN).
+      nscapi::plugin_helper::escalateReturnCodeToUNKNOWN(summary.returnCode);
     }
     return matched;
   }

@@ -123,6 +123,7 @@ NSCP_CREATE_TEST(
         check_battery_test.cpp
         check_os_updates_test.cpp
         check_process_history_test.cpp
+        check_process_test.cpp
         check_cpu_frequency_test.cpp
         check_pdh_test.cpp
         check_network_test.cpp

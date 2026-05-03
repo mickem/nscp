@@ -19,6 +19,7 @@
 
 #include "check_process.hpp"
 
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -146,6 +147,10 @@ void runtime_data::add(const std::string &data) {
   }
 }
 
+bool process_name_matches_any(const std::list<std::string> &names, const std::string &candidate) {
+  return std::any_of(names.begin(), names.end(), [&candidate](const std::string &name) { return boost::algorithm::iequals(name, candidate); });
+}
+
 modern_filter::match_result runtime_data::process_item(filter_type &filter, transient_data_type data) {
   modern_filter::match_result ret;
 
@@ -156,8 +161,7 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
     }
   } else {
     for (const win_list_processes::process_info &info : data->list) {
-      bool found = (std::find(checks.begin(), checks.end(), info.exe.get()) != checks.end());
-      if (found) {
+      if (process_name_matches_any(checks, info.exe.get())) {
         boost::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
         ret.append(filter.match(record));
       }

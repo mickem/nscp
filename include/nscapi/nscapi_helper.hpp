@@ -32,6 +32,11 @@ NSCAPI::nagiosReturn int2nagios(int code);
 int nagios2int(NSCAPI::nagiosReturn code);
 void escalteReturnCodeToCRIT(NSCAPI::nagiosReturn &currentReturnCode);
 void escalteReturnCodeToWARN(NSCAPI::nagiosReturn &currentReturnCode);
+// Promote OK to UNKNOWN; leave WARN/CRIT/UNKNOWN untouched. Used by
+// modern_filter::match_post when the no-rows force-evaluate path produces
+// an unsure verdict — i.e. the user's mixed expression depended on
+// object-bound subterms that could not be resolved without an object.
+void escalateReturnCodeToUNKNOWN(NSCAPI::nagiosReturn &currentReturnCode);
 int wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode);
 //		static NSCAPI_EXPORT std::wstring translateMessageType(NSCAPI::messageTypes msgType);
 std::string translateReturn(NSCAPI::nagiosReturn returnCode);

@@ -1,0 +1,10 @@
+# UndefinedBehaviorSanitizer suppressions for unit tests built with
+# NSCP_SANITIZE=undefined.
+#
+# Format (one per line):
+#   <check>:<symbol or file substring>
+# E.g.
+#   vptr:boost::system::error_category
+#   alignment:third_party/somelib
+#
+# The current sanitizer run is clean — this file is a placeholder.

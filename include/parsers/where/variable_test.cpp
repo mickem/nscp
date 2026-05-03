@@ -485,11 +485,19 @@ TEST(StrVariableNode, GetFloatValueSetsError) {
   EXPECT_TRUE(ctx->has_error());
 }
 
-TEST(StrVariableNode, GetValueNoObjectSetsError) {
+TEST(StrVariableNode, GetValueNoObjectReturnsEmptyUnsureWithWarn) {
+  // Match the contract used by int_variable_node / float_variable_node: when
+  // there's no current object, return a typed default (empty string here)
+  // with is_unsure=true and a WARN (not ERROR). Centralises the unsure
+  // propagation so downstream operators don't need per-operator nil-guards.
   str_var_node node("test_str", type_string, make_str_fun());
   auto ctx = make_var_context();
   auto vc = node.get_value(ctx, type_string);
-  EXPECT_TRUE(ctx->has_error());
+  EXPECT_FALSE(ctx->has_error()) << "no-object should warn, not error: " << ctx->get_error();
+  EXPECT_TRUE(ctx->has_warn());
+  EXPECT_TRUE(vc.is(type_string));
+  EXPECT_EQ(vc.get_string(), "");
+  EXPECT_TRUE(vc.is_unsure);
 }
 
 TEST(StrVariableNode, EvaluateReturnsStringNode) {
@@ -501,11 +509,14 @@ TEST(StrVariableNode, EvaluateReturnsStringNode) {
   EXPECT_EQ(result->get_string_value(ctx), "evaluated");
 }
 
-TEST(StrVariableNode, EvaluateNoObjectSetsError) {
+TEST(StrVariableNode, EvaluateNoObjectSetsWarn) {
+  // Demoted from error → warn so production agent logs are not flooded
+  // with ERROR-level entries on every empty-rows force-evaluate tick.
   str_var_node node("test_str", type_string, make_str_fun());
   auto ctx = make_var_context();
   auto result = node.evaluate(ctx);
-  EXPECT_TRUE(ctx->has_error());
+  EXPECT_FALSE(ctx->has_error()) << "no-object evaluate should warn, not error";
+  EXPECT_TRUE(ctx->has_warn());
 }
 
 TEST(StrVariableNode, StaticEvaluateReturnsFalse) {
@@ -836,4 +847,110 @@ TEST(CustomFunctionNode, InferTypeReturnsString) {
   custom_function_node node("my_func", fun, subject, type_string);
   EXPECT_EQ(node.infer_type(make_converter()), type_string);
   EXPECT_EQ(node.infer_type(make_converter(), type_int), type_string);
+}
+
+// ======================================================================
+// summary_int_variable_node tests
+//
+// Pre-dd8024ae (the deferred-evaluation refactor) the variable used to
+// flag results as is_unsure when an object was set, plus a "X is most
+// likely mutating" warn, on the assumption that warn/crit ran during
+// iteration with a running summary count. After dd8024ae the warn/crit
+// engines run in evaluate_deferred_records() *after* iteration, so the
+// summary value is final whenever the variable is consulted from a
+// warn/crit predicate.
+//
+// The heuristic was therefore dropped — these tests pin the post-fix
+// contract: sure-int regardless of object presence, no warn.
+// ======================================================================
+
+typedef summary_int_variable_node<mock_variable_context> summary_int_var_node;
+
+static mock_variable_context::summary_type set_summary_int(mock_summary& s, long long count) {
+  s.count = count;
+  return &s;
+}
+
+TEST(SummaryIntVariableNode, GetValueWithoutObjectIsSure) {
+  // Force-evaluate path (no object set): summary value flows through with
+  // is_unsure=false. Pre-fix: also sure but for the heuristic reason
+  // ("summary=true → !summary=false").
+  summary_int_var_node node("count", [](mock_summary* s) -> long long { return s ? s->count : 0; });
+  mock_summary summary;
+  auto ctx = make_var_context();
+  native(ctx)->set_summary(set_summary_int(summary, 7));
+
+  const auto vc = node.get_value(ctx, type_int);
+  EXPECT_EQ(vc.get_int(), 7);
+  EXPECT_FALSE(vc.is_unsure);
+  EXPECT_FALSE(ctx->has_warn()) << "no-object case must not warn: " << ctx->get_warn();
+}
+
+TEST(SummaryIntVariableNode, GetValueWithObjectIsAlsoSure) {
+  // Deferred per-row replay path (object set): post-fix the result is
+  // STILL sure-int with no warn. Pre-fix: this was unsure-int with a
+  // "X is most likely mutating" warn — the noisy production-log symptom
+  // that motivated the change.
+  summary_int_var_node node("count", [](mock_summary* s) -> long long { return s ? s->count : 0; });
+  mock_summary summary;
+  auto ctx = make_var_context();
+  native(ctx)->set_summary(set_summary_int(summary, 5));
+  native(ctx)->set_object(mock_object{0, 0.0, ""});
+
+  const auto vc = node.get_value(ctx, type_int);
+  EXPECT_EQ(vc.get_int(), 5);
+  EXPECT_FALSE(vc.is_unsure)
+      << "post-dd8024ae: summary is final at deferred-eval time; the legacy "
+         "is_unsure-when-object-set heuristic is gone.";
+  EXPECT_FALSE(ctx->has_warn())
+      << "post-dd8024ae: 'is most likely mutating' warn is gone (was: 1 warn "
+         "per row per check tick in production logs).";
+}
+
+TEST(SummaryIntVariableNode, EvaluateProducesIntNode) {
+  summary_int_var_node node("count", [](mock_summary* s) -> long long { return s ? s->count : 0; });
+  mock_summary summary;
+  auto ctx = make_var_context();
+  native(ctx)->set_summary(set_summary_int(summary, 42));
+
+  auto result = node.evaluate(ctx);
+  ASSERT_NE(result, nullptr);
+  EXPECT_EQ(result->get_int_value(ctx), 42);
+}
+
+TEST(SummaryIntVariableNode, EvaluateNoFunctionSetsError) {
+  summary_int_var_node::function_type empty_fun;
+  summary_int_var_node node("count", empty_fun);
+  auto ctx = make_var_context();
+
+  auto result = node.evaluate(ctx);
+  EXPECT_TRUE(ctx->has_error());
+}
+
+TEST(SummaryIntVariableNode, RequireObjectIsFalse) {
+  // Summary variables are evaluable from summary state alone — they do
+  // NOT require an object instance. This is what lets the modern_filter
+  // expect_object=false path evaluate `crit=count=0` directly.
+  summary_int_var_node node("count", [](mock_summary*) -> long long { return 0; });
+  auto ctx = make_var_context();
+  EXPECT_FALSE(node.require_object(ctx));
+}
+
+TEST(SummaryIntVariableNode, GetValueWithInvalidTypeReturnsNilWithError) {
+  summary_int_var_node node("count", [](mock_summary*) -> long long { return 0; });
+  auto ctx = make_var_context();
+  const auto vc = node.get_value(ctx, type_string);
+  EXPECT_TRUE(ctx->has_error());
+}
+
+TEST(SummaryIntVariableNode, ToStringWithSummaryProducesValueOnly) {
+  // Pre-fix: when object was set, to_string appended "?" to indicate
+  // unsure. Post-fix: just the value, regardless of object presence.
+  summary_int_var_node node("count", [](mock_summary* s) -> long long { return s ? s->count : 0; });
+  mock_summary summary;
+  auto ctx = make_var_context();
+  native(ctx)->set_summary(set_summary_int(summary, 3));
+  native(ctx)->set_object(mock_object{0, 0.0, ""});
+
+  EXPECT_EQ(node.to_string(ctx), "3");
 }

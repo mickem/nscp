@@ -36,6 +36,14 @@
 #include <win/win_defines.hpp>
 #include <win/windows.hpp>
 
+// Defensive define for SDKs older than Windows Vista (NT 6.0). The constant
+// is just a numeric flag passed to OpenProcess; the kernel decides whether
+// it's understood, so it's safe to define even when the host OS is XP. The
+// runtime check is the OpenProcess return value.
+#ifndef PROCESS_QUERY_LIMITED_INFORMATION
+#define PROCESS_QUERY_LIMITED_INFORMATION 0x1000
+#endif
+
 constexpr int MAX_FILENAME = 256;
 
 struct generic_closer {
@@ -148,18 +156,64 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable) {
 
   unsigned long ReturnLength = 0;
 
+  // Three-step fallback to maximise the number of processes the agent can see
+  // when running as a non-administrative account (issues #517, #580, #654):
+  //  1. Try the full set of access rights required for deep_scan.
+  //  2. Fall back to PROCESS_QUERY_INFORMATION (no VM access) - older fallback.
+  //  3. Fall back to PROCESS_QUERY_LIMITED_INFORMATION (Vista+). This succeeds
+  //     for processes that PROCESS_QUERY_INFORMATION cannot open, including
+  //     critical/protected processes such as csrss.exe, smss.exe, services.exe
+  //     and processes owned by other users when running unprivileged. We then
+  //     use QueryFullProcessImageName, which only requires
+  //     PROCESS_QUERY_LIMITED_INFORMATION, to obtain the executable name.
+  bool limited_only = false;
   generic_handle handle(OpenProcess(openArgs, FALSE, pid));
   if (!handle) {
     handle = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
     if (!handle) {
-      DWORD err = GetLastError();
-      entry.unreadable = true;
-      if (!ignore_unreadable || err != ERROR_ACCESS_DENIED) entry.set_error("Failed to open process " + str::xtos(pid) + ": " + error::lookup::last_error());
-      return entry;
+      handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+      if (!handle) {
+        DWORD err = GetLastError();
+        entry.unreadable = true;
+        if (!ignore_unreadable || err != ERROR_ACCESS_DENIED) entry.set_error("Failed to open process " + str::xtos(pid) + ": " + error::lookup::last_error());
+        return entry;
+      }
+      limited_only = true;
     }
   }
 
   hlp::buffer<wchar_t> buffer(MAX_PATH);
+  if (limited_only) {
+    // GetProcessImageFileName / EnumProcessModules require
+    // PROCESS_QUERY_INFORMATION (and VM read for the latter). Use
+    // QueryFullProcessImageName which only requires
+    // PROCESS_QUERY_LIMITED_INFORMATION so we can still report the executable
+    // name for processes that we could only open with limited rights.
+    //
+    // QueryFullProcessImageNameW is a Vista+ kernel32 export. The agent
+    // targets NT 5.x (XP / Server 2003) where it is not available, so we
+    // route through the dynamic wrapper in win/sysinfo which resolves it
+    // via GetProcAddress and returns FALSE on older OSes. Pre-Vista the
+    // limited-only branch leaves entry.exe empty — that's still better
+    // than the pre-fallback behaviour of dropping the process entirely
+    // (issues #517 / #580 / #654 are Vista+ scenarios anyway).
+    DWORD size = static_cast<DWORD>(buffer.size());
+    if (windows::winapi::QueryFullProcessImageName(handle, 0, buffer, &size) && size > 0) {
+      buffer[size] = 0;
+      auto tmp = utf8::cvt<std::string>(std::wstring(buffer.get()));
+      entry.filename = tmp;
+      std::size_t pos = tmp.find_last_of('\\');
+      if (pos != std::string::npos)
+        entry.exe = tmp.substr(pos + 1);
+      else
+        entry.exe = tmp;
+    }
+    // Without PROCESS_QUERY_INFORMATION/VM_READ we cannot fetch handle counts,
+    // VM counters, command line, etc. Return the partial entry; callers can
+    // still see that the process exists and what its name is.
+    return entry;
+  }
+
   DWORD len = GetProcessImageFileName(handle, buffer, static_cast<DWORD>(buffer.size()));
   if (len > 0) {
     buffer[len] = 0;
