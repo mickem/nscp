@@ -1405,3 +1405,94 @@ TEST(EngineFilterMatchForce, StringVariableNoObjectProducesNoErrorInHandler) {
   EXPECT_FALSE(r.matched);
   EXPECT_TRUE(r.is_unsure);
 }
+
+// ============================================================================
+// Operator audit (commit dd8024ae): summary variables under match() don't
+// produce spurious unsure flags or "mutating" warns.
+//
+// modern_filter::evaluate_deferred_records sets the object per row and calls
+// engine_crit/warn/ok->match(context, true). If the warn/crit expression
+// references a summary variable (e.g. `count`), the variable is consulted
+// with object SET. Pre-fix that flagged the result as unsure and warned
+// "X is most likely mutating" — both wrong post-deferred-eval, since the
+// summary value is final at that point.
+//
+// These tests pin the post-fix contract: with object set AND summary set,
+// the variable returns sure-int with no warn. We exercise via the
+// engine_filter::match() path used by evaluate_deferred_records, plus a
+// pure unit assertion that scount is sure under match_force too.
+// ============================================================================
+
+TEST(EngineFilter, SummaryVarUnderRegularMatchWithObjectIsSureAndQuiet) {
+  // Simulate a deferred-eval call: object set, summary set, evaluate a
+  // mixed predicate via the regular match() entry point (which is what
+  // evaluate_deferred_records uses).
+  auto handler = make_handler();
+  auto f = build_filter("scount = 5", handler);
+  ASSERT_TRUE(f) << handler->error_;
+
+  auto ctx = make_native_context();
+  mock_summary summary;
+  summary.count = 5;
+  ctx->set_summary(&summary);
+  ctx->set_object({0, 0.0, ""});  // <-- object set, like during deferred eval
+
+  // Pure-summary expression has require_object=false; match with
+  // expect_object=true would refuse it, so use expect_object=false.
+  EXPECT_TRUE(f->match(handler, as_eval(ctx), /*expect_object=*/false));
+  EXPECT_FALSE(handler->has_warnings())
+      << "no 'is most likely mutating' warn or 'Ignoring unsure result' should "
+         "fire — summary is final at this point. Got: " << handler->warn_;
+}
+
+TEST(EngineFilter, MixedSummaryAndBoundUnderRegularMatchWithObject) {
+  // Real deferred-eval scenario: `crit=svar='hung' OR scount<5` evaluated
+  // per-row with object set (so svar resolves from the row) and summary
+  // set (so scount has its final value). No "mutating" warn or unsure
+  // propagation should leak from scount into the final verdict.
+  auto handler = make_handler();
+  auto f = build_filter("svar = 'hung' or scount < 5", handler);
+  ASSERT_TRUE(f) << handler->error_;
+
+  auto ctx = make_native_context();
+  mock_summary summary;
+  summary.count = 10;  // count<5 is sure-false
+  ctx->set_summary(&summary);
+  ctx->set_object({0, 0.0, "running"});  // svar='hung' is sure-false
+
+  EXPECT_FALSE(f->match(handler, as_eval(ctx), /*expect_object=*/true));
+  EXPECT_FALSE(handler->has_warnings())
+      << "no warn from summary mutating heuristic (was: 'count is most likely "
+         "mutating' + 'Ignoring unsure result' on every row). Got: " << handler->warn_;
+}
+
+TEST(EngineFilter, SummaryVarMatchedSideUnderRegularMatchWithObject) {
+  // Same shape but the row matches via the bound side. Verdict must be
+  // true with no leaking warns.
+  auto handler = make_handler();
+  auto f = build_filter("svar = 'hung' or scount < 5", handler);
+  ASSERT_TRUE(f) << handler->error_;
+
+  auto ctx = make_native_context();
+  mock_summary summary;
+  summary.count = 10;
+  ctx->set_summary(&summary);
+  ctx->set_object({0, 0.0, "hung"});  // svar='hung' is sure-true
+
+  EXPECT_TRUE(f->match(handler, as_eval(ctx), /*expect_object=*/true));
+  EXPECT_FALSE(handler->has_warnings()) << "Got: " << handler->warn_;
+}
+
+TEST(EngineFilterMatchForce, SummaryVarUnderForceEvalIsSure) {
+  // No-rows force-evaluate path (no object): scount is sure-int. This was
+  // already correct pre-fix; this test pins it stays correct after the
+  // heuristic change.
+  auto ctx = make_native_context();
+  mock_summary summary;
+  summary.count = 0;
+  ctx->set_summary(&summary);
+
+  const auto r = eval_force_full("scount = 0", ctx);
+  EXPECT_TRUE(r.matched);
+  EXPECT_FALSE(r.is_unsure);
+}

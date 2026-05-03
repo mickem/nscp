@@ -641,50 +641,57 @@ struct summary_int_variable_node : any_node {
 
   std::list<node_type> get_list_value(evaluation_context context) const override { return std::list<node_type>(); }
   bool can_evaluate() const override { return true; }
-  bool int_get_value(const evaluation_context &context, bool &summary, long long &value) const {
+  // Pre-dd8024ae the engine evaluated warn/crit/ok per row during iteration,
+  // so summary counters such as count_match were genuinely changing under
+  // the user's feet. The variable used to flag results as is_unsure when
+  // the object was set, plus a "X is most likely mutating" warn, to signal
+  // that a per-row warn/crit predicate was reading a non-final summary.
+  //
+  // Post-dd8024ae the warn/crit/ok engines run in evaluate_deferred_records()
+  // *after* the iteration has populated count_match / total / etc. So when
+  // an object is set during deferred per-row replay, the summary value the
+  // variable returns is final — flagging it unsure or warning about
+  // mutation is incorrect (and, at scale, floods production logs with two
+  // warns per row per check tick).
+  //
+  // Drop the heuristic entirely. count_crit / count_warn / count_ok DO
+  // mutate during the deferred replay loop, but engine_filter::match()
+  // consumes value_container::is_true() and ignores is_unsure, so the
+  // user-visible verdict is unchanged for any expression that uses them.
+  std::shared_ptr<any_node> evaluate(const evaluation_context context) const override {
     try {
-      native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-      if (native_context != nullptr && fun) {
-        summary = !native_context->has_object();
-        value = fun(native_context->get_summary());
-        return true;
-      }
+      auto native_context = reinterpret_cast<native_context_type>(context.get());
+      if (native_context != nullptr && fun) return factory::create_int(fun(native_context->get_summary()));
       context->error("Failed to evaluate " + name_ + " no function");
     } catch (const std::exception &e) {
       context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
     }
-    return false;
-  }
-  std::shared_ptr<any_node> evaluate(const evaluation_context context) const override {
-    long long value = 0;
-    bool summary = false;
-    if (!int_get_value(context, summary, value)) {
-      return factory::create_false();
-    }
-    return factory::create_int(value);
+    return factory::create_false();
   }
   bool bind(object_converter context) override { return true; }
   bool static_evaluate(evaluation_context context) const override { return false; }
   bool require_object(evaluation_context context) const override { return false; }
   value_container get_value(const evaluation_context context, value_type wanted_type) const override {
     if (wanted_type == type_int) {
-      long long value = 0;
-      bool summary = false;
-      if (!int_get_value(context, summary, value)) {
-        return value_container::create_nil();
+      try {
+        auto native_context = reinterpret_cast<native_context_type>(context.get());
+        if (native_context != nullptr && fun) {
+          return value_container::create_int(fun(native_context->get_summary()), /*is_unsure=*/false);
+        }
+        context->error("Failed to evaluate " + name_ + " no function");
+      } catch (const std::exception &e) {
+        context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
       }
-      if (!summary) context->warn(name_ + " is most likely mutating");
-      return value_container::create_int(value, !summary);
+      return value_container::create_nil();
     }
     context->error("Unknown type: " + name_);
     return value_container::create_nil();
   }
   std::string to_string(const evaluation_context context) const override {
-    long long value = 0;
-    bool summary = false;
-    if (int_get_value(context, summary, value)) {
-      if (summary) return str::xtos(value);
-      return str::xtos(value) + "?";
+    try {
+      auto native_context = reinterpret_cast<native_context_type>(context.get());
+      if (native_context != nullptr && fun) return str::xtos(fun(native_context->get_summary()));
+    } catch (...) {
     }
     return name_ + "?";
   }

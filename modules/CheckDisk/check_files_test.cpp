@@ -353,3 +353,45 @@ TEST(CheckFilesCommand, MixedCritInOnStringSureTrueSummaryStillFiresCrit) {
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::CRITICAL) << join_lines(response);
 }
+
+// ============================================================================
+// Deferred-eval (commit dd8024ae): summary variable in mixed warn/crit must
+// not produce noisy "is most likely mutating" warnings, and the rendered
+// message must not contain stray unsure markers.
+//
+// Pre-fix: each row evaluated against `count<N` during deferred replay
+// triggered context->warn("count is most likely mutating") + match()
+// logged "Ignoring unsure result". For a 5-file scan that's 10 spurious
+// log lines per check tick. Post-fix: zero.
+// ============================================================================
+
+TEST(CheckFilesCommand, MixedCritWithSummaryDoesNotEmitMutatingWarn) {
+  const ScratchDir dir;
+  dir.touch("a.txt");
+  dir.touch("b.txt");
+  dir.touch("c.txt");
+  dir.touch("d.txt");
+  dir.touch("e.txt");
+
+  PB::Commands::QueryRequestMessage::Request request;
+  PB::Commands::QueryResponseMessage::Response response;
+  request.set_command("check_files");
+  request.add_arguments("path=" + dir.string());
+  request.add_arguments("pattern=*.txt");
+  // Mixed expression: each row evaluated during deferred replay against the
+  // final count. count<3 is sure-false (count=5); name='alert.txt' is
+  // sure-false (none of these files match). OK verdict, no CRIT.
+  request.add_arguments("crit=count<3 or name='alert.txt'");
+
+  check_files_command::check(request, &response);
+
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << join_lines(response);
+  // The rendered message must not contain the legacy mutating marker.
+  const std::string out = join_lines(response);
+  EXPECT_EQ(out.find("most likely mutating"), std::string::npos)
+      << "rendered message should not surface the legacy mutating heuristic. "
+         "Got: " << out;
+  EXPECT_EQ(out.find("Ignoring unsure result"), std::string::npos)
+      << "rendered message should not contain match()'s unsure-result warning "
+         "for summary-only contributions. Got: " << out;
+}
