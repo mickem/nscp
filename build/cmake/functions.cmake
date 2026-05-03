@@ -476,6 +476,14 @@ macro(nscp_add_test _TARGET)
                 "tests"
     )
     add_test(NAME ${_TARGET} COMMAND ${_TARGET})
+    if(NSCP_SANITIZER_TEST_ENV)
+        set_tests_properties(
+            ${_TARGET}
+            PROPERTIES
+                ENVIRONMENT
+                    "${NSCP_SANITIZER_TEST_ENV}"
+        )
+    endif()
 endmacro()
 
 function(NSCP_CREATE_TEST _TARGET)

@@ -582,6 +582,18 @@ if(
     set(CMAKE_MODULE_LINKER_FLAGS
         "${CMAKE_MODULE_LINKER_FLAGS} ${_nscp_san_lflags}"
     )
+    # Default sanitizer runtime options applied to every test via
+    # nscp_add_test → set_tests_properties(... ENVIRONMENT ...). Keeps
+    # `ctest --test-dir build-asan` working with no env-var incantations.
+    # detect_odr_violation=0: silences ODR noise from .cpp files compiled
+    #   into both the shared library and the test target (grammar.cpp,
+    #   mongoose.c). The duplicates are byte-identical builds; the proper
+    #   fix is restructuring those test targets.
+    set(NSCP_SANITIZER_TEST_ENV
+        "ASAN_OPTIONS=halt_on_error=1:abort_on_error=1:detect_leaks=1:detect_odr_violation=0:check_initialization_order=1:detect_stack_use_after_return=1:print_stacktrace=1"
+        "UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1:suppressions=${CMAKE_SOURCE_DIR}/tools/sanitizers/ubsan-suppressions.txt"
+        "LSAN_OPTIONS=suppressions=${CMAKE_SOURCE_DIR}/tools/sanitizers/lsan-suppressions.txt"
+    )
 endif()
 
 if(MSVC)

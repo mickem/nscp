@@ -6,13 +6,15 @@ name: Unit tests (ASan + UBSan)
 # overflow, null deref, vptr mismatches, etc. — strictly more than the
 # Debug+ctest run on the regular Debian build.
 #
-# Local reproduction:
-#   cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-#                            -DNSCP_SANITIZE=address,undefined
-#   ASAN_OPTIONS=detect_leaks=0 cmake --build build-asan -j$(nproc)
-#   ASAN_OPTIONS="detect_leaks=1:detect_odr_violation=0:halt_on_error=1" \
-#     UBSAN_OPTIONS=halt_on_error=1 \
-#     ctest --test-dir build-asan -R '_test$' --output-on-failure
+# Local reproduction (one command):
+#   tools/sanitizers/run.sh
+# or pick a different sanitizer / forward ctest args:
+#   SANITIZE=thread tools/sanitizers/run.sh
+#   tools/sanitizers/run.sh -R parsers_where_test
+#
+# The CMake build bakes ASAN_OPTIONS / UBSAN_OPTIONS / LSAN_OPTIONS into each
+# test's ENVIRONMENT property, so re-running tests after a build is just
+#   ctest --test-dir build-asan -R '_test$' --output-on-failure
 
 permissions:
   contents: read
@@ -117,22 +119,10 @@ jobs:
 
     - name: Run unit tests under sanitizers
       working-directory: tmp/nscp
-      env:
-        # halt_on_error=1 + abort_on_error=1: fail the test process on the
-        #   first violation so CI gates on it.
-        # detect_leaks=1: re-enable leak detection.
-        # detect_odr_violation=0: silence ODR violations from .cpp files
-        #   compiled into both the shared library and the test target
-        #   (e.g. grammar.cpp, mongoose.c). The duplicates are identical
-        #   builds; the proper fix is to restructure those test targets.
-        # check_initialization_order, detect_stack_use_after_return: extra
-        #   ASan checks that are cheap to enable.
-        ASAN_OPTIONS: "halt_on_error=1:abort_on_error=1:detect_leaks=1:detect_odr_violation=0:check_initialization_order=1:detect_stack_use_after_return=1:print_stacktrace=1"
-        UBSAN_OPTIONS: "halt_on_error=1:print_stacktrace=1:suppressions=${{ github.workspace }}/tools/sanitizers/ubsan-suppressions.txt"
-        LSAN_OPTIONS: "suppressions=${{ github.workspace }}/tools/sanitizers/lsan-suppressions.txt"
-      run: |
-        # Only the C++ unit tests (gtest binaries named *_test). The Python-
-        # driven integration tests under tests/{nrpe,nsca,...} spawn the
-        # daemon and don't pair well with sanitizer-instrumented modules on
-        # this first pass.
-        ctest --output-on-failure -R '_test$'
+      # Sanitizer runtime options (ASAN_OPTIONS / UBSAN_OPTIONS / LSAN_OPTIONS)
+      # are baked into each test's ENVIRONMENT property by CMake when
+      # NSCP_SANITIZE is set — see CMakeLists.txt and build/cmake/functions.cmake.
+      # Only the C++ unit tests (*_test). The Python integration tests under
+      # tests/{nrpe,nsca,...} spawn the daemon and don't pair with sanitizer-
+      # instrumented modules on this first pass.
+      run: ctest --output-on-failure -R '_test$'
