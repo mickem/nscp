@@ -176,7 +176,18 @@ This is the syntax for the base names of the performance data.
 
 <h5 id="check_logfile_line-split">line-split:</h5>
 
-Character string used to split a file into several lines (default \n)
+Character string used to split a file into several lines (default `\n`).
+
+The escape sequences `\n` and `\t` are translated to LF and TAB respectively;
+all other characters are taken literally. Multi-character delimiters are
+supported (for example `\r\n` to split strictly on CRLF, or `|||` for a
+custom separator). Setting `line-split` to an empty value (`line-split=""`)
+makes the entire file content available as a single record, which is useful
+together with a multi-line regular-expression filter.
+
+When the chosen delimiter ends with `\n`, a trailing carriage return is
+stripped from each record so that files with CRLF line endings produce
+clean lines.
 
 *Default Value:* `\n`
 
@@ -323,7 +334,7 @@ This is a section of objects. This means that you will create objects below this
 | ok               |                           | OK FILTER        |
 | ok syntax        |                           | SYNTAX           |
 | perf config      |                           | PERF CONFIG      |
-| read entire file |                           | read entire file |
+| read entire file |                           | When set to `true` the file is read in full on every check. When `false` (the default) the real-time check resumes reading from the position it stopped at the previous time the file was processed, so only newly-appended data is matched. If the file shrinks (for example after log rotation) the next check restarts from the beginning. |
 | severity         |                           | SEVERITY         |
 | silent period    | false                     | Silent period    |
 | source id        |                           | SOURCE ID        |
