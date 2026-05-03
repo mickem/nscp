@@ -276,6 +276,22 @@ TEST(ServiceInfo, GetStartTypeStringDelayedOnlyHonoredForAutoStart) {
 
   info.start_type = SERVICE_DISABLED;
   EXPECT_EQ(info.get_start_type_s(), "disabled");
+
+  // delayed=true combined with a trigger must also not promote a non-auto
+  // start type to "delayed_trigger".
+  info.triggers = 1;
+
+  info.start_type = SERVICE_DEMAND_START;
+  EXPECT_EQ(info.get_start_type_s(), "demand");
+
+  info.start_type = SERVICE_BOOT_START;
+  EXPECT_EQ(info.get_start_type_s(), "boot");
+
+  info.start_type = SERVICE_SYSTEM_START;
+  EXPECT_EQ(info.get_start_type_s(), "system");
+
+  info.start_type = SERVICE_DISABLED;
+  EXPECT_EQ(info.get_start_type_s(), "disabled");
 }
 
 TEST(ServiceInfo, ParseState) {
