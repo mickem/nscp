@@ -36,6 +36,14 @@
 #include <win/win_defines.hpp>
 #include <win/windows.hpp>
 
+// Defensive define for SDKs older than Windows Vista (NT 6.0). The constant
+// is just a numeric flag passed to OpenProcess; the kernel decides whether
+// it's understood, so it's safe to define even when the host OS is XP. The
+// runtime check is the OpenProcess return value.
+#ifndef PROCESS_QUERY_LIMITED_INFORMATION
+#define PROCESS_QUERY_LIMITED_INFORMATION 0x1000
+#endif
+
 constexpr int MAX_FILENAME = 256;
 
 struct generic_closer {
@@ -181,8 +189,16 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable) {
     // QueryFullProcessImageName which only requires
     // PROCESS_QUERY_LIMITED_INFORMATION so we can still report the executable
     // name for processes that we could only open with limited rights.
+    //
+    // QueryFullProcessImageNameW is a Vista+ kernel32 export. The agent
+    // targets NT 5.x (XP / Server 2003) where it is not available, so we
+    // route through the dynamic wrapper in win/sysinfo which resolves it
+    // via GetProcAddress and returns FALSE on older OSes. Pre-Vista the
+    // limited-only branch leaves entry.exe empty — that's still better
+    // than the pre-fallback behaviour of dropping the process entirely
+    // (issues #517 / #580 / #654 are Vista+ scenarios anyway).
     DWORD size = static_cast<DWORD>(buffer.size());
-    if (QueryFullProcessImageName(handle, 0, buffer, &size) && size > 0) {
+    if (windows::winapi::QueryFullProcessImageName(handle, 0, buffer, &size) && size > 0) {
       buffer[size] = 0;
       auto tmp = utf8::cvt<std::string>(std::wstring(buffer.get()));
       entry.filename = tmp;

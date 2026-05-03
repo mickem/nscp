@@ -47,29 +47,34 @@ typedef LONG(NTAPI *tNtQueryInformationProcess)(HANDLE ProcessHandle, DWORD Proc
                                                 PDWORD ReturnLength);
 typedef BOOL(WINAPI *tIsWow64Process)(HANDLE ProcessHandle, PBOOL);
 typedef DWORD(WINAPI *tGetProcessImageFileName)(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize);
+typedef BOOL(WINAPI *tQueryFullProcessImageName)(HANDLE hProcess, DWORD dwFlags, LPWSTR lpExeName, PDWORD lpdwSize);
 typedef LONG(NTAPI *tNtQuerySystemInformation)(SYSTEM_INFORMATION_CLASS SystemInformationClass, PVOID SystemInformation, ULONG SystemInformationLength,
                                                PULONG ReturnLength);
 typedef DWORD(WINAPI *tWTSGetActiveConsoleSessionId)();
 
 typedef BOOL (*tWTSQueryUserToken)(ULONG SessionId, PHANDLE phToken);
 
-tEnumServicesStatusEx pEnumServicesStatusEx = NULL;
-tQueryServiceConfig2 pQueryServiceConfig2 = NULL;
-tQueryServiceStatusEx pQueryServiceStatusEx = NULL;
-tVDMEnumTaskWOWEx pVDMEnumTaskWOWEx = NULL;
-tNtQueryInformationProcess pNtQueryInformationProcess = NULL;
-tIsWow64Process pIsWow64Process = NULL;
-tGetProcessImageFileName pGetProcessImageFileName = NULL;
-tNtQuerySystemInformation pNtQuerySystemInformation = NULL;
-tWTSQueryUserToken pWTSQueryUserToken = NULL;
-tWTSGetActiveConsoleSessionId pWTSGetActiveConsoleSessionId = NULL;
+tEnumServicesStatusEx pEnumServicesStatusEx = nullptr;
+tQueryServiceConfig2 pQueryServiceConfig2 = nullptr;
+tQueryServiceStatusEx pQueryServiceStatusEx = nullptr;
+tVDMEnumTaskWOWEx pVDMEnumTaskWOWEx = nullptr;
+tNtQueryInformationProcess pNtQueryInformationProcess = nullptr;
+tIsWow64Process pIsWow64Process = nullptr;
+tGetProcessImageFileName pGetProcessImageFileName = nullptr;
+tQueryFullProcessImageName pQueryFullProcessImageName = nullptr;
+// Cache the unavailable state too — on XP/2003 the GetProcAddress lookup
+// returns NULL and we want to remember that without retrying every call.
+bool gQueryFullProcessImageNameResolved = false;
+tNtQuerySystemInformation pNtQuerySystemInformation = nullptr;
+tWTSQueryUserToken pWTSQueryUserToken = nullptr;
+tWTSGetActiveConsoleSessionId pWTSGetActiveConsoleSessionId = nullptr;
 
 BOOL WTSQueryUserToken(ULONG SessionId, PHANDLE phToken) {
-  if (pWTSQueryUserToken == NULL) {
+  if (pWTSQueryUserToken == nullptr) {
     HMODULE hMod = ::LoadLibrary(L"Wtsapi32.dll");
-    if (hMod == NULL) throw nsclient::nsclient_exception("Failed to load: Wtsapi32: " + error::lookup::last_error());
+    if (hMod == nullptr) throw nsclient::nsclient_exception("Failed to load: Wtsapi32: " + error::lookup::last_error());
     pWTSQueryUserToken = reinterpret_cast<tWTSQueryUserToken>(GetProcAddress(hMod, "WTSQueryUserToken"));
-    if (pWTSQueryUserToken == NULL) throw nsclient::nsclient_exception("Failed to load: WTSQueryUserToken: " + error::lookup::last_error());
+    if (pWTSQueryUserToken == nullptr) throw nsclient::nsclient_exception("Failed to load: WTSQueryUserToken: " + error::lookup::last_error());
   }
   return pWTSQueryUserToken(SessionId, phToken);
 }
@@ -124,21 +129,43 @@ bool IsWow64(HANDLE hProcess, bool def) {
 }
 
 DWORD GetProcessImageFileName(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize) {
-  if (pGetProcessImageFileName == NULL)
+  if (pGetProcessImageFileName == nullptr)
     pGetProcessImageFileName = reinterpret_cast<tGetProcessImageFileName>(GetProcAddress(GetModuleHandleA("PSAPI"), "GetProcessImageFileNameW"));
-  if (pGetProcessImageFileName == NULL) throw nsclient::nsclient_exception("Failed to load GetProcessImageFileName: " + error::lookup::last_error());
+  if (pGetProcessImageFileName == nullptr) throw nsclient::nsclient_exception("Failed to load GetProcessImageFileName: " + error::lookup::last_error());
   return pGetProcessImageFileName(hProcess, lpImageFileName, nSize);
+}
+
+BOOL QueryFullProcessImageName(HANDLE hProcess, DWORD dwFlags, LPWSTR lpExeName, PDWORD lpdwSize) {
+  // QueryFullProcessImageNameW is exported by kernel32 starting with Vista
+  // (NT 6.0). The agent still targets XP/Server 2003 (NT 5.x) where it is
+  // not present — resolve dynamically and gracefully fall back. Unlike the
+  // other wrappers above, we do NOT throw when the symbol is missing: this
+  // wrapper is used as one of several fallbacks in describe_pid() and the
+  // caller relies on a FALSE return to mean "not available, try the next
+  // option." Throwing would force every caller to wrap with try/catch.
+  if (!gQueryFullProcessImageNameResolved) {
+    HMODULE hMod = GetModuleHandleW(L"kernel32.dll");
+    if (hMod != nullptr) {
+      pQueryFullProcessImageName = reinterpret_cast<tQueryFullProcessImageName>(GetProcAddress(hMod, "QueryFullProcessImageNameW"));
+    }
+    gQueryFullProcessImageNameResolved = true;
+  }
+  if (pQueryFullProcessImageName == nullptr) {
+    SetLastError(ERROR_PROC_NOT_FOUND);
+    return FALSE;
+  }
+  return pQueryFullProcessImageName(hProcess, dwFlags, lpExeName, lpdwSize);
 }
 LONG NtQueryInformationProcess(HANDLE ProcessHandle, DWORD ProcessInformationClass, PVOID ProcessInformation, DWORD ProcessInformationLength,
                                PDWORD ReturnLength) {
-  if (pNtQueryInformationProcess == NULL)
+  if (pNtQueryInformationProcess == nullptr)
     pNtQueryInformationProcess = reinterpret_cast<tNtQueryInformationProcess>(GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtQueryInformationProcess"));
-  if (pNtQueryInformationProcess == NULL) throw nsclient::nsclient_exception("Failed to load NtQueryInformationProcess");
+  if (pNtQueryInformationProcess == nullptr) throw nsclient::nsclient_exception("Failed to load NtQueryInformationProcess");
   return pNtQueryInformationProcess(ProcessHandle, ProcessInformationClass, ProcessInformation, ProcessInformationLength, ReturnLength);
 }
 INT VDMEnumTaskWOWEx(DWORD dwProcessId, tTASKENUMPROCEX fp, LPARAM lparam) {
-  if (pVDMEnumTaskWOWEx == NULL) pVDMEnumTaskWOWEx = reinterpret_cast<tVDMEnumTaskWOWEx>(GetProcAddress(GetModuleHandleA("VDMDBG"), "VDMEnumTaskWOWEx"));
-  if (pVDMEnumTaskWOWEx == NULL) throw nsclient::nsclient_exception("Failed to load NtQueryInformationProcess");
+  if (pVDMEnumTaskWOWEx == nullptr) pVDMEnumTaskWOWEx = reinterpret_cast<tVDMEnumTaskWOWEx>(GetProcAddress(GetModuleHandleA("VDMDBG"), "VDMEnumTaskWOWEx"));
+  if (pVDMEnumTaskWOWEx == nullptr) throw nsclient::nsclient_exception("Failed to load NtQueryInformationProcess");
   return pVDMEnumTaskWOWEx(dwProcessId, fp, lparam);
 }
 
