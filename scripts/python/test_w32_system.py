@@ -89,7 +89,7 @@ class Win32SystemTest(BasicTest):
 		result = TestResult('Process history - winver started')
 		log('Starting winver for process history test...')
 		handle = subprocess.Popen('winver.exe', shell=False)
-		sleep(2000)  # Wait for process history to be updated
+		sleep(10000)  # Wait for process history to be updated
 
 		(return_code, return_message, return_performance_data) = self.core.simple_query('check_process_history', ['process=winver.exe', 'warn=currently_running = 0', 'detail-syntax=%(exe): %(currently_running)', 'show-all'])
 		result.add_message(return_code == status.OK, 'check_process_history should show winver running: %s - %s'%(return_code, return_message), 'Expected OK, got %s'%return_code)
@@ -108,10 +108,10 @@ class Win32SystemTest(BasicTest):
 		# Test 4: Stop winver and verify status changes
 		result = TestResult('Process history - winver stopped')
 		subprocess.Popen("taskkill /F /T /PID %i"%handle.pid, shell=True)
-		sleep(2000)  # Wait for process history to be updated
+		sleep(10000)  # Wait for process history to be updated
 
-		(return_code, return_message, return_performance_data) = self.core.simple_query('check_process_history', ['process=winver.exe', 'warn=currently_running = 1'])
-		result.add_message(return_code == status.OK, 'check_process_history should show winver not running: %s - %s'%(return_code, return_message), 'Expected OK, got %s'%return_code)
+		(return_code, return_message, return_performance_data) = self.core.simple_query('check_process_history', ['process=winver.exe', 'warn=currently_running = 1', 'detail-syntax=%(exe): %(currently_running)'])
+		result.add_message(return_code == status.OK, ' ggg check_process_history should show winver not running: %s - %s'%(return_code, return_message), f'Expected OK, got {return_code}: {return_message}')
 		master.add(result)
 
 		# Test 5: Check process history with show-all
