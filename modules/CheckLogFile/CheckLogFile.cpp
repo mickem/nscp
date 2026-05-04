@@ -117,14 +117,23 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
   for (const std::string &filename : file_list) {
     std::ifstream file(filename.c_str());
     if (file.is_open()) {
-      std::string line;
-      while (file.good()) {
-        std::getline(file, line, '\n');
+      std::string contents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+      file.close();
+      std::string::size_type pos = 0, lpos = 0;
+      while ((pos = contents.find(line_split, pos)) != std::string::npos) {
+        std::string line = contents.substr(lpos, pos - lpos);
+        std::list<std::string> chunks = str::utils::split_lst(line, column_split);
+        boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks));
+        filter.match(record);
+        pos += line_split.size();
+        lpos = pos;
+      }
+      if (lpos < contents.size()) {
+        std::string line = contents.substr(lpos);
         std::list<std::string> chunks = str::utils::split_lst(line, column_split);
         boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks));
         filter.match(record);
       }
-      file.close();
     } else {
       return nscapi::protobuf::functions::set_response_bad(*response, "Failed to open file: " + filename);
     }
