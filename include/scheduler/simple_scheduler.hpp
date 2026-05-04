@@ -208,6 +208,11 @@ class scheduler : public boost::noncopyable {
     if (handler_) handler_->on_trace(file, line, err);
   }
 
-  inline boost::posix_time::ptime now() const { return boost::posix_time::microsec_clock::local_time(); }
+ public:
+  // Cron expressions are evaluated in local time so that fields like
+  // "40 15 * * *" mean "15:40 on the host's clock", matching standard cron
+  // semantics (issue #570). Static so tests can verify the clock choice
+  // without instantiating a scheduler.
+  static inline boost::posix_time::ptime now() { return boost::posix_time::microsec_clock::local_time(); }
 };
 }  // namespace simple_scheduler
