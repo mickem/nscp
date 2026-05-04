@@ -623,41 +623,41 @@ OK: https://nsclient.org/ -> 200 ok (61204B in 561ms)| 'https://nsclient.org/_co
 #### Command-line Arguments
 
 
-| Option                                     | Default Value                                                                | Description                                                                                                      |
-|--------------------------------------------|------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_http_filter)               |                                                                              | Filter which marks interesting items.                                                                            |
-| [warning](#check_http_warning)             | time > 5000                                                                  | Filter which marks items which generates a warning state.                                                        |
-| warn                                       |                                                                              | Short alias for warning                                                                                          |
-| [critical](#check_http_critical)           | code < 200 or code >= 400 or result != 'ok'                                  | Filter which marks items which generates a critical state.                                                       |
-| crit                                       |                                                                              | Short alias for critical.                                                                                        |
-| [ok](#check_http_ok)                       |                                                                              | Filter which marks items which generates an ok state.                                                            |
-| debug                                      | N/A                                                                          | Show debugging information in the log                                                                            |
-| show-all                                   | N/A                                                                          | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-| [empty-state](#check_http_empty-state)     | ignored                                                                      | Return status to use when nothing matched filter.                                                                |
-| [perf-config](#check_http_perf-config)     |                                                                              | Performance data generation configuration                                                                        |
-| escape-html                                | N/A                                                                          | Escape any < and > characters to prevent HTML encoding                                                           |
-| help                                       | N/A                                                                          | Show help screen (this screen)                                                                                   |
-| help-pb                                    | N/A                                                                          | Show help screen as a protocol buffer payload                                                                    |
-| show-default                               | N/A                                                                          | Show default values for a given command                                                                          |
-| help-short                                 | N/A                                                                          | Show help screen (short format).                                                                                 |
-| [top-syntax](#check_http_top-syntax)       | ${status}: ${problem_list}                                                   | Top level syntax.                                                                                                |
-| [ok-syntax](#check_http_ok-syntax)         | %(status): %(list)                                                           | ok syntax.                                                                                                       |
-| [empty-syntax](#check_http_empty-syntax)   | No URL checked                                                               | Empty syntax.                                                                                                    |
-| [detail-syntax](#check_http_detail-syntax) | ${url} -> ${code} ${result} (${size}B in ${time}ms)                          | Detail level syntax.                                                                                             |
-| [perf-syntax](#check_http_perf-syntax)     | ${url}                                                                       | Performance alias syntax.                                                                                        |
-| url                                        |                                                                              | Full URL to check (http://host[:port]/path or https://...). May be given multiple times.                         |
-| host                                       |                                                                              | Hostname (used when --url is not given).                                                                         |
-| port                                       |                                                                              | TCP port (defaults to 80 or 443).                                                                                |
-| [path](#check_http_path)                   | /                                                                            | Path component of the URL.                                                                                       |
-| [protocol](#check_http_protocol)           | http                                                                         | Protocol to use: http or https.                                                                                  |
-| ssl                                        | N/A                                                                          | Force https (alias for --protocol https).                                                                        |
-| [timeout](#check_http_timeout)             | 30000                                                                        | Timeout in milliseconds.                                                                                         |
-| expected-body                              |                                                                              | Substring that must appear in the body for the check to be ok.                                                   |
-| [user-agent](#check_http_user-agent)       | NSClient++                                                                   | User-Agent header value.                                                                                         |
-| header                                     |                                                                              | Additional request header in 'Name: value' form (may be given multiple times).                                   |
-| [tls-version](#check_http_tls-version)     | tlsv1.2+                                                                     | TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                     |
-| [verify](#check_http_verify)               | peer                                                                         | Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.       |
-| [ca](#check_http_ca)                       | C:\src\nscp\cmake-build-relwithdebinfo-visual-studio/security/windows-ca.pem | Path to a CA bundle to use when verifying the server certificate.                                                |
+| Option                                     | Default Value                                       | Description                                                                                                      |
+|--------------------------------------------|-----------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_http_filter)               |                                                     | Filter which marks interesting items.                                                                            |
+| [warning](#check_http_warning)             | time > 5000                                         | Filter which marks items which generates a warning state.                                                        |
+| warn                                       |                                                     | Short alias for warning                                                                                          |
+| [critical](#check_http_critical)           | code < 200 or code >= 400 or result != 'ok'         | Filter which marks items which generates a critical state.                                                       |
+| crit                                       |                                                     | Short alias for critical.                                                                                        |
+| [ok](#check_http_ok)                       |                                                     | Filter which marks items which generates an ok state.                                                            |
+| debug                                      | N/A                                                 | Show debugging information in the log                                                                            |
+| show-all                                   | N/A                                                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_http_empty-state)     | ignored                                             | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_http_perf-config)     |                                                     | Performance data generation configuration                                                                        |
+| escape-html                                | N/A                                                 | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                       | N/A                                                 | Show help screen (this screen)                                                                                   |
+| help-pb                                    | N/A                                                 | Show help screen as a protocol buffer payload                                                                    |
+| show-default                               | N/A                                                 | Show default values for a given command                                                                          |
+| help-short                                 | N/A                                                 | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_http_top-syntax)       | ${status}: ${problem_list}                          | Top level syntax.                                                                                                |
+| [ok-syntax](#check_http_ok-syntax)         | %(status): %(list)                                  | ok syntax.                                                                                                       |
+| [empty-syntax](#check_http_empty-syntax)   | No URL checked                                      | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_http_detail-syntax) | ${url} -> ${code} ${result} (${size}B in ${time}ms) | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_http_perf-syntax)     | ${url}                                              | Performance alias syntax.                                                                                        |
+| url                                        |                                                     | Full URL to check (http://host[:port]/path or https://...). May be given multiple times.                         |
+| host                                       |                                                     | Hostname (used when --url is not given).                                                                         |
+| port                                       |                                                     | TCP port (defaults to 80 or 443).                                                                                |
+| [path](#check_http_path)                   | /                                                   | Path component of the URL.                                                                                       |
+| [protocol](#check_http_protocol)           | http                                                | Protocol to use: http or https.                                                                                  |
+| ssl                                        | N/A                                                 | Force https (alias for --protocol https).                                                                        |
+| [timeout](#check_http_timeout)             | 30000                                               | Timeout in milliseconds.                                                                                         |
+| expected-body                              |                                                     | Substring that must appear in the body for the check to be ok.                                                   |
+| [user-agent](#check_http_user-agent)       | NSClient++                                          | User-Agent header value.                                                                                         |
+| header                                     |                                                     | Additional request header in 'Name: value' form (may be given multiple times).                                   |
+| [tls-version](#check_http_tls-version)     | tlsv1.2+                                            | TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                     |
+| [verify](#check_http_verify)               | peer                                                | Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.       |
+| [ca](#check_http_ca)                       | C:\src\build\nscp/security/windows-ca.pem           | Path to a CA bundle to use when verifying the server certificate.                                                |
 
 
 
@@ -782,7 +782,7 @@ Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer
 
 Path to a CA bundle to use when verifying the server certificate.
 
-*Default Value:* `C:\src\nscp\cmake-build-relwithdebinfo-visual-studio/security/windows-ca.pem`
+*Default Value:* `C:\src\build\nscp/security/windows-ca.pem`
 
 
 <a id="check_http_filter_keys"></a>

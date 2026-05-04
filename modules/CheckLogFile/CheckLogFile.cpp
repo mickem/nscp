@@ -87,7 +87,16 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
 	filter_helper.get_desc().add_options()
 		//		("regexp", po::value<std::string>(&regexp),					"Lookup a numeric value in the PDH index table")
 		("line-split", po::value<std::string>(&line_split)->default_value("\\n"),
-			"Character string used to split a file into several lines (default \\n)")
+		"Character string used to split a file into several lines (default `\\n`).\n"
+                        "The escape sequences `\\n` and `\\t` are translated to LF and TAB respectively; "
+                        "all other characters are taken literally. Multi-character delimiters are "
+                        "supported (for example `\\r\\n` to split strictly on CRLF, or `|||` for a  "
+                        "custom separator). Setting `line-split` to an empty value (`line-split=""`) "
+                        "makes the entire file content available as a single record, which is useful "
+                        "together with a multi-line regular-expression filter.\\n"
+                        "When the chosen delimiter ends with `\n`, a trailing carriage return is "
+                        "stripped from each record so that files with CRLF line endings produce "
+                        "clean lines.")
 		("column-split", po::value<std::string>(&column_split)->default_value("\\t"),
 			"Character string to split a line into several columns (default \\t)")
 		("split", po::value<std::string>(&column_split), "Alias for split-column")
