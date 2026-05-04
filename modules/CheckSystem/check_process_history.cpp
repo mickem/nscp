@@ -291,7 +291,12 @@ void check_process_history_new(const PB::Commands::QueryRequestMessage::Request 
   const long long now_ts = (now - EPOCH).total_seconds();
 
   // Parse time window to seconds
-  const long long window_seconds = str::format::stox_as_time_sec<long long>(time_window, "s");
+  long long window_seconds;
+  try {
+    window_seconds = str::format::stox_as_time_sec<long long>(time_window, "s");
+  } catch (const std::exception &e) {
+    return nscapi::protobuf::functions::set_response_bad(*response, "Invalid time window '" + time_window + "': " + e.what());
+  }
   const long long cutoff_ts = now_ts - window_seconds;
 
   for (const process_record &rec : data) {
