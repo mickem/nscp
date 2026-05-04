@@ -46,7 +46,6 @@ find_package(
         container
 )
 find_package(Mkdocs)
-find_package(CSharp)
 
 if(WIN32)
     include(${BUILD_CMAKE_FOLDER}/wix.cmake)
@@ -148,17 +147,10 @@ if(Boost_FOUND)
 else(Boost_FOUND)
     message(STATUS " ! boost not found: BOOST_ROOT=${BOOST_ROOT}")
 endif(Boost_FOUND)
-if(CSHARP_FOUND)
-    if(WIN32)
-        message(STATUS " - CSharp found: ${CSHARP_TYPE} ${CSHARP_VERSION}")
-    else()
-        message(
-            STATUS
-            " - CSharp found: ${CSHARP_TYPE} ${CSHARP_VERSION} (but disabled sine it is not currently supported on non windows"
-        )
-    endif()
+if(NSCP_DOTNET_SUPPORTED)
+    message(STATUS " - .NET / C++/CLI: enabled (Visual Studio CSharp/CLI)")
 else()
-    message(STATUS " ! CSharp not found")
+    message(STATUS " ! .NET / C++/CLI: disabled (see top-level configure log)")
 endif()
 if(MINIZ_FOUND)
     message(STATUS " - Miniz found in: ${MINIZ_INCLUDE_DIR}")

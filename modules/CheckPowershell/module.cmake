@@ -1,3 +1,6 @@
-if(WIN32)
+if(WIN32 AND NSCP_DOTNET_SUPPORTED)
+    set(BUILD_MODULE 1)
+else()
     set(BUILD_MODULE 0)
-endif(WIN32)
+    set(BUILD_MODULE_SKIP_REASON ".NET / C++/CLI support not available")
+endif()

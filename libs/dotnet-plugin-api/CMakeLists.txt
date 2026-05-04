@@ -1,112 +1,28 @@
-cmake_minimum_required(VERSION 3.10)
-if(WIN32)
-    project(NSCP.Core)
+cmake_minimum_required(VERSION 3.15)
 
-    set(SRCS
-        AssemblyInfo.cpp
-        NSCP.h
-    )
+if(NOT NSCP_DOTNET_SUPPORTED)
+    return()
+endif()
 
-    string(
-        REPLACE "/EHsc"
-        "/EHa"
-        CMAKE_CXX_FLAGS
-        "${CMAKE_CXX_FLAGS}"
-    )
-    string(
-        REPLACE "/EHs"
-        "/EHa"
-        CMAKE_CXX_FLAGS
-        "${CMAKE_CXX_FLAGS}"
-    )
-    string(
-        REPLACE "/MT"
-        "/MD"
-        CMAKE_CXX_FLAGS
-        "${CMAKE_CXX_FLAGS}"
-    )
-    string(
-        REPLACE "/EHsc"
-        "/EHa"
-        CMAKE_CXX_FLAGS_RELWITHDEBINFO
-        ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
-    )
-    string(
-        REPLACE "/EHs"
-        "/EHa"
-        CMAKE_CXX_FLAGS_RELWITHDEBINFO
-        ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
-    )
-    string(
-        REPLACE "/MT"
-        "/MD"
-        CMAKE_CXX_FLAGS_RELWITHDEBINFO
-        ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
-    )
-    string(
-        REPLACE "/MT"
-        "/MD"
-        CMAKE_CXX_FLAGS_MINSIZEREL
-        ${CMAKE_CXX_FLAGS_MINSIZEREL}
-    )
-    string(
-        REPLACE "/MT"
-        "/MD"
-        CMAKE_CXX_FLAGS_RELEASE
-        ${CMAKE_CXX_FLAGS_RELEASE}
-    )
-    string(
-        REPLACE "/EHsc"
-        "/EHa"
-        CMAKE_CXX_FLAGS_DEBUG
-        ${CMAKE_CXX_FLAGS_DEBUG}
-    )
-    string(
-        REPLACE "/EHs"
-        "/EHa"
-        CMAKE_CXX_FLAGS_DEBUG
-        ${CMAKE_CXX_FLAGS_DEBUG}
-    )
-    string(
-        REPLACE "/MTd"
-        "/MDd"
-        CMAKE_CXX_FLAGS_DEBUG
-        ${CMAKE_CXX_FLAGS_DEBUG}
-    )
-    string(
-        REPLACE "/RTC1"
-        ""
-        CMAKE_CXX_FLAGS_DEBUG
-        ${CMAKE_CXX_FLAGS_DEBUG}
-    )
-    string(
-        REPLACE "/RTCs"
-        ""
-        CMAKE_CXX_FLAGS_DEBUG
-        ${CMAKE_CXX_FLAGS_DEBUG}
-    )
-    string(
-        REPLACE "/RTCu"
-        ""
-        CMAKE_CXX_FLAGS_DEBUG
-        ${CMAKE_CXX_FLAGS_DEBUG}
-    )
-    string(
-        REPLACE "/GZ"
-        ""
-        CMAKE_CXX_FLAGS_DEBUG
-        ${CMAKE_CXX_FLAGS_DEBUG}
-    )
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /clr /EHa")
+project(NSCP.Core)
 
-    add_library(NSCP.Core MODULE ${SRCS})
-    SET_LIBRARY_OUT_FOLDER_MODULE(NSCP.Core)
+set(SRCS
+    AssemblyInfo.cpp
+    NSCP.h
+)
 
-    set_target_properties(
-        NSCP.Core
-        PROPERTIES
-            FOLDER
-                "libraries/dotnet"
-    )
-    install(TARGETS NSCP.Core DESTINATION .)
-endif(WIN32)
+# `NSCP.Core` is a managed C++/CLI assembly.  It must be a SHARED library so
+# that CMake produces a vcxproj with `<ConfigurationType>DynamicLibrary</...>`
+# and `<CLRSupport>true</CLRSupport>` (a MODULE library on Windows turns into
+# the same DLL but the combination with `COMMON_LANGUAGE_RUNTIME` produces
+# spurious linker subsystem warnings).
+add_library(NSCP.Core SHARED ${SRCS})
+nscp_setup_clr_target(NSCP.Core)
+set_library_out_folder(NSCP.Core)
+
+set_target_properties(
+    NSCP.Core
+    PROPERTIES
+        FOLDER "libraries/dotnet"
+)
+install(TARGETS NSCP.Core DESTINATION .)

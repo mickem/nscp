@@ -35,7 +35,13 @@ runs:
         $components= @(
           "Microsoft.VisualStudio.Component.VC.v141.x86.x64"
           "Microsoft.VisualStudio.Component.VC.v141.ATL"
+          "Microsoft.VisualStudio.Component.VC.v141.CLI.Support"
           "Microsoft.VisualStudio.Component.WinXP"
+          # Required for the managed C++/CLI and C# parts of the build
+          # (NSCP.Core, NSCP.Protobuf and the dotnet plugin modules).
+          "Microsoft.VisualStudio.Component.Roslyn.Compiler"
+          "Microsoft.Net.Component.4.7.2.TargetingPack"
+          "Microsoft.Net.Component.4.7.2.SDK"
         )
         [string]$workloadArgs = $components | ForEach-Object {" --add " +  $_}
         $Arguments = ('/c', "vs_installer.exe", 'modify', '--installPath', "`"$InstallPath`"",$workloadArgs, '--quiet', '--norestart', '--nocache')

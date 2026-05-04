@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.15)
 
 set(TARGET DotnetPlugins)
 
@@ -29,109 +29,37 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/str/utf8.hpp
         ${NSCP_INCLUDEDIR}/str/format.hpp
         ${NSCP_INCLUDEDIR}/str/utils.hpp
-        # ${NSCP_INCLUDEDIR}/config.h
         ${NSCP_INCLUDEDIR}/NSCAPI.h
     )
 endif(WIN32)
 
-string(
-    REPLACE "/EHsc"
-    "/EHa"
-    CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS}"
-)
-string(
-    REPLACE "/EHs"
-    "/EHa"
-    CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS}"
-)
-string(
-    REPLACE "/MT"
-    "/MD"
-    CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS}"
-)
-string(
-    REPLACE "/EHsc"
-    "/EHa"
-    CMAKE_CXX_FLAGS_RELWITHDEBINFO
-    ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
-)
-string(
-    REPLACE "/EHs"
-    "/EHa"
-    CMAKE_CXX_FLAGS_RELWITHDEBINFO
-    ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
-)
-string(
-    REPLACE "/MT"
-    "/MD"
-    CMAKE_CXX_FLAGS_RELWITHDEBINFO
-    ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
-)
-string(
-    REPLACE "/MT"
-    "/MD"
-    CMAKE_CXX_FLAGS_MINSIZEREL
-    ${CMAKE_CXX_FLAGS_MINSIZEREL}
-)
-string(
-    REPLACE "/MT"
-    "/MD"
-    CMAKE_CXX_FLAGS_RELEASE
-    ${CMAKE_CXX_FLAGS_RELEASE}
-)
-string(
-    REPLACE "/EHsc"
-    "/EHa"
-    CMAKE_CXX_FLAGS_DEBUG
-    ${CMAKE_CXX_FLAGS_DEBUG}
-)
-string(
-    REPLACE "/EHs"
-    "/EHa"
-    CMAKE_CXX_FLAGS_DEBUG
-    ${CMAKE_CXX_FLAGS_DEBUG}
-)
-string(
-    REPLACE "/MTd"
-    "/MDd"
-    CMAKE_CXX_FLAGS_DEBUG
-    ${CMAKE_CXX_FLAGS_DEBUG}
-)
-string(
-    REPLACE "/RTC1"
-    ""
-    CMAKE_CXX_FLAGS_DEBUG
-    ${CMAKE_CXX_FLAGS_DEBUG}
-)
-string(
-    REPLACE "/RTCs"
-    ""
-    CMAKE_CXX_FLAGS_DEBUG
-    ${CMAKE_CXX_FLAGS_DEBUG}
-)
-string(
-    REPLACE "/RTCu"
-    ""
-    CMAKE_CXX_FLAGS_DEBUG
-    ${CMAKE_CXX_FLAGS_DEBUG}
-)
-string(
-    REPLACE "/GZ"
-    ""
-    CMAKE_CXX_FLAGS_DEBUG
-    ${CMAKE_CXX_FLAGS_DEBUG}
-)
-set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} /clr /EHa /FU${NSCP_PROJECT_BINARY_DIR}/Google.Protobuf.dll /FU${NSCP_PROJECT_BINARY_DIR}/NSCP.Core.dll /FU${NSCP_PROJECT_BINARY_DIR}/NSCP.Protobuf.dll"
-)
-add_library(${TARGET} MODULE ${SRCS})
-NSCP_DEBUG_SYMBOLS(${TARGET})
+# C++/CLI assemblies must be built as SHARED libraries; CMake's MODULE +
+# `COMMON_LANGUAGE_RUNTIME` combination produces vcxprojs that confuse
+# MSBuild's CLR linker.
+add_library(${TARGET} SHARED ${SRCS})
+nscp_setup_clr_target(${TARGET})
+nscp_debug_symbols(${TARGET})
 
-add_dependencies(${TARGET} NSCP.Core)
-add_dependencies(${TARGET} NSCP.Protobuf)
+set_target_properties(${TARGET} PROPERTIES FOLDER ${MODULE_SUBFOLDER})
+
+set_property(
+    TARGET ${TARGET}
+    PROPERTY VS_DOTNET_REFERENCES
+        NSCP.Core
+        NSCP.Protobuf
+)
+
+# `Google.Protobuf` is brought in via NuGet so we don't need a hard-coded
+# `Google.Protobuf.dll` path.  The `/FU` (force-using) directives that used
+# to reference local DLLs are no longer required because the managed
+# references above are visible to the C++/CLI compiler automatically.
+set_property(
+    TARGET ${TARGET}
+    PROPERTY VS_PACKAGE_REFERENCES
+        "Google.Protobuf_3.21.12"
+)
+
+add_dependencies(${TARGET} NSCP.Core NSCP.Protobuf)
 
 target_link_libraries(${TARGET})
 include(${BUILD_CMAKE_FOLDER}/module.cmake)

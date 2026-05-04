@@ -204,6 +204,16 @@ include(${BUILD_CMAKE_FOLDER}/SetMultiThread.cmake)
 include(${BUILD_CMAKE_FOLDER}/GoogleProtoBuf.cmake)
 include(${BUILD_CMAKE_FOLDER}/functions.cmake)
 
+# Determine once whether this build can produce the optional managed C++/CLI
+# and C# parts of the tree.  Subsequent CMake code uses
+# `NSCP_DOTNET_SUPPORTED` (rather than the old `CSHARP_FOUND`) to gate them.
+nscp_dotnet_supported(NSCP_DOTNET_SUPPORTED)
+if(NSCP_DOTNET_SUPPORTED)
+    message(STATUS " - .NET / C++/CLI support: enabled")
+else()
+    message(STATUS " - .NET / C++/CLI support: disabled")
+endif()
+
 # ##############################################################################
 #
 # Find all dependencies and report anything missing.
@@ -971,12 +981,15 @@ foreach(CURRENT_LIB ${ALL_LIB_PROJECTS})
     get_filename_component(CURRENT_LIB_PATH ${CURRENT_LIB} PATH)
     get_filename_component(CURRENT_LIB_NAME ${CURRENT_LIB_PATH} NAME)
     if(
-        CURRENT_LIB_NAME
-            STREQUAL
-            "protobuf_net"
-        OR CURRENT_LIB_NAME
-            STREQUAL
-            "dotnet-plugin-api"
+        (
+            CURRENT_LIB_NAME
+                STREQUAL
+                "protobuf_net"
+            OR CURRENT_LIB_NAME
+                STREQUAL
+                "dotnet-plugin-api"
+        )
+        AND NOT NSCP_DOTNET_SUPPORTED
     )
         message(
             STATUS

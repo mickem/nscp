@@ -30,7 +30,9 @@
 #include <managed/convert.hpp>
 #include <managed/core_impl.hpp>
 
-#using <C:\\source\\build\\x64\\dev\\System.Management.Automation.dll>
+// `System.Management.Automation.dll` is brought in via `/FU` at compile time
+// (see modules/CheckPowershell/CMakeLists.txt).  Embedding the path here is
+// avoided so the build is portable across developer machines and CI.
 
 using namespace System;
 //using namespace System::Management::Automation;

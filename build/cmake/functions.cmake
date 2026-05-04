@@ -567,3 +567,114 @@ macro(find_redist _TARGET_VAR)
     )
     file(GLOB ${_TARGET_VAR} "${_redit_folder}/*.dll")
 endmacro(find_redist)
+
+# ##############################################################################
+# .NET / C++/CLI build support
+#
+# `nscp_dotnet_supported(<out_var>)` returns TRUE when the toolchain can build
+# the managed C++/CLI assemblies (`/clr`) and the C# projects.  This requires
+# MSVC, a Visual Studio multi-config generator, and a build using the dynamic
+# CRT (`/clr` is incompatible with `/MT[d]`).
+#
+# Callers should gate optional dotnet targets on this:
+#
+#     nscp_dotnet_supported(NSCP_DOTNET_SUPPORTED)
+#     if(NSCP_DOTNET_SUPPORTED)
+#         add_subdirectory(libs/dotnet-plugin-api)
+#         ...
+#     endif()
+# ##############################################################################
+function(NSCP_DOTNET_SUPPORTED _OUT)
+    set(_supported FALSE)
+    if(WIN32 AND MSVC)
+        # The Visual Studio generator is required for `COMMON_LANGUAGE_RUNTIME`
+        # and the C# language support.  Ninja and NMake do not understand the
+        # vcxproj-only properties used to drive `/clr` builds.
+        if(CMAKE_GENERATOR MATCHES "Visual Studio")
+            if(USE_STATIC_RUNTIME)
+                # `/clr` requires the dynamic CRT; refuse to build the managed
+                # bits in this configuration rather than silently producing a
+                # broken DLL.
+                message(
+                    STATUS
+                    " ! .NET support disabled: `/clr` is incompatible with the static CRT (USE_STATIC_RUNTIME=TRUE)"
+                )
+            else()
+                set(_supported TRUE)
+            endif()
+        else()
+            message(
+                STATUS
+                " ! .NET support disabled: requires the Visual Studio generator"
+            )
+        endif()
+    endif()
+    set(${_OUT} ${_supported} PARENT_SCOPE)
+endfunction()
+
+# ##############################################################################
+# `nscp_setup_clr_target(<target>)` configures a target so it can be compiled
+# with the C++/CLI compiler (`/clr`).  This consolidates the per-target tweaks
+# that used to be duplicated as `string(REPLACE ...)` blocks across every CLR
+# CMakeLists.txt: enabling the dynamic CRT, swapping `/EHsc` for `/EHa`, and
+# attaching the modern `COMMON_LANGUAGE_RUNTIME` / target framework properties.
+#
+# The target must already exist (created with `add_library(<tgt> SHARED ...)`).
+# C++/CLI does not support `MODULE` libraries cleanly with the modern CMake
+# CLR property, so SHARED is required.
+#
+# Note: this is a macro, so variable assignments propagate to the caller's
+# scope (which is exactly what we want for the per-config `CMAKE_CXX_FLAGS_*`
+# rewrites).
+# ##############################################################################
+macro(NSCP_SETUP_CLR_TARGET _TARGET)
+    # The dynamic CRT is mandatory for `/clr`; pin it explicitly per-target so
+    # we don't accidentally inherit `/MT` from a parent scope that has the
+    # static CRT pinned.  CMP0091 (CMake >= 3.15 default) makes this a target
+    # property rather than a flag, so it composes cleanly.
+    set_target_properties(
+        ${_TARGET}
+        PROPERTIES
+            MSVC_RUNTIME_LIBRARY
+                "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
+    )
+
+    # Managed code requires asynchronous EH (`/EHa`).  The default `/EHsc` is
+    # incompatible with `/clr` and must be removed before adding `/EHa`.
+    target_compile_options(${_TARGET} PRIVATE /EHa)
+
+    # CLR support proper.  An empty value selects "pure mixed" mode (vcxproj
+    # `<CLRSupport>true</CLRSupport>`), the modern equivalent of adding `/clr`
+    # to `CMAKE_CXX_FLAGS`.
+    set_target_properties(
+        ${_TARGET}
+        PROPERTIES
+            COMMON_LANGUAGE_RUNTIME ""
+            VS_DOTNET_TARGET_FRAMEWORK_VERSION "v4.7.2"
+    )
+
+    # CMake does not expose a clean way to remove a flag from
+    # `CMAKE_CXX_FLAGS{,_<CFG>}` per-target, but rewriting the directory-scope
+    # cache variables here is fine: this macro is invoked from each CLR
+    # target's own `CMakeLists.txt`, so the rewrite is contained to that
+    # subdirectory.  The substitutions are no-ops when the flag isn't present.
+    foreach(
+        _var
+        CMAKE_CXX_FLAGS
+        CMAKE_CXX_FLAGS_DEBUG
+        CMAKE_CXX_FLAGS_RELEASE
+        CMAKE_CXX_FLAGS_RELWITHDEBINFO
+        CMAKE_CXX_FLAGS_MINSIZEREL
+    )
+        if(DEFINED ${_var})
+            string(REGEX REPLACE "/EHsc" "/EHa" _nscp_clr_v "${${_var}}")
+            string(REGEX REPLACE "/EHs([^c]|$)" "/EHa\\1" _nscp_clr_v "${_nscp_clr_v}")
+            string(REGEX REPLACE "/RTC[1su]" "" _nscp_clr_v "${_nscp_clr_v}")
+            string(REGEX REPLACE "/GZ" "" _nscp_clr_v "${_nscp_clr_v}")
+            string(REGEX REPLACE "/MTd" "/MDd" _nscp_clr_v "${_nscp_clr_v}")
+            string(REGEX REPLACE "/MT([^d]|$)" "/MD\\1" _nscp_clr_v "${_nscp_clr_v}")
+            set(${_var} "${_nscp_clr_v}")
+        endif()
+    endforeach()
+    unset(_nscp_clr_v)
+endmacro(NSCP_SETUP_CLR_TARGET)

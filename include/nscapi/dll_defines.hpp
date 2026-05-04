@@ -21,7 +21,15 @@
 
 // We are using the Visual Studio Compiler and building Shared libraries
 
-#if defined(_WIN32)
+#if defined(_MANAGED)
+// Inside a managed (`/clr`) translation unit `__declspec(dllexport)` is
+// either silently ignored or actively rejected depending on the type the
+// attribute is attached to.  Managed types are exported automatically via
+// the assembly metadata, so leave NSCAPI_EXPORT empty for those compiles.
+// Unmanaged C entry points exported by mixed-mode assemblies (such as
+// `NSLoadModuleEx` in DotnetPlugins) are exported via `.def` files instead.
+#define NSCAPI_EXPORT
+#elif defined(_WIN32)
 #if defined(plugin_api_NOLIB)
 #define NSCAPI_EXPORT
 #else

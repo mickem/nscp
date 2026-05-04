@@ -1,22 +1,36 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.15)
 
-project(NSCP.Plugin.CSharpSample)
+if(NOT NSCP_DOTNET_SUPPORTED)
+    return()
+endif()
 
-set(CSHARP_BINARY_DIRECTORY ${NSCP_PROJECT_BINARY_DIR}/modules/dotnet)
-include(${CSHARP_USE_FILE})
+project(NSCP.Plugin.CSharpSample LANGUAGES CSharp)
 
-CSHARP_ADD_LIBRARY(
+add_library(
     NSCP.Plugin.CSharpSample
     ${CMAKE_CURRENT_SOURCE_DIR}/SamplePlugin.cs
-    ${NSCP_PROJECT_BINARY_DIR}/Google.Protobuf.dll
-    ${NSCP_PROJECT_BINARY_DIR}/NSCP.Core.dll
-    ${NSCP_PROJECT_BINARY_DIR}/NSCP.Protobuf.dll
 )
-add_dependencies(NSCP.Plugin.CSharpSample NSCP.Core)
-add_dependencies(NSCP.Plugin.CSharpSample NSCP.Protobuf)
+
+set_property(
+    TARGET NSCP.Plugin.CSharpSample
+    PROPERTY VS_DOTNET_REFERENCES
+        System
+        NSCP.Core
+        NSCP.Protobuf
+)
+
+set_property(
+    TARGET NSCP.Plugin.CSharpSample
+    PROPERTY VS_PACKAGE_REFERENCES
+        "Google.Protobuf_3.21.12"
+)
+
 set_target_properties(
     NSCP.Plugin.CSharpSample
     PROPERTIES
-        FOLDER
-            "modules/dotnet"
+        VS_DOTNET_TARGET_FRAMEWORK_VERSION "v4.7.2"
+        FOLDER "modules/dotnet"
 )
+set_library_out_folder_module(NSCP.Plugin.CSharpSample)
+
+add_dependencies(NSCP.Plugin.CSharpSample NSCP.Core NSCP.Protobuf)

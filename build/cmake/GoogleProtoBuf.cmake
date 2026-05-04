@@ -79,7 +79,11 @@ function(WRAP_PROTO VAR)
                 ${PROJECT_BINARY_DIR}/scripts/python/lib/${FIL_WE}_pb2.py
             DESTINATION ${INSTALL_FILES_BASE}scripts/python/lib/
         )
-        if(CSHARP_FOUND AND WIN32)
+        if(NSCP_DOTNET_SUPPORTED)
+            # Emit C# proto sources into the build output of the C# project
+            # that consumes them (`libs/protobuf_net`).  CMake adds these to
+            # the Visual Studio C# project as part of the `${VAR}_CS` list
+            # exposed to the caller.
             list(
                 APPEND ARGS
                 --csharp_out
