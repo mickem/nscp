@@ -19,6 +19,7 @@
 
 #pragma once
 #include <boost/date_time/local_time/local_time.hpp>
+#include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/date_time/posix_time/ptime.hpp>
 #include <boost/date_time/time_duration.hpp>
 #include <boost/optional.hpp>
@@ -207,6 +208,6 @@ class scheduler : public boost::noncopyable {
     if (handler_) handler_->on_trace(file, line, err);
   }
 
-  inline boost::posix_time::ptime now() const { return boost::get_system_time(); }
+  inline boost::posix_time::ptime now() const { return boost::posix_time::microsec_clock::local_time(); }
 };
 }  // namespace simple_scheduler
