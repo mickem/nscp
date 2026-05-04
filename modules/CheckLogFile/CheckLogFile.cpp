@@ -115,6 +115,15 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
 
   if (!filter_helper.build_filter(filter)) return;
 
+  // Mirror the trailing-CR strip that file_reader::getline_str applies in the
+  // realtime path: when splitting on a delimiter that ends in '\n', a CRLF
+  // file read in binary mode would otherwise leave '\r' at the end of every
+  // line and break exact-match column comparisons (e.g. column3 = 'Test 1').
+  const bool strip_cr = !line_split.empty() && line_split.back() == '\n';
+  auto trim_cr = [strip_cr](std::string &s) {
+    if (strip_cr && !s.empty() && s.back() == '\r') s.pop_back();
+  };
+
   for (const std::string &filename : file_list) {
     std::ifstream file(filename.c_str(), std::ios::in | std::ios::binary);
     if (file.is_open()) {
@@ -123,6 +132,7 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
       std::string::size_type pos = 0, lpos = 0;
       while ((pos = contents.find(line_split, pos)) != std::string::npos) {
         std::string line = contents.substr(lpos, pos - lpos);
+        trim_cr(line);
         std::list<std::string> chunks = str::utils::split_lst(line, column_split);
         boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks));
         filter.match(record);
@@ -131,6 +141,7 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
       }
       if (lpos < contents.size()) {
         std::string line = contents.substr(lpos);
+        trim_cr(line);
         std::list<std::string> chunks = str::utils::split_lst(line, column_split);
         boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks));
         filter.match(record);
