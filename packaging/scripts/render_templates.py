@@ -26,7 +26,7 @@ Example::
 from __future__ import annotations
 
 import argparse
-import datetime as _dt
+import datetime as dt
 import hashlib
 import os
 import re
@@ -34,7 +34,6 @@ import shutil
 import sys
 import urllib.request
 from pathlib import Path
-from typing import Dict
 
 
 GITHUB_RELEASE_DOWNLOAD = (
@@ -68,7 +67,7 @@ def _parse_kv(items):
     return parsed
 
 
-def _render_dir(template_dir: Path, output_dir: Path, subs: Dict[str, str]) -> None:
+def _render_dir(template_dir: Path, output_dir: Path, subs: dict[str, str]) -> None:
     if not template_dir.is_dir():
         raise SystemExit(f"Template directory not found: {template_dir}")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -127,7 +126,7 @@ def main(argv=None) -> int:
     )
     parser.add_argument(
         "--release-date",
-        default=_dt.date.today().isoformat(),
+        default=dt.date.today().isoformat(),
     )
     parser.add_argument(
         "--extra",
@@ -140,7 +139,7 @@ def main(argv=None) -> int:
     assets = _parse_kv(args.asset)
     extras = _parse_kv(args.extra)
 
-    subs: Dict[str, str] = {
+    subs: dict[str, str] = {
         "VERSION": args.version,
         "RELEASE_TAG": args.release_tag,
         "RELEASE_DATE": args.release_date,
