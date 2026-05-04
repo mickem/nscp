@@ -67,6 +67,13 @@ TEST(PerfDataTest, undefined_value_U) {
   EXPECT_EQ("'label'=U 'label2'=100%", do_parse("label=U%;;;; label2=100%;;;;"));
 }
 
+// Issue #669: only the spec-defined "U" marker should be preserved; longer
+// non-numeric tokens like "Unknown" should not be mistaken for it.
+TEST(PerfDataTest, undefined_value_U_does_not_match_words_starting_with_U) {
+  EXPECT_EQ("'label'=0", do_parse("label=Unknown;;;;"));
+  EXPECT_EQ("'label'=0", do_parse("label=Unicorn"));
+}
+
 TEST(PerfDataExtractionTest, extract_perf_value_as_string_undefined_U) {
   PB::Commands::QueryResponseMessage::Response::Line r;
   nscapi::protobuf::functions::parse_performance_data(&r, "label=U%;;;;");

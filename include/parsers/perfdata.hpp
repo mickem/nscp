@@ -88,12 +88,16 @@ void parse(std::shared_ptr<builder> builder, const std::string &perff) {
     std::string::size_type pstart = fitem.second.find_first_of(perf_valid_number);
     if (pstart == std::string::npos) {
       // Per the Nagios plugin guidelines, scripts may emit the literal "U" to indicate
-      // an explicitly undefined value. Preserve "U" as a string value so that consumers
-      // can distinguish it from a real 0 (issue #669). Any other non-numeric value
-      // (e.g. an empty string, or a quoted literal) keeps the previous behaviour and is
-      // reported as 0 to avoid surprising existing checks.
+      // an explicitly undefined value. Preserve it as a string value so that consumers
+      // can distinguish it from a real 0 (issue #669). Accept "U" or "u" optionally
+      // followed by a "%" suffix (mirroring the corresponding numeric value's unit).
+      // Anything longer (e.g. "Unknown") is not the spec-defined undefined marker and
+      // falls through to the legacy zero-value behaviour to avoid surprising existing
+      // checks that emit non-numeric values for unrelated reasons.
       // See https://nagios-plugins.org/doc/guidelines.html#AEN200
-      if (!fitem.second.empty() && (fitem.second[0] == 'U' || fitem.second[0] == 'u')) {
+      const std::string &v = fitem.second;
+      const bool is_undef = (v == "U" || v == "u" || v == "U%" || v == "u%");
+      if (is_undef) {
         builder->add_string(alias, "U");
         builder->next();
         continue;
