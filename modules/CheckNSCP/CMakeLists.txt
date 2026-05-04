@@ -11,6 +11,8 @@ set(SRCS
     "${TARGET}.cpp"
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
+    ${NSCP_INCLUDEDIR}/json/use_json.cpp
+    ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
 )
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
@@ -24,13 +26,30 @@ if(WIN32)
     )
 endif(WIN32)
 
+if(OPENSSL_FOUND)
+    add_definitions(-DUSE_SSL)
+    set(EXTRA_LIBS
+        ${EXTRA_LIBS}
+        ${OPENSSL_LIBRARIES}
+    )
+    if(WIN32)
+        set(EXTRA_LIBS
+            ${EXTRA_LIBS}
+            CRYPT32
+        )
+    endif(WIN32)
+    include_directories(${OPENSSL_INCLUDE_DIR})
+endif(OPENSSL_FOUND)
+
 add_library(${TARGET} MODULE ${SRCS})
 NSCP_DEBUG_SYMBOLS(${TARGET})
+OPENSSL_LINK_FIX(${TARGET})
 
 target_link_libraries(
     ${TARGET}
     ${NSCP_DEF_PLUGIN_LIB}
     ${NSCP_FILTER_LIB}
     expression_parser
+    ${EXTRA_LIBS}
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)

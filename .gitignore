@@ -62,3 +62,4 @@ packages/*
 # Legacy code not tracked
 legacy/*
 _build
+/tmp/

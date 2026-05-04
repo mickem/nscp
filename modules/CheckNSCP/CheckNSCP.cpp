@@ -23,7 +23,9 @@
 
 #include <boost/date_time.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/json.hpp>
 #include <file_helpers.hpp>
+#include <net/http/client.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_program_options.hpp>
@@ -39,14 +41,38 @@
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
+namespace json = boost::json;
 
 bool CheckNSCP::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   start_ = boost::posix_time::microsec_clock::local_time();
 
-  std::string path;
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
+  settings.set_alias("nscp", alias, "check");
   crashFolder = get_core()->expand_path(CRASH_ARCHIVE_FOLDER);
   NSC_DEBUG_MSG_STD("Crash folder is: " + crashFolder.string());
+
+  // clang-format off
+  settings.alias().add_path_to_settings()
+      ("update", "Update check",
+       "Configuration for the check_nscp_update command which checks GitHub for newer NSClient++ releases.")
+      ;
+
+  settings.alias().add_key_to_settings("update")
+      .add_int("cache hours", sh::uint_key(&update_cache_hours_, 24),
+               "Cache duration",
+               "Number of hours to cache the latest version lookup. The GitHub API is queried at most once per cache window to avoid rate limits.")
+      .add_bool("check experimental", sh::bool_key(&update_check_experimental_, false),
+               "Include pre-releases",
+               "When true, GitHub pre-releases (experimental builds) are also considered when determining the latest available version. When false (default) only stable releases are considered.")
+      .add_string("url", sh::string_key(&update_url_, "https://api.github.com/repos/mickem/nscp/releases"),
+               "Update URL",
+               "Base URL of the GitHub releases API used to look up the latest NSClient++ version. Point this at a mirror or internal proxy when running in environments without direct GitHub access.")
+      ;
+  // clang-format on
+
+  settings.register_all();
+  settings.notify();
+
   return true;
 }
 
@@ -199,6 +225,155 @@ void check(const nscp_version &version, const PB::Commands::QueryRequestMessage:
 
 }  // namespace check_nscp_version
 
+namespace check_nscp_update {
+
+// Sanitize a GitHub tag name into something nscp_version can parse. Strips a
+// leading "v" or "V" and truncates at the first non-version character (e.g.
+// "0.6.5-rc1" -> "0.6.5"). Empty input is preserved so the caller can detect
+// the parse failure further down.
+static std::string sanitize_tag(const std::string &tag) {
+  std::string t = tag;
+  if (!t.empty() && (t[0] == 'v' || t[0] == 'V')) t.erase(0, 1);
+  std::size_t i = 0;
+  while (i < t.size() && (std::isdigit(static_cast<unsigned char>(t[i])) || t[i] == '.')) ++i;
+  t.resize(i);
+  return t;
+}
+
+// Compare two parsed versions: returns negative if a < b, 0 if equal, positive
+// if a > b. The build component is only considered when both versions report
+// one.
+static int compare(const nscp_version &a, const nscp_version &b) {
+  if (a.release != b.release) return a.release - b.release;
+  if (a.major_version != b.major_version) return a.major_version - b.major_version;
+  if (a.minor_version != b.minor_version) return a.minor_version - b.minor_version;
+  if (a.has_build && b.has_build && a.build != b.build) return a.build - b.build;
+  return 0;
+}
+
+struct filter_obj {
+  nscp_version current;
+  nscp_version latest;
+  std::string latest_tag;
+  std::string published;
+  std::string url;
+  std::string error;
+  bool have_latest;
+
+  filter_obj() : have_latest(false) {}
+
+  std::string show() const {
+    if (!error.empty()) return "error: " + error;
+    if (!have_latest) return current.to_string();
+    return current.to_string() + " (latest: " + latest.to_string() + ")";
+  }
+
+  long long get_update_available() const {
+    if (!have_latest) return 0;
+    return compare(current, latest) < 0 ? 1 : 0;
+  }
+  long long get_versions_behind() const {
+    if (!have_latest) return 0;
+    const int c = compare(current, latest);
+    return c < 0 ? -c : 0;
+  }
+  std::string get_version_s() const { return current.to_string(); }
+  std::string get_date_s() const { return current.date; }
+  long long get_release() const { return current.release; }
+  long long get_major() const { return current.major_version; }
+  long long get_minor() const { return current.minor_version; }
+  long long get_build() const { return current.build; }
+
+  std::string get_latest_version_s() const { return have_latest ? latest.to_string() : std::string(); }
+  long long get_latest_release() const { return have_latest ? latest.release : 0; }
+  long long get_latest_major() const { return have_latest ? latest.major_version : 0; }
+  long long get_latest_minor() const { return have_latest ? latest.minor_version : 0; }
+  long long get_latest_build() const { return have_latest ? latest.build : 0; }
+  std::string get_latest_tag_s() const { return latest_tag; }
+  std::string get_published_s() const { return published; }
+  std::string get_url_s() const { return url; }
+  std::string get_error_s() const { return error; }
+};
+
+typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+
+struct filter_obj_handler : public native_context {
+  filter_obj_handler() {
+    registry_.add_string("version", &filter_obj::get_version_s, "The currently installed NSClient++ version")
+        .add_string("date", &filter_obj::get_date_s, "The build date of the currently installed NSClient++")
+        .add_string("latest_version", &filter_obj::get_latest_version_s, "The latest available NSClient++ version (empty if lookup failed)")
+        .add_string("tag", &filter_obj::get_latest_tag_s, "The GitHub tag of the latest release")
+        .add_string("published", &filter_obj::get_published_s, "Publication date of the latest release")
+        .add_string("url", &filter_obj::get_url_s, "URL of the latest release on GitHub")
+        .add_string("error", &filter_obj::get_error_s, "Error message if the latest version could not be determined (empty when ok)");
+    registry_.add_int_x("release", &filter_obj::get_release, "The release component of the installed version (the 0 in 0.1.2.3)")
+        .add_int_x("major", &filter_obj::get_major, "The major component of the installed version (the 1 in 0.1.2.3)")
+        .add_int_x("minor", &filter_obj::get_minor, "The minor component of the installed version (the 2 in 0.1.2.3)")
+        .add_int_x("build", &filter_obj::get_build, "The build component of the installed version (the 3 in 0.1.2.3)")
+        .add_int_x("latest_release", &filter_obj::get_latest_release, "The release component of the latest available version")
+        .add_int_x("latest_major", &filter_obj::get_latest_major, "The major component of the latest available version")
+        .add_int_x("latest_minor", &filter_obj::get_latest_minor, "The minor component of the latest available version")
+        .add_int_x("latest_build", &filter_obj::get_latest_build, "The build component of the latest available version")
+        .add_int_x("update_available", &filter_obj::get_update_available,
+                   "1 when the latest available version is newer than the running version, 0 otherwise (and 0 if the lookup failed)")
+        .add_int_x("versions_behind", &filter_obj::get_versions_behind,
+                   "Difference between latest and current version components (largest meaningful component) when an update is available, 0 otherwise");
+  }
+};
+
+typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
+
+}  // namespace check_nscp_update
+
+namespace {
+
+// Parse the GitHub releases response body and extract the tag/url/published
+// date of the chosen release. When include_prerelease is false, drafts and
+// pre-releases are skipped. The body may be either a JSON array (when the
+// caller hit /releases) or a single JSON object (when the caller hit
+// /releases/latest); both are handled.
+static bool parse_releases_payload(const std::string &payload, bool include_prerelease, std::string &tag, std::string &url, std::string &published,
+                                   std::string &error) {
+  try {
+    const json::value root = json::parse(payload);
+    auto pick = [&](const json::object &obj) -> bool {
+      auto draft = obj.if_contains("draft");
+      if (draft && draft->is_bool() && draft->as_bool()) return false;
+      auto pre = obj.if_contains("prerelease");
+      const bool is_pre = pre && pre->is_bool() && pre->as_bool();
+      if (is_pre && !include_prerelease) return false;
+      auto t = obj.if_contains("tag_name");
+      if (!t || !t->is_string()) return false;
+      tag = std::string(t->as_string().c_str());
+      auto u = obj.if_contains("html_url");
+      if (u && u->is_string()) url = std::string(u->as_string().c_str());
+      auto p = obj.if_contains("published_at");
+      if (p && p->is_string()) published = std::string(p->as_string().c_str());
+      return true;
+    };
+    if (root.is_array()) {
+      for (const json::value &v : root.as_array()) {
+        if (!v.is_object()) continue;
+        if (pick(v.as_object())) return true;
+      }
+      error = include_prerelease ? "no releases found" : "no stable releases found";
+      return false;
+    }
+    if (root.is_object()) {
+      if (pick(root.as_object())) return true;
+      error = "release was filtered out (draft or pre-release)";
+      return false;
+    }
+    error = "unexpected JSON shape in response";
+    return false;
+  } catch (const std::exception &e) {
+    error = std::string("failed to parse JSON: ") + utf8::utf8_from_native(e.what());
+    return false;
+  }
+}
+
+}  // namespace
+
 void CheckNSCP::check_nscp_version(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   nscp_version version;
   try {
@@ -211,6 +386,146 @@ void CheckNSCP::check_nscp_version(const PB::Commands::QueryRequestMessage::Requ
     return;
   }
   check_nscp_version::check(version, request, response);
+}
+
+void CheckNSCP::check_nscp_update(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  typedef check_nscp_update::filter filter_type;
+  modern_filter::data_container data;
+  modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
+
+  filter_type filter;
+  filter_helper.add_options("update_available = 1", "update_available = 1", "", filter.get_filter_syntax(), "ignored");
+  filter_helper.add_syntax("${status}: ${list}", "${version} (latest: ${latest_version})", "version", "", "");
+
+  if (!filter_helper.parse_options()) return;
+  if (!filter_helper.build_filter(filter)) return;
+
+  boost::shared_ptr<check_nscp_update::filter_obj> record(new check_nscp_update::filter_obj());
+
+  // Parse the running version up-front. If we cannot determine the running
+  // version there is no point in querying GitHub; bail with a UNKNOWN-style
+  // bad response.
+  try {
+    record->current = nscp_version(get_core()->getApplicationVersionString());
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to parse running version: " + utf8::utf8_from_native(e.what()));
+    return;
+  }
+
+  // Snapshot configuration and decide whether the cached value is still fresh.
+  unsigned int cache_hours;
+  bool include_prerelease;
+  std::string url;
+  bool need_refresh = true;
+  std::string cached_tag;
+  std::string cached_published;
+  std::string cached_url;
+  std::string cached_version;
+  std::string cached_error;
+  {
+    boost::unique_lock<boost::timed_mutex> lock(update_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    if (!lock.owns_lock()) {
+      nscapi::protobuf::functions::set_response_bad(*response, "Failed to acquire update cache lock");
+      return;
+    }
+    cache_hours = update_cache_hours_;
+    include_prerelease = update_check_experimental_;
+    url = update_url_;
+    if (update_cache_valid_) {
+      const boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
+      const boost::posix_time::time_duration age = now - update_cached_at_;
+      if (age.is_negative() || age < boost::posix_time::hours(static_cast<long>(cache_hours))) {
+        need_refresh = false;
+        cached_tag = update_cached_tag_;
+        cached_published = update_cached_published_;
+        cached_url = update_cached_url_;
+        cached_version = update_cached_version_;
+        cached_error = update_cached_error_;
+      }
+    }
+  }
+
+  if (need_refresh) {
+    // Pick the right endpoint: /releases (full list, can include pre-releases)
+    // when experimental builds are accepted; /releases/latest (stable only)
+    // otherwise. If the caller customized the URL we honor it as-is unless it
+    // ends in "/releases" in which case we apply the same heuristic.
+    std::string fetch_url = url;
+    if (fetch_url.size() >= 9 && fetch_url.substr(fetch_url.size() - 9) == "/releases" && !include_prerelease) {
+      fetch_url += "/latest";
+    }
+
+    std::string fetched_tag;
+    std::string fetched_published;
+    std::string fetched_html_url;
+    std::string fetch_error;
+    try {
+      const http::parsed_url parsed = http::parse_url(fetch_url);
+      if (parsed.host.empty()) {
+        fetch_error = "invalid update URL: " + fetch_url;
+      } else {
+        http::http_client_options opts(parsed.protocol, "1.2+", "none", "");
+        http::request rq("GET", parsed.host, parsed.path);
+        rq.add_header("Accept", "application/vnd.github+json");
+        rq.add_header("User-Agent", "NSClient++/check_nscp_update");
+        http::simple_client client(opts);
+        const http::response resp = client.fetch(parsed.host, parsed.port, rq);
+        if (resp.status_code_ < 200 || resp.status_code_ > 299) {
+          fetch_error = "HTTP " + str::xtos(resp.status_code_) + " from " + fetch_url;
+        } else if (!parse_releases_payload(resp.payload_, include_prerelease, fetched_tag, fetched_html_url, fetched_published, fetch_error)) {
+          // fetch_error populated by parse_releases_payload.
+        }
+      }
+    } catch (const std::exception &e) {
+      fetch_error = std::string("HTTP request failed: ") + utf8::utf8_from_native(e.what());
+    }
+
+    std::string parsed_version_string;
+    if (fetch_error.empty()) {
+      const std::string sanitized = check_nscp_update::sanitize_tag(fetched_tag);
+      try {
+        nscp_version v(sanitized);
+        parsed_version_string = v.to_string();
+      } catch (const std::exception &e) {
+        fetch_error = "Failed to parse latest tag '" + fetched_tag + "': " + utf8::utf8_from_native(e.what());
+      }
+    }
+
+    {
+      boost::unique_lock<boost::timed_mutex> lock(update_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+      if (lock.owns_lock()) {
+        update_cached_at_ = boost::posix_time::second_clock::universal_time();
+        update_cache_valid_ = true;
+        update_cached_tag_ = fetched_tag;
+        update_cached_published_ = fetched_published;
+        update_cached_url_ = fetched_html_url;
+        update_cached_version_ = parsed_version_string;
+        update_cached_error_ = fetch_error;
+      }
+    }
+    cached_tag = fetched_tag;
+    cached_published = fetched_published;
+    cached_url = fetched_html_url;
+    cached_version = parsed_version_string;
+    cached_error = fetch_error;
+  }
+
+  if (!cached_error.empty()) {
+    record->error = cached_error;
+  } else if (!cached_version.empty()) {
+    try {
+      record->latest = nscp_version(cached_version);
+      record->have_latest = true;
+      record->latest_tag = cached_tag;
+      record->published = cached_published;
+      record->url = cached_url;
+    } catch (const std::exception &e) {
+      record->error = std::string("Failed to parse cached version: ") + utf8::utf8_from_native(e.what());
+    }
+  }
+
+  filter.match(record);
+  filter_helper.post_process(filter);
 }
 
 void CheckNSCP::check_nscp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
