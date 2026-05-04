@@ -84,14 +84,26 @@ void parse(std::shared_ptr<builder> builder, const std::string &perff) {
       alias = alias.substr(1, alias.size() - 2);
 
     if (alias.empty()) continue;
-    builder->add(alias);
 
     std::string::size_type pstart = fitem.second.find_first_of(perf_valid_number);
     if (pstart == std::string::npos) {
+      // Per the Nagios plugin guidelines, scripts may emit the literal "U" to indicate
+      // an explicitly undefined value. Preserve "U" as a string value so that consumers
+      // can distinguish it from a real 0 (issue #669). Any other non-numeric value
+      // (e.g. an empty string, or a quoted literal) keeps the previous behaviour and is
+      // reported as 0 to avoid surprising existing checks.
+      // See https://nagios-plugins.org/doc/guidelines.html#AEN200
+      if (!fitem.second.empty() && (fitem.second[0] == 'U' || fitem.second[0] == 'u')) {
+        builder->add_string(alias, "U");
+        builder->next();
+        continue;
+      }
+      builder->add(alias);
       builder->set_value(0);
       builder->next();
       continue;
     }
+    builder->add(alias);
     if (pstart != 0) fitem.second = fitem.second.substr(pstart);
     std::string::size_type pend = fitem.second.find_first_not_of(perf_valid_number);
     if (pend == std::string::npos) {
