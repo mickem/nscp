@@ -1,0 +1,36 @@
+VERIFICATION
+============
+
+Verification is intended to assist the Chocolatey moderators and end users
+in verifying that this package's contents are trustworthy.
+
+Package version: {{VERSION}}
+
+The MSI installers downloaded by this package are produced and signed by the
+official NSClient++ build pipeline at
+<https://github.com/mickem/nscp/actions> and published as release assets at
+<https://github.com/mickem/nscp/releases/tag/{{RELEASE_TAG}}>.
+
+To verify the binaries:
+
+1. Download the installers directly from the release page:
+     {{URL_MSI_X64}}
+     {{URL_MSI_X86}}
+
+2. Compute their SHA256 checksums:
+     Get-FileHash -Algorithm SHA256 NSCP-{{VERSION}}-x64.msi
+     Get-FileHash -Algorithm SHA256 NSCP-{{VERSION}}-Win32.msi
+
+3. The expected hashes are:
+     x64    : {{SHA256_MSI_X64}}
+     x86    : {{SHA256_MSI_X86}}
+
+4. Optionally inspect the Authenticode signature, which is issued via Azure
+   Trusted Signing to "MySolutions NORDIC".
+
+LICENSE
+-------
+
+NSClient++ is licensed under the GNU General Public License v2.0 or later.
+A copy of the license is shipped inside the MSI and is available at
+<https://github.com/mickem/nscp/blob/main/COPYING>.

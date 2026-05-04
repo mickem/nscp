@@ -1,0 +1,128 @@
+name: Publish to Scoop
+
+# Renders the Scoop manifest pointing at the official ZIP archives and
+# commits it to the configured Scoop bucket repository whenever a non-draft,
+# non-prerelease release is published.
+
+permissions:
+  contents: read
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version to publish (must already exist as a GitHub release).'
+        required: true
+        type: string
+      dry_run:
+        description: 'Render the manifest but do not commit to the bucket repo.'
+        required: false
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      version:
+        description: 'Release version to publish.'
+        required: true
+        type: string
+      dry_run:
+        description: 'Render the manifest but do not commit to the bucket repo.'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      SCOOP_BUCKET_PAT:
+        description: 'PAT (or deploy key token) with write access to the Scoop bucket repository.'
+        required: false
+
+env:
+  # Override via the bucket repo's own clone URL when forking.
+  SCOOP_BUCKET_REPO: mickem/scoop-bucket
+  SCOOP_BUCKET_BRANCH: main
+
+jobs:
+  publish:
+    if: ${{ github.event_name != 'release' || (github.event.release.draft == false && github.event.release.prerelease == false) }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve release tag and version
+        id: ctx
+        run: |
+          if [ "${{ github.event_name }}" = 'release' ]; then
+            tag='${{ github.event.release.tag_name }}'
+            version="$tag"
+            dry_run='false'
+          else
+            tag='${{ inputs.version }}'
+            version='${{ inputs.version }}'
+            dry_run='${{ inputs.dry_run }}'
+          fi
+          if [ -z "$tag" ]; then
+            echo 'No release tag/version available.' >&2
+            exit 1
+          fi
+          {
+            echo "tag=$tag"
+            echo "version=$version"
+            echo "dry_run=$dry_run"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Render Scoop manifest
+        run: |
+          python packaging/scripts/render_templates.py \
+            --version "${{ steps.ctx.outputs.version }}" \
+            --release-tag "${{ steps.ctx.outputs.tag }}" \
+            --templates packaging/scoop \
+            --output dist/scoop \
+            --download-dir dist/_assets \
+            --asset ZIP_X64=NSCP-${{ steps.ctx.outputs.version }}-x64.zip \
+            --asset ZIP_X86=NSCP-${{ steps.ctx.outputs.version }}-Win32.zip
+
+      - name: Validate manifest is parseable JSON
+        run: python -m json.tool dist/scoop/nscp.json > /dev/null
+
+      - name: Upload rendered manifest
+        uses: actions/upload-artifact@v6
+        with:
+          name: scoop-manifest-${{ steps.ctx.outputs.version }}
+          path: dist/scoop/nscp.json
+          if-no-files-found: error
+
+      - name: Commit manifest to Scoop bucket repo
+        if: ${{ steps.ctx.outputs.dry_run != 'true' }}
+        env:
+          SCOOP_BUCKET_PAT: ${{ secrets.SCOOP_BUCKET_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SCOOP_BUCKET_PAT:-}" ]; then
+            echo "::warning::SCOOP_BUCKET_PAT secret is not configured. Skipping commit."
+            exit 0
+          fi
+
+          bucket_dir="$(mktemp -d)"
+          git clone --depth=1 --branch "$SCOOP_BUCKET_BRANCH" \
+            "https://x-access-token:${SCOOP_BUCKET_PAT}@github.com/${SCOOP_BUCKET_REPO}.git" \
+            "$bucket_dir"
+
+          mkdir -p "$bucket_dir/bucket"
+          cp dist/scoop/nscp.json "$bucket_dir/bucket/nscp.json"
+
+          cd "$bucket_dir"
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add bucket/nscp.json
+          if git diff --cached --quiet; then
+            echo 'No changes to nscp.json; nothing to commit.'
+            exit 0
+          fi
+          git commit -m "nscp: bump to ${{ steps.ctx.outputs.version }}"
+          git push origin "HEAD:${SCOOP_BUCKET_BRANCH}"

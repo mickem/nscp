@@ -1,0 +1,42 @@
+{
+    "version": "{{VERSION}}",
+    "description": "NSClient++ (NSCP) - simple, secure and powerful monitoring agent for Windows.",
+    "homepage": "https://nsclient.org/",
+    "license": "GPL-2.0-or-later",
+    "notes": [
+        "NSClient++ normally runs as a Windows service. The Scoop package",
+        "is a portable extraction of the official ZIP and does NOT install",
+        "or start a service. To install it as a service run, from an",
+        "elevated shell:",
+        "    nscp service --install",
+        "    nscp service --start",
+        "See https://docs.nsclient.org/ for full configuration documentation."
+    ],
+    "architecture": {
+        "64bit": {
+            "url": "{{URL_ZIP_X64}}",
+            "hash": "{{SHA256_ZIP_X64}}"
+        },
+        "32bit": {
+            "url": "{{URL_ZIP_X86}}",
+            "hash": "{{SHA256_ZIP_X86}}"
+        }
+    },
+    "bin": [
+        "nscp.exe",
+        "check_nrpe.exe"
+    ],
+    "checkver": {
+        "github": "https://github.com/mickem/nscp"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/mickem/nscp/releases/download/$version/NSCP-$version-x64.zip"
+            },
+            "32bit": {
+                "url": "https://github.com/mickem/nscp/releases/download/$version/NSCP-$version-Win32.zip"
+            }
+        }
+    }
+}

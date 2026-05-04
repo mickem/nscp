@@ -1,0 +1,116 @@
+name: Publish to Chocolatey
+
+# Builds a Chocolatey package that wraps the signed MSI and pushes it to
+# https://community.chocolatey.org/ whenever a non-draft, non-prerelease
+# release is published.
+
+permissions:
+  contents: read
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version to publish (must already exist as a GitHub release).'
+        required: true
+        type: string
+      dry_run:
+        description: 'Build the .nupkg but do not push to chocolatey.org.'
+        required: false
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      version:
+        description: 'Release version to publish.'
+        required: true
+        type: string
+      dry_run:
+        description: 'Build the .nupkg but do not push to chocolatey.org.'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      CHOCOLATEY_API_KEY:
+        description: 'API key for the publishing account on chocolatey.org.'
+        required: false
+
+jobs:
+  publish:
+    if: ${{ github.event_name != 'release' || (github.event.release.draft == false && github.event.release.prerelease == false) }}
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve release tag and version
+        id: ctx
+        shell: pwsh
+        run: |
+          if ('${{ github.event_name }}' -eq 'release') {
+              $tag     = '${{ github.event.release.tag_name }}'
+              $version = $tag
+              $dryRun  = 'false'
+          } else {
+              $tag     = '${{ inputs.version }}'
+              $version = '${{ inputs.version }}'
+              $dryRun  = '${{ inputs.dry_run }}'
+          }
+          if ([string]::IsNullOrWhiteSpace($tag)) {
+              Write-Error 'No release tag/version available.'
+              exit 1
+          }
+          "tag=$tag"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "dry_run=$dryRun"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Render Chocolatey package
+        shell: pwsh
+        run: |
+          python packaging/scripts/render_templates.py `
+            --version "${{ steps.ctx.outputs.version }}" `
+            --release-tag "${{ steps.ctx.outputs.tag }}" `
+            --templates packaging/chocolatey `
+            --output dist/chocolatey `
+            --download-dir dist/_assets `
+            --asset MSI_X64=NSCP-${{ steps.ctx.outputs.version }}-x64.msi `
+            --asset MSI_X86=NSCP-${{ steps.ctx.outputs.version }}-Win32.msi
+
+      - name: Pack
+        shell: pwsh
+        working-directory: dist/chocolatey
+        run: |
+          choco pack nscp.nuspec --out .
+
+      - name: Upload .nupkg
+        uses: actions/upload-artifact@v6
+        with:
+          name: chocolatey-nscp-${{ steps.ctx.outputs.version }}
+          path: dist/chocolatey/*.nupkg
+          if-no-files-found: error
+
+      - name: Push to Chocolatey
+        if: ${{ steps.ctx.outputs.dry_run != 'true' }}
+        shell: pwsh
+        working-directory: dist/chocolatey
+        env:
+          CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+        run: |
+          if ([string]::IsNullOrEmpty($env:CHOCOLATEY_API_KEY)) {
+              Write-Warning 'CHOCOLATEY_API_KEY secret is not configured. Skipping push.'
+              exit 0
+          }
+          $pkg = Get-ChildItem -Filter '*.nupkg' | Select-Object -First 1
+          if (-not $pkg) {
+              Write-Error 'No .nupkg produced by choco pack.'
+              exit 1
+          }
+          choco push $pkg.FullName `
+            --source https://push.chocolatey.org/ `
+            --api-key $env:CHOCOLATEY_API_KEY
