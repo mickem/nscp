@@ -19,7 +19,9 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdlib>
 #include <parsers/cron/cron_parser.hpp>
+#include <scheduler/simple_scheduler.hpp>
 #include <str/format.hpp>
 #include <string>
 
@@ -150,4 +152,34 @@ TEST(cron, test_eval_list) {
   EXPECT_EQ("2016-01-01T01:05:00", get_next("5,10 * * * *", "2016-01-01 01:00:00"));
   EXPECT_EQ("2016-01-01T01:10:00", get_next("5,10 * * * *", "2016-01-01 01:05:00"));
   EXPECT_EQ("2016-01-01T02:05:00", get_next("5,10 * * * *", "2016-01-01 01:10:00"));
+}
+
+// Issue #570: cron expressions must evaluate against the host's local time,
+// not UTC. The clock is exposed as a static via scheduler::now(); pin down
+// that it returns the same value as microsec_clock::local_time() rather than
+// the UTC system clock.
+TEST(cron, scheduler_now_uses_local_time) {
+  using boost::posix_time::microsec_clock;
+  using boost::posix_time::ptime;
+  using boost::posix_time::time_duration;
+
+  const ptime before_local = microsec_clock::local_time();
+  const ptime n = simple_scheduler::scheduler::now();
+  const ptime after_local = microsec_clock::local_time();
+
+  // Bracket: now() should sit between two adjacent local_time() reads.
+  EXPECT_LE(before_local, n);
+  EXPECT_LE(n, after_local);
+
+  // And it should NOT match UTC when the host is in a non-UTC time zone.
+  // We can't assume the test host's TZ, so only enforce divergence when
+  // local and UTC actually differ at the second granularity.
+  const ptime utc_now = microsec_clock::universal_time();
+  const time_duration delta = n - utc_now;
+  if (std::abs(delta.total_seconds()) > 1) {
+    // Whatever scheduler::now() returns, it must be close to local_time()
+    // (small skew from instruction-level interleaving) rather than UTC.
+    const time_duration skew = n - microsec_clock::local_time();
+    EXPECT_LT(std::abs(skew.total_milliseconds()), 1000);
+  }
 }

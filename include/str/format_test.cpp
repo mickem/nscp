@@ -251,6 +251,38 @@ TEST(format, stox_as_time_sec_rejects_garbage) {
   EXPECT_THROW(str::format::stox_as_time_sec<int>("", "s"), std::invalid_argument);
 }
 
+// Pin down whitespace and sign handling. Embedded whitespace, signs, and
+// all-whitespace inputs are rejected by validate_time_spec (std::invalid_argument).
+// Surrounding whitespace currently passes the validator but then breaks the
+// downstream lexical_cast because the parser does not trim - that case is
+// asserted as "throws something" so the test still catches a future fix that
+// either tightens the validator or trims before parsing.
+TEST(format, decode_time_rejects_embedded_whitespace_and_signs) {
+  EXPECT_THROW(str::format::decode_time<int>("1 0s"), std::invalid_argument);
+  EXPECT_THROW(str::format::decode_time<int>("10 s"), std::invalid_argument);
+  EXPECT_THROW(str::format::decode_time<int>("+10s"), std::invalid_argument);
+  EXPECT_THROW(str::format::decode_time<int>("-10s"), std::invalid_argument);
+  EXPECT_THROW(str::format::decode_time<int>("   "), std::invalid_argument);
+  EXPECT_THROW(str::format::decode_time<int>("\t"), std::invalid_argument);
+}
+TEST(format, decode_time_surrounding_whitespace_throws) {
+  EXPECT_THROW(str::format::decode_time<int>(" 10s "), std::exception);
+  EXPECT_THROW(str::format::decode_time<int>("\t10\t"), std::exception);
+  EXPECT_THROW(str::format::decode_time<int>(" 10"), std::exception);
+}
+TEST(format, stox_as_time_sec_rejects_embedded_whitespace_and_signs) {
+  EXPECT_THROW(str::format::stox_as_time_sec<int>("1 0s", "s"), std::invalid_argument);
+  EXPECT_THROW(str::format::stox_as_time_sec<int>("10 s", "s"), std::invalid_argument);
+  EXPECT_THROW(str::format::stox_as_time_sec<int>("+10s", "s"), std::invalid_argument);
+  EXPECT_THROW(str::format::stox_as_time_sec<int>("-10s", "s"), std::invalid_argument);
+  EXPECT_THROW(str::format::stox_as_time_sec<int>("   ", "s"), std::invalid_argument);
+  EXPECT_THROW(str::format::stox_as_time_sec<int>("\t", "s"), std::invalid_argument);
+}
+TEST(format, stox_as_time_sec_surrounding_whitespace_throws) {
+  EXPECT_THROW(str::format::stox_as_time_sec<int>(" 10s ", "s"), std::exception);
+  EXPECT_THROW(str::format::stox_as_time_sec<int>("\t10m\t", "s"), std::exception);
+}
+
 // Byte units decoding tests
 TEST(format, decode_byte_units_with_unit) {
   EXPECT_EQ(str::format::decode_byte_units(1LL, "B"), 1LL);
