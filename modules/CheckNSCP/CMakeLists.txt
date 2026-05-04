@@ -13,6 +13,7 @@ set(SRCS
     ${NSCP_FILTER_CPP}
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+    ${NSCP_INCLUDEDIR}/bytes/base64.c
 )
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
@@ -53,3 +54,17 @@ target_link_libraries(
     ${EXTRA_LIBS}
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
+
+NSCP_CREATE_TEST(
+    check_nscp_test
+    SOURCES
+        ${CMAKE_SOURCE_DIR}/modules/CheckNSCP/check_nscp_test.cpp
+        ${NSCP_INCLUDEDIR}/json/use_json.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_SYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_SOURCE_DIR}/modules/CheckNSCP
+)

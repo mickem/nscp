@@ -29,11 +29,8 @@
 #include <string>
 
 class CheckNSCP : public nscapi::impl::simple_plugin {
- private:
   boost::timed_mutex mutex_;
   boost::filesystem::path crashFolder;
-  // typedef std::list<std::string> error_list;
-  // error_list errors_;
   std::string last_error_;
   unsigned int error_count_;
   boost::posix_time::ptime start_;
@@ -60,18 +57,14 @@ class CheckNSCP : public nscapi::impl::simple_plugin {
   std::string update_cached_error_;
 
  public:
-  CheckNSCP()
-      : error_count_(0),
-        update_cache_hours_(24),
-        update_check_experimental_(false),
-        update_cache_valid_(false) {}
+  CheckNSCP() : simple_plugin(), error_count_(0), update_cache_hours_(24), update_check_experimental_(false), update_cache_valid_(false) {}
 
   // Module calls
   bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
-  bool unloadModule();
+  static bool unloadModule();
 
   void check_nscp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
-  void check_nscp_version(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  void check_nscp_version(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const;
   void check_nscp_update(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void handleLogMessage(const PB::Log::LogEntry::Entry &message);
 
