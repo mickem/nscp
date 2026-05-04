@@ -256,7 +256,7 @@ jobs:
     - name: Build installer_lib
       working-directory: tmp/installer_lib
       run: |
-        msbuild installer_lib.sln /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+        msbuild installer_lib.sln /m /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
   
     - name: CMake (NSCP)
       working-directory: tmp/nscp
@@ -266,7 +266,7 @@ jobs:
     - name: Build nsclient
       working-directory: tmp/nscp
       run: |
-        msbuild NSCP.sln /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }}
+        msbuild NSCP.sln /m /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }}
 
     - name: Run tests
       if: inputs.architecture != 'arm64'
@@ -285,7 +285,7 @@ jobs:
     - name: Build installer
       working-directory: tmp/nscp
       run: |
-        msbuild installers\installer-NSCP\installer_NSCP.vcxproj /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }} /p:BuildProjectReferences=false
+        msbuild installers\installer-NSCP\installer_NSCP.vcxproj /m /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }} /p:BuildProjectReferences=false
 
     - name: Post process files
       uses: ./.github/actions/post-process-windows-binaries

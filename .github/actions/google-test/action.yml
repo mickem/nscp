@@ -68,7 +68,7 @@ runs:
       working-directory: tmp/googletest
       shell: cmd
       run: |
-        msbuild build\INSTALL.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+        msbuild build\INSTALL.vcxproj /m /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
 
     - name: Copy Google Test dlls
       if: ${{ steps.setup.outputs.shared_libs == 'TRUE' }}
