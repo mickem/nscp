@@ -45,6 +45,13 @@ class CheckNSCP : public nscapi::impl::simple_plugin {
   // URL of the GitHub releases API endpoint (configurable so installations
   // behind a proxy or air-gap can point at a mirror).
   std::string update_url_;
+  // TLS configuration for the GitHub release lookup. Defaults are chosen so
+  // the update check validates the server certificate against the system CA
+  // bundle and rejects anything below TLS 1.2; admins can override to point
+  // at a private CA bundle when going through a TLS-intercepting proxy.
+  std::string update_tls_version_;
+  std::string update_verify_mode_;
+  std::string update_ca_;
 
   // Cached latest version lookup. Guarded by update_mutex_.
   boost::timed_mutex update_mutex_;

@@ -418,24 +418,55 @@ Configuration for the check_nscp_update command which checks GitHub for newer NS
 
 
 
-| Key                                         | Default Value                                     | Description          |
-|---------------------------------------------|---------------------------------------------------|----------------------|
-| [cache hours](#cache-duration)              | 24                                                | Cache duration       |
-| [check experimental](#include-pre-releases) | false                                             | Include pre-releases |
-| [url](#update-url)                          | https://api.github.com/repos/mickem/nscp/releases | Update URL           |
+| Key                                         | Default Value                                     | Description             |
+|---------------------------------------------|---------------------------------------------------|-------------------------|
+| [ca](#ca-bundle)                            | C:\src\build\nscp/security/windows-ca.pem         | CA bundle               |
+| [cache hours](#cache-duration)              | 24                                                | Cache duration          |
+| [check experimental](#include-pre-releases) | false                                             | Include pre-releases    |
+| [tls version](#minimum-tls-version)         | tlsv1.2+                                          | Minimum TLS version     |
+| [url](#update-url)                          | https://api.github.com/repos/mickem/nscp/releases | Update URL              |
+| [verify mode](#certificate-verify-mode)     | peer                                              | Certificate verify mode |
 
 
 
 ```ini
 # Configuration for the check_nscp_update command which checks GitHub for newer NSClient++ releases.
 [/settings/nscp/check/update]
+ca=C:\src\build\nscp/security/windows-ca.pem
 cache hours=24
 check experimental=false
+tls version=tlsv1.2+
 url=https://api.github.com/repos/mickem/nscp/releases
+verify mode=peer
 
 ```
 
 
+
+
+
+#### CA bundle <a id="/settings/nscp/check/update/ca"></a>
+
+Path to a CA bundle used to verify the update endpoint certificate. Defaults to the trusted system CA store; point at a private bundle when running behind a TLS-inspecting proxy.
+
+
+
+
+
+| Key            | Description                                                 |
+|----------------|-------------------------------------------------------------|
+| Path:          | [/settings/nscp/check/update](#/settings/nscp/check/update) |
+| Key:           | ca                                                          |
+| Default value: | `C:\src\build\nscp/security/windows-ca.pem`                 |
+
+
+**Sample:**
+
+```
+[/settings/nscp/check/update]
+# CA bundle
+ca=C:\src\build\nscp/security/windows-ca.pem
+```
 
 
 
@@ -489,6 +520,31 @@ check experimental=false
 
 
 
+#### Minimum TLS version <a id="/settings/nscp/check/update/tls version"></a>
+
+Minimum TLS protocol version accepted when fetching the GitHub releases endpoint. Defaults to tlsv1.2+ which permits TLS 1.2 and TLS 1.3 only. Allowed values: tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3.
+
+
+
+
+
+| Key            | Description                                                 |
+|----------------|-------------------------------------------------------------|
+| Path:          | [/settings/nscp/check/update](#/settings/nscp/check/update) |
+| Key:           | tls version                                                 |
+| Default value: | `tlsv1.2+`                                                  |
+
+
+**Sample:**
+
+```
+[/settings/nscp/check/update]
+# Minimum TLS version
+tls version=tlsv1.2+
+```
+
+
+
 #### Update URL <a id="/settings/nscp/check/update/url"></a>
 
 Base URL of the GitHub releases API used to look up the latest NSClient++ version. Point this at a mirror or internal proxy when running in environments without direct GitHub access.
@@ -510,6 +566,31 @@ Base URL of the GitHub releases API used to look up the latest NSClient++ versio
 [/settings/nscp/check/update]
 # Update URL
 url=https://api.github.com/repos/mickem/nscp/releases
+```
+
+
+
+#### Certificate verify mode <a id="/settings/nscp/check/update/verify mode"></a>
+
+TLS certificate verification mode applied to the update endpoint. Defaults to 'peer' so the server certificate chain is validated against the configured CA bundle. Set to 'none' to disable verification (not recommended).
+
+
+
+
+
+| Key            | Description                                                 |
+|----------------|-------------------------------------------------------------|
+| Path:          | [/settings/nscp/check/update](#/settings/nscp/check/update) |
+| Key:           | verify mode                                                 |
+| Default value: | `peer`                                                      |
+
+
+**Sample:**
+
+```
+[/settings/nscp/check/update]
+# Certificate verify mode
+verify mode=peer
 ```
 
 

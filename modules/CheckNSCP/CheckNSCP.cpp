@@ -53,6 +53,12 @@ bool CheckNSCP::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   crashFolder = get_core()->expand_path(CRASH_ARCHIVE_FOLDER);
   NSC_DEBUG_MSG_STD("Crash folder is: " + crashFolder.string());
 
+  // Default the CA bundle to the trusted system store (${ca-path} expands to
+  // certificate-path/windows-ca.pem on Windows, /etc/ssl/certs/ca-certificates.crt
+  // on Linux). The same setting is used by CheckNet's check_http and lets the
+  // update check validate api.github.com out of the box.
+  const std::string default_ca = get_core()->expand_path("${ca-path}");
+
   // clang-format off
   settings.alias().add_path_to_settings()
       ("update", "Update check",
@@ -69,6 +75,15 @@ bool CheckNSCP::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
       .add_string("url", sh::string_key(&update_url_, "https://api.github.com/repos/mickem/nscp/releases"),
                "Update URL",
                "Base URL of the GitHub releases API used to look up the latest NSClient++ version. Point this at a mirror or internal proxy when running in environments without direct GitHub access.")
+      .add_string("tls version", sh::string_key(&update_tls_version_, "tlsv1.2+"),
+               "Minimum TLS version",
+               "Minimum TLS protocol version accepted when fetching the GitHub releases endpoint. Defaults to tlsv1.2+ which permits TLS 1.2 and TLS 1.3 only. Allowed values: tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3.")
+      .add_string("verify mode", sh::string_key(&update_verify_mode_, "peer"),
+               "Certificate verify mode",
+               "TLS certificate verification mode applied to the update endpoint. Defaults to 'peer' so the server certificate chain is validated against the configured CA bundle. Set to 'none' to disable verification (not recommended).")
+      .add_string("ca", sh::string_key(&update_ca_, default_ca),
+               "CA bundle",
+               "Path to a CA bundle used to verify the update endpoint certificate. Defaults to the trusted system CA store; point at a private bundle when running behind a TLS-inspecting proxy.")
       ;
   // clang-format on
 
@@ -291,6 +306,9 @@ void CheckNSCP::check_nscp_update(const PB::Commands::QueryRequestMessage::Reque
   // Snapshot configuration and decide whether the cached value is still fresh.
   bool include_prerelease;
   std::string url;
+  std::string tls_version;
+  std::string verify_mode;
+  std::string ca_bundle;
   bool need_refresh = true;
   std::string cached_tag;
   std::string cached_published;
@@ -307,6 +325,9 @@ void CheckNSCP::check_nscp_update(const PB::Commands::QueryRequestMessage::Reque
     cache_hours = update_cache_hours_;
     include_prerelease = update_check_experimental_;
     url = update_url_;
+    tls_version = update_tls_version_;
+    verify_mode = update_verify_mode_;
+    ca_bundle = update_ca_;
     if (update_cache_valid_) {
       const boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
       const boost::posix_time::time_duration age = now - update_cached_at_;
@@ -340,11 +361,11 @@ void CheckNSCP::check_nscp_update(const PB::Commands::QueryRequestMessage::Reque
       if (parsed.host.empty()) {
         fetch_error = "invalid update URL: " + fetch_url;
       } else {
-        // "1.2+" requires TLS 1.2 or newer. Verification is left at "none"
-        // (matching other HTTP-using modules in this codebase, e.g. Op5Client)
-        // because no system CA bundle is loaded by default; users that need
-        // strict verification can point the URL at a local proxy.
-        http::http_client_options opts(parsed.protocol, "1.2+", "none", "");
+        // Defaults: "tlsv1.2+" rejects anything below TLS 1.2; verify="peer"
+        // validates the server certificate against the configured CA bundle
+        // (defaulting to the system trust store via ${ca-path}). The hostname
+        // is checked separately by ssl_socket via rfc2818_verification.
+        http::http_client_options opts(parsed.protocol, tls_version, verify_mode, ca_bundle);
         http::request rq("GET", parsed.host, parsed.path);
         rq.add_header("Accept", "application/vnd.github+json");
         // GitHub requires a User-Agent. Identify ourselves with the running
