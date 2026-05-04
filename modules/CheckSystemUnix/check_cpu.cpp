@@ -93,7 +93,12 @@ void check_cpu(boost::shared_ptr<pdh_thread> collector, const PB::Commands::Quer
   }
 
   for (const std::string &time : times) {
-    const long seconds = str::format::decode_time<long>(time, 1);
+    long seconds;
+    try {
+      seconds = str::format::decode_time<long>(time, 1);
+    } catch (const std::exception &e) {
+      return nscapi::protobuf::functions::set_response_bad(*response, "Invalid time '" + time + "': " + e.what());
+    }
     auto cpu_data = collector->get_cpu_load(seconds);
 
     if (cpu_data.empty()) {

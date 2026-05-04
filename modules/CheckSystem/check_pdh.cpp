@@ -249,6 +249,8 @@ void check::check_pdh(boost::shared_ptr<pdh_thread> &collector, const PB::Comman
     } catch (const PDH::pdh_exception &e) {
       NSC_LOG_ERROR_EXR("ERROR", e);
       return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value: " + utf8::utf8_from_native(e.what()));
+    } catch (const std::exception &e) {
+      return nscapi::protobuf::functions::set_response_bad(*response, std::string("Invalid argument: ") + e.what());
     }
   }
   for (PDH::pdh_instance &instance : free_counters) {

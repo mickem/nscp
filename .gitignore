@@ -61,3 +61,4 @@ installers/installer-op5
 packages/*
 # Legacy code not tracked
 legacy/*
+_build

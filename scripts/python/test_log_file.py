@@ -81,26 +81,29 @@ class LogFileTest(BasicTest):
 		return result
 		
 	def run_filter_operator_test(self):
+		# The fixture file has 6 newline-terminated rows. Earlier expectations
+		# were calibrated against a parser bug that emitted a phantom empty
+		# record at EOF (giving 7 total); the parser now correctly produces 6.
 		result = TestResult('Filter tests')
-		result.add(self.check_files('none', 'Count all lines', 7))
+		result.add(self.check_files('none', 'Count all lines', 6))
 		result.add(self.check_files("column2 = 'A'", 'Count all A', 2))
 		result.add(self.check_files("column2 = 'B'", 'Count all B', 3))
 		result.add(self.check_files("column2 = 'C'", 'Count all C', 1))
 		result.add(self.check_files("column3 = 'Test 1'", 'Count all T1', 4))
 		result.add(self.check_files("column3 like 'Test'", 'Count all T', 6))
-		result.add(self.check_files("column3 not like '1'", 'Count all T', 3))
+		result.add(self.check_files("column3 not like '1'", 'Count all T', 2))
 		result.add(self.check_files("column1 > 1", 'Count all B', 5))
 		result.add(self.check_files("column1 > 3", 'Count all B', 3))
 		result.add(self.check_files("column1 > 5", 'Count all B', 1))
-		result.add(self.check_files("column1 < 1", 'Count all B', 1))
-		result.add(self.check_files("column1 < 3", 'Count all B', 3))
-		result.add(self.check_files("column1 < 5", 'Count all B', 5))
+		result.add(self.check_files("column1 < 1", 'Count all B', 0))
+		result.add(self.check_files("column1 < 3", 'Count all B', 2))
+		result.add(self.check_files("column1 < 5", 'Count all B', 4))
 		result.add(self.check_files("column1 = 1", 'Count all B', 1))
 		result.add(self.check_files("column1 = 3", 'Count all B', 1))
 		result.add(self.check_files("column1 = 5", 'Count all B', 1))
-		result.add(self.check_files("column1 != 1", 'Count all B', 6))
-		result.add(self.check_files("column1 != 3", 'Count all B', 6))
-		result.add(self.check_files("column1 != 5", 'Count all B', 6))
+		result.add(self.check_files("column1 != 1", 'Count all B', 5))
+		result.add(self.check_files("column1 != 3", 'Count all B', 5))
+		result.add(self.check_files("column1 != 5", 'Count all B', 5))
 		
 		return result
 

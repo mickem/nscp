@@ -49,15 +49,19 @@ void pdh_thread::thread_proc() {
   mem_filter_helper mem_helper(core_, plugin_id_);
 
   for (const boost::shared_ptr<filters::cpu::filter_config_object> &object : cpu_filters_.get_object_list()) {
-    checks::check_cpu_filter::runtime_data data;
-    if (object->data.empty()) {
-      data.add("1m");
-    } else {
-      for (const std::string &d : object->data) {
-        data.add(d);
+    try {
+      checks::check_cpu_filter::runtime_data data;
+      if (object->data.empty()) {
+        data.add("1m");
+      } else {
+        for (const std::string &d : object->data) {
+          data.add(d);
+        }
       }
+      cpu_helper.add_item(object, data, "system.cpu");
+    } catch (const std::exception &e) {
+      NSC_LOG_ERROR_EXR("Skipping CPU filter '" + object->get_alias() + "' (invalid time spec): ", e);
     }
-    cpu_helper.add_item(object, data, "system.cpu");
   }
   for (const boost::shared_ptr<filters::mem::filter_config_object> &object : mem_filters_.get_object_list()) {
     check_memory::check_mem_filter::runtime_data data;

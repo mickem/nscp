@@ -306,11 +306,21 @@ bool NSClientT::boot_start_plugins(bool boot) {
     settings_manager::get_core()->register_key(0xffff, "/settings/core", "string", "settings maintenance interval", "Maintenance interval",
                                                "How often settings shall reload config if it has changed", "5m", true, false);
     std::string smi = settings_manager::get_settings()->get_string("/settings/core", "settings maintenance interval", "5m");
-    scheduler_.add_task(task_scheduler::schedule_metadata::SETTINGS, smi);
+    try {
+      scheduler_.add_task(task_scheduler::schedule_metadata::SETTINGS, smi);
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE_STD("Invalid 'settings maintenance interval' value '" + smi + "', falling back to '5m': " + utf8::utf8_from_native(e.what()));
+      scheduler_.add_task(task_scheduler::schedule_metadata::SETTINGS, "5m");
+    }
     settings_manager::get_core()->register_key(0xffff, "/settings/core", "string", "metrics interval", "Maintenance interval",
                                                "How often to fetch metrics from modules", "10s", true, false);
     smi = settings_manager::get_settings()->get_string("/settings/core", "metrics interval", "10s");
-    scheduler_.add_task(task_scheduler::schedule_metadata::METRICS, smi);
+    try {
+      scheduler_.add_task(task_scheduler::schedule_metadata::METRICS, smi);
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE_STD("Invalid 'metrics interval' value '" + smi + "', falling back to '10s': " + utf8::utf8_from_native(e.what()));
+      scheduler_.add_task(task_scheduler::schedule_metadata::METRICS, "10s");
+    }
     settings_manager::get_core()->register_key(0xffff, "/settings/core", "int", "settings maintenance threads", "Maintenance thread count",
                                                "How many threads will run in the background to maintain the various core helper tasks.", "1", true, false);
     int count = str::stox<int>(settings_manager::get_settings()->get_string("/settings/core", "settings maintenance threads", "1"));

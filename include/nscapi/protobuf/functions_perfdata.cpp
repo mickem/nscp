@@ -147,6 +147,8 @@ std::string functions::build_performance_data(PB::Commands::QueryResponseMessage
     ss << '\'' << perfData.alias() << "'=";
     if (perfData.has_float_value()) {
       parse_float_perf_value(ss, perfData.float_value());
+    } else if (perfData.has_string_value()) {
+      ss << perfData.string_value().value();
     }
     std::string tmp = ss.str();
     if (max_length == no_truncation || ret.length() + tmp.length() <= max_length) {

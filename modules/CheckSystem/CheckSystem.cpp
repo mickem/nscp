@@ -566,7 +566,13 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
   if (!filter_helper.build_filter(filter)) return;
 
   for (const std::string &time : times) {
-    std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(str::format::decode_time<long>(time, 1));
+    long seconds;
+    try {
+      seconds = str::format::decode_time<long>(time, 1);
+    } catch (const std::exception &e) {
+      return nscapi::protobuf::functions::set_response_bad(*response, "Invalid time '" + time + "': " + e.what());
+    }
+    std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(seconds);
     typedef std::map<std::string, windows::system_info::load_entry>::value_type vt;
     for (vt v : vals) {
       boost::shared_ptr<check_cpu_filter::filter_obj> record(new check_cpu_filter::filter_obj(time, v.first, v.second));

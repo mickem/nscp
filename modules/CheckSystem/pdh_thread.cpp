@@ -202,22 +202,30 @@ void pdh_thread::thread_proc() {
     if (object->check == "memory") {
       memory_helper.add_obj(boost::make_shared<filters::mem::filter_config_object>(*object));
     } else {
-      check_cpu_filter::runtime_data data;
-      for (const std::string &d : object->data) {
-        data.add(d);
+      try {
+        check_cpu_filter::runtime_data data;
+        for (const std::string &d : object->data) {
+          data.add(d);
+        }
+        cpu_helper.add_item(boost::make_shared<filters::cpu::filter_config_object>(*object), data, "system.cpu");
+      } catch (const std::exception &e) {
+        NSC_LOG_ERROR_EXR("Skipping legacy CPU filter '" + object->get_alias() + "' (invalid time spec): ", e);
       }
-      cpu_helper.add_item(boost::make_shared<filters::cpu::filter_config_object>(*object), data, "system.cpu");
     }
   }
   for (const boost::shared_ptr<filters::mem::filter_config_object> &object : mem_filters_.get_object_list()) {
     memory_helper.add_obj(object);
   }
   for (const boost::shared_ptr<filters::cpu::filter_config_object> &object : cpu_filters_.get_object_list()) {
-    check_cpu_filter::runtime_data data;
-    for (const std::string &d : object->data) {
-      data.add(d);
+    try {
+      check_cpu_filter::runtime_data data;
+      for (const std::string &d : object->data) {
+        data.add(d);
+      }
+      cpu_helper.add_item(object, data, "system.cpu");
+    } catch (const std::exception &e) {
+      NSC_LOG_ERROR_EXR("Skipping CPU filter '" + object->get_alias() + "' (invalid time spec): ", e);
     }
-    cpu_helper.add_item(object, data, "system.cpu");
   }
   for (const boost::shared_ptr<filters::proc::filter_config_object> &object : proc_filters_.get_object_list()) {
     process_helper.add_obj(object);

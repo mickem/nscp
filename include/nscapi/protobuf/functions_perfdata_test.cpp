@@ -59,6 +59,28 @@ TEST(PerfDataTest, negative_vvalues) { EXPECT_EQ("'aaa'=-1g;-0;-4;-2;-5 'bbb'=2g
 TEST(PerfDataTest, value_without_long_uom) { EXPECT_EQ("'aaa'=1ggggg;;;0;5", do_parse("aaa=1ggggg;;;0;5")); }
 TEST(PerfDataTest, value_without____uom) { EXPECT_EQ("'aaa'=1gg__gg;;;0;5", do_parse("aaa=1gg__gg;;;0;5")); }
 
+// Issue #669: explicitly-undefined values (per Nagios plugin guidelines) should be
+// preserved as the literal "U" rather than silently coerced to 0.
+TEST(PerfDataTest, undefined_value_U) {
+  EXPECT_EQ("'label'=U", do_parse("label=U;;;;"));
+  EXPECT_EQ("'label'=U", do_parse("label=U%;;;;"));
+  EXPECT_EQ("'label'=U 'label2'=100%", do_parse("label=U%;;;; label2=100%;;;;"));
+}
+
+// Issue #669: only the spec-defined "U" marker should be preserved; longer
+// non-numeric tokens like "Unknown" should not be mistaken for it.
+TEST(PerfDataTest, undefined_value_U_does_not_match_words_starting_with_U) {
+  EXPECT_EQ("'label'=0", do_parse("label=Unknown;;;;"));
+  EXPECT_EQ("'label'=0", do_parse("label=Unicorn"));
+}
+
+TEST(PerfDataExtractionTest, extract_perf_value_as_string_undefined_U) {
+  PB::Commands::QueryResponseMessage::Response::Line r;
+  nscapi::protobuf::functions::parse_performance_data(&r, "label=U%;;;;");
+  ASSERT_EQ(1, r.perf_size());
+  EXPECT_EQ("U", nscapi::protobuf::functions::extract_perf_value_as_string(r.perf(0)));
+}
+
 TEST(PerfDataTest, float_value) { EXPECT_EQ("'aaa'=0gig;;;0;5", do_parse("aaa=0.00gig;;;0;5")); }
 TEST(PerfDataTest, float_value_rounding_1) { EXPECT_EQ("'aaa'=1.01g;1.02;1.03;1.04;1.05", do_parse("aaa=1.01g;1.02;1.03;1.04;1.05")); }
 TEST(PerfDataTest, float_value_rounding_2) {

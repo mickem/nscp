@@ -234,6 +234,23 @@ TEST(format, stox_as_time_sec) {
   EXPECT_EQ(str::format::stox_as_time_sec<int>("5", ""), 5);
 }
 
+// Issue #589: malformed time specs should be rejected rather than silently
+// accepted with the trailing garbage discarded.
+TEST(format, decode_time_rejects_garbage) {
+  EXPECT_THROW(str::format::decode_time<int>("3000foobar"), std::invalid_argument);
+  EXPECT_THROW(str::format::decode_time<int>("3000mfoobar"), std::invalid_argument);
+  EXPECT_THROW(str::format::decode_time<int>("foo"), std::invalid_argument);
+  EXPECT_THROW(str::format::decode_time<int>(""), std::invalid_argument);
+  EXPECT_THROW(str::format::decode_time<int>("10x"), std::invalid_argument);
+  EXPECT_THROW(str::format::decode_time<int>("10ss"), std::invalid_argument);
+}
+TEST(format, stox_as_time_sec_rejects_garbage) {
+  EXPECT_THROW(str::format::stox_as_time_sec<int>("3000foobar", "s"), std::invalid_argument);
+  EXPECT_THROW(str::format::stox_as_time_sec<int>("3000mfoobar", "s"), std::invalid_argument);
+  EXPECT_THROW(str::format::stox_as_time_sec<int>("foo", "s"), std::invalid_argument);
+  EXPECT_THROW(str::format::stox_as_time_sec<int>("", "s"), std::invalid_argument);
+}
+
 // Byte units decoding tests
 TEST(format, decode_byte_units_with_unit) {
   EXPECT_EQ(str::format::decode_byte_units(1LL, "B"), 1LL);
