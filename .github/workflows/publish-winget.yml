@@ -1,0 +1,119 @@
+name: Publish to WinGet
+
+# Submits a manifest update to microsoft/winget-pkgs whenever a non-draft,
+# non-prerelease release is published. Can also be invoked manually for a
+# given version (workflow_dispatch) or as a reusable workflow.
+
+permissions:
+  contents: read
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version to publish (must already exist as a GitHub release).'
+        required: true
+        type: string
+      dry_run:
+        description: 'Render and validate manifests but do not submit.'
+        required: false
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      version:
+        description: 'Release version to publish.'
+        required: true
+        type: string
+      dry_run:
+        description: 'Render and validate manifests but do not submit.'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      WINGET_PR_TOKEN:
+        description: 'PAT used by wingetcreate to open the PR against microsoft/winget-pkgs.'
+        required: false
+
+env:
+  PACKAGE_IDENTIFIER: Mickem.NSClient
+
+jobs:
+  publish:
+    # Skip drafts and prereleases when triggered by the release event.
+    if: ${{ github.event_name != 'release' || (github.event.release.draft == false && github.event.release.prerelease == false) }}
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve release tag and version
+        id: ctx
+        shell: pwsh
+        run: |
+          if ('${{ github.event_name }}' -eq 'release') {
+              $tag     = '${{ github.event.release.tag_name }}'
+              $version = $tag
+              $dryRun  = 'false'
+          } else {
+              $tag     = '${{ inputs.version }}'
+              $version = '${{ inputs.version }}'
+              $dryRun  = '${{ inputs.dry_run }}'
+          }
+          if ([string]::IsNullOrWhiteSpace($tag)) {
+              Write-Error 'No release tag/version available.'
+              exit 1
+          }
+          "tag=$tag"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "dry_run=$dryRun"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Render WinGet manifests
+        shell: pwsh
+        run: |
+          python packaging/scripts/render_templates.py `
+            --version "${{ steps.ctx.outputs.version }}" `
+            --release-tag "${{ steps.ctx.outputs.tag }}" `
+            --templates packaging/winget `
+            --output dist/winget `
+            --download-dir dist/_assets `
+            --asset MSI_X64=NSCP-${{ steps.ctx.outputs.version }}-x64.msi `
+            --asset MSI_X86=NSCP-${{ steps.ctx.outputs.version }}-Win32.msi
+
+      - name: Validate manifests with winget
+        shell: pwsh
+        run: |
+          # winget is preinstalled on windows-latest runners.
+          winget validate --manifest dist/winget
+
+      - name: Upload rendered manifests
+        uses: actions/upload-artifact@v6
+        with:
+          name: winget-manifests-${{ steps.ctx.outputs.version }}
+          path: dist/winget
+          if-no-files-found: error
+
+      - name: Submit manifest to microsoft/winget-pkgs
+        if: ${{ steps.ctx.outputs.dry_run != 'true' }}
+        shell: pwsh
+        env:
+          WINGET_PR_TOKEN: ${{ secrets.WINGET_PR_TOKEN }}
+        run: |
+          if ([string]::IsNullOrEmpty($env:WINGET_PR_TOKEN)) {
+              Write-Warning 'WINGET_PR_TOKEN secret is not configured. Skipping submission.'
+              exit 0
+          }
+
+          # Install wingetcreate.
+          $wc = Join-Path $env:RUNNER_TEMP 'wingetcreate.exe'
+          Invoke-WebRequest -Uri https://aka.ms/wingetcreate/latest -OutFile $wc
+
+          & $wc submit `
+            --token $env:WINGET_PR_TOKEN `
+            dist/winget

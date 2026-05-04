@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>nscp</id>
+    <version>{{VERSION}}</version>
+    <title>NSClient++ (NSCP)</title>
+    <authors>Michael Medin</authors>
+    <owners>mickem</owners>
+    <projectUrl>https://nsclient.org/</projectUrl>
+    <projectSourceUrl>https://github.com/mickem/nscp</projectSourceUrl>
+    <packageSourceUrl>https://github.com/mickem/nscp/tree/main/packaging/chocolatey</packageSourceUrl>
+    <bugTrackerUrl>https://github.com/mickem/nscp/issues</bugTrackerUrl>
+    <docsUrl>https://docs.nsclient.org/</docsUrl>
+    <licenseUrl>https://github.com/mickem/nscp/blob/main/COPYING</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <iconUrl>https://nsclient.org/img/logo.png</iconUrl>
+    <description>NSClient++ (NSCP) is a free and open-source monitoring agent for Windows. It supports NRPE, NSCA, NRDP, REST, Prometheus and many other monitoring protocols, and can execute checks written in PowerShell, Python, Lua and Visual Basic.</description>
+    <summary>Simple yet powerful and secure monitoring agent originally built for Nagios/Icinga.</summary>
+    <releaseNotes>https://github.com/mickem/nscp/releases/tag/{{RELEASE_TAG}}</releaseNotes>
+    <copyright>Copyright (c) Michael Medin</copyright>
+    <tags>nscp nsclient monitoring nagios icinga nrpe nsca nrdp prometheus agent sysadmin admin</tags>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>
