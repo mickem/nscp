@@ -27,6 +27,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 
+#include "file_reader.hpp"
 #include "realtime_thread.hpp"
 
 namespace sh = nscapi::settings_helper;
@@ -86,7 +87,16 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
 	filter_helper.get_desc().add_options()
 		//		("regexp", po::value<std::string>(&regexp),					"Lookup a numeric value in the PDH index table")
 		("line-split", po::value<std::string>(&line_split)->default_value("\\n"),
-			"Character string used to split a file into several lines (default \\n)")
+		"Character string used to split a file into several lines (default `\\n`).\n"
+                        "The escape sequences `\\n` and `\\t` are translated to LF and TAB respectively; "
+                        "all other characters are taken literally. Multi-character delimiters are "
+                        "supported (for example `\\r\\n` to split strictly on CRLF, or `|||` for a  "
+                        "custom separator). Setting `line-split` to an empty value (`line-split=""`) "
+                        "makes the entire file content available as a single record, which is useful "
+                        "together with a multi-line regular-expression filter.\\n"
+                        "When the chosen delimiter ends with `\n`, a trailing carriage return is "
+                        "stripped from each record so that files with CRLF line endings produce "
+                        "clean lines.")
 		("column-split", po::value<std::string>(&column_split)->default_value("\\t"),
 			"Character string to split a line into several columns (default \\t)")
 		("split", po::value<std::string>(&column_split), "Alias for split-column")
@@ -114,14 +124,24 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
 
   if (!filter_helper.build_filter(filter)) return;
 
+  // Mirror the trailing-CR strip that file_reader::getline_str applies in the
+  // realtime path: when splitting on a delimiter that ends in '\n', a CRLF
+  // file read in binary mode would otherwise leave '\r' at the end of every
+  // line and break exact-match column comparisons (e.g. column3 = 'Test 1').
+  const bool strip_cr = !line_split.empty() && line_split.back() == '\n';
+  auto trim_cr = [strip_cr](std::string &s) {
+    if (strip_cr && !s.empty() && s.back() == '\r') s.pop_back();
+  };
+
   for (const std::string &filename : file_list) {
-    std::ifstream file(filename.c_str());
+    std::ifstream file(filename.c_str(), std::ios::in | std::ios::binary);
     if (file.is_open()) {
       std::string contents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
       file.close();
       std::string::size_type pos = 0, lpos = 0;
       while ((pos = contents.find(line_split, pos)) != std::string::npos) {
         std::string line = contents.substr(lpos, pos - lpos);
+        trim_cr(line);
         std::list<std::string> chunks = str::utils::split_lst(line, column_split);
         boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks));
         filter.match(record);
@@ -130,6 +150,7 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
       }
       if (lpos < contents.size()) {
         std::string line = contents.substr(lpos);
+        trim_cr(line);
         std::list<std::string> chunks = str::utils::split_lst(line, column_split);
         boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks));
         filter.match(record);

@@ -387,6 +387,18 @@ NSCP_CREATE_TEST(
 )
 
 NSCP_CREATE_TEST(
+    check_logfile_test
+    SOURCES
+        ${CMAKE_SOURCE_DIR}/modules/CheckLogFile/file_reader_test.cpp
+        ${CMAKE_SOURCE_DIR}/modules/CheckLogFile/file_reader.hpp
+    LIBRARIES
+        GTest::gtest_main
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_SOURCE_DIR}/modules/CheckLogFile
+)
+
+NSCP_CREATE_TEST(
     icinga_client_test
     SOURCES
         ${CMAKE_SOURCE_DIR}/modules/IcingaClient/icinga_test.cpp

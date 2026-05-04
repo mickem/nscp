@@ -88,7 +88,7 @@ Check for errors in log file or generic pattern matching in text files.
 | [empty-syntax](#check_logfile_empty-syntax)   | %(status): Nothing found            | Empty syntax.                                                                                                    |
 | [detail-syntax](#check_logfile_detail-syntax) | ${column1}                          | Detail level syntax.                                                                                             |
 | [perf-syntax](#check_logfile_perf-syntax)     | ${column1}                          | Performance alias syntax.                                                                                        |
-| [line-split](#check_logfile_line-split)       | \n                                  | Character string used to split a file into several lines (default \n)                                            |
+| [line-split](#check_logfile_line-split)       | \n                                  | Character string used to split a file into several lines (default `\n`).                                         |
 | [column-split](#check_logfile_column-split)   | \t                                  | Character string to split a line into several columns (default \t)                                               |
 | split                                         |                                     | Alias for split-column                                                                                           |
 | [file](#check_logfile_file)                   |                                     | File to read (can be specified multiple times to check multiple files.                                           |
@@ -176,7 +176,9 @@ This is the syntax for the base names of the performance data.
 
 <h5 id="check_logfile_line-split">line-split:</h5>
 
-Character string used to split a file into several lines (default \n)
+Character string used to split a file into several lines (default `\n`).
+The escape sequences `\n` and `\t` are translated to LF and TAB respectively; all other characters are taken literally. Multi-character delimiters are supported (for example `\r\n` to split strictly on CRLF, or `|||` for a  custom separator). Setting `line-split` to an empty value (`line-split=`) makes the entire file content available as a single record, which is useful together with a multi-line regular-expression filter.\nWhen the chosen delimiter ends with `
+`, a trailing carriage return is stripped from each record so that files with CRLF line endings produce clean lines.
 
 *Default Value:* `\n`
 
