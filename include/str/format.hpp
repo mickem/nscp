@@ -21,11 +21,13 @@
 
 #include <boost/date_time.hpp>
 #include <boost/lexical_cast.hpp>
+#include <cctype>
 #include <iomanip>
 #include <iostream>
 #include <list>
 #include <locale>
 #include <sstream>
+#include <stdexcept>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
 #include <string>
@@ -158,8 +160,28 @@ inline std::string format_filetime(const unsigned long long filetime, const std:
 }
 #endif
 
+// Validate that `time` is a well-formed duration spec: optional whitespace,
+// one or more digits, optionally followed by a single unit suffix character
+// (s/m/h/d/w in either case), and optional trailing whitespace. Throws
+// std::invalid_argument if the input contains anything else; this avoids
+// silently ignoring typos such as `time=3000foobar` (issue #589).
+inline void validate_time_spec(const std::string &time) {
+  std::size_t i = 0;
+  while (i < time.size() && std::isspace(static_cast<unsigned char>(time[i]))) ++i;
+  const std::size_t digits_start = i;
+  while (i < time.size() && std::isdigit(static_cast<unsigned char>(time[i]))) ++i;
+  if (i == digits_start) throw std::invalid_argument("Invalid time specification: '" + time + "'");
+  if (i < time.size()) {
+    const char c = time[i];
+    if (c == 's' || c == 'S' || c == 'm' || c == 'M' || c == 'h' || c == 'H' || c == 'd' || c == 'D' || c == 'w' || c == 'W') ++i;
+  }
+  while (i < time.size() && std::isspace(static_cast<unsigned char>(time[i]))) ++i;
+  if (i != time.size()) throw std::invalid_argument("Invalid time specification: '" + time + "'");
+}
+
 template <class T>
 T decode_time(const std::string &time, unsigned int factor = 1) {
+  validate_time_spec(time);
   const auto p = time.find_first_of("sSmMhHdDwW");
   const auto pend = time.find_first_not_of("0123456789");
   T value = boost::lexical_cast<T>(pend == std::string::npos ? time : time.substr(0, pend));
@@ -219,6 +241,7 @@ inline std::string itos_as_time(const unsigned long long time) {
 }
 template <class T>
 T stox_as_time_sec(const std::string &time, const std::string &default_unit) {
+  validate_time_spec(time);
   const auto p = time.find_first_of("sSmMhHdDwW");
   const auto pend = time.find_first_not_of("0123456789");
   T value = str::stox<T>(pend == std::string::npos ? time : time.substr(0, pend));
