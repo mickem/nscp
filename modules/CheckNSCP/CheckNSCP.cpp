@@ -464,10 +464,16 @@ void CheckNSCP::check_nscp_update(const PB::Commands::QueryRequestMessage::Reque
       if (parsed.host.empty()) {
         fetch_error = "invalid update URL: " + fetch_url;
       } else {
+        // "1.2+" requires TLS 1.2 or newer. Verification is left at "none"
+        // (matching other HTTP-using modules in this codebase, e.g. Op5Client)
+        // because no system CA bundle is loaded by default; users that need
+        // strict verification can point the URL at a local proxy.
         http::http_client_options opts(parsed.protocol, "1.2+", "none", "");
         http::request rq("GET", parsed.host, parsed.path);
         rq.add_header("Accept", "application/vnd.github+json");
-        rq.add_header("User-Agent", "NSClient++/check_nscp_update");
+        // GitHub requires a User-Agent. Identify ourselves with the running
+        // version so server-side logs/metrics can attribute the requests.
+        rq.add_header("User-Agent", "NSClient++/" + record->current.to_string() + " check_nscp_update");
         http::simple_client client(opts);
         const http::response resp = client.fetch(parsed.host, parsed.port, rq);
         if (resp.status_code_ < 200 || resp.status_code_ > 299) {
