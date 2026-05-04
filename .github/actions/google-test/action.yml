@@ -28,11 +28,6 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Clone Google Test
-      working-directory: tmp
-      shell: bash
-      run: |
-        git clone --depth 1 --branch release-${{ inputs.version }} https://github.com/google/googletest.git
     - id: setup
       run: |
         if ("${{ inputs.architecture }}" -eq "x64") {
@@ -45,16 +40,31 @@ runs:
         } else {
           echo "shared_libs=FALSE" >> $env:GITHUB_OUTPUT
         }
-      
-
       shell: pwsh
-    - name: Build Google Test
+
+    - id: cache
+      uses: actions/cache@v4
+      with:
+        key: ${{ runner.os }}-googletest-${{ inputs.version }}-${{ inputs.architecture }}-${{ inputs.runtime }}-${{ inputs.toolset }}
+        path: |
+          tmp/googletest/install
+
+    - name: Clone Google Test
+      if: steps.cache.outputs.cache-hit != 'true'
+      working-directory: tmp
+      shell: bash
+      run: |
+        git clone --depth 1 --branch release-${{ inputs.version }} https://github.com/google/googletest.git
+
+    - name: Configure Google Test
+      if: steps.cache.outputs.cache-hit != 'true'
       working-directory: tmp/googletest
       shell: cmd
       run: |
         cmake -S . -G "Visual Studio 17" -B build -DCMAKE_INSTALL_PREFIX=install -DBUILD_SHARED_LIBS=${{ steps.setup.outputs.shared_libs }} -T ${{ inputs.toolset }} -A ${{ steps.setup.outputs.platform }}
 
     - name: Build Google Test
+      if: steps.cache.outputs.cache-hit != 'true'
       working-directory: tmp/googletest
       shell: cmd
       run: |
