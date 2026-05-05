@@ -63,6 +63,7 @@ typedef std::list<std::string> error_list;
 
 class settings_interface {
  public:
+  virtual ~settings_interface() = default;
   typedef std::list<std::string> string_list;
   typedef boost::optional<std::string> op_string;
   typedef boost::optional<int> op_int;

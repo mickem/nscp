@@ -645,3 +645,64 @@ TEST(format, format_pct_value_total_overload) {
   EXPECT_EQ(str::format::format_pct(58032128ULL, 7784628224ULL), "0.75");
   EXPECT_EQ(str::format::format_pct(0ULL, 0ULL), "0.00");
 }
+
+// Regression: the typical disk filter passes long long pairs (drive_size and
+// user_free are long long in CheckDisk::filter_obj). These overloads must be
+// callable without ambiguity.
+TEST(format, calc_pct_round_signed_overload_disambiguates) {
+  long long value = 58032128;
+  long long total = 7784628224LL;
+  EXPECT_EQ(str::format::calc_pct_round(value, total), 1);
+  // Mixed widths (int literal + long long variable) — must still resolve to
+  // the signed overload without an ambiguous-call diagnostic.
+  EXPECT_EQ(str::format::calc_pct_round(50, total), 0);
+}
+
+// A value > total can occur when the metric and the denominator are sampled
+// at slightly different moments (e.g. swap reservations briefly exceed
+// configured size). The helper should not clamp — we want callers to see
+// the real number rather than a silently-wrong 100.
+TEST(format, calc_pct_round_does_not_clamp_above_100) {
+  EXPECT_EQ(str::format::calc_pct_round(150LL, 100LL), 150);
+  EXPECT_EQ(str::format::format_pct(150LL, 100LL), "150.00");
+}
+
+// Half-up rounding behaviour. std::llround rounds half away from zero so
+// 0.5% must yield 1, not 0.
+TEST(format, calc_pct_round_half_up) {
+  EXPECT_EQ(str::format::calc_pct_round(1ULL, 200ULL), 1);     // exactly 0.5%
+  EXPECT_EQ(str::format::calc_pct_round(3ULL, 200ULL), 2);     // exactly 1.5%
+  EXPECT_EQ(str::format::calc_pct_round(995ULL, 1000ULL), 100);
+}
+
+// Petabyte-scale inputs still produce the right percentage. Both fit
+// comfortably within double's 53-bit mantissa.
+TEST(format, calc_pct_round_petabyte_scale) {
+  const unsigned long long pb = 1024ULL * 1024 * 1024 * 1024 * 1024;  // 2^50
+  EXPECT_EQ(str::format::calc_pct_round(pb / 4, pb), 25);
+  EXPECT_EQ(str::format::calc_pct_round(pb, pb), 100);
+}
+
+// `nscp settings --sort` will roundtrip percentage values through both
+// helpers; format_pct on a long long pair must agree with the human render
+// of the same value calculated as a double.
+TEST(format, format_pct_signed_overload_matches_double_path) {
+  const long long used = 58032128LL;
+  const long long total = 7784628224LL;
+  EXPECT_EQ(str::format::format_pct(used, total),
+            str::format::format_pct(str::format::calc_pct_double(used, total)));
+}
+
+// std::fixed always prints the decimal separator; verify no surprise locale
+// behaviour leaks in (some locales would render "0,75").
+TEST(format, format_pct_uses_dot_decimal_separator) {
+  const std::string s = str::format::format_pct(0.755);
+  EXPECT_NE(s.find('.'), std::string::npos);
+  EXPECT_EQ(s.find(','), std::string::npos);
+}
+
+// Negative decimals should not crash; behaviour falls through to whatever
+// std::setprecision does (which is well-defined: precision 0).
+TEST(format, format_pct_negative_decimals_does_not_crash) {
+  EXPECT_NO_THROW((void)str::format::format_pct(97.34, -1));
+}

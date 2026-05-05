@@ -138,9 +138,9 @@ class settings_http : public settings::settings_interface_impl {
     } guard{tmp_file};
 
     std::ofstream os(tmp_file.string().c_str(), std::ofstream::binary);
-    std::string error;
 
     try {
+      std::string error;
       http::request packet("GET", url.get_host(), url.path);
 
       std::string def_port = url.protocol == "https" ? "443" : "80";

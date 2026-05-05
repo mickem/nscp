@@ -44,7 +44,7 @@ const std::string CREDENTIAL_MARKER = "$CRED$; ";
 inline std::string make_credential_alias(const std::string &path, const std::string &key) { return "NSClient++-" + path + "." + key; }
 
 namespace settings {
-class INISettings : public settings::settings_interface_impl {
+class INISettings : public settings_interface_impl {
  private:
   CSimpleIni ini;
   bool is_loaded_;
@@ -52,8 +52,8 @@ class INISettings : public settings::settings_interface_impl {
   bool use_credentials_;
 
  public:
-  INISettings(settings::settings_core *core, std::string alias, std::string context)
-      : settings::settings_interface_impl(core, alias, context), ini(false, false, false), is_loaded_(false), use_credentials_(false) {
+  INISettings(settings_core *core, std::string alias, std::string context)
+      : settings_interface_impl(core, alias, context), ini(false, false, false), is_loaded_(false), use_credentials_(false) {
     load_data();
   }
 
@@ -67,14 +67,14 @@ class INISettings : public settings::settings_interface_impl {
   /// @return the string value
   ///
   /// @author mickem
-  virtual op_string get_real_string(settings_core::key_path_type key) {
+  op_string get_real_string(settings_core::key_path_type key) override {
     load_data();
     const wchar_t *val = ini.GetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), NULL);
-    if (val == NULL) return op_string();
-    auto value = utf8::cvt<std::string>(val);
+    if (val == nullptr) return {};
+    const auto value = utf8::cvt<std::string>(val);
     if (boost::starts_with(value, CREDENTIAL_MARKER)) {
 #ifdef WIN32
-      auto alias = make_credential_alias(key.first, key.second);
+      const auto alias = make_credential_alias(key.first, key.second);
       return read_credential(alias);
 #else
       core_->get_logger()->error("settings", __FILE__, __LINE__, "Credentials not supported on this platform: " + key.first + "." + key.second);
@@ -90,13 +90,13 @@ class INISettings : public settings::settings_interface_impl {
   /// @return true/false if the key exists.
   ///
   /// @author mickem
-  virtual bool has_real_key(settings_core::key_path_type key) {
-    return ini.GetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str()) != NULL;
+  bool has_real_key(settings_core::key_path_type key) override {
+    return ini.GetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str()) != nullptr;
   }
 
-  virtual bool has_real_path(std::string path) { return ini.GetSectionSize(utf8::cvt<std::wstring>(path).c_str()) > 0; }
+  bool has_real_path(std::string path) override { return ini.GetSectionSize(utf8::cvt<std::wstring>(path).c_str()) > 0; }
 
-  std::string render_comment(const boost::optional<settings_core::key_description> &desc) {
+  static std::string render_comment(const boost::optional<settings_core::key_description> &desc) {
     if (!desc.has_value()) {
       return "";
     }
@@ -107,7 +107,7 @@ class INISettings : public settings::settings_interface_impl {
     return comment;
   }
 
-  std::string render_comment(const settings_core::path_description &desc) {
+  static std::string render_comment(const settings_core::path_description &desc) {
     std::string comment = "; ";
     if (!desc.title.empty()) comment += desc.title + " - ";
     if (!desc.description.empty()) comment += desc.description;
@@ -122,16 +122,16 @@ class INISettings : public settings::settings_interface_impl {
   /// @param value The value to write
   ///
   /// @author mickem
-  virtual void set_real_value(settings_core::key_path_type key, conainer value) {
+  void set_real_value(settings_core::key_path_type key, conainer value) override {
     if (!value.is_dirty()) return;
     try {
-      auto desc = get_core()->get_registered_key(key.first, key.second);
-      std::string comment = render_comment(desc);
+      const auto desc = get_core()->get_registered_key(key.first, key.second);
+      const std::string comment = render_comment(desc);
       ini.Delete(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str());
 
       if (use_credentials_ && get_core()->is_sensitive_key(key.first, key.second)) {
 #ifdef WIN32
-        auto alias = make_credential_alias(key.first, key.second);
+        const auto alias = make_credential_alias(key.first, key.second);
         save_credential(alias, value.get_string());
         ini.SetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(),
                      utf8::cvt<std::wstring>(CREDENTIAL_MARKER + "Se credential manager: " + alias).c_str(), utf8::cvt<std::wstring>(comment).c_str());
@@ -151,10 +151,10 @@ class INISettings : public settings::settings_interface_impl {
     }
   }
 
-  virtual void set_real_path(std::string path) {
+  void set_real_path(std::string path) override {
     try {
       const settings_core::path_description desc = get_core()->get_registered_path(path);
-      std::string comment = render_comment(desc);
+      const std::string comment = render_comment(desc);
       if (!comment.empty()) {
         ini.SetValue(utf8::cvt<std::wstring>(path).c_str(), NULL, NULL, utf8::cvt<std::wstring>(comment).c_str());
       }
@@ -165,10 +165,10 @@ class INISettings : public settings::settings_interface_impl {
     }
   }
 
-  virtual void remove_real_value(settings_core::key_path_type key) {
+  void remove_real_value(settings_core::key_path_type key) override {
     ini.Delete(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), true);
   }
-  virtual void remove_real_path(std::string path) { ini.Delete(utf8::cvt<std::wstring>(path).c_str(), NULL, true); }
+  void remove_real_path(std::string path) override { ini.Delete(utf8::cvt<std::wstring>(path).c_str(), NULL, true); }
 
   //////////////////////////////////////////////////////////////////////////
   /// Get all (sub) sections (given a path).
@@ -179,7 +179,7 @@ class INISettings : public settings::settings_interface_impl {
   /// @return a list of sections
   ///
   /// @author mickem
-  virtual void get_real_sections(std::string path, string_list &list) {
+  void get_real_sections(std::string path, string_list &list) override {
     CSimpleIni::TNamesDepend lst;
     std::string::size_type path_len = path.length();
     ini.GetAllSections(lst);
@@ -187,7 +187,7 @@ class INISettings : public settings::settings_interface_impl {
       for (const CSimpleIni::Entry &e : lst) {
         std::string key = utf8::cvt<std::string>(e.pItem);
         if (key.length() > 1) {
-          std::string::size_type pos = key.find('/', 1);
+          const std::string::size_type pos = key.find('/', 1);
           if (pos != std::string::npos) key = key.substr(0, pos);
         }
         list.push_back(key);
@@ -196,7 +196,7 @@ class INISettings : public settings::settings_interface_impl {
       for (const CSimpleIni::Entry &e : lst) {
         std::string key = utf8::cvt<std::string>(e.pItem);
         if (key.length() > path_len + 1 && key.substr(0, path_len) == path) {
-          std::string::size_type pos = key.find('/', path_len + 1);
+          const std::string::size_type pos = key.find('/', path_len + 1);
           if (pos == std::string::npos && path_len > 1) {
             if (key[path_len] == '/' || key[path_len] == '\\') {
               key = key.substr(path_len + 1);
@@ -227,7 +227,7 @@ class INISettings : public settings::settings_interface_impl {
   /// @return a list of sections
   ///
   /// @author mickem
-  virtual void get_real_keys(std::string path, string_list &list) {
+  void get_real_keys(std::string path, string_list &list) override {
     load_data();
     CSimpleIni::TNamesDepend lst;
     ini.GetAllKeys(utf8::cvt<std::wstring>(path).c_str(), lst);
@@ -239,10 +239,10 @@ class INISettings : public settings::settings_interface_impl {
   /// Save the settings store
   ///
   /// @author mickem
-  virtual void save(bool re_save_all) {
+  void save(bool re_save_all) override {
     settings_interface_impl::save(re_save_all);
 
-    SI_Error rc = ini.SaveFile(get_file_name().string().c_str());
+    const SI_Error rc = ini.SaveFile(get_file_name().string().c_str());
     if (rc < 0) throw_SI_error(rc, "Failed to save file");
   }
 
@@ -272,7 +272,7 @@ class INISettings : public settings::settings_interface_impl {
 
     struct section_data {
       std::wstring name;
-      const wchar_t *comment;  // owned by `ini`; valid for the lifetime of this method
+      const wchar_t *comment{};  // owned by `ini`; valid for the lifetime of this method
       std::vector<std::tuple<std::wstring, std::wstring, const wchar_t *>> entries;
     };
     std::vector<section_data> ordered;
@@ -314,7 +314,7 @@ class INISettings : public settings::settings_interface_impl {
       }
     }
 
-    SI_Error rc = sorted_ini.SaveFile(get_file_name().string().c_str());
+    const SI_Error rc = sorted_ini.SaveFile(get_file_name().string().c_str());
     if (rc < 0) throw_SI_error(rc, "Failed to save sorted file");
 
     // Reload the live ini so subsequent operations see the same insertion
@@ -324,8 +324,8 @@ class INISettings : public settings::settings_interface_impl {
     load_data();
   }
 
-  settings::error_list validate() {
-    settings::error_list ret;
+  error_list validate() override {
+    error_list ret;
     CSimpleIni::TNamesDepend sections;
     ini.GetAllSections(sections);
     for (const CSimpleIni::Entry &ePath : sections) {
@@ -350,7 +350,7 @@ class INISettings : public settings::settings_interface_impl {
     return ret;
   }
 
-  virtual void real_clear_cache() {
+  void real_clear_cache() override {
     is_loaded_ = false;
     load_data();
   }
@@ -359,7 +359,8 @@ class INISettings : public settings::settings_interface_impl {
   void load_data() {
     if (is_loaded_) return;
     if (boost::filesystem::is_directory(get_file_name())) {
-      boost::filesystem::directory_iterator it(get_file_name()), eod;
+      const boost::filesystem::directory_iterator it(get_file_name());
+      const boost::filesystem::directory_iterator eod;
 
       for (boost::filesystem::path const &p : boost::make_iterator_range(it, eod)) {
         add_child_unsafe(file_helpers::meta::get_filename(p), "ini:///" + p.string());
@@ -369,19 +370,19 @@ class INISettings : public settings::settings_interface_impl {
       is_loaded_ = true;
       return;
     }
-    std::string f = utf8::cvt<std::string>(get_file_name().string());
+    auto f = utf8::cvt<std::string>(get_file_name().string());
     ini.SetUnicode();
     get_logger()->debug("settings", __FILE__, __LINE__, "Loading: " + get_file_name().string());
-    SI_Error rc = ini.LoadFile(f.c_str());
+    const SI_Error rc = ini.LoadFile(f.c_str());
     if (rc < 0) throw_SI_error(rc, "Failed to load file");
 
     get_core()->register_path(999, "/includes", "INCLUDED FILES", "Files to be included in the configuration", false, false);
     CSimpleIni::TNamesDepend lst;
     ini.GetAllKeys(L"/includes", lst);
-    for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
-      std::string alias = utf8::cvt<std::string>((*cit).pItem);
-      std::string child = utf8::cvt<std::string>(ini.GetValue(L"/includes", (*cit).pItem));
-      get_core()->register_key(999, "/includes", utf8::cvt<std::string>((*cit).pItem), "string", "INCLUDED FILE", "Included configuration", "", true, false);
+    for (const auto & cit : lst) {
+      const std::string alias = utf8::cvt<std::string>(cit.pItem);
+      const std::string child = utf8::cvt<std::string>(ini.GetValue(L"/includes", cit.pItem));
+      get_core()->register_key(999, "/includes", utf8::cvt<std::string>(cit.pItem), "string", "INCLUDED FILE", "Included configuration", "", true, false);
       if (!child.empty()) add_child_unsafe(alias, child);
     }
     is_loaded_ = true;
@@ -412,7 +413,7 @@ class INISettings : public settings::settings_interface_impl {
   boost::filesystem::path get_file_name() {
     if (filename_.empty()) {
       filename_ = get_file_from_context();
-      if (filename_.size() > 0) {
+      if (!filename_.empty()) {
         if (boost::filesystem::is_regular_file(filename_)) {
         } else if (boost::filesystem::is_regular_file(filename_.substr(1))) {
           filename_ = filename_.substr(1);
@@ -437,12 +438,12 @@ class INISettings : public settings::settings_interface_impl {
     return utf8::cvt<std::string>(filename_);
   }
   bool file_exists() { return boost::filesystem::is_regular_file(get_file_name()); }
-  virtual std::string get_info() { return "INI settings: (" + context_ + ", " + get_file_name().string() + ")"; }
+  std::string get_info() override { return "INI settings: (" + context_ + ", " + get_file_name().string() + ")"; }
 
  public:
-  static bool context_exists(settings::settings_core *core, std::string key) {
-    net::url url = net::parse(key);
-    std::string file = url.host + url.path;
+  static bool context_exists(settings_core *core, std::string key) {
+    const net::url url = net::parse(key);
+    const std::string file = url.host + url.path;
     std::string tmp = core->expand_path(file);
     if (tmp.size() > 1 && tmp[0] == '/') {
       if (boost::filesystem::is_regular_file(tmp) || boost::filesystem::is_directory(tmp)) return true;
@@ -450,8 +451,8 @@ class INISettings : public settings::settings_interface_impl {
     }
     return boost::filesystem::is_regular_file(tmp) || boost::filesystem::is_directory(tmp);
   }
-  void ensure_exists() { save(false); }
-  virtual std::string get_type() { return "ini"; }
+  void ensure_exists() override { save(false); }
+  std::string get_type() override { return "ini"; }
 
   void enable_credentials() override { use_credentials_ = true; }
 };
