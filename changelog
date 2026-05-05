@@ -1,5 +1,17 @@
 Hence forth change log can be found on github: https://github.com/mickem/nscp/releases
 
+* check_uptime: configurable timezone for boot rendering. Each module caches
+  the value from `/settings/default/timezone` in its `loadModuleEx` (no
+  settings-core persistence). Default is now `local` instead of UTC; users
+  who relied on UTC should set `timezone = utc` under `/settings/default`.
+  The default syntax now uses `${tz}` instead of a hard-coded `(UTC)` label,
+  and a new `${uptime_d}` placeholder forces day-bounded granularity (#365,
+  #590).
+* check_uptime: align Windows and Unix `parse_time` so unit-suffixed
+  thresholds like `uptime < 30m` work consistently on both platforms (#452).
+* check_uptime (Unix): return UNKNOWN when `/proc/uptime` cannot be read,
+  instead of silently reporting an uptime of 0.
+
 2023-07-30 Michael Medin
  * Added first version of github action build pipeline
 

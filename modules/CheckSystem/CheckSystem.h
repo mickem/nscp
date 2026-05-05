@@ -41,6 +41,10 @@ class CheckSystem : public nscapi::impl::simple_plugin {
 
   check_pdh::check pdh_checker;
 
+  // Configured timezone for `check_uptime`, cached in loadModuleEx (issue #365).
+  // See `include/nscp_time.hpp` for the supported value syntax.
+  std::string timezone_;
+
  public:
   CheckSystem() {}
   virtual ~CheckSystem() {}

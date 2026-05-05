@@ -20,6 +20,7 @@
 #pragma once
 
 #include <boost/date_time.hpp>
+#include <check/uptime/filter_obj.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <str/format.hpp>
@@ -88,19 +89,7 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }  // namespace check_page_filter
 
 namespace check_uptime_filter {
-struct filter_obj {
-  long long uptime;
-  long long now;
-  boost::posix_time::ptime boot;
-
-  filter_obj(long long uptime, long long now, boost::posix_time::ptime boot) : uptime(uptime), now(now), boot(boot) {}
-
-  std::string show() const { return get_uptime_s(); }
-  long long get_uptime() const { return uptime; }
-  long long get_boot() const { return now - uptime; }
-  std::string get_boot_s() const { return str::format::format_date(boot); }
-  std::string get_uptime_s() const { return str::format::itos_as_time(get_uptime() * 1000); }
-};
+typedef check_uptime_filter_common::filter_obj filter_obj;
 
 typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
