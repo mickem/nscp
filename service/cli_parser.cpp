@@ -81,6 +81,8 @@ cli_parser::cli_parser(const std::shared_ptr<NSClient> &core)
         ("remove-defaults", "Remove all keys which have default values (and empty sections)")
         ("use-samples", "Add sample commands provided by some sections such as targets and real time filters")
         ("activate-module", po::value<std::string>()->implicit_value(""), "Add a module (and its configuration options) to the configuration.")
+        ("sort", "Re-write the active settings store with sections (and keys within each section) sorted alphabetically. "
+                 "[/modules] is kept as the first section. Only meaningful for the INI backend; other backends fall back to a regular save.")
       ;
 
       service.add_options()
@@ -314,6 +316,8 @@ int cli_parser::parse_settings(int argc, char *argv[]) {
         client.activate(vm["activate-module"].as<std::string>());
       } else if (vm.count("validate")) {
         ret = client.validate();
+      } else if (vm.count("sort")) {
+        ret = client.sort();
       } else if (vm.count("switch")) {
         client.switch_context(vm["switch"].as<std::string>());
         client.list_settings_info();

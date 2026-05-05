@@ -166,6 +166,16 @@ To remove all default values (shorter file):
 nscp settings --generate --remove-defaults
 ```
 
+To re-write the configuration file with sections (and keys within each
+section) sorted alphabetically:
+
+```
+nscp settings --sort
+```
+
+`[/modules]` is kept as the first section. Sorting is opt-in — the
+regular `--generate`/`--update` commands preserve the existing order.
+
 !!! tip
     Use the [Web UI](../web.md) to explore and change settings interactively — it shows descriptions for every option.
 

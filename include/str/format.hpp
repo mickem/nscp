@@ -22,6 +22,7 @@
 #include <boost/date_time.hpp>
 #include <boost/lexical_cast.hpp>
 #include <cctype>
+#include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <list>
@@ -34,6 +35,43 @@
 
 namespace str {
 namespace format {
+
+//
+// Percent helpers (issue #419 / #595)
+//
+// calc_pct_round computes round-to-nearest of (value * 100 / total) using
+// double precision so the integer percentage matches the value embedded in
+// performance data (which is computed in floating point). Truncating integer
+// division silently loses a percent for values near a boundary.
+inline long long calc_pct_round(unsigned long long value, unsigned long long total) {
+  if (total == 0) return 0;
+  return static_cast<long long>(std::llround(static_cast<double>(value) * 100.0 / static_cast<double>(total)));
+}
+inline long long calc_pct_round(long long value, long long total) {
+  if (total <= 0) return 0;
+  return static_cast<long long>(std::llround(static_cast<double>(value) * 100.0 / static_cast<double>(total)));
+}
+inline double calc_pct_double(unsigned long long value, unsigned long long total) {
+  if (total == 0) return 0.0;
+  return static_cast<double>(value) * 100.0 / static_cast<double>(total);
+}
+inline double calc_pct_double(long long value, long long total) {
+  if (total <= 0) return 0.0;
+  return static_cast<double>(value) * 100.0 / static_cast<double>(total);
+}
+// format_pct renders a percentage value with `decimals` decimal places (default 2).
+// Used by `%(used_pct)`/`%(free_pct)` so users can see e.g. "97.34" rather than "97".
+inline std::string format_pct(double pct, int decimals = 2) {
+  std::ostringstream os;
+  os << std::fixed << std::setprecision(decimals) << pct;
+  return os.str();
+}
+inline std::string format_pct(unsigned long long value, unsigned long long total, int decimals = 2) {
+  return format_pct(calc_pct_double(value, total), decimals);
+}
+inline std::string format_pct(long long value, long long total, int decimals = 2) {
+  return format_pct(calc_pct_double(value, total), decimals);
+}
 
 //
 // Padding

@@ -173,15 +173,32 @@ struct filter_obj {
 
   long long get_user_free_pct(parsers::where::evaluation_context context) {
     get_size(context);
-    return drive_size == 0 ? 0 : (user_free * 100 / drive_size);
+    return str::format::calc_pct_round(user_free, drive_size);
   }
   long long get_total_free_pct(parsers::where::evaluation_context context) {
     get_size(context);
-    return drive_size == 0 ? 0 : (total_free * 100 / drive_size);
+    return str::format::calc_pct_round(total_free, drive_size);
   }
   long long get_user_used_pct(parsers::where::evaluation_context context) { return 100 - get_user_free_pct(context); }
   long long get_total_used_pct(parsers::where::evaluation_context context) { return 100 - get_total_free_pct(context); }
   long long get_is_mounted(parsers::where::evaluation_context context) const { return drive.is_mounted ? 1 : 0; }
+
+  std::string get_user_free_pct_human(parsers::where::evaluation_context context) {
+    get_size(context);
+    return str::format::format_pct(user_free, drive_size);
+  }
+  std::string get_total_free_pct_human(parsers::where::evaluation_context context) {
+    get_size(context);
+    return str::format::format_pct(total_free, drive_size);
+  }
+  std::string get_user_used_pct_human(parsers::where::evaluation_context context) {
+    get_size(context);
+    return str::format::format_pct(drive_size - user_free, drive_size);
+  }
+  std::string get_total_used_pct_human(parsers::where::evaluation_context context) {
+    get_size(context);
+    return str::format::format_pct(drive_size - total_free, drive_size);
+  }
 
   std::string get_user_free_human(parsers::where::evaluation_context context) { return str::format::format_byte_units(get_user_free(context)); }
   std::string get_total_free_human(parsers::where::evaluation_context context) { return str::format::format_byte_units(get_total_free(context)); }
@@ -402,7 +419,15 @@ struct filter_obj_handler : public native_context {
         .add_human_string_context("total_used", &filter_obj::get_total_used_human, "")
         .add_human_string_context("used", &filter_obj::get_total_used_human, "")
         .add_human_string_context("user_used", &filter_obj::get_user_used_human, "")
-        .add_human_string_context("type", &filter_obj::get_type_as_string, "");
+        .add_human_string_context("type", &filter_obj::get_type_as_string, "")
+        // Issue #595: render percentages with two decimals via human-string
+        // (filter expressions still get the rounded integer above).
+        .add_human_string_context("free_pct", &filter_obj::get_total_free_pct_human, "")
+        .add_human_string_context("total_free_pct", &filter_obj::get_total_free_pct_human, "")
+        .add_human_string_context("user_free_pct", &filter_obj::get_user_free_pct_human, "")
+        .add_human_string_context("used_pct", &filter_obj::get_total_used_pct_human, "")
+        .add_human_string_context("total_used_pct", &filter_obj::get_total_used_pct_human, "")
+        .add_human_string_context("user_used_pct", &filter_obj::get_user_used_pct_human, "");
 
     registry_.add_converter()(type_custom_total_free, &calculate_total_used)(type_custom_total_used, &calculate_total_used)(
         type_custom_user_free, &calculate_user_used)(type_custom_user_used, &calculate_user_used)(type_custom_type, &convert_type);

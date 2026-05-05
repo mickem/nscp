@@ -242,3 +242,57 @@ TEST(settings_ini, context_exists_false_for_missing_file) {
   mock_settings_core core;
   EXPECT_FALSE(settings::INISettings::context_exists(&core, ini_context(file)));
 }
+
+// Issue #205: nscp settings --sort writes the INI store with sections (and
+// keys within each section) sorted alphabetically. [/modules] is pinned as
+// the first section.
+TEST(settings_ini, save_sorted_orders_sections_and_keys) {
+  temp_dir dir;
+  auto file = dir.file("sort.ini");
+  write_file(file,
+             "[/zeta]\n"
+             "y_key = y_val\n"
+             "a_key = a_val\n"
+             "\n"
+             "[/alpha]\n"
+             "b = 2\n"
+             "a = 1\n"
+             "\n"
+             "[/modules]\n"
+             "PluginA = enabled\n"
+             "PluginB = enabled\n");
+  mock_settings_core core;
+  settings::INISettings s(&core, "test", ini_context(file));
+  s.save_sorted();
+
+  std::ifstream in(file.string());
+  std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+
+  const auto pos_modules = content.find("[/modules]");
+  const auto pos_alpha = content.find("[/alpha]");
+  const auto pos_zeta = content.find("[/zeta]");
+  ASSERT_NE(pos_modules, std::string::npos);
+  ASSERT_NE(pos_alpha, std::string::npos);
+  ASSERT_NE(pos_zeta, std::string::npos);
+  EXPECT_LT(pos_modules, pos_alpha);
+  EXPECT_LT(pos_alpha, pos_zeta);
+
+  const auto alpha_block = content.substr(pos_alpha, pos_zeta - pos_alpha);
+  EXPECT_LT(alpha_block.find("a ="), alpha_block.find("b ="));
+  const auto zeta_block = content.substr(pos_zeta);
+  EXPECT_LT(zeta_block.find("a_key"), zeta_block.find("y_key"));
+}
+
+TEST(settings_ini, save_sorted_preserves_values) {
+  temp_dir dir;
+  auto file = dir.file("sort_values.ini");
+  write_file(file, "[/section]\nkey = my_value\nother = 42\n");
+  mock_settings_core core;
+  settings::INISettings s(&core, "test", ini_context(file));
+  s.save_sorted();
+
+  std::ifstream in(file.string());
+  std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  EXPECT_NE(content.find("my_value"), std::string::npos);
+  EXPECT_NE(content.find("42"), std::string::npos);
+}

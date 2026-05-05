@@ -21,15 +21,19 @@
 
 #include <simpleini/simpleini.h>
 
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 #include <cerrno>
+#include <cwctype>
 #include <error/error.hpp>
 #include <file_helpers.hpp>
 #include <settings/settings_core.hpp>
 #include <settings/settings_interface_impl.hpp>
 #include <str/utils.hpp>
+#include <tuple>
+#include <vector>
 #ifdef WIN32
 #include <win/credentials.hpp>
 #endif
@@ -240,6 +244,84 @@ class INISettings : public settings::settings_interface_impl {
 
     SI_Error rc = ini.SaveFile(get_file_name().string().c_str());
     if (rc < 0) throw_SI_error(rc, "Failed to save file");
+  }
+
+  //////////////////////////////////////////////////////////////////////////
+  /// Re-emit the INI file with sections, and keys within each section,
+  /// sorted alphabetically (issue #205). Section comments and per-key
+  /// comments are preserved. The exception is the special `/modules`
+  /// section, which is kept as the first section (the convention in
+  /// generated configs is for `[/modules]` to come first).
+  void save_sorted() override {
+    settings_interface_impl::save(true);
+
+    // Snapshot every (section, key) -> value/comment pair from the live
+    // CSimpleIni then re-insert them in alphabetical order into a fresh
+    // CSimpleIni. CSimpleIni's Save uses LoadOrder (insertion order), so
+    // re-inserting alphabetically yields alphabetical output.
+    CSimpleIni::TNamesDepend sections;
+    ini.GetAllSections(sections);
+
+    // Portable case-insensitive less-than for wchar_t strings (CSimpleIni's
+    // own KeyOrder is class-template-private so we replicate the same notion
+    // here).
+    auto wstr_iless = [](const std::wstring &lhs, const std::wstring &rhs) {
+      return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end(),
+                                          [](wchar_t a, wchar_t b) { return std::towlower(a) < std::towlower(b); });
+    };
+
+    struct section_data {
+      std::wstring name;
+      const wchar_t *comment;  // owned by `ini`; valid for the lifetime of this method
+      std::vector<std::tuple<std::wstring, std::wstring, const wchar_t *>> entries;
+    };
+    std::vector<section_data> ordered;
+    ordered.reserve(sections.size());
+    for (const CSimpleIni::Entry &eSection : sections) {
+      section_data sd;
+      sd.name = eSection.pItem;
+      sd.comment = eSection.pComment;
+      CSimpleIni::TNamesDepend keys;
+      ini.GetAllKeys(eSection.pItem, keys);
+      for (const CSimpleIni::Entry &eKey : keys) {
+        const wchar_t *value = ini.GetValue(eSection.pItem, eKey.pItem);
+        sd.entries.emplace_back(std::wstring(eKey.pItem), std::wstring(value ? value : L""), eKey.pComment);
+      }
+      // Keys: alphabetical (case-insensitive to match CSimpleIni KeyOrder).
+      std::sort(sd.entries.begin(), sd.entries.end(),
+                [&wstr_iless](const auto &lhs, const auto &rhs) { return wstr_iless(std::get<0>(lhs), std::get<0>(rhs)); });
+      ordered.push_back(std::move(sd));
+    }
+    // Sections: alphabetical, but pin `/modules` first (the convention of
+    // generated configs is for `[/modules]` to come at the top; users
+    // requesting alphabetisation in #205 explicitly noted this).
+    auto section_rank = [](const std::wstring &n) -> int { return n == L"/modules" ? 0 : 1; };
+    std::sort(ordered.begin(), ordered.end(), [&](const section_data &lhs, const section_data &rhs) {
+      const int lr = section_rank(lhs.name);
+      const int rr = section_rank(rhs.name);
+      if (lr != rr) return lr < rr;
+      return wstr_iless(lhs.name, rhs.name);
+    });
+
+    CSimpleIni sorted_ini(false, false, false);
+    sorted_ini.SetUnicode();
+    for (const auto &sd : ordered) {
+      // SetValue(section, NULL, NULL, comment) registers the section header
+      // (and its comment) so empty sections survive too.
+      sorted_ini.SetValue(sd.name.c_str(), nullptr, nullptr, sd.comment);
+      for (const auto &e : sd.entries) {
+        sorted_ini.SetValue(sd.name.c_str(), std::get<0>(e).c_str(), std::get<1>(e).c_str(), std::get<2>(e));
+      }
+    }
+
+    SI_Error rc = sorted_ini.SaveFile(get_file_name().string().c_str());
+    if (rc < 0) throw_SI_error(rc, "Failed to save sorted file");
+
+    // Reload the live ini so subsequent operations see the same insertion
+    // order (otherwise nOrder would still reflect the pre-sort order).
+    ini.Reset();
+    is_loaded_ = false;
+    load_data();
   }
 
   settings::error_list validate() {
