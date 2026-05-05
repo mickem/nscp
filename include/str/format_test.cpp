@@ -109,6 +109,27 @@ TEST(format, itos_as_time_exact_week) {
   EXPECT_EQ(str::format::itos_as_time(604800001), "1w 0d 00:00");
 }
 
+TEST(format, itos_as_time_max_unit_default_matches_week) {
+  // The default argument must preserve the historical (week-bounded) output.
+  EXPECT_EQ(str::format::itos_as_time(1234512345), str::format::itos_as_time(1234512345, str::format::unit_week));
+}
+
+TEST(format, itos_as_time_max_unit_day_caps_at_days) {
+  // 6 weeks = 42 days; with max_unit=day a 6-week duration must render as days,
+  // not weeks (issue #590).
+  const unsigned long long six_weeks = 6ULL * 7ULL * 24ULL * 60ULL * 60ULL * 1000ULL;
+  EXPECT_EQ(str::format::itos_as_time(six_weeks + 1, str::format::unit_day), "42d 00:00");
+  // 2 weeks 3 days 04:05 = 17d 04:05
+  const unsigned long long t = 17ULL * 24ULL * 60ULL * 60ULL * 1000ULL + 4ULL * 60ULL * 60ULL * 1000ULL + 5ULL * 60ULL * 1000ULL + 1ULL;
+  EXPECT_EQ(str::format::itos_as_time(t, str::format::unit_day), "17d 04:05");
+}
+
+TEST(format, itos_as_time_max_unit_hour_caps_at_hours) {
+  // 2 days = 48 hours; with max_unit=hour render as hours/minutes only.
+  const unsigned long long t = 48ULL * 60ULL * 60ULL * 1000ULL + 30ULL * 60ULL * 1000ULL + 1ULL;
+  EXPECT_EQ(str::format::itos_as_time(t, str::format::unit_hour), "48:30");
+}
+
 TEST(format, format_date) {
   const boost::posix_time::ptime time(boost::gregorian::date(2002, 3, 4), boost::posix_time::time_duration(5, 6, 7));
   EXPECT_EQ(str::format::format_date(time), "2002-03-04 05:06:07");
