@@ -68,7 +68,7 @@ class CheckNSCP : public nscapi::impl::simple_plugin {
 
   // Module calls
   bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
-  static bool unloadModule();
+  bool unloadModule();
 
   void check_nscp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_nscp_version(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const;
