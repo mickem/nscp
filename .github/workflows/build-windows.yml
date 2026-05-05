@@ -178,6 +178,14 @@ jobs:
       with:
         version: ${{ ENV.MINIZ_VERSION }}
 
+    - name: Cache Boost (static)
+      id: static_boost_cache
+      uses: actions/cache@v4
+      with:
+        key: ${{ runner.os }}-boost-${{ env.BOOST_VERSION }}-${{ inputs.architecture }}-static-runtime-static-libs-system_filesystem-${{ steps.setup.outputs.toolset }}
+        path: |
+          ${{ runner.workspace }}/static_boost
+
     - name: Build Boost (static)
       id: static_boost
       uses: mickem/build-boost@v1
@@ -190,6 +198,14 @@ jobs:
         static-runtime: 1
         directory: ${{ runner.workspace }}/static_boost
           
+    - name: Cache Boost (regular)
+      id: boost_cache
+      uses: actions/cache@v4
+      with:
+        key: ${{ runner.os }}-boost-${{ env.BOOST_VERSION }}-${{ inputs.architecture }}-shared-runtime-shared-libs-full-${{ steps.setup.outputs.toolset }}
+        path: |
+          ${{ runner.workspace }}/boost
+
     - name: Build Boost (regular)
       id: boost
       uses: mickem/build-boost@v1

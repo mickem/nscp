@@ -155,6 +155,14 @@ jobs:
       with:
         version: ${{ ENV.MINIZ_VERSION }}
 
+    - name: Cache Boost (static)
+      id: static_boost_cache
+      uses: actions/cache@v4
+      with:
+        key: ${{ runner.os }}-boost-legacy-${{ env.BOOST_VERSION }}-${{ inputs.architecture }}-static-runtime-static-msvc141-xp
+        path: |
+          ${{ runner.workspace }}/static_boost
+
     - name: Build Boost (static)
       id: static_boost
       uses: mickem/build-boost@42c59d10fc12f919a986f7e1c2f7c752d4960190
