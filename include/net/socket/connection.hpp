@@ -173,7 +173,25 @@ class connection : public boost::enable_shared_from_this<connection<protocol_typ
       protocol_->on_write();
       do_process();
     } else {
-      protocol_->log_error(__FILE__, __LINE__, "Failed to send data: " + utf8::utf8_from_native(e.message()));
+      // Distinguish "client gave up before we could reply" from generic write
+      // failures. The classic case: an upstream check_nrpe / firewall / load
+      // balancer cut the connection before NSClient++ finished computing the
+      // response. Without this hint operators see only the OS-level error
+      // (e.g. "broken pipe", "connection reset by peer") and have no way to
+      // tell that the check itself completed but the answer landed on a
+      // closed socket. The check process is NOT terminated by this — see
+      // CheckExternalScripts `timeout=` for that.
+      const auto v = e.value();
+      if (v == boost::asio::error::broken_pipe || v == boost::asio::error::connection_reset || v == boost::asio::error::operation_aborted ||
+          v == boost::asio::error::eof) {
+        protocol_->log_error(__FILE__, __LINE__,
+                             "Client disconnected before NSClient++ could send the response (" + utf8::utf8_from_native(e.message()) +
+                                 "). The check ran to completion server-side; the upstream likely hit its own timeout. "
+                                 "Bytes written before disconnect: " +
+                                 str::xtos(bytes_transferred));
+      } else {
+        protocol_->log_error(__FILE__, __LINE__, "Failed to send data: " + utf8::utf8_from_native(e.message()));
+      }
       on_done(false);
     }
   }
