@@ -45,6 +45,7 @@ direction (active vs. passive) and protocol that matches your setup.
 |---------------------------------------------------------------|----------------------------------------------------------------------------------|
 | [Active Monitoring with NRPE](nrpe.md)                        | Let the monitoring server poll NSClient++ over NRPE (Nagios-style active checks) |
 | [Passive Monitoring (NSCA/NRDP)](passive-monitoring-nsca.md)  | Have NSClient++ push results to your monitoring server on a schedule             |
+| [Passive Monitoring (NSCA-NG)](passive-monitoring-nsca-ng.md) | TLS-PSK successor to NSCA — modern crypto, same passive-push pattern             |
 | [Passive Monitoring (Icinga 2)](passive-monitoring-icinga.md) | Submit scheduled check results to the Icinga 2 REST API                          |
 | [Prometheus Scraping](prometheus.md)                          | Expose metrics on `/api/v2/openmetrics` for Prometheus to scrape                 |
 
