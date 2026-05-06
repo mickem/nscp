@@ -350,11 +350,13 @@ check_cpu warning=none critical=none "perf-config=extra(load)"
 "perf-config=selector(key:value; key:value) selector2(key:value)"
 ```
 
-| Key                 | Effect                                     |
-|---------------------|--------------------------------------------|
-| `unit`              | Force a unit (`G`, `M`, `K`, `%`, `ms`, …) |
-| `ignored`           | `true` → drop this metric                  |
-| `prefix` / `suffix` | Rename parts of the metric name            |
+| Key                 | Effect                                                                     |
+|---------------------|----------------------------------------------------------------------------|
+| `unit`              | Force a unit (`G`, `M`, `K`, `%`, `ms`, …)                                 |
+| `ignored`           | `true` → drop this metric                                                  |
+| `prefix` / `suffix` | Rename parts of the metric name                                            |
+| `minimum` / `min`   | Force the perfdata `min` field (use `min` as a shorthand)                  |
+| `maximum` / `max`   | Force the perfdata `max` field — useful for graphing systems that auto-fit |
 
 Selectors match in order of specificity: `prefix.object.suffix` → `prefix.object` → `object.suffix` → `prefix` →
 `suffix` → `object`. The `*` selector matches everything.
@@ -374,6 +376,15 @@ check_drivesize "perf-config=used %(ignored:true)"
 # Rename: drop suffix label, force GB
 check_drivesize "perf-config=used.used(unit:G;suffix:'') used %(ignored:true)"
 'C:\'=213G;178;201;0;223 'D:\'=400G;372;419;0;465
+
+# Force min/max bounds on a counter that doesn't know its own range
+# (e.g. a raw PDH counter exposed by check_pdh). The graphing system can
+# then auto-scale to the declared range instead of guessing from history.
+check_pdh "counter=\\Processor(_Total)\\% Processor Time" \
+  "perf-config=*(minimum:0;maximum:100)"
+
+# Same idea on a custom queue-depth counter, with `min`/`max` shorthand.
+check_pdh counter=queue_depth "perf-config=queue_depth(min:0;max:12345)"
 ```
 
 ### Inspecting performance data

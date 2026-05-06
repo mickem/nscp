@@ -344,6 +344,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/parsers/where/unary_op_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/value_node_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/variable_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/where/perf_generator_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/where/engine_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/where_test.cpp
         ${NSCP_INCLUDEDIR}/parsers/operators_test.cpp

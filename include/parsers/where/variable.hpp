@@ -20,7 +20,10 @@
 #pragma once
 
 #include <algorithm>
+#include <boost/algorithm/string/trim.hpp>
 #include <boost/function.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/optional.hpp>
 #include <parsers/where/helpers.hpp>
 #include <parsers/where/node.hpp>
 #include <str/format.hpp>
@@ -37,6 +40,18 @@ struct number_performance_generator_interface {
                     TObject object) = 0;
 };
 
+// Parse a perf-config string (e.g. "0", "12345", "3.14") as a double. Returns
+// an empty optional for empty input or anything that doesn't lex as a number,
+// which is the signal to "leave the bound unset" for callers.
+inline boost::optional<double> parse_optional_perf_bound(const std::string &s) {
+  if (s.empty()) return boost::none;
+  try {
+    return boost::lexical_cast<double>(boost::trim_copy(s));
+  } catch (const boost::bad_lexical_cast &) {
+    return boost::none;
+  }
+}
+
 template <class TContext, typename TDataType>
 struct simple_number_performance_generator : number_performance_generator_interface<TContext, TDataType> {
   std::string unit;
@@ -44,6 +59,11 @@ struct simple_number_performance_generator : number_performance_generator_interf
   std::string suffix;
   bool configured;
   bool ignored;
+  // Optional explicit bounds, populated from perf-config keys
+  // `minimum`/`maximum` (with `min`/`max` accepted as aliases). When unset, the
+  // emitted Nagios perfdata leaves the corresponding field empty.
+  boost::optional<double> minimum;
+  boost::optional<double> maximum;
   simple_number_performance_generator(const std::string &unit, const std::string &prefix, const std::string &suffix)
       : unit(unit), prefix(prefix), suffix(suffix), configured(false), ignored(false) {}
   explicit simple_number_performance_generator(const std::string &unit) : unit(unit), configured(false), ignored(false) {}
@@ -58,6 +78,13 @@ struct simple_number_performance_generator : number_performance_generator_interf
     if (prefix == "none") prefix = "";
     if (suffix == "none") suffix = "";
     if (context->get_performance_config_key(p, k, s, "ignored", "false") == "true") ignored = true;
+    // Min / max overrides. `minimum`/`maximum` are the canonical names;
+    // `min`/`max` are accepted as shorter aliases for ergonomics. The longer
+    // names win if both are set so users can rely on the spelled-out form.
+    minimum = parse_optional_perf_bound(context->get_performance_config_key(p, k, s, "minimum", ""));
+    if (!minimum) minimum = parse_optional_perf_bound(context->get_performance_config_key(p, k, s, "min", ""));
+    maximum = parse_optional_perf_bound(context->get_performance_config_key(p, k, s, "maximum", ""));
+    if (!maximum) maximum = parse_optional_perf_bound(context->get_performance_config_key(p, k, s, "max", ""));
     configured = true;
   }
   void eval(perf_list_type &list, evaluation_context context, const std::string alias, TDataType current_value, TDataType warn, TDataType crit,
@@ -68,6 +95,8 @@ struct simple_number_performance_generator : number_performance_generator_interf
     int_data.value = static_cast<double>(current_value);
     int_data.warn = static_cast<double>(warn);
     int_data.crit = static_cast<double>(crit);
+    if (minimum) int_data.minimum = *minimum;
+    if (maximum) int_data.maximum = *maximum;
     data.set(int_data);
     data.alias = prefix + alias + suffix;
     data.unit = unit;
