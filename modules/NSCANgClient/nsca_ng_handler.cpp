@@ -57,8 +57,10 @@ void nsca_ng_target_object::read(const nscapi::settings_helper::settings_impl_in
       .add_bool("use psk", sh::bool_fun_key([this](auto value) { this->set_property_bool("use psk", value); }, true), "USE PSK",
                 "Use TLS-PSK for authentication. When false, use certificate-based TLS.", true)
 
-      .add_string("ciphers", sh::string_fun_key([this](const auto& value) { this->set_property_string("ciphers", value); }, ""), "TLS CIPHERS",
-                  "Comma-separated list of TLS cipher suites to use for PSK. Defaults to PSK-AES256-CBC-SHA256.", true)
+      .add_bool("insecure", sh::bool_fun_key([this](auto value) { this->set_property_bool("insecure", value); }, false), "INSECURE",
+                "When true, allow TLS connections that do not authenticate the server (no PSK and no peer-cert verification). "
+                "Off by default; enabling this disables protection against man-in-the-middle attacks.",
+                true)
 
       .add_int("max output length",
                sh::int_fun_key([this](auto value) { this->set_property_int("max output length", value); }, 65536),
@@ -100,6 +102,8 @@ void options_reader_impl::process(boost::program_options::options_description &d
       "Host name to report to the NSCA-NG server")
     ("no-psk", po::bool_switch()->notifier([&data](bool v) { if (v) data.set_bool_data("use psk", false); }),
       "Disable PSK and use certificate-based TLS authentication instead")
+    ("insecure", po::bool_switch()->notifier([&data](bool v) { if (v) data.set_bool_data("insecure", true); }),
+      "Allow TLS connections without PSK and without peer-cert verification. Disables MITM protection.")
     ("host-check", po::bool_switch()->notifier([&data](bool v) { if (v) data.set_bool_data("host check", true); }),
       "Submit every result as a Nagios host check (PROCESS_HOST_CHECK_RESULT) instead of a service check.")
     ("max-output-length", po::value<int>()->notifier([&data](int v) { data.set_int_data("max output length", v); }),

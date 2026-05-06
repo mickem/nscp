@@ -22,10 +22,18 @@
 
 #include <gtest/gtest.h>
 #include <openssl/ssl.h>
+#include <nscapi/nscapi_helper_singleton.hpp>
 
 #include <cstring>
 #include <set>
 #include <string>
+
+// Provide the NSCAPI singleton so the NSC_TRACE_* / NSC_LOG_* macros that
+// reference plugin_singleton resolve at link time. The core_wrapper has null
+// function pointers, which makes every log call a harmless no-op — we don't
+// exercise the trace path from the test, but the linker still needs the
+// symbol because nsca_ng_client.cpp is compiled whole into the test binary.
+nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
 
 // ============================================================================
 // escape_field

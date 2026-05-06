@@ -41,7 +41,23 @@
 
 namespace nsca_ng_client {
 
-const char kDefaultPskCiphers[] = "PSK-AES256-CBC-SHA256:PSK-AES128-CBC-SHA256:PSK-AES256-CBC-SHA:PSK-AES128-CBC-SHA";
+// AEAD ciphersuites first (GCM, ChaCha20-Poly1305) — these aren't vulnerable
+// to the padding-oracle / Lucky13-class attacks that have plagued CBC. CBC
+// suites stay at the end as fallback for old servers that don't support GCM
+// PSK. OpenSSL silently drops any cipher it can't link (e.g. ChaCha20 in
+// builds without it), so listing them is safe.
+//
+// `@SECLEVEL=0` MUST appear before any cipher entries — it is a control
+// directive that filters the entries that follow it, so a trailing
+// position is silently ignored. Without it, OpenSSL 3's default seclevel
+// strips the PSK suites at load time and SSL_CTX_set_cipher_list returns
+// 0; OpenSSL then keeps its default cert-based cipher list and the next
+// PSK handshake aborts with "no suitable signature algorithm" on the
+// server.
+const char kDefaultPskCiphers[] =
+    "@SECLEVEL=0:"
+    "PSK-AES256-GCM-SHA384:PSK-AES128-GCM-SHA256:PSK-CHACHA20-POLY1305:"
+    "PSK-AES256-CBC-SHA256:PSK-AES128-CBC-SHA256:PSK-AES256-CBC-SHA:PSK-AES128-CBC-SHA";
 
 // =====================================================================
 // connection_data
@@ -56,12 +72,16 @@ connection_data::connection_data(client::destination_container arguments, client
   ssl.certificate_key = arguments.get_string_data("certificate key");
   ssl.ca_path = arguments.get_string_data("ca");
   ssl.verify_mode = arguments.get_string_data("verify mode");
+  // configure_ssl_context() throws on an empty tls_version; default to a sane
+  // floor so cert-mode targets don't have to spell it out.
+  ssl.tls_version = arguments.get_string_data("tls version");
+  if (ssl.tls_version.empty()) ssl.tls_version = "tlsv1.2+";
   timeout = arguments.get_int_data("timeout", 30);
   retry = arguments.get_int_data("retries", kDefaultMaxAttempts - 1);
   password = arguments.get_string_data("password");
   identity = arguments.get_string_data("identity");
   use_psk = arguments.get_bool_data("use psk", true);
-  tls_ciphers = arguments.get_string_data("ciphers");
+  insecure = arguments.get_bool_data("insecure", false);
   max_output_length = static_cast<std::size_t>(arguments.get_int_data("max output length", static_cast<int>(kDefaultMaxOutputBytes)));
   host_check_default = arguments.get_bool_data("host check", false);
 
@@ -75,6 +95,7 @@ std::string connection_data::to_string() const {
   ss << "host: " << get_endpoint_string();
   ss << ", identity: " << identity;
   ss << ", use_psk: " << (use_psk ? "true" : "false");
+  ss << ", insecure: " << (insecure ? "true" : "false");
   ss << ", sender: " << sender_hostname;
   ss << ", timeout: " << timeout << "s";
   ss << ", retries: " << retry;
@@ -148,24 +169,73 @@ class nsca_ng_connection {
   boost::asio::ssl::stream<boost::asio::ip::tcp::socket> ssl_socket_;
   boost::asio::ip::tcp::resolver resolver_;
   boost::asio::deadline_timer timer_;
-  boost::asio::streambuf in_buf_;
+  // Cap the inbound buffer so a hostile or buggy server can't grow `in_buf_`
+  // without limit by streaming data without a newline. NSCA-NG response lines
+  // are short (single keyword + brief reason); 8 KiB is well over the maximum
+  // legitimate frame.
+  static constexpr std::size_t kMaxResponseLineBytes = 8 * 1024;
+  boost::asio::streambuf in_buf_{kMaxResponseLineBytes};
   int timeout_seconds_;
   psk_credentials psk_creds_;
   bool tls_active_ = false;
 
-  nsca_ng_connection(bool use_psk, const std::string &ciphers, int timeout_seconds)
+  nsca_ng_connection(bool use_psk, const std::string &psk_cipher_list, const int timeout_seconds)
       : ctx_(boost::asio::ssl::context::tls_client),
         ssl_socket_(io_service_, ctx_),
         resolver_(io_service_),
         timer_(io_service_),
         timeout_seconds_(timeout_seconds) {
     if (use_psk) {
+      // IMPORTANT: configure on the SSL object (`ssl_socket_.native_handle()`),
+      // NOT the SSL_CTX. The boost::asio::ssl::stream constructor above already
+      // called SSL_new(ctx) and copied the cipher list / seclevel / etc. out of
+      // the CTX. Subsequent SSL_CTX_set_* calls would land on the CTX without
+      // propagating to the live SSL — the actual ClientHello would carry
+      // OpenSSL's default cert-based cipher list, and the server would alert
+      // with "no suitable signature algorithm" because no PSK cipher matched.
+      SSL *const ssl = ssl_socket_.native_handle();
+
       // PSK ciphersuites aren't reachable in TLS 1.3 via the legacy
-      // SSL_CTX_set_psk_client_callback API; force TLS 1.2.
-      SSL_CTX_set_max_proto_version(ctx_.native_handle(), TLS1_2_VERSION);
-      const std::string cipher_list = ciphers.empty() ? kDefaultPskCiphers : ciphers;
-      SSL_CTX_set_cipher_list(ctx_.native_handle(), cipher_list.c_str());
-      SSL_CTX_set_psk_client_callback(ctx_.native_handle(), psk_client_cb);
+      // SSL_set_psk_client_callback API; force TLS 1.2 only on both
+      // ends of the negotiation.
+      SSL_set_min_proto_version(ssl, TLS1_2_VERSION);
+      SSL_set_max_proto_version(ssl, TLS1_2_VERSION);
+
+      // Drop seclevel to 0 so OpenSSL 3 keeps the PSK suites in the cipher
+      // list. PSK has no forward secrecy and several PSK-CBC suites use
+      // SHA1 — OpenSSL 3 strips those at the default seclevel of 1, which
+      // would leave the agent with an empty cipher list at handshake.
+      SSL_set_security_level(ssl, 0);
+
+      const std::string cipher_list = psk_cipher_list.empty() ? kDefaultPskCiphers : psk_cipher_list;
+      // Throw on cipher-list parse failure rather than letting OpenSSL fall
+      // back to its cert-based default. With a silent fallback the resulting
+      // PSK handshakes alert with confusing messages like "no suitable
+      // signature algorithm" — this gives the operator the actual cause.
+      if (SSL_set_cipher_list(ssl, cipher_list.c_str()) != 1) {
+        throw socket_helpers::socket_exception("Failed to apply PSK cipher list: " + cipher_list);
+      }
+      SSL_set_psk_client_callback(ssl, psk_client_cb);
+
+      // Even though plain PSK doesn't authenticate the server with a
+      // certificate (and therefore needs no signature), OpenSSL 3 servers
+      // can run a sigalg-selection step during ClientHello processing and
+      // alert with "no suitable signature algorithm" when none of the
+      // client's advertised algorithms match. Pin a permissive list so a
+      // PSK-only peer always finds an acceptable algorithm even though the
+      // sigalg never gets used on the wire.
+      SSL_set1_sigalgs_list(ssl, "RSA+SHA512:RSA+SHA384:RSA+SHA256:RSA+SHA1:ECDSA+SHA512:ECDSA+SHA384:ECDSA+SHA256:ECDSA+SHA1");
+
+      // Verify the cipher list isn't empty after parsing. SSL_set_cipher_list
+      // can return 1 (success) but leave zero ciphers enabled when the seclevel
+      // strips everything or when the bundled OpenSSL build lacks the PSK
+      // suites we requested. A silently empty list would let TLS proceed using
+      // OpenSSL's *default* cipher list (cert-based) and fail at handshake.
+      STACK_OF(SSL_CIPHER) *ciphers = SSL_get_ciphers(ssl);
+      if (ciphers == nullptr || sk_SSL_CIPHER_num(ciphers) == 0) {
+        throw socket_helpers::socket_exception("PSK cipher list parsed but produced zero enabled ciphers (requested: " + cipher_list +
+                                               "). Check OpenSSL version / seclevel.");
+      }
     }
   }
 
@@ -206,18 +276,21 @@ class nsca_ng_connection {
       throw socket_helpers::socket_exception(what + " timed out after " + std::to_string(timeout_seconds_) + "s");
     }
     if (op_ec) {
-      throw socket_helpers::socket_exception(what + " failed: " + op_ec.message());
+      // boost::system::error_code::message() returns the OS-localized native
+      // encoding (e.g. CP1252 on Swedish Windows). Convert to UTF-8 so the
+      // string can flow through protobuf log fields without being rejected.
+      throw socket_helpers::socket_exception(what + " failed: " + utf8::utf8_from_native(op_ec.message()));
     }
   }
 
-  void connect(const std::string &host, const std::string &port, bool use_psk, const std::string &ca, const psk_credentials &creds) {
+  void connect(const std::string &host, const std::string &port, const connection_data &con, const psk_credentials &creds) {
     psk_creds_ = creds;
     SSL_set_ex_data(ssl_socket_.native_handle(), get_psk_ex_data_index(), &psk_creds_);
 
     const boost::asio::ip::tcp::resolver::query query(host, port);
     boost::system::error_code resolve_ec;
     auto endpoints = resolver_.resolve(query, resolve_ec);
-    if (resolve_ec) throw socket_helpers::socket_exception("Failed to resolve " + host + ": " + resolve_ec.message());
+    if (resolve_ec) throw socket_helpers::socket_exception("Failed to resolve " + host + ": " + utf8::utf8_from_native(resolve_ec.message()));
 
     run_with_deadline(
         [this, &endpoints](auto handler) {
@@ -229,17 +302,38 @@ class nsca_ng_connection {
         },
         "connect to " + host + ":" + port);
 
-    if (use_psk) {
+    if (con.use_psk) {
       // With PSK the key itself authenticates both ends — no X.509 cert.
+      // PSK mode intentionally ignores cert/key/ca/verify-mode/tls-version.
       ssl_socket_.set_verify_mode(boost::asio::ssl::verify_none);
-    } else if (!ca.empty()) {
-      ctx_.load_verify_file(ca);
-      ssl_socket_.set_verify_mode(boost::asio::ssl::verify_peer);
-      ssl_socket_.set_verify_callback(boost::asio::ssl::rfc2818_verification(host));
     } else {
-      // No CA configured. Insecure; documented behaviour for environments
-      // without a private CA. Production users should supply a CA path.
-      ssl_socket_.set_verify_mode(boost::asio::ssl::verify_none);
+      // Apply the full cert-mode TLS configuration: certificate + key,
+      // CA, verify mode, TLS min/max version, allowed ciphers, DH params.
+      std::list<std::string> errors;
+      con.ssl.configure_ssl_context(ctx_, errors);
+      if (!errors.empty()) {
+        std::string joined;
+        for (const auto &e : errors) joined += (joined.empty() ? "" : "; ") + e;
+        throw socket_helpers::socket_exception("TLS configuration error: " + joined);
+      }
+
+      const auto vmode = con.ssl.get_verify_mode();
+      const bool verifying = (vmode & boost::asio::ssl::verify_peer) != 0;
+
+      // Refuse to fall through to an unauthenticated TLS session unless the
+      // operator has explicitly opted in. Without this the connection would
+      // tunnel data through an unverified peer — vulnerable to MITM.
+      if (!verifying && !con.insecure) {
+        throw socket_helpers::socket_exception(
+            "Refusing to connect: TLS peer verification is disabled and PSK is not in use. "
+            "Either configure 'verify mode = peer-cert' with a 'ca = <path>', re-enable 'use psk = true', "
+            "or set 'insecure = true' to override (disables MITM protection).");
+      }
+
+      // Hostname pinning still required even when CA verifies.
+      if (verifying) {
+        ssl_socket_.set_verify_callback(boost::asio::ssl::rfc2818_verification(host));
+      }
     }
 
     run_with_deadline(
@@ -340,10 +434,12 @@ struct submit_outcome {
 submit_outcome do_send_once(const connection_data &con, const PB::Commands::SubmitRequestMessage &request_message) {
   submit_outcome r;
   try {
-    nsca_ng_connection conn(con.use_psk, con.tls_ciphers, con.timeout);
+    // For PSK, allowed_ciphers (when set) overrides the default PSK cipher list.
+    // For cert mode, the cipher list is applied later via configure_ssl_context.
+    nsca_ng_connection conn(con.use_psk, con.use_psk ? con.ssl.allowed_ciphers : std::string(), con.timeout);
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Connecting to: " + con.to_string()); }
     psk_credentials creds{con.identity, con.password};
-    conn.connect(con.get_address(), con.get_port(), con.use_psk, con.ssl.ca_path, creds);
+    conn.connect(con.get_address(), con.get_port(), con, creds);
 
     // MOIN handshake
     const std::string session_id = generate_session_id();
@@ -410,7 +506,9 @@ submit_outcome do_send_once(const connection_data &con, const PB::Commands::Subm
     r.retryable = true;
     return r;
   } catch (const boost::system::system_error &e) {
-    r.error_message = std::string("NSCA-NG error: ") + e.what();
+    // boost::system::system_error::what() bakes in the OS-native error string;
+    // convert so the message is safe to put into UTF-8 protobuf log fields.
+    r.error_message = std::string("NSCA-NG error: ") + utf8::utf8_from_native(e.what());
     r.retryable = true;
     return r;
   } catch (const std::exception &e) {
@@ -471,7 +569,7 @@ bool nsca_ng_client_handler::submit(client::destination_container sender, client
   nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
   connection_data con(target, sender);
 
-  NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Target configuration: " + target.to_string()); }
+  // (The connection details are already traced from do_send_once via con.to_string().)
 
   send(response_message.add_payload(), con, request_message);
   return true;

@@ -48,9 +48,11 @@ struct connection_data : public socket_helpers::connection_info {
   std::string password;
   std::string identity;
   std::string sender_hostname;
-  std::string tls_ciphers;
   std::size_t max_output_length = kDefaultMaxOutputBytes;
   bool use_psk = true;
+  // Opt-in to connect over TLS without authenticating the server (no PSK,
+  // no peer-cert verification). Default false; only honoured for cert mode.
+  bool insecure = false;
   // When true, results submitted on this target without an explicit
   // `service` are interpreted as Nagios host checks (PROCESS_HOST_CHECK_RESULT).
   // Default false so service checks are the unsurprising fallback.

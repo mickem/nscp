@@ -128,11 +128,27 @@ use psk         = false
 ca              = ${certificate-path}/ca.pem
 certificate     = ${certificate-path}/agent.pem
 certificate key = ${certificate-path}/agent.key
-verify mode    = peer-cert
+verify mode     = peer-cert
 ```
 
 When `use psk = false` the connection uses TLS 1.2 or 1.3 with the standard
 verify chain — no PSK ciphersuite restriction.
+
+!!! warning "Cert mode now fails closed without peer verification"
+    `verify mode` (combined with a valid `ca`) **must** authenticate the server
+    when running in cert mode. If the resolved verify mode does not include
+    `peer` (for example, the setting is missing, or set to `none`), the agent
+    refuses to connect with:
+
+    ```
+    Refusing to connect: TLS peer verification is disabled and PSK is not in
+    use. Either configure 'verify mode = peer-cert' with a 'ca = <path>',
+    re-enable 'use psk = true', or set 'insecure = true' to override.
+    ```
+
+    The hostname in `address` must also match the server certificate's CN /
+    SAN; if you connect to an IP literal, the cert needs that IP listed as a
+    SAN.
 
 ---
 
@@ -228,6 +244,13 @@ this — bump the value, or summarise on the agent before sending.
 Network/TLS failures retry with backoff. Server-side responses (`FAIL`,
 `BAIL`) are reported back to the caller without retrying — there's no point
 hammering a server that's actively refusing the credentials.
+
+### "Refusing to connect: TLS peer verification is disabled..."
+
+You're running in cert mode (`use psk = false`) without a verifying chain.
+Either set `verify mode = peer-cert` and supply a working `ca`, switch back
+to PSK with `use psk = true`, or — only if you understand the MITM risk —
+set `insecure = true` to permit unauthenticated TLS.
 
 ---
 
