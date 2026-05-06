@@ -8,9 +8,10 @@ path.append(os.getcwd() + '/scripts/python')
 from test_nsca import NSCAServerTest
 from test_nrpe import NRPEServerTest
 from test_python import PythonTest
+import test_uptime
 
 # 
-all_tests = [NSCAServerTest, PythonTest, NRPEServerTest]
+all_tests = [NSCAServerTest, PythonTest, NRPEServerTest, test_uptime.instance]
 if os.name == 'nt':
 	from test_eventlog import EventLogTest
 	from test_w32_system import Win32SystemTest

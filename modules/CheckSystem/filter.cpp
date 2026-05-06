@@ -21,8 +21,10 @@
 
 #include <boost/assign.hpp>
 #include <cmath>
+#include <list>
 #include <parsers/where/helpers.hpp>
 #include <str/utils.hpp>
+#include <str/xtos.hpp>
 
 using namespace parsers::where;
 
@@ -104,8 +106,24 @@ filter_obj_handler::filter_obj_handler() {
 
 namespace check_uptime_filter {
 parsers::where::node_type parse_time(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-  parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "d");
-  std::string expr = str::xtos(value.get<0>()) + value.get<2>();
+  // The where-parser may hand us either a single string literal ("30m") or a
+  // two-element list [number, unit] for tokenized inputs like "2d". For the
+  // list form, list_node::get_value joins with ", " and produces "2, d",
+  // which fails validate_time_spec under #589 and pollutes logs with
+  // "Invalid time specification". Reassemble the list manually (no
+  // separator) so both forms round-trip cleanly through stox_as_time_sec
+  // (issue #452 + #589 follow-up).
+  std::list<parsers::where::node_type> tokens = subject->get_list_value(context);
+  std::string expr;
+  if (tokens.size() == 2) {
+    auto cit = tokens.begin();
+    const long long n = (*cit)->get_int_value(context);
+    ++cit;
+    const std::string unit = (*cit)->get_value(context, parsers::where::type_string).get_string("");
+    expr = str::xtos(n) + unit;
+  } else {
+    expr = subject->get_string_value(context);
+  }
   return parsers::where::factory::create_int(str::format::stox_as_time_sec<long long>(expr, "s"));
 }
 
@@ -116,7 +134,8 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_perf("s", "", "");
   registry_.add_converter()(type_custom_uptime, &parse_time);
   registry_.add_human_string("boot", &filter_obj::get_boot_s, "The system boot time")
-      .add_human_string("uptime", &filter_obj::get_uptime_s, "Time sine last boot");
+      .add_human_string("uptime", &filter_obj::get_uptime_s, "Time since last boot (granularity controlled by --max-unit)")
+      .add_human_string("tz", &filter_obj::get_tz, "The timezone label used to render boot time");
 }
 }  // namespace check_uptime_filter
 

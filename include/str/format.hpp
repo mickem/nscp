@@ -237,10 +237,35 @@ T decode_time(const std::string &time, unsigned int factor = 1) {
 #define HOUR (60 * 60 * 1000)
 #define MINUTE (60 * 1000)
 #define SEC (1000)
-inline std::string itos_as_time(const unsigned long long time) {
+
+// Maximum unit to use when formatting a duration with `itos_as_time`.
+// Picking a smaller maximum forces the result to use coarser units only
+// (for example: `unit_day` keeps results bounded to days even for very long
+// uptimes, so a 6-week uptime renders as `42d 00:00`). The default is
+// `unit_week` which preserves backwards compatible output (issue #590).
+enum itos_as_time_unit { unit_second = 0, unit_minute = 1, unit_hour = 2, unit_day = 3, unit_week = 4 };
+
+// Parse a single-letter time-unit token (s|m|h|d|w, case-insensitive) into
+// `itos_as_time_unit`. Throws `std::invalid_argument` on anything else so
+// callers can surface a clear error to users (issue #590 follow-up).
+inline itos_as_time_unit parse_itos_as_time_unit(const std::string &s) {
+  if (s.size() == 1) {
+    switch (std::tolower(static_cast<unsigned char>(s[0]))) {
+      case 's': return unit_second;
+      case 'm': return unit_minute;
+      case 'h': return unit_hour;
+      case 'd': return unit_day;
+      case 'w': return unit_week;
+      default:;
+    }
+  }
+  throw std::invalid_argument("Invalid time unit: '" + s + "' (expected one of s|m|h|d|w)");
+}
+
+inline std::string itos_as_time(const unsigned long long time, itos_as_time_unit max_unit = unit_week) {
   unsigned long long rest = time;
   std::stringstream ss;
-  if (time > WEEK) {
+  if (time > WEEK && max_unit >= unit_week) {
     const auto w = static_cast<unsigned int>(rest / WEEK);
     rest -= (static_cast<unsigned long long>(w) * WEEK);
     const auto d = static_cast<unsigned int>(rest / DAY);
@@ -252,7 +277,7 @@ inline std::string itos_as_time(const unsigned long long time) {
     ss << "w " << d << "d ";
     ss << std::setfill('0') << std::setw(2);
     ss << h << ":" << std::setw(2) << m;
-  } else if (time > DAY) {
+  } else if (time > DAY && max_unit >= unit_day) {
     const auto d = static_cast<unsigned int>(rest / DAY);
     rest -= (static_cast<unsigned long long>(d) * DAY);
     const auto h = static_cast<unsigned int>(rest / HOUR);
@@ -262,13 +287,13 @@ inline std::string itos_as_time(const unsigned long long time) {
     ss << "d ";
     ss << std::setfill('0') << std::setw(2);
     ss << h << ":" << std::setw(2) << m;
-  } else if (time > HOUR) {
+  } else if (time > HOUR && max_unit >= unit_hour) {
     const auto h = static_cast<unsigned int>(rest / HOUR);
     rest -= (static_cast<unsigned long long>(h) * HOUR);
     const auto m = static_cast<unsigned int>(rest / MINUTE);
     ss << std::setfill('0') << std::setw(2);
     ss << h << ":" << std::setw(2) << m;
-  } else if (time > MINUTE) {
+  } else if (time > MINUTE && max_unit >= unit_minute) {
     ss << std::setfill('0');
     ss << "0:" << std::setw(2) << static_cast<unsigned int>(time / (60 * 1000));
   } else if (time > SEC)

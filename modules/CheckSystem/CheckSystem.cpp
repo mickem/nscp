@@ -32,6 +32,7 @@
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
+#include <nscp_time.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <set>
 #include <win/pdh/pdh_enumerations.hpp>
@@ -177,6 +178,15 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     .add_string("disable", sh::string_key(&collector->disable_, ""),
         "Disable automatic checks", "A comma separated list of checks to disable in the collector: battery,cpu,handles,network,temperature,cpu_frequency,os_updates,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
     ;
+
+  // Cache the configured timezone (issue #365). The value is owned by the
+  // module and resolved at load; it is not persisted in the settings core.
+  // Mirrors the pattern used by WEBServer/NRPEServer for "allowed hosts".
+  settings.alias()
+      .add_parent("/settings/default")
+      .add_key_to_settings()
+      .add_string("timezone", sh::string_key(&timezone_, "local"),
+          "Timezone", "Timezone used to render dates such as boot time. Accepts 'local' (default), 'utc', or any POSIX TZ string parseable by Boost.Date_time (e.g. 'MST-07' or 'EST-05EDT,M3.2.0,M11.1.0').", true);
 
   settings.alias().add_templates()
     ("counters", "plus", "Add a new counters",
@@ -612,10 +622,24 @@ void CheckSystem::check_uptime(const PB::Commands::QueryRequestMessage::Request 
   std::vector<std::string> times;
 
   filter_type filter;
+  std::string max_unit_str = "w";
   filter_helper.add_options("uptime < 2d", "uptime < 1d", "", filter.get_filter_syntax(), "ignored");
-  filter_helper.add_syntax("${status}: ${list}", "uptime: ${uptime}h, boot: ${boot} (UTC)", "uptime", "", "");
+  // The timezone label is rendered via the ${tz} placeholder so the configured
+  // value (default "local") is reflected in the output (issue #365).
+  filter_helper.add_syntax("${status}: ${list}", "uptime: ${uptime}h, boot: ${boot} (${tz})", "uptime", "", "");
+  filter_helper.get_desc().add_options()(
+      "max-unit", boost::program_options::value<std::string>(&max_unit_str)->default_value("w"),
+      "Largest time unit used to render ${uptime}: s|m|h|d|w (default: w). For a 6-week uptime, w=>'6w 0d 00:00', d=>'42d 00:00', h=>'1008:00'.");
 
   if (!filter_helper.parse_options()) return;
+
+  str::format::itos_as_time_unit max_unit;
+  try {
+    max_unit = str::format::parse_itos_as_time_unit(max_unit_str);
+  } catch (const std::invalid_argument &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, e.what());
+    return;
+  }
 
   if (!filter_helper.build_filter(filter)) return;
 
@@ -623,13 +647,15 @@ void CheckSystem::check_uptime(const PB::Commands::QueryRequestMessage::Request 
   if (value == 0) value = GetTickCount();
   value /= 1000;
 
-  boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
+  // `now` is rendered in the configured zone; `boot` is derived as
+  // `now - uptime` so it lands in the same wall-clock as `now`.
+  boost::posix_time::ptime now = nscp_time::now(timezone_);
   boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
   boost::posix_time::ptime boot = now - boost::posix_time::time_duration(0, 0, value);
 
-  long long now_delta = (now - epoch).total_seconds();
+  long long now_delta = (boost::posix_time::second_clock::universal_time() - epoch).total_seconds();
   long long uptime = static_cast<long long>(value);
-  boost::shared_ptr<check_uptime_filter::filter_obj> record(new check_uptime_filter::filter_obj(uptime, now_delta, boot));
+  boost::shared_ptr<check_uptime_filter::filter_obj> record(new check_uptime_filter::filter_obj(uptime, now_delta, boot, timezone_, max_unit));
   filter.match(record);
   filter_helper.post_process(filter);
 }
@@ -1049,7 +1075,7 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     if (value == 0) value = GetTickCount();
     value /= 1000;
 
-    boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
+    boost::posix_time::ptime now = nscp_time::now(timezone_);
     boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
     boost::posix_time::ptime boot = now - boost::posix_time::time_duration(0, 0, value);
 

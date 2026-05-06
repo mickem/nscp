@@ -82,6 +82,17 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 NSCP_CREATE_TEST(
+    nscp_time_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/nscp_time_test.cpp
+    LIBRARIES
+        GTest::gtest
+        GTest::gtest_main
+        ${Boost_DATE_TIME_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+NSCP_CREATE_TEST(
     logger_test
     SOURCES
         ${NSCP_INCLUDEDIR}/nsclient/logger/log_level_test.cpp

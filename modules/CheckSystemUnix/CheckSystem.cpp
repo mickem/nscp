@@ -29,6 +29,7 @@
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <nscp_time.hpp>
 #include <str/format.hpp>
 
 #include "check_cpu.h"
@@ -76,6 +77,16 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     ;
   // clang-format on
 
+  // Cache the configured timezone (issue #365). Mirrors the per-module
+  // pattern used elsewhere (e.g. WEBServer "allowed hosts").
+  settings.alias()
+      .add_parent("/settings/default")
+      .add_key_to_settings()
+      .add_string("timezone", sh::string_key(&timezone_, "local"), "Timezone",
+                  "Timezone used to render dates such as boot time. Accepts 'local' (default), 'utc', or any POSIX TZ string parseable by Boost.Date_time "
+                  "(e.g. 'MST-07' or 'EST-05EDT,M3.2.0,M11.1.0').",
+                  true);
+
   settings.register_all();
   settings.notify();
 
@@ -114,7 +125,7 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
   checks::check_cpu(collector_, request, response);
 }
 void CheckSystem::check_uptime(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  checks::check_uptime(request, response);
+  checks::check_uptime(request, response, timezone_);
 }
 void CheckSystem::check_pagefile(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_page::check_pagefile(collector_, request, response);
@@ -205,7 +216,7 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     double uptime_secs = 0;
     if (read_uptime_seconds(uptime_secs)) {
       const auto value = static_cast<unsigned long long>(uptime_secs);
-      const boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
+      const boost::posix_time::ptime now = nscp_time::now(timezone_);
       const boost::posix_time::ptime boot = now - boost::posix_time::time_duration(0, 0, static_cast<long>(value));
       add_metric(up, "ticks.raw", static_cast<long long>(value));
       add_metric(up, "boot.raw", static_cast<long long>(value));
