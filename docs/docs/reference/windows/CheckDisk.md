@@ -468,6 +468,38 @@ L     client OK: All drives ok
 L     client  Performance data: 'M:\ free'=83GB;0;27;0;2746 'M:\ free %'=3%;0;0;0;100
 ```
 
+To **restrict by filesystem type** — for example, only NTFS volumes — use the
+`filesystem` keyword (alias `fs`). The value compared against is whatever the
+OS reports via `GetVolumeInformation`, typically uppercase: `NTFS`, `FAT32`,
+`exFAT`, `ReFS`, `CDFS`, `UDF`. Empty string is reported for unmounted or
+unreadable volumes.
+
+```
+check_drivesize drive=* "filter=fs = 'NTFS'"
+L     client OK: All drives ok
+L     client  Performance data: 'C:\ used'=205GB;...
+```
+
+Combine with `type` to scope further — for example, only **fixed** disks that
+are **NTFS or ReFS**:
+
+```
+check_drivesize drive=* "filter=type = 'fixed' and fs in ('NTFS', 'ReFS')"
+```
+
+Use `like` for **case-insensitive** matching, since the OS reports uppercase
+but a recipe written as `'ntfs'` should still work:
+
+```
+check_drivesize drive=* "filter=filesystem like 'ntfs'"
+```
+
+Drop volumes whose filesystem could not be read (e.g. an empty CD/DVD drive):
+
+```
+check_drivesize drive=* "filter=fs != ''"
+```
+
 Default via NRPE:
 
 ```
@@ -624,36 +656,38 @@ For instance Microsoft Office creates a drive which cannot be read by normal use
 #### Filter keywords
 
 
-| Option         | Description                                          |
-|----------------|------------------------------------------------------|
-| drive          | Technical name of drive                              |
-| drive_or_id    | Drive letter if present if not use id                |
-| drive_or_name  | Drive letter if present if not use name              |
-| erasable       | 1 (true) if drive is erasable                        |
-| flags          | String representation of flags                       |
-| free           | Shorthand for total_free (Number of free bytes)      |
-| free_pct       | Shorthand for total_free_pct (% free space)          |
-| hotplug        | 1 (true) if drive is hotplugable                     |
-| id             | Drive or id of drive                                 |
-| letter         | Letter the drive is mountedd on                      |
-| media_type     | Get the media type                                   |
-| mounted        | Check if a drive is mounted                          |
-| name           | Descriptive name of drive                            |
-| readable       | 1 (true) if drive is readable                        |
-| removable      | 1 (true) if drive is removable                       |
-| size           | Total size of drive                                  |
-| total_free     | Number of free bytes                                 |
-| total_free_pct | % free space                                         |
-| total_used     | Number of used bytes                                 |
-| total_used_pct | % used space                                         |
-| type           | Type of drive                                        |
-| used           | Number of used bytes                                 |
-| used_pct       | Shorthand for total_used_pct (% used space)          |
-| user_free      | Free space available to user (which runs NSClient++) |
-| user_free_pct  | % free space available to user                       |
-| user_used      | Number of used bytes (related to user)               |
-| user_used_pct  | % used space available to user                       |
-| writable       | 1 (true) if drive is writable                        |
+| Option         | Description                                                           |
+|----------------|-----------------------------------------------------------------------|
+| drive          | Technical name of drive                                               |
+| drive_or_id    | Drive letter if present if not use id                                 |
+| drive_or_name  | Drive letter if present if not use name                               |
+| erasable       | 1 (true) if drive is erasable                                         |
+| filesystem     | Filesystem name as reported by the OS (e.g. NTFS, FAT32, exFAT, ReFS) |
+| flags          | String representation of flags                                        |
+| free           | Shorthand for total_free (Number of free bytes)                       |
+| free_pct       | Shorthand for total_free_pct (% free space)                           |
+| fs             | Shorthand alias for filesystem                                        |
+| hotplug        | 1 (true) if drive is hotplugable                                      |
+| id             | Drive or id of drive                                                  |
+| letter         | Letter the drive is mountedd on                                       |
+| media_type     | Get the media type                                                    |
+| mounted        | Check if a drive is mounted                                           |
+| name           | Descriptive name of drive                                             |
+| readable       | 1 (true) if drive is readable                                         |
+| removable      | 1 (true) if drive is removable                                        |
+| size           | Total size of drive                                                   |
+| total_free     | Number of free bytes                                                  |
+| total_free_pct | % free space                                                          |
+| total_used     | Number of used bytes                                                  |
+| total_used_pct | % used space                                                          |
+| type           | Type of drive                                                         |
+| used           | Number of used bytes                                                  |
+| used_pct       | Shorthand for total_used_pct (% used space)                           |
+| user_free      | Free space available to user (which runs NSClient++)                  |
+| user_free_pct  | % free space available to user                                        |
+| user_used      | Number of used bytes (related to user)                                |
+| user_used_pct  | % used space available to user                                        |
+| writable       | 1 (true) if drive is writable                                         |
 
 **Common options for all checks:**
 
