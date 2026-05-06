@@ -59,23 +59,41 @@ jobs:
       - name: Install base dependencies (DEB)
         if: inputs.package-type == 'deb'
         run: |
-          apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-pip python3-venv nodejs npm
+          retry() {
+            local n=0
+            until "$@"; do
+              n=$((n+1))
+              if [ $n -ge 3 ]; then echo "::error::Failed after $n attempts: $*" >&2; return 1; fi
+              echo "::warning::Attempt $n failed; retrying in $((n*5))s..." >&2
+              sleep $((n*5))
+            done
+          }
+          retry apt-get update
+          retry env DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-pip python3-venv nodejs npm
 
       - name: Install base dependencies (RPM)
         if: inputs.package-type == 'rpm'
         shell: sh
         run: |
-          dnf install -y epel-release
-          dnf install -y dnf-plugins-core
+          retry() {
+            n=0
+            until "$@"; do
+              n=$((n+1))
+              if [ $n -ge 3 ]; then echo "::error::Failed after $n attempts: $*" >&2; return 1; fi
+              echo "::warning::Attempt $n failed; retrying in $((n*5))s..." >&2
+              sleep $((n*5))
+            done
+          }
+          retry dnf install -y epel-release
+          retry dnf install -y dnf-plugins-core
           if [ "${{ matrix.distro_version }}" = "8" ]; then
             dnf config-manager --set-enabled powertools
           else
             dnf config-manager --set-enabled crb
           fi
-          dnf update -y
-          curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
-          dnf install -y --allowerasing coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build nodejs python3-devel dbus-devel bash nodejs coreutils procps-ng
+          retry dnf update -y
+          retry sh -c 'curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -'
+          retry dnf install -y --allowerasing coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build nodejs python3-devel dbus-devel bash nodejs coreutils procps-ng
 
       - uses: actions/checkout@v6
 
@@ -89,8 +107,20 @@ jobs:
         if: inputs.package-type == 'deb'
         shell: bash
         run: |
-          apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y python3-protobuf liblua5.3-0 || DEBIAN_FRONTEND=noninteractive apt-get install -y python3-protobuf liblua5.4-0
+          retry() {
+            local n=0
+            until "$@"; do
+              n=$((n+1))
+              if [ $n -ge 3 ]; then echo "::error::Failed after $n attempts: $*" >&2; return 1; fi
+              echo "::warning::Attempt $n failed; retrying in $((n*5))s..." >&2
+              sleep $((n*5))
+            done
+          }
+          retry apt-get update
+          # Wrap the whole expression so a transient failure retries both branches,
+          # not just the lua-5.4 fallback.
+          retry bash -c 'DEBIAN_FRONTEND=noninteractive apt-get install -y python3-protobuf liblua5.3-0 || DEBIAN_FRONTEND=noninteractive apt-get install -y python3-protobuf liblua5.4-0'
+          # Local .deb install - no network, no retry needed.
           DEBIAN_FRONTEND=noninteractive apt-get install -y ./NSCP-${{ inputs.version }}-${{ inputs.distro }}-${{ inputs.distro_version }}-${{ inputs.package-arch }}.deb
 
       # Linux: Install RPM package
@@ -100,8 +130,18 @@ jobs:
         env:
           PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
         run: |
-          dnf install -y epel-release || true
-          dnf install -y python3-devel python3 python3-protobuf lua 
+          retry() {
+            local n=0
+            until "$@"; do
+              n=$((n+1))
+              if [ $n -ge 3 ]; then echo "::error::Failed after $n attempts: $*" >&2; return 1; fi
+              echo "::warning::Attempt $n failed; retrying in $((n*5))s..." >&2
+              sleep $((n*5))
+            done
+          }
+          retry bash -c 'dnf install -y epel-release || true'
+          retry dnf install -y python3-devel python3 python3-protobuf lua
+          # Local .rpm install - no network, no retry needed.
           dnf install -y ./NSCP-${{ inputs.version }}-${{ inputs.distro }}-${{ inputs.distro_version }}-${{ inputs.package-arch }}.rpm
           nscp settings --load-all --list --add-defaults
 
@@ -123,7 +163,16 @@ jobs:
 
       - name: Setup Python for tests
         run: |
-          pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt
+          retry() {
+            local n=0
+            until "$@"; do
+              n=$((n+1))
+              if [ $n -ge 3 ]; then echo "::error::Failed after $n attempts: $*" >&2; return 1; fi
+              echo "::warning::Attempt $n failed; retrying in $((n*5))s..." >&2
+              sleep $((n*5))
+            done
+          }
+          retry bash -c 'pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt'
 
       - name: Run rest tests
         if: inputs.package-type == 'deb'

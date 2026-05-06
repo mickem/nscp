@@ -357,4 +357,4 @@ Other useful tools:
 
 - [Reference: NRPEServer](../reference/client/NRPEServer.md) — every NRPE server setting in detail
 - [Passive Monitoring (NSCA/NRDP)](passive-monitoring-nsca.md) — the inverse pattern, when the agent can't be reached directly
-- [Web Interface](web-interface.md) — manage the agent and its certificates from the browser
+- [Web Interface](../setup/web-interface.md) — manage the agent and its certificates from the browser

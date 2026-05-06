@@ -142,6 +142,6 @@ check_nrpe -H <agent-ip> -c check_drivesize
 ## Next Steps
 
 - [Windows Server Health](windows-server-health.md) — add disk checks to a full server health baseline
-- [Checks In Depth: Thresholds](../checks-in-depth/index.md#5-thresholds-choosing-whats-a-problem) — understand warn/crit expressions
-- [Checks In Depth: Performance Data](../checks-in-depth/index.md#7-performance-data) — customise performance data output
+- [Checks In Depth: Thresholds](../concepts/checks.md#6-thresholds-choosing-whats-a-problem) — understand warn/crit expressions
+- [Checks In Depth: Performance Data](../concepts/checks.md#8-performance-data) — customise performance data output
 - [Reference: CheckDisk](../reference/windows/CheckDisk.md) — full command reference

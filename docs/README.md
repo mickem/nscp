@@ -5,7 +5,7 @@ It is located in the `docs/` directory and can be edited with your preferred edi
 edit it online on GitHub.
 
 ```
-vim docs/installing.md
+vim docs/setup/installing.md
 ```
 
 In order to review and test changes, you can install the [mkdocs](http://www.mkdocs.org) Python library.

@@ -288,6 +288,74 @@ check_nrpe -H <agent-ip> -c check_my_svc
 
 ---
 
+## Running a Script on a Schedule (Locally)
+
+The Scheduler module is the same machinery used for [passive
+monitoring](passive-monitoring-nsca.md), but its `channel` knob doesn't have
+to point at a monitoring server. Two local-only channels are useful when you
+want NSClient++ to run a script periodically for reasons other than reporting
+to Nagios/Icinga:
+
+| Channel | Effect                                                                          | Use case                                                              |
+|---------|---------------------------------------------------------------------------------|-----------------------------------------------------------------------|
+| `noop`  | Discard the result entirely                                                     | Periodic remediation/maintenance scripts; fire-and-forget actions     |
+| `file`  | Append the result to a file via the `SimpleFileWriter` module                   | Local audit trail; feeding output to log shippers or other tools      |
+
+### Fire and forget (`channel = noop`)
+
+Run a remediation script every five minutes; do not push the result anywhere:
+
+```ini
+[/modules]
+CheckExternalScripts = enabled
+Scheduler            = enabled
+
+[/settings/external scripts/scripts/cleanup_temp]
+command = scripts\cleanup_temp.bat
+
+[/settings/scheduler/schedules/cleanup_loop]
+command  = cleanup_temp
+interval = 5m
+channel  = noop
+```
+
+### Write results to a file (`channel = file`)
+
+Append every run's output to a local file — useful as an audit trail or to
+feed a log shipper:
+
+```ini
+[/modules]
+CheckExternalScripts = enabled
+Scheduler            = enabled
+SimpleFileWriter     = enabled    ; provides the `file` channel
+
+[/settings/external scripts/scripts/collect_inventory]
+command = scripts\collect_inventory.ps1
+
+[/settings/scheduler/schedules/inventory_hourly]
+command  = collect_inventory
+schedule = 18 * * * *             ; 18 minutes past every hour
+channel  = file
+```
+
+By default `SimpleFileWriter` appends to `output.txt` next to `nsclient.ini`;
+see the module's reference for redirecting elsewhere or rotating the file.
+
+### When to use which channel
+
+| Goal                                                | Channel  | See also                                                              |
+|-----------------------------------------------------|----------|-----------------------------------------------------------------------|
+| Push results to Nagios / Icinga / NRDP              | `NSCA` / `NRDP` / `Icinga` | [Passive Monitoring (NSCA/NRDP)](passive-monitoring-nsca.md), [Passive Monitoring (Icinga 2)](passive-monitoring-icinga.md) |
+| Run a script periodically; don't care about output  | `noop`   | (this section)                                                        |
+| Run a script periodically; capture output locally   | `file`   | (this section)                                                        |
+
+For the full scheduler syntax — `interval` vs cron-style `schedule`, per-job
+overrides, real-time channels — see [Passive Monitoring → Configure the
+Scheduler](passive-monitoring-nsca.md#step-2-configure-the-scheduler).
+
+---
+
 ## Where to Find Scripts
 
 You don't have to write everything yourself. Community-maintained Nagios-

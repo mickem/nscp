@@ -195,4 +195,4 @@ regular `--generate`/`--update` commands preserve the existing order.
 
 - [Quick Start](../quick-start.md) — Install and run your first check
 - [Monitoring Scenarios](../scenarios/index.md) — Real-world examples
-- [Checks In Depth](../checks-in-depth/index.md) — Master filters and thresholds
+- [Checks In Depth](checks.md) — Master filters and thresholds

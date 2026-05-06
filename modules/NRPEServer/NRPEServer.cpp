@@ -140,11 +140,21 @@ bool NRPEServer::unloadModule() {
 std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p) {
   std::list<nrpe::packet> packets;
   str::utils::token cmd = str::utils::getToken(p.getPayload(), '!');
+  // Trace incoming requests so the log shows what the upstream server actually
+  // asked for (previously only the connection IP appeared in the log; the
+  // command name + argument blob were invisible). Gated because building the
+  // string traverses the payload and does string concatenation.
+  NSC_TRACE_ENABLED() {
+    NSC_TRACE_MSG("NRPE request: command='" + cmd.first + "' args='" + cmd.second + "' (payload_length=" + str::xtos(p.get_payload_length()) + ")");
+  }
   if (cmd.first == "_NRPE_CHECK") {
     packets.push_back(nrpe::packet::create_response(
         p.getVersion(), NSCAPI::query_return_codes::returnOK,
         "I (" + utf8::cvt<std::string>(nscapi::plugin_singleton->get_core()->getApplicationVersionString()) + ") seem to be doing fine...",
         p.get_payload_length()));
+    // Literal payload — NSC_TRACE_MSG already gates internally so no outer
+    // NSC_TRACE_ENABLED block is required here.
+    NSC_TRACE_MSG("NRPE response: _NRPE_CHECK ping reply");
     return packets;
   }
   if (!allowArgs_) {
@@ -213,9 +223,18 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p) {
       }
       packets.push_back(nrpe::packet::create_response(p.getVersion(), ret, data, p.get_payload_length()));
     }
+    // Trace what we are about to put on the wire. Note: this records the
+    // response NSClient++ produced — actually getting it to the client is the
+    // connection layer's job; if the upstream has already disconnected, the
+    // socket write will fail and that is logged separately by the connection.
+    NSC_TRACE_ENABLED() {
+      NSC_TRACE_MSG("NRPE response: command='" + cmd.first + "' rc=" + str::xtos(ret) + " message_bytes=" + str::xtos(wmsg.size()) +
+                    " perf_bytes=" + str::xtos(wperf.size()) + " packets=" + str::xtos(packets.size()));
+    }
   } catch (...) {
     packets.push_back(
         nrpe::packet::create_response(p.getVersion(), NSCAPI::query_return_codes::returnUNKNOWN, "UNKNOWN: Internal exception", p.get_payload_length()));
+    NSC_LOG_ERROR("NRPE response: command='" + cmd.first + "' produced internal exception, returning UNKNOWN");
     return packets;
   }
 

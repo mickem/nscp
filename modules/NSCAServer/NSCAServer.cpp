@@ -25,6 +25,7 @@
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <str/xtos.hpp>
 
 namespace CryptoPP {
 const std::string DEFAULT_CHANNEL = "";
@@ -121,6 +122,14 @@ bool NSCAServer::unloadModule() {
 }
 
 void NSCAServer::handle(nsca::packet p) {
+  // Trace inbound NSCA submissions so an operator can see what hosts/services
+  // a remote NSCA client is actually pushing through this server (the
+  // connection layer only logs the IP). Gated because the result body can be
+  // large and the string copy would otherwise be paid on every packet.
+  NSC_TRACE_ENABLED() {
+    NSC_TRACE_MSG("NSCA submission: host='" + p.host + "' service='" + p.service + "' code=" + str::xtos(p.code) +
+                  " result_bytes=" + str::xtos(p.result.size()));
+  }
   std::string response;
   std::string::size_type pos = p.result.find('|');
   nscapi::core_helper helper(get_core(), get_id());
@@ -131,5 +140,9 @@ void NSCAServer::handle(nsca::packet p) {
   } else {
     const std::string empty, msg = p.result;
     helper.submit_simple_message(channel_, p.host, "", p.service, nscapi::plugin_helper::int2nagios(p.code), msg, empty, response);
+  }
+  NSC_TRACE_ENABLED() {
+    NSC_TRACE_MSG("NSCA submission: host='" + p.host + "' service='" + p.service + "' channel='" + channel_ + "' submit_response_bytes=" +
+                  str::xtos(response.size()));
   }
 }

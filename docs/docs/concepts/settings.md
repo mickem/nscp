@@ -252,4 +252,4 @@ You can solve this in various ways:
  * The simplest approach is to move the settings file to a location only readable by the user running NSClient++.
  * Use the credential manager to store sensitive information.
 
-To learn more about the credential manager see [Securing NSClient++](../securing.md).
+To learn more about the credential manager see [Securing NSClient++](../setup/securing.md).

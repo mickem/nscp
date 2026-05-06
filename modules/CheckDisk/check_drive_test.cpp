@@ -35,6 +35,7 @@
 // translation units can be linked together by CMake.
 extern std::string type_to_string(const long long type);
 extern int do_convert_type(const std::string &keyword);
+extern std::string filter_obj_filesystem_for_test(const std::string &fs);
 
 // Magic constant used internally by check_drive.cpp to mark the synthetic
 // "total" drive type. Kept in sync with check_drive.cpp.
@@ -97,4 +98,36 @@ TEST(CheckDriveTypeRoundTrip, KeywordsAreRoundTrippable) {
     ASSERT_NE(t, -1) << "do_convert_type failed for: " << kw;
     EXPECT_EQ(type_to_string(t), kw) << "type_to_string mismatch for: " << kw;
   }
+}
+
+// ============================================================================
+// filesystem (`fs`) keyword wiring
+// ============================================================================
+//
+// These tests pin the round-trip from drive_container.fs (populated from
+// GetVolumeInformation) through filter_obj::get_filesystem() — the value
+// that backs the `filesystem` and `fs` filter keywords. The case is
+// preserved verbatim from what the OS hands us; users wanting case-
+// insensitive matching should use `like`.
+
+TEST(CheckDriveFilesystem, NtfsRoundTrips) { EXPECT_EQ(filter_obj_filesystem_for_test("NTFS"), "NTFS"); }
+
+TEST(CheckDriveFilesystem, CommonNamesRoundTrip) {
+  for (const std::string &fs : {"NTFS", "FAT32", "exFAT", "ReFS", "CDFS", "UDF"}) {
+    EXPECT_EQ(filter_obj_filesystem_for_test(fs), fs);
+  }
+}
+
+TEST(CheckDriveFilesystem, CaseIsPreservedVerbatim) {
+  // Windows reports uppercase, but we don't normalize — `like` handles
+  // case-insensitive matching at filter time.
+  EXPECT_EQ(filter_obj_filesystem_for_test("ntfs"), "ntfs");
+  EXPECT_EQ(filter_obj_filesystem_for_test("Ntfs"), "Ntfs");
+}
+
+TEST(CheckDriveFilesystem, EmptyWhenUnknown) {
+  // Unmounted / unreadable volumes yield an empty string from
+  // GetVolumeInformation; that empty must propagate so users can write
+  // `filesystem != ''` to filter them out.
+  EXPECT_EQ(filter_obj_filesystem_for_test(""), "");
 }

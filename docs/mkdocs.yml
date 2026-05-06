@@ -27,24 +27,23 @@ nav:
       - How NSClient++ Works: concepts/index.md
       - Checks In Depth: concepts/checks.md
       - Settings: concepts/settings.md
-  - Getting Started:
-      - Installation: installing.md
+  - Setup:
+      - Installation: setup/installing.md
+      - Securing NSClient++: setup/securing.md
+      - Web Interface: setup/web-interface.md
   - Monitoring Scenarios:
       - Overview: scenarios/index.md
-      - Web Interface: scenarios/web-interface.md
       - Windows Server Health: scenarios/windows-server-health.md
       - Disk Space Alerting: scenarios/disk-space.md
       - Service & Process Monitoring: scenarios/service-monitoring.md
       - Event Log Monitoring: scenarios/event-log.md
+      - Performance Counters (PDH): scenarios/counters.md
       - Network Checks: scenarios/network-checks.md
       - Active Monitoring with NRPE: scenarios/nrpe.md
       - Passive Monitoring (NSCA/NRDP): scenarios/passive-monitoring-nsca.md
       - Passive Monitoring (Icinga 2): scenarios/passive-monitoring-icinga.md
+      - Prometheus Scraping: scenarios/prometheus.md
       - External Scripts: scenarios/external-scripts.md
-  - How To:
-      - Performance Counters: howto/counters.md
-      - Running Commands: howto/run_commands.md
-      - Securing NSClient++: securing.md
   - Reference:
       - Reference: reference/index.md
       - Check commands:
@@ -89,16 +88,15 @@ nav:
       - Overview: extending/index.md
       - Python Scripts: extending/python.md
       - Zip Modules: extending/zip-modules.md
-  - API:
-      - REST:
-        - Introduction: api/rest/index.md
-        - Info: api/rest/info.md
-        - Modules: api/rest/modules.md
-        - Queries: api/rest/queries.md
-        - Scripts: api/rest/scripts.md
-        - Logs: api/rest/logs.md
-        - Legacy API: api/rest/legacy.md
-      - Plugin API: api/plugin.md
+      - Plugin API Reference: extending/plugin-api.md
+  - REST API:
+      - Introduction: api/rest/index.md
+      - Info: api/rest/info.md
+      - Modules: api/rest/modules.md
+      - Queries: api/rest/queries.md
+      - Scripts: api/rest/scripts.md
+      - Logs: api/rest/logs.md
+      - Legacy API: api/rest/legacy.md
   - FAQ: faq.md
 
 markdown_extensions:

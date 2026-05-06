@@ -114,12 +114,17 @@ check_memory "top-syntax=${list}" "detail-syntax=${type} free: ${free} used: ${u
 
 Now that NSClient++ is running, and you have run your first checks, choose a path:
 
-| I want to…                               | Go to…                                                               |
-|------------------------------------------|----------------------------------------------------------------------|
-| Monitor a real server end-to-end         | [Windows Server Health scenario](scenarios/windows-server-health.md) |
-| Set up disk space alerting               | [Disk Space scenario](scenarios/disk-space.md)                       |
-| Monitor a Windows service                | [Service Monitoring scenario](scenarios/service-monitoring.md)       |
-| Monitor the Windows event log            | [Event Log scenario](scenarios/event-log.md)                         |
-| Connect to my monitoring server via NRPE | [Connecting via NRPE](scenarios/nrpe.md)                             |
-| Connect via passive monitoring (NSCA)    | [Getting Started: NSCA](scenarios/passive-monitoring-nsca.md)        |
-| Understand filters and thresholds        | [Checks In Depth](concepts/index.md)                                 |
+| I want to…                                          | Go to…                                                                 |
+|-----------------------------------------------------|------------------------------------------------------------------------|
+| Monitor a real server end-to-end                    | [Windows Server Health scenario](scenarios/windows-server-health.md)   |
+| Set up disk space alerting                          | [Disk Space scenario](scenarios/disk-space.md)                         |
+| Monitor a Windows service                           | [Service Monitoring scenario](scenarios/service-monitoring.md)         |
+| Monitor the Windows event log                       | [Event Log scenario](scenarios/event-log.md)                           |
+| Read a Windows performance counter (PDH)            | [Performance Counter Monitoring](scenarios/counters.md)                |
+| Connect to my monitoring server via NRPE            | [Connecting via NRPE](scenarios/nrpe.md)                               |
+| Connect via passive monitoring (NSCA/NRDP)          | [Passive Monitoring (NSCA/NRDP)](scenarios/passive-monitoring-nsca.md) |
+| Let Prometheus scrape metrics from the host         | [Prometheus Scraping](scenarios/prometheus.md)                         |
+| Log in to the web UI (use the password from Step 1) | [Web Interface](setup/web-interface.md)                                |
+| Harden the agent (TLS, allowed hosts, …)            | [Securing NSClient++](setup/securing.md)                               |
+| Understand filters and thresholds                   | [Checks In Depth](concepts/checks.md)                                  |
+| Hit a problem or have a question                    | [FAQ](faq.md)                                                          |

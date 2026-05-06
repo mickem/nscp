@@ -21,7 +21,9 @@
 
 #include <boost/asio.hpp>
 #include <boost/lexical_cast.hpp>
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <str/xtos.hpp>
 
 #define REQ_CLIENTVERSION 1  // Works fine!
 #define REQ_CPULOAD 2        // Quirks
@@ -136,6 +138,13 @@ check_nt::packet handler_impl::handle(check_nt::packet p) {
 
   std::wstring message, perf;
   NSCAPI::nagiosReturn ret = nscapi::core_helper::simple_query(cmd.first.c_str(), args, message, perf);
+  // Trace what we are about to return to the check_nt client. The existing
+  // debug-level "Data: ..." line above shows the inbound payload; this
+  // companion line shows the outcome on the way back out.
+  NSC_TRACE_ENABLED() {
+    NSC_TRACE_MSG("check_nt response: command='" + strEx::wstring_to_string(cmd.first) + "' rc=" + str::xtos(ret) +
+                  " message_bytes=" + str::xtos(message.size()) + " perf_bytes=" + str::xtos(perf.size()));
+  }
   if (!nscapi::plugin_helper::isNagiosReturnCode(ret)) {
     if (message.empty()) return check_nt::packet("ERROR: Could not complete the request check log file for more information.");
     return check_nt::packet("ERROR: " + strEx::wstring_to_string(message));

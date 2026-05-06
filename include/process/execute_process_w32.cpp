@@ -28,6 +28,7 @@
 #include <error/error.hpp>
 #include <handle.hpp>
 #include <iostream>
+#include <nscapi/macros.hpp>
 #include <process/execute_process.hpp>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
@@ -222,6 +223,13 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
 
   if (processOK) {
     DWORD state = 0;
+    // Trace the spawn so an operator can correlate "spawn -> kill -> exit"
+    // log entries when triaging a hung or runaway script. The full command
+    // line was already traced by the caller (CheckExternalScripts).
+    NSC_TRACE_ENABLED() {
+      NSC_TRACE_MSG("Spawned external script: alias='" + args.alias + "' pid=" + str::xtos(pi.dwProcessId) +
+                    " timeout=" + str::xtos(args.timeout) + "s fork=" + (args.fork ? "true" : "false"));
+    }
     if (args.fork) {
       output = "Command started successfully";
       return NSCAPI::query_return_codes::returnOK;
@@ -257,16 +265,28 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
     remove_proc(pi.hProcess);
     CloseHandle(pi.hThread);
     if (state == WAIT_TIMEOUT) {
+      // Internal `timeout=` exceeded. Try a graceful CTRL-C first, then fall
+      // back to TerminateProcess. Previously this path was effectively
+      // invisible: the message went to the user-visible output only and the
+      // tree-kill path used std::cout which is lost when running as a
+      // service. Surface it via the proper log so operators can see when
+      // NSClient++'s own timeout fired vs. some upstream cutoff.
+      NSC_LOG_ERROR("External script '" + args.alias + "' (pid=" + str::xtos(pi.dwProcessId) + ") exceeded timeout=" + str::xtos(args.timeout) +
+                    "s; sending CTRL+C");
       if (GenerateConsoleCtrlEvent(CTRL_C_EVENT, pi.dwProcessId)) {
         if (WaitForSingleObject(pi.hProcess, 2000) == WAIT_OBJECT_0) {
           state = WAIT_OBJECT_0;
+          NSC_TRACE_ENABLED() {
+            NSC_TRACE_MSG("External script '" + args.alias + "' (pid=" + str::xtos(pi.dwProcessId) + ") exited after CTRL+C");
+          }
         }
       }
       if (state == WAIT_TIMEOUT) {
         if (args.kill_tree) {
-          std::cout << "Killing process tree for pid " << pi.dwProcessId << std::endl;
+          NSC_LOG_ERROR("External script '" + args.alias + "' (pid=" + str::xtos(pi.dwProcessId) + ") did not exit; killing process tree");
           kill_process_tree(pi.dwProcessId);
         } else {
+          NSC_LOG_ERROR("External script '" + args.alias + "' (pid=" + str::xtos(pi.dwProcessId) + ") did not exit; calling TerminateProcess");
           TerminateProcess(pi.hProcess, 5);
         }
         output = "Command " + args.alias + " didn't terminate within the timeout period " + str::xtos(args.timeout) + "s";

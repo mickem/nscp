@@ -16,11 +16,9 @@ Each scenario follows the same structure:
 
 ## Available Scenarios
 
-### Setup & First Steps
-
-| Scenario                          | Description                                                                                                |
-|-----------------------------------|------------------------------------------------------------------------------------------------------------|
-| [Web Interface](web-interface.md) | Enable the built-in web server and use the management UI to inspect status, run queries, and edit settings |
+!!! tip "Looking for install / hardening / web UI?"
+    Agent setup, TLS hardening, and the web management UI live in the
+    [Setup](../setup/installing.md) section.
 
 ### Infrastructure / System Health
 
@@ -30,6 +28,7 @@ Each scenario follows the same structure:
 | [Disk Space Alerting](disk-space.md)                  | Alert when drives are running low on free space                           |
 | [Service & Process Monitoring](service-monitoring.md) | Ensure critical Windows services and processes are running                |
 | [Event Log Monitoring](event-log.md)                  | Alert on errors and warnings in the Windows Event Log                     |
+| [Performance Counter (PDH) Monitoring](counters.md)   | Read Windows performance counters, average them over time, and alert      |
 
 ### Network
 
@@ -47,6 +46,7 @@ direction (active vs. passive) and protocol that matches your setup.
 | [Active Monitoring with NRPE](nrpe.md)                        | Let the monitoring server poll NSClient++ over NRPE (Nagios-style active checks) |
 | [Passive Monitoring (NSCA/NRDP)](passive-monitoring-nsca.md)  | Have NSClient++ push results to your monitoring server on a schedule             |
 | [Passive Monitoring (Icinga 2)](passive-monitoring-icinga.md) | Submit scheduled check results to the Icinga 2 REST API                          |
+| [Prometheus Scraping](prometheus.md)                          | Expose metrics on `/api/v2/openmetrics` for Prometheus to scrape                 |
 
 ### Extensibility
 
@@ -60,4 +60,4 @@ direction (active vs. passive) and protocol that matches your setup.
 
 If this is your first time, read the [Quick Start](../quick-start.md) guide first, then come back here and pick the scenario that matches what you need to monitor.
 
-To understand the filter and threshold engine that all checks share, see [Checks In Depth](../checks-in-depth/index.md).
+To understand the filter and threshold engine that all checks share, see [Checks In Depth](../concepts/checks.md).

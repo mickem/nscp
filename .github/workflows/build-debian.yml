@@ -48,8 +48,19 @@ jobs:
     steps:
     - name: Install dependencies
       run: |
-        apt-get update
-        DEBIAN_FRONTEND=noninteractive apt-get install -y git curl unzip libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev ${{ matrix.lua_package }} cmake build-essential python3-pip libdbus-1-dev
+        # Inline retry helper: package-mirror flakiness on hosted runners makes
+        # apt-get update / install fail intermittently. 3 attempts, 5s/10s backoff.
+        retry() {
+          local n=0
+          until "$@"; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then echo "::error::Failed after $n attempts: $*" >&2; return 1; fi
+            echo "::warning::Attempt $n failed; retrying in $((n*5))s..." >&2
+            sleep $((n*5))
+          done
+        }
+        retry apt-get update
+        retry env DEBIAN_FRONTEND=noninteractive apt-get install -y git curl unzip libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev ${{ matrix.lua_package }} cmake build-essential python3-pip libdbus-1-dev
 
     - uses: actions/checkout@v6
 
@@ -67,10 +78,21 @@ jobs:
     - name: setup python dependencies
       shell: bash
       run: |
+        retry() {
+          local n=0
+          until "$@"; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then echo "::error::Failed after $n attempts: $*" >&2; return 1; fi
+            echo "::warning::Attempt $n failed; retrying in $((n*5))s..." >&2
+            sleep $((n*5))
+          done
+        }
         if [ "${{ matrix.distro_version }}" = "20.04" ]; then
-          pip3 install mkdocs protobuf jinja2 mkdocs-material lua-protobuf md-protobuf setuptools
+          retry pip3 install mkdocs protobuf jinja2 mkdocs-material lua-protobuf md-protobuf setuptools
         else
-          pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt
+          # Wrap the whole "try break-system-packages, fall back if old pip" expression
+          # so a transient PyPI failure retries the *entire* install, not just the fallback.
+          retry bash -c 'pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt'
         fi
 
     - id: tinyxml2
