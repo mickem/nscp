@@ -6,7 +6,7 @@ NSClient++ supports a multitude of protocols thus securing the server will depen
 
 ## NRPE
 
-For details on setting up and using NRPE please see the [Getting started guide](./getting-started.md).
+For details on setting up and using NRPE please see the [Active Monitoring with NRPE](../scenarios/nrpe.md).
 
 In general when using NRPE do not use NRPE version 2 with the ADH key and do not rely on allowed hosts as the security mechanism.
 Instead, certificates and proper two-way TLS are preferred.
@@ -18,7 +18,7 @@ To set up NRPE with two-way TLS you need to:
 4. Configure NSClient++ to use the server certificate and trust the CA.
 5. Configure the monitoring server to use the client certificate and trust the CA.
 
-Step 1-3 will depend on your environment and is covered in the [Getting started guide](./getting-started.md).
+Step 1-3 will depend on your environment and is covered in the [Active Monitoring with NRPE](../scenarios/nrpe.md).
 Step 4 can easily be setup with from the command line like so:
 
 ```commandline

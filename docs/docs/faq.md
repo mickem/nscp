@@ -27,6 +27,10 @@ The MSI is the preferred way to install NSClient++ and will work much better the
 
 For details: Microsoft KB: [http://support.microsoft.com/kb/300956](http://support.microsoft.com/kb/300956) essentially you need to use the `lodctr /R` command.
 
+For a complete walkthrough of finding, validating, averaging, and alerting on performance
+counters — including the localisation, capping, and rate-counter gotchas — see
+[Performance Counter (PDH) Monitoring](scenarios/counters.md).
+
 ### 1.4 Bind failed
 
 Usually this is due to running more then once instance of NSClient++ or possibly running another program that uses the same port.

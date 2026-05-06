@@ -201,5 +201,5 @@ check_nrpe -H <agent-ip> -c check_eventlog
 
 - [Passive Monitoring](passive-monitoring-nsca.md) — use NSCA/NRDP to push real-time event log alerts
 - [Service & Process Monitoring](service-monitoring.md) — correlate service failures with event log errors
-- [Checks In Depth: Filters](../checks-in-depth/index.md#4-filters-choosing-what-to-check) — master filter expressions
+- [Checks In Depth: Filters](../concepts/checks.md#5-filters-choosing-what-to-check) — master filter expressions
 - [Reference: CheckEventLog](../reference/windows/CheckEventLog.md) — full command reference

@@ -267,4 +267,4 @@ check_nrpe -H <agent-ip> -c check_uptime
 - [Disk Space Alerting](disk-space.md) — more disk check options
 - [Service & Process Monitoring](service-monitoring.md) — check that critical services are running
 - [Event Log Monitoring](event-log.md) — catch errors before they become incidents
-- [Checks In Depth: Filters](../checks-in-depth/index.md#4-filters-choosing-what-to-check) — master the filter and threshold syntax
+- [Checks In Depth: Filters](../concepts/checks.md#5-filters-choosing-what-to-check) — master the filter and threshold syntax

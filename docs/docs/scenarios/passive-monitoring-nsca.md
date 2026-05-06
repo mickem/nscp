@@ -156,13 +156,41 @@ Each key becomes the **service name** that Nagios/Icinga will see in the passive
 
 ### Schedule options reference
 
-| Option     | Description                                                                                |
-|------------|--------------------------------------------------------------------------------------------|
-| `interval` | How often the check runs (e.g. `30s`, `5m`, `1h`). Apply via the `default` template.       |
-| `command`  | The check command to execute. With short-form (`name = command`) this is the value.        |
-| `alias`    | Name reported back to Nagios. Defaults to the schedule key, so usually omitted.            |
-| `channel`  | Target channel for the result. Defaults to `NSCA`; set this to fan out to other channels.  |
+| Option     | Description                                                                                  |
+|------------|----------------------------------------------------------------------------------------------|
+| `interval` | How often the check runs (e.g. `30s`, `5m`, `1h`). Apply via the `default` template.         |
+| `schedule` | Cron-style alternative to `interval` (see below). Use one or the other, not both.            |
+| `command`  | The check command to execute. With short-form (`name = command`) this is the value.          |
+| `alias`    | Name reported back to Nagios. Defaults to the schedule key, so usually omitted.              |
+| `channel`  | Target channel for the result. Defaults to `NSCA`; set this to fan out to other channels.    |
 | `report`   | Filter on which results are sent: `all`, `ok`, `warning`, `critical`, or comma-combinations. |
+
+### Cron-style schedules
+
+When you need finer control than "every N minutes" — e.g. "47 minutes past every
+hour", "weekdays at 06:00", or "every Sunday at midnight" — use `schedule`
+instead of `interval`. The five fields are the standard cron form:
+**minute hour day-of-month month day-of-week**.
+
+```ini
+[/settings/scheduler/schedules/disk_c]
+command  = check_drivesize drive=C: "warn=free < 20%" "crit=free < 10%"
+schedule = 47 * * * *      ; 47 minutes past every hour
+channel  = NSCA
+
+[/settings/scheduler/schedules/nightly_full]
+command  = check_drivesize
+schedule = 0 2 * * *       ; every day at 02:00
+channel  = NSCA
+
+[/settings/scheduler/schedules/weekday_office]
+command  = check_cpu
+schedule = */15 8-18 * * 1-5  ; every 15 min, 08:00–18:00, Mon–Fri
+channel  = NSCA
+```
+
+Use `interval` for the simple recurring case; reach for `schedule` when you
+need a specific wall-clock time or weekday filter.
 
 ### Short-form vs. long-form schedules
 

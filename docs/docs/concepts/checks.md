@@ -41,7 +41,65 @@ Each step has its own option. The four most important are:
 
 ---
 
-## 2. Two Indispensable Built-in Helpers
+## 2. Trying It Out (Test Mode)
+
+The fastest way to learn the engine is to drive a check yourself. NSClient++ ships with a built-in
+**test shell** that runs the same modules the service does, but interactively, with all log output
+visible.
+
+### Start the shell
+
+```
+nscp test --settings dummy
+...
+L     client Enter command to inject or exit to terminate...
+```
+
+`--settings dummy` skips your real configuration so nothing on disk surprises you. Type `exit` to leave.
+
+### Load a module
+
+Out of the box the shell has no checks loaded. Each check lives in a module — load it once per
+session:
+
+```
+load CheckSystem
+```
+
+Now `check_cpu`, `check_memory`, `check_uptime`, etc. are available:
+
+```
+check_cpu
+L     client OK: CPU Load ok
+L     client  Performance data: 'total 5m'=0%;80;90 'total 1m'=1%;80;90 'total 5s'=11%;80;90
+```
+
+### See what's going on (debug logs)
+
+Trace and debug log lines are hidden by default. Two ways to turn them on:
+
+```
+nscp test --settings dummy --log debug
+```
+
+Use `level = trace` for maximum verbosity (incoming requests, child-process spawn/exit, response
+metadata).
+
+### Argument syntax
+
+Options are passed as `keyword=value`, with quotes when the value contains spaces or shell-meta
+characters:
+
+```
+check_cpu filter=none
+check_cpu "filter=core = 'total'" "warn=load > 80"
+```
+
+Some keywords are flags with no value (e.g. `help`, `show-all`, `show-default`).
+
+---
+
+## 3. Two Indispensable Built-in Helpers
 
 Before changing anything, learn these two commands. They work for **every** check.
 
@@ -70,7 +128,7 @@ Gives the full list of options, filter keywords, and example usage for that spec
 
 ---
 
-## 3. A Quick End-to-End Example
+## 4. A Quick End-to-End Example
 
 The same `check_cpu`, with progressively more customisation:
 
@@ -98,7 +156,7 @@ The rest of this page explains exactly what each of those options does.
 
 ---
 
-## 4. Filters — Choosing What to Check
+## 5. Filters — Choosing What to Check
 
 A **filter** is an expression evaluated for each item. Items where it is `true` are included; items where it is `false`
 are dropped.
@@ -191,7 +249,7 @@ check_eventlog scan-range=-24h "crit=written > -1h"
 
 ---
 
-## 5. Thresholds — Choosing What's a Problem
+## 6. Thresholds — Choosing What's a Problem
 
 `warn` and `crit` use the **same expression language as filters**. The difference: instead of including/excluding items,
 they decide which items count as alerts.
@@ -252,7 +310,7 @@ check_service "filter=name = 'NonExistentService'" empty-state=ok
 
 ---
 
-## 6. Output Syntax — Choosing the Message Text
+## 7. Output Syntax — Choosing the Message Text
 
 Three options shape the message. They affect *only* the human-readable text — never the status or perfdata.
 
@@ -313,7 +371,7 @@ check_service "top-syntax=${list}" "detail-syntax=${name}: ${state}"
 
 ---
 
-## 7. Performance Data
+## 8. Performance Data
 
 Performance data is the machine-readable metrics used for graphing, in the standard Nagios format:
 
@@ -409,7 +467,7 @@ Useful when your graphing system is picky about names.
 
 ---
 
-## 8. Putting It Together
+## 9. Putting It Together
 
 Pick a check, run `show-default`, identify the option you want to change, change just that one. Repeat.
 
