@@ -93,7 +93,10 @@ filter_obj_handler::filter_obj_handler() {
   // clang-format on
   registry_.add_human_string("size", &filter_obj::get_total_human, "")
       .add_human_string("free", &filter_obj::get_free_human, "")
-      .add_human_string("used", &filter_obj::get_used_human, "");
+      .add_human_string("used", &filter_obj::get_used_human, "")
+      // Issue #595: render percentages with two decimals via human-string
+      .add_human_string("used_pct", &filter_obj::get_used_pct_human, "")
+      .add_human_string("free_pct", &filter_obj::get_free_pct_human, "");
 
   registry_.add_converter()(type_custom_free, &calculate_free)(type_custom_used, &calculate_free);
 }

@@ -57,6 +57,7 @@ class settings_client {
   int show(std::string path, std::string key);
   int list(std::string path);
   int validate();
+  int sort();
   void error_msg(const char* file, const int line, std::string msg);
   void debug_msg(const char* file, const int line, std::string msg);
 

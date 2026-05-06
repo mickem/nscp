@@ -126,10 +126,21 @@ class settings_http : public settings::settings_interface_impl {
       tmp_file = resolve_cache_file(url);
     }
 
+    // RAII-ish guard so we never leak the tmp file on any code path (issue #370).
+    struct tmp_guard {
+      boost::filesystem::path path;
+      bool active = true;
+      ~tmp_guard() {
+        if (!active) return;
+        boost::system::error_code ec;
+        if (boost::filesystem::exists(path, ec)) boost::filesystem::remove(path, ec);
+      }
+    } guard{tmp_file};
+
     std::ofstream os(tmp_file.string().c_str(), std::ofstream::binary);
-    std::string error;
 
     try {
+      std::string error;
       http::request packet("GET", url.get_host(), url.path);
 
       std::string def_port = url.protocol == "https" ? "443" : "80";
@@ -209,7 +220,9 @@ class settings_http : public settings::settings_interface_impl {
           }
         }
       }
+      mz_zip_reader_end(&zip_archive);
 #endif
+      // tmp_file is the downloaded zip; the guard above removes it (issue #370).
     } else {
       if (boost::filesystem::is_regular_file(local_file)) {
         std::string old_hash = hash_file(local_file);
@@ -219,14 +232,23 @@ class settings_http : public settings::settings_interface_impl {
             get_logger()->error("settings", __FILE__, __LINE__, "Compiled without cryptopp cannot detect changes (assuming always changed)");
           }
           get_logger()->debug("settings", __FILE__, __LINE__, "File has changed: " + local_file.string());
+          // Use remove+rename so this also works when local_file already
+          // exists on Windows where rename is non-overwriting.
+          boost::system::error_code ec;
+          boost::filesystem::remove(local_file, ec);
           boost::filesystem::rename(tmp_file, local_file);
+          guard.active = false;  // tmp_file has been moved into place
           return true;
         }
+        // Hashes match: the cached file is up to date and we just leave
+        // local_file alone. The guard removes the now-redundant tmp_file
+        // (issue #370).
       } else {
         if (!boost::filesystem::exists(local_file.parent_path())) {
           boost::filesystem::create_directories(local_file.parent_path());
         }
         boost::filesystem::rename(tmp_file, local_file);
+        guard.active = false;  // tmp_file has been moved into place
       }
     }
     return false;

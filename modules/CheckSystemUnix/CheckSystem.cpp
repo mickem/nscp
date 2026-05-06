@@ -186,7 +186,7 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
         add_metric(mem, prefix + ".total", total);
         add_metric(mem, prefix + ".avail", avail);
         add_metric(mem, prefix + ".used", used);
-        add_metric(mem, prefix + ".%", total == 0 ? 0ll : static_cast<long long>((100ull * used) / total));
+        add_metric(mem, prefix + ".%", str::format::calc_pct_round(used, total));
       };
       add_mem_section("physical", m.physical.total, m.physical.free);
       add_mem_section("cached", m.cached.total, m.cached.free);

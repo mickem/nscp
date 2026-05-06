@@ -63,6 +63,7 @@ typedef std::list<std::string> error_list;
 
 class settings_interface {
  public:
+  virtual ~settings_interface() = default;
   typedef std::list<std::string> string_list;
   typedef boost::optional<std::string> op_string;
   typedef boost::optional<int> op_int;
@@ -193,6 +194,15 @@ class settings_interface {
   ///
   /// @author mickem
   virtual void save(bool re_save_all) = 0;
+  //////////////////////////////////////////////////////////////////////////
+  /// Re-emit the settings store with sections (and keys within each section)
+  /// in alphabetical order. Backends that have no concept of ordering
+  /// (anything other than the INI backend) treat this as a regular save.
+  ///
+  /// Triggered by `nscp settings --sort` (issue #205); intentionally NOT a
+  /// default of --generate/--update so that explicit user ordering of the
+  /// nsclient.ini file is preserved unless the user asks otherwise.
+  virtual void save_sorted() { save(true); }
   //////////////////////////////////////////////////////////////////////////
   /// Load settings from the context.
   ///

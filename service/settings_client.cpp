@@ -175,6 +175,22 @@ int nsclient_core::settings_client::validate() {
   return 0;
 }
 
+int nsclient_core::settings_client::sort() {
+  try {
+    debug_msg(__FILE__, __LINE__, "Sorting settings store: " + get_core()->get()->get_context());
+    get_core()->get()->save_sorted();
+    std::cout << "Sorted settings written to: " << get_core()->get()->get_context() << std::endl;
+    return 0;
+  } catch (settings::settings_exception &e) {
+    error_msg(__FILE__, __LINE__, "Failed to sort settings: " + utf8::utf8_from_native(e.what()));
+  } catch (std::exception &e) {
+    error_msg(__FILE__, __LINE__, "Failed to sort settings: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
+  }
+  return 1;
+}
+
 void nsclient_core::settings_client::error_msg(const char *file, const int line, std::string msg) {
   core_->get_logger()->error("client", file, line, msg.c_str());
 }
