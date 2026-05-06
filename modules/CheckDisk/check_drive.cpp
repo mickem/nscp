@@ -33,6 +33,7 @@
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/where/helpers.hpp>
 #include <str/format.hpp>
+#include <utility>
 
 #ifdef WIN32
 #include <Windows.h>
@@ -60,6 +61,11 @@ struct drive_container {
   std::string letter;
   std::string letter_only;
   std::string name;
+  // Filesystem name as reported by the OS (`GetVolumeInformation`):
+  // typically "NTFS", "FAT32", "exFAT", "ReFS", "CDFS", … Empty if the
+  // information could not be retrieved (unmounted/unavailable volumes).
+  // Exposed to filter expressions via the `filesystem` keyword (alias `fs`).
+  std::string fs;
   bool is_mounted;
   enum drive_flags {
     df_none = 0,
@@ -79,28 +85,12 @@ struct drive_container {
   drive_container() : is_mounted(false), type(0), flags(df_none) {}
 
  public:
-  drive_container(std::string id, std::string letter, std::string name, bool is_mounted, unsigned long long type, drive_flags flags)
-      : id(id), letter(letter), name(name), is_mounted(is_mounted), type(type), flags(flags) {
+  drive_container(std::string id, const std::string& letter, std::string name, std::string fs, bool is_mounted, unsigned long long type, drive_flags flags)
+      : id(std::move(id)), letter(letter), name(std::move(name)), fs(std::move(fs)), is_mounted(is_mounted), type(type), flags(flags) {
     letter_only = letter.substr(0, 1);
   }
-  drive_container(const drive_container &other)
-      : id(other.id),
-        letter(other.letter),
-        letter_only(other.letter_only),
-        name(other.name),
-        is_mounted(other.is_mounted),
-        type(other.type),
-        flags(other.flags) {}
-  drive_container &operator=(const drive_container &other) {
-    id = other.id;
-    letter = other.letter;
-    letter_only = other.letter_only;
-    name = other.name;
-    is_mounted = other.is_mounted;
-    type = other.type;
-    flags = other.flags;
-    return *this;
-  }
+  drive_container(const drive_container &other) = default;
+  drive_container &operator=(const drive_container &other) = default;
 };
 
 inline drive_container::drive_flags operator|=(drive_container::drive_flags &a, const drive_container::drive_flags b) {
@@ -139,6 +129,9 @@ struct filter_obj {
   std::string get_id() const { return drive.id; }
   std::string get_drive_or_id() const { return drive.letter.empty() ? drive.id : drive.letter; }
   std::string get_drive_or_name() const { return drive.letter.empty() ? drive.name : drive.letter; }
+  // Filesystem name as reported by the OS (e.g. "NTFS", "FAT32", "exFAT",
+  // "ReFS"). Empty string when the volume is not readable.
+  std::string get_filesystem() const { return drive.fs; }
   std::string get_flags() const {
     std::string ret;
     if ((drive.flags & drive_container::df_mounted) == drive_container::df_mounted) str::format::append_list(ret, "mounted");
@@ -244,7 +237,7 @@ struct filter_obj {
     std::wstring drv = get_volume_or_letter_w();
     if (drv.size() == 1) drv = drv + L":\\";
     if (!GetDiskFreeSpaceEx(drv.c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
-      DWORD err = GetLastError();
+      const DWORD err = GetLastError();
       // Always populate zero sizes so subsequent attribute lookups do not
       // re-enter this function. Specific error codes below additionally clear
       // the mounted/readable flags so the default filter excludes the drive.
@@ -357,6 +350,16 @@ parsers::where::node_type convert_type(boost::shared_ptr<filter_obj> object, par
 }
 
 long long get_zero() { return 0; }
+
+// Test seam: round-trip a filesystem name through drive_container + filter_obj.
+// Pinned via an extern declaration in check_drive_test.cpp so that the
+// `filesystem`/`fs` filter keyword's wiring (struct field -> getter) can be
+// verified without exposing the full types.
+std::string filter_obj_filesystem_for_test(const std::string &fs) {
+  drive_container dc("id", "C:\\", "name", fs, true, 0, drive_container::df_none);
+  filter_obj obj(dc);
+  return obj.get_filesystem();
+}
 typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler : public native_context {
   static const parsers::where::value_type type_custom_total_used = parsers::where::type_custom_int_1;
@@ -372,7 +375,12 @@ struct filter_obj_handler : public native_context {
         .add_string("letter", &filter_obj::get_letter, "Letter the drive is mountedd on")
         .add_string("flags", &filter_obj::get_flags, "String representation of flags")
         .add_string("drive_or_id", &filter_obj::get_drive_or_id, "Drive letter if present if not use id")
-        .add_string("drive_or_name", &filter_obj::get_drive_or_name, "Drive letter if present if not use name");
+        .add_string("drive_or_name", &filter_obj::get_drive_or_name, "Drive letter if present if not use name")
+        // Filesystem name (e.g. "NTFS", "FAT32", "exFAT", "ReFS"). `fs` is a
+        // shorthand alias for the same value. Use `like` for case-insensitive
+        // matching since the OS reports uppercase ("NTFS").
+        .add_string("filesystem", &filter_obj::get_filesystem, "Filesystem name as reported by the OS (e.g. NTFS, FAT32, exFAT, ReFS)")
+        .add_string("fs", &filter_obj::get_filesystem, "Shorthand alias for filesystem");
     // clang-format off
     registry_.add_int()
       ("free", type_custom_total_free, &filter_obj::get_total_free, "Shorthand for total_free (Number of free bytes)")
@@ -661,15 +669,16 @@ class volume_helper {
       std::wstring name, fs;
       unsigned long long type;
       drive_container::drive_flags flags = drive_container::df_none;
-      bool is_valid = getVolumeInformation(volume, name, fs, type, flags);
+      const bool is_valid = getVolumeInformation(volume, name, fs, type, flags);
 
       bool found_mp = false;
-      std::string title = utf8::cvt<std::string>(name);
+      const std::string title = utf8::cvt<std::string>(name);
+      const std::string fs_name = utf8::cvt<std::string>(fs);
       for (const std::wstring &s : GetVolumePathNamesForVolumeName(volume)) {
-        ret.push_back(drive_container(utf8::cvt<std::string>(volume), utf8::cvt<std::string>(s), title, true, type, flags));
+        ret.emplace_back(utf8::cvt<std::string>(volume), utf8::cvt<std::string>(s), title, fs_name, true, type, flags);
         found_mp = true;
       }
-      if (!found_mp && is_valid) ret.push_back(drive_container(utf8::cvt<std::string>(volume), "", title, false, type, flags));
+      if (!found_mp && is_valid) ret.emplace_back(utf8::cvt<std::string>(volume), "", title, fs_name, false, type, flags);
       bFlag = FindNextVolume(hVol, volume);
     }
     FindVolumeClose(hVol);
@@ -698,27 +707,29 @@ void find_all_volumes(std::list<drive_container> &drives, std::vector<std::strin
   }
 }
 
-drive_container get_dc_from_string(std::wstring folder, volume_helper &helper) {
+drive_container get_dc_from_string(const std::wstring& folder, volume_helper &helper) {
   std::wstring volume = helper.GetVolumeNameForVolumeMountPoint(folder);
   unsigned long long type = 0;
-  std::string title = "";
+  std::string title;
+  std::string fs_name;
   drive_container::drive_flags flags = drive_container::df_none;
   if (!volume.empty()) {
     std::wstring wtitle, wfs;
     helper.getVolumeInformation(volume, wtitle, wfs, type, flags);
     title = utf8::cvt<std::string>(wtitle);
+    fs_name = utf8::cvt<std::string>(wfs);
   }
-  return drive_container(utf8::cvt<std::string>(volume), utf8::cvt<std::string>(folder), title, true, type, flags);
+  return drive_container(utf8::cvt<std::string>(volume), utf8::cvt<std::string>(folder), title, fs_name, true, type, flags);
 }
 void find_all_drives(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives, volume_helper &helper) {
-  DWORD bufSize = GetLogicalDriveStrings(0, NULL) + 5;
-  hlp::tchar_buffer buffer(bufSize);
+  const DWORD bufSize = GetLogicalDriveStrings(0, nullptr) + 5;
+  const hlp::tchar_buffer buffer(bufSize);
 
   if (GetLogicalDriveStrings(bufSize, buffer.get()) > 0) {
     for (std::size_t i = 0; i < buffer.size();) {
       std::wstring drv = buffer.get(i);
       if (drv.empty()) break;
-      std::string drive = utf8::cvt<std::string>(drv);
+      const std::string drive = utf8::cvt<std::string>(drv);
       if (std::find(exclude_drives.begin(), exclude_drives.end(), drive) == exclude_drives.end()) {
         add_missing(drives, exclude_drives, get_dc_from_string(drv, helper));
       }
@@ -797,9 +808,9 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
 
   if (!filter_helper.build_filter(filter)) return;
 
-  if (drives.empty()) drives.push_back("*");
+  if (drives.empty()) drives.emplace_back("*");
   if (!total) {
-    std::vector<std::string>::iterator it = std::find(drives.begin(), drives.end(), "total");
+    auto it = std::find(drives.begin(), drives.end(), "total");
     if (it != drives.end()) {
       total = true;
       drives.erase(it);
@@ -815,7 +826,7 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
     }
   }
   if (!buffer.empty()) excludes.insert(excludes.end(), buffer.begin(), buffer.end());
-  drive_container total_dc("total", "total", "total", true, 0, drive_container::df_none);
+  drive_container total_dc("total", "total", "total", "", true, 0, drive_container::df_none);
   boost::shared_ptr<filter_obj> total_obj(new filter_obj(total_dc));
   if (total) total_obj->make_total();
 

@@ -63,6 +63,38 @@ L     client OK: All drives ok
 L     client  Performance data: 'M:\ free'=83GB;0;27;0;2746 'M:\ free %'=3%;0;0;0;100
 ```
 
+To **restrict by filesystem type** — for example, only NTFS volumes — use the
+`filesystem` keyword (alias `fs`). The value compared against is whatever the
+OS reports via `GetVolumeInformation`, typically uppercase: `NTFS`, `FAT32`,
+`exFAT`, `ReFS`, `CDFS`, `UDF`. Empty string is reported for unmounted or
+unreadable volumes.
+
+```
+check_drivesize drive=* "filter=fs = 'NTFS'"
+L     client OK: All drives ok
+L     client  Performance data: 'C:\ used'=205GB;...
+```
+
+Combine with `type` to scope further — for example, only **fixed** disks that
+are **NTFS or ReFS**:
+
+```
+check_drivesize drive=* "filter=type = 'fixed' and fs in ('NTFS', 'ReFS')"
+```
+
+Use `like` for **case-insensitive** matching, since the OS reports uppercase
+but a recipe written as `'ntfs'` should still work:
+
+```
+check_drivesize drive=* "filter=filesystem like 'ntfs'"
+```
+
+Drop volumes whose filesystem could not be read (e.g. an empty CD/DVD drive):
+
+```
+check_drivesize drive=* "filter=fs != ''"
+```
+
 Default via NRPE:
 
 ```
