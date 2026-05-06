@@ -58,13 +58,23 @@ jobs:
             ubuntu-*)
               echo "os_name=linux" >> $GITHUB_OUTPUT
               echo "file_ext=" >> $GITHUB_OUTPUT
-              sudo apt-get update
-              sudo apt-get install -y libdbus-1-dev pkg-config
+              # Retry helper: apt mirrors flake on hosted runners. 3 attempts, 5s/10s backoff.
+              retry() {
+                local n=0
+                until "$@"; do
+                  n=$((n+1))
+                  if [ $n -ge 3 ]; then echo "::error::Failed after $n attempts: $*" >&2; return 1; fi
+                  echo "::warning::Attempt $n failed; retrying in $((n*5))s..." >&2
+                  sleep $((n*5))
+                done
+              }
+              retry sudo apt-get update
+              retry sudo apt-get install -y libdbus-1-dev pkg-config
               case "${{ inputs.arch }}" in
                 x64)   echo "triple=x86_64-unknown-linux-gnu"  >> $GITHUB_OUTPUT ;;
                 x86)
                   echo "triple=i686-unknown-linux-gnu" >> $GITHUB_OUTPUT
-                  sudo apt-get install -y gcc-multilib
+                  retry sudo apt-get install -y gcc-multilib
                   ;;
                 arm64) echo "triple=aarch64-unknown-linux-gnu" >> $GITHUB_OUTPUT ;;
                 *) echo "Unknown linux arch '${{ inputs.arch }}'" ; exit 1 ;;

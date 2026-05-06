@@ -64,16 +64,27 @@ jobs:
     - name: Install dependencies
       shell: sh
       run: |
-        dnf install -y epel-release
-        dnf install -y dnf-plugins-core
+        # Inline retry helper: Rocky/EPEL mirrors and the NodeSource setup script
+        # are the most common sources of CI flakes for this job. 3 attempts, 5s/10s backoff.
+        retry() {
+          n=0
+          until "$@"; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then echo "::error::Failed after $n attempts: $*" >&2; return 1; fi
+            echo "::warning::Attempt $n failed; retrying in $((n*5))s..." >&2
+            sleep $((n*5))
+          done
+        }
+        retry dnf install -y epel-release
+        retry dnf install -y dnf-plugins-core
         if [ "${{ matrix.distro_version }}" = "8" ]; then
           dnf config-manager --set-enabled powertools
         else
           dnf config-manager --set-enabled crb
         fi
-        dnf update -y
-        curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
-        dnf install -y --allowerasing coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build nodejs python3-devel dbus-devel bash
+        retry dnf update -y
+        retry sh -c 'curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -'
+        retry dnf install -y --allowerasing coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build nodejs python3-devel dbus-devel bash
     - uses: actions/checkout@v6
 
     - name: make dirs
@@ -86,7 +97,16 @@ jobs:
     - name: setup python dependencies
       shell: /usr/bin/bash {0}
       run: |
-        pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt
+        retry() {
+          local n=0
+          until "$@"; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then echo "::error::Failed after $n attempts: $*" >&2; return 1; fi
+            echo "::warning::Attempt $n failed; retrying in $((n*5))s..." >&2
+            sleep $((n*5))
+          done
+        }
+        retry bash -c 'pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt'
       env:
         PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
