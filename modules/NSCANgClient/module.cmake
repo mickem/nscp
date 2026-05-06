@@ -1,0 +1,5 @@
+if(OPENSSL_FOUND)
+    set(BUILD_MODULE 1)
+else()
+    set(BUILD_MODULE_SKIP_REASON "OpenSSL not found (required for NSCA-NG TLS)")
+endif()
