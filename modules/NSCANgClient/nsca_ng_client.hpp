@@ -77,10 +77,15 @@ struct connection_data : public socket_helpers::connection_info {
   }
 };
 
-// -----------------------------------------------------------------------
-// PSK credential storage — thread-local so each thread can have its own
-// active connection with independent credentials.
-// -----------------------------------------------------------------------
+// Default PSK cipher list used when no explicit ciphers are configured.
+// Only TLS 1.2 PSK ciphersuites are listed — PSK is not directly available
+// via the legacy SSL_CTX_set_psk_client_callback API under TLS 1.3.
+static const char kDefaultPskCiphers[] = "PSK-AES256-CBC-SHA256:PSK-AES128-CBC-SHA256:PSK-AES256-CBC-SHA:PSK-AES128-CBC-SHA";
+
+// PSK credential storage — thread_local so that each OS thread can hold its
+// own active connection state independently.  The synchronous send() helper
+// is always called from a single thread per invocation, so there is no
+// concurrent access to these variables within one thread.
 struct psk_credentials {
   std::string identity;
   std::string psk;
@@ -138,13 +143,13 @@ struct nsca_ng_connection {
       // Force TLS 1.2: PSK ciphersuites are not available in TLS 1.3 via
       // the legacy SSL_CTX_set_psk_client_callback API.
       SSL_CTX_set_max_proto_version(ctx_.native_handle(), TLS1_2_VERSION);
-      const std::string cipher_list = ciphers.empty() ? "PSK-AES256-CBC-SHA256:PSK-AES128-CBC-SHA256:PSK-AES256-CBC-SHA:PSK-AES128-CBC-SHA" : ciphers;
+      const std::string cipher_list = ciphers.empty() ? kDefaultPskCiphers : ciphers;
       SSL_CTX_set_cipher_list(ctx_.native_handle(), cipher_list.c_str());
       SSL_CTX_set_psk_client_callback(ctx_.native_handle(), psk_client_cb);
     }
   }
 
-  void connect(const std::string &host, const std::string &port) {
+  void connect(const std::string &host, const std::string &port, bool use_psk, const std::string &ca) {
     const boost::asio::ip::tcp::resolver::query query(host, port);
     const boost::asio::ip::tcp::resolver::iterator endpoint_it = resolver_.resolve(query);
 
@@ -155,7 +160,23 @@ struct nsca_ng_connection {
     }
     if (error) throw socket_helpers::socket_exception("Failed to connect to " + host + ":" + port + ": " + error.message());
 
-    ssl_socket_.set_verify_mode(boost::asio::ssl::verify_none);
+    if (use_psk) {
+      // With PSK the key itself mutually authenticates both sides; there is no
+      // X.509 certificate to verify, so verify_none is correct here.
+      ssl_socket_.set_verify_mode(boost::asio::ssl::verify_none);
+    } else if (!ca.empty()) {
+      // Certificate-based TLS: verify the server certificate against the
+      // configured CA bundle and match the hostname.
+      ctx_.load_verify_file(ca);
+      ssl_socket_.set_verify_mode(boost::asio::ssl::verify_peer);
+      ssl_socket_.set_verify_callback(boost::asio::ssl::rfc2818_verification(host));
+    } else {
+      // No CA configured — skip verification.  This is insecure but mirrors
+      // the behaviour of many monitoring agent configurations where a private
+      // CA is not available.  Users should supply a CA path for production.
+      ssl_socket_.set_verify_mode(boost::asio::ssl::verify_none);
+    }
+
     ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
     if (error) throw socket_helpers::socket_exception("TLS handshake failed: " + error.message());
   }
@@ -215,7 +236,7 @@ struct nsca_ng_client_handler final : public client::handler_interface {
 
       nsca_ng_connection conn(con.use_psk, con.tls_ciphers);
       NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Connecting to: " + con.to_string()); }
-      conn.connect(con.get_address(), con.get_port());
+      conn.connect(con.get_address(), con.get_port(), con.use_psk, con.ssl.ca_path);
 
       // MOIN handshake
       const std::string session_id = generate_session_id();
