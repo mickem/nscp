@@ -25,6 +25,7 @@
 #include <boost/shared_ptr.hpp>
 #ifdef USE_SSL
 #include <boost/asio/ssl/context.hpp>
+#include <boost/asio/ssl/error.hpp>
 #endif
 
 #include <boost/asio/ssl/stream.hpp>
@@ -260,6 +261,12 @@ class ssl_connection : public connection<protocol_type, N> {
       } else if (reason == SSL_R_CERTIFICATE_VERIFY_FAILED) {
         parent_type::protocol_->log_error(__FILE__, __LINE__, "Failed to verify other ends certificate: " + utf8::utf8_from_native(e.message()));
         parent_type::protocol_->log_error(__FILE__, __LINE__, "Please review the ssl option as well as ssl options in settings.");
+      } else if (e == boost::asio::ssl::error::stream_truncated) {
+        // Peer closed the SSL connection without sending close_notify. This is
+        // common and benign for short-lived NRPE/NSCA clients, so log it at
+        // debug to avoid drowning real failures with red E lines in CI logs.
+        parent_type::protocol_->log_debug(__FILE__, __LINE__,
+                                          "SSL stream truncated (peer closed without close_notify): " + utf8::utf8_from_native(e.message()));
       } else {
         parent_type::protocol_->log_error(__FILE__, __LINE__,
                                           "Failed to establish secure connection: " + utf8::utf8_from_native(e.message()) + ": " + str::xtos(reason));

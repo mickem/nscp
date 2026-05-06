@@ -4,7 +4,7 @@ description: Validate that rest endpoints return expected results
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
       with:
         node-version: 20
 
@@ -25,10 +25,12 @@ runs:
     - name: Start NSClient++ (Windows)
       if: runner.os == 'Windows'
       working-directory: tmp/nscp
-      shell: cmd
+      shell: pwsh
       run: |
-        del nsclient.log
-        cmd /c "start nscp test --settings ..\..\tests\rest\nsclient.ini"
+        if (Test-Path nsclient.log) { Remove-Item nsclient.log }
+        $proc = Start-Process -FilePath ".\nscp.exe" -ArgumentList @('test','--settings','..\..\tests\rest\nsclient.ini') -PassThru -WindowStyle Hidden
+        "NSCP_PID=$($proc.Id)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        Write-Host "Started nscp.exe with PID $($proc.Id)"
 
     - name: Start NSClient++ (Linux)
       if: runner.os == 'Linux'
@@ -37,6 +39,51 @@ runs:
         PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       run: |
         nscp test --settings tests/rest/nsclient.ini > /tmp/nsclient.log 2>&1 &
+        echo "NSCP_PID=$!" >> "$GITHUB_ENV"
+        echo "Started nscp with PID $!"
+
+    - name: Wait for REST endpoint (Linux)
+      if: runner.os == 'Linux'
+      shell: /usr/bin/bash {0}
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      run: |
+        # Poll the REST endpoint until it accepts connections (max ~30s).
+        # --retry-connrefused makes curl retry while the listening socket
+        # is not yet bound, eliminating the start-up race against npm test.
+        curl -k --silent --output /dev/null \
+          --retry 30 --retry-delay 1 --retry-connrefused \
+          --max-time 60 \
+          https://127.0.0.1:8443/api/v1/info || {
+            echo "REST endpoint did not become ready in time" >&2
+            cat /tmp/nsclient.log || true
+            exit 1
+          }
+
+    - name: Wait for REST endpoint (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # Trust self-signed test cert and poll the REST endpoint until it
+        # accepts connections (max ~30s).
+        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+        $deadline = (Get-Date).AddSeconds(30)
+        $ready = $false
+        while ((Get-Date) -lt $deadline) {
+          try {
+            Invoke-WebRequest -Uri 'https://127.0.0.1:8443/api/v1/info' -UseBasicParsing -TimeoutSec 2 | Out-Null
+            $ready = $true
+            break
+          } catch {
+            Start-Sleep -Milliseconds 1000
+          }
+        }
+        if (-not $ready) {
+          Write-Error "REST endpoint did not become ready in time"
+          if (Test-Path tmp\nscp\nsclient.log) { Get-Content tmp\nscp\nsclient.log }
+          exit 1
+        }
 
     - name: Run tests (Windows)
       if: always() && runner.os == 'Windows'
@@ -64,16 +111,43 @@ runs:
         PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       run: cat /tmp/nsclient.log || true
 
+    - name: Upload REST test diagnostics on failure
+      if: failure()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: rest-test-${{ runner.os }}-logs
+        path: |
+          tmp/nscp/nsclient.log
+          /tmp/nsclient.log
+          tests/rest/nsclient.ini
+        if-no-files-found: ignore
+        retention-days: 7
+
     - name: Stop NSClient++ (Windows)
       if: always() && runner.os == 'Windows'
-      working-directory: tmp/nscp
-      shell: cmd
-      run: taskkill /F /im nscp.exe
+      shell: pwsh
+      run: |
+        if ($env:NSCP_PID) {
+          try {
+            Stop-Process -Id $env:NSCP_PID -Force -ErrorAction Stop
+            Write-Host "Stopped nscp.exe PID $env:NSCP_PID"
+          } catch {
+            Write-Host "nscp.exe PID $env:NSCP_PID was not running"
+          }
+        }
 
     - name: Stop NSClient++ (Linux)
       if: always() && runner.os == 'Linux'
       shell: /usr/bin/bash {0}
       env:
         PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-      run: pkill -f nscp || true
-
+      run: |
+        if [ -n "${NSCP_PID:-}" ]; then
+          kill "${NSCP_PID}" 2>/dev/null || true
+          # Give it a moment to exit cleanly, then force kill if needed.
+          for _ in 1 2 3 4 5; do
+            kill -0 "${NSCP_PID}" 2>/dev/null || break
+            sleep 1
+          done
+          kill -9 "${NSCP_PID}" 2>/dev/null || true
+        fi

@@ -6,7 +6,10 @@ import os
 
 
 def create_test_data(file):
-	with open(file, "w") as f:
+	# Use newline="" so write() does NOT translate "\n" to "\r\n" on Windows.
+	# A trailing CR sneaks into the last column there and causes spurious
+	# `column3 = 'Test 1'` mismatches in CI (got 0 expected 4).
+	with open(file, "w", newline="") as f:
 		f.write("1,A,Test 1\n")
 		f.write("2,A,Test 2\n")
 		f.write("3,B,Test 1\n")
@@ -36,7 +39,7 @@ class LogFileTest(BasicTest):
 		return 'Testcase for check_file module'
 
 	def title(self):
-		return 'Win32File tests'
+		return 'LogFile tests'
 
 	def setup(self, plugin_id, prefix):
 		self.reg = Registry.get(plugin_id)
@@ -84,7 +87,14 @@ class LogFileTest(BasicTest):
 		# The fixture file has 6 newline-terminated rows. Earlier expectations
 		# were calibrated against a parser bug that emitted a phantom empty
 		# record at EOF (giving 7 total); the parser now correctly produces 6.
+		# Assert the fixture invariant up front so a regression in either the
+		# fixture writer or the parser fails with one clear message instead of
+		# nine cascading `got X expected Y` lines.
 		result = TestResult('Filter tests')
+		with open(self.work_path) as f:
+			row_count = len(f.readlines())
+		result.add_message(row_count == 6,
+			'Fixture row count', 'got %d expected 6 in %s' % (row_count, self.work_path))
 		result.add(self.check_files('none', 'Count all lines', 6))
 		result.add(self.check_files("column2 = 'A'", 'Count all A', 2))
 		result.add(self.check_files("column2 = 'B'", 'Count all B', 3))

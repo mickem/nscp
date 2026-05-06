@@ -49,9 +49,14 @@ on:
 env:
   PYTHON_VERSION: 3.11
 
+concurrency:
+  group: integration-linux-${{ github.ref }}-${{ inputs.artifact-name }}
+  cancel-in-progress: true
+
 jobs:
   integration-tests:
     runs-on: ${{ inputs.runner }}
+    timeout-minutes: 30
     container:
       image: ${{ inputs.container }}
 
@@ -68,18 +73,17 @@ jobs:
         run: |
           dnf install -y epel-release
           dnf install -y dnf-plugins-core
-          if [ "${{ matrix.distro_version }}" = "8" ]; then
+          if [ "${{ inputs.distro_version }}" = "8" ]; then
             dnf config-manager --set-enabled powertools
           else
             dnf config-manager --set-enabled crb
           fi
-          dnf update -y
           curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
           dnf install -y --allowerasing coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build nodejs python3-devel dbus-devel bash nodejs coreutils procps-ng
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: ${{ inputs.artifact-name }}
           path: .
@@ -109,6 +113,10 @@ jobs:
       - name: Acceptance tests (Linux DEB)
         if: inputs.package-type == 'deb'
         run: |
+          if [ ! -d /usr/lib/nsclient/scripts ]; then
+            echo "ERROR: /usr/lib/nsclient/scripts is missing -- package install failed?" >&2
+            exit 1
+          fi
           cp -r scripts/* /usr/lib/nsclient/scripts
           nscp nrpe install --certificate --verify none
           ./tests/acceptance-tests.sh
@@ -117,6 +125,10 @@ jobs:
       - name: Acceptance tests (Linux RPM)
         if: inputs.package-type == 'rpm'
         run: |
+          if [ ! -d /usr/lib/nsclient/scripts ]; then
+            echo "ERROR: /usr/lib/nsclient/scripts is missing -- package install failed?" >&2
+            exit 1
+          fi
           cp -r scripts/* /usr/lib/nsclient/scripts
           nscp nrpe install --certificate --verify none
           ./tests/acceptance-tests.sh
@@ -126,8 +138,20 @@ jobs:
           pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt
 
       - name: Run rest tests
-        if: inputs.package-type == 'deb'
         uses: ./.github/actions/rest-test
+
+      - name: Upload diagnostic logs on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: integration-linux-${{ inputs.distro }}-${{ inputs.distro_version }}-${{ inputs.package-arch }}-logs
+          path: |
+            /tmp/nsclient.log
+            /var/log/nsclient/*.log
+            /usr/lib/nsclient/nsclient.ini
+            tests/rest/nsclient.ini
+          if-no-files-found: ignore
+          retention-days: 7
 
       # TODO: Disabled for now due to issues with docker on windows runners
       #- name: Run NRPE tests
