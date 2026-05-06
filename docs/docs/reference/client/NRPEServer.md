@@ -47,6 +47,7 @@ Default values used in other config sections.
 | [socket queue size](#listen-queue)                  | 0             | LISTEN QUEUE                |
 | [thread pool](#thread-pool)                         | 10            | THREAD POOL                 |
 | [timeout](#timeout)                                 | 30            | TIMEOUT                     |
+| [timezone](#timezone)                               | local         | Timezone                    |
 
 
 
@@ -59,6 +60,7 @@ inbox=inbox
 socket queue size=0
 thread pool=10
 timeout=30
+timezone=local
 
 ```
 
@@ -293,6 +295,32 @@ Timeout (in seconds) when reading packets on incoming sockets. If the data has n
 [/settings/default]
 # TIMEOUT
 timeout=30
+```
+
+
+
+#### Timezone <a id="/settings/default/timezone"></a>
+
+Timezone used to render dates such as boot time. Accepts 'local' (default), 'utc', or any POSIX TZ string parseable by Boost.Date_time (e.g. 'MST-07' or 'EST-05EDT,M3.2.0,M11.1.0').
+
+
+
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | timezone                                |
+| Advanced:      | Yes (means it is not commonly used)     |
+| Default value: | `local`                                 |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# Timezone
+timezone=local
 ```
 
 

@@ -3552,7 +3552,7 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 
 ```
 check_uptime
-uptime: -9:02, boot: 2013-aug-18 08:29:13
+uptime: -9:02, boot: 2013-aug-18 08:29:13 (local)
 'uptime uptime'=1376814553s;1376760683;1376803883
 ```
 
@@ -3567,7 +3567,25 @@ Default check **via NRPE**::
 
 ```
 check_nrpe --host 192.168.56.103 --command check_uptime
-uptime: -0:3, boot: 2013-sep-08 18:41:06 (UCT)|'uptime'=1378665666;1378579481;1378622681
+uptime: -0:3, boot: 2013-sep-08 18:41:06 (local)|'uptime'=1378665666;1378579481;1378622681
+```
+
+**Configuring the timezone** (added in 0.6.x). The default syntax renders
+the boot timestamp in the configured zone and surfaces a short label via
+the `${tz}` placeholder. The value is cached by each plugin in its
+`loadModuleEx` and is read from the global `/settings/default/timezone`
+setting. Accepted values: `local` (default), `utc`, or any POSIX TZ string
+parseable by Boost.Date_time (for example `MST-07` or
+`EST-05EDT,M3.2.0,M11.1.0`).
+
+**Choosing the display granularity for `${uptime}`** (issue #590). The
+`max-unit` argument selects the largest unit allowed when rendering
+`${uptime}`. Accepted values: `s|m|h|d|w` (default `w`). For example, on
+a host that has been up six weeks, `max-unit=w` renders `6w 0d 00:00`,
+`max-unit=d` renders `42d 00:00`, and `max-unit=h` renders `1008:00`:
+
+```
+check_uptime max-unit=d "detail-syntax=uptime: ${uptime}, boot: ${boot} (${tz})"
 ```
 
 
@@ -3586,28 +3604,29 @@ uptime: -0:3, boot: 2013-sep-08 18:41:06 (UCT)|'uptime'=1378665666;1378579481;13
 #### Command-line Arguments
 
 
-| Option                                       | Default Value                           | Description                                                                                                      |
-|----------------------------------------------|-----------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_uptime_filter)               |                                         | Filter which marks interesting items.                                                                            |
-| [warning](#check_uptime_warning)             | uptime < 2d                             | Filter which marks items which generates a warning state.                                                        |
-| warn                                         |                                         | Short alias for warning                                                                                          |
-| [critical](#check_uptime_critical)           | uptime < 1d                             | Filter which marks items which generates a critical state.                                                       |
-| crit                                         |                                         | Short alias for critical.                                                                                        |
-| [ok](#check_uptime_ok)                       |                                         | Filter which marks items which generates an ok state.                                                            |
-| debug                                        | N/A                                     | Show debugging information in the log                                                                            |
-| show-all                                     | N/A                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-| [empty-state](#check_uptime_empty-state)     | ignored                                 | Return status to use when nothing matched filter.                                                                |
-| [perf-config](#check_uptime_perf-config)     |                                         | Performance data generation configuration                                                                        |
-| escape-html                                  | N/A                                     | Escape any < and > characters to prevent HTML encoding                                                           |
-| help                                         | N/A                                     | Show help screen (this screen)                                                                                   |
-| help-pb                                      | N/A                                     | Show help screen as a protocol buffer payload                                                                    |
-| show-default                                 | N/A                                     | Show default values for a given command                                                                          |
-| help-short                                   | N/A                                     | Show help screen (short format).                                                                                 |
-| [top-syntax](#check_uptime_top-syntax)       | ${status}: ${list}                      | Top level syntax.                                                                                                |
-| [ok-syntax](#check_uptime_ok-syntax)         |                                         | ok syntax.                                                                                                       |
-| [empty-syntax](#check_uptime_empty-syntax)   |                                         | Empty syntax.                                                                                                    |
-| [detail-syntax](#check_uptime_detail-syntax) | uptime: ${uptime}h, boot: ${boot} (UTC) | Detail level syntax.                                                                                             |
-| [perf-syntax](#check_uptime_perf-syntax)     | uptime                                  | Performance alias syntax.                                                                                        |
+| Option                                       | Default Value                             | Description                                                                                                                              |
+|----------------------------------------------|-------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_uptime_filter)               |                                           | Filter which marks interesting items.                                                                                                    |
+| [warning](#check_uptime_warning)             | uptime < 2d                               | Filter which marks items which generates a warning state.                                                                                |
+| warn                                         |                                           | Short alias for warning                                                                                                                  |
+| [critical](#check_uptime_critical)           | uptime < 1d                               | Filter which marks items which generates a critical state.                                                                               |
+| crit                                         |                                           | Short alias for critical.                                                                                                                |
+| [ok](#check_uptime_ok)                       |                                           | Filter which marks items which generates an ok state.                                                                                    |
+| debug                                        | N/A                                       | Show debugging information in the log                                                                                                    |
+| show-all                                     | N/A                                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                         |
+| [empty-state](#check_uptime_empty-state)     | ignored                                   | Return status to use when nothing matched filter.                                                                                        |
+| [perf-config](#check_uptime_perf-config)     |                                           | Performance data generation configuration                                                                                                |
+| escape-html                                  | N/A                                       | Escape any < and > characters to prevent HTML encoding                                                                                   |
+| help                                         | N/A                                       | Show help screen (this screen)                                                                                                           |
+| help-pb                                      | N/A                                       | Show help screen as a protocol buffer payload                                                                                            |
+| show-default                                 | N/A                                       | Show default values for a given command                                                                                                  |
+| help-short                                   | N/A                                       | Show help screen (short format).                                                                                                         |
+| [top-syntax](#check_uptime_top-syntax)       | ${status}: ${list}                        | Top level syntax.                                                                                                                        |
+| [ok-syntax](#check_uptime_ok-syntax)         |                                           | ok syntax.                                                                                                                               |
+| [empty-syntax](#check_uptime_empty-syntax)   |                                           | Empty syntax.                                                                                                                            |
+| [detail-syntax](#check_uptime_detail-syntax) | uptime: ${uptime}h, boot: ${boot} (${tz}) | Detail level syntax.                                                                                                                     |
+| [perf-syntax](#check_uptime_perf-syntax)     | uptime                                    | Performance alias syntax.                                                                                                                |
+| [max-unit](#check_uptime_max-unit)           | w                                         | Largest time unit used to render ${uptime}: s|m|h|d|w (default: w). For a 6-week uptime, w=>'6w 0d 00:00', d=>'42d 00:00', h=>'1008:00'. |
 
 
 
@@ -3681,7 +3700,7 @@ Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-*Default Value:* `uptime: ${uptime}h, boot: ${boot} (UTC)`
+*Default Value:* `uptime: ${uptime}h, boot: ${boot} (${tz})`
 
 <h5 id="check_uptime_perf-syntax">perf-syntax:</h5>
 
@@ -3689,6 +3708,12 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 *Default Value:* `uptime`
+
+<h5 id="check_uptime_max-unit">max-unit:</h5>
+
+Largest time unit used to render ${uptime}: s|m|h|d|w (default: w). For a 6-week uptime, w=>'6w 0d 00:00', d=>'42d 00:00', h=>'1008:00'.
+
+*Default Value:* `w`
 
 
 <a id="check_uptime_filter_keys"></a>
@@ -3727,6 +3752,7 @@ This is the syntax for the base names of the performance data.
 
 | Path / Section                                                          | Description              |
 |-------------------------------------------------------------------------|--------------------------|
+| [/settings/default](#default-values)                                    | Default values           |
 | [/settings/system/windows](#windows-system)                             | Windows system           |
 | [/settings/system/windows/counters](#pdh-counters)                      | PDH Counters             |
 | [/settings/system/windows/real-time/checks](#legacy-generic-filters)    | Legacy generic filters   |
@@ -3734,6 +3760,301 @@ This is the syntax for the base names of the performance data.
 | [/settings/system/windows/real-time/memory](#realtime-memory-filters)   | Realtime memory filters  |
 | [/settings/system/windows/real-time/process](#realtime-process-filters) | Realtime process filters |
 
+
+
+### Default values <a id="/settings/default"></a>
+
+Default values used in other config sections.
+
+
+
+
+| Key                                                 | Default Value | Description                 |
+|-----------------------------------------------------|---------------|-----------------------------|
+| [allowed hosts](#allowed-hosts)                     | 127.0.0.1     | Allowed hosts               |
+| [bind to](#bind-to-address)                         |               | BIND TO ADDRESS             |
+| [cache allowed hosts](#cache-list-of-allowed-hosts) | true          | Cache list of allowed hosts |
+| [encoding](#nrpe-payload-encoding)                  |               | NRPE PAYLOAD ENCODING       |
+| [inbox](#inbox)                                     | inbox         | INBOX                       |
+| [password](#password)                               |               | Password                    |
+| [socket queue size](#listen-queue)                  | 0             | LISTEN QUEUE                |
+| [thread pool](#thread-pool)                         | 10            | THREAD POOL                 |
+| [timeout](#timeout)                                 | 30            | TIMEOUT                     |
+| [timezone](#timezone)                               | local         | Timezone                    |
+
+
+
+```ini
+# Default values used in other config sections.
+[/settings/default]
+allowed hosts=127.0.0.1
+cache allowed hosts=true
+inbox=inbox
+socket queue size=0
+thread pool=10
+timeout=30
+timezone=local
+
+```
+
+
+
+
+
+#### Allowed hosts <a id="/settings/default/allowed hosts"></a>
+
+A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.
+
+
+
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | allowed hosts                           |
+| Default value: | `127.0.0.1`                             |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# Allowed hosts
+allowed hosts=127.0.0.1
+```
+
+
+
+#### BIND TO ADDRESS <a id="/settings/default/bind to"></a>
+
+Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses.
+
+
+
+
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | bind to                                 |
+| Default value: | _N/A_                                   |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# BIND TO ADDRESS
+bind to=
+```
+
+
+
+#### Cache list of allowed hosts <a id="/settings/default/cache allowed hosts"></a>
+
+If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.
+
+
+
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | cache allowed hosts                     |
+| Default value: | `true`                                  |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# Cache list of allowed hosts
+cache allowed hosts=true
+```
+
+
+
+#### NRPE PAYLOAD ENCODING <a id="/settings/default/encoding"></a>
+
+
+
+
+
+
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | encoding                                |
+| Advanced:      | Yes (means it is not commonly used)     |
+| Default value: | _N/A_                                   |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# NRPE PAYLOAD ENCODING
+encoding=
+```
+
+
+
+#### INBOX <a id="/settings/default/inbox"></a>
+
+The default channel to post incoming messages on
+
+
+
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | inbox                                   |
+| Default value: | `inbox`                                 |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# INBOX
+inbox=inbox
+```
+
+
+
+#### Password <a id="/settings/default/password"></a>
+
+Password used to authenticate against server
+
+
+
+
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | password                                |
+| Default value: | _N/A_                                   |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# Password
+password=
+```
+
+
+
+#### LISTEN QUEUE <a id="/settings/default/socket queue size"></a>
+
+Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts.
+
+
+
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | socket queue size                       |
+| Advanced:      | Yes (means it is not commonly used)     |
+| Default value: | `0`                                     |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# LISTEN QUEUE
+socket queue size=0
+```
+
+
+
+#### THREAD POOL <a id="/settings/default/thread pool"></a>
+
+
+
+
+
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | thread pool                             |
+| Advanced:      | Yes (means it is not commonly used)     |
+| Default value: | `10`                                    |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# THREAD POOL
+thread pool=10
+```
+
+
+
+#### TIMEOUT <a id="/settings/default/timeout"></a>
+
+Timeout (in seconds) when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
+
+
+
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | timeout                                 |
+| Default value: | `30`                                    |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# TIMEOUT
+timeout=30
+```
+
+
+
+#### Timezone <a id="/settings/default/timezone"></a>
+
+Timezone used to render dates such as boot time. Accepts 'local' (default), 'utc', or any POSIX TZ string parseable by Boost.Date_time (e.g. 'MST-07' or 'EST-05EDT,M3.2.0,M11.1.0').
+
+
+
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | timezone                                |
+| Advanced:      | Yes (means it is not commonly used)     |
+| Default value: | `local`                                 |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# Timezone
+timezone=local
+```
 
 
 ### Windows system <a id="/settings/system/windows"></a>
@@ -3750,6 +4071,7 @@ Section for system checks and system settings
 | [fetch core loads](#fetch-core-load)          | true          | Fetch core load           |
 | [process history](#track-process-history)     | false         | Track process history     |
 | [subsystem](#pdh-subsystem)                   | default       | PDH subsystem             |
+| [timezone](#timezone)                         | local         | Timezone                  |
 | [use pdh for cpu](#use-pdh-to-fetch-cpu-load) | false         | Use PDH to fetch CPU load |
 
 
@@ -3761,6 +4083,7 @@ default buffer length=1h
 fetch core loads=true
 process history=false
 subsystem=default
+timezone=local
 use pdh for cpu=false
 
 ```
@@ -3895,6 +4218,32 @@ Currently default and thread-safe are supported where thread-safe is slower but 
 [/settings/system/windows]
 # PDH subsystem
 subsystem=default
+```
+
+
+
+#### Timezone <a id="/settings/system/windows/timezone"></a>
+
+Timezone used to render dates such as boot time. Accepts 'local' (default), 'utc', or any POSIX TZ string parseable by Boost.Date_time (e.g. 'MST-07' or 'EST-05EDT,M3.2.0,M11.1.0').
+
+
+
+
+
+| Key            | Description                                           |
+|----------------|-------------------------------------------------------|
+| Path:          | [/settings/system/windows](#/settings/system/windows) |
+| Key:           | timezone                                              |
+| Advanced:      | Yes (means it is not commonly used)                   |
+| Default value: | `local`                                               |
+
+
+**Sample:**
+
+```
+[/settings/system/windows]
+# Timezone
+timezone=local
 ```
 
 
