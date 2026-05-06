@@ -54,6 +54,8 @@ class checks {
   static bool is_directory(const std::string& path) { return fs::is_directory(path); }
   static bool is_file(const std::string& path) { return fs::is_regular_file(path); }
   static bool path_contains_file(fs::path dir, fs::path file) {
+    dir = dir.lexically_normal();
+    file = file.lexically_normal();
     if (dir.filename() == ".") dir.remove_filename();
     file.remove_filename();
     const std::size_t dir_len = std::distance(dir.begin(), dir.end());

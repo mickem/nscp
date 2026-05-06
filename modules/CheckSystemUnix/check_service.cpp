@@ -1,15 +1,21 @@
 #include "check_service.h"
 
+#include <fcntl.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
 #include <array>
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 #include <cstdio>
+#include <cstdlib>
 #include <memory>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <sstream>
+#include <vector>
 
 namespace po = boost::program_options;
 
@@ -24,17 +30,64 @@ struct CaseBlindCompare {
   bool operator()(const std::string &a, const std::string &b) const { return boost::ilexicographical_compare(a, b); }
 };
 
-// Execute a command and return its output
-std::string exec_command(const std::string &cmd) {
-  std::array<char, 4096> buffer{};
-  std::string result;
-  const std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
-  if (!pipe) {
+// Allowlist for systemd unit names. Rejects anything that could be parsed as a
+// flag or contain shell/path metacharacters. Empty on bad input.
+bool is_safe_unit_name(const std::string &name) {
+  if (name.empty() || name.size() > 256) return false;
+  if (name[0] == '-') return false;
+  for (char c : name) {
+    const bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '.' || c == '-' || c == '@' || c == ':' ||
+                    c == '\\';
+    if (!ok) return false;
+  }
+  return true;
+}
+
+// Execute a program directly (no shell) and capture stdout. argv[0] is the
+// program; remaining elements are arguments passed verbatim to execvp.
+std::string exec_command(const std::vector<std::string> &argv) {
+  if (argv.empty()) return "";
+
+  int pipefd[2];
+  if (pipe(pipefd) == -1) return "";
+
+  const pid_t pid = fork();
+  if (pid == -1) {
+    close(pipefd[0]);
+    close(pipefd[1]);
     return "";
   }
-  while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-    result += buffer.data();
+
+  if (pid == 0) {
+    close(pipefd[0]);
+    if (dup2(pipefd[1], STDOUT_FILENO) == -1) _exit(127);
+    const int devnull = open("/dev/null", O_WRONLY);
+    if (devnull != -1) {
+      dup2(devnull, STDERR_FILENO);
+      close(devnull);
+    }
+    close(pipefd[1]);
+
+    std::vector<char *> cargv;
+    cargv.reserve(argv.size() + 1);
+    for (const auto &a : argv) cargv.push_back(const_cast<char *>(a.c_str()));
+    cargv.push_back(nullptr);
+
+    execvp(cargv[0], cargv.data());
+    _exit(127);
   }
+
+  close(pipefd[1]);
+  std::array<char, 4096> buffer{};
+  std::string result;
+  ssize_t n;
+  while ((n = read(pipefd[0], buffer.data(), buffer.size())) > 0) {
+    result.append(buffer.data(), static_cast<size_t>(n));
+  }
+  close(pipefd[0]);
+
+  int status = 0;
+  waitpid(pid, &status, 0);
   return result;
 }
 
@@ -98,9 +151,12 @@ filter_obj get_service_info(const std::string &service_name) {
   filter_obj info;
   info.name = service_name;
 
+  if (!is_safe_unit_name(service_name)) {
+    return info;
+  }
+
   // Get detailed service info using systemctl show
-  std::string cmd = "systemctl show " + service_name + " --no-pager 2>/dev/null";
-  std::string output = exec_command(cmd);
+  std::string output = exec_command({"systemctl", "show", "--no-pager", "--", service_name});
 
   std::istringstream iss(output);
   std::string line;
@@ -133,8 +189,7 @@ filter_obj get_service_info(const std::string &service_name) {
 
   // If UnitFileState is empty, try to get it from is-enabled
   if (info.start_type.empty()) {
-    cmd = "systemctl is-enabled " + service_name + " 2>/dev/null";
-    std::string enabled_output = exec_command(cmd);
+    std::string enabled_output = exec_command({"systemctl", "is-enabled", "--", service_name});
     boost::trim(enabled_output);
     if (!enabled_output.empty()) {
       info.start_type = enabled_output;
@@ -149,8 +204,7 @@ std::vector<filter_obj> enumerate_services(const std::string &type, const std::s
   std::vector<filter_obj> result;
 
   // Build the systemctl command
-  std::string cmd = "systemctl list-units --type=service --all --no-pager --no-legend 2>/dev/null";
-  std::string output = exec_command(cmd);
+  std::string output = exec_command({"systemctl", "list-units", "--type=service", "--all", "--no-pager", "--no-legend"});
 
   std::istringstream iss(output);
   std::string line;
@@ -186,16 +240,17 @@ std::vector<filter_obj> enumerate_services(const std::string &type, const std::s
     if (state_filter == "inactive" && active != "inactive") continue;
     if (state_filter == "failed" && active != "failed") continue;
 
-    // Get enabled status
-    std::string enabled_cmd = "systemctl is-enabled " + unit + " 2>/dev/null";
-    std::string enabled_output = exec_command(enabled_cmd);
+    // Get enabled status (skip unsafe names defensively, even though they came from systemctl)
+    if (!is_safe_unit_name(unit)) {
+      continue;
+    }
+    std::string enabled_output = exec_command({"systemctl", "is-enabled", "--", unit});
     boost::trim(enabled_output);
     info.start_type = enabled_output;
 
     // Get PID for running services
     if (active == "active" && sub == "running") {
-      std::string pid_cmd = "systemctl show " + unit + " --property=MainPID --value 2>/dev/null";
-      std::string pid_output = exec_command(pid_cmd);
+      std::string pid_output = exec_command({"systemctl", "show", "--property=MainPID", "--value", "--", unit});
       boost::trim(pid_output);
       try {
         info.pid = std::stoi(pid_output);
