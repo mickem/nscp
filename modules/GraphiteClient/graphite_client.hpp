@@ -72,6 +72,16 @@ std::string fix_graphite_string(const std::string &s) {
   str::utils::replace(sc, "(", "_");
   str::utils::replace(sc, ")", "_");
   str::utils::replace(sc, "%", "percent");
+  // Graphite uses the plaintext line protocol "<path> <value> <ts>\n" - one
+  // metric per line, fields separated by spaces. A metric path or value
+  // containing a newline would split into multiple Graphite records. `;`
+  // is the tag separator in the Graphite carbon tag-aware protocol; an
+  // unintended `;` injects fake tags. Replace all four with `_` so a check
+  // name or perfdata label with these characters cannot inject metrics.
+  str::utils::replace(sc, "\r", "_");
+  str::utils::replace(sc, "\n", "_");
+  str::utils::replace(sc, ";", "_");
+  str::utils::replace(sc, std::string("\0", 1), "_");
   return sc;
 }
 struct graphite_client_handler : public client::handler_interface {
