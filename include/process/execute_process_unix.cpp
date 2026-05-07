@@ -83,7 +83,7 @@ std::string drain_with_timeout(int fd, time_t deadline, bool& timed_out, bool& h
       // EOF: child closed its end of the pipe.
       return out;
     }
-    buffer[n] = 0;
+    buffer[static_cast<std::size_t>(n)] = 0;
     out.append(buffer.get(), static_cast<std::size_t>(n));
   }
 }
