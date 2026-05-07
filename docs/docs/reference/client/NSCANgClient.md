@@ -72,6 +72,7 @@ Submit information to the remote NSCA-NG server. Custom relay commands defined u
 <a id="submit_nsca_ng_identity"></a>
 <a id="submit_nsca_ng_hostname"></a>
 <a id="submit_nsca_ng_no-psk"></a>
+<a id="submit_nsca_ng_insecure"></a>
 <a id="submit_nsca_ng_host-check"></a>
 <a id="submit_nsca_ng_max-output-length"></a>
 <a id="submit_nsca_ng_options"></a>
@@ -111,6 +112,7 @@ Submit information to the remote NSCA-NG server. Custom relay commands defined u
 | identity                   |               | PSK identity string (defaults to hostname when empty)                                              |
 | hostname                   |               | Host name to report to the NSCA-NG server                                                          |
 | no-psk                     | N/A           | Disable PSK and use certificate-based TLS authentication instead                                   |
+| insecure                   | N/A           | Allow TLS connections without PSK and without peer-cert verification. Disables MITM protection.    |
 | host-check                 | N/A           | Submit every result as a Nagios host check (PROCESS_HOST_CHECK_RESULT) instead of a service check. |
 | max-output-length          |               | Maximum bytes of plugin output forwarded over the wire (default 65536)                             |
 
@@ -254,11 +256,11 @@ This is a section of objects. This means that you will create objects below this
 | certificate        |               | SSL CERTIFICATE       |
 | certificate format |               | CERTIFICATE FORMAT    |
 | certificate key    |               | SSL CERTIFICATE       |
-| ciphers            |               | TLS CIPHERS           |
 | dh                 |               | DH KEY                |
 | host               |               | TARGET HOST           |
 | host check         | false         | HOST CHECK            |
 | identity           |               | IDENTITY              |
+| insecure           | false         | INSECURE              |
 | max output length  | 65536         | MAX OUTPUT LENGTH     |
 | password           |               | PASSWORD              |
 | port               |               | TARGET PORT           |
@@ -280,11 +282,11 @@ This is a section of objects. This means that you will create objects below this
 #certificate=...
 #certificate format=...
 #certificate key=...
-#ciphers=...
 #dh=...
 #host=...
 host check=false
 #identity=...
+insecure=false
 max output length=65536
 #password=...
 #port=...

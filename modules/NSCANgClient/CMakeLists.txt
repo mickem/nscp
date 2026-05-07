@@ -60,6 +60,10 @@ target_link_libraries(
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 
+if(WIN32)
+    set(NSCA_NG_TEST_EXTRA_LIBS CRYPT32)
+endif()
+
 NSCP_CREATE_TEST(
     nsca_ng_test
     SOURCES
@@ -67,12 +71,20 @@ NSCP_CREATE_TEST(
         nsca_ng.cpp
         nsca_ng_client.cpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        # Defines utf8::to_unicode / utf8::wstring_to_string, used transitively
+        # via utf8::utf8_from_native by both nsca_ng_client.cpp (native error
+        # message conversion) and socket_helpers.cpp (OpenSSL error conversion).
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
         ${Boost_SYSTEM_LIBRARY}
         ${Boost_THREAD_LIBRARY}
         ${OPENSSL_LIBRARIES}
         ${NSCP_DEF_PLUGIN_LIB}
+        # OpenSSL's bundled CAPI engine on Windows pulls in Crypt32. The
+        # module target picks this up via EXTRA_LIBS; the test target needs
+        # it spelled out separately.
+        ${NSCA_NG_TEST_EXTRA_LIBS}
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${OPENSSL_INCLUDE_DIR}
