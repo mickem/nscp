@@ -12,7 +12,9 @@ void Response::setHeader(const string key, string value) { headers[key] = std::m
 
 bool Response::hasHeader(const string key) { return headers.find(key) != headers.end(); }
 
-void Response::setCookie(const string key, string value) { cookies[key] = std::move(value); }
+void Response::setCookie(const string key, string value) { setCookie(key, std::move(value), cookie_attrs{}); }
+
+void Response::setCookie(string key, string value, cookie_attrs attrs) { cookies[std::move(key)] = std::make_pair(std::move(value), std::move(attrs)); }
 
 void Response::setCode(const int code_, std::string reason_) {
   code = code_;
@@ -29,7 +31,7 @@ std::string Response::getCookie(const std::string key) const {
   if (cit == cookies.end()) {
     return "";
   }
-  return cit->second;
+  return cit->second.first;
 }
 
 }  // namespace Mongoose

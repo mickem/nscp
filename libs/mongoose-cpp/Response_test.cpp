@@ -57,3 +57,34 @@ TEST(Response, CookieDoesNotPolluteHeaders) {
   EXPECT_FALSE(r.hasHeader("session"));
   EXPECT_TRUE(r.get_headers().empty());
 }
+
+TEST(Response, CookieDefaultAttributesAreSecureAndHttpOnly) {
+  StreamResponse r;
+  r.setCookie("session", "abc");
+  const auto &cookies = r.get_cookies();
+  ASSERT_EQ(cookies.count("session"), 1u);
+  const auto &attrs = cookies.at("session").second;
+  EXPECT_TRUE(attrs.http_only);
+  EXPECT_TRUE(attrs.secure);
+  EXPECT_EQ(attrs.same_site, "Strict");
+  EXPECT_EQ(attrs.path, "/");
+  EXPECT_LT(attrs.max_age, 0);
+}
+
+TEST(Response, CookieAttributesOverloadStoresValues) {
+  StreamResponse r;
+  Response::cookie_attrs a;
+  a.http_only = false;
+  a.secure = false;
+  a.same_site = "Lax";
+  a.path = "/api";
+  a.max_age = 3600;
+  r.setCookie("token", "xyz", a);
+  EXPECT_EQ(r.getCookie("token"), "xyz");
+  const auto &attrs = r.get_cookies().at("token").second;
+  EXPECT_FALSE(attrs.http_only);
+  EXPECT_FALSE(attrs.secure);
+  EXPECT_EQ(attrs.same_site, "Lax");
+  EXPECT_EQ(attrs.path, "/api");
+  EXPECT_EQ(attrs.max_age, 3600);
+}

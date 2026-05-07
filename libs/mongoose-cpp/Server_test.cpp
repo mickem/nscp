@@ -23,9 +23,11 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <atomic>
 #include <boost/make_shared.hpp>
 #include <boost/shared_ptr.hpp>
+#include <cctype>
 #include <chrono>
 #include <memory>
 #include <mutex>
@@ -103,6 +105,22 @@ class FixedHandler : public RequestHandlerBase {
   std::string last_url;
 };
 
+class CookieHandler : public RequestHandlerBase {
+ public:
+  CookieHandler(std::string name, std::string value, Response::cookie_attrs attrs)
+      : name(std::move(name)), value(std::move(value)), attrs(std::move(attrs)) {}
+  Response* process(Request& /*request*/) override {
+    auto* r = new StreamResponse(200);
+    r->setCode(200, "OK");
+    r->setCookie(name, value, attrs);
+    r->append("ok");
+    return r;
+  }
+  std::string name;
+  std::string value;
+  Response::cookie_attrs attrs;
+};
+
 int choose_port_base() {
   const int pid = static_cast<int>(MWT_GETPID());
   return 38000 + (pid % 1000);
@@ -127,6 +145,7 @@ struct ServerFixture {
 struct RawResponse {
   int status = 0;
   std::string body;
+  std::vector<std::string> set_cookies;
   bool received = false;
   bool error = false;
 };
@@ -137,6 +156,15 @@ void raw_ev_handler(mg_connection* c, int ev, void* ev_data) {
     const auto* hm = static_cast<mg_http_message*>(ev_data);
     out->status = mg_http_status(hm);
     out->body.assign(hm->body.buf, hm->body.len);
+    const size_t hmax = std::size(hm->headers);
+    for (size_t i = 0; i < hmax && hm->headers[i].name.len > 0; i++) {
+      const std::string name(hm->headers[i].name.buf, hm->headers[i].name.len);
+      if (name.size() == 10 &&
+          std::equal(name.begin(), name.end(), "Set-Cookie",
+                     [](char a, char b) { return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b)); })) {
+        out->set_cookies.emplace_back(hm->headers[i].value.buf, hm->headers[i].value.len);
+      }
+    }
     out->received = true;
     c->is_closing = 1;
   } else if (ev == MG_EV_ERROR) {
@@ -294,6 +322,97 @@ TEST(ServerImpl, MultipleControllersDispatched) {
   ASSERT_TRUE(b.received);
   EXPECT_EQ(b.status, 200);
   EXPECT_NE(b.body.find("beta-body"), std::string::npos);
+}
+
+// SameSite=None requires Secure (RFC 6265bis §5.4.7). Browsers drop such a
+// cookie if Secure is missing, so the server skips it entirely. These tests
+// run over plain HTTP (is_ssl=false), which is precisely the case where the
+// guard must trigger.
+
+TEST(ServerImpl, SameSiteNoneOverHttpDropsCookie) {
+  const int port = choose_port_base() + 5;
+  auto* controller = new MatchController();
+  Response::cookie_attrs attrs;
+  attrs.same_site = "None";
+  attrs.secure = true;  // requested, but is_ssl=false -> Secure won't be emitted
+  controller->registerRoute("GET", "/c", new CookieHandler("session", "abc", attrs));
+
+  const ServerFixture fx;
+  fx.start(port, controller);
+
+  auto resp = raw_fetch(bind_url(port) + "/c", make_get_request("/c", port));
+
+  fx.server->stop();
+
+  ASSERT_TRUE(resp.received);
+  EXPECT_EQ(resp.status, 200);
+  EXPECT_TRUE(resp.set_cookies.empty()) << "expected no Set-Cookie, got: "
+                                        << (resp.set_cookies.empty() ? "" : resp.set_cookies.front());
+}
+
+TEST(ServerImpl, SameSiteNoneCaseInsensitiveDropsCookie) {
+  const int port = choose_port_base() + 6;
+  auto* controller = new MatchController();
+  Response::cookie_attrs attrs;
+  attrs.same_site = "none";  // lowercase
+  attrs.secure = true;
+  controller->registerRoute("GET", "/c", new CookieHandler("session", "abc", attrs));
+
+  const ServerFixture fx;
+  fx.start(port, controller);
+
+  auto resp = raw_fetch(bind_url(port) + "/c", make_get_request("/c", port));
+
+  fx.server->stop();
+
+  ASSERT_TRUE(resp.received);
+  EXPECT_TRUE(resp.set_cookies.empty());
+}
+
+TEST(ServerImpl, SameSiteNoneWithSecureFalseDropsCookieEvenOnHttps) {
+  // Even if the listener were TLS, attrs.secure=false means we will not emit
+  // the Secure flag, so the SameSite=None cookie must still be dropped.
+  // Validated here over HTTP, which exercises the same guard branch.
+  const int port = choose_port_base() + 7;
+  auto* controller = new MatchController();
+  Response::cookie_attrs attrs;
+  attrs.same_site = "None";
+  attrs.secure = false;
+  controller->registerRoute("GET", "/c", new CookieHandler("session", "abc", attrs));
+
+  const ServerFixture fx;
+  fx.start(port, controller);
+
+  auto resp = raw_fetch(bind_url(port) + "/c", make_get_request("/c", port));
+
+  fx.server->stop();
+
+  ASSERT_TRUE(resp.received);
+  EXPECT_TRUE(resp.set_cookies.empty());
+}
+
+TEST(ServerImpl, SameSiteStrictOverHttpEmitsCookieWithoutSecure) {
+  // Sanity check: the guard only targets SameSite=None. SameSite=Strict cookies
+  // must still be emitted on plain HTTP, with HttpOnly but without Secure.
+  const int port = choose_port_base() + 8;
+  auto* controller = new MatchController();
+  Response::cookie_attrs attrs;  // defaults: SameSite=Strict, http_only=true, secure=true
+  controller->registerRoute("GET", "/c", new CookieHandler("session", "abc", attrs));
+
+  const ServerFixture fx;
+  fx.start(port, controller);
+
+  auto resp = raw_fetch(bind_url(port) + "/c", make_get_request("/c", port));
+
+  fx.server->stop();
+
+  ASSERT_TRUE(resp.received);
+  ASSERT_EQ(resp.set_cookies.size(), 1u);
+  const std::string& sc = resp.set_cookies.front();
+  EXPECT_NE(sc.find("session=abc"), std::string::npos) << sc;
+  EXPECT_NE(sc.find("HttpOnly"), std::string::npos) << sc;
+  EXPECT_NE(sc.find("SameSite=Strict"), std::string::npos) << sc;
+  EXPECT_EQ(sc.find("Secure"), std::string::npos) << "Secure must not appear on http: " << sc;
 }
 
 TEST(ServerImpl, ReturnsHandlerStatusCode) {
