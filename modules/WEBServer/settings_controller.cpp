@@ -168,13 +168,6 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
 
 void settings_controller::put(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
   if (!session->is_logged_in("settings.put", request, response)) return;
-  std::string response_pb;
-  if (!core->settings_query(request.getData(), response_pb)) {
-    response.setCodeServerError("500 Query failed");
-    return;
-  }
-  response.append(response_pb);
-
   if (!validate_arguments(1, what, response)) {
     return;
   }
@@ -250,13 +243,6 @@ void settings_controller::put(Mongoose::Request &request, boost::smatch &what, M
 
 void settings_controller::command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
   if (!session->is_logged_in("settings.put", request, response)) return;
-  std::string response_pb;
-  if (!core->settings_query(request.getData(), response_pb)) {
-    response.setCodeServerError("500 Query failed");
-    return;
-  }
-  response.append(response_pb);
-
   try {
     auto root = json::parse(request.getData());
     json::object o = root.as_object();
