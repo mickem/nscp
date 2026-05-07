@@ -142,7 +142,12 @@ void session_manager_interface::get_user_from_response(const Mongoose::StreamRes
 bool session_manager_interface::can(const std::string &grant, Mongoose::StreamResponse &response) {
   const std::string uid = response.getCookie("uid");
   if (uid.empty()) {
-    if (tokens.can("anonymous", grant)) {
+    // Only consult the "anonymous" grants if anonymous access is explicitly
+    // enabled. Without this guard, an operator who configured an
+    // `anonymous` role for any reason (often by mistake or for
+    // experimentation) would expose every endpoint listed in that role to
+    // unauthenticated callers.
+    if (allow_anonymous_ && tokens.can("anonymous", grant)) {
       return true;
     }
     response.setCodeForbidden(NOT_ALLOWED);
@@ -168,7 +173,18 @@ bool session_manager_interface::validate_user(const std::string &user, const std
 
 bool session_manager_interface::has_user(const std::string &user) const { return users.has_user(user); }
 
-void session_manager_interface::add_grant(const std::string &role, const std::string &grant) { tokens.add_grant(role, grant); }
+void session_manager_interface::add_grant(const std::string &role, const std::string &grant) {
+  // Refuse to register an `anonymous` role unless explicitly allowed. This
+  // is the partner check to `can()`: even if an operator writes
+  //   [/settings/WEB/server/roles] anonymous = something
+  // by mistake, the role is silently ignored and a clear log line tells
+  // them to flip `allow anonymous access = true` if it was deliberate.
+  if (role == "anonymous" && !allow_anonymous_) {
+    NSC_LOG_ERROR("Refusing to register 'anonymous' role: anonymous access is disabled. Set [/settings/WEB/server] 'allow anonymous access = true' to enable.");
+    return;
+  }
+  tokens.add_grant(role, grant);
+}
 
 std::string session_manager_interface::get_metrics() { return metrics_store.get(); }
 std::string session_manager_interface::get_metrics_v2() { return metrics_store.get_list(); }

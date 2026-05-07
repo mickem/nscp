@@ -61,6 +61,10 @@ class SessionManagerTest : public ::testing::Test {
   void SetUp() override {
     smi.add_user("user", "foo", "password");
     smi.add_grant("foo", "something:read");
+    // The `anonymous` role is gated on a settings flag (default off). The
+    // existing tests for anonymous behaviour assume access is granted, so
+    // flip the flag on for the fixture before registering the grant.
+    smi.set_allow_anonymous(true);
     smi.add_user("anonymous", "anonymous", "anonymous");
     smi.add_grant("anonymous", "nothing:read");
   }
@@ -112,6 +116,27 @@ TEST_F(SessionManagerTest, RevokeToken) {
   const std::string token = smi.generate_token("user");
   smi.revoke_token(token);
   EXPECT_FALSE(smi.validate_token(token));
+}
+
+TEST(SessionManagerAnonymous, AnonymousAccessIsOffByDefault) {
+  // Default-off: an `anonymous` role registered through add_grant is silently
+  // refused, and can() does not consult the anonymous grant table.
+  session_manager_interface smi;
+  smi.add_grant("anonymous", "anything:read");
+  Mongoose::StreamResponse resp;
+  EXPECT_FALSE(smi.can("anything:read", resp));
+}
+
+TEST(SessionManagerAnonymous, AnonymousAccessGrantedOnlyWhenFlagOn) {
+  session_manager_interface smi;
+  smi.set_allow_anonymous(true);
+  smi.add_grant("anonymous", "anything:read");
+  Mongoose::StreamResponse resp;
+  EXPECT_TRUE(smi.can("anything:read", resp));
+
+  // A grant registered for a non-anonymous role still works regardless.
+  Mongoose::StreamResponse resp2;
+  EXPECT_FALSE(smi.can("other:read", resp2));
 }
 
 TEST_F(SessionManagerTest, ReAddingUserRevokesAllTheirTokens) {
