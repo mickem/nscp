@@ -109,9 +109,14 @@ TEST(IsSafeArchiveEntry, RejectsParentTraversal) {
   EXPECT_FALSE(checks::is_safe_archive_entry(kBase, "sub/../../etc/passwd", out));
 }
 
-TEST(IsSafeArchiveEntry, RejectsAbsolutePosixPath) {
+TEST(IsSafeArchiveEntry, RejectsLeadingSeparator) {
+  // Rejected explicitly (leading-separator check) rather than relying on
+  // boost::filesystem::operator/ to do the right thing - on Windows
+  // "/etc/passwd" is not treated as absolute (no drive letter) so it would
+  // get appended to base, and the lexical prefix check would then accept it.
   fs::path out;
   EXPECT_FALSE(checks::is_safe_archive_entry(kBase, "/etc/passwd", out));
+  EXPECT_FALSE(checks::is_safe_archive_entry(kBase, "\\etc\\passwd", out));
 }
 
 #ifdef _WIN32

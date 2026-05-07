@@ -75,6 +75,15 @@ class checks {
   static bool is_safe_archive_entry(const fs::path& base, const std::string& entry_name, fs::path& out) {
     if (entry_name.empty()) return false;
     if (entry_name.find('\0') != std::string::npos) return false;
+    // Leading separator: absolute on POSIX, rooted/drive-relative on Windows.
+    // boost::filesystem::operator/ only treats the right-hand side as
+    // absolute if it has a root name AND a root directory, so on Windows
+    // "/etc/passwd" gets appended to base rather than replacing it - the
+    // lexical prefix check then incorrectly accepts the result. Reject
+    // leading separators explicitly so the behaviour is platform-uniform.
+    if (entry_name.front() == '/' || entry_name.front() == '\\') return false;
+    // Drive-letter prefix on Windows: "C:foo", "C:\foo", "c:/foo".
+    if (entry_name.size() >= 2 && entry_name[1] == ':') return false;
     const fs::path candidate = (base / entry_name).lexically_normal();
     if (!path_contains_file(base, candidate)) return false;
     out = candidate;
