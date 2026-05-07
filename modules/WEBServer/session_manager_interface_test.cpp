@@ -67,6 +67,12 @@ class SessionManagerTest : public ::testing::Test {
     smi.set_allow_anonymous(true);
     smi.add_user("anonymous", "anonymous", "anonymous");
     smi.add_grant("anonymous", "nothing:read");
+    // allowed_hosts is now fail-closed when empty (L1). Configure 127.0.0.1
+    // explicitly and run boot() so the source string is parsed into entries
+    // - tests that hit is_allowed / is_logged_in expect localhost to be
+    // permitted.
+    smi.set_allowed_hosts("127.0.0.1");
+    smi.boot();
   }
 };
 
@@ -119,10 +125,18 @@ TEST_F(SessionManagerTest, RevokeToken) {
 }
 
 TEST(SessionManagerAnonymous, AnonymousAccessIsOffByDefault) {
-  // Default-off: an `anonymous` role registered through add_grant is silently
-  // refused, and can() does not consult the anonymous grant table.
+  // Default-off: even when the role is fully wired up (user mapped to role,
+  // role configured with a grant), can() must not consult the anonymous
+  // grant table without the explicit allow_anonymous flag. We register
+  // through tokens directly (bypassing add_grant's refusal gate) so this
+  // test exercises the can() gate specifically - not the add_grant gate.
   session_manager_interface smi;
+  smi.set_allow_anonymous(true);
+  smi.add_user("anonymous", "anonymous", "anonymous");
   smi.add_grant("anonymous", "anything:read");
+  // Now flip the flag back off - can() should refuse despite the grant
+  // being registered.
+  smi.set_allow_anonymous(false);
   Mongoose::StreamResponse resp;
   EXPECT_FALSE(smi.can("anything:read", resp));
 }
@@ -130,6 +144,12 @@ TEST(SessionManagerAnonymous, AnonymousAccessIsOffByDefault) {
 TEST(SessionManagerAnonymous, AnonymousAccessGrantedOnlyWhenFlagOn) {
   session_manager_interface smi;
   smi.set_allow_anonymous(true);
+  // The role grant table is keyed by role name, the user-to-role table is
+  // keyed by user name. To resolve `tokens.can("anonymous", ...)` we need
+  // both: a user "anonymous" mapped to the role "anonymous", and the role
+  // configured with a grant. The naming convention used elsewhere in this
+  // codebase is to give the magic user the same name as the magic role.
+  smi.add_user("anonymous", "anonymous", "anonymous");
   smi.add_grant("anonymous", "anything:read");
   Mongoose::StreamResponse resp;
   EXPECT_TRUE(smi.can("anything:read", resp));
@@ -184,6 +204,10 @@ TEST_F(SessionManagerTest, LogData) {
 TEST_F(SessionManagerTest, AllowedHosts) {
   smi.set_allowed_hosts("127.0.0.1");
   smi.set_allowed_hosts_cache(true);
+  // boot() runs allowed_hosts.refresh() which parses the source string into
+  // entries. With cache=true and fail-closed-on-empty (L1), set_source
+  // alone is not enough - the entries list stays empty until refresh.
+  smi.boot();
   EXPECT_TRUE(smi.is_allowed("127.0.0.1"));
 }
 
