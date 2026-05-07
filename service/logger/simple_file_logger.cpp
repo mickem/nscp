@@ -95,8 +95,15 @@ void simple_file_logger::do_log(const std::string data) {
       std::stringstream tmp;
       for (int i = 0; i < message.entry_size(); i++) {
         const auto &msg = message.entry(i);
-        tmp << date << (": ") << utf8::cvt<std::string>(logger_helper::render_log_level_long(msg.level())) << (":") << msg.file() << (":") << msg.line()
-            << (": ") << msg.message() << "\n";
+        // Strip control characters from every field that originated outside
+        // this process (file, message). Without this, a plugin / remote
+        // command whose output contains "\n<forged log line>\n" would inject
+        // arbitrary lines into the agent's log file - confusing audit and
+        // breaking log shippers that key on line position.
+        const std::string safe_file = str::format::strip_ctrl_chars(msg.file());
+        const std::string safe_message = str::format::strip_ctrl_chars(msg.message());
+        tmp << date << (": ") << utf8::cvt<std::string>(logger_helper::render_log_level_long(msg.level())) << (":") << safe_file << (":") << msg.line()
+            << (": ") << safe_message << "\n";
       }
       try {
         std::ofstream stream(file_.c_str(), std::ios::out | std::ios::app | std::ios::ate);
