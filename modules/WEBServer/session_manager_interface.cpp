@@ -48,29 +48,42 @@ session_manager_interface::session_manager_interface() : log_data(std::make_uniq
 std::string decode_key(const std::string &encoded) { return Mongoose::Helpers::decode_b64(encoded); }
 
 bool session_manager_interface::process_auth_header(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response) {
+  const std::string remote_ip = request.getRemoteIp();
+  if (rate_limiter.is_blocked(remote_ip)) {
+    NSC_LOG_ERROR("Rate-limited authentication attempt from " + remote_ip);
+    response.setCodeForbidden(NOT_ALLOWED);
+    return false;
+  }
   const std::string auth = get_auth_header(request);
   if (is_basic_auth(auth)) {
     const str::utils::token user_and_password = str::utils::split2(decode_key(auth.substr(6)), ":");
     if (!users.validate_user(user_and_password.first, user_and_password.second)) {
-      NSC_LOG_ERROR("Invalid password for " + request.getRemoteIp() + " with user " + user_and_password.first);
+      // Single, generic error string. Username is not echoed back and is not
+      // logged at error level - that gave attackers a clean username-existence
+      // and password-correctness oracle. The rate limiter prevents brute-force.
+      rate_limiter.record_failure(remote_ip);
+      NSC_LOG_ERROR("Authentication failed for " + remote_ip);
       response.setCodeForbidden(NOT_ALLOWED);
       return false;
     }
+    rate_limiter.record_success(remote_ip);
     store_user_in_response(user_and_password.first, response);
     return can(grant, response);
   }
   if (is_bearer_auth(auth)) {
     const std::string token = auth.substr(7);
     if (!tokens.is_valid(token)) {
-      NSC_LOG_ERROR("Invalid bearer token for " + request.getRemoteIp());
+      rate_limiter.record_failure(remote_ip);
+      NSC_LOG_ERROR("Authentication failed for " + remote_ip);
       response.setCodeForbidden(NOT_ALLOWED);
       return false;
     }
+    rate_limiter.record_success(remote_ip);
     store_token_in_response(token, response);
     return can(grant, response);
   }
-  NSC_LOG_ERROR("Unknown authentication scheme for " + request.getRemoteIp());
-  response.setCodeForbidden("Invalid authentication scheme");
+  NSC_LOG_ERROR("Unknown authentication scheme for " + remote_ip);
+  response.setCodeForbidden(NOT_ALLOWED);
   return false;
 }
 
@@ -143,6 +156,10 @@ bool session_manager_interface::can(const std::string &grant, Mongoose::StreamRe
 }
 
 void session_manager_interface::add_user(const std::string &user, const std::string &role, const std::string &password) {
+  // Re-adding (or rotating credentials for) an existing user must invalidate
+  // any tokens previously issued to them - otherwise a stolen token survives a
+  // password change.
+  tokens.revoke_tokens_for_user(user);
   tokens.add_user(user, role);
   users.add_user(user, password);
 }
@@ -185,5 +202,7 @@ bool session_manager_interface::is_allowed(const std::string &ip) {
 bool session_manager_interface::validate_token(const std::string &token) { return tokens.is_valid(token); }
 
 void session_manager_interface::revoke_token(const std::string &token) { tokens.revoke(token); }
+
+void session_manager_interface::revoke_tokens_for_user(const std::string &user) { tokens.revoke_tokens_for_user(user); }
 
 std::string session_manager_interface::generate_token(const std::string &user) { return tokens.generate_for(user); }

@@ -114,6 +114,35 @@ TEST_F(SessionManagerTest, RevokeToken) {
   EXPECT_FALSE(smi.validate_token(token));
 }
 
+TEST_F(SessionManagerTest, ReAddingUserRevokesAllTheirTokens) {
+  // Re-adding a user (e.g. password rotation through the settings reload path)
+  // must invalidate any tokens previously issued to them. Otherwise a stolen
+  // bearer token survives a password change.
+  const std::string t1 = smi.generate_token("user");
+  const std::string t2 = smi.generate_token("user");
+  EXPECT_TRUE(smi.validate_token(t1));
+  EXPECT_TRUE(smi.validate_token(t2));
+  smi.add_user("user", "foo", "newpassword");
+  EXPECT_FALSE(smi.validate_token(t1));
+  EXPECT_FALSE(smi.validate_token(t2));
+}
+
+TEST_F(SessionManagerTest, RateLimiterBlocksAfterRepeatedFailures) {
+  Mongoose::Request req("203.0.113.5", false, "GET", "/", "", {}, "");
+  Mongoose::StreamResponse resp;
+  const std::string bad_auth = "Basic " + Mongoose::Helpers::encode_b64("user:wrong");
+  req.get_headers()[HTTP_HDR_AUTH] = bad_auth;
+
+  for (int i = 0; i < 10; ++i) {
+    Mongoose::StreamResponse r;
+    EXPECT_FALSE(smi.process_auth_header("something:read", req, r));
+  }
+  // After kMaxFailures, even a correct password gets rejected from this IP.
+  const std::string good_auth = "Basic " + Mongoose::Helpers::encode_b64("user:password");
+  req.get_headers()[HTTP_HDR_AUTH] = good_auth;
+  EXPECT_FALSE(smi.process_auth_header("something:read", req, resp));
+}
+
 TEST_F(SessionManagerTest, Metrics) {
   smi.set_metrics("metrics", "metrics_list", {"open_metrics"});
   EXPECT_EQ(smi.get_metrics(), "metrics");

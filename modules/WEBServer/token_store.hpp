@@ -64,6 +64,15 @@ class token_store {
       tokens.erase(it);
     }
   }
+  void revoke_tokens_for_user(const std::string &user) {
+    for (auto it = tokens.begin(); it != tokens.end();) {
+      if (it->second.user == user) {
+        it = tokens.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  }
   bool can(const std::string &uid, const std::string &grant);
   void add_user(const std::string &user, const std::string &role);
   void add_grant(const std::string &role, const std::string &grant);

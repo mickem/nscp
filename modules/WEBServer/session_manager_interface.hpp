@@ -8,6 +8,7 @@
 #include <net/socket/allowed_hosts.hpp>
 #include <string>
 
+#include "auth_rate_limiter.hpp"
 #include "error_handler_interface.hpp"
 #include "metrics_handler.hpp"
 #include "token_store.hpp"
@@ -20,6 +21,7 @@ struct session_manager_interface {
   token_store tokens;
   socket_helpers::allowed_hosts_manager allowed_hosts;
   user_manager users;
+  auth_rate_limiter rate_limiter;
 
  public:
   session_manager_interface();
@@ -31,6 +33,7 @@ struct session_manager_interface {
 
   bool validate_token(const std::string &token);
   void revoke_token(const std::string &token);
+  void revoke_tokens_for_user(const std::string &user);
   std::string generate_token(const std::string &user);
 
   std::string get_metrics();

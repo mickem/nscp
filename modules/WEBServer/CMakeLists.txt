@@ -12,6 +12,7 @@ set(SRCS
     static_controller.cpp
     token_store.cpp
     user_manager.cpp
+    password_hash.cpp
     grant_store.cpp
     session_manager_interface.cpp
     metrics_handler.cpp
@@ -100,6 +101,10 @@ NSCP_CREATE_TEST(
         session_manager_interface_test.cpp
         session_manager_interface.cpp
         user_manager.cpp
+        user_manager_test.cpp
+        password_hash.cpp
+        password_hash_test.cpp
+        auth_rate_limiter_test.cpp
         error_handler.cpp
         metrics_handler.cpp
         ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp

@@ -47,6 +47,7 @@
 #include "metrics_controller.hpp"
 #include "modules_controller.hpp"
 #include "openmetrics_controller.hpp"
+#include "password_hash.hpp"
 #include "query_controller.hpp"
 #include "scripts_controller.hpp"
 #include "settings_controller.hpp"
@@ -351,6 +352,11 @@ bool WEBServer::cli_add_user(const PB::Commands::ExecuteRequestMessage::Request 
       nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
       return true;
     }
+    // Track whether we actually have a fresh plaintext to display to the
+    // operator. We never echo a stored hash (it's useless to copy) and we
+    // never display an existing on-disk plaintext we didn't change either.
+    const bool password_from_cli = vm.count("password") > 0;
+    bool password_was_supplied = password_from_cli;
     for (const pf::settings_query::key_values &val : q.get_query_key_response()) {
       if (val.matches(path, "password") && password.empty())
         password = val.get_string();
@@ -359,17 +365,42 @@ bool WEBServer::cli_add_user(const PB::Commands::ExecuteRequestMessage::Request 
     }
 
     std::stringstream result;
+    std::string password_for_display;
     if (password.empty()) {
       result << "WARNING: No password specified using a generated password" << std::endl;
       password = token_store::generate_token(32);
+      password_for_display = password;
+    } else if (web_password::is_hashed(password)) {
+      // Existing on-disk hash; nothing to migrate, nothing to show.
+      password_for_display = "(unchanged)";
+    } else if (password_was_supplied) {
+      // Operator supplied plaintext on the CLI - show it back, then hash.
+      password_for_display = password;
+    } else {
+      // Legacy plaintext sitting on disk - migrate to a hash. We don't echo
+      // it back (the operator already has it; rotating it isn't this command's
+      // job).
+      password_for_display = "(migrated to hash)";
     }
     if (role.empty()) {
       result << "WARNING: No role specified using client" << std::endl;
       role = "client";
     }
 
+    // Hash the per-user password before persisting. The /settings/default
+    // password (shared with NRPE / NSCA / NSClient) is untouched - those
+    // protocols still need the plaintext to compare on the wire.
+    if (!web_password::is_hashed(password)) {
+      const std::string hashed = web_password::hash_password(password);
+      if (hashed.empty()) {
+        nscapi::protobuf::functions::set_response_bad(*response, "Failed to hash password (RNG / KDF failure)");
+        return true;
+      }
+      password = hashed;
+    }
+
     nscapi::protobuf::functions::settings_query s(get_id());
-    result << "User " << user << " authenticated by " << password << " as " << role << std::endl;
+    result << "User " << user << " authenticated by " << password_for_display << " as " << role << std::endl;
     s.set(path, "password", password);
     s.set(path, "role", role);
     s.save();
@@ -712,8 +743,18 @@ void WEBServer::ensure_user(const nscapi::settings_helper::settings_registry &se
   if (!session->has_user(user)) {
     session->add_user(user, role, password);
     const std::string the_path = path + "/" + user;
-    settings.register_key_password(the_path, "password", "Password for " + reason, "Password name for" + reason, password);
-    settings.set_static_key(the_path, "password", password);
+    // Per-user passwords on disk are stored hashed. The default password
+    // under /settings/default/password (shared with NRPE / NSCA / NSClient)
+    // is left alone; only this per-user slot is migrated.
+    std::string stored = password;
+    if (!stored.empty() && !web_password::is_hashed(stored)) {
+      const std::string hashed = web_password::hash_password(stored);
+      if (!hashed.empty()) {
+        stored = hashed;
+      }
+    }
+    settings.register_key_password(the_path, "password", "Password for " + reason, "Password name for" + reason, stored);
+    settings.set_static_key(the_path, "password", stored);
     settings.register_key_string(the_path, "role", "Role for " + reason, "Role name for" + reason, role);
     settings.set_static_key(the_path, "role", role);
   }

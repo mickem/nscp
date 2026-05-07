@@ -76,6 +76,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/str/wstring_test.cpp
         ${NSCP_INCLUDEDIR}/str/utf8_test.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
+        ${NSCP_INCLUDEDIR}/str/constant_time_test.cpp
     LIBRARIES
         gtest_main
     INCLUDES
