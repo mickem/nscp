@@ -33,8 +33,6 @@
 #include <str/constant_time.hpp>
 #include <str/utils.hpp>
 
-#include "handler_impl.hpp"
-
 namespace sh = nscapi::settings_helper;
 
 NSClientServer::NSClientServer() : noPerfData_(false), allowNasty_(false), allowArgs_(false) {}
