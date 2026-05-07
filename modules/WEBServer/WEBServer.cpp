@@ -190,10 +190,12 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       port = port.substr(0, port.length() - 1);
     }
 
-    session->add_user("admin", "full", admin_password);
+    if (!session->has_user("admin")) {
+      session->add_user("admin", "full", admin_password);
+    }
 
     WebLoggerPtr logger(new WEBServerLogger(log_errors, log_info, log_debug));
-    server.reset(Mongoose::Server::make_server(logger));
+    server.reset(Server::make_server(logger));
     if (!boost::filesystem::is_regular_file(certificate)) {
       NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
     } else {
