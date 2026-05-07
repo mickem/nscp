@@ -148,6 +148,10 @@ class packet {
     }
     std::vector<char> tmp(buffer, buffer + buffer_len);
     auto* data = reinterpret_cast<data::data_packet*>(tmp.data());
+    const auto version = swap_bytes::ntoh<int16_t>(data->packet_version);
+    if (version != data::version3) {
+      throw nsca_exception("Unsupported NSCA packet version: " + str::xtos(version));
+    }
     time = swap_bytes::ntoh<uint32_t>(data->timestamp);
     code = swap_bytes::ntoh<int16_t>(data->return_code);
 

@@ -232,6 +232,34 @@ TEST(NscaPacket, CorruptedBufferThrows) {
   EXPECT_THROW(parsed.parse_data(buffer.c_str(), buffer.size()), nsca::nsca_exception);
 }
 
+TEST(NscaPacket, WrongVersionThrows) {
+  // The server only speaks v3. A packet that decrypted to a different
+  // advertised version (e.g. a v1 client, or a forgery built without
+  // honouring the version field) must be rejected before the rest of the
+  // fields are interpreted.
+  nsca::packet original(std::string("host"), 512);
+  original.service = "svc";
+  original.code = 0;
+  original.result = "OK";
+
+  std::string buffer(original.get_packet_length(), '\0');
+  original.get_buffer(buffer);
+
+  // Overwrite the packet_version field (first int16, network byte order)
+  // with version 2.
+  buffer[0] = 0;
+  buffer[1] = 2;
+  // Recompute the CRC so the integrity check passes and we exercise the
+  // version check specifically rather than tripping CRC first.
+  auto* data = reinterpret_cast<nsca::data::data_packet*>(&buffer[0]);
+  data->crc32_value = 0;
+  const unsigned int new_crc = calculate_crc32(buffer.c_str(), static_cast<int>(buffer.size()));
+  data->crc32_value = swap_bytes::hton<uint32_t>(new_crc);
+
+  nsca::packet parsed(512);
+  EXPECT_THROW(parsed.parse_data(buffer.c_str(), buffer.size()), nsca::nsca_exception);
+}
+
 // =============================================================================
 // packet — validate_lengths
 // =============================================================================
