@@ -28,10 +28,22 @@
 #include <boost/unordered_map.hpp>
 #include <parsers/cron/cron_parser.hpp>
 #include <queue>
+#include <random>
 #include <string>
 #include <threads/has-threads.hpp>
 
 namespace simple_scheduler {
+
+// Per-thread RNG for scheduler jitter. Seeded once from std::random_device,
+// which is CSPRNG-backed on supported platforms (RtlGenRandom on Windows,
+// /dev/urandom on Linux). Not used for any security-sensitive purpose; the
+// only goal is that two NSClient++ agents started at the same instant pick
+// distinct jitter so they don't synchronise their checks at the monitoring
+// server.
+inline std::mt19937& jitter_rng() {
+  thread_local std::mt19937 rng{std::random_device{}()};
+  return rng;
+}
 
 struct task {
   int id;
@@ -64,8 +76,9 @@ struct task {
   }
   boost::posix_time::ptime get_next(boost::posix_time::ptime now_time) const {
     if (has_duration && duration.total_seconds() > 0) {
-      double total_delay = static_cast<double>(duration.total_seconds());
-      double val = (total_delay * randomeness) * (static_cast<double>(rand()) / static_cast<double>(RAND_MAX));
+      const double total_delay = static_cast<double>(duration.total_seconds());
+      std::uniform_real_distribution<> dist(0.0, 1.0);
+      const double val = (total_delay * randomeness) * dist(jitter_rng());
       double time_to_wait = (total_delay * (1.0 - randomeness)) + val;
       if (time_to_wait < 1.0) {
         time_to_wait = 1.0;
