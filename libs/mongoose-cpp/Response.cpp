@@ -1,14 +1,35 @@
 #include "Response.h"
 
+#include <algorithm>
 #include <sstream>
 #include <utility>
 
 using namespace std;
 
+namespace {
+// Strip CR / LF / NUL from header values. Without this guard a controller
+// that splices a request-controlled string (e.g. the Host header) into a
+// response header value can be tricked into HTTP response splitting:
+//
+//   Host: example.com\r\nSet-Cookie: x=y
+//
+// would turn one Link header into Link plus a forged Set-Cookie. We strip
+// rather than reject so a buggy caller does not bring down the response;
+// the resulting header value just loses the offending bytes.
+string sanitize_header_value(string v) {
+  v.erase(std::remove_if(v.begin(), v.end(), [](char c) { return c == '\r' || c == '\n' || c == '\0'; }), v.end());
+  return v;
+}
+string sanitize_header_key(string k) {
+  k.erase(std::remove_if(k.begin(), k.end(), [](char c) { return c == '\r' || c == '\n' || c == '\0' || c == ':' || c == ' '; }), k.end());
+  return k;
+}
+}  // namespace
+
 namespace Mongoose {
 Response::Response() : code(HTTP_OK), reason(REASON_OK) {}
 
-void Response::setHeader(const string key, string value) { headers[key] = std::move(value); }
+void Response::setHeader(const string key, string value) { headers[sanitize_header_key(key)] = sanitize_header_value(std::move(value)); }
 
 bool Response::hasHeader(const string key) { return headers.find(key) != headers.end(); }
 
