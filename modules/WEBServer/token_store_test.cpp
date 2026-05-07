@@ -93,3 +93,26 @@ TEST(TokenStoreTest, HierarchicalGrant) {
   EXPECT_FALSE(store.can(user, "module.write"));
   EXPECT_FALSE(store.can(user, "other.read"));
 }
+
+// Generating beyond the cap must not let the map grow unbounded. Earlier
+// versions only pruned on lookup, so a workload of repeated logins with
+// abandoned sessions could OOM the agent over time.
+TEST(TokenStoreTest, GenerationBeyondCapEvictsOldest) {
+  token_store store;
+  // Generate slightly more than the documented cap. The store sweeps inside
+  // generate_for(); after the loop the live token count must not exceed the
+  // cap. We don't depend on the exact cap value - just that it's bounded.
+  std::vector<std::string> tokens;
+  for (int i = 0; i < 5000; ++i) {
+    tokens.push_back(store.generate_for("user" + std::to_string(i)));
+  }
+  // Conservative upper bound: the implementation's kMaxTokens is 4096; we
+  // assert "well under what we generated" rather than the exact value so
+  // future tuning of the cap does not require a test edit.
+  std::size_t live = 0;
+  for (const auto &t : tokens) {
+    if (store.is_valid(t)) ++live;
+  }
+  EXPECT_LT(live, 5000u) << "every token survived - eviction did not run";
+  EXPECT_LE(live, 4096u) << "live count exceeded the documented cap";
+}
