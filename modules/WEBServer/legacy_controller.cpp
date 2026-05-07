@@ -4,6 +4,7 @@
 #include <boost/json.hpp>
 #include <boost/thread/locks.hpp>
 #include <client/simple_client.hpp>
+#include <nscapi/macros.hpp>
 #include <str/xtos.hpp>
 
 #include "error_handler_interface.hpp"
@@ -74,24 +75,24 @@ void legacy_controller::run_exec_pb(Mongoose::Request &request, Mongoose::Stream
 }
 
 void legacy_controller::auth_token(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_allowed(request.getRemoteIp())) {
-    response.setCodeForbidden("403 You're not allowed");
-    return;
-  }
-
-  if (session->validate_user("admin", request.get("password"))) {
-    const std::string token = session->generate_token("admin");
-    response.setHeader("__TOKEN", token);
-    response.append("{ \"status\" : \"ok\", \"auth token\": \"" + token + "\" }");
-  } else {
-    response.setCodeForbidden("403 Invalid password");
-  }
+  NSC_LOG_ERROR("Rejected legacy /auth/token call from " + request.getRemoteIp() +
+                ": this endpoint accepted the password as a URL query parameter and has been removed. "
+                "Use POST /api/v2/login with HTTP Basic authentication instead.");
+  response.setCode(410, "Gone");
+  response.append(
+      "{ \"status\" : \"error\", \"message\" : \"The /auth/token endpoint has been removed. "
+      "It accepted the password as a URL query parameter, which leaked credentials into browser history, "
+      "proxy logs and Referer headers. Authenticate with POST /api/v2/login using the Authorization: Basic header.\" }");
 }
 void legacy_controller::auth_logout(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  const std::string token = request.get("token");
-  session->revoke_token(token);
-  response.setHeader("__TOKEN", "");
-  response.append("{ \"status\" : \"ok\", \"auth token\": \"\" }");
+  NSC_LOG_ERROR("Rejected legacy /auth/logout call from " + request.getRemoteIp() +
+                ": this endpoint accepted the session token as a URL query parameter and has been removed. "
+                "Use DELETE /api/v2/login with the Authorization: Bearer header instead.");
+  response.setCode(410, "Gone");
+  response.append(
+      "{ \"status\" : \"error\", \"message\" : \"The /auth/logout endpoint has been removed. "
+      "It accepted the session token as a URL query parameter, which leaked credentials into browser history, "
+      "proxy logs and Referer headers. Log out via DELETE /api/v2/login with the Authorization: Bearer header.\" }");
 }
 
 void legacy_controller::log_status(Mongoose::Request &request, Mongoose::StreamResponse &response) {

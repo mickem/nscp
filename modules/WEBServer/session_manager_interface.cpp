@@ -26,11 +26,14 @@ inline std::string find_token(Mongoose::Request &request) {
   if (!x_token.empty()) {
     return x_token;
   }
-  std::string request_token = request.get("TOKEN");
-  if (!request_token.empty()) {
-    return request_token;
+  if (!request.get("TOKEN").empty() || !request.get("__TOKEN").empty()) {
+    NSC_LOG_ERROR("Rejected request from " + request.getRemoteIp() +
+                  " that supplied the session token as a URL query parameter (?TOKEN= / ?__TOKEN=). "
+                  "This fallback has been removed because URL parameters leak into browser history, "
+                  "proxy logs and Referer headers. Send the token in the TOKEN, X-Auth-Token or "
+                  "Authorization: Bearer header instead.");
   }
-  return request.get("__TOKEN", "");
+  return "";
 }
 inline std::string get_auth_header(Mongoose::Request &request) {
   std::string auth = request.readHeader(HTTP_HDR_AUTH);
