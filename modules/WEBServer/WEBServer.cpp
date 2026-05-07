@@ -195,7 +195,19 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         NSC_LOG_ERROR("Failed to find web folder: " + path + " (also tried " + fallback + ")");
       }
     }
-    if (!boost::filesystem::is_regular_file(certificate) && port == "8443") port = "8080";
+    // Silent HTTPS->HTTP downgrade is dangerous: a missing certificate flips
+    // the agent from 8443 to 8080 with no operational signal beyond a single
+    // log line. Keep the convenience auto-flip (so dev/test installs without
+    // a cert do not fail to start) but make the consequences explicit on
+    // every restart - session tokens travel in clear once HTTP is in use.
+    const bool cert_missing = !boost::filesystem::is_regular_file(certificate);
+    if (cert_missing && port == "8443") {
+      NSC_LOG_ERROR(
+          "WEB certificate not found at '" + certificate +
+          "': falling back to HTTP on port 8080. Session tokens / Basic-auth credentials will be transmitted in clear. Do NOT use this configuration in "
+          "production - either provide a valid certificate or front the agent with a TLS-terminating proxy.");
+      port = "8080";
+    }
     if (boost::ends_with(port, "s")) {
       port = port.substr(0, port.length() - 1);
     }
@@ -206,7 +218,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
     WebLoggerPtr logger(new WEBServerLogger(log_errors, log_info, log_debug));
     server.reset(Server::make_server(logger));
-    if (!boost::filesystem::is_regular_file(certificate)) {
+    if (cert_missing) {
       NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
     } else {
       NSC_DEBUG_MSG("Using certificate: " + certificate);
