@@ -38,6 +38,10 @@ bool is_safe_script_name(const std::string& name) {
   if (name.empty() || name.size() > kMaxNameLen) return false;
   // No leading separator (would resolve to filesystem root).
   if (name.front() == '/' || name.front() == '\\') return false;
+  // No trailing separator (means a missing filename - e.g. "a/" - which the
+  // segment loop below would otherwise miss because it exits before
+  // validating the empty segment after the separator).
+  if (name.back() == '/' || name.back() == '\\') return false;
   // No drive letter on Windows (e.g. "C:foo").
   if (name.size() >= 2 && name[1] == ':') return false;
   // No NULs anywhere.
@@ -45,7 +49,8 @@ bool is_safe_script_name(const std::string& name) {
     if (c == '\0') return false;
   }
   // Walk segments split on either separator. Each segment must be a safe
-  // segment and not `.` / `..` (handled inside `is_safe_segment`).
+  // segment and not `.` / `..` (handled inside `is_safe_segment`). Empty
+  // interior segments (e.g. "a//b") fail is_safe_segment.
   std::size_t i = 0;
   while (i < name.size()) {
     std::size_t j = i;
@@ -55,8 +60,7 @@ bool is_safe_script_name(const std::string& name) {
     const std::string seg = name.substr(i, j - i);
     if (!is_safe_segment(seg)) return false;
     if (j == name.size()) break;
-    i = j + 1;  // skip separator; an empty segment after it (e.g. "a//b")
-                // becomes empty and fails is_safe_segment.
+    i = j + 1;
   }
   return true;
 }
