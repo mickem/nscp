@@ -4,6 +4,7 @@
 #include <boost/thread/locks.hpp>
 #include <client/simple_client.hpp>
 #include <nscapi/macros.hpp>
+#include <str/xtos.hpp>
 
 #include "error_handler_interface.hpp"
 
