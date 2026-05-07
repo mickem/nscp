@@ -63,7 +63,20 @@ struct allowed_hosts_manager {
     return true;
   }
   bool is_allowed(const boost::asio::ip::address &address, std::list<std::string> &errors) {
-    return (entries_v4.empty() && entries_v6.empty()) || (address.is_v4() && is_allowed_v4(address.to_v4().to_bytes(), errors)) ||
+    // Fail closed when the allowed-hosts list is empty. Per-module defaults
+    // (typically `127.0.0.1`) mean an empty list almost always represents an
+    // operator who explicitly cleared the setting - either to deliberately
+    // expose the agent (now requires saying so explicitly) or by mistake
+    // (now visible instead of silently opening the listener).
+    //
+    // BREAKING CHANGE from earlier versions: deployments that relied on
+    // `allowed hosts =` (empty) to accept any source must set
+    // `allowed hosts = 0.0.0.0/0,::/0` to keep the same behaviour.
+    if (entries_v4.empty() && entries_v6.empty()) {
+      errors.emplace_back("allowed_hosts is empty - rejecting all connections (set `allowed hosts = 0.0.0.0/0,::/0` to allow all)");
+      return false;
+    }
+    return (address.is_v4() && is_allowed_v4(address.to_v4().to_bytes(), errors)) ||
            (address.is_v6() && is_allowed_v6(address.to_v6().to_bytes(), errors)) ||
            (address.is_v6() && address.to_v6().is_v4_compatible() && is_allowed_v4(address.to_v6().to_v4().to_bytes(), errors)) ||
            (address.is_v6() && address.to_v6().is_v4_mapped() && is_allowed_v4(address.to_v6().to_v4().to_bytes(), errors));
