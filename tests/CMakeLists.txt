@@ -16,6 +16,18 @@ if(WIN32)
             ${NSCP_INCLUDEDIR}
     )
     NSCP_CREATE_TEST(
+        argv_quote_test
+        SOURCES
+            ${NSCP_INCLUDEDIR}/process/argv_quote_test.cpp
+            ${NSCP_INCLUDEDIR}/process/argv_quote.cpp
+            ${NSCP_INCLUDEDIR}/str/utf8.cpp
+        LIBRARIES
+            gtest_main
+            Shell32
+        INCLUDES
+            ${NSCP_INCLUDEDIR}
+    )
+    NSCP_CREATE_TEST(
         wmi_query_test
         SOURCES
             ${NSCP_INCLUDEDIR}/win/wmi/wmi_query_test.cpp

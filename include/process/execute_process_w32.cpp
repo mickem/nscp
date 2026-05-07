@@ -29,6 +29,7 @@
 #include <handle.hpp>
 #include <iostream>
 #include <nscapi/macros.hpp>
+#include <process/argv_quote.hpp>
 #include <process/execute_process.hpp>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
@@ -175,8 +176,24 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
   si.wShowWindow = SW_HIDE;
   if (args.display) si.wShowWindow = SW_SHOW;
 
-  hlp::tchar_buffer tmpCmd(utf8::cvt<std::wstring>(args.command));
-  tmpCmd[args.command.length()] = 0;
+  // Build the command line. If the caller supplied an argv vector we lock the
+  // executable via lpApplicationName and produce a properly-escaped command
+  // line so CreateProcess cannot reinterpret token boundaries: a single argv
+  // element that contains spaces stays a single argv element. If argv is
+  // empty we fall back to the legacy single-string command, which means the
+  // operator is responsible for any quoting.
+  std::wstring app_name_storage;
+  LPCWSTR lpApplicationName = nullptr;
+  std::wstring cmd_line_w;
+  if (!args.argv.empty()) {
+    app_name_storage = utf8::cvt<std::wstring>(args.argv[0]);
+    lpApplicationName = app_name_storage.c_str();
+    cmd_line_w = process::build_command_line_w(args.argv);
+  } else {
+    cmd_line_w = utf8::cvt<std::wstring>(args.command);
+  }
+  hlp::tchar_buffer tmpCmd(cmd_line_w);
+  tmpCmd[cmd_line_w.length()] = 0;
 
   BOOL processOK = FALSE;
   PROCESS_INFORMATION pi;
@@ -197,15 +214,15 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
       return NSCAPI::query_return_codes::returnUNKNOWN;
     }
 
-    processOK = CreateProcessAsUser(pHandle.get(), nullptr, tmpCmd.get(), nullptr, nullptr, args.fork ? FALSE : TRUE,
+    processOK = CreateProcessAsUser(pHandle.get(), lpApplicationName, tmpCmd.get(), nullptr, nullptr, args.fork ? FALSE : TRUE,
                                     creation_flags | CREATE_UNICODE_ENVIRONMENT, environment.get(), utf8::cvt<std::wstring>(args.root_path).c_str(), &si, &pi);
     if (!processOK) {
       imp.close();
       const DWORD error = GetLastError();
       if (error == ERROR_PRIVILEGE_NOT_HELD) {
         processOK = CreateProcessWithLogonW(utf8::cvt<std::wstring>(args.user).c_str(), utf8::cvt<std::wstring>(args.domain).c_str(),
-                                            utf8::cvt<std::wstring>(args.password).c_str(), LOGON_WITH_PROFILE, nullptr, tmpCmd.get(), creation_flags, nullptr,
-                                            utf8::cvt<std::wstring>(args.root_path).c_str(), &si, &pi);
+                                            utf8::cvt<std::wstring>(args.password).c_str(), LOGON_WITH_PROFILE, lpApplicationName, tmpCmd.get(), creation_flags,
+                                            nullptr, utf8::cvt<std::wstring>(args.root_path).c_str(), &si, &pi);
       } else {
         if (error == ERROR_BAD_EXE_FORMAT) {
           output =
@@ -217,7 +234,7 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
       }
     }
   } else {
-    processOK = CreateProcess(nullptr, tmpCmd.get(), nullptr, nullptr, args.fork ? FALSE : TRUE, creation_flags, nullptr,
+    processOK = CreateProcess(lpApplicationName, tmpCmd.get(), nullptr, nullptr, args.fork ? FALSE : TRUE, creation_flags, nullptr,
                               utf8::cvt<std::wstring>(args.root_path).c_str(), &si, &pi);
   }
 

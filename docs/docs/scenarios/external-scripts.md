@@ -106,14 +106,14 @@ check_memory_ps = scripts\check_memory_ps.ps1
 
 ## Script Wrappers
 
-NSClient++ includes wrappers to run different script types. These are pre-configured in the `[/settings/external scripts/wrappings]` section:
+NSClient++ includes wrappers to run different script types. These are
+pre-configured in the `[/settings/external scripts/wrappings]` section:
 
 ```ini
 [/settings/external scripts/wrappings]
-bat = scripts\%SCRIPT% %ARGS%
-ps1 = cmd /c echo scripts\%SCRIPT% %ARGS%; exit($lastexitcode) | powershell.exe -command -
-vbs = cscript.exe //T:90 //NoLogo scripts\lib\wrapper.vbs %SCRIPT% %ARGS%
-exe = cmd /c %SCRIPT% %ARGS%
+bat = "scripts\%SCRIPT%" $ARGS"$
+ps1 = powershell.exe -NoProfile -ExecutionPolicy Bypass -NonInteractive -File "scripts\%SCRIPT%" $ARGS"$
+vbs = cscript.exe //T:30 //NoLogo "scripts\lib\wrapper.vbs" %SCRIPT% $ARGS"$
 ```
 
 **Using a wrapped script:**
@@ -122,6 +122,56 @@ exe = cmd /c %SCRIPT% %ARGS%
 [/settings/external scripts/wrapped scripts]
 check_updates = check_updates.vbs $ARG1$ $ARG2$
 ```
+
+!!! note
+    Older versions of NSClient++ shipped a `ps1` wrapping that piped through
+    `cmd.exe`:
+    `cmd /c echo scripts\%SCRIPT% %ARGS% ; exit($lastexitcode) | powershell.exe -command -`.
+    The current default invokes `powershell.exe -File` directly so that
+    `$ARGn$` substitutions cannot pass through `cmd.exe`'s parser as
+    statement-level metacharacters. Existing operator-supplied wrappings
+    keep working unchanged; only the default templates were updated.
+
+---
+
+## How Arguments Reach Your Script
+
+When `allow arguments = true`, NSClient++ tokenises your command template
+once and substitutes `$ARGn$` at the **token** level, then launches the
+script with the resulting argument vector directly:
+
+* On Unix, `fork` + `execvp` — no `/bin/sh -c`.
+* On Windows, `CreateProcess` with `lpApplicationName` set to `argv[0]` and a
+  per-argument-quoted command line that round-trips through
+  `CommandLineToArgvW`.
+
+What this means in practice:
+
+* A `$ARGn$` whose value contains spaces, `;`, `$`, `(`, `)`, newlines or
+  any other shell metacharacter reaches your script as a **single argv
+  element**. It is no longer interpreted as command separation, redirection
+  or sub-shell.
+* `$ARGS$` / `%ARGS%` and the quoted-equivalent forms, when used as a
+  *standalone* template token, splat the supplied arguments as separate
+  argv elements. Embedded inside a larger token (e.g.
+  `prefix-$ARGS$-suffix`) they collapse to a space-joined single token.
+
+### Quote command paths that contain spaces
+
+Because the launcher now uses `argv[0]` to fix the executable, an unquoted
+path with spaces splits across argv:
+
+```ini
+# WRONG — argv[0] becomes "C:\Program" and the launch fails
+[/settings/external scripts/scripts/check_app]
+command = C:\Program Files\nscp\check.exe --foo
+
+# RIGHT — the whole path is one token
+[/settings/external scripts/scripts/check_app]
+command = "C:\Program Files\nscp\check.exe" --foo
+```
+
+The bundled wrappings (`scripts\%SCRIPT%`) already follow this rule.
 
 ---
 
@@ -151,9 +201,10 @@ Pick any of the three fixes:
 
 **Option 1 — use the `.ps1` wrapping (recommended)**
 
-The bundled `ps1` wrapping (in `[/settings/external scripts/wrappings]`) ends
-with `exit($lastexitcode)` and propagates the script's exit code correctly.
-Move the entry to **`[wrapped scripts]`** and reference the file name:
+The bundled `ps1` wrapping (in `[/settings/external scripts/wrappings]`)
+invokes `powershell.exe -File` so the script's exit code is propagated
+verbatim. Move the entry to **`[wrapped scripts]`** and reference the file
+name:
 
 ```ini
 [/settings/external scripts/wrapped scripts]
@@ -241,10 +292,26 @@ foo = scripts\foo.bat $ARG1$ $ARG2$
 Arguments are accessed in scripts as `$ARG1$`, `$ARG2$`, etc.
 
 !!! danger
-    Enabling argument pass-through (especially the second flag) is a security
-    risk: any host that can reach the NRPE port can pass arbitrary arguments
-    to whatever script you've defined. Combine with `allowed hosts` and a
-    firewall.
+    Enabling argument pass-through is a security risk: any host that can
+    reach the NRPE port can pass arbitrary arguments to whatever script you
+    have defined. Combine with `allowed hosts` and a firewall.
+
+    NSClient++ now isolates each `$ARGn$` substitution as a single argv
+    element (no shell, no Windows command-line re-tokenisation), so an
+    attacker cannot embed `;`, `$()`, redirection, or extra flags via
+    argument injection. They **can** still call any registered command with
+    any string value, which is enough to drive a script into doing
+    expensive work, hitting external systems, or exposing whatever the
+    script chooses to expose. Treat your scripts as the security boundary
+    and validate `$ARGn$` inside the script itself.
+
+!!! note
+    The `allow nasty characters` flag remains as defence in depth. With it
+    set to `false`, NSClient++ rejects requests whose arguments contain
+    `|`, `` ` ``, `&`, `>`, `<`, `'`, `"`, `\`, `[`, `]`, `{`, `}`. It is
+    no longer the only thing standing between the network and a shell
+    interpreter — argv isolation is — but leaving it `false` continues to
+    block the most obvious abuse patterns.
 
 ### Protocol payload limits
 

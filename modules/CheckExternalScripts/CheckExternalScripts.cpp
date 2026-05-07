@@ -110,25 +110,31 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
     settings.notify();
     settings.clear();
 
+    // Default wrappings. We deliberately invoke the script interpreter
+    // directly (not through `cmd /c ... | powershell -command -`) so that
+    // attacker-controlled $ARGn$ values do not pass through cmd.exe's parser
+    // before reaching PowerShell. The token-level argv build in handle_command
+    // turns every $ARGn$ substitution into a single argv element, and the
+    // launcher invokes powershell.exe / cscript.exe / the .bat directly with
+    // CreateProcess + lpApplicationName.
     if (wrappings.find("ps1") == wrappings.end()) {
       wrappings["ps1"] =
-          "cmd /c echo If (-Not (Test-Path \"scripts\\%SCRIPT%\") ) { Write-Host \"UNKNOWN: Script `\"%SCRIPT%`\" not found.\"; exit(3) }; scripts\\%SCRIPT% "
-          "$ARGS$; exit($lastexitcode) | powershell.exe /noprofile -command -";
+          "powershell.exe -NoProfile -ExecutionPolicy Bypass -NonInteractive -File \"scripts\\%SCRIPT%\" $ARGS\"$";
       settings.register_key_string(
           wrappings_path, "ps1", "POWERSHELL WRAPPING", "Command line used for executing wrapped ps1 (powershell) scripts",
-          "cmd /c echo If (-Not (Test-Path \"scripts\\%SCRIPT%\") ) { Write-Host \"UNKNOWN: Script `\"%SCRIPT%`\" not found.\"; exit(3) }; "
-          "scripts\\%SCRIPT% $ARGS$; exit($lastexitcode) | powershell.exe /noprofile -command -");
+          "powershell.exe -NoProfile -ExecutionPolicy Bypass -NonInteractive -File \"scripts\\%SCRIPT%\" $ARGS\"$");
       settings.set_static_key(wrappings_path, "ps1", wrappings["ps1"]);
     }
     if (wrappings.find("vbs") == wrappings.end()) {
-      wrappings["vbs"] = "cscript.exe //T:30 //NoLogo scripts\\\\lib\\\\wrapper.vbs %SCRIPT% %ARGS%";
+      wrappings["vbs"] = "cscript.exe //T:30 //NoLogo \"scripts\\lib\\wrapper.vbs\" %SCRIPT% $ARGS\"$";
       settings.register_key_string(wrappings_path, "vbs", "Visual basic script", "Command line used for wrapped vbs scripts",
-                                   "cscript.exe //T:30 //NoLogo scripts\\\\lib\\\\wrapper.vbs %SCRIPT% %ARGS%");
+                                   "cscript.exe //T:30 //NoLogo \"scripts\\lib\\wrapper.vbs\" %SCRIPT% $ARGS\"$");
       settings.set_static_key(wrappings_path, "vbs", wrappings["vbs"]);
     }
     if (wrappings.find("bat") == wrappings.end()) {
-      wrappings["bat"] = "scripts\\\\%SCRIPT% %ARGS%";
-      settings.register_key_string(wrappings_path, "bat", "Batch file", "Command used for executing wrapped batch files", "scripts\\\\%SCRIPT% %ARGS%");
+      wrappings["bat"] = "\"scripts\\%SCRIPT%\" $ARGS\"$";
+      settings.register_key_string(wrappings_path, "bat", "Batch file", "Command used for executing wrapped batch files",
+                                   "\"scripts\\%SCRIPT%\" $ARGS\"$");
       settings.set_static_key(wrappings_path, "bat", wrappings["bat"]);
     }
 
@@ -366,8 +372,20 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
                                           PB::Commands::QueryResponseMessage::Response *response) {
   std::string cmdline = cd.command;
   std::string all, allesc;
+  // argv-form of the substituted command. We always build this when we have
+  // a parseable template, so the OS launcher can use execvp / CreateProcess
+  // with lpApplicationName instead of going through a shell or relying on
+  // CreateProcess to re-tokenise the command line. This is what closes
+  // attacker-controlled $ARGn$ from becoming extra argv tokens / shell
+  // metacharacters.
+  std::vector<std::string> argv_template;
+  str::utils::parse_command(cd.command, argv_template);
+  std::vector<std::string> argv;
+  bool argv_ok = true;
   if (allowArgs_) {
     int i = 1;
+    std::vector<std::string> validated_user_args;
+    validated_user_args.reserve(args.size());
     for (const std::string &str : args) {
       if (!allowNasty_ && str.find_first_of(NASTY_METACHARS) != std::string::npos) {
         nscapi::protobuf::functions::set_response_bad(*response,
@@ -378,16 +396,56 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
       str::utils::replace(cmdline, "%ARG" + str::xtos(i) + "%", str);
       str::format::append_list(all, str, " ");
       str::format::append_list(allesc, "\"" + str + "\"", " ");
+      validated_user_args.push_back(str);
       i++;
     }
     str::utils::replace(cmdline, "$ARGS$", all);
     str::utils::replace(cmdline, "%ARGS%", all);
     str::utils::replace(cmdline, "$ARGS\"$", allesc);
     str::utils::replace(cmdline, "%ARGS\"%", allesc);
+
+    // Token-level substitution. Each token is treated as a single argv
+    // element, even if its substitution contains spaces or metacharacters.
+    // $ARGS$ / %ARGS% (with or without the quoted variant) splat into the
+    // current position as N argv elements.
+    for (const std::string &tok : argv_template) {
+      bool splat = false;
+      if (tok == "$ARGS$" || tok == "%ARGS%" || tok == "$ARGS\"$" || tok == "%ARGS\"%") {
+        for (const auto &ua : validated_user_args) argv.push_back(ua);
+        splat = true;
+      }
+      if (splat) continue;
+      std::string sub = tok;
+      int j = 1;
+      for (const auto &ua : validated_user_args) {
+        str::utils::replace(sub, "$ARG" + str::xtos(j) + "$", ua);
+        str::utils::replace(sub, "%ARG" + str::xtos(j) + "%", ua);
+        j++;
+      }
+      // Defensive: a $ARGS$ embedded inside another token (rare and not well
+      // defined) collapses into a space-joined single argv element rather
+      // than splatting. Operators who hit this should use one of the four
+      // standalone splat forms above.
+      str::utils::replace(sub, "$ARGS$", all);
+      str::utils::replace(sub, "%ARGS%", all);
+      str::utils::replace(sub, "$ARGS\"$", allesc);
+      str::utils::replace(sub, "%ARGS\"%", allesc);
+      argv.push_back(sub);
+    }
   } else if (args.size() > 0) {
     NSC_LOG_ERROR_STD("Arguments not allowed in CheckExternalScripts set /settings/external scripts/allow arguments=true");
     nscapi::protobuf::functions::set_response_bad(*response, "Arguments not allowed see nsclient.log for details");
     return;
+  } else {
+    argv = argv_template;
+  }
+
+  if (argv_template.empty() || argv.empty()) {
+    // The template tokeniser failed (unbalanced quotes, etc). Fall back to the
+    // single-string command form. This only happens for malformed operator
+    // templates and disables the argv-injection mitigation, so log it.
+    NSC_LOG_ERROR_STD("Falling back to legacy single-string command for '" + cd.get_alias() + "' (template did not tokenise cleanly)");
+    argv_ok = false;
   }
 
   if (cmdline.find("$ARG") != std::string::npos) {
@@ -399,6 +457,9 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
   NSC_TRACE_ENABLED() { NSC_TRACE_MSG(cd.get_alias() + " command line: " + cmdline); }
 
   process::exec_arguments arg(root_, cmdline, timeout, cd.encoding, cd.session, cd.display, !cd.no_fork, kill_tree);
+  if (argv_ok) {
+    arg.argv = argv;
+  }
   if (!cd.user.empty()) {
     arg.user = cd.user;
     arg.domain = cd.domain;
