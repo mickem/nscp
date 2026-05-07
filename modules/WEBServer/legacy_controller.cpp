@@ -17,15 +17,22 @@ legacy_controller::legacy_controller(const boost::shared_ptr<session_manager_int
   addRoute("POST", "/query.pb", this, &legacy_controller::run_query_pb);
   addRoute("POST", "/settings/query.pb", this, &legacy_controller::settings_query_pb);
   addRoute("GET", "/log/status", this, &legacy_controller::log_status);
-  addRoute("GET", "/log/reset", this, &legacy_controller::log_reset);
+  // State-changing endpoints must be POST so that they cannot be triggered by
+  // a cross-origin <img>/<a>/<form> CSRF gadget that an authenticated admin
+  // happens to render. The matching GET routes are deliberately not
+  // registered.
+  addRoute("POST", "/log/reset", this, &legacy_controller::log_reset);
   addRoute("GET", "/log/messages", this, &legacy_controller::log_messages);
   addRoute("GET", "/auth/token", this, &legacy_controller::auth_token);
   addRoute("GET", "/auth/logout", this, &legacy_controller::auth_logout);
   addRoute("POST", "/auth/token", this, &legacy_controller::auth_token);
   addRoute("POST", "/auth/logout", this, &legacy_controller::auth_logout);
-  addRoute("GET", "/core/reload", this, &legacy_controller::reload);
+  addRoute("POST", "/core/reload", this, &legacy_controller::reload);
   addRoute("GET", "/core/isalive", this, &legacy_controller::alive);
-  addRoute("GET", "/console/exec", this, &legacy_controller::console_exec);
+  // /console/exec is RCE-equivalent: it forwards arbitrary CLI commands. Keep
+  // it on POST and gate it behind a dedicated grant so an operator who only
+  // wants legacy read access cannot accidentally hand out a remote shell.
+  addRoute("POST", "/console/exec", this, &legacy_controller::console_exec);
   addRoute("GET", "/metrics", this, &legacy_controller::get_metrics);
 }
 
@@ -42,7 +49,10 @@ bool legacy_controller::set_status(std::string status_) {
 }
 
 void legacy_controller::console_exec(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_logged_in("legacy", request, response)) return;
+  // RCE-equivalent: this endpoint forwards the "command" parameter straight
+  // into the CLI dispatcher. Keep the auth grant separate from the broad
+  // "legacy" grant so the privilege is explicit in the role table.
+  if (!session->is_logged_in("console.exec", request, response)) return;
   const std::string command = request.get("command", "help");
 
   client->handle_command(command);

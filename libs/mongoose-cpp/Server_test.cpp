@@ -146,6 +146,7 @@ struct RawResponse {
   int status = 0;
   std::string body;
   std::vector<std::string> set_cookies;
+  std::vector<std::pair<std::string, std::string>> headers;
   bool received = false;
   bool error = false;
 };
@@ -159,10 +160,12 @@ void raw_ev_handler(mg_connection* c, int ev, void* ev_data) {
     const size_t hmax = std::size(hm->headers);
     for (size_t i = 0; i < hmax && hm->headers[i].name.len > 0; i++) {
       const std::string name(hm->headers[i].name.buf, hm->headers[i].name.len);
+      const std::string value(hm->headers[i].value.buf, hm->headers[i].value.len);
+      out->headers.emplace_back(name, value);
       if (name.size() == 10 &&
           std::equal(name.begin(), name.end(), "Set-Cookie",
                      [](char a, char b) { return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b)); })) {
-        out->set_cookies.emplace_back(hm->headers[i].value.buf, hm->headers[i].value.len);
+        out->set_cookies.push_back(value);
       }
     }
     out->received = true;
@@ -413,6 +416,30 @@ TEST(ServerImpl, SameSiteStrictOverHttpEmitsCookieWithoutSecure) {
   EXPECT_NE(sc.find("HttpOnly"), std::string::npos) << sc;
   EXPECT_NE(sc.find("SameSite=Strict"), std::string::npos) << sc;
   EXPECT_EQ(sc.find("Secure"), std::string::npos) << "Secure must not appear on http: " << sc;
+}
+
+TEST(ServerImpl, DoesNotEmitWildcardCors) {
+  // Access-Control-Allow-Origin: * was historically emitted on every response.
+  // It has been removed because it allowed cross-origin pages to read responses
+  // to credential-less authenticated requests. The header must NOT be present.
+  const int port = choose_port_base() + 9;
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/cors", new FixedHandler(200, "ok"));
+
+  const ServerFixture fx;
+  fx.start(port, controller);
+
+  auto resp = raw_fetch(bind_url(port) + "/cors", make_get_request("/cors", port));
+
+  fx.server->stop();
+
+  ASSERT_TRUE(resp.received);
+  for (const auto& kv : resp.headers) {
+    EXPECT_FALSE(kv.first.size() == 27 &&
+                 std::equal(kv.first.begin(), kv.first.end(), "Access-Control-Allow-Origin",
+                            [](char a, char b) { return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b)); }))
+        << "wildcard CORS header still present: " << kv.first << ": " << kv.second;
+  }
 }
 
 TEST(ServerImpl, ReturnsHandlerStatusCode) {

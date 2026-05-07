@@ -235,7 +235,11 @@ void ServerImpl::onHttpRequest(mg_connection *connection, mg_http_message *messa
         }
         headers << "\r\n";
       }
-      headers << "Access-Control-Allow-Origin: *\r\n";
+      // No wildcard Access-Control-Allow-Origin. The bundled SPA is served
+      // from the same origin so it does not need CORS, and the wildcard meant
+      // any cross-origin page could read responses to authenticated requests
+      // that did not require credentials. Operators who need cross-origin
+      // access should put a reverse proxy in front and pin Origin there.
       if (response->getCode() == 200 && !has_content_type) {
         headers << "Content-Type: application/json\r\n";
       }
