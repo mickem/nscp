@@ -208,7 +208,21 @@ class settings_http : public settings::settings_interface_impl {
           return false;
         }
 
-        boost::filesystem::path tr = local_file / file_stat.m_filename;
+        // Zip-slip guard: a malicious or compromised settings host can put
+        // entries like "../../Windows/System32/foo" or "/etc/cron.d/foo"
+        // into the archive. is_safe_archive_entry rejects empty / NUL-bearing
+        // names and any join that escapes local_file after lexical
+        // normalisation. A single bad entry fails the whole archive - a
+        // hostile source should not get partial application.
+        const std::string raw_name = file_stat.m_filename != nullptr ? std::string(file_stat.m_filename) : std::string();
+        boost::filesystem::path tr;
+        if (!file_helpers::checks::is_safe_archive_entry(local_file, raw_name, tr)) {
+          get_logger()->error(
+              "settings", __FILE__, __LINE__,
+              "Refusing zip entry that would extract outside '" + local_file.string() + "': '" + raw_name + "'");
+          mz_zip_reader_end(&zip_archive);
+          return false;
+        }
 
         if (!boost::filesystem::exists(tr)) {
           if (!boost::filesystem::exists(tr.parent_path())) {

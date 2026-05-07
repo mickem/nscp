@@ -63,6 +63,23 @@ class checks {
     if (dir_len > file_len) return false;
     return std::equal(dir.begin(), dir.end(), file.begin());
   }
+
+  // Validate an entry name from an untrusted archive (zip, tar, ...) before
+  // joining it onto a base directory and writing the contents. Returns true
+  // and populates `out` with the normalised target on success. Returns false
+  // (without touching `out`) if the entry is empty, contains a NUL, or would
+  // resolve outside `base` after lexical normalisation. The check is
+  // deliberately lexical: it does not consult the filesystem, so symlinked
+  // intermediate directories are not followed - that's intentional, the
+  // archive itself should not be trusted to declare its own destination.
+  static bool is_safe_archive_entry(const fs::path& base, const std::string& entry_name, fs::path& out) {
+    if (entry_name.empty()) return false;
+    if (entry_name.find('\0') != std::string::npos) return false;
+    const fs::path candidate = (base / entry_name).lexically_normal();
+    if (!path_contains_file(base, candidate)) return false;
+    out = candidate;
+    return true;
+  }
 };
 
 class meta {

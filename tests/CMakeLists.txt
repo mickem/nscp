@@ -574,6 +574,18 @@ if(OPENSSL_FOUND)
 endif()
 
 NSCP_CREATE_TEST(
+    file_helpers_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/file_helpers_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
     pair_hash_test
     SOURCES
         ${NSCP_INCLUDEDIR}/algorithms/pair_hash_test.cpp
