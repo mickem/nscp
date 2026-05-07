@@ -108,6 +108,15 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   }
 #endif
   if (mode == NSCAPI::normalStart || mode == NSCAPI::reloadStart) {
+    // Reject pathologically small payload lengths. The handler computes
+    // `max_len = payload_length - 1` and feeds it into substr-based
+    // multi-packet split logic; a configured value of 0 would underflow to
+    // SIZE_MAX and the split loop would never trim, eventually exhausting
+    // memory. 16 is well below any sane real value (default 1024).
+    if (payload_length_ < 16) {
+      NSC_LOG_ERROR_STD("NRPE payload length " + str::xtos(payload_length_) + " is too small (minimum 16). Refusing to start; raise the value in /settings/NRPE/server.");
+      return false;
+    }
     if (payload_length_ != 1024)
       NSC_DEBUG_MSG_STD("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = " +
                         str::xtos(payload_length_));
