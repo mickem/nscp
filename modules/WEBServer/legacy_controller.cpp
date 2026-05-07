@@ -1,11 +1,9 @@
 #include "legacy_controller.hpp"
 
-#include <boost/algorithm/string.hpp>
 #include <boost/json.hpp>
 #include <boost/thread/locks.hpp>
 #include <client/simple_client.hpp>
 #include <nscapi/macros.hpp>
-#include <str/xtos.hpp>
 
 #include "error_handler_interface.hpp"
 
@@ -108,9 +106,16 @@ void legacy_controller::auth_logout(Mongoose::Request &request, Mongoose::Stream
 void legacy_controller::log_status(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_logged_in("legacy", request, response)) return;
   const error_handler_interface::status current_status = session->get_log_data()->get_status();
-  std::string tmp = current_status.last_error;
-  boost::replace_all(tmp, "\\", "/");
-  response.append("{ \"status\" : { \"count\" : " + str::xtos(current_status.error_count) + ", \"error\" : \"" + tmp + "\"} }");
+  // Use the json serializer rather than string concatenation. The previous
+  // version replaced backslashes but left double-quotes intact, so a log
+  // message containing `"` would break the surrounding JSON and let an
+  // authenticated logs.put caller smuggle extra fields into log/status.
+  json::object status_node;
+  status_node["count"] = current_status.error_count;
+  status_node["error"] = current_status.last_error;
+  json::object root;
+  root["status"] = status_node;
+  response.append(json::serialize(root));
 }
 void legacy_controller::log_messages(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_logged_in("legacy", request, response)) return;
