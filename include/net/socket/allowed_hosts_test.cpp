@@ -6,10 +6,29 @@
 using namespace socket_helpers;
 using namespace boost::asio::ip;
 
-TEST(AllowedHostsTest, EmptyConfigAllowsAll) {
+TEST(AllowedHostsTest, EmptyConfigRejectsAll) {
+  // Fail-closed: the previous behaviour returned true for every IP when the
+  // list was empty, which meant a fat-finger that cleared the setting
+  // silently dropped the agent into "any IP wins". Per-module defaults
+  // (typically `127.0.0.1`) mean an empty list represents an operator who
+  // explicitly cleared the setting - and they can re-state intent with
+  // `allowed hosts = 0.0.0.0/0,::/0`.
   allowed_hosts_manager manager;
   std::list<std::string> errors;
+  EXPECT_FALSE(manager.is_allowed(address::from_string("127.0.0.1"), errors));
+  EXPECT_FALSE(manager.is_allowed(address::from_string("::1"), errors));
+  EXPECT_FALSE(errors.empty()) << "rejection should produce a clear error message";
+}
+
+TEST(AllowedHostsTest, ExplicitAllAllowsAll) {
+  // The escape hatch for operators who really do want every source to
+  // connect: an explicit 0.0.0.0/0,::/0 source.
+  allowed_hosts_manager manager;
+  manager.set_source("0.0.0.0/0,::/0");
+  std::list<std::string> errors;
+  manager.refresh(errors);
   EXPECT_TRUE(manager.is_allowed(address::from_string("127.0.0.1"), errors));
+  EXPECT_TRUE(manager.is_allowed(address::from_string("8.8.8.8"), errors));
   EXPECT_TRUE(manager.is_allowed(address::from_string("::1"), errors));
 }
 

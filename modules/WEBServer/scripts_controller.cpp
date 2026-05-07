@@ -9,6 +9,8 @@
 #include <nscapi/protobuf/command.hpp>
 #include <utility>
 
+#include "name_safety.hpp"
+
 #define EXT_SCR "CheckExternalScripts"
 #define PY_SCR "PythonScript"
 
@@ -130,6 +132,10 @@ void scripts_controller::get_script(Mongoose::Request &request, boost::smatch &w
   }
   std::string runtime = get_runtime(what.str(1));
   std::string script = what.str(2);
+  if (!name_safety::is_safe_script_name(script)) {
+    response.setCodeBadRequest("Invalid script name");
+    return;
+  }
 
   if (!session->can("scripts.get." + runtime, response)) return;
 
@@ -159,6 +165,14 @@ void scripts_controller::add_script(Mongoose::Request &request, boost::smatch &w
   }
   std::string runtime = get_runtime(what.str(1));
   std::string script = what.str(2);
+  // Reject traversal up front - the URL pattern (.+) accepts slashes and the
+  // script name is forwarded as `--script <name>` to CheckExternalScripts /
+  // PythonScript, which would happily resolve `../../etc/foo` against its
+  // configured script root.
+  if (!name_safety::is_safe_script_name(script)) {
+    response.setCodeBadRequest("Invalid script name");
+    return;
+  }
 
   if (!session->can("scripts.add." + runtime, response)) return;
 
@@ -200,6 +214,10 @@ void scripts_controller::delete_script(Mongoose::Request &request, boost::smatch
   }
   std::string runtime = get_runtime(what.str(1));
   std::string script = what.str(2);
+  if (!name_safety::is_safe_script_name(script)) {
+    response.setCodeBadRequest("Invalid script name");
+    return;
+  }
 
   if (!session->can("scripts.delete." + runtime, response)) return;
 

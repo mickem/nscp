@@ -433,7 +433,7 @@ struct operator_not_like : pattern_binary_operator_impl {
 // modern_filter::match_post) can distinguish "object-bound subterm couldn't
 // resolve" from a sure verdict and surface UNKNOWN where appropriate.
 namespace {
-inline bool nil_lhs_unsure(const value_container& lhs, value_type wanted, const evaluation_context& context) {
+inline bool nil_lhs_unsure(const value_container &lhs, value_type wanted, const evaluation_context &context) {
   if (lhs.is(wanted)) return false;
   context->error("invalid type");
   return true;
@@ -476,7 +476,7 @@ struct operator_in : simple_bool_binary_operator_impl {
     const value_container lhs = left->get_value(context, type_int);
     if (nil_lhs_unsure(lhs, type_int, context)) return value_container::create_int(false, /*is_unsure=*/true);
     const long long val = lhs.get_int();
-    for (const node_type& itm : right->get_list_value(context)) {
+    for (const node_type &itm : right->get_list_value(context)) {
       const long long cmp = itm->get_int_value(context);
       if (cmp == val) return value_container::create_int(true, lhs.is_unsure);
     }
@@ -486,7 +486,7 @@ struct operator_in : simple_bool_binary_operator_impl {
     const value_container lhs = left->get_value(context, type_float);
     if (nil_lhs_unsure(lhs, type_float, context)) return value_container::create_int(false, /*is_unsure=*/true);
     const double val = lhs.get_float();
-    for (const node_type& itm : right->get_list_value(context)) {
+    for (const node_type &itm : right->get_list_value(context)) {
       if (itm->get_float_value(context) == val) return value_container::create_int(true, lhs.is_unsure);
     }
     return value_container::create_int(false, lhs.is_unsure);
@@ -495,7 +495,7 @@ struct operator_in : simple_bool_binary_operator_impl {
     const value_container lhs = left->get_value(context, type_string);
     if (nil_lhs_unsure(lhs, type_string, context)) return value_container::create_int(false, /*is_unsure=*/true);
     const std::string val = lhs.get_string();
-    for (const node_type& itm : right->get_list_value(context)) {
+    for (const node_type &itm : right->get_list_value(context)) {
       if (itm->get_string_value(context) == val) return value_container::create_int(true, lhs.is_unsure);
     }
     return value_container::create_int(false, lhs.is_unsure);

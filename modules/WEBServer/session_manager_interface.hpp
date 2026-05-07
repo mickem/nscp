@@ -8,6 +8,7 @@
 #include <net/socket/allowed_hosts.hpp>
 #include <string>
 
+#include "auth_rate_limiter.hpp"
 #include "error_handler_interface.hpp"
 #include "metrics_handler.hpp"
 #include "token_store.hpp"
@@ -20,6 +21,14 @@ struct session_manager_interface {
   token_store tokens;
   socket_helpers::allowed_hosts_manager allowed_hosts;
   user_manager users;
+  auth_rate_limiter rate_limiter;
+  // The "anonymous" role is a deliberate opt-in to expose endpoints without
+  // authentication. Default false: any role named `anonymous` registered via
+  // settings is silently ignored, and `can()` does not consult the anonymous
+  // grant table when no user is logged in. An operator who genuinely wants
+  // anonymous access has to flip this on AND register the role - one
+  // accidental knob is not enough to expose anything.
+  bool allow_anonymous_ = false;
 
  public:
   session_manager_interface();
@@ -31,6 +40,7 @@ struct session_manager_interface {
 
   bool validate_token(const std::string &token);
   void revoke_token(const std::string &token);
+  void revoke_tokens_for_user(const std::string &user);
   std::string generate_token(const std::string &user);
 
   std::string get_metrics();
@@ -44,6 +54,7 @@ struct session_manager_interface {
 
   void set_allowed_hosts(const std::string &host);
   void set_allowed_hosts_cache(bool value);
+  void set_allow_anonymous(bool value) { allow_anonymous_ = value; }
 
   std::list<std::string> boot();
   bool validate_user(const std::string &user, const std::string &password);

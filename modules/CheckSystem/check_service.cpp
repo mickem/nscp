@@ -61,8 +61,7 @@ node_type state_is_ok(const value_type, const evaluation_context &raw_context, c
   const bool delayed = context->get_object()->get_delayed() == 1;
   const bool trigger = context->get_object()->get_is_trigger() == 1;
   const DWORD exit_code = context->get_object()->exit_code;
-  if (check_state_is_ok(state, start_type, delayed, trigger, exit_code))
-    return factory::create_true();
+  if (check_state_is_ok(state, start_type, delayed, trigger, exit_code)) return factory::create_true();
   return factory::create_false();
 }
 

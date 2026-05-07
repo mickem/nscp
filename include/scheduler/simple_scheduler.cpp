@@ -194,7 +194,10 @@ void scheduler::thread_proc(int id) {
                     "Ran scheduled item " + str::xtos(instance->schedule_id) + " " + str::xtos(off.total_seconds()) + " seconds to late from thread " +
                         str::xtos(id));
         }
-        boost::thread::sleep((*instance).time);
+        const boost::posix_time::time_duration wait = (*instance).time - now();
+        if (wait.total_microseconds() > 0) {
+          boost::this_thread::sleep(wait);
+        }
       } catch (const boost::thread_interrupted &) {
         if (!queue_.push(*instance)) log_error(__FILE__, __LINE__, "Failed to push item");
         if (stop_requested_) {

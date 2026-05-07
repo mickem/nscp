@@ -80,8 +80,7 @@ inline void parse(std::shared_ptr<builder> builder, const std::string &perff) {
 
     std::pair<std::string, std::string> fitem = str::utils::split2(items[0], perf_equal_sign);
     std::string alias = fitem.first;
-    if (!alias.empty() && alias[0] == perf_lable_enclosure[0] && alias[alias.size() - 1] == perf_lable_enclosure[0])
-      alias = alias.substr(1, alias.size() - 2);
+    if (!alias.empty() && alias[0] == perf_lable_enclosure[0] && alias[alias.size() - 1] == perf_lable_enclosure[0]) alias = alias.substr(1, alias.size() - 2);
 
     if (alias.empty()) continue;
 

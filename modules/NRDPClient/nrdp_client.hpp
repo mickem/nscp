@@ -28,7 +28,6 @@
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
-
 #include <sstream>
 
 #include "nrdp.hpp"

@@ -58,19 +58,43 @@ class parser : public boost::noncopyable {
     return length::get_packet_length_v3(payload_length_);
   }
 
+  // Hard cap on per-connection buffer growth. The decoder in packet.cpp
+  // already rejects payloads above 1 MiB; we mirror that here so a peer
+  // cannot pin nearly 2 MiB per connection by trickling bytes (slow-loris).
+  // 1 MiB matches readFromV3 and is comfortably above any sane real-world
+  // payload (default is 1 KiB, operators rarely raise it past 64 KiB).
+  static constexpr std::size_t kMaxBufferBytes = 1024u * 1024u;
+
   template <typename InputIterator>
   boost::tuple<bool, InputIterator> digest(InputIterator begin, InputIterator end) {
     int16_t v = read_version();
     if (v == -1 || v == 2) {
       for (std::size_t count = get_packet_length_v2() - buffer_.size(); count > 0 && begin != end; ++begin, --count) buffer_.push_back(*begin);
     } else if (v == data::version3 || v == data::version4) {
-      std::size_t count = get_packet_length_v3() - buffer_.size();
-      for (; count > 0 && begin != end; ++begin, --count) buffer_.push_back(*begin);
+      // For v3/v4 the packet length is attacker-influenced via the wire
+      // `buffer_length` field. Reject negative values up front (read_len
+      // returns int32_t and was previously cast straight into size_t),
+      // and refuse to grow past kMaxBufferBytes so a slow trickle cannot
+      // tie up a megabyte per connection.
+      const int32_t advertised = read_len();
+      if (advertised < 0) {
+        return boost::make_tuple(true, begin);
+      }
+      const std::size_t target = get_packet_length_v3();
+      if (target > kMaxBufferBytes) {
+        return boost::make_tuple(true, begin);
+      }
+      for (std::size_t count = target - buffer_.size(); count > 0 && begin != end; ++begin, --count) {
+        if (buffer_.size() >= kMaxBufferBytes) {
+          return boost::make_tuple(true, begin);
+        }
+        buffer_.push_back(*begin);
+      }
     }
 
     v = read_version();
     const std::size_t packet_length = read_version() >= 3 ? get_packet_length_v3() : get_packet_length_v2();
-    if (packet_length < 1024 || packet_length > 2048 * 1024) {
+    if (packet_length < 1024 || packet_length > kMaxBufferBytes) {
       return boost::make_tuple(true, begin);
     }
     return boost::make_tuple(buffer_.size() >= packet_length, begin);

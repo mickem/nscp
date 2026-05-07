@@ -153,17 +153,11 @@ TEST(parse_proxy_url, malformed_percent_sequence_passes_through) {
 // should_bypass
 // =============================================================================
 
-TEST(should_bypass, empty_list_does_not_bypass) {
-  EXPECT_FALSE(http::should_bypass("server.corp", {}));
-}
+TEST(should_bypass, empty_list_does_not_bypass) { EXPECT_FALSE(http::should_bypass("server.corp", {})); }
 
-TEST(should_bypass, wildcard_bypasses_all) {
-  EXPECT_TRUE(http::should_bypass("anything.example.com", {"*"}));
-}
+TEST(should_bypass, wildcard_bypasses_all) { EXPECT_TRUE(http::should_bypass("anything.example.com", {"*"})); }
 
-TEST(should_bypass, exact_match_bypasses) {
-  EXPECT_TRUE(http::should_bypass("internal.corp", {"internal.corp"}));
-}
+TEST(should_bypass, exact_match_bypasses) { EXPECT_TRUE(http::should_bypass("internal.corp", {"internal.corp"})); }
 
 TEST(should_bypass, exact_match_is_case_insensitive) {
   // Hostnames are case-insensitive per RFC 1035 §2.3.3 — ensure bypass matches both cases.
@@ -177,46 +171,28 @@ TEST(should_bypass, dot_suffix_is_case_insensitive) {
   EXPECT_TRUE(http::should_bypass("server.corp", {".CORP"}));
 }
 
-TEST(should_bypass, no_exact_match_does_not_bypass) {
-  EXPECT_FALSE(http::should_bypass("external.com", {"internal.corp"}));
-}
+TEST(should_bypass, no_exact_match_does_not_bypass) { EXPECT_FALSE(http::should_bypass("external.com", {"internal.corp"})); }
 
-TEST(should_bypass, dot_suffix_matches_subdomain) {
-  EXPECT_TRUE(http::should_bypass("server.corp", {".corp"}));
-}
+TEST(should_bypass, dot_suffix_matches_subdomain) { EXPECT_TRUE(http::should_bypass("server.corp", {".corp"})); }
 
-TEST(should_bypass, dot_suffix_matches_deeper_subdomain) {
-  EXPECT_TRUE(http::should_bypass("a.b.corp", {".corp"}));
-}
+TEST(should_bypass, dot_suffix_matches_deeper_subdomain) { EXPECT_TRUE(http::should_bypass("a.b.corp", {".corp"})); }
 
 TEST(should_bypass, dot_suffix_matches_domain_itself) {
   // ".corp" should also match "corp" (the domain itself without leading dot)
   EXPECT_TRUE(http::should_bypass("corp", {".corp"}));
 }
 
-TEST(should_bypass, dot_suffix_does_not_match_unrelated) {
-  EXPECT_FALSE(http::should_bypass("server.example.com", {".corp"}));
-}
+TEST(should_bypass, dot_suffix_does_not_match_unrelated) { EXPECT_FALSE(http::should_bypass("server.example.com", {".corp"})); }
 
-TEST(should_bypass, multiple_patterns_first_match_wins) {
-  EXPECT_TRUE(http::should_bypass("server.corp", {"other.com", ".corp", "something.else"}));
-}
+TEST(should_bypass, multiple_patterns_first_match_wins) { EXPECT_TRUE(http::should_bypass("server.corp", {"other.com", ".corp", "something.else"})); }
 
-TEST(should_bypass, multiple_patterns_no_match) {
-  EXPECT_FALSE(http::should_bypass("external.com", {"internal.corp", ".local", "192.168.1.1"}));
-}
+TEST(should_bypass, multiple_patterns_no_match) { EXPECT_FALSE(http::should_bypass("external.com", {"internal.corp", ".local", "192.168.1.1"})); }
 
-TEST(should_bypass, empty_pattern_is_skipped) {
-  EXPECT_FALSE(http::should_bypass("server.corp", {"", "other.com"}));
-}
+TEST(should_bypass, empty_pattern_is_skipped) { EXPECT_FALSE(http::should_bypass("server.corp", {"", "other.com"})); }
 
-TEST(should_bypass, ip_address_exact_match) {
-  EXPECT_TRUE(http::should_bypass("192.168.1.100", {"192.168.1.100"}));
-}
+TEST(should_bypass, ip_address_exact_match) { EXPECT_TRUE(http::should_bypass("192.168.1.100", {"192.168.1.100"})); }
 
-TEST(should_bypass, ip_address_no_match) {
-  EXPECT_FALSE(http::should_bypass("10.0.0.1", {"192.168.1.100"}));
-}
+TEST(should_bypass, ip_address_no_match) { EXPECT_FALSE(http::should_bypass("10.0.0.1", {"192.168.1.100"})); }
 
 // =============================================================================
 // proxy_config defaults

@@ -17,13 +17,13 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "file_reader.hpp"
+
 #include <gtest/gtest.h>
 
 #include <sstream>
 #include <string>
 #include <vector>
-
-#include "file_reader.hpp"
 
 using check_logfile::file_reader::compute_seek;
 using check_logfile::file_reader::getline_str;
@@ -175,9 +175,7 @@ TEST(file_reader_compute_seek, appended_data_seeks_to_previous_end) {
   EXPECT_EQ((seek_decision{false, 100u}), compute_seek(100u, 200u, false));
 }
 
-TEST(file_reader_compute_seek, no_change_skips) {
-  EXPECT_EQ((seek_decision{true, 100u}), compute_seek(100u, 100u, false));
-}
+TEST(file_reader_compute_seek, no_change_skips) { EXPECT_EQ((seek_decision{true, 100u}), compute_seek(100u, 100u, false)); }
 
 TEST(file_reader_compute_seek, truncation_starts_from_zero) {
   // File shrank (rotated/rewritten) - the previous offset is no longer

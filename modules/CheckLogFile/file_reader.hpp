@@ -79,8 +79,7 @@ inline bool getline_str(std::istream &is, std::string &out, const std::string &d
   while (is.get(c)) {
     any = true;
     out.push_back(c);
-    if (out.size() >= delim.size() &&
-        out.compare(out.size() - delim.size(), delim.size(), delim) == 0) {
+    if (out.size() >= delim.size() && out.compare(out.size() - delim.size(), delim.size(), delim) == 0) {
       out.resize(out.size() - delim.size());
       // Same CRLF-trim convenience as the single-char case.
       if (delim.back() == '\n' && !out.empty() && out.back() == '\r') {

@@ -334,6 +334,7 @@ Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 
 | Key                                                 | Default Value                       | Description                 |
 |-----------------------------------------------------|-------------------------------------|-----------------------------|
+| [allow anonymous access](#allow-anonymous-access)   | false                               | ALLOW ANONYMOUS ACCESS      |
 | [allowed hosts](#allowed-hosts)                     | 127.0.0.1                           | Allowed hosts               |
 | [cache allowed hosts](#cache-list-of-allowed-hosts) | true                                | Cache list of allowed hosts |
 | [certificate](#tls-certificate)                     | ${certificate-path}/certificate.pem | TLS Certificate             |
@@ -347,6 +348,7 @@ Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 ```ini
 # Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 [/settings/WEB/server]
+allow anonymous access=false
 allowed hosts=127.0.0.1
 cache allowed hosts=true
 certificate=${certificate-path}/certificate.pem
@@ -356,6 +358,31 @@ threads=10
 ```
 
 
+
+
+
+#### ALLOW ANONYMOUS ACCESS <a id="/settings/WEB/server/allow anonymous access"></a>
+
+When false (the default) any role named \`anonymous\` registered via /settings/WEB/server/roles is ignored and the WEB server never answers an unauthenticated request. Set to true only if you intentionally want to expose endpoints (via the \`anonymous\` role grants) without authentication.
+
+
+
+
+
+| Key            | Description                                   |
+|----------------|-----------------------------------------------|
+| Path:          | [/settings/WEB/server](#/settings/WEB/server) |
+| Key:           | allow anonymous access                        |
+| Default value: | `false`                                       |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server]
+# ALLOW ANONYMOUS ACCESS
+allow anonymous access=false
+```
 
 
 

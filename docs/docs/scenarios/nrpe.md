@@ -242,6 +242,19 @@ port                   = 5666
     host that can hit the port can pass arbitrary arguments to whatever
     commands you've defined.
 
+!!! note "What `allow nasty characters` does today"
+    Argument substitution into external-script templates is now isolated at
+    the argv level: each `$ARGn$` reaches the child as a single argv
+    element regardless of what shell metacharacters it contains. The launch
+    path no longer goes through `/bin/sh -c` on Unix or relies on
+    `CreateProcess` re-tokenising the command line on Windows.
+
+    `allow nasty characters` is therefore defence in depth rather than the
+    last line of defence. Leaving it `false` (the default) still blocks
+    `|`, `` ` ``, `&`, `>`, `<`, `'`, `"`, `\`, `[`, `]`, `{`, `}` at the
+    NRPE ingress, which catches the most obvious abuse patterns and trips
+    misconfigured monitoring early.
+
 ---
 
 ## NRPE Protocol Versions

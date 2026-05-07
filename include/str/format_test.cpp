@@ -709,8 +709,8 @@ TEST(format, calc_pct_round_does_not_clamp_above_100) {
 // Half-up rounding behaviour. std::llround rounds half away from zero so
 // 0.5% must yield 1, not 0.
 TEST(format, calc_pct_round_half_up) {
-  EXPECT_EQ(str::format::calc_pct_round(1ULL, 200ULL), 1);     // exactly 0.5%
-  EXPECT_EQ(str::format::calc_pct_round(3ULL, 200ULL), 2);     // exactly 1.5%
+  EXPECT_EQ(str::format::calc_pct_round(1ULL, 200ULL), 1);  // exactly 0.5%
+  EXPECT_EQ(str::format::calc_pct_round(3ULL, 200ULL), 2);  // exactly 1.5%
   EXPECT_EQ(str::format::calc_pct_round(995ULL, 1000ULL), 100);
 }
 
@@ -728,8 +728,7 @@ TEST(format, calc_pct_round_petabyte_scale) {
 TEST(format, format_pct_signed_overload_matches_double_path) {
   const long long used = 58032128LL;
   const long long total = 7784628224LL;
-  EXPECT_EQ(str::format::format_pct(used, total),
-            str::format::format_pct(str::format::calc_pct_double(used, total)));
+  EXPECT_EQ(str::format::format_pct(used, total), str::format::format_pct(str::format::calc_pct_double(used, total)));
 }
 
 // std::fixed always prints the decimal separator; verify no surprise locale
@@ -742,6 +741,4 @@ TEST(format, format_pct_uses_dot_decimal_separator) {
 
 // Negative decimals should not crash; behaviour falls through to whatever
 // std::setprecision does (which is well-defined: precision 0).
-TEST(format, format_pct_negative_decimals_does_not_crash) {
-  EXPECT_NO_THROW((void)str::format::format_pct(97.34, -1));
-}
+TEST(format, format_pct_negative_decimals_does_not_crash) { EXPECT_NO_THROW((void)str::format::format_pct(97.34, -1)); }

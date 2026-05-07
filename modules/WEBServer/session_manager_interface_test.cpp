@@ -61,8 +61,18 @@ class SessionManagerTest : public ::testing::Test {
   void SetUp() override {
     smi.add_user("user", "foo", "password");
     smi.add_grant("foo", "something:read");
+    // The `anonymous` role is gated on a settings flag (default off). The
+    // existing tests for anonymous behaviour assume access is granted, so
+    // flip the flag on for the fixture before registering the grant.
+    smi.set_allow_anonymous(true);
     smi.add_user("anonymous", "anonymous", "anonymous");
     smi.add_grant("anonymous", "nothing:read");
+    // allowed_hosts is now fail-closed when empty (L1). Configure 127.0.0.1
+    // explicitly and run boot() so the source string is parsed into entries
+    // - tests that hit is_allowed / is_logged_in expect localhost to be
+    // permitted.
+    smi.set_allowed_hosts("127.0.0.1");
+    smi.boot();
   }
 };
 
@@ -114,6 +124,70 @@ TEST_F(SessionManagerTest, RevokeToken) {
   EXPECT_FALSE(smi.validate_token(token));
 }
 
+TEST(SessionManagerAnonymous, AnonymousAccessIsOffByDefault) {
+  // Default-off: even when the role is fully wired up (user mapped to role,
+  // role configured with a grant), can() must not consult the anonymous
+  // grant table without the explicit allow_anonymous flag. We register
+  // through tokens directly (bypassing add_grant's refusal gate) so this
+  // test exercises the can() gate specifically - not the add_grant gate.
+  session_manager_interface smi;
+  smi.set_allow_anonymous(true);
+  smi.add_user("anonymous", "anonymous", "anonymous");
+  smi.add_grant("anonymous", "anything:read");
+  // Now flip the flag back off - can() should refuse despite the grant
+  // being registered.
+  smi.set_allow_anonymous(false);
+  Mongoose::StreamResponse resp;
+  EXPECT_FALSE(smi.can("anything:read", resp));
+}
+
+TEST(SessionManagerAnonymous, AnonymousAccessGrantedOnlyWhenFlagOn) {
+  session_manager_interface smi;
+  smi.set_allow_anonymous(true);
+  // The role grant table is keyed by role name, the user-to-role table is
+  // keyed by user name. To resolve `tokens.can("anonymous", ...)` we need
+  // both: a user "anonymous" mapped to the role "anonymous", and the role
+  // configured with a grant. The naming convention used elsewhere in this
+  // codebase is to give the magic user the same name as the magic role.
+  smi.add_user("anonymous", "anonymous", "anonymous");
+  smi.add_grant("anonymous", "anything:read");
+  Mongoose::StreamResponse resp;
+  EXPECT_TRUE(smi.can("anything:read", resp));
+
+  // A grant registered for a non-anonymous role still works regardless.
+  Mongoose::StreamResponse resp2;
+  EXPECT_FALSE(smi.can("other:read", resp2));
+}
+
+TEST_F(SessionManagerTest, ReAddingUserRevokesAllTheirTokens) {
+  // Re-adding a user (e.g. password rotation through the settings reload path)
+  // must invalidate any tokens previously issued to them. Otherwise a stolen
+  // bearer token survives a password change.
+  const std::string t1 = smi.generate_token("user");
+  const std::string t2 = smi.generate_token("user");
+  EXPECT_TRUE(smi.validate_token(t1));
+  EXPECT_TRUE(smi.validate_token(t2));
+  smi.add_user("user", "foo", "newpassword");
+  EXPECT_FALSE(smi.validate_token(t1));
+  EXPECT_FALSE(smi.validate_token(t2));
+}
+
+TEST_F(SessionManagerTest, RateLimiterBlocksAfterRepeatedFailures) {
+  Mongoose::Request req("203.0.113.5", false, "GET", "/", "", {}, "");
+  Mongoose::StreamResponse resp;
+  const std::string bad_auth = "Basic " + Mongoose::Helpers::encode_b64("user:wrong");
+  req.get_headers()[HTTP_HDR_AUTH] = bad_auth;
+
+  for (int i = 0; i < 10; ++i) {
+    Mongoose::StreamResponse r;
+    EXPECT_FALSE(smi.process_auth_header("something:read", req, r));
+  }
+  // After kMaxFailures, even a correct password gets rejected from this IP.
+  const std::string good_auth = "Basic " + Mongoose::Helpers::encode_b64("user:password");
+  req.get_headers()[HTTP_HDR_AUTH] = good_auth;
+  EXPECT_FALSE(smi.process_auth_header("something:read", req, resp));
+}
+
 TEST_F(SessionManagerTest, Metrics) {
   smi.set_metrics("metrics", "metrics_list", {"open_metrics"});
   EXPECT_EQ(smi.get_metrics(), "metrics");
@@ -130,6 +204,10 @@ TEST_F(SessionManagerTest, LogData) {
 TEST_F(SessionManagerTest, AllowedHosts) {
   smi.set_allowed_hosts("127.0.0.1");
   smi.set_allowed_hosts_cache(true);
+  // boot() runs allowed_hosts.refresh() which parses the source string into
+  // entries. With cache=true and fail-closed-on-empty (L1), set_source
+  // alone is not enough - the entries list stays empty until refresh.
+  smi.boot();
   EXPECT_TRUE(smi.is_allowed("127.0.0.1"));
 }
 

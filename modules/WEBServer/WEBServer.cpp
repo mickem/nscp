@@ -47,6 +47,7 @@
 #include "metrics_controller.hpp"
 #include "modules_controller.hpp"
 #include "openmetrics_controller.hpp"
+#include "password_hash.hpp"
 #include "query_controller.hpp"
 #include "scripts_controller.hpp"
 #include "settings_controller.hpp"
@@ -125,7 +126,12 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.alias()
       .add_key_to_settings()
       .add_string("port", sh::string_key(&port, "8443"), "Server port", "Port to use for WEB server.")
-      .add_int("threads", sh::int_key(&threads, 10), "Server threads", "The number of threads in the sever response pool.");
+      .add_int("threads", sh::int_key(&threads, 10), "Server threads", "The number of threads in the sever response pool.")
+      .add_bool(
+          "allow anonymous access", nscapi::settings_helper::bool_fun_key([this](auto value) { this->session->set_allow_anonymous(value); }, false),
+          "ALLOW ANONYMOUS ACCESS",
+          "When false (the default) any role named `anonymous` registered via /settings/WEB/server/roles is ignored and the WEB server never answers an "
+          "unauthenticated request. Set to true only if you intentionally want to expose endpoints (via the `anonymous` role grants) without authentication.");
   settings.alias()
       .add_key_to_settings()
       .add_string("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"), "TLS Certificate",
@@ -155,6 +161,10 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
   users_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
+  // `legacy` deliberately does NOT include `console.exec` (which is
+  // RCE-equivalent). Operators who want to expose the console must grant
+  // `console.exec` explicitly, normally only under the `full` role (which is
+  // already a wildcard).
   ensure_role(roles, settings, role_path, "legacy", "legacy,login.get", "legacy API");
   ensure_role(roles, settings, role_path, "full", "*", "Full access");
   ensure_role(roles, settings, role_path, "client", "public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list",
@@ -185,16 +195,30 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         NSC_LOG_ERROR("Failed to find web folder: " + path + " (also tried " + fallback + ")");
       }
     }
-    if (!boost::filesystem::is_regular_file(certificate) && port == "8443") port = "8080";
+    // Silent HTTPS->HTTP downgrade is dangerous: a missing certificate flips
+    // the agent from 8443 to 8080 with no operational signal beyond a single
+    // log line. Keep the convenience auto-flip (so dev/test installs without
+    // a cert do not fail to start) but make the consequences explicit on
+    // every restart - session tokens travel in clear once HTTP is in use.
+    const bool cert_missing = !boost::filesystem::is_regular_file(certificate);
+    if (cert_missing && port == "8443") {
+      NSC_LOG_ERROR(
+          "WEB certificate not found at '" + certificate +
+          "': falling back to HTTP on port 8080. Session tokens / Basic-auth credentials will be transmitted in clear. Do NOT use this configuration in "
+          "production - either provide a valid certificate or front the agent with a TLS-terminating proxy.");
+      port = "8080";
+    }
     if (boost::ends_with(port, "s")) {
       port = port.substr(0, port.length() - 1);
     }
 
-    session->add_user("admin", "full", admin_password);
+    if (!session->has_user("admin")) {
+      session->add_user("admin", "full", admin_password);
+    }
 
     WebLoggerPtr logger(new WEBServerLogger(log_errors, log_info, log_debug));
-    server.reset(Mongoose::Server::make_server(logger));
-    if (!boost::filesystem::is_regular_file(certificate)) {
+    server.reset(Server::make_server(logger));
+    if (cert_missing) {
       NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
     } else {
       NSC_DEBUG_MSG("Using certificate: " + certificate);
@@ -349,6 +373,11 @@ bool WEBServer::cli_add_user(const PB::Commands::ExecuteRequestMessage::Request 
       nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
       return true;
     }
+    // Track whether we actually have a fresh plaintext to display to the
+    // operator. We never echo a stored hash (it's useless to copy) and we
+    // never display an existing on-disk plaintext we didn't change either.
+    const bool password_from_cli = vm.count("password") > 0;
+    bool password_was_supplied = password_from_cli;
     for (const pf::settings_query::key_values &val : q.get_query_key_response()) {
       if (val.matches(path, "password") && password.empty())
         password = val.get_string();
@@ -357,17 +386,42 @@ bool WEBServer::cli_add_user(const PB::Commands::ExecuteRequestMessage::Request 
     }
 
     std::stringstream result;
+    std::string password_for_display;
     if (password.empty()) {
       result << "WARNING: No password specified using a generated password" << std::endl;
       password = token_store::generate_token(32);
+      password_for_display = password;
+    } else if (web_password::is_hashed(password)) {
+      // Existing on-disk hash; nothing to migrate, nothing to show.
+      password_for_display = "(unchanged)";
+    } else if (password_was_supplied) {
+      // Operator supplied plaintext on the CLI - show it back, then hash.
+      password_for_display = password;
+    } else {
+      // Legacy plaintext sitting on disk - migrate to a hash. We don't echo
+      // it back (the operator already has it; rotating it isn't this command's
+      // job).
+      password_for_display = "(migrated to hash)";
     }
     if (role.empty()) {
       result << "WARNING: No role specified using client" << std::endl;
       role = "client";
     }
 
+    // Hash the per-user password before persisting. The /settings/default
+    // password (shared with NRPE / NSCA / NSClient) is untouched - those
+    // protocols still need the plaintext to compare on the wire.
+    if (!web_password::is_hashed(password)) {
+      const std::string hashed = web_password::hash_password(password);
+      if (hashed.empty()) {
+        nscapi::protobuf::functions::set_response_bad(*response, "Failed to hash password (RNG / KDF failure)");
+        return true;
+      }
+      password = hashed;
+    }
+
     nscapi::protobuf::functions::settings_query s(get_id());
-    result << "User " << user << " authenticated by " << password << " as " << role << std::endl;
+    result << "User " << user << " authenticated by " << password_for_display << " as " << role << std::endl;
     s.set(path, "password", password);
     s.set(path, "role", role);
     s.save();
@@ -710,8 +764,18 @@ void WEBServer::ensure_user(const nscapi::settings_helper::settings_registry &se
   if (!session->has_user(user)) {
     session->add_user(user, role, password);
     const std::string the_path = path + "/" + user;
-    settings.register_key_password(the_path, "password", "Password for " + reason, "Password name for" + reason, password);
-    settings.set_static_key(the_path, "password", password);
+    // Per-user passwords on disk are stored hashed. The default password
+    // under /settings/default/password (shared with NRPE / NSCA / NSClient)
+    // is left alone; only this per-user slot is migrated.
+    std::string stored = password;
+    if (!stored.empty() && !web_password::is_hashed(stored)) {
+      const std::string hashed = web_password::hash_password(stored);
+      if (!hashed.empty()) {
+        stored = hashed;
+      }
+    }
+    settings.register_key_password(the_path, "password", "Password for " + reason, "Password name for" + reason, stored);
+    settings.set_static_key(the_path, "password", stored);
     settings.register_key_string(the_path, "role", "Role for " + reason, "Role name for" + reason, role);
     settings.set_static_key(the_path, "role", role);
   }

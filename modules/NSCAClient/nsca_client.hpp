@@ -71,7 +71,10 @@ struct connection_data : public socket_helpers::connection_info {
     ss << "host: " << get_endpoint_string();
     ss << ", buffer_length: " << buffer_length;
     ss << ", time_delta: " << time_delta;
-    ss << ", password: " << password;
+    // Never log the actual password: this string is emitted at trace level on
+    // every submission and historically leaked the shared NSCA secret into
+    // any operator's debug log file.
+    ss << ", password: " << (password.empty() ? "<unset>" : "<set>");
     ss << ", encryption: " << encryption << "(" << nscp::encryption::helpers::encryption_to_int(encryption) << ")";
     ss << ", hostname: " << sender_hostname;
     ss << ", encoding: " << encoding;

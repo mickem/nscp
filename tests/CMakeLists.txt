@@ -16,6 +16,18 @@ if(WIN32)
             ${NSCP_INCLUDEDIR}
     )
     NSCP_CREATE_TEST(
+        argv_quote_test
+        SOURCES
+            ${NSCP_INCLUDEDIR}/process/argv_quote_test.cpp
+            ${NSCP_INCLUDEDIR}/process/argv_quote.cpp
+            ${NSCP_INCLUDEDIR}/str/utf8.cpp
+        LIBRARIES
+            gtest_main
+            Shell32
+        INCLUDES
+            ${NSCP_INCLUDEDIR}
+    )
+    NSCP_CREATE_TEST(
         wmi_query_test
         SOURCES
             ${NSCP_INCLUDEDIR}/win/wmi/wmi_query_test.cpp
@@ -76,6 +88,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/str/wstring_test.cpp
         ${NSCP_INCLUDEDIR}/str/utf8_test.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
+        ${NSCP_INCLUDEDIR}/str/constant_time_test.cpp
     LIBRARIES
         gtest_main
     INCLUDES
@@ -559,6 +572,18 @@ if(OPENSSL_FOUND)
     )
     target_compile_definitions(settings_http_test PRIVATE USE_SSL)
 endif()
+
+NSCP_CREATE_TEST(
+    file_helpers_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/file_helpers_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
 
 NSCP_CREATE_TEST(
     pair_hash_test

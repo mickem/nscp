@@ -77,8 +77,15 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       ;
 
   socket_helpers::settings_helper::add_core_server_opts(settings, info_);
+  // The "insecure" preset relaxes SECLEVEL and removes the cert path so it
+  // can interop with very old check_nrpe builds that have no certificate.
+  // It deliberately keeps !ADH: anonymous Diffie-Hellman gives encryption
+  // with no peer authentication, which means any reachable client speaks the
+  // protocol successfully and the channel can be MITMed undetected. Legacy
+  // check_nrpe works fine with non-anonymous suites, so there is no
+  // compatibility reason to permit ADH.
   std::string certificate = insecure ? "" : "${certificate-path}/certificate.pem";
-  std::string opts = insecure ? "ALL:!MD5:@STRENGTH:@SECLEVEL=0" : "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH";
+  std::string opts = insecure ? "ALL:!ADH:!MD5:@STRENGTH:@SECLEVEL=0" : "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH";
   socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "${certificate-path}/nrpe_dh_2048.pem", certificate, "", opts);
 
   settings.alias().add_key_to_settings().add_bool(
@@ -101,9 +108,29 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   }
 #endif
   if (mode == NSCAPI::normalStart || mode == NSCAPI::reloadStart) {
+    // Reject pathologically small payload lengths. The handler computes
+    // `max_len = payload_length - 1` and feeds it into substr-based
+    // multi-packet split logic; a configured value of 0 would underflow to
+    // SIZE_MAX and the split loop would never trim, eventually exhausting
+    // memory. 16 is well below any sane real value (default 1024).
+    if (payload_length_ < 16) {
+      NSC_LOG_ERROR_STD("NRPE payload length " + str::xtos(payload_length_) +
+                        " is too small (minimum 16). Refusing to start; raise the value in /settings/NRPE/server.");
+      return false;
+    }
     if (payload_length_ != 1024)
       NSC_DEBUG_MSG_STD("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = " +
                         str::xtos(payload_length_));
+    if (insecure) {
+      // Surface the loss of cert-based peer auth as a real error so it lands
+      // in monitoring dashboards. Operators routinely flip this on for
+      // legacy check_nrpe compatibility without realising they have lost
+      // server identity verification.
+      NSC_LOG_ERROR_STD(
+          "NRPEServer is starting in insecure mode: SECLEVEL=0 and no server certificate. "
+          "Clients have no way to authenticate this server, traffic can be MITMed. "
+          "Use insecure=true only for legacy check_nrpe interop on a trusted network.");
+    }
     NSC_LOG_ERROR_LISTS(info_.validate());
 
     std::list<std::string> errors;

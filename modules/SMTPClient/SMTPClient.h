@@ -28,7 +28,6 @@ namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;
 
 class SMTPClient : public nscapi::impl::simple_plugin {
- private:
   std::string channel_;
   client::configuration client_;
 

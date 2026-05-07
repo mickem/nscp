@@ -77,7 +77,6 @@ int main(int argc, char *argv[]) { return nscp_main(argc, argv); }
 int nscp_main(int argc, char *argv[]) {
   try {
     mainClient.reset(new NSClient());
-    srand(static_cast<unsigned>(time(nullptr)));
     cli_parser parser(mainClient);
     const int exit = parser.parse(argc, argv);
     return exit;

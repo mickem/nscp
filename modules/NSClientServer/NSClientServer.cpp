@@ -30,9 +30,8 @@
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <str/constant_time.hpp>
 #include <str/utils.hpp>
-
-#include "handler_impl.hpp"
 
 namespace sh = nscapi::settings_helper;
 
@@ -52,7 +51,11 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
                 "Send performance data back to Nagios (set this to 0 to remove all performance data).");
 
   socket_helpers::settings_helper::add_port_server_opts(settings, info_, "12489");
-  socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false, "", "${certificate-path}/certificate.pem", "",
+  // SSL is on by default. The legacy check_nt protocol carries the password in
+  // every request; running it without TLS exposes the password on the wire and
+  // makes online brute-force trivial. Operators who need to interoperate with
+  // very old clients can flip "ssl" back to false explicitly.
+  socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "", "${certificate-path}/certificate.pem", "",
                                                        "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
   socket_helpers::settings_helper::add_core_server_opts(settings, info_);
 
@@ -70,6 +73,14 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
     NSC_LOG_ERROR_STD(_T("SSL not available! (not compiled with openssl support)"));
   }
 #endif
+  // Refuse to start with a password configured but TLS off: the password would
+  // travel in clear and the wire is also vulnerable to passive replay.
+  if (!get_password().empty() && !info_.ssl.enabled) {
+    NSC_LOG_ERROR_STD(
+        "NSClient legacy server has a password configured but SSL is disabled. "
+        "Passwords would be transmitted in clear.");
+    return false;
+  }
   NSC_LOG_ERROR_LISTS(info_.validate());
 
   std::list<std::string> errors;
@@ -130,14 +141,15 @@ bool NSClientServer::unloadModule() {
 #define REQ_INSTANCES 10     // Works fine! (i hope)
 
 bool NSClientServer::isPasswordOk(std::string remotePassword) {
-  std::string localPassword = get_password();
-  if (localPassword == remotePassword) {
-    return true;
+  const std::string localPassword = get_password();
+  // No password configured: refuse all requests. Previously the server allowed
+  // any client that sent the literal word "None" through, which turned a
+  // forgotten password into an open listener.
+  if (localPassword.empty()) {
+    NSC_LOG_ERROR_STD("Using check_nt without a password is a security risk, please configure passwords (or better yet switch protocols).");
+    return false;
   }
-  if ((remotePassword == "None") && (localPassword.empty())) {
-    return true;
-  }
-  return false;
+  return str::constant_time_eq(localPassword, remotePassword);
 }
 
 void split_to_list(std::list<std::string> &list, const std::string str, const std::string key) {
@@ -196,13 +208,17 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
     buffer = buffer.substr(0, pos);
   }
 
+  // Distinct error strings (Invalid password vs No command specified) used to
+  // give attackers a clean true/false oracle for online password guessing.
+  // Collapse them into one generic error.
+  static const char *kBadRequest = "ERROR: Bad request.";
   str::utils::token pwd = str::utils::getToken(buffer, '&');
   if (!isPasswordOk(pwd.first)) {
-    return check_nt::packet("ERROR: Invalid password.");
+    return check_nt::packet(kBadRequest);
   }
-  if (pwd.second.empty()) return check_nt::packet("ERROR: No command specified.");
+  if (pwd.second.empty()) return check_nt::packet(kBadRequest);
   str::utils::token cmd = str::utils::getToken(pwd.second, '&');
-  if (cmd.first.empty()) return check_nt::packet("ERROR: No command specified.");
+  if (cmd.first.empty()) return check_nt::packet(kBadRequest);
 
   int c = 0;
   try {

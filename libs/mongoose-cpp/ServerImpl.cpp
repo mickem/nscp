@@ -204,7 +204,42 @@ void ServerImpl::onHttpRequest(mg_connection *connection, mg_http_message *messa
           has_content_type = true;
         }
       }
-      headers << "Access-Control-Allow-Origin: *\r\n";
+      for (const auto &c : response->get_cookies()) {
+        const std::string &name = c.first;
+        const std::string &value = c.second.first;
+        const Response::cookie_attrs &a = c.second.second;
+        if (name.empty() || name.find_first_of("\r\n;= \t") != std::string::npos) {
+          continue;
+        }
+        if (value.find_first_of("\r\n;") != std::string::npos) {
+          continue;
+        }
+        // SameSite=None requires Secure per RFC 6265bis §5.4.7. Browsers will
+        // drop a SameSite=None cookie that lacks Secure, so emitting it would
+        // silently lose the session. Skip the cookie instead.
+        if (boost::algorithm::iequals(a.same_site, "None") && !(a.secure && is_ssl)) {
+          continue;
+        }
+        headers << "Set-Cookie: " << name << "=" << value << "; Path=" << (a.path.empty() ? "/" : a.path);
+        if (a.max_age >= 0) {
+          headers << "; Max-Age=" << a.max_age;
+        }
+        if (a.http_only) {
+          headers << "; HttpOnly";
+        }
+        if (a.secure && is_ssl) {
+          headers << "; Secure";
+        }
+        if (!a.same_site.empty()) {
+          headers << "; SameSite=" << a.same_site;
+        }
+        headers << "\r\n";
+      }
+      // No wildcard Access-Control-Allow-Origin. The bundled SPA is served
+      // from the same origin so it does not need CORS, and the wildcard meant
+      // any cross-origin page could read responses to authenticated requests
+      // that did not require credentials. Operators who need cross-origin
+      // access should put a reverse proxy in front and pin Origin there.
       if (response->getCode() == 200 && !has_content_type) {
         headers << "Content-Type: application/json\r\n";
       }

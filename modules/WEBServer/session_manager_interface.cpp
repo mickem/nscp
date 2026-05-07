@@ -26,11 +26,14 @@ inline std::string find_token(Mongoose::Request &request) {
   if (!x_token.empty()) {
     return x_token;
   }
-  std::string request_token = request.get("TOKEN");
-  if (!request_token.empty()) {
-    return request_token;
+  if (!request.get("TOKEN").empty() || !request.get("__TOKEN").empty()) {
+    NSC_LOG_ERROR("Rejected request from " + request.getRemoteIp() +
+                  " that supplied the session token as a URL query parameter (?TOKEN= / ?__TOKEN=). "
+                  "This fallback has been removed because URL parameters leak into browser history, "
+                  "proxy logs and Referer headers. Send the token in the TOKEN, X-Auth-Token or "
+                  "Authorization: Bearer header instead.");
   }
-  return request.get("__TOKEN", "");
+  return "";
 }
 inline std::string get_auth_header(Mongoose::Request &request) {
   std::string auth = request.readHeader(HTTP_HDR_AUTH);
@@ -45,29 +48,53 @@ session_manager_interface::session_manager_interface() : log_data(std::make_uniq
 std::string decode_key(const std::string &encoded) { return Mongoose::Helpers::decode_b64(encoded); }
 
 bool session_manager_interface::process_auth_header(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response) {
+  const std::string remote_ip = request.getRemoteIp();
+  if (rate_limiter.is_blocked(remote_ip)) {
+    NSC_LOG_ERROR("Rate-limited authentication attempt from " + remote_ip);
+    response.setCodeForbidden(NOT_ALLOWED);
+    return false;
+  }
   const std::string auth = get_auth_header(request);
+  // Cap the auth header at 8 KiB. Real Basic / Bearer headers are well
+  // under 1 KiB; anything larger is a DoS amplifier (b64-decode allocates
+  // proportional memory). Capping early avoids spending the decode cost on
+  // garbage input.
+  static constexpr std::size_t kMaxAuthHeaderBytes = 8 * 1024;
+  if (auth.size() > kMaxAuthHeaderBytes) {
+    rate_limiter.record_failure(remote_ip);
+    NSC_LOG_ERROR("Oversized Authorization header from " + remote_ip + " (" + std::to_string(auth.size()) + " bytes)");
+    response.setCodeForbidden(NOT_ALLOWED);
+    return false;
+  }
   if (is_basic_auth(auth)) {
     const str::utils::token user_and_password = str::utils::split2(decode_key(auth.substr(6)), ":");
     if (!users.validate_user(user_and_password.first, user_and_password.second)) {
-      NSC_LOG_ERROR("Invalid password for " + request.getRemoteIp() + " with user " + user_and_password.first);
+      // Single, generic error string. Username is not echoed back and is not
+      // logged at error level - that gave attackers a clean username-existence
+      // and password-correctness oracle. The rate limiter prevents brute-force.
+      rate_limiter.record_failure(remote_ip);
+      NSC_LOG_ERROR("Authentication failed for " + remote_ip);
       response.setCodeForbidden(NOT_ALLOWED);
       return false;
     }
+    rate_limiter.record_success(remote_ip);
     store_user_in_response(user_and_password.first, response);
     return can(grant, response);
   }
   if (is_bearer_auth(auth)) {
     const std::string token = auth.substr(7);
     if (!tokens.is_valid(token)) {
-      NSC_LOG_ERROR("Invalid bearer token for " + request.getRemoteIp());
+      rate_limiter.record_failure(remote_ip);
+      NSC_LOG_ERROR("Authentication failed for " + remote_ip);
       response.setCodeForbidden(NOT_ALLOWED);
       return false;
     }
+    rate_limiter.record_success(remote_ip);
     store_token_in_response(token, response);
     return can(grant, response);
   }
-  NSC_LOG_ERROR("Unknown authentication scheme for " + request.getRemoteIp());
-  response.setCodeForbidden("Invalid authentication scheme");
+  NSC_LOG_ERROR("Unknown authentication scheme for " + remote_ip);
+  response.setCodeForbidden(NOT_ALLOWED);
   return false;
 }
 
@@ -126,7 +153,12 @@ void session_manager_interface::get_user_from_response(const Mongoose::StreamRes
 bool session_manager_interface::can(const std::string &grant, Mongoose::StreamResponse &response) {
   const std::string uid = response.getCookie("uid");
   if (uid.empty()) {
-    if (tokens.can("anonymous", grant)) {
+    // Only consult the "anonymous" grants if anonymous access is explicitly
+    // enabled. Without this guard, an operator who configured an
+    // `anonymous` role for any reason (often by mistake or for
+    // experimentation) would expose every endpoint listed in that role to
+    // unauthenticated callers.
+    if (allow_anonymous_ && tokens.can("anonymous", grant)) {
       return true;
     }
     response.setCodeForbidden(NOT_ALLOWED);
@@ -140,6 +172,10 @@ bool session_manager_interface::can(const std::string &grant, Mongoose::StreamRe
 }
 
 void session_manager_interface::add_user(const std::string &user, const std::string &role, const std::string &password) {
+  // Re-adding (or rotating credentials for) an existing user must invalidate
+  // any tokens previously issued to them - otherwise a stolen token survives a
+  // password change.
+  tokens.revoke_tokens_for_user(user);
   tokens.add_user(user, role);
   users.add_user(user, password);
 }
@@ -148,7 +184,18 @@ bool session_manager_interface::validate_user(const std::string &user, const std
 
 bool session_manager_interface::has_user(const std::string &user) const { return users.has_user(user); }
 
-void session_manager_interface::add_grant(const std::string &role, const std::string &grant) { tokens.add_grant(role, grant); }
+void session_manager_interface::add_grant(const std::string &role, const std::string &grant) {
+  // Refuse to register an `anonymous` role unless explicitly allowed. This
+  // is the partner check to `can()`: even if an operator writes
+  //   [/settings/WEB/server/roles] anonymous = something
+  // by mistake, the role is silently ignored and a clear log line tells
+  // them to flip `allow anonymous access = true` if it was deliberate.
+  if (role == "anonymous" && !allow_anonymous_) {
+    NSC_LOG_ERROR("Refusing to register 'anonymous' role: anonymous access is disabled. Set [/settings/WEB/server] 'allow anonymous access = true' to enable.");
+    return;
+  }
+  tokens.add_grant(role, grant);
+}
 
 std::string session_manager_interface::get_metrics() { return metrics_store.get(); }
 std::string session_manager_interface::get_metrics_v2() { return metrics_store.get_list(); }
@@ -182,5 +229,7 @@ bool session_manager_interface::is_allowed(const std::string &ip) {
 bool session_manager_interface::validate_token(const std::string &token) { return tokens.is_valid(token); }
 
 void session_manager_interface::revoke_token(const std::string &token) { tokens.revoke(token); }
+
+void session_manager_interface::revoke_tokens_for_user(const std::string &user) { tokens.revoke_tokens_for_user(user); }
 
 std::string session_manager_interface::generate_token(const std::string &user) { return tokens.generate_for(user); }

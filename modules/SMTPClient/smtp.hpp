@@ -19,66 +19,76 @@
 
 #pragma once
 
-#include <boost/asio.hpp>
-#include <boost/enable_shared_from_this.hpp>
-#include <boost/noncopyable.hpp>
-#include <boost/thread/mutex.hpp>
-#include <list>
-#include <map>
+#include <stdexcept>
 #include <string>
 
 namespace smtp {
-namespace client {
-class smtp_client : private boost::noncopyable, public boost::enable_shared_from_this<smtp_client> {
-  struct envelope {
-    std::string sender;
-    std::string recipient;
-    std::string data;
-  };
 
-  class connection : private boost::noncopyable, public boost::enable_shared_from_this<connection> {
-   public:
-    // typedef boost::shared_ptr<connection> ptr;
-
-    connection(boost::shared_ptr<smtp_client>);
-    void start();
-    std::map<std::string, std::string> config;
-
-   private:
-    boost::shared_ptr<smtp_client> sc;
-
-    boost::asio::ip::tcp::resolver res;
-    boost::asio::ip::tcp::resolver::query que;
-    boost::asio::ip::tcp::socket serv;
-
-    enum state_type { BANNER, EHLO, HELO, RSET, MAIL_FROM, RCPT_TO, DATA, DATA_354, QUIT } state;
-    boost::shared_ptr<envelope> cur;
-
-    boost::asio::streambuf readbuf;
-
-    void resolved(boost::system::error_code, boost::asio::ip::tcp::resolver::iterator);
-    void connected(boost::asio::ip::tcp::resolver::iterator, boost::system::error_code ec);
-    void async_read_response();
-    void got_response(std::string resp, boost::system::error_code ec, size_t bytes);
-    void send_line(std::string line);
-    void send_raw(std::string raw);
-    void sent(boost::shared_ptr<boost::asio::const_buffers_1>, boost::system::error_code ec, size_t);
-  };
-
-  boost::asio::io_service &io_service;
-  boost::shared_ptr<connection> active_connection;
-
-  boost::mutex m;
-  std::list<boost::shared_ptr<envelope> > ready;
-  std::list<boost::shared_ptr<envelope> > deferred;
-
-  void async_run_queue();
-
+// Synchronous SMTP submission client. Used by the SMTPClient module to
+// deliver one notification per call. Designed to interoperate with Gmail,
+// Microsoft 365 and any RFC 5321-compliant submission service.
+//
+// The implementation uses Boost.Asio synchronously - the previous async
+// queue model never actually worked end-to-end and was substantially
+// harder to reason about than a per-submission "connect, send, quit" flow.
+// One submission per call also matches how SMTPClient::submit() is invoked
+// from the rest of the agent.
+//
+// Security defaults that matter:
+//   * security="starttls" by default (port 587 submission), upgrade to TLS
+//     before auth.
+//   * security="tls" forces implicit TLS from connect (port 465).
+//   * security="none" is permitted for self-hosted internal relays only.
+//   * AUTH PLAIN / AUTH LOGIN are supported and always wrapped in TLS
+//     (we refuse to send credentials in clear).
+//   * Envelope addresses and header values are validated against CRLF
+//     injection.
+//   * DATA payload is dot-stuffed per RFC 5321 5.2.7.
+class smtp_exception : public std::runtime_error {
  public:
-  smtp_client(boost::asio::io_service &io_service) : io_service(io_service) {}
-
-  void send_mail(const std::string sender, const std::list<std::string> &recipients, std::string message);
-  void tick(bool);
+  using std::runtime_error::runtime_error;
 };
-}  // namespace client
+
+struct connection_config {
+  std::string server;                 // hostname/IP of the SMTP server
+  std::string port = "587";           // 25, 465, 587, ...
+  std::string security = "starttls";  // "none" | "starttls" | "tls"
+  std::string username;               // AUTH username (empty = no AUTH)
+  std::string password;               // AUTH password
+  std::string canonical_name;         // EHLO hostname; defaults to "localhost"
+  bool insecure_skip_verify = false;  // for self-signed test servers
+  int timeout_seconds = 30;
+};
+
+struct message {
+  std::string from;     // envelope sender, also used as From: header
+  std::string to;       // single recipient (one message per submission)
+  std::string subject;  // header
+  std::string body;     // arbitrary text; CRLF normalisation done internally
+};
+
+// Send one message synchronously. Throws smtp_exception on any failure
+// (DNS, connect, TLS, AUTH, server rejection, protocol error). The error
+// message is suitable for surfacing via NSC_LOG_ERROR.
+void send(const connection_config& cfg, const message& msg);
+
+// Internals exposed for unit testing. These are the security-critical
+// transformations that protect against CRLF injection in addresses and
+// headers, and that produce a wire-correct DATA payload (dot-stuffing
+// per RFC 5321 5.2.7, CRLF normalisation). They are pure functions; tests
+// can exercise them without standing up a real SMTP server.
+namespace detail {
+// Throws smtp_exception if `addr` is empty, contains a control character,
+// or contains an angle bracket. Used for envelope addresses.
+void validate_address(const std::string& addr, const char* what);
+
+// Strips CR / LF / NUL from a header value so it cannot inject extra
+// header lines. Returns the cleaned string.
+std::string sanitise_header(const std::string& v);
+
+// Applies RFC 5321 transparency (lines starting with "." are doubled) and
+// normalises lone CR / LF to CRLF. Used for the DATA payload.
+std::string dot_stuff_and_crlf(const std::string& body);
+}  // namespace detail
+
 }  // namespace smtp
