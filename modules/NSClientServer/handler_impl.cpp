@@ -68,7 +68,7 @@ check_nt::packet handler_impl::handle(check_nt::packet p) {
 
   strEx::token pwd = strEx::getToken(buffer, '&');
   if (!isPasswordOk(pwd.first)) {
-    NSC_LOG_ERROR_STD(_T("Invalid password (") + pwd.first + _T(")."));
+    NSC_LOG_ERROR_STD(_T("Invalid password supplied by client."));
     return check_nt::packet("ERROR: Invalid password.");
   }
   if (pwd.second.empty()) return check_nt::packet("ERROR: No command specified.");

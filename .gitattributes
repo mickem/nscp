@@ -37,4 +37,10 @@ debian/* text eol=lf
 *.exe    binary
 *.out    binary
 *.app    binary
-*.sh     binary
+
+# Shell scripts must always use LF line endings — they are intended to be
+# executed by /bin/sh inside Linux containers and CI runners regardless of
+# the platform they were checked out on. CRLF in a shebang line breaks
+# `/bin/sh^M: bad interpreter` and the script silently fails to run.
+*.sh     text eol=lf
+entrypoint.sh text eol=lf

@@ -114,8 +114,7 @@ struct read_protocol : public boost::noncopyable {
         } catch (const std::exception &e) {
           log_error(__FILE__, __LINE__, std::string("Exception processing request: ") + e.what());
           log_debug(__FILE__, __LINE__,
-                    "Using: encryption = " + nscp::encryption::helpers::encryption_to_string(handler_->get_encryption()) + ", password = '" +
-                        handler_->get_password() + "'");
+                    "Using: encryption = " + nscp::encryption::helpers::encryption_to_string(handler_->get_encryption()));
         } catch (...) {
           log_error(__FILE__, __LINE__, "Exception processing request");
         }

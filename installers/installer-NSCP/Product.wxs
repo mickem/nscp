@@ -117,6 +117,9 @@
               <File Id="NSCAServerDLL" Name="NSCAServer.dll" DiskId="1" Source="$(var.Source)/modules/NSCAServer.dll" Vital="no" />
               <File Id="SchedulerDLL" Name="Scheduler.dll" DiskId="1" Source="$(var.Source)/modules/Scheduler.dll" Vital="no" />
             </Component>
+            <Component Id="NSCANg" Guid="B2E1A5D7-3F46-4C8B-9E2D-7A6C8F1B2D4E" Win64="$(var.Win64)">
+              <File Id="NSCANgClientDLL" Name="NSCANgClient.dll" DiskId="1" Source="$(var.Source)/modules/NSCANgClient.dll" Vital="no" />
+            </Component>
             <Component Id="PythonScript" Guid="49C2120D-634D-48ef-B82E-F2E9B219A768" Win64="$(var.Win64)">
               <File Id="PythonScript" Name="PythonScript.dll" DiskId="1" Source="$(var.Source)/modules/PythonScript.dll" Vital="no" />
             </Component>
@@ -126,6 +129,8 @@
               <File Id="SyslogClient" Name="SyslogClient.dll" DiskId="1" Source="$(var.Source)/modules/SyslogClient.dll" Vital="no" />
               <File Id="NRDPClient" Name="NRDPClient.dll" DiskId="1" Source="$(var.Source)/modules/NRDPClient.dll" Vital="no" />
               <File Id="IcingaClient" Name="icinga-client.zip" DiskId="1" Source="$(var.Source)/modules/icinga-client.zip" Vital="no" />
+              <File Id="CollectdClient" Name="CollectdClient.dll" DiskId="1" Source="$(var.Source)/modules/CollectdClient.dll" Vital="no" />
+              <File Id="NSCPClient" Name="NSCPClient.dll" DiskId="1" Source="$(var.Source)/modules/NSCPClient.dll" Vital="no" />
             </Component>
             <Component Id="RequiredPlugins" Guid="A20AFC9C-C36F-4CCE-9D38-3C232235F545" Win64="$(var.Win64)">
               <File Id="ModCommandClient.dll" Name="CommandClient.dll" DiskId="1" Source="$(var.Source)/modules/CommandClient.dll" Vital="yes" />
@@ -260,13 +265,16 @@
             <ComponentRef Id="MongooseLibs" />
           <?endif?>
         </Feature>
-        <Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to an NSCA server" Level="1" Absent="allow">
+        <Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to a legacy NSCA server" Level="1" Absent="allow">
           <ComponentRef Id="NSCA" />
+        </Feature>
+        <Feature Id="NSCANgPlugin" Title="NSCA-NG plugin" Description="Plugin to submit passive results to an NSCA-NG server (TLS with PSK or X.509 client certificates)" Level="1" Absent="allow">
+          <ComponentRef Id="NSCANg" />
         </Feature>
         <Feature Id="ElasticPlugin" Title="Elastic plugin" Description="Plugin to submit passive results and metrics to an Elastic server" Level="1" Absent="allow">
           <ComponentRef Id="ElasticClient" />
         </Feature>
-        <Feature Id="ExtraClientPlugin" Title="Various client plugins" Description="Plugins to connect to various systems such as syslog, graphite and smtp" Level="1" Absent="allow">
+        <Feature Id="ExtraClientPlugin" Title="Various client plugins" Description="Plugins to connect to various systems: syslog, graphite, SMTP, NRDP, Icinga, collectd, and the NSCP protocol" Level="1" Absent="allow">
           <ComponentRef Id="ExtraClients" />
         </Feature>
         <Feature Id="PythonScript" Title="Python Scripting" Description="Allows running INTERNAL scripts written in Python" Level="1" Absent="allow">

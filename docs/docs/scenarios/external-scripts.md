@@ -22,12 +22,12 @@ NSClient++ runs your script as a child process, captures its output, and passes 
 
 **Exit codes:**
 
-| Exit code | Status |
-|---|---|
-| 0 | OK |
-| 1 | WARNING |
-| 2 | CRITICAL |
-| 3 | UNKNOWN |
+| Exit code | Status   |
+|-----------|----------|
+| 0         | OK       |
+| 1         | WARNING  |
+| 2         | CRITICAL |
+| 3         | UNKNOWN  |
 
 **Output format:**
 
@@ -121,6 +121,72 @@ exe = cmd /c %SCRIPT% %ARGS%
 ```ini
 [/settings/external scripts/wrapped scripts]
 check_updates = check_updates.vbs $ARG1$ $ARG2$
+```
+
+---
+
+## Common Gotchas
+
+### PowerShell `exit 2` reported as WARNING (not CRITICAL)
+
+If a PowerShell check script does `exit 2` and the result reaches your
+monitoring server as **WARNING** instead of CRITICAL, the script's exit code
+isn't reaching NSClient++ — `powershell.exe` itself is exiting with `1`.
+
+This trips most people on first contact with PowerShell-based checks. It is
+a `powershell.exe` behaviour, not an NSClient++ bug.
+
+```ini
+# Broken — `exit 2` from the script becomes WARNING
+[/settings/external scripts/scripts]
+check_crit = powershell scripts\check_crit.ps1
+```
+
+When `powershell.exe` is invoked **without `-File`**, it runs the path in
+`-Command` mode and exits with **`0` on success / `1` on any error**,
+**regardless of `$LASTEXITCODE` inside the script**. The script's `exit 2`
+is silently dropped and NSClient++ sees `1` → WARNING.
+
+Pick any of the three fixes:
+
+**Option 1 — use the `.ps1` wrapping (recommended)**
+
+The bundled `ps1` wrapping (in `[/settings/external scripts/wrappings]`) ends
+with `exit($lastexitcode)` and propagates the script's exit code correctly.
+Move the entry to **`[wrapped scripts]`** and reference the file name:
+
+```ini
+[/settings/external scripts/wrapped scripts]
+check_crit = check_crit.ps1
+```
+
+**Option 2 — use `-File`**
+
+```ini
+[/settings/external scripts/scripts]
+check_crit = powershell -File scripts\check_crit.ps1
+```
+
+In `-File` mode `powershell.exe` returns the script's exit code verbatim.
+
+**Option 3 — propagate `$LASTEXITCODE` explicitly**
+
+```ini
+[/settings/external scripts/scripts]
+check_crit = powershell -Command "scripts\check_crit.ps1; exit $LASTEXITCODE"
+```
+
+Same idea as the wrapping — the trailing `exit $LASTEXITCODE` forwards the
+inner script's code.
+
+**Verify on the host before deploying:**
+
+```cmd
+powershell scripts\check_crit.ps1
+echo %ERRORLEVEL%   :: prints 1 — the bug
+
+powershell -File scripts\check_crit.ps1
+echo %ERRORLEVEL%   :: prints 2 — correct
 ```
 
 ---

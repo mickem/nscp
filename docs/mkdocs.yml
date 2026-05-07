@@ -41,6 +41,7 @@ nav:
       - Network Checks: scenarios/network-checks.md
       - Active Monitoring with NRPE: scenarios/nrpe.md
       - Passive Monitoring (NSCA/NRDP): scenarios/passive-monitoring-nsca.md
+      - Passive Monitoring (NSCA-NG): scenarios/passive-monitoring-nsca-ng.md
       - Passive Monitoring (Icinga 2): scenarios/passive-monitoring-icinga.md
       - Prometheus Scraping: scenarios/prometheus.md
       - External Scripts: scenarios/external-scripts.md
