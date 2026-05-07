@@ -32,7 +32,7 @@
  * @return
  */
 SMTPClient::SMTPClient()
-    : client_("graphite", boost::make_shared<smtp_client::smtp_client_handler>(), boost::make_shared<smtp_handler::options_reader_impl>()) {}
+    : client_("smtp", boost::make_shared<smtp_client::smtp_client_handler>(), boost::make_shared<smtp_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor
@@ -97,7 +97,7 @@ void SMTPClient::add_target(std::string key, std::string arg) {
 void SMTPClient::add_command(std::string key, std::string arg) {
   try {
     nscapi::core_helper core(get_core(), get_id());
-    std::string k = client_.add_command(key, arg);
+    const std::string k = client_.add_command(key, arg);
     if (!k.empty()) core.register_command(k.c_str(), "SMTP relay for: " + key);
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("Failed to add command: " + key, e);
