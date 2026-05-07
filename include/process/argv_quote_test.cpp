@@ -3,8 +3,13 @@
 #include <gtest/gtest.h>
 
 #ifdef _WIN32
-#include <shellapi.h>
+// clang-format off
+// windows.h must come before shellapi.h - shellapi.h relies on
+// EXTERN_C / DECLSPEC_IMPORT / HDROP defined in the Windows SDK headers and
+// will fail to compile if pulled in alone.
 #include <windows.h>
+#include <shellapi.h>
+// clang-format on
 #endif
 
 #include <string>
