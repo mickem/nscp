@@ -26,7 +26,7 @@ runs:
   steps:
 
     - id: cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         key: ${{ runner.os }}-cryptopp-${{ inputs.version }}-${{ inputs.architecture }}-${{ inputs.runtime }}-${{ inputs.toolset }}
         path: |
@@ -71,10 +71,10 @@ runs:
     - name: Build
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
-        msbuild cryptlib.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
-        msbuild cryptdll.vcxproj /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
-        msbuild cryptlib.vcxproj /p:Configuration=Debug /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
-        msbuild cryptdll.vcxproj /p:Configuration=Debug /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
+        msbuild cryptlib.vcxproj /m /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
+        msbuild cryptdll.vcxproj /m /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
+        msbuild cryptlib.vcxproj /m /p:Configuration=Debug /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
+        msbuild cryptdll.vcxproj /m /p:Configuration=Debug /p:Platform=${{ steps.setup.outputs.platform }} /p:PlatformToolset=${{ inputs.toolset }}
       working-directory: tmp/cryptopp
       shell: cmd
 

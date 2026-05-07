@@ -178,6 +178,14 @@ jobs:
       with:
         version: ${{ ENV.MINIZ_VERSION }}
 
+    - name: Cache Boost (static)
+      id: static_boost_cache
+      uses: actions/cache@v4
+      with:
+        key: ${{ runner.os }}-boost-${{ env.BOOST_VERSION }}-${{ inputs.architecture }}-static-runtime-static-libs-system_filesystem-${{ steps.setup.outputs.toolset }}
+        path: |
+          ${{ runner.workspace }}/static_boost
+
     - name: Build Boost (static)
       id: static_boost
       uses: mickem/build-boost@v1
@@ -190,6 +198,14 @@ jobs:
         static-runtime: 1
         directory: ${{ runner.workspace }}/static_boost
           
+    - name: Cache Boost (regular)
+      id: boost_cache
+      uses: actions/cache@v4
+      with:
+        key: ${{ runner.os }}-boost-${{ env.BOOST_VERSION }}-${{ inputs.architecture }}-shared-runtime-shared-libs-full-${{ steps.setup.outputs.toolset }}
+        path: |
+          ${{ runner.workspace }}/boost
+
     - name: Build Boost (regular)
       id: boost
       uses: mickem/build-boost@v1
@@ -256,7 +272,7 @@ jobs:
     - name: Build installer_lib
       working-directory: tmp/installer_lib
       run: |
-        msbuild installer_lib.sln /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+        msbuild installer_lib.sln /m /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
   
     - name: CMake (NSCP)
       working-directory: tmp/nscp
@@ -266,7 +282,7 @@ jobs:
     - name: Build nsclient
       working-directory: tmp/nscp
       run: |
-        msbuild NSCP.sln /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }}
+        msbuild NSCP.sln /m /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }}
 
     - name: Run tests
       if: inputs.architecture != 'arm64'
@@ -285,7 +301,7 @@ jobs:
     - name: Build installer
       working-directory: tmp/nscp
       run: |
-        msbuild installers\installer-NSCP\installer_NSCP.vcxproj /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }} /p:BuildProjectReferences=false
+        msbuild installers\installer-NSCP\installer_NSCP.vcxproj /m /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }} /p:BuildProjectReferences=false
 
     - name: Post process files
       uses: ./.github/actions/post-process-windows-binaries

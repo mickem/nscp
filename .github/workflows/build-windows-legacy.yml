@@ -155,6 +155,14 @@ jobs:
       with:
         version: ${{ ENV.MINIZ_VERSION }}
 
+    - name: Cache Boost (static)
+      id: static_boost_cache
+      uses: actions/cache@v4
+      with:
+        key: ${{ runner.os }}-boost-legacy-${{ env.BOOST_VERSION }}-${{ inputs.architecture }}-static-runtime-static-msvc141-xp
+        path: |
+          ${{ runner.workspace }}/static_boost
+
     - name: Build Boost (static)
       id: static_boost
       uses: mickem/build-boost@42c59d10fc12f919a986f7e1c2f7c752d4960190
@@ -220,7 +228,7 @@ jobs:
     - name: Build installer_lib
       working-directory: tmp/installer_lib
       run: |
-        msbuild installer_lib.sln /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
+        msbuild installer_lib.sln /m /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
   
     - name: CMake (NSCP)
       working-directory: tmp/nscp
@@ -230,7 +238,7 @@ jobs:
     - name: Build nsclient
       working-directory: tmp/nscp
       run: |
-        msbuild NSCP.sln /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }}
+        msbuild NSCP.sln /m /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }}
 
     - name: Run tests
       working-directory: tmp/nscp
@@ -248,7 +256,7 @@ jobs:
     - name: Build installer
       working-directory: tmp/nscp
       run: |
-        msbuild installers\installer-NSCP\installer_NSCP.vcxproj /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }} /p:BuildProjectReferences=false
+        msbuild installers\installer-NSCP\installer_NSCP.vcxproj /m /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }} /p:BuildProjectReferences=false
 
     - name: Post process files
       uses: ./.github/actions/post-process-windows-binaries

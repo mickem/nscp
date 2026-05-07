@@ -155,7 +155,7 @@ jobs:
     - name: Build nsclient
       working-directory: tmp/nscp
       run: |
-        make
+        make -j$(nproc)
 
     - name: CPack
       working-directory: tmp/nscp
