@@ -55,6 +55,17 @@ bool session_manager_interface::process_auth_header(const std::string &grant, Mo
     return false;
   }
   const std::string auth = get_auth_header(request);
+  // Cap the auth header at 8 KiB. Real Basic / Bearer headers are well
+  // under 1 KiB; anything larger is a DoS amplifier (b64-decode allocates
+  // proportional memory). Capping early avoids spending the decode cost on
+  // garbage input.
+  static constexpr std::size_t kMaxAuthHeaderBytes = 8 * 1024;
+  if (auth.size() > kMaxAuthHeaderBytes) {
+    rate_limiter.record_failure(remote_ip);
+    NSC_LOG_ERROR("Oversized Authorization header from " + remote_ip + " (" + std::to_string(auth.size()) + " bytes)");
+    response.setCodeForbidden(NOT_ALLOWED);
+    return false;
+  }
   if (is_basic_auth(auth)) {
     const str::utils::token user_and_password = str::utils::split2(decode_key(auth.substr(6)), ":");
     if (!users.validate_user(user_and_password.first, user_and_password.second)) {
