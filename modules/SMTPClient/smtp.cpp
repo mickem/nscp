@@ -19,12 +19,11 @@
 
 #include "smtp.hpp"
 
-#include <bytes/base64.hpp>
-
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <bytes/base64.hpp>
 #include <cstring>
 #include <sstream>
 #include <string>
@@ -58,9 +57,7 @@ class sync_io {
     auto end = tcp::resolver::iterator{};
     while (ec && endpoints != end) {
       socket_ref_.close();
-      run_with_deadline([&](auto&& done) {
-        socket_ref_.async_connect(*endpoints, [done = std::move(done)](const boost::system::error_code& e) { done(e); });
-      },
+      run_with_deadline([&](auto&& done) { socket_ref_.async_connect(*endpoints, [done = std::move(done)](const boost::system::error_code& e) { done(e); }); },
                         ec);
       if (ec) ++endpoints;
     }
@@ -109,8 +106,7 @@ class sync_io {
     run_with_deadline(
         [&](auto&& done) {
           if (tls_stream_) {
-            asio::async_read_until(*tls_stream_, buf_, "\r\n",
-                                   [done = std::move(done)](const boost::system::error_code& e, std::size_t n) { done(e, n); });
+            asio::async_read_until(*tls_stream_, buf_, "\r\n", [done = std::move(done)](const boost::system::error_code& e, std::size_t n) { done(e, n); });
           } else {
             asio::async_read_until(socket_ref_, buf_, "\r\n", [done = std::move(done)](const boost::system::error_code& e, std::size_t n) { done(e, n); });
           }
@@ -170,11 +166,9 @@ void expect_status(const std::string& reply, char expected_first, const std::str
   }
 }
 
-bool reply_starts_with(const std::string& reply, const char* code) {
-  return reply.size() >= 3 && reply.compare(0, 3, code) == 0;
-}
+bool reply_starts_with(const std::string& reply, const char* code) { return reply.size() >= 3 && reply.compare(0, 3, code) == 0; }
 
-}  // namespace (close anon to expose helpers below to unit tests)
+}  // namespace
 
 // Security-critical pure helpers. Declared in smtp.hpp so the test suite
 // can exercise them directly without standing up a real SMTP server.
@@ -254,8 +248,8 @@ void do_auth(sync_io& io, const std::string& user, const std::string& pass, cons
   // Fall back to AUTH LOGIN otherwise. Both are TLS-only here because we
   // refuse to enter this function over an unencrypted channel - see
   // send().
-  const bool plain = ehlo_response.find("AUTH") != std::string::npos &&
-                     (ehlo_response.find("PLAIN") != std::string::npos || ehlo_response.find("LOGIN") == std::string::npos);
+  const bool plain =
+      ehlo_response.find("AUTH") != std::string::npos && (ehlo_response.find("PLAIN") != std::string::npos || ehlo_response.find("LOGIN") == std::string::npos);
   if (plain) {
     // RFC 4616: "\0username\0password" base64-encoded.
     std::string sasl;

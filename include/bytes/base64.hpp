@@ -20,6 +20,7 @@
 #pragma once
 
 #include <bytes/base64.h>
+
 #include <string>
 
 namespace bytes {

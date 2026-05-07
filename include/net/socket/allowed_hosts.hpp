@@ -76,8 +76,7 @@ struct allowed_hosts_manager {
       errors.emplace_back("allowed_hosts is empty - rejecting all connections (set `allowed hosts = 0.0.0.0/0,::/0` to allow all)");
       return false;
     }
-    return (address.is_v4() && is_allowed_v4(address.to_v4().to_bytes(), errors)) ||
-           (address.is_v6() && is_allowed_v6(address.to_v6().to_bytes(), errors)) ||
+    return (address.is_v4() && is_allowed_v4(address.to_v4().to_bytes(), errors)) || (address.is_v6() && is_allowed_v6(address.to_v6().to_bytes(), errors)) ||
            (address.is_v6() && address.to_v6().is_v4_compatible() && is_allowed_v4(address.to_v6().to_v4().to_bytes(), errors)) ||
            (address.is_v6() && address.to_v6().is_v4_mapped() && is_allowed_v4(address.to_v6().to_v4().to_bytes(), errors));
   }

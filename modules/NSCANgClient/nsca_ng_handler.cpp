@@ -46,12 +46,13 @@ void nsca_ng_target_object::read(const nscapi::settings_helper::settings_impl_in
 
   add_ssl_keys(root_path);
 
-  root_path.add_key()
+  root_path
+      .add_key()
 
-      .add_password("password", sh::string_fun_key([this](const auto& value) { this->set_property_string("password", value); }, ""), "PASSWORD",
+      .add_password("password", sh::string_fun_key([this](const auto &value) { this->set_property_string("password", value); }, ""), "PASSWORD",
                     "The password used for NSCA-NG PSK authentication. Must match the server configuration.")
 
-      .add_string("identity", sh::string_fun_key([this](const auto& value) { this->set_property_string("identity", value); }, ""), "IDENTITY",
+      .add_string("identity", sh::string_fun_key([this](const auto &value) { this->set_property_string("identity", value); }, ""), "IDENTITY",
                   "The PSK identity sent to the server. Defaults to the sender hostname when empty.")
 
       .add_bool("use psk", sh::bool_fun_key([this](auto value) { this->set_property_bool("use psk", value); }, true), "USE PSK",
@@ -62,9 +63,7 @@ void nsca_ng_target_object::read(const nscapi::settings_helper::settings_impl_in
                 "Off by default; enabling this disables protection against man-in-the-middle attacks.",
                 true)
 
-      .add_int("max output length",
-               sh::int_fun_key([this](auto value) { this->set_property_int("max output length", value); }, 65536),
-               "MAX OUTPUT LENGTH",
+      .add_int("max output length", sh::int_fun_key([this](auto value) { this->set_property_int("max output length", value); }, 65536), "MAX OUTPUT LENGTH",
                "Maximum number of bytes from the plugin output to forward to the server. Default 65536 (64 KiB).", true)
 
       .add_bool("host check", sh::bool_fun_key([this](auto value) { this->set_property_bool("host check", value); }, false), "HOST CHECK",
@@ -89,7 +88,8 @@ nscapi::settings_objects::object_instance options_reader_impl::clone(nscapi::set
   return boost::make_shared<nsca_ng_target_object>(parent_obj, alias, path);
 }
 
-void options_reader_impl::process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
+void options_reader_impl::process(boost::program_options::options_description &desc, client::destination_container &source,
+                                  client::destination_container &data) {
   add_ssl_options(desc, data);
 
   // clang-format off

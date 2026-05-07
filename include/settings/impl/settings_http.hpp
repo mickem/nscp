@@ -217,9 +217,8 @@ class settings_http : public settings::settings_interface_impl {
         const std::string raw_name = file_stat.m_filename != nullptr ? std::string(file_stat.m_filename) : std::string();
         boost::filesystem::path tr;
         if (!file_helpers::checks::is_safe_archive_entry(local_file, raw_name, tr)) {
-          get_logger()->error(
-              "settings", __FILE__, __LINE__,
-              "Refusing zip entry that would extract outside '" + local_file.string() + "': '" + raw_name + "'");
+          get_logger()->error("settings", __FILE__, __LINE__,
+                              "Refusing zip entry that would extract outside '" + local_file.string() + "': '" + raw_name + "'");
           mz_zip_reader_end(&zip_archive);
           return false;
         }

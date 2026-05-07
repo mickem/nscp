@@ -388,10 +388,10 @@ TEST(CheckFilesCommand, MixedCritWithSummaryDoesNotEmitMutatingWarn) {
   EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << join_lines(response);
   // The rendered message must not contain the legacy mutating marker.
   const std::string out = join_lines(response);
-  EXPECT_EQ(out.find("most likely mutating"), std::string::npos)
-      << "rendered message should not surface the legacy mutating heuristic. "
-         "Got: " << out;
-  EXPECT_EQ(out.find("Ignoring unsure result"), std::string::npos)
-      << "rendered message should not contain match()'s unsure-result warning "
-         "for summary-only contributions. Got: " << out;
+  EXPECT_EQ(out.find("most likely mutating"), std::string::npos) << "rendered message should not surface the legacy mutating heuristic. "
+                                                                    "Got: "
+                                                                 << out;
+  EXPECT_EQ(out.find("Ignoring unsure result"), std::string::npos) << "rendered message should not contain match()'s unsure-result warning "
+                                                                      "for summary-only contributions. Got: "
+                                                                   << out;
 }

@@ -142,7 +142,7 @@ void NSCAServer::handle(nsca::packet p) {
     helper.submit_simple_message(channel_, p.host, "", p.service, nscapi::plugin_helper::int2nagios(p.code), msg, empty, response);
   }
   NSC_TRACE_ENABLED() {
-    NSC_TRACE_MSG("NSCA submission: host='" + p.host + "' service='" + p.service + "' channel='" + channel_ + "' submit_response_bytes=" +
-                  str::xtos(response.size()));
+    NSC_TRACE_MSG("NSCA submission: host='" + p.host + "' service='" + p.service + "' channel='" + channel_ +
+                  "' submit_response_bytes=" + str::xtos(response.size()));
   }
 }

@@ -114,7 +114,8 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     // SIZE_MAX and the split loop would never trim, eventually exhausting
     // memory. 16 is well below any sane real value (default 1024).
     if (payload_length_ < 16) {
-      NSC_LOG_ERROR_STD("NRPE payload length " + str::xtos(payload_length_) + " is too small (minimum 16). Refusing to start; raise the value in /settings/NRPE/server.");
+      NSC_LOG_ERROR_STD("NRPE payload length " + str::xtos(payload_length_) +
+                        " is too small (minimum 16). Refusing to start; raise the value in /settings/NRPE/server.");
       return false;
     }
     if (payload_length_ != 1024)

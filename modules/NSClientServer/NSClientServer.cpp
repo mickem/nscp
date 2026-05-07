@@ -211,7 +211,7 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
   // Distinct error strings (Invalid password vs No command specified) used to
   // give attackers a clean true/false oracle for online password guessing.
   // Collapse them into one generic error.
-  static const char* kBadRequest = "ERROR: Bad request.";
+  static const char *kBadRequest = "ERROR: Bad request.";
   str::utils::token pwd = str::utils::getToken(buffer, '&');
   if (!isPasswordOk(pwd.first)) {
     return check_nt::packet(kBadRequest);

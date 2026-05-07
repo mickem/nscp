@@ -19,10 +19,10 @@
 
 #pragma once
 
-#include <client/command_line_parser.hpp>
-#include <net/socket/socket_helpers.hpp>
 #include <openssl/ssl.h>
 
+#include <client/command_line_parser.hpp>
+#include <net/socket/socket_helpers.hpp>
 #include <sstream>
 #include <string>
 

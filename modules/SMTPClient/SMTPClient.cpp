@@ -31,8 +31,7 @@
  * Default c-tor
  * @return
  */
-SMTPClient::SMTPClient()
-    : client_("smtp", boost::make_shared<smtp_client::smtp_client_handler>(), boost::make_shared<smtp_handler::options_reader_impl>()) {}
+SMTPClient::SMTPClient() : client_("smtp", boost::make_shared<smtp_client::smtp_client_handler>(), boost::make_shared<smtp_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor

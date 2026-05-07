@@ -69,9 +69,7 @@ inline std::string format_pct(double pct, int decimals = 2) {
 inline std::string format_pct(unsigned long long value, unsigned long long total, int decimals = 2) {
   return format_pct(calc_pct_double(value, total), decimals);
 }
-inline std::string format_pct(long long value, long long total, int decimals = 2) {
-  return format_pct(calc_pct_double(value, total), decimals);
-}
+inline std::string format_pct(long long value, long long total, int decimals = 2) { return format_pct(calc_pct_double(value, total), decimals); }
 
 //
 // Padding
@@ -251,11 +249,16 @@ enum itos_as_time_unit { unit_second = 0, unit_minute = 1, unit_hour = 2, unit_d
 inline itos_as_time_unit parse_itos_as_time_unit(const std::string &s) {
   if (s.size() == 1) {
     switch (std::tolower(static_cast<unsigned char>(s[0]))) {
-      case 's': return unit_second;
-      case 'm': return unit_minute;
-      case 'h': return unit_hour;
-      case 'd': return unit_day;
-      case 'w': return unit_week;
+      case 's':
+        return unit_second;
+      case 'm':
+        return unit_minute;
+      case 'h':
+        return unit_hour;
+      case 'd':
+        return unit_day;
+      case 'w':
+        return unit_week;
       default:;
     }
   }

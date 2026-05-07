@@ -43,7 +43,7 @@ TEST(PasswordHash, VerifyRejectsCorruptHash) {
   EXPECT_FALSE(web_password::verify_password("x", "pbkdf2-sha256$"));
   EXPECT_FALSE(web_password::verify_password("x", "pbkdf2-sha256$abc$def"));
   EXPECT_FALSE(web_password::verify_password("x", "pbkdf2-sha256$100000$ZZ$bb"));  // non-hex
-  EXPECT_FALSE(web_password::verify_password("x", "pbkdf2-sha256$0$aa$bb"));        // iter <= 0
+  EXPECT_FALSE(web_password::verify_password("x", "pbkdf2-sha256$0$aa$bb"));       // iter <= 0
 }
 #endif
 

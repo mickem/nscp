@@ -50,12 +50,12 @@ class smtp_exception : public std::runtime_error {
 };
 
 struct connection_config {
-  std::string server;            // hostname/IP of the SMTP server
-  std::string port = "587";      // 25, 465, 587, ...
+  std::string server;                 // hostname/IP of the SMTP server
+  std::string port = "587";           // 25, 465, 587, ...
   std::string security = "starttls";  // "none" | "starttls" | "tls"
-  std::string username;          // AUTH username (empty = no AUTH)
-  std::string password;          // AUTH password
-  std::string canonical_name;    // EHLO hostname; defaults to "localhost"
+  std::string username;               // AUTH username (empty = no AUTH)
+  std::string password;               // AUTH password
+  std::string canonical_name;         // EHLO hostname; defaults to "localhost"
   bool insecure_skip_verify = false;  // for self-signed test servers
   int timeout_seconds = 30;
 };

@@ -244,8 +244,8 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
     // log entries when triaging a hung or runaway script. The full command
     // line was already traced by the caller (CheckExternalScripts).
     NSC_TRACE_ENABLED() {
-      NSC_TRACE_MSG("Spawned external script: alias='" + args.alias + "' pid=" + str::xtos(pi.dwProcessId) +
-                    " timeout=" + str::xtos(args.timeout) + "s fork=" + (args.fork ? "true" : "false"));
+      NSC_TRACE_MSG("Spawned external script: alias='" + args.alias + "' pid=" + str::xtos(pi.dwProcessId) + " timeout=" + str::xtos(args.timeout) +
+                    "s fork=" + (args.fork ? "true" : "false"));
     }
     if (args.fork) {
       output = "Command started successfully";
@@ -293,9 +293,7 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
       if (GenerateConsoleCtrlEvent(CTRL_C_EVENT, pi.dwProcessId)) {
         if (WaitForSingleObject(pi.hProcess, 2000) == WAIT_OBJECT_0) {
           state = WAIT_OBJECT_0;
-          NSC_TRACE_ENABLED() {
-            NSC_TRACE_MSG("External script '" + args.alias + "' (pid=" + str::xtos(pi.dwProcessId) + ") exited after CTRL+C");
-          }
+          NSC_TRACE_ENABLED() { NSC_TRACE_MSG("External script '" + args.alias + "' (pid=" + str::xtos(pi.dwProcessId) + ") exited after CTRL+C"); }
         }
       }
       if (state == WAIT_TIMEOUT) {

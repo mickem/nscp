@@ -37,12 +37,12 @@ struct connection_data : socket_helpers::connection_info {
   // Authentication / transport
   std::string username;
   std::string password;
-  std::string security;          // "none" | "starttls" | "tls"
+  std::string security;  // "none" | "starttls" | "tls"
   bool insecure_skip_verify = false;
-  std::string canonical_name;    // EHLO hostname
+  std::string canonical_name;  // EHLO hostname
 
   // Message construction
-  std::string sender;             // From: header / envelope sender
+  std::string sender;  // From: header / envelope sender
   std::string sender_hostname;
   std::string recipient_str;
   std::string subject_template;
@@ -86,7 +86,8 @@ struct connection_data : socket_helpers::connection_info {
 };
 
 struct smtp_client_handler : client::handler_interface {
-  bool query(client::destination_container, client::destination_container, const PB::Commands::QueryRequestMessage&, PB::Commands::QueryResponseMessage&) override {
+  bool query(client::destination_container, client::destination_container, const PB::Commands::QueryRequestMessage&,
+             PB::Commands::QueryResponseMessage&) override {
     return false;
   }
 
@@ -128,13 +129,14 @@ struct smtp_client_handler : client::handler_interface {
       } catch (const smtp::smtp_exception& e) {
         NSC_LOG_ERROR(std::string("SMTP send failed: ") + e.what());
         nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), source_alias, false,
-                                                                          std::string("SMTP send failed: ") + e.what());
+                                                                           std::string("SMTP send failed: ") + e.what());
       }
     }
     return true;
   }
 
-  bool exec(client::destination_container, client::destination_container, const PB::Commands::ExecuteRequestMessage&, PB::Commands::ExecuteResponseMessage&) override {
+  bool exec(client::destination_container, client::destination_container, const PB::Commands::ExecuteRequestMessage&,
+            PB::Commands::ExecuteResponseMessage&) override {
     return false;
   }
 

@@ -57,9 +57,7 @@ struct smtp_target_object : nscapi::targets::target_object {
         .add_string("recipient", sh::string_fun_key([this](auto value) { this->set_property_string("recipient", value); }, "nscp@localhost"), "RECIPIENT",
                     "Recipient (RCPT TO and To: header). Single recipient per submission.")
 
-        .add_string("subject",
-                    sh::string_fun_key([this](auto value) { this->set_property_string("subject", value); }, "[NSClient++] %source%"),
-                    "SUBJECT",
+        .add_string("subject", sh::string_fun_key([this](auto value) { this->set_property_string("subject", value); }, "[NSClient++] %source%"), "SUBJECT",
                     "Subject template. %source% is replaced with the originating check name, %message% with the plugin output.")
 
         .add_string("template",
@@ -78,12 +76,11 @@ struct smtp_target_object : nscapi::targets::target_object {
                     "Connection security. `starttls` (default, port 587) connects in clear and upgrades to TLS before AUTH; `tls` connects with TLS "
                     "immediately (port 465); `none` is plain SMTP and is only safe for trusted internal relays.")
 
-        .add_string("ehlo-hostname",
-                    sh::string_fun_key([this](auto value) { this->set_property_string("ehlo-hostname", value); }, ""), "EHLO HOSTNAME",
+        .add_string("ehlo-hostname", sh::string_fun_key([this](auto value) { this->set_property_string("ehlo-hostname", value); }, ""), "EHLO HOSTNAME",
                     "Hostname to advertise in EHLO. Defaults to the agent's hostname; some submission services require a real FQDN here.")
 
-        .add_string("insecure-skip-verify",
-                    sh::bool_fun_key([this](auto value) { this->set_property_bool("insecure-skip-verify", value); }, false), "SKIP TLS CERT VERIFY",
+        .add_string("insecure-skip-verify", sh::bool_fun_key([this](auto value) { this->set_property_bool("insecure-skip-verify", value); }, false),
+                    "SKIP TLS CERT VERIFY",
                     "When true, skip certificate validation on the server. Only safe for self-signed test environments; never set this on a production "
                     "submission service.");
   }

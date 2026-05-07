@@ -126,9 +126,7 @@ struct mock_native_context : object_factory_interface {
   //   svar    -> object_->sval     (object-bound string)
   //   scount  -> summary_->count   (summary int — does NOT require object)
   //   sstatus -> summary_->status  (summary string — does NOT require object)
-  bool has_variable(const std::string& name) override {
-    return name == "ivar" || name == "fvar" || name == "svar" || name == "scount" || name == "sstatus";
-  }
+  bool has_variable(const std::string& name) override { return name == "ivar" || name == "fvar" || name == "svar" || name == "scount" || name == "sstatus"; }
 
   node_type create_variable(const std::string& name, bool /*human_readable*/) override;
 
@@ -153,18 +151,15 @@ using mock_factory = mock_native_context;
 
 node_type mock_native_context::create_variable(const std::string& name, bool /*human_readable*/) {
   if (name == "ivar") {
-    return std::make_shared<ivar_node>(name, type_int,
-                                       [](mock_object o, evaluation_context) -> long long { return o.ival; },
-                                       std::list<ivar_node::int_performance_generator>{});
+    return std::make_shared<ivar_node>(
+        name, type_int, [](mock_object o, evaluation_context) -> long long { return o.ival; }, std::list<ivar_node::int_performance_generator>{});
   }
   if (name == "fvar") {
-    return std::make_shared<fvar_node>(name, type_float,
-                                       [](mock_object o, evaluation_context) -> double { return o.fval; },
-                                       std::list<fvar_node::float_performance_generator>{});
+    return std::make_shared<fvar_node>(
+        name, type_float, [](mock_object o, evaluation_context) -> double { return o.fval; }, std::list<fvar_node::float_performance_generator>{});
   }
   if (name == "svar") {
-    return std::make_shared<svar_node>(name, type_string,
-                                       [](mock_object o, evaluation_context) -> std::string { return o.sval; });
+    return std::make_shared<svar_node>(name, type_string, [](mock_object o, evaluation_context) -> std::string { return o.sval; });
   }
   if (name == "scount") {
     return std::make_shared<sint_node>(name, [](mock_summary* s) -> long long { return s ? s->count : 0; });
@@ -178,9 +173,7 @@ node_type mock_native_context::create_variable(const std::string& name, bool /*h
 
 node_type mock_native_context::create_function(const std::string& name, node_type subject) {
   if (name == "identity") {
-    auto fun = [](value_type, evaluation_context ctx, node_type s) -> node_type {
-      return factory::create_string(s->get_string_value(ctx));
-    };
+    auto fun = [](value_type, evaluation_context ctx, node_type s) -> node_type { return factory::create_string(s->get_string_value(ctx)); };
     return std::make_shared<custom_function_node>(name, fun, subject, type_string);
   }
   error("Unknown function: " + name);
@@ -299,10 +292,10 @@ TEST(EngineFilterMatchForce, OrTruthTable) {
 // Truth-table coverage for AND. Same structure as OrTruthTable.
 TEST(EngineFilterMatchForce, AndTruthTable) {
   auto ctx = make_native_context();
-  EXPECT_TRUE(eval_force("1 = 1 and 1 = 1", ctx));    // T and T = T
-  EXPECT_FALSE(eval_force("1 = 1 and 1 = 2", ctx));   // T and F = F
-  EXPECT_FALSE(eval_force("1 = 2 and 1 = 1", ctx));   // F and T = F
-  EXPECT_FALSE(eval_force("1 = 2 and 1 = 2", ctx));   // F and F = F
+  EXPECT_TRUE(eval_force("1 = 1 and 1 = 1", ctx));   // T and T = T
+  EXPECT_FALSE(eval_force("1 = 1 and 1 = 2", ctx));  // T and F = F
+  EXPECT_FALSE(eval_force("1 = 2 and 1 = 1", ctx));  // F and T = F
+  EXPECT_FALSE(eval_force("1 = 2 and 1 = 2", ctx));  // F and F = F
 }
 
 // Truth table for unary NOT.
@@ -661,8 +654,7 @@ TEST(EngineFilterMatchForce, StringInListNoObjectIsUnsureFalse) {
   auto ctx = make_native_context();
   const auto r = eval_force_full("svar in ('hung', 'stopped')", ctx);
   EXPECT_FALSE(r.matched);
-  EXPECT_TRUE(r.is_unsure)
-      << "operator_in::eval_string now returns unsure-false on nil lhs (was: throw → sure-false).";
+  EXPECT_TRUE(r.is_unsure) << "operator_in::eval_string now returns unsure-false on nil lhs (was: throw → sure-false).";
 }
 
 TEST(EngineFilterMatchForce, StringNotInListNoObjectIsUnsureTrue) {
@@ -744,8 +736,7 @@ TEST(EngineFilter, InVsChainedOrAgreeWhenSummarySideFalse) {
   EXPECT_EQ(chained.matched, inform.matched);
   EXPECT_FALSE(chained.matched);
   EXPECT_EQ(chained.is_unsure, inform.is_unsure);
-  EXPECT_TRUE(chained.is_unsure)
-      << "Both bound-side forms propagate unsure → modern_filter escalates to UNKNOWN.";
+  EXPECT_TRUE(chained.is_unsure) << "Both bound-side forms propagate unsure → modern_filter escalates to UNKNOWN.";
 }
 
 // ============================================================================
@@ -817,7 +808,7 @@ TEST(EngineFilter, MixedSummaryAndBoundTruthTable) {
 // uses `ivar > 100`.
 TEST(EngineFilter, MixedIntBoundOrSummaryTruthTable) {
   auto bound_true = make_native_context();
-  bound_true->set_object({200, 0.0, ""});  // ivar > 100 is true
+  bound_true->set_object({200, 0.0, ""});    // ivar > 100 is true
   auto bound_false = make_native_context();  // ivar (=0) > 100 is false
 
   EXPECT_TRUE(eval_match("ivar > 100 or 1 = 1", bound_true, true));
@@ -856,9 +847,9 @@ TEST(EngineFilter, NotBoundTruthTable) {
   bound_false_with_obj->set_object({0, 0.0, "running"});
   auto no_object = make_native_context();
 
-  EXPECT_FALSE(eval_match("not svar = 'hung'", bound_true, true));            // not T = F
-  EXPECT_TRUE(eval_match("not svar = 'hung'", bound_false_with_obj, true));   // not F = T
-  EXPECT_TRUE(eval_force("not svar = 'hung'", no_object))                     // not (default-F) = T
+  EXPECT_FALSE(eval_match("not svar = 'hung'", bound_true, true));           // not T = F
+  EXPECT_TRUE(eval_match("not svar = 'hung'", bound_false_with_obj, true));  // not F = T
+  EXPECT_TRUE(eval_force("not svar = 'hung'", no_object))                    // not (default-F) = T
       << "Surprise: NOT inverts the default-false from a missing string variable.";
 }
 
@@ -890,11 +881,11 @@ TEST(EngineFilter, NotIntComparisonTruthTable) {
   bound_true->set_object({100, 0.0, ""});  // ivar > 5 is true
   auto bound_false_with_obj = make_native_context();
   bound_false_with_obj->set_object({1, 0.0, ""});  // ivar > 5 is false
-  auto no_object = make_native_context();  // ivar (=0) > 5 is false
+  auto no_object = make_native_context();          // ivar (=0) > 5 is false
 
-  EXPECT_FALSE(eval_match("not ivar > 5", bound_true, true));            // not T = F
-  EXPECT_TRUE(eval_match("not ivar > 5", bound_false_with_obj, true));   // not F = T
-  EXPECT_TRUE(eval_force("not ivar > 5", no_object));                    // not (default-F) = T
+  EXPECT_FALSE(eval_match("not ivar > 5", bound_true, true));           // not T = F
+  EXPECT_TRUE(eval_match("not ivar > 5", bound_false_with_obj, true));  // not F = T
+  EXPECT_TRUE(eval_force("not ivar > 5", no_object));                   // not (default-F) = T
 }
 
 // ============================================================================
@@ -991,9 +982,9 @@ TEST(EngineFilterMatchForce, StringVariableNoObjectDoesNotLogError) {
 
   auto ctx = as_eval(make_native_context());
   (void)f->match_force(handler, ctx);
-  EXPECT_FALSE(handler->has_errors())
-      << "post-Quirk-A: no-object string variable should warn (which match_force "
-         "clears), not error. Got: " << handler->error_;
+  EXPECT_FALSE(handler->has_errors()) << "post-Quirk-A: no-object string variable should warn (which match_force "
+                                         "clears), not error. Got: "
+                                      << handler->error_;
 }
 
 TEST(EngineFilterMatchForce, IntVariableNoObjectDoesNotLogError) {
@@ -1258,8 +1249,7 @@ TEST(EngineFilterMatchForce, IntComparisonAgainstSizeLiteralPropagatesUnsureFrom
   auto ctx = make_native_context();
   const auto r = eval_force_full("ivar > 100M", ctx);
   EXPECT_FALSE(r.matched);
-  EXPECT_TRUE(r.is_unsure)
-      << "function_convert should keep the LHS's unsure flag intact through the comparison.";
+  EXPECT_TRUE(r.is_unsure) << "function_convert should keep the LHS's unsure flag intact through the comparison.";
 }
 
 TEST(EngineFilterMatchForce, IntComparisonAgainstSizeLiteralOrSummarySureTrue) {
@@ -1312,9 +1302,8 @@ TEST(EngineFilter, FunctionConvertProgrammaticBoundSubjectPropagatesUnsure) {
   const value_container v = cmp->get_value(ctx, type_int);
   // ivar=0 unsure → convert returns int_value(0, unsure) → 0>5 false unsure.
   EXPECT_FALSE(v.is_true());
-  EXPECT_TRUE(v.is_unsure)
-      << "function_convert must propagate the subject's is_unsure flag through "
-         "parse_size — the previous get_int_value() path silently dropped it.";
+  EXPECT_TRUE(v.is_unsure) << "function_convert must propagate the subject's is_unsure flag through "
+                              "parse_size — the previous get_int_value() path silently dropped it.";
 }
 
 // ============================================================================
@@ -1340,7 +1329,7 @@ TEST(EngineFilterMatchForce, NegOnStringSubjectFallbackIsUnsureFalse) {
   // exact fallback truth value.
   auto ctx = make_native_context();
   const auto r = eval_force_full("neg('hello') or 0 = 0", ctx);
-  EXPECT_TRUE(r.matched);   // sure-true via OR short-circuit
+  EXPECT_TRUE(r.matched);  // sure-true via OR short-circuit
   EXPECT_FALSE(r.is_unsure);
 }
 
@@ -1378,9 +1367,9 @@ TEST(EngineFilterMatchForce, StringVariableNoObjectProducesNoErrorInHandler) {
   // Every operator above touches svar with no object; pre-Quirk-A this would
   // have produced an ERROR per visit. Post-Quirk-A: warns, cleared by
   // match_force.
-  EXPECT_FALSE(handler->has_errors())
-      << "Quirk A: string variable no-object now warns (cleared) instead of erroring. "
-         "Got: " << handler->error_;
+  EXPECT_FALSE(handler->has_errors()) << "Quirk A: string variable no-object now warns (cleared) instead of erroring. "
+                                         "Got: "
+                                      << handler->error_;
   // The expression itself is still unsure-false (no sure-true rescue clause).
   EXPECT_FALSE(r.matched);
   EXPECT_TRUE(r.is_unsure);
@@ -1420,9 +1409,9 @@ TEST(EngineFilter, SummaryVarUnderRegularMatchWithObjectIsSureAndQuiet) {
   // Pure-summary expression has require_object=false; match with
   // expect_object=true would refuse it, so use expect_object=false.
   EXPECT_TRUE(f->match(handler, as_eval(ctx), /*expect_object=*/false));
-  EXPECT_FALSE(handler->has_warnings())
-      << "no 'is most likely mutating' warn or 'Ignoring unsure result' should "
-         "fire — summary is final at this point. Got: " << handler->warn_;
+  EXPECT_FALSE(handler->has_warnings()) << "no 'is most likely mutating' warn or 'Ignoring unsure result' should "
+                                           "fire — summary is final at this point. Got: "
+                                        << handler->warn_;
 }
 
 TEST(EngineFilter, MixedSummaryAndBoundUnderRegularMatchWithObject) {
@@ -1441,9 +1430,9 @@ TEST(EngineFilter, MixedSummaryAndBoundUnderRegularMatchWithObject) {
   ctx->set_object({0, 0.0, "running"});  // svar='hung' is sure-false
 
   EXPECT_FALSE(f->match(handler, as_eval(ctx), /*expect_object=*/true));
-  EXPECT_FALSE(handler->has_warnings())
-      << "no warn from summary mutating heuristic (was: 'count is most likely "
-         "mutating' + 'Ignoring unsure result' on every row). Got: " << handler->warn_;
+  EXPECT_FALSE(handler->has_warnings()) << "no warn from summary mutating heuristic (was: 'count is most likely "
+                                           "mutating' + 'Ignoring unsure result' on every row). Got: "
+                                        << handler->warn_;
 }
 
 TEST(EngineFilter, SummaryVarMatchedSideUnderRegularMatchWithObject) {

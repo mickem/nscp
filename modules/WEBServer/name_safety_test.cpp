@@ -70,7 +70,7 @@ TEST(NameSafety, ScriptNameRejectsDriveLetter) {
 
 TEST(NameSafety, ScriptNameRejectsEmptySegment) {
   EXPECT_FALSE(is_safe_script_name("a//b"));
-  EXPECT_FALSE(is_safe_script_name("a/"));   // trailing separator
+  EXPECT_FALSE(is_safe_script_name("a/"));  // trailing separator
   EXPECT_FALSE(is_safe_script_name("a\\\\b"));
 }
 

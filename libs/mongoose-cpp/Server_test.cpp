@@ -107,8 +107,7 @@ class FixedHandler : public RequestHandlerBase {
 
 class CookieHandler : public RequestHandlerBase {
  public:
-  CookieHandler(std::string name, std::string value, Response::cookie_attrs attrs)
-      : name(std::move(name)), value(std::move(value)), attrs(std::move(attrs)) {}
+  CookieHandler(std::string name, std::string value, Response::cookie_attrs attrs) : name(std::move(name)), value(std::move(value)), attrs(std::move(attrs)) {}
   Response* process(Request& /*request*/) override {
     auto* r = new StreamResponse(200);
     r->setCode(200, "OK");
@@ -162,9 +161,9 @@ void raw_ev_handler(mg_connection* c, int ev, void* ev_data) {
       const std::string name(hm->headers[i].name.buf, hm->headers[i].name.len);
       const std::string value(hm->headers[i].value.buf, hm->headers[i].value.len);
       out->headers.emplace_back(name, value);
-      if (name.size() == 10 &&
-          std::equal(name.begin(), name.end(), "Set-Cookie",
-                     [](char a, char b) { return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b)); })) {
+      if (name.size() == 10 && std::equal(name.begin(), name.end(), "Set-Cookie", [](char a, char b) {
+            return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+          })) {
         out->set_cookies.push_back(value);
       }
     }
@@ -349,8 +348,7 @@ TEST(ServerImpl, SameSiteNoneOverHttpDropsCookie) {
 
   ASSERT_TRUE(resp.received);
   EXPECT_EQ(resp.status, 200);
-  EXPECT_TRUE(resp.set_cookies.empty()) << "expected no Set-Cookie, got: "
-                                        << (resp.set_cookies.empty() ? "" : resp.set_cookies.front());
+  EXPECT_TRUE(resp.set_cookies.empty()) << "expected no Set-Cookie, got: " << (resp.set_cookies.empty() ? "" : resp.set_cookies.front());
 }
 
 TEST(ServerImpl, SameSiteNoneCaseInsensitiveDropsCookie) {

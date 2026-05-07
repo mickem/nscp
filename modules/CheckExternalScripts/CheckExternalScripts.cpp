@@ -118,11 +118,9 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
     // launcher invokes powershell.exe / cscript.exe / the .bat directly with
     // CreateProcess + lpApplicationName.
     if (wrappings.find("ps1") == wrappings.end()) {
-      wrappings["ps1"] =
-          "powershell.exe -NoProfile -ExecutionPolicy Bypass -NonInteractive -File \"scripts\\%SCRIPT%\" $ARGS\"$";
-      settings.register_key_string(
-          wrappings_path, "ps1", "POWERSHELL WRAPPING", "Command line used for executing wrapped ps1 (powershell) scripts",
-          "powershell.exe -NoProfile -ExecutionPolicy Bypass -NonInteractive -File \"scripts\\%SCRIPT%\" $ARGS\"$");
+      wrappings["ps1"] = "powershell.exe -NoProfile -ExecutionPolicy Bypass -NonInteractive -File \"scripts\\%SCRIPT%\" $ARGS\"$";
+      settings.register_key_string(wrappings_path, "ps1", "POWERSHELL WRAPPING", "Command line used for executing wrapped ps1 (powershell) scripts",
+                                   "powershell.exe -NoProfile -ExecutionPolicy Bypass -NonInteractive -File \"scripts\\%SCRIPT%\" $ARGS\"$");
       settings.set_static_key(wrappings_path, "ps1", wrappings["ps1"]);
     }
     if (wrappings.find("vbs") == wrappings.end()) {
@@ -133,8 +131,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
     }
     if (wrappings.find("bat") == wrappings.end()) {
       wrappings["bat"] = "\"scripts\\%SCRIPT%\" $ARGS\"$";
-      settings.register_key_string(wrappings_path, "bat", "Batch file", "Command used for executing wrapped batch files",
-                                   "\"scripts\\%SCRIPT%\" $ARGS\"$");
+      settings.register_key_string(wrappings_path, "bat", "Batch file", "Command used for executing wrapped batch files", "\"scripts\\%SCRIPT%\" $ARGS\"$");
       settings.set_static_key(wrappings_path, "bat", wrappings["bat"]);
     }
 

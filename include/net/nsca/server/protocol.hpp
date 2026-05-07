@@ -52,11 +52,11 @@ struct read_protocol : boost::noncopyable {
   std::string data_;
   nscp::encryption::engine encryption_instance_;
 
-  static boost::shared_ptr<read_protocol> create(const socket_helpers::connection_info& info, handler_type handler) {
+  static boost::shared_ptr<read_protocol> create(const socket_helpers::connection_info &info, handler_type handler) {
     return boost::make_shared<read_protocol>(info, handler);
   }
 
-  read_protocol(const socket_helpers::connection_info& info, const handler_type handler)
+  read_protocol(const socket_helpers::connection_info &info, const handler_type handler)
       : info_(info), handler_(handler), parser_(handler->get_payload_length()), current_state_(none) {}
 
   void set_state(const state new_state) { current_state_ = new_state; }
@@ -131,15 +131,13 @@ struct read_protocol : boost::noncopyable {
           const std::int64_t skew = static_cast<std::int64_t>(now_t) - request_t;
           if (skew > kMaxClockSkewSeconds || skew < -kMaxClockSkewSeconds) {
             log_error(__FILE__, __LINE__,
-                      "Rejecting NSCA submission with timestamp out of range (skew=" + str::xtos(skew) +
-                          "s); check NTP on the sender or treat as replay.");
+                      "Rejecting NSCA submission with timestamp out of range (skew=" + str::xtos(skew) + "s); check NTP on the sender or treat as replay.");
           } else {
             handler_->handle(request);
           }
         } catch (const std::exception &e) {
           log_error(__FILE__, __LINE__, std::string("Exception processing request: ") + e.what());
-          log_debug(__FILE__, __LINE__,
-                    "Using: encryption = " + nscp::encryption::helpers::encryption_to_string(handler_->get_encryption()));
+          log_debug(__FILE__, __LINE__, "Using: encryption = " + nscp::encryption::helpers::encryption_to_string(handler_->get_encryption()));
         } catch (...) {
           log_error(__FILE__, __LINE__, "Exception processing request");
         }

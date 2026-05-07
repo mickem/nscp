@@ -34,13 +34,9 @@ TEST(SmtpValidateAddress, AcceptsTypicalMailbox) {
 
 TEST(SmtpValidateAddress, RejectsEmpty) { EXPECT_THROW(validate_address("", "from"), smtp_exception); }
 
-TEST(SmtpValidateAddress, RejectsBareCR) {
-  EXPECT_THROW(validate_address(std::string("foo\rbar@example.com"), "from"), smtp_exception);
-}
+TEST(SmtpValidateAddress, RejectsBareCR) { EXPECT_THROW(validate_address(std::string("foo\rbar@example.com"), "from"), smtp_exception); }
 
-TEST(SmtpValidateAddress, RejectsBareLF) {
-  EXPECT_THROW(validate_address(std::string("foo\nbar@example.com"), "from"), smtp_exception);
-}
+TEST(SmtpValidateAddress, RejectsBareLF) { EXPECT_THROW(validate_address(std::string("foo\nbar@example.com"), "from"), smtp_exception); }
 
 TEST(SmtpValidateAddress, RejectsCRLFInjection) {
   // Classic SMTP smuggling attempt - the attacker embeds a full new line
@@ -48,9 +44,7 @@ TEST(SmtpValidateAddress, RejectsCRLFInjection) {
   EXPECT_THROW(validate_address(std::string("alice@example.com\r\nBcc: evil@x.com"), "to"), smtp_exception);
 }
 
-TEST(SmtpValidateAddress, RejectsEmbeddedNul) {
-  EXPECT_THROW(validate_address(std::string("foo\0bar@example.com", 19), "from"), smtp_exception);
-}
+TEST(SmtpValidateAddress, RejectsEmbeddedNul) { EXPECT_THROW(validate_address(std::string("foo\0bar@example.com", 19), "from"), smtp_exception); }
 
 TEST(SmtpValidateAddress, RejectsTab) { EXPECT_THROW(validate_address(std::string("foo\tbar@example.com"), "from"), smtp_exception); }
 
@@ -105,9 +99,7 @@ TEST(SmtpDotStuff, SimpleBodyGetsCrlfTerminator) {
   EXPECT_EQ(dot_stuff_and_crlf("hello"), "hello\r\n");
 }
 
-TEST(SmtpDotStuff, NormalisesLfToCrlf) {
-  EXPECT_EQ(dot_stuff_and_crlf("line1\nline2\nline3"), "line1\r\nline2\r\nline3\r\n");
-}
+TEST(SmtpDotStuff, NormalisesLfToCrlf) { EXPECT_EQ(dot_stuff_and_crlf("line1\nline2\nline3"), "line1\r\nline2\r\nline3\r\n"); }
 
 TEST(SmtpDotStuff, NormalisesCrToCrlf) {
   // Lone CR (old-Mac line endings) - should also normalise.
@@ -127,15 +119,9 @@ TEST(SmtpDotStuff, DoublesLeadingDotOnFirstLine) {
   EXPECT_EQ(dot_stuff_and_crlf(".begin"), "..begin\r\n");
 }
 
-TEST(SmtpDotStuff, DoublesLeadingDotOnSubsequentLines) {
-  EXPECT_EQ(dot_stuff_and_crlf("normal\n.dotline\nnormal2"),
-            "normal\r\n..dotline\r\nnormal2\r\n");
-}
+TEST(SmtpDotStuff, DoublesLeadingDotOnSubsequentLines) { EXPECT_EQ(dot_stuff_and_crlf("normal\n.dotline\nnormal2"), "normal\r\n..dotline\r\nnormal2\r\n"); }
 
-TEST(SmtpDotStuff, DoublesLeadingDotOnMultipleConsecutiveLines) {
-  EXPECT_EQ(dot_stuff_and_crlf(".one\n.two\n.three"),
-            "..one\r\n..two\r\n..three\r\n");
-}
+TEST(SmtpDotStuff, DoublesLeadingDotOnMultipleConsecutiveLines) { EXPECT_EQ(dot_stuff_and_crlf(".one\n.two\n.three"), "..one\r\n..two\r\n..three\r\n"); }
 
 TEST(SmtpDotStuff, EndOfDataMarkerCannotBeSmuggled) {
   // The literal end-of-data line is "<CRLF>.<CRLF>". An attacker who

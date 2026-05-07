@@ -108,9 +108,7 @@ TEST(ParseOptionalPerfBound, AcceptsFloats) {
   EXPECT_DOUBLE_EQ(*parse_optional_perf_bound("0.5"), 0.5);
 }
 
-TEST(ParseOptionalPerfBound, AcceptsSurroundingWhitespace) {
-  EXPECT_DOUBLE_EQ(*parse_optional_perf_bound("  42  "), 42.0);
-}
+TEST(ParseOptionalPerfBound, AcceptsSurroundingWhitespace) { EXPECT_DOUBLE_EQ(*parse_optional_perf_bound("  42  "), 42.0); }
 
 TEST(ParseOptionalPerfBound, EmptyReturnsNone) { EXPECT_FALSE(parse_optional_perf_bound("").is_initialized()); }
 
