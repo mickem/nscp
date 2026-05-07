@@ -28,6 +28,11 @@
 namespace check_nt {
 namespace server {
 class parser : public boost::noncopyable {
+  // check_nt requests are short (`<password>&<cmd>&<args>\n`). Cap the
+  // per-connection buffer so a peer that never sends a newline cannot pin
+  // memory by trickling bytes. 4 KiB is generous - real requests are well
+  // under 1 KiB.
+  static constexpr std::size_t kMaxLineBytes = 4 * 1024;
   std::vector<char> buffer_;
 
  public:
@@ -36,12 +41,23 @@ class parser : public boost::noncopyable {
   template <typename InputIterator>
   boost::tuple<bool, InputIterator> digest(InputIterator begin, InputIterator end) {
     for (; begin != end; ++begin) {
+      if (buffer_.size() >= kMaxLineBytes) {
+        // Line too long: surface as "complete" so the parse() / handler
+        // path produces a clean error response and the connection is closed
+        // without growing the buffer further.
+        return boost::make_tuple(true, begin);
+      }
       buffer_.push_back(*begin);
       if (*begin == '\n') {
-        break;
+        ++begin;
+        return boost::make_tuple(true, begin);
       }
     }
-    return boost::make_tuple(true, begin);
+    // No newline yet and the buffer is still under the cap: signal "not
+    // complete" so the protocol layer keeps reading. Previously this always
+    // returned true, which meant the handler ran on partial input and any
+    // bytes pipelined after a mid-buffer newline were silently discarded.
+    return boost::make_tuple(false, begin);
   }
 
   check_nt::packet parse() {
