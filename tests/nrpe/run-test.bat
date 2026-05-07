@@ -62,17 +62,13 @@ start nscp test
 timeout /t 3 /nobreak >nul
 
 echo - Testing 4096 (nsclient)...
-nscp nrpe --host 127.0.0.1 --insecure --version 2 --payload-length 4096 --command mock_query
-if not %errorlevel%==0 (
-    echo ! Failed to connect with NRPE, Error level was: %errorlevel%
-    exit /b 1
-)
+nscp nrpe --host 127.0.0.1 --insecure --version 2 --payload-length 4096 --command mock_query > nrpe_test\out.txt 2>&1
+call :assert_ok "4096 nsclient" "mock_query::" 0 %errorlevel%
+if errorlevel 1 exit /b 1
 echo - Testing 4096 (check_nrpe)...
-docker run --rm check_nrpe check_nrpe_4096 -H host.docker.internal -p 5666 -t5 -c mock_query
-if not %errorlevel%==0 (
-  echo ! Failed to connect with NRPE, Error level was: %errorlevel%
-  exit /b 1
-)
+docker run --rm check_nrpe check_nrpe_4096 -H host.docker.internal -p 5666 -t5 -c mock_query > nrpe_test\out.txt 2>&1
+call :assert_ok "4096 check_nrpe" "mock_query::" 0 %errorlevel%
+if errorlevel 1 exit /b 1
 echo - Shutting down server...
 docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 -c mock_exit
 if not %errorlevel%==0 (
@@ -93,17 +89,13 @@ start nscp test
 timeout /t 3 /nobreak >nul
 
 echo - Testing version 2 (nsclient)...
-nscp nrpe --host 127.0.0.1 --insecure --version 2 --command mock_query
-if not %errorlevel%==0 (
-  echo ! Failed to connect with NRPE, Error level was: %errorlevel%
-  exit /b 1
-)
+nscp nrpe --host 127.0.0.1 --insecure --version 2 --command mock_query > nrpe_test\out.txt 2>&1
+call :assert_ok "v2 nsclient" "mock_query::" 0 %errorlevel%
+if errorlevel 1 exit /b 1
 echo - Testing version 2 (check_nrpe)...
-docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 -c mock_query
-if not %errorlevel%==0 (
-  echo ! Failed to connect with NRPE, Error level was: %errorlevel%
-  exit /b 1
-)
+docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 -c mock_query > nrpe_test\out.txt 2>&1
+call :assert_ok "v2 check_nrpe" "mock_query::" 0 %errorlevel%
+if errorlevel 1 exit /b 1
 echo - Testing version 2 with invalid length (nsclient)...
 nscp nrpe --host 127.0.0.1 --insecure --version 2 --payload-length 4096 --command mock_query
 if not %errorlevel%==3 (
@@ -136,17 +128,13 @@ start nscp test
 timeout /t 3 /nobreak >nul
 
 echo - Testing without TLS (nsclient)...
-nscp nrpe --host 127.0.0.1 --insecure --command mock_query
-if not %errorlevel%==0 (
-    echo ! Failed to connect with NRPE, Error level was: %errorlevel%
-    exit /b 1
-)
+nscp nrpe --host 127.0.0.1 --insecure --command mock_query > nrpe_test\out.txt 2>&1
+call :assert_ok "noTLS nsclient" "mock_query::" 0 %errorlevel%
+if errorlevel 1 exit /b 1
 echo - Testing without TLS (check_nrpe)...
-docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 -c mock_query
-if not %errorlevel%==0 (
-  echo ! Failed to connect with NRPE, Error level was: %errorlevel%
-  exit /b 1
-)
+docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 -c mock_query > nrpe_test\out.txt 2>&1
+call :assert_ok "noTLS check_nrpe" "mock_query::" 0 %errorlevel%
+if errorlevel 1 exit /b 1
 echo - Shutting down server...
 docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 -c mock_exit
 if not %errorlevel%==0 (
@@ -168,23 +156,17 @@ start nscp test
 timeout /t 3 /nobreak >nul
 
 echo - Testing without client certificate (nsclient)...
-nscp nrpe --host 127.0.0.1 --command mock_query
-if not %errorlevel%==0 (
-    echo ! Failed to connect with NRPE, Error level was: %errorlevel%
-    exit /b 1
-)
+nscp nrpe --host 127.0.0.1 --command mock_query > nrpe_test\out.txt 2>&1
+call :assert_ok "1way nsclient" "mock_query::" 0 %errorlevel%
+if errorlevel 1 exit /b 1
 echo - Testing without client certificate (check_nrpe)...
-docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 --ssl-version TLSv1.2+ -c mock_query
-if not %errorlevel%==0 (
-  echo ! Failed to connect with NRPE, Error level was: %errorlevel%
-  exit /b 1
-)
+docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 --ssl-version TLSv1.2+ -c mock_query > nrpe_test\out.txt 2>&1
+call :assert_ok "1way check_nrpe" "mock_query::" 0 %errorlevel%
+if errorlevel 1 exit /b 1
 echo - Testing insecure mode (can negotiate better ciphers) (nsclient)...
-nscp nrpe --host 127.0.0.1 --command mock_query --insecure
-if not %errorlevel%==0 (
-    echo ! Failed to connect with NRPE, Error level was: %errorlevel%
-    exit /b 1
-)
+nscp nrpe --host 127.0.0.1 --command mock_query --insecure > nrpe_test\out.txt 2>&1
+call :assert_ok "1way insecure nsclient" "mock_query::" 0 %errorlevel%
+if errorlevel 1 exit /b 1
 echo - Testing invalid TLS version (check_nrpe)...
 docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 --ssl-version SSLv3 --client-cert /test/client.crt --key-file /test/client.key -c mock_query
 if not %errorlevel%==2 (
@@ -206,22 +188,18 @@ echo ----------------------
 nscp nrpe install --allowed-hosts 127.0.0.1 --insecure=false --verify=peer-cert --certificate nrpe_test\server.crt --certificate-key nrpe_test\server.key --ca nrpe_test\ca.crt
 nscp lua install
 nscp lua add --script mock
-start nscp test
+start nscp test --log trace
 
 timeout /t 3 /nobreak >nul
 
 echo - Testing valid client certificate (nsclient)...
-nscp nrpe --host 127.0.0.1 --certificate nrpe_test\client.crt --certificate-key nrpe_test\client.key --command mock_query
-if not %errorlevel%==0 (
-  echo ! Failed to connect with NRPE, Error level was: %errorlevel%
-  exit /b 1
-)
+nscp nrpe --host 127.0.0.1 --certificate nrpe_test\client.crt --certificate-key nrpe_test\client.key --command mock_query > nrpe_test\out.txt 2>&1
+call :assert_ok "2way nsclient" "mock_query::" 0 %errorlevel%
+if errorlevel 1 exit /b 1
 echo - Testing valid client certificate (check_nrpe)...
-docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 --ssl-version TLSv1.2+ --client-cert /test/client.crt --key-file /test/client.key -c mock_query
-if not %errorlevel%==0 (
-  echo ! Failed to connect with NRPE, Error level was: %errorlevel%
-  exit /b 1
-)
+docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 --ssl-version TLSv1.2+ --client-cert /test/client.crt --key-file /test/client.key -c mock_query > nrpe_test\out.txt 2>&1
+call :assert_ok "2way check_nrpe" "mock_query::" 0 %errorlevel%
+if errorlevel 1 exit /b 1
 echo - Testing without certificate (nsclient)...
 nscp nrpe --host 127.0.0.1 --command mock_query
 if not %errorlevel%==3 (
@@ -250,10 +228,39 @@ if not %errorlevel%==0 (
 echo --------------------------------
 echo All tests completed successfully
 echo --------------------------------
+exit /b 0
 
 
-
-
+:: ---------------------------------------------------------------------------
+:: assert_ok LABEL EXPECTED_SUBSTRING EXPECTED_EXIT ACTUAL_EXIT
+::
+:: Validates the most recent command's exit code and the captured stdout/stderr
+:: in nrpe_test\out.txt. On success returns errorlevel 0 silently. On failure
+:: prints the label, the mismatched code or missing substring, dumps the full
+:: captured output for triage, and returns errorlevel 1.
+::
+:: Caller pattern:
+::   <command> > nrpe_test\out.txt 2>&1
+::   call :assert_ok "label" "expected substring" 0 %errorlevel%
+::   if errorlevel 1 exit /b 1
+:: ---------------------------------------------------------------------------
+:assert_ok
+if not "%~4"=="%~3" (
+  echo ! [%~1] expected exit code %~3 got %~4
+  echo --- captured output ---
+  type nrpe_test\out.txt
+  echo --- end output ---
+  exit /b 1
+)
+findstr /c:"%~2" nrpe_test\out.txt >nul
+if errorlevel 1 (
+  echo ! [%~1] output did not contain "%~2"
+  echo --- captured output ---
+  type nrpe_test\out.txt
+  echo --- end output ---
+  exit /b 1
+)
+exit /b 0
 
 
 

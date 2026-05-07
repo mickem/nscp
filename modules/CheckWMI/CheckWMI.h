@@ -44,7 +44,9 @@ struct target_helper {
       return *this;
     }
 
-    std::string to_string() const { return "hostname: " + hostname + ", username: " + username + ", password: " + password + ", protocol: " + protocol; }
+    std::string to_string() const {
+      return "hostname: " + hostname + ", username: " + username + ", password: " + (password.empty() ? "<unset>" : "<set>") + ", protocol: " + protocol;
+    }
     void update_from(const target_helper::target_info &other) {
       if (hostname.empty()) hostname = other.hostname;
       if (username.empty()) username = other.username;
