@@ -6,6 +6,15 @@ rem  Picks up:
 rem    * tests\acceptance-tests.bat
 rem    * tests\<sub>\run-test.bat   (one per protocol/feature)
 rem
+rem  Currently discovered run-test.bat scripts:
+rem    * http_proxy, nrdp, nrpe, nsca, nsca-ng, smtp  (Docker-based
+rem      protocol tests)
+rem    * rest                                         (Jest/supertest
+rem      via npm; needs Node.js 20+)
+rem    * msi                                          (Python installer
+rem      tests; needs admin + built MSI artifacts in
+rem      installers\installer-NSCP\, otherwise auto-skipped)
+rem
 rem  Every test is invoked from the *current working directory*
 rem  at the time this script is launched, which is expected to
 rem  be the build/target folder containing nscp.exe (the test

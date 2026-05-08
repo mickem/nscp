@@ -40,6 +40,10 @@ exit /b 1
 
 :expect_in_inbox
 REM %1 = description, %2 = literal substring expected in messages.txt
+REM End with `exit /b 0` (not `goto :eof`) so the helper's own errorlevel
+REM is what the caller sees - otherwise findstr's exit code (or any other
+REM intermediate command's) leaks back through `goto :eof` and trips the
+REM caller's `if not %errorlevel%==0 exit /b 1` guard.
 findstr /c:%2 %current_dir%\nscp_smtp_test\messages.txt >nul
 if not %errorlevel%==0 (
   echo ! Expected substring not found: %2
@@ -50,10 +54,13 @@ if not %errorlevel%==0 (
   exit /b 1
 )
 echo   OK: found %2
-goto :eof
+exit /b 0
 
 :expect_not_in_inbox
 REM %1 = description, %2 = literal substring that must NOT appear
+REM See note in :expect_in_inbox - the explicit `exit /b 0` is required
+REM because findstr returns 1 when the substring is absent (the success
+REM case here) and `echo` does not reset errorlevel in cmd.
 findstr /c:%2 %current_dir%\nscp_smtp_test\messages.txt >nul
 if %errorlevel%==0 (
   echo ! Forbidden substring present: %2
@@ -64,7 +71,7 @@ if %errorlevel%==0 (
   exit /b 1
 )
 echo   OK: absent %2
-goto :eof
+exit /b 0
 
 REM ----- main -----------------------------------------------------------------
 
