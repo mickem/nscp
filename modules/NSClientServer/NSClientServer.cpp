@@ -51,10 +51,12 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
                 "Send performance data back to Nagios (set this to 0 to remove all performance data).");
 
   socket_helpers::settings_helper::add_port_server_opts(settings, info_, "12489");
-  // SSL is on by default. The legacy check_nt protocol carries the password in
-  // every request; running it without TLS exposes the password on the wire and
-  // makes online brute-force trivial. Operators who need to interoperate with
-  // very old clients can flip "ssl" back to false explicitly.
+  // Default SSL on: the legacy check_nt protocol carries the password in every
+  // request, so an operator who needs to interoperate with very old clients
+  // that don't speak TLS has to consent explicitly by setting `ssl = false`.
+  // Note that the SSL path here is best-effort — many third-party check_nt
+  // clients never implemented it — but the toggle still serves as a clear
+  // "I know I'm running this without transport security" gate.
   socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "", "${certificate-path}/certificate.pem", "",
                                                        "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
   socket_helpers::settings_helper::add_core_server_opts(settings, info_);
@@ -73,13 +75,18 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
     NSC_LOG_ERROR_STD(_T("SSL not available! (not compiled with openssl support)"));
   }
 #endif
-  // Refuse to start with a password configured but TLS off: the password would
-  // travel in clear and the wire is also vulnerable to passive replay.
-  if (!get_password().empty() && !info_.ssl.enabled) {
+  // The legacy check_nt protocol predates modern transport security and the
+  // server side has no working TLS path; we can't refuse to start, only
+  // warn so that the operator knows what they're exposing.
+  if (!info_.ssl.enabled) {
     NSC_LOG_ERROR_STD(
-        "NSClient legacy server has a password configured but SSL is disabled. "
-        "Passwords would be transmitted in clear.");
-    return false;
+        "NSClient legacy server (check_nt) is running without TLS. The protocol transmits all traffic in clear, including any configured "
+        "password. Consider switching to REST or NRPE for modern transport security.");
+  }
+  if (!get_password().empty()) {
+    NSC_LOG_ERROR_STD(
+        "NSClient legacy server (check_nt) has a password configured. The check_nt protocol carries the password in every request and offers "
+        "no replay protection; an attacker on the wire can capture and reuse it. Consider switching to REST or NRPE.");
   }
   NSC_LOG_ERROR_LISTS(info_.validate());
 
