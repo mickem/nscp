@@ -21,6 +21,7 @@
 
 #include <openssl/rand.h>
 
+#include <algorithm>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <chrono>
@@ -119,11 +120,11 @@ unsigned int psk_client_cb(SSL *ssl, const char * /*hint*/, char *identity, unsi
   const auto *creds = static_cast<const psk_credentials *>(SSL_get_ex_data(ssl, get_psk_ex_data_index()));
   if (creds == nullptr) return 0;
 
-  const std::size_t id_len = std::min(creds->identity.size(), static_cast<std::size_t>(max_identity_len) - 1);
+  const std::size_t id_len = (std::min)(creds->identity.size(), static_cast<std::size_t>(max_identity_len) - 1);
   std::memcpy(identity, creds->identity.c_str(), id_len);
   identity[id_len] = '\0';
 
-  const std::size_t psk_len = std::min(creds->psk.size(), static_cast<std::size_t>(max_psk_len));
+  const std::size_t psk_len = (std::min)(creds->psk.size(), static_cast<std::size_t>(max_psk_len));
   std::memcpy(psk, creds->psk.c_str(), psk_len);
   return static_cast<unsigned int>(psk_len);
 }
@@ -532,7 +533,7 @@ submit_outcome do_send_once(const connection_data &con, const PB::Commands::Subm
 }
 
 void send(PB::Commands::SubmitResponseMessage::Response *payload, const connection_data &con, const PB::Commands::SubmitRequestMessage &request_message) {
-  const int max_attempts = std::max(1, con.retry + 1);
+  const int max_attempts = (std::max)(1, con.retry + 1);
   submit_outcome last;
   for (int attempt = 1; attempt <= max_attempts; ++attempt) {
     last = do_send_once(con, request_message);
