@@ -58,12 +58,16 @@ class parser : public boost::noncopyable {
     return length::get_packet_length_v3(payload_length_);
   }
 
-  // Hard cap on per-connection buffer growth. The decoder in packet.cpp
-  // already rejects payloads above 1 MiB; we mirror that here so a peer
-  // cannot pin nearly 2 MiB per connection by trickling bytes (slow-loris).
-  // 1 MiB matches readFromV3 and is comfortably above any sane real-world
-  // payload (default is 1 KiB, operators rarely raise it past 64 KiB).
-  static constexpr std::size_t kMaxBufferBytes = 1024u * 1024u;
+  // Hard cap on per-connection buffer growth. The decoder in packet.hpp
+  // accepts payloads up to 1 MiB inclusive; the wire packet is the payload
+  // plus a small fixed-size v3 header (~16 B), so the buffer cap has to
+  // sit at `1 MiB + header` or a legitimate 1 MiB-payload submission would
+  // be rejected at the parser layer before it ever reaches the decoder.
+  // The cap still bounds slow-loris / trickle attacks at slightly above
+  // 1 MiB per connection (default operator payload is 1 KiB, rarely raised
+  // past 64 KiB, so legitimate traffic sits well inside this).
+  static constexpr std::size_t kMaxPayloadBytes = 1024u * 1024u;
+  static constexpr std::size_t kMaxBufferBytes = sizeof(data::packet_v3) + kMaxPayloadBytes;
 
   template <typename InputIterator>
   boost::tuple<bool, InputIterator> digest(InputIterator begin, InputIterator end) {
