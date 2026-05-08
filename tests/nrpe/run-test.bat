@@ -188,7 +188,7 @@ echo ----------------------
 nscp nrpe install --allowed-hosts 127.0.0.1 --insecure=false --verify=peer-cert --certificate nrpe_test\server.crt --certificate-key nrpe_test\server.key --ca nrpe_test\ca.crt
 nscp lua install
 nscp lua add --script mock
-start nscp test --log trace
+start nscp test
 
 timeout /t 3 /nobreak >nul
 
