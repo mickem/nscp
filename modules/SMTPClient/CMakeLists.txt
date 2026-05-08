@@ -34,7 +34,10 @@ if(OPENSSL_FOUND)
         )
     endif(WIN32)
 else(OPENSSL_FOUND)
-    message(FATAL_ERROR "SMTPClient requires OpenSSL for STARTTLS / SMTPS support")
+    message(
+        FATAL_ERROR
+        "SMTPClient requires OpenSSL for STARTTLS / SMTPS support"
+    )
 endif(OPENSSL_FOUND)
 
 if(WIN32)

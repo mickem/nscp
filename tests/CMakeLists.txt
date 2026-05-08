@@ -541,7 +541,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
         ${SETTINGS_INI_TEST_SOURCES}
         ${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
-        LIBRARIES
+    LIBRARIES
         GTest::gtest_main
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_SYSTEM_LIBRARY}
