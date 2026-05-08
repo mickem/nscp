@@ -26,6 +26,7 @@
 #include <boost/thread.hpp>
 #include <boost/thread/shared_mutex.hpp>
 #include <boost/unordered_map.hpp>
+#include <nscp_time.hpp>
 #include <parsers/cron/cron_parser.hpp>
 #include <queue>
 #include <random>
@@ -164,6 +165,13 @@ class scheduler : public boost::noncopyable {
   std::size_t thread_count_;
   handler* handler_;
   int error_threshold_;
+  // Reference clock for cron evaluation. Empty string / "local" (default)
+  // matches standard cron semantics; "utc" / "gmt" restore the pre-0.13
+  // behaviour; any POSIX TZ string accepted by nscp_time (e.g. "MST-07" or
+  // "EST-05EDT,M3.2.0,M11.1.0") is also honoured. Read on every `now()`
+  // call but only written from `loadModuleEx` before the worker threads
+  // start, so a plain string is sufficient.
+  std::string tz_;
 
   has_threads threads_;
   boost::mutex mutex_;
@@ -206,6 +214,13 @@ class scheduler : public boost::noncopyable {
   }
   std::size_t get_threads() const { return thread_count_; }
 
+  // Set the scheduler's reference clock. Accepts the same strings as
+  // nscp_time: "local" (default), "utc"/"gmt", or any POSIX TZ string
+  // such as "EST-05EDT,M3.2.0,M11.1.0". Unparseable values fall back to
+  // UTC inside `nscp_time::now`. Call from `loadModuleEx` before `start()`.
+  void set_timezone(const std::string& tz) { tz_ = tz; }
+  std::string get_timezone() const { return tz_; }
+
  private:
   void watch_dog(int id);
   void thread_proc(int id);
@@ -222,10 +237,13 @@ class scheduler : public boost::noncopyable {
   }
 
  public:
-  // Cron expressions are evaluated in local time so that fields like
-  // "40 15 * * *" mean "15:40 on the host's clock", matching standard cron
-  // semantics (issue #570). Static so tests can verify the clock choice
-  // without instantiating a scheduler.
-  static inline boost::posix_time::ptime now() { return boost::posix_time::microsec_clock::local_time(); }
+  // Cron expressions are evaluated in local time by default so that fields
+  // like "40 15 * * *" mean "15:40 on the host's clock", matching standard
+  // cron semantics (issue #570). The reference clock follows the
+  // module-level `timezone` setting via `nscp_time::now`, which accepts
+  // "local" (default), "utc"/"gmt", or any POSIX TZ string. Second-level
+  // precision is sufficient — cron is minute-granular and durations are
+  // second-granular.
+  inline boost::posix_time::ptime now() const { return nscp_time::now(tz_); }
 };
 }  // namespace simple_scheduler
