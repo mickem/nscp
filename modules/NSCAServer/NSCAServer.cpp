@@ -63,7 +63,12 @@ bool NSCAServer::loadModuleEx(const std::string &alias, const NSCAPI::moduleLoad
       .add_string("encryption", sh::string_fun_key([this](auto value) { this->set_encryption(value); }, "aes256"), "ENCRYPTION",
                   std::string("Name of encryption algorithm to use.\nHas to be the same as your agent i using or it wont work at all."
                               "This is also independent of SSL and generally used instead of SSL.\nAvailable encryption algorithms are:\n") +
-                      nscp::encryption::helpers::get_crypto_string("\n"));
+                      nscp::encryption::helpers::get_crypto_string("\n"))
+
+      .add_string("timezone", sh::string_key(&timezone_, "utc"), "TIMEZONE",
+                  "Reference timezone for the wire timestamp emitted in the IV packet and used by the replay-window check. The protocol "
+                  "specification calls for UTC (default). Set to 'local' (or any POSIX TZ string) only when interoperating with a legacy "
+                  "agent that wrote local-clock-as-Unix-time into the wire field. Both ends must agree on the value.");
 
   socket_helpers::settings_helper::add_core_server_opts(settings, info_);
   socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, false, "", "${certificate-path}/certificate.pem", "",

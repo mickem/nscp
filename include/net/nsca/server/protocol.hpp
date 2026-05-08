@@ -83,7 +83,12 @@ struct read_protocol : boost::noncopyable {
     const std::string iv = nscp::encryption::engine::generate_transmitted_iv();
     encryption_instance_.encrypt_init(handler_->get_password(), handler_->get_encryption(), iv);
 
-    const iv_packet packet(iv, boost::posix_time::second_clock::local_time());
+    // The IV packet carries a Unix-time timestamp the client echoes back
+    // in its data packet (see nsca_client_protocol.hpp). The reference
+    // clock follows the configured `timezone` (default UTC = the protocol
+    // spec). The same zone is used by the skew check below, so a server
+    // that opts into "local" stays self-consistent.
+    const iv_packet packet(iv, nscp_time::now(handler_->get_timezone()));
     data_ = packet.get_buffer();
     return true;
   }
@@ -126,9 +131,9 @@ struct read_protocol : boost::noncopyable {
           // captured one valid submission and held the symmetric key (or
           // re-derived ciphertext via byte-CFB malleability) could resubmit
           // arbitrary historical results.
-          const std::time_t now_t = std::time(nullptr);
+          const std::int64_t now_t = static_cast<std::int64_t>(unix_time_in_tz(handler_->get_timezone()));
           const std::int64_t request_t = request.time;
-          const std::int64_t skew = static_cast<std::int64_t>(now_t) - request_t;
+          const std::int64_t skew = now_t - request_t;
           if (skew > kMaxClockSkewSeconds || skew < -kMaxClockSkewSeconds) {
             log_error(__FILE__, __LINE__,
                       "Rejecting NSCA submission with timestamp out of range (skew=" + str::xtos(skew) + "s); check NTP on the sender or treat as replay.");

@@ -38,6 +38,7 @@ struct connection_data : public socket_helpers::connection_info {
   int buffer_length;
   int time_delta;
   std::string encoding;
+  std::string timezone;
 
   connection_data(client::destination_container arguments, client::destination_container sender) {
     address = arguments.address.host;
@@ -56,6 +57,7 @@ struct connection_data : public socket_helpers::connection_info {
     password = arguments.get_string_data("password");
     encryption = arguments.get_string_data("encryption");
     encoding = arguments.get_string_data("encoding");
+    timezone = arguments.get_string_data("timezone");
     std::string tmp = arguments.get_string_data("time offset");
     if (!tmp.empty())
       time_delta = str::format::stox_as_time_sec<int>(arguments.get_string_data("time offset"), "s");
@@ -126,6 +128,11 @@ struct nsca_client_handler final : public client::handler_interface {
     std::list<nsca::packet> list;
     for (const PB::Commands::QueryResponseMessage::Response &payload : request_message.payload()) {
       nsca::packet packet(sender.get_host(), len, 0);
+      // Honour the per-target `timezone` setting. The protocol's standard
+      // handshake actually overrides this field with the server's IV time
+      // before transmission, but legacy peers that skip the IV roundtrip
+      // (servertime == 0) will see the value we put here.
+      if (!con.timezone.empty()) packet.set_time_now_in_tz(con.timezone);
       std::string alias = payload.alias();
       if (alias.empty()) alias = payload.command();
       packet.code = nscapi::protobuf::functions::gbp_to_nagios_status(payload.result());

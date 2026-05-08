@@ -31,6 +31,13 @@ class handler : boost::noncopyable {
   virtual unsigned int get_payload_length() = 0;
   virtual int get_encryption() = 0;
   virtual std::string get_password() = 0;
+  // Reference timezone for wire timestamps. Default "utc" matches the
+  // protocol specification. Subclasses may return "local" or a POSIX TZ
+  // string to interoperate with peers that emit local-clock-as-Unix-time
+  // stamps (a legacy bug that some agents still ship with). Note that
+  // returning an empty string would resolve to "local" via nscp_time, so
+  // the explicit "utc" default matters.
+  virtual std::string get_timezone() { return "utc"; }
 };
 }  // namespace server
 }  // namespace nsca
