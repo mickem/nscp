@@ -19,7 +19,8 @@ struct filter_obj_handler : public native_context {
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }  // namespace check_uptime_filter
 
-void check_uptime(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, const std::string &timezone);
+void check_uptime(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                  const std::string &timezone);
 }  // namespace checks
 
 #endif  // NSCP_CHECK_UPTIME_H

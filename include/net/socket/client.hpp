@@ -257,11 +257,12 @@ class ssl_connection : public connection<protocol_type> {
  private:
   typedef connection<protocol_type> connection_type;
   boost::asio::ssl::stream<tcp::socket> ssl_socket_;
+  bool verify_hostname_;
 
  public:
   ssl_connection(boost::asio::io_service &io_service, boost::asio::ssl::context &context, boost::posix_time::time_duration timeout,
-                 boost::shared_ptr<typename protocol_type::client_handler> handler)
-      : connection_type(io_service, timeout, handler), ssl_socket_(io_service, context) {}
+                 boost::shared_ptr<typename protocol_type::client_handler> handler, bool verify_hostname)
+      : connection_type(io_service, timeout, handler), ssl_socket_(io_service, context), verify_hostname_(verify_hostname) {}
   virtual ~ssl_connection() {
     try {
       this->close_socket();
@@ -278,6 +279,19 @@ class ssl_connection : public connection<protocol_type> {
       this->log_error(__FILE__, __LINE__, "Failed to connect to server: " + utf8::utf8_from_native(error.message()));
     }
     if (!error) {
+      // When peer verification is enabled, also pin the certificate to the
+      // hostname we asked DNS for. Without this, any cert signed by a CA we
+      // trust is accepted from any peer that happens to answer the TCP
+      // connect - a textbook MITM hole. Mirrors the NSCA-NG client which
+      // does the same explicitly.
+      if (verify_hostname_) {
+        try {
+          ssl_socket_.set_verify_callback(boost::asio::ssl::rfc2818_verification(host));
+        } catch (const std::exception &e) {
+          this->log_error(__FILE__, __LINE__, std::string("Failed to install hostname verifier: ") + e.what());
+          return boost::asio::error::make_error_code(boost::asio::error::operation_aborted);
+        }
+      }
       ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
       if (error) {
         this->log_error(__FILE__, __LINE__, "SSL handshake failed: " + utf8::utf8_from_native(error.message()));
@@ -379,7 +393,14 @@ class client : boost::noncopyable {
       for (const std::string &e : errors) {
         handler_->log_error(__FILE__, __LINE__, e);
       }
-      return new ssl_connection_type(io_service_, context_, timeout, handler_);
+      // verify_hostname tracks whether peer verification is enabled - if it
+      // is, we must also check the certificate's CN/SAN matches the host we
+      // intended to reach. configure_ssl_context already wired up chain
+      // verification; rfc2818 closes the gap so a CA-signed cert from
+      // attacker.example cannot impersonate the configured target.
+      const auto verify_mode = info_.ssl.get_verify_mode();
+      const bool verify_hostname = (verify_mode & boost::asio::ssl::context_base::verify_peer) != 0;
+      return new ssl_connection_type(io_service_, context_, timeout, handler_, verify_hostname);
     }
 #endif
     return new tcp_connection_type(io_service_, timeout, handler_);

@@ -66,7 +66,10 @@ struct connection_data : public socket_helpers::connection_info {
     std::stringstream ss;
     ss << "host: " << get_endpoint_string();
     ss << ", path: " << path;
-    ss << ", password: " << password;
+    // Never log the actual password: this is emitted at trace level on every
+    // operation and historically leaked the shared secret into operator
+    // debug logs.
+    ss << ", password: " << (password.empty() ? "<unset>" : "<set>");
     ss << ", ssl: " << ssl.to_string();
     return ss.str();
   }

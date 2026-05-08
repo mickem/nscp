@@ -179,15 +179,21 @@ describe("Validate various auth schemes", () => {
             });
     });
 
-    it("query-string-token", async () => {
+    // Tokens passed as URL query parameters (?TOKEN=... / ?__TOKEN=...) were
+    // accepted by 0.12 as a fallback for clients that couldn't set headers.
+    // 0.13 removed that path because URL parameters leak into browser
+    // history, proxy logs and Referer headers; the server now returns 403
+    // regardless of whether the supplied token is valid. The "valid" and
+    // "invalid" cases below both assert this rejection so a future
+    // accidental re-introduction would surface here.
+    it("query-string-token rejected (security hardening, even with valid token)", async () => {
         await request(URL)
             .get("/api/v2/info")
             .query({TOKEN: key})
             .trustLocalhost(true)
-            .expect(200)
+            .expect(403)
             .then((response) => {
-                expect(response.body).toBeDefined();
-                expect(response.body.version).toBeDefined();
+                expect(response.text).toEqual("403 You're not allowed");
             });
     });
 
@@ -202,15 +208,14 @@ describe("Validate various auth schemes", () => {
             });
     });
 
-    it("query-string-token-legacy", async () => {
+    it("query-string-token-legacy rejected (security hardening, even with valid token)", async () => {
         await request(URL)
             .get("/api/v2/info")
             .query({__TOKEN: key})
             .trustLocalhost(true)
-            .expect(200)
+            .expect(403)
             .then((response) => {
-                expect(response.body).toBeDefined();
-                expect(response.body.version).toBeDefined();
+                expect(response.text).toEqual("403 You're not allowed");
             });
     });
 

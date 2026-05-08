@@ -17,12 +17,12 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "check_process.hpp"
+
 #include <gtest/gtest.h>
 
 #include <list>
 #include <string>
-
-#include "check_process.hpp"
 
 using process_checks::realtime::process_name_matches_any;
 
@@ -36,25 +36,15 @@ using process_checks::realtime::process_name_matches_any;
 // the realtime path's behaviour to the same contract.
 // ============================================================================
 
-TEST(ProcessNameMatchesAny, EmptyListReturnsFalse) {
-  EXPECT_FALSE(process_name_matches_any({}, "notepad.exe"));
-}
+TEST(ProcessNameMatchesAny, EmptyListReturnsFalse) { EXPECT_FALSE(process_name_matches_any({}, "notepad.exe")); }
 
-TEST(ProcessNameMatchesAny, EmptyCandidateAgainstNonEmptyList) {
-  EXPECT_FALSE(process_name_matches_any({"notepad.exe"}, ""));
-}
+TEST(ProcessNameMatchesAny, EmptyCandidateAgainstNonEmptyList) { EXPECT_FALSE(process_name_matches_any({"notepad.exe"}, "")); }
 
-TEST(ProcessNameMatchesAny, ExactMatch) {
-  EXPECT_TRUE(process_name_matches_any({"notepad.exe"}, "notepad.exe"));
-}
+TEST(ProcessNameMatchesAny, ExactMatch) { EXPECT_TRUE(process_name_matches_any({"notepad.exe"}, "notepad.exe")); }
 
-TEST(ProcessNameMatchesAny, UpperCaseCandidateMatchesLowerName) {
-  EXPECT_TRUE(process_name_matches_any({"notepad.exe"}, "NOTEPAD.EXE"));
-}
+TEST(ProcessNameMatchesAny, UpperCaseCandidateMatchesLowerName) { EXPECT_TRUE(process_name_matches_any({"notepad.exe"}, "NOTEPAD.EXE")); }
 
-TEST(ProcessNameMatchesAny, LowerCaseCandidateMatchesUpperName) {
-  EXPECT_TRUE(process_name_matches_any({"NOTEPAD.EXE"}, "notepad.exe"));
-}
+TEST(ProcessNameMatchesAny, LowerCaseCandidateMatchesUpperName) { EXPECT_TRUE(process_name_matches_any({"NOTEPAD.EXE"}, "notepad.exe")); }
 
 TEST(ProcessNameMatchesAny, MixedCaseMatches) {
   // Examples drawn straight from the issues: WinLogon.exe vs winlogon.exe and
@@ -64,9 +54,7 @@ TEST(ProcessNameMatchesAny, MixedCaseMatches) {
   EXPECT_TRUE(process_name_matches_any({"notepad.exe"}, "NoTePaD.eXe"));
 }
 
-TEST(ProcessNameMatchesAny, NoMatchOnDifferentName) {
-  EXPECT_FALSE(process_name_matches_any({"notepad.exe"}, "calc.exe"));
-}
+TEST(ProcessNameMatchesAny, NoMatchOnDifferentName) { EXPECT_FALSE(process_name_matches_any({"notepad.exe"}, "calc.exe")); }
 
 TEST(ProcessNameMatchesAny, NoMatchOnSubstring) {
   // The matcher must compare full names — 'note.exe' is not the same process

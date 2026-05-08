@@ -20,12 +20,11 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <nsclient/nsclient_exception.hpp>
+#include <vector>
 #include <win/services_paging.hpp>
 #include <win/winsvc.hpp>
-
-#include <cstddef>
-#include <vector>
 
 // ============================================================================
 // check_state_is_perfect tests
@@ -591,12 +590,8 @@ TEST(EnumeratePagedServices, ManyPagesAllProcessedInOrder) {
   // process callback must see counts {7, 5, 2} in order.
   fetch_state fetch;
   fetch.steps = {
-      {false, ERROR_MORE_DATA, 1024, 0, 0},
-      {false, ERROR_MORE_DATA, 1024, 7, 100},
-      {false, ERROR_MORE_DATA, 1024, 0, 100},
-      {false, ERROR_MORE_DATA, 1024, 5, 200},
-      {false, ERROR_MORE_DATA, 512, 0, 200},
-      {true, 0, 512, 2, 0},
+      {false, ERROR_MORE_DATA, 1024, 0, 0},   {false, ERROR_MORE_DATA, 1024, 7, 100}, {false, ERROR_MORE_DATA, 1024, 0, 100},
+      {false, ERROR_MORE_DATA, 1024, 5, 200}, {false, ERROR_MORE_DATA, 512, 0, 200},  {true, 0, 512, 2, 0},
   };
   std::vector<DWORD> counts;
 

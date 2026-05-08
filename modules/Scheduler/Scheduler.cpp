@@ -53,6 +53,11 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.alias().add_key_to_settings()
     .add_int("threads", sh::int_fun_key([this] (auto value) { scheduler_.set_threads(value); }, 5),
 	    "Threads", "Number of threads to use.")
+    .add_string("timezone", sh::string_fun_key([this] (const auto& value) { scheduler_.set_timezone(value); }, "local"),
+        "Timezone",
+        "Reference clock for cron expressions. Accepts 'local' (default — standard cron semantics), 'utc'/'gmt' (restores the pre-0.13 "
+        "behaviour), or any POSIX TZ string such as 'EST-05EDT,M3.2.0,M11.1.0'. Unparseable values fall back to UTC and are flagged in the "
+        "tz label as 'UTC?'.")
     ;
 
   settings.alias().add_path_to_settings()

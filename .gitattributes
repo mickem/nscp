@@ -44,3 +44,10 @@ debian/* text eol=lf
 # `/bin/sh^M: bad interpreter` and the script silently fails to run.
 *.sh     text eol=lf
 entrypoint.sh text eol=lf
+
+# Windows batch files must always use CRLF. cmd.exe locates `call :label`
+# targets via byte-offset seeks that assume CRLF; a `.bat` checked out with
+# LF endings produces intermittent "The system cannot find the batch label
+# specified" failures depending on where in the file the labels live.
+*.bat    text eol=crlf
+*.cmd    text eol=crlf

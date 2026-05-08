@@ -188,6 +188,8 @@ NSCP_CREATE_TEST(
         path_manager.cpp
         path_manager_test.cpp
         ${NSCP_INCLUDEDIR}/json/use_json.cpp
+
+        ${NSCP_INCLUDEDIR}/threads/has-threads.cpp
         ../include/parsers/cron/cron_parser.hpp
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
     LIBRARIES

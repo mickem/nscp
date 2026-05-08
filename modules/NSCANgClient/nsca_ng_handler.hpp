@@ -41,7 +41,8 @@ struct nsca_ng_target_object : public nscapi::targets::target_object {
 // the destination_container that the client handler reads.
 struct options_reader_impl : public client::options_reader_interface {
   nscapi::settings_objects::object_instance create(std::string alias, std::string path) override;
-  nscapi::settings_objects::object_instance clone(nscapi::settings_objects::object_instance parent_obj, const std::string alias, const std::string path) override;
+  nscapi::settings_objects::object_instance clone(nscapi::settings_objects::object_instance parent_obj, const std::string alias,
+                                                  const std::string path) override;
   void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) override;
 };
 

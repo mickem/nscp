@@ -185,6 +185,7 @@ struct scheduler : public simple_scheduler::handler {
   void clear();
 
   void set_threads(int count) { tasks.set_threads(count); }
+  void set_timezone(const std::string& tz) { tasks.set_timezone(tz); }
 
   void add_task(const target_object target);
 

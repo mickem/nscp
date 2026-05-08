@@ -48,8 +48,10 @@ struct command_object : public nscapi::settings_objects::object_instance_interfa
     ss << get_alias() << "[" << get_alias() << "] = "
        << "{tpl: " << parent::to_string();
     if (!user.empty()) {
-      ss << ", user: " << user << ", domain: " << domain << ", password: " << password << ", session: " << session << ", display: " << display
-         << ", no_fork: " << no_fork;
+      // Never log the actual run-as password: to_string() is emitted at trace
+      // level in alias / command dumps.
+      ss << ", user: " << user << ", domain: " << domain << ", password: " << (password.empty() ? "<unset>" : "<set>") << ", session: " << session
+         << ", display: " << display << ", no_fork: " << no_fork;
     }
     ss << "}";
     return ss.str();

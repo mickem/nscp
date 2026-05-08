@@ -154,32 +154,52 @@ TEST(cron, test_eval_list) {
   EXPECT_EQ("2016-01-01T02:05:00", get_next("5,10 * * * *", "2016-01-01 01:10:00"));
 }
 
-// Issue #570: cron expressions must evaluate against the host's local time,
-// not UTC. The clock is exposed as a static via scheduler::now(); pin down
-// that it returns the same value as microsec_clock::local_time() rather than
-// the UTC system clock.
+// Issue #570: cron expressions must evaluate against the host's local time
+// by default, not UTC. The clock is now an instance method that delegates
+// to nscp_time::now(tz_); with the default empty tz_ that resolves to
+// local time. Verify that, and verify that flipping the timezone setter to
+// "utc" actually switches the reference clock.
 TEST(cron, scheduler_now_uses_local_time) {
-  using boost::posix_time::microsec_clock;
   using boost::posix_time::ptime;
+  using boost::posix_time::second_clock;
   using boost::posix_time::time_duration;
 
-  const ptime before_local = microsec_clock::local_time();
-  const ptime n = simple_scheduler::scheduler::now();
-  const ptime after_local = microsec_clock::local_time();
+  simple_scheduler::scheduler sched;
 
-  // Bracket: now() should sit between two adjacent local_time() reads.
-  EXPECT_LE(before_local, n);
-  EXPECT_LE(n, after_local);
+  // nscp_time::now uses second_clock, so allow a 2 s window either side
+  // for second-truncation and instruction-level interleaving.
+  const ptime before_local = second_clock::local_time();
+  const ptime n = sched.now();
+  const ptime after_local = second_clock::local_time();
 
-  // And it should NOT match UTC when the host is in a non-UTC time zone.
-  // We can't assume the test host's TZ, so only enforce divergence when
-  // local and UTC actually differ at the second granularity.
-  const ptime utc_now = microsec_clock::universal_time();
+  EXPECT_LE(before_local - boost::posix_time::seconds(1), n);
+  EXPECT_LE(n, after_local + boost::posix_time::seconds(1));
+
+  // And it must NOT match UTC when the host is in a non-UTC time zone.
+  // The test host's TZ is unknowable, so only enforce divergence when
+  // local and UTC differ by more than a second.
+  const ptime utc_now = second_clock::universal_time();
   const time_duration delta = n - utc_now;
   if (std::abs(delta.total_seconds()) > 1) {
-    // Whatever scheduler::now() returns, it must be close to local_time()
-    // (small skew from instruction-level interleaving) rather than UTC.
-    const time_duration skew = n - microsec_clock::local_time();
-    EXPECT_LT(std::abs(skew.total_milliseconds()), 1000);
+    const time_duration skew_from_local = n - second_clock::local_time();
+    EXPECT_LE(std::abs(skew_from_local.total_seconds()), 1);
   }
+}
+
+// Flipping the scheduler's timezone setting to "utc" must move the
+// reference clock to UTC, regardless of the host's local zone.
+TEST(cron, scheduler_now_honours_utc_timezone) {
+  using boost::posix_time::ptime;
+  using boost::posix_time::second_clock;
+  using boost::posix_time::time_duration;
+
+  simple_scheduler::scheduler sched;
+  sched.set_timezone("utc");
+
+  const ptime before_utc = second_clock::universal_time();
+  const ptime n = sched.now();
+  const ptime after_utc = second_clock::universal_time();
+
+  EXPECT_LE(before_utc - boost::posix_time::seconds(1), n);
+  EXPECT_LE(n, after_utc + boost::posix_time::seconds(1));
 }

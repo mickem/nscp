@@ -20,6 +20,7 @@
 #pragma once
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace process {
 class process_exception final : public std::exception {
@@ -59,6 +60,16 @@ class exec_arguments {
   std::string alias;
   std::string root_path;
   std::string command;
+  // When non-empty, argv is the authoritative argument vector and the launcher
+  // must use it directly (Unix: execvp, Windows: lpApplicationName + a
+  // per-argument-quoted command line). The string `command` is then only kept
+  // for logging. When argv is empty the launcher falls back to interpreting
+  // `command` as a single string - that path goes through /bin/sh on Unix and
+  // through Windows command-line parsing on Win32, both of which expose
+  // attacker-controlled substitutions to shell-style metacharacter handling.
+  // Callers that have any operator-controlled argument substitution MUST
+  // populate argv.
+  std::vector<std::string> argv;
   unsigned int timeout;
   std::string user;
   std::string domain;

@@ -62,7 +62,11 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
     }
     if (addr.empty()) continue;
 
-    if (std::isdigit(addr[0])) {
+    // Numeric IPv4 addresses start with a digit; numeric IPv6 addresses
+    // contain a `:` (potentially as the very first character, e.g. `::/0`).
+    // Anything else is treated as a hostname and resolved via DNS.
+    const bool is_numeric = std::isdigit(static_cast<unsigned char>(addr[0])) || addr.find(':') != std::string::npos;
+    if (is_numeric) {
       address a = address::from_string(addr);
       if (a.is_v4()) {
         entries_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(mask));

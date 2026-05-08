@@ -349,7 +349,7 @@ Section for NSClient (NSClientServer.dll) (check_nt) protocol options.
 | [thread pool](#thread-pool)                          | 10                                  | THREAD POOL                         |
 | [timeout](#timeout)                                  | 30                                  | TIMEOUT                             |
 | [tls version](#tls-version-to-use)                   | tlsv1.2+                            | TLS version to use                  |
-| [use ssl](#enable-ssl-encryption)                    | false                               | ENABLE SSL ENCRYPTION               |
+| [use ssl](#enable-ssl-encryption)                    | true                                | ENABLE SSL ENCRYPTION               |
 | [verify mode](#verify-mode)                          | none                                | VERIFY MODE                         |
 
 
@@ -370,7 +370,7 @@ socket queue size=0
 thread pool=10
 timeout=30
 tls version=tlsv1.2+
-use ssl=false
+use ssl=true
 verify mode=none
 
 ```
@@ -870,7 +870,7 @@ This option controls if SSL should be enabled.
 |----------------|---------------------------------------------------------|
 | Path:          | [/settings/NSClient/server](#/settings/NSClient/server) |
 | Key:           | use ssl                                                 |
-| Default value: | `false`                                                 |
+| Default value: | `true`                                                  |
 
 
 **Sample:**
@@ -878,7 +878,7 @@ This option controls if SSL should be enabled.
 ```
 [/settings/NSClient/server]
 # ENABLE SSL ENCRYPTION
-use ssl=false
+use ssl=true
 ```
 
 

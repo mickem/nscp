@@ -59,6 +59,20 @@ class NSCAPI_EXPORT Response {
   virtual std::string getBody() = 0;
 
   /**
+   * Per-cookie attributes serialized into Set-Cookie. `secure` is honored
+   * only when the connection is TLS — the writer skips it otherwise so a
+   * cookie set on http:// still reaches the client. `same_site` is emitted
+   * verbatim when non-empty; use "Strict", "Lax" or "None".
+   */
+  struct cookie_attrs {
+    bool http_only = true;
+    bool secure = true;
+    std::string same_site = "Strict";
+    std::string path = "/";
+    int max_age = -1;
+  };
+
+  /**
    * Sets the cookie, note that you can only define one cookie by request
    * for now
    *
@@ -66,6 +80,7 @@ class NSCAPI_EXPORT Response {
    * @param value value the cookie value
    */
   virtual void setCookie(std::string key, std::string value);
+  virtual void setCookie(std::string key, std::string value, cookie_attrs attrs);
 
   /**
    * Sets the response code
@@ -80,16 +95,18 @@ class NSCAPI_EXPORT Response {
   virtual std::string getCookie(std::string key) const;
 
   typedef std::map<std::string, std::string> header_type;
+  typedef std::map<std::string, std::pair<std::string, cookie_attrs>> cookie_type;
 
   virtual int get_response_code() const = 0;
 
   header_type& get_headers() { return headers; }
+  cookie_type& get_cookies() { return cookies; }
   int getCode() const { return code; }
 
  private:
   int code;
   std::string reason;
   header_type headers;
-  header_type cookies;
+  cookie_type cookies;
 };
 }  // namespace Mongoose

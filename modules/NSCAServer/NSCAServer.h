@@ -32,6 +32,7 @@ class NSCAServer final : public nscapi::impl::simple_plugin, nsca::server::handl
   std::string channel_;
   int encryption_;
   std::string password_;
+  std::string timezone_;
 
   void set_encryption(const std::string& enc) { encryption_ = nscp::encryption::helpers::encryption_to_int(enc); }
   void set_perf_data(const bool value) {
@@ -62,6 +63,7 @@ class NSCAServer final : public nscapi::impl::simple_plugin, nsca::server::handl
   unsigned int get_payload_length() override { return payload_length_; }
   int get_encryption() override { return encryption_; }
   std::string get_password() override { return password_; }
+  std::string get_timezone() override { return timezone_; }
 
  private:
   socket_helpers::connection_info info_;

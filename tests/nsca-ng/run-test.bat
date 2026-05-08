@@ -46,6 +46,10 @@ exit /b 1
 
 :expect_in_results
 REM %1 = description, %2 = literal substring expected in results.txt
+REM End with `exit /b 0` (not `goto :eof`) so the helper's own errorlevel
+REM is what the caller sees - findstr's exit code (1 when not found) would
+REM otherwise leak through and trip the caller's `if not %errorlevel%==0`
+REM guard. echo does not reset errorlevel in cmd.
 findstr /c:%2 %current_dir%\nsca_ng_test\results.txt >nul
 if not %errorlevel%==0 (
   echo ! Expected substring not found: %2
@@ -56,10 +60,13 @@ if not %errorlevel%==0 (
   exit /b 1
 )
 echo   OK: found %2
-goto :eof
+exit /b 0
 
 :expect_not_in_results
 REM %1 = description, %2 = literal substring that must NOT appear
+REM See note in :expect_in_results - the explicit `exit /b 0` matters
+REM most here because findstr returns 1 in the success case (substring
+REM absent), which is exactly the leak that bites callers.
 findstr /c:%2 %current_dir%\nsca_ng_test\results.txt >nul
 if %errorlevel%==0 (
   echo ! Forbidden substring present: %2
@@ -70,7 +77,7 @@ if %errorlevel%==0 (
   exit /b 1
 )
 echo   OK: absent %2
-goto :eof
+exit /b 0
 
 REM ----- main -----------------------------------------------------------------
 

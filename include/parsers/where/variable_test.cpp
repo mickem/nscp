@@ -899,12 +899,10 @@ TEST(SummaryIntVariableNode, GetValueWithObjectIsAlsoSure) {
 
   const auto vc = node.get_value(ctx, type_int);
   EXPECT_EQ(vc.get_int(), 5);
-  EXPECT_FALSE(vc.is_unsure)
-      << "post-dd8024ae: summary is final at deferred-eval time; the legacy "
-         "is_unsure-when-object-set heuristic is gone.";
-  EXPECT_FALSE(ctx->has_warn())
-      << "post-dd8024ae: 'is most likely mutating' warn is gone (was: 1 warn "
-         "per row per check tick in production logs).";
+  EXPECT_FALSE(vc.is_unsure) << "post-dd8024ae: summary is final at deferred-eval time; the legacy "
+                                "is_unsure-when-object-set heuristic is gone.";
+  EXPECT_FALSE(ctx->has_warn()) << "post-dd8024ae: 'is most likely mutating' warn is gone (was: 1 warn "
+                                   "per row per check tick in production logs).";
 }
 
 TEST(SummaryIntVariableNode, EvaluateProducesIntNode) {

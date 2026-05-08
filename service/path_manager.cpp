@@ -173,7 +173,18 @@ std::string nsclient::core::path_manager::getFolder(const std::string &key) {
   return default_value;
 }
 
-std::string nsclient::core::path_manager::expand_path(std::string file) {
+std::string nsclient::core::path_manager::expand_path(std::string file) { return expand_path_impl(std::move(file), 0); }
+
+std::string nsclient::core::path_manager::expand_path_impl(std::string file, const int depth) {
+  // Cycle guard: a settings cycle ("${a}" -> "${b}" -> "${a}") used to
+  // recurse without bound and either stack-overflow the service (uncatchable
+  // on Windows) or burn the whole stack before the catch(...) below kicked in
+  // on POSIX. Bail at a fixed depth and log loudly so an operator can
+  // identify the cycle from the surfaced error message.
+  if (depth > kMaxExpandDepth) {
+    LOG_ERROR_CORE("Refusing to expand path beyond " + std::to_string(kMaxExpandDepth) + " levels (cycle in /paths?): " + utf8::cvt<std::string>(file));
+    return "";
+  }
   try {
     if (file.empty()) return file;
     parsers::simple_expression::result_type expr;
@@ -184,7 +195,7 @@ std::string nsclient::core::path_manager::expand_path(std::string file) {
       if (!e.is_variable)
         ret += e.name;
       else
-        ret += expand_path(getFolder(e.name));
+        ret += expand_path_impl(getFolder(e.name), depth + 1);
     }
     return ret;
   } catch (...) {

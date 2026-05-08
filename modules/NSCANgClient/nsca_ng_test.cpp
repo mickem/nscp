@@ -18,15 +18,16 @@
  */
 
 #include "nsca_ng.hpp"
-#include "nsca_ng_client.hpp"
 
 #include <gtest/gtest.h>
 #include <openssl/ssl.h>
-#include <nscapi/nscapi_helper_singleton.hpp>
 
 #include <cstring>
+#include <nscapi/nscapi_helper_singleton.hpp>
 #include <set>
 #include <string>
+
+#include "nsca_ng_client.hpp"
 
 // Provide the NSCAPI singleton so the NSC_TRACE_* / NSC_LOG_* macros that
 // reference plugin_singleton resolve at link time. The core_wrapper has null
@@ -39,40 +40,24 @@ nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleto
 // escape_field
 // ============================================================================
 
-TEST(NscaNgEscape, PlainTextUnchanged) {
-  EXPECT_EQ(nsca_ng::escape_field("normal text"), "normal text");
-}
+TEST(NscaNgEscape, PlainTextUnchanged) { EXPECT_EQ(nsca_ng::escape_field("normal text"), "normal text"); }
 
-TEST(NscaNgEscape, BackslashDoubled) {
-  EXPECT_EQ(nsca_ng::escape_field("a\\b"), "a\\\\b");
-}
+TEST(NscaNgEscape, BackslashDoubled) { EXPECT_EQ(nsca_ng::escape_field("a\\b"), "a\\\\b"); }
 
-TEST(NscaNgEscape, NewlineEscaped) {
-  EXPECT_EQ(nsca_ng::escape_field("a\nb"), "a\\nb");
-}
+TEST(NscaNgEscape, NewlineEscaped) { EXPECT_EQ(nsca_ng::escape_field("a\nb"), "a\\nb"); }
 
-TEST(NscaNgEscape, BothSpecialChars) {
-  EXPECT_EQ(nsca_ng::escape_field("a\\\nb"), "a\\\\\\nb");
-}
+TEST(NscaNgEscape, BothSpecialChars) { EXPECT_EQ(nsca_ng::escape_field("a\\\nb"), "a\\\\\\nb"); }
 
-TEST(NscaNgEscape, EmptyString) {
-  EXPECT_EQ(nsca_ng::escape_field(""), "");
-}
+TEST(NscaNgEscape, EmptyString) { EXPECT_EQ(nsca_ng::escape_field(""), ""); }
 
 // B1 / T1 fix: any unescaped ';' inside a field would corrupt the on-wire
 // framing on the receiving Nagios. Verify the canonical case plus a real
 // plugin-output style string.
-TEST(NscaNgEscape, SemicolonEscaped) {
-  EXPECT_EQ(nsca_ng::escape_field("a;b"), "a\\;b");
-}
+TEST(NscaNgEscape, SemicolonEscaped) { EXPECT_EQ(nsca_ng::escape_field("a;b"), "a\\;b"); }
 
-TEST(NscaNgEscape, MultipleSemicolons) {
-  EXPECT_EQ(nsca_ng::escape_field("a;b;c"), "a\\;b\\;c");
-}
+TEST(NscaNgEscape, MultipleSemicolons) { EXPECT_EQ(nsca_ng::escape_field("a;b;c"), "a\\;b\\;c"); }
 
-TEST(NscaNgEscape, RealPluginOutputWithSemicolons) {
-  EXPECT_EQ(nsca_ng::escape_field("OK: 3 services; all up"), "OK: 3 services\\; all up");
-}
+TEST(NscaNgEscape, RealPluginOutputWithSemicolons) { EXPECT_EQ(nsca_ng::escape_field("OK: 3 services; all up"), "OK: 3 services\\; all up"); }
 
 // ============================================================================
 // build_check_result_command
@@ -121,25 +106,17 @@ TEST(NscaNgBuildCommand, ServiceNameWithSemicolon) {
 // build_moin_request
 // ============================================================================
 
-TEST(NscaNgMoin, BuildsMoinLine) {
-  EXPECT_EQ(nsca_ng::build_moin_request("abc123"), "MOIN 1 abc123");
-}
+TEST(NscaNgMoin, BuildsMoinLine) { EXPECT_EQ(nsca_ng::build_moin_request("abc123"), "MOIN 1 abc123"); }
 
-TEST(NscaNgMoin, BuildsMoinLineWithBase64SessionId) {
-  EXPECT_EQ(nsca_ng::build_moin_request("A1B2C3D4"), "MOIN 1 A1B2C3D4");
-}
+TEST(NscaNgMoin, BuildsMoinLineWithBase64SessionId) { EXPECT_EQ(nsca_ng::build_moin_request("A1B2C3D4"), "MOIN 1 A1B2C3D4"); }
 
 // ============================================================================
 // build_push_request
 // ============================================================================
 
-TEST(NscaNgPush, BuildsPushLine) {
-  EXPECT_EQ(nsca_ng::build_push_request(42), "PUSH 42");
-}
+TEST(NscaNgPush, BuildsPushLine) { EXPECT_EQ(nsca_ng::build_push_request(42), "PUSH 42"); }
 
-TEST(NscaNgPush, BuildsPushLineZero) {
-  EXPECT_EQ(nsca_ng::build_push_request(0), "PUSH 0");
-}
+TEST(NscaNgPush, BuildsPushLineZero) { EXPECT_EQ(nsca_ng::build_push_request(0), "PUSH 0"); }
 
 TEST(NscaNgPush, PushLengthIncludesNewline) {
   // The data sent after PUSH is cmd + "\n"; verify that convention is
@@ -248,9 +225,7 @@ TEST(NscaNgSessionId, Distinct) {
 
 namespace {
 struct openssl_init {
-  openssl_init() {
-    OPENSSL_init_ssl(0, nullptr);
-  }
+  openssl_init() { OPENSSL_init_ssl(0, nullptr); }
 };
 openssl_init g_openssl;
 

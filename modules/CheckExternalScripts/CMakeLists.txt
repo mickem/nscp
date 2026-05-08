@@ -36,6 +36,7 @@ if(WIN32)
     set(SRCS
         ${SRCS}
         ${NSCP_INCLUDEDIR}/process/execute_process_w32.cpp
+        ${NSCP_INCLUDEDIR}/process/argv_quote.cpp
     )
 else(WIN32)
     set(EXTRA_LIBS

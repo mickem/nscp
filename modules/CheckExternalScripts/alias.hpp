@@ -90,46 +90,17 @@ struct command_object : public nscapi::settings_objects::object_instance_interfa
     try {
       str::utils::parse_command(str, command, arguments);
     } catch (const std::exception &e) {
-      NSC_LOG_MESSAGE("Failed to parse arguments for command using old split string method: " + utf8::utf8_from_native(e.what()) + ": " + str);
-      std::list<std::string> list = str::utils::split_lst(str, std::string(" "));
-      if (list.size() > 0) {
-        command = list.front();
-        list.pop_front();
-      }
+      // No fallback parser. The previous implementation attempted a naive
+      // split-on-space with no quote-escape handling, which silently
+      // accepted malformed alias definitions and produced surprising
+      // tokenisation - in particular it never honoured `\"` and could
+      // splice attacker-influenced bytes across argv elements differently
+      // than the principal parser. Refuse to register the alias instead,
+      // so an operator sees the failure at startup and fixes their config.
+      command.clear();
       arguments.clear();
-      std::list<std::string> buffer;
-      for (const std::string &s : list) {
-        std::size_t len = s.length();
-        if (buffer.empty()) {
-          if (len > 2 && s[0] == '\"' && s[len - 1] == '\"') {
-            buffer.push_back(s.substr(1, len - 2));
-          } else if (len > 1 && s[0] == '\"') {
-            buffer.push_back(s);
-          } else {
-            arguments.push_back(s);
-          }
-        } else {
-          if (len > 1 && s[len - 1] == '\"') {
-            std::string tmp;
-            for (const std::string &s2 : buffer) {
-              if (tmp.empty()) {
-                tmp = s2.substr(1);
-              } else {
-                tmp += " " + s2;
-              }
-            }
-            arguments.push_back(tmp + " " + s.substr(0, len - 1));
-            buffer.clear();
-          } else {
-            buffer.push_back(s);
-          }
-        }
-      }
-      if (!buffer.empty()) {
-        for (const std::string &s : buffer) {
-          arguments.push_back(s);
-        }
-      }
+      NSC_LOG_ERROR_STD("Refusing alias '" + get_alias() + "' - command line did not parse cleanly: " + utf8::utf8_from_native(e.what()) + " (input: " + str +
+                        ")");
     }
   }
 };

@@ -10,6 +10,7 @@ class user_manager {
   bool validate_user(const std::string &user, const std::string &password);
   void add_user(const std::string &user, const std::string &password);
   bool has_user(const std::string &user) const;
+  void remove_user(const std::string &user);
 };
 
 #endif  // NSCP_USER_MANAGER_H

@@ -399,3 +399,58 @@ TEST(NrpeParser, DigestConsumesExactBuffer) {
   // Iterator should have advanced to end (all bytes consumed)
   EXPECT_EQ(returned_it, end);
 }
+
+// =============================================================================
+// parser — DoS guard (H7)
+//
+// A v3/v4 header with an oversized buffer_length must not cause the parser
+// to grow its internal buffer beyond the documented 1 MiB cap. The decoder
+// in packet.cpp already rejects payloads above that ceiling; the parser
+// must not pin nearly 2 MiB of memory in the meantime.
+// =============================================================================
+
+TEST(NrpeParser, DigestRejectsOversizedV3Header) {
+  const unsigned int payload_length = 1024;
+  server::parser parser(payload_length);
+
+  // Hand-craft a v3 header that advertises a buffer_length larger than the
+  // 1 MiB cap. Use raw bytes so we exercise the size_t conversion path.
+  // header layout starts with: int16 version (network byte order) followed
+  // by other fields up to int32 buffer_length at the documented offset.
+  std::vector<char> hdr(sizeof(data::packet_v3), 0);
+  data::packet_v3* p = reinterpret_cast<data::packet_v3*>(hdr.data());
+  p->packet_version = swap_bytes::hton<int16_t>(data::version3);
+  p->buffer_length = swap_bytes::hton<int32_t>(static_cast<int32_t>(2 * 1024 * 1024));  // 2 MiB
+
+  char* begin = hdr.data();
+  char* end = begin + hdr.size();
+  bool complete;
+  boost::tie(complete, begin) = parser.digest(begin, end);
+
+  // The parser must short-circuit "complete" so the protocol layer drops
+  // the connection. parse() afterwards is expected to throw, but the key
+  // assertion here is that the buffer never grew past the cap.
+  EXPECT_TRUE(complete);
+  EXPECT_LE(parser.size(), 1024u * 1024u);
+}
+
+TEST(NrpeParser, DigestRejectsNegativeBufferLength) {
+  const unsigned int payload_length = 1024;
+  server::parser parser(payload_length);
+
+  std::vector<char> hdr(sizeof(data::packet_v3), 0);
+  data::packet_v3* p = reinterpret_cast<data::packet_v3*>(hdr.data());
+  p->packet_version = swap_bytes::hton<int16_t>(data::version3);
+  p->buffer_length = swap_bytes::hton<int32_t>(static_cast<int32_t>(-1));
+
+  char* begin = hdr.data();
+  char* end = begin + hdr.size();
+  bool complete;
+  boost::tie(complete, begin) = parser.digest(begin, end);
+
+  // Negative advertised length is treated as a hard error - the parser
+  // must not implicitly cast it to a huge size_t and try to read that many
+  // bytes.
+  EXPECT_TRUE(complete);
+  EXPECT_LE(parser.size(), 1024u * 1024u);
+}

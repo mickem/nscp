@@ -36,8 +36,8 @@ bool is_safe_unit_name(const std::string &name) {
   if (name.empty() || name.size() > 256) return false;
   if (name[0] == '-') return false;
   for (char c : name) {
-    const bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '.' || c == '-' || c == '@' || c == ':' ||
-                    c == '\\';
+    const bool ok =
+        (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '.' || c == '-' || c == '@' || c == ':' || c == '\\';
     if (!ok) return false;
   }
   return true;

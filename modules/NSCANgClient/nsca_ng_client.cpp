@@ -19,23 +19,23 @@
 
 #include "nsca_ng_client.hpp"
 
-#include <boost/asio.hpp>
-#include <boost/asio/ssl.hpp>
 #include <openssl/rand.h>
 
+#include <algorithm>
+#include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 #include <chrono>
 #include <cstring>
 #include <ctime>
-#include <stdexcept>
-#include <thread>
-
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/protobuf/nagios.hpp>
+#include <stdexcept>
 #include <str/utf8.hpp>
+#include <thread>
 
 #include "nsca_ng.hpp"
 
@@ -120,11 +120,11 @@ unsigned int psk_client_cb(SSL *ssl, const char * /*hint*/, char *identity, unsi
   const auto *creds = static_cast<const psk_credentials *>(SSL_get_ex_data(ssl, get_psk_ex_data_index()));
   if (creds == nullptr) return 0;
 
-  const std::size_t id_len = std::min(creds->identity.size(), static_cast<std::size_t>(max_identity_len) - 1);
+  const std::size_t id_len = (std::min)(creds->identity.size(), static_cast<std::size_t>(max_identity_len) - 1);
   std::memcpy(identity, creds->identity.c_str(), id_len);
   identity[id_len] = '\0';
 
-  const std::size_t psk_len = std::min(creds->psk.size(), static_cast<std::size_t>(max_psk_len));
+  const std::size_t psk_len = (std::min)(creds->psk.size(), static_cast<std::size_t>(max_psk_len));
   std::memcpy(psk, creds->psk.c_str(), psk_len);
   return static_cast<unsigned int>(psk_len);
 }
@@ -297,8 +297,7 @@ class nsca_ng_connection {
           // The 2nd handler arg differs between the iterator overload
           // (resolver::iterator) and the results-type overload (tcp::endpoint);
           // accept either via auto.
-          boost::asio::async_connect(ssl_socket_.lowest_layer(), endpoints,
-                                     [handler](const boost::system::error_code &ec, auto /*next*/) { handler(ec); });
+          boost::asio::async_connect(ssl_socket_.lowest_layer(), endpoints, [handler](const boost::system::error_code &ec, auto /*next*/) { handler(ec); });
         },
         "connect to " + host + ":" + port);
 
@@ -337,7 +336,9 @@ class nsca_ng_connection {
     }
 
     run_with_deadline(
-        [this](auto handler) { ssl_socket_.async_handshake(boost::asio::ssl::stream_base::client, [handler](const boost::system::error_code &ec) { handler(ec); }); },
+        [this](auto handler) {
+          ssl_socket_.async_handshake(boost::asio::ssl::stream_base::client, [handler](const boost::system::error_code &ec) { handler(ec); });
+        },
         "TLS handshake");
     tls_active_ = true;
   }
@@ -350,8 +351,7 @@ class nsca_ng_connection {
   void write_raw(const std::string &data) {
     run_with_deadline(
         [this, &data](auto handler) {
-          boost::asio::async_write(ssl_socket_, boost::asio::buffer(data),
-                                   [handler](const boost::system::error_code &ec, std::size_t /*n*/) { handler(ec); });
+          boost::asio::async_write(ssl_socket_, boost::asio::buffer(data), [handler](const boost::system::error_code &ec, std::size_t /*n*/) { handler(ec); });
         },
         "write");
   }
@@ -359,8 +359,7 @@ class nsca_ng_connection {
   std::string read_line() {
     run_with_deadline(
         [this](auto handler) {
-          boost::asio::async_read_until(ssl_socket_, in_buf_, '\n',
-                                        [handler](const boost::system::error_code &ec, std::size_t /*n*/) { handler(ec); });
+          boost::asio::async_read_until(ssl_socket_, in_buf_, '\n', [handler](const boost::system::error_code &ec, std::size_t /*n*/) { handler(ec); });
         },
         "read");
     std::istream is(&in_buf_);
@@ -374,9 +373,8 @@ class nsca_ng_connection {
     if (tls_active_) {
       boost::system::error_code ec;
       try {
-        run_with_deadline(
-            [this](auto handler) { ssl_socket_.async_shutdown([handler](const boost::system::error_code &ec) { handler(ec); }); },
-            "TLS shutdown");
+        run_with_deadline([this](auto handler) { ssl_socket_.async_shutdown([handler](const boost::system::error_code &ec) { handler(ec); }); },
+                          "TLS shutdown");
       } catch (...) {
         // Ignore; we're closing anyway.
       }
@@ -454,7 +452,11 @@ submit_outcome do_send_once(const connection_data &con, const PB::Commands::Subm
       r.error_message = "NSCA-NG handshake failed: " + moin_resp;
       // Server told us no — don't retry, the password is just wrong.
       r.retryable = false;
-      try { conn.write_line("QUIT"); (void)conn.read_line(); } catch (...) {}
+      try {
+        conn.write_line("QUIT");
+        (void)conn.read_line();
+      } catch (...) {
+      }
       conn.graceful_close();
       return r;
     }
@@ -474,7 +476,11 @@ submit_outcome do_send_once(const connection_data &con, const PB::Commands::Subm
       if (!push_result.ok()) {
         r.error_message = "NSCA-NG PUSH rejected: " + push_resp;
         r.retryable = false;
-        try { conn.write_line("QUIT"); (void)conn.read_line(); } catch (...) {}
+        try {
+          conn.write_line("QUIT");
+          (void)conn.read_line();
+        } catch (...) {
+        }
         conn.graceful_close();
         return r;
       }
@@ -488,7 +494,11 @@ submit_outcome do_send_once(const connection_data &con, const PB::Commands::Subm
       if (!cmd_result.ok()) {
         r.error_message = "NSCA-NG submission rejected: " + cmd_resp;
         r.retryable = false;
-        try { conn.write_line("QUIT"); (void)conn.read_line(); } catch (...) {}
+        try {
+          conn.write_line("QUIT");
+          (void)conn.read_line();
+        } catch (...) {
+        }
         conn.graceful_close();
         return r;
       }
@@ -523,7 +533,7 @@ submit_outcome do_send_once(const connection_data &con, const PB::Commands::Subm
 }
 
 void send(PB::Commands::SubmitResponseMessage::Response *payload, const connection_data &con, const PB::Commands::SubmitRequestMessage &request_message) {
-  const int max_attempts = std::max(1, con.retry + 1);
+  const int max_attempts = (std::max)(1, con.retry + 1);
   submit_outcome last;
   for (int attempt = 1; attempt <= max_attempts; ++attempt) {
     last = do_send_once(con, request_message);

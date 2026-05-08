@@ -18,4 +18,5 @@ class login_controller : public Mongoose::RegexpController {
   login_controller(const int version, const boost::shared_ptr<session_manager_interface> &session);
 
   void is_loggedin(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+  void logout(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 };

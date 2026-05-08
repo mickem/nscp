@@ -165,6 +165,7 @@ cli_parser::alias_map cli_parser::get_aliases() {
   aliases["nrpe"] = "NRPEClient";
   aliases["nscp"] = "NSCPClient";
   aliases["nsca"] = "NSCAClient";
+  aliases["smtp"] = "SMTPClient";
   aliases["nrdp"] = "NRDPClient";
   aliases["nsca-ng"] = "NSCANgClient";
   aliases["eventlog"] = "CheckEventLog";

@@ -151,7 +151,15 @@ struct syslog_client_handler : public client::handler_interface {
       if (p.result() == PB::Common::ResultCode::CRITICAL) severity = con.crit_severity;
       if (p.result() == PB::Common::ResultCode::UNKNOWN) severity = con.unknown_severity;
 
-      messages.push_back(con.parse_priority(severity, con.facility) + date + " " + tag + " " + message);
+      std::string line = con.parse_priority(severity, con.facility) + date + " " + tag + " " + message;
+      // Strip CR / LF / NUL so a check result containing newlines cannot
+      // split into multiple syslog records (log injection). Replace with
+      // spaces so the message text stays readable; the receiver sees one
+      // syslog line per check, which matches operator expectations.
+      for (char &c : line) {
+        if (c == '\r' || c == '\n' || c == '\0') c = ' ';
+      }
+      messages.push_back(std::move(line));
     }
     send(response_message.add_payload(), con, messages);
     return true;

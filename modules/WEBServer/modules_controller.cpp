@@ -6,8 +6,11 @@
 #include <boost/regex.hpp>
 #include <file_helpers.hpp>
 #include <fstream>
+#include <nscapi/macros.hpp>
 #include <nscapi/protobuf/registry.hpp>
 #include <str/xtos.hpp>
+
+#include "name_safety.hpp"
 
 #ifdef WIN32
 #pragma warning(disable : 4456)
@@ -76,6 +79,10 @@ void modules_controller::get_module(Mongoose::Request &request, boost::smatch &w
     response.setCodeNotFound("Module not found");
   }
   std::string module = what.str(1);
+  if (!name_safety::is_safe_module_name(module)) {
+    response.setCodeBadRequest("Invalid module name");
+    return;
+  }
 
   PB::Registry::RegistryRequestMessage rrm;
   PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
@@ -129,6 +136,10 @@ void modules_controller::module_command(Mongoose::Request &request, boost::smatc
   }
   std::string module = what.str(1);
   std::string command = what.str(2);
+  if (!name_safety::is_safe_module_name(module)) {
+    response.setCodeBadRequest("Invalid module name");
+    return;
+  }
 
   if (command == "load") {
     if (!session->can("modules.load", response)) return;
@@ -231,6 +242,10 @@ void modules_controller::put_module(Mongoose::Request &request, boost::smatch &w
     return;
   }
   std::string module = what.str(1);
+  if (!name_safety::is_safe_module_name(module)) {
+    response.setCodeBadRequest("Invalid module name");
+    return;
+  }
 
   try {
     auto root = json::parse(request.getData());
@@ -283,6 +298,11 @@ void modules_controller::put_module(Mongoose::Request &request, boost::smatch &w
   }
 }
 
+// Uploads a zip archive to ${module-path}/<name>.zip and immediately loads
+// it as a plugin. This is RCE-by-design: a native module's init() runs as
+// the service user. The `modules.post` grant must only be given to fully
+// trusted administrative roles. The validation below is defence in depth -
+// it does NOT make this endpoint safe to expose to untrusted users.
 void modules_controller::post_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
   if (!session->is_logged_in("modules.post", request, response)) return;
 
@@ -290,18 +310,38 @@ void modules_controller::post_module(Mongoose::Request &request, boost::smatch &
     return;
   }
   std::string module = what.str(1);
+  if (!name_safety::is_safe_module_name(module)) {
+    response.setCodeBadRequest("Invalid module name");
+    return;
+  }
 
   try {
+    bool upload_ok = false;
     try {
       boost::filesystem::path name = module;
+      // file_helpers::meta::get_filename strips any path components from the
+      // input. After is_safe_module_name there should be none, but we keep
+      // the basename pass as belt-and-braces.
       boost::filesystem::path file = core->expand_path("${module-path}/" + file_helpers::meta::get_filename(name) + ".zip");
       std::ofstream ofs(file.string().c_str(), std::ios::binary);
       ofs << request.getData();
       ofs.close();
+      if (!ofs) {
+        throw std::runtime_error("write failed");
+      }
+      upload_ok = true;
     } catch (const std::exception &e) {
-      NSC_LOG_ERROR("Failed to upload module: " + std::string(e.what()));
+      NSC_LOG_ERROR("Failed to upload module " + module + ": " + std::string(e.what()));
       response.setCodeBadRequest("Failed to upload module");
+      return;
     }
+    if (!upload_ok) {
+      // Do not load the module if the upload step did not complete - the
+      // pre-existing code path fell through and loaded whatever was on disk.
+      return;
+    }
+
+    NSC_LOG_ERROR("modules.post: loading uploaded module " + module + " (this runs untrusted code as the service user)");
 
     PB::Registry::RegistryRequestMessage rrm;
     PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();

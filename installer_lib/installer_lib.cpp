@@ -9,6 +9,7 @@
 #include <config.h>
 #include <msi.h>
 #include <msiquery.h>
+#include <openssl/rand.h>
 
 #include <boost/algorithm/string.hpp>
 #include <error/error.hpp>
@@ -151,10 +152,40 @@ struct installer_settings_provider : public settings_manager::provider_interface
 };
 
 static const wchar_t alphanum[] = L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+// Generate a cryptographically random password of `len` alphanumeric chars.
+//
+// Was: srand(time(NULL)) + rand(). The seed was the install second (~30 bits
+// of entropy) and rand()%62 is biased - both made the default admin password
+// brute-forceable for any attacker who knew the install window.
+//
+// Now: OpenSSL RAND_bytes (already linked) plus rejection sampling so each
+// character is drawn uniformly from the 62-char alphabet. Any RNG failure is
+// fatal - the installer must never silently fall back to a guessable
+// password, so we throw and let the surrounding installer_exception catch
+// fail the custom action.
 std::wstring genpwd(const int len) {
-  srand((unsigned)time(NULL));
+  constexpr unsigned int alpha_size = (sizeof(alphanum) / sizeof(wchar_t)) - 1;
+  static_assert(alpha_size == 62, "alphanum size changed - revisit rejection bound");
+  // Largest multiple of alpha_size that fits in a byte (256 - 256 % 62 = 248).
+  // Bytes >= this would bias `b % alpha_size` toward the first 8 chars.
+  constexpr unsigned char accept_bound = static_cast<unsigned char>(256u - (256u % alpha_size));
+
   std::wstring ret;
-  for (int i = 0; i < len; i++) ret += alphanum[rand() % ((sizeof(alphanum) / sizeof(wchar_t)) - 1)];
+  ret.reserve(len);
+  unsigned char buf[64];
+  std::size_t pos = sizeof(buf);
+  for (int i = 0; i < len;) {
+    if (pos >= sizeof(buf)) {
+      if (RAND_bytes(buf, sizeof(buf)) != 1) {
+        throw installer_exception(L"RAND_bytes failed; cannot generate a secure password");
+      }
+      pos = 0;
+    }
+    const unsigned char b = buf[pos++];
+    if (b >= accept_bound) continue;  // reject biased values, redraw
+    ret += alphanum[b % alpha_size];
+    ++i;
+  }
   return ret;
 }
 

@@ -85,7 +85,7 @@ struct drive_container {
   drive_container() : is_mounted(false), type(0), flags(df_none) {}
 
  public:
-  drive_container(std::string id, const std::string& letter, std::string name, std::string fs, bool is_mounted, unsigned long long type, drive_flags flags)
+  drive_container(std::string id, const std::string &letter, std::string name, std::string fs, bool is_mounted, unsigned long long type, drive_flags flags)
       : id(std::move(id)), letter(letter), name(std::move(name)), fs(std::move(fs)), is_mounted(is_mounted), type(type), flags(flags) {
     letter_only = letter.substr(0, 1);
   }
@@ -707,7 +707,7 @@ void find_all_volumes(std::list<drive_container> &drives, std::vector<std::strin
   }
 }
 
-drive_container get_dc_from_string(const std::wstring& folder, volume_helper &helper) {
+drive_container get_dc_from_string(const std::wstring &folder, volume_helper &helper) {
   std::wstring volume = helper.GetVolumeNameForVolumeMountPoint(folder);
   unsigned long long type = 0;
   std::string title;

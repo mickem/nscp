@@ -36,6 +36,7 @@ struct nsca_target_object : public nscapi::targets::target_object {
     set_property_int("payload length", 512);
     set_property_string("port", "5667");
     set_property_int("time offset", 0);
+    set_property_string("timezone", "utc");
   }
   nsca_target_object(const nscapi::settings_objects::object_instance &other, const std::string &alias, const std::string &path) : parent(other, alias, path) {}
 
@@ -68,6 +69,11 @@ struct nsca_target_object : public nscapi::targets::target_object {
         .add_string("encoding", sh::string_fun_key([this](auto value) { this->set_property_string("encoding", value); }, ""), "ENCODING", "", true)
 
         .add_string("time offset", sh::string_fun_key([this](auto value) { this->set_property_string("delay", value); }, "0"), "TIME OFFSET", "Time offset.",
+                    true)
+
+        .add_string("timezone", sh::string_fun_key([this](auto value) { this->set_property_string("timezone", value); }, "utc"), "TIMEZONE",
+                    "Reference timezone for the wire timestamp. Default 'utc' matches the protocol specification. Set to 'local' (or any POSIX TZ string) "
+                    "only when interoperating with a legacy server that emits local-clock-as-Unix-time stamps; both ends must agree.",
                     true);
 
     settings.register_all();
@@ -99,6 +105,8 @@ struct options_reader_impl : public client::options_reader_interface {
       "Host name to report")
     ("time-offset", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("time offset", value); }),
 	    "")
+    ("timezone", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("timezone", value); }),
+	    "Reference timezone for wire timestamps (default 'utc'; use 'local' only for legacy peers that emit local-clock-as-Unix-time)")
   ;
     // clang-format on
   }

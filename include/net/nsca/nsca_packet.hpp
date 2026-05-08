@@ -22,6 +22,7 @@
 #include <bytes/crc32.h>
 
 #include <boost/date_time.hpp>
+#include <nscp_time.hpp>
 #include <bytes/swap_bytes.hpp>
 #include <cstring>
 #include <str/xtos.hpp>
@@ -31,6 +32,19 @@
 namespace nsca {
 
 constexpr boost::posix_time::ptime EPOCH_TIME_T(boost::gregorian::date(1970, 1, 1));
+
+// Seconds since 1970-01-01 00:00:00 viewed as if the host clock were the
+// given zone. With the empty/"utc"/"gmt" default this is true Unix time and
+// matches `std::time(nullptr)`. Other values ("local" or any POSIX TZ string
+// accepted by nscp_time) yield "wall-clock-as-Unix-time", which is what
+// legacy NSCA peers that wrote `local_time()` directly into the wire field
+// produced. Useful only when interoperating with such peers; the protocol
+// specification calls for UTC.
+inline uint32_t unix_time_in_tz(const std::string& tz) {
+  const boost::posix_time::ptime now = nscp_time::now(tz);
+  const boost::posix_time::time_duration diff = now - EPOCH_TIME_T;
+  return static_cast<uint32_t>(diff.total_seconds());
+}
 
 class data {
  public:
@@ -119,23 +133,37 @@ class packet {
   uint32_t time;
   unsigned int payload_length_;
 
+  // The wire timestamp must be Unix time (seconds since 1970-01-01 UTC) so
+  // that a receiver doing `std::time(nullptr)` arithmetic — including the
+  // server-side replay-window check — sees zero skew on a synchronised
+  // host. Earlier code used `second_clock::local_time()` which produced
+  // seconds-since-epoch interpreted as if it were UTC, drifting by the
+  // host's TZ offset (e.g. -7200s for UTC+2) and tripping the replay
+  // guard on every non-UTC sender.
   explicit packet(std::string _host, const unsigned int payload_length = 512, const int time_delta = 0)
       : host(std::move(_host)), code(0), payload_length_(payload_length) {
-    const boost::posix_time::ptime now = boost::posix_time::second_clock::local_time() + boost::posix_time::seconds(time_delta);
+    const boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time() + boost::posix_time::seconds(time_delta);
     const boost::posix_time::time_duration diff = now - EPOCH_TIME_T;
     time = static_cast<uint32_t>(diff.total_seconds());
   }
   explicit packet(const unsigned int payload_length) : code(0), payload_length_(payload_length) {
-    const boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+    const boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
     const boost::posix_time::time_duration diff = now - EPOCH_TIME_T;
     time = static_cast<uint32_t>(diff.total_seconds());
   }
   packet() : code(0), time(0), payload_length_(length::get_payload_length()) {
-    const boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+    const boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
     const boost::posix_time::time_duration diff = now - EPOCH_TIME_T;
     time = static_cast<uint32_t>(diff.total_seconds());
   }
   packet& operator=(const packet& other) = default;
+
+  // Override the wire timestamp to "now" interpreted in the given zone.
+  // Used by the NSCAClient module when an operator explicitly configures a
+  // non-default `timezone` to interoperate with legacy peers. Constructors
+  // already produce UTC, so calling this with "utc" is a no-op aside from a
+  // negligible re-read of the clock.
+  void set_time_now_in_tz(const std::string& tz) { time = unix_time_in_tz(tz); }
 
   std::string to_string() const {
     return "host: " + host + ", " + "service: " + service + ", " + "code: " + str::xtos(code) + ", " + "time: " + str::xtos(time) + ", " + "result: " + result;
@@ -148,6 +176,10 @@ class packet {
     }
     std::vector<char> tmp(buffer, buffer + buffer_len);
     auto* data = reinterpret_cast<data::data_packet*>(tmp.data());
+    const auto version = swap_bytes::ntoh<int16_t>(data->packet_version);
+    if (version != data::version3) {
+      throw nsca_exception("Unsupported NSCA packet version: " + str::xtos(version));
+    }
     time = swap_bytes::ntoh<uint32_t>(data->timestamp);
     code = swap_bytes::ntoh<int16_t>(data->return_code);
 

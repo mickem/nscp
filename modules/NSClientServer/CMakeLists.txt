@@ -35,7 +35,6 @@ if(WIN32)
     set(SRCS
         ${SRCS}
         "${TARGET}.h"
-        "handler_impl.hpp"
         ${NSCP_INCLUDEDIR}/net/check_nt/server/protocol.hpp
         ${NSCP_INCLUDEDIR}/net/check_nt/server/parser.hpp
         ${NSCP_INCLUDEDIR}/net/check_nt/packet.hpp

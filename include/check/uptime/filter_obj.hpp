@@ -44,8 +44,7 @@ struct filter_obj {
   // the historical formatting (issue #590).
   str::format::itos_as_time_unit max_unit;
 
-  filter_obj(long long uptime, long long now, boost::posix_time::ptime boot, std::string tz,
-             str::format::itos_as_time_unit max_unit = str::format::unit_week)
+  filter_obj(long long uptime, long long now, boost::posix_time::ptime boot, std::string tz, str::format::itos_as_time_unit max_unit = str::format::unit_week)
       : uptime(uptime), now(now), boot(boot), tz(std::move(tz)), max_unit(max_unit) {}
 
   std::string show() const { return get_uptime_s(); }

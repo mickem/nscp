@@ -73,7 +73,10 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
       .add_string("column-split", nscapi::settings_helper::string_key(&column_split), "COLUMN SPLIT", "Alias for column split", true)
 
       .add_bool("read entire file", nscapi::settings_helper::bool_key(&read_from_start), "read entire file",
-                "When set to `true` the file is read in full on every check. When `false` (the default) the real-time check resumes reading from the position it stopped at the previous time the file was processed, so only newly-appended data is matched. If the file shrinks (for example after log rotation) the next check restarts from the beginning.", true);
+                "When set to `true` the file is read in full on every check. When `false` (the default) the real-time check resumes reading from the position "
+                "it stopped at the previous time the file was processed, so only newly-appended data is matched. If the file shrinks (for example after log "
+                "rotation) the next check restarts from the beginning.",
+                true);
   filter.read_object(root_path, is_default);
 
   settings.register_all();
