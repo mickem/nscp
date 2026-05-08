@@ -182,7 +182,7 @@ TEST_F(SessionManagerTest, RateLimiterBlocksAfterRepeatedFailures) {
     Mongoose::StreamResponse r;
     EXPECT_FALSE(smi.process_auth_header("something:read", req, r));
   }
-  // After kMaxFailures, even a correct password gets rejected from this IP.
+  // After kDefaultMaxFailures, even a correct password gets rejected from this IP.
   const std::string good_auth = "Basic " + Mongoose::Helpers::encode_b64("user:password");
   req.get_headers()[HTTP_HDR_AUTH] = good_auth;
   EXPECT_FALSE(smi.process_auth_header("something:read", req, resp));

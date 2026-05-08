@@ -55,6 +55,8 @@ struct session_manager_interface {
   void set_allowed_hosts(const std::string &host);
   void set_allowed_hosts_cache(bool value);
   void set_allow_anonymous(bool value) { allow_anonymous_ = value; }
+  void set_auth_rate_limit_max_failures(int value) { rate_limiter.set_max_failures(value); }
+  void set_auth_rate_limit_block_seconds(int value) { rate_limiter.set_block_seconds(value); }
 
   std::list<std::string> boot();
   bool validate_user(const std::string &user, const std::string &password);

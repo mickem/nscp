@@ -9,7 +9,7 @@ TEST(AuthRateLimiter, NewIpIsNotBlocked) {
 
 TEST(AuthRateLimiter, BlocksAfterMaxFailures) {
   auth_rate_limiter rl;
-  for (int i = 0; i < auth_rate_limiter::kMaxFailures; ++i) {
+  for (int i = 0; i < auth_rate_limiter::kDefaultMaxFailures; ++i) {
     EXPECT_FALSE(rl.is_blocked("1.2.3.4"));
     rl.record_failure("1.2.3.4");
   }
@@ -18,7 +18,7 @@ TEST(AuthRateLimiter, BlocksAfterMaxFailures) {
 
 TEST(AuthRateLimiter, SuccessClearsCounter) {
   auth_rate_limiter rl;
-  for (int i = 0; i < auth_rate_limiter::kMaxFailures - 1; ++i) {
+  for (int i = 0; i < auth_rate_limiter::kDefaultMaxFailures - 1; ++i) {
     rl.record_failure("1.2.3.4");
   }
   rl.record_success("1.2.3.4");
@@ -29,9 +29,16 @@ TEST(AuthRateLimiter, SuccessClearsCounter) {
 
 TEST(AuthRateLimiter, BlockingIsPerIp) {
   auth_rate_limiter rl;
-  for (int i = 0; i < auth_rate_limiter::kMaxFailures; ++i) {
+  for (int i = 0; i < auth_rate_limiter::kDefaultMaxFailures; ++i) {
     rl.record_failure("1.2.3.4");
   }
   EXPECT_TRUE(rl.is_blocked("1.2.3.4"));
   EXPECT_FALSE(rl.is_blocked("5.6.7.8"));
+}
+
+TEST(AuthRateLimiter, DisabledWhenMaxFailuresZero) {
+  auth_rate_limiter rl;
+  rl.set_max_failures(0);
+  for (int i = 0; i < 1000; ++i) rl.record_failure("1.2.3.4");
+  EXPECT_FALSE(rl.is_blocked("1.2.3.4"));
 }
