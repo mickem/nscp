@@ -375,10 +375,28 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
   // CreateProcess to re-tokenise the command line. This is what closes
   // attacker-controlled $ARGn$ from becoming extra argv tokens / shell
   // metacharacters.
+  //
+  // parse_command uses boost::escaped_list_separator with `\` as the escape
+  // character, which throws "unknown escape sequence" the moment it sees a
+  // backslash followed by anything other than `\`, ` ` or `"`. Windows-style
+  // template paths like `scripts\foo.bat` therefore cannot be tokenised by
+  // it. Catch the exception, log it, and fall back to the legacy single-
+  // string command form (the same fallback used below for malformed
+  // templates) so existing operator configurations keep working.
   std::vector<std::string> argv_template;
-  str::utils::parse_command(cd.command, argv_template);
+  std::string template_parse_error;
+  try {
+    str::utils::parse_command(cd.command, argv_template);
+  } catch (const std::exception &e) {
+    // Most commonly: a Windows-style backslash path in the template (e.g.
+    // `scripts\foo.bat`) trips boost's escape-sequence parser. The legacy
+    // single-string path below is fine for these; the only thing lost is
+    // the argv-isolation hardening.
+    argv_template.clear();
+    template_parse_error = e.what();
+  }
   std::vector<std::string> argv;
-  bool argv_ok = true;
+  bool argv_ok = template_parse_error.empty();
   if (allowArgs_) {
     int i = 1;
     std::vector<std::string> validated_user_args;
@@ -438,10 +456,14 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
   }
 
   if (argv_template.empty() || argv.empty()) {
-    // The template tokeniser failed (unbalanced quotes, etc). Fall back to the
-    // single-string command form. This only happens for malformed operator
-    // templates and disables the argv-injection mitigation, so log it.
-    NSC_LOG_ERROR_STD("Falling back to legacy single-string command for '" + cd.get_alias() + "' (template did not tokenise cleanly)");
+    // Tokeniser couldn't produce an argv (either parse_command threw - most
+    // often on a Windows-style backslash path - or the template was empty
+    // after parsing). The legacy single-string command path still works;
+    // we just lose the argv-isolation mitigation for this command. Log at
+    // debug so operators can opt in to diagnostics without flooding the
+    // log on every Windows install.
+    NSC_DEBUG_MSG_STD("argv-isolation disabled for '" + cd.get_alias() + "' (using legacy single-string command form)" +
+                      (template_parse_error.empty() ? "" : ": " + template_parse_error));
     argv_ok = false;
   }
 
