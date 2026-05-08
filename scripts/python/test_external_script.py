@@ -43,10 +43,17 @@ class ExternalScriptTest(BasicTest):
 		result = TestResult('%s (%s)'%(script, args))
 		(ret, msg, perf) = self.core.simple_query(script, args)
 		if cleanup and os.name != 'nt':
+			# The double quotes around `"$ARGn$"` in the operator template are
+			# consumed by the template tokeniser (boost::escaped_list_separator)
+			# before argv is built, so they never reach the script. Strip them
+			# from the expected message to match.
 			message = message.replace('"', '')
-			message = message.replace('$ARG1$', '$')
-			message = message.replace('$ARG2$', '$')
-			message = message.replace('$ARG3$', '$')
+			# In 0.12 and earlier, unsubstituted `$ARGn$` tokens were forwarded
+			# through /bin/sh -c, where `$ARG2`/`$ARG3` were undefined variables
+			# that bash expanded to empty - the trailing `$` then survived alone.
+			# 0.13 added argv-isolation (commit ae37357), so /bin/sh is no longer
+			# involved and `$ARGn$` reaches the script verbatim. The Linux
+			# expected output therefore needs no `$ARGn$` -> `$` rewrite anymore.
 
 		message = message.replace('\r', '\n')
 		message = message.replace('\n\n', '\n')
@@ -114,7 +121,12 @@ class ExternalScriptTest(BasicTest):
 			if os.name == 'nt':
 				subresult.add(self.do_one_test(script, status.OK, 'Test arguments are: (OK "$$$ \\ \\" "$$$ \\ \\")', ['OK', '$$$ \\ \\', '$$$ \\ \\'], False))
 			else:
-				subresult.add(self.do_one_test(script, status.OK, 'Test arguments are: (OK $ \\ " $  ")', ['OK', '$ \\ \\', '$ \\ \\'], False))
+				# Each user arg `$ \ \` is a single argv element under
+				# argv-isolation (0.13+); the script's `echo "$1 $2 $3"`
+				# prints them space-separated with no shell mangling.
+				# Pre-0.13 output went through bash and looked like
+				# `(OK $ \ " $  ")` due to quote/escape gymnastics.
+				subresult.add(self.do_one_test(script, status.OK, 'Test arguments are: (OK $ \\ \\ $ \\ \\)', ['OK', '$ \\ \\', '$ \\ \\'], False))
 			result.add(subresult)
 		
 		ret.add(result)
