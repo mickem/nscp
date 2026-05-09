@@ -34,6 +34,11 @@
 
 typedef parsers::where::realtime_filter_helper<check_cpu_filter::runtime_data, filters::cpu::filter_config_object> cpu_filter_helper;
 
+void pdh_thread::ensure_default(boost::shared_ptr<nscapi::settings_proxy> proxy) {
+  cpu_filters_.ensure_default(proxy);
+  mem_filters_.ensure_default(proxy);
+  proc_filters_.ensure_default(proxy);
+}
 spi_container pdh_thread::fetch_spi(error_list &errors) {
   spi_container ret;
   try {
@@ -136,7 +141,7 @@ void pdh_thread::thread_proc() {
           if (tmpPdh.is_open()) {
             tmpPdh.close();
           }
-          NSC_LOG_ERROR_EXR("Failed to add counter " + obj.alias + ": ", e);
+          NSC_LOG_ERROR_EXR("Failed to add counter " + obj.alias, e);
           continue;
         }
       }

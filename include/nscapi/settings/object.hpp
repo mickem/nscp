@@ -203,9 +203,9 @@ struct object_handler : boost::noncopyable {
   }
   bool has_objects() const { return !objects.empty(); }
 
-  void ensure_default() {
+  void ensure_default(settings_helper::settings_impl_interface_ptr proxy = settings_helper::settings_impl_interface_ptr()) {
     if (has_object("default")) return;
-    add(settings_helper::settings_impl_interface_ptr(), "default", "");
+    add(proxy, "default", "");
   }
 
   object_instance add(settings_helper::settings_impl_interface_ptr proxy, std::string alias, std::string value, const bool force_template = false) {

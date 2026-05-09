@@ -118,6 +118,7 @@ class pdh_thread {
   void add_samples(boost::shared_ptr<nscapi::settings_proxy> settings);
 
   std::string to_string() const { return "pdh"; }
+  void ensure_default(boost::shared_ptr<nscapi::settings_proxy> proxy);
 
  private:
   static spi_container fetch_spi(error_list &errors);

@@ -152,7 +152,7 @@ export default function Module() {
           </CardContent>
         </Card>
       )}
-      <ModuleSettings settings={mySettings} />
+      <ModuleSettings settings={mySettings} moduleId={id} />
     </Stack>
   );
 }

@@ -209,6 +209,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.register_all();
   settings.notify();
 
+  collector->ensure_default(nscapi::settings_proxy::create(get_id(), get_core()));
   collector->add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
   pdh_checker.counters_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
@@ -270,11 +271,23 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
     json::array data;
     for (const PDH::Enumerations::Object &obj : list) {
       if (json) {
-        for (const std::string &inst : obj.instances) {
+        if (obj.instances.empty()) {
+          // Single-instance / instance-less object (also the --no-instances
+          // case). Emit `\<obj>\<counter>` so the caller still sees every
+          // counter; without this branch the JSON output is empty whenever
+          // instance enumeration is skipped or unavailable.
           for (const std::string &count : obj.counters) {
-            std::string line = "\\" + obj.name + "(" + inst + ")\\" + count;
+            std::string line = "\\" + obj.name + "\\" + count;
             if (!filter.empty() && line.find(filter) == std::string::npos) continue;
             data.push_back(json::value(line));
+          }
+        } else {
+          for (const std::string &inst : obj.instances) {
+            for (const std::string &count : obj.counters) {
+              std::string line = "\\" + obj.name + "(" + inst + ")\\" + count;
+              if (!filter.empty() && line.find(filter) == std::string::npos) continue;
+              data.push_back(json::value(line));
+            }
           }
         }
       } else if (porcelain) {

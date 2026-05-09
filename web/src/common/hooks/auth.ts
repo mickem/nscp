@@ -1,6 +1,6 @@
 import { useAppDispatch, useAppSelector } from "../../store/store";
 import { authSlice } from "../authSlice";
-import { useLoginMutation } from "../../api/api.ts";
+import { nsclientApi, useLoginMutation } from "../../api/api.ts";
 
 export const useAuthentication = () => {
   const auth = useAppSelector((store) => store.auth);
@@ -15,6 +15,9 @@ export const useAuthentication = () => {
 
   const logout = async () => {
     dispatch(authSlice.actions.removeToken());
+    // Wipe every cached query so the next login (or even a stale tab) doesn't
+    // see data from the previous session.
+    dispatch(nsclientApi.util.resetApiState());
   };
 
   const restoreToken = () => {
