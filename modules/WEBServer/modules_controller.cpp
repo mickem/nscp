@@ -293,7 +293,7 @@ void modules_controller::put_module(Mongoose::Request &request, boost::smatch &w
         }
       }
     }
-  } catch (const std::exception &e) {
+  } catch (const std::exception &) {
     response.setCodeBadRequest("Problems parsing JSON");
   }
 }
@@ -355,7 +355,7 @@ void modules_controller::post_module(Mongoose::Request &request, boost::smatch &
 
     PB::Registry::RegistryResponseMessage pb_response;
     pb_response.ParseFromString(str_response);
-  } catch (const std::exception &e) {
+  } catch (const std::exception &) {
     response.setCodeBadRequest("Problems parsing JSON");
   }
 }

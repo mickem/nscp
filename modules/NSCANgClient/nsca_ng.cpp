@@ -71,7 +71,7 @@ server_response parse_server_response(const std::string &line) {
   const std::string rest = (first_space == std::string::npos) ? std::string() : line.substr(first_space + 1);
 
   std::string keyword = keyword_raw;
-  std::transform(keyword.begin(), keyword.end(), keyword.begin(), [](const unsigned char c) { return std::toupper(c); });
+  std::transform(keyword.begin(), keyword.end(), keyword.begin(), [](const unsigned char c) { return static_cast<char>(std::toupper(c)); });
 
   if (keyword == "OKAY") {
     resp.kind = server_response::type::okay;

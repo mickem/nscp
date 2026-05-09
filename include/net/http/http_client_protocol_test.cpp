@@ -62,7 +62,7 @@ TEST(http_client_protocol, on_read_in_read_state_collects_response_data) {
 
   EXPECT_TRUE(proto.on_read(raw.size()));
   const http::response response = proto.get_response();
-  EXPECT_EQ(response.status_code_, 200);
+  EXPECT_EQ(response.status_code_, 200u);
   EXPECT_EQ(response.payload_, "hello");
 }
 

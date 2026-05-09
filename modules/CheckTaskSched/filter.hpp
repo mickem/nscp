@@ -329,7 +329,7 @@ struct new_filter_obj : public filter_obj {
   std::string get_most_recent_run_time_s() { return str::format::format_date(get_most_recent_run_time()); }
   bool get_has_run() { return most_recent_run_time(task, get_title()).has_run(); }
 
-  long long convert_runtime(std::string &) { return 0; }
+  long long convert_runtime(const std::string &) { return 0; }
 };
 
 typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;

@@ -282,6 +282,6 @@ In this client you can execute queries, check status, see log and so on and so f
 
 ## Next Steps
 
-- [Active Monitoring with NRPE](nrpe.md) — wire NSClient++ up so a Nagios-style server can poll it
-- [Passive Monitoring (NSCA/NRDP)](passive-monitoring-nsca.md) — push results to your monitoring server on a schedule
+- [Active Monitoring with NRPE](../scenarios/nrpe.md) — wire NSClient++ up so a Nagios-style server can poll it
+- [Passive Monitoring (NSCA/NRDP)](../scenarios/passive-monitoring-nsca.md) — push results to your monitoring server on a schedule
 - [Reference: WEBServer](../reference/generic/WEBServer.md) — every web server setting in detail

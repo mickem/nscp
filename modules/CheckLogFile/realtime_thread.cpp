@@ -109,8 +109,8 @@ void real_time_thread::thread_proc() {
     if (dur && dur->total_milliseconds() < 0)
       dwWaitTime = 0;
     else if (dur)
-      dwWaitTime = dur->total_milliseconds();
-    DWORD dwWaitReason = WaitForMultipleObjects(static_cast<DWORD>(logs.size() + 1), handles, FALSE, dwWaitTime);
+      dwWaitTime = static_cast<DWORD>(dur->total_milliseconds());
+    const DWORD dwWaitReason = WaitForMultipleObjects(static_cast<DWORD>(logs.size() + 1), handles, FALSE, dwWaitTime);
     if (dwWaitReason == WAIT_TIMEOUT) {
       // we take care of this below...
     } else if (dwWaitReason == WAIT_OBJECT_0) {

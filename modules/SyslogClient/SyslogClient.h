@@ -49,5 +49,5 @@ class SyslogClient : public nscapi::impl::simple_plugin {
  private:
   void add_command(std::string key, std::string args);
   void add_target(std::string key, std::string args);
-  std::string parse_priority(std::string severity, std::string facility);
+  std::string parse_priority(std::string severity_arg, std::string facility_arg);
 };

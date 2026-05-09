@@ -213,9 +213,9 @@ TEST(NrpePacket, V2QueryRoundTrip) {
 }
 
 TEST(NrpePacket, V2DifferentResultCodes) {
-  for (int16_t rc : {0, 1, 2, 3}) {
+  for (int16_t rc : {int16_t{0}, int16_t{1}, int16_t{2}, int16_t{3}}) {
     packet pkt = packet::create_response(data::version2, rc, "test", 1024);
-    std::vector<char> buf = pkt.get_buffer();
+    const std::vector<char> buf = pkt.get_buffer();
     packet restored(buf, 1024);
     EXPECT_EQ(restored.getResult(), rc);
   }

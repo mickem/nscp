@@ -107,7 +107,7 @@ void nsclient::core::plugin_cache::remove_plugin(unsigned int plugin_id) {
   for (plugin_cache_item &i : plugin_cache_) {
     if (i.id == plugin_id) {
       i.is_loaded = false;
-      i.id = -1;
+      i.id = static_cast<unsigned int>(-1);
       return;
     }
   }

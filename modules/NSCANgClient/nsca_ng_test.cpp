@@ -311,7 +311,7 @@ TEST(NscaNgConnectionData, DefaultsAreApplied) {
   EXPECT_EQ(c.port_, "5668") << "default NSCA-NG port is 5668";
   EXPECT_TRUE(c.use_psk) << "PSK is the default authentication mode";
   EXPECT_FALSE(c.host_check_default) << "service checks are the default";
-  EXPECT_EQ(c.timeout, 30);
+  EXPECT_EQ(c.timeout, 30u);
   EXPECT_EQ(c.max_output_length, nsca_ng_client::kDefaultMaxOutputBytes);
   // identity defaults to sender hostname
   EXPECT_EQ(c.identity, "agent01");

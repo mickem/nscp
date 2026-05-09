@@ -179,7 +179,7 @@ void lua::lua_runtime::on_submit(std::string channel, script_information *inform
 void lua::lua_runtime::create_user_data(scripts::script_information<lua_traits> *info) { info->user_data.base_path_ = base_path; }
 
 void lua::lua_runtime::load(scripts::script_information<lua_traits> *info) {
-  std::string base_path = info->user_data.base_path_;
+  const std::string& script_base_path = info->user_data.base_path_;
   lua_wrapper lua_instance(info->user_data.L);
   lua_instance.set_userdata(lua::lua_traits::user_data_tag, info);
   lua_instance.openlibs();
@@ -187,16 +187,16 @@ void lua::lua_runtime::load(scripts::script_information<lua_traits> *info) {
   for (lua_runtime_plugin_type &plugin : plugins) {
     plugin->load(lua_instance);
   }
-  lua_instance.append_path(base_path + "/scripts/lua/lib/?.lua;" + base_path + "scripts/lua/?;");
+  lua_instance.append_path(script_base_path + "/scripts/lua/lib/?.lua;" + script_base_path + "scripts/lua/?;");
   if (lua_instance.loadfile(info->script) != 0) throw lua::lua_exception("Failed to load script: " + info->script + ": " + lua_instance.pop_string());
   if (lua_instance.pcall(0, 0, 0) != 0) throw lua::lua_exception("Failed to execute script: " + info->script + ": " + lua_instance.pop_string());
   lua_instance.gc(LUA_GCCOLLECT, 0);
 }
 void lua::lua_runtime::start(scripts::script_information<lua_traits> *info) {
   lua_wrapper lua_instance(info->user_data.L);
-  int index = lua_instance.getglobal("on_start");
+  lua_instance.getglobal("on_start");
   if (lua_instance.is_function()) {
-    int index = lua_instance.getglobal("on_start");
+    lua_instance.getglobal("on_start");
     if (lua_instance.pcall(0, 0, 0) != 0) {
       throw lua_exception("Failed to start script: " + info->script + ": " + lua_instance.pop_string());
     }

@@ -104,6 +104,15 @@ source_group(Generated FILES ${SRCS})
 # set_source_files_properties(${WIXOBJ_LIST} ${WIX_DEST} PROPERTIES GENERATED 1)
 
 source_group(Sources FILES ${SRCS})
+
+# ICE03: component IDs from the VC CRT merge module are >72 chars - we can't
+#        change names baked into Microsoft_VCxxx_CRT.msm.
+# ICE30: "two components install the same file" - the NSClientConfig /
+#        NSClientConfigUser pair is conditionalized on USER_WRITABLE_CONFIG so
+#        the conditions are mutually exclusive; the merge-module CRT files
+#        are similarly architecture-conditional. WiX cannot prove it.
+list(APPEND WIX_LINK_FLAGS -sice:ICE03 -sice:ICE30)
+
 ADD_WIX_INSTALLER(${ALIAS} "${SRCS}" "${DEPENDENCIES}" "${LOCALIZATIONS}")
 add_dependencies(
     ${TARGET}

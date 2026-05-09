@@ -78,7 +78,7 @@ template <typename T>
 bool write_chunk(::google::protobuf::io::CodedOutputStream &stream, const T &obj) {
   std::string tmp;
   obj.SerializeToString(&tmp);
-  stream.WriteVarint32(tmp.size());
+  stream.WriteVarint32(static_cast<uint32_t>(tmp.size()));
   stream.WriteString(tmp);
   return true;
 }

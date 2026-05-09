@@ -122,7 +122,6 @@ struct mock_object_factory final : object_factory_interface {
 // ======================================================================
 
 static evaluation_context make_context() { return std::make_shared<mock_evaluation_context>(); }
-static object_converter make_converter() { return std::make_shared<mock_object_converter>(); }
 static object_factory make_factory() { return std::make_shared<mock_object_factory>(); }
 
 static object_factory make_factory_with_variable(const std::string &name, node_type value) {

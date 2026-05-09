@@ -225,7 +225,7 @@ TEST(http_packet, build_request_output) {
 
 TEST(http_response, create_timeout) {
   const http::response p = http::response::create_timeout("timed out");
-  EXPECT_EQ(p.status_code_, 99);
+  EXPECT_EQ(p.status_code_, 99u);
   EXPECT_EQ(p.payload_, "timed out");
 }
 

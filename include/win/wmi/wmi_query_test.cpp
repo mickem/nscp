@@ -260,7 +260,7 @@ TEST_F(WmiQueryTest, QueryExecuteWithMultipleRows) {
 
     int count = 0;
     while (enumerator.has_next()) {
-      const auto& row = enumerator.get_next();
+      (void)enumerator.get_next();
       // Just verify we can iterate - don't assert on specific values
       count++;
       if (count > 5) break;  // Don't iterate through all processes

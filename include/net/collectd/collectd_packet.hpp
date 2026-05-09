@@ -34,6 +34,10 @@
 namespace collectd {
 class data {
  public:
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4200)  // flexible-array member is intentional
+#endif
   struct string_part : boost::noncopyable {
     int16_t type;
     int16_t length;
@@ -41,6 +45,9 @@ class data {
 
     char *get_data() { return &data[0]; }
   };
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
   struct int64_part : boost::noncopyable {
     int16_t type;
     int16_t length;
@@ -156,7 +163,7 @@ class packet {
     int sz = sizeof(int8_t);
     buffer.append(sz, '\0');
     int8_t *b_type = reinterpret_cast<int8_t *>(&buffer[pos]);
-    *b_type = type;
+    *b_type = static_cast<int8_t>(type);
   }
   void append_value_value(const double double_data) {
     std::string::size_type pos = buffer.length();

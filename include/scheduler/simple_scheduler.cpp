@@ -224,7 +224,7 @@ void scheduler::thread_proc(int id) {
           }
           boost::posix_time::time_duration duration = now() - now_time;
 
-          my_atomic_add(&metric_time, duration.total_milliseconds());
+          my_atomic_add(&metric_time, static_cast<uint32_t>(duration.total_milliseconds()));
           atomic_inc32(&metric_count);
           if (to_reschedule) {
             reschedule(*item, now_time);
@@ -243,7 +243,7 @@ void scheduler::thread_proc(int id) {
         log_error(__FILE__, __LINE__, "Task not found: " + str::xtos(instance->schedule_id));
       }
     }
-  } catch (const boost::thread_interrupted &e) {
+  } catch (const boost::thread_interrupted &) {
   } catch (const std::exception &e) {
     atomic_inc32(&metric_errors);
     log_error(__FILE__, __LINE__, "Exception in scheduler thread (thread will be killed): " + utf8::utf8_from_native(e.what()));
@@ -278,7 +278,7 @@ void scheduler::start_threads() {
   if (thread_count_ > threads_.threadCount()) missing_threads = thread_count_ - threads_.threadCount();
   if (missing_threads > 0 && missing_threads <= thread_count_) {
     for (std::size_t i = 0; i < missing_threads; i++) {
-      boost::function<void()> f = [this, i]() { this->thread_proc(100 + i); };
+      const boost::function<void()> f = [this, i]() { this->thread_proc(static_cast<int>(100 + i)); };
       threads_.createThread(f);
     }
   }

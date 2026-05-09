@@ -33,12 +33,12 @@ std::list<std::string> Enumerations::expand_wild_card_path(const std::string &qu
   std::list<std::string> ret;
   std::wstring wquery = utf8::cvt<std::wstring>(query);
   hlp::buffer<TCHAR> buffer(1024);
-  DWORD dwBufLen = buffer.size();
+  auto dwBufLen = static_cast<DWORD>(buffer.size());
   try {
     pdh_error status = factory::get_impl()->PdhExpandWildCardPath(NULL, wquery.c_str(), buffer, &dwBufLen, 0);
     if (status.is_more_data()) {
       buffer.resize(dwBufLen + 10);
-      dwBufLen = buffer.size();
+      dwBufLen = static_cast<DWORD>(buffer.size());
       status = factory::get_impl()->PdhExpandWildCardPath(NULL, wquery.c_str(), buffer, &dwBufLen, 0);
     }
     if (status.is_not_found()) {
@@ -61,7 +61,7 @@ std::list<std::string> Enumerations::expand_wild_card_path(const std::string &qu
       }
 
       hlp::buffer<TCHAR, PDH_COUNTER_INFO *> tBuf2(2048);
-      DWORD bufSize = tBuf2.size();
+      auto bufSize = static_cast<DWORD>(tBuf2.size());
 
       status = factory::get_impl()->PdhGetCounterInfo(hCounter, FALSE, &bufSize, tBuf2.get());
       if (status.is_error()) {

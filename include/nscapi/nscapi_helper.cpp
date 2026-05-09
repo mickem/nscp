@@ -129,7 +129,11 @@ int nscapi::plugin_helper::wrapReturnString(char *buffer, unsigned int bufLen, s
   if (str.length() >= bufLen) {
     return NSCAPI::isInvalidBufferLen;
   }
+#ifdef _MSC_VER
+  strncpy_s(buffer, bufLen, str.c_str(), bufLen - 1);
+#else
   strncpy(buffer, str.c_str(), bufLen);
+#endif
   return defaultReturnCode;
 }
 

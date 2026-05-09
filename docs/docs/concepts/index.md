@@ -132,7 +132,7 @@ NSClient++ speaks many protocols. The most common are:
 | **Graphite**    | Agent pushes metrics   | Real-time graphing                       |
 | **check_mk**    | Server polls agent     | Check_MK monitoring                      |
 
-See [Getting Started](../getting-started/index.md) for step-by-step protocol setup.
+See [Quick Start](../quick-start.md) for step-by-step protocol setup.
 
 ---
 
@@ -177,7 +177,7 @@ nscp settings --sort
 regular `--generate`/`--update` commands preserve the existing order.
 
 !!! tip
-    Use the [Web UI](../web.md) to explore and change settings interactively — it shows descriptions for every option.
+    Use the [Web UI](../setup/web-interface.md) to explore and change settings interactively — it shows descriptions for every option.
 
 ---
 

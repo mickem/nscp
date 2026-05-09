@@ -884,8 +884,9 @@ extern "C" UINT __stdcall NeedUninstall(MSIHANDLE hInstall) {
       if ((*cit) == L"{E7CF81FE-8505-4D4A-8ED3-48949C8E4D5B}") {
         h.errorMessage(L"Found old NSClient++/OP5 client installed, will uninstall it now!");
         std::wstring command = L"msiexec /uninstall " + (*cit);
-        wchar_t *cmd = new wchar_t[command.length() + 1];
-        wcsncpy(cmd, command.c_str(), command.length());
+        const size_t cmd_len = command.length() + 1;
+        wchar_t *cmd = new wchar_t[cmd_len];
+        wcsncpy_s(cmd, cmd_len, command.c_str(), command.length());
         cmd[command.length()] = 0;
         PROCESS_INFORMATION pi;
         STARTUPINFO si;

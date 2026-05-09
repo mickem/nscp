@@ -180,7 +180,7 @@ In 0.4.2, a new set of commands was introduced with a more consistent naming sty
 
 The old `CheckFoo` commands have been removed. **Use the `check_foo` style commands** in all new configurations.
 
-If you are migrating from a very old setup, see [Migrating from 0.3.x](howto/03x_migration.md).
+If you are migrating from a very old (0.3.x) setup, refer to the legacy upgrade notes shipped with that release - the dedicated migration guide is no longer maintained.
 
 ## 4. Network
 

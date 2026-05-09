@@ -178,7 +178,7 @@ All four use the same shape:
 `enable` and `disable` only change the configuration — they do not
 load/unload the module immediately. If you want the configuration change
 applied right away you also need to `load` or `unload` the module (or
-reload the service via the [Settings](settings.md) API).
+reload the service via the settings API).
 
 ### Request
 

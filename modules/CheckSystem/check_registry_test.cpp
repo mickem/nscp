@@ -134,8 +134,8 @@ TEST(WinRegistryTypeToString, UnknownType) {
 // ── parse_view ────────────────────────────────────────────────────────────────
 
 TEST(WinRegistryParseView, Default) { EXPECT_EQ(win_registry::parse_view("default"), 0u); }
-TEST(WinRegistryParseView, View32) { EXPECT_EQ(win_registry::parse_view("32"), KEY_WOW64_32KEY); }
-TEST(WinRegistryParseView, View64) { EXPECT_EQ(win_registry::parse_view("64"), KEY_WOW64_64KEY); }
+TEST(WinRegistryParseView, View32) { EXPECT_EQ(win_registry::parse_view("32"), static_cast<DWORD>(KEY_WOW64_32KEY)); }
+TEST(WinRegistryParseView, View64) { EXPECT_EQ(win_registry::parse_view("64"), static_cast<DWORD>(KEY_WOW64_64KEY)); }
 TEST(WinRegistryParseView, Empty) { EXPECT_EQ(win_registry::parse_view(""), 0u); }
 
 // ── key_info struct ───────────────────────────────────────────────────────────

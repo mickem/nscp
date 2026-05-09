@@ -29,7 +29,7 @@ void storage_query_handler::parse_get(const long long plugin_id, const PB::Stora
                                       PB::Storage::StorageResponseMessage &response) {
   PB::Storage::StorageResponseMessage::Response *payload = response.add_payload();
   std::string plugin_name = "";
-  nsclient::core::plugin_manager::plugin_type plugin = plugins_->find_plugin(plugin_id);
+  nsclient::core::plugin_manager::plugin_type plugin = plugins_->find_plugin(static_cast<unsigned int>(plugin_id));
   if (plugin) {
     plugin_name = plugin->get_alias_or_name();
   }
@@ -40,7 +40,7 @@ void storage_query_handler::parse_get(const long long plugin_id, const PB::Stora
 void storage_query_handler::parse_put(const long long plugin_id, const PB::Storage::StorageRequestMessage::Request::Put &q,
                                       PB::Storage::StorageResponseMessage &response) {
   std::string plugin_name = "";
-  nsclient::core::plugin_manager::plugin_type plugin = plugins_->find_plugin(plugin_id);
+  nsclient::core::plugin_manager::plugin_type plugin = plugins_->find_plugin(static_cast<unsigned int>(plugin_id));
   if (plugin) {
     plugin_name = plugin->get_alias_or_name();
   }

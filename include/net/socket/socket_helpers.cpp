@@ -392,7 +392,12 @@ void socket_helpers::write_certs(const std::string &cert, const bool ca) {
     throw socket_exception("Failed to read serialized key");
   }
 
-  FILE *file = fopen(cert.c_str(), "wb");
+  FILE *file = nullptr;
+#ifdef _MSC_VER
+  if (fopen_s(&file, cert.c_str(), "wb") != 0) file = nullptr;
+#else
+  file = fopen(cert.c_str(), "wb");
+#endif
   if (file == nullptr) throw socket_exception("Failed to write certificate to: " + cert);
   fwrite(buf.get(), sizeof(char), size, file);
   fclose(file);

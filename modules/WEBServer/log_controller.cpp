@@ -125,11 +125,11 @@ void log_controller::add_log(Mongoose::Request &request, boost::smatch &what, Mo
     std::string object_type;
     json::object o = root.as_object();
     std::string file = get_str_or(o, "file", "REST");
-    int line = get_int_or(o, "line", 0);
+    int line = static_cast<int>(get_int_or(o, "line", 0));
     NSCAPI::log_level::level level = nscapi::logging::parse(get_str_or(o, "level", "error"));
     std::string message = get_str_or(o, "message", "no message");
     core->log(level, file, line, message);
-  } catch (const std::exception &e) {
+  } catch (const std::exception &) {
     response.setCodeBadRequest("Problems parsing JSON");
   }
   response.setCodeOk();

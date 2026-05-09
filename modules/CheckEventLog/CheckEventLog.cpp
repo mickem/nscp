@@ -207,15 +207,15 @@ void check_legacy(const std::string &logfile, std::string &scan_range, const int
     EVENTLOGRECORD *pevlr = buffer.get();
     while (dwRead > 0) {
       EventLogRecord record(logfile, pevlr);
-      if (direction == direction_backwards && record.written() < stop_date) {
+      if (direction == direction_backwards && static_cast<long long>(record.written()) < stop_date) {
         is_scanning = false;
         break;
       }
-      if (direction == direction_forwards && record.written() > stop_date) {
+      if (direction == direction_forwards && static_cast<long long>(record.written()) > stop_date) {
         is_scanning = false;
         break;
       }
-      if (!(direction == direction_forwards && record.written() < start_date)) {
+      if (!(direction == direction_forwards && static_cast<long long>(record.written()) < start_date)) {
         modern_filter::match_result ret = filter.match(filter_type::object_type(new eventlog_filter::old_filter_obj(ltime, logfile, pevlr, truncate_message)));
       }
       dwRead -= pevlr->Length;
@@ -316,7 +316,7 @@ void CheckEventLog::check_modern(const std::string &logfile, const std::string &
     }
   }
   while (true) {
-    DWORD status = ERROR_SUCCESS;
+    status = ERROR_SUCCESS;
     hlp::buffer<eventlog::api::EVT_HANDLE> hEvents(batch_size);
     DWORD dwReturned = 0;
 

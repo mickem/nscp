@@ -68,7 +68,7 @@ parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, p
   } else {
     number = str::format::decode_byte_units(number, unit);
   }
-  return parsers::where::factory::create_int(number);
+  return parsers::where::factory::create_int(static_cast<long long>(number));
 }
 
 long long get_zero() { return 0; }
@@ -136,7 +136,7 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
   CheckMemory::memData mem_data = {};
   try {
     mem_data = memoryChecker->getMemoryStatus();
-  } catch (const CheckMemoryException &e) {
+  } catch (const CheckMemoryException &) {
   }
   for (const std::string &type : checks) {
     unsigned long long used(0), total(0);

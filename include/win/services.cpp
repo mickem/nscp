@@ -438,7 +438,7 @@ service_info get_service_info(const std::string &computer, const std::string &se
     const DWORD error = GetLastError();
     if (error == ERROR_SERVICE_DOES_NOT_EXIST) {
       const hlp::buffer<wchar_t> buf(2048);
-      DWORD size = buf.size();
+      auto size = static_cast<DWORD>(buf.size());
       if (!GetServiceKeyName(sc, utf8::cvt<std::wstring>(service).c_str(), buf.get(), &size)) {
         throw nsclient::nsclient_exception("Failed to open service " + service + ": " + error::lookup::last_error(error));
       }

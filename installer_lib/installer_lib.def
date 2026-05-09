@@ -1,5 +1,3 @@
-LIBRARY	installer_dll
-
 EXPORTS
 	ImportConfig
 	ScheduleWriteConfig
