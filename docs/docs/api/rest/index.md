@@ -1,7 +1,7 @@
 # NSClient++ REST API
 
 NSClient++ provides its own HTTP API which can
-be enabled with the [WEBServer module](../../reference/generic/WEBServer.md#WEBServer).
+be enabled with the [WEBServer module](../../reference/generic/WEBServer.md).
 
 The REST API exposes most of NSClient++'s functionality (modules, settings,
 queries, logs, scripts, metrics, …) and is also what the bundled web UI uses.
@@ -10,11 +10,12 @@ Each topic has its own page:
 * [Info](info.md) — name and version
 * [Login](login.md) — session login / current user
 * [Modules](modules.md) — list, load, unload, enable, disable
-* [Settings](settings.md) — read, write, save, load, reload, diff
+* [Settings](settings.md) — list, read, write, delete, save, load, reload, diff
 * [Queries](queries.md) — list and execute checks
 * [Scripts](scripts.md) — list and manage scripts
 * [Logs](logs.md) — read, write, status, reset, paginate
-* [Metrics](metrics.md) — internal metrics and Prometheus / OpenMetrics
+* [Metrics](metrics.md) — flat JSON, OpenMetrics text, legacy nested JSON
+* [Metadata](metadata.md) — performance counters, registered channels
 * [Legacy API](legacy.md) — pre-`/api/v2` endpoints kept for backwards compatibility
 
 ## API versions
