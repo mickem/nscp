@@ -44,6 +44,7 @@
 #include "legacy_controller.hpp"
 #include "log_controller.hpp"
 #include "login_controller.hpp"
+#include "metadata_controller.hpp"
 #include "metrics_controller.hpp"
 #include "modules_controller.hpp"
 #include "openmetrics_controller.hpp"
@@ -247,6 +248,8 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     server->registerController(new login_controller(2, session));
     server->registerController(new metrics_controller(2, session, get_core(), get_id()));
     server->registerController(new openmetrics_controller(2, session, get_core(), get_id()));
+    server->registerController(new metadata_controller(2, session, get_core(), get_id()));
+    server->registerController(new metadata_controller(1, session, get_core(), get_id()));
 
     server->registerController(new modules_controller(1, session, get_core(), get_id()));
     server->registerController(new query_controller(1, session, get_core(), get_id()));
@@ -619,6 +622,21 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
     result << "Login using this password " << password << std::endl;
     s.set("/settings/default", "password", password);
     s.set(path, "port", port);
+
+    // Also persist the per-user admin row so a re-run of `web install`
+    // actually rotates the WEB login. /settings/default/password alone is
+    // not enough: on next start `ensure_user` only seeds the per-user row
+    // when missing, and the boot loop then re-applies the stale on-disk
+    // hash over the seeded value - so without this the new password is
+    // silently ignored until the user manually deletes the admin row.
+    const std::string admin_path = path + "/users/admin";
+    std::string hashed_admin = web_password::hash_password(password);
+    if (hashed_admin.empty()) {
+      hashed_admin = password;  // KDF failure: fall back to plaintext (still verifies)
+    }
+    s.set(admin_path, "password", hashed_admin);
+    s.set(admin_path, "role", "full");
+
     s.save();
     get_core()->settings_query(s.request(), s.response());
     if (!s.validate_response()) {

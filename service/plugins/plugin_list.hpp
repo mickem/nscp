@@ -294,5 +294,11 @@ struct plugins_list_with_listener : plugins_list<plugins_list_listeners_impl> {
     }
     return ret;
   }
+
+  listener_list_type get_listeners() {
+    boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    has_valid_lock_throw(readLock, "plugins_list::get_listeners");
+    return listeners_;
+  }
 };
 }  // namespace nsclient
