@@ -12,8 +12,8 @@
 namespace json = boost::json;
 
 namespace {
-bool exec_metadata_command(const nscapi::core_wrapper *core, const std::string &target, const std::string &command,
-                           const std::vector<std::string> &arguments, Mongoose::StreamResponse &response, std::string &out_message) {
+bool exec_metadata_command(const nscapi::core_wrapper *core, const std::string &target, const std::string &command, const std::vector<std::string> &arguments,
+                           Mongoose::StreamResponse &response, std::string &out_message) {
   PB::Commands::ExecuteRequestMessage rm;
   PB::Commands::ExecuteRequestMessage::Request *payload = rm.add_payload();
   payload->set_command(command);

@@ -20,11 +20,11 @@
 #pragma once
 
 #include <boost/circular_buffer.hpp>
-#include <memory>
 #include <boost/thread.hpp>
 #include <boost/unordered_map.hpp>
 #include <error/error.hpp>
 #include <map>
+#include <memory>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/settings/proxy.hpp>
 #include <nsclient/nsclient_exception.hpp>

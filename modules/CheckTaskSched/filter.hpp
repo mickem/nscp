@@ -25,9 +25,9 @@
 #include <taskschd.h>
 
 #include <boost/optional.hpp>
-#include <memory>
 #include <error/error.hpp>
 #include <map>
+#include <memory>
 #include <nsclient/nsclient_exception.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/engine.hpp>

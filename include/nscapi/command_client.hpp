@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <memory>
 #include <list>
+#include <memory>
 #include <nscapi/dll_defines.hpp>
 #include <string>
 

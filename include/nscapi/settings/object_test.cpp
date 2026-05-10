@@ -19,8 +19,8 @@
 
 #include <gtest/gtest.h>
 
-#include <memory>
 #include <map>
+#include <memory>
 #include <nscapi/settings/object.hpp>
 #include <string>
 #include <vector>

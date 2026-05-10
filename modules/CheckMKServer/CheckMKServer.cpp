@@ -19,14 +19,13 @@
 
 #include "CheckMKServer.h"
 
+#include <ctime>
 #include <net/check_mk/lua/lua_check_mk.hpp>
 #include <net/socket/socket_settings_helper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/settings/helper.hpp>
-
-#include <ctime>
 
 #include "handler_impl.hpp"
 
@@ -174,7 +173,7 @@ int result_to_status_code(PB::Common::ResultCode r) {
 }  // namespace
 
 void CheckMKServer::handleNotification(const std::string &channel, const PB::Commands::SubmitRequestMessage &request_message,
-                                        PB::Commands::SubmitResponseMessage *response_message) {
+                                       PB::Commands::SubmitResponseMessage *response_message) {
   check_mk::submission_store::kind kind;
   if (channel == channel_mrpe_) {
     kind = check_mk::submission_store::kind_mrpe;

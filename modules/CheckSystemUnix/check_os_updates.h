@@ -20,8 +20,8 @@
 #ifndef NSCP_CHECK_OS_UPDATES_H
 #define NSCP_CHECK_OS_UPDATES_H
 
-#include <memory>
 #include <functional>
+#include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>

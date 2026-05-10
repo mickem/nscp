@@ -23,9 +23,9 @@ extern "C" {
 #include <lua.h>
 }
 
-#include <memory>
 #include <list>
 #include <lua/lua_script.hpp>
+#include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <scripts/script_interface.hpp>
 #include <string>

@@ -28,8 +28,8 @@
 #pragma once
 
 #include <boost/filesystem.hpp>
-#include <memory>
 #include <fstream>
+#include <memory>
 #include <nsclient/logger/logger.hpp>
 #include <settings/settings_core.hpp>
 #include <sstream>

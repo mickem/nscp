@@ -143,8 +143,7 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_human_string("state", &filter_obj::get_state_s, "The current state")
       .add_human_string("start_type", &filter_obj::get_start_type_s, "The configured start type");
 
-  registry_.add_converter(type_custom_state, &parse_state)
-    .add_converter(type_custom_start_type, &parse_start_type);
+  registry_.add_converter(type_custom_state, &parse_state).add_converter(type_custom_start_type, &parse_start_type);
 }
 
 // Get service info using systemctl show
@@ -280,8 +279,7 @@ void check_service(const PB::Commands::QueryRequestMessage::Request &request, PB
         if (!body.empty()) body += "\n";
         body += s.name + " " + s.state + "/" + s.start_type + " " + (s.desc.empty() ? s.name : s.desc);
       }
-      nscapi::protobuf::functions::append_simple_query_response_payload(
-          response, "check_service", NSCAPI::query_return_codes::returnOK, body, "");
+      nscapi::protobuf::functions::append_simple_query_response_payload(response, "check_service", NSCAPI::query_return_codes::returnOK, body, "");
       return;
     }
   }

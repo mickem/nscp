@@ -92,8 +92,7 @@ file_filter::filter_obj_handler::filter_obj_handler() {
     ;
   // clang-format on
 
-  registry_.add_converter(type_custom_type, &fun_convert_type)
-    ;
+  registry_.add_converter(type_custom_type, &fun_convert_type);
 
   registry_.add_human_string("access", &filter_obj::get_access_su, "")
       .add_human_string("creation", &filter_obj::get_creation_su, "")

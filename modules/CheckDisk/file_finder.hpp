@@ -20,8 +20,8 @@
 #pragma once
 
 #include <boost/filesystem.hpp>
-#include <memory>
 #include <file_helpers.hpp>
+#include <memory>
 #include <string>
 #include <vector>
 

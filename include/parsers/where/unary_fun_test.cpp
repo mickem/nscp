@@ -19,8 +19,8 @@
 
 #include <gtest/gtest.h>
 
-#include <memory>
 #include <list>
+#include <memory>
 #include <parsers/where/node.hpp>
 #include <parsers/where/unary_fun.hpp>
 #include <string>

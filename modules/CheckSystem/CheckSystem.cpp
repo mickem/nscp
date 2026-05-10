@@ -23,10 +23,10 @@
 
 #include <boost/assign/list_of.hpp>
 #include <boost/json.hpp>
-#include <memory>
 #include <boost/program_options.hpp>
 #include <compat.hpp>
 #include <map>
+#include <memory>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
@@ -1193,5 +1193,4 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   } catch (...) {
     NSC_LOG_ERROR("Failed to get realtime filter metrics");
   }
-
 }

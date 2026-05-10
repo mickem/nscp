@@ -20,8 +20,8 @@
 #pragma once
 
 #include <boost/optional.hpp>
-#include <memory>
 #include <list>
+#include <memory>
 #include <settings/settings_value.hpp>
 #include <string>
 #include <utility>

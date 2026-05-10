@@ -176,7 +176,8 @@ struct filter_obj_handler : public native_context {
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_type;
 
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string_var("name", &filter_obj::get_name, "Thermal zone name").add_string_var("active", &filter_obj::get_active, "True if the thermal zone is active");
+  registry_.add_string_var("name", &filter_obj::get_name, "Thermal zone name")
+      .add_string_var("active", &filter_obj::get_active, "True if the thermal zone is active");
 
   registry_.add_int_var("temperature", &filter_obj::get_temperature_i, "Temperature in degrees Celsius")
       .add_int_perf("C")

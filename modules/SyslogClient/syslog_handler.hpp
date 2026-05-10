@@ -65,9 +65,7 @@ struct syslog_target_object : public nscapi::targets::target_object {
 };
 
 struct options_reader_impl : public client::options_reader_interface {
-  virtual nscapi::settings_objects::object_instance create(std::string alias, std::string path) {
-    return std::make_shared<syslog_target_object>(alias, path);
-  }
+  virtual nscapi::settings_objects::object_instance create(std::string alias, std::string path) { return std::make_shared<syslog_target_object>(alias, path); }
   virtual nscapi::settings_objects::object_instance clone(nscapi::settings_objects::object_instance parent, const std::string alias, const std::string path) {
     return std::make_shared<syslog_target_object>(parent, alias, path);
   }

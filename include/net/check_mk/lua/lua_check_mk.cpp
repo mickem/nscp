@@ -17,8 +17,8 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <memory>
 #include <iostream>
+#include <memory>
 #include <net/check_mk/lua/lua_check_mk.hpp>
 
 //////////////////////////////////////////////////////////////////////////
@@ -513,9 +513,8 @@ int check_mk::check_mk_submissions_wrapper::destroy(lua_State *L) {
   lua::lua_wrapper instance(L);
   return instance.destroy_user_object_instance<MKSubmissionsData>();
 }
-const luaL_Reg submissions_functions[] = {{"get", &check_mk::check_mk_submissions_wrapper::get},
-                                          {"__gc", &check_mk::check_mk_submissions_wrapper::destroy},
-                                          {0}};
+const luaL_Reg submissions_functions[] = {
+    {"get", &check_mk::check_mk_submissions_wrapper::get}, {"__gc", &check_mk::check_mk_submissions_wrapper::destroy}, {0}};
 const luaL_Reg submissions_ctors[] = {{"new", &check_mk::check_mk_submissions_wrapper::create}, {0}};
 
 //////////////////////////////////////////////////////////////////////////

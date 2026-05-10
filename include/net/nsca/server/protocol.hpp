@@ -21,9 +21,9 @@
 
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
-#include <memory>
 #include <cstdint>
 #include <ctime>
+#include <memory>
 #include <net/socket/server.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <str/xtos.hpp>

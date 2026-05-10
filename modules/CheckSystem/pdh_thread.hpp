@@ -126,6 +126,7 @@ class pdh_thread {
   typedef std::map<std::string, std::shared_ptr<std::atomic<long long>>> count_map;
   typedef std::map<std::string, long long> non_atomic_count_map;
   non_atomic_count_map get_realtime_filter_counts();
+
  private:
   static spi_container fetch_spi(error_list &errors);
   void write_metrics(const spi_container &handles, const windows::system_info::cpu_load &load, PDH::PDHQuery *pdh, error_list &errors);

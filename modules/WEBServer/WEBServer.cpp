@@ -134,17 +134,17 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
           "ALLOW ANONYMOUS ACCESS",
           "When false (the default) any role named `anonymous` registered via /settings/WEB/server/roles is ignored and the WEB server never answers an "
           "unauthenticated request. Set to true only if you intentionally want to expose endpoints (via the `anonymous` role grants) without authentication.")
-      .add_int(
-          "auth rate limit max failures",
-          nscapi::settings_helper::int_fun_key([this](auto value) { this->session->set_auth_rate_limit_max_failures(value); },
-                                               auth_rate_limiter::kDefaultMaxFailures),
-          "AUTH RATE LIMIT (FAILURES)",
-          "How many consecutive failed authentication attempts from one client IP trigger the block. Default 10. Set to 0 to disable the limiter entirely "
-          "(useful for integration test harnesses that intentionally probe failed auth).")
+      .add_int("auth rate limit max failures",
+               nscapi::settings_helper::int_fun_key([this](auto value) { this->session->set_auth_rate_limit_max_failures(value); },
+                                                    auth_rate_limiter::kDefaultMaxFailures),
+               "AUTH RATE LIMIT (FAILURES)",
+               "How many consecutive failed authentication attempts from one client IP trigger the block. Default 10. Set to 0 to disable the limiter entirely "
+               "(useful for integration test harnesses that intentionally probe failed auth).")
       .add_int("auth rate limit block seconds",
                nscapi::settings_helper::int_fun_key([this](auto value) { this->session->set_auth_rate_limit_block_seconds(value); },
                                                     auth_rate_limiter::kDefaultBlockSeconds),
-               "AUTH RATE LIMIT (BLOCK SECONDS)", "How long an IP stays blocked after hitting `auth rate limit max failures` consecutive failures. Default 60 s.");
+               "AUTH RATE LIMIT (BLOCK SECONDS)",
+               "How long an IP stays blocked after hitting `auth rate limit max failures` consecutive failures. Default 60 s.");
   settings.alias()
       .add_key_to_settings()
       .add_string("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"), "TLS Certificate",

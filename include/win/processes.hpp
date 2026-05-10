@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <memory>
 #include <list>
+#include <memory>
 #include <str/format.hpp>
 #include <str/xtos.hpp>
 #include <string>

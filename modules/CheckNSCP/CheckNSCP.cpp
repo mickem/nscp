@@ -255,9 +255,9 @@ struct filter_obj_handler : native_context {
         .add_int_var("latest_minor", &filter_obj::get_latest_minor, "The minor component of the latest available version")
         .add_int_var("latest_build", &filter_obj::get_latest_build, "The build component of the latest available version")
         .add_int_var("update_available", &filter_obj::get_update_available,
-                   "1 when the latest available version is newer than the running version, 0 otherwise (and 0 if the lookup failed)")
+                     "1 when the latest available version is newer than the running version, 0 otherwise (and 0 if the lookup failed)")
         .add_int_var("versions_behind", &filter_obj::get_versions_behind,
-                   "Difference between latest and current version components (largest meaningful component) when an update is available, 0 otherwise");
+                     "Difference between latest and current version components (largest meaningful component) when an update is available, 0 otherwise");
   }
 };
 

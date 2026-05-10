@@ -1,9 +1,9 @@
 #pragma once
 
 #include <boost/filesystem/path.hpp>
-#include <memory>
 #include <boost/thread/mutex.hpp>
 #include <map>
+#include <memory>
 #include <nsclient/logger/logger.hpp>
 #include <string>
 

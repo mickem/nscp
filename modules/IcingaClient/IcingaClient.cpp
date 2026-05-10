@@ -34,8 +34,7 @@
  * @return
  */
 IcingaClient::IcingaClient()
-    : simple_plugin(),
-      client_("icinga", std::make_shared<icinga_client::icinga_client_handler>(), std::make_shared<icinga_handler::options_reader_impl>()) {}
+    : simple_plugin(), client_("icinga", std::make_shared<icinga_client::icinga_client_handler>(), std::make_shared<icinga_handler::options_reader_impl>()) {}
 
 bool IcingaClient::loadModuleEx(const std::string &alias, NSCAPI::moduleLoadMode) {
   try {

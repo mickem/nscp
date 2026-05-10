@@ -19,10 +19,10 @@
 
 #pragma once
 
-#include <memory>
 #include <boost/unordered_set.hpp>
 #include <list>
 #include <map>
+#include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <set>
 #include <string>

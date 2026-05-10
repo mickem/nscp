@@ -239,8 +239,7 @@ void check_process(const PB::Commands::QueryRequestMessage::Request &request, PB
         if (!body.empty()) body += "\n";
         body += "(," + str::xtos(vsz_kb) + "," + str::xtos(rss_kb) + "," + str::xtos(cputime) + "," + str::xtos(p.pid) + ") " + cmd;
       }
-      nscapi::protobuf::functions::append_simple_query_response_payload(
-          response, "check_process", NSCAPI::query_return_codes::returnOK, body, "");
+      nscapi::protobuf::functions::append_simple_query_response_payload(response, "check_process", NSCAPI::query_return_codes::returnOK, body, "");
       return;
     }
   }

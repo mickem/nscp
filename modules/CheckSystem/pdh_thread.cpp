@@ -446,7 +446,6 @@ void pdh_thread::add_samples(std::shared_ptr<nscapi::settings_proxy> settings) {
   legacy_filters_.add_samples(settings);
 }
 
-
 pdh_thread::non_atomic_count_map pdh_thread::get_realtime_filter_counts() {
   boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
   if (!readLock.owns_lock()) {
@@ -455,7 +454,6 @@ pdh_thread::non_atomic_count_map pdh_thread::get_realtime_filter_counts() {
   }
   return non_atomic_count_map(realtime_filter_counts_);
 }
-
 
 std::map<std::string, long long> pdh_thread::get_int_value(std::string counter) {
   std::map<std::string, long long> ret;
@@ -612,9 +610,7 @@ void pdh_thread::set_path(const std::string mem_path, const std::string cpu_path
   legacy_filters_.set_path(legacy_path);
 }
 
-void pdh_thread::add_counter(const PDH::pdh_object &counter) {
-  configs_.push_back(counter);
-}
+void pdh_thread::add_counter(const PDH::pdh_object &counter) { configs_.push_back(counter); }
 
 void pdh_thread::add_realtime_mem_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
   try {

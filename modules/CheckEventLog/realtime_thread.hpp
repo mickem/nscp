@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <memory>
 #include <boost/thread/thread.hpp>
+#include <memory>
 
 #include "eventlog_record.hpp"
 #include "eventlog_wrapper.hpp"

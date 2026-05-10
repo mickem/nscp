@@ -19,11 +19,11 @@
 
 #include "check_drive.hpp"
 
-#include <memory>
 #include <boost/program_options.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <bytes/char_buffer.hpp>
 #include <error/error.hpp>
+#include <memory>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_program_options.hpp>
@@ -439,12 +439,11 @@ struct filter_obj_handler : public native_context {
         .add_human_string_context("total_used_pct", &filter_obj::get_total_used_pct_human, "")
         .add_human_string_context("user_used_pct", &filter_obj::get_user_used_pct_human, "");
 
-    registry_
-      .add_converter(type_custom_total_free, &calculate_total_used)
-      .add_converter(type_custom_total_used, &calculate_total_used)
-      .add_converter(type_custom_user_free, &calculate_user_used)
-      .add_converter(type_custom_user_used, &calculate_user_used)
-      .add_converter(type_custom_type, &convert_type);
+    registry_.add_converter(type_custom_total_free, &calculate_total_used)
+        .add_converter(type_custom_total_used, &calculate_total_used)
+        .add_converter(type_custom_user_free, &calculate_user_used)
+        .add_converter(type_custom_user_used, &calculate_user_used)
+        .add_converter(type_custom_type, &convert_type);
   }
 };
 
@@ -801,8 +800,7 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
         if (!body.empty()) body += "\n";
         body += mp + " " + fs + " " + str::xtos(total_kb) + " " + str::xtos(used_kb) + " " + str::xtos(free_kb) + " " + str::xtos(pct) + "% " + mp;
       }
-      nscapi::protobuf::functions::append_simple_query_response_payload(
-          response, "check_drivesize", NSCAPI::query_return_codes::returnOK, body, "");
+      nscapi::protobuf::functions::append_simple_query_response_payload(response, "check_drivesize", NSCAPI::query_return_codes::returnOK, body, "");
       return;
     }
   }
