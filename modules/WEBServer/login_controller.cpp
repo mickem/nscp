@@ -4,7 +4,7 @@
 
 namespace json = boost::json;
 
-login_controller::login_controller(const int version, const boost::shared_ptr<session_manager_interface> &session)
+login_controller::login_controller(const int version, const std::shared_ptr<session_manager_interface> &session)
     : RegexpController(version == 1 ? "/api/v1/login" : "/api/v2/login"), session(session) {
   addRoute("GET", "/?$", this, &login_controller::is_loggedin);
   addRoute("DELETE", "/?$", this, &login_controller::logout);

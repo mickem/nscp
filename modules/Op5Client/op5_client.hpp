@@ -20,7 +20,7 @@
 #pragma once
 
 #include <boost/atomic/atomic.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 #include <net/http/http_packet.hpp>
@@ -50,7 +50,7 @@ class op5_client {
 
   boost::atomic<bool> stop_thread_;
   boost::timed_mutex mutex_;
-  boost::shared_ptr<boost::thread> thread_;
+  std::shared_ptr<boost::thread> thread_;
 
  public:
   op5_client(const nscapi::core_wrapper *core, int plugin_id, op5_config config);

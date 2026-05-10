@@ -17,7 +17,7 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <iostream>
 #include <net/check_mk/lua/lua_check_mk.hpp>
 

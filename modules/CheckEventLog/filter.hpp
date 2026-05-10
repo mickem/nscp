@@ -163,7 +163,7 @@ struct new_filter_obj : filter_obj {
   std::string to_string() const override { return logfile + ":" + str::xtos(get_id()) + "=" + get_el_type_s(); }
 };
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : native_context {
   static constexpr parsers::where::value_type type_custom_severity = parsers::where::type_custom_int_1;
   static constexpr parsers::where::value_type type_custom_type = parsers::where::type_custom_int_2;

@@ -201,8 +201,40 @@ void registry_query_handler::parse_inventory(const PB::Registry::RegistryRequest
     if (type == PB::Registry::ItemType::MODULE || type == PB::Registry::ItemType::ALL) {
       inventory_modules(q, rp);
     }
+    if (type == PB::Registry::ItemType::HANDLER || type == PB::Registry::ItemType::ALL) {
+      inventory_handlers(q, rp);
+    }
+    if (type == PB::Registry::ItemType::EVENT || type == PB::Registry::ItemType::ALL) {
+      inventory_events(q, rp);
+    }
   }
   rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
+}
+
+void registry_query_handler::inventory_handlers(const PB::Registry::RegistryRequestMessage::Request::Inventory &q,
+                                                PB::Registry::RegistryResponseMessage::Response *rp) {
+  for (const auto &entry : plugins_->get_channels()->get_listeners()) {
+    if (!q.name().empty() && q.name() != entry.first) continue;
+    PB::Registry::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
+    rpp->set_name(entry.first);
+    rpp->set_type(PB::Registry::ItemType::HANDLER);
+    for (unsigned long id : entry.second) {
+      rpp->mutable_info()->add_plugin(plugins_->get_plugin_cache()->find_plugin_alias(id));
+    }
+  }
+}
+
+void registry_query_handler::inventory_events(const PB::Registry::RegistryRequestMessage::Request::Inventory &q,
+                                              PB::Registry::RegistryResponseMessage::Response *rp) {
+  for (const auto &entry : plugins_->get_event_subscribers()->get_listeners()) {
+    if (!q.name().empty() && q.name() != entry.first) continue;
+    PB::Registry::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
+    rpp->set_name(entry.first);
+    rpp->set_type(PB::Registry::ItemType::EVENT);
+    for (unsigned long id : entry.second) {
+      rpp->mutable_info()->add_plugin(plugins_->get_plugin_cache()->find_plugin_alias(id));
+    }
+  }
 }
 
 void registry_query_handler::parse_registration(const PB::Registry::RegistryRequestMessage::Request::Registration &registration,

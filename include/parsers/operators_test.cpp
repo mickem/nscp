@@ -88,7 +88,6 @@ struct mock_object_converter final : object_converter_interface {
 // ======================================================================
 
 static evaluation_context make_context() { return std::make_shared<mock_evaluation_context>(); }
-static object_converter make_converter() { return std::make_shared<mock_object_converter>(); }
 
 static node_type make_int(long long v) { return factory::create_int(v); }
 static node_type make_float(double v) { return factory::create_float(v); }

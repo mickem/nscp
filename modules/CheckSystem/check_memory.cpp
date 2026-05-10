@@ -58,7 +58,7 @@ struct filter_obj {
   std::string get_free_human() const { return str::format::format_byte_units(get_free()); }
 };
 
-parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+parsers::where::node_type calculate_free(std::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
   parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
   double number = value.get<1>();
   std::string unit = value.get<2>();
@@ -68,20 +68,20 @@ parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, p
   } else {
     number = str::format::decode_byte_units(number, unit);
   }
-  return parsers::where::factory::create_int(number);
+  return parsers::where::factory::create_int(static_cast<long long>(number));
 }
 
 long long get_zero() { return 0; }
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler() {
     static const parsers::where::value_type type_custom_used = parsers::where::type_custom_int_1;
     static const parsers::where::value_type type_custom_free = parsers::where::type_custom_int_2;
 
-    registry_.add_string("type", &filter_obj::get_type, "The type of memory to check");
+    registry_.add_string_var("type", &filter_obj::get_type, "The type of memory to check");
     // clang-format off
-    registry_.add_int()
+    registry_.add_int_legacy()
       ("size", [](auto obj, auto context) { return obj->get_total(); }, "Total size of memory")
       ("free", type_custom_free, [](auto obj, auto context) { return obj->get_free(); }, "Free memory in bytes (g,m,k,b) or percentages %")
       .add_scaled_byte([](auto obj, auto context) { return get_zero(); }, [](auto obj, auto context) { return obj->get_total(); })
@@ -100,7 +100,8 @@ struct filter_obj_handler : public native_context {
         .add_human_string("used_pct", &filter_obj::get_used_pct_human, "")
         .add_human_string("free_pct", &filter_obj::get_free_pct_human, "");
 
-    registry_.add_converter()(type_custom_free, &calculate_free)(type_custom_used, &calculate_free);
+    registry_.add_converter(type_custom_free, &calculate_free)
+      .add_converter(type_custom_used, &calculate_free);
   }
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
@@ -136,7 +137,7 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
   CheckMemory::memData mem_data = {};
   try {
     mem_data = memoryChecker->getMemoryStatus();
-  } catch (const CheckMemoryException &e) {
+  } catch (const CheckMemoryException &) {
   }
   for (const std::string &type : checks) {
     unsigned long long used(0), total(0);
@@ -150,7 +151,7 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
       used = mem_data.virt.total - mem_data.virt.avail;
       total = mem_data.virt.total;
     }
-    boost::shared_ptr<check_mem_filter::filter_obj> record(new check_mem_filter::filter_obj(type, used, total));
+    std::shared_ptr<check_mem_filter::filter_obj> record(new check_mem_filter::filter_obj(type, used, total));
     ret.append(filter.match(record));
   }
   return ret;
@@ -158,7 +159,7 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
 
 helper::helper(nscapi::core_wrapper *core, int plugin_id) : memory_helper(new mem_filter_helper_wrapper(core, plugin_id)) {}
 
-void helper::add_obj(boost::shared_ptr<filters::mem::filter_config_object> object) {
+void helper::add_obj(std::shared_ptr<filters::mem::filter_config_object> object) {
   runtime_data data;
   for (const std::string &d : object->data) {
     data.add(d);
@@ -169,6 +170,8 @@ void helper::add_obj(boost::shared_ptr<filters::mem::filter_config_object> objec
 void helper::boot() { memory_helper->helper.touch_all(); }
 
 void helper::check() { memory_helper->helper.process_items(&memchecker); }
+
+std::map<std::string, long long> helper::get_counts() const { return memory_helper->helper.get_counts(); }
 
 }  // namespace realtime
 namespace memory {
@@ -227,7 +230,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
     } else {
       return nscapi::protobuf::functions::set_response_bad(*response, "Invalid type: " + type);
     }
-    boost::shared_ptr<check_mem_filter::filter_obj> record(new check_mem_filter::filter_obj(type, used, total));
+    std::shared_ptr<check_mem_filter::filter_obj> record(new check_mem_filter::filter_obj(type, used, total));
     filter.match(record);
   }
 

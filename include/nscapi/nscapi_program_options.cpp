@@ -23,11 +23,10 @@ namespace po = boost::program_options;
 
 std::vector<po::option> nscapi::program_options::option_parser_kvp(std::vector<std::string> &args, const std::string &break_at) {
   std::vector<po::option> result;
-  std::vector<std::string>::iterator it;
-  for (it = args.begin(); it != args.end(); ++it) {
+  for (auto it = args.begin(); it != args.end(); ++it) {
     po::option opt;
     opt.original_tokens.push_back(*it);
-    std::string::size_type pos = (*it).find('=');
+    const std::string::size_type pos = it->find('=');
     if (pos == std::string::npos) {
       opt.string_key = (*it);
       if (!break_at.empty() && (*it) == break_at) {
@@ -39,8 +38,8 @@ std::vector<po::option> nscapi::program_options::option_parser_kvp(std::vector<s
         break;
       }
     } else {
-      opt.string_key = (*it).substr(0, pos);
-      opt.value.push_back((*it).substr(pos + 1));
+      opt.string_key = it->substr(0, pos);
+      opt.value.push_back(it->substr(pos + 1));
     }
     result.push_back(opt);
   }
@@ -215,10 +214,10 @@ std::string nscapi::program_options::help(const po::options_description &desc, c
   std::stringstream main_stream;
   if (!extra_info.empty()) main_stream << extra_info << std::endl;
   std::string::size_type opwidth = 23;
-  for (const boost::shared_ptr<po::option_description> &op : desc.options()) {
+  for (const auto &op : desc.options()) {
     if (op->long_name().size() > opwidth) opwidth = op->long_name().size();
   }
-  for (const boost::shared_ptr<po::option_description> &op : desc.options()) {
+  for (const auto &op : desc.options()) {
     std::stringstream ss;
     ss << "  " << op->long_name();
     bool hasargs = op->semantic()->max_tokens() != 0;
@@ -249,7 +248,7 @@ std::string nscapi::program_options::help_short(const po::options_description &d
   std::stringstream main_stream;
   if (!extra_info.empty()) main_stream << extra_info << std::endl;
   std::string::size_type opwidth = 0;
-  for (const boost::shared_ptr<po::option_description> &op : desc.options()) {
+  for (const auto &op : desc.options()) {
     if (op->long_name().size() > opwidth) opwidth = op->long_name().size();
     if (op->semantic()->max_tokens() != 0) {
       std::size_t len = op->long_name().size() + strip_default_value(op->format_parameter()).size() + 1;
@@ -257,7 +256,7 @@ std::string nscapi::program_options::help_short(const po::options_description &d
     }
   }
   opwidth++;
-  for (const boost::shared_ptr<po::option_description> &op : desc.options()) {
+  for (const auto &op : desc.options()) {
     std::stringstream ss;
     ss << op->long_name();
     if (op->semantic()->max_tokens() != 0) ss << "=" << strip_default_value(op->format_parameter());
@@ -285,7 +284,7 @@ std::string nscapi::program_options::make_csv(const std::string &s) {
 }
 std::string nscapi::program_options::help_csv(const po::options_description &desc, const std::string &) {
   std::stringstream main_stream;
-  for (const boost::shared_ptr<po::option_description> &op : desc.options()) {
+  for (const auto &op : desc.options()) {
     main_stream << make_csv(op->long_name()) << ",";
     bool hasargs = op->semantic()->max_tokens() != 0;
     if (hasargs)
@@ -299,7 +298,7 @@ std::string nscapi::program_options::help_csv(const po::options_description &des
 
 std::string nscapi::program_options::help_pb(const po::options_description &desc, const field_map &fields) {
   ::PB::Registry::ParameterDetails details;
-  for (const boost::shared_ptr<po::option_description> &op : desc.options()) {
+  for (const auto &op : desc.options()) {
     ::PB::Registry::ParameterDetail *detail = details.add_parameter();
     detail->set_name(op->long_name());
     bool hasargs = op->semantic()->max_tokens() != 0;
@@ -328,7 +327,7 @@ std::string nscapi::program_options::help_pb(const po::options_description &desc
 
 std::string nscapi::program_options::help_show_default(const po::options_description &desc) {
   std::stringstream ret;
-  for (const boost::shared_ptr<po::option_description> &op : desc.options()) {
+  for (const auto &op : desc.options()) {
     std::string param = strip_default_value(op->format_parameter());
     if (param.empty()) continue;
     ret << "\"" << op->long_name() << "=";

@@ -25,7 +25,7 @@
 struct real_time_thread;
 class CheckLogFile : public nscapi::impl::simple_plugin {
  private:
-  boost::shared_ptr<real_time_thread> thread_;
+  std::shared_ptr<real_time_thread> thread_;
 
  public:
   CheckLogFile() {}

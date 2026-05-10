@@ -61,7 +61,7 @@ object ApiUser "nscp" {
 ```
 
 The last three `objects/*` permissions are only required if you want NSClient++ to auto-create missing host/service
-objects (see [Step 5](#step-5--optional-auto-create-host-and-service-objects)).
+objects (see [Step 5](#step-5-optional-auto-create-host-and-service-objects)).
 
 ---
 
@@ -92,7 +92,7 @@ In the Icinga 2 web UI you should immediately see the service `service check` on
 with the message `Hello from NSClient++`. If you do not, double-check:
 
 - The `ApiUser` exists on the Icinga 2 server and has the `actions/process-check-result` permission.
-- A host with the matching name (the Windows hostname unless you override it — see [Step 4](#step-4--set-the-hostname))
+- A host with the matching name (the Windows hostname unless you override it — see [Step 4](#step-4-set-the-hostname))
   and a service called `service check` already exist on the Icinga 2 side, or `ensure objects` is enabled (Step 5).
 - Port 5665 is reachable from the Windows host.
 
@@ -170,7 +170,7 @@ ca = c:\program files\nsclient++\security\icinga2-ca.crt
 | `address`     | Base URL of the Icinga 2 REST API. Defaults to port 5665 and protocol `https`.         |
 | `username`    | The Icinga 2 `ApiUser` name.                                                           |
 | `password`    | The `ApiUser` password.                                                                |
-| `verify mode` | TLS verification — see the table in [Step 1](#step-1--verify-the-icinga-2-connection). |
+| `verify mode` | TLS verification — see the table in [Step 1](#step-1-verify-the-icinga-2-connection). |
 | `ca`          | CA bundle used when `verify mode = peer-cert`.                                         |
 | `tls version` | Optional TLS version pin (e.g. `1.2`, `1.3`).                                          |
 | `timeout`     | Per-request timeout in seconds (default `30`).                                         |

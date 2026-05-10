@@ -21,8 +21,7 @@
 
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
-#include <boost/enable_shared_from_this.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #ifdef USE_SSL
 #include <boost/asio/ssl/context.hpp>
 #endif
@@ -51,11 +50,11 @@ using boost::asio::ip::tcp;
 //         |            | is_done    | true = is done, disconnect, false (read/write loop)
 
 template <class protocol_type, std::size_t N>
-class connection : public boost::enable_shared_from_this<connection<protocol_type, N> >, private boost::noncopyable {
+class connection : public std::enable_shared_from_this<connection<protocol_type, N> >, private boost::noncopyable {
   typedef connection<protocol_type, N> connection_type;
 
  public:
-  connection(boost::asio::io_service& io_service, boost::shared_ptr<protocol_type> protocol)
+  connection(boost::asio::io_service& io_service, std::shared_ptr<protocol_type> protocol)
       : is_active_(true), strand_(io_service), timer_(io_service), protocol_(protocol) {}
   virtual ~connection() {}
 
@@ -210,7 +209,7 @@ class connection : public boost::enable_shared_from_this<connection<protocol_typ
   boost::array<char, N> buffer_;
   boost::asio::deadline_timer timer_;
   std::list<typename protocol_type::outbound_buffer_type> buffers_;
-  boost::shared_ptr<protocol_type> protocol_;
+  std::shared_ptr<protocol_type> protocol_;
 };
 
 template <class protocol_type, std::size_t N>
@@ -222,7 +221,7 @@ class tcp_connection : public connection<protocol_type, N> {
   boost::asio::ip::tcp::socket socket_;
 
  public:
-  tcp_connection(boost::asio::io_service& io_service, boost::shared_ptr<protocol_type> protocol)
+  tcp_connection(boost::asio::io_service& io_service, std::shared_ptr<protocol_type> protocol)
       : connection<protocol_type, N>(io_service, protocol), socket_(io_service) {}
   virtual ~tcp_connection() {}
 
@@ -250,7 +249,7 @@ class ssl_connection : public connection<protocol_type, N> {
   typedef ssl_connection<protocol_type, N> my_type;
 
  public:
-  ssl_connection(boost::asio::io_service& io_service, boost::asio::ssl::context& context, boost::shared_ptr<protocol_type> protocol)
+  ssl_connection(boost::asio::io_service& io_service, boost::asio::ssl::context& context, std::shared_ptr<protocol_type> protocol)
       : connection<protocol_type, N>(io_service, protocol), ssl_socket_(io_service, context) {}
   virtual ~ssl_connection() {}
 
@@ -260,7 +259,7 @@ class ssl_connection : public connection<protocol_type, N> {
 
   virtual void start() {
     this->trace("ssl::start_read_request()");
-    boost::shared_ptr<my_type> self = boost::dynamic_pointer_cast<my_type>(this->shared_from_this());
+    std::shared_ptr<my_type> self = std::dynamic_pointer_cast<my_type>(this->shared_from_this());
     ssl_socket_.async_handshake(boost::asio::ssl::stream_base::server, parent_type::strand_.wrap([self](const auto& e) { self->handle_handshake(e); }));
   }
 

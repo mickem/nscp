@@ -19,7 +19,7 @@
 
 #include "check_drive.hpp"
 
-#include <boost/enable_shared_from_this.hpp>
+#include <memory>
 #include <boost/program_options.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <bytes/char_buffer.hpp>
@@ -285,7 +285,7 @@ struct filter_obj {
     drive_size = totalNumberOfBytes.QuadPart;
   }
 
-  void append(boost::shared_ptr<filter_obj> other) {
+  void append(std::shared_ptr<filter_obj> other) {
     user_free += other->user_free;
     total_free += other->total_free;
     drive_size += other->drive_size;
@@ -300,7 +300,7 @@ struct filter_obj {
   }
 };
 
-parsers::where::node_type calculate_total_used(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context,
+parsers::where::node_type calculate_total_used(std::shared_ptr<filter_obj> object, parsers::where::evaluation_context context,
                                                parsers::where::node_type subject) {
   parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
   double number = value.get<1>();
@@ -314,7 +314,7 @@ parsers::where::node_type calculate_total_used(boost::shared_ptr<filter_obj> obj
   return parsers::where::factory::create_int(static_cast<long long>(number));
 }
 
-parsers::where::node_type calculate_user_used(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context,
+parsers::where::node_type calculate_user_used(std::shared_ptr<filter_obj> object, parsers::where::evaluation_context context,
                                               parsers::where::node_type subject) {
   parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
   double number = value.get<1>();
@@ -338,7 +338,7 @@ int do_convert_type(const std::string &keyword) {
   if (keyword == "total") return drive_type_total;
   return -1;
 }
-parsers::where::node_type convert_type(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+parsers::where::node_type convert_type(std::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
   std::string keyword = subject->get_string_value(context);
   boost::to_lower(keyword);
   int type = do_convert_type(keyword);
@@ -360,7 +360,7 @@ std::string filter_obj_filesystem_for_test(const std::string &fs) {
   filter_obj obj(dc);
   return obj.get_filesystem();
 }
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler : public native_context {
   static const parsers::where::value_type type_custom_total_used = parsers::where::type_custom_int_1;
   static const parsers::where::value_type type_custom_total_free = parsers::where::type_custom_int_2;
@@ -369,20 +369,20 @@ struct filter_obj_handler : public native_context {
   static const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_9;
 
   filter_obj_handler() {
-    registry_.add_string("name", &filter_obj::get_name, "Descriptive name of drive")
-        .add_string("id", &filter_obj::get_id, "Drive or id of drive")
-        .add_string("drive", &filter_obj::get_drive, "Technical name of drive")
-        .add_string("letter", &filter_obj::get_letter, "Letter the drive is mountedd on")
-        .add_string("flags", &filter_obj::get_flags, "String representation of flags")
-        .add_string("drive_or_id", &filter_obj::get_drive_or_id, "Drive letter if present if not use id")
-        .add_string("drive_or_name", &filter_obj::get_drive_or_name, "Drive letter if present if not use name")
+    registry_.add_string_var("name", &filter_obj::get_name, "Descriptive name of drive")
+        .add_string_var("id", &filter_obj::get_id, "Drive or id of drive")
+        .add_string_var("drive", &filter_obj::get_drive, "Technical name of drive")
+        .add_string_var("letter", &filter_obj::get_letter, "Letter the drive is mountedd on")
+        .add_string_var("flags", &filter_obj::get_flags, "String representation of flags")
+        .add_string_var("drive_or_id", &filter_obj::get_drive_or_id, "Drive letter if present if not use id")
+        .add_string_var("drive_or_name", &filter_obj::get_drive_or_name, "Drive letter if present if not use name")
         // Filesystem name (e.g. "NTFS", "FAT32", "exFAT", "ReFS"). `fs` is a
         // shorthand alias for the same value. Use `like` for case-insensitive
         // matching since the OS reports uppercase ("NTFS").
-        .add_string("filesystem", &filter_obj::get_filesystem, "Filesystem name as reported by the OS (e.g. NTFS, FAT32, exFAT, ReFS)")
-        .add_string("fs", &filter_obj::get_filesystem, "Shorthand alias for filesystem");
+        .add_string_var("filesystem", &filter_obj::get_filesystem, "Filesystem name as reported by the OS (e.g. NTFS, FAT32, exFAT, ReFS)")
+        .add_string_var("fs", &filter_obj::get_filesystem, "Shorthand alias for filesystem");
     // clang-format off
-    registry_.add_int()
+    registry_.add_int_legacy()
       ("free", type_custom_total_free, &filter_obj::get_total_free, "Shorthand for total_free (Number of free bytes)")
         .add_scaled_byte([] (auto _ignored1, auto _ignored2) { return get_zero(); }, &filter_obj::get_drive_size, "", " free")
         .add_percentage(&filter_obj::get_drive_size, "", " free %")
@@ -437,8 +437,12 @@ struct filter_obj_handler : public native_context {
         .add_human_string_context("total_used_pct", &filter_obj::get_total_used_pct_human, "")
         .add_human_string_context("user_used_pct", &filter_obj::get_user_used_pct_human, "");
 
-    registry_.add_converter()(type_custom_total_free, &calculate_total_used)(type_custom_total_used, &calculate_total_used)(
-        type_custom_user_free, &calculate_user_used)(type_custom_user_used, &calculate_user_used)(type_custom_type, &convert_type);
+    registry_
+      .add_converter(type_custom_total_free, &calculate_total_used)
+      .add_converter(type_custom_total_used, &calculate_total_used)
+      .add_converter(type_custom_user_free, &calculate_user_used)
+      .add_converter(type_custom_user_used, &calculate_user_used)
+      .add_converter(type_custom_type, &convert_type);
   }
 };
 
@@ -827,7 +831,7 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
   }
   if (!buffer.empty()) excludes.insert(excludes.end(), buffer.begin(), buffer.end());
   drive_container total_dc("total", "total", "total", "", true, 0, drive_container::df_none);
-  boost::shared_ptr<filter_obj> total_obj(new filter_obj(total_dc));
+  std::shared_ptr<filter_obj> total_obj(new filter_obj(total_dc));
   if (total) total_obj->make_total();
 
   std::vector<std::string> not_found;
@@ -850,7 +854,7 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
         std::find(excludes.begin(), excludes.end(), drive.name) != excludes.end() ||
         std::find(excludes.begin(), excludes.end(), drive.letter_only) != excludes.end())
       continue;
-    boost::shared_ptr<filter_obj> obj(new filter_obj(drive));
+    std::shared_ptr<filter_obj> obj(new filter_obj(drive));
     filter.match(obj);
     if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());
     if (total) {

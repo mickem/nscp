@@ -20,7 +20,7 @@
 #pragma once
 
 #include <boost/optional.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <map>
 #include <nscapi/settings_proxy.hpp>
 #include <settings/client/settings_client.hpp>
@@ -53,12 +53,12 @@ struct target_handler {
 
   target_list_type target_list;
   target_list_type template_list;
-  void add(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring path, std::wstring key, std::wstring value) {
+  void add(std::shared_ptr<nscapi::settings_proxy> proxy, std::wstring path, std::wstring key, std::wstring value) {
     add(read_target(proxy, path, key, value));
   }
   void add(target t) { target_list[t.alias] = t; }
   void add_template(target t) { template_list[t.alias] = t; }
-  target read_target(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring path, std::wstring alias, std::wstring host);
+  target read_target(std::shared_ptr<nscapi::settings_proxy> proxy, std::wstring path, std::wstring alias, std::wstring host);
 
   optarget find_target(std::wstring alias);
   static void apply_parent(target &t, target &p);

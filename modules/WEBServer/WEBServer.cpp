@@ -39,11 +39,13 @@
 
 #include "api_controller.hpp"
 #include "error_handler.hpp"
+#include "events_controller.hpp"
 #include "info_controller.hpp"
 #include "legacy_command_controller.hpp"
 #include "legacy_controller.hpp"
 #include "log_controller.hpp"
 #include "login_controller.hpp"
+#include "metadata_controller.hpp"
 #include "metrics_controller.hpp"
 #include "modules_controller.hpp"
 #include "openmetrics_controller.hpp"
@@ -86,12 +88,12 @@ class WEBServerLogger : public WebLogger {
   }
 };
 
-WEBServer::WEBServer() : simple_plugin(), session(new session_manager_interface()), last_log_index(0) {}
+WEBServer::WEBServer() : simple_plugin(), session(new session_manager_interface()), events_(new event_store()), last_log_index(0) {}
 WEBServer::~WEBServer() = default;
 
 bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   log_handler.reset(new error_handler());
-  client.reset(new client::cli_client(boost::make_shared<web_cli_handler>(log_handler, get_core(), get_id())));
+  client.reset(new client::cli_client(std::make_shared<web_cli_handler>(log_handler, get_core(), get_id())));
 
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("WEB", std::move(alias), "server");
@@ -247,6 +249,10 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     server->registerController(new login_controller(2, session));
     server->registerController(new metrics_controller(2, session, get_core(), get_id()));
     server->registerController(new openmetrics_controller(2, session, get_core(), get_id()));
+    server->registerController(new metadata_controller(2, session, get_core(), get_id()));
+    server->registerController(new metadata_controller(1, session, get_core(), get_id()));
+    server->registerController(new events_controller(2, session, events_));
+    server->registerController(new events_controller(1, session, events_));
 
     server->registerController(new modules_controller(1, session, get_core(), get_id()));
     server->registerController(new query_controller(1, session, get_core(), get_id()));
@@ -260,6 +266,12 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
     server->registerController(new legacy_controller(session, get_core(), get_id(), client));
     server->registerController(new legacy_command_controller(session, get_core(), get_id(), client));
+
+    // Subscribe to every emitted event. Without this the event_store stays
+    // empty and the core logs "No handler for event" because the dispatcher
+    // routes by exact event name. The wildcard "*" subscription is handled
+    // in plugins_list_with_listener::get and gives us a generic drain.
+    nscapi::core_helper(get_core(), get_id()).register_event("*");
 
     try {
       server->start("0.0.0.0:" + port);
@@ -319,6 +331,17 @@ void WEBServer::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
       entry.type = "unknown";
   }
   session->add_log_message(message.level() == PB::Log::LogEntry_Entry_Level_LOG_CRITICAL || message.level() == PB::Log::LogEntry_Entry_Level_LOG_ERROR, entry);
+}
+
+void WEBServer::onEvent(const PB::Commands::EventMessage &request, const std::string & /*buffer*/) {
+  if (!events_) return;
+  for (const PB::Commands::EventMessage::Request &line : request.payload()) {
+    std::map<std::string, std::string> data;
+    for (const PB::Common::KeyValue &kv : line.data()) {
+      data[kv.key()] = kv.value();
+    }
+    events_->add(line.event(), data);
+  }
 }
 
 bool WEBServer::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request,
@@ -619,6 +642,21 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
     result << "Login using this password " << password << std::endl;
     s.set("/settings/default", "password", password);
     s.set(path, "port", port);
+
+    // Also persist the per-user admin row so a re-run of `web install`
+    // actually rotates the WEB login. /settings/default/password alone is
+    // not enough: on next start `ensure_user` only seeds the per-user row
+    // when missing, and the boot loop then re-applies the stale on-disk
+    // hash over the seeded value - so without this the new password is
+    // silently ignored until the user manually deletes the admin row.
+    const std::string admin_path = path + "/users/admin";
+    std::string hashed_admin = web_password::hash_password(password);
+    if (hashed_admin.empty()) {
+      hashed_admin = password;  // KDF failure: fall back to plaintext (still verifies)
+    }
+    s.set(admin_path, "password", hashed_admin);
+    s.set(admin_path, "role", "full");
+
     s.save();
     get_core()->settings_query(s.request(), s.response());
     if (!s.validate_response()) {
@@ -772,22 +810,32 @@ void WEBServer::ensure_role(role_map &roles, const nscapi::settings_helper::sett
 
 void WEBServer::ensure_user(const nscapi::settings_helper::settings_registry &settings, const std::string &path, const std::string &user,
                             const std::string &role, const std::string &password, const std::string &reason) {
-  if (!session->has_user(user)) {
-    session->add_user(user, role, password);
-    const std::string the_path = path + "/" + user;
-    // Per-user passwords on disk are stored hashed. The default password
-    // under /settings/default/password (shared with NRPE / NSCA / NSClient)
-    // is left alone; only this per-user slot is migrated.
-    std::string stored = password;
-    if (!stored.empty() && !web_password::is_hashed(stored)) {
-      const std::string hashed = web_password::hash_password(stored);
-      if (!hashed.empty()) {
-        stored = hashed;
-      }
-    }
-    settings.register_key_password(the_path, "password", "Password for " + reason, "Password name for" + reason, stored);
-    settings.set_static_key(the_path, "password", stored);
-    settings.register_key_string(the_path, "role", "Role for " + reason, "Role name for" + reason, role);
-    settings.set_static_key(the_path, "role", role);
+  // Gate on the loaded users_ config rather than `session`. The session
+  // user table is populated from users_ later inside the normalStart
+  // branch, so checking session->has_user here would always be false on
+  // load and cause set_static_key to overwrite the on-disk admin row on
+  // every startup (silently rotating the password back to whatever the
+  // /settings/default/password hash currently is).
+  if (users_.has_object(user)) {
+    return;
   }
+  // First-boot path: seed the user row both in settings (for persistence)
+  // and in the session (so it can authenticate this run before the
+  // normalStart loop populates session from users_).
+  session->add_user(user, role, password);
+  const std::string the_path = path + "/" + user;
+  // Per-user passwords on disk are stored hashed. The default password
+  // under /settings/default/password (shared with NRPE / NSCA / NSClient)
+  // is left alone; only this per-user slot is migrated.
+  std::string stored = password;
+  if (!stored.empty() && !web_password::is_hashed(stored)) {
+    const std::string hashed = web_password::hash_password(stored);
+    if (!hashed.empty()) {
+      stored = hashed;
+    }
+  }
+  settings.register_key_password(the_path, "password", "Password for " + reason, "Password name for" + reason, stored);
+  settings.set_static_key(the_path, "password", stored);
+  settings.register_key_string(the_path, "role", "Role for " + reason, "Role name for" + reason, role);
+  settings.set_static_key(the_path, "role", role);
 }

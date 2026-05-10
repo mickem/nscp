@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <parsers/perfdata.hpp>
 #include <str/xtos.hpp>

@@ -220,7 +220,7 @@ namespace check {
 
 typedef battery_info filter_obj;
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler final : public native_context {
   filter_obj_handler();
 };
@@ -228,21 +228,21 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_typ
 
 filter_obj_handler::filter_obj_handler() {
   // clang-format off
-  registry_.add_string("name", &filter_obj::get_name, "Battery name/identifier")
-      .add_string("power_source", &filter_obj::get_power_source, "Power source: 'ac', 'battery', or 'unknown'")
-      .add_string("status", &filter_obj::get_status, "Battery status: 'charging', 'discharging', 'high', 'low', 'critical', 'no_battery', or 'unknown'")
-      .add_string("battery_present", &filter_obj::get_battery_present, "Whether a battery is present: 'true' or 'false'");
+  registry_.add_string_var("name", &filter_obj::get_name, "Battery name/identifier")
+      .add_string_var("power_source", &filter_obj::get_power_source, "Power source: 'ac', 'battery', or 'unknown'")
+      .add_string_var("status", &filter_obj::get_status, "Battery status: 'charging', 'discharging', 'high', 'low', 'critical', 'no_battery', or 'unknown'")
+      .add_string_var("battery_present", &filter_obj::get_battery_present, "Whether a battery is present: 'true' or 'false'");
 
-  registry_.add_int_x("charge", &filter_obj::get_charge_percent, "Battery charge level in percent (0-100)")
+  registry_.add_int_var("charge", &filter_obj::get_charge_percent, "Battery charge level in percent (0-100)")
       .add_int_perf("%")
-      .add_int_x("health", &filter_obj::get_health_percent, "Battery health in percent (full_capacity / design_capacity * 100)")
+      .add_int_var("health", &filter_obj::get_health_percent, "Battery health in percent (full_capacity / design_capacity * 100)")
       .add_int_perf("%")
-      .add_int_x("time_remaining", &filter_obj::get_time_remaining, "Estimated time remaining in seconds (-1 if unknown or on AC)")
-      .add_int_x("charge_rate", &filter_obj::get_charge_rate, "Current charge rate in mW (when charging)")
-      .add_int_x("discharge_rate", &filter_obj::get_discharge_rate, "Current discharge rate in mW (when discharging)")
-      .add_int_x("design_capacity", &filter_obj::get_design_capacity, "Design capacity in mWh")
-      .add_int_x("full_capacity", &filter_obj::get_full_capacity, "Current full charge capacity in mWh")
-      .add_int_x("remaining_capacity", &filter_obj::get_remaining_capacity, "Current remaining capacity in mWh");
+      .add_int_var("time_remaining", &filter_obj::get_time_remaining, "Estimated time remaining in seconds (-1 if unknown or on AC)")
+      .add_int_var("charge_rate", &filter_obj::get_charge_rate, "Current charge rate in mW (when charging)")
+      .add_int_var("discharge_rate", &filter_obj::get_discharge_rate, "Current discharge rate in mW (when discharging)")
+      .add_int_var("design_capacity", &filter_obj::get_design_capacity, "Design capacity in mWh")
+      .add_int_var("full_capacity", &filter_obj::get_full_capacity, "Current full charge capacity in mWh")
+      .add_int_var("remaining_capacity", &filter_obj::get_remaining_capacity, "Current remaining capacity in mWh");
   // clang-format on
 
   registry_.add_human_string("time_remaining", &filter_obj::get_time_remaining_s, "Estimated time remaining (human readable)");
@@ -262,7 +262,7 @@ void check_battery(const PB::Commands::QueryRequestMessage::Request &request, PB
   if (!filter_helper.build_filter(filter)) return;
 
   for (const battery_info &b : data) {
-    boost::shared_ptr<filter_obj> record(new filter_obj(b));
+    std::shared_ptr<filter_obj> record(new filter_obj(b));
     filter.match(record);
   }
 

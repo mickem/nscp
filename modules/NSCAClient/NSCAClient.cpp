@@ -19,7 +19,7 @@
 
 #include "NSCAClient.h"
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <net/socket/socket_helpers.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -36,7 +36,7 @@
  * @return
  */
 NSCAClient::NSCAClient()
-    : simple_plugin(), client_("nsca", boost::make_shared<nsca_client::nsca_client_handler>(), boost::make_shared<nsca_handler::options_reader_impl>()) {}
+    : simple_plugin(), client_("nsca", std::make_shared<nsca_client::nsca_client_handler>(), std::make_shared<nsca_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor

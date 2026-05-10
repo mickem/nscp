@@ -171,7 +171,7 @@ namespace check {
 
 typedef process_record filter_obj;
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler final : native_context {
   filter_obj_handler();
 };
@@ -179,15 +179,15 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_typ
 
 filter_obj_handler::filter_obj_handler() {
   // clang-format off
-  registry_.add_string("exe", &filter_obj::get_exe, "The name of the executable")
-      .add_string("running", &filter_obj::get_currently_running, "Whether the process is currently running: 'true' or 'false'");
+  registry_.add_string_var("exe", &filter_obj::get_exe, "The name of the executable")
+      .add_string_var("running", &filter_obj::get_currently_running, "Whether the process is currently running: 'true' or 'false'");
 
-  registry_.add_int_x("first_seen", parsers::where::type_date, &filter_obj::get_first_seen, "Unix timestamp when process was first seen")
-      .add_int_x("last_seen", parsers::where::type_date, &filter_obj::get_last_seen, "Unix timestamp when process was last seen")
+  registry_.add_int_var("first_seen", parsers::where::type_date, &filter_obj::get_first_seen, "Unix timestamp when process was first seen")
+      .add_int_var("last_seen", parsers::where::type_date, &filter_obj::get_last_seen, "Unix timestamp when process was last seen")
       .add_int_perf("")
-      .add_int_x("times_seen", &filter_obj::get_times_seen, "Number of times the process has been observed running")
+      .add_int_var("times_seen", &filter_obj::get_times_seen, "Number of times the process has been observed running")
       .add_int_perf("")
-      .add_int_x("currently_running", parsers::where::type_bool, &filter_obj::get_currently_running_i, "Whether the process is currently running (1/0)")
+      .add_int_var("currently_running", parsers::where::type_bool, &filter_obj::get_currently_running_i, "Whether the process is currently running (1/0)")
       .add_int_perf("");
   // clang-format on
 
@@ -233,7 +233,7 @@ void check_process_history(const PB::Commands::QueryRequestMessage::Request &req
       }
     }
 
-    boost::shared_ptr<filter_obj> record(new filter_obj(rec));
+    std::shared_ptr<filter_obj> record(new filter_obj(rec));
     filter.match(record);
   }
 
@@ -254,7 +254,7 @@ void check_process_history(const PB::Commands::QueryRequestMessage::Request &req
         not_found_rec.times_seen = 0;
         not_found_rec.currently_running = false;
 
-        boost::shared_ptr<filter_obj> record(new filter_obj(not_found_rec));
+        std::shared_ptr<filter_obj> record(new filter_obj(not_found_rec));
         filter.match(record);
       }
     }
@@ -302,7 +302,7 @@ void check_process_history_new(const PB::Commands::QueryRequestMessage::Request 
   for (const process_record &rec : data) {
     // Only include processes first seen within the time window
     if (rec.first_seen >= cutoff_ts) {
-      const boost::shared_ptr<filter_obj> record(new filter_obj(rec));
+      const std::shared_ptr<filter_obj> record(new filter_obj(rec));
       filter.match(record);
     }
   }

@@ -19,7 +19,7 @@
 
 #include "NSCPClient.h"
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -37,7 +37,7 @@ namespace sh = nscapi::settings_helper;
  * @return
  */
 NSCPClient::NSCPClient()
-    : client_("nscp", boost::make_shared<nscp_client::nscp_client_handler<> >(), boost::make_shared<nscp_handler::options_reader_impl>()) {}
+    : client_("nscp", std::make_shared<nscp_client::nscp_client_handler<> >(), std::make_shared<nscp_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor

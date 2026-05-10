@@ -17,8 +17,7 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/make_shared.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <win/pdh/pdh_query.hpp>
 
 namespace PDH {
@@ -27,10 +26,10 @@ PDHQuery::~PDHQuery(void) { removeAllCounters(); }
 void PDHQuery::addCounter(pdh_instance instance) {
   if (instance->has_instances()) {
     for (pdh_instance child : instance->get_instances()) {
-      counters_.push_back(boost::make_shared<PDHCounter>(child));
+      counters_.push_back(std::make_shared<PDHCounter>(child));
     }
   } else
-    counters_.push_back(boost::make_shared<PDHCounter>(instance));
+    counters_.push_back(std::make_shared<PDHCounter>(instance));
 }
 
 bool PDHQuery::has_counters() { return !counters_.empty(); }

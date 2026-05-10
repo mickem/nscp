@@ -178,7 +178,7 @@ void simple_file_logger::asynch_configure() {
     if (file_ == "none") {
       file_ = "";
     }
-  } catch (const std::exception &_e) {
+  } catch (const std::exception &) {
     // ignored, since this might be after shutdown...
   } catch (...) {
     // ignored, since this might be after shutdown...

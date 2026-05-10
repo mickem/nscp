@@ -112,7 +112,7 @@ TEST(PerfDataTest, value_various_reparse) {
 
 TEST(PerfDataTest, truncation) {
   const std::string s = "'abcdefghijklmnopqrstuv'=1g;0;4;2;5 'abcdefghijklmnopqrstuv'=1g;0;4;2;5";
-  EXPECT_EQ(s.c_str(), do_parse(s, -1));
+  EXPECT_EQ(s.c_str(), do_parse(s, static_cast<std::size_t>(-1)));
   EXPECT_EQ(s.c_str(), do_parse(s, 71));
   EXPECT_EQ("'abcdefghijklmnopqrstuv'=1g;0;4;2;5", do_parse(s, 70));
   EXPECT_EQ("'abcdefghijklmnopqrstuv'=1g;0;4;2;5", do_parse(s, 35));

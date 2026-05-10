@@ -155,7 +155,7 @@ void CheckPowershell::query_fallback(QueryRequestMessage::Types::Request^ reques
 		if (out->Contains("|")) {
 			int index = out->IndexOf("|");
 			line_builder->Message = out->Substring(0, index);
-			boost::shared_ptr<parsers::perfdata::builder> builder = boost::shared_ptr<perf_builder>(new perf_builder(line_builder));
+			std::shared_ptr<parsers::perfdata::builder> builder = std::shared_ptr<perf_builder>(new perf_builder(line_builder));
 			parsers::perfdata::parse(builder, to_nstring(out->Substring(index + 1)));
 		} else {
 			line_builder->Message = out;

@@ -21,7 +21,7 @@
 
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
-#include <boost/enable_shared_from_this.hpp>
+#include <memory>
 #include <net/socket/connection.hpp>
 #include <net/socket/server.hpp>
 #include <net/socket/socket_helpers.hpp>
@@ -48,8 +48,8 @@ struct read_protocol : boost::noncopyable {
   std::vector<char> data_;
   check_nt::server::parser parser_;
 
-  static boost::shared_ptr<read_protocol> create(socket_helpers::connection_info info, check_nt::server::handler *handler) {
-    return boost::shared_ptr<read_protocol>(new read_protocol(info, handler));
+  static std::shared_ptr<read_protocol> create(socket_helpers::connection_info info, check_nt::server::handler *handler) {
+    return std::shared_ptr<read_protocol>(new read_protocol(info, handler));
   }
   read_protocol(socket_helpers::connection_info info, check_nt::server::handler *handler) : info_(info), handler_(handler), current_state_(none) {}
 

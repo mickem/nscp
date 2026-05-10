@@ -18,7 +18,7 @@
  */
 #pragma once
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
@@ -27,7 +27,7 @@
 
 class CheckDisk : public nscapi::impl::simple_plugin {
   bool show_errors_;
-  boost::shared_ptr<collector_thread> collector_;
+  std::shared_ptr<collector_thread> collector_;
 
  public:
   CheckDisk();

@@ -42,7 +42,7 @@ void real_time_thread::thread_proc() {
     logs.push_back(s);
   }
 
-  for (boost::shared_ptr<eventlog_filter::filter_config_object> object : filters_.get_object_list()) {
+  for (std::shared_ptr<eventlog_filter::filter_config_object> object : filters_.get_object_list()) {
     runtime_data data(object->get_truncate());
     for (const std::string &f : object->files) {
       if (f != "any" && f != "all") {
@@ -56,7 +56,7 @@ void real_time_thread::thread_proc() {
   logs.unique(icase_eq);
   NSC_DEBUG_MSG_STD("Scanning logs: " + utf8::cvt<std::string>(str::format::join(logs, ", ")));
 
-  typedef boost::shared_ptr<eventlog_wrapper> eventlog_type;
+  typedef std::shared_ptr<eventlog_wrapper> eventlog_type;
   typedef std::vector<eventlog_type> eventlog_list;
   eventlog_list evlog_list;
 
@@ -106,7 +106,7 @@ void real_time_thread::thread_proc() {
       try {
         NSC_DEBUG_MSG_STD("Detected action on: " + el->get_name());
 
-        for (boost::shared_ptr<eventlog_filter::filter_obj> item = el->read_record(handles[index + 1]); item; item = el->read_record(handles[index + 1])) {
+        for (std::shared_ptr<eventlog_filter::filter_obj> item = el->read_record(handles[index + 1]); item; item = el->read_record(handles[index + 1])) {
           helper.process_items(item);
         }
       } catch (const nsclient::nsclient_exception &e) {
@@ -143,7 +143,7 @@ void real_time_thread::thread_proc() {
 bool real_time_thread::start() {
   if (!enabled_) return true;
   stop_event_ = CreateEvent(nullptr, TRUE, FALSE, L"EventLogShutdown");
-  thread_ = boost::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
+  thread_ = std::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
   return true;
 }
 bool real_time_thread::stop() {
@@ -152,7 +152,7 @@ bool real_time_thread::stop() {
   return true;
 }
 
-void real_time_thread::add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
+void real_time_thread::add_realtime_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
   try {
     filters_.add(proxy, key, query);
   } catch (const std::exception &e) {

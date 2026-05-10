@@ -21,7 +21,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/program_options.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
@@ -35,11 +35,11 @@ namespace check_net {
 namespace check_tcp_filter {
 
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string("host", &filter_obj::get_host, "Host the check connected to");
-  registry_.add_string("result", &filter_obj::get_result, "Textual result of the check (ok, refused, timeout, no_match, ...)");
-  registry_.add_int_x("port", parsers::where::type_int, &filter_obj::get_port, "TCP port the check connected to");
-  registry_.add_int_x("time", parsers::where::type_int, &filter_obj::get_time, "Connection time in milliseconds");
-  registry_.add_int_x("connected", parsers::where::type_int, &filter_obj::get_connected, "1 when the connection succeeded, 0 otherwise");
+  registry_.add_string_var("host", &filter_obj::get_host, "Host the check connected to");
+  registry_.add_string_var("result", &filter_obj::get_result, "Textual result of the check (ok, refused, timeout, no_match, ...)");
+  registry_.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "TCP port the check connected to");
+  registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Connection time in milliseconds");
+  registry_.add_int_var("connected", parsers::where::type_int, &filter_obj::get_connected, "1 when the connection succeeded, 0 otherwise");
 }
 
 }  // namespace check_tcp_filter
@@ -211,7 +211,7 @@ void check_tcp(const PB::Commands::QueryRequestMessage::Request &request, PB::Co
   if (!filter_helper.build_filter(f)) return;
 
   for (const auto &host : hosts) {
-    auto obj = boost::make_shared<filter_obj>();
+    auto obj = std::make_shared<filter_obj>();
     run_tcp_check(host, port, timeout_ms, send_data, expect, *obj);
     f.match(obj);
   }

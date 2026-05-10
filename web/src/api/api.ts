@@ -216,6 +216,20 @@ export interface SettingsDiff {
   count: number;
 }
 
+// Normalized shape for metadata autocomplete endpoints (counters, channels…).
+// `value` is what's persisted; `label` is what the dropdown displays.
+export interface MetadataOption {
+  value: string;
+  label: string;
+}
+
+export interface EventEntry {
+  index: number;
+  event: string;
+  date: string;
+  data: { [key: string]: string };
+}
+
 export interface SettingsDescription {
   default_value: string;
   description: string;
@@ -268,9 +282,33 @@ const baseQueryWithAuthFail: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQ
   const result = await baseQuery(args, api, extraOptions);
   if (result.error && result.error.status === 403) {
     api.dispatch(authSlice.actions.removeToken());
+    // Drop every cached response from the previous session so a re-login
+    // doesn't show stale data while the new requests are in flight.
+    api.dispatch(nsclientApi.util.resetApiState());
   }
   return result;
 };
+
+// Every cache tag in the API. Mutations that touch state across the whole
+// service (module load/unload, etc.) invalidate this list so all queries
+// refetch instead of having to enumerate the affected tags by hand.
+export const ALL_API_TAGS = [
+  "Endpoints",
+  "Info",
+  "Version",
+  "Logs",
+  "Modules",
+  "Module",
+  "Query",
+  "Queries",
+  "Scripts",
+  "Settings",
+  "SettingsStatus",
+  "SettingsDescriptions",
+  "LogStatus",
+  "Metrics",
+  "Events",
+] as const;
 
 export const nsclientApi = createApi({
   reducerPath: "api",
@@ -290,6 +328,7 @@ export const nsclientApi = createApi({
     "SettingsDescriptions",
     "LogStatus",
     "Metrics",
+    "Events",
   ],
   endpoints: (builder) => ({
     getEndpoints: builder.query<EndpointList, void>({
@@ -349,26 +388,17 @@ export const nsclientApi = createApi({
         url: `/v2/modules/${id}/commands/load`,
         method: "GET",
       }),
-      invalidatesTags: (_result, _error, id) => [
-        { type: "Module", id },
-        { type: "Modules" },
-        { type: "Settings" },
-        { type: "SettingsDescriptions" },
-        { type: "Queries" },
-      ],
+      // Loading a module exposes new endpoints, queries, settings, metrics,
+      // etc. — refetch everything rather than listing the affected tags.
+      invalidatesTags: () => [...ALL_API_TAGS],
     }),
     unloadModule: builder.mutation<string, string>({
       query: (id) => ({
         url: `/v2/modules/${id}/commands/unload`,
         method: "GET",
       }),
-      invalidatesTags: (_result, _error, id) => [
-        { type: "Module", id },
-        { type: "Modules" },
-        { type: "Settings" },
-        { type: "SettingsDescriptions" },
-        { type: "Queries" },
-      ],
+      // Unloading similarly removes endpoints/queries/settings — full refetch.
+      invalidatesTags: () => [...ALL_API_TAGS],
     }),
     enableModule: builder.mutation<string, string>({
       query: (id) => ({
@@ -454,6 +484,31 @@ export const nsclientApi = createApi({
         { type: "SettingsDescriptions" },
       ],
     }),
+    // DELETE /v2/settings<path>            -> remove the entire path
+    // DELETE /v2/settings<path>?key=<name> -> remove a single key
+    deleteSettings: builder.mutation<void, { path: string; key?: string }>({
+      query: ({ path, key }) => ({
+        url: `/v2/settings${path}${key ? `?key=${encodeURIComponent(key)}` : ""}`,
+        method: "DELETE",
+        // The settings DELETE endpoint may return an empty body or plain text
+        // on success. The default responseHandler calls response.json() which
+        // throws on an empty body — handle both cases gracefully.
+        responseHandler: async (response: Response) => {
+          const text = await response.text();
+          if (!text) return undefined;
+          try {
+            return JSON.parse(text);
+          } catch {
+            return text;
+          }
+        },
+      }),
+      invalidatesTags: () => [
+        { type: "Settings" },
+        { type: "SettingsStatus" },
+        { type: "SettingsDescriptions" },
+      ],
+    }),
     settingsCommand: builder.mutation<string, SettingsCommand>({
       query: (settings) => ({
         url: `/v2/settings/command`,
@@ -492,6 +547,58 @@ export const nsclientApi = createApi({
       }),
       providesTags: ["Metrics"],
     }),
+    getEvents: builder.query<EventEntry[], void>({
+      query: () => ({
+        url: "/v2/events",
+      }),
+      providesTags: ["Events"],
+    }),
+    clearEvents: builder.mutation<void, void>({
+      query: () => ({
+        url: "/v2/events",
+        method: "DELETE",
+        responseHandler: async (response: Response) => {
+          const text = await response.text();
+          if (!text) return undefined;
+          try {
+            return JSON.parse(text);
+          } catch {
+            return text;
+          }
+        },
+      }),
+      invalidatesTags: ["Events"],
+    }),
+    getCounterMetadata: builder.query<MetadataOption[], void>({
+      query: () => ({
+        url: "/v1/metadata/counters",
+      }),
+      transformResponse: (raw: string[]) =>
+        Array.isArray(raw) ? raw.map((name) => ({ value: name, label: name })) : [],
+    }),
+    getChannelMetadata: builder.query<MetadataOption[], void>({
+      query: () => ({
+        url: "/v2/metadata/channels",
+      }),
+      transformResponse: (raw: { name: string; plugins?: string[] }[]) => {
+        const channels = Array.isArray(raw)
+          ? raw.map((c) => ({
+              value: c.name,
+              label:
+                c.plugins && c.plugins.length > 0
+                  ? `${c.name} (${c.plugins.join(", ")})`
+                  : c.name,
+            }))
+          : [];
+        // Synthetic destinations (not registered as channels) — surface them
+        // at the top so users can find them without scrolling.
+        return [
+          { value: "noop", label: "noop (drop the message)" },
+          { value: "event", label: "event (raise an event)" },
+          ...channels,
+        ];
+      },
+    }),
   }),
 });
 
@@ -512,6 +619,7 @@ export const {
   useGetSettingsDescriptionsQuery,
   useGetSettingsDiffQuery,
   useUpdateSettingsMutation,
+  useDeleteSettingsMutation,
   useSettingsCommandMutation,
   useUnloadModuleMutation,
   useLoadModuleMutation,
@@ -521,4 +629,8 @@ export const {
   useResetLogStatusMutation,
   useLoginMutation,
   useGetMetricsQuery,
+  useGetCounterMetadataQuery,
+  useGetChannelMetadataQuery,
+  useGetEventsQuery,
+  useClearEventsMutation,
 } = nsclientApi;

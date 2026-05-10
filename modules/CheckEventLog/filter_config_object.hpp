@@ -20,7 +20,7 @@
 #pragma once
 
 #include <boost/optional.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <map>
 #include <nscapi/settings/filter.hpp>
 #include <nscapi/settings/object.hpp>

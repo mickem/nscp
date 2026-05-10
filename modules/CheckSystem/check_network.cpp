@@ -182,23 +182,23 @@ namespace check {
 
 typedef network_interface filter_obj;
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler();
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_type;
 
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string("name", &filter_obj::get_name, "Network interface name")
-      .add_string("net_connection_id", &filter_obj::get_NetConnectionID, "Network connection id")
-      .add_string("MAC", &filter_obj::get_MACAddress, "The MAC address")
-      .add_string("status", &filter_obj::get_NetConnectionStatus, "Network connection status")
-      .add_string("enabled", &filter_obj::get_NetEnabled, "True if the network interface is enabled")
-      .add_string("speed", &filter_obj::get_Speed, "The network interface speed");
+  registry_.add_string_var("name", &filter_obj::get_name, "Network interface name")
+      .add_string_var("net_connection_id", &filter_obj::get_NetConnectionID, "Network connection id")
+      .add_string_var("MAC", &filter_obj::get_MACAddress, "The MAC address")
+      .add_string_var("status", &filter_obj::get_NetConnectionStatus, "Network connection status")
+      .add_string_var("enabled", &filter_obj::get_NetEnabled, "True if the network interface is enabled")
+      .add_string_var("speed", &filter_obj::get_Speed, "The network interface speed");
 
-  registry_.add_int_x("received", &filter_obj::getBytesReceivedPersec, "Bytes received per second")
-      .add_int_x("sent", &filter_obj::getBytesSentPersec, "Bytes sent per second")
-      .add_int_x("total", &filter_obj::getBytesTotalPersec, "Bytes total per second");
+  registry_.add_int_var("received", &filter_obj::getBytesReceivedPersec, "Bytes received per second")
+      .add_int_var("sent", &filter_obj::getBytesSentPersec, "Bytes sent per second")
+      .add_int_var("total", &filter_obj::getBytesTotalPersec, "Bytes total per second");
 }
 
 void check_network(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, nics_type nicdata) {
@@ -213,7 +213,7 @@ void check_network(const PB::Commands::QueryRequestMessage::Request &request, PB
 
   if (!filter_helper.build_filter(filter)) return;
   for (network_check::nics_type::value_type v : nicdata) {
-    boost::shared_ptr<filter_obj> record(new filter_obj(v));
+    std::shared_ptr<filter_obj> record(new filter_obj(v));
     filter.match(record);
   }
   filter_helper.post_process(filter);

@@ -20,7 +20,7 @@
 #pragma once
 
 #include <boost/algorithm/string.hpp>
-#include <boost/enable_shared_from_this.hpp>
+#include <memory>
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
 #include <nscapi/protobuf/command.hpp>
@@ -73,7 +73,7 @@ class core_exception : public std::exception {
   const char *what() const throw() override { return what_.c_str(); }
 };
 
-class plugin_manager : public boost::enable_shared_from_this<plugin_manager> {
+class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
  public:
   typedef std::shared_ptr<plugin_interface> plugin_type;
 
@@ -191,7 +191,7 @@ class plugin_manager : public boost::enable_shared_from_this<plugin_manager> {
   }
 };
 
-typedef boost::shared_ptr<plugin_manager> plugin_mgr_instance;
+typedef std::shared_ptr<plugin_manager> plugin_mgr_instance;
 
 }  // namespace core
 }  // namespace nsclient

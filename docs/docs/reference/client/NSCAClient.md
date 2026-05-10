@@ -73,6 +73,7 @@ Submit information to the remote NSCA server.
 <a id="submit_nsca_password"></a>
 <a id="submit_nsca_hostname"></a>
 <a id="submit_nsca_time-offset"></a>
+<a id="submit_nsca_timezone"></a>
 <a id="submit_nsca_options"></a>
 #### Command-line Arguments
 
@@ -112,6 +113,7 @@ Submit information to the remote NSCA server.
 | password                              |               | Password                                                                                                                                                                  |
 | hostname                              |               | Host name to report                                                                                                                                                       |
 | time-offset                           |               |                                                                                                                                                                           |
+| timezone                              |               | Reference timezone for wire timestamps (default 'utc'; use 'local' only for legacy peers that emit local-clock-as-Unix-time)                                              |
 
 
 
@@ -312,6 +314,7 @@ This is a section of objects. This means that you will create objects below this
 | retries            | 3             | RETRIES               |
 | time offset        | 0             | TIME OFFSET           |
 | timeout            | 30            | TIMEOUT               |
+| timezone           | utc           | TIMEZONE              |
 | use ssl            |               | ENABLE SSL ENCRYPTION |
 | verify mode        |               | VERIFY MODE           |
 
@@ -337,6 +340,7 @@ payload length=512
 retries=3
 time offset=0
 timeout=30
+timezone=utc
 #use ssl=...
 #verify mode=...
 

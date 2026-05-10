@@ -36,9 +36,9 @@ namespace nscp_client {
 struct connection_data : public socket_helpers::connection_info {
   std::string password;
   std::string path;
-  boost::shared_ptr<socket_helpers::client::client_handler> handler;
+  std::shared_ptr<socket_helpers::client::client_handler> handler;
 
-  connection_data(client::destination_container source, client::destination_container target, boost::shared_ptr<socket_helpers::client::client_handler> handler)
+  connection_data(client::destination_container source, client::destination_container target, std::shared_ptr<socket_helpers::client::client_handler> handler)
       : handler(handler) {
     address = target.address.host;
     port_ = target.address.get_port_string("8443");
@@ -91,8 +91,8 @@ struct client_handler : public socket_helpers::client::client_handler {
 
 template <class THandler = client_handler>
 struct nscp_client_handler : public client::handler_interface {
-  boost::shared_ptr<THandler> handler_;
-  nscp_client_handler() : handler_(boost::make_shared<THandler>()) {}
+  std::shared_ptr<THandler> handler_;
+  nscp_client_handler() : handler_(std::make_shared<THandler>()) {}
 
   std::string get_command(std::string alias, std::string command = "") {
     if (!alias.empty()) return alias;

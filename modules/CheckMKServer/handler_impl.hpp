@@ -28,10 +28,10 @@
 
 class handler_impl : public check_mk::server::handler {
   bool allowArgs_;
-  boost::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts_;
+  std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts_;
 
  public:
-  handler_impl(boost::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts) : allowArgs_(false), scripts_(scripts) {}
+  handler_impl(std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts) : allowArgs_(false), scripts_(scripts) {}
 
   virtual void set_allow_arguments(bool v) { allowArgs_ = v; }
 

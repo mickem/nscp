@@ -23,7 +23,7 @@ extern "C" {
 #include <lua.h>
 }
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <list>
 #include <lua/lua_script.hpp>
 #include <nscapi/protobuf/command.hpp>
@@ -37,7 +37,7 @@ struct lua_runtime_plugin {
   virtual void load(lua::lua_wrapper &instance) = 0;
   virtual void unload(lua::lua_wrapper &instance) = 0;
 };
-typedef boost::shared_ptr<lua_runtime_plugin> lua_runtime_plugin_type;
+typedef std::shared_ptr<lua_runtime_plugin> lua_runtime_plugin_type;
 
 struct lua_runtime : public scripts::script_runtime_interface<lua::lua_traits> {
   std::string base_path;

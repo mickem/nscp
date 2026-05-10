@@ -20,7 +20,7 @@
 #include "check_connections.h"
 
 #include <boost/algorithm/string.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/program_options.hpp>
 #include <fstream>
 #include <map>
@@ -57,21 +57,21 @@ namespace check_net {
 namespace check_connections_filter {
 
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string("protocol", &filter_obj::get_protocol, "Protocol of this bucket (tcp, tcp6, udp, udp6, total)");
-  registry_.add_string("family", &filter_obj::get_family, "Address family (ipv4, ipv6, any)");
-  registry_.add_string("state", &filter_obj::get_state, "TCP state name (ESTABLISHED, LISTEN, ...) or 'all'");
-  registry_.add_int_x("count", parsers::where::type_int, &filter_obj::get_count, "Number of connections matching this bucket");
-  registry_.add_int_x("total", parsers::where::type_int, &filter_obj::get_total, "Total number of connections (only on the 'total' bucket)");
-  registry_.add_int_x("established", parsers::where::type_int, &filter_obj::get_established, "Number of TCP connections in ESTABLISHED state (total bucket)");
-  registry_.add_int_x("listen", parsers::where::type_int, &filter_obj::get_listen, "Number of TCP sockets in LISTEN state (total bucket)");
-  registry_.add_int_x("syn_sent", parsers::where::type_int, &filter_obj::get_syn_sent, "Number of TCP connections in SYN_SENT state (total bucket)");
-  registry_.add_int_x("syn_recv", parsers::where::type_int, &filter_obj::get_syn_recv, "Number of TCP connections in SYN_RECV state (total bucket)");
-  registry_.add_int_x("time_wait", parsers::where::type_int, &filter_obj::get_time_wait, "Number of TCP connections in TIME_WAIT state (total bucket)");
-  registry_.add_int_x("close_wait", parsers::where::type_int, &filter_obj::get_close_wait, "Number of TCP connections in CLOSE_WAIT state (total bucket)");
-  registry_.add_int_x("closing", parsers::where::type_int, &filter_obj::get_closing, "Number of TCP connections in CLOSING state (total bucket)");
-  registry_.add_int_x("fin_wait", parsers::where::type_int, &filter_obj::get_fin_wait, "Number of TCP connections in FIN_WAIT* state (total bucket)");
-  registry_.add_int_x("last_ack", parsers::where::type_int, &filter_obj::get_last_ack, "Number of TCP connections in LAST_ACK state (total bucket)");
-  registry_.add_int_x("udp", parsers::where::type_int, &filter_obj::get_udp, "Number of UDP sockets (total bucket)");
+  registry_.add_string_var("protocol", &filter_obj::get_protocol, "Protocol of this bucket (tcp, tcp6, udp, udp6, total)");
+  registry_.add_string_var("family", &filter_obj::get_family, "Address family (ipv4, ipv6, any)");
+  registry_.add_string_var("state", &filter_obj::get_state, "TCP state name (ESTABLISHED, LISTEN, ...) or 'all'");
+  registry_.add_int_var("count", parsers::where::type_int, &filter_obj::get_count, "Number of connections matching this bucket");
+  registry_.add_int_var("total", parsers::where::type_int, &filter_obj::get_total, "Total number of connections (only on the 'total' bucket)");
+  registry_.add_int_var("established", parsers::where::type_int, &filter_obj::get_established, "Number of TCP connections in ESTABLISHED state (total bucket)");
+  registry_.add_int_var("listen", parsers::where::type_int, &filter_obj::get_listen, "Number of TCP sockets in LISTEN state (total bucket)");
+  registry_.add_int_var("syn_sent", parsers::where::type_int, &filter_obj::get_syn_sent, "Number of TCP connections in SYN_SENT state (total bucket)");
+  registry_.add_int_var("syn_recv", parsers::where::type_int, &filter_obj::get_syn_recv, "Number of TCP connections in SYN_RECV state (total bucket)");
+  registry_.add_int_var("time_wait", parsers::where::type_int, &filter_obj::get_time_wait, "Number of TCP connections in TIME_WAIT state (total bucket)");
+  registry_.add_int_var("close_wait", parsers::where::type_int, &filter_obj::get_close_wait, "Number of TCP connections in CLOSE_WAIT state (total bucket)");
+  registry_.add_int_var("closing", parsers::where::type_int, &filter_obj::get_closing, "Number of TCP connections in CLOSING state (total bucket)");
+  registry_.add_int_var("fin_wait", parsers::where::type_int, &filter_obj::get_fin_wait, "Number of TCP connections in FIN_WAIT* state (total bucket)");
+  registry_.add_int_var("last_ack", parsers::where::type_int, &filter_obj::get_last_ack, "Number of TCP connections in LAST_ACK state (total bucket)");
+  registry_.add_int_var("udp", parsers::where::type_int, &filter_obj::get_udp, "Number of UDP sockets (total bucket)");
 }
 
 }  // namespace check_connections_filter
@@ -114,7 +114,7 @@ void count_proc_net(const std::string &path, const std::string &proto, bool is_t
   }
 }
 
-bool collect_connections_linux(std::vector<boost::shared_ptr<filter_obj> > &out, std::string &error) {
+bool collect_connections_linux(std::vector<std::shared_ptr<filter_obj> > &out, std::string &error) {
   std::map<std::string, long long> per_state;
   long long tcp4 = 0, tcp6 = 0, udp4 = 0, udp6 = 0;
 
@@ -130,7 +130,7 @@ bool collect_connections_linux(std::vector<boost::shared_ptr<filter_obj> > &out,
 
   // Per-protocol bucket.
   auto add_proto = [&](const std::string &proto, const std::string &family, long long n) {
-    auto o = boost::make_shared<filter_obj>();
+    auto o = std::make_shared<filter_obj>();
     o->protocol = proto;
     o->family = family;
     o->state = "all";
@@ -145,7 +145,7 @@ bool collect_connections_linux(std::vector<boost::shared_ptr<filter_obj> > &out,
   // Per-state bucket (TCP only).
   for (const auto &kv : per_state) {
     if (kv.first.rfind("UDP_", 0) == 0) continue;
-    auto o = boost::make_shared<filter_obj>();
+    auto o = std::make_shared<filter_obj>();
     o->protocol = "tcp";
     o->family = "any";
     o->state = kv.first;
@@ -154,7 +154,7 @@ bool collect_connections_linux(std::vector<boost::shared_ptr<filter_obj> > &out,
   }
 
   // Total bucket.
-  auto total = boost::make_shared<filter_obj>();
+  auto total = std::make_shared<filter_obj>();
   total->protocol = "total";
   total->family = "any";
   total->state = "all";
@@ -240,7 +240,7 @@ const char *win_tcp_state(DWORD s) {
   }
 }
 
-bool collect_connections_windows(std::vector<boost::shared_ptr<filter_obj> > &out, std::string &error) {
+bool collect_connections_windows(std::vector<std::shared_ptr<filter_obj> > &out, std::string &error) {
   std::map<std::string, long long> per_state;
   long long tcp4 = 0, tcp6 = 0, udp4 = 0, udp6 = 0;
   auto &api = win::load_iphlpapi();
@@ -301,7 +301,7 @@ bool collect_connections_windows(std::vector<boost::shared_ptr<filter_obj> > &ou
   }
 
   auto add_proto = [&](const std::string &proto, const std::string &family, long long n) {
-    auto o = boost::make_shared<filter_obj>();
+    auto o = std::make_shared<filter_obj>();
     o->protocol = proto;
     o->family = family;
     o->state = "all";
@@ -314,7 +314,7 @@ bool collect_connections_windows(std::vector<boost::shared_ptr<filter_obj> > &ou
   add_proto("udp6", "ipv6", udp6);
 
   for (const auto &kv : per_state) {
-    auto o = boost::make_shared<filter_obj>();
+    auto o = std::make_shared<filter_obj>();
     o->protocol = "tcp";
     o->family = "any";
     o->state = kv.first;
@@ -322,7 +322,7 @@ bool collect_connections_windows(std::vector<boost::shared_ptr<filter_obj> > &ou
     out.push_back(o);
   }
 
-  auto total = boost::make_shared<filter_obj>();
+  auto total = std::make_shared<filter_obj>();
   total->protocol = "total";
   total->family = "any";
   total->state = "all";
@@ -345,7 +345,7 @@ bool collect_connections_windows(std::vector<boost::shared_ptr<filter_obj> > &ou
 
 #endif  // WIN32
 
-bool collect_connections(std::vector<boost::shared_ptr<filter_obj> > &out, std::string &error) {
+bool collect_connections(std::vector<std::shared_ptr<filter_obj> > &out, std::string &error) {
 #if defined(__linux__)
   return collect_connections_linux(out, error);
 #elif defined(WIN32)
@@ -375,7 +375,7 @@ void check_connections(const PB::Commands::QueryRequestMessage::Request &request
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(f)) return;
 
-  std::vector<boost::shared_ptr<filter_obj> > items;
+  std::vector<std::shared_ptr<filter_obj> > items;
   std::string err;
   if (!collect_connections(items, err)) {
     return nscapi::protobuf::functions::set_response_bad(*response, err);

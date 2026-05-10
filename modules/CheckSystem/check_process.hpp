@@ -19,9 +19,10 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <boost/unordered_set.hpp>
 #include <list>
+#include <map>
 #include <nscapi/protobuf/command.hpp>
 #include <set>
 #include <string>
@@ -48,10 +49,11 @@ struct helper {
   proc_filter_helper_wrapper *proc_helper;
 
   helper(nscapi::core_wrapper *core, int plugin_id);
-  void add_obj(boost::shared_ptr<filters::proc::filter_config_object> object);
+  void add_obj(std::shared_ptr<filters::proc::filter_config_object> object);
   void boot();
   void check();
   std::set<std::string> check_shared();
+  std::map<std::string, long long> get_counts() const;
 };
 }  // namespace realtime
 

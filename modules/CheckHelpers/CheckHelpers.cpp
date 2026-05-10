@@ -297,8 +297,8 @@ void CheckHelpers::check_timeout(const PB::Commands::QueryRequestMessage::Reques
   if (command.empty()) return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 
   worker_object obj;
-  boost::shared_ptr<boost::thread> t =
-      boost::shared_ptr<boost::thread>(new boost::thread([&obj, this, command, arguments]() { obj.proc(get_core(), get_id(), command, arguments); }));
+  std::shared_ptr<boost::thread> t =
+      std::shared_ptr<boost::thread>(new boost::thread([&obj, this, command, arguments]() { obj.proc(get_core(), get_id(), command, arguments); }));
 
   if (t->timed_join(boost::posix_time::seconds(timeout))) {
     if (obj.ret != NSCAPI::query_return_codes::returnOK) {
@@ -411,7 +411,7 @@ struct filter_obj {
     return "";
   }
 };
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 
 struct filter_obj_handler : public native_context {
   filter_obj_handler();
@@ -420,14 +420,14 @@ struct filter_obj_handler : public native_context {
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string("key", &filter_obj::get_key, "Major version number")
-      .add_string("value", &filter_obj::get_value, "Major version number")
-      .add_string("unit", &filter_obj::get_unit, "Major version number")
-      .add_string("warn", &filter_obj::get_warn, "Major version number")
-      .add_string("crit", &filter_obj::get_crit, "Major version number")
-      .add_string("max", &filter_obj::get_min, "Major version number")
-      .add_string("min", &filter_obj::get_max, "Major version number")
-      .add_string("message", &filter_obj::get_key, "Major version number");
+  registry_.add_string_var("key", &filter_obj::get_key, "Major version number")
+      .add_string_var("value", &filter_obj::get_value, "Major version number")
+      .add_string_var("unit", &filter_obj::get_unit, "Major version number")
+      .add_string_var("warn", &filter_obj::get_warn, "Major version number")
+      .add_string_var("crit", &filter_obj::get_crit, "Major version number")
+      .add_string_var("max", &filter_obj::get_min, "Major version number")
+      .add_string_var("min", &filter_obj::get_max, "Major version number")
+      .add_string_var("message", &filter_obj::get_key, "Major version number");
 }
 }  // namespace perf_filter
 
@@ -462,7 +462,7 @@ void CheckHelpers::render_perf(const PB::Commands::QueryRequestMessage::Request 
   for (int i = 0; i < response->lines_size(); i++) {
     ::PB::Commands::QueryResponseMessage_Response_Line *line = response->mutable_lines(i);
     for (const PB::Common::PerformanceData &perf : line->perf()) {
-      boost::shared_ptr<perf_filter::filter_obj> record(new perf_filter::filter_obj(perf));
+      std::shared_ptr<perf_filter::filter_obj> record(new perf_filter::filter_obj(perf));
       filter.match(record);
     }
     if (remove_perf) line->clear_perf();

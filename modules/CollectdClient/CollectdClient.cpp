@@ -19,7 +19,7 @@
 
 #include "CollectdClient.h"
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/regex.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <nscapi/macros.hpp>
@@ -36,7 +36,7 @@
  * @return
  */
 CollectdClient::CollectdClient()
-    : client_("nsca", boost::make_shared<collectd_client::collectd_client_handler>(), boost::make_shared<collectd_handler::options_reader_impl>()) {}
+    : client_("nsca", std::make_shared<collectd_client::collectd_client_handler>(), std::make_shared<collectd_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor

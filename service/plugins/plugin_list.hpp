@@ -283,16 +283,31 @@ struct plugins_list_with_listener : plugins_list<plugins_list_listeners_impl> {
   std::list<plugin_type> get(const std::string &channel) {
     boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     has_valid_lock_throw(readLock, "plugins_list::get:" + channel);
+    std::list<plugin_type> ret;
+    std::set<unsigned long> seen;
     const std::string lower_case = make_key(channel);
     const auto cit = listeners_.find(lower_case);
-    if (cit == listeners_.end()) {
-      return std::list<plugin_type>();
+    if (cit != listeners_.end()) {
+      for (unsigned long id : cit->second) {
+        if (seen.insert(id).second) ret.push_back(plugins_[id]);
+      }
     }
-    std::list<plugin_type> ret;
-    for (unsigned long id : cit->second) {
-      ret.push_back(plugins_[id]);
+    // Wildcard "*" subscribers receive every channel. Used by sinks that
+    // want to capture everything (e.g. the WEB server's event drain) without
+    // the operator having to enumerate every emitted event name.
+    const auto wit = listeners_.find("*");
+    if (wit != listeners_.end()) {
+      for (unsigned long id : wit->second) {
+        if (seen.insert(id).second) ret.push_back(plugins_[id]);
+      }
     }
     return ret;
+  }
+
+  listener_list_type get_listeners() {
+    boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    has_valid_lock_throw(readLock, "plugins_list::get_listeners");
+    return listeners_;
   }
 };
 }  // namespace nsclient

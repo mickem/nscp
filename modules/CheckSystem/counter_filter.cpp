@@ -24,4 +24,4 @@
 using namespace boost::assign;
 using namespace parsers::where;
 
-counter_filter::filter_obj_handler::filter_obj_handler() { registry_.add_string("counter", &filter_obj::get_counter, "The name of the file"); }
+counter_filter::filter_obj_handler::filter_obj_handler() { registry_.add_string_var("counter", &filter_obj::get_counter, "The name of the file"); }

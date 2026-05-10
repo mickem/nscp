@@ -158,7 +158,7 @@ class INISettings : public settings_interface_impl {
       if (!comment.empty()) {
         ini.SetValue(utf8::cvt<std::wstring>(path).c_str(), NULL, NULL, utf8::cvt<std::wstring>(comment).c_str());
       }
-    } catch (settings_exception &_e) {
+    } catch (settings_exception &) {
       ini.SetValue(utf8::cvt<std::wstring>(path).c_str(), NULL, NULL, L"; Undocumented section");
     } catch (...) {
       get_logger()->error("settings", __FILE__, __LINE__, "Unknown failure when writing section: " + path);

@@ -74,7 +74,7 @@ node_type state_is_perfect(const value_type, const evaluation_context &raw_conte
   return factory::create_false();
 }
 
-node_type parse_state(boost::shared_ptr<filter_obj> /*object*/, const evaluation_context &context, const node_type &subject) {
+node_type parse_state(std::shared_ptr<filter_obj> /*object*/, const evaluation_context &context, const node_type &subject) {
   try {
     return factory::create_int(filter_obj::parse_state(subject->get_string_value(context)));
   } catch (const std::exception &e) {
@@ -82,7 +82,7 @@ node_type parse_state(boost::shared_ptr<filter_obj> /*object*/, const evaluation
     return factory::create_false();
   }
 }
-node_type parse_start_type(boost::shared_ptr<filter_obj> /*object*/, const evaluation_context &context, const node_type &subject) {
+node_type parse_start_type(std::shared_ptr<filter_obj> /*object*/, const evaluation_context &context, const node_type &subject) {
   try {
     return factory::create_int(filter_obj::parse_start_type(subject->get_string_value(context)));
   } catch (const std::exception &e) {
@@ -95,30 +95,28 @@ filter_obj_handler::filter_obj_handler() {
   static constexpr value_type type_custom_state = type_custom_int_1;
   static constexpr value_type type_custom_start_type = type_custom_int_2;
 
-  registry_.add_string("name", &filter_obj::get_name, "Service name")
-      .add_string("desc", &filter_obj::get_desc, "Service description")
-      .add_string("legacy_state", &filter_obj::get_legacy_state_s, "Get legacy state (deprecated and only used by check_nt)")
-      .add_string("classification", &filter_obj::get_classification, "Get classification");
-  registry_.add_int_x("pid", &filter_obj::get_pid, "Process id")
-      .add_int_x("state", type_custom_state, &filter_obj::get_state_i, "The current state ()")
+  registry_.add_string_var("name", &filter_obj::get_name, "Service name")
+      .add_string_var("desc", &filter_obj::get_desc, "Service description")
+      .add_string_var("legacy_state", &filter_obj::get_legacy_state_s, "Get legacy state (deprecated and only used by check_nt)")
+      .add_string_var("classification", &filter_obj::get_classification, "Get classification");
+  registry_.add_int_var("pid", &filter_obj::get_pid, "Process id")
+      .add_int_var("state", type_custom_state, &filter_obj::get_state_i, "The current state ()")
       .add_int_perf("", "")
-      .add_int_x("start_type", type_custom_start_type, &filter_obj::get_start_type_i, "The configured start type ()")
-      .add_int_x("delayed", type_bool, &filter_obj::get_delayed, "If the service is delayed")
-      .add_int_x("is_trigger", type_bool, &filter_obj::get_is_trigger, "If the service is has associated triggers")
-      .add_int_x("triggers", type_int, &filter_obj::get_triggers, "The number of associated triggers for this service")
-      .add_int_x("exit_code", type_int, &filter_obj::get_exit_code, "The Win32 exit code of the service");
+      .add_int_var("start_type", type_custom_start_type, &filter_obj::get_start_type_i, "The configured start type ()")
+      .add_int_var("delayed", type_bool, &filter_obj::get_delayed, "If the service is delayed")
+      .add_int_var("is_trigger", type_bool, &filter_obj::get_is_trigger, "If the service is has associated triggers")
+      .add_int_var("triggers", type_int, &filter_obj::get_triggers, "The number of associated triggers for this service")
+      .add_int_var("exit_code", type_int, &filter_obj::get_exit_code, "The Win32 exit code of the service");
 
-  // clang-format off
-  registry_.add_int_fun()
-    ("state_is_perfect", type_bool, &state_is_perfect, "Check if the state is ok, i.e. all running services are running")
-    ("state_is_ok", type_bool, &state_is_ok, "Check if the state is ok, i.e. all running services are running (delayed services are allowed to be stopped)")
-    ;
-  // clang-format on
+  registry_
+    .add_custom_fun("state_is_perfect", type_bool, &state_is_perfect, "Check if the state is ok, i.e. all running services are running")
+    .add_custom_fun("state_is_ok", type_bool, &state_is_ok, "Check if the state is ok, i.e. all running services are running (delayed services are allowed to be stopped)") ;
 
   registry_.add_human_string("state", &filter_obj::get_state_s, "The current state ()")
       .add_human_string("start_type", &filter_obj::get_start_type_s, "The configured start type ()");
 
-  registry_.add_converter()(type_custom_state, &parse_state)(type_custom_start_type, &parse_start_type);
+  registry_.add_converter(type_custom_state, &parse_state)
+  .add_converter(type_custom_start_type, &parse_start_type);
 }
 }  // namespace check_svc_filter
 }  // namespace service_checks
@@ -173,14 +171,14 @@ void service_checks::check(const PB::Commands::QueryRequestMessage::Request &req
       for (const win_list_services::service_info &info :
            win_list_services::enum_services(computer, win_list_services::parse_service_type(type), win_list_services::parse_service_state(state), excludes)) {
         if (std::find(excludes.begin(), excludes.end(), info.get_desc()) != excludes.end()) continue;
-        boost::shared_ptr<win_list_services::service_info> record(new win_list_services::service_info(info));
+        std::shared_ptr<win_list_services::service_info> record(new win_list_services::service_info(info));
         filter.match(record);
         if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());
       }
     } else {
       try {
         win_list_services::service_info info = win_list_services::get_service_info(computer, service);
-        boost::shared_ptr<win_list_services::service_info> record(new win_list_services::service_info(info));
+        std::shared_ptr<win_list_services::service_info> record(new win_list_services::service_info(info));
         filter.match(record);
       } catch (const nsclient::nsclient_exception &e) {
         return nscapi::protobuf::functions::set_response_bad(*response, e.reason());

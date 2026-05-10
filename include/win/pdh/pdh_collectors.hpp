@@ -29,10 +29,10 @@ namespace PDH {
 namespace instance_providers {
 struct container : public PDH::pdh_instance_interface {
   std::string alias_;
-  std::list<boost::shared_ptr<pdh_instance_interface> > children_;
+  std::list<std::shared_ptr<pdh_instance_interface> > children_;
 
   virtual bool has_instances() { return true; }
-  virtual std::list<boost::shared_ptr<pdh_instance_interface> > get_instances() { return children_; }
+  virtual std::list<std::shared_ptr<pdh_instance_interface> > get_instances() { return children_; }
 
   container(pdh_object parent, std::list<pdh_object> sub_counters) : alias_(parent.alias) {
     for (const pdh_object &o : sub_counters) {
@@ -87,8 +87,8 @@ class base_counter : public PDH::pdh_instance_interface {
   virtual DWORD get_format() { return format_; }
 
   virtual bool has_instances() { return false; }
-  virtual std::list<boost::shared_ptr<pdh_instance_interface> > get_instances() {
-    std::list<boost::shared_ptr<pdh_instance_interface> > ret;
+  virtual std::list<std::shared_ptr<pdh_instance_interface> > get_instances() {
+    std::list<std::shared_ptr<pdh_instance_interface> > ret;
     return ret;
   }
 };

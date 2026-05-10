@@ -103,27 +103,27 @@ namespace check {
 
 typedef disk_io filter_obj;
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler : native_context {
   filter_obj_handler();
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_type;
 
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string("name", &filter_obj::get_name, "Logical disk name (e.g. C:, D:, _Total)");
+  registry_.add_string_var("name", &filter_obj::get_name, "Logical disk name (e.g. C:, D:, _Total)");
 
-  registry_.add_int_x("read_bytes_per_sec", &filter_obj::get_read_bytes_per_sec, "Bytes read per second")
-      .add_int_x("write_bytes_per_sec", &filter_obj::get_write_bytes_per_sec, "Bytes written per second")
-      .add_int_x("total_bytes_per_sec", &filter_obj::get_total_bytes_per_sec, "Total bytes per second (read + write)")
-      .add_int_x("reads_per_sec", &filter_obj::get_reads_per_sec, "Read IOPS")
-      .add_int_x("writes_per_sec", &filter_obj::get_writes_per_sec, "Write IOPS")
-      .add_int_x("iops", &filter_obj::get_iops, "Total IOPS (reads + writes)")
-      .add_int_x("queue_length", &filter_obj::get_queue_length, "Current disk queue length")
+  registry_.add_int_var("read_bytes_per_sec", &filter_obj::get_read_bytes_per_sec, "Bytes read per second")
+      .add_int_var("write_bytes_per_sec", &filter_obj::get_write_bytes_per_sec, "Bytes written per second")
+      .add_int_var("total_bytes_per_sec", &filter_obj::get_total_bytes_per_sec, "Total bytes per second (read + write)")
+      .add_int_var("reads_per_sec", &filter_obj::get_reads_per_sec, "Read IOPS")
+      .add_int_var("writes_per_sec", &filter_obj::get_writes_per_sec, "Write IOPS")
+      .add_int_var("iops", &filter_obj::get_iops, "Total IOPS (reads + writes)")
+      .add_int_var("queue_length", &filter_obj::get_queue_length, "Current disk queue length")
       .add_int_perf("")
-      .add_int_x("percent_disk_time", &filter_obj::get_percent_disk_time, "Percent of time the disk is busy")
+      .add_int_var("percent_disk_time", &filter_obj::get_percent_disk_time, "Percent of time the disk is busy")
       .add_int_perf("%")
-      .add_int_x("percent_idle_time", &filter_obj::get_percent_idle_time, "Percent of time the disk is idle")
-      .add_int_x("split_io_per_sec", &filter_obj::get_split_io_per_sec, "Split I/O operations per second");
+      .add_int_var("percent_idle_time", &filter_obj::get_percent_idle_time, "Percent of time the disk is idle")
+      .add_int_var("split_io_per_sec", &filter_obj::get_split_io_per_sec, "Split I/O operations per second");
 }
 
 void check_disk_io(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, disks_type data) {
@@ -140,7 +140,7 @@ void check_disk_io(const PB::Commands::QueryRequestMessage::Request &request, PB
 
   if (!filter_helper.build_filter(filter)) return;
   for (const disk_io &d : data) {
-    boost::shared_ptr<filter_obj> record(new filter_obj(d));
+    std::shared_ptr<filter_obj> record(new filter_obj(d));
     filter.match(record);
   }
   filter_helper.post_process(filter);

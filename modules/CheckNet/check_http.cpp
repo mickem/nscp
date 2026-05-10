@@ -21,7 +21,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/chrono.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/program_options.hpp>
 #include <net/http/client.hpp>
 #include <net/http/http_packet.hpp>
@@ -39,17 +39,17 @@ namespace check_net {
 namespace check_http_filter {
 
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string("url", &filter_obj::get_url, "Full URL that was requested");
-  registry_.add_string("host", &filter_obj::get_host, "Host part of the URL");
-  registry_.add_string("path", &filter_obj::get_path, "Path part of the URL");
-  registry_.add_string("protocol", &filter_obj::get_protocol, "Protocol used (http or https)");
-  registry_.add_string("status", &filter_obj::get_status, "HTTP status message");
-  registry_.add_string("body", &filter_obj::get_body, "Body of the response (use with substr/regex matching)");
-  registry_.add_string("result", &filter_obj::get_result, "Textual result of the check (ok, error, ...)");
-  registry_.add_int_x("port", parsers::where::type_int, &filter_obj::get_port, "TCP port that was used");
-  registry_.add_int_x("code", parsers::where::type_int, &filter_obj::get_code, "HTTP status code");
-  registry_.add_int_x("time", parsers::where::type_int, &filter_obj::get_time, "Time taken by the request in milliseconds");
-  registry_.add_int_x("size", parsers::where::type_int, &filter_obj::get_size, "Size of the response body in bytes");
+  registry_.add_string_var("url", &filter_obj::get_url, "Full URL that was requested");
+  registry_.add_string_var("host", &filter_obj::get_host, "Host part of the URL");
+  registry_.add_string_var("path", &filter_obj::get_path, "Path part of the URL");
+  registry_.add_string_var("protocol", &filter_obj::get_protocol, "Protocol used (http or https)");
+  registry_.add_string_var("status", &filter_obj::get_status, "HTTP status message");
+  registry_.add_string_var("body", &filter_obj::get_body, "Body of the response (use with substr/regex matching)");
+  registry_.add_string_var("result", &filter_obj::get_result, "Textual result of the check (ok, error, ...)");
+  registry_.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "TCP port that was used");
+  registry_.add_int_var("code", parsers::where::type_int, &filter_obj::get_code, "HTTP status code");
+  registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Time taken by the request in milliseconds");
+  registry_.add_int_var("size", parsers::where::type_int, &filter_obj::get_size, "Size of the response body in bytes");
 }
 
 }  // namespace check_http_filter
@@ -200,7 +200,7 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
   if (!filter_helper.build_filter(f)) return;
 
   for (const auto &u : urls) {
-    auto obj = boost::make_shared<filter_obj>();
+    auto obj = std::make_shared<filter_obj>();
     run_http_check(u, timeout_ms, headers, expected_body, user_agent, tls_version, verify_mode, ca_file, *obj);
     f.match(obj);
   }

@@ -110,7 +110,7 @@ void ServerImpl::thread_proc() {
 
 void ServerImpl::start(const std::string &bind) {
   mg_http_listen(&mgr, bind.c_str(), event_handler, this);
-  thread_ = boost::make_shared<boost::thread>([this] { thread_proc(); });
+  thread_ = std::make_shared<boost::thread>([this] { thread_proc(); });
 }
 
 void ServerImpl::stop() {

@@ -32,14 +32,14 @@ namespace sh = nscapi::settings_helper;
 
 class CheckMKClient : public nscapi::impl::simple_plugin {
  private:
-  boost::shared_ptr<lua::lua_runtime> lua_runtime_;
-  boost::shared_ptr<scripts::nscp::nscp_runtime_impl> nscp_runtime_;
+  std::shared_ptr<lua::lua_runtime> lua_runtime_;
+  std::shared_ptr<scripts::nscp::nscp_runtime_impl> nscp_runtime_;
   boost::filesystem::path root_;
   std::string channel_;
   std::string hostname_;
   std::string encoding_;
 
-  boost::shared_ptr<check_mk_client::check_mk_client_handler> handler_;
+  std::shared_ptr<check_mk_client::check_mk_client_handler> handler_;
   client::configuration client_;
 
  public:

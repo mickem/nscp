@@ -727,7 +727,7 @@ extern int NSOnEvent(unsigned int id, const char* buffer, unsigned int buffer_le
 """
 
 HPP_TEMPLATE = """#pragma once
-#include <boost/shared_ptr.hpp>
+#include <memory>
 
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 
@@ -769,7 +769,7 @@ extern "C" int NSOnEvent(unsigned int plugin_id, const char* buffer, unsigned in
 class {{module.name}}Module : public {{options.moduleBaseclass}} {
 
 public:
-	boost::shared_ptr<{{module.name}}> impl_;
+	std::shared_ptr<{{module.name}}> impl_;
 
 	{{module.name}}Module() {}
 	~{{module.name}}Module() {}

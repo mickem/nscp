@@ -43,7 +43,7 @@ bool validate_response(const PB::Commands::ExecuteResponseMessage &resp, Mongoos
   return true;
 }
 
-scripts_controller::scripts_controller(const int version, boost::shared_ptr<session_manager_interface> session, const nscapi::core_wrapper *core,
+scripts_controller::scripts_controller(const int version, std::shared_ptr<session_manager_interface> session, const nscapi::core_wrapper *core,
                                        unsigned int plugin_id)
     : RegexpController(version == 1 ? "/api/v1/scripts" : "/api/v2/scripts"), session(std::move(std::move(session))), core(core), plugin_id(plugin_id) {
   addRoute("GET", "/?$", this, &scripts_controller::get_runtimes);

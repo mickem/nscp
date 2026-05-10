@@ -12,16 +12,17 @@
 #include "session_manager_interface.hpp"
 
 class settings_controller : public Mongoose::RegexpController {
-  boost::shared_ptr<session_manager_interface> session;
+  std::shared_ptr<session_manager_interface> session;
   const nscapi::core_wrapper *core;
   const unsigned int plugin_id;
 
  public:
-  settings_controller(const int version, boost::shared_ptr<session_manager_interface> session, const nscapi::core_wrapper *core, unsigned int plugin_id);
+  settings_controller(const int version, std::shared_ptr<session_manager_interface> session, const nscapi::core_wrapper *core, unsigned int plugin_id);
 
   void get(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
   void get_desc(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
   void put(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+  void del(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
   void command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
   void status(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
   void diff(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);

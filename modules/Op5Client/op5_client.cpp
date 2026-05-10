@@ -43,7 +43,7 @@ namespace json = boost::json;
 
 op5_client::op5_client(const nscapi::core_wrapper *core, int plugin_id, op5_config config)
     : core_(core), plugin_id_(plugin_id), config_(config), stop_thread_(false) {
-  thread_ = boost::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
+  thread_ = std::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
 }
 
 /**
@@ -186,7 +186,7 @@ std::pair<bool, bool> op5_client::has_service(std::string service, std::string h
     } else {
       return std::pair<bool, bool>(true, true);
     }
-  } catch (const std::exception &e) {
+  } catch (const std::exception &) {
     NSC_LOG_ERROR("Failed to parse response: " + response.payload_);
     return std::pair<bool, bool>(false, false);
   }
@@ -404,15 +404,15 @@ void op5_client::thread_proc() {
             for (const PB::Commands::QueryResponseMessage::Response &p : resp_msg.payload()) {
               std::string message = nscapi::protobuf::functions::query_data_to_nagios_string(p, nscapi::protobuf::functions::no_truncation);
               int result = nscapi::protobuf::functions::gbp_to_nagios_status(p.result());
-              std::string status;
-              if (!send_a_check(v.first, result, message, status)) {
-                NSC_LOG_ERROR("Failed to submit " + v.first + " result: " + status);
+              std::string check_status;
+              if (!send_a_check(v.first, result, message, check_status)) {
+                NSC_LOG_ERROR("Failed to submit " + v.first + " result: " + check_status);
               }
             }
           } else {
-            std::string status;
-            if (!send_a_check(v.first, NSCAPI::query_return_codes::returnUNKNOWN, "Failed to execute command: " + command, status)) {
-              NSC_LOG_ERROR("Failed to submit " + v.first + " result: " + status);
+            std::string check_status;
+            if (!send_a_check(v.first, NSCAPI::query_return_codes::returnUNKNOWN, "Failed to execute command: " + command, check_status)) {
+              NSC_LOG_ERROR("Failed to submit " + v.first + " result: " + check_status);
             }
           }
         }
@@ -427,7 +427,7 @@ void op5_client::thread_proc() {
       }
       try {
         boost::this_thread::sleep(boost::posix_time::seconds(interval));
-      } catch (const boost::thread_interrupted &e) {
+      } catch (const boost::thread_interrupted &) {
         if (stop_thread_) {
           if (deregister) {
             deregister_host(hostname);

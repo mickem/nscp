@@ -109,9 +109,10 @@ Section for the Scheduler module.
 
 
 
-| Key                 | Default Value | Description |
-|---------------------|---------------|-------------|
-| [threads](#threads) | 5             | Threads     |
+| Key                   | Default Value | Description |
+|-----------------------|---------------|-------------|
+| [threads](#threads)   | 5             | Threads     |
+| [timezone](#timezone) | local         | Timezone    |
 
 
 
@@ -119,6 +120,7 @@ Section for the Scheduler module.
 # Section for the Scheduler module.
 [/settings/scheduler]
 threads=5
+timezone=local
 
 ```
 
@@ -147,6 +149,31 @@ Number of threads to use.
 [/settings/scheduler]
 # Threads
 threads=5
+```
+
+
+
+#### Timezone <a id="/settings/scheduler/timezone"></a>
+
+Reference clock for cron expressions. Accepts 'local' (default — standard cron semantics), 'utc'/'gmt' (restores the pre-0.13 behaviour), or any POSIX TZ string such as 'EST-05EDT,M3.2.0,M11.1.0'. Unparseable values fall back to UTC and are flagged in the tz label as 'UTC?'.
+
+
+
+
+
+| Key            | Description                                 |
+|----------------|---------------------------------------------|
+| Path:          | [/settings/scheduler](#/settings/scheduler) |
+| Key:           | timezone                                    |
+| Default value: | `local`                                     |
+
+
+**Sample:**
+
+```
+[/settings/scheduler]
+# Timezone
+timezone=local
 ```
 
 

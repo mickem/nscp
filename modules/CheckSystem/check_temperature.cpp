@@ -169,18 +169,18 @@ namespace check {
 
 typedef thermal_zone filter_obj;
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler();
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_type;
 
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string("name", &filter_obj::get_name, "Thermal zone name").add_string("active", &filter_obj::get_active, "True if the thermal zone is active");
+  registry_.add_string_var("name", &filter_obj::get_name, "Thermal zone name").add_string_var("active", &filter_obj::get_active, "True if the thermal zone is active");
 
-  registry_.add_int_x("temperature", &filter_obj::get_temperature_i, "Temperature in degrees Celsius")
+  registry_.add_int_var("temperature", &filter_obj::get_temperature_i, "Temperature in degrees Celsius")
       .add_int_perf("C")
-      .add_int_x("throttle_reasons", &filter_obj::get_throttle_reasons, "Throttle reasons bitmask");
+      .add_int_var("throttle_reasons", &filter_obj::get_throttle_reasons, "Throttle reasons bitmask");
 }
 
 void check_temperature(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, zones_type data) {
@@ -195,7 +195,7 @@ void check_temperature(const PB::Commands::QueryRequestMessage::Request &request
 
   if (!filter_helper.build_filter(filter)) return;
   for (const thermal_zone &z : data) {
-    boost::shared_ptr<filter_obj> record(new filter_obj(z));
+    std::shared_ptr<filter_obj> record(new filter_obj(z));
     filter.match(record);
   }
   filter_helper.post_process(filter);

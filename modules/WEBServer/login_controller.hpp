@@ -12,10 +12,10 @@
 #include "session_manager_interface.hpp"
 
 class login_controller : public Mongoose::RegexpController {
-  boost::shared_ptr<session_manager_interface> session;
+  std::shared_ptr<session_manager_interface> session;
 
  public:
-  login_controller(const int version, const boost::shared_ptr<session_manager_interface> &session);
+  login_controller(const int version, const std::shared_ptr<session_manager_interface> &session);
 
   void is_loggedin(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
   void logout(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);

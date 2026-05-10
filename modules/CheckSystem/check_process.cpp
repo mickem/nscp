@@ -32,13 +32,13 @@
 namespace check_proc_filter {
 typedef win_list_processes::process_info filter_obj;
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler();
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
-parsers::where::node_type parse_state(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+parsers::where::node_type parse_state(std::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
   return parsers::where::factory::create_int(filter_obj::parse_state(subject->get_string_value(context)));
 }
 
@@ -46,18 +46,18 @@ filter_obj_handler::filter_obj_handler() {
   static const parsers::where::value_type type_custom_state = parsers::where::type_custom_int_1;
   static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
 
-  registry_.add_string("filename", &filter_obj::get_filename, "Name of process (with path)")
-      .add_string("exe", &filter_obj::get_exe, "The name of the executable")
-      .add_string("error", &filter_obj::get_error, "Any error messages associated with fetching info")
-      .add_string("command_line", &filter_obj::get_command_line, "Command line of process (not always available)")
-      .add_string("legacy_state", &filter_obj::get_legacy_state_s, "Get process status (for legacy use via check_nt only)");
-  registry_.add_int_x("pid", &filter_obj::get_pid, "Process id")
-      .add_int_x("started", parsers::where::type_bool, &filter_obj::get_started, "Process is started")
-      .add_int_x("hung", parsers::where::type_bool, &filter_obj::get_hung, "Process is hung")
-      .add_int_x("stopped", parsers::where::type_bool, &filter_obj::get_stopped, "Process is stopped")
-      .add_int_x("new", parsers::where::type_bool, &filter_obj::get_is_new, "Process is new (can inly be used for real-time filters)");
+  registry_.add_string_var("filename", &filter_obj::get_filename, "Name of process (with path)")
+      .add_string_var("exe", &filter_obj::get_exe, "The name of the executable")
+      .add_string_var("error", &filter_obj::get_error, "Any error messages associated with fetching info")
+      .add_string_var("command_line", &filter_obj::get_command_line, "Command line of process (not always available)")
+      .add_string_var("legacy_state", &filter_obj::get_legacy_state_s, "Get process status (for legacy use via check_nt only)");
+  registry_.add_int_var("pid", &filter_obj::get_pid, "Process id")
+      .add_int_var("started", parsers::where::type_bool, &filter_obj::get_started, "Process is started")
+      .add_int_var("hung", parsers::where::type_bool, &filter_obj::get_hung, "Process is hung")
+      .add_int_var("stopped", parsers::where::type_bool, &filter_obj::get_stopped, "Process is stopped")
+      .add_int_var("new", parsers::where::type_bool, &filter_obj::get_is_new, "Process is new (can inly be used for real-time filters)");
   // clang-format off
-  registry_.add_int()
+  registry_.add_int_legacy()
     ("handles", [](auto obj, auto context) {return obj->get_handleCount(); }, "Number of handles").add_perf("", "", " handle count")
     ("gdi_handles", [](auto obj, auto context) {return obj->get_gdiHandleCount(); }, "Number of handles").add_perf("", "", " GDI handle count")
     ("user_handles", [](auto obj, auto context) {return obj->get_userHandleCount(); }, "Number of handles").add_perf("", "", " USER handle count")
@@ -90,7 +90,7 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_human_string("peak_pagefile", &filter_obj::get_PageFileUsage_human, "");
   registry_.add_human_string("pagefile", &filter_obj::get_PeakPageFileUsage_human, "");
 
-  registry_.add_converter()(type_custom_state, &parse_state);
+  registry_.add_converter(type_custom_state, &parse_state);
 }
 
 }  // namespace check_proc_filter
@@ -119,7 +119,7 @@ struct transient_data {
 
 struct runtime_data {
   typedef check_proc_filter::filter filter_type;
-  typedef boost::shared_ptr<transient_data> transient_data_type;
+  typedef std::shared_ptr<transient_data> transient_data_type;
 
   std::list<std::string> checks;
   bool has_check_all;
@@ -156,13 +156,13 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
 
   if (has_check_all) {
     for (const win_list_processes::process_info &info : data->list) {
-      boost::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
+      std::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
       ret.append(filter.match(record));
     }
   } else {
     for (const win_list_processes::process_info &info : data->list) {
       if (process_name_matches_any(checks, info.exe.get())) {
-        boost::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
+        std::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
         ret.append(filter.match(record));
       }
     }
@@ -172,7 +172,7 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
 
 helper::helper(nscapi::core_wrapper *core, int plugin_id) : proc_helper(new proc_filter_helper_wrapper(core, plugin_id)) {}
 
-void helper::add_obj(boost::shared_ptr<filters::proc::filter_config_object> object) {
+void helper::add_obj(std::shared_ptr<filters::proc::filter_config_object> object) {
   runtime_data data;
   for (const std::string &d : object->data) {
     data.add(d);
@@ -214,6 +214,8 @@ std::set<std::string> helper::check_shared() {
 
   return running_exes;
 }
+
+std::map<std::string, long long> helper::get_counts() const { return proc_helper->helper.get_counts(); }
 
 }  // namespace realtime
 
@@ -277,7 +279,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   for (const win_list_processes::process_info &info : list) {
     bool wanted = procs.count(info.exe);
     if (all || wanted) {
-      boost::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
+      std::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
       filter.match(record);
     }
     if (wanted) {
@@ -288,11 +290,11 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
     procs.erase(proc);
   }
 
-  boost::shared_ptr<win_list_processes::process_info> total_obj;
+  std::shared_ptr<win_list_processes::process_info> total_obj;
   if (total) total_obj = win_list_processes::process_info::get_total();
 
   for (const std::string &proc : procs) {
-    boost::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(proc));
+    std::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(proc));
     modern_filter::match_result ret = filter.match(record);
     if (total_obj && ret.matched_filter) total_obj->operator+=(*record);
   }

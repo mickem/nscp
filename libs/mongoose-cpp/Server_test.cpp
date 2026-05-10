@@ -25,11 +25,9 @@
 
 #include <algorithm>
 #include <atomic>
-#include <boost/make_shared.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <cctype>
 #include <chrono>
-#include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
@@ -128,7 +126,7 @@ int choose_port_base() {
 std::string bind_url(const int port) { return "http://127.0.0.1:" + std::to_string(port); }
 
 struct ServerFixture {
-  boost::shared_ptr<CollectingLogger> logger = boost::make_shared<CollectingLogger>();
+  std::shared_ptr<CollectingLogger> logger = std::make_shared<CollectingLogger>();
   std::unique_ptr<Server> server{Server::make_server(logger)};
 
   void start(int port, MatchController* controller) const {
@@ -211,7 +209,7 @@ std::string make_get_request(const std::string& path, int port) {
 // ---- Server factory / lifecycle (no network) -------------------------------
 
 TEST(Server, MakeServerReturnsNonNull) {
-  auto logger = boost::make_shared<CollectingLogger>();
+  auto logger = std::make_shared<CollectingLogger>();
   std::unique_ptr<Server> server(Server::make_server(logger));
   ASSERT_NE(server, nullptr);
 }
@@ -219,7 +217,7 @@ TEST(Server, MakeServerReturnsNonNull) {
 TEST(Server, RegisterControllerAndDestructDeletesController) {
   // ServerImpl takes ownership of registered controllers (deletes them in
   // dtor). The test passes by not crashing / leaking.
-  auto logger = boost::make_shared<CollectingLogger>();
+  auto logger = std::make_shared<CollectingLogger>();
   std::unique_ptr<Server> server(Server::make_server(logger));
   server->registerController(new MatchController());
   server->registerController(new MatchController("/api"));
@@ -227,7 +225,7 @@ TEST(Server, RegisterControllerAndDestructDeletesController) {
 }
 
 TEST(Server, StopWithoutStartIsSafe) {
-  const auto logger = boost::make_shared<CollectingLogger>();
+  const auto logger = std::make_shared<CollectingLogger>();
   const std::unique_ptr<Server> server(Server::make_server(logger));
   server->stop();
   SUCCEED();

@@ -290,43 +290,43 @@ int cli_parser::parse_settings(int argc, char *argv[]) {
     bool load_all = vm.count("load-all") == 1;
     bool use_samples = vm.count("use-samples") == 1;
 
-    nsclient_core::settings_client client(core_, def, rem_def, load_all, use_samples);
+    nsclient_core::settings_client settings_cli(core_, def, rem_def, load_all, use_samples);
     int ret = -1;
     try {
       if (vm.count("generate")) {
         std::string option = vm["generate"].as<std::string>();
-        ret = client.generate(option);
+        ret = settings_cli.generate(option);
       } else if (vm.count("update")) {
         std::string option = vm["update"].as<std::string>();
-        ret = client.generate(option);
+        ret = settings_cli.generate(option);
       } else if (vm.count("migrate-to")) {
-        ret = client.migrate_to(vm["migrate-to"].as<std::string>());
+        ret = settings_cli.migrate_to(vm["migrate-to"].as<std::string>());
       } else if (vm.count("migrate-from")) {
-        ret = client.migrate_from(vm["migrate-from"].as<std::string>());
+        ret = settings_cli.migrate_from(vm["migrate-from"].as<std::string>());
       } else if (vm.count("set")) {
-        ret = client.set(vm["path"].as<std::string>(), vm["key"].as<std::string>(), vm["set"].as<std::string>());
+        ret = settings_cli.set(vm["path"].as<std::string>(), vm["key"].as<std::string>(), vm["set"].as<std::string>());
       } else if (vm.count("list")) {
-        ret = client.list(vm["path"].as<std::string>());
+        ret = settings_cli.list(vm["path"].as<std::string>());
       } else if (vm.count("show")) {
         if (vm.count("path") > 0 && vm.count("key") > 0)
-          ret = client.show(vm["path"].as<std::string>(), vm["key"].as<std::string>());
+          ret = settings_cli.show(vm["path"].as<std::string>(), vm["key"].as<std::string>());
         else {
           std::cerr << "Invalid command line please use --path and --key with show" << std::endl;
           ret = -1;
         }
       } else if (vm.count("activate-module")) {
-        client.activate(vm["activate-module"].as<std::string>());
+        settings_cli.activate(vm["activate-module"].as<std::string>());
       } else if (vm.count("validate")) {
-        ret = client.validate();
+        ret = settings_cli.validate();
       } else if (vm.count("sort")) {
-        ret = client.sort();
+        ret = settings_cli.sort();
       } else if (vm.count("switch")) {
-        client.switch_context(vm["switch"].as<std::string>());
-        client.list_settings_info();
+        settings_cli.switch_context(vm["switch"].as<std::string>());
+        settings_cli.list_settings_info();
         ret = 0;
       } else {
         std::cout << all << std::endl;
-        client.list_settings_info();
+        settings_cli.list_settings_info();
         return 1;
       }
     } catch (const std::exception &e) {

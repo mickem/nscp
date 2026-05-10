@@ -12,13 +12,13 @@
 #include "session_manager_interface.hpp"
 
 class modules_controller : public Mongoose::RegexpController {
-  boost::shared_ptr<session_manager_interface> session;
+  std::shared_ptr<session_manager_interface> session;
   const nscapi::core_wrapper *core;
   const unsigned int plugin_id;
   const int version;
 
  public:
-  modules_controller(const int version, const boost::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core, unsigned int plugin_id);
+  modules_controller(const int version, const std::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core, unsigned int plugin_id);
 
   void get_modules(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
   void get_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);

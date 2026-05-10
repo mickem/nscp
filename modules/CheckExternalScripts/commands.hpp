@@ -100,7 +100,7 @@ struct command_object : public nscapi::settings_objects::object_instance_interfa
 
   void set_command(std::string str) { command = str; }
 };
-typedef boost::shared_ptr<command_object> command_object_instance;
+typedef std::shared_ptr<command_object> command_object_instance;
 
 typedef nscapi::settings_objects::object_handler<command_object> command_handler;
 }  // namespace commands

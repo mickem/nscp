@@ -8,6 +8,7 @@
 	},
 	"metrics" : "consume",
 	"command line exec" : true,
-	"log messages" : true
+	"log messages" : true,
+	"events": true
 
 }

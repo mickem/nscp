@@ -19,7 +19,7 @@
 
 #pragma once
 #include <algorithm>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <list>
 #include <nscapi/settings/helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
@@ -52,7 +52,7 @@ struct object_instance_interface {
   virtual ~object_instance_interface() = default;
   object_instance_interface(const std::string &alias, const std::string &base_path)
       : alias(alias), base_path(base_path), path(make_obj_path(base_path, alias)), is_template_(false), parent("default") {}
-  object_instance_interface(const boost::shared_ptr<object_instance_interface> &other, const std::string &alias, const std::string &base_path)
+  object_instance_interface(const std::shared_ptr<object_instance_interface> &other, const std::string &alias, const std::string &base_path)
       : alias(alias), base_path(base_path), path(make_obj_path(base_path, alias)), is_template_(false), parent(other->alias) {
     value = other->value;
     for (const auto &e : other->options) {
@@ -112,7 +112,7 @@ struct object_instance_interface {
 
   virtual void translate(const std::string &key, const std::string &new_value) { options[key] = new_value; }
 
-  virtual void import(boost::shared_ptr<object_instance_interface> new_parent) {}
+  virtual void import(std::shared_ptr<object_instance_interface> new_parent) {}
 
   bool has_option(const std::string &key) const { return options.find(key) != options.end(); }
   void set_property_int(const std::string &key, const int new_value) { translate(key, str::xtos(new_value)); }
@@ -138,22 +138,22 @@ struct object_instance_interface {
   void set_value(const std::string &new_value) { value = new_value; }
 };
 
-typedef boost::shared_ptr<object_instance_interface> object_instance;
+typedef std::shared_ptr<object_instance_interface> object_instance;
 
 template <class T>
 struct object_factory_interface {
   virtual ~object_factory_interface() = default;
-  typedef boost::shared_ptr<T> object_instance;
+  typedef std::shared_ptr<T> object_instance;
   virtual object_instance create(std::string alias, std::string path) = 0;
   virtual object_instance clone(object_instance parent, std::string alias, std::string path) = 0;
 };
 
 template <class T>
 struct simple_object_factory : object_factory_interface<T> {
-  typedef boost::shared_ptr<T> object_instance;
-  object_instance create(std::string alias, std::string path) override { return boost::make_shared<T>(alias, path); }
+  typedef std::shared_ptr<T> object_instance;
+  object_instance create(std::string alias, std::string path) override { return std::make_shared<T>(alias, path); }
   object_instance clone(object_instance parent, const std::string alias, const std::string path) override {
-    object_instance inst = boost::make_shared<T>(*parent);
+    object_instance inst = std::make_shared<T>(*parent);
     if (inst) {
       inst->setup(alias, path, parent->get_alias());
     }
@@ -163,17 +163,17 @@ struct simple_object_factory : object_factory_interface<T> {
 
 template <class T, class TFactory = simple_object_factory<T>>
 struct object_handler : boost::noncopyable {
-  typedef boost::shared_ptr<T> object_instance;
+  typedef std::shared_ptr<T> object_instance;
   typedef std::unordered_map<std::string, object_instance> object_map;
   typedef std::list<object_instance> object_list_type;
 
   object_map objects;
   object_map templates;
-  boost::shared_ptr<TFactory> factory;
+  std::shared_ptr<TFactory> factory;
   std::string path;
 
-  object_handler() : factory(boost::make_shared<TFactory>()) {}
-  explicit object_handler(boost::shared_ptr<TFactory> factory) : factory(factory) {}
+  object_handler() : factory(std::make_shared<TFactory>()) {}
+  explicit object_handler(std::shared_ptr<TFactory> factory) : factory(factory) {}
 
   void set_path(const std::string &path_) { path = path_; }
 
@@ -203,9 +203,9 @@ struct object_handler : boost::noncopyable {
   }
   bool has_objects() const { return !objects.empty(); }
 
-  void ensure_default() {
+  void ensure_default(settings_helper::settings_impl_interface_ptr proxy = settings_helper::settings_impl_interface_ptr()) {
     if (has_object("default")) return;
-    add(settings_helper::settings_impl_interface_ptr(), "default", "");
+    add(proxy, "default", "");
   }
 
   object_instance add(settings_helper::settings_impl_interface_ptr proxy, std::string alias, std::string value, const bool force_template = false) {

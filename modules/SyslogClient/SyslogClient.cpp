@@ -20,7 +20,7 @@
 #include "SyslogClient.h"
 
 #include <boost/asio.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <net/socket/socket_helpers.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -35,7 +35,7 @@
  * @return
  */
 SyslogClient::SyslogClient()
-    : client_("syslog", boost::make_shared<syslog_client::syslog_client_handler>(), boost::make_shared<syslog_handler::options_reader_impl>()) {}
+    : client_("syslog", std::make_shared<syslog_client::syslog_client_handler>(), std::make_shared<syslog_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor

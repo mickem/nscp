@@ -8,7 +8,7 @@
 #include <NSCAPI.h>
 #include <gtest/gtest.h>
 
-#include <boost/make_shared.hpp>
+#include <memory>
 
 #include "plugin_interface.hpp"
 // Mock logger for testing

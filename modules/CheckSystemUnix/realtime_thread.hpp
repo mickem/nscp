@@ -20,7 +20,7 @@
 #pragma once
 
 #include <boost/circular_buffer.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <boost/thread.hpp>
 #include <boost/unordered_map.hpp>
 #include <error/error.hpp>
@@ -240,7 +240,7 @@ struct rrd_buffer {
 
 class pdh_thread {
  private:
-  boost::shared_ptr<boost::thread> thread_;
+  std::shared_ptr<boost::thread> thread_;
   mutable boost::shared_mutex mutex_;
   bool stop_requested_;
 
@@ -306,10 +306,10 @@ class pdh_thread {
 
   void set_path(const std::string &cpu_path, const std::string &mem_path);
 
-  void add_realtime_cpu_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
-  void add_realtime_mem_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+  void add_realtime_cpu_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+  void add_realtime_mem_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
 
-  void add_samples(boost::shared_ptr<nscapi::settings_proxy> settings);
+  void add_samples(std::shared_ptr<nscapi::settings_proxy> settings);
 
   std::string to_string() const { return "system"; }
 

@@ -5,12 +5,12 @@
 #include "error_handler_interface.hpp"
 
 class web_cli_handler : public client::cli_handler {
-  boost::shared_ptr<error_handler_interface> error_handler;
+  std::shared_ptr<error_handler_interface> error_handler;
   const nscapi::core_wrapper* core;
   int plugin_id;
 
  public:
-  web_cli_handler(boost::shared_ptr<error_handler_interface> error_handler, const nscapi::core_wrapper* core, int plugin_id)
+  web_cli_handler(std::shared_ptr<error_handler_interface> error_handler, const nscapi::core_wrapper* core, int plugin_id)
       : error_handler(error_handler), core(core), plugin_id(plugin_id) {}
 
   void output_message(const std::string& msg) {

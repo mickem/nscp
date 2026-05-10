@@ -10,6 +10,7 @@ import Query from "./components/Query.tsx";
 import Module from "./components/Module.tsx";
 import Settings from "./components/Settings.tsx";
 import Metrics from "./components/Metrics.tsx";
+import Events from "./components/Events.tsx";
 
 export default function Router() {
   const { isAuthenticated } = useAuthentication();
@@ -38,6 +39,7 @@ export default function Router() {
             <Route index={true} element={<Queries />} />
           </Route>
           <Route path={"metrics"} element={<Metrics />} />
+          <Route path={"events"} element={<Events />} />
         </Route>
       </Routes>
     </BrowserRouter>

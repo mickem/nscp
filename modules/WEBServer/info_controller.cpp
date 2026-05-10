@@ -9,7 +9,7 @@
 
 namespace json = boost::json;
 
-info_controller::info_controller(const int version, boost::shared_ptr<session_manager_interface> session, const nscapi::core_wrapper *core,
+info_controller::info_controller(const int version, std::shared_ptr<session_manager_interface> session, const nscapi::core_wrapper *core,
                                  unsigned int plugin_id)
     : RegexpController(version == 1 ? "/api/v1/info" : "/api/v2/info"), session(std::move(session)), core(core), plugin_id(plugin_id) {
   addRoute("GET", "/?$", this, &info_controller::get_info);

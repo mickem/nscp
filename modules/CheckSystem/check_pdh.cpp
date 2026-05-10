@@ -58,17 +58,17 @@ void counter_config_object::read(nscapi::settings_helper::settings_impl_interfac
 }
 
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string("counter", &filter_obj::get_counter, "The counter name")
-      .add_string("alias", &filter_obj::get_alias, "The counter alias")
-      .add_string("time", &filter_obj::get_time, "The time for rrd checks");
+  registry_.add_string_var("counter", &filter_obj::get_counter, "The counter name")
+      .add_string_var("alias", &filter_obj::get_alias, "The counter alias")
+      .add_string_var("time", &filter_obj::get_time, "The time for rrd checks");
 
   registry_.add_numbers("value", parsers::where::type_float, &filter_obj::get_value_i, &filter_obj::get_value_f, "The counter value (either float or int)");
-  registry_.add_int_x("value_i", &filter_obj::get_value_i, "The counter value (force int value)");
+  registry_.add_int_var("value_i", &filter_obj::get_value_i, "The counter value (force int value)");
   registry_.add_float("value_f", &filter_obj::get_value_f, "The counter value (force float value)");
 }
 
 void check::clear() { counters_.clear(); }
-void check::add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
+void check::add_counter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
   try {
     counters_.add(proxy, key, query);
   } catch (const std::exception &e) {
@@ -78,7 +78,7 @@ void check::add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::st
   }
 }
 
-void check::add_rrd_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
+void check::add_rrd_counter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
   try {
     auto instance = counters_.add(proxy, key, query);
     instance->collection_strategy = "rrd";
@@ -89,7 +89,7 @@ void check::add_rrd_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std
   }
 }
 
-void check::check_pdh(boost::shared_ptr<pdh_thread> &collector, const PB::Commands::QueryRequestMessage::Request &request,
+void check::check_pdh(std::shared_ptr<pdh_thread> &collector, const PB::Commands::QueryRequestMessage::Request &request,
                       PB::Commands::QueryResponseMessage::Response *response) {
   typedef filter filter_type;
   modern_filter::data_container data;
@@ -242,7 +242,7 @@ void check::check_pdh(boost::shared_ptr<pdh_thread> &collector, const PB::Comman
         }
         if (values.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value");
         for (const value_list_type::value_type &v : values) {
-          boost::shared_ptr<filter_obj> record(new filter_obj(vc.first, v.first, time, static_cast<long long>(v.second), v.second));
+          std::shared_ptr<filter_obj> record(new filter_obj(vc.first, v.first, time, static_cast<long long>(v.second), v.second));
           modern_filter::match_result ret = filter.match(record);
         }
       }
@@ -257,11 +257,11 @@ void check::check_pdh(boost::shared_ptr<pdh_thread> &collector, const PB::Comman
     try {
       if (expand_instance) {
         for (const PDH::pdh_instance &child : instance->get_instances()) {
-          boost::shared_ptr<filter_obj> record(new filter_obj(child->get_name(), child->get_counter(), "", child->get_int_value(), child->get_float_value()));
+          std::shared_ptr<filter_obj> record(new filter_obj(child->get_name(), child->get_counter(), "", child->get_int_value(), child->get_float_value()));
           modern_filter::match_result ret = filter.match(record);
         }
       } else {
-        boost::shared_ptr<filter_obj> record(
+        std::shared_ptr<filter_obj> record(
             new filter_obj(instance->get_name(), instance->get_counter(), "", instance->get_int_value(), instance->get_float_value()));
         modern_filter::match_result ret = filter.match(record);
       }

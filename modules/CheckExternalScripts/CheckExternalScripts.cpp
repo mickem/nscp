@@ -254,7 +254,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
     root_ = get_base_path();
 
     nscapi::core_helper core(get_core(), get_id());
-    for (const boost::shared_ptr<alias::command_object> &o : aliases_.get_object_list()) {
+    for (const std::shared_ptr<alias::command_object> &o : aliases_.get_object_list()) {
       core.register_alias(o->get_alias(), "Alias for: " + o->command);
     }
   } catch (...) {

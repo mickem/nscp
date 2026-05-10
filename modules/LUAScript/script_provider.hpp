@@ -16,7 +16,7 @@ struct script_provider {
 
   unsigned int get_id();
   nscapi::core_wrapper *get_core();
-  boost::shared_ptr<nscapi::settings_proxy> get_settings_proxy();
+  std::shared_ptr<nscapi::settings_proxy> get_settings_proxy();
 
   boost::filesystem::path get_root();
   boost::optional<boost::filesystem::path> find_file(std::string file);

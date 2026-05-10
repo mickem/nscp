@@ -161,12 +161,12 @@ TEST(ServiceInfo, Construction) {
   win_list_services::service_info info("TestService", "Test Service Display Name");
   EXPECT_EQ(info.get_name(), "TestService");
   EXPECT_EQ(info.get_desc(), "Test Service Display Name");
-  EXPECT_EQ(info.pid, 0);
-  EXPECT_EQ(info.state, 0);
-  EXPECT_EQ(info.start_type, 0);
+  EXPECT_EQ(info.pid, DWORD{0});
+  EXPECT_EQ(info.state, DWORD{0});
+  EXPECT_EQ(info.start_type, DWORD{0});
   EXPECT_FALSE(info.delayed);
-  EXPECT_EQ(info.triggers, 0);
-  EXPECT_EQ(info.exit_code, 0);
+  EXPECT_EQ(info.triggers, DWORD{0});
+  EXPECT_EQ(info.exit_code, DWORD{0});
 }
 
 TEST(ServiceInfo, CopyConstruction) {

@@ -20,7 +20,7 @@
 #include "CheckNet.h"
 
 #include <boost/atomic.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <net/pinger.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
@@ -84,7 +84,7 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
 
   if (!filter_helper.build_filter(filter)) return;
 
-  boost::shared_ptr<ping_filter::filter_obj> total_obj;
+  std::shared_ptr<ping_filter::filter_obj> total_obj;
   if (total) total_obj = ping_filter::filter_obj::get_total();
 
   for (const std::string &host : hosts) {
@@ -96,7 +96,7 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
       ping.ping();
       io_service.run();
     }
-    auto obj = boost::make_shared<ping_filter::filter_obj>(result);
+    auto obj = std::make_shared<ping_filter::filter_obj>(result);
     filter.match(obj);
     if (total_obj) total_obj->add(obj);
   }

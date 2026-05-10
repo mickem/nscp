@@ -32,7 +32,7 @@ class parser : public boost::noncopyable {
   unsigned int packet_length_;
 
   std::string buffer_;
-  boost::shared_ptr<handler> handler_;
+  std::shared_ptr<handler> handler_;
 
  public:
   parser(unsigned int payload_length) : payload_length_(payload_length), packet_length_(length::get_packet_length(payload_length)) {}

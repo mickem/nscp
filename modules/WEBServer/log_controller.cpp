@@ -26,7 +26,7 @@ long long get_int_or(const json::object &o, const std::string &key, const int de
   return cit->value().as_int64();
 }
 
-log_controller::log_controller(const int version, const boost::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core,
+log_controller::log_controller(const int version, const std::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core,
                                unsigned int plugin_id)
     : RegexpController(version == 1 ? "/api/v1/logs" : "/api/v2/logs"), session(session), core(core), plugin_id(plugin_id) {
   addRoute("GET", "/?$", this, &log_controller::get_log);
@@ -125,11 +125,11 @@ void log_controller::add_log(Mongoose::Request &request, boost::smatch &what, Mo
     std::string object_type;
     json::object o = root.as_object();
     std::string file = get_str_or(o, "file", "REST");
-    int line = get_int_or(o, "line", 0);
+    int line = static_cast<int>(get_int_or(o, "line", 0));
     NSCAPI::log_level::level level = nscapi::logging::parse(get_str_or(o, "level", "error"));
     std::string message = get_str_or(o, "message", "no message");
     core->log(level, file, line, message);
-  } catch (const std::exception &e) {
+  } catch (const std::exception &) {
     response.setCodeBadRequest("Problems parsing JSON");
   }
   response.setCodeOk();

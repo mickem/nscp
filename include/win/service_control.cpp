@@ -376,10 +376,11 @@ void SetDescription(std::wstring name, std::wstring desc) {
     throw service_control_exception("OpenService failed.");
   }
 
-  TCHAR* d = new TCHAR[desc.length() + 2];
-  wcsncpy(d, desc.c_str(), desc.length() + 1);
+  const size_t d_len = desc.length() + 2;
+  auto* d = new TCHAR[d_len];
+  wcsncpy_s(d, d_len, desc.c_str(), desc.length() + 1);
   descr.lpDescription = d;
-  BOOL bResult = FChangeServiceConfig2(schService, SERVICE_CONFIG_DESCRIPTION, &descr);
+  const BOOL bResult = FChangeServiceConfig2(schService, SERVICE_CONFIG_DESCRIPTION, &descr);
   delete[] d;
   FreeLibrary(ADVAPI);
   CloseServiceHandle(schService);

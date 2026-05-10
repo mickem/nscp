@@ -34,7 +34,7 @@ namespace check_rk_filter {
 using namespace parsers::where;
 
 // Converter: allow filter expressions like  type = 'REG_SZ'
-node_type parse_type_converter(boost::shared_ptr<filter_obj> /*obj*/, evaluation_context context, node_type subject) {
+node_type parse_type_converter(std::shared_ptr<filter_obj> /*obj*/, evaluation_context context, node_type subject) {
   try {
     return factory::create_int(win_registry::parse_type(subject->get_string_value(context)));
   } catch (const std::exception &e) {
@@ -47,20 +47,20 @@ long long parse_type_name(const std::string &s) { return win_registry::parse_typ
 
 filter_obj_handler::filter_obj_handler() {
   // String attributes
-  registry_.add_string("path", &filter_obj::get_path, "Full registry key path including hive (e.g. HKLM\\Software\\MyApp)")
-      .add_string("name", &filter_obj::get_name, "Leaf key name")
-      .add_string("parent", &filter_obj::get_parent, "Parent key path (full, including hive)")
-      .add_string("hive", &filter_obj::get_hive, "Hive abbreviation (HKLM, HKCU, HKCR, HKU, HKCC)")
-      .add_string("class", &filter_obj::get_class_name, "Key class string (rarely set)")
-      .add_string("written_s", &filter_obj::get_written_s, "Last-write time as a human-readable string");
+  registry_.add_string_var("path", &filter_obj::get_path, "Full registry key path including hive (e.g. HKLM\\Software\\MyApp)")
+      .add_string_var("name", &filter_obj::get_name, "Leaf key name")
+      .add_string_var("parent", &filter_obj::get_parent, "Parent key path (full, including hive)")
+      .add_string_var("hive", &filter_obj::get_hive, "Hive abbreviation (HKLM, HKCU, HKCR, HKU, HKCC)")
+      .add_string_var("class", &filter_obj::get_class_name, "Key class string (rarely set)")
+      .add_string_var("written_s", &filter_obj::get_written_s, "Last-write time as a human-readable string");
 
   // Integer / boolean attributes
-  registry_.add_int_x("depth", &filter_obj::get_depth, "Depth below the starting key (0 = the key itself)")
-      .add_int_x("exists", type_bool, &filter_obj::get_exists, "Whether the key exists (true/false)")
-      .add_int_x("value_count", &filter_obj::get_value_count, "Number of values in this key")
-      .add_int_x("subkey_count", &filter_obj::get_subkey_count, "Number of immediate sub-keys")
-      .add_int_x("written", type_date, &filter_obj::get_written, "Last-write time (epoch seconds; supports date comparisons)")
-      .add_int_x("age", type_int, &filter_obj::get_age, "Seconds since the key was last written");
+  registry_.add_int_var("depth", &filter_obj::get_depth, "Depth below the starting key (0 = the key itself)")
+      .add_int_var("exists", type_bool, &filter_obj::get_exists, "Whether the key exists (true/false)")
+      .add_int_var("value_count", &filter_obj::get_value_count, "Number of values in this key")
+      .add_int_var("subkey_count", &filter_obj::get_subkey_count, "Number of immediate sub-keys")
+      .add_int_var("written", type_date, &filter_obj::get_written, "Last-write time (epoch seconds; supports date comparisons)")
+      .add_int_var("age", type_int, &filter_obj::get_age, "Seconds since the key was last written");
 }
 
 }  // namespace check_rk_filter
@@ -144,7 +144,7 @@ void registry_key_checks::check(const PB::Commands::QueryRequestMessage::Request
       win_registry::recursive_enum_keys(effective_root, parts.subpath, key_arg, hive_str, 1, max_depth, access_flags, found);
       for (const win_registry::key_info &ki : found) {
         if (std::find(excludes.begin(), excludes.end(), ki.name) != excludes.end()) continue;
-        boost::shared_ptr<win_registry::key_info> record(new win_registry::key_info(ki));
+        std::shared_ptr<win_registry::key_info> record(new win_registry::key_info(ki));
         filter.match(record);
         if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter error: " + filter.get_errors());
       }
@@ -156,7 +156,7 @@ void registry_key_checks::check(const PB::Commands::QueryRequestMessage::Request
 
       win_registry::key_info ki = win_registry::open_key(effective_root, parts.subpath, key_arg, key_name, key_parent, hive_str, 0, access_flags);
 
-      boost::shared_ptr<win_registry::key_info> record(new win_registry::key_info(ki));
+      std::shared_ptr<win_registry::key_info> record(new win_registry::key_info(ki));
       filter.match(record);
       if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter error: " + filter.get_errors());
     }
@@ -175,7 +175,7 @@ namespace check_rv_filter {
 using namespace parsers::where;
 
 // Converter: allow filter expressions like  type = 'REG_DWORD'
-node_type parse_type_converter(boost::shared_ptr<filter_obj> /*obj*/, evaluation_context context, node_type subject) {
+node_type parse_type_converter(std::shared_ptr<filter_obj> /*obj*/, evaluation_context context, node_type subject) {
   try {
     return factory::create_int(win_registry::parse_type(subject->get_string_value(context)));
   } catch (const std::exception &e) {
@@ -188,26 +188,26 @@ filter_obj_handler::filter_obj_handler() {
   static constexpr value_type type_custom_reg_type = type_custom_int_1;
 
   // String attributes
-  registry_.add_string("key", &filter_obj::get_key, "Parent key path (full, including hive)")
-      .add_string("name", &filter_obj::get_name, "Value name ('(default)' for the unnamed default value)")
-      .add_string("path", &filter_obj::get_path, "Full path: key\\name")
-      .add_string("hive", &filter_obj::get_hive, "Hive abbreviation (HKLM, HKCU, HKCR, HKU, HKCC)")
-      .add_string("string_value", &filter_obj::get_string_value, "Value rendered as a string (REG_SZ expanded, REG_DWORD as decimal, REG_BINARY as hex, etc.)")
-      .add_string("written_s", &filter_obj::get_written_s, "Parent key last-write time as a human-readable string");
+  registry_.add_string_var("key", &filter_obj::get_key, "Parent key path (full, including hive)")
+      .add_string_var("name", &filter_obj::get_name, "Value name ('(default)' for the unnamed default value)")
+      .add_string_var("path", &filter_obj::get_path, "Full path: key\\name")
+      .add_string_var("hive", &filter_obj::get_hive, "Hive abbreviation (HKLM, HKCU, HKCR, HKU, HKCC)")
+      .add_string_var("string_value", &filter_obj::get_string_value, "Value rendered as a string (REG_SZ expanded, REG_DWORD as decimal, REG_BINARY as hex, etc.)")
+      .add_string_var("written_s", &filter_obj::get_written_s, "Parent key last-write time as a human-readable string");
 
   // Integer / custom-type attributes
-  registry_.add_int_x("type", type_custom_reg_type, &filter_obj::get_type_i, "Value type (REG_SZ, REG_DWORD, etc.)")
-      .add_int_x("int_value", type_int, &filter_obj::get_int_value, "Numeric value (REG_DWORD / REG_QWORD); 0 for non-numeric types")
-      .add_int_x("size", type_size, &filter_obj::get_size, "Raw byte size of the value data")
-      .add_int_x("exists", type_bool, &filter_obj::get_exists, "Whether the value exists (true/false)")
-      .add_int_x("written", type_date, &filter_obj::get_written, "Parent key last-write time (epoch seconds; supports date comparisons)")
-      .add_int_x("age", type_int, &filter_obj::get_age, "Seconds since parent key was last written");
+  registry_.add_int_var("type", type_custom_reg_type, &filter_obj::get_type_i, "Value type (REG_SZ, REG_DWORD, etc.)")
+      .add_int_var("int_value", type_int, &filter_obj::get_int_value, "Numeric value (REG_DWORD / REG_QWORD); 0 for non-numeric types")
+      .add_int_var("size", type_size, &filter_obj::get_size, "Raw byte size of the value data")
+      .add_int_var("exists", type_bool, &filter_obj::get_exists, "Whether the value exists (true/false)")
+      .add_int_var("written", type_date, &filter_obj::get_written, "Parent key last-write time (epoch seconds; supports date comparisons)")
+      .add_int_var("age", type_int, &filter_obj::get_age, "Seconds since parent key was last written");
 
   // Human-readable alias for 'type'
   registry_.add_human_string("type", &filter_obj::get_type_s, "Value type as a string (REG_SZ, REG_DWORD, etc.)");
 
   // Converter so that  type = 'REG_SZ'  works
-  registry_.add_converter()(type_custom_reg_type, &parse_type_converter);
+  registry_.add_converter(type_custom_reg_type, &parse_type_converter);
 }
 
 }  // namespace check_rv_filter
@@ -288,7 +288,7 @@ void registry_value_checks::check(const PB::Commands::QueryRequestMessage::Reque
         const std::vector<win_registry::value_info> vals = win_registry::enum_values(effective_root, subpath, full_path, hive_str, access_flags);
         for (const win_registry::value_info &vi : vals) {
           if (std::find(excludes.begin(), excludes.end(), vi.name) != excludes.end()) continue;
-          const boost::shared_ptr<win_registry::value_info> record(new win_registry::value_info(vi));
+          const std::shared_ptr<win_registry::value_info> record(new win_registry::value_info(vi));
           filter.match(record);
           if (filter.has_errors()) return false;
         }
@@ -327,7 +327,7 @@ void registry_value_checks::check(const PB::Commands::QueryRequestMessage::Reque
             vi.exists = false;
           }
 
-          const boost::shared_ptr<win_registry::value_info> record(new win_registry::value_info(vi));
+          const std::shared_ptr<win_registry::value_info> record(new win_registry::value_info(vi));
           filter.match(record);
           if (filter.has_errors()) return false;
         }

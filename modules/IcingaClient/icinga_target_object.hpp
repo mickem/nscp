@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <client/command_line_parser.hpp>
 #include <nscapi/nscapi_targets.hpp>
 #include <nscapi/settings/helper.hpp>
@@ -87,10 +87,10 @@ struct icinga_target_object : nscapi::targets::target_object {
 
 struct options_reader_impl : client::options_reader_interface {
   nscapi::settings_objects::object_instance create(std::string alias, std::string path) override {
-    return boost::make_shared<icinga_target_object>(alias, path);
+    return std::make_shared<icinga_target_object>(alias, path);
   }
   nscapi::settings_objects::object_instance clone(nscapi::settings_objects::object_instance parent, const std::string alias, const std::string path) override {
-    return boost::make_shared<icinga_target_object>(parent, alias, path);
+    return std::make_shared<icinga_target_object>(parent, alias, path);
   }
 
   void process(boost::program_options::options_description& desc, client::destination_container& source, client::destination_container& data) override {

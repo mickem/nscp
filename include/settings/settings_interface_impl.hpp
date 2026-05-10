@@ -160,12 +160,23 @@ class settings_interface_impl : public settings_interface {
     }
   }
 
-  virtual std::list<boost::shared_ptr<settings_interface>> get_children() { return children_; }
+  virtual std::list<std::shared_ptr<settings_interface>> get_children() { return children_; }
 
   template <class T>
   typename T::op_type getter(std::string path, std::string key) {
     MUTEX_GUARD();
     settings_core::key_path_type lookup(path, key);
+    // Honor staged deletions: remove_key / remove_path only mark the entry
+    // pending until save(). Without this guard, the next read hits
+    // get_real_* (the on-disk file) and re-populates settings_cache_,
+    // effectively un-deleting the value. The caller would then see the
+    // pre-delete state until a save flushes the cache to disk.
+    if (settings_delete_cache_.find(cache_key_type(path, key)) != settings_delete_cache_.end()) {
+      return typename T::op_type();
+    }
+    if (settings_delete_path_cache_.find(path) != settings_delete_path_cache_.end()) {
+      return typename T::op_type();
+    }
     cache_type::const_iterator cit = settings_cache_.find(lookup);
     if (cit != settings_cache_.end()) return T::get_value((*cit).second);
     typename T::op_type val = T::get_real(this, lookup);
@@ -182,6 +193,11 @@ class settings_interface_impl : public settings_interface {
   template <class T>
   void setter(std::string path, std::string key, typename T::type value) {
     MUTEX_GUARD();
+    // Re-setting a key that was just deleted has to clear the pending
+    // delete or the next read will still see "deleted" via the guards in
+    // getter / get_keys.
+    settings_delete_cache_.erase(cache_key_type(path, key));
+    settings_delete_path_cache_.erase(path);
     cache_type::const_iterator cit = settings_cache_.find(cache_key_type(path, key));
     if (cit != settings_cache_.end()) {
       if (!T::has_changed(cit->second, value)) return;
@@ -324,6 +340,17 @@ class settings_interface_impl : public settings_interface {
     }
     ret.sort();
     ret.unique();
+    // Drop sub-paths that have been staged for deletion. Without this a
+    // recursive walk after a path delete still descends into the doomed
+    // subtree (and recurse_find / get_keys would then fight over which
+    // half of the cache is authoritative).
+    if (!settings_delete_path_cache_.empty()) {
+      const std::string base = path.empty() ? std::string() : (path.back() == '/' ? path : path + "/");
+      ret.remove_if([&](const std::string &section) {
+        const std::string full = base + section;
+        return settings_delete_path_cache_.find(full) != settings_delete_path_cache_.end();
+      });
+    }
     return ret;
   }
   std::string clean_path(std::string tmp) {
@@ -375,6 +402,11 @@ class settings_interface_impl : public settings_interface {
       path = path.substr(0, path.size() - 1);
     }
     MUTEX_GUARD();
+    // Whole path staged for deletion: report no keys (matches what callers
+    // will see after the next save).
+    if (settings_delete_path_cache_.find(path) != settings_delete_path_cache_.end()) {
+      return string_list();
+    }
     string_list ret;
     get_cached_keys_unsafe(path, ret);
     get_real_keys(path, ret);
@@ -384,6 +416,9 @@ class settings_interface_impl : public settings_interface {
     }
     ret.sort();
     ret.unique();
+    // Drop keys that have a pending per-key delete - get_real_keys still
+    // reports them because the on-disk file has not been rewritten yet.
+    ret.remove_if([&](const std::string &k) { return settings_delete_cache_.find(cache_key_type(path, k)) != settings_delete_cache_.end(); });
     return ret;
   }
   void get_cached_keys_unsafe(std::string path, string_list &list) {
@@ -403,6 +438,7 @@ class settings_interface_impl : public settings_interface {
   /// @author mickem
   virtual bool has_section(std::string path) {
     MUTEX_GUARD();
+    if (settings_delete_path_cache_.find(path) != settings_delete_path_cache_.end()) return false;
     path_cache_type::const_iterator cit = path_cache_.find(path);
     if (cit != path_cache_.end()) return true;
     return has_real_path(path);

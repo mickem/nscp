@@ -28,7 +28,7 @@
 #pragma once
 
 #include <boost/filesystem.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <fstream>
 #include <nsclient/logger/logger.hpp>
 #include <settings/settings_core.hpp>

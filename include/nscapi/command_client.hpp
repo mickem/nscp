@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <list>
 #include <nscapi/dll_defines.hpp>
 #include <string>
@@ -32,7 +32,7 @@ namespace nscapi {
 class command_proxy;
 namespace command_helper {
 
-typedef boost::shared_ptr<nscapi::command_proxy> command_proxy_ptr;
+typedef std::shared_ptr<nscapi::command_proxy> command_proxy_ptr;
 
 struct command_info {
   std::string name;
@@ -59,18 +59,18 @@ class NSCAPI_EXPORT register_command_helper {
   virtual ~register_command_helper() {}
 
   register_command_helper& operator()(std::string command, std::string description) {
-    add(boost::shared_ptr<command_info>(new command_info(command, description)));
+    add(std::shared_ptr<command_info>(new command_info(command, description)));
     return *this;
   }
 
   register_command_helper& operator()(std::string command, std::string alias, std::string description) {
-    boost::shared_ptr<command_info> d = boost::shared_ptr<command_info>(new command_info(command, description));
+    std::shared_ptr<command_info> d = std::shared_ptr<command_info>(new command_info(command, description));
     d->add_alias(alias);
     add(d);
     return *this;
   }
 
-  void add(boost::shared_ptr<command_info> d);
+  void add(std::shared_ptr<command_info> d);
 
  private:
   command_registry* owner;
@@ -94,7 +94,7 @@ class add_metadata_helper {
 };
 
 class NSCAPI_EXPORT command_registry {
-  typedef std::list<boost::shared_ptr<command_info> > command_list;
+  typedef std::list<std::shared_ptr<command_info> > command_list;
   command_list commands;
   command_proxy_ptr core_;
   std::list<std::string> errors;
@@ -102,7 +102,7 @@ class NSCAPI_EXPORT command_registry {
  public:
   command_registry(command_proxy_ptr core) : core_(core) {}
   virtual ~command_registry() {}
-  void add(boost::shared_ptr<command_info> info) { commands.push_back(info); }
+  void add(std::shared_ptr<command_info> info) { commands.push_back(info); }
   void set(std::string key, std::string value) {
     // TODO
   }

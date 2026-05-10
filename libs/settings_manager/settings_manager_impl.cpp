@@ -26,8 +26,8 @@ inline NSCSettingsImpl *internal_get() {
   if (settings_impl == nullptr) throw settings::settings_exception(__FILE__, __LINE__, "Settings has not been initiated!");
   return settings_impl;
 }
-boost::shared_ptr<nscapi::settings_helper::settings_impl_interface> get_proxy() {
-  return boost::shared_ptr<nscapi::settings_helper::settings_impl_interface>(new settings_client::settings_proxy(internal_get()));
+std::shared_ptr<nscapi::settings_helper::settings_impl_interface> get_proxy() {
+  return std::shared_ptr<nscapi::settings_helper::settings_impl_interface>(new settings_client::settings_proxy(internal_get()));
 }
 settings::instance_ptr get_settings() { return internal_get()->get(); }
 settings::instance_ptr get_settings_no_wait() { return internal_get()->get_no_wait(); }

@@ -36,9 +36,9 @@ struct connection_data : public socket_helpers::connection_info {
   int buffer_length;
   std::string encoding;
   short version;
-  boost::shared_ptr<socket_helpers::client::client_handler> handler;
+  std::shared_ptr<socket_helpers::client::client_handler> handler;
 
-  connection_data(client::destination_container source, client::destination_container target, boost::shared_ptr<socket_helpers::client::client_handler> handler)
+  connection_data(client::destination_container source, client::destination_container target, std::shared_ptr<socket_helpers::client::client_handler> handler)
       : buffer_length(0), handler(handler) {
     address = target.address.host;
     port_ = target.address.get_port_string("5666");
@@ -100,8 +100,8 @@ struct client_handler : public socket_helpers::client::client_handler {
 
 template <class TCoreHandler = client_handler>
 struct nrpe_client_handler : public client::handler_interface {
-  boost::shared_ptr<TCoreHandler> handler_;
-  nrpe_client_handler() : handler_(boost::make_shared<TCoreHandler>()) {}
+  std::shared_ptr<TCoreHandler> handler_;
+  nrpe_client_handler() : handler_(std::make_shared<TCoreHandler>()) {}
 
   std::string get_command(std::string alias, std::string command = "") {
     if (!alias.empty()) return alias;

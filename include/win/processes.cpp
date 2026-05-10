@@ -20,7 +20,7 @@
 #include <tchar.h>
 
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <bytes/buffer.hpp>
 #include <error/error.hpp>
 #include <handle.hpp>
@@ -489,6 +489,6 @@ process_list enumerate_processes_delta(bool ignore_unreadable, error_reporter *e
   return ret;
 }
 
-boost::shared_ptr<process_info> process_info::get_total() { return boost::make_shared<process_info>("total"); }
+std::shared_ptr<process_info> process_info::get_total() { return std::make_shared<process_info>("total"); }
 
 }  // namespace win_list_processes

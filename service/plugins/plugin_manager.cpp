@@ -657,7 +657,7 @@ int nsclient::core::plugin_manager::simple_query(std::string module, std::string
   ret = plugin->handleCommand(request, response);
   try {
     std::string msg, perf;
-    ret = nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf, -1);
+    ret = nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf, static_cast<std::size_t>(-1));
     resp.push_back(perf.empty() ? msg : msg + "|" + perf);
   } catch (std::exception &e) {
     resp.push_back("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
@@ -778,7 +778,7 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::emit_event(const std::string
   for (const PB::Commands::EventMessage::Request &r : em.payload()) {
     bool has_matched = false;
     try {
-      for (nsclient::plugin_type p : event_subscribers_.get(r.event())) {
+      for (const nsclient::plugin_type& p : event_subscribers_.get(r.event())) {
         try {
           p->on_event(request);
           has_matched = true;

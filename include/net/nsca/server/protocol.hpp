@@ -21,7 +21,7 @@
 
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
-#include <boost/enable_shared_from_this.hpp>
+#include <memory>
 #include <cstdint>
 #include <ctime>
 #include <net/socket/server.hpp>
@@ -52,8 +52,8 @@ struct read_protocol : boost::noncopyable {
   std::string data_;
   nscp::encryption::engine encryption_instance_;
 
-  static boost::shared_ptr<read_protocol> create(const socket_helpers::connection_info &info, handler_type handler) {
-    return boost::make_shared<read_protocol>(info, handler);
+  static std::shared_ptr<read_protocol> create(const socket_helpers::connection_info &info, handler_type handler) {
+    return std::make_shared<read_protocol>(info, handler);
   }
 
   read_protocol(const socket_helpers::connection_info &info, const handler_type handler)

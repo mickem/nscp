@@ -21,7 +21,7 @@
 
 #include <nscapi/nscapi_core_wrapper.hpp>
 
-#include <boost/enable_shared_from_this.hpp>
+#include <memory>
 
 #include <string>
 
@@ -48,7 +48,7 @@ public:
 
 	internal_plugin_instance::internal_plugin_instance(std::string dll, std::string type) : dll(dll), type(type) {}
 
-	bool load_dll(boost::shared_ptr<internal_plugin_instance> self, plugin_manager_interface *manager, std::string alias, int plugin_id);
+	bool load_dll(std::shared_ptr<internal_plugin_instance> self, plugin_manager_interface *manager, std::string alias, int plugin_id);
 	bool load_plugin(int mode);
 	bool unload_plugin();
 
@@ -60,7 +60,7 @@ public:
 	}
 };
 
-typedef boost::shared_ptr<internal_plugin_instance> internal_plugin_instance_ptr;
+typedef std::shared_ptr<internal_plugin_instance> internal_plugin_instance_ptr;
 
 class plugin_manager_interface {
 public:

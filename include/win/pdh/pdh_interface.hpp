@@ -22,7 +22,7 @@
 #include <pdh.h>
 #include <pdhmsg.h>
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <error/error.hpp>
 #include <list>
 
@@ -141,12 +141,12 @@ struct pdh_instance_interface {
   virtual std::string get_counter() const = 0;
 
   virtual bool has_instances() = 0;
-  virtual std::list<boost::shared_ptr<pdh_instance_interface> > get_instances() = 0;
+  virtual std::list<std::shared_ptr<pdh_instance_interface> > get_instances() = 0;
 
   virtual DWORD get_format() = 0;
   virtual void collect(const PDH_FMT_COUNTERVALUE &value) = 0;
 };
-typedef boost::shared_ptr<pdh_instance_interface> pdh_instance;
+typedef std::shared_ptr<pdh_instance_interface> pdh_instance;
 
 class counter_info {
  public:
@@ -204,10 +204,10 @@ class impl_interface {
 };
 
 class factory {
-  static boost::shared_ptr<impl_interface> instance;
+  static std::shared_ptr<impl_interface> instance;
 
  public:
-  static boost::shared_ptr<impl_interface> get_impl();
+  static std::shared_ptr<impl_interface> get_impl();
   static void set_thread_safe();
   static void set_native();
 

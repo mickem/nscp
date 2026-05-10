@@ -29,7 +29,7 @@
 #endif
 
 struct real_time_thread {
-  boost::shared_ptr<boost::thread> thread_;
+  std::shared_ptr<boost::thread> thread_;
   filters::filter_config_handler filters_;
   std::wstring logs_;
 
@@ -51,7 +51,7 @@ struct real_time_thread {
   void set_enabled(bool flag) { enabled_ = flag; }
 
   void set_language(std::string lang);
-  void set_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string flt) {
+  void set_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string flt) {
     if (!flt.empty()) add_realtime_filter(proxy, "default", flt);
   }
   bool has_filters() { return !filters_.has_objects(); }

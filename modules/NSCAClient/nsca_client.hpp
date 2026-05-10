@@ -157,7 +157,7 @@ struct nsca_client_handler final : public client::handler_interface {
 
   void send(PB::Commands::SubmitResponseMessage::Response *payload, const connection_data &con, const std::list<nsca::packet> &packets) {
     try {
-      socket_helpers::client::client<nsca::client::protocol<client_handler> > client(con, boost::make_shared<client_handler>(con));
+      socket_helpers::client::client<nsca::client::protocol<client_handler> > client(con, std::make_shared<client_handler>(con));
       NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Connecting to: " + con.to_string()); }
       client.connect();
 

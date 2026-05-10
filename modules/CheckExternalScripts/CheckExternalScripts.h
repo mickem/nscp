@@ -27,7 +27,7 @@
 
 class CheckExternalScripts : public nscapi::impl::simple_plugin {
  private:
-  boost::shared_ptr<script_provider_interface> provider_;
+  std::shared_ptr<script_provider_interface> provider_;
   alias::command_handler aliases_;
   unsigned int timeout;
   bool kill_tree;

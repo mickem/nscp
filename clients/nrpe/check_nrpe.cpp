@@ -164,7 +164,7 @@ boost::program_options::options_description add_client_options(client::destinati
 }
 
 typedef nrpe_client::nrpe_client_handler<stdout_client_handler> nrpe_client_handler;
-check_nrpe::check_nrpe() : client_("nrpe", boost::make_shared<nrpe_client_handler>(), boost::make_shared<nrpe_handler::options_reader_impl>()) {
+check_nrpe::check_nrpe() : client_("nrpe", std::make_shared<nrpe_client_handler>(), std::make_shared<nrpe_handler::options_reader_impl>()) {
   client_.client_desc = &add_client_options;
   client_.client_pre = &test;
 }

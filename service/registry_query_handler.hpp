@@ -28,6 +28,8 @@ class registry_query_handler {
 
   void inventory_queries(const PB::Registry::RegistryRequestMessage::Request::Inventory &q, PB::Registry::RegistryResponseMessage::Response *rp);
   void inventory_modules(const PB::Registry::RegistryRequestMessage::Request::Inventory &q, PB::Registry::RegistryResponseMessage::Response *rp);
+  void inventory_handlers(const PB::Registry::RegistryRequestMessage::Request::Inventory &q, PB::Registry::RegistryResponseMessage::Response *rp);
+  void inventory_events(const PB::Registry::RegistryRequestMessage::Request::Inventory &q, PB::Registry::RegistryResponseMessage::Response *rp);
   void find_plugins_on_disk(boost::unordered_set<std::string> &unique_instances, const PB::Registry::RegistryRequestMessage::Request::Inventory &q,
                             PB::Registry::RegistryResponseMessage::Response *rp);
 

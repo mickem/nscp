@@ -19,7 +19,7 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <list>
 #include <parsers/where/node.hpp>
 #include <parsers/where/unary_fun.hpp>
@@ -105,7 +105,6 @@ static evaluation_context make_context() { return std::make_shared<mock_evaluati
 static object_converter make_converter() { return std::make_shared<mock_object_converter>(); }
 
 static node_type make_int(long long v) { return factory::create_int(v); }
-static node_type make_string(const std::string &v) { return factory::create_string(v); }
 
 static std::shared_ptr<unary_fun> make_fun(const std::string &name, node_type subject) { return std::make_shared<unary_fun>(name, subject); }
 

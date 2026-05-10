@@ -21,6 +21,10 @@ bool do_parse(const std::string &str, parsers::perfconfig::result_type &v) {
   return parsers::perfconfig::parse(str, v);
 }
 
+#if defined(_MSC_VER)
+#pragma warning(disable : 4459)  // 'v' hides global - intentional in test scaffolding
+#endif
+
 parsers::perfconfig::result_type v;
 
 // ==============================================================

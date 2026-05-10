@@ -46,7 +46,7 @@ bool file_finder::is_directory(unsigned long dwAttr) {
 }
 
 void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &context, const boost::filesystem::path &dir,
-                                 const boost::shared_ptr<file_filter::filter_obj> &total_obj, const bool total_all, const bool recursive,
+                                 const std::shared_ptr<file_filter::filter_obj> &total_obj, const bool total_all, const bool recursive,
                                  const int current_level) {
   if (!context.is_valid_level(current_level)) {
     if (context.debug) context.report_debug("Level death exhausted: " + str::xtos(current_level));
@@ -82,8 +82,7 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
     if (context.debug) context.report_debug("Path is: " + single_path.first.string());
     HANDLE hFind = FindFirstFile(wide_dir.c_str(), &wfd);
     if (hFind != INVALID_HANDLE_VALUE) {
-      boost::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(context.now, wfd, single_path.first);
-      // boost::make_shared<eventlog_filter::filter_obj>(record, filter.summary.count_match)
+      std::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(context.now, wfd, single_path.first);
       modern_filter::match_result ret = filter.match(info);
       if (total_obj && (ret.matched_filter || total_all)) total_obj->add(info);
       FindClose(hFind);
@@ -97,7 +96,7 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
   if (hFind != INVALID_HANDLE_VALUE) {
     do {
       if (is_directory(wfd.dwFileAttributes) && (wcscmp(wfd.cFileName, L".") == 0 || wcscmp(wfd.cFileName, L"..") == 0)) continue;
-      boost::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(context.now, wfd, dir);
+      std::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(context.now, wfd, dir);
       modern_filter::match_result ret = filter.match(info);
       if (total_obj && (ret.matched_filter || total_all)) total_obj->add(info);
     } while (FindNextFile(hFind, &wfd));
@@ -142,12 +141,12 @@ void file_finder::scanner_context::report_debug(const std::string &str) const {
 
 void file_finder::scanner_context::report_warning(const std::string &msg) { NSC_LOG_ERROR(msg); }
 
-boost::shared_ptr<file_filter::filter_obj> file_finder::stat_single_file(const boost::filesystem::path &path, long long now) {
+std::shared_ptr<file_filter::filter_obj> file_finder::stat_single_file(const boost::filesystem::path &path, long long now) {
   WIN32_FIND_DATA wfd;
   const std::wstring wide_path = utf8::cvt<std::wstring>(path.string());
   const HANDLE hFind = FindFirstFile(wide_path.c_str(), &wfd);
   if (hFind == INVALID_HANDLE_VALUE) {
-    return boost::shared_ptr<file_filter::filter_obj>();
+    return std::shared_ptr<file_filter::filter_obj>();
   }
   // Reject directories: the single-file API is only defined for regular
   // files. Without this guard `check_single_file file=<dir>` would silently
@@ -155,7 +154,7 @@ boost::shared_ptr<file_filter::filter_obj> file_finder::stat_single_file(const b
   // a misleading "OK" with empty per-item fields.
   if (wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
     FindClose(hFind);
-    return boost::shared_ptr<file_filter::filter_obj>();
+    return std::shared_ptr<file_filter::filter_obj>();
   }
   // FindFirstFile populates wfd with the entry for "path" itself; the parent
   // directory is what filter_obj::get expects in its third argument so the
@@ -166,7 +165,7 @@ boost::shared_ptr<file_filter::filter_obj> file_finder::stat_single_file(const b
   // passed forward slashes (e.g. file=C:/Windows/explorer.exe). That breaks
   // any per-item field that re-joins path+filename (notably get_version,
   // which would then try to open "C:/Windows/explorer.exe\explorer.exe").
-  boost::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(now, wfd, path.parent_path());
+  std::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(now, wfd, path.parent_path());
   FindClose(hFind);
   return info;
 }

@@ -85,7 +85,7 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.register_all();
   settings.notify();
 
-  schedules_.ensure_default();
+  schedules_.ensure_default(nscapi::settings_proxy::create(get_id(), get_core()));
   schedules_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
   for (const schedules::schedule_handler::object_list_type::value_type &o : schedules_.get_object_list()) {

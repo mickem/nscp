@@ -50,7 +50,7 @@ struct user_config_object : public nscapi::settings_objects::object_instance_int
     settings.notify();
   }
 };
-typedef boost::shared_ptr<user_config_object> user_config_instance;
+typedef std::shared_ptr<user_config_object> user_config_instance;
 
 typedef nscapi::settings_objects::object_handler<user_config_object> user_config;
 

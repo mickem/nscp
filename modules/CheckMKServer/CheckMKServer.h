@@ -35,10 +35,10 @@ class CheckMKServer : public nscapi::impl::simple_plugin {
   bool add_script(std::string alias, std::string file);
 
   socket_helpers::connection_info info_;
-  boost::shared_ptr<check_mk::server::server> server_;
-  boost::shared_ptr<handler_impl> handler_;
-  boost::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts_;
-  boost::shared_ptr<lua::lua_runtime> lua_runtime_;
-  boost::shared_ptr<scripts::nscp::nscp_runtime_impl> nscp_runtime_;
+  std::shared_ptr<check_mk::server::server> server_;
+  std::shared_ptr<handler_impl> handler_;
+  std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts_;
+  std::shared_ptr<lua::lua_runtime> lua_runtime_;
+  std::shared_ptr<scripts::nscp::nscp_runtime_impl> nscp_runtime_;
   boost::filesystem::path root_;
 };

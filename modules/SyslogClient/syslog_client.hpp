@@ -40,15 +40,15 @@ struct connection_data : public socket_helpers::connection_info {
   syslog_map facilities;
   syslog_map severities;
 
-  std::string parse_priority(std::string severity, std::string facility) {
-    syslog_map::const_iterator cit1 = facilities.find(facility);
+  std::string parse_priority(std::string severity_arg, std::string facility_arg) {
+    syslog_map::const_iterator cit1 = facilities.find(facility_arg);
     if (cit1 == facilities.end()) {
-      NSC_LOG_ERROR("Undefined facility: " + facility);
+      NSC_LOG_ERROR("Undefined facility: " + facility_arg);
       return "<0>";
     }
-    syslog_map::const_iterator cit2 = severities.find(severity);
+    syslog_map::const_iterator cit2 = severities.find(severity_arg);
     if (cit2 == severities.end()) {
-      NSC_LOG_ERROR("Undefined severity: " + severity);
+      NSC_LOG_ERROR("Undefined severity: " + severity_arg);
       return "<0>";
     }
     std::stringstream ss;

@@ -18,7 +18,7 @@ using namespace parsers::where;
 namespace checks {
 namespace check_uptime_filter {
 
-parsers::where::node_type parse_time(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+parsers::where::node_type parse_time(std::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
   // The where-parser may hand us either a single string literal ("30m") or a
   // two-element list [number, unit] for tokenized inputs like "2d". For the
   // list form, list_node::get_value joins with ", " and produces "2, d",
@@ -41,10 +41,10 @@ parsers::where::node_type parse_time(boost::shared_ptr<filter_obj> object, parse
 
 static const parsers::where::value_type type_custom_uptime = parsers::where::type_custom_int_1;
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_int()(
+  registry_.add_int_legacy()(
       "boot", parsers::where::type_date, [](auto obj, auto context) { return obj->get_boot(); }, "System boot time")(
       "uptime", type_custom_uptime, [](auto obj, auto context) { return obj->get_uptime(); }, "Time since last boot");
-  registry_.add_converter()(type_custom_uptime, &parse_time);
+  registry_.add_converter(type_custom_uptime, &parse_time);
   registry_.add_human_string("boot", &filter_obj::get_boot_s, "The system boot time")
       .add_human_string("uptime", &filter_obj::get_uptime_s, "Time since last boot (granularity controlled by --max-unit)")
       .add_human_string("tz", &filter_obj::get_tz, "The timezone label used to render boot time");
@@ -113,7 +113,7 @@ void checks::check_uptime(const PB::Commands::QueryRequestMessage::Request &requ
 
   long long now_delta = (boost::posix_time::second_clock::universal_time() - epoch).total_seconds();
   const auto uptime = static_cast<long long>(value);
-  boost::shared_ptr<check_uptime_filter::filter_obj> record(new check_uptime_filter::filter_obj(uptime, now_delta, boot, timezone, max_unit));
+  std::shared_ptr<check_uptime_filter::filter_obj> record(new check_uptime_filter::filter_obj(uptime, now_delta, boot, timezone, max_unit));
   filter.match(record);
 
   filter_helper.post_process(filter);

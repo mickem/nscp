@@ -30,7 +30,7 @@ struct runtime_data {
     std::string to_string() const { return path_; }
   };
   typedef logfile_filter::filter filter_type;
-  typedef boost::shared_ptr<transient_data_impl> transient_data_type;
+  typedef std::shared_ptr<transient_data_impl> transient_data_type;
 
   struct file_container {
     boost::filesystem::path file;

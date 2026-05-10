@@ -27,16 +27,16 @@
 #include <win/pdh/thread_Safe_impl.hpp>
 
 namespace PDH {
-boost::shared_ptr<impl_interface> factory::instance;
+std::shared_ptr<impl_interface> factory::instance;
 
-void factory::set_thread_safe() { instance = boost::make_shared<ThreadedSafePDH>(); }
-void factory::set_native() { instance = boost::make_shared<NativeExternalPDH>(); }
+void factory::set_thread_safe() { instance = std::make_shared<ThreadedSafePDH>(); }
+void factory::set_native() { instance = std::make_shared<NativeExternalPDH>(); }
 
-boost::shared_ptr<impl_interface> factory::get_impl() {
+std::shared_ptr<impl_interface> factory::get_impl() {
   if (!instance) {
-    // instance = boost::make_shared<NativeExternalPDH>();
+    // instance = std::make_shared<NativeExternalPDH>();
     // instance = new PDH::NativeExternalPDH();
-    instance = boost::make_shared<ThreadedSafePDH>();
+    instance = std::make_shared<ThreadedSafePDH>();
   }
   return instance;
 }
@@ -172,24 +172,24 @@ pdh_instance factory::create(pdh_object object) {
       sub_counters.push_back(sub);
     }
     if (!err.empty()) throw pdh_exception("Failed to expand path: " + err);
-    return boost::make_shared<instance_providers::container>(object, sub_counters);
+    return std::make_shared<instance_providers::container>(object, sub_counters);
   } else {
     if (object.is_rrd()) {
       if (object.get_type() == pdh_object::type_double)
-        return boost::make_shared<instance_providers::rrd_collector<double> >(object);
+        return std::make_shared<instance_providers::rrd_collector<double> >(object);
       else if (object.get_type() == pdh_object::type_long)
-        return boost::make_shared<instance_providers::rrd_collector<long> >(object);
+        return std::make_shared<instance_providers::rrd_collector<long> >(object);
       else if (object.get_type() == pdh_object::type_large)
-        return boost::make_shared<instance_providers::rrd_collector<long long> >(object);
+        return std::make_shared<instance_providers::rrd_collector<long long> >(object);
       else
         throw pdh_exception("Invalid type specified");
     } else if (object.is_static()) {
       if (object.get_type() == pdh_object::type_double)
-        return boost::make_shared<instance_providers::value_collector<double> >(object);
+        return std::make_shared<instance_providers::value_collector<double> >(object);
       else if (object.get_type() == pdh_object::type_long)
-        return boost::make_shared<instance_providers::value_collector<long> >(object);
+        return std::make_shared<instance_providers::value_collector<long> >(object);
       else if (object.get_type() == pdh_object::type_large)
-        return boost::make_shared<instance_providers::value_collector<long long> >(object);
+        return std::make_shared<instance_providers::value_collector<long long> >(object);
       else
         throw pdh_exception("Invalid type specified");
     } else {

@@ -19,7 +19,7 @@
 
 #include "nsca_ng_handler.hpp"
 
-#include <boost/make_shared.hpp>
+#include <memory>
 
 namespace po = boost::program_options;
 
@@ -80,12 +80,12 @@ void nsca_ng_target_object::read(const nscapi::settings_helper::settings_impl_in
 // =====================================================================
 
 nscapi::settings_objects::object_instance options_reader_impl::create(std::string alias, std::string path) {
-  return boost::make_shared<nsca_ng_target_object>(alias, path);
+  return std::make_shared<nsca_ng_target_object>(alias, path);
 }
 
 nscapi::settings_objects::object_instance options_reader_impl::clone(nscapi::settings_objects::object_instance parent_obj, const std::string alias,
                                                                      const std::string path) {
-  return boost::make_shared<nsca_ng_target_object>(parent_obj, alias, path);
+  return std::make_shared<nsca_ng_target_object>(parent_obj, alias, path);
 }
 
 void options_reader_impl::process(boost::program_options::options_description &desc, client::destination_container &source,

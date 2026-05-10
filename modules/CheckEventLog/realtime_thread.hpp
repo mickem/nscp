@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <boost/thread/thread.hpp>
 
 #include "eventlog_record.hpp"
@@ -31,7 +31,7 @@ struct real_time_thread {
   int plugin_id;
   bool enabled_;
   unsigned long long start_age_;
-  boost::shared_ptr<boost::thread> thread_;
+  std::shared_ptr<boost::thread> thread_;
   HANDLE stop_event_;
   eventlog_filter::filter_config_handler filters_;
   std::string logs_;
@@ -43,12 +43,12 @@ struct real_time_thread {
     set_start_age("30m");
   }
 
-  void add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+  void add_realtime_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
   void set_enabled(bool flag) { enabled_ = flag; }
   void set_start_age(std::string age) { start_age_ = str::format::stox_as_time_sec<unsigned long long>(age, "s"); }
 
   void set_language(std::string lang);
-  void set_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string flt) {
+  void set_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string flt) {
     if (!flt.empty()) add_realtime_filter(proxy, "default", flt);
   }
   bool has_filters() { return !filters_.has_objects(); }

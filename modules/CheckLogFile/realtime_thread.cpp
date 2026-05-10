@@ -47,7 +47,7 @@ void real_time_thread::thread_proc() {
   filter_helper helper(core, plugin_id);
   std::list<std::string> logs;
 
-  for (boost::shared_ptr<filters::filter_config_object> object : filters_.get_object_list()) {
+  for (std::shared_ptr<filters::filter_config_object> object : filters_.get_object_list()) {
     runtime_data data;
     data.set_split(object->line_split, object->column_split);
     data.set_read_from_start(object->read_from_start);
@@ -109,8 +109,8 @@ void real_time_thread::thread_proc() {
     if (dur && dur->total_milliseconds() < 0)
       dwWaitTime = 0;
     else if (dur)
-      dwWaitTime = dur->total_milliseconds();
-    DWORD dwWaitReason = WaitForMultipleObjects(static_cast<DWORD>(logs.size() + 1), handles, FALSE, dwWaitTime);
+      dwWaitTime = static_cast<DWORD>(dur->total_milliseconds());
+    const DWORD dwWaitReason = WaitForMultipleObjects(static_cast<DWORD>(logs.size() + 1), handles, FALSE, dwWaitTime);
     if (dwWaitReason == WAIT_TIMEOUT) {
       // we take care of this below...
     } else if (dwWaitReason == WAIT_OBJECT_0) {
@@ -148,7 +148,7 @@ void real_time_thread::thread_proc() {
       NSC_LOG_ERROR("Strange, please report this...");
     }
 #endif
-    helper.process_items(boost::shared_ptr<runtime_data::transient_data_impl>(new runtime_data::transient_data_impl(trigger_folder)));
+    helper.process_items(std::shared_ptr<runtime_data::transient_data_impl>(new runtime_data::transient_data_impl(trigger_folder)));
   }
 
 #ifdef WIN32
@@ -172,7 +172,7 @@ bool real_time_thread::start() {
     NSC_LOG_ERROR("Failed to create pipe");
   }
 #endif
-  thread_ = boost::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
+  thread_ = std::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
   return true;
 }
 bool real_time_thread::stop() {

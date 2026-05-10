@@ -6,15 +6,11 @@ import {
   useSettingsCommandMutation,
 } from "../api/api.ts";
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
   ButtonGroup,
   Chip,
   IconButton,
   InputAdornment,
-  List,
   Snackbar,
   TextField,
   Typography,
@@ -23,11 +19,10 @@ import { Toolbar } from "./atoms/Toolbar.tsx";
 import { Spacing } from "./atoms/Spacing.tsx";
 import { RefreshButton } from "./atoms/RefreshButton.tsx";
 import { useAppDispatch } from "../store/store.ts";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Clear";
 import Button from "@mui/material/Button";
-import SettingsItem from "./atoms/SettingsItem.tsx";
+import SettingsList from "./SettingsList.tsx";
 import { useMemo, useState } from "react";
 
 export default function Settings() {
@@ -56,8 +51,6 @@ export default function Settings() {
 
   const paths = [...new Set(filteredSettings.map((s) => s.path))];
   const totalPaths = new Set(settings?.map((s) => s.path) ?? []).size;
-
-  const getKeysForPath = (path: string) => filteredSettings.filter((setting) => setting.path === path);
 
   const saveSettings = async () => {
     setBusy(true);
@@ -135,25 +128,11 @@ export default function Settings() {
         </Button>
         <RefreshButton onRefresh={onRefresh} />
       </Toolbar>
-      <List sx={{ width: "100%" }}>
-        {paths.length === 0 && needle && (
-          <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
-            No settings match “{filter}”.
-          </Typography>
-        )}
-        {paths.map((path) => (
-          <Accordion key={path} defaultExpanded={!!needle} expanded={needle ? true : undefined}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>{path}</AccordionSummary>
-            <AccordionDetails>
-              <List dense>
-                {getKeysForPath(path).map((setting) => (
-                  <SettingsItem key={setting.key} path={path} setting={setting} />
-                ))}
-              </List>
-            </AccordionDetails>
-          </Accordion>
-        ))}
-      </List>
+      <SettingsList
+        settings={filteredSettings}
+        forceExpanded={!!needle}
+        emptyMessage={needle ? `No settings match “${filter}”.` : undefined}
+      />
       <Snackbar open={!!error} autoHideDuration={6000} onClose={handleCloseError}>
         <Alert onClose={handleCloseError} severity="error">
           {error}

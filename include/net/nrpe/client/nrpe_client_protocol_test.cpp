@@ -19,7 +19,7 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <net/nrpe/client/nrpe_client_protocol.hpp>
 #include <net/nrpe/packet.hpp>
 #include <string>
@@ -49,7 +49,7 @@ class MockClientHandler : public socket_helpers::client::client_handler {
 // =============================================================================
 
 TEST(NrpeClientProtocol, InitialState) {
-  auto handler = boost::make_shared<MockClientHandler>();
+  auto handler = std::make_shared<MockClientHandler>();
   client::protocol proto(handler);
 
   EXPECT_FALSE(proto.has_data());
@@ -61,7 +61,7 @@ TEST(NrpeClientProtocol, InitialState) {
 // =============================================================================
 
 TEST(NrpeClientProtocol, OnConnectSetsConnected) {
-  auto handler = boost::make_shared<MockClientHandler>();
+  auto handler = std::make_shared<MockClientHandler>();
   client::protocol proto(handler);
   proto.on_connect();
 
@@ -75,7 +75,7 @@ TEST(NrpeClientProtocol, OnConnectSetsConnected) {
 // =============================================================================
 
 TEST(NrpeClientProtocol, PrepareRequestSetsHasData) {
-  auto handler = boost::make_shared<MockClientHandler>();
+  auto handler = std::make_shared<MockClientHandler>();
   client::protocol proto(handler);
   proto.on_connect();
 
@@ -87,7 +87,7 @@ TEST(NrpeClientProtocol, PrepareRequestSetsHasData) {
 }
 
 TEST(NrpeClientProtocol, PrepareRequestPopulatesOutbound) {
-  auto handler = boost::make_shared<MockClientHandler>();
+  auto handler = std::make_shared<MockClientHandler>();
   client::protocol proto(handler);
   proto.on_connect();
 
@@ -103,7 +103,7 @@ TEST(NrpeClientProtocol, PrepareRequestPopulatesOutbound) {
 // =============================================================================
 
 TEST(NrpeClientProtocol, OnWriteTransitionsToWantsData) {
-  auto handler = boost::make_shared<MockClientHandler>();
+  auto handler = std::make_shared<MockClientHandler>();
   client::protocol proto(handler);
   proto.on_connect();
 
@@ -122,7 +122,7 @@ TEST(NrpeClientProtocol, OnWriteTransitionsToWantsData) {
 // =============================================================================
 
 TEST(NrpeClientProtocol, OnReadNormalResponseTransitionsToConnected) {
-  auto handler = boost::make_shared<MockClientHandler>();
+  auto handler = std::make_shared<MockClientHandler>();
   client::protocol proto(handler);
   proto.on_connect();
 
@@ -145,7 +145,7 @@ TEST(NrpeClientProtocol, OnReadNormalResponseTransitionsToConnected) {
 }
 
 TEST(NrpeClientProtocol, OnReadMoreResponseKeepsWantingData) {
-  auto handler = boost::make_shared<MockClientHandler>();
+  auto handler = std::make_shared<MockClientHandler>();
   client::protocol proto(handler);
   proto.on_connect();
 
@@ -171,7 +171,7 @@ TEST(NrpeClientProtocol, OnReadMoreResponseKeepsWantingData) {
 // =============================================================================
 
 TEST(NrpeClientProtocol, GetResponseReturnsAccumulatedPackets) {
-  auto handler = boost::make_shared<MockClientHandler>();
+  auto handler = std::make_shared<MockClientHandler>();
   client::protocol proto(handler);
   proto.on_connect();
 
@@ -196,7 +196,7 @@ TEST(NrpeClientProtocol, GetResponseReturnsAccumulatedPackets) {
 // =============================================================================
 
 TEST(NrpeClientProtocol, GetTimeoutResponseReturnsUnknown) {
-  auto handler = boost::make_shared<MockClientHandler>();
+  auto handler = std::make_shared<MockClientHandler>();
   client::protocol proto(handler);
 
   auto resp = proto.get_timeout_response();
@@ -209,7 +209,7 @@ TEST(NrpeClientProtocol, GetTimeoutResponseReturnsUnknown) {
 // =============================================================================
 
 TEST(NrpeClientProtocol, OnReadErrorInConnectedStateReturnsTrue) {
-  auto handler = boost::make_shared<MockClientHandler>();
+  auto handler = std::make_shared<MockClientHandler>();
   client::protocol proto(handler);
   proto.on_connect();
 
@@ -230,7 +230,7 @@ TEST(NrpeClientProtocol, OnReadErrorInConnectedStateReturnsTrue) {
 }
 
 TEST(NrpeClientProtocol, OnReadErrorInNonConnectedStateReturnsFalse) {
-  auto handler = boost::make_shared<MockClientHandler>();
+  auto handler = std::make_shared<MockClientHandler>();
   client::protocol proto(handler);
   proto.on_connect();
 
@@ -248,7 +248,7 @@ TEST(NrpeClientProtocol, OnReadErrorInNonConnectedStateReturnsFalse) {
 // =============================================================================
 
 TEST(NrpeClientProtocol, FullCycle) {
-  auto handler = boost::make_shared<MockClientHandler>();
+  auto handler = std::make_shared<MockClientHandler>();
   client::protocol proto(handler);
 
   // 1. Connect

@@ -22,7 +22,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/program_options.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
@@ -37,11 +37,11 @@ namespace check_net {
 namespace check_dns_filter {
 
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string("host", &filter_obj::get_host, "Hostname that was looked up");
-  registry_.add_string("addresses", &filter_obj::get_addresses, "Comma separated list of resolved addresses");
-  registry_.add_string("result", &filter_obj::get_result, "Textual result of the lookup (ok, not_found, mismatch, error, ...)");
-  registry_.add_int_x("count", parsers::where::type_int, &filter_obj::get_count, "Number of addresses returned by the resolver");
-  registry_.add_int_x("time", parsers::where::type_int, &filter_obj::get_time, "Time taken by the lookup in milliseconds");
+  registry_.add_string_var("host", &filter_obj::get_host, "Hostname that was looked up");
+  registry_.add_string_var("addresses", &filter_obj::get_addresses, "Comma separated list of resolved addresses");
+  registry_.add_string_var("result", &filter_obj::get_result, "Textual result of the lookup (ok, not_found, mismatch, error, ...)");
+  registry_.add_int_var("count", parsers::where::type_int, &filter_obj::get_count, "Number of addresses returned by the resolver");
+  registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Time taken by the lookup in milliseconds");
 }
 
 }  // namespace check_dns_filter
@@ -177,7 +177,7 @@ void check_dns(const PB::Commands::QueryRequestMessage::Request &request, PB::Co
 
   if (!filter_helper.build_filter(f)) return;
 
-  auto obj = boost::make_shared<filter_obj>();
+  auto obj = std::make_shared<filter_obj>();
   run_dns_check(host, timeout_ms, expected, *obj);
   f.match(obj);
 

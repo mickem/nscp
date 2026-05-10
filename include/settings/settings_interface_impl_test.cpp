@@ -20,7 +20,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <map>
 #include <set>
 #include <settings/settings_interface_impl.hpp>
@@ -421,7 +421,7 @@ TEST(settings_interface_impl, save_to_copies_keys_into_destination) {
   src.persisted_values[{"/a", "k2"}] = "v2";
   src.persisted_paths.insert("/a");
 
-  auto dst = boost::make_shared<memory_backend>(&core, "dst", "memory://dst");
+  auto dst = std::make_shared<memory_backend>(&core, "dst", "memory://dst");
   src.save_to(dst);
 
   ASSERT_EQ(dst->persisted_values.count({"/a", "k1"}), 1u);
@@ -435,7 +435,7 @@ TEST(settings_interface_impl, save_to_same_context_just_saves) {
   // short-circuit to a plain save() rather than copying.  We assert that the
   // source's pending writes land in its own backend.
   mock_settings_core core;
-  auto src = boost::make_shared<memory_backend>(&core, "x", "memory://x");
+  auto src = std::make_shared<memory_backend>(&core, "x", "memory://x");
   src->set_string("/p", "k", "v");
   src->save_to(src);
   EXPECT_EQ(src->persisted_values[pk("/p", "k")], "v");

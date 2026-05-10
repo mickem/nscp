@@ -19,7 +19,7 @@
 
 #include "NSCANgClient.h"
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <net/socket/socket_helpers.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -33,7 +33,7 @@
 
 NSCANgClient::NSCANgClient()
     : simple_plugin(),
-      client_("nsca-ng", boost::make_shared<nsca_ng_client::nsca_ng_client_handler>(), boost::make_shared<nsca_ng_handler::options_reader_impl>()) {}
+      client_("nsca-ng", std::make_shared<nsca_ng_client::nsca_ng_client_handler>(), std::make_shared<nsca_ng_handler::options_reader_impl>()) {}
 
 bool NSCANgClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   try {

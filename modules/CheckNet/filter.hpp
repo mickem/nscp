@@ -21,7 +21,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/optional.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <error/error.hpp>
 #include <map>
 #include <net/pinger.hpp>
@@ -43,7 +43,7 @@ struct filter_obj {
     return *this;
   }
 
-  static boost::shared_ptr<ping_filter::filter_obj> get_total();
+  static std::shared_ptr<ping_filter::filter_obj> get_total();
 
   std::string show() const {
     if (is_total_)
@@ -65,7 +65,7 @@ struct filter_obj {
   }
 
  public:
-  void add(boost::shared_ptr<filter_obj> info);
+  void add(std::shared_ptr<filter_obj> info);
   void make_total() { is_total_ = true; }
   bool is_total() const { return is_total_; }
   long long get_sent() { return result.num_send_; }
@@ -85,7 +85,7 @@ struct filter_obj {
   result_container result;
 };
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler();
 };

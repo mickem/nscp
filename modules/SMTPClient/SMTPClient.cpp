@@ -19,7 +19,7 @@
 
 #include "SMTPClient.h"
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/settings/helper.hpp>
@@ -31,7 +31,7 @@
  * Default c-tor
  * @return
  */
-SMTPClient::SMTPClient() : client_("smtp", boost::make_shared<smtp_client::smtp_client_handler>(), boost::make_shared<smtp_handler::options_reader_impl>()) {}
+SMTPClient::SMTPClient() : client_("smtp", std::make_shared<smtp_client::smtp_client_handler>(), std::make_shared<smtp_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor

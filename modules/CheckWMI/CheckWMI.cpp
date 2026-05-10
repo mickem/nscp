@@ -104,7 +104,7 @@ struct filter_obj {
   long long get_int(const std::string col) const { return row.get_int(col); }
 };
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler() {}
 };
@@ -147,10 +147,10 @@ void CheckWMI::check_wmi(const PB::Commands::QueryRequestMessage::Request &reque
   try {
     ns = build_namespace(ns, target_info.hostname);
     wmi_impl::query wmiQuery(query, ns, target_info.username, target_info.password);
-    filter.context->registry_.add_string("line", &wmi_filter::filter_obj::get_row, "Get a list of all columns");
+    filter.context->registry_.add_string_var("line", &wmi_filter::filter_obj::get_row, "Get a list of all columns");
     for (const std::string &col : wmiQuery.get_columns()) {
       filter.context->registry_
-          .add_int_x(
+          .add_int_var(
               col, [col](auto obj) { return obj->get_int(col); }, [col](auto obj) { return obj->get_string(col); }, "Column: " + col)
           .add_int_perf("", col, "");
     }
@@ -159,7 +159,7 @@ void CheckWMI::check_wmi(const PB::Commands::QueryRequestMessage::Request &reque
 
     wmi_impl::row_enumerator e = wmiQuery.execute();
     while (e.has_next()) {
-      boost::shared_ptr<wmi_filter::filter_obj> record(new wmi_filter::filter_obj(e.get_next()));
+      std::shared_ptr<wmi_filter::filter_obj> record(new wmi_filter::filter_obj(e.get_next()));
       filter.match(record);
     }
   } catch (const wmi_impl::wmi_exception &e) {

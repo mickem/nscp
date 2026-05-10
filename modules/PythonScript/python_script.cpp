@@ -112,7 +112,9 @@ void python_script::init(const std::string &python_cache_path, const std::string
 #endif
 
     Py_Initialize();
+#if PY_VERSION_HEX < 0x03090000
     PyEval_InitThreads();
+#endif
     PyEval_SaveThread();
   }
 
@@ -126,7 +128,7 @@ void python_script::init(const std::string &python_cache_path, const std::string
         PyRun_SimpleString("import sys");
         PyRun_SimpleString("sys.stderr = StringIO()");
 
-      } catch (py::error_already_set &e) {
+      } catch (py::error_already_set &) {
         script_wrapper::log_exception(__FILE__, __LINE__);
       }
     }
@@ -180,7 +182,7 @@ bool python_script::callFunction(const std::string &functionName) {
       py::object scriptFunction = py::extract<py::object>(localDict->get(functionName));
       if (scriptFunction) scriptFunction();
       return true;
-    } catch (py::error_already_set &e) {
+    } catch (py::error_already_set &) {
       script_wrapper::log_exception(__FILE__, __LINE__);
       return false;
     }
@@ -197,7 +199,7 @@ bool python_script::callFunction(const std::string &functionName, const std::lis
       py::object scriptFunction = py::extract<py::object>(localDict->get(functionName));
       if (scriptFunction) scriptFunction(script_wrapper::convert(args));
       return true;
-    } catch (py::error_already_set &e) {
+    } catch (py::error_already_set &) {
       script_wrapper::log_exception(__FILE__, __LINE__);
       return false;
     }
@@ -214,7 +216,7 @@ bool python_script::callFunction(const std::string &functionName, unsigned int i
       py::object scriptFunction = py::extract<py::object>(localDict->get(functionName));
       if (scriptFunction) scriptFunction(i1, s1, s2);
       return true;
-    } catch (py::error_already_set &e) {
+    } catch (py::error_already_set &) {
       script_wrapper::log_exception(__FILE__, __LINE__, functionName);
       return false;
     }
@@ -252,7 +254,7 @@ void python_script::_exec(const std::string &scriptfile) {
 #else
         PyRun_SimpleString(("sys.path.append('" + path.string() + "')").c_str());
 #endif
-      } catch (py::error_already_set &e) {
+      } catch (py::error_already_set &) {
         NSC_LOG_ERROR("Failed to setup env for script: " + scriptfile);
         script_wrapper::log_exception(__FILE__, __LINE__, scriptfile);
         return;
@@ -265,7 +267,7 @@ void python_script::_exec(const std::string &scriptfile) {
       py::object sFile = pystr2(scriptfile);
       FILE *fp = _Py_fopen_obj(sFile.ptr(), "r");
       PyRun_File(fp, scriptfile.c_str(), Py_file_input, localDict->ptr(), localDict->ptr());
-    } catch (py::error_already_set &e) {
+    } catch (py::error_already_set &) {
       NSC_LOG_ERROR("Failed to load script: " + scriptfile);
       script_wrapper::log_exception(__FILE__, __LINE__, scriptfile);
     } catch (const std::exception &e) {

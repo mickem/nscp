@@ -19,7 +19,7 @@
 
 #include "check_single_file.hpp"
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -73,7 +73,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   if (!filter_helper.build_filter(filter)) return;
 
   const long long now = parsers::where::constants::get_now();
-  const boost::shared_ptr<file_filter::filter_obj> info = file_finder::stat_single_file(file_path, now);
+  const std::shared_ptr<file_filter::filter_obj> info = file_finder::stat_single_file(file_path, now);
   if (!info) {
     return nscapi::protobuf::functions::set_response_bad(*response, "File not found: " + file_path);
   }

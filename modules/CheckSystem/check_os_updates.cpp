@@ -286,7 +286,7 @@ namespace check {
 
 typedef os_updates_obj filter_obj;
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler final : public native_context {
   filter_obj_handler();
 };
@@ -294,19 +294,19 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_typ
 
 filter_obj_handler::filter_obj_handler() {
   // clang-format off
-  registry_.add_int_x("count", &filter_obj::get_count, "Total number of available updates")
+  registry_.add_int_var("count", &filter_obj::get_count, "Total number of available updates")
       .add_int_perf("")
-      .add_int_x("security", &filter_obj::get_security, "Number of security updates")
+      .add_int_var("security", &filter_obj::get_security, "Number of security updates")
       .add_int_perf("")
-      .add_int_x("critical", &filter_obj::get_critical, "Number of critical updates")
+      .add_int_var("critical", &filter_obj::get_critical, "Number of critical updates")
       .add_int_perf("")
-      .add_int_x("important", &filter_obj::get_important, "Number of updates with MSRC severity 'Important'")
+      .add_int_var("important", &filter_obj::get_important, "Number of updates with MSRC severity 'Important'")
       .add_int_perf("")
-      .add_int_x("reboot_required", &filter_obj::get_reboot_required, "Number of updates requiring a reboot")
+      .add_int_var("reboot_required", &filter_obj::get_reboot_required, "Number of updates requiring a reboot")
       .add_int_perf("");
-  registry_.add_string("titles", &filter_obj::get_titles, "Semicolon separated list of available update titles")
-      .add_string("status", &filter_obj::get_status, "Aggregated status: ok, warning, critical, pending, error")
-      .add_string("error", &filter_obj::get_error, "Last error message from the WUA search (if any)");
+  registry_.add_string_var("titles", &filter_obj::get_titles, "Semicolon separated list of available update titles")
+      .add_string_var("status", &filter_obj::get_status, "Aggregated status: ok, warning, critical, pending, error")
+      .add_string_var("error", &filter_obj::get_error, "Last error message from the WUA search (if any)");
   // clang-format on
 }
 
@@ -323,7 +323,7 @@ void check_os_updates(const PB::Commands::QueryRequestMessage::Request &request,
 
   if (!filter_helper.build_filter(filter)) return;
 
-  const boost::shared_ptr<filter_obj> record(new filter_obj(std::move(data)));
+  const std::shared_ptr<filter_obj> record(new filter_obj(std::move(data)));
   filter.match(record);
 
   filter_helper.post_process(filter);

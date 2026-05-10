@@ -97,6 +97,6 @@ class NSCAPI_EXPORT ServerImpl final : public Server {
 
   boost::atomic<bool> stop_thread_;
   boost::timed_mutex mutex_;
-  boost::shared_ptr<boost::thread> thread_;
+  std::shared_ptr<boost::thread> thread_;
 };
 }  // namespace Mongoose

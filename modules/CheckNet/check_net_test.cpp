@@ -19,7 +19,7 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <nscapi/nscapi_helper_singleton.hpp>
 
 #include "check_connections.h"
@@ -70,8 +70,8 @@ TEST(CheckPing, filter_obj_aggregates_counters) {
   r2.num_timeouts_ = 2;
   r2.time_ = 50;
 
-  auto a = boost::make_shared<ping_filter::filter_obj>(r1);
-  auto b = boost::make_shared<ping_filter::filter_obj>(r2);
+  auto a = std::make_shared<ping_filter::filter_obj>(r1);
+  auto b = std::make_shared<ping_filter::filter_obj>(r2);
   auto total = ping_filter::filter_obj::get_total();
   total->add(a);
   total->add(b);

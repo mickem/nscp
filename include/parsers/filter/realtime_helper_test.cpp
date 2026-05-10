@@ -447,10 +447,10 @@ TEST(RealtimeFilterHelperProcessItem, CallsMatchPostOnEmptyResult) {
   helper_type helper(nullptr, 0);
   stub_runtime_data rd;
   rd.next_result = modern_filter::match_result(false, false);  // no rows matched
-  // process_item takes the container by `boost::shared_ptr` (helper_type's
-  // own container_type alias), so build it as boost::shared_ptr explicitly
+  // process_item takes the container by `std::shared_ptr` (helper_type's
+  // own container_type alias), so build it as std::shared_ptr explicitly
   // rather than via std::make_shared.
-  boost::shared_ptr<container_type> item(new container_type("alias", "event", rd));
+  std::shared_ptr<container_type> item(new container_type("alias", "event", rd));
 
   // Default target ("") is neither "event" nor "events" — process_item takes
   // the submission branch, but the early `if (!result.matched_filter) return
@@ -472,7 +472,7 @@ TEST(RealtimeFilterHelperProcessItem, MatchPostRunsBeforeEarlyReturn) {
   helper_type helper(nullptr, 0);
   stub_runtime_data rd;
   rd.next_result = modern_filter::match_result(false, false);
-  boost::shared_ptr<container_type> item(new container_type("a", "e", rd));
+  std::shared_ptr<container_type> item(new container_type("a", "e", rd));
 
   helper.process_item(item, 0, false);
   helper.process_item(item, 0, false);
@@ -489,7 +489,7 @@ TEST(RealtimeFilterHelperProcessItem, SeverityIsAppliedAfterStartMatch) {
   helper_type helper(nullptr, 0);
   stub_runtime_data rd;
   rd.next_result = modern_filter::match_result(false, false);
-  boost::shared_ptr<container_type> item(new container_type("a", "e", rd));
+  std::shared_ptr<container_type> item(new container_type("a", "e", rd));
   item->severity = 2;  // CRITICAL
 
   helper.process_item(item, 0, false);

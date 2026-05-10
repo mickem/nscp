@@ -19,7 +19,9 @@
 
 #pragma once
 
+#include <map>
 #include <nscapi/protobuf/command.hpp>
+#include <string>
 
 #include "filter_config_object.hpp"
 
@@ -32,9 +34,10 @@ struct helper {
   mem_filter_helper_wrapper *memory_helper;
 
   helper(nscapi::core_wrapper *core, int plugin_id);
-  void add_obj(boost::shared_ptr<filters::mem::filter_config_object> object);
+  void add_obj(std::shared_ptr<filters::mem::filter_config_object> object);
   void boot();
   void check();
+  std::map<std::string, long long> get_counts() const;
 };
 }  // namespace realtime
 namespace memory {

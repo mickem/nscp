@@ -1,6 +1,6 @@
 #pragma once
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <string>
 
 #include "Controller.h"
@@ -19,7 +19,7 @@ class NSCAPI_EXPORT WebLogger {
   virtual void log_debug(const std::string &message) = 0;
 };
 
-typedef boost::shared_ptr<WebLogger> WebLoggerPtr;
+typedef std::shared_ptr<WebLogger> WebLoggerPtr;
 
 class NSCAPI_EXPORT Server {
  public:

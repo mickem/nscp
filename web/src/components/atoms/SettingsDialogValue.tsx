@@ -7,9 +7,12 @@ import {
   InputLabel,
   ListItem,
   ListItemText,
+  MenuItem,
+  Select,
   Switch,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import { resolveEnumOptions } from "./fieldEnums.ts";
 
 interface Params {
   value: string;
@@ -41,6 +44,38 @@ export default function SettingsDialogValue({ value, description, onChange }: Pa
       <ListItem>
         <ListItemText primary={"Value"} secondary={value} />
         <Switch checked={enableValue(value)} onChange={(e) => onEnableChange(e.target.checked)} />
+      </ListItem>
+    );
+  }
+
+  // Same enum resolution the inline editor uses (subsystem, type, severity, …).
+  const enumOpts = description ? resolveEnumOptions(description, description.path) : undefined;
+  if (enumOpts) {
+    return (
+      <ListItem>
+        <FormControl variant="standard" fullWidth>
+          <InputLabel id="value-label">Value</InputLabel>
+          <Select
+            labelId="value-label"
+            id="value"
+            value={value}
+            label="Value"
+            onChange={(e) => onChange(e.target.value)}
+          >
+            <MenuItem value="">
+              <em style={{ color: "rgba(255,255,255,0.6)" }}>
+                {description?.default_value
+                  ? `(inherit default — ${description.default_value})`
+                  : "(unset)"}
+              </em>
+            </MenuItem>
+            {enumOpts.map((opt) => (
+              <MenuItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </ListItem>
     );
   }

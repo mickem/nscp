@@ -20,7 +20,7 @@ using namespace parsers::where;
 namespace checks {
 namespace check_cpu_filter {
 
-node_type calculate_load(boost::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
+node_type calculate_load(std::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
   helpers::read_arg_type value = helpers::read_arguments(context, subject, "%");
   double number = value.get<1>();
   std::string unit = value.get<2>();
@@ -32,25 +32,25 @@ node_type calculate_load(boost::shared_ptr<filter_obj> object, evaluation_contex
 filter_obj_handler::filter_obj_handler() {
   static constexpr value_type type_custom_pct = type_custom_int_1;
 
-  registry_.add_string("time", &filter_obj::get_time, "The time frame to check")
-      .add_string("core", &filter_obj::get_core_s, &filter_obj::get_core_i, "The core to check (total or core ##)")
-      .add_string("core_id", &filter_obj::get_core_id, &filter_obj::get_core_i, "The core to check (total or core_##)");
+  registry_.add_string_var("time", &filter_obj::get_time, "The time frame to check")
+      .add_string_var("core", &filter_obj::get_core_s, &filter_obj::get_core_i, "The core to check (total or core ##)")
+      .add_string_var("core_id", &filter_obj::get_core_id, &filter_obj::get_core_i, "The core to check (total or core_##)");
 
-  registry_.add_int_x("load", type_custom_pct, &filter_obj::get_total, "The current load for a given core (deprecated, use total)")
+  registry_.add_int_var("load", type_custom_pct, &filter_obj::get_total, "The current load for a given core (deprecated, use total)")
       .add_int_perf("%")
-      .add_int_x("total", type_custom_pct, &filter_obj::get_total, "The current load used by user and system")
+      .add_int_var("total", type_custom_pct, &filter_obj::get_total, "The current load used by user and system")
       .add_int_perf("%")
-      .add_int_x("user", type_custom_pct, &filter_obj::get_user, "The current load used by user applications")
+      .add_int_var("user", type_custom_pct, &filter_obj::get_user, "The current load used by user applications")
       .add_int_perf("%")
-      .add_int_x("idle", &filter_obj::get_idle, "The current idle load for a given core")
-      .add_int_x("system", &filter_obj::get_kernel, "The current load used by the system (kernel)")
-      .add_int_x("kernel", &filter_obj::get_kernel, "deprecated (use system instead)");
+      .add_int_var("idle", &filter_obj::get_idle, "The current idle load for a given core")
+      .add_int_var("system", &filter_obj::get_kernel, "The current load used by the system (kernel)")
+      .add_int_var("kernel", &filter_obj::get_kernel, "deprecated (use system instead)");
 
-  registry_.add_converter()(type_custom_pct, &calculate_load);
+  registry_.add_converter(type_custom_pct, &calculate_load);
 }
 }  // namespace check_cpu_filter
 
-void check_cpu(boost::shared_ptr<pdh_thread> collector, const PB::Commands::QueryRequestMessage::Request &request,
+void check_cpu(std::shared_ptr<pdh_thread> collector, const PB::Commands::QueryRequestMessage::Request &request,
                PB::Commands::QueryResponseMessage::Response *response) {
   typedef check_cpu_filter::filter filter_type;
   modern_filter::data_container data;
@@ -108,7 +108,7 @@ void check_cpu(boost::shared_ptr<pdh_thread> collector, const PB::Commands::Quer
 
     for (const auto &entry : cpu_data) {
       const load_entry &load = entry.second;
-      const boost::shared_ptr<check_cpu_filter::filter_obj> record(new check_cpu_filter::filter_obj(time, entry.first, load.user, load.kernel, load.idle));
+      const std::shared_ptr<check_cpu_filter::filter_obj> record(new check_cpu_filter::filter_obj(time, entry.first, load.user, load.kernel, load.idle));
       filter.match(record);
     }
   }
