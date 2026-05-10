@@ -28,6 +28,7 @@
 #include <nscapi/protobuf/metrics.hpp>
 
 #include "error_handler_interface.hpp"
+#include "event_store.hpp"
 #include "session_manager_interface.hpp"
 #include "user_config.hpp"
 
@@ -47,6 +48,7 @@ class WEBServer : public nscapi::impl::simple_plugin {
 
   bool unloadModule();
   void handleLogMessage(const PB::Log::LogEntry::Entry &message);
+  void onEvent(const PB::Commands::EventMessage &request, const std::string &buffer);
   bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request,
                        PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
   void submitMetrics(const PB::Metrics::MetricsMessage &response) const;
@@ -61,6 +63,7 @@ class WEBServer : public nscapi::impl::simple_plugin {
   boost::shared_ptr<error_handler_interface> log_handler;
   boost::shared_ptr<client::cli_client> client;
   boost::shared_ptr<session_manager_interface> session;
+  boost::shared_ptr<event_store> events_;
   boost::shared_ptr<Mongoose::Server> server;
 
   web_server::user_config users_;

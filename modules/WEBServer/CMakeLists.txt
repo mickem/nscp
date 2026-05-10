@@ -18,6 +18,7 @@ set(SRCS
     session_manager_interface.cpp
     metrics_handler.cpp
     error_handler.cpp
+    event_store.cpp
     modules_controller.cpp
     query_controller.cpp
     scripts_controller.cpp
@@ -31,6 +32,7 @@ set(SRCS
     metrics_controller.cpp
     openmetrics_controller.cpp
     metadata_controller.cpp
+    events_controller.cpp
     ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
     ${NSCP_INCLUDEDIR}/client/simple_client.cpp
