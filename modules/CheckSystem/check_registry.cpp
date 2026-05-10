@@ -192,7 +192,8 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("name", &filter_obj::get_name, "Value name ('(default)' for the unnamed default value)")
       .add_string_var("path", &filter_obj::get_path, "Full path: key\\name")
       .add_string_var("hive", &filter_obj::get_hive, "Hive abbreviation (HKLM, HKCU, HKCR, HKU, HKCC)")
-      .add_string_var("string_value", &filter_obj::get_string_value, "Value rendered as a string (REG_SZ expanded, REG_DWORD as decimal, REG_BINARY as hex, etc.)")
+      .add_string_var("string_value", &filter_obj::get_string_value,
+                      "Value rendered as a string (REG_SZ expanded, REG_DWORD as decimal, REG_BINARY as hex, etc.)")
       .add_string_var("written_s", &filter_obj::get_written_s, "Parent key last-write time as a human-readable string");
 
   // Integer / custom-type attributes

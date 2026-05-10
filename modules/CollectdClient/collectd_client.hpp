@@ -236,8 +236,7 @@ struct collectd_client_handler : public client::handler_interface {
           while (endpoint_iterator != end) {
             std::string ss = endpoint_iterator->endpoint().address().to_string();
             if (target_address.is_v4() && endpoint_iterator->endpoint().address().is_v4()) {
-              std::shared_ptr<udp_sender> s =
-                  std::make_shared<udp_sender>(io_service, endpoint_iterator->endpoint(), target_address, target.get_int_port());
+              std::shared_ptr<udp_sender> s = std::make_shared<udp_sender>(io_service, endpoint_iterator->endpoint(), target_address, target.get_int_port());
               senders.push_back(s);
               s->send_data(p.get_buffer());
               io_service.run();

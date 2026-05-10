@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <memory>
 #include <iostream>
+#include <memory>
 #include <net/check_mk/data.hpp>
 #include <net/check_mk/parser.hpp>
 #include <net/socket/client.hpp>

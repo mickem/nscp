@@ -110,7 +110,8 @@ struct registry_adders_variables_int {
     add_variables(var);
     return *this;
   }
-  registry_adders_variables_int& add_int(std::string key, value_type type, typename filter_variable<T>::int_fun_type_no_context i_fun, std::string description) {
+  registry_adders_variables_int& add_int(std::string key, value_type type, typename filter_variable<T>::int_fun_type_no_context i_fun,
+                                         std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
     var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
     add_variables(var);
@@ -194,7 +195,7 @@ struct function_registry {
     return *this;
   }
   function_registry<T>& add_int_var(std::string key, value_type type, std::function<long long(T)> i_fun, std::function<std::string(T)> s_fun,
-                                  std::string description) {
+                                    std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
     var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
     var->s_function = [s_fun](auto obj, auto) { return s_fun(obj); };
@@ -207,7 +208,8 @@ struct function_registry {
     add(var, false);
     return *this;
   }
-  function_registry<T>& add_int_var_w_context(std::string key, value_type type, std::function<long long(T, evaluation_context)> i_fun, std::string description) {
+  function_registry<T>& add_int_var_w_context(std::string key, value_type type, std::function<long long(T, evaluation_context)> i_fun,
+                                              std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
     var->i_function = i_fun;
     add(var, false);
@@ -260,7 +262,8 @@ struct function_registry {
     add(var, true);
     return *this;
   }
-  function_registry<T>& add_custom_fun(const std::string& key, const value_type type_, const filter_function::generic_fun_type& fun, const std::string& description) {
+  function_registry<T>& add_custom_fun(const std::string& key, const value_type type_, const filter_function::generic_fun_type& fun,
+                                       const std::string& description) {
     const auto var = std::make_shared<filter_function>(key);
     var->function = fun;
     var->type = type_;

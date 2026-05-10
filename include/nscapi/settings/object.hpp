@@ -19,8 +19,8 @@
 
 #pragma once
 #include <algorithm>
-#include <memory>
 #include <list>
+#include <memory>
 #include <nscapi/settings/helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <settings/client/settings_client_interface.hpp>

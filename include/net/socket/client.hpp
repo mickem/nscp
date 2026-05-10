@@ -223,8 +223,7 @@ class tcp_connection : public connection<protocol_type> {
   tcp::socket socket_;
 
  public:
-  tcp_connection(boost::asio::io_service &io_service, boost::posix_time::time_duration timeout,
-                 std::shared_ptr<typename protocol_type::client_handler> handler)
+  tcp_connection(boost::asio::io_service &io_service, boost::posix_time::time_duration timeout, std::shared_ptr<typename protocol_type::client_handler> handler)
       : connection_type(io_service, timeout, handler), socket_(io_service) {}
   virtual ~tcp_connection() {
     try {

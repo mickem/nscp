@@ -19,8 +19,8 @@
 
 #include "CollectdClient.h"
 
-#include <memory>
 #include <boost/regex.hpp>
+#include <memory>
 #include <net/socket/socket_helpers.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>

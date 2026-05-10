@@ -21,9 +21,9 @@
 
 #include <boost/filesystem/path.hpp>
 #include <boost/function.hpp>
-#include <memory>
 #include <list>
 #include <map>
+#include <memory>
 #include <settings/client/settings_client_interface.hpp>
 #include <string>
 #include <utility>

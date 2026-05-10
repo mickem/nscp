@@ -348,13 +348,12 @@ filter_obj_handler::filter_obj_handler() {
   } else {
     registry_.add_int_var("level", type_custom_type, &filter_obj::get_el_type, "Severity level (error, warning, info)")
         .add_int_var("severity", type_custom_severity, &filter_obj::get_severity,
-                   "Legacy: Probably not what you want.This is the technical severity of the message often level is what you are looking for.")
+                     "Legacy: Probably not what you want.This is the technical severity of the message often level is what you are looking for.")
         .add_int_var("generated", type_date, &filter_obj::get_generated, "When the message was generated")
         .add_int_var("qualifier", &filter_obj::get_facility, "TODO")
         .add_int_var("facility", &filter_obj::get_facility, "TODO");
     registry_.add_string_var("strings", &filter_obj::get_strings, "The message content. Significantly faster than message yet yields similar results.");
-    registry_.add_converter(type_custom_severity, &fun_convert_old_severity)
-      .add_converter(type_custom_type, &fun_convert_old_type);
+    registry_.add_converter(type_custom_severity, &fun_convert_old_severity).add_converter(type_custom_type, &fun_convert_old_type);
   }
 }
 

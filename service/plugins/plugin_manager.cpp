@@ -778,7 +778,7 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::emit_event(const std::string
   for (const PB::Commands::EventMessage::Request &r : em.payload()) {
     bool has_matched = false;
     try {
-      for (const nsclient::plugin_type& p : event_subscribers_.get(r.event())) {
+      for (const nsclient::plugin_type &p : event_subscribers_.get(r.event())) {
         try {
           p->on_event(request);
           has_matched = true;

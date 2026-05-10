@@ -21,6 +21,7 @@
 
 #include <algorithm>
 
+#include "nscapi/protobuf/functions_query.hpp"
 #include "nsclient/nsclient_exception.hpp"
 #include "parsers/filter/cli_helper.hpp"
 
@@ -108,20 +109,36 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_var("triggers", type_int, &filter_obj::get_triggers, "The number of associated triggers for this service")
       .add_int_var("exit_code", type_int, &filter_obj::get_exit_code, "The Win32 exit code of the service");
 
-  registry_
-    .add_custom_fun("state_is_perfect", type_bool, &state_is_perfect, "Check if the state is ok, i.e. all running services are running")
-    .add_custom_fun("state_is_ok", type_bool, &state_is_ok, "Check if the state is ok, i.e. all running services are running (delayed services are allowed to be stopped)") ;
+  registry_.add_custom_fun("state_is_perfect", type_bool, &state_is_perfect, "Check if the state is ok, i.e. all running services are running")
+      .add_custom_fun("state_is_ok", type_bool, &state_is_ok,
+                      "Check if the state is ok, i.e. all running services are running (delayed services are allowed to be stopped)");
 
   registry_.add_human_string("state", &filter_obj::get_state_s, "The current state ()")
       .add_human_string("start_type", &filter_obj::get_start_type_s, "The configured start type ()");
 
-  registry_.add_converter(type_custom_state, &parse_state)
-  .add_converter(type_custom_start_type, &parse_start_type);
+  registry_.add_converter(type_custom_state, &parse_state).add_converter(type_custom_start_type, &parse_start_type);
 }
 }  // namespace check_svc_filter
 }  // namespace service_checks
 
 void service_checks::check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  // `fetch-only` short-circuits the filter machinery and emits one line per
+  // service in `<<<services>>>`-friendly format: name state/start_type display.
+  for (int i = 0; i < request.arguments_size(); i++) {
+    const std::string &a = request.arguments(i);
+    if (a == "fetch-only" || a == "--fetch-only") {
+      std::string body;
+      const std::vector<std::string> excludes;
+      for (const win_list_services::service_info &info :
+           win_list_services::enum_services("", win_list_services::parse_service_type("service"), win_list_services::parse_service_state("all"), excludes)) {
+        if (!body.empty()) body += "\n";
+        body += info.name + " " + info.get_state_s() + "/" + info.get_start_type_s() + " " + (info.displayname.empty() ? info.name : info.displayname);
+      }
+      nscapi::protobuf::functions::append_simple_query_response_payload(response, "check_service", NSCAPI::query_return_codes::returnOK, body, "");
+      return;
+    }
+  }
+
   typedef check_svc_filter::filter filter_type;
   modern_filter::data_container data;
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);

@@ -20,8 +20,8 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
-#include <memory>
 #include <map>
+#include <memory>
 #include <set>
 #include <settings/settings_interface_impl.hpp>
 #include <settings/test_helpers.hpp>

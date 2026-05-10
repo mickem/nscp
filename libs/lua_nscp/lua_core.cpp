@@ -179,7 +179,7 @@ void lua::lua_runtime::on_submit(std::string channel, script_information *inform
 void lua::lua_runtime::create_user_data(scripts::script_information<lua_traits> *info) { info->user_data.base_path_ = base_path; }
 
 void lua::lua_runtime::load(scripts::script_information<lua_traits> *info) {
-  const std::string& script_base_path = info->user_data.base_path_;
+  const std::string &script_base_path = info->user_data.base_path_;
   lua_wrapper lua_instance(info->user_data.L);
   lua_instance.set_userdata(lua::lua_traits::user_data_tag, info);
   lua_instance.openlibs();

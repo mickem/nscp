@@ -100,8 +100,7 @@ struct filter_obj_handler : public native_context {
         .add_human_string("used_pct", &filter_obj::get_used_pct_human, "")
         .add_human_string("free_pct", &filter_obj::get_free_pct_human, "");
 
-    registry_.add_converter(type_custom_free, &calculate_free)
-      .add_converter(type_custom_used, &calculate_free);
+    registry_.add_converter(type_custom_free, &calculate_free).add_converter(type_custom_used, &calculate_free);
   }
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;

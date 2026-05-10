@@ -1,11 +1,10 @@
 #include "settings_controller.hpp"
 
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/json.hpp>
 #include <boost/regex.hpp>
 #include <nscapi/protobuf/settings.hpp>
-
-#include <algorithm>
 #include <utility>
 #include <vector>
 
@@ -330,8 +329,9 @@ void expand_recursive_path_delete(const nscapi::core_wrapper *core, unsigned int
   query_subtree(core, plugin_id, path, /*include_keys=*/false, paths);
   // Deepest-first - more slashes => deeper. Stable sort keeps query order
   // for ties, which matters for tests that snapshot the request stream.
-  std::stable_sort(paths.begin(), paths.end(),
-                   [](const PB::Settings::Node &a, const PB::Settings::Node &b) { return std::count(a.path().begin(), a.path().end(), '/') > std::count(b.path().begin(), b.path().end(), '/'); });
+  std::stable_sort(paths.begin(), paths.end(), [](const PB::Settings::Node &a, const PB::Settings::Node &b) {
+    return std::count(a.path().begin(), a.path().end(), '/') > std::count(b.path().begin(), b.path().end(), '/');
+  });
   for (const auto &n : paths) {
     out.push_back({n.path(), ""});
   }

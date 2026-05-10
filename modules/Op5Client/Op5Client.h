@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <memory>
 #include <client/command_line_parser.hpp>
+#include <memory>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_targets.hpp>
 #include <nscapi/protobuf/command.hpp>

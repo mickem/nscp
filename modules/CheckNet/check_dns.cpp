@@ -22,8 +22,8 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
-#include <memory>
 #include <boost/program_options.hpp>
+#include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>

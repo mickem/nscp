@@ -14,7 +14,7 @@ class metadata_controller : public Mongoose::RegexpController {
   const nscapi::core_wrapper *core;
   const unsigned int plugin_id;
 
-public:
+ public:
   metadata_controller(const int version, std::shared_ptr<session_manager_interface> session, const nscapi::core_wrapper *core, unsigned int plugin_id);
 
   void get_index(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);

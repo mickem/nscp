@@ -20,8 +20,8 @@
 #pragma once
 
 #include <boost/asio.hpp>
-#include <memory>
 #include <boost/optional.hpp>
+#include <memory>
 #include <net/socket/allowed_hosts.hpp>
 #include <str/xtos.hpp>
 #ifdef USE_SSL

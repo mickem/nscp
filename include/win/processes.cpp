@@ -20,11 +20,11 @@
 #include <tchar.h>
 
 #include <boost/algorithm/string/predicate.hpp>
-#include <memory>
 #include <bytes/buffer.hpp>
 #include <error/error.hpp>
 #include <handle.hpp>
 #include <map>
+#include <memory>
 #include <nsclient/nsclient_exception.hpp>
 #include <str/format.hpp>
 #include <str/utf8.hpp>

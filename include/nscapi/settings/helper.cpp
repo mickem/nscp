@@ -391,7 +391,7 @@ struct key_info {
 settings_paths_easy_init &settings_paths_easy_init::operator()(key_type value, std::string title, std::string description, std::string subkeytitle,
                                                                std::string subkeydescription) {
   const std::shared_ptr<path_info> d(new path_info(path_, std::move(value), description_container(key_type_path, std::move(title), std::move(description)),
-                                                     description_container(key_type_path, std::move(subkeytitle), std::move(subkeydescription))));
+                                                   description_container(key_type_path, std::move(subkeytitle), std::move(subkeydescription))));
   add(d);
   return *this;
 }
@@ -413,7 +413,7 @@ settings_paths_easy_init &settings_paths_easy_init::operator()(std::string path,
                                                                std::string subkeytitle, std::string subkeydescription) {
   if (!path_.empty()) path = path_ + "/" + path;
   const std::shared_ptr<path_info> d(new path_info(path, std::move(value), description_container(key_type_path, std::move(title), std::move(description)),
-                                                     description_container(key_type_path, std::move(subkeytitle), std::move(subkeydescription))));
+                                                   description_container(key_type_path, std::move(subkeytitle), std::move(subkeydescription))));
   add(d);
   return *this;
 }

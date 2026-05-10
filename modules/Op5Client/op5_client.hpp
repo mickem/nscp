@@ -20,9 +20,9 @@
 #pragma once
 
 #include <boost/atomic/atomic.hpp>
-#include <memory>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
+#include <memory>
 #include <net/http/http_packet.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <string>

@@ -22,9 +22,9 @@
 #include <bytes/crc32.h>
 
 #include <boost/date_time.hpp>
-#include <nscp_time.hpp>
 #include <bytes/swap_bytes.hpp>
 #include <cstring>
+#include <nscp_time.hpp>
 #include <str/xtos.hpp>
 #include <utility>
 #include <vector>

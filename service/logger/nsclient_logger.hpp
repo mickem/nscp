@@ -19,9 +19,9 @@
 
 #pragma once
 
-#include <memory>
 #include <boost/thread/mutex.hpp>
 #include <list>
+#include <memory>
 #include <nsclient/logger/logger.hpp>
 #include <nsclient/logger/logger_impl.hpp>
 #include <string>

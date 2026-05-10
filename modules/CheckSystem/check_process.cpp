@@ -21,11 +21,13 @@
 
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
+#include <nscapi/protobuf/functions_query.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/filter/realtime_helper.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/where/node.hpp>
+#include <str/xtos.hpp>
 #include <string>
 #include <win/processes.hpp>
 
@@ -228,6 +230,28 @@ namespace active {
 namespace po = boost::program_options;
 
 void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  // `fetch-only` short-circuits the filter machinery and emits one line per
+  // process in `<<<ps>>>` format: (user,vsz_kb,rss_kb,cputime,pid) cmdline.
+  // user is left empty here because process_info does not carry it.
+  for (int i = 0; i < request.arguments_size(); i++) {
+    const std::string &a = request.arguments(i);
+    if (a == "fetch-only" || a == "--fetch-only") {
+      NSC_error err;
+      win_list_processes::process_list list = win_list_processes::enumerate_processes(false, false, true, &err);
+      std::string body;
+      for (const win_list_processes::process_info &p : list) {
+        const long long vsz_kb = static_cast<long long>(p.VirtualSize.get() / 1024);
+        const long long rss_kb = static_cast<long long>(p.WorkingSetSize.get() / 1024);
+        const long long cputime = static_cast<long long>(p.total_time.get());
+        const std::string cmd = p.command_line.get().empty() ? p.exe.get() : p.command_line.get();
+        if (!body.empty()) body += "\n";
+        body += "(," + str::xtos(vsz_kb) + "," + str::xtos(rss_kb) + "," + str::xtos(cputime) + "," + str::xtos(p.pid.get()) + ") " + cmd;
+      }
+      nscapi::protobuf::functions::append_simple_query_response_payload(response, "check_process", NSCAPI::query_return_codes::returnOK, body, "");
+      return;
+    }
+  }
+
   typedef check_proc_filter::filter filter_type;
   modern_filter::data_container data;
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);

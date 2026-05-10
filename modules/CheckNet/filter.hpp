@@ -21,9 +21,9 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/optional.hpp>
-#include <memory>
 #include <error/error.hpp>
 #include <map>
+#include <memory>
 #include <net/pinger.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/helpers.hpp>

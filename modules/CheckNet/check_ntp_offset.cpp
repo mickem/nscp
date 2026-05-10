@@ -21,10 +21,10 @@
 
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
-#include <memory>
 #include <boost/program_options.hpp>
 #include <chrono>
 #include <cstdint>
+#include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
@@ -43,7 +43,7 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "UDP port the query was sent to");
   registry_.add_int_var("offset", parsers::where::type_int, &filter_obj::get_offset, "Absolute clock offset between local host and server, in milliseconds");
   registry_.add_int_var("offset_signed", parsers::where::type_int, &filter_obj::get_offset_signed,
-                      "Signed clock offset (positive = local clock is ahead of server), in milliseconds");
+                        "Signed clock offset (positive = local clock is ahead of server), in milliseconds");
   registry_.add_int_var("stratum", parsers::where::type_int, &filter_obj::get_stratum, "Stratum reported by the server (0..16)");
   registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Round trip time of the NTP query in milliseconds");
 }

@@ -20,9 +20,9 @@
 #pragma once
 
 #include <boost/algorithm/string.hpp>
-#include <memory>
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
+#include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 #include <nsclient/logger/logger.hpp>

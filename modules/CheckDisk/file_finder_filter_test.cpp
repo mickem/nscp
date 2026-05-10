@@ -20,8 +20,8 @@
 #include <Windows.h>
 #include <gtest/gtest.h>
 
-#include <memory>
 #include <climits>
+#include <memory>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <string>
 

@@ -22,9 +22,9 @@
 #include <pdh.h>
 #include <pdhmsg.h>
 
-#include <memory>
 #include <error/error.hpp>
 #include <list>
+#include <memory>
 
 namespace PDH {
 typedef HANDLE PDH_HCOUNTER;

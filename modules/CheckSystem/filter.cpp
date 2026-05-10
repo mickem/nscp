@@ -80,16 +80,15 @@ filter_obj_handler::filter_obj_handler() {
 
   registry_.add_string_var("name", &filter_obj::get_name, "The name of the page file (location)");
   registry_.add_int_legacy()
-    .add_int("size", &filter_obj::get_total, "Total size of pagefile")
-    .add_int("free", type_custom_free, &filter_obj::get_free, "Free memory in bytes (g,m,k,b) or percentages %")
-    .add_scaled_byte([] (auto obj, auto context) { return get_zero(); }, [] (auto obj, auto context) { return obj->get_total(); })
-    .add_percentage([] (auto obj, auto context) { return obj->get_total(); }, "", " %")
-    .add_int("used", type_custom_used, &filter_obj::get_used, "Used memory in bytes (g,m,k,b) or percentages %")
-    .add_scaled_byte([] (auto obj, auto context) { return get_zero(); }, [] (auto obj, auto context) { return obj->get_total(); })
-    .add_percentage([] (auto obj, auto context) { return obj->get_total(); }, "", " %")
-    .add_int("free_pct", &filter_obj::get_free_pct, "% free memory")
-    .add_int("used_pct", &filter_obj::get_used_pct, "% used memory")
-    ;
+      .add_int("size", &filter_obj::get_total, "Total size of pagefile")
+      .add_int("free", type_custom_free, &filter_obj::get_free, "Free memory in bytes (g,m,k,b) or percentages %")
+      .add_scaled_byte([](auto obj, auto context) { return get_zero(); }, [](auto obj, auto context) { return obj->get_total(); })
+      .add_percentage([](auto obj, auto context) { return obj->get_total(); }, "", " %")
+      .add_int("used", type_custom_used, &filter_obj::get_used, "Used memory in bytes (g,m,k,b) or percentages %")
+      .add_scaled_byte([](auto obj, auto context) { return get_zero(); }, [](auto obj, auto context) { return obj->get_total(); })
+      .add_percentage([](auto obj, auto context) { return obj->get_total(); }, "", " %")
+      .add_int("free_pct", &filter_obj::get_free_pct, "% free memory")
+      .add_int("used_pct", &filter_obj::get_used_pct, "% used memory");
   registry_.add_human_string("size", &filter_obj::get_total_human, "")
       .add_human_string("free", &filter_obj::get_free_human, "")
       .add_human_string("used", &filter_obj::get_used_human, "")
@@ -97,8 +96,7 @@ filter_obj_handler::filter_obj_handler() {
       .add_human_string("used_pct", &filter_obj::get_used_pct_human, "")
       .add_human_string("free_pct", &filter_obj::get_free_pct_human, "");
 
-  registry_.add_converter(type_custom_free, &calculate_free)
-    .add_converter(type_custom_used, &calculate_free);
+  registry_.add_converter(type_custom_free, &calculate_free).add_converter(type_custom_used, &calculate_free);
 }
 }  // namespace check_page_filter
 
@@ -147,8 +145,9 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_perf("")
       .add_int_var("build", &filter_obj::get_build, "Build version number")
       .add_int_perf("");
-  registry_.add_string_var("suite", &filter_obj::get_suite_string,
-                       "Which suites are installed on the machine (Microsoft BackOffice, Web Edition, Compute Cluster Edition, Datacenter Edition, Enterprise "
-                       "Edition, Embedded, Home Edition, Remote Desktop Support, Small Business Server, Storage Server, Terminal Services, Home Server)");
+  registry_.add_string_var(
+      "suite", &filter_obj::get_suite_string,
+      "Which suites are installed on the machine (Microsoft BackOffice, Web Edition, Compute Cluster Edition, Datacenter Edition, Enterprise "
+      "Edition, Embedded, Home Edition, Remote Desktop Support, Small Business Server, Storage Server, Terminal Services, Home Server)");
 }
 }  // namespace os_version_filter

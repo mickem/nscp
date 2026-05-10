@@ -52,8 +52,7 @@ filter_obj_handler::filter_obj_handler() {
       .add_human_string("free", &filter_obj::get_free_human, "")
       .add_human_string("used", &filter_obj::get_used_human, "");
 
-  registry_.add_converter(type_custom_free, &calculate_free)
-    .add_converter(type_custom_used, &calculate_free);
+  registry_.add_converter(type_custom_free, &calculate_free).add_converter(type_custom_used, &calculate_free);
 }
 }  // namespace check_mem_filter
 

@@ -22,9 +22,9 @@
 #include <NSCAPI.h>
 
 #include <boost/optional.hpp>
-#include <memory>
 #include <list>
 #include <map>
+#include <memory>
 #include <string>
 
 namespace scripts {
@@ -154,8 +154,8 @@ struct script_manager {
   command_list_type commands;
 
  public:
-  script_manager(std::shared_ptr<script_runtime_interface<script_trait> > script_runtime_, std::shared_ptr<nscp_runtime_interface> nscp_runtime,
-                 int plugin_id, std::string plugin_alias)
+  script_manager(std::shared_ptr<script_runtime_interface<script_trait> > script_runtime_, std::shared_ptr<nscp_runtime_interface> nscp_runtime, int plugin_id,
+                 std::string plugin_alias)
       : script_runtime(script_runtime_), nscp_runtime(nscp_runtime), plugin_id(plugin_id), script_id(0), plugin_alias(plugin_alias) {}
   script_information<script_trait> *add(std::string alias, std::string script) {
     script_information<script_trait> *info =

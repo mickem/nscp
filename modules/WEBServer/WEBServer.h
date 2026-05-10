@@ -20,8 +20,8 @@
 
 #include <Server.h>
 
-#include <memory>
 #include <client/simple_client.hpp>
+#include <memory>
 #include <nscapi/plugin.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/log.hpp>

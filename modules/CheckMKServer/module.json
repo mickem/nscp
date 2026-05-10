@@ -5,5 +5,7 @@
 		"name"			: "CheckMKServer",
 		"alias"			: "check_mk",
 		"version"		: "auto"
-	}
+	},
+	"metrics"		: "consume",
+	"channels"		: "raw"
 }

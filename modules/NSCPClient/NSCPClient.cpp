@@ -36,8 +36,7 @@ namespace sh = nscapi::settings_helper;
  * Default c-tor
  * @return
  */
-NSCPClient::NSCPClient()
-    : client_("nscp", std::make_shared<nscp_client::nscp_client_handler<> >(), std::make_shared<nscp_handler::options_reader_impl>()) {}
+NSCPClient::NSCPClient() : client_("nscp", std::make_shared<nscp_client::nscp_client_handler<> >(), std::make_shared<nscp_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor

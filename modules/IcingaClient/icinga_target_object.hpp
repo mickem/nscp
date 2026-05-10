@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <memory>
 #include <client/command_line_parser.hpp>
+#include <memory>
 #include <nscapi/nscapi_targets.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <utility>
@@ -86,9 +86,7 @@ struct icinga_target_object : nscapi::targets::target_object {
 };
 
 struct options_reader_impl : client::options_reader_interface {
-  nscapi::settings_objects::object_instance create(std::string alias, std::string path) override {
-    return std::make_shared<icinga_target_object>(alias, path);
-  }
+  nscapi::settings_objects::object_instance create(std::string alias, std::string path) override { return std::make_shared<icinga_target_object>(alias, path); }
   nscapi::settings_objects::object_instance clone(nscapi::settings_objects::object_instance parent, const std::string alias, const std::string path) override {
     return std::make_shared<icinga_target_object>(parent, alias, path);
   }

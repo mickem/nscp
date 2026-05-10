@@ -20,8 +20,8 @@
 #pragma once
 
 #include <boost/optional.hpp>
-#include <memory>
 #include <map>
+#include <memory>
 #include <nscapi/settings_proxy.hpp>
 #include <settings/client/settings_client.hpp>
 #include <string>

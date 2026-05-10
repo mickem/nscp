@@ -8,9 +8,12 @@
 #include <fstream>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
+#include <nscapi/protobuf/functions_query.hpp>
+#include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <set>
 #include <sstream>
+#include <str/xtos.hpp>
 
 namespace po = boost::program_options;
 
@@ -220,6 +223,27 @@ std::vector<filter_obj> enumerate_processes() {
 }  // namespace check_proc_filter
 
 void check_process(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  // `fetch-only` short-circuits the filter machinery and emits one line per
+  // process in `<<<ps>>>` format: (user,vsz_kb,rss_kb,cputime,pid) cmdline.
+  // user is left empty; user_time + kernel_time are returned in seconds.
+  for (int i = 0; i < request.arguments_size(); i++) {
+    const std::string &a = request.arguments(i);
+    if (a == "fetch-only" || a == "--fetch-only") {
+      std::string body;
+      const std::vector<check_proc_filter::filter_obj> procs = check_proc_filter::enumerate_processes();
+      for (const check_proc_filter::filter_obj &p : procs) {
+        const long long vsz_kb = static_cast<long long>(p.virtual_size / 1024);
+        const long long rss_kb = static_cast<long long>(p.working_set / 1024);
+        const long long cputime = static_cast<long long>(p.user_time + p.kernel_time);
+        const std::string cmd = p.command_line.empty() ? p.exe : p.command_line;
+        if (!body.empty()) body += "\n";
+        body += "(," + str::xtos(vsz_kb) + "," + str::xtos(rss_kb) + "," + str::xtos(cputime) + "," + str::xtos(p.pid) + ") " + cmd;
+      }
+      nscapi::protobuf::functions::append_simple_query_response_payload(response, "check_process", NSCAPI::query_return_codes::returnOK, body, "");
+      return;
+    }
+  }
+
   typedef check_proc_filter::filter filter_type;
   modern_filter::data_container data;
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);

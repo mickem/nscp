@@ -41,8 +41,7 @@ namespace sh = nscapi::settings_helper;
  * Default c-tor
  * @return
  */
-NRPEClient::NRPEClient()
-    : client_("nrpe", std::make_shared<nrpe_client::nrpe_client_handler<> >(), std::make_shared<nrpe_handler::options_reader_impl>()) {}
+NRPEClient::NRPEClient() : client_("nrpe", std::make_shared<nrpe_client::nrpe_client_handler<> >(), std::make_shared<nrpe_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor

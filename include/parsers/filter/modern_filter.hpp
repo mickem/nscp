@@ -21,8 +21,8 @@
 
 #include <NSCAPI.h>
 
-#include <memory>
 #include <boost/unordered_set.hpp>
+#include <memory>
 #include <nscapi/nscapi_helper.hpp>
 #include <parsers/expression/expression.hpp>
 #include <parsers/perfconfig/perfconfig.hpp>

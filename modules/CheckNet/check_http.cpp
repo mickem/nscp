@@ -21,8 +21,8 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/chrono.hpp>
-#include <memory>
 #include <boost/program_options.hpp>
+#include <memory>
 #include <net/http/client.hpp>
 #include <net/http/http_packet.hpp>
 #include <nscapi/nscapi_program_options.hpp>

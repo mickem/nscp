@@ -21,8 +21,8 @@
 
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
-#include <memory>
 #include <boost/noncopyable.hpp>
+#include <memory>
 #include <net/socket/server.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <str/utf8.hpp>

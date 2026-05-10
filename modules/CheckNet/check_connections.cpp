@@ -20,10 +20,10 @@
 #include "check_connections.h"
 
 #include <boost/algorithm/string.hpp>
-#include <memory>
 #include <boost/program_options.hpp>
 #include <fstream>
 #include <map>
+#include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
