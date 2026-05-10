@@ -47,6 +47,7 @@ struct filter_variable {
   typedef boost::function<std::string(T, evaluation_context)> str_fun_type;
   typedef boost::function<std::string(T)> str_fun_type_no_context;
   typedef boost::function<long long(T, evaluation_context)> int_fun_type;
+  typedef boost::function<long long(T)> int_fun_type_no_context;
   typedef boost::function<double(T, evaluation_context)> float_fun_type;
   str_fun_type s_function;
   int_fun_type i_function;
@@ -63,6 +64,7 @@ template <class T>
 struct filter_converter : binary_function_impl {
   value_type type;
   typedef boost::function<node_type(T, evaluation_context, node_type)> converter_fun_type;
+  typedef boost::function<node_type(T, node_type)> converter_fun_type_no_context;
   converter_fun_type function;
   filter_converter(const value_type type, converter_fun_type function) : type(type), function(function) {}
   explicit filter_converter(const value_type type) : type(type) {}
@@ -108,9 +110,21 @@ struct registry_adders_variables_int {
     add_variables(var);
     return *this;
   }
+  registry_adders_variables_int& add_int(std::string key, value_type type, typename filter_variable<T>::int_fun_type_no_context i_fun, std::string description) {
+    std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
+    var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
+    add_variables(var);
+    return *this;
+  }
   registry_adders_variables_int& operator()(std::string key, typename filter_variable<T>::int_fun_type i_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_int, description));
     var->i_function = i_fun;
+    add_variables(var);
+    return *this;
+  }
+  registry_adders_variables_int& add_int(std::string key, typename filter_variable<T>::int_fun_type_no_context i_fun, std::string description) {
+    std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_int, description));
+    var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
     add_variables(var);
     return *this;
   }
@@ -150,48 +164,6 @@ struct registry_adders_variables_int {
 };
 
 template <class T>
-struct registry_adders_converters {
-  explicit registry_adders_converters(function_registry<T>* owner_) : owner(owner_) {}
-
-  registry_adders_converters& operator()(value_type type, typename filter_converter<T>::converter_fun_type fun) {
-    std::shared_ptr<filter_converter<T>> var(new filter_converter<T>(type, fun));
-    add_converter(var);
-    return *this;
-  }
-
- private:
-  void add_converter(std::shared_ptr<filter_converter<T>> d);
-  function_registry<T>* owner;
-};
-
-template <class T>
-struct registry_adders_function {
-  registry_adders_function(function_registry<T>* owner_, const value_type type) : owner(owner_), type(type) {}
-
-  registry_adders_function& operator()(const std::string& key, const filter_function::generic_fun_type& fun, const std::string& description) {
-    const std::shared_ptr<filter_function> var(new filter_function(key));
-    var->function = fun;
-    var->type = type;
-    var->description = description;
-    add_functions(var);
-    return *this;
-  }
-  registry_adders_function& operator()(const std::string& key, value_type type_, const filter_function::generic_fun_type& fun, const std::string& description) {
-    const std::shared_ptr<filter_function> var(new filter_function(key));
-    var->function = fun;
-    var->type = type_;
-    var->description = description;
-    add_functions(var);
-    return *this;
-  }
-
- private:
-  void add_functions(std::shared_ptr<filter_function> d);
-  function_registry<T>* owner;
-  value_type type;
-};
-
-template <class T>
 struct function_registry {
   typedef std::map<std::string, std::shared_ptr<filter_variable<T>>> variable_type;
   typedef std::map<std::string, std::shared_ptr<filter_function>> function_type;
@@ -202,26 +174,26 @@ struct function_registry {
   converter_type converters;
   std::shared_ptr<filter_variable<T>> last_variable;
 
-  function_registry<T>& add_int_x(std::string key, std::function<long long(T)> i_fun, std::string description) {
+  function_registry<T>& add_int_var(std::string key, std::function<long long(T)> i_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_int, description));
     var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
     add(var, false);
     return *this;
   }
-  function_registry<T>& add_int_x(std::string key, std::function<long long(T)> i_fun, std::function<std::string(T)> s_fun, std::string description) {
+  function_registry<T>& add_int_var(std::string key, std::function<long long(T)> i_fun, std::function<std::string(T)> s_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_int, description));
     var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
     var->s_function = [s_fun](auto obj, auto) { return s_fun(obj); };
     add(var, false);
     return *this;
   }
-  function_registry<T>& add_int_x(std::string key, value_type type, std::function<long long(T)> i_fun, std::string description) {
+  function_registry<T>& add_int_var(std::string key, value_type type, std::function<long long(T)> i_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
     var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
     add(var, false);
     return *this;
   }
-  function_registry<T>& add_int_x(std::string key, value_type type, std::function<long long(T)> i_fun, std::function<std::string(T)> s_fun,
+  function_registry<T>& add_int_var(std::string key, value_type type, std::function<long long(T)> i_fun, std::function<std::string(T)> s_fun,
                                   std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
     var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
@@ -229,13 +201,13 @@ struct function_registry {
     add(var, false);
     return *this;
   }
-  function_registry<T>& add_int_context(std::string key, std::function<long long(T, evaluation_context)> i_fun, std::string description) {
+  function_registry<T>& add_int_var_w_context(std::string key, std::function<long long(T, evaluation_context)> i_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_int, description));
     var->i_function = i_fun;
     add(var, false);
     return *this;
   }
-  function_registry<T>& add_int_context(std::string key, value_type type, std::function<long long(T, evaluation_context)> i_fun, std::string description) {
+  function_registry<T>& add_int_var_w_context(std::string key, value_type type, std::function<long long(T, evaluation_context)> i_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
     var->i_function = i_fun;
     add(var, false);
@@ -256,20 +228,20 @@ struct function_registry {
     return *this;
   }
 
-  registry_adders_variables_int<T> add_int() { return registry_adders_variables_int<T>(this); }
-  function_registry<T>& add_string(std::string key, std::function<std::string(T)> s_fun, std::string description) {
+  registry_adders_variables_int<T> add_int_legacy() { return registry_adders_variables_int<T>(this); }
+  function_registry<T>& add_string_var(std::string key, std::function<std::string(T)> s_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_string, description));
     var->s_function = [s_fun](auto obj, auto context) { return s_fun(obj); };
     add(var, false);
     return *this;
   }
-  function_registry<T>& add_string_context(std::string key, std::function<std::string(T, evaluation_context)> s_fun, std::string description) {
+  function_registry<T>& add_string_var_w_context(std::string key, std::function<std::string(T, evaluation_context)> s_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_string, description));
     var->s_function = [s_fun](auto obj, auto context) { return s_fun(obj, context); };
     add(var, false);
     return *this;
   }
-  function_registry<T>& add_string(std::string key, std::function<std::string(T)> s_fun, std::function<long long(T)> i_fun, std::string description) {
+  function_registry<T>& add_string_var(std::string key, std::function<std::string(T)> s_fun, std::function<long long(T)> i_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_string, description));
     var->s_function = [s_fun](auto obj, auto context) { return s_fun(obj); };
     var->i_function = [i_fun](auto obj, auto context) { return i_fun(obj); };
@@ -288,9 +260,26 @@ struct function_registry {
     add(var, true);
     return *this;
   }
-  registry_adders_function<T> add_string_fun() { return registry_adders_function<T>(this, type_string); }
-  registry_adders_function<T> add_int_fun() { return registry_adders_function<T>(this, type_int); }
-  registry_adders_converters<T> add_converter() { return registry_adders_converters<T>(this); }
+  function_registry<T>& add_custom_fun(const std::string& key, const value_type type_, const filter_function::generic_fun_type& fun, const std::string& description) {
+    const auto var = std::make_shared<filter_function>(key);
+    var->function = fun;
+    var->type = type_;
+    var->description = description;
+    add(var);
+    return *this;
+  }
+  function_registry<T>& add_string_fun(const std::string& key, const filter_function::generic_fun_type& fun, const std::string& description) {
+    return add_custom_fun(key, type_string, fun, description);
+  }
+  function_registry<T>& add_int_fun(const std::string& key, const filter_function::generic_fun_type& fun, const std::string& description) {
+    return add_custom_fun(key, type_int, fun, description);
+  }
+
+  function_registry<T>& add_converter(value_type type, typename filter_converter<T>::converter_fun_type fun) {
+    std::shared_ptr<filter_converter<T>> var(new filter_converter<T>(type, fun));
+    add(var);
+    return *this;
+  }
 
   typedef typename filter_variable<T>::int_perf_generator_type int_perf_generator_type;
   function_registry<T>& add_int_perf(std::string unit = "", std::string prefix = "", std::string suffix = "") {
@@ -358,14 +347,6 @@ void registry_adders_variables_int<T>::add_variables(std::shared_ptr<filter_vari
 template <class T>
 std::shared_ptr<filter_variable<T>> registry_adders_variables_int<T>::get_last() {
   return owner->get_last_variable();
-}
-template <class T>
-void registry_adders_function<T>::add_functions(std::shared_ptr<filter_function> d) {
-  owner->add(d);
-}
-template <class T>
-void registry_adders_converters<T>::add_converter(std::shared_ptr<filter_converter<T>> d) {
-  owner->add(d);
 }
 
 template <class TObject>

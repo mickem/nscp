@@ -154,12 +154,12 @@ typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > nati
 
 struct filter_obj_handler : public native_context {
   filter_obj_handler() {
-    registry_.add_string("version", &filter_obj::get_version_s, "The NSClient++ Version as a string")
-        .add_string("date", &filter_obj::get_date_s, "The NSClient++ Build date");
-    registry_.add_int_x("release", &filter_obj::get_release, "The release (the 0 in 0.1.2.3)")
-        .add_int_x("major", &filter_obj::get_major, "The major (the 1 in 0.1.2.3)")
-        .add_int_x("minor", &filter_obj::get_minor, "The minor (the 2 in 0.1.2.3)")
-        .add_int_x("build", &filter_obj::get_build, "The build (the 3 in 0.1.2.3) not available in release versions after 0.6.0");
+    registry_.add_string_var("version", &filter_obj::get_version_s, "The NSClient++ Version as a string")
+        .add_string_var("date", &filter_obj::get_date_s, "The NSClient++ Build date");
+    registry_.add_int_var("release", &filter_obj::get_release, "The release (the 0 in 0.1.2.3)")
+        .add_int_var("major", &filter_obj::get_major, "The major (the 1 in 0.1.2.3)")
+        .add_int_var("minor", &filter_obj::get_minor, "The minor (the 2 in 0.1.2.3)")
+        .add_int_var("build", &filter_obj::get_build, "The build (the 3 in 0.1.2.3) not available in release versions after 0.6.0");
   }
 };
 
@@ -239,24 +239,24 @@ typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > nati
 
 struct filter_obj_handler : native_context {
   filter_obj_handler() {
-    registry_.add_string("version", &filter_obj::get_version_s, "The currently installed NSClient++ version")
-        .add_string("date", &filter_obj::get_date_s, "The build date of the currently installed NSClient++")
-        .add_string("latest_version", &filter_obj::get_latest_version_s, "The latest available NSClient++ version (empty if lookup failed)")
-        .add_string("tag", &filter_obj::get_latest_tag_s, "The GitHub tag of the latest release")
-        .add_string("published", &filter_obj::get_published_s, "Publication date of the latest release")
-        .add_string("url", &filter_obj::get_url_s, "URL of the latest release on GitHub")
-        .add_string("error", &filter_obj::get_error_s, "Error message if the latest version could not be determined (empty when ok)");
-    registry_.add_int_x("release", &filter_obj::get_release, "The release component of the installed version (the 0 in 0.1.2.3)")
-        .add_int_x("major", &filter_obj::get_major, "The major component of the installed version (the 1 in 0.1.2.3)")
-        .add_int_x("minor", &filter_obj::get_minor, "The minor component of the installed version (the 2 in 0.1.2.3)")
-        .add_int_x("build", &filter_obj::get_build, "The build component of the installed version (the 3 in 0.1.2.3)")
-        .add_int_x("latest_release", &filter_obj::get_latest_release, "The release component of the latest available version")
-        .add_int_x("latest_major", &filter_obj::get_latest_major, "The major component of the latest available version")
-        .add_int_x("latest_minor", &filter_obj::get_latest_minor, "The minor component of the latest available version")
-        .add_int_x("latest_build", &filter_obj::get_latest_build, "The build component of the latest available version")
-        .add_int_x("update_available", &filter_obj::get_update_available,
+    registry_.add_string_var("version", &filter_obj::get_version_s, "The currently installed NSClient++ version")
+        .add_string_var("date", &filter_obj::get_date_s, "The build date of the currently installed NSClient++")
+        .add_string_var("latest_version", &filter_obj::get_latest_version_s, "The latest available NSClient++ version (empty if lookup failed)")
+        .add_string_var("tag", &filter_obj::get_latest_tag_s, "The GitHub tag of the latest release")
+        .add_string_var("published", &filter_obj::get_published_s, "Publication date of the latest release")
+        .add_string_var("url", &filter_obj::get_url_s, "URL of the latest release on GitHub")
+        .add_string_var("error", &filter_obj::get_error_s, "Error message if the latest version could not be determined (empty when ok)");
+    registry_.add_int_var("release", &filter_obj::get_release, "The release component of the installed version (the 0 in 0.1.2.3)")
+        .add_int_var("major", &filter_obj::get_major, "The major component of the installed version (the 1 in 0.1.2.3)")
+        .add_int_var("minor", &filter_obj::get_minor, "The minor component of the installed version (the 2 in 0.1.2.3)")
+        .add_int_var("build", &filter_obj::get_build, "The build component of the installed version (the 3 in 0.1.2.3)")
+        .add_int_var("latest_release", &filter_obj::get_latest_release, "The release component of the latest available version")
+        .add_int_var("latest_major", &filter_obj::get_latest_major, "The major component of the latest available version")
+        .add_int_var("latest_minor", &filter_obj::get_latest_minor, "The minor component of the latest available version")
+        .add_int_var("latest_build", &filter_obj::get_latest_build, "The build component of the latest available version")
+        .add_int_var("update_available", &filter_obj::get_update_available,
                    "1 when the latest available version is newer than the running version, 0 otherwise (and 0 if the lookup failed)")
-        .add_int_x("versions_behind", &filter_obj::get_versions_behind,
+        .add_int_var("versions_behind", &filter_obj::get_versions_behind,
                    "Difference between latest and current version components (largest meaningful component) when an update is available, 0 otherwise");
   }
 };

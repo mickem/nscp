@@ -147,10 +147,10 @@ void CheckWMI::check_wmi(const PB::Commands::QueryRequestMessage::Request &reque
   try {
     ns = build_namespace(ns, target_info.hostname);
     wmi_impl::query wmiQuery(query, ns, target_info.username, target_info.password);
-    filter.context->registry_.add_string("line", &wmi_filter::filter_obj::get_row, "Get a list of all columns");
+    filter.context->registry_.add_string_var("line", &wmi_filter::filter_obj::get_row, "Get a list of all columns");
     for (const std::string &col : wmiQuery.get_columns()) {
       filter.context->registry_
-          .add_int_x(
+          .add_int_var(
               col, [col](auto obj) { return obj->get_int(col); }, [col](auto obj) { return obj->get_string(col); }, "Column: " + col)
           .add_int_perf("", col, "");
     }

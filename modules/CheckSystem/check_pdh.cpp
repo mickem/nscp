@@ -58,12 +58,12 @@ void counter_config_object::read(nscapi::settings_helper::settings_impl_interfac
 }
 
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string("counter", &filter_obj::get_counter, "The counter name")
-      .add_string("alias", &filter_obj::get_alias, "The counter alias")
-      .add_string("time", &filter_obj::get_time, "The time for rrd checks");
+  registry_.add_string_var("counter", &filter_obj::get_counter, "The counter name")
+      .add_string_var("alias", &filter_obj::get_alias, "The counter alias")
+      .add_string_var("time", &filter_obj::get_time, "The time for rrd checks");
 
   registry_.add_numbers("value", parsers::where::type_float, &filter_obj::get_value_i, &filter_obj::get_value_f, "The counter value (either float or int)");
-  registry_.add_int_x("value_i", &filter_obj::get_value_i, "The counter value (force int value)");
+  registry_.add_int_var("value_i", &filter_obj::get_value_i, "The counter value (force int value)");
   registry_.add_float("value_f", &filter_obj::get_value_f, "The counter value (force float value)");
 }
 

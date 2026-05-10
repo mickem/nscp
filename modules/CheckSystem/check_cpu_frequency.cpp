@@ -98,16 +98,16 @@ struct filter_obj_handler : native_context {
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_type;
 
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string("name", &filter_obj::get_name, "CPU name / model string");
+  registry_.add_string_var("name", &filter_obj::get_name, "CPU name / model string");
 
-  registry_.add_int_x("current_mhz", &filter_obj::get_current_mhz, "Current clock speed in MHz")
+  registry_.add_int_var("current_mhz", &filter_obj::get_current_mhz, "Current clock speed in MHz")
       .add_int_perf("MHz")
-      .add_int_x("max_mhz", &filter_obj::get_max_mhz, "Maximum clock speed in MHz")
+      .add_int_var("max_mhz", &filter_obj::get_max_mhz, "Maximum clock speed in MHz")
       .add_int_perf("MHz")
-      .add_int_x("frequency_pct", &filter_obj::get_frequency_pct, "Current frequency as percentage of maximum")
+      .add_int_var("frequency_pct", &filter_obj::get_frequency_pct, "Current frequency as percentage of maximum")
       .add_int_perf("%")
-      .add_int_x("cores", &filter_obj::get_number_of_cores, "Number of physical cores")
-      .add_int_x("logical_processors", &filter_obj::get_number_of_logical_processors, "Number of logical processors (threads)");
+      .add_int_var("cores", &filter_obj::get_number_of_cores, "Number of physical cores")
+      .add_int_var("logical_processors", &filter_obj::get_number_of_logical_processors, "Number of logical processors (threads)");
 }
 
 void check_cpu_frequency(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,

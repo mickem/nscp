@@ -64,37 +64,36 @@ node_type fun_convert_type(boost::shared_ptr<file_filter::filter_obj> object, ev
 file_filter::filter_obj_handler::filter_obj_handler() {
   constexpr value_type type_custom_type = type_custom_int_2;
 
-  registry_.add_string("path", &filter_obj::get_path, "Path of file")
-      .add_string_context("version", &filter_obj::get_version, "Windows exe/dll file version")
-      .add_string("filename", &filter_obj::get_filename, "The name of the file")
-      .add_string("extension", &filter_obj::get_extension, "The filename extension")
-      .add_string("file", &filter_obj::get_filename, "The name of the file")
-      .add_string("name", &filter_obj::get_filename, "The name of the file")
-      .add_string("access_l", &filter_obj::get_access_sl, "Last access time (local time)")
-      .add_string("creation_l", &filter_obj::get_creation_sl, "When file was created (local time)")
-      .add_string("written_l", &filter_obj::get_written_sl, "When file was last written  to (local time)")
-      .add_string("access_u", &filter_obj::get_access_su, "Last access time (UTC)")
-      .add_string("creation_u", &filter_obj::get_creation_su, "When file was created (UTC)")
-      .add_string("written_u", &filter_obj::get_written_su, "When file was last written  to (UTC)");
+  registry_.add_string_var("path", &filter_obj::get_path, "Path of file")
+      .add_string_var_w_context("version", &filter_obj::get_version, "Windows exe/dll file version")
+      .add_string_var("filename", &filter_obj::get_filename, "The name of the file")
+      .add_string_var("extension", &filter_obj::get_extension, "The filename extension")
+      .add_string_var("file", &filter_obj::get_filename, "The name of the file")
+      .add_string_var("name", &filter_obj::get_filename, "The name of the file")
+      .add_string_var("access_l", &filter_obj::get_access_sl, "Last access time (local time)")
+      .add_string_var("creation_l", &filter_obj::get_creation_sl, "When file was created (local time)")
+      .add_string_var("written_l", &filter_obj::get_written_sl, "When file was last written  to (local time)")
+      .add_string_var("access_u", &filter_obj::get_access_su, "Last access time (UTC)")
+      .add_string_var("creation_u", &filter_obj::get_creation_su, "When file was created (UTC)")
+      .add_string_var("written_u", &filter_obj::get_written_su, "When file was last written  to (UTC)");
 
-  registry_.add_int_x("line_count", &filter_obj::get_line_count, "Number of lines in the file (text files)")
-      .add_int_x("access", type_date, &filter_obj::get_access, "Last access time")
-      .add_int_x("creation", type_date, &filter_obj::get_creation, "When file was created")
-      .add_int_x("written", type_date, &filter_obj::get_write, "When file was last written to")
-      .add_int_x("write", type_date, &filter_obj::get_write, "Alias for written")
-      .add_int_x("age", type_int, &filter_obj::get_age, "Seconds since file was last written")
-      .add_int_x("type", type_custom_type, &filter_obj::get_type, "Type of item (file or dir)");
+  registry_.add_int_var("line_count", &filter_obj::get_line_count, "Number of lines in the file (text files)")
+      .add_int_var("access", type_date, &filter_obj::get_access, "Last access time")
+      .add_int_var("creation", type_date, &filter_obj::get_creation, "When file was created")
+      .add_int_var("written", type_date, &filter_obj::get_write, "When file was last written to")
+      .add_int_var("write", type_date, &filter_obj::get_write, "Alias for written")
+      .add_int_var("age", type_int, &filter_obj::get_age, "Seconds since file was last written")
+      .add_int_var("type", type_custom_type, &filter_obj::get_type, "Type of item (file or dir)");
 
   // clang-format off
-  registry_.add_int()
+  registry_.add_int_legacy()
     ("size", type_size, [] (auto obj, auto context) { return obj->get_size(); }, "File size").add_scaled_byte(std::string(""), " size")
     ("total", type_bool, [] (auto obj, auto context) { return obj->is_total(); }, "True if this is the total object").no_perf();
     ;
-
-  registry_.add_converter()
-    (type_custom_type, &fun_convert_type)
-    ;
   // clang-format on
+
+  registry_.add_converter(type_custom_type, &fun_convert_type)
+    ;
 
   registry_.add_human_string("access", &filter_obj::get_access_su, "")
       .add_human_string("creation", &filter_obj::get_creation_su, "")

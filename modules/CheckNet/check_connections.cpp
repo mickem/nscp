@@ -57,21 +57,21 @@ namespace check_net {
 namespace check_connections_filter {
 
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string("protocol", &filter_obj::get_protocol, "Protocol of this bucket (tcp, tcp6, udp, udp6, total)");
-  registry_.add_string("family", &filter_obj::get_family, "Address family (ipv4, ipv6, any)");
-  registry_.add_string("state", &filter_obj::get_state, "TCP state name (ESTABLISHED, LISTEN, ...) or 'all'");
-  registry_.add_int_x("count", parsers::where::type_int, &filter_obj::get_count, "Number of connections matching this bucket");
-  registry_.add_int_x("total", parsers::where::type_int, &filter_obj::get_total, "Total number of connections (only on the 'total' bucket)");
-  registry_.add_int_x("established", parsers::where::type_int, &filter_obj::get_established, "Number of TCP connections in ESTABLISHED state (total bucket)");
-  registry_.add_int_x("listen", parsers::where::type_int, &filter_obj::get_listen, "Number of TCP sockets in LISTEN state (total bucket)");
-  registry_.add_int_x("syn_sent", parsers::where::type_int, &filter_obj::get_syn_sent, "Number of TCP connections in SYN_SENT state (total bucket)");
-  registry_.add_int_x("syn_recv", parsers::where::type_int, &filter_obj::get_syn_recv, "Number of TCP connections in SYN_RECV state (total bucket)");
-  registry_.add_int_x("time_wait", parsers::where::type_int, &filter_obj::get_time_wait, "Number of TCP connections in TIME_WAIT state (total bucket)");
-  registry_.add_int_x("close_wait", parsers::where::type_int, &filter_obj::get_close_wait, "Number of TCP connections in CLOSE_WAIT state (total bucket)");
-  registry_.add_int_x("closing", parsers::where::type_int, &filter_obj::get_closing, "Number of TCP connections in CLOSING state (total bucket)");
-  registry_.add_int_x("fin_wait", parsers::where::type_int, &filter_obj::get_fin_wait, "Number of TCP connections in FIN_WAIT* state (total bucket)");
-  registry_.add_int_x("last_ack", parsers::where::type_int, &filter_obj::get_last_ack, "Number of TCP connections in LAST_ACK state (total bucket)");
-  registry_.add_int_x("udp", parsers::where::type_int, &filter_obj::get_udp, "Number of UDP sockets (total bucket)");
+  registry_.add_string_var("protocol", &filter_obj::get_protocol, "Protocol of this bucket (tcp, tcp6, udp, udp6, total)");
+  registry_.add_string_var("family", &filter_obj::get_family, "Address family (ipv4, ipv6, any)");
+  registry_.add_string_var("state", &filter_obj::get_state, "TCP state name (ESTABLISHED, LISTEN, ...) or 'all'");
+  registry_.add_int_var("count", parsers::where::type_int, &filter_obj::get_count, "Number of connections matching this bucket");
+  registry_.add_int_var("total", parsers::where::type_int, &filter_obj::get_total, "Total number of connections (only on the 'total' bucket)");
+  registry_.add_int_var("established", parsers::where::type_int, &filter_obj::get_established, "Number of TCP connections in ESTABLISHED state (total bucket)");
+  registry_.add_int_var("listen", parsers::where::type_int, &filter_obj::get_listen, "Number of TCP sockets in LISTEN state (total bucket)");
+  registry_.add_int_var("syn_sent", parsers::where::type_int, &filter_obj::get_syn_sent, "Number of TCP connections in SYN_SENT state (total bucket)");
+  registry_.add_int_var("syn_recv", parsers::where::type_int, &filter_obj::get_syn_recv, "Number of TCP connections in SYN_RECV state (total bucket)");
+  registry_.add_int_var("time_wait", parsers::where::type_int, &filter_obj::get_time_wait, "Number of TCP connections in TIME_WAIT state (total bucket)");
+  registry_.add_int_var("close_wait", parsers::where::type_int, &filter_obj::get_close_wait, "Number of TCP connections in CLOSE_WAIT state (total bucket)");
+  registry_.add_int_var("closing", parsers::where::type_int, &filter_obj::get_closing, "Number of TCP connections in CLOSING state (total bucket)");
+  registry_.add_int_var("fin_wait", parsers::where::type_int, &filter_obj::get_fin_wait, "Number of TCP connections in FIN_WAIT* state (total bucket)");
+  registry_.add_int_var("last_ack", parsers::where::type_int, &filter_obj::get_last_ack, "Number of TCP connections in LAST_ACK state (total bucket)");
+  registry_.add_int_var("udp", parsers::where::type_int, &filter_obj::get_udp, "Number of UDP sockets (total bucket)");
 }
 
 }  // namespace check_connections_filter

@@ -420,14 +420,14 @@ struct filter_obj_handler : public native_context {
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string("key", &filter_obj::get_key, "Major version number")
-      .add_string("value", &filter_obj::get_value, "Major version number")
-      .add_string("unit", &filter_obj::get_unit, "Major version number")
-      .add_string("warn", &filter_obj::get_warn, "Major version number")
-      .add_string("crit", &filter_obj::get_crit, "Major version number")
-      .add_string("max", &filter_obj::get_min, "Major version number")
-      .add_string("min", &filter_obj::get_max, "Major version number")
-      .add_string("message", &filter_obj::get_key, "Major version number");
+  registry_.add_string_var("key", &filter_obj::get_key, "Major version number")
+      .add_string_var("value", &filter_obj::get_value, "Major version number")
+      .add_string_var("unit", &filter_obj::get_unit, "Major version number")
+      .add_string_var("warn", &filter_obj::get_warn, "Major version number")
+      .add_string_var("crit", &filter_obj::get_crit, "Major version number")
+      .add_string_var("max", &filter_obj::get_min, "Major version number")
+      .add_string_var("min", &filter_obj::get_max, "Major version number")
+      .add_string_var("message", &filter_obj::get_key, "Major version number");
 }
 }  // namespace perf_filter
 

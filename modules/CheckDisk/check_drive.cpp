@@ -369,20 +369,20 @@ struct filter_obj_handler : public native_context {
   static const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_9;
 
   filter_obj_handler() {
-    registry_.add_string("name", &filter_obj::get_name, "Descriptive name of drive")
-        .add_string("id", &filter_obj::get_id, "Drive or id of drive")
-        .add_string("drive", &filter_obj::get_drive, "Technical name of drive")
-        .add_string("letter", &filter_obj::get_letter, "Letter the drive is mountedd on")
-        .add_string("flags", &filter_obj::get_flags, "String representation of flags")
-        .add_string("drive_or_id", &filter_obj::get_drive_or_id, "Drive letter if present if not use id")
-        .add_string("drive_or_name", &filter_obj::get_drive_or_name, "Drive letter if present if not use name")
+    registry_.add_string_var("name", &filter_obj::get_name, "Descriptive name of drive")
+        .add_string_var("id", &filter_obj::get_id, "Drive or id of drive")
+        .add_string_var("drive", &filter_obj::get_drive, "Technical name of drive")
+        .add_string_var("letter", &filter_obj::get_letter, "Letter the drive is mountedd on")
+        .add_string_var("flags", &filter_obj::get_flags, "String representation of flags")
+        .add_string_var("drive_or_id", &filter_obj::get_drive_or_id, "Drive letter if present if not use id")
+        .add_string_var("drive_or_name", &filter_obj::get_drive_or_name, "Drive letter if present if not use name")
         // Filesystem name (e.g. "NTFS", "FAT32", "exFAT", "ReFS"). `fs` is a
         // shorthand alias for the same value. Use `like` for case-insensitive
         // matching since the OS reports uppercase ("NTFS").
-        .add_string("filesystem", &filter_obj::get_filesystem, "Filesystem name as reported by the OS (e.g. NTFS, FAT32, exFAT, ReFS)")
-        .add_string("fs", &filter_obj::get_filesystem, "Shorthand alias for filesystem");
+        .add_string_var("filesystem", &filter_obj::get_filesystem, "Filesystem name as reported by the OS (e.g. NTFS, FAT32, exFAT, ReFS)")
+        .add_string_var("fs", &filter_obj::get_filesystem, "Shorthand alias for filesystem");
     // clang-format off
-    registry_.add_int()
+    registry_.add_int_legacy()
       ("free", type_custom_total_free, &filter_obj::get_total_free, "Shorthand for total_free (Number of free bytes)")
         .add_scaled_byte([] (auto _ignored1, auto _ignored2) { return get_zero(); }, &filter_obj::get_drive_size, "", " free")
         .add_percentage(&filter_obj::get_drive_size, "", " free %")
@@ -437,8 +437,12 @@ struct filter_obj_handler : public native_context {
         .add_human_string_context("total_used_pct", &filter_obj::get_total_used_pct_human, "")
         .add_human_string_context("user_used_pct", &filter_obj::get_user_used_pct_human, "");
 
-    registry_.add_converter()(type_custom_total_free, &calculate_total_used)(type_custom_total_used, &calculate_total_used)(
-        type_custom_user_free, &calculate_user_used)(type_custom_user_used, &calculate_user_used)(type_custom_type, &convert_type);
+    registry_
+      .add_converter(type_custom_total_free, &calculate_total_used)
+      .add_converter(type_custom_total_used, &calculate_total_used)
+      .add_converter(type_custom_user_free, &calculate_user_used)
+      .add_converter(type_custom_user_used, &calculate_user_used)
+      .add_converter(type_custom_type, &convert_type);
   }
 };
 

@@ -95,30 +95,28 @@ filter_obj_handler::filter_obj_handler() {
   static constexpr value_type type_custom_state = type_custom_int_1;
   static constexpr value_type type_custom_start_type = type_custom_int_2;
 
-  registry_.add_string("name", &filter_obj::get_name, "Service name")
-      .add_string("desc", &filter_obj::get_desc, "Service description")
-      .add_string("legacy_state", &filter_obj::get_legacy_state_s, "Get legacy state (deprecated and only used by check_nt)")
-      .add_string("classification", &filter_obj::get_classification, "Get classification");
-  registry_.add_int_x("pid", &filter_obj::get_pid, "Process id")
-      .add_int_x("state", type_custom_state, &filter_obj::get_state_i, "The current state ()")
+  registry_.add_string_var("name", &filter_obj::get_name, "Service name")
+      .add_string_var("desc", &filter_obj::get_desc, "Service description")
+      .add_string_var("legacy_state", &filter_obj::get_legacy_state_s, "Get legacy state (deprecated and only used by check_nt)")
+      .add_string_var("classification", &filter_obj::get_classification, "Get classification");
+  registry_.add_int_var("pid", &filter_obj::get_pid, "Process id")
+      .add_int_var("state", type_custom_state, &filter_obj::get_state_i, "The current state ()")
       .add_int_perf("", "")
-      .add_int_x("start_type", type_custom_start_type, &filter_obj::get_start_type_i, "The configured start type ()")
-      .add_int_x("delayed", type_bool, &filter_obj::get_delayed, "If the service is delayed")
-      .add_int_x("is_trigger", type_bool, &filter_obj::get_is_trigger, "If the service is has associated triggers")
-      .add_int_x("triggers", type_int, &filter_obj::get_triggers, "The number of associated triggers for this service")
-      .add_int_x("exit_code", type_int, &filter_obj::get_exit_code, "The Win32 exit code of the service");
+      .add_int_var("start_type", type_custom_start_type, &filter_obj::get_start_type_i, "The configured start type ()")
+      .add_int_var("delayed", type_bool, &filter_obj::get_delayed, "If the service is delayed")
+      .add_int_var("is_trigger", type_bool, &filter_obj::get_is_trigger, "If the service is has associated triggers")
+      .add_int_var("triggers", type_int, &filter_obj::get_triggers, "The number of associated triggers for this service")
+      .add_int_var("exit_code", type_int, &filter_obj::get_exit_code, "The Win32 exit code of the service");
 
-  // clang-format off
-  registry_.add_int_fun()
-    ("state_is_perfect", type_bool, &state_is_perfect, "Check if the state is ok, i.e. all running services are running")
-    ("state_is_ok", type_bool, &state_is_ok, "Check if the state is ok, i.e. all running services are running (delayed services are allowed to be stopped)")
-    ;
-  // clang-format on
+  registry_
+    .add_custom_fun("state_is_perfect", type_bool, &state_is_perfect, "Check if the state is ok, i.e. all running services are running")
+    .add_custom_fun("state_is_ok", type_bool, &state_is_ok, "Check if the state is ok, i.e. all running services are running (delayed services are allowed to be stopped)") ;
 
   registry_.add_human_string("state", &filter_obj::get_state_s, "The current state ()")
       .add_human_string("start_type", &filter_obj::get_start_type_s, "The configured start type ()");
 
-  registry_.add_converter()(type_custom_state, &parse_state)(type_custom_start_type, &parse_start_type);
+  registry_.add_converter(type_custom_state, &parse_state)
+  .add_converter(type_custom_start_type, &parse_start_type);
 }
 }  // namespace check_svc_filter
 }  // namespace service_checks
