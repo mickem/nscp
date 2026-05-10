@@ -1237,4 +1237,7 @@ add_dependencies(
     clion__build_all
     nscp
     ${ALL_MODULE_NAMES}
+    copy_files
+    copy_scripts
+    copy_resources
 )

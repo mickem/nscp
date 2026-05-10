@@ -22,6 +22,7 @@
 #include <algorithm>
 
 #include "nsclient/nsclient_exception.hpp"
+#include "nscapi/protobuf/functions_query.hpp"
 #include "parsers/filter/cli_helper.hpp"
 
 namespace po = boost::program_options;
@@ -122,6 +123,24 @@ filter_obj_handler::filter_obj_handler() {
 }  // namespace service_checks
 
 void service_checks::check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  // `fetch-only` short-circuits the filter machinery and emits one line per
+  // service in `<<<services>>>`-friendly format: name state/start_type display.
+  for (int i = 0; i < request.arguments_size(); i++) {
+    const std::string &a = request.arguments(i);
+    if (a == "fetch-only" || a == "--fetch-only") {
+      std::string body;
+      const std::vector<std::string> excludes;
+      for (const win_list_services::service_info &info :
+           win_list_services::enum_services("", win_list_services::parse_service_type("service"), win_list_services::parse_service_state("all"), excludes)) {
+        if (!body.empty()) body += "\n";
+        body += info.name + " " + info.get_state_s() + "/" + info.get_start_type_s() + " " + (info.displayname.empty() ? info.name : info.displayname);
+      }
+      nscapi::protobuf::functions::append_simple_query_response_payload(
+          response, "check_service", NSCAPI::query_return_codes::returnOK, body, "");
+      return;
+    }
+  }
+
   typedef check_svc_filter::filter filter_type;
   modern_filter::data_container data;
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);

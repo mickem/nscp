@@ -13,6 +13,7 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
     ${NSCP_INCLUDEDIR}/net/check_mk/lua/lua_check_mk.cpp
+    ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
     ${NSCP_DEF_PLUGIN_CPP}
 )
 
@@ -43,6 +44,7 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/net/check_mk/parser.hpp
         ${NSCP_INCLUDEDIR}/net/check_mk/data.hpp
         ${NSCP_INCLUDEDIR}/net/check_mk/lua/lua_check_mk.hpp
+        ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.hpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
         ${NSCP_DEF_PLUGIN_HPP}
     )

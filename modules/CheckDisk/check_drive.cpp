@@ -27,12 +27,14 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/protobuf/functions_query.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/where/helpers.hpp>
 #include <str/format.hpp>
+#include <str/xtos.hpp>
 #include <utility>
 
 #ifdef WIN32
@@ -776,6 +778,35 @@ std::list<drive_container> find_drives(std::vector<std::string> drives, std::vec
 void add_custom_options(po::options_description desc) {}
 
 void check_drive::check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  // `fetch-only` short-circuits the filter machinery and emits one line per
+  // mounted volume in `<<<df>>>` format: device fs total_kb used_kb avail_kb pct% mountpoint.
+  for (int i = 0; i < request.arguments_size(); i++) {
+    const std::string &a = request.arguments(i);
+    if (a == "fetch-only" || a == "--fetch-only") {
+      std::string body;
+      std::vector<std::string> wanted = {"*"};
+      std::vector<std::string> not_found;
+      for (const drive_container &drive : find_drives(wanted, not_found)) {
+        if ((drive.flags & drive_container::df_mounted) != drive_container::df_mounted) continue;
+        std::wstring drv(drive.letter.begin(), drive.letter.end());
+        if (drv.size() == 1) drv += L":\\";
+        ULARGE_INTEGER avail{}, total{}, freeBytes{};
+        if (!GetDiskFreeSpaceEx(drv.c_str(), &avail, &total, &freeBytes)) continue;
+        const long long total_kb = static_cast<long long>(total.QuadPart / 1024);
+        const long long free_kb = static_cast<long long>(freeBytes.QuadPart / 1024);
+        const long long used_kb = total_kb - free_kb;
+        const long long pct = total_kb > 0 ? (used_kb * 100) / total_kb : 0;
+        const std::string fs = drive.fs.empty() ? "unknown" : drive.fs;
+        const std::string mp = drive.letter.empty() ? drive.id : drive.letter;
+        if (!body.empty()) body += "\n";
+        body += mp + " " + fs + " " + str::xtos(total_kb) + " " + str::xtos(used_kb) + " " + str::xtos(free_kb) + " " + str::xtos(pct) + "% " + mp;
+      }
+      nscapi::protobuf::functions::append_simple_query_response_payload(
+          response, "check_drivesize", NSCAPI::query_return_codes::returnOK, body, "");
+      return;
+    }
+  }
+
   modern_filter::data_container data;
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
   std::vector<std::string> drives, excludes;

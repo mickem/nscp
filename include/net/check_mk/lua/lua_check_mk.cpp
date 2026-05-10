@@ -120,8 +120,26 @@ int check_mk::check_mk_packet_wrapper::size_section(lua_State *L) {
   lua_instance.push_int(static_cast<int>(data->packet.section_list.size()));
   return 1;
 }
+int check_mk::check_mk_packet_wrapper::add_piggyback(lua_State *L) {
+  lua::lua_wrapper lua_instance(L);
+  auto data = lua_instance.get_user_object_instance<MKPaketData>(1);
+  if (data == NULL) return lua_instance.error("Failed to get packet");
+  if (lua_instance.size() < 3) return lua_instance.error("Invalid syntax: add_piggyback(host, section)");
+  try {
+    auto section_data = lua_instance.get_user_object_instance<MKSectionData>(3);
+    if (section_data == NULL) return lua_instance.error("Failed to get section");
+    const std::string host = lua_instance.get_string(2);
+    if (host.empty()) return lua_instance.error("piggyback host must be non-empty");
+    data->packet.piggyback_for(host).add_section(section_data->section);
+    return 0;
+  } catch (const std::exception &e) {
+    return lua_instance.error(std::string("Failed to add piggyback: ") + e.what());
+  }
+}
+
 const luaL_Reg packet_functions[] = {{"get_section", &check_mk::check_mk_packet_wrapper::get_section},
                                      {"add_section", &check_mk::check_mk_packet_wrapper::add_section},
+                                     {"add_piggyback", &check_mk::check_mk_packet_wrapper::add_piggyback},
                                      {"size_section", &check_mk::check_mk_packet_wrapper::size_section},
                                      {"__gc", &check_mk::check_mk_packet_wrapper::destroy},
                                      {0}};
@@ -218,10 +236,39 @@ int check_mk::check_mk_section_wrapper::size_line(lua_State *L) {
   lua_instance.push_int(static_cast<int>(data->section.lines.size()));
   return 1;
 }
+int check_mk::check_mk_section_wrapper::set_separator(lua_State *L) {
+  lua::lua_wrapper lua_instance(L);
+  auto data = lua_instance.get_user_object_instance<MKSectionData>();
+  if (data == NULL) return lua_instance.error("Failed to get section");
+  if (lua_instance.size() < 2) return lua_instance.error("Invalid syntax: set_separator(ascii_code)");
+  data->section.separator = lua_instance.pop_int();
+  return 0;
+}
+int check_mk::check_mk_section_wrapper::set_cached(lua_State *L) {
+  lua::lua_wrapper lua_instance(L);
+  auto data = lua_instance.get_user_object_instance<MKSectionData>();
+  if (data == NULL) return lua_instance.error("Failed to get section");
+  if (lua_instance.size() < 3) return lua_instance.error("Invalid syntax: set_cached(generated_epoch, interval)");
+  const int interval = lua_instance.pop_int();
+  const int generated = lua_instance.pop_int();
+  data->section.cached = std::make_pair(static_cast<long long>(generated), static_cast<long long>(interval));
+  return 0;
+}
+int check_mk::check_mk_section_wrapper::set_persist(lua_State *L) {
+  lua::lua_wrapper lua_instance(L);
+  auto data = lua_instance.get_user_object_instance<MKSectionData>();
+  if (data == NULL) return lua_instance.error("Failed to get section");
+  if (lua_instance.size() < 2) return lua_instance.error("Invalid syntax: set_persist(epoch)");
+  data->section.persist_until = static_cast<long long>(lua_instance.pop_int());
+  return 0;
+}
 const luaL_Reg section_functions[] = {{"get_line", &check_mk::check_mk_section_wrapper::get_line},
                                       {"add_line", &check_mk::check_mk_section_wrapper::add_line},
                                       {"get_title", &check_mk::check_mk_section_wrapper::get_title},
                                       {"set_title", &check_mk::check_mk_section_wrapper::set_title},
+                                      {"set_separator", &check_mk::check_mk_section_wrapper::set_separator},
+                                      {"set_cached", &check_mk::check_mk_section_wrapper::set_cached},
+                                      {"set_persist", &check_mk::check_mk_section_wrapper::set_persist},
                                       {"size_line", &check_mk::check_mk_section_wrapper::size_line},
                                       {"__gc", &check_mk::check_mk_section_wrapper::destroy},
                                       {0}};
@@ -325,10 +372,162 @@ int check_mk::check_mk_line_wrapper::destroy(lua_State *L) {
 }
 
 //////////////////////////////////////////////////////////////////////////
+const std::string MKMetricsData::tag = "metrics";
+
+metrics::metrics_store &check_mk::shared_metrics_store() {
+  static metrics::metrics_store store;
+  return store;
+}
+
+int check_mk::check_mk_metrics_wrapper::get(lua_State *L) {
+  lua::lua_wrapper lua_instance(L);
+  lua_instance.get_user_object_instance<MKMetricsData>();
+  std::string filter;
+  if (lua_instance.size() >= 1 && lua_instance.is_string()) {
+    filter = lua_instance.pop_string();
+  }
+  const auto values = check_mk::shared_metrics_store().get(filter);
+  lua_createtable(L, 0, static_cast<int>(values.size()));
+  for (const auto &kv : values) {
+    lua_pushlstring(L, kv.first.c_str(), kv.first.size());
+    lua_pushlstring(L, kv.second.c_str(), kv.second.size());
+    lua_settable(L, -3);
+  }
+  return 1;
+}
+int check_mk::check_mk_metrics_wrapper::value(lua_State *L) {
+  lua::lua_wrapper lua_instance(L);
+  lua_instance.get_user_object_instance<MKMetricsData>();
+  // Stack on entry: [m, key, default?]; size includes the userdata at pos 1.
+  if (lua_instance.size() < 2) return lua_instance.error("Invalid syntax: value(key, [default])");
+  std::string fallback;
+  bool has_default = false;
+  if (lua_instance.size() >= 3 && lua_instance.is_string()) {
+    fallback = lua_instance.pop_string();
+    has_default = true;
+  }
+  const std::string key = lua_instance.pop_string();
+  // get(filter) does substring matching; we want exact-match here.
+  for (const auto &kv : check_mk::shared_metrics_store().get(key)) {
+    if (kv.first == key) {
+      lua_instance.push_string(kv.second);
+      return 1;
+    }
+  }
+  if (has_default) {
+    lua_instance.push_string(fallback);
+    return 1;
+  }
+  lua_pushnil(L);
+  return 1;
+}
+int check_mk::check_mk_metrics_wrapper::create(lua_State *L) {
+  lua::lua_wrapper instance(L);
+  instance.push_user_object_instance<MKMetricsData>();
+  return 1;
+}
+int check_mk::check_mk_metrics_wrapper::destroy(lua_State *L) {
+  lua::lua_wrapper instance(L);
+  return instance.destroy_user_object_instance<MKMetricsData>();
+}
+const luaL_Reg metrics_functions[] = {{"get", &check_mk::check_mk_metrics_wrapper::get},
+                                      {"value", &check_mk::check_mk_metrics_wrapper::value},
+                                      {"__gc", &check_mk::check_mk_metrics_wrapper::destroy},
+                                      {0}};
+const luaL_Reg metrics_ctors[] = {{"new", &check_mk::check_mk_metrics_wrapper::create}, {0}};
+
+//////////////////////////////////////////////////////////////////////////
+const std::string MKSubmissionsData::tag = "submissions";
+
+void check_mk::submission_store::put(kind k, const std::string &name, cached_result r) {
+  const boost::lock_guard<boost::mutex> lock(mutex_);
+  if (k == kind_mrpe)
+    mrpe_[name] = std::move(r);
+  else
+    local_[name] = std::move(r);
+}
+std::vector<std::pair<std::string, check_mk::cached_result> > check_mk::submission_store::snapshot(kind k) const {
+  const boost::lock_guard<boost::mutex> lock(mutex_);
+  const std::map<std::string, cached_result> &src = (k == kind_mrpe) ? mrpe_ : local_;
+  std::vector<std::pair<std::string, cached_result> > out;
+  out.reserve(src.size());
+  for (const auto &kv : src) out.push_back(kv);
+  return out;
+}
+
+check_mk::submission_store &check_mk::shared_submission_store() {
+  static check_mk::submission_store store;
+  return store;
+}
+
+static void push_cached_entry(lua_State *L, const std::string &name, const check_mk::cached_result &r) {
+  lua_createtable(L, 0, 6);
+  lua_pushstring(L, "name");
+  lua_pushlstring(L, name.c_str(), name.size());
+  lua_settable(L, -3);
+  lua_pushstring(L, "code");
+  lua_pushinteger(L, r.code);
+  lua_settable(L, -3);
+  lua_pushstring(L, "message");
+  lua_pushlstring(L, r.message.c_str(), r.message.size());
+  lua_settable(L, -3);
+  lua_pushstring(L, "perf");
+  lua_pushlstring(L, r.perf.c_str(), r.perf.size());
+  lua_settable(L, -3);
+  lua_pushstring(L, "generated");
+  lua_pushnumber(L, static_cast<lua_Number>(r.generated));
+  lua_settable(L, -3);
+  lua_pushstring(L, "ttl");
+  lua_pushnumber(L, static_cast<lua_Number>(r.ttl));
+  lua_settable(L, -3);
+}
+
+int check_mk::check_mk_submissions_wrapper::get(lua_State *L) {
+  lua::lua_wrapper lua_instance(L);
+  lua_instance.get_user_object_instance<MKSubmissionsData>();
+  if (lua_instance.size() < 2) return lua_instance.error("Invalid syntax: get(channel)");
+  const std::string channel = lua_instance.pop_string();
+  submission_store::kind k;
+  if (channel == "mrpe")
+    k = submission_store::kind_mrpe;
+  else if (channel == "local")
+    k = submission_store::kind_local;
+  else
+    return lua_instance.error("Unknown channel: " + channel + " (expected 'mrpe' or 'local')");
+  const auto entries = check_mk::shared_submission_store().snapshot(k);
+  lua_createtable(L, static_cast<int>(entries.size()), 0);
+  int idx = 1;
+  for (const auto &kv : entries) {
+    lua_pushinteger(L, idx++);
+    push_cached_entry(L, kv.first, kv.second);
+    lua_settable(L, -3);
+  }
+  return 1;
+}
+int check_mk::check_mk_submissions_wrapper::create(lua_State *L) {
+  lua::lua_wrapper instance(L);
+  instance.push_user_object_instance<MKSubmissionsData>();
+  return 1;
+}
+int check_mk::check_mk_submissions_wrapper::destroy(lua_State *L) {
+  lua::lua_wrapper instance(L);
+  return instance.destroy_user_object_instance<MKSubmissionsData>();
+}
+const luaL_Reg submissions_functions[] = {{"get", &check_mk::check_mk_submissions_wrapper::get},
+                                          {"__gc", &check_mk::check_mk_submissions_wrapper::destroy},
+                                          {0}};
+const luaL_Reg submissions_ctors[] = {{"new", &check_mk::check_mk_submissions_wrapper::create}, {0}};
+
+//////////////////////////////////////////////////////////////////////////
 void check_mk::check_mk_plugin::load(lua::lua_wrapper &lua_instance) {
   lua_instance.setup_class(MKData::tag, mk_ctors, mk_functions);
   lua_instance.setup_class(MKPaketData::tag, packet_ctors, packet_functions);
   lua_instance.setup_class(MKSectionData::tag, section_ctors, section_functions);
   lua_instance.setup_class(MKLineData::tag, line_ctors, line_functions);
+  lua_instance.setup_class(MKMetricsData::tag, metrics_ctors, metrics_functions);
+  lua_instance.setup_class(MKSubmissionsData::tag, submissions_ctors, submissions_functions);
+  // `Metrics()` / `Submissions()` mirror `Core()` / `Settings()` for ergonomic use.
+  lua_instance.setup_global_function("Metrics", &check_mk::check_mk_metrics_wrapper::create);
+  lua_instance.setup_global_function("Submissions", &check_mk::check_mk_submissions_wrapper::create);
 }
 void check_mk::check_mk_plugin::unload(lua::lua_wrapper &) {}
