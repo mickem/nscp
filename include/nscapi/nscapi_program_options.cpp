@@ -23,11 +23,10 @@ namespace po = boost::program_options;
 
 std::vector<po::option> nscapi::program_options::option_parser_kvp(std::vector<std::string> &args, const std::string &break_at) {
   std::vector<po::option> result;
-  std::vector<std::string>::iterator it;
-  for (it = args.begin(); it != args.end(); ++it) {
+  for (auto it = args.begin(); it != args.end(); ++it) {
     po::option opt;
     opt.original_tokens.push_back(*it);
-    std::string::size_type pos = (*it).find('=');
+    const std::string::size_type pos = it->find('=');
     if (pos == std::string::npos) {
       opt.string_key = (*it);
       if (!break_at.empty() && (*it) == break_at) {
@@ -39,8 +38,8 @@ std::vector<po::option> nscapi::program_options::option_parser_kvp(std::vector<s
         break;
       }
     } else {
-      opt.string_key = (*it).substr(0, pos);
-      opt.value.push_back((*it).substr(pos + 1));
+      opt.string_key = it->substr(0, pos);
+      opt.value.push_back(it->substr(pos + 1));
     }
     result.push_back(opt);
   }
