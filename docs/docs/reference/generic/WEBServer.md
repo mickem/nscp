@@ -332,16 +332,18 @@ Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 
 
 
-| Key                                                 | Default Value                       | Description                 |
-|-----------------------------------------------------|-------------------------------------|-----------------------------|
-| [allow anonymous access](#allow-anonymous-access)   | false                               | ALLOW ANONYMOUS ACCESS      |
-| [allowed hosts](#allowed-hosts)                     | 127.0.0.1                           | Allowed hosts               |
-| [cache allowed hosts](#cache-list-of-allowed-hosts) | true                                | Cache list of allowed hosts |
-| [certificate](#tls-certificate)                     | ${certificate-path}/certificate.pem | TLS Certificate             |
-| [certificate key](#tls-private-key)                 |                                     | TLS private key             |
-| [password](#password)                               |                                     | Password                    |
-| [port](#server-port)                                | 8443                                | Server port                 |
-| [threads](#server-threads)                          | 10                                  | Server threads              |
+| Key                                                               | Default Value                       | Description                     |
+|-------------------------------------------------------------------|-------------------------------------|---------------------------------|
+| [allow anonymous access](#allow-anonymous-access)                 | false                               | ALLOW ANONYMOUS ACCESS          |
+| [allowed hosts](#allowed-hosts)                                   | 127.0.0.1                           | Allowed hosts                   |
+| [auth rate limit block seconds](#auth-rate-limit-(block-seconds)) | 60                                  | AUTH RATE LIMIT (BLOCK SECONDS) |
+| [auth rate limit max failures](#auth-rate-limit-(failures))       | 10                                  | AUTH RATE LIMIT (FAILURES)      |
+| [cache allowed hosts](#cache-list-of-allowed-hosts)               | true                                | Cache list of allowed hosts     |
+| [certificate](#tls-certificate)                                   | ${certificate-path}/certificate.pem | TLS Certificate                 |
+| [certificate key](#tls-private-key)                               |                                     | TLS private key                 |
+| [password](#password)                                             |                                     | Password                        |
+| [port](#server-port)                                              | 8443                                | Server port                     |
+| [threads](#server-threads)                                        | 10                                  | Server threads                  |
 
 
 
@@ -350,6 +352,8 @@ Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 [/settings/WEB/server]
 allow anonymous access=false
 allowed hosts=127.0.0.1
+auth rate limit block seconds=60
+auth rate limit max failures=10
 cache allowed hosts=true
 certificate=${certificate-path}/certificate.pem
 port=8443
@@ -407,6 +411,56 @@ A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
 [/settings/WEB/server]
 # Allowed hosts
 allowed hosts=127.0.0.1
+```
+
+
+
+#### AUTH RATE LIMIT (BLOCK SECONDS) <a id="/settings/WEB/server/auth rate limit block seconds"></a>
+
+How long an IP stays blocked after hitting \`auth rate limit max failures\` consecutive failures. Default 60 s.
+
+
+
+
+
+| Key            | Description                                   |
+|----------------|-----------------------------------------------|
+| Path:          | [/settings/WEB/server](#/settings/WEB/server) |
+| Key:           | auth rate limit block seconds                 |
+| Default value: | `60`                                          |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server]
+# AUTH RATE LIMIT (BLOCK SECONDS)
+auth rate limit block seconds=60
+```
+
+
+
+#### AUTH RATE LIMIT (FAILURES) <a id="/settings/WEB/server/auth rate limit max failures"></a>
+
+How many consecutive failed authentication attempts from one client IP trigger the block. Default 10. Set to 0 to disable the limiter entirely (useful for integration test harnesses that intentionally probe failed auth).
+
+
+
+
+
+| Key            | Description                                   |
+|----------------|-----------------------------------------------|
+| Path:          | [/settings/WEB/server](#/settings/WEB/server) |
+| Key:           | auth rate limit max failures                  |
+| Default value: | `10`                                          |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server]
+# AUTH RATE LIMIT (FAILURES)
+auth rate limit max failures=10
 ```
 
 

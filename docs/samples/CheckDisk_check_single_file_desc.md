@@ -1,6 +1,6 @@
 #### About `check_single_file`
 
-`check_single_file` is a focused variant of [`check_files`](CheckDisk_check_files_samples.md)
+`check_single_file` is a focused variant of [`check_files`](#check_files)
 for inspecting a single, known path. There is no `path` + `pattern` scan and
 no recursion — you point it at one file and apply a filter / threshold to its
 attributes (`size`, `age`, `version`, `line_count`, …).

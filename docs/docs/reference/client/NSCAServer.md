@@ -351,6 +351,7 @@ Section for NSCA (NSCAServer) (check_nsca) protocol options.
 | [ssl options](#verify-mode)                          |                                     | VERIFY MODE                         |
 | [thread pool](#thread-pool)                          | 10                                  | THREAD POOL                         |
 | [timeout](#timeout)                                  | 30                                  | TIMEOUT                             |
+| [timezone](#timezone)                                | utc                                 | TIMEZONE                            |
 | [tls version](#tls-version-to-use)                   | tlsv1.2+                            | TLS version to use                  |
 | [use ssl](#enable-ssl-encryption)                    | false                               | ENABLE SSL ENCRYPTION               |
 | [verify mode](#verify-mode)                          | none                                | VERIFY MODE                         |
@@ -375,6 +376,7 @@ port=5667
 socket queue size=0
 thread pool=10
 timeout=30
+timezone=utc
 tls version=tlsv1.2+
 use ssl=false
 verify mode=none
@@ -925,6 +927,31 @@ Timeout (in seconds) when reading packets on incoming sockets. If the data has n
 [/settings/NSCA/server]
 # TIMEOUT
 timeout=30
+```
+
+
+
+#### TIMEZONE <a id="/settings/NSCA/server/timezone"></a>
+
+Reference timezone for the wire timestamp emitted in the IV packet and used by the replay-window check. The protocol specification calls for UTC (default). Set to 'local' (or any POSIX TZ string) only when interoperating with a legacy agent that wrote local-clock-as-Unix-time into the wire field. Both ends must agree on the value.
+
+
+
+
+
+| Key            | Description                                     |
+|----------------|-------------------------------------------------|
+| Path:          | [/settings/NSCA/server](#/settings/NSCA/server) |
+| Key:           | timezone                                        |
+| Default value: | `utc`                                           |
+
+
+**Sample:**
+
+```
+[/settings/NSCA/server]
+# TIMEZONE
+timezone=utc
 ```
 
 
