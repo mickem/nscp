@@ -87,21 +87,21 @@ tasksched_filter::filter_obj_handler::filter_obj_handler() {
 namespace tasksched_filter {
 CComPtr<IRegistrationInfo> new_filter_obj::get_reginfo() {
   if (reginfo) return reginfo;
-  HRESULT hr = get_def()->get_RegistrationInfo(&reginfo);
+  const HRESULT hr = get_def()->get_RegistrationInfo(&reginfo);
   if (!SUCCEEDED(hr)) throw nsclient::nsclient_exception("Failed to get IRegistrationInfo: " + error::com::get(hr));
   return reginfo;
 }
 
 CComPtr<ITaskDefinition> new_filter_obj::get_def() {
   if (def) return def;
-  HRESULT hr = task->get_Definition(&def);
+  const HRESULT hr = task->get_Definition(&def);
   if (!SUCCEEDED(hr)) throw nsclient::nsclient_exception("Failed to get ITaskDefinition: " + error::com::get(hr));
   return def;
 }
 
 CComPtr<ITaskSettings> new_filter_obj::get_settings() {
   if (settings) return settings;
-  HRESULT hr = get_def()->get_Settings(&settings);
+  const HRESULT hr = get_def()->get_Settings(&settings);
   if (!SUCCEEDED(hr)) throw nsclient::nsclient_exception("Failed to get ITaskSettings: " + error::com::get(hr));
   return settings;
 }

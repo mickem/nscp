@@ -29,17 +29,17 @@
 using namespace parsers::where;
 
 namespace check_cpu_filter {
-parsers::where::node_type calculate_load(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-  parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
-  double number = value.get<1>();
-  std::string unit = value.get<2>();
+node_type calculate_load(boost::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
+  helpers::read_arg_type value = helpers::read_arguments(context, subject, "%");
+  const double number = value.get<1>();
+  const std::string unit = value.get<2>();
 
   if (unit != "%") context->error("Invalid unit: " + unit);
-  return parsers::where::factory::create_int(llround(number));
+  return factory::create_int(llround(number));
 }
 
 filter_obj_handler::filter_obj_handler() {
-  static const parsers::where::value_type type_custom_pct = parsers::where::type_custom_int_1;
+  static constexpr value_type type_custom_pct = type_custom_int_1;
 
   registry_.add_string_var("time", &filter_obj::get_time, "The time frame to check")
       .add_string_var("core", &filter_obj::get_core_s, &filter_obj::get_core_i, "The core to check (total or core ##)")
@@ -59,24 +59,24 @@ filter_obj_handler::filter_obj_handler() {
 }  // namespace check_cpu_filter
 
 namespace check_page_filter {
-parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-  parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
+node_type calculate_free(boost::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
+  helpers::read_arg_type value = helpers::read_arguments(context, subject, "%");
   double number = value.get<1>();
-  std::string unit = value.get<2>();
+  const std::string unit = value.get<2>();
 
   if (unit == "%") {
     number = (static_cast<double>(object->get_total()) * number) / 100.0;
   } else {
     number = str::format::decode_byte_units(number, unit);
   }
-  return parsers::where::factory::create_int(llround(number));
+  return factory::create_int(llround(number));
 }
 
 long long get_zero() { return 0; }
 
 filter_obj_handler::filter_obj_handler() {
-  static const parsers::where::value_type type_custom_used = parsers::where::type_custom_int_1;
-  static const parsers::where::value_type type_custom_free = parsers::where::type_custom_int_2;
+  static constexpr value_type type_custom_used = type_custom_int_1;
+  static constexpr value_type type_custom_free = type_custom_int_2;
 
   registry_.add_string_var("name", &filter_obj::get_name, "The name of the page file (location)");
   registry_.add_int_legacy()
@@ -103,7 +103,7 @@ filter_obj_handler::filter_obj_handler() {
 }  // namespace check_page_filter
 
 namespace check_uptime_filter {
-parsers::where::node_type parse_time(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+node_type parse_time(boost::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
   // The where-parser may hand us either a single string literal ("30m") or a
   // two-element list [number, unit] for tokenized inputs like "2d". For the
   // list form, list_node::get_value joins with ", " and produces "2, d",
@@ -111,21 +111,21 @@ parsers::where::node_type parse_time(boost::shared_ptr<filter_obj> object, parse
   // "Invalid time specification". Reassemble the list manually (no
   // separator) so both forms round-trip cleanly through stox_as_time_sec
   // (issue #452 + #589 follow-up).
-  std::list<parsers::where::node_type> tokens = subject->get_list_value(context);
+  std::list<node_type> tokens = subject->get_list_value(context);
   std::string expr;
   if (tokens.size() == 2) {
     auto cit = tokens.begin();
     const long long n = (*cit)->get_int_value(context);
     ++cit;
-    const std::string unit = (*cit)->get_value(context, parsers::where::type_string).get_string("");
+    const std::string unit = (*cit)->get_value(context, type_string).get_string("");
     expr = str::xtos(n) + unit;
   } else {
     expr = subject->get_string_value(context);
   }
-  return parsers::where::factory::create_int(str::format::stox_as_time_sec<long long>(expr, "s"));
+  return factory::create_int(str::format::stox_as_time_sec<long long>(expr, "s"));
 }
 
-static const parsers::where::value_type type_custom_uptime = parsers::where::type_custom_int_1;
+static const value_type type_custom_uptime = type_custom_int_1;
 filter_obj_handler::filter_obj_handler() {
   registry_.add_int_var("boot", type_date, &filter_obj::get_boot, "System boot time")
       .add_int_var("uptime", type_custom_uptime, &filter_obj::get_uptime, "Time since last boot")

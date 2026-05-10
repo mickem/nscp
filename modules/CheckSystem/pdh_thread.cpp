@@ -465,7 +465,7 @@ std::map<std::string, long long> pdh_thread::get_int_value(std::string counter) 
     return ret;
   }
 
-  lookup_type::iterator it = lookups_.find(counter);
+  const auto it = lookups_.find(counter);
   if (it == lookups_.end()) {
     NSC_LOG_ERROR("Counter was not found: " + counter);
     return ret;
