@@ -20,11 +20,18 @@ export default function Queries() {
     dispatch(nsclientApi.util.invalidateTags(["Queries"]));
   };
 
+  // Hide legacy `checkXXX` aliases — the canonical names use the underscored
+  // `check_XXX` form. Anything that starts with `check` but isn't `check_…`
+  // is treated as a legacy alias and excluded from the list.
+  const isLegacyCheckAlias = (name: string) =>
+    name.startsWith("check") && !name.startsWith("check_");
+
   const needle = filter.trim().toLowerCase();
   const filtered = useMemo(() => {
     if (!queries) return [];
-    if (!needle) return queries;
-    return queries.filter((q) =>
+    const visible = queries.filter((q) => !isLegacyCheckAlias(q.name));
+    if (!needle) return visible;
+    return visible.filter((q) =>
       [q.name, q.description].some((f) => (f ?? "").toLowerCase().includes(needle)),
     );
   }, [queries, needle]);

@@ -9,6 +9,9 @@ interface Props {
   settings: SettingsDescription[];
   // Module id — used to find collections owned by this module in the full settings list.
   moduleId: string;
+  // Forwarded to SettingsCollection so advanced fields (debug, perf config…)
+  // appear inside the per-instance editor when the module page toggle is on.
+  showAdvanced?: boolean;
 }
 
 // Legacy collection roots that should never render via the new editor —
@@ -29,7 +32,7 @@ function findCollectionRoots(all: SettingsDescription[], moduleId: string): Sett
   );
 }
 
-export default function ModuleSettings({ settings, moduleId }: Props) {
+export default function ModuleSettings({ settings, moduleId, showAdvanced = false }: Props) {
   const { data: allDescriptions } = useGetSettingsDescriptionsQuery();
 
   const collectionRoots = useMemo(
@@ -53,14 +56,15 @@ export default function ModuleSettings({ settings, moduleId }: Props) {
 
   return (
     <Stack spacing={3}>
+      {flatSettings.length > 0 && <SettingsList settings={flatSettings} flat />}
       {collectionPaths.map((path) => (
         <SettingsCollection
           key={path}
           collectionPath={path}
           settings={allDescriptions ?? []}
+          showAdvanced={showAdvanced}
         />
       ))}
-      {flatSettings.length > 0 && <SettingsList settings={flatSettings} />}
     </Stack>
   );
 }

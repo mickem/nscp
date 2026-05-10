@@ -9,7 +9,16 @@ import {
   useLoadModuleMutation,
   useUnloadModuleMutation,
 } from "../api/api.ts";
-import { Box, Card, CardActions, CardContent, Chip, Tooltip } from "@mui/material";
+import {
+  Box,
+  Card,
+  CardActions,
+  CardContent,
+  Chip,
+  FormControlLabel,
+  Switch,
+  Tooltip,
+} from "@mui/material";
 import { useNavigate, useParams } from "react-router";
 import { Toolbar } from "./atoms/Toolbar.tsx";
 import { Spacing } from "./atoms/Spacing.tsx";
@@ -34,12 +43,25 @@ export default function Module() {
   const [enableModule] = useEnableModuleMutation();
   const [disableModule] = useDisableModuleMutation();
   const [busy, setBusy] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const isFetching = isFetchingModules || isFetchingQueries || isFetchingSettings;
 
-  const myQueries = queries?.filter((query) => query.plugin === id);
+  // Hide legacy `checkXXX` aliases — the canonical names use the underscored
+  // `check_XXX` form. Anything that starts with `check` but isn't `check_…`
+  // is treated as a legacy alias and excluded from the list.
+  const isLegacyCheckAlias = (name: string) =>
+    name.startsWith("check") && !name.startsWith("check_");
+  const myQueries = queries?.filter(
+    (query) => query.plugin === id && !isLegacyCheckAlias(query.name),
+  );
   const relevantSettings =
-    settings?.filter((setting) => !setting.is_advanced_key && !setting.is_sample_key && !setting.is_template_key) || [];
+    settings?.filter(
+      (setting) =>
+        (showAdvanced || !setting.is_advanced_key) &&
+        !setting.is_sample_key &&
+        !setting.is_template_key,
+    ) || [];
   const mySettings = relevantSettings.filter((setting) => setting.plugins.includes(id));
 
   const onRefresh = () => {
@@ -85,6 +107,16 @@ export default function Module() {
       <Toolbar>
         <Trail trail={[{ link: "/modules", title: "Modules" }]} title={module?.title || id} />
         <Spacing />
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={showAdvanced}
+              onChange={(e) => setShowAdvanced(e.target.checked)}
+            />
+          }
+          label="Show advanced"
+        />
         <RefreshButton onRefresh={onRefresh} />
       </Toolbar>
       <Card>
@@ -152,7 +184,7 @@ export default function Module() {
           </CardContent>
         </Card>
       )}
-      <ModuleSettings settings={mySettings} moduleId={id} />
+      <ModuleSettings settings={mySettings} moduleId={id} showAdvanced={showAdvanced} />
     </Stack>
   );
 }

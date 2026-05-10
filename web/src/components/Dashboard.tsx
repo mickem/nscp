@@ -135,7 +135,7 @@ export default function Dashboard() {
           </Box>
         </Grid>
         {hasCpuData && (
-          <Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
             <CpuWidget
               key={refreshRate}
               metrics={result.metrics}
@@ -146,7 +146,7 @@ export default function Dashboard() {
           </Grid>
         )}
         {hasMemData && (
-          <Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
             <MemoryWidget
               key={refreshRate}
               metrics={result.metrics}
@@ -157,7 +157,7 @@ export default function Dashboard() {
           </Grid>
         )}
         {hasNetworkData && (
-          <Grid>
+          <Grid size={12}>
             <NetworkWidget
               key={refreshRate}
               metrics={result.metrics}
@@ -168,7 +168,7 @@ export default function Dashboard() {
           </Grid>
         )}
         {hasDiskIoData && (
-          <Grid>
+          <Grid size={12}>
             <DiskIoWidget
               key={refreshRate}
               metrics={result.metrics}
@@ -179,12 +179,12 @@ export default function Dashboard() {
           </Grid>
         )}
         {hasDiskFreeData && (
-          <Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
             <DiskFreeWidget metrics={result.metrics} />
           </Grid>
         )}
         {hasSystemInfoData && (
-          <Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
             <SystemInfoWidget metrics={result.metrics} />
           </Grid>
         )}

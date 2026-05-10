@@ -4,6 +4,7 @@ import HomeIcon from "@mui/icons-material/Home";
 import AppsIcon from "@mui/icons-material/Apps";
 import TaskAltIcon from "@mui/icons-material/TaskAlt";
 import MessageIcon from "@mui/icons-material/Message";
+import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import ShowChartIcon from "@mui/icons-material/ShowChart";
 import { useNavigate, useLocation } from "react-router";
@@ -66,6 +67,14 @@ export default function SideMenu() {
               <ShowChartIcon />
             </ListItemIcon>
             <ListItemText primary="Metrics" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton selected={isActive("/events")} onClick={() => navigate("/events")}>
+            <ListItemIcon>
+              <NotificationsIcon />
+            </ListItemIcon>
+            <ListItemText primary="Events" />
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>

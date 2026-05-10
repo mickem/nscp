@@ -25,6 +25,12 @@ import {
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import CheckIcon from "@mui/icons-material/Check";
 import { useEffect, useState } from "react";
+import {
+  COUNTER_FLAGS_OPTIONS,
+  EnumOption,
+  inferOptionsFromParens,
+  resolveEnumOptions,
+} from "./fieldEnums.ts";
 
 interface Props {
   path: string;
@@ -39,8 +45,6 @@ interface Props {
   forceDefault?: boolean;
 }
 
-type EnumOption = { value: string; label: string };
-
 // Some schema entries share the same generic title (e.g. "SYNTAX" is used
 // by `top syntax`, `ok syntax`, `detail syntax`), which makes the rendered
 // labels look duplicated. Override per key when needed.
@@ -49,64 +53,6 @@ const LABEL_OVERRIDES: Record<string, string> = {
   "ok syntax": "OK syntax",
   "detail syntax": "Detail syntax",
 };
-
-const COUNTER_TYPE_OPTIONS: EnumOption[] = ["double", "long", "large", "long long"].map(
-  (v) => ({ value: v, label: v }),
-);
-const REALTIME_PHYS_OPTIONS: EnumOption[] = ["physical", "committed", "virtual"].map(
-  (v) => ({ value: v, label: v }),
-);
-const COUNTER_FLAGS_OPTIONS = ["nocap100", "1000", "noscale"];
-const COLLECTION_STRATEGY_OPTIONS: EnumOption[] = [
-  { value: "static", label: "static" },
-  { value: "rrd", label: "round robin" },
-];
-const SEVERITY_OPTIONS: EnumOption[] = ["OK", "WARNING", "CRITICAL", "UNKNOWN"].map((v) => ({
-  value: v,
-  label: v,
-}));
-
-function toEnumOptions(opts: string[] | undefined): EnumOption[] | undefined {
-  return opts?.map((o) => ({ value: o, label: o }));
-}
-
-// Resolve the `type` field's allowed values based on which collection the
-// instance lives under. Multiple collections expose a `type` field with
-// completely different vocabularies (PDH counter type vs realtime resource
-// type), so we key off the path.
-function resolveTypeOptions(path: string): EnumOption[] | undefined {
-  if (path.includes("/system/windows/counters/")) return COUNTER_TYPE_OPTIONS;
-  if (/\/system\/windows\/real-time\/(cpu|memory)\//.test(path)) return REALTIME_PHYS_OPTIONS;
-  return undefined;
-}
-
-// Best-effort enum extraction from the description text.
-// Looks for the patterns `Values: a, b, c` or `(a, b, c)` (length 2-5 short tokens).
-function inferEnum(text: string | undefined): string[] | undefined {
-  if (!text) return undefined;
-  const valuesMatch = text.match(/Values?:\s*([A-Za-z0-9_,\s]+)/i);
-  if (valuesMatch) {
-    const opts = valuesMatch[1]
-      .split(/[,\s]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (opts.length >= 2 && opts.length <= 8) return opts;
-  }
-  return undefined;
-}
-
-// Extract a list of options from a parenthetical, e.g. "Extra flags (nocap100, 1000, noscale)".
-function inferOptionsFromParens(text: string | undefined): string[] | undefined {
-  if (!text) return undefined;
-  const m = text.match(/\(([A-Za-z0-9_,\s]+)\)/);
-  if (!m) return undefined;
-  const opts = m[1]
-    .split(/[,\s]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (opts.length >= 2 && opts.length <= 8) return opts;
-  return undefined;
-}
 
 export default function SettingsField({
   path,
@@ -150,16 +96,7 @@ export default function SettingsField({
 
   const label = LABEL_OVERRIDES[description.key] ?? (description.title || description.key);
   const help = description.description;
-  const enumOpts: EnumOption[] | undefined =
-    description.key === "type"
-      ? (resolveTypeOptions(path) ?? toEnumOptions(inferEnum(help)))
-      : description.key === "collection strategy"
-        ? COLLECTION_STRATEGY_OPTIONS
-        : description.key === "severity"
-          ? SEVERITY_OPTIONS
-          : description.key === "parent" && parentOptions
-            ? parentOptions.map((n) => ({ value: n, label: n }))
-            : toEnumOptions(inferEnum(help));
+  const enumOpts: EnumOption[] | undefined = resolveEnumOptions(description, path, parentOptions);
 
   const helpAdornment = help ? (
     <Tooltip title={help} arrow>
@@ -200,6 +137,22 @@ export default function SettingsField({
   if (description.key === "flags") {
     const opts = inferOptionsFromParens(description.description) ?? COUNTER_FLAGS_OPTIONS;
     return <MultiFlagsField path={path} description={description} options={opts} />;
+  }
+
+  // Realtime memory filters accept any combination of memory types as a
+  // comma-separated list, so render the `type` field as switches rather than
+  // a single-select dropdown. CPU still uses single-select.
+  if (
+    description.key === "type" &&
+    /\/system\/windows\/real-time\/memory\//.test(path)
+  ) {
+    return (
+      <MultiFlagsField
+        path={path}
+        description={description}
+        options={["physical", "committed", "virtual"]}
+      />
+    );
   }
 
   if (description.type === "bool") {

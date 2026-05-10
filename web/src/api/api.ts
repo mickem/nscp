@@ -223,6 +223,13 @@ export interface MetadataOption {
   label: string;
 }
 
+export interface EventEntry {
+  index: number;
+  event: string;
+  date: string;
+  data: { [key: string]: string };
+}
+
 export interface SettingsDescription {
   default_value: string;
   description: string;
@@ -300,6 +307,7 @@ export const ALL_API_TAGS = [
   "SettingsDescriptions",
   "LogStatus",
   "Metrics",
+  "Events",
 ] as const;
 
 export const nsclientApi = createApi({
@@ -320,6 +328,7 @@ export const nsclientApi = createApi({
     "SettingsDescriptions",
     "LogStatus",
     "Metrics",
+    "Events",
   ],
   endpoints: (builder) => ({
     getEndpoints: builder.query<EndpointList, void>({
@@ -481,6 +490,18 @@ export const nsclientApi = createApi({
       query: ({ path, key }) => ({
         url: `/v2/settings${path}${key ? `?key=${encodeURIComponent(key)}` : ""}`,
         method: "DELETE",
+        // The settings DELETE endpoint may return an empty body or plain text
+        // on success. The default responseHandler calls response.json() which
+        // throws on an empty body — handle both cases gracefully.
+        responseHandler: async (response: Response) => {
+          const text = await response.text();
+          if (!text) return undefined;
+          try {
+            return JSON.parse(text);
+          } catch {
+            return text;
+          }
+        },
       }),
       invalidatesTags: () => [
         { type: "Settings" },
@@ -526,6 +547,28 @@ export const nsclientApi = createApi({
       }),
       providesTags: ["Metrics"],
     }),
+    getEvents: builder.query<EventEntry[], void>({
+      query: () => ({
+        url: "/v2/events",
+      }),
+      providesTags: ["Events"],
+    }),
+    clearEvents: builder.mutation<void, void>({
+      query: () => ({
+        url: "/v2/events",
+        method: "DELETE",
+        responseHandler: async (response: Response) => {
+          const text = await response.text();
+          if (!text) return undefined;
+          try {
+            return JSON.parse(text);
+          } catch {
+            return text;
+          }
+        },
+      }),
+      invalidatesTags: ["Events"],
+    }),
     getCounterMetadata: builder.query<MetadataOption[], void>({
       query: () => ({
         url: "/v1/metadata/counters",
@@ -547,9 +590,13 @@ export const nsclientApi = createApi({
                   : c.name,
             }))
           : [];
-        // `noop` is a synthetic destination — picking it drops the message.
-        // Surface it at the top so users can find it without scrolling.
-        return [{ value: "noop", label: "noop (drop the message)" }, ...channels];
+        // Synthetic destinations (not registered as channels) — surface them
+        // at the top so users can find them without scrolling.
+        return [
+          { value: "noop", label: "noop (drop the message)" },
+          { value: "event", label: "event (raise an event)" },
+          ...channels,
+        ];
       },
     }),
   }),
@@ -584,4 +631,6 @@ export const {
   useGetMetricsQuery,
   useGetCounterMetadataQuery,
   useGetChannelMetadataQuery,
+  useGetEventsQuery,
+  useClearEventsMutation,
 } = nsclientApi;
