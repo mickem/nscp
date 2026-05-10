@@ -20,7 +20,7 @@
 #include <Windows.h>
 #include <gtest/gtest.h>
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <climits>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <string>
@@ -217,7 +217,7 @@ TEST(FileFilterObj, AddAccumulatesOnlySize) {
   boost::filesystem::path p_a("p");
   boost::filesystem::path p_b("q");
   file_filter::filter_obj a(p_a, "a", 0, 0, 0, 0, /*size=*/100);
-  boost::shared_ptr<file_filter::filter_obj> b(new file_filter::filter_obj(p_b, "b", 0, 0, 0, 0, /*size=*/50));
+  std::shared_ptr<file_filter::filter_obj> b(new file_filter::filter_obj(p_b, "b", 0, 0, 0, 0, /*size=*/50));
   a.add(b);
   EXPECT_EQ(a.get_size(), 150u);
   EXPECT_EQ(a.get_filename(), "a");

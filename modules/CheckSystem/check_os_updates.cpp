@@ -286,7 +286,7 @@ namespace check {
 
 typedef os_updates_obj filter_obj;
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler final : public native_context {
   filter_obj_handler();
 };
@@ -323,7 +323,7 @@ void check_os_updates(const PB::Commands::QueryRequestMessage::Request &request,
 
   if (!filter_helper.build_filter(filter)) return;
 
-  const boost::shared_ptr<filter_obj> record(new filter_obj(std::move(data)));
+  const std::shared_ptr<filter_obj> record(new filter_obj(std::move(data)));
   filter.match(record);
 
   filter_helper.post_process(filter);

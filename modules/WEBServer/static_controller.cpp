@@ -17,7 +17,7 @@ std::string stripPath(std::string str) {
   str.erase(std::remove_if(str.begin(), str.end(), nonPathChar), str.end());
   return str;
 }
-StaticController::StaticController(const boost::shared_ptr<session_manager_interface> &session, const std::string &path) : session(session), base(path) {}
+StaticController::StaticController(const std::shared_ptr<session_manager_interface> &session, const std::string &path) : session(session), base(path) {}
 
 Mongoose::Response *StaticController::handleRequest(Mongoose::Request &request) {
   const bool is_js = boost::algorithm::ends_with(request.getUrl(), ".js");

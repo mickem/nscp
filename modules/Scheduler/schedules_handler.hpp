@@ -156,7 +156,7 @@ struct schedule_object : public nscapi::settings_objects::object_instance_interf
 };
 
 typedef boost::optional<schedule_object> optional_target_object;
-typedef boost::shared_ptr<schedule_object> target_object;
+typedef std::shared_ptr<schedule_object> target_object;
 
 typedef nscapi::settings_objects::object_handler<schedule_object> schedule_handler;
 

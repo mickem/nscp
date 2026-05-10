@@ -16,7 +16,7 @@ namespace check_page {
 
 namespace check_page_filter {
 
-node_type calculate_free(boost::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
+node_type calculate_free(std::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
   helpers::read_arg_type value = helpers::read_arguments(context, subject, "%");
   long long number = value.get<1>();
   std::string unit = value.get<2>();
@@ -57,7 +57,7 @@ filter_obj_handler::filter_obj_handler() {
 
 }  // namespace check_page_filter
 
-void check_pagefile(boost::shared_ptr<pdh_thread> collector, const PB::Commands::QueryRequestMessage::Request &request,
+void check_pagefile(std::shared_ptr<pdh_thread> collector, const PB::Commands::QueryRequestMessage::Request &request,
                     PB::Commands::QueryResponseMessage::Response *response) {
   typedef check_page_filter::filter filter_type;
   modern_filter::data_container data;
@@ -88,7 +88,7 @@ void check_pagefile(boost::shared_ptr<pdh_thread> collector, const PB::Commands:
   const unsigned long long swap_used = mem_data.swap.get_used();
 
   // Create filter object for swap (named "total" to match Windows behavior)
-  const boost::shared_ptr<check_page_filter::filter_obj> record(new check_page_filter::filter_obj("total", swap_total, swap_used));
+  const std::shared_ptr<check_page_filter::filter_obj> record(new check_page_filter::filter_obj("total", swap_total, swap_used));
   filter.match(record);
 
   filter_helper.post_process(filter);

@@ -21,7 +21,7 @@
 
 #include <NSCAPI.h>
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <boost/unordered_set.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <parsers/expression/expression.hpp>
@@ -242,9 +242,9 @@ class error_handler_impl : public parsers::where::error_handler_interface {
 template <class TObject, class TFactory>
 struct modern_filters {
   typedef std::shared_ptr<error_handler_impl> error_type;
-  typedef boost::shared_ptr<parsers::where::engine> filter_engine;
+  typedef std::shared_ptr<parsers::where::engine> filter_engine;
   typedef parsers::where::performance_collector::boundaries_type boundaries_type;
-  typedef boost::shared_ptr<TObject> object_type;
+  typedef std::shared_ptr<TObject> object_type;
 
   filter_text_renderer<TFactory> renderer_top;
   filter_text_renderer<TFactory> renderer_detail;

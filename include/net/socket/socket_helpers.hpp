@@ -20,7 +20,7 @@
 #pragma once
 
 #include <boost/asio.hpp>
-#include <boost/enable_shared_from_this.hpp>
+#include <memory>
 #include <boost/optional.hpp>
 #include <net/socket/allowed_hosts.hpp>
 #include <str/xtos.hpp>
@@ -206,7 +206,7 @@ boost::asio::ssl::verify_mode verify_mode_parser(const std::string& verify_mode)
 namespace io {
 void set_result(boost::optional<boost::system::error_code>* a, const boost::system::error_code& b);
 
-struct timed_writer : public boost::enable_shared_from_this<timed_writer> {
+struct timed_writer : public std::enable_shared_from_this<timed_writer> {
   boost::asio::io_service& io_service;
   // boost::posix_time::time_duration duration;
   boost::asio::deadline_timer timer;
@@ -280,7 +280,7 @@ bool write_with_timeout(AsyncWriteStream& sock, RawSocket& rawSocket, const Muta
   return false;
 }
 
-struct timed_reader : public boost::enable_shared_from_this<timed_reader> {
+struct timed_reader : public std::enable_shared_from_this<timed_reader> {
   boost::asio::io_service& io_service;
   boost::posix_time::time_duration duration;
   boost::asio::deadline_timer timer;

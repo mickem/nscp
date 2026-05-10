@@ -16,7 +16,7 @@ namespace check_memory {
 
 namespace check_mem_filter {
 
-node_type calculate_free(boost::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
+node_type calculate_free(std::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
   helpers::read_arg_type value = helpers::read_arguments(context, subject, "%");
   long long number = value.get<1>();
   std::string unit = value.get<2>();
@@ -56,7 +56,7 @@ filter_obj_handler::filter_obj_handler() {
 }
 }  // namespace check_mem_filter
 
-void check_memory(boost::shared_ptr<pdh_thread> collector, const PB::Commands::QueryRequestMessage::Request &request,
+void check_memory(std::shared_ptr<pdh_thread> collector, const PB::Commands::QueryRequestMessage::Request &request,
                   PB::Commands::QueryResponseMessage::Response *response) {
   typedef check_mem_filter::filter filter_type;
   modern_filter::data_container data;
@@ -99,7 +99,7 @@ void check_memory(boost::shared_ptr<pdh_thread> collector, const PB::Commands::Q
   for (const std::string &type : types) {
     auto it = mem_map.find(type);
     if (it != mem_map.end()) {
-      const boost::shared_ptr<check_mem_filter::filter_obj> record(new check_mem_filter::filter_obj(it->second));
+      const std::shared_ptr<check_mem_filter::filter_obj> record(new check_mem_filter::filter_obj(it->second));
       filter.match(record);
     } else {
       return nscapi::protobuf::functions::set_response_bad(*response, "Invalid type: " + type);

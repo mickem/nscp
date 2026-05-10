@@ -21,7 +21,7 @@
 
 #include <boost/filesystem/path.hpp>
 #include <boost/function.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <list>
 #include <map>
 #include <settings/client/settings_client_interface.hpp>
@@ -30,7 +30,7 @@
 
 namespace nscapi {
 namespace settings_helper {
-typedef boost::shared_ptr<settings_impl_interface> settings_impl_interface_ptr;
+typedef std::shared_ptr<settings_impl_interface> settings_impl_interface_ptr;
 
 class key_interface {
  public:
@@ -40,7 +40,7 @@ class key_interface {
   virtual void notify(settings_impl_interface_ptr core_, std::string parent, std::string path, std::string key) const = 0;
   virtual void notify_path(settings_impl_interface_ptr core_, std::string path) const = 0;
 };
-typedef boost::shared_ptr<key_interface> key_type;
+typedef std::shared_ptr<key_interface> key_type;
 
 key_type string_key(std::string* val, const std::string& def);
 key_type string_key(std::string* val);
@@ -105,7 +105,7 @@ class settings_paths_easy_init {
                                        std::string subkeydescription);
 
  private:
-  void add(const boost::shared_ptr<path_info>& d) const;
+  void add(const std::shared_ptr<path_info>& d) const;
 
   std::string path_;
   settings_registry* owner;
@@ -120,7 +120,7 @@ class settings_tpl_easy_init {
   settings_tpl_easy_init& operator()(std::string path, std::string icon, std::string title, std::string desc, std::string fields);
 
  private:
-  void add(const boost::shared_ptr<tpl_info>& d) const;
+  void add(const std::shared_ptr<tpl_info>& d) const;
 
   std::string path_;
   settings_registry* owner;
@@ -147,7 +147,7 @@ class settings_keys_easy_init {
   settings_keys_easy_init& add_password(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
 
  private:
-  void add(const boost::shared_ptr<key_info>& d) const;
+  void add(const std::shared_ptr<key_info>& d) const;
 
   settings_registry* owner;
   std::string path_;
@@ -219,9 +219,9 @@ class alias_extension {
 };
 
 class settings_registry {
-  typedef std::list<boost::shared_ptr<key_info> > key_list;
-  typedef std::list<boost::shared_ptr<path_info> > path_list;
-  typedef std::list<boost::shared_ptr<tpl_info> > tpl_list_type;
+  typedef std::list<std::shared_ptr<key_info> > key_list;
+  typedef std::list<std::shared_ptr<path_info> > path_list;
+  typedef std::list<std::shared_ptr<tpl_info> > tpl_list_type;
   key_list keys_;
   tpl_list_type tpl_;
   path_list paths_;
@@ -232,9 +232,9 @@ class settings_registry {
   explicit settings_registry(settings_impl_interface_ptr core) : core_(std::move(core)) {}
   virtual ~settings_registry() = default;
   settings_impl_interface_ptr get_settings() { return core_; }
-  void add(const boost::shared_ptr<key_info>& info) { keys_.push_back(info); }
-  void add(const boost::shared_ptr<tpl_info>& info) { tpl_.push_back(info); }
-  void add(const boost::shared_ptr<path_info>& info) { paths_.push_back(info); }
+  void add(const std::shared_ptr<key_info>& info) { keys_.push_back(info); }
+  void add(const std::shared_ptr<tpl_info>& info) { tpl_.push_back(info); }
+  void add(const std::shared_ptr<path_info>& info) { paths_.push_back(info); }
 
   settings_keys_easy_init add_key() { return {settings_keys_easy_init(this)}; }
   settings_keys_easy_init add_key_to_path(const std::string& path) { return {path, this}; }

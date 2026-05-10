@@ -1,6 +1,6 @@
 #pragma once
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <settings/client/settings_client_interface.hpp>
 #include <settings/settings_core.hpp>
 #include <utility>
@@ -62,7 +62,7 @@ class NSCSettingsImpl : public settings::settings_handler_impl {
 settings::instance_ptr get_settings();
 settings::instance_ptr get_settings_no_wait();
 settings::settings_core *get_core();
-boost::shared_ptr<nscapi::settings_helper::settings_impl_interface> get_proxy();
+std::shared_ptr<nscapi::settings_helper::settings_impl_interface> get_proxy();
 void destroy_settings();
 bool init_settings(provider_interface *provider, const std::string &context = "");
 bool init_installer_settings(provider_interface *provider, const std::string &context, std::string tls_version, std::string tls_verify_mode,

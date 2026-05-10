@@ -61,7 +61,7 @@ namespace check {
 
 typedef disk_health filter_obj;
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler : native_context {
   filter_obj_handler();
 };
@@ -110,7 +110,7 @@ void check_disk_health(const PB::Commands::QueryRequestMessage::Request &request
 
   if (!filter_helper.build_filter(filter)) return;
   for (const disk_health &d : data) {
-    const boost::shared_ptr<filter_obj> record(new filter_obj(d));
+    const std::shared_ptr<filter_obj> record(new filter_obj(d));
     filter.match(record);
   }
   filter_helper.post_process(filter);

@@ -19,7 +19,7 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <list>
 #include <parsers/where/node.hpp>
 #include <parsers/where/unary_fun.hpp>

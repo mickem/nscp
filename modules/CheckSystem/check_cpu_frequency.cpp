@@ -91,7 +91,7 @@ namespace check {
 
 typedef cpu_frequency filter_obj;
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler : native_context {
   filter_obj_handler();
 };
@@ -124,7 +124,7 @@ void check_cpu_frequency(const PB::Commands::QueryRequestMessage::Request &reque
 
   if (!filter_helper.build_filter(filter)) return;
   for (const cpu_frequency &c : data) {
-    const boost::shared_ptr<filter_obj> record(new filter_obj(c));
+    const std::shared_ptr<filter_obj> record(new filter_obj(c));
     filter.match(record);
   }
   filter_helper.post_process(filter);

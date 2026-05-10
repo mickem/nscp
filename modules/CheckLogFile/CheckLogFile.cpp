@@ -143,7 +143,7 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
         std::string line = contents.substr(lpos, pos - lpos);
         trim_cr(line);
         std::list<std::string> chunks = str::utils::split_lst(line, column_split);
-        boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks));
+        std::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks));
         filter.match(record);
         pos += line_split.size();
         lpos = pos;
@@ -152,7 +152,7 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
         std::string line = contents.substr(lpos);
         trim_cr(line);
         std::list<std::string> chunks = str::utils::split_lst(line, column_split);
-        boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks));
+        std::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks));
         filter.match(record);
       }
     } else {

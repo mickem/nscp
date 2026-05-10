@@ -48,7 +48,7 @@ void pdh_thread::thread_proc() {
   cpu_filter_helper cpu_helper(core_, plugin_id_);
   mem_filter_helper mem_helper(core_, plugin_id_);
 
-  for (const boost::shared_ptr<filters::cpu::filter_config_object> &object : cpu_filters_.get_object_list()) {
+  for (const std::shared_ptr<filters::cpu::filter_config_object> &object : cpu_filters_.get_object_list()) {
     try {
       checks::check_cpu_filter::runtime_data data;
       if (object->data.empty()) {
@@ -63,7 +63,7 @@ void pdh_thread::thread_proc() {
       NSC_LOG_ERROR_EXR("Skipping CPU filter '" + object->get_alias() + "' (invalid time spec): ", e);
     }
   }
-  for (const boost::shared_ptr<filters::mem::filter_config_object> &object : mem_filters_.get_object_list()) {
+  for (const std::shared_ptr<filters::mem::filter_config_object> &object : mem_filters_.get_object_list()) {
     check_memory::check_mem_filter::runtime_data data;
     if (object->data.empty()) {
       data.add("physical");
@@ -288,7 +288,7 @@ memory_info pdh_thread::get_memory(long seconds) {
 
 bool pdh_thread::start() {
   stop_requested_ = false;
-  thread_ = boost::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
+  thread_ = std::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
   return true;
 }
 
@@ -300,7 +300,7 @@ bool pdh_thread::stop() {
   return true;
 }
 
-void pdh_thread::add_realtime_cpu_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
+void pdh_thread::add_realtime_cpu_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
   try {
     cpu_filters_.add(proxy, key, query);
   } catch (const std::exception &e) {
@@ -310,7 +310,7 @@ void pdh_thread::add_realtime_cpu_filter(boost::shared_ptr<nscapi::settings_prox
   }
 }
 
-void pdh_thread::add_realtime_mem_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
+void pdh_thread::add_realtime_mem_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
   try {
     mem_filters_.add(proxy, key, query);
   } catch (const std::exception &e) {
@@ -325,7 +325,7 @@ void pdh_thread::set_path(const std::string &cpu_path, const std::string &mem_pa
   mem_filters_.set_path(mem_path);
 }
 
-void pdh_thread::add_samples(boost::shared_ptr<nscapi::settings_proxy> settings) {
+void pdh_thread::add_samples(std::shared_ptr<nscapi::settings_proxy> settings) {
   cpu_filters_.add_samples(settings);
   mem_filters_.add_samples(settings);
 }

@@ -35,7 +35,7 @@ void os_version::check_os_version(const PB::Commands::QueryRequestMessage::Reque
   utsname name{};
   if (uname(&name) == -1) return nscapi::protobuf::functions::set_response_bad(*response, "Cannot get system name");
 
-  boost::shared_ptr<os_version_filter::filter_obj> record(new os_version_filter::filter_obj());
+  std::shared_ptr<os_version_filter::filter_obj> record(new os_version_filter::filter_obj());
   record->kernel_name = name.sysname;
   record->nodename = name.nodename;
   record->kernel_version = name.version;

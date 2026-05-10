@@ -22,7 +22,7 @@
 #include <config.h>
 
 #include <boost/filesystem.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -42,7 +42,7 @@ namespace sh = nscapi::settings_helper;
  * @return
  */
 NRPEClient::NRPEClient()
-    : client_("nrpe", boost::make_shared<nrpe_client::nrpe_client_handler<> >(), boost::make_shared<nrpe_handler::options_reader_impl>()) {}
+    : client_("nrpe", std::make_shared<nrpe_client::nrpe_client_handler<> >(), std::make_shared<nrpe_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor

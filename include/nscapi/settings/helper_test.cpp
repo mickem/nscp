@@ -19,7 +19,7 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <map>
 #include <nscapi/settings/helper.hpp>
 #include <string>
@@ -180,9 +180,9 @@ class MockSettingsInterface : public settings_impl_interface {
 
 class KeyFactoryTest : public ::testing::Test {
  protected:
-  boost::shared_ptr<MockSettingsInterface> mock_;
+  std::shared_ptr<MockSettingsInterface> mock_;
 
-  void SetUp() override { mock_ = boost::make_shared<MockSettingsInterface>(); }
+  void SetUp() override { mock_ = std::make_shared<MockSettingsInterface>(); }
 
   void TearDown() override { mock_->clear(); }
 };
@@ -247,9 +247,9 @@ TEST_F(KeyFactoryTest, PathKeyWithDefault) {
 
 class KeyNotifyTest : public ::testing::Test {
  protected:
-  boost::shared_ptr<MockSettingsInterface> mock_;
+  std::shared_ptr<MockSettingsInterface> mock_;
 
-  void SetUp() override { mock_ = boost::shared_ptr<MockSettingsInterface>(new MockSettingsInterface()); }
+  void SetUp() override { mock_ = std::shared_ptr<MockSettingsInterface>(new MockSettingsInterface()); }
 
   void TearDown() override { mock_->clear(); }
 };
@@ -349,9 +349,9 @@ TEST_F(KeyNotifyTest, PathKeyExpandsPath) {
 
 class FunctionKeyTest : public ::testing::Test {
  protected:
-  boost::shared_ptr<MockSettingsInterface> mock_;
+  std::shared_ptr<MockSettingsInterface> mock_;
 
-  void SetUp() override { mock_ = boost::make_shared<MockSettingsInterface>(); }
+  void SetUp() override { mock_ = std::make_shared<MockSettingsInterface>(); }
 
   void TearDown() override { mock_->clear(); }
 };
@@ -403,9 +403,9 @@ TEST_F(FunctionKeyTest, PathFunKeyNotify) {
 
 class MapPathTest : public ::testing::Test {
  protected:
-  boost::shared_ptr<MockSettingsInterface> mock_;
+  std::shared_ptr<MockSettingsInterface> mock_;
 
-  void SetUp() override { mock_ = boost::shared_ptr<MockSettingsInterface>(new MockSettingsInterface()); }
+  void SetUp() override { mock_ = std::shared_ptr<MockSettingsInterface>(new MockSettingsInterface()); }
 
   void TearDown() override { mock_->clear(); }
 };
@@ -462,9 +462,9 @@ TEST_F(MapPathTest, StringMapPathWithSections) {
 
 class SettingsRegistryTest : public ::testing::Test {
  protected:
-  boost::shared_ptr<MockSettingsInterface> mock_;
+  std::shared_ptr<MockSettingsInterface> mock_;
 
-  void SetUp() override { mock_ = boost::make_shared<MockSettingsInterface>(); }
+  void SetUp() override { mock_ = std::make_shared<MockSettingsInterface>(); }
 
   void TearDown() override { mock_->clear(); }
 };
@@ -628,9 +628,9 @@ TEST_F(SettingsRegistryTest, ExpandPath) {
 
 class AliasExtensionTest : public ::testing::Test {
  protected:
-  boost::shared_ptr<MockSettingsInterface> mock_;
+  std::shared_ptr<MockSettingsInterface> mock_;
 
-  void SetUp() override { mock_ = boost::make_shared<MockSettingsInterface>(); }
+  void SetUp() override { mock_ = std::make_shared<MockSettingsInterface>(); }
 
   void TearDown() override { mock_->clear(); }
 };
@@ -677,9 +677,9 @@ TEST_F(AliasExtensionTest, GetSettingsPath) {
 
 class PathExtensionTest : public ::testing::Test {
  protected:
-  boost::shared_ptr<MockSettingsInterface> mock_;
+  std::shared_ptr<MockSettingsInterface> mock_;
 
-  void SetUp() override { mock_ = boost::make_shared<MockSettingsInterface>(); }
+  void SetUp() override { mock_ = std::make_shared<MockSettingsInterface>(); }
 
   void TearDown() override { mock_->clear(); }
 };
@@ -748,9 +748,9 @@ TEST_F(DescriptionContainerTest, AssignmentOperator) {
 
 class SettingsHelperEdgeCaseTest : public ::testing::Test {
  protected:
-  boost::shared_ptr<MockSettingsInterface> mock_;
+  std::shared_ptr<MockSettingsInterface> mock_;
 
-  void SetUp() override { mock_ = boost::make_shared<MockSettingsInterface>(); }
+  void SetUp() override { mock_ = std::make_shared<MockSettingsInterface>(); }
 
   void TearDown() override { mock_->clear(); }
 };

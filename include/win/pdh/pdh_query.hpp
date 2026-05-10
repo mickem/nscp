@@ -27,7 +27,7 @@
 namespace PDH {
 class PDHQuery : public PDH::subscriber {
  public:
-  typedef boost::shared_ptr<PDHCounter> counter_type;
+  typedef std::shared_ptr<PDHCounter> counter_type;
   typedef std::list<counter_type> counter_list_type;
   counter_list_type counters_;
   PDH::PDH_HQUERY hQuery_;

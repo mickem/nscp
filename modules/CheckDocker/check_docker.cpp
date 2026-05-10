@@ -75,7 +75,7 @@ struct filter_obj {
   std::string get_ip() const { return ip; }
 };
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler() {
     registry_.add_string_var("id", &filter_obj::get_id, "Container id")
@@ -134,7 +134,7 @@ void check(const PB::Commands::QueryRequestMessage::Request& request, PB::Comman
     auto root = json::parse(ss.str());
     json::array list = root.as_array();
     for (auto& v : list) {
-      boost::shared_ptr<check_docker_filter::filter_obj> record(new check_docker_filter::filter_obj(v));
+      std::shared_ptr<check_docker_filter::filter_obj> record(new check_docker_filter::filter_obj(v));
       filter.match(record);
     }
 

@@ -643,7 +643,7 @@ void client::configuration::do_metrics(const PB::Metrics::MetricsMessage &reques
   }
 }
 
-void client::configuration::finalize(const boost::shared_ptr<nscapi::settings_proxy> &settings) {
+void client::configuration::finalize(const std::shared_ptr<nscapi::settings_proxy> &settings) {
   targets.add_samples(settings);
   targets.add_missing(settings, "default", "");
 }

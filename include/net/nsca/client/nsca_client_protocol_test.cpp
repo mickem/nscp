@@ -19,7 +19,7 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <net/nsca/client/nsca_client_protocol.hpp>
 #include <net/nsca/nsca_packet.hpp>
 #include <string>
@@ -57,7 +57,7 @@ typedef nsca::client::protocol<MockNscaClientHandler> TestProtocol;
 // =============================================================================
 
 TEST(NscaClientProtocol, InitialState) {
-  auto handler = boost::make_shared<MockNscaClientHandler>();
+  auto handler = std::make_shared<MockNscaClientHandler>();
   TestProtocol proto(handler);
 
   EXPECT_FALSE(proto.has_data());
@@ -69,7 +69,7 @@ TEST(NscaClientProtocol, InitialState) {
 // =============================================================================
 
 TEST(NscaClientProtocol, OnConnectTransitionsToWantsData) {
-  auto handler = boost::make_shared<MockNscaClientHandler>();
+  auto handler = std::make_shared<MockNscaClientHandler>();
   TestProtocol proto(handler);
   proto.on_connect();
 
@@ -83,7 +83,7 @@ TEST(NscaClientProtocol, OnConnectTransitionsToWantsData) {
 // =============================================================================
 
 TEST(NscaClientProtocol, GetInboundReturnsIvSizedBuffer) {
-  auto handler = boost::make_shared<MockNscaClientHandler>();
+  auto handler = std::make_shared<MockNscaClientHandler>();
   TestProtocol proto(handler);
   proto.on_connect();
 
@@ -96,7 +96,7 @@ TEST(NscaClientProtocol, GetInboundReturnsIvSizedBuffer) {
 // =============================================================================
 
 TEST(NscaClientProtocol, OnReadProcessesIvPacket) {
-  auto handler = boost::make_shared<MockNscaClientHandler>();
+  auto handler = std::make_shared<MockNscaClientHandler>();
   TestProtocol proto(handler);
   proto.on_connect();
 
@@ -118,7 +118,7 @@ TEST(NscaClientProtocol, OnReadProcessesIvPacket) {
 // =============================================================================
 
 TEST(NscaClientProtocol, PrepareRequestFromSentRequestTransitions) {
-  auto handler = boost::make_shared<MockNscaClientHandler>();
+  auto handler = std::make_shared<MockNscaClientHandler>();
   TestProtocol proto(handler);
   proto.on_connect();
 
@@ -150,7 +150,7 @@ TEST(NscaClientProtocol, PrepareRequestFromSentRequestTransitions) {
 // =============================================================================
 
 TEST(NscaClientProtocol, GetOutboundReturnsPacketSizedBuffer) {
-  auto handler = boost::make_shared<MockNscaClientHandler>();
+  auto handler = std::make_shared<MockNscaClientHandler>();
   TestProtocol proto(handler);
   proto.on_connect();
 
@@ -174,7 +174,7 @@ TEST(NscaClientProtocol, GetOutboundReturnsPacketSizedBuffer) {
 // =============================================================================
 
 TEST(NscaClientProtocol, OnWriteTransitionsToSentRequest) {
-  auto handler = boost::make_shared<MockNscaClientHandler>();
+  auto handler = std::make_shared<MockNscaClientHandler>();
   TestProtocol proto(handler);
   proto.on_connect();
 
@@ -203,7 +203,7 @@ TEST(NscaClientProtocol, OnWriteTransitionsToSentRequest) {
 // =============================================================================
 
 TEST(NscaClientProtocol, GetTimeoutResponseReturnsFalse) {
-  auto handler = boost::make_shared<MockNscaClientHandler>();
+  auto handler = std::make_shared<MockNscaClientHandler>();
   TestProtocol proto(handler);
 
   EXPECT_FALSE(proto.get_timeout_response());
@@ -214,7 +214,7 @@ TEST(NscaClientProtocol, GetTimeoutResponseReturnsFalse) {
 // =============================================================================
 
 TEST(NscaClientProtocol, GetResponseReturnsTrue) {
-  auto handler = boost::make_shared<MockNscaClientHandler>();
+  auto handler = std::make_shared<MockNscaClientHandler>();
   TestProtocol proto(handler);
 
   EXPECT_TRUE(proto.get_response());
@@ -225,7 +225,7 @@ TEST(NscaClientProtocol, GetResponseReturnsTrue) {
 // =============================================================================
 
 TEST(NscaClientProtocol, OnReadErrorReturnsFalse) {
-  auto handler = boost::make_shared<MockNscaClientHandler>();
+  auto handler = std::make_shared<MockNscaClientHandler>();
   TestProtocol proto(handler);
 
   boost::system::error_code ec = boost::asio::error::connection_reset;
@@ -237,7 +237,7 @@ TEST(NscaClientProtocol, OnReadErrorReturnsFalse) {
 // =============================================================================
 
 TEST(NscaClientProtocol, FullSendCycle) {
-  auto handler = boost::make_shared<MockNscaClientHandler>();
+  auto handler = std::make_shared<MockNscaClientHandler>();
   TestProtocol proto(handler);
 
   // 1. connect
@@ -276,7 +276,7 @@ TEST(NscaClientProtocol, FullSendCycle) {
 // =============================================================================
 
 TEST(NscaClientProtocol, EncryptionXorProducesEncryptedOutbound) {
-  auto handler = boost::make_shared<MockNscaClientHandler>();
+  auto handler = std::make_shared<MockNscaClientHandler>();
   handler->encryption_ = 1;  // ENCRYPT_XOR
   handler->password_ = "secret";
   TestProtocol proto(handler);
@@ -298,7 +298,7 @@ TEST(NscaClientProtocol, EncryptionXorProducesEncryptedOutbound) {
   EXPECT_EQ(outbound.size(), pkt.get_packet_length());
 
   // With XOR encryption, the buffer should differ from an unencrypted one
-  auto handler2 = boost::make_shared<MockNscaClientHandler>();
+  auto handler2 = std::make_shared<MockNscaClientHandler>();
   handler2->encryption_ = 0;  // ENCRYPT_NONE
   TestProtocol proto2(handler2);
   proto2.on_connect();

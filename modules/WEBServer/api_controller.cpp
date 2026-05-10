@@ -6,7 +6,7 @@
 
 namespace json = boost::json;
 
-api_controller::api_controller(const boost::shared_ptr<session_manager_interface> &session) : RegexpController("/api"), session(session) {
+api_controller::api_controller(const std::shared_ptr<session_manager_interface> &session) : RegexpController("/api"), session(session) {
   addRoute("GET", "/?$", this, &api_controller::get_versions);
   addRoute("GET", "/v1/?$", this, &api_controller::get_eps);
   addRoute("GET", "/v2/?$", this, &api_controller::get_eps);

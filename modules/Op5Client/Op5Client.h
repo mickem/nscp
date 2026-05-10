@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <client/command_line_parser.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_targets.hpp>
@@ -31,7 +31,7 @@ class Op5Client : public nscapi::impl::simple_plugin {
  private:
   std::string channel_;
 
-  boost::shared_ptr<op5_client> client;
+  std::shared_ptr<op5_client> client;
 
  public:
   Op5Client();

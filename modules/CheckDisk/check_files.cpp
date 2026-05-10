@@ -21,7 +21,7 @@
 
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -70,7 +70,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
 
   if (!filter_helper.build_filter(filter)) return;
 
-  boost::shared_ptr<file_filter::filter_obj> total_obj;
+  std::shared_ptr<file_filter::filter_obj> total_obj;
   if (!total.empty()) total_obj = file_filter::filter_obj::get_total(context.now);
 
   for (const std::string &path : file_list) {

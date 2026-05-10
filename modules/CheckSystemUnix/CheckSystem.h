@@ -27,7 +27,7 @@
 #include "realtime_thread.hpp"
 
 class CheckSystem : public nscapi::impl::simple_plugin {
-  boost::shared_ptr<pdh_thread> collector_;
+  std::shared_ptr<pdh_thread> collector_;
 
   // Configured timezone for `check_uptime`, cached in loadModuleEx (issue #365).
   // See `include/nscp_time.hpp` for the supported value syntax.
@@ -52,5 +52,5 @@ class CheckSystem : public nscapi::impl::simple_plugin {
   void check_os_updates(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
   // Accessor for the collector thread (used by check_cpu)
-  boost::shared_ptr<pdh_thread> get_collector() { return collector_; }
+  std::shared_ptr<pdh_thread> get_collector() { return collector_; }
 };

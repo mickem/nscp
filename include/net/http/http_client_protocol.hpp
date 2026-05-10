@@ -20,7 +20,7 @@
 #pragma once
 
 #include <boost/asio.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <net/http/http_packet.hpp>
 #include <net/socket/client.hpp>
 
@@ -41,7 +41,7 @@ class protocol : public boost::noncopyable {
 
  private:
   std::vector<char> buffer_;
-  boost::shared_ptr<client_handler> handler_;
+  std::shared_ptr<client_handler> handler_;
   request_type packet_;
   std::vector<char> responseData_;
 
@@ -51,7 +51,7 @@ class protocol : public boost::noncopyable {
   void set_state(state new_state) { current_state_ = new_state; }
 
  public:
-  protocol(boost::shared_ptr<client_handler> handler) : handler_(handler), current_state_(none) {}
+  protocol(std::shared_ptr<client_handler> handler) : handler_(handler), current_state_(none) {}
   virtual ~protocol() = default;
 
   void on_connect() { set_state(connected); }

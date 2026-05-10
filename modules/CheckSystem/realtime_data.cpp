@@ -36,7 +36,7 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
     std::map<std::string, windows::system_info::load_entry> vals = thread->get_cpu_load(c.time);
     typedef std::map<std::string, windows::system_info::load_entry>::value_type vt;
     for (vt v : vals) {
-      const boost::shared_ptr<filter_obj> record(new filter_obj(c.alias, v.first, v.second));
+      const std::shared_ptr<filter_obj> record(new filter_obj(c.alias, v.first, v.second));
       ret.append(filter.match(record));
     }
   }

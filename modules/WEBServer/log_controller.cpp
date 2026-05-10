@@ -26,7 +26,7 @@ long long get_int_or(const json::object &o, const std::string &key, const int de
   return cit->value().as_int64();
 }
 
-log_controller::log_controller(const int version, const boost::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core,
+log_controller::log_controller(const int version, const std::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core,
                                unsigned int plugin_id)
     : RegexpController(version == 1 ? "/api/v1/logs" : "/api/v2/logs"), session(session), core(core), plugin_id(plugin_id) {
   addRoute("GET", "/?$", this, &log_controller::get_log);

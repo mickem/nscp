@@ -29,7 +29,7 @@
 using namespace parsers::where;
 
 namespace check_cpu_filter {
-node_type calculate_load(boost::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
+node_type calculate_load(std::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
   helpers::read_arg_type value = helpers::read_arguments(context, subject, "%");
   const double number = value.get<1>();
   const std::string unit = value.get<2>();
@@ -59,7 +59,7 @@ filter_obj_handler::filter_obj_handler() {
 }  // namespace check_cpu_filter
 
 namespace check_page_filter {
-node_type calculate_free(boost::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
+node_type calculate_free(std::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
   helpers::read_arg_type value = helpers::read_arguments(context, subject, "%");
   double number = value.get<1>();
   const std::string unit = value.get<2>();
@@ -103,7 +103,7 @@ filter_obj_handler::filter_obj_handler() {
 }  // namespace check_page_filter
 
 namespace check_uptime_filter {
-node_type parse_time(boost::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
+node_type parse_time(std::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
   // The where-parser may hand us either a single string literal ("30m") or a
   // two-element list [number, unit] for tokenized inputs like "2d". For the
   // list form, list_node::get_value joins with ", " and produces "2, d",

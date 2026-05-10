@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <net/nsca/nsca_packet.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <nscpcrypt/nscpcrypt.hpp>
@@ -42,7 +42,7 @@ class protocol : public boost::noncopyable {
  private:
   std::vector<char> iv_buffer_;
   std::vector<char> packet_buffer_;
-  boost::shared_ptr<client_handler> handler_;
+  std::shared_ptr<client_handler> handler_;
   nscp::encryption::engine crypto_;
   int time_;
   nsca::packet packet_;
@@ -53,7 +53,7 @@ class protocol : public boost::noncopyable {
   inline void set_state(state new_state) { current_state_ = new_state; }
 
  public:
-  protocol(boost::shared_ptr<client_handler> handler) : handler_(handler), current_state_(none) {}
+  protocol(std::shared_ptr<client_handler> handler) : handler_(handler), current_state_(none) {}
   virtual ~protocol() {}
 
   void on_connect() { set_state(connected); }

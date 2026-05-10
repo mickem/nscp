@@ -251,7 +251,7 @@ TEST(ErrorHandlerImpl, LogErrorWithEmptyString) {
 }
 
 TEST(ErrorHandlerImpl, PolymorphicUsageThroughInterface) {
-  boost::shared_ptr<parsers::where::error_handler_interface> iface(new modern_filter::error_handler_impl(false));
+  std::shared_ptr<parsers::where::error_handler_interface> iface(new modern_filter::error_handler_impl(false));
 
   EXPECT_FALSE(iface->is_debug());
   iface->set_debug(true);

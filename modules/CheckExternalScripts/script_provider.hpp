@@ -21,7 +21,7 @@ struct script_provider final : script_provider_interface {
 
   unsigned int get_id() override;
   nscapi::core_wrapper* get_core() override;
-  boost::shared_ptr<nscapi::settings_proxy> get_settings_proxy() override;
+  std::shared_ptr<nscapi::settings_proxy> get_settings_proxy() override;
 
   boost::filesystem::path get_root() override;
   std::string generate_wrapped_command(std::string command) override;

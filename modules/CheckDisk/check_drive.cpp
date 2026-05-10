@@ -19,7 +19,7 @@
 
 #include "check_drive.hpp"
 
-#include <boost/enable_shared_from_this.hpp>
+#include <memory>
 #include <boost/program_options.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <bytes/char_buffer.hpp>
@@ -285,7 +285,7 @@ struct filter_obj {
     drive_size = totalNumberOfBytes.QuadPart;
   }
 
-  void append(boost::shared_ptr<filter_obj> other) {
+  void append(std::shared_ptr<filter_obj> other) {
     user_free += other->user_free;
     total_free += other->total_free;
     drive_size += other->drive_size;
@@ -300,7 +300,7 @@ struct filter_obj {
   }
 };
 
-parsers::where::node_type calculate_total_used(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context,
+parsers::where::node_type calculate_total_used(std::shared_ptr<filter_obj> object, parsers::where::evaluation_context context,
                                                parsers::where::node_type subject) {
   parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
   double number = value.get<1>();
@@ -314,7 +314,7 @@ parsers::where::node_type calculate_total_used(boost::shared_ptr<filter_obj> obj
   return parsers::where::factory::create_int(static_cast<long long>(number));
 }
 
-parsers::where::node_type calculate_user_used(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context,
+parsers::where::node_type calculate_user_used(std::shared_ptr<filter_obj> object, parsers::where::evaluation_context context,
                                               parsers::where::node_type subject) {
   parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
   double number = value.get<1>();
@@ -338,7 +338,7 @@ int do_convert_type(const std::string &keyword) {
   if (keyword == "total") return drive_type_total;
   return -1;
 }
-parsers::where::node_type convert_type(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+parsers::where::node_type convert_type(std::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
   std::string keyword = subject->get_string_value(context);
   boost::to_lower(keyword);
   int type = do_convert_type(keyword);
@@ -360,7 +360,7 @@ std::string filter_obj_filesystem_for_test(const std::string &fs) {
   filter_obj obj(dc);
   return obj.get_filesystem();
 }
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler : public native_context {
   static const parsers::where::value_type type_custom_total_used = parsers::where::type_custom_int_1;
   static const parsers::where::value_type type_custom_total_free = parsers::where::type_custom_int_2;
@@ -831,7 +831,7 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
   }
   if (!buffer.empty()) excludes.insert(excludes.end(), buffer.begin(), buffer.end());
   drive_container total_dc("total", "total", "total", "", true, 0, drive_container::df_none);
-  boost::shared_ptr<filter_obj> total_obj(new filter_obj(total_dc));
+  std::shared_ptr<filter_obj> total_obj(new filter_obj(total_dc));
   if (total) total_obj->make_total();
 
   std::vector<std::string> not_found;
@@ -854,7 +854,7 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
         std::find(excludes.begin(), excludes.end(), drive.name) != excludes.end() ||
         std::find(excludes.begin(), excludes.end(), drive.letter_only) != excludes.end())
       continue;
-    boost::shared_ptr<filter_obj> obj(new filter_obj(drive));
+    std::shared_ptr<filter_obj> obj(new filter_obj(drive));
     filter.match(obj);
     if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());
     if (total) {

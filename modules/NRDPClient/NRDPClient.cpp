@@ -19,7 +19,7 @@
 
 #include "NRDPClient.h"
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <net/http/client.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -34,7 +34,7 @@
  * @return
  */
 NRDPClient::NRDPClient()
-    : simple_plugin(), client_("nrdp", boost::make_shared<nrdp_client::nrdp_client_handler>(), boost::make_shared<nrdp_handler::options_reader_impl>()) {}
+    : simple_plugin(), client_("nrdp", std::make_shared<nrdp_client::nrdp_client_handler>(), std::make_shared<nrdp_handler::options_reader_impl>()) {}
 
 bool NRDPClient::loadModuleEx(const std::string &alias, NSCAPI::moduleLoadMode) {
   try {

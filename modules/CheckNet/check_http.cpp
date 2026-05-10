@@ -21,7 +21,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/chrono.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/program_options.hpp>
 #include <net/http/client.hpp>
 #include <net/http/http_packet.hpp>
@@ -200,7 +200,7 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
   if (!filter_helper.build_filter(f)) return;
 
   for (const auto &u : urls) {
-    auto obj = boost::make_shared<filter_obj>();
+    auto obj = std::make_shared<filter_obj>();
     run_http_check(u, timeout_ms, headers, expected_body, user_agent, tls_version, verify_mode, ca_file, *obj);
     f.match(obj);
   }

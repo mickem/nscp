@@ -74,7 +74,7 @@ node_type state_is_perfect(const value_type, const evaluation_context &raw_conte
   return factory::create_false();
 }
 
-node_type parse_state(boost::shared_ptr<filter_obj> /*object*/, const evaluation_context &context, const node_type &subject) {
+node_type parse_state(std::shared_ptr<filter_obj> /*object*/, const evaluation_context &context, const node_type &subject) {
   try {
     return factory::create_int(filter_obj::parse_state(subject->get_string_value(context)));
   } catch (const std::exception &e) {
@@ -82,7 +82,7 @@ node_type parse_state(boost::shared_ptr<filter_obj> /*object*/, const evaluation
     return factory::create_false();
   }
 }
-node_type parse_start_type(boost::shared_ptr<filter_obj> /*object*/, const evaluation_context &context, const node_type &subject) {
+node_type parse_start_type(std::shared_ptr<filter_obj> /*object*/, const evaluation_context &context, const node_type &subject) {
   try {
     return factory::create_int(filter_obj::parse_start_type(subject->get_string_value(context)));
   } catch (const std::exception &e) {
@@ -171,14 +171,14 @@ void service_checks::check(const PB::Commands::QueryRequestMessage::Request &req
       for (const win_list_services::service_info &info :
            win_list_services::enum_services(computer, win_list_services::parse_service_type(type), win_list_services::parse_service_state(state), excludes)) {
         if (std::find(excludes.begin(), excludes.end(), info.get_desc()) != excludes.end()) continue;
-        boost::shared_ptr<win_list_services::service_info> record(new win_list_services::service_info(info));
+        std::shared_ptr<win_list_services::service_info> record(new win_list_services::service_info(info));
         filter.match(record);
         if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());
       }
     } else {
       try {
         win_list_services::service_info info = win_list_services::get_service_info(computer, service);
-        boost::shared_ptr<win_list_services::service_info> record(new win_list_services::service_info(info));
+        std::shared_ptr<win_list_services::service_info> record(new win_list_services::service_info(info));
         filter.match(record);
       } catch (const nsclient::nsclient_exception &e) {
         return nscapi::protobuf::functions::set_response_bad(*response, e.reason());

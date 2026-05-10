@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <nscapi/protobuf/settings.hpp>
 #include <nscapi/settings/proxy.hpp>
 
@@ -27,7 +27,7 @@ void report_errors(const T &response, nscapi::core_wrapper *core, const std::str
 }
 
 nscapi::settings_proxy::ptr nscapi::settings_proxy::create(unsigned int plugin_id, core_wrapper *core) {
-  return boost::make_shared<settings_proxy>(plugin_id, core);
+  return std::make_shared<settings_proxy>(plugin_id, core);
 }
 
 void nscapi::settings_proxy::register_path(std::string path, std::string title, std::string description, const bool advanced, const bool sample) {

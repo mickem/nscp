@@ -23,10 +23,10 @@
 #include "script_provider.hpp"
 
 class extscr_cli {
-  boost::shared_ptr<script_provider> provider_;
+  std::shared_ptr<script_provider> provider_;
 
  public:
-  extscr_cli(boost::shared_ptr<script_provider> provider_);
+  extscr_cli(std::shared_ptr<script_provider> provider_);
 
   bool run(std::string cmd, const PB::Commands::ExecuteRequestMessage_Request &request, PB::Commands::ExecuteResponseMessage_Response *response);
   void add_script(const PB::Commands::ExecuteRequestMessage_Request &request, PB::Commands::ExecuteResponseMessage_Response *response);

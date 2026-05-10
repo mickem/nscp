@@ -110,7 +110,7 @@ struct check_mk_client_handler : public client::handler_interface {
 
   void send(PB::Commands::QueryResponseMessage::Response *payload, connection_data &con) {
     try {
-      socket_helpers::client::client<check_mk::client::protocol> client(con, boost::make_shared<client_handler>());
+      socket_helpers::client::client<check_mk::client::protocol> client(con, std::make_shared<client_handler>());
       NSC_DEBUG_MSG("Connecting to: " + con.to_string());
       if (con.ssl.enabled) {
 #ifndef USE_SSL

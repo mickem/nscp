@@ -163,7 +163,7 @@ struct options_reader_interface : nscapi::settings_objects::object_factory_inter
   virtual void process(boost::program_options::options_description &desc, destination_container &source, destination_container &destination) = 0;
   void add_ssl_options(boost::program_options::options_description &desc, client::destination_container &data);
 };
-typedef boost::shared_ptr<options_reader_interface> options_reader_type;
+typedef std::shared_ptr<options_reader_interface> options_reader_type;
 
 struct handler_interface {
   virtual ~handler_interface() = default;
@@ -175,7 +175,7 @@ struct handler_interface {
                     PB::Commands::ExecuteResponseMessage &response_message) = 0;
   virtual bool metrics(client::destination_container sender, client::destination_container target, const PB::Metrics::MetricsMessage &request_message) = 0;
 };
-typedef boost::shared_ptr<handler_interface> handler_type;
+typedef std::shared_ptr<handler_interface> handler_type;
 
 struct configuration : public boost::noncopyable {
   typedef boost::unordered_map<std::string, command_container> command_type;
@@ -207,13 +207,13 @@ struct configuration : public boost::noncopyable {
   destination_container get_target(const std::string &name) const;
   destination_container get_sender() const;
 
-  void add_target(const boost::shared_ptr<nscapi::settings_proxy> &proxy, const std::string &key, const std::string &value) { targets.add(proxy, key, value); }
+  void add_target(const std::shared_ptr<nscapi::settings_proxy> &proxy, const std::string &key, const std::string &value) { targets.add(proxy, key, value); }
   std::string add_command(const std::string &name, const std::string &args);
   void clear() {
     targets.clear();
     commands.clear();
   }
-  void finalize(const boost::shared_ptr<nscapi::settings_proxy> &settings);
+  void finalize(const std::shared_ptr<nscapi::settings_proxy> &settings);
 
   void do_query(const PB::Commands::QueryRequestMessage &request, PB::Commands::QueryResponseMessage &response);
   bool do_exec(const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response, const std::string &default_command_arg);

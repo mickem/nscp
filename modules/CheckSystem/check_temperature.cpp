@@ -169,7 +169,7 @@ namespace check {
 
 typedef thermal_zone filter_obj;
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler();
 };
@@ -195,7 +195,7 @@ void check_temperature(const PB::Commands::QueryRequestMessage::Request &request
 
   if (!filter_helper.build_filter(filter)) return;
   for (const thermal_zone &z : data) {
-    boost::shared_ptr<filter_obj> record(new filter_obj(z));
+    std::shared_ptr<filter_obj> record(new filter_obj(z));
     filter.match(record);
   }
   filter_helper.post_process(filter);

@@ -34,7 +34,7 @@
 
 typedef parsers::where::realtime_filter_helper<check_cpu_filter::runtime_data, filters::cpu::filter_config_object> cpu_filter_helper;
 
-void pdh_thread::ensure_default(boost::shared_ptr<nscapi::settings_proxy> proxy) {
+void pdh_thread::ensure_default(std::shared_ptr<nscapi::settings_proxy> proxy) {
   cpu_filters_.ensure_default(proxy);
   mem_filters_.ensure_default(proxy);
   proc_filters_.ensure_default(proxy);
@@ -203,25 +203,25 @@ void pdh_thread::thread_proc() {
     NSC_LOG_MESSAGE("You are using legacy filters in check system, please migrate to new filters...");
   }
   cpu_filter_helper cpu_helper(core_, plugin_id);
-  for (const boost::shared_ptr<filters::legacy::filter_config_object> &object : legacy_filters_.get_object_list()) {
+  for (const std::shared_ptr<filters::legacy::filter_config_object> &object : legacy_filters_.get_object_list()) {
     if (object->check == "memory") {
-      memory_helper.add_obj(boost::make_shared<filters::mem::filter_config_object>(*object));
+      memory_helper.add_obj(std::make_shared<filters::mem::filter_config_object>(*object));
     } else {
       try {
         check_cpu_filter::runtime_data data;
         for (const std::string &d : object->data) {
           data.add(d);
         }
-        cpu_helper.add_item(boost::make_shared<filters::cpu::filter_config_object>(*object), data, "system.cpu");
+        cpu_helper.add_item(std::make_shared<filters::cpu::filter_config_object>(*object), data, "system.cpu");
       } catch (const std::exception &e) {
         NSC_LOG_ERROR_EXR("Skipping legacy CPU filter '" + object->get_alias() + "' (invalid time spec): ", e);
       }
     }
   }
-  for (const boost::shared_ptr<filters::mem::filter_config_object> &object : mem_filters_.get_object_list()) {
+  for (const std::shared_ptr<filters::mem::filter_config_object> &object : mem_filters_.get_object_list()) {
     memory_helper.add_obj(object);
   }
-  for (const boost::shared_ptr<filters::cpu::filter_config_object> &object : cpu_filters_.get_object_list()) {
+  for (const std::shared_ptr<filters::cpu::filter_config_object> &object : cpu_filters_.get_object_list()) {
     try {
       check_cpu_filter::runtime_data data;
       for (const std::string &d : object->data) {
@@ -232,7 +232,7 @@ void pdh_thread::thread_proc() {
       NSC_LOG_ERROR_EXR("Skipping CPU filter '" + object->get_alias() + "' (invalid time spec): ", e);
     }
   }
-  for (const boost::shared_ptr<filters::proc::filter_config_object> &object : proc_filters_.get_object_list()) {
+  for (const std::shared_ptr<filters::proc::filter_config_object> &object : proc_filters_.get_object_list()) {
     process_helper.add_obj(object);
   }
 
@@ -439,7 +439,7 @@ void pdh_thread::thread_proc() {
   }
 }
 
-void pdh_thread::add_samples(boost::shared_ptr<nscapi::settings_proxy> settings) {
+void pdh_thread::add_samples(std::shared_ptr<nscapi::settings_proxy> settings) {
   mem_filters_.add_samples(settings);
   cpu_filters_.add_samples(settings);
   proc_filters_.add_samples(settings);
@@ -596,7 +596,7 @@ pdh_thread::metrics_hash pdh_thread::get_metrics() {
 
 bool pdh_thread::start() {
   stop_event_ = CreateEvent(nullptr, TRUE, FALSE, _T("EventLogShutdown"));
-  thread_ = boost::make_shared<boost::thread>([this]() { this->thread_proc(); });
+  thread_ = std::make_shared<boost::thread>([this]() { this->thread_proc(); });
   return true;
 }
 bool pdh_thread::stop() const {
@@ -616,7 +616,7 @@ void pdh_thread::add_counter(const PDH::pdh_object &counter) {
   configs_.push_back(counter);
 }
 
-void pdh_thread::add_realtime_mem_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
+void pdh_thread::add_realtime_mem_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
   try {
     mem_filters_.add(proxy, key, query);
   } catch (const std::exception &e) {
@@ -625,7 +625,7 @@ void pdh_thread::add_realtime_mem_filter(boost::shared_ptr<nscapi::settings_prox
     NSC_LOG_ERROR_EX("Failed to add command: " + utf8::cvt<std::string>(key));
   }
 }
-void pdh_thread::add_realtime_cpu_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
+void pdh_thread::add_realtime_cpu_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
   try {
     cpu_filters_.add(proxy, key, query);
   } catch (const std::exception &e) {
@@ -634,7 +634,7 @@ void pdh_thread::add_realtime_cpu_filter(boost::shared_ptr<nscapi::settings_prox
     NSC_LOG_ERROR_EX("Failed to add command: " + utf8::cvt<std::string>(key));
   }
 }
-void pdh_thread::add_realtime_proc_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
+void pdh_thread::add_realtime_proc_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
   try {
     proc_filters_.add(proxy, key, query);
   } catch (const std::exception &e) {
@@ -643,7 +643,7 @@ void pdh_thread::add_realtime_proc_filter(boost::shared_ptr<nscapi::settings_pro
     NSC_LOG_ERROR_EX("Failed to add command: " + utf8::cvt<std::string>(key));
   }
 }
-void pdh_thread::add_realtime_legacy_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
+void pdh_thread::add_realtime_legacy_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
   try {
     legacy_filters_.add(proxy, key, query);
   } catch (const std::exception &e) {

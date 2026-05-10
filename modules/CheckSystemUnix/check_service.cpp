@@ -92,11 +92,11 @@ std::string exec_command(const std::vector<std::string> &argv) {
 }
 
 // Parse state helper functions for the filter
-node_type parse_state(boost::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
+node_type parse_state(std::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
   return factory::create_int(filter_obj::parse_state(subject->get_string_value(context)));
 }
 
-node_type parse_start_type(boost::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
+node_type parse_start_type(std::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
   return factory::create_int(filter_obj::parse_start_type(subject->get_string_value(context)));
 }
 
@@ -303,7 +303,7 @@ void check_service(const PB::Commands::QueryRequestMessage::Request &request, PB
         // Check excludes
         if (std::find(excludes.begin(), excludes.end(), info.name) != excludes.end()) continue;
 
-        boost::shared_ptr<check_svc_filter::filter_obj> record(new check_svc_filter::filter_obj(info));
+        std::shared_ptr<check_svc_filter::filter_obj> record(new check_svc_filter::filter_obj(info));
         filter.match(record);
         if (filter.has_errors()) {
           return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed (see log for details)");
@@ -324,7 +324,7 @@ void check_service(const PB::Commands::QueryRequestMessage::Request &request, PB
         info.name = info.name.substr(0, info.name.length() - 8);
       }
 
-      boost::shared_ptr<check_svc_filter::filter_obj> record(new check_svc_filter::filter_obj(info));
+      std::shared_ptr<check_svc_filter::filter_obj> record(new check_svc_filter::filter_obj(info));
       filter.match(record);
       if (filter.has_errors()) {
         return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed (see log for details)");

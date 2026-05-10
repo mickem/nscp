@@ -1,7 +1,7 @@
 #pragma once
 
 #include <boost/filesystem/path.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <boost/thread/mutex.hpp>
 #include <map>
 #include <nsclient/logger/logger.hpp>
@@ -38,7 +38,7 @@ class path_manager {
   std::string expand_path_impl(std::string file, int depth);
   logging::log_client_accessor get_logger() { return log_instance_; }
 };
-typedef boost::shared_ptr<path_manager> path_instance;
+typedef std::shared_ptr<path_manager> path_instance;
 }  // namespace core
 
 }  // namespace nsclient

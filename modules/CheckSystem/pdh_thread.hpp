@@ -55,7 +55,7 @@ class pdh_thread {
   typedef boost::unordered_map<std::string, PDH::pdh_instance> lookup_type;
   typedef std::list<std::string> error_list;
 
-  boost::shared_ptr<boost::thread> thread_;
+  std::shared_ptr<boost::thread> thread_;
   boost::shared_mutex mutex_;
   HANDLE stop_event_;
   int plugin_id;
@@ -113,15 +113,15 @@ class pdh_thread {
   bool stop() const;
   void set_path(const std::string mem_path, const std::string cpu_path, const std::string proc_path, const std::string legacy_path);
 
-  void add_realtime_mem_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
-  void add_realtime_cpu_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
-  void add_realtime_proc_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
-  void add_realtime_legacy_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+  void add_realtime_mem_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+  void add_realtime_cpu_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+  void add_realtime_proc_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+  void add_realtime_legacy_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
 
-  void add_samples(boost::shared_ptr<nscapi::settings_proxy> settings);
+  void add_samples(std::shared_ptr<nscapi::settings_proxy> settings);
 
   std::string to_string() const { return "pdh"; }
-  void ensure_default(boost::shared_ptr<nscapi::settings_proxy> proxy);
+  void ensure_default(std::shared_ptr<nscapi::settings_proxy> proxy);
 
   typedef std::map<std::string, std::shared_ptr<std::atomic<long long>>> count_map;
   typedef std::map<std::string, long long> non_atomic_count_map;

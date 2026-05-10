@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <boost/thread/mutex.hpp>
 #include <list>
 #include <nsclient/logger/logger.hpp>

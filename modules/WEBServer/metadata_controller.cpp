@@ -42,7 +42,7 @@ bool exec_metadata_command(const nscapi::core_wrapper *core, const std::string &
 }
 }  // namespace
 
-metadata_controller::metadata_controller(const int version, boost::shared_ptr<session_manager_interface> session, const nscapi::core_wrapper *core,
+metadata_controller::metadata_controller(const int version, std::shared_ptr<session_manager_interface> session, const nscapi::core_wrapper *core,
                                          unsigned int plugin_id)
     : RegexpController(version == 1 ? "/api/v1/metadata" : "/api/v2/metadata"), session(std::move(session)), core(core), plugin_id(plugin_id) {
   addRoute("GET", "/?$", this, &metadata_controller::get_index);

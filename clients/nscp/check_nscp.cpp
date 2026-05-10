@@ -156,7 +156,7 @@ boost::program_options::options_description add_client_options(client::destinati
 }
 
 typedef nscp_client::nscp_client_handler<stdout_client_handler> nscp_client_handler;
-check_nscp::check_nscp() : client_("nscp", boost::make_shared<nscp_client_handler>(), boost::make_shared<nscp_handler::options_reader_impl>()) {
+check_nscp::check_nscp() : client_("nscp", std::make_shared<nscp_client_handler>(), std::make_shared<nscp_handler::options_reader_impl>()) {
   client_.client_desc = &add_client_options;
   client_.client_pre = &test;
 }

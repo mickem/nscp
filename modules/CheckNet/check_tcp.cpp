@@ -21,7 +21,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/program_options.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
@@ -211,7 +211,7 @@ void check_tcp(const PB::Commands::QueryRequestMessage::Request &request, PB::Co
   if (!filter_helper.build_filter(f)) return;
 
   for (const auto &host : hosts) {
-    auto obj = boost::make_shared<filter_obj>();
+    auto obj = std::make_shared<filter_obj>();
     run_tcp_check(host, port, timeout_ms, send_data, expect, *obj);
     f.match(obj);
   }

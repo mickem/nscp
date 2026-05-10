@@ -8,8 +8,8 @@
 
 namespace json = boost::json;
 
-legacy_command_controller::legacy_command_controller(const boost::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core,
-                                                     unsigned int plugin_id, boost::shared_ptr<client::cli_client> client)
+legacy_command_controller::legacy_command_controller(const std::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core,
+                                                     unsigned int plugin_id, std::shared_ptr<client::cli_client> client)
     : RegexpController(""), session(session), core(core), plugin_id(plugin_id), client(client) {
   addRoute("GET", "/query/([^/]+)/?$", this, &legacy_command_controller::handle_query);
 }

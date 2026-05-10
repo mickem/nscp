@@ -19,8 +19,7 @@
 
 #pragma once
 
-#include <boost/make_shared.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <nscapi/nscapi_core_wrapper.hpp>
 
 namespace nscapi {
@@ -37,9 +36,9 @@ class command_proxy {
     }
   }
 
-  typedef boost::shared_ptr<nscapi::command_proxy> ptr;
+  typedef std::shared_ptr<nscapi::command_proxy> ptr;
 
-  static ptr create(unsigned int plugin_id, nscapi::core_wrapper* core) { return boost::make_shared<nscapi::command_proxy>(plugin_id, core); }
+  static ptr create(unsigned int plugin_id, nscapi::core_wrapper* core) { return std::make_shared<nscapi::command_proxy>(plugin_id, core); }
 
   unsigned int get_plugin_id() const { return plugin_id_; }
 

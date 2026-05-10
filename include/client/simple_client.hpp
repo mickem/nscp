@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <metrics/metrics_store_map.hpp>
 #include <nscapi/log_handler.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
@@ -31,7 +31,7 @@ struct cli_handler : nscapi::log_handler {
   virtual const nscapi::core_wrapper *get_core() const = 0;
 };
 class cli_client {
-  typedef boost::shared_ptr<cli_handler> cli_handler_ptr;
+  typedef std::shared_ptr<cli_handler> cli_handler_ptr;
   cli_handler_ptr handler;
   metrics::metrics_store metrics_store;
 
@@ -40,5 +40,5 @@ class cli_client {
   void handle_command(const std::string &command);
   void push_metrics(const PB::Metrics::MetricsMessage &response);
 };
-typedef boost::shared_ptr<cli_handler> cli_handler_ptr;
+typedef std::shared_ptr<cli_handler> cli_handler_ptr;
 }  // namespace client

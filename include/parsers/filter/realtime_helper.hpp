@@ -22,7 +22,6 @@
 #include <NSCAPI.h>
 
 #include <atomic>
-#include <boost/shared_ptr.hpp>
 #include <map>
 #include <memory>
 #include <nscapi/macros.hpp>
@@ -152,11 +151,11 @@ struct realtime_filter_helper {
     }
   };
 
-  typedef boost::shared_ptr<container> container_type;
+  typedef std::shared_ptr<container> container_type;
 
   std::list<container_type> items;
 
-  bool add_item(const boost::shared_ptr<config_object> object, const runtime_data &source_data, const std::string &event_name) {
+  bool add_item(const std::shared_ptr<config_object> object, const runtime_data &source_data, const std::string &event_name) {
     container_type item(new container(object->get_alias(), event_name, source_data));
     item->set_target(object->filter.target, object->filter.target_id, object->filter.source_id);
     item->timeout_msg = object->filter.timeout_msg;

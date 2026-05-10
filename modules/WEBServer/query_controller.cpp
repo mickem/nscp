@@ -17,7 +17,7 @@
 
 namespace json = boost::json;
 
-query_controller::query_controller(const int version, const boost::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core,
+query_controller::query_controller(const int version, const std::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core,
                                    unsigned int plugin_id)
     : RegexpController(version == 1 ? "/api/v1/queries" : "/api/v2/queries"), session(session), core(core), plugin_id(plugin_id) {
   addRoute("GET", "/?$", this, &query_controller::get_queries);

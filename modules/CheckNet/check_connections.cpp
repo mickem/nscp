@@ -20,7 +20,7 @@
 #include "check_connections.h"
 
 #include <boost/algorithm/string.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/program_options.hpp>
 #include <fstream>
 #include <map>
@@ -114,7 +114,7 @@ void count_proc_net(const std::string &path, const std::string &proto, bool is_t
   }
 }
 
-bool collect_connections_linux(std::vector<boost::shared_ptr<filter_obj> > &out, std::string &error) {
+bool collect_connections_linux(std::vector<std::shared_ptr<filter_obj> > &out, std::string &error) {
   std::map<std::string, long long> per_state;
   long long tcp4 = 0, tcp6 = 0, udp4 = 0, udp6 = 0;
 
@@ -130,7 +130,7 @@ bool collect_connections_linux(std::vector<boost::shared_ptr<filter_obj> > &out,
 
   // Per-protocol bucket.
   auto add_proto = [&](const std::string &proto, const std::string &family, long long n) {
-    auto o = boost::make_shared<filter_obj>();
+    auto o = std::make_shared<filter_obj>();
     o->protocol = proto;
     o->family = family;
     o->state = "all";
@@ -145,7 +145,7 @@ bool collect_connections_linux(std::vector<boost::shared_ptr<filter_obj> > &out,
   // Per-state bucket (TCP only).
   for (const auto &kv : per_state) {
     if (kv.first.rfind("UDP_", 0) == 0) continue;
-    auto o = boost::make_shared<filter_obj>();
+    auto o = std::make_shared<filter_obj>();
     o->protocol = "tcp";
     o->family = "any";
     o->state = kv.first;
@@ -154,7 +154,7 @@ bool collect_connections_linux(std::vector<boost::shared_ptr<filter_obj> > &out,
   }
 
   // Total bucket.
-  auto total = boost::make_shared<filter_obj>();
+  auto total = std::make_shared<filter_obj>();
   total->protocol = "total";
   total->family = "any";
   total->state = "all";
@@ -240,7 +240,7 @@ const char *win_tcp_state(DWORD s) {
   }
 }
 
-bool collect_connections_windows(std::vector<boost::shared_ptr<filter_obj> > &out, std::string &error) {
+bool collect_connections_windows(std::vector<std::shared_ptr<filter_obj> > &out, std::string &error) {
   std::map<std::string, long long> per_state;
   long long tcp4 = 0, tcp6 = 0, udp4 = 0, udp6 = 0;
   auto &api = win::load_iphlpapi();
@@ -301,7 +301,7 @@ bool collect_connections_windows(std::vector<boost::shared_ptr<filter_obj> > &ou
   }
 
   auto add_proto = [&](const std::string &proto, const std::string &family, long long n) {
-    auto o = boost::make_shared<filter_obj>();
+    auto o = std::make_shared<filter_obj>();
     o->protocol = proto;
     o->family = family;
     o->state = "all";
@@ -314,7 +314,7 @@ bool collect_connections_windows(std::vector<boost::shared_ptr<filter_obj> > &ou
   add_proto("udp6", "ipv6", udp6);
 
   for (const auto &kv : per_state) {
-    auto o = boost::make_shared<filter_obj>();
+    auto o = std::make_shared<filter_obj>();
     o->protocol = "tcp";
     o->family = "any";
     o->state = kv.first;
@@ -322,7 +322,7 @@ bool collect_connections_windows(std::vector<boost::shared_ptr<filter_obj> > &ou
     out.push_back(o);
   }
 
-  auto total = boost::make_shared<filter_obj>();
+  auto total = std::make_shared<filter_obj>();
   total->protocol = "total";
   total->family = "any";
   total->state = "all";
@@ -345,7 +345,7 @@ bool collect_connections_windows(std::vector<boost::shared_ptr<filter_obj> > &ou
 
 #endif  // WIN32
 
-bool collect_connections(std::vector<boost::shared_ptr<filter_obj> > &out, std::string &error) {
+bool collect_connections(std::vector<std::shared_ptr<filter_obj> > &out, std::string &error) {
 #if defined(__linux__)
   return collect_connections_linux(out, error);
 #elif defined(WIN32)
@@ -375,7 +375,7 @@ void check_connections(const PB::Commands::QueryRequestMessage::Request &request
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(f)) return;
 
-  std::vector<boost::shared_ptr<filter_obj> > items;
+  std::vector<std::shared_ptr<filter_obj> > items;
   std::string err;
   if (!collect_connections(items, err)) {
     return nscapi::protobuf::functions::set_response_bad(*response, err);

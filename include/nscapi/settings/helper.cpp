@@ -40,9 +40,9 @@ struct store_bin_functor {
   virtual ~store_bin_functor() = default;
 };
 
-typedef boost::shared_ptr<store_functor> store_ptr_t;
-typedef boost::shared_ptr<post_processor> post_ptr;
-typedef boost::shared_ptr<store_bin_functor> bin_ptr;
+typedef std::shared_ptr<store_functor> store_ptr_t;
+typedef std::shared_ptr<post_processor> post_ptr;
+typedef std::shared_ptr<store_bin_functor> bin_ptr;
 
 //////////////////////////////////////////////////////////////////////////
 //
@@ -51,7 +51,7 @@ typedef boost::shared_ptr<store_bin_functor> bin_ptr;
 
 class typed_key : public key_interface {
   typedef store_ptr_t store_ptr;
-  typedef boost::shared_ptr<post_processor> post_ptr;
+  typedef std::shared_ptr<post_processor> post_ptr;
 
   bool has_default_;
   std::string default_value_;
@@ -390,21 +390,21 @@ struct key_info {
 
 settings_paths_easy_init &settings_paths_easy_init::operator()(key_type value, std::string title, std::string description, std::string subkeytitle,
                                                                std::string subkeydescription) {
-  const boost::shared_ptr<path_info> d(new path_info(path_, std::move(value), description_container(key_type_path, std::move(title), std::move(description)),
+  const std::shared_ptr<path_info> d(new path_info(path_, std::move(value), description_container(key_type_path, std::move(title), std::move(description)),
                                                      description_container(key_type_path, std::move(subkeytitle), std::move(subkeydescription))));
   add(d);
   return *this;
 }
 
 settings_paths_easy_init &settings_paths_easy_init::operator()(std::string title, std::string description) {
-  const boost::shared_ptr<path_info> d(new path_info(path_, description_container(key_type_path, std::move(title), std::move(description))));
+  const std::shared_ptr<path_info> d(new path_info(path_, description_container(key_type_path, std::move(title), std::move(description))));
   add(d);
   return *this;
 }
 
 settings_paths_easy_init &settings_paths_easy_init::operator()(std::string path, std::string title, std::string description) {
   if (!path_.empty()) path = path_ + "/" + path;
-  const boost::shared_ptr<path_info> d(new path_info(path, description_container(key_type_path, std::move(title), std::move(description))));
+  const std::shared_ptr<path_info> d(new path_info(path, description_container(key_type_path, std::move(title), std::move(description))));
   add(d);
   return *this;
 }
@@ -412,7 +412,7 @@ settings_paths_easy_init &settings_paths_easy_init::operator()(std::string path,
 settings_paths_easy_init &settings_paths_easy_init::operator()(std::string path, key_type value, std::string title, std::string description,
                                                                std::string subkeytitle, std::string subkeydescription) {
   if (!path_.empty()) path = path_ + "/" + path;
-  const boost::shared_ptr<path_info> d(new path_info(path, std::move(value), description_container(key_type_path, std::move(title), std::move(description)),
+  const std::shared_ptr<path_info> d(new path_info(path, std::move(value), description_container(key_type_path, std::move(title), std::move(description)),
                                                      description_container(key_type_path, std::move(subkeytitle), std::move(subkeydescription))));
   add(d);
   return *this;
@@ -420,29 +420,29 @@ settings_paths_easy_init &settings_paths_easy_init::operator()(std::string path,
 
 settings_paths_easy_init &settings_paths_easy_init::operator()(std::string path, key_type value, std::string title, std::string description) {
   if (!path_.empty()) path = path_ + "/" + path;
-  const boost::shared_ptr<path_info> d(new path_info(path, std::move(value), description_container(key_type_path, std::move(title), std::move(description))));
+  const std::shared_ptr<path_info> d(new path_info(path, std::move(value), description_container(key_type_path, std::move(title), std::move(description))));
   add(d);
   return *this;
 }
 
-void settings_paths_easy_init::add(const boost::shared_ptr<path_info> &d) const {
+void settings_paths_easy_init::add(const std::shared_ptr<path_info> &d) const {
   if (is_sample) d->is_sample = true;
   owner->add(d);
 }
 
 settings_tpl_easy_init &settings_tpl_easy_init::operator()(std::string path, std::string icon, std::string title, std::string desc, std::string fields) {
   if (!path_.empty()) path = path_ + "/" + path;
-  const boost::shared_ptr<tpl_info> d(
+  const std::shared_ptr<tpl_info> d(
       new tpl_info(path, description_container(key_type_template, std::move(title), std::move(desc), false, std::move(icon)), std::move(fields)));
   add(d);
   return *this;
 }
 
-void settings_tpl_easy_init::add(const boost::shared_ptr<tpl_info> &d) const { owner->add(d); }
+void settings_tpl_easy_init::add(const std::shared_ptr<tpl_info> &d) const { owner->add(d); }
 
 settings_keys_easy_init &settings_keys_easy_init::add_string(std::string key_name, key_type value, std::string title, std::string description,
                                                              const bool advanced /*= false*/) {
-  const boost::shared_ptr<key_info> d(
+  const std::shared_ptr<key_info> d(
       new key_info(path_, std::move(key_name), std::move(value), description_container(key_type_string, std::move(title), std::move(description), advanced)));
   if (!parent_.empty()) d->set_parent(parent_);
   add(d);
@@ -451,7 +451,7 @@ settings_keys_easy_init &settings_keys_easy_init::add_string(std::string key_nam
 
 settings_keys_easy_init &settings_keys_easy_init::add_bool(std::string key_name, key_type value, std::string title, std::string description,
                                                            const bool advanced /*= false*/) {
-  const boost::shared_ptr<key_info> d(
+  const std::shared_ptr<key_info> d(
       new key_info(path_, std::move(key_name), std::move(value), description_container(key_type_bool, std::move(title), std::move(description), advanced)));
   if (!parent_.empty()) d->set_parent(parent_);
   add(d);
@@ -460,7 +460,7 @@ settings_keys_easy_init &settings_keys_easy_init::add_bool(std::string key_name,
 
 settings_keys_easy_init &settings_keys_easy_init::add_file(std::string key_name, key_type value, std::string title, std::string description,
                                                            const bool advanced /*= false*/) {
-  const boost::shared_ptr<key_info> d(
+  const std::shared_ptr<key_info> d(
       new key_info(path_, std::move(key_name), std::move(value), description_container(key_type_file, std::move(title), std::move(description), advanced)));
   if (!parent_.empty()) d->set_parent(parent_);
   add(d);
@@ -469,7 +469,7 @@ settings_keys_easy_init &settings_keys_easy_init::add_file(std::string key_name,
 
 settings_keys_easy_init &settings_keys_easy_init::add_int(std::string key_name, key_type value, std::string title, std::string description,
                                                           const bool advanced /*= false*/) {
-  const boost::shared_ptr<key_info> d(
+  const std::shared_ptr<key_info> d(
       new key_info(path_, std::move(key_name), std::move(value), description_container(key_type_int, std::move(title), std::move(description), advanced)));
   if (!parent_.empty()) d->set_parent(parent_);
   add(d);
@@ -478,7 +478,7 @@ settings_keys_easy_init &settings_keys_easy_init::add_int(std::string key_name, 
 
 settings_keys_easy_init &settings_keys_easy_init::add_password(std::string key_name, key_type value, std::string title, std::string description,
                                                                const bool advanced /*= false*/) {
-  const boost::shared_ptr<key_info> d(
+  const std::shared_ptr<key_info> d(
       new key_info(path_, std::move(key_name), std::move(value), description_container(key_type_password, std::move(title), std::move(description), advanced)));
   d->sensitive = true;
   if (!parent_.empty()) d->set_parent(parent_);
@@ -486,7 +486,7 @@ settings_keys_easy_init &settings_keys_easy_init::add_password(std::string key_n
   return *this;
 }
 
-void settings_keys_easy_init::add(const boost::shared_ptr<key_info> &d) const {
+void settings_keys_easy_init::add(const std::shared_ptr<key_info> &d) const {
   if (is_sample) d->is_sample = true;
   owner->add(d);
 }

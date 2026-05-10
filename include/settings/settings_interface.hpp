@@ -20,7 +20,7 @@
 #pragma once
 
 #include <boost/optional.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <list>
 #include <settings/settings_value.hpp>
 #include <string>
@@ -56,8 +56,8 @@ class settings_exception : public std::exception {
 };
 
 class settings_interface;
-typedef boost::shared_ptr<settings_interface> instance_ptr;
-typedef boost::shared_ptr<settings_interface> instance_raw_ptr;
+typedef std::shared_ptr<settings_interface> instance_ptr;
+typedef std::shared_ptr<settings_interface> instance_raw_ptr;
 
 typedef std::list<std::string> error_list;
 
@@ -225,7 +225,7 @@ class settings_interface {
     return tmp == "true" || tmp == "1";
   }
 
-  virtual std::list<boost::shared_ptr<settings_interface> > get_children() = 0;
+  virtual std::list<std::shared_ptr<settings_interface> > get_children() = 0;
 
   virtual void house_keeping() = 0;
 

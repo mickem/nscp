@@ -148,7 +148,7 @@ bool LUAScript::commandLineExec(const int target_mode, const PB::Commands::Execu
     }
 
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
-    auto provider = boost::make_shared<script_provider>(get_id(), get_core(), get_core()->expand_path("${base-path}"));
+    auto provider = std::make_shared<script_provider>(get_id(), get_core(), get_core()->expand_path("${base-path}"));
 
     extscr_cli client(provider);
     if (client.run(command, request, response)) {

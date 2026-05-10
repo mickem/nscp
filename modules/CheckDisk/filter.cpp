@@ -20,7 +20,7 @@
 #include "filter.hpp"
 
 #include <boost/assign.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <str/xtos.hpp>
 
 #include "error/error.hpp"
@@ -48,7 +48,7 @@ int convert_new_type(const evaluation_context &context, std::string str) {
   }
 }
 
-node_type fun_convert_type(boost::shared_ptr<file_filter::filter_obj> object, evaluation_context context, const node_type &subject) {
+node_type fun_convert_type(std::shared_ptr<file_filter::filter_obj> object, evaluation_context context, const node_type &subject) {
   try {
     const std::string key = subject->get_string_value(context);
     if (key == "file") return factory::create_int(file_type_file);
@@ -104,8 +104,8 @@ file_filter::filter_obj_handler::filter_obj_handler() {
 //////////////////////////////////////////////////////////////////////////
 
 #ifdef WIN32
-boost::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::get(unsigned long long now, const WIN32_FIND_DATA &info, boost::filesystem::path path) {
-  return boost::make_shared<filter_obj>(
+std::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::get(unsigned long long now, const WIN32_FIND_DATA &info, boost::filesystem::path path) {
+  return std::make_shared<filter_obj>(
       path, utf8::cvt<std::string>(info.cFileName), now,
       (info.ftCreationTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) +
           static_cast<unsigned long long>(info.ftCreationTime.dwLowDateTime),
@@ -116,8 +116,8 @@ boost::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::get(unsigned
       (info.nFileSizeHigh * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(info.nFileSizeLow), info.dwFileAttributes);
 };
 #endif
-boost::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::get_total(unsigned long long now) {
-  return boost::make_shared<filter_obj>("", "total", now, now, now, now, 0);
+std::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::get_total(unsigned long long now) {
+  return std::make_shared<filter_obj>("", "total", now, now, now, now, 0);
 }
 
 std::string file_filter::filter_obj::get_version(evaluation_context context) {
@@ -182,6 +182,6 @@ unsigned long file_filter::filter_obj::get_line_count() {
   return *cached_count;
 }
 
-void file_filter::filter_obj::add(const boost::shared_ptr<filter_obj> &info) { ullSize += info->ullSize; }
+void file_filter::filter_obj::add(const std::shared_ptr<filter_obj> &info) { ullSize += info->ullSize; }
 
 //////////////////////////////////////////////////////////////////////////

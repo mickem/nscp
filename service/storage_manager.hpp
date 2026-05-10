@@ -59,7 +59,7 @@ class storage_manager {
   std::string get_filename() const;
   std::string get_tmp_name() const;
 };
-typedef boost::shared_ptr<storage_manager> storage_manager_instance;
+typedef std::shared_ptr<storage_manager> storage_manager_instance;
 
 }  // namespace core
 }  // namespace nsclient

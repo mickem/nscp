@@ -21,7 +21,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/optional.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/helpers.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
@@ -83,9 +83,9 @@ struct filter_obj {
   }
 
 #ifdef WIN32
-  static boost::shared_ptr<filter_obj> get(unsigned long long now, const WIN32_FIND_DATA& info, boost::filesystem::path path);
+  static std::shared_ptr<filter_obj> get(unsigned long long now, const WIN32_FIND_DATA& info, boost::filesystem::path path);
 #endif
-  static boost::shared_ptr<filter_obj> get_total(unsigned long long now);
+  static std::shared_ptr<filter_obj> get_total(unsigned long long now);
   std::string get_filename() { return filename; }
   std::string get_path() const { return path.string(); }
   std::string show() const { return path.string() + "\\" + filename; }
@@ -131,7 +131,7 @@ struct filter_obj {
   std::string get_version(parsers::where::evaluation_context context);
   unsigned long get_line_count();
 
-  void add(const boost::shared_ptr<filter_obj>& info);
+  void add(const std::shared_ptr<filter_obj>& info);
   void make_total() { is_total_ = true; }
   bool is_total() const { return is_total_; }
 
@@ -148,7 +148,7 @@ struct filter_obj {
   DWORD attributes;
 };
 
-typedef boost::shared_ptr<filter_obj> filter_obj_ptr;
+typedef std::shared_ptr<filter_obj> filter_obj_ptr;
 
 typedef parsers::where::filter_handler_impl<filter_obj_ptr> native_context;
 struct filter_obj_handler : native_context {

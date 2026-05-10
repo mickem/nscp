@@ -1,6 +1,6 @@
 #ifndef NSCP_CHECK_PAGEFILE_H
 #define NSCP_CHECK_PAGEFILE_H
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
@@ -36,7 +36,7 @@ struct filter_obj {
   std::string get_free_human() const { return str::format::format_byte_units(get_free()); }
 };
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler();
 };
@@ -44,7 +44,7 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
 }  // namespace check_page_filter
 
-void check_pagefile(boost::shared_ptr<pdh_thread> collector, const PB::Commands::QueryRequestMessage::Request &request,
+void check_pagefile(std::shared_ptr<pdh_thread> collector, const PB::Commands::QueryRequestMessage::Request &request,
                     PB::Commands::QueryResponseMessage::Response *response);
 
 }  // namespace check_page

@@ -11,7 +11,7 @@
 
 namespace json = boost::json;
 
-settings_controller::settings_controller(const int version, boost::shared_ptr<session_manager_interface> session, const nscapi::core_wrapper *core,
+settings_controller::settings_controller(const int version, std::shared_ptr<session_manager_interface> session, const nscapi::core_wrapper *core,
                                          unsigned int plugin_id)
     : RegexpController(version == 1 ? "/api/v1/settings" : "/api/v2/settings"), session(std::move(session)), core(core), plugin_id(plugin_id) {
   addRoute("GET", "/descriptions(.*)$", this, &settings_controller::get_desc);

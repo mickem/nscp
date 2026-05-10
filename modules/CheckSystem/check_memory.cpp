@@ -58,7 +58,7 @@ struct filter_obj {
   std::string get_free_human() const { return str::format::format_byte_units(get_free()); }
 };
 
-parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+parsers::where::node_type calculate_free(std::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
   parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
   double number = value.get<1>();
   std::string unit = value.get<2>();
@@ -73,7 +73,7 @@ parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, p
 
 long long get_zero() { return 0; }
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler() {
     static const parsers::where::value_type type_custom_used = parsers::where::type_custom_int_1;
@@ -151,7 +151,7 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
       used = mem_data.virt.total - mem_data.virt.avail;
       total = mem_data.virt.total;
     }
-    boost::shared_ptr<check_mem_filter::filter_obj> record(new check_mem_filter::filter_obj(type, used, total));
+    std::shared_ptr<check_mem_filter::filter_obj> record(new check_mem_filter::filter_obj(type, used, total));
     ret.append(filter.match(record));
   }
   return ret;
@@ -159,7 +159,7 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
 
 helper::helper(nscapi::core_wrapper *core, int plugin_id) : memory_helper(new mem_filter_helper_wrapper(core, plugin_id)) {}
 
-void helper::add_obj(boost::shared_ptr<filters::mem::filter_config_object> object) {
+void helper::add_obj(std::shared_ptr<filters::mem::filter_config_object> object) {
   runtime_data data;
   for (const std::string &d : object->data) {
     data.add(d);
@@ -230,7 +230,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
     } else {
       return nscapi::protobuf::functions::set_response_bad(*response, "Invalid type: " + type);
     }
-    boost::shared_ptr<check_mem_filter::filter_obj> record(new check_mem_filter::filter_obj(type, used, total));
+    std::shared_ptr<check_mem_filter::filter_obj> record(new check_mem_filter::filter_obj(type, used, total));
     filter.match(record);
   }
 

@@ -71,7 +71,7 @@ struct filter_obj {
   std::string get_time() const { return time; }
 };
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler();
 };
@@ -80,10 +80,10 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
 struct check {
   counter_config_handler counters_;
-  void check_pdh(boost::shared_ptr<pdh_thread> &collector, const PB::Commands::QueryRequestMessage::Request &request,
+  void check_pdh(std::shared_ptr<pdh_thread> &collector, const PB::Commands::QueryRequestMessage::Request &request,
                  PB::Commands::QueryResponseMessage::Response *response);
-  void add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
-  void add_rrd_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+  void add_counter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+  void add_rrd_counter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
   void clear();
 };
 }  // namespace check_pdh

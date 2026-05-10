@@ -38,7 +38,7 @@ namespace pf = nscapi::protobuf::functions;
 namespace npo = nscapi::program_options;
 namespace json = boost::json;
 
-extscr_cli::extscr_cli(const boost::shared_ptr<script_provider_interface> &provider) : provider_(provider) {}
+extscr_cli::extscr_cli(const std::shared_ptr<script_provider_interface> &provider) : provider_(provider) {}
 
 bool extscr_cli::run(std::string cmd, const PB::Commands::ExecuteRequestMessage_Request &request, PB::Commands::ExecuteResponseMessage_Response *response) {
   if (cmd == "add")

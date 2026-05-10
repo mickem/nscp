@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <list>
 #include <str/format.hpp>
 #include <str/xtos.hpp>
@@ -302,7 +302,7 @@ struct process_info {
     if (user > 0) user_time = user_time_raw * 100ull / user;
     if (total > 0) total_time = (kernel_time_raw + user_time_raw) * 100ull / total;
   }
-  static boost::shared_ptr<process_info> get_total();
+  static std::shared_ptr<process_info> get_total();
 
   std::string to_string() const { return exe.get(); }
 };

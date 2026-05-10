@@ -51,7 +51,7 @@ struct filter_obj {
   std::string get_core_id() const { return boost::replace_all_copy(core, " ", "_"); }
   long long get_core_i() const { return value.core; }
 };
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 
 struct filter_obj_handler : public native_context {
   filter_obj_handler();
@@ -83,7 +83,7 @@ struct filter_obj {
   std::string get_free_human() const { return str::format::format_byte_units(get_free()); }
 };
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler();
 };
@@ -93,7 +93,7 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 namespace check_uptime_filter {
 typedef check_uptime_filter_common::filter_obj filter_obj;
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler();
 };
@@ -122,7 +122,7 @@ struct filter_obj {
   long long get_version_i() const { return version_i; }
   std::string get_suite_string() const { return suite; }
 };
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 
 struct filter_obj_handler : public native_context {
   filter_obj_handler();

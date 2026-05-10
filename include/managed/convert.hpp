@@ -21,7 +21,7 @@
 
 #include <nscapi/nscapi_core_wrapper.hpp>
 
-#include <boost/enable_shared_from_this.hpp>
+#include <memory>
 
 #include <string>
 

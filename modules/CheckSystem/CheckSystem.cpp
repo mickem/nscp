@@ -23,7 +23,7 @@
 
 #include <boost/assign/list_of.hpp>
 #include <boost/json.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/program_options.hpp>
 #include <compat.hpp>
 #include <map>
@@ -598,7 +598,7 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
     std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(seconds);
     typedef std::map<std::string, windows::system_info::load_entry>::value_type vt;
     for (vt v : vals) {
-      boost::shared_ptr<check_cpu_filter::filter_obj> record(new check_cpu_filter::filter_obj(time, v.first, v.second));
+      std::shared_ptr<check_cpu_filter::filter_obj> record(new check_cpu_filter::filter_obj(time, v.first, v.second));
       filter.match(record);
     }
   }
@@ -668,7 +668,7 @@ void CheckSystem::check_uptime(const PB::Commands::QueryRequestMessage::Request 
 
   long long now_delta = (boost::posix_time::second_clock::universal_time() - epoch).total_seconds();
   long long uptime = static_cast<long long>(value);
-  boost::shared_ptr<check_uptime_filter::filter_obj> record(new check_uptime_filter::filter_obj(uptime, now_delta, boot, timezone_, max_unit));
+  std::shared_ptr<check_uptime_filter::filter_obj> record(new check_uptime_filter::filter_obj(uptime, now_delta, boot, timezone_, max_unit));
   filter.match(record);
   filter_helper.post_process(filter);
 }
@@ -686,7 +686,7 @@ void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Requ
 
   if (!filter_helper.build_filter(filter)) return;
 
-  boost::shared_ptr<os_version_filter::filter_obj> record(new os_version_filter::filter_obj());
+  std::shared_ptr<os_version_filter::filter_obj> record(new os_version_filter::filter_obj());
   OSVERSIONINFOEX *info = windows::system_info::get_versioninfo();
   record->major_version = info->dwMajorVersion;
   record->minor_version = info->dwMinorVersion;
@@ -834,12 +834,12 @@ void CheckSystem::check_pagefile(const PB::Commands::QueryRequestMessage::Reques
 
   windows::system_info::pagefile_info total("total");
   for (const windows::system_info::pagefile_info &info : windows::system_info::get_pagefile_info()) {
-    boost::shared_ptr<check_page_filter::filter_obj> record(new check_page_filter::filter_obj(info));
+    std::shared_ptr<check_page_filter::filter_obj> record(new check_page_filter::filter_obj(info));
     modern_filter::match_result ret = filter.match(record);
     // if (ret.matched_bound)
     total.add(info);
   }
-  boost::shared_ptr<check_page_filter::filter_obj> record(new check_page_filter::filter_obj(total));
+  std::shared_ptr<check_page_filter::filter_obj> record(new check_page_filter::filter_obj(total));
   filter.match(record);
 
   filter_helper.post_process(filter);

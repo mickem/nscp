@@ -93,7 +93,7 @@ WEBServer::~WEBServer() = default;
 
 bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   log_handler.reset(new error_handler());
-  client.reset(new client::cli_client(boost::make_shared<web_cli_handler>(log_handler, get_core(), get_id())));
+  client.reset(new client::cli_client(std::make_shared<web_cli_handler>(log_handler, get_core(), get_id())));
 
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("WEB", std::move(alias), "server");

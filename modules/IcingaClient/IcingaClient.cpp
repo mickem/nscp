@@ -19,7 +19,7 @@
 
 #include "IcingaClient.h"
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <net/http/client.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -35,7 +35,7 @@
  */
 IcingaClient::IcingaClient()
     : simple_plugin(),
-      client_("icinga", boost::make_shared<icinga_client::icinga_client_handler>(), boost::make_shared<icinga_handler::options_reader_impl>()) {}
+      client_("icinga", std::make_shared<icinga_client::icinga_client_handler>(), std::make_shared<icinga_handler::options_reader_impl>()) {}
 
 bool IcingaClient::loadModuleEx(const std::string &alias, NSCAPI::moduleLoadMode) {
   try {

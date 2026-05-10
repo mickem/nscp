@@ -182,7 +182,7 @@ namespace check {
 
 typedef network_interface filter_obj;
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler();
 };
@@ -213,7 +213,7 @@ void check_network(const PB::Commands::QueryRequestMessage::Request &request, PB
 
   if (!filter_helper.build_filter(filter)) return;
   for (network_check::nics_type::value_type v : nicdata) {
-    boost::shared_ptr<filter_obj> record(new filter_obj(v));
+    std::shared_ptr<filter_obj> record(new filter_obj(v));
     filter.match(record);
   }
   filter_helper.post_process(filter);

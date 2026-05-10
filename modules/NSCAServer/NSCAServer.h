@@ -67,5 +67,5 @@ class NSCAServer final : public nscapi::impl::simple_plugin, nsca::server::handl
 
  private:
   socket_helpers::connection_info info_;
-  boost::shared_ptr<nsca::server::server> server_;
+  std::shared_ptr<nsca::server::server> server_;
 };

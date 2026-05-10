@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <socket_helpers.hpp>
 
 using boost::asio::ip::tcp;
@@ -29,7 +29,7 @@ namespace client {
 
 class socket : public boost::noncopyable {
  private:
-  boost::shared_ptr<tcp::socket> socket_;
+  std::shared_ptr<tcp::socket> socket_;
 
  public:
   typedef boost::asio::basic_socket<tcp, boost::asio::stream_socket_service<tcp> > basic_socket_type;
@@ -79,7 +79,7 @@ class socket : public boost::noncopyable {
 #ifdef USE_SSL
 class ssl_socket : public socket {
  private:
-  boost::shared_ptr<boost::asio::ssl::stream<tcp::socket> > ssl_socket_;
+  std::shared_ptr<boost::asio::ssl::stream<tcp::socket> > ssl_socket_;
 
  public:
   ssl_socket(boost::asio::io_service &io_service, boost::asio::ssl::context &ctx, std::wstring host, int port) : socket() {

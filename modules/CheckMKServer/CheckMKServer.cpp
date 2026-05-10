@@ -33,7 +33,7 @@ bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
   root_ = get_base_path();
   nscp_runtime_.reset(new scripts::nscp::nscp_runtime_impl(get_id(), get_core()));
   lua_runtime_.reset(new lua::lua_runtime(utf8::cvt<std::string>(root_.string())));
-  lua_runtime_->register_plugin(boost::shared_ptr<check_mk::check_mk_plugin>(new check_mk::check_mk_plugin()));
+  lua_runtime_->register_plugin(std::shared_ptr<check_mk::check_mk_plugin>(new check_mk::check_mk_plugin()));
   scripts_.reset(new scripts::script_manager<lua::lua_traits>(lua_runtime_, nscp_runtime_, get_id(), utf8::cvt<std::string>(alias)));
   handler_.reset(new handler_impl(scripts_));
 

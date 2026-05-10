@@ -20,7 +20,7 @@
 
 #include <Server.h>
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <client/simple_client.hpp>
 #include <nscapi/plugin.hpp>
 #include <nscapi/protobuf/command.hpp>
@@ -60,11 +60,11 @@ class WEBServer : public nscapi::impl::simple_plugin {
  private:
   void add_user(const std::string &key, const std::string &arg);
 
-  boost::shared_ptr<error_handler_interface> log_handler;
-  boost::shared_ptr<client::cli_client> client;
-  boost::shared_ptr<session_manager_interface> session;
-  boost::shared_ptr<event_store> events_;
-  boost::shared_ptr<Mongoose::Server> server;
+  std::shared_ptr<error_handler_interface> log_handler;
+  std::shared_ptr<client::cli_client> client;
+  std::shared_ptr<session_manager_interface> session;
+  std::shared_ptr<event_store> events_;
+  std::shared_ptr<Mongoose::Server> server;
 
   web_server::user_config users_;
   unsigned long last_log_index;

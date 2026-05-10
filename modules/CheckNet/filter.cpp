@@ -20,14 +20,14 @@
 #include "filter.hpp"
 
 #include <boost/assign.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 
 using namespace boost::assign;
 using namespace parsers::where;
 
 //////////////////////////////////////////////////////////////////////////
 
-node_type get_percentage(boost::shared_ptr<ping_filter::filter_obj> object, evaluation_context context, node_type subject) {
+node_type get_percentage(std::shared_ptr<ping_filter::filter_obj> object, evaluation_context context, node_type subject) {
   helpers::read_arg_type value = helpers::read_arguments(context, subject, "%");
   double number = value.get<1>();
   std::string unit = value.get<2>();
@@ -49,7 +49,7 @@ ping_filter::filter_obj_handler::filter_obj_handler() {
   registry_.add_converter(type_custom_pct, &get_percentage);
 }
 
-void ping_filter::filter_obj::add(boost::shared_ptr<ping_filter::filter_obj> other) {
+void ping_filter::filter_obj::add(std::shared_ptr<ping_filter::filter_obj> other) {
   if (!other) return;
   result.num_send_ += other->result.num_send_;
   result.num_replies_ += other->result.num_replies_;
@@ -59,4 +59,4 @@ void ping_filter::filter_obj::add(boost::shared_ptr<ping_filter::filter_obj> oth
 
 //////////////////////////////////////////////////////////////////////////
 
-boost::shared_ptr<ping_filter::filter_obj> ping_filter::filter_obj::get_total() { return boost::make_shared<ping_filter::filter_obj>(); }
+std::shared_ptr<ping_filter::filter_obj> ping_filter::filter_obj::get_total() { return std::make_shared<ping_filter::filter_obj>(); }

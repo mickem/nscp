@@ -1,6 +1,6 @@
 #ifndef NSCP_CHECK_PROCESS_H
 #define NSCP_CHECK_PROCESS_H
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
@@ -92,7 +92,7 @@ struct filter_obj {
   }
 };
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler : native_context {
   filter_obj_handler();
 };

@@ -150,7 +150,7 @@ struct filter_obj {
   std::string get_version_s() const { return version.to_string(); }
   std::string get_date_s() const { return version.date; }
 };
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 
 struct filter_obj_handler : public native_context {
   filter_obj_handler() {
@@ -178,7 +178,7 @@ void check(const nscp_version &version, const PB::Commands::QueryRequestMessage:
 
   if (!filter_helper.build_filter(filter)) return;
 
-  const boost::shared_ptr<filter_obj> record(new filter_obj(version));
+  const std::shared_ptr<filter_obj> record(new filter_obj(version));
   filter.match(record);
 
   filter_helper.post_process(filter);
@@ -235,7 +235,7 @@ struct filter_obj {
   std::string get_error_s() const { return error; }
 };
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 
 struct filter_obj_handler : native_context {
   filter_obj_handler() {
@@ -291,7 +291,7 @@ void CheckNSCP::check_nscp_update(const PB::Commands::QueryRequestMessage::Reque
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(filter)) return;
 
-  boost::shared_ptr<check_nscp_update::filter_obj> record(new check_nscp_update::filter_obj());
+  std::shared_ptr<check_nscp_update::filter_obj> record(new check_nscp_update::filter_obj());
 
   // Parse the running version up-front. If we cannot determine the running
   // version there is no point in querying GitHub; bail with a UNKNOWN-style

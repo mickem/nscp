@@ -297,8 +297,8 @@ void CheckHelpers::check_timeout(const PB::Commands::QueryRequestMessage::Reques
   if (command.empty()) return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 
   worker_object obj;
-  boost::shared_ptr<boost::thread> t =
-      boost::shared_ptr<boost::thread>(new boost::thread([&obj, this, command, arguments]() { obj.proc(get_core(), get_id(), command, arguments); }));
+  std::shared_ptr<boost::thread> t =
+      std::shared_ptr<boost::thread>(new boost::thread([&obj, this, command, arguments]() { obj.proc(get_core(), get_id(), command, arguments); }));
 
   if (t->timed_join(boost::posix_time::seconds(timeout))) {
     if (obj.ret != NSCAPI::query_return_codes::returnOK) {
@@ -411,7 +411,7 @@ struct filter_obj {
     return "";
   }
 };
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 
 struct filter_obj_handler : public native_context {
   filter_obj_handler();
@@ -462,7 +462,7 @@ void CheckHelpers::render_perf(const PB::Commands::QueryRequestMessage::Request 
   for (int i = 0; i < response->lines_size(); i++) {
     ::PB::Commands::QueryResponseMessage_Response_Line *line = response->mutable_lines(i);
     for (const PB::Common::PerformanceData &perf : line->perf()) {
-      boost::shared_ptr<perf_filter::filter_obj> record(new perf_filter::filter_obj(perf));
+      std::shared_ptr<perf_filter::filter_obj> record(new perf_filter::filter_obj(perf));
       filter.match(record);
     }
     if (remove_perf) line->clear_perf();

@@ -23,9 +23,9 @@
 
 namespace nscapi {
 namespace command_helper {
-void register_command_helper::add(boost::shared_ptr<command_info> d) { owner->add(d); }
+void register_command_helper::add(std::shared_ptr<command_info> d) { owner->add(d); }
 void add_metadata_helper::add(std::string key, std::string value) { owner->set(key, value); }
-void register_command(command_proxy_ptr &core_, PB::Registry::RegistryRequestMessage &request, std::list<boost::shared_ptr<command_info> >::value_type &v) {
+void register_command(command_proxy_ptr &core_, PB::Registry::RegistryRequestMessage &request, std::list<std::shared_ptr<command_info> >::value_type &v) {
   PB::Registry::RegistryRequestMessage::Request *payload = request.add_payload();
   PB::Registry::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
   regitem->set_plugin_id(core_->get_plugin_id());

@@ -22,7 +22,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/program_options.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
@@ -177,7 +177,7 @@ void check_dns(const PB::Commands::QueryRequestMessage::Request &request, PB::Co
 
   if (!filter_helper.build_filter(f)) return;
 
-  auto obj = boost::make_shared<filter_obj>();
+  auto obj = std::make_shared<filter_obj>();
   run_dns_check(host, timeout_ms, expected, *obj);
   f.match(obj);
 

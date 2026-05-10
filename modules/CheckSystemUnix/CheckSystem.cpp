@@ -54,7 +54,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.set_alias("system", alias, "unix");
 
   // Start the CPU collector thread
-  collector_ = boost::shared_ptr<pdh_thread>(new pdh_thread());
+  collector_ = std::shared_ptr<pdh_thread>(new pdh_thread());
   collector_->set_core(get_core(), get_id());
   collector_->set_path(settings.alias().get_settings_path("real-time/cpu"), settings.alias().get_settings_path("real-time/memory"));
 

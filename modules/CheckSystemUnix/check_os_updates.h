@@ -20,7 +20,7 @@
 #ifndef NSCP_CHECK_OS_UPDATES_H
 #define NSCP_CHECK_OS_UPDATES_H
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <functional>
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -58,7 +58,7 @@ struct filter_obj {
   std::string show() const;
 };
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 
 struct filter_obj_handler : public native_context {
   filter_obj_handler();

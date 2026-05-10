@@ -17,7 +17,7 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 
@@ -27,7 +27,7 @@
 struct real_time_thread;
 class CheckEventLog : public nscapi::impl::simple_plugin {
  private:
-  boost::shared_ptr<real_time_thread> thread_;
+  std::shared_ptr<real_time_thread> thread_;
   bool debug_;
   std::string syntax_;
   int buffer_length_;

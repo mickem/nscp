@@ -11,17 +11,17 @@
 #include "session_manager_interface.hpp"
 
 class legacy_controller : public Mongoose::MatchController {
-  boost::shared_ptr<session_manager_interface> session;
+  std::shared_ptr<session_manager_interface> session;
   const nscapi::core_wrapper *core;
   const unsigned int plugin_id;
-  boost::shared_ptr<client::cli_client> client;
+  std::shared_ptr<client::cli_client> client;
 
   std::string status;
   boost::shared_mutex mutex_;
 
  public:
-  legacy_controller(const boost::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core, unsigned int plugin_id,
-                    const boost::shared_ptr<client::cli_client> &client);
+  legacy_controller(const std::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core, unsigned int plugin_id,
+                    const std::shared_ptr<client::cli_client> &client);
   std::string get_status();
   bool set_status(std::string status_);
   void console_exec(Mongoose::Request &request, Mongoose::StreamResponse &response);

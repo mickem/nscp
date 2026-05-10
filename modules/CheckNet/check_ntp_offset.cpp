@@ -21,7 +21,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/program_options.hpp>
 #include <chrono>
 #include <cstdint>
@@ -227,7 +227,7 @@ void check_ntp_offset(const PB::Commands::QueryRequestMessage::Request &request,
   if (!filter_helper.build_filter(f)) return;
 
   for (const auto &server : servers) {
-    auto obj = boost::make_shared<filter_obj>();
+    auto obj = std::make_shared<filter_obj>();
     run_ntp_check(server, port, timeout_ms, *obj);
     f.match(obj);
   }

@@ -279,7 +279,7 @@ void check_os_updates(const PB::Commands::QueryRequestMessage::Request &request,
   }
 
   filter_obj result = fetch_updates(manager, run_command);
-  boost::shared_ptr<filter_obj> record(new filter_obj(result));
+  std::shared_ptr<filter_obj> record(new filter_obj(result));
   filter.match(record);
 
   filter_helper.post_process(filter);

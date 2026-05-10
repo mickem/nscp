@@ -24,7 +24,7 @@
 
 using namespace parsers::where;
 
-node_type fun_convert_status(boost::shared_ptr<tasksched_filter::filter_obj> object, evaluation_context context, node_type subject) {
+node_type fun_convert_status(std::shared_ptr<tasksched_filter::filter_obj> object, evaluation_context context, node_type subject) {
   std::string status = subject->get_string_value(context);
   long long istat = 0;
   if (object->is_new()) {

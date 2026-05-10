@@ -61,6 +61,6 @@ class NSClientServer : public nscapi::impl::simple_plugin, public check_nt::serv
   bool allowArgs_;
 
   socket_helpers::connection_info info_;
-  boost::shared_ptr<check_nt::server::server> server_;
+  std::shared_ptr<check_nt::server::server> server_;
   std::string password_;
 };

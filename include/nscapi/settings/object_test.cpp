@@ -19,7 +19,7 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <map>
 #include <nscapi/settings/object.hpp>
 #include <string>
@@ -139,9 +139,9 @@ class MockSettingsInterface : public settings_helper::settings_impl_interface {
 
 class ObjectInstanceInterfaceTest : public ::testing::Test {
  protected:
-  boost::shared_ptr<MockSettingsInterface> mock_;
+  std::shared_ptr<MockSettingsInterface> mock_;
 
-  void SetUp() override { mock_ = boost::make_shared<MockSettingsInterface>(); }
+  void SetUp() override { mock_ = std::make_shared<MockSettingsInterface>(); }
 
   void TearDown() override { mock_->clear(); }
 };
@@ -164,7 +164,7 @@ TEST_F(ObjectInstanceInterfaceTest, ConstructorDefault) {
 }
 
 TEST_F(ObjectInstanceInterfaceTest, CopyConstructorFromSharedPtr) {
-  const auto parent = boost::make_shared<object_instance_interface>("parent_alias", "/settings/targets");
+  const auto parent = std::make_shared<object_instance_interface>("parent_alias", "/settings/targets");
   parent->set_value("parent_value");
   parent->set_property_string("key1", "value1");
   parent->set_property_int("key2", 42);
@@ -504,11 +504,11 @@ TEST(SimpleObjectFactoryTest, CloneCopiesParent) {
 
 class ObjectHandlerTest : public ::testing::Test {
  protected:
-  boost::shared_ptr<MockSettingsInterface> mock_;
+  std::shared_ptr<MockSettingsInterface> mock_;
   object_handler<object_instance_interface> handler_;
 
   void SetUp() override {
-    mock_ = boost::make_shared<MockSettingsInterface>();
+    mock_ = std::make_shared<MockSettingsInterface>();
     handler_.set_path("/settings/targets");
   }
 
@@ -719,7 +719,7 @@ TEST_F(ObjectHandlerTest, EnsureDefaultDoesNotOverwrite) {
 }
 
 TEST_F(ObjectHandlerTest, AddObjectDirect) {
-  const auto obj = boost::make_shared<object_instance_interface>("direct", "/settings/targets");
+  const auto obj = std::make_shared<object_instance_interface>("direct", "/settings/targets");
   obj->set_value("direct_value");
 
   handler_.add_object(obj);
@@ -730,7 +730,7 @@ TEST_F(ObjectHandlerTest, AddObjectDirect) {
 }
 
 TEST_F(ObjectHandlerTest, AddObjectDirectWithAlias) {
-  const auto obj = boost::make_shared<object_instance_interface>("original", "/settings/targets");
+  const auto obj = std::make_shared<object_instance_interface>("original", "/settings/targets");
 
   handler_.add_object("custom_alias", obj);
 
@@ -739,7 +739,7 @@ TEST_F(ObjectHandlerTest, AddObjectDirectWithAlias) {
 }
 
 TEST_F(ObjectHandlerTest, AddTemplateDirect) {
-  const auto obj = boost::make_shared<object_instance_interface>("template1", "/settings/targets");
+  const auto obj = std::make_shared<object_instance_interface>("template1", "/settings/targets");
   EXPECT_FALSE(obj->is_template());
 
   handler_.add_template(obj);
@@ -750,7 +750,7 @@ TEST_F(ObjectHandlerTest, AddTemplateDirect) {
 }
 
 TEST_F(ObjectHandlerTest, AddTemplateDirectWithAlias) {
-  const auto obj = boost::make_shared<object_instance_interface>("original", "/settings/targets");
+  const auto obj = std::make_shared<object_instance_interface>("original", "/settings/targets");
 
   handler_.add_template("custom_template", obj);
 

@@ -22,7 +22,7 @@
 #include <NSCAPI.h>
 
 #include <boost/optional.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <list>
 #include <map>
 #include <string>
@@ -55,8 +55,8 @@ struct script_information {
   std::string script;
   typename script_trait::user_data_type user_data;
   virtual ~script_information() {}
-  virtual boost::shared_ptr<settings_provider> get_settings_provider() = 0;
-  virtual boost::shared_ptr<core_provider> get_core_provider() = 0;
+  virtual std::shared_ptr<settings_provider> get_settings_provider() = 0;
+  virtual std::shared_ptr<core_provider> get_core_provider() = 0;
   virtual void register_command(const std::string type, const std::string &command, const std::string &description,
                                 typename script_trait::function_type function) = 0;
 };
@@ -98,8 +98,8 @@ struct script_runtime_interface {
 
 struct nscp_runtime_interface {
   virtual void register_command(const std::string type, const std::string &command, const std::string &description) = 0;
-  virtual boost::shared_ptr<settings_provider> get_settings_provider() = 0;
-  virtual boost::shared_ptr<core_provider> get_core_provider() = 0;
+  virtual std::shared_ptr<settings_provider> get_settings_provider() = 0;
+  virtual std::shared_ptr<core_provider> get_core_provider() = 0;
 };
 
 template <class script_trait>
@@ -127,13 +127,13 @@ struct script_manager;
 template <class script_trait>
 struct script_information_impl : script_information<script_trait> {
   script_manager<script_trait> *reg;
-  boost::shared_ptr<settings_provider> settings;
-  boost::shared_ptr<core_provider> core;
+  std::shared_ptr<settings_provider> settings;
+  std::shared_ptr<core_provider> core;
 
-  script_information_impl(script_manager<script_trait> *reg, boost::shared_ptr<settings_provider> settings, boost::shared_ptr<core_provider> core)
+  script_information_impl(script_manager<script_trait> *reg, std::shared_ptr<settings_provider> settings, std::shared_ptr<core_provider> core)
       : reg(reg), settings(settings), core(core) {}
-  virtual boost::shared_ptr<settings_provider> get_settings_provider() { return settings; }
-  virtual boost::shared_ptr<core_provider> get_core_provider() { return core; }
+  virtual std::shared_ptr<settings_provider> get_settings_provider() { return settings; }
+  virtual std::shared_ptr<core_provider> get_core_provider() { return core; }
 
   void register_command(const std::string type, const std::string &command, const std::string &description, typename script_trait::function_type function) {
     reg->register_command(this, type, command, description, function);
@@ -143,8 +143,8 @@ struct script_information_impl : script_information<script_trait> {
 template <class script_trait>
 struct script_manager {
  private:
-  boost::shared_ptr<script_runtime_interface<script_trait> > script_runtime;
-  boost::shared_ptr<nscp_runtime_interface> nscp_runtime;
+  std::shared_ptr<script_runtime_interface<script_trait> > script_runtime;
+  std::shared_ptr<nscp_runtime_interface> nscp_runtime;
   int plugin_id;
   int script_id;
   std::string plugin_alias;
@@ -154,7 +154,7 @@ struct script_manager {
   command_list_type commands;
 
  public:
-  script_manager(boost::shared_ptr<script_runtime_interface<script_trait> > script_runtime_, boost::shared_ptr<nscp_runtime_interface> nscp_runtime,
+  script_manager(std::shared_ptr<script_runtime_interface<script_trait> > script_runtime_, std::shared_ptr<nscp_runtime_interface> nscp_runtime,
                  int plugin_id, std::string plugin_alias)
       : script_runtime(script_runtime_), nscp_runtime(nscp_runtime), plugin_id(plugin_id), script_id(0), plugin_alias(plugin_alias) {}
   script_information<script_trait> *add(std::string alias, std::string script) {

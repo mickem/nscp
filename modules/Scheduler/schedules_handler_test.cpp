@@ -21,7 +21,7 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <nscapi/nscapi_helper.hpp>
 #include <string>
 #include <vector>
@@ -31,7 +31,7 @@
 // ============================================================================
 
 static schedules::target_object make_target(const std::string &alias, const std::string &path = "/test") {
-  return boost::make_shared<schedules::schedule_object>(alias, path);
+  return std::make_shared<schedules::schedule_object>(alias, path);
 }
 
 // ============================================================================

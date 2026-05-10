@@ -56,7 +56,7 @@ void find_old(tasksched_filter::filter &filter) {
       std::string title = utf8::cvt<std::string>(lpwszNames[--dwFetchedTasks]);
       taskSched->Activate(lpwszNames[dwFetchedTasks], IID_ITask, reinterpret_cast<IUnknown **>(&task));
       CoTaskMemFree(lpwszNames[dwFetchedTasks]);
-      boost::shared_ptr<tasksched_filter::filter_obj> record(new tasksched_filter::old_filter_obj((ITask *)task, title));
+      std::shared_ptr<tasksched_filter::filter_obj> record(new tasksched_filter::old_filter_obj((ITask *)task, title));
       modern_filter::match_result ret = filter.match(record);
     }
     CoTaskMemFree(lpwszNames);
@@ -134,7 +134,7 @@ void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, s
     CComPtr<IRegisteredTask> pRegisteredTask = NULL;
     hr = pTaskCollection->get_Item(_variant_t(i + 1), &pRegisteredTask);
     if (SUCCEEDED(hr)) {
-      boost::shared_ptr<tasksched_filter::filter_obj> record(new tasksched_filter::new_filter_obj((IRegisteredTask *)pRegisteredTask, folder));
+      std::shared_ptr<tasksched_filter::filter_obj> record(new tasksched_filter::new_filter_obj((IRegisteredTask *)pRegisteredTask, folder));
       modern_filter::match_result ret = filter.match(record);
     }
   }

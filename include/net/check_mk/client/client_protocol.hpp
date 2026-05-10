@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <iostream>
 #include <net/check_mk/data.hpp>
 #include <net/check_mk/parser.hpp>
@@ -43,7 +43,7 @@ class protocol : public boost::noncopyable {
  private:
   enum state { none, connected, wants_response, done };
 
-  boost::shared_ptr<client_handler> handler_;
+  std::shared_ptr<client_handler> handler_;
   state current_state_;
 
   std::vector<char> read_buffer_;
@@ -52,7 +52,7 @@ class protocol : public boost::noncopyable {
   inline void set_state(state new_state) { current_state_ = new_state; }
 
  public:
-  protocol(boost::shared_ptr<client_handler> handler) : handler_(handler), current_state_(none) { read_buffer_.resize(40960); }
+  protocol(std::shared_ptr<client_handler> handler) : handler_(handler), current_state_(none) { read_buffer_.resize(40960); }
   virtual ~protocol() {}
 
   void on_connect() { set_state(connected); }

@@ -10,8 +10,8 @@
 
 namespace json = boost::json;
 
-legacy_controller::legacy_controller(const boost::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core, unsigned int plugin_id,
-                                     const boost::shared_ptr<client::cli_client> &client)
+legacy_controller::legacy_controller(const std::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core, unsigned int plugin_id,
+                                     const std::shared_ptr<client::cli_client> &client)
     : session(session), core(core), plugin_id(plugin_id), client(client), status("ok") {
   addRoute("POST", "/query.pb", this, &legacy_controller::run_query_pb);
   addRoute("POST", "/settings/query.pb", this, &legacy_controller::settings_query_pb);

@@ -32,13 +32,13 @@
 namespace check_proc_filter {
 typedef win_list_processes::process_info filter_obj;
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler();
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
-parsers::where::node_type parse_state(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+parsers::where::node_type parse_state(std::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
   return parsers::where::factory::create_int(filter_obj::parse_state(subject->get_string_value(context)));
 }
 
@@ -119,7 +119,7 @@ struct transient_data {
 
 struct runtime_data {
   typedef check_proc_filter::filter filter_type;
-  typedef boost::shared_ptr<transient_data> transient_data_type;
+  typedef std::shared_ptr<transient_data> transient_data_type;
 
   std::list<std::string> checks;
   bool has_check_all;
@@ -156,13 +156,13 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
 
   if (has_check_all) {
     for (const win_list_processes::process_info &info : data->list) {
-      boost::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
+      std::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
       ret.append(filter.match(record));
     }
   } else {
     for (const win_list_processes::process_info &info : data->list) {
       if (process_name_matches_any(checks, info.exe.get())) {
-        boost::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
+        std::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
         ret.append(filter.match(record));
       }
     }
@@ -172,7 +172,7 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
 
 helper::helper(nscapi::core_wrapper *core, int plugin_id) : proc_helper(new proc_filter_helper_wrapper(core, plugin_id)) {}
 
-void helper::add_obj(boost::shared_ptr<filters::proc::filter_config_object> object) {
+void helper::add_obj(std::shared_ptr<filters::proc::filter_config_object> object) {
   runtime_data data;
   for (const std::string &d : object->data) {
     data.add(d);
@@ -279,7 +279,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   for (const win_list_processes::process_info &info : list) {
     bool wanted = procs.count(info.exe);
     if (all || wanted) {
-      boost::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
+      std::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
       filter.match(record);
     }
     if (wanted) {
@@ -290,11 +290,11 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
     procs.erase(proc);
   }
 
-  boost::shared_ptr<win_list_processes::process_info> total_obj;
+  std::shared_ptr<win_list_processes::process_info> total_obj;
   if (total) total_obj = win_list_processes::process_info::get_total();
 
   for (const std::string &proc : procs) {
-    boost::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(proc));
+    std::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(proc));
     modern_filter::match_result ret = filter.match(record);
     if (total_obj && ret.matched_filter) total_obj->operator+=(*record);
   }

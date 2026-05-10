@@ -34,7 +34,7 @@ namespace check_rk_filter {
 using namespace parsers::where;
 
 // Converter: allow filter expressions like  type = 'REG_SZ'
-node_type parse_type_converter(boost::shared_ptr<filter_obj> /*obj*/, evaluation_context context, node_type subject) {
+node_type parse_type_converter(std::shared_ptr<filter_obj> /*obj*/, evaluation_context context, node_type subject) {
   try {
     return factory::create_int(win_registry::parse_type(subject->get_string_value(context)));
   } catch (const std::exception &e) {
@@ -144,7 +144,7 @@ void registry_key_checks::check(const PB::Commands::QueryRequestMessage::Request
       win_registry::recursive_enum_keys(effective_root, parts.subpath, key_arg, hive_str, 1, max_depth, access_flags, found);
       for (const win_registry::key_info &ki : found) {
         if (std::find(excludes.begin(), excludes.end(), ki.name) != excludes.end()) continue;
-        boost::shared_ptr<win_registry::key_info> record(new win_registry::key_info(ki));
+        std::shared_ptr<win_registry::key_info> record(new win_registry::key_info(ki));
         filter.match(record);
         if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter error: " + filter.get_errors());
       }
@@ -156,7 +156,7 @@ void registry_key_checks::check(const PB::Commands::QueryRequestMessage::Request
 
       win_registry::key_info ki = win_registry::open_key(effective_root, parts.subpath, key_arg, key_name, key_parent, hive_str, 0, access_flags);
 
-      boost::shared_ptr<win_registry::key_info> record(new win_registry::key_info(ki));
+      std::shared_ptr<win_registry::key_info> record(new win_registry::key_info(ki));
       filter.match(record);
       if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter error: " + filter.get_errors());
     }
@@ -175,7 +175,7 @@ namespace check_rv_filter {
 using namespace parsers::where;
 
 // Converter: allow filter expressions like  type = 'REG_DWORD'
-node_type parse_type_converter(boost::shared_ptr<filter_obj> /*obj*/, evaluation_context context, node_type subject) {
+node_type parse_type_converter(std::shared_ptr<filter_obj> /*obj*/, evaluation_context context, node_type subject) {
   try {
     return factory::create_int(win_registry::parse_type(subject->get_string_value(context)));
   } catch (const std::exception &e) {
@@ -288,7 +288,7 @@ void registry_value_checks::check(const PB::Commands::QueryRequestMessage::Reque
         const std::vector<win_registry::value_info> vals = win_registry::enum_values(effective_root, subpath, full_path, hive_str, access_flags);
         for (const win_registry::value_info &vi : vals) {
           if (std::find(excludes.begin(), excludes.end(), vi.name) != excludes.end()) continue;
-          const boost::shared_ptr<win_registry::value_info> record(new win_registry::value_info(vi));
+          const std::shared_ptr<win_registry::value_info> record(new win_registry::value_info(vi));
           filter.match(record);
           if (filter.has_errors()) return false;
         }
@@ -327,7 +327,7 @@ void registry_value_checks::check(const PB::Commands::QueryRequestMessage::Reque
             vi.exists = false;
           }
 
-          const boost::shared_ptr<win_registry::value_info> record(new win_registry::value_info(vi));
+          const std::shared_ptr<win_registry::value_info> record(new win_registry::value_info(vi));
           filter.match(record);
           if (filter.has_errors()) return false;
         }

@@ -308,13 +308,13 @@ int convert_new_type(const evaluation_context &context, const std::string &str) 
   }
 }
 
-node_type fun_convert_old_severity(const boost::shared_ptr<filter_obj> &object, const evaluation_context &context, const node_type &subject) {
+node_type fun_convert_old_severity(const std::shared_ptr<filter_obj> &object, const evaluation_context &context, const node_type &subject) {
   return factory::create_int(convert_old_severity(context, subject->get_string_value(context)));
 }
-node_type fun_convert_new_type(const boost::shared_ptr<filter_obj> &object, const evaluation_context &context, const node_type &subject) {
+node_type fun_convert_new_type(const std::shared_ptr<filter_obj> &object, const evaluation_context &context, const node_type &subject) {
   return factory::create_int(convert_new_type(context, subject->get_string_value(context)));
 }
-node_type fun_convert_old_type(const boost::shared_ptr<filter_obj> &object, const evaluation_context &context, const node_type &subject) {
+node_type fun_convert_old_type(const std::shared_ptr<filter_obj> &object, const evaluation_context &context, const node_type &subject) {
   return factory::create_int(convert_old_type(context, subject->get_string_value(context)));
 }
 

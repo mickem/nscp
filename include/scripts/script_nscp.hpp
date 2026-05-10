@@ -69,16 +69,16 @@ struct core_provider_impl : public core_provider {
 struct nscp_runtime_impl : public nscp_runtime_interface {
   int plugin_id;
   nscapi::core_wrapper *core_;
-  boost::shared_ptr<settings_provider_impl> settings_;
-  boost::shared_ptr<core_provider_impl> core_provider_;
+  std::shared_ptr<settings_provider_impl> settings_;
+  std::shared_ptr<core_provider_impl> core_provider_;
 
   nscp_runtime_impl(int plugin_id, nscapi::core_wrapper *core)
       : plugin_id(plugin_id), core_(core), settings_(new settings_provider_impl(plugin_id, core)), core_provider_(new core_provider_impl(core)) {}
 
   virtual void register_command(const std::string type, const std::string &command, const std::string &description);
 
-  virtual boost::shared_ptr<settings_provider> get_settings_provider() { return settings_; }
-  virtual boost::shared_ptr<core_provider> get_core_provider() { return core_provider_; }
+  virtual std::shared_ptr<settings_provider> get_settings_provider() { return settings_; }
+  virtual std::shared_ptr<core_provider> get_core_provider() { return core_provider_; }
 };
 }  // namespace nscp
 }  // namespace scripts

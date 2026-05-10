@@ -26,8 +26,8 @@ void nsclient::core::storage_manager::load() {
 
   std::ifstream in(file.c_str(), std::ios::in | std::ios::binary);
 
-  typedef boost::shared_ptr<google::protobuf::io::ZeroCopyInputStream> istr_type;
-  typedef boost::shared_ptr<google::protobuf::io::CodedInputStream> codedstr_type;
+  typedef std::shared_ptr<google::protobuf::io::ZeroCopyInputStream> istr_type;
+  typedef std::shared_ptr<google::protobuf::io::CodedInputStream> codedstr_type;
   istr_type raw_in = istr_type(new ::google::protobuf::io::IstreamInputStream(&in));
   codedstr_type coded_in = codedstr_type(new ::google::protobuf::io::CodedInputStream(raw_in.get()));
 
@@ -96,8 +96,8 @@ void nsclient::core::storage_manager::save() {
       }
       std::ofstream out(file.c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
 
-      typedef boost::shared_ptr<google::protobuf::io::ZeroCopyOutputStream> istr_type;
-      typedef boost::shared_ptr<google::protobuf::io::CodedOutputStream> codedstr_type;
+      typedef std::shared_ptr<google::protobuf::io::ZeroCopyOutputStream> istr_type;
+      typedef std::shared_ptr<google::protobuf::io::CodedOutputStream> codedstr_type;
       istr_type raw_out = istr_type(new ::google::protobuf::io::OstreamOutputStream(&out));
       codedstr_type coded_out = codedstr_type(new ::google::protobuf::io::CodedOutputStream(raw_out.get()));
 

@@ -63,5 +63,5 @@ class NRPEServer : public nscapi::impl::simple_plugin, nrpe::server::handler {
 
  private:
   socket_helpers::connection_info info_;
-  boost::shared_ptr<nrpe::server::server> server_;
+  std::shared_ptr<nrpe::server::server> server_;
 };

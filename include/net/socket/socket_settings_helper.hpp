@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <net/socket/socket_helpers.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
@@ -122,7 +122,7 @@ struct settings_helper {
   }
 
   template <class object_type>
-  static void add_core_client_opts(nscapi::settings_helper::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object,
+  static void add_core_client_opts(nscapi::settings_helper::settings_registry &settings, std::shared_ptr<nscapi::settings_proxy> proxy, object_type &object,
                                    bool is_sample) {
     nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
     if (is_sample) root_path.set_sample();
@@ -130,7 +130,7 @@ struct settings_helper {
                                 "TIMEOUT", "Timeout (in seconds) when reading/writing packets to/from sockets.");
   }
   template <class object_type>
-  static void add_ssl_client_opts(nscapi::settings_helper::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object,
+  static void add_ssl_client_opts(nscapi::settings_helper::settings_registry &settings, std::shared_ptr<nscapi::settings_proxy> proxy, object_type &object,
                                   bool is_sample) {
     nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
     if (is_sample) root_path.set_sample();

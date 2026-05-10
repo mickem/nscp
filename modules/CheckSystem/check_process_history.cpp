@@ -171,7 +171,7 @@ namespace check {
 
 typedef process_record filter_obj;
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler final : native_context {
   filter_obj_handler();
 };
@@ -233,7 +233,7 @@ void check_process_history(const PB::Commands::QueryRequestMessage::Request &req
       }
     }
 
-    boost::shared_ptr<filter_obj> record(new filter_obj(rec));
+    std::shared_ptr<filter_obj> record(new filter_obj(rec));
     filter.match(record);
   }
 
@@ -254,7 +254,7 @@ void check_process_history(const PB::Commands::QueryRequestMessage::Request &req
         not_found_rec.times_seen = 0;
         not_found_rec.currently_running = false;
 
-        boost::shared_ptr<filter_obj> record(new filter_obj(not_found_rec));
+        std::shared_ptr<filter_obj> record(new filter_obj(not_found_rec));
         filter.match(record);
       }
     }
@@ -302,7 +302,7 @@ void check_process_history_new(const PB::Commands::QueryRequestMessage::Request 
   for (const process_record &rec : data) {
     // Only include processes first seen within the time window
     if (rec.first_seen >= cutoff_ts) {
-      const boost::shared_ptr<filter_obj> record(new filter_obj(rec));
+      const std::shared_ptr<filter_obj> record(new filter_obj(rec));
       filter.match(record);
     }
   }

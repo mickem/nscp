@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
@@ -32,7 +32,7 @@ namespace registry_key_checks {
 namespace check_rk_filter {
 
 typedef win_registry::key_info filter_obj;
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 
 struct filter_obj_handler : public native_context {
   filter_obj_handler();
@@ -56,7 +56,7 @@ namespace registry_value_checks {
 namespace check_rv_filter {
 
 typedef win_registry::value_info filter_obj;
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj>> native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 
 struct filter_obj_handler : public native_context {
   filter_obj_handler();

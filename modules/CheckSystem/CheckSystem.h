@@ -32,7 +32,7 @@
 class CheckSystem : public nscapi::impl::simple_plugin {
  private:
   CheckMemory memoryChecker;
-  boost::shared_ptr<pdh_thread> collector;
+  std::shared_ptr<pdh_thread> collector;
 
   typedef std::map<std::string, std::string> counter_map_type;
   counter_map_type counters;

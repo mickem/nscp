@@ -25,7 +25,7 @@ struct CaseBlindCompare {
   bool operator()(const std::string &a, const std::string &b) const { return boost::ilexicographical_compare(a, b); }
 };
 
-node_type parse_state(boost::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
+node_type parse_state(std::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
   return factory::create_int(filter_obj::parse_state(subject->get_string_value(context)));
 }
 
@@ -264,7 +264,7 @@ void check_process(const PB::Commands::QueryRequestMessage::Request &request, PB
   for (const check_proc_filter::filter_obj &info : process_list) {
     bool wanted = procs.count(info.exe) > 0;
     if (all || wanted) {
-      boost::shared_ptr<check_proc_filter::filter_obj> record(new check_proc_filter::filter_obj(info));
+      std::shared_ptr<check_proc_filter::filter_obj> record(new check_proc_filter::filter_obj(info));
       filter.match(record);
     }
     if (wanted) {
@@ -278,14 +278,14 @@ void check_process(const PB::Commands::QueryRequestMessage::Request &request, PB
   }
 
   // For any process that wasn't found, create a "stopped" entry
-  boost::shared_ptr<check_proc_filter::filter_obj> total_obj;
+  std::shared_ptr<check_proc_filter::filter_obj> total_obj;
   if (total) {
-    total_obj = boost::shared_ptr<check_proc_filter::filter_obj>(new check_proc_filter::filter_obj());
+    total_obj = std::shared_ptr<check_proc_filter::filter_obj>(new check_proc_filter::filter_obj());
     total_obj->exe = "total";
   }
 
   for (const std::string &proc : procs) {
-    boost::shared_ptr<check_proc_filter::filter_obj> record(new check_proc_filter::filter_obj(proc));
+    std::shared_ptr<check_proc_filter::filter_obj> record(new check_proc_filter::filter_obj(proc));
     record->started = false;
     modern_filter::match_result ret = filter.match(record);
     if (total_obj && ret.matched_filter) {

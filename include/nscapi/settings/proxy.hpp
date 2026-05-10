@@ -40,7 +40,7 @@ class NSCAPI_EXPORT settings_proxy : public settings_helper::settings_impl_inter
   core_wrapper* core_;
 
  public:
-  typedef boost::shared_ptr<settings_proxy> ptr;
+  typedef std::shared_ptr<settings_proxy> ptr;
   settings_proxy(unsigned int plugin_id, core_wrapper* core) : plugin_id_(plugin_id), core_(core) {}
 
   static ptr create(unsigned int plugin_id, core_wrapper* core);

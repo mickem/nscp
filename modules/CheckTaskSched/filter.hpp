@@ -25,7 +25,7 @@
 #include <taskschd.h>
 
 #include <boost/optional.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <error/error.hpp>
 #include <map>
 #include <nsclient/nsclient_exception.hpp>
@@ -332,7 +332,7 @@ struct new_filter_obj : public filter_obj {
   long long convert_runtime(const std::string &) { return 0; }
 };
 
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
   static const parsers::where::value_type type_custom_state = parsers::where::type_custom_int_1;
 

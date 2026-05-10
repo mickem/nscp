@@ -19,7 +19,7 @@ scripts::script_information<lua::lua_traits> *lua::lua_traits::get_info(lua::lua
   }
   return info;
 }
-boost::shared_ptr<lua::core_provider> get_core(lua::lua_wrapper &instance) {
+std::shared_ptr<lua::core_provider> get_core(lua::lua_wrapper &instance) {
   auto info = lua::lua_traits::get_info(instance);
   auto core = info->get_core_provider();
   if (core == NULL) {
@@ -288,7 +288,7 @@ struct SettingsData {
 };
 const std::string SettingsData::tag = "settings";
 
-boost::shared_ptr<lua::settings_provider> get_settings(lua::lua_wrapper &instance) {
+std::shared_ptr<lua::settings_provider> get_settings(lua::lua_wrapper &instance) {
   auto info = lua::lua_traits::get_info(instance);
   auto settings = info->get_settings_provider();
   if (settings == NULL) {

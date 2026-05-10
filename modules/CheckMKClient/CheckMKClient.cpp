@@ -19,7 +19,7 @@
 
 #include "CheckMKClient.h"
 
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -32,8 +32,8 @@
  * @return
  */
 CheckMKClient::CheckMKClient()
-    : handler_(boost::make_shared<check_mk_client::check_mk_client_handler>()),
-      client_("check_mk", handler_, boost::make_shared<check_mk_handler::options_reader_impl>()) {}
+    : handler_(std::make_shared<check_mk_client::check_mk_client_handler>()),
+      client_("check_mk", handler_, std::make_shared<check_mk_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor
@@ -48,7 +48,7 @@ bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     root_ = get_base_path();
     nscp_runtime_.reset(new scripts::nscp::nscp_runtime_impl(get_id(), get_core()));
     lua_runtime_.reset(new lua::lua_runtime(utf8::cvt<std::string>(root_.string())));
-    lua_runtime_->register_plugin(boost::shared_ptr<check_mk::check_mk_plugin>(new check_mk::check_mk_plugin()));
+    lua_runtime_->register_plugin(std::shared_ptr<check_mk::check_mk_plugin>(new check_mk::check_mk_plugin()));
     handler_->scripts_.reset(new scripts::script_manager<lua::lua_traits>(lua_runtime_, nscp_runtime_, get_id(), utf8::cvt<std::string>(alias)));
 
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));

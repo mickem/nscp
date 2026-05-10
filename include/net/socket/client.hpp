@@ -30,19 +30,19 @@ using boost::asio::ip::tcp;
 namespace socket_helpers {
 namespace client {
 template <class protocol_type>
-class connection : public boost::enable_shared_from_this<connection<protocol_type> >, private boost::noncopyable {
+class connection : public std::enable_shared_from_this<connection<protocol_type> >, private boost::noncopyable {
  private:
   boost::asio::io_service &io_service_;
   boost::asio::deadline_timer timer_;
   boost::posix_time::time_duration timeout_;
-  boost::shared_ptr<typename protocol_type::client_handler> handler_;
+  std::shared_ptr<typename protocol_type::client_handler> handler_;
   protocol_type protocol_;
 
   boost::optional<boost::system::error_code> timer_result_;
   boost::optional<bool> data_result_;
 
  public:
-  connection(boost::asio::io_service &io_service, boost::posix_time::time_duration timeout, boost::shared_ptr<typename protocol_type::client_handler> handler)
+  connection(boost::asio::io_service &io_service, boost::posix_time::time_duration timeout, std::shared_ptr<typename protocol_type::client_handler> handler)
       : io_service_(io_service), timer_(io_service), timeout_(timeout), handler_(handler), protocol_(handler) {}
 
   virtual ~connection() {
@@ -224,7 +224,7 @@ class tcp_connection : public connection<protocol_type> {
 
  public:
   tcp_connection(boost::asio::io_service &io_service, boost::posix_time::time_duration timeout,
-                 boost::shared_ptr<typename protocol_type::client_handler> handler)
+                 std::shared_ptr<typename protocol_type::client_handler> handler)
       : connection_type(io_service, timeout, handler), socket_(io_service) {}
   virtual ~tcp_connection() {
     try {
@@ -261,7 +261,7 @@ class ssl_connection : public connection<protocol_type> {
 
  public:
   ssl_connection(boost::asio::io_service &io_service, boost::asio::ssl::context &context, boost::posix_time::time_duration timeout,
-                 boost::shared_ptr<typename protocol_type::client_handler> handler, bool verify_hostname)
+                 std::shared_ptr<typename protocol_type::client_handler> handler, bool verify_hostname)
       : connection_type(io_service, timeout, handler), ssl_socket_(io_service, context), verify_hostname_(verify_hostname) {}
   virtual ~ssl_connection() {
     try {
@@ -317,10 +317,10 @@ class ssl_connection : public connection<protocol_type> {
 
 template <class protocol_type>
 class client : boost::noncopyable {
-  boost::shared_ptr<connection<protocol_type> > connection_;
+  std::shared_ptr<connection<protocol_type> > connection_;
   boost::asio::io_service io_service_;
   const socket_helpers::connection_info &info_;
-  boost::shared_ptr<typename protocol_type::client_handler> handler_;
+  std::shared_ptr<typename protocol_type::client_handler> handler_;
 
   typedef connection<protocol_type> connection_type;
   typedef tcp_connection<protocol_type> tcp_connection_type;
@@ -351,7 +351,7 @@ class client : boost::noncopyable {
 #endif
 
  public:
-  client(const socket_helpers::connection_info &info, typename boost::shared_ptr<typename protocol_type::client_handler> handler)
+  client(const socket_helpers::connection_info &info, typename std::shared_ptr<typename protocol_type::client_handler> handler)
       : info_(info),
         handler_(handler)
 #ifdef USE_SSL

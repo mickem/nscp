@@ -43,7 +43,7 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
     std::map<std::string, load_entry> vals = thread->get_cpu_load(c.time);
     for (const auto &v : vals) {
       const load_entry &load = v.second;
-      const boost::shared_ptr<filter_obj> record(new filter_obj(c.alias, v.first, load.user, load.kernel, load.idle));
+      const std::shared_ptr<filter_obj> record(new filter_obj(c.alias, v.first, load.user, load.kernel, load.idle));
       ret.append(filter.match(record));
     }
   }
@@ -76,7 +76,7 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
     } else {
       continue;
     }
-    const boost::shared_ptr<filter_obj> record(new filter_obj(type, free_v, total));
+    const std::shared_ptr<filter_obj> record(new filter_obj(type, free_v, total));
     ret.append(filter.match(record));
   }
   return ret;

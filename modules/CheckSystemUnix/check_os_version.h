@@ -32,7 +32,7 @@ struct filter_obj {
   std::string get_processor() const { return processor; }
   std::string get_os() const { return os; }
 };
-typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 
 struct filter_obj_handler : public native_context {
   filter_obj_handler();

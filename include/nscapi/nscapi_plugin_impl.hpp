@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <nscapi/nscapi_core_wrapper.hpp>
 
 namespace nscapi {

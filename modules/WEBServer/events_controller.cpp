@@ -27,7 +27,7 @@ json::array to_json(const event_store::event_list &list) {
 }
 }  // namespace
 
-events_controller::events_controller(int version, const boost::shared_ptr<session_manager_interface> &session, const boost::shared_ptr<event_store> &events)
+events_controller::events_controller(int version, const std::shared_ptr<session_manager_interface> &session, const std::shared_ptr<event_store> &events)
     : RegexpController(version == 1 ? "/api/v1/events" : "/api/v2/events"), session(session), events(events) {
   addRoute("GET", "/?$", this, &events_controller::list_events);
   addRoute("DELETE", "/?$", this, &events_controller::clear_events);

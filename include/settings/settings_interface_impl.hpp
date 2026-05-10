@@ -160,7 +160,7 @@ class settings_interface_impl : public settings_interface {
     }
   }
 
-  virtual std::list<boost::shared_ptr<settings_interface>> get_children() { return children_; }
+  virtual std::list<std::shared_ptr<settings_interface>> get_children() { return children_; }
 
   template <class T>
   typename T::op_type getter(std::string path, std::string key) {

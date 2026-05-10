@@ -22,7 +22,7 @@
 #include <net/http/http_client_protocol.hpp>
 
 TEST(http_client_protocol, initial_state_has_no_data_and_wants_no_data) {
-  boost::shared_ptr<http::client::protocol::client_handler> handler;
+  std::shared_ptr<http::client::protocol::client_handler> handler;
   http::client::protocol proto(handler);
 
   EXPECT_FALSE(proto.has_data());
@@ -30,7 +30,7 @@ TEST(http_client_protocol, initial_state_has_no_data_and_wants_no_data) {
 }
 
 TEST(http_client_protocol, prepare_request_exposes_outbound_data) {
-  boost::shared_ptr<http::client::protocol::client_handler> handler;
+  std::shared_ptr<http::client::protocol::client_handler> handler;
   http::client::protocol proto(handler);
   http::request req("GET", "example.com", "/test");
 
@@ -41,7 +41,7 @@ TEST(http_client_protocol, prepare_request_exposes_outbound_data) {
 }
 
 TEST(http_client_protocol, on_write_switches_to_read_state) {
-  boost::shared_ptr<http::client::protocol::client_handler> handler;
+  std::shared_ptr<http::client::protocol::client_handler> handler;
   http::client::protocol proto(handler);
   http::request req("GET", "example.com", "/test");
   proto.prepare_request(req);
@@ -51,7 +51,7 @@ TEST(http_client_protocol, on_write_switches_to_read_state) {
 }
 
 TEST(http_client_protocol, on_read_in_read_state_collects_response_data) {
-  boost::shared_ptr<http::client::protocol::client_handler> handler;
+  std::shared_ptr<http::client::protocol::client_handler> handler;
   http::client::protocol proto(handler);
   http::request req("GET", "example.com", "/test");
   proto.prepare_request(req);
@@ -67,7 +67,7 @@ TEST(http_client_protocol, on_read_in_read_state_collects_response_data) {
 }
 
 TEST(http_client_protocol, on_read_when_not_waiting_marks_done) {
-  boost::shared_ptr<http::client::protocol::client_handler> handler;
+  std::shared_ptr<http::client::protocol::client_handler> handler;
   http::client::protocol proto(handler);
 
   proto.get_inbound().assign({'x'});
@@ -77,7 +77,7 @@ TEST(http_client_protocol, on_read_when_not_waiting_marks_done) {
 }
 
 TEST(http_client_protocol, on_read_error_in_read_state_finishes_successfully) {
-  boost::shared_ptr<http::client::protocol::client_handler> handler;
+  std::shared_ptr<http::client::protocol::client_handler> handler;
   http::client::protocol proto(handler);
   http::request req("GET", "example.com", "/test");
   proto.prepare_request(req);
@@ -89,7 +89,7 @@ TEST(http_client_protocol, on_read_error_in_read_state_finishes_successfully) {
 }
 
 TEST(http_client_protocol, on_read_error_before_read_state_fails) {
-  boost::shared_ptr<http::client::protocol::client_handler> handler;
+  std::shared_ptr<http::client::protocol::client_handler> handler;
   http::client::protocol proto(handler);
 
   boost::system::error_code ec;
@@ -97,7 +97,7 @@ TEST(http_client_protocol, on_read_error_before_read_state_fails) {
 }
 
 TEST(http_client_protocol, timeout_response_has_status_99_and_message) {
-  boost::shared_ptr<http::client::protocol::client_handler> handler;
+  std::shared_ptr<http::client::protocol::client_handler> handler;
   http::client::protocol proto(handler);
 
   const http::response timeout = proto.get_timeout_response();

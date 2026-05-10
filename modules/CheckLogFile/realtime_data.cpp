@@ -122,7 +122,7 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
       while (check_logfile::file_reader::getline_str(file, line, effective_line_split)) {
         if (!line.empty()) {
           std::list<std::string> chunks = str::utils::split_lst(line, utf8::cvt<std::string>(column_split));
-          boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(c.file.string(), line, chunks));
+          std::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(c.file.string(), line, chunks));
           ret.append(filter.match(record));
         }
       }
