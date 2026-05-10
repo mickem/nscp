@@ -19,9 +19,12 @@
 
 #pragma once
 
+#include <atomic>
 #include <boost/thread/thread.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
+#include <map>
+#include <memory>
 #include <nscapi/settings/proxy.hpp>
 #include <rrd_buffer.hpp>
 #include <win/pdh/pdh_interface.hpp>
@@ -120,6 +123,9 @@ class pdh_thread {
   std::string to_string() const { return "pdh"; }
   void ensure_default(boost::shared_ptr<nscapi::settings_proxy> proxy);
 
+  typedef std::map<std::string, std::shared_ptr<std::atomic<long long>>> count_map;
+  typedef std::map<std::string, long long> non_atomic_count_map;
+  non_atomic_count_map get_realtime_filter_counts();
  private:
   static spi_container fetch_spi(error_list &errors);
   void write_metrics(const spi_container &handles, const windows::system_info::cpu_load &load, PDH::PDHQuery *pdh, error_list &errors);
@@ -129,5 +135,6 @@ class pdh_thread {
   filters::proc::filter_config_handler proc_filters_;
   filters::legacy::filter_config_handler legacy_filters_;
 
+  non_atomic_count_map realtime_filter_counts_;
   void thread_proc();
 };

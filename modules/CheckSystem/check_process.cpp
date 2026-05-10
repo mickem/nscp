@@ -215,6 +215,8 @@ std::set<std::string> helper::check_shared() {
   return running_exes;
 }
 
+std::map<std::string, long long> helper::get_counts() const { return proc_helper->helper.get_counts(); }
+
 }  // namespace realtime
 
 struct CaseBlindCompare {

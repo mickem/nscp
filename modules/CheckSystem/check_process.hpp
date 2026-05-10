@@ -22,6 +22,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/unordered_set.hpp>
 #include <list>
+#include <map>
 #include <nscapi/protobuf/command.hpp>
 #include <set>
 #include <string>
@@ -52,6 +53,7 @@ struct helper {
   void boot();
   void check();
   std::set<std::string> check_shared();
+  std::map<std::string, long long> get_counts() const;
 };
 }  // namespace realtime
 

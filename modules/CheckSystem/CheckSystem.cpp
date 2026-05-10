@@ -1180,4 +1180,18 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   } catch (...) {
     NSC_LOG_ERROR("Failed to get process history metrics");
   }
+
+  try {
+    const auto filter_counts = collector->get_realtime_filter_counts();
+    if (!filter_counts.empty()) {
+      PB::Metrics::MetricsBundle *section = bundle->add_children();
+      section->set_key("realtime");
+      for (const auto &e : filter_counts) {
+        add_metric(section, e.first, e.second);
+      }
+    }
+  } catch (...) {
+    NSC_LOG_ERROR("Failed to get realtime filter metrics");
+  }
+
 }

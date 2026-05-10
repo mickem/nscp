@@ -387,6 +387,24 @@ void pdh_thread::thread_proc() {
           errors.emplace_back("Failed to check processes");
         }
       }
+      // Snapshot per-filter match counts so get_realtime_filter_counts() can
+      // surface them without exposing the per-helper item lists.
+      {
+        boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+        if (writeLock.owns_lock()) {
+          if (has_cpu_realtime) {
+            for (const auto &c : cpu_helper.get_counts()) realtime_filter_counts_[c.first] = c.second;
+          }
+          if (has_mem_realtime) {
+            for (const auto &c : memory_helper.get_counts()) realtime_filter_counts_[c.first] = c.second;
+          }
+          if (has_proc_realtime) {
+            for (const auto &c : process_helper.get_counts()) realtime_filter_counts_[c.first] = c.second;
+          }
+        } else {
+          errors.emplace_back("Failed to get mutex for realtime filter counts");
+        }
+      }
     }
     if (i++ > min_threshold_) i = 0;
     for (const std::string &s : errors) {
@@ -427,6 +445,17 @@ void pdh_thread::add_samples(boost::shared_ptr<nscapi::settings_proxy> settings)
   proc_filters_.add_samples(settings);
   legacy_filters_.add_samples(settings);
 }
+
+
+pdh_thread::non_atomic_count_map pdh_thread::get_realtime_filter_counts() {
+  boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
+  if (!readLock.owns_lock()) {
+    NSC_LOG_ERROR("Failed to get Mutex for: realtime filter counts");
+    return non_atomic_count_map();
+  }
+  return non_atomic_count_map(realtime_filter_counts_);
+}
+
 
 std::map<std::string, long long> pdh_thread::get_int_value(std::string counter) {
   std::map<std::string, long long> ret;
@@ -583,7 +612,9 @@ void pdh_thread::set_path(const std::string mem_path, const std::string cpu_path
   legacy_filters_.set_path(legacy_path);
 }
 
-void pdh_thread::add_counter(const PDH::pdh_object &counter) { configs_.push_back(counter); }
+void pdh_thread::add_counter(const PDH::pdh_object &counter) {
+  configs_.push_back(counter);
+}
 
 void pdh_thread::add_realtime_mem_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
   try {

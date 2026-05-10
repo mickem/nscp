@@ -171,6 +171,8 @@ void helper::boot() { memory_helper->helper.touch_all(); }
 
 void helper::check() { memory_helper->helper.process_items(&memchecker); }
 
+std::map<std::string, long long> helper::get_counts() const { return memory_helper->helper.get_counts(); }
+
 }  // namespace realtime
 namespace memory {
 
