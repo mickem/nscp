@@ -122,28 +122,28 @@ filter_obj_handler::filter_obj_handler() {
   static constexpr value_type type_custom_state = type_custom_int_1;
   static constexpr value_type type_custom_start_type = type_custom_int_2;
 
-  registry_.add_string("name", &filter_obj::get_name, "Service name")
-      .add_string("desc", &filter_obj::get_desc, "Service description")
-      .add_string("sub_state", &filter_obj::get_sub_state, "Service sub-state (running, dead, exited, etc.)");
+  registry_.add_string_var("name", &filter_obj::get_name, "Service name")
+      .add_string_var("desc", &filter_obj::get_desc, "Service description")
+      .add_string_var("sub_state", &filter_obj::get_sub_state, "Service sub-state (running, dead, exited, etc.)");
 
-  registry_.add_int_x("pid", &filter_obj::get_pid, "Process id")
-      .add_int_x("state", type_custom_state, &filter_obj::get_state_i, "The current state (active, inactive, failed)")
+  registry_.add_int_var("pid", &filter_obj::get_pid, "Process id")
+      .add_int_var("state", type_custom_state, &filter_obj::get_state_i, "The current state (active, inactive, failed)")
       .add_int_perf("", "")
-      .add_int_x("start_type", type_custom_start_type, &filter_obj::get_start_type_i, "The configured start type (enabled, disabled, static, masked)")
-      .add_int_x("started", type_bool, &filter_obj::get_started, "Service is started/active")
-      .add_int_x("stopped", type_bool, &filter_obj::get_stopped, "Service is stopped/inactive");
+      .add_int_var("start_type", type_custom_start_type, &filter_obj::get_start_type_i, "The configured start type (enabled, disabled, static, masked)")
+      .add_int_var("started", type_bool, &filter_obj::get_started, "Service is started/active")
+      .add_int_var("stopped", type_bool, &filter_obj::get_stopped, "Service is stopped/inactive");
 
   // clang-format off
-  registry_.add_int_fun()
-    ("state_is_perfect", type_bool, &state_is_perfect, "Check if the state is perfect (enabled services running, disabled services stopped)")
-    ("state_is_ok", type_bool, &state_is_ok, "Check if the state is ok (enabled services running or starting, disabled services can be any state)")
+  registry_.add_custom_fun("state_is_perfect", type_bool, &state_is_perfect, "Check if the state is perfect (enabled services running, disabled services stopped)")
+    .add_custom_fun("state_is_ok", type_bool, &state_is_ok, "Check if the state is ok (enabled services running or starting, disabled services can be any state)")
     ;
   // clang-format on
 
   registry_.add_human_string("state", &filter_obj::get_state_s, "The current state")
       .add_human_string("start_type", &filter_obj::get_start_type_s, "The configured start type");
 
-  registry_.add_converter()(type_custom_state, &parse_state)(type_custom_start_type, &parse_start_type);
+  registry_.add_converter(type_custom_state, &parse_state)
+    .add_converter(type_custom_start_type, &parse_start_type);
 }
 
 // Get service info using systemctl show

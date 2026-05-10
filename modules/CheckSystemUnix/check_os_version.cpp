@@ -8,13 +8,13 @@ namespace os_version {
 
 namespace os_version_filter {
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string("kernel_name", &filter_obj::get_kernel_name, "Kernel name")
-      .add_string("nodename", &filter_obj::get_nodename, "Network node hostname")
-      .add_string("kernel_release", &filter_obj::get_kernel_release, "Kernel release")
-      .add_string("kernel_version", &filter_obj::get_kernel_version, "Kernel version")
-      .add_string("machine", &filter_obj::get_machine, "Machine hardware name")
-      .add_string("processor", &filter_obj::get_processor, "Processor type or unknown")
-      .add_string("os", &filter_obj::get_processor, "Operating system");
+  registry_.add_string_var("kernel_name", &filter_obj::get_kernel_name, "Kernel name")
+      .add_string_var("nodename", &filter_obj::get_nodename, "Network node hostname")
+      .add_string_var("kernel_release", &filter_obj::get_kernel_release, "Kernel release")
+      .add_string_var("kernel_version", &filter_obj::get_kernel_version, "Kernel version")
+      .add_string_var("machine", &filter_obj::get_machine, "Machine hardware name")
+      .add_string_var("processor", &filter_obj::get_processor, "Processor type or unknown")
+      .add_string_var("os", &filter_obj::get_processor, "Operating system");
 }
 }  // namespace os_version_filter
 }  // namespace os_version

@@ -32,18 +32,18 @@ node_type parse_state(std::shared_ptr<filter_obj> object, evaluation_context con
 filter_obj_handler::filter_obj_handler() {
   static const value_type type_custom_state = type_custom_int_1;
 
-  registry_.add_string("filename", &filter_obj::get_filename, "Name of process (with path)")
-      .add_string("exe", &filter_obj::get_exe, "The name of the executable")
-      .add_string("error", &filter_obj::get_error, "Any error messages associated with fetching info")
-      .add_string("command_line", &filter_obj::get_command_line, "Command line of process");
+  registry_.add_string_var("filename", &filter_obj::get_filename, "Name of process (with path)")
+      .add_string_var("exe", &filter_obj::get_exe, "The name of the executable")
+      .add_string_var("error", &filter_obj::get_error, "Any error messages associated with fetching info")
+      .add_string_var("command_line", &filter_obj::get_command_line, "Command line of process");
 
-  registry_.add_int_x("pid", &filter_obj::get_pid, "Process id")
-      .add_int_x("started", &filter_obj::get_started, "Process is started")
-      .add_int_x("stopped", &filter_obj::get_stopped, "Process is stopped")
-      .add_int_x("state", type_custom_state, &filter_obj::get_state_i, "The current state (started, stopped, hung)");
+  registry_.add_int_var("pid", &filter_obj::get_pid, "Process id")
+      .add_int_var("started", &filter_obj::get_started, "Process is started")
+      .add_int_var("stopped", &filter_obj::get_stopped, "Process is stopped")
+      .add_int_var("state", type_custom_state, &filter_obj::get_state_i, "The current state (started, stopped, hung)");
 
   // Memory counters
-  registry_.add_int()(
+  registry_.add_int_legacy()(
       "virtual", [](auto obj, auto context) { return obj->get_virtual_size(); }, "Virtual size in bytes")(
       "working_set", [](auto obj, auto context) { return obj->get_working_set(); }, "Working set (RSS) in bytes")(
       "page_faults", [](auto obj, auto context) { return obj->get_page_faults(); }, "Page fault count");
@@ -51,12 +51,12 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_human_string("virtual", &filter_obj::get_virtual_size_human, "").add_human_string("working_set", &filter_obj::get_working_set_human, "");
 
   // Time counters
-  registry_.add_int()(
+  registry_.add_int_legacy()(
       "user", [](auto obj, auto context) { return obj->get_user_time(); }, "User time in seconds")(
       "kernel", [](auto obj, auto context) { return obj->get_kernel_time(); }, "Kernel time in seconds")(
       "time", [](auto obj, auto context) { return obj->get_total_time(); }, "User + kernel time in seconds");
 
-  registry_.add_converter()(type_custom_state, &parse_state);
+  registry_.add_converter(type_custom_state, &parse_state);
 }
 
 // Read process information from /proc

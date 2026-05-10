@@ -41,10 +41,10 @@ parsers::where::node_type parse_time(std::shared_ptr<filter_obj> object, parsers
 
 static const parsers::where::value_type type_custom_uptime = parsers::where::type_custom_int_1;
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_int()(
+  registry_.add_int_legacy()(
       "boot", parsers::where::type_date, [](auto obj, auto context) { return obj->get_boot(); }, "System boot time")(
       "uptime", type_custom_uptime, [](auto obj, auto context) { return obj->get_uptime(); }, "Time since last boot");
-  registry_.add_converter()(type_custom_uptime, &parse_time);
+  registry_.add_converter(type_custom_uptime, &parse_time);
   registry_.add_human_string("boot", &filter_obj::get_boot_s, "The system boot time")
       .add_human_string("uptime", &filter_obj::get_uptime_s, "Time since last boot (granularity controlled by --max-unit)")
       .add_human_string("tz", &filter_obj::get_tz, "The timezone label used to render boot time");

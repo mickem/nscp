@@ -35,10 +35,10 @@ filter_obj_handler::filter_obj_handler() {
   static constexpr value_type type_custom_used = type_custom_int_1;
   static constexpr value_type type_custom_free = type_custom_int_2;
 
-  registry_.add_string("name", &filter_obj::get_name, "The name of the page file (swap)");
+  registry_.add_string_var("name", &filter_obj::get_name, "The name of the page file (swap)");
   // clang-format off
   registry_
-      .add_int()
+      .add_int_legacy()
         ("size", [] (auto obj, auto context) { return obj->get_total(); }, "Total size of pagefile/swap")
         ("free", type_custom_free, [] (auto obj, auto context) { return obj->get_free(); }, "Free memory in bytes (g,m,k,b) or percentages %")
           .add_scaled_byte([] (auto obj, auto context) { return get_zero(); }, [] (auto obj, auto context) { return obj->get_total(); })
@@ -52,7 +52,8 @@ filter_obj_handler::filter_obj_handler() {
       .add_human_string("free", &filter_obj::get_free_human, "")
       .add_human_string("used", &filter_obj::get_used_human, "");
 
-  registry_.add_converter()(type_custom_free, &calculate_free)(type_custom_used, &calculate_free);
+  registry_.add_converter(type_custom_free, &calculate_free)
+    .add_converter(type_custom_used, &calculate_free);
 }
 
 }  // namespace check_page_filter

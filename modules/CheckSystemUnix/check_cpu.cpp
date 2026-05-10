@@ -32,21 +32,21 @@ node_type calculate_load(std::shared_ptr<filter_obj> object, evaluation_context 
 filter_obj_handler::filter_obj_handler() {
   static constexpr value_type type_custom_pct = type_custom_int_1;
 
-  registry_.add_string("time", &filter_obj::get_time, "The time frame to check")
-      .add_string("core", &filter_obj::get_core_s, &filter_obj::get_core_i, "The core to check (total or core ##)")
-      .add_string("core_id", &filter_obj::get_core_id, &filter_obj::get_core_i, "The core to check (total or core_##)");
+  registry_.add_string_var("time", &filter_obj::get_time, "The time frame to check")
+      .add_string_var("core", &filter_obj::get_core_s, &filter_obj::get_core_i, "The core to check (total or core ##)")
+      .add_string_var("core_id", &filter_obj::get_core_id, &filter_obj::get_core_i, "The core to check (total or core_##)");
 
-  registry_.add_int_x("load", type_custom_pct, &filter_obj::get_total, "The current load for a given core (deprecated, use total)")
+  registry_.add_int_var("load", type_custom_pct, &filter_obj::get_total, "The current load for a given core (deprecated, use total)")
       .add_int_perf("%")
-      .add_int_x("total", type_custom_pct, &filter_obj::get_total, "The current load used by user and system")
+      .add_int_var("total", type_custom_pct, &filter_obj::get_total, "The current load used by user and system")
       .add_int_perf("%")
-      .add_int_x("user", type_custom_pct, &filter_obj::get_user, "The current load used by user applications")
+      .add_int_var("user", type_custom_pct, &filter_obj::get_user, "The current load used by user applications")
       .add_int_perf("%")
-      .add_int_x("idle", &filter_obj::get_idle, "The current idle load for a given core")
-      .add_int_x("system", &filter_obj::get_kernel, "The current load used by the system (kernel)")
-      .add_int_x("kernel", &filter_obj::get_kernel, "deprecated (use system instead)");
+      .add_int_var("idle", &filter_obj::get_idle, "The current idle load for a given core")
+      .add_int_var("system", &filter_obj::get_kernel, "The current load used by the system (kernel)")
+      .add_int_var("kernel", &filter_obj::get_kernel, "deprecated (use system instead)");
 
-  registry_.add_converter()(type_custom_pct, &calculate_load);
+  registry_.add_converter(type_custom_pct, &calculate_load);
 }
 }  // namespace check_cpu_filter
 
