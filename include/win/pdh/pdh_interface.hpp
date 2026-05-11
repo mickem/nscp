@@ -52,6 +52,12 @@ class pdh_error {
   bool is_not_found() const { return status_ == PDH_CSTATUS_NO_OBJECT || status_ == PDH_CSTATUS_NO_COUNTER || status_ == PDH_CSTATUS_BAD_COUNTERNAME; }
 
   bool is_negative_denominator() const { return status_ == PDH_CALC_NEGATIVE_DENOMINATOR || status_ == PDH_CALC_NEGATIVE_VALUE; }
+  bool is_invalid_argument() const { return status_ == PDH_INVALID_ARGUMENT; }
+
+  // True if the status code is one we've observed PDH returning for the
+  // "counter exists but PDH couldn't resolve it in the current locale" case.
+  // PdhAddEnglishCounter is worth a second try whenever this is true.
+  bool is_possible_locale_mismatch() const { return is_not_found() || is_invalid_argument(); }
 };
 
 class pdh_exception : public std::exception {
