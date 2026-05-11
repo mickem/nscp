@@ -26,30 +26,30 @@
 #include "pdh_resolver.hpp"
 
 namespace PDH {
-PDHCounter::PDHCounter(pdh_instance counter) : counter_(counter), hCounter_(NULL) {}
+PDHCounter::PDHCounter(const pdh_instance &counter) : hCounter_(nullptr), counter_(counter), data_() {}
 PDHCounter::~PDHCounter() {
-  if (hCounter_ != NULL) remove();
+  if (hCounter_ != nullptr) remove();
 }
 
-pdh_error PDHCounter::validate() { return factory::get_impl()->PdhValidatePath(utf8::cvt<std::wstring>(counter_->get_counter()).c_str(), false); }
+pdh_error PDHCounter::validate() const { return factory::get_impl()->PdhValidatePath(utf8::cvt<std::wstring>(counter_->get_counter()).c_str(), false); }
 
-counter_info PDHCounter::getCounterInfo(BOOLEAN bExplainText) {
-  if (hCounter_ == NULL) throw pdh_exception("Counter is null!");
-  BYTE *lpBuffer = new BYTE[1025];
+counter_info PDHCounter::getCounterInfo(BOOLEAN bExplainText) const {
+  if (hCounter_ == nullptr) throw pdh_exception("Counter is null!");
+  const auto lpBuffer = new BYTE[1025];
   DWORD bufSize = 1024;
-  pdh_error status = factory::get_impl()->PdhGetCounterInfo(hCounter_, bExplainText, &bufSize, (PDH_COUNTER_INFO *)lpBuffer);
+  const pdh_error status = factory::get_impl()->PdhGetCounterInfo(hCounter_, bExplainText, &bufSize, reinterpret_cast<PDH_COUNTER_INFO_W *>(lpBuffer));
   if (status.is_error()) throw pdh_exception(getName() + " getCounterInfo failed (no query)", status);
   return counter_info(lpBuffer, bufSize, TRUE);
 }
-const PDH::PDH_HCOUNTER PDHCounter::getCounter() const { return hCounter_; }
-const std::string PDHCounter::getName() const { return counter_->get_name(); }
-const std::string PDHCounter::get_path() const { return counter_->get_counter(); }
-void PDHCounter::addToQuery(PDH::PDH_HQUERY hQuery) {
-  if (hQuery == NULL) throw pdh_exception(getName(), "addToQuery failed (no query).");
-  if (hCounter_ != NULL) throw pdh_exception(getName(), "addToQuery failed (already opened).");
+PDH_HCOUNTER PDHCounter::getCounter() const { return hCounter_; }
+std::string PDHCounter::getName() const { return counter_->get_name(); }
+std::string PDHCounter::get_path() const { return counter_->get_counter(); }
+void PDHCounter::addToQuery(PDH_HQUERY hQuery) {
+  if (hQuery == nullptr) throw pdh_exception(getName(), "addToQuery failed (no query).");
+  if (hCounter_ != nullptr) throw pdh_exception(getName(), "addToQuery failed (already opened).");
   pdh_error status = factory::get_impl()->PdhAddCounter(hQuery, utf8::cvt<std::wstring>(counter_->get_counter()).c_str(), 0, &hCounter_);
   if (status.is_not_found()) {
-    hCounter_ = NULL;
+    hCounter_ = nullptr;
     status = factory::get_impl()->PdhAddEnglishCounter(hQuery, utf8::cvt<std::wstring>(counter_->get_counter()).c_str(), 0, &hCounter_);
   }
   if (status.is_not_found()) {
@@ -57,30 +57,29 @@ void PDHCounter::addToQuery(PDH::PDH_HQUERY hQuery) {
     PDHResolver::expand_index(counter);
     status = factory::get_impl()->PdhAddCounter(hQuery, utf8::cvt<std::wstring>(counter).c_str(), 0, &hCounter_);
     if (status.is_not_found()) {
-      hCounter_ = NULL;
+      hCounter_ = nullptr;
       status = factory::get_impl()->PdhAddEnglishCounter(hQuery, utf8::cvt<std::wstring>(counter).c_str(), 0, &hCounter_);
     }
     if (status.is_not_found()) {
-      hCounter_ = NULL;
+      hCounter_ = nullptr;
       throw pdh_exception(counter + " counter not found", status);
     }
   }
   if (status.is_error()) {
-    hCounter_ = NULL;
+    hCounter_ = nullptr;
     throw pdh_exception(getName() + " PdhAddCounter failed", status);
   }
-  if (hCounter_ == NULL) throw pdh_exception("Counter is null!");
+  if (hCounter_ == nullptr) throw pdh_exception("Counter is null!");
 }
 void PDHCounter::remove() {
-  if (hCounter_ == NULL) return;
-  pdh_error status = factory::get_impl()->PdhRemoveCounter(hCounter_);
+  if (hCounter_ == nullptr) return;
+  const pdh_error status = factory::get_impl()->PdhRemoveCounter(hCounter_);
   if (status.is_error()) throw pdh_exception(getName() + " PdhRemoveCounter failed", status);
-  hCounter_ = NULL;
+  hCounter_ = nullptr;
 }
 pdh_error PDHCounter::collect() {
-  pdh_error status;
-  if (hCounter_ == NULL) return pdh_error(false);
-  status = factory::get_impl()->PdhGetFormattedCounterValue(hCounter_, counter_->get_format(), NULL, &data_);
+  if (hCounter_ == nullptr) return pdh_error(false);
+  const pdh_error status = factory::get_impl()->PdhGetFormattedCounterValue(hCounter_, counter_->get_format(), nullptr, &data_);
   if (!status.is_error()) {
     counter_->collect(data_);
   }

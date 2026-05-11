@@ -42,84 +42,87 @@ void ThreadedSafePDH::add_listener(subscriber* sub) {
 void ThreadedSafePDH::remove_listener(subscriber* sub) {
   boost::unique_lock<boost::shared_mutex> lock(mutex_);
   if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for reload");
-  for (subscriber_list::iterator it = subscribers_.begin(); it != subscribers_.end(); ++it) {
-    if ((*it) == sub) it = subscribers_.erase(it);
+  for (auto it = subscribers_.begin(); it != subscribers_.end(); ++it) {
+    if (*it == sub) it = subscribers_.erase(it);
     if (it == subscribers_.end()) break;
   }
 }
 
-pdh_error ThreadedSafePDH::PdhLookupPerfIndexByName(LPCTSTR szMachineName, LPCTSTR szName, DWORD* dwIndex) {
+pdh_error ThreadedSafePDH::PdhLookupPerfIndexByName(const LPCTSTR szMachineName, const LPCTSTR szName, DWORD* dwIndex) {
   boost::unique_lock<boost::shared_mutex> lock(mutex_);
   if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for PdhLookupPerfIndexByName");
-  if (pPdhLookupPerfIndexByName == NULL) throw pdh_exception("Failed to initialize PdhLookupPerfIndexByName");
+  if (pPdhLookupPerfIndexByName == nullptr) throw pdh_exception("Failed to initialize PdhLookupPerfIndexByName");
   return pdh_error(pPdhLookupPerfIndexByName(szMachineName, szName, dwIndex));
 }
 
-pdh_error ThreadedSafePDH::PdhLookupPerfNameByIndex(LPCTSTR szMachineName, DWORD dwNameIndex, LPTSTR szNameBuffer, LPDWORD pcchNameBufferSize) {
+pdh_error ThreadedSafePDH::PdhLookupPerfNameByIndex(const LPCTSTR szMachineName, const DWORD dwNameIndex, const LPTSTR szNameBuffer,
+                                                    const LPDWORD pcchNameBufferSize) {
   boost::unique_lock<boost::shared_mutex> lock(mutex_);
   if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for PdhLookupPerfNameByIndex");
-  if (pPdhLookupPerfNameByIndex == NULL) throw pdh_exception("Failed to initialize PdhLookupPerfNameByIndex :(");
+  if (pPdhLookupPerfNameByIndex == nullptr) throw pdh_exception("Failed to initialize PdhLookupPerfNameByIndex :(");
   return pdh_error(pPdhLookupPerfNameByIndex(szMachineName, dwNameIndex, szNameBuffer, pcchNameBufferSize));
 }
 
-pdh_error ThreadedSafePDH::PdhExpandCounterPath(LPCTSTR szWildCardPath, LPTSTR mszExpandedPathList, LPDWORD pcchPathListLength) {
+pdh_error ThreadedSafePDH::PdhExpandCounterPath(const LPCTSTR szWildCardPath, const LPTSTR mszExpandedPathList, const LPDWORD pcchPathListLength) {
   boost::unique_lock<boost::shared_mutex> lock(mutex_);
   if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for PdhExpandCounterPath");
-  if (pPdhExpandCounterPath == NULL) throw pdh_exception("Failed to initialize PdhLookupPerfNameByIndex :(");
+  if (pPdhExpandCounterPath == nullptr) throw pdh_exception("Failed to initialize PdhLookupPerfNameByIndex :(");
   return pdh_error(pPdhExpandCounterPath(szWildCardPath, mszExpandedPathList, pcchPathListLength));
 }
-pdh_error ThreadedSafePDH::PdhGetCounterInfo(PDH::PDH_HCOUNTER hCounter, BOOLEAN bRetrieveExplainText, LPDWORD pdwBufferSize, PDH_COUNTER_INFO* lpBuffer) {
+pdh_error ThreadedSafePDH::PdhGetCounterInfo(const PDH_HCOUNTER hCounter, const BOOLEAN bRetrieveExplainText, const LPDWORD pdwBufferSize,
+                                             PDH_COUNTER_INFO* lpBuffer) {
   boost::unique_lock<boost::shared_mutex> lock(mutex_);
   if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for PdhGetCounterInfo");
-  if (pPdhGetCounterInfo == NULL) throw pdh_exception("Failed to initialize PdhGetCounterInfo :(");
+  if (pPdhGetCounterInfo == nullptr) throw pdh_exception("Failed to initialize PdhGetCounterInfo :(");
   return pdh_error(pPdhGetCounterInfo(hCounter, bRetrieveExplainText, pdwBufferSize, lpBuffer));
 }
-pdh_error ThreadedSafePDH::PdhAddCounter(PDH::PDH_HQUERY hQuery, LPCWSTR szFullCounterPath, DWORD_PTR dwUserData, PDH::PDH_HCOUNTER* phCounter) {
+pdh_error ThreadedSafePDH::PdhAddCounter(const PDH_HQUERY hQuery, const LPCWSTR szFullCounterPath, const DWORD_PTR dwUserData, PDH_HCOUNTER* phCounter) {
   boost::unique_lock<boost::shared_mutex> lock(mutex_);
   if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for PdhAddCounter");
-  if (pPdhAddCounter == NULL) throw pdh_exception("Failed to initialize PdhAddCounter :(");
+  if (pPdhAddCounter == nullptr) throw pdh_exception("Failed to initialize PdhAddCounter :(");
   return pdh_error(pPdhAddCounter(hQuery, szFullCounterPath, dwUserData, phCounter));
 }
-pdh_error ThreadedSafePDH::PdhRemoveCounter(PDH::PDH_HCOUNTER hCounter) {
+pdh_error ThreadedSafePDH::PdhRemoveCounter(const PDH_HCOUNTER hCounter) {
   boost::unique_lock<boost::shared_mutex> lock(mutex_);
   if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for PdhRemoveCounter");
-  if (pPdhRemoveCounter == NULL) throw pdh_exception("Failed to initialize PdhRemoveCounter :(");
+  if (pPdhRemoveCounter == nullptr) throw pdh_exception("Failed to initialize PdhRemoveCounter :(");
   return pdh_error(pPdhRemoveCounter(hCounter));
 }
-pdh_error ThreadedSafePDH::PdhGetRawCounterValue(PDH::PDH_HCOUNTER hCounter, LPDWORD dwFormat, PPDH_RAW_COUNTER pValue) {
+pdh_error ThreadedSafePDH::PdhGetRawCounterValue(const PDH_HCOUNTER hCounter, const LPDWORD dwFormat, const PPDH_RAW_COUNTER pValue) {
   boost::unique_lock<boost::shared_mutex> lock(mutex_);
   if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for PdhGetRawCounterValue");
-  if (pPdhGetRawCounterValue == NULL) throw pdh_exception("Failed to initialize PdhGetRawCounterValue :(");
+  if (pPdhGetRawCounterValue == nullptr) throw pdh_exception("Failed to initialize PdhGetRawCounterValue :(");
   return pdh_error(pPdhGetRawCounterValue(hCounter, dwFormat, pValue));
 }
-pdh_error ThreadedSafePDH::PdhGetFormattedCounterValue(PDH_HCOUNTER hCounter, DWORD dwFormat, LPDWORD lpdwType, PPDH_FMT_COUNTERVALUE pValue) {
+pdh_error ThreadedSafePDH::PdhGetFormattedCounterValue(const PDH_HCOUNTER hCounter, const DWORD dwFormat, const LPDWORD lpdwType,
+                                                       const PPDH_FMT_COUNTERVALUE pValue) {
   boost::unique_lock<boost::shared_mutex> lock(mutex_);
   if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for PdhGetFormattedCounterValue");
-  if (pPdhGetFormattedCounterValue == NULL) throw pdh_exception("Failed to initialize PdhGetFormattedCounterValue :(");
+  if (pPdhGetFormattedCounterValue == nullptr) throw pdh_exception("Failed to initialize PdhGetFormattedCounterValue :(");
   return pdh_error(pPdhGetFormattedCounterValue(hCounter, dwFormat, lpdwType, pValue));
 }
-pdh_error ThreadedSafePDH::PdhOpenQuery(LPCWSTR szDataSource, DWORD_PTR dwUserData, PDH::PDH_HQUERY* phQuery) {
+pdh_error ThreadedSafePDH::PdhOpenQuery(const LPCWSTR szDataSource, const DWORD_PTR dwUserData, PDH_HQUERY* phQuery) {
   boost::unique_lock<boost::shared_mutex> lock(mutex_);
   if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for PdhOpenQuery");
-  if (pPdhOpenQuery == NULL) throw pdh_exception("Failed to initialize PdhOpenQuery :(");
+  if (pPdhOpenQuery == nullptr) throw pdh_exception("Failed to initialize PdhOpenQuery :(");
   return pdh_error(pPdhOpenQuery(szDataSource, dwUserData, phQuery));
 }
-pdh_error ThreadedSafePDH::PdhCloseQuery(PDH_HQUERY hQuery) {
+pdh_error ThreadedSafePDH::PdhCloseQuery(const PDH_HQUERY hQuery) {
   boost::unique_lock<boost::shared_mutex> lock(mutex_);
   if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for PdhCloseQuery");
-  if (pPdhCloseQuery == NULL) throw pdh_exception("Failed to initialize PdhCloseQuery :(");
+  if (pPdhCloseQuery == nullptr) throw pdh_exception("Failed to initialize PdhCloseQuery :(");
   return pdh_error(pPdhCloseQuery(hQuery));
 }
-pdh_error ThreadedSafePDH::PdhCollectQueryData(PDH_HQUERY hQuery) {
+pdh_error ThreadedSafePDH::PdhCollectQueryData(const PDH_HQUERY hQuery) {
   boost::unique_lock<boost::shared_mutex> lock(mutex_);
   if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for PdhCollectQueryData");
-  if (pPdhCollectQueryData == NULL) throw pdh_exception("Failed to initialize PdhCollectQueryData :(");
+  if (pPdhCollectQueryData == nullptr) throw pdh_exception("Failed to initialize PdhCollectQueryData :(");
   return pdh_error(pPdhCollectQueryData(hQuery));
 }
-pdh_error ThreadedSafePDH::PdhValidatePath(LPCWSTR szFullPathBuffer, bool force_reload) {
+pdh_error ThreadedSafePDH::PdhValidatePath(const LPCWSTR szFullPathBuffer, const bool force_reload) {
   boost::unique_lock<boost::shared_mutex> lock(mutex_);
   if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for PdhValidatePath");
-  if (pPdhValidatePath == NULL) throw pdh_exception("Failed to initialize PdhValidatePath :(");
+  if (pPdhValidatePath == nullptr) throw pdh_exception("Failed to initialize PdhValidatePath :(");
   pdh_error status = pdh_error(pPdhValidatePath(szFullPathBuffer));
   if (status.is_error() && force_reload) {
     reload_unsafe();
@@ -127,19 +130,19 @@ pdh_error ThreadedSafePDH::PdhValidatePath(LPCWSTR szFullPathBuffer, bool force_
   }
   return status;
 }
-pdh_error ThreadedSafePDH::PdhEnumObjects(LPCWSTR szDataSource, LPCWSTR szMachineName, LPWSTR mszObjectList, LPDWORD pcchBufferSize, DWORD dwDetailLevel,
-                                          BOOL bRefresh) {
+pdh_error ThreadedSafePDH::PdhEnumObjects(const LPCWSTR szDataSource, const LPCWSTR szMachineName, const LPWSTR mszObjectList, const LPDWORD pcchBufferSize,
+                                          const DWORD dwDetailLevel, const BOOL bRefresh) {
   boost::unique_lock<boost::shared_mutex> lock(mutex_);
   if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for PdhEnumObjects");
-  if (pPdhEnumObjects == NULL) throw pdh_exception("Failed to initialize PdhEnumObjects :(");
+  if (pPdhEnumObjects == nullptr) throw pdh_exception("Failed to initialize PdhEnumObjects :(");
   return pdh_error(pPdhEnumObjects(szDataSource, szMachineName, mszObjectList, pcchBufferSize, dwDetailLevel, bRefresh));
 }
-pdh_error ThreadedSafePDH::PdhEnumObjectItems(LPCWSTR szDataSource, LPCWSTR szMachineName, LPCWSTR szObjectName, LPWSTR mszCounterList,
-                                              LPDWORD pcchCounterListLength, LPWSTR mszInstanceList, LPDWORD pcchInstanceListLength, DWORD dwDetailLevel,
-                                              DWORD dwFlags) {
+pdh_error ThreadedSafePDH::PdhEnumObjectItems(const LPCWSTR szDataSource, const LPCWSTR szMachineName, const LPCWSTR szObjectName, const LPWSTR mszCounterList,
+                                              const LPDWORD pcchCounterListLength, const LPWSTR mszInstanceList, const LPDWORD pcchInstanceListLength,
+                                              const DWORD dwDetailLevel, const DWORD dwFlags) {
   boost::unique_lock<boost::shared_mutex> lock(mutex_);
   if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for PdhEnumObjectItems");
-  if (pPdhEnumObjectItems == NULL) throw pdh_exception("Failed to initialize PdhEnumObjectItems :(");
+  if (pPdhEnumObjectItems == nullptr) throw pdh_exception("Failed to initialize PdhEnumObjectItems :(");
   return pdh_error(pPdhEnumObjectItems(szDataSource, szMachineName, szObjectName, mszCounterList, pcchCounterListLength, mszInstanceList,
                                        pcchInstanceListLength, dwDetailLevel, dwFlags));
 }

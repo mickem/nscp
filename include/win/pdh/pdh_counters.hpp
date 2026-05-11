@@ -28,6 +28,7 @@ namespace PDH {
 class PDHCounter;
 class PDHCounterListener {
  public:
+  virtual ~PDHCounterListener() = default;
   virtual void collect(const PDHCounter &counter) = 0;
   virtual void attach(const PDHCounter *counter) = 0;
   virtual void detach(const PDHCounter *counter) = 0;
@@ -35,21 +36,20 @@ class PDHCounterListener {
 };
 
 class PDHCounter {
- private:
-  PDH::PDH_HCOUNTER hCounter_;
+  PDH_HCOUNTER hCounter_;
   pdh_instance counter_;
   PDH_FMT_COUNTERVALUE data_;
 
  public:
-  PDHCounter(pdh_instance counter);
+  explicit PDHCounter(const pdh_instance &counter);
   ~PDHCounter();
-  pdh_error validate();
+  pdh_error validate() const;
 
-  counter_info getCounterInfo(BOOLEAN bExplainText = FALSE);
-  const PDH::PDH_HCOUNTER getCounter() const;
-  const std::string getName() const;
-  const std::string get_path() const;
-  void addToQuery(PDH::PDH_HQUERY hQuery);
+  counter_info getCounterInfo(BOOLEAN bExplainText = FALSE) const;
+  PDH_HCOUNTER getCounter() const;
+  std::string getName() const;
+  std::string get_path() const;
+  void addToQuery(PDH_HQUERY hQuery);
   void remove();
   pdh_error collect();
   double getDoubleValue() const;

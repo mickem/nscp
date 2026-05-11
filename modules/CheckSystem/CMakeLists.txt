@@ -127,6 +127,8 @@ NSCP_CREATE_TEST(
         check_process_test.cpp
         check_cpu_frequency_test.cpp
         check_pdh_test.cpp
+        pdh_query_test.cpp
+        pdh_objects_test.cpp
         check_network_test.cpp
         check_temperature_test.cpp
         check_service_test.cpp

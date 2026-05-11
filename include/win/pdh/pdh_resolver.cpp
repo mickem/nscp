@@ -27,11 +27,11 @@
 #include <win/pdh/pdh_resolver.hpp>
 
 namespace PDH {
-std::wstring PDHResolver::PdhLookupPerfNameByIndex(LPCTSTR szMachineName, DWORD dwNameIndex) {
-  TCHAR *buffer = new TCHAR[PDH_INDEX_BUF_LEN + 1];
+std::wstring PDHResolver::PdhLookupPerfNameByIndex(const LPCTSTR szMachineName, const DWORD dwNameIndex) {
+  const auto buffer = new TCHAR[PDH_INDEX_BUF_LEN + 1];
   DWORD bufLen = PDH_INDEX_BUF_LEN;
 
-  pdh_error status = factory::get_impl()->PdhLookupPerfNameByIndex(szMachineName, dwNameIndex, buffer, &bufLen);
+  const pdh_error status = factory::get_impl()->PdhLookupPerfNameByIndex(szMachineName, dwNameIndex, buffer, &bufLen);
   if (status.is_error()) {
     delete[] buffer;
     throw pdh_exception("PdhLookupPerfNameByIndex: Could not find index: " + str::xtos(dwNameIndex), status);
@@ -40,10 +40,10 @@ std::wstring PDHResolver::PdhLookupPerfNameByIndex(LPCTSTR szMachineName, DWORD 
   delete[] buffer;
   return ret;
 }
-std::list<std::string> PDHResolver::PdhExpandCounterPath(std::string szWildCardPath, DWORD buffSize) {
-  TCHAR *buffer = new TCHAR[buffSize + 1];
+std::list<std::string> PDHResolver::PdhExpandCounterPath(const std::string &szWildCardPath, const DWORD buffSize) {
+  const auto buffer = new TCHAR[buffSize + 1];
   DWORD bufLen = buffSize;
-  pdh_error status = factory::get_impl()->PdhExpandCounterPath(utf8::cvt<std::wstring>(szWildCardPath).c_str(), buffer, &bufLen);
+  const pdh_error status = factory::get_impl()->PdhExpandCounterPath(utf8::cvt<std::wstring>(szWildCardPath).c_str(), buffer, &bufLen);
   if (status.is_error()) {
     delete[] buffer;
     if (buffSize == PDH_INDEX_BUF_LEN && bufLen > buffSize) return PdhExpandCounterPath(szWildCardPath, bufLen + 10);
@@ -54,49 +54,49 @@ std::list<std::string> PDHResolver::PdhExpandCounterPath(std::string szWildCardP
   return ret;
 }
 
-DWORD PDHResolver::PdhLookupPerfIndexByName(LPCTSTR szMachineName, LPCTSTR indexName) {
+DWORD PDHResolver::PdhLookupPerfIndexByName(const LPCTSTR szMachineName, const LPCTSTR indexName) {
   DWORD ret;
-  pdh_error status = factory::get_impl()->PdhLookupPerfIndexByName(szMachineName, indexName, &ret);
+  const pdh_error status = factory::get_impl()->PdhLookupPerfIndexByName(szMachineName, indexName, &ret);
   if (status.is_error()) {
     throw pdh_exception("PdhLookupPerfNameByIndex: Could not find index: " + utf8::cvt<std::string>(indexName), status);
   }
   return ret;
 }
 
-bool PDHResolver::validate(std::wstring counter, std::wstring &error, bool force_reload) {
-  pdh_error status = factory::get_impl()->PdhValidatePath(counter.c_str(), force_reload);
+bool PDHResolver::validate(const std::wstring &counter, std::wstring &error, const bool force_reload) {
+  const pdh_error status = factory::get_impl()->PdhValidatePath(counter.c_str(), force_reload);
   if (status.is_error()) error = utf8::cvt<std::wstring>(status.get_message());
   return status.is_ok();
 }
-bool is_speacial_char(char c) { return c == '\\' || c == '(' || c == ')'; }
+bool is_special_char(char c) { return c == '\\' || c == '(' || c == ')'; }
 
 bool PDHResolver::expand_index(std::string &counter) {
-  std::string::size_type pos = 0;
+  auto pos = 0;
   do {
-    std::string::size_type p1 = counter.find_first_of("0123456789", pos);
+    const auto p1 = counter.find_first_of("0123456789", pos);
     if (p1 == std::wstring::npos) return true;
-    std::string::size_type p2 = counter.find_first_not_of("0123456789", p1);
+    auto p2 = counter.find_first_not_of("0123456789", p1);
     if (p2 == std::string::npos) p2 = counter.size();
     if (p2 <= p1) return false;
     if (p1 > 0) {
-      if (!is_speacial_char(counter[p1 - 1])) {
+      if (!is_special_char(counter[p1 - 1])) {
         pos = p2;
         continue;
       }
     }
     if (p2 < counter.size()) {
-      if (!is_speacial_char(counter[p2])) {
+      if (!is_special_char(counter[p2])) {
         pos = p2;
         continue;
       }
     }
-    unsigned int index = str::stox<unsigned int>(counter.substr(p1, p2 - p1));
-    std::string sindex = PDHResolver::lookupIndex(index);
+    const unsigned int index = str::stox<unsigned int>(counter.substr(p1, p2 - p1));
+    std::string sindex = lookupIndex(index);
     counter.replace(p1, p2 - p1, sindex);
     pos = p1 + sindex.size();
   } while (true);
 }
 
-std::string PDHResolver::lookupIndex(DWORD index) { return utf8::cvt<std::string>(PdhLookupPerfNameByIndex(NULL, index)); }
-DWORD PDHResolver::lookupIndex(std::string name) { return PdhLookupPerfIndexByName(NULL, utf8::cvt<std::wstring>(name).c_str()); }
+std::string PDHResolver::lookupIndex(const DWORD index) { return utf8::cvt<std::string>(PdhLookupPerfNameByIndex(nullptr, index)); }
+DWORD PDHResolver::lookupIndex(const std::string &name) { return PdhLookupPerfIndexByName(nullptr, utf8::cvt<std::wstring>(name).c_str()); }
 }  // namespace PDH

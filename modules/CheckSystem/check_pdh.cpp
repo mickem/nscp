@@ -158,7 +158,7 @@ void check::check_pdh(std::shared_ptr<pdh_thread> &collector, const PB::Commands
         }
         PDH::pdh_object obj;
         if (expand_instance) obj.set_instances("true");
-        obj.set_flags(flags);
+        obj.add_flags(flags);
         obj.set_counter(counter);
         obj.set_alias(counter);
         obj.set_strategy_static();
@@ -192,7 +192,7 @@ void check::check_pdh(std::shared_ptr<pdh_thread> &collector, const PB::Commands
           PDH::PDHResolver::expand_index(counter);
         }
         PDH::pdh_object obj;
-        obj.set_flags(flags);
+        obj.add_flags(flags);
         obj.set_counter(counter);
         obj.set_strategy_static();
         obj.set_type(type);

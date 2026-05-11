@@ -31,7 +31,7 @@
 namespace PDH {
 std::list<std::string> Enumerations::expand_wild_card_path(const std::string &query, std::string &error) {
   std::list<std::string> ret;
-  std::wstring wquery = utf8::cvt<std::wstring>(query);
+  auto wquery = utf8::cvt<std::wstring>(query);
   hlp::buffer<TCHAR> buffer(1024);
   auto dwBufLen = static_cast<DWORD>(buffer.size());
   try {
@@ -68,7 +68,7 @@ std::list<std::string> Enumerations::expand_wild_card_path(const std::string &qu
         error = status.get_message();
         return ret;
       }
-      std::wstring counterName = tBuf2.get()->szFullPath;
+      const std::wstring counterName = tBuf2.get()->szFullPath;
       error = "";
       return expand_wild_card_path(utf8::cvt<std::string>(counterName), error);
     }
@@ -93,17 +93,17 @@ std::list<std::string> Enumerations::expand_wild_card_path(const std::string &qu
 }
 void Enumerations::fetch_object_details(Object &object, bool instances, bool objects, DWORD dwDetailLevel) {
   DWORD dwCounterBufLen = 0;
-  TCHAR *szCounterBuffer = NULL;
   DWORD dwInstanceBufLen = 0;
-  TCHAR *szInstanceBuffer = NULL;
   try {
-    pdh_error status = factory::get_impl()->PdhEnumObjectItems(NULL, NULL, utf8::cvt<std::wstring>(object.name).c_str(), szCounterBuffer, &dwCounterBufLen,
-                                                               szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
+    TCHAR *szInstanceBuffer = nullptr;
+    TCHAR *szCounterBuffer = nullptr;
+    pdh_error status = factory::get_impl()->PdhEnumObjectItems(nullptr, nullptr, utf8::cvt<std::wstring>(object.name).c_str(), szCounterBuffer,
+                                                               &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
     if (status.is_more_data()) {
       szCounterBuffer = new TCHAR[dwCounterBufLen + 1];
       szInstanceBuffer = new TCHAR[dwInstanceBufLen + 1];
 
-      status = factory::get_impl()->PdhEnumObjectItems(NULL, NULL, utf8::cvt<std::wstring>(object.name).c_str(), szCounterBuffer, &dwCounterBufLen,
+      status = factory::get_impl()->PdhEnumObjectItems(nullptr, nullptr, utf8::cvt<std::wstring>(object.name).c_str(), szCounterBuffer, &dwCounterBufLen,
                                                        szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
       if (status.is_error()) {
         delete[] szCounterBuffer;
@@ -112,14 +112,14 @@ void Enumerations::fetch_object_details(Object &object, bool instances, bool obj
       }
 
       if (dwCounterBufLen > 0 && objects) {
-        TCHAR *cp = szCounterBuffer;
+        const TCHAR *cp = szCounterBuffer;
         while (*cp != '\0') {
           object.counters.push_back(utf8::cvt<std::string>(cp));
           cp += lstrlen(cp) + 1;
         }
       }
       if (dwInstanceBufLen > 0 && instances) {
-        TCHAR *cp = szInstanceBuffer;
+        const TCHAR *cp = szInstanceBuffer;
         while (*cp != '\0') {
           object.instances.push_back(utf8::cvt<std::string>(cp));
           cp += lstrlen(cp) + 1;
@@ -140,15 +140,15 @@ Enumerations::Objects Enumerations::EnumObjects(bool instances, bool objects, DW
   Objects ret;
 
   DWORD dwObjectBufLen = 0;
-  TCHAR *szObjectBuffer = NULL;
-  pdh_error status = factory::get_impl()->PdhEnumObjects(NULL, NULL, szObjectBuffer, &dwObjectBufLen, dwDetailLevel, FALSE);
+  TCHAR *szObjectBuffer = nullptr;
+  pdh_error status = factory::get_impl()->PdhEnumObjects(nullptr, nullptr, szObjectBuffer, &dwObjectBufLen, dwDetailLevel, FALSE);
   if (!status.is_more_data()) throw pdh_exception("PdhEnumObjects failed when trying to retrieve size of object buffer", status);
 
   szObjectBuffer = new TCHAR[dwObjectBufLen + 1024];
-  status = factory::get_impl()->PdhEnumObjects(NULL, NULL, szObjectBuffer, &dwObjectBufLen, dwDetailLevel, FALSE);
+  status = factory::get_impl()->PdhEnumObjects(nullptr, nullptr, szObjectBuffer, &dwObjectBufLen, dwDetailLevel, FALSE);
   if (status.is_error()) throw pdh_exception("PdhEnumObjects failed when trying to retrieve object buffer", status);
 
-  TCHAR *cp = szObjectBuffer;
+  const TCHAR *cp = szObjectBuffer;
   while (*cp != '\0') {
     Object o;
     o.name = utf8::cvt<std::string>(cp);
@@ -165,7 +165,7 @@ Enumerations::Objects Enumerations::EnumObjects(bool instances, bool objects, DW
   return ret;
 }
 
-Enumerations::Object Enumerations::EnumObject(std::string object, bool instances, bool objects, DWORD dwDetailLevel) {
+Enumerations::Object Enumerations::EnumObject(const std::string &object, const bool instances, const bool objects, const DWORD dwDetailLevel) {
   Object ret;
   ret.name = object;
   fetch_object_details(ret, instances, objects, dwDetailLevel);
