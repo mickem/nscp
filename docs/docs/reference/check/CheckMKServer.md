@@ -23,6 +23,8 @@ CheckMKServer = enabled
 | Path / Section                                                  | Description               |
 |-----------------------------------------------------------------|---------------------------|
 | [/settings/check_mk/server](#check-mk-server-section)           | CHECK MK SERVER SECTION   |
+| [/settings/check_mk/server/local](#local-check-entries)         | LOCAL CHECK ENTRIES       |
+| [/settings/check_mk/server/mrpe](#mrpe-entries)                 | MRPE ENTRIES              |
 | [/settings/check_mk/server/scripts](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
 | [/settings/default](#default-values)                            | Default values            |
 
@@ -47,9 +49,12 @@ Section for check_mk (CheckMKServer.dll) protocol options.
 | [certificate key](#ssl-certificate)                  |                                     | SSL CERTIFICATE                     |
 | [debug verify](#debug-peer-certificate-verification) | false                               | Debug peer certificate verification |
 | [dh](#dh-key)                                        |                                     | DH KEY                              |
+| [local channel](#local-submission-channel)           | check_mk-local                      | LOCAL SUBMISSION CHANNEL            |
+| [mrpe channel](#mrpe-submission-channel)             | check_mk-mrpe                       | MRPE SUBMISSION CHANNEL             |
 | [port](#port-number)                                 | 6556                                | PORT NUMBER                         |
 | [socket queue size](#listen-queue)                   | 0                                   | LISTEN QUEUE                        |
 | [ssl options](#verify-mode)                          |                                     | VERIFY MODE                         |
+| [submission ttl](#submitted-result-ttl)              | 60                                  | SUBMITTED RESULT TTL                |
 | [thread pool](#thread-pool)                          | 10                                  | THREAD POOL                         |
 | [timeout](#timeout)                                  | 30                                  | TIMEOUT                             |
 | [tls version](#tls-version-to-use)                   | tlsv1.2+                            | TLS version to use                  |
@@ -68,8 +73,11 @@ cache allowed hosts=true
 certificate=${certificate-path}/certificate.pem
 certificate format=PEM
 debug verify=false
+local channel=check_mk-local
+mrpe channel=check_mk-mrpe
 port=6556
 socket queue size=0
+submission ttl=60
 thread pool=10
 timeout=30
 tls version=tlsv1.2+
@@ -343,6 +351,56 @@ dh=
 
 
 
+#### LOCAL SUBMISSION CHANNEL <a id="/settings/check_mk/server/local channel"></a>
+
+Channel name passive check results land on to be relayed as cached <<<local>>> entries.
+
+
+
+
+
+| Key            | Description                                             |
+|----------------|---------------------------------------------------------|
+| Path:          | [/settings/check_mk/server](#/settings/check_mk/server) |
+| Key:           | local channel                                           |
+| Default value: | `check_mk-local`                                        |
+
+
+**Sample:**
+
+```
+[/settings/check_mk/server]
+# LOCAL SUBMISSION CHANNEL
+local channel=check_mk-local
+```
+
+
+
+#### MRPE SUBMISSION CHANNEL <a id="/settings/check_mk/server/mrpe channel"></a>
+
+Channel name passive check results land on to be relayed as cached <<<mrpe>>> entries.
+
+
+
+
+
+| Key            | Description                                             |
+|----------------|---------------------------------------------------------|
+| Path:          | [/settings/check_mk/server](#/settings/check_mk/server) |
+| Key:           | mrpe channel                                            |
+| Default value: | `check_mk-mrpe`                                         |
+
+
+**Sample:**
+
+```
+[/settings/check_mk/server]
+# MRPE SUBMISSION CHANNEL
+mrpe channel=check_mk-mrpe
+```
+
+
+
 #### PORT NUMBER <a id="/settings/check_mk/server/port"></a>
 
 Port to use for check_mk.
@@ -429,6 +487,31 @@ single-dh-use	Always create a new key when using temporary/ephemeral DH paramete
 [/settings/check_mk/server]
 # VERIFY MODE
 ssl options=
+```
+
+
+
+#### SUBMITTED RESULT TTL <a id="/settings/check_mk/server/submission ttl"></a>
+
+How long (seconds) a submitted check result is advertised as fresh in the cached(...) header. Should be at least the scheduler interval that submits it.
+
+
+
+
+
+| Key            | Description                                             |
+|----------------|---------------------------------------------------------|
+| Path:          | [/settings/check_mk/server](#/settings/check_mk/server) |
+| Key:           | submission ttl                                          |
+| Default value: | `60`                                                    |
+
+
+**Sample:**
+
+```
+[/settings/check_mk/server]
+# SUBMITTED RESULT TTL
+submission ttl=60
 ```
 
 
@@ -569,6 +652,34 @@ client-once	Only request a client certificate on the initial TLS/SSL handshake. 
 # VERIFY MODE
 verify mode=none
 ```
+
+
+### LOCAL CHECK ENTRIES <a id="/settings/check_mk/server/local"></a>
+
+Each key under this path becomes a Checkmk service in <<<local>>> with the value `command=<nscp-command> [args...]`.
+Example:
+  CPU Load = command=check_cpu warn=load>80
+
+
+This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
+
+
+
+
+
+
+### MRPE ENTRIES <a id="/settings/check_mk/server/mrpe"></a>
+
+Each key under this path becomes a Checkmk service in <<<mrpe>>> with the value `command=<nscp-command> [args...]`.
+Example:
+  Uptime = command=check_uptime warn=uptime<2d
+
+
+This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
+
+
+
+
 
 
 ### REMOTE TARGET DEFINITIONS <a id="/settings/check_mk/server/scripts"></a>
