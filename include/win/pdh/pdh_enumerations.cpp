@@ -132,40 +132,37 @@ void Enumerations::fetch_object_details(Object &object, bool instances, bool obj
   DWORD dwCounterBufLen = 0;
   DWORD dwInstanceBufLen = 0;
   try {
-    TCHAR *szInstanceBuffer = nullptr;
-    TCHAR *szCounterBuffer = nullptr;
-    pdh_error status = factory::get_impl()->PdhEnumObjectItems(nullptr, nullptr, utf8::cvt<std::wstring>(object.name).c_str(), szCounterBuffer,
-                                                               &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
-    if (status.is_more_data()) {
-      szCounterBuffer = new TCHAR[dwCounterBufLen + 1];
-      szInstanceBuffer = new TCHAR[dwInstanceBufLen + 1];
-
-      status = factory::get_impl()->PdhEnumObjectItems(nullptr, nullptr, utf8::cvt<std::wstring>(object.name).c_str(), szCounterBuffer, &dwCounterBufLen,
-                                                       szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
-      if (status.is_error()) {
-        delete[] szCounterBuffer;
-        delete[] szInstanceBuffer;
-        object.error = "Failed to enumerate object: " + object.name;
-      }
-
-      if (dwCounterBufLen > 0 && objects) {
-        const TCHAR *cp = szCounterBuffer;
-        while (*cp != '\0') {
-          object.counters.push_back(utf8::cvt<std::string>(cp));
-          cp += lstrlen(cp) + 1;
-        }
-      }
-      if (dwInstanceBufLen > 0 && instances) {
-        const TCHAR *cp = szInstanceBuffer;
-        while (*cp != '\0') {
-          object.instances.push_back(utf8::cvt<std::string>(cp));
-          cp += lstrlen(cp) + 1;
-        }
-      }
-      delete[] szCounterBuffer;
-      delete[] szInstanceBuffer;
-    } else {
+    // First call with null buffers to learn the required sizes.
+    pdh_error status = factory::get_impl()->PdhEnumObjectItems(nullptr, nullptr, utf8::cvt<std::wstring>(object.name).c_str(), nullptr, &dwCounterBufLen,
+                                                               nullptr, &dwInstanceBufLen, dwDetailLevel, 0);
+    if (!status.is_more_data()) {
       object.error = "Failed to enumerate object: " + object.name;
+      return;
+    }
+
+    hlp::buffer<TCHAR> counterBuffer(dwCounterBufLen + 1);
+    hlp::buffer<TCHAR> instanceBuffer(dwInstanceBufLen + 1);
+
+    status = factory::get_impl()->PdhEnumObjectItems(nullptr, nullptr, utf8::cvt<std::wstring>(object.name).c_str(), counterBuffer.get(), &dwCounterBufLen,
+                                                     instanceBuffer.get(), &dwInstanceBufLen, dwDetailLevel, 0);
+    if (status.is_error()) {
+      object.error = "Failed to enumerate object: " + object.name;
+      return;
+    }
+
+    if (dwCounterBufLen > 0 && objects) {
+      const TCHAR *cp = counterBuffer.get();
+      while (*cp != '\0') {
+        object.counters.push_back(utf8::cvt<std::string>(cp));
+        cp += lstrlen(cp) + 1;
+      }
+    }
+    if (dwInstanceBufLen > 0 && instances) {
+      const TCHAR *cp = instanceBuffer.get();
+      while (*cp != '\0') {
+        object.instances.push_back(utf8::cvt<std::string>(cp));
+        cp += lstrlen(cp) + 1;
+      }
     }
   } catch (std::exception &e) {
     object.error = e.what();
@@ -177,22 +174,20 @@ Enumerations::Objects Enumerations::EnumObjects(bool instances, bool objects, DW
   Objects ret;
 
   DWORD dwObjectBufLen = 0;
-  TCHAR *szObjectBuffer = nullptr;
-  pdh_error status = factory::get_impl()->PdhEnumObjects(nullptr, nullptr, szObjectBuffer, &dwObjectBufLen, dwDetailLevel, FALSE);
+  pdh_error status = factory::get_impl()->PdhEnumObjects(nullptr, nullptr, nullptr, &dwObjectBufLen, dwDetailLevel, FALSE);
   if (!status.is_more_data()) throw pdh_exception("PdhEnumObjects failed when trying to retrieve size of object buffer", status);
 
-  szObjectBuffer = new TCHAR[dwObjectBufLen + 1024];
-  status = factory::get_impl()->PdhEnumObjects(nullptr, nullptr, szObjectBuffer, &dwObjectBufLen, dwDetailLevel, FALSE);
+  hlp::buffer<TCHAR> objectBuffer(dwObjectBufLen + 1024);
+  status = factory::get_impl()->PdhEnumObjects(nullptr, nullptr, objectBuffer.get(), &dwObjectBufLen, dwDetailLevel, FALSE);
   if (status.is_error()) throw pdh_exception("PdhEnumObjects failed when trying to retrieve object buffer", status);
 
-  const TCHAR *cp = szObjectBuffer;
+  const TCHAR *cp = objectBuffer.get();
   while (*cp != '\0') {
     Object o;
     o.name = utf8::cvt<std::string>(cp);
     ret.push_back(o);
     cp += lstrlen(cp) + 1;
   }
-  delete[] szObjectBuffer;
 
   if (objects || instances) {
     for (Object &o : ret) {
