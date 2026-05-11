@@ -131,6 +131,15 @@ class pdh_thread {
   static spi_container fetch_spi(error_list &errors);
   void write_metrics(const spi_container &handles, const windows::system_info::cpu_load &load, PDH::PDHQuery *pdh, error_list &errors);
 
+  // Single attempt at resolving counters and opening the PDH query. Rebuilds
+  // counters_ and lookups_ from configs_ each call so that wildcard expansion
+  // re-runs (perflib may have finished registering since the previous attempt).
+  // Returns true on success; false on any per-counter or query-open failure.
+  // log_failures_as_errors selects the log level used for failures (true on
+  // the final attempt so the user sees what went wrong, false during retries
+  // to avoid spamming the log on transient boot races).
+  bool try_setup_pdh_counters(PDH::PDHQuery &pdh, bool log_failures_as_errors);
+
   filters::mem::filter_config_handler mem_filters_;
   filters::cpu::filter_config_handler cpu_filters_;
   filters::proc::filter_config_handler proc_filters_;

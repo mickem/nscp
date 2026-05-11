@@ -60,6 +60,56 @@ spi_container pdh_thread::fetch_spi(error_list &errors) {
 
 bool first_time = true;
 
+bool pdh_thread::try_setup_pdh_counters(PDH::PDHQuery &pdh, bool log_failures_as_errors) {
+  counters_.clear();
+  lookups_.clear();
+  pdh.removeAllCounters();
+
+  for (const PDH::pdh_object &obj : configs_) {
+    try {
+      PDH::pdh_instance instance = PDH::factory::create(obj);
+      if (instance->has_instances()) {
+        for (const PDH::pdh_instance &sc : instance->get_instances()) {
+          NSC_DEBUG_MSG("Loading counter: " + sc->get_name() + " = " + sc->get_counter());
+          pdh.addCounter(sc);
+        }
+      } else {
+        NSC_DEBUG_MSG("Loading counter: " + instance->get_name() + " = " + instance->get_counter());
+        pdh.addCounter(instance);
+      }
+      counters_.push_back(instance);
+      lookups_[instance->get_name()] = instance;
+    } catch (const std::exception &e) {
+      if (log_failures_as_errors) {
+        NSC_LOG_ERROR_EXR("Failed to add counter " + obj.alias, e);
+      } else {
+        NSC_DEBUG_MSG("Counter " + obj.alias + " not yet available, will retry: " + utf8::utf8_from_native(e.what()));
+      }
+    }
+  }
+
+  if (counters_.empty()) {
+    if (log_failures_as_errors) {
+      NSC_LOG_MESSAGE("No PDH counters could be resolved (performance counters disabled)");
+    }
+    return false;
+  }
+
+  try {
+    pdh.open();
+    pdh.collect();
+    return true;
+  } catch (const std::exception &e) {
+    if (log_failures_as_errors) {
+      NSC_LOG_ERROR_EXR("Failed to open PDH counters (performance counters disabled)", e);
+    } else {
+      NSC_DEBUG_MSG("PDH open/collect failed, will retry: " + utf8::utf8_from_native(e.what()));
+    }
+    pdh.removeAllCounters();
+    return false;
+  }
+}
+
 void pdh_thread::write_metrics(const spi_container &handles, const windows::system_info::cpu_load &load, PDH::PDHQuery *pdh, error_list &errors) {
   boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!writeLock.owns_lock()) {
@@ -119,79 +169,39 @@ void pdh_thread::thread_proc() {
     } else {
       NSC_LOG_ERROR_STD("Unknown PDH subsystem valid values are: fast (default) and thread-safe");
     }
-    {
-      PDH::PDHQuery tmpPdh;
-      for (const PDH::pdh_object &obj : configs_) {
-        try {
-          PDH::pdh_instance instance = PDH::factory::create(obj);
-
-          if (instance->has_instances()) {
-            for (const PDH::pdh_instance &sc : instance->get_instances()) {
-              tmpPdh.addCounter(sc);
-            }
-          } else {
-            tmpPdh.addCounter(instance);
-          }
-
-          tmpPdh.open();
-          counters_.push_back(instance);
-          lookups_[instance->get_name()] = instance;
-          tmpPdh.close();
-        } catch (const std::exception &e) {
-          if (tmpPdh.is_open()) {
-            tmpPdh.close();
-          }
-          NSC_LOG_ERROR_EXR("Failed to add counter " + obj.alias, e);
-          continue;
-        }
-      }
-    }
   } catch (const std::exception &e) {
-    NSC_LOG_ERROR_EXR("Failed to setup PDH counters: ", e);
-    counters_.clear();
+    NSC_LOG_ERROR_EXR("Failed to initialize PDH subsystem: ", e);
   } catch (...) {
-    NSC_LOG_ERROR("Failed to setup PDH counters");
-    counters_.clear();
+    NSC_LOG_ERROR("Failed to initialize PDH subsystem");
   }
 
   PDH::PDHQuery pdh;
+  bool check_pdh = false;
 
-  bool check_pdh = !counters_.empty();
+  // Set the English locale before any PDH calls so that English counter paths
+  // resolve correctly on non-English Windows (the PdhAddEnglishCounter
+  // fallback in pdh_counters.cpp is a safety net, not a substitute).
+  SetThreadLocale(MAKELCID(MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), SORT_DEFAULT));
 
-  if (check_pdh) {
-    SetThreadLocale(MAKELCID(MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), SORT_DEFAULT));
-    // 		boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
-    // 		if (!writeLock.owns_lock()) {
-    // 			NSC_LOG_ERROR_STD("Failed to get mutex when trying to start thread.");
-    // 			return;
-    // 		}
-    pdh.removeAllCounters();
-    for (const PDH::pdh_instance &c : counters_) {
-      try {
-        if (c->has_instances()) {
-          for (const PDH::pdh_instance &sc : c->get_instances()) {
-            NSC_DEBUG_MSG("Loading counter: " + sc->get_name() + " = " + sc->get_counter());
-            pdh.addCounter(sc);
-          }
-        } else {
-          NSC_DEBUG_MSG("Loading counter: " + c->get_name() + " = " + c->get_counter());
-          pdh.addCounter(c);
-        }
-      } catch (...) {
-        NSC_LOG_ERROR_WA("EXCEPTION: Failed to load counter: " + c->get_name() + " = ", c->get_counter());
+  // Retry PDH counter setup with exponential back-off. Perflib registration
+  // is sometimes not complete when the service starts shortly after boot,
+  // which previously left PDH disabled until the next service restart (#634).
+  if (!configs_.empty()) {
+    const DWORD backoff_ms[] = {1000, 2000, 4000, 8000, 16000, 30000};
+    const int max_attempts = sizeof(backoff_ms) / sizeof(backoff_ms[0]);
+    for (int attempt = 0; attempt < max_attempts; ++attempt) {
+      const bool is_last_attempt = (attempt + 1 == max_attempts);
+      if (try_setup_pdh_counters(pdh, is_last_attempt)) {
+        check_pdh = true;
+        break;
       }
-    }
-    try {
-      pdh.open();
-    } catch (const std::exception &e) {
-      NSC_LOG_ERROR_EXR("Failed to open counters (performance counters disabled)", e);
-      check_pdh = false;
-    }
-    try {
-      pdh.collect();
-    } catch (const std::exception &e) {
-      NSC_LOG_ERROR_EXR("Failed to collect counters (performance counters disabled): ", e);
-      check_pdh = false;
+      if (!is_last_attempt) {
+        // Interruptible back-off: if shutdown is signalled mid-wait, break
+        // out and let the main loop exit normally (mutex_ is unlocked there).
+        if (WaitForSingleObject(stop_event_, backoff_ms[attempt]) == WAIT_OBJECT_0) {
+          break;
+        }
+      }
     }
   }
 
