@@ -168,6 +168,7 @@ cli_parser::alias_map cli_parser::get_aliases() {
   aliases["smtp"] = "SMTPClient";
   aliases["nrdp"] = "NRDPClient";
   aliases["nsca-ng"] = "NSCANgClient";
+  aliases["icinga"] = "IcingaClient";
   aliases["eventlog"] = "CheckEventLog";
   aliases["python"] = "PythonScript";
   aliases["py"] = "PythonScript";
