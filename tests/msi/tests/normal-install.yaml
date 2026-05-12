@@ -105,7 +105,5 @@ required_files:
     # Scripting runtimes (PythonScript, LuaScript)
     - modules/LUAScript.dll
     - modules/PythonScript.dll
-    # OP5 Monitoring system (OP5Monitoring)
-    - modules/Op5Client.dll
   zip-modules:
     - modules/remote-modules.zip
