@@ -144,7 +144,16 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
                nscapi::settings_helper::int_fun_key([this](auto value) { this->session->set_auth_rate_limit_block_seconds(value); },
                                                     auth_rate_limiter::kDefaultBlockSeconds),
                "AUTH RATE LIMIT (BLOCK SECONDS)",
-               "How long an IP stays blocked after hitting `auth rate limit max failures` consecutive failures. Default 60 s.");
+               "How long an IP stays blocked after hitting `auth rate limit max failures` consecutive failures. Default 60 s.")
+      .add_string("legacy query auth user agents",
+                  nscapi::settings_helper::string_fun_key([this](auto value) { this->session->set_legacy_query_auth_user_agents(value); },
+                                                          session_manager_interface::kDefaultLegacyQueryAuthUserAgents),
+                  "LEGACY QUERY-STRING AUTH ALLOWLIST",
+                  "Comma-separated list of User-Agent substrings (case-insensitive) for clients allowed to authenticate via the legacy "
+                  "`?password=...` / `?TOKEN=...` query-string mechanism. The fallback was removed for security in 340b8db1 because URL parameters "
+                  "leak into browser history, proxy logs and Referer headers. Defaults to 'Icinga/check_nscp_api' so Icinga's bundled check_nscp_api "
+                  "plugin keeps working without admitting any other client that happens to mention Icinga in its User-Agent. Set to empty string to "
+                  "disable the fallback entirely.");
   settings.alias()
       .add_key_to_settings()
       .add_string("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"), "TLS Certificate",

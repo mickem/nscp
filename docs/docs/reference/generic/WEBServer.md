@@ -332,18 +332,19 @@ Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 
 
 
-| Key                                                               | Default Value                       | Description                     |
-|-------------------------------------------------------------------|-------------------------------------|---------------------------------|
-| [allow anonymous access](#allow-anonymous-access)                 | false                               | ALLOW ANONYMOUS ACCESS          |
-| [allowed hosts](#allowed-hosts)                                   | 127.0.0.1                           | Allowed hosts                   |
-| [auth rate limit block seconds](#auth-rate-limit-(block-seconds)) | 60                                  | AUTH RATE LIMIT (BLOCK SECONDS) |
-| [auth rate limit max failures](#auth-rate-limit-(failures))       | 10                                  | AUTH RATE LIMIT (FAILURES)      |
-| [cache allowed hosts](#cache-list-of-allowed-hosts)               | true                                | Cache list of allowed hosts     |
-| [certificate](#tls-certificate)                                   | ${certificate-path}/certificate.pem | TLS Certificate                 |
-| [certificate key](#tls-private-key)                               |                                     | TLS private key                 |
-| [password](#password)                                             |                                     | Password                        |
-| [port](#server-port)                                              | 8443                                | Server port                     |
-| [threads](#server-threads)                                        | 10                                  | Server threads                  |
+| Key                                                                  | Default Value                       | Description                        |
+|----------------------------------------------------------------------|-------------------------------------|------------------------------------|
+| [allow anonymous access](#allow-anonymous-access)                    | false                               | ALLOW ANONYMOUS ACCESS             |
+| [allowed hosts](#allowed-hosts)                                      | 127.0.0.1                           | Allowed hosts                      |
+| [auth rate limit block seconds](#auth-rate-limit-(block-seconds))    | 60                                  | AUTH RATE LIMIT (BLOCK SECONDS)    |
+| [auth rate limit max failures](#auth-rate-limit-(failures))          | 10                                  | AUTH RATE LIMIT (FAILURES)         |
+| [cache allowed hosts](#cache-list-of-allowed-hosts)                  | true                                | Cache list of allowed hosts        |
+| [certificate](#tls-certificate)                                      | ${certificate-path}/certificate.pem | TLS Certificate                    |
+| [certificate key](#tls-private-key)                                  |                                     | TLS private key                    |
+| [legacy query auth user agents](#legacy-query-string-auth-allowlist) | Icinga/check_nscp_api               | LEGACY QUERY-STRING AUTH ALLOWLIST |
+| [password](#password)                                                |                                     | Password                           |
+| [port](#server-port)                                                 | 8443                                | Server port                        |
+| [threads](#server-threads)                                           | 10                                  | Server threads                     |
 
 
 
@@ -356,6 +357,7 @@ auth rate limit block seconds=60
 auth rate limit max failures=10
 cache allowed hosts=true
 certificate=${certificate-path}/certificate.pem
+legacy query auth user agents=Icinga/check_nscp_api
 port=8443
 threads=10
 
@@ -537,6 +539,31 @@ The private key for the certificate if not in the same file
 [/settings/WEB/server]
 # TLS private key
 certificate key=
+```
+
+
+
+#### LEGACY QUERY-STRING AUTH ALLOWLIST <a id="/settings/WEB/server/legacy query auth user agents"></a>
+
+Comma-separated list of User-Agent substrings (case-insensitive) for clients allowed to authenticate via the legacy \`?password=...\` / \`?TOKEN=...\` query-string mechanism. The fallback was removed for security in 340b8db1 because URL parameters leak into browser history, proxy logs and Referer headers. Defaults to 'Icinga/check_nscp_api' so Icinga's bundled check_nscp_api plugin keeps working without admitting any other client that happens to mention Icinga in its User-Agent. Set to empty string to disable the fallback entirely.
+
+
+
+
+
+| Key            | Description                                   |
+|----------------|-----------------------------------------------|
+| Path:          | [/settings/WEB/server](#/settings/WEB/server) |
+| Key:           | legacy query auth user agents                 |
+| Default value: | `Icinga/check_nscp_api`                       |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server]
+# LEGACY QUERY-STRING AUTH ALLOWLIST
+legacy query auth user agents=Icinga/check_nscp_api
 ```
 
 

@@ -3,9 +3,18 @@
 #include <Helpers.h>
 #include <StreamResponse.h>
 #include <gtest/gtest.h>
+#include <nscapi/nscapi_helper_singleton.hpp>
 
 #include <list>
 #include <string>
+
+// Provide the nscapi singleton expected by NSC_LOG_ERROR / NSC_DEBUG_MSG
+// macros that fire from session_manager_interface.cpp. Production code gets
+// this from `NSC_WRAP_DLL()` in the auto-generated module.cpp; in the test
+// binary there's no plugin wrapper, so we instantiate it ourselves the same
+// way modern_filter_test.cpp and friends do. Without it the linker has
+// nothing to relocate against for any TU that emits the log macros.
+nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
 
 // Mocks for Mongoose::Request only
 namespace MockMongoose {
@@ -219,6 +228,75 @@ TEST_F(SessionManagerTest, ProcessAuthHeaderBasic) {
 
   EXPECT_TRUE(smi.process_auth_header("something:read", req, resp));
   EXPECT_EQ(resp.getCookie("uid"), "user");
+}
+
+// ============================================================================
+// Legacy query-string auth allowlist
+// ============================================================================
+
+TEST(SessionManagerLegacyQueryAuth, DefaultAllowsIcingaCheckNscpApi) {
+  // Default-constructed session_manager_interface seeds the allowlist with
+  // "Icinga/check_nscp_api" so the bundled plugin keeps working without
+  // operator intervention, regardless of version suffix.
+  session_manager_interface smi;
+  EXPECT_TRUE(smi.client_allows_legacy_query_auth("Icinga/check_nscp_api/2.14.0"));
+  EXPECT_TRUE(smi.client_allows_legacy_query_auth("Icinga/check_nscp_api/3.0.0-rc1"));
+  EXPECT_TRUE(smi.client_allows_legacy_query_auth("Icinga/check_nscp_api/dev"));
+}
+
+TEST(SessionManagerLegacyQueryAuth, DefaultMatchIsCaseInsensitive) {
+  session_manager_interface smi;
+  EXPECT_TRUE(smi.client_allows_legacy_query_auth("icinga/check_nscp_api/1.0"));
+  EXPECT_TRUE(smi.client_allows_legacy_query_auth("ICINGA/CHECK_NSCP_API/2.0"));
+}
+
+TEST(SessionManagerLegacyQueryAuth, DefaultRejectsLooseIcingaUserAgents) {
+  // The tighter default ("Icinga/check_nscp_api") refuses arbitrary clients
+  // that merely mention Icinga somewhere in the UA — those would have slipped
+  // through a bare "Icinga" substring default.
+  session_manager_interface smi;
+  EXPECT_FALSE(smi.client_allows_legacy_query_auth("MyIcingaProbe/1.0"));
+  EXPECT_FALSE(smi.client_allows_legacy_query_auth("IcingaWeb2/2.10"));
+  EXPECT_FALSE(smi.client_allows_legacy_query_auth("ICINGA-PROBE/1.0"));
+}
+
+TEST(SessionManagerLegacyQueryAuth, BrowsersAndGenericClientsAreNotAllowed) {
+  session_manager_interface smi;
+  EXPECT_FALSE(smi.client_allows_legacy_query_auth("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0"));
+  EXPECT_FALSE(smi.client_allows_legacy_query_auth("curl/8.0"));
+  EXPECT_FALSE(smi.client_allows_legacy_query_auth(""));
+}
+
+TEST(SessionManagerLegacyQueryAuth, EmptyAllowlistRejectsEverything) {
+  session_manager_interface smi;
+  smi.set_legacy_query_auth_user_agents("");
+  EXPECT_FALSE(smi.client_allows_legacy_query_auth("Icinga/check_nscp_api/2.14.0"));
+}
+
+TEST(SessionManagerLegacyQueryAuth, MultipleSubstringsAllMatch) {
+  session_manager_interface smi;
+  smi.set_legacy_query_auth_user_agents("Icinga/check_nscp_api, my-old-probe, scanner");
+  EXPECT_TRUE(smi.client_allows_legacy_query_auth("Icinga/check_nscp_api/2.14.0"));
+  EXPECT_TRUE(smi.client_allows_legacy_query_auth("my-old-probe/0.9"));
+  EXPECT_TRUE(smi.client_allows_legacy_query_auth("CustomScanner/1.0"));
+  EXPECT_FALSE(smi.client_allows_legacy_query_auth("Mozilla/5.0"));
+}
+
+TEST(SessionManagerLegacyQueryAuth, WhitespaceAroundPatternsIsTrimmed) {
+  session_manager_interface smi;
+  smi.set_legacy_query_auth_user_agents("  Icinga/check_nscp_api  ,   bot   ");
+  EXPECT_TRUE(smi.client_allows_legacy_query_auth("Icinga/check_nscp_api/2.0"));
+  EXPECT_TRUE(smi.client_allows_legacy_query_auth("custom-bot/1.0"));
+}
+
+TEST(SessionManagerLegacyQueryAuth, OperatorCanLooosenToBareIcinga) {
+  // If an operator deploys an Icinga-derived probe that doesn't use the
+  // stock check_nscp_api binary name, they can opt back into the looser
+  // "Icinga" substring match explicitly via the setting.
+  session_manager_interface smi;
+  smi.set_legacy_query_auth_user_agents("Icinga");
+  EXPECT_TRUE(smi.client_allows_legacy_query_auth("MyIcingaProbe/1.0"));
+  EXPECT_TRUE(smi.client_allows_legacy_query_auth("Icinga/check_nscp_api/2.14.0"));
 }
 
 TEST_F(SessionManagerTest, ProcessAuthHeaderBearer) {

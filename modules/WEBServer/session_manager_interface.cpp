@@ -17,7 +17,16 @@
 inline bool is_basic_auth(const std::string &auth) { return boost::algorithm::starts_with(auth, "Basic "); }
 inline bool is_bearer_auth(const std::string &auth) { return boost::algorithm::starts_with(auth, "Bearer "); }
 inline bool has_auth_header(Mongoose::Request &request) { return request.hasVariable(HTTP_HDR_AUTH) || request.hasVariable(HTTP_HDR_AUTH_LC); }
-inline std::string find_token(Mongoose::Request &request) {
+
+// Locate a session token in the request. Tries the secure header variants
+// first, then — only for clients whose User-Agent matches the configured
+// allowlist — falls back to the legacy `?TOKEN=` / `?__TOKEN=` query
+// parameters. The fallback was removed entirely in commit 340b8db1 because
+// query-string credentials leak into browser history / proxy logs / Referer
+// headers; we re-introduce it gated on User-Agent so Icinga's bundled
+// check_nscp_api keeps working without re-exposing the vector to web
+// browsers and arbitrary scrapers.
+inline std::string find_token(Mongoose::Request &request, const session_manager_interface &session) {
   auto header_token = request.readHeader("TOKEN");
   if (!header_token.empty()) {
     return header_token;
@@ -26,13 +35,22 @@ inline std::string find_token(Mongoose::Request &request) {
   if (!x_token.empty()) {
     return x_token;
   }
-  if (!request.get("TOKEN").empty() || !request.get("__TOKEN").empty()) {
-    NSC_LOG_ERROR("Rejected request from " + request.getRemoteIp() +
-                  " that supplied the session token as a URL query parameter (?TOKEN= / ?__TOKEN=). "
-                  "This fallback has been removed because URL parameters leak into browser history, "
-                  "proxy logs and Referer headers. Send the token in the TOKEN, X-Auth-Token or "
-                  "Authorization: Bearer header instead.");
+  const std::string query_token = !request.get("TOKEN").empty() ? request.get("TOKEN") : request.get("__TOKEN");
+  if (query_token.empty()) {
+    return "";
   }
+  const std::string user_agent = request.readHeader("User-Agent");
+  if (session.client_allows_legacy_query_auth(user_agent)) {
+    NSC_DEBUG_MSG("Accepting legacy query-string token from " + request.getRemoteIp() + " (User-Agent: " + user_agent +
+                  ") — this client is on the legacy query-auth allowlist.");
+    return query_token;
+  }
+  NSC_LOG_ERROR("Rejected request from " + request.getRemoteIp() +
+                " that supplied the session token as a URL query parameter (?TOKEN= / ?__TOKEN=). "
+                "This fallback is disabled because URL parameters leak into browser history, "
+                "proxy logs and Referer headers. Send the token in the TOKEN, X-Auth-Token or "
+                "Authorization: Bearer header instead, or add this client's User-Agent to "
+                "[/settings/WEB/server] 'legacy query auth user agents' if you cannot upgrade it.");
   return "";
 }
 inline std::string get_auth_header(Mongoose::Request &request) {
@@ -43,7 +61,32 @@ inline std::string get_auth_header(Mongoose::Request &request) {
   return request.readHeader(HTTP_HDR_AUTH_LC);
 }
 
-session_manager_interface::session_manager_interface() : log_data(std::make_unique<error_handler>()) {}
+session_manager_interface::session_manager_interface() : log_data(std::make_unique<error_handler>()) {
+  // Safety net for callers that don't go through settings registration
+  // (tests, embedded uses). Production always overwrites this via
+  // set_legacy_query_auth_user_agents() when the WEB settings are loaded;
+  // having the same default here keeps both paths in lockstep.
+  set_legacy_query_auth_user_agents(kDefaultLegacyQueryAuthUserAgents);
+}
+
+void session_manager_interface::set_legacy_query_auth_user_agents(const std::string &csv) {
+  legacy_query_auth_user_agents_.clear();
+  for (const std::string &raw : str::utils::split_lst(csv, std::string(","))) {
+    std::string pat = boost::algorithm::trim_copy(raw);
+    if (!pat.empty()) legacy_query_auth_user_agents_.push_back(std::move(pat));
+  }
+}
+
+bool session_manager_interface::client_allows_legacy_query_auth(const std::string &user_agent) const {
+  if (user_agent.empty() || legacy_query_auth_user_agents_.empty()) return false;
+  const std::string ua_lower = boost::algorithm::to_lower_copy(user_agent);
+  for (const std::string &pat : legacy_query_auth_user_agents_) {
+    if (pat.empty()) continue;
+    const std::string pat_lower = boost::algorithm::to_lower_copy(pat);
+    if (ua_lower.find(pat_lower) != std::string::npos) return true;
+  }
+  return false;
+}
 
 std::string decode_key(const std::string &encoded) { return Mongoose::Helpers::decode_b64(encoded); }
 
@@ -109,7 +152,7 @@ bool session_manager_interface::is_logged_in(const std::string &grant, Mongoose:
   if (has_auth_header(request)) {
     return process_auth_header(grant, request, response);
   }
-  const std::string token = find_token(request);
+  const std::string token = find_token(request, *this);
   if (token.empty()) {
     NSC_LOG_ERROR("Rejected connection from: " + request.getRemoteIp() + " due to MISSING TOKEN");
     response.setCodeForbidden(NOT_ALLOWED);

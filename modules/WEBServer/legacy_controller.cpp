@@ -84,24 +84,66 @@ void legacy_controller::run_exec_pb(Mongoose::Request &request, Mongoose::Stream
 }
 
 void legacy_controller::auth_token(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  NSC_LOG_ERROR("Rejected legacy /auth/token call from " + request.getRemoteIp() +
-                ": this endpoint accepted the password as a URL query parameter and has been removed. "
-                "Use POST /api/v2/login with HTTP Basic authentication instead.");
-  response.setCode(410, "Gone");
-  response.append(
-      "{ \"status\" : \"error\", \"message\" : \"The /auth/token endpoint has been removed. "
-      "It accepted the password as a URL query parameter, which leaked credentials into browser history, "
-      "proxy logs and Referer headers. Authenticate with POST /api/v2/login using the Authorization: Basic header.\" }");
+  // The endpoint was disabled in commit 340b8db1 because it accepted the
+  // password as `?password=...` — leaked into browser history, proxy logs,
+  // and Referer headers. Re-enabling it unconditionally would reintroduce
+  // that vector. We gate it on a User-Agent allowlist so legacy integrations
+  // (default: Icinga's check_nscp_api) keep working while browsers and
+  // arbitrary scrapers still get the original "Gone" rejection.
+  //
+  // Content-Type is set per-branch rather than once at entry: the 403 paths
+  // below emit plain-text status lines via setCodeForbidden(), and labelling
+  // those as application/json would mislead callers (and break clients that
+  // try to JSON-parse the body, e.g. supertest in our REST suite).
+  const std::string user_agent = request.readHeader("User-Agent");
+  if (!session->client_allows_legacy_query_auth(user_agent)) {
+    NSC_LOG_ERROR("Rejected legacy /auth/token call from " + request.getRemoteIp() + " (User-Agent: " + user_agent +
+                  "): this endpoint accepted the password as a URL query parameter and has been disabled. "
+                  "Use POST /api/v2/login with HTTP Basic authentication instead, or add this client's User-Agent to "
+                  "[/settings/WEB/server] 'legacy query auth user agents' if you cannot upgrade it.");
+    response.setCode(410, "Gone");
+    response.get_headers()["Content-Type"] = "application/json";
+    response.append(
+        "{ \"status\" : \"error\", \"message\" : \"The /auth/token endpoint has been removed. "
+        "It accepted the password as a URL query parameter, which leaked credentials into browser history, "
+        "proxy logs and Referer headers. Authenticate with POST /api/v2/login using the Authorization: Basic header.\" }");
+    return;
+  }
+  if (!session->is_allowed(request.getRemoteIp())) {
+    response.setCodeForbidden("403 You're not allowed");
+    return;
+  }
+  if (session->validate_user("admin", request.get("password"))) {
+    const std::string token = session->generate_token("admin");
+    response.setHeader("__TOKEN", token);
+    response.get_headers()["Content-Type"] = "application/json";
+    response.append("{ \"status\" : \"ok\", \"auth token\": \"" + token + "\" }");
+    NSC_DEBUG_MSG("Issued legacy /auth/token for allowlisted User-Agent: " + user_agent);
+  } else {
+    response.setCodeForbidden("403 Invalid password");
+  }
 }
 void legacy_controller::auth_logout(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  NSC_LOG_ERROR("Rejected legacy /auth/logout call from " + request.getRemoteIp() +
-                ": this endpoint accepted the session token as a URL query parameter and has been removed. "
-                "Use DELETE /api/v2/login with the Authorization: Bearer header instead.");
-  response.setCode(410, "Gone");
-  response.append(
-      "{ \"status\" : \"error\", \"message\" : \"The /auth/logout endpoint has been removed. "
-      "It accepted the session token as a URL query parameter, which leaked credentials into browser history, "
-      "proxy logs and Referer headers. Log out via DELETE /api/v2/login with the Authorization: Bearer header.\" }");
+  // Same per-branch Content-Type pattern as auth_token above.
+  const std::string user_agent = request.readHeader("User-Agent");
+  if (!session->client_allows_legacy_query_auth(user_agent)) {
+    NSC_LOG_ERROR("Rejected legacy /auth/logout call from " + request.getRemoteIp() + " (User-Agent: " + user_agent +
+                  "): this endpoint accepted the session token as a URL query parameter and has been disabled. "
+                  "Use DELETE /api/v2/login with the Authorization: Bearer header instead, or add this client's User-Agent to "
+                  "[/settings/WEB/server] 'legacy query auth user agents' if you cannot upgrade it.");
+    response.setCode(410, "Gone");
+    response.get_headers()["Content-Type"] = "application/json";
+    response.append(
+        "{ \"status\" : \"error\", \"message\" : \"The /auth/logout endpoint has been removed. "
+        "It accepted the session token as a URL query parameter, which leaked credentials into browser history, "
+        "proxy logs and Referer headers. Log out via DELETE /api/v2/login with the Authorization: Bearer header.\" }");
+    return;
+  }
+  const std::string token = request.get("token");
+  session->revoke_token(token);
+  response.setHeader("__TOKEN", "");
+  response.get_headers()["Content-Type"] = "application/json";
+  response.append("{ \"status\" : \"ok\", \"auth token\": \"\" }");
 }
 
 void legacy_controller::log_status(Mongoose::Request &request, Mongoose::StreamResponse &response) {
