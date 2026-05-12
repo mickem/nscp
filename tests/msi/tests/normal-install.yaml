@@ -39,6 +39,12 @@ required_files:
     - plugin_api.dll
     - python311.dll
     - nscp_where_filter.dll
+    # Python runtime shipped alongside python311.dll (PythonBin component in
+    # Product.wxs). PythonScript.dll cannot import the stdlib without these.
+    - python311.zip
+    - _socket.pyd
+    - _ctypes.pyd
+    - unicodedata.pyd
   exe-files:
     - check_nrpe.exe
     - check_nsclient.exe
@@ -55,35 +61,51 @@ required_files:
     - scripts/check_printer.vbs
     - scripts/check_files.vbs
   modules:
+    # Check Plugins feature (CheckPlugins in Product.wxs)
     - modules/CheckDisk.dll
     - modules/CheckEventLog.dll
     - modules/CheckExternalScripts.dll
     - modules/CheckHelpers.dll
     - modules/CheckLogFile.dll
-    - modules/CheckMKClient.dll
-    - modules/CheckMKServer.dll
     - modules/CheckNet.dll
     - modules/CheckNSCP.dll
     - modules/CheckSystem.dll
     - modules/CheckTaskSched.dll
     - modules/CheckWMI.dll
-    - modules/CommandClient.dll
-    - modules/ElasticClient.dll
-    - modules/GraphiteClient.dll
-    - modules/LUAScript.dll
-    - modules/NRDPClient.dll
-    - modules/NRPEClient.dll
-    - modules/NRPEServer.dll
-    - modules/NSCAClient.dll
-    - modules/NSCAServer.dll
-    - modules/NSClientServer.dll
-    - modules/PythonScript.dll
-    - modules/Scheduler.dll
     - modules/SimpleCache.dll
     - modules/SimpleFileWriter.dll
+    # Always-installed required plugin (RequiredPlugins)
+    - modules/CommandClient.dll
+    # Check MK Support (CheckMK)
+    - modules/CheckMKClient.dll
+    - modules/CheckMKServer.dll
+    # NRPE Support (NRPEPlugins)
+    - modules/NRPEClient.dll
+    - modules/NRPEServer.dll
+    # check_nt support (NSCPlugins)
+    - modules/NSClientServer.dll
+    # WEB Server (WEBPlugins)
+    - modules/WEBServer.dll
+    # NSCA plugin (NSCAPlugin)
+    - modules/NSCAClient.dll
+    - modules/NSCAServer.dll
+    - modules/Scheduler.dll
+    # NSCA-NG plugin (NSCANgPlugin)
+    - modules/NSCANgClient.dll
+    # Elastic plugin (ElasticPlugin)
+    - modules/ElasticClient.dll
+    # Various client plugins (ExtraClientPlugin)
+    - modules/CollectdClient.dll
+    - modules/GraphiteClient.dll
+    - modules/IcingaClient.dll
+    - modules/NRDPClient.dll
+    - modules/NSCPClient.dll
     - modules/SMTPClient.dll
     - modules/SyslogClient.dll
-    - modules/WEBServer.dll
+    # Scripting runtimes (PythonScript, LuaScript)
+    - modules/LUAScript.dll
+    - modules/PythonScript.dll
+    # OP5 Monitoring system (OP5Monitoring)
+    - modules/Op5Client.dll
   zip-modules:
-    - modules/icinga-client.zip
     - modules/remote-modules.zip

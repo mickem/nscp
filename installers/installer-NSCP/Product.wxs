@@ -128,7 +128,7 @@
               <File Id="SMTPClient" Name="SMTPClient.dll" DiskId="1" Source="$(var.Source)/modules/SMTPClient.dll" Vital="no" />
               <File Id="SyslogClient" Name="SyslogClient.dll" DiskId="1" Source="$(var.Source)/modules/SyslogClient.dll" Vital="no" />
               <File Id="NRDPClient" Name="NRDPClient.dll" DiskId="1" Source="$(var.Source)/modules/NRDPClient.dll" Vital="no" />
-              <File Id="IcingaClient" Name="icinga-client.zip" DiskId="1" Source="$(var.Source)/modules/icinga-client.zip" Vital="no" />
+              <File Id="IcingaClient" Name="IcingaClient.dll" DiskId="1" Source="$(var.Source)/modules/IcingaClient.dll" Vital="no" />
               <File Id="CollectdClient" Name="CollectdClient.dll" DiskId="1" Source="$(var.Source)/modules/CollectdClient.dll" Vital="no" />
               <File Id="NSCPClient" Name="NSCPClient.dll" DiskId="1" Source="$(var.Source)/modules/NSCPClient.dll" Vital="no" />
             </Component>
