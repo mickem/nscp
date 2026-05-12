@@ -1235,14 +1235,15 @@ This is the syntax for the base names of the performance data.
 #### Filter keywords
 
 
-| Option          | Description                                         |
-|-----------------|-----------------------------------------------------|
-| critical        | Number of critical updates                          |
-| error           | Last error message from the WUA search (if any)     |
-| important       | Number of updates with MSRC severity 'Important'    |
-| reboot_required | Number of updates requiring a reboot                |
-| security        | Number of security updates                          |
-| titles          | Semicolon separated list of available update titles |
+| Option          | Description                                              |
+|-----------------|----------------------------------------------------------|
+| critical        | Number of critical updates                               |
+| error           | Last error message from the WUA search (if any)          |
+| important       | Number of updates with MSRC severity 'Important'         |
+| reboot_required | Number of updates requiring a reboot                     |
+| security        | Number of security updates                               |
+| titles          | Semicolon separated list of available update titles      |
+| update_status   | Aggregated status: ok, warning, critical, pending, error |
 
 **Common options for all checks:**
 

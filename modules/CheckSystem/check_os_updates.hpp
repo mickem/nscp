@@ -67,7 +67,7 @@ struct os_updates_obj {
   long long get_important() const { return important; }
   long long get_reboot_required() const { return reboot_required; }
   std::string get_titles() const;
-  std::string get_status() const;
+  std::string get_update_status() const;
   std::string get_error() const { return error; }
 
   std::string show() const;

@@ -116,7 +116,7 @@ TEST(CheckOsUpdates, obj_defaults) {
   EXPECT_EQ(o.important, 0);
   EXPECT_EQ(o.reboot_required, 0);
   EXPECT_FALSE(o.fetch_succeeded);
-  EXPECT_EQ(o.get_status(), "pending");
+  EXPECT_EQ(o.get_update_status(), "pending");
   EXPECT_EQ(o.show(), "update status pending");
 }
 
@@ -124,14 +124,14 @@ TEST(CheckOsUpdates, obj_show_error_state) {
   os_updates_obj o;
   o.fetch_succeeded = false;
   o.error = "WUA failed";
-  EXPECT_EQ(o.get_status(), "error");
+  EXPECT_EQ(o.get_update_status(), "error");
   EXPECT_EQ(o.show(), "update query failed: WUA failed");
 }
 
 TEST(CheckOsUpdates, obj_show_no_updates) {
   os_updates_obj o;
   o.fetch_succeeded = true;
-  EXPECT_EQ(o.get_status(), "ok");
+  EXPECT_EQ(o.get_update_status(), "ok");
   EXPECT_EQ(o.show(), "no updates available");
 }
 
@@ -141,7 +141,7 @@ TEST(CheckOsUpdates, obj_show_with_security) {
   o.count = 5;
   o.security = 2;
   o.critical = 0;
-  EXPECT_EQ(o.get_status(), "critical");
+  EXPECT_EQ(o.get_update_status(), "critical");
   EXPECT_EQ(o.show(), "5 updates available (2 security)");
 }
 
@@ -151,7 +151,7 @@ TEST(CheckOsUpdates, obj_show_with_critical_and_security) {
   o.count = 7;
   o.security = 3;
   o.critical = 2;
-  EXPECT_EQ(o.get_status(), "critical");
+  EXPECT_EQ(o.get_update_status(), "critical");
   EXPECT_EQ(o.show(), "7 updates available (2 critical, 3 security)");
 }
 
@@ -161,7 +161,7 @@ TEST(CheckOsUpdates, obj_show_only_general) {
   o.count = 4;
   o.security = 0;
   o.critical = 0;
-  EXPECT_EQ(o.get_status(), "warning");
+  EXPECT_EQ(o.get_update_status(), "warning");
   EXPECT_EQ(o.show(), "4 updates available");
 }
 
