@@ -38,6 +38,91 @@
 bool inline equals_enabled(const std::string &value) { return value == "enabled" || value == "1" || value == "true"; }
 bool inline equals_disabled(const std::string &value) { return value == "disabled" || value == "0" || value == "false"; }
 
+namespace {
+// Map a module file name to the Windows installer feature that ships it.
+// Mirrors installers/installer-NSCP/Product.wxs — when modules move between
+// installer features, update this table to match.
+//
+// Returns an empty string when the module is either built-in / always
+// installed, or not recognised (likely a third-party module). The hint is
+// only useful on Windows, where users install via the MSI; on Unix this
+// returns empty so we don't print misleading text.
+std::string installer_feature_hint(const std::string &module) {
+#ifndef _WIN32
+  (void)module;
+  return {};
+#else
+  // Strip the optional `.dll` extension and any directory prefix so callers
+  // can pass either "NRPEServer" or "NRPEServer.dll".
+  std::string name = module;
+  const auto slash = name.find_last_of("/\\");
+  if (slash != std::string::npos) name = name.substr(slash + 1);
+  const auto dot = name.rfind('.');
+  if (dot != std::string::npos) name = name.substr(0, dot);
+
+  struct entry {
+    const char *module;
+    const char *feature_title;
+  };
+  static const entry table[] = {
+      // NRPE Support
+      {"NRPEServer", "NRPE Support"},
+      {"NRPEClient", "NRPE Support"},
+      // Check MK Support
+      {"CheckMKServer", "Check MK Support"},
+      {"CheckMKClient", "Check MK Support"},
+      // check_nt support
+      {"NSClientServer", "check_nt support"},
+      // WEB Server
+      {"WEBServer", "WEB Server"},
+      // NSCA plugin
+      {"NSCAClient", "NSCA plugin"},
+      {"NSCAServer", "NSCA plugin"},
+      {"Scheduler", "NSCA plugin"},
+      // NSCA-NG plugin
+      {"NSCANgClient", "NSCA-NG plugin"},
+      // Python Scripting
+      {"PythonScript", "Python Scripting"},
+      // Various client plugins
+      {"GraphiteClient", "Various client plugins"},
+      {"SMTPClient", "Various client plugins"},
+      {"SyslogClient", "Various client plugins"},
+      {"NRDPClient", "Various client plugins"},
+      {"IcingaClient", "Various client plugins"},
+      {"CollectdClient", "Various client plugins"},
+      {"NSCPClient", "Various client plugins"},
+      // Lua Scripting
+      {"LUAScript", "Lua Scripting"},
+      // OP5 Monitoring system
+      {"Op5Client", "OP5 Monitoring system"},
+      // Elastic plugin
+      {"ElasticClient", "Elastic plugin"},
+      // Check Plugins (the bulk of the check_* modules)
+      {"CheckEventLog", "Check Plugins"},
+      {"CheckExternalScripts", "Check Plugins"},
+      {"CheckHelpers", "Check Plugins"},
+      {"CheckSystem", "Check Plugins"},
+      {"CheckWMI", "Check Plugins"},
+      {"CheckNSCP", "Check Plugins"},
+      {"CheckDisk", "Check Plugins"},
+      {"CheckTaskSched", "Check Plugins"},
+      {"SimpleCache", "Check Plugins"},
+      {"SimpleFileWriter", "Check Plugins"},
+      {"CheckLogFile", "Check Plugins"},
+      {"CheckNet", "Check Plugins"},
+  };
+  for (const auto &e : table) {
+    if (name == e.module) {
+      return std::string(" (module '") + name + "' is part of the '" + e.feature_title +
+             "' installer feature; re-run the NSClient++ installer and enable that feature, or "
+             "see installers/installer-NSCP/Product.wxs for the full feature map)";
+    }
+  }
+  return {};
+#endif
+}
+}  // namespace
+
 struct command_chunk {
   nsclient::commands::plugin_type plugin;
   PB::Commands::QueryRequestMessage request;
@@ -181,12 +266,12 @@ void nsclient::core::plugin_manager::load_active_plugins() {
       if (e.file().find("FileLogger") != std::string::npos) {
         LOG_DEBUG_CORE_STD("Failed to load " + module + ": " + e.reason());
       } else {
-        LOG_ERROR_CORE_STD("Failed to load " + module + ": " + e.reason());
+        LOG_ERROR_CORE_STD("Failed to load " + module + ": " + e.reason() + installer_feature_hint(v.second));
       }
     } catch (const std::exception &e) {
-      LOG_ERROR_CORE_STD("exception loading plugin: " + module + utf8::utf8_from_native(e.what()));
+      LOG_ERROR_CORE_STD("exception loading plugin: " + module + utf8::utf8_from_native(e.what()) + installer_feature_hint(v.second));
     } catch (...) {
-      LOG_ERROR_CORE_STD("Unknown exception loading plugin: " + module);
+      LOG_ERROR_CORE_STD("Unknown exception loading plugin: " + module + installer_feature_hint(v.second));
     }
   }
 }
@@ -212,7 +297,7 @@ bool nsclient::core::plugin_manager::load_single_plugin(const std::string &plugi
   try {
     const plugin_type instance = add_plugin(plugin, alias);
     if (!instance) {
-      LOG_ERROR_CORE("Failed to load: " + plugin);
+      LOG_ERROR_CORE("Failed to load: " + plugin + installer_feature_hint(plugin));
       return false;
     }
     if (start) {
@@ -220,11 +305,11 @@ bool nsclient::core::plugin_manager::load_single_plugin(const std::string &plugi
     }
     return true;
   } catch (const plugin_exception &e) {
-    LOG_ERROR_CORE_STD("Module (" + e.file() + ") was not found: " + e.reason());
+    LOG_ERROR_CORE_STD("Module (" + e.file() + ") was not found: " + e.reason() + installer_feature_hint(e.file()));
   } catch (const std::exception &e) {
-    LOG_ERROR_CORE_STD("Module (" + plugin + ") was not found: " + utf8::utf8_from_native(e.what()));
+    LOG_ERROR_CORE_STD("Module (" + plugin + ") was not found: " + utf8::utf8_from_native(e.what()) + installer_feature_hint(plugin));
   } catch (...) {
-    LOG_ERROR_CORE_STD("Module (" + plugin + ") was not found...");
+    LOG_ERROR_CORE_STD("Module (" + plugin + ") was not found..." + installer_feature_hint(plugin));
   }
   return false;
 }

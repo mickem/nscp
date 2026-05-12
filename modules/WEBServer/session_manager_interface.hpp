@@ -7,6 +7,7 @@
 #include <memory>
 #include <net/socket/allowed_hosts.hpp>
 #include <string>
+#include <vector>
 
 #include "auth_rate_limiter.hpp"
 #include "error_handler_interface.hpp"
@@ -30,10 +31,34 @@ struct session_manager_interface {
   // accidental knob is not enough to expose anything.
   bool allow_anonymous_ = false;
 
+  // Case-insensitive substrings matched against a request's User-Agent. When
+  // any pattern matches, the request is allowed to authenticate via the
+  // legacy `?password=...` / `?TOKEN=...` query-string mechanism that was
+  // otherwise removed for security (commit 340b8db1). Defaults to
+  // {kDefaultLegacyQueryAuthUserAgents} so that Icinga's bundled
+  // check_nscp_api keeps working without forcing every integration site to
+  // update their plugin in lockstep with NSClient. Set to an empty list to
+  // disable the fallback entirely.
+  std::vector<std::string> legacy_query_auth_user_agents_;
+
  public:
+  // The single source of truth for the default allowlist. Used both by the
+  // settings layer (so `show-default` reports it accurately) and by the
+  // constructor (so `session_manager_interface` constructed without going
+  // through settings registration — e.g. in tests — still has Icinga
+  // working out of the box). Keeping the literal in one place keeps the
+  // two paths from drifting apart.
+  static constexpr const char *kDefaultLegacyQueryAuthUserAgents = "Icinga/check_nscp_api";
+
   session_manager_interface();
 
   bool process_auth_header(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response);
+  // Handle the legacy `password` HTTP header used by Icinga's
+  // check_nscp_api (and any client that follows the same convention). The
+  // header carries the password only; the user is implied to be "admin".
+  // Applies the same rate-limit / constant-time-compare guards as
+  // process_auth_header.
+  bool process_password_header(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response, const std::string &password);
   bool is_logged_in(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response);
 
   bool is_allowed(const std::string &ip);
@@ -57,6 +82,17 @@ struct session_manager_interface {
   void set_allow_anonymous(bool value) { allow_anonymous_ = value; }
   void set_auth_rate_limit_max_failures(int value) { rate_limiter.set_max_failures(value); }
   void set_auth_rate_limit_block_seconds(int value) { rate_limiter.set_block_seconds(value); }
+
+  // Comma-separated list of substrings; clients whose User-Agent header
+  // contains any of these (case-insensitive) are permitted to use the legacy
+  // query-string credential / token fallback. Empty string disables it.
+  void set_legacy_query_auth_user_agents(const std::string &csv);
+
+  // Returns true when the given User-Agent matches any configured pattern,
+  // i.e. when this client is allowed to pass credentials/token in the query
+  // string. Public so legacy_controller can apply the same check at the
+  // endpoint level.
+  bool client_allows_legacy_query_auth(const std::string &user_agent) const;
 
   std::list<std::string> boot();
   bool validate_user(const std::string &user, const std::string &password);

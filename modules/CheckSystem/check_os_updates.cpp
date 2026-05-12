@@ -91,7 +91,7 @@ std::string os_updates_obj::get_titles() const {
   return ret;
 }
 
-std::string os_updates_obj::get_status() const {
+std::string os_updates_obj::get_update_status() const {
   if (!fetch_succeeded) return error.empty() ? "pending" : "error";
   if (count == 0) return "ok";
   if (security > 0 || critical > 0) return "critical";
@@ -305,7 +305,7 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_var("reboot_required", &filter_obj::get_reboot_required, "Number of updates requiring a reboot")
       .add_int_perf("");
   registry_.add_string_var("titles", &filter_obj::get_titles, "Semicolon separated list of available update titles")
-      .add_string_var("status", &filter_obj::get_status, "Aggregated status: ok, warning, critical, pending, error")
+      .add_string_var("update_status", &filter_obj::get_update_status, "Aggregated status: ok, warning, critical, pending, error")
       .add_string_var("error", &filter_obj::get_error, "Last error message from the WUA search (if any)");
   // clang-format on
 }

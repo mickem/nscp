@@ -115,6 +115,15 @@ NSCP_CREATE_TEST(
         error_handler.cpp
         metrics_handler.cpp
         ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
+        # NSC_LOG_ERROR / NSC_DEBUG_MSG in session_manager_interface.cpp
+        # resolve through nscapi::plugin_singleton -> core_wrapper::log /
+        # should_log. The wrapper itself is defined in nscapi_core_wrapper.cpp;
+        # nscapi_helper.cpp provides logging::matches() that should_log()
+        # delegates to; the helper_singleton instance is declared by the
+        # test entry point.
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
     LIBRARIES
         GTest::gtest
         GTest::gtest_main
@@ -126,3 +135,11 @@ NSCP_CREATE_TEST(
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
+# The nscapi headers above declare their public API with NSCAPI_EXPORT, which
+# expands to __declspec(dllimport) when consumers include them. We compile
+# the matching cpp files directly into this test binary (so the symbols are
+# locally defined, not imported), which produces C4273 / LNK4217 dll-linkage
+# mismatch noise on MSVC. plugin_api_NOLIB neuters the macro to "" so both
+# sides agree: no dllexport, no dllimport, just a plain symbol. See
+# include/nscapi/dll_defines.hpp for the macro definition.
+target_compile_definitions(${TARGET}_test PRIVATE plugin_api_NOLIB)
