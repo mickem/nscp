@@ -253,7 +253,15 @@ echo 6. CRLF injection in subject (sanitised)
 echo --------------------------------------
 REM Use powershell -Command to construct a string that actually contains
 REM \r\n at the OS level - cmd's `\n` is a literal backslash+n.
-powershell -NoProfile -Command "& nscp smtp --host=127.0.0.1 --port=1025 --security=starttls --insecure-skip-verify --username='%USERNAME%' --password='%PASSWORD%' --sender=alerts@example.com --recipient=ops@example.com --subject ('hi' + [char]13 + [char]10 + 'Bcc: evil@example.com') --template T6-body --command t6 --result 0 --message T6-msg"
+REM
+REM PowerShell, unlike cmd, does NOT search the current directory when
+REM resolving a bare command name — so `& nscp` would fail here even
+REM though `nscp smtp ...` works fine elsewhere in this file. Pass the
+REM resolved path explicitly so the test doesn't depend on PATH being
+REM set up the same way as cmd's implicit current-dir lookup.
+for /f "delims=" %%P in ('where nscp 2^>nul') do set "NSCP_EXE=%%P"
+if not defined NSCP_EXE set "NSCP_EXE=%current_dir%\nscp.exe"
+powershell -NoProfile -Command "& '%NSCP_EXE%' smtp --host=127.0.0.1 --port=1025 --security=starttls --insecure-skip-verify --username='%USERNAME%' --password='%PASSWORD%' --sender=alerts@example.com --recipient=ops@example.com --subject ('hi' + [char]13 + [char]10 + 'Bcc: evil@example.com') --template T6-body --command t6 --result 0 --message T6-msg"
 if not %errorlevel%==0 ( call :fail "Test 6 - submission" & exit /b 1 )
 
 timeout /t 1 /nobreak >nul
