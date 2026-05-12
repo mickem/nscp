@@ -94,8 +94,8 @@ std::string build_namespace(std::string ns, std::string computer) {
 
 namespace wmi_filter {
 struct filter_obj {
-  wmi_impl::row &row;
-  filter_obj(wmi_impl::row &row) : row(row) {}
+  wmi_impl::row row;
+  filter_obj(const wmi_impl::row &row) : row(row) {}
 
   std::string show() const { return row.to_string(); }
 
@@ -162,10 +162,10 @@ void CheckWMI::check_wmi(const PB::Commands::QueryRequestMessage::Request &reque
       std::shared_ptr<wmi_filter::filter_obj> record(new wmi_filter::filter_obj(e.get_next()));
       filter.match(record);
     }
+    filter_helper.post_process(filter);
   } catch (const wmi_impl::wmi_exception &e) {
     return nscapi::protobuf::functions::set_response_bad(*response, "WMIQuery failed: " + e.reason());
   }
-  filter_helper.post_process(filter);
 }
 
 inline std::string pad(const std::string &s, const std::size_t &c) { return s + std::string(c - s.size(), ' '); }
