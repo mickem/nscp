@@ -42,10 +42,12 @@ void ThreadedSafePDH::add_listener(subscriber* sub) {
 void ThreadedSafePDH::remove_listener(subscriber* sub) {
   boost::unique_lock<boost::shared_mutex> lock(mutex_);
   if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for reload");
-  for (auto it = subscribers_.begin(); it != subscribers_.end(); ++it) {
-    if (*it == sub) it = subscribers_.erase(it);
-    if (it == subscribers_.end()) break;
-  }
+  // Previously this loop did `it = erase(it)` and then the for-loop's `++it`
+  // ran on the result — skipping the element after the erased one, so a
+  // listener that appeared twice (or two adjacent listeners equal to `sub`)
+  // would not be fully removed. std::list::remove handles all occurrences
+  // safely in one pass.
+  subscribers_.remove(sub);
 }
 
 pdh_error ThreadedSafePDH::PdhLookupPerfIndexByName(const LPCTSTR szMachineName, const LPCTSTR szName, DWORD* dwIndex) {

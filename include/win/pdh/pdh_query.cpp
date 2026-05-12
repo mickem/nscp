@@ -132,14 +132,23 @@ void PDHQuery::close() {
   if (unload_error) std::rethrow_exception(unload_error);
 }
 
-void PDHQuery::gatherData(bool ignore_errors) {
+void PDHQuery::gatherData(const bool ignore_errors) {
   collect();
-  for (counter_type c : counters_) {
+  for (const counter_type c : counters_) {
     pdh_error status = c->collect();
     if (status.is_invalid_data()) {
+      // First call after open() routinely returns INVALID_DATA for derived
+      // counters (e.g. percentages need two samples). Give PDH a second
+      // sample and retry.
       Sleep(1000);
       collect();
       status = c->collect();
+      if (status.is_invalid_data()) {
+        // Still no data. This is noise on percentage counters under heavy
+        // fluctuation (#642, #906) — skip this counter for this tick rather
+        // than failing the whole gather.
+        continue;
+      }
     }
     if (status.is_negative_denominator()) {
       Sleep(500);

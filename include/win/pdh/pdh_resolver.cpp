@@ -21,6 +21,7 @@
 
 #include <pdh.h>
 
+#include <bytes/buffer.hpp>
 #include <list>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
@@ -28,30 +29,23 @@
 
 namespace PDH {
 std::wstring PDHResolver::PdhLookupPerfNameByIndex(const LPCTSTR szMachineName, const DWORD dwNameIndex) {
-  const auto buffer = new TCHAR[PDH_INDEX_BUF_LEN + 1];
+  hlp::buffer<TCHAR> buffer(PDH_INDEX_BUF_LEN + 1);
   DWORD bufLen = PDH_INDEX_BUF_LEN;
-
-  const pdh_error status = factory::get_impl()->PdhLookupPerfNameByIndex(szMachineName, dwNameIndex, buffer, &bufLen);
+  const pdh_error status = factory::get_impl()->PdhLookupPerfNameByIndex(szMachineName, dwNameIndex, buffer.get(), &bufLen);
   if (status.is_error()) {
-    delete[] buffer;
     throw pdh_exception("PdhLookupPerfNameByIndex: Could not find index: " + str::xtos(dwNameIndex), status);
   }
-  std::wstring ret = buffer;
-  delete[] buffer;
-  return ret;
+  return std::wstring(buffer.get());
 }
 std::list<std::string> PDHResolver::PdhExpandCounterPath(const std::string &szWildCardPath, const DWORD buffSize) {
-  const auto buffer = new TCHAR[buffSize + 1];
+  hlp::buffer<TCHAR> buffer(buffSize + 1);
   DWORD bufLen = buffSize;
-  const pdh_error status = factory::get_impl()->PdhExpandCounterPath(utf8::cvt<std::wstring>(szWildCardPath).c_str(), buffer, &bufLen);
+  const pdh_error status = factory::get_impl()->PdhExpandCounterPath(utf8::cvt<std::wstring>(szWildCardPath).c_str(), buffer.get(), &bufLen);
   if (status.is_error()) {
-    delete[] buffer;
     if (buffSize == PDH_INDEX_BUF_LEN && bufLen > buffSize) return PdhExpandCounterPath(szWildCardPath, bufLen + 10);
     throw pdh_exception("PdhExpandCounterPath: Could not find index: " + utf8::cvt<std::string>(szWildCardPath), status);
   }
-  std::list<std::string> ret = helpers::build_list(buffer, bufLen);
-  delete[] buffer;
-  return ret;
+  return helpers::build_list(buffer.get(), bufLen);
 }
 
 DWORD PDHResolver::PdhLookupPerfIndexByName(const LPCTSTR szMachineName, const LPCTSTR indexName) {

@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <memory>
 #include <str/utf8.hpp>
 #include <win/pdh/pdh_counters.hpp>
 #include <win/pdh/pdh_interface.hpp>
@@ -35,11 +36,13 @@ pdh_error PDHCounter::validate() const { return factory::get_impl()->PdhValidate
 
 counter_info PDHCounter::getCounterInfo(BOOLEAN bExplainText) const {
   if (hCounter_ == nullptr) throw pdh_exception("Counter is null!");
-  const auto lpBuffer = new BYTE[1025];
+  // counter_info copies the fields it needs out of the buffer; it does not
+  // take ownership.
+  auto buffer = std::make_unique<BYTE[]>(1025);
   DWORD bufSize = 1024;
-  const pdh_error status = factory::get_impl()->PdhGetCounterInfo(hCounter_, bExplainText, &bufSize, reinterpret_cast<PDH_COUNTER_INFO_W *>(lpBuffer));
+  const pdh_error status = factory::get_impl()->PdhGetCounterInfo(hCounter_, bExplainText, &bufSize, reinterpret_cast<PDH_COUNTER_INFO_W *>(buffer.get()));
   if (status.is_error()) throw pdh_exception(getName() + " getCounterInfo failed (no query)", status);
-  return counter_info(lpBuffer, bufSize, TRUE);
+  return counter_info(buffer.get(), bufSize, TRUE);
 }
 PDH_HCOUNTER PDHCounter::getCounter() const { return hCounter_; }
 std::string PDHCounter::getName() const { return counter_->get_name(); }
@@ -94,7 +97,7 @@ void PDHCounter::remove() {
   hCounter_ = nullptr;
 }
 pdh_error PDHCounter::collect() {
-  if (hCounter_ == nullptr) return pdh_error(false);
+  if (hCounter_ == nullptr) return {};
   const pdh_error status = factory::get_impl()->PdhGetFormattedCounterValue(hCounter_, counter_->get_format(), nullptr, &data_);
   if (!status.is_error()) {
     counter_->collect(data_);

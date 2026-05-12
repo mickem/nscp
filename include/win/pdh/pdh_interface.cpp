@@ -127,14 +127,14 @@ bool pdh_object::has_instances() const {
 
 std::list<std::string> helpers::build_list(const TCHAR *buffer, const DWORD bufferSize) {
   std::list<std::string> ret;
-  if (bufferSize == 0) return ret;
-  DWORD prevPos = 0;
-  for (unsigned int i = 0; i < bufferSize - 1; i++) {
-    if (buffer[i] == 0) {
-      std::wstring str = &buffer[prevPos];
-      ret.push_back(utf8::cvt<std::string>(str));
-      prevPos = i + 1;
-    }
+  if (buffer == nullptr || bufferSize == 0) return ret;
+  const TCHAR *const end = buffer + bufferSize;
+  const TCHAR *cp = buffer;
+  while (cp < end && *cp != 0) {
+    const TCHAR *seg_end = cp;
+    while (seg_end < end && *seg_end != 0) ++seg_end;
+    ret.push_back(utf8::cvt<std::string>(std::wstring(cp, static_cast<std::size_t>(seg_end - cp))));
+    cp = (seg_end < end) ? seg_end + 1 : end;
   }
   return ret;
 }

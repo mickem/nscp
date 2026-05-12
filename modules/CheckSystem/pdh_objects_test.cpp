@@ -302,6 +302,49 @@ TEST(PdhHelpers, BuildListMultipleStrings) {
   EXPECT_EQ(*it++, "Baz");
 }
 
+TEST(PdhHelpers, BuildListNullBufferIsSafe) {
+  // Bounds-safe walk must reject a null buffer rather than UAF.
+  auto result = PDH::helpers::build_list(nullptr, 16);
+  EXPECT_TRUE(result.empty());
+}
+
+TEST(PdhHelpers, BuildListSingleNullTerminator) {
+  // bufferSize == 1 with just the terminating null — the old loop's
+  // `i < bufferSize - 1` was zero so this happened to work, but the new
+  // implementation handles it explicitly. Result is an empty list.
+  TCHAR buffer[1] = {0};
+  auto result = PDH::helpers::build_list(buffer, 1);
+  EXPECT_TRUE(result.empty());
+}
+
+TEST(PdhHelpers, BuildListUnterminatedBufferDoesNotOverrun) {
+  // Buffer of `Foo` with NO trailing null. A bounds-unaware walk would read
+  // past the end; bounds-safe walk stops at `end`.
+  const TCHAR data[] = {_T('F'), _T('o'), _T('o')};
+  auto result = PDH::helpers::build_list(data, 3);
+  ASSERT_EQ(result.size(), 1u);
+  EXPECT_EQ(result.front(), "Foo");
+}
+
+// ============================================================================
+// pdh_error::get_message — numeric status is always present
+// ============================================================================
+
+TEST(PdhError, GetMessageIncludesNumericStatus) {
+  // get_message must include the hex status even when PDH.DLL's localized
+  // text is empty (issue #255). We can't control whether FormatMessage
+  // returns text in this test environment, so just assert the hex prefix.
+  const PDH::pdh_error e(PDH_CSTATUS_NO_OBJECT);
+  const std::string msg = e.get_message();
+  EXPECT_NE(msg.find("0xC0000BB8"), std::string::npos) << "actual: " << msg;
+}
+
+TEST(PdhError, GetMessageOnSuccessIsEmpty) {
+  // Success short-circuits — message is empty, not "PDH 0x00000000".
+  const PDH::pdh_error e;
+  EXPECT_EQ(e.get_message(), "");
+}
+
 // ============================================================================
 // factory::create — strategy/type dispatch (non-instance, no PDH calls)
 // ============================================================================

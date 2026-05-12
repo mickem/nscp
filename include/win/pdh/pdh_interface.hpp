@@ -22,6 +22,7 @@
 #include <pdh.h>
 #include <pdhmsg.h>
 
+#include <cstdio>
 #include <error/error.hpp>
 #include <list>
 #include <memory>
@@ -42,7 +43,16 @@ class pdh_error {
 
   std::string get_message() const {
     if (is_ok()) return "";
-    return error::format::from_module("PDH.DLL", status_);
+    // Always prefix the numeric status. FormatMessage from PDH.DLL returns an
+    // empty string on some locales and for some status codes, which used to
+    // leave error reports with no actionable information (issue #255). The
+    // hex code is always present so users can look it up even when PDH's
+    // localized description is missing.
+    char hex[16];
+    std::snprintf(hex, sizeof(hex), "0x%08lX", static_cast<unsigned long>(status_));
+    const std::string desc = error::format::from_module("PDH.DLL", status_);
+    if (desc.empty()) return std::string("PDH ") + hex;
+    return std::string("PDH ") + hex + ": " + desc;
   }
 
   bool is_error() const { return status_ != ERROR_SUCCESS; }
