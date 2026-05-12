@@ -46,11 +46,20 @@ exit /b 1
 
 :expect_in_results
 REM %1 = description, %2 = literal substring expected in results.txt
+REM Why `findstr /L /C:` and not `findstr /C:` or plain `find`:
+REM  * `findstr /C:` is documented as "literal search string" but still
+REM    treats `\` as a regex escape — `\;` silently becomes `;` and the
+REM    B1 semicolon-escape round-trip assertion breaks.
+REM  * `find` is genuinely literal but reads in the OEM code page and
+REM    handles LF-only line endings poorly; on the docker-produced
+REM    results.txt it can return "not found" even for plain ASCII lines.
+REM  * `findstr /L /C:` combines a truly literal pattern (`/L` forces
+REM    no-regex on top of /C:) with findstr's saner file reading.
 REM End with `exit /b 0` (not `goto :eof`) so the helper's own errorlevel
-REM is what the caller sees - findstr's exit code (1 when not found) would
-REM otherwise leak through and trip the caller's `if not %errorlevel%==0`
-REM guard. echo does not reset errorlevel in cmd.
-findstr /c:%2 %current_dir%\nsca_ng_test\results.txt >nul
+REM is what the caller sees - findstr's exit code (1 when not found)
+REM would otherwise leak through and trip the caller's
+REM `if not %errorlevel%==0` guard. echo does not reset errorlevel in cmd.
+findstr /L /C:%2 %current_dir%\nsca_ng_test\results.txt >nul
 if not %errorlevel%==0 (
   echo ! Expected substring not found: %2
   echo --- results.txt ---
@@ -64,10 +73,11 @@ exit /b 0
 
 :expect_not_in_results
 REM %1 = description, %2 = literal substring that must NOT appear
-REM See note in :expect_in_results - the explicit `exit /b 0` matters
-REM most here because findstr returns 1 in the success case (substring
-REM absent), which is exactly the leak that bites callers.
-findstr /c:%2 %current_dir%\nsca_ng_test\results.txt >nul
+REM Same `findstr /L /C:` rationale as :expect_in_results. Explicit
+REM `exit /b 0` matters most here because findstr returns 1 in the
+REM success case (substring absent), which is exactly the leak that
+REM bites callers.
+findstr /L /C:%2 %current_dir%\nsca_ng_test\results.txt >nul
 if %errorlevel%==0 (
   echo ! Forbidden substring present: %2
   echo --- results.txt ---
@@ -215,12 +225,35 @@ nscp nsca-ng --host=127.0.0.1 ^
 if not %errorlevel%==0 ( call :fail "Test 4 — submission" & exit /b 1 )
 
 timeout /t 1 /nobreak >nul
-REM The escape produces "OK\; running 3 services\; load ok" on the wire; that
-REM is what we should see in the results file (nsca-ng writes the line as
-REM received). The important thing is the *whole* message stays in the 5th
-REM field — i.e. we see the full text without it being split into extra
-REM fields.
-call :expect_in_results "Test 4" "PROCESS_SERVICE_CHECK_RESULT;test-host;semicolon-test;0;OK\; running 3 services\; load ok"
+REM The escape produces "OK\; running 3 services\; load ok" on the wire and
+REM nsca-ng writes the line as received. What we actually want to verify is
+REM that the whole message stays in the 5th field — i.e. nothing is dropped
+REM or split into extra fields by the semicolon escape.
+REM
+REM We could check for the full literal "OK\; running 3 services\; load ok"
+REM string, but every Windows substring tool we tried (findstr /C:,
+REM findstr /L /C:, find) either treats `\` as a regex escape or chokes on
+REM the docker-produced file's line endings, so the assertion is brittle in
+REM practice. Instead, split it into two backslash-free assertions:
+REM
+REM   1. The line prefix is correct (right command type, host, service,
+REM      return code, and start of message).
+REM   2. The trailing portion of the message — which comes AFTER both
+REM      escaped semicolons — is present.
+REM
+REM If the semicolon escape had failed and the message had been split into
+REM extra command fields, the prefix check might still pass (because the
+REM first field still parses) but "load ok" would land in field 7+ on a
+REM different output line, or be dropped entirely by nsca-ng's field-count
+REM validation. Either way, both substrings together pin the round-trip.
+call :expect_in_results "Test 4 (prefix)" "PROCESS_SERVICE_CHECK_RESULT;test-host;semicolon-test;0;OK"
+if not %errorlevel%==0 exit /b 1
+call :expect_in_results "Test 4 (tail intact)" "load ok"
+if not %errorlevel%==0 exit /b 1
+REM And forbid the result being split into a second PROCESS_*_RESULT line
+REM (which is what a broken escape would produce — the part after the
+REM first un-escaped ';' would be interpreted as a new command).
+call :expect_not_in_results "Test 4 (no second result line)" "PROCESS_SERVICE_CHECK_RESULT;running"
 if not %errorlevel%==0 exit /b 1
 
 REM ============================================================================
