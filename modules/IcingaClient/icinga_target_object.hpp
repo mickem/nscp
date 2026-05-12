@@ -74,7 +74,13 @@ struct icinga_target_object : nscapi::targets::target_object {
                     "TLS PEER VERIFY MODE",
                     "Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert, workarounds, single. "
                     "In general use peer-cert or none for self signed certificates.")
-        .add_string("ca", sh::string_fun_key([this](const auto& value) { this->set_property_string("ca", value); }, "${ca-path}"),
+        // path_fun_key (not string_fun_key) so the ${ca-path} placeholder
+        // expands via the settings layer to the actual bundle path. On
+        // Windows that's the ROOT-store export the service writes at boot;
+        // on Linux it's the distribution CA store. With string_fun_key the
+        // literal "${ca-path}" would reach the SSL stack and fail with
+        // "Failed to load CA ${ca-path}".
+        .add_string("ca", sh::path_fun_key([this](const auto& value) { this->set_property_string("ca", value); }, "${ca-path}"),
                     "CERTIFICATE AUTHORITY",
                     "Certificate authority to use when verifying certificates.")
         ;

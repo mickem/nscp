@@ -54,7 +54,7 @@ struct nrdp_target_object : nscapi::targets::target_object {
                     "TLS peer verify mode",
                     "Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert, workarounds, single. "
                     "In general use peer-cert or none for self signed certificates.")
-        .add_string("ca", sh::string_fun_key([this](const auto& value) { this->set_property_string("ca", value); }, "${ca-path}"), "Certificate Authority",
+        .add_string("ca", sh::path_fun_key([this](const auto& value) { this->set_property_string("ca", value); }, "${ca-path}"), "Certificate Authority",
                     "Certificate authority to use when verifying certificates. Defaults to ${ca-path} (the auto-generated system ROOT bundle on Windows, "
                     "the distribution CA store on Linux).")
         .add_string("proxy", sh::string_fun_key([this](const auto& value) { this->set_property_string("proxy", value); }), "HTTP proxy URL",
