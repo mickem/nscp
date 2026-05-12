@@ -21,6 +21,7 @@
 #include <iostream>
 #include <parsers/where/grammar/grammar.hpp>
 #include <parsers/where/list_node.hpp>
+#include <vector>
 
 #ifdef WIN32
 #pragma warning(push)
@@ -86,6 +87,25 @@ struct build_function_convert_float {
   }
 };
 
+// Build an argument-list node from a heterogeneous sequence of identifier
+// expressions. Used for `fn(arg1, arg2, ...)` calls and for `x in (a, b, c)`
+// — both work because `list_node` is a sequence of any node_type.
+//
+// This replaces the old homogeneous `string_list | float_list | int_list`
+// alternatives so callers can mix variables, string literals, and numbers
+// in the same argument list (e.g. `format_bytes(value, 'MB')`).
+struct build_mixed_list_fn {
+  template <typename A>
+  struct result {
+    typedef node_type type;
+  };
+  node_type operator()(const std::vector<node_type> &items) const {
+    list_node_type list = factory::create_list();
+    for (const auto &item : items) list->push_back(item);
+    return list;
+  }
+};
+
 template <typename T>
 struct strict_real_policies : qi::real_policies<T> {
   static bool const expect_dot = true;
@@ -97,11 +117,11 @@ qi::real_parser<double, strict_real_policies<double> > real;
 //  Our calculator grammar
 ///////////////////////////////////////////////////////////////////////////
 where_grammar::where_grammar(object_factory obj_factory) : where_grammar::base_type(expression, "where") {
-  using qi::double_;
   using qi::long_long;
 
   boost::phoenix::function<build_function_convert_int> build_ic_int;
   boost::phoenix::function<build_function_convert_float> build_ic_float;
+  boost::phoenix::function<build_mixed_list_fn> build_mixed_list;
 
   // clang-format off
 			expression
@@ -149,27 +169,12 @@ where_grammar::where_grammar(object_factory obj_factory) : where_grammar::base_t
 				| long_long[qi::_val = phoenix::bind(&factory::create_int, qi::_1)]
 				;
 
+			// Heterogeneous argument list: each entry is any identifier (string
+			// literal, variable, number, or a nested function call), separated
+			// by commas. Used by both function calls (`fn(a, 'b', 2)`) and the
+			// `in`/`not in` operators.
 			list_expr
-				= string_list[qi::_val = phoenix::bind(&list_helper<std::string>::make_node, qi::_1)]
-				| float_list[qi::_val = phoenix::bind(&list_helper<double>::make_node, qi::_1)]
-				| int_list[qi::_val = phoenix::bind(&list_helper<long long>::make_node, qi::_1)]
-				;
-
-			string_list
-				= string_literal[qi::_val = qi::_1]
-				>> *(',' >> string_literal)[qi::_val += qi::_1]
-				| variable_name[qi::_val = qi::_1]
-				>> *(',' >> variable_name)[qi::_val += qi::_1]
-				;
-
-			float_list
-				= real[qi::_val = qi::_1]
-				>> *(',' >> double_)[qi::_val += qi::_1]
-				;
-
-			int_list
-				= long_long[qi::_val = qi::_1]
-				>> *(',' >> long_long)[qi::_val += qi::_1]
+				= (identifier % ',')[qi::_val = build_mixed_list(qi::_1)]
 				;
 
 			op = qi::lit("<=")[qi::_val = op_le]

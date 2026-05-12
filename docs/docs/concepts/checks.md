@@ -115,6 +115,11 @@ check_cpu show-default
 
 Use this to learn what a check does by default and to copy a single option to tweak.
 
+!!! note
+You'll see `${name}` in the defaults output. That's the older placeholder syntax, still supported
+for compatibility. When you write your own configuration, prefer `%(name)` — see
+[section 7](#7-output-syntax--choosing-the-message-text).
+
 !!! warning
 Don't paste *all* defaults into your config. Defaults can change in newer versions; pinning them removes that benefit.
 
@@ -193,7 +198,8 @@ check_cpu filter=none                       # include everything
 
 !!! note
 Use the **safe aliases** (`gt`, `lt`, …) when passing arguments through NRPE or shells — they avoid `<`/`>` redirection
-problems.
+problems. The same expression language powers `filter`, `warn`, `crit`, and the `%(...)` placeholders
+in `top-syntax` / `detail-syntax`, so anything you learn here applies everywhere.
 
 ### Common keywords
 
@@ -251,8 +257,16 @@ check_eventlog scan-range=-24h "crit=written > -1h"
 
 ## 6. Thresholds — Choosing What's a Problem
 
-`warn` and `crit` use the **same expression language as filters**. The difference: instead of including/excluding items,
-they decide which items count as alerts.
+`warn` and `crit` use the **same expression language as filters** — same operators, same keywords,
+same `and`/`or`/`not`. The difference is what the expression *decides*:
+
+| Expression  | Per-item question                  | Effect when true                |
+|-------------|------------------------------------|---------------------------------|
+| `filter`    | Should I include this item at all? | Item is kept (or dropped)       |
+| `warn`      | Is this item a warning?            | Overall status becomes WARNING  |
+| `crit`      | Is this item critical?             | Overall status becomes CRITICAL |
+
+Aggregation rules:
 
 - Any item matches `crit` → result is **CRITICAL**
 - Any item matches `warn` (and none matched `crit`) → **WARNING**
@@ -320,7 +334,9 @@ Three options shape the message. They affect *only* the human-readable text — 
 | `detail-syntax` | Per item, inside the list  | Per-item values           |
 | `ok-syntax`     | When status is OK          | Brief "all ok" message    |
 
-`check_cpu` defaults:
+`check_cpu` defaults (still using the legacy `${...}` form for top-syntax / detail-syntax; written
+the recommended way they'd be `top-syntax=%(status): %(problem_list)` and
+`detail-syntax=%(time): %(load)%`):
 
 ```
 top-syntax=${status}: ${problem_list}
@@ -330,20 +346,33 @@ detail-syntax=${time}: ${load}%
 
 ### Template variables
 
-Variables can be written `${name}` or `%(name)` — they're equivalent.
+NSClient++ has two placeholder forms. **Use `%(name)`** — it's the modern, more capable syntax.
 
-!!! note
-On Unix shells `${...}` may be eaten by the shell. Prefer `%(...)` when the command travels through NRPE or a shell.
+| Form         | Status        | When it makes sense                                                       |
+|--------------|---------------|---------------------------------------------------------------------------|
+| `%(name)`    | **Preferred** | Always. Survives shells/NRPE, supports nested parens and function calls.  |
+| `${name}`    | Legacy        | Still works for plain variable references; kept for backwards compatibility. |
+
+Differences in practice:
+
+- **Plain variable references** — both forms work and produce identical output.
+- **Function calls** (see [section 8](#8-functions--transforming-values)) — only `%(...)` works. The
+  `${...}` form stops at the first `}` and can't capture nested parentheses.
+- **Shells and NRPE** — `${...}` is often eaten by Bash and similar shells before it reaches
+  NSClient++. `%(...)` passes through untouched.
+
+The rest of this document uses `%(...)` in every example. `${...}` is documented only where it
+appears in defaults so you can recognise it in older configs.
 
 Common variables (every check):
 
 | Variable                                       | Meaning                                         |
 |------------------------------------------------|-------------------------------------------------|
-| `${status}`                                    | OK / WARNING / CRITICAL / UNKNOWN               |
-| `${list}`                                      | All filtered items, joined with `detail-syntax` |
-| `${problem_list}`                              | Only warning/critical items                     |
-| `${ok_list}` / `${warn_list}` / `${crit_list}` | Items in each state                             |
-| `${count}` / `${problem_count}`                | Item counts                                     |
+| `%(status)`                                    | OK / WARNING / CRITICAL / UNKNOWN               |
+| `%(list)`                                      | All filtered items, joined with `detail-syntax` |
+| `%(problem_list)`                              | Only warning/critical items                     |
+| `%(ok_list)` / `%(warn_list)` / `%(crit_list)` | Items in each state                             |
+| `%(count)` / `%(problem_count)`                | Item counts                                     |
 
 Per-item variables (in `detail-syntax`) depend on the check — `<check> help` lists them.
 
@@ -361,17 +390,116 @@ check_cpu time=5m \
 OK: Cpu usage is 26%
 
 # Custom memory message
-check_memory "top-syntax=${list}" \
-  "detail-syntax=${type} free: ${free} used: ${used} size: ${size}"
+check_memory "top-syntax=%(list)" \
+  "detail-syntax=%(type) free: %(free) used: %(used) size: %(size)"
 page free: 16G used: 7.98G size: 24G, physical free: 4.18G used: 7.8G size: 12G
 
 # Service: name and state for each
-check_service "top-syntax=${list}" "detail-syntax=${name}: ${state}"
+check_service "top-syntax=%(list)" "detail-syntax=%(name): %(state)"
 ```
 
 ---
 
-## 8. Performance Data
+## 8. Functions — Transforming Values
+
+Sometimes a raw value isn't what you want to look at. A counter that returns bytes per second is
+unfriendly to read as `4194304`, and a threshold expressed in MB is easier to maintain than one
+expressed in 1024-scaled bytes. NSClient++ supports **functions** for these jobs, and the same
+function works in both contexts:
+
+- inside `detail-syntax` / `top-syntax` to format a value for display
+- inside `warn` / `crit` / `filter` to derive a value for comparison
+
+### Calling a function
+
+A function call looks like a normal function: `name(arg1, arg2, …)`. Arguments can mix variables,
+string literals, and numbers. Always wrap the call in `%(...)` when using it inside a syntax
+template:
+
+```text
+detail-syntax = "Used: %(format_bytes(used))"
+warning       = "convert_bytes(used, 'MB') > 500"
+filter        = "scale(rate, 1000000) > 100"
+```
+
+!!! warning "Function calls require `%(...)`"
+The legacy `${...}` placeholder stops at the first `}` and can't capture nested parentheses, so
+`${format_bytes(used)}` won't parse. Use `%(...)` for function calls (and prefer it everywhere
+else — see [section 7](#7-output-syntax--choosing-the-message-text)).
+
+### Built-in functions
+
+These are available wherever the check exposes them — `check_pdh` ships them today; other checks
+add their own. Run `<check> help` to see the list for a given check.
+
+| Function                     | Returns | Purpose                                                                  |
+|------------------------------|---------|--------------------------------------------------------------------------|
+| `format_bytes(value)`        | string  | Auto-scaled human-readable bytes — `4194304 → "4MB"` (1024-based)        |
+| `format_bytes(value, 'MB')`  | string  | Fixed unit. Units: `B`, `K`/`KB`, `M`/`MB`, `G`/`GB`, `T`/`TB`           |
+| `convert_bytes(value, 'MB')` | float   | Numeric value in the named unit — use in thresholds                      |
+| `scale(value, divisor)`      | float   | Divide by an arbitrary divisor — for decimal units (Mbps, etc.)          |
+
+### Recipes
+
+```text
+# Show raw bytes as MB/GB/etc. in the message
+check_pdh counter=disk_bytes \
+  "detail-syntax=%(alias) is %(format_bytes(value))"
+
+# Threshold in MB, display in human-friendly units
+check_pdh counter=memory_bytes \
+  "warning=convert_bytes(value, 'MB') > 500" \
+  "detail-syntax=%(alias) = %(format_bytes(value))"
+
+# Network rates — Mbps is decimal (10⁶), use scale()
+check_pdh counter=bytes_per_sec \
+  "detail-syntax=Speed = %(scale(value, 1000000)) Mbps"
+
+# Combine functions and plain variables in one template
+check_pdh counter=disk_writes \
+  "detail-syntax=%(counter): %(format_bytes(value)) (%(value) raw bytes)"
+```
+
+### How it composes with the rest of the language
+
+Functions are first-class values, so the result composes with operators, `and`/`or`, and `not`:
+
+```text
+# Warn if used MB AND free MB are both at risk
+check_disk \
+  "warn=convert_bytes(used, 'MB') > 800 and convert_bytes(free, 'MB') < 100"
+
+# Critical when ANY of two derived values is over budget
+check_pdh ... \
+  "crit=scale(read_rate, 1000000) > 50 or scale(write_rate, 1000000) > 50"
+```
+
+The function result has a regular type (string or float), so it slots into comparisons exactly like
+a plain variable reference. The arguments themselves can be variables, literals, or — for nested
+calls — other function calls: `%(format_bytes(scale(value, 1024)))` is valid.
+
+### Variable-style shortcuts
+
+Some checks expose pre-scaled "view variables" for the most common cases — `check_pdh` provides
+`value_human`, `value_mb`, `value_gb`, etc. These are syntactic sugar for the corresponding function
+calls:
+
+```text
+# Variable-style shortcut
+check_pdh counter=mem "detail-syntax=Mem: %(value_human)"
+check_pdh counter=mem "warning=value_mb > 500"
+
+# Equivalent function calls
+check_pdh counter=mem "detail-syntax=Mem: %(format_bytes(value))"
+check_pdh counter=mem "warning=convert_bytes(value, 'MB') > 500"
+```
+
+Reach for variables when one of the prebuilt units fits; reach for functions when you need a custom
+unit, a custom divisor, or composition with other expressions.
+
+---
+
+## 9. Performance Data
 
 Performance data is the machine-readable metrics used for graphing, in the standard Nagios format:
 
@@ -459,15 +587,15 @@ C:\ used %    95      %       79      89      100     0
 `perf-syntax` controls the metric **name** (not its value), using the same template variables as `detail-syntax`:
 
 ```
-check_cpu "perf-syntax=${core} ${time}"     # 'total 5m'=...
-check_cpu "perf-syntax=${core}_${time}"     # 'total_5m'=...
+check_cpu "perf-syntax=%(core) %(time)"     # 'total 5m'=...
+check_cpu "perf-syntax=%(core)_%(time)"     # 'total_5m'=...
 ```
 
 Useful when your graphing system is picky about names.
 
 ---
 
-## 9. Putting It Together
+## 10. Putting It Together
 
 Pick a check, run `show-default`, identify the option you want to change, change just that one. Repeat.
 
@@ -482,11 +610,11 @@ check_drivesize "filter=type = 'fixed'"
 check_drivesize "filter=type = 'fixed'" \
   "warn=free_pct < 15" "crit=free_pct < 5"
 
-# Step 3 — clean message
+# Step 3 — clean message with human-readable sizes (functions from section 8)
 check_drivesize "filter=type = 'fixed'" \
   "warn=free_pct < 15" "crit=free_pct < 5" \
   "top-syntax=%(status): %(list)" \
-  "detail-syntax=%(drive_or_id) %(free) free of %(size)"
+  "detail-syntax=%(drive_or_id) %(format_bytes(free)) free of %(format_bytes(size))"
 
 # Step 4 — graph-friendly perfdata
 check_drivesize "filter=type = 'fixed'" \

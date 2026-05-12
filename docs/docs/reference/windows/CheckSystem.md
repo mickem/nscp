@@ -1897,14 +1897,21 @@ Format of value (double, long, large)
 #### Filter keywords
 
 
-| Option  | Description                             |
-|---------|-----------------------------------------|
-| alias   | The counter alias                       |
-| counter | The counter name                        |
-| time    | The time for rrd checks                 |
-| value   | The counter value (either float or int) |
-| value_f | The counter value (force float value)   |
-| value_i | The counter value (force int value)     |
+| Option          | Description                                                                                                        |
+|-----------------|--------------------------------------------------------------------------------------------------------------------|
+| alias           | The counter alias                                                                                                  |
+| convert_bytes() | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
+| counter         | The counter name                                                                                                   |
+| format_bytes()  | Format a number as a human-readable byte string.                                                                   |
+| scale()         | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
+| time            | The time for rrd checks                                                                                            |
+| value           | The counter value (either float or int)                                                                            |
+| value_f         | The counter value (force float value)                                                                              |
+| value_gb        | Counter value in GB (1024-based).                                                                                  |
+| value_human     | Counter value formatted as a human-readable byte string, auto-scaled to B/KB/MB/GB/...                             |
+| value_i         | The counter value (force int value)                                                                                |
+| value_kb        | Counter value in KB (1024-based).                                                                                  |
+| value_mb        | Counter value in MB (1024-based).                                                                                  |
 
 **Common options for all checks:**
 

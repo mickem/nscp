@@ -16,11 +16,24 @@
  * You should have received a copy of the GNU General Public License
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <parsers/where.hpp>
 #include <parsers/where/engine.hpp>
 #include <str/format.hpp>
 
 namespace parsers {
 namespace where {
+
+// Exported one-shot parser entry point — lives here (not in where.cpp) because
+// where.cpp is also compiled directly into the parsers_where_test binary, and
+// exporting a symbol from a TU that the test also compiles locally produces a
+// "inconsistent dll linkage" + duplicate-symbol pair. engine.cpp is only built
+// into nscp_where_filter.dll, so this stays a single, exported definition.
+node_type parse_expression(object_factory factory, const std::string &expr) {
+  parser p;
+  if (!p.parse(factory, expr)) return {};
+  if (!p.rest.empty()) return {};
+  return p.resulting_tree;
+}
 
 bool engine_filter::validate(error_handler error, object_factory context, bool perf_collection, parsers::where::performance_collector &boundries) {
   if (error->is_debug()) error->log_debug("Parsing: " + filter_string);
