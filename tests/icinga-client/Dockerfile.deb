@@ -1,0 +1,43 @@
+# Lightweight alternative to the source-build Dockerfile. Installs the
+# `icinga2-bin` Debian package and exposes its bundled check_nscp_api
+# plugin. Same end result as Dockerfile, but:
+#
+#   * Image build is seconds vs. minutes (no compile step).
+#   * No build-deps (cmake/boost-dev/flex/bison) in the build context.
+#   * The binary is whatever upstream Debian shipped — version drift moves
+#     with the OS image rather than a pinned source tag. If you need exact
+#     version pinning for a regression test, use the source-build
+#     Dockerfile instead.
+#
+# Run-test selects which Dockerfile to use via `-f`; the default
+# `Dockerfile` builds from source. To use this one:
+#
+#   docker build -t check_nscp_api -f tests/icinga-client/Dockerfile.deb tests/icinga-client/
+#
+# Or edit run-test.bat to point at Dockerfile.deb.
+
+FROM debian:bookworm-slim
+
+# The icinga2 packaging splits the plugin binaries off into `icinga2-bin`.
+# Pull just that — pulling the meta `icinga2` package would drag in the
+# daemon, init scripts, and a config tree we don't need.
+#
+# --no-install-recommends keeps Apache, MTA, and other "suggested" pulls
+# out of the image; the plugin itself only needs the Boost / OpenSSL libs
+# that come along as `Depends:`.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    icinga2-bin \
+    && rm -rf /var/lib/apt/lists/*
+
+# Debian ships nagios plugins under /usr/lib/nagios/plugins. Symlink to a
+# PATH-friendly location so `docker run check_nscp_api check_nscp_api ...`
+# works the same way as the source-build image.
+RUN ln -s /usr/lib/nagios/plugins/check_nscp_api /usr/local/bin/check_nscp_api
+
+# Sanity-check the binary at image build time so a packaging change that
+# moves or removes check_nscp_api fails the `docker build` rather than
+# the test.
+RUN /usr/local/bin/check_nscp_api --help >/dev/null
+
+ENTRYPOINT ["/usr/local/bin/check_nscp_api"]

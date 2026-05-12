@@ -141,6 +141,38 @@ bool session_manager_interface::process_auth_header(const std::string &grant, Mo
   return false;
 }
 
+bool session_manager_interface::process_password_header(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response,
+                                                       const std::string &password) {
+  const std::string remote_ip = request.getRemoteIp();
+  if (rate_limiter.is_blocked(remote_ip)) {
+    NSC_LOG_ERROR("Rate-limited authentication attempt from " + remote_ip);
+    response.setCodeForbidden(NOT_ALLOWED);
+    return false;
+  }
+  // Same 8 KiB cap as the Authorization header to keep this from being a
+  // cheap DoS amplifier.
+  static constexpr std::size_t kMaxPasswordHeaderBytes = 8 * 1024;
+  if (password.size() > kMaxPasswordHeaderBytes) {
+    rate_limiter.record_failure(remote_ip);
+    NSC_LOG_ERROR("Oversized password header from " + remote_ip + " (" + std::to_string(password.size()) + " bytes)");
+    response.setCodeForbidden(NOT_ALLOWED);
+    return false;
+  }
+  // The `password` header carries no username; check_nscp_api was
+  // designed against the single admin role NSClient exposes. Match that
+  // convention so the plugin "just works" with default configurations.
+  static const std::string kImplicitUser = "admin";
+  if (!users.validate_user(kImplicitUser, password)) {
+    rate_limiter.record_failure(remote_ip);
+    NSC_LOG_ERROR("Authentication failed for " + remote_ip);
+    response.setCodeForbidden(NOT_ALLOWED);
+    return false;
+  }
+  rate_limiter.record_success(remote_ip);
+  store_user_in_response(kImplicitUser, response);
+  return can(grant, response);
+}
+
 bool session_manager_interface::is_logged_in(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response) {
   std::list<std::string> errors;
   if (!allowed_hosts.is_allowed(boost::asio::ip::address::from_string(request.getRemoteIp()), errors)) {
@@ -151,6 +183,17 @@ bool session_manager_interface::is_logged_in(const std::string &grant, Mongoose:
   }
   if (has_auth_header(request)) {
     return process_auth_header(grant, request, response);
+  }
+  // Legacy `password` HTTP header used by Icinga's check_nscp_api (and any
+  // other plugin that follows the same convention). The header carries just
+  // the password; the user is implied to be "admin" because that's the
+  // single role the plugin was designed against. Same security properties
+  // as Basic auth — it's a credential in a header that travels under TLS —
+  // so we apply the same rate-limiting and constant-time comparison the
+  // Basic auth path uses.
+  const std::string password_header = request.readHeader("password");
+  if (!password_header.empty()) {
+    return process_password_header(grant, request, response, password_header);
   }
   const std::string token = find_token(request, *this);
   if (token.empty()) {

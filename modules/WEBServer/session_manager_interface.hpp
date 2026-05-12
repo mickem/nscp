@@ -53,6 +53,12 @@ struct session_manager_interface {
   session_manager_interface();
 
   bool process_auth_header(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response);
+  // Handle the legacy `password` HTTP header used by Icinga's
+  // check_nscp_api (and any client that follows the same convention). The
+  // header carries the password only; the user is implied to be "admin".
+  // Applies the same rate-limit / constant-time-compare guards as
+  // process_auth_header.
+  bool process_password_header(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response, const std::string &password);
   bool is_logged_in(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response);
 
   bool is_allowed(const std::string &ip);
