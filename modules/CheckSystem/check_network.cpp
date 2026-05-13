@@ -20,6 +20,7 @@
 #include "check_network.hpp"
 
 #include <boost/algorithm/string/replace.hpp>
+#include <boost/program_options.hpp>
 #include <boost/thread/locks.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
@@ -27,6 +28,8 @@
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/where/node.hpp>
+
+namespace po = boost::program_options;
 
 namespace network_check {
 
@@ -37,6 +40,7 @@ std::string helper::nif_query =
 // We use PerfRawData (not PerfFormattedData) so we can control the sampling interval
 // and compute the per-second rate ourselves in read_prd().
 std::string helper::prd_query = "select Name, BytesReceivedPersec, BytesSentPersec, BytesTotalPersec from Win32_PerfRawData_Tcpip_NetworkInterface";
+std::string helper::prd_adapter_query = "select Name, BytesReceivedPersec, BytesSentPersec, BytesTotalPersec from Win32_PerfRawData_Tcpip_NetworkAdapter";
 
 std::string helper::parse_nif_name(std::string name) { return name; }
 std::string helper::parse_prd_name(std::string name) {
@@ -118,17 +122,24 @@ void network_data::query_nif(netmap_type &netmap) {
   }
 }
 
-void network_data::query_prd(netmap_type &netmap, long long delta) {
-  wmi_impl::query wmiQuery(helper::prd_query, "root\\cimv2", "", "");
+void network_data::query_prd(netmap_type &netmap, long long delta, const std::string &query, bool allow_insert) {
+  wmi_impl::query wmiQuery(query, "root\\cimv2", "", "");
   wmi_impl::row_enumerator row = wmiQuery.execute();
   while (row.has_next()) {
     wmi_impl::row r = row.get_next();
     std::string name = helper::parse_prd_name(r.get_string("Name"));
     netmap_type::iterator it = netmap.find(name);
     if (it == netmap.end()) {
-      continue;
+      if (!allow_insert) continue;
+      // Synthesise an entry for a perfraw row with no Win32_NetworkAdapter match
+      // (the team aggregate case). Metadata fields stay empty; counters are read.
+      network_interface nif;
+      nif.name = name;
+      nif.read_prd(r, delta);
+      netmap[name] = nif;
+    } else {
+      it->second.read_prd(r, delta);
     }
-    it->second.read_prd(r, delta);
   }
 }
 
@@ -136,25 +147,63 @@ void network_data::fetch() {
   if (!fetch_network_) return;
 
   nics_type tmp;
-  netmap_type netmap;
+  // Two separate maps keyed by name: NetworkInterface and NetworkAdapter use
+  // partially overlapping but non-identical names for the same physical NIC,
+  // so we can't share a single map without one source overwriting the other.
+  netmap_type if_netmap;
+  netmap_type ad_netmap;
   boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
   boost::posix_time::ptime last;
   {
     boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!readLock.owns_lock()) throw nsclient::nsclient_exception("Failed to get mutex for reading");
     last = last_;
+    // Restore previous counter values so read_prd can compute deltas.
     for (const network_interface &v : nics_) {
-      netmap[v.get_name()] = v;
+      if (v.get_source() == "adapter") {
+        ad_netmap[v.get_name()] = v;
+      } else {
+        if_netmap[v.get_name()] = v;
+      }
     }
   }
   try {
     boost::posix_time::time_duration diff = now - last;
     long long delta = diff.total_seconds();
-    query_nif(netmap);
-    query_prd(netmap, delta);
 
-    for (const netmap_type::value_type &v : netmap) {
+    // Win32_NetworkAdapter metadata applies to both perfraw sources, so we run
+    // it once and merge into whichever map(s) end up holding a matching entry.
+    query_nif(if_netmap);
+    for (const netmap_type::value_type &v : if_netmap) {
+      netmap_type::iterator it = ad_netmap.find(v.first);
+      if (it == ad_netmap.end()) {
+        ad_netmap[v.first] = v.second;
+      } else if (!it->second.has_nif && v.second.has_nif) {
+        // Carry over metadata, preserve adapter-source counters.
+        network_interface merged = v.second;
+        merged.has_prd = it->second.has_prd;
+        merged.oldBytesReceivedPersec = it->second.oldBytesReceivedPersec;
+        merged.oldBytesSentPersec = it->second.oldBytesSentPersec;
+        merged.oldBytesTotalPersec = it->second.oldBytesTotalPersec;
+        merged.BytesReceivedPersec = it->second.BytesReceivedPersec;
+        merged.BytesSentPersec = it->second.BytesSentPersec;
+        merged.BytesTotalPersec = it->second.BytesTotalPersec;
+        it->second = merged;
+      }
+    }
+
+    query_prd(if_netmap, delta, helper::prd_query, false);
+    // allow_insert=true so the team aggregate (no nif match) surfaces.
+    query_prd(ad_netmap, delta, helper::prd_adapter_query, true);
+
+    for (netmap_type::value_type &v : if_netmap) {
       if (!v.second.is_compleate()) continue;
+      v.second.source = "interface";
+      tmp.push_back(v.second);
+    }
+    for (netmap_type::value_type &v : ad_netmap) {
+      if (!v.second.is_compleate()) continue;
+      v.second.source = "adapter";
       tmp.push_back(v.second);
     }
   } catch (const wmi_impl::wmi_exception &e) {
@@ -194,7 +243,8 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("MAC", &filter_obj::get_MACAddress, "The MAC address")
       .add_string_var("status", &filter_obj::get_NetConnectionStatus, "Network connection status")
       .add_string_var("enabled", &filter_obj::get_NetEnabled, "True if the network interface is enabled")
-      .add_string_var("speed", &filter_obj::get_Speed, "The network interface speed");
+      .add_string_var("speed", &filter_obj::get_Speed, "The network interface speed")
+      .add_string_var("source", &filter_obj::get_source, "WMI source: 'interface' or 'adapter'");
 
   registry_.add_int_var("received", &filter_obj::getBytesReceivedPersec, "Bytes received per second")
       .add_int_var("sent", &filter_obj::getBytesSentPersec, "Bytes sent per second")
@@ -205,15 +255,29 @@ void check_network(const PB::Commands::QueryRequestMessage::Request &request, PB
   modern_filter::data_container data;
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 
+  std::string mode = "interface";
+
   filter_type filter;
   filter_helper.add_options("total > 10000", "total > 100000", "", filter.get_filter_syntax(), "critical");
   filter_helper.add_syntax("${status}: ${list}", "${name} >${sent} <${received} bps", "${name}", "", "%(status): Network interfaces seem ok.");
+  // clang-format off
+  filter_helper.get_desc().add_options()
+    ("mode", po::value<std::string>(&mode)->default_value("interface"),
+     "Which WMI source to report from: 'interface' (default; Win32_PerfRawData_Tcpip_NetworkInterface, physical adapters only), "
+     "'adapter' (Win32_PerfRawData_Tcpip_NetworkAdapter, includes NIC team aggregates), or 'both' (every interface reported under both sources)")
+    ;
+  // clang-format on
 
   if (!filter_helper.parse_options()) return;
 
+  if (mode != "interface" && mode != "adapter" && mode != "both") {
+    return nscapi::protobuf::functions::set_response_bad(*response, "Invalid mode '" + mode + "': expected interface, adapter, or both");
+  }
+
   if (!filter_helper.build_filter(filter)) return;
-  for (network_check::nics_type::value_type v : nicdata) {
-    std::shared_ptr<filter_obj> record(new filter_obj(v));
+  for (const nics_type::value_type v : nicdata) {
+    if (mode != "both" && v.get_source() != mode) continue;
+    const std::shared_ptr<filter_obj> record(new filter_obj(v));
     filter.match(record);
   }
   filter_helper.post_process(filter);

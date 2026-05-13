@@ -34,6 +34,12 @@ struct helper {
 
   static std::string nif_query;
   static std::string prd_query;
+  // Win32_PerfRawData_Tcpip_NetworkAdapter is a superset of NetworkInterface that
+  // also exposes counters for NIC team aggregates (issue #625). It uses the
+  // friendlier Windows adapter name rather than the MIB-style name used by
+  // NetworkInterface, so the two name spaces partially overlap but are not
+  // identical — we fetch both and let the caller pick via mode=.
+  static std::string prd_adapter_query;
 };
 
 struct network_interface {
@@ -43,6 +49,10 @@ struct network_interface {
   std::string NetConnectionStatus;
   std::string NetEnabled;
   std::string Speed;
+  // Which WMI class this entry was collected from: "interface" (the legacy
+  // Win32_PerfRawData_Tcpip_NetworkInterface) or "adapter"
+  // (Win32_PerfRawData_Tcpip_NetworkAdapter, which also reports team aggregates).
+  std::string source;
   bool has_nif;
   bool has_prd;
   long long oldBytesReceivedPersec;
@@ -53,7 +63,8 @@ struct network_interface {
   long long BytesTotalPersec;
 
   network_interface()
-      : has_nif(false),
+      : source("interface"),
+        has_nif(false),
         has_prd(false),
         oldBytesReceivedPersec(0),
         oldBytesSentPersec(0),
@@ -68,6 +79,7 @@ struct network_interface {
         NetConnectionStatus(other.NetConnectionStatus),
         NetEnabled(other.NetEnabled),
         Speed(other.Speed),
+        source(other.source),
         has_nif(other.has_nif),
         has_prd(other.has_prd),
         oldBytesReceivedPersec(other.oldBytesReceivedPersec),
@@ -84,6 +96,7 @@ struct network_interface {
     NetConnectionStatus = other.NetConnectionStatus;
     NetEnabled = other.NetEnabled;
     Speed = other.Speed;
+    source = other.source;
     has_nif = other.has_nif;
     has_prd = other.has_prd;
     oldBytesReceivedPersec = other.oldBytesReceivedPersec;
@@ -100,7 +113,10 @@ struct network_interface {
   void read_wna(wmi_impl::row r);
   void read_prd(wmi_impl::row r, long long delta);
 
-  bool is_compleate() const { return has_nif; }
+  // Team aggregates show up in NetworkAdapter perfraw but have no matching
+  // Win32_NetworkAdapter row, so has_nif is false for them. Accept either
+  // metadata or counters as "complete enough to report".
+  bool is_compleate() const { return has_nif || has_prd; }
   void build_metrics(PB::Metrics::MetricsBundle *section) const;
 
   std::string get_name() const { return name; }
@@ -109,6 +125,7 @@ struct network_interface {
   std::string get_NetConnectionStatus() const { return NetConnectionStatus; }
   std::string get_NetEnabled() const { return NetEnabled; }
   std::string get_Speed() const { return Speed; }
+  std::string get_source() const { return source; }
 
   long long getBytesReceivedPersec() const { return BytesReceivedPersec; }
   long long getBytesSentPersec() const { return BytesSentPersec; }
@@ -132,7 +149,7 @@ class network_data {
 
  private:
   void query_nif(netmap_type &netmap);
-  void query_prd(netmap_type &netmap, long long delta);
+  void query_prd(netmap_type &netmap, long long delta, const std::string &query, bool allow_insert);
 };
 
 namespace check {
