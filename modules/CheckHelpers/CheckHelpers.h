@@ -20,15 +20,32 @@
 #pragma once
 
 #include <list>
+#include <nscapi/command_alias.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <string>
 #include <vector>
 
 class CheckHelpers final : public nscapi::impl::simple_plugin {
+ private:
+  // Aliases registered via [/settings/check helpers/alias]. Lets admins
+  // create predefined commands (like `my_check_cpu = check_cpu warn=load>80`)
+  // without enabling CheckExternalScripts, which carries a larger attack
+  // surface. See docs/setup/securing.md.
+  alias::command_handler aliases_;
+
  public:
   CheckHelpers() {}
   ~CheckHelpers() {}
+
+  // Module lifecycle - load registers the alias settings section.
+  bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+  bool unloadModule();
+
+  // Fallback for any command name we don't ourselves implement - used to
+  // dispatch alias lookups.
+  void query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                      const PB::Commands::QueryRequestMessage &request_message);
 
   // Check commands
   void check_critical(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
@@ -52,4 +69,8 @@ class CheckHelpers final : public nscapi::impl::simple_plugin {
                            PB::Commands::QueryResponseMessage::Response *response);
   bool simple_query(const std::string &command, const std::vector<std::string> &arguments, PB::Commands::QueryResponseMessage::Response *response);
   bool simple_query(const std::string &command, const std::list<std::string> &arguments, PB::Commands::QueryResponseMessage::Response *response);
+
+ private:
+  void add_alias(const std::string &key, const std::string &command);
+  void handle_alias(const alias::command_object &cd, const std::list<std::string> &args, PB::Commands::QueryResponseMessage::Response *response) const;
 };

@@ -23,7 +23,7 @@ if(WIN32)
         ${SRCS}
         "${TARGET}.h"
         commands.hpp
-        alias.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/command_alias.hpp
         extscr_cli.h
         script_provider.hpp
         script_interface.hpp

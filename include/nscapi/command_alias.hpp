@@ -17,6 +17,12 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+// Shared command-alias machinery. Used by CheckExternalScripts and
+// CheckHelpers to provide [/settings/.../alias] sections of the form
+//     my_alias = check_target arg1 arg2
+// Originally lived next to CheckExternalScripts; moved here so admins can
+// run aliases without enabling external-script execution.
+
 #pragma once
 
 #include <boost/algorithm/string/case_conv.hpp>
@@ -27,8 +33,6 @@
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
 #include <string>
-
-namespace sh = nscapi::settings_helper;
 
 namespace alias {
 struct command_object : public nscapi::settings_objects::object_instance_interface {
@@ -79,6 +83,7 @@ struct command_object : public nscapi::settings_objects::object_instance_interfa
 
     root_path.add_path()("alias: " + get_alias(), "The configuration section for the " + get_alias() + " alias");
 
+    namespace sh = nscapi::settings_helper;
     root_path.add_key().add_string("command", sh::string_fun_key([this](auto value) { this->set_command(value); }), "COMMAND", "Command to execute");
 
     settings.register_all();

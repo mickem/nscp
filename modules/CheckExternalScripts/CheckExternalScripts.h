@@ -17,11 +17,11 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <nscapi/command_alias.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <string>
 
-#include "alias.hpp"
 #include "commands.hpp"
 #include "script_interface.hpp"
 

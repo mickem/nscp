@@ -31,12 +31,20 @@ echo Running External Script tests...
 nscp unit --language python --script test_external_script
 if errorlevel 1 goto :failed
 
+echo Running CheckHelpers tests...
+nscp unit --language python --script test_check_helpers
+if errorlevel 1 goto :failed
+
 echo Running Scheduler tests...
 nscp unit --language python --script test_scheduler
 if errorlevel 1 goto :failed
 
 echo Running Windows System tests...
 nscp unit --language python --script test_w32_file
+if errorlevel 1 goto :failed
+
+echo Running Windows WMI tests...
+nscp unit --language python --script test_w32_wmi
 if errorlevel 1 goto :failed
 
 echo Running Windows EventLog tests...

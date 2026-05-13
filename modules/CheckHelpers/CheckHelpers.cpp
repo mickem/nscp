@@ -28,24 +28,125 @@
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/protobuf/nagios.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <nscapi/settings/proxy.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <str/utils.hpp>
+#include <str/xtos.hpp>
 #include <vector>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
+bool CheckHelpers::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
+  try {
+    sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
+    settings.set_alias(alias, "check helpers");
+
+    aliases_.set_path(settings.alias().get_settings_path("alias"));
+
+    // clang-format off
+    settings.alias().add_path_to_settings()
+      ("alias", sh::fun_values_path([this](auto key, auto value) { this->add_alias(key, value); }),
+        "Command aliases",
+        "A list of aliases for already-defined commands (with arguments).\n"
+        "An alias is an internal command that has been predefined to provide a single command without arguments. "
+        "Be careful so you don't create loops (e.g. check_loop=check_a, check_a=check_loop).\n"
+        "Aliases are also available in CheckExternalScripts under [/settings/external scripts/alias]; "
+        "use this section when you want aliases without enabling external-script execution. "
+        "If the same alias name is registered by both modules, the last one to load wins - avoid duplicating definitions.",
+        "ALIAS", "Query alias")
+      ;
+    // clang-format on
+
+    settings.register_all();
+    settings.notify();
+    settings.clear();
+
+    // add_samples registers documentation-only sample objects (for
+    // --generate ini etc.). We deliberately do NOT call add_missing or
+    // pre-populate any built-in aliases here - this section is meant to be
+    // entirely admin-driven, so an operator who wants to switch from
+    // CheckExternalScripts aliases has to copy each definition over by hand.
+    // That keeps the two modules' alias sets independent and avoids
+    // surprising auto-imports during upgrade.
+    aliases_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
+
+    nscapi::core_helper core(get_core(), get_id());
+    for (const std::shared_ptr<alias::command_object> &o : aliases_.get_object_list()) {
+      core.register_alias(o->get_alias(), "Alias for: " + o->command);
+    }
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR_EXR("loading CheckHelpers", e);
+    return false;
+  } catch (...) {
+    NSC_LOG_ERROR_EX("loading CheckHelpers");
+    return false;
+  }
+  return true;
+}
+
+bool CheckHelpers::unloadModule() { return true; }
+
+void CheckHelpers::add_alias(const std::string &key, const std::string &arg) {
+  try {
+    aliases_.add(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR_EXR("Failed to add alias '" + key + "': ", e);
+  }
+}
+
+void CheckHelpers::query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                                  const PB::Commands::QueryRequestMessage & /*request_message*/) {
+  const alias::command_object_instance alias_def = aliases_.find_object(request.command());
+  if (!alias_def) {
+    nscapi::protobuf::functions::set_response_bad(*response, "No alias found matching: " + request.command());
+    return;
+  }
+  std::list<std::string> args;
+  for (int i = 0; i < request.arguments_size(); ++i) args.push_back(request.arguments(i));
+  handle_alias(*alias_def, args, response);
+}
+
+void CheckHelpers::handle_alias(const alias::command_object &cd, const std::list<std::string> &src_args,
+                                PB::Commands::QueryResponseMessage::Response *response) const {
+  // $ARGn$ / %ARGn% substitution into the alias's pre-declared argument list.
+  // We DO NOT accept or splice in extra arguments that the alias's template
+  // didn't already mention - this is the security property that makes
+  // aliases safer than CheckExternalScripts' `allow arguments = true` path:
+  // the command and arguments are both controlled by the local admin's
+  // configuration, not by the remote caller.
+  std::list<std::string> args = cd.arguments;
+  for (std::string &arg : args) {
+    int i = 1;
+    for (const std::string &str : src_args) {
+      str::utils::replace(arg, "$ARG" + str::xtos(i) + "$", str);
+      str::utils::replace(arg, "%ARG" + str::xtos(i) + "%", str);
+      i++;
+    }
+  }
+
+  std::string buffer;
+  nscapi::core_helper ch(get_core(), get_id());
+  if (!ch.simple_query(cd.command, args, buffer)) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + cd.get_alias());
+    return;
+  }
+  PB::Commands::QueryResponseMessage tmp;
+  tmp.ParseFromString(buffer);
+  if (tmp.payload_size() != 1) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Invalid response from command: " + cd.get_alias());
+    return;
+  }
+  response->CopyFrom(tmp.payload(0));
+}
+
 void check_simple_status(PB::Common::ResultCode status, const PB::Commands::QueryRequestMessage::Request &request,
                          PB::Commands::QueryResponseMessage::Response *response) {
   po::options_description desc = nscapi::program_options::create_desc(request);
   std::string msg;
-  // clang-format off
-  desc.add_options()
-    ("message", po::value<std::string>(&msg)->default_value("No message"), "Message to return")
-    ;
-  // clang-format on
+  desc.add_options()("message", po::value<std::string>(&msg)->default_value("No message"), "Message to return");
   po::variables_map vm;
   if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) return;
   response->set_result(status);
@@ -53,7 +154,7 @@ void check_simple_status(PB::Common::ResultCode status, const PB::Commands::Quer
 }
 
 void escalate_result(PB::Commands::QueryResponseMessage::Response *response, PB::Common::ResultCode new_result) {
-  PB::Common::ResultCode current = response->result();
+  const PB::Common::ResultCode current = response->result();
   if (current == new_result)
     return;
   else if (current == PB::Common::ResultCode::OK && new_result != PB::Common::ResultCode::OK)
@@ -273,9 +374,16 @@ void CheckHelpers::check_and_forward(const PB::Commands::QueryRequestMessage::Re
 struct worker_object {
   void proc(nscapi::core_wrapper *core, int plugin_id, std::string command, std::vector<std::string> arguments) {
     nscapi::core_helper ch(core, plugin_id);
-    ret = ch.simple_query(command, arguments, response_buffer);
+    // simple_query(cmd, vector, &result) returns BOOL (true on success).
+    // Previously this was assigned to NSCAPI::nagiosReturn and compared
+    // against query_return_codes::returnOK (=0). The implicit bool->int
+    // conversion (true -> 1) flipped the check: every successful query was
+    // treated as a failure and every failure was treated as success. That
+    // also made check_timeout effectively unusable since timing-out the
+    // wrapped command was the only path that produced an "OK" result.
+    ok = ch.simple_query(command, arguments, response_buffer);
   }
-  NSCAPI::nagiosReturn ret;
+  bool ok = false;
   std::string response_buffer;
 };
 
@@ -301,7 +409,7 @@ void CheckHelpers::check_timeout(const PB::Commands::QueryRequestMessage::Reques
       std::shared_ptr<boost::thread>(new boost::thread([&obj, this, command, arguments]() { obj.proc(get_core(), get_id(), command, arguments); }));
 
   if (t->timed_join(boost::posix_time::seconds(timeout))) {
-    if (obj.ret != NSCAPI::query_return_codes::returnOK) {
+    if (!obj.ok) {
       return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + command);
     }
     PB::Commands::QueryResponseMessage local_response;

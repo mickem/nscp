@@ -28,6 +28,9 @@ nscp unit --language python --script test_log_file || fail
 echo "Running External Script tests..."
 nscp unit --language python --script test_external_script || fail
 
+echo "Running CheckHelpers tests..."
+nscp unit --language python --script test_check_helpers || fail
+
 echo "Running Scheduler tests..."
 nscp unit --language python --script test_scheduler || fail
 
