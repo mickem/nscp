@@ -159,8 +159,8 @@ This is the module most often flagged in security reviews because the name is se
 
 In detail, when the monitoring server asks the agent to run `check_this`, the agent will only run it if:
 
-1. There is an entry `check_this = <path> <args>` under `[/settings/external scripts]` (or `/wrapped scripts`, or
-   `/alias`), **and**
+1. There is an entry `check_this = <path> <args>` under `[/settings/external scripts/scripts]` (or `/wrapped scripts`,
+   or `/alias`), **and**
 2. The configured script lives under the configured `script root` (default `${scripts}`, i.e. the install's `scripts\`
    folder), **and**
 3. If the request includes arguments, `allow arguments = true` is also set (default `false`), **and**
@@ -190,7 +190,7 @@ the `bat` and `vbs` wrappings might theoretically shrinks the attack surface at 
 wrapping at all, you can clear `ps1` too — `[/wrapped scripts]` entries with no matching wrapping will simply fail to
 execute.
 
-Direct script entries under `[/settings/external scripts]` (without a wrapping) are unaffected by clearing the wrappings
+Direct script entries under `[/settings/external scripts/scripts/scripts]` are unaffected by clearing the wrappings
 map — those use the literal command line you declared.
 
 #### Aliases — also available in CheckHelpers
@@ -240,7 +240,7 @@ The module becomes a real risk in these scenarios — none of which are about th
 - **Anyone with write access to the `scripts\` folder can change what runs** even for pre-declared commands. Lock that
   folder the same way.
 - **The admin password can give equivalent power** via the WEB module's script-upload endpoint (see the WEB section
-  below). If you want WEB up for monitoring but not for administration, set `disable admin user = true` under
+  below). If you want WEB ui for monitoring but not for administration, set `disable admin user = true` under
   `[/settings/WEB/server]` — the admin account is then never created or activated, and an attacker who recovers the
   password hash cannot use it to log in. See *Disabling the admin user* below.
 - **`allow arguments = true` + a script that doesn't validate its input** is the classic injection vector. Leave
