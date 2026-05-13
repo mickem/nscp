@@ -751,3 +751,51 @@ Run a check and transform the performance data in various (currently one) way.
 
 
 
+## Configuration
+
+
+
+| Path / Section                                    | Description     |
+|---------------------------------------------------|-----------------|
+| [/settings/check helpers/alias](#command-aliases) | Command aliases |
+
+
+
+### Command aliases <a id="/settings/check helpers/alias"></a>
+
+A list of aliases for already-defined commands (with arguments).
+An alias is an internal command that has been predefined to provide a single command without arguments. Be careful so you don't create loops (e.g. check_loop=check_a, check_a=check_loop).
+Aliases are also available in CheckExternalScripts under [/settings/external scripts/alias]; use this section when you want aliases without enabling external-script execution. If the same alias name is registered by both modules, the last one to load wins - avoid duplicating definitions.
+
+
+This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
+
+
+**Keys:**
+
+
+| Key         | Default Value | Description |
+|-------------|---------------|-------------|
+| alias       |               | ALIAS       |
+| command     |               | COMMAND     |
+| is template | false         | IS TEMPLATE |
+| parent      | default       | PARENT      |
+
+
+**Sample:**
+
+```ini
+# An example of a Command aliases section
+[/settings/check helpers/alias/sample]
+#alias=...
+#command=...
+is template=false
+parent=default
+
+```
+
+
+
+
+
+
