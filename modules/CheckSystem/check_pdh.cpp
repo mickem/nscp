@@ -24,6 +24,7 @@
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
+#include <str/format.hpp>
 
 #include "CheckSystem.h"
 
@@ -57,6 +58,84 @@ void counter_config_object::read(nscapi::settings_helper::settings_impl_interfac
   settings.notify();
 }
 
+namespace {
+// Free-standing function callbacks invoked from where-expressions and from
+// `%(...)` placeholders in detail-syntax. Resolves issue #281 (PDH counter
+// scaling) by exposing format / scale helpers in the expression grammar.
+//
+// Usage examples (all valid in both filter expressions and detail-syntax):
+//   detail-syntax = "%(alias) = %(format_bytes(value))"          -> "Bytes/sec = 4.2MB"
+//   detail-syntax = "%(alias) = %(format_bytes(value, 'MB'))"    -> "Bytes/sec = 4.2M"
+//   warning       = "convert_bytes(value, 'MB') > 100"           -> compare in MB
+//   detail-syntax = "%(scale(value, 1000000)) Mbps"              -> decimal scaling
+
+using parsers::where::evaluation_context;
+using parsers::where::factory;
+using parsers::where::node_type;
+using parsers::where::value_type;
+
+node_type fn_format_bytes(value_type, evaluation_context context, const node_type subject) {
+  try {
+    const std::list<node_type> args = subject->get_list_value(context);
+    if (args.empty() || args.size() > 2) {
+      context->error("format_bytes expects 1 or 2 arguments: format_bytes(value) or format_bytes(value, unit)");
+      return factory::create_false();
+    }
+    auto it = args.begin();
+    const long long v = (*it)->get_int_value(context);
+    if (args.size() == 1) {
+      return factory::create_string(str::format::format_byte_units(v));
+    }
+    ++it;
+    const std::string unit = (*it)->get_string_value(context);
+    return factory::create_string(str::format::format_byte_units(v, unit));
+  } catch (const std::exception &e) {
+    context->error(std::string("format_bytes failed: ") + e.what());
+    return factory::create_false();
+  }
+}
+
+node_type fn_convert_bytes(value_type, evaluation_context context, const node_type subject) {
+  try {
+    const std::list<node_type> args = subject->get_list_value(context);
+    if (args.size() != 2) {
+      context->error("convert_bytes expects 2 arguments: convert_bytes(value, unit)");
+      return factory::create_false();
+    }
+    auto it = args.begin();
+    const long long v = (*it)->get_int_value(context);
+    ++it;
+    const std::string unit = (*it)->get_string_value(context);
+    return factory::create_float(str::format::convert_to_byte_units(v, unit));
+  } catch (const std::exception &e) {
+    context->error(std::string("convert_bytes failed: ") + e.what());
+    return factory::create_false();
+  }
+}
+
+node_type fn_scale(value_type, evaluation_context context, const node_type subject) {
+  try {
+    const std::list<node_type> args = subject->get_list_value(context);
+    if (args.size() != 2) {
+      context->error("scale expects 2 arguments: scale(value, divisor)");
+      return factory::create_false();
+    }
+    auto it = args.begin();
+    const double v = (*it)->get_float_value(context);
+    ++it;
+    const double divisor = (*it)->get_float_value(context);
+    if (divisor == 0.0) {
+      context->error("scale: divisor must be non-zero");
+      return factory::create_false();
+    }
+    return factory::create_float(v / divisor);
+  } catch (const std::exception &e) {
+    context->error(std::string("scale failed: ") + e.what());
+    return factory::create_false();
+  }
+}
+}  // namespace
+
 filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("counter", &filter_obj::get_counter, "The counter name")
       .add_string_var("alias", &filter_obj::get_alias, "The counter alias")
@@ -65,6 +144,32 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_numbers("value", parsers::where::type_float, &filter_obj::get_value_i, &filter_obj::get_value_f, "The counter value (either float or int)");
   registry_.add_int_var("value_i", &filter_obj::get_value_i, "The counter value (force int value)");
   registry_.add_float("value_f", &filter_obj::get_value_f, "The counter value (force float value)");
+
+  // Pre-scaled / pre-formatted views of the same value. Convenient shortcuts
+  // for the common units; for arbitrary scaling use the scale() / format_bytes()
+  // functions registered below.
+  registry_
+      .add_string_var(
+          "value_human", [](auto obj) { return str::format::format_byte_units(obj->get_value_i()); },
+          "Counter value formatted as a human-readable byte string, auto-scaled to B/KB/MB/GB/...")
+      .add_float(
+          "value_kb", [](auto obj) { return obj->get_value_f() / 1024.0; }, "Counter value in KB (1024-based).")
+      .add_float(
+          "value_mb", [](auto obj) { return obj->get_value_f() / (1024.0 * 1024.0); }, "Counter value in MB (1024-based).")
+      .add_float("value_gb", [](auto obj) { return obj->get_value_f() / (1024.0 * 1024.0 * 1024.0); }, "Counter value in GB (1024-based).");
+
+  // General-purpose format and scaling functions.
+  registry_
+      .add_string_fun("format_bytes", &fn_format_bytes,
+                      "Format a number as a human-readable byte string.\n"
+                      "Syntax: format_bytes(value) auto-scales to B/KB/MB/GB/... (1024-based).\n"
+                      "        format_bytes(value, unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\").")
+      .add_custom_fun("convert_bytes", parsers::where::type_float, &fn_convert_bytes,
+                      "Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.\n"
+                      "Syntax: convert_bytes(value, unit) where unit is \"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\".")
+      .add_custom_fun("scale", parsers::where::type_float, &fn_scale,
+                      "Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)).\n"
+                      "Syntax: scale(value, divisor).");
 }
 
 void check::clear() { counters_.clear(); }
@@ -158,7 +263,7 @@ void check::check_pdh(std::shared_ptr<pdh_thread> &collector, const PB::Commands
         }
         PDH::pdh_object obj;
         if (expand_instance) obj.set_instances("true");
-        obj.set_flags(flags);
+        obj.add_flags(flags);
         obj.set_counter(counter);
         obj.set_alias(counter);
         obj.set_strategy_static();
@@ -192,7 +297,7 @@ void check::check_pdh(std::shared_ptr<pdh_thread> &collector, const PB::Commands
           PDH::PDHResolver::expand_index(counter);
         }
         PDH::pdh_object obj;
-        obj.set_flags(flags);
+        obj.add_flags(flags);
         obj.set_counter(counter);
         obj.set_strategy_static();
         obj.set_type(type);

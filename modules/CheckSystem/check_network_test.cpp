@@ -95,11 +95,26 @@ TEST(NetworkInterface, ShowFormat) {
   EXPECT_EQ(n.show(), "Intel Ethernet (Ethernet 1)");
 }
 
-TEST(NetworkInterface, IsCompleteRequiresNif) {
+TEST(NetworkInterface, IsCompleteRequiresNifOrPrd) {
   network_check::network_interface n;
   EXPECT_FALSE(n.is_compleate());
   n.has_nif = true;
   EXPECT_TRUE(n.is_compleate());
+  n.has_nif = false;
+  n.has_prd = true;
+  // Team aggregate path: perfraw-only entries must still report as complete.
+  EXPECT_TRUE(n.is_compleate());
+}
+
+TEST(NetworkInterface, DefaultSourceIsInterface) {
+  const network_check::network_interface n;
+  EXPECT_EQ(n.get_source(), "interface");
+}
+
+TEST(NetworkInterface, SourceAccessor) {
+  network_check::network_interface n;
+  n.source = "adapter";
+  EXPECT_EQ(n.get_source(), "adapter");
 }
 
 TEST(NetworkInterface, CopyConstruction) {

@@ -5,11 +5,16 @@
 		"name"			: "CheckHelpers",
 		"alias"			: "helpers",
 		"version"		: "auto",
-		"load"			: "none"
+		"load"			: "both"
 	},
-	
+
+	"settings"		: {
+		"default_alias"	: "check helpers"
+	},
+
 	"commands" : {
-		"check_always_ok" : { 
+		"fallback" : "true",
+		"check_always_ok" : {
 			"alias"		: "CheckAlwaysOK",
 			"description" : "Run another check and regardless of its return code return OK."
 		},

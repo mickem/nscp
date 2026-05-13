@@ -130,7 +130,9 @@ void IcingaClient::query_fallback(const PB::Commands::QueryRequestMessage &reque
 }
 
 bool IcingaClient::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage &request, PB::Commands::ExecuteResponseMessage &response) {
-  if (target_mode == NSCAPI::target_module) return client_.do_exec(request, response, "submit_");
+  if (target_mode == NSCAPI::target_module) {
+    return client_.do_exec(request, response, "submit_");
+  }
   return false;
 }
 

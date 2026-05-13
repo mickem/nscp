@@ -25,33 +25,33 @@
 #include <win/pdh/pdh_resolver.hpp>
 
 namespace PDH {
-class PDHQuery : public PDH::subscriber {
+class PDHQuery : public subscriber {
  public:
   typedef std::shared_ptr<PDHCounter> counter_type;
   typedef std::list<counter_type> counter_list_type;
   counter_list_type counters_;
-  PDH::PDH_HQUERY hQuery_;
-  bool hasDisplayedInvalidCOunter_;
+  PDH_HQUERY hQuery_;
+  bool has_displayed_invalid_counter_;
+  bool listener_registered_;
 
- public:
-  PDHQuery() : hQuery_(NULL), hasDisplayedInvalidCOunter_(false) {}
-  virtual ~PDHQuery(void);
+  PDHQuery() : hQuery_(nullptr), has_displayed_invalid_counter_(false), listener_registered_(false) {}
+  virtual ~PDHQuery() noexcept;
 
-  void addCounter(pdh_instance counter);
+  void addCounter(const pdh_instance& instance);
   void removeAllCounters();
 
-  bool has_counters();
+  bool has_counters() const;
 
-  virtual void on_unload();
-  virtual void on_reload();
+  void on_unload() override;
+  void on_reload() override;
 
-  bool is_open();
+  bool is_open() const;
   void open();
   void close();
 
   void gatherData(bool ignore_errors = false);
-  inline void collect();
+  inline void collect() const;
 
-  PDH::PDH_HQUERY getQueryHandle() const;
+  PDH_HQUERY getQueryHandle() const;
 };
 }  // namespace PDH

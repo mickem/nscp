@@ -48,6 +48,7 @@ struct perf_writer_interface {
 };
 
 namespace modern_filter {
+
 template <class TFactory>
 struct filter_text_renderer {
   typedef std::shared_ptr<parsers::where::error_handler_interface> error_handler;
@@ -83,7 +84,24 @@ struct filter_text_renderer {
       my_entry my_e(e);
       if (e.is_variable) {
         std::string tag = e.name;
-        if (context->has_variable(tag)) {
+        // If the placeholder body contains `(`, treat it as a full
+        // where-expression and route it through the where-parser. That's what
+        // enables `%(format_bytes(value, 'MB'))` and similar function calls in
+        // detail-syntax. Bare names continue to take the fast variable /
+        // text-function lookup path so that `%(state_is_perfect)` (a registered
+        // zero-arg function exposed as a name, not as `state_is_perfect()`)
+        // keeps working.
+        if (tag.find('(') != std::string::npos) {
+          // Route placeholders containing parens through the where-grammar so
+          // function calls work (e.g. `%(format_bytes(value, 'MB'))`). The
+          // wrapper lives in nscp_where_filter.dll so module DLLs don't drag
+          // in parser internals — they only see the exported entry point.
+          my_e.node = parsers::where::parse_expression(context, tag);
+          if (!my_e.node) {
+            error->log_error("Invalid expression in placeholder: " + e.name);
+            return false;
+          }
+        } else if (context->has_variable(tag)) {
           my_e.node = context->create_variable(tag, true);
         } else if (context->has_function(tag)) {
           my_e.node = context->create_text_function(tag);

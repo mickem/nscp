@@ -28,6 +28,7 @@ class NSClientServer : public nscapi::impl::simple_plugin, public check_nt::serv
   virtual ~NSClientServer();
   // Module calls
   bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+  void prepareShutdown();
   bool unloadModule();
 
   check_nt::packet handle(check_nt::packet packet);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <memory>
 #include <settings/client/settings_client_interface.hpp>
 #include <settings/settings_core.hpp>
@@ -11,6 +12,12 @@ namespace settings_manager {
 struct provider_interface {
   virtual std::string expand_path(std::string file) = 0;
   virtual nsclient::logging::logger_instance get_logger() const = 0;
+  // Apply a set of path overrides (parsed from boot.ini's [paths] section)
+  // to the underlying path resolver. Called once from NSCSettingsImpl::boot()
+  // after boot.ini has been read but before the main settings store is
+  // opened, so that overrides take effect for every subsequent path lookup
+  // (including the main INI's own location).
+  virtual void apply_path_overrides(std::map<std::string, std::string> overrides) = 0;
 };
 
 class NSCSettingsImpl : public settings::settings_handler_impl {

@@ -133,7 +133,9 @@ struct mock_native_context : object_factory_interface {
   // ---- Functions ----------------------------------------------------------
   // identity(x) returns x evaluated as a string. Useful for exercising the
   // function path without depending on any specific transformation.
-  bool has_function(const std::string& name) override { return name == "identity"; }
+  // concat(a, b, ...) joins all arguments stringified. Used to exercise
+  // heterogeneous argument lists in function calls.
+  bool has_function(const std::string& name) override { return name == "identity" || name == "concat"; }
   node_type create_function(const std::string& name, node_type subject) override;
 
   std::string get_performance_config_key(std::string, std::string, std::string, std::string, std::string) const override { return ""; }
@@ -174,6 +176,19 @@ node_type mock_native_context::create_variable(const std::string& name, bool /*h
 node_type mock_native_context::create_function(const std::string& name, node_type subject) {
   if (name == "identity") {
     auto fun = [](value_type, evaluation_context ctx, node_type s) -> node_type { return factory::create_string(s->get_string_value(ctx)); };
+    return std::make_shared<custom_function_node>(name, fun, subject, type_string);
+  }
+  if (name == "concat") {
+    // Concatenate every argument as a string. The grammar change for
+    // heterogeneous arg lists is what lets callers mix string literals,
+    // variables, and numbers in the same call.
+    auto fun = [](value_type, evaluation_context ctx, node_type s) -> node_type {
+      std::string out;
+      for (const node_type& arg : s->get_list_value(ctx)) {
+        out += arg->get_string_value(ctx);
+      }
+      return factory::create_string(out);
+    };
     return std::make_shared<custom_function_node>(name, fun, subject, type_string);
   }
   error("Unknown function: " + name);
@@ -483,6 +498,56 @@ TEST(EngineFilterWithObject, StringInList) {
   EXPECT_TRUE(eval_match("svar in ('hung', 'stopped')", ctx, true));
   EXPECT_FALSE(eval_match("svar in ('started', 'running')", ctx, true));
   EXPECT_TRUE(eval_match("svar not in ('started', 'running')", ctx, true));
+}
+
+// ============================================================================
+// Heterogeneous argument lists — issue #281 grammar work
+//
+// Before the grammar change, `list_expr` accepted only homogeneous lists
+// (all-strings, all-floats, all-ints, or all-variable-names). Mixed-type
+// lists like `(value, 'MB')` or `(1, ivar)` failed to parse. These tests
+// guard the new behaviour.
+// ============================================================================
+
+TEST(EngineFilterWithObject, IntInListWithVariable) {
+  auto ctx = make_native_context();
+  ctx->set_object({3, 0.0, ""});
+  EXPECT_TRUE(eval_match("ivar in (1, 2, ivar)", ctx, true));
+  EXPECT_TRUE(eval_match("ivar in (ivar, 99)", ctx, true));
+}
+
+TEST(EngineFilterWithObject, StringInListWithVariable) {
+  auto ctx = make_native_context();
+  ctx->set_object({0, 0.0, "hung"});
+  EXPECT_TRUE(eval_match("svar in ('stopped', svar)", ctx, true));
+  EXPECT_TRUE(eval_match("svar in (svar, 'other')", ctx, true));
+}
+
+TEST(EngineFilterWithObject, FunctionCallSingleVariableArgument) {
+  auto ctx = make_native_context();
+  ctx->set_object({0, 0.0, "hello"});
+  EXPECT_TRUE(eval_match("identity(svar) = 'hello'", ctx, true));
+}
+
+TEST(EngineFilterWithObject, FunctionCallSingleLiteralArgument) {
+  auto ctx = make_native_context();
+  ctx->set_object({0, 0.0, ""});
+  EXPECT_TRUE(eval_match("identity('hello') = 'hello'", ctx, true));
+}
+
+TEST(EngineFilterWithObject, FunctionCallMixedArguments) {
+  // Variable + string literal + int literal — previously this failed to parse.
+  auto ctx = make_native_context();
+  ctx->set_object({42, 0.0, "name="});
+  EXPECT_TRUE(eval_match("concat(svar, 'answer is ', 42) = 'name=answer is 42'", ctx, true));
+}
+
+TEST(EngineFilterWithObject, FunctionCallVariableAndLiteralArgument) {
+  // The form `format_bytes(value, 'MB')` from issue #281: variable + string
+  // literal in one call.
+  auto ctx = make_native_context();
+  ctx->set_object({0, 0.0, "foo"});
+  EXPECT_TRUE(eval_match("concat(svar, 'bar') = 'foobar'", ctx, true));
 }
 
 TEST(EngineFilterWithObject, AndOrCombinations) {

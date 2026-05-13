@@ -106,6 +106,16 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   bool log_errors = true;
   bool log_info = false;
   bool log_debug = false;
+  // When true, the built-in `admin` user is suppressed: it is not seeded on
+  // first boot, any pre-existing `admin` entry in [/settings/WEB/server/users]
+  // is dropped at load time, and the belt-and-braces fallback that re-adds
+  // admin when no users are defined is skipped. The intended use case is a
+  // monitoring-only WEB exposure: operators want metrics / queries
+  // accessible but do NOT want remote reconfiguration to be possible even if
+  // an attacker recovers credentials. Combine with explicit read-only users
+  // (or `allow anonymous access = true` with a tightly scoped `anonymous`
+  // role) to leave something callable.
+  bool disable_admin_user = false;
 
   role_map roles;
 
@@ -134,6 +144,12 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
           "ALLOW ANONYMOUS ACCESS",
           "When false (the default) any role named `anonymous` registered via /settings/WEB/server/roles is ignored and the WEB server never answers an "
           "unauthenticated request. Set to true only if you intentionally want to expose endpoints (via the `anonymous` role grants) without authentication.")
+      .add_bool("disable admin user", sh::bool_key(&disable_admin_user, false), "DISABLE ADMIN USER",
+                "When true, suppress the built-in `admin` user entirely. The default admin is not seeded on first boot, any pre-existing `admin` entry in "
+                "/settings/WEB/server/users is ignored at load time, and the fallback that auto-creates admin when no users are configured is skipped. "
+                "Use this when you want the WEB server up for monitoring (queries, metrics, anonymous endpoints) but do NOT want any account that can "
+                "remotely reconfigure the host - even if credentials are compromised. Define your own read-only users under /settings/WEB/server/users "
+                "(or rely on `allow anonymous access` with a tightly-scoped `anonymous` role) so something remains callable.")
       .add_int("auth rate limit max failures",
                nscapi::settings_helper::int_fun_key([this](auto value) { this->session->set_auth_rate_limit_max_failures(value); },
                                                     auth_rate_limiter::kDefaultMaxFailures),
@@ -191,14 +207,26 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   ensure_role(roles, settings, role_path, "full", "*", "Full access");
   ensure_role(roles, settings, role_path, "client", "public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list",
               "read only");
-  ensure_role(roles, settings, role_path, "view", "*", "Full access");
+  ensure_role(roles, settings, role_path, "monitoring", "public,queries.execute,login.get,metrics.get", "checks and queries only");
 
-  ensure_user(settings, user_path, "admin", "full", admin_password, "Administrator");
+  if (!disable_admin_user) {
+    ensure_user(settings, user_path, "admin", "full", admin_password, "Administrator");
+  } else {
+    NSC_LOG_ERROR("WEB admin user is disabled via 'disable admin user = true'. The built-in admin will not be seeded or activated.");
+  }
 
   if (mode == NSCAPI::normalStart) {
     std::list<std::string> errors = session->boot();
 
     for (const web_server::user_config_instance &o : users_.get_object_list()) {
+      // Honour `disable admin user` even when a stale `admin` row survives
+      // in the INI from a previous install. Dropping it here means an
+      // attacker cannot get the admin grant back by editing the file -
+      // they would have to first flip the setting back to false.
+      if (disable_admin_user && o->get_alias() == "admin") {
+        NSC_LOG_ERROR("Ignoring 'admin' entry in [/settings/WEB/server/users] because 'disable admin user = true'.");
+        continue;
+      }
       session->add_user(o->get_alias(), o->role, o->password);
     }
     for (const role_map::value_type &v : roles) {
@@ -234,7 +262,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       port = port.substr(0, port.length() - 1);
     }
 
-    if (!session->has_user("admin")) {
+    if (!disable_admin_user && !session->has_user("admin")) {
       session->add_user("admin", "full", admin_password);
     }
 
@@ -294,6 +322,19 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     NSC_DEBUG_MSG("Loading webserver on port: " + port);
   }
   return true;
+}
+
+void WEBServer::prepareShutdown() {
+  // Stop the HTTP polling thread (which closes the listening socket) while
+  // every peer plugin is still loaded, so any in-flight request that calls
+  // into another module can finish cleanly before unloadModule runs.
+  try {
+    if (server) {
+      server->stop();
+    }
+  } catch (...) {
+    NSC_LOG_ERROR_EX("prepare_shutdown");
+  }
 }
 
 bool WEBServer::unloadModule() {
@@ -590,6 +631,8 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
   }
   bool want_https = !cert.empty();
 
+  bool disable_admin = false;
+
   // clang-format off
   desc.add_options()("help", "Show help.")
       ("allowed-hosts,h", po::value<std::string>(&allowed_hosts)->default_value(allowed_hosts), "Set which hosts are allowed to connect")
@@ -598,6 +641,11 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       ("port", po::value<std::string>(&port)->default_value(port), "Port to use")
       ("password", po::value<std::string>(&password)->default_value(password), "Password to use to authenticate (if none a generated password will be set)")
       ("https", boost::program_options::bool_switch(&want_https), "Enable https")
+      ("disable-admin", boost::program_options::bool_switch(&disable_admin),
+        "Lock out the built-in admin user. Sets `disable admin user = true` under [/settings/WEB/server] so the "
+        "admin account is never seeded and the REST script-upload endpoint has no caller. Does NOT create any user "
+        "and is mutually exclusive with --password: add the monitoring user separately with `nscp web add-user`. "
+        "Use this when you want WEB metrics / queries exposed but do not want remote reconfiguration to be possible.")
       ;
   // clang-format on
 
@@ -614,9 +662,25 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
       return true;
     }
+
+    // --disable-admin and --password are mutually exclusive: the install
+    // command with --disable-admin does not create any user, so a password
+    // would have nowhere to go. Refuse explicitly rather than silently
+    // dropping the value - an operator who supplied both probably expected
+    // one of them to take effect. `defaulted()` is true when the value
+    // came from default_value() (which is pre-populated from
+    // /settings/default/password); we only error on an explicit user override.
+    if (disable_admin && vm.count("password") && !vm["password"].defaulted()) {
+      nscapi::protobuf::functions::set_response_bad(
+          *response,
+          "--password cannot be combined with --disable-admin: the install command does not create a user when admin is disabled. "
+          "Run the install without --password, then create a user separately with `nscp web add-user <name> --role monitoring --password <pwd>`.");
+      return true;
+    }
+
     std::stringstream result;
 
-    if (password.empty()) {
+    if (password.empty() && !disable_admin) {
       result << "WARNING: No password specified using a generated password" << std::endl;
       password = token_store::generate_token(32);
     }
@@ -648,23 +712,42 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
     s.set(path, "certificate", cert);
     s.set(path, "certificate key", key);
 
-    result << "Login using this password " << password << std::endl;
-    s.set("/settings/default", "password", password);
     s.set(path, "port", port);
 
-    // Also persist the per-user admin row so a re-run of `web install`
-    // actually rotates the WEB login. /settings/default/password alone is
-    // not enough: on next start `ensure_user` only seeds the per-user row
-    // when missing, and the boot loop then re-applies the stale on-disk
-    // hash over the seeded value - so without this the new password is
-    // silently ignored until the user manually deletes the admin row.
-    const std::string admin_path = path + "/users/admin";
-    std::string hashed_admin = web_password::hash_password(password);
-    if (hashed_admin.empty()) {
-      hashed_admin = password;  // KDF failure: fall back to plaintext (still verifies)
+    if (disable_admin) {
+      // Monitoring-only install: lock out admin and stop. We do NOT create
+      // any user here - the operator must do that explicitly with
+      // `nscp web add-user`. Pairing "disable admin" with "auto-create a
+      // user" muddles the semantics of the flag, and rejecting --password
+      // (above) is part of that: install with --disable-admin only flips
+      // the flag, never touches /settings/default/password (which is
+      // shared with NRPE/NSCA and may already hold an intentional value),
+      // and never writes a user row.
+      s.set(path, "disable admin user", "true");
+
+      result << "Admin user disabled (disable admin user = true)." << std::endl;
+      result << "No user was created. The WEB server will reject all logins until you add one, e.g.:" << std::endl;
+      result << "  nscp web add-user monitoring --role monitoring --password <pwd>" << std::endl;
+      result << "Available roles: monitoring (queries + metrics, recommended), client (adds query listing), full (admin)." << std::endl;
+    } else {
+      // Default install: rotate /settings/default/password and seed the
+      // per-user admin row. Setting the per-user row is required - without
+      // it, on next start `ensure_user` only seeds the row when missing,
+      // and the boot loop then re-applies the stale on-disk hash over the
+      // seeded value, so the new password is silently ignored until the
+      // user manually deletes the admin row.
+      s.set("/settings/default", "password", password);
+
+      const std::string admin_path = path + "/users/admin";
+      std::string hashed_admin = web_password::hash_password(password);
+      if (hashed_admin.empty()) {
+        hashed_admin = password;  // KDF failure: fall back to plaintext (still verifies)
+      }
+      s.set(admin_path, "password", hashed_admin);
+      s.set(admin_path, "role", "full");
+
+      result << "Login using this password " << password << std::endl;
     }
-    s.set(admin_path, "password", hashed_admin);
-    s.set(admin_path, "role", "full");
 
     s.save();
     get_core()->settings_query(s.request(), s.response());

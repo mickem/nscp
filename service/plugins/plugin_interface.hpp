@@ -44,6 +44,8 @@ class plugin_interface : public logging::logging_subscriber {
   virtual bool load_plugin(NSCAPI::moduleLoadMode mode) = 0;
   virtual bool has_start() = 0;
   virtual bool start_plugin() = 0;
+  virtual bool has_prepare_shutdown() = 0;
+  virtual void prepare_shutdown_plugin() = 0;
   virtual void unload_plugin() = 0;
 
   virtual std::string getName() = 0;

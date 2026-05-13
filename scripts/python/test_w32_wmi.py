@@ -1,6 +1,5 @@
 from NSCP import Settings, Registry, Core, log, status, log_error, sleep
-from test_helper import BasicTest, TestResult, setup_singleton, install_testcases, init_testcases, shutdown_testcases
-from types import *
+from test_helper import BasicTest, TestResult, install_testcases, init_testcases, shutdown_testcases
 import random
 import subprocess
 import uuid
@@ -17,7 +16,7 @@ class Win32WMITest(BasicTest):
 		return 'Testcase for w32 check_wmi module'
 
 	def title(self):
-		return 'Win32File tests'
+		return 'Check WMI tests'
 
 	def setup(self, plugin_id, prefix):
 		self.reg = Registry.get(plugin_id)
@@ -37,7 +36,7 @@ class Win32WMITest(BasicTest):
 		
 	def check_cli_ns(self):
 		result = TestResult('Checking CLI list-ns')
-		(ret, ns_msgs) = self.core.simple_exec('any', 'wmi', ['--list-all-ns', '--namespace', 'root'])
+		(ret, ns_msgs) = self.core.simple_exec('any', 'wmi', ['--list-all-ns', '--namespace', 'root\\CIMV2'])
 		result.assert_equals(ret, 0, 'Check that --list-all-ns returns ok')
 		result.assert_equals(len(ns_msgs), 1, 'Check that --list-all-ns returns one entry')
 		if len(ns_msgs) > 0:
@@ -47,7 +46,7 @@ class Win32WMITest(BasicTest):
 	def check_cli_ls(self, ns, expected, missing):
 		result = TestResult('Checking CLI list-classes %s'%ns)
 		args = ['--list-classes', '--simple']
-		if ns != None:
+		if ns is not None:
 			args.extend(['--namespace', ns])
 		(ret, ns_msgs) = self.core.simple_exec('any', 'wmi', args)
 		result.assert_equals(ret, 0, 'Check that --list-classes returns ok')
@@ -60,7 +59,7 @@ class Win32WMITest(BasicTest):
 	def check_cli_query(self, query, count, check, ns = None):
 		result = TestResult('Checking CLI query %s'%query)
 		args = ['--select', query, '--simple']
-		if ns != None:
+		if ns is not None:
 			args.extend(['--namespace', ns])
 		(ret, ns_msgs) = self.core.simple_exec('any', 'wmi', args)
 		result.assert_equals(ret, 0, 'Check that --select returns ok')
@@ -74,11 +73,11 @@ class Win32WMITest(BasicTest):
 		result = TestResult('Testing W32 file systems')
 		result.add(self.check_cli_ns())
 		result.add(self.check_cli_ls(None, 'Win32_Processor', 'LogFileEventConsumer'))
-		result.add(self.check_cli_ls('root\subscription', 'LogFileEventConsumer', 'Win32_Processor'))
-		result.add(self.check_cli_query('SELECT DeviceId, AddressWidth, Caption, Name FROM Win32_Processor', lambda x:x>1, lambda x:'CPU0' in x))
+		result.add(self.check_cli_ls('root\\subscription', 'LogFileEventConsumer', 'Win32_Processor'))
+		result.add(self.check_cli_query('SELECT DeviceId, AddressWidth, Caption, Name FROM Win32_Processor', lambda x:len(x)>1, lambda x:'CPU0' in x))
 		return result
 
-	def install(self, arguments):
+	def install(self):
 		conf = self.conf
 		conf.set_string('/modules', 'test_wmi', 'CheckWMI')
 		conf.set_string('/modules', 'pytest', 'PythonScript')
@@ -86,22 +85,20 @@ class Win32WMITest(BasicTest):
 		conf.save()
 
 	def uninstall(self):
-		None
+		pass
 
 	def help(self):
-		None
+		pass
 
-	def init(self, plugin_id, prefix):
+	def init(self, plugin_id):
 		self.reg = Registry.get(plugin_id)
 		self.core = Core.get(plugin_id)
 		self.conf = Settings.get(plugin_id)
 
 	def shutdown(self):
-		None
+		pass
 
-setup_singleton(Win32WMITest)
-
-all_tests = [Win32WMITest]
+all_tests = [Win32WMITest()]
 
 def __main__(args):
 	install_testcases(all_tests)

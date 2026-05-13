@@ -419,5 +419,231 @@ TEST(ExpressionParser, ComplexPercentParenWithParensInText) {
   expect_literal(v[2], "MoreData");
   expect_variable(v[3], "test");
   expect_literal(v[4], "-))((-");
+  // Unbalanced inside %(...): balanced-paren scan fails, falls back to the
+  // legacy first-')' behaviour so the historical capture is preserved.
   expect_variable(v[5], "test((2");
+}
+
+// ======================================================================
+// Function-call placeholders — issue #281
+//
+// `%(name(args))` placeholders must capture the full function call (including
+// nested parens and string literals containing ')'). Balanced-paren scanning
+// is what lets where-grammar function calls flow through detail-syntax.
+// ======================================================================
+
+TEST(ExpressionParser, PercentParenWithBalancedNestedParens) {
+  result_type v;
+  EXPECT_TRUE(parse("%(format_bytes(value, 'MB'))", v));
+  ASSERT_EQ(1u, v.size());
+  expect_variable(v[0], "format_bytes(value, 'MB')");
+}
+
+TEST(ExpressionParser, PercentParenFunctionCallWithSurroundingText) {
+  result_type v;
+  EXPECT_TRUE(parse("Speed = %(scale(value, 1000000)) Mbps", v));
+  ASSERT_EQ(3u, v.size());
+  expect_literal(v[0], "Speed = ");
+  expect_variable(v[1], "scale(value, 1000000)");
+  expect_literal(v[2], " Mbps");
+}
+
+TEST(ExpressionParser, PercentParenFunctionCallSingleVariableArg) {
+  result_type v;
+  EXPECT_TRUE(parse("%(format_bytes(value))", v));
+  ASSERT_EQ(1u, v.size());
+  expect_variable(v[0], "format_bytes(value)");
+}
+
+TEST(ExpressionParser, PercentParenNestedFunctionCalls) {
+  result_type v;
+  EXPECT_TRUE(parse("%(outer(inner(1), 2))", v));
+  ASSERT_EQ(1u, v.size());
+  expect_variable(v[0], "outer(inner(1), 2)");
+}
+
+TEST(ExpressionParser, PercentParenZeroArgFunctionCall) {
+  result_type v;
+  EXPECT_TRUE(parse("%(state_is_perfect())", v));
+  ASSERT_EQ(1u, v.size());
+  expect_variable(v[0], "state_is_perfect()");
+}
+
+TEST(ExpressionParser, PercentParenStringLiteralContainingClose) {
+  // A ')' inside a single-quoted string must not close the placeholder. The
+  // balanced-paren scan skips over quoted regions so the outer ')' is the
+  // one that closes.
+  result_type v;
+  EXPECT_TRUE(parse("%(fn('a)b'))", v));
+  ASSERT_EQ(1u, v.size());
+  expect_variable(v[0], "fn('a)b')");
+}
+
+TEST(ExpressionParser, PercentParenMultipleFunctionCalls) {
+  result_type v;
+  EXPECT_TRUE(parse("%(fn(a)) and %(fn(b))", v));
+  ASSERT_EQ(3u, v.size());
+  expect_variable(v[0], "fn(a)");
+  expect_literal(v[1], " and ");
+  expect_variable(v[2], "fn(b)");
+}
+
+TEST(ExpressionParser, PercentParenFunctionCallNextToDollarBrace) {
+  result_type v;
+  EXPECT_TRUE(parse("${prefix}-%(fn(x, 'tag'))", v));
+  ASSERT_EQ(3u, v.size());
+  expect_variable(v[0], "prefix");
+  expect_literal(v[1], "-");
+  expect_variable(v[2], "fn(x, 'tag')");
+}
+
+// ======================================================================
+// %(...) corner cases — extra closes, unbalanced opens, quoted strings
+// ======================================================================
+
+TEST(ExpressionParser, PercentParenExtraClosingParen) {
+  // %(a)) — placeholder closes cleanly at the first ')', the trailing ')' is
+  // a literal.
+  result_type v;
+  EXPECT_TRUE(parse("%(a))", v));
+  ASSERT_EQ(2u, v.size());
+  expect_variable(v[0], "a");
+  expect_literal(v[1], ")");
+}
+
+TEST(ExpressionParser, PercentParenWithEmptyInnerParens) {
+  // %(()) — body is "()". The balanced scan walks (, d=2, ), d=1, ), d=0.
+  // The where-grammar will later reject this, but the placeholder parser
+  // captures it as a variable.
+  result_type v;
+  EXPECT_TRUE(parse("%(())", v));
+  ASSERT_EQ(1u, v.size());
+  expect_variable(v[0], "()");
+}
+
+TEST(ExpressionParser, PercentParenWithDoubleNestedParens) {
+  result_type v;
+  EXPECT_TRUE(parse("%(((x)))", v));
+  ASSERT_EQ(1u, v.size());
+  expect_variable(v[0], "((x))");
+}
+
+TEST(ExpressionParser, PercentParenUnclosedNestedParen) {
+  // %(a()  — unbalanced. Pass 1 (balanced) fails. Pass 2 (legacy first ')')
+  // finds the inner ')'. Body becomes "a(".
+  result_type v;
+  EXPECT_TRUE(parse("%(a()", v));
+  ASSERT_EQ(1u, v.size());
+  expect_variable(v[0], "a(");
+}
+
+TEST(ExpressionParser, PercentParenTripleOpenNoClose) {
+  // %((( — no ')' anywhere. Both passes fail. '%' becomes a literal entry.
+  result_type v;
+  EXPECT_TRUE(parse("%(((", v));
+  ASSERT_EQ(2u, v.size());
+  expect_literal(v[0], "%");
+  expect_literal(v[1], "(((");
+}
+
+TEST(ExpressionParser, PercentParenUnterminatedQuotedString) {
+  // %('abc  — single-quoted string never closes. Balanced scan never sees a
+  // raw ')'. Falls back to first-')' rule, which also finds nothing. '%'
+  // becomes literal.
+  result_type v;
+  EXPECT_TRUE(parse("%('abc", v));
+  ASSERT_EQ(2u, v.size());
+  expect_literal(v[0], "%");
+  expect_literal(v[1], "('abc");
+}
+
+TEST(ExpressionParser, PercentParenWithStringOnly) {
+  result_type v;
+  EXPECT_TRUE(parse("%('hello')", v));
+  ASSERT_EQ(1u, v.size());
+  expect_variable(v[0], "'hello'");
+}
+
+TEST(ExpressionParser, PercentParenWithEmptyQuotedString) {
+  result_type v;
+  EXPECT_TRUE(parse("%(fn(''))", v));
+  ASSERT_EQ(1u, v.size());
+  expect_variable(v[0], "fn('')");
+}
+
+TEST(ExpressionParser, PercentParenStringContainingOpenParen) {
+  // A '(' inside a single-quoted string must not change paren depth.
+  result_type v;
+  EXPECT_TRUE(parse("%(fn('a(b'))", v));
+  ASSERT_EQ(1u, v.size());
+  expect_variable(v[0], "fn('a(b')");
+}
+
+TEST(ExpressionParser, PercentParenMultipleQuotedSegments) {
+  result_type v;
+  EXPECT_TRUE(parse("%(fn('a', 'b', 'c'))", v));
+  ASSERT_EQ(1u, v.size());
+  expect_variable(v[0], "fn('a', 'b', 'c')");
+}
+
+TEST(ExpressionParser, PercentParenFollowedByLoneOpener) {
+  // A valid placeholder followed by an unclosed one — the second '%'
+  // becomes a literal entry.
+  result_type v;
+  EXPECT_TRUE(parse("%(a)%(", v));
+  ASSERT_EQ(3u, v.size());
+  expect_variable(v[0], "a");
+  expect_literal(v[1], "%");
+  expect_literal(v[2], "(");
+}
+
+TEST(ExpressionParser, PercentParenWithLeadingClose) {
+  // %)abc — '%' followed immediately by ')' is NOT a placeholder opener.
+  // Treated as plain text throughout.
+  result_type v;
+  EXPECT_TRUE(parse("%)abc", v));
+  ASSERT_EQ(1u, v.size());
+  expect_literal(v[0], "%)abc");
+}
+
+TEST(ExpressionParser, DollarSignFollowedByNonBrace) {
+  // '$' not followed by '{' is plain text.
+  result_type v;
+  EXPECT_TRUE(parse("$abc${name}", v));
+  ASSERT_EQ(2u, v.size());
+  expect_literal(v[0], "$abc");
+  expect_variable(v[1], "name");
+}
+
+TEST(ExpressionParser, PercentSignFollowedByNonParen) {
+  // '%' not followed by '(' is plain text.
+  result_type v;
+  EXPECT_TRUE(parse("100%-rate %(x)", v));
+  ASSERT_EQ(2u, v.size());
+  expect_literal(v[0], "100%-rate ");
+  expect_variable(v[1], "x");
+}
+
+TEST(ExpressionParser, ConsecutiveOpenersOfDifferentKinds) {
+  // %(${name}) — the body of %(...) contains a literal ${...} pattern.
+  // The placeholder parser does NOT recurse into the body; it just captures
+  // until the balanced ')'. The body string then goes to the where-parser.
+  result_type v;
+  EXPECT_TRUE(parse("%(${name})", v));
+  ASSERT_EQ(1u, v.size());
+  expect_variable(v[0], "${name}");
+}
+
+TEST(ExpressionParser, OnlyClosersAreLiterals) {
+  result_type v;
+  EXPECT_TRUE(parse("))}}", v));
+  ASSERT_EQ(1u, v.size());
+  expect_literal(v[0], "))}}");
+}
+
+TEST(ExpressionParser, DeeplyNestedFunctionCalls) {
+  result_type v;
+  EXPECT_TRUE(parse("%(a(b(c(d(e(1))))))", v));
+  ASSERT_EQ(1u, v.size());
+  expect_variable(v[0], "a(b(c(d(e(1)))))");
 }

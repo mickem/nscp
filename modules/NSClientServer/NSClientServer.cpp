@@ -123,6 +123,19 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
   }
   return true;
 }
+void NSClientServer::prepareShutdown() {
+  // Stop accepting new connections and join the I/O threads while every peer
+  // plugin is still loaded, so any in-flight check_nt query can complete
+  // cleanly before unloadModule tears state down.
+  try {
+    if (server_) {
+      server_->stop();
+    }
+  } catch (...) {
+    NSC_LOG_ERROR_EX("prepare_shutdown");
+  }
+}
+
 bool NSClientServer::unloadModule() {
   try {
     if (server_) {

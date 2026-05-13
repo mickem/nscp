@@ -98,3 +98,35 @@ TEST(PdhCounterConfig, ToString) {
   EXPECT_NE(s.find("rrd"), std::string::npos);
   EXPECT_NE(s.find("large"), std::string::npos);
 }
+
+// ============================================================================
+// filter_obj_handler — scaled / formatted value views for issue #281
+// ============================================================================
+
+TEST(PdhFilterHandler, RegistersExistingVariables) {
+  check_pdh::filter_obj_handler handler;
+  EXPECT_TRUE(handler.registry_.has_variable("counter"));
+  EXPECT_TRUE(handler.registry_.has_variable("alias"));
+  EXPECT_TRUE(handler.registry_.has_variable("value"));
+  EXPECT_TRUE(handler.registry_.has_variable("value_i"));
+  EXPECT_TRUE(handler.registry_.has_variable("value_f"));
+  EXPECT_TRUE(handler.registry_.has_variable("time"));
+}
+
+TEST(PdhFilterHandler, RegistersScaledValueVariables) {
+  // Pre-scaled view variables for the common units.
+  check_pdh::filter_obj_handler handler;
+  EXPECT_TRUE(handler.registry_.has_variable("value_human"));
+  EXPECT_TRUE(handler.registry_.has_variable("value_kb"));
+  EXPECT_TRUE(handler.registry_.has_variable("value_mb"));
+  EXPECT_TRUE(handler.registry_.has_variable("value_gb"));
+}
+
+TEST(PdhFilterHandler, RegistersFormatFunctions) {
+  // Function-call API for arbitrary unit / scale work — accessible from both
+  // where-expressions and detail-syntax (`%(format_bytes(value, 'MB'))`).
+  check_pdh::filter_obj_handler handler;
+  EXPECT_TRUE(handler.registry_.has_function("format_bytes"));
+  EXPECT_TRUE(handler.registry_.has_function("convert_bytes"));
+  EXPECT_TRUE(handler.registry_.has_function("scale"));
+}

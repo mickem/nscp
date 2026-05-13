@@ -1190,7 +1190,11 @@ SI_Error CSimpleIniTempl<SI_CHAR, SI_STRLESS, SI_CONVERTER>::LoadFile(FILE *a_fp
   if (lSize == 0) {
     return SI_OK;
   }
-  char *pData = new char[lSize];
+  // Allocate one extra byte for a NUL terminator. SizeFromStore() ends up
+  // calling mbstowcs(NULL, pData, n) when the store is not UTF-8, and per
+  // POSIX that call ignores n and scans until '\0' - so the buffer must be
+  // NUL-terminated even though we also pass an explicit length.
+  char *pData = new char[lSize + 1];
   if (!pData) {
     return SI_NOMEM;
   }
@@ -1200,6 +1204,7 @@ SI_Error CSimpleIniTempl<SI_CHAR, SI_STRLESS, SI_CONVERTER>::LoadFile(FILE *a_fp
     delete[] pData;
     return SI_FILE;
   }
+  pData[uRead] = '\0';
 
   // convert the raw data to unicode
   SI_Error rc = LoadData(pData, uRead);

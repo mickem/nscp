@@ -9,6 +9,7 @@
 	"metrics" : "consume",
 	"command line exec" : true,
 	"log messages" : true,
-	"events": true
+	"events": true,
+	"prepare_shutdown" : true
 
 }

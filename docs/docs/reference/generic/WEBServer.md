@@ -341,6 +341,7 @@ Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 | [cache allowed hosts](#cache-list-of-allowed-hosts)                  | true                                | Cache list of allowed hosts        |
 | [certificate](#tls-certificate)                                      | ${certificate-path}/certificate.pem | TLS Certificate                    |
 | [certificate key](#tls-private-key)                                  |                                     | TLS private key                    |
+| [disable admin user](#disable-admin-user)                            | false                               | DISABLE ADMIN USER                 |
 | [legacy query auth user agents](#legacy-query-string-auth-allowlist) | Icinga/check_nscp_api               | LEGACY QUERY-STRING AUTH ALLOWLIST |
 | [password](#password)                                                |                                     | Password                           |
 | [port](#server-port)                                                 | 8443                                | Server port                        |
@@ -357,6 +358,7 @@ auth rate limit block seconds=60
 auth rate limit max failures=10
 cache allowed hosts=true
 certificate=${certificate-path}/certificate.pem
+disable admin user=false
 legacy query auth user agents=Icinga/check_nscp_api
 port=8443
 threads=10
@@ -539,6 +541,31 @@ The private key for the certificate if not in the same file
 [/settings/WEB/server]
 # TLS private key
 certificate key=
+```
+
+
+
+#### DISABLE ADMIN USER <a id="/settings/WEB/server/disable admin user"></a>
+
+When true, suppress the built-in \`admin\` user entirely. The default admin is not seeded on first boot, any pre-existing \`admin\` entry in /settings/WEB/server/users is ignored at load time, and the fallback that auto-creates admin when no users are configured is skipped. Use this when you want the WEB server up for monitoring (queries, metrics, anonymous endpoints) but do NOT want any account that can remotely reconfigure the host - even if credentials are compromised. Define your own read-only users under /settings/WEB/server/users (or rely on \`allow anonymous access\` with a tightly-scoped \`anonymous\` role) so something remains callable.
+
+
+
+
+
+| Key            | Description                                   |
+|----------------|-----------------------------------------------|
+| Path:          | [/settings/WEB/server](#/settings/WEB/server) |
+| Key:           | disable admin user                            |
+| Default value: | `false`                                       |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server]
+# DISABLE ADMIN USER
+disable admin user=false
 ```
 
 
@@ -752,12 +779,12 @@ A list of roles and with coma separated list of access rights.
 
 
 
-| Key                            | Default Value                                                                                    | Description          |
-|--------------------------------|--------------------------------------------------------------------------------------------------|----------------------|
-| [client](#role-for-read-only)  | public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list | Role for read only   |
-| [full](#role-for-full-access)  | *                                                                                                | Role for Full access |
-| [legacy](#role-for-legacy-api) | legacy,login.get                                                                                 | Role for legacy API  |
-| [view](#role-for-full-access)  | *                                                                                                | Role for Full access |
+| Key                                             | Default Value                                                                                    | Description                      |
+|-------------------------------------------------|--------------------------------------------------------------------------------------------------|----------------------------------|
+| [client](#role-for-read-only)                   | public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list | Role for read only               |
+| [full](#role-for-full-access)                   | *                                                                                                | Role for Full access             |
+| [legacy](#role-for-legacy-api)                  | legacy,login.get                                                                                 | Role for legacy API              |
+| [monitoring](#role-for-checks-and-queries-only) | public,queries.execute,login.get,metrics.get                                                     | Role for checks and queries only |
 
 
 
@@ -767,7 +794,7 @@ A list of roles and with coma separated list of access rights.
 client=public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list
 full=*
 legacy=legacy,login.get
-view=*
+monitoring=public,queries.execute,login.get,metrics.get
 
 ```
 
@@ -850,9 +877,9 @@ legacy=legacy,login.get
 
 
 
-#### Role for Full access <a id="/settings/WEB/server/roles/view"></a>
+#### Role for checks and queries only <a id="/settings/WEB/server/roles/monitoring"></a>
 
-Default role for Full access
+Default role for checks and queries only
 
 
 
@@ -861,16 +888,16 @@ Default role for Full access
 | Key            | Description                                               |
 |----------------|-----------------------------------------------------------|
 | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles) |
-| Key:           | view                                                      |
-| Default value: | `*`                                                       |
+| Key:           | monitoring                                                |
+| Default value: | `public,queries.execute,login.get,metrics.get`            |
 
 
 **Sample:**
 
 ```
 [/settings/WEB/server/roles]
-# Role for Full access
-view=*
+# Role for checks and queries only
+monitoring=public,queries.execute,login.get,metrics.get
 ```
 
 

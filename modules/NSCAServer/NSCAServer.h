@@ -46,6 +46,7 @@ class NSCAServer final : public nscapi::impl::simple_plugin, nsca::server::handl
   virtual ~NSCAServer() = default;
   // Module calls
   bool loadModuleEx(const std::string& alias, NSCAPI::moduleLoadMode mode);
+  void prepareShutdown();
   bool unloadModule();
 
   // handler

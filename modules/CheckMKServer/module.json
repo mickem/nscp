@@ -7,5 +7,6 @@
 		"version"		: "auto"
 	},
 	"metrics"		: "consume",
-	"channels"		: "raw"
+	"channels"		: "raw",
+	"prepare_shutdown" : true
 }

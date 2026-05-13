@@ -198,6 +198,99 @@ See also the full [Disk Space scenario](disk-space.md) for more examples.
 
 ---
 
+## Network Interfaces
+
+### Command
+
+```
+check_network
+```
+
+### Expected output (healthy)
+
+```
+OK: Network interfaces seem ok.
+'Ethernet 1'=1024B;10000;100000 'Ethernet 2'=512B;10000;100000
+```
+
+### Expected output (alert)
+
+```
+CRITICAL: Ethernet 1 >50000 <200000 bps
+```
+
+### How it works
+
+`check_network` reports per-NIC throughput in bytes/sec by polling Windows
+performance counters in the background and computing a rate from successive
+samples. The default thresholds are `total > 10000` (warn) and
+`total > 100000` (critical) on total bytes/sec.
+
+By default the check reads `Win32_PerfRawData_Tcpip_NetworkInterface`, which
+exposes one row per *physical* adapter. If you use **NIC teaming** (LBFO,
+Switch-Embedded Teaming, or any other Windows team configuration) and want to
+monitor the aggregated team interface rather than the individual members, use
+`mode=adapter` to read from `Win32_PerfRawData_Tcpip_NetworkAdapter` instead.
+That class also reports the team adapter (e.g. a virtual interface named after
+the team itself).
+
+### Customisation
+
+**Monitor the team aggregate on a server with NIC teaming:**
+
+```
+check_network mode=adapter "warn=total > 100M" "crit=total > 500M"
+```
+
+**Alert only on the team adapter (ignore individual physical members):**
+
+The team aggregate is the only row with no MAC address (no matching
+`Win32_NetworkAdapter` entry exists), so filter on that:
+
+```
+check_network mode=adapter "filter=MAC = ''"
+```
+
+**Report from both sources at once** (the `source` keyword distinguishes them):
+
+```
+check_network mode=both "filter=source = 'adapter' or status = '2'"
+```
+
+**Higher thresholds for a busy 10G uplink:**
+
+```
+check_network "filter=name = 'Ethernet 1'" "warn=total > 800M" "crit=total > 1G"
+```
+
+**Custom output showing send and receive separately:**
+
+```
+check_network "detail-syntax=${name}: tx=${sent}/s rx=${received}/s"
+```
+
+### Choosing a mode
+
+| Mode        | Source                                          | Includes team aggregate? | When to use                                                                       |
+|-------------|-------------------------------------------------|--------------------------|-----------------------------------------------------------------------------------|
+| `interface` | `Win32_PerfRawData_Tcpip_NetworkInterface`      | No                       | Default. Standalone servers, or when you only care about the physical NICs.       |
+| `adapter`   | `Win32_PerfRawData_Tcpip_NetworkAdapter`        | Yes                      | NIC-teamed servers where you want the team aggregate, not just the team members.  |
+| `both`      | Both classes, every row tagged with `source=`   | Yes                      | When you need a single check to alert on both the team aggregate and its members. |
+
+!!! note
+    Switching from `interface` to `adapter` changes the **names** of the
+    reported interfaces (NetworkAdapter uses the friendly Windows name,
+    NetworkInterface uses the MIB-style name). Dashboards or thresholds that
+    reference a specific adapter by name may need to be updated.
+
+**Via NRPE:**
+
+```
+check_nrpe -H <agent-ip> -c check_network --argument "mode=adapter"
+```
+
+---
+
 ## System Uptime
 
 ### Command

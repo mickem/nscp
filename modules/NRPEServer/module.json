@@ -6,5 +6,6 @@
 		"alias"			: "nrpe",
 		"version"		: "auto",
 		"reload"		: true
-	}
+	},
+	"prepare_shutdown" : true
 }

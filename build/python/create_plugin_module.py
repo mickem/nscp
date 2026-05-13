@@ -13,6 +13,9 @@ EXPORTS
 {% if module.on_start %}
 	NSStartModule
 {% endif %}
+{% if module.prepare_shutdown %}
+	NSPrepareShutdown
+{% endif %}
 	NSUnloadModule
 	NSGetModuleName
 	NSGetModuleDescription
@@ -183,6 +186,28 @@ bool {{module.name}}Module::startModule() {
 		return false;
 	} catch (...) {
 		NSC_LOG_ERROR_EX("Failed to load {{module.name}}: ");
+		return false;
+	}
+}
+
+{% endif %}
+{% if module.prepare_shutdown %}
+/**
+ * Called once per plugin before any plugin is unloaded so that long running
+ * work (background threads, listeners) can be drained while peer plugins
+ * are still alive.
+ */
+bool {{module.name}}Module::prepareShutdown() {
+	try {
+		if (impl_) {
+			impl_->prepareShutdown();
+		}
+		return true;
+	} catch (std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to prepare shutdown of {{module.name}}: ", e);
+		return false;
+	} catch (...) {
+		NSC_LOG_ERROR_EX("Failed to prepare shutdown of {{module.name}}: ");
 		return false;
 	}
 }
@@ -643,6 +668,12 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
 		return wrapper.NSStartModule();
 	}
 {% endif %}
+{%if module.prepare_shutdown %}
+	extern int NSPrepareShutdown(unsigned int id) {
+		nscapi::prepare_shutdown_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+		return wrapper.NSPrepareShutdown();
+	}
+{% endif %}
 	extern int NSGetModuleName(char* buf, int buflen) {
 		return nscapi::basic_wrapper_static<plugin_impl_class>::NSGetModuleName(buf, buflen);
 	}
@@ -735,6 +766,9 @@ extern "C" int NSModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoad
 {%if module.on_start %}
 extern "C" int NSStartModule(unsigned int plugin_id);
 {% endif %}
+{%if module.prepare_shutdown %}
+extern "C" int NSPrepareShutdown(unsigned int plugin_id);
+{% endif %}
 extern "C" int NSLoadModule();
 extern "C" int NSLoadModuleEx(unsigned int plugin_id, char* alias, int mode);
 extern "C" void NSDeleteBuffer(char**buffer);
@@ -782,6 +816,9 @@ public:
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 {% if module.on_start %}
 	bool startModule();
+{% endif %}
+{% if module.prepare_shutdown %}
+	bool prepareShutdown();
 {% endif %}
 	bool unloadModule();
 
@@ -894,6 +931,7 @@ cli = False
 log_handler = False
 channels = False
 on_start = False
+prepare_shutdown = False
 metrics = False
 events = False
 
@@ -1056,6 +1094,8 @@ for key, value in data.items():
 		events = value
 	elif key == "on_start":
 		on_start = True
+	elif key == "prepare_shutdown":
+		prepare_shutdown = bool(value) if value is not None else True
 	else:
 		print('* TODO: %s'%key)
 
@@ -1097,6 +1137,7 @@ module.command_fallback = command_fallback
 module.command_fallback_raw = command_fallback_raw
 module.events = events
 module.on_start = on_start
+module.prepare_shutdown = prepare_shutdown
 
 env = Environment(extensions=["jinja2.ext.do",])
 env.filters['cstring'] = escape_cstring

@@ -31,6 +31,7 @@ class CheckMKServer : public nscapi::impl::simple_plugin {
   virtual ~CheckMKServer();
   // Module calls
   bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+  void prepareShutdown();
   bool unloadModule();
   // Receives the periodic metrics tick and stashes the values in
   // check_mk::shared_metrics_store() so Lua scripts can read them.

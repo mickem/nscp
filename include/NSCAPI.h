@@ -141,6 +141,7 @@ typedef NSCAPI::errorReturn (*lpDeleteBuffer)(char **buffer);
 
 typedef NSCAPI::errorReturn (*lpLoadModule)(unsigned int plugin_id, const char *alias, int mode);
 typedef NSCAPI::errorReturn (*lpStartModule)(unsigned int plugin_id);
+typedef NSCAPI::errorReturn (*lpPrepareShutdown)(unsigned int plugin_id);
 typedef NSCAPI::errorReturn (*lpUnLoadModule)(unsigned int plugin_id);
 
 typedef NSCAPI::errorReturn (*lpHasCommandHandler)(unsigned int plugin_id);

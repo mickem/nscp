@@ -100,6 +100,7 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
 
   virtual std::string expand_path(std::string file) { return path_->expand_path(file); }
   nsclient::logging::logger_instance get_logger() const { return log_instance_; }
+  void apply_path_overrides(std::map<std::string, std::string> overrides) override { path_->set_overrides(std::move(overrides)); }
 };
 
 nscp_settings_provider *provider_ = NULL;
@@ -142,6 +143,13 @@ bool NSClientT::load_configuration_1() {
 
   if (!settings_manager::init_settings(provider_, context_)) {
     return false;
+  }
+  // init_settings has just pushed boot.ini's [paths] overrides via
+  // provider_->apply_path_overrides. Layer CLI --path arguments on top so
+  // they win for the keys they specify, without nuking the boot.ini set.
+  if (!cli_path_overrides_.empty()) {
+    LOG_DEBUG_CORE("Applying " + std::to_string(cli_path_overrides_.size()) + " path override(s) from command line");
+    path_->add_overrides(cli_path_overrides_);
   }
   return true;
 }
@@ -341,6 +349,14 @@ bool NSClientT::boot_start_plugins(bool boot) {
 bool NSClientT::stop_nsclient() {
   scheduler_.stop();
   LOG_DEBUG_CORE("Attempting to stop all plugins");
+  try {
+    LOG_DEBUG_CORE("Preparing shutdown of all plugins");
+    plugins_->prepare_shutdown_plugins();
+  } catch (nsclient::core::plugin_exception &e) {
+    LOG_ERROR_CORE_STD("Exception raised when preparing shutdown of plugins: " + e.reason() + " in module: " + e.file());
+  } catch (...) {
+    LOG_ERROR_CORE("Unknown exception raised when preparing shutdown of plugins");
+  }
   try {
     LOG_DEBUG_CORE("Stopping all plugins");
     unloadPlugins();

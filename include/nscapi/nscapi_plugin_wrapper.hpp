@@ -179,6 +179,23 @@ struct on_start_wrapper {
     }
   }
 };
+
+template <class impl_class>
+struct prepare_shutdown_wrapper {
+  std::shared_ptr<impl_class> instance;
+  explicit prepare_shutdown_wrapper(std::shared_ptr<impl_class> instance) : instance(instance) {}
+  int NSPrepareShutdown() {
+    try {
+      if (instance) {
+        instance->prepareShutdown();
+      }
+      return NSCAPI::api_return_codes::isSuccess;
+    } catch (...) {
+      NSC_LOG_CRITICAL("Unknown exception in: NSPrepareShutdown");
+    }
+    return NSCAPI::api_return_codes::hasFailed;
+  }
+};
 template <class impl_class>
 struct message_wrapper {
   std::shared_ptr<impl_class> instance;

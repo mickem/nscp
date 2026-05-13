@@ -321,6 +321,225 @@ TEST(WhereParser, ParseUnknownVariableParsesSuccessfully) {
 }
 
 // ======================================================================
+// parser::parse — function calls (issue #281)
+//
+// The grammar was extended so that:
+//   1. `list_expr` accepts a heterogeneous sequence of identifiers, allowing
+//      mixed-type argument lists (variables, string literals, numbers).
+//   2. Function calls work both as zero-arg `fn()` and N-arg `fn(a, b, c)`.
+// The parser itself does not require functions to be registered — that
+// surfaces as a validation error later (via the object_factory). These tests
+// only verify the grammar layer accepts the new shapes.
+// ======================================================================
+
+TEST(WhereParser, ParseFunctionCallNoArguments) {
+  parser p;
+  EXPECT_TRUE(p.parse(make_factory(), "fn()"));
+  EXPECT_TRUE(p.rest.empty());
+}
+
+TEST(WhereParser, ParseFunctionCallSingleIntArgument) {
+  parser p;
+  EXPECT_TRUE(p.parse(make_factory(), "fn(42)"));
+  EXPECT_TRUE(p.rest.empty());
+}
+
+TEST(WhereParser, ParseFunctionCallSingleStringArgument) {
+  parser p;
+  EXPECT_TRUE(p.parse(make_factory(), "fn('hello')"));
+  EXPECT_TRUE(p.rest.empty());
+}
+
+TEST(WhereParser, ParseFunctionCallSingleVariableArgument) {
+  auto f = make_factory_with_variable("value", factory::create_int(0));
+  parser p;
+  EXPECT_TRUE(p.parse(f, "fn(value)"));
+  EXPECT_TRUE(p.rest.empty());
+}
+
+TEST(WhereParser, ParseFunctionCallMixedVariableAndString) {
+  // The shape from issue #281: `format_bytes(value, 'MB')`.
+  auto f = make_factory_with_variable("value", factory::create_int(0));
+  parser p;
+  EXPECT_TRUE(p.parse(f, "fn(value, 'MB')"));
+  EXPECT_TRUE(p.rest.empty());
+}
+
+TEST(WhereParser, ParseFunctionCallMixedVariableAndInt) {
+  auto f = make_factory_with_variable("value", factory::create_int(0));
+  parser p;
+  EXPECT_TRUE(p.parse(f, "fn(value, 1024)"));
+  EXPECT_TRUE(p.rest.empty());
+}
+
+TEST(WhereParser, ParseFunctionCallAllThreeArgumentKinds) {
+  // Variable + string literal + int literal — none of these would parse
+  // together under the old homogeneous list_expr rules.
+  auto f = make_factory_with_variable("value", factory::create_int(0));
+  parser p;
+  EXPECT_TRUE(p.parse(f, "fn(value, 'tag', 42)"));
+  EXPECT_TRUE(p.rest.empty());
+}
+
+TEST(WhereParser, ParseInWithMixedTypes) {
+  // `in (...)` shares the list_expr rule, so it also benefits from
+  // heterogeneous arguments.
+  auto f = make_factory_with_variable("value", factory::create_int(0));
+  parser p;
+  EXPECT_TRUE(p.parse(f, "value in (1, 2, value)"));
+  EXPECT_TRUE(p.rest.empty());
+}
+
+TEST(WhereParser, ParseFunctionCallAsComparisonOperand) {
+  // Functions must be usable on either side of a comparison so they can drive
+  // warning/critical thresholds, e.g. `convert_bytes(value, 'MB') > 100`.
+  auto f = make_factory_with_variable("value", factory::create_int(0));
+  parser p;
+  EXPECT_TRUE(p.parse(f, "fn(value, 'MB') > 100"));
+  EXPECT_TRUE(p.rest.empty());
+}
+
+TEST(WhereParser, ParseNestedFunctionCalls) {
+  parser p;
+  EXPECT_TRUE(p.parse(make_factory(), "outer(inner(1), 2)"));
+  EXPECT_TRUE(p.rest.empty());
+}
+
+TEST(WhereParser, ParseMalformedFunctionCallFails) {
+  // Unbalanced parens must not parse successfully.
+  parser p;
+  EXPECT_FALSE(p.parse(make_factory(), "fn(1, 2"));
+}
+
+// ======================================================================
+// parse_expression — the exported one-shot wrapper used by
+// filter_text_renderer for `%(...)` placeholder routing
+// ======================================================================
+
+TEST(ParseExpression, SimpleLiteral) {
+  const node_type n = parse_expression(make_factory(), "42");
+  EXPECT_TRUE(static_cast<bool>(n));
+}
+
+TEST(ParseExpression, VariableReference) {
+  auto f = make_factory_with_variable("value", factory::create_int(7));
+  const node_type n = parse_expression(f, "value");
+  EXPECT_TRUE(static_cast<bool>(n));
+}
+
+TEST(ParseExpression, FunctionCallWithMixedArguments) {
+  auto f = make_factory_with_variable("value", factory::create_int(0));
+  const node_type n = parse_expression(f, "fn(value, 'MB')");
+  EXPECT_TRUE(static_cast<bool>(n));
+}
+
+TEST(ParseExpression, ReturnsNullOnSyntaxError) {
+  // Unbalanced parens — parse_expression should return an empty node_type
+  // rather than a partial AST so callers can treat null as "no node".
+  const node_type n = parse_expression(make_factory(), "fn(1, 2");
+  EXPECT_FALSE(static_cast<bool>(n));
+}
+
+TEST(ParseExpression, ReturnsNullOnTrailingGarbage) {
+  // Parser must reject input it can't fully consume so callers don't see a
+  // valid-looking node from an only-partially-parsed expression.
+  const node_type n = parse_expression(make_factory(), "1 = 1 garbage");
+  EXPECT_FALSE(static_cast<bool>(n));
+}
+
+TEST(ParseExpression, ReturnsNullOnEmptyInput) {
+  const node_type n = parse_expression(make_factory(), "");
+  EXPECT_FALSE(static_cast<bool>(n));
+}
+
+// ======================================================================
+// Invalid function-call shapes — the grammar must reject malformed lists
+// even though the placeholder parser captures them as bodies.
+//
+// Each test here uses parse_expression (which checks rest.empty()) so the
+// pass/fail signal is unambiguous: a clean parse returns a node, anything
+// the grammar can't consume in full returns an empty node.
+// ======================================================================
+
+TEST(ParseExpression, FunctionCallWithBareCommaFails) { EXPECT_FALSE(static_cast<bool>(parse_expression(make_factory(), "fn(,)"))); }
+
+TEST(ParseExpression, FunctionCallWithTrailingCommaFails) { EXPECT_FALSE(static_cast<bool>(parse_expression(make_factory(), "fn(a,)"))); }
+
+TEST(ParseExpression, FunctionCallWithLeadingCommaFails) { EXPECT_FALSE(static_cast<bool>(parse_expression(make_factory(), "fn(,a)"))); }
+
+TEST(ParseExpression, FunctionCallWithDoubleCommaFails) { EXPECT_FALSE(static_cast<bool>(parse_expression(make_factory(), "fn(a,,b)"))); }
+
+TEST(ParseExpression, FunctionCallMissingCommaSeparatorFails) {
+  // `a b` is not a valid list element — there's no separator between them.
+  EXPECT_FALSE(static_cast<bool>(parse_expression(make_factory(), "fn(a b)")));
+}
+
+TEST(ParseExpression, FunctionCallMissingClosingParenFails) { EXPECT_FALSE(static_cast<bool>(parse_expression(make_factory(), "fn(a, b"))); }
+
+TEST(ParseExpression, FunctionCallMissingOpeningParenFails) {
+  // `fn a)` — no '(' after the name. The parser will see `fn` as a variable
+  // and leave the rest unconsumed.
+  EXPECT_FALSE(static_cast<bool>(parse_expression(make_factory(), "fn a)")));
+}
+
+TEST(ParseExpression, FunctionCallUnbalancedNestedFails) {
+  // Nested open without a matching close inside the arg list.
+  EXPECT_FALSE(static_cast<bool>(parse_expression(make_factory(), "fn(g(a, b)")));
+}
+
+TEST(ParseExpression, InListEmptyFails) {
+  // `in ()` — empty list; identifier % ',' requires at least one element.
+  EXPECT_FALSE(static_cast<bool>(parse_expression(make_factory(), "x in ()")));
+}
+
+TEST(ParseExpression, InListTrailingCommaFails) { EXPECT_FALSE(static_cast<bool>(parse_expression(make_factory(), "x in (1, 2,)"))); }
+
+// ======================================================================
+// Valid edge cases worth pinning down
+// ======================================================================
+
+TEST(ParseExpression, FunctionCallManyArguments) {
+  // Stress the heterogeneous arg list with a longer mix.
+  auto f = make_factory_with_variable("v", factory::create_int(0));
+  const node_type n = parse_expression(f, "fn(1, 'a', 2.5, v, 'b', 99)");
+  EXPECT_TRUE(static_cast<bool>(n));
+}
+
+TEST(ParseExpression, NestedFunctionCallEvaluates) {
+  // Inner call as one of the args of the outer call.
+  auto f = make_factory_with_variable("v", factory::create_int(0));
+  const node_type n = parse_expression(f, "outer(inner(v), 'tag')");
+  EXPECT_TRUE(static_cast<bool>(n));
+}
+
+TEST(ParseExpression, FunctionCallSingleElementList) {
+  // `in (x)` is the degenerate one-element list — same grammar rule as
+  // function calls.
+  auto f = make_factory_with_variable("v", factory::create_int(0));
+  const node_type n = parse_expression(f, "v in (1)");
+  EXPECT_TRUE(static_cast<bool>(n));
+}
+
+TEST(ParseExpression, FunctionCallOnBothSidesOfComparison) {
+  // Both operands of an `=` can be function calls.
+  auto f = make_factory_with_variable("v", factory::create_int(0));
+  const node_type n = parse_expression(f, "fn(v) = fn('default')");
+  EXPECT_TRUE(static_cast<bool>(n));
+}
+
+TEST(ParseExpression, NegatedFunctionCall) {
+  auto f = make_factory_with_variable("v", factory::create_int(0));
+  const node_type n = parse_expression(f, "not fn(v)");
+  EXPECT_TRUE(static_cast<bool>(n));
+}
+
+TEST(ParseExpression, FunctionCallCombinedWithAndOr) {
+  auto f = make_factory_with_variable("v", factory::create_int(0));
+  const node_type n = parse_expression(f, "fn(v) > 0 and other(v, 'tag') = 1");
+  EXPECT_TRUE(static_cast<bool>(n));
+}
+
+// ======================================================================
 // parser::derive_types
 // ======================================================================
 

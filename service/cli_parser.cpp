@@ -55,6 +55,10 @@ cli_parser::cli_parser(const std::shared_ptr<NSClient> &core)
 	("log", po::value<std::vector<std::string> >(&log_level), "The log level to use")
 	("log-backend", po::value<std::string>(&log_backend), "The log backend to use (file or console)")
 	("define", po::value<std::vector<std::string> >(&defines), "Defines to use to override settings. Syntax is PATH:KEY=VALUE")
+	("path", po::value<std::vector<std::string> >(&path_overrides),
+	 "Override a path-resolver token. Syntax is KEY=VALUE, e.g. --path module-path=/foo/bar. "
+	 "Repeatable. Wins over any [paths] entry in boot.ini. Use this from scripts/build tooling that needs to redirect "
+	 "where modules, certs, logs, etc. are looked up without editing config files.")
       ;
 
       common.add_options()
@@ -138,6 +142,22 @@ bool cli_parser::process_common_options(const std::string &context, const po::op
 
   if (!settings_store.empty()) core_->set_settings_context(settings_store);
 
+  // Parse --path KEY=VALUE entries and stash on core_. NSClient applies them
+  // in load_configuration_1, AFTER init_settings has loaded boot.ini's
+  // [paths] section, so CLI overrides win without nuking the boot.ini set.
+  if (!path_overrides.empty()) {
+    std::map<std::string, std::string> overrides;
+    for (const std::string &raw : path_overrides) {
+      const auto eq = raw.find('=');
+      if (eq == std::string::npos || eq == 0) {
+        core_->get_logger()->warning(LOG_MODULE, __FILE__, __LINE__, "Ignoring malformed --path argument (expected KEY=VALUE): " + raw);
+        continue;
+      }
+      overrides[raw.substr(0, eq)] = raw.substr(eq + 1);
+    }
+    if (!overrides.empty()) core_->set_cli_path_overrides(std::move(overrides));
+  }
+
   if (help) {
     std::cout << desc << std::endl;
     return true;
@@ -168,6 +188,7 @@ cli_parser::alias_map cli_parser::get_aliases() {
   aliases["smtp"] = "SMTPClient";
   aliases["nrdp"] = "NRDPClient";
   aliases["nsca-ng"] = "NSCANgClient";
+  aliases["icinga"] = "IcingaClient";
   aliases["eventlog"] = "CheckEventLog";
   aliases["python"] = "PythonScript";
   aliases["py"] = "PythonScript";

@@ -39,6 +39,6 @@ class Enumerations {
   static std::list<std::string> expand_wild_card_path(const std::string &query, std::string &error);
   static void fetch_object_details(Object &object, bool instances = true, bool objects = true, DWORD dwDetailLevel = PERF_DETAIL_WIZARD);
   static Objects EnumObjects(bool instances = true, bool objects = true, DWORD dwDetailLevel = PERF_DETAIL_WIZARD);
-  static Object EnumObject(std::string object, bool instances = true, bool objects = true, DWORD dwDetailLevel = PERF_DETAIL_WIZARD);
+  static Object EnumObject(const std::string &object, bool instances = true, bool objects = true, DWORD dwDetailLevel = PERF_DETAIL_WIZARD);
 };
 }  // namespace PDH

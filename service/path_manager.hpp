@@ -17,12 +17,27 @@ class path_manager {
   boost::timed_mutex mutex_;
   boost::filesystem::path basePath;
   boost::filesystem::path tempPath;
-  paths_type paths_cache_;
+  // Path overrides loaded from boot.ini's [paths] section. Populated once
+  // during NSCSettingsImpl::boot() before any reader exists, then treated as
+  // immutable - no mutex needed on reads. If we ever need to support runtime
+  // reload, add synchronisation at that point.
+  paths_type overrides_;
 
  public:
   explicit path_manager(const logging::log_client_accessor& log_instance_);
   std::string getFolder(const std::string& key);
   std::string expand_path(std::string file);
+
+  // Install the path-override map. Intended to be called exactly once from
+  // the settings bootstrap, before any other code resolves paths through
+  // this manager. Subsequent calls replace the previous overrides.
+  void set_overrides(paths_type overrides);
+
+  // Merge additional overrides on top of whatever set_overrides previously
+  // installed. Same-key entries overwrite, missing keys are preserved. Used
+  // for layering: boot.ini calls set_overrides, then CLI --path arguments
+  // call add_overrides so they win without nuking the boot.ini set.
+  void add_overrides(paths_type overrides);
 
   // Maximum recursion depth for ${var} substitution. Caps the cycle defence
   // ("${a}" -> "${b}" -> "${a}") so a misconfiguration cannot stack-overflow

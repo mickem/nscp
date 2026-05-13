@@ -70,8 +70,7 @@ objects (see [Step 5](#step-5-optional-auto-create-host-and-service-objects)).
 Before configuring scheduled checks, verify that NSClient++ can submit a test result to the Icinga 2 REST API.
 
 ```
-nscp client --module IcingaClient --query submit_icinga ^
-    --address https://icinga2.example.com:5665/ ^
+nscp icinga --address https://icinga2.example.com:5665/ ^
     --username nscp --password secret-password ^
     --command "service check" ^
     --result 2 ^

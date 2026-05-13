@@ -42,6 +42,7 @@ class NRPEServer : public nscapi::impl::simple_plugin, nrpe::server::handler {
   virtual ~NRPEServer();
   // Module calls
   bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+  void prepareShutdown();
   bool unloadModule();
 
   // Handler

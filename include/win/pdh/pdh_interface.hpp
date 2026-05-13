@@ -22,6 +22,7 @@
 #include <pdh.h>
 #include <pdhmsg.h>
 
+#include <cstdio>
 #include <error/error.hpp>
 #include <list>
 #include <memory>
@@ -36,43 +37,53 @@ class pdh_error {
 
  public:
   pdh_error() : status_(ERROR_SUCCESS) {}
-  pdh_error(PDH_STATUS status) : status_(status) {}
-  pdh_error(const pdh_error &other) : status_(other.status_) {}
-  pdh_error &operator=(pdh_error const &other) {
-    status_ = other.status_;
-    return *this;
-  }
+  pdh_error(const PDH_STATUS status) : status_(status) {}
+  pdh_error(const pdh_error &other) = default;
+  pdh_error &operator=(pdh_error const &other) = default;
 
   std::string get_message() const {
     if (is_ok()) return "";
-    return error::format::from_module("PDH.DLL", status_);
+    // Always prefix the numeric status. FormatMessage from PDH.DLL returns an
+    // empty string on some locales and for some status codes, which used to
+    // leave error reports with no actionable information (issue #255). The
+    // hex code is always present so users can look it up even when PDH's
+    // localized description is missing.
+    char hex[16];
+    std::snprintf(hex, sizeof(hex), "0x%08lX", static_cast<unsigned long>(status_));
+    const std::string desc = error::format::from_module("PDH.DLL", status_);
+    if (desc.empty()) return std::string("PDH ") + hex;
+    return std::string("PDH ") + hex + ": " + desc;
   }
 
   bool is_error() const { return status_ != ERROR_SUCCESS; }
   bool is_ok() const { return status_ == ERROR_SUCCESS; }
-  bool is_more_data() { return status_ == PDH_MORE_DATA; }
-  bool is_invalid_data() { return status_ == PDH_INVALID_DATA || status_ == PDH_CSTATUS_INVALID_DATA; }
-  bool is_not_found() { return status_ == PDH_CSTATUS_NO_OBJECT || status_ == PDH_CSTATUS_NO_COUNTER || status_ == PDH_CSTATUS_BAD_COUNTERNAME; }
+  bool is_more_data() const { return status_ == PDH_MORE_DATA; }
+  bool is_invalid_data() const { return status_ == PDH_INVALID_DATA || status_ == PDH_CSTATUS_INVALID_DATA; }
+  bool is_not_found() const { return status_ == PDH_CSTATUS_NO_OBJECT || status_ == PDH_CSTATUS_NO_COUNTER || status_ == PDH_CSTATUS_BAD_COUNTERNAME; }
 
-  bool is_negative_denominator() { return status_ == PDH_CALC_NEGATIVE_DENOMINATOR || status_ == PDH_CALC_NEGATIVE_VALUE; }
+  bool is_negative_denominator() const { return status_ == PDH_CALC_NEGATIVE_DENOMINATOR || status_ == PDH_CALC_NEGATIVE_VALUE; }
+  bool is_invalid_argument() const { return status_ == PDH_INVALID_ARGUMENT; }
+
+  // True if the status code is one we've observed PDH returning for the
+  // "counter exists but PDH couldn't resolve it in the current locale" case.
+  // PdhAddEnglishCounter is worth a second try whenever this is true.
+  bool is_possible_locale_mismatch() const { return is_not_found() || is_invalid_argument(); }
 };
 
 class pdh_exception : public std::exception {
  private:
-  std::string error_;
+  // shared_ptr is used (instead of std::string directly) so the copy constructor
+  // is nothrow — required for any type used as an exception (CERT-ERR60-CPP).
+  std::shared_ptr<const std::string> error_;
 
  public:
-  pdh_exception(std::string name, std::string str) : error_(name + ": " + str) {}
-  pdh_exception(std::string str, const pdh_error &error) : error_(str) {
-    if (error.is_error()) {
-      error_ += ": " + error.get_message();
-    }
-  }
-  pdh_exception(std::string error) : error_(error) {}
-  ~pdh_exception() throw() {}
-  const char *what() const throw() { return error_.c_str(); }
+  pdh_exception(const std::string &name, const std::string &str) : error_(std::make_shared<const std::string>(name + ": " + str)) {}
+  pdh_exception(const std::string &str, const pdh_error &error)
+      : error_(std::make_shared<const std::string>(error.is_error() ? str + ": " + error.get_message() : str)) {}
+  explicit pdh_exception(std::string error) : error_(std::make_shared<const std::string>(std::move(error))) {}
+  const char *what() const noexcept override { return error_ ? error_->c_str() : ""; }
 
-  std::string reason() const { return error_; }
+  std::string reason() const { return error_ ? *error_ : std::string(); }
 };
 
 namespace types {
@@ -93,31 +104,30 @@ struct pdh_object {
   unsigned long flags_;
   std::string instances_;
 
-  static const int format_large = 0x00000400;
-  static const int format_long = 0x00000100;
-  static const int format_double = 0x00000200;
+  static constexpr int format_large = 0x00000400;
+  static constexpr int format_long = 0x00000100;
+  static constexpr int format_double = 0x00000200;
 
   enum data_types { type_double, type_long, type_large };
 
-  void set_counter(std::string counter) { path = counter; }
-  void set_alias(std::string alias_) { alias = alias_; }
+  void set_counter(const std::string &counter) { path = counter; }
+  void set_alias(const std::string &alias_) { alias = alias_; }
 
-  pdh_object() : buffer_size(0), flags_(format_double), strategy_(types::static_value) {}
+  pdh_object() : type(types::type_int64), format(types::format_large), strategy_(types::static_value), buffer_size(0), flags_(format_double) {}
 
-  void set_default_buffer_size(std::string buffer_size_);
-  void set_buffer_size(std::string buffer_size_);
+  void set_default_buffer_size(const std::string &buffer_size_);
+  void set_buffer_size(const std::string &buffer_size_);
 
-  void set_type(const std::string &type);
-  void set_type(const data_types type);
-  data_types get_type();
+  void set_type(const std::string &new_type);
+  void set_type(data_types new_type);
+  data_types get_type() const;
 
-  void add_flags(const std::string &flag);
-  void set_flags(const std::string &flags);
-  unsigned long get_flags();
+  void add_flags(const std::string &flags);
+  unsigned long get_flags() const;
 
-  bool is_static() { return strategy_ == types::static_value; }
-  bool is_rrd() { return strategy_ == types::rrd; }
-  void set_strategy(std::string strategy) {
+  bool is_static() const { return strategy_ == types::static_value; }
+  bool is_rrd() const { return strategy_ == types::rrd; }
+  void set_strategy(const std::string &strategy) {
     if (strategy == "static" || strategy.empty()) {
       strategy_ = types::static_value;
     } else if (strategy == "round robin" || strategy == "rrd") {
@@ -128,11 +138,12 @@ struct pdh_object {
     }
   }
   void set_strategy_static() { strategy_ = types::static_value; }
-  void set_instances(std::string instances) { instances_ = instances; }
-  bool has_instances();
+  void set_instances(const std::string &instances) { instances_ = instances; }
+  bool has_instances() const;
 };
 
 struct pdh_instance_interface {
+  virtual ~pdh_instance_interface() = default;
   virtual double get_average(long seconds) = 0;
   virtual double get_value() = 0;
   virtual long long get_int_value() = 0;
@@ -172,12 +183,14 @@ class counter_info {
 
 class subscriber {
  public:
+  virtual ~subscriber() = default;
   virtual void on_unload() = 0;
   virtual void on_reload() = 0;
 };
 
 class impl_interface {
  public:
+  virtual ~impl_interface() = default;
   virtual pdh_error PdhLookupPerfIndexByName(LPCTSTR szMachineName, LPCTSTR szName, DWORD *dwIndex) = 0;
   virtual pdh_error PdhLookupPerfNameByIndex(LPCTSTR szMachineName, DWORD dwNameIndex, LPTSTR szNameBuffer, LPDWORD pcchNameBufferSize) = 0;
   virtual pdh_error PdhExpandCounterPath(LPCTSTR szWildCardPath, LPTSTR mszExpandedPathList, LPDWORD pcchPathListLength) = 0;
@@ -210,14 +223,16 @@ class factory {
   static std::shared_ptr<impl_interface> get_impl();
   static void set_thread_safe();
   static void set_native();
+  // Test seam: inject a custom impl (typically a mock). Pass nullptr to reset.
+  static void set_impl(std::shared_ptr<impl_interface> impl);
 
-  static pdh_instance create(pdh_object object);
-  static pdh_instance create(std::string counter);
-  static pdh_instance create(std::string counter, pdh_object object);
+  static pdh_instance create(const pdh_object &object);
+  static pdh_instance create(const std::string &counter);
+  static pdh_instance create(const std::string &counter, const pdh_object &object);
 };
 
 class helpers {
  public:
-  static std::list<std::string> build_list(TCHAR *buffer, DWORD bufferSize);
+  static std::list<std::string> build_list(const TCHAR *buffer, DWORD bufferSize);
 };
 }  // namespace PDH

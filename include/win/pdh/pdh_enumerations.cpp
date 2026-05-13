@@ -29,48 +29,85 @@
 #include <win/pdh/pdh_interface.hpp>
 
 namespace PDH {
+namespace {
+  // RAII guard for a temporary PDH query handle. The destructor swallows the
+  // PdhCloseQuery status so we can use it in cleanup-on-error paths without
+  // double-reporting; if cleanup itself fails the caller will already have a
+  // more useful error from the original failure.
+  struct ScopedPdhQuery {
+    PDH_HQUERY h = nullptr;
+    ~ScopedPdhQuery() {
+      if (h != nullptr) {
+        try {
+          factory::get_impl()->PdhCloseQuery(h);
+        } catch (...) {
+        }
+      }
+    }
+  };
+  struct ScopedPdhCounter {
+    PDH_HCOUNTER h = nullptr;
+    ~ScopedPdhCounter() {
+      if (h != nullptr) {
+        try {
+          factory::get_impl()->PdhRemoveCounter(h);
+        } catch (...) {
+        }
+      }
+    }
+  };
+
+  // Resolve a counter path via the temporary-query trick: open a query, add
+  // the (possibly English) counter, ask PDH for its full localized path, and
+  // return that. All handles are released on every exit path.
+  bool resolve_path_via_temp_query(const std::wstring &input, std::wstring &resolved_out, std::string &error_out) {
+    ScopedPdhQuery query;
+    pdh_error status = factory::get_impl()->PdhOpenQuery(nullptr, 0, &query.h);
+    if (status.is_error()) {
+      error_out = status.get_message();
+      return false;
+    }
+    ScopedPdhCounter counter;
+    status = factory::get_impl()->PdhAddEnglishCounter(query.h, input.c_str(), 0, &counter.h);
+    if (status.is_error()) {
+      error_out = status.get_message();
+      return false;
+    }
+    hlp::buffer<TCHAR, PDH_COUNTER_INFO *> info_buf(2048);
+    auto info_size = static_cast<DWORD>(info_buf.size());
+    status = factory::get_impl()->PdhGetCounterInfo(counter.h, FALSE, &info_size, info_buf.get());
+    if (status.is_error()) {
+      error_out = status.get_message();
+      return false;
+    }
+    resolved_out = info_buf.get()->szFullPath;
+    return true;
+  }
+}  // namespace
+
 std::list<std::string> Enumerations::expand_wild_card_path(const std::string &query, std::string &error) {
   std::list<std::string> ret;
-  std::wstring wquery = utf8::cvt<std::wstring>(query);
+  auto wquery = utf8::cvt<std::wstring>(query);
   hlp::buffer<TCHAR> buffer(1024);
   auto dwBufLen = static_cast<DWORD>(buffer.size());
   try {
-    pdh_error status = factory::get_impl()->PdhExpandWildCardPath(NULL, wquery.c_str(), buffer, &dwBufLen, 0);
+    pdh_error status = factory::get_impl()->PdhExpandWildCardPath(nullptr, wquery.c_str(), buffer, &dwBufLen, 0);
     if (status.is_more_data()) {
       buffer.resize(dwBufLen + 10);
       dwBufLen = static_cast<DWORD>(buffer.size());
-      status = factory::get_impl()->PdhExpandWildCardPath(NULL, wquery.c_str(), buffer, &dwBufLen, 0);
+      status = factory::get_impl()->PdhExpandWildCardPath(nullptr, wquery.c_str(), buffer, &dwBufLen, 0);
     }
     if (status.is_not_found()) {
-      error = status.get_message();
-      status = factory::get_impl()->PdhExpandWildCardPath(NULL, wquery.c_str(), buffer, &dwBufLen, 0);
-
-      HQUERY hQuery;
-      status = factory::get_impl()->PdhOpenQuery(NULL, NULL, &hQuery);
-      if (status.is_error()) {
-        error = status.get_message();
+      // PDH couldn't expand the path directly. Try resolving it via a temp
+      // query (which lets PdhAddEnglishCounter translate an English path
+      // into its localized form), then recurse with the localized path so
+      // wildcard expansion can complete.
+      std::wstring resolved;
+      if (!resolve_path_via_temp_query(wquery, resolved, error)) {
         return ret;
       }
-
-      // TODO Create query: QUERY
-      PDH_HCOUNTER hCounter;
-      status = factory::get_impl()->PdhAddEnglishCounter(hQuery, wquery.c_str(), NULL, &hCounter);
-      if (status.is_error()) {
-        error = status.get_message();
-        return ret;
-      }
-
-      hlp::buffer<TCHAR, PDH_COUNTER_INFO *> tBuf2(2048);
-      auto bufSize = static_cast<DWORD>(tBuf2.size());
-
-      status = factory::get_impl()->PdhGetCounterInfo(hCounter, FALSE, &bufSize, tBuf2.get());
-      if (status.is_error()) {
-        error = status.get_message();
-        return ret;
-      }
-      std::wstring counterName = tBuf2.get()->szFullPath;
-      error = "";
-      return expand_wild_card_path(utf8::cvt<std::string>(counterName), error);
+      error.clear();
+      return expand_wild_card_path(utf8::cvt<std::string>(resolved), error);
     }
     if (status.is_error()) {
       error = status.get_message();
@@ -93,42 +130,39 @@ std::list<std::string> Enumerations::expand_wild_card_path(const std::string &qu
 }
 void Enumerations::fetch_object_details(Object &object, bool instances, bool objects, DWORD dwDetailLevel) {
   DWORD dwCounterBufLen = 0;
-  TCHAR *szCounterBuffer = NULL;
   DWORD dwInstanceBufLen = 0;
-  TCHAR *szInstanceBuffer = NULL;
   try {
-    pdh_error status = factory::get_impl()->PdhEnumObjectItems(NULL, NULL, utf8::cvt<std::wstring>(object.name).c_str(), szCounterBuffer, &dwCounterBufLen,
-                                                               szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
-    if (status.is_more_data()) {
-      szCounterBuffer = new TCHAR[dwCounterBufLen + 1];
-      szInstanceBuffer = new TCHAR[dwInstanceBufLen + 1];
-
-      status = factory::get_impl()->PdhEnumObjectItems(NULL, NULL, utf8::cvt<std::wstring>(object.name).c_str(), szCounterBuffer, &dwCounterBufLen,
-                                                       szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
-      if (status.is_error()) {
-        delete[] szCounterBuffer;
-        delete[] szInstanceBuffer;
-        object.error = "Failed to enumerate object: " + object.name;
-      }
-
-      if (dwCounterBufLen > 0 && objects) {
-        TCHAR *cp = szCounterBuffer;
-        while (*cp != '\0') {
-          object.counters.push_back(utf8::cvt<std::string>(cp));
-          cp += lstrlen(cp) + 1;
-        }
-      }
-      if (dwInstanceBufLen > 0 && instances) {
-        TCHAR *cp = szInstanceBuffer;
-        while (*cp != '\0') {
-          object.instances.push_back(utf8::cvt<std::string>(cp));
-          cp += lstrlen(cp) + 1;
-        }
-      }
-      delete[] szCounterBuffer;
-      delete[] szInstanceBuffer;
-    } else {
+    // First call with null buffers to learn the required sizes.
+    pdh_error status = factory::get_impl()->PdhEnumObjectItems(nullptr, nullptr, utf8::cvt<std::wstring>(object.name).c_str(), nullptr, &dwCounterBufLen,
+                                                               nullptr, &dwInstanceBufLen, dwDetailLevel, 0);
+    if (!status.is_more_data()) {
       object.error = "Failed to enumerate object: " + object.name;
+      return;
+    }
+
+    hlp::buffer<TCHAR> counterBuffer(dwCounterBufLen + 1);
+    hlp::buffer<TCHAR> instanceBuffer(dwInstanceBufLen + 1);
+
+    status = factory::get_impl()->PdhEnumObjectItems(nullptr, nullptr, utf8::cvt<std::wstring>(object.name).c_str(), counterBuffer.get(), &dwCounterBufLen,
+                                                     instanceBuffer.get(), &dwInstanceBufLen, dwDetailLevel, 0);
+    if (status.is_error()) {
+      object.error = "Failed to enumerate object: " + object.name;
+      return;
+    }
+
+    if (dwCounterBufLen > 0 && objects) {
+      const TCHAR *cp = counterBuffer.get();
+      while (*cp != '\0') {
+        object.counters.push_back(utf8::cvt<std::string>(cp));
+        cp += lstrlen(cp) + 1;
+      }
+    }
+    if (dwInstanceBufLen > 0 && instances) {
+      const TCHAR *cp = instanceBuffer.get();
+      while (*cp != '\0') {
+        object.instances.push_back(utf8::cvt<std::string>(cp));
+        cp += lstrlen(cp) + 1;
+      }
     }
   } catch (std::exception &e) {
     object.error = e.what();
@@ -140,22 +174,20 @@ Enumerations::Objects Enumerations::EnumObjects(bool instances, bool objects, DW
   Objects ret;
 
   DWORD dwObjectBufLen = 0;
-  TCHAR *szObjectBuffer = NULL;
-  pdh_error status = factory::get_impl()->PdhEnumObjects(NULL, NULL, szObjectBuffer, &dwObjectBufLen, dwDetailLevel, FALSE);
+  pdh_error status = factory::get_impl()->PdhEnumObjects(nullptr, nullptr, nullptr, &dwObjectBufLen, dwDetailLevel, FALSE);
   if (!status.is_more_data()) throw pdh_exception("PdhEnumObjects failed when trying to retrieve size of object buffer", status);
 
-  szObjectBuffer = new TCHAR[dwObjectBufLen + 1024];
-  status = factory::get_impl()->PdhEnumObjects(NULL, NULL, szObjectBuffer, &dwObjectBufLen, dwDetailLevel, FALSE);
+  hlp::buffer<TCHAR> objectBuffer(dwObjectBufLen + 1024);
+  status = factory::get_impl()->PdhEnumObjects(nullptr, nullptr, objectBuffer.get(), &dwObjectBufLen, dwDetailLevel, FALSE);
   if (status.is_error()) throw pdh_exception("PdhEnumObjects failed when trying to retrieve object buffer", status);
 
-  TCHAR *cp = szObjectBuffer;
+  const TCHAR *cp = objectBuffer.get();
   while (*cp != '\0') {
     Object o;
     o.name = utf8::cvt<std::string>(cp);
     ret.push_back(o);
     cp += lstrlen(cp) + 1;
   }
-  delete[] szObjectBuffer;
 
   if (objects || instances) {
     for (Object &o : ret) {
@@ -165,7 +197,7 @@ Enumerations::Objects Enumerations::EnumObjects(bool instances, bool objects, DW
   return ret;
 }
 
-Enumerations::Object Enumerations::EnumObject(std::string object, bool instances, bool objects, DWORD dwDetailLevel) {
+Enumerations::Object Enumerations::EnumObject(const std::string &object, const bool instances, const bool objects, const DWORD dwDetailLevel) {
   Object ret;
   ret.name = object;
   fetch_object_details(ret, instances, objects, dwDetailLevel);

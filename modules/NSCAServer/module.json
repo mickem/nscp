@@ -7,5 +7,6 @@
 		"version"		: "auto",
 		"load"			: "both",
 		"reload"		: true
-		}
+		},
+	"prepare_shutdown" : true
 }

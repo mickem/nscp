@@ -41,6 +41,7 @@ nsclient::core::dll_plugin::dll_plugin(const unsigned int id, const boost::files
       fModuleHelperInit(nullptr),
       fLoadModule(nullptr),
       fStartModule(nullptr),
+      fPrepareShutdown(nullptr),
       fGetName(nullptr),
       fGetVersion(nullptr),
       fGetDescription(nullptr),
@@ -143,6 +144,18 @@ bool nsclient::core::dll_plugin::start_plugin() {
     return true;
   }
   return false;
+}
+
+bool nsclient::core::dll_plugin::has_prepare_shutdown() { return fPrepareShutdown != nullptr; }
+
+void nsclient::core::dll_plugin::prepare_shutdown_plugin() {
+  if (!isLoaded()) return;
+  if (!fPrepareShutdown) return;
+  try {
+    fPrepareShutdown(get_id());
+  } catch (...) {
+    throw plugin_exception(get_alias_or_name(), "Unhandled exception in fPrepareShutdown.");
+  }
 }
 
 void nsclient::core::dll_plugin::setBroken(bool broken) { broken_ = broken; }
@@ -389,6 +402,7 @@ void nsclient::core::dll_plugin::unload_plugin() {
 void nsclient::core::dll_plugin::unload_dll() {
   fModuleHelperInit = nullptr;
   fLoadModule = nullptr;
+  fPrepareShutdown = nullptr;
   fGetName = nullptr;
   fGetVersion = nullptr;
   fGetDescription = nullptr;
@@ -438,6 +452,7 @@ void nsclient::core::dll_plugin::loadRemoteProcs_(void) {
     if (!fLoadModule) throw plugin_exception(get_alias_or_name(), "Could not load NSLoadModuleEx");
 
     fStartModule = (nscapi::plugin_api::lpStartModule)module_.load_proc("NSStartModule");
+    fPrepareShutdown = (nscapi::plugin_api::lpPrepareShutdown)module_.load_proc("NSPrepareShutdown");
 
     fModuleHelperInit = (nscapi::plugin_api::lpModuleHelperInit)module_.load_proc("NSModuleHelperInit");
     if (!fModuleHelperInit) throw plugin_exception(get_alias_or_name(), "Could not load NSModuleHelperInit");
