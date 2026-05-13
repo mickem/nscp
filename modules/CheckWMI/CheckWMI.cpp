@@ -215,7 +215,13 @@ std::string list_ns_rec(std::string ns, std::string user, std::string password) 
     wmi_impl::row wmi_row = e.get_next();
     std::string str = wmi_row.get_string("Name");
     ss << ns << "\\" << str << "\n";
-    ss << list_ns_rec(ns + "\\" + str, user, password);
+    // Some children enumerate via __Namespace but refuse ConnectServer — e.g.
+    // root\CIMV2\mdm\dmmap on Windows 11 boxes that aren't MDM-enrolled. Skip
+    // unreachable children so one bad subtree doesn't abort the whole walk.
+    try {
+      ss << list_ns_rec(ns + "\\" + str, user, password);
+    } catch (const wmi_impl::wmi_exception &) {
+    }
   }
   return ss.str();
 }
