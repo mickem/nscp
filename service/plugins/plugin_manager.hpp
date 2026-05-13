@@ -106,6 +106,7 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   bool load_single_plugin(const std::string &plugin, const std::string &alias = "", bool start = false);
   void start_plugins(NSCAPI::moduleLoadMode mode);
   void post_start_plugins();
+  void prepare_shutdown_plugins();
   void stop_plugins();
   plugin_type only_load_module(const std::string &module, const std::string &alias, bool &loaded);
 

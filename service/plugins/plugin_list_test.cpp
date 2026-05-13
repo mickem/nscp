@@ -53,6 +53,8 @@ class MockListPlugin : public nsclient::core::plugin_interface {
   bool load_plugin(NSCAPI::moduleLoadMode) override { return true; }
   bool has_start() override { return false; }
   bool start_plugin() override { return true; }
+  bool has_prepare_shutdown() override { return false; }
+  void prepare_shutdown_plugin() override {}
   void unload_plugin() override {}
   std::string getName() override { return name_; }
   std::string getDescription() override { return "Mock plugin for testing"; }

@@ -87,6 +87,8 @@ class zip_plugin : public boost::noncopyable, public nsclient::core::plugin_inte
   bool load_plugin(NSCAPI::moduleLoadMode mode);
   bool has_start() { return false; }
   bool start_plugin() { return true; }
+  bool has_prepare_shutdown() { return false; }
+  void prepare_shutdown_plugin() {}
   void unload_plugin();
 
   std::string getName();

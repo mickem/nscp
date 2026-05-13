@@ -137,6 +137,19 @@ bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
   return true;
 }
 
+void CheckMKServer::prepareShutdown() {
+  // Stop accepting new connections and join the I/O threads while every peer
+  // plugin is still loaded, so any in-flight check_mk query can complete
+  // cleanly before unloadModule tears state down.
+  try {
+    if (server_) {
+      server_->stop();
+    }
+  } catch (...) {
+    NSC_LOG_ERROR_EX("prepare_shutdown");
+  }
+}
+
 bool CheckMKServer::unloadModule() {
   try {
     if (server_) {

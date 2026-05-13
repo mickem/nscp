@@ -126,6 +126,15 @@ void Scheduler::add_schedule(const std::string &key, const std::string &arg) {
   }
 }
 
+void Scheduler::prepareShutdown() {
+  // Drain the scheduler while every peer plugin is still loaded so in-flight
+  // queries and submissions can complete normally. By the time unloadModule
+  // runs the worker threads have already been joined.
+  scheduler_.prepare_shutdown();
+  scheduler_.unset_handler();
+  scheduler_.stop();
+}
+
 bool Scheduler::unloadModule() {
   scheduler_.prepare_shutdown();
   scheduler_.unset_handler();

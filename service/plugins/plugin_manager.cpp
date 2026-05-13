@@ -376,6 +376,29 @@ void nsclient::core::plugin_manager::post_start_plugins() {
 }
 
 /**
+ * First phase of shutdown: ask every plugin that opted-in to drain its
+ * background work while every peer plugin is still alive and reachable.
+ *
+ * Runs serially in plugin-load order. The pass happens before any plugin is
+ * unloaded and before commands/channels are torn down so plugins like the
+ * Scheduler can finish in-flight queries and submissions cleanly.
+ */
+void nsclient::core::plugin_manager::prepare_shutdown_plugins() {
+  for (const plugin_type &p : plugin_list_.get_plugins()) {
+    if (!p) continue;
+    if (!p->has_prepare_shutdown()) continue;
+    try {
+      LOG_DEBUG_CORE_STD("Preparing shutdown for plugin: " + p->get_alias_or_name() + "...");
+      p->prepare_shutdown_plugin();
+    } catch (const plugin_exception &e) {
+      LOG_ERROR_CORE_STD("Exception raised when preparing shutdown of plugin: " + e.reason() + " in module: " + e.file());
+    } catch (...) {
+      LOG_ERROR_CORE("Unknown exception raised when preparing shutdown of plugin");
+    }
+  }
+}
+
+/**
  * Unload all plug-ins
  */
 void nsclient::core::plugin_manager::stop_plugins() {

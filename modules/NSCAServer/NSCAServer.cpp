@@ -113,6 +113,19 @@ bool NSCAServer::loadModuleEx(const std::string &alias, const NSCAPI::moduleLoad
   return true;
 }
 
+void NSCAServer::prepareShutdown() {
+  // Stop accepting new connections and join the I/O threads while every peer
+  // plugin is still loaded, so any in-flight submission can complete cleanly
+  // before unloadModule tears state down.
+  try {
+    if (server_) {
+      server_->stop();
+    }
+  } catch (...) {
+    NSC_LOG_ERROR_STD("Exception caught while preparing shutdown");
+  }
+}
+
 bool NSCAServer::unloadModule() {
   try {
     if (server_) {

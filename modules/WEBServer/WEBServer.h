@@ -46,6 +46,7 @@ class WEBServer : public nscapi::impl::simple_plugin {
   void ensure_user(const nscapi::settings_helper::settings_registry &settings, const std::string &path, const std::string &user, const std::string &role,
                    const std::string &value, const std::string &reason);
 
+  void prepareShutdown();
   bool unloadModule();
   void handleLogMessage(const PB::Log::LogEntry::Entry &message);
   void onEvent(const PB::Commands::EventMessage &request, const std::string &buffer);

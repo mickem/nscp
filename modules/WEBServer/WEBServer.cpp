@@ -324,6 +324,19 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   return true;
 }
 
+void WEBServer::prepareShutdown() {
+  // Stop the HTTP polling thread (which closes the listening socket) while
+  // every peer plugin is still loaded, so any in-flight request that calls
+  // into another module can finish cleanly before unloadModule runs.
+  try {
+    if (server) {
+      server->stop();
+    }
+  } catch (...) {
+    NSC_LOG_ERROR_EX("prepare_shutdown");
+  }
+}
+
 bool WEBServer::unloadModule() {
   try {
     if (server) {

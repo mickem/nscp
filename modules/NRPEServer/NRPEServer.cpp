@@ -151,6 +151,19 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   return true;
 }
 
+void NRPEServer::prepareShutdown() {
+  // Stop accepting new connections and join the I/O threads while every peer
+  // plugin is still loaded, so any in-flight request that calls into another
+  // module can complete cleanly before unloadModule tears state down.
+  try {
+    if (server_) {
+      server_->stop();
+    }
+  } catch (...) {
+    NSC_LOG_ERROR_EX("prepare_shutdown");
+  }
+}
+
 bool NRPEServer::unloadModule() {
   try {
     if (server_) {

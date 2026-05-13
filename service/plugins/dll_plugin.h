@@ -65,6 +65,7 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   nscapi::plugin_api::lpModuleHelperInit fModuleHelperInit;
   nscapi::plugin_api::lpLoadModule fLoadModule;
   nscapi::plugin_api::lpStartModule fStartModule;
+  nscapi::plugin_api::lpPrepareShutdown fPrepareShutdown;
   nscapi::plugin_api::lpGetName fGetName;
   nscapi::plugin_api::lpGetVersion fGetVersion;
   nscapi::plugin_api::lpGetDescription fGetDescription;
@@ -91,6 +92,8 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   bool load_plugin(NSCAPI::moduleLoadMode mode) override;
   bool has_start() override;
   bool start_plugin() override;
+  bool has_prepare_shutdown() override;
+  void prepare_shutdown_plugin() override;
   void unload_plugin() override;
 
   std::string getName() override;

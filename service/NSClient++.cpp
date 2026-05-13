@@ -350,6 +350,14 @@ bool NSClientT::stop_nsclient() {
   scheduler_.stop();
   LOG_DEBUG_CORE("Attempting to stop all plugins");
   try {
+    LOG_DEBUG_CORE("Preparing shutdown of all plugins");
+    plugins_->prepare_shutdown_plugins();
+  } catch (nsclient::core::plugin_exception &e) {
+    LOG_ERROR_CORE_STD("Exception raised when preparing shutdown of plugins: " + e.reason() + " in module: " + e.file());
+  } catch (...) {
+    LOG_ERROR_CORE("Unknown exception raised when preparing shutdown of plugins");
+  }
+  try {
     LOG_DEBUG_CORE("Stopping all plugins");
     unloadPlugins();
   } catch (nsclient::core::plugin_exception &e) {

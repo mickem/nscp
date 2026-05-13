@@ -8,6 +8,8 @@
 		"reload"		: true
 	},
 
-	"metrics" : "produce"
+	"metrics" : "produce",
+
+	"prepare_shutdown" : true
 
 }
