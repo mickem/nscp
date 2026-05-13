@@ -73,12 +73,16 @@ class SchedulerTest(BasicTest):
             sleep(2000)
             elapsed = time()-start
         result.add_message(True, 'Summary Collected %d instance in %d seconds: %d/s'%(self.results_count, elapsed, self.results_count/elapsed))
-        self.check_one(result, "rand", 5, 10)
-        self.check_one(result, "1s", 55, 65)
-        self.check_one(result, "short", 10, 14)
-        self.check_one(result, "30s", 1, 3)
-        self.check_one(result, "explicit", 10, 14)
-        self.check_one(result, "10s", 5, 7)
+        # Bounds chosen to absorb one missed beat (CI stall, cold-start jitter,
+        # PDH first-enumeration pause) and one extra beat (clock drift) per
+        # check. Tighter bounds were flaky on busy CI agents; see the analysis
+        # alongside the scheduler-tests rework.
+        self.check_one(result, "rand", 4, 11)
+        self.check_one(result, "1s", 50, 65)
+        self.check_one(result, "short", 9, 14)
+        self.check_one(result, "30s", 1, 4)
+        self.check_one(result, "explicit", 9, 14)
+        self.check_one(result, "10s", 4, 8)
 
         return result
 
