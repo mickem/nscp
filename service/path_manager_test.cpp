@@ -133,3 +133,28 @@ TEST_F(PathManagerTest, OverrideValuesCanBeTemplates) {
   EXPECT_EQ(expanded.find("${"), std::string::npos);
   EXPECT_NE(expanded.find("custom-sec"), std::string::npos);
 }
+
+// add_overrides — the additive merge used by the CLI --path flag to layer
+// on top of whatever boot.ini already installed via set_overrides.
+
+TEST_F(PathManagerTest, AddOverridesMergesOnTopOfSetOverrides) {
+  pm->set_overrides({{"certificate-path", "/from-boot-ini"}, {"log-path", "/boot-logs"}});
+  pm->add_overrides({{"log-path", "/cli-logs"}, {"module-path", "/cli-modules"}});
+
+  // log-path overwritten by CLI, certificate-path preserved from boot, module-path added by CLI.
+  EXPECT_EQ(pm->getFolder("certificate-path"), "/from-boot-ini");
+  EXPECT_EQ(pm->getFolder("log-path"), "/cli-logs");
+  EXPECT_EQ(pm->getFolder("module-path"), "/cli-modules");
+}
+
+TEST_F(PathManagerTest, AddOverridesAloneWorksWithoutPriorSet) {
+  // CLI args may be the only source of overrides (no boot.ini).
+  pm->add_overrides({{"log-path", "/cli-only"}});
+  EXPECT_EQ(pm->getFolder("log-path"), "/cli-only");
+}
+
+TEST_F(PathManagerTest, AddOverridesEmptyIsNoOp) {
+  pm->set_overrides({{"certificate-path", "/existing"}});
+  pm->add_overrides({});
+  EXPECT_EQ(pm->getFolder("certificate-path"), "/existing");
+}

@@ -144,6 +144,13 @@ bool NSClientT::load_configuration_1() {
   if (!settings_manager::init_settings(provider_, context_)) {
     return false;
   }
+  // init_settings has just pushed boot.ini's [paths] overrides via
+  // provider_->apply_path_overrides. Layer CLI --path arguments on top so
+  // they win for the keys they specify, without nuking the boot.ini set.
+  if (!cli_path_overrides_.empty()) {
+    LOG_DEBUG_CORE("Applying " + std::to_string(cli_path_overrides_.size()) + " path override(s) from command line");
+    path_->add_overrides(cli_path_overrides_);
+  }
   return true;
 }
 

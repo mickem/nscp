@@ -33,6 +33,12 @@ class path_manager {
   // this manager. Subsequent calls replace the previous overrides.
   void set_overrides(paths_type overrides);
 
+  // Merge additional overrides on top of whatever set_overrides previously
+  // installed. Same-key entries overwrite, missing keys are preserved. Used
+  // for layering: boot.ini calls set_overrides, then CLI --path arguments
+  // call add_overrides so they win without nuking the boot.ini set.
+  void add_overrides(paths_type overrides);
+
   // Maximum recursion depth for ${var} substitution. Caps the cycle defence
   // ("${a}" -> "${b}" -> "${a}") so a misconfiguration cannot stack-overflow
   // the service. 32 is comfortably more than any sane chain - real templates

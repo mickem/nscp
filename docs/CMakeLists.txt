@@ -2,8 +2,9 @@ cmake_minimum_required(VERSION 3.10)
 
 if(MKDOCS_FOUND)
     project(generate_docs)
+    # --path key=value redirects a path-resolver token directly at the path_manager.
     if(WIN32)
-        set(MODULE_ARG "/paths:module-path=\${base-path}/modules")
+        set(MODULE_ARG "module-path=\${base-path}/modules")
         set(COMMAND_LINE
             ${CMAKE_BINARY_DIR}/nscp
             client
@@ -16,7 +17,7 @@ if(MKDOCS_FOUND)
             info
             --log
             oneline
-            --define
+            --path
             "${MODULE_ARG}"
             --
             execute
@@ -28,9 +29,9 @@ if(MKDOCS_FOUND)
             docs
         )
     else()
-        set(MODULE_ARG "/paths:module-path=${CMAKE_BINARY_DIR}/modules")
-        set(LOG_ARG "/paths:log-path=.")
-        set(DATA_ARGS "/paths:data-path=.")
+        set(MODULE_ARG "module-path=${CMAKE_BINARY_DIR}/modules")
+        set(LOG_ARG "log-path=.")
+        set(DATA_ARGS "data-path=.")
         set(COMMAND_LINE
             ${CMAKE_BINARY_DIR}/nscp
             client
@@ -43,11 +44,11 @@ if(MKDOCS_FOUND)
             info
             --log
             oneline
-            --define
+            --path
             "\"${MODULE_ARG}\""
-            --define
+            --path
             "\"${LOG_ARG}\""
-            --define
+            --path
             "\"${DATA_ARGS}\""
             --
             execute

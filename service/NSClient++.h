@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <map>
 #include <nsclient/logger/logger.hpp>
 #include <service/system_service.hpp>
 
@@ -68,6 +69,10 @@ class NSClientT : public nsclient::core::core_interface {
   nsclient::core::path_instance path_;
   nsclient::core::plugin_mgr_instance plugins_;
   nsclient::core::storage_manager_instance storage_manager_;
+  // Path overrides supplied via --path on the command line. Applied to
+  // path_ inside load_configuration_1, after init_settings has loaded
+  // boot.ini's [paths] section, so CLI wins over boot.ini.
+  std::map<std::string, std::string> cli_path_overrides_;
 
   task_scheduler::scheduler scheduler_;
 
@@ -87,6 +92,7 @@ class NSClientT : public nsclient::core::core_interface {
 
   bool stop_nsclient();
   void set_settings_context(std::string context) { context_ = context; }
+  void set_cli_path_overrides(std::map<std::string, std::string> overrides) { cli_path_overrides_ = std::move(overrides); }
 
   NSCAPI::errorReturn reload(const std::string module);
   bool do_reload(const std::string module);

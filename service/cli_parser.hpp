@@ -41,6 +41,10 @@ class cli_parser : public boost::noncopyable {
   bool no_stderr;
   std::vector<std::string> log_level;
   std::vector<std::string> defines;
+  // Raw KEY=VALUE strings collected from --path arguments. Parsed into a map
+  // and pushed to NSClient (and through to path_manager) in
+  // process_common_options.
+  std::vector<std::string> path_overrides;
   std::string settings_store;
   std::vector<std::string> unknown_options;
 
