@@ -148,6 +148,25 @@ void NSCSettingsImpl::boot(std::string key) {
     tls_ca_ = utf8::cvt<std::string>(boot_conf.GetValue(L"tls", L"ca", utf8::cvt<std::wstring>(tls_ca_).c_str()));
     proxy_url_ = utf8::cvt<std::string>(boot_conf.GetValue(L"proxy", L"url", L""));
     no_proxy_ = utf8::cvt<std::string>(boot_conf.GetValue(L"proxy", L"no_proxy", L""));
+
+    // [paths] overrides. Applied before opening the main settings store so
+    // they take effect for the main INI's own location lookup. Boot.ini's
+    // own location was resolved above with defaults only - that
+    // chicken-and-egg is by design.
+    std::map<std::string, std::string> path_overrides;
+    CSimpleIni::TNamesDepend path_keys;
+    if (boot_conf.GetAllKeys(L"paths", path_keys)) {
+      for (const auto &k : path_keys) {
+        const std::string okey = utf8::cvt<std::string>(k.pItem);
+        const std::string val = utf8::cvt<std::string>(boot_conf.GetValue(L"paths", k.pItem, L""));
+        if (!val.empty()) path_overrides[okey] = val;
+      }
+    }
+    if (!path_overrides.empty()) {
+      get_logger()->debug("settings", __FILE__, __LINE__,
+                          "Applying " + str::xtos(path_overrides.size()) + " path override(s) from boot.ini");
+      provider_->apply_path_overrides(std::move(path_overrides));
+    }
   }
   if (order.size() == 0) {
     get_logger()->debug("settings", __FILE__, __LINE__, "No entries found looking in (adding default): " + boot_.string());

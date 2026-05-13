@@ -125,6 +125,7 @@ struct installer_settings_provider : public settings_manager::provider_interface
   std::string basepath;
   std::string old_settings_map;
   std::shared_ptr<msi_logger> logger;
+  std::map<std::string, std::string> path_overrides_;
 
   installer_settings_provider(msi_helper *h, std::wstring basepath, std::wstring old_settings_map)
       : h(h), basepath(utf8::cvt<std::string>(basepath)), old_settings_map(utf8::cvt<std::string>(old_settings_map)), logger(new msi_logger(h)) {}
@@ -132,6 +133,19 @@ struct installer_settings_provider : public settings_manager::provider_interface
       : h(h), basepath(utf8::cvt<std::string>(basepath)), old_settings_map(utf8::cvt<std::string>(old_settings_map)), logger(new msi_logger(h)) {}
 
   virtual std::string expand_path(std::string file) {
+    // Overrides win over the hardcoded fallbacks. We apply them first so a
+    // shared-path override (the common case) replaces ${shared-path} before
+    // the basepath fallback below ever sees it.
+    //
+    // Caveat: this is a single-pass textual replace and does not recursively
+    // expand templated override values like
+    //   shared-path = ${common-appdata}/NSClient++
+    // The installer doesn't currently know how to resolve ${common-appdata};
+    // admins who need templated overrides should write absolute paths in
+    // boot.ini until the installer grows a full path resolver.
+    for (const auto &kv : path_overrides_) {
+      str::utils::replace(file, "${" + kv.first + "}", kv.second);
+    }
     str::utils::replace(file, "${base-path}", basepath);
     str::utils::replace(file, "${exe-path}", basepath);
     str::utils::replace(file, "${shared-path}", basepath);
@@ -149,6 +163,8 @@ struct installer_settings_provider : public settings_manager::provider_interface
   std::list<std::wstring> get_errors() { return logger->get_errors(); }
 
   nsclient::logging::logger_instance get_logger() const { return logger; }
+
+  void apply_path_overrides(std::map<std::string, std::string> overrides) override { path_overrides_ = std::move(overrides); }
 };
 
 static const wchar_t alphanum[] = L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";

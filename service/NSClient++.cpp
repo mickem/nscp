@@ -100,6 +100,7 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
 
   virtual std::string expand_path(std::string file) { return path_->expand_path(file); }
   nsclient::logging::logger_instance get_logger() const { return log_instance_; }
+  void apply_path_overrides(std::map<std::string, std::string> overrides) override { path_->set_overrides(std::move(overrides)); }
 };
 
 nscp_settings_provider *provider_ = NULL;

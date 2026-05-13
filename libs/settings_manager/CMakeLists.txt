@@ -71,3 +71,21 @@ set_target_properties(
 
 source_group("Common Files" REGULAR_EXPRESSION .*include/.*)
 source_group("Settings" REGULAR_EXPRESSION .*include/settings/.*)
+
+NSCP_CREATE_TEST(
+    settings_manager_test
+    SOURCES
+        settings_manager_impl_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+        settings_manager
+        nscp_protobuf
+        ${EXTRA_LIBS}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)

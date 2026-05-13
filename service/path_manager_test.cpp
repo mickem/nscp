@@ -89,3 +89,47 @@ TEST_F(PathManagerTest, GetFolderKeysWindows) {
 #else
 TEST_F(PathManagerTest, GetFolderKeysLinux) { EXPECT_EQ(pm->getFolder("etc"), "/etc"); }
 #endif
+
+// set_overrides — the override-first behaviour Phase 1.5 added. Overrides
+// come from boot.ini's [paths] section; once installed, getFolder must
+// prefer them over any compile-time default, and expand_path must resolve
+// downstream references through them.
+
+TEST_F(PathManagerTest, OverridesTakePrecedenceOverDefaults) {
+  pm->set_overrides({{"certificate-path", "/custom/security"}});
+  EXPECT_EQ(pm->getFolder("certificate-path"), "/custom/security");
+}
+
+TEST_F(PathManagerTest, OverridesAffectExpandPathChain) {
+  // Default ca-path on Windows is "${certificate-path}/windows-ca.pem"; on
+  // Linux ca-path is a fixed file so we exercise the chain via certificate-path
+  // expansion explicitly.
+  pm->set_overrides({{"certificate-path", "/custom/security"}});
+  const std::string expanded = pm->expand_path("${certificate-path}/cert.pem");
+  EXPECT_EQ(expanded, "/custom/security/cert.pem");
+}
+
+TEST_F(PathManagerTest, OverridesReplaceRatherThanMerge) {
+  pm->set_overrides({{"certificate-path", "/first"}});
+  pm->set_overrides({{"log-path", "/second"}});
+  // certificate-path should fall back to the compile-time default now that
+  // the override map no longer contains it.
+  EXPECT_NE(pm->getFolder("certificate-path"), "/first");
+  EXPECT_EQ(pm->getFolder("log-path"), "/second");
+}
+
+TEST_F(PathManagerTest, OverridesIgnoredForUnknownKeyFallback) {
+  // Unknown keys still fall through to getBasePath, even if overrides are set
+  // for other keys.
+  pm->set_overrides({{"certificate-path", "/x"}});
+  EXPECT_FALSE(pm->getFolder("definitely-not-a-known-key").empty());
+}
+
+TEST_F(PathManagerTest, OverrideValuesCanBeTemplates) {
+  // boot.ini admins may write shared-path = ${common-appdata}/NSClient++ and
+  // expect downstream tokens to chain. The recursive expander handles this.
+  pm->set_overrides({{"certificate-path", "${base-path}/custom-sec"}});
+  const std::string expanded = pm->expand_path("${certificate-path}");
+  EXPECT_EQ(expanded.find("${"), std::string::npos);
+  EXPECT_NE(expanded.find("custom-sec"), std::string::npos);
+}

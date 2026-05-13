@@ -5,8 +5,6 @@
 #include <parsers/expression/expression.hpp>
 #include <str/utf8.hpp>
 
-#include "../libs/settings_manager/settings_manager_impl.h"
-
 #ifdef WIN32
 #include <win/shellapi.hpp>
 #endif
@@ -39,13 +37,10 @@ boost::filesystem::path nsclient::core::path_manager::getBasePath() {
     return basePath;
   }
   basePath = get_exe_path();
-  try {
-    settings_manager::get_core()->set_base(basePath);
-  } catch (settings::settings_exception &e) {
-    LOG_ERROR_CORE_STD("Failed to set settings file: " + utf8::utf8_from_native(e.what()));
-  } catch (...) {
-    LOG_ERROR_CORE("Failed to set settings file");
-  }
+  // Note: init_settings() pushes this same value into the settings core via
+  // set_base(provider->expand_path("${base-path}")) right after construction.
+  // No need to duplicate that call here - keeps path_manager free of any
+  // settings_manager dependency.
   return basePath;
 }
 
@@ -75,102 +70,49 @@ boost::filesystem::path nsclient::core::path_manager::get_app_data_path() {
 }
 
 std::string nsclient::core::path_manager::get_path_for_key(const std::string &key) {
-  if (key == "certificate-path") {
-    return CERT_FOLDER;
-  }
-  if (key == "ca-path") {
-    // Default trusted-CA bundle. On Windows the service exports the system
-    // ROOT store to this file at boot (see windows_ca_store). On Linux we
-    // point at the de-facto Debian/Ubuntu location; operators on other
-    // distros (or who manage their own bundle) can override this in
-    // [/paths] without touching every module.
+  // Dynamic lookups that need member state or runtime OS calls.
+  if (key == "base-path" || key == "exe-path") return getBasePath().string();
+  if (key == "temp") return getTempPath().string();
 #ifdef WIN32
-    return "${certificate-path}/windows-ca.pem";
-#else
-    return "/etc/ssl/certs/ca-certificates.crt";
+  if (key == "shared-path") return getBasePath().string();
+  if (key == "data-path" || key == "appdata") return shellapi::get_special_folder_path(CSIDL_APPDATA, getBasePath()).string();
+  if (key == "common-appdata") return shellapi::get_special_folder_path(CSIDL_COMMON_APPDATA, getBasePath()).string();
 #endif
-  }
-  if (key == "module-path") {
-    return MODULE_FOLDER;
-  }
-  if (key == "web-path") {
-    return WEB_FOLDER;
-  }
-  if (key == "scripts") {
-    return SCRIPTS_FOLDER;
-  }
-  if (key == "log-path") {
-    return LOG_FOLDER;
-  }
-  if (key == CACHE_FOLDER_KEY) {
-    return DEFAULT_CACHE_PATH;
-  }
-  if (key == CRASH_ARCHIVE_FOLDER_KEY) {
-    return "${shared-path}/crash-dumps";
-  }
-  if (key == "base-path") {
-    return getBasePath().string();
-  }
-  if (key == "temp") {
-    return getTempPath().string();
-  }
-  if (key == "shared-path") {
+
+  // Static defaults baked in by CMake via config.h. Most are templated on
+  // ${shared-path} or ${certificate-path}; expand_path resolves the chain.
+  // Note on ca-path: on Windows the service exports the system ROOT store to
+  // this file at boot (see windows_ca_store); on Linux this is the de-facto
+  // Debian/Ubuntu location, overridable via [/paths] for other distros.
+  static const std::map<std::string, std::string> defaults = {
+      {"certificate-path", CERT_FOLDER},
+      {"module-path", MODULE_FOLDER},
+      {"web-path", WEB_FOLDER},
+      {"scripts", SCRIPTS_FOLDER},
+      {"log-path", LOG_FOLDER},
+      {CACHE_FOLDER_KEY, DEFAULT_CACHE_PATH},
+      {CRASH_ARCHIVE_FOLDER_KEY, "${shared-path}/crash-dumps"},
 #ifdef WIN32
-    return getBasePath().string();
+      {"ca-path", "${certificate-path}/windows-ca.pem"},
 #else
-    return UNIX_SHARED_PATH_FOLDER;
+      {"ca-path", "/etc/ssl/certs/ca-certificates.crt"},
+      {"shared-path", UNIX_SHARED_PATH_FOLDER},
+      {"data-path", UNIX_DATA_PATH_FOLDER},
+      {"etc", "/etc"},
 #endif
-  }
-  if (key == "base-path" || key == "exe-path") {
-    return getBasePath().string();
-  }
-  if (key == "data-path") {
-#ifdef WIN32
-    return shellapi::get_special_folder_path(CSIDL_APPDATA, getBasePath()).string();
-#else
-    return UNIX_DATA_PATH_FOLDER;
-#endif
-#ifdef WIN32
-  }
-  if (key == "common-appdata") {
-    return shellapi::get_special_folder_path(CSIDL_COMMON_APPDATA, getBasePath()).string();
-  }
-  if (key == "appdata") {
-    return shellapi::get_special_folder_path(CSIDL_APPDATA, getBasePath()).string();
-#else
-  } else if (key == "etc") {
-    return "/etc";
-#endif
-  }
+  };
+
+  const auto it = defaults.find(key);
+  if (it != defaults.end()) return it->second;
   return getBasePath().string();
 }
 
-std::string nsclient::core::path_manager::getFolder(const std::string &key) {
-  {
-    const boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-    if (lock.owns_lock()) {
-      const auto p = paths_cache_.find(key);
-      if (p != paths_cache_.end()) {
-        return p->second;
-      }
-    }
-  }
+void nsclient::core::path_manager::set_overrides(paths_type overrides) { overrides_ = std::move(overrides); }
 
-  const auto default_value = get_path_for_key(key);
-  try {
-    if (settings_manager::get_core()->is_ready()) {
-      std::string path = settings_manager::get_settings()->get_string(CONFIG_PATHS, key, default_value);
-      settings_manager::get_core()->register_key(0xffff, CONFIG_PATHS, key, "file", "Path for " + key, "", default_value, false, false);
-      paths_cache_[key] = path;
-      return path;
-    } else {
-      LOG_DEBUG_CORE("Settings not ready so we cant lookup: " + key);
-    }
-  } catch (const settings::settings_exception &) {
-    // TODO: Maybe this should be fixed!
-    paths_cache_[key] = default_value;
-  }
-  return default_value;
+std::string nsclient::core::path_manager::getFolder(const std::string &key) {
+  const auto it = overrides_.find(key);
+  if (it != overrides_.end()) return it->second;
+  return get_path_for_key(key);
 }
 
 std::string nsclient::core::path_manager::expand_path(std::string file) { return expand_path_impl(std::move(file), 0); }
