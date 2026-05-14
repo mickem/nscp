@@ -61,14 +61,12 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
   root_path.add_path()("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias());
 
   root_path.add_key()
-      .add_string("file", sh::string_fun_key([this](auto key) { this->set_file(key); }), "FILE",
-                  "The eventlog record to filter on (if set to 'all' means all enabled logs)", false)
+      .add_string("file", sh::string_fun_key([this](auto key) { this->set_file(key); }), "FILE", "The file check", false)
 
-      .add_string("files", sh::string_fun_key([this](auto key) { this->set_files(key); }), "FILES",
-                  "The eventlog record to filter on (if set to 'all' means all enabled logs)", true)
+      .add_string("files", sh::string_fun_key([this](auto key) { this->set_files(key); }), "FILES", "Check multiple files", true)
 
       .add_string("column split", nscapi::settings_helper::string_key(&column_split), "COLUMN SPLIT", "THe character(s) to use when splitting on column level",
-                  !is_default)
+                  false)
 
       .add_string("column-split", nscapi::settings_helper::string_key(&column_split), "COLUMN SPLIT", "Alias for column split", true)
 
