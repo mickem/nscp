@@ -446,7 +446,7 @@ struct operator_not_in : simple_bool_binary_operator_impl {
     const value_container lhs = left->get_value(context, type_int);
     if (nil_lhs_unsure(lhs, type_int, context)) return value_container::create_int(false, /*is_unsure=*/true);
     const long long val = lhs.get_int();
-    for (const node_type itm : right->get_list_value(context)) {
+    for (const node_type& itm : right->get_list_value(context)) {
       if (itm->get_int_value(context) == val) return value_container::create_int(false, lhs.is_unsure);
     }
     return value_container::create_int(true, lhs.is_unsure);
@@ -455,7 +455,7 @@ struct operator_not_in : simple_bool_binary_operator_impl {
     const value_container lhs = left->get_value(context, type_float);
     if (nil_lhs_unsure(lhs, type_float, context)) return value_container::create_int(false, /*is_unsure=*/true);
     const double val = lhs.get_float();
-    for (const node_type itm : right->get_list_value(context)) {
+    for (const node_type& itm : right->get_list_value(context)) {
       if (itm->get_float_value(context) == val) return value_container::create_int(false, lhs.is_unsure);
     }
     return value_container::create_int(true, lhs.is_unsure);
@@ -464,7 +464,7 @@ struct operator_not_in : simple_bool_binary_operator_impl {
     const value_container lhs = left->get_value(context, type_string);
     if (nil_lhs_unsure(lhs, type_string, context)) return value_container::create_int(false, /*is_unsure=*/true);
     const std::string val = lhs.get_string();
-    for (const node_type itm : right->get_list_value(context)) {
+    for (const node_type& itm : right->get_list_value(context)) {
       if (itm->get_string_value(context) == val) return value_container::create_int(false, lhs.is_unsure);
     }
     return value_container::create_int(true, lhs.is_unsure);

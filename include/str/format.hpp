@@ -414,7 +414,7 @@ std::string format_byte_units(T value, std::string unit) {
     ss << cpy;
     return ss.str();
   }
-  for (int i = 0; i < BKMG_SIZE; i++) {
+  for (std::size_t i = 0; i < BKMG_SIZE; i++) {
     if (unit[0] == BKMG_RANGE[i]) {
       ss << std::setiosflags(std::ios::fixed) << std::setprecision(3) << cpy;
       std::string s = ss.str();
