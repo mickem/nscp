@@ -269,6 +269,10 @@ bool NSClientT::load_configuration_2(const bool override_log) {
 }
 bool NSClientT::boot_load_active_plugins() {
   try {
+    // Permissions sit on the request-dispatch path inside the plugin
+    // manager, so they need to be loaded BEFORE any plugin can run a
+    // command. Load order is settings -> permissions -> plugins.
+    plugins_->load_permissions();
     plugins_->load_active_plugins();
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("Exception loading modules: " + utf8::utf8_from_native(e.what()));
@@ -406,6 +410,11 @@ bool NSClientT::do_reload(const std::string module) {
   if (module == "settings") {
     try {
       settings_manager::get_settings()->clear_cache();
+      // Re-read permission policies from the refreshed settings store so
+      // operators can adjust rules without a full service reload. Plugin
+      // configs are reloaded via the per-plugin loadModuleEx path; this
+      // catches the core-side state.
+      plugins_->load_permissions();
       return true;
     } catch (const std::exception &e) {
       LOG_ERROR_CORE_STD("Exception raised when reloading: " + utf8::utf8_from_native(e.what()));

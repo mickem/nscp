@@ -43,12 +43,122 @@ A quick breakdown of the options:
 
 ## NRDP
 
-> TODO: Add example of configuring TLS
+NRDP is an HTTP-based **passive** submission protocol (typically Nagios XI). The agent is the *client* — it does not
+accept incoming NRDP traffic. Securing NRDP therefore means:
 
-## Http(s)/TLS
+1. Make sure the agent talks to the NRDP server over HTTPS.
+2. Keep the shared token out of cleartext config.
+3. Restrict which checks may be relayed through NRDP using the [Permission policy](#permission-policy) so a
+   compromised caller cannot use the relay to flood the upstream monitor.
 
-> TODO: Add example of configuring TLS
-> TODO: Add example of configuring permissions
+There is no `nscp nrdp install` command — NRDP is configured by editing the target block. A minimal hardened target:
+
+```ini
+[/modules]
+NRDPClient = enabled
+
+[/settings/NRDP/client/targets/default]
+; Always use https - the token is sent on the wire.
+address  = https://nagios.example.com/nrdp/
+ssl      = true
+; Token / password are the same thing in NRDP - either key works.
+; Move this into credential manager (see Passwords above) so it is not in
+; cleartext beside the config.
+token    = $CRED$
+```
+
+After editing, apply with:
+
+```commandline
+$ nscp settings --update
+```
+
+If you want to verify a target before relying on it, submit a synthetic passive result with:
+
+```commandline
+$ nscp nrdp --module submit --target default --host myhost --command check_ok --message "test"
+```
+
+## Http/Https/WebServer
+
+The WEB module exposes the REST API and the web UI over HTTP or HTTPS on port `8443` by default. In any production
+deployment you want HTTPS, a dedicated non-admin user for the monitoring server, and (where possible) the built-in
+`admin` account disabled.
+
+### Install with HTTPS from the command line
+
+The fastest way to get a hardened install is the WEB module's own install command:
+
+```commandline
+$ nscp web install ^
+    --https ^
+    --allowed-hosts 10.0.0.0/24 ^
+    --certificate nsclient.pem ^
+    --certificate-key nsclient.key ^
+    --port 8443
+```
+
+A quick breakdown of the options:
+
+* `--https`: Enable HTTPS (without this it serves cleartext on port 8080).
+* `--allowed-hosts`: CIDR or comma-separated list of source IPs allowed to connect.
+* `--certificate` / `--certificate-key`: TLS server cert and private key.
+* `--port`: Listening port (default `8443`).
+* `--password`: Admin password. If omitted, a random one is generated and printed.
+* `--disable-admin`: Lock out the built-in admin user — no admin row is created, the REST script-upload endpoint
+  becomes unreachable. Recommended for monitoring-only deployments. Mutually exclusive with `--password`; create a
+  dedicated user separately (see below).
+
+For a monitoring-only deployment (no remote reconfiguration through the WEB UI), combine `--disable-admin` with a
+dedicated user:
+
+```commandline
+$ nscp web install ^
+    --https ^
+    --allowed-hosts 10.0.0.0/24 ^
+    --certificate nsclient.pem ^
+    --certificate-key nsclient.key ^
+    --disable-admin
+$ nscp web add-user monitoring --role monitoring --password "<strong password>"
+```
+
+### Adding a dedicated user
+
+`nscp web add-user` creates or updates a per-user row under `[/settings/WEB/server/users/<name>]`:
+
+```commandline
+$ nscp web add-user monitoring --role monitoring --password "<strong password>"
+$ nscp web add-user dashboard  --role client
+```
+
+Options:
+
+* `--user`: The username (positional `<name>` also works).
+* `--password`: Plaintext password. Hashed before being written to the config. If omitted, a random one is generated
+  and printed once — copy it then.
+* `--role`: Built-in roles shipped by the module:
+    * `monitoring` — `queries.execute, login.get, metrics.get`. Recommended for monitoring servers and Prometheus
+      scrapes.
+    * `client` — adds query listing; needed for the legacy `check_nscp_api` integration.
+    * `full` — admin (settings, modules, scripts). Avoid for monitoring callers.
+* `--grant`: Additional grants beyond the role (see `add-role` to define new roles).
+
+Move the per-user passwords into the credential manager rather than leaving them in the INI; see the Passwords section
+below.
+
+### Locking down which commands the web user can run
+
+The role controls *which REST endpoints* a user can hit. To control *which check commands* the user is allowed to
+invoke through `/queries/{command}/commands/execute`, layer the [Permission policy](#permission-policy) on top:
+
+```
+[/settings/permissions/policies]
+WEBServer:admin      = *
+WEBServer:monitoring = CheckSystem.check_cpu, CheckSystem.check_drivesize, CheckDisk.check_drivesize
+```
+
+For deeper coverage of the WEB module's attack surface — including the `--disable-admin` trade-off and the
+`scripts_controller` endpoint — see the [WEB module](#web-module) section further down.
 
 ## User account
 
@@ -141,6 +251,55 @@ To restore passwords you can do the reverse:
 PsExec -i -s "c:\program files\nsclient++\nscp" settings --path /settings --key "use credential manager" --set false
 PsExec -i -s "c:\program files\nsclient++\nscp" settings --update
 ```
+
+## Permission policy
+
+NSClient++ has a core-level permission layer that decides whether a given caller may run a given command. It is
+**disabled by default** for backwards compatibility, but in any deployment that exposes more than one transport — or
+that wants to limit what individual web users can do — enabling it is **strongly recommended** and is the single
+biggest hardening step you can take after TLS.
+
+The rest of this page focuses on transport-level controls (who can connect, with what credential). The permission
+policy is the *next* layer: once the caller is authenticated, **what commands are they allowed to run?** Without it,
+any caller that can reach a transport can invoke every command that module exposes.
+
+When enabled, the policy is a **strict allow-list** — calls that don't match any rule are denied. Rules name a subject
+(the calling module, optionally with a principal such as the authenticated web user) and a list of objects (the
+`module.command` patterns they may invoke). Identity is stamped server-side by the trusted core; modules cannot forge
+it. `CheckHelpers` forwards the original caller through wrap-and-dispatch commands so policies apply through proxy
+chains, not just at the outermost hop.
+
+A minimal hardened policy:
+
+```ini
+[/settings/permissions]
+enabled = true
+log denials = true
+
+[/settings/permissions/policies]
+; NRPE may run a small fixed set of checks.
+NRPEServer = CheckHelpers.*, CheckSystem.check_cpu, CheckSystem.check_drivesize, CheckDisk.check_drivesize
+
+; Scheduler runs whatever the operator configures locally.
+Scheduler = *
+
+; Web admin can do anything; web monitoring user can only run a fixed set.
+WEBServer : admin   = *
+WEBServer : monitor = CheckSystem.check_cpu, CheckSystem.check_drivesize, CheckDisk.check_drivesize
+```
+
+### Recommended rollout
+
+1. Enable in **observe mode** first: set `enabled = true`, add a single permissive rule `* = *`, and set
+   `log allows = true`. NSClient++ now logs every call without blocking anything — use this to inventory what
+   actually runs.
+2. Replace `* = *` with rules that mirror the observed traffic.
+3. Turn `log allows` back off (it is noisy) and keep `log denials = true`.
+4. Test through proxy commands such as `check_multi` and `check_always_ok` to confirm policies still apply to the
+   wrapped command (they do — `CheckHelpers` forwards the original caller).
+
+See [Permissions](../concepts/permissions.md) for the full reference: identity model, which modules stamp what,
+pattern syntax, the worked `CheckHelpers` example, and the detailed step-by-step setup guide.
 
 ## Remote code execution: understanding the attack surface
 
@@ -248,6 +407,10 @@ The module becomes a real risk in these scenarios — none of which are about th
   `allow nasty characters = true` unless you fully trust both the calling monitoring server and every script the agent
   might invoke.
 
+Enabling the [permission policy](#permission-policy) is an effective additional layer here: even if a caller can reach
+the transport, the policy decides whether `CheckExternalScripts.*` is callable from that subject at all, and you can
+limit specific subjects to a small fixed set of script aliases.
+
 ### WEB module
 
 The WEB module serves two distinct purposes, and the security guidance depends on which one you actually need:
@@ -353,6 +516,8 @@ If two-way TLS is not yet in place, the compensating controls are:
 - Use aliases (above) for any check that needs varying thresholds, instead of accepting arguments from the network.
 - Restrict the network path to the agent (host firewall, dedicated VLAN, jump host).
 - Treat `allowed hosts` as a defence-in-depth aid, not a security control.
+- Enable the [permission policy](#permission-policy) and restrict `NRPEServer` to the exact list of commands the
+  monitoring server actually invokes — this caps the blast radius even if a caller bypasses transport controls.
 
 ### Quick checklist
 
@@ -369,3 +534,4 @@ If two-way TLS is not yet in place, the compensating controls are:
 | `WEBServer` module                              | optional      | leave disabled if not actively used; tight ACLs and TLS if used          |
 | `WEBServer` `disable admin user`                | `false`       | `true` if the WEB module is used only for monitoring, never for admin    |
 | Service account                                 | `LocalSystem` | dedicated low-privilege account with only the access your checks require |
+| Permission policy (`/settings/permissions`)     | disabled      | enable in observe mode, lock down to per-subject allow-list              |

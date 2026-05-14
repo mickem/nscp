@@ -36,6 +36,24 @@ void legacy_command_controller::handle_query(Mongoose::Request &request, boost::
       payload->add_arguments(e.first + "=" + e.second);
   }
 
+  // Stamp the caller identity onto the request so the core permission
+  // layer can see who's asking. plugin_id is WEBServer; the principal is
+  // the authenticated user from the session cookie. Same metadata keys
+  // core_helper::simple_query_as uses, kept in lockstep with the
+  // decision point in service/plugins/plugin_manager.cpp.
+  {
+    std::string user, token;
+    session_manager_interface::get_user_from_response(http_response, user, token);
+    auto *meta_plugin = rm.mutable_header()->add_metadata();
+    meta_plugin->set_key("nscp.caller_plugin_id");
+    meta_plugin->set_value(std::to_string(plugin_id));
+    if (!user.empty()) {
+      auto *meta_user = rm.mutable_header()->add_metadata();
+      meta_user->set_key("nscp.principal");
+      meta_user->set_value(user);
+    }
+  }
+
   std::string pb_response, json_response;
   core->query(rm.SerializeAsString(), pb_response);
   PB::Commands::QueryResponseMessage response;

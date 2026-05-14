@@ -85,3 +85,18 @@ target_link_libraries(
 )
 
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
+
+# Test for the parse-strip-restamp helper used by command_wrapper::query.
+# The helper only depends on protobuf - no Python, no Boost.Python - so
+# the test target is independent of the module build.
+NSCP_CREATE_TEST(
+    PythonScript_test
+    SOURCES
+        script_identity_test.cpp
+        script_identity.hpp
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)

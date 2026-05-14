@@ -23,6 +23,7 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_copy.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
@@ -31,6 +32,7 @@
 #include <str/utf8.hpp>
 
 #include "PythonScript.h"
+#include "script_identity.hpp"
 
 namespace py = boost::python;
 
@@ -823,6 +825,7 @@ py::tuple script_wrapper::command_wrapper::query(std::string command, py::object
     if (req.empty()) {
       return py::make_tuple(false, "Failed to parse request");
     }
+    req = restamp_caller_plugin_id(req, plugin_id);
     ret = core->query(req, response);
   }
   return py::make_tuple(ret, pybuf(response));

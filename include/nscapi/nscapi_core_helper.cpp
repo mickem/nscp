@@ -26,6 +26,7 @@
 #include <nscapi/protobuf/functions_submit.hpp>
 #include <nscapi/protobuf/storage.hpp>
 #include <str/utf8.hpp>
+#include <str/xtos.hpp>
 
 #define CORE_LOG_ERROR(msg) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, msg);
 #define CORE_LOG_ERROR_EX(msg) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Exception in: " + msg);
@@ -45,7 +46,6 @@ nscapi::core_helper::storage_map nscapi::core_helper::get_storage_strings(std::s
   PB::Storage::StorageRequestMessage::Request *payload = rrm.add_payload();
 
   payload->mutable_get()->set_context(context);
-  // payload->mutable_put()->mutable_entry()->set_key(context);
   std::string buffer;
   get_core()->storage_query(rrm.SerializeAsString(), buffer);
 
@@ -126,9 +126,8 @@ bool nscapi::core_helper::unload_module(std::string name) {
   for (const ::PB::Registry::RegistryResponseMessage_Response &response_payload : resp_msg.payload()) {
     if (response_payload.result().code() == PB::Common::Result_StatusCodeType_STATUS_OK) {
       return true;
-    } else {
-      CORE_LOG_ERROR("Failed to load " + name + ": " + response_payload.result().message());
     }
+    CORE_LOG_ERROR("Failed to load " + name + ": " + response_payload.result().message());
   }
   return false;
 }
@@ -146,10 +145,10 @@ bool nscapi::core_helper::submit_simple_message(const std::string channel, const
 
   PB::Commands::QueryResponseMessage::Response *payload = request_message.add_payload();
   payload->set_command(command);
-  payload->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(code));
+  payload->set_result(protobuf::functions::nagios_status_to_gpb(code));
   PB::Commands::QueryResponseMessage::Response::Line *line = payload->add_lines();
   line->set_message(message);
-  if (!perf.empty()) nscapi::protobuf::functions::parse_performance_data(line, perf);
+  if (!perf.empty()) protobuf::functions::parse_performance_data(line, perf);
 
   request_message.SerializeToString(&request);
 
@@ -157,7 +156,7 @@ bool nscapi::core_helper::submit_simple_message(const std::string channel, const
     response = "Failed to submit message: " + channel;
     return false;
   }
-  nscapi::protobuf::functions::parse_simple_submit_response(buffer, response);
+  protobuf::functions::parse_simple_submit_response(buffer, response);
   return true;
 }
 
@@ -231,7 +230,7 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command
   simple_query(command, argument, response);
   if (!response.empty()) {
     try {
-      return nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf, max_length);
+      return protobuf::functions::parse_simple_query_response(response, msg, perf, max_length);
     } catch (std::exception &e) {
       CORE_LOG_ERROR_EXR("Failed to extract return message: ", e);
       return NSCAPI::query_return_codes::returnUNKNOWN;
@@ -240,12 +239,78 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command
   return NSCAPI::query_return_codes::returnUNKNOWN;
 }
 
+namespace {
+// Build a QueryRequestMessage with the caller plugin_id (and optional
+// principal) stamped into header.metadata, where the core permission
+// system can read them. Keys are namespaced with `nscp.` so they don't
+// collide with user-defined metadata that scripts may add.
+//
+// The plugin_id is stamped as a numeric string and resolved to the
+// module name by plugin_manager via plugin_cache (trusted). This means
+// the calling module cannot lie about its identity: core_helper
+// unconditionally stamps the real plugin_id_, and string-substitution
+// is done server-side using the trusted plugin registry.
+template <class Args>
+void build_simple_query_request_impl(int plugin_id, const std::string &principal, const std::string &command, const Args &arguments, std::string &buffer) {
+  PB::Commands::QueryRequestMessage message;
+  auto *payload = message.add_payload();
+  payload->set_command(command);
+  for (const std::string &s : arguments) {
+    payload->add_arguments(s);
+  }
+  // Stamp the caller identity. plugin_manager extracts these via
+  // extract_subject_from_header() in service/plugins/plugin_manager.cpp.
+  auto *meta_plugin = message.mutable_header()->add_metadata();
+  meta_plugin->set_key("nscp.caller_plugin_id");
+  meta_plugin->set_value(str::xtos(plugin_id));
+  if (!principal.empty()) {
+    auto *meta_principal = message.mutable_header()->add_metadata();
+    meta_principal->set_key("nscp.principal");
+    meta_principal->set_value(principal);
+  }
+  message.SerializeToString(&buffer);
+}
+}  // namespace
+
+void nscapi::request_builder::build_simple_query_request(int plugin_id, const std::string &principal, const std::string &command,
+                                                         const std::list<std::string> &arguments, std::string &buffer) {
+  build_simple_query_request_impl(plugin_id, principal, command, arguments, buffer);
+}
+void nscapi::request_builder::build_simple_query_request(int plugin_id, const std::string &principal, const std::string &command,
+                                                         const std::vector<std::string> &arguments, std::string &buffer) {
+  build_simple_query_request_impl(plugin_id, principal, command, arguments, buffer);
+}
+
+void nscapi::request_builder::build_query_request_on_behalf_of(const std::string &caller_plugin_id_str, const std::string &principal,
+                                                               const std::string &command, const std::list<std::string> &arguments, std::string &buffer) {
+  PB::Commands::QueryRequestMessage message;
+  auto *payload = message.add_payload();
+  payload->set_command(command);
+  for (const std::string &s : arguments) payload->add_arguments(s);
+  if (!caller_plugin_id_str.empty()) {
+    auto *m = message.mutable_header()->add_metadata();
+    m->set_key("nscp.caller_plugin_id");
+    m->set_value(caller_plugin_id_str);
+  }
+  if (!principal.empty()) {
+    auto *m = message.mutable_header()->add_metadata();
+    m->set_key("nscp.principal");
+    m->set_value(principal);
+  }
+  message.SerializeToString(&buffer);
+}
+
 bool nscapi::core_helper::simple_query(const std::string command, const std::list<std::string> &arguments, std::string &result) {
   std::string request;
   try {
-    nscapi::protobuf::functions::create_simple_query_request(command, arguments, request);
+    // Stamp the caller plugin_id unconditionally - the core permission
+    // layer needs it to attribute the call to the calling module
+    // (NRPEServer, Scheduler, PythonScript, etc.). Principal is empty
+    // here; callers that know a sub-identity use simple_query_as
+    // instead.
+    request_builder::build_simple_query_request(plugin_id_, "", command, arguments, request);
   } catch (std::exception &e) {
-    CORE_LOG_ERROR_EXR("Failed to extract return message: ", e);
+    CORE_LOG_ERROR_EXR("Failed to build query request: ", e);
     return NSCAPI::query_return_codes::returnUNKNOWN;
   }
   return get_core()->query(request, result);
@@ -253,10 +318,89 @@ bool nscapi::core_helper::simple_query(const std::string command, const std::lis
 bool nscapi::core_helper::simple_query(const std::string command, const std::vector<std::string> &arguments, std::string &result) {
   std::string request;
   try {
-    nscapi::protobuf::functions::create_simple_query_request(command, arguments, request);
+    request_builder::build_simple_query_request(plugin_id_, "", command, arguments, request);
   } catch (std::exception &e) {
-    CORE_LOG_ERROR_EXR("Failed to extract return message", e);
+    CORE_LOG_ERROR_EXR("Failed to build query request: ", e);
     return NSCAPI::query_return_codes::returnUNKNOWN;
+  }
+  return get_core()->query(request, result);
+}
+
+NSCAPI::nagiosReturn nscapi::core_helper::simple_query_as(const std::string &principal, const std::string command, const std::list<std::string> &argument,
+                                                          std::string &msg, std::string &perf, std::size_t max_length) {
+  std::string request;
+  try {
+    request_builder::build_simple_query_request(plugin_id_, principal, command, argument, request);
+  } catch (std::exception &e) {
+    CORE_LOG_ERROR_EXR("Failed to build query request: ", e);
+    return NSCAPI::query_return_codes::returnUNKNOWN;
+  }
+  std::string response;
+  get_core()->query(request, response);
+  if (!response.empty()) {
+    try {
+      return protobuf::functions::parse_simple_query_response(response, msg, perf, max_length);
+    } catch (std::exception &e) {
+      CORE_LOG_ERROR_EXR("Failed to extract return message: ", e);
+      return NSCAPI::query_return_codes::returnUNKNOWN;
+    }
+  }
+  return NSCAPI::query_return_codes::returnUNKNOWN;
+}
+
+bool nscapi::core_helper::simple_query_as(const std::string &principal, const std::string command, const std::list<std::string> &arguments,
+                                          std::string &result) {
+  std::string request;
+  try {
+    request_builder::build_simple_query_request(plugin_id_, principal, command, arguments, request);
+  } catch (std::exception &e) {
+    CORE_LOG_ERROR_EXR("Failed to build query request: ", e);
+    return false;
+  }
+  return get_core()->query(request, result);
+}
+
+NSCAPI::nagiosReturn nscapi::core_helper::simple_query_on_behalf_of(const std::string &caller_plugin_id_str, const std::string &principal,
+                                                                    const std::string command, const std::list<std::string> &argument, std::string &msg,
+                                                                    std::string &perf, std::size_t max_length) {
+  std::string request;
+  try {
+    // Empty caller_plugin_id_str -> fall back to our own. Lets proxy
+    // modules pass through whatever metadata they extracted from the
+    // inbound request without having to special-case "no upstream
+    // identity available" in every call site.
+    if (caller_plugin_id_str.empty())
+      request_builder::build_simple_query_request(plugin_id_, principal, command, argument, request);
+    else
+      request_builder::build_query_request_on_behalf_of(caller_plugin_id_str, principal, command, argument, request);
+  } catch (std::exception &e) {
+    CORE_LOG_ERROR_EXR("Failed to build query request: ", e);
+    return NSCAPI::query_return_codes::returnUNKNOWN;
+  }
+  std::string response;
+  get_core()->query(request, response);
+  if (!response.empty()) {
+    try {
+      return protobuf::functions::parse_simple_query_response(response, msg, perf, max_length);
+    } catch (std::exception &e) {
+      CORE_LOG_ERROR_EXR("Failed to extract return message: ", e);
+      return NSCAPI::query_return_codes::returnUNKNOWN;
+    }
+  }
+  return NSCAPI::query_return_codes::returnUNKNOWN;
+}
+
+bool nscapi::core_helper::simple_query_on_behalf_of(const std::string &caller_plugin_id_str, const std::string &principal, const std::string command,
+                                                    const std::list<std::string> &arguments, std::string &result) {
+  std::string request;
+  try {
+    if (caller_plugin_id_str.empty())
+      request_builder::build_simple_query_request(plugin_id_, principal, command, arguments, request);
+    else
+      request_builder::build_query_request_on_behalf_of(caller_plugin_id_str, principal, command, arguments, request);
+  } catch (std::exception &e) {
+    CORE_LOG_ERROR_EXR("Failed to build query request: ", e);
+    return false;
   }
   return get_core()->query(request, result);
 }
@@ -271,7 +415,7 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query_from_nrpe(const std::stri
   simple_query(command, arglist, response);
   if (!response.empty()) {
     try {
-      return nscapi::protobuf::functions::parse_simple_query_response(response, message, perf, max_length);
+      return protobuf::functions::parse_simple_query_response(response, message, perf, max_length);
     } catch (std::exception &e) {
       CORE_LOG_ERROR_EXR("Failed to extract return message: ", e);
       return NSCAPI::query_return_codes::returnUNKNOWN;
@@ -283,9 +427,9 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query_from_nrpe(const std::stri
 NSCAPI::nagiosReturn nscapi::core_helper::exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument,
                                                               std::list<std::string> &result) {
   std::string request, response;
-  nscapi::protobuf::functions::create_simple_exec_request(target, command, argument, request);
+  protobuf::functions::create_simple_exec_request(target, command, argument, request);
   get_core()->exec_command(target, request, response);
-  return nscapi::protobuf::functions::parse_simple_exec_response(response, result);
+  return protobuf::functions::parse_simple_exec_response(response, result);
 }
 
 void nscapi::core_helper::register_command(std::string command, std::string description, std::list<std::string> aliases) {
