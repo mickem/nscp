@@ -26,6 +26,7 @@
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/log.hpp>
 #include <nscapi/protobuf/metrics.hpp>
+#include <nscapi/settings/kvp_map.hpp>
 
 #include "error_handler_interface.hpp"
 #include "event_store.hpp"
@@ -33,7 +34,7 @@
 #include "user_config.hpp"
 
 class WEBServer : public nscapi::impl::simple_plugin {
-  typedef std::map<std::string, std::string> role_map;
+  using role_map = nscapi::settings::kvp_map<std::string>;
 
  public:
   WEBServer();

@@ -771,30 +771,6 @@ Aliases are also available in CheckExternalScripts under [/settings/external scr
 This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
 
 
-**Keys:**
-
-
-| Key         | Default Value | Description |
-|-------------|---------------|-------------|
-| alias       |               | ALIAS       |
-| command     |               | COMMAND     |
-| is template | false         | IS TEMPLATE |
-| parent      | default       | PARENT      |
-
-
-**Sample:**
-
-```ini
-# An example of a Command aliases section
-[/settings/check helpers/alias/sample]
-#alias=...
-#command=...
-is template=false
-parent=default
-
-```
-
-
 
 
 
