@@ -1,47 +1,17 @@
-import { useEffect, useMemo, useReducer, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Box, Card, CardContent, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import { LineChart } from "@mui/x-charts/LineChart";
 import { Metric } from "../metric_parser.ts";
 import type { ComponentProps } from "react";
 import { useAppDispatch, useAppSelector } from "../store/store.ts";
-import { setSelectedNic } from "../common/dashboardSlice.ts";
+import { pushNetwork, setSelectedNic } from "../common/dashboardSlice.ts";
 
 function scaleUnit(bytesPerSec: number[]): { label: string; divisor: number } {
   const max = Math.max(...bytesPerSec);
   if (max >= 1024 * 1024) return { label: "MB/s", divisor: 1024 * 1024 };
   if (max >= 1024) return { label: "KB/s", divisor: 1024 };
   return { label: "B/s", divisor: 1 };
-}
-
-interface NetworkHistory {
-  bytesReceived: number[];
-  bytesSent: number[];
-}
-
-type NetworkAction =
-  | { type: "push"; received?: number; sent?: number; historySize: number }
-  | { type: "reset"; historySize: number };
-
-function networkReducer(state: NetworkHistory, action: NetworkAction): NetworkHistory {
-  switch (action.type) {
-    case "push":
-      return {
-        bytesReceived:
-          action.received !== undefined
-            ? [...state.bytesReceived, action.received].slice(-action.historySize)
-            : state.bytesReceived,
-        bytesSent:
-          action.sent !== undefined
-            ? [...state.bytesSent, action.sent].slice(-action.historySize)
-            : state.bytesSent,
-      };
-    case "reset":
-      return {
-        bytesReceived: Array(action.historySize).fill(0),
-        bytesSent: Array(action.historySize).fill(0),
-      };
-  }
 }
 
 interface NetworkWidgetProps {
@@ -51,14 +21,11 @@ interface NetworkWidgetProps {
   historySize: number;
 }
 
-export default function NetworkWidget({ metrics, fulfilledTimeStamp, xAxis, historySize }: NetworkWidgetProps) {
+export default function NetworkWidget({ metrics, fulfilledTimeStamp, xAxis }: NetworkWidgetProps) {
   const dispatch = useAppDispatch();
   const userSelectedNic = useAppSelector((state) => state.dashboard.selectedNic);
+  const history = useAppSelector((state) => state.dashboard.networkHistory);
   const prevTimestampRef = useRef(fulfilledTimeStamp);
-  const [history, dispatchHistory] = useReducer(networkReducer, historySize, (size) => ({
-    bytesReceived: Array(size).fill(0),
-    bytesSent: Array(size).fill(0),
-  }));
 
   const networkCards = useMemo(() => {
     const cards = new Map<string, string>();
@@ -88,20 +55,17 @@ export default function NetworkWidget({ metrics, fulfilledTimeStamp, xAxis, hist
           (m) => m.instance === selectedNic && m.metric === "BytesSentPersec",
         );
         if (receivedMetric || sentMetric) {
-          dispatchHistory({
-            type: "push",
+          dispatch(pushNetwork({
             received: receivedMetric ? (receivedMetric.value as number) : undefined,
             sent: sentMetric ? (sentMetric.value as number) : undefined,
-            historySize,
-          });
+          }));
         }
       }
     }
-  }, [fulfilledTimeStamp, metrics, historySize, selectedNic]);
+  }, [fulfilledTimeStamp, metrics, selectedNic, dispatch]);
 
   const handleNicChange = (event: SelectChangeEvent) => {
     dispatch(setSelectedNic(event.target.value));
-    dispatchHistory({ type: "reset", historySize });
     prevTimestampRef.current = undefined;
   };
 
@@ -151,4 +115,3 @@ export default function NetworkWidget({ metrics, fulfilledTimeStamp, xAxis, hist
     </Card>
   );
 }
-

@@ -1,15 +1,11 @@
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Box, Card, CardContent } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import { LineChart } from "@mui/x-charts/LineChart";
 import { Metric } from "../metric_parser.ts";
 import type { ComponentProps } from "react";
-
-type MemAction = { type: "push"; value: number; historySize: number };
-
-function memReducer(state: number[], action: MemAction): number[] {
-  return [...state, action.value].slice(-action.historySize);
-}
+import { useAppDispatch, useAppSelector } from "../store/store.ts";
+import { pushMem } from "../common/dashboardSlice.ts";
 
 interface MemoryWidgetProps {
   metrics: Metric[];
@@ -18,9 +14,10 @@ interface MemoryWidgetProps {
   historySize: number;
 }
 
-export default function MemoryWidget({ metrics, fulfilledTimeStamp, xAxis, historySize }: MemoryWidgetProps) {
+export default function MemoryWidget({ metrics, fulfilledTimeStamp, xAxis }: MemoryWidgetProps) {
+  const dispatch = useAppDispatch();
+  const mem = useAppSelector((state) => state.dashboard.memHistory);
   const prevTimestampRef = useRef(fulfilledTimeStamp);
-  const [mem, dispatch] = useReducer(memReducer, historySize, (size) => Array(size).fill(0));
 
   useEffect(() => {
     if (metrics.length > 0 && fulfilledTimeStamp !== prevTimestampRef.current) {
@@ -30,10 +27,10 @@ export default function MemoryWidget({ metrics, fulfilledTimeStamp, xAxis, histo
       const memTotal = metrics.find((m) => m.key === "system.mem.physical.total");
       if (memUsed && memTotal) {
         const pct = Math.round((1000 * (memUsed.value as number)) / (memTotal.value as number)) / 10;
-        dispatch({ type: "push", value: pct, historySize });
+        dispatch(pushMem(pct));
       }
     }
-  }, [fulfilledTimeStamp, metrics, historySize]);
+  }, [fulfilledTimeStamp, metrics, dispatch]);
 
   return (
     <Card variant="outlined" sx={{ height: "100%" }}>

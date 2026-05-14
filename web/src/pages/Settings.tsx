@@ -1,4 +1,4 @@
-import Stack from "@mui/material/Stack";
+﻿import Stack from "@mui/material/Stack";
 import {
   nsclientApi,
   useGetSettingsDescriptionsQuery,
@@ -9,20 +9,23 @@ import {
   Alert,
   ButtonGroup,
   Chip,
+  FormControlLabel,
   IconButton,
   InputAdornment,
   Snackbar,
+  Switch,
   TextField,
   Typography,
 } from "@mui/material";
-import { Toolbar } from "./atoms/Toolbar.tsx";
-import { Spacing } from "./atoms/Spacing.tsx";
-import { RefreshButton } from "./atoms/RefreshButton.tsx";
-import { useAppDispatch } from "../store/store.ts";
+import { Toolbar } from "../components/atoms/Toolbar.tsx";
+import { Spacing } from "../components/atoms/Spacing.tsx";
+import { RefreshButton } from "../components/atoms/RefreshButton.tsx";
+import { useAppDispatch, useAppSelector } from "../store/store.ts";
+import { setHideDefaults } from "../common/dashboardSlice.ts";
 import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Clear";
 import Button from "@mui/material/Button";
-import SettingsList from "./SettingsList.tsx";
+import SettingsList from "../components/SettingsList.tsx";
 import { useMemo, useState } from "react";
 
 export default function Settings() {
@@ -30,6 +33,7 @@ export default function Settings() {
   const [busy, setBusy] = useState<boolean>(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [filter, setFilter] = useState<string>("");
+  const hideDefaults = useAppSelector((state) => state.dashboard.hideDefaults);
 
   const { data: settings } = useGetSettingsDescriptionsQuery();
   const [settingsCommand] = useSettingsCommandMutation();
@@ -97,7 +101,7 @@ export default function Settings() {
         <Spacing />
         <TextField
           size="small"
-          placeholder="Filter settings…"
+          placeholder="Filter settings"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           sx={{ minWidth: 260 }}
@@ -120,9 +124,19 @@ export default function Settings() {
         />
         {needle && (
           <Typography variant="body2" color="text.secondary">
-            {paths.length}/{totalPaths} sections · {filteredSettings.length} matches
+            {paths.length}/{totalPaths} sections Â· {filteredSettings.length} matches
           </Typography>
         )}
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={hideDefaults}
+              onChange={(e) => dispatch(setHideDefaults(e.target.checked))}
+            />
+          }
+          label="Hide defaults"
+        />
         <Button size="small" variant="outlined" onClick={reloadSettings} loading={busy}>
           Reload service
         </Button>
@@ -131,7 +145,7 @@ export default function Settings() {
       <SettingsList
         settings={filteredSettings}
         forceExpanded={!!needle}
-        emptyMessage={needle ? `No settings match “${filter}”.` : undefined}
+        emptyMessage={needle ? `No settings match â€œ${filter}â€.` : undefined}
       />
       <Snackbar open={!!error} autoHideDuration={6000} onClose={handleCloseError}>
         <Alert onClose={handleCloseError} severity="error">

@@ -1,9 +1,9 @@
-import { Box, Toolbar } from "@mui/material";
-import SideBar from "./SideBar.tsx";
-import AppNavbar from "./AppNavbar.tsx";
+﻿import { Box, Toolbar } from "@mui/material";
+import SideBar from "../components/SideBar.tsx";
+import AppNavbar from "../components/AppNavbar.tsx";
 import { Outlet } from "react-router";
 import { useState } from "react";
-import SettingsChangedWidget from "./atoms/SettingsChangedWidget.tsx";
+import SettingsChangedWidget from "../components/atoms/SettingsChangedWidget.tsx";
 
 const drawerWidth = 240;
 

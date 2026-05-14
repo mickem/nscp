@@ -141,6 +141,14 @@ interface QueryListItem {
   query_url: string;
 }
 
+export interface AliasListItem {
+  name: string;
+  title: string;
+  plugin: string;
+  description: string;
+  alias_url: string;
+}
+
 interface Query {
   name: string;
   title: string;
@@ -301,6 +309,7 @@ export const ALL_API_TAGS = [
   "Module",
   "Query",
   "Queries",
+  "Aliases",
   "Scripts",
   "Settings",
   "SettingsStatus",
@@ -322,6 +331,7 @@ export const nsclientApi = createApi({
     "Module",
     "Query",
     "Queries",
+    "Aliases",
     "Scripts",
     "Settings",
     "SettingsStatus",
@@ -419,6 +429,12 @@ export const nsclientApi = createApi({
         url: "/v2/queries",
       }),
       providesTags: ["Queries"],
+    }),
+    getAliases: builder.query<AliasListItem[], void>({
+      query: () => ({
+        url: "/v2/aliases",
+      }),
+      providesTags: ["Aliases"],
     }),
     getQuery: builder.query<Query, string>({
       query: (id) => ({
@@ -610,6 +626,7 @@ export const {
   useGetModulesQuery,
   useGetModuleQuery,
   useGetQueriesQuery,
+  useGetAliasesQuery,
   useGetQueryQuery,
   useExecuteQueryMutation,
   useExecuteNagiosQueryMutation,

@@ -3,6 +3,7 @@ import {
   nsclientApi,
   useDisableModuleMutation,
   useEnableModuleMutation,
+  useGetAliasesQuery,
   useGetModuleQuery,
   useGetQueriesQuery,
   useGetSettingsDescriptionsQuery,
@@ -20,16 +21,17 @@ import {
   Tooltip,
 } from "@mui/material";
 import { useNavigate, useParams } from "react-router";
-import { Toolbar } from "./atoms/Toolbar.tsx";
-import { Spacing } from "./atoms/Spacing.tsx";
-import { RefreshButton } from "./atoms/RefreshButton.tsx";
-import { useAppDispatch } from "../store/store.ts";
+import { Toolbar } from "../components/atoms/Toolbar.tsx";
+import { Spacing } from "../components/atoms/Spacing.tsx";
+import { RefreshButton } from "../components/atoms/RefreshButton.tsx";
+import { useAppDispatch, useAppSelector } from "../store/store.ts";
+import { setHideDefaults } from "../common/dashboardSlice.ts";
 import { useState } from "react";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
-import ModuleSettings from "./ModuleSettings.tsx";
-import NscpAlert from "./atoms/NscpAlert.tsx";
-import Trail from "./atoms/Trail.tsx";
+import ModuleSettings from "../components/ModuleSettings.tsx";
+import NscpAlert from "../components/atoms/NscpAlert.tsx";
+import Trail from "../components/atoms/Trail.tsx";
 
 export default function Module() {
   const { id = "" } = useParams();
@@ -37,6 +39,7 @@ export default function Module() {
   const navigate = useNavigate();
   const { data: module, isFetching: isFetchingModules } = useGetModuleQuery(id || "");
   const { data: queries, isFetching: isFetchingQueries } = useGetQueriesQuery();
+  const { data: aliases, isFetching: isFetchingAliases } = useGetAliasesQuery();
   const { data: settings, isFetching: isFetchingSettings } = useGetSettingsDescriptionsQuery();
   const [unloadModule] = useUnloadModuleMutation();
   const [loadModule] = useLoadModuleMutation();
@@ -44,17 +47,20 @@ export default function Module() {
   const [disableModule] = useDisableModuleMutation();
   const [busy, setBusy] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const hideDefaults = useAppSelector((state) => state.dashboard.hideDefaults);
 
-  const isFetching = isFetchingModules || isFetchingQueries || isFetchingSettings;
+  const isFetching =
+    isFetchingModules || isFetchingQueries || isFetchingAliases || isFetchingSettings;
 
-  // Hide legacy `checkXXX` aliases — the canonical names use the underscored
-  // `check_XXX` form. Anything that starts with `check` but isn't `check_…`
+  // Hide legacy `checkXXX` aliases â€” the canonical names use the underscored
+  // `check_XXX` form. Anything that starts with `check` but isn't `check_â€¦`
   // is treated as a legacy alias and excluded from the list.
   const isLegacyCheckAlias = (name: string) =>
     name.startsWith("check") && !name.startsWith("check_");
   const myQueries = queries?.filter(
     (query) => query.plugin === id && !isLegacyCheckAlias(query.name),
   );
+  const myAliases = aliases?.filter((alias) => alias.plugin === id && !isLegacyCheckAlias(alias.name));
   const relevantSettings =
     settings?.filter(
       (setting) =>
@@ -65,7 +71,14 @@ export default function Module() {
   const mySettings = relevantSettings.filter((setting) => setting.plugins.includes(id));
 
   const onRefresh = () => {
-    dispatch(nsclientApi.util.invalidateTags(["Module", "Queries", "SettingsDescriptions"]));
+    dispatch(
+      nsclientApi.util.invalidateTags([
+        "Module",
+        "Queries",
+        "Aliases",
+        "SettingsDescriptions",
+      ]),
+    );
   };
 
   const doEnable = async () => {
@@ -116,6 +129,16 @@ export default function Module() {
             />
           }
           label="Show advanced"
+        />
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={hideDefaults}
+              onChange={(e) => dispatch(setHideDefaults(e.target.checked))}
+            />
+          }
+          label="Hide defaults"
         />
         <RefreshButton onRefresh={onRefresh} />
       </Toolbar>
@@ -178,6 +201,26 @@ export default function Module() {
               {myQueries?.map((query) => (
                 <Tooltip key={query.name} title={query.description || ""} arrow>
                   <Chip label={query.name} size="small" onClick={() => navigate("/queries/" + query.name)} />
+                </Tooltip>
+              ))}
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+      {myAliases && myAliases.length > 0 && (
+        <Card>
+          <CardContent>
+            <Typography gutterBottom sx={{ color: "text.secondary", fontSize: 14 }}>
+              Aliases provided by this module
+            </Typography>
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, paddingBottom: 2 }}>
+              {myAliases.map((alias) => (
+                <Tooltip key={alias.name} title={alias.description || ""} arrow>
+                  <Chip
+                    label={alias.name}
+                    size="small"
+                    onClick={() => navigate("/queries/" + alias.name)}
+                  />
                 </Tooltip>
               ))}
             </Box>

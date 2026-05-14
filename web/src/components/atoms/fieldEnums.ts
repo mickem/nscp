@@ -22,6 +22,19 @@ export const PDH_SUBSYSTEM_OPTIONS: EnumOption[] = ["default", "thread-safe"].ma
   value: v,
   label: v,
 }));
+export const TLS_VERSION_OPTIONS: EnumOption[] = ["1.0", "1.1", "1.2", "1.3"].map((v) => ({
+  value: v,
+  label: v,
+}));
+// The self-update HTTPS client uses a different `tls version` vocabulary —
+// `tlsv1.x` prefixes plus a `tlsv1.2+` shorthand for "1.2 or newer".
+export const NSCP_UPDATE_TLS_VERSION_OPTIONS: EnumOption[] = [
+  "tlsv1.0",
+  "tlsv1.1",
+  "tlsv1.2",
+  "tlsv1.2+",
+  "tlsv1.3",
+].map((v) => ({ value: v, label: v }));
 export const COUNTER_FLAGS_OPTIONS = ["nocap100", "1000", "noscale"];
 
 export function toEnumOptions(opts: string[] | undefined): EnumOption[] | undefined {
@@ -81,6 +94,18 @@ export function resolveEnumOptions(
   if (description.key === "severity") return SEVERITY_OPTIONS;
   if (description.key === "subsystem" && path === "/settings/system/windows") {
     return PDH_SUBSYSTEM_OPTIONS;
+  }
+  if (description.key === "tls version") {
+    // Boost.Asio / OpenSSL-backed code paths use `tlsvX.Y` (plus the
+    // `tlsv1.2+` "or newer" shorthand). Other backends just want bare
+    // version numbers.
+    if (
+      path === "/settings/nscp/check/update" ||
+      path === "/settings/NRPE/server"
+    ) {
+      return NSCP_UPDATE_TLS_VERSION_OPTIONS;
+    }
+    return TLS_VERSION_OPTIONS;
   }
   if (description.key === "parent" && parentOptions) {
     return parentOptions.map((n) => ({ value: n, label: n }));

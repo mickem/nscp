@@ -1,4 +1,4 @@
-import Stack from "@mui/material/Stack";
+﻿import Stack from "@mui/material/Stack";
 import { nsclientApi, useGetMetricsQuery } from "../api/api.ts";
 import {
   FormControl,
@@ -16,14 +16,14 @@ import {
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
-import { Toolbar } from "./atoms/Toolbar.tsx";
-import { Spacing } from "./atoms/Spacing.tsx";
-import { RefreshButton } from "./atoms/RefreshButton.tsx";
+import { Toolbar } from "../components/atoms/Toolbar.tsx";
+import { Spacing } from "../components/atoms/Spacing.tsx";
+import { RefreshButton } from "../components/atoms/RefreshButton.tsx";
 import { useAppDispatch } from "../store/store.ts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import CloseIcon from "@mui/icons-material/Close";
 import { parseMetrics } from "../metric_parser.ts";
-import FilterField from "./atoms/FilterField.tsx";
+import FilterField from "../components/atoms/FilterField.tsx";
 
 const REFRESH_RATES = [
   { label: "Off", value: 0 },
@@ -76,7 +76,7 @@ export default function Metrics() {
     }, HIGHLIGHT_MS);
     return () => clearTimeout(timer);
     // We intentionally key the effect on the response timestamp rather than
-    // result.metrics — running once per server response is what we want.
+    // result.metrics â€” running once per server response is what we want.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fulfilledTimeStamp]);
 
@@ -154,7 +154,7 @@ export default function Metrics() {
           </ToggleButton>
         </ToggleButtonGroup>
         <Spacing />
-        <FilterField value={filter} onChange={setFilter} placeholder="Filter metrics…" />
+        <FilterField value={filter} onChange={setFilter} placeholder="Filter metricsâ€¦" />
         {needle && (
           <Typography variant="body2" color="text.secondary">
             {filteredMetrics.length}/{result.metrics.length}

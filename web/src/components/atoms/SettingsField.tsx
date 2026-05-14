@@ -3,6 +3,7 @@ import {
   SettingsDescription,
   useGetChannelMetadataQuery,
   useGetCounterMetadataQuery,
+  useGetSettingsQuery,
   useUpdateSettingsMutation,
 } from "../../api/api.ts";
 import {
@@ -24,7 +25,7 @@ import {
 } from "@mui/material";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import CheckIcon from "@mui/icons-material/Check";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   COUNTER_FLAGS_OPTIONS,
   EnumOption,
@@ -89,9 +90,16 @@ export default function SettingsField({
   };
 
   const onSelectChange = (next: string) => {
-    setValue(next);
+    // On the default template (forceDefault), an empty value isn't legal —
+    // picking the "reset" option means "snap to the schema default" rather
+    // than "leave it blank".
+    const effective =
+      forceDefault && next === "" && description.default_value
+        ? description.default_value
+        : next;
+    setValue(effective);
     setDirty(false);
-    if (next !== initial) persist(next);
+    if (effective !== initial) persist(effective);
   };
 
   const label = LABEL_OVERRIDES[description.key] ?? (description.title || description.key);
@@ -153,6 +161,27 @@ export default function SettingsField({
         options={["physical", "committed", "virtual"]}
       />
     );
+  }
+
+  // `verify mode` — accepts free text but exposes the two common picks
+  // (`none`, `peer-cert`) as quick options. The schema lets users combine
+  // multiple modes as a comma-separated list, so freeSolo > strict enum.
+  if (description.key === "verify mode") {
+    return (
+      <FreeSoloSelectField
+        path={path}
+        description={description}
+        options={["none", "peer-cert"]}
+      />
+    );
+  }
+
+  // Role field on a WEB user — populate from existing non-template roles.
+  if (
+    description.key === "role" &&
+    /^\/settings\/WEB\/server\/users\/[^/]+$/.test(path)
+  ) {
+    return <RoleSelectField path={path} description={description} />;
   }
 
   if (description.type === "bool") {
@@ -219,12 +248,14 @@ export default function SettingsField({
               : undefined,
           }}
         >
-          {enumOpts && !forceDefault && (
+          {enumOpts && (!forceDefault || !!description.default_value) && (
             <MenuItem value="">
               <em style={{ color: "rgba(255,255,255,0.6)" }}>
-                {description.default_value
-                  ? `(inherit default — ${description.default_value})`
-                  : "(unset)"}
+                {forceDefault
+                  ? `(reset to default — ${description.default_value})`
+                  : description.default_value
+                    ? `(inherit default — ${description.default_value})`
+                    : "(unset)"}
               </em>
             </MenuItem>
           )}
@@ -434,6 +465,189 @@ function MetadataAutocompleteField({
             ? `${options.length.toLocaleString()} ${nounPlural} available · type to filter`
             : ""}
       </Typography>
+    </Box>
+  );
+}
+
+function RoleSelectField({ path, description }: Pick<Props, "path" | "description">) {
+  const initial = description.value ?? "";
+  const [value, setValue] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const [updateSettings] = useUpdateSettingsMutation();
+  const { data: storedSettings, isFetching } = useGetSettingsQuery();
+
+  useEffect(() => {
+    setValue(initial);
+  }, [initial]);
+
+  const roleNames = useMemo<string[]>(() => {
+    if (!storedSettings) return [];
+    const rolesRoot = "/settings/WEB/server/roles";
+    const prefix = rolesRoot + "/";
+    // First pass: discover candidate role names from pointer entries on the
+    // collection root plus any direct child path that holds a stored key.
+    const names = new Set<string>();
+    for (const s of storedSettings) {
+      if (s.path === rolesRoot && s.key !== "") names.add(s.key);
+      if (s.path.startsWith(prefix) && s.key !== "") {
+        const rest = s.path.slice(prefix.length);
+        if (!rest.includes("/")) names.add(rest);
+      }
+    }
+    // Second pass: drop any name whose stored config flags it as a template,
+    // and drop the conventional "default" template that the schema always
+    // surfaces even without explicit stored values.
+    const isTemplate = (name: string) => {
+      if (name === "default") return true;
+      const instPath = prefix + name;
+      return storedSettings.some(
+        (s) =>
+          s.path === instPath &&
+          s.key === "is template" &&
+          (s.value ?? "").toLowerCase() === "true",
+      );
+    };
+    return [...names].filter((n) => !isTemplate(n)).sort((a, b) => a.localeCompare(b));
+  }, [storedSettings]);
+
+  const persist = async (next: string) => {
+    setSaving(true);
+    try {
+      await updateSettings({ path, key: description.key, value: next }).unwrap();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onSelectChange = (next: string) => {
+    setValue(next);
+    if (next !== initial) persist(next);
+  };
+
+  const label = LABEL_OVERRIDES[description.key] ?? (description.title || description.key);
+  const help = description.description;
+  const helpAdornment = help ? (
+    <Tooltip title={help} arrow>
+      <HelpOutlineIcon fontSize="small" sx={{ color: "text.secondary" }} />
+    </Tooltip>
+  ) : null;
+
+  // Keep the current value visible even if it points at a role that no longer
+  // exists (or hasn't loaded yet) so we don't silently change the saved value.
+  const showOrphan = value !== "" && !roleNames.includes(value);
+
+  return (
+    <Box sx={{ width: "100%" }}>
+      <FormControl variant="standard" fullWidth>
+        <TextField
+          variant="standard"
+          select
+          label={
+            <Stack direction="row" spacing={0.5} alignItems="center" component="span">
+              <span>{label}</span>
+              {helpAdornment}
+            </Stack>
+          }
+          value={value}
+          onChange={(e) => onSelectChange(e.target.value)}
+          disabled={saving || isFetching}
+        >
+          <MenuItem value="">
+            <em style={{ color: "rgba(255,255,255,0.6)" }}>
+              {description.default_value
+                ? `(inherit default — ${description.default_value})`
+                : "(unset)"}
+            </em>
+          </MenuItem>
+          {showOrphan && (
+            <MenuItem value={value}>
+              <em>{value} (not found)</em>
+            </MenuItem>
+          )}
+          {roleNames.map((name) => (
+            <MenuItem key={name} value={name}>
+              {name}
+            </MenuItem>
+          ))}
+        </TextField>
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25 }}>
+          {roleNames.length > 0
+            ? `${roleNames.length} role${roleNames.length === 1 ? "" : "s"} available`
+            : "No roles defined under /settings/WEB/server/roles"}
+        </Typography>
+      </FormControl>
+    </Box>
+  );
+}
+
+function FreeSoloSelectField({
+  path,
+  description,
+  options,
+}: Pick<Props, "path" | "description"> & { options: string[] }) {
+  const initial = description.value ?? "";
+  const [value, setValue] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const [updateSettings] = useUpdateSettingsMutation();
+
+  useEffect(() => {
+    setValue(initial);
+  }, [initial]);
+
+  const persist = async (next: string) => {
+    setSaving(true);
+    try {
+      await updateSettings({ path, key: description.key, value: next }).unwrap();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const label = LABEL_OVERRIDES[description.key] ?? (description.title || description.key);
+  const help = description.description;
+  const helpAdornment = help ? (
+    <Tooltip title={help} arrow>
+      <HelpOutlineIcon fontSize="small" sx={{ color: "text.secondary" }} />
+    </Tooltip>
+  ) : null;
+
+  return (
+    <Box sx={{ width: "100%" }}>
+      <Autocomplete<string, false, false, true>
+        freeSolo
+        size="small"
+        options={options}
+        value={value}
+        onChange={(_e, next) => {
+          const v = next ?? "";
+          setValue(v);
+          if (v !== initial) void persist(v);
+        }}
+        onInputChange={(_e, next, reason) => {
+          if (reason !== "reset") setValue(next);
+        }}
+        onBlur={() => {
+          if (value !== initial) void persist(value);
+        }}
+        disabled={saving}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            variant="standard"
+            label={
+              <Stack direction="row" spacing={0.5} alignItems="center" component="span">
+                <span>{label}</span>
+                {helpAdornment}
+              </Stack>
+            }
+          />
+        )}
+      />
+      {description.default_value && (
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25 }}>
+          default: {description.default_value}
+        </Typography>
+      )}
     </Box>
   );
 }

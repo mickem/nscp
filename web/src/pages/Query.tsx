@@ -1,4 +1,4 @@
-import Stack from "@mui/material/Stack";
+﻿import Stack from "@mui/material/Stack";
 import { nsclientApi, QueryExecutionResult, useExecuteQueryMutation, useGetQueryQuery } from "../api/api.ts";
 import {
   Accordion,
@@ -17,16 +17,16 @@ import {
   TextField
 } from "@mui/material";
 import { useNavigate, useParams } from "react-router";
-import { Toolbar } from "./atoms/Toolbar.tsx";
-import { Spacing } from "./atoms/Spacing.tsx";
-import { RefreshButton } from "./atoms/RefreshButton.tsx";
+import { Toolbar } from "../components/atoms/Toolbar.tsx";
+import { Spacing } from "../components/atoms/Spacing.tsx";
+import { RefreshButton } from "../components/atoms/RefreshButton.tsx";
 import { useAppDispatch } from "../store/store.ts";
 import { useState } from "react";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
-import { QueryResultChip } from "./atoms/QueryResultChip.tsx";
-import Trail from "./atoms/Trail.tsx";
+import { QueryResultChip } from "../components/atoms/QueryResultChip.tsx";
+import Trail from "../components/atoms/Trail.tsx";
 
 const CMD_REGEXP = /\\?.|^$/g;
 

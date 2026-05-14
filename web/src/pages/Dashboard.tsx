@@ -1,17 +1,17 @@
-import { useGetMetricsQuery } from "../api/api.ts";
+﻿import { useGetMetricsQuery } from "../api/api.ts";
 import { parseMetrics } from "../metric_parser.ts";
 import { useMemo } from "react";
 import { Box, CircularProgress, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent, Tooltip } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import Grid from "@mui/material/Grid";
-import CpuWidget from "./CpuWidget.tsx";
-import MemoryWidget from "./MemoryWidget.tsx";
-import NetworkWidget from "./NetworkWidget.tsx";
-import SystemInfoWidget from "./SystemInfoWidget.tsx";
+import CpuWidget from "../components/CpuWidget.tsx";
+import MemoryWidget from "../components/MemoryWidget.tsx";
+import NetworkWidget from "../components/NetworkWidget.tsx";
+import SystemInfoWidget from "../components/SystemInfoWidget.tsx";
 import { useAppDispatch, useAppSelector } from "../store/store.ts";
 import { setRefreshRate } from "../common/dashboardSlice.ts";
-import DiskIoWidget from "./DiskIoWidget.tsx";
-import DiskFreeWidget from "./DiskFreeWidget.tsx";
+import DiskIoWidget from "../components/DiskIoWidget.tsx";
+import DiskFreeWidget from "../components/DiskFreeWidget.tsx";
 
 const HISTORY_SIZE = 30;
 
@@ -58,7 +58,7 @@ export default function Dashboard() {
     };
   }, [result.metrics]);
 
-  // Minimum sensible polling interval (ms) – no point polling faster than the server updates
+  // Minimum sensible polling interval (ms) â€“ no point polling faster than the server updates
   const maxRefreshMs = useMemo(
     () =>
       Math.max(serverIntervals.workersRefresh, serverIntervals.systemRefresh) * 1000,
@@ -119,7 +119,7 @@ export default function Dashboard() {
                       <Tooltip
                         title={
                           tooLow
-                            ? `Server updates every ${maxRefreshMs / 1000}s – polling faster has no effect`
+                            ? `Server updates every ${maxRefreshMs / 1000}s â€“ polling faster has no effect`
                             : ""
                         }
                         placement="right"
@@ -157,7 +157,7 @@ export default function Dashboard() {
           </Grid>
         )}
         {hasNetworkData && (
-          <Grid size={12}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <NetworkWidget
               key={refreshRate}
               metrics={result.metrics}
@@ -168,7 +168,7 @@ export default function Dashboard() {
           </Grid>
         )}
         {hasDiskIoData && (
-          <Grid size={12}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <DiskIoWidget
               key={refreshRate}
               metrics={result.metrics}
