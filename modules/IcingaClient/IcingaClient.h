@@ -47,6 +47,5 @@ class IcingaClient : public nscapi::impl::simple_plugin {
                           PB::Commands::SubmitResponseMessage *response_message);
 
  private:
-  void add_command(const std::string &key, const std::string &args);
   void add_target(const std::string &key, const std::string &args);
 };
