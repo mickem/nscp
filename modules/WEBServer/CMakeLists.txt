@@ -21,6 +21,7 @@ set(SRCS
     event_store.cpp
     modules_controller.cpp
     query_controller.cpp
+    alias_controller.cpp
     scripts_controller.cpp
     legacy_controller.cpp
     legacy_command_controller.cpp

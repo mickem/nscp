@@ -141,6 +141,15 @@ void python_script::init(const std::string &python_cache_path, const std::string
 
 void python_script::destroy() {
   NSC_DEBUG_MSG("unloading python");
+  // Release the registered Python callable handles while the interpreter
+  // is still alive. The handles are stored in a static shared_ptr whose
+  // destructor would otherwise run during process atexit, after libpython
+  // has already torn down its runtime, causing a SIGSEGV in
+  // _PyInterpreterState_GET() during Py_DECREF.
+  if (script_wrapper::functions::instance) {
+    script_wrapper::thread_locker locker;
+    script_wrapper::functions::destroy();
+  }
   /*
   if (Py_FinalizeEx() < 0) {
       NSC_LOG_ERROR("Failed to unload python");

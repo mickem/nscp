@@ -18,6 +18,15 @@ struct builder {
   virtual void set_maximum(double value) = 0;
   virtual void set_unit(const std::string &value) = 0;
 
+  // Threshold-range setters (Nagios range syntax like "4:5", ":10",
+  // "@0:90", "~:10"). Defaulted to no-ops so existing builders compile
+  // unchanged; the parser still calls set_warning / set_critical with the
+  // lower bound for back-compat. Builders that need to preserve the full
+  // syntax (notably the protobuf builder used by external-script paths)
+  // override these to carry the string through. See GitHub issue #748.
+  virtual void set_warning_range(const std::string & /*range*/) {}
+  virtual void set_critical_range(const std::string & /*range*/) {}
+
   virtual void next() = 0;
 
   virtual void add_string(std::string alias, std::string value) = 0;
@@ -35,6 +44,25 @@ inline double trim_to_double(std::string s) {
   } catch (...) {
     return 0.0;
   }
+}
+
+// True if the threshold field uses Nagios range syntax (anything beyond a
+// simple number with optional UOM). The Nagios plugin development
+// guidelines define ranges as:
+//   value       single value, treated as 0..value
+//   low:high    alert if outside [low, high]
+//   :high       alert if value > high
+//   low:        alert if value < low
+//   @low:high   alert if value is inside [low, high] (inverted)
+//   ~ marker    -infinity (e.g. ~:10 = alert when > 10)
+// We don't try to parse the range here - we only detect that it IS a
+// range so the parser preserves the original string. The numeric float
+// (lower bound) is still set so consumers that only read the float don't
+// regress.
+inline bool is_threshold_range(const std::string &s) {
+  if (s.empty()) return false;
+  if (s[0] == '@' || s[0] == '~') return true;
+  return s.find(':') != std::string::npos;
 }
 
 inline void parse(std::shared_ptr<builder> builder, const std::string &perff) {
@@ -115,8 +143,18 @@ inline void parse(std::shared_ptr<builder> builder, const std::string &perff) {
       builder->set_value(trim_to_double(fitem.second.substr(0, pend)));
       builder->set_unit(fitem.second.substr(pend));
     }
-    if (items.size() >= 2 && !items[1].empty()) builder->set_warning(trim_to_double(items[1]));
-    if (items.size() >= 3 && !items[2].empty()) builder->set_critical(trim_to_double(items[2]));
+    // Warning / critical can be range syntax (e.g. "4:5"). Set the numeric
+    // lower bound for back-compat AND, when the field is a range, forward
+    // the original string so the formatter can round-trip it (issue #748).
+    if (items.size() >= 2 && !items[1].empty()) {
+      builder->set_warning(trim_to_double(items[1]));
+      if (is_threshold_range(items[1])) builder->set_warning_range(items[1]);
+    }
+    if (items.size() >= 3 && !items[2].empty()) {
+      builder->set_critical(trim_to_double(items[2]));
+      if (is_threshold_range(items[2])) builder->set_critical_range(items[2]);
+    }
+    // min/max are single values per the Nagios spec - no range syntax.
     if (items.size() >= 4 && !items[3].empty()) builder->set_minimum(trim_to_double(items[3]));
     if (items.size() >= 5 && !items[4].empty()) builder->set_maximum(trim_to_double(items[4]));
     builder->next();

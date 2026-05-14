@@ -1,29 +1,11 @@
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Box, Card, CardContent } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import { LineChart } from "@mui/x-charts/LineChart";
 import { Metric } from "../metric_parser.ts";
 import type { ComponentProps } from "react";
-
-interface CpuHistory {
-  kernel: number[];
-  user: number[];
-}
-
-type CpuAction = { type: "push"; kernel?: number; user?: number; historySize: number };
-
-function cpuReducer(state: CpuHistory, action: CpuAction): CpuHistory {
-  return {
-    kernel:
-      action.kernel !== undefined
-        ? [...state.kernel, action.kernel].slice(-action.historySize)
-        : state.kernel,
-    user:
-      action.user !== undefined
-        ? [...state.user, action.user].slice(-action.historySize)
-        : state.user,
-  };
-}
+import { useAppDispatch, useAppSelector } from "../store/store.ts";
+import { pushCpu } from "../common/dashboardSlice.ts";
 
 interface CpuWidgetProps {
   metrics: Metric[];
@@ -32,12 +14,10 @@ interface CpuWidgetProps {
   historySize: number;
 }
 
-export default function CpuWidget({ metrics, fulfilledTimeStamp, xAxis, historySize }: CpuWidgetProps) {
+export default function CpuWidget({ metrics, fulfilledTimeStamp, xAxis }: CpuWidgetProps) {
+  const dispatch = useAppDispatch();
+  const history = useAppSelector((state) => state.dashboard.cpuHistory);
   const prevTimestampRef = useRef(fulfilledTimeStamp);
-  const [history, dispatch] = useReducer(cpuReducer, historySize, (size) => ({
-    kernel: Array(size).fill(0),
-    user: Array(size).fill(0),
-  }));
 
   useEffect(() => {
     if (metrics.length > 0 && fulfilledTimeStamp !== prevTimestampRef.current) {
@@ -46,15 +26,13 @@ export default function CpuWidget({ metrics, fulfilledTimeStamp, xAxis, historyS
       const kernelMetric = metrics.find((m) => m.key === "system.cpu.total.kernel");
       const userMetric = metrics.find((m) => m.key === "system.cpu.total.user");
       if (kernelMetric || userMetric) {
-        dispatch({
-          type: "push",
+        dispatch(pushCpu({
           kernel: kernelMetric ? (kernelMetric.value as number) : undefined,
           user: userMetric ? (userMetric.value as number) : undefined,
-          historySize,
-        });
+        }));
       }
     }
-  }, [fulfilledTimeStamp, metrics, historySize]);
+  }, [fulfilledTimeStamp, metrics, dispatch]);
 
   return (
     <Card variant="outlined" sx={{ height: "100%" }}>

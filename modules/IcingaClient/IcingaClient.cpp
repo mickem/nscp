@@ -45,10 +45,6 @@ bool IcingaClient::loadModuleEx(const std::string &alias, NSCAPI::moduleLoadMode
     // clang-format off
     settings.alias().add_path_to_settings()
       ("Icinga 2 client", "Section for Icinga 2 (Icinga REST API) passive check submission.")
-      ("handlers", sh::fun_values_path([this] (auto key, auto value) { this->add_command(std::move(key), std::move(value)); }),
-	      "CLIENT HANDLER SECTION", "",
-	      "CLIENT HANDLER", "For more configuration options add a dedicated section")
-
       ("targets", sh::fun_values_path([this] (auto key, auto value) { this->add_target(std::move(key), std::move(value)); }),
 	      "REMOTE TARGET DEFINITIONS", "",
 	      "TARGET", "For more configuration options add a dedicated section")
@@ -105,18 +101,6 @@ void IcingaClient::add_target(const std::string &key, const std::string &arg) {
     NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
   } catch (...) {
     NSC_LOG_ERROR_EX("Failed to add target: " + key);
-  }
-}
-
-void IcingaClient::add_command(const std::string &key, const std::string &arg) {
-  try {
-    nscapi::core_helper core(get_core(), get_id());
-    const std::string k = client_.add_command(key, arg);
-    if (!k.empty()) core.register_command(k, "Icinga 2 relay for: " + key);
-  } catch (const std::exception &e) {
-    NSC_LOG_ERROR_EXR("Failed to add command: " + key, e);
-  } catch (...) {
-    NSC_LOG_ERROR_EX("Failed to add command: " + key);
   }
 }
 

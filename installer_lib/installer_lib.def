@@ -7,3 +7,4 @@ EXPORTS
 	DetectTool
 	BackupConfig
 	NeedUninstall
+	WriteArpUninstallStrings

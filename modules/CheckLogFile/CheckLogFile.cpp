@@ -60,6 +60,8 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
   settings.register_all();
   settings.notify();
 
+  thread_->ensure_default(nscapi::settings_proxy::create(get_id(), get_core()));
+
   thread_->filters_.add_samples(settings.get_settings());
   if (mode == NSCAPI::normalStart) {
     if (!thread_->start()) NSC_LOG_ERROR_STD("Failed to start collection thread");

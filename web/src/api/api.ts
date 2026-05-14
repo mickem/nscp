@@ -141,6 +141,14 @@ interface QueryListItem {
   query_url: string;
 }
 
+export interface AliasListItem {
+  name: string;
+  title: string;
+  plugin: string;
+  description: string;
+  alias_url: string;
+}
+
 interface Query {
   name: string;
   title: string;
@@ -156,12 +164,18 @@ export interface ExecuteQueryArgs {
 }
 
 export interface QueryExecutionResultLinePerf {
-  critical: number;
+  // `warning` / `critical` are JSON numbers for plain-numeric thresholds
+  // (the historical case) and JSON strings when the upstream plugin used
+  // Nagios range syntax (e.g. "4:5", ":10", "@0:90", "~:10"). See GitHub
+  // issue #748 - the backend used to silently truncate ranges to their
+  // numeric lower bound; consumers that did arithmetic on these fields
+  // now need to guard against the string case (typeof === "number").
+  critical: number | string;
   maximum: number;
   minimum: number;
   unit: string;
   value: number;
-  warning: number;
+  warning: number | string;
 }
 
 export interface QueryExecutionResultLine {
@@ -301,6 +315,7 @@ export const ALL_API_TAGS = [
   "Module",
   "Query",
   "Queries",
+  "Aliases",
   "Scripts",
   "Settings",
   "SettingsStatus",
@@ -322,6 +337,7 @@ export const nsclientApi = createApi({
     "Module",
     "Query",
     "Queries",
+    "Aliases",
     "Scripts",
     "Settings",
     "SettingsStatus",
@@ -419,6 +435,12 @@ export const nsclientApi = createApi({
         url: "/v2/queries",
       }),
       providesTags: ["Queries"],
+    }),
+    getAliases: builder.query<AliasListItem[], void>({
+      query: () => ({
+        url: "/v2/aliases",
+      }),
+      providesTags: ["Aliases"],
     }),
     getQuery: builder.query<Query, string>({
       query: (id) => ({
@@ -610,6 +632,7 @@ export const {
   useGetModulesQuery,
   useGetModuleQuery,
   useGetQueriesQuery,
+  useGetAliasesQuery,
   useGetQueryQuery,
   useExecuteQueryMutation,
   useExecuteNagiosQueryMutation,

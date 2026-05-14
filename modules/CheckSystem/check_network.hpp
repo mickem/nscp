@@ -48,7 +48,25 @@ struct network_interface {
   std::string MACAddress;
   std::string NetConnectionStatus;
   std::string NetEnabled;
+  // Display copy of the Win32_NetworkAdapter Speed property (e.g.
+  // "1000000000" or "Unknown"). Use SpeedBps below for arithmetic.
   std::string Speed;
+  // Negotiated link speed in bits per second, parsed from `Speed`.
+  // **Best-effort**: WMI's Speed property is the negotiated link speed,
+  // which is not always what you'd call "usable throughput". Documented
+  // unreliable cases:
+  //   - Virtual adapters (VPN tunnels, loopback, some Hyper-V vNICs)
+  //     report "Unknown" / empty -> we store 0.
+  //   - NIC team aggregates may report 0 or ~0ULL on some Windows builds.
+  //   - Wireless drivers may report a fixed nominal rate (e.g. 54000000
+  //     for legacy 802.11g) regardless of the live MCS rate.
+  //   - For NIC teams in mode=adapter, the value may be the sum of the
+  //     member links OR the per-link speed depending on the driver.
+  // Anything derived from SpeedBps (usage_in / usage_out / usage_total)
+  // inherits the same best-effort caveats - see the getUsage*Pct
+  // methods. Filter on `speed_bps > 0` to gate on "we know the link speed
+  // well enough to compute a percentage".
+  long long SpeedBps;
   // Which WMI class this entry was collected from: "interface" (the legacy
   // Win32_PerfRawData_Tcpip_NetworkInterface) or "adapter"
   // (Win32_PerfRawData_Tcpip_NetworkAdapter, which also reports team aggregates).
@@ -63,7 +81,8 @@ struct network_interface {
   long long BytesTotalPersec;
 
   network_interface()
-      : source("interface"),
+      : SpeedBps(0),
+        source("interface"),
         has_nif(false),
         has_prd(false),
         oldBytesReceivedPersec(0),
@@ -79,6 +98,7 @@ struct network_interface {
         NetConnectionStatus(other.NetConnectionStatus),
         NetEnabled(other.NetEnabled),
         Speed(other.Speed),
+        SpeedBps(other.SpeedBps),
         source(other.source),
         has_nif(other.has_nif),
         has_prd(other.has_prd),
@@ -96,6 +116,7 @@ struct network_interface {
     NetConnectionStatus = other.NetConnectionStatus;
     NetEnabled = other.NetEnabled;
     Speed = other.Speed;
+    SpeedBps = other.SpeedBps;
     source = other.source;
     has_nif = other.has_nif;
     has_prd = other.has_prd;
@@ -130,6 +151,23 @@ struct network_interface {
   long long getBytesReceivedPersec() const { return BytesReceivedPersec; }
   long long getBytesSentPersec() const { return BytesSentPersec; }
   long long getBytesTotalPersec() const { return BytesTotalPersec; }
+
+  // Best-effort: parsed negotiated link speed in bits/sec. Returns 0 when
+  // WMI reported the Speed as Unknown/empty/zero. See the SpeedBps field
+  // comment above for the full caveat list.
+  long long getSpeedBps() const { return SpeedBps; }
+
+  // Best-effort percent usage of the link, derived from SpeedBps. Reads
+  // as 0 when the speed is unknown (so dashboards and `<`-style alert
+  // rules behave naturally - no negative sentinel to special-case). The
+  // unfortunate consequence is that "speed unknown" looks identical to
+  // "0% busy"; callers that need to distinguish them must inspect
+  // `speed_bps` directly. Inherits all the reliability caveats of
+  // SpeedBps - for hard thresholds, filter on `speed_bps > 0` first or
+  // stick to absolute byte-rate thresholds.
+  long long getUsageInPct() const;
+  long long getUsageOutPct() const;
+  long long getUsageTotalPct() const;
 };
 
 typedef std::list<network_interface> nics_type;

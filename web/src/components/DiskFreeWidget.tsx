@@ -43,31 +43,37 @@ export default function DiskFreeWidget({ metrics }: DiskFreeWidgetProps) {
           Disk Space
         </Typography>
         <Stack spacing={2}>
-          {disks.map((disk) => (
-            <Box key={disk.name}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                <Typography variant="body2" fontWeight="bold">
-                  {disk.name}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {formatBytes(disk.free)} free of {formatBytes(disk.total)}
-                </Typography>
+          {disks.map((disk) => {
+            const barColor =
+              disk.usedPct > 90 ? "error.main" : disk.usedPct > 75 ? "warning.main" : "success.main";
+            return (
+              <Box key={disk.name}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", mb: 0.5 }}>
+                  <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
+                    <Typography variant="body2" fontWeight="bold">
+                      {disk.name}
+                    </Typography>
+                    <Typography variant="body2" color={barColor} fontWeight="bold">
+                      {Math.round(disk.usedPct)}%
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {formatBytes(disk.used)} used · {formatBytes(disk.free)} free · {formatBytes(disk.total)} total
+                  </Typography>
+                </Box>
+                <LinearProgress
+                  variant="determinate"
+                  value={disk.usedPct}
+                  sx={{
+                    height: 20,
+                    borderRadius: 1,
+                    backgroundColor: "action.hover",
+                    "& .MuiLinearProgress-bar": { backgroundColor: barColor },
+                  }}
+                />
               </Box>
-              <LinearProgress
-                variant="determinate"
-                value={disk.usedPct}
-                sx={{
-                  height: 20,
-                  borderRadius: 1,
-                  backgroundColor: "success.light",
-                  "& .MuiLinearProgress-bar": {
-                    backgroundColor:
-                      disk.usedPct > 90 ? "error.main" : disk.usedPct > 75 ? "warning.main" : "primary.main",
-                  },
-                }}
-              />
-            </Box>
-          ))}
+            );
+          })}
         </Stack>
       </CardContent>
     </Card>

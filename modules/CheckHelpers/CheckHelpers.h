@@ -32,10 +32,15 @@ class CheckHelpers final : public nscapi::impl::simple_plugin {
   // create predefined commands (like `my_check_cpu = check_cpu warn=load>80`)
   // without enabling CheckExternalScripts, which carries a larger attack
   // surface. See docs/setup/securing.md.
-  alias::command_handler aliases_;
+  //
+  // Uses simple_command_map (flat key=value section) rather than the heavier
+  // object_handler-based command_handler that CheckExternalScripts uses -
+  // aliases here are leaf definitions, so the per-alias subdirectory and
+  // template/parent machinery just added configuration noise.
+  alias::simple_command_map aliases_;
 
  public:
-  CheckHelpers() {}
+  CheckHelpers() : aliases_(alias::make_simple_command_map()) {}
   ~CheckHelpers() {}
 
   // Module lifecycle - load registers the alias settings section.
@@ -72,5 +77,5 @@ class CheckHelpers final : public nscapi::impl::simple_plugin {
 
  private:
   void add_alias(const std::string &key, const std::string &command);
-  void handle_alias(const alias::command_object &cd, const std::list<std::string> &args, PB::Commands::QueryResponseMessage::Response *response) const;
+  void handle_alias(const alias::simple_command &cd, const std::list<std::string> &args, PB::Commands::QueryResponseMessage::Response *response) const;
 };

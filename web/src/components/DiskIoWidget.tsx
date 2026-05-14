@@ -1,47 +1,17 @@
-import { useEffect, useMemo, useReducer, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Box, Card, CardContent, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import { LineChart } from "@mui/x-charts/LineChart";
 import { Metric } from "../metric_parser.ts";
 import type { ComponentProps } from "react";
 import { useAppDispatch, useAppSelector } from "../store/store.ts";
-import { setSelectedDisk } from "../common/dashboardSlice.ts";
+import { pushDiskIo, setSelectedDisk } from "../common/dashboardSlice.ts";
 
 function scaleUnit(bytesPerSec: number[]): { label: string; divisor: number } {
   const max = Math.max(...bytesPerSec);
   if (max >= 1024 * 1024) return { label: "MB/s", divisor: 1024 * 1024 };
   if (max >= 1024) return { label: "KB/s", divisor: 1024 };
   return { label: "B/s", divisor: 1 };
-}
-
-interface DiskIoHistory {
-  readBytes: number[];
-  writeBytes: number[];
-}
-
-type DiskIoAction =
-  | { type: "push"; read?: number; write?: number; historySize: number }
-  | { type: "reset"; historySize: number };
-
-function diskIoReducer(state: DiskIoHistory, action: DiskIoAction): DiskIoHistory {
-  switch (action.type) {
-    case "push":
-      return {
-        readBytes:
-          action.read !== undefined
-            ? [...state.readBytes, action.read].slice(-action.historySize)
-            : state.readBytes,
-        writeBytes:
-          action.write !== undefined
-            ? [...state.writeBytes, action.write].slice(-action.historySize)
-            : state.writeBytes,
-      };
-    case "reset":
-      return {
-        readBytes: Array(action.historySize).fill(0),
-        writeBytes: Array(action.historySize).fill(0),
-      };
-  }
 }
 
 interface DiskIoWidgetProps {
@@ -51,14 +21,11 @@ interface DiskIoWidgetProps {
   historySize: number;
 }
 
-export default function DiskIoWidget({ metrics, fulfilledTimeStamp, xAxis, historySize }: DiskIoWidgetProps) {
+export default function DiskIoWidget({ metrics, fulfilledTimeStamp, xAxis }: DiskIoWidgetProps) {
   const dispatch = useAppDispatch();
   const userSelectedDisk = useAppSelector((state) => state.dashboard.selectedDisk);
+  const history = useAppSelector((state) => state.dashboard.diskIoHistory);
   const prevTimestampRef = useRef(fulfilledTimeStamp);
-  const [history, dispatchHistory] = useReducer(diskIoReducer, historySize, (size) => ({
-    readBytes: Array(size).fill(0),
-    writeBytes: Array(size).fill(0),
-  }));
 
   const diskDrives = useMemo(() => {
     return [
@@ -88,20 +55,17 @@ export default function DiskIoWidget({ metrics, fulfilledTimeStamp, xAxis, histo
         const readMetric = ioFiltered.find((m) => m.metric === "read_bytes_per_sec");
         const writeMetric = ioFiltered.find((m) => m.metric === "write_bytes_per_sec");
         if (readMetric || writeMetric) {
-          dispatchHistory({
-            type: "push",
+          dispatch(pushDiskIo({
             read: readMetric ? (readMetric.value as number) : undefined,
             write: writeMetric ? (writeMetric.value as number) : undefined,
-            historySize,
-          });
+          }));
         }
       }
     }
-  }, [fulfilledTimeStamp, metrics, historySize, selectedDisk]);
+  }, [fulfilledTimeStamp, metrics, selectedDisk, dispatch]);
 
   const handleDiskChange = (event: SelectChangeEvent) => {
     dispatch(setSelectedDisk(event.target.value));
-    dispatchHistory({ type: "reset", historySize });
     prevTimestampRef.current = undefined;
   };
 
@@ -151,4 +115,3 @@ export default function DiskIoWidget({ metrics, fulfilledTimeStamp, xAxis, histo
     </Card>
   );
 }
-

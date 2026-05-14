@@ -1,4 +1,4 @@
-import Stack from "@mui/material/Stack";
+﻿import Stack from "@mui/material/Stack";
 import { LogRecord, nsclientApi, useGetLogsQuery, useResetLogStatusMutation } from "../api/api.ts";
 import {
   Box,
@@ -15,10 +15,10 @@ import WarningIcon from "@mui/icons-material/Warning";
 import InfoIcon from "@mui/icons-material/Info";
 import DoneIcon from "@mui/icons-material/Done";
 import AdbIcon from "@mui/icons-material/Adb";
-import { Toolbar } from "./atoms/Toolbar.tsx";
-import { RefreshButton } from "./atoms/RefreshButton.tsx";
+import { Toolbar } from "../components/atoms/Toolbar.tsx";
+import { RefreshButton } from "../components/atoms/RefreshButton.tsx";
 import { useAppDispatch } from "../store/store.ts";
-import { Spacing } from "./atoms/Spacing.tsx";
+import { Spacing } from "../components/atoms/Spacing.tsx";
 import { useMemo, useState } from "react";
 import CloseIcon from "@mui/icons-material/Close";
 import Button from "@mui/material/Button";

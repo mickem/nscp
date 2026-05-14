@@ -1,4 +1,4 @@
-import Stack from "@mui/material/Stack";
+﻿import Stack from "@mui/material/Stack";
 import {
   Alert,
   Button,
@@ -22,9 +22,9 @@ import DeleteSweepIcon from "@mui/icons-material/DeleteSweep";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import { useMemo, useState } from "react";
-import { Toolbar } from "./atoms/Toolbar.tsx";
-import { Spacing } from "./atoms/Spacing.tsx";
-import { RefreshButton } from "./atoms/RefreshButton.tsx";
+import { Toolbar } from "../components/atoms/Toolbar.tsx";
+import { Spacing } from "../components/atoms/Spacing.tsx";
+import { RefreshButton } from "../components/atoms/RefreshButton.tsx";
 import { useAppDispatch } from "../store/store.ts";
 import {
   EventEntry,
@@ -32,8 +32,8 @@ import {
   useClearEventsMutation,
   useGetEventsQuery,
 } from "../api/api.ts";
-import FilterField from "./atoms/FilterField.tsx";
-import Trail from "./atoms/Trail.tsx";
+import FilterField from "../components/atoms/FilterField.tsx";
+import Trail from "../components/atoms/Trail.tsx";
 
 const REFRESH_RATES = [
   { label: "Off", value: 0 },
@@ -50,7 +50,7 @@ const REFRESH_RATES = [
 // type that has well-known fields worth surfacing.
 function getSubject(type: string, data: Record<string, string>): string {
   if (type === "system.process") {
-    return [data.exe, data.state].filter(Boolean).join(" — ");
+    return [data.exe, data.state].filter(Boolean).join(" â€” ");
   }
   return "";
 }
@@ -129,7 +129,7 @@ export default function Events() {
       <Toolbar>
         <Trail title="Events" />
         <Spacing />
-        <FilterField value={filter} onChange={setFilter} placeholder="Filter events…" />
+        <FilterField value={filter} onChange={setFilter} placeholder="Filter events" />
         {needle && (
           <Typography variant="body2" color="text.secondary">
             {filtered.length}/{events?.length ?? 0}
@@ -181,7 +181,7 @@ export default function Events() {
                 <TableCell colSpan={6}>
                   <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>
                     {needle
-                      ? `No events match “${filter}”.`
+                      ? `No events match â€œ${filter}â€.`
                       : "No events recorded."}
                   </Typography>
                 </TableCell>
@@ -253,7 +253,7 @@ function EventRow({ event, isOpen, onToggle, dataPairs }: EventRowProps) {
               whiteSpace: "nowrap",
             }}
           >
-            {event.subject || (dataPairs.length === 0 ? "—" : `${dataPairs.length} fields`)}
+            {event.subject || (dataPairs.length === 0 ? "â€”" : `${dataPairs.length} fields`)}
           </Typography>
         </TableCell>
       </TableRow>

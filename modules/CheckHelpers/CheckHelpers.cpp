@@ -64,19 +64,13 @@ bool CheckHelpers::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     settings.notify();
     settings.clear();
 
-    // add_samples registers documentation-only sample objects (for
-    // --generate ini etc.). We deliberately do NOT call add_missing or
-    // pre-populate any built-in aliases here - this section is meant to be
-    // entirely admin-driven, so an operator who wants to switch from
-    // CheckExternalScripts aliases has to copy each definition over by hand.
-    // That keeps the two modules' alias sets independent and avoids
-    // surprising auto-imports during upgrade.
-    aliases_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
-
+    // Each alias is a flat `name = command line` entry under the section
+    // above. No per-alias subdirectory, no built-in seed aliases - this
+    // section is admin-driven so an operator who wants to migrate from
+    // CheckExternalScripts has to copy definitions over by hand, keeping
+    // the two modules' alias sets independent.
     nscapi::core_helper core(get_core(), get_id());
-    for (const std::shared_ptr<alias::command_object> &o : aliases_.get_object_list()) {
-      core.register_alias(o->get_alias(), "Alias for: " + o->command);
-    }
+    aliases_.for_each([&core](const std::string &name, const alias::simple_command &def) { core.register_alias(name, "Alias for: " + def.command); });
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("loading CheckHelpers", e);
     return false;
@@ -91,7 +85,7 @@ bool CheckHelpers::unloadModule() { return true; }
 
 void CheckHelpers::add_alias(const std::string &key, const std::string &arg) {
   try {
-    aliases_.add(nscapi::settings_proxy::create(get_id(), get_core()), key, arg);
+    aliases_.add(key, arg);
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("Failed to add alias '" + key + "': ", e);
   }
@@ -99,7 +93,7 @@ void CheckHelpers::add_alias(const std::string &key, const std::string &arg) {
 
 void CheckHelpers::query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                                   const PB::Commands::QueryRequestMessage & /*request_message*/) {
-  const alias::command_object_instance alias_def = aliases_.find_object(request.command());
+  const boost::optional<alias::simple_command> alias_def = aliases_.find(request.command());
   if (!alias_def) {
     nscapi::protobuf::functions::set_response_bad(*response, "No alias found matching: " + request.command());
     return;
@@ -109,7 +103,7 @@ void CheckHelpers::query_fallback(const PB::Commands::QueryRequestMessage::Reque
   handle_alias(*alias_def, args, response);
 }
 
-void CheckHelpers::handle_alias(const alias::command_object &cd, const std::list<std::string> &src_args,
+void CheckHelpers::handle_alias(const alias::simple_command &cd, const std::list<std::string> &src_args,
                                 PB::Commands::QueryResponseMessage::Response *response) const {
   // $ARGn$ / %ARGn% substitution into the alias's pre-declared argument list.
   // We DO NOT accept or splice in extra arguments that the alias's template
@@ -502,12 +496,20 @@ struct filter_obj {
     if (data.has_string_value()) return data.string_value().value();
     return "";
   }
+  // %(warn) / %(crit) template substitutions: prefer the original Nagios
+  // range syntax (e.g. "4:5") when present, fall back to the numeric
+  // lower bound for plain-number thresholds (issue #748). Without this,
+  // `render_perf` would replace a "4:5" warning with just "4".
   std::string get_warn() const {
-    if (data.has_float_value() && data.float_value().has_warning()) return str::xtos(data.float_value().warning().value());
+    if (!data.has_float_value()) return "";
+    if (!data.float_value().warning_range().empty()) return data.float_value().warning_range();
+    if (data.float_value().has_warning()) return str::xtos(data.float_value().warning().value());
     return "";
   }
   std::string get_crit() const {
-    if (data.has_float_value() && data.float_value().has_critical()) return str::xtos(data.float_value().critical().value());
+    if (!data.has_float_value()) return "";
+    if (!data.float_value().critical_range().empty()) return data.float_value().critical_range();
+    if (data.float_value().has_critical()) return str::xtos(data.float_value().critical().value());
     return "";
   }
   std::string get_max() const {

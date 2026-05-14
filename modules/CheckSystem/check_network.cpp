@@ -28,6 +28,8 @@
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/where/node.hpp>
+#include <str/format.hpp>
+#include <str/xtos.hpp>
 
 namespace po = boost::program_options;
 
@@ -59,8 +61,47 @@ void network_interface::read_wna(wmi_impl::row r) {
   NetConnectionStatus = r.get_string("NetConnectionStatus");
   NetEnabled = r.get_int("NetEnabled") == 0 ? "true" : "false";
   Speed = r.get_string("Speed");
+  // Best-effort parse of the WMI Speed property into bits/sec. WMI returns
+  // it as a stringified uint64 in most cases but virtual adapters often
+  // report "Unknown" or empty. stox<>() throws on non-numeric input - we
+  // catch and store 0, which is the "unknown" sentinel callers downstream
+  // already handle (getUsage*Pct returns -1 when SpeedBps == 0).
+  try {
+    SpeedBps = Speed.empty() ? 0 : str::stox<long long>(Speed);
+    if (SpeedBps < 0) SpeedBps = 0;
+  } catch (...) {
+    SpeedBps = 0;
+  }
   has_nif = true;
 }
+
+namespace {
+// Best-effort percent-of-link-speed. bytes/sec * 8 -> bits/sec, then * 100
+// / speed. Returns 0 when the link speed is unknown - graphs and
+// `<`-style alert rules behave naturally that way (a sentinel like -1
+// would draw negative lines on dashboards and would also trip alert rules
+// of the form `usage_total < threshold` on every unknown-speed interface).
+// The downside: "speed unknown" looks the same as "genuinely idle". To
+// distinguish them, filter on `speed_bps > 0` before applying any
+// percent-based threshold. The doc for this check spells out which
+// interface kinds report unknown speed (virtuals, some teams, wireless).
+//
+// Integer truncation is intentional: percent is reported as a whole
+// number, matching how CPU/memory checks elsewhere in CheckSystem report.
+long long compute_usage_pct(long long bytes_per_sec, long long speed_bps) {
+  if (speed_bps <= 0) return 0;
+  // Cap negative samples (which the rate calculation can briefly emit
+  // around counter rollover) at 0 to avoid surprising negative
+  // percentages.
+  if (bytes_per_sec < 0) bytes_per_sec = 0;
+  // *8 (bits) before /speed_bps to keep precision; *100 last.
+  return (bytes_per_sec * 8 * 100) / speed_bps;
+}
+}  // namespace
+
+long long network_interface::getUsageInPct() const { return compute_usage_pct(BytesReceivedPersec, SpeedBps); }
+long long network_interface::getUsageOutPct() const { return compute_usage_pct(BytesSentPersec, SpeedBps); }
+long long network_interface::getUsageTotalPct() const { return compute_usage_pct(BytesTotalPersec, SpeedBps); }
 
 void network_interface::read_prd(wmi_impl::row r, long long delta) {
   // The "Persec" fields from Win32_PerfRawData are raw cumulative byte counts,
@@ -243,12 +284,72 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("MAC", &filter_obj::get_MACAddress, "The MAC address")
       .add_string_var("status", &filter_obj::get_NetConnectionStatus, "Network connection status")
       .add_string_var("enabled", &filter_obj::get_NetEnabled, "True if the network interface is enabled")
-      .add_string_var("speed", &filter_obj::get_Speed, "The network interface speed")
+      .add_string_var("speed", &filter_obj::get_Speed, "The network interface speed (raw WMI value, e.g. \"1000000000\" or \"Unknown\")")
       .add_string_var("source", &filter_obj::get_source, "WMI source: 'interface' or 'adapter'");
 
+  // Byte-rate counters. `add_int_perf` is NOT a "register as perf"
+  // shorthand - it chains onto the last-registered variable and marks
+  // that one as also emitting a perf entry. So the pattern is
+  // `add_int_var(...).add_int_perf("UOM")` per metric. Issue #329 #1: now
+  // each direction emits its own perf entry ('<iface>_received',
+  // '<iface>_sent', '<iface>_total') instead of being collapsed into a
+  // single combined value. Unit "Bps" (bytes/sec) matches the underlying
+  // counter; consumers that prefer bits-per-sec can multiply by 8.
   registry_.add_int_var("received", &filter_obj::getBytesReceivedPersec, "Bytes received per second")
+      .add_int_perf("Bps")
       .add_int_var("sent", &filter_obj::getBytesSentPersec, "Bytes sent per second")
-      .add_int_var("total", &filter_obj::getBytesTotalPersec, "Bytes total per second");
+      .add_int_perf("Bps")
+      .add_int_var("total", &filter_obj::getBytesTotalPersec, "Bytes total per second")
+      .add_int_perf("Bps");
+
+  // Best-effort negotiated link speed (bits/sec). WMI's Speed property is
+  // unreliable on virtual / wireless / NIC-team adapters - see the
+  // SpeedBps field comment in check_network.hpp. Exposed as a where-engine
+  // variable so users can filter on `speed_bps > 0` to gate "we know the
+  // link rate" before applying percent thresholds. Deliberately NOT
+  // marked as perf - it's metadata, not a time-series sample.
+  registry_.add_int_var("speed_bps", &filter_obj::getSpeedBps,
+                        "Negotiated link speed in bits/sec, parsed from the WMI Speed property. "
+                        "BEST-EFFORT: 0 when the speed is Unknown/empty (virtual adapters, some teams). "
+                        "Filter on speed_bps > 0 before relying on usage_in/out/total.");
+
+  // Percent-usage variables, derived from speed_bps. Each returns -1 when
+  // the link speed is unknown so the operator can distinguish "0% load"
+  // from "we don't know the denominator". Same `add_int_var().add_int_perf()`
+  // pattern as above so they show up in perfdata with UOM "%" by default;
+  // descriptions repeat the best-effort caveat so the auto-generated
+  // reference doc carries the warning to operators.
+  registry_
+      .add_int_var("usage_in", &filter_obj::getUsageInPct,
+                   "Percent of negotiated link speed used by received traffic. "
+                   "BEST-EFFORT: reads as 0 when speed is unknown - "
+                   "filter on speed_bps > 0 to distinguish idle from unknown.")
+      .add_int_perf("%")
+      .add_int_var("usage_out", &filter_obj::getUsageOutPct,
+                   "Percent of negotiated link speed used by sent traffic. "
+                   "BEST-EFFORT: reads as 0 when speed is unknown - "
+                   "filter on speed_bps > 0 to distinguish idle from unknown.")
+      .add_int_perf("%")
+      .add_int_var("usage_total", &filter_obj::getUsageTotalPct,
+                   "Percent of negotiated link speed used by total traffic. "
+                   "BEST-EFFORT: reads as 0 when speed is unknown - "
+                   "filter on speed_bps > 0 to distinguish idle from unknown.")
+      .add_int_perf("%");
+
+  // Human-readable byte-rate strings for use in detail-syntax templates
+  // (issue #329 #3). Issued as `*_human` rather than touching `sent` /
+  // `received` so perfdata stays numeric. format_byte_units auto-scales
+  // to B/KB/MB/GB/... base-1024.
+  registry_
+      .add_string_var(
+          "sent_human", [](auto obj) { return str::format::format_byte_units(obj->getBytesSentPersec()); },
+          "Bytes sent per second, formatted as a human-readable string (auto-scaled).")
+      .add_string_var(
+          "received_human", [](auto obj) { return str::format::format_byte_units(obj->getBytesReceivedPersec()); },
+          "Bytes received per second, formatted as a human-readable string (auto-scaled).")
+      .add_string_var(
+          "total_human", [](auto obj) { return str::format::format_byte_units(obj->getBytesTotalPersec()); },
+          "Bytes total per second, formatted as a human-readable string (auto-scaled).");
 }
 
 void check_network(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, nics_type nicdata) {
@@ -259,7 +360,14 @@ void check_network(const PB::Commands::QueryRequestMessage::Request &request, PB
 
   filter_type filter;
   filter_helper.add_options("total > 10000", "total > 100000", "", filter.get_filter_syntax(), "critical");
-  filter_helper.add_syntax("${status}: ${list}", "${name} >${sent} <${received} bps", "${name}", "", "%(status): Network interfaces seem ok.");
+  // Default top-syntax now uses the human-readable byte-rate strings
+  // (issue #329 #3) so operators see ">1.2 MB/s" instead of ">1234567 bps".
+  // The raw byte-rate values are still available via `sent` / `received`
+  // / `total` for filter expressions, and they're emitted as perfdata
+  // automatically (issue #329 #1). For percent-of-link thresholds use
+  // `usage_in` / `usage_out` / `usage_total` after gating on
+  // `speed_bps > 0` (issue #329 #2).
+  filter_helper.add_syntax("${status}: ${list}", "${name} >${sent_human}/s <${received_human}/s", "${name}", "", "%(status): Network interfaces seem ok.");
   // clang-format off
   filter_helper.get_desc().add_options()
     ("mode", po::value<std::string>(&mode)->default_value("interface"),

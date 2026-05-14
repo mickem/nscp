@@ -39,7 +39,7 @@ import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import EditIcon from "@mui/icons-material/Edit";
 import SettingsInstanceDialog, { FieldGroup } from "./SettingsInstanceDialog.tsx";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import { useMemo, useRef, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import { getFactoryTemplates, InstanceTemplate } from "./instanceTemplates.ts";
 
 interface Props {
@@ -95,21 +95,46 @@ function isFieldVisible(
   isTemplate: boolean,
   isDefaultTemplate: boolean,
   showAdvanced: boolean,
+  collectionPath: string,
 ): boolean {
   // is_template flag is set at creation time via the Add / Add template
   // buttons — never editable inline.
   if (key === "is template") return false;
+  // Schema-flagged advanced keys mirror the per-module flat list: hidden by
+  // default to keep the dialog focused on common config, revealed when the
+  // user opts in via the Show advanced toggle.
+  const field = fields.find((f) => f.key === key);
+  if (field?.is_advanced_key && !showAdvanced) return false;
   // `target` is documented as an alias for `destination` — hide it so the
   // user doesn't see two fields with the title "DESTINATION".
   if (key === "target") return false;
   // Templates describe schema for child instances; they don't bind to a
   // concrete PDH counter themselves and don't carry per-instance aliases.
   if ((key === "counter" || key === "alias") && isTemplate) return false;
+  // On WEB users `alias` is an advanced authentication mechanism — keep it
+  // out of the way unless the user has opted into advanced fields.
+  if (
+    key === "alias" &&
+    collectionPath === "/settings/WEB/server/users" &&
+    !showAdvanced
+  ) {
+    return false;
+  }
   // The default template is the root of the inheritance chain — it has no parent.
   if (key === "parent" && isDefaultTemplate) return false;
   if (key === "buffer size") {
     const strategy = fields.find((f) => f.key === "collection strategy")?.value ?? "";
     return strategy === "rrd";
+  }
+  // The "Create objects" fields only matter when auto-creation is enabled —
+  // hide them when ensure objects is off so the tab isn't full of inert config.
+  if (
+    collectionPath.includes("/icinga/client/targets") &&
+    (key === "check command" || key === "host template" || key === "service template")
+  ) {
+    const ensureField = fields.find((f) => f.key === "ensure objects");
+    const effective = (ensureField?.value || ensureField?.default_value || "").toLowerCase();
+    return effective === "true" || effective === "1";
   }
   // `debug` is rarely toggled at the per-instance level — hide it unless the
   // user has explicitly opted into advanced fields.
@@ -121,7 +146,7 @@ function isFieldVisible(
 // collection by path. Any schema field not listed in any group falls into
 // a final auto-generated "Other" tab so nothing is silently hidden.
 const FILTER_FIELD_GROUPS: FieldGroup[] = [
-  { name: "Source", keys: ["process", "time", "type"] },
+  { name: "Source", keys: ["process", "time", "type", "log", "file", "files", "column-split"] },
   { name: "Filter", keys: ["filter", "warning", "critical", "ok"] },
   {
     name: "Display",
@@ -146,9 +171,34 @@ const COUNTER_FIELD_GROUPS: FieldGroup[] = [
   { name: "Storage", keys: ["collection strategy", "buffer size"] },
 ];
 
+const ICINGA_TARGET_FIELD_GROUPS: FieldGroup[] = [
+  {
+    name: "Icinga Server",
+    keys: [
+      "parent",
+      "address",
+      "host",
+      "port",
+      "username",
+      "password",
+      "retries",
+      "timeout",
+    ],
+  },
+  { name: "TLS", keys: ["tls version", "verify mode", "ca"] },
+  {
+    name: "Create objects",
+    keys: ["ensure objects", "check command", "host template", "service template"],
+  },
+  { name: "Check", keys: ["check source"] },
+];
+
 function getFieldGroups(collectionPath: string): FieldGroup[] {
-  if (/\/system\/windows\/real-time\//.test(collectionPath)) return FILTER_FIELD_GROUPS;
+  if (collectionPath.includes("/system/windows/real-time")) return FILTER_FIELD_GROUPS;
+  if (collectionPath.includes("/settings/eventlog/real-time/filters")) return FILTER_FIELD_GROUPS;
   if (collectionPath.includes("/system/windows/counters")) return COUNTER_FIELD_GROUPS;
+  if (collectionPath.includes("/icinga/client/targets")) return ICINGA_TARGET_FIELD_GROUPS;
+  if (collectionPath.includes("/settings/logfile/real-time/checks")) return FILTER_FIELD_GROUPS;
   return [];
 }
 
@@ -160,6 +210,37 @@ function getPreviewColumn(collectionPath: string): { key: string; label: string 
   if (collectionPath.includes("/system/windows/real-time/memory")) return { key: "type", label: "Type" };
   if (collectionPath.includes("/system/windows/real-time/process")) return { key: "process", label: "Process" };
   return null;
+}
+
+// Backend can register the same key from multiple schema sources (parent
+// class + subclass, alias + canonical, etc.), producing duplicate
+// SettingsDescription entries at the same (path, key). When that happens,
+// pick the one with the richest metadata: prefer a concrete type, then a
+// title, then a description, then a non-empty default. Without this dedupe
+// the first duplicate wins and the dialog can pick the version where
+// `is_advanced_key=true`, `type=""`, etc., hiding bool toggles behind the
+// advanced switch and rendering them as plain text.
+function dedupeByKey(items: SettingsDescription[]): SettingsDescription[] {
+  const score = (s: SettingsDescription) =>
+    (s.type ? 8 : 0) +
+    (s.title ? 4 : 0) +
+    (s.description ? 2 : 0) +
+    (s.default_value ? 1 : 0);
+  const byKey = new Map<string, SettingsDescription>();
+  for (const s of items) {
+    const prev = byKey.get(s.key);
+    if (!prev || score(s) > score(prev)) byKey.set(s.key, s);
+  }
+  // Preserve original order by re-walking the input.
+  const seen = new Set<string>();
+  const out: SettingsDescription[] = [];
+  for (const s of items) {
+    if (seen.has(s.key)) continue;
+    seen.add(s.key);
+    const best = byKey.get(s.key);
+    if (best) out.push(best);
+  }
+  return out;
 }
 
 // Move `key` so it renders directly after `afterKey` (no-op if either is missing).
@@ -189,6 +270,7 @@ export default function SettingsCollection({
   const [pendingTemplate, setPendingTemplate] = useState<InstanceTemplate | null>(null);
   const factoryTemplates = useMemo(() => getFactoryTemplates(collectionPath), [collectionPath]);
   const addMenuAnchor = useRef<HTMLDivElement | null>(null);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [addBusy, setAddBusy] = useState(false);
@@ -255,16 +337,23 @@ export default function SettingsCollection({
         }
       }
     }
-    return reorderAfter(base, "buffer size", "collection strategy");
+    return reorderAfter(dedupeByKey(base), "buffer size", "collection strategy");
   }, [settings, templatePath, instanceNames, prefix]);
 
   const instances: Instance[] = useMemo(() => {
     const built = instanceNames.map((name) => {
       const path = `${prefix}${name}`;
-      const existing = settings.filter((s) => s.path === path && s.key !== "");
+      const existing = dedupeByKey(
+        settings.filter((s) => s.path === path && s.key !== ""),
+      );
+      // Always source field metadata (type, title, description, flags,
+      // default_value) from the template — instance description entries only
+      // get fleshed out by the backend after a save/reload, so a freshly
+      // added instance can otherwise lose its toggle/enum widgets and have
+      // is_advanced_key flip to true. Overlay just the stored value.
       const fields = templateKeys.map((tk) => {
         const match = existing.find((e) => e.key === tk.key);
-        return match ?? { ...tk, path, value: "" };
+        return { ...tk, path, value: match?.value ?? "" };
       });
       const isTemplate =
         isTemplateValue(fields.find((f) => f.key === "is template")?.value) ||
@@ -378,6 +467,11 @@ export default function SettingsCollection({
       }
       setAdding(null);
       setPendingTemplate(null);
+      // Jump straight into the edit dialog so the user can configure the
+      // new instance — a seeded entry on its own is rarely useful. The
+      // dialog actually mounts once the settings query refetches and the
+      // new path appears in `instances`.
+      setEditingPath(newPath);
     } catch (err) {
       setAddError(`Failed to create entry: ${formatError(err)}`);
     } finally {
@@ -637,6 +731,7 @@ export default function SettingsCollection({
               editingInstance.isTemplate,
               editingInstance.name === templateName,
               showAdvanced,
+              collectionPath,
             )
           }
           existingNames={instanceNames}
@@ -651,6 +746,25 @@ export default function SettingsCollection({
           setAdding(null);
           setPendingTemplate(null);
         }}
+        slotProps={{
+          paper: {
+            component: "form",
+            onSubmit: (e: FormEvent) => {
+              e.preventDefault();
+              if (!newName.trim() || addBusy) return;
+              void onConfirmAdd();
+            },
+          },
+          // autoFocus on TextField can lose the race with the Add-menu's
+          // focus restore when the dialog opens immediately on menu click —
+          // grab focus explicitly once the dialog transition is done.
+          transition: {
+            onEntered: () => {
+              nameInputRef.current?.focus();
+              nameInputRef.current?.select();
+            },
+          },
+        }}
       >
         <DialogTitle>
           {pendingTemplate
@@ -661,7 +775,10 @@ export default function SettingsCollection({
         </DialogTitle>
         <DialogContent>
           <TextField
-            autoFocus
+            inputRef={nameInputRef}
+            // Select any suggested name so the user can start typing to
+            // replace it rather than having to clear it first.
+            onFocus={(e) => (e.target as HTMLInputElement).select()}
             margin="dense"
             label="Name"
             fullWidth
@@ -678,6 +795,7 @@ export default function SettingsCollection({
         </DialogContent>
         <DialogActions>
           <Button
+            type="button"
             onClick={() => {
               setAdding(null);
               setPendingTemplate(null);
@@ -686,7 +804,12 @@ export default function SettingsCollection({
           >
             Cancel
           </Button>
-          <Button onClick={onConfirmAdd} disabled={!newName.trim() || addBusy} loading={addBusy}>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={!newName.trim() || addBusy}
+            loading={addBusy}
+          >
             {adding === "template" ? "Add template" : "Add"}
           </Button>
         </DialogActions>

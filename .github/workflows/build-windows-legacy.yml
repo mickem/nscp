@@ -209,7 +209,10 @@ jobs:
     - name: Make python dist
       working-directory: tmp/nscp
       run: |
-        & "$env:Python_ROOT_DIR\python" ..\..\build\python\mk_pyzip.py --source ${{ env.Python_ROOT_DIR }}
+        # --version must match the NSCP_BOOST_PYTHON_VERSION cmake variable
+        # written above; the MSI bundles python<version>.zip and expects
+        # this filename to exist. Bump them together when changing Python.
+        & "$env:Python_ROOT_DIR\python" ..\..\build\python\mk_pyzip.py --source ${{ env.Python_ROOT_DIR }} --version python311
       shell: pwsh
 
     - name: CMake (installer_lib)

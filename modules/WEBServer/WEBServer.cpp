@@ -37,6 +37,7 @@
 #include <str/xtos.hpp>
 #include <utility>
 
+#include "alias_controller.hpp"
 #include "api_controller.hpp"
 #include "error_handler.hpp"
 #include "events_controller.hpp"
@@ -117,10 +118,11 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // role) to leave something callable.
   bool disable_admin_user = false;
 
-  role_map roles;
+  role_map roles = nscapi::settings::make_string_kvp_map();
 
   std::string role_path = settings.alias().get_settings_path("roles");
   std::string user_path = settings.alias().get_settings_path("users");
+  roles.set_path(role_path);
 
   users_.set_path(settings.alias().get_settings_path("users"));
 
@@ -131,7 +133,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     ("users", sh::fun_values_path([this] (auto key, auto value) { this->add_user(key, value); }),
     "Web server users", "Users which can access the REST API",
     "REST USER", "")
-    ("roles", sh::string_map_path(&roles)
+    ("roles", sh::fun_values_path([&roles] (auto key, auto value) { roles.add(key, value); })
     , "Web server roles", "A list of roles and with coma separated list of access rights.")
   ;
   // clang-format on
@@ -186,7 +188,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       .add_key_to_settings()
       .add_string("allowed hosts", nscapi::settings_helper::string_fun_key([this](auto value) { this->session->set_allowed_hosts(value); }, "127.0.0.1"),
                   "Allowed hosts", "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
-      .add_string(
+      .add_bool(
           "cache allowed hosts", nscapi::settings_helper::bool_fun_key([this](auto value) { this->session->set_allowed_hosts_cache(value); }, true),
           "Cache list of allowed hosts",
           "If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.")
@@ -205,9 +207,9 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // already a wildcard).
   ensure_role(roles, settings, role_path, "legacy", "legacy,login.get", "legacy API");
   ensure_role(roles, settings, role_path, "full", "*", "Full access");
-  ensure_role(roles, settings, role_path, "client", "public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list",
-              "read only");
-  ensure_role(roles, settings, role_path, "monitoring", "public,queries.execute,login.get,metrics.get", "checks and queries only");
+  ensure_role(roles, settings, role_path, "client",
+              "public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list", "read only");
+  ensure_role(roles, settings, role_path, "monitoring", "public,queries.execute,aliases.list,login.get,metrics.get", "checks and queries only");
 
   if (!disable_admin_user) {
     ensure_user(settings, user_path, "admin", "full", admin_password, "Administrator");
@@ -229,9 +231,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       }
       session->add_user(o->get_alias(), o->role, o->password);
     }
-    for (const role_map::value_type &v : roles) {
-      session->add_grant(v.first, v.second);
-    }
+    roles.for_each([this](const std::string &name, const std::string &grant) { session->add_grant(name, grant); });
 
     socket_helpers::validate_certificate(certificate, errors);
     NSC_LOG_ERROR_LISTS(errors);
@@ -279,6 +279,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
     server->registerController(new modules_controller(2, session, get_core(), get_id()));
     server->registerController(new query_controller(2, session, get_core(), get_id()));
+    server->registerController(new alias_controller(2, session, get_core(), get_id()));
     server->registerController(new scripts_controller(2, session, get_core(), get_id()));
     server->registerController(new log_controller(2, session, get_core(), get_id()));
     server->registerController(new info_controller(2, session, get_core(), get_id()));
@@ -293,6 +294,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
     server->registerController(new modules_controller(1, session, get_core(), get_id()));
     server->registerController(new query_controller(1, session, get_core(), get_id()));
+    server->registerController(new alias_controller(1, session, get_core(), get_id()));
     server->registerController(new scripts_controller(1, session, get_core(), get_id()));
     server->registerController(new log_controller(1, session, get_core(), get_id()));
     server->registerController(new info_controller(1, session, get_core(), get_id()));
@@ -893,9 +895,15 @@ void WEBServer::add_user(const std::string &key, const std::string &arg) {
 
 void WEBServer::ensure_role(role_map &roles, const nscapi::settings_helper::settings_registry &settings, const std::string &role_path, const std::string &role,
                             const std::string &value, const std::string &reason) {
-  if (roles.find(role) == roles.end()) {
-    roles[role] = value;
-    settings.register_key_string(role_path, role, "Role for " + reason, "Default role for " + reason, value);
+  // Register the schema every load so the role key carries plugin attribution
+  // and type info in the inventory. Without this, restarts after the first
+  // boot leave the role as an unregistered raw INI entry: parse_inventory's
+  // fallback path then reports type="" and plugins=[] (see
+  // service/settings_query_handler.cpp). Only the value-seeding stays gated
+  // so we don't overwrite operator-customized grants.
+  settings.register_key_string(role_path, role, "Role for " + reason, "Default role for " + reason, value);
+  if (!roles.contains(role)) {
+    roles.add(role, value);
     settings.set_static_key(role_path, role, value);
   }
 }

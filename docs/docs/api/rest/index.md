@@ -12,6 +12,7 @@ Each topic has its own page:
 * [Modules](modules.md) — list, load, unload, enable, disable
 * [Settings](settings.md) — list, read, write, delete, save, load, reload, diff
 * [Queries](queries.md) — list and execute checks
+* [Aliases](aliases.md) — list registered query aliases
 * [Scripts](scripts.md) — list and manage scripts
 * [Logs](logs.md) — read, write, status, reset, paginate
 * [Metrics](metrics.md) — flat JSON, OpenMetrics text, legacy nested JSON
@@ -108,6 +109,7 @@ $ curl -k -s -u admin https://localhost:8443/api/v2 | python -m json.tool
     "logs_url":     "https://localhost:8443/api/v2/logs",
     "modules_url":  "https://localhost:8443/api/v2/modules",
     "queries_url":  "https://localhost:8443/api/v2/queries",
+    "aliases_url":  "https://localhost:8443/api/v2/aliases",
     "scripts_url":  "https://localhost:8443/api/v2/scripts",
     "settings_url": "https://localhost:8443/api/v2/settings"
 }

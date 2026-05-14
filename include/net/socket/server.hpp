@@ -78,7 +78,14 @@ class server : boost::noncopyable {
   static boost::asio::ssl::context_base::method make_context(const connection_info &info) { return tls_method_parser(info.ssl.tls_version); }
 #endif
 
-  std::shared_ptr<connection_type> new_connection_;
+  // Each acceptor owns its own pending connection. Sharing a single
+  // new_connection_ between v4 and v6 caused the v6 async_accept handler
+  // to be parked on the same socket the v4 path was already using; once
+  // v4 accepted a client and re-armed itself, the v6 acceptor was still
+  // pointed at the (now-busy) original socket and the next v6 client
+  // produced asio::error::already_open ("Socket ERROR: Already open").
+  std::shared_ptr<connection_type> new_connection_v4_;
+  std::shared_ptr<connection_type> new_connection_v6_;
   boost::thread_group thread_group_;
 
  public:
@@ -162,8 +169,6 @@ class server : boost::noncopyable {
       return false;
 #endif
     }
-    new_connection_.reset(create_connection());
-
     int count = 0;
     for (; endpoint_iterator != end; ++endpoint_iterator) {
       ip::tcp::endpoint endpoint = *endpoint_iterator;
@@ -177,10 +182,14 @@ class server : boost::noncopyable {
       return false;
     }
 
-    if (acceptor_v4.is_open())
-      acceptor_v4.async_accept(new_connection_->get_socket(), accept_strand_.wrap([this](const auto &e) { this->handle_accept(false, e); }));
-    if (acceptor_v6.is_open())
-      acceptor_v6.async_accept(new_connection_->get_socket(), accept_strand_.wrap([this](const auto &e) { this->handle_accept(true, e); }));
+    if (acceptor_v4.is_open()) {
+      new_connection_v4_.reset(create_connection());
+      acceptor_v4.async_accept(new_connection_v4_->get_socket(), accept_strand_.wrap([this](const auto &e) { this->handle_accept(false, e); }));
+    }
+    if (acceptor_v6.is_open()) {
+      new_connection_v6_.reset(create_connection());
+      acceptor_v6.async_accept(new_connection_v6_->get_socket(), accept_strand_.wrap([this](const auto &e) { this->handle_accept(true, e); }));
+    }
 
     for (std::size_t i = 0; i < info_.thread_pool_size; ++i) {
       thread_group_.create_thread([this]() { io_service_.run(); });
@@ -241,15 +250,20 @@ class server : boost::noncopyable {
 
  private:
   void handle_accept(bool ipv6, const boost::system::error_code &e) {
+    // The acceptor's pending connection is per-family - never reach across.
+    // Otherwise the v6 path would reset the v4 path's slot (and vice
+    // versa) and the partner's queued async_accept would land on a
+    // socket that is either destroyed or already in use.
+    std::shared_ptr<connection_type> &slot = ipv6 ? new_connection_v6_ : new_connection_v4_;
     try {
       if (protocol_type::debug_trace)
         logger_->log_debug(__FILE__, __LINE__, std::string("handle_accept: ") + (ipv6 ? "v6" : "v4") + ", " + utf8::utf8_from_native(e.message()));
       if (!e) {
         std::list<std::string> errors;
-        if (logger_->on_accept(new_connection_->get_socket(), threads_--)) {
-          new_connection_->start();
+        if (logger_->on_accept(slot->get_socket(), threads_--)) {
+          slot->start();
         } else {
-          new_connection_->on_done(false);
+          slot->on_done(false);
         }
       } else if (is_shutting_down_)
         return;
@@ -262,11 +276,11 @@ class server : boost::noncopyable {
       logger_->log_error(__FILE__, __LINE__, "Failed to handle incoming connection: UNKNOWN");
     }
     try {
-      new_connection_.reset(create_connection());
+      slot.reset(create_connection());
       if (ipv6)
-        acceptor_v6.async_accept(new_connection_->get_socket(), accept_strand_.wrap([this, ipv6](const auto &e) { this->handle_accept(ipv6, e); }));
+        acceptor_v6.async_accept(slot->get_socket(), accept_strand_.wrap([this, ipv6](const auto &e) { this->handle_accept(ipv6, e); }));
       else
-        acceptor_v4.async_accept(new_connection_->get_socket(), accept_strand_.wrap([this, ipv6](const auto &e) { this->handle_accept(ipv6, e); }));
+        acceptor_v4.async_accept(slot->get_socket(), accept_strand_.wrap([this, ipv6](const auto &e) { this->handle_accept(ipv6, e); }));
     } catch (const std::exception &e) {
       logger_->log_error(__FILE__, __LINE__, std::string("Failed to create new connection: ") + utf8::utf8_from_native(e.what()));
     } catch (...) {

@@ -131,7 +131,6 @@ The TLS version to use 1.0, 1.1, 1.2, 1.3 or any
 | Path / Section                                                | Description               |
 |---------------------------------------------------------------|---------------------------|
 | [/settings/icinga/client](#icinga-2-client)                   | Icinga 2 client           |
-| [/settings/icinga/client/handlers](#client-handler-section)   | CLIENT HANDLER SECTION    |
 | [/settings/icinga/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
 
 
@@ -220,18 +219,6 @@ ${domain_uc}	Domainname in uppercase
 # HOSTNAME
 hostname=auto
 ```
-
-
-### CLIENT HANDLER SECTION <a id="/settings/icinga/client/handlers"></a>
-
-
-
-
-This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
-
-
-
-
 
 
 ### REMOTE TARGET DEFINITIONS <a id="/settings/icinga/client/targets"></a>

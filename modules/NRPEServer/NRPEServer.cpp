@@ -26,6 +26,7 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <str/utf8.hpp>
 #include <str/utils.hpp>
 
 namespace sh = nscapi::settings_helper;
@@ -141,12 +142,28 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
     boost::asio::io_service io_service_;
 
-    server_.reset(new nrpe::server::server(info_, this));
-    if (!server_) {
-      NSC_LOG_ERROR_STD("Failed to create server instance!");
-      return false;
+    // Failures here (typically a bad `bind to` address that the resolver
+    // can't look up, or a port already in use) used to escape loadModuleEx
+    // and cause the whole module to fail to load. That's overkill: the
+    // module's other surfaces (settings, registered commands) are still
+    // useful for diagnostics and reconfiguration even when the listener
+    // can't come up. Log the failure clearly, drop the half-constructed
+    // server, and let the module load so the operator can fix the config
+    // without restarting the service into a broken state.
+    try {
+      server_.reset(new nrpe::server::server(info_, this));
+      if (!server_) {
+        NSC_LOG_ERROR_STD("Failed to create server instance!");
+        return true;
+      }
+      server_->start();
+    } catch (const std::exception &e) {
+      NSC_LOG_ERROR_STD("NRPEServer listener failed to start (module remains loaded; fix the configuration and reload): " + utf8::utf8_from_native(e.what()));
+      server_.reset();
+    } catch (...) {
+      NSC_LOG_ERROR_STD("NRPEServer listener failed to start with unknown error (module remains loaded; fix the configuration and reload)");
+      server_.reset();
     }
-    server_->start();
   }
   return true;
 }

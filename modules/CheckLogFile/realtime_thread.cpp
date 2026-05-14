@@ -197,3 +197,5 @@ void real_time_thread::add_realtime_filter(nscapi::settings_helper::settings_imp
     NSC_LOG_ERROR_EX("Failed to add command: " + utf8::cvt<std::string>(key));
   }
 }
+
+void real_time_thread::ensure_default(nscapi::settings_helper::settings_impl_interface_ptr proxy) { filters_.ensure_default(proxy); }

@@ -262,13 +262,13 @@ The WMI root namespace to bind to.
 
 
 
-| Path / Section                            | Description         |
-|-------------------------------------------|---------------------|
-| [/settings/targets](#target-list-section) | TARGET LIST SECTION |
+| Path / Section                                | Description         |
+|-----------------------------------------------|---------------------|
+| [/settings/wmi/targets](#target-list-section) | TARGET LIST SECTION |
 
 
 
-### TARGET LIST SECTION <a id="/settings/targets"></a>
+### TARGET LIST SECTION <a id="/settings/wmi/targets"></a>
 
 A list of available remote target systems
 

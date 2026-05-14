@@ -1,4 +1,4 @@
-import Stack from "@mui/material/Stack";
+﻿import Stack from "@mui/material/Stack";
 import { Box, Card, CardContent, InputAdornment, TextField, Toolbar } from "@mui/material";
 import Grid from "@mui/material/Grid";
 import AppBar from "@mui/material/AppBar";
@@ -7,7 +7,7 @@ import { AccountCircle } from "@mui/icons-material";
 import PasswordIcon from "@mui/icons-material/Password";
 import { useAuthentication } from "../common/hooks/auth.ts";
 import { useEffect, useState } from "react";
-import NscpAlert from "./atoms/NscpAlert";
+import NscpAlert from "../components/atoms/NscpAlert";
 import Typography from "@mui/material/Typography";
 
 export default function Login() {

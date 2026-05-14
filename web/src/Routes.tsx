@@ -1,16 +1,16 @@
-import Dashboard from "./components/Dashboard.tsx";
+import Dashboard from "./pages/Dashboard.tsx";
 import { BrowserRouter, Route, Routes } from "react-router";
-import MainPage from "./components/MainPage.tsx";
-import Modules from "./components/Modules.tsx";
+import MainPage from "./pages/MainPage.tsx";
+import Modules from "./pages/Modules.tsx";
 import { useAuthentication } from "./common/hooks/auth.ts";
-import Login from "./components/Login.tsx";
-import Logs from "./components/Logs.tsx";
-import Queries from "./components/Queries.tsx";
-import Query from "./components/Query.tsx";
-import Module from "./components/Module.tsx";
-import Settings from "./components/Settings.tsx";
-import Metrics from "./components/Metrics.tsx";
-import Events from "./components/Events.tsx";
+import Login from "./pages/Login.tsx";
+import Logs from "./pages/Logs.tsx";
+import Queries from "./pages/Queries.tsx";
+import Query from "./pages/Query.tsx";
+import Module from "./pages/Module.tsx";
+import Settings from "./pages/Settings.tsx";
+import Metrics from "./pages/Metrics.tsx";
+import Events from "./pages/Events.tsx";
 
 export default function Router() {
   const { isAuthenticated } = useAuthentication();

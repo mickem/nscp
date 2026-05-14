@@ -1,16 +1,16 @@
-import Stack from "@mui/material/Stack";
+﻿import Stack from "@mui/material/Stack";
 import { ModuleListItem, nsclientApi, useGetModulesQuery } from "../api/api.ts";
 import { List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography } from "@mui/material";
 import { useNavigate } from "react-router";
-import { Toolbar } from "./atoms/Toolbar.tsx";
-import { Spacing } from "./atoms/Spacing.tsx";
-import { RefreshButton } from "./atoms/RefreshButton.tsx";
+import { Toolbar } from "../components/atoms/Toolbar.tsx";
+import { Spacing } from "../components/atoms/Spacing.tsx";
+import { RefreshButton } from "../components/atoms/RefreshButton.tsx";
 import { useAppDispatch } from "../store/store.ts";
 import CheckIcon from "@mui/icons-material/Check";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
-import Trail from "./atoms/Trail.tsx";
-import FilterField from "./atoms/FilterField.tsx";
+import Trail from "../components/atoms/Trail.tsx";
+import FilterField from "../components/atoms/FilterField.tsx";
 import { useMemo, useState } from "react";
 
 export default function Modules() {
@@ -46,7 +46,7 @@ export default function Modules() {
       <Toolbar>
         <Trail title="Modules" />
         <Spacing />
-        <FilterField value={filter} onChange={setFilter} placeholder="Filter modules…" />
+        <FilterField value={filter} onChange={setFilter} placeholder="Filter modules" />
         {needle && (
           <Typography variant="body2" color="text.secondary">
             {filtered.length}/{modules?.length ?? 0}
@@ -57,7 +57,7 @@ export default function Modules() {
       <List sx={{ width: "100%" }}>
         {filtered.length === 0 && needle && (
           <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
-            No modules match “{filter}”.
+            No modules match â€œ{filter}â€.
           </Typography>
         )}
         {filtered.map((module) => (

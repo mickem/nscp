@@ -26,16 +26,16 @@ boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
 
 namespace simple_scheduler {
 
-volatile boost::uint32_t metric_executed = 0;
-volatile boost::uint32_t metric_compleated = 0;
-volatile boost::uint32_t metric_errors = 0;
-volatile boost::uint32_t metric_time = 0;
-volatile boost::uint32_t metric_count = 0;
-volatile boost::uint32_t metric_max_time = 0;
-volatile boost::uint32_t metric_start = 0;
+volatile uint32_t metric_executed = 0;
+volatile uint32_t metric_compleated = 0;
+volatile uint32_t metric_errors = 0;
+volatile uint32_t metric_time = 0;
+volatile uint32_t metric_count = 0;
+volatile uint32_t metric_max_time = 0;
+volatile uint32_t metric_start = 0;
 using namespace boost::interprocess::ipcdetail;
 inline void my_atomic_add(volatile boost::uint32_t *mem, boost::uint32_t value) {
-  boost::uint32_t old, c(atomic_read32(mem));
+  uint32_t old, c(atomic_read32(mem));
   while ((old = atomic_cas32(mem, c + value, c)) != c) {
     c = old;
   }
@@ -49,8 +49,8 @@ int scheduler::get_metric_errors() const { return atomic_read32(&metric_errors);
 std::size_t scheduler::get_metric_threads() const { return thread_count_; }
 std::size_t scheduler::get_metric_ql() { return queue_.size(); }
 int scheduler::get_avg_time() const {
-  boost::uint32_t t = atomic_read32(&metric_time);
-  boost::uint32_t c = atomic_read32(&metric_count);
+  const uint32_t t = atomic_read32(&metric_time);
+  const uint32_t c = atomic_read32(&metric_count);
   if (c == 0) {
     return 0;
   }
@@ -62,9 +62,9 @@ int scheduler::get_avg_time() const {
 }
 
 int scheduler::get_metric_rate() const {
-  boost::posix_time::time_duration diff = now() - time_t_epoch;
-  boost::uint32_t total_time = static_cast<uint32_t>(diff.total_seconds()) - metric_start;
-  boost::uint32_t count = atomic_read32(&metric_compleated);
+  const boost::posix_time::time_duration diff = now() - time_t_epoch;
+  const uint32_t total_time = static_cast<uint32_t>(diff.total_seconds()) - metric_start;
+  const uint32_t count = atomic_read32(&metric_compleated);
   if (total_time == 0) {
     return 0;
   }
@@ -98,8 +98,8 @@ void scheduler::stop() {
   log_trace(__FILE__, __LINE__, "Thread pool contains: " + str::xtos(threads_.threadCount()));
 }
 
-int scheduler::add_task(std::string tag, boost::posix_time::time_duration duration, double randomness) {
-  task item(tag, duration, randomness);
+int scheduler::add_task(const std::string &tag, const boost::posix_time::time_duration duration, const double jitter_factor) {
+  task item(tag, duration, jitter_factor);
   {
     boost::mutex::scoped_lock l(mutex_);
     item.id = ++schedule_id_;
@@ -108,7 +108,7 @@ int scheduler::add_task(std::string tag, boost::posix_time::time_duration durati
   reschedule(item, now());
   return item.id;
 }
-int scheduler::add_task(std::string tag, cron_parser::schedule schedule) {
+int scheduler::add_task(const std::string &tag, const cron_parser::schedule &schedule) {
   task item(tag, schedule);
   {
     boost::mutex::scoped_lock l(mutex_);
@@ -118,16 +118,16 @@ int scheduler::add_task(std::string tag, cron_parser::schedule schedule) {
   reschedule(item, now());
   return item.id;
 }
-void scheduler::remove_task(int id) {
+void scheduler::remove_task(const int id) {
   boost::mutex::scoped_lock l(mutex_);
-  tasks_list_type::iterator it = tasks_.find(id);
+  const auto it = tasks_.find(id);
   tasks_.erase(it);
 }
-scheduler::op_task_object scheduler::get_task(int id) {
+scheduler::op_task_object scheduler::get_task(const int id) {
   boost::mutex::scoped_lock l(mutex_);
-  tasks_list_type::iterator it = tasks_.find(id);
-  if (it == tasks_.end()) return op_task_object();
-  return op_task_object((*it).second);
+  const auto it = tasks_.find(id);
+  if (it == tasks_.end()) return {};
+  return {it->second};
 }
 
 void scheduler::clear_tasks() {
@@ -135,15 +135,14 @@ void scheduler::clear_tasks() {
   tasks_.clear();
 }
 
-void scheduler::watch_dog(int id) {
-  schedule_queue_type::value_type instance;
+void scheduler::watch_dog(const int id) {
   bool maximum_threads_reached = false;
   while (!stop_requested_) {
     try {
       try {
-        instance = queue_.top();
+        schedule_queue_type::value_type instance = queue_.top();
         if (instance) {
-          boost::posix_time::time_duration off = now() - (*instance).time;
+          boost::posix_time::time_duration off = now() - instance->time;
           if (off.total_seconds() > 5) {
             if (thread_count_ < 10) {
               thread_count_++;
@@ -176,11 +175,10 @@ void scheduler::watch_dog(int id) {
   log_trace(__FILE__, __LINE__, "Terminating thread: " + str::xtos(id));
 }
 
-void scheduler::thread_proc(int id) {
+void scheduler::thread_proc(const int id) {
   try {
-    schedule_queue_type::value_type instance;
     while (!stop_requested_) {
-      instance = queue_.pop();
+      schedule_queue_type::value_type instance = queue_.pop();
       if (!instance) {
         boost::unique_lock<boost::mutex> lock(idle_thread_mutex_);
         idle_thread_cond_.wait(lock);
@@ -188,13 +186,13 @@ void scheduler::thread_proc(int id) {
       }
 
       try {
-        boost::posix_time::time_duration off = now() - (*instance).time;
+        boost::posix_time::time_duration off = now() - instance->time;
         if (off.total_seconds() > error_threshold_) {
           log_error(__FILE__, __LINE__,
-                    "Ran scheduled item " + str::xtos(instance->schedule_id) + " " + str::xtos(off.total_seconds()) + " seconds to late from thread " +
-                        str::xtos(id));
+                    "Ran scheduled item " + instance->tag + "(" + str::xtos(instance->schedule_id) + ") " + str::xtos(off.total_seconds()) +
+                        " seconds to late from thread " + str::xtos(id));
         }
-        const boost::posix_time::time_duration wait = (*instance).time - now();
+        const boost::posix_time::time_duration wait = instance->time - now();
         if (wait.total_microseconds() > 0) {
           boost::this_thread::sleep(wait);
         }
@@ -215,7 +213,7 @@ void scheduler::thread_proc(int id) {
 
       boost::posix_time::ptime now_time = now();
       atomic_inc32(&metric_executed);
-      op_task_object item = get_task((*instance).schedule_id);
+      op_task_object item = get_task(instance->schedule_id);
       if (item) {
         try {
           bool to_reschedule = false;
@@ -258,11 +256,12 @@ void scheduler::reschedule(const task &item, boost::posix_time::ptime now_time) 
   if (item.is_disabled()) {
     log_error(__FILE__, __LINE__, "Found disabled task: " + item.to_string());
   } else {
-    reschedule_at(item.id, item.get_next(now_time));
+    reschedule_at(item.tag, item.id, item.get_next(now_time));
   }
 }
-void scheduler::reschedule_at(const int id, boost::posix_time::ptime new_time) {
+void scheduler::reschedule_at(const std::string &tag, const int id, boost::posix_time::ptime new_time) {
   schedule_instance instance;
+  instance.tag = tag;
   instance.schedule_id = id;
   instance.time = new_time;
   if (!queue_.push(instance)) {
@@ -284,7 +283,7 @@ void scheduler::start_threads() {
   }
   if (!has_watchdog_) {
     has_watchdog_ = true;
-    boost::function<void()> f = [this]() { this->watch_dog(0); };
+    const boost::function<void()> f = [this]() { this->watch_dog(0); };
     threads_.createThread(f);
   }
 }

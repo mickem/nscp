@@ -98,6 +98,14 @@ set(WIX_CANDLE_FLAGS
     -dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
     -dCRTMergeModule=${CRT_MERGE_MODULE}
     -dRuntime=${RUNTIME}
+    # Python version string (e.g. "python311", "python312"). The installer
+    # bundles the Python runtime DLL, the standard-library zip, and the
+    # Boost.Python DLL whose names embed this string verbatim
+    # (python312.dll, python312.zip, boost_python312.dll). Driven by the
+    # top-level NSCP_BOOST_PYTHON_VERSION CMake variable so a tree-wide
+    # python bump stays a one-line change in build.cmake instead of a
+    # hunt through .wxs files.
+    -dBoostPythonVersion=${NSCP_BOOST_PYTHON_VERSION}
     -dWixUILicenseRtf=${CMAKE_CURRENT_SOURCE_DIR}/License.rtf
 )
 source_group(Generated FILES ${SRCS})
@@ -111,7 +119,11 @@ source_group(Sources FILES ${SRCS})
 #        NSClientConfigUser pair is conditionalized on USER_WRITABLE_CONFIG so
 #        the conditions are mutually exclusive; the merge-module CRT files
 #        are similarly architecture-conditional. WiX cannot prove it.
-list(APPEND WIX_LINK_FLAGS -sice:ICE03 -sice:ICE30)
+list(
+    APPEND WIX_LINK_FLAGS
+    -sice:ICE03
+    -sice:ICE30
+)
 
 ADD_WIX_INSTALLER(${ALIAS} "${SRCS}" "${DEPENDENCIES}" "${LOCALIZATIONS}")
 add_dependencies(
