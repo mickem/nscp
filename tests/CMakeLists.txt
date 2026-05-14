@@ -258,6 +258,23 @@ NSCP_CREATE_TEST(
 )
 
 NSCP_CREATE_TEST(
+    simple_scheduler_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/scheduler/simple_scheduler_test.cpp
+        ${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.cpp
+        ${NSCP_INCLUDEDIR}/threads/has-threads.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_CHRONO_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
     simple_expression_test
     SOURCES
         ${NSCP_INCLUDEDIR}/parsers/expression/expression_test.cpp
