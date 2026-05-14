@@ -157,6 +157,16 @@ option optimize_for = LITE_RUNTIME;
 			OptionalFloat minimum = 6;
 			// The highest possible value
 			OptionalFloat maximum = 7;
+			// Original Nagios range syntax for the warning threshold, e.g.
+			// "4:5", ":10", "@0:90" or "~:10". When non-empty, formatters
+			// emit this verbatim and ignore the numeric `warning` sibling.
+			// Parsers set both: the float is the lower bound of the range
+			// (for back-compat with consumers that only read the numeric
+			// field) and this string carries the full syntax through the
+			// pipeline. See GitHub issue #748.
+			string warning_range = 8;
+			// Same semantics as warning_range, for the critical threshold.
+			string critical_range = 9;
 		}
 		// The name of the value
 		string alias = 1;

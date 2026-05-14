@@ -63,13 +63,24 @@ void legacy_command_controller::handle_query(Mongoose::Request &request, boost::
         json::object perf;
         perf["alias"] = p.alias();
         if (p.has_float_value()) {
+          const auto &fv = p.float_value();
           json::object float_value;
-          float_value["value"] = p.float_value().value();
-          if (p.float_value().has_minimum()) float_value["minimum"] = p.float_value().minimum().value();
-          if (p.float_value().has_maximum()) float_value["maximum"] = p.float_value().maximum().value();
-          if (p.float_value().has_warning()) float_value["warning"] = p.float_value().warning().value();
-          if (p.float_value().has_critical()) float_value["critical"] = p.float_value().critical().value();
-          float_value["unit"] = p.float_value().unit();
+          float_value["value"] = fv.value();
+          if (fv.has_minimum()) float_value["minimum"] = fv.minimum().value();
+          if (fv.has_maximum()) float_value["maximum"] = fv.maximum().value();
+          // Prefer the original Nagios range syntax over the numeric
+          // lower bound so the API doesn't silently drop "4:5"-style
+          // thresholds (issue #748). Same shape as the v2 queries
+          // endpoint in query_controller.cpp.
+          if (!fv.warning_range().empty())
+            float_value["warning"] = fv.warning_range();
+          else if (fv.has_warning())
+            float_value["warning"] = fv.warning().value();
+          if (!fv.critical_range().empty())
+            float_value["critical"] = fv.critical_range();
+          else if (fv.has_critical())
+            float_value["critical"] = fv.critical().value();
+          float_value["unit"] = fv.unit();
           perf["float_value"] = float_value;
         }
         if (p.has_string_value()) {

@@ -164,12 +164,18 @@ export interface ExecuteQueryArgs {
 }
 
 export interface QueryExecutionResultLinePerf {
-  critical: number;
+  // `warning` / `critical` are JSON numbers for plain-numeric thresholds
+  // (the historical case) and JSON strings when the upstream plugin used
+  // Nagios range syntax (e.g. "4:5", ":10", "@0:90", "~:10"). See GitHub
+  // issue #748 - the backend used to silently truncate ranges to their
+  // numeric lower bound; consumers that did arithmetic on these fields
+  // now need to guard against the string case (typeof === "number").
+  critical: number | string;
   maximum: number;
   minimum: number;
   unit: string;
   value: number;
-  warning: number;
+  warning: number | string;
 }
 
 export interface QueryExecutionResultLine {

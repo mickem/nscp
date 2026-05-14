@@ -158,12 +158,25 @@ void query_controller::execute_query(std::string module, arg_vector args, Mongoo
         json::object pdata;
 
         if (p.has_float_value()) {
-          pdata["value"] = p.float_value().value();
-          if (p.float_value().has_minimum()) pdata["minimum"] = p.float_value().minimum().value();
-          if (p.float_value().has_maximum()) pdata["maximum"] = p.float_value().maximum().value();
-          if (p.float_value().has_warning()) pdata["warning"] = p.float_value().warning().value();
-          if (p.float_value().has_critical()) pdata["critical"] = p.float_value().critical().value();
-          pdata["unit"] = p.float_value().unit();
+          const auto &fv = p.float_value();
+          pdata["value"] = fv.value();
+          if (fv.has_minimum()) pdata["minimum"] = fv.minimum().value();
+          if (fv.has_maximum()) pdata["maximum"] = fv.maximum().value();
+          // Threshold fields carry Nagios range syntax when the original
+          // input used it (e.g. "4:5") - prefer that string over the
+          // numeric lower bound so the API faithfully reports what the
+          // upstream plugin emitted (issue #748). JSON consumers see
+          // `number` for plain thresholds and `string` for range syntax;
+          // the api.ts type mirrors that union.
+          if (!fv.warning_range().empty())
+            pdata["warning"] = fv.warning_range();
+          else if (fv.has_warning())
+            pdata["warning"] = fv.warning().value();
+          if (!fv.critical_range().empty())
+            pdata["critical"] = fv.critical_range();
+          else if (fv.has_critical())
+            pdata["critical"] = fv.critical().value();
+          pdata["unit"] = fv.unit();
         }
         if (p.has_string_value()) {
           pdata["value"] = p.string_value().value();

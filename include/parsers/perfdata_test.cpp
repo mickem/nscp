@@ -34,6 +34,8 @@ struct perf_entry {
   double minimum = -1.0;
   double maximum = -1.0;
   std::string unit;
+  std::string warning_range;
+  std::string critical_range;
   bool has_warning = false;
   bool has_critical = false;
   bool has_minimum = false;
@@ -72,6 +74,8 @@ struct test_builder final : parsers::perfdata::builder {
     current_.has_maximum = true;
   }
   void set_unit(const std::string& value) override { current_.unit = value; }
+  void set_warning_range(const std::string& range) override { current_.warning_range = range; }
+  void set_critical_range(const std::string& range) override { current_.critical_range = range; }
   void next() override {
     entries.push_back(current_);
     current_ = perf_entry();
@@ -376,4 +380,74 @@ TEST_F(PerfDataParserTest, ValueIsOnlyUnit) {
   parsers::perfdata::parse(b, "label=KB");
   ASSERT_EQ(1, b->entries.size());
   EXPECT_DOUBLE_EQ(0.0, b->entries[0].value);
+}
+
+// ==============================================================
+// is_threshold_range
+// ==============================================================
+
+TEST(IsThresholdRange, PlainNumberIsNotARange) { EXPECT_FALSE(parsers::perfdata::is_threshold_range("10")); }
+TEST(IsThresholdRange, NumberWithUnitIsNotARange) { EXPECT_FALSE(parsers::perfdata::is_threshold_range("10s")); }
+TEST(IsThresholdRange, EmptyIsNotARange) { EXPECT_FALSE(parsers::perfdata::is_threshold_range("")); }
+TEST(IsThresholdRange, ColonInsideIsRange) { EXPECT_TRUE(parsers::perfdata::is_threshold_range("4:5")); }
+TEST(IsThresholdRange, ColonPrefixIsRange) { EXPECT_TRUE(parsers::perfdata::is_threshold_range(":10")); }
+TEST(IsThresholdRange, ColonSuffixIsRange) { EXPECT_TRUE(parsers::perfdata::is_threshold_range("10:")); }
+TEST(IsThresholdRange, InvertedPrefixIsRange) { EXPECT_TRUE(parsers::perfdata::is_threshold_range("@10:20")); }
+TEST(IsThresholdRange, NegativeInfinityPrefixIsRange) { EXPECT_TRUE(parsers::perfdata::is_threshold_range("~:10")); }
+
+// ==============================================================
+// parse — threshold ranges (issue #748)
+// ==============================================================
+
+// The parser must preserve the original range string AND set the numeric
+// lower bound so consumers that read only the float don't regress.
+TEST_F(PerfDataParserTest, RangeWarningPreservesColon) {
+  parsers::perfdata::parse(b, "'FOO'=10;4:5;6:9");
+  ASSERT_EQ(1, b->entries.size());
+  EXPECT_EQ("FOO", b->entries[0].alias);
+  EXPECT_DOUBLE_EQ(10.0, b->entries[0].value);
+  // Numeric back-compat: lower bound of the range.
+  EXPECT_TRUE(b->entries[0].has_warning);
+  EXPECT_DOUBLE_EQ(4.0, b->entries[0].warning);
+  EXPECT_TRUE(b->entries[0].has_critical);
+  EXPECT_DOUBLE_EQ(6.0, b->entries[0].critical);
+  // Full range syntax preserved.
+  EXPECT_EQ("4:5", b->entries[0].warning_range);
+  EXPECT_EQ("6:9", b->entries[0].critical_range);
+}
+
+TEST_F(PerfDataParserTest, RangeWarningOpenBounds) {
+  // 10: = "alert if value < 10", :20 = "alert if value > 20"
+  parsers::perfdata::parse(b, "'x'=1;10:;:20");
+  ASSERT_EQ(1, b->entries.size());
+  EXPECT_EQ("10:", b->entries[0].warning_range);
+  EXPECT_EQ(":20", b->entries[0].critical_range);
+}
+
+TEST_F(PerfDataParserTest, RangeInvertedAndInfinity) {
+  parsers::perfdata::parse(b, "'x'=1;@10:20;~:30");
+  ASSERT_EQ(1, b->entries.size());
+  EXPECT_EQ("@10:20", b->entries[0].warning_range);
+  EXPECT_EQ("~:30", b->entries[0].critical_range);
+}
+
+TEST_F(PerfDataParserTest, RangeWithUnitSurvives) {
+  parsers::perfdata::parse(b, "'x'=5s;4:6;7:8");
+  ASSERT_EQ(1, b->entries.size());
+  EXPECT_DOUBLE_EQ(5.0, b->entries[0].value);
+  EXPECT_EQ("s", b->entries[0].unit);
+  EXPECT_EQ("4:6", b->entries[0].warning_range);
+  EXPECT_EQ("7:8", b->entries[0].critical_range);
+}
+
+// Important regression guard: plain-numeric thresholds must NOT set the
+// range fields. Otherwise we'd pollute the wire with empty-looking ranges
+// for every existing producer.
+TEST_F(PerfDataParserTest, PlainNumericThresholdsDoNotSetRange) {
+  parsers::perfdata::parse(b, "'x'=1;5;10");
+  ASSERT_EQ(1, b->entries.size());
+  EXPECT_DOUBLE_EQ(5.0, b->entries[0].warning);
+  EXPECT_DOUBLE_EQ(10.0, b->entries[0].critical);
+  EXPECT_TRUE(b->entries[0].warning_range.empty());
+  EXPECT_TRUE(b->entries[0].critical_range.empty());
 }

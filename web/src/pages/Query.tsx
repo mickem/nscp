@@ -40,11 +40,17 @@ export default function Query() {
   const [args, setArgs] = useState<string>("");
   const [result, setResult] = useState<QueryExecutionResult | undefined>(undefined);
 
-  const val = (value: number) => {
+  // `warning` / `critical` can now be a Nagios range string like "4:5"
+  // (issue #748); `value` / `minimum` / `maximum` are always numeric.
+  // The union widening here means non-numeric thresholds render verbatim
+  // instead of becoming NaN through Math.round.
+  const val = (value: number | string | undefined) => {
     if (value === undefined) {
       return "";
     }
-
+    if (typeof value === "string") {
+      return value;
+    }
     return Math.round(value * 100) / 100;
   };
 

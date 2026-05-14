@@ -496,12 +496,20 @@ struct filter_obj {
     if (data.has_string_value()) return data.string_value().value();
     return "";
   }
+  // %(warn) / %(crit) template substitutions: prefer the original Nagios
+  // range syntax (e.g. "4:5") when present, fall back to the numeric
+  // lower bound for plain-number thresholds (issue #748). Without this,
+  // `render_perf` would replace a "4:5" warning with just "4".
   std::string get_warn() const {
-    if (data.has_float_value() && data.float_value().has_warning()) return str::xtos(data.float_value().warning().value());
+    if (!data.has_float_value()) return "";
+    if (!data.float_value().warning_range().empty()) return data.float_value().warning_range();
+    if (data.float_value().has_warning()) return str::xtos(data.float_value().warning().value());
     return "";
   }
   std::string get_crit() const {
-    if (data.has_float_value() && data.float_value().has_critical()) return str::xtos(data.float_value().critical().value());
+    if (!data.has_float_value()) return "";
+    if (!data.float_value().critical_range().empty()) return data.float_value().critical_range();
+    if (data.float_value().has_critical()) return str::xtos(data.float_value().critical().value());
     return "";
   }
   std::string get_max() const {

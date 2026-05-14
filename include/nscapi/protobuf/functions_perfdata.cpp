@@ -67,22 +67,41 @@ struct perf_builder : parsers::perfdata::builder {
   void set_unit(const std::string &value) override {
     if (lastPerf) lastPerf->mutable_float_value()->set_unit(value);
   }
+  void set_warning_range(const std::string &range) override {
+    if (lastPerf) lastPerf->mutable_float_value()->set_warning_range(range);
+  }
+  void set_critical_range(const std::string &range) override {
+    if (lastPerf) lastPerf->mutable_float_value()->set_critical_range(range);
+  }
   void next() override {}
 };
 
 void parse_float_perf_value(std::stringstream &ss, const PB::Common::PerformanceData_FloatValue &val) {
   ss << str::xtos_non_sci(val.value());
   if (!val.unit().empty()) ss << val.unit();
-  if (!val.has_warning() && !val.has_critical() && !val.has_minimum() && !val.has_maximum()) {
+  // `*_range` fields preserve the original Nagios range syntax for
+  // warning/critical (issue #748). When set they take precedence over the
+  // numeric `warning`/`critical` siblings, which carry only the lower
+  // bound for back-compat. min/max are spec'd as single values so they're
+  // numeric-only.
+  const bool has_warning = val.has_warning() || !val.warning_range().empty();
+  const bool has_critical = val.has_critical() || !val.critical_range().empty();
+  if (!has_warning && !has_critical && !val.has_minimum() && !val.has_maximum()) {
     return;
   }
   ss << ";";
-  if (val.has_warning()) ss << str::xtos_non_sci(val.warning().value());
-  if (!val.has_critical() && !val.has_minimum() && !val.has_maximum()) {
+  if (!val.warning_range().empty())
+    ss << val.warning_range();
+  else if (val.has_warning())
+    ss << str::xtos_non_sci(val.warning().value());
+  if (!has_critical && !val.has_minimum() && !val.has_maximum()) {
     return;
   }
   ss << ";";
-  if (val.has_critical()) ss << str::xtos_non_sci(val.critical().value());
+  if (!val.critical_range().empty())
+    ss << val.critical_range();
+  else if (val.has_critical())
+    ss << str::xtos_non_sci(val.critical().value());
   if (!val.has_minimum() && !val.has_maximum()) {
     return;
   }

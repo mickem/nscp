@@ -408,3 +408,50 @@ TEST(PerfDataBuildTest, build_with_no_string_value) {
   const auto result = nscapi::protobuf::functions::build_performance_data(line, nscapi::protobuf::functions::no_truncation);
   EXPECT_EQ("'test'=", result);
 }
+
+// =================================================================
+// Threshold-range round-trip (issue #748)
+//
+// External-script stdout like
+//   'FOO'=10;4:5;6:9
+// used to round-trip as
+//   'FOO'=10;4;6
+// because trim_to_double truncated at the colon and the protobuf had no
+// place to carry the original syntax. These tests pin the fixed behaviour
+// end-to-end: parse a string into protobuf, format it back, and compare.
+// =================================================================
+
+TEST(PerfDataRangeRoundTrip, simple_warning_range) { EXPECT_EQ("'FOO'=10;4:5;6:9", do_parse("'FOO'=10;4:5;6:9")); }
+
+TEST(PerfDataRangeRoundTrip, open_lower_bound) { EXPECT_EQ("'x'=1;10:;:20", do_parse("'x'=1;10:;:20")); }
+
+TEST(PerfDataRangeRoundTrip, inverted_and_infinity) { EXPECT_EQ("'x'=1;@10:20;~:30", do_parse("'x'=1;@10:20;~:30")); }
+
+TEST(PerfDataRangeRoundTrip, range_with_unit) { EXPECT_EQ("'x'=5s;4:6;7:8", do_parse("'x'=5s;4:6;7:8")); }
+
+TEST(PerfDataRangeRoundTrip, mixed_numeric_warning_range_critical) {
+  // Numeric warning, range critical: both must survive separately.
+  EXPECT_EQ("'x'=10;5;6:9", do_parse("'x'=10;5;6:9"));
+}
+
+TEST(PerfDataRangeRoundTrip, range_with_min_max) {
+  // min/max are spec'd as single numbers, not ranges - keep them numeric.
+  EXPECT_EQ("'x'=50%;@10:90;:95;0;100", do_parse("'x'=50%;@10:90;:95;0;100"));
+}
+
+// Builder-level test: setting the range explicitly via the protobuf
+// makes the formatter emit it verbatim, regardless of what was put in the
+// numeric warning/critical sibling.
+TEST(PerfDataBuildTest, build_range_takes_precedence_over_numeric) {
+  PB::Commands::QueryResponseMessage::Response::Line line;
+  auto* perf = line.add_perf();
+  perf->set_alias("metric");
+  perf->mutable_float_value()->set_value(50);
+  perf->mutable_float_value()->mutable_warning()->set_value(4);  // would be the lower bound
+  perf->mutable_float_value()->set_warning_range("4:5");
+  perf->mutable_float_value()->mutable_critical()->set_value(6);
+  perf->mutable_float_value()->set_critical_range("6:9");
+
+  const auto result = nscapi::protobuf::functions::build_performance_data(line, nscapi::protobuf::functions::no_truncation);
+  EXPECT_EQ("'metric'=50;4:5;6:9", result);
+}
