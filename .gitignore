@@ -63,3 +63,6 @@ packages/*
 legacy/*
 _build
 /tmp/
+
+
+/docs/design/*
