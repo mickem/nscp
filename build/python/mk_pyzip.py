@@ -52,13 +52,19 @@ if __name__ == '__main__':
     parser = OptionParser()
     parser.add_option("-s", "--source", help="SOURCE folder of your python installation", metavar="SOURCE")
     parser.add_option("-t", "--target", help="TARGET folder to write zips in", metavar="TARGET")
+    # Output filename stem must match the installer's BoostPythonVersion variable
+    # (driven from NSCP_BOOST_PYTHON_VERSION in CMake): the WiX project bundles
+    # `<version>.zip`, so a mismatch silently breaks the MSI's Python feature.
+    parser.add_option("-v", "--version", default="python311",
+                      help="Python version stem used in the output filename (e.g. python311, python312)",
+                      metavar="VERSION")
     (options, args) = parser.parse_args()
-    
+
     if not options.target:
         options.target = os.getcwd()
     if not os.path.isdir(options.target):
         os.makedirs(options.target)
-    target_zip = os.path.join(options.target, 'python311.zip')
+    target_zip = os.path.join(options.target, f'{options.version}.zip')
 
     if not options.source:
         print("Please specify source folder")
