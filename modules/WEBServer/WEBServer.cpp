@@ -37,6 +37,7 @@
 #include <str/xtos.hpp>
 #include <utility>
 
+#include "alias_controller.hpp"
 #include "api_controller.hpp"
 #include "error_handler.hpp"
 #include "events_controller.hpp"
@@ -205,9 +206,9 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // already a wildcard).
   ensure_role(roles, settings, role_path, "legacy", "legacy,login.get", "legacy API");
   ensure_role(roles, settings, role_path, "full", "*", "Full access");
-  ensure_role(roles, settings, role_path, "client", "public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list",
-              "read only");
-  ensure_role(roles, settings, role_path, "monitoring", "public,queries.execute,login.get,metrics.get", "checks and queries only");
+  ensure_role(roles, settings, role_path, "client",
+              "public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list", "read only");
+  ensure_role(roles, settings, role_path, "monitoring", "public,queries.execute,aliases.list,login.get,metrics.get", "checks and queries only");
 
   if (!disable_admin_user) {
     ensure_user(settings, user_path, "admin", "full", admin_password, "Administrator");
@@ -279,6 +280,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
     server->registerController(new modules_controller(2, session, get_core(), get_id()));
     server->registerController(new query_controller(2, session, get_core(), get_id()));
+    server->registerController(new alias_controller(2, session, get_core(), get_id()));
     server->registerController(new scripts_controller(2, session, get_core(), get_id()));
     server->registerController(new log_controller(2, session, get_core(), get_id()));
     server->registerController(new info_controller(2, session, get_core(), get_id()));
@@ -293,6 +295,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
     server->registerController(new modules_controller(1, session, get_core(), get_id()));
     server->registerController(new query_controller(1, session, get_core(), get_id()));
+    server->registerController(new alias_controller(1, session, get_core(), get_id()));
     server->registerController(new scripts_controller(1, session, get_core(), get_id()));
     server->registerController(new log_controller(1, session, get_core(), get_id()));
     server->registerController(new info_controller(1, session, get_core(), get_id()));

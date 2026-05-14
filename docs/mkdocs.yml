@@ -96,6 +96,7 @@ nav:
       - Info: api/rest/info.md
       - Modules: api/rest/modules.md
       - Queries: api/rest/queries.md
+      - Aliases: api/rest/aliases.md
       - Scripts: api/rest/scripts.md
       - Logs: api/rest/logs.md
       - Legacy API: api/rest/legacy.md

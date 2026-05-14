@@ -52,6 +52,7 @@ describe("api discovery", () => {
                 expect(response.body.scripts_url).toMatch(/\/api\/v2\/scripts$/);
                 expect(response.body.modules_url).toMatch(/\/api\/v2\/modules$/);
                 expect(response.body.queries_url).toMatch(/\/api\/v2\/queries$/);
+                expect(response.body.aliases_url).toMatch(/\/api\/v2\/aliases$/);
                 expect(response.body.settings_url).toMatch(/\/api\/v2\/settings$/);
                 expect(response.body.logs_url).toMatch(/\/api\/v2\/logs$/);
                 expect(response.body.info_url).toMatch(/\/api\/v2\/info$/);

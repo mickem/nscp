@@ -33,6 +33,7 @@ void api_controller::get_eps(Mongoose::Request &request, boost::smatch &what, Mo
   root["scripts_url"] = host + "/api/v2/scripts";
   root["modules_url"] = host + "/api/v2/modules";
   root["queries_url"] = host + "/api/v2/queries";
+  root["aliases_url"] = host + "/api/v2/aliases";
   root["settings_url"] = host + "/api/v2/settings";
   root["logs_url"] = host + "/api/v2/logs";
   root["info_url"] = host + "/api/v2/info";
