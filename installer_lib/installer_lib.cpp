@@ -930,6 +930,86 @@ extern "C" UINT __stdcall NeedUninstall(MSIHANDLE hInstall) {
   return ERROR_SUCCESS;
 };
 
+// Overwrite the ARP UninstallString and add a QuietUninstallString.
+//
+// Windows Installer's RegisterProduct standard action auto-populates the
+// ARP entry's UninstallString. For this package it lands as
+// `MsiExec.exe /I{ProductCode}` (the maintenance-dialog form) rather than
+// the canonical `/X{ProductCode}` form - GitHub issue #495. Most automation
+// (Icinga2 autodiscovery, Chocolatey, SCCM removal scripts) reads
+// UninstallString verbatim and breaks on `/I` because it spawns an
+// interactive dialog instead of uninstalling.
+//
+// The right place to land this fix is *after* RegisterProduct in the
+// install sequence; otherwise MSI's auto-write overwrites whatever we
+// put in. So this is a deferred custom action sequenced via
+// `<Custom Action="..." After="RegisterProduct">` in Product.wxs. We
+// receive the ProductCode through CustomActionData (set by an immediate
+// "set property" CA of the same name, also wired in Product.wxs) because
+// deferred CAs only have access to that single property.
+//
+// We let Windows handle WoW64 redirection naturally: the 32-bit MSI's
+// installer_lib.dll is a 32-bit binary and writes through the WoW64
+// redirector (landing under WOW6432Node where the 32-bit ARP entry
+// lives); the 64-bit MSI's DLL writes to the unredirected path. That
+// matches where MSI itself wrote the entry.
+extern "C" UINT __stdcall WriteArpUninstallStrings(MSIHANDLE hInstall) {
+  msi_helper h(hInstall, L"WriteArpUninstallStrings");
+  try {
+    // Deferred CAs can read only CustomActionData (and a handful of
+    // Windows Installer built-ins). The immediate "set property" CA
+    // populates this with [ProductCode].
+    wchar_t product[128] = {0};
+    DWORD len = sizeof(product) / sizeof(product[0]);
+    if (MsiGetProperty(hInstall, L"CustomActionData", product, &len) != ERROR_SUCCESS || product[0] == L'\0') {
+      h.logMessage(L"WriteArpUninstallStrings: CustomActionData empty - skipping");
+      return ERROR_SUCCESS;
+    }
+
+    std::wstring key_path = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\";
+    key_path += product;
+
+    HKEY hKey = NULL;
+    LONG rc = RegOpenKeyExW(HKEY_LOCAL_MACHINE, key_path.c_str(), 0, KEY_SET_VALUE, &hKey);
+    if (rc != ERROR_SUCCESS) {
+      // Not an installer-blocking failure - log and continue so the
+      // install still completes. The user can always uninstall via
+      // Settings > Apps if the canonical string is missing.
+      h.logMessage(L"WriteArpUninstallStrings: failed to open Uninstall key for " + std::wstring(product) + L": " +
+                   utf8::cvt<std::wstring>(error::lookup::last_error(rc)));
+      return ERROR_SUCCESS;
+    }
+
+    const std::wstring uninstall_value = L"MsiExec.exe /X" + std::wstring(product);
+    const std::wstring quiet_value = L"MsiExec.exe /X" + std::wstring(product) + L" /qn /norestart";
+
+    // REG_EXPAND_SZ to match what Windows Installer itself writes (the
+    // existing key is REG_EXPAND_SZ even though there are no actual
+    // environment variables in the string - matching the type keeps tools
+    // that inspect via Reg.exe / regedit happy).
+    rc = RegSetValueExW(hKey, L"UninstallString", 0, REG_EXPAND_SZ, reinterpret_cast<const BYTE *>(uninstall_value.c_str()),
+                        static_cast<DWORD>((uninstall_value.size() + 1) * sizeof(wchar_t)));
+    if (rc != ERROR_SUCCESS) {
+      h.logMessage(L"WriteArpUninstallStrings: failed to set UninstallString: " + utf8::cvt<std::wstring>(error::lookup::last_error(rc)));
+    }
+
+    rc = RegSetValueExW(hKey, L"QuietUninstallString", 0, REG_EXPAND_SZ, reinterpret_cast<const BYTE *>(quiet_value.c_str()),
+                        static_cast<DWORD>((quiet_value.size() + 1) * sizeof(wchar_t)));
+    if (rc != ERROR_SUCCESS) {
+      h.logMessage(L"WriteArpUninstallStrings: failed to set QuietUninstallString: " + utf8::cvt<std::wstring>(error::lookup::last_error(rc)));
+    }
+
+    RegCloseKey(hKey);
+  } catch (installer_exception &e) {
+    h.errorMessage(L"WriteArpUninstallStrings: " + e.what());
+    return ERROR_SUCCESS;  // Not fatal.
+  } catch (...) {
+    h.errorMessage(L"WriteArpUninstallStrings: <UNKNOWN EXCEPTION>");
+    return ERROR_SUCCESS;
+  }
+  return ERROR_SUCCESS;
+}
+
 extern "C" UINT __stdcall TranslateSid(MSIHANDLE hInstall) {
   TCHAR szSid[MAX_PATH] = {0};
   TCHAR szSidProperty[MAX_PATH] = {0};

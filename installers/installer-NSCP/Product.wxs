@@ -306,6 +306,27 @@
     <CustomAction Id='NeedUninstall'		BinaryKey='InstallerHelper' DllEntry='NeedUninstall'	Impersonate='yes' Execute="immediate" Return="check" />
     <CustomAction Id="PreventDowngrading"	Error="Newer version already installed." />
 
+    <!-- Fix GitHub #495: overwrite the ARP UninstallString that
+         RegisterProduct just wrote with `/I` so it uses the canonical
+         `/X` form, and add a QuietUninstallString that automation tools
+         (Icinga2 autodiscovery, Chocolatey, SCCM) expect. Two CAs because
+         deferred actions only see CustomActionData; the immediate
+         "set property" CA hands the [ProductCode] across. The deferred
+         CA must be sequenced AFTER RegisterProduct (see InstallExecuteSequence
+         below) - that's the standard action that writes the auto-generated
+         /I value, so we have to win the race by writing last. -->
+    <CustomAction Id="WriteArpUninstallStrings.SetProperty"
+                  Property="WriteArpUninstallStrings"
+                  Value="[ProductCode]"
+                  Execute="immediate"
+                  Return="check" />
+    <CustomAction Id="WriteArpUninstallStrings"
+                  BinaryKey="InstallerHelper"
+                  DllEntry="WriteArpUninstallStrings"
+                  Impersonate="no"
+                  Execute="deferred"
+                  Return="ignore" />
+
 
     <CustomAction Id="GenConfig.Command" Property="GenConfig" Value="&quot;[#NSClientEXE]&quot; settings --generate ini"/>
     <CustomAction Id="GenConfig" BinaryKey="WixCA" DllEntry="CAQuietExec" Impersonate="no" Return="ignore" Execute="deferred"/>
@@ -337,6 +358,13 @@
       <Custom Action="SetUserGroupUsersProp" After="SetUserGroupUsers">NOT Installed</Custom>
       <Custom Action="TranslateUserGroupUsers" After="SetUserGroupUsersProp">NOT Installed</Custom>
 
+      <!-- Run only on install/upgrade, not on uninstall: on uninstall MSI
+           removes the whole Uninstall\{ProductCode} key, so writing to it
+           would either fail or recreate a stale entry. After=RegisterProduct
+           guarantees we run after MSI has written its `/I` form so our `/X`
+           overwrite takes effect. -->
+      <Custom Action="WriteArpUninstallStrings.SetProperty" After="RegisterProduct">NOT REMOVE~="ALL"</Custom>
+      <Custom Action="WriteArpUninstallStrings" After="WriteArpUninstallStrings.SetProperty">NOT REMOVE~="ALL"</Custom>
 
     </InstallExecuteSequence>
 
