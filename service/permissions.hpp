@@ -220,6 +220,13 @@ class permissions {
         boost::algorithm::to_lower_copy(subject.substr(0, pattern.size())) == boost::algorithm::to_lower_copy(pattern)) {
       return true;
     }
+    // Trailing-colon pattern means "empty principal only". make_subject()
+    // collapses an empty principal to just the module name (no colon), so
+    // "WEBServer:" must also match a bare "WEBServer" subject.
+    if (!pattern.empty() && pattern.back() == ':' && pattern.find('*') == std::string::npos && subject.find(':') == std::string::npos &&
+        boost::algorithm::to_lower_copy(pattern.substr(0, pattern.size() - 1)) == boost::algorithm::to_lower_copy(subject)) {
+      return true;
+    }
     return false;
   }
 

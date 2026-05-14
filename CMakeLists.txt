@@ -960,6 +960,22 @@ if(NETLIB_FOUND)
     endif()
 endif()
 
+# Must be set BEFORE the libs subdirectories are added below, because
+# libs/plugin_api/CMakeLists.txt references ${NSCP_DEF_PLUGIN_LIB} when
+# defining its test target. If empty at that point, the test fails to
+# link against protobuf / nscp_plugin_api.
+set(NSCP_DEF_PLUGIN_LIB
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${EXTRA_LIBS}
+    ${PROTOBUF_LIBRARY}
+    ${ICONV_LIBRARIES}
+    nscp_protobuf
+    ${PLUGIN_API_TARGET}
+)
+
 set(ALL_LIB_NAMES)
 message(STATUS "Adding libraries")
 file(
@@ -1065,18 +1081,6 @@ set(NSCP_CLIENT_HPP
     ${NSCP_INCLUDEDIR}/str/utf8.hpp
     ${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
     ${NSCP_INCLUDEDIR}/nscapi/settings/object.hpp
-)
-
-set(NSCP_DEF_PLUGIN_LIB
-    ${CMAKE_THREAD_LIBS_INIT}
-    ${Boost_SYSTEM_LIBRARY}
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_PROGRAM_OPTIONS_LIBRARY}
-    ${EXTRA_LIBS}
-    ${PROTOBUF_LIBRARY}
-    ${ICONV_LIBRARIES}
-    nscp_protobuf
-    ${PLUGIN_API_TARGET}
 )
 
 # ##############################################################################
