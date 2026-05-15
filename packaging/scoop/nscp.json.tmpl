@@ -6,10 +6,13 @@
     "notes": [
         "NSClient++ normally runs as a Windows service. The Scoop package",
         "is a portable extraction of the official ZIP and does NOT install",
-        "or start a service. To install it as a service run, from an",
-        "elevated shell:",
-        "    nscp service --install",
-        "    nscp service --start",
+        "or start a service.",
+        "",
+        "Scoop installs per-user, so you cannot install a service from the",
+        "current shell. Open a SEPARATE Administrator PowerShell and run:",
+        "    & '$dir\\nscp.exe' service --install",
+        "    & '$dir\\nscp.exe' service --start",
+        "",
         "See https://docs.nsclient.org/ for full configuration documentation."
     ],
     "architecture": {

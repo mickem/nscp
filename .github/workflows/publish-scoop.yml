@@ -90,6 +90,45 @@ jobs:
       - name: Validate manifest is parseable JSON
         run: python -m json.tool dist/scoop/nscp.json > /dev/null
 
+      - name: Verify Scoop bin paths exist in the ZIP
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          import json, sys, zipfile
+          from pathlib import Path
+
+          manifest = json.loads(Path("dist/scoop/nscp.json").read_text())
+          version = "${{ steps.ctx.outputs.version }}"
+          archives = {
+              "x64":   Path(f"dist/_assets/NSCP-{version}-x64.zip"),
+              "Win32": Path(f"dist/_assets/NSCP-{version}-Win32.zip"),
+          }
+
+          # Normalise manifest bin entries to the path string scoop uses to
+          # locate the file inside the extracted archive.
+          bins = []
+          for entry in manifest.get("bin", []):
+              if isinstance(entry, str):
+                  bins.append(entry)
+              elif isinstance(entry, list) and entry:
+                  bins.append(entry[0])
+
+          missing = []
+          for arch, zpath in archives.items():
+              with zipfile.ZipFile(zpath) as zf:
+                  names = {n.replace("\\", "/") for n in zf.namelist()}
+              for b in bins:
+                  target = b.replace("\\", "/")
+                  if target not in names:
+                      missing.append(f"{zpath.name}: {b}")
+
+          if missing:
+              for m in missing:
+                  print(f"::error::scoop bin entry not found — {m}")
+              sys.exit(1)
+          print("All scoop bin entries verified in both archives.")
+          PY
+
       - name: Upload rendered manifest
         uses: actions/upload-artifact@v6
         with:
