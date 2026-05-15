@@ -82,6 +82,11 @@ jobs:
             --asset MSI_X64=NSCP-${{ steps.ctx.outputs.version }}-x64.msi `
             --asset MSI_X86=NSCP-${{ steps.ctx.outputs.version }}-Win32.msi
 
+      - name: Verify rendered hashes round-trip from URL
+        shell: pwsh
+        run: |
+          python packaging/scripts/verify_manifest_hashes.py chocolatey dist/chocolatey
+
       - name: Pack
         shell: pwsh
         working-directory: dist/chocolatey

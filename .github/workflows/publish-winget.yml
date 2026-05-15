@@ -92,6 +92,11 @@ jobs:
           # winget is preinstalled on windows-latest runners.
           winget validate --manifest dist/winget
 
+      - name: Verify rendered hashes round-trip from URL
+        shell: pwsh
+        run: |
+          python packaging/scripts/verify_manifest_hashes.py winget dist/winget
+
       - name: Upload rendered manifests
         uses: actions/upload-artifact@v6
         with:

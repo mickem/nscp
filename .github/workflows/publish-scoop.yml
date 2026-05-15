@@ -90,6 +90,10 @@ jobs:
       - name: Validate manifest is parseable JSON
         run: python -m json.tool dist/scoop/nscp.json > /dev/null
 
+      - name: Verify rendered hashes round-trip from URL
+        run: |
+          python packaging/scripts/verify_manifest_hashes.py scoop dist/scoop
+
       - name: Verify Scoop bin paths exist in the ZIP
         run: |
           set -euo pipefail
