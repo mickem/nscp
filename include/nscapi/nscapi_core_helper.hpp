@@ -102,6 +102,14 @@ class NSCAPI_EXPORT core_helper {
 
   NSCAPI::nagiosReturn simple_query_from_nrpe(std::string command, const std::string &buffer, std::string &message, std::string &perf, std::size_t max_length);
 
+  // Same as simple_query_from_nrpe but stamps `principal` onto the request
+  // so the core permission layer sees `NRPEServer:<principal>` instead of
+  // a bare `NRPEServer` subject. Used when the NRPE listener has resolved a
+  // sub-identity for the inbound connection (today: client cert Subject DN
+  // when `client identity source = cn`).
+  NSCAPI::nagiosReturn simple_query_from_nrpe_as(const std::string &principal, std::string command, const std::string &buffer, std::string &message,
+                                                 std::string &perf, std::size_t max_length);
+
   NSCAPI::nagiosReturn exec_simple_command(std::string target, std::string command, const std::list<std::string> &argument, std::list<std::string> &result);
   bool submit_simple_message(std::string channel, std::string source_id, std::string target_id, std::string command, NSCAPI::nagiosReturn code,
                              const std::string &message, const std::string &perf, std::string &response);

@@ -30,6 +30,15 @@
 #include <openssl/evp.h>
 #include <openssl/x509v3.h>
 #endif
+#ifdef USE_SSL
+// Pulled in here (not gated on !WIN32) because extract_peer_subject_dn
+// needs the X509/BIO/SSL_get_peer_certificate symbols on every platform
+// that builds with SSL support. boost::asio::ssl already drags openssl
+// in on Windows, so this is just making the symbol visibility explicit.
+#include <openssl/bio.h>
+#include <openssl/ssl.h>
+#include <openssl/x509.h>
+#endif
 const int socket_helpers::connection_info::backlog_default = 0;
 
 namespace ip = boost::asio::ip;
@@ -80,6 +89,90 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
   list.emplace_back("SSL is not supported (not compiled with openssl)");
 #endif
 }
+
+#ifdef USE_SSL
+std::string socket_helpers::format_subject_dn_rfc2253(void *x509) {
+  if (!x509) return {};
+  const auto cert = static_cast<X509 *>(x509);
+  std::string result;
+  // X509_get_subject_name returns an internal pointer owned by the
+  // cert - do NOT free it. Const-cast because the OpenSSL signature
+  // for X509_NAME_print_ex takes a non-const pointer (the function
+  // itself is read-only; this is purely a header signature concern).
+  const X509_NAME *subject = X509_get_subject_name(cert);
+  if (!subject) return result;
+  BIO *bio = BIO_new(BIO_s_mem());
+  if (!bio) return result;
+  // RFC 2253 (XN_FLAG_RFC2253) is the canonical, sortable, escape-safe
+  // representation; UTF-8 strings stay intact, special chars are
+  // backslash-escaped. The output is what operators will see in the
+  // log and write into [/settings/permissions/policies], so we want
+  // a stable encoding.
+  if (X509_NAME_print_ex(bio, subject, 0, XN_FLAG_RFC2253) > 0) {
+    BUF_MEM *mem = nullptr;
+    BIO_get_mem_ptr(bio, &mem);
+    if (mem && mem->data && mem->length > 0) {
+      result.assign(mem->data, mem->length);
+    }
+  }
+  BIO_free(bio);
+  return result;
+}
+
+std::string socket_helpers::extract_peer_subject_dn(void *ssl) {
+  if (!ssl) return {};
+  const SSL *ssl_instance = static_cast<SSL *>(ssl);
+  // SSL_get_peer_certificate bumps the refcount; we own this pointer and
+  // must free it on every return path.
+  X509 *cert = SSL_get_peer_certificate(ssl_instance);
+  if (!cert) return {};
+  const std::string result = format_subject_dn_rfc2253(cert);
+  X509_free(cert);
+  return result;
+}
+
+std::string socket_helpers::format_subject_cn_only(void *x509) {
+  if (!x509) return {};
+  const auto *cert = static_cast<X509 *>(x509);
+  const X509_NAME *subject = X509_get_subject_name(cert);
+  if (!subject) return {};
+  // Locate the LAST CN entry in the subject. RFC 5280 / standard
+  // practice is to put the "most specific" CN last when there are
+  // several, which matches what an operator expects when a cert has
+  // an intermediate-style multi-CN structure (rare for monitoring,
+  // but the convention is free). For the overwhelmingly common single-
+  // CN cert, "last" and "first" are the same entry.
+  int idx = -1;
+  for (;;) {
+    const int next = X509_NAME_get_index_by_NID(subject, NID_commonName, idx);
+    if (next < 0) break;
+    idx = next;
+  }
+  if (idx < 0) return {};
+  const X509_NAME_ENTRY *entry = X509_NAME_get_entry(subject, idx);
+  if (!entry) return {};
+  const ASN1_STRING *data = X509_NAME_ENTRY_get_data(entry);
+  if (!data) return {};
+  // ASN1_STRING_to_UTF8 mallocs a NUL-terminated UTF-8 buffer; we own
+  // it and must OPENSSL_free it.
+  unsigned char *utf8 = nullptr;
+  const int len = ASN1_STRING_to_UTF8(&utf8, data);
+  if (len < 0 || !utf8) return {};
+  std::string result(reinterpret_cast<const char *>(utf8), static_cast<std::size_t>(len));
+  OPENSSL_free(utf8);
+  return result;
+}
+
+std::string socket_helpers::extract_peer_subject_cn(void *ssl) {
+  if (!ssl) return {};
+  const SSL *ssl_instance = static_cast<SSL *>(ssl);
+  X509 *cert = SSL_get_peer_certificate(ssl_instance);
+  if (!cert) return {};
+  const std::string result = format_subject_cn_only(cert);
+  X509_free(cert);
+  return result;
+}
+#endif
 
 std::list<std::string> socket_helpers::connection_info::validate_ssl() const {
   std::list<std::string> list;

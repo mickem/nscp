@@ -28,7 +28,11 @@ namespace server {
 class handler : boost::noncopyable {
  public:
   virtual ~handler() = default;
-  virtual std::list<packet> handle(packet packet) = 0;
+  // `peer_identity` is the trusted caller identity resolved by the
+  // transport (today: client cert Subject DN extracted from the TLS
+  // handshake, empty when no client cert was presented or SSL is off).
+  // Forwarded to the core permission system as the principal.
+  virtual std::list<packet> handle(packet packet, const std::string& peer_identity) = 0;
   virtual void log_debug(std::string module, std::string file, int line, std::string msg) const = 0;
   virtual void log_error(std::string module, std::string file, int line, std::string msg) const = 0;
   virtual packet create_error(std::string msg) = 0;

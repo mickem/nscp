@@ -63,12 +63,12 @@ modules that have one supply it; modules that don't leave it empty.
 | Module                               | `module` (always)      | `principal` (when known)                                            |
 |--------------------------------------|------------------------|---------------------------------------------------------------------|
 | **WEBServer**                        | `WEBServer`            | The authenticated web user from the session cookie (`uid`)          |
-| **NRPEServer**                       | `NRPEServer`           | None today — wire up when "client tag" or remote-IP is set          |
+| **NRPEServer**                       | `NRPEServer`           | Verified client cert CN value when `client identity source = cn`    |
 | **NSClientServer** (legacy check_nt) | `NSClientServer`       | None today                                                          |
 | **NSCAServer**                       | `NSCAServer`           | None today — sender id from the NSCA header is a natural future fit |
 | **Scheduler**                        | `Scheduler`            | None today — schedule alias is a natural future fit                 |
-| **PythonScript**                     | `PythonScript`         | None — scripts are trusted code, not delegated principals           |
-| **LUAScript**                        | `LUAScript`            | None — same reason as Python                                        |
+| **PythonScript**                     | `PythonScript`         | None — see "Scripting modules" warning below                        |
+| **LUAScript**                        | `LUAScript`            | None — see "Scripting modules" warning below                        |
 | **CheckHelpers**                     | (varies — see below)   | (varies — see below)                                                |
 | **CheckExternalScripts**             | `CheckExternalScripts` | None today                                                          |
 
@@ -79,6 +79,97 @@ core resolves it to the module name using its own trusted registry.
 
 Modules that only emit metrics or receive submissions (`CheckMKServer`, `GraphiteClient`, `IcingaClient`,
 `NSCAClient`, …) do not appear as subjects at all. They never call into other modules — they only consume results.
+
+### Scripting modules (PythonScript, LUAScript) — treat as unsafe
+
+!!! danger "Scripts run with full plugin privileges"
+    `PythonScript` and `LUAScript` execute arbitrary user-supplied code inside the agent process. The permission
+    system **cannot meaningfully gate what a script does** — it only gates which commands the script's plugin id
+    is allowed to *call*. A script with the right rule can do anything a plugin can do.
+
+Specifically, a loaded script can:
+
+- **Impersonate any principal.** A script holding a plugin id can call `simple_query_as("WEBServer:admin", ...)` and
+  the policy will see the call coming from `WEBServer:admin`. There is no runtime check that the script "really is"
+  that principal — `core_helper` will stamp whatever the script asks it to.
+- **Bypass the exec gate by wrapping it in a query.** Register a query that internally calls `core:simple_exec(...)`
+  or `os.execute(...)` / Python `subprocess`. The inbound call looks like a query (allowed by the query policy);
+  the actual side effect is an exec or a raw shell command, which the `allow exec` toggle never sees.
+- **Talk to the network directly.** Lua and Python both have HTTP / socket libraries available in their standard
+  runtimes. A script can exfiltrate data, fetch remote payloads, or open inbound channels independent of any
+  NSClient++ listener config.
+- **Modify or read the agent's own state.** Read the settings store, write to disk, change the process's
+  environment, load shared libraries.
+- **Send raw protobuf requests.** The script bridges expose `simple_query`, `simple_exec`, `simple_submit`, and
+  storage APIs directly — there is no input-validation layer between the script and the core.
+
+The trust boundary for scripting modules is therefore **the script files themselves**, not the policy table.
+Loading a script is equivalent to loading a DLL: whoever can write to the script directory has the same privileges
+as the agent process. Practical mitigations:
+
+- Lock down the scripts directory with filesystem ACLs (Windows: deny write to all but `SYSTEM` /
+  `Administrators`; Linux: root-owned, mode `0755`).
+- Treat the script directory like source code — version control, code review, signed deployments.
+- On agents that don't need scripting, don't load `PythonScript` / `LUAScript` at all. They are not required for
+  any built-in monitoring functionality.
+- If you must allow operator-supplied scripts on a sensitive agent, audit them the same way you would audit a
+  pull request that adds C++ code.
+
+This warning is not a bug — it's the inevitable consequence of "host an extension language inside a privileged
+process." Sandboxing a script bridge to where the policy could enforce identity claims is a research-grade
+problem; the agent's stance is that operators who load scripts have decided they trust those scripts.
+
+---
+
+## NRPEServer: client cert CN as principal
+
+By default NRPEServer stamps no principal — every NRPE call enters the policy as the bare subject `NRPEServer`. When
+you run two-way TLS (`verify_mode = peer,fail-if-no-peer-cert` or the `peer-cert` alias, with a `ca path` pointing at
+your monitoring CA), you can opt in to using the verified client certificate's Common Name as the principal:
+
+```ini
+[/settings/NRPE/server]
+client identity source = cn   ; default: none
+```
+
+With this on, every accepted NRPE connection is tagged with the CN value of its client cert (e.g. `icinga-master`).
+Policies can then be written per-cert:
+
+```ini
+[/settings/permissions/policies]
+NRPEServer:icinga-master   = CheckHelpers.*, CheckSystem.*
+NRPEServer:metrics-shipper = CheckSystem.check_cpu, CheckSystem.check_drivesize
+```
+
+Required guardrails (the module refuses to start otherwise):
+
+- SSL must be enabled.
+- `verify_mode` must include both `peer` and `fail-if-no-peer-cert` (or use the `peer-cert` alias which sets both) —
+  otherwise an attacker could present any self-signed cert and choose their own CN.
+- `ca path` must be non-empty and point at the issuer you trust.
+
+Pin to a **private CA** that only issues certs to your monitoring fleet. A public CA or the system trust store
+defeats the gate — anyone with a certificate from that CA could pick a CN of their choosing.
+
+If the knob is left at `none`, the CN is still extracted (and logged at debug level for diagnostics) but is **not**
+used as the principal — subjects stay bare `NRPEServer` and existing rules keep working unchanged.
+
+### Why CN-only and not full DN?
+
+The natural question is "why not use the full RFC 2253 Subject DN like `CN=icinga-master,O=Acme`?" The answer is
+INI syntax: simpleini splits each line on the *first* `=` to separate key from value, so a policy key like
+
+```
+NRPEServer:CN=icinga-master = CheckSystem.*
+```
+
+would be parsed as the key `NRPEServer:CN` with the value `icinga-master = CheckSystem.*` — silently corrupting the
+rule. Using just the CN value (`NRPEServer:icinga-master`) avoids the `=` entirely and round-trips through the
+settings store unchanged.
+
+If you need DN-granularity (e.g. to distinguish two certs with the same CN issued under different `O`s), the
+forward path is an *identity-map* indirection — operators define handles like `master = CN=icinga-master,O=Acme` in
+a dedicated section and reference the handle in policies. That's not implemented today; file an issue if you need it.
 
 ---
 
@@ -149,7 +240,18 @@ All policy configuration lives under `/settings/permissions`. Two sub-trees:
 ; Master switch. When false (default), all calls are allowed.
 ; When true, the rules below form a strict allow-list - calls that
 ; don't match any rule are denied.
+;
+; NOTE: the rule table applies to QUERIES only (NRPE/NSCA inbound
+; checks, scheduled checks, WEB query endpoints). The exec surface
+; (WEB scripts UI, lua/python core:simple_exec, CLI exec) is gated
+; by the separate `allow exec` toggle below, not by per-command
+; rules - see "Why exec is a single toggle" later in this document.
 enabled = true
+
+; Global exec gate. When true (default), all exec calls are allowed
+; even with the policy system enabled. When false, the entire exec
+; surface is shut off and exec calls return "Permission denied".
+allow exec = true
 
 ; Log every denial at warning level (default true).
 log denials = true

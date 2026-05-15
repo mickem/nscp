@@ -36,6 +36,48 @@
 namespace socket_helpers {
 #ifdef USE_SSL
 void write_certs(const std::string& cert, bool ca);
+// Extract the peer certificate's Subject DN from an established SSL
+// session and format it as an RFC 2253 string (e.g.
+// `CN=icinga-master,O=Acme,C=US`). Returns an empty string when there is
+// no peer cert (one-way TLS), the formatter fails, or `ssl` is null.
+// Used by ssl_connection after the handshake to surface the verified
+// caller identity to higher-level protocol handlers (NRPEServer, ...).
+//
+// IMPORTANT: only call after `verify_mode` includes `peer` *and*
+// `fail-if-no-peer-cert` with a `ca path` pointing at the trusted
+// issuer. Otherwise the returned DN is attacker-supplied and must NOT
+// be used for authorization decisions.
+std::string extract_peer_subject_dn(void* ssl);
+
+// Format an X509 certificate's Subject as an RFC 2253 DN string.
+// Exposed for unit testing (so tests can construct an X509 in memory
+// without standing up a TLS session) and for callers that already
+// have an X509 in hand. Returns empty when `x509` is null or when the
+// underlying X509_NAME_print_ex fails. The `void*` is the X509 pointer
+// from OpenSSL - taking it as void* keeps openssl/x509.h out of this
+// header's transitive include set.
+//
+// NOTE: the resulting DN contains `=` between attribute and value
+// (`CN=host,O=Acme`). This survives in-memory just fine but does NOT
+// round-trip through an INI key (simpleini splits the line on the
+// first `=`), so DN strings cannot be used as policy keys today.
+// Prefer extract_peer_subject_cn / format_subject_cn_only when the
+// result will be written to nsclient.ini as a settings key.
+std::string format_subject_dn_rfc2253(void* x509);
+
+// Extract just the CN (common name) value from the peer certificate's
+// Subject. Returns empty when there is no peer cert, no CN entry, or
+// `ssl` is null. Used for the `client identity source = cn` mode, which
+// is the safe choice for INI-stored permission policies because the
+// resulting principal contains no `=` and round-trips through the
+// settings store unchanged.
+std::string extract_peer_subject_cn(void* ssl);
+
+// Format-only counterpart to extract_peer_subject_cn. Returns the CN
+// value of `x509`'s Subject, or empty when no CN entry is present.
+// Same void* / openssl-isolation convention as
+// format_subject_dn_rfc2253. Exposed for unit testing.
+std::string format_subject_cn_only(void* x509);
 #endif
 void validate_certificate(const std::string& certificate, std::list<std::string>& list);
 

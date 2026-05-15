@@ -99,6 +99,14 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
       .add_string("encoding", sh::string_key(&encoding_, ""), "NRPE PAYLOAD ENCODING", "", true);
 
+  settings.alias().add_key_to_settings().add_string("client identity source", sh::string_key(&client_identity_source_, "none"), "CLIENT IDENTITY SOURCE",
+                                                    "How to resolve the principal stamped on the request for the core permission system. "
+                                                    "'none' (default) leaves the principal empty (subject becomes bare 'NRPEServer'). "
+                                                    "'cn' uses the Common Name value of the verified client certificate (e.g. 'icinga-master'); "
+                                                    "this requires SSL with verify_mode containing 'peer' and 'fail-if-no-peer-cert' plus a 'ca path' "
+                                                    "pointing at the trusted issuer, otherwise the module refuses to start. "
+                                                    "CN-only (not full DN) because INI key syntax conflicts with the '=' in RFC 2253 DNs.");
+
   settings.register_all();
   settings.notify();
 
@@ -131,6 +139,43 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
           "NRPEServer is starting in insecure mode: SECLEVEL=0 and no server certificate. "
           "Clients have no way to authenticate this server, traffic can be MITMed. "
           "Use insecure=true only for legacy check_nrpe interop on a trusted network.");
+    }
+    // Validate the client identity source knob before accepting any
+    // traffic. The CN-based mode is only meaningful if the TLS layer is
+    // actually verifying the client cert against a trusted CA - without
+    // that, the CN is whatever the attacker chose to put on a self-signed
+    // cert and would be a security regression rather than a feature.
+    if (client_identity_source_ != "none" && client_identity_source_ != "cn") {
+      NSC_LOG_ERROR_STD("NRPEServer: unknown 'client identity source' value '" + client_identity_source_ + "'; expected 'none' or 'cn'. Refusing to start.");
+      return false;
+    }
+    if (client_identity_source_ == "cn") {
+#ifdef USE_SSL
+      // Check the PARSED verify_mode bitmask, not the raw config string.
+      // The string side has aliases (e.g. `peer-cert` expands to
+      // `verify_peer | verify_fail_if_no_peer_cert` in the parser, see
+      // socket_helpers.cpp::get_verify_mode), so substring-matching on
+      // the raw string would reject perfectly valid configs and accept
+      // confusingly-spelled ones. Going through the parsed value is the
+      // only spelling-independent check.
+      const bool ssl_on = info_.ssl.enabled;
+      const auto parsed_vm = info_.ssl.get_verify_mode();
+      const bool wants_peer = (parsed_vm & boost::asio::ssl::context_base::verify_peer) != 0;
+      const bool wants_fail = (parsed_vm & boost::asio::ssl::context_base::verify_fail_if_no_peer_cert) != 0;
+      const bool has_ca = !info_.ssl.ca_path.empty();
+      if (!ssl_on || !wants_peer || !wants_fail || !has_ca) {
+        NSC_LOG_ERROR_STD(
+            "NRPEServer: 'client identity source = cn' requires SSL with verify_mode containing 'peer' and "
+            "'fail-if-no-peer-cert' (or the 'peer-cert' alias) plus a non-empty 'ca path'. Current: ssl=" +
+            std::string(ssl_on ? "on" : "off") + ", verify_mode='" + info_.ssl.verify_mode + "' (parsed bits: peer=" + std::string(wants_peer ? "yes" : "no") +
+            ", fail-if-no-peer-cert=" + std::string(wants_fail ? "yes" : "no") + "), ca_path='" + info_.ssl.ca_path +
+            "'. Refusing to start with attacker-supplied identity.");
+        return false;
+      }
+#else
+      NSC_LOG_ERROR_STD("NRPEServer: 'client identity source = cn' requires SSL support, but this build was compiled without it. Refusing to start.");
+      return false;
+#endif
     }
     NSC_LOG_ERROR_LISTS(info_.validate());
 
@@ -194,7 +239,7 @@ bool NRPEServer::unloadModule() {
   return true;
 }
 
-std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p) {
+std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p, const std::string &peer_identity) {
   std::list<nrpe::packet> packets;
   str::utils::token cmd = str::utils::getToken(p.getPayload(), '!');
   // Trace incoming requests so the log shows what the upstream server actually
@@ -202,7 +247,8 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p) {
   // command name + argument blob were invisible). Gated because building the
   // string traverses the payload and does string concatenation.
   NSC_TRACE_ENABLED() {
-    NSC_TRACE_MSG("NRPE request: command='" + cmd.first + "' args='" + cmd.second + "' (payload_length=" + str::xtos(p.get_payload_length()) + ")");
+    NSC_TRACE_MSG("NRPE request: command='" + cmd.first + "' args='" + cmd.second + "' (payload_length=" + str::xtos(p.get_payload_length()) +
+                  ", peer_identity='" + peer_identity + "')");
   }
   if (cmd.first == "_NRPE_CHECK") {
     packets.push_back(nrpe::packet::create_response(
@@ -243,7 +289,18 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p) {
       wcmd = utf8::cvt<std::string>(utf8::from_encoding(cmd.first, encoding_));
       wargs = utf8::cvt<std::string>(utf8::from_encoding(cmd.second, encoding_));
     }
-    ret = ch.simple_query_from_nrpe(wcmd, wargs, wmsg, wperf, multiple_packets_ ? -1 : max_len);
+    // When the transport has resolved a peer identity (e.g. the client
+    // cert CN under `client identity source = cn`), stamp it as the
+    // principal so the policy sees `NRPEServer:<cn>` rather than a
+    // bare `NRPEServer` subject. The transport may extract the
+    // identity unconditionally for any SSL handshake; honouring it is
+    // gated on the `client identity source` knob so flipping verify_mode
+    // for an unrelated reason doesn't silently change the policy subject.
+    const bool use_principal = client_identity_source_ == "cn" && !peer_identity.empty();
+    if (!use_principal)
+      ret = ch.simple_query_from_nrpe(wcmd, wargs, wmsg, wperf, multiple_packets_ ? -1 : max_len);
+    else
+      ret = ch.simple_query_from_nrpe_as(peer_identity, wcmd, wargs, wmsg, wperf, multiple_packets_ ? -1 : max_len);
     switch (ret) {
       case NSCAPI::query_return_codes::returnOK:
       case NSCAPI::query_return_codes::returnWARN:

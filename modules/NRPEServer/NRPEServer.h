@@ -31,6 +31,18 @@ class NRPEServer : public nscapi::impl::simple_plugin, nrpe::server::handler {
   bool allowArgs_;
   bool multiple_packets_;
   std::string encoding_;
+  // "none" -> empty principal (legacy behaviour).
+  // "cn"   -> Common Name value of the verified client cert (e.g.
+  //           "icinga-master"). Requires SSL with verify_mode containing
+  //           `peer` and `fail-if-no-peer-cert` and a `ca path` pointing
+  //           at the trusted issuer; otherwise the module refuses to
+  //           start because an unverified CN would be attacker-supplied.
+  //           CN-only (not full RFC 2253 DN) because INI key syntax uses
+  //           `=` as the key/value separator and would corrupt any
+  //           DN-shaped policy key like `NRPEServer:CN=foo`. If/when an
+  //           identity-map indirection lands, a `dn` mode can be added
+  //           here to use the alias rather than the raw DN.
+  std::string client_identity_source_;
 
   void set_perf_data(bool v) {
     noPerfData_ = !v;
@@ -46,7 +58,7 @@ class NRPEServer : public nscapi::impl::simple_plugin, nrpe::server::handler {
   bool unloadModule();
 
   // Handler
-  std::list<nrpe::packet> handle(nrpe::packet packet);
+  std::list<nrpe::packet> handle(nrpe::packet packet, const std::string& peer_identity);
 
   nrpe::packet create_error(std::string msg) { return nrpe::packet::create_response(nrpe::data::version2, 3, msg, payload_length_); }
 

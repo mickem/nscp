@@ -709,4 +709,250 @@ TEST(VerifyModeParser, CommaDelimited) {
   EXPECT_NE(+mode & +boost::asio::ssl::verify_fail_if_no_peer_cert, 0);
 }
 
+// =============================================================================
+// extract_peer_subject_dn / format_subject_dn_rfc2253
+// =============================================================================
+//
+// extract_peer_subject_dn pulls the verified Subject DN out of an SSL
+// session and is what NRPEServer feeds to the permission system as the
+// principal. Wrong output here = wrong policy decision in production
+// (either silently allowing or silently denying), so the formatting needs
+// real coverage.
+//
+// We can't stand up a TLS session in a unit test, but we CAN construct
+// an X509 in memory, set its Subject to a known value, and exercise the
+// format helper directly. The format helper is what extract_peer_subject_dn
+// delegates to internally, so testing it covers the interesting path.
+// The null-input paths of extract_peer_subject_dn we cover separately.
+
+#include <openssl/x509.h>
+
+namespace {
+
+// Build a fresh X509 with the supplied Subject attributes (an ordered
+// list of (NID, value) pairs - order matters because the resulting DN
+// is printed in the order the entries were appended). Caller takes
+// ownership; pair with X509_free.
+//
+// We construct an X509 rather than just an X509_NAME because the
+// public helper takes the cert; this also exercises the
+// X509_get_subject_name path inside format_subject_dn_rfc2253.
+X509* make_test_cert(const std::vector<std::pair<int, std::string>>& subject_entries) {
+  X509* cert = X509_new();
+  if (!cert) return nullptr;
+  X509_NAME* name = X509_NAME_new();
+  if (!name) {
+    X509_free(cert);
+    return nullptr;
+  }
+  for (const auto& entry : subject_entries) {
+    X509_NAME_add_entry_by_NID(name, entry.first, MBSTRING_UTF8, reinterpret_cast<const unsigned char*>(entry.second.c_str()),
+                               static_cast<int>(entry.second.size()), -1, 0);
+  }
+  X509_set_subject_name(cert, name);
+  X509_NAME_free(name);
+  return cert;
+}
+
+}  // namespace
+
+TEST(ExtractPeerSubjectDn, NullSslReturnsEmpty) {
+  // Defensive: extract_peer_subject_dn is called from ssl_connection
+  // right after handshake. If something has gone wrong upstream and a
+  // null SSL* reaches us, return empty rather than dereferencing.
+  EXPECT_EQ("", socket_helpers::extract_peer_subject_dn(nullptr));
+}
+
+TEST(FormatSubjectDnRfc2253, NullCertReturnsEmpty) { EXPECT_EQ("", socket_helpers::format_subject_dn_rfc2253(nullptr)); }
+
+TEST(FormatSubjectDnRfc2253, SingleCnRoundTrips) {
+  X509* cert = make_test_cert({{NID_commonName, "icinga-master"}});
+  ASSERT_NE(nullptr, cert);
+  const std::string dn = socket_helpers::format_subject_dn_rfc2253(cert);
+  X509_free(cert);
+  EXPECT_EQ("CN=icinga-master", dn);
+}
+
+TEST(FormatSubjectDnRfc2253, MultiAttributeSubjectInOrder) {
+  // RFC 2253 prints in REVERSE order of how the attributes were added
+  // (most-specific first). OpenSSL appends in the order given, then
+  // X509_NAME_print_ex with XN_FLAG_RFC2253 emits them right-to-left:
+  // the entry added LAST appears FIRST in the output. We pin this so
+  // operators (who copy DNs from the log into policy files) get a
+  // predictable shape.
+  X509* cert = make_test_cert({
+      {NID_countryName, "US"},
+      {NID_organizationName, "Acme"},
+      {NID_commonName, "icinga-master"},
+  });
+  ASSERT_NE(nullptr, cert);
+  const std::string dn = socket_helpers::format_subject_dn_rfc2253(cert);
+  X509_free(cert);
+  EXPECT_EQ("CN=icinga-master,O=Acme,C=US", dn);
+}
+
+TEST(FormatSubjectDnRfc2253, ValueWithCommaIsEscaped) {
+  // A comma in a CN value MUST be backslash-escaped, otherwise the
+  // resulting DN string would be ambiguous (the comma is also the
+  // attribute separator). If escaping ever regressed, two distinct
+  // certs could format to the same DN string and policies could
+  // collide.
+  X509* cert = make_test_cert({{NID_commonName, "Smith, John"}});
+  ASSERT_NE(nullptr, cert);
+  const std::string dn = socket_helpers::format_subject_dn_rfc2253(cert);
+  X509_free(cert);
+  EXPECT_EQ("CN=Smith\\, John", dn);
+}
+
+TEST(FormatSubjectDnRfc2253, ValueWithPlusIsEscaped) {
+  // `+` is the multi-valued-RDN separator in RFC 2253 and must be
+  // escaped in a value.
+  X509* cert = make_test_cert({{NID_commonName, "a+b"}});
+  ASSERT_NE(nullptr, cert);
+  const std::string dn = socket_helpers::format_subject_dn_rfc2253(cert);
+  X509_free(cert);
+  EXPECT_EQ("CN=a\\+b", dn);
+}
+
+TEST(FormatSubjectDnRfc2253, LeadingHashIsEscaped) {
+  // RFC 2253: a leading `#` in a value indicates a hex-encoded BER
+  // value, so a literal leading `#` must be escaped to disambiguate.
+  X509* cert = make_test_cert({{NID_commonName, "#hashtag"}});
+  ASSERT_NE(nullptr, cert);
+  const std::string dn = socket_helpers::format_subject_dn_rfc2253(cert);
+  X509_free(cert);
+  EXPECT_EQ("CN=\\#hashtag", dn);
+}
+
+TEST(FormatSubjectDnRfc2253, Utf8ValuePreserved) {
+  // We tell OpenSSL the value is MBSTRING_UTF8. RFC 2253 keeps UTF-8
+  // bytes intact (no transliteration). Use a fixed byte sequence so
+  // the test does not depend on the source file encoding: "Café" =
+  // 'C' 'a' 'f' 0xC3 0xA9.
+  const std::string cn = std::string("Caf\xc3\xa9");
+  X509* cert = make_test_cert({{NID_commonName, cn}});
+  ASSERT_NE(nullptr, cert);
+  const std::string dn = socket_helpers::format_subject_dn_rfc2253(cert);
+  X509_free(cert);
+  EXPECT_EQ("CN=" + cn, dn);
+}
+
+TEST(FormatSubjectDnRfc2253, EmptySubjectIsEmpty) {
+  // X509 with no Subject entries. The output is the empty DN.
+  X509* cert = make_test_cert({});
+  ASSERT_NE(nullptr, cert);
+  const std::string dn = socket_helpers::format_subject_dn_rfc2253(cert);
+  X509_free(cert);
+  EXPECT_EQ("", dn);
+}
+
+TEST(FormatSubjectDnRfc2253, OrganizationalUnitIsEmittedAsOu) {
+  // Sanity-check the attribute shortname mapping for an attribute
+  // operators routinely use in monitoring deployments. If OpenSSL ever
+  // changes the shortname this test catches it.
+  X509* cert = make_test_cert({
+      {NID_organizationalUnitName, "monitoring"},
+      {NID_commonName, "agent-01"},
+  });
+  ASSERT_NE(nullptr, cert);
+  const std::string dn = socket_helpers::format_subject_dn_rfc2253(cert);
+  X509_free(cert);
+  EXPECT_EQ("CN=agent-01,OU=monitoring", dn);
+}
+
+// =============================================================================
+// extract_peer_subject_cn / format_subject_cn_only
+// =============================================================================
+//
+// CN-only extraction is what NRPEServer actually uses today (the DN path
+// is implemented but unused because INI key syntax can't carry `=`).
+// These tests cover the formatter side; the SSL extraction path itself
+// just delegates after retrieving the X509 from the session, same shape
+// as the DN tests.
+
+TEST(ExtractPeerSubjectCn, NullSslReturnsEmpty) { EXPECT_EQ("", socket_helpers::extract_peer_subject_cn(nullptr)); }
+
+TEST(FormatSubjectCnOnly, NullCertReturnsEmpty) { EXPECT_EQ("", socket_helpers::format_subject_cn_only(nullptr)); }
+
+TEST(FormatSubjectCnOnly, SingleCnReturnsCnValue) {
+  // Smoke test: a cert with just a CN should produce just the value
+  // (no "CN=" prefix, no trailing components).
+  X509* cert = make_test_cert({{NID_commonName, "icinga-master"}});
+  ASSERT_NE(nullptr, cert);
+  const std::string cn = socket_helpers::format_subject_cn_only(cert);
+  X509_free(cert);
+  EXPECT_EQ("icinga-master", cn);
+}
+
+TEST(FormatSubjectCnOnly, MultiAttributeSubjectReturnsCnOnly) {
+  // Multi-attribute subject: only the CN value should come back.
+  // Operators write `NRPEServer:icinga-master` in policy, not
+  // `NRPEServer:icinga-master,O=Acme`.
+  X509* cert = make_test_cert({
+      {NID_countryName, "US"},
+      {NID_organizationName, "Acme"},
+      {NID_commonName, "icinga-master"},
+  });
+  ASSERT_NE(nullptr, cert);
+  const std::string cn = socket_helpers::format_subject_cn_only(cert);
+  X509_free(cert);
+  EXPECT_EQ("icinga-master", cn);
+}
+
+TEST(FormatSubjectCnOnly, NoCnReturnsEmpty) {
+  // A cert with no CN entry should produce empty - and NRPEServer's
+  // gating logic (use_principal = !empty()) then falls back to the
+  // bare `NRPEServer` subject, which is the safe default.
+  X509* cert = make_test_cert({
+      {NID_organizationName, "Acme"},
+      {NID_countryName, "US"},
+  });
+  ASSERT_NE(nullptr, cert);
+  const std::string cn = socket_helpers::format_subject_cn_only(cert);
+  X509_free(cert);
+  EXPECT_EQ("", cn);
+}
+
+TEST(FormatSubjectCnOnly, MultipleCnsReturnsTheLastOne) {
+  // Pins the "use the most-specific CN when several are present"
+  // policy. The X509_NAME_add_entry_by_NID order matters here:
+  // we append two CNs and expect the second one back. Reordering
+  // this expectation requires changing format_subject_cn_only's
+  // documented behaviour - it's a deliberate convention, not an
+  // accident.
+  X509* cert = make_test_cert({
+      {NID_commonName, "outer"},
+      {NID_commonName, "inner"},
+  });
+  ASSERT_NE(nullptr, cert);
+  const std::string cn = socket_helpers::format_subject_cn_only(cert);
+  X509_free(cert);
+  EXPECT_EQ("inner", cn);
+}
+
+TEST(FormatSubjectCnOnly, Utf8CnPreserved) {
+  // Same UTF-8-safe guarantee as the DN formatter: the byte sequence
+  // round-trips unchanged. Fixed byte sequence so the test does not
+  // depend on the source file encoding.
+  const std::string cn_in = std::string("Caf\xc3\xa9");
+  X509* cert = make_test_cert({{NID_commonName, cn_in}});
+  ASSERT_NE(nullptr, cert);
+  const std::string cn_out = socket_helpers::format_subject_cn_only(cert);
+  X509_free(cert);
+  EXPECT_EQ(cn_in, cn_out);
+}
+
+TEST(FormatSubjectCnOnly, CnWithSpaceAndPunctuationPreservedVerbatim) {
+  // Unlike the DN formatter, CN-only does NOT escape RFC 2253 specials:
+  // we hand the raw UTF-8 value back. Operators who put a literal
+  // comma or `=` in a CN end up with that character in the policy key,
+  // which is fine for the policy matcher but worth pinning so a future
+  // "let's helpfully sanitise this" refactor gets caught.
+  X509* cert = make_test_cert({{NID_commonName, "Smith, John"}});
+  ASSERT_NE(nullptr, cert);
+  const std::string cn = socket_helpers::format_subject_cn_only(cert);
+  X509_free(cert);
+  EXPECT_EQ("Smith, John", cn);
+}
+
 #endif  // USE_SSL

@@ -424,6 +424,17 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query_from_nrpe(const std::stri
   return NSCAPI::query_return_codes::returnUNKNOWN;
 }
 
+NSCAPI::nagiosReturn nscapi::core_helper::simple_query_from_nrpe_as(const std::string &principal, const std::string command, const std::string &buffer,
+                                                                    std::string &message, std::string &perf, std::size_t max_length) {
+  // Tokenisation matches simple_query_from_nrpe so the on-wire NRPE
+  // payload format (`cmd!arg1!arg2`) is parsed identically. The only
+  // difference is the identity stamped on the resulting QueryRequest.
+  boost::tokenizer<boost::char_separator<char>, std::string::const_iterator, std::string> tok(buffer, boost::char_separator<char>("!"));
+  std::list<std::string> arglist;
+  for (const std::string &s : tok) arglist.push_back(s);
+  return simple_query_as(principal, command, arglist, message, perf, max_length);
+}
+
 NSCAPI::nagiosReturn nscapi::core_helper::exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument,
                                                               std::list<std::string> &result) {
   std::string request, response;
