@@ -22,6 +22,7 @@
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
 #include <memory>
+#include <net/socket/socket_helpers.hpp>  // for socket_helpers::extract_peer_subject_cn used in ssl_connection
 #ifdef USE_SSL
 #include <boost/asio/ssl/context.hpp>
 #endif
