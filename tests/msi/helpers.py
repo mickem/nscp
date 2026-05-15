@@ -1,5 +1,5 @@
 from difflib import unified_diff
-from subprocess import run, CalledProcessError, CREATE_NEW_PROCESS_GROUP
+from subprocess import Popen, CalledProcessError, TimeoutExpired, PIPE
 from os import path, makedirs
 from shutil import rmtree
 from configparser import ConfigParser
@@ -7,39 +7,57 @@ import yaml
 from winreg import HKEY_LOCAL_MACHINE, OpenKey, DeleteKey, KEY_ALL_ACCESS, EnumKey
 
 
-def run_with_timeout(command):
+def run_with_timeout(command, timeout=120):
     """
-    Executes a command using subprocess, preventing hangs by handling stdout and stderr and timeout.
+    Executes a command using subprocess, preventing hangs by enforcing a real timeout.
+
+    On Windows, subprocess.run(..., timeout=...) with shell=True + capture_output
+    leaves the grandchild (e.g. msiexec) alive on timeout and then blocks in
+    communicate() waiting for its pipes to close — effectively turning the
+    "timeout" into an infinite wait when msiexec is wedged on the _MSIExecute
+    mutex. We avoid this by using Popen without a shell and killing the whole
+    process tree via taskkill /T on timeout.
     """
     print(f" .. Executing: {' '.join(command)}", flush=True)
+    proc = Popen(
+        command,
+        stdout=PIPE,
+        stderr=PIPE,
+        text=True,
+        encoding='utf-8',
+        errors='ignore',
+    )
     try:
-        result = run(
-            command,
-            shell=True,
-            check=True,
-            capture_output=True,
-            creationflags=CREATE_NEW_PROCESS_GROUP,
-            text=True,
-            encoding='utf-8',
-            errors='ignore',
-            timeout=120
-        )
-        if result.stdout:
-            print(f" .. STDOUT: {result.stdout.strip()}", flush=True)
-        if result.stderr:
-            print(f" .. STDERR: {result.stderr.strip()}", flush=True)
-
-        return result.returncode
-
-    except CalledProcessError as e:
-        print(f"! Command failed with exit code {e.returncode}", flush=True)
-        if e.stdout:
-            print(f"! STDOUT: {e.stdout.strip()}", flush=True)
-        if e.stderr:
-            print(f"! STDERR: {e.stderr.strip()}", flush=True)
-        if e.returncode == 1605:
-            return e.returncode
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except TimeoutExpired:
+        print(f"! Command timed out after {timeout}s; killing process tree (pid={proc.pid}).", flush=True)
+        try:
+            Popen(["taskkill", "/F", "/T", "/PID", str(proc.pid)]).wait(timeout=30)
+        except Exception as kill_err:
+            print(f"! taskkill failed: {kill_err}", flush=True)
+            proc.kill()
+        try:
+            stdout, stderr = proc.communicate(timeout=30)
+        except TimeoutExpired:
+            stdout, stderr = "", ""
+        if stdout:
+            print(f"! STDOUT (partial): {stdout.strip()}", flush=True)
+        if stderr:
+            print(f"! STDERR (partial): {stderr.strip()}", flush=True)
         raise
+
+    if stdout:
+        print(f" .. STDOUT: {stdout.strip()}", flush=True)
+    if stderr:
+        print(f" .. STDERR: {stderr.strip()}", flush=True)
+
+    rc = proc.returncode
+    if rc != 0:
+        # Preserve prior semantics: 1605 (no installation found) is not an error.
+        if rc == 1605:
+            return rc
+        raise CalledProcessError(rc, command, output=stdout, stderr=stderr)
+    return rc
 
 
 def delete_registry_tree(root, subkey):
