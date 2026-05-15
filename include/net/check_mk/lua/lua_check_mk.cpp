@@ -56,9 +56,9 @@ const luaL_Reg mk_functions[] = {{"client_callback", &check_mk::check_mk_lua_wra
                                  {"server_callback", &check_mk::check_mk_lua_wrapper::server_callback},
                                  {"server", &check_mk::check_mk_lua_wrapper::server_callback},
                                  {"__gc", &check_mk::check_mk_lua_wrapper::destroy},
-                                 {0}};
+                                 {NULL, NULL}};
 
-const luaL_Reg mk_ctors[] = {{"new", &check_mk::check_mk_lua_wrapper::create}, {0}};
+const luaL_Reg mk_ctors[] = {{"new", &check_mk::check_mk_lua_wrapper::create}, {NULL, NULL}};
 
 int check_mk::check_mk_lua_wrapper::create(lua_State *L) {
   lua::lua_wrapper instance(L);
@@ -142,8 +142,8 @@ const luaL_Reg packet_functions[] = {{"get_section", &check_mk::check_mk_packet_
                                      {"add_piggyback", &check_mk::check_mk_packet_wrapper::add_piggyback},
                                      {"size_section", &check_mk::check_mk_packet_wrapper::size_section},
                                      {"__gc", &check_mk::check_mk_packet_wrapper::destroy},
-                                     {0}};
-const luaL_Reg packet_ctors[] = {{"new", &check_mk::check_mk_packet_wrapper::create}, {0}};
+                                     {NULL, NULL}};
+const luaL_Reg packet_ctors[] = {{"new", &check_mk::check_mk_packet_wrapper::create}, {NULL, NULL}};
 int check_mk::check_mk_packet_wrapper::create(lua_State *L) {
   lua::lua_wrapper instance(L);
   instance.push_user_object_instance<MKPaketData>();
@@ -271,8 +271,8 @@ const luaL_Reg section_functions[] = {{"get_line", &check_mk::check_mk_section_w
                                       {"set_persist", &check_mk::check_mk_section_wrapper::set_persist},
                                       {"size_line", &check_mk::check_mk_section_wrapper::size_line},
                                       {"__gc", &check_mk::check_mk_section_wrapper::destroy},
-                                      {0}};
-const luaL_Reg section_ctors[] = {{"new", &check_mk::check_mk_section_wrapper::create}, {0}};
+                                      {NULL, NULL}};
+const luaL_Reg section_ctors[] = {{"new", &check_mk::check_mk_section_wrapper::create}, {NULL, NULL}};
 int check_mk::check_mk_section_wrapper::create(lua_State *L) {
   lua::lua_wrapper instance(L);
   instance.push_user_object_instance<MKSectionData>();
@@ -355,8 +355,8 @@ const luaL_Reg line_functions[] = {{"add_item", &check_mk::check_mk_line_wrapper
                                    {"set_line", &check_mk::check_mk_line_wrapper::set_line},
                                    {"size_item", &check_mk::check_mk_line_wrapper::size_item},
                                    {"__gc", &check_mk::check_mk_line_wrapper::destroy},
-                                   {0}};
-const luaL_Reg line_ctors[] = {{"new", &check_mk::check_mk_line_wrapper::create}, {0}};
+                                   {NULL, NULL}};
+const luaL_Reg line_ctors[] = {{"new", &check_mk::check_mk_line_wrapper::create}, {NULL, NULL}};
 int check_mk::check_mk_line_wrapper::create(lua_State *L) {
   lua::lua_wrapper instance(L);
   instance.push_user_object_instance<MKLineData>();
@@ -433,8 +433,8 @@ int check_mk::check_mk_metrics_wrapper::destroy(lua_State *L) {
 const luaL_Reg metrics_functions[] = {{"get", &check_mk::check_mk_metrics_wrapper::get},
                                       {"value", &check_mk::check_mk_metrics_wrapper::value},
                                       {"__gc", &check_mk::check_mk_metrics_wrapper::destroy},
-                                      {0}};
-const luaL_Reg metrics_ctors[] = {{"new", &check_mk::check_mk_metrics_wrapper::create}, {0}};
+                                      {NULL, NULL}};
+const luaL_Reg metrics_ctors[] = {{"new", &check_mk::check_mk_metrics_wrapper::create}, {NULL, NULL}};
 
 //////////////////////////////////////////////////////////////////////////
 const std::string MKSubmissionsData::tag = "submissions";
@@ -514,8 +514,8 @@ int check_mk::check_mk_submissions_wrapper::destroy(lua_State *L) {
   return instance.destroy_user_object_instance<MKSubmissionsData>();
 }
 const luaL_Reg submissions_functions[] = {
-    {"get", &check_mk::check_mk_submissions_wrapper::get}, {"__gc", &check_mk::check_mk_submissions_wrapper::destroy}, {0}};
-const luaL_Reg submissions_ctors[] = {{"new", &check_mk::check_mk_submissions_wrapper::create}, {0}};
+    {"get", &check_mk::check_mk_submissions_wrapper::get}, {"__gc", &check_mk::check_mk_submissions_wrapper::destroy}, {NULL, NULL}};
+const luaL_Reg submissions_ctors[] = {{"new", &check_mk::check_mk_submissions_wrapper::create}, {NULL, NULL}};
 
 //////////////////////////////////////////////////////////////////////////
 void check_mk::check_mk_plugin::load(lua::lua_wrapper &lua_instance) {

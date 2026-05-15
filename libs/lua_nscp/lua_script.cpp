@@ -174,9 +174,9 @@ const luaL_Reg core_functions[] = {{"create_pb_query", &lua::core_wrapper::creat
                                    {"submit", &lua::core_wrapper::submit},
                                    {"reload", &lua::core_wrapper::reload},
                                    {"log", &lua::core_wrapper::log},
-                                   {0}};
+                                   {NULL, NULL}};
 
-const luaL_Reg core_ctors[] = {{"new", &lua::core_wrapper::create_core}, {0}};
+const luaL_Reg core_ctors[] = {{"new", &lua::core_wrapper::create_core}, {NULL, NULL}};
 
 int lua::core_wrapper::create_core(lua_State *L) {
   lua::lua_wrapper instance(L);
@@ -271,8 +271,8 @@ const luaL_Reg registry_functions[] = {{"query", &lua::registry_wrapper::registe
                                        {"simple_cmdline", &lua::registry_wrapper::register_simple_cmdline},
                                        {"subscription", &lua::registry_wrapper::subscription},
                                        {"simple_subscription", &lua::registry_wrapper::simple_subscription},
-                                       {0}};
-const luaL_Reg registry_ctors[] = {{"new", &lua::registry_wrapper::create_registry}, {0}};
+                                       {NULL, NULL}};
+const luaL_Reg registry_ctors[] = {{"new", &lua::registry_wrapper::create_registry}, {NULL, NULL}};
 
 int lua::registry_wrapper::create_registry(lua_State *L) {
   lua::lua_wrapper instance(L);
@@ -447,8 +447,8 @@ const luaL_Reg settings_functions[] = {{"get_section", &lua::settings_wrapper::g
                                        {"save", &lua::settings_wrapper::save},
                                        {"register_path", &lua::settings_wrapper::register_path},
                                        {"register_key", &lua::settings_wrapper::register_key},
-                                       {0}};
-const luaL_Reg settings_ctors[] = {{"new", &lua::settings_wrapper::create_settings}, {0}};
+                                       {NULL, NULL}};
+const luaL_Reg settings_ctors[] = {{"new", &lua::settings_wrapper::create_settings}, {NULL, NULL}};
 
 int lua::settings_wrapper::create_settings(lua_State *L) {
   lua::lua_wrapper instance(L);

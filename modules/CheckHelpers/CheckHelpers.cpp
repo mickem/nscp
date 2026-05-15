@@ -91,8 +91,23 @@ void CheckHelpers::add_alias(const std::string &key, const std::string &arg) {
   }
 }
 
+CheckHelpers::forwarded_identity CheckHelpers::extract_identity(const PB::Commands::QueryRequestMessage &request_message) {
+  // Pull the upstream caller identity off the header metadata stamped by
+  // core_helper. plugin_manager extracts the same two keys via
+  // extract_subject_from_header(); we read them here so we can forward
+  // them on the wrapped command's outgoing request.
+  forwarded_identity id;
+  for (const auto &kv : request_message.header().metadata()) {
+    if (kv.key() == "nscp.caller_plugin_id")
+      id.caller_plugin_id = kv.value();
+    else if (kv.key() == "nscp.principal")
+      id.principal = kv.value();
+  }
+  return id;
+}
+
 void CheckHelpers::query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
-                                  const PB::Commands::QueryRequestMessage & /*request_message*/) {
+                                  const PB::Commands::QueryRequestMessage &request_message) {
   const boost::optional<alias::simple_command> alias_def = aliases_.find(request.command());
   if (!alias_def) {
     nscapi::protobuf::functions::set_response_bad(*response, "No alias found matching: " + request.command());
@@ -100,11 +115,11 @@ void CheckHelpers::query_fallback(const PB::Commands::QueryRequestMessage::Reque
   }
   std::list<std::string> args;
   for (int i = 0; i < request.arguments_size(); ++i) args.push_back(request.arguments(i));
-  handle_alias(*alias_def, args, response);
+  handle_alias(*alias_def, args, response, extract_identity(request_message));
 }
 
-void CheckHelpers::handle_alias(const alias::simple_command &cd, const std::list<std::string> &src_args,
-                                PB::Commands::QueryResponseMessage::Response *response) const {
+void CheckHelpers::handle_alias(const alias::simple_command &cd, const std::list<std::string> &src_args, PB::Commands::QueryResponseMessage::Response *response,
+                                const forwarded_identity &id) const {
   // $ARGn$ / %ARGn% substitution into the alias's pre-declared argument list.
   // We DO NOT accept or splice in extra arguments that the alias's template
   // didn't already mention - this is the security property that makes
@@ -123,7 +138,12 @@ void CheckHelpers::handle_alias(const alias::simple_command &cd, const std::list
 
   std::string buffer;
   nscapi::core_helper ch(get_core(), get_id());
-  if (!ch.simple_query(cd.command, args, buffer)) {
+  // Forward the upstream caller's identity so the wrapped command's
+  // permission check sees the ORIGINAL caller rather than CheckHelpers.
+  // When id is empty (legacy call site without metadata), this falls
+  // back to stamping CheckHelpers' own plugin_id - same behaviour as
+  // plain simple_query.
+  if (!ch.simple_query_on_behalf_of(id.caller_plugin_id, id.principal, cd.command, args, buffer)) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + cd.get_alias());
     return;
   }
@@ -184,10 +204,15 @@ void CheckHelpers::check_version(const PB::Commands::QueryRequestMessage::Reques
   nscapi::protobuf::functions::set_response_good(*response, utf8::cvt<std::string>(get_core()->getApplicationVersionString()));
 }
 
-bool CheckHelpers::simple_query(const std::string &command, const std::vector<std::string> &arguments, PB::Commands::QueryResponseMessage::Response *response) {
+bool CheckHelpers::simple_query(const std::string &command, const std::vector<std::string> &arguments, PB::Commands::QueryResponseMessage::Response *response,
+                                const forwarded_identity &id) {
   std::string local_response_buffer;
   nscapi::core_helper ch(get_core(), get_id());
-  if (ch.simple_query(command, arguments, local_response_buffer) != NSCAPI::api_return_codes::isSuccess) {
+  // Convert vector to list - simple_query_on_behalf_of takes only the
+  // list overload. The conversion is on the slow path (one wrapped
+  // command per request) so the copy doesn't matter.
+  std::list<std::string> args_list(arguments.begin(), arguments.end());
+  if (!ch.simple_query_on_behalf_of(id.caller_plugin_id, id.principal, command, args_list, local_response_buffer)) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + command);
     return false;
   }
@@ -201,10 +226,11 @@ bool CheckHelpers::simple_query(const std::string &command, const std::vector<st
   return true;
 }
 
-bool CheckHelpers::simple_query(const std::string &command, const std::list<std::string> &arguments, PB::Commands::QueryResponseMessage::Response *response) {
+bool CheckHelpers::simple_query(const std::string &command, const std::list<std::string> &arguments, PB::Commands::QueryResponseMessage::Response *response,
+                                const forwarded_identity &id) {
   std::string local_response_buffer;
   nscapi::core_helper ch(get_core(), get_id());
-  if (ch.simple_query(command, arguments, local_response_buffer) != NSCAPI::api_return_codes::isSuccess) {
+  if (!ch.simple_query_on_behalf_of(id.caller_plugin_id, id.principal, command, arguments, local_response_buffer)) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + command);
     return false;
   }
@@ -219,7 +245,7 @@ bool CheckHelpers::simple_query(const std::string &command, const std::list<std:
 }
 
 void CheckHelpers::check_change_status(PB::Common::ResultCode status, const PB::Commands::QueryRequestMessage::Request &request,
-                                       PB::Commands::QueryResponseMessage::Response *response) {
+                                       PB::Commands::QueryResponseMessage::Response *response, const forwarded_identity &id) {
   po::options_description desc = nscapi::program_options::create_desc(request);
   po::variables_map vm;
   std::vector<std::string> args;
@@ -232,20 +258,25 @@ void CheckHelpers::check_change_status(PB::Common::ResultCode status, const PB::
   std::string command = args.front();
   std::vector<std::string> arguments(args.begin() + 1, args.end());
   PB::Commands::QueryResponseMessage::Response local_response;
-  if (!simple_query(command, arguments, &local_response)) status = PB::Common::ResultCode::UNKNOWN;
+  if (!simple_query(command, arguments, &local_response, id)) status = PB::Common::ResultCode::UNKNOWN;
   response->CopyFrom(local_response);
   response->set_result(status);
 }
-void CheckHelpers::check_always_critical(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_change_status(PB::Common::ResultCode::CRITICAL, request, response);
+void CheckHelpers::check_always_critical(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                                         const PB::Commands::QueryRequestMessage &request_message) {
+  check_change_status(PB::Common::ResultCode::CRITICAL, request, response, extract_identity(request_message));
 }
-void CheckHelpers::check_always_warning(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_change_status(PB::Common::ResultCode::WARNING, request, response);
+void CheckHelpers::check_always_warning(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                                        const PB::Commands::QueryRequestMessage &request_message) {
+  check_change_status(PB::Common::ResultCode::WARNING, request, response, extract_identity(request_message));
 }
-void CheckHelpers::check_always_ok(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_change_status(PB::Common::ResultCode::OK, request, response);
+void CheckHelpers::check_always_ok(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                                   const PB::Commands::QueryRequestMessage &request_message) {
+  check_change_status(PB::Common::ResultCode::OK, request, response, extract_identity(request_message));
 }
-void CheckHelpers::check_negate(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+void CheckHelpers::check_negate(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                                const PB::Commands::QueryRequestMessage &request_message) {
+  const forwarded_identity id = extract_identity(request_message);
   std::string command;
   std::vector<std::string> arguments;
   po::options_description desc = nscapi::program_options::create_desc(request);
@@ -264,7 +295,7 @@ void CheckHelpers::check_negate(const PB::Commands::QueryRequestMessage::Request
   if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) return;
   if (command.empty()) return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
   PB::Commands::QueryResponseMessage::Response local_response;
-  if (!simple_query(command, arguments, &local_response)) return;
+  if (!simple_query(command, arguments, &local_response, id)) return;
   response->CopyFrom(local_response);
   PB::Common::ResultCode new_o = PB::Common::ResultCode::OK;
   PB::Common::ResultCode new_w = PB::Common::ResultCode::WARNING;
@@ -281,7 +312,9 @@ void CheckHelpers::check_negate(const PB::Commands::QueryRequestMessage::Request
   if (response->result() == PB::Common::ResultCode::UNKNOWN) response->set_result(new_u);
 }
 
-void CheckHelpers::check_multi(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+void CheckHelpers::check_multi(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                               const PB::Commands::QueryRequestMessage &request_message) {
+  const forwarded_identity id = extract_identity(request_message);
   po::options_description desc = nscapi::program_options::create_desc(request);
   std::vector<std::string> arguments;
   std::string separator;
@@ -310,7 +343,8 @@ void CheckHelpers::check_multi(const PB::Commands::QueryRequestMessage::Request 
     std::string command = args.front();
     args.pop_front();
     PB::Commands::QueryResponseMessage::Response local_response;
-    if (!simple_query(command, args, &local_response)) return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute command: " + command);
+    if (!simple_query(command, args, &local_response, id))
+      return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute command: " + command);
     bool first = true;
     for (const ::PB::Commands::QueryResponseMessage_Response_Line &line : local_response.lines()) {
       if (first && response->lines_size() > 0) {
@@ -330,7 +364,9 @@ void CheckHelpers::check_multi(const PB::Commands::QueryRequestMessage::Request 
   }
 }
 
-void CheckHelpers::check_and_forward(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+void CheckHelpers::check_and_forward(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                                     const PB::Commands::QueryRequestMessage &request_message) {
+  const forwarded_identity id = extract_identity(request_message);
   po::options_description desc = nscapi::program_options::create_desc(request);
   std::vector<std::string> arguments;
   std::string target;
@@ -353,7 +389,10 @@ void CheckHelpers::check_and_forward(const PB::Commands::QueryRequestMessage::Re
 
   std::string local_response;
   nscapi::core_helper ch(get_core(), get_id());
-  if (ch.simple_query(command, arguments, local_response) != NSCAPI::api_return_codes::isSuccess) {
+  // Convert vector to list - simple_query_on_behalf_of doesn't take
+  // a vector overload and the conversion is cheap on this slow path.
+  std::list<std::string> args_list(arguments.begin(), arguments.end());
+  if (!ch.simple_query_on_behalf_of(id.caller_plugin_id, id.principal, command, args_list, local_response)) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + command);
     return;
   }
@@ -366,22 +405,21 @@ void CheckHelpers::check_and_forward(const PB::Commands::QueryRequestMessage::Re
 }
 
 struct worker_object {
-  void proc(nscapi::core_wrapper *core, int plugin_id, std::string command, std::vector<std::string> arguments) {
+  void proc(nscapi::core_wrapper *core, int plugin_id, const std::string &caller_plugin_id, const std::string &principal, std::string command,
+            std::vector<std::string> arguments) {
     nscapi::core_helper ch(core, plugin_id);
-    // simple_query(cmd, vector, &result) returns BOOL (true on success).
-    // Previously this was assigned to NSCAPI::nagiosReturn and compared
-    // against query_return_codes::returnOK (=0). The implicit bool->int
-    // conversion (true -> 1) flipped the check: every successful query was
-    // treated as a failure and every failure was treated as success. That
-    // also made check_timeout effectively unusable since timing-out the
-    // wrapped command was the only path that produced an "OK" result.
-    ok = ch.simple_query(command, arguments, response_buffer);
+    // Forward the upstream caller's identity so the wrapped command's
+    // permission check sees the original caller rather than CheckHelpers.
+    std::list<std::string> args_list(arguments.begin(), arguments.end());
+    ok = ch.simple_query_on_behalf_of(caller_plugin_id, principal, command, args_list, response_buffer);
   }
   bool ok = false;
   std::string response_buffer;
 };
 
-void CheckHelpers::check_timeout(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+void CheckHelpers::check_timeout(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                                 const PB::Commands::QueryRequestMessage &request_message) {
+  const forwarded_identity id = extract_identity(request_message);
   std::string command;
   std::vector<std::string> arguments;
   unsigned long timeout = 30;
@@ -399,8 +437,8 @@ void CheckHelpers::check_timeout(const PB::Commands::QueryRequestMessage::Reques
   if (command.empty()) return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 
   worker_object obj;
-  std::shared_ptr<boost::thread> t =
-      std::shared_ptr<boost::thread>(new boost::thread([&obj, this, command, arguments]() { obj.proc(get_core(), get_id(), command, arguments); }));
+  std::shared_ptr<boost::thread> t = std::shared_ptr<boost::thread>(
+      new boost::thread([&obj, this, command, arguments, id]() { obj.proc(get_core(), get_id(), id.caller_plugin_id, id.principal, command, arguments); }));
 
   if (t->timed_join(boost::posix_time::seconds(timeout))) {
     if (!obj.ok) {
@@ -436,7 +474,9 @@ struct reverse_sort {
   }
 };
 
-void CheckHelpers::filter_perf(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+void CheckHelpers::filter_perf(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                               const PB::Commands::QueryRequestMessage &request_message) {
+  const forwarded_identity id = extract_identity(request_message);
   std::string command, sort;
   std::size_t limit;
   std::vector<std::string> arguments;
@@ -455,7 +495,7 @@ void CheckHelpers::filter_perf(const PB::Commands::QueryRequestMessage::Request 
   po::variables_map vm;
   if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, p)) return;
   if (command.empty()) return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
-  simple_query(command, arguments, response);
+  simple_query(command, arguments, response, id);
   std::vector<PB::Common::PerformanceData> perfs;
 
   std::stringstream ss;
@@ -541,7 +581,9 @@ filter_obj_handler::filter_obj_handler() {
 }
 }  // namespace perf_filter
 
-void CheckHelpers::render_perf(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+void CheckHelpers::render_perf(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                               const PB::Commands::QueryRequestMessage &request_message) {
+  const forwarded_identity id = extract_identity(request_message);
   modern_filter::data_container data;
   modern_filter::cli_helper<perf_filter::filter> filter_helper(request, response, data);
 
@@ -568,7 +610,7 @@ void CheckHelpers::render_perf(const PB::Commands::QueryRequestMessage::Request 
   if (!filter_helper.build_filter(filter)) return;
 
   if (command.empty()) return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
-  simple_query(command, arguments, response);
+  simple_query(command, arguments, response, id);
   for (int i = 0; i < response->lines_size(); i++) {
     ::PB::Commands::QueryResponseMessage_Response_Line *line = response->mutable_lines(i);
     for (const PB::Common::PerformanceData &perf : line->perf()) {
@@ -580,7 +622,9 @@ void CheckHelpers::render_perf(const PB::Commands::QueryRequestMessage::Request 
   filter_helper.post_process(filter);
 }
 
-void CheckHelpers::xform_perf(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+void CheckHelpers::xform_perf(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                              const PB::Commands::QueryRequestMessage &request_message) {
+  const forwarded_identity id = extract_identity(request_message);
   modern_filter::data_container data;
 
   std::string command, mode, field, replace;
@@ -602,7 +646,7 @@ void CheckHelpers::xform_perf(const PB::Commands::QueryRequestMessage::Request &
   if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, p)) return;
 
   if (command.empty()) return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
-  simple_query(command, arguments, response);
+  simple_query(command, arguments, response, id);
 
   if (mode == "extract") {
     std::vector<std::string> repl;

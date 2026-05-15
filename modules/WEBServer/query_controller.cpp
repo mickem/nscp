@@ -128,6 +128,24 @@ void query_controller::query_command(Mongoose::Request &request, boost::smatch &
   }
 }
 
+// Stamp the calling identity onto a QueryRequestMessage so the core
+// permission layer (service/permissions.hpp, decision point in
+// service/plugins/plugin_manager.cpp::execute_query) can see who's
+// asking. plugin_id identifies WEBServer; the user from the HTTP
+// response cookie is the authenticated principal. Empty user leaves the
+// principal unset, which is fine - the policy treats it as
+// "WEBServer with no named principal".
+static void stamp_identity(PB::Commands::QueryRequestMessage &qrm, unsigned int plugin_id, const std::string &user) {
+  auto *meta_plugin = qrm.mutable_header()->add_metadata();
+  meta_plugin->set_key("nscp.caller_plugin_id");
+  meta_plugin->set_value(std::to_string(plugin_id));
+  if (!user.empty()) {
+    auto *meta_user = qrm.mutable_header()->add_metadata();
+    meta_user->set_key("nscp.principal");
+    meta_user->set_value(user);
+  }
+}
+
 void query_controller::execute_query(std::string module, arg_vector args, Mongoose::StreamResponse &http_response) {
   PB::Commands::QueryRequestMessage qrm;
   PB::Commands::QueryRequestMessage::Request *payload = qrm.add_payload();
@@ -139,6 +157,9 @@ void query_controller::execute_query(std::string module, arg_vector args, Mongoo
     else
       payload->add_arguments(e.first + "=" + e.second);
   }
+  std::string user, token;
+  session_manager_interface::get_user_from_response(http_response, user, token);
+  stamp_identity(qrm, plugin_id, user);
   std::string pb_response, json_response;
   core->query(qrm.SerializeAsString(), pb_response);
   PB::Commands::QueryResponseMessage response;
@@ -204,6 +225,9 @@ void query_controller::execute_query_nagios(std::string module, arg_vector args,
     else
       payload->add_arguments(e.first + "=" + e.second);
   }
+  std::string user, token;
+  session_manager_interface::get_user_from_response(http_response, user, token);
+  stamp_identity(qrm, plugin_id, user);
   std::string pb_response, json_response;
   core->query(qrm.SerializeAsString(), pb_response);
   PB::Commands::QueryResponseMessage response;
@@ -238,6 +262,9 @@ void query_controller::execute_query_text(std::string module, arg_vector args, M
     else
       payload->add_arguments(e.first + "=" + e.second);
   }
+  std::string user, token;
+  session_manager_interface::get_user_from_response(http_response, user, token);
+  stamp_identity(qrm, plugin_id, user);
   std::string pb_response, json_response;
   core->query(qrm.SerializeAsString(), pb_response);
   PB::Commands::QueryResponseMessage response;

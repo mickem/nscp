@@ -38,8 +38,14 @@ class MockHandler : public server::handler {
   packet error_packet = packet::create_response(data::version2, 3, "error", 1024);
   mutable std::vector<std::string> debug_msgs;
   mutable std::vector<std::string> error_msgs;
+  // Record whatever peer_identity the protocol forwards so tests can
+  // assert it round-trips through the read_protocol::on_read path.
+  mutable std::vector<std::string> seen_peer_identities;
 
-  std::list<packet> handle(packet) override { return response_packets; }
+  std::list<packet> handle(packet, const std::string& peer_identity) override {
+    seen_peer_identities.push_back(peer_identity);
+    return response_packets;
+  }
 
   void log_debug(std::string, std::string, int, std::string msg) const override { debug_msgs.push_back(msg); }
 
@@ -243,4 +249,49 @@ TEST(NrpeServerProtocol, LogErrorDelegatesToHandler) {
   proto.log_error("file.cpp", 42, "error message");
   ASSERT_EQ(handler.error_msgs.size(), 1u);
   EXPECT_EQ(handler.error_msgs[0], "error message");
+}
+
+// =============================================================================
+// read_protocol — peer identity round trip
+// =============================================================================
+
+// The protocol must forward whatever set_peer_identity recorded to the
+// handler verbatim. The handler turns this into the principal stamped on
+// the policy decision, so any mangling here silently changes which rules
+// match in production.
+TEST(NrpeServerProtocol, PeerIdentityIsForwardedToHandler) {
+  MockHandler handler;
+  handler.response_packets.push_back(packet::create_response(data::version2, 0, "OK", 1024));
+
+  socket_helpers::connection_info info;
+  read_protocol proto(info, &handler);
+  proto.on_connect();
+  proto.set_peer_identity("CN=icinga-master,O=Acme");
+
+  packet query = packet::make_request("check_test", 1024, 2);
+  std::vector<char> buf = query.get_buffer();
+  proto.on_read(buf.data(), buf.data() + buf.size());
+
+  ASSERT_EQ(handler.seen_peer_identities.size(), 1u);
+  EXPECT_EQ(handler.seen_peer_identities[0], "CN=icinga-master,O=Acme");
+}
+
+// Default state: peer_identity is empty (no client cert, plain TCP, or
+// DN extraction disabled). The handler must receive an empty string,
+// not a "missing" sentinel - core_helper treats empty principal as
+// "stamp no principal," which is the correct legacy behaviour.
+TEST(NrpeServerProtocol, PeerIdentityDefaultsToEmpty) {
+  MockHandler handler;
+  handler.response_packets.push_back(packet::create_response(data::version2, 0, "OK", 1024));
+
+  socket_helpers::connection_info info;
+  read_protocol proto(info, &handler);
+  proto.on_connect();
+
+  packet query = packet::make_request("check_test", 1024, 2);
+  std::vector<char> buf = query.get_buffer();
+  proto.on_read(buf.data(), buf.data() + buf.size());
+
+  ASSERT_EQ(handler.seen_peer_identities.size(), 1u);
+  EXPECT_EQ(handler.seen_peer_identities[0], "");
 }

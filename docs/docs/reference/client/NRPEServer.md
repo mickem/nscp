@@ -343,6 +343,7 @@ Section for NRPE (NRPEServer.dll) (check_nrpe) protocol options.
 | [certificate](#ssl-certificate)                           | ${certificate-path}/certificate.pem  | SSL CERTIFICATE                        |
 | [certificate format](#certificate-format)                 | PEM                                  | CERTIFICATE FORMAT                     |
 | [certificate key](#ssl-certificate)                       |                                      | SSL CERTIFICATE                        |
+| [client identity source](#client-identity-source)         | none                                 | CLIENT IDENTITY SOURCE                 |
 | [debug verify](#debug-peer-certificate-verification)      | false                                | Debug peer certificate verification    |
 | [dh](#dh-key)                                             | ${certificate-path}/nrpe_dh_2048.pem | DH KEY                                 |
 | [encoding](#nrpe-payload-encoding)                        |                                      | NRPE PAYLOAD ENCODING                  |
@@ -372,6 +373,7 @@ ca=${certificate-path}/ca.pem
 cache allowed hosts=true
 certificate=${certificate-path}/certificate.pem
 certificate format=PEM
+client identity source=none
 debug verify=false
 dh=${certificate-path}/nrpe_dh_2048.pem
 extended response=true
@@ -646,6 +648,31 @@ certificate format=PEM
 [/settings/NRPE/server]
 # SSL CERTIFICATE
 certificate key=
+```
+
+
+
+#### CLIENT IDENTITY SOURCE <a id="/settings/NRPE/server/client identity source"></a>
+
+How to resolve the principal stamped on the request for the core permission system. 'none' (default) leaves the principal empty (subject becomes bare 'NRPEServer'). 'cn' uses the Common Name value of the verified client certificate (e.g. 'icinga-master'); this requires SSL with verify_mode containing 'peer' and 'fail-if-no-peer-cert' plus a 'ca path' pointing at the trusted issuer, otherwise the module refuses to start. CN-only (not full DN) because INI key syntax conflicts with the '=' in RFC 2253 DNs.
+
+
+
+
+
+| Key            | Description                                     |
+|----------------|-------------------------------------------------|
+| Path:          | [/settings/NRPE/server](#/settings/NRPE/server) |
+| Key:           | client identity source                          |
+| Default value: | `none`                                          |
+
+
+**Sample:**
+
+```
+[/settings/NRPE/server]
+# CLIENT IDENTITY SOURCE
+client identity source=none
 ```
 
 

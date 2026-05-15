@@ -134,7 +134,7 @@ TEST_F(PathManagerTest, OverrideValuesCanBeTemplates) {
   EXPECT_NE(expanded.find("custom-sec"), std::string::npos);
 }
 
-// add_overrides — the additive merge used by the CLI --path flag to layer
+// add_overrides — the additive merge used by the CLI --path-override flag to layer
 // on top of whatever boot.ini already installed via set_overrides.
 
 TEST_F(PathManagerTest, AddOverridesMergesOnTopOfSetOverrides) {

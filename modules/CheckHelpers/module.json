@@ -16,53 +16,65 @@
 		"fallback" : "true",
 		"check_always_ok" : {
 			"alias"		: "CheckAlwaysOK",
-			"description" : "Run another check and regardless of its return code return OK."
+			"description" : "Run another check and regardless of its return code return OK.",
+			"request"	: "true"
 		},
-		"check_always_warning" : { 
+		"check_always_warning" : {
 			"alias"		: "CheckAlwaysWARNING",
-			"description" : "Run another check and regardless of its return code return WARNING."
+			"description" : "Run another check and regardless of its return code return WARNING.",
+			"request"	: "true"
 		},
-		"check_always_critical" : { 
+		"check_always_critical" : {
 			"alias"		: "CheckAlwaysCRITICAL",
-			"description" : "Run another check and regardless of its return code return CRITICAL."
+			"description" : "Run another check and regardless of its return code return CRITICAL.",
+			"request"	: "true"
 		},
-		"check_multi" : { 
+		"check_multi" : {
 			"alias"		: "CheckMultiple",
-			"description" : "Run more then one check and return the worst state."
+			"description" : "Run more then one check and return the worst state.",
+			"request"	: "true"
 		},
-		"filter_perf" : "Run a check and filter performance data.",
-		"check_ok" : { 
+		"filter_perf" : {
+			"description" : "Run a check and filter performance data.",
+			"request"	: "true"
+		},
+		"check_ok" : {
 			"alias"		: "CheckOK",
 			"description" : "Just return OK (anything passed along will be used as a message)."
 		},
-		"check_warning" : { 
+		"check_warning" : {
 			"alias"		: "CheckWARNING",
 			"description" : "Just return WARNING (anything passed along will be used as a message)."
 		},
-		"check_critical" : { 
+		"check_critical" : {
 			"alias"		: "CheckCRITICAL",
 			"description" : "Just return CRITICAL (anything passed along will be used as a message)."
 		},
-		"check_version" : { 
+		"check_version" : {
 			"alias"		: "CheckVersion",
 			"description" : "Just return the NSClient++ version."
 		},
-		"check_negate" : { 
+		"check_negate" : {
 			"alias"		: "negate",
-			"description" : "Run a check and alter the return status codes according to arguments."
+			"description" : "Run a check and alter the return status codes according to arguments.",
+			"request"	: "true"
 		},
-		"render_perf" : { 
-			"description" : "Run a check and render the performance data as output message."
+		"render_perf" : {
+			"description" : "Run a check and render the performance data as output message.",
+			"request"	: "true"
 		},
-		"xform_perf" : { 
-			"description" : "Run a check and transform the performance data in various (currently one) way."
+		"xform_perf" : {
+			"description" : "Run a check and transform the performance data in various (currently one) way.",
+			"request"	: "true"
 		},
-		"check_timeout" : { 
+		"check_timeout" : {
 			"alias"		: "timeout",
-			"description" : "Run a check and timeout after a given amount of time if the check has not returned."
+			"description" : "Run a check and timeout after a given amount of time if the check has not returned.",
+			"request"	: "true"
 		},
-		"check_and_forward" : { 
-			"description" : "Run a check and forward the result as a passive check."
+		"check_and_forward" : {
+			"description" : "Run a check and forward the result as a passive check.",
+			"request"	: "true"
 		}
 	}
 }

@@ -39,6 +39,21 @@ echo - Signing client CSR with CA key...
 openssl x509 -req -in client.csr -CA ca.crt -CAkey ca.key -out client.crt -days 365 -set_serial 02 -extfile %OPENSSL_CONF% -extensions client_cert
 echo - Client certificate (client.crt) and key (client.key) created.
 
+echo -------------------------------------------
+echo Creating the Denied Client Certificate
+echo -------------------------------------------
+:: Second client cert signed by the same CA but with a different Subject
+:: CN. The DN-identity test uses these two to assert the permission
+:: policy gates by DN: the localhost cert is allowed, the denied-client
+:: cert is rejected by the policy even though the TLS handshake succeeds.
+echo - Generating denied client private key...
+openssl genpkey -algorithm RSA -out denied.key -pkeyopt rsa_keygen_bits:2048
+echo - Generating denied client Certificate Signing Request (CSR)...
+openssl req -new -key denied.key -out denied.csr -subj /CN=denied-client
+echo - Signing denied client CSR with CA key...
+openssl x509 -req -in denied.csr -CA ca.crt -CAkey ca.key -out denied.crt -days 365 -set_serial 03 -extfile %OPENSSL_CONF% -extensions client_cert
+echo - Denied client certificate (denied.crt) and key (denied.key) created.
+
 echo -----------------------------------------------------------
 echo All certificates and keys have been generated successfully.
 echo -----------------------------------------------------------
@@ -48,6 +63,19 @@ if not %errorlevel%==0 (
   echo ! Failed to build check_nrpe docker image, Error level was: %errorlevel%
   exit /b 1
 )
+
+
+echo -----------------------------------
+echo Resetting test-only state from any previous run
+echo -----------------------------------
+:: Previous runs of this script may have enabled the permission policy
+:: (via the CN-based test below) and set `client identity source = cn`.
+:: Both settings persist across `nscp nrpe install` invocations - the
+:: install command rewrites NRPE keys but does not clear permission
+:: state. Reset them here so the early test sections see a clean slate.
+:: Idempotent: both calls succeed whether or not the keys exist.
+nscp settings --path /settings/permissions --key enabled --set false
+nscp settings --path /settings/NRPE/server --key "client identity source" --set none
 
 
 echo -----------------------------------
@@ -225,6 +253,67 @@ if not %errorlevel%==0 (
   exit /b 1
 )
 
+timeout /t 3 /nobreak >nul
+
+echo ---------------------------------------------
+echo Running 2-way TLS CN-based permission test
+echo ---------------------------------------------
+:: Two client certs are signed by the same CA, so both pass the TLS
+:: handshake. The `client identity source = cn` knob stamps the
+:: certificate's Common Name as the permission system principal; the
+:: policy below allows only CN=localhost. The denied-client cert
+:: reaches the policy layer and is rejected with an UNKNOWN response
+:: carrying "Permission denied" - proving the CN flows from the TLS
+:: handshake through to the policy decision point.
+::
+:: CN-only (not full DN) because INI key syntax uses '=' as separator
+:: and would corrupt a `NRPEServer:CN=foo` policy key. See the comment
+:: on `client identity source` in the NRPEServer module for details.
+nscp nrpe install --allowed-hosts 127.0.0.1 --insecure=false --verify=peer-cert --certificate nrpe_test\server.crt --certificate-key nrpe_test\server.key --ca nrpe_test\ca.crt
+nscp settings --path /settings/NRPE/server --key "client identity source" --set cn
+nscp settings --path /settings/permissions --key enabled --set true
+nscp settings --path /settings/permissions --key "log denials" --set true
+nscp settings --path /settings/permissions --key "log allows" --set true
+:: Allow only the localhost-CN client. mock_exit is in the allow-list so
+:: the same cert can shut the test server down at the end. The downstream
+:: exec call mock_exit makes (core:simple_exec("CommandClient","exit",{}))
+:: is gated by the global /settings/permissions/allow exec switch, not by
+:: this rule table - per-command policies are query-only.
+nscp lua install
+nscp lua add --script mock
+start nscp test
+
+timeout /t 3 /nobreak >nul
+
+echo - Testing allowed client (CN=localhost) succeeds (check_nrpe)...
+docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 --ssl-version TLSv1.2+ --client-cert /test/client.crt --key-file /test/client.key -c mock_query > nrpe_test\out.txt 2>&1
+call :assert_ok "perm allow" "mock_query::" 0 %errorlevel%
+if errorlevel 1 exit /b 1
+
+echo - Testing denied client (CN=denied-client) is rejected by policy (check_nrpe)...
+::                                                  ^ CN value is `denied-client`, which is NOT in the policy.
+:: The denied client TLS-handshakes successfully (signed by same CA)
+:: but the policy denies the call. check_nrpe surfaces this as an
+:: UNKNOWN (exit 3) carrying the "Permission denied" message.
+docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 --ssl-version TLSv1.2+ --client-cert /test/denied.crt --key-file /test/denied.key -c mock_query > nrpe_test\out.txt 2>&1
+call :assert_denied "perm deny" "Permission denied" 3 %errorlevel%
+if errorlevel 1 exit /b 1
+
+echo - Shutting down server (using allowed client)...
+docker run --rm check_nrpe check_nrpe -H host.docker.internal -p 5666 -t5 --ssl-version TLSv1.2+ --client-cert /test/client.crt --key-file /test/client.key -c mock_exit
+if not %errorlevel%==0 (
+  echo ! Failed to exit via NRPE, Error level was: %errorlevel%
+  exit /b 1
+)
+
+:: Clean up the policy state we just installed so re-running this script
+:: (or running it before some other NRPE test that doesn't expect a
+:: permission policy) starts from a clean slate. Mirrors the reset at
+:: the top of the file. Belt-and-suspenders: the top-of-file reset also
+:: catches this if the test bailed out before reaching this point.
+nscp settings --path /settings/permissions --key enabled --set false
+nscp settings --path /settings/NRPE/server --key "client identity source" --set none
+
 echo --------------------------------
 echo All tests completed successfully
 echo --------------------------------
@@ -245,6 +334,34 @@ exit /b 0
 ::   if errorlevel 1 exit /b 1
 :: ---------------------------------------------------------------------------
 :assert_ok
+if not "%~4"=="%~3" (
+  echo ! [%~1] expected exit code %~3 got %~4
+  echo --- captured output ---
+  type nrpe_test\out.txt
+  echo --- end output ---
+  exit /b 1
+)
+findstr /c:"%~2" nrpe_test\out.txt >nul
+if errorlevel 1 (
+  echo ! [%~1] output did not contain "%~2"
+  echo --- captured output ---
+  type nrpe_test\out.txt
+  echo --- end output ---
+  exit /b 1
+)
+exit /b 0
+
+
+:: ---------------------------------------------------------------------------
+:: assert_denied LABEL EXPECTED_SUBSTRING EXPECTED_EXIT ACTUAL_EXIT
+::
+:: Same shape as assert_ok but used when the call is expected to be rejected
+:: by the core permission system: the substring is the rejection text in the
+:: response body (e.g. "Permission denied") and the exit code is the NAGIOS
+:: status check_nrpe surfaces (UNKNOWN = 3, since set_response_bad maps
+:: denials to UNKNOWN).
+:: ---------------------------------------------------------------------------
+:assert_denied
 if not "%~4"=="%~3" (
   echo ! [%~1] expected exit code %~3 got %~4
   echo --- captured output ---

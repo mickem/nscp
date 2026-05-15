@@ -206,60 +206,40 @@ See [Quick Start](../quick-start.md) for step-by-step protocol setup.
 
 ## Configuration
 
-NSClient++ is configured via an INI-format file (`nsclient.ini`) located in the installation directory.
+NSClient++ is configured via a hierarchical key/value store, typically an INI file (`nsclient.ini`) in the
+installation directory but optionally the Windows registry or a remote HTTP source. Sections are paths
+(`[/modules]`, `[/settings/NRPE/server]`, …) and each module documents its own keys.
 
-The configuration has a hierarchical structure:
+See [Settings](settings.md) for the full reference: settings stores (INI, registry, HTTP), the `[/includes]`
+mechanism for splitting configuration across files, path variables, and `nscp settings` commands for migrating
+between stores.
 
-```ini
-[/modules]
-CheckSystem = enabled     ; load the CheckSystem module
+---
 
-[/settings/NRPE/server]
-allowed hosts = 10.0.0.1  ; which hosts can connect
-port = 5666               ; which port to listen on
+## Permissions
 
-[/settings/default]
-password = secret         ; web UI / check_nt password
-```
+By default any caller that can reach a transport (NRPE, WEB, NSCA, the scheduler, …) can invoke any command the
+loaded modules expose. NSClient++ has an optional core-level **permission policy** that turns this into a strict
+allow-list: rules name a subject (the calling module, optionally with a principal such as the authenticated web user)
+and the `module.command` patterns that subject may invoke. The policy is disabled by default for backwards
+compatibility.
 
-To see all available settings for your current configuration:
-
-```
-nscp settings --generate --add-defaults
-```
-
-To remove all default values (shorter file):
-
-```
-nscp settings --generate --remove-defaults
-```
-
-To re-write the configuration file with sections (and keys within each
-section) sorted alphabetically:
-
-```
-nscp settings --sort
-```
-
-`[/modules]` is kept as the first section. Sorting is opt-in — the
-regular `--generate`/`--update` commands preserve the existing order.
-
-!!! tip
-Use the [Web UI](../setup/web-interface.md) to explore and change settings interactively — it shows descriptions for
-every option.
+See [Permissions](permissions.md) for the identity model, how `CheckHelpers` forwards the original caller through
+proxy chains, and a step-by-step guide for enabling the policy safely.
 
 ---
 
 ## Summary
 
-| Concept   | What it means                                                             |
-|-----------|---------------------------------------------------------------------------|
-| Module    | A plugin that must be loaded to enable its commands                       |
-| Command   | A check that returns status + message + performance data                  |
-| Alias     | A saved invocation of a command under a new name, with arguments baked in |
-| Filter    | An expression that selects which items to check                           |
-| Threshold | A `warn=` or `crit=` expression that triggers an alert                    |
-| Protocol  | How NSClient++ talks to your monitoring server                            |
+| Concept    | What it means                                                                  |
+|------------|--------------------------------------------------------------------------------|
+| Module     | A plugin that must be loaded to enable its commands                            |
+| Command    | A check that returns status + message + performance data                       |
+| Alias      | A saved invocation of a command under a new name, with arguments baked in      |
+| Filter     | An expression that selects which items to check                                |
+| Threshold  | A `warn=` or `crit=` expression that triggers an alert                         |
+| Protocol   | How NSClient++ talks to your monitoring server                                 |
+| Permission | An optional allow-list controlling which callers may invoke which commands     |
 
 **Next steps:**
 

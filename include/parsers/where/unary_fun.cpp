@@ -33,7 +33,7 @@ std::string unary_fun::to_string(const evaluation_context context) const {
 value_container unary_fun::get_value(const evaluation_context context, value_type new_type) const { return evaluate(context)->get_value(context, new_type); }
 std::list<node_type> unary_fun::get_list_value(const evaluation_context context) const {
   std::list<node_type> ret;
-  for (const node_type n : subject->get_list_value(context)) {
+  for (const node_type& n : subject->get_list_value(context)) {
     if (function)
       ret.push_back(function->evaluate(get_type(), context, n));
     else

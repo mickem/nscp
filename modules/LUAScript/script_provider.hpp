@@ -7,8 +7,8 @@
 
 struct script_provider {
  private:
-  int id_;
   nscapi::core_wrapper *core_;
+  int id_;
   boost::filesystem::path root_;
 
  public:

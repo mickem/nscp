@@ -35,7 +35,7 @@ class path_manager {
 
   // Merge additional overrides on top of whatever set_overrides previously
   // installed. Same-key entries overwrite, missing keys are preserved. Used
-  // for layering: boot.ini calls set_overrides, then CLI --path arguments
+  // for layering: boot.ini calls set_overrides, then CLI --path-override arguments
   // call add_overrides so they win without nuking the boot.ini set.
   void add_overrides(paths_type overrides);
 

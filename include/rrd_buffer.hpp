@@ -62,7 +62,7 @@ struct rrd_buffer {
   value_type get_average(long time) const {
     value_type ret;
     if (time < 0) return ret;
-    if (time <= seconds.size()) {
+    if (static_cast<size_t>(time) <= seconds.size()) {
       for (typename list_type::const_iterator cit = seconds.end() - time; cit != seconds.end(); ++cit) {
         ret.add(*cit);
       }
@@ -70,7 +70,7 @@ struct rrd_buffer {
       return ret;
     }
     time /= 60;
-    if (time <= minutes.size()) {
+    if (static_cast<size_t>(time) <= minutes.size()) {
       for (typename list_type::const_iterator cit = minutes.end() - time; cit != minutes.end(); ++cit) {
         ret.add(*cit);
       }
@@ -78,7 +78,7 @@ struct rrd_buffer {
       return ret;
     }
     time /= 60;
-    if (time >= hours.size()) throw nsclient::nsclient_exception("Size larger than buffer");
+    if (static_cast<size_t>(time) >= hours.size()) throw nsclient::nsclient_exception("Size larger than buffer");
     for (typename list_type::const_iterator cit = hours.end() - time; cit != hours.end(); ++cit) {
       ret.add(*cit);
     }

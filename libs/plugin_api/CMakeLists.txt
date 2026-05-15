@@ -80,6 +80,7 @@ NSCP_CREATE_TEST(
         nscapi_helper_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_helper_test.cpp
     LIBRARIES
         GTest::gtest
         GTest::gtest_main

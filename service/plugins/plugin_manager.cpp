@@ -252,6 +252,63 @@ nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_ma
   return ret;
 }
 
+// Read /settings/permissions{,/policies} into permissions_. Idempotent:
+// safe to call from both the boot path and from do_reload("settings"). On
+// reload we clear the rule table first so deleted rules disappear, then
+// re-register each policies key. The four global switches use
+// register_key + get_string so the settings UI / docs see the keys even
+// when the operator hasn't customised them. See
+// docs/design/core-permissions.md for the wire format.
+void nsclient::core::plugin_manager::load_permissions() {
+  const auto core = settings_manager::get_core();
+  const auto settings = settings_manager::get_settings();
+  if (!core || !settings) {
+    LOG_ERROR_CORE("permissions: settings not available, skipping load");
+    return;
+  }
+  try {
+    const std::string section = "/settings/permissions";
+    const std::string policies_section = section + "/policies";
+    core->register_path(0xffff, section, "Core permissions",
+                        "Optional policy layer that gates which commands a calling module / user may execute. "
+                        "Disabled by default - see docs/reference/core-permissions.md.",
+                        true, false);
+    core->register_key(0xffff, section, "enabled", "bool", "Enabled",
+                       "Master switch. When false (default), all calls are allowed. When true, rules in /settings/permissions/policies form a "
+                       "strict allow-list - calls that don't match any rule are denied.",
+                       "false", true, false);
+    core->register_key(0xffff, section, "log denials", "bool", "Log denials", "Log every denial at warning level.", "true", true, false);
+    core->register_key(0xffff, section, "log allows", "bool", "Log allows", "Log every allowed call at trace level (noisy).", "false", true, false);
+    core->register_key(0xffff, section, "allow exec", "bool", "Allow exec",
+                       "Global toggle for the exec command surface (WEB scripts UI, lua/python core:simple_exec, internal CLI exec). "
+                       "Per-command rules in /settings/permissions/policies apply to QUERIES ONLY; exec is gated by this single "
+                       "switch. Default true: enabling the policy system does not break existing exec callers. Set to false for a "
+                       "hard exec lockdown.",
+                       "true", true, false);
+    core->register_path(0xffff, policies_section, "Permission policies",
+                        "Rule table. Each key is a subject pattern (module[:principal]); the value is a comma-separated list of "
+                        "object patterns (module.command). Rules merge additively.",
+                        true, false);
+
+    permissions_.clear_rules();
+    const std::string enabled = settings->get_string(section, "enabled", "false");
+    permissions_.set_enabled(enabled == "true" || enabled == "1");
+    permissions_.set_log_denials(settings->get_string(section, "log denials", "true") != "false");
+    permissions_.set_log_allows(settings->get_string(section, "log allows", "false") == "true");
+    permissions_.set_allow_exec(settings->get_string(section, "allow exec", "true") != "false");
+
+    for (const std::string &subject : settings->get_keys(policies_section)) {
+      const std::string objects = settings->get_string(policies_section, subject, "");
+      permissions_.add_rule(subject, objects);
+    }
+    LOG_DEBUG_CORE_STD("permissions: loaded " + str::xtos(permissions_.rule_count()) + " rule(s), enabled=" + (permissions_.is_enabled() ? "true" : "false"));
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("permissions: failed to load: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR_CORE("permissions: failed to load (unknown error)");
+  }
+}
+
 // Load all configured (nsclient.ini) plugins.
 void nsclient::core::plugin_manager::load_active_plugins() {
   if (plugin_path_.empty()) {
@@ -585,6 +642,59 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::find
  * @param returnPerfBufferLen Length of returnPerfBuffer
  * @return The command status
  */
+// Resolve the calling module + principal from the request header.
+// core_helper::simple_query_as stamps two metadata keys (see
+// create_simple_query_request_as in include/nscapi/nscapi_core_helper.cpp):
+//
+//   nscp.caller_plugin_id  - numeric plugin id of the caller. Set
+//                            unconditionally by core_helper, so the
+//                            calling DLL cannot fake it without
+//                            rewriting core_helper. Resolved here to a
+//                            module name via the trusted plugin_cache.
+//   nscp.principal         - sub-identity (web user, NRPE client tag,
+//                            CLI OS user, ...). Optional; empty when
+//                            unset.
+//
+// Both keys are best-effort: legacy simple_query (no _as) sends neither,
+// and direct NSAPIInject invocations may send neither either. An
+// unresolved caller becomes "*" so a default-deny configuration
+// explicitly catches that case rather than silently allowing it under a
+// bare-module pattern.
+std::string nsclient::core::plugin_manager::extract_subject_from_header(const PB::Common::Header &header, nsclient::core::plugin_cache *cache) {
+  std::string plugin_id_str;
+  std::string principal;
+  for (const auto &kv : header.metadata()) {
+    if (kv.key() == "nscp.caller_plugin_id")
+      plugin_id_str = kv.value();
+    else if (kv.key() == "nscp.principal")
+      principal = kv.value();
+  }
+  std::string module;
+  if (!plugin_id_str.empty() && cache) {
+    try {
+      const unsigned int id = static_cast<unsigned int>(str::stox<long>(plugin_id_str));
+      module = cache->find_plugin_alias(id);
+      // find_plugin_alias returns "Failed to find plugin ..." for
+      // unknown ids; treat that as "caller unknown" rather than literal
+      // text and let the default-deny path catch it.
+      if (module.substr(0, 21) == "Failed to find plugin") module.clear();
+    } catch (...) {
+      module.clear();
+    }
+  }
+  if (module.empty()) module = "*";
+  return nsclient::core::permissions::make_subject(module, principal);
+}
+
+// Per-payload denial. Builds a "permission denied" response payload that
+// mirrors the existing "Unknown command" shape (set_response_bad). Used
+// by execute_query (per-command).
+static void emit_denied_payload(PB::Commands::QueryResponseMessage *response_message, const std::string &command, const std::string &subject) {
+  PB::Commands::QueryResponseMessage::Response *payload = response_message->add_payload();
+  payload->set_command(command);
+  nscapi::protobuf::functions::set_response_bad(*payload, "Permission denied: " + subject + " is not allowed to run " + command);
+}
+
 NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::string &request, std::string &response) {
   try {
     PB::Commands::QueryRequestMessage request_message;
@@ -596,10 +706,26 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
 
     std::string missing_commands;
 
+    // Compute the subject once per request. The header is the same for
+    // every payload, so we don't pay re-extraction cost per command.
+    const std::string subject = plugin_manager::extract_subject_from_header(request_message.header(), &plugin_cache_);
+
     if (!request_message.header().command().empty()) {
       const std::string command = request_message.header().command();
       commands::plugin_type plugin = commands_.get(command);
       if (plugin) {
+        const std::string target_module = plugin->getName();
+        const std::string object = permissions::make_object(target_module, command);
+        if (!permissions_.is_allowed(subject, object)) {
+          if (permissions_.should_log_denials()) LOG_ERROR_CORE_STD("permissions: denied " + subject + " -> " + object);
+          emit_denied_payload(&response_message, command, subject);
+          response = response_message.SerializeAsString();
+          return NSCAPI::cmd_return_codes::isSuccess;
+        }
+        // Log allows at INFO so `log allows = true` is actually visible
+        // without operators also having to enable global trace logging.
+        // The toggle is off by default precisely because this is noisy.
+        if (permissions_.should_log_allows()) LOG_INFO_CORE_STD("permissions: allowed " + subject + " -> " + object);
         const unsigned int id = plugin->get_id();
         command_chunks[id].plugin = plugin;
         command_chunks[id].request.CopyFrom(request_message);
@@ -612,6 +738,18 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
         payload->set_command(commands_.make_key(payload->command()));
         commands::plugin_type plugin = commands_.get(payload->command());
         if (plugin) {
+          const std::string target_module = plugin->getName();
+          const std::string object = permissions::make_object(target_module, payload->command());
+          if (!permissions_.is_allowed(subject, object)) {
+            if (permissions_.should_log_denials()) LOG_ERROR_CORE_STD("permissions: denied " + subject + " -> " + object);
+            // Per-command denial: this payload does NOT get added to a
+            // chunk for plugin dispatch, but we still emit a response
+            // payload so the caller sees a structured error for this
+            // command (and the other commands in the batch run normally).
+            emit_denied_payload(&response_message, payload->command(), subject);
+            continue;
+          }
+          if (permissions_.should_log_allows()) LOG_INFO_CORE_STD("permissions: allowed " + subject + " -> " + object);
           const unsigned int id = plugin->get_id();
           if (command_chunks.find(id) == command_chunks.end()) {
             command_chunks[id].plugin = plugin;
@@ -625,10 +763,26 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
     }
 
     if (command_chunks.size() == 0) {
-      LOG_ERROR_CORE("Unknown command(s): " + missing_commands + " available commands: " + commands_.to_string());
-      PB::Commands::QueryResponseMessage::Response *payload = response_message.add_payload();
-      payload->set_command(missing_commands);
-      nscapi::protobuf::functions::set_response_bad(*payload, "Unknown command(s): " + missing_commands);
+      // Three reasons we got here with no chunks to dispatch:
+      //   1. Some commands were unknown (missing_commands non-empty).
+      //      Original behaviour: log + add an "Unknown command(s)"
+      //      payload to the response.
+      //   2. Every command was policy-denied. response_message already
+      //      has structured denial payloads from emit_denied_payload;
+      //      we just need to ship them as-is - logging
+      //      "Unknown command(s):" with an empty list here would be
+      //      noisy and misleading.
+      //   3. Empty request (no header command, no payloads). Log it
+      //      once as a warning and return; the caller gets an empty
+      //      response_message, which is what they implicitly asked for.
+      if (!missing_commands.empty()) {
+        LOG_ERROR_CORE("Unknown command(s): " + missing_commands + " available commands: " + commands_.to_string());
+        PB::Commands::QueryResponseMessage::Response *payload = response_message.add_payload();
+        payload->set_command(missing_commands);
+        nscapi::protobuf::functions::set_response_bad(*payload, "Unknown command(s): " + missing_commands);
+      } else if (response_message.payload_size() == 0) {
+        LOG_DEBUG_CORE("Empty query request (no header command and no payloads); returning empty response");
+      }
       response = response_message.SerializeAsString();
       return NSCAPI::cmd_return_codes::isSuccess;
     }
@@ -788,6 +942,39 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::exec_command(const char *ra
     match_any = true;
   else if (target == "all" || target == "*")
     match_all = true;
+
+  // Exec is gated by a single global toggle (/settings/permissions/allow exec),
+  // not by the per-command rule table. Rationale: the internal exec chain
+  // (lua/python -> core_helper::exec_simple_command, see nscapi_core_helper.cpp)
+  // does not propagate caller identity, so a per-command policy decision on
+  // exec degenerates to subject "*" and is unreliable. Per-command policy is
+  // therefore queries-only; exec gets a coarse on/off switch. The default is
+  // "on" so enabling the policy system does not silently break exec callers.
+  if (!permissions_.is_exec_allowed()) {
+    if (permissions_.should_log_denials()) {
+      std::string subject = "*";
+      std::string command = "(unknown)";
+      try {
+        PB::Commands::ExecuteRequestMessage exec_request;
+        if (exec_request.ParseFromString(request)) {
+          subject = plugin_manager::extract_subject_from_header(exec_request.header(), &plugin_cache_);
+          if (exec_request.payload_size() > 0) command = exec_request.payload(0).command();
+        }
+      } catch (...) {
+        // Best-effort logging - parse failure just means we log a less
+        // informative line, never a reason to drop the denial itself.
+      }
+      LOG_ERROR_CORE_STD("permissions: denied (allow exec=false) " + subject + " -> exec " + target + "." + command);
+    }
+    PB::Commands::ExecuteResponseMessage denied_response;
+    PB::Commands::ExecuteResponseMessage::Response *r = denied_response.add_payload();
+    r->set_command("");
+    r->set_result(PB::Common::ResultCode::CRITICAL);
+    r->set_message("Permission denied: exec is globally disabled (/settings/permissions/allow exec = false)");
+    denied_response.SerializeToString(&response);
+    return NSCAPI::cmd_return_codes::isSuccess;
+  }
+
   std::list<std::string> responses;
   bool found = false;
   for (plugin_type p : plugin_list_.get_plugins()) {

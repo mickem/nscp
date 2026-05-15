@@ -60,6 +60,10 @@ struct read_protocol : boost::noncopyable {
   outbound_buffer_type data_;
   std::list<packet> responses_;
   int version_;
+  // Set by the SSL connection layer once the handshake completes and a
+  // peer cert is present. Empty for plain TCP connections, for SSL
+  // connections without a client cert, or when DN extraction is disabled.
+  std::string peer_identity_;
 
   static std::shared_ptr<read_protocol> create(socket_helpers::connection_info info, handler_type handler) {
     return std::make_shared<read_protocol>(info, handler);
@@ -69,6 +73,11 @@ struct read_protocol : boost::noncopyable {
       : info_(info), handler_(handler), parser_(handler->get_payload_length()), current_state_(none), version_(data::version2) {}
 
   void set_state(const state new_state) { current_state_ = new_state; }
+
+  // Called by ssl_connection after a successful handshake to record the
+  // verified peer Subject DN (or empty for "no identity").
+  void set_peer_identity(const std::string &identity) { peer_identity_ = identity; }
+  const std::string &get_peer_identity() const { return peer_identity_; }
 
   bool on_accept(const tcp::socket &socket, const int count) {
     std::list<std::string> errors;
@@ -102,7 +111,7 @@ struct read_protocol : boost::noncopyable {
         try {
           const packet request = parser_.parse();
           version_ = request.getVersion();
-          responses_ = handler_->handle(request);
+          responses_ = handler_->handle(request, peer_identity_);
         } catch (const std::exception &e) {
           responses_.push_back(handler_->create_error("Exception processing request: " + utf8::utf8_from_native(e.what())));
         } catch (...) {

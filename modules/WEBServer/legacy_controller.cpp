@@ -69,6 +69,15 @@ void legacy_controller::settings_query_pb(Mongoose::Request &request, Mongoose::
 }
 void legacy_controller::run_query_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_logged_in("legacy", request, response)) return;
+  // Raw-protobuf passthrough: forwarded verbatim. The newer
+  // query_controller (v2 `/api/vX/queries/...`) is the supported way to
+  // invoke checks from HTTP - it stamps identity metadata so the core
+  // permission layer can attribute calls. This legacy endpoint is
+  // deliberately left unstamped: callers using it should be migrated to
+  // the v2 controller, and a strict default-deny policy will block this
+  // path because the subject resolves to "*" (no caller module known)
+  // rather than to WEBServer. That's the intended behaviour for a
+  // deprecated endpoint.
   std::string response_pb;
   if (!core->query(request.getData(), response_pb)) {
     response.setCodeServerError("500 Query failed");

@@ -22,6 +22,7 @@
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
 #include <memory>
+#include <net/socket/socket_helpers.hpp>  // for socket_helpers::extract_peer_subject_cn used in ssl_connection
 #ifdef USE_SSL
 #include <boost/asio/ssl/context.hpp>
 #endif
@@ -34,6 +35,20 @@
 namespace socket_helpers {
 namespace server {
 using boost::asio::ip::tcp;
+
+// SFINAE shim: call protocol.set_peer_identity(dn) when the protocol
+// type defines it, otherwise do nothing. Lets ssl_connection forward
+// the verified peer DN to any protocol that cares (today: NRPE's
+// read_protocol) without forcing every protocol implementation to
+// declare the method. The `int`/`long` overload trick disambiguates
+// at compile time: the `int` version is preferred when valid, the
+// `long` fallback is selected when set_peer_identity is missing.
+template <typename Protocol>
+auto maybe_set_peer_identity(Protocol& proto, const std::string& dn, int) -> decltype(proto.set_peer_identity(dn), void()) {
+  proto.set_peer_identity(dn);
+}
+template <typename Protocol>
+void maybe_set_peer_identity(Protocol&, const std::string&, long) {}
 
 //
 // The socket statemachine:
@@ -264,10 +279,37 @@ class ssl_connection : public connection<protocol_type, N> {
   }
 
   virtual void handle_handshake(const boost::system::error_code& e) {
-    if (!e)
+    if (!e) {
+      // Extract the verified peer Subject CN before continuing. The boost
+      // SSL stream's native_handle() returns the SSL* whose handshake
+      // completed under the configured verify_mode - if the server
+      // requires `peer,fail-if-no-peer-cert`, the handshake would not be
+      // here unless the cert was both presented and chain-validated. If
+      // verify_mode is `none`, the CN we extract is attacker-supplied;
+      // callers (NRPEServer) must enforce the verify_mode requirement
+      // separately before treating the CN as identity.
+      //
+      // CN-only (not full RFC 2253 DN) because the principal ends up as
+      // part of an INI policy key like `NRPEServer:icinga-master`, and
+      // INI key syntax uses `=` as the key/value separator - a DN like
+      // `CN=icinga-master,O=Acme` would be split mid-key by simpleini.
+      // If an identity-map indirection lands later, the connection layer
+      // can stamp the full DN and the map can resolve it to a handle.
+      try {
+        const std::string cn = socket_helpers::extract_peer_subject_cn(ssl_socket_.native_handle());
+        if (!cn.empty()) {
+          parent_type::protocol_->log_debug(__FILE__, __LINE__, "TLS peer Subject CN: " + cn);
+        }
+        maybe_set_peer_identity(*parent_type::protocol_, cn, 0);
+      } catch (...) {
+        // Extraction failure must not break the connection - the
+        // handshake itself succeeded, so we still want to serve the
+        // request. The protocol just won't see an identity.
+        parent_type::protocol_->log_error(__FILE__, __LINE__, "Failed to extract peer Subject CN after TLS handshake");
+      }
       parent_type::start();
-    else {
-      int reason = ERR_GET_REASON(e.value());
+    } else {
+      const int reason = ERR_GET_REASON(e.value());
       if (reason == SSL_R_NO_SHARED_CIPHER) {
         parent_type::protocol_->log_error(__FILE__, __LINE__, "Seems we cant agree on SSL: " + utf8::utf8_from_native(e.message()));
         parent_type::protocol_->log_error(__FILE__, __LINE__, "Please review the insecure options as well as ssl options in settings.");

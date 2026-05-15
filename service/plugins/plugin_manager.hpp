@@ -30,6 +30,7 @@
 #include "../channels.hpp"
 #include "../commands.hpp"
 #include "../path_manager.hpp"
+#include "../permissions.hpp"
 #include "../routers.hpp"
 #include "master_plugin_list.hpp"
 #include "plugin_cache.hpp"
@@ -89,6 +90,7 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   simple_plugins_list metrics_submitters_;
   plugin_cache plugin_cache_;
   event_subscribers event_subscribers_;
+  permissions permissions_;
 
  public:
   plugin_manager(path_instance path_, logging::logger_instance log_instance);
@@ -98,6 +100,14 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   commands *get_commands() { return &commands_; }
   channels *get_channels() { return &channels_; }
   event_subscribers *get_event_subscribers() { return &event_subscribers_; }
+  permissions *get_permissions() { return &permissions_; }
+
+  // Read /settings/permissions{,/policies} into the in-memory policy
+  // table. Called once at boot (from NSClient++.cpp after settings come
+  // up) and again from do_reload("settings") so operators can update
+  // policies without restarting the service. See
+  // docs/design/core-permissions.md for the wire format.
+  void load_permissions();
 
   void set_path(boost::filesystem::path path);
 
@@ -172,6 +182,18 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   }
 
  public:
+  // Resolve the caller subject (`module[:principal]`) from a request
+  // header's metadata. Exposed as a public static so the policy decision
+  // point in execute_query / exec_command can call it, and so unit tests
+  // can exercise it without spinning up a full plugin_manager.
+  //
+  // Reads `nscp.caller_plugin_id` (stamped by nscapi::core_helper) and
+  // resolves it to a module name via the trusted plugin_cache. Reads
+  // `nscp.principal` verbatim. Returns "*" for the module when the
+  // plugin id is missing or unresolved, so a strict allow-list catches
+  // the unknown-caller case explicitly.
+  static std::string extract_subject_from_header(const PB::Common::Header &header, plugin_cache *cache);
+
   static bool is_module(const boost::filesystem::path &file) {
 #ifdef WIN32
     return boost::ends_with(file.string(), ".dll");

@@ -90,6 +90,8 @@ class unix_service : public TBase {
     }
     shutdown_condition_.notify_one();
   }
-  static void handle_error(unsigned int line, const char *file, std::string message) { TBase::get_global_instance()->handle_error(line, file, message); }
+  static void handle_error(unsigned int line, const char *file, std::string message) {
+    std::cerr << file << ":" << line << ": " << message << std::endl;
+  }
 };
 }  // namespace service_helper_impl
