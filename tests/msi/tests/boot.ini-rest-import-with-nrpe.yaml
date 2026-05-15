@@ -34,6 +34,10 @@ nsclient.ini: |
   full = *
   client = public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
   
+  [/settings/check helpers/alias]
+  mock_alias = mock_query
+  echo_alias = check_warning message=hello
+  
   [/settings/WEB/server/users/client]
   role = client
   password = $$PASSWORD$$
