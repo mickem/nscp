@@ -32,7 +32,7 @@ nsclient.ini: |
   view = *
   legacy = legacy,login.get
   full = *
-  client = public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list
+  client = public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
   
   [/settings/WEB/server/users/client]
   role = client
