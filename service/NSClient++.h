@@ -69,7 +69,7 @@ class NSClientT : public nsclient::core::core_interface {
   nsclient::core::path_instance path_;
   nsclient::core::plugin_mgr_instance plugins_;
   nsclient::core::storage_manager_instance storage_manager_;
-  // Path overrides supplied via --path on the command line. Applied to
+  // Path overrides supplied via --path-override on the command line. Applied to
   // path_ inside load_configuration_1, after init_settings has loaded
   // boot.ini's [paths] section, so CLI wins over boot.ini.
   std::map<std::string, std::string> cli_path_overrides_;

@@ -2,7 +2,8 @@ cmake_minimum_required(VERSION 3.10)
 
 if(MKDOCS_FOUND)
     project(generate_docs)
-    # --path key=value redirects a path-resolver token directly at the path_manager.
+    # --path-override key=value redirects a path-resolver token directly at the path_manager.
+    # (Renamed from --path; the old name collided with `settings --path`.)
     if(WIN32)
         set(MODULE_ARG "module-path=\${base-path}/modules")
         set(COMMAND_LINE
@@ -17,7 +18,7 @@ if(MKDOCS_FOUND)
             info
             --log
             oneline
-            --path
+            --path-override
             "${MODULE_ARG}"
             --
             execute
@@ -44,11 +45,11 @@ if(MKDOCS_FOUND)
             info
             --log
             oneline
-            --path
+            --path-override
             "\"${MODULE_ARG}\""
-            --path
+            --path-override
             "\"${LOG_ARG}\""
-            --path
+            --path-override
             "\"${DATA_ARGS}\""
             --
             execute

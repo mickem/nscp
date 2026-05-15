@@ -84,7 +84,7 @@ std::string nsclient::core::path_manager::get_path_for_key(const std::string &ke
   // Note on ca-path: on Windows the service exports the system ROOT store to
   // this file at boot (see windows_ca_store); on Linux this is the de-facto
   // Debian/Ubuntu location, overridable via boot.ini's [paths] section
-  // (or the --path CLI flag) for other distros.
+  // (or the --path-override CLI flag) for other distros.
   static const std::map<std::string, std::string> defaults = {
       {"certificate-path", CERT_FOLDER},
       {"module-path", MODULE_FOLDER},
@@ -131,8 +131,8 @@ std::string nsclient::core::path_manager::expand_path_impl(std::string file, con
   // on POSIX. Bail at a fixed depth and log loudly so an operator can
   // identify the cycle from the surfaced error message.
   if (depth > kMaxExpandDepth) {
-    LOG_ERROR_CORE("Refusing to expand path beyond " + std::to_string(kMaxExpandDepth) + " levels (cycle in boot.ini [paths]?): " +
-                   utf8::cvt<std::string>(file));
+    LOG_ERROR_CORE("Refusing to expand path beyond " + std::to_string(kMaxExpandDepth) +
+                   " levels (cycle in boot.ini [paths]?): " + utf8::cvt<std::string>(file));
     return "";
   }
   try {

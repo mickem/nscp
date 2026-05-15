@@ -267,7 +267,7 @@ Path overrides can also be supplied per-invocation on the command line, which
 takes precedence over anything in `boot.ini` for the keys it specifies:
 
 ```
-nscp client --path module-path=/build/modules --path log-path=. ...
+nscp client --path-override module-path=/build/modules --path-override log-path=. ...
 ```
 
 !!! note "Moved in 0.12.5"
