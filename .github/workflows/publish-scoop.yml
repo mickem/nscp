@@ -57,10 +57,15 @@ jobs:
             tag='${{ github.event.release.tag_name }}'
             version="$tag"
             dry_run='false'
+            # published_at is ISO-8601 like 2026-05-15T14:30:00Z; the
+            # manifest wants YYYY-MM-DD.
+            published_at='${{ github.event.release.published_at }}'
+            release_date="${published_at:0:10}"
           else
             tag='${{ inputs.version }}'
             version='${{ inputs.version }}'
             dry_run='${{ inputs.dry_run }}'
+            release_date=''
           fi
           if [ -z "$tag" ]; then
             echo 'No release tag/version available.' >&2
@@ -70,6 +75,7 @@ jobs:
             echo "tag=$tag"
             echo "version=$version"
             echo "dry_run=$dry_run"
+            echo "release_date=$release_date"
           } >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-python@v6
@@ -78,14 +84,19 @@ jobs:
 
       - name: Render Scoop manifest
         run: |
-          python packaging/scripts/render_templates.py \
-            --version "${{ steps.ctx.outputs.version }}" \
-            --release-tag "${{ steps.ctx.outputs.tag }}" \
-            --templates packaging/scoop \
-            --output dist/scoop \
-            --download-dir dist/_assets \
-            --asset ZIP_X64=NSCP-${{ steps.ctx.outputs.version }}-x64.zip \
-            --asset ZIP_X86=NSCP-${{ steps.ctx.outputs.version }}-Win32.zip
+          render_args=(
+            --version "${{ steps.ctx.outputs.version }}"
+            --release-tag "${{ steps.ctx.outputs.tag }}"
+            --templates packaging/scoop
+            --output dist/scoop
+            --download-dir dist/_assets
+            --asset "ZIP_X64=NSCP-${{ steps.ctx.outputs.version }}-x64.zip"
+            --asset "ZIP_X86=NSCP-${{ steps.ctx.outputs.version }}-Win32.zip"
+          )
+          if [ -n "${{ steps.ctx.outputs.release_date }}" ]; then
+            render_args+=(--release-date "${{ steps.ctx.outputs.release_date }}")
+          fi
+          python packaging/scripts/render_templates.py "${render_args[@]}"
 
       - name: Validate manifest is parseable JSON
         run: python -m json.tool dist/scoop/nscp.json > /dev/null

@@ -17,6 +17,9 @@ foreach ($key in $keys) {
   $silentArgs    = "$($key.PSChildName) /qn /norestart"
   $validExitCodes = @(0, 3010, 1605, 1614, 1641)
 
+  # -File is required by Uninstall-ChocolateyPackage but is intentionally
+  # empty here: we uninstall by product code (passed in $silentArgs), not by
+  # path to a downloaded MSI. Do not "tidy up" by removing this argument.
   Uninstall-ChocolateyPackage -PackageName $packageName `
     -FileType 'msi' `
     -SilentArgs $silentArgs `

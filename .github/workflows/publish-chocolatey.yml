@@ -53,18 +53,22 @@ jobs:
               $tag     = '${{ github.event.release.tag_name }}'
               $version = $tag
               $dryRun  = 'false'
+              $publishedAt = '${{ github.event.release.published_at }}'
+              $releaseDate = if ($publishedAt) { $publishedAt.Substring(0, 10) } else { '' }
           } else {
               $tag     = '${{ inputs.version }}'
               $version = '${{ inputs.version }}'
               $dryRun  = '${{ inputs.dry_run }}'
+              $releaseDate = ''
           }
           if ([string]::IsNullOrWhiteSpace($tag)) {
               Write-Error 'No release tag/version available.'
               exit 1
           }
-          "tag=$tag"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "dry_run=$dryRun"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "tag=$tag"                 | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "version=$version"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "dry_run=$dryRun"          | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "release_date=$releaseDate" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - uses: actions/setup-python@v6
         with:
@@ -73,14 +77,20 @@ jobs:
       - name: Render Chocolatey package
         shell: pwsh
         run: |
-          python packaging/scripts/render_templates.py `
-            --version "${{ steps.ctx.outputs.version }}" `
-            --release-tag "${{ steps.ctx.outputs.tag }}" `
-            --templates packaging/chocolatey `
-            --output dist/chocolatey `
-            --download-dir dist/_assets `
-            --asset MSI_X64=NSCP-${{ steps.ctx.outputs.version }}-x64.msi `
-            --asset MSI_X86=NSCP-${{ steps.ctx.outputs.version }}-Win32.msi
+          $renderArgs = @(
+              '--version',      '${{ steps.ctx.outputs.version }}',
+              '--release-tag',  '${{ steps.ctx.outputs.tag }}',
+              '--templates',    'packaging/chocolatey',
+              '--output',       'dist/chocolatey',
+              '--download-dir', 'dist/_assets',
+              '--asset',        'MSI_X64=NSCP-${{ steps.ctx.outputs.version }}-x64.msi',
+              '--asset',        'MSI_X86=NSCP-${{ steps.ctx.outputs.version }}-Win32.msi'
+          )
+          if ('${{ steps.ctx.outputs.release_date }}') {
+              $renderArgs += '--release-date'
+              $renderArgs += '${{ steps.ctx.outputs.release_date }}'
+          }
+          python packaging/scripts/render_templates.py @renderArgs
 
       - name: Verify rendered hashes round-trip from URL
         shell: pwsh
@@ -116,6 +126,19 @@ jobs:
               Write-Error 'No .nupkg produced by choco pack.'
               exit 1
           }
-          choco push $pkg.FullName `
+
+          # Capture output so we can detect the "version already exists"
+          # case (HTTP 409) and treat re-runs as a soft success instead of
+          # failing the whole workflow.
+          $pushLog = & choco push $pkg.FullName `
             --source https://push.chocolatey.org/ `
-            --api-key $env:CHOCOLATEY_API_KEY
+            --api-key $env:CHOCOLATEY_API_KEY 2>&1 | Out-String
+          $exit = $LASTEXITCODE
+          Write-Output $pushLog
+          if ($exit -ne 0) {
+              if ($pushLog -match '409' -or $pushLog -match 'already exists' -or $pushLog -match 'has already been submitted') {
+                  Write-Warning "Version $($pkg.Name) is already published; treating as success."
+                  exit 0
+              }
+              exit $exit
+          }

@@ -57,18 +57,24 @@ jobs:
               $tag     = '${{ github.event.release.tag_name }}'
               $version = $tag
               $dryRun  = 'false'
+              # published_at is ISO-8601 like 2026-05-15T14:30:00Z;
+              # the manifest field wants YYYY-MM-DD.
+              $publishedAt = '${{ github.event.release.published_at }}'
+              $releaseDate = if ($publishedAt) { $publishedAt.Substring(0, 10) } else { '' }
           } else {
               $tag     = '${{ inputs.version }}'
               $version = '${{ inputs.version }}'
               $dryRun  = '${{ inputs.dry_run }}'
+              $releaseDate = ''
           }
           if ([string]::IsNullOrWhiteSpace($tag)) {
               Write-Error 'No release tag/version available.'
               exit 1
           }
-          "tag=$tag"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "dry_run=$dryRun"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "tag=$tag"                 | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "version=$version"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "dry_run=$dryRun"          | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "release_date=$releaseDate" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - uses: actions/setup-python@v6
         with:
@@ -77,14 +83,20 @@ jobs:
       - name: Render WinGet manifests
         shell: pwsh
         run: |
-          python packaging/scripts/render_templates.py `
-            --version "${{ steps.ctx.outputs.version }}" `
-            --release-tag "${{ steps.ctx.outputs.tag }}" `
-            --templates packaging/winget `
-            --output dist/winget `
-            --download-dir dist/_assets `
-            --asset MSI_X64=NSCP-${{ steps.ctx.outputs.version }}-x64.msi `
-            --asset MSI_X86=NSCP-${{ steps.ctx.outputs.version }}-Win32.msi
+          $renderArgs = @(
+              '--version',      '${{ steps.ctx.outputs.version }}',
+              '--release-tag',  '${{ steps.ctx.outputs.tag }}',
+              '--templates',    'packaging/winget',
+              '--output',       'dist/winget',
+              '--download-dir', 'dist/_assets',
+              '--asset',        'MSI_X64=NSCP-${{ steps.ctx.outputs.version }}-x64.msi',
+              '--asset',        'MSI_X86=NSCP-${{ steps.ctx.outputs.version }}-Win32.msi'
+          )
+          if ('${{ steps.ctx.outputs.release_date }}') {
+              $renderArgs += '--release-date'
+              $renderArgs += '${{ steps.ctx.outputs.release_date }}'
+          }
+          python packaging/scripts/render_templates.py @renderArgs
 
       - name: Validate manifests with winget
         shell: pwsh
