@@ -857,14 +857,6 @@ configure_file(
     @ONLY
 )
 configure_file(
-    ${BUILD_PYTHON_FOLDER}/config.py
-    ${BUILD_TARGET_EXE_PATH}/config.py
-)
-configure_file(
-    ${BUILD_PYTHON_FOLDER}/postbuild.py
-    ${BUILD_TARGET_EXE_PATH}/postbuild.py
-)
-configure_file(
     ${NSCP_INCLUDEDIR}/version.hpp.in
     ${PROJECT_BINARY_DIR}/include/version.hpp
     @ONLY
