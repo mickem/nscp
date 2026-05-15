@@ -108,9 +108,15 @@ jobs:
             exit 0
           fi
 
+          # Pass the PAT via http.extraHeader so it never lands in argv or
+          # the cloned repo's .git/config. GitHub Actions masks the secret
+          # in logs but cannot mask process state on the runner.
+          auth_header="Authorization: Basic $(printf 'x-access-token:%s' "$SCOOP_BUCKET_PAT" | base64 -w0)"
+
           bucket_dir="$(mktemp -d)"
-          git clone --depth=1 --branch "$SCOOP_BUCKET_BRANCH" \
-            "https://x-access-token:${SCOOP_BUCKET_PAT}@github.com/${SCOOP_BUCKET_REPO}.git" \
+          git -c http.extraHeader="$auth_header" clone --depth=1 \
+            --branch "$SCOOP_BUCKET_BRANCH" \
+            "https://github.com/${SCOOP_BUCKET_REPO}.git" \
             "$bucket_dir"
 
           mkdir -p "$bucket_dir/bucket"
@@ -125,4 +131,5 @@ jobs:
             exit 0
           fi
           git commit -m "nscp: bump to ${{ steps.ctx.outputs.version }}"
-          git push origin "HEAD:${SCOOP_BUCKET_BRANCH}"
+          git -c http.extraHeader="$auth_header" push \
+            origin "HEAD:${SCOOP_BUCKET_BRANCH}"

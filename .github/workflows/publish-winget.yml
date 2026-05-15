@@ -114,6 +114,19 @@ jobs:
           $wc = Join-Path $env:RUNNER_TEMP 'wingetcreate.exe'
           Invoke-WebRequest -Uri https://aka.ms/wingetcreate/latest -OutFile $wc
 
+          # Verify the Authenticode signature before executing — this runs
+          # with WINGET_PR_TOKEN in scope, so a compromised aka.ms redirect
+          # would otherwise hand the PAT to an attacker.
+          $sig = Get-AuthenticodeSignature $wc
+          if ($sig.Status -ne 'Valid') {
+              Write-Error "wingetcreate.exe Authenticode status is $($sig.Status), expected Valid."
+              exit 1
+          }
+          if ($sig.SignerCertificate.Subject -notmatch 'Microsoft Corporation') {
+              Write-Error "wingetcreate.exe is not signed by Microsoft Corporation: $($sig.SignerCertificate.Subject)"
+              exit 1
+          }
+
           & $wc submit `
             --token $env:WINGET_PR_TOKEN `
             dist/winget
