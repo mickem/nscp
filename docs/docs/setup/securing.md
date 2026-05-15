@@ -70,7 +70,7 @@ token    = $CRED$
 After editing, apply with:
 
 ```commandline
-$ nscp settings --update
+$ nscp service --restart
 ```
 
 If you want to verify a target before relying on it, submit a synthetic passive result with:
@@ -221,7 +221,7 @@ use credential manager = true
 And then save the config.
 
 ```commandline
-nscp settings --update
+nscp service --restart
 ```
 
 Now here is the first catch, credential manager is per account so likely you are not running NSClient++ as the same user
