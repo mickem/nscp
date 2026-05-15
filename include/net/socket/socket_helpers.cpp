@@ -104,11 +104,16 @@ std::string socket_helpers::format_subject_dn_rfc2253(void *x509) {
   BIO *bio = BIO_new(BIO_s_mem());
   if (!bio) return result;
   // RFC 2253 (XN_FLAG_RFC2253) is the canonical, sortable, escape-safe
-  // representation; UTF-8 strings stay intact, special chars are
-  // backslash-escaped. The output is what operators will see in the
-  // log and write into [/settings/permissions/policies], so we want
-  // a stable encoding.
-  if (X509_NAME_print_ex(bio, subject, 0, XN_FLAG_RFC2253) > 0) {
+  // representation; structural specials (comma, plus, equals, leading
+  // hash, leading/trailing space) are backslash-escaped. We clear
+  // ASN1_STRFLGS_ESC_MSB so high-bit bytes pass through as raw UTF-8
+  // instead of being hex-escaped (`\C3\A9`). RFC 2253 explicitly
+  // allows UTF-8 in DN values; the hex-escape form would surprise
+  // operators who paste DN strings from cert tooling, and any future
+  // identity-map indirection comparing DNs as strings would mismatch
+  // an issued-as-UTF-8 cert against an operator-typed handle.
+  const unsigned long fmt = XN_FLAG_RFC2253 & ~ASN1_STRFLGS_ESC_MSB;
+  if (X509_NAME_print_ex(bio, subject, 0, fmt) > 0) {
     BUF_MEM *mem = nullptr;
     BIO_get_mem_ptr(bio, &mem);
     if (mem && mem->data && mem->length > 0) {

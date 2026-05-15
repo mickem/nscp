@@ -654,7 +654,7 @@ certificate key=
 
 #### CLIENT IDENTITY SOURCE <a id="/settings/NRPE/server/client identity source"></a>
 
-How to resolve the principal stamped on the request for the core permission system. 'none' (default) leaves the principal empty (subject becomes bare 'NRPEServer'). 'dn' uses the verified client certificate Subject DN in RFC 2253 form (e.g. 'CN=icinga-master,O=Acme'); this requires SSL with verify_mode containing 'peer' and 'fail-if-no-peer-cert' plus a 'ca path' pointing at the trusted issuer, otherwise the module refuses to start.
+How to resolve the principal stamped on the request for the core permission system. 'none' (default) leaves the principal empty (subject becomes bare 'NRPEServer'). 'cn' uses the Common Name value of the verified client certificate (e.g. 'icinga-master'); this requires SSL with verify_mode containing 'peer' and 'fail-if-no-peer-cert' plus a 'ca path' pointing at the trusted issuer, otherwise the module refuses to start. CN-only (not full DN) because INI key syntax conflicts with the '=' in RFC 2253 DNs.
 
 
 
