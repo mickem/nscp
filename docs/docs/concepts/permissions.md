@@ -294,6 +294,38 @@ permissions = /etc/nsclient/permissions.ini
 
 ---
 
+## Why exec is a single toggle
+
+The per-command rule table (`/settings/permissions/policies`) gates **queries** — the dispatch path that NRPE, NSCA,
+the scheduler, and WEB query endpoints all funnel through. The **exec** surface is different:
+
+- It's reached from the WEB scripts UI, from `core:simple_exec(...)` in Lua/Python, and from the CLI.
+- The internal exec chain does not currently propagate caller identity — `core_helper::exec_simple_command` builds an
+  exec request without stamping `nscp.caller_plugin_id`, so a per-command exec policy decision would degenerate to
+  subject `*` and the rule writer would have no reliable way to grant exec to "the WEB user" vs "any caller."
+- Per-command rules give an illusion of granularity that the runtime cannot honour for exec.
+
+So exec gets a coarse on/off:
+
+```ini
+[/settings/permissions]
+allow exec = true   ; default; flip to false for a hard exec lockdown
+```
+
+When `allow exec = false` is combined with `enabled = true`, every exec call returns:
+
+```
+Permission denied: exec is globally disabled (/settings/permissions/allow exec = false)
+```
+
+The WEB scripts UI, Lua/Python script bridges, and CLI exec all go through the same gate.
+
+If your operational need is "viewer-vs-admin distinction inside the WEB UI for exec," that's a WEB-layer
+authentication concern (web roles), not a core-policy concern. The core toggle is the back-stop for "I never want
+exec to be possible at all on this agent."
+
+---
+
 ## Logging
 
 | When                                     | Level | Example line                                                         |

@@ -227,3 +227,54 @@ TEST(Permissions, make_subject_without_principal) { EXPECT_EQ("WEBServer", permi
 TEST(Permissions, make_object_with_module) { EXPECT_EQ("CheckSystem.check_cpu", permissions::make_object("CheckSystem", "check_cpu")); }
 
 TEST(Permissions, make_object_without_module) { EXPECT_EQ("check_cpu", permissions::make_object("", "check_cpu")); }
+
+// ===== allow exec toggle ==================================================
+//
+// The exec surface (WEB scripts UI, lua/python core:simple_exec, CLI exec)
+// is gated by a single global switch, not by the rule table. Tests pin
+// the four (enabled, allow_exec) combinations.
+
+TEST(Permissions, exec_allowed_by_default_when_disabled) {
+  // Master switch off: exec always allowed (same bypass as is_allowed).
+  permissions p;
+  EXPECT_TRUE(p.is_exec_allowed());
+}
+
+TEST(Permissions, exec_allowed_by_default_when_enabled) {
+  // Master switch on, allow_exec at its true default: exec allowed.
+  // This is the deliberate rollout choice - flipping `enabled = true`
+  // must not silently break exec callers; an operator who wants exec
+  // off has to opt in explicitly.
+  permissions p;
+  p.set_enabled(true);
+  EXPECT_TRUE(p.is_exec_allowed());
+}
+
+TEST(Permissions, exec_denied_when_enabled_and_toggle_off) {
+  permissions p;
+  p.set_enabled(true);
+  p.set_allow_exec(false);
+  EXPECT_FALSE(p.is_exec_allowed());
+}
+
+TEST(Permissions, exec_toggle_ignored_when_master_disabled) {
+  // The master switch wins: if the policy system is off entirely, exec
+  // is allowed regardless of allow_exec. Means an operator can set
+  // `allow exec = false` defensively and only have it take effect once
+  // they also flip the master switch.
+  permissions p;
+  EXPECT_FALSE(p.is_enabled());
+  p.set_allow_exec(false);
+  EXPECT_TRUE(p.is_exec_allowed());
+}
+
+TEST(Permissions, exec_toggle_does_not_affect_query_is_allowed) {
+  // The toggle gates exec only. Query rules remain in force regardless
+  // of allow_exec's value - exec and query policy are independent.
+  permissions p;
+  p.set_enabled(true);
+  p.set_allow_exec(false);
+  p.add_rule("WEBServer:admin", "CheckSystem.check_cpu");
+  EXPECT_TRUE(p.is_allowed("WEBServer:admin", "CheckSystem.check_cpu"));
+  EXPECT_FALSE(p.is_allowed("WEBServer:guest", "CheckSystem.check_cpu"));
+}

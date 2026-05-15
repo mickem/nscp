@@ -279,6 +279,12 @@ void nsclient::core::plugin_manager::load_permissions() {
                        "false", true, false);
     core->register_key(0xffff, section, "log denials", "bool", "Log denials", "Log every denial at warning level.", "true", true, false);
     core->register_key(0xffff, section, "log allows", "bool", "Log allows", "Log every allowed call at trace level (noisy).", "false", true, false);
+    core->register_key(0xffff, section, "allow exec", "bool", "Allow exec",
+                       "Global toggle for the exec command surface (WEB scripts UI, lua/python core:simple_exec, internal CLI exec). "
+                       "Per-command rules in /settings/permissions/policies apply to QUERIES ONLY; exec is gated by this single "
+                       "switch. Default true: enabling the policy system does not break existing exec callers. Set to false for a "
+                       "hard exec lockdown.",
+                       "true", true, false);
     core->register_path(0xffff, policies_section, "Permission policies",
                         "Rule table. Each key is a subject pattern (module[:principal]); the value is a comma-separated list of "
                         "object patterns (module.command). Rules merge additively.",
@@ -289,6 +295,7 @@ void nsclient::core::plugin_manager::load_permissions() {
     permissions_.set_enabled(enabled == "true" || enabled == "1");
     permissions_.set_log_denials(settings->get_string(section, "log denials", "true") != "false");
     permissions_.set_log_allows(settings->get_string(section, "log allows", "false") == "true");
+    permissions_.set_allow_exec(settings->get_string(section, "allow exec", "true") != "false");
 
     for (const std::string &subject : settings->get_keys(policies_section)) {
       const std::string objects = settings->get_string(policies_section, subject, "");
@@ -936,37 +943,36 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::exec_command(const char *ra
   else if (target == "all" || target == "*")
     match_all = true;
 
-  // Policy check before broadcasting to plugins. exec_command iterates
-  // every plugin with a CLI exec handler, so a single denial covers the
-  // whole request - there is no per-plugin split like in execute_query.
-  // Object string is `<target>.<command>` when target is a specific
-  // module, otherwise just `<command>` so a bare-command rule (per the
-  // spec) catches it. Parse failures fall through to the existing
-  // dispatch - the legacy CLI path has been forgiving and we don't want
-  // a permission system the operator opted into to break that.
-  try {
-    PB::Commands::ExecuteRequestMessage exec_request;
-    if (exec_request.ParseFromString(request)) {
-      const std::string subject = plugin_manager::extract_subject_from_header(exec_request.header(), &plugin_cache_);
-      std::string command;
-      if (exec_request.payload_size() > 0) command = exec_request.payload(0).command();
-      if (command.empty()) command = "*";
-      const std::string policy_target = (match_all || match_any) ? std::string() : target;
-      const std::string object = permissions::make_object(policy_target, command);
-      if (!permissions_.is_allowed(subject, object)) {
-        if (permissions_.should_log_denials()) LOG_ERROR_CORE_STD("permissions: denied " + subject + " -> exec " + object);
-        PB::Commands::ExecuteResponseMessage denied_response;
-        PB::Commands::ExecuteResponseMessage::Response *r = denied_response.add_payload();
-        r->set_command(command);
-        r->set_result(PB::Common::ResultCode::CRITICAL);
-        r->set_message("Permission denied: " + subject + " is not allowed to exec " + object);
-        denied_response.SerializeToString(&response);
-        return NSCAPI::cmd_return_codes::isSuccess;
+  // Exec is gated by a single global toggle (/settings/permissions/allow exec),
+  // not by the per-command rule table. Rationale: the internal exec chain
+  // (lua/python -> core_helper::exec_simple_command, see nscapi_core_helper.cpp)
+  // does not propagate caller identity, so a per-command policy decision on
+  // exec degenerates to subject "*" and is unreliable. Per-command policy is
+  // therefore queries-only; exec gets a coarse on/off switch. The default is
+  // "on" so enabling the policy system does not silently break exec callers.
+  if (!permissions_.is_exec_allowed()) {
+    if (permissions_.should_log_denials()) {
+      std::string subject = "*";
+      std::string command = "(unknown)";
+      try {
+        PB::Commands::ExecuteRequestMessage exec_request;
+        if (exec_request.ParseFromString(request)) {
+          subject = plugin_manager::extract_subject_from_header(exec_request.header(), &plugin_cache_);
+          if (exec_request.payload_size() > 0) command = exec_request.payload(0).command();
+        }
+      } catch (...) {
+        // Best-effort logging - parse failure just means we log a less
+        // informative line, never a reason to drop the denial itself.
       }
-      if (permissions_.should_log_allows()) LOG_INFO_CORE_STD("permissions: allowed " + subject + " -> exec " + object);
+      LOG_ERROR_CORE_STD("permissions: denied (allow exec=false) " + subject + " -> exec " + target + "." + command);
     }
-  } catch (...) {
-    LOG_DEBUG_CORE("permissions: exec request parse failed, skipping policy check");
+    PB::Commands::ExecuteResponseMessage denied_response;
+    PB::Commands::ExecuteResponseMessage::Response *r = denied_response.add_payload();
+    r->set_command("");
+    r->set_result(PB::Common::ResultCode::CRITICAL);
+    r->set_message("Permission denied: exec is globally disabled (/settings/permissions/allow exec = false)");
+    denied_response.SerializeToString(&response);
+    return NSCAPI::cmd_return_codes::isSuccess;
   }
 
   std::list<std::string> responses;

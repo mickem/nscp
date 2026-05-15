@@ -50,7 +50,7 @@ namespace core {
 // doc spec (docs/design/core-permissions.md) is the source of truth.
 class permissions {
  public:
-  permissions() : enabled_(false), log_denials_(true), log_allows_(false) {}
+  permissions() : enabled_(false), allow_exec_(true), log_denials_(true), log_allows_(false) {}
 
   void set_enabled(bool v) {
     std::lock_guard<std::mutex> lk(mutex_);
@@ -59,6 +59,30 @@ class permissions {
   bool is_enabled() const {
     std::lock_guard<std::mutex> lk(mutex_);
     return enabled_;
+  }
+
+  // Global exec toggle. Per-command policies in the rule table apply
+  // to QUERIES only; exec_command is gated by this single switch. The
+  // distinction exists because:
+  //   - The remote-facing inbound surfaces (NRPE/NSCA/NRDP) only carry
+  //     queries, so per-caller exec gating is mostly moot for them.
+  //   - The internal exec chain (lua/python -> core_helper::exec_simple_command)
+  //     does not propagate caller identity today, so a per-command exec
+  //     policy decision degenerates to subject "*" and is unreliable
+  //     anyway.
+  //   - WEB exec endpoints are gated by WEB authentication separately.
+  // Default is true (exec allowed) so enabling the policy system does
+  // not silently break exec callers; operators who want a hard exec
+  // lockdown flip it to false.
+  void set_allow_exec(bool v) {
+    std::lock_guard<std::mutex> lk(mutex_);
+    allow_exec_ = v;
+  }
+  bool is_exec_allowed() const {
+    std::lock_guard<std::mutex> lk(mutex_);
+    // When the policy system is disabled, exec is always allowed (same
+    // bypass as is_allowed). When enabled, the toggle decides.
+    return !enabled_ || allow_exec_;
   }
 
   void set_log_denials(bool v) {
@@ -247,6 +271,7 @@ class permissions {
 
   mutable std::mutex mutex_;
   bool enabled_;
+  bool allow_exec_;
   bool log_denials_;
   bool log_allows_;
   std::vector<rule> rules_;
