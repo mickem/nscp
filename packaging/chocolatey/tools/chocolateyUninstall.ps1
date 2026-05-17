@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 # NSClient++ uses a stable UpgradeCode but the MSI ProductCode varies across
 # versions, so we look up the installed product by its display name in the
 # uninstall registry hive.
-$packageName = 'nscp'
+$packageName = 'nsclient'
 $displayName = 'NSClient++*'
 
 [array]$keys = Get-UninstallRegistryKey -SoftwareName $displayName

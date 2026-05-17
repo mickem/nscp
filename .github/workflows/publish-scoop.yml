@@ -99,7 +99,7 @@ jobs:
           python packaging/scripts/render_templates.py "${render_args[@]}"
 
       - name: Validate manifest is parseable JSON
-        run: python -m json.tool dist/scoop/nscp.json > /dev/null
+        run: python -m json.tool dist/scoop/nsclient.json > /dev/null
 
       - name: Verify rendered hashes round-trip from URL
         run: |
@@ -112,7 +112,7 @@ jobs:
           import json, sys, zipfile
           from pathlib import Path
 
-          manifest = json.loads(Path("dist/scoop/nscp.json").read_text())
+          manifest = json.loads(Path("dist/scoop/nsclient.json").read_text())
           version = "${{ steps.ctx.outputs.version }}"
           archives = {
               "x64":   Path(f"dist/_assets/NSCP-{version}-x64.zip"),
@@ -148,7 +148,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: scoop-manifest-${{ steps.ctx.outputs.version }}
-          path: dist/scoop/nscp.json
+          path: dist/scoop/nsclient.json
           if-no-files-found: error
 
       - name: Commit manifest to Scoop bucket repo
@@ -174,16 +174,16 @@ jobs:
             "$bucket_dir"
 
           mkdir -p "$bucket_dir/bucket"
-          cp dist/scoop/nscp.json "$bucket_dir/bucket/nscp.json"
+          cp dist/scoop/nsclient.json "$bucket_dir/bucket/nsclient.json"
 
           cd "$bucket_dir"
           git config user.name  'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git add bucket/nscp.json
+          git add bucket/nsclient.json
           if git diff --cached --quiet; then
-            echo 'No changes to nscp.json; nothing to commit.'
+            echo 'No changes to nsclient.json; nothing to commit.'
             exit 0
           fi
-          git commit -m "nscp: bump to ${{ steps.ctx.outputs.version }}"
+          git commit -m "nsclient: bump to ${{ steps.ctx.outputs.version }}"
           git -c http.extraHeader="$auth_header" push \
             origin "HEAD:${SCOOP_BUCKET_BRANCH}"
