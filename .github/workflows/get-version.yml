@@ -23,7 +23,12 @@ jobs:
 
     - name: Fetch version from git tags
       id: version
-      uses: codacy/git-version@2.8.6
+      uses: codacy/git-version@2.8.7
       with:
         release-branch: main
+        # Pin the downloaded git-version binary instead of resolving
+        # 'latest' via api.github.com — anonymous Actions runners share a
+        # 60 req/hour IP quota and the bootstrap fails with curl exit 6
+        # when rate-limited.
+        tool-version: 2.8.7
 
