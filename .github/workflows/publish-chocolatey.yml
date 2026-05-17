@@ -101,12 +101,12 @@ jobs:
         shell: pwsh
         working-directory: dist/chocolatey
         run: |
-          choco pack nscp.nuspec --out .
+          choco pack nsclient.nuspec --out .
 
       - name: Upload .nupkg
         uses: actions/upload-artifact@v6
         with:
-          name: chocolatey-nscp-${{ steps.ctx.outputs.version }}
+          name: chocolatey-nsclient-${{ steps.ctx.outputs.version }}
           path: dist/chocolatey/*.nupkg
           if-no-files-found: error
 

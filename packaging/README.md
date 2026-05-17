@@ -64,10 +64,10 @@ release.
 
 ### Chocolatey (`publish-chocolatey.yml`)
 
-1. Create / claim the `nscp` package on
+1. Create / claim the `nsclient` package on
    [community.chocolatey.org](https://community.chocolatey.org/). There are
-   historical packages with similar names — confirm ownership of the
-   identifier before the first push.
+   historical packages with similar names (including a stale `nscp`) —
+   confirm ownership of the identifier before the first push.
 2. Generate an API key at
    `https://community.chocolatey.org/account` for the publishing account.
 3. Store it as the `CHOCOLATEY_API_KEY` repository secret.
@@ -104,13 +104,13 @@ packaging/
 │   ├── Mickem.NSClient.locale.en-US.yaml.tmpl  # description, license, tags
 │   └── Mickem.NSClient.yaml.tmpl               # version manifest
 ├── chocolatey/
-│   ├── nscp.nuspec.tmpl
+│   ├── nsclient.nuspec.tmpl
 │   └── tools/
 │       ├── chocolateyInstall.ps1.tmpl
 │       ├── chocolateyUninstall.ps1
 │       └── VERIFICATION.txt.tmpl
 └── scoop/
-    └── nscp.json.tmpl
+    └── nsclient.json.tmpl
 ```
 
 ## Placeholders

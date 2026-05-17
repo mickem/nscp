@@ -123,7 +123,7 @@ class ChocolateyExtractorTests(unittest.TestCase):
 class ScoopExtractorTests(unittest.TestCase):
     def test_both_arches(self):
         with _tmpdir() as d:
-            (d / "nscp.json").write_text(
+            (d / "nsclient.json").write_text(
                 '{"architecture": {'
                 '  "64bit": {"url": "https://example.com/x64.zip", "hash": "' + "E" * 64 + '"},'
                 '  "32bit": {"url": "https://example.com/x86.zip", "hash": "' + "F" * 64 + '"}'
@@ -135,7 +135,7 @@ class ScoopExtractorTests(unittest.TestCase):
 
     def test_missing_hash_exits(self):
         with _tmpdir() as d:
-            (d / "nscp.json").write_text(
+            (d / "nsclient.json").write_text(
                 '{"architecture": {"64bit": {"url": "https://example.com/x.zip"}}}'
             )
             with self.assertRaises(SystemExit):

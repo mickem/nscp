@@ -2,7 +2,6 @@ name: Build feature
 
 permissions:
   contents: read
-  pull-requests: write
 
 on:
   push:
@@ -20,40 +19,18 @@ jobs:
     uses: ./.github/workflows/tests-sanitizers.yml
     with:
       version: ${{ needs.get-version.outputs.version }}
-  build-client-x64:
-    needs: get-version
-    uses: ./.github/workflows/build-rust.yml
-    with:
-      os: windows-latest
-      arch: x64
-      version: ${{ needs.get-version.outputs.version }}
-    secrets:
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   build-server-x64:
-    needs: [get-version, build-client-x64, create-test-bundle]
+    needs: [get-version, create-test-bundle]
     uses: ./.github/workflows/build-windows.yml
-    with: 
+    with:
       architecture: x64
       version: ${{ needs.get-version.outputs.version }}
     secrets:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-  build-client-x86:
-    needs: get-version
-    uses: ./.github/workflows/build-rust.yml
-    with:
-      os: windows-latest
-      arch: x86
-      version: ${{ needs.get-version.outputs.version }}
-    secrets:
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   build-server-x86:
-    needs: [get-version, build-client-x86, create-test-bundle]
+    needs: [get-version, create-test-bundle]
     uses: ./.github/workflows/build-windows.yml
     with:
       architecture: x86
@@ -72,36 +49,14 @@ jobs:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-  build-client-ubuntu-x64:
-    needs: get-version
-    uses: ./.github/workflows/build-rust.yml
-    with:
-      os: ubuntu-latest
-      arch: x64
-      version: ${{ needs.get-version.outputs.version }}
-    secrets:
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-  build-client-ubuntu-arm64:
-    needs: get-version
-    uses: ./.github/workflows/build-rust.yml
-    with:
-      os: ubuntu-24.04-arm
-      arch: arm64
-      version: ${{ needs.get-version.outputs.version }}
-    secrets:
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   build-debian:
-    needs: [get-version, build-client-ubuntu-x64, build-client-ubuntu-arm64, create-test-bundle]
+    needs: [get-version, create-test-bundle]
     uses: ./.github/workflows/build-debian.yml
     with:
       architecture: x64
       version: ${{ needs.get-version.outputs.version }}
   build-redhat:
-    needs: [get-version, build-client-ubuntu-x64, build-client-ubuntu-arm64, create-test-bundle]
+    needs: [get-version, create-test-bundle]
     uses: ./.github/workflows/build-redhat.yml
     with:
       architecture: x64

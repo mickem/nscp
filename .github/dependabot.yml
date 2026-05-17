@@ -25,14 +25,6 @@ updates:
       testing:
         patterns:
           - "*"
-  - package-ecosystem: cargo
-    directory: "/rust/nscp_client"
-    schedule:
-      interval: "weekly"
-    groups:
-      client:
-        patterns:
-          - "*"
   - package-ecosystem: pip
     directory: "/build/python"
     schedule:

@@ -128,9 +128,14 @@ jobs:
         set(USE_STATIC_RUNTIME OFF)
         EOF
 
-    - uses: actions/download-artifact@v7
-      with:
-        name: check_nsclient-linux-${{ matrix.arch }}
+    - name: Download check_nsclient from mickem/check_nsclient
+      shell: bash
+      run: |
+        ver=$(cat .check_nsclient_version | tr -d '[:space:]')
+        url="https://github.com/mickem/check_nsclient/releases/download/${ver}/check_nsclient-${ver}-linux-${{ matrix.arch }}"
+        echo "Fetching $url"
+        curl -sSfL -o check_nsclient "$url"
+        chmod +x check_nsclient
 
     - name: CMake (NSCP)
       working-directory: tmp/nscp
@@ -149,7 +154,6 @@ jobs:
 
     - name: rename dist files
       run: |
-        mv check_nsclient check_nsclient-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.arch }}
         mv tmp/nscp/NSCP-${{ inputs.version }}-${{ matrix.deb_arch }}.deb NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.deb_arch }}.deb
       shell: bash
 
@@ -162,7 +166,6 @@ jobs:
       with:
         name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.arch }}
         path: |
-          check_nsclient-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.arch }}
           NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.deb_arch }}.deb
         if-no-files-found: error
 

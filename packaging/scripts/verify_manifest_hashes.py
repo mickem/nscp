@@ -85,7 +85,7 @@ def _pairs_chocolatey(manifest_dir: Path) -> list[tuple[str, str]]:
 
 
 def _pairs_scoop(manifest_dir: Path) -> list[tuple[str, str]]:
-    js = manifest_dir / "nscp.json"
+    js = manifest_dir / "nsclient.json"
     if not js.exists():
         raise SystemExit(f"Missing {js}")
     data = json.loads(js.read_text(encoding="utf-8"))

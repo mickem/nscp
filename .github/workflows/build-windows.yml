@@ -246,10 +246,13 @@ jobs:
         & "$env:Python_ROOT_DIR\python" ..\..\build\python\mk_pyzip.py --source ${{ env.Python_ROOT_DIR }} --version python311
       shell: pwsh
 
-    - uses: actions/download-artifact@v7
-      with:
-        name: check_nsclient-windows-${{ inputs.architecture }}
-        path: tmp
+    - name: Download check_nsclient from mickem/check_nsclient
+      shell: bash
+      run: |
+        ver=$(cat .check_nsclient_version | tr -d '[:space:]')
+        url="https://github.com/mickem/check_nsclient/releases/download/${ver}/check_nsclient-${ver}-windows-${{ inputs.architecture }}.exe"
+        echo "Fetching $url"
+        curl -sSfL -o tmp/check_nsclient.exe "$url"
 
     - name: CMake (installer_lib)
       working-directory: tmp/installer_lib
@@ -300,11 +303,6 @@ jobs:
         azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
         signing-enabled: ${{ github.actor != 'dependabot[bot]' }}
 
-    - name: rename client
-      run: |
-          move tmp\check_nsclient.exe tmp\nscp\check_nsclient-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.exe
-      shell: cmd
-
     - uses: actions/upload-artifact@v6
       with:
         name: NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}
@@ -313,7 +311,6 @@ jobs:
           tmp/nscp/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.zip
           tmp/nscp/installers/installer-NSCP/NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.msi
           tmp/nscp/NSCP-${{ inputs.version }}-${{ inputs.platform }}-symbols.zip
-          tmp/nscp/check_nsclient-${{ inputs.version }}-${{ steps.setup.outputs.platform }}.exe
         if-no-files-found: error
 
     - name: Add versions
