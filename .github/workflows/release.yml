@@ -76,12 +76,14 @@ jobs:
         draft: true
         prerelease: false
         generateReleaseNotes: true
+        # The standalone check_nsclient binary now lives in its own repo
+        # at https://github.com/mickem/check_nsclient/releases — it is
+        # bundled inside the NSCP installers built above but no longer
+        # re-attached to this release.
         artifacts: |
           NSCP-${{ inputs.version }}-docs.zip
           NSCP-${{ inputs.version }}-x64.zip
-          check_nsclient-${{ inputs.version }}-x64.exe
           NSCP-${{ inputs.version }}-Win32.zip
-          check_nsclient-${{ inputs.version }}-Win32.exe
           NSCP-${{ inputs.version }}-Win32-legacy-xp.zip
           installers/installer-NSCP/NSCP-${{ inputs.version }}-x64.msi
           installers/installer-NSCP/NSCP-${{ inputs.version }}-Win32.msi
@@ -89,14 +91,8 @@ jobs:
           NSCP-${{ inputs.version }}-x64-symbols.zip
           NSCP-${{ inputs.version }}-Win32-symbols.zip
           NSCP-${{ inputs.version }}-Win32-legacy-xp-symbols.zip
-          check_nsclient-${{ inputs.version }}-ubuntu-24.04-x64
-          check_nsclient-${{ inputs.version }}-ubuntu-24.04-arm64
           NSCP-${{ inputs.version }}-ubuntu-24.04-amd64.deb
           NSCP-${{ inputs.version }}-ubuntu-24.04-arm64.deb
-          check_nsclient-${{ inputs.version }}-rocky-9-x64
-          check_nsclient-${{ inputs.version }}-rocky-9-arm64
-          check_nsclient-${{ inputs.version }}-rocky-10-x64
-          check_nsclient-${{ inputs.version }}-rocky-10-arm64
           NSCP-${{ inputs.version }}-rocky-9-x86_64.rpm
           NSCP-${{ inputs.version }}-rocky-9-aarch64.rpm
           NSCP-${{ inputs.version }}-rocky-10-x86_64.rpm
