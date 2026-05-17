@@ -1,0 +1,30 @@
+name: Test packaging scripts
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packaging/**'
+      - '.github/workflows/test-packaging.yml'
+  pull_request:
+    paths:
+      - 'packaging/**'
+      - '.github/workflows/test-packaging.yml'
+
+jobs:
+  test-render-templates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Run packaging-script unit tests
+        working-directory: packaging/scripts
+        run: |
+          python -m unittest test_render_templates test_verify_manifest_hashes -v

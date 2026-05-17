@@ -1,0 +1,19 @@
+$ErrorActionPreference = 'Stop'
+
+$packageName = 'nscp'
+$toolsDir    = "$(Split-Path -parent $MyInvocation.MyCommand.Definition)"
+
+$packageArgs = @{
+  packageName    = $packageName
+  fileType       = 'msi'
+  url            = '{{URL_MSI_X86}}'
+  url64bit       = '{{URL_MSI_X64}}'
+  checksum       = '{{SHA256_MSI_X86}}'
+  checksum64     = '{{SHA256_MSI_X64}}'
+  checksumType   = 'sha256'
+  checksumType64 = 'sha256'
+  silentArgs     = '/qn /norestart /l*v "{0}"' -f (Join-Path $env:TEMP "$($packageName).MsiInstall.log")
+  validExitCodes = @(0, 3010, 1641)
+}
+
+Install-ChocolateyPackage @packageArgs
