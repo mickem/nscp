@@ -19,7 +19,14 @@
 
 #include "zip_plugin.h"
 
+#ifdef MINIZ
 #include <miniz.h>
+#else
+#include <zip.h>
+
+#include <cstdio>
+#include <vector>
+#endif
 
 #include <boost/json.hpp>
 #include <file_helpers.hpp>
@@ -40,6 +47,14 @@ void debug_log_list(nsclient::logging::logger_instance logger, const char *file,
   }
 }
 
+// Backend-neutral file metadata returned by zip_archive::file_stat. Keeps the
+// caller free of miniz/libzip-specific types.
+struct archive_file_stat {
+  std::string filename;
+  std::size_t uncompressed_size = 0;
+};
+
+#ifdef _WIN32
 struct zip_archive {
   mz_zip_archive handle_;
   zip_archive() { memset(&handle_, 0, sizeof(handle_)); }
@@ -51,12 +66,105 @@ struct zip_archive {
 
   bool read(const std::string &file) { return mz_zip_reader_init_file(&handle_, file.c_str(), 0); }
   unsigned int get_numfiles() { return mz_zip_reader_get_num_files(&handle_); }
-  bool file_stat(unsigned int id, mz_zip_archive_file_stat &file_stat) { return mz_zip_reader_file_stat(&handle_, id, &file_stat); }
+  bool file_stat(unsigned int id, archive_file_stat &out) {
+    mz_zip_archive_file_stat st;
+    if (!mz_zip_reader_file_stat(&handle_, id, &st)) return false;
+    out.filename = st.m_filename;
+    out.uncompressed_size = static_cast<std::size_t>(st.m_uncomp_size);
+    return true;
+  }
+  // Caller owns the returned buffer and must mz_free() it. Currently this
+  // matches the pre-existing miniz behaviour (the metadata reader leaks the
+  // pointer; out of scope for the libzip port).
   const char *extract_file_to_heap(const char *filename, std::size_t &size) {
     return static_cast<char *>(mz_zip_reader_extract_file_to_heap(&handle_, filename, &size, 0));
   }
   bool extract_file_to_file(const char *filename, const char *dst_file) { return mz_zip_reader_extract_file_to_file(&handle_, filename, dst_file, 0); }
 };
+#else
+// libzip-backed implementation. Used on Linux where miniz is not packaged but
+// libzip-dev is a first-class Debian/Ubuntu/Rocky package.
+struct zip_archive {
+  zip_t *handle_ = nullptr;
+  zip_archive() = default;
+  zip_archive(const std::string &file) { read(file); }
+  ~zip_archive() {
+    if (handle_) zip_close(handle_);
+  }
+
+  bool read(const std::string &file) {
+    if (handle_) {
+      zip_close(handle_);
+      handle_ = nullptr;
+    }
+    int err = 0;
+    handle_ = zip_open(file.c_str(), ZIP_RDONLY, &err);
+    return handle_ != nullptr;
+  }
+  unsigned int get_numfiles() {
+    if (!handle_) return 0;
+    const zip_int64_t n = zip_get_num_entries(handle_, 0);
+    return n < 0 ? 0u : static_cast<unsigned int>(n);
+  }
+  bool file_stat(unsigned int id, archive_file_stat &out) {
+    if (!handle_) return false;
+    zip_stat_t st;
+    zip_stat_init(&st);
+    if (zip_stat_index(handle_, id, 0, &st) != 0) return false;
+    out.filename = st.name ? st.name : "";
+    out.uncompressed_size = static_cast<std::size_t>(st.size);
+    return true;
+  }
+  // Caller owns the returned buffer (malloc-allocated) and must free() it.
+  // Mirrors the miniz contract so call sites stay portable.
+  const char *extract_file_to_heap(const char *filename, std::size_t &size) {
+    size = 0;
+    if (!handle_) return nullptr;
+    zip_stat_t st;
+    zip_stat_init(&st);
+    if (zip_stat(handle_, filename, 0, &st) != 0) return nullptr;
+    zip_file_t *zf = zip_fopen(handle_, filename, 0);
+    if (!zf) return nullptr;
+    const std::size_t need = static_cast<std::size_t>(st.size);
+    char *buf = static_cast<char *>(std::malloc(need));
+    if (!buf) {
+      zip_fclose(zf);
+      return nullptr;
+    }
+    const zip_int64_t got = zip_fread(zf, buf, need);
+    zip_fclose(zf);
+    if (got < 0 || static_cast<std::size_t>(got) != need) {
+      std::free(buf);
+      return nullptr;
+    }
+    size = need;
+    return buf;
+  }
+  bool extract_file_to_file(const char *filename, const char *dst_file) {
+    if (!handle_) return false;
+    zip_file_t *zf = zip_fopen(handle_, filename, 0);
+    if (!zf) return false;
+    FILE *out = std::fopen(dst_file, "wb");
+    if (!out) {
+      zip_fclose(zf);
+      return false;
+    }
+    std::vector<char> buf(64 * 1024);
+    zip_int64_t got = 0;
+    bool ok = true;
+    while ((got = zip_fread(zf, buf.data(), buf.size())) > 0) {
+      if (std::fwrite(buf.data(), 1, static_cast<std::size_t>(got), out) != static_cast<std::size_t>(got)) {
+        ok = false;
+        break;
+      }
+    }
+    if (got < 0) ok = false;
+    std::fclose(out);
+    zip_fclose(zf);
+    return ok;
+  }
+};
+#endif
 
 /**
  * Default c-tor
@@ -116,14 +224,14 @@ void nsclient::core::zip_plugin::read_metadata() {
   }
 
   for (unsigned int i = 0; i < archive.get_numfiles(); i++) {
-    mz_zip_archive_file_stat file_stat;
+    archive_file_stat file_stat;
     if (!archive.file_stat(i, file_stat)) {
       throw plugin_exception(get_alias_or_name(), "Failed to read:" + file_.string());
     }
 
-    if (std::string(file_stat.m_filename) == "module.json") {
+    if (file_stat.filename == "module.json") {
       std::size_t uncomp_size;
-      const char *p = archive.extract_file_to_heap(file_stat.m_filename, uncomp_size);
+      const char *p = archive.extract_file_to_heap(file_stat.filename.c_str(), uncomp_size);
       if (!p) {
         throw plugin_exception(get_alias_or_name(), "Failed to read:" + file_.string());
       }

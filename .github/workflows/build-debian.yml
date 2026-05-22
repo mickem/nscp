@@ -17,9 +17,7 @@ on:
         required: true
 
 env:
-  TINY_XML_2_VERSION: "10.1.0"
   MONGOOSE_VERSION: "7.20"
-  MINIZ_VERSION: "3.1.1"
 
 jobs:
   build-deb:
@@ -60,7 +58,7 @@ jobs:
           done
         }
         retry apt-get update
-        retry env DEBIAN_FRONTEND=noninteractive apt-get install -y git curl unzip libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev ${{ matrix.lua_package }} cmake build-essential python3-pip libdbus-1-dev
+        retry env DEBIAN_FRONTEND=noninteractive apt-get install -y git curl unzip libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev ${{ matrix.lua_package }} cmake build-essential python3-pip libdbus-1-dev libzip-dev libtinyxml2-dev pkg-config
 
     - uses: actions/checkout@v6
 
@@ -95,20 +93,10 @@ jobs:
           retry bash -c 'pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt'
         fi
 
-    - id: tinyxml2
-      uses: ./.github/actions/tinyxml2
-      with:
-        version: ${{ env.TINY_XML_2_VERSION }}
-
     - id: mongoose
       uses: ./.github/actions/mongoose
       with:
         version: ${{ env.MONGOOSE_VERSION }}
-
-    - id: miniz
-      uses: ./.github/actions/miniz
-      with:
-        version: ${{ env.MINIZ_VERSION }}
 
     - id: build-web
       working-directory: web
@@ -121,9 +109,7 @@ jobs:
         cat > tmp/nscp/build.cmake << 'EOF'
         SET(LIBRARY_ROOT_FOLDER "${{ env.GITHUB_WORKSPACE }}")
         SET(NSCP_BOOST_PYTHON_VERSION "${{ matrix.python_version }}")
-        SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
         set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
-        set(MINIZ_INCLUDE_DIR "${{ steps.miniz.outputs.path_unix }}")
         set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}")
         set(USE_STATIC_RUNTIME OFF)
         EOF
