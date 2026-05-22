@@ -9,17 +9,19 @@ Understanding the core concepts of NSClient++ will help you configure it correct
 NSClient++ is a **monitoring agent** — a small service that runs on the machine you want to monitor. It does two things:
 
 1. **Responds to requests** from a central monitoring server (active/polling mode).
-2. **Pushes results** to a central monitoring server on a schedule (passive mode).
-
+```mermaid
+flowchart LR
+    M[Monitoring Server<br/>Nagios, Icinga, Op5…]
+    A[NSClient++<br/>Windows / Linux]
+    M -->|1. request<br/>active / NRPE| A
+    A -->|2. check result| M
 ```
-  Monitoring Server                  Monitored Machine
-  (Nagios, Icinga, Op5…)             (Windows / Linux)
-
-  check_nrpe ──────────────────────► NSClient++
-             ◄──────── check result ─┘  (active/NRPE)
-
-  NSCAClient ◄──────── check result ─── NSClient++ + Scheduler
-             (passive/NSCA, NRDP)
+2. **Pushes results** to a central monitoring server on a schedule (passive mode).
+```mermaid
+flowchart LR
+    M[Monitoring Server<br/>Nagios, Icinga, Op5…]
+    A[NSClient++<br/>Windows / Linux]
+    A -->|1. push result<br/>passive / NSCA, NRDP| M
 ```
 
 ---

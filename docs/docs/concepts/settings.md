@@ -20,9 +20,9 @@ The way to include a file (if you are using ini-files) is to add a key under the
 
 including file:
 
-```
+```ini
 [/includes]
-foo=foo.ini
+foo = foo.ini
 ```
 
 You can include any number of files registry or other stores. and they will be instantiated in a tree structure with a
@@ -33,32 +33,32 @@ And example of this:
 
 * nsclient.ini:
 
-```
+```ini
 [/includes]
-client=client.ini
+client = client.ini
 
 [/test]
-key1=This values comes from nsclient.ini
+key1 = This values comes from nsclient.ini
 ```
 
 * client.ini:
 
-```
+```ini
 [/includes]
-baseline=baseline.ini
+baseline = baseline.ini
 
 [/test]
-key1=This values comes from client.ini
-key2=This values comes from client.ini
+key1 = This values comes from client.ini
+key2 = This values comes from client.ini
 ```
 
 * baseline.ini:
 
-```
+```ini
 [/test]
-key1=This values comes from baseline.ini
-key2=This values comes from baseline.ini
-key3=This values comes from baseline.ini
+key1 = This values comes from baseline.ini
+key2 = This values comes from baseline.ini
+key3 = This values comes from baseline.ini
 ```
 
 in the above example the values of /test keyx will be:
@@ -89,9 +89,9 @@ The files are text-files following the ini file format where you have sections i
 
 sample.ini:
 
-```
+```ini
 [/section/child/section]
-key=value
+key = value
 ```
 
 To use an ini file you prefix the settings url with ini:// then you can use various folder strings or specify a relative
@@ -115,11 +115,11 @@ or absolute path to the file.
 
 examples:
 
-```
+```shell
 # Use the default registry location
-nscp settings --migrate-to registry
+$ nscp settings --migrate-to registry
 # Use HKEY_LOCAL_MACHINE/software/NSClient++ to store configuration
-nscp settings --migrate-to registry://HKEY_LOCAL_MACHINE/software/NSClient++
+$ nscp settings --migrate-to registry://HKEY_LOCAL_MACHINE/software/NSClient++
 ```
 
 ### http settings
@@ -130,7 +130,7 @@ If it is not possible to fetch the latest configuration NSClient++ will keep usi
 
 examples:
 
-```
+```shell
 # Use remote configuration.
 nscp settings --switch http://www.myserver.com/nsclient.ini
 ```
@@ -139,7 +139,7 @@ In the nsclient.ini file you can specify a series of attachments which will be d
 
 Adding a script:
 
-```
+```ini
 [/attachments]
 scripts/myscript.bat = http://www.myserver.com/myscript.bat
 ```
@@ -218,7 +218,7 @@ manually.
 
 To show the current settings store view can run:
 
-```
+```shell
 $ nscp settings --show
 INI settings: (ini://${shared-path}/nsclient.ini, C:\source\build\x64\dev/nsclient.ini)
 ```
@@ -234,7 +234,8 @@ You can do this for the service as well by editing the service start command.
 
 ## Paths
 
-Paths can be used in various places in the settings store to locate files. To facilitate reusable paths, there are a number
+Paths can be used in various places in the settings store to locate files. To facilitate reusable paths, there are a
+number
 of path variables that can be used.
 
 | Key              | Value (Windows)                 | Value (Linux)          | Comment                                                                |
@@ -266,16 +267,18 @@ web-path = /tmp/foo
 Path overrides can also be supplied per-invocation on the command line, which
 takes precedence over anything in `boot.ini` for the keys it specifies:
 
-```
+```shell
 nscp client --path-override module-path=/build/modules --path-override log-path=. ...
 ```
 
+<!-- @formatter:off -->
 !!! note "Moved in 0.12.5"
     Before 0.12.5 path overrides lived in the main configuration file under a `[/paths]` section. They were moved to
     `boot.ini`'s `[paths]` section so that overrides take effect for *all* path lookups - including the bootstrap-time
     lookup that decides where the main configuration file itself lives. If you had a `[/paths]` section in your
     `nsclient.ini`, copy each `key = value` to a `[paths]` section in `boot.ini` (next to `nscp.exe`) and delete the old
     section from `nsclient.ini`; there is no automatic migration.
+<!-- @formatter:on -->
 
 ## Security
 

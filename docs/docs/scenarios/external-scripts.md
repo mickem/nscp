@@ -123,6 +123,7 @@ vbs = cscript.exe //T:30 //NoLogo "scripts\lib\wrapper.vbs" %SCRIPT% $ARGS"$
 check_updates = check_updates.vbs $ARG1$ $ARG2$
 ```
 
+<!-- @formatter:off -->
 !!! note
     Older versions of NSClient++ shipped a `ps1` wrapping that piped through
     `cmd.exe`:
@@ -131,6 +132,7 @@ check_updates = check_updates.vbs $ARG1$ $ARG2$
     `$ARGn$` substitutions cannot pass through `cmd.exe`'s parser as
     statement-level metacharacters. Existing operator-supplied wrappings
     keep working unchanged; only the default templates were updated.
+<!-- @formatter:on -->
 
 ---
 
@@ -291,6 +293,7 @@ foo = scripts\foo.bat $ARG1$ $ARG2$
 
 Arguments are accessed in scripts as `$ARG1$`, `$ARG2$`, etc.
 
+<!-- @formatter:off -->
 !!! danger
     Enabling argument pass-through is a security risk: any host that can
     reach the NRPE port can pass arbitrary arguments to whatever script you
@@ -312,6 +315,7 @@ Arguments are accessed in scripts as `$ARG1$`, `$ARG2$`, etc.
     no longer the only thing standing between the network and a shell
     interpreter — argv isolation is — but leaving it `false` continues to
     block the most obvious abuse patterns.
+<!-- @formatter:on -->
 
 ### Protocol payload limits
 
@@ -352,8 +356,10 @@ command        = scripts\fix_problem.bat
 capture output = false
 ```
 
+<!-- @formatter:off -->
 !!! danger
     Do **not** use `start` or similar shell tricks to background a process inside a regular script. This causes handle inheritance issues that block NSClient++'s port until it is restarted. Use `capture output = false` instead.
+<!-- @formatter:on -->
 
 ---
 

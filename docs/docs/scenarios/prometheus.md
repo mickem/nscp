@@ -23,11 +23,12 @@ Authenticated requests return the current metrics one-per-line in OpenMetrics
 text format. Prometheus is configured to scrape that URL on its usual
 interval (15s, 30s, 1m, …).
 
-```
-Prometheus ──HTTP scrape──► NSClient++ (WEBServer /api/v2/openmetrics)
-                                       │
-                                       └── pulls metrics from CheckSystem,
-                                           CheckDisk, predefined counters, …
+```mermaid
+flowchart LR
+    P[Prometheus] -->|HTTP scrape| W[NSClient++<br/>WEBServer<br/>/api/v2/openmetrics]
+    W --- CS[CheckSystem]
+    W --- CD[CheckDisk]
+    W --- PC[Predefined counters]
 ```
 
 Metrics are aggregated by `WEBServer` from whichever modules happen to be

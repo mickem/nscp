@@ -100,7 +100,7 @@ check_pdh "counter=\\Processor(_Total)\\% Processor Time" \
   "perf-config=*(minimum:0;maximum:100)"
 ```
 
-See [Checks In Depth: Performance Data](../concepts/checks.md#8-performance-data) for the full
+See [Checks In Depth: Performance Data](../concepts/checks.md#7-performance-data) for the full
 `perf-config` reference.
 
 ---
@@ -209,9 +209,9 @@ check_nrpe -H <agent-ip> -c check_pdh -a counter=disk_q time=30s
 
 - [Windows Server Health](windows-server-health.md) — combine PDH counters with CPU/memory/disk
   baselines
-- [Checks In Depth: Performance Data](../concepts/checks.md#8-performance-data) — customise
+- [Checks In Depth: Performance Data](../concepts/checks.md#7-performance-data) — customise
   perfdata, force min/max bounds for graphing
-- [Checks In Depth: Filters](../concepts/checks.md#5-filters-choosing-what-to-check) — write
+- [Checks In Depth: Filters](../concepts/checks.md#3-filters-choosing-what-to-check) — write
   filter and threshold expressions
 - [FAQ: Failed to open performance counters](../faq.md#13-failed-to-open-performance-counters) —
   rebuilding a broken PDH registry

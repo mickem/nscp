@@ -117,10 +117,10 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 {% for help in query.params -%}
     {%- if help.is_simple %}{% if help.content_type == 4 -%}
         {% do table.append([help.name, 'N/A', help.long_description|firstline]) %}{% else -%}
-        {% do table.append([help.name, help.default_value, help.long_description|firstline]) %}{%- endif %}
+        {% do table.append([help.name, help.default_value|unexpand_path, help.long_description|firstline]) %}{%- endif %}
     {%- else %}{% if help.content_type == 4 -%}
         {% do table.append([help.name|md_prefix_lnk(query.key)|md_self_link(help.name), 'N/A', help.long_description|firstline]) %}{% else -%}
-        {% do table.append([help.name|md_prefix_lnk(query.key)|md_self_link(help.name), help.default_value, help.long_description|firstline]) %}{%- endif %}
+        {% do table.append([help.name|md_prefix_lnk(query.key)|md_self_link(help.name), help.default_value|unexpand_path, help.long_description|firstline]) %}{%- endif %}
     {%- endif %}
 {%- endfor %}
 {{table|rst_table('Option', 'Default Value', 'Description')}}
@@ -130,7 +130,7 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 
 {{help.long_description}}
 {% if help.default_value %}
-*Default Value:* `{{help.default_value}}`
+*Default Value:* `{{help.default_value|unexpand_path}}`
 {%- endif %}{{'\n'}}
 {%- endif %}{%- endfor %}
 
@@ -184,7 +184,7 @@ This is a section of objects. This means that you will create objects below this
 
 {% set tbl = [] -%}
 {% for k,key in path.sample.keys|dictsort  -%}
-    {% do tbl.append([k, key.info.default_value, key.info.title|firstline]) -%}
+    {% do tbl.append([k, key.info.default_value|unexpand_path, key.info.title|firstline]) -%}
 {%- endfor %}
 {{tbl|rst_table('Key', 'Default Value', 'Description')}}
 
@@ -194,7 +194,7 @@ This is a section of objects. This means that you will create objects below this
 # An example of a {{path.info.title}} section
 [{{path.key}}/sample]
 {% for kkey,key in path.sample.keys|dictsort -%}
-{% if key.info.default_value %}{{kkey}}={{key.info.default_value}}
+{% if key.info.default_value %}{{kkey}}={{key.info.default_value|unexpand_path}}
 {% else %}#{{kkey}}=...
 {% endif %}
 {%- endfor %}
@@ -215,7 +215,7 @@ This is a section of objects. This means that you will create objects below this
 {% set pkey = path.key|md_self_link -%}
 {% for k,key in path.keys|dictsort  -%}
     {% set kkey = key.info.title|as_text|mkref|md_self_link(k) -%}
-    {% do tbl.append([kkey, key.info.default_value, key.info.title|firstline]) -%}
+    {% do tbl.append([kkey, key.info.default_value|unexpand_path, key.info.title|firstline]) -%}
 {%- endfor %}
 {{tbl|rst_table('Key', 'Default Value', 'Description')}}
 
@@ -225,7 +225,7 @@ This is a section of objects. This means that you will create objects below this
 [{{path.key}}]
 {% for kkey,key in path.keys|dictsort -%}
 {% if key.info.default_value -%}
-{{kkey}}={{key.info.default_value}}
+{{kkey}}={{key.info.default_value|unexpand_path}}
 {% endif %}
 {%- endfor %}
 ```
@@ -246,7 +246,7 @@ This is a section of objects. This means that you will create objects below this
 {% do table.append(['Advanced:', 'Yes (means it is not commonly used)']) -%}
 {%- endif %}
 {% if key.info.default_value -%}
-{% do table.append(['Default value:', '`' + key.info.default_value + '`']) -%}
+{% do table.append(['Default value:', '`' + key.info.default_value|unexpand_path + '`']) -%}
 {% else %}
 {% do table.append(['Default value:', '_N/A_']) -%}
 {%- endif %}
@@ -260,7 +260,7 @@ This is a section of objects. This means that you will create objects below this
 ```
 [{{path.key}}]
 # {{key.info.title}}
-{{kkey}}={{key.info.default_value}}
+{{kkey}}={{key.info.default_value|unexpand_path}}
 ```
 
 {% endfor %}
@@ -471,14 +471,14 @@ def make_rst_link(name, type, title = None):
     return ':%s:`%s`'%(type, name)
 
 def make_md_link(name, title = None):
-    if title:
-        return '[%s](%s)'%(title, name)
-    return '[%s](%s)'%(name, name)
+    title = title or name
+    name = name.replace('(', '').replace(')', '')
+    return '[%s](%s)'%(title, name)
 
 def make_md_self_link(name, title = None):
-    if title:
-        return '[%s](#%s)'%(title, name)
-    return '[%s](#%s)'%(name, name)
+    title = title or name
+    name = name.replace('(', '').replace(')', '')
+    return '[%s](#%s)'%(title, name)
 def make_md_code(name):
     return '`%s`'%name
 def make_md_prefix_lnk(value, prefix):
@@ -487,6 +487,37 @@ def make_md_conf_lnk(value, prefix):
     return '%s/%s'%(prefix, value)
 def mkref(value):
     return value.lower().replace(" ", "-")
+
+# Known path variables resolved via core.expand_path. Mirrors the fixed set in
+# service/path_manager.cpp get_path_for_key — unknown keys there fall back to
+# base-path, so probing arbitrary names would not yield more matches.
+KNOWN_PATH_KEYS = [
+    'base-path', 'exe-path', 'shared-path', 'data-path', 'appdata',
+    'common-appdata', 'certificate-path', 'module-path', 'web-path',
+    'scripts', 'log-path', 'cache-folder', 'crash-folder', 'ca-path',
+    'temp', 'etc',
+]
+
+def _normalize_path(value):
+    return value.replace('\\', '/').rstrip('/').lower()
+
+def make_unexpand_path(path_cache):
+    # path_cache is a list of (key, expanded) pre-sorted longest-first so the
+    # most specific prefix wins (e.g. ${certificate-path} before ${shared-path}).
+    def unexpand(value):
+        if not value:
+            return value
+        norm = _normalize_path(value)
+        for key, expanded in path_cache:
+            exp_norm = _normalize_path(expanded)
+            if not exp_norm:
+                continue
+            if norm == exp_norm:
+                return '${%s}' % key
+            if norm.startswith(exp_norm + '/'):
+                return '${%s}%s' % (key, value[len(expanded):])
+        return value
+    return unexpand
 
 def largest_value(a,b):
     return map(lambda n: n[0] if len(n[0])>len(n[1]) else n[1], zip(a, b))
@@ -712,10 +743,29 @@ class DocumentationHelper(object):
         self.command_cache[command] = cinfo
         return cinfo
 
+    def build_path_cache(self):
+        # Resolve every known path variable once via core.expand_path so the
+        # template can rewrite absolute defaults (c:\Program Files\...) back to
+        # ${var}/... form. Sorted longest-first so a more specific prefix
+        # (${certificate-path}) wins over an ancestor (${shared-path}).
+        cache = {}
+        for k in KNOWN_PATH_KEYS:
+            try:
+                v = self.core.expand_path('${%s}' % k)
+            except Exception as e:
+                log_debug('expand_path failed for ${%s}: %s' % (k, e))
+                continue
+            if v and v != '${%s}' % k:
+                cache[k] = v
+        return sorted(cache.items(), key=lambda kv: len(kv[1]), reverse=True)
+
     def generate_rst(self, input_dir, output_dir):
         root = self.get_info()
         i = 0
-        
+
+        path_cache = self.build_path_cache()
+        log_debug('Resolved %d path variables for default-value rewriting' % len(path_cache))
+
         env = Environment(extensions=["jinja2.ext.do",])
         env.filters['firstline'] = first_line
         env.filters['rst_link'] = make_rst_link
@@ -730,6 +780,7 @@ class DocumentationHelper(object):
         env.filters['common_head'] = calculate_common_head
         env.filters['as_text'] = as_text
         env.filters['mkref'] = mkref
+        env.filters['unexpand_path'] = make_unexpand_path(path_cache)
         
         for (module,minfo) in root.plugins.items():
             out_base_path = '%s/docs/'%output_dir

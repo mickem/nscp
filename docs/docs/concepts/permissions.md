@@ -82,10 +82,12 @@ Modules that only emit metrics or receive submissions (`CheckMKServer`, `Graphit
 
 ### Scripting modules (PythonScript, LUAScript) — treat as unsafe
 
+<!-- @formatter:off -->
 !!! danger "Scripts run with full plugin privileges"
     `PythonScript` and `LUAScript` execute arbitrary user-supplied code inside the agent process. The permission
     system **cannot meaningfully gate what a script does** — it only gates which commands the script's plugin id
     is allowed to *call*. A script with the right rule can do anything a plugin can do.
+<!-- @formatter:on -->
 
 Specifically, a loaded script can:
 

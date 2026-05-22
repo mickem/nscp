@@ -2,23 +2,29 @@
 
 **Goal:** Have NSClient++ run checks on a schedule and push the results to your monitoring server — without the monitoring server needing to poll each machine.
 
+<!-- @formatter:off -->
 !!! tip
     Passive monitoring is ideal when the monitored machines are behind a firewall, are in a DMZ, or when you want to distribute the check workload across many agents rather than centralising it on the monitoring server.
-
+<!-- @formatter:on -->
 ---
 
 ## How Passive Monitoring Works
 
 In **active (NRPE) monitoring**, the monitoring server initiates contact and polls the agent:
 
-```
-Monitoring Server ──check_nrpe──► NSClient++ → runs check → returns result
+```mermaid
+flowchart LR
+    S[Monitoring Server] -->|check_nrpe| A[NSClient++]
+    A -->|runs check| R[Result]
+    R --> S
 ```
 
 In **passive monitoring**, the agent runs checks on its own schedule and pushes results to the server:
 
-```
-NSClient++ (Scheduler) → runs check → NSCAClient ──────► Monitoring Server (NSCA daemon)
+```mermaid
+flowchart LR
+    S[Scheduler] -->|runs check| C[NSCAClient]
+    C -->|NSCA| M[Monitoring Server<br/>NSCA daemon]
 ```
 
 The monitoring server simply waits for results. If no result arrives within the expected time window, the monitoring server raises a "freshness" alert.
@@ -52,10 +58,10 @@ nscp nsca --host <nagios-server-ip> ^
     --hostname "my-windows-host" ^
     --message "Hello from NSClient++"
 ```
-
+<!-- @formatter:off -->
 !!! note
     The `^` character is the Windows **Command Prompt** line-continuation character. In PowerShell use a backtick (`` ` ``) instead, or write the command on a single line.
-
+<!-- @formatter:on -->
 Expected output:
 
 ```
@@ -84,10 +90,12 @@ you can `tail` to see what arrives:
 command_file = /tmp/result.txt
 ```
 
+<!-- @formatter:off -->
 !!! note
     The password is a shared secret — both sides must use the same value, and
     it isn't authenticated in the cryptographic sense (no challenge/response).
     Use a strong, long password to make brute-force impractical.
+<!-- @formatter:on -->
 
 ### NSCA encryption reference
 
@@ -109,11 +117,13 @@ common identifier, so the matching is by table:
 | `serpent`        | 20          | 🟢 Paranoid                   |
 | `gost`           | 23          | ⚠️ Questionable               |
 
+<!-- @formatter:off -->
 !!! warning "AES naming gotcha"
     NSCA names ciphers by **block size**, NSClient++ names them by **key
     size**. NSCA's `RIJNDAEL-128` (method `14`) is what NSClient++ calls
     `aes256` — same algorithm, different label. NSCA only supports AES with a
     128-bit block, so the other AES-named NSCA values are not valid choices.
+<!-- @formatter:on -->
 
 ---
 
@@ -143,6 +153,7 @@ disk_c     = check_drivesize drive=C: "warn=free < 20%" "crit=free < 10%"
 
 Each key becomes the **service name** that Nagios/Icinga will see in the passive check result.
 
+<!-- @formatter:off -->
 !!! note
     The `default` schedule section applies its settings to all schedules that do not override them. You can override any setting per schedule by creating a dedicated section:
 
@@ -153,6 +164,7 @@ Each key becomes the **service name** that Nagios/Icinga will see in the passive
     channel  = NSCA
     report   = all
     ```
+<!-- @formatter:on -->
 
 ### Schedule options reference
 

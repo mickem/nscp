@@ -40,8 +40,10 @@ Usually this is due to running more then once instance of NSClient++ or possibly
 
 ### 1.5 EventlogBuffer is too small
 
+<!-- @formatter:off -->
 !!! note
     This has been changed in 0.4.3 and is no longer required
+<!-- @formatter:on -->
 
 This is because you have one or more entries in your event-log which are larger then the "default buffer size of 64k". The best way to fix this is to increase the buffer used.
 
@@ -52,8 +54,10 @@ buffer_size=128000
 
 ### 1.6 System Tray does not work
 
+<!-- @formatter:off -->
 !!! note
     System tray was removed in 0.4.0.
+<!-- @formatter:on -->
 
 ### 1.7 I get <insert random error from Nagios here>
 
