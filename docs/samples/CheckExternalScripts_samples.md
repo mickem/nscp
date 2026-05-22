@@ -82,7 +82,9 @@ capture output = false
 
 The draw back to this is that the script cannot return any output neither message nor status code.
 
+<!-- @formatter:off -->
 !!! danger
     A word of warning using "start" or other similar measure to try to start a program in a regular script will cause a rather nasty unexpected issue with NSClient++ due to how handles are inherited in Windows.
     Starting a background process in a script will end up blocking the port and forcing a restart of the server. 
     Thus `capture output = false` method is preferred.
+<!-- @formatter:on -->

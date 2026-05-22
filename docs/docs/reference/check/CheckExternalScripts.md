@@ -131,7 +131,6 @@ The draw back to this is that the script cannot return any output neither messag
 <!-- @formatter:on -->
 
 
-
 ## Configuration
 
 

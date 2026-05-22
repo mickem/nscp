@@ -336,8 +336,8 @@ Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 |----------------------------------------------------------------------|-------------------------------------|------------------------------------|
 | [allow anonymous access](#allow-anonymous-access)                    | false                               | ALLOW ANONYMOUS ACCESS             |
 | [allowed hosts](#allowed-hosts)                                      | 127.0.0.1                           | Allowed hosts                      |
-| [auth rate limit block seconds](#auth-rate-limit-block-seconds)    | 60                                  | AUTH RATE LIMIT (BLOCK SECONDS)    |
-| [auth rate limit max failures](#auth-rate-limit-failures)          | 10                                  | AUTH RATE LIMIT (FAILURES)         |
+| [auth rate limit block seconds](#auth-rate-limit-block-seconds)      | 60                                  | AUTH RATE LIMIT (BLOCK SECONDS)    |
+| [auth rate limit max failures](#auth-rate-limit-failures)            | 10                                  | AUTH RATE LIMIT (FAILURES)         |
 | [cache allowed hosts](#cache-list-of-allowed-hosts)                  | true                                | Cache list of allowed hosts        |
 | [certificate](#tls-certificate)                                      | ${certificate-path}/certificate.pem | TLS Certificate                    |
 | [certificate key](#tls-private-key)                                  |                                     | TLS private key                    |
