@@ -16,7 +16,7 @@ runs:
   using: composite
   steps:
     - id: cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         key: ${{ runner.os }}-lua-${{ inputs.version }}
         path: |
