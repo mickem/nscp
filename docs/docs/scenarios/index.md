@@ -16,9 +16,11 @@ Each scenario follows the same structure:
 
 ## Available Scenarios
 
+<!-- @formatter:off -->
 !!! tip "Looking for install / hardening / web UI?"
     Agent setup, TLS hardening, and the web management UI live in the
     [Setup](../setup/installing.md) section.
+<!-- @formatter:on -->
 
 ### Infrastructure / System Health
 

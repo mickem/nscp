@@ -3,6 +3,8 @@
 This is a growing process before it was all manual but slowly we are getting a more "automated" installation process so
 hopefully this will keep improving in the future as well and some of the steps might go away.
 
+See [Supported platforms](supported-platforms.md) for the Windows and Linux version matrix, including the difference between the standard and legacy Windows editions.
+
 
 ## Table of Contents
 

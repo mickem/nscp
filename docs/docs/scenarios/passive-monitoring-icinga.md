@@ -3,10 +3,12 @@
 **Goal:** Have NSClient++ run checks on a schedule and submit the results to an [Icinga 2](https://icinga.com/) server
 through its REST API — without Icinga 2 needing to poll each Windows host directly.
 
+<!-- @formatter:off -->
 !!! tip
-The Icinga 2 client uses HTTPS and the standard Icinga 2 REST API (`/v1/actions/process-check-result`). It is a good fit
-when your monitoring server runs Icinga 2, the agents are behind a firewall, or you cannot install the Icinga agent on
-the Windows hosts.
+    The Icinga 2 client uses HTTPS and the standard Icinga 2 REST API (`/v1/actions/process-check-result`). It is a good fit
+    when your monitoring server runs Icinga 2, the agents are behind a firewall, or you cannot install the Icinga agent on
+    the Windows hosts.
+ <!-- @formatter:on -->
 
 ---
 
@@ -14,15 +16,20 @@ the Windows hosts.
 
 In **active (NRPE / agent) monitoring**, the monitoring server initiates contact and polls the agent:
 
-```
-Icinga 2 Server ──check_nrpe──► NSClient++ → runs check → returns result
+```mermaid
+flowchart LR
+    S[Icinga 2 Server] -->|check_nrpe| A[NSClient++]
+    A -->|runs check| R[Result]
+    R --> S
 ```
 
 In **passive monitoring with the Icinga 2 REST API**, the agent runs checks on its own schedule and submits the results
 over HTTPS:
 
-```
-NSClient++ (Scheduler) → runs check → IcingaClient ──HTTPS──► Icinga 2 (/v1/actions/process-check-result)
+```mermaid
+flowchart LR
+    S[Scheduler] -->|runs check| C[IcingaClient]
+    C -->|HTTPS| I[Icinga 2<br/>/v1/actions/process-check-result]
 ```
 
 The Icinga 2 server simply waits for results. If no result arrives within the expected time window, Icinga 2 raises a
@@ -77,9 +84,11 @@ nscp icinga --address https://icinga2.example.com:5665/ ^
     --message "Hello from NSClient++"
 ```
 
+<!-- @formatter:off -->
 !!! note
-The `^` character is the Windows **Command Prompt** line-continuation character. In PowerShell use a backtick (`` ` ``)
-instead, or write the command on a single line.
+    The `^` character is the Windows **Command Prompt** line-continuation character. In PowerShell use a backtick (`` ` ``)
+    instead, or write the command on a single line.
+<!-- @formatter:on -->
 
 Expected output:
 
@@ -139,9 +148,11 @@ Each schedule key becomes the **service name** on the Icinga 2 side, except for 
 is submitted as a **host** check result rather than a service result. Use it for any check that should drive the host's
 UP/DOWN state in Icinga 2.
 
+<!-- @formatter:off -->
 !!! note
-The `default` schedule section applies its settings to all schedules that do not override them. You can override any
-setting per schedule by creating a dedicated section:
+    The `default` schedule section applies its settings to all schedules that do not override them. You can override any
+    setting per schedule by creating a dedicated section:
+<!-- @formatter:on -->
 
 ```ini
 [/settings/scheduler/schedules/disk_c]
@@ -248,11 +259,13 @@ the probe returns 404. Existing objects are left untouched. The `ApiUser` needs 
 | `check command`    | The `check_command` to set on auto-created service objects (default: `dummy`).                         |
 | `check source`     | Override for the `check_source` field reported to Icinga 2. Defaults to the local hostname when empty. |
 
+<!-- @formatter:off -->
 !!! warning
-Auto-creating objects through the REST API does **not** persist them in your Icinga 2 configuration files — they are
-stored in Icinga 2's runtime config repository. If you reconfigure your monitoring through Director or text config, the
-auto-created objects may end up duplicated or removed. For production deployments most operators prefer to define
-objects explicitly and leave `ensure objects = false`.
+    Auto-creating objects through the REST API does **not** persist them in your Icinga 2 configuration files — they are
+    stored in Icinga 2's runtime config repository. If you reconfigure your monitoring through Director or text config, the
+    auto-created objects may end up duplicated or removed. For production deployments most operators prefer to define
+    objects explicitly and leave `ensure objects = false`.
+<!-- @formatter:on -->
 
 ---
 

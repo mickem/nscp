@@ -2,11 +2,34 @@
 
 **Goal:** Configure NSClient++ as an NRPE agent so a Nagios-style monitoring server can poll it for check results, with TLS encryption and (optionally) client-certificate authentication.
 
+<!-- @formatter:off -->
 !!! tip
     NRPE is the right choice when the monitoring server can reach the agent
     directly. If the agent sits behind a firewall or NAT, look at
     [Passive Monitoring (NSCA/NRDP)](passive-monitoring-nsca.md) or
     [Passive Monitoring (Icinga 2)](passive-monitoring-icinga.md) instead.
+<!-- @formatter:on -->
+
+---
+
+## How NRPE Works
+
+NRPE is **active, pull-style**: the monitoring server opens a TCP connection to
+the agent (default port `5666`), names a check to run, and the agent runs it
+locally and returns the result on the same connection.
+
+```mermaid
+flowchart LR
+    M[Monitoring Server] -->|check_nrpe<br/>TCP/5666, TLS| A[NSClient++<br/>NRPEServer]
+    A -->|runs check| R[Result]
+    R --> M
+```
+
+Modern NRPE uses TLS for the transport. Authentication can be one of:
+
+- **Anonymous TLS** — encryption only, no peer identity. Combine with `allowed hosts` to restrict who can connect.
+- **Client certificate** — the server presents a cert signed by a CA the agent trusts. Strongest option; this scenario walks through both.
+- **Insecure (no TLS)** — supported for legacy clients but not recommended.
 
 ---
 
@@ -236,6 +259,7 @@ allowed hosts          = 192.168.0.0/24
 port                   = 5666
 ```
 
+<!-- @formatter:off -->
 !!! danger
     Combine `allow arguments = true` with a tight `allowed hosts` list (and
     a firewall) so only your monitoring server can reach the NRPE port. Any
@@ -254,6 +278,7 @@ port                   = 5666
     `|`, `` ` ``, `&`, `>`, `<`, `'`, `"`, `\`, `[`, `]`, `{`, `}` at the
     NRPE ingress, which catches the most obvious abuse patterns and trips
     misconfigured monitoring early.
+<!-- @formatter:on -->
 
 ---
 

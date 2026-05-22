@@ -2,8 +2,10 @@
 
 This guide takes you from zero to your first successful check in about 10 minutes.
 
+<!-- @formatter:off -->
 !!! note
     This guide assumes Windows. NSClient++ also runs on Linux, but some modules are Windows-only.
+<!-- @formatter:on -->
 
 ---
 
@@ -29,8 +31,10 @@ After the installer finishes, the `nscp` Windows service starts automatically.
 
 The test shell lets you run checks interactively and see debug output in real time. It is the best tool for learning and troubleshooting.
 
+<!-- @formatter:off -->
 !!! warning
     The test shell runs NSClient++ in the foreground. Stop the service first so they do not conflict.
+<!-- @formatter:on -->
 
 Open an **Administrator command prompt** and run:
 

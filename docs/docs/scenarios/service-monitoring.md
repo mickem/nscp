@@ -69,8 +69,10 @@ Or with a filter for substring matching (more flexible):
 check_service "filter=start_type = 'auto' and name not like 'clr_optimization'"
 ```
 
+<!-- @formatter:off -->
 !!! note
     `exclude=` is faster but only matches the exact service name. `filter=` is more flexible and supports expressions, substring matching, and logical operators.
+<!-- @formatter:on -->
 
 ### Show all services and their states
 
@@ -149,8 +151,10 @@ check_process "filter=virtual > 200m" "top-syntax=${list}" "detail-syntax=${exe}
 check_nrpe -H <agent-ip> -c check_process --argument "process=myapp.exe"
 ```
 
+<!-- @formatter:off -->
 !!! warning
     Passing arguments via NRPE requires `allow arguments = true` in the NRPE server config. See [NRPE security](nrpe.md) for the security implications.
+<!-- @formatter:on -->
 
 ---
 
@@ -181,5 +185,5 @@ check_nrpe -H <agent-ip> -c check_process --argument "process=myapp.exe"
 
 - [Event Log Monitoring](event-log.md) — catch service crash events before they are noticed
 - [Windows Server Health](windows-server-health.md) — add service checks to a full health baseline
-- [Checks In Depth: Filters](../concepts/checks.md#5-filters-choosing-what-to-check) — understand how to write filter expressions
+- [Checks In Depth: Filters](../concepts/checks.md#3-filters-choosing-what-to-check) — understand how to write filter expressions
 - [Reference: CheckSystem](../reference/windows/CheckSystem.md) — full command reference

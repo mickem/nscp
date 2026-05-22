@@ -4,6 +4,7 @@
 **NSCA-NG** server using TLS-PSK authentication — the modern, encrypted
 replacement for the legacy NSCA daemon.
 
+<!-- @formatter:off -->
 !!! tip "NSCA vs. NSCA-NG vs. NRDP"
     All three solve the same problem (push results from agent → server). Pick
     by what your monitoring server supports:
@@ -15,25 +16,40 @@ replacement for the legacy NSCA daemon.
     - **NRDP** — HTTP/JSON-based, easiest to traverse proxies and load
       balancers.
       [Scenario](passive-monitoring-nsca.md#using-nrdp-instead-of-nsca).
+<!-- @formatter:on -->
 
 ---
 
 ## How NSCA-NG Works
 
+NSClient++ runs checks on a schedule and pushes the results to the NSCA-NG
+server over a TLS-PSK connection:
+
+```mermaid
+flowchart LR
+    S[Scheduler] -->|runs check| C[NSCANgClient]
+    C -->|TLS-PSK<br/>port 5668| N[NSCA-NG server]
+    N --> P[external_command_pipe]
+    P --> M[Nagios / Icinga core]
+```
+
 The agent opens a TLS connection to the server (default port `5668`),
 authenticates with a Pre-Shared Key (PSK), then exchanges a small text
 protocol:
 
-```
-Client ──TLS handshake (PSK)──► Server
-Client → MOIN 1 <session-id>
-Server → OKAY
-Client → PUSH <length>
-Server → OKAY
-Client → [<ts>] PROCESS_SERVICE_CHECK_RESULT;<host>;<svc>;<code>;<output>\n
-Server → OKAY
-Client → QUIT
-Server → OKAY
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    C->>S: TLS handshake (PSK)
+    C->>S: MOIN 1 session-id
+    S-->>C: OKAY
+    C->>S: PUSH length
+    S-->>C: OKAY
+    C->>S: PROCESS_SERVICE_CHECK_RESULT#59;host#59;svc#59;code#59;output
+    S-->>C: OKAY
+    C->>S: QUIT
+    S-->>C: OKAY
 ```
 
 Each PUSH carries one Nagios external command. The server appends it to its
@@ -134,6 +150,7 @@ verify mode     = peer-cert
 When `use psk = false` the connection uses TLS 1.2 or 1.3 with the standard
 verify chain — no PSK ciphersuite restriction.
 
+<!-- @formatter:off -->
 !!! warning "Cert mode now fails closed without peer verification"
     `verify mode` (combined with a valid `ca`) **must** authenticate the server
     when running in cert mode. If the resolved verify mode does not include
@@ -149,6 +166,7 @@ verify chain — no PSK ciphersuite restriction.
     The hostname in `address` must also match the server certificate's CN /
     SAN; if you connect to an IP literal, the cert needs that IP listed as a
     SAN.
+<!-- @formatter:on -->
 
 ---
 
