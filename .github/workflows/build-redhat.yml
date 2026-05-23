@@ -16,9 +16,6 @@ on:
         description: 'Version to build'
         required: true
 
-env:
-  MONGOOSE_VERSION: "7.20"
-
 jobs:
   build-rpm:
     runs-on: ${{ matrix.runner }}
@@ -108,11 +105,6 @@ jobs:
       env:
         PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-    - id: mongoose
-      uses: ./.github/actions/mongoose
-      with:
-        version: ${{ env.MONGOOSE_VERSION }}
-
     - id: build-web
       working-directory: web
       run: |
@@ -124,7 +116,7 @@ jobs:
         cat > tmp/nscp/build.cmake << 'EOF'
         SET(LIBRARY_ROOT_FOLDER "${{ env.GITHUB_WORKSPACE }}")
         SET(NSCP_BOOST_PYTHON_VERSION "${{ matrix.python_version }}")
-        set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
+        SET(NSCP_WEB_BACKEND "beast")
         set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}")
         set(USE_STATIC_RUNTIME OFF)
         EOF

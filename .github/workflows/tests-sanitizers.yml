@@ -28,9 +28,6 @@ on:
         required: true
         default: '0.0.0'
 
-env:
-  MONGOOSE_VERSION: "7.20"
-
 jobs:
   sanitizer-tests:
     runs-on: ubuntu-latest
@@ -64,11 +61,6 @@ jobs:
       run: |
         pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt
 
-    - id: mongoose
-      uses: ./.github/actions/mongoose
-      with:
-        version: ${{ env.MONGOOSE_VERSION }}
-
     - name: Build web
       working-directory: web
       run: |
@@ -80,7 +72,7 @@ jobs:
         cat > tmp/nscp/build.cmake << 'EOF'
         SET(LIBRARY_ROOT_FOLDER "${{ env.GITHUB_WORKSPACE }}")
         SET(NSCP_BOOST_PYTHON_VERSION "python312")
-        set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
+        SET(NSCP_WEB_BACKEND "beast")
         # Skip copying the Rust check_nsclient binary — sanitizer tests don't
         # need it, and building the Rust client just for this run is wasteful.
         set(CHECK_NSCLIENT_MISSING ON)

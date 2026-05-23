@@ -33,12 +33,43 @@ if(WIN32)
 else()
     find_package(LibZip)
 endif()
-find_package(Mongoose)
+# HTTP backend selector for WEBServer. The mongoose default keeps the
+# Windows packaging story unchanged; setting `beast` switches every
+# platform to the Boost.Beast implementation (libs/mongoose-cpp/
+# ServerBeastImpl.cpp) and drops the vendored mongoose download from
+# the build. See docs/design/beast-web-backend.md.
+set(NSCP_WEB_BACKEND
+    "mongoose"
+    CACHE STRING
+    "HTTP backend for WEBServer: mongoose | beast"
+)
+set_property(CACHE NSCP_WEB_BACKEND PROPERTY STRINGS mongoose beast)
+
+if(NSCP_WEB_BACKEND STREQUAL "mongoose")
+    find_package(Mongoose)
+elseif(NSCP_WEB_BACKEND STREQUAL "beast")
+    # Beast is header-only; the Boost components (coroutine + context)
+    # needed by ServerBeastImpl are added below.
+    message(STATUS "WEB backend: Boost.Beast (mongoose download skipped)")
+else()
+    message(FATAL_ERROR "Unknown NSCP_WEB_BACKEND='${NSCP_WEB_BACKEND}' (expected mongoose | beast)")
+endif()
 # CMP0167 (CMake 3.30+) removes the bundled FindBoost module in favour of
 # upstream BoostConfig.
 if(POLICY CMP0167)
     cmake_policy(SET CMP0167 OLD)
 endif()
+# Beast-only Boost components: spawn (stackful coroutines) pulls in
+# Boost.Coroutine, which in turn pulls in Boost.Context. Mongoose builds
+# don't compile ServerBeastImpl.cpp at all, so requesting these would be
+# unused work — and would force the package list (libboost-coroutine,
+# libboost-context on Debian; analogous on RPM) on environments that
+# only ever build the mongoose backend (typically Windows).
+set(_nscp_extra_boost_components)
+if(NSCP_WEB_BACKEND STREQUAL "beast")
+    list(APPEND _nscp_extra_boost_components coroutine context)
+endif()
+
 find_package(
     Boost
     COMPONENTS
@@ -52,6 +83,7 @@ find_package(
         chrono
         json
         container
+        ${_nscp_extra_boost_components}
 )
 find_package(Mkdocs)
 find_package(CSharp)
@@ -188,14 +220,16 @@ if(MKDOCS_FOUND)
 else(MKDOCS_FOUND)
     message(STATUS " ! MKDocs not found: MKDOCS_DIR=${MKDOCS_DIR}")
 endif(MKDOCS_FOUND)
-if(MONGOOSE_FOUND)
-    message(STATUS " - Mongoose found in: ${MONGOOSE_INCLUDE_DIR}")
-else(MONGOOSE_FOUND)
-    message(
-        STATUS
-        " ! Mongoose not found: MONGOOSE_SOURCE_DIR=${MONGOOSE_SOURCE_DIR}"
-    )
-endif(MONGOOSE_FOUND)
+if(NSCP_WEB_BACKEND STREQUAL "mongoose")
+    if(MONGOOSE_FOUND)
+        message(STATUS " - Mongoose found in: ${MONGOOSE_INCLUDE_DIR}")
+    else(MONGOOSE_FOUND)
+        message(
+            STATUS
+            " ! Mongoose not found: MONGOOSE_SOURCE_DIR=${MONGOOSE_SOURCE_DIR}"
+        )
+    endif(MONGOOSE_FOUND)
+endif()
 
 if(WIN32)
     if(WIX_FOUND)

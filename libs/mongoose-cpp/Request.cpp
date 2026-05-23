@@ -11,11 +11,6 @@
 #include <utility>
 #include <vector>
 
-// clang-format off
-// Has to be after boost or we get namespace clashes
-#include "mongoose_wrapper.h"
-// clang-format on
-
 using namespace std;
 
 namespace {
@@ -70,22 +65,57 @@ long long mg_get_cookie(const char *cookie_header, const char *var_name, char *d
   return -1;
 }
 
-bool readVariable(const mg_str data, const string &key, string &output) {
-  if (data.len == 0) {
-    return false;
+// Decode an application/x-www-form-urlencoded fragment: "%XX" -> the byte,
+// "+" -> space, everything else passthrough. Invalid / truncated "%XX"
+// escapes are copied through verbatim (matches mg_url_decode with
+// is_form_url_encoded=1, which only failed on undersized output buffers —
+// not reachable here since we always size to the input length).
+std::string decode_form(const char *data, std::size_t len) {
+  std::string out;
+  out.reserve(len);
+  const auto hex_val = [](char c) -> int {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
+    if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
+    return 0;
+  };
+  for (std::size_t i = 0; i < len; ++i) {
+    const char c = data[i];
+    if (c == '+') {
+      out.push_back(' ');
+    } else if (c == '%' && i + 2 < len && std::isxdigit(static_cast<unsigned char>(data[i + 1])) && std::isxdigit(static_cast<unsigned char>(data[i + 2]))) {
+      out.push_back(static_cast<char>((hex_val(data[i + 1]) << 4) | hex_val(data[i + 2])));
+      i += 2;
+    } else {
+      out.push_back(c);
+    }
   }
-  // The decoded variable value can never exceed the length of the source data
-  // itself, so sizing the buffer to that length guarantees a single call.
-  std::string buffer(data.len + 1, '\0');
-  const int ret = mg_http_get_var(&data, key.c_str(), &buffer[0], static_cast<int>(buffer.size()));
+  return out;
+}
 
-  if (ret <= 0) {
-    return false;
+inline std::string decode_form(const std::string &s) { return decode_form(s.data(), s.size()); }
+
+// Locate the first form-encoded value matching `key` in `query`.
+// Returns true on hit (mirrors mg_http_get_var: case-sensitive key,
+// first occurrence wins, returns just the decoded value).
+bool readVariable(const std::string &query, const std::string &key, std::string &output) {
+  if (query.empty()) return false;
+  std::size_t i = 0;
+  const std::size_t n = query.size();
+  while (i < n) {
+    std::size_t pair_end = query.find('&', i);
+    if (pair_end == std::string::npos) pair_end = n;
+    const std::size_t eq = query.find('=', i);
+    if (eq != std::string::npos && eq < pair_end) {
+      const std::string k = decode_form(query.data() + i, eq - i);
+      if (k == key) {
+        output = decode_form(query.data() + eq + 1, pair_end - eq - 1);
+        return true;
+      }
+    }
+    i = pair_end + 1;
   }
-
-  buffer.resize(static_cast<size_t>(ret));
-  output = std::move(buffer);
-  return true;
+  return false;
 }
 
 }  // namespace
@@ -110,27 +140,16 @@ Request::arg_vector get_var_vector(const char *data, size_t data_len) {
 
   istringstream f(string(data, data_len));
   string s;
-  // RAII buffer for url-decoded fragments.
-  std::vector<char> tmp(data_len + 1);
-  // data is "var1=val1&var2=val2...". Find variable first
+  // data is "var1=val1&var2=val2...". Split on '&', decode key and value
+  // independently via the same form-decode used by readVariable().
   while (getline(f, s, '&')) {
     const auto eq_pos = s.find('=');
     string key, val;
     if (eq_pos != string::npos) {
-      key = s.substr(0, eq_pos);
-      val = s.substr(eq_pos + 1);
+      key = decode_form(s.data(), eq_pos);
+      val = decode_form(s.data() + eq_pos + 1, s.size() - eq_pos - 1);
     } else {
-      key = s;
-    }
-    if (mg_url_decode(key.c_str(), static_cast<int>(key.length()), tmp.data(), static_cast<int>(tmp.size()), 1) == -1) {
-      return ret;
-    }
-    key = tmp.data();
-    if (!val.empty()) {
-      if (mg_url_decode(val.c_str(), static_cast<int>(val.length()), tmp.data(), static_cast<int>(tmp.size()), 1) == -1) {
-        return ret;
-      }
-      val = tmp.data();
+      key = decode_form(s);
     }
     ret.emplace_back(std::move(key), std::move(val));
   }
@@ -153,7 +172,7 @@ std::string Request::get_host() const {
 
 string Request::get(const string &key, string fallback) const {
   string output;
-  if (readVariable(mg_str(query.c_str()), key, output)) {
+  if (readVariable(query, key, output)) {
     return output;
   }
   return fallback;

@@ -36,12 +36,11 @@ TEST(Helpers, Base64RoundTripText) {
 }
 
 TEST(Helpers, Base64RoundTripBinary) {
-  // NOTE: Helpers::encode_b64 uses strncpy internally to copy the input which
-  // truncates at the first null byte. Binary payloads with embedded NULs are
-  // therefore not preserved (this is a known limitation of the helper). We
-  // exercise the full non-null byte range here.
+  // The full 0..255 byte range survives a round-trip — including embedded
+  // NULs, which the previous mongoose-backed implementation truncated on
+  // (it strncpy'd the input).
   std::string original;
-  for (int i = 1; i < 256; ++i) {
+  for (int i = 0; i < 256; ++i) {
     original.push_back(static_cast<char>(i));
   }
   EXPECT_EQ(Helpers::decode_b64(Helpers::encode_b64(original)), original);

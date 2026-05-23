@@ -455,22 +455,39 @@ NSCP_CREATE_TEST(
 )
 
 set(MONGOOSE_CPP_DIR ${CMAKE_SOURCE_DIR}/libs/mongoose-cpp)
+
+# Shared (backend-independent) test sources.
+set(MONGOOSE_WRAPPER_TEST_SOURCES
+    ${MONGOOSE_CPP_DIR}/Request_test.cpp
+    ${MONGOOSE_CPP_DIR}/Response_test.cpp
+    ${MONGOOSE_CPP_DIR}/StreamResponse_test.cpp
+    ${MONGOOSE_CPP_DIR}/string_response_test.cpp
+    ${MONGOOSE_CPP_DIR}/Helpers_test.cpp
+    ${MONGOOSE_CPP_DIR}/Controller_test.cpp
+    ${MONGOOSE_CPP_DIR}/MatchController_test.cpp
+    ${MONGOOSE_CPP_DIR}/RegexController_test.cpp
+)
+
+# Per-backend additions. Beast tests depend on the symbols that
+# ServerBeastImpl.cpp compiles into nscp_mongoose, plus Boost.Coroutine
+# / Boost.Context for the spawn-based test client. Mongoose tests
+# compile mongoose.c into the test exe to get a private copy of the
+# C-API symbols (which nscp_mongoose doesn't export).
+set(_nscp_wrapper_test_backend_libs)
+if(NSCP_WEB_BACKEND STREQUAL "beast")
+    list(APPEND MONGOOSE_WRAPPER_TEST_SOURCES ${MONGOOSE_CPP_DIR}/ServerBeastImpl_test.cpp)
+    list(APPEND _nscp_wrapper_test_backend_libs ${Boost_COROUTINE_LIBRARY} ${Boost_CONTEXT_LIBRARY})
+else()
+    list(APPEND MONGOOSE_WRAPPER_TEST_SOURCES
+        ${MONGOOSE_CPP_DIR}/Server_test.cpp
+        ${MONGOOSE_INCLUDE_DIR}/mongoose.c
+    )
+endif()
+
 NSCP_CREATE_TEST(
     mongoose_wrapper_test
     SOURCES
-        ${MONGOOSE_CPP_DIR}/Request_test.cpp
-        ${MONGOOSE_CPP_DIR}/Response_test.cpp
-        ${MONGOOSE_CPP_DIR}/StreamResponse_test.cpp
-        ${MONGOOSE_CPP_DIR}/string_response_test.cpp
-        ${MONGOOSE_CPP_DIR}/Helpers_test.cpp
-        ${MONGOOSE_CPP_DIR}/Controller_test.cpp
-        ${MONGOOSE_CPP_DIR}/MatchController_test.cpp
-        ${MONGOOSE_CPP_DIR}/RegexController_test.cpp
-        ${MONGOOSE_CPP_DIR}/Server_test.cpp
-        # Server_test.cpp drives ServerImpl using mongoose's C API directly.
-        # Mongoose's symbols aren't exported from nscp_mongoose.dll, so we
-        # compile mongoose.c into the test exe to get a private copy.
-        ${MONGOOSE_INCLUDE_DIR}/mongoose.c
+        ${MONGOOSE_WRAPPER_TEST_SOURCES}
     LIBRARIES
         GTest::gtest_main
         nscp_mongoose
@@ -478,18 +495,23 @@ NSCP_CREATE_TEST(
         ${Boost_SYSTEM_LIBRARY}
         ${Boost_THREAD_LIBRARY}
         ${Boost_REGEX_LIBRARY}
+        ${_nscp_wrapper_test_backend_libs}
     INCLUDES
         ${MONGOOSE_CPP_DIR}
-        ${MONGOOSE_INCLUDE_DIR}
         ${NSCP_INCLUDEDIR}
 )
+if(NSCP_WEB_BACKEND STREQUAL "mongoose")
+    target_include_directories(mongoose_wrapper_test PRIVATE ${MONGOOSE_INCLUDE_DIR})
+endif()
 if(OPENSSL_FOUND)
-    target_compile_definitions(
-        mongoose_wrapper_test
-        PRIVATE
-            MG_ENABLE_OPENSSL=1
-            MG_DISABLE_PFS=1
-    )
+    if(NSCP_WEB_BACKEND STREQUAL "mongoose")
+        target_compile_definitions(
+            mongoose_wrapper_test
+            PRIVATE
+                MG_ENABLE_OPENSSL=1
+                MG_DISABLE_PFS=1
+        )
+    endif()
     target_include_directories(
         mongoose_wrapper_test
         PRIVATE

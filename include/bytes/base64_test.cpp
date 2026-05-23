@@ -102,6 +102,33 @@ TEST(base64_encode, dest_too_small_returns_zero) {
   EXPECT_EQ(result, 0u);
 }
 
+TEST(base64_encode, oversized_srcSize_returns_zero_size_query) {
+  // SIZE_MAX (or any value > SIZE_MAX/2) would wrap the
+  // (srcSize + 2) / 3 * 4 size calculation. The guard refuses these
+  // inputs early — before any read of `src` — so this passes nullptr
+  // for both src and dest. Without the guard the wrapped `total` would
+  // sneak past the destLen check and the main loop would walk past the
+  // end of src.
+  size_t result = b64::b64_encode(nullptr, static_cast<size_t>(-1), nullptr, 0);
+  EXPECT_EQ(result, 0u);
+}
+
+TEST(base64_encode, oversized_srcSize_returns_zero_with_dest) {
+  // Same guard, but with a non-NULL `dest`: must still return 0 without
+  // writing anything (and without dereferencing src).
+  char tiny[1];
+  size_t result = b64::b64_encode(nullptr, static_cast<size_t>(-1), tiny, sizeof(tiny));
+  EXPECT_EQ(result, 0u);
+}
+
+TEST(base64_encode, threshold_srcSize_returns_zero) {
+  // Exactly `SIZE_MAX / 2 + 1` is the smallest value the guard rejects;
+  // exercising the boundary keeps the threshold visible if anyone tweaks
+  // it later.
+  size_t result = b64::b64_encode(nullptr, (static_cast<size_t>(-1) / 2) + 1, nullptr, 0);
+  EXPECT_EQ(result, 0u);
+}
+
 // --- Decoding tests ---
 
 TEST(base64_decode, empty_input) {
@@ -189,6 +216,16 @@ TEST(base64_decode, null_src_size_query) {
   // without scanning for padding
   size_t result = b64::b64_decode(nullptr, 8, nullptr, 0);
   EXPECT_EQ(result, 6u);  // 2 chunks * 3 bytes
+}
+
+TEST(base64_decode, null_src_with_dest_returns_zero) {
+  // NULL src with a non-NULL dest is a misuse — the size-query path
+  // (NULL dest) is still allowed, but committing to a write must refuse
+  // rather than dereference NULL. Without the guard this would read
+  // src[0..3] in the main loop and crash.
+  unsigned char buf[6];
+  size_t result = b64::b64_decode(nullptr, 8, buf, sizeof(buf));
+  EXPECT_EQ(result, 0u);
 }
 
 TEST(base64_decode, invalid_length_with_whole_chunks) {

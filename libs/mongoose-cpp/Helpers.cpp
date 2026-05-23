@@ -1,23 +1,21 @@
 #include "Helpers.h"
 
-#include <bytes/char_buffer.hpp>
+#include <bytes/base64.h>
+#include <bytes/base64.hpp>
 
-#include "mongoose_wrapper.h"
+#include <string>
 
-/**
- * A stream response to a request
- */
 namespace Mongoose {
-std::string Helpers::encode_b64(const std::string &str) {
-  const hlp::char_buffer dst((str.size() * 3) + 3);
-  const hlp::char_buffer src(str);
-  const size_t encoded_len = mg_base64_encode(src.get_t<unsigned char *>(), static_cast<int>(str.size()), dst.get(), dst.size());
-  return std::string{dst.get(), encoded_len};
-}
+
+std::string Helpers::encode_b64(const std::string &str) { return bytes::base64_encode(str); }
+
 std::string Helpers::decode_b64(const std::string &str) {
-  const hlp::char_buffer dst(str.size() * 3);
-  const hlp::char_buffer src(str);
-  const size_t decoded_len = mg_base64_decode(src.get_t<char *>(), static_cast<int>(str.size()), dst.get(), dst.size());
-  return std::string{dst.get(), decoded_len};
+  if (str.empty()) return {};
+  const std::size_t needed = b64::b64_decode(str.data(), str.size(), nullptr, 0);
+  std::string out(needed, '\0');
+  const std::size_t written = b64::b64_decode(str.data(), str.size(), &out[0], needed);
+  out.resize(written);
+  return out;
 }
+
 }  // namespace Mongoose

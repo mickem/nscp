@@ -199,3 +199,213 @@ TEST(Request, ConstAccessWorks) {
   const auto& hdrs = r.get_headers();
   EXPECT_EQ(hdrs.size(), 1u);
 }
+
+// ---------------------------------------------------------------------------
+// Coverage for the form-decoded query parser added in Phase 1 of the
+// beast-web-backend swap (replaces mongoose's mg_url_decode /
+// mg_http_get_var). These tests pin behaviour parity with mongoose where it
+// matters (the parser is reachable from any HTTP query string the
+// WEBServer accepts).
+// ---------------------------------------------------------------------------
+
+// --- decode_form: the "+" -> space form-url-encoding rule ------------------
+
+TEST(Request, GetDecodesPlusToSpace) {
+  // application/x-www-form-urlencoded uses '+' to encode a literal space.
+  // Required for parity with mongoose's mg_url_decode(is_form_url_encoded=1).
+  const auto r = make_request("GET", "/", "msg=hello+world&q=a+b+c");
+  EXPECT_EQ(r.get("msg"), "hello world");
+  EXPECT_EQ(r.get("q"), "a b c");
+}
+
+TEST(Request, GetDecodesMixedPlusAndPercent) {
+  const auto r = make_request("GET", "/", "q=hello+%26+world%21");
+  EXPECT_EQ(r.get("q"), "hello & world!");
+}
+
+// --- decode_form: hex case-insensitivity -----------------------------------
+
+TEST(Request, GetDecodesLowercaseHex) {
+  // Both %2B and %2b must decode to '+'.
+  const auto r = make_request("GET", "/", "u=%2b&l=%2B");
+  EXPECT_EQ(r.get("u"), "+");
+  EXPECT_EQ(r.get("l"), "+");
+}
+
+TEST(Request, GetDecodesMixedCaseHex) {
+  // "%aB" — mixed case in the same escape.
+  const auto r = make_request("GET", "/", "x=%aB");
+  EXPECT_EQ(r.get("x"), "\xab");
+}
+
+// --- decode_form: malformed-escape handling --------------------------------
+//
+// The new parser passes through truncated or invalid %XX escapes verbatim
+// rather than erroring (mirrors mg_url_decode's behaviour with adequately-
+// sized output buffers — the only failure mode in mg_url_decode was "dst too
+// small", which we size away).
+
+TEST(Request, GetPassesThroughInvalidPercentEscape) {
+  // %ZZ has non-hex digits — must surface literally instead of producing 0.
+  const auto r = make_request("GET", "/", "x=a%ZZb&y=%G1");
+  EXPECT_EQ(r.get("x"), "a%ZZb");
+  EXPECT_EQ(r.get("y"), "%G1");
+}
+
+TEST(Request, GetPassesThroughTruncatedPercentEscape) {
+  // %X at the very end of input (no second hex digit) and a lone %.
+  const auto r = make_request("GET", "/", "a=foo%2&b=bar%");
+  EXPECT_EQ(r.get("a"), "foo%2");
+  EXPECT_EQ(r.get("b"), "bar%");
+}
+
+TEST(Request, GetPassesThroughPercentWithOneValidOneInvalid) {
+  // %1Z — first nibble is hex, second isn't. Must passthrough as a unit.
+  const auto r = make_request("GET", "/", "x=%1Z");
+  EXPECT_EQ(r.get("x"), "%1Z");
+}
+
+// --- decode_form: multi-byte UTF-8 round-trip -----------------------------
+
+TEST(Request, GetDecodesUtf8MultibyteEscapes) {
+  // "%C3%A9" -> "é" (U+00E9 in UTF-8). The decoder is byte-oriented; the
+  // resulting std::string carries the raw bytes 0xC3 0xA9.
+  const auto r = make_request("GET", "/", "name=caf%C3%A9");
+  const std::string got = r.get("name");
+  ASSERT_EQ(got.size(), 5u);  // "caf" + 2 UTF-8 bytes
+  EXPECT_EQ(static_cast<unsigned char>(got[3]), 0xC3u);
+  EXPECT_EQ(static_cast<unsigned char>(got[4]), 0xA9u);
+}
+
+// --- decode_form: key (not just value) decoding ---------------------------
+
+TEST(Request, GetDecodesEncodedKey) {
+  // Spec-compliant clients encode reserved chars in keys too. The new
+  // parser decodes both sides of the '=' independently.
+  const auto r = make_request("GET", "/", "my%20key=value&plus+key=ok");
+  EXPECT_EQ(r.get("my key"), "value");
+  EXPECT_EQ(r.get("plus key"), "ok");
+}
+
+// --- readVariable: scan semantics -----------------------------------------
+
+TEST(Request, GetReturnsFirstOccurrenceForDuplicateKeys) {
+  // mg_http_get_var returns the first match; readVariable matches that.
+  const auto r = make_request("GET", "/", "k=first&k=second&k=third");
+  EXPECT_EQ(r.get("k"), "first");
+}
+
+TEST(Request, GetSkipsValuelessPairWhenLookingForKey) {
+  // "flag" (no '=') comes before "x=value" in the query string. Looking
+  // up "x" must still return "value" — the parser must skip pairs that
+  // have no '=' instead of mis-attributing them to a sibling.
+  const auto r = make_request("GET", "/", "flag&x=value");
+  EXPECT_EQ(r.get("x"), "value");
+  EXPECT_EQ(r.get("flag", "fb"), "fb");  // valueless key is not "" — it's absent for get()
+}
+
+TEST(Request, GetHandlesEmptyKey) {
+  // "=alone" — a leading '=' with no key. readVariable performs an empty-
+  // string comparison, so the lookup matches when the caller asks for "".
+  const auto r = make_request("GET", "/", "=alone&real=v");
+  EXPECT_EQ(r.get(""), "alone");
+  EXPECT_EQ(r.get("real"), "v");
+}
+
+TEST(Request, GetHandlesEmptyValue) {
+  const auto r = make_request("GET", "/", "k=&other=present");
+  EXPECT_EQ(r.get("k"), "");
+  EXPECT_EQ(r.get("other"), "present");
+}
+
+TEST(Request, GetHandlesConsecutiveAmpersands) {
+  // "a=1&&b=2" — the empty pair between the &s must not derail subsequent
+  // lookups.
+  const auto r = make_request("GET", "/", "a=1&&b=2");
+  EXPECT_EQ(r.get("a"), "1");
+  EXPECT_EQ(r.get("b"), "2");
+}
+
+TEST(Request, GetHandlesTrailingAmpersand) {
+  const auto r = make_request("GET", "/", "a=1&");
+  EXPECT_EQ(r.get("a"), "1");
+}
+
+TEST(Request, GetIsCaseSensitiveOnKey) {
+  // mg_http_get_var was case-sensitive on the variable name; readVariable
+  // is too.
+  const auto r = make_request("GET", "/", "Foo=bar");
+  EXPECT_EQ(r.get("Foo"), "bar");
+  EXPECT_EQ(r.get("foo", "fb"), "fb");
+}
+
+// --- get_var_vector: extras over readVariable -----------------------------
+
+TEST(Request, GetVariablesVectorPreservesDuplicateKeys) {
+  // Unlike get() (which returns the first hit), getVariablesVector exposes
+  // every pair in input order, including duplicates.
+  const auto r = make_request("GET", "/", "k=a&k=b&k=c");
+  const auto vars = r.getVariablesVector();
+  ASSERT_EQ(vars.size(), 3u);
+  EXPECT_EQ(vars[0].second, "a");
+  EXPECT_EQ(vars[1].second, "b");
+  EXPECT_EQ(vars[2].second, "c");
+}
+
+TEST(Request, GetVariablesVectorDecodesBothKeyAndValue) {
+  const auto r = make_request("GET", "/", "my%20key=hello+world");
+  const auto vars = r.getVariablesVector();
+  ASSERT_EQ(vars.size(), 1u);
+  EXPECT_EQ(vars[0].first, "my key");
+  EXPECT_EQ(vars[0].second, "hello world");
+}
+
+TEST(Request, GetVariablesVectorPassesThroughInvalidEscapes) {
+  // Same passthrough behaviour as readVariable.
+  const auto r = make_request("GET", "/", "a=%ZZ&b=%");
+  const auto vars = r.getVariablesVector();
+  ASSERT_EQ(vars.size(), 2u);
+  EXPECT_EQ(vars[0].second, "%ZZ");
+  EXPECT_EQ(vars[1].second, "%");
+}
+
+// --- Cookie parser edges --------------------------------------------------
+//
+// mg_get_cookie wasn't touched in Phase 1 but it sits on the same network
+// path; tighten coverage on the remaining edge cases that hadn't been
+// exercised before.
+
+TEST(Request, GetCookieFirstOfMultiplePicksByName) {
+  // Multiple cookies, name-targeted lookup picks the right one regardless
+  // of position.
+  const Request::headers_type h{{"cookie", "first=A; middle=B; last=C"}};
+  const auto r = make_request("GET", "/", "", h);
+  EXPECT_EQ(r.getCookie("first"), "A");
+  EXPECT_EQ(r.getCookie("middle"), "B");
+  EXPECT_EQ(r.getCookie("last"), "C");
+}
+
+TEST(Request, GetCookieStripsTrailingSemicolon) {
+  // mg_get_cookie strips one trailing ';' from the value to avoid leaking
+  // the separator. Exercises the p[-1] == ';' branch.
+  const Request::headers_type h{{"cookie", "session=abc;"}};
+  const auto r = make_request("GET", "/", "", h);
+  EXPECT_EQ(r.getCookie("session"), "abc");
+}
+
+TEST(Request, GetCookieReturnsFallbackForEmptyCookieHeader) {
+  // The header exists but is empty — early-out before mg_get_cookie sees it.
+  const Request::headers_type h{{"cookie", ""}};
+  const auto r = make_request("GET", "/", "", h);
+  EXPECT_EQ(r.getCookie("anything", "fb"), "fb");
+}
+
+TEST(Request, GetCookieDoesNotMatchSubstringOfOtherCookieName) {
+  // The cookie header has "sessionid=X" — asking for "session" must NOT
+  // match the prefix. mg_strcasestr finds the substring but mg_get_cookie
+  // then requires the next char to be '='.
+  const Request::headers_type h{{"cookie", "sessionid=abc"}};
+  const auto r = make_request("GET", "/", "", h);
+  EXPECT_EQ(r.getCookie("session", "fb"), "fb");
+  EXPECT_EQ(r.getCookie("sessionid"), "abc");
+}
