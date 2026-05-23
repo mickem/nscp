@@ -22,6 +22,7 @@
 #include <boost/program_options.hpp>
 #include <boost/smart_ptr/make_shared_object.hpp>
 #include <file_helpers.hpp>
+#include <memory>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_program_options.hpp>
@@ -38,8 +39,8 @@ namespace po = boost::program_options;
 bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   try {
     root_ = get_core()->expand_path("${scripts}");
-    nscp_runtime_.reset(new scripts::nscp::nscp_runtime_impl(get_id(), get_core()));
-    lua_runtime_.reset(new lua::lua_runtime(utf8::cvt<std::string>(root_.string())));
+    nscp_runtime_ = std::make_shared<scripts::nscp::nscp_runtime_impl>(get_id(), get_core());
+    lua_runtime_ = std::make_shared<lua::lua_runtime>(utf8::cvt<std::string>(root_.string()));
     scripts_.reset(new scripts::script_manager<lua::lua_traits>(lua_runtime_, nscp_runtime_, get_id(), utf8::cvt<std::string>(alias)));
 
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
