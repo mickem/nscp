@@ -1,0 +1,39 @@
+name: Manual scenarios (pre-merge)
+
+# Run the cross-platform Jest scenario suite (NRDP / NSCA / NRPE /
+# SMTP / Icinga / check_mk / http_proxy) on demand. Intended as a
+# pre-merge gate: pick the feature branch in the GitHub Actions UI
+# ("Run workflow" -> branch dropdown), this builds a fresh Debian
+# package from that ref and runs the scenarios against it. Nothing
+# else is triggered automatically — `build-feature.yml` does not call
+# this workflow.
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+
+jobs:
+  get-version:
+    uses: ./.github/workflows/get-version.yml
+
+  build-debian:
+    needs: get-version
+    uses: ./.github/workflows/build-debian.yml
+    with:
+      architecture: x64
+      version: ${{ needs.get-version.outputs.version }}
+
+  scenarios:
+    needs: [get-version, build-debian]
+    uses: ./.github/workflows/integration-tests-scenarios.yml
+    with:
+      version: ${{ needs.get-version.outputs.version }}
+      # Matches the artifact name produced by build-debian.yml for the
+      # ubuntu-24.04 x64 matrix entry.
+      artifact-name: NSCP-${{ needs.get-version.outputs.version }}-ubuntu-24.04-x64
+      package-arch: amd64
+      distro: ubuntu
+      distro_version: '24.04'
+      runner: ubuntu-latest
