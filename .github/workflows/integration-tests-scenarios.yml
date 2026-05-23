@@ -1,0 +1,126 @@
+name: Integration Tests (Scenarios)
+
+# Cross-platform scenario / protocol tests that spin up per-test Docker
+# images (NRDP, NSCA, NSCA-NG, SMTP, Icinga, HTTP proxy, NRPE, …) and
+# drive a locally-installed `nscp` against them. Replaces the manually-
+# run-on-Windows `tests/<proto>/run-test.bat` scripts.
+#
+# Runs directly on `ubuntu-latest` (NOT inside a container) because the
+# tests need to launch Docker themselves — running this inside a
+# container would require docker-in-docker. The matching integration-
+# tests-linux.yml runs inside a container to test the .deb install path;
+# the two are complementary.
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        description: 'Version to test'
+        required: true
+      artifact-name:
+        type: string
+        description: 'Name of the deb artifact to download (matches build-debian.yml output)'
+        required: true
+      package-arch:
+        type: string
+        description: 'Debian package architecture suffix (amd64, arm64)'
+        required: false
+        default: 'amd64'
+      distro:
+        type: string
+        description: 'Distribution name (ubuntu)'
+        required: false
+        default: 'ubuntu'
+      distro_version:
+        type: string
+        description: 'Distribution version (e.g. 24.04)'
+        required: false
+        default: '24.04'
+      runner:
+        type: string
+        description: 'GitHub-hosted runner (ubuntu-latest, ubuntu-24.04-arm)'
+        required: false
+        default: 'ubuntu-latest'
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  scenarios:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: .
+
+      - name: Install nscp .deb + runtime deps
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          # python3-protobuf + lua for nscp's own runtime deps. Wrap the
+          # whole expression so a transient failure retries both branches,
+          # not just the lua-5.4 fallback (mirrors integration-tests-linux.yml).
+          sudo apt-get install -y python3-protobuf liblua5.4-0 || \
+            sudo apt-get install -y python3-protobuf liblua5.3-0
+          sudo apt-get install -y \
+            ./NSCP-${{ inputs.version }}-${{ inputs.distro }}-${{ inputs.distro_version }}-${{ inputs.package-arch }}.deb
+          nscp --version
+
+      - name: Confirm Docker is available
+        run: docker version --format '{{.Server.Version}}'
+
+      - name: Install scenario-test deps
+        working-directory: tests
+        run: npm install --no-audit --no-fund
+
+      - name: Run scenario suite
+        working-directory: tests
+        env:
+          NSCP_BIN: /usr/bin/nscp
+          # The jest-junit reporter reads these for the output path.
+          # The reporter itself isn't yet in package.json, so the
+          # `--reporters=jest-junit` flag below is best-effort: jest
+          # silently falls back to the default reporter if the package
+          # isn't installed. Drop the --reporters flag (or add
+          # jest-junit to tests/package.json) once you want JUnit XML
+          # in CI.
+          JEST_JUNIT_OUTPUT_DIR: ${{ github.workspace }}/test-results
+          JEST_JUNIT_OUTPUT_NAME: scenarios-${{ inputs.distro }}-${{ inputs.distro_version }}-${{ inputs.package-arch }}.xml
+        # `npm test` resolves to `jest --runInBand`. jest.config.js
+        # already pins `maxWorkers: 1` because nscp claims fixed
+        # ports (5666, 5667, 5668, 8443, 6556) so suites cannot
+        # parallelise on the host. The cmk-site suite stays gated
+        # behind `RUN_CMK_SITE_TEST=1` because it pulls a ~500MB image.
+        run: npm test -- --ci
+
+      - name: Upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: scenario-junit-${{ inputs.distro }}-${{ inputs.distro_version }}-${{ inputs.package-arch }}
+          path: test-results/*.xml
+          if-no-files-found: ignore
+
+      - name: Show nscp logs on failure
+        if: failure()
+        run: |
+          shopt -s nullglob
+          for log in /tmp/nscp-it-*/nsclient.log /var/log/nsclient.log; do
+            [ -f "$log" ] || continue
+            echo "::group::$log"
+            cat "$log"
+            echo "::endgroup::"
+          done

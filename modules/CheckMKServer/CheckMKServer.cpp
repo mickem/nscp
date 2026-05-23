@@ -241,7 +241,10 @@ bool CheckMKServer::add_script(std::string alias, std::string file) {
     }
 
     boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, file);
-    if (!ofile) return false;
+    if (!ofile) {
+      NSC_LOG_ERROR("Failed to find script: " + file);
+      return false;
+    }
     NSC_DEBUG_MSG_STD("Adding script: " + ofile->string());
     scripts_->add(alias, ofile->string());
     return true;

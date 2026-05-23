@@ -29,9 +29,7 @@ on:
         default: '0.0.0'
 
 env:
-  TINY_XML_2_VERSION: "10.1.0"
   MONGOOSE_VERSION: "7.20"
-  MINIZ_VERSION: "3.1.1"
 
 jobs:
   sanitizer-tests:
@@ -44,11 +42,12 @@ jobs:
       run: |
         apt-get update
         DEBIAN_FRONTEND=noninteractive apt-get install -y \
-          git curl unzip cmake build-essential python3-pip \
+          git curl unzip cmake build-essential python3-pip pkg-config \
           libboost-all-dev libgtest-dev libgmock-dev \
           protobuf-compiler libprotobuf-dev \
           openssl libssl-dev libcrypto++-dev \
-          liblua5.4-dev libdbus-1-dev
+          liblua5.4-dev libdbus-1-dev \
+          libzip-dev libtinyxml2-dev
 
     - uses: actions/checkout@v6
 
@@ -65,20 +64,10 @@ jobs:
       run: |
         pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt
 
-    - id: tinyxml2
-      uses: ./.github/actions/tinyxml2
-      with:
-        version: ${{ env.TINY_XML_2_VERSION }}
-
     - id: mongoose
       uses: ./.github/actions/mongoose
       with:
         version: ${{ env.MONGOOSE_VERSION }}
-
-    - id: miniz
-      uses: ./.github/actions/miniz
-      with:
-        version: ${{ env.MINIZ_VERSION }}
 
     - name: Build web
       working-directory: web
@@ -91,9 +80,7 @@ jobs:
         cat > tmp/nscp/build.cmake << 'EOF'
         SET(LIBRARY_ROOT_FOLDER "${{ env.GITHUB_WORKSPACE }}")
         SET(NSCP_BOOST_PYTHON_VERSION "python312")
-        SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
         set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
-        set(MINIZ_INCLUDE_DIR "${{ steps.miniz.outputs.path_unix }}")
         # Skip copying the Rust check_nsclient binary — sanitizer tests don't
         # need it, and building the Rust client just for this run is wasteful.
         set(CHECK_NSCLIENT_MISSING ON)

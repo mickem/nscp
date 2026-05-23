@@ -1,0 +1,34 @@
+# Build context for all images under tests/Dockerfiles/ is now this directory.
+# Without this filter, every `docker build` would tar-stream the Node test
+# harness and all of node_modules/ to the daemon — easily 100s of MB. The
+# Dockerfiles only need the small helper files inside per-test subfolders
+# (entrypoint.sh, *.conf, *.cnf, the nrdp/nsca/nrpe test data folders).
+
+# Node / TypeScript harness — never needed in any image.
+node_modules/
+src/
+
+# Root-level files that belong to the test runner, not any image.
+package.json
+package-lock.json
+tsconfig.json
+jest.config.js
+acceptance-tests.bat
+acceptance-tests.sh
+run-all-tests.bat
+
+# Jest test sources. The Dockerfiles never reference these.
+**/*.test.ts
+
+# Legacy per-folder batch runners (kept on disk for documentation; not built
+# into images).
+**/run-test.bat
+**/run-test-cmk-site.bat
+
+# README and design docs.
+README.md
+
+# Editor / OS cruft.
+.DS_Store
+Thumbs.db
+*.log

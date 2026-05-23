@@ -1,11 +1,19 @@
-# * Find miniz zip library
+# Locate the vendored miniz source folder (Windows build path).
 #
-# MINIZ_FOUND              - have cpp-netlib been found MINIZ_INCLUDE_DIR - path
-# to where miniz is found
+# Sets:
+#   MINIZ_FOUND        - whether miniz.c was located
+#   MINIZ_INCLUDE_DIR  - directory containing miniz.c / miniz.h
+#
+# Used on Windows where libzip is not first-class. The Linux/macOS build
+# instead uses libzip via FindLibZip.cmake — the two backends are picked
+# at compile time by service/plugins/zip_plugin.cpp's `#ifdef _WIN32`.
+
 find_path(MINIZ_INCLUDE_DIR NAMES miniz.c PATHS ${MINIZ_INCLUDE_DIR})
+
 if(MINIZ_INCLUDE_DIR)
     set(MINIZ_FOUND TRUE)
-else(MINIZ_INCLUDE_DIR)
+else()
     set(MINIZ_FOUND FALSE)
-endif(MINIZ_INCLUDE_DIR)
+endif()
+
 mark_as_advanced(MINIZ_INCLUDE_DIR)

@@ -41,4 +41,5 @@ If you identify a vulnerability in one of our dependencies that impacts NSClient
 * [Crypto++](https://www.cryptopp.com/)
 * [Lua Bugs & Vulnerabilities](https://www.lua.org/bugs.html)
 * [TinyXML (CVE Search)](https://cve.mitre.org/cgi-bin/cvekey.cgi?keyword=TinyXML)
-* [MiniZ](https://github.com/richgel999/miniz)
+* [MiniZ](https://github.com/richgel999/miniz) (Windows builds only — Linux uses libzip)
+* [libzip](https://libzip.org/) (Linux builds)

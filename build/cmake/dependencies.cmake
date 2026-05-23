@@ -24,7 +24,15 @@ find_package(ProtocGenMd)
 find_package(ProtoBuf)
 find_package(GTest)
 find_package(OpenSSL)
-find_package(Miniz)
+# Two separate backends for the ZIP archive reader in service/plugins/
+# zip_plugin.cpp; only the matching one is required for the current platform.
+# Windows uses the vendored miniz source; Linux/macOS uses libzip from the
+# system. The libs/minizip wrapper hides the choice from callers.
+if(WIN32)
+    find_package(Miniz)
+else()
+    find_package(LibZip)
+endif()
 find_package(Mongoose)
 # CMP0167 (CMake 3.30+) removes the bundled FindBoost module in favour of
 # upstream BoostConfig.
@@ -162,9 +170,19 @@ else()
 endif()
 if(MINIZ_FOUND)
     message(STATUS " - Miniz found in: ${MINIZ_INCLUDE_DIR}")
-else(MINIZ_FOUND)
-    message(STATUS " ! Miniz not found: MINIZ_INCLUDE_DIR=${MINIZ_INCLUDE_DIR}")
-endif(MINIZ_FOUND)
+else()
+    if(LIBZIP_FOUND AND TARGET libzip::zip)
+        message(
+            STATUS
+            " - libzip found (CMake config package): ${LIBZIP_INCLUDE_DIRS}"
+        )
+    else()
+        message(
+            STATUS
+            " ! Neither miniz (MINIZ_INCLUDE_DIR=${MINIZ_INCLUDE_DIR}) nor libzip (install libzip-dev (Debian) or libzip-devel (RPM)) was found"
+        )
+    endif()
+endif()
 if(MKDOCS_FOUND)
     message(STATUS " - MKDocs found in: ${MKDOCS_EXECUTABLE}")
 else(MKDOCS_FOUND)

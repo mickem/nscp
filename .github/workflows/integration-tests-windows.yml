@@ -72,8 +72,26 @@ jobs:
         run: |
           ..\..\tests\acceptance-tests.bat --ci
 
-      - name: Run rest tests
-        uses: ./.github/actions/rest-test
+      # Replaces the old ./.github/actions/rest-test composite action. The
+      # rest scenarios now live as top-level rest-*.test.ts files under the
+      # main integration harness; NSCP_SKIP_DOCKER=1 makes every docker-
+      # dependent scenario skip itself so this stage runs without docker on
+      # the Windows runner (where docker support has been flaky historically
+      # — see the disabled NRPE block below). Each rest-* test spins its own
+      # nscp.exe via NscpInstance, so no manual start/kill/log-tail step is
+      # needed here.
+      - name: Install integration harness deps
+        working-directory: tests
+        shell: bash
+        run: npm install
+
+      - name: Run REST scenarios (no-docker)
+        working-directory: tests
+        shell: bash
+        env:
+          NSCP_BIN: ${{ github.workspace }}/tmp/nscp/nscp.exe
+          NSCP_SKIP_DOCKER: "1"
+        run: npm test
 
       # TODO: Disabled for now due to issues with docker on windows runners
       #- name: Run NRPE tests

@@ -212,6 +212,21 @@ class server : boost::noncopyable {
       logger_->log_error(__FILE__, __LINE__, "Failed to open " + address + ": " + er.message());
       return false;
     }
+    // Linux defaults to net.ipv6.bindv6only=0, so binding the v4
+    // acceptor to 0.0.0.0 also reserves the port for IPv6 and the
+    // subsequent [::] bind fails with EADDRINUSE — aborting the
+    // whole NRPE/NSCA/WEB/... server setup. macOS / Windows default
+    // to bindv6only=1, which is why this only surfaces on Linux.
+    // Force IPV6_V6ONLY=true so the two acceptors are independent.
+    if (endpoint.protocol() == tcp::v6()) {
+      ip::v6_only v6only(true);
+      acceptor.set_option(v6only, er);
+      if (er) {
+        logger_->log_error(__FILE__, __LINE__, "Failed to set IPV6_V6ONLY " + address + ": " + er.message());
+        acceptor.close();
+        return false;
+      }
+    }
     if (reuse) {
       boost::asio::socket_base::reuse_address option(true);
       acceptor.set_option(option, er);

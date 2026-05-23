@@ -12,19 +12,20 @@ If you want to produce debug builds and/or w32 some adjustments will be required
 * [x64 version (dynamic runtime)](#x64-version-dynamic-runtime)
 * [Win32 version (static link)](#win32-version-static-link)
 * [Linux version](#linux-version)
+* [Running tests](#running-tests)
 
 ## Prerequisites
 
 You need the following tools installed on your machine and in your path:
+
 * Visual Studio (Community Edition is fine)
-  * In addition, you need to enable the following modules (to get support for XP) in the installer
-    * Microsoft.VisualStudio.Component.VC.v141.x86.x64
-    * Microsoft.VisualStudio.Component.VC.v141.ATL
-    * Microsoft.VisualStudio.Component.WinXP
+    * In addition, you need to enable the following modules (to get support for XP) in the installer
+        * Microsoft.VisualStudio.Component.VC.v141.x86.x64
+        * Microsoft.VisualStudio.Component.VC.v141.ATL
+        * Microsoft.VisualStudio.Component.WinXP
 * CMake
 * 7zip
 * Perl (I use strawberry perl)
-
 
 ## x64 version (dynamic runtime)
 
@@ -41,7 +42,6 @@ set NSCP_VERSION=NORMALLY READ FROM GIT
 mkdir %BUILD_FOLDER%
 mkdir %BUILD_FOLDER%\nscp
 ```
-
 
 ### Libraries
 
@@ -137,7 +137,6 @@ del lua.tar
 del lua.tar.gz
 ```
 
-
 #### Download TinyXML-2
 
 TinyXML2 does not require building instead we need to download and configure where the build system can find it.
@@ -174,7 +173,6 @@ mkdir miniz-%MINIZ_VERSION%
 7z x miniz.zip -ominiz-%MINIZ_VERSION%
 del miniz.zip
 ```
-
 
 ### Build installer library
 
@@ -328,7 +326,6 @@ del lua.tar
 del lua.tar.gz
 ```
 
-
 #### Download TinyXML-2
 
 TinyXML2 does not require building instead we need to download and configure where the build system can find it.
@@ -407,9 +404,10 @@ msbuild nscp.sln /p:Configuration=Release /p:Platform=Win32
 ## Linux version
 
 ### Install dependencies
+
 ```bash
 sudo apt-get update
-sudo apt-get install -y build-essential cmake libssl-dev libboost-all-dev libprotobuf-dev protobuf-compiler liblua5.4-dev libtinyxml2-dev libffi-dev python3.12-dev python3-protobuf libdbus-1-dev pkg-config rpm libgmock-dev
+sudo apt-get install -y build-essential cmake libssl-dev libboost-all-dev libprotobuf-dev protobuf-compiler liblua5.4-dev libtinyxml2-dev libzip-dev libffi-dev python3.12-dev python3-protobuf libdbus-1-dev pkg-config rpm libgmock-dev
 ```
 
 In addition to this you also need to install rust: https://rust-lang.org/tools/install/
@@ -424,17 +422,11 @@ export DEPENDENCIES_FOLDER="${HOME}/dependencies"
 mkdir -p $DEPENDENCIES_FOLDER
 ```
 
-#### Download TinyXML-2
-TinyXML2 does not require building instead we need to download and configure where the build system can find it.
-
-```bash
-cd $DEPENDENCIES_FOLDER
-export TINY_XML2_VERSION=10.1.0
-curl -L https://github.com/leethomason/tinyxml2/archive/refs/tags/${TINY_XML2_VERSION}.zip --output tinyxml2.zip
-unzip tinyxml2.zip
-```
+TinyXML2 and the zip backend (libzip) are installed via the apt step above
+(`libtinyxml2-dev`, `libzip-dev`). No download required on Linux.
 
 #### Download Mongoose
+
 Mongoose does not require building instead we need to download and configure where the build system can find
 it.
 
@@ -443,18 +435,6 @@ cd $DEPENDENCIES_FOLDER
 export MONGOOSE_VERSION=7.19
 curl -L https://github.com/cesanta/mongoose/archive/refs/tags/${MONGOOSE_VERSION}.zip --output mongoose.zip
 unzip mongoose.zip
-```
-
-#### Download Miniz
-Miniz does not require building instead we need to download and configure where the build system can find it.
-
-```bash
-cd $DEPENDENCIES_FOLDER
-export MINIZ_VERSION=3.1.1
-curl -L https://github.com/richgel999/miniz/releases/download/${MINIZ_VERSION}/miniz-${MINIZ_VERSION}.zip --output miniz.zip
-mkdir -p miniz-${MINIZ_VERSION}
-unzip miniz.zip -d miniz-${MINIZ_VERSION}
-rm miniz.zip
 ```
 
 #### Build Rust NSClient check_nsclient client
@@ -469,26 +449,91 @@ cargo build --release
 ### Configuration
 
 Create a `build.cmake` file adding the paths to the above tools and libraries.
+
 ```cmake
 SET(DEPENDENCIES_FOLDER "${HOME}/dependencies")
 SET(NSCP_BOOST_PYTHON_VERSION "python312")
-SET(TINY_XML2_SOURCE_DIR "${DEPENDENCIES_FOLDER}/tinyxml2-10.1.0")
 set(MONGOOSE_SOURCE_DIR "${DEPENDENCIES_FOLDER}/mongoose-7.19")
-set(MINIZ_INCLUDE_DIR "${DEPENDENCIES_FOLDER}/miniz-3.1.1")
 set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/rust/nscp_client/target/release")
 ```
 
 ### Build NSClient++
+
 ```bash
 cd $BUILD_FOLDER/nscp
 cmake $SOURCE_ROOT -DBUILD_VERSION=$NSCP_VERSION
 make -j$(nproc)
 ```
 
+## Running tests
 
-### Build NSClient++
+There are three kinds of tests in this repo:
+
+1. **Unit tests** — C++ Google Test binaries, registered with CTest via
+   `NSCP_CREATE_TEST()` in `tests/CMakeLists.txt`. They run against
+   library code and don't need a built daemon.
+2. **Acceptance tests** — Python scripts driven by `nscp unit`, executed
+   by `tests/acceptance-tests.sh` (Linux) and
+   `tests/acceptance-tests.bat` (Windows). They need an installed `nscp`
+   on PATH.
+3. **Scenario / integration tests** — cross-platform Jest + TypeScript
+   suites that spin up per-protocol Docker containers (NRDP, NSCA,
+   NSCA-NG, SMTP, Icinga, HTTP proxy, etc.) and drive `nscp` against
+   them. These replace the old `tests/<proto>/run-test.bat` scripts and
+   run on both Linux and Windows.
+
+### Unit tests (CTest)
+
 ```bash
-cd $BUILD_FOLDER/nscp
-cmake $SOURCE_ROOT -DBUILD_VERSION=$NSCP_VERSION
-make -j$(nproc)
+# Linux / WSL
+ctest --test-dir cmake-build-debug-wsl --output-on-failure
+
+# Run a single test target by name (regex)
+ctest --test-dir cmake-build-debug-wsl -R str_test --output-on-failure
+
+# Run a gtest binary directly with a filter
+./cmake-build-debug-wsl/bin/str_test --gtest_filter='FormatTest.*'
 ```
+
+### Acceptance tests
+
+```bash
+# Linux
+./tests/acceptance-tests.sh
+
+# Windows (from the build/target folder containing nscp.exe)
+tests\acceptance-tests.bat
+```
+
+### Scenario / integration tests
+
+These live under `tests/integration/` and a per-protocol `*.test.ts` file in each `tests/<proto>/` directory. They
+use [testcontainers-node](https://node.testcontainers.org/) to build and manage the per-test Docker
+images, [execa](https://github.com/sindresorhus/execa) to drive the `nscp` CLI, and Jest as the runner.
+
+#### Requirements
+
+* Node.js 20+ and npm (matches the existing `tests/rest/` Jest suite)
+* Docker Desktop (Windows) or a working Docker daemon (Linux)
+* A built `nscp` (or `nscp.exe`) binary
+
+#### Install and run
+
+```bash
+cd tests/integration
+npm install                                # one-time
+
+# Point at your built binary. The harness also auto-detects
+# cmake-build-debug-wsl/nscp and cmake-build-debug/nscp at the repo root.
+export NSCP_BIN=/abs/path/to/nscp           # Linux/macOS
+# set NSCP_BIN=C:\path\to\nscp.exe          # Windows (cmd)
+
+npm test                                                            # all
+npx jest --runInBand --testPathPattern nrdp                         # one suite
+RUN_CMK_SITE_TEST=1 npx jest --testPathPattern cmk-site             # heavy opt-in suite
+```
+
+The Checkmk site end-to-end test pulls a ~500MB image and is skipped unless `RUN_CMK_SITE_TEST=1` is set. The MSI
+installer tests (`tests/msi/`) stay Windows-only and are not part of this harness.
+
+See `tests/integration/README.md` for the full layout, fixture documentation
