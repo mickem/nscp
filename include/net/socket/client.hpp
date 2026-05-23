@@ -32,7 +32,7 @@ namespace client {
 template <class protocol_type>
 class connection : public std::enable_shared_from_this<connection<protocol_type> >, private boost::noncopyable {
  private:
-  boost::asio::io_service &io_service_;
+  boost::asio::io_context &io_service_;
   boost::asio::deadline_timer timer_;
   boost::posix_time::time_duration timeout_;
   std::shared_ptr<typename protocol_type::client_handler> handler_;
@@ -42,7 +42,7 @@ class connection : public std::enable_shared_from_this<connection<protocol_type>
   boost::optional<bool> data_result_;
 
  public:
-  connection(boost::asio::io_service &io_service, boost::posix_time::time_duration timeout, std::shared_ptr<typename protocol_type::client_handler> handler)
+  connection(boost::asio::io_context &io_service, boost::posix_time::time_duration timeout, std::shared_ptr<typename protocol_type::client_handler> handler)
       : io_service_(io_service), timer_(io_service), timeout_(timeout), handler_(handler), protocol_(handler) {}
 
   virtual ~connection() {
@@ -86,15 +86,17 @@ class connection : public std::enable_shared_from_this<connection<protocol_type>
   virtual boost::system::error_code connect(std::string host, std::string port) {
     trace("connect(" + host + ", " + port + ")");
     tcp::resolver resolver(io_service_);
-    tcp::resolver::query query(host, port, boost::asio::ip::resolver_query_base::numeric_service);
-
-    tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
-    tcp::resolver::iterator end;
+    boost::system::error_code resolve_ec;
+    const auto endpoints = resolver.resolve(host, port, boost::asio::ip::resolver_base::numeric_service, resolve_ec);
+    if (resolve_ec) {
+      trace("Failed to resolve: " + host + ":" + port);
+      return resolve_ec;
+    }
 
     boost::system::error_code error = boost::asio::error::host_not_found;
-    while (error && endpoint_iterator != end) {
+    for (auto it = endpoints.begin(); error && it != endpoints.end(); ++it) {
       get_socket().close();
-      get_socket().lowest_layer().connect(*endpoint_iterator++, error);
+      get_socket().lowest_layer().connect(it->endpoint(), error);
     }
     if (error) {
       trace("Failed to connect to: " + host + ":" + port);
@@ -150,7 +152,7 @@ class connection : public std::enable_shared_from_this<connection<protocol_type>
     }
   }
 
-  virtual void start_read_request(boost::asio::mutable_buffers_1 buffer) = 0;
+  virtual void start_read_request(boost::asio::mutable_buffer buffer) = 0;
 
   virtual void handle_read_request(const boost::system::error_code &e, std::size_t bytes_transferred) {
     trace("handle_read_request(" + utf8::utf8_from_native(e.message()) + ", " + str::xtos(bytes_transferred) + ")");
@@ -170,7 +172,7 @@ class connection : public std::enable_shared_from_this<connection<protocol_type>
     }
   }
 
-  virtual void start_write_request(boost::asio::mutable_buffers_1 buffer) = 0;
+  virtual void start_write_request(boost::asio::mutable_buffer buffer) = 0;
 
   virtual void handle_write_request(const boost::system::error_code &e, std::size_t bytes_transferred) {
     trace("handle_write_request(" + utf8::utf8_from_native(e.message()) + ", " + str::xtos(bytes_transferred) + ")");
@@ -185,7 +187,7 @@ class connection : public std::enable_shared_from_this<connection<protocol_type>
 
   virtual bool wait() {
     trace("wait()");
-    io_service_.reset();
+    io_service_.restart();
     while (io_service_.run_one()) {
       if (data_result_) {
         trace("data_result()");
@@ -223,9 +225,9 @@ class tcp_connection : public connection<protocol_type> {
   tcp::socket socket_;
 
  public:
-  tcp_connection(boost::asio::io_service &io_service, boost::posix_time::time_duration timeout, std::shared_ptr<typename protocol_type::client_handler> handler)
+  tcp_connection(boost::asio::io_context &io_service, boost::posix_time::time_duration timeout, std::shared_ptr<typename protocol_type::client_handler> handler)
       : connection_type(io_service, timeout, handler), socket_(io_service) {}
-  virtual ~tcp_connection() {
+  ~tcp_connection() override {
     try {
       this->close_socket();
     } catch (const std::exception &e) {
@@ -235,13 +237,13 @@ class tcp_connection : public connection<protocol_type> {
     }
   }
 
-  virtual void start_read_request(boost::asio::mutable_buffers_1 buffer) {
+  virtual void start_read_request(boost::asio::mutable_buffer buffer) {
     this->trace("tcp::start_read_request(" + str::xtos(boost::asio::buffer_size(buffer)) + ")");
     auto self(this->shared_from_this());
     async_read(socket_, buffer, [self](const auto &e, auto bytes_transferred) { self->handle_read_request(e, bytes_transferred); });
   }
 
-  virtual void start_write_request(boost::asio::mutable_buffers_1 buffer) {
+  virtual void start_write_request(boost::asio::mutable_buffer buffer) {
     this->trace("tcp::start_write_request(" + str::xtos(boost::asio::buffer_size(buffer)) + ")");
     auto self(this->shared_from_this());
     async_write(socket_, buffer, [self](const auto &e, auto bytes_transferred) { self->handle_write_request(e, bytes_transferred); });
@@ -259,10 +261,10 @@ class ssl_connection : public connection<protocol_type> {
   bool verify_hostname_;
 
  public:
-  ssl_connection(boost::asio::io_service &io_service, boost::asio::ssl::context &context, boost::posix_time::time_duration timeout,
+  ssl_connection(boost::asio::io_context &io_service, boost::asio::ssl::context &context, boost::posix_time::time_duration timeout,
                  std::shared_ptr<typename protocol_type::client_handler> handler, bool verify_hostname)
       : connection_type(io_service, timeout, handler), ssl_socket_(io_service, context), verify_hostname_(verify_hostname) {}
-  virtual ~ssl_connection() {
+  ~ssl_connection() override {
     try {
       this->close_socket();
     } catch (const std::exception &e) {
@@ -285,7 +287,7 @@ class ssl_connection : public connection<protocol_type> {
       // does the same explicitly.
       if (verify_hostname_) {
         try {
-          ssl_socket_.set_verify_callback(boost::asio::ssl::rfc2818_verification(host));
+          ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(host));
         } catch (const std::exception &e) {
           this->log_error(__FILE__, __LINE__, std::string("Failed to install hostname verifier: ") + e.what());
           return boost::asio::error::make_error_code(boost::asio::error::operation_aborted);
@@ -299,13 +301,13 @@ class ssl_connection : public connection<protocol_type> {
     return error;
   }
 
-  virtual void start_read_request(boost::asio::mutable_buffers_1 buffer) {
+  void start_read_request(boost::asio::mutable_buffer buffer) override {
     this->trace("ssl::start_read_request()");
     auto self(this->shared_from_this());
     async_read(ssl_socket_, buffer, [self](const auto &e, auto bytes_transferred) { self->handle_read_request(e, bytes_transferred); });
   }
 
-  virtual void start_write_request(boost::asio::mutable_buffers_1 buffer) {
+  void start_write_request(boost::asio::mutable_buffer buffer) override {
     this->trace("ssl::start_write_request()");
     auto self(this->shared_from_this());
     async_write(ssl_socket_, buffer, [self](const auto &e, auto bytes_transferred) { self->handle_write_request(e, bytes_transferred); });
@@ -317,7 +319,7 @@ class ssl_connection : public connection<protocol_type> {
 template <class protocol_type>
 class client : boost::noncopyable {
   std::shared_ptr<connection<protocol_type> > connection_;
-  boost::asio::io_service io_service_;
+  boost::asio::io_context io_service_;
   const socket_helpers::connection_info &info_;
   std::shared_ptr<typename protocol_type::client_handler> handler_;
 

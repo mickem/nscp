@@ -84,7 +84,7 @@ class TestConnection : public socket_helpers::server::connection<MockProtocol, B
   bool on_done_called = false;
   bool on_done_result = false;
 
-  TestConnection(boost::asio::io_service& io, std::shared_ptr<MockProtocol> protocol, bool open = false)
+  TestConnection(boost::asio::io_context& io, std::shared_ptr<MockProtocol> protocol, bool open = false)
       : parent_type(io, protocol), socket_(io), open_(open) {}
 
   boost::asio::ip::tcp::socket& get_socket() override { return socket_; }
@@ -118,7 +118,7 @@ class TestConnection : public socket_helpers::server::connection<MockProtocol, B
 // ============================================================================
 class ServerConnectionTest : public ::testing::Test {
  protected:
-  boost::asio::io_service io_;
+  boost::asio::io_context io_;
   std::shared_ptr<MockProtocol> protocol_;
 
   void SetUp() override { protocol_ = std::make_shared<MockProtocol>(); }

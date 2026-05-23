@@ -249,14 +249,14 @@ namespace io {
 void set_result(boost::optional<boost::system::error_code>* a, const boost::system::error_code& b);
 
 struct timed_writer : public std::enable_shared_from_this<timed_writer> {
-  boost::asio::io_service& io_service;
+  boost::asio::io_context& io_service;
   // boost::posix_time::time_duration duration;
   boost::asio::deadline_timer timer;
 
   boost::optional<boost::system::error_code> timer_result;
   boost::optional<boost::system::error_code> read_result;
 
-  timed_writer(boost::asio::io_service& io_service) : io_service(io_service), timer(io_service) {}
+  explicit timed_writer(boost::asio::io_context& io_service) : io_service(io_service), timer(io_service) {}
   ~timed_writer() { timer.cancel(); }
   void start_timer(boost::posix_time::time_duration duration) {
     timer.expires_from_now(duration);
@@ -279,7 +279,7 @@ struct timed_writer : public std::enable_shared_from_this<timed_writer> {
 
   template <typename Socket>
   bool wait(Socket& socket) {
-    io_service.reset();
+    io_service.restart();
     while (io_service.run_one()) {
       if (read_result) {
         read_result.reset();
@@ -298,17 +298,18 @@ struct timed_writer : public std::enable_shared_from_this<timed_writer> {
 };
 
 template <typename AsyncWriteStream, typename RawSocket, typename MutableBufferSequence>
-bool write_with_timeout(AsyncWriteStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers, boost::posix_time::time_duration duration) {
+bool write_with_timeout(boost::asio::io_context& io_service, AsyncWriteStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers,
+                        boost::posix_time::time_duration duration) {
   boost::optional<boost::system::error_code> timer_result;
-  boost::asio::deadline_timer timer(sock.get_io_service());
+  boost::asio::deadline_timer timer(io_service);
   timer.expires_from_now(duration);
   timer.async_wait([&timer_result](const auto& e) { set_result(&timer_result, e); });
 
   boost::optional<boost::system::error_code> read_result;
   async_write(sock, buffers, [&read_result](const auto& e) { set_result(&read_result, e); });
 
-  sock.get_io_service().reset();
-  while (sock.get_io_service().run_one()) {
+  io_service.restart();
+  while (io_service.run_one()) {
     if (read_result) {
       timer.cancel();
       return true;
@@ -323,14 +324,14 @@ bool write_with_timeout(AsyncWriteStream& sock, RawSocket& rawSocket, const Muta
 }
 
 struct timed_reader : public std::enable_shared_from_this<timed_reader> {
-  boost::asio::io_service& io_service;
+  boost::asio::io_context& io_service;
   boost::posix_time::time_duration duration;
   boost::asio::deadline_timer timer;
 
   boost::optional<boost::system::error_code> timer_result;
   boost::optional<boost::system::error_code> write_result;
 
-  timed_reader(boost::asio::io_service& io_service) : io_service(io_service), timer(io_service) {}
+  explicit timed_reader(boost::asio::io_context& io_service) : io_service(io_service), timer(io_service) {}
   ~timed_reader() { timer.cancel(); }
 
   void start_timer(boost::posix_time::time_duration duration_) {
@@ -353,7 +354,7 @@ struct timed_reader : public std::enable_shared_from_this<timed_reader> {
   }
   template <typename Socket>
   bool wait(Socket& socket) {
-    io_service.reset();
+    io_service.restart();
     while (io_service.run_one()) {
       if (write_result) {
         write_result.reset();
@@ -371,17 +372,18 @@ struct timed_reader : public std::enable_shared_from_this<timed_reader> {
 };
 
 template <typename AsyncReadStream, typename RawSocket, typename MutableBufferSequence>
-bool read_with_timeout(AsyncReadStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers, boost::posix_time::time_duration duration) {
+bool read_with_timeout(boost::asio::io_context& io_service, AsyncReadStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers,
+                       boost::posix_time::time_duration duration) {
   boost::optional<boost::system::error_code> timer_result;
-  boost::asio::deadline_timer timer(sock.get_io_service());
+  boost::asio::deadline_timer timer(io_service);
   timer.expires_from_now(duration);
   timer.async_wait([&timer_result](const auto& e) { set_result(&timer_result, e); });
 
   boost::optional<boost::system::error_code> read_result;
   async_read(sock, buffers, [&read_result](const auto& e) { set_result(&read_result, e); });
 
-  sock.get_io_service().reset();
-  while (sock.get_io_service().run_one()) {
+  io_service.restart();
+  while (io_service.run_one()) {
     if (read_result) {
       timer.cancel();
       return true;

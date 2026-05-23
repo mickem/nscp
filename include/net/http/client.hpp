@@ -34,7 +34,6 @@
 #include <str/xtos.hpp>
 #include <string>
 #include <utility>
-#include <vector>
 
 using boost::asio::ip::tcp;
 
@@ -121,7 +120,7 @@ struct tcp_socket final : generic_socket {
   tcp::socket socket_;
   tcp::resolver resolver_;
 
-  explicit tcp_socket(boost::asio::io_service &io_service) : socket_(io_service), resolver_(io_service) {}
+  explicit tcp_socket(boost::asio::io_context &io_service) : socket_(io_service), resolver_(io_service) {}
   ~tcp_socket() override {
     try {
       socket_.close();
@@ -135,14 +134,15 @@ struct tcp_socket final : generic_socket {
   }
 
   void connect(const std::string &server, const std::string &port) override {
-    const tcp::resolver::query query(server, port);
-    tcp::resolver::iterator endpoint_iterator = resolver_.resolve(query);
-    const tcp::resolver::iterator end;
+    boost::system::error_code resolve_ec;
+    auto endpoints = resolver_.resolve(server, port, resolve_ec);
+    if (resolve_ec) {
+      throw socket_helpers::socket_exception("Failed to resolve " + server + ":" + port + ": " + resolve_ec.message());
+    }
 
     boost::system::error_code error = boost::asio::error::host_not_found;
-    while (error && endpoint_iterator != end) {
-      this->connect_tcp(*endpoint_iterator, server, error);
-      ++endpoint_iterator;
+    for (auto it = endpoints.begin(); error && it != endpoints.end(); ++it) {
+      this->connect_tcp(it->endpoint(), server, error);
     }
     if (error) {
       throw socket_helpers::socket_exception("Failed to connect to " + server + ":" + port + ": " + error.message());
@@ -164,7 +164,7 @@ struct ssl_socket final : generic_socket {
   boost::asio::ssl::verify_mode verify_;
   proxy_config proxy_;
 
-  explicit ssl_socket(boost::asio::io_service &io_service, boost::asio::ssl::context::method method, boost::asio::ssl::verify_mode verify,
+  explicit ssl_socket(boost::asio::io_context &io_service, boost::asio::ssl::context::method method, boost::asio::ssl::verify_mode verify,
                       const std::string &ca, proxy_config proxy = proxy_config())
       : context_(method), ssl_socket_(io_service, context_), resolver_(io_service), verify_(verify), proxy_(std::move(proxy)) {
     if (!ca.empty() && ca != "none") {
@@ -194,7 +194,7 @@ struct ssl_socket final : generic_socket {
     if (!server_name.empty()) {
       SSL_set_tlsext_host_name(ssl_socket_.native_handle(), server_name.c_str());
     }
-    ssl_socket_.set_verify_callback(boost::asio::ssl::rfc2818_verification(server_name));
+    ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(server_name));
 
     ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
   }
@@ -206,15 +206,15 @@ struct ssl_socket final : generic_socket {
     // both connect() and stream I/O; lowest_layer() only gives basic_socket.
     auto &tcp_sock = ssl_socket_.next_layer();
 
-    const tcp::resolver::query query(proxy_.host, proxy_.port);
-    tcp::resolver::iterator endpoint_it = resolver_.resolve(query);
-    const tcp::resolver::iterator end;
-
     boost::system::error_code error = boost::asio::error::host_not_found;
-    while (error && endpoint_it != end) {
+    auto proxy_endpoints = resolver_.resolve(proxy_.host, proxy_.port, error);
+    if (error) {
+      throw socket_helpers::socket_exception("Failed to resolve proxy " + proxy_.host + ":" + proxy_.port + ": " + error.message());
+    }
+    error = boost::asio::error::host_not_found;
+    for (auto it = proxy_endpoints.begin(); error && it != proxy_endpoints.end(); ++it) {
       tcp_sock.close();
-      tcp_sock.connect(*endpoint_it, error);
-      ++endpoint_it;
+      tcp_sock.connect(it->endpoint(), error);
     }
     if (error) {
       throw socket_helpers::socket_exception("Failed to connect to proxy " + proxy_.host + ":" + proxy_.port + ": " + error.message());
@@ -279,7 +279,7 @@ struct ssl_socket final : generic_socket {
     if (!real_host.empty()) {
       SSL_set_tlsext_host_name(ssl_socket_.native_handle(), real_host.c_str());
     }
-    ssl_socket_.set_verify_callback(boost::asio::ssl::rfc2818_verification(real_host));
+    ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(real_host));
     ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
     if (error) {
       throw socket_helpers::socket_exception("TLS handshake via proxy tunnel failed: " + error.message());
@@ -292,14 +292,14 @@ struct ssl_socket final : generic_socket {
       return;
     }
 
-    const tcp::resolver::query query(server, port);
-    tcp::resolver::iterator endpoint_iterator = resolver_.resolve(query);
-    const tcp::resolver::iterator end;
-
     boost::system::error_code error = boost::asio::error::host_not_found;
-    while (error && endpoint_iterator != end) {
-      this->connect_tcp(*endpoint_iterator, server, error);
-      ++endpoint_iterator;
+    auto endpoints = resolver_.resolve(server, port, error);
+    if (error) {
+      throw socket_helpers::socket_exception("Failed to resolve " + server + ":" + port + ": " + error.message());
+    }
+    error = boost::asio::error::host_not_found;
+    for (auto it = endpoints.begin(); error && it != endpoints.end(); ++it) {
+      this->connect_tcp(it->endpoint(), server, error);
     }
     if (error) {
       throw socket_helpers::socket_exception("Failed to connect to " + server + ":" + port + ": " + error.message());
@@ -317,7 +317,7 @@ struct ssl_socket final : generic_socket {
 struct file_socket final : generic_socket {
   boost::asio::windows::stream_handle handle_;
 
-  explicit file_socket(boost::asio::io_service &io_service) : handle_(io_service) {}
+  explicit file_socket(boost::asio::io_context &io_service) : handle_(io_service) {}
   ~file_socket() override {
     try {
       handle_.close();
@@ -363,7 +363,7 @@ struct http_client_options {
 };
 
 class simple_client {
-  boost::asio::io_service io_service_;
+  boost::asio::io_context io_service_;
   std::unique_ptr<generic_socket> socket_;
   http_client_options options_;
 

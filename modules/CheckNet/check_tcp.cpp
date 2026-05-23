@@ -59,19 +59,18 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
   out.result = "error";
   out.time = 0;
 
-  boost::asio::io_service io_service;
+  boost::asio::io_context io_service;
   tcp::resolver resolver(io_service);
   tcp::socket socket(io_service);
   boost::asio::deadline_timer timer(io_service);
 
   const auto start = boost::chrono::steady_clock::now();
-  bool connect_done = false;
   boost::system::error_code connect_ec = boost::asio::error::would_block;
 
   try {
-    tcp::resolver::query query(host, std::to_string(port));
+    bool connect_done = false;
     boost::system::error_code resolve_ec;
-    auto endpoints = resolver.resolve(query, resolve_ec);
+    auto endpoints = resolver.resolve(host, std::to_string(port), resolve_ec);
     if (resolve_ec) {
       out.result = "resolve_failed";
       return;
@@ -93,7 +92,7 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
     });
 
     io_service.run();
-    io_service.reset();
+    io_service.restart();
 
     const auto elapsed = boost::chrono::duration_cast<boost::chrono::milliseconds>(boost::chrono::steady_clock::now() - start).count();
     out.time = static_cast<long long>(elapsed);

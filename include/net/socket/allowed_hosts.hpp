@@ -76,9 +76,17 @@ struct allowed_hosts_manager {
       errors.emplace_back("allowed_hosts is empty - rejecting all connections (set `allowed hosts = 0.0.0.0/0,::/0` to allow all)");
       return false;
     }
-    return (address.is_v4() && is_allowed_v4(address.to_v4().to_bytes(), errors)) || (address.is_v6() && is_allowed_v6(address.to_v6().to_bytes(), errors)) ||
-           (address.is_v6() && address.to_v6().is_v4_compatible() && is_allowed_v4(address.to_v6().to_v4().to_bytes(), errors)) ||
-           (address.is_v6() && address.to_v6().is_v4_mapped() && is_allowed_v4(address.to_v6().to_v4().to_bytes(), errors));
+    if (address.is_v4()) {
+      return is_allowed_v4(address.to_v4().to_bytes(), errors);
+    }
+    if (address.is_v6()) {
+      const auto v6 = address.to_v6();
+      if (is_allowed_v6(v6.to_bytes(), errors)) return true;
+      if (v6.is_v4_mapped()) {
+        return is_allowed_v4(boost::asio::ip::make_address_v4(boost::asio::ip::v4_mapped, v6).to_bytes(), errors);
+      }
+    }
+    return false;
   }
   bool is_allowed_v4(const addr_v4 &remote, std::list<std::string> &errors) {
     if (!cached) refresh(errors);

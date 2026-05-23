@@ -164,7 +164,7 @@ namespace {
 
 class nsca_ng_connection {
  public:
-  boost::asio::io_service io_service_;
+  boost::asio::io_context io_service_;
   boost::asio::ssl::context ctx_;
   boost::asio::ssl::stream<boost::asio::ip::tcp::socket> ssl_socket_;
   boost::asio::ip::tcp::resolver resolver_;
@@ -287,9 +287,8 @@ class nsca_ng_connection {
     psk_creds_ = creds;
     SSL_set_ex_data(ssl_socket_.native_handle(), get_psk_ex_data_index(), &psk_creds_);
 
-    const boost::asio::ip::tcp::resolver::query query(host, port);
     boost::system::error_code resolve_ec;
-    auto endpoints = resolver_.resolve(query, resolve_ec);
+    auto endpoints = resolver_.resolve(host, port, resolve_ec);
     if (resolve_ec) throw socket_helpers::socket_exception("Failed to resolve " + host + ": " + utf8::utf8_from_native(resolve_ec.message()));
 
     run_with_deadline(
@@ -331,7 +330,7 @@ class nsca_ng_connection {
 
       // Hostname pinning still required even when CA verifies.
       if (verifying) {
-        ssl_socket_.set_verify_callback(boost::asio::ssl::rfc2818_verification(host));
+        ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(host));
       }
     }
 

@@ -90,7 +90,7 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
   for (const std::string &host : hosts) {
     result_container result;
     for (int i = 0; i < count; i++) {
-      boost::asio::io_service io_service;
+      boost::asio::io_context io_service;
       auto id = identifier.fetch_add(1, boost::memory_order_relaxed);
       pinger ping(io_service, result, host.c_str(), timeout, id, payload);
       ping.ping();

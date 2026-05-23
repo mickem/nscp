@@ -59,7 +59,7 @@ void run_dns_check(const std::string &host, int timeout_ms, const std::vector<st
   out.result = "error";
   out.addresses.clear();
 
-  boost::asio::io_service io_service;
+  boost::asio::io_context io_service;
   tcp::resolver resolver(io_service);
   boost::asio::deadline_timer timer(io_service);
 
@@ -77,16 +77,13 @@ void run_dns_check(const std::string &host, int timeout_ms, const std::vector<st
   });
 
   try {
-    tcp::resolver::query query(host, "");
-    resolver.async_resolve(query, [&](const boost::system::error_code &ec, tcp::resolver::iterator it) {
+    resolver.async_resolve(host, "", [&](const boost::system::error_code &ec, const tcp::resolver::results_type &results) {
       resolve_done = true;
       resolve_ec = ec;
-      const tcp::resolver::iterator end;
       std::set<std::string> seen;
-      while (it != end) {
-        const std::string a = it->endpoint().address().to_string();
+      for (const auto &entry : results) {
+        const std::string a = entry.endpoint().address().to_string();
         if (seen.insert(a).second) addrs.push_back(a);
-        ++it;
       }
       boost::system::error_code ignore;
       timer.cancel(ignore);

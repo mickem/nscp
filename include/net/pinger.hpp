@@ -43,7 +43,7 @@ struct result_container {
 
 class pinger {
  public:
-  pinger(boost::asio::io_service& io_service, result_container& result, const char* destination, int timeout, unsigned short identifier, std::string payload)
+  pinger(boost::asio::io_context& io_service, result_container& result, const char* destination, int timeout, unsigned short identifier, std::string payload)
       : resolver_(io_service),
         socket_(io_service, boost::asio::ip::icmp::v4()),
         timer_(io_service),
@@ -54,8 +54,7 @@ class pinger {
         payload_(std::move(payload))
 
   {
-    boost::asio::ip::icmp::resolver::query query(boost::asio::ip::icmp::v4(), destination, "");
-    destination_ = *resolver_.resolve(query);
+    destination_ = resolver_.resolve(boost::asio::ip::icmp::v4(), destination, "").begin()->endpoint();
     result.destination_ = destination;
     result.ip_ = destination_.address().to_string();
   }

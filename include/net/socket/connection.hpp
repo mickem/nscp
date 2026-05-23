@@ -69,7 +69,7 @@ class connection : public std::enable_shared_from_this<connection<protocol_type,
   typedef connection<protocol_type, N> connection_type;
 
  public:
-  connection(boost::asio::io_service& io_service, std::shared_ptr<protocol_type> protocol)
+  connection(boost::asio::io_context& io_service, std::shared_ptr<protocol_type> protocol)
       : is_active_(true), strand_(io_service), timer_(io_service), protocol_(protocol) {}
   virtual ~connection() {}
 
@@ -220,7 +220,7 @@ class connection : public std::enable_shared_from_this<connection<protocol_type,
   }
 
   bool is_active_;
-  boost::asio::io_service::strand strand_;
+  boost::asio::io_context::strand strand_;
   boost::array<char, N> buffer_;
   boost::asio::deadline_timer timer_;
   std::list<typename protocol_type::outbound_buffer_type> buffers_;
@@ -233,27 +233,29 @@ class tcp_connection : public connection<protocol_type, N> {
   typedef connection<protocol_type, N> parent_type;
   typedef tcp_connection<protocol_type, N> my_type;
 
-  boost::asio::ip::tcp::socket socket_;
+  tcp::socket socket_;
 
  public:
-  tcp_connection(boost::asio::io_service& io_service, std::shared_ptr<protocol_type> protocol)
+  tcp_connection(boost::asio::io_context& io_service, std::shared_ptr<protocol_type> protocol)
       : connection<protocol_type, N>(io_service, protocol), socket_(io_service) {}
-  virtual ~tcp_connection() {}
+  ~tcp_connection() override = default;
 
-  virtual bool is_open() { return socket_.is_open(); }
-  virtual boost::asio::ip::tcp::socket& get_socket() { return socket_; }
+  bool is_open() override { return socket_.is_open(); }
+  tcp::socket& get_socket() override { return socket_; }
 
-  virtual void start_read_request() {
+  void start_read_request() override {
     this->trace("tcp::start_read_request()");
     auto self(this->shared_from_this());
-    socket_.async_read_some(boost::asio::buffer(parent_type::buffer_),
-                            parent_type::strand_.wrap([self](const auto& e, auto bytes_transferred) { self->handle_read_request(e, bytes_transferred); }));
+    socket_.async_read_some(
+        boost::asio::buffer(parent_type::buffer_),
+        boost::asio::bind_executor(parent_type::strand_, [self](const auto& e, auto bytes_transferred) { self->handle_read_request(e, bytes_transferred); }));
   }
-  virtual void start_write_request(const boost::asio::const_buffer& response) {
+  void start_write_request(const boost::asio::const_buffer& response) override {
     this->trace("start_write_request(" + str::xtos(boost::asio::buffer_size(response)) + ")");
     auto self(this->shared_from_this());
-    boost::asio::async_write(socket_, boost::asio::const_buffers_1(response),
-                             parent_type::strand_.wrap([self](const auto& e, auto bytes_transferred) { self->handle_write_response(e, bytes_transferred); }));
+    boost::asio::async_write(socket_, response, boost::asio::bind_executor(parent_type::strand_, [self](const auto& e, auto bytes_transferred) {
+                               self->handle_write_response(e, bytes_transferred);
+                             }));
   }
 };
 
@@ -264,18 +266,19 @@ class ssl_connection : public connection<protocol_type, N> {
   typedef ssl_connection<protocol_type, N> my_type;
 
  public:
-  ssl_connection(boost::asio::io_service& io_service, boost::asio::ssl::context& context, std::shared_ptr<protocol_type> protocol)
+  ssl_connection(boost::asio::io_context& io_service, boost::asio::ssl::context& context, std::shared_ptr<protocol_type> protocol)
       : connection<protocol_type, N>(io_service, protocol), ssl_socket_(io_service, context) {}
-  virtual ~ssl_connection() {}
+  ~ssl_connection() override = default;
 
-  virtual bool is_open() { return get_socket().is_open(); }
+  bool is_open() override { return get_socket().is_open(); }
 
-  virtual boost::asio::ip::tcp::socket& get_socket() { return ssl_socket_.next_layer(); }
+  tcp::socket& get_socket() override { return ssl_socket_.next_layer(); }
 
-  virtual void start() {
+  void start() override {
     this->trace("ssl::start_read_request()");
     std::shared_ptr<my_type> self = std::dynamic_pointer_cast<my_type>(this->shared_from_this());
-    ssl_socket_.async_handshake(boost::asio::ssl::stream_base::server, parent_type::strand_.wrap([self](const auto& e) { self->handle_handshake(e); }));
+    ssl_socket_.async_handshake(boost::asio::ssl::stream_base::server,
+                                boost::asio::bind_executor(parent_type::strand_, [self](const auto& e) { self->handle_handshake(e); }));
   }
 
   virtual void handle_handshake(const boost::system::error_code& e) {
@@ -327,18 +330,20 @@ class ssl_connection : public connection<protocol_type, N> {
     }
   }
 
-  virtual void start_read_request() {
+  void start_read_request() override {
     this->trace("ssl::start_read_request()");
     auto self(this->shared_from_this());
-    ssl_socket_.async_read_some(boost::asio::buffer(parent_type::buffer_),
-                                parent_type::strand_.wrap([self](const auto& e, auto bytes_transferred) { self->handle_read_request(e, bytes_transferred); }));
+    ssl_socket_.async_read_some(
+        boost::asio::buffer(parent_type::buffer_),
+        boost::asio::bind_executor(parent_type::strand_, [self](const auto& e, auto bytes_transferred) { self->handle_read_request(e, bytes_transferred); }));
   }
 
-  virtual void start_write_request(const boost::asio::const_buffer& response) {
+  void start_write_request(const boost::asio::const_buffer& response) override {
     this->trace("ssl::start_write_request(" + str::xtos(boost::asio::buffer_size(response)) + ")");
     auto self(this->shared_from_this());
-    boost::asio::async_write(ssl_socket_, boost::asio::const_buffers_1(response),
-                             parent_type::strand_.wrap([self](const auto& e, auto bytes_transferred) { self->handle_write_response(e, bytes_transferred); }));
+    boost::asio::async_write(ssl_socket_, response, boost::asio::bind_executor(parent_type::strand_, [self](const auto& e, auto bytes_transferred) {
+                               self->handle_write_response(e, bytes_transferred);
+                             }));
   }
 
  protected:

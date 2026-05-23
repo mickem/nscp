@@ -47,19 +47,17 @@ using ssl_stream = asio::ssl::stream<tcp::socket>;
 
 class sync_io {
  public:
-  sync_io(asio::io_service& io, tcp::socket& s, int timeout_seconds) : io_(io), socket_ref_(s), tls_stream_(nullptr), timeout_(timeout_seconds) {}
+  sync_io(asio::io_context& io, tcp::socket& s, int timeout_seconds) : io_(io), socket_ref_(s), tls_stream_(nullptr), timeout_(timeout_seconds) {}
 
   void use_tls(ssl_stream& s) { tls_stream_ = &s; }
 
   // Connect to the first endpoint that succeeds, with a deadline.
-  void connect(tcp::resolver::iterator endpoints) {
+  void connect(const tcp::resolver::results_type& endpoints) {
     boost::system::error_code ec = asio::error::host_not_found;
-    auto end = tcp::resolver::iterator{};
-    while (ec && endpoints != end) {
+    for (auto it = endpoints.begin(); ec && it != endpoints.end(); ++it) {
       socket_ref_.close();
-      run_with_deadline([&](auto&& done) { socket_ref_.async_connect(*endpoints, [done = std::move(done)](const boost::system::error_code& e) { done(e); }); },
-                        ec);
-      if (ec) ++endpoints;
+      const auto ep = it->endpoint();
+      run_with_deadline([&](auto&& done) { socket_ref_.async_connect(ep, [done = std::move(done)](const boost::system::error_code& e) { done(e); }); }, ec);
     }
     if (ec) throw smtp_exception("connect failed: " + ec.message());
   }
@@ -141,7 +139,7 @@ class sync_io {
       bytes = n;
       timer.cancel();
     });
-    io_.reset();
+    io_.restart();
     io_.run();
     if (timed_out) {
       out_ec = asio::error::timed_out;
@@ -149,7 +147,7 @@ class sync_io {
     if (out_bytes) *out_bytes = bytes;
   }
 
-  asio::io_service& io_;
+  asio::io_context& io_;
   tcp::socket& socket_ref_;
   ssl_stream* tls_stream_;
   asio::streambuf buf_;
@@ -308,23 +306,22 @@ void send(const connection_config& cfg, const message& msg) {
     ssl_ctx.set_default_verify_paths();
   }
 
-  asio::io_service io;
+  asio::io_context io;
   // The owning ssl_stream<tcp::socket> form keeps the underlying socket
   // accessible via next_layer(). We do plain SMTP reads/writes against
   // next_layer() before STARTTLS, then handshake() upgrades subsequent IO
   // to flow through `tls`.
   ssl_stream tls(io, ssl_ctx);
   if (!cfg.insecure_skip_verify) {
-    tls.set_verify_callback(asio::ssl::rfc2818_verification(cfg.server));
+    tls.set_verify_callback(asio::ssl::host_name_verification(cfg.server));
   }
 
   sync_io conn(io, tls.next_layer(), cfg.timeout_seconds);
 
   // Resolve and connect.
   tcp::resolver resolver(io);
-  tcp::resolver::query query(cfg.server, cfg.port);
   boost::system::error_code resolve_ec;
-  auto endpoints = resolver.resolve(query, resolve_ec);
+  auto endpoints = resolver.resolve(cfg.server, cfg.port, resolve_ec);
   if (resolve_ec) throw smtp_exception("DNS resolve failed: " + resolve_ec.message());
   conn.connect(endpoints);
 

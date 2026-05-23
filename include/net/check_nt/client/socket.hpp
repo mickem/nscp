@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/core/noncopyable.hpp>
 #include <memory>
 #include <socket_helpers.hpp>
 
@@ -28,17 +30,15 @@ namespace nrpe {
 namespace client {
 
 class socket : public boost::noncopyable {
- private:
-  std::shared_ptr<tcp::socket> socket_;
+  std::shared_ptr<tcp::socket> socket_{};
 
  public:
   typedef boost::asio::basic_socket<tcp, boost::asio::stream_socket_service<tcp> > basic_socket_type;
 
- public:
-  socket(boost::asio::io_service &io_service, std::wstring host, int port) { socket_.reset(new tcp::socket(io_service)); }
-  socket() {}
+  socket(boost::asio::io_context &io_service, std::wstring host, int port) { socket_.reset(new tcp::socket(io_service)); }
+  socket() = default;
 
-  virtual boost::asio::io_service &get_io_service() { return socket_->get_io_service(); }
+  virtual boost::asio::io_context &get_io_service() { return socket_->get_io_service(); }
   virtual basic_socket_type &get_socket() { return *socket_; }
 
   virtual void connect(std::wstring host, int port) {
@@ -57,7 +57,7 @@ class socket : public boost::noncopyable {
     if (error) throw boost::system::system_error(error);
   }
 
-  ~socket() { get_socket().close(); }
+  virtual ~socket() { get_socket().close(); }
 
   virtual void send(nrpe::packet &packet, boost::posix_time::seconds timeout) {
     std::vector<char> buf = packet.get_buffer();
@@ -82,7 +82,7 @@ class ssl_socket : public socket {
   std::shared_ptr<boost::asio::ssl::stream<tcp::socket> > ssl_socket_;
 
  public:
-  ssl_socket(boost::asio::io_service &io_service, boost::asio::ssl::context &ctx, std::wstring host, int port) : socket() {
+  ssl_socket(boost::asio::io_context &io_service, boost::asio::ssl::context &ctx, std::wstring host, int port) : socket() {
     ssl_socket_.reset(new boost::asio::ssl::stream<tcp::socket>(io_service, ctx));
   }
 
@@ -91,7 +91,7 @@ class ssl_socket : public socket {
     ssl_socket_->handshake(boost::asio::ssl::stream_base::client);
   }
 
-  virtual boost::asio::io_service &get_io_service() { return ssl_socket_->get_io_service(); }
+  virtual boost::asio::io_context &get_io_service() { return ssl_socket_->get_io_service(); }
   virtual basic_socket_type &get_socket() { return ssl_socket_->lowest_layer(); }
 
   virtual void write_with_timeout(std::vector<char> &buf, boost::posix_time::seconds timeout) {

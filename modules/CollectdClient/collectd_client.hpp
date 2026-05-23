@@ -29,14 +29,14 @@ namespace collectd_client {
 
 class udp_sender {
  public:
-  udp_sender(boost::asio::io_service &io_service, boost::asio::ip::udp::endpoint source_endpoint, const boost::asio::ip::address &multicast_address,
+  udp_sender(boost::asio::io_context &io_service, boost::asio::ip::udp::endpoint source_endpoint, const boost::asio::ip::address &multicast_address,
              unsigned short multicast_port)
       : endpoint_(multicast_address, multicast_port),
         socket_(io_service, source_endpoint)
   //, timer_(io_service)
   {}
 
-  udp_sender(boost::asio::io_service &io_service, const boost::asio::ip::address &multicast_address, unsigned short multicast_port)
+  udp_sender(boost::asio::io_context &io_service, const boost::asio::ip::address &multicast_address, unsigned short multicast_port)
       : endpoint_(multicast_address, multicast_port),
         socket_(io_service, endpoint_.protocol())
   //, timer_(io_service)
@@ -216,15 +216,13 @@ struct collectd_client_handler : public client::handler_interface {
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Sending " + str::xtos(packets.size()) + " packets to: " + target.to_string()); }
     for (const collectd::packet &p : packets) {
       try {
-        boost::asio::io_service io_service;
+        boost::asio::io_context io_service;
         std::list<std::shared_ptr<udp_sender>> senders;
 
-        boost::asio::ip::address target_address = boost::asio::ip::address::from_string(target.get_address());
+        boost::asio::ip::address target_address = boost::asio::ip::make_address(target.get_address());
 
         boost::asio::ip::udp::resolver resolver(io_service);
-        boost::asio::ip::udp::resolver::query query(boost::asio::ip::host_name(), "");
-        boost::asio::ip::udp::resolver::iterator endpoint_iterator = resolver.resolve(query);
-        boost::asio::ip::udp::resolver::iterator end;
+        auto endpoints = resolver.resolve(boost::asio::ip::host_name(), "");
         bool is_multicast = false;
         if (target_address.is_v4()) {
           is_multicast = target_address.to_v4().is_multicast();
@@ -233,15 +231,13 @@ struct collectd_client_handler : public client::handler_interface {
         }
 
         if (is_multicast) {
-          while (endpoint_iterator != end) {
-            std::string ss = endpoint_iterator->endpoint().address().to_string();
-            if (target_address.is_v4() && endpoint_iterator->endpoint().address().is_v4()) {
-              std::shared_ptr<udp_sender> s = std::make_shared<udp_sender>(io_service, endpoint_iterator->endpoint(), target_address, target.get_int_port());
+          for (const auto &entry : endpoints) {
+            if (target_address.is_v4() && entry.endpoint().address().is_v4()) {
+              std::shared_ptr<udp_sender> s = std::make_shared<udp_sender>(io_service, entry.endpoint(), target_address, target.get_int_port());
               senders.push_back(s);
               s->send_data(p.get_buffer());
               io_service.run();
             }
-            endpoint_iterator++;
           }
         } else {
           std::shared_ptr<udp_sender> s = std::make_shared<udp_sender>(io_service, target_address, target.get_int_port());

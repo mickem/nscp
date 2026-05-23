@@ -182,17 +182,15 @@ struct graphite_client_handler : public client::handler_interface {
 
   boost::tuple<bool, std::string> send(connection_data con, const std::list<g_data> &data) {
     try {
-      boost::asio::io_service io_service;
+      boost::asio::io_context io_service;
       boost::asio::ip::tcp::resolver resolver(io_service);
-      boost::asio::ip::tcp::resolver::query query(con.get_address(), con.get_port());
-      boost::asio::ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
-      boost::asio::ip::tcp::resolver::iterator end;
+      auto endpoints = resolver.resolve(con.get_address(), con.get_port());
 
       boost::asio::ip::tcp::socket socket(io_service);
       boost::system::error_code error = boost::asio::error::host_not_found;
-      while (error && endpoint_iterator != end) {
+      for (auto it = endpoints.begin(); error && it != endpoints.end(); ++it) {
         socket.close();
-        socket.connect(*endpoint_iterator++, error);
+        socket.connect(it->endpoint(), error);
       }
       if (error) throw boost::system::system_error(error);
 

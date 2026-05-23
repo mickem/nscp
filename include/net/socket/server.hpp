@@ -63,11 +63,11 @@ class server : boost::noncopyable {
   connection_info info_;
   int threads_;
   typename protocol_type::handler_type handler_;
-  boost::asio::io_service io_service_;
+  boost::asio::io_context io_service_;
   tcp::acceptor acceptor_v4;
   tcp::acceptor acceptor_v6;
 #if BOOST_VERSION >= 106800
-  boost::asio::io_service::strand accept_strand_;
+  boost::asio::io_context::strand accept_strand_;
 #else
   boost::asio::strand accept_strand_;
 #endif
@@ -143,17 +143,17 @@ class server : boost::noncopyable {
 
   bool start() {
     boost::system::error_code er;
-    ip::tcp::resolver resolver(io_service_);
-    ip::tcp::resolver::iterator endpoint_iterator;
-    if (info_.back_log == connection_info::backlog_default) info_.back_log = boost::asio::socket_base::max_connections;
+    tcp::resolver resolver(io_service_);
+    if (info_.back_log == connection_info::backlog_default) info_.back_log = boost::asio::socket_base::max_listen_connections;
 
+    boost::system::error_code resolve_ec;
+    tcp::resolver::results_type endpoints;
     if (info_.address.empty()) {
-      endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(info_.get_port()));
+      endpoints = resolver.resolve("", info_.get_port(), boost::asio::ip::resolver_base::passive, resolve_ec);
     } else {
-      endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(info_.get_address(), info_.get_port()));
+      endpoints = resolver.resolve(info_.get_address(), info_.get_port(), resolve_ec);
     }
-    ip::tcp::resolver::iterator end;
-    if (endpoint_iterator == end) {
+    if (resolve_ec || endpoints.empty()) {
       logger_->log_error(__FILE__, __LINE__, "Failed to lookup: " + info_.get_endpoint_string());
       return false;
     }
@@ -170,8 +170,8 @@ class server : boost::noncopyable {
 #endif
     }
     int count = 0;
-    for (; endpoint_iterator != end; ++endpoint_iterator) {
-      ip::tcp::endpoint endpoint = *endpoint_iterator;
+    for (const auto &entry : endpoints) {
+      tcp::endpoint endpoint = entry.endpoint();
       if (!setup_endpoint_retry(endpoint, count > 0 ? 1 : 3, info_.get_reuse()))
         logger_->log_error(__FILE__, __LINE__, "Failed to setup endpoint");
       else
@@ -184,11 +184,13 @@ class server : boost::noncopyable {
 
     if (acceptor_v4.is_open()) {
       new_connection_v4_.reset(create_connection());
-      acceptor_v4.async_accept(new_connection_v4_->get_socket(), accept_strand_.wrap([this](const auto &e) { this->handle_accept(false, e); }));
+      acceptor_v4.async_accept(new_connection_v4_->get_socket(),
+                               boost::asio::bind_executor(accept_strand_, [this](const auto &e) { this->handle_accept(false, e); }));
     }
     if (acceptor_v6.is_open()) {
       new_connection_v6_.reset(create_connection());
-      acceptor_v6.async_accept(new_connection_v6_->get_socket(), accept_strand_.wrap([this](const auto &e) { this->handle_accept(true, e); }));
+      acceptor_v6.async_accept(new_connection_v6_->get_socket(),
+                               boost::asio::bind_executor(accept_strand_, [this](const auto &e) { this->handle_accept(true, e); }));
     }
 
     for (std::size_t i = 0; i < info_.thread_pool_size; ++i) {
@@ -293,9 +295,9 @@ class server : boost::noncopyable {
     try {
       slot.reset(create_connection());
       if (ipv6)
-        acceptor_v6.async_accept(slot->get_socket(), accept_strand_.wrap([this, ipv6](const auto &e) { this->handle_accept(ipv6, e); }));
+        acceptor_v6.async_accept(slot->get_socket(), boost::asio::bind_executor(accept_strand_, [this, ipv6](const auto &e) { this->handle_accept(ipv6, e); }));
       else
-        acceptor_v4.async_accept(slot->get_socket(), accept_strand_.wrap([this, ipv6](const auto &e) { this->handle_accept(ipv6, e); }));
+        acceptor_v4.async_accept(slot->get_socket(), boost::asio::bind_executor(accept_strand_, [this, ipv6](const auto &e) { this->handle_accept(ipv6, e); }));
     } catch (const std::exception &e) {
       logger_->log_error(__FILE__, __LINE__, std::string("Failed to create new connection: ") + utf8::utf8_from_native(e.what()));
     } catch (...) {
