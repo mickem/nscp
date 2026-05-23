@@ -32,7 +32,8 @@ describe("NRDP integration", () => {
     spoolDir = nscp.scratch("nrdp_test");
 
     const image = await GenericContainer.fromDockerfile(
-      path.resolve(__dirname, "nrdp"),
+      path.resolve(__dirname),
+      "Dockerfiles/nrdp.Dockerfile",
     ).build("nrdp_server", { deleteOnExit: false });
 
     server = await trackContainerLogs(

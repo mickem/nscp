@@ -37,7 +37,8 @@ describe("NSCA-NG integration", () => {
     fs.writeFileSync(resultsFile, "");
 
     const image = await GenericContainer.fromDockerfile(
-      path.resolve(__dirname, "nsca-ng"),
+      path.resolve(__dirname),
+      "Dockerfiles/nsca-ng.Dockerfile",
     ).build("nsca_ng_server", { deleteOnExit: false });
     server = await trackContainerLogs(
       await image

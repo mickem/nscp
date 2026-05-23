@@ -7,7 +7,7 @@ RUN apt-get update && \
     chmod 0777 /nsca-ng
 
 # Copy the entrypoint script.
-COPY entrypoint.sh /entrypoint.sh
+COPY Dockerfiles/entrypoints/nsca-ng.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Standard NSCA-NG TLS port.

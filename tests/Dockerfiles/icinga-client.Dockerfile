@@ -1,20 +1,13 @@
-# Lightweight alternative to the source-build Dockerfile. Installs the
+# Lightweight alternative to icinga-client-source.Dockerfile. Installs the
 # `icinga2-bin` Debian package and exposes its bundled check_nscp_api
-# plugin. Same end result as Dockerfile, but:
+# plugin. Same end result as the source build, but:
 #
 #   * Image build is seconds vs. minutes (no compile step).
 #   * No build-deps (cmake/boost-dev/flex/bison) in the build context.
 #   * The binary is whatever upstream Debian shipped — version drift moves
 #     with the OS image rather than a pinned source tag. If you need exact
-#     version pinning for a regression test, use the source-build
-#     Dockerfile instead.
-#
-# Run-test selects which Dockerfile to use via `-f`; the default
-# `Dockerfile` builds from source. To use this one:
-#
-#   docker build -t check_nscp_api -f tests/icinga-client/Dockerfile.deb tests/icinga-client/
-#
-# Or edit run-test.bat to point at Dockerfile.deb.
+#     version pinning for a regression test, use icinga-client-source.Dockerfile
+#     instead.
 
 FROM debian:bookworm-slim
 

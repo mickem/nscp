@@ -9,7 +9,7 @@ RUN apt-get update && \
 # Create htpasswd file: testuser / testpass
 RUN htpasswd -bc /etc/squid/htpasswd testuser testpass
 
-COPY squid.conf /etc/squid/squid.conf
+COPY http_proxy/squid.conf /etc/squid/squid.conf
 
 # Port 3128 — open proxy (no authentication required)
 # Port 3129 — authenticated proxy (basic auth required)

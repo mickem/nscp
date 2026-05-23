@@ -17,4 +17,6 @@ RUN wget https://github.com/NagiosEnterprises/nrpe/releases/download/nrpe-4.1.3/
     cp src/check_nrpe /usr/bin/check_nrpe_4096 && \
     rm -rf /tmp/nrpe.tar.gz /tmp/nrpe-4.1.3
 RUN mkdir -p /test
-COPY *.crt *.key /test/
+# Certs are mounted at runtime by the .ts test (see nrpe-tls.test.ts —
+# generateCertChain writes into nscp.scratch("nrpe_test") and the certs are
+# bind-mounted into /test on `docker run`). No build-time cert copy needed.

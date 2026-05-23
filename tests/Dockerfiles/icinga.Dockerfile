@@ -3,9 +3,10 @@
 # Runs a single-node Icinga 2 daemon with:
 #  * the `api` feature enabled (REST listener on 5665, self-signed cert);
 #  * an ApiUser whose name/password are supplied via env vars;
-#  * a fixed `test-host` and a handful of passive Service objects that
-#    run-test.bat targets when validating that `nscp icinga submit_icinga`
-#    actually causes Icinga 2 to update each service's last_check_result.
+#  * a fixed `test-host` and a handful of passive Service objects that the
+#    icinga-submit suite targets when validating that `nscp icinga
+#    submit_icinga` actually causes Icinga 2 to update each service's
+#    last_check_result.
 #
 # We build on debian:bookworm-slim and install Debian's `icinga2` package
 # rather than using `icinga/icinga2`. The official image expects systemd
@@ -24,12 +25,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Icinga 2 REST API.
 EXPOSE 5665
 
-# Default credentials; run-test.bat overrides these via -e for the
-# negative test that submits with a bad password.
+# Default credentials; tests override these via -e for the negative test
+# that submits with a bad password.
 ENV ICINGA_API_USER=nscp
 ENV ICINGA_API_PASSWORD=change_me
 
-COPY entrypoint.sh /entrypoint.sh
+COPY Dockerfiles/entrypoints/icinga.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

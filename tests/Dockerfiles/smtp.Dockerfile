@@ -3,8 +3,8 @@ FROM python:3.11-slim
 RUN pip install --no-cache-dir aiosmtpd && \
     mkdir -p /inbox && chmod 0777 /inbox
 
-COPY server.py /app/server.py
-COPY entrypoint.sh /entrypoint.sh
+COPY smtp/server.py /app/server.py
+COPY Dockerfiles/entrypoints/smtp.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Plain submission (with STARTTLS available) and implicit-TLS submission.

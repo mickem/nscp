@@ -58,7 +58,7 @@ describe("NSCA integration", () => {
   let nscp: NscpInstance;
 
   beforeAll(async () => {
-    image = await GenericContainer.fromDockerfile(path.resolve(__dirname, "nsca")).build(
+    image = await GenericContainer.fromDockerfile(path.resolve(__dirname), "Dockerfiles/nsca.Dockerfile").build(
       "nsca_server",
       { deleteOnExit: false },
     );

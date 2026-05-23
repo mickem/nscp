@@ -29,7 +29,7 @@ describe("check_mk integration", () => {
 
   beforeAll(async () => {
     image = "check_mk_client";
-    await GenericContainer.fromDockerfile(path.resolve(__dirname, "check_mk")).build(
+    await GenericContainer.fromDockerfile(path.resolve(__dirname), "Dockerfiles/check_mk.Dockerfile").build(
       image,
       { deleteOnExit: false },
     );

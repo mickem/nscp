@@ -1,5 +1,5 @@
 # Builds Icinga2's check_nscp_api plugin from upstream source so we can run it
-# against this build's WEBServer in run-test.bat. Same pattern as tests/nrpe:
+# against this build's WEBServer. Same pattern as the nrpe image:
 # multi-stage build, runtime image only carries the binary + its runtime
 # dependencies.
 #

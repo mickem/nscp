@@ -42,8 +42,8 @@ describe("HTTP proxy integration (NRDP)", () => {
     net = await new Network().start();
 
     const originImage = await GenericContainer.fromDockerfile(
-      path.resolve(__dirname, "http_proxy"),
-      "Dockerfile.origin",
+      path.resolve(__dirname),
+      "Dockerfiles/http_proxy-origin.Dockerfile",
     ).build("nrdp_origin", { deleteOnExit: false });
     origin = await trackContainerLogs(
       await originImage
@@ -57,7 +57,8 @@ describe("HTTP proxy integration (NRDP)", () => {
     );
 
     const proxyImage = await GenericContainer.fromDockerfile(
-      path.resolve(__dirname, "http_proxy"),
+      path.resolve(__dirname),
+      "Dockerfiles/http_proxy.Dockerfile",
     ).build("nrdp_proxy", { deleteOnExit: false });
     proxy = await trackContainerLogs(
       await proxyImage

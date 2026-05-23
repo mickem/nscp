@@ -18,7 +18,7 @@ RUN sed -i 's|^append_to_file=.*$|append_to_file=1|' /etc/nsca.cfg
 RUN sed -i 's|^debug=.*$|debug=1|' /etc/nsca.cfg
 
 # Copy the entrypoint script
-COPY entrypoint.sh /entrypoint.sh
+COPY Dockerfiles/entrypoints/nsca.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 RUN chown nagios:nagios /etc/nsca.cfg

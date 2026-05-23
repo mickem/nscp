@@ -33,7 +33,7 @@ describe("NRPE integration", () => {
   // test (settings persistence across `nrpe install`).
   beforeAll(async () => {
     image = "check_nrpe";
-    await GenericContainer.fromDockerfile(path.resolve(__dirname, "nrpe")).build(
+    await GenericContainer.fromDockerfile(path.resolve(__dirname), "Dockerfiles/nrpe.Dockerfile").build(
       image,
       { deleteOnExit: false },
     );

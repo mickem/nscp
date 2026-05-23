@@ -41,7 +41,8 @@ describe("SMTP integration", () => {
     fs.writeFileSync(path.join(inboxDir, "messages.txt"), "");
 
     const image = await GenericContainer.fromDockerfile(
-      path.resolve(__dirname, "smtp"),
+      path.resolve(__dirname),
+      "Dockerfiles/smtp.Dockerfile",
     ).build("smtp_test_server", { deleteOnExit: false });
     server = await trackContainerLogs(
       await image

@@ -28,7 +28,8 @@ describe("Icinga integration", () => {
   beforeAll(async () => {
     nscp = new NscpInstance();
     const image = await GenericContainer.fromDockerfile(
-      path.resolve(__dirname, "icinga"),
+      path.resolve(__dirname),
+      "Dockerfiles/icinga.Dockerfile",
     ).build("icinga_server", { deleteOnExit: false });
     server = await trackContainerLogs(
       await image

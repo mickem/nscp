@@ -1,9 +1,9 @@
 /**
  * Port of tests/icinga-client/run-test.bat. Builds Icinga's
- * check_nscp_api in a docker container (see Dockerfile.deb) and runs
- * it against a locally-started `nscp test` instance. The host's nscp
- * binds 8443 for the WEB server; the container reaches it via
- * host.docker.internal.
+ * check_nscp_api in a docker container (see icinga-client.Dockerfile)
+ * and runs it against a locally-started `nscp test` instance. The
+ * host's nscp binds 8443 for the WEB server; the container reaches it
+ * via host.docker.internal.
  */
 import * as path from "path";
 import {
@@ -25,13 +25,14 @@ describe("Icinga client (check_nscp_api) integration", () => {
   let image: string;
 
   beforeAll(async () => {
-    // The bat picks Dockerfile.deb by default ("install icinga2-bin from
-    // Debian; reproducible enough, ~seconds to build"); honour the
-    // DOCKERFILE env override for the from-source path.
-    const dockerfile = process.env.DOCKERFILE ?? "Dockerfile.deb";
+    // Default to the icinga2-bin Debian install path ("~seconds to build");
+    // honour the DOCKERFILE env override for the from-source path. The env
+    // var takes a name relative to tests/Dockerfiles/, e.g.
+    // `DOCKERFILE=icinga-client-source.Dockerfile`.
+    const dockerfile = `Dockerfiles/${process.env.DOCKERFILE ?? "icinga-client.Dockerfile"}`;
     image = "check_nscp_api";
     await GenericContainer.fromDockerfile(
-      path.resolve(__dirname, "icinga-client"),
+      path.resolve(__dirname),
       dockerfile,
     ).build(image, { deleteOnExit: false });
 

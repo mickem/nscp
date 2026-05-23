@@ -24,7 +24,7 @@ RUN { \
     echo "error_reporting = 0"; \
     } > /usr/local/etc/php/conf.d/nrdp-quiet.ini
 
-COPY entrypoint.sh /entrypoint.sh
+COPY Dockerfiles/entrypoints/nrdp.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Enable Apache SSL module and default-ssl site so HTTPS is available too.
