@@ -95,7 +95,7 @@ bool LUAScript::loadScript(std::string alias, std::string file) {
 
     boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, file);
     if (!ofile) {
-      NSC_LOG_ERROR("Failed to find script: " + ofile->string());
+      NSC_LOG_ERROR("Failed to find script: " + file);
       return false;
     }
     NSC_DEBUG_MSG_STD("Adding script: " + ofile->string());
