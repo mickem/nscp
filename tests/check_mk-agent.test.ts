@@ -14,6 +14,7 @@ import {
   GenericContainer,
   NscpInstance,
   bundledLuaScript,
+  dockerOrSkip,
   dockerRunOnce,
   hostGatewayExtraHosts,
 } from "@fixtures/index";
@@ -22,7 +23,7 @@ jest.setTimeout(900_000);
 
 const CHECK_MK_PORT = 6556;
 
-describe("check_mk integration", () => {
+dockerOrSkip()("check_mk integration", () => {
   let nscp: NscpInstance;
   let image: string;
   let agentDump = "";

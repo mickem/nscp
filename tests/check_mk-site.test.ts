@@ -18,6 +18,7 @@ import {
   Wait,
   bundledLuaScript,
   curlGet,
+  skipDocker,
   trackContainerLogs,
   waitForHttp,
   type StartedTestContainer,
@@ -34,7 +35,9 @@ const CMK_USER = "cmkadmin";
 const CMK_PASSWORD = "cmk_e2e_password";
 const CMK_IMAGE = process.env.CMK_IMAGE ?? "checkmk/check-mk-raw:latest";
 
-const maybeDescribe = RUN_CMK_SITE ? describe : describe.skip;
+// Gated by both flags: the opt-in env var (RUN_CMK_SITE_TEST=1) and the
+// general docker-skip (NSCP_SKIP_DOCKER=1 wins, even when the opt-in is set).
+const maybeDescribe = RUN_CMK_SITE && !skipDocker() ? describe : describe.skip;
 
 maybeDescribe("Checkmk site end-to-end", () => {
   let nscp: NscpInstance;

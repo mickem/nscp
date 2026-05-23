@@ -18,6 +18,7 @@ import {
   Wait,
   anyFileContains,
   containerChmodReadable,
+  dockerOrSkip,
   trackContainerLogs,
   type StartedTestContainer,
 } from "@fixtures/index";
@@ -53,7 +54,7 @@ const CIPHERS: ReadonlyArray<readonly [string, number]> = [
   ["serpent",  20],
 ];
 
-describe("NSCA integration", () => {
+dockerOrSkip()("NSCA integration", () => {
   let image: GenericContainer;
   let nscp: NscpInstance;
 

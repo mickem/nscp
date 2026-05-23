@@ -26,6 +26,18 @@ npm test
 
 # Run a single scenario by path or name
 npx jest --runInBand --testPathPattern nrdp
+
+# Run only the docker-free scenarios (the 16 rest-* suites). Useful for CI
+# stages that don't have a docker daemon available — the docker-using
+# scenarios skip themselves at the describe level.
+npm run test:no-docker
+# (equivalent to: NSCP_SKIP_DOCKER=1 npm test on POSIX shells)
+```
+
+On Windows / PowerShell, set the env var explicitly:
+
+```powershell
+$env:NSCP_SKIP_DOCKER = "1"; npm test
 ```
 
 On Windows:
@@ -36,6 +48,8 @@ npm test
 ```
 
 ## What runs
+
+Docker-using scenarios (skipped when `NSCP_SKIP_DOCKER=1`):
 
 | File                                  | Replaces                               |
 |---------------------------------------|----------------------------------------|
@@ -49,13 +63,32 @@ npm test
 | `tests/check_mk-site.test.ts`         | `tests/check_mk/run-test-cmk-site.bat` |
 | `tests/icinga-submit.test.ts`         | `tests/icinga/run-test.bat`            |
 | `tests/icinga-client-api.test.ts`     | `tests/icinga-client/run-test.bat`     |
-| `tests/rest-launcher.test.ts`         | `tests/rest/run-test.bat` (launcher)   |
 
-The Checkmk end-to-end test (`check_mk-site.test.ts`) pulls a ~500MB image and is skipped unless `RUN_CMK_SITE_TEST=1` is
-set.
+Docker-free scenarios (always run, including in no-docker CI pipelines):
 
-The MSI tests (`tests/msi/`) stay Windows-only and are not part of this harness. The Jest REST suite under `tests/rest/`
-is invoked unchanged from `rest-launcher.test.ts`.
+| File                                  | Notes                                  |
+|---------------------------------------|----------------------------------------|
+| `tests/rest-aliases-v2.test.ts`       | CheckHelpers alias listing             |
+| `tests/rest-api-discovery.test.ts`    | `/api`, `/api/v1`, `/api/v2`, isalive  |
+| `tests/rest-auth.test.ts`             | Login + all auth schemes               |
+| `tests/rest-events.test.ts`           | events_controller GET / DELETE         |
+| `tests/rest-index.test.ts`            | StaticController fallback              |
+| `tests/rest-info.test.ts`             | `/api/v2/info` shape                   |
+| `tests/rest-legacy-auth-icinga.test.ts`| Icinga UA-allowlisted query auth      |
+| `tests/rest-legacy-query.test.ts`     | Pre-v1 `/query/<cmd>` endpoint         |
+| `tests/rest-log.test.ts`              | logs CRUD + `/logs/since`              |
+| `tests/rest-metadata.test.ts`         | metadata_controller                    |
+| `tests/rest-modules-v1.test.ts`       | modules lifecycle (v1)                 |
+| `tests/rest-modules-v2.test.ts`       | modules lifecycle (v2)                 |
+| `tests/rest-permissions.test.ts`      | Role gating on `/modules`              |
+| `tests/rest-queries-v1.test.ts`       | queries × execute × json/nagios/text   |
+| `tests/rest-queries-v2.test.ts`       | queries v2 of the above                |
+| `tests/rest-settings.test.ts`         | settings GET / PUT / DELETE            |
+
+The Checkmk end-to-end test (`check_mk-site.test.ts`) pulls a ~500MB image and is also gated by `RUN_CMK_SITE_TEST=1`
+(must be set *and* docker must not be skipped).
+
+The MSI tests (`tests/msi/`) stay Windows-only and are not part of this harness.
 
 ## How the fixtures work
 

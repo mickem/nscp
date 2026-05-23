@@ -10,6 +10,7 @@ import {
   GenericContainer,
   NscpInstance,
   bundledLuaScript,
+  dockerOrSkip,
   dockerRunOnce,
   generateCertChain,
   hostGatewayExtraHosts,
@@ -20,7 +21,7 @@ jest.setTimeout(900_000);
 const PASSWORD = "test-password";
 const NSCP_PORT = 8443;
 
-describe("Icinga client (check_nscp_api) integration", () => {
+dockerOrSkip()("Icinga client (check_nscp_api) integration", () => {
   let nscp: NscpInstance;
   let image: string;
 

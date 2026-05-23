@@ -10,6 +10,7 @@ import {
   NscpInstance,
   Wait,
   curlGet,
+  dockerOrSkip,
   trackContainerLogs,
   waitForHttp,
   type StartedTestContainer,
@@ -20,7 +21,7 @@ jest.setTimeout(900_000);
 const ICINGA_USER = "nscp";
 const ICINGA_PASSWORD = "change_me";
 
-describe("Icinga integration", () => {
+dockerOrSkip()("Icinga integration", () => {
   let nscp: NscpInstance;
   let server: StartedTestContainer;
   let baseUrl: string;

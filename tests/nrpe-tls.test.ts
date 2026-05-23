@@ -14,6 +14,7 @@ import {
   NscpInstance,
   bundledLuaScript,
   bundledSecurityFile,
+  dockerOrSkip,
   dockerRunOnce,
   generateCertChain,
   hostGatewayExtraHosts,
@@ -21,7 +22,7 @@ import {
 
 jest.setTimeout(900_000);
 
-describe("NRPE integration", () => {
+dockerOrSkip()("NRPE integration", () => {
   let nscp: NscpInstance;
   let image: string;
   let certs: ReturnType<typeof generateCertChain>;

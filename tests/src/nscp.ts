@@ -17,34 +17,62 @@ function nscpBin(): string {
 }
 
 /**
+ * Resolve a bundled asset (lua script, security file, …) against the well-
+ * known layouts nscp actually ships with. Search order:
+ *
+ *   1. `$NSCP_SHARED_DIR/<rel>` — explicit override for unusual installs.
+ *   2. `<bindir>/<rel>`         — build tree (scripts/ + security/ sit next
+ *                                 to nscp in CMake's output dir).
+ *   3. `<bindir>/../lib/nsclient/<rel>` — Debian/RPM install: nscp lives at
+ *                                 /usr/sbin/nscp and shared files at
+ *                                 /usr/lib/nsclient/ (UNIX_SHARED_PATH_FOLDER
+ *                                 in CMakeLists.txt:811). This is the path
+ *                                 that fails the bin-relative lookup.
+ *   4. `/usr/lib/nsclient/<rel>` — absolute fallback in case the bin dir
+ *                                 ever moves but the shared dir doesn't.
+ */
+function findShared(rel: string): string {
+  const binDir = path.dirname(nscpBin());
+  const candidates: string[] = [];
+  if (process.env.NSCP_SHARED_DIR) {
+    candidates.push(path.join(process.env.NSCP_SHARED_DIR, rel));
+  }
+  candidates.push(path.join(binDir, rel));
+  candidates.push(path.join(binDir, "..", "lib", "nsclient", rel));
+  if (process.platform !== "win32") {
+    candidates.push(path.join("/usr/lib/nsclient", rel));
+  }
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  throw new Error(
+    `Bundled file ${rel} not found. Searched:\n  - ${candidates.join("\n  - ")}`,
+  );
+}
+
+/**
  * Absolute path to a Lua script bundled next to the nscp binary
- * (`<build>/scripts/lua/<name>.lua`). Tests pass this to
- * `lua add --script` so the lookup doesn't depend on `${scripts}`
+ * (`<build>/scripts/lua/<name>.lua` in a build tree;
+ * `/usr/lib/nsclient/scripts/lua/<name>.lua` on Debian/RPM). Tests pass
+ * this to `lua add --script` so the lookup doesn't depend on `${scripts}`
  * expanding to the right place inside a per-test workDir.
  */
 export function bundledLuaScript(name: string): string {
-  const binDir = path.dirname(nscpBin());
   const withExt = name.endsWith(".lua") ? name : `${name}.lua`;
-  const candidate = path.join(binDir, "scripts", "lua", withExt);
-  if (!fs.existsSync(candidate)) {
-    throw new Error(`Lua script not found: ${candidate}`);
-  }
-  return candidate;
+  return findShared(path.join("scripts", "lua", withExt));
 }
 
 /**
  * Absolute path to a security file bundled next to the nscp binary
- * (`<build>/security/<name>`) — e.g. `nrpe_dh_2048.pem`. Use to pin
- * NRPEServer's `dh` setting at the file that actually exists in this
- * build, since the per-test `certificate-path` override points at an
- * empty scratch dir where the DH params aren't generated.
+ * (`<build>/security/<name>` in a build tree;
+ * `/usr/lib/nsclient/security/<name>` on Debian/RPM) — e.g.
+ * `nrpe_dh_2048.pem`. Use to pin NRPEServer's `dh` setting at the file
+ * that actually exists in this build, since the per-test
+ * `certificate-path` override points at an empty scratch dir where the
+ * DH params aren't generated.
  */
 export function bundledSecurityFile(name: string): string {
-  const candidate = path.join(path.dirname(nscpBin()), "security", name);
-  if (!fs.existsSync(candidate)) {
-    throw new Error(`Security file not found: ${candidate}`);
-  }
-  return candidate;
+  return findShared(path.join("security", name));
 }
 
 export interface NscpInstanceOptions {

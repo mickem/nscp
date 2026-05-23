@@ -12,6 +12,7 @@ import {
   Wait,
   anyFileContains,
   containerChmodReadable,
+  dockerOrSkip,
   trackContainerLogs,
   type StartedTestContainer,
 } from "@fixtures/index";
@@ -21,7 +22,7 @@ jest.setTimeout(600_000);
 const IDENTITY = "nscp";
 const PASSWORD = "change_me";
 
-describe("NSCA-NG integration", () => {
+dockerOrSkip()("NSCA-NG integration", () => {
   let nscp: NscpInstance;
   let server: StartedTestContainer;
   let spoolDir: string;

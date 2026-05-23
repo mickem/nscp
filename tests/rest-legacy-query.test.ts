@@ -1,11 +1,31 @@
-import { describe, expect, it } from "@jest/globals";
-import request = require("supertest");
+/**
+ * REST legacy query scenarios — migrated from tests/rest/legacy-query.test.ts.
+ *
+ * Exercises the pre-v1 /query/<command> endpoint that older clients still
+ * use. Returns a payload shaped like the protobuf submit_response with the
+ * full perf-data array for mock_query, and the canonical OK/WARNING/
+ * CRITICAL/UNKNOWN result envelopes for the helper checks.
+ */
+import request from "supertest";
+import { NscpInstance, REST_URL, setupRestNscp } from "@fixtures/index";
 
-const URL = "https://127.0.0.1:8443";
-describe("query (legacy)", () => {
-  let key = undefined;
+jest.setTimeout(900_000);
+
+describe("REST query (legacy)", () => {
+  let nscp: NscpInstance;
+  let key: string | undefined = undefined;
+
+  beforeAll(async () => {
+    nscp = new NscpInstance();
+    await setupRestNscp(nscp);
+  });
+
+  afterAll(async () => {
+    await nscp?.stop();
+  });
+
   it("can login", async () => {
-    await request(URL)
+    await request(REST_URL)
       .get("/api/v1/login")
       .auth("admin", "default-password")
       .trustLocalhost(true)
@@ -18,7 +38,7 @@ describe("query (legacy)", () => {
   });
 
   it("can execute query (json)", async () => {
-    await request(URL)
+    await request(REST_URL)
       .get("/query/mock_query?a=b&c=d&e=f")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
@@ -64,7 +84,7 @@ describe("query (legacy)", () => {
   });
 
   it("can execute query (json, warning)", async () => {
-    await request(URL)
+    await request(REST_URL)
       .get("/query/check_warning?message=this+is+a+message")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
@@ -89,7 +109,7 @@ describe("query (legacy)", () => {
   });
 
   it("can execute query (json, critical)", async () => {
-    await request(URL)
+    await request(REST_URL)
       .get("/query/check_critical?message=this+is+a+message")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
@@ -114,7 +134,7 @@ describe("query (legacy)", () => {
   });
 
   it("can execute query (json, unknown)", async () => {
-    await request(URL)
+    await request(REST_URL)
       .get("/query/check_unknown?message=this+is+a+message")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)

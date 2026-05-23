@@ -14,6 +14,38 @@ export const DOCKER_HOST_ALLOWED_HOSTS =
   "127.0.0.1,::1,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8";
 
 /**
+ * `true` when the suite was asked to skip docker-dependent scenarios
+ * (set `NSCP_SKIP_DOCKER=1` in the environment). Used by CI pipelines
+ * that can run the rest of the suite — including the rest-* scenarios
+ * which only need an nscp binary — without a docker daemon available.
+ *
+ * Reads the env var on every call rather than caching, so test files
+ * loaded by Jest pick up the current value even if the env was set
+ * after import.
+ */
+export function skipDocker(): boolean {
+  return process.env.NSCP_SKIP_DOCKER === "1";
+}
+
+/**
+ * Returns `describe` when docker is available, `describe.skip` when
+ * `NSCP_SKIP_DOCKER=1`. Use at the top of any scenario that calls
+ * `GenericContainer.fromDockerfile`, `dockerRunOnce`, or otherwise
+ * needs a docker daemon:
+ *
+ *   dockerOrSkip()("Icinga integration", () => { ... });
+ *
+ * Match the existing `maybeDescribe` shape in check_mk-site.test.ts so
+ * the two gates can compose:
+ *
+ *   const enabled = !skipDocker() && process.env.RUN_CMK_SITE_TEST === "1";
+ *   const maybeDescribe = enabled ? describe : describe.skip;
+ */
+export function dockerOrSkip(): jest.Describe {
+  return skipDocker() ? describe.skip : describe;
+}
+
+/**
  * Returns the extra-hosts list needed so containers can resolve
  * `host.docker.internal` to the actual docker host:
  *

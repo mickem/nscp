@@ -10,8 +10,9 @@ import {
   GenericContainer,
   NscpInstance,
   Wait,
-  containerChmodReadable,
   anyFileContains,
+  containerChmodReadable,
+  dockerOrSkip,
   trackContainerLogs,
   type StartedTestContainer,
 } from "@fixtures/index";
@@ -20,7 +21,7 @@ jest.setTimeout(600_000);
 
 const TOKEN = "change_me";
 
-describe("NRDP integration", () => {
+dockerOrSkip()("NRDP integration", () => {
   let nscp: NscpInstance;
   let server: StartedTestContainer;
   let spoolDir: string;

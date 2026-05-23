@@ -7,7 +7,6 @@ module.exports = {
   testMatch: ["<rootDir>/*.test.ts"],
   testPathIgnorePatterns: [
     "/node_modules/",
-    "<rootDir>/rest/",
   ],
   transform: {
     "^.+\\.tsx?$": [

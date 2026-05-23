@@ -174,12 +174,24 @@ jobs:
           }
           retry bash -c 'pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt'
 
-      - name: Run rest tests
+      # Replaces the old ./.github/actions/rest-test composite action. The
+      # rest scenarios now live as top-level rest-*.test.ts files under the
+      # main integration harness; NSCP_SKIP_DOCKER=1 makes every docker-
+      # dependent scenario (icinga, nrpe, nsca, …) skip itself so this stage
+      # runs without a docker daemon. Each rest-* test spins its own nscp
+      # via NscpInstance, so no manual start/kill/log-tail is needed here.
+      - name: Install integration harness deps
         if: inputs.package-type == 'deb'
-        uses: ./.github/actions/rest-test
+        working-directory: tests
+        shell: bash
+        run: npm install
 
-      # TODO: Disabled for now due to issues with docker on windows runners
-      #- name: Run NRPE tests
-      #  working-directory: tmp/nscp
-      #  run: |
-      #    ..\..\tests\nrpe\run-test.bat
+      - name: Run REST scenarios (no-docker)
+        if: inputs.package-type == 'deb'
+        working-directory: tests
+        shell: bash
+        env:
+          PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+          NSCP_BIN: nscp
+          NSCP_SKIP_DOCKER: "1"
+        run: npm test

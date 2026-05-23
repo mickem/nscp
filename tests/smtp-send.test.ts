@@ -19,6 +19,7 @@ import {
   Wait,
   anyFileContains,
   containerChmodReadable,
+  dockerOrSkip,
   trackContainerLogs,
   type StartedTestContainer,
 } from "@fixtures/index";
@@ -28,7 +29,7 @@ jest.setTimeout(600_000);
 const USERNAME = "alerts@example.com";
 const PASSWORD = "change_me";
 
-describe("SMTP integration", () => {
+dockerOrSkip()("SMTP integration", () => {
   let nscp: NscpInstance;
   let server: StartedTestContainer;
   let inboxDir: string;

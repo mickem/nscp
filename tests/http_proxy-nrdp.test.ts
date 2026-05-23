@@ -21,6 +21,7 @@ import {
   Network,
   NscpInstance,
   Wait,
+  dockerOrSkip,
   trackContainerLogs,
   type StartedNetwork,
   type StartedTestContainer,
@@ -28,7 +29,7 @@ import {
 
 jest.setTimeout(900_000);
 
-describe("HTTP proxy integration (NRDP)", () => {
+dockerOrSkip()("HTTP proxy integration (NRDP)", () => {
   let nscp: NscpInstance;
   let net: StartedNetwork;
   let origin: StartedTestContainer;
