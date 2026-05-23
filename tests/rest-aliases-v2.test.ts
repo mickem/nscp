@@ -64,15 +64,11 @@ describe("REST aliases (v2)", () => {
       .trustLocalhost(true)
       .expect(200)
       .then((response) => {
-        const alias = response.body.find(
-          (a: { name: string }) => a.name === "mock_alias",
-        );
+        const alias = response.body.find((a: { name: string }) => a.name === "mock_alias");
         expect(alias).toBeDefined();
         // The list operation reports executions through the queries endpoint
         // because the core dispatches aliases just like any other query.
-        expect(alias.query_url).toEqual(
-          "https://127.0.0.1:8443/api/v2/queries/mock_alias/",
-        );
+        expect(alias.query_url).toEqual("https://127.0.0.1:8443/api/v2/queries/mock_alias/");
         expect(alias.metadata).toBeDefined();
       });
   });
@@ -144,14 +140,10 @@ describe("REST aliases (v2)", () => {
         .expect(200)
         .then((response) => {
           expect(Array.isArray(response.body)).toBe(true);
-          const alias = response.body.find(
-            (a: { name: string }) => a.name === "mock_alias",
-          );
+          const alias = response.body.find((a: { name: string }) => a.name === "mock_alias");
           expect(alias).toBeDefined();
           // v1 endpoint returns v1 query URLs.
-          expect(alias.query_url).toEqual(
-            "https://127.0.0.1:8443/api/v1/queries/mock_alias/",
-          );
+          expect(alias.query_url).toEqual("https://127.0.0.1:8443/api/v1/queries/mock_alias/");
         });
     });
   });

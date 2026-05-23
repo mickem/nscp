@@ -87,17 +87,27 @@ dockerOrSkip()("HTTP proxy integration (NRDP)", () => {
    * `nrdp_origin` (network alias above) — squid forwards to it.
    */
   async function nrdpThroughProxy(proxyUrl: string, extra: string[] = []) {
-    return nscp.run([
-      "nrdp",
-      "--host", "nrdp_origin",
-      "--port", "80",
-      "--token", "mytoken",
-      "--command", "proxy_test",
-      "--message", "HTTP proxy test",
-      "--result", "0",
-      "--proxy", proxyUrl,
-      ...extra,
-    ], { allowFailure: true, timeout: 30_000 });
+    return nscp.run(
+      [
+        "nrdp",
+        "--host",
+        "nrdp_origin",
+        "--port",
+        "80",
+        "--token",
+        "mytoken",
+        "--command",
+        "proxy_test",
+        "--message",
+        "HTTP proxy test",
+        "--result",
+        "0",
+        "--proxy",
+        proxyUrl,
+        ...extra,
+      ],
+      { allowFailure: true, timeout: 30_000 },
+    );
   }
 
   it("Test 1 - HTTP through open proxy (no auth)", async () => {
@@ -106,16 +116,12 @@ dockerOrSkip()("HTTP proxy integration (NRDP)", () => {
   });
 
   it("Test 2 - HTTP through authenticated proxy (correct credentials)", async () => {
-    const r = await nrdpThroughProxy(
-      `http://testuser:testpass@127.0.0.1:${authProxyPort}/`,
-    );
+    const r = await nrdpThroughProxy(`http://testuser:testpass@127.0.0.1:${authProxyPort}/`);
     expect(r.exitCode).toBe(0);
   });
 
   it("Test 3 - HTTP through authenticated proxy is rejected with wrong creds", async () => {
-    const r = await nrdpThroughProxy(
-      `http://testuser:wrongpass@127.0.0.1:${authProxyPort}/`,
-    );
+    const r = await nrdpThroughProxy(`http://testuser:wrongpass@127.0.0.1:${authProxyPort}/`);
     expect(r.exitCode).not.toBe(0);
   });
 
@@ -123,10 +129,10 @@ dockerOrSkip()("HTTP proxy integration (NRDP)", () => {
     // nrdp_origin is in --no-proxy, so nscp skips the proxy entirely and
     // tries a direct TCP connect. Since the origin has no host-published
     // port, that connect fails — proving the bypass logic actually ran.
-    const r = await nrdpThroughProxy(
-      `http://127.0.0.1:${openProxyPort}/`,
-      ["--no-proxy", "nrdp_origin"],
-    );
+    const r = await nrdpThroughProxy(`http://127.0.0.1:${openProxyPort}/`, [
+      "--no-proxy",
+      "nrdp_origin",
+    ]);
     expect(r.exitCode).not.toBe(0);
   });
 });

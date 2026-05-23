@@ -64,16 +64,22 @@ describe("REST modules (v1)", () => {
             description: "Loads and processes internal Lua scripts",
             enabled: true,
             id: luaScriptModule,
-            load_url: expect.stringMatching(/^https:\/\/127\.0\.0\.1:8443\/api\/v1\/modules\/L[Uu][Aa]Script\/commands\/load$/),
+            load_url: expect.stringMatching(
+              /^https:\/\/127\.0\.0\.1:8443\/api\/v1\/modules\/L[Uu][Aa]Script\/commands\/load$/,
+            ),
             loaded: true,
             metadata: {
               alias: "",
               plugin_id: anyPluginId,
             },
-            module_url: expect.stringMatching(/^https:\/\/127\.0\.0\.1:8443\/api\/v1\/modules\/L[Uu][Aa]Script\/$/),
+            module_url: expect.stringMatching(
+              /^https:\/\/127\.0\.0\.1:8443\/api\/v1\/modules\/L[Uu][Aa]Script\/$/,
+            ),
             name: luaScriptModule,
             title: "LUAScript",
-            unload_url: expect.stringMatching(/^https:\/\/127\.0\.0\.1:8443\/api\/v1\/modules\/L[Uu][Aa]Script\/commands\/unload$/),
+            unload_url: expect.stringMatching(
+              /^https:\/\/127\.0\.0\.1:8443\/api\/v1\/modules\/L[Uu][Aa]Script\/commands\/unload$/,
+            ),
           },
         ]);
       });
@@ -100,23 +106,28 @@ describe("REST modules (v1)", () => {
             description: "Loads and processes internal Lua scripts",
             enabled: true,
             id: luaScriptModule,
-            load_url: expect.stringMatching(/^https:\/\/127\.0\.0\.1:8443\/api\/v1\/modules\/L[Uu][Aa]Script\/commands\/load$/),
+            load_url: expect.stringMatching(
+              /^https:\/\/127\.0\.0\.1:8443\/api\/v1\/modules\/L[Uu][Aa]Script\/commands\/load$/,
+            ),
             loaded: true,
             metadata: {
               alias: "",
               plugin_id: anyPluginId,
             },
-            module_url: expect.stringMatching(/^https:\/\/127\.0\.0\.1:8443\/api\/v1\/modules\/L[Uu][Aa]Script\/$/),
+            module_url: expect.stringMatching(
+              /^https:\/\/127\.0\.0\.1:8443\/api\/v1\/modules\/L[Uu][Aa]Script\/$/,
+            ),
             name: luaScriptModule,
             title: "LUAScript",
-            unload_url: expect.stringMatching(/^https:\/\/127\.0\.0\.1:8443\/api\/v1\/modules\/L[Uu][Aa]Script\/commands\/unload$/),
+            unload_url: expect.stringMatching(
+              /^https:\/\/127\.0\.0\.1:8443\/api\/v1\/modules\/L[Uu][Aa]Script\/commands\/unload$/,
+            ),
           },
           {
             description: "Use this module to check the health and status of NSClient++ it self",
             enabled: false,
             id: "CheckNSCP",
-            load_url:
-              "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/load",
+            load_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/load",
             loaded: false,
             metadata: {
               alias: "",
@@ -125,8 +136,7 @@ describe("REST modules (v1)", () => {
             module_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/",
             name: "CheckNSCP",
             title: expect.anything(),
-            unload_url:
-              "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/unload",
+            unload_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/unload",
           },
         ]);
       });
@@ -142,14 +152,11 @@ describe("REST modules (v1)", () => {
         expect(response.body).toBeDefined();
         expect(response.body).toEqual({
           description: "Use this module to check the health and status of NSClient++ it self",
-          disable_url:
-            "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/disable",
-          enable_url:
-            "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/enable",
+          disable_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/disable",
+          enable_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/enable",
           enabled: false,
           id: "CheckNSCP",
-          load_url:
-            "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/load",
+          load_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/load",
           loaded: false,
           metadata: {
             alias: "",
@@ -157,8 +164,7 @@ describe("REST modules (v1)", () => {
           },
           name: "CheckNSCP",
           title: expect.anything(),
-          unload_url:
-            "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/unload",
+          unload_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/commands/unload",
         });
       });
   });

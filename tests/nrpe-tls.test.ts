@@ -34,10 +34,10 @@ dockerOrSkip()("NRPE integration", () => {
   // test (settings persistence across `nrpe install`).
   beforeAll(async () => {
     image = "check_nrpe";
-    await GenericContainer.fromDockerfile(path.resolve(__dirname), "Dockerfiles/nrpe.Dockerfile").build(
-      image,
-      { deleteOnExit: false },
-    );
+    await GenericContainer.fromDockerfile(
+      path.resolve(__dirname),
+      "Dockerfiles/nrpe.Dockerfile",
+    ).build(image, { deleteOnExit: false });
     nscp = new NscpInstance();
     certDir = nscp.scratch("nrpe_test");
     certs = generateCertChain({
@@ -54,7 +54,10 @@ dockerOrSkip()("NRPE integration", () => {
     await nscp?.stop();
   });
 
-  async function installNrpe(extra: Record<string, string | boolean> = {}, perms = false): Promise<void> {
+  async function installNrpe(
+    extra: Record<string, string | boolean> = {},
+    perms = false,
+  ): Promise<void> {
     await nscp.stop();
     // Use the `--key=value` form for the boolean knobs. The
     // space-separated form `--insecure false` is parsed by boost.po
@@ -63,14 +66,16 @@ dockerOrSkip()("NRPE integration", () => {
     // none` regardless of what we passed — silently breaking every
     // TLS phase that didn't also pass `--ca`.
     const args = [
-      "nrpe", "install",
+      "nrpe",
+      "install",
       `--allowed-hosts=${DOCKER_HOST_ALLOWED_HOSTS}`,
       `--insecure=${String(extra.insecure ?? true)}`,
       `--verify=${String(extra.verify ?? "none")}`,
     ];
-    if (extra.certificate)     args.push(`--certificate=${String(extra.certificate)}`);
-    if (extra["certificate-key"]) args.push(`--certificate-key=${String(extra["certificate-key"])}`);
-    if (extra.ca)              args.push(`--ca=${String(extra.ca)}`);
+    if (extra.certificate) args.push(`--certificate=${String(extra.certificate)}`);
+    if (extra["certificate-key"])
+      args.push(`--certificate-key=${String(extra["certificate-key"])}`);
+    if (extra.ca) args.push(`--ca=${String(extra.ca)}`);
     await nscp.run(args);
     // Pin the DH params at the file shipped in the build tree —
     // certificate-path is overridden to a scratch dir per-instance,
@@ -113,17 +118,27 @@ dockerOrSkip()("NRPE integration", () => {
   }
 
   async function shutdownViaMockExit(extraArgs: string[] = []): Promise<void> {
-    await dockerRunOnce(image, [
-      "check_nrpe", "-H", "host.docker.internal", "-p", "5666", "-t5",
-      ...extraArgs,
-      "-c", "mock_exit",
-    ], {
-      extraHosts: hostGatewayExtraHosts(),
-      // Always mount the cert dir; harmless for the no-TLS phases since
-      // their shutdown doesn't reference any `/test/...` file.
-      bindMounts: [{ source: certDir, target: "/test", ro: true }],
-      allowFailure: true,
-    });
+    await dockerRunOnce(
+      image,
+      [
+        "check_nrpe",
+        "-H",
+        "host.docker.internal",
+        "-p",
+        "5666",
+        "-t5",
+        ...extraArgs,
+        "-c",
+        "mock_exit",
+      ],
+      {
+        extraHosts: hostGatewayExtraHosts(),
+        // Always mount the cert dir; harmless for the no-TLS phases since
+        // their shutdown doesn't reference any `/test/...` file.
+        bindMounts: [{ source: certDir, target: "/test", ro: true }],
+        allowFailure: true,
+      },
+    );
     // Belt-and-braces: ensure the process is reaped.
     await nscp.stop();
   }
@@ -132,17 +147,25 @@ dockerOrSkip()("NRPE integration", () => {
     await installNrpe({ "payload length": "4096" });
     try {
       const r1 = await nscp.run([
-        "nrpe", "--host", "127.0.0.1", "--insecure",
-        "--version", "2", "--payload-length", "4096",
-        "--command", "mock_query",
+        "nrpe",
+        "--host",
+        "127.0.0.1",
+        "--insecure",
+        "--version",
+        "2",
+        "--payload-length",
+        "4096",
+        "--command",
+        "mock_query",
       ]);
       expect(r1.exitCode).toBe(0);
       expect(r1.all).toContain("mock_query::");
 
-      const r2 = await dockerRunOnce(image, [
-        "check_nrpe_4096", "-H", "host.docker.internal", "-p", "5666",
-        "-t5", "-c", "mock_query",
-      ], { extraHosts: hostGatewayExtraHosts() });
+      const r2 = await dockerRunOnce(
+        image,
+        ["check_nrpe_4096", "-H", "host.docker.internal", "-p", "5666", "-t5", "-c", "mock_query"],
+        { extraHosts: hostGatewayExtraHosts() },
+      );
       expect(r2.exitCode).toBe(0);
       expect(r2.all).toContain("mock_query::");
     } finally {
@@ -154,16 +177,23 @@ dockerOrSkip()("NRPE integration", () => {
     await installNrpe();
     try {
       const r1 = await nscp.run([
-        "nrpe", "--host", "127.0.0.1", "--insecure",
-        "--version", "2", "--command", "mock_query",
+        "nrpe",
+        "--host",
+        "127.0.0.1",
+        "--insecure",
+        "--version",
+        "2",
+        "--command",
+        "mock_query",
       ]);
       expect(r1.exitCode).toBe(0);
       expect(r1.all).toContain("mock_query::");
 
-      const r2 = await dockerRunOnce(image, [
-        "check_nrpe", "-H", "host.docker.internal", "-p", "5666",
-        "-t5", "-c", "mock_query",
-      ], { extraHosts: hostGatewayExtraHosts() });
+      const r2 = await dockerRunOnce(
+        image,
+        ["check_nrpe", "-H", "host.docker.internal", "-p", "5666", "-t5", "-c", "mock_query"],
+        { extraHosts: hostGatewayExtraHosts() },
+      );
       expect(r2.exitCode).toBe(0);
       expect(r2.all).toContain("mock_query::");
     } finally {
@@ -179,16 +209,26 @@ dockerOrSkip()("NRPE integration", () => {
       "certificate-key": certs.signed.server.keyPath,
     });
     try {
-      const r = await nscp.run([
-        "nrpe", "--host", "127.0.0.1", "--command", "mock_query",
-      ]);
+      const r = await nscp.run(["nrpe", "--host", "127.0.0.1", "--command", "mock_query"]);
       expect(r.exitCode).toBe(0);
       expect(r.all).toContain("mock_query::");
 
-      const rc = await dockerRunOnce(image, [
-        "check_nrpe", "-H", "host.docker.internal", "-p", "5666",
-        "-t5", "--ssl-version", "TLSv1.2+", "-c", "mock_query",
-      ], { extraHosts: hostGatewayExtraHosts() });
+      const rc = await dockerRunOnce(
+        image,
+        [
+          "check_nrpe",
+          "-H",
+          "host.docker.internal",
+          "-p",
+          "5666",
+          "-t5",
+          "--ssl-version",
+          "TLSv1.2+",
+          "-c",
+          "mock_query",
+        ],
+        { extraHosts: hostGatewayExtraHosts() },
+      );
       expect(rc.exitCode).toBe(0);
       expect(rc.all).toContain("mock_query::");
     } finally {
@@ -206,83 +246,136 @@ dockerOrSkip()("NRPE integration", () => {
     });
     try {
       const r1 = await nscp.run([
-        "nrpe", "--host", "127.0.0.1",
-        "--certificate", certs.signed.client.certPath,
-        "--certificate-key", certs.signed.client.keyPath,
-        "--command", "mock_query",
+        "nrpe",
+        "--host",
+        "127.0.0.1",
+        "--certificate",
+        certs.signed.client.certPath,
+        "--certificate-key",
+        certs.signed.client.keyPath,
+        "--command",
+        "mock_query",
       ]);
       expect(r1.exitCode).toBe(0);
 
-      const r2 = await dockerRunOnce(image, [
-        "check_nrpe", "-H", "host.docker.internal", "-p", "5666", "-t5",
-        "--ssl-version", "TLSv1.2+",
-        "--client-cert", "/test/client.crt",
-        "--key-file", "/test/client.key",
-        "-c", "mock_query",
-      ], {
-        extraHosts: hostGatewayExtraHosts(),
-        bindMounts: [{ source: certDir, target: "/test", ro: true }],
-      });
+      const r2 = await dockerRunOnce(
+        image,
+        [
+          "check_nrpe",
+          "-H",
+          "host.docker.internal",
+          "-p",
+          "5666",
+          "-t5",
+          "--ssl-version",
+          "TLSv1.2+",
+          "--client-cert",
+          "/test/client.crt",
+          "--key-file",
+          "/test/client.key",
+          "-c",
+          "mock_query",
+        ],
+        {
+          extraHosts: hostGatewayExtraHosts(),
+          bindMounts: [{ source: certDir, target: "/test", ro: true }],
+        },
+      );
       expect(r2.exitCode).toBe(0);
       expect(r2.all).toContain("mock_query::");
 
       // Without a client cert the server should reject the call
       // (CRITICAL = 2 / UNKNOWN = 3 — accept anything non-zero).
-      const r3 = await nscp.run([
-        "nrpe", "--host", "127.0.0.1", "--command", "mock_query",
-      ], { allowFailure: true });
+      const r3 = await nscp.run(["nrpe", "--host", "127.0.0.1", "--command", "mock_query"], {
+        allowFailure: true,
+      });
       expect(r3.exitCode).not.toBe(0);
     } finally {
       await shutdownViaMockExit([
-        "--ssl-version", "TLSv1.2+",
-        "--client-cert", "/test/client.crt",
-        "--key-file", "/test/client.key",
+        "--ssl-version",
+        "TLSv1.2+",
+        "--client-cert",
+        "/test/client.crt",
+        "--key-file",
+        "/test/client.key",
       ]);
     }
   });
 
   it("Phase 5 - 2-way TLS + CN-based permission gating", async () => {
-    await installNrpe({
-      insecure: false,
-      verify: "peer-cert",
-      certificate: certs.signed.server.certPath,
-      "certificate-key": certs.signed.server.keyPath,
-      ca: certs.ca.certPath,
-    }, /* perms */ true);
+    await installNrpe(
+      {
+        insecure: false,
+        verify: "peer-cert",
+        certificate: certs.signed.server.certPath,
+        "certificate-key": certs.signed.server.keyPath,
+        ca: certs.ca.certPath,
+      },
+      /* perms */ true,
+    );
     try {
       // Allowed client (CN=localhost)
-      const rOk = await dockerRunOnce(image, [
-        "check_nrpe", "-H", "host.docker.internal", "-p", "5666", "-t5",
-        "--ssl-version", "TLSv1.2+",
-        "--client-cert", "/test/client.crt",
-        "--key-file", "/test/client.key",
-        "-c", "mock_query",
-      ], {
-        extraHosts: hostGatewayExtraHosts(),
-        bindMounts: [{ source: certDir, target: "/test", ro: true }],
-      });
+      const rOk = await dockerRunOnce(
+        image,
+        [
+          "check_nrpe",
+          "-H",
+          "host.docker.internal",
+          "-p",
+          "5666",
+          "-t5",
+          "--ssl-version",
+          "TLSv1.2+",
+          "--client-cert",
+          "/test/client.crt",
+          "--key-file",
+          "/test/client.key",
+          "-c",
+          "mock_query",
+        ],
+        {
+          extraHosts: hostGatewayExtraHosts(),
+          bindMounts: [{ source: certDir, target: "/test", ro: true }],
+        },
+      );
       expect(rOk.exitCode).toBe(0);
       expect(rOk.all).toContain("mock_query::");
 
       // Denied client (CN=denied-client) — TLS succeeds, policy rejects.
-      const rDeny = await dockerRunOnce(image, [
-        "check_nrpe", "-H", "host.docker.internal", "-p", "5666", "-t5",
-        "--ssl-version", "TLSv1.2+",
-        "--client-cert", "/test/denied.crt",
-        "--key-file", "/test/denied.key",
-        "-c", "mock_query",
-      ], {
-        extraHosts: hostGatewayExtraHosts(),
-        bindMounts: [{ source: certDir, target: "/test", ro: true }],
-        allowFailure: true,
-      });
+      const rDeny = await dockerRunOnce(
+        image,
+        [
+          "check_nrpe",
+          "-H",
+          "host.docker.internal",
+          "-p",
+          "5666",
+          "-t5",
+          "--ssl-version",
+          "TLSv1.2+",
+          "--client-cert",
+          "/test/denied.crt",
+          "--key-file",
+          "/test/denied.key",
+          "-c",
+          "mock_query",
+        ],
+        {
+          extraHosts: hostGatewayExtraHosts(),
+          bindMounts: [{ source: certDir, target: "/test", ro: true }],
+          allowFailure: true,
+        },
+      );
       expect(rDeny.exitCode).toBe(3);
       expect(rDeny.all).toContain("Permission denied");
     } finally {
       await shutdownViaMockExit([
-        "--ssl-version", "TLSv1.2+",
-        "--client-cert", "/test/client.crt",
-        "--key-file", "/test/client.key",
+        "--ssl-version",
+        "TLSv1.2+",
+        "--client-cert",
+        "/test/client.crt",
+        "--key-file",
+        "/test/client.key",
       ]);
     }
   });

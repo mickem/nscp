@@ -79,13 +79,21 @@ dockerOrSkip()("SMTP integration", () => {
   it("Test 1 - plain SMTP, no auth (security=none)", async () => {
     const r = await nscp.run([
       "smtp",
-      "--host=127.0.0.1", `--port=${plainPort}`,
+      "--host=127.0.0.1",
+      `--port=${plainPort}`,
       "--security=none",
       "--sender=plain@example.com",
       "--recipient=ops@example.com",
-      "--subject", "T1 plain",
-      "--template", "T1-body %message%",
-      "--command", "t1", "--result", "0", "--message", "T1-msg",
+      "--subject",
+      "T1 plain",
+      "--template",
+      "T1-body %message%",
+      "--command",
+      "t1",
+      "--result",
+      "0",
+      "--message",
+      "T1-msg",
     ]);
     expect(r.exitCode).toBe(0);
     await expectInInbox("Subject: T1 plain");
@@ -96,15 +104,24 @@ dockerOrSkip()("SMTP integration", () => {
   it("Test 2 - STARTTLS + AUTH (security=starttls)", async () => {
     const r = await nscp.run([
       "smtp",
-      "--host=127.0.0.1", `--port=${plainPort}`,
+      "--host=127.0.0.1",
+      `--port=${plainPort}`,
       "--security=starttls",
       "--insecure-skip-verify",
-      `--username=${USERNAME}`, `--password=${PASSWORD}`,
+      `--username=${USERNAME}`,
+      `--password=${PASSWORD}`,
       "--sender=alerts@example.com",
       "--recipient=ops@example.com",
-      "--subject", "T2 starttls",
-      "--template", "T2-body %message%",
-      "--command", "t2", "--result", "0", "--message", "T2-msg",
+      "--subject",
+      "T2 starttls",
+      "--template",
+      "T2-body %message%",
+      "--command",
+      "t2",
+      "--result",
+      "0",
+      "--message",
+      "T2-msg",
     ]);
     expect(r.exitCode).toBe(0);
     await expectInInbox("Subject: T2 starttls");
@@ -115,15 +132,24 @@ dockerOrSkip()("SMTP integration", () => {
   it("Test 3 - implicit TLS + AUTH (security=tls, port 1465)", async () => {
     const r = await nscp.run([
       "smtp",
-      "--host=127.0.0.1", `--port=${tlsPort}`,
+      "--host=127.0.0.1",
+      `--port=${tlsPort}`,
       "--security=tls",
       "--insecure-skip-verify",
-      `--username=${USERNAME}`, `--password=${PASSWORD}`,
+      `--username=${USERNAME}`,
+      `--password=${PASSWORD}`,
       "--sender=alerts@example.com",
       "--recipient=ops@example.com",
-      "--subject", "T3 implicit-tls",
-      "--template", "T3-body %message%",
-      "--command", "t3", "--result", "0", "--message", "T3-msg",
+      "--subject",
+      "T3 implicit-tls",
+      "--template",
+      "T3-body %message%",
+      "--command",
+      "t3",
+      "--result",
+      "0",
+      "--message",
+      "T3-msg",
     ]);
     expect(r.exitCode).toBe(0);
     await expectInInbox("Subject: T3 implicit-tls");
@@ -131,34 +157,58 @@ dockerOrSkip()("SMTP integration", () => {
   });
 
   it("Test 4 - credentials with security=none must be refused", async () => {
-    const r = await nscp.run([
-      "smtp",
-      "--host=127.0.0.1", `--port=${plainPort}`,
-      "--security=none",
-      `--username=${USERNAME}`, `--password=${PASSWORD}`,
-      "--sender=alerts@example.com",
-      "--recipient=ops@example.com",
-      "--subject", "T4 should-not-arrive",
-      "--template", "should-not-arrive",
-      "--command", "t4", "--result", "0", "--message", "T4-msg",
-    ], { allowFailure: true });
+    const r = await nscp.run(
+      [
+        "smtp",
+        "--host=127.0.0.1",
+        `--port=${plainPort}`,
+        "--security=none",
+        `--username=${USERNAME}`,
+        `--password=${PASSWORD}`,
+        "--sender=alerts@example.com",
+        "--recipient=ops@example.com",
+        "--subject",
+        "T4 should-not-arrive",
+        "--template",
+        "should-not-arrive",
+        "--command",
+        "t4",
+        "--result",
+        "0",
+        "--message",
+        "T4-msg",
+      ],
+      { allowFailure: true },
+    );
     expect(r.exitCode).not.toBe(0);
     await expectNotInInbox("T4 should-not-arrive");
   });
 
   it("Test 5 - wrong password is rejected", async () => {
-    const r = await nscp.run([
-      "smtp",
-      "--host=127.0.0.1", `--port=${plainPort}`,
-      "--security=starttls",
-      "--insecure-skip-verify",
-      `--username=${USERNAME}`, "--password=wrong-password",
-      "--sender=alerts@example.com",
-      "--recipient=ops@example.com",
-      "--subject", "T5 wrong-password",
-      "--template", "should-not-arrive",
-      "--command", "t5", "--result", "0", "--message", "T5-msg",
-    ], { allowFailure: true });
+    const r = await nscp.run(
+      [
+        "smtp",
+        "--host=127.0.0.1",
+        `--port=${plainPort}`,
+        "--security=starttls",
+        "--insecure-skip-verify",
+        `--username=${USERNAME}`,
+        "--password=wrong-password",
+        "--sender=alerts@example.com",
+        "--recipient=ops@example.com",
+        "--subject",
+        "T5 wrong-password",
+        "--template",
+        "should-not-arrive",
+        "--command",
+        "t5",
+        "--result",
+        "0",
+        "--message",
+        "T5-msg",
+      ],
+      { allowFailure: true },
+    );
     expect(r.exitCode).not.toBe(0);
     await expectNotInInbox("T5 wrong-password");
   });
@@ -169,15 +219,24 @@ dockerOrSkip()("SMTP integration", () => {
     const subject = "hi\r\nBcc: evil@example.com";
     const r = await nscp.run([
       "smtp",
-      "--host=127.0.0.1", `--port=${plainPort}`,
+      "--host=127.0.0.1",
+      `--port=${plainPort}`,
       "--security=starttls",
       "--insecure-skip-verify",
-      `--username=${USERNAME}`, `--password=${PASSWORD}`,
+      `--username=${USERNAME}`,
+      `--password=${PASSWORD}`,
       "--sender=alerts@example.com",
       "--recipient=ops@example.com",
-      "--subject", subject,
-      "--template", "T6-body",
-      "--command", "t6", "--result", "0", "--message", "T6-msg",
+      "--subject",
+      subject,
+      "--template",
+      "T6-body",
+      "--command",
+      "t6",
+      "--result",
+      "0",
+      "--message",
+      "T6-msg",
     ]);
     expect(r.exitCode).toBe(0);
     // No real Bcc header should have landed on a separate envelope.

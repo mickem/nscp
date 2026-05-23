@@ -39,7 +39,10 @@ export async function trackContainerLogs(
   try {
     stream = await container.logs();
   } catch (e) {
-    registerFailureDumper(() => `--- container logs: ${tag} ---\n[failed to open log stream: ${(e as Error).message}]\n`);
+    registerFailureDumper(
+      () =>
+        `--- container logs: ${tag} ---\n[failed to open log stream: ${(e as Error).message}]\n`,
+    );
     return container;
   }
   const onData = (chunk: Buffer | string): void => {

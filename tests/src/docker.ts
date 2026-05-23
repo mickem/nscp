@@ -1,4 +1,11 @@
-import { GenericContainer, Network, StartedTestContainer, Wait, type WaitStrategy, type StartedNetwork } from "testcontainers";
+import {
+  GenericContainer,
+  Network,
+  StartedTestContainer,
+  Wait,
+  type WaitStrategy,
+  type StartedNetwork,
+} from "testcontainers";
 import execaForProbe from "execa";
 
 /**
@@ -10,8 +17,7 @@ import execaForProbe from "execa";
  * after accept, which surfaces in the container as "Connection
  * refused".
  */
-export const DOCKER_HOST_ALLOWED_HOSTS =
-  "127.0.0.1,::1,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8";
+export const DOCKER_HOST_ALLOWED_HOSTS = "127.0.0.1,::1,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8";
 
 /**
  * `true` when the suite was asked to skip docker-dependent scenarios
@@ -65,17 +71,19 @@ export function hostGatewayExtraHosts(): string[] {
   if (cachedHostGateway) return cachedHostGateway;
   let mapping = "host.docker.internal:host-gateway";
   try {
-    const r = execaForProbe.sync(
-      "docker", ["info", "--format", "{{.OperatingSystem}}"],
-      { timeout: 5_000, reject: false },
-    );
+    const r = execaForProbe.sync("docker", ["info", "--format", "{{.OperatingSystem}}"], {
+      timeout: 5_000,
+      reject: false,
+    });
     if (/rancher desktop/i.test(r.stdout ?? "")) {
       // gvisor's host-reach gateway on Rancher Desktop. See
       // https://rancherdesktop.io/ docs ("Connecting to Host Services
       // from Containers").
       mapping = "host.docker.internal:192.168.127.254";
     }
-  } catch { /* probe failure: fall back to host-gateway */ }
+  } catch {
+    /* probe failure: fall back to host-gateway */
+  }
   cachedHostGateway = [mapping];
   return cachedHostGateway;
 }
@@ -107,10 +115,7 @@ export async function containerReadAll(
   container: StartedTestContainer,
   dir: string,
 ): Promise<string> {
-  const r = await container.exec([
-    "sh", "-c",
-    `find ${dir} -type f -exec cat {} +`,
-  ]);
+  const r = await container.exec(["sh", "-c", `find ${dir} -type f -exec cat {} +`]);
   return r.output;
 }
 

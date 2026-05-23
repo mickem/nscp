@@ -51,42 +51,42 @@ npm test
 
 Docker-using scenarios (skipped when `NSCP_SKIP_DOCKER=1`):
 
-| File                                  | Replaces                               |
-|---------------------------------------|----------------------------------------|
-| `tests/nrdp-submit.test.ts`           | `tests/nrdp/run-test.bat`              |
-| `tests/nsca-ciphers.test.ts`          | `tests/nsca/run-test.bat`              |
-| `tests/nsca-ng-submit.test.ts`        | `tests/nsca-ng/run-test.bat`           |
-| `tests/smtp-send.test.ts`             | `tests/smtp/run-test.bat`              |
-| `tests/nrpe-tls.test.ts`              | `tests/nrpe/run-test.bat`              |
-| `tests/http_proxy-nrdp.test.ts`       | `tests/http_proxy/run-test.bat`        |
-| `tests/check_mk-agent.test.ts`        | `tests/check_mk/run-test.bat`          |
-| `tests/check_mk-site.test.ts`         | `tests/check_mk/run-test-cmk-site.bat` |
-| `tests/icinga-submit.test.ts`         | `tests/icinga/run-test.bat`            |
-| `tests/icinga-client-api.test.ts`     | `tests/icinga-client/run-test.bat`     |
+| File                              | Replaces                               |
+| --------------------------------- | -------------------------------------- |
+| `tests/nrdp-submit.test.ts`       | `tests/nrdp/run-test.bat`              |
+| `tests/nsca-ciphers.test.ts`      | `tests/nsca/run-test.bat`              |
+| `tests/nsca-ng-submit.test.ts`    | `tests/nsca-ng/run-test.bat`           |
+| `tests/smtp-send.test.ts`         | `tests/smtp/run-test.bat`              |
+| `tests/nrpe-tls.test.ts`          | `tests/nrpe/run-test.bat`              |
+| `tests/http_proxy-nrdp.test.ts`   | `tests/http_proxy/run-test.bat`        |
+| `tests/check_mk-agent.test.ts`    | `tests/check_mk/run-test.bat`          |
+| `tests/check_mk-site.test.ts`     | `tests/check_mk/run-test-cmk-site.bat` |
+| `tests/icinga-submit.test.ts`     | `tests/icinga/run-test.bat`            |
+| `tests/icinga-client-api.test.ts` | `tests/icinga-client/run-test.bat`     |
 
 Docker-free scenarios (always run, including in no-docker CI pipelines):
 
-| File                                  | Notes                                  |
-|---------------------------------------|----------------------------------------|
-| `tests/rest-aliases-v2.test.ts`       | CheckHelpers alias listing             |
-| `tests/rest-api-discovery.test.ts`    | `/api`, `/api/v1`, `/api/v2`, isalive  |
-| `tests/rest-auth.test.ts`             | Login + all auth schemes               |
-| `tests/rest-events.test.ts`           | events_controller GET / DELETE         |
-| `tests/rest-index.test.ts`            | StaticController fallback              |
-| `tests/rest-info.test.ts`             | `/api/v2/info` shape                   |
-| `tests/rest-legacy-auth-icinga.test.ts`| Icinga UA-allowlisted query auth      |
-| `tests/rest-legacy-query.test.ts`     | Pre-v1 `/query/<cmd>` endpoint         |
-| `tests/rest-log.test.ts`              | logs CRUD + `/logs/since`              |
-| `tests/rest-metadata.test.ts`         | metadata_controller                    |
-| `tests/rest-modules-v1.test.ts`       | modules lifecycle (v1)                 |
-| `tests/rest-modules-v2.test.ts`       | modules lifecycle (v2)                 |
-| `tests/rest-permissions.test.ts`      | Role gating on `/modules`              |
-| `tests/rest-queries-v1.test.ts`       | queries × execute × json/nagios/text   |
-| `tests/rest-queries-v2.test.ts`       | queries v2 of the above                |
-| `tests/rest-settings.test.ts`         | settings GET / PUT / DELETE            |
+| File                                    | Notes                                 |
+| --------------------------------------- | ------------------------------------- |
+| `tests/rest-aliases-v2.test.ts`         | CheckHelpers alias listing            |
+| `tests/rest-api-discovery.test.ts`      | `/api`, `/api/v1`, `/api/v2`, isalive |
+| `tests/rest-auth.test.ts`               | Login + all auth schemes              |
+| `tests/rest-events.test.ts`             | events_controller GET / DELETE        |
+| `tests/rest-index.test.ts`              | StaticController fallback             |
+| `tests/rest-info.test.ts`               | `/api/v2/info` shape                  |
+| `tests/rest-legacy-auth-icinga.test.ts` | Icinga UA-allowlisted query auth      |
+| `tests/rest-legacy-query.test.ts`       | Pre-v1 `/query/<cmd>` endpoint        |
+| `tests/rest-log.test.ts`                | logs CRUD + `/logs/since`             |
+| `tests/rest-metadata.test.ts`           | metadata_controller                   |
+| `tests/rest-modules-v1.test.ts`         | modules lifecycle (v1)                |
+| `tests/rest-modules-v2.test.ts`         | modules lifecycle (v2)                |
+| `tests/rest-permissions.test.ts`        | Role gating on `/modules`             |
+| `tests/rest-queries-v1.test.ts`         | queries × execute × json/nagios/text  |
+| `tests/rest-queries-v2.test.ts`         | queries v2 of the above               |
+| `tests/rest-settings.test.ts`           | settings GET / PUT / DELETE           |
 
 The Checkmk end-to-end test (`check_mk-site.test.ts`) pulls a ~500MB image and is also gated by `RUN_CMK_SITE_TEST=1`
-(must be set *and* docker must not be skipped).
+(must be set _and_ docker must not be skipped).
 
 The MSI tests (`tests/msi/`) stay Windows-only and are not part of this harness.
 
@@ -105,6 +105,22 @@ dependency.
 
 `src/files.ts` — `fileContains` / `anyFileContains` replace
 `findstr /s /c:` over spooled result files.
+
+## Formatting
+
+The harness uses Prettier with TypeScript/Jest-friendly defaults (2-space indent, double quotes, trailing commas,
+100-char line width — see `.prettierrc.json`).
+
+```sh
+# Reformat every .ts / .js / .json / .md file under tests/
+npm run format
+
+# CI-style check — exits non-zero if anything would change.
+npm run format:check
+```
+
+`node_modules/`, generated artifacts, and the legacy `msi/` and `socket/` subprojects are excluded via
+`.prettierignore`.
 
 ## Cleanup
 

@@ -9,8 +9,11 @@ export function readAllUnder(dir: string): string {
   if (!fs.existsSync(dir)) return "";
   const out: string[] = [];
   walk(dir, (file) => {
-    try { out.push(fs.readFileSync(file, "utf8")); }
-    catch { /* ignore binary / unreadable files */ }
+    try {
+      out.push(fs.readFileSync(file, "utf8"));
+    } catch {
+      /* ignore binary / unreadable files */
+    }
   });
   return out.join("\n");
 }
@@ -22,7 +25,9 @@ export function anyFileContains(dir: string, needle: string): boolean {
     if (found) return;
     try {
       if (fs.readFileSync(file, "utf8").includes(needle)) found = true;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   });
   return found;
 }

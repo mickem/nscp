@@ -29,7 +29,8 @@ export default class FailureDumpEnvironment extends NodeEnvironment {
     // their sources (nscp + tracked containers) once in `beforeAll`,
     // and each dumper closes over the current state of its source so
     // re-reading reflects the latest output on every failed `it`.
-    const dumpers = (this.global as unknown as { __nscpFailureDumpers?: Dumper[] }).__nscpFailureDumpers ?? [];
+    const dumpers =
+      (this.global as unknown as { __nscpFailureDumpers?: Dumper[] }).__nscpFailureDumpers ?? [];
     const testName = event.test.name;
     process.stderr.write(`\n----- failure dump (${testName}) -----\n`);
     for (const d of dumpers) {

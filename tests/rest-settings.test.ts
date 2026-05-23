@@ -37,10 +37,7 @@ describe("REST settings controller", () => {
 
   describe("auth gating", () => {
     it("GET /api/v2/settings/... requires authentication", async () => {
-      await request(REST_URL)
-        .get(`/api/v2/settings${TEST_PATH}`)
-        .trustLocalhost(true)
-        .expect(403);
+      await request(REST_URL).get(`/api/v2/settings${TEST_PATH}`).trustLocalhost(true).expect(403);
     });
 
     it("PUT /api/v2/settings/... requires authentication", async () => {
@@ -94,9 +91,7 @@ describe("REST settings controller", () => {
         .expect(200)
         .then((response) => {
           expect(Array.isArray(response.body)).toBe(true);
-          const node = response.body.find(
-            (n: { key: string }) => n.key === "marker",
-          );
+          const node = response.body.find((n: { key: string }) => n.key === "marker");
           expect(node).toBeDefined();
           expect(node.value).toEqual("hello-from-rest-test");
         });
@@ -128,9 +123,7 @@ describe("REST settings controller", () => {
         .trustLocalhost(true)
         .expect(200)
         .then((response) => {
-          const node = response.body.find(
-            (n: { key: string }) => n.key === "to-delete",
-          );
+          const node = response.body.find((n: { key: string }) => n.key === "to-delete");
           expect(node).toBeUndefined();
         });
     });

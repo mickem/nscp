@@ -30,10 +30,10 @@ dockerOrSkip()("check_mk integration", () => {
 
   beforeAll(async () => {
     image = "check_mk_client";
-    await GenericContainer.fromDockerfile(path.resolve(__dirname), "Dockerfiles/check_mk.Dockerfile").build(
-      image,
-      { deleteOnExit: false },
-    );
+    await GenericContainer.fromDockerfile(
+      path.resolve(__dirname),
+      "Dockerfiles/check_mk.Dockerfile",
+    ).build(image, { deleteOnExit: false });
 
     nscp = new NscpInstance();
 
@@ -58,11 +58,11 @@ dockerOrSkip()("check_mk integration", () => {
         "allowed hosts": DOCKER_HOST_ALLOWED_HOSTS,
       },
       "/settings/check_mk/server/local": { "CPU Load": "command=check_cpu" },
-      "/settings/check_mk/server/mrpe":  { Uptime:     "command=check_uptime" },
+      "/settings/check_mk/server/mrpe": { Uptime: "command=check_uptime" },
       "/settings/scheduler/schedules/default": {
-        channel:  "check_mk-mrpe",
+        channel: "check_mk-mrpe",
         interval: "5s",
-        report:   "all",
+        report: "all",
       },
       "/settings/scheduler/schedules/Scheduled_OK": {
         command: "check_ok",
@@ -86,19 +86,23 @@ dockerOrSkip()("check_mk integration", () => {
     // submission cache. The bat sleeps 10s before fetching.
     await new Promise((res) => setTimeout(res, 10_000));
 
-    const r = await dockerRunOnce(image, [
-      "host.docker.internal", String(CHECK_MK_PORT),
-    ], { extraHosts: hostGatewayExtraHosts(), allowFailure: true });
+    const r = await dockerRunOnce(image, ["host.docker.internal", String(CHECK_MK_PORT)], {
+      extraHosts: hostGatewayExtraHosts(),
+      allowFailure: true,
+    });
     agentDump = r.all ?? r.stdout ?? "";
   });
 
   afterAll(async () => {
     if (nscp) {
       try {
-        await nscp.run(["nrpe",
-          "--host", "127.0.0.1", "--insecure", "--version", "2",
-          "--command", "mock_exit"], { timeout: 5_000, allowFailure: true });
-      } catch { /* ignore */ }
+        await nscp.run(
+          ["nrpe", "--host", "127.0.0.1", "--insecure", "--version", "2", "--command", "mock_exit"],
+          { timeout: 5_000, allowFailure: true },
+        );
+      } catch {
+        /* ignore */
+      }
       await nscp.stop();
     }
   });
@@ -106,7 +110,9 @@ dockerOrSkip()("check_mk integration", () => {
   it("agent dump is non-empty", () => {
     if (agentDump.length === 0) {
       // eslint-disable-next-line no-console
-      console.error("Empty agent dump — likely allowed-hosts blocked the bridge IP or CheckMKServer never bound 6556");
+      console.error(
+        "Empty agent dump — likely allowed-hosts blocked the bridge IP or CheckMKServer never bound 6556",
+      );
     }
     expect(agentDump.length).toBeGreaterThan(0);
   });

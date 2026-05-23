@@ -51,9 +51,7 @@ describe("REST queries (v2)", () => {
         expect(response.body).toBeDefined();
         expect(response.body.length).toBeGreaterThan(0);
         expect(
-          response.body.filter(
-            (query: { name: string }) => query.name === "mock_query",
-          ),
+          response.body.filter((query: { name: string }) => query.name === "mock_query"),
         ).toEqual([
           {
             description: "Mock query used during tests",
@@ -77,9 +75,7 @@ describe("REST queries (v2)", () => {
         expect(response.body).toBeDefined();
         expect(response.body.length).toBeGreaterThan(0);
         expect(
-          response.body.filter(
-            (query: { name: string }) => query.name === "mock_query",
-          ),
+          response.body.filter((query: { name: string }) => query.name === "mock_query"),
         ).toEqual([
           {
             description: "Mock query used during tests",
@@ -105,8 +101,7 @@ describe("REST queries (v2)", () => {
           description: "Mock query used during tests",
           execute_nagios_url:
             "https://127.0.0.1:8443/api/v2/queries/mock_query/commands/execute_nagios",
-          execute_url:
-            "https://127.0.0.1:8443/api/v2/queries/mock_query/commands/execute",
+          execute_url: "https://127.0.0.1:8443/api/v2/queries/mock_query/commands/execute",
           metadata: {},
           name: "mock_query",
           plugin: luaScriptPlugin,
@@ -153,9 +148,7 @@ describe("REST queries (v2)", () => {
 
   it("can execute query (json, warning)", async () => {
     await request(REST_URL)
-      .get(
-        "/api/v2/queries/check_warning/commands/execute?message=this+is+a+message",
-      )
+      .get("/api/v2/queries/check_warning/commands/execute?message=this+is+a+message")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
       .expect(200)
@@ -176,9 +169,7 @@ describe("REST queries (v2)", () => {
 
   it("can execute query (json, critical)", async () => {
     await request(REST_URL)
-      .get(
-        "/api/v2/queries/check_critical/commands/execute?message=this+is+a+message",
-      )
+      .get("/api/v2/queries/check_critical/commands/execute?message=this+is+a+message")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
       .expect(200)
@@ -199,9 +190,7 @@ describe("REST queries (v2)", () => {
 
   it("can execute query (json, unknown)", async () => {
     await request(REST_URL)
-      .get(
-        "/api/v2/queries/check_unknown/commands/execute?message=this+is+a+message",
-      )
+      .get("/api/v2/queries/check_unknown/commands/execute?message=this+is+a+message")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
       .expect(200)
@@ -259,9 +248,7 @@ describe("REST queries (v2)", () => {
 
   it("can execute query (nagios, warning)", async () => {
     await request(REST_URL)
-      .get(
-        "/api/v2/queries/check_warning/commands/execute_nagios?message=this+is+a+message",
-      )
+      .get("/api/v2/queries/check_warning/commands/execute_nagios?message=this+is+a+message")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
       .expect(200)
@@ -282,9 +269,7 @@ describe("REST queries (v2)", () => {
 
   it("can execute query (nagios, critical)", async () => {
     await request(REST_URL)
-      .get(
-        "/api/v2/queries/check_critical/commands/execute_nagios?message=this+is+a+message",
-      )
+      .get("/api/v2/queries/check_critical/commands/execute_nagios?message=this+is+a+message")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
       .expect(200)
@@ -305,9 +290,7 @@ describe("REST queries (v2)", () => {
 
   it("can execute query (nagios, unknown)", async () => {
     await request(REST_URL)
-      .get(
-        "/api/v2/queries/check_unknown/commands/execute_nagios?message=this+is+a+message",
-      )
+      .get("/api/v2/queries/check_unknown/commands/execute_nagios?message=this+is+a+message")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
       .expect(200)
@@ -344,9 +327,7 @@ describe("REST queries (v2)", () => {
 
   it("can execute query (text, warning)", async () => {
     await request(REST_URL)
-      .get(
-        "/api/v2/queries/check_warning/commands/execute_nagios?message=this+is+a+message",
-      )
+      .get("/api/v2/queries/check_warning/commands/execute_nagios?message=this+is+a+message")
       .set("Authorization", `Bearer ${key}`)
       .set("Accept", "text/plain")
       .set("Content-Type", "text/plain")
@@ -360,9 +341,7 @@ describe("REST queries (v2)", () => {
 
   it("can execute query (text, critical)", async () => {
     await request(REST_URL)
-      .get(
-        "/api/v2/queries/check_critical/commands/execute_nagios?message=this+is+a+message",
-      )
+      .get("/api/v2/queries/check_critical/commands/execute_nagios?message=this+is+a+message")
       .set("Authorization", `Bearer ${key}`)
       .set("Accept", "text/plain")
       .set("Content-Type", "text/plain")
@@ -376,9 +355,7 @@ describe("REST queries (v2)", () => {
 
   it("can execute query (text, unknown)", async () => {
     await request(REST_URL)
-      .get(
-        "/api/v2/queries/check_unknown/commands/execute_nagios?message=this+is+a+message",
-      )
+      .get("/api/v2/queries/check_unknown/commands/execute_nagios?message=this+is+a+message")
       .set("Authorization", `Bearer ${key}`)
       .set("Accept", "text/plain")
       .set("Content-Type", "text/plain")

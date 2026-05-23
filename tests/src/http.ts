@@ -55,5 +55,7 @@ export async function waitForHttp(
     if (lastCode !== "000") return;
     await new Promise((res) => setTimeout(res, opts.pollMs ?? 1000));
   }
-  throw new Error(`No HTTP response from ${url} within ${opts.timeoutMs ?? 60_000}ms (last code=${lastCode})`);
+  throw new Error(
+    `No HTTP response from ${url} within ${opts.timeoutMs ?? 60_000}ms (last code=${lastCode})`,
+  );
 }

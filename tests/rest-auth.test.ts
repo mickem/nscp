@@ -7,11 +7,7 @@
  * 0.13).
  */
 import request from "supertest";
-import {
-  NscpInstance,
-  REST_URL,
-  setupRestNscp,
-} from "@fixtures/index";
+import { NscpInstance, REST_URL, setupRestNscp } from "@fixtures/index";
 
 jest.setTimeout(900_000);
 

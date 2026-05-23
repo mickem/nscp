@@ -41,9 +41,7 @@ dockerOrSkip()("NRDP integration", () => {
       await image
         .withExposedPorts(80, 443)
         .withEnvironment({ TOKEN })
-        .withBindMounts([
-          { source: spoolDir, target: "/nrdp/checkresults", mode: "rw" },
-        ])
+        .withBindMounts([{ source: spoolDir, target: "/nrdp/checkresults", mode: "rw" }])
         .withWaitStrategy(Wait.forListeningPorts())
         .start(),
       "nrdp_server",
@@ -64,15 +62,23 @@ dockerOrSkip()("NRDP integration", () => {
     message: string,
     address: string,
   ): Promise<void> {
-    const r = await nscp.run([
-      "nrdp",
-      "--address", address,
-      "--verify=none",
-      "--token", TOKEN,
-      "--command", name,
-      "--result", String(code),
-      "--message", message,
-    ], { allowFailure: true });
+    const r = await nscp.run(
+      [
+        "nrdp",
+        "--address",
+        address,
+        "--verify=none",
+        "--token",
+        TOKEN,
+        "--command",
+        name,
+        "--result",
+        String(code),
+        "--message",
+        message,
+      ],
+      { allowFailure: true },
+    );
     if (r.exitCode !== 0) {
       // eslint-disable-next-line no-console
       console.error(`nscp nrdp failed (${r.exitCode}):\n${r.all ?? r.stdout ?? r.stderr}`);
@@ -87,19 +93,19 @@ dockerOrSkip()("NRDP integration", () => {
   }
 
   it.each([
-    ["ok-check",       0, "Everything is fine"],
-    ["warning-check",  1, "Slightly worried"],
+    ["ok-check", 0, "Everything is fine"],
+    ["warning-check", 1, "Slightly worried"],
     ["critical-check", 2, "Houston we have a problem"],
-    ["unknown-check",  3, "No idea"],
+    ["unknown-check", 3, "No idea"],
   ])("submits %s (HTTP, result=%i)", async (name, code, msg) => {
     await submit(name, code, msg, `http://127.0.0.1:${httpPort}/nrdp/server/`);
   });
 
   it.each([
-    ["ok-check-https",       0, "Everything is fine over TLS"],
-    ["warning-check-https",  1, "Slightly worried over TLS"],
+    ["ok-check-https", 0, "Everything is fine over TLS"],
+    ["warning-check-https", 1, "Slightly worried over TLS"],
     ["critical-check-https", 2, "Houston we have a TLS problem"],
-    ["unknown-check-https",  3, "No idea over TLS"],
+    ["unknown-check-https", 3, "No idea over TLS"],
   ])("submits %s (HTTPS, result=%i)", async (name, code, msg) => {
     await submit(name, code, msg, `https://127.0.0.1:${httpsPort}/nrdp/server/`);
   });
@@ -120,12 +126,18 @@ dockerOrSkip()("NRDP integration", () => {
 
     const r = await nscp.run([
       "nrdp",
-      "--define", `/settings/NRDP/client:hostname=${template}`,
-      "--address", `http://127.0.0.1:${httpPort}/nrdp/server/`,
-      "--token", TOKEN,
-      "--command", "macro-check",
-      "--result", "0",
-      "--message", "Macro hostname check",
+      "--define",
+      `/settings/NRDP/client:hostname=${template}`,
+      "--address",
+      `http://127.0.0.1:${httpPort}/nrdp/server/`,
+      "--token",
+      TOKEN,
+      "--command",
+      "macro-check",
+      "--result",
+      "0",
+      "--message",
+      "Macro hostname check",
     ]);
     expect(r.exitCode).toBe(0);
     await containerChmodReadable(server, "/nrdp/checkresults");
@@ -137,29 +149,43 @@ dockerOrSkip()("NRDP integration", () => {
   });
 
   it("rejects an invalid token over HTTP", async () => {
-    const r = await nscp.run([
-      "nrdp",
-      "--address", `http://127.0.0.1:${httpPort}/nrdp/server/`,
-      "--token=wrong_token",
-      "--command", "bad-token-check",
-      "--result", "0",
-      "--message", "should not be accepted",
-    ], { allowFailure: true });
+    const r = await nscp.run(
+      [
+        "nrdp",
+        "--address",
+        `http://127.0.0.1:${httpPort}/nrdp/server/`,
+        "--token=wrong_token",
+        "--command",
+        "bad-token-check",
+        "--result",
+        "0",
+        "--message",
+        "should not be accepted",
+      ],
+      { allowFailure: true },
+    );
     expect(r.exitCode).not.toBe(0);
     await containerChmodReadable(server, "/nrdp/checkresults");
     expect(anyFileContains(spoolDir, "bad-token-check")).toBe(false);
   });
 
   it("rejects an invalid token over HTTPS", async () => {
-    const r = await nscp.run([
-      "nrdp",
-      "--address", `https://127.0.0.1:${httpsPort}/nrdp/server/`,
-      "--verify=none",
-      "--token=wrong_token",
-      "--command", "bad-token-check-https",
-      "--result", "0",
-      "--message", "should not be accepted over TLS",
-    ], { allowFailure: true });
+    const r = await nscp.run(
+      [
+        "nrdp",
+        "--address",
+        `https://127.0.0.1:${httpsPort}/nrdp/server/`,
+        "--verify=none",
+        "--token=wrong_token",
+        "--command",
+        "bad-token-check-https",
+        "--result",
+        "0",
+        "--message",
+        "should not be accepted over TLS",
+      ],
+      { allowFailure: true },
+    );
     expect(r.exitCode).not.toBe(0);
     await containerChmodReadable(server, "/nrdp/checkresults");
     expect(anyFileContains(spoolDir, "bad-token-check-https")).toBe(false);

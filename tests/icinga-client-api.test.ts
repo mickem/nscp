@@ -32,10 +32,9 @@ dockerOrSkip()("Icinga client (check_nscp_api) integration", () => {
     // `DOCKERFILE=icinga-client-source.Dockerfile`.
     const dockerfile = `Dockerfiles/${process.env.DOCKERFILE ?? "icinga-client.Dockerfile"}`;
     image = "check_nscp_api";
-    await GenericContainer.fromDockerfile(
-      path.resolve(__dirname),
-      dockerfile,
-    ).build(image, { deleteOnExit: false });
+    await GenericContainer.fromDockerfile(path.resolve(__dirname), dockerfile).build(image, {
+      deleteOnExit: false,
+    });
 
     nscp = new NscpInstance();
 
@@ -50,9 +49,12 @@ dockerOrSkip()("Icinga client (check_nscp_api) integration", () => {
     });
 
     await nscp.run([
-      "web", "install",
-      "--password", PASSWORD,
-      "--allowed-hosts", "127.0.0.1,0.0.0.0/0",
+      "web",
+      "install",
+      "--password",
+      PASSWORD,
+      "--allowed-hosts",
+      "127.0.0.1,0.0.0.0/0",
     ]);
     // `nscp web install`'s --certificate / --certificate-key flags don't
     // actually persist into the INI, so the WEBServer module falls back
@@ -85,36 +87,62 @@ dockerOrSkip()("Icinga client (check_nscp_api) integration", () => {
   });
 
   it("Test 1 - valid password gets the mock_query response", async () => {
-    const r = await dockerRunOnce(image, [
-      "--host", "host.docker.internal",
-      "--port", String(NSCP_PORT),
-      "--password", PASSWORD,
-      "--query", "mock_query",
-    ], { extraHosts: hostGatewayExtraHosts(), allowFailure: true });
+    const r = await dockerRunOnce(
+      image,
+      [
+        "--host",
+        "host.docker.internal",
+        "--port",
+        String(NSCP_PORT),
+        "--password",
+        PASSWORD,
+        "--query",
+        "mock_query",
+      ],
+      { extraHosts: hostGatewayExtraHosts(), allowFailure: true },
+    );
     expect(r.exitCode).toBe(0);
     expect(r.all).toContain("mock_query::");
   });
 
   it("Test 2 - invalid password is rejected with a non-zero status", async () => {
-    const r = await dockerRunOnce(image, [
-      "--host", "host.docker.internal",
-      "--port", String(NSCP_PORT),
-      "--password", "definitely-not-the-password",
-      "--query", "mock_query",
-    ], { extraHosts: hostGatewayExtraHosts(), allowFailure: true });
+    const r = await dockerRunOnce(
+      image,
+      [
+        "--host",
+        "host.docker.internal",
+        "--port",
+        String(NSCP_PORT),
+        "--password",
+        "definitely-not-the-password",
+        "--query",
+        "mock_query",
+      ],
+      { extraHosts: hostGatewayExtraHosts(), allowFailure: true },
+    );
     // check_nscp_api maps auth failure to UNKNOWN (3) or CRITICAL (2);
     // any non-zero exit code is acceptable.
     expect(r.exitCode).not.toBe(0);
   });
 
   it("Test 3 - WARNING propagates with the message body", async () => {
-    const r = await dockerRunOnce(image, [
-      "--host", "host.docker.internal",
-      "--port", String(NSCP_PORT),
-      "--password", PASSWORD,
-      "--query", "check_always_warning",
-      "--arguments", "check_ok", "message=warn-from-icinga",
-    ], { extraHosts: hostGatewayExtraHosts(), allowFailure: true });
+    const r = await dockerRunOnce(
+      image,
+      [
+        "--host",
+        "host.docker.internal",
+        "--port",
+        String(NSCP_PORT),
+        "--password",
+        PASSWORD,
+        "--query",
+        "check_always_warning",
+        "--arguments",
+        "check_ok",
+        "message=warn-from-icinga",
+      ],
+      { extraHosts: hostGatewayExtraHosts(), allowFailure: true },
+    );
     expect(r.exitCode).toBe(1);
     expect(r.all).toContain("warn-from-icinga");
   });

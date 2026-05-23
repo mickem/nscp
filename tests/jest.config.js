@@ -5,9 +5,7 @@ module.exports = {
   testEnvironment: "<rootDir>/src/test-env.ts",
   rootDir: __dirname,
   testMatch: ["<rootDir>/*.test.ts"],
-  testPathIgnorePatterns: [
-    "/node_modules/",
-  ],
+  testPathIgnorePatterns: ["/node_modules/"],
   transform: {
     "^.+\\.tsx?$": [
       require.resolve("ts-jest"),

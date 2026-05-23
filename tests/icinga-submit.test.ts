@@ -70,11 +70,22 @@ dockerOrSkip()("Icinga integration", () => {
   it("Test 1 - basic OK service submission lands plugin_output", async () => {
     const r = await nscp.run([
       "icinga",
-      "--address", `${baseUrl}/`,
-      "--username", ICINGA_USER, "--password", ICINGA_PASSWORD,
-      "--verify", "none",
-      "--hostname", "test-host",
-      "--command", "basic-ok", "--result", "0", "--message", "all good",
+      "--address",
+      `${baseUrl}/`,
+      "--username",
+      ICINGA_USER,
+      "--password",
+      ICINGA_PASSWORD,
+      "--verify",
+      "none",
+      "--hostname",
+      "test-host",
+      "--command",
+      "basic-ok",
+      "--result",
+      "0",
+      "--message",
+      "all good",
     ]);
     expect(r.exitCode).toBe(0);
     await new Promise((res) => setTimeout(res, 2000));
@@ -86,15 +97,26 @@ dockerOrSkip()("Icinga integration", () => {
     for (const [name, code, msg] of [
       ["code-warn", 1, "warn-message"],
       ["code-crit", 2, "crit-message"],
-      ["code-unk",  3, "unk-message"],
+      ["code-unk", 3, "unk-message"],
     ] as const) {
       const r = await nscp.run([
         "icinga",
-        "--address", `${baseUrl}/`,
-        "--username", ICINGA_USER, "--password", ICINGA_PASSWORD,
-        "--verify", "none",
-        "--hostname", "test-host",
-        "--command", name, "--result", String(code), "--message", msg,
+        "--address",
+        `${baseUrl}/`,
+        "--username",
+        ICINGA_USER,
+        "--password",
+        ICINGA_PASSWORD,
+        "--verify",
+        "none",
+        "--hostname",
+        "test-host",
+        "--command",
+        name,
+        "--result",
+        String(code),
+        "--message",
+        msg,
       ]);
       expect(r.exitCode).toBe(0);
     }
@@ -102,7 +124,7 @@ dockerOrSkip()("Icinga integration", () => {
     for (const [name, msg] of [
       ["code-warn", "warn-message"],
       ["code-crit", "crit-message"],
-      ["code-unk",  "unk-message"],
+      ["code-unk", "unk-message"],
     ] as const) {
       const body = await fetchObject("services", `test-host!${name}`);
       expect(body).toContain(msg);
@@ -112,11 +134,22 @@ dockerOrSkip()("Icinga integration", () => {
   it("Test 3 - host check via the host_check alias", async () => {
     const r = await nscp.run([
       "icinga",
-      "--address", `${baseUrl}/`,
-      "--username", ICINGA_USER, "--password", ICINGA_PASSWORD,
-      "--verify", "none",
-      "--hostname", "test-host",
-      "--command", "host_check", "--result", "0", "--message", "host alive",
+      "--address",
+      `${baseUrl}/`,
+      "--username",
+      ICINGA_USER,
+      "--password",
+      ICINGA_PASSWORD,
+      "--verify",
+      "none",
+      "--hostname",
+      "test-host",
+      "--command",
+      "host_check",
+      "--result",
+      "0",
+      "--message",
+      "host alive",
     ]);
     expect(r.exitCode).toBe(0);
     await new Promise((res) => setTimeout(res, 2500));
@@ -127,12 +160,22 @@ dockerOrSkip()("Icinga integration", () => {
   it("Test 4 - perfdata round-trip", async () => {
     const r = await nscp.run([
       "icinga",
-      "--address", `${baseUrl}/`,
-      "--username", ICINGA_USER, "--password", ICINGA_PASSWORD,
-      "--verify", "none",
-      "--hostname", "test-host",
-      "--command", "perf-svc", "--result", "0",
-      "--message", "perf-ok|cpu=42 mem=70",
+      "--address",
+      `${baseUrl}/`,
+      "--username",
+      ICINGA_USER,
+      "--password",
+      ICINGA_PASSWORD,
+      "--verify",
+      "none",
+      "--hostname",
+      "test-host",
+      "--command",
+      "perf-svc",
+      "--result",
+      "0",
+      "--message",
+      "perf-ok|cpu=42 mem=70",
     ]);
     expect(r.exitCode).toBe(0);
     await new Promise((res) => setTimeout(res, 2500));
@@ -145,12 +188,22 @@ dockerOrSkip()("Icinga integration", () => {
   it("Test 5 - semicolon-in-output round-trip", async () => {
     const r = await nscp.run([
       "icinga",
-      "--address", `${baseUrl}/`,
-      "--username", ICINGA_USER, "--password", ICINGA_PASSWORD,
-      "--verify", "none",
-      "--hostname", "test-host",
-      "--command", "semi-svc", "--result", "0",
-      "--message", "OK; running 3 services; load ok",
+      "--address",
+      `${baseUrl}/`,
+      "--username",
+      ICINGA_USER,
+      "--password",
+      ICINGA_PASSWORD,
+      "--verify",
+      "none",
+      "--hostname",
+      "test-host",
+      "--command",
+      "semi-svc",
+      "--result",
+      "0",
+      "--message",
+      "OK; running 3 services; load ok",
     ]);
     expect(r.exitCode).toBe(0);
     await new Promise((res) => setTimeout(res, 2500));
@@ -160,19 +213,31 @@ dockerOrSkip()("Icinga integration", () => {
   });
 
   it("Test 6 - wrong password is rejected", async () => {
-    const r = await nscp.run([
-      "icinga",
-      "--address", `${baseUrl}/`,
-      "--username", ICINGA_USER, "--password", "wrong-password",
-      "--verify", "none",
-      "--hostname", "test-host",
-      "--command", "basic-ok", "--result", "0",
-      "--message", "should-not-arrive",
-    ], { allowFailure: true });
+    const r = await nscp.run(
+      [
+        "icinga",
+        "--address",
+        `${baseUrl}/`,
+        "--username",
+        ICINGA_USER,
+        "--password",
+        "wrong-password",
+        "--verify",
+        "none",
+        "--hostname",
+        "test-host",
+        "--command",
+        "basic-ok",
+        "--result",
+        "0",
+        "--message",
+        "should-not-arrive",
+      ],
+      { allowFailure: true },
+    );
     expect(r.exitCode).not.toBe(0);
     await new Promise((res) => setTimeout(res, 2000));
     const body = await fetchObject("services", "test-host!basic-ok");
     expect(body).not.toContain("should-not-arrive");
   });
 });
-

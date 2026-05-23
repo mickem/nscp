@@ -129,8 +129,7 @@ export class NscpInstance {
   private stderrBuf = "";
 
   constructor(opts: NscpInstanceOptions = {}) {
-    this.workDir =
-      opts.workDir ?? fs.mkdtempSync(path.join(os.tmpdir(), "nscp-it-"));
+    this.workDir = opts.workDir ?? fs.mkdtempSync(path.join(os.tmpdir(), "nscp-it-"));
     fs.mkdirSync(this.workDir, { recursive: true });
     this.settingsFile = opts.settingsFile ?? path.join(this.workDir, "nsclient.ini");
     this.extraTestArgs = opts.extraTestArgs ?? [];
@@ -213,15 +212,7 @@ export class NscpInstance {
   async configure(tree: SettingsTree): Promise<void> {
     for (const [pathStr, kvs] of flattenSettings(tree)) {
       for (const [key, value] of Object.entries(kvs)) {
-        await this.run([
-          "settings",
-          "--path",
-          pathStr,
-          "--key",
-          key,
-          "--set",
-          String(value),
-        ]);
+        await this.run(["settings", "--path", pathStr, "--key", key, "--set", String(value)]);
       }
     }
   }
@@ -264,19 +255,33 @@ export class NscpInstance {
     const timeout = opts.timeout ?? 5_000;
     const waitExit = (ms: number) => {
       let timer: NodeJS.Timeout | undefined;
-      const sleep = new Promise<void>((r) => { timer = setTimeout(r, ms); });
+      const sleep = new Promise<void>((r) => {
+        timer = setTimeout(r, ms);
+      });
       return Promise.race([
-        proc.catch(() => undefined).then(() => { if (timer) clearTimeout(timer); }),
+        proc
+          .catch(() => undefined)
+          .then(() => {
+            if (timer) clearTimeout(timer);
+          }),
         sleep,
       ]);
     };
     try {
-      try { proc.kill(signal); } catch { /* already exited */ }
+      try {
+        proc.kill(signal);
+      } catch {
+        /* already exited */
+      }
       await waitExit(timeout);
       // `proc.killed` only reports that *a* signal was sent, not that the
       // child actually died — escalate if it's still alive.
       if (proc.exitCode === null && proc.signalCode === null) {
-        try { proc.kill("SIGKILL"); } catch { /* already exited */ }
+        try {
+          proc.kill("SIGKILL");
+        } catch {
+          /* already exited */
+        }
         await waitExit(2_000);
       }
     } finally {
@@ -285,8 +290,12 @@ export class NscpInstance {
   }
 
   /** Collected stdout from the running `nscp test` process so far. */
-  capturedStdout(): string { return this.stdoutBuf; }
-  capturedStderr(): string { return this.stderrBuf; }
+  capturedStdout(): string {
+    return this.stdoutBuf;
+  }
+  capturedStderr(): string {
+    return this.stderrBuf;
+  }
 
   /** Wait for a TCP port on localhost to start accepting connections. */
   async waitForPort(port: number, opts: { host?: string; timeoutMs?: number } = {}): Promise<void> {
@@ -297,11 +306,17 @@ export class NscpInstance {
       try {
         await new Promise<void>((resolve, reject) => {
           const s = new net.Socket();
-          const fail = (e: Error) => { s.destroy(); reject(e); };
+          const fail = (e: Error) => {
+            s.destroy();
+            reject(e);
+          };
           s.setTimeout(1000);
           s.once("error", fail);
           s.once("timeout", () => fail(new Error("timeout")));
-          s.connect(port, host, () => { s.end(); resolve(); });
+          s.connect(port, host, () => {
+            s.end();
+            resolve();
+          });
         });
         return;
       } catch (e) {
@@ -309,7 +324,9 @@ export class NscpInstance {
         await new Promise((r) => setTimeout(r, 250));
       }
     }
-    throw new Error(`Port ${host}:${port} did not start accepting connections within ${opts.timeoutMs ?? 30_000}ms: ${(lastErr as Error)?.message}`);
+    throw new Error(
+      `Port ${host}:${port} did not start accepting connections within ${opts.timeoutMs ?? 30_000}ms: ${(lastErr as Error)?.message}`,
+    );
   }
 }
 

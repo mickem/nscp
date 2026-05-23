@@ -61,9 +61,11 @@ maybeDescribe("Checkmk site end-to-end", () => {
         "allowed hosts": DOCKER_HOST_ALLOWED_HOSTS,
       },
       "/settings/check_mk/server/local": { "CPU Load": "command=check_cpu" },
-      "/settings/check_mk/server/mrpe":  { Uptime:     "command=check_uptime" },
+      "/settings/check_mk/server/mrpe": { Uptime: "command=check_uptime" },
       "/settings/scheduler/schedules/default": {
-        channel: "check_mk-mrpe", interval: "5s", report: "all",
+        channel: "check_mk-mrpe",
+        interval: "5s",
+        report: "all",
       },
       "/settings/scheduler/schedules/Scheduled_OK": { command: "check_ok" },
       "/settings/scheduler/schedules/Scheduled_Warning": {
@@ -107,10 +109,13 @@ maybeDescribe("Checkmk site end-to-end", () => {
     await site?.stop();
     if (nscp) {
       try {
-        await nscp.run(["nrpe",
-          "--host", "127.0.0.1", "--insecure", "--version", "2",
-          "--command", "mock_exit"], { timeout: 5_000, allowFailure: true });
-      } catch { /* ignore */ }
+        await nscp.run(
+          ["nrpe", "--host", "127.0.0.1", "--insecure", "--version", "2", "--command", "mock_exit"],
+          { timeout: 5_000, allowFailure: true },
+        );
+      } catch {
+        /* ignore */
+      }
       await nscp.stop();
     }
   });
@@ -126,10 +131,7 @@ maybeDescribe("Checkmk site end-to-end", () => {
         tag_address_family: "ip-v4-only",
       },
     });
-    await cmkPost(
-      `${baseUrl}/domain-types/host_config/collections/all`,
-      createBody,
-    );
+    await cmkPost(`${baseUrl}/domain-types/host_config/collections/all`, createBody);
 
     // Activate changes.
     await cmkPost(
@@ -145,7 +147,7 @@ maybeDescribe("Checkmk site end-to-end", () => {
 
     const agentDump = await cmkExec(`cmk -d ${HOST}`);
     const discovery = await cmkExec(`cmk -II ${HOST}`);
-    const check     = await cmkExec(`cmk -v ${HOST}`);
+    const check = await cmkExec(`cmk -v ${HOST}`);
 
     expect(agentDump).toContain("Version: nsclient++");
     expect(agentDump).toContain("MemTotal:");
@@ -167,14 +169,21 @@ maybeDescribe("Checkmk site end-to-end", () => {
 
   // ----- helpers -----
 
-  async function cmkPost(url: string, body: string, opts: { ifMatch?: string } = {}): Promise<void> {
+  async function cmkPost(
+    url: string,
+    body: string,
+    opts: { ifMatch?: string } = {},
+  ): Promise<void> {
     // Run curl inside the cmk container to avoid plumbing POST through
     // the shared fixture — it's the only POST in the whole suite.
-    const args = ["sh", "-c",
+    const args = [
+      "sh",
+      "-c",
       `curl -sk -f -X POST -u ${CMK_USER}:${CMK_PASSWORD} ` +
-      `-H 'Accept: application/json' -H 'Content-Type: application/json' ` +
-      (opts.ifMatch ? `-H 'If-Match: ${opts.ifMatch}' ` : "") +
-      `'${url}' -d '${body.replace(/'/g, "'\\''")}'`];
+        `-H 'Accept: application/json' -H 'Content-Type: application/json' ` +
+        (opts.ifMatch ? `-H 'If-Match: ${opts.ifMatch}' ` : "") +
+        `'${url}' -d '${body.replace(/'/g, "'\\''")}'`,
+    ];
     const r = await site.exec(args);
     expect(r.exitCode).toBe(0);
   }

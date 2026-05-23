@@ -1,0 +1,15 @@
+# Generated / vendor — never reformat.
+node_modules/
+package-lock.json
+
+# Build artifacts.
+*.log
+.cache/
+.tmp/
+
+# Files maintained by other tools / not Prettier's job.
+Dockerfiles/
+
+# Out-of-tree tests still using their own conventions.
+msi/
+socket/
