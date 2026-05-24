@@ -38,8 +38,21 @@ endif()
 # platform to the Boost.Beast implementation (libs/mongoose-cpp/
 # ServerBeastImpl.cpp) and drops the vendored mongoose download from
 # the build. See docs/design/beast-web-backend.md.
+# Seed the default only when nothing else has chosen a backend. This must
+# honour BOTH a command-line `-DNSCP_WEB_BACKEND=...` (a cache entry) AND a
+# `SET(NSCP_WEB_BACKEND ...)` in build.cmake (a normal variable, since
+# build.cmake is include()d earlier in the top-level CMakeLists).
+#
+# A bare `set(NSCP_WEB_BACKEND "mongoose" CACHE STRING ...)` here is a trap:
+# when no cache entry exists yet, CMake creates it AND removes any normal
+# variable of the same name — silently reverting build.cmake's
+# `SET(NSCP_WEB_BACKEND "beast")` back to mongoose. That broke the Linux
+# (beast) package builds, which opt in via build.cmake rather than -D.
+if(NOT DEFINED NSCP_WEB_BACKEND)
+    set(NSCP_WEB_BACKEND "mongoose")
+endif()
 set(NSCP_WEB_BACKEND
-    "mongoose"
+    "${NSCP_WEB_BACKEND}"
     CACHE STRING
     "HTTP backend for WEBServer: mongoose | beast"
 )
@@ -47,6 +60,18 @@ set_property(CACHE NSCP_WEB_BACKEND PROPERTY STRINGS mongoose beast)
 
 if(NSCP_WEB_BACKEND STREQUAL "mongoose")
     find_package(Mongoose)
+    # Surface a clear error here instead of letting MONGOOSE_INCLUDE_DIR-NOTFOUND
+    # propagate into source lists (`${MONGOOSE_INCLUDE_DIR}/mongoose.c`), which
+    # otherwise fails much later with a cryptic "Cannot find source file".
+    if(NOT MONGOOSE_FOUND)
+        message(
+            FATAL_ERROR
+            "NSCP_WEB_BACKEND=mongoose requires the vendored mongoose source.\n"
+            "Either set MONGOOSE_SOURCE_DIR (see build.md), or switch to the\n"
+            "Beast backend with -DNSCP_WEB_BACKEND=beast (the default on Linux\n"
+            "CI builds)."
+        )
+    endif()
 elseif(NSCP_WEB_BACKEND STREQUAL "beast")
     # Beast is header-only; the Boost components (coroutine + context)
     # needed by ServerBeastImpl are added below.
