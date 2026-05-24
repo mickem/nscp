@@ -72,24 +72,23 @@ static std::string encode_b64(const std::string &input) {
 
 std::string get_my_ip() {
   namespace bai = boost::asio::ip;
-  boost::asio::io_service io_service;
-  boost::asio::ip::tcp::resolver resolver(io_service);
+  boost::asio::io_context io_service;
+  tcp::resolver resolver(io_service);
 
   std::string h = boost::asio::ip::host_name();
   boost::optional<std::string> firstv4;
   boost::optional<std::string> firstv6;
 
-  bai::tcp::resolver::iterator endpoint_iterator = resolver.resolve(boost::asio::ip::tcp::resolver::query(h, ""));
-  bai::tcp::resolver::iterator end;
+  auto endpoints = resolver.resolve(h, "");
 
-  for (; endpoint_iterator != end; endpoint_iterator++) {
-    if (endpoint_iterator->endpoint().address().is_v6()) {
+  for (const auto &entry : endpoints) {
+    if (entry.endpoint().address().is_v6()) {
       if (!firstv6) {
-        firstv6 = endpoint_iterator->endpoint().address().to_string();
+        firstv6 = entry.endpoint().address().to_string();
       }
     } else {
       if (!firstv4) {
-        firstv4 = endpoint_iterator->endpoint().address().to_string();
+        firstv4 = entry.endpoint().address().to_string();
       }
     }
   }

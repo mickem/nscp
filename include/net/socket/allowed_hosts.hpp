@@ -76,9 +76,27 @@ struct allowed_hosts_manager {
       errors.emplace_back("allowed_hosts is empty - rejecting all connections (set `allowed hosts = 0.0.0.0/0,::/0` to allow all)");
       return false;
     }
-    return (address.is_v4() && is_allowed_v4(address.to_v4().to_bytes(), errors)) || (address.is_v6() && is_allowed_v6(address.to_v6().to_bytes(), errors)) ||
-           (address.is_v6() && address.to_v6().is_v4_compatible() && is_allowed_v4(address.to_v6().to_v4().to_bytes(), errors)) ||
-           (address.is_v6() && address.to_v6().is_v4_mapped() && is_allowed_v4(address.to_v6().to_v4().to_bytes(), errors));
+    if (address.is_v4()) {
+      return is_allowed_v4(address.to_v4().to_bytes(), errors);
+    }
+    if (address.is_v6()) {
+      const auto v6 = address.to_v6();
+      if (v6.is_v4_mapped()) {
+        // Try the address both as native v6 and via its v4-mapped form. Each
+        // check appends "not allowed" on failure, so buffer their diagnostics
+        // and only surface them if neither match succeeds - otherwise a match
+        // on the fallback would leave a misleading rejection in `errors`.
+        std::list<std::string> errors_v6;
+        if (is_allowed_v6(v6.to_bytes(), errors_v6)) return true;
+        std::list<std::string> errors_v4;
+        if (is_allowed_v4(boost::asio::ip::make_address_v4(boost::asio::ip::v4_mapped, v6).to_bytes(), errors_v4)) return true;
+        errors.splice(errors.end(), errors_v6);
+        errors.splice(errors.end(), errors_v4);
+        return false;
+      }
+      return is_allowed_v6(v6.to_bytes(), errors);
+    }
+    return false;
   }
   bool is_allowed_v4(const addr_v4 &remote, std::list<std::string> &errors) {
     if (!cached) refresh(errors);

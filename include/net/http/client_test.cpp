@@ -676,7 +676,7 @@ class FakeProxyServer {
       // immediately discarded) or rejected — either way unblocking the worker.
       boost::system::error_code ec;
       try {
-        boost::asio::io_service kick_io;
+        boost::asio::io_context kick_io;
         boost::asio::ip::tcp::socket kick(kick_io);
         kick.connect(boost::asio::ip::tcp::endpoint(boost::asio::ip::address_v4::loopback(), port_), ec);
         kick.close(ec);
@@ -691,7 +691,7 @@ class FakeProxyServer {
   const std::string& captured_request() const { return request_; }
 
  private:
-  boost::asio::io_service io_;
+  boost::asio::io_context io_;
   std::unique_ptr<boost::asio::ip::tcp::acceptor> acceptor_;
   unsigned short port_ = 0;
   std::string response_;

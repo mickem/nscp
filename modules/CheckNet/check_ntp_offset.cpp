@@ -65,20 +65,19 @@ void run_ntp_check(const std::string &server, unsigned short port, int timeout_m
   out.stratum = 0;
   out.time = 0;
 
-  boost::asio::io_service io_service;
+  boost::asio::io_context io_service;
   udp::resolver resolver(io_service);
   udp::socket socket(io_service);
-  boost::asio::deadline_timer timer(io_service);
+  boost::asio::steady_timer timer(io_service);
 
   try {
-    udp::resolver::query query(udp::v4(), server, std::to_string(port));
     boost::system::error_code resolve_ec;
-    auto it = resolver.resolve(query, resolve_ec);
-    if (resolve_ec || it == udp::resolver::iterator()) {
+    auto results = resolver.resolve(udp::v4(), server, std::to_string(port), resolve_ec);
+    if (resolve_ec || results.empty()) {
       out.result = "resolve_failed";
       return;
     }
-    udp::endpoint endpoint = *it;
+    udp::endpoint endpoint = results.begin()->endpoint();
 
     socket.open(udp::v4());
 
@@ -106,7 +105,7 @@ void run_ntp_check(const std::string &server, unsigned short port, int timeout_m
     std::size_t bytes_received = 0;
     bool recv_done = false;
 
-    timer.expires_from_now(boost::posix_time::milliseconds(timeout_ms));
+    timer.expires_after(std::chrono::milliseconds(timeout_ms));
     timer.async_wait([&](const boost::system::error_code &ec) {
       if (!ec && !recv_done) {
         boost::system::error_code ignore;
@@ -118,8 +117,13 @@ void run_ntp_check(const std::string &server, unsigned short port, int timeout_m
       recv_ec = ec;
       bytes_received = n;
       recv_done = true;
-      boost::system::error_code ignore;
-      timer.cancel(ignore);
+      // cancel() can throw (the non-throwing cancel(ec) overload is removed
+      // under BOOST_ASIO_NO_DEPRECATED). Swallow it so an incidental failure
+      // can't escape this handler and misreport a successful receive.
+      try {
+        timer.cancel();
+      } catch (...) {
+      }
     });
 
     io_service.run();

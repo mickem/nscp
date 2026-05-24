@@ -563,8 +563,15 @@ set(NSCP_SANITIZE
     "Sanitizers to enable (off|address|undefined|address,undefined|thread)"
 )
 if(
-    NOT NSCP_SANITIZE STREQUAL "off"
-    AND (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    NOT NSCP_SANITIZE
+        STREQUAL
+        "off"
+    AND (
+        CMAKE_COMPILER_IS_GNUCXX
+        OR CMAKE_CXX_COMPILER_ID
+            MATCHES
+            "Clang"
+    )
 )
     message(STATUS "Enabling sanitizers: ${NSCP_SANITIZE}")
     set(_nscp_san_cflags
@@ -573,9 +580,7 @@ if(
     set(_nscp_san_lflags "-fsanitize=${NSCP_SANITIZE}")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${_nscp_san_cflags}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${_nscp_san_cflags}")
-    set(CMAKE_EXE_LINKER_FLAGS
-        "${CMAKE_EXE_LINKER_FLAGS} ${_nscp_san_lflags}"
-    )
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${_nscp_san_lflags}")
     set(CMAKE_SHARED_LINKER_FLAGS
         "${CMAKE_SHARED_LINKER_FLAGS} ${_nscp_san_lflags}"
     )

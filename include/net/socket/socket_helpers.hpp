@@ -21,6 +21,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/optional.hpp>
+#include <chrono>
 #include <memory>
 #include <net/socket/allowed_hosts.hpp>
 #include <str/xtos.hpp>
@@ -248,18 +249,26 @@ boost::asio::ssl::verify_mode verify_mode_parser(const std::string& verify_mode)
 namespace io {
 void set_result(boost::optional<boost::system::error_code>* a, const boost::system::error_code& b);
 
-struct timed_writer : public std::enable_shared_from_this<timed_writer> {
-  boost::asio::io_service& io_service;
-  // boost::posix_time::time_duration duration;
-  boost::asio::deadline_timer timer;
+struct timed_writer : std::enable_shared_from_this<timed_writer> {
+  boost::asio::io_context& io_service;
+  boost::asio::steady_timer timer;
 
   boost::optional<boost::system::error_code> timer_result;
   boost::optional<boost::system::error_code> read_result;
 
-  timed_writer(boost::asio::io_service& io_service) : io_service(io_service), timer(io_service) {}
-  ~timed_writer() { timer.cancel(); }
-  void start_timer(boost::posix_time::time_duration duration) {
-    timer.expires_from_now(duration);
+  explicit timed_writer(boost::asio::io_context& io_service) : io_service(io_service), timer(io_service) {}
+  ~timed_writer() {
+    // cancel() can throw, and an exception escaping a destructor risks
+    // std::terminate during stack unwinding. The non-throwing cancel(ec)
+    // overload is deprecated/removed under BOOST_ASIO_NO_DEPRECATED, so we use
+    // the throwing overload and swallow any error here.
+    try {
+      timer.cancel();
+    } catch (...) {
+    }
+  }
+  void start_timer(const std::chrono::milliseconds duration) {
+    timer.expires_after(duration);
     auto self(shared_from_this());
     timer.async_wait([self](const auto& e) { self->set_result(&self->timer_result, e); });
   }
@@ -279,7 +288,7 @@ struct timed_writer : public std::enable_shared_from_this<timed_writer> {
 
   template <typename Socket>
   bool wait(Socket& socket) {
-    io_service.reset();
+    io_service.restart();
     while (io_service.run_one()) {
       if (read_result) {
         read_result.reset();
@@ -298,19 +307,31 @@ struct timed_writer : public std::enable_shared_from_this<timed_writer> {
 };
 
 template <typename AsyncWriteStream, typename RawSocket, typename MutableBufferSequence>
-bool write_with_timeout(AsyncWriteStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers, boost::posix_time::time_duration duration) {
+bool write_with_timeout(boost::asio::io_context& io_service, AsyncWriteStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers,
+                        const std::chrono::milliseconds duration) {
   boost::optional<boost::system::error_code> timer_result;
-  boost::asio::deadline_timer timer(sock.get_io_service());
-  timer.expires_from_now(duration);
+  boost::asio::steady_timer timer(io_service);
+  timer.expires_after(duration);
   timer.async_wait([&timer_result](const auto& e) { set_result(&timer_result, e); });
 
-  boost::optional<boost::system::error_code> read_result;
-  async_write(sock, buffers, [&read_result](const auto& e) { set_result(&read_result, e); });
+  boost::optional<boost::system::error_code> write_result;
+  // Record both success and failure here (unlike the timer, whose handler
+  // ignores its own cancellation). If write errors were dropped, the call would
+  // block until the timeout elapsed and then report a (false) timeout instead.
+  async_write(sock, buffers, [&write_result](const auto& e) { write_result = e; });
 
-  sock.get_io_service().reset();
-  while (sock.get_io_service().run_one()) {
-    if (read_result) {
-      timer.cancel();
+  io_service.restart();
+  while (io_service.run_one()) {
+    if (write_result) {
+      // cancel() can throw (the non-throwing cancel(ec) overload is removed
+      // under BOOST_ASIO_NO_DEPRECATED). Swallow that incidental failure so a
+      // completed write is reported reliably; a genuine write error is still
+      // surfaced explicitly below.
+      try {
+        timer.cancel();
+      } catch (...) {
+      }
+      if (*write_result) throw boost::system::system_error(*write_result);
       return true;
     } else if (timer_result) {
       rawSocket.close();
@@ -318,23 +339,31 @@ bool write_with_timeout(AsyncWriteStream& sock, RawSocket& rawSocket, const Muta
     }
   }
 
-  if (read_result && *read_result) throw boost::system::system_error(*read_result);
   return false;
 }
 
-struct timed_reader : public std::enable_shared_from_this<timed_reader> {
-  boost::asio::io_service& io_service;
-  boost::posix_time::time_duration duration;
-  boost::asio::deadline_timer timer;
+struct timed_reader : std::enable_shared_from_this<timed_reader> {
+  boost::asio::io_context& io_service;
+  std::chrono::milliseconds duration;
+  boost::asio::steady_timer timer;
 
   boost::optional<boost::system::error_code> timer_result;
   boost::optional<boost::system::error_code> write_result;
 
-  timed_reader(boost::asio::io_service& io_service) : io_service(io_service), timer(io_service) {}
-  ~timed_reader() { timer.cancel(); }
+  explicit timed_reader(boost::asio::io_context& io_service) : io_service(io_service), duration(0), timer(io_service) {}
+  ~timed_reader() {
+    // cancel() can throw, and an exception escaping a destructor risks
+    // std::terminate during stack unwinding. The non-throwing cancel(ec)
+    // overload is deprecated/removed under BOOST_ASIO_NO_DEPRECATED, so we use
+    // the throwing overload and swallow any error here.
+    try {
+      timer.cancel();
+    } catch (...) {
+    }
+  }
 
-  void start_timer(boost::posix_time::time_duration duration_) {
-    timer.expires_from_now(duration_);
+  void start_timer(const std::chrono::milliseconds duration_) {
+    timer.expires_after(duration_);
     auto self(shared_from_this());
     timer.async_wait([self](const auto& e) { self->set_result(&self->timer_result, e); });
   }
@@ -353,7 +382,7 @@ struct timed_reader : public std::enable_shared_from_this<timed_reader> {
   }
   template <typename Socket>
   bool wait(Socket& socket) {
-    io_service.reset();
+    io_service.restart();
     while (io_service.run_one()) {
       if (write_result) {
         write_result.reset();
@@ -371,33 +400,38 @@ struct timed_reader : public std::enable_shared_from_this<timed_reader> {
 };
 
 template <typename AsyncReadStream, typename RawSocket, typename MutableBufferSequence>
-bool read_with_timeout(AsyncReadStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers, boost::posix_time::time_duration duration) {
+bool read_with_timeout(boost::asio::io_context& io_service, AsyncReadStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers,
+                       const std::chrono::milliseconds duration) {
   boost::optional<boost::system::error_code> timer_result;
-  boost::asio::deadline_timer timer(sock.get_io_service());
-  timer.expires_from_now(duration);
+  boost::asio::steady_timer timer(io_service);
+  timer.expires_after(duration);
   timer.async_wait([&timer_result](const auto& e) { set_result(&timer_result, e); });
 
   boost::optional<boost::system::error_code> read_result;
-  async_read(sock, buffers, [&read_result](const auto& e) { set_result(&read_result, e); });
+  // Record both success and failure here (unlike the timer, whose handler
+  // ignores its own cancellation). If read errors were dropped, the call would
+  // block until the timeout elapsed and then report a (false) timeout instead.
+  async_read(sock, buffers, [&read_result](const auto& e) { read_result = e; });
 
-  sock.get_io_service().reset();
-  while (sock.get_io_service().run_one()) {
+  io_service.restart();
+  while (io_service.run_one()) {
     if (read_result) {
-      timer.cancel();
+      // cancel() can throw (the non-throwing cancel(ec) overload is removed
+      // under BOOST_ASIO_NO_DEPRECATED). Swallow that incidental failure so a
+      // completed read is reported reliably; a genuine read error is still
+      // surfaced explicitly below.
+      try {
+        timer.cancel();
+      } catch (...) {
+      }
+      if (*read_result) throw boost::system::system_error(*read_result);
       return true;
     } else if (timer_result) {
       rawSocket.close();
       return false;
-    } else {
-      // 					if (!rawSocket.is_open()) {
-      // 						timer.cancel();
-      // 						rawSocket.close();
-      // 						return false;
-      // 					}
     }
   }
 
-  if (*read_result) throw boost::system::system_error(*read_result);
   return false;
 }
 }  // namespace io

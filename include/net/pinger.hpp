@@ -20,6 +20,7 @@
 #pragma once
 
 #include <boost/asio.hpp>
+#include <chrono>
 #include <istream>
 #include <net/icmp_header.hpp>
 #include <net/ipv4_header.hpp>
@@ -43,7 +44,7 @@ struct result_container {
 
 class pinger {
  public:
-  pinger(boost::asio::io_service& io_service, result_container& result, const char* destination, int timeout, unsigned short identifier, std::string payload)
+  pinger(boost::asio::io_context& io_service, result_container& result, const char* destination, int timeout, unsigned short identifier, std::string payload)
       : resolver_(io_service),
         socket_(io_service, boost::asio::ip::icmp::v4()),
         timer_(io_service),
@@ -54,8 +55,7 @@ class pinger {
         payload_(std::move(payload))
 
   {
-    boost::asio::ip::icmp::resolver::query query(boost::asio::ip::icmp::v4(), destination, "");
-    destination_ = *resolver_.resolve(query);
+    destination_ = resolver_.resolve(boost::asio::ip::icmp::v4(), destination, "").begin()->endpoint();
     result.destination_ = destination;
     result.ip_ = destination_.address().to_string();
   }
@@ -85,10 +85,10 @@ class pinger {
 
     result_.num_send_++;
     result_.sequence_number_ = sequence_number_;
-    time_sent_ = boost::posix_time::microsec_clock::universal_time();
+    time_sent_ = std::chrono::steady_clock::now();
     socket_.send_to(request_buffer.data(), destination_);
 
-    timer_.expires_at(time_sent_ + boost::posix_time::millisec(timeout_));
+    timer_.expires_at(time_sent_ + std::chrono::milliseconds(timeout_));
     timer_.async_wait([this](const boost::system::error_code& e) { this->handle_timeout(e); });
   }
 
@@ -118,13 +118,20 @@ class pinger {
     is >> ipv4_hdr >> icmp_hdr;
 
     if (is && icmp_hdr.type() == icmp_header::echo_reply && icmp_hdr.identifier() == identifier_ && icmp_hdr.sequence_number() == sequence_number_) {
-      timer_.cancel();
+      // cancel() can throw (the non-throwing cancel(ec) overload is removed
+      // under BOOST_ASIO_NO_DEPRECATED). Swallow it so it can't escape this
+      // handler and propagate out of the caller's io_service.run(); the reply
+      // is still recorded below.
+      try {
+        timer_.cancel();
+      } catch (...) {
+      }
       result_.num_replies_++;
 
-      const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+      const auto now = std::chrono::steady_clock::now();
       result_.length_ = length - ipv4_hdr.header_length();
       result_.ttl_ = ipv4_hdr.time_to_live();
-      result_.time_ = (now - time_sent_).total_milliseconds();
+      result_.time_ = std::chrono::duration_cast<std::chrono::milliseconds>(now - time_sent_).count();
     }
     // start_receive();
   }
@@ -132,9 +139,9 @@ class pinger {
   boost::asio::ip::icmp::resolver resolver_;
   boost::asio::ip::icmp::endpoint destination_;
   boost::asio::ip::icmp::socket socket_;
-  boost::asio::deadline_timer timer_;
+  boost::asio::steady_timer timer_;
   unsigned short sequence_number_;
-  boost::posix_time::ptime time_sent_;
+  std::chrono::steady_clock::time_point time_sent_;
   boost::asio::streambuf reply_buffer_;
   int timeout_;
   result_container& result_;

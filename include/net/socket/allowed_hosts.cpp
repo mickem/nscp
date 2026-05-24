@@ -1,4 +1,4 @@
-#include <boost/asio/io_service.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <net/socket/allowed_hosts.hpp>
 #include <str/format.hpp>
@@ -46,7 +46,7 @@ addr calculate_mask(const std::string &mask_as_string) {
 }
 
 void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &errors) {
-  io_service io_service;
+  io_context io_service;
   tcp::resolver resolver(io_service);
   entries_v4.clear();
   entries_v6.clear();
@@ -67,7 +67,7 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
     // Anything else is treated as a hostname and resolved via DNS.
     const bool is_numeric = std::isdigit(static_cast<unsigned char>(addr[0])) || addr.find(':') != std::string::npos;
     if (is_numeric) {
-      address a = address::from_string(addr);
+      address a = make_address(addr);
       if (a.is_v4()) {
         entries_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(mask));
       } else if (a.is_v6()) {
@@ -77,10 +77,9 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
       }
     } else {
       try {
-        tcp::resolver::query dns_query(addr, "");
-        tcp::resolver::iterator endpoint_iterator = resolver.resolve(dns_query);
-        for (tcp::resolver::iterator end; endpoint_iterator != end; ++endpoint_iterator) {
-          address a = endpoint_iterator->endpoint().address();
+        auto endpoints = resolver.resolve(addr, "");
+        for (const auto &entry : endpoints) {
+          address a = entry.endpoint().address();
           if (a.is_v4()) {
             entries_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(mask));
           } else if (a.is_v6()) {

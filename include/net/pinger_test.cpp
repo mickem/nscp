@@ -357,8 +357,8 @@ static std::string make_ipv4_header_bytes(unsigned char ttl, unsigned char proto
   bytes[11] = 0;
 
   // Parse IP addresses
-  const auto src = boost::asio::ip::address_v4::from_string(src_ip_str).to_bytes();
-  const auto dst = boost::asio::ip::address_v4::from_string(dst_ip_str).to_bytes();
+  const auto src = boost::asio::ip::make_address_v4(src_ip_str).to_bytes();
+  const auto dst = boost::asio::ip::make_address_v4(dst_ip_str).to_bytes();
   for (int i = 0; i < 4; ++i) {
     bytes[12 + i] = src[i];
     bytes[16 + i] = dst[i];
@@ -379,8 +379,8 @@ TEST(Ipv4Header, ParseMinimalHeader) {
   EXPECT_EQ(20, hdr.header_length());
   EXPECT_EQ(64, hdr.time_to_live());
   EXPECT_EQ(1, hdr.protocol());  // ICMP
-  EXPECT_EQ(boost::asio::ip::address_v4::from_string("192.168.1.1"), hdr.source_address());
-  EXPECT_EQ(boost::asio::ip::address_v4::from_string("10.0.0.1"), hdr.destination_address());
+  EXPECT_EQ(boost::asio::ip::make_address_v4("192.168.1.1"), hdr.source_address());
+  EXPECT_EQ(boost::asio::ip::make_address_v4("10.0.0.1"), hdr.destination_address());
 }
 
 TEST(Ipv4Header, ParseTTLValues) {
@@ -471,7 +471,7 @@ TEST(Ipv4Header, ParseSourceAddress) {
   ipv4_header hdr;
   ss >> hdr;
   EXPECT_TRUE(ss.good());
-  EXPECT_EQ(boost::asio::ip::address_v4::from_string("172.16.254.1"), hdr.source_address());
+  EXPECT_EQ(boost::asio::ip::make_address_v4("172.16.254.1"), hdr.source_address());
 }
 
 TEST(Ipv4Header, ParseDestinationAddress) {
@@ -480,7 +480,7 @@ TEST(Ipv4Header, ParseDestinationAddress) {
   ipv4_header hdr;
   ss >> hdr;
   EXPECT_TRUE(ss.good());
-  EXPECT_EQ(boost::asio::ip::address_v4::from_string("192.168.100.200"), hdr.destination_address());
+  EXPECT_EQ(boost::asio::ip::make_address_v4("192.168.100.200"), hdr.destination_address());
 }
 
 TEST(Ipv4Header, ParseWrongVersionFailsStream) {
@@ -557,7 +557,7 @@ TEST(IcmpEchoReply, ParseCombinedIpv4AndIcmpHeaders) {
   EXPECT_TRUE(ss.good());
   EXPECT_EQ(4, ipv4_hdr.version());
   EXPECT_EQ(64, ipv4_hdr.time_to_live());
-  EXPECT_EQ(boost::asio::ip::address_v4::from_string("8.8.8.8"), ipv4_hdr.source_address());
+  EXPECT_EQ(boost::asio::ip::make_address_v4("8.8.8.8"), ipv4_hdr.source_address());
 
   EXPECT_EQ(icmp_header::echo_reply, icmp_hdr.type());
   EXPECT_EQ(0, icmp_hdr.code());
@@ -607,8 +607,8 @@ TEST(Ipv4Header, ParseLoopbackAddress) {
   ipv4_header hdr;
   ss >> hdr;
   EXPECT_TRUE(ss.good());
-  EXPECT_EQ(boost::asio::ip::address_v4::from_string("127.0.0.1"), hdr.source_address());
-  EXPECT_EQ(boost::asio::ip::address_v4::from_string("127.0.0.1"), hdr.destination_address());
+  EXPECT_EQ(boost::asio::ip::make_address_v4("127.0.0.1"), hdr.source_address());
+  EXPECT_EQ(boost::asio::ip::make_address_v4("127.0.0.1"), hdr.destination_address());
 }
 
 TEST(Ipv4Header, ParseBroadcastAddress) {
@@ -617,8 +617,8 @@ TEST(Ipv4Header, ParseBroadcastAddress) {
   ipv4_header hdr;
   ss >> hdr;
   EXPECT_TRUE(ss.good());
-  EXPECT_EQ(boost::asio::ip::address_v4::from_string("255.255.255.255"), hdr.source_address());
-  EXPECT_EQ(boost::asio::ip::address_v4::from_string("0.0.0.0"), hdr.destination_address());
+  EXPECT_EQ(boost::asio::ip::make_address_v4("255.255.255.255"), hdr.source_address());
+  EXPECT_EQ(boost::asio::ip::make_address_v4("0.0.0.0"), hdr.destination_address());
 }
 
 // ============================================================================
@@ -628,7 +628,7 @@ TEST(Ipv4Header, ParseBroadcastAddress) {
 TEST(Pinger, PingerSendsToResolvedEndpoint) {
   // Construct a pinger targeting localhost — constructor resolves the name
   // but does not send until ping() is called
-  boost::asio::io_service io_service;
+  boost::asio::io_context io_service;
   result_container result;
 
   // Use "127.0.0.1" which resolves without DNS

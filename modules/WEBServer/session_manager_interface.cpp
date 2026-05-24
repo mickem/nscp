@@ -142,7 +142,7 @@ bool session_manager_interface::process_auth_header(const std::string &grant, Mo
 }
 
 bool session_manager_interface::process_password_header(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response,
-                                                       const std::string &password) {
+                                                        const std::string &password) {
   const std::string remote_ip = request.getRemoteIp();
   if (rate_limiter.is_blocked(remote_ip)) {
     NSC_LOG_ERROR("Rate-limited authentication attempt from " + remote_ip);
@@ -175,7 +175,7 @@ bool session_manager_interface::process_password_header(const std::string &grant
 
 bool session_manager_interface::is_logged_in(const std::string &grant, Mongoose::Request &request, Mongoose::StreamResponse &response) {
   std::list<std::string> errors;
-  if (!allowed_hosts.is_allowed(boost::asio::ip::address::from_string(request.getRemoteIp()), errors)) {
+  if (!allowed_hosts.is_allowed(boost::asio::ip::make_address(request.getRemoteIp()), errors)) {
     const std::string error = str::utils::joinEx(errors, ", ");
     NSC_LOG_ERROR("Rejected connection from: " + request.getRemoteIp() + " due to " + error);
     response.setCodeForbidden(NOT_ALLOWED);
@@ -309,7 +309,7 @@ void session_manager_interface::set_allowed_hosts_cache(const bool value) { allo
 
 bool session_manager_interface::is_allowed(const std::string &ip) {
   std::list<std::string> errors;
-  return allowed_hosts.is_allowed(boost::asio::ip::address::from_string(ip), errors);
+  return allowed_hosts.is_allowed(boost::asio::ip::make_address(ip), errors);
 }
 
 bool session_manager_interface::validate_token(const std::string &token) { return tokens.is_valid(token); }

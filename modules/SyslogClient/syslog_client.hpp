@@ -178,10 +178,9 @@ struct syslog_client_handler : public client::handler_interface {
     try {
       NSC_DEBUG_MSG_STD("Connection details: " + con.to_string());
 
-      boost::asio::io_service io_service;
+      boost::asio::io_context io_service;
       boost::asio::ip::udp::resolver resolver(io_service);
-      boost::asio::ip::udp::resolver::query query(boost::asio::ip::udp::v4(), con.address, con.get_port());
-      boost::asio::ip::udp::endpoint receiver_endpoint = *resolver.resolve(query);
+      boost::asio::ip::udp::endpoint receiver_endpoint = resolver.resolve(boost::asio::ip::udp::v4(), con.address, con.get_port()).begin()->endpoint();
 
       boost::asio::ip::udp::socket socket(io_service);
       socket.open(boost::asio::ip::udp::v4());

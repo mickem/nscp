@@ -1,4 +1,4 @@
-command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "TLS_VERIFY_MODE=none", "TLS_VERSION=1.2", "IMPORT_CONFIG=https://raw.githubusercontent.com/mickem/nscp/refs/heads/main/tests/rest/nsclient.ini" ]
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "TLS_VERIFY_MODE=none", "TLS_VERSION=1.2", "IMPORT_CONFIG=https://raw.githubusercontent.com/mickem/nscp/refs/heads/main/tests/msi/nsclient.ini" ]
 replace_password: true
 boot.ini: |
   [settings]

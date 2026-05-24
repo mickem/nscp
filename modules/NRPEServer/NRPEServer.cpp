@@ -185,7 +185,7 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     NSC_DEBUG_MSG_STD("Allowed hosts definition: " + info_.allowed_hosts.to_string());
     NSC_DEBUG_MSG_STD("Server config: " + info_.to_string());
 
-    boost::asio::io_service io_service_;
+    boost::asio::io_context io_service_;
 
     // Failures here (typically a bad `bind to` address that the resolver
     // can't look up, or a port already in use) used to escape loadModuleEx

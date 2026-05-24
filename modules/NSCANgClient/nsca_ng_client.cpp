@@ -164,11 +164,11 @@ namespace {
 
 class nsca_ng_connection {
  public:
-  boost::asio::io_service io_service_;
+  boost::asio::io_context io_service_;
   boost::asio::ssl::context ctx_;
   boost::asio::ssl::stream<boost::asio::ip::tcp::socket> ssl_socket_;
   boost::asio::ip::tcp::resolver resolver_;
-  boost::asio::deadline_timer timer_;
+  boost::asio::steady_timer timer_;
   // Cap the inbound buffer so a hostile or buggy server can't grow `in_buf_`
   // without limit by streaming data without a newline. NSCA-NG response lines
   // are short (single keyword + brief reason); 8 KiB is well over the maximum
@@ -240,8 +240,16 @@ class nsca_ng_connection {
   }
 
   ~nsca_ng_connection() {
-    boost::system::error_code ec;
-    timer_.cancel(ec);
+    // cancel() can throw, and an exception escaping a destructor risks
+    // std::terminate during stack unwinding. The non-throwing cancel(ec)
+    // overload is deprecated/removed under BOOST_ASIO_NO_DEPRECATED, so we use
+    // the throwing overload and swallow any error here. The catch-all is
+    // deliberate: narrowing it would let a non-std exception escape and
+    // terminate the process, defeating the guard.
+    try {
+      timer_.cancel();
+    } catch (...) {
+    }
   }
 
   // Run an async op against the io_service with the configured deadline.
@@ -252,7 +260,7 @@ class nsca_ng_connection {
     boost::system::error_code op_ec = boost::asio::error::would_block;
     bool timed_out = false;
 
-    timer_.expires_from_now(boost::posix_time::seconds(timeout_seconds_));
+    timer_.expires_after(std::chrono::seconds(timeout_seconds_));
     timer_.async_wait([this, &timed_out](const boost::system::error_code &ec) {
       if (ec != boost::asio::error::operation_aborted) {
         timed_out = true;
@@ -263,8 +271,13 @@ class nsca_ng_connection {
 
     initiator([&op_ec, this](const boost::system::error_code &ec) {
       op_ec = ec;
-      boost::system::error_code ignored;
-      timer_.cancel(ignored);
+      // cancel() can throw (the non-throwing cancel(error_code&) overload is
+      // removed under BOOST_ASIO_NO_DEPRECATED). Swallow it here so a completed
+      // operation isn't turned into an exception escaping run_one() below.
+      try {
+        timer_.cancel();
+      } catch (...) {
+      }
     });
 
     io_service_.restart();
@@ -287,9 +300,8 @@ class nsca_ng_connection {
     psk_creds_ = creds;
     SSL_set_ex_data(ssl_socket_.native_handle(), get_psk_ex_data_index(), &psk_creds_);
 
-    const boost::asio::ip::tcp::resolver::query query(host, port);
     boost::system::error_code resolve_ec;
-    auto endpoints = resolver_.resolve(query, resolve_ec);
+    auto endpoints = resolver_.resolve(host, port, resolve_ec);
     if (resolve_ec) throw socket_helpers::socket_exception("Failed to resolve " + host + ": " + utf8::utf8_from_native(resolve_ec.message()));
 
     run_with_deadline(
@@ -331,7 +343,7 @@ class nsca_ng_connection {
 
       // Hostname pinning still required even when CA verifies.
       if (verifying) {
-        ssl_socket_.set_verify_callback(boost::asio::ssl::rfc2818_verification(host));
+        ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(host));
       }
     }
 

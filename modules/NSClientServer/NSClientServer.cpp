@@ -97,7 +97,7 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
   }
   NSC_DEBUG_MSG_STD("Allowed hosts definition: " + info_.allowed_hosts.to_string());
 
-  boost::asio::io_service io_service_;
+  boost::asio::io_context io_service_;
 
   if (mode == NSCAPI::normalStart) {
     try {

@@ -23,6 +23,7 @@
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
 #include <boost/program_options.hpp>
+#include <chrono>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
@@ -59,9 +60,9 @@ void run_dns_check(const std::string &host, int timeout_ms, const std::vector<st
   out.result = "error";
   out.addresses.clear();
 
-  boost::asio::io_service io_service;
+  boost::asio::io_context io_service;
   tcp::resolver resolver(io_service);
-  boost::asio::deadline_timer timer(io_service);
+  boost::asio::steady_timer timer(io_service);
 
   bool resolve_done = false;
   boost::system::error_code resolve_ec = boost::asio::error::would_block;
@@ -69,7 +70,7 @@ void run_dns_check(const std::string &host, int timeout_ms, const std::vector<st
 
   const auto start = boost::chrono::steady_clock::now();
 
-  timer.expires_from_now(boost::posix_time::milliseconds(timeout_ms));
+  timer.expires_after(std::chrono::milliseconds(timeout_ms));
   timer.async_wait([&](const boost::system::error_code &ec) {
     if (!ec && !resolve_done) {
       resolver.cancel();
@@ -77,19 +78,21 @@ void run_dns_check(const std::string &host, int timeout_ms, const std::vector<st
   });
 
   try {
-    tcp::resolver::query query(host, "");
-    resolver.async_resolve(query, [&](const boost::system::error_code &ec, tcp::resolver::iterator it) {
+    resolver.async_resolve(host, "", [&](const boost::system::error_code &ec, const tcp::resolver::results_type &results) {
       resolve_done = true;
       resolve_ec = ec;
-      const tcp::resolver::iterator end;
       std::set<std::string> seen;
-      while (it != end) {
-        const std::string a = it->endpoint().address().to_string();
+      for (const auto &entry : results) {
+        const std::string a = entry.endpoint().address().to_string();
         if (seen.insert(a).second) addrs.push_back(a);
-        ++it;
       }
-      boost::system::error_code ignore;
-      timer.cancel(ignore);
+      // cancel() can throw (the non-throwing cancel(ec) overload is removed
+      // under BOOST_ASIO_NO_DEPRECATED). Swallow it so an incidental failure
+      // can't escape this handler and misreport a successful resolve.
+      try {
+        timer.cancel();
+      } catch (...) {
+      }
     });
 
     io_service.run();
