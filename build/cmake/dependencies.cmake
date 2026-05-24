@@ -75,6 +75,20 @@ if(NSCP_WEB_BACKEND STREQUAL "mongoose")
 elseif(NSCP_WEB_BACKEND STREQUAL "beast")
     # Beast is header-only; the Boost components (coroutine + context)
     # needed by ServerBeastImpl are added below.
+    # ServerBeastImpl also includes Boost.Asio SSL headers, which require
+    # OpenSSL headers/libs at compile time even when TLS is not enabled at
+    # runtime. Fail during configure instead of producing a later compile
+    # error from missing openssl/ssl.h or unresolved SSL symbols.
+    if(NOT OPENSSL_FOUND)
+        message(
+            FATAL_ERROR
+            "NSCP_WEB_BACKEND=beast requires OpenSSL.\n"
+            "ServerBeastImpl includes Boost.Asio SSL headers, so OpenSSL must\n"
+            "be available at configure/build time even if TLS is not enabled\n"
+            "at runtime.\n"
+            "Install/configure OpenSSL, or switch to -DNSCP_WEB_BACKEND=mongoose."
+        )
+    endif()
     message(STATUS "WEB backend: Boost.Beast (mongoose download skipped)")
 else()
     message(FATAL_ERROR "Unknown NSCP_WEB_BACKEND='${NSCP_WEB_BACKEND}' (expected mongoose | beast)")
