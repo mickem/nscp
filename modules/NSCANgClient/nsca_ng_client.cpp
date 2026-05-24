@@ -239,7 +239,12 @@ class nsca_ng_connection {
     }
   }
 
-  ~nsca_ng_connection() { timer_.cancel(); }
+  ~nsca_ng_connection() {
+    try {
+      timer_.cancel();
+    } catch (...) {
+    }
+  }
 
   // Run an async op against the io_service with the configured deadline.
   // The passed-in initiator should call `start_async(handler)` with a handler
