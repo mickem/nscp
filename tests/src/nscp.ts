@@ -17,6 +17,36 @@ function nscpBin(): string {
 }
 
 /**
+ * Pull any AddressSanitizer / LeakSanitizer / UBSan report block out of
+ * a captured stderr stream. Returns the concatenated reports (each one
+ * being the `==N==` header through the matching `==N==ABORTING` or
+ * `SUMMARY:` line), or an empty string if nothing matched. The aim is
+ * "definitive — if there was a sanitizer hit, this returns it" rather
+ * than "exactly the bytes the sanitizer wrote" — small framing slop is
+ * acceptable.
+ */
+function extractSanitizerReport(stderr: string): string {
+  if (!stderr) return "";
+  // Sanitizer banners always start with `==NNNN==` and one of the
+  // sanitizer names; SUMMARY: is the universal report footer.
+  if (!/=================================================================\s*\n==\d+==(?:ERROR|WARNING)|^==\d+==(?:ERROR|WARNING|LeakSanitizer)/m.test(stderr)) {
+    return "";
+  }
+  const lines = stderr.split("\n");
+  const out: string[] = [];
+  let inReport = false;
+  for (const line of lines) {
+    if (/^=+$/.test(line) || /^==\d+==/.test(line)) inReport = true;
+    if (inReport) out.push(line);
+    if (inReport && /^SUMMARY:|^==\d+==ABORTING/.test(line)) {
+      out.push("");  // blank separator between consecutive reports
+      inReport = false;
+    }
+  }
+  return out.join("\n");
+}
+
+/**
  * Resolve a bundled asset (lua script, security file, …) against the well-
  * known layouts nscp actually ships with. Search order:
  *
@@ -247,7 +277,15 @@ export class NscpInstance {
     });
   }
 
-  /** Stop the background nscp test process. Idempotent. */
+  /** Stop the background nscp test process. Idempotent.
+   *
+   * After the process exits, scans the captured stderr for sanitizer
+   * markers (AddressSanitizer / LeakSanitizer / UndefinedBehaviorSanitizer)
+   * and throws if any are found. This is the only way a passing assertion
+   * can still surface a memory bug — the failure dumper only fires when
+   * an `it()` already failed, so without this an LSan leak report on a
+   * passing test would be captured into `stderrBuf` and never displayed.
+   */
   async stop(opts: { signal?: NodeJS.Signals; timeout?: number } = {}): Promise<void> {
     if (!this.proc) return;
     const proc = this.proc;
@@ -286,6 +324,20 @@ export class NscpInstance {
       }
     } finally {
       this.proc = undefined;
+    }
+
+    const sanitizerReport = extractSanitizerReport(this.stderrBuf);
+    if (sanitizerReport) {
+      // Print to the test runner's stderr so it's visible even when
+      // Jest doesn't dump the per-test capture buffer, then throw so
+      // the test fails loudly. Don't swallow this in the harness —
+      // a sanitizer hit is a real bug, not a flake.
+      process.stderr.write("\n----- nscp sanitizer report -----\n" + sanitizerReport + "----- end sanitizer report -----\n");
+      throw new Error(
+        `nscp emitted a sanitizer report on shutdown (likely a leak/UB). ` +
+          `Full report printed to stderr above. First marker: ` +
+          (sanitizerReport.match(/(?:AddressSanitizer|LeakSanitizer|UndefinedBehaviorSanitizer)[^\n]*/)?.[0] ?? "(none)"),
+      );
     }
   }
 

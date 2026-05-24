@@ -72,12 +72,11 @@ dockerOrSkip()("Icinga client (check_nscp_api) integration", () => {
       },
     });
     await nscp.run(["lua", "add", "--script", bundledLuaScript("mock")]);
-    // The original bat doesn't install NRPE here, but a few suites that
-    // share this fixture pattern use the NRPE mock_exit command as a
-    // clean-shutdown channel for `nscp test`. Keep NRPE off here so the
-    // /settings/default allowed-hosts written by `web install` (which
-    // includes the docker bridge range) isn't overwritten by NRPE's
-    // 127.0.0.1-only install.
+    // The original bat doesn't install NRPE here. Keep it that way so
+    // the /settings/default allowed-hosts written by `web install`
+    // (which includes the docker bridge range) isn't overwritten by
+    // NRPE's 127.0.0.1-only install. SIGTERM (NscpInstance.stop)
+    // handles shutdown cleanly via CommandClient's signal_set handler.
     nscp.start();
     await nscp.waitForPort(NSCP_PORT, { timeoutMs: 30_000 });
   });

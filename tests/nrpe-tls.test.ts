@@ -98,9 +98,10 @@ dockerOrSkip()("NRPE integration", () => {
         },
         // Rule table is fail-closed: with `enabled=true` and no rules,
         // every subject is denied. Allow the localhost-CN client to run
-        // the two mock commands the test invokes (query + exit); the
-        // denied-client cert has a different CN and so doesn't match
-        // this rule, which is exactly what Phase 5 is verifying.
+        // mock_query (the gated command) plus mock_exit (the Windows
+        // shutdown channel — see shutdownViaMockExit). The denied-
+        // client cert has a different CN and so doesn't match this
+        // rule, which is exactly what Phase 5 is verifying.
         "/settings/permissions/policies": {
           "NRPEServer:localhost": "mock_query, mock_exit",
         },
@@ -117,29 +118,38 @@ dockerOrSkip()("NRPE integration", () => {
     await new Promise((res) => setTimeout(res, 1500));
   }
 
+  // Cross-platform clean shutdown. On Linux, SIGTERM is enough now
+  // that CommandClient installs a signal_set handler
+  // (modules/CommandClient/CommandClient.cpp). On Windows Node's
+  // `proc.kill('SIGINT')` doesn't reliably trigger nscp's
+  // SetConsoleCtrlHandler hook for console-less child processes, so
+  // we send `mock_exit` over NRPE first — the in-band command sets
+  // `is_running=false` in CommandClient, which makes nscp exit cleanly
+  // and flushes atexit (so LSan / ASan can report on Windows too if
+  // anyone ever builds a sanitizer there). The body becomes a no-op
+  // on Linux to save the docker round-trip.
   async function shutdownViaMockExit(extraArgs: string[] = []): Promise<void> {
-    await dockerRunOnce(
-      image,
-      [
-        "check_nrpe",
-        "-H",
-        "host.docker.internal",
-        "-p",
-        "5666",
-        "-t5",
-        ...extraArgs,
-        "-c",
-        "mock_exit",
-      ],
-      {
-        extraHosts: hostGatewayExtraHosts(),
-        // Always mount the cert dir; harmless for the no-TLS phases since
-        // their shutdown doesn't reference any `/test/...` file.
-        bindMounts: [{ source: certDir, target: "/test", ro: true }],
-        allowFailure: true,
-      },
-    );
-    // Belt-and-braces: ensure the process is reaped.
+    if (process.platform === "win32") {
+      await dockerRunOnce(
+        image,
+        [
+          "check_nrpe",
+          "-H",
+          "host.docker.internal",
+          "-p",
+          "5666",
+          "-t5",
+          ...extraArgs,
+          "-c",
+          "mock_exit",
+        ],
+        {
+          extraHosts: hostGatewayExtraHosts(),
+          bindMounts: [{ source: certDir, target: "/test", ro: true }],
+          allowFailure: true,
+        },
+      );
+    }
     await nscp.stop();
   }
 

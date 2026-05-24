@@ -73,6 +73,13 @@ maybeDescribe("Checkmk site end-to-end", () => {
         channel: "check_mk-local",
       },
     });
+    // CheckMKServer auto-loads default_check_mk.lua for the agent dump
+    // itself. NRPE + mock.lua are installed only as the Windows
+    // shutdown channel — afterAll sends mock_exit there since
+    // Node's proc.kill('SIGINT') is unreliable for console-less
+    // children on Windows. On Linux the signal_set in CommandClient
+    // handles SIGTERM directly so the NRPE plumbing is unused.
+    await nscp.run(["nrpe", "install", "--allowed-hosts", "127.0.0.1", "--insecure", "--verify=none"]);
     await nscp.run(["lua", "add", "--script", bundledLuaScript("mock")]);
     nscp.start();
     await nscp.waitForPort(CHECK_MK_PORT, { timeoutMs: 30_000 });
@@ -107,17 +114,16 @@ maybeDescribe("Checkmk site end-to-end", () => {
 
   afterAll(async () => {
     await site?.stop();
-    if (nscp) {
-      try {
-        await nscp.run(
-          ["nrpe", "--host", "127.0.0.1", "--insecure", "--version", "2", "--command", "mock_exit"],
-          { timeout: 5_000, allowFailure: true },
-        );
-      } catch {
-        /* ignore */
-      }
-      await nscp.stop();
+    if (!nscp) return;
+    // See check_mk-agent.test.ts: NRPE mock_exit on Windows, plain
+    // SIGTERM on Linux.
+    if (process.platform === "win32") {
+      await nscp.run(
+        ["nrpe", "--host", "127.0.0.1", "--insecure", "--version", "2", "--command", "mock_exit"],
+        { timeout: 5_000, allowFailure: true },
+      );
     }
+    await nscp.stop();
   });
 
   it("registers nscp as a host, runs discovery, and consumes the agent dump", async () => {
