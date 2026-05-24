@@ -257,7 +257,16 @@ struct timed_writer : std::enable_shared_from_this<timed_writer> {
   boost::optional<boost::system::error_code> read_result;
 
   explicit timed_writer(boost::asio::io_context& io_service) : io_service(io_service), timer(io_service) {}
-  ~timed_writer() { timer.cancel(); }
+  ~timed_writer() {
+    // cancel() can throw, and an exception escaping a destructor risks
+    // std::terminate during stack unwinding. The non-throwing cancel(ec)
+    // overload is deprecated/removed under BOOST_ASIO_NO_DEPRECATED, so we use
+    // the throwing overload and swallow any error here.
+    try {
+      timer.cancel();
+    } catch (...) {
+    }
+  }
   void start_timer(const std::chrono::milliseconds duration) {
     timer.expires_after(duration);
     auto self(shared_from_this());
@@ -332,7 +341,16 @@ struct timed_reader : std::enable_shared_from_this<timed_reader> {
   boost::optional<boost::system::error_code> write_result;
 
   explicit timed_reader(boost::asio::io_context& io_service) : io_service(io_service), duration(0), timer(io_service) {}
-  ~timed_reader() { timer.cancel(); }
+  ~timed_reader() {
+    // cancel() can throw, and an exception escaping a destructor risks
+    // std::terminate during stack unwinding. The non-throwing cancel(ec)
+    // overload is deprecated/removed under BOOST_ASIO_NO_DEPRECATED, so we use
+    // the throwing overload and swallow any error here.
+    try {
+      timer.cancel();
+    } catch (...) {
+    }
+  }
 
   void start_timer(const std::chrono::milliseconds duration_) {
     timer.expires_after(duration_);
@@ -399,7 +417,7 @@ bool read_with_timeout(boost::asio::io_context& io_service, AsyncReadStream& soc
     }
   }
 
-  if (*read_result) throw boost::system::system_error(*read_result);
+  if (read_result && *read_result) throw boost::system::system_error(*read_result);
   return false;
 }
 }  // namespace io

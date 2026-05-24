@@ -38,7 +38,6 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/net/check_nt/server/protocol.hpp
         ${NSCP_INCLUDEDIR}/net/check_nt/server/parser.hpp
         ${NSCP_INCLUDEDIR}/net/check_nt/packet.hpp
-        ${NSCP_INCLUDEDIR}/net/check_nt/client/socket.hpp
         ${NSCP_INCLUDEDIR}/bytes/swap_bytes.hpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
         ${NSCP_INCLUDEDIR}/net/socket/connection.hpp
