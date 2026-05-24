@@ -807,6 +807,60 @@ TEST(ServerBeastImpl, SecondStartIsRejected) {
   EXPECT_TRUE(found) << "expected 'already-started' log, got: " << fx.logger->errors.front();
 }
 
+TEST(ServerBeastImpl, RestartAfterStopServesAgain) {
+  // A plugin can be unloaded and reloaded, so start -> stop -> start must
+  // work: each start() re-initializes the io_context run state (restart(),
+  // re-arm work guard, clear stopping_) so the restarted server accepts again.
+  const int port = choose_port_base() + 36;
+  const ServerFixture fx;
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/", new FixedHandler(200, "ok"));
+
+  fx.start(port, controller);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+  auto first = beast_fetch("127.0.0.1", port, "/");
+  ASSERT_TRUE(first.received);
+  EXPECT_EQ(first.status, 200);
+
+  fx.server->stop();
+  EXPECT_FALSE(wait_listening(port, std::chrono::milliseconds(300))) << "still listening after stop()";
+
+  // Restart the same instance — it must bind and serve again.
+  fx.server->start(bind_url(port));
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2))) << "server did not accept after restart";
+  auto second = beast_fetch("127.0.0.1", port, "/");
+  fx.server->stop();
+
+  ASSERT_TRUE(second.received) << "no response after restart";
+  EXPECT_EQ(second.status, 200);
+  EXPECT_NE(second.body.find("ok"), std::string::npos);
+}
+
+TEST(ServerBeastImpl, CookieAttributeCrlfIsDropped) {
+  // Response::setCookie stores path/same_site verbatim; a controller must not
+  // be able to smuggle CR/LF through them into the Set-Cookie header (HTTP
+  // response splitting). The whole cookie should be dropped.
+  const int port = choose_port_base() + 37;
+  auto* controller = new MatchController();
+  Response::cookie_attrs attrs;
+  attrs.path = "/\r\nX-Injected: forged";
+  controller->registerRoute("GET", "/c", new CookieHandler("session", "abc", attrs));
+
+  const ServerFixture fx;
+  fx.start(port, controller);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+
+  auto resp = beast_fetch("127.0.0.1", port, "/c");
+  fx.server->stop();
+
+  ASSERT_TRUE(resp.received);
+  EXPECT_EQ(resp.status, 200);
+  EXPECT_TRUE(resp.set_cookies.empty()) << "cookie with CRLF in path should have been dropped";
+  for (const auto& kv : resp.headers) {
+    EXPECT_NE(kv.first, "X-Injected") << "response splitting via cookie path: " << kv.first << ": " << kv.second;
+  }
+}
+
 TEST(ServerBeastImpl, SetSslAfterStartIsRejected) {
   const int port = choose_port_base() + 33;
   const ServerFixture fx;

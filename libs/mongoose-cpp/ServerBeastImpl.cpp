@@ -153,6 +153,12 @@ void mongoose_to_beast(Mongoose::Response& src, http::response<http::string_body
     const Mongoose::Response::cookie_attrs& a = entry.second.second;
     if (name.empty() || name.find_first_of("\r\n;= \t") != std::string::npos) continue;
     if (value.find_first_of("\r\n;") != std::string::npos) continue;
+    // path and same_site are emitted into the Set-Cookie header verbatim, and
+    // Response::setCookie() stores them unsanitized — so a controller could
+    // smuggle CR/LF (response splitting) or ';' (forged extra attributes)
+    // through them. Drop the whole cookie if either is tainted.
+    if (a.path.find_first_of("\r\n;") != std::string::npos) continue;
+    if (a.same_site.find_first_of("\r\n;") != std::string::npos) continue;
     if (boost::algorithm::iequals(a.same_site, "None") && !(a.secure && is_ssl)) continue;
 
     std::string cookie = name + "=" + value + "; Path=" + (a.path.empty() ? "/" : a.path);
@@ -249,9 +255,10 @@ void ServerBeastImpl::dispatch(const http::request<http::string_body>& req, http
 
 void ServerBeastImpl::start(const std::string& bind) {
   if (thread_) {
-    // Second start() on the same instance: ioc_ was already stop()'d
-    // and the work guard reset, so the new accept coroutine would never
-    // run. Refuse loudly rather than appear to start.
+    // Already running — refuse a concurrent double-start. (A start() after a
+    // matching stop() is fine and supported: stop() clears thread_, and the
+    // run-state reset below re-arms the io_context so the instance can be
+    // unloaded/reloaded.)
     logger_->log_error("start() called on an already-started server — ignored");
     return;
   }
@@ -319,6 +326,15 @@ void ServerBeastImpl::start(const std::string& bind) {
     acceptor_.reset();
     return;
   }
+
+  // (Re)initialize the per-run io_context state so the instance can be
+  // restarted after a stop() (e.g. plugin unload/reload). A previous run
+  // left ioc_ run-to-completion, the work guard released, and stopping_ set;
+  // undo all three before spawning the new accept loop. Safe here because the
+  // guard above guarantees no run() is in flight (thread_ is null/joined).
+  stopping_ = false;
+  ioc_.restart();
+  work_guard_ = std::make_unique<asio::executor_work_guard<asio::io_context::executor_type>>(ioc_.get_executor());
 
   // Accept loop runs in its own coroutine so a slow handshake/read on one
   // connection can't block the accept side (each connection gets its own
