@@ -96,16 +96,6 @@ jobs:
         npm install
         npm run build
 
-    - name: Write NSClient++ cmake config
-      run: |
-        cat > tmp/nscp/build.cmake << 'EOF'
-        SET(LIBRARY_ROOT_FOLDER "${{ env.GITHUB_WORKSPACE }}")
-        SET(NSCP_BOOST_PYTHON_VERSION "${{ matrix.python_version }}")
-        SET(NSCP_WEB_BACKEND "beast")
-        set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}")
-        set(USE_STATIC_RUNTIME OFF)
-        EOF
-
     - name: Download check_nsclient from mickem/check_nsclient
       shell: bash
       run: |
@@ -118,7 +108,22 @@ jobs:
     - name: CMake (NSCP)
       working-directory: tmp/nscp
       run: |
-        cmake ../.. -D BUILD_VERSION=${{ inputs.version }} -D CPACK_GENERATOR=DEB -DCMAKE_BUILD_TYPE=Release
+        # Use the shell env var $GITHUB_WORKSPACE (not the GHA template
+        # expression ${{ github.workspace }}) so paths resolve correctly
+        # inside the build container. ${{ github.workspace }} is
+        # evaluated on the host before the step is injected, producing
+        # `/home/runner/work/...` which doesn't exist inside the
+        # container; $GITHUB_WORKSPACE is set per-runtime to the
+        # container-mounted workspace path (`/__w/nscp/nscp`).
+        cmake ../.. \
+          -DBUILD_VERSION=${{ inputs.version }} \
+          -DCPACK_GENERATOR=DEB \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DNSCP_WEB_BACKEND=beast \
+          -DNSCP_BOOST_PYTHON_VERSION=${{ matrix.python_version }} \
+          -DLIBRARY_ROOT_FOLDER="$GITHUB_WORKSPACE" \
+          -DCHECK_NSCLIENT_LOCATION="$GITHUB_WORKSPACE" \
+          -DUSE_STATIC_RUNTIME=OFF
 
     - name: Build nsclient
       working-directory: tmp/nscp

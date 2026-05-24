@@ -442,21 +442,21 @@ cd $SOURCE_ROOT/rust/check_nsclient
 cargo build --release
 ```
 
-### Configuration
-
-Create a `build.cmake` file adding the paths to the above tools and libraries.
-
-```cmake
-SET(DEPENDENCIES_FOLDER "${HOME}/dependencies")
-SET(NSCP_BOOST_PYTHON_VERSION "python312")
-set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/rust/nscp_client/target/release")
-```
-
 ### Build NSClient++
+
+Linux passes its configuration on the `cmake` command line — no `build.cmake`
+file is needed (Windows still uses one, see the sections above). The cache
+remembers everything so subsequent `cmake $SOURCE_ROOT` calls in the same
+build directory don't need to repeat the flags.
 
 ```bash
 cd $BUILD_FOLDER/nscp
-cmake $SOURCE_ROOT -DBUILD_VERSION=$NSCP_VERSION -DNSCP_WEB_BACKEND=beast
+cmake $SOURCE_ROOT \
+    -DBUILD_VERSION=$NSCP_VERSION \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DNSCP_WEB_BACKEND=beast \
+    -DNSCP_BOOST_PYTHON_VERSION=python312 \
+    -DCHECK_NSCLIENT_LOCATION="$SOURCE_ROOT/rust/check_nsclient/target/release"
 make -j$(nproc)
 ```
 

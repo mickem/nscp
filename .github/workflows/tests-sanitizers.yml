@@ -67,25 +67,21 @@ jobs:
         npm install
         npm run build
 
-    - name: Write NSClient++ cmake config
-      run: |
-        cat > tmp/nscp/build.cmake << 'EOF'
-        SET(LIBRARY_ROOT_FOLDER "${{ env.GITHUB_WORKSPACE }}")
-        SET(NSCP_BOOST_PYTHON_VERSION "python312")
-        SET(NSCP_WEB_BACKEND "beast")
-        # Skip copying the Rust check_nsclient binary — sanitizer tests don't
-        # need it, and building the Rust client just for this run is wasteful.
-        set(CHECK_NSCLIENT_MISSING ON)
-        set(USE_STATIC_RUNTIME OFF)
-        EOF
-
     - name: CMake configure (ASan + UBSan)
       working-directory: tmp/nscp
       run: |
+        # CHECK_NSCLIENT_MISSING skips copying the Rust check_nsclient
+        # binary — sanitizer tests don't need it, and building the Rust
+        # client just for this run is wasteful.
         cmake ../.. \
           -DBUILD_VERSION=${{ inputs.version }} \
           -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-          -DNSCP_SANITIZE=address,undefined
+          -DNSCP_SANITIZE=address,undefined \
+          -DNSCP_WEB_BACKEND=beast \
+          -DNSCP_BOOST_PYTHON_VERSION=python312 \
+          -DLIBRARY_ROOT_FOLDER="$GITHUB_WORKSPACE" \
+          -DCHECK_NSCLIENT_MISSING=ON \
+          -DUSE_STATIC_RUNTIME=OFF
 
     - name: Build
       working-directory: tmp/nscp
