@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <boost/date_time/gregorian/gregorian.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <net/collectd/collectd_packet.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
