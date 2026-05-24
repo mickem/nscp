@@ -264,4 +264,8 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
 	return TRUE;
 }
 #pragma managed(pop)
-nscapi::helper_singleton* nscapi::plugin_singleton = new nscapi::helper_singleton();
+// Owned via unique_ptr so DLL unload runs the destructor; matches the
+// NSC_WRAP_DLL macro in include/nscapi/macros.hpp. Direct definition
+// here because DotnetPlugins needs its own #pragma-managed DllMain.
+static std::unique_ptr<nscapi::helper_singleton> _nscapi_plugin_singleton_owner(new nscapi::helper_singleton());
+nscapi::helper_singleton* nscapi::plugin_singleton = _nscapi_plugin_singleton_owner.get();

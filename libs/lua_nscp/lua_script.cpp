@@ -499,9 +499,13 @@ void lua::lua_script::luaopen(lua_State *L) {
   lua_instance.setup_global_function("Registry", &lua::registry_wrapper::create_registry);
   lua_instance.setup_global_function("Settings", &lua::settings_wrapper::create_settings);
 
-  lua_instance.setup_class(CoreData::tag, core_ctors, core_functions);
-  lua_instance.setup_class(RegistryData::tag, registry_ctors, registry_functions);
-  lua_instance.setup_class(SettingsData::tag, settings_ctors, settings_functions);
+  // Templated overload registers `__gc` so the heap-allocated
+  // CoreData / RegistryData / SettingsData instances created by
+  // push_user_object_instance<T> get freed when the Lua state tears
+  // down. The non-templated overload skips __gc and leaks the T.
+  lua_instance.setup_class<CoreData>(core_ctors, core_functions);
+  lua_instance.setup_class<RegistryData>(registry_ctors, registry_functions);
+  lua_instance.setup_class<SettingsData>(settings_ctors, settings_functions);
 
 #ifdef HAVE_LUA_PB
   lua_protobuf_PB_Commands_open(L);
