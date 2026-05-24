@@ -108,6 +108,19 @@ if(MKDOCS_FOUND)
                 "${CMAKE_CURRENT_BINARY_DIR}/html/"
             DESTINATION "${INSTALL_FILES_BASE}web/help"
         )
+    else()
+        # docs.py also emits roff man pages (man1/man5) alongside the markdown,
+        # into the source tree under docs/man. Install them into the standard
+        # man hierarchy. generate_doc_sources (a dependency of the default
+        # build_docs_html target) produces them before install runs.
+        install(
+            DIRECTORY
+                "${CMAKE_CURRENT_SOURCE_DIR}/man/"
+            DESTINATION "share/man"
+            FILES_MATCHING
+                PATTERN "*.1"
+                PATTERN "*.5"
+        )
     endif()
 else(MKDOCS_FOUND)
     message(STATUS "mkdocs not found: No documentation will be built")
