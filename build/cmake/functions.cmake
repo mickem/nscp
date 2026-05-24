@@ -110,6 +110,7 @@ macro(CREATE_MODULE _SRCS _SOURCE _TARGET)
             "Generating ${_TARGET}/module.cpp and ${_TARGET}/module.hpp from ${_SOURCE}/module.json"
         DEPENDS
             ${_SOURCE}/module.json
+            "${BUILD_PYTHON_FOLDER}/create_plugin_module.py"
     )
     set(${_SRCS}
         ${${_SRCS}}
