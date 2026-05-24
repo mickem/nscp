@@ -67,11 +67,11 @@ struct script_def {
   std::string command;
 };
 
-class zip_plugin : public boost::noncopyable, public nsclient::core::plugin_interface {
+class zip_plugin : public boost::noncopyable, public plugin_interface {
   boost::filesystem::path file_;
-  nsclient::core::path_instance paths_;
-  nsclient::core::plugin_mgr_instance plugins_;
-  nsclient::logging::logger_instance logger_;
+  path_instance paths_;
+  plugin_mgr_instance plugins_;
+  logging::logger_instance logger_;
   std::string name_;
   std::string description_;
 
@@ -80,49 +80,49 @@ class zip_plugin : public boost::noncopyable, public nsclient::core::plugin_inte
   std::list<std::string> on_start_;
 
  public:
-  zip_plugin(const unsigned int id, const boost::filesystem::path &file, const std::string &alias, const nsclient::core::path_instance &paths,
-             const nsclient::core::plugin_mgr_instance &plugins, const nsclient::logging::logger_instance &logger);
-  virtual ~zip_plugin();
+  zip_plugin(unsigned int id, const boost::filesystem::path &file, const std::string &alias, const path_instance &paths, const plugin_mgr_instance &plugins,
+             const logging::logger_instance &logger);
+  ~zip_plugin() override = default;
 
-  bool load_plugin(NSCAPI::moduleLoadMode mode);
-  bool has_start() { return false; }
-  bool start_plugin() { return true; }
-  bool has_prepare_shutdown() { return false; }
-  void prepare_shutdown_plugin() {}
-  void unload_plugin();
+  bool load_plugin(NSCAPI::moduleLoadMode mode) override;
+  bool has_start() override { return false; }
+  bool start_plugin() override { return true; }
+  bool has_prepare_shutdown() override { return false; }
+  void prepare_shutdown_plugin() override {}
+  void unload_plugin() override;
 
-  std::string getName();
-  std::string getDescription();
-  bool hasCommandHandler() { return false; }
-  bool hasNotificationHandler() { return false; }
-  bool hasMessageHandler() { return false; }
-  NSCAPI::nagiosReturn handleCommand(const std::string request, std::string &reply);
-  NSCAPI::nagiosReturn handle_schedule(const std::string &request);
-  NSCAPI::nagiosReturn handleNotification(const char *channel, std::string &request, std::string &reply);
-  bool has_on_event() { return false; }
-  NSCAPI::nagiosReturn on_event(const std::string &request);
-  NSCAPI::nagiosReturn fetchMetrics(std::string &request);
-  NSCAPI::nagiosReturn submitMetrics(const std::string &request);
-  void handleMessage(const char *data, unsigned int len);
-  int commandLineExec(bool targeted, std::string &request, std::string &reply);
-  bool has_command_line_exec() { return false; }
-  bool is_duplicate(boost::filesystem::path file, std::string alias);
+  std::string getName() override;
+  std::string getDescription() override;
+  bool hasCommandHandler() override { return false; }
+  bool hasNotificationHandler() override { return false; }
+  bool hasMessageHandler() override { return false; }
+  NSCAPI::nagiosReturn handleCommand(std::string request, std::string &reply) override;
+  NSCAPI::nagiosReturn handle_schedule(const std::string &request) override;
+  NSCAPI::nagiosReturn handleNotification(const char *channel, std::string &request, std::string &reply) override;
+  bool has_on_event() override { return false; }
+  NSCAPI::nagiosReturn on_event(const std::string &request) override;
+  NSCAPI::nagiosReturn fetchMetrics(std::string &request) override;
+  NSCAPI::nagiosReturn submitMetrics(const std::string &request) override;
+  void handleMessage(const char *data, unsigned int len) override;
+  int commandLineExec(bool targeted, std::string &request, std::string &reply) override;
+  bool has_command_line_exec() override { return false; }
+  bool is_duplicate(boost::filesystem::path file, std::string alias) override;
 
-  bool has_routing_handler() { return false; }
+  bool has_routing_handler() override { return false; }
 
   bool route_message(const char *channel, const char *buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer,
-                     unsigned int *new_buffer_len);
+                     unsigned int *new_buffer_len) override;
 
-  bool hasMetricsFetcher() { return false; }
-  bool hasMetricsSubmitter() { return false; }
+  bool hasMetricsFetcher() override { return false; }
+  bool hasMetricsSubmitter() override { return false; }
 
-  std::string getModule();
+  std::string getModule() override;
 
-  void on_log_message(std::string &) {}
-  std::string get_version();
+  static void on_log_message(std::string &) {}
+  std::string get_version() override;
 
  private:
-  nsclient::logging::logger_instance get_logger() { return logger_; }
+  logging::logger_instance get_logger() { return logger_; }
   void on_log_message(const std::string &) override {}
   void read_metadata();
   void read_metadata(const std::string &string);

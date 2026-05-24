@@ -38,6 +38,20 @@ if(NOT TINYXML2_FOUND)
         set(TINYXML2_FOUND TRUE)
         set(TINYXML2_INCLUDE_DIR ${PC_TINYXML2_INCLUDE_DIRS})
         set(TINYXML2_LIBRARIES ${PC_TINYXML2_LIBRARIES})
+        # Expose the same imported target the CONFIG package would, so consumers
+        # that switch on `TARGET tinyxml2::tinyxml2` link the system library on
+        # this path too (otherwise they fall through to the vendored-source
+        # branch and try to compile a non-existent /usr/include/tinyxml2.cpp).
+        if(NOT TARGET tinyxml2::tinyxml2)
+            add_library(tinyxml2::tinyxml2 INTERFACE IMPORTED)
+            set_target_properties(
+                tinyxml2::tinyxml2
+                PROPERTIES
+                    INTERFACE_INCLUDE_DIRECTORIES "${PC_TINYXML2_INCLUDE_DIRS}"
+                    INTERFACE_LINK_LIBRARIES "${PC_TINYXML2_LIBRARIES}"
+                    INTERFACE_LINK_DIRECTORIES "${PC_TINYXML2_LIBRARY_DIRS}"
+            )
+        endif()
     endif()
 endif()
 

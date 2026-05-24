@@ -19,26 +19,19 @@
 
 #include "zip_plugin.h"
 
-#ifdef MINIZ
-#include <miniz.h>
-#else
-#include <zip.h>
-
-#include <cstdio>
-#include <vector>
-#endif
-
 #include <boost/json.hpp>
+#include <bytes/unzip.hpp>
 #include <file_helpers.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <str/nscp_string.hpp>
+#include <vector>
 
 #include "NSCAPI.h"
 
 namespace json = boost::json;
 
 template <class T>
-void debug_log_list(nsclient::logging::logger_instance logger, const char *file, const int line, const T &list, const std::string prefix) {
+void debug_log_list(const nsclient::logging::logger_instance &logger, const char *file, const int line, const T &list, const std::string &prefix) {
   if (!logger || !logger->should_debug()) {
     return;
   }
@@ -47,125 +40,6 @@ void debug_log_list(nsclient::logging::logger_instance logger, const char *file,
   }
 }
 
-// Backend-neutral file metadata returned by zip_archive::file_stat. Keeps the
-// caller free of miniz/libzip-specific types.
-struct archive_file_stat {
-  std::string filename;
-  std::size_t uncompressed_size = 0;
-};
-
-#ifdef _WIN32
-struct zip_archive {
-  mz_zip_archive handle_;
-  zip_archive() { memset(&handle_, 0, sizeof(handle_)); }
-  zip_archive(const std::string &file) {
-    memset(&handle_, 0, sizeof(handle_));
-    read(file);
-  }
-  ~zip_archive() { mz_zip_reader_end(&handle_); }
-
-  bool read(const std::string &file) { return mz_zip_reader_init_file(&handle_, file.c_str(), 0); }
-  unsigned int get_numfiles() { return mz_zip_reader_get_num_files(&handle_); }
-  bool file_stat(unsigned int id, archive_file_stat &out) {
-    mz_zip_archive_file_stat st;
-    if (!mz_zip_reader_file_stat(&handle_, id, &st)) return false;
-    out.filename = st.m_filename;
-    out.uncompressed_size = static_cast<std::size_t>(st.m_uncomp_size);
-    return true;
-  }
-  // Caller owns the returned buffer and must mz_free() it. Currently this
-  // matches the pre-existing miniz behaviour (the metadata reader leaks the
-  // pointer; out of scope for the libzip port).
-  const char *extract_file_to_heap(const char *filename, std::size_t &size) {
-    return static_cast<char *>(mz_zip_reader_extract_file_to_heap(&handle_, filename, &size, 0));
-  }
-  bool extract_file_to_file(const char *filename, const char *dst_file) { return mz_zip_reader_extract_file_to_file(&handle_, filename, dst_file, 0); }
-};
-#else
-// libzip-backed implementation. Used on Linux where miniz is not packaged but
-// libzip-dev is a first-class Debian/Ubuntu/Rocky package.
-struct zip_archive {
-  zip_t *handle_ = nullptr;
-  zip_archive() = default;
-  zip_archive(const std::string &file) { read(file); }
-  ~zip_archive() {
-    if (handle_) zip_close(handle_);
-  }
-
-  bool read(const std::string &file) {
-    if (handle_) {
-      zip_close(handle_);
-      handle_ = nullptr;
-    }
-    int err = 0;
-    handle_ = zip_open(file.c_str(), ZIP_RDONLY, &err);
-    return handle_ != nullptr;
-  }
-  unsigned int get_numfiles() {
-    if (!handle_) return 0;
-    const zip_int64_t n = zip_get_num_entries(handle_, 0);
-    return n < 0 ? 0u : static_cast<unsigned int>(n);
-  }
-  bool file_stat(unsigned int id, archive_file_stat &out) {
-    if (!handle_) return false;
-    zip_stat_t st;
-    zip_stat_init(&st);
-    if (zip_stat_index(handle_, id, 0, &st) != 0) return false;
-    out.filename = st.name ? st.name : "";
-    out.uncompressed_size = static_cast<std::size_t>(st.size);
-    return true;
-  }
-  // Caller owns the returned buffer (malloc-allocated) and must free() it.
-  // Mirrors the miniz contract so call sites stay portable.
-  const char *extract_file_to_heap(const char *filename, std::size_t &size) {
-    size = 0;
-    if (!handle_) return nullptr;
-    zip_stat_t st;
-    zip_stat_init(&st);
-    if (zip_stat(handle_, filename, 0, &st) != 0) return nullptr;
-    zip_file_t *zf = zip_fopen(handle_, filename, 0);
-    if (!zf) return nullptr;
-    const std::size_t need = static_cast<std::size_t>(st.size);
-    char *buf = static_cast<char *>(std::malloc(need));
-    if (!buf) {
-      zip_fclose(zf);
-      return nullptr;
-    }
-    const zip_int64_t got = zip_fread(zf, buf, need);
-    zip_fclose(zf);
-    if (got < 0 || static_cast<std::size_t>(got) != need) {
-      std::free(buf);
-      return nullptr;
-    }
-    size = need;
-    return buf;
-  }
-  bool extract_file_to_file(const char *filename, const char *dst_file) {
-    if (!handle_) return false;
-    zip_file_t *zf = zip_fopen(handle_, filename, 0);
-    if (!zf) return false;
-    FILE *out = std::fopen(dst_file, "wb");
-    if (!out) {
-      zip_fclose(zf);
-      return false;
-    }
-    std::vector<char> buf(64 * 1024);
-    zip_int64_t got = 0;
-    bool ok = true;
-    while ((got = zip_fread(zf, buf.data(), buf.size())) > 0) {
-      if (std::fwrite(buf.data(), 1, static_cast<std::size_t>(got), out) != static_cast<std::size_t>(got)) {
-        ok = false;
-        break;
-      }
-    }
-    if (got < 0) ok = false;
-    std::fclose(out);
-    zip_fclose(zf);
-    return ok;
-  }
-};
-#endif
-
 /**
  * Default c-tor
  * Initializes the plug in name but does not load the actual plug in.<br>
@@ -173,16 +47,11 @@ struct zip_archive {
  *
  * @param file The file (DLL) to load as a NSC plug in.
  */
-nsclient::core::zip_plugin::zip_plugin(const unsigned int id, const boost::filesystem::path &file, const std::string &alias,
-                                       const nsclient::core::path_instance &paths, const nsclient::core::plugin_mgr_instance &plugins,
-                                       const nsclient::logging::logger_instance &logger)
+nsclient::core::zip_plugin::zip_plugin(const unsigned int id, const boost::filesystem::path &file, const std::string &alias, const path_instance &paths,
+                                       const plugin_mgr_instance &plugins, const logging::logger_instance &logger)
     : plugin_interface(id, alias), file_(file), paths_(paths), plugins_(plugins), logger_(logger) {
   read_metadata();
 }
-/**
- * Default d-tor
- */
-nsclient::core::zip_plugin::~zip_plugin() {}
 /**
  * Returns the name of the plug in.
  *
@@ -197,7 +66,7 @@ nsclient::core::script_def read_script_def(const json::value &s) {
   nsclient::core::script_def def;
   if (s.is_string()) {
     def.script = s.as_string().c_str();
-    std::string name = file_helpers::meta::get_filename(boost::filesystem::path(def.script));
+    const std::string name = file_helpers::meta::get_filename(boost::filesystem::path(def.script));
     if (boost::algorithm::ends_with(name, ".py")) {
       def.provider = "PythonScript";
       def.alias = name.substr(0, name.length() - 3);
@@ -218,24 +87,23 @@ nsclient::core::script_def read_script_def(const json::value &s) {
 }
 
 void nsclient::core::zip_plugin::read_metadata() {
-  zip_archive archive;
-  if (!archive.read(file_.string())) {
+  const bytes::unzip::reader archive;
+  if (!archive.open(file_.string())) {
     throw plugin_exception(get_alias_or_name(), "Failed to read:" + file_.string());
   }
 
-  for (unsigned int i = 0; i < archive.get_numfiles(); i++) {
-    archive_file_stat file_stat;
-    if (!archive.file_stat(i, file_stat)) {
+  for (unsigned int i = 0; i < archive.size(); i++) {
+    bytes::unzip::file_entry file_stat;
+    if (!archive.stat(i, file_stat)) {
       throw plugin_exception(get_alias_or_name(), "Failed to read:" + file_.string());
     }
 
     if (file_stat.filename == "module.json") {
-      std::size_t uncomp_size;
-      const char *p = archive.extract_file_to_heap(file_stat.filename.c_str(), uncomp_size);
-      if (!p) {
+      std::string data;
+      if (!archive.extract(file_stat.filename, data)) {
         throw plugin_exception(get_alias_or_name(), "Failed to read:" + file_.string());
       }
-      read_metadata(std::string(p));
+      read_metadata(data);
       return;
     }
   }
@@ -266,7 +134,7 @@ void nsclient::core::zip_plugin::read_metadata(const std::string &data) {
     }
     if (root.contains("on_start")) {
       for (const auto &s : root["on_start"].as_array()) {
-        on_start_.push_back(s.as_string().c_str());
+        on_start_.emplace_back(s.as_string().c_str());
       }
     }
   } catch (const std::exception &e) {
@@ -282,21 +150,21 @@ bool nsclient::core::zip_plugin::load_plugin(NSCAPI::moduleLoadMode) {
   for (const std::string &plugin : modules_) {
     plugins_->load_single_plugin(plugin, "", true);
   }
-  zip_archive archive(file_.string());
+  const bytes::unzip::reader archive(file_.string());
 
   for (const script_def &script : scripts_) {
     boost::filesystem::path target = target_path / file_helpers::meta::get_filename(boost::filesystem::path(script.script));
-    if (!archive.extract_file_to_file(script.script.c_str(), target.string().c_str())) {
+    if (!archive.extract_to_file(script.script, target.string())) {
       LOG_ERROR_CORE("Failed to add script " + script.script);
       continue;
     }
     std::list<std::string> ret;
     std::vector<std::string> args;
-    args.push_back("--script");
+    args.emplace_back("--script");
     args.push_back(target.string());
-    args.push_back("--alias");
+    args.emplace_back("--alias");
     args.push_back(script.alias);
-    args.push_back("--no-config");
+    args.emplace_back("--no-config");
     plugins_->simple_exec(script.provider + ".add", args, ret);
     debug_log_list(get_logger(), __FILE__, __LINE__, ret, " : ");
   }
@@ -310,7 +178,7 @@ bool nsclient::core::zip_plugin::load_plugin(NSCAPI::moduleLoadMode) {
       continue;
     }
 
-    std::string command = args.front();
+    const std::string command = args.front();
     args.erase(args.begin());
     plugins_->simple_exec(command, args, ret);
     debug_log_list(get_logger(), __FILE__, __LINE__, ret, " : ");
@@ -334,7 +202,7 @@ void nsclient::core::zip_plugin::unload_plugin() {
   boost::filesystem::remove(scripts_folder);
 }
 
-NSCAPI::nagiosReturn nsclient::core::zip_plugin::handleCommand(const std::string reuest, std::string &) {
+NSCAPI::nagiosReturn nsclient::core::zip_plugin::handleCommand(const std::string request, std::string &) {
   throw plugin_exception(get_alias_or_name(), "cannot handle commands");
 }
 
