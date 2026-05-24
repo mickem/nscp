@@ -165,7 +165,8 @@ bool input_available() {
 }
 
 void CommandClient::read_input_thread() const {
-  is_running = true;
+  // is_running is set true by commandLineExec before this thread starts, so an
+  // early signal-driven shutdown isn't lost (see comment there).
   while (is_running) {
     if (input_available()) {
       std::string s;
@@ -196,6 +197,12 @@ bool CommandClient::commandLineExec(const int target_mode, const PB::Commands::E
   if (is_running) {
     NSC_LOG_ERROR("Command client is already running!");
   }
+
+  // Mark running *before* installing the signal/console handlers and starting
+  // the input thread. If a SIGTERM/SIGINT (or Ctrl+C) arrives in that window
+  // it sets is_running=false; were the input thread to set it true on startup
+  // it would clobber that and lose the shutdown request.
+  is_running = true;
 
 #ifdef WIN32
   if (!SetConsoleCtrlHandler(consoleHandler, TRUE)) {
