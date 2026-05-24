@@ -20,6 +20,7 @@
 #pragma once
 
 #include <boost/algorithm/string.hpp>
+#include <chrono>
 #include <net/socket/socket_helpers.hpp>
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
@@ -33,8 +34,8 @@ template <class protocol_type>
 class connection : public std::enable_shared_from_this<connection<protocol_type> >, private boost::noncopyable {
  private:
   boost::asio::io_context &io_service_;
-  boost::asio::deadline_timer timer_;
-  boost::posix_time::time_duration timeout_;
+  boost::asio::steady_timer timer_;
+  std::chrono::milliseconds timeout_;
   std::shared_ptr<typename protocol_type::client_handler> handler_;
   protocol_type protocol_;
 
@@ -42,7 +43,7 @@ class connection : public std::enable_shared_from_this<connection<protocol_type>
   boost::optional<bool> data_result_;
 
  public:
-  connection(boost::asio::io_context &io_service, boost::posix_time::time_duration timeout, std::shared_ptr<typename protocol_type::client_handler> handler)
+  connection(boost::asio::io_context &io_service, std::chrono::milliseconds timeout, std::shared_ptr<typename protocol_type::client_handler> handler)
       : io_service_(io_service), timer_(io_service), timeout_(timeout), handler_(handler), protocol_(handler) {}
 
   virtual ~connection() {
@@ -65,7 +66,7 @@ class connection : public std::enable_shared_from_this<connection<protocol_type>
   //
   void start_timer() {
     timer_result_.reset();
-    timer_.expires_from_now(timeout_);
+    timer_.expires_after(timeout_);
     auto self(this->shared_from_this());
     timer_.async_wait([self](const auto &e) { self->on_timeout(e); });
   }
@@ -225,7 +226,7 @@ class tcp_connection : public connection<protocol_type> {
   tcp::socket socket_;
 
  public:
-  tcp_connection(boost::asio::io_context &io_service, boost::posix_time::time_duration timeout, std::shared_ptr<typename protocol_type::client_handler> handler)
+  tcp_connection(boost::asio::io_context &io_service, std::chrono::milliseconds timeout, std::shared_ptr<typename protocol_type::client_handler> handler)
       : connection_type(io_service, timeout, handler), socket_(io_service) {}
   ~tcp_connection() override {
     try {
@@ -261,8 +262,8 @@ class ssl_connection : public connection<protocol_type> {
   bool verify_hostname_;
 
  public:
-  ssl_connection(boost::asio::io_context &io_service, boost::asio::ssl::context &context, boost::posix_time::time_duration timeout,
-                 std::shared_ptr<typename protocol_type::client_handler> handler, bool verify_hostname)
+  ssl_connection(boost::asio::io_context &io_service, boost::asio::ssl::context &context, std::chrono::milliseconds timeout,
+                 std::shared_ptr<typename protocol_type::client_handler> handler, const bool verify_hostname)
       : connection_type(io_service, timeout, handler), ssl_socket_(io_service, context), verify_hostname_(verify_hostname) {}
   ~ssl_connection() override {
     try {
@@ -385,7 +386,7 @@ class client : boost::noncopyable {
   }
 
   connection_type *create_connection() {
-    boost::posix_time::time_duration timeout(boost::posix_time::seconds(info_.timeout));
+    const std::chrono::milliseconds timeout(std::chrono::seconds(info_.timeout));
 
 #ifdef USE_SSL
     if (info_.ssl.enabled) {

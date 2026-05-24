@@ -68,7 +68,7 @@ void run_ntp_check(const std::string &server, unsigned short port, int timeout_m
   boost::asio::io_context io_service;
   udp::resolver resolver(io_service);
   udp::socket socket(io_service);
-  boost::asio::deadline_timer timer(io_service);
+  boost::asio::steady_timer timer(io_service);
 
   try {
     boost::system::error_code resolve_ec;
@@ -105,7 +105,7 @@ void run_ntp_check(const std::string &server, unsigned short port, int timeout_m
     std::size_t bytes_received = 0;
     bool recv_done = false;
 
-    timer.expires_from_now(boost::posix_time::milliseconds(timeout_ms));
+    timer.expires_after(std::chrono::milliseconds(timeout_ms));
     timer.async_wait([&](const boost::system::error_code &ec) {
       if (!ec && !recv_done) {
         boost::system::error_code ignore;
@@ -117,8 +117,7 @@ void run_ntp_check(const std::string &server, unsigned short port, int timeout_m
       recv_ec = ec;
       bytes_received = n;
       recv_done = true;
-      boost::system::error_code ignore;
-      timer.cancel(ignore);
+      timer.cancel();
     });
 
     io_service.run();

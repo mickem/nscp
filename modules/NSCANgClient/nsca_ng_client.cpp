@@ -168,7 +168,7 @@ class nsca_ng_connection {
   boost::asio::ssl::context ctx_;
   boost::asio::ssl::stream<boost::asio::ip::tcp::socket> ssl_socket_;
   boost::asio::ip::tcp::resolver resolver_;
-  boost::asio::deadline_timer timer_;
+  boost::asio::steady_timer timer_;
   // Cap the inbound buffer so a hostile or buggy server can't grow `in_buf_`
   // without limit by streaming data without a newline. NSCA-NG response lines
   // are short (single keyword + brief reason); 8 KiB is well over the maximum
@@ -239,10 +239,7 @@ class nsca_ng_connection {
     }
   }
 
-  ~nsca_ng_connection() {
-    boost::system::error_code ec;
-    timer_.cancel(ec);
-  }
+  ~nsca_ng_connection() { timer_.cancel(); }
 
   // Run an async op against the io_service with the configured deadline.
   // The passed-in initiator should call `start_async(handler)` with a handler
@@ -252,7 +249,7 @@ class nsca_ng_connection {
     boost::system::error_code op_ec = boost::asio::error::would_block;
     bool timed_out = false;
 
-    timer_.expires_from_now(boost::posix_time::seconds(timeout_seconds_));
+    timer_.expires_after(std::chrono::seconds(timeout_seconds_));
     timer_.async_wait([this, &timed_out](const boost::system::error_code &ec) {
       if (ec != boost::asio::error::operation_aborted) {
         timed_out = true;
@@ -263,8 +260,7 @@ class nsca_ng_connection {
 
     initiator([&op_ec, this](const boost::system::error_code &ec) {
       op_ec = ec;
-      boost::system::error_code ignored;
-      timer_.cancel(ignored);
+      timer_.cancel();
     });
 
     io_service_.restart();

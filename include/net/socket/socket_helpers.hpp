@@ -21,6 +21,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/optional.hpp>
+#include <chrono>
 #include <memory>
 #include <net/socket/allowed_hosts.hpp>
 #include <str/xtos.hpp>
@@ -248,18 +249,17 @@ boost::asio::ssl::verify_mode verify_mode_parser(const std::string& verify_mode)
 namespace io {
 void set_result(boost::optional<boost::system::error_code>* a, const boost::system::error_code& b);
 
-struct timed_writer : public std::enable_shared_from_this<timed_writer> {
+struct timed_writer : std::enable_shared_from_this<timed_writer> {
   boost::asio::io_context& io_service;
-  // boost::posix_time::time_duration duration;
-  boost::asio::deadline_timer timer;
+  boost::asio::steady_timer timer;
 
   boost::optional<boost::system::error_code> timer_result;
   boost::optional<boost::system::error_code> read_result;
 
   explicit timed_writer(boost::asio::io_context& io_service) : io_service(io_service), timer(io_service) {}
   ~timed_writer() { timer.cancel(); }
-  void start_timer(boost::posix_time::time_duration duration) {
-    timer.expires_from_now(duration);
+  void start_timer(const std::chrono::milliseconds duration) {
+    timer.expires_after(duration);
     auto self(shared_from_this());
     timer.async_wait([self](const auto& e) { self->set_result(&self->timer_result, e); });
   }
@@ -299,10 +299,10 @@ struct timed_writer : public std::enable_shared_from_this<timed_writer> {
 
 template <typename AsyncWriteStream, typename RawSocket, typename MutableBufferSequence>
 bool write_with_timeout(boost::asio::io_context& io_service, AsyncWriteStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers,
-                        boost::posix_time::time_duration duration) {
+                        const std::chrono::milliseconds duration) {
   boost::optional<boost::system::error_code> timer_result;
-  boost::asio::deadline_timer timer(io_service);
-  timer.expires_from_now(duration);
+  boost::asio::steady_timer timer(io_service);
+  timer.expires_after(duration);
   timer.async_wait([&timer_result](const auto& e) { set_result(&timer_result, e); });
 
   boost::optional<boost::system::error_code> read_result;
@@ -323,19 +323,19 @@ bool write_with_timeout(boost::asio::io_context& io_service, AsyncWriteStream& s
   return false;
 }
 
-struct timed_reader : public std::enable_shared_from_this<timed_reader> {
+struct timed_reader : std::enable_shared_from_this<timed_reader> {
   boost::asio::io_context& io_service;
-  boost::posix_time::time_duration duration;
-  boost::asio::deadline_timer timer;
+  std::chrono::milliseconds duration;
+  boost::asio::steady_timer timer;
 
   boost::optional<boost::system::error_code> timer_result;
   boost::optional<boost::system::error_code> write_result;
 
-  explicit timed_reader(boost::asio::io_context& io_service) : io_service(io_service), timer(io_service) {}
+  explicit timed_reader(boost::asio::io_context& io_service) : io_service(io_service), duration(0), timer(io_service) {}
   ~timed_reader() { timer.cancel(); }
 
-  void start_timer(boost::posix_time::time_duration duration_) {
-    timer.expires_from_now(duration_);
+  void start_timer(const std::chrono::milliseconds duration_) {
+    timer.expires_after(duration_);
     auto self(shared_from_this());
     timer.async_wait([self](const auto& e) { self->set_result(&self->timer_result, e); });
   }
@@ -373,10 +373,10 @@ struct timed_reader : public std::enable_shared_from_this<timed_reader> {
 
 template <typename AsyncReadStream, typename RawSocket, typename MutableBufferSequence>
 bool read_with_timeout(boost::asio::io_context& io_service, AsyncReadStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers,
-                       boost::posix_time::time_duration duration) {
+                       const std::chrono::milliseconds duration) {
   boost::optional<boost::system::error_code> timer_result;
-  boost::asio::deadline_timer timer(io_service);
-  timer.expires_from_now(duration);
+  boost::asio::steady_timer timer(io_service);
+  timer.expires_after(duration);
   timer.async_wait([&timer_result](const auto& e) { set_result(&timer_result, e); });
 
   boost::optional<boost::system::error_code> read_result;

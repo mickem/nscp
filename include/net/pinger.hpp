@@ -20,6 +20,7 @@
 #pragma once
 
 #include <boost/asio.hpp>
+#include <chrono>
 #include <istream>
 #include <net/icmp_header.hpp>
 #include <net/ipv4_header.hpp>
@@ -84,10 +85,10 @@ class pinger {
 
     result_.num_send_++;
     result_.sequence_number_ = sequence_number_;
-    time_sent_ = boost::posix_time::microsec_clock::universal_time();
+    time_sent_ = std::chrono::steady_clock::now();
     socket_.send_to(request_buffer.data(), destination_);
 
-    timer_.expires_at(time_sent_ + boost::posix_time::millisec(timeout_));
+    timer_.expires_at(time_sent_ + std::chrono::milliseconds(timeout_));
     timer_.async_wait([this](const boost::system::error_code& e) { this->handle_timeout(e); });
   }
 
@@ -120,10 +121,10 @@ class pinger {
       timer_.cancel();
       result_.num_replies_++;
 
-      const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+      const auto now = std::chrono::steady_clock::now();
       result_.length_ = length - ipv4_hdr.header_length();
       result_.ttl_ = ipv4_hdr.time_to_live();
-      result_.time_ = (now - time_sent_).total_milliseconds();
+      result_.time_ = std::chrono::duration_cast<std::chrono::milliseconds>(now - time_sent_).count();
     }
     // start_receive();
   }
@@ -131,9 +132,9 @@ class pinger {
   boost::asio::ip::icmp::resolver resolver_;
   boost::asio::ip::icmp::endpoint destination_;
   boost::asio::ip::icmp::socket socket_;
-  boost::asio::deadline_timer timer_;
+  boost::asio::steady_timer timer_;
   unsigned short sequence_number_;
-  boost::posix_time::ptime time_sent_;
+  std::chrono::steady_clock::time_point time_sent_;
   boost::asio::streambuf reply_buffer_;
   int timeout_;
   result_container& result_;

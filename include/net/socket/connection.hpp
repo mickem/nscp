@@ -21,6 +21,7 @@
 
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
+#include <chrono>
 #include <memory>
 #include <net/socket/socket_helpers.hpp>  // for socket_helpers::extract_peer_subject_cn used in ssl_connection
 #ifdef USE_SSL
@@ -118,8 +119,8 @@ class connection : public std::enable_shared_from_this<connection<protocol_type,
 
   //////////////////////////////////////////////////////////////////////////
   // Timeout related functions
-  virtual void set_timeout(int seconds) {
-    timer_.expires_from_now(boost::posix_time::seconds(seconds));
+  virtual void set_timeout(const int seconds) {
+    timer_.expires_after(std::chrono::seconds(seconds));
     auto self(this->shared_from_this());
     timer_.async_wait([self](const auto& e) { self->timeout(e); });
   }
@@ -222,7 +223,7 @@ class connection : public std::enable_shared_from_this<connection<protocol_type,
   bool is_active_;
   boost::asio::io_context::strand strand_;
   boost::array<char, N> buffer_;
-  boost::asio::deadline_timer timer_;
+  boost::asio::steady_timer timer_;
   std::list<typename protocol_type::outbound_buffer_type> buffers_;
   std::shared_ptr<protocol_type> protocol_;
 };

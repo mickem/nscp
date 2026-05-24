@@ -22,6 +22,7 @@
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
 #include <boost/program_options.hpp>
+#include <chrono>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
@@ -62,7 +63,7 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
   boost::asio::io_context io_service;
   tcp::resolver resolver(io_service);
   tcp::socket socket(io_service);
-  boost::asio::deadline_timer timer(io_service);
+  boost::asio::steady_timer timer(io_service);
 
   const auto start = boost::chrono::steady_clock::now();
   boost::system::error_code connect_ec = boost::asio::error::would_block;
@@ -76,7 +77,7 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
       return;
     }
 
-    timer.expires_from_now(boost::posix_time::milliseconds(timeout_ms));
+    timer.expires_after(std::chrono::milliseconds(timeout_ms));
     timer.async_wait([&](const boost::system::error_code &ec) {
       if (!ec && !connect_done) {
         boost::system::error_code ignore;
@@ -87,8 +88,7 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
     boost::asio::async_connect(socket, endpoints, [&](const boost::system::error_code &ec, const tcp::endpoint &) {
       connect_ec = ec;
       connect_done = true;
-      boost::system::error_code ignore;
-      timer.cancel(ignore);
+      timer.cancel();
     });
 
     io_service.run();
@@ -126,7 +126,7 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
       boost::system::error_code read_ec = boost::asio::error::would_block;
       bool read_done = false;
 
-      timer.expires_from_now(boost::posix_time::milliseconds(timeout_ms));
+      timer.expires_after(std::chrono::milliseconds(timeout_ms));
       timer.async_wait([&](const boost::system::error_code &ec) {
         if (!ec && !read_done) {
           boost::system::error_code ignore;
@@ -137,8 +137,7 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
       boost::asio::async_read(socket, response_buf, boost::asio::transfer_at_least(1), [&](const boost::system::error_code &ec, std::size_t) {
         read_ec = ec;
         read_done = true;
-        boost::system::error_code ignore;
-        timer.cancel(ignore);
+        timer.cancel();
       });
 
       io_service.run();

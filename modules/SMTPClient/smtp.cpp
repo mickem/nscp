@@ -24,6 +24,7 @@
 #include <boost/asio/ssl.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <bytes/base64.hpp>
+#include <chrono>
 #include <cstring>
 #include <sstream>
 #include <string>
@@ -124,8 +125,8 @@ class sync_io {
   void run_with_deadline(Init&& init, boost::system::error_code& out_ec, std::size_t* out_bytes = nullptr) {
     out_ec = asio::error::would_block;
     std::size_t bytes = 0;
-    asio::deadline_timer timer(io_);
-    timer.expires_from_now(boost::posix_time::seconds(timeout_));
+    asio::steady_timer timer(io_);
+    timer.expires_after(std::chrono::seconds(timeout_));
     bool timed_out = false;
     timer.async_wait([&](const boost::system::error_code& e) {
       if (e == asio::error::operation_aborted) return;
