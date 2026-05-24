@@ -167,15 +167,13 @@ reader::~reader() = default;
 reader::reader(reader &&) noexcept = default;
 reader &reader::operator=(reader &&) noexcept = default;
 
-bool reader::open(const std::string &file) const { return impl_->open(file); }
+bool reader::open(const std::string &file) { return impl_->open(file); }
 bool reader::is_open() const { return impl_->is_open(); }
-void reader::close() const { impl_->close(); }
+void reader::close() { impl_->close(); }
 unsigned int reader::size() const { return impl_->size(); }
 bool reader::stat(const unsigned int index, file_entry &out) const { return impl_->stat(index, out); }
 bool reader::extract(const std::string &filename, std::string &out) const { return impl_->extract(filename, out); }
-bool reader::extract_to_file(const std::string &filename, const std::string &destination) const {
-  return impl_->extract_to_file(filename, destination);
-}
+bool reader::extract_to_file(const std::string &filename, const std::string &destination) const { return impl_->extract_to_file(filename, destination); }
 
 }  // namespace unzip
 }  // namespace bytes

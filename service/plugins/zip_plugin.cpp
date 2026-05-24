@@ -87,7 +87,7 @@ nsclient::core::script_def read_script_def(const json::value &s) {
 }
 
 void nsclient::core::zip_plugin::read_metadata() {
-  const bytes::unzip::reader archive;
+  bytes::unzip::reader archive;
   if (!archive.open(file_.string())) {
     throw plugin_exception(get_alias_or_name(), "Failed to read:" + file_.string());
   }

@@ -55,10 +55,10 @@ class reader {
   reader &operator=(reader &&) noexcept;
 
   // Opens an archive for reading, closing any previously opened one first.
-  // Returns true on success.
-  bool open(const std::string &file) const;
+  // Returns true on success. Mutates observable state, so non-const.
+  bool open(const std::string &file);
   bool is_open() const;
-  void close() const;
+  void close();
 
   // Number of entries in the archive (0 when not open).
   unsigned int size() const;
