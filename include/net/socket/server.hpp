@@ -149,7 +149,8 @@ class server : boost::noncopyable {
     boost::system::error_code resolve_ec;
     tcp::resolver::results_type endpoints;
     if (info_.address.empty()) {
-      endpoints = resolver.resolve("", info_.get_port(), boost::asio::ip::resolver_base::passive, resolve_ec);
+      endpoints =
+          resolver.resolve("", info_.get_port(), boost::asio::ip::resolver_base::passive | boost::asio::ip::resolver_base::address_configured, resolve_ec);
     } else {
       endpoints = resolver.resolve(info_.get_address(), info_.get_port(), resolve_ec);
     }
