@@ -21,15 +21,15 @@
  */
 namespace Mongoose {
 
-class NSCAPI_EXPORT ServerImpl final : public Server {
+class NSCAPI_EXPORT ServerMongooseImpl final : public Server {
  public:
   /**
    * Constructs the server
    *
    * @param logger the logger to use for logging
    */
-  explicit ServerImpl(WebLoggerPtr logger);
-  ~ServerImpl() override;
+  explicit ServerMongooseImpl(WebLoggerPtr logger);
+  ~ServerMongooseImpl() override;
 
   /**
    * Runs the Mongoose server

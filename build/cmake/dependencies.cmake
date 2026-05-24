@@ -33,12 +33,82 @@ if(WIN32)
 else()
     find_package(LibZip)
 endif()
-find_package(Mongoose)
+# HTTP backend selector for WEBServer. The mongoose default keeps the
+# Windows packaging story unchanged; setting `beast` switches every
+# platform to the Boost.Beast implementation (libs/mongoose-cpp/
+# ServerBeastImpl.cpp) and drops the vendored mongoose download from
+# the build. See docs/design/beast-web-backend.md.
+# Seed the default only when nothing else has chosen a backend. This must
+# honour BOTH a command-line `-DNSCP_WEB_BACKEND=...` (a cache entry) AND a
+# `SET(NSCP_WEB_BACKEND ...)` in build.cmake (a normal variable, since
+# build.cmake is include()d earlier in the top-level CMakeLists).
+#
+# A bare `set(NSCP_WEB_BACKEND "mongoose" CACHE STRING ...)` here is a trap:
+# when no cache entry exists yet, CMake creates it AND removes any normal
+# variable of the same name — silently reverting build.cmake's
+# `SET(NSCP_WEB_BACKEND "beast")` back to mongoose. That broke the Linux
+# (beast) package builds, which opt in via build.cmake rather than -D.
+if(NOT DEFINED NSCP_WEB_BACKEND)
+    set(NSCP_WEB_BACKEND "mongoose")
+endif()
+set(NSCP_WEB_BACKEND
+    "${NSCP_WEB_BACKEND}"
+    CACHE STRING
+    "HTTP backend for WEBServer: mongoose | beast"
+)
+set_property(CACHE NSCP_WEB_BACKEND PROPERTY STRINGS mongoose beast)
+
+if(NSCP_WEB_BACKEND STREQUAL "mongoose")
+    find_package(Mongoose)
+    # Surface a clear error here instead of letting MONGOOSE_INCLUDE_DIR-NOTFOUND
+    # propagate into source lists (`${MONGOOSE_INCLUDE_DIR}/mongoose.c`), which
+    # otherwise fails much later with a cryptic "Cannot find source file".
+    if(NOT MONGOOSE_FOUND)
+        message(
+            FATAL_ERROR
+            "NSCP_WEB_BACKEND=mongoose requires the vendored mongoose source.\n"
+            "Either set MONGOOSE_SOURCE_DIR (see build.md), or switch to the\n"
+            "Beast backend with -DNSCP_WEB_BACKEND=beast (the default on Linux\n"
+            "CI builds)."
+        )
+    endif()
+elseif(NSCP_WEB_BACKEND STREQUAL "beast")
+    # Beast is header-only; the Boost components (coroutine + context)
+    # needed by ServerBeastImpl are added below.
+    # ServerBeastImpl also includes Boost.Asio SSL headers, which require
+    # OpenSSL headers/libs at compile time even when TLS is not enabled at
+    # runtime. Fail during configure instead of producing a later compile
+    # error from missing openssl/ssl.h or unresolved SSL symbols.
+    if(NOT OPENSSL_FOUND)
+        message(
+            FATAL_ERROR
+            "NSCP_WEB_BACKEND=beast requires OpenSSL.\n"
+            "ServerBeastImpl includes Boost.Asio SSL headers, so OpenSSL must\n"
+            "be available at configure/build time even if TLS is not enabled\n"
+            "at runtime.\n"
+            "Install/configure OpenSSL, or switch to -DNSCP_WEB_BACKEND=mongoose."
+        )
+    endif()
+    message(STATUS "WEB backend: Boost.Beast (mongoose download skipped)")
+else()
+    message(FATAL_ERROR "Unknown NSCP_WEB_BACKEND='${NSCP_WEB_BACKEND}' (expected mongoose | beast)")
+endif()
 # CMP0167 (CMake 3.30+) removes the bundled FindBoost module in favour of
 # upstream BoostConfig.
 if(POLICY CMP0167)
     cmake_policy(SET CMP0167 OLD)
 endif()
+# Beast-only Boost components: spawn (stackful coroutines) pulls in
+# Boost.Coroutine, which in turn pulls in Boost.Context. Mongoose builds
+# don't compile ServerBeastImpl.cpp at all, so requesting these would be
+# unused work — and would force the package list (libboost-coroutine,
+# libboost-context on Debian; analogous on RPM) on environments that
+# only ever build the mongoose backend (typically Windows).
+set(_nscp_extra_boost_components)
+if(NSCP_WEB_BACKEND STREQUAL "beast")
+    list(APPEND _nscp_extra_boost_components coroutine context)
+endif()
+
 find_package(
     Boost
     COMPONENTS
@@ -52,6 +122,7 @@ find_package(
         chrono
         json
         container
+        ${_nscp_extra_boost_components}
 )
 find_package(Mkdocs)
 find_package(CSharp)
@@ -188,14 +259,16 @@ if(MKDOCS_FOUND)
 else(MKDOCS_FOUND)
     message(STATUS " ! MKDocs not found: MKDOCS_DIR=${MKDOCS_DIR}")
 endif(MKDOCS_FOUND)
-if(MONGOOSE_FOUND)
-    message(STATUS " - Mongoose found in: ${MONGOOSE_INCLUDE_DIR}")
-else(MONGOOSE_FOUND)
-    message(
-        STATUS
-        " ! Mongoose not found: MONGOOSE_SOURCE_DIR=${MONGOOSE_SOURCE_DIR}"
-    )
-endif(MONGOOSE_FOUND)
+if(NSCP_WEB_BACKEND STREQUAL "mongoose")
+    if(MONGOOSE_FOUND)
+        message(STATUS " - Mongoose found in: ${MONGOOSE_INCLUDE_DIR}")
+    else(MONGOOSE_FOUND)
+        message(
+            STATUS
+            " ! Mongoose not found: MONGOOSE_SOURCE_DIR=${MONGOOSE_SOURCE_DIR}"
+        )
+    endif(MONGOOSE_FOUND)
+endif()
 
 if(WIN32)
     if(WIX_FOUND)

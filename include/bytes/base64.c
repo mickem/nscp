@@ -135,7 +135,20 @@ static const signed char    b64_indexes[] =
  * characters.
  */
 static size_t b64_encode_(unsigned char const *src, size_t srcSize, char *const dest, size_t destLen) {
-  size_t total = ((srcSize + (NUM_PLAIN_DATA_BYTES - 1)) / NUM_PLAIN_DATA_BYTES) * NUM_ENCODED_DATA_BYTES;
+  /* Overflow guard: the size-of-output calculation below is
+   *   total = ((srcSize + 2) / 3) * 4
+   * which can wrap past SIZE_MAX for very large srcSize. The conservative
+   * cap of SIZE_MAX/2 rejects any input large enough to make either
+   * intermediate step overflow, and is far above any realistic caller
+   * (an HTTP body, a settings value, etc.). Without this guard a
+   * sufficiently huge srcSize would compute a wrapped `total`, fail the
+   * `destLen < total` check, and walk past the end of `src`.
+   */
+  if (srcSize > ((size_t)-1) / 2) {
+    return 0;
+  }
+
+  const size_t total = ((srcSize + (NUM_PLAIN_DATA_BYTES - 1)) / NUM_PLAIN_DATA_BYTES) * NUM_ENCODED_DATA_BYTES;
 
   if (NULL == dest) {
     return total;
@@ -241,6 +254,17 @@ static size_t b64_decode_(char const *src, size_t srcLen, unsigned char *dest, s
   } else if (destSize < total) {
     return 0;
   } else {
+    /* `src == NULL` is supported above for the size-query path (the
+     * function returns an upper-bound estimate of the decoded length
+     * without scanning for padding). But once we commit to writing into
+     * `dest`, we must read from `src`; refuse the call instead of
+     * dereferencing NULL. Defends against misuse rather than any
+     * reachable webserver path.
+     */
+    if (NULL == src) {
+      return 0;
+    }
+
     /* Three things we need to account for:
      *
      * 1. invalid length

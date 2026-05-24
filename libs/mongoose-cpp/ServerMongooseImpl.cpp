@@ -1,36 +1,17 @@
-#include "ServerImpl.h"
+#include "ServerMongooseImpl.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <fstream>
 #include <memory>
 #include <nsclient/nsclient_exception.hpp>
 #include <sstream>
 #include <string>
 #include <utility>
 
+#include "cert_loader.h"
+
 using namespace std;
 using namespace Mongoose;
-
-std::string load_file(const std::string &path, const std::string &hint) {
-  try {
-    const std::ifstream file(path);
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
-  } catch (const std::exception &e) {
-    throw nsclient::nsclient_exception("Failed to load " + hint + " from " + path + ": " + e.what());
-  }
-}
-
-std::pair<std::string, std::string> load_certificates(const std::string &cert_path, const std::string &key_path) {
-  auto cert = load_file(cert_path, "certificate");
-  if (key_path.empty()) {
-    return {cert, cert};
-  }
-  auto key = load_file(key_path, "private key");
-  return {cert, key};
-}
 
 boost::posix_time::ptime now() { return boost::get_system_time(); }
 
@@ -63,15 +44,15 @@ void log_wrapper(char c, void *ptr) {
 }
 
 namespace Mongoose {
-ServerImpl::ServerImpl(WebLoggerPtr logger) : logger_(std::move(logger)), stop_thread_(false) {
+ServerMongooseImpl::ServerMongooseImpl(WebLoggerPtr logger) : logger_(std::move(logger)), stop_thread_(false) {
   mg_log_set_fn(&log_wrapper, logger_.get());
   mg_log_set(MG_LL_ERROR);
   memset(&mgr, 0, sizeof(mg_mgr));
   mg_mgr_init(&mgr);
 }
 
-ServerImpl::~ServerImpl() {
-  ServerImpl::stop();
+ServerMongooseImpl::~ServerMongooseImpl() {
+  ServerMongooseImpl::stop();
   mg_log_set_fn(&log_wrapper, nullptr);
 
   for (const auto &controller : controllers) {
@@ -80,10 +61,10 @@ ServerImpl::~ServerImpl() {
   controllers.clear();
 }
 
-void ServerImpl::setSsl(std::string &new_certificate, std::string &new_key) {
+void ServerMongooseImpl::setSsl(std::string &new_certificate, std::string &new_key) {
 #if MG_ENABLE_OPENSSL
   try {
-    auto cert_and_key = load_certificates(new_certificate, new_key);
+    auto cert_and_key = cert_loader::load_certificates(new_certificate, new_key);
     certificate = cert_and_key.first;
     key = cert_and_key.second;
   } catch (const nsclient::nsclient_exception &e) {
@@ -94,7 +75,7 @@ void ServerImpl::setSsl(std::string &new_certificate, std::string &new_key) {
 #endif
 }
 
-void ServerImpl::thread_proc() {
+void ServerMongooseImpl::thread_proc() {
   try {
     while (true) {
       mg_mgr_poll(&mgr, 1000);
@@ -108,12 +89,12 @@ void ServerImpl::thread_proc() {
   }
 }
 
-void ServerImpl::start(const std::string &bind) {
+void ServerMongooseImpl::start(const std::string &bind) {
   mg_http_listen(&mgr, bind.c_str(), event_handler, this);
   thread_ = std::make_shared<boost::thread>([this] { thread_proc(); });
 }
 
-void ServerImpl::stop() {
+void ServerMongooseImpl::stop() {
   if (thread_) {
     stop_thread_ = true;
     thread_->interrupt();
@@ -122,11 +103,11 @@ void ServerImpl::stop() {
   thread_.reset();
 }
 
-void ServerImpl::registerController(Controller *controller) { controllers.push_back(controller); }
+void ServerMongooseImpl::registerController(Controller *controller) { controllers.push_back(controller); }
 
-void ServerImpl::event_handler(mg_connection *connection, int ev, void *ev_data) {
+void ServerMongooseImpl::event_handler(mg_connection *connection, int ev, void *ev_data) {
   if (connection->fn_data != nullptr) {
-    const auto *impl = static_cast<ServerImpl *>(connection->fn_data);
+    const auto *impl = static_cast<ServerMongooseImpl *>(connection->fn_data);
     if (ev == MG_EV_ACCEPT) {
 #if MG_ENABLE_OPENSSL
       impl->initTls(connection);
@@ -141,7 +122,7 @@ void ServerImpl::event_handler(mg_connection *connection, int ev, void *ev_data)
   }
 }
 #if MG_ENABLE_OPENSSL
-void ServerImpl::initTls(mg_connection *connection) const {
+void ServerMongooseImpl::initTls(mg_connection *connection) const {
   if (certificate.empty() || key.empty()) {
     return;
   }
@@ -176,7 +157,7 @@ Request build_request(const std::string &ip, const mg_http_message *message, con
   return {ip, is_ssl, method, url, query, headers, data};
 }
 
-void ServerImpl::onHttpRequest(mg_connection *connection, mg_http_message *message) const {
+void ServerMongooseImpl::onHttpRequest(mg_connection *connection, mg_http_message *message) const {
   bool is_ssl = connection->is_tls;
   auto url = std::string(message->uri.buf, message->uri.len);
   auto method = std::string(message->method.buf, message->method.len);

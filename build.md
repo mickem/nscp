@@ -425,17 +425,13 @@ mkdir -p $DEPENDENCIES_FOLDER
 TinyXML2 and the zip backend (libzip) are installed via the apt step above
 (`libtinyxml2-dev`, `libzip-dev`). No download required on Linux.
 
-#### Download Mongoose
-
-Mongoose does not require building instead we need to download and configure where the build system can find
-it.
-
-```bash
-cd $DEPENDENCIES_FOLDER
-export MONGOOSE_VERSION=7.19
-curl -L https://github.com/cesanta/mongoose/archive/refs/tags/${MONGOOSE_VERSION}.zip --output mongoose.zip
-unzip mongoose.zip
-```
+Mongoose is not needed on Linux **when building with the Beast backend**
+(`NSCP_WEB_BACKEND=beast`, which `build-debian.yml` / `build-redhat.yml` set
+in their generated `build.cmake`). Beast is header-only and already covered by
+`libboost-all-dev`. Note the default backend is still `mongoose`, so a plain
+configure that doesn't set `NSCP_WEB_BACKEND=beast` would require the vendored
+Mongoose source — the Linux package builds opt into Beast for exactly this
+reason.
 
 #### Build Rust NSClient check_nsclient client
 
@@ -453,7 +449,6 @@ Create a `build.cmake` file adding the paths to the above tools and libraries.
 ```cmake
 SET(DEPENDENCIES_FOLDER "${HOME}/dependencies")
 SET(NSCP_BOOST_PYTHON_VERSION "python312")
-set(MONGOOSE_SOURCE_DIR "${DEPENDENCIES_FOLDER}/mongoose-7.19")
 set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/rust/nscp_client/target/release")
 ```
 
@@ -461,7 +456,7 @@ set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/rust/nscp_client/target
 
 ```bash
 cd $BUILD_FOLDER/nscp
-cmake $SOURCE_ROOT -DBUILD_VERSION=$NSCP_VERSION
+cmake $SOURCE_ROOT -DBUILD_VERSION=$NSCP_VERSION -DNSCP_WEB_BACKEND=beast
 make -j$(nproc)
 ```
 
