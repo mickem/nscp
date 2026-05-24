@@ -4,6 +4,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/detached.hpp>
+#include <boost/asio/error.hpp>
 #include <boost/asio/spawn.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/beast/core.hpp>
@@ -338,7 +339,15 @@ void ServerBeastImpl::accept_loop(const asio::yield_context& yield) {
     boost::system::error_code aec;
     tcp::socket socket(ioc_);
     acceptor_->async_accept(socket, yield[aec]);
-    if (aec) return;  // operation_aborted on close, or genuine failure
+    if (aec) {
+      // operation_aborted is the normal stop() path (the acceptor was
+      // closed); anything else is a genuine failure — log it before we
+      // stop accepting so the silence isn't mistaken for a clean shutdown.
+      if (aec != boost::asio::error::operation_aborted) {
+        logger_->log_error("Accept failed, stopping accept loop: " + aec.message());
+      }
+      return;
+    }
 
     std::string remote;
     boost::system::error_code rec;

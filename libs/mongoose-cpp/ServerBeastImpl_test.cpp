@@ -579,7 +579,7 @@ TEST(ServerBeastImpl, SchemeLessBindWithSslCertEnablesTls) {
 
   // Write the embedded test PEMs to disk; setSsl() takes file paths
   // (matching the WEBServer call shape we're regressing).
-  const std::string scratch = std::string("/tmp/server_beast_impl_test_") + std::to_string(MWT_GETPID());
+  const std::string scratch = (std::filesystem::temp_directory_path() / ("server_beast_impl_test_" + std::to_string(MWT_GETPID()))).string();
   std::error_code mkdir_ec;
   std::filesystem::create_directories(scratch, mkdir_ec);
   const std::string cert_path = scratch + "/cert.pem";
@@ -698,10 +698,15 @@ RawResponse beast_post(const std::string& host, int port, std::size_t body_size)
 TEST(ServerBeastImpl, PortOutOfRangeIsRejectedAtStart) {
   auto logger = std::make_shared<CollectingLogger>();
   std::unique_ptr<ServerBeastImpl> server(new ServerBeastImpl(logger));
-  // 99999 used to truncate to 99999 & 0xFFFF = 34463 and bind the wrong
-  // port silently. Now it must refuse and log.
-  server->start("127.0.0.1:99999");
-  EXPECT_FALSE(wait_listening(99999 & 0xFFFF, std::chrono::milliseconds(200))) << "server bound truncated port — guard regressed";
+  // Use an out-of-range port whose low 16 bits land on a (likely free) port
+  // from our usual range, so the "did it bind the truncated value?" probe
+  // below can't collide with an unrelated listener on a fixed port.
+  // Historically a value like 99999 truncated to (99999 & 0xFFFF) and bound
+  // silently; now it must be refused and logged.
+  const int truncated = choose_port_base() + 40;  // within the 40000+ test range
+  const long oob_port = 0x10000L + truncated;      // > 65535 -> rejected; (oob_port & 0xFFFF) == truncated
+  server->start("127.0.0.1:" + std::to_string(oob_port));
+  EXPECT_FALSE(wait_listening(truncated, std::chrono::milliseconds(200))) << "server bound truncated port — guard regressed";
   ASSERT_FALSE(logger->errors.empty());
   EXPECT_NE(logger->errors.front().find("out of range"), std::string::npos) << logger->errors.front();
 }

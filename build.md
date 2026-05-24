@@ -425,10 +425,13 @@ mkdir -p $DEPENDENCIES_FOLDER
 TinyXML2 and the zip backend (libzip) are installed via the apt step above
 (`libtinyxml2-dev`, `libzip-dev`). No download required on Linux.
 
-Mongoose is not needed on Linux: the WEBServer module's HTTP backend is
-Boost.Beast (selected via `-DNSCP_WEB_BACKEND=beast`, which is what
-`build-debian.yml` / `build-redhat.yml` pass). Beast is header-only and
-already covered by `libboost-all-dev`.
+Mongoose is not needed on Linux **when building with the Beast backend**
+(`NSCP_WEB_BACKEND=beast`, which `build-debian.yml` / `build-redhat.yml` set
+in their generated `build.cmake`). Beast is header-only and already covered by
+`libboost-all-dev`. Note the default backend is still `mongoose`, so a plain
+configure that doesn't set `NSCP_WEB_BACKEND=beast` would require the vendored
+Mongoose source — the Linux package builds opt into Beast for exactly this
+reason.
 
 #### Build Rust NSClient check_nsclient client
 

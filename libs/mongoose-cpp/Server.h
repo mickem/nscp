@@ -41,14 +41,13 @@ class NSCAPI_EXPORT Server {
   /**
    * Register a new controller on the server.
    *
-   * Thread-safety contract: implementations MUST allow this to be called
-   * from any thread, both before and after `start()`. The Beast backend
-   * snapshots the controller list per-request under a mutex; the mongoose
-   * backend serves traffic on a single poll thread so calls from the
-   * caller's thread race vector::push_back against the poll thread's
-   * read — historically tolerated because callers register all
-   * controllers before `start()`, but the safer pattern is still to
-   * complete registration before starting.
+   * Thread-safety: always safe to call before `start()`. After `start()` it
+   * is backend-specific — the Beast backend snapshots the controller list
+   * per-request under a mutex, so concurrent registration is safe; the
+   * mongoose backend serves traffic on a single poll thread and races a
+   * `vector::push_back` against that thread's read, so with the mongoose
+   * backend all controllers must be registered before `start()`. Registering
+   * everything before `start()` is the portable pattern.
    *
    * @param controller a pointer to a controller (server takes ownership)
    */
@@ -57,9 +56,11 @@ class NSCAPI_EXPORT Server {
   /**
    * Setup the SSL options.
    *
-   * Must be called before `start()`. Calling after `start()` is a no-op
-   * (with a logged warning); the live SSL context is only built when
-   * `start()` runs.
+   * Should be called before `start()`. Behaviour after `start()` is
+   * backend-specific: the Beast backend ignores the call and logs a warning
+   * (its SSL context is built once at `start()`), while the mongoose backend
+   * applies the new cert/key to subsequent connections. Set before `start()`
+   * for consistent behaviour across backends.
    *
    * @param certificate path to the PEM-encoded certificate
    * @param key path to the PEM-encoded private key (may equal `certificate`

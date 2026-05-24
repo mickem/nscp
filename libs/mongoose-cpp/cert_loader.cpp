@@ -8,14 +8,20 @@ namespace Mongoose {
 namespace cert_loader {
 
 std::string load_file(const std::string& path, const std::string& hint) {
-  try {
-    const std::ifstream file(path);
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
-  } catch (const std::exception& e) {
-    throw nsclient::nsclient_exception("Failed to load " + hint + " from " + path + ": " + e.what());
+  // A default std::ifstream doesn't throw, so a missing/unreadable file would
+  // otherwise yield an empty string silently — making a TLS misconfiguration
+  // look like an empty certificate much later. Detect open/read failures and
+  // report them so the cause is obvious.
+  std::ifstream file(path, std::ios::binary);
+  if (!file.is_open()) {
+    throw nsclient::nsclient_exception("Failed to open " + hint + " file: " + path);
   }
+  std::stringstream buffer;
+  buffer << file.rdbuf();
+  if (file.bad()) {
+    throw nsclient::nsclient_exception("Failed to read " + hint + " file: " + path);
+  }
+  return buffer.str();
 }
 
 std::pair<std::string, std::string> load_certificates(const std::string& cert_path, const std::string& key_path) {
