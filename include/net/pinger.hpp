@@ -118,7 +118,14 @@ class pinger {
     is >> ipv4_hdr >> icmp_hdr;
 
     if (is && icmp_hdr.type() == icmp_header::echo_reply && icmp_hdr.identifier() == identifier_ && icmp_hdr.sequence_number() == sequence_number_) {
-      timer_.cancel();
+      // cancel() can throw (the non-throwing cancel(ec) overload is removed
+      // under BOOST_ASIO_NO_DEPRECATED). Swallow it so it can't escape this
+      // handler and propagate out of the caller's io_service.run(); the reply
+      // is still recorded below.
+      try {
+        timer_.cancel();
+      } catch (...) {
+      }
       result_.num_replies_++;
 
       const auto now = std::chrono::steady_clock::now();

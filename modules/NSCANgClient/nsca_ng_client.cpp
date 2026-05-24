@@ -240,6 +240,12 @@ class nsca_ng_connection {
   }
 
   ~nsca_ng_connection() {
+    // cancel() can throw, and an exception escaping a destructor risks
+    // std::terminate during stack unwinding. The non-throwing cancel(ec)
+    // overload is deprecated/removed under BOOST_ASIO_NO_DEPRECATED, so we use
+    // the throwing overload and swallow any error here. The catch-all is
+    // deliberate: narrowing it would let a non-std exception escape and
+    // terminate the process, defeating the guard.
     try {
       timer_.cancel();
     } catch (...) {
@@ -265,7 +271,13 @@ class nsca_ng_connection {
 
     initiator([&op_ec, this](const boost::system::error_code &ec) {
       op_ec = ec;
-      timer_.cancel();
+      // cancel() can throw (the non-throwing cancel(error_code&) overload is
+      // removed under BOOST_ASIO_NO_DEPRECATED). Swallow it here so a completed
+      // operation isn't turned into an exception escaping run_one() below.
+      try {
+        timer_.cancel();
+      } catch (...) {
+      }
     });
 
     io_service_.restart();

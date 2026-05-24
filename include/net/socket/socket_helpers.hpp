@@ -314,13 +314,24 @@ bool write_with_timeout(boost::asio::io_context& io_service, AsyncWriteStream& s
   timer.expires_after(duration);
   timer.async_wait([&timer_result](const auto& e) { set_result(&timer_result, e); });
 
-  boost::optional<boost::system::error_code> read_result;
-  async_write(sock, buffers, [&read_result](const auto& e) { set_result(&read_result, e); });
+  boost::optional<boost::system::error_code> write_result;
+  // Record both success and failure here (unlike the timer, whose handler
+  // ignores its own cancellation). If write errors were dropped, the call would
+  // block until the timeout elapsed and then report a (false) timeout instead.
+  async_write(sock, buffers, [&write_result](const auto& e) { write_result = e; });
 
   io_service.restart();
   while (io_service.run_one()) {
-    if (read_result) {
-      timer.cancel();
+    if (write_result) {
+      // cancel() can throw (the non-throwing cancel(ec) overload is removed
+      // under BOOST_ASIO_NO_DEPRECATED). Swallow that incidental failure so a
+      // completed write is reported reliably; a genuine write error is still
+      // surfaced explicitly below.
+      try {
+        timer.cancel();
+      } catch (...) {
+      }
+      if (*write_result) throw boost::system::system_error(*write_result);
       return true;
     } else if (timer_result) {
       rawSocket.close();
@@ -328,7 +339,6 @@ bool write_with_timeout(boost::asio::io_context& io_service, AsyncWriteStream& s
     }
   }
 
-  if (read_result && *read_result) throw boost::system::system_error(*read_result);
   return false;
 }
 
@@ -398,26 +408,30 @@ bool read_with_timeout(boost::asio::io_context& io_service, AsyncReadStream& soc
   timer.async_wait([&timer_result](const auto& e) { set_result(&timer_result, e); });
 
   boost::optional<boost::system::error_code> read_result;
-  async_read(sock, buffers, [&read_result](const auto& e) { set_result(&read_result, e); });
+  // Record both success and failure here (unlike the timer, whose handler
+  // ignores its own cancellation). If read errors were dropped, the call would
+  // block until the timeout elapsed and then report a (false) timeout instead.
+  async_read(sock, buffers, [&read_result](const auto& e) { read_result = e; });
 
   io_service.restart();
   while (io_service.run_one()) {
     if (read_result) {
-      timer.cancel();
+      // cancel() can throw (the non-throwing cancel(ec) overload is removed
+      // under BOOST_ASIO_NO_DEPRECATED). Swallow that incidental failure so a
+      // completed read is reported reliably; a genuine read error is still
+      // surfaced explicitly below.
+      try {
+        timer.cancel();
+      } catch (...) {
+      }
+      if (*read_result) throw boost::system::system_error(*read_result);
       return true;
     } else if (timer_result) {
       rawSocket.close();
       return false;
-    } else {
-      // 					if (!rawSocket.is_open()) {
-      // 						timer.cancel();
-      // 						rawSocket.close();
-      // 						return false;
-      // 					}
     }
   }
 
-  if (read_result && *read_result) throw boost::system::system_error(*read_result);
   return false;
 }
 }  // namespace io
