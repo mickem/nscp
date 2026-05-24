@@ -412,6 +412,20 @@ NSCP_CREATE_TEST(
 )
 
 NSCP_CREATE_TEST(
+    unzip_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/bytes/unzip_test.cpp
+        ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_miniz
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
     threads_test
     SOURCES
         ${NSCP_INCLUDEDIR}/threads/queue_test.cpp

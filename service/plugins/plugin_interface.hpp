@@ -3,14 +3,19 @@
 #include <NSCAPI.h>
 
 #include <boost/filesystem/path.hpp>
+#include <memory>
 #include <nsclient/logger/logger.hpp>
 #include <string>
 #include <utility>
 namespace nsclient {
 namespace core {
 class plugin_exception : public std::exception {
-  std::string file_;
-  std::string error_;
+  // The strings live behind shared_ptr so the (implicit) copy constructor is
+  // noexcept: a thrown exception may be copied during propagation, and a
+  // throwing copy there would call std::terminate (cert-err60-cpp). Copying a
+  // shared_ptr only bumps a refcount.
+  std::shared_ptr<const std::string> file_;
+  std::shared_ptr<const std::string> error_;
 
  public:
   //////////////////////////////////////////////////////////////////////////
@@ -19,7 +24,8 @@ class plugin_exception : public std::exception {
   /// @param error the error message
   ///
   /// @author mickem
-  plugin_exception(std::string module, std::string error) : file_(std::move(module)), error_(std::move(error)) {}
+  plugin_exception(std::string module, std::string error)
+      : file_(std::make_shared<const std::string>(std::move(module))), error_(std::make_shared<const std::string>(std::move(error))) {}
   ~plugin_exception() noexcept override = default;
 
   //////////////////////////////////////////////////////////////////////////
@@ -27,9 +33,9 @@ class plugin_exception : public std::exception {
   /// @return the error message
   ///
   /// @author mickem
-  const char *what() const noexcept override { return error_.c_str(); }
-  std::string file() const noexcept { return file_; }
-  std::string reason() const noexcept { return error_; }
+  const char *what() const noexcept override { return error_->c_str(); }
+  std::string file() const { return *file_; }
+  std::string reason() const { return *error_; }
 };
 
 class plugin_interface : public logging::logging_subscriber {

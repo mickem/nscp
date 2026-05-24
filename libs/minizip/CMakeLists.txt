@@ -21,6 +21,9 @@ if(MINIZ_FOUND)
 
     add_library(${TARGET} STATIC ${miniz_SOURCE})
     target_include_directories(${TARGET} PUBLIC ${MINIZ_INCLUDE_DIR})
+    # Propagate the backend selection to consumers (e.g. include/bytes/unzip.cpp)
+    # so linking this target is enough to pick the miniz code path.
+    target_compile_definitions(${TARGET} PUBLIC MINIZ)
 
     set_target_properties(
         ${TARGET}

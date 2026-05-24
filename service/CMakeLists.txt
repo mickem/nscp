@@ -23,6 +23,7 @@ set(service_SRCS
     plugins/dll_plugin.cpp
     plugins/plugin_cache.cpp
     plugins/zip_plugin.cpp
+    ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
     ${NSCP_INCLUDEDIR}/str/utf8.cpp
     # logger
     logger/nsclient_logger.cpp
@@ -263,6 +264,7 @@ NSCP_CREATE_TEST(
         plugins/dll_plugin_test.cpp
         plugins/plugin_list_test.cpp
         plugins/zip_plugin.cpp
+        ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
         path_manager.cpp
         ${service_test_SRCS}
         ${NSCP_INCLUDEDIR}/json/use_json.cpp
