@@ -126,7 +126,6 @@ set(ETC_TARGET_FOLDER etc)
 set(NSCP_GLOBAL_DEFINES
     ${NSCP_GLOBAL_DEFINES}
     -DBOOST_PHOENIX_STL_TUPLE_H_
-    -DBOOST_ASIO_NO_DEPRECATED
 )
 if(WIN32)
     # On Windows we build boost with layout=system
