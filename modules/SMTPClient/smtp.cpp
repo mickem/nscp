@@ -138,7 +138,13 @@ class sync_io {
     init([&](const boost::system::error_code& e, std::size_t n = 0) {
       out_ec = e;
       bytes = n;
-      timer.cancel();
+      // cancel() can throw (the non-throwing cancel(ec) overload is removed
+      // under BOOST_ASIO_NO_DEPRECATED). Swallow it so an incidental failure
+      // can't escape this handler and misreport a successful operation.
+      try {
+        timer.cancel();
+      } catch (...) {
+      }
     });
     io_.restart();
     io_.run();

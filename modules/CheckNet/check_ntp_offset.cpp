@@ -117,7 +117,13 @@ void run_ntp_check(const std::string &server, unsigned short port, int timeout_m
       recv_ec = ec;
       bytes_received = n;
       recv_done = true;
-      timer.cancel();
+      // cancel() can throw (the non-throwing cancel(ec) overload is removed
+      // under BOOST_ASIO_NO_DEPRECATED). Swallow it so an incidental failure
+      // can't escape this handler and misreport a successful receive.
+      try {
+        timer.cancel();
+      } catch (...) {
+      }
     });
 
     io_service.run();

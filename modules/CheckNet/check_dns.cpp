@@ -86,7 +86,13 @@ void run_dns_check(const std::string &host, int timeout_ms, const std::vector<st
         const std::string a = entry.endpoint().address().to_string();
         if (seen.insert(a).second) addrs.push_back(a);
       }
-      timer.cancel();
+      // cancel() can throw (the non-throwing cancel(ec) overload is removed
+      // under BOOST_ASIO_NO_DEPRECATED). Swallow it so an incidental failure
+      // can't escape this handler and misreport a successful resolve.
+      try {
+        timer.cancel();
+      } catch (...) {
+      }
     });
 
     io_service.run();

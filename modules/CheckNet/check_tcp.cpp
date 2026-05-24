@@ -88,7 +88,13 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
     boost::asio::async_connect(socket, endpoints, [&](const boost::system::error_code &ec, const tcp::endpoint &) {
       connect_ec = ec;
       connect_done = true;
-      timer.cancel();
+      // cancel() can throw (the non-throwing cancel(ec) overload is removed
+      // under BOOST_ASIO_NO_DEPRECATED). Swallow it so an incidental failure
+      // can't escape this handler and misreport a successful connect.
+      try {
+        timer.cancel();
+      } catch (...) {
+      }
     });
 
     io_service.run();
@@ -137,7 +143,13 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
       boost::asio::async_read(socket, response_buf, boost::asio::transfer_at_least(1), [&](const boost::system::error_code &ec, std::size_t) {
         read_ec = ec;
         read_done = true;
-        timer.cancel();
+        // cancel() can throw (the non-throwing cancel(ec) overload is removed
+        // under BOOST_ASIO_NO_DEPRECATED). Swallow it so an incidental failure
+        // can't escape this handler and misreport a successful read.
+        try {
+          timer.cancel();
+        } catch (...) {
+        }
       });
 
       io_service.run();
