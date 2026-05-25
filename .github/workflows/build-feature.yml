@@ -6,6 +6,8 @@ permissions:
 on:
   push:
     branches-ignore: [mob/**, main]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   get-version:
