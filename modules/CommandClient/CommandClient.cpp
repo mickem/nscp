@@ -19,6 +19,7 @@
 
 #include "CommandClient.h"
 
+#include <atomic>
 #include <boost/algorithm/string.hpp>
 #include <boost/thread.hpp>
 #include <iostream>
@@ -34,6 +35,10 @@
 #include <windows.h>
 #pragma warning(disable : 4100)
 #else
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/signal_set.hpp>
+#include <csignal>
+#include <string>
 #include <sys/select.h>
 #include <termios.h>
 #include <unistd.h>
@@ -109,7 +114,11 @@ void CommandClient::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
   log_data.add_message(message.level() == PB::Log::LogEntry_Entry_Level_LOG_CRITICAL || message.level() == PB::Log::LogEntry_Entry_Level_LOG_ERROR, entry);
   */
 }
-bool is_running = false;
+// Atomic so the Windows console handler, the POSIX signal_set callback,
+// the stdin-driven read_input_thread and the `exit` command path all
+// see a consistent value without surprising the compiler. Lock-free on
+// every platform we care about.
+std::atomic<bool> is_running{false};
 boost::thread input_thread;
 
 #ifdef WIN32
@@ -156,7 +165,8 @@ bool input_available() {
 }
 
 void CommandClient::read_input_thread() const {
-  is_running = true;
+  // is_running is set true by commandLineExec before this thread starts, so an
+  // early signal-driven shutdown isn't lost (see comment there).
   while (is_running) {
     if (input_available()) {
       std::string s;
@@ -188,6 +198,12 @@ bool CommandClient::commandLineExec(const int target_mode, const PB::Commands::E
     NSC_LOG_ERROR("Command client is already running!");
   }
 
+  // Mark running *before* installing the signal/console handlers and starting
+  // the input thread. If a SIGTERM/SIGINT (or Ctrl+C) arrives in that window
+  // it sets is_running=false; were the input thread to set it true on startup
+  // it would clobber that and lose the shutdown request.
+  is_running = true;
+
 #ifdef WIN32
   if (!SetConsoleCtrlHandler(consoleHandler, TRUE)) {
     NSC_LOG_MESSAGE("Could not set control handler");
@@ -196,10 +212,39 @@ bool CommandClient::commandLineExec(const int target_mode, const PB::Commands::E
   // 	if (core_->get_service_control().is_started())
   // 		info(__LINE__, "Service seems to be started (Sockets and such will probably not work)...");
 
+#ifndef WIN32
+  // Graceful shutdown on POSIX SIGINT / SIGTERM. Without this nscp dies
+  // abruptly when the test harness (or systemd, or `docker stop`) sends
+  // SIGTERM — which bypasses atexit handlers and hides leaks from
+  // LeakSanitizer. boost::asio::signal_set is async-signal-safe by
+  // construction: the OS-level handler does a self-pipe write and the
+  // user callback runs on our io_context thread in normal context.
+  boost::asio::io_context signal_ioc;
+  boost::asio::signal_set signals(signal_ioc, SIGINT, SIGTERM);
+  signals.async_wait([](const boost::system::error_code& ec, int sig) {
+    if (ec) return;  // cancelled during shutdown — nothing to do
+    NSC_LOG_MESSAGE("Received signal " + std::to_string(sig) + ", shutting down");
+    is_running = false;
+  });
+  boost::thread signal_thread([&signal_ioc] { signal_ioc.run(); });
+#endif
+
   input_thread = boost::thread([this]() { this->read_input_thread(); });
 
   NSC_DEBUG_MSG("Enter command to execute, help for help or exit to exit...");
   input_thread.join();
+
+#ifndef WIN32
+  // Drain the signal handler naturally: cancel the pending async_wait
+  // (callback runs once with operation_aborted and returns), io_context
+  // exits because no work remains, signal thread joins.
+  {
+    boost::system::error_code cancel_ec;
+    signals.cancel(cancel_ec);
+  }
+  if (signal_thread.joinable()) signal_thread.join();
+#endif
+
   nscapi::protobuf::functions::set_response_good(*response, "Done");
   return true;
 }

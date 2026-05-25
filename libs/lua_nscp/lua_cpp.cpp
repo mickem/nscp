@@ -377,10 +377,17 @@ void create_lib_from_pointer(lua_State *L, const luaL_Reg *list) {
 }
 }  // namespace
 
-void lua::lua_wrapper::setup_class(const std::string name, const luaL_Reg *ctors, const luaL_Reg *functions) {
+void lua::lua_wrapper::setup_class(const std::string name, const luaL_Reg *ctors, const luaL_Reg *functions, lua_CFunction gc_fn) {
   luaL_newmetatable(L, (internal_user_instance_prefix + name).c_str());
   lua_pushvalue(L, -1);
   lua_setfield(L, -2, "__index");
+  if (gc_fn != nullptr) {
+    // Register `__gc` BEFORE luaL_setfuncs so a caller-supplied "__gc"
+    // entry in `functions` (if any) wins — that path isn't used today
+    // but the ordering matches Lua's own newlib helpers.
+    lua_pushcfunction(L, gc_fn);
+    lua_setfield(L, -2, "__gc");
+  }
   luaL_setfuncs(L, functions, 0);
   create_lib_from_pointer(L, ctors);
   lua_setglobal(L, name.c_str());

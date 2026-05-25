@@ -442,21 +442,21 @@ cd $SOURCE_ROOT/rust/check_nsclient
 cargo build --release
 ```
 
-### Configuration
-
-Create a `build.cmake` file adding the paths to the above tools and libraries.
-
-```cmake
-SET(DEPENDENCIES_FOLDER "${HOME}/dependencies")
-SET(NSCP_BOOST_PYTHON_VERSION "python312")
-set(CHECK_NSCLIENT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/rust/nscp_client/target/release")
-```
-
 ### Build NSClient++
+
+Linux passes its configuration on the `cmake` command line — no `build.cmake`
+file is needed (Windows still uses one, see the sections above). The cache
+remembers everything so subsequent `cmake $SOURCE_ROOT` calls in the same
+build directory don't need to repeat the flags.
 
 ```bash
 cd $BUILD_FOLDER/nscp
-cmake $SOURCE_ROOT -DBUILD_VERSION=$NSCP_VERSION -DNSCP_WEB_BACKEND=beast
+cmake $SOURCE_ROOT \
+    -DBUILD_VERSION=$NSCP_VERSION \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DNSCP_WEB_BACKEND=beast \
+    -DNSCP_BOOST_PYTHON_VERSION=python312 \
+    -DCHECK_NSCLIENT_LOCATION="$SOURCE_ROOT/rust/check_nsclient/target/release"
 make -j$(nproc)
 ```
 
@@ -530,5 +530,51 @@ RUN_CMK_SITE_TEST=1 npx jest --testPathPattern cmk-site             # heavy opt-
 
 The Checkmk site end-to-end test pulls a ~500MB image and is skipped unless `RUN_CMK_SITE_TEST=1` is set. The MSI
 installer tests (`tests/msi/`) stay Windows-only and are not part of this harness.
+
+#### Running under sanitizers
+
+The integration harness understands a sanitizer-instrumented `nscp`: on every
+`NscpInstance.stop()` it scans the daemon's captured stderr for AddressSanitizer
+/ LeakSanitizer / UndefinedBehaviorSanitizer reports and fails the test (printing
+the full report) if it finds one. This surfaces a leak or UB hit even when the
+test's own assertions all passed — without it, a report on a passing test would
+be swallowed by the capture buffer and never shown.
+
+Build a sanitizer-instrumented tree with `tools/sanitizers/run.sh`. It
+configures `build-<sanitizers>/` with `-DNSCP_SANITIZE` and
+`-DCMAKE_BUILD_TYPE=RelWithDebInfo`, builds the whole daemon **and all its
+modules** (not just the `*_test` binaries), then runs the C++ unit tests under
+the sanitizer:
+
+```bash
+# From the repo root. ASan + UBSan by default -> build-address+undefined/
+tools/sanitizers/run.sh
+
+# Or pick a different sanitizer (each gets its own build dir):
+SANITIZE=thread tools/sanitizers/run.sh
+```
+
+That leaves a fully instrumented daemon at `build-address+undefined/nscp` (the
+directory is `build-${SANITIZE//,/+}`). Point the harness at it and run the
+suites as usual:
+
+```bash
+cd tests
+export NSCP_BIN=$PWD/../build-address+undefined/nscp
+npm test
+```
+
+Unlike the ctest unit tests — where `run.sh` / CMake bake the sanitizer runtime
+options into each test's `ENVIRONMENT` — the harness only forwards your shell
+environment to the spawned daemon. Set the options yourself if you need to tune
+behaviour or apply the repo's suppression lists:
+
+```bash
+export LSAN_OPTIONS=suppressions=$PWD/../tools/sanitizers/lsan-suppressions.txt
+export UBSAN_OPTIONS=suppressions=$PWD/../tools/sanitizers/ubsan-suppressions.txt:print_stacktrace=1
+```
+
+See the header of `tools/sanitizers/run.sh` and
+`.github/workflows/tests-sanitizers.yml` for more variations.
 
 See `tests/integration/README.md` for the full layout, fixture documentation

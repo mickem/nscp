@@ -155,7 +155,7 @@ MKPaketData *check_mk::check_mk_packet_wrapper::wrap(lua_State *L) {
 }
 int check_mk::check_mk_packet_wrapper::destroy(lua_State *L) {
   lua::lua_wrapper instance(L);
-  return instance.destroy_user_object_instance<MKData>();
+  return instance.destroy_user_object_instance<MKPaketData>();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -284,7 +284,7 @@ MKSectionData *check_mk::check_mk_section_wrapper::wrap(lua_State *L) {
 }
 int check_mk::check_mk_section_wrapper::destroy(lua_State *L) {
   lua::lua_wrapper instance(L);
-  return instance.destroy_user_object_instance<MKData>();
+  return instance.destroy_user_object_instance<MKSectionData>();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -368,7 +368,7 @@ MKLineData *check_mk::check_mk_line_wrapper::wrap(lua_State *L) {
 }
 int check_mk::check_mk_line_wrapper::destroy(lua_State *L) {
   lua::lua_wrapper instance(L);
-  return instance.destroy_user_object_instance<MKData>();
+  return instance.destroy_user_object_instance<MKLineData>();
 }
 
 //////////////////////////////////////////////////////////////////////////

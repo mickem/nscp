@@ -3,6 +3,13 @@
 # Format (one per line):
 #   leak:<symbol or library substring>
 #
-# The current sanitizer run is clean — this file is a placeholder so future
-# noise from third-party libraries (boost, openssl, lua, python, ...) can be
-# silenced without changing the workflow.
+# Module load-time global state (helper_singleton -> core_wrapper -> pimpl,
+# per-module static strings, etc.) allocated while a plugin .so runs its
+# static initializers under dlopen. NSClient++ modules export STB_GNU_UNIQUE
+# symbols (C++ template/inline statics), which makes glibc mark them NODELETE:
+# dlclose never unmaps them, so their destructors run only in _dl_fini at
+# process exit — *after* LSan's leak check. The state is one-per-module and
+# bounded (NODELETE => loaded at most once), and it IS reclaimed at exit, so
+# this is a shutdown-ordering false positive rather than a real leak. Every
+# such allocation passes through the plugin loader's load_dll/dlopen path.
+leak:nsclient::core::dll_plugin::load_dll

@@ -48,6 +48,24 @@ class Lua_State : boost::noncopyable {
 
 const std::string internal_user_instance_prefix = "nscp.internal.";
 
+namespace internal {
+/// __gc handler for userdata produced by `push_user_object_instance<T>`.
+/// The userdata holds a `T*`; on garbage-collection we delete the
+/// heap-allocated T to balance the `new T()` from push_user_object_instance.
+/// Without this hook every Lua state shutdown leaks one T per call
+/// site — LSan caught the CoreData / RegistryData drops on a clean
+/// nscp test exit.
+template <class T>
+int destroy_user_object_instance_gc(lua_State *L) {
+  T **ptr = reinterpret_cast<T **>(luaL_checkudata(L, 1, (internal_user_instance_prefix + T::tag).c_str()));
+  if (ptr != nullptr && *ptr != nullptr) {
+    delete *ptr;
+    *ptr = nullptr;
+  }
+  return 0;
+}
+}  // namespace internal
+
 class lua_wrapper {
  public:
   lua_State *L;
@@ -88,7 +106,21 @@ class lua_wrapper {
     return reinterpret_cast<T *>(luaL_checkudata(L, pos, tag.c_str()));
   }
 
-  void setup_class(const std::string name, const luaL_Reg *ctors, const luaL_Reg *functions);
+  // `gc_fn` is registered as the `__gc` metamethod when non-null.
+  // Pass `&internal::destroy_user_object_instance_gc<T>` (or use the
+  // templated overload below) whenever `push_user_object_instance<T>`
+  // is paired with this class — otherwise each T allocation leaks at
+  // Lua state shutdown.
+  void setup_class(const std::string name, const luaL_Reg *ctors, const luaL_Reg *functions, lua_CFunction gc_fn = nullptr);
+
+  /// Convenience overload: same as setup_class(T::tag, ctors, functions,
+  /// &destroy_user_object_instance_gc<T>). Use this for any T that's
+  /// instantiated via push_user_object_instance<T>.
+  template <class T>
+  void setup_class(const luaL_Reg *ctors, const luaL_Reg *functions) {
+    setup_class(T::tag, ctors, functions, &internal::destroy_user_object_instance_gc<T>);
+  }
+
   void setup_global_function(const std::string name, const lua_CFunction function);
   void setup_functions(const std::string name, const luaL_Reg *functions);
 
