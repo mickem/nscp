@@ -110,9 +110,8 @@ if(NSCP_WEB_BACKEND STREQUAL "beast")
 endif()
 
 find_package(
-    Boost
+    Boost 1.75
     COMPONENTS
-        system
         filesystem
         thread
         regex
