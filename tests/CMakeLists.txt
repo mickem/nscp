@@ -472,10 +472,18 @@ set(MONGOOSE_WRAPPER_TEST_SOURCES
 # C-API symbols (which nscp_mongoose doesn't export).
 set(_nscp_wrapper_test_backend_libs)
 if(NSCP_WEB_BACKEND STREQUAL "beast")
-    list(APPEND MONGOOSE_WRAPPER_TEST_SOURCES ${MONGOOSE_CPP_DIR}/ServerBeastImpl_test.cpp)
-    list(APPEND _nscp_wrapper_test_backend_libs ${Boost_COROUTINE_LIBRARY} ${Boost_CONTEXT_LIBRARY})
+    list(
+        APPEND MONGOOSE_WRAPPER_TEST_SOURCES
+        ${MONGOOSE_CPP_DIR}/ServerBeastImpl_test.cpp
+    )
+    list(
+        APPEND _nscp_wrapper_test_backend_libs
+        ${Boost_COROUTINE_LIBRARY}
+        ${Boost_CONTEXT_LIBRARY}
+    )
 else()
-    list(APPEND MONGOOSE_WRAPPER_TEST_SOURCES
+    list(
+        APPEND MONGOOSE_WRAPPER_TEST_SOURCES
         ${MONGOOSE_CPP_DIR}/Server_test.cpp
         ${MONGOOSE_INCLUDE_DIR}/mongoose.c
     )
@@ -497,7 +505,11 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 if(NSCP_WEB_BACKEND STREQUAL "mongoose")
-    target_include_directories(mongoose_wrapper_test PRIVATE ${MONGOOSE_INCLUDE_DIR})
+    target_include_directories(
+        mongoose_wrapper_test
+        PRIVATE
+            ${MONGOOSE_INCLUDE_DIR}
+    )
 endif()
 if(OPENSSL_FOUND)
     if(NSCP_WEB_BACKEND STREQUAL "mongoose")
@@ -575,7 +587,6 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/settings/impl/settings_dummy_test.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
         ${SETTINGS_INI_TEST_SOURCES}
-        ${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
     LIBRARIES
         GTest::gtest_main
         ${Boost_FILESYSTEM_LIBRARY}

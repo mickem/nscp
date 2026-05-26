@@ -241,7 +241,8 @@ jobs:
         ctest --output-on-failure -C Release
 
     - name: Sign binaries
-      if: github.actor != 'dependabot[bot]'
+      # Only sign on main; PRs lack the signing secrets and don't need signed builds.
+      if: github.ref == 'refs/heads/main'
       uses: ./.github/actions/sign-windows-binaries
       with:
         azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -262,7 +263,7 @@ jobs:
         azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
         azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-        signing-enabled: ${{ github.actor != 'dependabot[bot]' }}
+        signing-enabled: ${{ github.ref == 'refs/heads/main' }}
 
     - uses: actions/upload-artifact@v6
       with:

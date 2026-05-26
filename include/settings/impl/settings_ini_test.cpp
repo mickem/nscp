@@ -439,3 +439,137 @@ TEST(settings_ini, save_sorted_already_sorted_input) {
   const auto block = content.substr(pos_alpha);
   EXPECT_LT(block.find("a ="), block.find("b ="));
 }
+
+// ---------------------------------------------------------------------------
+// UTF-8 / Unicode conversion coverage.
+//
+// Production always runs the INI store in UTF-8 mode: load_data() calls
+// SetUnicode(), and CSimpleIni is the wchar_t CSimpleIniW variant on every
+// platform (-D_UNICODE is set globally in the top-level CMakeLists). Values
+// are held internally as wchar_t, so a value only crosses the SI_CONVERTER
+// boundary at file I/O - twice over a save+reload round trip:
+//   set_real_value + save -> ConvertToStore   (wchar_t -> UTF-8 bytes on disk)
+//   reopen + load          -> ConvertFromStore (UTF-8 bytes -> wchar_t)
+// The converter that actually runs is platform-specific (SI_CONVERT_WIN32 on
+// Windows, SI_CONVERT_GENERIC backed by str/utf8.cpp elsewhere), so these
+// tests cover whichever one is compiled. Every other settings test uses pure
+// ASCII, which round-trips identically through all converters and never
+// exercises the multi-byte path - so a save+reload here is required, an
+// in-memory set->get would bypass the converter entirely.
+//
+// Byte sequences are written with explicit \x escapes so the test does not
+// depend on the source-file encoding or a compiler /utf-8 flag:
+//   U+00E9  e-acute -> C3 A9          Latin-1 accent
+//   U+65E5  CJK     -> E6 97 A5
+//   U+672C  CJK     -> E6 9C AC
+//   U+0439  Cyrillic-> D0 B9
+//   U+1F600 emoji   -> F0 9F 98 80    outside the BMP; surrogate pair on Windows
+namespace {
+const std::string kUtf8Latin = "caf\xC3\xA9";                                                      // cafe-acute
+const std::string kUtf8Cjk = "\xE6\x97\xA5\xE6\x9C\xAC";                                           // two CJK chars
+const std::string kUtf8Mixed = "caf\xC3\xA9 \xE6\x97\xA5\xE6\x9C\xAC \xD0\xB9 \xF0\x9F\x98\x80";   // Latin + CJK + Cyrillic + emoji
+}  // namespace
+
+// Core regression guard: a non-ASCII value must survive set -> save -> reload
+// -> get unchanged. If ConvertToStore silently produced empty output (the
+// failure mode the simpleini review flagged) the value would come back empty
+// and this would fail.
+TEST(settings_ini, utf8_value_roundtrips_through_save_and_reload) {
+  temp_dir dir;
+  auto file = dir.file("utf8.ini");
+  write_file(file, "");
+  mock_settings_core core;
+  {
+    settings::INISettings s(&core, "test", ini_context(file));
+    s.set_real_value({"/section", "latin"}, settings::settings_interface_impl::conainer(kUtf8Latin, /*dirty=*/true));
+    s.set_real_value({"/section", "cjk"}, settings::settings_interface_impl::conainer(kUtf8Cjk, /*dirty=*/true));
+    s.set_real_value({"/section", "mixed"}, settings::settings_interface_impl::conainer(kUtf8Mixed, /*dirty=*/true));
+    s.save(false);
+  }
+  settings::INISettings reloaded(&core, "test", ini_context(file));
+  auto latin = reloaded.get_real_string({"/section", "latin"});
+  auto cjk = reloaded.get_real_string({"/section", "cjk"});
+  auto mixed = reloaded.get_real_string({"/section", "mixed"});
+  ASSERT_TRUE(latin.has_value());
+  ASSERT_TRUE(cjk.has_value());
+  ASSERT_TRUE(mixed.has_value());
+  EXPECT_EQ(*latin, kUtf8Latin);
+  EXPECT_EQ(*cjk, kUtf8Cjk);
+  EXPECT_EQ(*mixed, kUtf8Mixed);
+}
+
+// The on-disk encoding must be the actual UTF-8 byte sequence produced by
+// ConvertToStore, not the platform's narrow code page. Finding the raw bytes
+// proves the store is UTF-8 and the multi-byte value was not truncated.
+TEST(settings_ini, utf8_value_is_written_as_utf8_bytes_on_disk) {
+  temp_dir dir;
+  auto file = dir.file("utf8_bytes.ini");
+  write_file(file, "");
+  mock_settings_core core;
+  settings::INISettings s(&core, "test", ini_context(file));
+  s.set_real_value({"/section", "key"}, settings::settings_interface_impl::conainer(kUtf8Latin, /*dirty=*/true));
+  s.save(false);
+
+  const std::string content = settings_test::read_file(file);
+  // The accented char must be the two UTF-8 bytes C3 A9...
+  EXPECT_NE(content.find(kUtf8Latin), std::string::npos);
+  // ...and must not have been written as a single Latin-1 0xE9 byte.
+  EXPECT_EQ(content.find("caf\xE9"), std::string::npos);
+}
+
+// Non-ASCII characters in a key name cross the same converter as values and
+// must round-trip too.
+TEST(settings_ini, utf8_key_name_roundtrips) {
+  temp_dir dir;
+  auto file = dir.file("utf8_key.ini");
+  write_file(file, "");
+  mock_settings_core core;
+  {
+    settings::INISettings s(&core, "test", ini_context(file));
+    s.set_real_value({"/section", kUtf8Cjk}, settings::settings_interface_impl::conainer(std::string("value"), /*dirty=*/true));
+    s.save(false);
+  }
+  settings::INISettings reloaded(&core, "test", ini_context(file));
+  auto v = reloaded.get_real_string({"/section", kUtf8Cjk});
+  ASSERT_TRUE(v.has_value());
+  EXPECT_EQ(*v, "value");
+}
+
+// save_sorted() snapshots every value and re-inserts it into a fresh
+// CSimpleIni before saving, running values through the converter a second
+// time. A non-ASCII value must survive that path as well.
+TEST(settings_ini, utf8_value_survives_save_sorted) {
+  temp_dir dir;
+  auto file = dir.file("utf8_sorted.ini");
+  write_file(file, "");
+  mock_settings_core core;
+  {
+    settings::INISettings s(&core, "test", ini_context(file));
+    s.set_real_value({"/section", "key"}, settings::settings_interface_impl::conainer(kUtf8Mixed, /*dirty=*/true));
+    s.save_sorted();
+  }
+  settings::INISettings reloaded(&core, "test", ini_context(file));
+  auto v = reloaded.get_real_string({"/section", "key"});
+  ASSERT_TRUE(v.has_value());
+  EXPECT_EQ(*v, kUtf8Mixed);
+}
+
+// An empty value must still round-trip as empty. This pins down the new
+// ConvertFromStore/ConvertToStore guard, which returns false only when a
+// NON-empty input converts to empty: an empty input must not be mistaken for
+// a conversion failure.
+TEST(settings_ini, empty_value_roundtrips) {
+  temp_dir dir;
+  auto file = dir.file("empty_val.ini");
+  write_file(file, "");
+  mock_settings_core core;
+  {
+    settings::INISettings s(&core, "test", ini_context(file));
+    s.set_real_value({"/section", "key"}, settings::settings_interface_impl::conainer(std::string(""), /*dirty=*/true));
+    s.save(false);
+  }
+  settings::INISettings reloaded(&core, "test", ini_context(file));
+  auto v = reloaded.get_real_string({"/section", "key"});
+  ASSERT_TRUE(v.has_value());
+  EXPECT_EQ(*v, "");
+}
