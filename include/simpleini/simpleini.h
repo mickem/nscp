@@ -2541,7 +2541,15 @@ class SI_ConvertW {
       // implementation (ConvertUTF.c). SizeFromStore() guarantees the
       // output buffer holds at least a_uInputDataLen SI_CHARs, which is an
       // upper bound on the number of code units produced.
-      const std::wstring w = utf8::string_to_wstring(std::string(a_pInputData, a_uInputDataLen));
+      const std::string in(a_pInputData, a_uInputDataLen);
+      const std::wstring w = utf8::string_to_wstring(in);
+      // A non-empty input that converts to an empty result signals a
+      // conversion failure (malformed UTF-8 or an unavailable converter).
+      // The previous ConvertUTF path returned false here, so preserve that
+      // rather than silently turning bad input into an empty value.
+      if (w.empty() && !in.empty()) {
+        return false;
+      }
       if (w.size() > a_uOutputDataSize) {
         return false;
       }
@@ -2615,6 +2623,12 @@ class SI_ConvertW {
         in.push_back(static_cast<wchar_t>(a_pInputData[i]));
       }
       const std::string s = utf8::wstring_to_string(in);
+      // A non-empty input converting to an empty string signals a conversion
+      // failure; report it rather than writing an empty (corrupted) value so
+      // Save()/Write() don't emit silently truncated output.
+      if (s.empty() && uInputLen != 0) {
+        return false;
+      }
       if (s.size() + 1 > a_uOutputDataSize) {
         return false;
       }
