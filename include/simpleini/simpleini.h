@@ -1,195 +1,210 @@
 /** @mainpage
 
-    <table>
-        <tr><th>Library     <td>SimpleIni
-        <tr><th>File        <td>SimpleIni.h
-        <tr><th>Author      <td>Brodie Thiesfield [code at jellycan dot com]
-        <tr><th>Source      <td>http://code.jellycan.com/simpleini/
-        <tr><th>Version     <td>4.14
-    </table>
+   <table>
+       <tr><th>Library     <td>SimpleIni
+       <tr><th>File        <td>SimpleIni.h
+       <tr><th>Author      <td>Brodie Thiesfield [code at jellycan dot com]
+       <tr><th>Source      <td>http://code.jellycan.com/simpleini/
+       <tr><th>Version     <td>4.14
+   </table>
 
-    Jump to the @link CSimpleIniTempl CSimpleIni @endlink interface documentation.
+   Jump to the @link CSimpleIniTempl CSimpleIni @endlink interface documentation.
 
-    @section intro INTRODUCTION
+   @section intro INTRODUCTION
 
-    This component allows an INI-style configuration file to be used on both
-    Windows and Linux/Unix. It is fast, simple and source code using this
-    component will compile unchanged on either OS.
-
-
-    @section features FEATURES
-
-    - MIT Licence allows free use in all software (including GPL and commercial)
-    - multi-platform (Windows 95/98/ME/NT/2K/XP/2003, Windows CE, Linux, Unix)
-    - loading and saving of INI-style configuration files
-    - configuration files can have any newline format on all platforms
-    - liberal acceptance of file format
-        - key/values with no section
-        - removal of whitespace around sections, keys and values
-    - support for multi-line values (values with embedded newline characters)
-    - optional support for multiple keys with the same name
-    - optional case-insensitive sections and keys (for ASCII characters only)
-    - saves files with sections and keys in the same order as they were loaded
-    - preserves comments on the file, section and keys where possible.
-    - supports both char or wchar_t programming interfaces
-    - supports both MBCS (system locale) and UTF-8 file encodings
-    - system locale does not need to be UTF-8 on Linux/Unix to load UTF-8 file
-    - support for non-ASCII characters in section, keys, values and comments
-    - support for non-standard character types or file encodings
-      via user-written converter classes
-    - support for adding/modifying values programmatically
-    - compiles cleanly in the following compilers:
-        - Windows/VC6 (warning level 3)
-        - Windows/VC.NET 2003 (warning level 4)
-        - Windows/VC 2005 (warning level 4)
-        - Linux/gcc (-Wall)
+   This component allows an INI-style configuration file to be used on both
+   Windows and Linux/Unix. It is fast, simple and source code using this
+   component will compile unchanged on either OS.
 
 
-    @section usage USAGE SUMMARY
+   @section features FEATURES
 
-    -#  Define the appropriate symbol for the converter you wish to use and
-        include the SimpleIni.h header file. If no specific converter is defined
-        then the default converter is used. The default conversion mode uses
-        SI_CONVERT_WIN32 on Windows and SI_CONVERT_GENERIC on all other
-        platforms. If you are using ICU then SI_CONVERT_ICU is supported on all
-        platforms.
-    -#  Declare an instance the appropriate class. Note that the following
-        definitions are just shortcuts for commonly used types. Other types
-        (PRUnichar, unsigned short, unsigned char) are also possible.
-        <table>
-            <tr><th>Interface   <th>Case-sensitive  <th>Load UTF-8  <th>Load MBCS   <th>Typedef
-        <tr><th>SI_CONVERT_GENERIC
-            <tr><td>char        <td>No              <td>Yes         <td>Yes #1      <td>CSimpleIniA
-            <tr><td>char        <td>Yes             <td>Yes         <td>Yes         <td>CSimpleIniCaseA
-            <tr><td>wchar_t     <td>No              <td>Yes         <td>Yes         <td>CSimpleIniW
-            <tr><td>wchar_t     <td>Yes             <td>Yes         <td>Yes         <td>CSimpleIniCaseW
-        <tr><th>SI_CONVERT_WIN32
-            <tr><td>char        <td>No              <td>No #2       <td>Yes         <td>CSimpleIniA
-            <tr><td>char        <td>Yes             <td>Yes         <td>Yes         <td>CSimpleIniCaseA
-            <tr><td>wchar_t     <td>No              <td>Yes         <td>Yes         <td>CSimpleIniW
-            <tr><td>wchar_t     <td>Yes             <td>Yes         <td>Yes         <td>CSimpleIniCaseW
-        <tr><th>SI_CONVERT_ICU
-            <tr><td>char        <td>No              <td>Yes         <td>Yes         <td>CSimpleIniA
-            <tr><td>char        <td>Yes             <td>Yes         <td>Yes         <td>CSimpleIniCaseA
-            <tr><td>UChar       <td>No              <td>Yes         <td>Yes         <td>CSimpleIniW
-            <tr><td>UChar       <td>Yes             <td>Yes         <td>Yes         <td>CSimpleIniCaseW
-        </table>
-        #1  On Windows you are better to use CSimpleIniA with SI_CONVERT_WIN32.<br>
-        #2  Only affects Windows. On Windows this uses MBCS functions and
-            so may fold case incorrectly leading to uncertain results.
-    -# Call LoadData() or LoadFile() to load and parse the INI configuration file
-    -# Access and modify the data of the file using the following functions
-        <table>
-            <tr><td>GetAllSections  <td>Return all section names
-            <tr><td>GetAllKeys      <td>Return all key names within a section
-            <tr><td>GetAllValues    <td>Return all values within a section & key
-            <tr><td>GetSection      <td>Return all key names and values in a section
-            <tr><td>GetSectionSize  <td>Return the number of keys in a section
-            <tr><td>GetValue        <td>Return a value for a section & key
-            <tr><td>SetValue        <td>Add or update a value for a section & key
-            <tr><td>Delete          <td>Remove a section, or a key from a section
-        </table>
-    -# Call Save() or SaveFile() to save the INI configuration data
+   - MIT Licence allows free use in all software (including GPL and commercial)
+   - multi-platform (Windows 95/98/ME/NT/2K/XP/2003, Windows CE, Linux, Unix)
+   - loading and saving of INI-style configuration files
+   - configuration files can have any newline format on all platforms
+   - liberal acceptance of file format
+       - key/values with no section
+       - removal of whitespace around sections, keys and values
+   - support for multi-line values (values with embedded newline characters)
+   - optional support for multiple keys with the same name
+   - optional case-insensitive sections and keys (for ASCII characters only)
+   - saves files with sections and keys in the same order as they were loaded
+   - preserves comments on the file, section and keys where possible.
+   - supports both char or wchar_t programming interfaces
+   - supports both MBCS (system locale) and UTF-8 file encodings
+   - system locale does not need to be UTF-8 on Linux/Unix to load UTF-8 file
+   - support for non-ASCII characters in section, keys, values and comments
+   - support for non-standard character types or file encodings
+     via user-written converter classes
+   - support for adding/modifying values programmatically
+   - compiles cleanly in the following compilers:
+       - Windows/VC6 (warning level 3)
+       - Windows/VC.NET 2003 (warning level 4)
+       - Windows/VC 2005 (warning level 4)
+       - Linux/gcc (-Wall)
 
-    @section iostreams IO STREAMS
 
-    SimpleIni supports reading from and writing to STL IO streams. Enable this
-    by defining SI_SUPPORT_IOSTREAMS before including the SimpleIni.h header
-    file. Ensure that if the streams are backed by a file (e.g. ifstream or
-    ofstream) then the flag ios_base::binary has been used when the file was
-    opened.
+   @section usage USAGE SUMMARY
 
-    @section multiline MULTI-LINE VALUES
+   -#  Define the appropriate symbol for the converter you wish to use and
+       include the SimpleIni.h header file. If no specific converter is defined
+       then the default converter is used. The default conversion mode uses
+       SI_CONVERT_WIN32 on Windows and SI_CONVERT_GENERIC on all other
+       platforms. If you are using ICU then SI_CONVERT_ICU is supported on all
+       platforms.
+   -#  Declare an instance the appropriate class. Note that the following
+       definitions are just shortcuts for commonly used types. Other types
+       (PRUnichar, unsigned short, unsigned char) are also possible.
+       <table>
+           <tr><th>Interface   <th>Case-sensitive  <th>Load UTF-8  <th>Load MBCS   <th>Typedef
+       <tr><th>SI_CONVERT_GENERIC
+           <tr><td>char        <td>No              <td>Yes         <td>Yes #1      <td>CSimpleIniA
+           <tr><td>char        <td>Yes             <td>Yes         <td>Yes         <td>CSimpleIniCaseA
+           <tr><td>wchar_t     <td>No              <td>Yes         <td>Yes         <td>CSimpleIniW
+           <tr><td>wchar_t     <td>Yes             <td>Yes         <td>Yes         <td>CSimpleIniCaseW
+       <tr><th>SI_CONVERT_WIN32
+           <tr><td>char        <td>No              <td>No #2       <td>Yes         <td>CSimpleIniA
+           <tr><td>char        <td>Yes             <td>Yes         <td>Yes         <td>CSimpleIniCaseA
+           <tr><td>wchar_t     <td>No              <td>Yes         <td>Yes         <td>CSimpleIniW
+           <tr><td>wchar_t     <td>Yes             <td>Yes         <td>Yes         <td>CSimpleIniCaseW
+       <tr><th>SI_CONVERT_ICU
+           <tr><td>char        <td>No              <td>Yes         <td>Yes         <td>CSimpleIniA
+           <tr><td>char        <td>Yes             <td>Yes         <td>Yes         <td>CSimpleIniCaseA
+           <tr><td>UChar       <td>No              <td>Yes         <td>Yes         <td>CSimpleIniW
+           <tr><td>UChar       <td>Yes             <td>Yes         <td>Yes         <td>CSimpleIniCaseW
+       </table>
+       #1  On Windows you are better to use CSimpleIniA with SI_CONVERT_WIN32.<br>
+       #2  Only affects Windows. On Windows this uses MBCS functions and
+           so may fold case incorrectly leading to uncertain results.
+   -# Call LoadData() or LoadFile() to load and parse the INI configuration file
+   -# Access and modify the data of the file using the following functions
+       <table>
+           <tr><td>GetAllSections  <td>Return all section names
+           <tr><td>GetAllKeys      <td>Return all key names within a section
+           <tr><td>GetAllValues    <td>Return all values within a section & key
+           <tr><td>GetSection      <td>Return all key names and values in a section
+           <tr><td>GetSectionSize  <td>Return the number of keys in a section
+           <tr><td>GetValue        <td>Return a value for a section & key
+           <tr><td>SetValue        <td>Add or update a value for a section & key
+           <tr><td>Delete          <td>Remove a section, or a key from a section
+       </table>
+   -# Call Save() or SaveFile() to save the INI configuration data
 
-    Values that span multiple lines are created using the following format.
+   @section iostreams IO STREAMS
 
-        <pre>
-        key = <<<ENDTAG
-        .... multiline value ....
-        ENDTAG
-        </pre>
+   SimpleIni supports reading from and writing to STL IO streams. Enable this
+   by defining SI_SUPPORT_IOSTREAMS before including the SimpleIni.h header
+   file. Ensure that if the streams are backed by a file (e.g. ifstream or
+   ofstream) then the flag ios_base::binary has been used when the file was
+   opened.
 
-    Note the following:
-    - The text used for ENDTAG can be anything and is used to find
-      where the multi-line text ends.
-    - The newline after ENDTAG in the start tag, and the newline
-      before ENDTAG in the end tag is not included in the data value.
-    - The ending tag must be on it's own line with no whitespace before
-      or after it.
-    - The multi-line value is modified at load so that each line in the value
-      is delimited by a single '\\n' character on all platforms. At save time
-      it will be converted into the newline format used by the current
-      platform.
+   @section multiline MULTI-LINE VALUES
 
-    @section comments COMMENTS
+   Values that span multiple lines are created using the following format.
 
-    Comments are preserved in the file within the following restrictions:
-    - Every file may have a single "file comment". It must start with the
-      first character in the file, and will end with the first non-comment
-      line in the file.
-    - Every section may have a single "section comment". It will start
-      with the first comment line following the file comment, or the last
-      data entry. It ends at the beginning of the section.
-    - Every key may have a single "key comment". This comment will start
-      with the first comment line following the section start, or the file
-      comment if there is no section name.
-    - Comments are set at the time that the file, section or key is first
-      created. The only way to modify a comment on a section or a key is to
-      delete that entry and recreate it with the new comment. There is no
-      way to change the file comment.
+       <pre>
+       key = <<<ENDTAG
+       .... multiline value ....
+       ENDTAG
+       </pre>
 
-    @section save SAVE ORDER
+   Note the following:
+   - The text used for ENDTAG can be anything and is used to find
+     where the multi-line text ends.
+   - The newline after ENDTAG in the start tag, and the newline
+     before ENDTAG in the end tag is not included in the data value.
+   - The ending tag must be on it's own line with no whitespace before
+     or after it.
+   - The multi-line value is modified at load so that each line in the value
+     is delimited by a single '\\n' character on all platforms. At save time
+     it will be converted into the newline format used by the current
+     platform.
 
-    The sections and keys are written out in the same order as they were
-    read in from the file. Sections and keys added to the data after the
-    file has been loaded will be added to the end of the file when it is
-    written. There is no way to specify the location of a section or key
-    other than in first-created, first-saved order.
+   @section comments COMMENTS
 
-    @section notes NOTES
+   Comments are preserved in the file within the following restrictions:
+   - Every file may have a single "file comment". It must start with the
+     first character in the file, and will end with the first non-comment
+     line in the file.
+   - Every section may have a single "section comment". It will start
+     with the first comment line following the file comment, or the last
+     data entry. It ends at the beginning of the section.
+   - Every key may have a single "key comment". This comment will start
+     with the first comment line following the section start, or the file
+     comment if there is no section name.
+   - Comments are set at the time that the file, section or key is first
+     created. The only way to modify a comment on a section or a key is to
+     delete that entry and recreate it with the new comment. There is no
+     way to change the file comment.
 
-    - To load UTF-8 data on Windows 95, you need to use Microsoft Layer for
-      Unicode, or SI_CONVERT_GENERIC, or SI_CONVERT_ICU.
-    - When using SI_CONVERT_GENERIC, ConvertUTF.c must be compiled and linked.
-    - When using SI_CONVERT_ICU, ICU header files must be on the include
-      path and icuuc.lib must be linked in.
-    - To load a UTF-8 file on Windows AND expose it with SI_CHAR == char,
-      you should use SI_CONVERT_GENERIC.
-    - The collation (sorting) order used for sections and keys returned from
-      iterators is NOT DEFINED. If collation order of the text is important
-      then it should be done yourself by either supplying a replacement
-      SI_STRLESS class, or by sorting the strings external to this library.
-    - Usage of the <mbstring.h> header on Windows can be disabled by defining
-      SI_NO_MBCS. This is defined automatically on Windows CE platforms.
+   @section save SAVE ORDER
 
-    @section contrib CONTRIBUTIONS
+   The sections and keys are written out in the same order as they were
+   read in from the file. Sections and keys added to the data after the
+   file has been loaded will be added to the end of the file when it is
+   written. There is no way to specify the location of a section or key
+   other than in first-created, first-saved order.
 
-    - 2010/05/03: Tobias Gehrig: added GetDoubleValue()
+   @section notes NOTES
 
-    @section licence MIT LICENCE
+   - To load UTF-8 data on Windows 95, you need to use Microsoft Layer for
+     Unicode, or SI_CONVERT_GENERIC, or SI_CONVERT_ICU.
+   - When using SI_CONVERT_GENERIC, the NSClient++ utf8 helper (str/utf8.cpp)
+     must be compiled and linked (see the NSClient++ modification notice above;
+     this replaces the upstream dependency on ConvertUTF.c).
+   - When using SI_CONVERT_ICU, ICU header files must be on the include
+     path and icuuc.lib must be linked in.
+   - To load a UTF-8 file on Windows AND expose it with SI_CHAR == char,
+     you should use SI_CONVERT_GENERIC.
+   - The collation (sorting) order used for sections and keys returned from
+     iterators is NOT DEFINED. If collation order of the text is important
+     then it should be done yourself by either supplying a replacement
+     SI_STRLESS class, or by sorting the strings external to this library.
+   - Usage of the <mbstring.h> header on Windows can be disabled by defining
+     SI_NO_MBCS. This is defined automatically on Windows CE platforms.
 
-    The licence text below is the boilerplate "MIT Licence" used from:
-    http://www.opensource.org/licenses/mit-license.php
+   @section contrib CONTRIBUTIONS
 
-    Copyright (c) 2006-2008, Brodie Thiesfield
+   - 2010/05/03: Tobias Gehrig: added GetDoubleValue()
 
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is furnished
-    to do so, subject to the following conditions:
+   @section licence MIT LICENCE
 
-    The above copyright notice and this permission notice shall be included in
-    all copies or substantial portions of the Software.
+   The licence text below is the boilerplate "MIT Licence" used from:
+   http://www.opensource.org/licenses/mit-license.php
 
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-    FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-    IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+   Copyright (c) 2006-2008, Brodie Thiesfield
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is furnished
+   to do so, subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+   FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+   COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
+
+/*
+ * NSClient++ modification notice
+ * ------------------------------
+ * This file has been modified from the original SimpleIni 4.14 distribution
+ * (the MIT licence above continues to apply to the original and modified
+ * work). The SI_CONVERT_GENERIC converter (class SI_ConvertW) no longer
+ * depends on the Unicode reference implementation (ConvertUTF.c /
+ * ConvertUTF.h, Copyright Unicode, Inc.); its UTF-8 <-> wchar_t conversion
+ * now delegates to the NSClient++ utf8 helper (str/utf8.hpp). This removes
+ * the Unicode, Inc. licensed source from the tree.
+ *   - Michael Medin
+ */
 
 #ifndef INCLUDED_SimpleIni_h
 #define INCLUDED_SimpleIni_h
@@ -2288,8 +2303,9 @@ void CSimpleIniTempl<SI_CHAR, SI_STRLESS, SI_CONVERTER>::DeleteString(const SI_C
 // SimpleIni.h, set the converter that you wish you use by defining one of the
 // following symbols.
 //
-//  SI_CONVERT_GENERIC      Use the Unicode reference conversion library in
-//                          the accompanying files ConvertUTF.h/c
+//  SI_CONVERT_GENERIC      Use the NSClient++ utf8 helper (str/utf8.hpp) for
+//                          UTF-8 conversion (originally the Unicode reference
+//                          library ConvertUTF.h/c; see modification notice)
 //  SI_CONVERT_ICU          Use the IBM ICU conversion library. Requires
 //                          ICU headers on include path and icuuc.lib
 //  SI_CONVERT_WIN32        Use the Win32 API functions for conversion.
@@ -2456,7 +2472,7 @@ class SI_ConvertA {
 
 #include <wchar.h>
 
-#include "ConvertUTF.h"
+#include <str/utf8.hpp>
 
 /**
  * Converts UTF-8 to a wchar_t (or equivalent) using the Unicode reference
@@ -2520,21 +2536,19 @@ class SI_ConvertW {
    */
   bool ConvertFromStore(const char *a_pInputData, size_t a_uInputDataLen, SI_CHAR *a_pOutputData, size_t a_uOutputDataSize) {
     if (m_bStoreIsUtf8) {
-      // This uses the Unicode reference implementation to do the
-      // conversion from UTF-8 to wchar_t. The required files are
-      // ConvertUTF.h and ConvertUTF.c which should be included in
-      // the distribution but are publically available from unicode.org
-      // at http://www.unicode.org/Public/PROGRAMS/CVTUTF/
-      ConversionResult retval;
-      const UTF8 *pUtf8 = (const UTF8 *)a_pInputData;
-      if (sizeof(wchar_t) == sizeof(UTF32)) {
-        UTF32 *pUtf32 = (UTF32 *)a_pOutputData;
-        retval = ConvertUTF8toUTF32(&pUtf8, pUtf8 + a_uInputDataLen, &pUtf32, pUtf32 + a_uOutputDataSize, lenientConversion);
-      } else if (sizeof(wchar_t) == sizeof(UTF16)) {
-        UTF16 *pUtf16 = (UTF16 *)a_pOutputData;
-        retval = ConvertUTF8toUTF16(&pUtf8, pUtf8 + a_uInputDataLen, &pUtf16, pUtf16 + a_uOutputDataSize, lenientConversion);
+      // NSClient++ modification: convert UTF-8 to wchar_t using our own
+      // utf8 helper (str/utf8.hpp) instead of the Unicode reference
+      // implementation (ConvertUTF.c). SizeFromStore() guarantees the
+      // output buffer holds at least a_uInputDataLen SI_CHARs, which is an
+      // upper bound on the number of code units produced.
+      const std::wstring w = utf8::string_to_wstring(std::string(a_pInputData, a_uInputDataLen));
+      if (w.size() > a_uOutputDataSize) {
+        return false;
       }
-      return retval == conversionOK;
+      for (size_t i = 0; i < w.size(); ++i) {
+        a_pOutputData[i] = static_cast<SI_CHAR>(w[i]);
+      }
+      return true;
     } else {
       size_t retval = mbstowcs(a_pOutputData, a_pInputData, a_uOutputDataSize);
       return retval != (size_t)(-1);
@@ -2588,23 +2602,27 @@ class SI_ConvertW {
       while (a_pInputData[uInputLen]) {
         ++uInputLen;
       }
-      ++uInputLen;  // include the NULL char
 
-      // This uses the Unicode reference implementation to do the
-      // conversion from wchar_t to UTF-8. The required files are
-      // ConvertUTF.h and ConvertUTF.c which should be included in
-      // the distribution but are publically available from unicode.org
-      // at http://www.unicode.org/Public/PROGRAMS/CVTUTF/
-      ConversionResult retval;
-      UTF8 *pUtf8 = (UTF8 *)a_pOutputData;
-      if (sizeof(wchar_t) == sizeof(UTF32)) {
-        const UTF32 *pUtf32 = (const UTF32 *)a_pInputData;
-        retval = ConvertUTF32toUTF8(&pUtf32, pUtf32 + uInputLen, &pUtf8, pUtf8 + a_uOutputDataSize, lenientConversion);
-      } else if (sizeof(wchar_t) == sizeof(UTF16)) {
-        const UTF16 *pUtf16 = (const UTF16 *)a_pInputData;
-        retval = ConvertUTF16toUTF8(&pUtf16, pUtf16 + uInputLen, &pUtf8, pUtf8 + a_uOutputDataSize, lenientConversion);
+      // NSClient++ modification: convert wchar_t to UTF-8 using our own
+      // utf8 helper (str/utf8.hpp) instead of the Unicode reference
+      // implementation (ConvertUTF.c). The result is written as a
+      // NUL-terminated string: the original converted the trailing NUL too,
+      // and callers such as Save()/OutputWriter::Write() read the output as
+      // a C string.
+      std::wstring in;
+      in.reserve(uInputLen);
+      for (size_t i = 0; i < uInputLen; ++i) {
+        in.push_back(static_cast<wchar_t>(a_pInputData[i]));
       }
-      return retval == conversionOK;
+      const std::string s = utf8::wstring_to_string(in);
+      if (s.size() + 1 > a_uOutputDataSize) {
+        return false;
+      }
+      for (size_t i = 0; i < s.size(); ++i) {
+        a_pOutputData[i] = s[i];
+      }
+      a_pOutputData[s.size()] = '\0';
+      return true;
     } else {
       size_t retval = wcstombs(a_pOutputData, a_pInputData, a_uOutputDataSize);
       return retval != (size_t)-1;

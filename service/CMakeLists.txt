@@ -52,7 +52,6 @@ set(service_SRCS
     ${NSCP_INCLUDEDIR}/nsclient/logger/log_level.cpp
     ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp
     ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.cpp
-    ${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
     ${NSCP_INCLUDEDIR}/pid_file.cpp
     ${NSCP_INCLUDEDIR}/threads/has-threads.cpp
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
