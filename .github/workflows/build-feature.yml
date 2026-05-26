@@ -5,7 +5,12 @@ permissions:
 
 on:
   pull_request:
-    branches: [ "main" ]
+    # Run CI for PRs into main, and into long-lived feature/* branches so
+    # contributors can stack fix commits onto an in-progress feature branch.
+    # Signing still only happens on push to main (see build-windows.yml).
+    branches:
+      - "main"
+      - "feature/**"
 
 jobs:
   get-version:
