@@ -8,7 +8,6 @@ if(WIN32)
         LIBRARIES
             gtest_main
             ${Boost_FILESYSTEM_LIBRARY}
-            ${Boost_SYSTEM_LIBRARY}
             Userenv
             ole32
             Shell32
@@ -37,7 +36,6 @@ if(WIN32)
         LIBRARIES
             gtest_main
             ${Boost_FILESYSTEM_LIBRARY}
-            ${Boost_SYSTEM_LIBRARY}
             ole32
             wbemuuid
         INCLUDES
@@ -136,7 +134,6 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest_main
         ${Boost_FILESYSTEM_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
@@ -151,7 +148,6 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest_main
         ${Boost_FILESYSTEM_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
@@ -169,7 +165,6 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest_main
         ${Boost_FILESYSTEM_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
         ${Boost_DATE_TIME_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
@@ -184,7 +179,6 @@ NSCP_CREATE_TEST(
         GTest::gtest_main
         nscp_protobuf
         ${Boost_FILESYSTEM_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
@@ -220,7 +214,6 @@ if(OPENSSL_FOUND)
             GTest::gtest_main
             nscpcrypt
             ${Boost_FILESYSTEM_LIBRARY}
-            ${Boost_SYSTEM_LIBRARY}
             ${Boost_DATE_TIME_LIBRARY}
             ${OPENSSL_LIBRARIES}
             $<$<PLATFORM_ID:Windows>:CRYPT32>
@@ -241,7 +234,6 @@ NSCP_CREATE_TEST(
         nscp_protobuf
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_THREAD_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
@@ -269,7 +261,6 @@ NSCP_CREATE_TEST(
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_THREAD_LIBRARY}
         ${Boost_CHRONO_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
@@ -282,7 +273,6 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest_main
         ${Boost_DATE_TIME_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
         ${Boost_THREAD_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
@@ -314,7 +304,6 @@ NSCP_CREATE_TEST(
         perfconfig_parser
         expression_parser
         ${Boost_FILESYSTEM_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
         ${Boost_REGEX_LIBRARY}
         ${Boost_DATE_TIME_LIBRARY}
     INCLUDES
@@ -336,7 +325,6 @@ NSCP_CREATE_TEST(
         perfconfig_parser
         expression_parser
         ${Boost_FILESYSTEM_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
         ${Boost_REGEX_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
@@ -357,7 +345,6 @@ NSCP_CREATE_TEST(
         expression_parser
         ${Boost_PROGRAM_OPTIONS_LIBRARY}
         ${Boost_FILESYSTEM_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
         ${Boost_REGEX_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
@@ -388,7 +375,6 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest_main
         nscp_where_filter
-        ${Boost_SYSTEM_LIBRARY}
         ${Boost_REGEX_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
@@ -420,7 +406,6 @@ NSCP_CREATE_TEST(
         GTest::gtest_main
         nscp_miniz
         ${Boost_FILESYSTEM_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
@@ -436,7 +421,6 @@ NSCP_CREATE_TEST(
         GTest::gtest_main
         ${Boost_THREAD_LIBRARY}
         ${Boost_CHRONO_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
         ${Boost_DATE_TIME_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
@@ -462,7 +446,6 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/json/use_json.cpp
     LIBRARIES
         GTest::gtest_main
-        ${Boost_SYSTEM_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${CMAKE_SOURCE_DIR}/modules/IcingaClient
@@ -506,7 +489,6 @@ NSCP_CREATE_TEST(
         GTest::gtest_main
         nscp_mongoose
         ${Boost_FILESYSTEM_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
         ${Boost_THREAD_LIBRARY}
         ${Boost_REGEX_LIBRARY}
         ${_nscp_wrapper_test_backend_libs}
@@ -597,7 +579,6 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest_main
         ${Boost_FILESYSTEM_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
         ${Boost_THREAD_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
@@ -614,7 +595,6 @@ if(OPENSSL_FOUND)
         LIBRARIES
             GTest::gtest_main
             ${Boost_FILESYSTEM_LIBRARY}
-            ${Boost_SYSTEM_LIBRARY}
             ${Boost_THREAD_LIBRARY}
             ${Boost_DATE_TIME_LIBRARY}
             ${OPENSSL_LIBRARIES}
@@ -633,7 +613,6 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest_main
         ${Boost_FILESYSTEM_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
@@ -664,7 +643,6 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/rrd_buffer_test.cpp
     LIBRARIES
         GTest::gtest_main
-        ${Boost_SYSTEM_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )

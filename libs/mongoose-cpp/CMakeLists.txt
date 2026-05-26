@@ -131,7 +131,6 @@ endif()
 target_link_libraries(
     nscp_mongoose
     ${EXTRA_LIBS}
-    ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${_nscp_mongoose_backend_libs}

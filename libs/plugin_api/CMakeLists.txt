@@ -66,7 +66,6 @@ set_target_properties(
 )
 target_link_libraries(
     ${TARGET}
-    ${Boost_SYSTEM_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     nscp_protobuf

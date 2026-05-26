@@ -971,7 +971,6 @@ endif()
 # link against protobuf / nscp_plugin_api.
 set(NSCP_DEF_PLUGIN_LIB
     ${CMAKE_THREAD_LIBS_INIT}
-    ${Boost_SYSTEM_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${EXTRA_LIBS}
