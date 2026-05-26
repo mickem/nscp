@@ -174,7 +174,6 @@ target_link_libraries(
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_THREAD_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
     ${PROTOBUF_LIBRARY}
     ${ICONV_LIBRARIES}
     ${EXTRA_LIBS}
@@ -207,7 +206,6 @@ NSCP_CREATE_TEST(
         ${EXTRA_LIBS}
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_THREAD_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
         settings_manager
         nscp_miniz
         expression_parser
@@ -242,7 +240,6 @@ if(WIN32)
         LIBRARIES
             GTest::gtest_main
             ${Boost_FILESYSTEM_LIBRARY}
-            ${Boost_SYSTEM_LIBRARY}
             CRYPT32
         INCLUDES
             ${NSCP_INCLUDEDIR}
@@ -275,7 +272,6 @@ NSCP_CREATE_TEST(
         ${EXTRA_LIBS}
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_THREAD_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
         settings_manager
         nscp_miniz
         expression_parser
@@ -309,7 +305,6 @@ NSCP_CREATE_TEST(
         ${EXTRA_LIBS}
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_THREAD_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_REGEX_LIBRARY}
     INCLUDES

@@ -77,7 +77,6 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest
         GTest::gtest_main
-        ${Boost_SYSTEM_LIBRARY}
         ${Boost_DATE_TIME_LIBRARY}
         ${EXTRA_LIBS}
     INCLUDES

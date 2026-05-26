@@ -83,7 +83,6 @@ NSCP_CREATE_TEST(
         ${EXTRA_LIBS}
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_THREAD_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
         ${Boost_DATE_TIME_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}

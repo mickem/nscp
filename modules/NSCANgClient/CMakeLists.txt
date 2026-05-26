@@ -77,7 +77,6 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
-        ${Boost_SYSTEM_LIBRARY}
         ${Boost_THREAD_LIBRARY}
         ${OPENSSL_LIBRARIES}
         ${NSCP_DEF_PLUGIN_LIB}

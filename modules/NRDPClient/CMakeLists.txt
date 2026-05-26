@@ -84,7 +84,6 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest_main
         ${Boost_FILESYSTEM_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
         ${TINYXML2_EXTRA_LIBS}
     INCLUDES
         ${NSCP_INCLUDEDIR}

@@ -63,7 +63,6 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
-        ${Boost_SYSTEM_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${CMAKE_SOURCE_DIR}/modules/CheckNSCP

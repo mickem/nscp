@@ -32,7 +32,6 @@ required_files:
     - boost_program_options.dll
     - boost_python311.dll
     - boost_regex.dll
-    - boost_system.dll
     - boost_thread.dll
     - nscp_mongoose.dll
     - nscp_protobuf.dll

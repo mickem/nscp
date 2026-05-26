@@ -245,7 +245,6 @@ endif(WIN32 AND NOT CMAKE_CL_64)
 target_link_libraries(
     ${TARGET}
     ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
     ${OPENSSL_LIBRARIES}
     CRYPT32
     Msi.lib
